@@ -14,6 +14,8 @@ export default defineConfig([
     rules: {
       '@stylistic/arrow-parens': ['error', 'always'],
       '@stylistic/brace-style': ['error', '1tbs'],
+      '@stylistic/no-multi-spaces': ['error', { ignoreEOLComments: true }],
+      '@stylistic/operator-linebreak': ['error', 'after'],
       '@stylistic/semi': ['error', 'always'],
       'no-duplicate-imports': 'error',
       'sort-imports': 'error',
