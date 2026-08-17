@@ -6,11 +6,11 @@
  * lightest for lines.
  */
 export const colors = {
-  red:    ['#a11', '#c22', '#f44'],
-  orange: ['#b61', '#d83', '#fa4'],
-  yellow: ['#ba1', '#dc3', '#fe4'],
-  green:  ['#1a4', '#2c6', '#3f8'],
+  red:    ['#c00', '#e22', '#f33'],
+  orange: ['#c61', '#e82', '#fa3'],
+  yellow: ['#ca1', '#ec3', '#fe4'],
+  green:  ['#1b4', '#2d6', '#3f7'],
   blue:   ['#14b', '#36d', '#47f'],
-  violet: ['#82c', '#a4e', '#c6f'],
+  violet: ['#b2c', '#c4e', '#d6f'],
   white:  ['#ddd', '#eee', '#fff'],
 };
