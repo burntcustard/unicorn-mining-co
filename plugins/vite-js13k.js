@@ -1,9 +1,9 @@
-import { execFile } from 'child_process';
-import fs from 'fs';
-import advzip from 'advzip-bin';
-import { minify } from 'html-minifier-terser';
 import JSZip from 'jszip';
 import { Packer } from 'roadroller';
+import advzip from 'advzip-bin';
+import { execFile } from 'child_process';
+import fs from 'fs';
+import { minify } from 'html-minifier-terser';
 
 // generateBundle runs before Vite has written anything to disk
 function ensureDistDir() {

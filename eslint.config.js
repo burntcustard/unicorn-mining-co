@@ -1,33 +1,22 @@
+import { defineConfig, globalIgnores } from 'eslint/config';
+import globals from 'globals';
 import js from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
-import { flatConfigs } from 'eslint-plugin-import-x';
-import globals from 'globals';
 
-export default [
-  { ignores: ['dist/'] },
+export default defineConfig([
+  globalIgnores(['dist/']),
   js.configs.recommended,
-  flatConfigs.recommended,
+  stylistic.configs.recommended,
   {
     languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
       globals: globals.browser,
     },
-    plugins: {
-      '@stylistic': stylistic,
-    },
     rules: {
-      '@stylistic/comma-dangle': ['error', 'always-multiline'],
-      '@stylistic/indent': ['error', 2],
-      '@stylistic/object-curly-spacing': ['error', 'always'],
-      '@stylistic/quotes': ['error', 'single', { allowTemplateLiterals: 'always' }],
+      '@stylistic/arrow-parens': ['error', 'always'],
+      '@stylistic/brace-style': ['error', '1tbs'],
       '@stylistic/semi': ['error', 'always'],
-      'import-x/order': ['error', {
-        alphabetize: { caseInsensitive: true, order: 'asc' },
-        'newlines-between': 'never',
-      }],
-      'no-console': 'off',
-      'sort-imports': ['error', { ignoreDeclarationSort: true }],
+      'no-duplicate-imports': 'error',
+      'sort-imports': 'error',
     },
   },
   {
@@ -36,4 +25,4 @@ export default [
       globals: globals.node,
     },
   },
-];
+]);

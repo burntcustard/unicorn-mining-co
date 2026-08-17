@@ -3,13 +3,14 @@
 > A web game created for [Js13kGames](https://js13kgames.com/)
 > \- the total size of the [zipped](dist/game.zip) [index.html](dist/index.html) is under 13,312B!
 
-### Tech used
+## Tech used
+
 - [Kontra.js](https://straker.github.io/kontra/) game engine by [Steven Lambert](https://stevenklambert.com/), rendering to a HTML canvas.
 - JavaScript packer [Roadroller](https://lifthrasiir.github.io/roadroller/) by [Kang Seonghoon](https://mearie.org/).
 - [JSZip](https://stuk.github.io/jszip/) _and_ [advzip-bin](https://github.com/elliot-nelson/advzip-bin) for zip compression.
 - [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a messy, unstable, project-specific [custom plugin](plugins/vite-js13k.js) for maximum minification.
 
-### Run locally
+## Run locally
 
 1. Clone this repository
    `git clone git@github.com:burntcustard/unicorn-mining-co.git`

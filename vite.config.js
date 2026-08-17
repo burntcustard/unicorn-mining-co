@@ -1,5 +1,5 @@
-import kontra from 'rollup-plugin-kontra';
 import { defineConfig } from 'vite';
+import kontra from 'rollup-plugin-kontra';
 import { viteJs13k } from './plugins/vite-js13k.js';
 
 export default defineConfig({
