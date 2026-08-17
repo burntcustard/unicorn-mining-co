@@ -14,6 +14,8 @@ export default defineConfig([
     rules: {
       '@stylistic/arrow-parens': ['error', 'always'],
       '@stylistic/brace-style': ['error', '1tbs'],
+      // 'minimum' allows padding after the colon, so values can be aligned
+      '@stylistic/key-spacing': ['error', { mode: 'minimum' }],
       '@stylistic/no-multi-spaces': ['error', { ignoreEOLComments: true }],
       '@stylistic/operator-linebreak': ['error', 'after'],
       '@stylistic/semi': ['error', 'always'],

@@ -69,5 +69,11 @@ export default defineConfig({
       polyfill: false,
     },
     reportCompressedSize: false,
+    // Roadroller is meant to be slow, we don't need telling about it
+    rollupOptions: {
+      checks: {
+        pluginTimings: false,
+      },
+    },
   },
 });
