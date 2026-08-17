@@ -1,25 +1,3 @@
-/**
- * Modules are re-usable ship parts that can be damaged and destroyed.
- *
- * Some modules bring their own geometry (the horn is identical on every ship
- * that has one), others only bring rules and take their shape from the ship
- * they are attached to (every ship has a differently shaped cockpit).
- *
- * Ships reference these objects directly rather than by name, because the
- * build mangles property names but leaves string literals alone.
- */
-
-// A ship cannot fly without somewhere to sit
-export const cockpit = {
-  critical: true,
-};
-
-// Only drawn while it is firing
-export const thruster = {
-  active: true,
-  onlyWhenActive: true,
-};
-
 // Mining horn
 // Sits a lineWidth ahead of the hull nose, so the two strokes touch exactly
 const hornBase = 23;
@@ -33,6 +11,9 @@ const fluteSpacing = 6;
 const fluteSlope = 2;
 
 const fluteCount = hornLength / fluteSpacing + 2;
+
+// How many times a second the horn turns all the way around
+const spinRate = 1.5;
 
 /**
  * Flutes are parallel lines that march towards the tip and wrap back around,
@@ -55,4 +36,8 @@ export const horn = {
   active: true,
   lines: fluteLines,
   points: [[hornBase, -hornHalfWidth], [hornBase + hornLength, 0], [hornBase, hornHalfWidth]],
+  state: () => ({ phase: 0 }),
+  update: (segment, dt) => {
+    segment.phase = (segment.phase + dt * spinRate) % 1;
+  },
 };

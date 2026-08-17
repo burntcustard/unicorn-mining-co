@@ -4,7 +4,7 @@ import { colors } from './colors';
  * Demo the colors by showing a swatch of each shade in the bottom right corner of the canvas.
  * @param {*} game game object
  */
-export const demoColors = (game) => {
+export const colorsDemo = (game) => {
   const { ctx } = game;
   const swatch = 16;
   const gap = 2;

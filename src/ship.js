@@ -1,3 +1,4 @@
+import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 
 // Segments below this are "damaged", at 0 they are destroyed
@@ -5,28 +6,6 @@ const damagedAt = 0.5;
 
 // Stroke width in game units, whatever size the ship is drawn at
 const lineWidth = 3;
-
-// How many times a second an active module spins
-const spinRate = 1.5;
-
-const shapePath = (points) => {
-  const path = new Path2D();
-
-  points.forEach(([x, y]) => path.lineTo(x, y));
-  path.closePath();
-
-  return path;
-};
-
-const linesPath = (lines) => {
-  const path = new Path2D();
-
-  lines.forEach((points) => {
-    points.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
-  });
-
-  return path;
-};
 
 export class Ship extends Sprite.class {
   constructor(props) {
@@ -44,17 +23,20 @@ export class Ship extends Sprite.class {
       const points = segment.points || shipModule.points;
 
       return {
+        // Animation state is defined by the module but stored per segment, so
+        // two modules on the same ship animate independently of each other
+        ...shipModule.state?.(),
         active: shipModule.active,
         critical: shipModule.critical,
         durability: 1,
         lines: shipModule.lines,
         module: segment.module,
         onlyWhenActive: shipModule.onlyWhenActive,
-        phase: 0,
         // Each segment is hit-tested separately so it can be damaged on its own
         points,
         shades: this.shades,
         shapePath: shapePath(points),
+        update: shipModule.update,
       };
     });
   }
@@ -77,8 +59,8 @@ export class Ship extends Sprite.class {
 
   update(dt) {
     this.segments.forEach((segment) => {
-      if (segment.active && segment.durability) {
-        segment.phase = (segment.phase + dt * spinRate) % 1;
+      if (segment.update && segment.active && segment.durability) {
+        segment.update(segment, dt);
       }
     });
   }
