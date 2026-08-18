@@ -1,0 +1,8 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "/^npx eslint src/ && node --input-type=module -e \"console\\.log\\('sparks:', Math\\.floor\\(309 \\* 5 \\* 300 / 6000\\)\\)\" && npm run build 2>&1 \\| tail -3$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}

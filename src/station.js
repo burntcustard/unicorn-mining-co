@@ -90,8 +90,47 @@ export class Station extends Sprite.class {
       .filter((segment) => segment.health)
       .map((segment) => makeHitbox(segment, this));
 
-    this.localRadius = localArea * Math.max(...data.hullSegments
+    this.radius = Math.max(...data.hullSegments
       .flatMap(({ points }) => points.map(([x, y]) => Math.hypot(x, y))));
+    this.localRadius = localArea * this.radius;
+  }
+
+  /**
+   * @param {Object} thing - Anything with a place in the world.
+   * @returns {Boolean} inside
+   */
+  holds({ x, y }) {
+    return Math.hypot(x - this.x, y - this.y) <= this.localRadius;
+  }
+
+  /**
+   * Swing a thing around the station, turning it as it goes as well as
+   * carrying it, so that a ship left pointing out of a bay keeps pointing out.
+   *
+   * @param {Object} thing
+   * @param {Number} dt - Seconds since the last update.
+   */
+  carry(thing, dt) {
+    const angle = this.turnRate * dt;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const x = thing.x - this.x;
+    const y = thing.y - this.y;
+
+    thing.rotation += angle;
+    thing.x = this.x + x * cos - y * sin;
+    thing.y = this.y + x * sin + y * cos;
+  }
+
+  /**
+   * How fast whatever is being swung around is travelling sideways, which is
+   * what it flies off at when it leaves.
+   *
+   * @param {Object} thing
+   * @returns {Number[]} velocity
+   */
+  momentum({ x, y }) {
+    return [(this.y - y) * this.turnRate, (x - this.x) * this.turnRate];
   }
 
   /**

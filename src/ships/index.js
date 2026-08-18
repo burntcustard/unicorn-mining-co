@@ -1,3 +1,3 @@
 import { mustang } from './mustang';
 
-export const ships = { mustang };
+export const shipTypes = { mustang };

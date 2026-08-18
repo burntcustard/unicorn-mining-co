@@ -70,34 +70,3 @@ export const flyOut = (ship, dt) => {
 
   return true;
 };
-
-/**
- * Swing a ship around the station it is sat near, on top of whatever flying it
- * is doing under its own steam. It is turned as it goes as well as carried
- * around, so a ship left pointing out of a bay keeps pointing out of it.
- *
- * @param {Object} ship
- * @param {Number} dt - Seconds since the last update.
- */
-export const orbitStation = (ship, dt) => {
-  const station = ship.localMovement;
-
-  if (!station) return;
-
-  const x = ship.x - station.x;
-  const y = ship.y - station.y;
-
-  // Far enough out and the ship is on its own again
-  if (Math.hypot(x, y) > station.localRadius) {
-    ship.localMovement = null;
-    return;
-  }
-
-  const angle = station.turnRate * dt;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-
-  ship.rotation += angle;
-  ship.x = station.x + x * cos - y * sin;
-  ship.y = station.y + x * sin + y * cos;
-};

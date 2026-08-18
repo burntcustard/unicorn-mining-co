@@ -1,3 +1,3 @@
 import { corral } from './corral';
 
-export const stations = { corral };
+export const stationTypes = { corral };

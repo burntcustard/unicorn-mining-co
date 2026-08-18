@@ -10,8 +10,9 @@ export const colors = {
   orange: ['#c61', '#e82', '#fa3'],
   yellow: ['#ca1', '#ec3', '#fe4'],
   green:  ['#1b4', '#2d6', '#3f7'],
-  blue:   ['#14b', '#36d', '#47f'],
-  violet: ['#b2c', '#c4e', '#d6f'],
+  blue:   ['#1bd', '#3ce', '#4df'],
+  indigo: ['#33c', '#44d', '#55f'],
+  violet: ['#c2c', '#d4e', '#e6f'],
   white:  ['#ddd', '#eee', '#fff'],
   black:  ['#000', '#111', '#222'],
 };

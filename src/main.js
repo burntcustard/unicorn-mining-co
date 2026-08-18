@@ -1,9 +1,11 @@
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, horn, shield, thrusterDualSm } from './modules';
-import { checkDocking, flyOut, launch, orbitStation } from './docking';
+import { carry, release } from './movement';
+import { checkDocking, flyOut, launch } from './docking';
 import { Asteroid } from './asteroid';
 import { GameLoop } from 'kontra';
+import { Road } from './road';
 import { Ship } from './ship';
 import { Station } from './station';
 import { bounceOff } from './bounce';
@@ -12,46 +14,47 @@ import { colorsDemo } from './colors-demo';
 import { game } from './game';
 import { place } from './collisions';
 import { setSizing } from './set-sizing';
-import { ships } from './ships';
-import { stations } from './stations';
+import { shipTypes } from './ships';
+import { stationTypes } from './stations';
 import { textDemo } from './text-demo';
-
-const ship = new Ship({
-  scale: 1,
-  shades: colors.white,
-  shipData: ships.mustang,
-});
-
-ship.fit(shield);
-
-ship.paint(horn, colors.yellow);
-ship.paint(thrusterDualSm, colors.violet);
-ship.paint(cargoScoop, colors.violet);
-ship.paint(shield, colors.violet);
-
-initKeys();
-
-// Only the player's ship is flown off the keyboard. AI pilots switch their own
-// modules on and off through the same two methods
-bindKeys(['c'], () => ship.toggle(cargoScoop));
-bindKeys(['h'], () => ship.toggle(horn));
-bindKeys(['s'], () => ship.toggle(shield));
-
-// Space pushes a docked ship back out to the mouth of the bay it came in by
-bindKeys([' '], () => ship.dockedTo && launch(ship));
-
-bindKeys(['m'], () => {
-  ship.localMovement = ship.localMovement ? null : station;
-});
 
 setSizing(game);
 
 window.onresize = () => setSizing(game);
 
-ship.x = game.width / 3;
-ship.y = game.height / 2;
+const player = new Ship({
+  scale: 1,
+  shades: colors.white,
+  shipData: shipTypes.mustang,
+  x: game.width / 3,
+  y: game.height / 2,
+});
 
-centerCamera(game, ship);
+player.fit(shield);
+
+player.paint(horn, colors.yellow);
+player.paint(thrusterDualSm, colors.violet);
+player.paint(cargoScoop, colors.violet);
+player.paint(shield, colors.violet);
+
+const corral = new Station({
+  // Turned to face the ship, so its bay is in view from the off
+  rotation: Math.PI,
+  shades: colors.white,
+  stationData: stationTypes.corral,
+  x: game.width - 300,
+  y: game.height / 2,
+});
+
+corral.paint(dockingBay, colors.green);
+
+// Off the left edge of where the game starts, running a long way upwards
+const northRoad = new Road({
+  angle: -Math.PI / 2,
+  distance: corral.radius * 5,
+  x: -200,
+  y: game.height,
+});
 
 const asteroids = Array.from({ length: 2 }, () => new Asteroid({
   dx: Math.random() * 40 - 20,
@@ -79,19 +82,31 @@ const stars = Array.from({ length: 2 }, () => new Asteroid({
   y: Math.random() * game.height,
 }));
 
+const fleet = [player];
+const roads = [northRoad];
 const scenery = [...asteroids, ...stars];
+const stations = [corral];
 
-const station = new Station({
-  // Turned to face the ship, so its bay is in view from the off
-  rotation: Math.PI,
-  shades: colors.white,
-  stationData: stations.corral,
-  x: game.width - 300,
-  y: game.height / 2,
+// Everything that can catch hold of a ship and carry it along
+const movers = [...stations, ...roads];
+
+initKeys();
+
+// Only the player's ship is flown off the keyboard. AI pilots work their own
+// modules through the same methods
+bindKeys(['c'], () => player.toggle(cargoScoop));
+bindKeys(['h'], () => player.toggle(horn));
+bindKeys(['s'], () => player.toggle(shield));
+
+// Space sees a docked ship back out through the bay it came in by
+bindKeys([' '], () => player.dockedTo && launch(player));
+
+bindKeys(['m'], () => {
+  if (player.localMovement) release(player);
+  else player.localMovement = corral;
 });
 
-station.paint(dockingBay, colors.green);
-
+centerCamera(game, player);
 colorsDemo(game);
 
 GameLoop({
@@ -99,11 +114,12 @@ GameLoop({
     game.ctx.save();
     game.ctx.translate(-camera.x * game.scale, -camera.y * game.scale);
 
-    station.render(game.scale);
+    roads.forEach((road) => road.render(game.scale));
+    stations.forEach((station) => station.render(game.scale));
     scenery.forEach((thing) => thing.render(game.scale));
-    ship.render(game.scale);
+    fleet.forEach((ship) => ship.render(game.scale));
     // Whatever a ship can fly inside of goes on last, over the top of it
-    station.render(game.scale, true);
+    stations.forEach((station) => station.render(game.scale, true));
 
     game.ctx.restore();
 
@@ -112,20 +128,31 @@ GameLoop({
     textDemo(game);
   },
   update: (dt) => {
-    station.update(dt);
-    station.hitboxes.forEach(place);
+    stations.forEach((station) => {
+      station.update(dt);
+      station.hitboxes.forEach(place);
+    });
+    roads.forEach((road) => road.update(dt));
     scenery.forEach((thing) => {
       thing.update(dt);
       place(thing);
     });
-    ship.fly(
-      flyOut(ship, dt) || keyDown('ArrowUp'),
+
+    // An AI pilot will set its own ship's controls here. Whoever is aboard, a
+    // launching ship sees itself out of the bay, and a ship on a road has the
+    // road doing the driving for it
+    player.fly(
+      !player.localMovement?.drives && (flyOut(player, dt) || keyDown('ArrowUp')),
       (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
     );
-    ship.update(dt);
-    bounceOff(ship);
-    checkDocking(ship);
-    orbitStation(ship, dt);
-    followTarget(game, ship, dt);
+
+    fleet.forEach((ship) => {
+      ship.update(dt);
+      bounceOff(ship);
+      checkDocking(ship);
+      carry(ship, movers, dt);
+    });
+
+    followTarget(game, player, dt);
   },
 }).start();
