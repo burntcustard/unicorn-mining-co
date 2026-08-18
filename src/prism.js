@@ -126,12 +126,15 @@ const normalOf = ([ax, ay], [bx, by], dirX, dirY) => {
   return dirX * x + dirY * y > 0 ? [-x, -y] : [x, y];
 };
 
-// The first face a ray meets, and which way it points
+// The first face a ray meets, which way it points, and which outline it belongs
+// to, so the caller can tell a rock the light passes into from one it only
+// stops against
 const nearest = (outlines, fromX, fromY, dirX, dirY) => {
   let near = Infinity;
   let normal;
+  let index;
 
-  outlines.forEach((outline) => {
+  outlines.forEach((outline, o) => {
     outline.forEach((corner, i) => {
       const next = outline[(i + 1) % outline.length];
       const distance = crossing(fromX, fromY, corner, next, dirX, dirY);
@@ -140,10 +143,11 @@ const nearest = (outlines, fromX, fromY, dirX, dirY) => {
 
       near = distance;
       normal = normalOf(corner, next, dirX, dirY);
+      index = o;
     });
   });
 
-  return [near, normal];
+  return [near, normal, index];
 };
 
 /**
@@ -224,22 +228,26 @@ export const traceBeam = (ship, lamp, scenery) => {
   // fall short of them and cut the beam's own far edge off
   const range = Math.hypot(far, spread);
   const edge = Math.atan2(spread, far);
-  const outlines = scenery
+  const close = scenery
     .filter(({ outline, radius, x, y }) => outline &&
-      Math.hypot(x - ship.x, y - ship.y) / ship.scale - radius < range)
-    .map((thing) => outlineOf(ship, lamp, thing));
+      Math.hypot(x - ship.x, y - ship.y) / ship.scale - radius < range);
+  const outlines = close.map((thing) => outlineOf(ship, lamp, thing));
+  // Only a rock with something buried in it lets the light in and throws a
+  // spectrum out the far side. An empty one is solid, so it stops the beam on
+  // its face like anything else but is never crossed or split by it
+  const refracts = close.map((thing) => !!thing.contents?.length);
   const beam = { angles: [], faces: [], hit: [], leaves: [], outlines, range };
 
   for (let i = 0; i <= rays; i++) {
     const angle = edge * ((i * 2) / rays - 1);
     const dirX = Math.cos(angle);
     const dirY = Math.sin(angle);
-    const [near, face] = nearest(outlines, 0, 0, dirX, dirY);
+    const [near, face, index] = nearest(outlines, 0, 0, dirX, dirY);
     const stopped = near < range && face;
     // Which face it comes back out by matters as much as the one it went in
     // by, and it is only worth knowing to the nearest colour, so the middle of
     // the spectrum stands in for all of them
-    const passed = stopped &&
+    const passed = stopped && refracts[index] &&
       through(outlines, dirX * near, dirY * near, dirX, dirY, face, midIndex, range);
 
     beam.angles.push(angle);
@@ -370,6 +378,42 @@ const leaving = (dirX, dirY, entry, exit, index) => {
 const recall = (ways, entry, exit) => ways.find(([was, out]) =>
   was[0] * entry[0] + was[1] * entry[1] > sameFace &&
   out[0] * exit[0] + out[1] * exit[1] > sameFace);
+
+/**
+ * The shape the light makes crossing the rocks it gets into: the same region
+ * drawSpectrum lights up inside a rock, gathered into one path. Handed back so
+ * that whatever a lamp is meant to pick out inside a rock can be clipped to
+ * exactly where the beam is actually falling, rather than to the whole cone.
+ *
+ * @param {Object} beam
+ * @returns {Path2D} inside
+ */
+export const insidePath = (beam) => {
+  const { angles, faces, hit, outlines, range } = beam;
+  const path = new Path2D();
+
+  crossings(beam).forEach((run) => {
+    const entries = [];
+    const exits = [];
+
+    for (let i = run.from; i <= run.to; i++) {
+      const dirX = Math.cos(angles[i]);
+      const dirY = Math.sin(angles[i]);
+      const enterX = dirX * hit[i];
+      const enterY = dirY * hit[i];
+      const [leaveX, leaveY] =
+        through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
+
+      entries.push([enterX, enterY]);
+      exits.push([leaveX, leaveY]);
+    }
+
+    // A single ray is a graze off a corner, with no width to enclose anything
+    if (entries.length > 1) path.addPath(between(entries, exits));
+  });
+
+  return path;
+};
 
 /**
  * @param {CanvasRenderingContext2D} ctx - Already at the lamp, facing its way.

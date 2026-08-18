@@ -1,11 +1,14 @@
 import { Item, remove } from './item';
+import { amethyst, diamond, gold, itemTypes, opal, platinum } from './items';
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
 import { detonate, renderBlasts, updateBlasts } from './explosion';
 import { flyOut, launch } from './docking';
+import { insidePath, traceBeam } from './prism';
 import { player, updatePlayer } from './player';
 import { renderBackground, sky } from './background';
+import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
 import { GameLoop } from 'kontra';
 import { Road } from './road';
@@ -14,7 +17,7 @@ import { Station } from './station';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { game } from './game';
-import { itemTypes } from './items';
+import { grind } from './mining';
 import { place } from './collisions';
 import { release } from './movement';
 import { renderFps } from './fps';
@@ -116,6 +119,15 @@ const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
   y: game.height / 2 - 260 + i * 130,
 }));
 
+// A few of the rocks are salted with cargo, to light up with the floodlight
+// and grind open with the horn. The rest stay empty to mine against
+blocks[0].bury(new Item({ itemData: diamond }));
+blocks[0].bury(new Item({ itemData: gold }));
+blocks[2].bury(new Item({ itemData: amethyst }));
+blocks[2].bury(new Item({ itemData: platinum }));
+blocks[4].bury(new Item({ itemData: opal }));
+asteroids[0].bury(new Item({ itemData: gold }));
+
 const fleet = [playerShip, ...swatches];
 const roads = [northRoad];
 const scenery = [...asteroids, ...blocks, ...stars];
@@ -132,6 +144,10 @@ const items = itemTypes.map((itemData, i) => new Item({
 
 // Everything that can catch hold of a ship and carry it along
 const movers = [...stations, ...roads];
+
+// The player's lamp, kept to hand so what it is picking out can be worked out
+// once a frame rather than hunted for in the segments every time
+const lamp = playerShip.segments.find((segment) => segment.module === floodlight);
 
 initKeys();
 
@@ -172,10 +188,37 @@ GameLoop({
     roads.forEach((road) => road.render(game.scale));
     stations.forEach((station) => station.render(game.scale));
     scenery.forEach((thing) => thing.render(game.scale));
+    // Buried cargo shows only through the slice of rock the floodlight is
+    // actually crossing, as if the lamp lets a pilot peer inside it. The reveal
+    // is clipped to the shape the beam makes inside the rocks, taken in the
+    // lamp's frame the way the beam is, then the world frame is put back with
+    // that clip still holding so the items draw where they really are, over the
+    // top of every rock
+    if (lamp.anim > 0.5) {
+      const beam = traceBeam(playerShip, lamp, scenery);
+      const worldFrame = game.ctx.getTransform();
+
+      game.ctx.save();
+      game.ctx.scale(game.scale, game.scale);
+      game.ctx.translate(playerShip.x, playerShip.y);
+      game.ctx.rotate(playerShip.rotation);
+      game.ctx.scale(playerShip.scale, playerShip.scale);
+      game.ctx.translate(lamp.x, lamp.y);
+      game.ctx.clip(insidePath(beam));
+      game.ctx.setTransform(worldFrame);
+
+      scenery.forEach((rock) => {
+        if (rock.contents) rock.contents.forEach((item) => item.render(game.scale));
+      });
+
+      game.ctx.restore();
+    }
     items.forEach((item) => item.render(game.scale));
     fleet.forEach((ship) => ship.render(game.scale, scenery));
     // Whatever a ship can fly inside of goes on last, over the top of it
     stations.forEach((station) => station.render(game.scale, true));
+    // Sparks off the horn sit over the rocks and ships they come off
+    renderSparks(game, game.scale);
     // Light rather than paint, so it goes over everything it lights up
     renderBlasts(game, game.scale);
 
@@ -226,6 +269,7 @@ GameLoop({
     }
 
     updateBlasts(dt);
+    updateSparks(dt);
     updatePlayer(dt);
 
     // An AI pilot will set its own ship's controls here. Whoever is aboard, a
@@ -240,6 +284,13 @@ GameLoop({
     );
 
     fleet.forEach((ship) => ship.update(dt, items, movers));
+
+    // Rocks an active horn has been leaning on for long enough crack open,
+    // spilling whatever was buried in them out to be scooped up. Backwards,
+    // because a rock that breaks takes itself out of the scenery
+    for (let i = scenery.length - 1; i >= 0; i--) {
+      grind(scenery[i], dt, scenery, items);
+    }
 
     followTarget(game, playerShip, dt);
   },

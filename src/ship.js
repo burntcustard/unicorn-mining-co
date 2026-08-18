@@ -5,6 +5,7 @@ import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { carry } from './movement';
 import { checkDocking } from './docking';
+import { mine } from './mining';
 import { move } from './vector';
 import { scoop } from './scoop';
 
@@ -87,6 +88,21 @@ const radiusFor = ({ points, radius }) => {
 
     return () => reach;
   }
+};
+
+/**
+ * How springy a piece is to hit. A module may set a plain number or a function
+ * worked out from the segment, so a horn can bite while it spins and sit inert
+ * otherwise. Whatever says nothing gives back a little, the way bare hull does.
+ *
+ * @param {Object} segment
+ * @returns {Number} bounciness
+ */
+const bounceOf = (segment) => {
+  const { bounciness } = segment.module;
+  const value = typeof bounciness === 'function' ? bounciness(segment) : bounciness;
+
+  return value ?? hullBounciness;
 };
 
 /**
@@ -263,7 +279,7 @@ export class Ship extends Sprite.class {
     const boxes = this.segments
       .filter((segment) => segment.radius && segment.health)
       .map((segment) => ({
-        bounciness: segment.module.bounciness ?? hullBounciness,
+        bounciness: bounceOf(segment),
         // How the ship is travelling, so whatever it runs into is put back out
         // the side it came in by rather than the nearest side
         dx: this.dx,
@@ -360,6 +376,7 @@ export class Ship extends Sprite.class {
       const contacts = contactsOf(this);
 
       scoop(this, items, contacts);
+      mine(contacts);
       resolve(this, contacts);
     });
 

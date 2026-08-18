@@ -35,6 +35,20 @@ const maxCorrection = 4;
 const deadSpeed = 5;
 
 /**
+ * How springy two things are together. Normally the springier of the two has
+ * its way, so a shield bouncing off a rock bounces like a shield. A negative
+ * bounciness, like a spinning horn's, grips rather than bounces, and the firmest
+ * grip wins: it holds a ship against whatever it has hold of instead of letting
+ * it spring off, while staying above minus one so it only ever softens the
+ * knock rather than feeding speed back in and flinging the ship about.
+ *
+ * @param {Number} a
+ * @param {Number} b
+ * @returns {Number} bounciness
+ */
+const combineBounce = (a, b) => (a < 0 || b < 0 ? Math.min(a, b) : Math.max(a, b));
+
+/**
  * Put one thing out of another, and take the speed it arrived with out of it.
  * Whatever it ran into stays where it is: a rock is not shifted by a ship.
  *
@@ -102,7 +116,7 @@ export const resolve = (ship, contacts) => {
     // Open things are flown straight through, so they never push back
     if (other.open) return;
 
-    const bounciness = Math.max(hitbox.bounciness || 0, other.bounciness || 0);
+    const bounciness = combineBounce(hitbox.bounciness || 0, other.bounciness || 0);
 
     // The way out runs from the hull towards what it hit, so a ship coming off
     // something solid has to go the other way

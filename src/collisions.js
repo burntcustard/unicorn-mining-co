@@ -65,6 +65,34 @@ const placePoints = ({ outline, rotation, x, y }) => {
   return outline.map(([px, py]) => [x + px * cos - py * sin, y + px * sin + py * cos]);
 };
 
+/**
+ * Whether a single world point falls inside a thing: its outline where it has
+ * one, and the circle of its radius where it does not. A ray cast out sideways
+ * crosses the outline an odd number of times only from within it.
+ *
+ * @param {Object} thing
+ * @param {Number} px
+ * @param {Number} py
+ * @returns {Boolean} inside
+ */
+export const contains = (thing, px, py) => {
+  if (!thing.outline) return Math.hypot(px - thing.x, py - thing.y) <= thing.radius;
+
+  const points = placePoints(thing);
+  let inside = false;
+
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i];
+    const [xj, yj] = points[j];
+
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+};
+
 // Each edge gives an axis at right angles to it, which is where two shapes
 // can be told apart if they are apart at all
 const axesOf = (points) => points.map(([x, y], i) => {

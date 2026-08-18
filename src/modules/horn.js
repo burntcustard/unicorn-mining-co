@@ -16,6 +16,14 @@ const fluteCount = hornLength / fluteSpacing + 2;
 // How many times a second the horn turns all the way around
 const spinRate = 1.5;
 
+// How the horn grips rather than bounces while it spins. A gently negative
+// bounciness holds the ship against the rock instead of springing it off, so
+// mining does not bat the ship away. Kept above minus one, so it only softens
+// the knock: it never drags the ship in or flings it off when the rock breaks.
+// Switched off, the horn says nothing and bounces like the bare hull it is a
+// spike on
+const grindBounce = -0.85;
+
 /**
  * Flutes are parallel lines that march towards the tip and wrap back around,
  * which is what sells the spin. They are drawn overlong and clipped to the
@@ -34,6 +42,11 @@ const fluteLines = ({ phase }) => Array.from({ length: fluteCount }, (_, i) => {
 });
 
 export const horn = {
+  // Bites while it spins and lets go otherwise, so it does not bounce a ship
+  // off what it is mining
+  bounciness: (segment) => (segment.anim > 0.5 ? grindBounce : undefined),
+  // Grinds a rock down and cracks it open where it touches a loaded one
+  grinds: true,
   health: 30,
   lines: fluteLines,
   name: 'Mining horn',
