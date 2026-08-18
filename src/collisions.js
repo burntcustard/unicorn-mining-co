@@ -23,8 +23,15 @@
 // add up to less than one, since a search looks at the ring of cells around it
 const cellSize = 256;
 
+// How far either side of nothing a cell may sit and still key to a whole
+// number. Keys are numbers rather than strings of their two coordinates:
+// building one string per thing per frame costs more than everything else the
+// grid does put together once there are thousands of things in it
+const reach = 1 << 15;
+
 const cells = new Map();
-const cellKey = (x, y) => `${Math.floor(x / cellSize)},${Math.floor(y / cellSize)}`;
+const keyOf = (cellX, cellY) => (cellX + reach) * reach * 2 + cellY + reach;
+const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSize));
 
 // Filed under the cell it sits in and shifted along as it drifts. Anything
 // that wants to be found has to be placed first
@@ -34,8 +41,12 @@ export const place = (thing) => {
   if (cell === thing.cell) return;
 
   cells.get(thing.cell)?.delete(thing);
-  cells.set(cell, cells.get(cell) || new Set());
-  cells.get(cell).add(thing);
+
+  const sharing = cells.get(cell);
+
+  if (sharing) sharing.add(thing);
+  else cells.set(cell, new Set([thing]));
+
   thing.cell = cell;
 };
 
@@ -167,7 +178,7 @@ export const collisions = (thing) => {
 
   for (let x = cellX - 1; x < cellX + 2; x++) {
     for (let y = cellY - 1; y < cellY + 2; y++) {
-      cells.get(`${x},${y}`)?.forEach((other) => {
+      cells.get(keyOf(x, y))?.forEach((other) => {
         // A ship does not run into itself, however it is put together
         if (other === thing || (thing.owner && other.owner === thing.owner)) return;
 

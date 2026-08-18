@@ -1,8 +1,8 @@
+import { contactsOf, resolve } from './resolve';
 import { drawBeam, drawHalo, lightAngle, litFill, shapeOf, tint } from './lighting';
 import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
-import { bounceOff } from './resolve';
 import { carry } from './movement';
 import { checkDocking } from './docking';
 import { move } from './vector';
@@ -354,10 +354,13 @@ export class Ship extends Sprite.class {
     this.dy += Math.sin(this.rotation) * push;
 
     // Settled up after every hop rather than once at the end, so nothing is
-    // ever jumped clean over on the way
+    // ever jumped clean over on the way. What the ship is touching is worked
+    // out once a hop and handed to both of the things that care
     move(this, dt, () => {
-      scoop(this, items);
-      bounceOff(this);
+      const contacts = contactsOf(this);
+
+      scoop(this, items, contacts);
+      resolve(this, contacts);
     });
 
     this.segments.forEach((segment) => {

@@ -1,4 +1,5 @@
 import { collisions } from './collisions';
+import { scoopOpen } from './modules';
 
 /**
  * What a collision does, once collisions.js has found one. Kept well apart
@@ -66,29 +67,55 @@ export const settle = (thing, other, depth, awayX, awayY, bounciness) => {
 };
 
 /**
- * Come off whatever a ship has run into. Each piece of hull is checked on its
- * own, so it is the part that actually touched that stops the ship, and
- * whichever of the two is springier says how much of a bounce there is.
+ * Everything a ship is touching, gathered in one go. Working the same nine
+ * cells out again for every separate thing that cares about the answer is the
+ * most expensive mistake there is to make here, so it is done once and read
+ * by all of them.
  *
  * @param {Object} ship
+ * @returns {Object[]} contacts - Each carrying the piece of ship that touched.
  */
-export const bounceOff = (ship) => {
-  ship.hitboxes().forEach((hitbox) => {
+export const contactsOf = (ship) => ship.hitboxes().flatMap((hitbox) => (
+  collisions(hitbox).map((contact) => (contact.hitbox = hitbox, contact))
+));
+
+/**
+ * Settle a ship against everything it is touching. Which of the two moves is
+ * the only difference between one contact and the next: a hull shoves loose
+ * cargo aside, since a gem the size of a fist has no business halting a ship,
+ * and is itself shoved by everything solid.
+ *
+ * @param {Object} ship
+ * @param {Object[]} contacts
+ */
+export const resolve = (ship, contacts) => {
+  const open = ship.segments.some(({ anim, health, module }) => (
+    module.scoops && health && anim > scoopOpen
+  ));
+
+  contacts.forEach(({ depth, hitbox, other, x, y }) => {
+    const { segment } = hitbox;
+
     // A throat is there to notice what has got inside it, not to shove things
-    if (hitbox.segment.catches) return;
+    if (segment.catches) return;
 
-    collisions(hitbox).forEach(({ depth, other, x, y }) => {
-      // Open things are flown straight through, so they never push back
-      if (other.open) return;
+    // Open things are flown straight through, so they never push back
+    if (other.open) return;
 
-      // Loose cargo is shoved aside by a ship rather than stopping one, which
-      // is the scoop's business rather than this file's
-      if (other.item) return;
+    const bounciness = Math.max(hitbox.bounciness || 0, other.bounciness || 0);
 
-      // The way out runs from the hull towards what it hit, so the ship itself
-      // has to go the other way
-      settle(ship, other, depth, -x, -y,
-        Math.max(hitbox.bounciness || 0, other.bounciness || 0));
-    });
+    // The way out runs from the hull towards what it hit, so a ship coming off
+    // something solid has to go the other way
+    if (!other.item) {
+      settle(ship, other, depth, -x, -y, bounciness);
+
+      return;
+    }
+
+    // The piece of hull a scoop opens onto stands aside while the doors are
+    // open, or there is no way in for anything it gathers
+    if (open && segment.mouth) return;
+
+    settle(other, ship, depth, x, y, bounciness);
   });
 };
