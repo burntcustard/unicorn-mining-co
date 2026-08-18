@@ -2,7 +2,7 @@
  * The mustang is a hexagonal hull split into eight triangular segments, with a
  * cockpit at the nose and five mounting points for modules to be fitted to.
  */
-import { cargoScoop, cockpit, horn, shield, thrusterDualSm, thrusters } from '../modules';
+import { cargoScoop, cockpit, floodlight, horn, shield, thrusterDualSm, thrusters } from '../modules';
 
 export const mustang = {
   cargo: 12,
@@ -31,5 +31,7 @@ export const mustang = {
     { fits: [cargoScoop], module: cargoScoop, x: 3, y: -13 },
     { fits: [cargoScoop], module: cargoScoop, x: 3, y: 13 },
     { fits: [horn], module: horn, x: 20, y: 0 },
+    // Under the nose, in behind the horn on the same spot
+    { fits: [floodlight], x: 20, y: 0 },
   ],
 };

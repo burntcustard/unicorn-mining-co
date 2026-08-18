@@ -1,4 +1,5 @@
-import { drawHalo, lightAngle, litFill, shapeOf, tint } from './lighting';
+import { drawBeam, drawHalo, lightAngle, litFill, shapeOf, tint } from './lighting';
+import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { slow } from './vector';
@@ -343,7 +344,11 @@ export class Ship extends Sprite.class {
     });
   }
 
-  render(scale) {
+  /**
+   * @param {Number} scale
+   * @param {Object[]} [scenery] - Whatever a beam can catch and be split by.
+   */
+  render(scale, scenery) {
     const { ctx } = this;
 
     ctx.save();
@@ -382,8 +387,17 @@ export class Ship extends Sprite.class {
       const path = segment.path?.(segment);
 
       if (path) {
-        ctx.fill(path);
-        ctx.stroke(path);
+        // A lamp is light rather than paint, so it is added to what is already
+        // there instead of being drawn over the top of it
+        if (segment.module.beam) {
+          const beam = traceBeam(this, segment, scenery || []);
+
+          drawBeam(ctx, path, segment.shades[2], segment.module.reach, segment.anim, litPath(beam));
+          drawSpectrum(ctx, segment, beam);
+        } else {
+          ctx.fill(path);
+          ctx.stroke(path);
+        }
       }
 
       if (segment.lines) {

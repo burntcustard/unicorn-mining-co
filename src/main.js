@@ -1,6 +1,6 @@
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
-import { cargoScoop, dockingBay, horn, shield, thrusterDualSm } from './modules';
+import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
 import { carry, release } from './movement';
 import { checkDocking, flyOut, launch } from './docking';
 import { Asteroid } from './asteroid';
@@ -33,6 +33,7 @@ const player = new Ship({
 });
 
 player.fit(shield);
+player.fit(floodlight);
 
 player.paint(horn, colors.yellow);
 player.paint(thrusterDualSm, colors.violet);
@@ -54,7 +55,7 @@ const corral = new Station({
   rotation: Math.PI,
   shades: colors.white,
   stationData: stationTypes.corral,
-  x: game.width - 300,
+  x: game.width,
   y: game.height / 2,
 });
 
@@ -94,9 +95,26 @@ const stars = Array.from({ length: 2 }, () => new Asteroid({
   y: Math.random() * game.height,
 }));
 
+// Plain shapes sat still in a row in front of the ship, so that what the
+// floodlight does to them can be checked against something predictable
+const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
+  fill: colors.black[2],
+  points,
+  radius: 45,
+  // Every other one turned a little, to catch a face rather than a corner
+  rotation: (i % 2) * 0.6,
+  spin: 0,
+  stroke: colors.white[2],
+  // Just enough wander that no two faces come out parallel, because a rock
+  // with a pair that are is a slab rather than a prism and splits nothing
+  variance: 1,
+  x: game.width / 3 + 260 + i * 30,
+  y: game.height / 2 - 260 + i * 130,
+}));
+
 const fleet = [player, ...swatches];
 const roads = [northRoad];
-const scenery = [...asteroids, ...stars];
+const scenery = [...asteroids, ...blocks, ...stars];
 const stations = [corral];
 
 // Everything that can catch hold of a ship and carry it along
@@ -108,6 +126,7 @@ initKeys();
 // modules through the same methods
 bindKeys(['c'], () => player.toggle(cargoScoop));
 bindKeys(['h'], () => player.toggle(horn));
+bindKeys(['l'], () => player.toggle(floodlight));
 bindKeys(['s'], () => player.toggle(shield));
 
 // Space sees a docked ship back out through the bay it came in by
@@ -132,7 +151,7 @@ GameLoop({
     roads.forEach((road) => road.render(game.scale));
     stations.forEach((station) => station.render(game.scale));
     scenery.forEach((thing) => thing.render(game.scale));
-    fleet.forEach((ship) => ship.render(game.scale));
+    fleet.forEach((ship) => ship.render(game.scale, scenery));
     // Whatever a ship can fly inside of goes on last, over the top of it
     stations.forEach((station) => station.render(game.scale, true));
 

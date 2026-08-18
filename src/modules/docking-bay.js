@@ -14,6 +14,20 @@ export const baySpan = 188;
 const seam = bayDepth / 2;
 const edge = baySpan / 2;
 
+// Both halves as one outline, so the light pools along the whole bay rather
+// than in either end of it. It goes down on both layers, so a ship sat in the
+// bay has it under and over at once and reads as being inside the light
+const glow = [
+  [0, bayCorner - edge],
+  [bayCorner, -edge],
+  [bayDepth - bayCorner, -edge],
+  [bayDepth, bayCorner - edge],
+  [bayDepth, edge - bayCorner],
+  [bayDepth - bayCorner, edge],
+  [bayCorner, edge],
+  [0, edge - bayCorner],
+];
+
 export const dockingBay = {
   health: 100,
   name: 'Docking Bay',
@@ -37,6 +51,7 @@ export const dockingBay = {
         [bayCorner, edge],
         [0, edge - bayCorner],
       ],
+      glow,
       zIndex: 1,
     },
     {
@@ -56,6 +71,9 @@ export const dockingBay = {
         [bayDepth - bayCorner, edge],
         [seam, edge],
       ],
+      // Both halves as one outline, so the light pools along the whole bay
+      // rather than in either end of it
+      glow,
       zIndex: -1,
     },
   ],

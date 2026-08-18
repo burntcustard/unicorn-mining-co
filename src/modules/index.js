@@ -30,6 +30,10 @@
  * itself into `parts` with their own geometry. `zIndex` works like the CSS
  * property: the hull sits at 0, so a module below it is drawn behind the hull
  * and one above it is drawn over the top.
+ *
+ * A `beam` module is light rather than paint: its shape is added to whatever
+ * is already on screen instead of being drawn over it, and it says how far it
+ * carries as its `reach`.
  */
 import { thrusterDualMd } from './thruster-dual-md';
 import { thrusterDualSm } from './thruster-dual-sm';
@@ -42,6 +46,7 @@ import { thrusterTripleSm } from './thruster-triple-sm';
 export { cargoScoop } from './cargo-scoop';
 export { cockpit } from './cockpit';
 export { bayCorner, bayDepth, baySpan, dockingBay } from './docking-bay';
+export { floodlight } from './floodlight';
 export { horn } from './horn';
 export { shield } from './shield';
 export {

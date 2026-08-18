@@ -1,4 +1,4 @@
-import { lightAngle, litFill, sample, shadingStep, shapeOf } from './lighting';
+import { drawGlow, lightAngle, litFill, shadingStep, shapeOf, tint } from './lighting';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 
@@ -8,6 +8,9 @@ const lineWidth = 3;
 // How much of a knock a bare hull gives back
 const hullBounciness = 0.05;
 
+// How brightly a lit module pools its colour. Kept low, and laid down twice
+// over, so a bay reads as welcoming rather than as another engine
+const bayGlow = 0.15;
 // How far out a station carries ships around with it, as a multiple of how far
 // its own hull reaches
 const localArea = 3;
@@ -25,6 +28,10 @@ const localArea = 3;
 const makeSegment = (stationModule = {}, part, shades, mount) => ({
   ...shapeOf(part.points, mount),
   fill: shades[1],
+  // Lit modules pool their own colour, in their own shape rather than in the
+  // one they are drawn as
+  glow: part.glow && shapePath(part.glow),
+  glowColor: part.glow && shades[2],
   health: part.health ?? stationModule.health,
   // Only the hull is lit. A module brings its own colour, and a bay is meant
   // to look like a hole rather than a surface
@@ -111,7 +118,9 @@ export class Station extends Sprite.class {
     this.litAt = this.rotation;
 
     this.segments.forEach((segment) => {
-      if (segment.hull) segment.lit = litFill(this.ctx, segment, light, sample);
+      if (segment.hull) {
+        segment.lit = litFill(this.ctx, segment, light, (along) => tint(this.shades, 2, along));
+      }
     });
   }
 
@@ -183,6 +192,7 @@ export class Station extends Sprite.class {
       if (segment.module === stationModule) {
         segment.fill = `${color[2]}3`;
         segment.stroke = `${color[2]}d`;
+        if (segment.glow) segment.glowColor = color[2];
       }
     });
   }
@@ -200,6 +210,27 @@ export class Station extends Sprite.class {
       box.rotation = this.rotation;
       box.x = this.x + box.at[0] * cos - box.at[1] * sin;
       box.y = this.y + box.at[0] * sin + box.at[1] * cos;
+    });
+  }
+
+  /**
+   * Lights are laid down a whole layer at a time rather than piece by piece.
+   * Interleaved with the fills, a bay ends up with one half lit either side of
+   * its own fill and the other half lit twice under it, and the two no longer
+   * match.
+   *
+   * @param {Boolean} over - Which layer's lights to lay down.
+   */
+  glow(over) {
+    const { ctx } = this;
+
+    this.segments.forEach((segment) => {
+      if (!segment.glow || (segment.zIndex >= 0) !== over) return;
+
+      ctx.save();
+      ctx.translate(segment.x, segment.y);
+      drawGlow(ctx, segment.glow, segment.glowColor, bayGlow);
+      ctx.restore();
     });
   }
 
@@ -225,12 +256,16 @@ export class Station extends Sprite.class {
     // coloured shape
     if (Math.abs(this.rotation - this.litAt) >= shadingStep) this.relight();
 
+    const over = !!above;
+
+    // Under the ships the light goes down first and the station is drawn into
+    // it, over them it goes down last and falls across whatever is sat there
+    if (!over) this.glow(over);
+
     this.segments.forEach((segment) => {
       // Only what a ship flies in over goes behind it. The hull and everything
       // it can be swallowed by are drawn on top
-      const over = segment.zIndex >= 0;
-
-      if (over !== !!above) return;
+      if ((segment.zIndex >= 0) !== over) return;
 
       ctx.save();
       ctx.translate(segment.x, segment.y);
@@ -240,6 +275,8 @@ export class Station extends Sprite.class {
       ctx.stroke(segment.lines || segment.path);
       ctx.restore();
     });
+
+    if (over) this.glow(over);
 
     ctx.restore();
   }

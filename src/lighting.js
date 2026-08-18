@@ -8,33 +8,20 @@ export const lightAngle = -Math.PI / 4;
 // One turn takes a couple of minutes, so redoing it every frame is waste
 export const shadingStep = 0.02;
 
-// How far along the ramp a piece runs between its lit and its shaded side.
+// How far along its range a piece runs between its lit and its shaded side.
 // Enough that neighbouring pieces meet at about the same tone rather than
 // stepping from one to the next
 const spread = 0.2;
 
-// How much of the ramp gets used at all. Below one, pieces keep to the middle
+// How much of that range gets used at all. Below one, pieces keep to the middle
 // of it, so no two of them are wildly far apart
 const contrast = 0.8;
 
-// How a bare hull falls away from the light: bleached where it faces it,
-// through the colours the nebula throws back at it, down to nearly the dark of
-// space. The last stop is the rim, where a plate facing right away catches the
-// light coming round behind and lifts it off the background
-const lightRamp = [
-  [0, colors.white[2]],
-  [0.3, colors.white[0]],
-  [0.55, colors.pink[1]],
-  [0.75, colors.indigo[0]],
-  [0.93, colors.purple[1]],
-  [1, colors.cyan[2]],
-];
-
-// Ships are painted to be told apart at a glance, so the light only tints what
-// they are already wearing rather than replacing it the way it does bare hull.
-// The lit side is lifted towards white and then given a push towards the
-// colour's own light, since tinting a pale colour straight at a hue only
-// darkens it. The shaded side falls towards the colour's own shadow
+// Craft are painted to be told apart at a glance, so the light only tints what
+// they are already wearing rather than replacing it. The lit side is lifted
+// towards white and then given a push towards the colour's own light, since
+// tinting a pale colour straight at a hue only darkens it. The shaded side
+// falls towards the colour's own shadow
 const litTint = 0.32;
 const warmTint = 0.2;
 const shadeTint = 0.2;
@@ -44,6 +31,16 @@ const shadeTint = 0.2;
 // than turning into a cloud
 const haloReach = 45;
 const haloStrength = 0.45;
+
+// How far a lit shape's own glow carries past its edges, in screen pixels. A
+// blur is not put through the transform the way a path is, so this does not
+// grow and shrink with the view
+const glowBlur = 40;
+
+// How much of its length a beam holds full strength for, and how hard it lifts
+// whatever it falls on
+const beamCore = 0.15;
+const beamStrength = 0.55;
 
 // Palette colours are one hex digit a channel. Spreading them over a whole
 // byte before blending is what lets two pale colours meet somewhere other than
@@ -56,26 +53,12 @@ const hex = (channels) => `#${channels
 
 const white = parse(colors.white[2]);
 
-/**
- * The ramp as a colour, anywhere along it rather than only at its stops.
- *
- * @param {Number} at - 0 facing the light, 1 facing right away from it.
- */
-const blend = (at) => {
-  const next = lightRamp.findIndex(([stop]) => stop >= at);
-  const [to, color] = lightRamp[next];
-  const [from, before] = lightRamp[next - 1] || lightRamp[next];
-
-  return to === from ? color : hex(mix(parse(before), parse(color), (at - from) / (to - from)));
-};
-
 // Shading is worked out up front and looked up, rather than colours being
 // built out of strings on every frame of every piece of every craft
 const steps = 64;
 const at = (along) => Math.round(Math.min(1, Math.max(0, along)) * (steps - 1));
 const table = (shade) => Array.from({ length: steps }, (_, i) => shade(i / (steps - 1)));
 
-const ramp = table(blend);
 const tints = {};
 const halos = {};
 
@@ -92,13 +75,6 @@ const shadeOf = (shades, worn) => {
     return hex(mix(mix(base, white, -towards * litTint), light, -towards * warmTint));
   });
 };
-
-/**
- * Bare hull, which takes its colour entirely from the light.
- *
- * @param {Number} along - 0 facing the light, 1 facing right away from it.
- */
-export const sample = (along) => ramp[at(along)];
 
 /**
  * Painted work, which keeps its colour and is only lightened or darkened.
@@ -166,7 +142,7 @@ export const litFill = (ctx, shape, light, shade) => {
 };
 
 const haloOf = (ctx, color) => {
-  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, haloReach);
+  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
 
   gradient.addColorStop(0, color);
   gradient.addColorStop(0.35, `${color}6`);
@@ -175,14 +151,71 @@ const haloOf = (ctx, color) => {
   return gradient;
 };
 
-// Sat at the origin and sized to one full burn, so it is the same bloom for
-// every nozzle burning a given colour and worth keeping hold of
-const haloPath = circlePath(haloReach);
+// A unit circle at the origin, so it is the same pool for everything glowing a
+// given colour and worth keeping hold of. Callers scale it to the size they
+// want rather than each having one of their own
+const haloPath = circlePath(1);
 const haloFill = (ctx, color) => (halos[color] ||= haloOf(ctx, color));
 
 /**
- * The glow a burning nozzle throws around its flame, meant to go down before
- * its craft so that the hull covers the heart of it.
+ * A pool of light shaped like whatever is lit up, blurred out past its own
+ * edges. Meant to go down before the thing itself, so that what is drawn on
+ * top covers the heart of it.
+ *
+ * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
+ * @param {Path2D} path
+ * @param {String} color
+ * @param {Number} strength
+ */
+export const drawGlow = (ctx, path, color, strength) => {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = strength;
+  ctx.shadowBlur = glowBlur;
+  ctx.shadowColor = color;
+  ctx.fillStyle = color;
+  ctx.fill(path);
+  ctx.restore();
+};
+
+/**
+ * The light a lamp throws out in front of it: full at the lens and gone by the
+ * far end of its reach. Laid down with whatever the ship is flying over
+ * already drawn, so it lifts that rather than only lighting itself.
+ *
+ * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
+ * @param {Path2D} path
+ * @param {String} color
+ * @param {Number} reach - How far the beam carries at full strength.
+ * @param {Number} level - How far up the lamp has come, 0 to 1.
+ * @param {Path2D} lit - How far the light got before it ran into anything.
+ */
+export const drawBeam = (ctx, path, color, reach, level, lit) => {
+  const gradient = ctx.createLinearGradient(0, 0, reach, 0);
+
+  gradient.addColorStop(0, color);
+  gradient.addColorStop(beamCore, `${color}c`);
+  gradient.addColorStop(1, '#0000');
+
+  ctx.save();
+  // The cone says how wide the beam is and the trace says how far it got, so
+  // one is filled through the other
+  ctx.clip(lit);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = level * beamStrength;
+  // Cast off the beam rather than laid down under it, so it gives out along
+  // with the light. A glow of its own has no idea how far down the beam it is
+  // and ends in a hard edge wherever the light happens to stop
+  ctx.shadowBlur = glowBlur;
+  ctx.shadowColor = color;
+  ctx.fillStyle = gradient;
+  ctx.fill(path);
+  ctx.restore();
+};
+
+/**
+ * The glow a burning nozzle throws around its flame. Round rather than shaped,
+ * because a flame is a bright point and there are a lot of them.
  *
  * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
  * @param {Object} nozzle
@@ -195,7 +228,7 @@ export const drawHalo = (ctx, nozzle) => {
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = level * haloStrength;
   ctx.translate(nozzle.x, nozzle.y);
-  ctx.scale(level, level);
+  ctx.scale(level * haloReach, level * haloReach);
   ctx.fillStyle = haloFill(ctx, nozzle.shades[2]);
   ctx.fill(haloPath);
   ctx.restore();
