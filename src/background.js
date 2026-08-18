@@ -8,10 +8,10 @@ import { createPolygon } from './polygon';
  * with nothing solid about any of it. None of it is ever collided with, so it
  * can be any size it likes.
  *
- * Each layer is drawn once into a square tile and then repeated across the
- * screen as a pattern, which is why it costs one fill a layer however much is
- * in it. A layer slides past at a fraction of the camera's own movement, so
- * the further back it is the slower it goes and the deeper the sky looks.
+ * Each layer is drawn once into a square tile and then stamped across the
+ * screen, which is why it costs a handful of blits a layer however much is in
+ * it. A layer slides past at a fraction of the camera's own movement, so the
+ * further back it is the slower it goes and the deeper the sky looks.
  */
 
 // World units across a tile. Bigger repeats less obviously and costs more
@@ -54,6 +54,19 @@ const starPath = (size) => shapePath(createPolygon({
   radiusEven: size * 4,
 }));
 
+// What the sky can be built out of. A part is left out of the tile altogether
+// rather than skipped while drawing, so what a mode costs is what is in the
+// sky rather than how many blits it takes to put it there
+const modes = [
+  { label: 'SKY ALL', parts: ['clouds', 'dots', 'sparkles'] },
+  { label: 'SKY FOG', parts: ['clouds'] },
+  { label: 'SKY DOTS', parts: ['dots'] },
+  { label: 'SKY SPARKLES', parts: ['sparkles'] },
+  { label: 'SKY OFF', parts: [] },
+];
+
+let mode = 0;
+
 /**
  * Draw something nine times over, so that whatever lands near an edge of the
  * tile carries on across the join when it repeats.
@@ -64,14 +77,14 @@ const wrapped = (draw) => {
   }
 };
 
-const makePattern = ({ clouds, dots, size, sparkles }) => {
+const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
   canvas.width = tile;
   canvas.height = tile;
 
-  Array.from({ length: clouds }).forEach(() => {
+  if (parts.includes('clouds')) Array.from({ length: clouds }).forEach(() => {
     const color = pick(cloudColors);
     const radius = tile / 5 + Math.random() * tile / 4;
     const x = Math.random() * tile;
@@ -92,7 +105,7 @@ const makePattern = ({ clouds, dots, size, sparkles }) => {
 
   ctx.shadowBlur = dotGlow;
 
-  Array.from({ length: dots }).forEach(() => {
+  if (parts.includes('dots')) Array.from({ length: dots }).forEach(() => {
     const color = starColor(dotTints);
     const path = circlePath(size * (0.4 + Math.random() * 0.6));
     const x = Math.random() * tile;
@@ -114,7 +127,7 @@ const makePattern = ({ clouds, dots, size, sparkles }) => {
 
   ctx.shadowBlur = sparkleGlow;
 
-  Array.from({ length: sparkles }).forEach(() => {
+  if (parts.includes('sparkles')) Array.from({ length: sparkles }).forEach(() => {
     const color = starColor(sparkleTints);
     const path = starPath(size * (1 + Math.random()));
     const x = Math.random() * tile;
@@ -134,25 +147,84 @@ const makePattern = ({ clouds, dots, size, sparkles }) => {
     });
   });
 
-  return ctx.createPattern(canvas, 'repeat');
+  return canvas;
 };
 
-const patterns = layers.map(makePattern);
+const tilesOf = (parts) => layers.map((layer) => makeTile(layer, parts));
 
+let tiles;
+
+// A canvas can be held as the list of drawing commands that filled it and
+// replayed on every blit, which makes a tile cost whatever it took to draw
+// rather than what it looks like. A bitmap is pixels and nothing else
+const build = () => {
+  const built = tilesOf(modes[mode].parts);
+
+  tiles = built;
+  built.forEach((canvas, i) => createImageBitmap(canvas).then((bitmap) => {
+    if (tiles === built) built[i] = bitmap;
+  }));
+};
+
+build();
+
+// Which parts of the sky are being drawn, and a way to step through them, so
+// that what each one costs can be read off the frame rate one at a time
+export const sky = {
+  cycle: () => {
+    mode = (mode + 1) % modes.length;
+    build();
+    sky.label = modes[mode].label;
+  },
+  label: modes[mode].label,
+};
+
+/**
+ * Stamped out rather than filled as a repeating pattern: a pattern under a
+ * scaled transform is resampled across the whole screen every frame, which
+ * costs more than everything else in the game put together.
+ */
 export const renderBackground = (game) => {
-  const { ctx } = game;
+  const { canvas, ctx, scale } = game;
+
+  if (!modes[mode].parts.length) return;
+
+  // Whole screen pixels, and a whole number of them across, so that two tiles
+  // meeting never leave a hairline of background showing between them
+  const span = Math.round(tile * scale);
+  // Tile pixels per screen pixel, for cutting a stamp down to its visible part
+  const back = tile / span;
 
   layers.forEach(({ depth }, i) => {
+    // Shifting the sky rather than the camera is what makes a layer lag behind
+    // everything in front of it
     const x = camera.x * depth;
     const y = camera.y * depth;
+    const left = -(Math.round((x - Math.floor(x / tile) * tile) * scale) % span);
+    const top = -(Math.round((y - Math.floor(y / tile) * tile) * scale) % span);
 
-    ctx.save();
-    ctx.scale(game.scale, game.scale);
-    // Shifting the pattern rather than the camera is what makes a layer lag
-    // behind everything in front of it
-    ctx.translate(-x, -y);
-    ctx.fillStyle = patterns[i];
-    ctx.fillRect(x, y, game.width, game.height);
-    ctx.restore();
+    for (let atX = left; atX < canvas.width; atX += span) {
+      for (let atY = top; atY < canvas.height; atY += span) {
+        // Only the part of a stamp that lands on screen. A tile is wider than
+        // the screen, so most of one is waste to a browser that does not clip
+        // it away for itself
+        const toX = Math.max(atX, 0);
+        const toY = Math.max(atY, 0);
+        const width = Math.min(atX + span, canvas.width) - toX;
+        const height = Math.min(atY + span, canvas.height) - toY;
+
+        ctx.drawImage(
+          tiles[i],
+          (toX - atX) * back,
+          (toY - atY) * back,
+          width * back,
+          height * back,
+          toX,
+          toY,
+          width,
+          height,
+        );
+      }
+    }
   });
 };

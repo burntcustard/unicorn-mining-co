@@ -3,6 +3,7 @@ import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
 import { carry, release } from './movement';
 import { checkDocking, flyOut, launch } from './docking';
+import { renderBackground, sky } from './background';
 import { Asteroid } from './asteroid';
 import { GameLoop } from 'kontra';
 import { Road } from './road';
@@ -13,8 +14,8 @@ import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { game } from './game';
 import { place } from './collisions';
-import { renderBackground } from './background';
 import { renderFps } from './fps';
+import { renderText } from './text';
 import { setSizing } from './set-sizing';
 import { shipTypes } from './ships';
 import { stationTypes } from './stations';
@@ -122,6 +123,10 @@ const movers = [...stations, ...roads];
 
 initKeys();
 
+// The sky is the most expensive thing on screen, so its parts can be stepped
+// through one at a time to see which of them is costing what
+bindKeys(['b'], sky.cycle);
+
 // Only the player's ship is flown off the keyboard. AI pilots work their own
 // modules through the same methods
 bindKeys(['c'], () => player.toggle(cargoScoop));
@@ -159,6 +164,7 @@ GameLoop({
 
     renderDeadzone(game);
     renderFps(game);
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: sky.label, x: 10, y: 30 });
     colorsDemo(game);
     textDemo(game);
   },

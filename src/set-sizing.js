@@ -11,6 +11,10 @@ export const setSizing = (game) => {
   game.height = window.innerHeight / game.scale;
   game.canvas.width = window.innerWidth;
   game.canvas.height = window.innerHeight;
+  // Resizing a canvas wipes its context settings, so this goes back on after.
+  // Smoothing costs real time on the tiles of sky, which are the only thing
+  // drawn as an image and are scaled up a little to fit
+  game.ctx.imageSmoothingEnabled = false;
 
   // The HUD has a grid of its own, so that zooming the world out by raising
   // game.size shrinks the ships without shrinking the text along with them
