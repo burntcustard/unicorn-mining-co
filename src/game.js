@@ -3,7 +3,7 @@ import { init } from 'kontra';
 
 const { canvas, context } = init();
 
-canvas.style = `width:100%;background:${colors.purple[0]}`;
+canvas.style = `display:block;width:100%;background:${colors.purple[0]}`;
 
 export const game = {
   canvas,

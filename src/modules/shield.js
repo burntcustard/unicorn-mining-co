@@ -26,7 +26,8 @@ export const shield = {
   // ship is hit as the bubble and nothing else
   covers: true,
   health: 40,
-  name: 'Shield',
+  key: 's',
+  name: 'Shield Array',
   parts: [
     {
       lines: ({ phase }) => [arm(phase), arm(phase + Math.PI / 2)],

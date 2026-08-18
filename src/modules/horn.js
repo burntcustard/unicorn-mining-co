@@ -48,8 +48,9 @@ export const horn = {
   // Grinds a rock down and cracks it open where it touches a loaded one
   grinds: true,
   health: 30,
+  key: 'd',
   lines: fluteLines,
-  name: 'Mining horn',
+  name: 'Horn Drill',
   points: [[hornBase, -hornHalfWidth], [hornBase + hornLength, 0], [hornBase, hornHalfWidth]],
   price: 350,
   state: () => ({ phase: 0 }),

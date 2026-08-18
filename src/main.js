@@ -20,6 +20,7 @@ import { game } from './game';
 import { grind } from './mining';
 import { place } from './collisions';
 import { release } from './movement';
+import { renderControls } from './ui/controls';
 import { renderFps } from './fps';
 import { renderText } from './text';
 import { setSizing } from './set-sizing';
@@ -160,11 +161,10 @@ bindKeys(['b'], sky.cycle);
 bindKeys(['x'], () => items.forEach((item) => item.arm()));
 
 // Only the player's ship is flown off the keyboard. AI pilots work their own
-// modules through the same methods
-bindKeys(['c'], () => playerShip.toggle(cargoScoop));
-bindKeys(['h'], () => playerShip.toggle(horn));
-bindKeys(['l'], () => playerShip.toggle(floodlight));
-bindKeys(['s'], () => playerShip.toggle(shield));
+// modules through the same methods. Each switchable module names the key that
+// works it, so the panel and the binding stay in step off the one letter
+[cargoScoop, horn, shield, floodlight].forEach((module) =>
+  bindKeys([module.key], () => playerShip.toggle(module)));
 
 // Space sees a docked ship back out through the bay it came in by
 bindKeys([' '], () => playerShip.dockedTo && launch(playerShip));
@@ -228,6 +228,7 @@ GameLoop({
     renderFps(game);
     renderText({ ctx: game.ctx, scale: game.uiScale, text: `$${player.credits}`, x: 10, y: 30 });
     renderText({ ctx: game.ctx, scale: game.uiScale, text: sky.label, x: 10, y: 50 });
+    renderControls(game, playerShip);
 
     if (player.noteFor) {
       renderText({

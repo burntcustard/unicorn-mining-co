@@ -1,7 +1,7 @@
 import { colors } from './colors';
 
 /**
- * Demo the colors by showing a swatch of each shade in the bottom right corner of the canvas.
+ * Demo the colors by showing a swatch of each shade in the top right corner of the canvas.
  * @param {*} game game object
  */
 export const colorsDemo = (game) => {
@@ -11,7 +11,7 @@ export const colorsDemo = (game) => {
   const margin = 10;
   const shades = Object.values(colors);
   const left = game.uiWidth - margin - 5 * (swatch + gap);
-  const top = game.uiHeight - margin - shades.length * (swatch + gap);
+  const top = margin;
 
   ctx.save();
   ctx.scale(game.uiScale, game.uiScale);

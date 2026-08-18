@@ -14,7 +14,7 @@ export const textDemo = (game) => {
     scale: game.uiScale,
     text: 'Hello world',
     x: game.uiWidth / 2,
-    y: game.uiHeight / 2,
+    y: game.uiHeight / 2 - 150,
   });
 
   charset.forEach((text, i) => {
@@ -24,7 +24,7 @@ export const textDemo = (game) => {
       scale: game.uiScale,
       text,
       x: game.uiWidth / 2,
-      y: game.uiHeight / 2 + 40 + i * 20,
+      y: game.uiHeight / 2 - 150 + 40 + i * 20,
     });
   });
 

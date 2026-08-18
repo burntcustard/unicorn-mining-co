@@ -41,9 +41,10 @@ export const floodlight = {
   // Lit rather than painted, so it lifts everything already drawn under it
   beam: true,
   health: 20,
+  key: 'l',
   lens,
   mouth,
-  name: 'Floodlight',
+  name: 'Search Light',
   parts: [{ points: cone }],
   price: 450,
   reach,
