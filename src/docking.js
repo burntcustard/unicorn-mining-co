@@ -18,6 +18,8 @@ const thrusterOf = (ship) => ship.mounts.find(({ module }) => module?.thrust)?.m
  */
 export const checkDocking = (ship) => {
   const inside = ship.hitboxes()
+    // A throat sits inside the ship noticing cargo, and is not the ship itself
+    .filter(({ segment }) => !segment.catches)
     .flatMap(collisions)
     .filter(({ other }) => other.open)
     .map(({ other }) => other);

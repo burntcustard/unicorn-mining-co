@@ -2,33 +2,32 @@
  * Collision checking, and nothing at all about what a collision means: the
  * caller is handed the overlap and decides for itself what to do about it.
  *
- * Everything checked needs a place in the world and a `radius` that covers all
- * of it. Anything carrying an `outline` of points is then tested against that
- * exactly, and anything without one is simply the circle its radius describes.
- * Things that share an `owner`, like the pieces of one ship, are never checked
- * against each other.
+ * There are two shapes and no others. Anything with an `outline` of points is
+ * tested against those exactly, anything without is the circle its `radius`
+ * describes, and a scoop door is a long thin rectangle rather than a case of
+ * its own. Pieces sharing an `owner` never check against each other, and an
+ * `open` thing is reported like any other.
  *
- * An `open` thing is reported the same as any other. Whether an overlap stops
- * anything moving is the caller's business, not this file's.
+ * The test is the separating axis theorem, laid out as Matter.js and SAT.js
+ * lay it out: two shapes are apart if there is any line they can both be
+ * flattened onto without touching, and the lines worth trying are the ones
+ * square to their edges. Where none tells them apart, the least overlap of the
+ * lot is the shortest way back out.
  *
- * Comparing everything to everything is hopeless in a world of tens of
- * thousands of asteroids, so things are filed into a grid of square cells and
- * only ever compared against whatever shares the nine cells around them.
+ * Comparing everything to everything is hopeless with tens of thousands of
+ * asteroids about, so things are filed into a grid of square cells and only
+ * compared against whatever shares the nine cells around them.
  */
 
-// World units across a cell. Two things can only find each other if their
-// radiuses add up to less than one, because a search only looks at the ring of
-// cells around whatever is doing the searching
+// World units across a cell. Two things only find each other if their radiuses
+// add up to less than one, since a search looks at the ring of cells around it
 const cellSize = 256;
 
 const cells = new Map();
-
 const cellKey = (x, y) => `${Math.floor(x / cellSize)},${Math.floor(y / cellSize)}`;
 
-/**
- * File a thing under the cell it is sat in, and shift it along as it drifts.
- * Anything that wants to be found has to be placed first.
- */
+// Filed under the cell it sits in and shifted along as it drifts. Anything
+// that wants to be found has to be placed first
 export const place = (thing) => {
   const cell = cellKey(thing.x, thing.y);
 
@@ -38,6 +37,13 @@ export const place = (thing) => {
   cells.set(cell, cells.get(cell) || new Set());
   cells.get(cell).add(thing);
   thing.cell = cell;
+};
+
+// Out of the world for good, so that whatever scooped it up or blew it apart
+// is the last thing ever to find it
+export const unplace = (thing) => {
+  cells.get(thing.cell)?.delete(thing);
+  thing.cell = null;
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
@@ -57,6 +63,25 @@ const axesOf = (points) => points.map(([x, y], i) => {
   return [(nextY - y) / length, (x - nextX) / length];
 });
 
+// A circle brings no edges of its own, so the one axis it needs is the one
+// running out to the nearest corner of whatever it is up against
+const cornerAxis = (points, x, y) => {
+  let near = Infinity;
+  let axis = [1, 0];
+
+  points.forEach(([px, py]) => {
+    const awayX = px - x;
+    const awayY = py - y;
+    const away = Math.hypot(awayX, awayY);
+
+    if (away && away < near) {
+      near = away;
+      axis = [awayX / away, awayY / away];
+    }
+  });
+
+  return axis;
+};
 // How far along an axis a shape reaches, as a near and a far mark
 const spanOf = (thing, points, axisX, axisY) => {
   const middle = thing.x * axisX + thing.y * axisY;
@@ -76,10 +101,8 @@ const spanOf = (thing, points, axisX, axisY) => {
   return [near, far];
 };
 
-/**
- * @returns {Object} [hit] - How deep the two are into each other, and the way
- *   out of it pointing from the first towards the second.
- */
+// How deep the two are into each other, and the way out of it pointing from
+// the first towards the second
 const hit = (a, b) => {
   const gapX = b.x - a.x;
   const gapY = b.y - a.y;
@@ -90,13 +113,14 @@ const hit = (a, b) => {
 
   const aPoints = a.outline && placePoints(a);
   const bPoints = b.outline && placePoints(b);
+  const middles = between ? [gapX / between, gapY / between] : [1, 0];
   const axes = [
     ...(aPoints ? axesOf(aPoints) : []),
     ...(bPoints ? axesOf(bPoints) : []),
-    // A circle has no edges to take an axis from, so fall back on the line
-    // drawn between the middles of the two
-    between ? [gapX / between, gapY / between] : [1, 0],
   ];
+
+  if (!aPoints) axes.push(bPoints ? cornerAxis(bPoints, a.x, a.y) : middles);
+  if (!bPoints) axes.push(aPoints ? cornerAxis(aPoints, b.x, b.y) : middles);
 
   let depth = Infinity;
   let outX = 0;
@@ -105,31 +129,36 @@ const hit = (a, b) => {
   const apart = axes.some(([axisX, axisY]) => {
     const [aNear, aFar] = spanOf(a, aPoints, axisX, axisY);
     const [bNear, bFar] = spanOf(b, bPoints, axisX, axisY);
-    const overlap = Math.min(aFar, bFar) - Math.max(aNear, bNear);
-
-    // One axis with daylight along it is proof they are not touching
-    if (overlap <= 0) return true;
+    // How far the second would have to shift each way along this axis to be
+    // clear of the first. The shorter of the two is the way out, and which of
+    // them it is says which way round the pair come apart, which is how both
+    // SAT.js and Matter.js settle it. Nothing here asks where either of them
+    // is: a scoop door hangs a long way off the mount it is pinned to, so its
+    // middle says nothing useful about which side of it anything is
+    const onwards = aFar - bNear;
+    const backwards = bFar - aNear;
+    const overlap = Math.min(onwards, backwards);
 
     if (overlap < depth) {
+      const facing = onwards < backwards ? 1 : -1;
+
       depth = overlap;
-      outX = axisX;
-      outY = axisY;
+      outX = axisX * facing;
+      outY = axisY * facing;
     }
+
+    // One axis with daylight along it is proof they are not touching
+    return overlap <= 0;
   });
 
   if (apart) return;
 
-  // The shallowest axis is the shortest way out, turned to face the second
-  const away = outX * gapX + outY * gapY < 0 ? -1 : 1;
-
-  return { depth, other: b, x: outX * away, y: outY * away };
+  return { depth, other: b, x: outX, y: outY };
 };
 
 /**
- * Everything a thing is currently overlapping, whatever that may mean.
- *
  * @param {Object} thing
- * @returns {Object[]} hits
+ * @returns {Object[]} hits - Everything it is currently overlapping.
  */
 export const collisions = (thing) => {
   const cellX = Math.floor(thing.x / cellSize);

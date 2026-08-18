@@ -1,0 +1,21 @@
+We need to add a new category of objects in the game called 'items'. Items are objects which are not ship modules or ships or stations, but things that can float around in the game world, be bought or sold, etc. Similar to ships and modules, they should have a price, a name, a price, health, mass, bounciness, and some sort of model/hitbox, which is likely to just be a polygon. The hitbox for items is likely to always just be a rectangle or a circle, but hopefully we can do that in a similar or exactly the same way as modules and/or ships, so that we get good text compression.
+
+So we'll need an items folder.
+
+Inside that folder we need to add the following items. Try to come up with simple models/lines and hitboxes for them
+
+Diamond - very valuable, high health, "diamond" shape despite it not being particularly realistic, same shading as our blue ship, but transparent, and with a + shape shiny bit like in the background
+
+Platinum - very valuable, high health, rectangle, might need to add a new grey color? Probably with a + shape shiny bit like  in the background
+
+Gold - valuable, high health,  rectangle, same shading as our yellow ship example, and with a + shape shiny bit like in the background
+
+Opal - valuable, high health, circle, same shading as our white ship example, with a + shape shiny bit like in the background. Or maybe we should try to make it even more rainbow-shaded/lit than our white ship?
+
+Amethyst - valuable, high health, hexagonal, same shading as our purple ship example, but transparent, with a + shape shiny bit like in the background
+
+Message - little value, contains some sort of message that a player can see when picked up, with coordinates to an asteroid with lots of valuable items in, or to a space station with discount items, or something else. We don't have to figure out those actual coordinates yet, just store a short plain text string message.
+
+Cache - medium value, instantly gives credits (used to pay for things) on pickup rather than having to sell. Oh by the way a player in the game should have an amount of credits they have that they will use to pay for things...
+
+Explosive - low value, red rectangle with black line that needs to glow, explodes 3s after being mined out of an asteroid. The explosion will need a small animation, and the explosion will need to force nearby items away a little

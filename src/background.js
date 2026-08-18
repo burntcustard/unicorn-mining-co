@@ -1,7 +1,6 @@
-import { circlePath, shapePath } from './drawing';
+import { circlePath, sparklePath } from './drawing';
 import { camera } from './camera';
 import { colors } from './colors';
-import { createPolygon } from './polygon';
 
 /**
  * The sky behind everything: sparks of starlight and soft clouds of colour,
@@ -45,24 +44,15 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 const starColor = (tints) => (Math.random() < tinted ? pick(tints) : colors.white[2]);
 
-// Eight points around alternating radiuses makes a four pointed sparkle. The
-// long ones go on the even corners, which are the ones straight up and along,
-// so it comes out as a + rather than an x
-const starPath = (size) => shapePath(createPolygon({
-  points: 8,
-  radius: size * 0.7,
-  radiusEven: size * 4,
-}));
-
 // What the sky can be built out of. A part is left out of the tile altogether
 // rather than skipped while drawing, so what a mode costs is what is in the
 // sky rather than how many blits it takes to put it there
 const modes = [
-  { label: 'SKY ALL', parts: ['clouds', 'dots', 'sparkles'] },
-  { label: 'SKY FOG', parts: ['clouds'] },
-  { label: 'SKY DOTS', parts: ['dots'] },
-  { label: 'SKY SPARKLES', parts: ['sparkles'] },
-  { label: 'SKY OFF', parts: [] },
+  { label: 'SKY: ALL', parts: ['clouds', 'dots', 'sparkles'] },
+  { label: 'SKY: FOG', parts: ['clouds'] },
+  { label: 'SKY: DOTS', parts: ['dots'] },
+  { label: 'SKY: SPARKLES', parts: ['sparkles'] },
+  { label: 'SKY: OFF', parts: [] },
 ];
 
 let mode = 0;
@@ -129,7 +119,7 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
 
   if (parts.includes('sparkles')) Array.from({ length: sparkles }).forEach(() => {
     const color = starColor(sparkleTints);
-    const path = starPath(size * (1 + Math.random()));
+    const path = sparklePath(size * (1 + Math.random()));
     const x = Math.random() * tile;
     const y = Math.random() * tile;
 

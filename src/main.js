@@ -1,19 +1,22 @@
+import { Item, remove } from './item';
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
-import { carry, release } from './movement';
-import { checkDocking, flyOut, launch } from './docking';
+import { detonate, renderBlasts, updateBlasts } from './explosion';
+import { flyOut, launch } from './docking';
+import { player, updatePlayer } from './player';
 import { renderBackground, sky } from './background';
 import { Asteroid } from './asteroid';
 import { GameLoop } from 'kontra';
 import { Road } from './road';
 import { Ship } from './ship';
 import { Station } from './station';
-import { bounceOff } from './bounce';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { game } from './game';
+import { itemTypes } from './items';
 import { place } from './collisions';
+import { release } from './movement';
 import { renderFps } from './fps';
 import { renderText } from './text';
 import { setSizing } from './set-sizing';
@@ -25,7 +28,7 @@ setSizing(game);
 
 window.onresize = () => setSizing(game);
 
-const player = new Ship({
+const playerShip = new Ship({
   scale: 1,
   shades: colors.white,
   shipData: shipTypes.mustang,
@@ -33,13 +36,13 @@ const player = new Ship({
   y: game.height / 2,
 });
 
-player.fit(shield);
-player.fit(floodlight);
+playerShip.fit(shield);
+playerShip.fit(floodlight);
 
-player.paint(horn, colors.yellow);
-player.paint(thrusterDualSm, colors.violet);
-player.paint(cargoScoop, colors.violet);
-player.paint(shield, colors.violet);
+playerShip.paint(horn, colors.yellow);
+playerShip.paint(thrusterDualSm, colors.violet);
+playerShip.paint(cargoScoop, colors.violet);
+playerShip.paint(shield, colors.violet);
 
 // One hull of every colour, lined up to see how the light falls across them
 const swatches = ['black', 'red', 'orange', 'yellow', 'green', 'cyan', 'violet', 'black', 'white']
@@ -113,10 +116,19 @@ const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
   y: game.height / 2 - 260 + i * 130,
 }));
 
-const fleet = [player, ...swatches];
+const fleet = [playerShip, ...swatches];
 const roads = [northRoad];
 const scenery = [...asteroids, ...blocks, ...stars];
 const stations = [corral];
+
+// One of everything, in a row below the ship to fly into and scoop up. These
+// will come out of mined rocks rather than being placed
+const items = itemTypes.map((itemData, i) => new Item({
+  itemData,
+  spin: Math.random() - 0.5,
+  x: game.width / 3 - 180 + i * 60,
+  y: game.height / 2 + 110,
+}));
 
 // Everything that can catch hold of a ship and carry it along
 const movers = [...stations, ...roads];
@@ -127,22 +139,26 @@ initKeys();
 // through one at a time to see which of them is costing what
 bindKeys(['b'], sky.cycle);
 
+// Cutting an item out of a rock is what arms it. Until there is mining to do
+// that, this stands in for it
+bindKeys(['x'], () => items.forEach((item) => item.arm()));
+
 // Only the player's ship is flown off the keyboard. AI pilots work their own
 // modules through the same methods
-bindKeys(['c'], () => player.toggle(cargoScoop));
-bindKeys(['h'], () => player.toggle(horn));
-bindKeys(['l'], () => player.toggle(floodlight));
-bindKeys(['s'], () => player.toggle(shield));
+bindKeys(['c'], () => playerShip.toggle(cargoScoop));
+bindKeys(['h'], () => playerShip.toggle(horn));
+bindKeys(['l'], () => playerShip.toggle(floodlight));
+bindKeys(['s'], () => playerShip.toggle(shield));
 
 // Space sees a docked ship back out through the bay it came in by
-bindKeys([' '], () => player.dockedTo && launch(player));
+bindKeys([' '], () => playerShip.dockedTo && launch(playerShip));
 
 bindKeys(['m'], () => {
-  if (player.localMovement) release(player);
-  else player.localMovement = corral;
+  if (playerShip.localMovement) release(playerShip);
+  else playerShip.localMovement = corral;
 });
 
-centerCamera(game, player);
+centerCamera(game, playerShip);
 colorsDemo(game);
 
 GameLoop({
@@ -156,15 +172,31 @@ GameLoop({
     roads.forEach((road) => road.render(game.scale));
     stations.forEach((station) => station.render(game.scale));
     scenery.forEach((thing) => thing.render(game.scale));
+    items.forEach((item) => item.render(game.scale));
     fleet.forEach((ship) => ship.render(game.scale, scenery));
     // Whatever a ship can fly inside of goes on last, over the top of it
     stations.forEach((station) => station.render(game.scale, true));
+    // Light rather than paint, so it goes over everything it lights up
+    renderBlasts(game, game.scale);
 
     game.ctx.restore();
 
     renderDeadzone(game);
     renderFps(game);
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: sky.label, x: 10, y: 30 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `$${player.credits}`, x: 10, y: 30 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: sky.label, x: 10, y: 50 });
+
+    if (player.noteFor) {
+      renderText({
+        alignCenter: true,
+        ctx: game.ctx,
+        scale: game.uiScale,
+        text: player.note,
+        x: game.uiWidth / 2,
+        y: game.uiHeight - 40,
+      });
+    }
+
     colorsDemo(game);
     textDemo(game);
   },
@@ -179,24 +211,36 @@ GameLoop({
       place(thing);
     });
 
+    // Backwards, because an item that goes off takes itself out of the list
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i];
+
+      item.update(dt);
+      place(item);
+
+      // A fuse only ever reaches zero once it has been armed
+      if (item.fuse === 0) {
+        remove(item, items);
+        detonate(item, items, fleet);
+      }
+    }
+
+    updateBlasts(dt);
+    updatePlayer(dt);
+
     // An AI pilot will set its own ship's controls here. Whoever is aboard, a
     // launching ship sees itself out of the bay, and a ship on a road has the
     // road doing the driving for it
-    const thrusting = !player.localMovement?.drives &&
-      (flyOut(player, dt) || keyDown('ArrowUp'));
+    const thrusting = !playerShip.localMovement?.drives &&
+      (flyOut(playerShip, dt) || keyDown('ArrowUp'));
 
-    player.fly(
+    playerShip.fly(
       thrusting ? 1 : 0,
       (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
     );
 
-    fleet.forEach((ship) => {
-      ship.update(dt);
-      bounceOff(ship);
-      checkDocking(ship);
-      carry(ship, movers, dt);
-    });
+    fleet.forEach((ship) => ship.update(dt, items, movers));
 
-    followTarget(game, player, dt);
+    followTarget(game, playerShip, dt);
   },
 }).start();

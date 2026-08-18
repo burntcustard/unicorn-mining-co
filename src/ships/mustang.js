@@ -10,17 +10,20 @@ export const mustang = {
   mass: 9,
   name: 'Mustang',
   price: 2000,
-  turnRate: 4,
+  turnRate: 3,
   // The cockpit takes its health from the hull it is built into rather than
   // bringing its own, because it is a different shape on every ship
   hullSegments: [
     { health: 10, points: [[-16, -36], [-4, -36], [-16, -20]] },
-    { health: 20, points: [[-4, -36], [20, -12], [-16, -20]] },
+    // The wedges the scoops open onto. They stand aside for cargo while the
+    // doors are open, which is what lets an item fall in under the hull and
+    // into the throat waiting behind them
+    { health: 20, mouth: true, points: [[-4, -36], [20, -12], [-16, -20]] },
     { health: 20, points: [[-16, -20], [20, -12], [8, 0]] },
     { health: 25, points: [[-16, -20], [8, 0], [-16, 20]] },
     { health: 30, module: cockpit, points: [[20, -12], [20, 12], [8, 0]] },
     { health: 20, points: [[8, 0], [20, 12], [-16, 20]] },
-    { health: 20, points: [[-16, 20], [20, 12], [-4, 36]] },
+    { health: 20, mouth: true, points: [[-16, 20], [20, 12], [-4, 36]] },
     { health: 10, points: [[-16, 20], [-4, 36], [-16, 36]] },
   ],
   // Mounts only say where a module goes and which ones will go there. Which

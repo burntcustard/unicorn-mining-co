@@ -8,22 +8,68 @@ const scoopLength = 16;
 // Well past square to the hull, in radians, so a door stands right out of it
 const openAngle = 2.5;
 
+// Half the thickness of a door. It is drawn as the slab it is hit on, with no
+// outline round it, so the three it comes to is the three a line would have
+// been. Thinner than this and cargo travelling a whole frame's worth in one go
+// steps clean over it
+const doorWidth = 1.5;
+
+// How far back the throat reaches from the mount the scoop hangs on. Cargo is
+// taken in once its middle is inside this, not when a corner of it first
+// brushes the edge, so a scoop length here has a rock well into the ship
+// before it goes rather than swallowing it off the hull edge
+const throatRadius = scoopLength;
+
+// Far enough out that the doors are no longer a wall across the way in
+export const scoopOpen = 0.5;
+
+// A door, hinged at its outer end and swinging forward as the scoop opens. A
+// long thin rectangle, which is the whole of why it can be collided with
+const doorPoints = (anim, side) => {
+  const angle = anim * openAngle;
+  const fromY = side * scoopLength;
+  const toX = scoopLength * Math.sin(angle);
+  const toY = side * scoopLength * (1 - Math.cos(angle));
+  const runY = toY - fromY;
+  const length = Math.hypot(toX, runY);
+  const outX = (runY / length) * doorWidth;
+  const outY = (-toX / length) * doorWidth;
+
+  return [
+    [outX, fromY + outY],
+    [toX + outX, toY + outY],
+    [toX - outX, toY - outY],
+    [-outX, fromY - outY],
+  ];
+};
+
+const door = (side) => ({
+  bare: true,
+  points: ({ anim }) => doorPoints(anim, side),
+  radius: () => scoopLength * 2,
+});
+
 export const cargoScoop = {
   // Slow enough to read as a door swinging rather than a flicker
   activationDuration: 0.7,
   health: 20,
-  lines: ({ anim }) => {
-    const angle = anim * openAngle;
-    const x = scoopLength * Math.sin(angle);
-    const y = scoopLength * Math.cos(angle);
-
-    return [
-      [[0, -scoopLength], [x, y - scoopLength]],
-      [[0, scoopLength], [x, scoopLength - y]],
-    ];
-  },
   name: 'Cargo Scoop',
+  parts: [
+    door(-1),
+    door(1),
+    {
+      // Nothing to see and nothing to bump into: a throat only ever notices
+      // what has found its way in between the doors
+      catches: true,
+      // No throat at all until the doors are properly open, which is what
+      // stops a shut scoop swallowing whatever it is driven into
+      radius: ({ anim }) => (anim > scoopOpen ? throatRadius : 0),
+    },
+  ],
   price: 150,
+  // An open mouth is what draws loose cargo in, so this is the piece that
+  // decides whether a ship can pick anything up
+  scoops: true,
   switched: true,
   zIndex: -1,
 };

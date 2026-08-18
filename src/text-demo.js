@@ -4,7 +4,7 @@ const charset = [
   'ABCDEFGHIJKLM',
   'NOPQRSTUVWXYZ',
   '0123456789',
-  '!$%(),-/>',
+  ':!$%(),-/>',
 ];
 
 export const textDemo = (game) => {

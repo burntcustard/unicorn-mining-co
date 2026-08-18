@@ -13,9 +13,16 @@ import { collisions } from './collisions';
  */
 export const bounceOff = (ship) => {
   ship.hitboxes().forEach((hitbox) => {
+    // A throat is there to notice what has got inside it, not to shove things
+    if (hitbox.segment.catches) return;
+
     collisions(hitbox).forEach(({ depth, other, x, y }) => {
       // Open things are flown straight through, so they never push back
       if (other.open) return;
+
+      // Loose cargo is shoved aside by a ship rather than stopping one, which
+      // is the scoop's business rather than this file's
+      if (other.item) return;
 
       const bounciness = Math.max(hitbox.bounciness || 0, other.bounciness || 0);
       const into = ship.dx * x + ship.dy * y;

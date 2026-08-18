@@ -47,3 +47,43 @@ export const slow = (velocity, mass, maxSpeed, dt) => {
     velocity.y *= drag;
   }
 };
+
+// Fastest anything drifts on nothing but the speed it was given. A ship under
+// power works its own top speed out of its thrusters instead of taking this
+export const driftSpeed = 70;
+
+// The furthest anything travels between one look at what it has run into and
+// the next. Box2D caps a step the same way: past this, a thing can be one side
+// of something thin before the step and the other side after, having never
+// touched it at any point anything looked
+const maxHop = 4;
+
+/**
+ * Carry a thing along by the speed it already has, dragging it back towards a
+ * stop as it goes. Everything that moves does this and does it the same way,
+ * whether it flies itself or was only ever shoved: the difference is in what
+ * put speed into it beforehand, not in what happens to that speed afterwards.
+ *
+ * Anything quick enough to jump over something in one frame is moved in
+ * several short hops instead, settling up after each. Space has no drag in it,
+ * but flying without any is horrible.
+ *
+ * @param {Object} thing - Anything with a place, a velocity, a `mass` and a
+ *   `maxSpeed`.
+ * @param {Number} dt - Seconds since the last update.
+ * @param {Function} [settle] - Run after every hop, to put right whatever that
+ *   hop has ended up inside of.
+ */
+export const move = (thing, dt, settle) => {
+  const hops = Math.max(1, Math.ceil((magnitude(thing.velocity) * dt) / maxHop));
+  const step = dt / hops;
+
+  for (let hop = 0; hop < hops; hop++) {
+    slow(thing.velocity, thing.mass, thing.maxSpeed, step);
+
+    thing.x += thing.dx * step;
+    thing.y += thing.dy * step;
+
+    settle?.();
+  }
+};

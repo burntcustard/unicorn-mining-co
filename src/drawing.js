@@ -1,3 +1,5 @@
+import { createPolygon } from './polygon';
+
 export const circlePath = (radius) => {
   const path = new Path2D();
 
@@ -14,6 +16,15 @@ export const shapePath = (points) => {
 
   return path;
 };
+
+// Eight points around alternating radiuses makes a four pointed sparkle. The
+// long ones go on the even corners, which are the ones straight up and along,
+// so it comes out as a + rather than an x
+export const sparklePath = (size) => shapePath(createPolygon({
+  points: 8,
+  radius: size * 0.7,
+  radiusEven: size * 4,
+}));
 
 export const linesPath = (lines) => {
   const path = new Path2D();

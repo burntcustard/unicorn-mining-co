@@ -2,7 +2,11 @@ import { drawBeam, drawHalo, lightAngle, litFill, shapeOf, tint } from './lighti
 import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
-import { slow } from './vector';
+import { bounceOff } from './resolve';
+import { carry } from './movement';
+import { checkDocking } from './docking';
+import { move } from './vector';
+import { scoop } from './scoop';
 
 // Segments below this much of their health are "damaged", at 0 destroyed
 const damagedAt = 0.5;
@@ -108,11 +112,16 @@ const makeSegment = (shipModule = {}, part, shades, mount) => {
     // Animation state is defined by the module but stored per segment, so
     // two modules on the same ship animate independently of each other
     ...shipModule.state?.(),
+    // Drawn as a solid with no outline round it
+    bare: part.bare,
     // A thruster flare is redrawn from scratch every frame and a shield is
     // drawn rather than laid out, so neither has a fixed shape to light
     ...(Array.isArray(points) && shapeOf(points, mount)),
     // How far through switching on the segment is, 0 to 1
     anim: 0,
+    // Cargo that reaches this piece has been caught by it. A throat detects
+    // rather than pushes, so it never bumps anything anywhere
+    catches: part.catches,
     critical: shipModule.critical,
     health,
     // Bare hull, rather than something bolted onto it
@@ -120,6 +129,9 @@ const makeSegment = (shipModule = {}, part, shades, mount) => {
     lines: part.lines,
     maxHealth: health,
     module: shipModule,
+    // Hull that a scoop opens onto, which stops shoving cargo away while the
+    // scoop is open so that there is a way in
+    mouth: part.mouth,
     // How hard the piece is running, 0 to 1. Switched modules wait to be
     // turned on, and everything else is always going
     on: shipModule.switched ? 0 : 1,
@@ -252,7 +264,12 @@ export class Ship extends Sprite.class {
       .filter((segment) => segment.radius && segment.health)
       .map((segment) => ({
         bounciness: segment.module.bounciness ?? hullBounciness,
-        outline: segment.points,
+        // How the ship is travelling, so whatever it runs into is put back out
+        // the side it came in by rather than the nearest side
+        dx: this.dx,
+        dy: this.dy,
+        // A shape that swings as it works, like a scoop door, is cut fresh
+        outline: segment.points?.call ? segment.points(segment) : segment.points,
         owner: this,
         radius: segment.radius(segment),
         rotation: this.rotation,
@@ -320,9 +337,15 @@ export class Ship extends Sprite.class {
   }
 
   /**
+   * Everything a ship does in a frame: fly itself, work its modules, take in
+   * whatever cargo it can reach, come off whatever it has run into, and be
+   * carried by whatever has hold of it. A pilot only has to set the controls.
+   *
    * @param {Number} dt - Seconds since the last update.
+   * @param {Object[]} [items] - Loose cargo, which it scoops up or shoves aside.
+   * @param {Object[]} [movers] - Anything that can take hold of it and carry it.
    */
-  update(dt) {
+  update(dt, items = [], movers = []) {
     const push = this.accel * this.forward * dt;
 
     this.rotation += this.turn * this.turnRate * this.throttle * dt;
@@ -330,11 +353,12 @@ export class Ship extends Sprite.class {
     this.dx += Math.cos(this.rotation) * push;
     this.dy += Math.sin(this.rotation) * push;
 
-    // Space has no drag in it, but flying without any is horrible
-    slow(this.velocity, this.mass, this.maxSpeed, dt);
-
-    this.x += this.dx * dt;
-    this.y += this.dy * dt;
+    // Settled up after every hop rather than once at the end, so nothing is
+    // ever jumped clean over on the way
+    move(this, dt, () => {
+      scoop(this, items);
+      bounceOff(this);
+    });
 
     this.segments.forEach((segment) => {
       const level = segment.health ? segment.on : 0;
@@ -342,6 +366,9 @@ export class Ship extends Sprite.class {
       segment.anim = approach(segment.anim, level, segment.rate * dt);
       segment.update?.(segment, dt);
     });
+
+    checkDocking(this);
+    carry(this, movers, dt);
   }
 
   /**
@@ -396,7 +423,9 @@ export class Ship extends Sprite.class {
           drawSpectrum(ctx, segment, beam);
         } else {
           ctx.fill(path);
-          ctx.stroke(path);
+          // A slab is all edge and no face, so an outline round it only draws
+          // it at twice the width it stands for
+          if (!segment.bare) ctx.stroke(path);
         }
       }
 

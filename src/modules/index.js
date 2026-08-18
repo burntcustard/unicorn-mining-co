@@ -43,7 +43,7 @@ import { thrusterSingleSm } from './thruster-single-sm';
 import { thrusterTripleMd } from './thruster-triple-md';
 import { thrusterTripleSm } from './thruster-triple-sm';
 
-export { cargoScoop } from './cargo-scoop';
+export { cargoScoop, scoopOpen } from './cargo-scoop';
 export { cockpit } from './cockpit';
 export { bayCorner, bayDepth, baySpan, dockingBay } from './docking-bay';
 export { floodlight } from './floodlight';
