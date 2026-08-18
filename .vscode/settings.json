@@ -3,6 +3,10 @@
     "/^npx eslint src/ && node --input-type=module -e \"console\\.log\\('sparks:', Math\\.floor\\(309 \\* 5 \\* 300 / 6000\\)\\)\" && npm run build 2>&1 \\| tail -3$/": {
       "approve": true,
       "matchCommandLine": true
+    },
+    "/^node -e \"\nconst c=\\{red:\\['#c00','#e22','#f33'\\],orange:\\['#c61','#e82','#fa3'\\],yellow:\\['#ca1','#ec3','#fe4'\\],green:\\['#1b4','#2d6','#3f7'\\],cyan:\\['#1bd','#3ce','#4df'\\],indigo:\\['#33c','#44d','#55f'\\],violet:\\['#c2c','#d4e','#e6f'\\],pink:\\['#c5a','#e7c','#f8d'\\],white:\\['#ddd','#eee','#fff'\\]\\};\nconst p=\\(x\\)=>\\[1,2,3\\]\\.map\\(\\(i\\)=>parseInt\\(x\\[i\\],16\\)\\*17\\);\nconst h=\\(a\\)=>'#'\\+a\\.map\\(\\(v\\)=>Math\\.round\\(v\\)\\.toString\\(16\\)\\.padStart\\(2,'0'\\)\\)\\.join\\(''\\);\nconst m=\\(f,t,a\\)=>f\\.map\\(\\(w,i\\)=>w\\+\\(t\\[i\\]-w\\)\\*a\\);\nconst white=p\\('#fff'\\),warm=p\\('#f8d'\\),cool=p\\('#33c'\\);\nconst lit=\\(x\\)=>h\\(m\\(m\\(p\\(x\\),white,0\\.32\\),warm,0\\.2\\)\\);\nconst dark=\\(x\\)=>h\\(m\\(p\\(x\\),cool,0\\.2\\)\\);\nObject\\.entries\\(c\\)\\.forEach\\(\\(\\[n,s\\]\\)=>console\\.log\\(n\\.padEnd\\(7\\),'base',s\\[2\\],'lit',lit\\(s\\[2\\]\\),'dark',dark\\(s\\[2\\]\\)\\)\\);\n\" && npx eslint src/ && npm run build 2>&1 \\| tail -2$/": {
+      "approve": true,
+      "matchCommandLine": true
     }
   }
 }

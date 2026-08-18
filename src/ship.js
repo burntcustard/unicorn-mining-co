@@ -1,3 +1,4 @@
+import { drawHalo, lightAngle, litFill, shapeOf, tint } from './lighting';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { slow } from './vector';
@@ -21,7 +22,31 @@ const thrustScale = 220;
 // Turns thrust against a hull's drag into a top speed in game units a second
 const speedScale = 85;
 
-const clamp = (value) => Math.min(1, Math.max(0, value));
+// How hard the nozzle on the inside of a turn keeps firing while the ship is
+// under way, rather than cutting out the way it does turning on the spot
+const steeringEase = 0.5;
+
+// Moves towards a target, by no more than a step at a time
+const approach = (value, target, step) => (
+  value + Math.max(-step, Math.min(step, target - value))
+);
+
+/**
+ * How hard one thruster nozzle is firing, 0 to 1.
+ *
+ * @param {Number} side - Which side of its mount the nozzle sits on, if any.
+ * @param {Number} forward - How much throttle the ship is being given.
+ * @param {Number} turn - Negative to turn left, positive to turn right.
+ */
+const nozzleLevel = (side, forward, turn) => {
+  // Nothing to do with steering, so it just follows the throttle
+  if (!turn || !side) return forward;
+
+  // Flat out on the outside of the turn to swing the ship round, while its
+  // opposite number eases off rather than cutting out, so a ship already under
+  // way keeps pushing while it steers
+  return turn === -side ? 1 : forward * steeringEase;
+};
 
 /**
  * A shape that never moves only has to be turned into a path once, one that
@@ -82,15 +107,21 @@ const makeSegment = (shipModule = {}, part, shades, mount) => {
     // Animation state is defined by the module but stored per segment, so
     // two modules on the same ship animate independently of each other
     ...shipModule.state?.(),
+    // A thruster flare is redrawn from scratch every frame and a shield is
+    // drawn rather than laid out, so neither has a fixed shape to light
+    ...(Array.isArray(points) && shapeOf(points, mount)),
     // How far through switching on the segment is, 0 to 1
     anim: 0,
     critical: shipModule.critical,
     health,
+    // Bare hull, rather than something bolted onto it
+    hull: !mount,
     lines: part.lines,
     maxHealth: health,
     module: shipModule,
-    // Switched modules wait to be turned on, everything else is always on
-    on: !shipModule.switched,
+    // How hard the piece is running, 0 to 1. Switched modules wait to be
+    // turned on, and everything else is always going
+    on: shipModule.switched ? 0 : 1,
     path: pathFor(part),
     // Each segment is hit-tested separately so it can be damaged on its own
     points,
@@ -108,7 +139,8 @@ const makeSegment = (shipModule = {}, part, shades, mount) => {
     thrust: (shipModule.thrust || 0) / (shipModule.parts?.length || 1),
     update: shipModule.update,
     x: mount?.x || 0,
-    y: mount?.y || 0,
+    // A nozzle sits off to its own side of the mount it shares with the others
+    y: (mount?.y || 0) + (part.side || 0) * (shipModule.offset || 0),
     // Below the hull for thrusters and scoops, above it for horns and shields
     zIndex: shipModule.zIndex || 0,
   };
@@ -125,7 +157,7 @@ export class Ship extends Sprite.class {
     this.mass = data.mass;
     this.price = data.price;
     // What the pilot is asking of the ship, set by fly()
-    this.forward = false;
+    this.forward = 0;
     this.turn = 0;
     // Seconds left of a ship seeing itself out of a docking bay
     this.launching = 0;
@@ -264,17 +296,15 @@ export class Ship extends Sprite.class {
   toggle(shipModule, on) {
     this.segments.forEach((segment) => {
       if (segment.module === shipModule) {
-        segment.on = on ?? !segment.on;
+        segment.on = (on ?? !segment.on) ? 1 : 0;
       }
     });
   }
 
   /**
-   * Fire the thrusters that push the ship the way its pilot is asking for. A
-   * turn fires only the nozzle on the outside of it, so the ship pivots around
-   * the other one, and nozzles in the middle of a mount only fire going ahead.
+   * Fire the thrusters that push the ship the way its pilot is asking for.
    *
-   * @param {Boolean} forward - Whether the ship is accelerating.
+   * @param {Number} forward - How much throttle to give it, 0 to 1.
    * @param {Number} turn - Negative to turn left, positive to turn right.
    */
   fly(forward, turn) {
@@ -282,8 +312,8 @@ export class Ship extends Sprite.class {
     this.turn = turn;
 
     this.segments.forEach((segment) => {
-      if (segment.module.thrust) {
-        segment.on = forward || (turn !== 0 && turn === -segment.side);
+      if (segment.thrust) {
+        segment.on = nozzleLevel(segment.side, forward, turn);
       }
     });
   }
@@ -292,13 +322,12 @@ export class Ship extends Sprite.class {
    * @param {Number} dt - Seconds since the last update.
    */
   update(dt) {
-    this.rotation += this.turn * this.turnRate * this.throttle * dt;
+    const push = this.accel * this.forward * dt;
 
-    if (this.forward) {
-      // A ship is only ever pushed along its nose, so turning is how it steers
-      this.dx += Math.cos(this.rotation) * this.accel * dt;
-      this.dy += Math.sin(this.rotation) * this.accel * dt;
-    }
+    this.rotation += this.turn * this.turnRate * this.throttle * dt;
+    // A ship is only ever pushed along its nose, so turning is how it steers
+    this.dx += Math.cos(this.rotation) * push;
+    this.dy += Math.sin(this.rotation) * push;
 
     // Space has no drag in it, but flying without any is horrible
     slow(this.velocity, this.mass, this.maxSpeed, dt);
@@ -307,9 +336,9 @@ export class Ship extends Sprite.class {
     this.y += this.dy * dt;
 
     this.segments.forEach((segment) => {
-      const on = segment.health && segment.on;
+      const level = segment.health ? segment.on : 0;
 
-      segment.anim = clamp(segment.anim + (on ? dt : -dt) * segment.rate);
+      segment.anim = approach(segment.anim, level, segment.rate * dt);
       segment.update?.(segment, dt);
     });
   }
@@ -326,17 +355,28 @@ export class Ship extends Sprite.class {
     ctx.lineJoin = 'bevel';
     ctx.lineWidth = lineWidth / this.scale;
 
+    // The light stays put while the ship turns under it, so each piece takes
+    // its own tone from how squarely it faces it. Ships are painted to be told
+    // apart though, so the light only ever tints what they are wearing
+    const light = lightAngle - this.rotation;
+    const nozzles = this.segments.filter(({ anim, health, thrust }) => thrust && health && anim);
+
+    nozzles.forEach((nozzle) => drawHalo(ctx, nozzle));
+
     this.segments.forEach((segment) => {
       if (!segment.health) return;
 
       ctx.save();
       ctx.translate(segment.x, segment.y);
 
-      // Damaged segments drop to the darkest shade, and a sheer segment is
-      // its brightest one with an alpha nibble on the end of it
-      ctx.fillStyle = segment.sheer ?
-        `${segment.shades[2]}2` :
-        segment.shades[segment.health > segment.maxHealth * damagedAt ? 1 : 0];
+      // Bare hull wears the brightest of its shades and a module the middle
+      // one, both dropping to the darkest once they are damaged. A sheer
+      // segment is the brightest with an alpha nibble on the end of it
+      const worn = segment.health > segment.maxHealth * damagedAt ? (segment.hull ? 2 : 1) : 0;
+      const lit = segment.middle &&
+        litFill(ctx, segment, light, (along) => tint(segment.shades, worn, along));
+
+      ctx.fillStyle = segment.sheer ? `${segment.shades[2]}2` : lit || segment.shades[worn];
       ctx.strokeStyle = segment.shades[2];
 
       const path = segment.path?.(segment);

@@ -13,6 +13,8 @@ import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { game } from './game';
 import { place } from './collisions';
+import { renderBackground } from './background';
+import { renderFps } from './fps';
 import { setSizing } from './set-sizing';
 import { shipTypes } from './ships';
 import { stationTypes } from './stations';
@@ -36,6 +38,16 @@ player.paint(horn, colors.yellow);
 player.paint(thrusterDualSm, colors.violet);
 player.paint(cargoScoop, colors.violet);
 player.paint(shield, colors.violet);
+
+// One hull of every colour, lined up to see how the light falls across them
+const swatches = ['black', 'red', 'orange', 'yellow', 'green', 'cyan', 'violet', 'black', 'white']
+  .map((color, i) => new Ship({
+    scale: 1,
+    shades: colors[color],
+    shipData: shipTypes.mustang,
+    x: 120 + i * 120,
+    y: game.height - 120,
+  }));
 
 const corral = new Station({
   // Turned to face the ship, so its bay is in view from the off
@@ -82,7 +94,7 @@ const stars = Array.from({ length: 2 }, () => new Asteroid({
   y: Math.random() * game.height,
 }));
 
-const fleet = [player];
+const fleet = [player, ...swatches];
 const roads = [northRoad];
 const scenery = [...asteroids, ...stars];
 const stations = [corral];
@@ -111,6 +123,9 @@ colorsDemo(game);
 
 GameLoop({
   render: () => {
+    // The sky slides past at its own pace, so it moves itself
+    renderBackground(game);
+
     game.ctx.save();
     game.ctx.translate(-camera.x * game.scale, -camera.y * game.scale);
 
@@ -124,6 +139,7 @@ GameLoop({
     game.ctx.restore();
 
     renderDeadzone(game);
+    renderFps(game);
     colorsDemo(game);
     textDemo(game);
   },
@@ -141,8 +157,11 @@ GameLoop({
     // An AI pilot will set its own ship's controls here. Whoever is aboard, a
     // launching ship sees itself out of the bay, and a ship on a road has the
     // road doing the driving for it
+    const thrusting = !player.localMovement?.drives &&
+      (flyOut(player, dt) || keyDown('ArrowUp'));
+
     player.fly(
-      !player.localMovement?.drives && (flyOut(player, dt) || keyDown('ArrowUp')),
+      thrusting ? 1 : 0,
       (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
     );
 

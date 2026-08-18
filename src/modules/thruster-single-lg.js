@@ -9,7 +9,7 @@ export const thrusterSingleLg = {
   health: 40,
   name: 'Single Large Thruster',
   parts: [
-    { points: (segment) => flare(segment, 0, size), side: 0 },
+    { points: (segment) => flare(segment, size), side: 0 },
   ],
   price: 1000,
   switched: true,

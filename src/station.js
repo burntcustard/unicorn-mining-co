@@ -1,3 +1,4 @@
+import { lightAngle, litFill, sample, shadingStep, shapeOf } from './lighting';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 
@@ -22,8 +23,12 @@ const localArea = 3;
  * @param {Object} [mount] - Where on the station the module is mounted.
  */
 const makeSegment = (stationModule = {}, part, shades, mount) => ({
+  ...shapeOf(part.points, mount),
   fill: shades[1],
   health: part.health ?? stationModule.health,
+  // Only the hull is lit. A module brings its own colour, and a bay is meant
+  // to look like a hole rather than a surface
+  hull: !mount,
   // A bay is left open where its halves meet, so it says which edges to draw
   // rather than having its whole outline stroked
   lines: part.lines && linesPath(part.lines),
@@ -48,19 +53,16 @@ const makeSegment = (stationModule = {}, part, shades, mount) => ({
  * @param {Object} station
  */
 const makeHitbox = (segment, station) => {
-  const { points } = segment;
-  const middle = points
-    .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
-    .map((total) => total / points.length);
+  const [middleX, middleY] = segment.middle;
 
   return {
-    at: [middle[0] + segment.x, middle[1] + segment.y],
+    at: [middleX + segment.x, middleY + segment.y],
     bounciness: hullBounciness,
     // Open pieces are still reported, they just do not push a ship back out
     open: segment.open,
-    outline: points.map(([x, y]) => [x - middle[0], y - middle[1]]),
+    outline: segment.points.map(([x, y]) => [x - middleX, y - middleY]),
     owner: station,
-    radius: Math.max(...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1]))),
+    radius: segment.reach,
     segment,
   };
 };
@@ -93,6 +95,24 @@ export class Station extends Sprite.class {
     this.radius = Math.max(...data.hullSegments
       .flatMap(({ points }) => points.map(([x, y]) => Math.hypot(x, y))));
     this.localRadius = localArea * this.radius;
+
+    this.relight();
+  }
+
+  /**
+   * Work out the gradient each plate is shaded with, running from the edge of
+   * it nearest the light to the edge furthest away. Where along the ramp that
+   * slice falls is set by how squarely the plate faces the light to begin
+   * with, which is what gives the station its form.
+   */
+  relight() {
+    const light = lightAngle - this.rotation;
+
+    this.litAt = this.rotation;
+
+    this.segments.forEach((segment) => {
+      if (segment.hull) segment.lit = litFill(this.ctx, segment, light, sample);
+    });
   }
 
   /**
@@ -199,6 +219,12 @@ export class Station extends Sprite.class {
     ctx.lineJoin = 'bevel';
     ctx.lineWidth = lineWidth;
 
+    // The light stays put while the station turns under it, so each plate
+    // takes its own tone from how squarely it faces the light. Shading them
+    // one at a time is what makes the thing read as a solid rather than as a
+    // coloured shape
+    if (Math.abs(this.rotation - this.litAt) >= shadingStep) this.relight();
+
     this.segments.forEach((segment) => {
       // Only what a ship flies in over goes behind it. The hull and everything
       // it can be swallowed by are drawn on top
@@ -208,7 +234,7 @@ export class Station extends Sprite.class {
 
       ctx.save();
       ctx.translate(segment.x, segment.y);
-      ctx.fillStyle = segment.fill;
+      ctx.fillStyle = segment.lit || segment.fill;
       ctx.strokeStyle = segment.stroke;
       ctx.fill(segment.path);
       ctx.stroke(segment.lines || segment.path);

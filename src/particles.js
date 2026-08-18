@@ -10,10 +10,11 @@ import { colors } from './colors';
  * that no two look alike and neither end of a road looks like a starting line.
  */
 
-// Every color that is really a color, rather than a shade of grey
-const greys = ['black', 'white'];
+// Colors that are there to stand out, rather than the ones meant to sit
+// behind things, which would be lost against the background
+const backdrops = ['black', 'purple', 'white'];
 const bright = Object.entries(colors)
-  .filter(([name]) => !greys.includes(name))
+  .filter(([name]) => !backdrops.includes(name))
   .map(([, shades]) => shades[2]);
 
 // Seconds a spark lasts, and the shortest and longest streak one draws

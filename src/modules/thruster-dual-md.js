@@ -9,9 +9,10 @@ export const thrusterDualMd = {
   activationDuration: 0.1,
   health: 25,
   name: 'Dual Medium Thrusters',
+  offset,
   parts: [
-    { points: (segment) => flare(segment, -offset, size), side: -1 },
-    { points: (segment) => flare(segment, offset, size), side: 1 },
+    { points: (segment) => flare(segment, size), side: -1 },
+    { points: (segment) => flare(segment, size), side: 1 },
   ],
   price: 800,
   switched: true,

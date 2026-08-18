@@ -1,8 +1,9 @@
+import { colors } from './colors';
 import { init } from 'kontra';
 
 const { canvas, context } = init();
 
-canvas.style = 'width:100%;background:#000';
+canvas.style = `width:100%;background:${colors.purple[0]}`;
 
 export const game = {
   canvas,

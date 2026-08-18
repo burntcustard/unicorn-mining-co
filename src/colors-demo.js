@@ -10,7 +10,7 @@ export const colorsDemo = (game) => {
   const gap = 2;
   const margin = 10;
   const shades = Object.values(colors);
-  const left = game.uiWidth - margin - 3 * (swatch + gap);
+  const left = game.uiWidth - margin - 5 * (swatch + gap);
   const top = game.uiHeight - margin - shades.length * (swatch + gap);
 
   ctx.save();

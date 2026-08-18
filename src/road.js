@@ -20,7 +20,7 @@ const sparkDensity = 1 / 6000;
 const lineWidth = 2;
 
 // Barely there, just enough to show where the lane runs
-const background = `${colors.blue[2]}2`;
+const background = `${colors.cyan[2]}2`;
 
 /**
  * A road sweeps anything that strays into it along a straight line far faster
