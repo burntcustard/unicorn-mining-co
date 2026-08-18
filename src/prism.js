@@ -188,10 +188,10 @@ const outlineOf = (ship, lamp, thing) => {
 /**
  * A ray put right through a rock: turned as it goes in, followed across to
  * whichever face it meets next, and turned again on the way back out. Nothing
- * at all if it cannot get in or back out again.
+ * at all only if it could not get in.
  *
- * @returns {Number[]} [passed] - Where it came out, which way it left, how far
- *   it had to go to get there, and the face it went out by.
+ * @returns {Array} [passed] - Where it came out, which way it left if it left
+ *   at all, how far it had to go, and the face it reached.
  */
 const through = (outlines, enterX, enterY, dirX, dirY, face, index, range) => {
   const into = refract(dirX, dirY, face, 1 / index);
@@ -200,13 +200,12 @@ const through = (outlines, enterX, enterY, dirX, dirY, face, index, range) => {
 
   const [intoX, intoY] = into;
   const [depth, out] = nearest(outlines, enterX, enterY, intoX, intoY);
+  const across = Math.min(depth, range);
+  // Light that cannot get back out still crossed the rock to find that out, so
+  // where it got to is worth having even when nothing comes of it
   const away = out && refract(intoX, intoY, out, index);
 
-  if (!away) return;
-
-  const across = Math.min(depth, range);
-
-  return [enterX + intoX * across, enterY + intoY * across, away[0], away[1], across, out];
+  return [enterX + intoX * across, enterY + intoY * across, away, across, out];
 };
 
 /**
@@ -245,8 +244,8 @@ export const traceBeam = (ship, lamp, scenery) => {
 
     beam.angles.push(angle);
     beam.hit.push(Math.min(near, range));
-    beam.faces.push(stopped ? face : undefined);
-    beam.leaves.push(passed && passed[5]);
+    beam.faces.push(passed ? face : undefined);
+    beam.leaves.push(passed && passed[2] && passed[4]);
   }
 
   return beam;
@@ -269,17 +268,36 @@ export const litPath = ({ angles, hit }) => {
   return path;
 };
 
-// Runs of rays that went in by the same face and came back out by the same
-// face, each of which is one clean pass through a prism. Light across a corner
-// meets faces pointing quite different ways and is bent quite differently by
-// each, so it comes out as two rainbows rather than as one smeared between them
-const runsOf = ({ faces, leaves }) => {
+const alike = (now, before) => before && now[0] * before[0] + now[1] * before[1] > sameFace;
+
+// Runs of rays that went in by the same face, whether or not any of the light
+// found its way back out again. Trapped light still crosses the rock, and the
+// crossing is worth seeing even when nothing comes out the far side
+const crossings = ({ faces }) => {
   const runs = [];
-  const alike = (now, before) => before && now[0] * before[0] + now[1] * before[1] > sameFace;
 
   faces.forEach((face, i) => {
-    // A ray with no way out of the rock is no part of any run. Left in, it
-    // brings a wild angle of its own to whichever band it lands in
+    if (!face) return;
+
+    const last = runs[runs.length - 1];
+
+    if (last && last.to === i - 1 && alike(face, faces[i - 1])) last.to = i;
+    else runs.push({ from: i, to: i });
+  });
+
+  return runs;
+};
+
+// Runs that also came back out by the same face, each of which is one clean
+// pass through a prism. Light across a corner meets faces pointing quite
+// different ways and is bent quite differently by each, so it comes out as two
+// rainbows rather than as one smeared between them
+const runsOf = ({ faces, leaves }) => {
+  const runs = [];
+
+  faces.forEach((face, i) => {
+    // A ray with no way out has no colours to give. Left in, it brings a wild
+    // angle of its own to whichever band it lands in
     if (!face || !leaves[i]) return;
 
     const last = runs[runs.length - 1];
@@ -363,9 +381,32 @@ export const drawSpectrum = (ctx, lamp, beam) => {
   const runs = runsOf(beam);
   const ways = lamp.ways ||= [];
 
-  if (!runs.length) return;
-
   ctx.save();
+
+  // Everything that got into a rock, drawn crossing it, whether or not any of
+  // it gets out the far side
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = lamp.anim * insideStrength;
+  ctx.fillStyle = lamp.shades[2];
+
+  crossings(beam).forEach((run) => {
+    const entries = [];
+    const exits = [];
+
+    for (let i = run.from; i <= run.to; i++) {
+      const dirX = Math.cos(angles[i]);
+      const dirY = Math.sin(angles[i]);
+      const enterX = dirX * hit[i];
+      const enterY = dirY * hit[i];
+      const [leaveX, leaveY] =
+        through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
+
+      entries.push([enterX, enterY]);
+      exits.push([leaveX, leaveY]);
+    }
+
+    if (entries.length > 1) ctx.fill(between(entries, exits));
+  });
 
   runs.forEach((run) => {
     // A single ray of a run is a graze off a corner, and has no width to make
@@ -392,7 +433,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     else ways.unshift([faces[middle], leaves[middle], way]);
 
     ways.length = Math.min(ways.length, recalls);
-    const entries = [];
+
     const exits = [];
     const aways = [];
 
@@ -406,24 +447,17 @@ export const drawSpectrum = (ctx, lamp, beam) => {
       // with no gaps in it whichever way round the face is
       const along = (i - run.from) / span;
       const index = redIndex + (violetIndex - redIndex) * (way ? along : 1 - along);
-      // Every ray of a run gets through at the middle of the spectrum, which is
+      const passed = through(outlines, enterX, enterY, dirX, dirY, faces[i], index, range);
+      // Every ray of a run gets out at the middle of the spectrum, which is
       // what put it there, so that stands in for the odd colour that does not
-      const passed = through(outlines, enterX, enterY, dirX, dirY, faces[i], index, range) ||
-        through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
-      const [leaveX, leaveY, awayX, awayY, across] = passed;
+      const [leaveX, leaveY, away, across] = passed[2] ?
+        passed :
+          through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
       const out = Math.max(0, range - hit[i] - across);
 
-      entries.push([enterX, enterY]);
       exits.push([leaveX, leaveY]);
-      aways.push([leaveX + awayX * out, leaveY + awayY * out]);
+      aways.push([leaveX + away[0] * out, leaveY + away[1] * out]);
     }
-
-    // The light on its way through the rock, from the face it went in by to
-    // the one it comes back out of
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = lamp.anim * insideStrength;
-    ctx.fillStyle = lamp.shades[2];
-    ctx.fill(between(entries, exits));
 
     // Taken as the brighter of the colour and whatever is already there rather
     // than added onto it, because a corner throws two fans across each other
