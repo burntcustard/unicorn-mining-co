@@ -10,11 +10,11 @@ export const colorsDemo = (game) => {
   const gap = 2;
   const margin = 10;
   const shades = Object.values(colors);
-  const left = game.width - margin - 3 * (swatch + gap);
-  const top = game.height - margin - shades.length * (swatch + gap);
+  const left = game.uiWidth - margin - 3 * (swatch + gap);
+  const top = game.uiHeight - margin - shades.length * (swatch + gap);
 
   ctx.save();
-  ctx.scale(game.scale, game.scale);
+  ctx.scale(game.uiScale, game.uiScale);
 
   shades.forEach((color, row) => {
     color.forEach((shade, column) => {

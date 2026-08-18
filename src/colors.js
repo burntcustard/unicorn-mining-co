@@ -13,4 +13,5 @@ export const colors = {
   blue:   ['#14b', '#36d', '#47f'],
   violet: ['#b2c', '#c4e', '#d6f'],
   white:  ['#ddd', '#eee', '#fff'],
+  black:  ['#000', '#111', '#222'],
 };

@@ -1,6 +1,7 @@
 // Mining horn
-// Sits a lineWidth ahead of the hull nose, so the two strokes touch exactly
-const hornBase = 23;
+// Starts a lineWidth ahead of its mount, so that where a mount sits on the
+// hull nose the two strokes touch exactly
+const hornBase = 3;
 const hornLength = 24;
 const hornHalfWidth = 6;
 
@@ -20,9 +21,9 @@ const spinRate = 1.5;
  * which is what sells the spin. They are drawn overlong and clipped to the
  * horn, so that they all keep the same angle however wide the horn is there.
  *
- * @param {Number} phase - Rotation of the horn, 0 to 1.
+ * @param {Object} segment - Holds the rotation of the horn as `phase`, 0 to 1.
  */
-const fluteLines = (phase) => Array.from({ length: fluteCount }, (_, i) => {
+const fluteLines = ({ phase }) => Array.from({ length: fluteCount }, (_, i) => {
   const middle = hornBase + (i - 1 + phase) * fluteSpacing;
   const reach = hornHalfWidth / fluteSlope;
 
@@ -33,11 +34,15 @@ const fluteLines = (phase) => Array.from({ length: fluteCount }, (_, i) => {
 });
 
 export const horn = {
-  active: true,
+  health: 30,
   lines: fluteLines,
+  name: 'Mining horn',
   points: [[hornBase, -hornHalfWidth], [hornBase + hornLength, 0], [hornBase, hornHalfWidth]],
+  price: 350,
   state: () => ({ phase: 0 }),
+  switched: true,
   update: (segment, dt) => {
-    segment.phase = (segment.phase + dt * spinRate) % 1;
+    segment.phase = (segment.phase + dt * spinRate * segment.anim) % 1;
   },
+  zIndex: 1,
 };

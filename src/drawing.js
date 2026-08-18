@@ -1,3 +1,11 @@
+export const circlePath = (radius) => {
+  const path = new Path2D();
+
+  path.arc(0, 0, radius, 0, Math.PI * 2);
+
+  return path;
+};
+
 export const shapePath = (points) => {
   const path = new Path2D();
 

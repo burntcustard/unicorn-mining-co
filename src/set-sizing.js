@@ -11,4 +11,10 @@ export const setSizing = (game) => {
   game.height = window.innerHeight / game.scale;
   game.canvas.width = window.innerWidth;
   game.canvas.height = window.innerHeight;
+
+  // The HUD has a grid of its own, so that zooming the world out by raising
+  // game.size shrinks the ships without shrinking the text along with them
+  game.uiScale = window.innerWidth / 720;
+  game.uiWidth = 720;
+  game.uiHeight = window.innerHeight / game.uiScale;
 };

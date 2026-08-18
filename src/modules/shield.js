@@ -1,0 +1,57 @@
+import { circlePath } from '../drawing';
+
+// Shield
+// A dial on the hull it protects, with a cross inside it that spins while the
+// shield is up, and a bubble around the whole ship that is only there while it
+// is up. Anything inside the bubble is hit through the bubble, not directly
+const radius = 7;
+
+// Wide enough to take in the hull and its modules from wherever it is mounted
+const bubbleRadius = 50;
+
+// How fast the cross turns while the shield is up, in radians a second
+const spinRate = 3;
+
+const dial = circlePath(radius);
+
+// One line of the cross, straight through the middle of the dial
+const arm = (angle) => [
+  [-Math.cos(angle) * radius, -Math.sin(angle) * radius],
+  [Math.cos(angle) * radius, Math.sin(angle) * radius],
+];
+
+export const shield = {
+  bounciness: 0.4,
+  // Everything behind the bubble is sheltered by it, so while it is up the
+  // ship is hit as the bubble and nothing else
+  covers: true,
+  health: 40,
+  name: 'Shield',
+  parts: [
+    {
+      lines: ({ phase }) => [arm(phase), arm(phase + Math.PI / 2)],
+      path: () => dial,
+    },
+    {
+      // A quarter of a second from nothing to full size, and the same back
+      activationDuration: 0.25,
+      // The bubble swells out of the dial as it comes up, and sinks back into
+      // it on the way down
+      path: ({ anim }) => anim && circlePath(bubbleRadius * anim),
+      // Nothing to hit until it is all the way up, at which point it takes
+      // over from the hull. With no outline to test it is simply a circle
+      radius: ({ anim }) => (anim === 1 ? bubbleRadius : 0),
+      sheer: true,
+    },
+  ],
+  price: 900,
+  // Coils and a generator leave less room for cargo
+  space: 3,
+  state: () => ({ phase: 0 }),
+  switched: true,
+  // A quarter turn brings the cross back around to where it started
+  update: (segment, dt) => {
+    segment.phase = (segment.phase + dt * spinRate * segment.anim) % (Math.PI / 2);
+  },
+  zIndex: 1,
+};
