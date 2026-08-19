@@ -61,7 +61,7 @@ export default defineConfig({
         unsafe_comps: true,
         unsafe_math: true,
       },
-      mangle: { properties: { keep_quoted: false } },
+      mangle: { properties: { keep_quoted: false, debug: true } },
       module: true,
     },
     assetsInlineLimit: 0,
