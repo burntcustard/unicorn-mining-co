@@ -8,8 +8,7 @@
     "dev:host": "vite --host",
     "build": "vite build",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "deploy": "git subtree push --prefix dist origin gh-pages"
+    "lint:fix": "eslint . --fix"
   },
   "repository": {
     "type": "git",
