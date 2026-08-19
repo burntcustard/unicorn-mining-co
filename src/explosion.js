@@ -40,14 +40,14 @@ const shareAt = (distance) => Math.max(0, 1 - distance / reach) ** 2;
 export const detonate = ({ x, y }, items, ships) => {
   blasts.push({ age: 0, x, y });
 
-  const shove = (thing, share) => {
-    const awayX = thing.x - x;
-    const awayY = thing.y - y;
+  const shove = (object, share) => {
+    const awayX = object.x - x;
+    const awayY = object.y - y;
     const away = Math.hypot(awayX, awayY) || 1;
-    const push = (force * share) / thing.mass;
+    const push = (force * share) / object.mass;
 
-    thing.dx += (awayX / away) * push;
-    thing.dy += (awayY / away) * push;
+    object.dx += (awayX / away) * push;
+    object.dy += (awayY / away) * push;
   };
 
   items.forEach((item) => {

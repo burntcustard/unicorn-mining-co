@@ -14,11 +14,11 @@ import { GameLoop } from 'kontra';
 import { Road } from './road';
 import { Ship } from './ship';
 import { Station } from './station';
-import { carry } from './movement';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { game } from './game';
 import { grind } from './mining';
+import { localMovement } from './local-movement';
 import { place } from './collisions';
 import { renderControls } from './ui/controls';
 import { renderFps } from './fps';
@@ -149,10 +149,10 @@ const movers = [...stations, ...roads];
 // Everything loose in the world does the same three things each frame: moves
 // under its own steam, is swept along by any road or station that has hold of
 // it, and is filed into the grid wherever it ends up
-const drift = (thing, dt) => {
-  thing.update(dt);
-  carry(thing, movers, dt);
-  place(thing);
+const drift = (child, dt) => {
+  child.update(dt);
+  localMovement(child, movers, dt);
+  place(child);
 };
 
 // The player's lamp, kept to hand so what it is picking out can be worked out
@@ -191,7 +191,7 @@ GameLoop({
 
     roads.forEach((road) => road.render(game.scale));
     stations.forEach((station) => station.render(game.scale));
-    scenery.forEach((thing) => thing.render(game.scale));
+    scenery.forEach((object) => object.render(game.scale));
     // Buried cargo shows only through the slice of rock the floodlight is
     // actually crossing, as if the lamp lets a pilot peer inside it. The reveal
     // is clipped to the shape the beam makes inside the rocks, taken in the
@@ -254,7 +254,7 @@ GameLoop({
       station.hitboxes.forEach(place);
     });
     roads.forEach((road) => road.update(dt));
-    scenery.forEach((thing) => drift(thing, dt));
+    scenery.forEach((object) => drift(object, dt));
 
     // Backwards, because an item that goes off takes itself out of the list
     for (let i = items.length - 1; i >= 0; i--) {
@@ -276,7 +276,7 @@ GameLoop({
     // An AI pilot will set its own ship's controls here. Whoever is aboard, a
     // launching ship sees itself out of the bay, and a ship on a road has the
     // road doing the driving for it
-    const thrusting = !playerShip.localMovement?.drives &&
+    const thrusting = !playerShip.localMovementParent?.drives &&
       (flyOut(playerShip, dt) || keyDown('ArrowUp'));
 
     playerShip.fly(

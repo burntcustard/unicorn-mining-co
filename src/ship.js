@@ -3,8 +3,8 @@ import { drawBeam, drawHalo, lightAngle, litFill, shapeOf, tint } from './lighti
 import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
-import { carry } from './movement';
 import { checkDocking } from './docking';
+import { localMovement } from './local-movement';
 import { mine } from './mining';
 import { move } from './vector';
 import { scoop } from './scoop';
@@ -192,7 +192,7 @@ export class Ship extends Sprite.class {
     // Whatever the ship is sat inside of and being carried around by, if
     // anything, rather than a plain yes or no
     this.dockedTo = null;
-    this.localMovement = null;
+    this.localMovementParent = null;
     this.turnRate = data.turnRate;
     this.segments = data.hullSegments.map((hull) => makeSegment(hull.module, hull, this.shades));
     // Copied, so that fitting a module to one mustang does not fit it to every
@@ -387,7 +387,7 @@ export class Ship extends Sprite.class {
     });
 
     checkDocking(this);
-    carry(this, movers, dt);
+    localMovement(this, movers, dt);
   }
 
   /**

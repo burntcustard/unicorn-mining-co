@@ -49,34 +49,34 @@ const deadSpeed = 5;
 const combineBounce = (a, b) => (a < 0 || b < 0 ? Math.min(a, b) : Math.max(a, b));
 
 /**
- * Put one thing out of another, and take the speed it arrived with out of it.
+ * Put one object out of another, and take the speed it arrived with out of it.
  * Whatever it ran into stays where it is: a rock is not shifted by a ship.
  *
- * @param {Object} thing - The one being moved.
+ * @param {Object} object - The one being moved.
  * @param {Object} other - What it ran into.
  * @param {Number} depth - How far into each other the two are.
- * @param {Number} awayX - The way out, pointing from the other to the thing.
+ * @param {Number} awayX - The way out, pointing from the other to the object.
  * @param {Number} awayY
  * @param {Number} bounciness
  */
-export const settle = (thing, other, depth, awayX, awayY, bounciness) => {
-  // Taken against whatever it hit rather than against the world, so a thing
+export const settle = (object, other, depth, awayX, awayY, bounciness) => {
+  // Taken against whatever it hit rather than against the world, so an object
   // already travelling along with something is not flicked off it
-  const closing = (thing.dx - (other.dx || 0)) * awayX + (thing.dy - (other.dy || 0)) * awayY;
+  const closing = (object.dx - (other.dx || 0)) * awayX + (object.dy - (other.dy || 0)) * awayY;
 
   // Only speed that is closing the gap is worth turning round
   if (closing < 0) {
     const springy = -closing < deadSpeed ? 0 : bounciness;
 
-    thing.dx -= awayX * closing * (1 + springy);
-    thing.dy -= awayY * closing * (1 + springy);
+    object.dx -= awayX * closing * (1 + springy);
+    object.dy -= awayY * closing * (1 + springy);
   }
 
   const ease = Math.min((depth - slop) * easing, maxCorrection);
 
   if (ease > 0) {
-    thing.x += awayX * ease;
-    thing.y += awayY * ease;
+    object.x += awayX * ease;
+    object.y += awayY * ease;
   }
 };
 

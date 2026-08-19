@@ -126,7 +126,7 @@ export class Station extends Sprite.class {
   }
 
   /**
-   * @param {Object} thing - Anything with a place in the world.
+   * @param {Object} child - Anything with a place in the world.
    * @returns {Boolean} inside
    */
   holds({ x, y }) {
@@ -134,29 +134,29 @@ export class Station extends Sprite.class {
   }
 
   /**
-   * Swing a thing around the station, turning it as it goes as well as
-   * carrying it, so that a ship left pointing out of a bay keeps pointing out.
+   * Swing a child around the station, turning it as it goes as well as carrying
+   * it, so that a ship left pointing out of a bay keeps pointing out.
    *
-   * @param {Object} thing
+   * @param {Object} child
    * @param {Number} dt - Seconds since the last update.
    */
-  carry(thing, dt) {
+  carry(child, dt) {
     const angle = this.turnRate * dt;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const x = thing.x - this.x;
-    const y = thing.y - this.y;
+    const x = child.x - this.x;
+    const y = child.y - this.y;
 
-    thing.rotation += angle;
-    thing.x = this.x + x * cos - y * sin;
-    thing.y = this.y + x * sin + y * cos;
+    child.rotation += angle;
+    child.x = this.x + x * cos - y * sin;
+    child.y = this.y + x * sin + y * cos;
   }
 
   /**
    * How fast whatever is being swung around is travelling sideways, which is
    * what it flies off at when it leaves.
    *
-   * @param {Object} thing
+   * @param {Object} child
    * @returns {Number[]} velocity
    */
   momentum({ x, y }) {

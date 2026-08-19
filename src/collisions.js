@@ -35,26 +35,26 @@ const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSiz
 
 // Filed under the cell it sits in and shifted along as it drifts. Anything
 // that wants to be found has to be placed first
-export const place = (thing) => {
-  const cell = cellKey(thing.x, thing.y);
+export const place = (object) => {
+  const cell = cellKey(object.x, object.y);
 
-  if (cell === thing.cell) return;
+  if (cell === object.cell) return;
 
-  cells.get(thing.cell)?.delete(thing);
+  cells.get(object.cell)?.delete(object);
 
   const sharing = cells.get(cell);
 
-  if (sharing) sharing.add(thing);
-  else cells.set(cell, new Set([thing]));
+  if (sharing) sharing.add(object);
+  else cells.set(cell, new Set([object]));
 
-  thing.cell = cell;
+  object.cell = cell;
 };
 
 // Out of the world for good, so that whatever scooped it up or blew it apart
 // is the last thing ever to find it
-export const unplace = (thing) => {
-  cells.get(thing.cell)?.delete(thing);
-  thing.cell = null;
+export const unplace = (object) => {
+  cells.get(object.cell)?.delete(object);
+  object.cell = null;
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
@@ -66,19 +66,19 @@ const placePoints = ({ outline, rotation, x, y }) => {
 };
 
 /**
- * Whether a single world point falls inside a thing: its outline where it has
+ * Whether a single world point falls inside an object: its outline where it has
  * one, and the circle of its radius where it does not. A ray cast out sideways
  * crosses the outline an odd number of times only from within it.
  *
- * @param {Object} thing
+ * @param {Object} object
  * @param {Number} px
  * @param {Number} py
  * @returns {Boolean} inside
  */
-export const contains = (thing, px, py) => {
-  if (!thing.outline) return Math.hypot(px - thing.x, py - thing.y) <= thing.radius;
+export const contains = (object, px, py) => {
+  if (!object.outline) return Math.hypot(px - object.x, py - object.y) <= object.radius;
 
-  const points = placePoints(thing);
+  const points = placePoints(object);
   let inside = false;
 
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
@@ -122,10 +122,10 @@ const cornerAxis = (points, x, y) => {
   return axis;
 };
 // How far along an axis a shape reaches, as a near and a far mark
-const spanOf = (thing, points, axisX, axisY) => {
-  const middle = thing.x * axisX + thing.y * axisY;
+const spanOf = (object, points, axisX, axisY) => {
+  const middle = object.x * axisX + object.y * axisY;
 
-  if (!points) return [middle - thing.radius, middle + thing.radius];
+  if (!points) return [middle - object.radius, middle + object.radius];
 
   let near = Infinity;
   let far = -Infinity;
@@ -196,21 +196,21 @@ const hit = (a, b) => {
 };
 
 /**
- * @param {Object} thing
+ * @param {Object} object
  * @returns {Object[]} hits - Everything it is currently overlapping.
  */
-export const collisions = (thing) => {
-  const cellX = Math.floor(thing.x / cellSize);
-  const cellY = Math.floor(thing.y / cellSize);
+export const collisions = (object) => {
+  const cellX = Math.floor(object.x / cellSize);
+  const cellY = Math.floor(object.y / cellSize);
   const found = [];
 
   for (let x = cellX - 1; x < cellX + 2; x++) {
     for (let y = cellY - 1; y < cellY + 2; y++) {
       cells.get(keyOf(x, y))?.forEach((other) => {
         // A ship does not run into itself, however it is put together
-        if (other === thing || (thing.owner && other.owner === thing.owner)) return;
+        if (other === object || (object.owner && other.owner === object.owner)) return;
 
-        const overlap = hit(thing, other);
+        const overlap = hit(object, other);
 
         if (overlap) found.push(overlap);
       });

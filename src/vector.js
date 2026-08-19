@@ -17,7 +17,7 @@ const overDrag = 0.9;
  *
  * Changes the velocity rather than handing one back.
  *
- * @param {Object} thing - Anything with a `velocity`, a `mass`, a `drag` and a
+ * @param {Object} object - Anything with a `velocity`, a `mass`, a `drag` and a
  *   `maxSpeed`.
  * @param {Number} dt - Seconds since the last update.
  */
@@ -61,21 +61,21 @@ const maxHop = 4;
  * several short hops instead, settling up after each. Space has no drag in it,
  * but flying without any is horrible.
  *
- * @param {Object} thing - Anything with a place, a velocity, a `mass`, a `drag`
+ * @param {Object} object - Anything with a place, a velocity, a `mass`, a `drag`
  *   and a `maxSpeed`.
  * @param {Number} dt - Seconds since the last update.
  * @param {Function} [settle] - Run after every hop, to put right whatever that
  *   hop has ended up inside of.
  */
-export const move = (thing, dt, settle) => {
-  const hops = Math.max(1, Math.ceil((magnitude(thing.velocity) * dt) / maxHop));
+export const move = (object, dt, settle) => {
+  const hops = Math.max(1, Math.ceil((magnitude(object.velocity) * dt) / maxHop));
   const step = dt / hops;
 
   for (let hop = 0; hop < hops; hop++) {
-    slow(thing, step);
+    slow(object, step);
 
-    thing.x += thing.dx * step;
-    thing.y += thing.dy * step;
+    object.x += object.dx * step;
+    object.y += object.dy * step;
 
     settle?.();
   }

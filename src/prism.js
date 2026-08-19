@@ -172,18 +172,18 @@ const refract = (dirX, dirY, [normalX, normalY], eta) => {
  * A rock's outline where the lamp sees it: turned out of the rock's own frame,
  * into the world, and back into the ship's.
  */
-const outlineOf = (ship, lamp, thing) => {
+const outlineOf = (ship, lamp, object) => {
   const shipCos = Math.cos(ship.rotation);
   const shipSin = Math.sin(ship.rotation);
-  const awayX = (thing.x - ship.x) / ship.scale;
-  const awayY = (thing.y - ship.y) / ship.scale;
-  const turn = thing.rotation - ship.rotation;
+  const awayX = (object.x - ship.x) / ship.scale;
+  const awayY = (object.y - ship.y) / ship.scale;
+  const turn = object.rotation - ship.rotation;
   const turnCos = Math.cos(turn);
   const turnSin = Math.sin(turn);
   const middleX = awayX * shipCos + awayY * shipSin - lamp.x;
   const middleY = awayY * shipCos - awayX * shipSin - lamp.y;
 
-  return thing.outline.map(([x, y]) => [
+  return object.outline.map(([x, y]) => [
     middleX + (x * turnCos - y * turnSin) / ship.scale,
     middleY + (x * turnSin + y * turnCos) / ship.scale,
   ]);
@@ -231,11 +231,11 @@ export const traceBeam = (ship, lamp, scenery) => {
   const close = scenery
     .filter(({ outline, radius, x, y }) => outline &&
       Math.hypot(x - ship.x, y - ship.y) / ship.scale - radius < range);
-  const outlines = close.map((thing) => outlineOf(ship, lamp, thing));
+  const outlines = close.map((object) => outlineOf(ship, lamp, object));
   // Only a rock with something buried in it lets the light in and throws a
   // spectrum out the far side. An empty one is solid, so it stops the beam on
   // its face like anything else but is never crossed or split by it
-  const refracts = close.map((thing) => !!thing.contents?.length);
+  const refracts = close.map((object) => !!object.contents?.length);
   const beam = { angles: [], faces: [], hit: [], leaves: [], outlines, range };
 
   for (let i = 0; i <= rays; i++) {

@@ -30,7 +30,7 @@ export const checkDocking = (ship) => {
     null;
 
   // Anything sat inside a station gets carried around by it
-  if (ship.dockedTo) ship.localMovement = ship.dockedTo;
+  if (ship.dockedTo) ship.localMovementParent = ship.dockedTo;
 };
 
 /**

@@ -41,7 +41,7 @@ export class Road {
   }
 
   /**
-   * @param {Object} thing - Anything with a place in the world.
+   * @param {Object} child - Anything with a place in the world.
    * @returns {Boolean} inside
    */
   holds({ x, y }) {
@@ -56,20 +56,20 @@ export class Road {
   }
 
   /**
-   * @param {Object} thing
+   * @param {Object} child
    * @param {Number} dt - Seconds since the last update.
    */
-  carry(thing, dt) {
+  carry(child, dt) {
     const cos = Math.cos(this.angle);
     const sin = Math.sin(this.angle);
     // Speed down the road is left alone, and speed across it is reeled in
-    const along = thing.dx * cos + thing.dy * sin;
-    const across = (thing.dy * cos - thing.dx * sin) * sideGrip ** (dt * 60);
+    const along = child.dx * cos + child.dy * sin;
+    const across = (child.dy * cos - child.dx * sin) * sideGrip ** (dt * 60);
 
-    thing.x += cos * roadSpeed * dt;
-    thing.y += sin * roadSpeed * dt;
-    thing.dx = along * cos - across * sin;
-    thing.dy = along * sin + across * cos;
+    child.x += cos * roadSpeed * dt;
+    child.y += sin * roadSpeed * dt;
+    child.dx = along * cos - across * sin;
+    child.dy = along * sin + across * cos;
   }
 
   /**
