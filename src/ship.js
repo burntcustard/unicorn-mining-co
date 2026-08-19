@@ -8,7 +8,6 @@ import { checkDocking } from './docking';
 import { mine } from './mining';
 import { move } from './vector';
 import { scoop } from './scoop';
-
 // Segments below this much of their health are "damaged", at 0 destroyed
 const damagedAt = 0.5;
 

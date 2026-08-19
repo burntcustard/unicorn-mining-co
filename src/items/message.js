@@ -18,7 +18,6 @@ export const message = {
   bounciness: 0.05,
   health: 10,
   lines: [[[-4, -1], [4, -1]], [[-4, 2], [2, 2]]],
-  mass: 3,
   name: 'Message',
   // One of the notes, unless whatever spawned it had something to say
   notes,

@@ -1,8 +1,8 @@
 import { circlePath, linesPath, shapePath, sparklePath } from './drawing';
 import { drawGlow, lightAngle, litFill, tint } from './lighting';
-import { driftSpeed, move } from './vector';
 import { Sprite } from './sprite';
 import { colors } from './colors';
+import { move } from './vector';
 import { unplace } from './collisions';
 
 /**
@@ -39,6 +39,14 @@ const panicRate = 14;
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
+// Every item is the same weight and shrugs off its speed at the same rate, so
+// they shove about and drift alike whatever they happen to be
+const itemMass = 6;
+const itemDrag = 4;
+
+// Fastest an item drifts on nothing but the speed it was given
+const itemMaxSpeed = 70;
+
 export class Item extends Sprite.class {
   constructor(props) {
     super(props);
@@ -51,11 +59,11 @@ export class Item extends Sprite.class {
     this.item = data;
     this.bounciness = data.bounciness;
     this.health = data.health;
-    this.mass = data.mass;
-    // Named and used exactly as a ship's is, so both drift by the same maths.
-    // A ship works its own out of its thrusters, and cargo has none to work
-    // with, so it takes the speed anything adrift is held to
-    this.maxSpeed = driftSpeed;
+    this.mass = itemMass;
+    this.drag = itemDrag;
+    // The fastest it settles back to on nothing but the speed it was given,
+    // having none of a ship's thrusters to work a top speed out of
+    this.maxSpeed = itemMaxSpeed;
     this.name = data.name;
     this.price = data.price;
     this.shades = data.shades;

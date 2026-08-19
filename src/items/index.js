@@ -9,9 +9,10 @@
  * ever the numbers that make this item different from the last.
  *
  * Every item has a `name`, a `price` it changes hands for, `health` before it
- * is destroyed, a `mass` that says how hard it is to shove about, and how much
- * of a `bounciness` it gives back. Anything stowed fills exactly one of a
- * hold, so none of them say how much room they take.
+ * is destroyed, and how much of a `bounciness` it gives back. Every item is the
+ * same weight and drags alike, so `Item` sets those rather than each one here.
+ * Anything stowed fills exactly one of a hold, so none of them say how much
+ * room they take.
  *
  * An item brings either `points` or a `radius`, and that one shape is both
  * what it is drawn as and what it is hit on. A cut item gives `points`, which

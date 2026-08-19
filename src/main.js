@@ -14,12 +14,12 @@ import { GameLoop } from 'kontra';
 import { Road } from './road';
 import { Ship } from './ship';
 import { Station } from './station';
+import { carry } from './movement';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { game } from './game';
 import { grind } from './mining';
 import { place } from './collisions';
-import { release } from './movement';
 import { renderControls } from './ui/controls';
 import { renderFps } from './fps';
 import { renderText } from './text';
@@ -146,6 +146,15 @@ const items = itemTypes.map((itemData, i) => new Item({
 // Everything that can catch hold of a ship and carry it along
 const movers = [...stations, ...roads];
 
+// Everything loose in the world does the same three things each frame: moves
+// under its own steam, is swept along by any road or station that has hold of
+// it, and is filed into the grid wherever it ends up
+const drift = (thing, dt) => {
+  thing.update(dt);
+  carry(thing, movers, dt);
+  place(thing);
+};
+
 // The player's lamp, kept to hand so what it is picking out can be worked out
 // once a frame rather than hunted for in the segments every time
 const lamp = playerShip.segments.find((segment) => segment.module === floodlight);
@@ -168,11 +177,6 @@ bindKeys(['x'], () => items.forEach((item) => item.arm()));
 
 // Space sees a docked ship back out through the bay it came in by
 bindKeys([' '], () => playerShip.dockedTo && launch(playerShip));
-
-bindKeys(['m'], () => {
-  if (playerShip.localMovement) release(playerShip);
-  else playerShip.localMovement = corral;
-});
 
 centerCamera(game, playerShip);
 colorsDemo(game);
@@ -250,17 +254,13 @@ GameLoop({
       station.hitboxes.forEach(place);
     });
     roads.forEach((road) => road.update(dt));
-    scenery.forEach((thing) => {
-      thing.update(dt);
-      place(thing);
-    });
+    scenery.forEach((thing) => drift(thing, dt));
 
     // Backwards, because an item that goes off takes itself out of the list
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i];
 
-      item.update(dt);
-      place(item);
+      drift(item, dt);
 
       // A fuse only ever reaches zero once it has been armed
       if (item.fuse === 0) {

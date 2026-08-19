@@ -9,7 +9,6 @@ import { colors } from '../colors';
 export const opal = {
   bounciness: 0.12,
   health: 50,
-  mass: 5,
   name: 'Opal',
   price: 450,
   radius: 6,

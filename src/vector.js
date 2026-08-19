@@ -3,40 +3,47 @@ const magnitude = (vec) => Math.sqrt(vec.x * vec.x + vec.y * vec.y);
 // Below this a sprite is drifting slowly enough to just call it stopped
 const minSpeed = 1;
 
+// How much of its speed a thing over its top speed keeps each sixtieth of a
+// second while it is dragged back down to it. Steep, so a fling off a road
+// settles out in a moment, and thrust can never push a ship far past its own
+// top speed before it is pulled back
+const overDrag = 0.9;
+
 /**
- * Cap a velocity at a top speed, and drag it back towards a stop when it is
- * under one. Heavier things carry their speed for longer.
+ * Drag a velocity back towards a stop, and haul it back down towards the thing's
+ * top speed when it is over one. How fast the drag bleeds off is the thing's own
+ * `drag` set against its `mass`, so a heavy thing coasts on where a light one
+ * soon stops.
  *
- * Changes the velocity it is given rather than handing one back.
+ * Changes the velocity rather than handing one back.
  *
- * @param {Object} velocity
- * @param {Number} mass
- * @param {Number} maxSpeed
+ * @param {Object} thing - Anything with a `velocity`, a `mass`, a `drag` and a
+ *   `maxSpeed`.
  * @param {Number} dt - Seconds since the last update.
  */
-export const slow = (velocity, mass, maxSpeed, dt) => {
+export const slow = ({ velocity, mass, drag, maxSpeed }, dt) => {
   const speed = magnitude(velocity);
 
-  if (speed > maxSpeed) {
-    velocity.x = velocity.x / speed * maxSpeed;
-    velocity.y = velocity.y / speed * maxSpeed;
-  } else if (speed < minSpeed) {
+  if (speed < minSpeed) {
     velocity.x = 0;
     velocity.y = 0;
-  } else {
-    // Speed kept per frame, raised to the frames passed so that drag works
-    // out the same however often the game updates. Capped short of 1, or a
-    // heavy enough ship would drift on forever
-    const drag = Math.min(0.995, 0.986 + mass / 2000) ** (dt * 60);
+  } else if (speed > maxSpeed) {
+    // Over its top speed, from a road's fling say, it is hauled back down hard
+    // towards it rather than snapped, so coming off a fast road is a steep glide
+    // and not a wall
+    const kept = Math.max(maxSpeed, speed * overDrag ** (dt * 60)) / speed;
 
-    velocity.x *= drag;
-    velocity.y *= drag;
+    velocity.x *= kept;
+    velocity.y *= kept;
+  } else {
+    // Ordinary drag bleeds the speed off towards a stop, in proportion to how
+    // much there is and how heavy the thing carrying it is
+    const kept = Math.exp(-(drag / mass) * dt);
+
+    velocity.x *= kept;
+    velocity.y *= kept;
   }
 };
-
-// Fastest anything drifts on nothing but the speed it was given. A ship under
-// power works its own top speed out of its thrusters instead of taking this
-export const driftSpeed = 70;
 
 // The furthest anything travels between one look at what it has run into and
 // the next. Box2D caps a step the same way: past this, a thing can be one side
@@ -54,8 +61,8 @@ const maxHop = 4;
  * several short hops instead, settling up after each. Space has no drag in it,
  * but flying without any is horrible.
  *
- * @param {Object} thing - Anything with a place, a velocity, a `mass` and a
- *   `maxSpeed`.
+ * @param {Object} thing - Anything with a place, a velocity, a `mass`, a `drag`
+ *   and a `maxSpeed`.
  * @param {Number} dt - Seconds since the last update.
  * @param {Function} [settle] - Run after every hop, to put right whatever that
  *   hop has ended up inside of.
@@ -65,7 +72,7 @@ export const move = (thing, dt, settle) => {
   const step = dt / hops;
 
   for (let hop = 0; hop < hops; hop++) {
-    slow(thing.velocity, thing.mass, thing.maxSpeed, step);
+    slow(thing, step);
 
     thing.x += thing.dx * step;
     thing.y += thing.dy * step;

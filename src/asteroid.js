@@ -1,5 +1,6 @@
 import { Sprite } from './sprite';
 import { createPolygon } from './polygon';
+import { move } from './vector';
 import { shapePath } from './drawing';
 
 // Stroke width in game units, to match the ships
@@ -10,6 +11,12 @@ const rockBounciness = 0.25;
 
 // Enough of a wander that no two rocks come out the same shape
 const rockVariance = 0.5;
+
+// Next to no drag of its own, so a rock coasts on where a ship soon slows
+const rockDrag = 1;
+
+// Fastest a rock settles back to on nothing but the speed it was given
+const rockMaxSpeed = 70;
 
 // How many times over the buried finds are shoved apart each frame, enough to
 // settle a small pocket of them out of the middle in one go
@@ -23,6 +30,9 @@ export class Asteroid extends Sprite.class {
     super(props);
 
     this.bounciness = this.bounciness ?? rockBounciness;
+    // Drifts like everything else does, just with next to no drag of its own
+    this.drag = rockDrag;
+    this.maxSpeed = rockMaxSpeed;
 
     // A rock never changes shape, so its outline is only worked out the once.
     // Anything else drifting about out there is the same but cut differently
@@ -35,6 +45,9 @@ export class Asteroid extends Sprite.class {
     // Points that wandered outwards reach further than the radius they were
     // cut from, and a collision check has to know about all of them
     this.radius = Math.max(...this.outline.map(([x, y]) => Math.hypot(x, y)));
+    // Heft grows with size, so a big rock shrugs off what shoves a pebble and
+    // holds its drift far longer
+    this.mass = this.radius ** 2;
     this.path = shapePath(this.outline);
   }
 
@@ -106,8 +119,7 @@ export class Asteroid extends Sprite.class {
    */
   update(dt) {
     this.rotation += this.spin * dt;
-    this.x += this.dx * dt;
-    this.y += this.dy * dt;
+    move(this, dt);
 
     // Buried cargo is carried bodily by the rock and turns with it, so it sits
     // where the rock's face would be if you could see through to it

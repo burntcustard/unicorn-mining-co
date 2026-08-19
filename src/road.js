@@ -4,7 +4,7 @@ import { getContext } from 'kontra';
 
 // Every road sweeps at the same rate and cuts the same width of lane. Only
 // where one runs, and how far, is up to the road
-const roadSpeed = 400;
+const roadSpeed = 800;
 const roadWidth = 300;
 
 // How much of its sideways speed a thing keeps each frame while a road has
@@ -34,9 +34,8 @@ export class Road {
     this.distance = props.distance;
     this.x = props.x;
     this.y = props.y;
-    // A road takes hold of whatever strays into it, rather than being asked,
-    // and does the driving once it has, so a ship aboard cuts its engines
-    this.grabs = true;
+    // A road does the driving for whatever it has hold of, so a ship caught on
+    // one cuts its own engines. A station carries a ship without driving it
     this.drives = true;
     this.sparks = makeSparks(this.distance * roadWidth * sparkDensity, this.distance);
   }

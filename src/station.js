@@ -1,6 +1,7 @@
 import { drawGlow, lightAngle, litFill, shadingStep, shapeOf, tint } from './lighting';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
+import { colors } from './colors';
 
 // Stroke width in game units, to match the ships
 const lineWidth = 3;
@@ -13,7 +14,7 @@ const hullBounciness = 0.05;
 const bayGlow = 0.15;
 // How far out a station carries ships around with it, as a multiple of how far
 // its own hull reaches
-const localArea = 3;
+const localArea = 2;
 
 /**
  * Segments are the pieces a station is drawn and damaged in, laid out the same
@@ -235,6 +236,24 @@ export class Station extends Sprite.class {
   }
 
   /**
+   * The dashed ring marking how far out the station's pull reaches. Drawn in
+   * the station's own turning frame, so its dashes wheel around with it. Pure
+   * decoration: nothing collides with it.
+   */
+  range() {
+    const { ctx } = this;
+
+    ctx.save();
+    ctx.strokeStyle = `${colors.cyan[2]}4`;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([12, 12]);
+    ctx.beginPath();
+    ctx.arc(0, 0, this.localRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
    * @param {Number} scale
    * @param {Boolean} [above] - Draw the pieces that go over the top of passing
    *   ships, rather than the ones that go behind them.
@@ -260,7 +279,11 @@ export class Station extends Sprite.class {
 
     // Under the ships the light goes down first and the station is drawn into
     // it, over them it goes down last and falls across whatever is sat there
-    if (!over) this.glow(over);
+    if (!over) {
+      this.glow(over);
+      // The reach ring rides behind the ships, wheeling round with the station
+      this.range();
+    }
 
     this.segments.forEach((segment) => {
       // Only what a ship flies in over goes behind it. The hull and everything

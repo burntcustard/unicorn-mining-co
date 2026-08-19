@@ -22,16 +22,16 @@ export const release = (thing) => {
  * top of the flying it does under its own steam: a station swinging it slowly
  * around, or a road sweeping it away down a line.
  *
- * A road takes hold of anything that strays into it, while a station has to be
- * asked. Nothing in the world overlaps anything else, so a ship is only ever
- * caught up in one thing at a time.
+ * A road takes hold of anything that strays into it, and a station of anything
+ * that drifts inside its reach. Nothing in the world overlaps anything else, so
+ * a ship is only ever caught up in one thing at a time.
  *
  * @param {Object} thing
  * @param {Object[]} movers - Everything that could be carrying something.
  * @param {Number} dt - Seconds since the last update.
  */
 export const carry = (thing, movers, dt) => {
-  const grabbed = movers.find((mover) => mover.grabs && mover.holds(thing));
+  const grabbed = movers.find((mover) => mover.holds(thing));
 
   if (grabbed) thing.localMovement = grabbed;
 

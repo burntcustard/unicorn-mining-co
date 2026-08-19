@@ -6,7 +6,6 @@ import { colors } from '../colors';
 export const platinum = {
   bounciness: 0.05,
   health: 70,
-  mass: 10,
   name: 'Platinum',
   points: [[-8, -4], [8, -4], [6, 4], [-6, 4]],
   price: 1000,

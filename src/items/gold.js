@@ -7,7 +7,6 @@ export const gold = {
   bounciness: 0.05,
   health: 60,
   lines: [[[-5, -1], [5, -1]]],
-  mass: 9,
   name: 'Gold',
   points: [[-7, -4], [7, -4], [5, 3], [-5, 3]],
   price: 600,
