@@ -46,7 +46,7 @@ export const horn = {
   // off what it is mining
   bounciness: (segment) => (segment.anim > 0.5 ? grindBounce : undefined),
   // Damage dealt once per fixed game-loop update while its tip is biting
-  damage: 1,
+  damage: 0.5,
   // Grinds a rock down and cracks it open where it touches a loaded one
   grinds: true,
   health: 30,
