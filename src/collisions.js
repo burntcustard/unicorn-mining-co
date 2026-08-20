@@ -33,28 +33,13 @@ const cells = new Map();
 const keyOf = (cellX, cellY) => (cellX + reach) * reach * 2 + cellY + reach;
 const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSize));
 
-// Filed under the cell it sits in and shifted along as it drifts. Anything
-// that wants to be found has to be added first
-export const addToWorld = (object) => {
+// File an object under the cell it currently sits in
+const addToWorld = (object) => {
   const cell = cellKey(object.x, object.y);
-
-  if (cell === object.cell) return;
-
-  cells.get(object.cell)?.delete(object);
-
   const sharing = cells.get(cell);
 
   if (sharing) sharing.add(object);
   else cells.set(cell, new Set([object]));
-
-  object.cell = cell;
-};
-
-// Out of the world for good, so that whatever scooped it up or blew it apart
-// is the last thing ever to find it
-export const removeFromWorld = (object) => {
-  cells.get(object.cell)?.delete(object);
-  object.cell = null;
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
@@ -207,12 +192,16 @@ export const collisions = (object) => {
   for (let x = cellX - 1; x < cellX + 2; x++) {
     for (let y = cellY - 1; y < cellY + 2; y++) {
       cells.get(keyOf(x, y))?.forEach((other) => {
-        // Pieces of one assembled body never run into their siblings
-        if ((object.owner || object) === (other.owner || other)) return;
+        // Test each pair once, and never pieces of the same assembled body
+        if (other.order >= object.order ||
+          (object.owner || object) === (other.owner || other)) return;
 
         const overlap = hit(object, other);
 
-        if (overlap) found.push(overlap);
+        if (overlap) {
+          overlap.collider = object;
+          found.push(overlap);
+        }
       });
     }
   }
@@ -230,12 +219,9 @@ export const collisions = (object) => {
 export const contacts = (objects) => {
   cells.clear();
   objects.forEach((object, order) => {
-    object.cell = null;
     object.order = order;
     addToWorld(object);
   });
 
-  return objects.flatMap((collider) => collisions(collider)
-    .filter(({ other }) => other.order < collider.order)
-    .map((contact) => (contact.collider = collider, contact)));
+  return objects.flatMap(collisions);
 };

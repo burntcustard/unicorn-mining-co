@@ -1,4 +1,4 @@
-import { addToWorld, contains, removeFromWorld } from './collisions';
+import { contains } from './collisions';
 import { spray } from './shrapnel';
 
 /**
@@ -80,7 +80,6 @@ const breakRock = (rock, scenery, items) => {
   // A last shower of shrapnel in the rock's own colour as it gives way
   spray(rock.x, rock.y, rock.stroke, breakBurst, rock);
 
-  removeFromWorld(rock);
   scenery.splice(scenery.indexOf(rock), 1);
 
   // An empty rock just breaks apart; one with cargo lets it loose
@@ -93,7 +92,6 @@ const breakRock = (rock, scenery, items) => {
     item.arm();
 
     items.push(item);
-    addToWorld(item);
   });
 };
 

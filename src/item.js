@@ -2,7 +2,6 @@ import { circlePath, linesPath, shapePath, sparklePath } from './drawing';
 import { drawGlow, lightAngle, litFill, tint } from './lighting';
 import { Sprite } from './sprite';
 import { colors } from './colors';
-import { removeFromWorld } from './collisions';
 
 /**
  * One loose thing in the world, built from an item definition. Everything an
@@ -199,7 +198,6 @@ export class Item extends Sprite.class {
  * @param {Item[]} items - Everything still out there.
  */
 export const remove = (item, items) => {
-  removeFromWorld(item);
   const at = items.indexOf(item);
 
   if (at >= 0) items.splice(at, 1);
