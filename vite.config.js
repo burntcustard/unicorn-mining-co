@@ -3,9 +3,14 @@ import kontra from 'rollup-plugin-kontra';
 import { viteJs13k } from './plugins/vite-js13k.js';
 
 export default defineConfig(({ mode }) => {
-  const buildLevels = ['fast', 'slow', 'full'];
-  const buildLevel = buildLevels.includes(mode) ? mode : 'full';
-  const buildLevelNumber = buildLevels.indexOf(buildLevel) + 1;
+  const buildLevels = {
+    'fast': 1,
+    'slow': 2,
+    'full': 3,
+    'full-random': 3,
+  };
+  const buildLevel = mode in buildLevels ? mode : 'full';
+  const buildLevelNumber = buildLevels[buildLevel];
 
   return {
     server: {

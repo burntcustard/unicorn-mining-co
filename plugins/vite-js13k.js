@@ -5,6 +5,33 @@ import { execFile } from 'child_process';
 import fs from 'fs';
 import { minify } from 'html-minifier-terser';
 
+const roadrollerSeed = 13312;
+const zipDate = new Date(1980, 0, 1);
+
+const seededRandom = (seed) => {
+  let state = seed;
+
+  return () => {
+    state = Math.imul(state, 1664525) + 1013904223 >>> 0;
+
+    return state / 4294967296;
+  };
+};
+
+const withRandomSeed = async (seed, action) => {
+  if (seed === null) return action();
+
+  const random = Math.random;
+
+  Math.random = seededRandom(seed);
+
+  try {
+    return await action();
+  } finally {
+    Math.random = random;
+  }
+};
+
 // generateBundle runs before Vite has written anything to disk
 function ensureDistDir() {
   fs.mkdirSync('dist', { recursive: true });
@@ -23,6 +50,7 @@ async function zip(content) {
       compressionOptions: {
         level: 9,
       },
+      date: zipDate,
     },
   );
 
@@ -39,6 +67,7 @@ export async function replaceScript(
   scriptCode,
   parameterOptimizationLevel = 2,
   numberOfContexts = 16,
+  randomSeed = roadrollerSeed,
 ) {
   const reScript = new RegExp(`<script([^>]*?) src="[./]*${scriptFilename}"([^>]*)></script>`);
 
@@ -53,19 +82,21 @@ export async function replaceScript(
   ensureDistDir();
   fs.writeFileSync('dist/minified.js', scriptCode);
 
-  const packer = new Packer([{
-    action: 'eval',
-    data: scriptCode,
-    type: 'js',
-  }], {
-    allowFreeVars: true,
-    maxMemoryMB: 150,
-    sparseSelectors: defaultSparseSelectors(numberOfContexts),
+  const { firstLine, secondLine } = await withRandomSeed(randomSeed, async () => {
+    const packer = new Packer([{
+      action: 'eval',
+      data: scriptCode,
+      type: 'js',
+    }], {
+      allowFreeVars: true,
+      maxMemoryMB: 150,
+      sparseSelectors: defaultSparseSelectors(numberOfContexts),
+    });
+
+    await packer.optimize(parameterOptimizationLevel);
+
+    return packer.makeDecoder();
   });
-
-  await packer.optimize(parameterOptimizationLevel);
-
-  const { firstLine, secondLine } = packer.makeDecoder();
 
   return movedHtml.replace(reScript, `<script>${firstLine + secondLine}</script>`);
 }
@@ -84,13 +115,10 @@ async function replaceHtml(html) {
 }
 
 export function viteJs13k(buildLevel = 'full') {
-  const buildLevelIndex = ['fast', 'slow', 'full'].indexOf(buildLevel);
-  const numberOfContexts = (buildLevelIndex + 2) ** 2;
-  const parameterOptimizationLevel = {
-    fast: 0,
-    slow: 1,
-    full: 2,
-  }[buildLevel];
+  const buildLevelNumber = { 'fast': 1, 'slow': 2, 'full': 3, 'full-random': 3 }[buildLevel];
+  const numberOfContexts = (buildLevelNumber + 1) ** 2;
+  const parameterOptimizationLevel = buildLevelNumber - 1;
+  const randomSeed = buildLevel === 'full-random' ? null : roadrollerSeed;
 
   return {
     name: 'vite-js13k',
@@ -116,6 +144,7 @@ export function viteJs13k(buildLevel = 'full') {
               jsChunk.code,
               parameterOptimizationLevel,
               numberOfContexts,
+              randomSeed,
             );
           }
         }
@@ -141,7 +170,7 @@ export function viteJs13k(buildLevel = 'full') {
         '--shrink-insane',
       ];
 
-      if (buildLevel === 'full') {
+      if (buildLevel === 'full' || buildLevel === 'full-random') {
         args.push('--iter=1000');
       }
 
