@@ -96,14 +96,13 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   ctx.shadowBlur = dotGlow;
 
   if (parts.includes('dots')) Array.from({ length: dots }).forEach(() => {
-    const color = starColor(dotTints);
+    const color = starColor(dotTints) + pick('56789abcde');
     const path = circlePath(size * (0.4 + Math.random() * 0.6));
     const x = Math.random() * tile;
     const y = Math.random() * tile;
 
     // Varying how faint each one is does more for the depth than varying how
     // big it is, at this sort of size
-    ctx.globalAlpha = 0.3 + Math.random() * 0.7;
     ctx.fillStyle = color;
     ctx.shadowColor = color;
 
@@ -118,14 +117,13 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   ctx.shadowBlur = sparkleGlow;
 
   if (parts.includes('sparkles')) Array.from({ length: sparkles }).forEach(() => {
-    const color = starColor(sparkleTints);
+    const color = starColor(sparkleTints) + pick('9abcde');
     const path = sparklePath(size * (1 + Math.random()));
     const x = Math.random() * tile;
     const y = Math.random() * tile;
 
     // No stroke on a sparkle, so it stays a glow rather than an outline, and
     // never quite full strength or it sits in front of the sky rather than in
-    ctx.globalAlpha = 0.6 + Math.random() * 0.3;
     ctx.fillStyle = color;
     ctx.shadowColor = color;
 

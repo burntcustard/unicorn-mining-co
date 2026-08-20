@@ -7,7 +7,7 @@ import { rotateAround } from './local-movement';
 import { scoopOpen } from './modules';
 
 const damagedAt = 0.5;
-const hullBounciness = 0.05;
+const hullBounciness = 0.1;
 const lineWidth = 3;
 const instantRate = 99;
 const thrustScale = 220;
@@ -63,6 +63,7 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     catches: part.catches,
     docks: part.docks,
     fill: craft.shades[1],
+    fillAlpha: part.fillAlpha,
     glow: part.glow && shapePath(part.glow),
     glowColor: part.glow && craft.shades[2],
     health,
@@ -80,7 +81,6 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     radius: part.radius || (shape && (() => shape.reach)),
     rate: duration ? 1 / duration : instantRate,
     shades: craft.shades,
-    sheer: part.sheer,
     thrusterNozzleSide: part.thrusterNozzleSide,
     stroke: craft.shades[2],
     thrust: (craftModule.thrust || 0) / (craftModule.parts?.length || 1),
@@ -241,8 +241,9 @@ export class Craft extends Sprite.class {
 
   update(dt) {
     const push = this.accel * this.forward * dt;
+    const targetSpin = this.turn * this.turnRate * this.throttle;
 
-    this.spin = this.turn * this.turnRate * this.throttle;
+    this.spin = approach(this.spin, targetSpin, this.thrust * dt || Math.abs(targetSpin - this.spin));
     this.dx += Math.cos(this.rotation + this.spin * dt) * push;
     this.dy += Math.sin(this.rotation + this.spin * dt) * push;
     this.segments.forEach((segment) => {
@@ -308,7 +309,9 @@ export class Craft extends Sprite.class {
         else lit = litFill(ctx, segment, light, (along) => tint(segment.shades, worn, along));
       }
 
-      ctx.fillStyle = segment.sheer ? `${segment.shades[2]}2` : lit || segment.fill || segment.shades[worn];
+      ctx.fillStyle = segment.fillAlpha ?
+        segment.shades[2] + segment.fillAlpha :
+        lit || segment.fill || segment.shades[worn];
       ctx.strokeStyle = segment.stroke || segment.shades[2];
 
       const path = segment.path?.(segment);

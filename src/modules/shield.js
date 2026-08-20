@@ -42,7 +42,7 @@ export const shield = {
       // Nothing to hit until it is all the way up, at which point it takes
       // over from the hull. With no outline to test it is simply a circle
       radius: ({ anim }) => (anim === 1 ? bubbleRadius : 0),
-      sheer: true,
+      fillAlpha: '2',
     },
   ],
   price: 900,

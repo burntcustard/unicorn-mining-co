@@ -63,7 +63,10 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
   if (!mass) return;
 
-  const closing = (b.dx - a.dx) * x + (b.dy - a.dy) * y;
+  const [aSpinX, aSpinY] = a.momentum?.(collider) || [0, 0];
+  const [bSpinX, bSpinY] = b.momentum?.(other) || [0, 0];
+  const closing = (b.dx + bSpinX - a.dx - aSpinX) * x +
+    (b.dy + bSpinY - a.dy - aSpinY) * y;
 
   if (closing < 0) {
     let bounce = 0;

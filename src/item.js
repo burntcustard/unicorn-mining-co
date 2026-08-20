@@ -13,14 +13,11 @@ import { drawGlow } from './lighting';
 // thing and a heavy outline swallows it
 const lineWidth = 2;
 
-// How much of its fill a see-through item keeps
-const sheerFill = 0.4;
-
 // How big a glint is and how far out it sits, both against how far the item
 // reaches from its middle. A sparkle's long arms run to four times the size it
 // is given, so this is smaller than it looks. `glintAngle` is where on the
 // item it sits, in the item's own frame, so it rides round with the stone
-const glintSize = 0.2;
+const glintSize = 0.3;
 const glintOffset = 0.4;
 const glintAngle = -Math.PI / 4;
 
@@ -118,7 +115,7 @@ export class Item extends Sprite.class {
       drawGlow(ctx, this.path, this.stroke, glowStrength * (1 - glowBeat * (1 - beat)));
     }
 
-    ctx.fillStyle = this.fill;
+    ctx.fillStyle = this.fill + (item.fillAlpha || '');
     if (item.rainbow) {
       const rainbow = ctx.createLinearGradient(-radius, 0, radius, 0);
 
@@ -129,11 +126,7 @@ export class Item extends Sprite.class {
     }
     ctx.strokeStyle = this.stroke;
 
-    // Part filled, so that a stone reads as something to see through rather
-    // than a shape cut out in colour
-    if (item.sheer) ctx.globalAlpha = sheerFill;
     ctx.fill(this.path);
-    ctx.globalAlpha = 1;
 
     ctx.stroke(this.path);
 

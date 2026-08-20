@@ -4,7 +4,7 @@ import { colors } from '../colors';
 // The same ingot as the platinum, cut shorter and squarer, with a line along
 // the top face so the two are told apart at a glance as well as by colour
 export const gold = {
-  bounciness: 0.05,
+  bounciness: 0.1,
   health: 60,
   lines: [[[-5, -1], [5, -1]]],
   name: 'Gold',
