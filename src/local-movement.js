@@ -1,3 +1,12 @@
+export const rotateAround = (parent, child, x, y, angle) => {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  child.rotation += angle;
+  child.x = parent.x + x * cos - y * sin;
+  child.y = parent.y + x * sin + y * cos;
+};
+
 /**
  * Let a child go from whatever was carrying it along, handing over the speed it
  * was being carried at. Being carried never touches a child's own velocity, so

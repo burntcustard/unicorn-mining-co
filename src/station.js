@@ -2,6 +2,7 @@ import { drawGlow, lightAngle, litFill, shadingStep, shapeOf, tint } from './lig
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
+import { rotateAround } from './local-movement';
 
 // Stroke width in game units, to match the ships
 const lineWidth = 3;
@@ -142,14 +143,10 @@ export class Station extends Sprite.class {
    */
   carry(child, dt) {
     const angle = this.turnRate * dt;
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
     const x = child.x - this.x;
     const y = child.y - this.y;
 
-    child.rotation += angle;
-    child.x = this.x + x * cos - y * sin;
-    child.y = this.y + x * sin + y * cos;
+    rotateAround(this, child, x, y, angle);
   }
 
   /**

@@ -2,6 +2,7 @@ import { Sprite } from './sprite';
 import { createPolygon } from './polygon';
 import { hit } from './collisions';
 import { move } from './vector';
+import { rotateAround } from './local-movement';
 import { settle } from './resolve';
 import { shapePath } from './drawing';
 
@@ -80,7 +81,12 @@ export class Asteroid extends Sprite.class {
       settle(b, a, depth, x, y, 0);
     }));
 
-    contents.forEach(({ buried, x, y }) => Object.assign(buried, { x, y }));
+    contents.forEach((item) => {
+      const { buried, x, y } = item;
+
+      Object.assign(buried, { x, y });
+      rotateAround(this, item, x, y, this.rotation);
+    });
   }
 
   /**
@@ -93,17 +99,6 @@ export class Asteroid extends Sprite.class {
     // Buried cargo collides only with the other finds in the same rock
     if (this.contents) {
       this.collideContents();
-
-      const cos = Math.cos(this.rotation);
-      const sin = Math.sin(this.rotation);
-
-      this.contents.forEach((item) => {
-        const { x, y, rotation } = item.buried;
-
-        item.x = this.x + x * cos - y * sin;
-        item.y = this.y + x * sin + y * cos;
-        item.rotation = this.rotation + rotation;
-      });
     }
   }
 
