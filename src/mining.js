@@ -1,4 +1,4 @@
-import { contains } from './collisions';
+import { hit } from './collisions';
 import { spray } from './shrapnel';
 
 /**
@@ -6,13 +6,6 @@ import { spray } from './shrapnel';
  * the first place: collisions.js says what the horn is touching, and all this
  * does is lean on it long enough to crack it and let out what was inside.
  */
-
-// Seconds an active horn has to stay on a rock before it splits open
-const breakTime = 3;
-
-// How fast a rock forgets it was being ground once the horn comes off, so
-// letting go part way through does not leave it hanging on the edge of breaking
-const recover = 2;
 
 // How hard the freed cargo is flung apart as the rock lets go of it
 const scatter = 25;
@@ -58,11 +51,11 @@ export const mine = (contacts) => {
 
     const [tipX, tipY] = tipOf(hitbox);
 
-    // Only where the point is actually buried in the rock, not where the wide
-    // base of the horn happens to brush it side on
-    if (!contains(rock, tipX, tipY)) return;
+    // A small round cutting tip reaches slightly into inward corners without
+    // letting the wide base of the horn mine whatever it brushes side-on
+    if (!hit(rock, { radius: 3, x: tipX, y: tipY })) return;
 
-    rock.grinding = true;
+    rock.grinding = segment.module.damage;
     rock.grindX = tipX;
     rock.grindY = tipY;
   });
@@ -96,9 +89,9 @@ const breakRock = (rock, scenery, items) => {
 };
 
 /**
- * Count a rock down while it is being ground, break it open once its time is
- * up, and let it heal back if the horn comes off it first. Called once a frame
- * for every rock, whether or not it is being touched.
+ * Damage a rock while it is being ground and break it when its health is gone.
+ * Called once per fixed game-loop update, however many physics substeps found
+ * the horn touching it.
  *
  * @param {Object} rock
  * @param {Number} dt - Seconds since the last update.
@@ -106,17 +99,15 @@ const breakRock = (rock, scenery, items) => {
  * @param {Object[]} items - Its freed cargo is added to this.
  */
 export const grind = (rock, dt, scenery, items) => {
-  if (rock.grinding) {
-    // Sparks stream off wherever the horn is biting for as long as it grinds,
-    // in the colour of the rock's own outline
-    spray(rock.grindX, rock.grindY, rock.stroke, grindRate * dt, rock);
+  if (!rock.grinding) return;
 
-    rock.mined = (rock.mined || 0) + dt;
-    // Set fresh each frame it is touched, so it falls away the moment it is not
-    rock.grinding = false;
+  // Sparks stream off wherever the horn is biting for as long as it grinds,
+  // in the colour of the rock's own outline
+  spray(rock.grindX, rock.grindY, rock.stroke, grindRate * dt, rock);
 
-    if (rock.mined >= breakTime) breakRock(rock, scenery, items);
-  } else if (rock.mined) {
-    rock.mined = Math.max(0, rock.mined - dt * recover);
-  }
+  rock.health -= rock.grinding;
+  // Set fresh each update it is touched, so damage is applied only once
+  rock.grinding = 0;
+
+  if (rock.health < 1) breakRock(rock, scenery, items);
 };

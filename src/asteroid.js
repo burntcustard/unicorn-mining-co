@@ -9,10 +9,10 @@ import { shapePath } from './drawing';
 const lineWidth = 3;
 
 // Rock gives a little, but nothing like a shield does
-const rockBounciness = 0.25;
+const rockBounciness = 0.2;
 
 // Enough of a wander that no two rocks come out the same shape
-const rockVariance = 0.5;
+const rockVariance = 0.3;
 
 // Next to no drag of its own, so a rock coasts on where a ship soon slows
 const rockDrag = 1;
@@ -21,7 +21,7 @@ const rockDrag = 1;
 const rockMaxSpeed = 70;
 
 // Bigger rocks need more points to be lumpy with
-const pointsFor = (radius) => Math.round(4 + Math.sqrt(radius));
+const pointsFor = (radius) => Math.round(3 + Math.sqrt(radius));
 
 export class Asteroid extends Sprite.class {
   constructor(props) {
@@ -43,6 +43,7 @@ export class Asteroid extends Sprite.class {
     // Points that wandered outwards reach further than the radius they were
     // cut from, and a collision check has to know about all of them
     this.radius = Math.max(...this.outline.map(([x, y]) => Math.hypot(x, y)));
+    this.health = this.radius * 2;
     // Heft grows with size, so a big rock shrugs off what shoves a pebble and
     // holds its drift far longer
     this.mass = this.radius ** 2;

@@ -82,7 +82,7 @@ const asteroids = Array.from({ length: 2 }, () => new Asteroid({
   dx: Math.random() * 40 - 20,
   dy: Math.random() * 40 - 20,
   fill: colors.black[2],
-  radius: 15 + Math.random() * 45,
+  radius: 20 + Math.random() * 45,
   spin: Math.random() - 0.5,
   stroke: colors.white[2],
   x: Math.random() * game.width,
@@ -227,7 +227,7 @@ GameLoop({
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them, using the same z-index as ship modules
     for (let zIndex = -3; zIndex < 4; zIndex++) {
-      if (!zIndex) {
+      if (zIndex === -2) {
         scenery.forEach((object) => object.render(game.scale));
         // Buried cargo shows only through the slice of rock the floodlight is
         // crossing, as if the lamp lets a pilot peer inside it

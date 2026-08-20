@@ -66,7 +66,7 @@ const recalls = 8;
 // colours show once they are back out of it. Both have the beam's own light
 // stopped short of them, so they are laid onto the dark and can be strong
 const insideStrength = 0.3;
-const spectrumStrength = 0.85;
+const spectrumStrength = 0.9;
 
 // How far out a colour holds before it starts giving out. The light is only
 // split some way down the beam to begin with, so a fade that starts at the

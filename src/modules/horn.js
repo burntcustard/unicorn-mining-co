@@ -22,7 +22,7 @@ const spinRate = 1.5;
 // the knock: it never drags the ship in or flings it off when the rock breaks.
 // Switched off, the horn says nothing and bounces like the bare hull it is a
 // spike on
-const grindBounce = -0.85;
+const grindBounce = -1;
 
 /**
  * Flutes are parallel lines that march towards the tip and wrap back around,
@@ -45,6 +45,8 @@ export const horn = {
   // Bites while it spins and lets go otherwise, so it does not bounce a ship
   // off what it is mining
   bounciness: (segment) => (segment.anim > 0.5 ? grindBounce : undefined),
+  // Damage dealt once per fixed game-loop update while its tip is biting
+  damage: 1,
   // Grinds a rock down and cracks it open where it touches a loaded one
   grinds: true,
   health: 30,
