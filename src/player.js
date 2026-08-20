@@ -1,7 +1,6 @@
 /**
- * Whoever is playing, as opposed to whichever hull they happen to be flying.
- * Credits and cargo outlive a ship: they survive selling one and buying the
- * next, so they are kept apart from it.
+ * Whoever is playing, as opposed to whichever craft they happen to be flying.
+ * Credits and messages belong to the pilot; cargo belongs to a craft.
  */
 
 // What a pilot starts out with, which is not enough for anything good
@@ -12,8 +11,6 @@ const readingTime = 6;
 
 export const player = {
   credits: startingCredits,
-  // Everything scooped up and not yet sold on
-  hold: [],
   // The last thing worth telling the pilot about, and how long it has left on
   // screen. Anything can set this, so a station can talk as well as a message
   note: '',
@@ -47,13 +44,13 @@ export const spend = (amount) => {
  * Anything stowed fills exactly one of a hold, so how full one is is simply
  * how much is in it.
  *
- * @param {Object} ship - Whichever hull is being flown, which is what says how
- *   much room there is.
+ * @param {Object} craft - Whichever craft is taking the cargo.
  * @returns {Boolean} room
  */
-export const roomFor = (ship) => player.hold.length < ship.cargo;
+export const roomFor = (craft) => !craft.cargoSpace ||
+  craft.cargo.length < craft.cargoSpace;
 
-export const stow = (item) => player.hold.push(item);
+export const stow = (craft, item) => craft.cargo.push(item);
 
 /**
  * @param {Number} dt - Seconds since the last update.

@@ -53,7 +53,6 @@ const door = (side) => ({
 export const cargoScoop = {
   // Slow enough to read as a door swinging rather than a flicker
   activationDuration: 0.7,
-  health: 20,
   key: 'c',
   name: 'Cargo Scoop',
   parts: [

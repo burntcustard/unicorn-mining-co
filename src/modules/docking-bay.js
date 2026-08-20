@@ -35,6 +35,7 @@ export const dockingBay = {
   open: true,
   parts: [
     {
+      bare: true,
       lines: [[
         [seam, -edge],
         [bayCorner, -edge],
@@ -52,9 +53,10 @@ export const dockingBay = {
         [0, edge - bayCorner],
       ],
       glow,
-      zIndex: 1,
+      zIndex: 3,
     },
     {
+      bare: true,
       lines: [[
         [seam, -edge],
         [bayDepth - bayCorner, -edge],
@@ -74,7 +76,7 @@ export const dockingBay = {
       // Both halves as one outline, so the light pools along the whole bay
       // rather than in either end of it
       glow,
-      zIndex: -1,
+      zIndex: -3,
     },
   ],
   price: 5000,

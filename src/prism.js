@@ -175,8 +175,8 @@ const refract = (dirX, dirY, [normalX, normalY], eta) => {
 const outlineOf = (ship, lamp, object) => {
   const shipCos = Math.cos(ship.rotation);
   const shipSin = Math.sin(ship.rotation);
-  const awayX = (object.x - ship.x) / ship.scale;
-  const awayY = (object.y - ship.y) / ship.scale;
+  const awayX = object.x - ship.x;
+  const awayY = object.y - ship.y;
   const turn = object.rotation - ship.rotation;
   const turnCos = Math.cos(turn);
   const turnSin = Math.sin(turn);
@@ -184,8 +184,8 @@ const outlineOf = (ship, lamp, object) => {
   const middleY = awayY * shipCos - awayX * shipSin - lamp.y;
 
   return object.outline.map(([x, y]) => [
-    middleX + (x * turnCos - y * turnSin) / ship.scale,
-    middleY + (x * turnSin + y * turnCos) / ship.scale,
+    middleX + x * turnCos - y * turnSin,
+    middleY + x * turnSin + y * turnCos,
   ]);
 };
 
@@ -230,7 +230,7 @@ export const traceBeam = (ship, lamp, scenery) => {
   const edge = Math.atan2(spread, far);
   const close = scenery
     .filter(({ outline, radius, x, y }) => outline &&
-      Math.hypot(x - ship.x, y - ship.y) / ship.scale - radius < range);
+      Math.hypot(x - ship.x, y - ship.y) - radius < range);
   const outlines = close.map((object) => outlineOf(ship, lamp, object));
   // Only a rock with something buried in it lets the light in and throws a
   // spectrum out the far side. An empty one is solid, so it stops the beam on

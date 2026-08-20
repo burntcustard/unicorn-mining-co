@@ -92,18 +92,23 @@ The throat still produces a collision contact but receives no physics, so it not
 
 ## Target collision model
 
+### Unified crafts
+
+Ships and stations are data categories backed by the same `Craft` runtime object. Every craft can fit modules, carry cargo, move under thrust, host or enter docking regions, carry nearby bodies, take damage and render segments on global z-index layers. A missing capability needs no type check: without thrusters it cannot accelerate, without a `docks` segment it cannot host docking, and without `localMovementRadius` it neither carries nearby bodies nor draws a range ring.
+
+Craft definitions do not contain installed modules or initial cargo. Every craft starts with an empty `cargo` array; a missing `cargoSpace` means unlimited room. A missing `mass` gives zero inverse mass, so collisions, explosions and local movement cannot displace that craft. Hull gradients are selected by `hullGradient`, while ship and station definitions may remain in separate folders for organization.
+
 ### Bodies and colliders
 
 Every world body exposes one or more persistent colliders:
 
 - An item or asteroid can use itself as its collider.
-- A ship has one collider for each active hull segment and module part.
-- A station has one collider for each active hull segment and module part.
+- A craft has one collider for each active hull segment and module part.
 - A destroyed or removed component removes or disables its collider.
 
 Each collider refers to its physical body. Segment colliders additionally retain their segment and installed-module references so gameplay systems can identify what was touched.
 
-Ship colliders should become persistent like station colliders instead of being recreated for every query. Their position, rotation, animated outline, radius and physics flag are refreshed when the ship or segment changes.
+Craft colliders are persistent. Their position, rotation, animated outline, radius and physics flag are refreshed when the craft or segment changes.
 
 ### Hull segments and nested mounts
 
@@ -113,7 +118,7 @@ The top-level `mounts` arrays should be removed from ship and station definition
 {
   health: 20,
   mounts: [
-    { fits: [cargoScoop], module: cargoScoop, x: 3, y: -13 },
+    { fits: [cargoScoop], x: 3, y: -13 },
   ],
   points: [...],
 }
@@ -121,7 +126,7 @@ The top-level `mounts` arrays should be removed from ship and station definition
 
 Mount coordinates remain in ship space. Nesting expresses ownership and health relationships only; it must not cause the mount's `x` and `y` to be translated relative to the hull segment. Existing drawing and collider transforms should continue to apply the mount coordinates directly from the ship origin.
 
-Ships and stations should share the same construction path: construct each hull segment first, then construct that segment's mounts and installed module parts. Each runtime mount retains a direct `hull` reference to its parent segment. A body may still keep flat derived lists of all mounts and segments when convenient for fitting, controls, searches, rendering or collisions, but its definition has one source of truth: the nested mounts.
+Definitions contain only empty mount slots, and `fits` is always an array. Demo, shop or saved-game code chooses a craft's loadout after constructing it. Construct each hull segment first, then copy its empty mounts with direct `hull` references. Fitting a module later creates that installation's parts. A body may still keep flat derived lists of all mounts and segments when convenient for fitting, controls, searches, rendering or collisions, but its definition has one source of truth: the nested mounts.
 
 For the Mustang layout:
 
@@ -218,13 +223,13 @@ The resolver should accept an ordinary contact rather than a ship and a ship-sha
 If both colliders have `physics: true`, resolve the contact using their bodies' common physical properties:
 
 - Position and velocity.
-- Mass, or fixed/zero inverse mass for an immovable body such as a station.
+- Mass, with zero inverse mass when it is undefined.
 - Bounciness.
 - The existing overlap slop, correction limit and easing.
 
 When both bodies can move, velocity and positional response should be divided according to inverse mass. This naturally produces item-item response, lets items bounce off stations, and lets differently sized bodies affect one another without object-type branches.
 
-Every solid body must therefore provide mass and bounciness. Constructors should supply compact defaults where a whole class shares values, such as all ordinary items. Stations should explicitly behave as fixed bodies rather than relying on a missing velocity or mass.
+Movable bodies provide mass and bounciness. Undefined mass deliberately makes a body immovable by other objects.
 
 If either collider has `physics: false`, the contact is still reported but the generic resolver does nothing. Gameplay handlers may still consume it.
 
@@ -251,12 +256,12 @@ The nested layout provides the link without an index or a separate `mouth` prope
 ```js
 {
   health: 20,
-  mounts: [{ fits: [cargoScoop], module: cargoScoop, x: 3, y: -13 }],
+  mounts: [{ fits: [cargoScoop], x: 3, y: -13 }],
   points: [...],
 }
 ```
 
-The reusable cargo scoop still does not know anything about a particular ship's hull. At runtime, its installed mount already has a direct `hull` reference because it was created from inside that hull segment. The standalone `mouth: true` properties can be removed.
+The reusable cargo scoop still does not know anything about a particular ship's hull. When one is fitted, its occupied mount already has a direct `hull` reference because the empty slot came from inside that hull segment. The standalone `mouth: true` properties can be removed.
 
 ### Opening and closing
 
@@ -277,7 +282,7 @@ The two animated scoop doors remain ordinary physical colliders. The invisible t
 
 Collision detection should report which collider was hit, but it should neither cause damage nor decide where damage is stored. A separate damage-producing system chooses an amount, and each damageable collider or segment refers to the target that receives it.
 
-A hull segment uses its own health. A mounted module with a `health` value uses its existing independent module or part health. A mounted module without a `health` value shares its parent hull segment's health. No `sharesHealth` flag is needed.
+A hull segment with health uses it; one without health is indestructible. A mounted module with a `health` value uses its existing independent module or part health. A mounted module without a `health` value shares its parent hull segment's health. If that hull also has no health, both are indestructible. Health below one is destroyed and inactive; damage is not clamped to exactly zero. No `sharesHealth` flag is needed.
 
 For a shared-health installation:
 
@@ -339,9 +344,9 @@ These consumers should move out of the ship-only collision loop. That lets item-
 
 ## Docking after the rework
 
-Docking should use the same ship-station contacts as every other interaction. The Corral's centre hull segment remains a collider but has `physics: false`, allowing a ship to overlap it.
+Docking uses the same craft contacts as every other interaction. The Corral's centre hull segment remains a collider but has `physics: false`, allowing another craft to overlap it.
 
-Mark that specific centre segment as the docking target. If any collider belonging to a non-launching ship contacts it, the ship is docked to that segment's station. When there is no such contact, it is no longer docked. Ignoring launching ships prevents a ship placed at the station centre for launch from immediately docking again. This replaces the current search across all open station pieces and the separate check that the ship has cleared the docking-bay module.
+Mark that specific centre segment as the docking target. If any collider belonging to a non-launching craft contacts it, the guest is docked to the target's owning craft. When there is no such contact, it is no longer docked. Ignoring launching crafts prevents one placed at the host's centre for launch from immediately docking again.
 
 The docking-bay geometry can remain non-physical so ships can pass through it, but it no longer decides whether docking has completed. The centre hull contact alone is the docking condition. Launching and station-carried movement continue to use `ship.dockedTo` as they do now.
 

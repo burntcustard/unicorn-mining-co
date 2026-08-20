@@ -1,6 +1,3 @@
-import { collisions } from './collisions';
-import { scoopOpen } from './modules';
-
 /**
  * What a collision does, once collisions.js has found one. Kept well apart
  * from the finding of them, the way Box2D and Matter.js keep them apart, and
@@ -49,87 +46,45 @@ const deadSpeed = 5;
 const combineBounce = (a, b) => (a < 0 || b < 0 ? Math.min(a, b) : Math.max(a, b));
 
 /**
- * Put one object out of another, and take the speed it arrived with out of it.
- * Whatever it ran into stays where it is: a rock is not shifted by a ship.
+ * Resolve every physical contact using the same mass-weighted impulse and
+ * positional correction. Non-physical colliders still report their contacts
+ * to gameplay but never arrive here as a special collision category.
  *
- * @param {Object} object - The one being moved.
- * @param {Object} other - What it ran into.
- * @param {Number} depth - How far into each other the two are.
- * @param {Number} awayX - The way out, pointing from the other to the object.
- * @param {Number} awayY
- * @param {Number} bounciness
- */
-export const settle = (object, other, depth, awayX, awayY, bounciness) => {
-  // Taken against whatever it hit rather than against the world, so an object
-  // already travelling along with something is not flicked off it
-  const closing = (object.dx - (other.dx || 0)) * awayX + (object.dy - (other.dy || 0)) * awayY;
-
-  // Only speed that is closing the gap is worth turning round
-  if (closing < 0) {
-    const springy = -closing < deadSpeed ? 0 : bounciness;
-
-    object.dx -= awayX * closing * (1 + springy);
-    object.dy -= awayY * closing * (1 + springy);
-  }
-
-  const ease = Math.min((depth - slop) * easing, maxCorrection);
-
-  if (ease > 0) {
-    object.x += awayX * ease;
-    object.y += awayY * ease;
-  }
-};
-
-/**
- * Everything a ship is touching, gathered in one go. Working the same nine
- * cells out again for every separate thing that cares about the answer is the
- * most expensive mistake there is to make here, so it is done once and read
- * by all of them.
- *
- * @param {Object} ship
- * @returns {Object[]} contacts - Each carrying the piece of ship that touched.
- */
-export const contactsOf = (ship) => ship.hitboxes().flatMap((hitbox) => (
-  collisions(hitbox).map((contact) => (contact.hitbox = hitbox, contact))
-));
-
-/**
- * Settle a ship against everything it is touching. Which of the two moves is
- * the only difference between one contact and the next: a hull shoves loose
- * cargo aside, since a gem the size of a fist has no business halting a ship,
- * and is itself shoved by everything solid.
- *
- * @param {Object} ship
  * @param {Object[]} contacts
  */
-export const resolve = (ship, contacts) => {
-  const open = ship.segments.some(({ anim, health, module }) => (
-    module.scoops && health && anim > scoopOpen
-  ));
+export const resolve = (contacts) => contacts.forEach(({ collider, depth, other, x, y }) => {
+  if (collider.physics === false || other.physics === false) return;
 
-  contacts.forEach(({ depth, hitbox, other, x, y }) => {
-    const { segment } = hitbox;
+  const a = collider.owner || collider;
+  const b = other.owner || other;
+  const aMass = a.mass === undefined ? 0 : 1 / a.mass;
+  const bMass = b.mass === undefined ? 0 : 1 / b.mass;
+  const mass = aMass + bMass;
 
-    // A throat is there to notice what has got inside it, not to shove things
-    if (segment.catches) return;
+  if (!mass) return;
 
-    // Open things are flown straight through, so they never push back
-    if (other.open) return;
+  const closing = (b.dx - a.dx) * x + (b.dy - a.dy) * y;
 
-    const bounciness = combineBounce(hitbox.bounciness || 0, other.bounciness || 0);
+  if (closing < 0) {
+    let bounce = 0;
 
-    // The way out runs from the hull towards what it hit, so a ship coming off
-    // something solid has to go the other way
-    if (!other.item) {
-      settle(ship, other, depth, -x, -y, bounciness);
-
-      return;
+    if (-closing >= deadSpeed) {
+      bounce = combineBounce(collider.bounciness || 0, other.bounciness || 0);
     }
+    const impulse = (-closing * (1 + bounce)) / mass;
 
-    // The piece of hull a scoop opens onto stands aside while the doors are
-    // open, or there is no way in for anything it gathers
-    if (open && segment.mouth) return;
+    a.dx -= x * impulse * aMass;
+    a.dy -= y * impulse * aMass;
+    b.dx += x * impulse * bMass;
+    b.dy += y * impulse * bMass;
+  }
 
-    settle(other, ship, depth, x, y, bounciness);
-  });
-};
+  const correction = Math.min((depth - slop) * easing, maxCorrection) / mass;
+
+  if (correction > 0) {
+    a.x -= x * correction * aMass;
+    a.y -= y * correction * aMass;
+    b.x += x * correction * bMass;
+    b.y += y * correction * bMass;
+  }
+});

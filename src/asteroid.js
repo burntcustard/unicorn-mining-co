@@ -1,9 +1,8 @@
 import { Sprite } from './sprite';
+import { contacts } from './collisions';
 import { createPolygon } from './polygon';
-import { hit } from './collisions';
-import { move } from './vector';
+import { resolve } from './resolve';
 import { rotateAround } from './local-movement';
-import { settle } from './resolve';
 import { shapePath } from './drawing';
 
 // Stroke width in game units, to match the ships
@@ -70,16 +69,7 @@ export class Asteroid extends Sprite.class {
     // space as a tiny world while its buried finds settle against one another
     contents.forEach((item) => Object.assign(item, item.buried));
 
-    contents.forEach((a, i) => contents.slice(i + 1).forEach((b) => {
-      const overlap = hit(a, b);
-
-      if (!overlap) return;
-
-      const { depth, x, y } = overlap;
-
-      settle(a, b, depth, -x, -y, 0);
-      settle(b, a, depth, x, y, 0);
-    }));
+    resolve(contacts(contents));
 
     contents.forEach((item) => {
       const { buried, x, y } = item;
@@ -92,10 +82,7 @@ export class Asteroid extends Sprite.class {
   /**
    * @param {Number} dt - Seconds since the last update.
    */
-  update(dt) {
-    this.rotation += this.spin * dt;
-    move(this, dt);
-
+  update() {
     // Buried cargo collides only with the other finds in the same rock
     if (this.contents) {
       this.collideContents();

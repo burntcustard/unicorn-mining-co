@@ -40,7 +40,6 @@ export const floodlight = {
   activationDuration: 0.15,
   // Lit rather than painted, so it lifts everything already drawn under it
   beam: true,
-  health: 20,
   key: 'l',
   lens,
   mouth,

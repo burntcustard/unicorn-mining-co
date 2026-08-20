@@ -34,8 +34,8 @@ const keyOf = (cellX, cellY) => (cellX + reach) * reach * 2 + cellY + reach;
 const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSize));
 
 // Filed under the cell it sits in and shifted along as it drifts. Anything
-// that wants to be found has to be placed first
-export const place = (object) => {
+// that wants to be found has to be added first
+export const addToWorld = (object) => {
   const cell = cellKey(object.x, object.y);
 
   if (cell === object.cell) return;
@@ -52,7 +52,7 @@ export const place = (object) => {
 
 // Out of the world for good, so that whatever scooped it up or blew it apart
 // is the last thing ever to find it
-export const unplace = (object) => {
+export const removeFromWorld = (object) => {
   cells.get(object.cell)?.delete(object);
   object.cell = null;
 };
@@ -207,8 +207,8 @@ export const collisions = (object) => {
   for (let x = cellX - 1; x < cellX + 2; x++) {
     for (let y = cellY - 1; y < cellY + 2; y++) {
       cells.get(keyOf(x, y))?.forEach((other) => {
-        // A ship does not run into itself, however it is put together
-        if (other === object || (object.owner && other.owner === object.owner)) return;
+        // Pieces of one assembled body never run into their siblings
+        if ((object.owner || object) === (other.owner || other)) return;
 
         const overlap = hit(object, other);
 
@@ -218,4 +218,24 @@ export const collisions = (object) => {
   }
 
   return found;
+};
+
+/**
+ * Every overlap in a world, once per collider pair for this physics step.
+ * Rebuilding the small grid also drops colliders removed since the last step.
+ *
+ * @param {Object[]} objects
+ * @returns {Object[]} contacts
+ */
+export const contacts = (objects) => {
+  cells.clear();
+  objects.forEach((object, order) => {
+    object.cell = null;
+    object.order = order;
+    addToWorld(object);
+  });
+
+  return objects.flatMap((collider) => collisions(collider)
+    .filter(({ other }) => other.order < collider.order)
+    .map((contact) => (contact.collider = collider, contact)));
 };

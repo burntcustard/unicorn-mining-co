@@ -35,12 +35,14 @@ const shareAt = (distance) => Math.max(0, 1 - distance / reach) ** 2;
  *
  * @param {Object} at - Whatever went off, which is only read for its place.
  * @param {Object[]} items - Everything loose, all of which can be thrown.
- * @param {Object[]} ships - Everything crewed, which is thrown and hurt.
+ * @param {Object[]} crafts - Every craft, which is thrown where its mass allows and hurt.
  */
-export const detonate = ({ x, y }, items, ships) => {
+export const detonate = ({ x, y }, items, crafts) => {
   blasts.push({ age: 0, x, y });
 
   const shove = (object, share) => {
+    if (object.mass === undefined) return;
+
     const awayX = object.x - x;
     const awayY = object.y - y;
     const away = Math.hypot(awayX, awayY) || 1;
@@ -62,23 +64,26 @@ export const detonate = ({ x, y }, items, ships) => {
     if (item.item.fuse) item.arm();
   });
 
-  ships.forEach((ship) => {
-    const share = shareAt(Math.hypot(ship.x - x, ship.y - y));
+  crafts.forEach((craft) => {
+    const share = shareAt(Math.hypot(craft.x - x, craft.y - y));
 
     if (!share) return;
 
-    shove(ship, share);
+    shove(craft, share);
 
     // Worked out for each piece where that piece actually sits, so a blast off
     // to one side stoves in the side of the ship that was facing it
-    const cos = Math.cos(ship.rotation);
-    const sin = Math.sin(ship.rotation);
+    const cos = Math.cos(craft.rotation);
+    const sin = Math.sin(craft.rotation);
 
-    ship.segments.forEach((segment) => {
-      const atX = ship.x + segment.x * cos - segment.y * sin;
-      const atY = ship.y + segment.x * sin + segment.y * cos;
+    craft.segments.forEach((segment) => {
+      // Shared-health modules are damaged through their parent hull once
+      if (segment.healthFrom) return;
 
-      ship.damage(segment, damage * shareAt(Math.hypot(atX - x, atY - y)));
+      const atX = craft.x + segment.x * cos - segment.y * sin;
+      const atY = craft.y + segment.x * sin + segment.y * cos;
+
+      craft.damage(segment, damage * shareAt(Math.hypot(atX - x, atY - y)));
     });
   });
 };

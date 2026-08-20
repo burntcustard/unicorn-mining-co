@@ -2,8 +2,7 @@ import { circlePath, linesPath, shapePath, sparklePath } from './drawing';
 import { drawGlow, lightAngle, litFill, tint } from './lighting';
 import { Sprite } from './sprite';
 import { colors } from './colors';
-import { move } from './vector';
-import { unplace } from './collisions';
+import { removeFromWorld } from './collisions';
 
 /**
  * One loose thing in the world, built from an item definition. Everything an
@@ -104,10 +103,6 @@ export class Item extends Sprite.class {
    * @param {Number} dt - Seconds since the last update.
    */
   update(dt) {
-    this.rotation += this.spin * dt;
-
-    move(this, dt);
-
     if (this.fuse) this.fuse = Math.max(0, this.fuse - dt);
 
     // Quietly while it is still buried, faster the less of the fuse there is
@@ -204,6 +199,8 @@ export class Item extends Sprite.class {
  * @param {Item[]} items - Everything still out there.
  */
 export const remove = (item, items) => {
-  unplace(item);
-  items.splice(items.indexOf(item), 1);
+  removeFromWorld(item);
+  const at = items.indexOf(item);
+
+  if (at >= 0) items.splice(at, 1);
 };

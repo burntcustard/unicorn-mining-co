@@ -32,6 +32,7 @@ export class Road {
     this.angle = props.angle;
     this.ctx = getContext();
     this.distance = props.distance;
+    this.maxSpeed = roadSpeed;
     this.x = props.x;
     this.y = props.y;
     // A road does the driving for whatever it has hold of, so a ship caught on

@@ -21,7 +21,7 @@ export const release = (child) => {
 
   child.dx += dx;
   child.dy += dy;
-  child.localMovementParent = null;
+  child.localMovementParent = 0;
 };
 
 /**
@@ -38,13 +38,17 @@ export const release = (child) => {
  * @param {Number} dt - Seconds since the last update.
  */
 export const localMovement = (child, movers, dt) => {
-  const parent = movers.find((mover) => mover.holds(child));
+  if (child.mass === undefined) return;
 
-  if (parent) {
-    child.localMovementParent = parent;
-    parent.carry(child, dt);
-  } else if (child.localMovementParent) {
+  let parent = child.localMovementParent;
+
+  if (parent && !parent.holds(child)) {
     // Drifted clear of whatever had hold of it, so it is on its own again
     release(child);
+    parent = 0;
   }
+
+  parent ||= movers.find((mover) => mover !== child && mover.holds(child));
+  child.localMovementParent = parent;
+  parent?.carry(child, dt);
 };

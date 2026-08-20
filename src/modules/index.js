@@ -2,11 +2,9 @@
  * Modules are re-usable parts that can be damaged and destroyed. Stations are
  * built out of them the same way ships are, so a docking bay lives here too.
  *
- * Some modules bring their own geometry (the horn is identical on every ship
- * that has one), others only bring rules and take their shape from the ship
- * they are attached to (every ship has a differently shaped cockpit). None of
- * them bring an angle: a module is drawn the way round it always is, so horns
- * and shields face forwards and thrusters fire backwards wherever they go.
+ * Modules bring their own geometry and no angle: a module is drawn the way
+ * round it always is, so horns and shields face forwards and thrusters fire
+ * backwards wherever they go.
  *
  * Ships and mounting points reference these objects directly rather than by
  * name, because the build mangles property names but leaves string literals
@@ -15,8 +13,8 @@
  * Every module has a `price` to buy it, and repairing a damaged one costs a
  * tenth of that. A module takes up no cargo `space` unless it says otherwise.
  *
- * Modules bring their own `health` too, except for the ones cut to fit the
- * ship they are in, like the cockpit, which take it from their hull segment.
+ * Modules with no `health` share the health of the hull segment carrying their
+ * mount. Modules with their own health are damaged independently.
  * A module that `covers` its ship, as a shield does, is all that ship can be
  * hit on while it is up.
  *
@@ -45,7 +43,6 @@ import { thrusterTripleMd } from './thruster-triple-md';
 import { thrusterTripleSm } from './thruster-triple-sm';
 
 export { cargoScoop, scoopOpen } from './cargo-scoop';
-export { cockpit } from './cockpit';
 export { bayCorner, bayDepth, baySpan, dockingBay } from './docking-bay';
 export { floodlight } from './floodlight';
 export { horn } from './horn';

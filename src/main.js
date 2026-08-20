@@ -4,25 +4,27 @@ import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
 import { detonate, renderBlasts, updateBlasts } from './explosion';
-import { flyOut, launch } from './docking';
+import { dock, flyOut, launch } from './docking';
+import { grind, mine } from './mining';
 import { insidePath, traceBeam } from './prism';
+import { maxHop, move } from './vector';
 import { player, updatePlayer } from './player';
 import { renderBackground, sky } from './background';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
+import { Craft } from './craft';
 import { GameLoop } from 'kontra';
 import { Road } from './road';
-import { Ship } from './ship';
-import { Station } from './station';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
+import { contacts } from './collisions';
 import { game } from './game';
-import { grind } from './mining';
 import { localMovement } from './local-movement';
-import { place } from './collisions';
 import { renderControls } from './ui/controls';
 import { renderFps } from './fps';
 import { renderText } from './text';
+import { resolve } from './resolve';
+import { scoop } from './scoop';
 import { setSizing } from './set-sizing';
 import { shipTypes } from './ships';
 import { stationTypes } from './stations';
@@ -32,16 +34,15 @@ setSizing(game);
 
 window.onresize = () => setSizing(game);
 
-const playerShip = new Ship({
-  scale: 1,
+const playerShip = new Craft({
+  craftData: shipTypes.mustang,
   shades: colors.white,
-  shipData: shipTypes.mustang,
   x: game.width / 3,
   y: game.height / 2,
 });
 
-playerShip.fit(shield);
-playerShip.fit(floodlight);
+[thrusterDualSm, cargoScoop, cargoScoop, horn, shield, floodlight]
+  .forEach((module) => playerShip.fit(module));
 
 playerShip.paint(horn, colors.yellow);
 playerShip.paint(thrusterDualSm, colors.violet);
@@ -50,23 +51,23 @@ playerShip.paint(shield, colors.violet);
 
 // One hull of every colour, lined up to see how the light falls across them
 const swatches = ['black', 'red', 'orange', 'yellow', 'green', 'cyan', 'violet', 'black', 'white']
-  .map((color, i) => new Ship({
-    scale: 1,
+  .map((color, i) => new Craft({
+    craftData: shipTypes.mustang,
     shades: colors[color],
-    shipData: shipTypes.mustang,
     x: 120 + i * 120,
     y: game.height - 120,
   }));
 
-const corral = new Station({
+const corral = new Craft({
+  craftData: stationTypes.corral,
   // Turned to face the ship, so its bay is in view from the off
   rotation: Math.PI,
   shades: colors.white,
-  stationData: stationTypes.corral,
   x: game.width,
   y: game.height / 2,
 });
 
+corral.fit(dockingBay);
 corral.paint(dockingBay, colors.green);
 
 // Off the left edge of where the game starts, running a long way upwards
@@ -129,10 +130,9 @@ blocks[2].bury(new Item({ itemData: platinum }));
 blocks[4].bury(new Item({ itemData: opal }));
 asteroids[0].bury(new Item({ itemData: gold }));
 
-const fleet = [playerShip, ...swatches];
+const crafts = [playerShip, ...swatches, corral];
 const roads = [northRoad];
 const scenery = [...asteroids, ...blocks, ...stars];
-const stations = [corral];
 
 // One of everything, in a row below the ship to fly into and scoop up. These
 // will come out of mined rocks rather than being placed
@@ -144,15 +144,49 @@ const items = itemTypes.map((itemData, i) => new Item({
 }));
 
 // Everything that can catch hold of a ship and carry it along
-const movers = [...stations, ...roads];
+const movers = [...crafts, ...roads];
 
-// Everything loose in the world does the same three things each frame: moves
-// under its own steam, is swept along by any road or station that has hold of
-// it, and is filed into the grid wherever it ends up
-const drift = (child, dt) => {
-  child.update(dt);
-  localMovement(child, movers, dt);
-  place(child);
+// Move every physical body through the same short steps, so fast things cannot
+// jump through thin colliders and no one object type owns world collisions
+const physics = (dt) => {
+  let left = dt;
+
+  while (left > 0) {
+    const bodies = [...scenery, ...items, ...crafts];
+    const colliders = [
+      ...scenery,
+      ...items,
+      ...crafts.flatMap((craft) => craft.hitboxes()),
+    ];
+    const speed = Math.max(
+      ...bodies.map(({ dx, dy }) => Math.hypot(dx, dy)),
+      ...colliders.map((collider) => {
+        const body = collider.owner || collider;
+
+        return Math.abs(body.spin || 0) *
+          (Math.hypot(collider.x - body.x, collider.y - body.y) + collider.radius);
+      }),
+      ...movers.map((mover) => mover.maxSpeed),
+    );
+    const step = Math.min(left, maxHop / speed);
+
+    bodies.forEach((body) => {
+      body.rotation += (body.spin || 0) * step;
+      move(body, step);
+      localMovement(body, movers, step);
+    });
+    const found = contacts([
+      ...scenery,
+      ...items,
+      ...crafts.flatMap((craft) => craft.hitboxes()),
+    ]);
+
+    scoop(items, found);
+    mine(found);
+    dock(crafts, found);
+    resolve(found);
+    left -= step;
+  }
 };
 
 // The player's lamp, kept to hand so what it is picking out can be worked out
@@ -190,37 +224,35 @@ GameLoop({
     game.ctx.translate(-camera.x * game.scale, -camera.y * game.scale);
 
     roads.forEach((road) => road.render(game.scale));
-    stations.forEach((station) => station.render(game.scale));
-    scenery.forEach((object) => object.render(game.scale));
-    // Buried cargo shows only through the slice of rock the floodlight is
-    // actually crossing, as if the lamp lets a pilot peer inside it. The reveal
-    // is clipped to the shape the beam makes inside the rocks, taken in the
-    // lamp's frame the way the beam is, then the world frame is put back with
-    // that clip still holding so the items draw where they really are, over the
-    // top of every rock
-    if (lamp.anim > 0.5) {
-      const beam = traceBeam(playerShip, lamp, scenery);
-      const worldFrame = game.ctx.getTransform();
+    // Craft layers are global: a station floor can sit under every ship while
+    // its hull and roof sit over them, using the same z-index as ship modules
+    for (let zIndex = -3; zIndex < 4; zIndex++) {
+      if (!zIndex) {
+        scenery.forEach((object) => object.render(game.scale));
+        // Buried cargo shows only through the slice of rock the floodlight is
+        // crossing, as if the lamp lets a pilot peer inside it
+        if (lamp.anim > 0.5) {
+          const beam = traceBeam(playerShip, lamp, scenery);
+          const worldFrame = game.ctx.getTransform();
 
-      game.ctx.save();
-      game.ctx.scale(game.scale, game.scale);
-      game.ctx.translate(playerShip.x, playerShip.y);
-      game.ctx.rotate(playerShip.rotation);
-      game.ctx.scale(playerShip.scale, playerShip.scale);
-      game.ctx.translate(lamp.x, lamp.y);
-      game.ctx.clip(insidePath(beam));
-      game.ctx.setTransform(worldFrame);
+          game.ctx.save();
+          game.ctx.scale(game.scale, game.scale);
+          game.ctx.translate(playerShip.x, playerShip.y);
+          game.ctx.rotate(playerShip.rotation);
+          game.ctx.translate(lamp.x, lamp.y);
+          game.ctx.clip(insidePath(beam));
+          game.ctx.setTransform(worldFrame);
 
-      scenery.forEach((rock) => {
-        if (rock.contents) rock.contents.forEach((item) => item.render(game.scale));
-      });
+          scenery.forEach((rock) => {
+            if (rock.contents) rock.contents.forEach((item) => item.render(game.scale));
+          });
 
-      game.ctx.restore();
+          game.ctx.restore();
+        }
+        items.forEach((item) => item.render(game.scale));
+      }
+      crafts.forEach((craft) => craft.render(game.scale, scenery, zIndex));
     }
-    items.forEach((item) => item.render(game.scale));
-    fleet.forEach((ship) => ship.render(game.scale, scenery));
-    // Whatever a ship can fly inside of goes on last, over the top of it
-    stations.forEach((station) => station.render(game.scale, true));
     // Sparks off the horn sit over the rocks and ships they come off
     renderSparks(game, game.scale);
     // Light rather than paint, so it goes over everything it lights up
@@ -249,23 +281,18 @@ GameLoop({
     textDemo(game);
   },
   update: (dt) => {
-    stations.forEach((station) => {
-      station.update(dt);
-      station.hitboxes.forEach(place);
-    });
     roads.forEach((road) => road.update(dt));
-    scenery.forEach((object) => drift(object, dt));
 
     // Backwards, because an item that goes off takes itself out of the list
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i];
 
-      drift(item, dt);
+      item.update(dt);
 
       // A fuse only ever reaches zero once it has been armed
       if (item.fuse === 0) {
         remove(item, items);
-        detonate(item, items, fleet);
+        detonate(item, items, crafts);
       }
     }
 
@@ -284,7 +311,9 @@ GameLoop({
       (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
     );
 
-    fleet.forEach((ship) => ship.update(dt, items, movers));
+    crafts.forEach((craft) => craft.update(dt));
+    physics(dt);
+    scenery.forEach((object) => object.update(dt));
 
     // Rocks an active horn has been leaning on for long enough crack open,
     // spilling whatever was buried in them out to be scooped up. Backwards,

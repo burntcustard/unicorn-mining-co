@@ -1,74 +1,68 @@
-import { collisions } from './collisions';
-import { dockingBay } from './modules';
-
-// A ship shoves itself out of a bay at full power, then coasts the rest of the
+// A craft shoves itself out of a bay at full power, then coasts the rest of the
 // way clear on a fraction of it
 const launchBurnDuration = 1;
 const launchCoastDuration = 2;
 const launchCoastPower = 0.25;
 
-const thrusterOf = (ship) => ship.mounts.find(({ module }) => module?.thrust)?.module;
+const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.thrust)?.module;
 
 /**
- * A ship counts as docked once it has flown all the way through a bay and come
- * to rest inside the station, clear of the bay itself. Only the pieces a ship
- * can pass through are looked at, so bumping along the outside never counts.
+ * A craft is docked while any of its pieces touches another craft's docking
+ * segment. The ordinary collision pass supplies the contact.
  *
- * @param {Object} ship
+ * @param {Object[]} crafts
+ * @param {Object[]} contacts
  */
-export const checkDocking = (ship) => {
-  const inside = ship.hitboxes()
-    // A throat sits inside the ship noticing cargo, and is not the ship itself
-    .filter(({ segment }) => !segment.catches)
-    .flatMap(collisions)
-    .filter(({ other }) => other.open)
-    .map(({ other }) => other);
-  const home = inside.find(({ segment }) => segment.module !== dockingBay);
+export const dock = (crafts, contacts) => {
+  crafts.forEach((craft) => (craft.dockedTo = 0));
 
-  ship.dockedTo = home && !inside.some(({ segment }) => segment.module === dockingBay) ?
-    home.owner :
-    null;
+  contacts.forEach(({ collider, other }) => {
+    const home = collider.docks ? collider : other;
+    const guest = (home === collider ? other : collider).owner;
 
-  // Anything sat inside a station gets carried around by it
-  if (ship.dockedTo) ship.localMovementParent = ship.dockedTo;
+    if (!home.docks || !guest?.mounts || guest.launching) return;
+
+    guest.dockedTo = home.owner;
+    guest.localMovementParent = home.owner;
+  });
 };
 
 /**
- * Put a ship in the middle of its station and set it off out through the bay.
- * A bay faces the way its station does, so a ship lined up with the station is
- * pointing straight down the way out.
+ * Put a craft in the middle of its host and set it off out through the bay.
  *
- * @param {Object} ship
+ * @param {Object} craft
  */
-export const launch = (ship) => {
-  const station = ship.dockedTo;
+export const launch = (craft) => {
+  const host = craft.dockedTo;
 
-  ship.rotation = station.rotation;
-  ship.x = station.x;
-  ship.y = station.y;
-  ship.dx = 0;
-  ship.dy = 0;
-  ship.launching = launchBurnDuration + launchCoastDuration;
+  craft.dockedTo = 0;
+  craft.localMovementParent = 0;
+  craft.rotation = host.rotation;
+  craft.x = host.x;
+  craft.y = host.y;
+  craft.dx = 0;
+  craft.dy = 0;
+  craft.launching = launchBurnDuration + launchCoastDuration;
 };
 
 /**
- * Whether a ship is still seeing itself out of a bay, which it does under its
+ * Whether a craft is still seeing itself out of a bay, which it does under its
  * own steam whatever its pilot is asking of it.
  *
- * @param {Object} ship
+ * @param {Object} craft
  * @param {Number} dt - Seconds since the last update.
  * @returns {Boolean} launching
  */
-export const flyOut = (ship, dt) => {
-  if (!ship.launching) return false;
+export const flyOut = (craft, dt) => {
+  if (!craft.launching) return false;
 
-  ship.launching = Math.max(0, ship.launching - dt);
+  craft.launching = Math.max(0, craft.launching - dt);
 
   // Full power while it shoves itself out, then a fraction of it to coast
   // clear on, then back to whatever the pilot is asking for
-  const coasting = ship.launching && ship.launching <= launchCoastDuration;
+  const coasting = craft.launching && craft.launching <= launchCoastDuration;
 
-  ship.supply(thrusterOf(ship), coasting ? launchCoastPower : 1);
+  craft.supply(thrusterOf(craft), coasting ? launchCoastPower : 1);
 
   return true;
 };

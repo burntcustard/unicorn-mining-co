@@ -1,4 +1,4 @@
-import { contains, place, unplace } from './collisions';
+import { addToWorld, contains, removeFromWorld } from './collisions';
 import { spray } from './shrapnel';
 
 /**
@@ -26,7 +26,7 @@ const breakBurst = 24;
  * Where the point of a horn is in the world: the vertex of its shape reaching
  * furthest ahead of the mount, turned into place with the ship.
  *
- * @param {Object} hitbox - A horn's piece of a ship, from ship.hitboxes.
+ * @param {Object} hitbox - A horn's piece of a craft.
  * @returns {Number[]} [x, y]
  */
 const tipOf = (hitbox) => {
@@ -46,23 +46,25 @@ const tipOf = (hitbox) => {
  * along its side at an angle, but it only grinds at its point, so this asks
  * where the tip actually is rather than trusting a touch anywhere on the shape.
  *
- * @param {Object[]} contacts - What a ship is touching, from contactsOf.
+ * @param {Object[]} contacts - Contacts from the shared world collision pass.
  */
 export const mine = (contacts) => {
-  contacts.forEach(({ hitbox, other }) => {
+  contacts.forEach(({ collider, other }) => {
+    const hitbox = collider.segment?.module.grinds ? collider : other;
+    const rock = hitbox === collider ? other : collider;
     const { segment } = hitbox;
 
-    if (!segment.module.grinds || segment.anim <= 0.5 || !other.stroke) return;
+    if (!segment?.module.grinds || segment.anim <= 0.5 || !rock.stroke) return;
 
     const [tipX, tipY] = tipOf(hitbox);
 
     // Only where the point is actually buried in the rock, not where the wide
     // base of the horn happens to brush it side on
-    if (!contains(other, tipX, tipY)) return;
+    if (!contains(rock, tipX, tipY)) return;
 
-    other.grinding = true;
-    other.grindX = tipX;
-    other.grindY = tipY;
+    rock.grinding = true;
+    rock.grindX = tipX;
+    rock.grindY = tipY;
   });
 };
 
@@ -78,7 +80,7 @@ const breakRock = (rock, scenery, items) => {
   // A last shower of shrapnel in the rock's own colour as it gives way
   spray(rock.x, rock.y, rock.stroke, breakBurst, rock);
 
-  unplace(rock);
+  removeFromWorld(rock);
   scenery.splice(scenery.indexOf(rock), 1);
 
   // An empty rock just breaks apart; one with cargo lets it loose
@@ -91,7 +93,7 @@ const breakRock = (rock, scenery, items) => {
     item.arm();
 
     items.push(item);
-    place(item);
+    addToWorld(item);
   });
 };
 

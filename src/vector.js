@@ -22,6 +22,8 @@ const overDrag = 0.9;
  * @param {Number} dt - Seconds since the last update.
  */
 export const slow = ({ velocity, mass, drag, maxSpeed }, dt) => {
+  if (mass === undefined) return;
+
   const speed = magnitude(velocity);
 
   if (speed < minSpeed) {
@@ -49,7 +51,7 @@ export const slow = ({ velocity, mass, drag, maxSpeed }, dt) => {
 // the next. Box2D caps a step the same way: past this, a thing can be one side
 // of something thin before the step and the other side after, having never
 // touched it at any point anything looked
-const maxHop = 4;
+export const maxHop = 4;
 
 /**
  * Carry a thing along by the speed it already has, dragging it back towards a

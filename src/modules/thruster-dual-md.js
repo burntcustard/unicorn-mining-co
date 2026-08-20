@@ -11,8 +11,8 @@ export const thrusterDualMd = {
   name: 'Dual Medium Thrusters',
   offset,
   parts: [
-    { points: (segment) => flare(segment, size), side: -1 },
-    { points: (segment) => flare(segment, size), side: 1 },
+    { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
+    { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 800,
   switched: true,

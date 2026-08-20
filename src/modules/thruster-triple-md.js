@@ -11,9 +11,9 @@ export const thrusterTripleMd = {
   name: 'Triple Medium Thrusters',
   offset,
   parts: [
-    { points: (segment) => flare(segment, size), side: -1 },
-    { points: (segment) => flare(segment, size * 2), side: 0 },
-    { points: (segment) => flare(segment, size), side: 1 },
+    { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
+    { points: (segment) => flare(segment, size * 2), thrusterNozzleSide: 0 },
+    { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 1800,
   switched: true,

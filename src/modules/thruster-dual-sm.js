@@ -11,8 +11,8 @@ export const thrusterDualSm = {
   name: 'Dual Small Thrusters',
   offset,
   parts: [
-    { points: (segment) => flare(segment, size), side: -1 },
-    { points: (segment) => flare(segment, size), side: 1 },
+    { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
+    { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 350,
   switched: true,
