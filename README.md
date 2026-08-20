@@ -25,3 +25,13 @@
    `npm run build`
 
 5. See [package.json](package.json) for other scripts
+
+## Build options
+
+| Command | Terser passes | Roadroller | advzip | Use |
+| --- | ---: | --- | --- | --- |
+| `npm run build:fast` | 1 | Level 0, 4 contexts | Skipped | Quick compilation checks and minor changes |
+| `npm run build:slow` | 4 | Level 1, 9 contexts | Default iterations | Size comparisons after larger changes |
+| `npm run build:full` | 9 | Level 2, 16 contexts | 1,000 iterations | Release output and the final 13,312-byte check |
+
+`npm run build` runs the full build. Fast and slow ZIPs may exceed 13,312 bytes and are not release artifacts. Roadroller is nondeterministic, so small size differences between builds are normal.

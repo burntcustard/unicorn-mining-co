@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "dev:host": "vite --host",
-    "build": "vite build",
+    "build": "npm run build:full",
+    "build:fast": "vite build --mode fast",
+    "build:slow": "vite build --mode slow",
+    "build:full": "vite build --mode full",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

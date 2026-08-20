@@ -1,5 +1,5 @@
+import { Packer, defaultSparseSelectors } from 'roadroller';
 import JSZip from 'jszip';
-import { Packer } from 'roadroller';
 import advzip from 'advzip-bin';
 import { execFile } from 'child_process';
 import fs from 'fs';
@@ -33,7 +33,13 @@ async function zip(content) {
   });
 }
 
-export async function replaceScript(html, scriptFilename, scriptCode) {
+export async function replaceScript(
+  html,
+  scriptFilename,
+  scriptCode,
+  parameterOptimizationLevel = 2,
+  numberOfContexts = 16,
+) {
   const reScript = new RegExp(`<script([^>]*?) src="[./]*${scriptFilename}"([^>]*)></script>`);
 
   // First we have to move the script to the end of the body, because vite is
@@ -49,13 +55,13 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
 
   const packer = new Packer([{
     action: 'eval',
-    allowFreeVars: true,
     data: scriptCode,
-    maxMemoryMB: 200,
     type: 'js',
-  }], {});
-
-  const parameterOptimizationLevel = 2; // Takes 10x longer than the default level 0
+  }], {
+    allowFreeVars: true,
+    maxMemoryMB: 150,
+    sparseSelectors: defaultSparseSelectors(numberOfContexts),
+  });
 
   await packer.optimize(parameterOptimizationLevel);
 
@@ -77,7 +83,15 @@ async function replaceHtml(html) {
     .replace(/ lang=[^>]*/, '');
 }
 
-export function viteJs13k() {
+export function viteJs13k(buildLevel = 'full') {
+  const buildLevelIndex = ['fast', 'slow', 'full'].indexOf(buildLevel);
+  const numberOfContexts = (buildLevelIndex + 2) ** 2;
+  const parameterOptimizationLevel = {
+    fast: 0,
+    slow: 1,
+    full: 2,
+  }[buildLevel];
+
   return {
     name: 'vite-js13k',
     enforce: 'post',
@@ -96,7 +110,13 @@ export function viteJs13k() {
 
           if (jsChunk.code != null) {
             bundlesToDelete.push(jsName);
-            replacedHtml = await replaceScript(replacedHtml, jsChunk.fileName, jsChunk.code);
+            replacedHtml = await replaceScript(
+              replacedHtml,
+              jsChunk.fileName,
+              jsChunk.code,
+              parameterOptimizationLevel,
+              numberOfContexts,
+            );
           }
         }
 
@@ -109,17 +129,29 @@ export function viteJs13k() {
         delete bundle[name];
       }
     },
-    closeBundle: () => {
+    closeBundle: async () => {
       console.log(`\nZip size: ${fs.statSync('dist/game.zip').size}B`);
 
-      execFile(advzip, [
+      if (buildLevel === 'fast') {
+        return;
+      }
+
+      const args = [
         '--recompress',
         '--shrink-insane',
-        '--iter=8000',
-        'dist/game.zip',
-      ], () => {
-        console.log(`Zip size: ${fs.statSync('dist/game.zip').size}B (advzip)`);
+      ];
+
+      if (buildLevel === 'full') {
+        args.push('--iter=1000');
+      }
+
+      args.push('dist/game.zip');
+
+      await new Promise((resolve, reject) => {
+        execFile(advzip, args, (error) => error ? reject(error) : resolve());
       });
+
+      console.log(`Zip size: ${fs.statSync('dist/game.zip').size}B (advzip)`);
     },
   };
 }
