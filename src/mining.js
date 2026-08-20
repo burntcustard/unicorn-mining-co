@@ -1,10 +1,10 @@
 import { hit } from './collisions';
+import { remove } from './item';
 import { spray } from './shrapnel';
 
 /**
- * Grinding a rock open with the horn, and nothing about finding the rock in
- * the first place: collisions.js says what the horn is touching, and all this
- * does is lean on it long enough to crack it and let out what was inside.
+ * Damage from a mining horn, and nothing about finding what it is touching:
+ * collisions.js supplies those contacts.
  */
 
 // How hard the freed cargo is flung apart as the rock lets go of it
@@ -44,20 +44,23 @@ const tipOf = (hitbox) => {
 export const mine = (contacts) => {
   contacts.forEach(({ collider, other }) => {
     const hitbox = collider.segment?.module.grinds ? collider : other;
-    const rock = hitbox === collider ? other : collider;
+    const object = hitbox === collider ? other : collider;
     const { segment } = hitbox;
+    const target = object.segment?.healthFrom || object.segment || object;
 
-    if (!segment?.module.grinds || segment.anim <= 0.5 || !rock.stroke) return;
+    if (!segment?.module.grinds || segment.anim <= 0.5 || !target.health) return;
 
     const [tipX, tipY] = tipOf(hitbox);
 
     // A small round cutting tip reaches slightly into inward corners without
     // letting the wide base of the horn mine whatever it brushes side-on
-    if (!hit(rock, { radius: 3, x: tipX, y: tipY })) return;
+    if (!hit(object, { radius: 3, x: tipX, y: tipY })) return;
 
-    rock.grinding = segment.module.damage;
-    rock.grindX = tipX;
-    rock.grindY = tipY;
+    target.grinding = segment.module.damage;
+    target.grindX = tipX;
+    target.grindY = tipY;
+    target.grindColor = object.stroke || object.segment?.stroke;
+    target.grindCarry = object.owner || object;
   });
 };
 
@@ -89,25 +92,28 @@ const breakRock = (rock, scenery, items) => {
 };
 
 /**
- * Damage a rock while it is being ground and break it when its health is gone.
+ * Apply one update's mining damage and destroy anything whose health is gone.
  * Called once per fixed game-loop update, however many physics substeps found
  * the horn touching it.
  *
- * @param {Object} rock
+ * @param {Object} target
  * @param {Number} dt - Seconds since the last update.
  * @param {Object[]} scenery - The rock is taken out of this when it breaks.
  * @param {Object[]} items - Its freed cargo is added to this.
  */
-export const grind = (rock, dt, scenery, items) => {
-  if (!rock.grinding) return;
+export const grind = (target, dt, scenery, items) => {
+  if (!target.grinding) return;
 
   // Sparks stream off wherever the horn is biting for as long as it grinds,
   // in the colour of the rock's own outline
-  spray(rock.grindX, rock.grindY, rock.stroke, grindRate * dt, rock);
+  spray(target.grindX, target.grindY, target.grindColor, grindRate * dt, target.grindCarry);
 
-  rock.health -= rock.grinding;
+  target.health -= target.grinding;
   // Set fresh each update it is touched, so damage is applied only once
-  rock.grinding = 0;
+  target.grinding = 0;
 
-  if (rock.health < 1) breakRock(rock, scenery, items);
+  if (target.health < 1) {
+    if (scenery.includes(target)) breakRock(target, scenery, items);
+    else if (items.includes(target)) remove(target, items);
+  }
 };

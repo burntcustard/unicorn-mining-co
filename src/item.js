@@ -1,7 +1,7 @@
 import { circlePath, linesPath, shapePath, sparklePath } from './drawing';
-import { drawGlow, lightAngle, litFill, tint } from './lighting';
 import { Sprite } from './sprite';
 import { colors } from './colors';
+import { drawGlow } from './lighting';
 
 /**
  * One loose thing in the world, built from an item definition. Everything an
@@ -18,14 +18,11 @@ const sheerFill = 0.4;
 
 // How big a glint is and how far out it sits, both against how far the item
 // reaches from its middle. A sparkle's long arms run to four times the size it
-// is given, so this is smaller than it looks. `shineAngle` is where on the
+// is given, so this is smaller than it looks. `glintAngle` is where on the
 // item it sits, in the item's own frame, so it rides round with the stone
-const shineSize = 0.2;
-const shineOffset = 0.4;
-const shineAngle = -Math.PI / 4;
-
-// Bright, but not so solid that it reads as a hole cut in the stone
-const shineAlpha = 0.7;
+const glintSize = 0.2;
+const glintOffset = 0.4;
+const glintAngle = -Math.PI / 4;
 
 // How brightly an item that carries its own light burns, how much of that it
 // loses between beats, and how fast it beats. A fuse running down winds that
@@ -57,6 +54,7 @@ export class Item extends Sprite.class {
     this.item = data;
     this.bounciness = data.bounciness;
     this.health = data.health;
+    this.fill = data.shades[1];
     this.mass = itemMass;
     this.drag = itemDrag;
     // The fastest it settles back to on nothing but the speed it was given,
@@ -64,13 +62,13 @@ export class Item extends Sprite.class {
     this.maxSpeed = itemMaxSpeed;
     this.name = data.name;
     this.price = data.price;
-    this.shades = data.shades;
+    this.stroke = data.shades[2];
     // A cut item is hit on its corners, a round one on its radius alone
     this.outline = points;
     this.radius = points ? Math.max(...points.map(([x, y]) => Math.hypot(x, y))) : radius;
     this.path = points ? shapePath(points) : circlePath(radius);
     this.lines = lines && linesPath(lines);
-    this.shine = data.shine && sparklePath(this.radius * shineSize);
+    this.glint = data.glint && sparklePath(this.radius * glintSize);
     // What a message says is settled when it is made, so two found in the same
     // rock do not say the same thing
     this.message = props.message || (data.notes && pick(data.notes));
@@ -87,15 +85,6 @@ export class Item extends Sprite.class {
    */
   arm() {
     if (this.item.fuse) this.fuse = this.item.fuse;
-  }
-
-  /**
-   * @returns {Boolean} spent - Whether that finished it off.
-   */
-  damage(amount) {
-    this.health = Math.max(0, this.health - amount);
-
-    return !this.health;
   }
 
   /**
@@ -123,40 +112,22 @@ export class Item extends Sprite.class {
     ctx.lineJoin = 'bevel';
     ctx.lineWidth = lineWidth;
 
-    // The light stays put while an item tumbles under it, so its ramp is taken
-    // in the item's own turned frame, the way a ship's segments are
-    const light = lightAngle - this.rotation;
-
     if (item.glow) {
       const beat = (1 + Math.sin(this.blink)) / 2;
 
-      drawGlow(ctx, this.path, this.shades[2], glowStrength * (1 - glowBeat * (1 - beat)));
+      drawGlow(ctx, this.path, this.stroke, glowStrength * (1 - glowBeat * (1 - beat)));
     }
 
-    // An item is a body of its own rather than a piece of a bigger one, so the
-    // ramp is laid across the middle of it: lit on the side the light is on
-    // and shaded on the far side, however it happens to be turned
-    const shape = { facing: light + Math.PI / 2, middle: [0, 0], reach: radius };
-
+    ctx.fillStyle = this.fill;
     if (item.rainbow) {
-      // An opal is not a colour, it is the light coming apart across a pale
-      // stone, so it runs from its own warm side through white to its own cool
-      // one instead of being tinted like everything else
-      const towardsX = Math.cos(light) * radius;
-      const towardsY = Math.sin(light) * radius;
-      const play = ctx.createLinearGradient(towardsX, towardsY, -towardsX, -towardsY);
+      const rainbow = ctx.createLinearGradient(-radius, 0, radius, 0);
 
-      play.addColorStop(0, this.shades[4]);
-      play.addColorStop(0.35, this.shades[2]);
-      play.addColorStop(0.7, colors.cyan[2]);
-      play.addColorStop(1, this.shades[3]);
-
-      ctx.fillStyle = play;
-    } else {
-      ctx.fillStyle = litFill(ctx, shape, light, (along) => tint(this.shades, 2, along));
+      rainbow.addColorStop(0, colors.pink[2]);
+      rainbow.addColorStop(0.5, colors.yellow[2]);
+      rainbow.addColorStop(1, colors.cyan[2]);
+      ctx.fillStyle = rainbow;
     }
-
-    ctx.strokeStyle = this.shades[2];
+    ctx.strokeStyle = this.stroke;
 
     // Part filled, so that a stone reads as something to see through rather
     // than a shape cut out in colour
@@ -168,21 +139,19 @@ export class Item extends Sprite.class {
 
     if (this.lines) ctx.stroke(this.lines);
 
-    if (this.shine) {
+    if (this.glint) {
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = shineAlpha;
       // Fixed to the stone rather than to the light, so a tumbling item
       // carries its glint round with it instead of the glint sliding about
       ctx.translate(
-        Math.cos(shineAngle) * radius * shineOffset,
-        Math.sin(shineAngle) * radius * shineOffset,
+        Math.cos(glintAngle) * radius * glintOffset,
+        Math.sin(glintAngle) * radius * glintOffset,
       );
       // Turned back out of the item's frame so the sparkle keeps its arms
       // square to the world. Left to spin it would pass through being an x
       ctx.rotate(-this.rotation);
       ctx.fillStyle = colors.white[2];
-      ctx.fill(this.shine);
+      ctx.fill(this.glint);
       ctx.restore();
     }
 

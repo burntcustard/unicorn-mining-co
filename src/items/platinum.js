@@ -10,5 +10,5 @@ export const platinum = {
   points: [[-8, -4], [8, -4], [6, 4], [-6, 4]],
   price: 1000,
   shades: colors.grey,
-  shine: true,
+  glint: true,
 };

@@ -29,7 +29,6 @@ const glow = [
 ];
 
 export const dockingBay = {
-  health: 100,
   name: 'Docking Bay',
   // A bay is there to be flown into, so nothing bumps off it
   open: true,

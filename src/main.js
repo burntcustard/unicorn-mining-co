@@ -50,13 +50,22 @@ playerShip.paint(cargoScoop, colors.violet);
 playerShip.paint(shield, colors.violet);
 
 // One hull of every colour, lined up to see how the light falls across them
-const swatches = ['black', 'red', 'orange', 'yellow', 'green', 'cyan', 'violet', 'black', 'white']
-  .map((color, i) => new Craft({
-    craftData: shipTypes.mustang,
-    shades: colors[color],
-    x: 120 + i * 120,
-    y: game.height - 120,
-  }));
+const swatches = [
+  colors.black,
+  colors.red,
+  colors.orange,
+  colors.yellow,
+  colors.green,
+  colors.cyan,
+  colors.violet,
+  colors.black,
+  colors.white,
+].map((shades, i) => new Craft({
+  craftData: shipTypes.mustang,
+  shades,
+  x: 120 + i * 120,
+  y: game.height - 120,
+}));
 
 const corral = new Craft({
   craftData: stationTypes.corral,
@@ -315,12 +324,9 @@ GameLoop({
     physics(dt);
     scenery.forEach((object) => object.update(dt));
 
-    // Rocks an active horn has been leaning on for long enough crack open,
-    // spilling whatever was buried in them out to be scooped up. Backwards,
-    // because a rock that breaks takes itself out of the scenery
-    for (let i = scenery.length - 1; i >= 0; i--) {
-      grind(scenery[i], dt, scenery, items);
-    }
+    // Apply horn damage once per update, however many physics substeps found it
+    [...scenery, ...items, ...crafts.flatMap((craft) => craft.segments)]
+      .forEach((target) => grind(target, dt, scenery, items));
 
     followTarget(game, playerShip, dt);
   },

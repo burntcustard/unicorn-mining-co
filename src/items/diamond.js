@@ -12,5 +12,5 @@ export const diamond = {
   price: 1200,
   shades: colors.cyan,
   sheer: true,
-  shine: true,
+  glint: true,
 };

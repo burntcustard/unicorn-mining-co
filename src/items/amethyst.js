@@ -12,5 +12,5 @@ export const amethyst = {
   price: 300,
   shades: colors.violet,
   sheer: true,
-  shine: true,
+  glint: true,
 };

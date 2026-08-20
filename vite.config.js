@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
           unsafe_comps: true,
           unsafe_math: true,
         },
-        // mangle: { properties: { keep_quoted: false, debug: true } },
+        mangle: { properties: {} },
         module: true,
       },
       assetsInlineLimit: 0,

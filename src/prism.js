@@ -20,7 +20,15 @@
 import { colors } from './colors';
 
 // The colours light comes apart into, in the order it comes apart in
-const spectrum = ['red', 'orange', 'yellow', 'green', 'cyan', 'indigo', 'violet'];
+const spectrum = [
+  colors.red[0],
+  colors.orange[0],
+  colors.yellow[0],
+  colors.green[0],
+  colors.cyan[0],
+  colors.indigo[0],
+  colors.violet[0],
+];
 
 // How many rays the beam is taken apart into. Fine enough that the edge of a
 // rock reads as an edge rather than as a staircase, coarse enough to be cheap
@@ -503,10 +511,8 @@ export const drawSpectrum = (ctx, lamp, beam) => {
       aways.push([leaveX + away[0] * out, leaveY + away[1] * out]);
     }
 
-    // Taken as the brighter of the colour and whatever is already there rather
-    // than added onto it, because a corner throws two fans across each other
-    // and adding those would have more light leaving the rock than went in
-    ctx.globalCompositeOperation = 'lighten';
+    // Added to what is already there like the rest of the game's light
+    ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = lamp.anim * spectrumStrength;
 
     spectrum.forEach((name, band) => {
@@ -523,7 +529,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
 
       // The deepest shade of each, because light is added to whatever is
       // already there and a pale colour only ever adds up to white
-      ctx.fillStyle = fillFor(ctx, colors[color][0], range);
+      ctx.fillStyle = fillFor(ctx, color, range);
       ctx.fill(between(stretch(exits, from, to), stretch(aways, from, to)));
     });
   });

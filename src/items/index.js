@@ -21,11 +21,10 @@
  * of corners would be. `lines` are drawn over the top of whichever it is, and
  * are never collided with.
  *
- * `shades` is a palette colour, worn and lit exactly as a ship's hull is, so
- * an item catches the same light everything else does. A `sheer` item is only
+ * `shades` supplies the fixed fill and outline colours. A `sheer` item is only
  * part filled, which is what makes a gem look like something to see through
- * rather than a coloured shape. A `shine` item wears a sparkle on its lit
- * side, and a `rainbow` one splits the light across its whole face.
+ * rather than a coloured shape. A `glint` item wears a sparkle, and a
+ * `rainbow` item fills itself with several colours without following the light.
  *
  * The rest are what an item does when it is picked up or left alone: `credits`
  * are paid straight into the pilot's account rather than stowed instead of

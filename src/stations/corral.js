@@ -80,7 +80,6 @@ export const corral = {
   zIndex: 2,
   hullSegments: [
     ...angles.flatMap((angle, i) => side.map((points, piece) => ({
-      health: 100,
       mounts: i === 0 && piece === 2 &&
         [{ fits: [dockingBay], x: mount, y: 0 }],
       // Only the socket with the bay in it can be flown through. The other
@@ -88,7 +87,7 @@ export const corral = {
       open: i === 0 && piece === 2,
       points: turn(points, angle),
     }))),
-    { docks: true, health: 300, open: true, points: core },
+    { docks: true, open: true, points: core },
     // Last, so that they are drawn over the socket edges they fill
     ...angles.slice(1).map((angle) => ({ health: 150, points: turn(panel, angle) })),
   ],

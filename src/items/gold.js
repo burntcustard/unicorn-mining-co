@@ -11,5 +11,5 @@ export const gold = {
   points: [[-7, -4], [7, -4], [5, 3], [-5, 3]],
   price: 600,
   shades: colors.yellow,
-  shine: true,
+  glint: true,
 };
