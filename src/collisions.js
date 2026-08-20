@@ -142,7 +142,7 @@ const spanOf = (object, points, axisX, axisY) => {
 
 // How deep the two are into each other, and the way out of it pointing from
 // the first towards the second
-const hit = (a, b) => {
+export const hit = (a, b) => {
   const gapX = b.x - a.x;
   const gapY = b.y - a.y;
   const between = Math.hypot(gapX, gapY);

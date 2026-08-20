@@ -1,6 +1,8 @@
 import { Sprite } from './sprite';
 import { createPolygon } from './polygon';
+import { hit } from './collisions';
 import { move } from './vector';
+import { settle } from './resolve';
 import { shapePath } from './drawing';
 
 // Stroke width in game units, to match the ships
@@ -17,10 +19,6 @@ const rockDrag = 1;
 
 // Fastest a rock settles back to on nothing but the speed it was given
 const rockMaxSpeed = 70;
-
-// How many times over the buried finds are shoved apart each frame, enough to
-// settle a small pocket of them out of the middle in one go
-const packPasses = 8;
 
 // Bigger rocks need more points to be lumpy with
 const pointsFor = (radius) => Math.round(4 + Math.sqrt(radius));
@@ -53,65 +51,36 @@ export class Asteroid extends Sprite.class {
 
   /**
    * Tuck an item away in the heart of the rock. Everything buried starts at the
-   * very middle and is shoved apart from whatever else is in there, so a rock's
-   * finds cluster in its centre rather than sitting on top of one another. A
-   * buried item rides along with the rock and stays out of sight until a lamp
-   * picks the rock out or a horn grinds it open.
+   * very middle and is settled against the rock's other finds. A buried item
+   * rides along with the rock until a horn grinds it open.
    *
    * @param {Item} item
    */
   bury(item) {
-    // Turned to its own angle so a pocket of finds does not line up, and kept
-    // so update can work out where in the world each one rides
     item.buried = { rotation: Math.random() * Math.PI * 2, x: 0, y: 0 };
 
     (this.contents ||= []).push(item);
   }
 
-  /**
-   * Shove the buried finds apart from one another so they nestle in the middle
-   * of the rock without overlapping. They push against each other and nothing
-   * else, and each pair moves apart evenly, so the cluster stays centred.
-   */
-  packContents() {
+  collideContents() {
     const { contents } = this;
 
-    for (let pass = 0; pass < packPasses; pass++) {
-      let moved = false;
+    // Collision helpers work in world coordinates, so use the rock's local
+    // space as a tiny world while its buried finds settle against one another
+    contents.forEach((item) => Object.assign(item, item.buried));
 
-      for (let i = 0; i < contents.length; i++) {
-        for (let j = i + 1; j < contents.length; j++) {
-          const a = contents[i].buried;
-          const b = contents[j].buried;
-          let awayX = b.x - a.x;
-          let awayY = b.y - a.y;
-          let between = Math.hypot(awayX, awayY);
-          const apart = contents[i].radius + contents[j].radius;
+    contents.forEach((a, i) => contents.slice(i + 1).forEach((b) => {
+      const overlap = hit(a, b);
 
-          if (between >= apart) continue;
+      if (!overlap) return;
 
-          // Sat exactly on top of each other, as they are the moment they are
-          // buried, so break them apart along any direction at all
-          if (!between) {
-            const angle = Math.random() * Math.PI * 2;
+      const { depth, x, y } = overlap;
 
-            awayX = Math.cos(angle);
-            awayY = Math.sin(angle);
-            between = 1;
-          }
+      settle(a, b, depth, -x, -y, 0);
+      settle(b, a, depth, x, y, 0);
+    }));
 
-          const push = (apart - between) / 2 / between;
-
-          a.x -= awayX * push;
-          a.y -= awayY * push;
-          b.x += awayX * push;
-          b.y += awayY * push;
-          moved = true;
-        }
-      }
-
-      if (!moved) break;
-    }
+    contents.forEach(({ buried, x, y }) => Object.assign(buried, { x, y }));
   }
 
   /**
@@ -121,10 +90,9 @@ export class Asteroid extends Sprite.class {
     this.rotation += this.spin * dt;
     move(this, dt);
 
-    // Buried cargo is carried bodily by the rock and turns with it, so it sits
-    // where the rock's face would be if you could see through to it
+    // Buried cargo collides only with the other finds in the same rock
     if (this.contents) {
-      this.packContents();
+      this.collideContents();
 
       const cos = Math.cos(this.rotation);
       const sin = Math.sin(this.rotation);
