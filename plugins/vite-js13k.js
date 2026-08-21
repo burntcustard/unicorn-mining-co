@@ -7,6 +7,37 @@ import { minify } from 'html-minifier-terser';
 
 const roadrollerSeed = 13312;
 const zipDate = new Date(1980, 0, 1);
+const fileRegex = /\.js$/;
+
+const customReplacement = (src) => src
+  // Give this repeated Kontra property a more compression-friendly spelling (~6B).
+  .replace(/acceleration/g, '_acceleration')
+  // Let Terser combine declarations without preserving const semantics (~19B).
+  .replaceAll('const ', 'let ');
+
+const customBundleReplacement = (src) => src
+  // The game always provides its canvas, so omit Kontra's defensive error (~5B).
+  .replace(/throw Error\(['"]You must provide a canvas element for the game['"]\)/, '')
+  // The canvas ID is fixed, so skip Kontra's generic element fallbacks (~19B).
+  .replace(
+    /document\.getElementById\(canvas\)\s*\|\|\s*canvas\s*\|\|\s*document\.querySelector\(['"]canvas['"]\)/,
+    'document.getElementById(\'c\')',
+  );
+
+export function viteJs13kPre() {
+  return {
+    name: 'vite-js13k-pre',
+    enforce: 'pre',
+    transform(src, id) {
+      if (fileRegex.test(id)) {
+        return {
+          code: customReplacement(src),
+          map: null,
+        };
+      }
+    },
+  };
+}
 
 const seededRandom = (seed) => {
   let state = seed;
@@ -123,6 +154,7 @@ export function viteJs13k(buildLevel = 'full') {
   return {
     name: 'vite-js13k',
     enforce: 'post',
+    renderChunk: customBundleReplacement,
     generateBundle: async (_, bundle) => {
       const jsExtensionTest = /\.[mc]?js$/;
       const htmlFiles = Object.keys(bundle).filter((i) => i.endsWith('.html'));

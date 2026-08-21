@@ -1,6 +1,6 @@
+import { viteJs13k, viteJs13kPre } from './plugins/vite-js13k.js';
 import { defineConfig } from 'vite';
 import kontra from 'rollup-plugin-kontra';
-import { viteJs13k } from './plugins/vite-js13k.js';
 
 export default defineConfig(({ mode }) => {
   const buildLevels = {
@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
     },
     plugins: [
+      viteJs13kPre(),
       kontra({
         gameObject: {
           acceleration: true,
