@@ -81,11 +81,10 @@ export class Road {
     updateSparks(this.sparks, this.distance, roadSpeed, dt);
   }
 
-  render(scale) {
+  render() {
     const { ctx } = this;
 
     ctx.save();
-    ctx.scale(scale, scale);
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
     ctx.lineWidth = lineWidth;

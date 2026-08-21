@@ -96,9 +96,8 @@ export const updateBlasts = (dt) => {
 
 /**
  * @param {Object} game
- * @param {Number} scale
  */
-export const renderBlasts = ({ ctx }, scale) => {
+export const renderBlasts = ({ ctx }) => {
   blasts.forEach(({ age, x, y }) => {
     const along = age / life;
     // Out fast and slowing as it goes, the way a shell of hot gas does
@@ -111,7 +110,6 @@ export const renderBlasts = ({ ctx }, scale) => {
     flash.addColorStop(1, `${colors.red[0]}0`);
 
     ctx.save();
-    ctx.scale(scale, scale);
     ctx.translate(x, y);
     // Light, so it lifts whatever it goes off over rather than hiding it
     ctx.globalCompositeOperation = 'lighter';

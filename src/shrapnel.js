@@ -83,11 +83,9 @@ export const updateSparks = (dt) => {
 
 /**
  * @param {Object} game
- * @param {Number} scale
  */
-export const renderSparks = ({ ctx }, scale) => {
+export const renderSparks = ({ ctx }) => {
   ctx.save();
-  ctx.scale(scale, scale);
   ctx.lineCap = 'round';
   ctx.lineWidth = lineWidth;
 

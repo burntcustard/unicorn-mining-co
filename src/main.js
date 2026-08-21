@@ -254,14 +254,15 @@ GameLoop({
     if (!(benchmark && benchmark.has('noBackground'))) renderBackground(game);
 
     game.ctx.save();
-    game.ctx.translate(-camera.x * game.scale, -camera.y * game.scale);
+    game.ctx.scale(game.scale, game.scale);
+    game.ctx.translate(-camera.x, -camera.y);
 
-    roads.forEach((road) => road.render(game.scale));
+    roads.forEach((road) => road.render());
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them, using the same z-index as ship modules
     for (let zIndex = -3; zIndex < 4; zIndex++) {
       if (zIndex === -2) {
-        scenery.forEach((object) => object.render(game.scale));
+        scenery.forEach((object) => object.render());
         // Buried cargo shows only through the slice of rock the floodlight is
         // crossing, as if the lamp lets a pilot peer inside it
         if (lights && lamp.anim > 0.5) {
@@ -269,7 +270,6 @@ GameLoop({
           const worldFrame = game.ctx.getTransform();
 
           game.ctx.save();
-          game.ctx.scale(game.scale, game.scale);
           game.ctx.translate(playerShip.x, playerShip.y);
           game.ctx.rotate(playerShip.rotation);
           game.ctx.translate(lamp.x, lamp.y);
@@ -277,19 +277,19 @@ GameLoop({
           game.ctx.setTransform(worldFrame);
 
           scenery.forEach((rock) => {
-            if (rock.contents) rock.contents.forEach((item) => item.render(game.scale));
+            if (rock.contents) rock.contents.forEach((item) => item.render());
           });
 
           game.ctx.restore();
         }
-        items.forEach((item) => item.render(game.scale));
+        items.forEach((item) => item.render());
       }
-      crafts.forEach((craft) => craft.render(game.scale, scenery, zIndex));
+      crafts.forEach((craft) => craft.render(scenery, zIndex));
     }
     // Sparks off the horn sit over the rocks and ships they come off
-    renderSparks(game, game.scale);
+    renderSparks(game);
     // Light rather than paint, so it goes over everything it lights up
-    if (lights) renderBlasts(game, game.scale);
+    if (lights) renderBlasts(game);
 
     game.ctx.restore();
 

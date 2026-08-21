@@ -98,11 +98,10 @@ export class Item extends Sprite.class {
     }
   }
 
-  render(scale) {
+  render() {
     const { ctx, item, radius } = this;
 
     ctx.save();
-    ctx.scale(scale, scale);
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
     ctx.lineJoin = 'bevel';

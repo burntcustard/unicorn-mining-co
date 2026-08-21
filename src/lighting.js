@@ -1,5 +1,6 @@
 import { circlePath } from './drawing';
 import { colors } from './colors';
+import { game } from './game';
 
 // Benchmark-only switches are compiled away from every normal build.
 const benchmark = import.meta.env.MODE === 'benchmark' && new URLSearchParams(location.search);
@@ -180,19 +181,44 @@ const haloFill = (ctx, color) => (halos[color] ||= haloOf(ctx, color));
  * @param {Path2D} path
  * @param {String} color
  * @param {Number} strength
+ * @param {Number[][]} [cache]
  */
-export const drawGlow = (ctx, path, color, strength) => {
+export const drawGlow = (ctx, path, color, strength, cache) => {
   if (!glows || (benchmark && (benchmark.has('noLighting') || benchmark.has('noGlows')))) return;
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = strength;
-  if (!(benchmark && benchmark.has('noBlur'))) {
-    ctx.shadowBlur = glowBlur;
-    ctx.shadowColor = color;
+
+  if (cache && !(benchmark && benchmark.has('noBlur'))) {
+    const { scale } = game;
+
+    if (!cache.image || cache.scale !== scale) {
+      const radius = Math.max(...cache.map(([x, y]) => Math.hypot(x, y)));
+      const reach = radius * scale + glowBlur * 2;
+      const image = document.createElement('canvas');
+      const paint = image.getContext('2d');
+
+      image.width = image.height = reach * 2;
+      paint.translate(reach, reach);
+      paint.scale(scale, scale);
+      paint.shadowBlur = glowBlur;
+      paint.shadowColor = paint.fillStyle = color;
+      paint.fill(path);
+      cache.image = image;
+      cache.scale = scale;
+    }
+    const size = cache.image.width / cache.scale;
+
+    ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
+  } else {
+    if (!(benchmark && benchmark.has('noBlur'))) {
+      ctx.shadowBlur = glowBlur;
+      ctx.shadowColor = color;
+    }
+    ctx.fillStyle = color;
+    ctx.fill(path);
   }
-  ctx.fillStyle = color;
-  ctx.fill(path);
   ctx.restore();
 };
 

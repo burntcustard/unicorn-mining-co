@@ -58,13 +58,15 @@ const healthOf = (segment) => segment.healthFrom?.health ?? segment.health;
 const maxHealthOf = (segment) => segment.healthFrom?.maxHealth ?? segment.maxHealth;
 
 const makeSegment = (craft, craftModule = {}, part, mount) => {
-  const { points } = part;
+  const { glow, points } = part;
   const shape = Array.isArray(points) && shapeOf(points, mount);
   const healthFrom = mount && part.health === undefined && craftModule.health === undefined ?
     mount.hull :
     null;
   const health = healthFrom?.health ?? part.health ?? craftModule.health;
   const duration = part.activationDuration || craftModule.activationDuration;
+
+  if (glow) glow.path ||= shapePath(glow);
 
   return {
     ...craftModule.state?.(),
@@ -75,8 +77,8 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     docks: part.docks,
     fill: craft.shades[1],
     fillAlpha: part.fillAlpha,
-    glow: part.glow && shapePath(part.glow),
-    glowColor: part.glow && craft.shades[2],
+    glow,
+    glowColor: glow && craft.shades[2],
     health,
     healthFrom,
     hull: !mount,
@@ -277,11 +279,10 @@ export class Craft extends Sprite.class {
     });
   }
 
-  render(scale, scenery, zIndex) {
+  render(scenery, zIndex) {
     const { ctx } = this;
 
     ctx.save();
-    ctx.scale(scale, scale);
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
     ctx.lineJoin = 'bevel';
@@ -308,7 +309,9 @@ export class Craft extends Sprite.class {
       ctx.save();
       if (segment.thrust && segment.anim) drawHalo(ctx, segment);
       ctx.translate(segment.x, segment.y);
-      if (segment.glow && zIndex < 0) drawGlow(ctx, segment.glow, segment.glowColor, glowStrength);
+      if (segment.glow && zIndex < 0) {
+        drawGlow(ctx, segment.glow.path, segment.glowColor, glowStrength, segment.glow);
+      }
 
       let worn = 0;
 
@@ -350,7 +353,9 @@ export class Craft extends Sprite.class {
         ctx.stroke(linesPath(segment.lines.call ? segment.lines(segment) : segment.lines));
         ctx.restore();
       }
-      if (segment.glow && zIndex >= 0) drawGlow(ctx, segment.glow, segment.glowColor, glowStrength);
+      if (segment.glow && zIndex >= 0) {
+        drawGlow(ctx, segment.glow.path, segment.glowColor, glowStrength, segment.glow);
+      }
 
       ctx.restore();
     });

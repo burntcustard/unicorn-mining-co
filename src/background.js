@@ -16,8 +16,8 @@ import { colors } from './colors';
 // World units across a tile. Bigger repeats less obviously and costs more
 // memory, and this is already wider than the screen
 const tile = 1200;
-// Backing pixels per world unit, so stars stay sharp when the game is scaled.
-const resolution = 2;
+// Final screen pixels across a tile, rebuilt whenever the display scale changes
+let span;
 
 // How much of the camera's movement each layer takes, and what is in it.
 // Barely any of it, because all of this is a very long way off. The layers sit
@@ -73,8 +73,8 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  canvas.width = canvas.height = tile * resolution;
-  ctx.scale(resolution, resolution);
+  canvas.width = canvas.height = span;
+  ctx.scale(span / tile, span / tile);
 
   if (parts.includes('clouds')) Array.from({ length: clouds }).forEach(() => {
     const color = cloudColors[Math.floor(Math.random() * cloudColors.length)];
@@ -156,8 +156,6 @@ const build = () => {
   }));
 };
 
-build();
-
 // Which parts of the sky are being drawn, and a way to step through them, so
 // that what each one costs can be read off the frame rate one at a time
 export const sky = {
@@ -176,14 +174,14 @@ export const sky = {
  */
 export const renderBackground = (game) => {
   const { canvas, ctx, scale } = game;
+  const size = Math.round(tile * scale);
+
+  if (span !== size) {
+    span = size;
+    build();
+  }
 
   if (!modes[mode].parts.length) return;
-
-  // Whole screen pixels, and a whole number of them across, so that two tiles
-  // meeting never leave a hairline of background showing between them
-  const span = Math.round(tile * scale);
-  // Tile pixels per screen pixel, for cutting a stamp down to its visible part
-  const back = tile * resolution / span;
 
   layers.forEach(({ depth }, i) => {
     // Shifting the sky rather than the camera is what makes a layer lag behind
@@ -195,25 +193,8 @@ export const renderBackground = (game) => {
 
     for (let atX = left; atX < canvas.width; atX += span) {
       for (let atY = top; atY < canvas.height; atY += span) {
-        // Only the part of a stamp that lands on screen. A tile is wider than
-        // the screen, so most of one is waste to a browser that does not clip
-        // it away for itself
-        const toX = Math.max(atX, 0);
-        const toY = Math.max(atY, 0);
-        const width = Math.min(atX + span, canvas.width) - toX;
-        const height = Math.min(atY + span, canvas.height) - toY;
-
-        ctx.drawImage(
-          tiles[i],
-          (toX - atX) * back,
-          (toY - atY) * back,
-          width * back,
-          height * back,
-          toX,
-          toY,
-          width,
-          height,
-        );
+        // Canvas clips whatever falls outside the screen
+        ctx.drawImage(tiles[i], atX, atY);
       }
     }
   });

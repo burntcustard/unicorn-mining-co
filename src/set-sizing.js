@@ -12,8 +12,7 @@ export const setSizing = (game) => {
   game.canvas.width = window.innerWidth;
   game.canvas.height = window.innerHeight;
   // Resizing a canvas wipes its context settings, so this goes back on after.
-  // Smoothing costs real time on the tiles of sky, which are the only thing
-  // drawn as an image and are scaled up a little to fit
+  // Cached artwork should stay sharp, without resampling between its pixels
   game.ctx.imageSmoothingEnabled = false;
 
   // The HUD has a grid of its own, so that zooming the world out by raising
