@@ -1,5 +1,15 @@
 import { Vector, movePoint, rotatePoint } from 'kontra';
-import { drawBeam, drawGlow, drawHalo, lightAngle, litFill, shadingStep, shapeOf, tint } from './lighting';
+import {
+  drawBeam,
+  drawGlow,
+  drawHalo,
+  lightAngle,
+  lights,
+  litFill,
+  shadingStep,
+  shapeOf,
+  tint,
+} from './lighting';
 import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
@@ -286,7 +296,8 @@ export class Craft extends Sprite.class {
       ctx.setLineDash([]);
     }
 
-    if (this.hullGradient && Math.abs(this.rotation - this.litAt) >= shadingStep) this.relight();
+    if (lights && this.hullGradient &&
+      Math.abs(this.rotation - this.litAt) >= shadingStep) this.relight();
 
     const light = lightAngle - this.rotation;
     this.segments.forEach((segment) => {
@@ -307,7 +318,8 @@ export class Craft extends Sprite.class {
       let lit;
 
       if (segment.middle) {
-        if (this.hullGradient) lit = segment.hull && segment.lit;
+        if (!lights) lit = tint(segment.shades, worn, 0.5);
+        else if (this.hullGradient) lit = segment.hull && segment.lit;
         else lit = litFill(ctx, segment, light, (along) => tint(segment.shades, worn, along));
       }
 
@@ -320,10 +332,12 @@ export class Craft extends Sprite.class {
 
       if (path) {
         if (segment.module.beam) {
-          const beam = traceBeam(this, segment, scenery || []);
+          if (lights) {
+            const beam = traceBeam(this, segment, scenery || []);
 
-          drawBeam(ctx, path, segment.shades[2], segment.module.reach, segment.anim, litPath(beam));
-          drawSpectrum(ctx, segment, beam);
+            drawBeam(ctx, path, segment.shades[2], segment.module.reach, segment.anim, litPath(beam));
+            drawSpectrum(ctx, segment, beam);
+          }
         } else {
           ctx.fill(path);
           if (!segment.bare) ctx.stroke(path);

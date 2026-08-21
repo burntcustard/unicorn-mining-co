@@ -5,6 +5,7 @@ import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
 import { detonate, renderBlasts, updateBlasts } from './explosion';
 import { dock, flyOut, launch } from './docking';
+import { glows, lights, toggleGlows, toggleLights } from './lighting';
 import { grind, mine } from './mining';
 import { insidePath, traceBeam } from './prism';
 import { maxHop, move } from './vector';
@@ -30,6 +31,9 @@ import { setSizing } from './set-sizing';
 import { shipTypes } from './ships';
 import { stationTypes } from './stations';
 import { textDemo } from './text-demo';
+
+// Benchmark-only switches are compiled away from every normal build.
+const benchmark = import.meta.env.MODE === 'benchmark' && new URLSearchParams(location.search);
 
 setSizing(game);
 
@@ -166,10 +170,13 @@ const items = itemTypes.map((itemData, i) => new Item({
 
 // Everything that can catch hold of a ship and carry it along
 const movers = [...crafts, ...roads];
+let physicsOn = 1;
 
 // Move every physical body through the same short steps, so fast things cannot
 // jump through thin colliders and no one object type owns world collisions
 const physics = (dt) => {
+  if (!physicsOn || (benchmark && benchmark.has('noPhysics'))) return;
+
   let left = dt;
 
   while (left > 0) {
@@ -191,16 +198,18 @@ const physics = (dt) => {
     );
     const step = Math.min(left, maxHop / speed);
 
-    bodies.forEach((body) => {
+    if (!(benchmark && benchmark.has('noMovement'))) bodies.forEach((body) => {
       body.rotation += (body.spin || 0) * step;
       move(body, step);
       localMovement(body, movers, step);
     });
-    const found = contacts([
-      ...scenery,
-      ...items,
-      ...crafts.flatMap((craft) => craft.hitboxes()),
-    ]);
+    const found = benchmark && benchmark.has('noCollisions') ?
+        [] :
+        contacts([
+          ...scenery,
+          ...items,
+          ...crafts.flatMap((craft) => craft.hitboxes()),
+        ]);
 
     scoop(items, found);
     mine(found);
@@ -218,7 +227,10 @@ initKeys();
 
 // The sky is the most expensive thing on screen, so its parts can be stepped
 // through one at a time to see which of them is costing what
-bindKeys(['b'], sky.cycle);
+bindKeys(['6'], sky.cycle);
+bindKeys(['7'], toggleLights);
+bindKeys(['8'], toggleGlows);
+bindKeys(['9'], () => physicsOn = !physicsOn);
 
 // Cutting an item out of a rock is what arms it. Until there is mining to do
 // that, this stands in for it
@@ -239,7 +251,7 @@ colorsDemo(game);
 GameLoop({
   render: () => {
     // The sky slides past at its own pace, so it moves itself
-    renderBackground(game);
+    if (!(benchmark && benchmark.has('noBackground'))) renderBackground(game);
 
     game.ctx.save();
     game.ctx.translate(-camera.x * game.scale, -camera.y * game.scale);
@@ -252,7 +264,7 @@ GameLoop({
         scenery.forEach((object) => object.render(game.scale));
         // Buried cargo shows only through the slice of rock the floodlight is
         // crossing, as if the lamp lets a pilot peer inside it
-        if (lamp.anim > 0.5) {
+        if (lights && lamp.anim > 0.5) {
           const beam = traceBeam(playerShip, lamp, scenery);
           const worldFrame = game.ctx.getTransform();
 
@@ -277,14 +289,17 @@ GameLoop({
     // Sparks off the horn sit over the rocks and ships they come off
     renderSparks(game, game.scale);
     // Light rather than paint, so it goes over everything it lights up
-    renderBlasts(game, game.scale);
+    if (lights) renderBlasts(game, game.scale);
 
     game.ctx.restore();
 
     renderDeadzone(game);
     renderFps(game);
     renderText({ ctx: game.ctx, scale: game.uiScale, text: `$${player.credits}`, x: 10, y: 30 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: sky.label, x: 10, y: 50 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `6 ${sky.label}`, x: 10, y: 50 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `7 LIGHTING: ${lights ? 'ON' : 'OFF'}`, x: 10, y: 70 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `8 GLOWS: ${glows ? 'ON' : 'OFF'}`, x: 10, y: 90 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `9 PHYSICS: ${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 110 });
     renderControls(game, playerShip);
 
     if (player.noteFor) {

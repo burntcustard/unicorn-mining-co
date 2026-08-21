@@ -4,6 +4,7 @@
   "type": "module",
   "description": "A web game created for Js13kGames",
   "scripts": {
+    "benchmark": "node benchmarking/run.mjs",
     "dev": "vite",
     "dev:host": "vite --host",
     "build": "npm run build:full",

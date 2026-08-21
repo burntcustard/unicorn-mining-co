@@ -1,6 +1,16 @@
 import { circlePath } from './drawing';
 import { colors } from './colors';
 
+// Benchmark-only switches are compiled away from every normal build.
+const benchmark = import.meta.env.MODE === 'benchmark' && new URLSearchParams(location.search);
+
+// Profiling switches kept separate from module state, so lamps and engines
+// carry on running while either kind of light is hidden.
+export let glows = 1;
+export let lights = 1;
+export const toggleGlows = () => glows = !glows;
+export const toggleLights = () => lights = !lights;
+
 // Where the light in this part of space comes from, in radians
 export const lightAngle = -Math.PI / 4;
 
@@ -123,6 +133,10 @@ export const shapeOf = (points, mount) => {
  * @param {Function} shade - Turns a place on the ramp into a colour.
  */
 export const litFill = (ctx, shape, light, shade) => {
+  if (benchmark && (benchmark.has('noLighting') || benchmark.has('noGradients'))) {
+    return shade(0.5);
+  }
+
   const [middleX, middleY] = shape.middle;
   const towardsX = Math.cos(light) * shape.reach;
   const towardsY = Math.sin(light) * shape.reach;
@@ -168,11 +182,15 @@ const haloFill = (ctx, color) => (halos[color] ||= haloOf(ctx, color));
  * @param {Number} strength
  */
 export const drawGlow = (ctx, path, color, strength) => {
+  if (!glows || (benchmark && (benchmark.has('noLighting') || benchmark.has('noGlows')))) return;
+
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = strength;
-  ctx.shadowBlur = glowBlur;
-  ctx.shadowColor = color;
+  if (!(benchmark && benchmark.has('noBlur'))) {
+    ctx.shadowBlur = glowBlur;
+    ctx.shadowColor = color;
+  }
   ctx.fillStyle = color;
   ctx.fill(path);
   ctx.restore();
@@ -191,6 +209,8 @@ export const drawGlow = (ctx, path, color, strength) => {
  * @param {Path2D} lit - How far the light got before it ran into anything.
  */
 export const drawBeam = (ctx, path, color, reach, level, lit) => {
+  if (!lights || (benchmark && (benchmark.has('noLighting') || benchmark.has('noBeam')))) return;
+
   const gradient = ctx.createLinearGradient(0, 0, reach, 0);
 
   gradient.addColorStop(0, color);
@@ -205,8 +225,10 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
   // Cast off the beam rather than laid down under it, so it gives out along
   // with the light. A glow of its own has no idea how far down the beam it is
   // and ends in a hard edge wherever the light happens to stop
-  ctx.shadowBlur = glowBlur;
-  ctx.shadowColor = color;
+  if (!(benchmark && benchmark.has('noBlur'))) {
+    ctx.shadowBlur = glowBlur;
+    ctx.shadowColor = color;
+  }
   ctx.fillStyle = gradient;
   ctx.fill(path);
   ctx.restore();
@@ -220,6 +242,8 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
  * @param {Object} nozzle
  */
 export const drawHalo = (ctx, nozzle) => {
+  if (!glows || (benchmark && (benchmark.has('noLighting') || benchmark.has('noHalos')))) return;
+
   // The same figure that sizes the flare, so the two grow and die together
   const level = nozzle.anim * Math.sqrt(nozzle.power);
 
