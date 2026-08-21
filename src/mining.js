@@ -154,6 +154,13 @@ const breakRock = (rock, scenery, items) => {
 export const grind = (target, dt, scenery, items) => {
   if (!target.grinding) return;
 
+  const pullX = target.grindCarry.x - target.grinder.x;
+  const pullY = target.grindCarry.y - target.grinder.y;
+  const distance = Math.hypot(pullX, pullY);
+
+  target.grinder.dx += (target.grindCarry.dx - target.grinder.dx) / 10 + pullX / distance;
+  target.grinder.dy += (target.grindCarry.dy - target.grinder.dy) / 10 + pullY / distance;
+
   // Sparks stream off wherever the horn is biting for as long as it grinds,
   // in the colour of the rock's own outline
   spray(target.grindX, target.grindY, target.grindColor, grindRate * dt, target.grindCarry);

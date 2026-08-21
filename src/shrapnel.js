@@ -8,7 +8,7 @@
 
 // Seconds a spark lasts at most, with some of that taken off at random so no
 // two die together
-const life = 0.4;
+const life = 0.5;
 
 // How fast a spark flies off, in game units a second, and how much slower the
 // slowest of them go
@@ -16,12 +16,12 @@ const speed = 110;
 const spread = 0.6;
 
 // How fast a spark loses its pace as it flies, per frame at sixty of them
-const drag = 0.88;
+const drag = 0.8;
 
 // How long a streak one draws and how wide, in game units. A streak rather than
 // a dot is what makes it read as flying rather than sitting there
-const length = 5;
-const lineWidth = 2;
+const length = 8;
+const lineWidth = 3;
 
 export const sparks = [];
 
