@@ -40,9 +40,9 @@ const dotTints = [colors.red[2], colors.orange[2], colors.cyan[2]];
 const sparkleTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors.violet[2]];
 const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[1], colors.purple[2]];
 
-const pick = (list) => list[Math.floor(Math.random() * list.length)];
-
-const starColor = (tints) => (Math.random() < tinted ? pick(tints) : colors.white[2]);
+const starColor = (tints) => (Math.random() < tinted ?
+  tints[Math.floor(Math.random() * tints.length)] :
+  colors.white[2]);
 
 // What the sky can be built out of. A part is left out of the tile altogether
 // rather than skipped while drawing, so what a mode costs is what is in the
@@ -75,7 +75,7 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   canvas.height = tile;
 
   if (parts.includes('clouds')) Array.from({ length: clouds }).forEach(() => {
-    const color = pick(cloudColors);
+    const color = cloudColors[Math.floor(Math.random() * cloudColors.length)];
     const radius = tile / 5 + Math.random() * tile / 4;
     const x = Math.random() * tile;
     const y = Math.random() * tile;
@@ -96,7 +96,7 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   ctx.shadowBlur = dotGlow;
 
   if (parts.includes('dots')) Array.from({ length: dots }).forEach(() => {
-    const color = starColor(dotTints) + pick('56789abcde');
+    const color = starColor(dotTints) + '56789abcde'[Math.floor(Math.random() * 11)];
     const path = circlePath(size * (0.4 + Math.random() * 0.6));
     const x = Math.random() * tile;
     const y = Math.random() * tile;
@@ -117,7 +117,7 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   ctx.shadowBlur = sparkleGlow;
 
   if (parts.includes('sparkles')) Array.from({ length: sparkles }).forEach(() => {
-    const color = starColor(sparkleTints) + pick('9abcde');
+    const color = starColor(sparkleTints) + '9abcde'[Math.floor(Math.random() * 6)];
     const path = sparklePath(size * (1 + Math.random()));
     const x = Math.random() * tile;
     const y = Math.random() * tile;

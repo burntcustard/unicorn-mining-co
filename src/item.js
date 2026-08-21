@@ -30,8 +30,6 @@ const glowBeat = 0.5;
 const calmRate = 3;
 const panicRate = 14;
 
-const pick = (list) => list[Math.floor(Math.random() * list.length)];
-
 // Every item is the same weight and shrugs off its speed at the same rate, so
 // they shove about and drift alike whatever they happen to be
 const itemMass = 6;
@@ -69,7 +67,7 @@ export class Item extends Sprite.class {
     this.glint = data.glint && sparklePath(this.radius * glintSize);
     // What a message says is settled when it is made, so two found in the same
     // rock do not say the same thing
-    this.message = props.message || (data.notes && pick(data.notes));
+    this.message = props.message || (data.notes && data.notes[Math.floor(Math.random() * data.notes.length)]);
     // Sat still unless it was given a tumble. Left undefined it poisons the
     // rotation, and a shape turned by NaN cannot be collided with at all
     this.spin = props.spin || 0;

@@ -22,12 +22,10 @@ const sparkLife = 2;
 const shortest = 10;
 const longest = 30;
 
-const pick = (list) => list[Math.floor(Math.random() * list.length)];
-
 const respawn = (spark, distance) => {
   spark.across = Math.random() - 0.5;
   spark.along = Math.random() * distance;
-  spark.color = pick(bright);
+  spark.color = bright[Math.floor(Math.random() * bright.length)];
   spark.length = shortest + Math.random() * (longest - shortest);
   spark.life = Math.random() * sparkLife;
 };
