@@ -2,6 +2,7 @@ import { Asteroid } from './asteroid';
 import { distribute } from './distribute';
 import { hit } from './collisions';
 import { remove } from './item';
+import { rotatePoint } from 'kontra';
 import { spray } from './shrapnel';
 
 /**
@@ -67,12 +68,11 @@ const fragmentsOf = (rock) => {
  */
 const tipOf = (hitbox) => {
   const [tipX, tipY] = hitbox.outline.reduce((far, corner) => (corner[0] > far[0] ? corner : far));
-  const cos = Math.cos(hitbox.rotation);
-  const sin = Math.sin(hitbox.rotation);
+  const tip = rotatePoint({ x: tipX, y: tipY }, hitbox.rotation);
 
   return [
-    hitbox.x + tipX * cos - tipY * sin,
-    hitbox.y + tipX * sin + tipY * cos,
+    hitbox.x + tip.x,
+    hitbox.y + tip.y,
   ];
 };
 
@@ -154,12 +154,10 @@ const breakRock = (rock, scenery, items) => {
 export const grind = (target, dt, scenery, items) => {
   if (!target.grinding) return;
 
-  const pullX = target.grindCarry.x - target.grinder.x;
-  const pullY = target.grindCarry.y - target.grinder.y;
-  const distance = Math.hypot(pullX, pullY);
+  const pull = target.grindCarry.position.subtract(target.grinder.position).normalize();
+  const grip = target.grindCarry.velocity.subtract(target.grinder.velocity).scale(0.1).add(pull);
 
-  target.grinder.dx += (target.grindCarry.dx - target.grinder.dx) / 10 + pullX / distance;
-  target.grinder.dy += (target.grindCarry.dy - target.grinder.dy) / 10 + pullY / distance;
+  target.grinder.velocity.set(target.grinder.velocity.add(grip));
 
   // Sparks stream off wherever the horn is biting for as long as it grinds,
   // in the colour of the rock's own outline

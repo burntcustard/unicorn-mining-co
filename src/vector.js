@@ -1,17 +1,15 @@
-const magnitude = (vec) => Math.sqrt(vec.x * vec.x + vec.y * vec.y);
+import { rotatePoint } from 'kontra';
 
 /**
  * Rotate local points around zero, then optionally move them into world space.
  * Used wherever shapes need the same coordinates after their owner turns.
  */
 export const rotatePoints = (points, angle, x = 0, y = 0) => {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
+  return points.map(([pointX, pointY]) => {
+    const point = rotatePoint({ x: pointX, y: pointY }, angle);
 
-  return points.map(([pointX, pointY]) => [
-    x + pointX * cos - pointY * sin,
-    y + pointX * sin + pointY * cos,
-  ]);
+    return [x + point.x, y + point.y];
+  });
 };
 
 // Below this a sprite is drifting slowly enough to just call it stopped
@@ -38,7 +36,7 @@ const overDrag = 0.9;
 export const slow = ({ velocity, mass, drag, maxSpeed }, dt) => {
   if (mass === undefined) return;
 
-  const speed = magnitude(velocity);
+  const speed = velocity.length();
 
   if (speed < minSpeed) {
     velocity.x = 0;
@@ -84,14 +82,13 @@ export const maxHop = 4;
  *   hop has ended up inside of.
  */
 export const move = (object, dt, settle) => {
-  const hops = Math.max(1, Math.ceil((magnitude(object.velocity) * dt) / maxHop));
+  const hops = Math.max(1, Math.ceil((object.velocity.length() * dt) / maxHop));
   const step = dt / hops;
 
   for (let hop = 0; hop < hops; hop++) {
     slow(object, step);
 
-    object.x += object.dx * step;
-    object.y += object.dy * step;
+    object.position.set(object.position.add(object.velocity.scale(step)));
 
     settle?.();
   }

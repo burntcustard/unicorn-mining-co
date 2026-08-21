@@ -17,6 +17,7 @@
  * All of it is worked out in the lamp's own frame, where the lamp sits at the
  * origin and shines along positive x, which is how the cone is drawn too.
  */
+import { Vector, movePoint } from 'kontra';
 import { colors } from './colors';
 import { rotatePoints } from './vector';
 
@@ -233,8 +234,8 @@ export const traceBeam = (ship, lamp, scenery) => {
   const range = Math.hypot(far, spread);
   const edge = Math.atan2(spread, far);
   const close = scenery
-    .filter(({ outline, radius, x, y }) => outline &&
-      Math.hypot(x - ship.x, y - ship.y) - radius < range);
+    .filter((object) => object.outline &&
+      object.position.distance(ship.position) - object.radius < range);
   const outlines = close.map((object) => outlineOf(ship, lamp, object));
   // Only a rock with something buried in it lets the light in and throws a
   // spectrum out the far side. An empty one is solid, so it stops the beam on
@@ -244,15 +245,15 @@ export const traceBeam = (ship, lamp, scenery) => {
 
   for (let i = 0; i <= rays; i++) {
     const angle = edge * ((i * 2) / rays - 1);
-    const dirX = Math.cos(angle);
-    const dirY = Math.sin(angle);
-    const [near, face, index] = nearest(outlines, 0, 0, dirX, dirY);
+    const direction = movePoint(Vector(), angle, 1);
+    const [near, face, index] = nearest(outlines, 0, 0, direction.x, direction.y);
     const stopped = near < range && face;
     // Which face it comes back out by matters as much as the one it went in
     // by, and it is only worth knowing to the nearest colour, so the middle of
     // the spectrum stands in for all of them
     const passed = stopped && refracts[index] &&
-      through(outlines, dirX * near, dirY * near, dirX, dirY, face, midIndex, range);
+      through(outlines, direction.x * near, direction.y * near,
+        direction.x, direction.y, face, midIndex, range);
 
     beam.angles.push(angle);
     beam.hit.push(Math.min(near, range));
@@ -274,7 +275,11 @@ export const litPath = ({ angles, hit }) => {
   const path = new Path2D();
 
   path.moveTo(0, 0);
-  angles.forEach((angle, i) => path.lineTo(Math.cos(angle) * hit[i], Math.sin(angle) * hit[i]));
+  angles.forEach((angle, i) => {
+    const point = movePoint(Vector(), angle, hit[i]);
+
+    path.lineTo(point.x, point.y);
+  });
   path.closePath();
 
   return path;
@@ -403,12 +408,11 @@ export const insidePath = (beam) => {
     const exits = [];
 
     for (let i = run.from; i <= run.to; i++) {
-      const dirX = Math.cos(angles[i]);
-      const dirY = Math.sin(angles[i]);
-      const enterX = dirX * hit[i];
-      const enterY = dirY * hit[i];
+      const direction = movePoint(Vector(), angles[i], 1);
+      const enterX = direction.x * hit[i];
+      const enterY = direction.y * hit[i];
       const [leaveX, leaveY] =
-        through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
+        through(outlines, enterX, enterY, direction.x, direction.y, faces[i], midIndex, range);
 
       entries.push([enterX, enterY]);
       exits.push([leaveX, leaveY]);
@@ -444,12 +448,11 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     const exits = [];
 
     for (let i = run.from; i <= run.to; i++) {
-      const dirX = Math.cos(angles[i]);
-      const dirY = Math.sin(angles[i]);
-      const enterX = dirX * hit[i];
-      const enterY = dirY * hit[i];
+      const direction = movePoint(Vector(), angles[i], 1);
+      const enterX = direction.x * hit[i];
+      const enterY = direction.y * hit[i];
       const [leaveX, leaveY] =
-        through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
+        through(outlines, enterX, enterY, direction.x, direction.y, faces[i], midIndex, range);
 
       entries.push([enterX, enterY]);
       exits.push([leaveX, leaveY]);
@@ -469,10 +472,11 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     // fan opens. How far to one side is how sure of that it is, and where it is
     // not sure the last answer worth having is kept rather than a fresh guess
     const middle = Math.round((run.from + run.to) / 2);
-    const midX = Math.cos(angles[middle]);
-    const midY = Math.sin(angles[middle]);
-    const red = leaving(midX, midY, faces[middle], leaves[middle], redIndex);
-    const violet = leaving(midX, midY, faces[middle], leaves[middle], violetIndex);
+    const middleDirection = movePoint(Vector(), angles[middle], 1);
+    const red = leaving(middleDirection.x, middleDirection.y,
+      faces[middle], leaves[middle], redIndex);
+    const violet = leaving(middleDirection.x, middleDirection.y,
+      faces[middle], leaves[middle], violetIndex);
     const apart = red[0] * violet[1] - red[1] * violet[0];
     const held = recall(ways, faces[middle], leaves[middle]);
     const way = !held || Math.abs(apart) > decisive ? apart >= 0 : held[2];
@@ -488,21 +492,22 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     const aways = [];
 
     for (let i = run.from; i <= run.to; i++) {
-      const dirX = Math.cos(angles[i]);
-      const dirY = Math.sin(angles[i]);
-      const enterX = dirX * hit[i];
-      const enterY = dirY * hit[i];
+      const direction = movePoint(Vector(), angles[i], 1);
+      const enterX = direction.x * hit[i];
+      const enterY = direction.y * hit[i];
       // Red at the end of the face the light leans away from and violet at the
       // other, run together in between, so the colours come apart into one fan
       // with no gaps in it whichever way round the face is
       const along = (i - run.from) / span;
       const index = redIndex + (violetIndex - redIndex) * (way ? along : 1 - along);
-      const passed = through(outlines, enterX, enterY, dirX, dirY, faces[i], index, range);
+      const passed = through(outlines, enterX, enterY,
+        direction.x, direction.y, faces[i], index, range);
       // Every ray of a run gets out at the middle of the spectrum, which is
       // what put it there, so that stands in for the odd colour that does not
       const [leaveX, leaveY, away, across] = passed[2] ?
         passed :
-          through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
+          through(outlines, enterX, enterY,
+            direction.x, direction.y, faces[i], midIndex, range);
       // Cut the outgoing colour off at the next solid outline just as the
       // initial beam is cut off at the first outline it reaches
       const out = Math.max(0, Math.min(

@@ -1,3 +1,4 @@
+import { Vector, movePoint, rotatePoint } from 'kontra';
 import { drawBeam, drawGlow, drawHalo, lightAngle, litFill, shadingStep, shapeOf, tint } from './lighting';
 import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, shapePath } from './drawing';
@@ -120,7 +121,7 @@ export class Craft extends Sprite.class {
       return segment;
     });
     this.radius = Math.max(...data.hullSegments
-      .flatMap(({ points }) => points.map(([x, y]) => Math.hypot(x, y))));
+      .flatMap(({ points }) => points.map((point) => Vector(...point).length())));
 
     if (this.hullGradient) this.relight();
   }
@@ -179,13 +180,15 @@ export class Craft extends Sprite.class {
   }
 
   hitboxes() {
-    const cos = Math.cos(this.rotation);
-    const sin = Math.sin(this.rotation);
     const boxes = this.segments
       .filter((segment) => segment.radius && active(healthOf(segment)))
       .map((segment) => {
         const points = segment.points?.call ? segment.points(segment) : segment.points;
         const [middleX, middleY] = segment.middle || [0, 0];
+        const position = this.position.add(rotatePoint({
+          x: segment.x + middleX,
+          y: segment.y + middleY,
+        }, this.rotation));
 
         return Object.assign(segment.hitbox ||= { owner: this, segment }, {
           bounciness: bounceOf(segment),
@@ -196,8 +199,8 @@ export class Craft extends Sprite.class {
           )),
           radius: segment.radius(segment),
           rotation: this.rotation,
-          x: this.x + (segment.x + middleX) * cos - (segment.y + middleY) * sin,
-          y: this.y + (segment.x + middleX) * sin + (segment.y + middleY) * cos,
+          x: position.x,
+          y: position.y,
         });
       })
       .filter(({ radius }) => radius);
@@ -208,7 +211,7 @@ export class Craft extends Sprite.class {
 
   holds(child) {
     return child.dockedTo === this || (this.localMovementRadius &&
-      Math.hypot(child.x - this.x, child.y - this.y) <= this.localMovementRadius);
+      child.position.distance(this.position) <= this.localMovementRadius);
   }
 
   carry(child, dt) {
@@ -216,7 +219,7 @@ export class Craft extends Sprite.class {
   }
 
   momentum({ x, y }) {
-    return [(this.y - y) * this.spin, (x - this.x) * this.spin];
+    return Vector((this.y - y) * this.spin, (x - this.x) * this.spin);
   }
 
   supply(craftModule, power) {
@@ -244,8 +247,7 @@ export class Craft extends Sprite.class {
     const targetSpin = this.turn * this.turnRate * this.throttle;
 
     this.spin = approach(this.spin, targetSpin, this.thrust * dt || Math.abs(targetSpin - this.spin));
-    this.dx += Math.cos(this.rotation + this.spin * dt) * push;
-    this.dy += Math.sin(this.rotation + this.spin * dt) * push;
+    this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
     this.segments.forEach((segment) => {
       const level = active(healthOf(segment)) ? segment.on : 0;
 

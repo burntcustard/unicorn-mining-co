@@ -180,12 +180,12 @@ const physics = (dt) => {
       ...crafts.flatMap((craft) => craft.hitboxes()),
     ];
     const speed = Math.max(
-      ...bodies.map(({ dx, dy }) => Math.hypot(dx, dy)),
+      ...bodies.map((body) => body.velocity.length()),
       ...colliders.map((collider) => {
         const body = collider.owner || collider;
 
         return Math.abs(body.spin || 0) *
-          (Math.hypot(collider.x - body.x, collider.y - body.y) + collider.radius);
+          (body.position.distance(collider) + collider.radius);
       }),
       ...movers.map((mover) => mover.maxSpeed),
     );

@@ -1,3 +1,4 @@
+import { Vector } from 'kontra';
 import { rotatePoints } from './vector';
 
 /**
@@ -51,33 +52,31 @@ const placePoints = ({ outline, rotation, x, y }) => rotatePoints(outline, rotat
 // can be told apart if they are apart at all
 const axesOf = (points) => points.map(([x, y], i) => {
   const [nextX, nextY] = points[(i + 1) % points.length];
-  const length = Math.hypot(nextX - x, nextY - y);
 
-  return [(nextY - y) / length, (x - nextX) / length];
+  return Vector(nextY - y, x - nextX).normalize();
 });
 
 // A circle brings no edges of its own, so the one axis it needs is the one
 // running out to the nearest corner of whatever it is up against
 const cornerAxis = (points, x, y) => {
   let near = Infinity;
-  let axis = [1, 0];
+  let axis = Vector(1, 0);
 
   points.forEach(([px, py]) => {
-    const awayX = px - x;
-    const awayY = py - y;
-    const away = Math.hypot(awayX, awayY);
+    const away = Vector(px - x, py - y);
+    const length = away.length();
 
-    if (away && away < near) {
-      near = away;
-      axis = [awayX / away, awayY / away];
+    if (length && length < near) {
+      near = length;
+      axis = away.normalize();
     }
   });
 
   return axis;
 };
 // How far along an axis a shape reaches, as a near and a far mark
-const spanOf = (object, points, axisX, axisY) => {
-  const middle = object.x * axisX + object.y * axisY;
+const spanOf = (object, points, axis) => {
+  const middle = Vector(object).dot(axis);
 
   if (!points) return [middle - object.radius, middle + object.radius];
 
@@ -85,7 +84,7 @@ const spanOf = (object, points, axisX, axisY) => {
   let far = -Infinity;
 
   points.forEach(([x, y]) => {
-    const along = x * axisX + y * axisY;
+    const along = Vector(x, y).dot(axis);
 
     near = Math.min(near, along);
     far = Math.max(far, along);
@@ -106,7 +105,7 @@ export const hit = (a, b) => {
 
   const aPoints = a.outline && placePoints(a);
   const bPoints = b.outline && placePoints(b);
-  const middles = between ? [gapX / between, gapY / between] : [1, 0];
+  const middles = between ? Vector(gapX, gapY).normalize() : Vector(1, 0);
   const axes = [
     ...(aPoints ? axesOf(aPoints) : []),
     ...(bPoints ? axesOf(bPoints) : []),
@@ -119,9 +118,9 @@ export const hit = (a, b) => {
   let outX = 0;
   let outY = 0;
 
-  const apart = axes.some(([axisX, axisY]) => {
-    const [aNear, aFar] = spanOf(a, aPoints, axisX, axisY);
-    const [bNear, bFar] = spanOf(b, bPoints, axisX, axisY);
+  const apart = axes.some((axis) => {
+    const [aNear, aFar] = spanOf(a, aPoints, axis);
+    const [bNear, bFar] = spanOf(b, bPoints, axis);
     // How far the second would have to shift each way along this axis to be
     // clear of the first. The shorter of the two is the way out, and which of
     // them it is says which way round the pair come apart, which is how both
@@ -136,8 +135,8 @@ export const hit = (a, b) => {
       const facing = onwards < backwards ? 1 : -1;
 
       depth = overlap;
-      outX = axisX * facing;
-      outY = axisY * facing;
+      outX = axis.x * facing;
+      outY = axis.y * facing;
     }
 
     // One axis with daylight along it is proof they are not touching

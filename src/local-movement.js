@@ -1,10 +1,10 @@
+import { rotatePoint } from 'kontra';
+
 export const rotateAround = (parent, child, x, y, angle) => {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
+  const point = rotatePoint({ x, y }, angle);
 
   child.rotation += angle;
-  child.x = parent.x + x * cos - y * sin;
-  child.y = parent.y + x * sin + y * cos;
+  child.position.set(parent.position.add(point));
 };
 
 /**
@@ -17,10 +17,7 @@ export const rotateAround = (parent, child, x, y, angle) => {
 export const release = (child) => {
   if (!child.localMovementParent) return;
 
-  const [dx, dy] = child.localMovementParent.momentum(child);
-
-  child.dx += dx;
-  child.dy += dy;
+  child.velocity.set(child.velocity.add(child.localMovementParent.momentum(child)));
   child.localMovementParent = 0;
 };
 

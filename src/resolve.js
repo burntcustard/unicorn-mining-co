@@ -1,3 +1,5 @@
+import { Vector } from 'kontra';
+
 /**
  * What a collision does, once collisions.js has found one. Kept well apart
  * from the finding of them, the way Box2D and Matter.js keep them apart, and
@@ -63,10 +65,10 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
   if (!mass) return;
 
-  const [aSpinX, aSpinY] = a.momentum?.(collider) || [0, 0];
-  const [bSpinX, bSpinY] = b.momentum?.(other) || [0, 0];
-  const closing = (b.dx + bSpinX - a.dx - aSpinX) * x +
-    (b.dy + bSpinY - a.dy - aSpinY) * y;
+  const normal = Vector(x, y);
+  const aSpin = a.momentum?.(collider) || Vector();
+  const bSpin = b.momentum?.(other) || Vector();
+  const closing = b.velocity.add(bSpin).subtract(a.velocity).subtract(aSpin).dot(normal);
 
   if (closing < 0) {
     let bounce = 0;
@@ -76,18 +78,18 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     }
     const impulse = (-closing * (1 + bounce)) / mass;
 
-    a.dx -= x * impulse * aMass;
-    a.dy -= y * impulse * aMass;
-    b.dx += x * impulse * bMass;
-    b.dy += y * impulse * bMass;
+    const push = normal.scale(impulse);
+
+    a.velocity.set(a.velocity.subtract(push.scale(aMass)));
+    b.velocity.set(b.velocity.add(push.scale(bMass)));
   }
 
   const correction = Math.min((depth - slop) * easing, maxCorrection) / mass;
 
   if (correction > 0) {
-    a.x -= x * correction * aMass;
-    a.y -= y * correction * aMass;
-    b.x += x * correction * bMass;
-    b.y += y * correction * bMass;
+    const push = normal.scale(correction);
+
+    a.position.set(a.position.subtract(push.scale(aMass)));
+    b.position.set(b.position.add(push.scale(bMass)));
   }
 });

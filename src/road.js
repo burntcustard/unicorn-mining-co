@@ -1,6 +1,6 @@
+import { Vector, getContext, movePoint, rotatePoint } from 'kontra';
 import { makeSparks, updateSparks } from './particles';
 import { colors } from './colors';
-import { getContext } from 'kontra';
 
 // Every road sweeps at the same rate and cuts the same width of lane. Only
 // where one runs, and how far, is up to the road
@@ -46,14 +46,9 @@ export class Road {
    * @returns {Boolean} inside
    */
   holds({ x, y }) {
-    const cos = Math.cos(this.angle);
-    const sin = Math.sin(this.angle);
-    const dx = x - this.x;
-    const dy = y - this.y;
-    const along = dx * cos + dy * sin;
-    const across = dy * cos - dx * sin;
+    const local = rotatePoint({ x: x - this.x, y: y - this.y }, -this.angle);
 
-    return along >= 0 && along <= this.distance && Math.abs(across) <= roadWidth / 2;
+    return local.x >= 0 && local.x <= this.distance && Math.abs(local.y) <= roadWidth / 2;
   }
 
   /**
@@ -61,16 +56,12 @@ export class Road {
    * @param {Number} dt - Seconds since the last update.
    */
   carry(child, dt) {
-    const cos = Math.cos(this.angle);
-    const sin = Math.sin(this.angle);
     // Speed down the road is left alone, and speed across it is reeled in
-    const along = child.dx * cos + child.dy * sin;
-    const across = (child.dy * cos - child.dx * sin) * sideGrip ** (dt * 60);
+    const velocity = rotatePoint(child.velocity, -this.angle);
 
-    child.x += cos * roadSpeed * dt;
-    child.y += sin * roadSpeed * dt;
-    child.dx = along * cos - across * sin;
-    child.dy = along * sin + across * cos;
+    velocity.y *= sideGrip ** (dt * 60);
+    child.position.set(movePoint(child.position, this.angle, roadSpeed * dt));
+    child.velocity.set(rotatePoint(velocity, this.angle));
   }
 
   /**
@@ -80,7 +71,7 @@ export class Road {
    * @returns {Number[]} velocity
    */
   momentum() {
-    return [Math.cos(this.angle) * roadSpeed, Math.sin(this.angle) * roadSpeed];
+    return movePoint(Vector(), this.angle, roadSpeed);
   }
 
   /**

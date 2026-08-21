@@ -1,3 +1,4 @@
+import { Vector, movePoint } from 'kontra';
 import { circlePath } from '../drawing';
 
 // Shield
@@ -15,10 +16,11 @@ const spinRate = 3;
 const dial = circlePath(radius);
 
 // One line of the cross, straight through the middle of the dial
-const arm = (angle) => [
-  [-Math.cos(angle) * radius, -Math.sin(angle) * radius],
-  [Math.cos(angle) * radius, Math.sin(angle) * radius],
-];
+const arm = (angle) => {
+  const point = movePoint(Vector(), angle, radius);
+
+  return [[-point.x, -point.y], [point.x, point.y]];
+};
 
 export const shield = {
   bounciness: 0.4,

@@ -1,4 +1,5 @@
 import { colors } from './colors';
+import { rotatePoint } from 'kontra';
 
 /**
  * What is left of an unstable rock once its fuse runs out: a flash, and a shove
@@ -37,23 +38,21 @@ const shareAt = (distance) => Math.max(0, 1 - distance / reach) ** 2;
  * @param {Object[]} items - Everything loose, all of which can be thrown.
  * @param {Object[]} crafts - Every craft, which is thrown where its mass allows and hurt.
  */
-export const detonate = ({ x, y }, items, crafts) => {
+export const detonate = (blast, items, crafts) => {
+  const { x, y } = blast;
   blasts.push({ age: 0, x, y });
 
   const shove = (object, share) => {
     if (object.mass === undefined) return;
 
-    const awayX = object.x - x;
-    const awayY = object.y - y;
-    const away = Math.hypot(awayX, awayY) || 1;
+    const away = object.position.subtract(blast.position).normalize();
     const push = (force * share) / object.mass;
 
-    object.dx += (awayX / away) * push;
-    object.dy += (awayY / away) * push;
+    object.velocity.set(object.velocity.add(away.scale(push)));
   };
 
   items.forEach((item) => {
-    const share = shareAt(Math.hypot(item.x - x, item.y - y));
+    const share = shareAt(item.position.distance(blast.position));
 
     if (!share) return;
 
@@ -65,7 +64,7 @@ export const detonate = ({ x, y }, items, crafts) => {
   });
 
   crafts.forEach((craft) => {
-    const share = shareAt(Math.hypot(craft.x - x, craft.y - y));
+    const share = shareAt(craft.position.distance(blast.position));
 
     if (!share) return;
 
@@ -73,17 +72,13 @@ export const detonate = ({ x, y }, items, crafts) => {
 
     // Worked out for each piece where that piece actually sits, so a blast off
     // to one side stoves in the side of the ship that was facing it
-    const cos = Math.cos(craft.rotation);
-    const sin = Math.sin(craft.rotation);
-
     craft.segments.forEach((segment) => {
       // Shared-health modules are damaged through their parent hull once
       if (segment.healthFrom) return;
 
-      const atX = craft.x + segment.x * cos - segment.y * sin;
-      const atY = craft.y + segment.x * sin + segment.y * cos;
+      const at = craft.position.add(rotatePoint(segment, craft.rotation));
 
-      craft.damage(segment, damage * shareAt(Math.hypot(atX - x, atY - y)));
+      craft.damage(segment, damage * shareAt(at.distance(blast.position)));
     });
   });
 };

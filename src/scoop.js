@@ -23,7 +23,7 @@ export const scoop = (items, contacts) => {
     // Taken in once its middle reaches the throat, rather than the moment a
     // corner of it brushes the edge, or cargo winks out while it still looks
     // to be outside the ship
-    if (Math.hypot(item.x - hitbox.x, item.y - hitbox.y) > hitbox.radius) return;
+    if (item.position.distance(hitbox) > hitbox.radius) return;
 
     // Money is money, so it goes straight into the pilot's account and there
     // is never no room for it

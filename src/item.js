@@ -1,5 +1,6 @@
 import { circlePath, linesPath, shapePath, sparklePath } from './drawing';
 import { Sprite } from './sprite';
+import { Vector } from 'kontra';
 import { colors } from './colors';
 import { drawGlow } from './lighting';
 
@@ -62,7 +63,7 @@ export class Item extends Sprite.class {
     this.stroke = data.shades[2];
     // A cut item is hit on its corners, a round one on its radius alone
     this.outline = points;
-    this.radius = points ? Math.max(...points.map(([x, y]) => Math.hypot(x, y))) : radius;
+    this.radius = points ? Math.max(...points.map((point) => Vector(...point).length())) : radius;
     this.path = points ? shapePath(points) : circlePath(radius);
     this.lines = lines && linesPath(lines);
     this.glint = data.glint && sparklePath(this.radius * glintSize);

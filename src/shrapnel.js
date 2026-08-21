@@ -1,3 +1,5 @@
+import { Vector, movePoint } from 'kontra';
+
 /**
  * Sparks thrown off where a mining horn bites into something: little bright
  * streaks in the colour of whatever is being ground, flung out from the touch
@@ -41,12 +43,13 @@ export const spray = (x, y, color, amount, carry = {}) => {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const pace = speed * (1 - Math.random() * spread);
+    const velocity = movePoint(carry.velocity || Vector(), angle, pace);
 
     sparks.push({
       age: 0,
       color,
-      dx: (carry.dx || 0) + Math.cos(angle) * pace,
-      dy: (carry.dy || 0) + Math.sin(angle) * pace,
+      dx: velocity.x,
+      dy: velocity.y,
       life: life * (0.5 + Math.random() * 0.5),
       x,
       y,
