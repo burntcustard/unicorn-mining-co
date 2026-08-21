@@ -1,5 +1,3 @@
-import { Asteroid } from './asteroid';
-import { distribute } from './distribute';
 import { hit } from './collisions';
 import { remove } from './item';
 import { rotatePoint } from 'kontra';
@@ -10,54 +8,8 @@ import { spray } from './shrapnel';
  * collisions.js supplies those contacts.
  */
 
-// How hard the freed cargo is flung apart as the rock lets go of it
-const scatter = 25;
-
-// How many sparks a second the horn throws off while it grinds, and how many
-// go up all at once when a rock finally gives way
+// How many sparks a second the horn throws off while it grinds
 const grindRate = 50;
-const breakBurst = 24;
-
-const fragmentsOf = (rock) => {
-  // Count grows with the square root of mass, so enormous parents make more
-  // fragments and larger fragments too
-  const count = Math.round(rock.radius / 90);
-  if (count < 2) return [];
-  const cargo = [];
-
-  while (cargo.length < count * 2 && rock.contents?.length) {
-    cargo.push(rock.contents.splice(
-      Math.floor(Math.random() * rock.contents.length),
-      1,
-    )[0]);
-  }
-
-  const fragments = Array.from({ length: count }, () => new Asteroid({
-    dx: rock.dx,
-    dy: rock.dy,
-    fill: rock.fill,
-    radius: Math.sqrt(rock.mass / 2.5 / count),
-    spin: Math.random() * 0.5 - 0.25,
-    stroke: rock.stroke,
-  }));
-
-  distribute([...(rock.contents || []), ...fragments], {
-    // A little wider than the old rock, so fragments can fit around cargo that
-    // really is falling out without appearing across a huge new area
-    width: rock.radius * 2.2,
-    x: rock.x,
-    y: rock.y,
-  });
-
-  const placed = fragments.filter(({ x }) => x !== undefined);
-
-  while (cargo.length && placed.length) {
-    placed[cargo.length % placed.length].bury(cargo.pop());
-  }
-  rock.contents?.push(...cargo);
-
-  return placed;
-};
 
 /**
  * Where the point of a horn is in the world: the vertex of its shape reaching
@@ -109,32 +61,28 @@ export const mine = (contacts) => {
 };
 
 /**
- * Split a rock open: take it out of the world and cut everything it was
- * holding loose, flung apart and armed so an unstable find starts ticking.
+ * Split a rock open along the cracks it showed at half health. Cargo clear of
+ * those cracks stays buried in its piece; cargo across one falls into space.
  *
  * @param {Object} rock
  * @param {Object[]} scenery - The rock is taken out of this.
  * @param {Object[]} items - Its freed cargo is added to this.
  */
 const breakRock = (rock, scenery, items) => {
-  // A last shower of shrapnel in the rock's own colour as it gives way
-  spray(rock.x, rock.y, rock.stroke, breakBurst, rock);
-
   scenery.splice(scenery.indexOf(rock), 1);
 
   // Let go at the rock's own speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
   if (rock.grinder) Object.assign(rock.grinder, { dx: rock.dx, dy: rock.dy });
 
-  scenery.push(...fragmentsOf(rock));
+  const [children, loose] = rock.split();
+
+  scenery.push(...children);
 
   // An empty rock just breaks apart; one with cargo lets it loose
-  rock.contents?.forEach((item) => {
-    // Carries the rock's own drift, plus a shove of its own so the haul spreads
-    // out rather than sitting in a clump where the rock was
-    item.dx = rock.dx + (Math.random() * 2 - 1) * scatter;
-    item.dy = rock.dy + (Math.random() * 2 - 1) * scatter;
-    item.spin = Math.random() - 0.5;
+  loose.forEach((item) => {
+    item.dx = rock.dx;
+    item.dy = rock.dy;
     item.arm();
 
     items.push(item);
@@ -166,6 +114,10 @@ export const grind = (target, dt, scenery, items) => {
   target.health -= target.grinding;
   // Set fresh each update it is touched, so damage is applied only once
   target.grinding = 0;
+
+  if (target.crack && target.health <= Math.sqrt(target.mass)) {
+    target.crack(target.grindX, target.grindY);
+  }
 
   if (target.health < 1) {
     if (scenery.includes(target)) breakRock(target, scenery, items);

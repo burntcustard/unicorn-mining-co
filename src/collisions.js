@@ -5,11 +5,10 @@ import { rotatePoints } from './vector';
  * Collision checking, and nothing at all about what a collision means: the
  * caller is handed the overlap and decides for itself what to do about it.
  *
- * There are two shapes and no others. Anything with an `outline` of points is
- * tested against those exactly, anything without is the circle its `radius`
- * describes, and a scoop door is a long thin rectangle rather than a case of
- * its own. Pieces sharing an `owner` never check against each other, and an
- * `open` thing is reported like any other.
+ * Anything with an `outline` is tested as that polygon, anything without is a
+ * circle, and a concave thing can supply convex `triangles` tested only after
+ * its one bounding circle passes. Pieces sharing an `owner` never check
+ * against each other, and an `open` thing is reported like any other.
  *
  * The test is the separating axis theorem, laid out as Matter.js and SAT.js
  * lay it out: two shapes are apart if there is any line they can both be
@@ -33,6 +32,7 @@ const cellSize = 256;
 const reach = 1 << 15;
 
 const cells = new Map();
+let pass = 0;
 const keyOf = (cellX, cellY) => (cellX + reach) * reach * 2 + cellY + reach;
 const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSize));
 
@@ -46,7 +46,16 @@ const addToWorld = (object) => {
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
-const placePoints = ({ outline, rotation, x, y }) => rotatePoints(outline, rotation, x, y);
+const placePoints = ({ rotation, x, y }, outline) => rotatePoints(outline, rotation, x, y);
+const shapesOf = (object) => {
+  if (!object.triangles) return [object.outline && placePoints(object, object.outline)];
+
+  if (object.shapePass !== pass) {
+    object.shapePass = pass;
+    object.shapes = object.triangles.map((outline) => placePoints(object, outline));
+  }
+  return object.shapes;
+};
 
 // Each edge gives an axis at right angles to it, which is where two shapes
 // can be told apart if they are apart at all
@@ -103,8 +112,20 @@ export const hit = (a, b) => {
   // Bounding circles throw out all but a handful of pairs for next to nothing
   if (between > a.radius + b.radius) return;
 
-  const aPoints = a.outline && placePoints(a);
-  const bPoints = b.outline && placePoints(b);
+  let deepest;
+
+  shapesOf(a).forEach((aPoints) => {
+    shapesOf(b).forEach((bPoints) => {
+      const overlap = overlapOf(a, b, between, gapX, gapY, aPoints, bPoints);
+
+      if (overlap && (!deepest || overlap.depth > deepest.depth)) deepest = overlap;
+    });
+  });
+
+  return deepest;
+};
+
+const overlapOf = (a, b, between, gapX, gapY, aPoints, bPoints) => {
   const middles = between ? Vector(gapX, gapY).normalize() : Vector(1, 0);
   const axes = [
     ...(aPoints ? axesOf(aPoints) : []),
@@ -185,6 +206,7 @@ export const collisions = (object) => {
  * @returns {Object[]} contacts
  */
 export const contacts = (objects) => {
+  pass++;
   cells.clear();
   objects.forEach((object, order) => {
     object.order = order;

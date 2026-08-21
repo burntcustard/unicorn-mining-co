@@ -95,10 +95,8 @@ const northRoad = new Road({
 const makeAsteroid = (props) => new Asteroid({
   dx: Math.random() * 2 - 1,
   dy: Math.random() * 2 - 1,
-  fill: colors.black[2],
   radius: 40 + Math.random() * 100,
   spin: Math.random() * 0.5 - 0.25,
-  stroke: colors.white[2],
   ...props,
 });
 
@@ -132,13 +130,11 @@ const asteroidField = distribute(fieldAsteroids, {
 // Plain shapes sat still in a row in front of the ship, so that what the
 // floodlight does to them can be checked against something predictable
 const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
-  fill: colors.black[2],
   points,
   radius: 45,
   // Every other one turned a little, to catch a face rather than a corner
   rotation: (i % 2) * 0.6,
   spin: 0,
-  stroke: colors.white[2],
   // Just enough wander that no two faces come out parallel, because a rock
   // with a pair that are is a slab rather than a prism and splits nothing
   variance: 1,
