@@ -16,6 +16,8 @@ import { colors } from './colors';
 // World units across a tile. Bigger repeats less obviously and costs more
 // memory, and this is already wider than the screen
 const tile = 1200;
+// Backing pixels per world unit, so stars stay sharp when the game is scaled.
+const resolution = 2;
 
 // How much of the camera's movement each layer takes, and what is in it.
 // Barely any of it, because all of this is a very long way off. The layers sit
@@ -36,7 +38,7 @@ const sparkleGlow = 6;
 // How many of the stars are anything other than plain white
 const tinted = 0.15;
 
-const dotTints = [colors.red[2], colors.orange[2], colors.cyan[2]];
+const dotTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors.red[2]];
 const sparkleTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors.violet[2]];
 const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[1], colors.purple[2]];
 
@@ -71,8 +73,8 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  canvas.width = tile;
-  canvas.height = tile;
+  canvas.width = canvas.height = tile * resolution;
+  ctx.scale(resolution, resolution);
 
   if (parts.includes('clouds')) Array.from({ length: clouds }).forEach(() => {
     const color = cloudColors[Math.floor(Math.random() * cloudColors.length)];
@@ -96,7 +98,7 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   ctx.shadowBlur = dotGlow;
 
   if (parts.includes('dots')) Array.from({ length: dots }).forEach(() => {
-    const color = starColor(dotTints) + '56789abcde'[Math.floor(Math.random() * 11)];
+    const color = starColor(dotTints) + '3456789abc'[Math.floor(Math.random() * 10)];
     const path = circlePath(size * (0.4 + Math.random() * 0.6));
     const x = Math.random() * tile;
     const y = Math.random() * tile;
@@ -117,7 +119,7 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   ctx.shadowBlur = sparkleGlow;
 
   if (parts.includes('sparkles')) Array.from({ length: sparkles }).forEach(() => {
-    const color = starColor(sparkleTints) + '9abcde'[Math.floor(Math.random() * 6)];
+    const color = starColor(sparkleTints) + '789abc'[Math.floor(Math.random() * 6)];
     const path = sparklePath(size * (1 + Math.random()));
     const x = Math.random() * tile;
     const y = Math.random() * tile;
@@ -181,7 +183,7 @@ export const renderBackground = (game) => {
   // meeting never leave a hairline of background showing between them
   const span = Math.round(tile * scale);
   // Tile pixels per screen pixel, for cutting a stamp down to its visible part
-  const back = tile / span;
+  const back = tile * resolution / span;
 
   layers.forEach(({ depth }, i) => {
     // Shifting the sky rather than the camera is what makes a layer lag behind

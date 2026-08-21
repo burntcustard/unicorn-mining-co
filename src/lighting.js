@@ -180,8 +180,8 @@ export const drawGlow = (ctx, path, color, strength) => {
 
 /**
  * The light a lamp throws out in front of it: full at the lens and gone by the
- * far end of its reach. Laid down with whatever the ship is flying over
- * already drawn, so it lifts that rather than only lighting itself.
+ * far end of its reach. Its translucent wash tints what is underneath without
+ * additive blending making bright points flare up.
  *
  * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
  * @param {Path2D} path
@@ -201,7 +201,6 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
   // The cone says how wide the beam is and the trace says how far it got, so
   // one is filled through the other
   ctx.clip(lit);
-  ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = level * beamStrength;
   // Cast off the beam rather than laid down under it, so it gives out along
   // with the light. A glow of its own has no idea how far down the beam it is
