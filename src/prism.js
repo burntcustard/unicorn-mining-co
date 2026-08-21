@@ -18,6 +18,7 @@
  * origin and shines along positive x, which is how the cone is drawn too.
  */
 import { colors } from './colors';
+import { rotatePoints } from './vector';
 
 // The colours light comes apart into, in the order it comes apart in
 const spectrum = [
@@ -186,15 +187,10 @@ const outlineOf = (ship, lamp, object) => {
   const awayX = object.x - ship.x;
   const awayY = object.y - ship.y;
   const turn = object.rotation - ship.rotation;
-  const turnCos = Math.cos(turn);
-  const turnSin = Math.sin(turn);
   const middleX = awayX * shipCos + awayY * shipSin - lamp.x;
   const middleY = awayY * shipCos - awayX * shipSin - lamp.y;
 
-  return object.outline.map(([x, y]) => [
-    middleX + x * turnCos - y * turnSin,
-    middleY + x * turnSin + y * turnCos,
-  ]);
+  return rotatePoints(object.outline, turn, middleX, middleY);
 };
 
 /**

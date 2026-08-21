@@ -1,3 +1,5 @@
+import { rotatePoints } from './vector';
+
 /**
  * Collision checking, and nothing at all about what a collision means: the
  * caller is handed the overlap and decides for itself what to do about it.
@@ -43,12 +45,7 @@ const addToWorld = (object) => {
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
-const placePoints = ({ outline, rotation, x, y }) => {
-  const cos = Math.cos(rotation);
-  const sin = Math.sin(rotation);
-
-  return outline.map(([px, py]) => [x + px * cos - py * sin, y + px * sin + py * cos]);
-};
+const placePoints = ({ outline, rotation, x, y }) => rotatePoints(outline, rotation, x, y);
 
 // Each edge gives an axis at right angles to it, which is where two shapes
 // can be told apart if they are apart at all

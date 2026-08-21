@@ -9,6 +9,7 @@
  * apart and leave a hull edge showing through the bay.
  */
 import { bayCorner, bayDepth, baySpan, dockingBay } from '../modules';
+import { rotatePoints } from '../vector';
 
 // The flat right hand side runs between these two corners, and the ring runs
 // this far in before it meets the core
@@ -38,11 +39,6 @@ const cut = baySpan / 2 - bayCorner + bevel;
 const notch = mount + bayCorner - bevel;
 const chamfer = notch - back;
 
-const turn = (points, angle) => points.map(([x, y]) => [
-  x * Math.cos(angle) - y * Math.sin(angle),
-  x * Math.sin(angle) + y * Math.cos(angle),
-]);
-
 // One side of the ring: a wedge at either end of the socket, and the panel
 // that closes the back of it
 const side = [
@@ -54,7 +50,7 @@ const side = [
 const angles = Array.from({ length: 5 }, (_, i) => i * Math.PI * 2 / 5);
 
 // The core is the ring of inner corners that every side shares
-const core = angles.map((angle) => turn([[inner, -innerCorner]], angle)[0]);
+const core = angles.map((angle) => rotatePoints([[inner, -innerCorner]], angle)[0]);
 
 // A socket with no bay in it is filled by a panel cut to exactly its shape, so
 // that the line around a plain side falls where the line around the bay does
@@ -85,10 +81,10 @@ export const corral = {
       // Only the socket with the bay in it can be flown through. The other
       // four are the same shape repeated, and are as solid as the rest
       open: i === 0 && piece === 2,
-      points: turn(points, angle),
+      points: rotatePoints(points, angle),
     }))),
     { docks: true, open: true, points: core },
     // Last, so that they are drawn over the socket edges they fill
-    ...angles.slice(1).map((angle) => ({ health: 150, points: turn(panel, angle) })),
+    ...angles.slice(1).map((angle) => ({ points: rotatePoints(panel, angle) })),
   ],
 };

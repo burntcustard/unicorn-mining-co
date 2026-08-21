@@ -1,5 +1,19 @@
 const magnitude = (vec) => Math.sqrt(vec.x * vec.x + vec.y * vec.y);
 
+/**
+ * Rotate local points around zero, then optionally move them into world space.
+ * Used wherever shapes need the same coordinates after their owner turns.
+ */
+export const rotatePoints = (points, angle, x = 0, y = 0) => {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  return points.map(([pointX, pointY]) => [
+    x + pointX * cos - pointY * sin,
+    y + pointX * sin + pointY * cos,
+  ]);
+};
+
 // Below this a sprite is drifting slowly enough to just call it stopped
 const minSpeed = 1;
 
