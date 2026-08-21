@@ -66,11 +66,11 @@ export const renderControls = (game, ship) => {
   modules.forEach((module, i) => {
     const y = top + i * rowGap;
 
-    // An empty box is a pink outline over a wash of the same; a running one
+    // An empty box is a violet outline over a wash of the same; a running one
     // carries a blue square inside it
-    ctx.fillStyle = `${colors.pink[2]}3`;
+    ctx.fillStyle = `${colors.violet[2]}3`;
     ctx.fillRect(boxX, y, box, box);
-    ctx.strokeStyle = colors.pink[2];
+    ctx.strokeStyle = colors.violet[2];
     ctx.strokeRect(boxX, y, box, box);
 
     if (isOn(ship, module)) {

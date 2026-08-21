@@ -1,7 +1,6 @@
 import { Sprite } from './sprite';
-import { contacts } from './collisions';
 import { createPolygon } from './polygon';
-import { resolve } from './resolve';
+import { distribute } from './distribute';
 import { rotateAround } from './local-movement';
 import { shapePath } from './drawing';
 
@@ -21,11 +20,13 @@ const rockDrag = 1;
 const rockMaxSpeed = 70;
 
 // Bigger rocks need more points to be lumpy with
-const pointsFor = (radius) => Math.round(3 + Math.sqrt(radius));
+const pointsFor = (radius) => Math.round(Math.sqrt(radius) / 3) * 2 - 1;
 
 export class Asteroid extends Sprite.class {
   constructor(props) {
     super(props);
+    this.x = props.x;
+    this.y = props.y;
 
     this.bounciness = this.bounciness ?? rockBounciness;
     // Drifts like everything else does, just with next to no drag of its own
@@ -55,28 +56,17 @@ export class Asteroid extends Sprite.class {
    * very middle and is settled against the rock's other finds. A buried item
    * rides along with the rock until a horn grinds it open.
    *
-   * @param {Item} item
-   */
+  * @param {Item} item
+  */
   bury(item) {
-    item.buried = { rotation: Math.random() * Math.PI * 2, x: 0, y: 0 };
-
-    (this.contents ||= []).push(item);
-  }
-
-  collideContents() {
-    const { contents } = this;
-
-    // Collision helpers work in world coordinates, so use the rock's local
-    // space as a tiny world while its buried finds settle against one another
-    contents.forEach((item) => Object.assign(item, item.buried));
-
-    resolve(contacts(contents));
-
-    contents.forEach((item) => {
-      const { buried, x, y } = item;
-
-      Object.assign(buried, { x, y });
-      rotateAround(this, item, x, y, this.rotation);
+    item.x = item.y = undefined;
+    this.contents = distribute([...(this.contents || []), item], {
+      density: 2,
+      width: this.radius,
+    });
+    this.contents.forEach((content) => {
+      content.buried ||= { rotation: Math.random() * Math.PI * 2 };
+      Object.assign(content.buried, { x: content.x, y: content.y });
     });
   }
 
@@ -84,10 +74,12 @@ export class Asteroid extends Sprite.class {
    * @param {Number} dt - Seconds since the last update.
    */
   update() {
-    // Buried cargo collides only with the other finds in the same rock
-    if (this.contents) {
-      this.collideContents();
-    }
+    this.contents?.forEach((item) => {
+      const { buried } = item;
+
+      Object.assign(item, buried);
+      rotateAround(this, item, buried.x, buried.y, this.rotation);
+    });
   }
 
   render(scale) {

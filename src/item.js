@@ -119,7 +119,7 @@ export class Item extends Sprite.class {
     if (item.rainbow) {
       const rainbow = ctx.createLinearGradient(-radius, 0, radius, 0);
 
-      rainbow.addColorStop(0, colors.pink[2]);
+      rainbow.addColorStop(0, colors.violet[2]);
       rainbow.addColorStop(0.5, colors.yellow[2]);
       rainbow.addColorStop(1, colors.cyan[2]);
       ctx.fillStyle = rainbow;

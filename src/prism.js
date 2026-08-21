@@ -54,11 +54,11 @@ const sameFace = 0.99;
 // it gets out at all, and this stops just short of that, where the angle it
 // comes out at starts swinging wildly for the smallest change. Any further
 // back and it starts throwing away light that would really get through
-const graze = 0.08;
+const graze = 0.1;
 
 // How far each colour laps over the next, in rays. Two fills sharing an exact
 // edge leave a hairline of background showing between them
-const seam = 0.5;
+const seam = 0.4;
 
 // How far apart red and violet have to leave, as a sine, before the fan is
 // sure enough of itself to be allowed to change which way round it goes. Two
@@ -336,7 +336,9 @@ const between = (near, far) => {
     else path.moveTo(x, y);
   });
 
-  for (let i = far.length - 1; i >= 0; i--) path.lineTo(far[i][0], far[i][1]);
+  for (let i = far.length - 1; i >= 0; i--) {
+    path.lineTo(far[i][0], far[i][1]);
+  }
 
   path.closePath();
 
@@ -437,7 +439,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
 
   // Everything that got into a rock, drawn crossing it, whether or not any of
   // it gets out the far side
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = 'lighten';
   ctx.globalAlpha = lamp.anim * insideStrength;
   ctx.fillStyle = lamp.shades[2];
 
@@ -505,14 +507,19 @@ export const drawSpectrum = (ctx, lamp, beam) => {
       const [leaveX, leaveY, away, across] = passed[2] ?
         passed :
           through(outlines, enterX, enterY, dirX, dirY, faces[i], midIndex, range);
-      const out = Math.max(0, range - hit[i] - across);
+      // Cut the outgoing colour off at the next solid outline just as the
+      // initial beam is cut off at the first outline it reaches
+      const out = Math.max(0, Math.min(
+        range - hit[i] - across,
+        nearest(outlines, leaveX, leaveY, ...away)[0],
+      ));
 
       exits.push([leaveX, leaveY]);
       aways.push([leaveX + away[0] * out, leaveY + away[1] * out]);
     }
 
     // Added to what is already there like the rest of the game's light
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = 'lighten';
     ctx.globalAlpha = lamp.anim * spectrumStrength;
 
     spectrum.forEach((name, band) => {

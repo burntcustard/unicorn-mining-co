@@ -37,7 +37,7 @@ const sparkleGlow = 6;
 const tinted = 0.15;
 
 const dotTints = [colors.red[2], colors.orange[2], colors.cyan[2]];
-const sparkleTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors.pink[2]];
+const sparkleTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors.violet[2]];
 const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[1], colors.purple[2]];
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];

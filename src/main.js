@@ -18,6 +18,7 @@ import { Road } from './road';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { contacts } from './collisions';
+import { distribute } from './distribute';
 import { game } from './game';
 import { localMovement } from './local-movement';
 import { renderControls } from './ui/controls';
@@ -87,31 +88,42 @@ const northRoad = new Road({
   y: game.height,
 });
 
-const asteroids = Array.from({ length: 2 }, () => new Asteroid({
-  dx: Math.random() * 40 - 20,
-  dy: Math.random() * 40 - 20,
+const makeAsteroid = (props) => new Asteroid({
+  dx: Math.random() * 2 - 1,
+  dy: Math.random() * 2 - 1,
   fill: colors.black[2],
-  radius: 20 + Math.random() * 45,
-  spin: Math.random() - 0.5,
+  radius: 40 + Math.random() * 100,
+  spin: Math.random() * 0.5 - 0.25,
   stroke: colors.white[2],
+  ...props,
+});
+
+const asteroids = Array.from({ length: 2 }, () => makeAsteroid({
   x: Math.random() * game.width,
   y: Math.random() * game.height,
 }));
 
-// Ten points around a small inner radius makes a five pointed star
-const stars = Array.from({ length: 2 }, () => new Asteroid({
-  dx: Math.random() * 20 - 10,
-  dy: Math.random() * 20 - 10,
-  fill: colors.yellow[1],
-  points: 10,
-  radius: 5,
-  radiusEven: 2,
-  spin: Math.random() - 0.5,
-  stroke: colors.yellow[2],
-  variance: 0,
-  x: Math.random() * game.width,
-  y: Math.random() * game.height,
-}));
+// Build the exact field population first, including its cargo, then spread the
+// finished instances through an oval above the starting area
+const fieldAsteroids = Array.from({ length: 200 }, () => makeAsteroid());
+
+fieldAsteroids.forEach((asteroid, i) => {
+  if (!(i % 5)) {
+    for (let cargo = Math.floor(asteroid.radius / 30); cargo > 0; cargo--) {
+      asteroid.bury(new Item({
+        itemData: itemTypes[Math.floor(Math.random() * itemTypes.length)],
+      }));
+    }
+  }
+});
+
+const asteroidField = distribute(fieldAsteroids, {
+  density: 0,
+  height: 2000,
+  width: 10000,
+  x: 4500,
+  y: -2000,
+});
 
 // Plain shapes sat still in a row in front of the ship, so that what the
 // floodlight does to them can be checked against something predictable
@@ -141,7 +153,7 @@ asteroids[0].bury(new Item({ itemData: gold }));
 
 const crafts = [playerShip, ...swatches, corral];
 const roads = [northRoad];
-const scenery = [...asteroids, ...blocks, ...stars];
+const scenery = [...asteroids, ...asteroidField, ...blocks];
 
 // One of everything, in a row below the ship to fly into and scoop up. These
 // will come out of mined rocks rather than being placed

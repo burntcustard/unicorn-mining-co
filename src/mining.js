@@ -1,3 +1,5 @@
+import { Asteroid } from './asteroid';
+import { distribute } from './distribute';
 import { hit } from './collisions';
 import { remove } from './item';
 import { spray } from './shrapnel';
@@ -14,6 +16,47 @@ const scatter = 25;
 // go up all at once when a rock finally gives way
 const grindRate = 50;
 const breakBurst = 24;
+
+const fragmentsOf = (rock) => {
+  // Count grows with the square root of mass, so enormous parents make more
+  // fragments and larger fragments too
+  const count = Math.round(rock.radius / 90);
+  if (count < 2) return [];
+  const cargo = [];
+
+  while (cargo.length < count * 2 && rock.contents?.length) {
+    cargo.push(rock.contents.splice(
+      Math.floor(Math.random() * rock.contents.length),
+      1,
+    )[0]);
+  }
+
+  const fragments = Array.from({ length: count }, () => new Asteroid({
+    dx: rock.dx,
+    dy: rock.dy,
+    fill: rock.fill,
+    radius: Math.sqrt(rock.mass / 2.5 / count),
+    spin: Math.random() * 0.5 - 0.25,
+    stroke: rock.stroke,
+  }));
+
+  distribute([...(rock.contents || []), ...fragments], {
+    // A little wider than the old rock, so fragments can fit around cargo that
+    // really is falling out without appearing across a huge new area
+    width: rock.radius * 2.2,
+    x: rock.x,
+    y: rock.y,
+  });
+
+  const placed = fragments.filter(({ x }) => x !== undefined);
+
+  while (cargo.length && placed.length) {
+    placed[cargo.length % placed.length].bury(cargo.pop());
+  }
+  rock.contents?.push(...cargo);
+
+  return placed;
+};
 
 /**
  * Where the point of a horn is in the world: the vertex of its shape reaching
@@ -61,6 +104,7 @@ export const mine = (contacts) => {
     target.grindY = tipY;
     target.grindColor = object.stroke || object.segment?.stroke;
     target.grindCarry = object.owner || object;
+    target.grinder = hitbox.owner;
   });
 };
 
@@ -77,6 +121,12 @@ const breakRock = (rock, scenery, items) => {
   spray(rock.x, rock.y, rock.stroke, breakBurst, rock);
 
   scenery.splice(scenery.indexOf(rock), 1);
+
+  // Let go at the rock's own speed rather than releasing all the approach
+  // speed that the active horn's grip had been holding back
+  if (rock.grinder) Object.assign(rock.grinder, { dx: rock.dx, dy: rock.dy });
+
+  scenery.push(...fragmentsOf(rock));
 
   // An empty rock just breaks apart; one with cargo lets it loose
   rock.contents?.forEach((item) => {

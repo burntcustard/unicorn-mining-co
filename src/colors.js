@@ -17,7 +17,6 @@ export const colors = {
   cyan:   ['#0ac', '#1bd', '#4df', '#148', '#cff'],
   indigo: ['#33c', '#44d', '#55f', '#217', '#bdf'],
   violet: ['#c2c', '#d3d', '#e6f', '#427', '#e6f'],
-  pink:   ['#c5a', '#e7c', '#f8d', '#729', '#fef'],
   purple: ['#102', '#213', '#325', '#001', '#647'],
   white:  ['#ddd', '#eee', '#fff', '#33c', '#f8d'],
   grey:   ['#778', '#99a', '#bbc', '#334', '#eef'],
