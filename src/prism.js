@@ -121,7 +121,7 @@ const crossing = (fromX, fromY, [ax, ay], [bx, by], dirX, dirY) => {
 
   const distance = (startX * edgeY - startY * edgeX) / denom;
 
-  return distance > 0 ? distance : undefined;
+  return distance > 0 && distance;
 };
 
 // Which way a face points, taken facing back against whatever is arriving at
@@ -136,15 +136,12 @@ const normalOf = ([ax, ay], [bx, by], dirX, dirY) => {
   return dirX * x + dirY * y > 0 ? [-x, -y] : [x, y];
 };
 
-// The first face a ray meets, which way it points, and which outline it belongs
-// to, so the caller can tell a rock the light passes into from one it only
-// stops against
+// The first face a ray meets and which way it points
 const nearest = (outlines, fromX, fromY, dirX, dirY) => {
   let near = Infinity;
   let normal;
-  let index;
 
-  outlines.forEach((outline, o) => {
+  outlines.forEach((outline) => {
     outline.forEach((corner, i) => {
       const next = outline[(i + 1) % outline.length];
       const distance = crossing(fromX, fromY, corner, next, dirX, dirY);
@@ -153,11 +150,10 @@ const nearest = (outlines, fromX, fromY, dirX, dirY) => {
 
       near = distance;
       normal = normalOf(corner, next, dirX, dirY);
-      index = o;
     });
   });
 
-  return [near, normal, index];
+  return [near, normal];
 };
 
 /**
@@ -233,31 +229,25 @@ export const traceBeam = (ship, lamp, scenery) => {
   // fall short of them and cut the beam's own far edge off
   const range = Math.hypot(far, spread);
   const edge = Math.atan2(spread, far);
-  const close = scenery
+  const outlines = scenery
     .filter((object) => object.outline &&
-      object.position.distance(ship.position) - object.radius < range);
-  const outlines = close.map((object) => outlineOf(ship, lamp, object));
-  // Only a rock with something buried in it lets the light in and throws a
-  // spectrum out the far side. An empty one is solid, so it stops the beam on
-  // its face like anything else but is never crossed or split by it
-  const refracts = close.map((object) => !!object.contents?.length);
+      object.position.distance(ship.position) - object.radius < range)
+    .map((object) => outlineOf(ship, lamp, object));
   const beam = { angles: [], faces: [], hit: [], leaves: [], outlines, range };
 
   for (let i = 0; i <= rays; i++) {
     const angle = edge * ((i * 2) / rays - 1);
     const direction = movePoint(Vector(), angle, 1);
-    const [near, face, index] = nearest(outlines, 0, 0, direction.x, direction.y);
-    const stopped = near < range && face;
+    const [near, face] = nearest(outlines, 0, 0, direction.x, direction.y);
     // Which face it comes back out by matters as much as the one it went in
     // by, and it is only worth knowing to the nearest colour, so the middle of
     // the spectrum stands in for all of them
-    const passed = stopped && refracts[index] &&
-      through(outlines, direction.x * near, direction.y * near,
-        direction.x, direction.y, face, midIndex, range);
+    const passed = near < range && face && through(outlines, direction.x * near, direction.y * near,
+      direction.x, direction.y, face, midIndex, range);
 
     beam.angles.push(angle);
     beam.hit.push(Math.min(near, range));
-    beam.faces.push(passed ? face : undefined);
+    beam.faces.push(passed && face);
     beam.leaves.push(passed && passed[2] && passed[4]);
   }
 
@@ -287,38 +277,19 @@ export const litPath = ({ angles, hit }) => {
 
 const alike = (now, before) => before && now[0] * before[0] + now[1] * before[1] > sameFace;
 
-// Runs of rays that went in by the same face, whether or not any of the light
-// found its way back out again. Trapped light still crosses the rock, and the
-// crossing is worth seeing even when nothing comes out the far side
-const crossings = ({ faces }) => {
-  const runs = [];
-
-  faces.forEach((face, i) => {
-    if (!face) return;
-
-    const last = runs[runs.length - 1];
-
-    if (last && last.to === i - 1 && alike(face, faces[i - 1])) last.to = i;
-    else runs.push({ from: i, to: i });
-  });
-
-  return runs;
-};
-
-// Runs that also came back out by the same face, each of which is one clean
-// pass through a prism. Light across a corner meets faces pointing quite
-// different ways and is bent quite differently by each, so it comes out as two
-// rainbows rather than as one smeared between them
-const runsOf = ({ faces, leaves }) => {
+// Runs of rays sharing an entry face, and for a rainbow an exit face too.
+// Internal light also keeps rays which became trapped before finding an exit.
+const runsOf = ({ faces, leaves }, inside) => {
   const runs = [];
 
   faces.forEach((face, i) => {
     // A ray with no way out has no colours to give. Left in, it brings a wild
     // angle of its own to whichever band it lands in
-    if (!face || !leaves[i]) return;
+    if (!face || (!inside && !leaves[i])) return;
 
     const last = runs[runs.length - 1];
-    const same = alike(face, faces[i - 1]) && alike(leaves[i], leaves[i - 1]);
+    const same = alike(face, faces[i - 1]) &&
+      (inside || alike(leaves[i], leaves[i - 1]));
 
     if (last && last.to === i - 1 && same) last.to = i;
     else runs.push({ from: i, to: i });
@@ -403,7 +374,7 @@ export const insidePath = (beam) => {
   const { angles, faces, hit, outlines, range } = beam;
   const path = new Path2D();
 
-  crossings(beam).forEach((run) => {
+  runsOf(beam, true).forEach((run) => {
     const entries = [];
     const exits = [];
 
@@ -443,23 +414,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
   ctx.globalAlpha = lamp.anim * insideStrength;
   ctx.fillStyle = lamp.shades[2];
 
-  crossings(beam).forEach((run) => {
-    const entries = [];
-    const exits = [];
-
-    for (let i = run.from; i <= run.to; i++) {
-      const direction = movePoint(Vector(), angles[i], 1);
-      const enterX = direction.x * hit[i];
-      const enterY = direction.y * hit[i];
-      const [leaveX, leaveY] =
-        through(outlines, enterX, enterY, direction.x, direction.y, faces[i], midIndex, range);
-
-      entries.push([enterX, enterY]);
-      exits.push([leaveX, leaveY]);
-    }
-
-    if (entries.length > 1) ctx.fill(between(entries, exits));
-  });
+  ctx.fill(insidePath(beam));
 
   runs.forEach((run) => {
     // A single ray of a run is a graze off a corner, and has no width to make
