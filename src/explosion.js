@@ -43,7 +43,7 @@ export const detonate = (blast, items, crafts) => {
   blasts.push({ age: 0, x, y });
 
   const shove = (object, share) => {
-    if (object.mass === undefined) return;
+    if (!object.mass) return;
 
     const away = object.position.subtract(blast.position).normalize();
     const push = (force * share) / object.mass;

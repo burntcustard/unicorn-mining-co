@@ -35,7 +35,7 @@ export const release = (child) => {
  * @param {Number} dt - Seconds since the last update.
  */
 export const localMovement = (child, movers, dt) => {
-  if (child.mass === undefined) return;
+  if (!child.mass) return;
 
   let parent = child.localMovementParent;
 

@@ -34,7 +34,7 @@ const overDrag = 0.9;
  * @param {Number} dt - Seconds since the last update.
  */
 export const slow = ({ velocity, mass, drag, maxSpeed }, dt) => {
-  if (mass === undefined) return;
+  if (!mass) return;
 
   const speed = velocity.length();
 

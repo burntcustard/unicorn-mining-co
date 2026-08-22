@@ -61,7 +61,7 @@ const maxHealthOf = (segment) => segment.healthFrom?.maxHealth ?? segment.maxHea
 const makeSegment = (craft, craftModule = {}, part, mount) => {
   const { glow, points } = part;
   const shape = Array.isArray(points) && shapeOf(points, mount);
-  const healthFrom = mount && part.health === undefined && craftModule.health === undefined ?
+  const healthFrom = mount && !part.health && !craftModule.health ?
     mount.hull :
     null;
   const health = healthFrom?.health ?? part.health ?? craftModule.health;

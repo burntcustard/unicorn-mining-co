@@ -59,8 +59,8 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
   const a = collider.owner || collider;
   const b = other.owner || other;
-  const aMass = a.mass === undefined ? 0 : 1 / a.mass;
-  const bMass = b.mass === undefined ? 0 : 1 / b.mass;
+  const aMass = a.mass ? 1 / a.mass : 0;
+  const bMass = b.mass ? 1 / b.mass : 0;
   const mass = aMass + bMass;
 
   if (!mass) return;
