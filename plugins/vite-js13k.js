@@ -6,12 +6,15 @@ import fs from 'fs';
 import { minify } from 'html-minifier-terser';
 
 const roadrollerSeed = 13312;
-const zipDate = new Date(1980, 0, 1);
-const fileRegex = /\.js$/;
 
 const customReplacement = (src) => src
   // Give this repeated Kontra property a more compression-friendly spelling (~6B).
   .replace(/acceleration/g, '_acceleration')
+  // .replace(/rotation/g, '_rotation')
+  // For some reason all other color names are mangled, but green isn't.
+  // This actually cost more bytes for some reason???
+  // .replace(/red/g, '_red')
+  // .replace(/green/g, '_green')
   // Let Terser combine declarations without preserving const semantics (~19B).
   .replaceAll('const ', 'let ');
 
@@ -29,7 +32,7 @@ export function viteJs13kPre() {
     name: 'vite-js13k-pre',
     enforce: 'pre',
     transform(src, id) {
-      if (fileRegex.test(id)) {
+      if (/\.js$/.test(id)) {
         return {
           code: customReplacement(src),
           map: null,
@@ -81,7 +84,6 @@ async function zip(content) {
       compressionOptions: {
         level: 9,
       },
-      date: zipDate,
     },
   );
 
@@ -193,9 +195,7 @@ export function viteJs13k(buildLevel = 'full') {
     closeBundle: async () => {
       console.log(`\nZip size: ${fs.statSync('dist/game.zip').size}B`);
 
-      if (buildLevel === 'fast') {
-        return;
-      }
+      if (buildLevel === 'fast') return;
 
       const args = [
         '--recompress',
