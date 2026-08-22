@@ -36,6 +36,18 @@ let pass = 0;
 const keyOf = (cellX, cellY) => (cellX + reach) * reach * 2 + cellY + reach;
 const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSize));
 
+/**
+ * Find the boundary of shapes which tile one body. Reversed pairs cancel out
+ * as internal seams; every edge left over faces the world.
+ */
+export const outerEdges = (outlines) => {
+  const edges = outlines.flatMap((points) => points.map((from, i) =>
+    `${from},${points[(i + 1) % points.length]}`));
+
+  outlines.forEach((points) => points.edges = points.map((from, i) =>
+    !edges.includes(`${points[(i + 1) % points.length]},${from}`)));
+};
+
 // File an object under the cell it currently sits in
 const addToWorld = (object) => {
   const cell = cellKey(object.x, object.y);
@@ -46,7 +58,8 @@ const addToWorld = (object) => {
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
-const placePoints = ({ rotation, x, y }, outline) => rotatePoints(outline, rotation, x, y);
+const placePoints = ({ rotation, x, y }, outline) => Object.assign(
+  rotatePoints(outline, rotation, x, y), { edges: outline.edges });
 const shapesOf = (object) => {
   if (!object.triangles) return [object.outline && placePoints(object, object.outline)];
 
@@ -59,10 +72,13 @@ const shapesOf = (object) => {
 
 // Each edge gives an axis at right angles to it, which is where two shapes
 // can be told apart if they are apart at all
-const axesOf = (points) => points.map(([x, y], i) => {
+const axesOf = (points, boundary) => points.map(([x, y], i) => {
   const [nextX, nextY] = points[(i + 1) % points.length];
 
-  return Vector(nextY - y, x - nextX).normalize();
+  return [
+    Vector(nextY - y, x - nextX).normalize(),
+    points.edges ? points.edges[i] : !boundary,
+  ];
 });
 
 // A circle brings no edges of its own, so the one axis it needs is the one
@@ -127,19 +143,22 @@ export const hit = (a, b) => {
 
 const overlapOf = (a, b, between, gapX, gapY, aPoints, bPoints) => {
   const middles = between ? Vector(gapX, gapY).normalize() : Vector(1, 0);
+  // Once a tiled body's boundary is known, every other axis only proves an
+  // overlap; it cannot push something further into a seam between its tiles.
+  const boundary = aPoints?.edges || bPoints?.edges;
   const axes = [
-    ...(aPoints ? axesOf(aPoints) : []),
-    ...(bPoints ? axesOf(bPoints) : []),
+    ...(aPoints ? axesOf(aPoints, boundary) : []),
+    ...(bPoints ? axesOf(bPoints, boundary) : []),
   ];
 
-  if (!aPoints) axes.push(bPoints ? cornerAxis(bPoints, a.x, a.y) : middles);
-  if (!bPoints) axes.push(aPoints ? cornerAxis(aPoints, b.x, b.y) : middles);
+  if (!aPoints) axes.push([bPoints ? cornerAxis(bPoints, a.x, a.y) : middles, !boundary]);
+  if (!bPoints) axes.push([aPoints ? cornerAxis(aPoints, b.x, b.y) : middles, !boundary]);
 
   let depth = Infinity;
   let outX = 0;
   let outY = 0;
 
-  const apart = axes.some((axis) => {
+  const apart = axes.some(([axis, physics]) => {
     const [aNear, aFar] = spanOf(a, aPoints, axis);
     const [bNear, bFar] = spanOf(b, bPoints, axis);
     // How far the second would have to shift each way along this axis to be
@@ -152,7 +171,7 @@ const overlapOf = (a, b, between, gapX, gapY, aPoints, bPoints) => {
     const backwards = bFar - aNear;
     const overlap = Math.min(onwards, backwards);
 
-    if (overlap < depth) {
+    if (physics && overlap < depth) {
       const facing = onwards < backwards ? 1 : -1;
 
       depth = overlap;

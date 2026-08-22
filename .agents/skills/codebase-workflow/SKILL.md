@@ -26,6 +26,6 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - Run `npm run lint` after source or configuration changes, but only report it if it fails.
 - After editing, run the same build again and compare its ZIP size with the baseline.
 - Report the before/after ZIP sizes and difference; omit pre-Roadroller sizes.
-- Fast, slow, and full builds pass Roadroller the fixed seed `13312`, so compare their ZIP sizes directly.
-- Use `npm run build:full` for reproducible release output and confirm `dist/game.zip` is under 13,312 bytes. `npm run build` is an alias, but prefer the explicit command.
+- All builds pass Roadroller the fixed seed `13312`, so compare their ZIP sizes directly.
+- `npm run build:full` can be used if a full build is explicitly requested, for reproducible release output and can confirm `dist/game.zip` is under 13,312 bytes. `npm run build` is an alias, but prefer the explicit command.
 - At the end of the competition, we can use repeated `npm run build:full-random` builds to search for a smaller final ZIP that must be under 13,312 bytes.

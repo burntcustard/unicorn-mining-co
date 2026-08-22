@@ -37,6 +37,8 @@ const tipOf = (hitbox) => {
  * @param {Object[]} contacts - Contacts from the shared world collision pass.
  */
 export const mine = (contacts) => {
+  const surfaces = [];
+
   contacts.forEach(({ collider, other }) => {
     const hitbox = collider.segment?.module.grinds ? collider : other;
     const object = hitbox === collider ? other : collider;
@@ -49,7 +51,22 @@ export const mine = (contacts) => {
 
     // A small round cutting tip reaches slightly into inward corners without
     // letting the wide base of the horn mine whatever it brushes side-on
-    if (!hit(object, { radius: 3, x: tipX, y: tipY })) return;
+    const overlap = hit(object, { radius: 3, x: tipX, y: tipY });
+
+    if (!overlap) return;
+
+    surfaces.push({ depth: overlap.depth, hitbox, object, segment, target, tipX, tipY });
+  });
+
+  const drills = [];
+
+  // A deeper tip overlap means the surface is nearer the tip's centre. Each
+  // drill bites only the first of its touching surfaces.
+  surfaces.sort((a, b) => b.depth - a.depth).forEach((surface) => {
+    const { hitbox, object, segment, target, tipX, tipY } = surface;
+
+    if (drills.includes(segment)) return;
+    drills.push(segment);
 
     target.grinding = segment.module.damage;
     target.grindX = tipX;

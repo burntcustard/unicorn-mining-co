@@ -4,6 +4,7 @@ import { Sprite } from './sprite';
 import { colors } from './colors';
 import { createPolygon } from './polygon';
 import { distribute } from './distribute';
+import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
 
 // Stroke width in game units, to match the ships
@@ -86,6 +87,7 @@ export class Asteroid extends Sprite.class {
       point,
       this.outline[(i + 1) % this.outline.length],
     ]);
+    outerEdges(this.triangles);
     this.radius = Math.max(...this.outline.map(([x, y]) => Math.hypot(x, y)));
     // Heft grows with size, so a big rock shrugs off what shoves a pebble and
     // holds its drift far longer

@@ -14,6 +14,7 @@ import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
+import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
 import { scoopOpen } from './modules';
 
@@ -132,6 +133,7 @@ export class Craft extends Sprite.class {
 
       return segment;
     });
+    outerEdges(this.segments.map(({ points }) => points));
     this.radius = Math.max(...data.hullSegments
       .flatMap(({ points }) => points.map((point) => Vector(...point).length())));
 
@@ -201,11 +203,13 @@ export class Craft extends Sprite.class {
           x: segment.x + middleX,
           y: segment.y + middleY,
         }, this.rotation));
+        const outline = points && Object.assign(
+          points.map(([x, y]) => [x - middleX, y - middleY]), { edges: points.edges });
 
         return Object.assign(segment.hitbox ||= { owner: this, segment }, {
           bounciness: bounceOf(segment),
           docks: segment.docks,
-          outline: points?.map(([x, y]) => [x - middleX, y - middleY]),
+          outline,
           physics: !segment.open && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
             module?.scoops && segments.some((part) => active(healthOf(part)) && part.anim > scoopOpen)
           )),
