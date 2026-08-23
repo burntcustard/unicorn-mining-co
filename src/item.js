@@ -33,10 +33,10 @@ const panicRate = 14;
 // Every item is the same weight and shrugs off its speed at the same rate, so
 // they shove about and drift alike whatever they happen to be
 const itemMass = 6;
-const itemDrag = 3;
+const itemDrag = 2;
 
 // Fastest an item drifts on nothing but the speed it was given
-const itemMaxSpeed = 70;
+const itemMaxSpeed = 200;
 
 export class Item extends Sprite.class {
   constructor(props) {

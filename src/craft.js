@@ -179,12 +179,13 @@ export class Craft extends Sprite.class {
           )),
           radius: segment.radius(segment),
           rotation: this.rotation,
+          speed: segment.covers && segment.active > segment.anim && 60,
           x: position.x,
           y: position.y,
         });
       })
       .filter(({ radius }) => radius);
-    const cover = boxes.find(({ segment }) => segment.covers);
+    const cover = boxes.find(({ segment, radius }) => segment.covers && radius >= this.radius);
 
     return cover ? [cover] : boxes;
   }

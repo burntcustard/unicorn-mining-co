@@ -11,7 +11,7 @@ import { shapePath } from './drawing';
 const lineWidth = 3;
 
 // An asteroid gives a little, but nothing like a shield does
-const asteroidBounciness = 0.2;
+const asteroidBounciness = 0.1;
 
 // Enough of a wander that no two asteroids come out the same shape
 const asteroidVariance = 0.3;

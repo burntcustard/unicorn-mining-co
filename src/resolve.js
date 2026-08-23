@@ -69,7 +69,11 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
   const normal = Vector(x, y);
   const aSpin = a.momentum?.(collider) || Vector();
   const bSpin = b.momentum?.(other) || Vector();
-  const closing = b.velocity.add(bSpin).subtract(a.velocity).subtract(aSpin).dot(normal);
+  const closing = b.velocity
+    .add(bSpin)
+    .subtract(a.velocity)
+    .subtract(aSpin)
+    .dot(normal) - ((collider.speed || 0) + (other.speed || 0));
 
   if (closing < 0) {
     let bounce = 0;

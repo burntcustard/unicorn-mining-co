@@ -40,9 +40,9 @@ export const shield = {
       // The bubble swells out of the dial as it comes up, and sinks back into
       // it on the way down
       path: ({ anim }) => anim && circlePath(bubbleRadius * anim),
-      // Nothing to hit until it is all the way up, at which point it takes
-      // over from the hull. With no outline to test it is simply a circle
-      radius: ({ anim }) => (anim === 1 ? bubbleRadius : 0),
+      // With no outline to test it is simply a circle, and while it is
+      // swelling out it can already shove things clear
+      radius: ({ anim }) => bubbleRadius * anim,
       fillAlpha: 2,
     },
   ],

@@ -87,7 +87,7 @@ const minSpeed = 1;
 // second while it is dragged back down to it. Steep, so a fling off a road
 // settles out in a moment, and thrust can never push a ship far past its own
 // top speed before it is pulled back
-const overDrag = 0.9;
+const maxSpeedDrag = 0.9;
 
 /**
  * Drag a velocity back towards a stop, and haul it back down towards the thing's
@@ -113,7 +113,7 @@ export const slow = ({ velocity, mass, drag, maxSpeed }, dt) => {
     // Over its top speed, from a road's fling say, it is hauled back down hard
     // towards it rather than snapped, so coming off a fast road is a steep glide
     // and not a wall
-    const kept = Math.max(maxSpeed, speed * overDrag ** (dt * 60)) / speed;
+    const kept = Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed;
 
     velocity.x *= kept;
     velocity.y *= kept;
