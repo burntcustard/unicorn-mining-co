@@ -1,4 +1,4 @@
-/* global c */
+/* global z */
 
 import { context } from './core';
 
@@ -22,7 +22,7 @@ export const GameLoop = ({ render, update }) => {
     if (elapsed > 1000) return;
 
     for (accumulator += elapsed; accumulator >= delta; accumulator -= delta) update(step);
-    context.clearRect(0, 0, c.width, c.height);
+    context.clearRect(0, 0, z.width, z.height);
     render();
   };
 
