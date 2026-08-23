@@ -1,4 +1,4 @@
-import { Vector, movePoint } from 'kontra';
+import { Vector, movePoint } from '../vector';
 import { circlePath } from '../drawing';
 
 // Shield

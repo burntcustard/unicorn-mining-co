@@ -1,7 +1,7 @@
 import { colors } from './colors';
-import { init } from 'kontra';
+import { init } from './core';
 
-const { canvas, context } = init('c');
+const { canvas, context } = init();
 
 canvas.style = `display:block;width:100%;background:${colors.purple[0]}`;
 

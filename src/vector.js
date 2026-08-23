@@ -1,4 +1,72 @@
-import { rotatePoint } from 'kontra';
+/**
+ * Based on Kontra vector.js, available under the MIT licence:
+ * https://github.com/straker/kontra/blob/main/src/vector.js
+ *
+ * Keeps the vector factory and the set, add, subtract, scale, normalize, dot,
+ * length and distance operations used by the game. Clamp and its coordinate
+ * accessors, angle, and direction are removed. `rotatePoint` and `movePoint`
+ * come from Kontra helpers.js, and the game's multi-hop movement and drag are
+ * added here so all vector-related work has one home:
+ * https://github.com/straker/kontra/blob/main/src/helpers.js
+ */
+
+class VectorClass {
+  constructor(x = 0, y = 0) {
+    if (x.x !== undefined) {
+      this.x = x.x;
+      this.y = x.y;
+    } else {
+      this.x = x;
+      this.y = y;
+    }
+  }
+
+  set(vector) {
+    Object.assign(this, vector);
+  }
+
+  add(vector) {
+    return Vector(this.x + vector.x, this.y + vector.y);
+  }
+
+  subtract(vector) {
+    return Vector(this.x - vector.x, this.y - vector.y);
+  }
+
+  scale(value) {
+    return Vector(this.x * value, this.y * value);
+  }
+
+  normalize(length = this.length() || 1) {
+    return Vector(this.x / length, this.y / length);
+  }
+
+  dot(vector) {
+    return this.x * vector.x + this.y * vector.y;
+  }
+
+  length() {
+    return Math.hypot(this.x, this.y);
+  }
+
+  distance(vector) {
+    return Math.hypot(this.x - vector.x, this.y - vector.y);
+  }
+}
+
+export const Vector = (x, y) => new VectorClass(x, y);
+
+export const rotatePoint = ({ x, y }, angle) => {
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+
+  return { x: x * cos - y * sin, y: x * sin + y * cos };
+};
+
+export const movePoint = ({ x, y }, angle, distance) => ({
+  x: x + Math.cos(angle) * distance,
+  y: y + Math.sin(angle) * distance,
+});
 
 /**
  * Rotate local points around zero, then optionally move them into world space.

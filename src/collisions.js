@@ -1,5 +1,4 @@
-import { Vector } from 'kontra';
-import { rotatePoints } from './vector';
+import { Vector, rotatePoints } from './vector';
 
 /**
  * Collision checking, and nothing at all about what a collision means: the

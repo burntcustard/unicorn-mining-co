@@ -1,4 +1,4 @@
-import { rotatePoint } from 'kontra';
+import { rotatePoint } from './vector';
 
 export const rotateAround = (parent, child, x, y, angle) => {
   const point = rotatePoint({ x, y }, angle);

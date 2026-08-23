@@ -1,6 +1,7 @@
-import { Vector, getContext, movePoint, rotatePoint } from 'kontra';
+import { Vector, movePoint, rotatePoint } from './vector';
 import { makeSparks, updateSparks } from './particles';
 import { colors } from './colors';
+import { getContext } from './core';
 
 // Every road sweeps at the same rate and cuts the same width of lane. Only
 // where one runs, and how far, is up to the road

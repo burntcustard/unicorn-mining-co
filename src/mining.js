@@ -1,7 +1,7 @@
 import { damage } from './craft';
 import { hit } from './collisions';
 import { remove } from './item';
-import { rotatePoint } from 'kontra';
+import { rotatePoint } from './vector';
 import { spray } from './shrapnel';
 
 /**

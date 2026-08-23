@@ -1,4 +1,5 @@
-import { Vector, getContext } from 'kontra';
+import { Vector } from './vector';
+import { getContext } from './core';
 
 /**
  * Shared position and movement state for physical game objects. Supplied

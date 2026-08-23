@@ -25,9 +25,6 @@
     "url": "https://github.com/burntcustard/unicorn-mining-co/issues"
   },
   "homepage": "https://github.com/burntcustard/unicorn-mining-co#readme",
-  "dependencies": {
-    "kontra": "^10.0.2"
-  },
   "overrides": {
     "preprocess": "3.2.0"
   },
@@ -40,7 +37,6 @@
     "html-minifier-terser": "^7.2.0",
     "jszip": "^3.10.1",
     "roadroller": "^2.1.0",
-    "rollup-plugin-kontra": "^1.0.1",
     "terser": "^5.50.0",
     "vite": "^8.2.1"
   },

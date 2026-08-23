@@ -1,4 +1,4 @@
-import { Vector } from 'kontra';
+import { Vector } from './vector';
 import { damage } from './craft';
 
 /**

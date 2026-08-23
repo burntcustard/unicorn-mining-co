@@ -4,7 +4,7 @@ import { createPolygon } from './polygon';
 import { distribute } from './distribute';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
-import { rotatePoint } from 'kontra';
+import { rotatePoint } from './vector';
 import { shapePath } from './drawing';
 
 // Stroke width in game units, to match the ships

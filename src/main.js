@@ -13,7 +13,7 @@ import { renderBackground, sky } from './background';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
 import { Craft } from './craft';
-import { GameLoop } from 'kontra';
+import { GameLoop } from './game-loop';
 // import { Road } from './road';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';

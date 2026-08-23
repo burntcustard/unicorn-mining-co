@@ -1,4 +1,4 @@
-import { Vector, movePoint, rotatePoint } from 'kontra';
+import { Vector, movePoint, rotatePoint } from './vector';
 import { active, healthOf, relightCraft } from './craft-render';
 import { cockpit, scoopOpen } from './modules';
 import { Sprite } from './sprite';

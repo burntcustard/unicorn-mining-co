@@ -1,6 +1,6 @@
 import { circlePath, linesPath, shapePath, sparklePath } from './drawing';
 import { Sprite } from './sprite';
-import { Vector } from 'kontra';
+import { Vector } from './vector';
 import { colors } from './colors';
 import { drawGlow } from './lighting';
 

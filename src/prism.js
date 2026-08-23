@@ -17,9 +17,8 @@
  * All of it is worked out in the lamp's own frame, where the lamp sits at the
  * origin and shines along positive x, which is how the cone is drawn too.
  */
-import { Vector, movePoint } from 'kontra';
+import { Vector, movePoint, rotatePoints } from './vector';
 import { colors } from './colors';
-import { rotatePoints } from './vector';
 
 // The colours light comes apart into, in the order it comes apart in
 const spectrum = [

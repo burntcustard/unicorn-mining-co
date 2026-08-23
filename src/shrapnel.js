@@ -1,4 +1,4 @@
-import { Vector, movePoint } from 'kontra';
+import { Vector, movePoint } from './vector';
 
 /**
  * Sparks thrown off where a mining horn bites into something: little bright
