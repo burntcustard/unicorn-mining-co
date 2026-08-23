@@ -79,6 +79,12 @@ const tests = [
   { code: 'Digit7', key: '7', name: 'lighting off' },
   { name: 'no movement', query: 'noMovement' },
   { name: 'no collisions', query: 'noCollisions' },
+  { name: 'asteroid field', query: 'field' },
+  { name: 'asteroid field no beam', query: 'field&noBeam' },
+  { name: 'asteroid field no collisions', query: 'field&noCollisions' },
+  { hold: 'ArrowRight', name: 'asteroid field spinning', query: 'field' },
+  { hold: 'ArrowRight', name: 'asteroid field spinning no collisions', query: 'field&noCollisions' },
+  { name: 'asteroid sections', query: 'field', sections: true },
   { code: 'Digit9', key: '9', name: 'physics off' },
 ];
 
@@ -137,6 +143,18 @@ try {
     for (let cycle = 0; cycle < (test.sky || 0); cycle++) await press('6', 'Digit6');
     if (test.lamp) await press('l', 'KeyL');
     if (test.key) await press(test.key, test.code);
+    if (test.hold) await send('Input.dispatchKeyEvent', {
+      type: 'keyDown', key: test.hold, code: test.hold,
+    });
+    if (test.sections) {
+      const checked = await send('Runtime.evaluate', {
+        returnByValue: true,
+        expression: `testSections()`,
+      });
+
+      if (checked.exceptionDetails) throw Error(checked.exceptionDetails.exception.description);
+      console.table([checked.result.value]);
+    }
     if (test.sky || test.lamp || test.key) await pause(1000);
 
     const evaluated = await send('Runtime.evaluate', {
@@ -163,6 +181,9 @@ try {
         };
         requestAnimationFrame(frame);
       })`,
+    });
+    if (test.hold) await send('Input.dispatchKeyEvent', {
+      type: 'keyUp', key: test.hold, code: test.hold,
     });
     const measured = evaluated.result.value;
 

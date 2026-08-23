@@ -48,7 +48,7 @@ import { message } from './message';
 import { opal } from './opal';
 import { platinum } from './platinum';
 
-// Dearest first, which is the order a rock is worth breaking open for
+// Dearest first, which is the order an asteroid is worth breaking open for
 export const itemTypes = [
   diamond,
   platinum,

@@ -2,13 +2,13 @@
  * What a lamp's beam runs into, and what comes back out the other side of it.
  *
  * The beam is taken apart into a fan of rays and each one is followed until it
- * hits something, which is what stops the light on the real outline of a rock
+ * hits something, which stops the light on the real outline of an asteroid
  * rather than on the circle drawn round it. Every ray that was stopped is then
- * bent through the rock the way it would really be bent: turned towards the
+ * bent through the asteroid the way it would really be bent: turned towards the
  * face it went in by, followed across to whichever face it reaches next, and
  * turned again on the way back out.
  *
- * How far it turns depends on how much the rock slows it down, and a rock
+ * How far it turns depends on how much the asteroid slows it down, and an asteroid
  * slows violet more than it slows red. That one difference is the whole of why
  * a beam comes out the far side as a spectrum, and doing it this way means the
  * colours lean whichever way the faces they met actually point rather than
@@ -33,10 +33,10 @@ const spectrum = [
 ];
 
 // How many rays the beam is taken apart into. Fine enough that the edge of a
-// rock reads as an edge rather than as a staircase, coarse enough to be cheap
+// asteroid reads as an edge rather than as a staircase, coarse enough to be cheap
 const rays = 64;
 
-// How much a rock slows the light down, least for red and most for violet.
+// How much an asteroid slows the light down, least for red and most for violet.
 // Glass is nearer one and a half, and the gap between its two ends is nearer a
 // fiftieth than a twentieth: a real spectrum takes a room to come apart, so
 // this is left exaggerated, but only about fourfold rather than eightfold
@@ -72,7 +72,7 @@ const decisive = 0.02;
 // How many pairs of faces are kept in mind at once
 const recalls = 8;
 
-// How brightly the light shows on its way through a rock, and how brightly the
+// How brightly the light shows on its way through an asteroid, and how brightly the
 // colours show once they are back out of it. Both have the beam's own light
 // stopped short of them, so they are laid onto the dark and can be strong
 const insideStrength = 0.3;
@@ -143,6 +143,7 @@ const nearest = (outlines, fromX, fromY, dirX, dirY) => {
 
   outlines.forEach((outline) => {
     outline.forEach((corner, i) => {
+      if (outline.edges && !outline.edges[i]) return;
       const next = outline[(i + 1) % outline.length];
       const distance = crossing(fromX, fromY, corner, next, dirX, dirY);
 
@@ -175,7 +176,7 @@ const refract = (dirX, dirY, [normalX, normalY], eta) => {
 };
 
 /**
- * A rock's outline where the lamp sees it: turned out of the rock's own frame,
+ * An asteroid's outline where the lamp sees it: turned out of its own frame,
  * into the world, and back into the ship's.
  */
 const outlineOf = (ship, lamp, object) => {
@@ -187,11 +188,13 @@ const outlineOf = (ship, lamp, object) => {
   const middleX = awayX * shipCos + awayY * shipSin - lamp.x;
   const middleY = awayY * shipCos - awayX * shipSin - lamp.y;
 
-  return rotatePoints(object.outline, turn, middleX, middleY);
+  return Object.assign(rotatePoints(object.outline, turn, middleX, middleY), {
+    edges: object.outline.edges,
+  });
 };
 
 /**
- * A ray put right through a rock: turned as it goes in, followed across to
+ * A ray put right through an asteroid: turned as it goes in, followed across to
  * whichever face it meets next, and turned again on the way back out. Nothing
  * at all only if it could not get in.
  *
@@ -206,7 +209,7 @@ const through = (outlines, enterX, enterY, dirX, dirY, face, index, range) => {
   const [intoX, intoY] = into;
   const [depth, out] = nearest(outlines, enterX, enterY, intoX, intoY);
   const across = Math.min(depth, range);
-  // Light that cannot get back out still crossed the rock to find that out, so
+  // Light that cannot get back out still crossed the asteroid to find that out, so
   // where it got to is worth having even when nothing comes of it
   const away = out && refract(intoX, intoY, out, index);
 
@@ -229,9 +232,9 @@ export const traceBeam = (ship, lamp, scenery) => {
   // fall short of them and cut the beam's own far edge off
   const range = Math.hypot(far, spread);
   const edge = Math.atan2(spread, far);
-  const outlines = scenery
+  const outlines = scenery.flatMap((object) => object.hitboxes?.() || object)
     .filter((object) => object.outline &&
-      object.position.distance(ship.position) - object.radius < range)
+      (object.owner || object).position.distance(ship.position) - object.radius < range)
     .map((object) => outlineOf(ship, lamp, object));
   const beam = { angles: [], faces: [], hit: [], leaves: [], outlines, range };
 
@@ -342,7 +345,7 @@ const stretch = (points, from, to) => {
 /**
  * Which way a colour leaves, put through one named pair of faces rather than
  * through whatever it happens to run into. Letting it find its own way out is
- * what breaks this: red and violet take slightly different paths inside a rock
+ * what breaks this: red and violet take slightly different paths inside an asteroid
  * and near a corner they leave by different faces, so their two answers stop
  * being comparable and whatever is worked out from them flips about.
  */
@@ -362,9 +365,9 @@ const recall = (ways, entry, exit) => ways.find(([was, out]) =>
   out[0] * exit[0] + out[1] * exit[1] > sameFace);
 
 /**
- * The shape the light makes crossing the rocks it gets into: the same region
- * drawSpectrum lights up inside a rock, gathered into one path. Handed back so
- * that whatever a lamp is meant to pick out inside a rock can be clipped to
+ * The shape the light makes crossing the asteroids it gets into: the same region
+ * drawSpectrum lights up inside an asteroid, gathered into one path. Handed back
+ * so whatever a lamp is meant to pick out inside an asteroid can be clipped to
  * exactly where the beam is actually falling, rather than to the whole cone.
  *
  * @param {Object} beam
@@ -408,7 +411,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
 
   ctx.save();
 
-  // Everything that got into a rock, drawn crossing it, whether or not any of
+  // Everything that entered an asteroid, drawn crossing it, whether or not any of
   // it gets out the far side
   ctx.globalCompositeOperation = 'lighten';
   ctx.globalAlpha = lamp.anim * insideStrength;
@@ -436,7 +439,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     const held = recall(ways, faces[middle], leaves[middle]);
     const way = !held || Math.abs(apart) > decisive ? apart >= 0 : held[2];
 
-    // Kept against the faces as they are now, so that a slowly turning rock
+    // Kept against the faces as they are now, so that a slowly turning asteroid
     // carries its answer along with it rather than losing it and starting again
     if (held) [held[0], held[1], held[2]] = [faces[middle], leaves[middle], way];
     else ways.unshift([faces[middle], leaves[middle], way]);

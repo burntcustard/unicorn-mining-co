@@ -4,6 +4,7 @@
  */
 import {
   cargoScoop,
+  cockpit,
   floodlight,
   horn,
   shield,
@@ -41,6 +42,7 @@ export const mustang = {
     {
       health: 30,
       mounts: [
+        { module: cockpit, x: 8, y: 0 },
         { fits: [horn], x: 20, y: 0 },
         { fits: [floodlight], x: 20, y: 0 },
       ],

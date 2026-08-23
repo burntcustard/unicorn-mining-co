@@ -30,8 +30,8 @@ const tipOf = (hitbox) => {
 };
 
 /**
- * Flag the rocks an active mining horn is biting into, so they can be counted
- * down towards breaking open. A horn is a wide thing that touches a rock all
+ * Flag the asteroids an active mining horn is biting into, so they can be counted
+ * down towards breaking open. A horn is a wide thing that touches an asteroid
  * along its side at an angle, but it only grinds at its point, so this asks
  * where the tip actually is rather than trusting a touch anywhere on the shape.
  *
@@ -41,13 +41,13 @@ export const mine = (contacts) => {
   const surfaces = [];
 
   contacts.forEach(({ collider, other }) => {
-    const hitbox = collider.segment?.module.grinds ? collider : other;
+    const hitbox = collider.segment?.module?.grinds ? collider : other;
     const object = hitbox === collider ? other : collider;
     const { segment } = hitbox;
     const target = object.segment || object;
     const health = target.mount?.health ?? target.health;
 
-    if (!segment?.module.grinds || segment.anim <= 0.5 || !health) return;
+    if (!segment?.module?.grinds || segment.anim <= 0.5 || !health) return;
 
     const [tipX, tipY] = tipOf(hitbox);
 
@@ -80,28 +80,29 @@ export const mine = (contacts) => {
 };
 
 /**
- * Split a rock open along the cracks it showed at half health. Cargo clear of
+ * Split an asteroid open along the cracks it showed at half health. Cargo clear of
  * those cracks stays buried in its piece; cargo across one falls into space.
  *
- * @param {Object} rock
- * @param {Object[]} scenery - The rock is taken out of this.
+ * @param {Object} asteroid
+ * @param {Object[]} scenery - The asteroid is taken out of this.
  * @param {Object[]} items - Its freed cargo is added to this.
  */
-const breakRock = (rock, scenery, items) => {
-  scenery.splice(scenery.indexOf(rock), 1);
+const breakAsteroid = (target, scenery, items) => {
+  const asteroid = target.asteroid || target;
 
-  // Let go at the rock's own speed rather than releasing all the approach
+  // Let go at the asteroid's speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
-  if (rock.grinder) Object.assign(rock.grinder, { dx: rock.dx, dy: rock.dy });
+  if (target.grinder) Object.assign(target.grinder, { dx: asteroid.dx, dy: asteroid.dy });
 
-  const [children, loose] = rock.split();
+  const [children, loose] = target.asteroid ? asteroid.detach(target) : asteroid.split();
 
+  if (!target.asteroid || !asteroid.sections.length) scenery.splice(scenery.indexOf(asteroid), 1);
   scenery.push(...children);
 
-  // An empty rock just breaks apart; one with cargo lets it loose
+  // An empty asteroid just breaks apart; one with cargo lets it loose
   loose.forEach((item) => {
-    item.dx = rock.dx;
-    item.dy = rock.dy;
+    item.dx = asteroid.dx;
+    item.dy = asteroid.dy;
     item.arm();
 
     items.push(item);
@@ -115,7 +116,7 @@ const breakRock = (rock, scenery, items) => {
  *
  * @param {Object} target
  * @param {Number} dt - Seconds since the last update.
- * @param {Object[]} scenery - The rock is taken out of this when it breaks.
+ * @param {Object[]} scenery - The asteroid is taken out of this when it breaks.
  * @param {Object[]} items - Its freed cargo is added to this.
  */
 export const grind = (target, dt, scenery, items) => {
@@ -127,20 +128,19 @@ export const grind = (target, dt, scenery, items) => {
   target.grinder.velocity.set(target.grinder.velocity.add(grip));
 
   // Sparks stream off wherever the horn is biting for as long as it grinds,
-  // in the colour of the rock's own outline
+  // in the colour of the asteroid's own outline
   spray(target.grindX, target.grindY, target.grindColor, grindRate * dt, target.grindCarry);
 
   damage(target, target.grinding);
   // Set fresh each update it is touched, so damage is applied only once
   target.grinding = 0;
   const health = target.mount?.health ?? target.health;
-
-  if (target.crack && health <= Math.sqrt(target.mass)) {
-    target.crack(target.grindX, target.grindY);
-  }
+  const asteroid = target.asteroid || target;
 
   if (health < 1) {
-    if (scenery.includes(target)) breakRock(target, scenery, items);
+    if (target.asteroid || scenery.includes(target)) breakAsteroid(target, scenery, items);
     else if (items.includes(target)) remove(target, items);
+  } else if (asteroid.crack && health <= target.maxHealth / 2) {
+    asteroid.crack(target, target.grindX, target.grindY);
   }
 };

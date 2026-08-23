@@ -2,7 +2,7 @@ import { colors } from './colors';
 import { damage as hurt } from './craft';
 
 /**
- * What is left of an unstable rock once its fuse runs out: a flash, and a shove
+ * What is left of an unstable asteroid once its fuse runs out: a flash, and a shove
  * outwards that everything nearby feels.
  *
  * The push is dealt out once, the moment it goes off, rather than pressed on

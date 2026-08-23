@@ -14,6 +14,7 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 
 - Judge size changes by the built ZIP; Roadroller compresses repeated code well, so fewer source characters do not guarantee a smaller entry.
 - Prefer truthy checks and omitted properties over setting or comparing `null` or `undefined` when falsy values do not have distinct meanings.
+- Write genuinely boolean state as `true` or `false` and trust Terser to shorten it, unless a build comparison proves the boolean form enlarges the ZIP. Keep numbers for levels and counters, and falsy sentinels for values that otherwise hold objects.
 - Keep descriptive local names because Terser mangles them; property and exported names will also affect size as we will be mangling those too.
 - Do not add abstractions or cached state solely to remove repetition unless a build comparison shows a saving.
 - Keep `Infinity` where it expresses an unbounded value; Terser already shortens it to `1/0`, so replacing it with e.g. `1e9` does not save space.

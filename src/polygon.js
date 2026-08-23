@@ -3,7 +3,7 @@
  *
  * A plain hexagon, a jagged asteroid and a five pointed star are all the same
  * shape with different props: pull every other point in with `radiusEven` for
- * a star, and shove them all about with `variance` for a rock.
+ * a star, and shove them all about with `variance` for an asteroid.
  *
  * @param {Object} props
  * @param {Number} props.points - How many points, and lines between them.

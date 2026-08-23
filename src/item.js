@@ -33,7 +33,7 @@ const panicRate = 14;
 // Every item is the same weight and shrugs off its speed at the same rate, so
 // they shove about and drift alike whatever they happen to be
 const itemMass = 6;
-const itemDrag = 4;
+const itemDrag = 3;
 
 // Fastest an item drifts on nothing but the speed it was given
 const itemMaxSpeed = 70;
@@ -46,7 +46,7 @@ export class Item extends Sprite.class {
     const { lines, points, radius } = data;
 
     // What kind of thing this is, which is how anything running into it tells
-    // an item from a rock without knowing what item it is
+    // an item from an asteroid without knowing what item it is
     this.item = data;
     this.bounciness = data.bounciness;
     this.health = data.health;
@@ -66,7 +66,7 @@ export class Item extends Sprite.class {
     this.lines = lines && linesPath(lines);
     this.glint = data.glint && sparklePath(this.radius * glintSize);
     // What a message says is settled when it is made, so two found in the same
-    // rock do not say the same thing
+    // asteroid do not say the same thing
     this.message = props.message || (data.notes && data.notes[Math.floor(Math.random() * data.notes.length)]);
     // Sat still unless it was given a tumble. Left undefined it poisons the
     // rotation, and a shape turned by NaN cannot be collided with at all

@@ -7,8 +7,8 @@ const benchmark = import.meta.env.MODE === 'benchmark' && new URLSearchParams(lo
 
 // Profiling switches kept separate from module state, so lamps and engines
 // carry on running while either kind of light is hidden.
-export let glows = 1;
-export let lights = 1;
+export let glows = true;
+export let lights = true;
 export const toggleGlows = () => glows = !glows;
 export const toggleLights = () => lights = !lights;
 

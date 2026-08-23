@@ -5,10 +5,9 @@ import { rotatePoints } from './vector';
  * Collision checking, and nothing at all about what a collision means: the
  * caller is handed the overlap and decides for itself what to do about it.
  *
- * Anything with an `outline` is tested as that polygon, anything without is a
- * circle, and a concave thing can supply convex `triangles` tested only after
- * its one bounding circle passes. Pieces sharing an `owner` never check
- * against each other, and an `open` thing is reported like any other.
+ * Anything with an `outline` is tested as that polygon and anything without
+ * is a circle. Pieces sharing an `owner` never check against each other, and
+ * an `open` thing is reported like any other.
  *
  * The test is the separating axis theorem, laid out as Matter.js and SAT.js
  * lay it out: two shapes are apart if there is any line they can both be
@@ -41,31 +40,40 @@ const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSiz
  * as internal seams; every edge left over faces the world.
  */
 export const outerEdges = (outlines) => {
-  const edges = outlines.flatMap((points) => points.map((from, i) =>
-    `${from},${points[(i + 1) % points.length]}`));
+  const edge = (from, to) => `${from},${to}`;
+  const sides = outlines.map((points) => points.map((from, i) =>
+    edge(from, points[(i + 1) % points.length])));
+  const backs = outlines.map((points) => points.map((from, i) =>
+    edge(points[(i + 1) % points.length], from)));
+  const edges = sides.flat();
+  const left = outlines.map((_, i) => i);
+  const groups = [];
 
-  outlines.forEach((points) => points.edges = points.map((from, i) =>
-    !edges.includes(`${points[(i + 1) % points.length]},${from}`)));
-};
+  outlines.forEach((points, i) => points.edges = backs[i].map((back) => !edges.includes(back)));
+  while (left.length) {
+    const group = [left.pop()];
 
-// File an object under the cell it currently sits in
-const addToWorld = (object) => {
-  const cell = cellKey(object.x, object.y);
-  const sharing = cells.get(cell);
-
-  if (sharing) sharing.add(object);
-  else cells.set(cell, new Set([object]));
+    for (let at = 0; at < group.length; at++) {
+      for (let i = left.length; i--;) {
+        if (sides[group[at]].some((side) => backs[left[i]].includes(side))) {
+          group.push(left.splice(i, 1)[0]);
+        }
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
 const placePoints = ({ rotation, x, y }, outline) => Object.assign(
   rotatePoints(outline, rotation, x, y), { edges: outline.edges });
 const shapesOf = (object) => {
-  if (!object.triangles) return [object.outline && placePoints(object, object.outline)];
+  if (!object.outline) return [undefined];
 
   if (object.shapePass !== pass) {
     object.shapePass = pass;
-    object.shapes = object.triangles.map((outline) => placePoints(object, outline));
+    object.shapes = [placePoints(object, object.outline)];
   }
   return object.shapes;
 };
@@ -189,48 +197,47 @@ const overlapOf = (a, b, between, gapX, gapY, aPoints, bPoints) => {
 };
 
 /**
- * @param {Object} object
- * @returns {Object[]} hits - Everything it is currently overlapping.
- */
-export const collisions = (object) => {
-  const cellX = Math.floor(object.x / cellSize);
-  const cellY = Math.floor(object.y / cellSize);
-  const found = [];
-
-  for (let x = cellX - 1; x < cellX + 2; x++) {
-    for (let y = cellY - 1; y < cellY + 2; y++) {
-      cells.get(keyOf(x, y))?.forEach((other) => {
-        // Test each pair once, and never pieces of the same assembled body
-        if (other.order >= object.order ||
-          (object.owner || object) === (other.owner || other)) return;
-
-        const overlap = hit(object, other);
-
-        if (overlap) {
-          overlap.collider = object;
-          found.push(overlap);
-        }
-      });
-    }
-  }
-
-  return found;
-};
-
-/**
  * Every overlap in a world, once per collider pair for this physics step.
  * Rebuilding the small grid also drops colliders removed since the last step.
  *
  * @param {Object[]} objects
+ * @param {Object[]} [targets] - The objects which should look for overlaps.
  * @returns {Object[]} contacts
  */
-export const contacts = (objects) => {
+export const contacts = (objects, targets = objects) => {
   pass++;
   cells.clear();
+  const found = [];
+
   objects.forEach((object, order) => {
     object.order = order;
-    addToWorld(object);
+    const cell = cellKey(object.x, object.y);
+    const sharing = cells.get(cell);
+
+    if (sharing) sharing.add(object);
+    else cells.set(cell, new Set([object]));
   });
 
-  return objects.flatMap(collisions);
+  targets.forEach((object) => {
+    const cellX = Math.floor(object.x / cellSize);
+    const cellY = Math.floor(object.y / cellSize);
+
+    for (let x = cellX - 1; x < cellX + 2; x++) {
+      for (let y = cellY - 1; y < cellY + 2; y++) {
+        cells.get(keyOf(x, y))?.forEach((other) => {
+          // Test each pair once, and never pieces of the same assembled body
+          if (other.order >= object.order ||
+            (object.owner || object) === (other.owner || other)) return;
+
+          const overlap = hit(object, other);
+
+          if (overlap) {
+            overlap.collider = object;
+            found.push(overlap);
+          }
+        });
+      }
+    }
+  });
+  return found;
 };

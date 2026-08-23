@@ -1,7 +1,7 @@
 import { colors } from '../colors';
 
 // Explosive
-// Unstable rock that only stays quiet while it is buried. Cutting it out of an
+// Unstable asteroid that only stays quiet while buried. Cutting it out of an
 // asteroid starts its fuse, and there is nothing to be done about that except
 // get away from it. Drawn as a red slab with a dark seam down it, glowing
 // harder and faster the closer it gets to going off

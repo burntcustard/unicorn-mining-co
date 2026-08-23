@@ -17,9 +17,9 @@ const fluteCount = hornLength / fluteSpacing + 2;
 const spinRate = 1.5;
 
 // How the horn grips rather than bounces while it spins. A gently negative
-// bounciness holds the ship against the rock instead of springing it off, so
+// bounciness holds the ship against the asteroid instead of springing it off, so
 // mining does not bat the ship away. Kept above minus one, so it only softens
-// the knock: it never drags the ship in or flings it off when the rock breaks.
+// the knock: it never drags the ship in or flings it off when the asteroid breaks.
 // Switched off, the horn says nothing and bounces like the bare hull it is a
 // spike on
 const grindBounce = -1;
@@ -47,9 +47,9 @@ export const horn = {
   bounciness: (segment) => (segment.anim > 0.5 ? grindBounce : undefined),
   // Damage dealt once per fixed game-loop update while its tip is biting
   damage: 0.5,
-  // Grinds a rock down and cracks it open where it touches a loaded one
+  // Grinds an asteroid down and cracks it open where it touches a loaded one
   grinds: true,
-  health: 30,
+  health: 1000,
   key: 'd',
   model: [{
     lines: fluteLines,

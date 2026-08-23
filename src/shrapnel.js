@@ -4,7 +4,7 @@ import { Vector, movePoint } from 'kontra';
  * Sparks thrown off where a mining horn bites into something: little bright
  * streaks in the colour of whatever is being ground, flung out from the touch
  * and fading as they fly. The horn will one day do to a hull what it does to a
- * rock, so this only ever asks for a point and a colour and does not care what
+ * asteroid, so this only ever asks for a point and a colour and does not care what
  * threw the sparks off.
  */
 

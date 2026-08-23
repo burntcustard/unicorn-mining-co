@@ -1,4 +1,5 @@
 import { Vector, movePoint, rotatePoint } from 'kontra';
+import { cockpit, scoopOpen } from './modules';
 import {
   drawBeam,
   drawGlow,
@@ -16,7 +17,6 @@ import { Sprite } from './sprite';
 import { colors } from './colors';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
-import { scoopOpen } from './modules';
 
 const hullBounciness = 0.1;
 const lineWidth = 3;
@@ -30,6 +30,8 @@ const active = (health) => !(health < 1);
 const approach = (value, target, step) => (
   value + Math.max(-step, Math.min(step, target - value))
 );
+const centerOf = (segments) => segments.reduce((center, { middle }) =>
+  center.add(Vector(...middle)), Vector()).scale(1 / segments.length);
 
 const nozzleLevel = (thrusterNozzleSide, forward, turn) => {
   if (!turn || !thrusterNozzleSide) return forward;
@@ -71,7 +73,6 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     anim: 0,
     health,
     hull: !mount,
-    maxHealth: health,
     module: craftModule,
     mount,
     active: 0,
@@ -128,6 +129,7 @@ export class Craft extends Sprite.class {
       return segment;
     });
     outerEdges(this.segments.map(({ points }) => points));
+    this.cockpit = this.mounts.find(({ module }) => module === cockpit);
     this.radius = Math.max(...data.hullSegments
       .flatMap(({ points }) => points.map((point) => Vector(...point).length())));
 
@@ -139,10 +141,12 @@ export class Craft extends Sprite.class {
   }
 
   get maxSpeed() {
-    return Math.max(
-      this.drag ? speedScale * this.thrust / this.drag : 0,
-      (this.localMovementRadius || 0) * Math.abs(this.spin),
-    );
+    return this.life ?
+      180 :
+        Math.max(
+          this.drag ? speedScale * this.thrust / this.drag : 0,
+          (this.localMovementRadius || 0) * Math.abs(this.spin),
+        );
   }
 
   get thrust() {
@@ -221,6 +225,83 @@ export class Craft extends Sprite.class {
     return Vector((this.y - y) * this.spin, (x - this.x) * this.spin);
   }
 
+  fracture(items) {
+    if (!this.cockpit) return [];
+
+    const all = this.segments.filter(({ hull }) => hull);
+    const hulls = all.filter(({ health }) => active(health));
+    const center = hulls.length && centerOf(hulls);
+    const destroyed = hulls.reduce((sum, { health }) => sum + health, 0) < 30 ||
+      !hulls.includes(this.cockpit.hull);
+
+    if (!destroyed && hulls.length === all.length) return [];
+
+    const groups = destroyed ?
+        hulls.map((_, i) => [i]) :
+        outerEdges(hulls.map(({ points }) => points));
+    const core = !destroyed && groups.find((group) =>
+      group.includes(hulls.indexOf(this.cockpit.hull)));
+    const fragments = groups.filter((group) => group !== core)
+      .map((group) => {
+        let segments = group.map((i) => hulls[i]);
+        const middle = centerOf(segments);
+        const offset = rotatePoint(middle, this.rotation);
+        const away = rotatePoint(middle.subtract(center), this.rotation);
+        const velocity = this.velocity.add(this.momentum({
+          x: this.x + offset.x,
+          y: this.y + offset.y,
+        })).add(Vector(away).normalize().scale(30));
+
+        outerEdges(segments.map(({ points }) => points));
+        segments = segments.map((segment) => Object.assign(Object.create(segment), {
+          hitbox: 0,
+          x: segment.x - middle.x,
+          y: segment.y - middle.y,
+        }));
+        const fragment = Object.assign(new Sprite.class({
+          dx: velocity.x,
+          dy: velocity.y,
+          rotation: this.rotation,
+          x: this.x + offset.x,
+          y: this.y + offset.y,
+        }), {
+          drag: 0.2,
+          life: 9 + Math.random(),
+          mass: segments.length,
+          segments,
+          spin: this.spin + Math.random() - 0.5,
+        });
+
+        Object.setPrototypeOf(fragment, Craft.prototype);
+        return fragment;
+      });
+    const kept = (core || []).map((i) => hulls[i]);
+
+    if (core && fragments.length) {
+      const away = rotatePoint(centerOf(kept).subtract(center), this.rotation);
+
+      this.velocity.set(this.velocity.add(Vector(away).normalize().scale(30)));
+      this.spin += Math.random() - 0.5;
+    }
+    this.segments = this.segments.filter((segment) =>
+      kept.includes(segment) || kept.includes(segment.mount?.hull));
+    this.mounts = this.mounts.filter(({ hull }) => kept.includes(hull));
+    if (kept.length) outerEdges(kept.map(({ points }) => points));
+    else {
+      const cockpit = rotatePoint(this.cockpit, this.rotation);
+      const position = this.position.add(cockpit);
+
+      this.cargo.forEach((item) => {
+        item.position.set(position);
+        item.velocity.set(this.velocity);
+        item.arm();
+      });
+      items.push(...this.cargo);
+      this.dead = true;
+    }
+    return fragments;
+  }
+
   supply(craftModule, power) {
     this.segments.forEach((segment) => {
       if (segment.module === craftModule) segment.power = power;
@@ -242,11 +323,16 @@ export class Craft extends Sprite.class {
   }
 
   update(dt) {
-    const push = this.accel * this.forward * dt;
-    const targetSpin = this.turn * this.turnRate * this.throttle;
+    if (this.life) {
+      if ((this.life -= dt) <= 0) this.dead = true;
+    } else {
+      const push = this.accel * this.forward * dt;
+      const targetSpin = this.turn * this.turnRate * this.throttle;
 
-    this.spin = approach(this.spin, targetSpin, this.thrust * dt || Math.abs(targetSpin - this.spin));
-    this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
+      this.spin = approach(this.spin, targetSpin,
+        this.thrust * dt || (!this.cockpit && Math.abs(targetSpin - this.spin)));
+      this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
+    }
     this.segments.forEach((segment) => {
       const level = active(healthOf(segment)) ? segment.active : 0;
 
@@ -300,7 +386,7 @@ export class Craft extends Sprite.class {
         drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
       }
 
-      const worn = health < segment.maxHealth / 2 ? 0 : 1 + segment.hull;
+      const worn = health < segment.module.health / 2 ? 0 : 1 + segment.hull;
       let lit;
 
       if (segment.middle) {

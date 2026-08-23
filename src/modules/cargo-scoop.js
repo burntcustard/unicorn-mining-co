@@ -17,7 +17,7 @@ const doorWidth = 1.5;
 // How far back the throat reaches from the mount the scoop hangs on. Cargo is
 // taken in once its middle is inside this, not when a corner of it brushes the
 // edge. The mount sits a scoop length in from the hull, so what is left over
-// is how far into the ship a rock is seen to travel before it goes: all of the
+// is how far into the ship an asteroid is seen to travel before it goes: all of the
 // way to the mount and it would wink out on the hull line instead
 const throatRadius = scoopLength * 0.75;
 

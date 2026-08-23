@@ -1,4 +1,5 @@
 import { Vector } from 'kontra';
+import { damage } from './craft';
 
 /**
  * What a collision does, once collisions.js has found one. Kept well apart
@@ -35,7 +36,7 @@ const deadSpeed = 5;
 
 /**
  * How springy two things are together. Normally the springier of the two has
- * its way, so a shield bouncing off a rock bounces like a shield. A negative
+ * its way, so a shield bouncing off an asteroid bounces like a shield. A negative
  * bounciness, like a spinning horn's, grips rather than bounces, and the firmest
  * grip wins: it holds a ship against whatever it has hold of instead of letting
  * it spring off, while staying above minus one so it only ever softens the
@@ -72,11 +73,17 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
   if (closing < 0) {
     let bounce = 0;
+    const force = -closing / mass;
+
+    if (force > 500) {
+      [[collider, a], [other, b]].forEach(([hitbox, body]) =>
+        body.cockpit && damage(hitbox.segment, (force - 500) / 2000));
+    }
 
     if (-closing >= deadSpeed) {
       bounce = combineBounce(collider.bounciness || 0, other.bounciness || 0);
     }
-    const impulse = (-closing * (1 + bounce)) / mass;
+    const impulse = force * (1 + bounce);
 
     const push = normal.scale(impulse);
 
