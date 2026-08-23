@@ -10,12 +10,12 @@ export const thrusterDualMd = {
   health: 25,
   name: 'Dual Medium Thrusters',
   offset,
-  parts: [
+  disablePhysics: true,
+  model: [
     { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 800,
-  switched: true,
   thrust: 36,
   zIndex: -1,
 };

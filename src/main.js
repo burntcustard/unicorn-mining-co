@@ -316,7 +316,7 @@ GameLoop({
     roads.forEach((road) => road.update(dt));
 
     // Backwards, because an item that goes off takes itself out of the list
-    for (let i = items.length - 1; i >= 0; i--) {
+    for (let i = items.length; i--;) {
       const item = items[i];
 
       item.update(dt);

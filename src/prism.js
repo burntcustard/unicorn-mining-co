@@ -308,7 +308,7 @@ const between = (near, far) => {
     else path.moveTo(x, y);
   });
 
-  for (let i = far.length - 1; i >= 0; i--) {
+  for (let i = far.length; i--;) {
     path.lineTo(far[i][0], far[i][1]);
   }
 

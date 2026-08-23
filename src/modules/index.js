@@ -10,23 +10,23 @@
  * name, because the build mangles property names but leaves string literals
  * alone, so a `fits` list of modules costs less than a list of their names.
  *
- * Every module has a `price` to buy it, and repairing a damaged one costs a
- * tenth of that. A module takes up no cargo `space` unless it says otherwise.
+ * Every module has a `price` to buy it. Modules do not take cargo space.
  *
- * Modules with no `health` share the health of the hull segment carrying their
- * mount. Modules with their own health are damaged independently.
+ * A non-physical module with `health` is damaged with its hull. A solid `model`
+ * with `health` is damaged directly; a healthless module vanishes with its hull.
  * A module that `covers` its ship, as a shield does, is all that ship can be
  * hit on while it is up.
  *
- * A `switched` module is off until its ship turns it on, and every other one
- * is always on. `anim` runs from 0 to 1 over a module's `activationDuration`
- * in seconds while it is on, and back down again once it is off, which is
+ * Every module starts off. `anim` runs from 0 to 1 over a module's
+ * `activationDuration` in seconds while it is on, and back down again once it is off, which is
  * what drives every animation: flares grow out of thrusters, and cargo scoops
- * swing open and closed. A switched module the pilot works by hand names its
+ * swing open and closed. A module the pilot works by hand names its
  * `key`, the character the controls panel underlines in its name to show it.
  *
  * A module whose pieces switch on separately, like a pair of thrusters, splits
- * itself into `parts` with their own geometry. `zIndex` works like the CSS
+ * its geometry into `model`; visual-only modules set `disablePhysics`. They
+ * still report contacts to gameplay, but never apply physics.
+ * `zIndex` works like the CSS
  * property: the hull sits at 0, so a module below it is drawn behind the hull
  * and one above it is drawn over the top.
  *

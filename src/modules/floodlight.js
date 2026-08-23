@@ -40,14 +40,14 @@ export const floodlight = {
   activationDuration: 0.15,
   // Lit rather than painted, so it lifts everything already drawn under it
   beam: true,
+  disablePhysics: true,
   key: 'l',
   lens,
   mouth,
   name: 'Search Light',
-  parts: [{ points: cone }],
+  model: [{ points: cone }],
   price: 450,
   reach,
   spread,
-  switched: true,
   zIndex: -1,
 };

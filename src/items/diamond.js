@@ -6,7 +6,7 @@ import { colors } from '../colors';
 // below. Nothing but the outline, which at this size is all that reads anyway
 export const diamond = {
   bounciness: 0.1,
-  fillAlpha: '6',
+  fillAlpha: 6,
   health: 80,
   name: 'Diamond',
   points: [[-3, -4], [3, -4], [6, -2], [0, 6], [-6, -2]],

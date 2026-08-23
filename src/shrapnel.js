@@ -40,7 +40,7 @@ export const sparks = [];
 export const spray = (x, y, color, amount, carry = {}) => {
   const count = Math.floor(amount) + (Math.random() < amount % 1 ? 1 : 0);
 
-  for (let i = 0; i < count; i++) {
+  for (let i = count; i--;) {
     const angle = Math.random() * Math.PI * 2;
     const pace = speed * (1 - Math.random() * spread);
     const velocity = movePoint(carry.velocity || Vector(), angle, pace);
@@ -63,7 +63,7 @@ export const spray = (x, y, color, amount, carry = {}) => {
 export const updateSparks = (dt) => {
   const slow = drag ** (dt * 60);
 
-  for (let i = sparks.length - 1; i >= 0; i--) {
+  for (let i = sparks.length; i--;) {
     const spark = sparks[i];
 
     spark.age += dt;

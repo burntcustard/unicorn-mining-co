@@ -45,7 +45,7 @@ const doorPoints = (anim, side) => {
 };
 
 const door = (side) => ({
-  bare: true,
+  outline: [],
   points: ({ anim }) => doorPoints(anim, side),
   radius: () => scoopLength * 2,
 });
@@ -55,22 +55,20 @@ export const cargoScoop = {
   activationDuration: 0.7,
   key: 'c',
   name: 'Cargo Scoop',
-  parts: [
+  health: 20,
+  model: [
     door(-1),
     door(1),
     {
-      // Nothing to see and nothing to bump into: a throat only ever notices
-      // what has found its way in between the doors
+      // Nothing to see and nothing to bump into: a throat notices cargo
+      // between the doors. Closed doors are still a hull-blocked route.
       catches: true,
-      // No throat at all until the doors are properly open, which is what
-      // stops a shut scoop swallowing whatever it is driven into
-      radius: ({ anim }) => (anim > scoopOpen ? throatRadius : 0),
+      radius: () => throatRadius,
     },
   ],
   price: 150,
   // An open mouth is what draws loose cargo in, so this is the piece that
   // decides whether a ship can pick anything up
   scoops: true,
-  switched: true,
   zIndex: -1,
 };

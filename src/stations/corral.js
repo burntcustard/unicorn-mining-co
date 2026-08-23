@@ -68,8 +68,6 @@ const panel = [
 export const corral = {
   hullGradient: true,
   localMovementRadius: 620,
-  name: 'Corral',
-  price: 60000,
   // Radians a second. A station is never still, it just turns very slowly
   turn: 1,
   turnRate: 0.05,
@@ -80,10 +78,10 @@ export const corral = {
         [{ fits: [dockingBay], x: mount, y: 0 }],
       // Only the socket with the bay in it can be flown through. The other
       // four are the same shape repeated, and are as solid as the rest
-      open: i === 0 && piece === 2,
+      disablePhysics: i === 0 && piece === 2,
       points: rotatePoints(points, angle),
     }))),
-    { docks: true, open: true, points: core },
+    { disablePhysics: true, docks: true, points: core },
     // Last, so that they are drawn over the socket edges they fill
     ...angles.slice(1).map((angle) => ({ points: rotatePoints(panel, angle) })),
   ],

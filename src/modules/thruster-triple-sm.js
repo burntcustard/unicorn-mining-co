@@ -10,13 +10,13 @@ export const thrusterTripleSm = {
   health: 15,
   name: 'Triple Small Thrusters',
   offset,
-  parts: [
+  disablePhysics: true,
+  model: [
     { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
     { points: (segment) => flare(segment, size * 2), thrusterNozzleSide: 0 },
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 800,
-  switched: true,
   thrust: 48,
   zIndex: -1,
 };

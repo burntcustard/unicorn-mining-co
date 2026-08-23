@@ -1,5 +1,5 @@
 import { colors } from './colors';
-import { rotatePoint } from 'kontra';
+import { damage as hurt } from './craft';
 
 /**
  * What is left of an unstable rock once its fuse runs out: a flash, and a shove
@@ -70,15 +70,8 @@ export const detonate = (blast, items, crafts) => {
 
     shove(craft, share);
 
-    // Worked out for each piece where that piece actually sits, so a blast off
-    // to one side stoves in the side of the ship that was facing it
-    craft.segments.forEach((segment) => {
-      // Shared-health modules are damaged through their parent hull once
-      if (segment.healthFrom) return;
-
-      const at = craft.position.add(rotatePoint(segment, craft.rotation));
-
-      craft.damage(segment, damage * shareAt(at.distance(blast.position)));
+    craft.hitboxes().forEach(({ segment, x, y }) => {
+      hurt(segment, damage * shareAt(Math.hypot(x - blast.x, y - blast.y)));
     });
   });
 };
@@ -87,7 +80,7 @@ export const detonate = (blast, items, crafts) => {
  * @param {Number} dt - Seconds since the last update.
  */
 export const updateBlasts = (dt) => {
-  for (let i = blasts.length - 1; i >= 0; i--) {
+  for (let i = blasts.length; i--;) {
     blasts[i].age += dt;
 
     if (blasts[i].age >= life) blasts.splice(i, 1);

@@ -51,12 +51,13 @@ export const horn = {
   grinds: true,
   health: 30,
   key: 'd',
-  lines: fluteLines,
+  model: [{
+    lines: fluteLines,
+    points: [[hornBase, -hornHalfWidth], [hornBase + hornLength, 0], [hornBase, hornHalfWidth]],
+  }],
   name: 'Horn Drill',
-  points: [[hornBase, -hornHalfWidth], [hornBase + hornLength, 0], [hornBase, hornHalfWidth]],
   price: 350,
   state: () => ({ phase: 0 }),
-  switched: true,
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.anim) % 1;
   },

@@ -1,3 +1,4 @@
+import { damage } from './craft';
 import { hit } from './collisions';
 import { remove } from './item';
 import { rotatePoint } from 'kontra';
@@ -43,9 +44,10 @@ export const mine = (contacts) => {
     const hitbox = collider.segment?.module.grinds ? collider : other;
     const object = hitbox === collider ? other : collider;
     const { segment } = hitbox;
-    const target = object.segment?.healthFrom || object.segment || object;
+    const target = object.segment || object;
+    const health = target.mount?.health ?? target.health;
 
-    if (!segment?.module.grinds || segment.anim <= 0.5 || !target.health) return;
+    if (!segment?.module.grinds || segment.anim <= 0.5 || !health) return;
 
     const [tipX, tipY] = tipOf(hitbox);
 
@@ -71,7 +73,7 @@ export const mine = (contacts) => {
     target.grinding = segment.module.damage;
     target.grindX = tipX;
     target.grindY = tipY;
-    target.grindColor = object.stroke || object.segment?.stroke;
+    target.grindColor = object.stroke || object.segment?.shades[2];
     target.grindCarry = object.owner || object;
     target.grinder = hitbox.owner;
   });
@@ -128,15 +130,16 @@ export const grind = (target, dt, scenery, items) => {
   // in the colour of the rock's own outline
   spray(target.grindX, target.grindY, target.grindColor, grindRate * dt, target.grindCarry);
 
-  target.health -= target.grinding;
+  damage(target, target.grinding);
   // Set fresh each update it is touched, so damage is applied only once
   target.grinding = 0;
+  const health = target.mount?.health ?? target.health;
 
-  if (target.crack && target.health <= Math.sqrt(target.mass)) {
+  if (target.crack && health <= Math.sqrt(target.mass)) {
     target.crack(target.grindX, target.grindY);
   }
 
-  if (target.health < 1) {
+  if (health < 1) {
     if (scenery.includes(target)) breakRock(target, scenery, items);
     else if (items.includes(target)) remove(target, items);
   }

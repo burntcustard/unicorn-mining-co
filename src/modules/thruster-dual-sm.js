@@ -8,14 +8,14 @@ export const thrusterDualSm = {
   // Quick enough that the flare is up about as soon as the key is down
   activationDuration: 0.1,
   health: 15,
+  disablePhysics: true,
   name: 'Dual Small Thrusters',
   offset,
-  parts: [
+  model: [
     { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 350,
-  switched: true,
   thrust: 16,
   zIndex: -1,
 };

@@ -18,7 +18,6 @@ import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
 import { scoopOpen } from './modules';
 
-const damagedAt = 0.5;
 const hullBounciness = 0.1;
 const lineWidth = 3;
 const instantRate = 99;
@@ -38,14 +37,14 @@ const nozzleLevel = (thrusterNozzleSide, forward, turn) => {
   return turn === -thrusterNozzleSide ? 1 : forward * steeringEase;
 };
 
-const pathFor = ({ path, points }) => {
+const pathFor = ({ path, points, unclosed }) => {
   if (Array.isArray(points)) {
-    const fixed = shapePath(points);
+    const fixed = shapePath(points, unclosed);
 
     return () => fixed;
   }
 
-  return points ? (segment) => shapePath(points(segment)) : path;
+  return points ? (segment) => shapePath(points(segment), unclosed) : path;
 };
 
 const bounceOf = (segment) => {
@@ -55,54 +54,50 @@ const bounceOf = (segment) => {
   return value ?? hullBounciness;
 };
 
-const healthOf = (segment) => segment.healthFrom?.health ?? segment.health;
-const maxHealthOf = (segment) => segment.healthFrom?.maxHealth ?? segment.maxHealth;
+const healthOf = (segment) =>
+  segment.mount?.health ?? segment.mount?.hull.health ?? segment.health;
 
 const makeSegment = (craft, craftModule = {}, part, mount) => {
   const { glow, points } = part;
   const shape = Array.isArray(points) && shapeOf(points, mount);
-  const healthFrom = mount && !part.health && !craftModule.health ?
-    mount.hull :
-    null;
-  const health = healthFrom?.health ?? part.health ?? craftModule.health;
+  const health = mount ? undefined : part.health;
   const duration = part.activationDuration || craftModule.activationDuration;
 
   if (glow) glow.path ||= shapePath(glow);
 
-  return {
+  return Object.assign(Object.create(part), {
     ...craftModule.state?.(),
     ...shape,
     anim: 0,
-    bare: part.bare,
-    catches: part.catches,
-    docks: part.docks,
-    fill: craft.shades[1],
-    fillAlpha: part.fillAlpha,
-    glow,
-    glowColor: glow && craft.shades[2],
     health,
-    healthFrom,
     hull: !mount,
-    lines: part.lines,
     maxHealth: health,
     module: craftModule,
     mount,
-    on: craftModule.switched ? 0 : 1,
-    open: part.open ?? craftModule.open,
+    on: 0,
     path: pathFor(part),
-    points,
     power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
     rate: duration ? 1 / duration : instantRate,
+    disablePhysics: part.disablePhysics || craftModule.disablePhysics,
     shades: craft.shades,
-    thrusterNozzleSide: part.thrusterNozzleSide,
-    stroke: craft.shades[2],
-    thrust: (craftModule.thrust || 0) / (craftModule.parts?.length || 1),
+    thrust: (craftModule.thrust || 0) / (craftModule.model?.length || 1),
     update: craftModule.update,
     x: mount?.x || 0,
     y: (mount?.y || 0) + (part.thrusterNozzleSide || 0) * (craftModule.offset || 0),
     zIndex: part.zIndex ?? craftModule.zIndex ?? craft.zIndex ?? 0,
-  };
+  });
+};
+
+export const damage = (segment, amount) => {
+  const target = segment.mount || segment;
+
+  if (target.health) target.health -= amount;
+  segment.mounts?.forEach((mount) => {
+    if (mount.health) mount.health -= segment.health < 1 ?
+      mount.health :
+      mount.module.disablePhysics && amount;
+  });
 };
 
 export class Craft extends Sprite.class {
@@ -169,8 +164,8 @@ export class Craft extends Sprite.class {
     if (!mount) return;
 
     mount.module = craftModule;
-    if (this.cargoSpace) this.cargoSpace -= craftModule.space || 0;
-    mount.segments = (craftModule.parts || [craftModule])
+    mount.health = craftModule.health;
+    mount.segments = (craftModule.model || [])
       .map((part) => makeSegment(this, craftModule, part, mount));
     this.segments.push(...mount.segments);
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
@@ -178,19 +173,8 @@ export class Craft extends Sprite.class {
 
   paint(craftModule, shades) {
     this.segments.forEach((segment) => {
-      if (segment.module !== craftModule) return;
-
-      segment.shades = shades;
-      segment.fill = this.hullGradient ? `${shades[2]}3` : shades[1];
-      segment.stroke = this.hullGradient ? `${shades[2]}d` : shades[2];
-      if (segment.glow) segment.glowColor = shades[2];
+      if (segment.module === craftModule) segment.shades = shades;
     });
-  }
-
-  damage(segment, amount) {
-    const target = segment.healthFrom || segment;
-
-    if (target.health) target.health -= amount;
   }
 
   hitboxes() {
@@ -210,7 +194,7 @@ export class Craft extends Sprite.class {
           bounciness: bounceOf(segment),
           docks: segment.docks,
           outline,
-          physics: !segment.open && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
+          physics: !segment.disablePhysics && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
             module?.scoops && segments.some((part) => active(healthOf(part)) && part.anim > scoopOpen)
           )),
           radius: segment.radius(segment),
@@ -220,7 +204,7 @@ export class Craft extends Sprite.class {
         });
       })
       .filter(({ radius }) => radius);
-    const cover = boxes.find(({ segment }) => segment.module.covers);
+    const cover = boxes.find(({ segment }) => segment.covers);
 
     return cover ? [cover] : boxes;
   }
@@ -314,14 +298,10 @@ export class Craft extends Sprite.class {
       if (segment.thrust && segment.anim) drawHalo(ctx, segment);
       ctx.translate(segment.x, segment.y);
       if (segment.glow && zIndex < 0) {
-        drawGlow(ctx, segment.glow.path, segment.glowColor, glowStrength, segment.glow);
+        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
       }
 
-      let worn = 0;
-
-      if (!health || health > maxHealthOf(segment) * damagedAt) {
-        worn = segment.hull ? 2 : 1;
-      }
+      const worn = health < segment.maxHealth / 2 ? 0 : 1 + segment.hull;
       let lit;
 
       if (segment.middle) {
@@ -332,8 +312,8 @@ export class Craft extends Sprite.class {
 
       ctx.fillStyle = segment.fillAlpha ?
         segment.shades[2] + segment.fillAlpha :
-        lit || segment.fill || segment.shades[worn];
-      ctx.strokeStyle = segment.stroke || segment.shades[2];
+        lit || segment.shades[worn];
+      ctx.strokeStyle = segment.shades[2];
 
       const path = segment.path?.(segment);
 
@@ -347,7 +327,7 @@ export class Craft extends Sprite.class {
           }
         } else {
           ctx.fill(path);
-          if (!segment.bare) ctx.stroke(path);
+          ctx.stroke(segment.outline ? linesPath(segment.outline) : path);
         }
       }
 
@@ -358,7 +338,7 @@ export class Craft extends Sprite.class {
         ctx.restore();
       }
       if (segment.glow && zIndex >= 0) {
-        drawGlow(ctx, segment.glow.path, segment.glowColor, glowStrength, segment.glow);
+        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
       }
 
       ctx.restore();

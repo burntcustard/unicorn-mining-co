@@ -8,11 +8,11 @@ export const circlePath = (radius) => {
   return path;
 };
 
-export const shapePath = (points) => {
+export const shapePath = (points, unclosed) => {
   const path = new Path2D();
 
   points.forEach(([x, y]) => path.lineTo(x, y));
-  path.closePath();
+  if (!unclosed) path.closePath();
 
   return path;
 };

@@ -8,11 +8,11 @@ export const thrusterSingleMd = {
   activationDuration: 0.1,
   health: 25,
   name: 'Single Medium Thruster',
-  parts: [
+  disablePhysics: true,
+  model: [
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 0 },
   ],
   price: 450,
-  switched: true,
   thrust: 18,
   zIndex: -1,
 };

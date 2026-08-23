@@ -28,55 +28,42 @@ const glow = [
   [0, edge - bayCorner],
 ];
 
+const underneath = [
+  [seam, -edge],
+  [bayDepth - bayCorner, -edge],
+  [bayDepth, bayCorner - edge],
+  [bayDepth, edge - bayCorner],
+  [bayDepth - bayCorner, edge],
+  [seam, edge],
+];
+
+const ontop = [
+  [seam, edge],
+  [bayCorner, edge],
+  [0, edge - bayCorner],
+  [0, bayCorner - edge],
+  [bayCorner, -edge],
+  [seam, -edge],
+];
+
 export const dockingBay = {
+  disablePhysics: true,
   name: 'Docking Bay',
-  // A bay is there to be flown into, so nothing bumps off it
-  open: true,
-  parts: [
+  // Both halves share one glow, but their outlines stop at the seam.
+  model: [
     {
-      bare: true,
-      lines: [[
-        [seam, -edge],
-        [bayCorner, -edge],
-        [0, bayCorner - edge],
-        [0, edge - bayCorner],
-        [bayCorner, edge],
-        [seam, edge],
-      ]],
-      points: [
-        [0, bayCorner - edge],
-        [bayCorner, -edge],
-        [seam, -edge],
-        [seam, edge],
-        [bayCorner, edge],
-        [0, edge - bayCorner],
-      ],
-      glow,
-      zIndex: 3,
-    },
-    {
-      bare: true,
-      lines: [[
-        [seam, -edge],
-        [bayDepth - bayCorner, -edge],
-        [bayDepth, bayCorner - edge],
-        [bayDepth, edge - bayCorner],
-        [bayDepth - bayCorner, edge],
-        [seam, edge],
-      ]],
-      points: [
-        [seam, -edge],
-        [bayDepth - bayCorner, -edge],
-        [bayDepth, bayCorner - edge],
-        [bayDepth, edge - bayCorner],
-        [bayDepth - bayCorner, edge],
-        [seam, edge],
-      ],
-      // Both halves as one outline, so the light pools along the whole bay
-      // rather than in either end of it
+      fillAlpha: 4,
+      points: underneath,
+      unclosed: true,
       glow,
       zIndex: -3,
     },
+    {
+      fillAlpha: 4,
+      points: ontop,
+      unclosed: true,
+      glow,
+      zIndex: 3,
+    },
   ],
-  price: 5000,
 };

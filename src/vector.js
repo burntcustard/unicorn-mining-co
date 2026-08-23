@@ -85,7 +85,7 @@ export const move = (object, dt, settle) => {
   const hops = Math.max(1, Math.ceil((object.velocity.length() * dt) / maxHop));
   const step = dt / hops;
 
-  for (let hop = 0; hop < hops; hop++) {
+  for (let hop = hops; hop--;) {
     slow(object, step);
 
     object.position.set(object.position.add(object.velocity.scale(step)));

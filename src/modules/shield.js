@@ -24,34 +24,30 @@ const arm = (angle) => {
 
 export const shield = {
   bounciness: 0.4,
-  // Everything behind the bubble is sheltered by it, so while it is up the
-  // ship is hit as the bubble and nothing else
-  covers: true,
   health: 40,
   key: 's',
   name: 'Shield Array',
-  parts: [
+  model: [
     {
       lines: ({ phase }) => [arm(phase), arm(phase + Math.PI / 2)],
       path: () => dial,
+      radius: () => radius,
     },
     {
       // A quarter of a second from nothing to full size, and the same back
-      activationDuration: 0.25,
+      activationDuration: 0.2,
+      covers: true,
       // The bubble swells out of the dial as it comes up, and sinks back into
       // it on the way down
       path: ({ anim }) => anim && circlePath(bubbleRadius * anim),
       // Nothing to hit until it is all the way up, at which point it takes
       // over from the hull. With no outline to test it is simply a circle
       radius: ({ anim }) => (anim === 1 ? bubbleRadius : 0),
-      fillAlpha: '2',
+      fillAlpha: 2,
     },
   ],
   price: 900,
-  // Coils and a generator leave less room for cargo
-  space: 3,
   state: () => ({ phase: 0 }),
-  switched: true,
   // A quarter turn brings the cross back around to where it started
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.anim) % (Math.PI / 2);

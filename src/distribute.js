@@ -26,7 +26,7 @@ export const distribute = (items, { width, height = width, density = 0, x = 0, y
 
     if (radiusX < 0 || radiusY < 0) return;
 
-    for (let i = 0; i < maxAttempts; i++) {
+    for (let i = maxAttempts; i--;) {
       const angle = Math.random() * Math.PI * 2;
       const distance = Math.sqrt(Math.random());
       const candidate = {
