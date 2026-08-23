@@ -42,7 +42,7 @@ const modulesOf = (ship) => {
 };
 
 // Whether any part of a module is switched on
-const isOn = (ship, module) => ship.segments.some((seg) => seg.module === module && seg.on);
+const isOn = (ship, module) => ship.segments.some((seg) => seg.module === module && seg.active);
 
 /**
  * @param {Object} game

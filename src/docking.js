@@ -22,6 +22,7 @@ export const dock = (crafts, contacts) => {
 
     if (!home.docks || !guest?.mounts || guest.launching) return;
 
+    guest.segments.forEach((segment) => (segment.active = false));
     guest.dockedTo = home.owner;
     guest.localMovementParent = home.owner;
   });

@@ -74,12 +74,11 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     maxHealth: health,
     module: craftModule,
     mount,
-    on: 0,
+    active: 0,
     path: pathFor(part),
     power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
     rate: duration ? 1 / duration : instantRate,
-    disablePhysics: part.disablePhysics || craftModule.disablePhysics,
     shades: craft.shades,
     thrust: (craftModule.thrust || 0) / (craftModule.model?.length || 1),
     update: craftModule.update,
@@ -121,7 +120,7 @@ export class Craft extends Sprite.class {
     this.zIndex = data.zIndex;
     this.mounts = [];
     this.segments = data.hullSegments.map((hull) => {
-      const segment = makeSegment(this, {}, hull);
+      const segment = makeSegment(this, hull, hull);
 
       segment.mounts = (hull.mounts || []).map((mount) => ({ ...mount, hull: segment }));
       this.mounts.push(...segment.mounts);
@@ -165,7 +164,7 @@ export class Craft extends Sprite.class {
 
     mount.module = craftModule;
     mount.health = craftModule.health;
-    mount.segments = (craftModule.model || [])
+    mount.segments = craftModule.model
       .map((part) => makeSegment(this, craftModule, part, mount));
     this.segments.push(...mount.segments);
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
@@ -194,7 +193,7 @@ export class Craft extends Sprite.class {
           bounciness: bounceOf(segment),
           docks: segment.docks,
           outline,
-          physics: !segment.disablePhysics && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
+          physics: !segment.module.disablePhysics && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
             module?.scoops && segments.some((part) => active(healthOf(part)) && part.anim > scoopOpen)
           )),
           radius: segment.radius(segment),
@@ -230,7 +229,7 @@ export class Craft extends Sprite.class {
 
   toggle(craftModule, on) {
     this.segments.forEach((segment) => {
-      if (segment.module === craftModule) segment.on = (on ?? !segment.on) ? 1 : 0;
+      if (segment.module === craftModule) segment.active = (on ?? !segment.active) ? 1 : 0;
     });
   }
 
@@ -238,7 +237,7 @@ export class Craft extends Sprite.class {
     this.forward = forward;
     this.turn = turn;
     this.segments.forEach((segment) => {
-      if (segment.thrust) segment.on = nozzleLevel(segment.thrusterNozzleSide, forward, turn);
+      if (segment.thrust) segment.active = nozzleLevel(segment.thrusterNozzleSide, forward, turn);
     });
   }
 
@@ -249,7 +248,7 @@ export class Craft extends Sprite.class {
     this.spin = approach(this.spin, targetSpin, this.thrust * dt || Math.abs(targetSpin - this.spin));
     this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
     this.segments.forEach((segment) => {
-      const level = active(healthOf(segment)) ? segment.on : 0;
+      const level = active(healthOf(segment)) ? segment.active : 0;
 
       segment.anim = approach(segment.anim, level, segment.rate * dt);
       segment.update?.(segment, dt);

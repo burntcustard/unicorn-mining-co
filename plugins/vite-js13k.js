@@ -10,7 +10,12 @@ const roadrollerSeed = 13312;
 const customReplacement = (src) => src
   // Give this repeated Kontra property a more compression-friendly spelling (~6B).
   .replace(/acceleration/g, '_acceleration')
-  // .replace(/rotation/g, '_rotation')
+  .replace(/active/g, '_active')
+  .replace(/angle/g, '_angle')
+  .replace(/(?<!\/)module/g, '_module')
+  .replace(/points/g, '_points')
+  .replace(/rotation/g, '_rotation')
+  .replace(/segments/g, '_segments')
   // For some reason all other color names are mangled, but green isn't.
   // This actually cost more bytes for some reason???
   // .replace(/red/g, '_red')
