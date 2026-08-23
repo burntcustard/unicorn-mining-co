@@ -233,6 +233,7 @@ if (benchmark) {
     const [children] = asteroid.detach(leaf);
 
     if (!children.length || asteroid.sections.includes(leaf)) throw Error('detach');
+    if (children[1]?.sections?.length !== 3) throw Error('detached cracks');
     Object.assign(asteroid, { x: playerShip.x, y: playerShip.y });
     const beam = traceBeam(playerShip, lamp, [asteroid]);
 

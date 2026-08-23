@@ -161,10 +161,12 @@ export class Asteroid extends Sprite.class {
     this.divide(target, pieces);
   }
 
-  split(pieces) {
-    if (!pieces) return [[], this.contents || []];
+  split(groups) {
+    if (!groups) return [[], this.contents || []];
 
-    const children = pieces.map((triangles) => {
+    const children = groups.map((sections) => {
+      const triangles = sections.flatMap(({ triangles }) => triangles);
+
       const outline = outlineOf(triangles);
       const [centerX, centerY] = measure(outline);
       const offset = rotatePoint({ x: centerX, y: centerY }, this.rotation);
@@ -184,6 +186,22 @@ export class Asteroid extends Sprite.class {
         x: this.x + offset.x,
         y: this.y + offset.y,
       });
+
+      if (sections.length > 1) {
+        child.sections = sections.map((section) => {
+          const outline = section.outline.map(local);
+
+          return Object.assign(section, {
+            asteroid: child,
+            hitbox: 0,
+            outline,
+            path: shapePath(outline),
+            radius: Math.max(...outline.map(([x, y]) => Math.hypot(x, y))),
+            triangles: section.triangles.map((triangle) => triangle.map(local)),
+          });
+        });
+        outerEdges(child.sections.map(({ outline }) => outline));
+      }
 
       child.fromParent = [centerX, centerY];
       return child;
@@ -218,10 +236,12 @@ export class Asteroid extends Sprite.class {
     const groups = outerEdges(sections.map(({ outline }) => outline));
 
     this.sections = (groups.shift() || []).map((i) => sections[i]);
-    return this.split([
-      section.triangles,
-      ...groups.map((group) => group.flatMap((i) => sections[i].triangles)),
-    ]);
+    const detached = [
+      [section],
+      ...groups.map((group) => group.map((i) => sections[i])),
+    ];
+
+    return this.split(detached);
   }
 
   hitboxes() {
