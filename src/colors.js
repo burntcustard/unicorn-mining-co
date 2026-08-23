@@ -19,6 +19,7 @@ export const colors = {
   violet: ['#c2c', '#d3d', '#e6f', '#427', '#e6f'],
   purple: ['#102', '#213', '#325', '#001', '#647'],
   white:  ['#ddd', '#eee', '#fff', '#33c', '#f8d'],
-  grey:   ['#778', '#99a', '#bbc', '#334', '#eef'],
+  // Grey removed as it was only used for platinum and it saves a few bytes
+  // grey:   ['#778', '#99a', '#bbc', '#334', '#eef'],
   black:  ['#000', '#111', '#222', '#879', '#200'],
 };

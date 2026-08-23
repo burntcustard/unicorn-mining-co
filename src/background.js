@@ -76,66 +76,72 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
   canvas.width = canvas.height = span;
   ctx.scale(span / tile, span / tile);
 
-  if (parts.includes('clouds')) Array.from({ length: clouds }).forEach(() => {
-    const color = cloudColors[Math.floor(Math.random() * cloudColors.length)];
-    const radius = tile / 5 + Math.random() * tile / 4;
-    const x = Math.random() * tile;
-    const y = Math.random() * tile;
+  if (parts.includes('clouds')) {
+    Array.from({ length: clouds }).forEach(() => {
+      const color = cloudColors[Math.floor(Math.random() * cloudColors.length)];
+      const radius = tile / 5 + Math.random() * tile / 4;
+      const x = Math.random() * tile;
+      const y = Math.random() * tile;
 
-    wrapped((offsetX, offsetY) => {
-      const at = [x + offsetX, y + offsetY];
-      // Fading all the way out to nothing is what keeps a cloud an edgeless
-      // smudge rather than a circle
-      const fade = ctx.createRadialGradient(...at, 0, ...at, radius);
+      wrapped((offsetX, offsetY) => {
+        const at = [x + offsetX, y + offsetY];
+        // Fading all the way out to nothing is what keeps a cloud an edgeless
+        // smudge rather than a circle
+        const fade = ctx.createRadialGradient(...at, 0, ...at, radius);
 
-      fade.addColorStop(0, `${color}2`);
-      fade.addColorStop(1, `${color}0`);
-      ctx.fillStyle = fade;
-      ctx.fillRect(at[0] - radius, at[1] - radius, radius * 2, radius * 2);
+        fade.addColorStop(0, `${color}2`);
+        fade.addColorStop(1, `${color}0`);
+        ctx.fillStyle = fade;
+        ctx.fillRect(at[0] - radius, at[1] - radius, radius * 2, radius * 2);
+      });
     });
-  });
+  }
 
   ctx.shadowBlur = dotGlow;
 
-  if (parts.includes('dots')) Array.from({ length: dots }).forEach(() => {
-    const color = starColor(dotTints) + '3456789abc'[Math.floor(Math.random() * 10)];
-    const path = circlePath(size * (0.4 + Math.random() * 0.6));
-    const x = Math.random() * tile;
-    const y = Math.random() * tile;
+  if (parts.includes('dots')) {
+    Array.from({ length: dots }).forEach(() => {
+      const color = starColor(dotTints) + '3456789abc'[Math.floor(Math.random() * 10)];
+      const path = circlePath(size * (0.4 + Math.random() * 0.6));
+      const x = Math.random() * tile;
+      const y = Math.random() * tile;
 
-    // Varying how faint each one is does more for the depth than varying how
-    // big it is, at this sort of size
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
+      // Varying how faint each one is does more for the depth than varying how
+      // big it is, at this sort of size
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
 
-    wrapped((offsetX, offsetY) => {
-      ctx.save();
-      ctx.translate(x + offsetX, y + offsetY);
-      ctx.fill(path);
-      ctx.restore();
+      wrapped((offsetX, offsetY) => {
+        ctx.save();
+        ctx.translate(x + offsetX, y + offsetY);
+        ctx.fill(path);
+        ctx.restore();
+      });
     });
-  });
+  }
 
   ctx.shadowBlur = sparkleGlow;
 
-  if (parts.includes('sparkles')) Array.from({ length: sparkles }).forEach(() => {
-    const color = starColor(sparkleTints) + '789abc'[Math.floor(Math.random() * 6)];
-    const path = sparklePath(size * (1 + Math.random()));
-    const x = Math.random() * tile;
-    const y = Math.random() * tile;
+  if (parts.includes('sparkles')) {
+    Array.from({ length: sparkles }).forEach(() => {
+      const color = starColor(sparkleTints) + '789abc'[Math.floor(Math.random() * 6)];
+      const path = sparklePath(size * (1 + Math.random()));
+      const x = Math.random() * tile;
+      const y = Math.random() * tile;
 
-    // No stroke on a sparkle, so it stays a glow rather than an outline, and
-    // never quite full strength or it sits in front of the sky rather than in
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
+      // No stroke on a sparkle, so it stays a glow rather than an outline, and
+      // never quite full strength or it sits in front of the sky rather than in
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
 
-    wrapped((offsetX, offsetY) => {
-      ctx.save();
-      ctx.translate(x + offsetX, y + offsetY);
-      ctx.fill(path);
-      ctx.restore();
+      wrapped((offsetX, offsetY) => {
+        ctx.save();
+        ctx.translate(x + offsetX, y + offsetY);
+        ctx.fill(path);
+        ctx.restore();
+      });
     });
-  });
+  }
 
   return canvas;
 };

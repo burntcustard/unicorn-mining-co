@@ -59,8 +59,6 @@ const outlineOf = (triangles) => [
 export class Asteroid extends Sprite.class {
   constructor(props) {
     super(props);
-    this.x = props.x;
-    this.y = props.y;
 
     this.bounciness = asteroidBounciness;
     this.stroke = colors.white[2];
@@ -109,8 +107,12 @@ export class Asteroid extends Sprite.class {
       };
     });
 
-    if (target === this) this.sections = sections;
-    else this.sections.splice(this.sections.indexOf(target), 1, ...sections);
+    if (target === this) {
+      this.sections = sections;
+    } else {
+      this.sections.splice(this.sections.indexOf(target), 1, ...sections);
+    }
+
     outerEdges(this.sections.map(({ outline }) => outline));
     return sections;
   }
@@ -128,6 +130,7 @@ export class Asteroid extends Sprite.class {
           return [[center, point, middle], [center, middle, next]];
         }));
       }
+
       return;
     }
 
@@ -172,8 +175,8 @@ export class Asteroid extends Sprite.class {
       const child = new Asteroid({
         // The centroid carries the tangential speed it had while the parent
         // rotated, so neither position nor motion jumps at the split
-        dx: this.dx - offset.y * this.spin,
-        dy: this.dy + offset.x * this.spin,
+        dx: this.velocity.x - offset.y * this.spin,
+        dy: this.velocity.y + offset.x * this.spin,
         outline: outline.map(local),
         rotation: this.rotation,
         spin: this.spin,
@@ -195,8 +198,9 @@ export class Asteroid extends Sprite.class {
         return part.triangles.some((triangle) => inside(local, triangle));
       });
 
-      if (!child) kept.push(item);
-      else {
+      if (!child) {
+        kept.push(item);
+      } else {
         const x = point.x - child.fromParent[0];
         const y = point.y - child.fromParent[1];
 
@@ -241,11 +245,10 @@ export class Asteroid extends Sprite.class {
   * @param {Item} item
   */
   bury(item) {
-    item.x = item.y = undefined;
-    this.contents = distribute([...(this.contents || []), item], {
+    this.contents = distribute([item], {
       density: 2,
       width: this.radius,
-    });
+    }, this.contents);
     this.contents.forEach((content) => {
       content.buried ||= { rotation: Math.random() * Math.PI * 2 };
       Object.assign(content.buried, { x: content.x, y: content.y });

@@ -83,6 +83,7 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     if (-closing >= deadSpeed) {
       bounce = combineBounce(collider.bounciness || 0, other.bounciness || 0);
     }
+
     const impulse = force * (1 + bounce);
 
     const push = normal.scale(impulse);

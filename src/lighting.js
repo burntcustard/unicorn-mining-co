@@ -208,6 +208,7 @@ export const drawGlow = (ctx, path, color, strength, cache) => {
       cache.image = image;
       cache.scale = scale;
     }
+
     const size = cache.image.width / cache.scale;
 
     ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
@@ -216,9 +217,11 @@ export const drawGlow = (ctx, path, color, strength, cache) => {
       ctx.shadowBlur = glowBlur;
       ctx.shadowColor = color;
     }
+
     ctx.fillStyle = color;
     ctx.fill(path);
   }
+
   ctx.restore();
 };
 
@@ -248,6 +251,7 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
   // one is filled through the other
   ctx.clip(lit);
   ctx.globalAlpha = level * beamStrength;
+
   // Cast off the beam rather than laid down under it, so it gives out along
   // with the light. A glow of its own has no idea how far down the beam it is
   // and ends in a hard edge wherever the light happens to stop
@@ -255,6 +259,7 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
     ctx.shadowBlur = glowBlur;
     ctx.shadowColor = color;
   }
+
   ctx.fillStyle = gradient;
   ctx.fill(path);
   ctx.restore();

@@ -48,16 +48,13 @@ export class Item extends Sprite.class {
     // What kind of thing this is, which is how anything running into it tells
     // an item from an asteroid without knowing what item it is
     this.item = data;
-    this.bounciness = data.bounciness;
-    this.health = data.health;
+    Object.assign(this, data);
     this.fill = data.shades[1];
     this.mass = itemMass;
     this.drag = itemDrag;
     // The fastest it settles back to on nothing but the speed it was given,
     // having none of a ship's thrusters to work a top speed out of
     this.maxSpeed = itemMaxSpeed;
-    this.name = data.name;
-    this.price = data.price;
     this.stroke = data.shades[2];
     // A cut item is hit on its corners, a round one on its radius alone
     this.outline = points;
@@ -68,9 +65,6 @@ export class Item extends Sprite.class {
     // What a message says is settled when it is made, so two found in the same
     // asteroid do not say the same thing
     this.message = props.message || (data.notes && data.notes[Math.floor(Math.random() * data.notes.length)]);
-    // Sat still unless it was given a tumble. Left undefined it poisons the
-    // rotation, and a shape turned by NaN cannot be collided with at all
-    this.spin = props.spin || 0;
     // How far through its own beat a glowing item is
     this.blink = 0;
   }
@@ -114,6 +108,7 @@ export class Item extends Sprite.class {
     }
 
     ctx.fillStyle = this.fill + (item.fillAlpha || '');
+
     if (item.rainbow) {
       const rainbow = ctx.createLinearGradient(-radius, 0, radius, 0);
 
@@ -122,6 +117,7 @@ export class Item extends Sprite.class {
       rainbow.addColorStop(1, colors.cyan[2]);
       ctx.fillStyle = rainbow;
     }
+
     ctx.strokeStyle = this.stroke;
 
     ctx.fill(this.path);

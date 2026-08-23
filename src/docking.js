@@ -41,8 +41,8 @@ export const launch = (craft) => {
   craft.rotation = host.rotation;
   craft.x = host.x;
   craft.y = host.y;
-  craft.dx = 0;
-  craft.dy = 0;
+  craft.velocity.x = 0;
+  craft.velocity.y = 0;
   craft.launching = launchBurnDuration + launchCoastDuration;
 };
 

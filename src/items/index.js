@@ -38,7 +38,7 @@ export { explosive } from './explosive';
 export { gold } from './gold';
 export { message } from './message';
 export { opal } from './opal';
-export { platinum } from './platinum';
+// export { platinum } from './platinum';
 
 import { amethyst } from './amethyst';
 import { diamond } from './diamond';
@@ -46,12 +46,12 @@ import { explosive } from './explosive';
 import { gold } from './gold';
 import { message } from './message';
 import { opal } from './opal';
-import { platinum } from './platinum';
+// import { platinum } from './platinum';
 
 // Dearest first, which is the order an asteroid is worth breaking open for
 export const itemTypes = [
   diamond,
-  platinum,
+  // platinum, // Platinum disabled to save a few bytes
   gold,
   opal,
   amethyst,

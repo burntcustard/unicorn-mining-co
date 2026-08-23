@@ -1,5 +1,5 @@
 import { Item, remove } from './item';
-import { amethyst, diamond, gold, itemTypes, opal, platinum } from './items';
+import { amethyst, diamond, gold, itemTypes, opal } from './items';
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
@@ -23,6 +23,7 @@ import { game } from './game';
 import { localMovement } from './local-movement';
 import { move } from './vector';
 import { renderControls } from './ui/controls';
+import { renderCraft } from './craft-render';
 import { renderFps } from './fps';
 import { renderText } from './text';
 import { resolve } from './resolve';
@@ -149,7 +150,7 @@ const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
 blocks[0].bury(new Item({ itemData: diamond }));
 blocks[0].bury(new Item({ itemData: gold }));
 blocks[2].bury(new Item({ itemData: amethyst }));
-blocks[2].bury(new Item({ itemData: platinum }));
+// blocks[2].bury(new Item({ itemData: platinum }));
 blocks[4].bury(new Item({ itemData: opal }));
 asteroids[0].bury(new Item({ itemData: gold }));
 
@@ -157,120 +158,128 @@ const crafts = [playerShip, ...swatches, corral];
 // const roads = [northRoad];
 const scenery = [...asteroids, ...asteroidField, ...blocks];
 
-if (benchmark) window['testSections'] = () => {
-  const five = scenery.find((asteroid) =>
-    asteroid.outline.length === 5 && asteroid.health < 240);
-  const fiveHealth = five.health;
+if (benchmark) {
+  window['testSections'] = () => {
+    const five = scenery.find((asteroid) =>
+      asteroid.outline.length === 5 && asteroid.health < 240);
+    const fiveHealth = five.health;
 
-  five.health /= 2;
-  five.crack(five, five.x, five.y);
-  const fiveTotal = five.sections.reduce((sum, section) => sum + section.health, 0);
+    five.health /= 2;
+    five.crack(five, five.x, five.y);
+    const fiveTotal = five.sections.reduce((sum, section) => sum + section.health, 0);
 
-  if (five.sections.length !== 3 || Math.abs(fiveTotal - fiveHealth * 5 / 3) > 1e-9 ||
-    five.sections.map((section) => section.triangles.length).sort() + '' !== '1,2,2') {
-    throw Error('five');
-  }
-  const small = five.sections.find((section) => section.triangles.length === 1);
+    if (five.sections.length !== 3 || Math.abs(fiveTotal - fiveHealth * 5 / 3) > 1e-9 ||
+      five.sections.map((section) => section.triangles.length).sort() + '' !== '1,2,2') {
+      throw Error('five');
+    }
 
-  if (small.maxHealth >= 80) throw Error('small size');
-  small.health /= 2;
-  small.asteroid.crack(small);
-  if (five.sections.length !== 3 || five.detach(small)[0].length !== 1) throw Error('small');
-  const asteroid = scenery.find((object) => object.outline.length === 7);
-  const originalHealth = asteroid.health;
+    const small = five.sections.find((section) => section.triangles.length === 1);
 
-  asteroid.health /= 2;
-  asteroid.crack(asteroid, asteroid.x, asteroid.y);
-  if (asteroid.sections.length !== 3 || asteroid.hitboxes().length !== 3) throw Error('root');
-  const firstHealth = asteroid.sections.reduce((sum, section) => sum + section.health, 0);
+    if (small.maxHealth >= 80) throw Error('small size');
+    small.health /= 2;
+    small.asteroid.crack(small);
+    if (five.sections.length !== 3 || five.detach(small)[0].length !== 1) throw Error('small');
+    const asteroid = scenery.find((object) => object.outline.length === 7);
+    const originalHealth = asteroid.health;
 
-  if (Math.abs(firstHealth - originalHealth * 7 / 3) > 1e-9) throw Error('health');
-  const section = asteroid.sections.find((part) => part.triangles.length > 1);
-  const sectionHealth = section.maxHealth;
-  const otherHealth = firstHealth - sectionHealth;
-  const before = asteroid.sections.length;
+    asteroid.health /= 2;
+    asteroid.crack(asteroid, asteroid.x, asteroid.y);
+    if (asteroid.sections.length !== 3 || asteroid.hitboxes().length !== 3) throw Error('root');
+    const firstHealth = asteroid.sections.reduce((sum, section) => sum + section.health, 0);
 
-  section.health /= 2;
-  asteroid.crack(section, asteroid.x, asteroid.y);
-  if (asteroid.sections.length !== before - 1 + section.triangles.length) throw Error('section');
-  const sectionTotal = asteroid.sections.reduce((sum, part) => sum + part.health, 0) - otherHealth;
+    if (Math.abs(firstHealth - originalHealth * 7 / 3) > 1e-9) throw Error('health');
+    const section = asteroid.sections.find((part) => part.triangles.length > 1);
+    const sectionHealth = section.maxHealth;
+    const otherHealth = firstHealth - sectionHealth;
+    const before = asteroid.sections.length;
 
-  if (Math.abs(sectionTotal - sectionHealth * section.triangles.length / 2) > 1e-9) {
-    throw Error('section health');
-  }
-  const triangle = asteroid.sections.find((part) =>
-    part.triangles.length === 1 && part.maxHealth >= 80);
-  const triangleHealth = triangle.maxHealth;
+    section.health /= 2;
+    asteroid.crack(section, asteroid.x, asteroid.y);
+    if (asteroid.sections.length !== before - 1 + section.triangles.length) throw Error('section');
+    const sectionTotal = asteroid.sections.reduce((sum, part) => sum + part.health, 0) - otherHealth;
 
-  triangle.health /= 2;
-  asteroid.crack(triangle, asteroid.x, asteroid.y);
-  const pairs = asteroid.sections.filter((part) =>
-    part.triangles.length === 2 && part.maxHealth === triangleHealth);
+    if (Math.abs(sectionTotal - sectionHealth * section.triangles.length / 2) > 1e-9) {
+      throw Error('section health');
+    }
 
-  if (pairs.length !== 3) throw Error('triangle');
-  if (pairs.reduce((sum, part) =>
-    sum + part.outline.edges.filter(Boolean).length, 0) !== 6) throw Error('seams');
-  const pair = pairs[0];
-  const previous = [...asteroid.sections];
+    const triangle = asteroid.sections.find((part) =>
+      part.triangles.length === 1 && part.maxHealth >= 80);
+    const triangleHealth = triangle.maxHealth;
 
-  pair.health /= 2;
-  asteroid.crack(pair);
-  const leaves = asteroid.sections.filter((part) => !previous.includes(part));
+    triangle.health /= 2;
+    asteroid.crack(triangle, asteroid.x, asteroid.y);
+    const pairs = asteroid.sections.filter((part) =>
+      part.triangles.length === 2 && part.maxHealth === triangleHealth);
 
-  if (leaves.length !== 2) throw Error('leaves');
-  const leaf = leaves[0];
+    if (pairs.length !== 3) throw Error('triangle');
+    if (pairs.reduce((sum, part) =>
+      sum + part.outline.edges.filter(Boolean).length, 0) !== 6) throw Error('seams');
+    const pair = pairs[0];
+    const previous = [...asteroid.sections];
 
-  leaf.health = leaf.maxHealth = 79;
-  leaf.health /= 2;
-  const count = asteroid.sections.length;
+    pair.health /= 2;
+    asteroid.crack(pair);
+    const leaves = asteroid.sections.filter((part) => !previous.includes(part));
 
-  asteroid.crack(leaf);
-  if (asteroid.sections.length !== count) throw Error('minimum');
-  const [children] = asteroid.detach(leaf);
+    if (leaves.length !== 2) throw Error('leaves');
+    const leaf = leaves[0];
 
-  if (!children.length || asteroid.sections.includes(leaf)) throw Error('detach');
-  Object.assign(asteroid, { x: playerShip.x, y: playerShip.y });
-  const beam = traceBeam(playerShip, lamp, [asteroid]);
+    leaf.health = leaf.maxHealth = 79;
+    leaf.health /= 2;
+    const count = asteroid.sections.length;
 
-  if (beam.outlines.length !== asteroid.sections.length ||
-    beam.outlines.some((outline) => !outline.edges)) throw Error('light');
-  const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
+    asteroid.crack(leaf);
+    if (asteroid.sections.length !== count) throw Error('minimum');
+    const [children] = asteroid.detach(leaf);
 
-  splitShip.segments[1].health = 0;
-  const fragments = splitShip.fracture([]);
+    if (!children.length || asteroid.sections.includes(leaf)) throw Error('detach');
+    Object.assign(asteroid, { x: playerShip.x, y: playerShip.y });
+    const beam = traceBeam(playerShip, lamp, [asteroid]);
 
-  if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
-    !splitShip.cockpit.hull.health || !splitShip.velocity.length() ||
-    !fragments[0].velocity.length() || fragments[0].position.distance(splitShip.position) < 1 ||
-    Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
-  const fragmentSpin = fragments[0].spin;
+    if (beam.outlines.length !== asteroid.sections.length ||
+      beam.outlines.some((outline) => !outline.edges)) throw Error('light');
+    const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
 
-  fragments[0].update(0.1);
-  if (fragments[0].spin !== fragmentSpin) throw Error('fragment spin');
-  splitShip.spin = 1;
-  splitShip.update(0.1);
-  if (splitShip.spin !== 1) throw Error('ship spin');
-  fragments[0].update(6);
-  if (!fragments[0].dead) throw Error('fragment life');
-  const wreck = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
-  const cargo = new Item({ itemData: diamond });
-  const loose = [];
+    splitShip.segments[1].health = 0;
+    const fragments = splitShip.fracture([]);
 
-  wreck.cargo.push(cargo);
-  wreck.cockpit.hull.health = 0;
-  const wreckage = wreck.fracture(loose);
+    if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
+      !splitShip.cockpit.hull.health || !splitShip.velocity.length() ||
+      !fragments[0].velocity.length() || fragments[0].position.distance(splitShip.position) < 1 ||
+      Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
+    const fragmentSpin = fragments[0].spin;
 
-  if (!wreck.dead || loose[0] !== cargo || cargo.dx !== wreck.dx) throw Error('wreck');
-  if (wreckage.length !== 7 || wreckage.some((part) => part.dead || part.velocity.length() < 29)) {
-    throw Error('wreck drift');
-  }
-  return {
-    children: children.length,
-    firstHealth,
-    fragments: fragments.length,
-    sections: asteroid.sections.length,
+    fragments[0].update(0.1);
+    if (fragments[0].spin !== fragmentSpin) throw Error('fragment spin');
+    splitShip.spin = 1;
+    splitShip.update(0.1);
+    if (splitShip.spin !== 1) throw Error('ship spin');
+    fragments[0].update(11);
+    if (!fragments[0].dead) throw Error('fragment life');
+    const wreck = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
+    const cargo = new Item({ itemData: diamond });
+    const loose = [];
+
+    wreck.cargo.push(cargo);
+    wreck.cockpit.hull.health = 0;
+    const wreckage = wreck.fracture(loose);
+
+    if (!wreck.dead || loose[0] !== cargo || cargo.velocity.x !== wreck.velocity.x) {
+      throw Error('wreck');
+    }
+
+    if (wreckage.length !== 7 || wreckage.some((part) => part.dead || part.velocity.length() < 29)) {
+      throw Error('wreck drift');
+    }
+
+    return {
+      children: children.length,
+      firstHealth,
+      fragments: fragments.length,
+      sections: asteroid.sections.length,
+    };
   };
-};
+}
 
 // One of everything, in a row below the ship to fly into and scoop up. These
 // will come out of mined asteroids rather than being placed
@@ -307,11 +316,14 @@ const physics = (dt) => {
     object.position.distance(playerShip.position) < game.width);
   const step = dt / 4;
 
-  if (!(benchmark && benchmark.has('noMovement'))) bodies.forEach((body) => {
-    body.rotation += (body.spin || 0) * dt;
-    move(body, dt);
-    localMovement(body, movers, dt);
-  });
+  if (!(benchmark && benchmark.has('noMovement'))) {
+    bodies.forEach((body) => {
+      body.rotation += (body.spin || 0) * dt;
+      move(body, dt);
+      localMovement(body, movers, dt);
+    });
+  }
+
   const world = [
     ...nearby.flatMap((asteroid) => asteroid.hitboxes()),
     ...items,
@@ -324,10 +336,12 @@ const physics = (dt) => {
       move(playerShip, step);
       localMovement(playerShip, movers, step);
     }
+
     const hitboxes = playerShip.hitboxes();
 
     collide([...world, ...hitboxes], hitboxes);
   }
+
   collide(world);
 };
 
@@ -375,6 +389,7 @@ GameLoop({
     for (let zIndex = -3; zIndex < 4; zIndex++) {
       if (zIndex === -2) {
         scenery.forEach((object) => object.render());
+
         // Buried cargo shows only through the asteroid slice the floodlight is
         // crossing, as if the lamp lets a pilot peer inside it
         if (lights && lamp.anim > 0.5) {
@@ -394,10 +409,13 @@ GameLoop({
 
           game.ctx.restore();
         }
+
         items.forEach((item) => item.render());
       }
-      crafts.forEach((craft) => craft.render(scenery, zIndex));
+
+      crafts.forEach((craft) => renderCraft(craft, scenery, zIndex));
     }
+
     // Sparks off the horn sit over the asteroids and ships they come off
     renderSparks(game);
     // Light rather than paint, so it goes over everything it lights up
@@ -468,6 +486,7 @@ GameLoop({
       ...items, ...crafts.flatMap((craft) => craft.segments)]
       .forEach((target) => grind(target, dt, scenery, items));
     crafts.push(...crafts.flatMap((craft) => craft.fracture(items)));
+
     for (let i = crafts.length; i-- > 1;) {
       if (crafts[i].dead) crafts.splice(i, 1);
     }

@@ -1,32 +1,17 @@
 import { Vector, movePoint, rotatePoint } from 'kontra';
+import { active, healthOf, relightCraft } from './craft-render';
 import { cockpit, scoopOpen } from './modules';
-import {
-  drawBeam,
-  drawGlow,
-  drawHalo,
-  lightAngle,
-  lights,
-  litFill,
-  shadingStep,
-  shapeOf,
-  tint,
-} from './lighting';
-import { drawSpectrum, litPath, traceBeam } from './prism';
-import { linesPath, shapePath } from './drawing';
 import { Sprite } from './sprite';
-import { colors } from './colors';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
+import { shapeOf } from './lighting';
+import { shapePath } from './drawing';
 
-const hullBounciness = 0.1;
-const lineWidth = 3;
-const instantRate = 99;
-const thrustScale = 220;
-const speedScale = 85;
-const steeringEase = 0.5;
-const glowStrength = 0.15;
-
-const active = (health) => !(health < 1);
+const hullBounciness = 0.1; // Default restitution when a segment supplies none.
+const instantRate = 99; // Near-instant animation rate for modules without a duration.
+const thrustScale = 220; // Converts thrust per unit mass into acceleration.
+const speedScale = 85; // Converts thrust per unit drag into maximum speed.
+const steeringEase = 0.5; // Forward thrust retained by a nozzle eased during a turn.
 const approach = (value, target, step) => (
   value + Math.max(-step, Math.min(step, target - value))
 );
@@ -55,9 +40,6 @@ const bounceOf = (segment) => {
 
   return value ?? hullBounciness;
 };
-
-const healthOf = (segment) =>
-  segment.mount?.health ?? segment.mount?.hull.health ?? segment.health;
 
 const makeSegment = (craft, craftModule = {}, part, mount) => {
   const { glow, points } = part;
@@ -94,9 +76,11 @@ export const damage = (segment, amount) => {
 
   if (target.health) target.health -= amount;
   segment.mounts?.forEach((mount) => {
-    if (mount.health) mount.health -= segment.health < 1 ?
-      mount.health :
-      mount.module.disablePhysics && amount;
+    if (mount.health) {
+      mount.health -= segment.health < 1 ?
+        mount.health :
+        mount.module.disablePhysics && amount;
+    }
   });
 };
 
@@ -106,20 +90,13 @@ export class Craft extends Sprite.class {
 
     const data = props.craftData;
 
-    this.cargo = [];
-    this.cargoSpace = data.cargoSpace;
-    this.drag = data.drag;
-    this.forward = 0;
-    this.hullGradient = data.hullGradient;
-    this.localMovementRadius = data.localMovementRadius;
-    this.mass = data.mass;
-    this.name = data.name;
-    this.price = data.price;
-    this.spin = 0;
-    this.turn = data.turn || 0;
-    this.turnRate = data.turnRate;
-    this.zIndex = data.zIndex;
-    this.mounts = [];
+    Object.assign(this, data, {
+      cargo: [],
+      forward: 0,
+      mounts: [],
+      spin: 0,
+      turn: data.turn || 0,
+    });
     this.segments = data.hullSegments.map((hull) => {
       const segment = makeSegment(this, hull, hull);
 
@@ -133,7 +110,7 @@ export class Craft extends Sprite.class {
     this.radius = Math.max(...data.hullSegments
       .flatMap(({ points }) => points.map((point) => Vector(...point).length())));
 
-    if (this.hullGradient) this.relight();
+    if (this.hullGradient) relightCraft(this);
   }
 
   get accel() {
@@ -283,11 +260,14 @@ export class Craft extends Sprite.class {
       this.velocity.set(this.velocity.add(Vector(away).normalize().scale(30)));
       this.spin += Math.random() - 0.5;
     }
+
     this.segments = this.segments.filter((segment) =>
       kept.includes(segment) || kept.includes(segment.mount?.hull));
     this.mounts = this.mounts.filter(({ hull }) => kept.includes(hull));
-    if (kept.length) outerEdges(kept.map(({ points }) => points));
-    else {
+
+    if (kept.length) {
+      outerEdges(kept.map(({ points }) => points));
+    } else {
       const cockpit = rotatePoint(this.cockpit, this.rotation);
       const position = this.position.add(cockpit);
 
@@ -299,6 +279,7 @@ export class Craft extends Sprite.class {
       items.push(...this.cargo);
       this.dead = true;
     }
+
     return fragments;
   }
 
@@ -333,102 +314,12 @@ export class Craft extends Sprite.class {
         this.thrust * dt || (!this.cockpit && Math.abs(targetSpin - this.spin)));
       this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
     }
+
     this.segments.forEach((segment) => {
       const level = active(healthOf(segment)) ? segment.active : 0;
 
       segment.anim = approach(segment.anim, level, segment.rate * dt);
       segment.update?.(segment, dt);
     });
-  }
-
-  relight() {
-    const light = lightAngle - this.rotation;
-
-    this.litAt = this.rotation;
-    this.segments.forEach((segment) => {
-      if (segment.hull && segment.middle) {
-        segment.lit = litFill(this.ctx, segment, light, (along) => tint(this.shades, 2, along));
-      }
-    });
-  }
-
-  render(scenery, zIndex) {
-    const { ctx } = this;
-
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.rotation);
-    ctx.lineJoin = 'bevel';
-    ctx.lineWidth = lineWidth;
-
-    if (zIndex === -3 && this.localMovementRadius) {
-      ctx.strokeStyle = `${colors.cyan[2]}4`;
-      ctx.setLineDash([12, 12]);
-      ctx.beginPath();
-      ctx.arc(0, 0, this.localMovementRadius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    if (lights && this.hullGradient &&
-      Math.abs(this.rotation - this.litAt) >= shadingStep) this.relight();
-
-    const light = lightAngle - this.rotation;
-    this.segments.forEach((segment) => {
-      const health = healthOf(segment);
-
-      if (segment.zIndex !== zIndex || !active(health)) return;
-
-      ctx.save();
-      if (segment.thrust && segment.anim) drawHalo(ctx, segment);
-      ctx.translate(segment.x, segment.y);
-      if (segment.glow && zIndex < 0) {
-        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
-      }
-
-      const worn = health < segment.module.health / 2 ? 0 : 1 + segment.hull;
-      let lit;
-
-      if (segment.middle) {
-        if (!lights) lit = tint(segment.shades, worn, 0.5);
-        else if (this.hullGradient) lit = segment.hull && segment.lit;
-        else lit = litFill(ctx, segment, light, (along) => tint(segment.shades, worn, along));
-      }
-
-      ctx.fillStyle = segment.fillAlpha ?
-        segment.shades[2] + segment.fillAlpha :
-        lit || segment.shades[worn];
-      ctx.strokeStyle = segment.shades[2];
-
-      const path = segment.path?.(segment);
-
-      if (path) {
-        if (segment.module.beam) {
-          if (lights) {
-            const beam = traceBeam(this, segment, scenery || []);
-
-            drawBeam(ctx, path, segment.shades[2], segment.module.reach, segment.anim, litPath(beam));
-            drawSpectrum(ctx, segment, beam);
-          }
-        } else {
-          ctx.fill(path);
-          ctx.stroke(segment.outline ? linesPath(segment.outline) : path);
-        }
-      }
-
-      if (segment.lines) {
-        ctx.save();
-        if (segment.lines.call) ctx.clip(path);
-        ctx.stroke(linesPath(segment.lines.call ? segment.lines(segment) : segment.lines));
-        ctx.restore();
-      }
-      if (segment.glow && zIndex >= 0) {
-        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
-      }
-
-      ctx.restore();
-    });
-
-    ctx.restore();
   }
 }

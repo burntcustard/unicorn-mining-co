@@ -34,6 +34,7 @@ const stop = (child) => new Promise((resolve) => {
   child.once('exit', resolve);
   child.kill('SIGTERM');
 });
+
 const waitFor = async (url, attempts = 50) => {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -43,8 +44,10 @@ const waitFor = async (url, attempts = 50) => {
     } catch {
       // The server or debugging endpoint is still starting.
     }
+
     await pause(100);
   }
+
   throw new Error(`Timed out waiting for ${url}`);
 };
 
@@ -121,8 +124,12 @@ try {
 
     if (!request) return;
     pending.delete(message.id);
-    if (message.error) request.reject(new Error(JSON.stringify(message.error)));
-    else request.resolve(message.result);
+
+    if (message.error) {
+      request.reject(new Error(JSON.stringify(message.error)));
+    } else {
+      request.resolve(message.result);
+    }
   });
   await send('Page.enable');
   await send('Runtime.enable');
@@ -143,9 +150,13 @@ try {
     for (let cycle = 0; cycle < (test.sky || 0); cycle++) await press('6', 'Digit6');
     if (test.lamp) await press('l', 'KeyL');
     if (test.key) await press(test.key, test.code);
-    if (test.hold) await send('Input.dispatchKeyEvent', {
-      type: 'keyDown', key: test.hold, code: test.hold,
-    });
+
+    if (test.hold) {
+      await send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: test.hold, code: test.hold,
+      });
+    }
+
     if (test.sections) {
       const checked = await send('Runtime.evaluate', {
         returnByValue: true,
@@ -155,6 +166,7 @@ try {
       if (checked.exceptionDetails) throw Error(checked.exceptionDetails.exception.description);
       console.table([checked.result.value]);
     }
+
     if (test.sky || test.lamp || test.key) await pause(1000);
 
     const evaluated = await send('Runtime.evaluate', {
@@ -182,9 +194,13 @@ try {
         requestAnimationFrame(frame);
       })`,
     });
-    if (test.hold) await send('Input.dispatchKeyEvent', {
-      type: 'keyUp', key: test.hold, code: test.hold,
-    });
+
+    if (test.hold) {
+      await send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: test.hold, code: test.hold,
+      });
+    }
+
     const measured = evaluated.result.value;
 
     results.push({

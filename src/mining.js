@@ -92,7 +92,7 @@ const breakAsteroid = (target, scenery, items) => {
 
   // Let go at the asteroid's speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
-  if (target.grinder) Object.assign(target.grinder, { dx: asteroid.dx, dy: asteroid.dy });
+  if (target.grinder) target.grinder.velocity.set(asteroid.velocity);
 
   const [children, loose] = target.asteroid ? asteroid.detach(target) : asteroid.split();
 
@@ -101,8 +101,7 @@ const breakAsteroid = (target, scenery, items) => {
 
   // An empty asteroid just breaks apart; one with cargo lets it loose
   loose.forEach((item) => {
-    item.dx = asteroid.dx;
-    item.dy = asteroid.dy;
+    item.velocity.set(asteroid.velocity);
     item.arm();
 
     items.push(item);
@@ -138,8 +137,11 @@ export const grind = (target, dt, scenery, items) => {
   const asteroid = target.asteroid || target;
 
   if (health < 1) {
-    if (target.asteroid || scenery.includes(target)) breakAsteroid(target, scenery, items);
-    else if (items.includes(target)) remove(target, items);
+    if (target.asteroid || scenery.includes(target)) {
+      breakAsteroid(target, scenery, items);
+    } else if (items.includes(target)) {
+      remove(target, items);
+    }
   } else if (asteroid.crack && health <= target.maxHealth / 2) {
     asteroid.crack(target, target.grindX, target.grindY);
   }

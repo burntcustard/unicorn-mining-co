@@ -18,8 +18,26 @@ export default defineConfig([
       '@stylistic/key-spacing': ['error', { mode: 'minimum' }],
       '@stylistic/no-multi-spaces': ['error', { ignoreEOLComments: true }],
       '@stylistic/operator-linebreak': ['error', 'after'],
+      '@stylistic/padding-line-between-statements': [
+        'error',
+        { blankLine: 'always', prev: '*', next: 'block-like' },
+        { blankLine: 'always', prev: 'block-like', next: '*' },
+      ],
       '@stylistic/semi': ['error', 'always'],
+      'curly': ['error', 'multi-line', 'consistent'],
       'no-duplicate-imports': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'IfStatement[alternate][consequent.type!="BlockStatement"]',
+          message: 'Use braces around if/else branches.',
+        },
+        {
+          selector: 'IfStatement[alternate][consequent.type="BlockStatement"]' +
+            '[alternate.type!="BlockStatement"][alternate.type!="IfStatement"]',
+          message: 'Use braces around if/else branches.',
+        },
+      ],
       'sort-imports': 'error',
     },
   },

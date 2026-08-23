@@ -294,8 +294,11 @@ const runsOf = ({ faces, leaves }, inside) => {
     const same = alike(face, faces[i - 1]) &&
       (inside || alike(leaves[i], leaves[i - 1]));
 
-    if (last && last.to === i - 1 && same) last.to = i;
-    else runs.push({ from: i, to: i });
+    if (last && last.to === i - 1 && same) {
+      last.to = i;
+    } else {
+      runs.push({ from: i, to: i });
+    }
   });
 
   return runs;
@@ -307,8 +310,11 @@ const between = (near, far) => {
   const path = new Path2D();
 
   near.forEach(([x, y], i) => {
-    if (i) path.lineTo(x, y);
-    else path.moveTo(x, y);
+    if (i) {
+      path.lineTo(x, y);
+    } else {
+      path.moveTo(x, y);
+    }
   });
 
   for (let i = far.length; i--;) {
@@ -441,8 +447,11 @@ export const drawSpectrum = (ctx, lamp, beam) => {
 
     // Kept against the faces as they are now, so that a slowly turning asteroid
     // carries its answer along with it rather than losing it and starting again
-    if (held) [held[0], held[1], held[2]] = [faces[middle], leaves[middle], way];
-    else ways.unshift([faces[middle], leaves[middle], way]);
+    if (held) {
+      [held[0], held[1], held[2]] = [faces[middle], leaves[middle], way];
+    } else {
+      ways.unshift([faces[middle], leaves[middle], way]);
+    }
 
     ways.length = Math.min(ways.length, recalls);
 

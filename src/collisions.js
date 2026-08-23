@@ -50,6 +50,7 @@ export const outerEdges = (outlines) => {
   const groups = [];
 
   outlines.forEach((points, i) => points.edges = backs[i].map((back) => !edges.includes(back)));
+
   while (left.length) {
     const group = [left.pop()];
 
@@ -60,14 +61,17 @@ export const outerEdges = (outlines) => {
         }
       }
     }
+
     groups.push(group);
   }
+
   return groups;
 };
 
 // An outline where the thing wearing it actually is, rather than around zero
 const placePoints = ({ rotation, x, y }, outline) => Object.assign(
   rotatePoints(outline, rotation, x, y), { edges: outline.edges });
+
 const shapesOf = (object) => {
   if (!object.outline) return [undefined];
 
@@ -75,6 +79,7 @@ const shapesOf = (object) => {
     object.shapePass = pass;
     object.shapes = [placePoints(object, object.outline)];
   }
+
   return object.shapes;
 };
 
@@ -107,6 +112,7 @@ const cornerAxis = (points, x, y) => {
 
   return axis;
 };
+
 // How far along an axis a shape reaches, as a near and a far mark
 const spanOf = (object, points, axis) => {
   const middle = Vector(object).dot(axis);
@@ -214,8 +220,11 @@ export const contacts = (objects, targets = objects) => {
     const cell = cellKey(object.x, object.y);
     const sharing = cells.get(cell);
 
-    if (sharing) sharing.add(object);
-    else cells.set(cell, new Set([object]));
+    if (sharing) {
+      sharing.add(object);
+    } else {
+      cells.set(cell, new Set([object]));
+    }
   });
 
   targets.forEach((object) => {
