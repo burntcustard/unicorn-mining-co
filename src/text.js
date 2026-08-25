@@ -7,6 +7,11 @@
  *
  * Empty characters (',') are used to make the output array indexes match up
  * with the UTF-16 code units that String.prototype.charCodeAt() returns.
+ *
+ * Note that build:fast and build:slow show a size increase for using a long
+ * string and .split()/.map() rather than defining the array directly, however
+ * build:full and build:full-random show a size decrease. So a string it is.
+ *
  * @type {Array}
  */
 const glyphs = ('' +

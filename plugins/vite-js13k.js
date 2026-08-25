@@ -118,7 +118,7 @@ export async function replaceScript(
       type: 'js',
     }], {
       allowFreeVars: true,
-      maxMemoryMB: 150,
+      maxMemoryMB: 200, // We hit the 150 MB default so 200 MB helps
       sparseSelectors: defaultSparseSelectors(numberOfContexts),
     });
 
