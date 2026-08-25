@@ -142,16 +142,55 @@ export const hit = (a, b) => {
   if (between > a.radius + b.radius) return;
 
   let deepest;
+  const aOutlines = [...(a.parents || []), a.outline];
+  const bOutlines = [...(b.parents || []), b.outline];
+  const levels = Math.max(aOutlines.length, bOutlines.length);
 
-  shapesOf(a).forEach((aPoints) => {
-    shapesOf(b).forEach((bPoints) => {
-      const overlap = overlapOf(a, b, between, gapX, gapY, aPoints, bPoints);
+  for (let level = 0; level < levels; level++) {
+    let levelDeepest;
+    const aOutline = aOutlines[Math.min(level, aOutlines.length - 1)];
+    const bOutline = bOutlines[Math.min(level, bOutlines.length - 1)];
+    const aShapes = aOutline === a.outline ? shapesOf(a) : [placePoints(a, aOutline)];
+    const bShapes = bOutline === b.outline ? shapesOf(b) : [placePoints(b, bOutline)];
 
-      if (overlap && (!deepest || overlap.depth > deepest.depth)) deepest = overlap;
+    aShapes.forEach((aPoints) => {
+      bShapes.forEach((bPoints) => {
+        const overlap = overlapOf(a, b, between, gapX, gapY, aPoints, bPoints);
+
+        if (overlap && (!levelDeepest || overlap.depth > levelDeepest.depth)) levelDeepest = overlap;
+      });
+    });
+    // Every narrower shape lies inside the one before it, so daylight at any
+    // stage rules the pair out without paying for its smaller triangles.
+    if (!levelDeepest) return;
+    deepest = levelDeepest;
+  }
+
+  if (!a.parts && !b.parts) return deepest;
+
+  let narrowest;
+  const aParts = a.parts || [a];
+  const bParts = b.parts || [b];
+
+  aParts.forEach((aPart) => {
+    bParts.forEach((bPart) => {
+      const aParent = aPart.triangle || aPart.outline;
+      const bParent = bPart.triangle || bPart.outline;
+      const parent = overlapOf(a, b, between, gapX, gapY,
+        aParent && placePoints(a, aParent), bParent && placePoints(b, bParent));
+
+      if (!parent) return;
+      const overlap = overlapOf(a, b, between, gapX, gapY,
+        aPart.outline && placePoints(a, aPart.outline), bPart.outline && placePoints(b, bPart.outline));
+
+      if (overlap && (!narrowest || overlap.depth > narrowest.depth)) {
+        Object.assign(overlap, { aPart: a.parts && aPart, bPart: b.parts && bPart });
+        narrowest = overlap;
+      }
     });
   });
 
-  return deepest;
+  return narrowest;
 };
 
 const overlapOf = (a, b, between, gapX, gapY, aPoints, bPoints) => {
@@ -219,11 +258,7 @@ export const contacts = (objects, targets = objects) => {
     const cell = cellKey(object.x, object.y);
     const sharing = cells.get(cell);
 
-    if (sharing) {
-      sharing.add(object);
-    } else {
-      cells.set(cell, new Set([object]));
-    }
+    (sharing || cells.set(cell, []).get(cell)).push(object);
   });
 
   targets.forEach((object) => {
@@ -240,7 +275,14 @@ export const contacts = (objects, targets = objects) => {
           const overlap = hit(object, other);
 
           if (overlap) {
-            overlap.collider = object;
+            const partOf = (body, part) => part && Object.assign(Object.create(body), {
+              outline: part.outline,
+              parents: [body.outline, part.triangle],
+              segment: part,
+            });
+
+            overlap.collider = partOf(object, overlap.aPart) || object;
+            overlap.other = partOf(other, overlap.bPart) || other;
             found.push(overlap);
           }
         });

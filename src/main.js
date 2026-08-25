@@ -162,64 +162,37 @@ if (benchmark) {
   window['testSections'] = () => {
     const five = scenery.find((asteroid) =>
       asteroid.outline.length === 5 && asteroid.health < 240);
-    const fiveHealth = five.health;
+    const triangle = new Asteroid({ points: 3, radius: 90 });
 
-    five.health /= 2;
-    five.crack(five, five.x, five.y);
-    const fiveTotal = five.sections.reduce((sum, section) => sum + section.health, 0);
-
-    if (five.sections.length !== 3 || Math.abs(fiveTotal - fiveHealth * 5 / 3) > 1e-9 ||
-      five.sections.map((section) => section.triangles.length).sort() + '' !== '1,2,2') {
+    if (triangle.triangles.length !== 1 || triangle.sections.length !== 4 ||
+      five.sections.length !== five.outline.length * 4 ||
+      five.hitboxes().length !== 1 ||
+      five.sections.some((section) => section.triangles.length !== 1)) {
       throw Error('five');
     }
 
-    const small = five.sections.find((section) => section.triangles.length === 1);
-
-    if (small.maxHealth >= 80) throw Error('small size');
-    small.health /= 2;
-    small.asteroid.crack(small);
-    if (five.sections.length !== 3 || five.detach(small)[0].length !== 1) throw Error('small');
     const asteroid = scenery.find((object) => object.outline.length === 7);
-    const originalHealth = asteroid.health;
-
-    asteroid.health /= 2;
-    asteroid.crack(asteroid, asteroid.x, asteroid.y);
-    if (asteroid.sections.length !== 3 || asteroid.hitboxes().length !== 3) throw Error('root');
-    const firstHealth = asteroid.sections.reduce((sum, section) => sum + section.health, 0);
-
-    if (Math.abs(firstHealth - originalHealth * 7 / 3) > 1e-9) throw Error('health');
-    const section = asteroid.sections.find((part) => part.triangles.length > 1);
-    const sectionHealth = section.maxHealth;
-    const otherHealth = firstHealth - sectionHealth;
-    const before = asteroid.sections.length;
-
-    section.health /= 2;
-    asteroid.crack(section, asteroid.x, asteroid.y);
-    if (asteroid.sections.length !== before - 1 + section.triangles.length) throw Error('section');
-    const sectionTotal = asteroid.sections.reduce((sum, part) => sum + part.health, 0) - otherHealth;
-
-    if (Math.abs(sectionTotal - sectionHealth * section.triangles.length / 2) > 1e-9) {
-      throw Error('section health');
-    }
-
-    const leaf = asteroid.sections.find((part) => part.triangles.length === 1);
+    const leaf = asteroid.sections[0];
     const count = asteroid.sections.length;
 
     leaf.health /= 2;
-    asteroid.crack(leaf, asteroid.x, asteroid.y);
-    if (asteroid.sections.length !== count) throw Error('triangle attach');
+    if (asteroid.crack(leaf) !== leaf) throw Error('threshold');
     const [children] = asteroid.detach(leaf);
+    const [piece, remainder] = children;
 
-    if (!children.length || asteroid.sections.includes(leaf)) throw Error('detach');
-    const triangle = children[0];
+    if (children.length !== 2 || asteroid.sections.length || remainder.sections.includes(leaf)) {
+      throw Error('detach');
+    }
 
-    triangle.health /= 2;
-    triangle.crack(triangle, triangle.x, triangle.y);
-    if (triangle.sections?.length !== 6) throw Error('triangle split');
-    Object.assign(asteroid, { x: playerShip.x, y: playerShip.y });
-    const beam = traceBeam(playerShip, lamp, [asteroid]);
+    if (remainder.sections.length !== count - 1 ||
+      (!piece.sections && !piece.life) || piece.triangles.length !== 1) {
+      throw Error('leaf');
+    }
 
-    if (beam.outlines.length !== asteroid.sections.length ||
+    Object.assign(remainder, { x: playerShip.x, y: playerShip.y });
+    const beam = traceBeam(playerShip, lamp, [remainder]);
+
+    if (beam.outlines.length !== remainder.sections.length ||
       beam.outlines.some((outline) => !outline.edges)) throw Error('light');
     const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
 
@@ -257,7 +230,7 @@ if (benchmark) {
 
     return {
       children: children.length,
-      firstHealth,
+      leafHealth: leaf.maxHealth,
       fragments: fragments.length,
       sections: asteroid.sections.length,
     };
@@ -276,6 +249,9 @@ const items = itemTypes.map((itemData, i) => new Item({
 // Everything that can catch hold of a ship and carry it along
 const movers = [...crafts];
 let physicsOn = 1;
+let showMass = false;
+
+bindKeys(['5'], () => showMass = !showMass);
 
 const collide = (objects, targets) => {
   const found = benchmark && benchmark.has('noCollisions') ?
@@ -404,15 +380,28 @@ GameLoop({
     // Light rather than paint, so it goes over everything it lights up
     if (lights) renderBlasts(game);
 
+    if (showMass) {
+      game.ctx.save();
+      game.ctx.fillStyle = colors.white[2];
+      game.ctx.font = '12px monospace';
+      game.ctx.textAlign = 'center';
+      game.ctx.textBaseline = 'middle';
+      [...scenery, ...crafts].forEach(({ mass, x, y }) => {
+        if (mass) game.ctx.fillText(Math.round(mass), x, y);
+      });
+      game.ctx.restore();
+    }
+
     game.ctx.restore();
 
     renderDeadzone(game);
     renderFps(game);
     renderText({ ctx: game.ctx, scale: game.uiScale, text: `$${player.credits}`, x: 10, y: 30 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `6 ${sky.label}`, x: 10, y: 50 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `7 LIGHTING: ${lights ? 'ON' : 'OFF'}`, x: 10, y: 70 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `8 GLOWS: ${glows ? 'ON' : 'OFF'}`, x: 10, y: 90 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `9 PHYSICS: ${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 110 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `5 MASS: ${showMass ? 'ON' : 'OFF'}`, x: 10, y: 50 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `6 ${sky.label}`, x: 10, y: 70 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `7 LIGHTING: ${lights ? 'ON' : 'OFF'}`, x: 10, y: 90 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `8 GLOWS: ${glows ? 'ON' : 'OFF'}`, x: 10, y: 110 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `9 PHYSICS: ${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 130 });
     renderControls(game, playerShip);
 
     if (player.noteFor) {
@@ -462,7 +451,7 @@ GameLoop({
 
     crafts.forEach((craft) => craft.update(dt));
     physics(dt);
-    scenery.forEach((object) => object.update(dt));
+    scenery.forEach((object, i) => (object.update(dt), object.dead && scenery.splice(i, 1)));
 
     // Apply horn damage once per update, however many physics substeps found it
     [...scenery.flatMap((asteroid) => asteroid.sections || asteroid),

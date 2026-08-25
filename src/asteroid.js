@@ -19,10 +19,13 @@ const asteroidVariance = 0.3;
 // Next to no drag of its own, so an asteroid coasts where a ship soon slows
 const asteroidDrag = 1;
 
+// Used to shrink down mass to align with small numbers for the rest of the game
+const massMultiplier = 0.2;
+
 // Fastest an asteroid settles back to on nothing but its starting speed
 const asteroidMaxSpeed = 70;
-// Very small triangle shards are already post-split and should not split again
-const minTriangleSplitMass = 2000;
+// Below this, a detached triangle is debris rather than another mineable rock
+const minTriangleMass = 100;
 // Bigger asteroids need more points to be lumpy with
 const pointsFor = (radius) => Math.round(Math.sqrt(radius) / 3) * 2 - 1;
 
@@ -49,11 +52,47 @@ const inside = ([x, y], triangle) => triangle.every(([fromX, fromY], i) => {
 
   return (toX - fromX) * (y - fromY) - (toY - fromY) * (x - fromX) >= 0;
 });
-const outlineOf = (triangles) => [
-  triangles[0][0],
-  triangles[0][1],
-  ...triangles.map((triangle) => triangle[2]),
-];
+// Follow the exposed edges instead of assuming the triangles are still a fan.
+
+const outlineOf = (triangles) => {
+  outerEdges(triangles);
+  const edges = triangles.flatMap((triangle) => triangle.flatMap((from, i) =>
+    triangle.edges[i] ? [[from, triangle[(i + 1) % triangle.length]]] : []));
+  const outlines = [];
+
+  while (edges.length) {
+    const [start, next] = edges.shift();
+    const outline = [start];
+    let to = next;
+
+    while (to + '' !== start + '') {
+      outline.push(to);
+      const at = edges.findIndex(([from]) => from + '' === to + '');
+
+      if (at < 0) break;
+      [, to] = edges.splice(at, 1)[0];
+    }
+
+    outlines.push(outline);
+  }
+
+  return outlines.sort((a, b) => b.length - a.length)[0];
+};
+
+// Sections sharing an edge, regrouped as sections rather than bare outlines
+const groupsOf = (sections) => outerEdges(sections.map(({ outline }) => outline))
+  .map((indexes) => indexes.map((i) => sections[i]));
+
+// Midpoints quarter each face, leaving four equal triangles per side.
+const splitTriangle = (triangle) => {
+  const middle = (from, to) => from.map((value, axis) => (value + to[axis]) / 2);
+  const [center, from, to] = triangle;
+  const left = middle(center, from);
+  const outer = middle(from, to);
+  const right = middle(to, center);
+
+  return [[center, left, right], [left, from, outer], [left, outer, right], [outer, to, right]];
+};
 
 export class Asteroid extends Sprite.class {
   constructor(props) {
@@ -75,103 +114,71 @@ export class Asteroid extends Sprite.class {
     });
     // Points that wandered outwards reach further than the radius they were
     // cut from, and a collision check has to know about all of them
-    this.triangles = props.triangles || this.outline.map((point, i) => [
-      [0, 0],
-      point,
-      this.outline[(i + 1) % this.outline.length],
-    ]);
+    this.triangles = props.triangles ||
+      (this.outline[3] ?
+          this.outline.map((point, i) => [
+            [0, 0],
+            point,
+            this.outline[(i + 1) % this.outline.length],
+          ]) :
+          [this.outline]);
     this.radius = Math.max(...this.outline.map(([x, y]) => Math.hypot(x, y)));
     // Heft grows with size, so a big asteroid shrugs off what shoves a pebble and
     // holds its drift far longer
-    this.mass = this.radius ** 2;
+    this.mass = props.mass || massMultiplier * this.radius ** 2;
     this.health = this.radius * 2;
     this.maxHealth = this.health;
     this.path = shapePath(this.outline);
-  }
 
-  divide(target, pieces) {
-    const divisor = target === this ? pieces.length : 2;
-    const sections = pieces.map((triangles) => {
-      const health = target.maxHealth * triangles.length / divisor;
-      const outline = outlineOf(triangles);
+    // A hitbox still starts with the complete outline, then its parent face,
+    // before it reaches one of these four-way cuts.  The leaves are what carry
+    // health, so one can be detached without opening a crack through the rest.
+    if ((!props.triangles || !this.triangles[1]) && this.mass >= minTriangleMass) {
+      const health = this.maxHealth / this.triangles.length / 4;
 
-      return {
+      this.sections = this.triangles.flatMap((triangle) => splitTriangle(triangle).map((outline) => ({
         health,
         maxHealth: health,
+        mass: this.mass / this.triangles.length / 4,
         outline,
         path: shapePath(outline),
-        radius: Math.max(...outline.map(([x, y]) => Math.hypot(x, y))),
         asteroid: this,
-        triangles,
-      };
-    });
-
-    if (target === this) {
-      this.sections = sections;
-    } else {
-      this.sections.splice(this.sections.indexOf(target), 1, ...sections);
+        triangle,
+        triangles: [outline],
+      })));
+      groupsOf(this.sections);
+    } else if (props.triangles && !this.triangles[1]) {
+      this.life = 3 + Math.random();
     }
-
-    outerEdges(this.sections.map(({ outline }) => outline));
-    return sections;
   }
 
-  crack(target, x, y) {
+  crack(target) {
     if (target !== this) {
-      if (target.triangles[1]) {
-        this.divide(target, target.triangles.map((triangle) => [triangle]));
-      }
-
-      return;
+      // The caller removes this leaf from the world immediately.  `crack`
+      // remains the threshold hook used by mining, but no longer changes the
+      // mesh: it was all cut when the asteroid was made.
+      return target;
     }
-
-    const sides = this.outline.length;
-
-    if (this.sections || sides < 3) return;
-
-    if (sides === 3) {
-      if (this.mass < minTriangleSplitMass) return;
-
-      const center = measure(this.outline);
-      const pieces = this.outline.flatMap((point, i) => {
-        const next = this.outline[(i + 1) % 3];
-        const middle = point.map((value, axis) => (value + next[axis]) / 2);
-
-        return [[[center, point, middle]], [[center, middle, next]]];
-      });
-
-      this.divide(this, pieces);
-      return;
-    }
-
-    const point = rotatePoint({ x: x - this.x, y: y - this.y }, -this.rotation);
-    let start = 0;
-    let nearest = Infinity;
-
-    this.triangles.forEach((triangle, i) => {
-      const distance = Math.hypot(point.x - triangle[1][0], point.y - triangle[1][1]);
-
-      if (distance < nearest) [nearest, start] = [distance, i];
-    });
-
-    // Start at the mined corner and spread the centre-fan triangles evenly
-    // across three sections
-    const triangles = [...this.triangles.slice(start), ...this.triangles.slice(0, start)];
-    const sizes = Array(3).fill(1);
-
-    for (let i = 3; i < triangles.length; i++) sizes[i % 3]++;
-
-    let at = 0;
-    const pieces = sizes.map((size) => triangles.slice(at, at += size));
-
-    this.divide(this, pieces);
   }
 
   split(groups) {
     if (!groups) return [[], this.contents || []];
 
-    const children = groups.map((sections) => {
+    // A group can still be more than one island touching only at a point;
+    // outlineOf assumes a single loop, so nothing reaches it still joined
+    // by nothing but a shared corner
+    const clusters = groups.flatMap(groupsOf);
+
+    const masses = clusters.map((sections) =>
+      sections.reduce((sum, section) => sum + section.mass, 0));
+    // Momentum stays roughly where it was: a crumb coming off a mountain
+    // takes almost all of the kick, and the mountain barely feels it
+    const totalMass = masses.reduce((sum, mass) => sum + mass, 0) || 1;
+
+    const children = clusters.map((sections, i) => {
       const triangles = sections.flatMap(({ triangles }) => triangles);
+      const mass = masses[i];
+      const kickRatio = 1 - mass / totalMass;
 
       const outline = outlineOf(triangles);
       const [centerX, centerY] = measure(outline);
@@ -183,6 +190,7 @@ export class Asteroid extends Sprite.class {
         // rotated, so neither position nor motion jumps at the split
         dx: this.velocity.x - offset.y * this.spin,
         dy: this.velocity.y + offset.x * this.spin,
+        mass,
         outline: outline.map(local),
         rotation: this.rotation,
         spin: this.spin,
@@ -190,9 +198,12 @@ export class Asteroid extends Sprite.class {
         x: this.x + offset.x,
         y: this.y + offset.y,
       });
-      child.velocity.set(child.velocity.add(Vector(offset).normalize().scale(3)));
-      child.spin += Math.random() * 0.5 - 0.25;
+      child.velocity.set(child.velocity.add(Vector(offset).normalize().scale(3 * kickRatio)));
+      child.spin += (Math.random() * 0.5 - 0.25) * kickRatio;
 
+      // Still more than one leaf makes this a rock to keep mining regardless
+      // of what its remaining mass adds up to; only a lone leaf is judged
+      // against minTriangleMass, since that is what "detached" ever meant
       if (sections.length > 1) {
         child.sections = sections.map((section) => {
           const outline = section.outline.map(local);
@@ -202,11 +213,13 @@ export class Asteroid extends Sprite.class {
             hitbox: 0,
             outline,
             path: shapePath(outline),
-            radius: Math.max(...outline.map(([x, y]) => Math.hypot(x, y))),
+            triangle: section.triangle.map(local),
             triangles: section.triangles.map((triangle) => triangle.map(local)),
           });
         });
-        outerEdges(child.sections.map(({ outline }) => outline));
+        groupsOf(child.sections);
+      } else if (mass < minTriangleMass) {
+        child.life ||= 3 + Math.random();
       }
 
       child.fromParent = [centerX, centerY];
@@ -238,29 +251,34 @@ export class Asteroid extends Sprite.class {
   }
 
   detach(section) {
-    const sections = this.sections.filter((part) => part !== section);
-    const groups = outerEdges(sections.map(({ outline }) => outline));
+    this.sections.splice(this.sections.indexOf(section), 1);
 
-    this.sections = (groups.shift() || []).map((i) => sections[i]);
-    const detached = [
-      [section],
-      ...groups.map((group) => group.map((i) => sections[i])),
-    ];
+    // What is left is rebuilt fresh through split rather than kept as this
+    // same body: a lighter, lopsided remainder needs its own new centre and
+    // rotation pivot, and a chance to turn to debris once it is light enough.
+    // Grinding away a leaf can also strand the rest across more than one
+    // island, touching each other by nothing but a single point
+    const islands = groupsOf(this.sections);
 
-    return this.split(detached);
+    this.sections = [];
+
+    return this.split([[section], ...islands]);
   }
 
   hitboxes() {
-    return (this.sections || [this]).map((segment) => Object.assign(
-      segment.hitbox ||= { owner: this, segment }, {
-        bounciness: this.bounciness,
-        outline: segment.outline,
-        radius: segment.radius,
-        rotation: this.rotation,
-        stroke: this.stroke,
-        x: this.x,
-        y: this.y,
-      }));
+    // Keep one body in the world grid.  `parts` is only inspected after this
+    // body's radius and complete outline have already overlapped something.
+    return [Object.assign(this.hitbox ||= { owner: this }, {
+      bounciness: this.bounciness,
+      outline: this.outline,
+      parts: this.sections,
+      segment: this.sections ? undefined : this,
+      radius: this.radius,
+      rotation: this.rotation,
+      stroke: this.stroke,
+      x: this.x,
+      y: this.y,
+    })];
   }
 
   /**
@@ -284,7 +302,8 @@ export class Asteroid extends Sprite.class {
   /**
    * @param {Number} dt - Seconds since the last update.
    */
-  update() {
+  update(dt) {
+    if (this.life && (this.life -= dt) <= 0) this.dead = true;
     this.contents?.forEach((item) => {
       const { buried } = item;
 
@@ -303,10 +322,29 @@ export class Asteroid extends Sprite.class {
     ctx.lineWidth = lineWidth;
     ctx.fillStyle = colors.black[2];
     ctx.strokeStyle = this.stroke;
-    (this.sections || [this]).forEach(({ path }) => {
+    const pieces = this.sections || [this];
+
+    pieces.forEach(({ path }) => {
       ctx.fill(path);
-      ctx.stroke(path);
     });
+
+    if (pieces[0].outline.edges) {
+      // Overlapping square caps hide joins between boundary edges, while the
+      // one stroke leaves every internal mesh edge invisible.
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+
+      pieces.forEach(({ outline }) => outline.forEach((from, i) => {
+        if (!outline.edges[i]) return;
+
+        ctx.moveTo(...from);
+        ctx.lineTo(...outline[(i + 1) % outline.length]);
+      }));
+
+      ctx.stroke();
+    } else {
+      ctx.stroke(this.path);
+    }
 
     ctx.restore();
   }

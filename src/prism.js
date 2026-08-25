@@ -179,11 +179,12 @@ const refract = (dirX, dirY, [normalX, normalY], eta) => {
  * into the world, and back into the ship's.
  */
 const outlineOf = (ship, lamp, object) => {
+  const body = object.owner || object.asteroid || object;
   const shipCos = Math.cos(ship.rotation);
   const shipSin = Math.sin(ship.rotation);
-  const awayX = object.x - ship.x;
-  const awayY = object.y - ship.y;
-  const turn = object.rotation - ship.rotation;
+  const awayX = body.x - ship.x;
+  const awayY = body.y - ship.y;
+  const turn = body.rotation - ship.rotation;
   const middleX = awayX * shipCos + awayY * shipSin - lamp.x;
   const middleY = awayY * shipCos - awayX * shipSin - lamp.y;
 
@@ -231,9 +232,10 @@ export const traceBeam = (ship, lamp, scenery) => {
   // fall short of them and cut the beam's own far edge off
   const range = Math.hypot(far, spread);
   const edge = Math.atan2(spread, far);
-  const outlines = scenery.flatMap((object) => object.hitboxes?.() || object)
-    .filter((object) => object.outline &&
-      (object.owner || object).position.distance(ship.position) - object.radius < range)
+  const outlines = scenery.filter((object) =>
+    object.position.distance(ship.position) - object.radius < range)
+    .flatMap((object) => object.sections || object.hitboxes?.() || object)
+    .filter((object) => object.outline)
     .map((object) => outlineOf(ship, lamp, object));
   const beam = { angles: [], faces: [], hit: [], leaves: [], outlines, range };
 

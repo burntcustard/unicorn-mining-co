@@ -12,6 +12,9 @@ import { spray } from './shrapnel';
 // How many sparks a second the horn throws off while it grinds
 const grindRate = 50;
 
+// How much of a leaf's own health is left when it comes free of the rest
+const crackHealth = 0.25;
+
 /**
  * Where the point of a horn is in the world: the vertex of its shape reaching
  * furthest ahead of the mount, turned into place with the ship.
@@ -142,7 +145,11 @@ export const grind = (target, dt, scenery, items) => {
     } else if (items.includes(target)) {
       remove(target, items);
     }
-  } else if (asteroid.crack && health <= target.maxHealth / 2) {
-    asteroid.crack(target, target.grindX, target.grindY);
+  } else if (asteroid.crack && health <= target.maxHealth * crackHealth) {
+    // A pre-cut leaf comes free well shy of zero instead of first turning
+    // into another set of pieces.
+    if (asteroid.crack(target, target.grindX, target.grindY)) {
+      breakAsteroid(target, scenery, items);
+    }
   }
 };

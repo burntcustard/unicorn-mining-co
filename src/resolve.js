@@ -21,14 +21,14 @@ import { damage } from './craft';
 
 // How much of what is left of an overlap comes out in one go, which Box2D
 // calls baumgarte and sets to a fifth
-const easing = 0.2;
+const easing = 0.4;
 
 // Overlap shallower than this is left well alone
 const slop = 0.5;
 
 // The most any one contact may shift a thing, so that a deep overlap eases
 // apart over a few frames rather than firing it off
-const maxCorrection = 4;
+const maxCorrection = 12;
 
 // Below this a knock is dead rather than springy, or everything ends up
 // trembling on bounces too small to see
