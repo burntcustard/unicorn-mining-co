@@ -190,8 +190,8 @@ export class Asteroid extends Sprite.class {
         x: this.x + offset.x,
         y: this.y + offset.y,
       });
-      child.velocity.set(child.velocity.add(Vector(offset).normalize().scale(30)));
-      child.spin += Math.random() - 0.5;
+      child.velocity.set(child.velocity.add(Vector(offset).normalize().scale(3)));
+      child.spin += Math.random() * 0.5 - 0.25;
 
       if (sections.length > 1) {
         child.sections = sections.map((section) => {
