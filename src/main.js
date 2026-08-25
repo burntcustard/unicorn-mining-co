@@ -202,38 +202,20 @@ if (benchmark) {
       throw Error('section health');
     }
 
-    const triangle = asteroid.sections.find((part) =>
-      part.triangles.length === 1 && part.maxHealth >= 80);
-    const triangleHealth = triangle.maxHealth;
-
-    triangle.health /= 2;
-    asteroid.crack(triangle, asteroid.x, asteroid.y);
-    const pairs = asteroid.sections.filter((part) =>
-      part.triangles.length === 2 && part.maxHealth === triangleHealth);
-
-    if (pairs.length !== 3) throw Error('triangle');
-    if (pairs.reduce((sum, part) =>
-      sum + part.outline.edges.filter(Boolean).length, 0) !== 6) throw Error('seams');
-    const pair = pairs[0];
-    const previous = [...asteroid.sections];
-
-    pair.health /= 2;
-    asteroid.crack(pair);
-    const leaves = asteroid.sections.filter((part) => !previous.includes(part));
-
-    if (leaves.length !== 2) throw Error('leaves');
-    const leaf = leaves[0];
-
-    leaf.health = leaf.maxHealth = 79;
-    leaf.health /= 2;
+    const leaf = asteroid.sections.find((part) => part.triangles.length === 1);
     const count = asteroid.sections.length;
 
-    asteroid.crack(leaf);
-    if (asteroid.sections.length !== count) throw Error('minimum');
+    leaf.health /= 2;
+    asteroid.crack(leaf, asteroid.x, asteroid.y);
+    if (asteroid.sections.length !== count) throw Error('triangle attach');
     const [children] = asteroid.detach(leaf);
 
     if (!children.length || asteroid.sections.includes(leaf)) throw Error('detach');
-    if (children[1]?.sections?.length !== 3) throw Error('detached cracks');
+    const triangle = children[0];
+
+    triangle.health /= 2;
+    triangle.crack(triangle, triangle.x, triangle.y);
+    if (triangle.sections?.length !== 6) throw Error('triangle split');
     Object.assign(asteroid, { x: playerShip.x, y: playerShip.y });
     const beam = traceBeam(playerShip, lamp, [asteroid]);
 

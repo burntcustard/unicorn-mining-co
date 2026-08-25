@@ -139,8 +139,10 @@ async function replaceHtml(html) {
   return minifiedHtml
     .replace('<!DOCTYPE html>', '')
     .replace('<meta charset=UTF-8>', '')
+    .replace(/<title>.*?<\/title>/, '')
     .replace('"width=device-width,initial-scale=1"', 'width=device-width,initial-scale=1')
-    .replace(/ lang=[^>]*/, '');
+    .replace(/ lang=[^>]*/, '')
+    .replace('</body></html>', '');
 }
 
 export function viteJs13k(buildLevel = 'full') {

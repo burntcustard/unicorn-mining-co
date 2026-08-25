@@ -18,6 +18,7 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - Keep descriptive local names because Terser mangles them; property and exported names will also affect size as we will be mangling those too.
 - Do not add abstractions or cached state solely to remove repetition unless a build comparison shows a saving.
 - Keep `Infinity` where it expresses an unbounded value; Terser already shortens it to `1/0`, so replacing it with e.g. `1e9` does not save space.
+- Never try to save space by shortening names of variables, properties, functions, etc. Terser will do that for us.
 
 ## Before and after making a code change
 

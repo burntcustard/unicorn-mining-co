@@ -1,10 +1,10 @@
+import { Vector, rotatePoint } from './vector';
 import { Sprite } from './sprite';
 import { colors } from './colors';
 import { createPolygon } from './polygon';
 import { distribute } from './distribute';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
-import { rotatePoint } from './vector';
 import { shapePath } from './drawing';
 
 // Stroke width in game units, to match the ships
@@ -21,9 +21,8 @@ const asteroidDrag = 1;
 
 // Fastest an asteroid settles back to on nothing but its starting speed
 const asteroidMaxSpeed = 70;
-// Small triangles detach whole; this is the least health needed to crack again
-const minSplitHealth = 80;
-
+// Very small triangle shards are already post-split and should not split again
+const minTriangleSplitMass = 2000;
 // Bigger asteroids need more points to be lumpy with
 const pointsFor = (radius) => Math.round(Math.sqrt(radius) / 3) * 2 - 1;
 
@@ -119,24 +118,31 @@ export class Asteroid extends Sprite.class {
 
   crack(target, x, y) {
     if (target !== this) {
-      if (target.triangles.length > 1) {
+      if (target.triangles[1]) {
         this.divide(target, target.triangles.map((triangle) => [triangle]));
-      } else if (target.maxHealth >= minSplitHealth) {
-        const center = measure(target.outline);
-        this.divide(target, target.outline.map((point, i) => {
-          const next = target.outline[(i + 1) % target.outline.length];
-          const middle = point.map((value, axis) => (value + next[axis]) / 2);
-
-          return [[center, point, middle], [center, middle, next]];
-        }));
       }
 
       return;
     }
 
-    const sides = target.outline.length;
+    const sides = this.outline.length;
 
-    if (sides < 4 || this.sections) return;
+    if (this.sections || sides < 3) return;
+
+    if (sides === 3) {
+      if (this.mass < minTriangleSplitMass) return;
+
+      const center = measure(this.outline);
+      const pieces = this.outline.flatMap((point, i) => {
+        const next = this.outline[(i + 1) % 3];
+        const middle = point.map((value, axis) => (value + next[axis]) / 2);
+
+        return [[[center, point, middle]], [[center, middle, next]]];
+      });
+
+      this.divide(this, pieces);
+      return;
+    }
 
     const point = rotatePoint({ x: x - this.x, y: y - this.y }, -this.rotation);
     let start = 0;
@@ -158,7 +164,7 @@ export class Asteroid extends Sprite.class {
     let at = 0;
     const pieces = sizes.map((size) => triangles.slice(at, at += size));
 
-    this.divide(target, pieces);
+    this.divide(this, pieces);
   }
 
   split(groups) {
@@ -170,7 +176,6 @@ export class Asteroid extends Sprite.class {
       const outline = outlineOf(triangles);
       const [centerX, centerY] = measure(outline);
       const offset = rotatePoint({ x: centerX, y: centerY }, this.rotation);
-      const radius = Math.max(...outline.map(([x, y]) => Math.hypot(x - centerX, y - centerY)));
       const local = ([x, y]) => [(x - centerX), (y - centerY)];
       // Rebase around the child's own centroid without moving any world point
       const child = new Asteroid({
@@ -185,6 +190,8 @@ export class Asteroid extends Sprite.class {
         x: this.x + offset.x,
         y: this.y + offset.y,
       });
+      child.velocity.set(child.velocity.add(Vector(offset).normalize().scale(30)));
+      child.spin += Math.random() - 0.5;
 
       if (sections.length > 1) {
         child.sections = sections.map((section) => {
