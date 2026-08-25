@@ -142,31 +142,16 @@ export const hit = (a, b) => {
   if (between > a.radius + b.radius) return;
 
   let deepest;
-  const aOutlines = [...(a.parents || []), a.outline];
-  const bOutlines = [...(b.parents || []), b.outline];
-  const levels = Math.max(aOutlines.length, bOutlines.length);
 
-  for (let level = 0; level < levels; level++) {
-    let levelDeepest;
-    const aOutline = aOutlines[Math.min(level, aOutlines.length - 1)];
-    const bOutline = bOutlines[Math.min(level, bOutlines.length - 1)];
-    const aShapes = aOutline === a.outline ? shapesOf(a) : [placePoints(a, aOutline)];
-    const bShapes = bOutline === b.outline ? shapesOf(b) : [placePoints(b, bOutline)];
+  shapesOf(a).forEach((aPoints) => {
+    shapesOf(b).forEach((bPoints) => {
+      const overlap = overlapOf(a, b, between, gapX, gapY, aPoints, bPoints);
 
-    aShapes.forEach((aPoints) => {
-      bShapes.forEach((bPoints) => {
-        const overlap = overlapOf(a, b, between, gapX, gapY, aPoints, bPoints);
-
-        if (overlap && (!levelDeepest || overlap.depth > levelDeepest.depth)) levelDeepest = overlap;
-      });
+      if (overlap && (!deepest || overlap.depth > deepest.depth)) deepest = overlap;
     });
-    // Every narrower shape lies inside the one before it, so daylight at any
-    // stage rules the pair out without paying for its smaller triangles.
-    if (!levelDeepest) return;
-    deepest = levelDeepest;
-  }
+  });
 
-  if (!a.parts && !b.parts) return deepest;
+  if (!deepest || (!a.parts && !b.parts)) return deepest;
 
   let narrowest;
   const aParts = a.parts || [a];
@@ -174,12 +159,6 @@ export const hit = (a, b) => {
 
   aParts.forEach((aPart) => {
     bParts.forEach((bPart) => {
-      const aParent = aPart.triangle || aPart.outline;
-      const bParent = bPart.triangle || bPart.outline;
-      const parent = overlapOf(a, b, between, gapX, gapY,
-        aParent && placePoints(a, aParent), bParent && placePoints(b, bParent));
-
-      if (!parent) return;
       const overlap = overlapOf(a, b, between, gapX, gapY,
         aPart.outline && placePoints(a, aPart.outline), bPart.outline && placePoints(b, bPart.outline));
 
@@ -277,8 +256,8 @@ export const contacts = (objects, targets = objects) => {
           if (overlap) {
             const partOf = (body, part) => part && Object.assign(Object.create(body), {
               outline: part.outline,
-              parents: [body.outline, part.triangle],
               segment: part,
+              shapePass: 0,
             });
 
             overlap.collider = partOf(object, overlap.aPart) || object;

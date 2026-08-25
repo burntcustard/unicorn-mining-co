@@ -1,3 +1,4 @@
+import { applyForce } from './vector';
 import { colors } from './colors';
 import { damage as hurt } from './craft';
 
@@ -45,10 +46,8 @@ export const detonate = (blast, items, crafts) => {
   const shove = (object, share) => {
     if (!object.mass) return;
 
-    const away = object.position.subtract(blast.position).normalize();
-    const push = (force * share) / object.mass;
-
-    object.velocity.set(object.velocity.add(away.scale(push)));
+    applyForce(object,
+      object.position.subtract(blast.position).normalize().scale(force * share));
   };
 
   items.forEach((item) => {

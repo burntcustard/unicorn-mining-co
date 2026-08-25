@@ -56,6 +56,11 @@ class VectorClass {
 
 export const Vector = (x, y) => new VectorClass(x, y);
 
+export const applyForce = (object, force, spin = 0) => {
+  object.velocity.set(object.velocity.add(force.scale(1 / object.mass)));
+  object.spin += spin / object.mass;
+};
+
 export const rotatePoint = ({ x, y }, angle) => {
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);

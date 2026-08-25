@@ -1,4 +1,4 @@
-import { Vector, movePoint, rotatePoint } from './vector';
+import { Vector, applyForce, movePoint, rotatePoint } from './vector';
 import { active, healthOf, relightCraft } from './craft-render';
 import { cockpit, scoopOpen } from './modules';
 import { Sprite } from './sprite';
@@ -94,7 +94,6 @@ export class Craft extends Sprite.class {
       cargo: [],
       forward: 0,
       mounts: [],
-      spin: 0,
       turn: data.turn || 0,
     });
     this.segments = data.hullSegments.map((hull) => {
@@ -228,7 +227,7 @@ export class Craft extends Sprite.class {
         const velocity = this.velocity.add(this.momentum({
           x: this.x + offset.x,
           y: this.y + offset.y,
-        })).add(Vector(away).normalize().scale(30));
+        }));
 
         outerEdges(segments.map(({ points }) => points));
         segments = segments.map((segment) => Object.assign(Object.create(segment), {
@@ -247,10 +246,11 @@ export class Craft extends Sprite.class {
           life: 9 + Math.random(),
           mass: segments.length,
           segments,
-          spin: this.spin + Math.random() - 0.5,
+          spin: this.spin,
         });
 
         Object.setPrototypeOf(fragment, Craft.prototype);
+        applyForce(fragment, Vector(away).normalize().scale(30), Math.random() - 0.5);
         return fragment;
       });
     const kept = (core || []).map((i) => hulls[i]);
@@ -258,8 +258,7 @@ export class Craft extends Sprite.class {
     if (core && fragments.length) {
       const away = rotatePoint(centerOf(kept).subtract(center), this.rotation);
 
-      this.velocity.set(this.velocity.add(Vector(away).normalize().scale(30)));
-      this.spin += Math.random() - 0.5;
+      applyForce(this, Vector(away).normalize().scale(30), Math.random() - 0.5);
     }
 
     this.segments = this.segments.filter((segment) =>
@@ -276,8 +275,8 @@ export class Craft extends Sprite.class {
         item.position.set(position);
         item.velocity.set(this.velocity);
         item.arm();
+        items.push(item);
       });
-      items.push(...this.cargo);
       this.dead = true;
     }
 

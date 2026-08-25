@@ -164,29 +164,39 @@ if (benchmark) {
       asteroid.outline.length === 5 && asteroid.health < 240);
     const triangle = new Asteroid({ points: 3, radius: 90 });
 
-    if (triangle.triangles.length !== 1 || triangle.sections.length !== 4 ||
+    if (triangle.sections.length !== 4 ||
       five.sections.length !== five.outline.length * 4 ||
       five.hitboxes().length !== 1 ||
-      five.sections.some((section) => section.triangles.length !== 1)) {
+      five.sections.some((section) => section.asteroid !== five)) {
       throw Error('five');
     }
 
     const asteroid = scenery.find((object) => object.outline.length === 7);
     const leaf = asteroid.sections[0];
     const count = asteroid.sections.length;
+    const velocity = asteroid.velocity;
 
+    asteroid.spin = 0;
     leaf.health /= 2;
-    if (asteroid.crack(leaf) !== leaf) throw Error('threshold');
     const [children] = asteroid.detach(leaf);
     const [piece, remainder] = children;
+
+    scenery.splice(scenery.indexOf(asteroid), 1, ...children);
 
     if (children.length !== 2 || asteroid.sections.length || remainder.sections.includes(leaf)) {
       throw Error('detach');
     }
 
-    if (remainder.sections.length !== count - 1 ||
-      (!piece.sections && !piece.life) || piece.triangles.length !== 1) {
+    if (remainder.sections.length !== count - 1 || !piece.life) {
       throw Error('leaf');
+    }
+
+    const pieceSpeed = piece.velocity.subtract(velocity).length();
+    const remainderSpeed = remainder.velocity.subtract(velocity).length();
+
+    if (pieceSpeed <= remainderSpeed ||
+      Math.abs(pieceSpeed * piece.mass - remainderSpeed * remainder.mass) > 1e-9) {
+      throw Error('leaf force');
     }
 
     Object.assign(remainder, { x: playerShip.x, y: playerShip.y });
@@ -194,6 +204,49 @@ if (benchmark) {
 
     if (beam.outlines.length !== remainder.sections.length ||
       beam.outlines.some((outline) => !outline.edges)) throw Error('light');
+    const cargoRock = new Asteroid({ points: 5, radius: 90 });
+    const cargoItem = new Item({ itemData: diamond });
+    const otherCargo = new Item({ itemData: gold });
+
+    cargoRock.bury(cargoItem);
+    cargoRock.bury(otherCargo);
+
+    if (cargoRock.contents.length !== 2 ||
+      Math.hypot(cargoItem.buried.x - otherCargo.buried.x,
+        cargoItem.buried.y - otherCargo.buried.y) < cargoRock.radius / 3) {
+      throw Error('cargo placement');
+    }
+
+    const oversized = new Item({ itemData: gold });
+
+    oversized.radius = cargoRock.radius;
+    cargoRock.bury(oversized);
+
+    if (!cargoRock.contents.includes(oversized) ||
+      !cargoRock.sections.some((section) => section.contents?.includes(oversized))) {
+      throw Error('cargo snap');
+    }
+
+    const [cargoParts, early] = cargoRock.detach(
+      cargoRock.sections.find((section) => !section.contents),
+    );
+    const cargoPart = cargoParts.find((part) =>
+      part.sections?.some((section) => section.contents?.includes(cargoItem)));
+
+    if (early.length || !cargoPart) throw Error('cargo early');
+    const [cargoDebris, released] = cargoPart.detach(
+      cargoPart.sections.find((section) => section.contents?.includes(cargoItem)),
+    );
+
+    const debris = cargoDebris.find((part) => part.contents?.includes(cargoItem));
+    const expired = [];
+
+    debris.update(11, expired);
+
+    if (released.length || !debris.dead || expired[0] !== cargoItem) {
+      throw Error('cargo expiry');
+    }
+
     const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
 
     splitShip.segments[1].health = 0;
@@ -451,7 +504,7 @@ GameLoop({
 
     crafts.forEach((craft) => craft.update(dt));
     physics(dt);
-    scenery.forEach((object, i) => (object.update(dt), object.dead && scenery.splice(i, 1)));
+    scenery.forEach((object, i) => (object.update(dt, items), object.dead && scenery.splice(i, 1)));
 
     // Apply horn damage once per update, however many physics substeps found it
     [...scenery.flatMap((asteroid) => asteroid.sections || asteroid),

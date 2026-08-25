@@ -48,9 +48,8 @@ export const mine = (contacts) => {
     const object = hitbox === collider ? other : collider;
     const { segment } = hitbox;
     const target = object.segment || object;
-    const health = target.mount?.health ?? target.health;
 
-    if (!segment?.module?.grinds || segment.anim <= 0.5 || !health) return;
+    if (!segment?.module?.grinds || segment.anim <= 0.5 || target.mount || !target.health) return;
 
     const [tipX, tipY] = tipOf(hitbox);
 
@@ -83,30 +82,31 @@ export const mine = (contacts) => {
 };
 
 /**
- * Split an asteroid open along the cracks it showed at half health. Cargo clear of
- * those cracks stays buried in its piece; cargo across one falls into space.
+ * Split an asteroid along the mined leaf. Cargo stays with its assigned leaf
+ * until that leaf dies, then falls into space.
  *
  * @param {Object} asteroid
  * @param {Object[]} scenery - The asteroid is taken out of this.
  * @param {Object[]} items - Its freed cargo is added to this.
  */
-const breakAsteroid = (target, scenery, items) => {
+const breakAsteroid = (target, scenery, items, destroyed) => {
   const asteroid = target.asteroid || target;
 
   // Let go at the asteroid's speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
   if (target.grinder) target.grinder.velocity.set(asteroid.velocity);
 
-  const [children, loose] = target.asteroid ? asteroid.detach(target) : asteroid.split();
+  const [children, loose] = target.asteroid ? asteroid.detach(target, destroyed) : asteroid.split();
 
-  if (!target.asteroid || !asteroid.sections.length) scenery.splice(scenery.indexOf(asteroid), 1);
+  if (!target.asteroid || !asteroid.sections.length) {
+    scenery.splice(scenery.indexOf(asteroid), 1);
+  }
+
   scenery.push(...children);
 
-  // An empty asteroid just breaks apart; one with cargo lets it loose
   loose.forEach((item) => {
     item.velocity.set(asteroid.velocity);
     item.arm();
-
     items.push(item);
   });
 };
@@ -136,20 +136,17 @@ export const grind = (target, dt, scenery, items) => {
   damage(target, target.grinding);
   // Set fresh each update it is touched, so damage is applied only once
   target.grinding = 0;
-  const health = target.mount?.health ?? target.health;
-  const asteroid = target.asteroid || target;
+  const { health } = target;
 
   if (health < 1) {
     if (target.asteroid || scenery.includes(target)) {
-      breakAsteroid(target, scenery, items);
+      breakAsteroid(target, scenery, items, true);
     } else if (items.includes(target)) {
       remove(target, items);
     }
-  } else if (asteroid.crack && health <= target.maxHealth * crackHealth) {
+  } else if (target.asteroid && health <= target.maxHealth * crackHealth) {
     // A pre-cut leaf comes free well shy of zero instead of first turning
     // into another set of pieces.
-    if (asteroid.crack(target, target.grindX, target.grindY)) {
-      breakAsteroid(target, scenery, items);
-    }
+    breakAsteroid(target, scenery, items);
   }
 };

@@ -13,6 +13,7 @@ class SpriteClass {
     this.position = Vector(x, y);
     this.velocity = Vector(dx, dy);
     this.rotation = 0;
+    this.spin = 0;
     this.ctx = getContext();
     Object.assign(this, properties);
     delete this.dx;
