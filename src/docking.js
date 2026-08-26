@@ -7,42 +7,38 @@ const launchCoastPower = 0.25;
 const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.thrust)?.module;
 
 /**
- * A craft is docked while any of its pieces touches another craft's docking
- * segment. The ordinary collision pass supplies the contact.
+ * A craft docks the moment any of its pieces touches another craft's docking
+ * segment. Docking is a one-way latch from there: once set, a collider.owner keeps its
+ * hitboxes empty and its own physics frozen (see Craft#hitboxes and
+ * Craft#update), and only `launch` clears it. Being carried along by the
+ * parent from then on is `localMovement`'s job, same as anything else caught
+ * up in a mover.
  *
- * @param {Object[]} crafts
- * @param {Object[]} contacts
+ * @param {Object[]} contacts - Already filtered down to ones touching a dockSegment.
  */
-export const dock = (crafts, contacts) => {
-  crafts.forEach((craft) => (craft.dockedTo = 0));
+export const dock = (contacts) => {
+  contacts.forEach(({ collider, other: home }) => {
+    // If the ship is already docked or is launching, don't re-dock
+    if (collider.owner.dockedTo || collider.owner.launching) return;
 
-  contacts.forEach(({ collider, other }) => {
-    const home = collider.docks ? collider : other;
-    const guest = (home === collider ? other : collider).owner;
-
-    if (!home.docks || !guest?.mounts || guest.launching) return;
-
-    guest.segments.forEach((segment) => (segment.active = false));
-    guest.dockedTo = home.owner;
-    guest.localMovementParent = home.owner;
+    collider.owner.segments.forEach((segment) => (segment.active = false));
+    collider.owner.rotation = home.owner.rotation;
+    collider.owner.x = home.owner.x;
+    collider.owner.y = home.owner.y;
+    collider.owner.velocity.x = 0;
+    collider.owner.velocity.y = 0;
+    collider.owner.spin = 0;
+    collider.owner.dockedTo = home.owner;
   });
 };
 
 /**
- * Put a craft in the middle of its host and set it off out through the bay.
+ * Set a docked craft off out through the bay.
  *
  * @param {Object} craft
  */
 export const launch = (craft) => {
-  const host = craft.dockedTo;
-
   craft.dockedTo = 0;
-  craft.localMovementParent = 0;
-  craft.rotation = host.rotation;
-  craft.x = host.x;
-  craft.y = host.y;
-  craft.velocity.x = 0;
-  craft.velocity.y = 0;
   craft.launching = launchBurnDuration + launchCoastDuration;
 };
 

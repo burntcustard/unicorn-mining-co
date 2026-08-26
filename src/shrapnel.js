@@ -1,4 +1,5 @@
 import { Vector, movePoint } from './vector';
+import { objectLineWidth } from './drawing';
 
 /**
  * Sparks thrown off where a mining horn bites into something: little bright
@@ -23,7 +24,6 @@ const drag = 0.8;
 // How long a streak one draws and how wide, in game units. A streak rather than
 // a dot is what makes it read as flying rather than sitting there
 const length = 8;
-const lineWidth = 3;
 
 export const sparks = [];
 
@@ -87,7 +87,7 @@ export const updateSparks = (dt) => {
 export const renderSparks = ({ ctx }) => {
   ctx.save();
   ctx.lineCap = 'round';
-  ctx.lineWidth = lineWidth;
+  ctx.lineWidth = objectLineWidth;
 
   sparks.forEach((spark) => {
     const pace = Math.hypot(spark.dx, spark.dy) || 1;

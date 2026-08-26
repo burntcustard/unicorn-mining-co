@@ -157,6 +157,8 @@ export class Craft extends Sprite.class {
   }
 
   hitboxes() {
+    if (this.dockedTo) return [];
+
     const boxes = this.segments
       .filter((segment) => segment.radius && active(healthOf(segment)))
       .map((segment) => {
@@ -171,7 +173,7 @@ export class Craft extends Sprite.class {
 
         return Object.assign(segment.hitbox ||= { owner: this, segment }, {
           bounciness: bounceOf(segment),
-          docks: segment.docks,
+          dockSegment: segment.dockSegment,
           outline,
           physics: !segment.module.disablePhysics && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
             module?.scoops && segments.some((part) => active(healthOf(part)) && part.anim > scoopOpen)
@@ -306,7 +308,7 @@ export class Craft extends Sprite.class {
   update(dt) {
     if (this.life) {
       if ((this.life -= dt) <= 0) this.dead = true;
-    } else {
+    } else if (!this.dockedTo) {
       const push = this.accel * this.forward * dt;
       const targetSpin = this.turn * this.turnRate * this.throttle;
 

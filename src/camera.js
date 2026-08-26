@@ -10,6 +10,7 @@ const deadzone = 0.4;
 // How much of the ground it has left to make up the camera still has a second
 // from now. Lower catches up harder, and 0 would snap straight to it
 const lag = 0.0001;
+const dockLag = 0.1;
 
 export const centerCamera = (game, target) => {
   camera.x = target.x - game.width / 2;
@@ -34,12 +35,14 @@ export const followTarget = (game, target, dt) => {
   const y = target.y - camera.y - game.height / 2;
   // 1 on the edge of the oval and more than that outside of it
   const out = Math.sqrt((x / halfWidth) ** 2 + (y / halfHeight) ** 2);
+  const ease = 1 - (target.dockedTo ? dockLag : lag) ** dt;
 
-  if (out > 1) {
+  if (target.dockedTo) {
+    camera.x += x * ease;
+    camera.y += y * ease;
+  } else if (out > 1) {
     // Pulling the target back onto the edge is the same as pushing the camera
     // out by however far past it the target has drifted
-    const ease = 1 - lag ** dt;
-
     camera.x += (x - x / out) * ease;
     camera.y += (y - y / out) * ease;
   }

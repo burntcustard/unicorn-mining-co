@@ -27,22 +27,4 @@ export const textDemo = (game) => {
       y: game.uiHeight / 2 - 150 + 40 + i * 20,
     });
   });
-
-  renderText({
-    alignCenter: true,
-    ctx: game.ctx,
-    scale: game.uiScale,
-    text: '$2000',
-    x: game.uiWidth / 2,
-    y: game.uiHeight / 2 + 140,
-  });
-
-  renderText({
-    alignCenter: true,
-    ctx: game.ctx,
-    scale: game.uiScale,
-    text: '$900',
-    x: game.uiWidth / 2,
-    y: game.uiHeight / 2 + 160,
-  });
 };

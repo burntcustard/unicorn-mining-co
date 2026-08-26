@@ -50,11 +50,11 @@ const starColor = (tints) => (Math.random() < tinted ?
 // rather than skipped while drawing, so what a mode costs is what is in the
 // sky rather than how many blits it takes to put it there
 const modes = [
-  { label: 'SKY: ALL', parts: ['clouds', 'dots', 'sparkles'] },
-  { label: 'SKY: FOG', parts: ['clouds'] },
-  { label: 'SKY: DOTS', parts: ['dots'] },
-  { label: 'SKY: SPARKLES', parts: ['sparkles'] },
-  { label: 'SKY: OFF', parts: [] },
+  { label: 'ALL', parts: ['clouds', 'dots', 'sparkles'] },
+  { label: 'FOG', parts: ['clouds'] },
+  { label: 'DOTS', parts: ['dots'] },
+  { label: 'SPARKLES', parts: ['sparkles'] },
+  { label: 'OFF', parts: [] },
 ];
 
 let mode = 0;

@@ -1,14 +1,11 @@
 import { applyForce, rotatePoint } from './vector';
+import { objectLineWidth, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
 import { createPolygon } from './polygon';
 import { distribute } from './distribute';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
-import { shapePath } from './drawing';
-
-// Stroke width in game units, to match the ships
-const lineWidth = 3;
 
 // An asteroid gives a little, but nothing like a shield does
 const asteroidBounciness = 0.1;
@@ -283,7 +280,7 @@ export class Asteroid extends Sprite.class {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
     ctx.lineJoin = 'bevel';
-    ctx.lineWidth = lineWidth;
+    ctx.lineWidth = objectLineWidth;
     ctx.fillStyle = colors.black[2];
     ctx.strokeStyle = this.stroke;
     const pieces = this.sections?.length ? this.sections : [this];

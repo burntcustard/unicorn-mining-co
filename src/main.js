@@ -1,9 +1,15 @@
 import { Item, remove } from './item';
-import { amethyst, diamond, gold, itemTypes, opal } from './items';
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
 import { detonate, renderBlasts, updateBlasts } from './explosion';
+import {
+  // amethyst,
+  diamond,
+  gold,
+  itemTypes,
+  // opal
+} from './items';
 import { dock, flyOut, launch } from './docking';
 import { glows, lights, toggleGlows, toggleLights } from './lighting';
 import { grind, mine } from './mining';
@@ -70,7 +76,7 @@ const swatches = [
   craftData: shipTypes.mustang,
   shades,
   x: 120 + i * 120,
-  y: game.height - 120,
+  y: game.height - 100,
 }));
 
 const corral = new Craft({
@@ -102,7 +108,7 @@ const makeAsteroid = (props) => new Asteroid({
 });
 
 const asteroids = Array.from({ length: 2 }, () => makeAsteroid({
-  x: Math.random() * game.width,
+  x: Math.random() * game.width / 2,
   y: Math.random() * game.height,
 }));
 
@@ -132,31 +138,35 @@ if (benchmark && benchmark.has('field')) Object.assign(playerShip, { x: 4500, y:
 
 // Plain shapes sat still in a row in front of the ship, so that what the
 // floodlight does to them can be checked against something predictable
-const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
-  points,
-  radius: 45,
-  // Every other one turned a little, to catch a face rather than a corner
-  rotation: (i % 2) * 0.6,
-  spin: 0,
-  // Just enough wander that no two faces come out parallel, because an asteroid
-  // with a pair that are is a slab rather than a prism and splits nothing
-  variance: 1,
-  x: game.width / 3 + 260 + i * 30,
-  y: game.height / 2 - 260 + i * 130,
-}));
+// const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
+//   points,
+//   radius: 45,
+//   // Every other one turned a little, to catch a face rather than a corner
+//   rotation: (i % 2) * 0.6,
+//   spin: 0,
+//   // Just enough wander that no two faces come out parallel, because an asteroid
+//   // with a pair that are is a slab rather than a prism and splits nothing
+//   variance: 1,
+//   x: game.width / 3 + 260 + i * 30,
+//   y: game.height / 2 - 260 + i * 130,
+// }));
 
 // A few asteroids are salted with cargo, to light up with the floodlight
 // and grind open with the horn. The rest stay empty to mine against
-blocks[0].bury(new Item({ itemData: diamond }));
-blocks[0].bury(new Item({ itemData: gold }));
-blocks[2].bury(new Item({ itemData: amethyst }));
+// blocks[0].bury(new Item({ itemData: diamond }));
+// blocks[0].bury(new Item({ itemData: gold }));
+// blocks[2].bury(new Item({ itemData: amethyst }));
 // blocks[2].bury(new Item({ itemData: platinum }));
-blocks[4].bury(new Item({ itemData: opal }));
-asteroids[0].bury(new Item({ itemData: gold }));
+// blocks[4].bury(new Item({ itemData: opal }));
+// asteroids[0].bury(new Item({ itemData: gold }));
 
 const crafts = [playerShip, ...swatches, corral];
 // const roads = [northRoad];
-const scenery = [...asteroids, ...asteroidField, ...blocks];
+const scenery = [
+  ...asteroids,
+  ...asteroidField,
+  // ...blocks
+];
 
 if (benchmark) {
   window['testSections'] = () => {
@@ -302,8 +312,12 @@ const items = itemTypes.map((itemData, i) => new Item({
 // Everything that can catch hold of a ship and carry it along
 const movers = [...crafts];
 let physicsOn = 1;
+let showDeadzone = false;
 let showMass = false;
+let showTextDemo = false;
 
+bindKeys(['3'], () => showTextDemo = !showTextDemo);
+bindKeys(['4'], () => showDeadzone = !showDeadzone);
 bindKeys(['5'], () => showMass = !showMass);
 
 const collide = (objects, targets) => {
@@ -313,7 +327,7 @@ const collide = (objects, targets) => {
 
   scoop(items, found);
   mine(found);
-  dock(crafts, found);
+  if (targets) dock(found.filter(({ other }) => other.dockSegment));
   resolve(found);
 };
 
@@ -447,14 +461,16 @@ GameLoop({
 
     game.ctx.restore();
 
-    renderDeadzone(game);
+    if (showDeadzone) renderDeadzone(game);
     renderFps(game);
     renderText({ ctx: game.ctx, scale: game.uiScale, text: `$${player.credits}`, x: 10, y: 30 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `5 MASS: ${showMass ? 'ON' : 'OFF'}`, x: 10, y: 50 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `6 ${sky.label}`, x: 10, y: 70 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `7 LIGHTING: ${lights ? 'ON' : 'OFF'}`, x: 10, y: 90 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `8 GLOWS: ${glows ? 'ON' : 'OFF'}`, x: 10, y: 110 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `9 PHYSICS: ${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 130 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 50 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, x: 10, y: 70 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, x: 10, y: 90 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `6 SKY:${sky.label}`, x: 10, y: 110 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 130 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 150 });
+    renderText({ ctx: game.ctx, scale: game.uiScale, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 170 });
     renderControls(game, playerShip);
 
     if (player.noteFor) {
@@ -469,7 +485,7 @@ GameLoop({
     }
 
     colorsDemo(game);
-    textDemo(game);
+    if (showTextDemo) textDemo(game);
   },
   update: (dt) => {
     // roads.forEach((road) => road.update(dt));

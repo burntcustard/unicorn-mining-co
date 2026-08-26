@@ -1,5 +1,12 @@
 import { createPolygon } from './polygon';
 
+// Stroke width in game units, shared by every drawn object's outline
+export const objectLineWidth = 3;
+
+// Stroke width in game units. Finer than a ship's, because an item is a small
+// thing and a heavy outline swallows it
+export const itemLineWidth = 2;
+
 export const circlePath = (radius) => {
   const path = new Path2D();
 

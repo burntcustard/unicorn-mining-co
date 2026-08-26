@@ -27,6 +27,8 @@ const background = `${colors.cyan[2]}2`;
  * A road sweeps anything that strays into it along a straight line far faster
  * than it could fly under its own steam. There is nothing to see of one but
  * the sparks running down it.
+ *
+ * ROADS ARE CURRENTLY UNUSED (commented out to save space)
  */
 export class Road {
   constructor(props) {

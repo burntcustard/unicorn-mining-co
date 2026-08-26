@@ -1,6 +1,7 @@
 import { applyForce } from './vector';
 import { colors } from './colors';
 import { damage as hurt } from './craft';
+import { objectLineWidth } from './drawing';
 
 /**
  * What is left of an unstable asteroid once its fuse runs out: a flash, and a shove
@@ -114,7 +115,7 @@ export const renderBlasts = ({ ctx }) => {
     // A hard edge running ahead of the fill, which is what makes it read as a
     // shock going out rather than a light being turned down
     ctx.globalAlpha = fade * fade;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = objectLineWidth;
     ctx.strokeStyle = colors.white[2];
     ctx.stroke();
     ctx.restore();

@@ -81,7 +81,7 @@ export const corral = {
       disablePhysics: i === 0 && piece === 2,
       points: rotatePoints(points, angle),
     }))),
-    { disablePhysics: true, docks: true, points: core },
+    { disablePhysics: true, dockSegment: true, points: core },
     // Last, so that they are drawn over the socket edges they fill
     ...angles.slice(1).map((angle) => ({ points: rotatePoints(panel, angle) })),
   ],

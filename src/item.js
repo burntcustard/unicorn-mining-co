@@ -1,4 +1,4 @@
-import { circlePath, linesPath, shapePath, sparklePath } from './drawing';
+import { circlePath, itemLineWidth, linesPath, shapePath, sparklePath } from './drawing';
 import { Sprite } from './sprite';
 import { Vector } from './vector';
 import { colors } from './colors';
@@ -9,10 +9,6 @@ import { drawGlow } from './lighting';
  * item needs drawn is worked out once here, so a definition stays nothing but
  * the numbers that make it different from the next one.
  */
-
-// Stroke width in game units. Finer than a ship's, because an item is a small
-// thing and a heavy outline swallows it
-const lineWidth = 2;
 
 // How big a glint is and how far out it sits, both against how far the item
 // reaches from its middle. A sparkle's long arms run to four times the size it
@@ -99,7 +95,7 @@ export class Item extends Sprite.class {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
     ctx.lineJoin = 'bevel';
-    ctx.lineWidth = lineWidth;
+    ctx.lineWidth = itemLineWidth;
 
     if (item.glow) {
       const beat = (1 + Math.sin(this.blink)) / 2;

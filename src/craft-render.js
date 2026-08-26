@@ -9,10 +9,9 @@ import {
   tint,
 } from './lighting';
 import { drawSpectrum, litPath, traceBeam } from './prism';
+import { linesPath, objectLineWidth } from './drawing';
 import { colors } from './colors';
-import { linesPath } from './drawing';
 
-const lineWidth = 3;
 const glowStrength = 0.15;
 
 export const active = (health) => !(health < 1);
@@ -38,7 +37,7 @@ export const renderCraft = (craft, scenery, zIndex) => {
   ctx.translate(craft.x, craft.y);
   ctx.rotate(craft.rotation);
   ctx.lineJoin = 'bevel';
-  ctx.lineWidth = lineWidth;
+  ctx.lineWidth = objectLineWidth;
 
   if (zIndex === -3 && craft.localMovementRadius) {
     ctx.strokeStyle = `${colors.cyan[2]}4`;
