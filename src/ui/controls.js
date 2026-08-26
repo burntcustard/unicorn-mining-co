@@ -94,8 +94,7 @@ export const renderControls = (game, ship) => {
   modules.forEach((module, i) => {
     renderText({
       color: colors.violet[2],
-      ctx,
-      scale: uiScale,
+      game,
       size: textSize,
       text: module.name,
       x: textX,

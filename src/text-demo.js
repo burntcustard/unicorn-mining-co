@@ -10,8 +10,7 @@ const charset = [
 export const textDemo = (game) => {
   renderText({
     alignCenter: true,
-    ctx: game.ctx,
-    scale: game.uiScale,
+    game,
     text: 'Hello world',
     x: game.uiWidth / 2,
     y: game.uiHeight / 2 - 150,
@@ -20,8 +19,7 @@ export const textDemo = (game) => {
   charset.forEach((text, i) => {
     renderText({
       alignCenter: true,
-      ctx: game.ctx,
-      scale: game.uiScale,
+      game,
       text,
       x: game.uiWidth / 2,
       y: game.uiHeight / 2 - 150 + 40 + i * 20,

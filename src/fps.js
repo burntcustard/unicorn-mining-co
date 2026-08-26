@@ -26,8 +26,7 @@ export const renderFps = (game) => {
   }
 
   renderText({
-    ctx: game.ctx,
-    scale: game.uiScale,
+    game,
     text: `FPS:${rate}`,
     x: 10,
     y: 10,

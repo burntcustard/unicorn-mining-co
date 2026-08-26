@@ -315,10 +315,7 @@ let physicsOn = 1;
 let showDeadzone = false;
 let showMass = false;
 let showTextDemo = false;
-
-bindKeys(['3'], () => showTextDemo = !showTextDemo);
-bindKeys(['4'], () => showDeadzone = !showDeadzone);
-bindKeys(['5'], () => showMass = !showMass);
+let showColorsDemo = false;
 
 const collide = (objects, targets) => {
   const found = benchmark && benchmark.has('noCollisions') ?
@@ -377,16 +374,14 @@ const lamp = playerShip.segments.find((segment) => segment.module === floodlight
 
 initKeys();
 
-// The sky is the most expensive thing on screen, so its parts can be stepped
-// through one at a time to see which of them is costing what
+bindKeys(['2'], () => showColorsDemo = !showColorsDemo);
+bindKeys(['3'], () => showTextDemo = !showTextDemo);
+bindKeys(['4'], () => showDeadzone = !showDeadzone);
+bindKeys(['5'], () => showMass = !showMass);
 bindKeys(['6'], sky.cycle);
 bindKeys(['7'], toggleLights);
 bindKeys(['8'], toggleGlows);
 bindKeys(['9'], () => physicsOn = !physicsOn);
-
-// Cutting an item out of an asteroid is what arms it. Until there is mining to do
-// that, this stands in for it
-bindKeys(['x'], () => items.forEach((item) => item.arm()));
 
 // Only the player's ship is flown off the keyboard. AI pilots work their own
 // modules through the same methods. Each switchable module names the key that
@@ -398,7 +393,6 @@ bindKeys(['x'], () => items.forEach((item) => item.arm()));
 bindKeys([' '], () => playerShip.dockedTo && launch(playerShip));
 
 centerCamera(game, playerShip);
-colorsDemo(game);
 
 GameLoop({
   render: () => {
@@ -463,28 +457,28 @@ GameLoop({
 
     if (showDeadzone) renderDeadzone(game);
     renderFps(game);
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `$${player.credits}`, x: 10, y: 30 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 50 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, x: 10, y: 70 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, x: 10, y: 90 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `6 SKY:${sky.label}`, x: 10, y: 110 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 130 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 150 });
-    renderText({ ctx: game.ctx, scale: game.uiScale, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 170 });
+    renderText({ game, text: `$${player.credits}`, x: 10, y: 30 });
+    renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 50 });
+    renderText({ game, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 70 });
+    renderText({ game, text: `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, x: 10, y: 90 });
+    renderText({ game, text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, x: 10, y: 110 });
+    renderText({ game, text: `6 SKY:${sky.label}`, x: 10, y: 130 });
+    renderText({ game, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 150 });
+    renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 170 });
+    renderText({ game, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 190 });
     renderControls(game, playerShip);
 
     if (player.noteFor) {
       renderText({
         alignCenter: true,
-        ctx: game.ctx,
-        scale: game.uiScale,
+        game,
         text: player.note,
         x: game.uiWidth / 2,
         y: game.uiHeight - 40,
       });
     }
 
-    colorsDemo(game);
+    if (showColorsDemo) colorsDemo(game);
     if (showTextDemo) textDemo(game);
   },
   update: (dt) => {

@@ -97,6 +97,8 @@ export function drawText(props) {
 }
 
 export function renderText(props) {
+  props.ctx ||= props.game.ctx;
+  props.scale ||= props.game.uiScale;
   const size = props.size || 1;
   let xAlign = 0;
   let yAlign = 0;
