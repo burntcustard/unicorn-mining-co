@@ -8,7 +8,7 @@ export const thrusterDualMd = {
   // Quick enough that the flare is up about as soon as the key is down
   activationDuration: 0.1,
   health: 25,
-  name: 'Dual Medium Thrusters',
+  name: 'DUAL MEDIUM THRUSTERS',
   offset,
   disablePhysics: true,
   model: [

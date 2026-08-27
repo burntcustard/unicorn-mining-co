@@ -14,9 +14,7 @@
  *   where it would otherwise sit, as a fraction of its radius.
  * @returns {Number[][]}
  */
-export const createPolygon = (props) => {
-  const { points, radius, radiusEven = radius, variance = 0 } = props;
-
+export const createPolygon = ({ points, radius, radiusEven = radius, variance = 0 }) => {
   return Array.from({ length: points }, (_, i) => {
     const angle = i / points * Math.PI * 2;
     const wander = 1 + (Math.random() - 0.5) * variance;

@@ -38,7 +38,7 @@ export const scoop = (items, contacts) => {
       if (!roomFor(craft)) return;
 
       stow(craft, item);
-      say(item.name.toUpperCase());
+      say(item.name);
     }
 
     remove(item, items);

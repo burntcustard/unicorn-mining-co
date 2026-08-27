@@ -26,7 +26,7 @@ export const shield = {
   bounciness: 0.4,
   health: 40,
   key: 's',
-  name: 'Shield Array',
+  name: 'SHIELD ARRAY',
   model: [
     {
       lines: ({ phase }) => [arm(phase), arm(phase + Math.PI / 2)],

@@ -8,7 +8,7 @@ export const thrusterTripleSm = {
   // Quick enough that the flare is up about as soon as the key is down
   activationDuration: 0.1,
   health: 15,
-  name: 'Triple Small Thrusters',
+  name: 'TRIPLE SMALL THRUSTERS',
   offset,
   disablePhysics: true,
   model: [

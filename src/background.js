@@ -101,7 +101,7 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
 
   if (parts.includes('dots')) {
     Array.from({ length: dots }).forEach(() => {
-      const color = starColor(dotTints) + '3456789ab'[Math.floor(Math.random() * 9)];
+      const color = starColor(dotTints) + '3456789'[Math.floor(Math.random() * 7)];
       const path = circlePath(size * (0.4 + Math.random() * 0.6));
       const x = Math.random() * tile;
       const y = Math.random() * tile;

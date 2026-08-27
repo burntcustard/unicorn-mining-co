@@ -31,6 +31,7 @@ import { move } from './vector';
 import { renderControls } from './ui/controls';
 import { renderCraft } from './craft-render';
 import { renderFps } from './fps';
+import { renderIndicators } from './ui/indicators';
 import { renderText } from './text';
 import { resolve } from './resolve';
 import { scoop } from './scoop';
@@ -471,6 +472,7 @@ GameLoop({
     renderText({ game, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 150 });
     renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 170 });
     renderText({ game, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 190 });
+    renderIndicators(game, [corral], colors.green[2], 10000);
     renderControls(game, playerShip);
 
     if (player.noteFor) {

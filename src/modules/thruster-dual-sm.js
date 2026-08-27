@@ -9,7 +9,7 @@ export const thrusterDualSm = {
   activationDuration: 0.1,
   health: 15,
   disablePhysics: true,
-  name: 'Dual Small Thrusters',
+  name: 'DUAL SMALL THRUSTERS',
   offset,
   model: [
     { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },

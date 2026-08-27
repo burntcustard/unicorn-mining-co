@@ -3,7 +3,7 @@ import { renderText } from './text';
 const charset = [
   'ABCDEFGHIJKLM',
   'NOPQRSTUVWXYZ',
-  '0123456789',
+  'E0123456789m',
   ':!$%(),-/>',
 ];
 
@@ -11,7 +11,7 @@ export const textDemo = (game) => {
   renderText({
     alignCenter: true,
     game,
-    text: 'Hello world',
+    text: 'HELLO WORLD',
     x: game.uiWidth / 2,
     y: game.uiHeight / 2 - 150,
   });

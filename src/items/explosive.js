@@ -13,7 +13,7 @@ export const explosive = {
   health: 15,
   lineColor: colors.black[2],
   lines: [[[-6, 0], [6, 0]]],
-  name: 'Explosive',
+  name: 'EXPLOSIVE',
   points: [[-9, -5], [9, -5], [9, 5], [-9, 5]],
   price: 40,
   shades: colors.red,

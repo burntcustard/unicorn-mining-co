@@ -7,7 +7,7 @@ export const thrusterSingleSm = {
   // Quick enough that the flare is up about as soon as the key is down
   activationDuration: 0.1,
   health: 15,
-  name: 'Single Small Thruster',
+  name: 'SINGLE SMALL THRUSTER',
   disablePhysics: true,
   model: [
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 0 },

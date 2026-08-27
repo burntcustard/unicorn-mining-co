@@ -8,7 +8,7 @@ export const amethyst = {
   bounciness: 0.2,
   fillAlpha: 6,
   health: 45,
-  name: 'Amethyst',
+  name: 'AMETHYST',
   points: createPolygon({ points: 6, radius: 7 }),
   price: 300,
   shades: colors.violet,
