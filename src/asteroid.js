@@ -16,8 +16,8 @@ const asteroidVariance = 0.3;
 // Next to no drag of its own, so an asteroid coasts where a ship soon slows
 const asteroidDrag = 1;
 
-// Used to shrink down mass to align with small numbers for the rest of the game
-const massMultiplier = 0.2;
+// Five sides keep the old radius-squared mass; fewer sides lose some, more gain some
+const massMultiplier = 0.1;
 
 // Fastest an asteroid settles back to on nothing but its starting speed
 const asteroidMaxSpeed = 70;
