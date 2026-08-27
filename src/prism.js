@@ -17,7 +17,7 @@
  * All of it is worked out in the lamp's own frame, where the lamp sits at the
  * origin and shines along positive x, which is how the cone is drawn too.
  */
-import { Vector, movePoint, rotatePoints } from './vector';
+import { Vector, movePoint, pointBetween, rotatePoints } from './vector';
 import { colors } from './colors';
 
 // The colours light comes apart into, in the order it comes apart in
@@ -331,11 +331,8 @@ const between = (near, far) => {
 // wherever its share of the face actually falls
 const partWay = (points, where) => {
   const first = Math.min(Math.floor(where), points.length - 2);
-  const rest = where - first;
-  const [ax, ay] = points[first];
-  const [bx, by] = points[first + 1];
 
-  return [ax + (bx - ax) * rest, ay + (by - ay) * rest];
+  return pointBetween(points[first], points[first + 1], where - first);
 };
 
 // The stretch of a row between two places along it, both ends included

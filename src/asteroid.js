@@ -1,4 +1,4 @@
-import { applyForce, rotatePoint } from './vector';
+import { applyForce, pointBetween, rotatePoint } from './vector';
 import { objectLineWidth, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
@@ -49,21 +49,20 @@ const placeIn = (section) => {
   return { section, x, y };
 };
 
-// Follow the exposed edges instead of assuming the triangles are still a fan.
-
-const outlineOf = (triangles) => {
-  outerEdges(triangles);
-  const edges = triangles.flatMap((triangle) => triangle.flatMap((from, i) =>
-    triangle.edges[i] ? [[from, triangle[(i + 1) % triangle.length]]] : []));
+// Boundary edges of a set of outlines, stitched end-to-end into one loop
+const outlineFrom = (outlines) => {
+  const edges = outlines.flatMap((outline) => outline.flatMap((from, i) =>
+    outline.edges[i] ? [[from, outline[(i + 1) % outline.length]]] : []));
   const outline = [edges[0][0]];
 
-  while (edges.length) {
+  // One edge short of the full loop: the last edge would only re-add the
+  // start point, closing the shape back on itself
+  for (let i = edges.length - 1; i--;) {
     const at = edges.findIndex(([from]) => from + '' === outline.at(-1) + '');
 
     outline.push(edges.splice(at, 1)[0][1]);
   }
 
-  outline.pop();
   return outline;
 };
 
@@ -73,11 +72,10 @@ const groupsOf = (sections) => outerEdges(sections.map(({ outline }) => outline)
 
 // Midpoints quarter each face, leaving four equal triangles per side.
 const splitTriangle = (triangle) => {
-  const middle = (from, to) => from.map((value, axis) => (value + to[axis]) / 2);
   const [center, from, to] = triangle;
-  const left = middle(center, from);
-  const outer = middle(from, to);
-  const right = middle(to, center);
+  const left = pointBetween(center, from);
+  const outer = pointBetween(from, to);
+  const right = pointBetween(to, center);
 
   return [[center, left, right], [left, from, outer], [left, outer, right], [outer, to, right]];
 };
@@ -92,8 +90,8 @@ export class Asteroid extends Sprite.class {
     this.drag = asteroidDrag;
     this.maxSpeed = asteroidMaxSpeed;
 
-    // An asteroid never changes shape, so its outline is worked out only once.
-    // Anything else drifting about out there is the same but cut differently
+    // An asteroid doesn't changes shape until split, so its outline is worked out only
+    // once. Anything else drifting about out there is the same but cut differently
     this.outline = props.outline || createPolygon({
       points: this.points || pointsFor(this.radius),
       radius: this.radius,
@@ -143,7 +141,8 @@ export class Asteroid extends Sprite.class {
       const triangles = sections.map(({ outline }) => outline);
       const mass = sections.reduce((sum, section) => sum + section.mass, 0);
 
-      const outline = outlineOf(triangles);
+      outerEdges(triangles);
+      const outline = outlineFrom(triangles);
       const [centerX, centerY] = measure(outline);
       const offset = rotatePoint({ x: centerX, y: centerY }, this.rotation);
       const local = ([x, y]) => [(x - centerX), (y - centerY)];
@@ -279,31 +278,31 @@ export class Asteroid extends Sprite.class {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
-    ctx.lineJoin = 'bevel';
     ctx.lineWidth = objectLineWidth;
+    ctx.lineJoin = 'round';
     ctx.fillStyle = colors.black[2];
     ctx.strokeStyle = this.stroke;
     const pieces = this.sections?.length ? this.sections : [this];
 
-    pieces.forEach(({ path }) => ctx.fill(path));
+    // pieces.forEach(({ path }) => ctx.fill(path));
 
     if (pieces[0].outline.edges) {
-      // Overlapping square caps hide joins between boundary edges, while the
-      // one stroke leaves every internal mesh edge invisible.
-      ctx.lineCap = 'round';
+      // Overlapping round caps hide joins between boundary edges
+      // ctx.lineCap = 'round';
       ctx.beginPath();
 
       // `outerEdges` marks shared sides false: skip those internal triangle
-      // seams, but draw boundary sides and any edges exposed by a split.
-      pieces.forEach(({ outline }) => outline.forEach((from, i) => {
-        if (!outline.edges[i]) return;
+      // seams, so only the boundary loop around all the pieces remains
+      const outline = outlineFrom(pieces.map((piece) => piece.outline));
 
-        ctx.moveTo(...from);
-        ctx.lineTo(...outline[(i + 1) % outline.length]);
-      }));
+      ctx.moveTo(...outline[0]);
+      outline.slice(1).forEach((point) => ctx.lineTo(...point));
+      ctx.closePath();
 
+      ctx.fill();
       ctx.stroke();
     } else {
+      ctx.fill(this.path);
       ctx.stroke(this.path);
     }
 

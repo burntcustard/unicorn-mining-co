@@ -73,6 +73,13 @@ export const movePoint = ({ x, y }, angle, distance) => ({
   y: y + Math.sin(angle) * distance,
 });
 
+// A point some way between two others, plain arrays rather than Vectors so it
+// also works on a polygon's raw points. `at` 0 gives `from`, 1 gives `to`,
+// 0.5 the midpoint between them, and anywhere else the same share of the way
+export const pointBetween = (from, to, at = 0.5) => {
+  return from.map((value, axis) => value + (to[axis] - value) * at);
+};
+
 /**
  * Rotate local points around zero, then optionally move them into world space.
  * Used wherever shapes need the same coordinates after their owner turns.

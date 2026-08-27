@@ -50,7 +50,7 @@ export const outerEdges = (outlines) => {
 
   outlines.forEach((points, i) => points.edges = backs[i].map((back) => !edges.includes(back)));
 
-  while (left.length) {
+  for (; left.length;) {
     const group = [left.pop()];
 
     for (let at = 0; at < group.length; at++) {
