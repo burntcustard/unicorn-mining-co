@@ -39,14 +39,7 @@ const measure = (points) => {
     y += (atY + nextY) * cross;
   });
 
-  return [x / area / 3, y / area / 3];
-};
-
-// The centre of a leaf, used to snap buried cargo cleanly inside it.
-const placeIn = (section) => {
-  const [x, y] = measure(section.outline);
-
-  return { section, x, y };
+  return { x: x / area / 3, y: y / area / 3 };
 };
 
 // Boundary edges of a set of outlines, stitched end-to-end into one loop
@@ -143,9 +136,9 @@ export class Asteroid extends Sprite.class {
 
       outerEdges(triangles);
       const outline = outlineFrom(triangles);
-      const [centerX, centerY] = measure(outline);
-      const offset = rotatePoint({ x: centerX, y: centerY }, this.rotation);
-      const local = ([x, y]) => [(x - centerX), (y - centerY)];
+      const center = measure(outline);
+      const offset = rotatePoint(center, this.rotation);
+      const local = ([x, y]) => [(x - center.x), (y - center.y)];
       // Rebase around the child's own centroid without moving any world point
       const child = new Asteroid({
         // The centroid carries the tangential speed it had while the parent
@@ -164,8 +157,8 @@ export class Asteroid extends Sprite.class {
         const outline = section.outline.map(local);
 
         section.contents && section.contents.forEach(({ buried }) => {
-          buried.x -= centerX;
-          buried.y -= centerY;
+          buried.x -= center.x;
+          buried.y -= center.y;
         });
 
         return Object.assign(section, {
@@ -233,22 +226,18 @@ export class Asteroid extends Sprite.class {
   }
 
   /**
-   * Distribute an item through the rock, then snap it to the nearest free leaf.
+   * Distribute an item through the rock, then snap it to the nearest leaf.
    * A buried item rides with that leaf until a horn cuts it loose.
    *
   * @param {Item} item
   */
   bury(item) {
     distribute([item], { density: 2, width: this.radius }, [...(this.contents || [])]);
-    const available = this.sections.filter((section) => !section.contents);
-    const spaces = (available[0] ? available : this.sections).map(placeIn);
-    const place = spaces.sort((a, b) =>
-      Math.hypot(a.x - item.x, a.y - item.y) - Math.hypot(b.x - item.x, b.y - item.y))[0];
+    const { section, x, y } = this.sections
+      .map((section) => ({ section, ...measure(section.outline) }))
+      .sort((a, b) => item.position.distance(a) - item.position.distance(b))[0];
 
-    const { section, x, y } = place;
-
-    item.buried = { rotation: Math.random() * Math.PI * 2, x, y };
-    Object.assign(item, item.buried);
+    Object.assign(item, item.buried = { rotation: Math.random() * Math.PI * 2, x, y });
     (section.contents ||= []).push(item);
     (this.contents ||= []).push(item);
   }
