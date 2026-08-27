@@ -77,6 +77,7 @@ export class Asteroid extends Sprite.class {
   constructor(props) {
     super(props);
 
+    this.contents ||= [];
     this.bounciness = asteroidBounciness;
     this.stroke = colors.white[2];
     // Drifts like everything else does, just with next to no drag of its own
@@ -114,6 +115,7 @@ export class Asteroid extends Sprite.class {
       const health = this.health / triangles.length / 4;
 
       this.sections = triangles.flatMap((triangle) => splitTriangle(triangle).map((outline) => ({
+        contents: [],
         health,
         maxHealth: health,
         mass: this.mass / triangles.length / 4,
@@ -122,17 +124,18 @@ export class Asteroid extends Sprite.class {
         asteroid: this,
       })));
       groupsOf(this.sections);
-    } else if (!triangles[1]) {
+    } else if (!triangles[1] && !this.contents.length) {
       this.life = 9 + Math.random();
     }
   }
 
   split(groups) {
-    if (!groups) return [[], this.contents || []];
+    if (!groups) return [[], this.contents];
 
     const children = groups.map((sections) => {
       const triangles = sections.map(({ outline }) => outline);
       const mass = sections.reduce((sum, section) => sum + section.mass, 0);
+      const contents = sections.flatMap(({ contents }) => contents);
 
       outerEdges(triangles);
       const outline = outlineFrom(triangles);
@@ -145,6 +148,7 @@ export class Asteroid extends Sprite.class {
         // rotated, so neither position nor motion jumps at the split
         dx: this.velocity.x - offset.y * this.spin,
         dy: this.velocity.y + offset.x * this.spin,
+        contents,
         mass,
         outline: outline.map(local),
         rotation: this.rotation,
@@ -156,7 +160,7 @@ export class Asteroid extends Sprite.class {
       const childSections = sections.map((section) => {
         const outline = section.outline.map(local);
 
-        section.contents && section.contents.forEach(({ buried }) => {
+        section.contents.forEach(({ buried }) => {
           buried.x -= center.x;
           buried.y -= center.y;
         });
@@ -169,9 +173,7 @@ export class Asteroid extends Sprite.class {
         });
       });
 
-      child.contents = childSections.flatMap(({ contents }) => contents || []);
-
-      // A multi-leaf piece remains mineable; one loose leaf is short-lived debris.
+      // A multi-leaf piece remains mineable; one empty loose leaf is short-lived debris.
       if (sections.length > 1) {
         child.sections = childSections;
         groupsOf(child.sections);
@@ -190,9 +192,9 @@ export class Asteroid extends Sprite.class {
   }
 
   detach(section, destroyed) {
-    const loose = destroyed ? section.contents || [] : [];
+    const loose = destroyed ? section.contents : [];
 
-    if (destroyed) section.contents = 0;
+    if (destroyed) section.contents = [];
     this.sections.splice(this.sections.indexOf(section), 1);
 
     // What is left is rebuilt fresh through split rather than kept as this
@@ -232,14 +234,14 @@ export class Asteroid extends Sprite.class {
   * @param {Item} item
   */
   bury(item) {
-    distribute([item], { density: 2, width: this.radius }, [...(this.contents || [])]);
+    distribute([item], { density: 2, width: this.radius }, [...this.contents]);
     const { section, x, y } = this.sections
       .map((section) => ({ section, ...measure(section.outline) }))
       .sort((a, b) => item.position.distance(a) - item.position.distance(b))[0];
 
     Object.assign(item, item.buried = { rotation: Math.random() * Math.PI * 2, x, y });
-    (section.contents ||= []).push(item);
-    (this.contents ||= []).push(item);
+    section.contents.push(item);
+    this.contents.push(item);
   }
 
   /**
@@ -247,7 +249,7 @@ export class Asteroid extends Sprite.class {
    */
   update(dt, items) {
     if (this.life && (this.life -= dt) <= 0) this.dead = true;
-    this.contents?.forEach((item) => {
+    this.contents.forEach((item) => {
       const { buried } = item;
 
       Object.assign(item, buried);

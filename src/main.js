@@ -102,8 +102,8 @@ corral.paint(dockingBay, colors.green);
 const makeAsteroid = (props) => new Asteroid({
   dx: Math.random() * 2 - 1,
   dy: Math.random() * 2 - 1,
-  radius: 40 + Math.random() * 100,
-  spin: Math.random() * 0.5 - 0.25,
+  radius: 50 + Math.random() * 100,
+  spin: (Math.round(Math.random()) - 0.5) * (1 + Math.random()) / 20,
   ...props,
 });
 
@@ -233,29 +233,31 @@ if (benchmark) {
     cargoRock.bury(oversized);
 
     if (!cargoRock.contents.includes(oversized) ||
-      !cargoRock.sections.some((section) => section.contents?.includes(oversized))) {
+      !cargoRock.sections.some((section) => section.contents.includes(oversized))) {
       throw Error('cargo snap');
     }
 
     const [cargoParts, early] = cargoRock.detach(
-      cargoRock.sections.find((section) => !section.contents),
+      cargoRock.sections.find((section) => !section.contents.length),
     );
     const cargoPart = cargoParts.find((part) =>
-      part.sections?.some((section) => section.contents?.includes(cargoItem)));
+      part.sections?.some((section) => section.contents.includes(cargoItem)));
 
     if (early.length || !cargoPart) throw Error('cargo early');
     const [cargoDebris, released] = cargoPart.detach(
-      cargoPart.sections.find((section) => section.contents?.includes(cargoItem)),
+      cargoPart.sections.find((section) => section.contents.includes(cargoItem)),
     );
 
-    const debris = cargoDebris.find((part) => part.contents?.includes(cargoItem));
+    const debris = cargoDebris.find((part) => part.contents.includes(cargoItem));
     const expired = [];
 
     debris.update(11, expired);
 
-    if (released.length || !debris.dead || expired[0] !== cargoItem) {
-      throw Error('cargo expiry');
-    }
+    if (released.length || debris.dead || expired.length) throw Error('cargo expiry');
+
+    const [spent, mined] = debris.split();
+
+    if (spent.length || mined[0] !== cargoItem) throw Error('cargo mining');
 
     const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
 
@@ -408,10 +410,14 @@ GameLoop({
     // its hull and roof sit over them, using the same z-index as ship modules
     for (let zIndex = -3; zIndex < 4; zIndex++) {
       if (zIndex === -2) {
-        scenery.forEach((object) => object.render());
+        scenery.forEach((object) => {
+          object.render();
+          // A loose leaf cannot be mined any smaller, so its cargo stays in view.
+          object.sections || object.contents.forEach((item) => item.render());
+        });
 
-        // Buried cargo shows only through the asteroid slice the floodlight is
-        // crossing, as if the lamp lets a pilot peer inside it
+        // Cargo still inside mineable asteroids shows only through the slice
+        // the floodlight is crossing, as if the lamp lets a pilot peer inside
         if (lights && lamp.anim > 0.5) {
           const beam = traceBeam(playerShip, lamp, scenery);
           const worldFrame = game.ctx.getTransform();
@@ -423,9 +429,8 @@ GameLoop({
           game.ctx.clip(insidePath(beam));
           game.ctx.setTransform(worldFrame);
 
-          scenery.forEach((asteroid) => {
-            if (asteroid.contents) asteroid.contents.forEach((item) => item.render());
-          });
+          scenery.forEach((asteroid) =>
+            asteroid.sections && asteroid.contents.forEach((item) => item.render()));
 
           game.ctx.restore();
         }
