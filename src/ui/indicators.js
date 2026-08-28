@@ -53,7 +53,7 @@ export const renderIndicators = (game, targets, color, range) => {
       scale: 1,
       alignCenter: true,
       color,
-      indicatorsize: 0.5,
+      size: 0.5,
       text: `${Math.round(dist)}m`,
       x: uiWidth / 2 + edge.x,
       y: uiHeight / 2 + edge.y - (indicatorsize + 10) * Math.sign(offset.y || -1),
