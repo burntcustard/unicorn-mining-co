@@ -65,7 +65,7 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
     rate: duration ? 1 / duration : instantRate,
-    shades: craftModule.paints?.get(mount) || craftModule.shades || craft.shades,
+    shades: craftModule.paints?.[craft.mounts.indexOf(mount)] || craftModule.shades || craft.shades,
     forwardThrust: (craftModule.forwardThrust || 0) / (craftModule.model?.length || 1),
     rotationalThrust: (craftModule.rotationalThrust || 0) / (craftModule.model?.length || 1),
     update: craftModule.update,
@@ -171,20 +171,6 @@ export class Craft extends Sprite {
     mount.module = 0;
     mount.health = 0;
     mount.segments = [];
-  }
-
-  paint(craftModule, shades, mount) {
-    if (mount) {
-      (craftModule.paints ||= new Map()).set(mount, shades);
-    } else {
-      craftModule.shades = shades;
-    }
-
-    this.segments.forEach((segment) => {
-      if (segment.module === craftModule && (!mount || segment.mount === mount)) {
-        segment.shades = shades;
-      }
-    });
   }
 
   hitboxes() {

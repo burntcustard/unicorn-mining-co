@@ -44,7 +44,7 @@ let paint = 0;
 let stage = 0;
 
 const actionsOf = (ship, mount, module) => {
-  const owned = player.modules.includes(module);
+  const owned = module.owned;
   const equipped = ship.slots.some(({ module: fitted }) => fitted === module);
 
   return [
@@ -111,24 +111,23 @@ export const confirmSelection = (ship) => {
   } else if (stage === 2) {
     const chosen = mount.fits[option];
     const picked = actionsOf(ship, mount, chosen)[action];
-    const modules = player.modules;
 
     if (picked === 'PAINT') {
-      const shades = chosen.paints?.get(mount) || chosen.shades || ship.shades;
+      const shades = chosen.paints?.[ship.mounts.indexOf(mount)] || chosen.shades || ship.shades;
 
       paint = Math.max(0, paints.indexOf(shades));
       stage = 3;
       return;
     } else if (picked === 'BUY') {
       if (spend(chosen.price)) {
-        modules.push(chosen);
+        chosen.owned = 1;
         if (mount.module) ship.unfit(mount);
         ship.fit(chosen, mount);
       }
     } else if (picked === 'SELL') {
       if (mount.module === chosen) ship.unfit(mount);
       earn(chosen.price);
-      modules.splice(modules.indexOf(chosen), 1);
+      chosen.owned--;
     } else if (picked === 'EQUIP') {
       if (mount.module) ship.unfit(mount);
       ship.fit(chosen, mount);
@@ -138,7 +137,15 @@ export const confirmSelection = (ship) => {
 
     stage = 1;
   } else {
-    ship.paint(mount.fits[option], paints[paint], mount);
+    const chosen = mount.fits[option];
+    const shades = paints[paint];
+
+    (chosen.paints ||= [])[ship.mounts.indexOf(mount)] = shades;
+
+    if (mount.module === chosen) {
+      mount.segments.forEach((segment) => segment.shades = shades);
+    }
+
     stage = 1;
   }
 };
@@ -163,17 +170,16 @@ export const renderDocked = (game, ship) => {
   const { ctx, uiScale, uiWidth, uiHeight } = game;
   const width = uiWidth * fill;
   const height = uiHeight * fill;
-  const panelLeft = uiWidth / 2 - width / 2;
-  const panelRight = uiWidth / 2 + width / 2;
+  const panelLeft = (uiWidth - width) / 2;
   const paintWidth = rowGap - rowPad;
   const colWidth = (width - listInset * 2 - colGap * 3 - paintWidth) / 3;
-  const top = uiHeight / 2 - height / 2 + listInset;
+  const top = (uiHeight - height) / 2 + listInset;
 
   // Left and right edges of the three text columns and narrow paint column
   const col0 = [panelLeft + listInset, panelLeft + listInset + colWidth];
   const col1 = [col0[1] + colGap, col0[1] + colGap + colWidth];
   const col2 = [col1[1] + colGap, col1[1] + colGap + colWidth];
-  const col3 = [col2[1] + colGap, panelRight - listInset];
+  const col3 = [col2[1] + colGap, col2[1] + colGap + paintWidth];
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
@@ -206,7 +212,7 @@ export const renderDocked = (game, ship) => {
 
       renderRow(ctx, ...col3, y, i === paint);
       ctx.fillStyle = shades[2];
-      ctx.fillRect(col3[0] + rowPad, y, paintWidth - rowPad * 2, paintWidth - rowPad * 2);
+      ctx.fillRect(col3[0] + rowPad, y, rowGap - rowPad * 3, rowGap - rowPad * 3);
     });
   }
 

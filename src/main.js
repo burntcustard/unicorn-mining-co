@@ -55,14 +55,13 @@ const playerShip = new Craft({
   y: game.height / 2,
 });
 
+horn.shades = colors.yellow;
+thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
 [thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight]
-  .forEach((module) => playerShip.fit(module));
-player.modules = playerShip.slots.map(({ module }) => module);
-
-playerShip.paint(horn, colors.yellow);
-playerShip.paint(thrusterDualMd, colors.violet);
-playerShip.paint(cargoScoop, colors.violet);
-playerShip.paint(shield, colors.violet);
+  .forEach((module) => {
+    playerShip.fit(module);
+    module.owned = (module.owned || 0) + 1;
+  });
 
 // Debug/demo examples of game objects
 // One hull of every colour, lined up to see how the light falls across them
@@ -93,8 +92,8 @@ const corral = new Craft({
   y: game.height / 2,
 });
 
+dockingBay.shades = colors.green;
 corral.fit(dockingBay);
-corral.paint(dockingBay, colors.green);
 
 // Off the left edge of where the game starts, running a long way upwards
 // const northRoad = new Road({
@@ -467,7 +466,6 @@ GameLoop({
     if (lights) renderBlasts(game);
 
     game.ctx.restore();
-
 
     // This is debug UI
     if (showDeadzone) renderDeadzone(game);
