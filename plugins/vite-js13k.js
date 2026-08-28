@@ -7,6 +7,16 @@ import { minify } from 'html-minifier-terser';
 
 const roadrollerSeed = 13312;
 
+// Kontra-style compile-time flags. Whatever sits between "// @ifdef NAME" and
+// "// @endif" is kept only when that flag is truthy, and removed entirely
+// otherwise - so debug and benchmark-only code never reaches dist.
+const ifdefPattern = /^[ \t]*\/\/ @ifdef (\w+)\r?\n([\s\S]*?)^[ \t]*\/\/ @endif\r?\n?/gm;
+
+const stripIfdef = (src, flags) => src.replace(
+  ifdefPattern,
+  (match, flag, body) => (flags[flag] ? body : ''),
+);
+
 const customReplacement = (src) => src
   // Give this repeated Kontra property a more compression-friendly spelling (~6B).
   .replace(/acceleration/g, '_acceleration')
@@ -23,14 +33,14 @@ const customReplacement = (src) => src
   // Let Terser combine declarations without preserving const semantics (~19B).
   .replaceAll('const ', 'let ');
 
-export function viteJs13kPre() {
+export function viteJs13kPre(flags = {}) {
   return {
     name: 'vite-js13k-pre',
     enforce: 'pre',
     transform(src, id) {
       if (/\.js$/.test(id)) {
         return {
-          code: customReplacement(src),
+          code: customReplacement(stripIfdef(src, flags)),
           map: null,
         };
       }

@@ -1,16 +1,16 @@
+import { benchmarkFlag } from './benchmark';
 import { circlePath } from './drawing';
 import { colors } from './colors';
 import { game } from './game';
 
-// Benchmark-only switches are compiled away from every normal build.
-const benchmark = import.meta.env.MODE === 'benchmark' && new URLSearchParams(location.search);
-
 // Profiling switches kept separate from module state, so lamps and engines
 // carry on running while either kind of light is hidden.
+// @ifdef DEBUG
 export let glows = true;
 export let lights = true;
 export const toggleGlows = () => glows = !glows;
 export const toggleLights = () => lights = !lights;
+// @endif
 
 // Where the light in this part of space comes from, in radians
 export const lightAngle = -Math.PI / 4;
@@ -134,9 +134,11 @@ export const shapeOf = (points, mount) => {
  * @param {Function} shade - Turns a place on the ramp into a colour.
  */
 export const litFill = (ctx, shape, light, shade) => {
-  if (benchmark && (benchmark.has('noLighting') || benchmark.has('noGradients'))) {
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noGradients')) {
     return shade(0.5);
   }
+  // @endif
 
   const [middleX, middleY] = shape.middle;
   const towardsX = Math.cos(light) * shape.reach;
@@ -184,13 +186,22 @@ const haloFill = (ctx, color) => (halos[color] ||= haloOf(ctx, color));
  * @param {Number[][]} [cache]
  */
 export const drawGlow = (ctx, path, color, strength, cache) => {
-  if (!glows || (benchmark && (benchmark.has('noLighting') || benchmark.has('noGlows')))) return;
+  // @ifdef DEBUG
+  if (!glows) return;
+  // @endif
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noGlows')) return;
+  // @endif
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = strength;
 
-  if (cache && !(benchmark && benchmark.has('noBlur'))) {
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noBlur')) cache = null;
+  // @endif
+
+  if (cache) {
     const { scale } = game;
 
     if (!cache.image || cache.scale !== scale) {
@@ -213,10 +224,14 @@ export const drawGlow = (ctx, path, color, strength, cache) => {
 
     ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
   } else {
-    if (!(benchmark && benchmark.has('noBlur'))) {
+    // @ifdef BENCHMARK
+    if (!benchmarkFlag('noBlur')) {
+    // @endif
       ctx.shadowBlur = glowBlur;
       ctx.shadowColor = color;
+    // @ifdef BENCHMARK
     }
+    // @endif
 
     ctx.fillStyle = color;
     ctx.fill(path);
@@ -238,7 +253,12 @@ export const drawGlow = (ctx, path, color, strength, cache) => {
  * @param {Path2D} lit - How far the light got before it ran into anything.
  */
 export const drawBeam = (ctx, path, color, reach, level, lit) => {
-  if (!lights || (benchmark && (benchmark.has('noLighting') || benchmark.has('noBeam')))) return;
+  // @ifdef DEBUG
+  if (!lights) return;
+  // @endif
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noBeam')) return;
+  // @endif
 
   const gradient = ctx.createLinearGradient(0, 0, reach, 0);
 
@@ -255,10 +275,14 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
   // Cast off the beam rather than laid down under it, so it gives out along
   // with the light. A glow of its own has no idea how far down the beam it is
   // and ends in a hard edge wherever the light happens to stop
-  if (!(benchmark && benchmark.has('noBlur'))) {
+  // @ifdef BENCHMARK
+  if (!benchmarkFlag('noBlur')) {
+  // @endif
     ctx.shadowBlur = glowBlur;
     ctx.shadowColor = color;
+  // @ifdef BENCHMARK
   }
+  // @endif
 
   ctx.fillStyle = gradient;
   ctx.fill(path);
@@ -273,7 +297,12 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
  * @param {Object} nozzle
  */
 export const drawHalo = (ctx, nozzle) => {
-  if (!glows || (benchmark && (benchmark.has('noLighting') || benchmark.has('noHalos')))) return;
+  // @ifdef DEBUG
+  if (!glows) return;
+  // @endif
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
+  // @endif
 
   // The same figure that sizes the flare, so the two grow and die together
   const level = nozzle.anim * Math.sqrt(nozzle.power);

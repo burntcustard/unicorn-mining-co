@@ -162,7 +162,7 @@ export const hit = (a, b) => {
       const overlap = overlapOf(a, b, between, gapX, gapY,
         aPart.outline && placePoints(a, aPart.outline), bPart.outline && placePoints(b, bPart.outline));
 
-      if (overlap?.depth < Infinity && (!narrowest || overlap.depth > narrowest.depth)) {
+      if (overlap && overlap.depth < Infinity && (!narrowest || overlap.depth > narrowest.depth)) {
         Object.assign(overlap, { aPart: a.parts && aPart, bPart: b.parts && bPart });
         narrowest = overlap;
       }

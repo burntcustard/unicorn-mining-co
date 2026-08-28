@@ -46,18 +46,16 @@ const starColor = (tints) => (Math.random() < tinted ?
   tints[Math.floor(Math.random() * tints.length)] :
   colors.white[2]);
 
-// What the sky can be built out of. A part is left out of the tile altogether
-// rather than skipped while drawing, so what a mode costs is what is in the
-// sky rather than how many blits it takes to put it there
-const modes = [
-  { label: 'ALL', parts: ['clouds', 'dots', 'sparkles'] },
-  { label: 'FOG', parts: ['clouds'] },
-  { label: 'DOTS', parts: ['dots'] },
-  { label: 'SPARKLES', parts: ['sparkles'] },
-  { label: 'OFF', parts: [] },
-];
+// Every layer, drawn in full. Debug builds can swap this out for a cut-down
+// mode to see what each part of the sky costs
+const fullParts = ['clouds', 'dots', 'sparkles'];
 
-let mode = 0;
+// Which parts of the sky are being drawn, and a label for them, so that what
+// each one costs can be read off the frame rate one at a time
+export const sky = {
+  label: 'ALL',
+  parts: fullParts,
+};
 
 /**
  * Draw something nine times over, so that whatever lands near an edge of the
@@ -154,7 +152,7 @@ let tiles;
 // replayed on every blit, which makes a tile cost whatever it took to draw
 // rather than what it looks like. A bitmap is pixels and nothing else
 const build = () => {
-  const built = tilesOf(modes[mode].parts);
+  const built = tilesOf(sky.parts);
 
   tiles = built;
   built.forEach((canvas, i) => createImageBitmap(canvas).then((bitmap) => {
@@ -162,16 +160,29 @@ const build = () => {
   }));
 };
 
-// Which parts of the sky are being drawn, and a way to step through them, so
-// that what each one costs can be read off the frame rate one at a time
-export const sky = {
-  cycle: () => {
-    mode = (mode + 1) % modes.length;
-    build();
-    sky.label = modes[mode].label;
-  },
-  label: modes[mode].label,
+// @ifdef DEBUG
+// What the sky can be built out of. A part is left out of the tile altogether
+// rather than skipped while drawing, so what a mode costs is what is in the
+// sky rather than how many blits it takes to put it there
+const modes = [
+  { label: 'ALL', parts: fullParts },
+  { label: 'FOG', parts: ['clouds'] },
+  { label: 'DOTS', parts: ['dots'] },
+  { label: 'SPARKLES', parts: ['sparkles'] },
+  { label: 'OFF', parts: [] },
+];
+
+let mode = 0;
+
+// Steps through the modes above, so that what each one costs can be read off
+// the frame rate one at a time
+sky.cycle = () => {
+  mode = (mode + 1) % modes.length;
+  sky.label = modes[mode].label;
+  sky.parts = modes[mode].parts;
+  build();
 };
+// @endif
 
 /**
  * Stamped out rather than filled as a repeating pattern: a pattern under a
@@ -187,7 +198,9 @@ export const renderBackground = (game) => {
     build();
   }
 
-  if (!modes[mode].parts.length) return;
+  // @ifdef DEBUG
+  if (!sky.parts.length) return;
+  // @endif
 
   layers.forEach(({ depth }, i) => {
     // Shifting the sky rather than the camera is what makes a layer lag behind

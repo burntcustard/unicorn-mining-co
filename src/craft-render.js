@@ -3,7 +3,6 @@ import {
   drawGlow,
   drawHalo,
   lightAngle,
-  lights,
   litFill,
   shadingStep,
   tint,
@@ -11,6 +10,11 @@ import {
 import { drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, objectLineWidth } from './drawing';
 import { colors } from './colors';
+
+// @ifdef DEBUG
+// eslint-disable-next-line no-duplicate-imports -- lights only exists in DEBUG builds
+import { lights } from './lighting';
+// @endif
 
 const glowStrength = 0.15;
 
@@ -48,9 +52,15 @@ export const renderCraft = (craft, scenery, zIndex) => {
     ctx.setLineDash([]);
   }
 
-  if (lights && craft.hullGradient && Math.abs(craft.rotation - craft.litAt) >= shadingStep) {
-    relightCraft(craft);
+  // @ifdef DEBUG
+  if (lights) {
+  // @endif
+    if (craft.hullGradient && Math.abs(craft.rotation - craft.litAt) >= shadingStep) {
+      relightCraft(craft);
+    }
+  // @ifdef DEBUG
   }
+  // @endif
 
   const light = lightAngle - craft.rotation;
 
@@ -71,14 +81,17 @@ export const renderCraft = (craft, scenery, zIndex) => {
     let lit;
 
     if (segment.middle) {
+      // @ifdef DEBUG
       if (!lights) {
         lit = tint(segment.shades, worn, 0.5);
-      } else if (craft.hullGradient) {
-        lit = segment.hull && segment.lit;
-      } else {
-        lit = litFill(ctx, segment, light,
-          (along) => tint(segment.shades, worn, along));
-      }
+      } else
+      // @endif
+        if (craft.hullGradient) {
+          lit = segment.hull && segment.lit;
+        } else {
+          lit = litFill(ctx, segment, light,
+            (along) => tint(segment.shades, worn, along));
+        }
     }
 
     ctx.fillStyle = segment.fillAlpha ?
@@ -90,12 +103,16 @@ export const renderCraft = (craft, scenery, zIndex) => {
 
     if (path) {
       if (segment.module.beam) {
+        // @ifdef DEBUG
         if (lights) {
+        // @endif
           const beam = traceBeam(craft, segment, scenery || []);
 
           drawBeam(ctx, path, segment.shades[2], segment.module.reach, segment.anim, litPath(beam));
           drawSpectrum(ctx, segment, beam);
+        // @ifdef DEBUG
         }
+        // @endif
       } else {
         ctx.fill(path);
         ctx.stroke(segment.outline ? linesPath(segment.outline) : path);

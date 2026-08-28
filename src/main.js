@@ -11,7 +11,6 @@ import {
   // opal
 } from './items';
 import { dock, flyOut } from './docking';
-import { glows, lights, toggleGlows, toggleLights } from './lighting';
 import { grind, mine } from './mining';
 import { insidePath, traceBeam } from './prism';
 import { player, updatePlayer } from './player';
@@ -21,6 +20,7 @@ import { Asteroid } from './asteroid';
 import { Craft } from './craft';
 import { GameLoop } from './game-loop';
 // import { Road } from './road';
+import { benchmarkFlag } from './benchmark';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { contacts } from './collisions';
@@ -40,9 +40,10 @@ import { setSizing } from './set-sizing';
 import { shipTypes } from './ships';
 import { stationTypes } from './stations';
 import { textDemo } from './text-demo';
-
-// Benchmark-only switches are compiled away from every normal build.
-const benchmark = import.meta.env.MODE === 'benchmark' && new URLSearchParams(location.search);
+// @ifdef DEBUG
+// eslint-disable-next-line sort-imports -- these only exist in DEBUG builds
+import { glows, lights, toggleGlows, toggleLights } from './lighting';
+// @endif
 
 setSizing(game);
 
@@ -63,7 +64,7 @@ thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
     module.owned = (module.owned || 0) + 1;
   });
 
-// Debug/demo examples of game objects
+// @ifdef DEBUG
 // One hull of every colour, lined up to see how the light falls across them
 const swatches = [
   colors.black,
@@ -81,7 +82,7 @@ const swatches = [
   x: 120 + i * 120,
   y: game.height - 100,
 }));
-// End of debug/demo examples of game objects
+// @endif
 
 const corral = new Craft({
   craftData: stationTypes.corral,
@@ -138,7 +139,9 @@ const asteroidField = distribute(fieldAsteroids, {
   y: -2000,
 });
 
-if (benchmark && benchmark.has('field')) Object.assign(playerShip, { x: 4500, y: -2000 });
+// @ifdef BENCHMARK
+if (benchmarkFlag('field')) Object.assign(playerShip, { x: 4500, y: -2000 });
+// @endif
 
 // Plain shapes sat still in a row in front of the ship, so that what the
 // floodlight does to them can be checked against something predictable
@@ -164,7 +167,13 @@ if (benchmark && benchmark.has('field')) Object.assign(playerShip, { x: 4500, y:
 // blocks[4].bury(new Item({ itemData: opal }));
 // asteroids[0].bury(new Item({ itemData: gold }));
 
-const crafts = [playerShip, ...swatches, corral];
+const crafts = [
+  playerShip,
+  // @ifdef DEBUG
+  ...swatches,
+  // @endif
+  corral,
+];
 // const roads = [northRoad];
 const scenery = [
   ...asteroids,
@@ -172,139 +181,139 @@ const scenery = [
   // ...blocks
 ];
 
-if (benchmark) {
-  window['testSections'] = () => {
-    const five = scenery.find((asteroid) =>
-      asteroid.outline.length === 5 && asteroid.health < 240);
-    const triangle = new Asteroid({ points: 3, radius: 90 });
+// @ifdef BENCHMARK
+window['testSections'] = () => {
+  const five = scenery.find((asteroid) =>
+    asteroid.outline.length === 5 && asteroid.health < 240);
+  const triangle = new Asteroid({ points: 3, radius: 90 });
 
-    if (triangle.sections.length !== 4 ||
-      five.sections.length !== five.outline.length * 4 ||
-      five.hitboxes().length !== 1 ||
-      five.sections.some((section) => section.asteroid !== five)) {
-      throw Error('five');
-    }
+  if (triangle.sections.length !== 4 ||
+    five.sections.length !== five.outline.length * 4 ||
+    five.hitboxes().length !== 1 ||
+    five.sections.some((section) => section.asteroid !== five)) {
+    throw Error('five');
+  }
 
-    const asteroid = scenery.find((object) => object.outline.length === 7);
-    const leaf = asteroid.sections[0];
-    const count = asteroid.sections.length;
-    const velocity = asteroid.velocity;
+  const asteroid = scenery.find((object) => object.outline.length === 7);
+  const leaf = asteroid.sections[0];
+  const count = asteroid.sections.length;
+  const velocity = asteroid.velocity;
 
-    asteroid.spin = 0;
-    leaf.health /= 2;
-    const [children] = asteroid.detach(leaf);
-    const [piece, remainder] = children;
+  asteroid.spin = 0;
+  leaf.health /= 2;
+  const [children] = asteroid.detach(leaf);
+  const [piece, remainder] = children;
 
-    scenery.splice(scenery.indexOf(asteroid), 1, ...children);
+  scenery.splice(scenery.indexOf(asteroid), 1, ...children);
 
-    if (children.length !== 2 || asteroid.sections.length || remainder.sections.includes(leaf)) {
-      throw Error('detach');
-    }
+  if (children.length !== 2 || asteroid.sections.length || remainder.sections.includes(leaf)) {
+    throw Error('detach');
+  }
 
-    if (remainder.sections.length !== count - 1 || !piece.life) {
-      throw Error('leaf');
-    }
+  if (remainder.sections.length !== count - 1 || !piece.life) {
+    throw Error('leaf');
+  }
 
-    const pieceSpeed = piece.velocity.subtract(velocity).length();
-    const remainderSpeed = remainder.velocity.subtract(velocity).length();
+  const pieceSpeed = piece.velocity.subtract(velocity).length();
+  const remainderSpeed = remainder.velocity.subtract(velocity).length();
 
-    if (pieceSpeed <= remainderSpeed ||
-      Math.abs(pieceSpeed * piece.mass - remainderSpeed * remainder.mass) > 1e-9) {
-      throw Error('leaf force');
-    }
+  if (pieceSpeed <= remainderSpeed ||
+    Math.abs(pieceSpeed * piece.mass - remainderSpeed * remainder.mass) > 1e-9) {
+    throw Error('leaf force');
+  }
 
-    Object.assign(remainder, { x: playerShip.x, y: playerShip.y });
-    const beam = traceBeam(playerShip, lamp, [remainder]);
+  Object.assign(remainder, { x: playerShip.x, y: playerShip.y });
+  const beam = traceBeam(playerShip, lamp, [remainder]);
 
-    if (beam.outlines.length !== remainder.sections.length ||
-      beam.outlines.some((outline) => !outline.edges)) throw Error('light');
-    const cargoRock = new Asteroid({ points: 5, radius: 90 });
-    const cargoItem = new Item({ itemData: diamond });
-    const otherCargo = new Item({ itemData: gold });
+  if (beam.outlines.length !== remainder.sections.length ||
+    beam.outlines.some((outline) => !outline.edges)) throw Error('light');
+  const cargoRock = new Asteroid({ points: 5, radius: 90 });
+  const cargoItem = new Item({ itemData: diamond });
+  const otherCargo = new Item({ itemData: gold });
 
-    cargoRock.bury(cargoItem);
-    cargoRock.bury(otherCargo);
+  cargoRock.bury(cargoItem);
+  cargoRock.bury(otherCargo);
 
-    if (cargoRock.contents.length !== 2 ||
-      Math.hypot(cargoItem.buried.x - otherCargo.buried.x,
-        cargoItem.buried.y - otherCargo.buried.y) < cargoRock.radius / 3) {
-      throw Error('cargo placement');
-    }
+  if (cargoRock.contents.length !== 2 ||
+    Math.hypot(cargoItem.buried.x - otherCargo.buried.x,
+      cargoItem.buried.y - otherCargo.buried.y) < cargoRock.radius / 3) {
+    throw Error('cargo placement');
+  }
 
-    const oversized = new Item({ itemData: gold });
+  const oversized = new Item({ itemData: gold });
 
-    oversized.radius = cargoRock.radius;
-    cargoRock.bury(oversized);
+  oversized.radius = cargoRock.radius;
+  cargoRock.bury(oversized);
 
-    if (!cargoRock.contents.includes(oversized) ||
-      !cargoRock.sections.some((section) => section.contents.includes(oversized))) {
-      throw Error('cargo snap');
-    }
+  if (!cargoRock.contents.includes(oversized) ||
+    !cargoRock.sections.some((section) => section.contents.includes(oversized))) {
+    throw Error('cargo snap');
+  }
 
-    const [cargoParts, early] = cargoRock.detach(
-      cargoRock.sections.find((section) => !section.contents.length),
-    );
-    const cargoPart = cargoParts.find((part) =>
-      part.sections?.some((section) => section.contents.includes(cargoItem)));
+  const [cargoParts, early] = cargoRock.detach(
+    cargoRock.sections.find((section) => !section.contents.length),
+  );
+  const cargoPart = cargoParts.find((part) =>
+    part.sections?.some((section) => section.contents.includes(cargoItem)));
 
-    if (early.length || !cargoPart) throw Error('cargo early');
-    const [cargoDebris, released] = cargoPart.detach(
-      cargoPart.sections.find((section) => section.contents.includes(cargoItem)),
-    );
+  if (early.length || !cargoPart) throw Error('cargo early');
+  const [cargoDebris, released] = cargoPart.detach(
+    cargoPart.sections.find((section) => section.contents.includes(cargoItem)),
+  );
 
-    const debris = cargoDebris.find((part) => part.contents.includes(cargoItem));
-    const expired = [];
+  const debris = cargoDebris.find((part) => part.contents.includes(cargoItem));
+  const expired = [];
 
-    debris.update(11, expired);
+  debris.update(11, expired);
 
-    if (released.length || debris.dead || expired.length) throw Error('cargo expiry');
+  if (released.length || debris.dead || expired.length) throw Error('cargo expiry');
 
-    const [spent, mined] = debris.split();
+  const [spent, mined] = debris.split();
 
-    if (spent.length || mined[0] !== cargoItem) throw Error('cargo mining');
+  if (spent.length || mined[0] !== cargoItem) throw Error('cargo mining');
 
-    const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
+  const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
 
-    splitShip.segments[1].health = 0;
-    const fragments = splitShip.fracture([]);
+  splitShip.segments[1].health = 0;
+  const fragments = splitShip.fracture([]);
 
-    if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
-      !splitShip.cockpit.hull.health || !splitShip.velocity.length() ||
-      !fragments[0].velocity.length() || fragments[0].position.distance(splitShip.position) < 1 ||
-      Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
-    const fragmentSpin = fragments[0].spin;
+  if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
+    !splitShip.cockpit.hull.health || !splitShip.velocity.length() ||
+    !fragments[0].velocity.length() || fragments[0].position.distance(splitShip.position) < 1 ||
+    Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
+  const fragmentSpin = fragments[0].spin;
 
-    fragments[0].update(0.1);
-    if (fragments[0].spin !== fragmentSpin) throw Error('fragment spin');
-    splitShip.spin = 1;
-    splitShip.update(0.1);
-    if (splitShip.spin !== 1) throw Error('ship spin');
-    fragments[0].update(11);
-    if (!fragments[0].dead) throw Error('fragment life');
-    const wreck = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
-    const cargo = new Item({ itemData: diamond });
-    const loose = [];
+  fragments[0].update(0.1);
+  if (fragments[0].spin !== fragmentSpin) throw Error('fragment spin');
+  splitShip.spin = 1;
+  splitShip.update(0.1);
+  if (splitShip.spin !== 1) throw Error('ship spin');
+  fragments[0].update(11);
+  if (!fragments[0].dead) throw Error('fragment life');
+  const wreck = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
+  const cargo = new Item({ itemData: diamond });
+  const loose = [];
 
-    wreck.cargo.push(cargo);
-    wreck.cockpit.hull.health = 0;
-    const wreckage = wreck.fracture(loose);
+  wreck.cargo.push(cargo);
+  wreck.cockpit.hull.health = 0;
+  const wreckage = wreck.fracture(loose);
 
-    if (!wreck.dead || loose[0] !== cargo || cargo.velocity.x !== wreck.velocity.x) {
-      throw Error('wreck');
-    }
+  if (!wreck.dead || loose[0] !== cargo || cargo.velocity.x !== wreck.velocity.x) {
+    throw Error('wreck');
+  }
 
-    if (wreckage.length !== 7 || wreckage.some((part) => part.dead || part.velocity.length() < 29)) {
-      throw Error('wreck drift');
-    }
+  if (wreckage.length !== 7 || wreckage.some((part) => part.dead || part.velocity.length() < 29)) {
+    throw Error('wreck drift');
+  }
 
-    return {
-      children: children.length,
-      leafHealth: leaf.maxHealth,
-      fragments: fragments.length,
-      sections: asteroid.sections.length,
-    };
+  return {
+    children: children.length,
+    leafHealth: leaf.maxHealth,
+    fragments: fragments.length,
+    sections: asteroid.sections.length,
   };
-}
+};
+// @endif
 
 // One of everything, in a row below the ship to fly into and scoop up. These
 // will come out of mined asteroids rather than being placed
@@ -317,19 +326,27 @@ const items = itemTypes.map((itemData, i) => new Item({
 
 // Everything that can catch hold of a ship and carry it along
 const movers = [...crafts];
-let physicsOn = 1;
 
-// Debug toggles
+// @ifdef DEBUG
+let physicsOn = 1;
 let showDeadzone = false;
 let showMass = false;
 let showTextDemo = false;
 let showColorsDemo = false;
-// End of debug toggles
+// @endif
 
 const collide = (objects, targets) => {
-  const found = benchmark && benchmark.has('noCollisions') ?
-      [] :
-      contacts(objects, targets);
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noCollisions')) {
+    scoop(items, []);
+    mine([]);
+    if (targets) dock([]);
+    resolve([]);
+    return;
+  }
+  // @endif
+
+  const found = contacts(objects, targets);
 
   scoop(items, found);
   mine(found);
@@ -340,7 +357,12 @@ const collide = (objects, targets) => {
 // Move every physical body and find what it has run into, without any one
 // object type owning world collisions
 const physics = (dt) => {
-  if (!physicsOn || (benchmark && benchmark.has('noPhysics'))) return;
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noPhysics')) return;
+  // @endif
+  // @ifdef DEBUG
+  if (!physicsOn) return;
+  // @endif
 
   const otherCrafts = crafts.slice(1);
   const bodies = [...scenery, ...items, ...otherCrafts];
@@ -348,13 +370,17 @@ const physics = (dt) => {
     object.position.distance(playerShip.position) < game.width);
   const step = dt / 4;
 
-  if (!(benchmark && benchmark.has('noMovement'))) {
+  // @ifdef BENCHMARK
+  if (!benchmarkFlag('noMovement')) {
+  // @endif
     bodies.forEach((body) => {
       body.rotation += (body.spin || 0) * dt;
       move(body, dt);
       localMovement(body, movers, dt);
     });
+  // @ifdef BENCHMARK
   }
+  // @endif
 
   const world = [
     ...nearby.flatMap((asteroid) => asteroid.hitboxes()),
@@ -363,11 +389,15 @@ const physics = (dt) => {
   ];
 
   for (let steps = 4; steps--;) {
-    if (!(benchmark && benchmark.has('noMovement'))) {
+    // @ifdef BENCHMARK
+    if (!benchmarkFlag('noMovement')) {
+    // @endif
       playerShip.rotation += playerShip.spin * step;
       move(playerShip, step);
       localMovement(playerShip, movers, step);
+    // @ifdef BENCHMARK
     }
+    // @endif
 
     const hitboxes = playerShip.hitboxes();
 
@@ -383,7 +413,7 @@ const lamp = playerShip.segments.find((segment) => segment.module === floodlight
 
 initKeys();
 
-// Debug key bindings
+// @ifdef DEBUG
 bindKeys(['2'], () => showColorsDemo = !showColorsDemo);
 bindKeys(['3'], () => showTextDemo = !showTextDemo);
 bindKeys(['4'], () => showDeadzone = !showDeadzone);
@@ -392,7 +422,7 @@ bindKeys(['6'], sky.cycle);
 bindKeys(['7'], toggleLights);
 bindKeys(['8'], toggleGlows);
 bindKeys(['9'], () => physicsOn = !physicsOn);
-// End of debug key bindings
+// @endif
 
 // Only the player's ship is flown off the keyboard. AI pilots work their own
 // modules through the same methods. Each switchable module names the key that
@@ -418,7 +448,13 @@ centerCamera(game, playerShip);
 GameLoop({
   render: () => {
     // The sky slides past at its own pace, so it moves itself
-    if (!(benchmark && benchmark.has('noBackground'))) renderBackground(game);
+    // @ifdef BENCHMARK
+    if (!benchmarkFlag('noBackground')) {
+    // @endif
+      renderBackground(game);
+    // @ifdef BENCHMARK
+    }
+    // @endif
 
     game.ctx.save();
     game.ctx.scale(game.scale, game.scale);
@@ -437,22 +473,28 @@ GameLoop({
 
         // Cargo still inside mineable asteroids shows only through the slice
         // the floodlight is crossing, as if the lamp lets a pilot peer inside
-        if (lights && lamp.anim > 0.5) {
-          const beam = traceBeam(playerShip, lamp, scenery);
-          const worldFrame = game.ctx.getTransform();
+        // @ifdef DEBUG
+        if (lights) {
+        // @endif
+          if (lamp.anim > 0.5) {
+            const beam = traceBeam(playerShip, lamp, scenery);
+            const worldFrame = game.ctx.getTransform();
 
-          game.ctx.save();
-          game.ctx.translate(playerShip.x, playerShip.y);
-          game.ctx.rotate(playerShip.rotation);
-          game.ctx.translate(lamp.x, lamp.y);
-          game.ctx.clip(insidePath(beam));
-          game.ctx.setTransform(worldFrame);
+            game.ctx.save();
+            game.ctx.translate(playerShip.x, playerShip.y);
+            game.ctx.rotate(playerShip.rotation);
+            game.ctx.translate(lamp.x, lamp.y);
+            game.ctx.clip(insidePath(beam));
+            game.ctx.setTransform(worldFrame);
 
-          scenery.forEach((asteroid) =>
-            asteroid.sections && asteroid.contents.forEach((item) => item.render()));
+            scenery.forEach((asteroid) =>
+              asteroid.sections && asteroid.contents.forEach((item) => item.render()));
 
-          game.ctx.restore();
+            game.ctx.restore();
+          }
+        // @ifdef DEBUG
         }
+        // @endif
 
         items.forEach((item) => item.render());
       }
@@ -462,12 +504,19 @@ GameLoop({
 
     // Sparks off the horn sit over the asteroids and ships they come off
     renderSparks(game);
+
     // Light rather than paint, so it goes over everything it lights up
-    if (lights) renderBlasts(game);
+    // @ifdef DEBUG
+    if (lights) {
+    // @endif
+      renderBlasts(game);
+    // @ifdef DEBUG
+    }
+    // @endif
 
     game.ctx.restore();
 
-    // This is debug UI
+    // @ifdef DEBUG
     if (showDeadzone) renderDeadzone(game);
     renderFps(game);
     renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 90 });
@@ -490,7 +539,7 @@ GameLoop({
       });
       game.ctx.restore();
     }
-    // End of debug UI
+    // @endif
 
     renderIndicators(game, [corral], colors.green[2], 10000);
     renderControls(game, playerShip);
@@ -509,8 +558,10 @@ GameLoop({
       });
     }
 
+    // @ifdef DEBUG
     if (showColorsDemo) colorsDemo(game);
     if (showTextDemo) textDemo(game);
+    // @endif
   },
   update: (dt) => {
     // roads.forEach((road) => road.update(dt));
