@@ -456,14 +456,6 @@ GameLoop({
 
     game.ctx.restore();
 
-    renderText({
-      game,
-      text: `X:${Math.round(playerShip.x)}`,
-      x: 10,
-      y: 10,
-    });
-    renderText({ game, text: `Y:${Math.round(playerShip.y)}`, x: 10, y: 30 });
-    renderText({ game, text: `$${player.credits}`, x: 10, y: 50 });
 
     // This is debug UI
     if (showDeadzone) renderDeadzone(game);
@@ -492,6 +484,9 @@ GameLoop({
 
     renderIndicators(game, [corral], colors.green[2], 10000);
     renderControls(game, playerShip);
+
+    renderText({ game, text: `${Math.round(playerShip.x)}/${Math.round(playerShip.y)}`, x: 20, y: 20 });
+    renderText({ game, text: `$${player.credits}`, x: 10, y: 50 });
 
     if (player.noteFor) {
       renderText({

@@ -1,5 +1,6 @@
 import { Vector } from '../vector';
 import { camera } from '../camera';
+import { outline } from '../outline';
 import { renderText } from '../text';
 
 /**
@@ -12,7 +13,6 @@ export const renderIndicators = (game, targets, color, range) => {
   const { ctx, uiScale, uiWidth, uiHeight } = game;
 
   ctx.save();
-  ctx.scale(uiScale, uiScale);
   ctx.lineWidth = 2;
   ctx.lineJoin = 'bevel';
   ctx.strokeStyle = color;
@@ -38,21 +38,23 @@ export const renderIndicators = (game, targets, color, range) => {
     ));
 
     ctx.save();
+    ctx.scale(uiScale, uiScale);
     ctx.translate(uiWidth / 2 + edge.x, uiHeight / 2 + edge.y);
     ctx.rotate(Math.atan2(offset.y, offset.x));
-    ctx.beginPath();
-    ctx.moveTo(indicatorsize, 0);
-    ctx.lineTo(0, -indicatorsize);
-    ctx.lineTo(0, indicatorsize);
-    ctx.closePath();
-    ctx.stroke();
+    const path = new Path2D();
+
+    path.moveTo(indicatorsize, 0);
+    path.lineTo(0, -indicatorsize);
+    path.lineTo(0, indicatorsize);
+    path.closePath();
+    outline(ctx, path);
+    ctx.stroke(path);
     ctx.restore();
 
     renderText({
-      ctx,
-      scale: 1,
       alignCenter: true,
       color,
+      game,
       size: 0.5,
       text: `${Math.round(dist)}m`,
       x: uiWidth / 2 + edge.x,

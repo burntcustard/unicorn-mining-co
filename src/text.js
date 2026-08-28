@@ -1,3 +1,5 @@
+import { outline } from './outline';
+
 /**
  * Array of Path2Ds that represent each character.
  *
@@ -82,31 +84,32 @@ const glyphs = ('' +
   // '3 0 7 0 7 14 3 14',               // ]
 ).split(',').map((path) => new Path2D('M' + path));
 
-export function drawText(props) {
-  [...props.text.toString()].forEach((c, i) => {
+const textPath = (text) => {
+  const path = new Path2D();
+
+  [...text.toString()].forEach((c, i) => {
     const glyph = glyphs[c.charCodeAt(0)];
 
-    // If not the 1st character, translate to be positioned after the 1st
-    if (i) {
-      props.ctx.translate(13, 0);
-    }
-
-    // If glyph found in font, print it
     if (glyph) {
-      props.ctx.stroke(glyph);
+      path.addPath(glyph, new DOMMatrix().translate(i * 13, 0));
     }
   });
+
+  return path;
+};
+
+export function drawText(props) {
+  props.ctx.stroke(textPath(props.text));
 }
 
 export function renderText(props) {
-  props.ctx ||= props.game.ctx;
-  props.scale ||= props.game.uiScale;
+  const { ctx, uiScale } = props.game;
   const size = props.size || 1;
   let xAlign = 0;
   let yAlign = 0;
 
-  props.ctx.save();
-  props.ctx.scale(props.scale, props.scale);
+  ctx.save();
+  ctx.scale(uiScale, uiScale);
 
   if (props.alignCenter) {
     yAlign = -6.5 * size;
@@ -123,13 +126,17 @@ export function renderText(props) {
     xAlign = -props.text.toString().length * 13 * size;
   }
 
-  props.ctx.translate(props.x + xAlign, props.y + yAlign);
+  ctx.translate(props.x + xAlign, props.y + yAlign);
 
-  props.ctx.scale(size, size);
-  props.ctx.strokeStyle = props.color || '#fff';
-  props.ctx.lineWidth = 2;
+  ctx.scale(size, size);
+  ctx.strokeStyle = props.color || '#fff';
+  ctx.lineWidth = 2;
   // Corners cut off flat rather than drawn out to sharp points
-  props.ctx.lineJoin = 'bevel';
-  drawText(props);
-  props.ctx.restore();
+  ctx.lineJoin = 'bevel';
+
+  const path = textPath(props.text);
+
+  outline(ctx, path);
+  ctx.stroke(path);
+  ctx.restore();
 }
