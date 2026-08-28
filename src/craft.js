@@ -84,7 +84,7 @@ export const damage = (segment, amount) => {
   });
 };
 
-export class Craft extends Sprite.class {
+export class Craft extends Sprite {
   constructor(props) {
     super(props);
 
@@ -237,7 +237,7 @@ export class Craft extends Sprite.class {
           x: segment.x - middle.x,
           y: segment.y - middle.y,
         }));
-        const fragment = Object.assign(new Sprite.class({
+        const fragment = Object.assign(new Sprite({
           dx: velocity.x,
           dy: velocity.y,
           rotation: this.rotation,

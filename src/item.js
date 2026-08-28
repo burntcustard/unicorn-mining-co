@@ -34,7 +34,7 @@ const itemDrag = 2;
 // Fastest an item drifts on nothing but the speed it was given
 const itemMaxSpeed = 200;
 
-export class Item extends Sprite.class {
+export class Item extends Sprite {
   constructor(props) {
     super(props);
 

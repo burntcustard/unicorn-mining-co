@@ -158,10 +158,8 @@ export const maxHop = 4;
  * @param {Object} object - Anything with a place, a velocity, a `mass`, a `drag`
  *   and a `maxSpeed`.
  * @param {Number} dt - Seconds since the last update.
- * @param {Function} [settle] - Run after every hop, to put right whatever that
- *   hop has ended up inside of.
  */
-export const move = (object, dt, settle) => {
+export const move = (object, dt) => {
   const hops = Math.max(1, Math.ceil((object.velocity.length() * dt) / maxHop));
   const step = dt / hops;
 
@@ -169,7 +167,5 @@ export const move = (object, dt, settle) => {
     slow(object, step);
 
     object.position.set(object.position.add(object.velocity.scale(step)));
-
-    settle?.();
   }
 };

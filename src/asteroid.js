@@ -73,7 +73,7 @@ const splitTriangle = (triangle) => {
   return [[center, left, right], [left, from, outer], [left, outer, right], [outer, to, right]];
 };
 
-export class Asteroid extends Sprite.class {
+export class Asteroid extends Sprite {
   constructor(props) {
     super(props);
 

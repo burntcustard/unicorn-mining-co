@@ -6,7 +6,7 @@ import { getContext } from './core';
  * properties are copied on after the defaults, including through the vector
  * coordinate setters.
  */
-class SpriteClass {
+export class Sprite {
   constructor(properties = {}) {
     const { x, y, dx, dy } = properties;
 
@@ -16,8 +16,6 @@ class SpriteClass {
     this.spin = 0;
     this.ctx = getContext();
     Object.assign(this, properties);
-    delete this.dx;
-    delete this.dy;
   }
 
   get x() {
@@ -36,5 +34,3 @@ class SpriteClass {
     this.position.y = value;
   }
 }
-
-export const Sprite = { class: SpriteClass };

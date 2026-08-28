@@ -246,7 +246,7 @@ export const traceBeam = (ship, lamp, scenery) => {
     // Which face it comes back out by matters as much as the one it went in
     // by, and it is only worth knowing to the nearest colour, so the middle of
     // the spectrum stands in for all of them
-    const passed = near < range && face && through(outlines, direction.x * near, direction.y * near,
+    const passed = near < range && through(outlines, direction.x * near, direction.y * near,
       direction.x, direction.y, face, midIndex, range);
 
     beam.angles.push(angle);
@@ -485,7 +485,6 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     }
 
     // Added to what is already there like the rest of the game's light
-    ctx.globalCompositeOperation = 'lighten';
     ctx.globalAlpha = lamp.anim * spectrumStrength;
 
     spectrum.forEach((name, band) => {
