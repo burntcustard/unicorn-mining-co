@@ -120,7 +120,6 @@ export class Asteroid extends Sprite.class {
         maxHealth: health,
         mass: this.mass / triangles.length / 4,
         outline,
-        path: shapePath(outline),
         asteroid: this,
       })));
       groupsOf(this.sections);
@@ -169,7 +168,6 @@ export class Asteroid extends Sprite.class {
           asteroid: child,
           hitbox: 0,
           outline,
-          path: shapePath(outline),
         });
       });
 
@@ -273,30 +271,8 @@ export class Asteroid extends Sprite.class {
     ctx.lineJoin = 'round';
     ctx.fillStyle = colors.black[2];
     ctx.strokeStyle = this.stroke;
-    const pieces = this.sections?.length ? this.sections : [this];
-
-    // pieces.forEach(({ path }) => ctx.fill(path));
-
-    if (pieces[0].outline.edges) {
-      // Overlapping round caps hide joins between boundary edges
-      // ctx.lineCap = 'round';
-      ctx.beginPath();
-
-      // `outerEdges` marks shared sides false: skip those internal triangle
-      // seams, so only the boundary loop around all the pieces remains
-      const outline = outlineFrom(pieces.map((piece) => piece.outline));
-
-      ctx.moveTo(...outline[0]);
-      outline.slice(1).forEach((point) => ctx.lineTo(...point));
-      ctx.closePath();
-
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      ctx.fill(this.path);
-      ctx.stroke(this.path);
-    }
-
+    ctx.fill(this.path);
+    ctx.stroke(this.path);
     ctx.restore();
   }
 }
