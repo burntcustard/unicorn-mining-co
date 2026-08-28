@@ -55,7 +55,7 @@ export const horn = {
     lines: fluteLines,
     points: [[hornBase, -hornHalfWidth], [hornBase + hornLength, 0], [hornBase, hornHalfWidth]],
   }],
-  name: 'HORN DRILL',
+  name: 'DRILL',
   price: 350,
   state: () => ({ phase: 0 }),
   update: (segment, dt) => {

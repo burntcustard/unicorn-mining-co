@@ -4,15 +4,14 @@ import { flare } from '../flare';
 const size = 6;
 
 export const thrusterSingleMd = {
-  // Quick enough that the flare is up about as soon as the key is down
-  activationDuration: 0.1,
   health: 25,
-  name: 'SINGLE MEDIUM THRUSTER',
+  name: 'THRUSTERS *1+',
   disablePhysics: true,
   model: [
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 0 },
   ],
   price: 450,
-  thrust: 18,
+  forwardThrust: 18,
+  rotationalThrust: 18,
   zIndex: -1,
 };

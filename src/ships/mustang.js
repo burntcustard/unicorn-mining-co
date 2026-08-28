@@ -9,8 +9,9 @@ import {
   horn,
   shield,
   thrusterDualMd,
-  thrusterDualSm,
-  thrusterTripleSm,
+  thrusterDualXl,
+  thrusterSingleXl,
+  thrusterTriple,
 } from '../modules';
 
 export const mustang = {
@@ -34,7 +35,7 @@ export const mustang = {
     {
       health: 25,
       mounts: [
-        { fits: [thrusterDualSm, thrusterTripleSm, thrusterDualMd], x: -16, y: 0 },
+        { fits: [thrusterDualMd, thrusterSingleXl, thrusterDualXl, thrusterTriple], x: -16, y: 0 },
         { fits: [shield], x: 0, y: 0 },
       ],
       points: [[-16, -20], [8, 0], [-16, 20]],

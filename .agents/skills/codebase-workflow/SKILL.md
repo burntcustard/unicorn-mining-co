@@ -36,3 +36,20 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - All builds pass Roadroller the fixed seed `13312`, so compare their ZIP sizes directly.
 - Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to confirm `dist/game.zip` is under 13,312 bytes for a release. `npm run build` is an alias, but prefer the explicit command.
 - At the end of the competition, we can use repeated `npm run build:full-random` builds to search for a smaller final ZIP that must be under 13,312 bytes.
+
+## Measured docking UI experiments
+
+These `build:slow` results used seed `13312` with the August 2026 docking implementation. Re-measure if surrounding code changes substantially.
+
+- Combining the dock menu's back and launch handling saved 5 bytes; literally moving its private stage into `main.js` was unnecessary.
+- Reusing the action list within one render saved 13 bytes.
+- Defining selectable craft slots by a truthy `fits` property saved 8 bytes.
+- Removing the then-unreachable `mount.fits` guard saved 5 bytes.
+- Initializing owned modules once beside the starter loadout saved 6 bytes.
+- Omitting `filter(Boolean)` from that starter list saved 1 byte.
+- Removing the shared `spend()` helper cost 17 bytes.
+- Replacing repeated label objects with a rendering helper cost 17 bytes.
+- Detecting priced actions by action-name length cost 3 bytes.
+- Caching the action list for the whole right-column interaction cost 10 bytes.
+- Removing BUY's repeated affordability branch while retaining `spend()` cost 27 bytes.
+- An explicit unique starter-module list cost 33 bytes; deduplicating it with `Set` cost 5 bytes.

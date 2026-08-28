@@ -1,7 +1,7 @@
 import { Item, remove } from './item';
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
-import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualSm } from './modules';
+import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualMd } from './modules';
 import { detonate, renderBlasts, updateBlasts } from './explosion';
 import {
   // amethyst,
@@ -10,7 +10,7 @@ import {
   itemTypes,
   // opal
 } from './items';
-import { dock, flyOut, launch } from './docking';
+import { dock, flyOut } from './docking';
 import { glows, lights, toggleGlows, toggleLights } from './lighting';
 import { grind, mine } from './mining';
 import { insidePath, traceBeam } from './prism';
@@ -30,6 +30,7 @@ import { localMovement } from './local-movement';
 import { move } from './vector';
 import { renderControls } from './ui/controls';
 import { renderCraft } from './craft-render';
+import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
 import { renderFps } from './fps';
 import { renderIndicators } from './ui/indicators';
 import { renderText } from './text';
@@ -54,11 +55,12 @@ const playerShip = new Craft({
   y: game.height / 2,
 });
 
-[thrusterDualSm, cargoScoop, cargoScoop, horn, shield, floodlight]
+[thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight]
   .forEach((module) => playerShip.fit(module));
+player.modules = playerShip.slots.map(({ module }) => module);
 
 playerShip.paint(horn, colors.yellow);
-playerShip.paint(thrusterDualSm, colors.violet);
+playerShip.paint(thrusterDualMd, colors.violet);
 playerShip.paint(cargoScoop, colors.violet);
 playerShip.paint(shield, colors.violet);
 
@@ -399,8 +401,18 @@ bindKeys(['9'], () => physicsOn = !physicsOn);
 [cargoScoop, horn, shield, floodlight].forEach((module) =>
   bindKeys([module.key], () => playerShip.toggle(module)));
 
-// Space sees a docked ship back out through the bay it came in by
-bindKeys([' '], () => playerShip.dockedTo && launch(playerShip));
+// Left steps back through the panel without undocking; Escape also launches
+// once there are no more columns to step out of
+bindKeys(['ArrowLeft'], () => playerShip.dockedTo && back());
+bindKeys(['Escape'], () => playerShip.dockedTo && back(playerShip));
+
+// Space or the right arrow drill into whichever column of the docked panel is open
+[' ', 'ArrowRight'].forEach((key) =>
+  bindKeys([key], () => playerShip.dockedTo && confirmSelection(playerShip)));
+
+// Up and down move whichever of the docked panel's columns is open
+bindKeys(['ArrowUp'], () => playerShip.dockedTo && moveSelection(-1, playerShip));
+bindKeys(['ArrowDown'], () => playerShip.dockedTo && moveSelection(1, playerShip));
 
 centerCamera(game, playerShip);
 
@@ -484,6 +496,7 @@ GameLoop({
 
     renderIndicators(game, [corral], colors.green[2], 10000);
     renderControls(game, playerShip);
+    if (playerShip.dockedTo) renderDocked(game, playerShip);
 
     renderText({ game, text: `${Math.round(playerShip.x)}/${Math.round(playerShip.y)}`, x: 20, y: 20 });
     renderText({ game, text: `$${player.credits}`, x: 10, y: 50 });

@@ -45,7 +45,10 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
   const { glow, points } = part;
   const shape = Array.isArray(points) && shapeOf(points, mount);
   const health = mount ? undefined : part.health;
-  const duration = part.activationDuration || craftModule.activationDuration;
+  // A thruster's flare is up about as soon as the key is down, unless told
+  // otherwise, either on the module itself or (as the shield's bubble does)
+  // on just the one part of it
+  const duration = part.activationDuration || craftModule.activationDuration || 0.1;
 
   if (glow) glow.path ||= shapePath(glow);
 
@@ -62,8 +65,9 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
     rate: duration ? 1 / duration : instantRate,
-    shades: craft.shades,
-    thrust: (craftModule.thrust || 0) / (craftModule.model?.length || 1),
+    shades: craftModule.paints?.get(mount) || craftModule.shades || craft.shades,
+    forwardThrust: (craftModule.forwardThrust || 0) / (craftModule.model?.length || 1),
+    rotationalThrust: (craftModule.rotationalThrust || 0) / (craftModule.model?.length || 1),
     update: craftModule.update,
     x: mount?.x || 0,
     y: (mount?.y || 0) + (part.thrusterNozzleSide || 0) * (craftModule.offset || 0),
@@ -113,33 +117,43 @@ export class Craft extends Sprite {
   }
 
   get accel() {
-    return this.mass ? thrustScale * this.thrust / this.mass : 0;
+    return this.mass ? thrustScale * this.forwardThrust / this.mass : 0;
   }
 
   get maxSpeed() {
     return this.life ?
       180 :
         Math.max(
-          this.drag ? speedScale * this.thrust / this.drag : 0,
+          this.drag ? speedScale * this.forwardThrust / this.drag : 0,
           (this.localMovementRadius || 0) * Math.abs(this.spin),
         );
   }
 
-  get thrust() {
+  get forwardThrust() {
     return this.segments.reduce((total, segment) => (
-      total + (active(healthOf(segment)) ? segment.thrust * segment.power : 0)
+      total + (active(healthOf(segment)) ? segment.forwardThrust * segment.power : 0)
+    ), 0);
+  }
+
+  get rotationalThrust() {
+    return this.segments.reduce((total, segment) => (
+      total + (active(healthOf(segment)) ? segment.rotationalThrust * segment.power : 0)
     ), 0);
   }
 
   get throttle() {
-    const nozzle = this.segments.find((segment) => segment.thrust);
+    const nozzle = this.segments.find((segment) => segment.forwardThrust);
 
     return nozzle ? nozzle.power : 1;
   }
 
-  fit(craftModule) {
-    const mount = this.mounts.find(({ fits, module }) => !module && fits.includes(craftModule));
+  // Every mount a pilot can actually fit something to, i.e. every mount bar
+  // the cockpit, which is wherever a pilot sits rather than a fittable slot
+  get slots() {
+    return this.mounts.filter(({ fits }) => fits);
+  }
 
+  fit(craftModule, mount = this.mounts.find(({ fits, module }) => !module && fits.includes(craftModule))) {
     if (!mount) return;
 
     mount.module = craftModule;
@@ -150,9 +164,26 @@ export class Craft extends Sprite {
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
   }
 
-  paint(craftModule, shades) {
+  unfit(mount) {
+    if (!mount.module) return;
+
+    this.segments = this.segments.filter((segment) => !mount.segments.includes(segment));
+    mount.module = 0;
+    mount.health = 0;
+    mount.segments = [];
+  }
+
+  paint(craftModule, shades, mount) {
+    if (mount) {
+      (craftModule.paints ||= new Map()).set(mount, shades);
+    } else {
+      craftModule.shades = shades;
+    }
+
     this.segments.forEach((segment) => {
-      if (segment.module === craftModule) segment.shades = shades;
+      if (segment.module === craftModule && (!mount || segment.mount === mount)) {
+        segment.shades = shades;
+      }
     });
   }
 
@@ -301,7 +332,9 @@ export class Craft extends Sprite {
     this.forward = forward;
     this.turn = turn;
     this.segments.forEach((segment) => {
-      if (segment.thrust) segment.active = nozzleLevel(segment.thrusterNozzleSide, forward, turn);
+      if (segment.forwardThrust) {
+        segment.active = nozzleLevel(segment.thrusterNozzleSide, forward, turn);
+      }
     });
   }
 
@@ -310,10 +343,10 @@ export class Craft extends Sprite {
       if ((this.life -= dt) <= 0) this.dead = true;
     } else if (!this.dockedTo) {
       const push = this.accel * this.forward * dt;
-      const targetSpin = this.turn * this.turnRate * this.throttle;
+      const targetSpin = this.turn * this.turnRate * this.rotationalThrust * this.throttle / 16;
 
       this.spin = approach(this.spin, targetSpin,
-        this.thrust * dt || (!this.cockpit && Math.abs(targetSpin - this.spin)));
+        this.rotationalThrust * dt || (!this.cockpit && Math.abs(targetSpin - this.spin)));
       this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
     }
 

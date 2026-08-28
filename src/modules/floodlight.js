@@ -44,7 +44,7 @@ export const floodlight = {
   key: 'l',
   lens,
   mouth,
-  name: 'SEARCH LIGHT',
+  name: 'LIGHT',
   model: [{ points: cone }],
   price: 450,
   reach,

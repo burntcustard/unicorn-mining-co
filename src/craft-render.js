@@ -60,7 +60,7 @@ export const renderCraft = (craft, scenery, zIndex) => {
     if (segment.zIndex !== zIndex || !active(health)) return;
 
     ctx.save();
-    if (segment.thrust && segment.anim) drawHalo(ctx, segment);
+    if (segment.forwardThrust && segment.anim) drawHalo(ctx, segment);
     ctx.translate(segment.x, segment.y);
 
     if (segment.glow && zIndex < 0) {

@@ -4,7 +4,7 @@ const launchBurnDuration = 1;
 const launchCoastDuration = 2;
 const launchCoastPower = 0.25;
 
-const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.thrust)?.module;
+const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardThrust)?.module;
 
 /**
  * A craft docks the moment any of its pieces touches another craft's docking

@@ -4,7 +4,7 @@
  */
 
 // What a pilot starts out with, which is not enough for anything good
-const startingCredits = 500;
+const startingCredits = 3500;
 
 // How long a message stays up once it has been read, in seconds
 const readingTime = 6;
