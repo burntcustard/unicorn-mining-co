@@ -62,6 +62,7 @@ playerShip.paint(thrusterDualSm, colors.violet);
 playerShip.paint(cargoScoop, colors.violet);
 playerShip.paint(shield, colors.violet);
 
+// Debug/demo examples of game objects
 // One hull of every colour, lined up to see how the light falls across them
 const swatches = [
   colors.black,
@@ -79,6 +80,7 @@ const swatches = [
   x: 120 + i * 120,
   y: game.height - 100,
 }));
+// End of debug/demo examples of game objects
 
 const corral = new Craft({
   craftData: stationTypes.corral,
@@ -315,10 +317,13 @@ const items = itemTypes.map((itemData, i) => new Item({
 // Everything that can catch hold of a ship and carry it along
 const movers = [...crafts];
 let physicsOn = 1;
+
+// Debug toggles
 let showDeadzone = false;
 let showMass = false;
 let showTextDemo = false;
 let showColorsDemo = false;
+// End of debug toggles
 
 const collide = (objects, targets) => {
   const found = benchmark && benchmark.has('noCollisions') ?
@@ -377,6 +382,7 @@ const lamp = playerShip.segments.find((segment) => segment.module === floodlight
 
 initKeys();
 
+// Debug key bindings
 bindKeys(['2'], () => showColorsDemo = !showColorsDemo);
 bindKeys(['3'], () => showTextDemo = !showTextDemo);
 bindKeys(['4'], () => showDeadzone = !showDeadzone);
@@ -385,6 +391,7 @@ bindKeys(['6'], sky.cycle);
 bindKeys(['7'], toggleLights);
 bindKeys(['8'], toggleGlows);
 bindKeys(['9'], () => physicsOn = !physicsOn);
+// End of debug key bindings
 
 // Only the player's ship is flown off the keyboard. AI pilots work their own
 // modules through the same methods. Each switchable module names the key that
@@ -447,6 +454,29 @@ GameLoop({
     // Light rather than paint, so it goes over everything it lights up
     if (lights) renderBlasts(game);
 
+    game.ctx.restore();
+
+    renderText({
+      game,
+      text: `X:${Math.round(playerShip.x)}`,
+      x: 10,
+      y: 10,
+    });
+    renderText({ game, text: `Y:${Math.round(playerShip.y)}`, x: 10, y: 30 });
+    renderText({ game, text: `$${player.credits}`, x: 10, y: 50 });
+
+    // This is debug UI
+    if (showDeadzone) renderDeadzone(game);
+    renderFps(game);
+    renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 90 });
+    renderText({ game, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 110 });
+    renderText({ game, text: `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, x: 10, y: 130 });
+    renderText({ game, text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, x: 10, y: 150 });
+    renderText({ game, text: `6 SKY:${sky.label}`, x: 10, y: 170 });
+    renderText({ game, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 190 });
+    renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 210 });
+    renderText({ game, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 230 });
+
     if (showMass) {
       game.ctx.save();
       game.ctx.fillStyle = colors.white[2];
@@ -458,20 +488,8 @@ GameLoop({
       });
       game.ctx.restore();
     }
+    // End of debug UI
 
-    game.ctx.restore();
-
-    if (showDeadzone) renderDeadzone(game);
-    renderFps(game);
-    renderText({ game, text: `$${player.credits}`, x: 10, y: 30 });
-    renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 50 });
-    renderText({ game, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 70 });
-    renderText({ game, text: `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, x: 10, y: 90 });
-    renderText({ game, text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, x: 10, y: 110 });
-    renderText({ game, text: `6 SKY:${sky.label}`, x: 10, y: 130 });
-    renderText({ game, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 150 });
-    renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 170 });
-    renderText({ game, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 190 });
     renderIndicators(game, [corral], colors.green[2], 10000);
     renderControls(game, playerShip);
 
