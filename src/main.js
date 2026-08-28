@@ -1,4 +1,5 @@
 import { Item, remove } from './item';
+import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualMd } from './modules';
@@ -30,7 +31,6 @@ import { localMovement } from './local-movement';
 import { move } from './vector';
 import { renderControls } from './ui/controls';
 import { renderCraft } from './craft-render';
-import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
 import { renderFps } from './fps';
 import { renderIndicators } from './ui/indicators';
 import { renderText } from './text';

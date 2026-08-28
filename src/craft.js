@@ -3,7 +3,6 @@ import { active, healthOf, relightCraft } from './craft-render';
 import { cockpit, scoopOpen } from './modules';
 import { Sprite } from './sprite';
 import { outerEdges } from './collisions';
-import { rotateAround } from './local-movement';
 import { shapeOf } from './lighting';
 import { shapePath } from './drawing';
 
@@ -211,10 +210,6 @@ export class Craft extends Sprite {
   holds(child) {
     return child.dockedTo === this || (this.localMovementRadius &&
       child.position.distance(this.position) <= this.localMovementRadius);
-  }
-
-  carry(child, dt) {
-    rotateAround(this, child, child.x - this.x, child.y - this.y, this.spin * dt);
   }
 
   momentum({ x, y }) {
