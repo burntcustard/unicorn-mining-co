@@ -1,7 +1,34 @@
-import { Vector, movePoint, pointBetween, rotatePoints } from './vector';
+import { Vector, movePoint, rotatePoint, rotatePoints } from './vector';
 import { colors } from './colors';
-import { game } from './game';
 
+/**
+ * What the floodlight does when it runs into rock.
+ *
+ * The whole thing is one idea repeated: fan a fixed number of rays across the
+ * cone, and follow each one until it is done with. A ray either reaches the end
+ * of the lamp's reach untouched, or it meets a rock, bends going in, crosses it,
+ * and bends again coming out. It is never asked what it meets after that, so
+ * light goes through one rock and no further, however many are lined up.
+ *
+ * Neighbouring rays that went into the same rock make one sheet of light. Where
+ * they leave it is taken as one straight line square to the way they are headed,
+ * set back far enough that the rock itself covers where the stripes begin, and
+ * that line is cut across into equal stripes, one a colour, each thrown out
+ * along its own share of a fan opened around the way the sheet was already
+ * going. It is a picture of a prism rather than a simulation of one: solid
+ * stripes, all the same width, fanning out from one place.
+ *
+ * A sheet is summed up by what all of its rays agree on rather than by the two
+ * on its ends, so a ray joining or leaving one nudges it instead of reshaping
+ * it. That, and the rays being always the same rays whatever is in front of the
+ * lamp, is what keeps the light steady: nothing is decided by which corners
+ * happen to be inside the cone this frame.
+ *
+ * Everything is worked out in the lamp's own frame, with the lens at zero and
+ * the beam running out along positive x.
+ */
+
+// The stripes the light splits into, reddest first
 const spectrum = [
   colors.red[0],
   colors.orange[0],
@@ -12,18 +39,44 @@ const spectrum = [
   colors.violet[0],
 ];
 
-const redIndex = 1.1;
-const violetIndex = 1.2;
-const midIndex = (redIndex + violetIndex) / 2;
-const inset = 0.5;
-const insideStrength = 0.3;
-const spectrumStrength = 0.9;
-const seam = 0.4;
-const minimumBeamWidth = 3;
+// How much rock bends light
+const rockIndex = 1.15;
+
+// How wide the stripes fan apart, measured against how far the rock bent the
+// light on its way through. A rock that hardly bends it hardly splits it, so
+// there is no width to swap ends when which end is the red one changes over
+const fanning = 0.5;
+
+// How far past the width it started at a sheet is ever allowed to open out.
+// However hard a rock bends the light, a beam squeezed to a sliver on its way
+// through only has a sliver of light to split, and a rainbow that opened out of
+// all proportion to it would be colour coming from nowhere
+const spreading = 2;
+
+// How square-on a ray has to strike a rock to get into it at all. Light that
+// only grazes a face barely gets through one in the first place, and what does
+// leaves from somewhere wildly far round the far side, sweeping about as the
+// ship drifts, so it is taken as stopping at the face instead
+const minFacing = 0.35;
+
+// How many rays are fanned across the cone. Enough that the edge of the light
+// lands within a pixel or so of the edge of whatever is casting it
+const rays = 120;
+
+// How far along a ray a crossing has to be to count, so that the face a ray is
+// setting off from is not found again as the face it runs into
+const inset = 1e-4;
+
+// How much of a band's length holds full strength before it fades out
 const holds = 0.75;
 
-const fillOf = (ctx, color, range) => {
-  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, range);
+const insideStrength = 0.3;
+const spectrumStrength = 0.9;
+
+const directionOf = (angle) => Vector(movePoint(Vector(), angle, 1));
+
+const fillOf = (ctx, color, from, to) => {
+  const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
 
   gradient.addColorStop(0, color);
   gradient.addColorStop(holds, color);
@@ -32,64 +85,60 @@ const fillOf = (ctx, color, range) => {
   return gradient;
 };
 
-const directionOf = (angle) => movePoint(Vector(), angle, 1);
-
-const crossing = (fromX, fromY, [ax, ay], [bx, by], dirX, dirY) => {
-  const startX = ax - fromX;
-  const startY = ay - fromY;
-  const edgeX = bx - ax;
-  const edgeY = by - ay;
-  const denom = dirX * edgeY - dirY * edgeX;
-
-  if (!denom) return;
-
-  const along = (startX * dirY - startY * dirX) / denom;
-
-  if (along < -1e-9 || along > 1 + 1e-9) return;
-
-  const distance = (startX * edgeY - startY * edgeX) / denom;
-
-  return distance > 0 && distance;
-};
-
-// Nearest already-ordered outer edge, its index, and the normal facing the ray.
-const nearest = (outlines, fromX, fromY, dirX, dirY) => {
+/**
+ * Where a ray first crosses a polygon: the point, how far along the ray it sits,
+ * and the face it landed on, as a normal turned to look back at the ray.
+ *
+ * @param {Number[][]} points - An outline in the lamp's frame.
+ * @param {Object} from - Where the ray starts.
+ * @param {Object} dir - Which way it goes, as a unit vector.
+ */
+const cross = (points, from, dir) => {
   let near = Infinity;
-  let shape;
-  let edge;
   let normal;
 
-  outlines.forEach((outline) => outline.forEach((corner, i) => {
-    const next = outline[(i + 1) % outline.length];
-    const distance = crossing(fromX, fromY, corner, next, dirX, dirY);
+  points.forEach((corner, i) => {
+    const next = points[(i + 1) % points.length];
+    const edge = Vector(next[0] - corner[0], next[1] - corner[1]);
+    const denom = dir.x * edge.y - dir.y * edge.x;
+    const start = Vector(corner[0] - from.x, corner[1] - from.y);
+    const along = (start.x * dir.y - start.y * dir.x) / denom;
+    const distance = (start.x * edge.y - start.y * edge.x) / denom;
 
-    if (!distance || distance < inset || distance >= near) return;
+    if (!denom || along < 0 || along > 1 || distance < inset || distance >= near) return;
 
-    const edgeX = next[0] - corner[0];
-    const edgeY = next[1] - corner[1];
-    const length = Math.hypot(edgeX, edgeY);
-    const x = edgeY / length;
-    const y = -edgeX / length;
+    const face = Vector(edge.y, -edge.x).normalize();
 
     near = distance;
-    shape = outline;
-    edge = i;
-    normal = dirX * x + dirY * y > 0 ? [-x, -y] : [x, y];
-  }));
+    normal = dir.dot(face) > 0 ? face.scale(-1) : face;
+  });
 
-  return [near, shape, edge, normal];
+  return normal && { at: from.add(dir.scale(near)), distance: near, normal };
 };
 
-const refract = (dirX, dirY, [normalX, normalY], eta) => {
-  const facing = -(dirX * normalX + dirY * normalY);
+/**
+ * Snell's law. A ray that would be trapped inside instead leaves along the face
+ * it hit, which keeps a band that is on the edge of being trapped from blinking
+ * out of existence as the ship drifts.
+ *
+ * @param {Object} dir - Which way the light is going.
+ * @param {Object} normal - The face it is crossing, facing back at it.
+ * @param {Number} index - How much the material it is entering slows it down.
+ */
+const refract = (dir, normal, index) => {
+  const facing = -dir.dot(normal);
+  // Both roots are held to what they can really be, because a ray meeting a
+  // face square on, or one right on the edge of being trapped, comes out a hair
+  // the wrong side of that and the root of it is not a number
+  const square = Math.max(0, 1 - facing * facing);
+  const eta = Math.min(index, 1 / Math.sqrt(square));
+  const sideways = Math.min(1, eta * eta * square);
 
-  eta = Math.min(eta, 1 / Math.sqrt(1 - facing * facing));
-  const sideways = eta * eta * (1 - facing * facing);
-  const turn = eta * facing - Math.sqrt(1 - sideways);
-
-  return [eta * dirX + turn * normalX, eta * dirY + turn * normalY];
+  return dir.scale(eta).add(normal.scale(eta * facing - Math.sqrt(1 - sideways)));
 };
 
+// One scenery object's shape in the lamp's frame, added to the mask as a path
+// and handed back as points for the rays to be tested against
 const outlineOf = (ship, lamp, object, mask) => {
   const shipCos = Math.cos(ship.rotation);
   const shipSin = Math.sin(ship.rotation);
@@ -97,7 +146,6 @@ const outlineOf = (ship, lamp, object, mask) => {
   const awayY = object.y - ship.y;
   const middleX = awayX * shipCos + awayY * shipSin - lamp.x;
   const middleY = awayY * shipCos - awayX * shipSin - lamp.y;
-
   const turn = object.rotation - ship.rotation;
 
   mask.addPath(object.path, new DOMMatrix().translate(middleX, middleY)
@@ -106,159 +154,133 @@ const outlineOf = (ship, lamp, object, mask) => {
   return rotatePoints(object.outline, turn, middleX, middleY);
 };
 
-// One ray through one outline. The same answer supplies its internal endpoint,
-// rainbow origin, outgoing direction, and the two outer-edge indexes.
-const through = (outline, enterX, enterY, dirX, dirY, face, index, range) => {
-  const [intoX, intoY] = refract(dirX, dirY, face, 1 / index);
-  const [depth,, edge, out] = nearest([outline], enterX, enterY, intoX, intoY);
-  const across = Math.min(depth, range);
-  const away = out && refract(intoX, intoY, out, index);
+/**
+ * One ray, all the way through. Where it stops is where the light stops, and
+ * what it found on the way is everything the rainbow needs.
+ */
+const rayAt = (outlines, angle, range) => {
+  const dir = directionOf(angle);
+  const from = Vector();
+  let entry;
+  let hit;
 
-  return [enterX + intoX * across, enterY + intoY * across,
-    away, across, edge, out];
+  outlines.forEach((outline) => {
+    const found = cross(outline, from, dir);
+
+    if (found && found.distance < range && (!entry || found.distance < entry.distance)) {
+      entry = found;
+      hit = outline;
+    }
+  });
+
+  if (!entry || -dir.dot(entry.normal) < minFacing) {
+    return { at: entry ? entry.at : from.add(dir.scale(range)) };
+  }
+
+  const into = refract(dir, entry.normal, 1 / rockIndex);
+  const out = cross(hit, entry.at, into);
+
+  if (!out) return { at: entry.at };
+
+  const away = refract(into, out.normal, rockIndex);
+
+  return {
+    at: entry.at,
+    // Only ever the rock this ray went into, so light that comes out the far
+    // side carries on into open space rather than through whatever is behind
+    hit,
+    out: {
+      at: out.at,
+      away,
+      // Whatever is left of the lamp's reach by the time the rock was reached.
+      // Crossing it costs nothing, or a rock far enough off, or thick enough,
+      // would swallow the whole of the reach and throw nothing out the far side
+      length: range - entry.distance,
+      // How far round the rock turned the light, and which way
+      spin: dir.x * away.y - dir.y * away.x,
+    },
+  };
 };
 
+/**
+ * Follow the whole cone. Everything drawn afterwards reads this and works
+ * nothing out for itself.
+ *
+ * @param {Object} ship - Whatever is carrying the lamp.
+ * @param {Object} lamp - The lit segment, mounted at `x`, `y` on the ship.
+ * @param {Object[]} scenery - Anything that might be in the way.
+ */
 export const traceBeam = (ship, lamp, scenery) => {
   const { lens, reach, spread } = lamp.module;
-  const far = lens + reach;
-  const range = Math.hypot(far, spread);
-  const edge = Math.atan2(spread, far);
+  const range = Math.hypot(lens + reach, spread);
+  const edge = Math.atan2(spread, lens + reach);
   const mask = new Path2D();
   const outlines = scenery.filter((object) => object.outline &&
     object.position.distance(ship.position) - object.radius < range)
     .map((object) => outlineOf(ship, lamp, object, mask));
-  const angles = [...new Set([-edge, edge, ...outlines.flatMap((outline) =>
-    outline.map(([x, y]) => Math.atan2(y, x))
-      .filter((angle) => angle > -edge && angle < edge))])].sort((a, b) => a - b);
-  const cuts = angles.map((angle) => {
-    const { x, y } = directionOf(angle);
 
-    return Math.min(nearest(outlines, 0, 0, x, y)[0], range);
-  });
-  const spans = angles.slice(1).map((to, i) => {
-    const angle = (angles[i] + to) / 2;
-    const { x, y } = directionOf(angle);
-    const [near, outline, entry, face] = nearest(outlines, 0, 0, x, y);
-    const passed = near < range && through(outline, x * near, y * near,
-      x, y, face, midIndex, range);
-
-    return {
-      angle,
-      entry,
-      exit: passed && passed[4],
-      face: passed && face,
-      from: i,
-      leave: passed && passed[2] && passed[5],
-      outline,
-      out: passed && Math.max(0, range - near - passed[3]),
-      to: i + 1,
-    };
-  });
-
-  return { angles, cuts, mask, outlines, range, spans };
+  return {
+    mask,
+    outlines,
+    range,
+    rays: Array.from({ length: rays + 1 }, (_, i) =>
+      rayAt(outlines, edge * (i * 2 / rays - 1), range)),
+  };
 };
 
-const line = (path, angle, distance) => {
-  const point = movePoint(Vector(), angle, distance);
-
-  path.lineTo(point.x, point.y);
-};
-
-export const litPath = ({ angles, cuts, range, spans }) => {
+// A sheet with one edge running out along one line of points and back along
+// another
+const strip = (near, far) => {
   const path = new Path2D();
-  const edges = spans.map((span) => span.face ?
-      [cuts[span.from], cuts[span.to]] :
-      [range, range]);
 
-  for (let from = 0; from < spans.length;) {
-    if (spans[from].face) {
-      from++;
-      continue;
-    }
-
-    let to = from + 1;
-
-    while (to < spans.length && !spans[to].face) to++;
-
-    const left = spans[from - 1]?.face && cuts[from];
-    const right = spans[to]?.face && cuts[to];
-    const stop = Math.min(left || range, right || range);
-
-    if ((left || right) && (angles[to] - angles[from]) * stop * game.scale < minimumBeamWidth) {
-      const first = left || right;
-      const last = right || left;
-      const depth = (at) => first + (last - first) * (at - from) / (to - from);
-
-      for (let i = from; i < to; i++) edges[i] = [depth(i), depth(i + 1)];
-    }
-
-    from = to;
-  }
-
-  path.moveTo(0, 0);
-  line(path, angles[0], edges[0][0]);
-  spans.forEach((span, i) => {
-    line(path, angles[i + 1], edges[i][1]);
-    if (spans[i + 1]) line(path, angles[i + 1], edges[i + 1][0]);
-  });
+  near.forEach(({ x, y }, i) => i ? path.lineTo(x, y) : path.moveTo(x, y));
+  for (let i = far.length; i--;) path.lineTo(far[i].x, far[i].y);
   path.closePath();
 
   return path;
 };
 
-const runsOf = ({ spans }, inside) => {
+// Neighbouring rays that went into the same rock and out the other side. One
+// run is one sheet of light crossing it, and a single ray is too thin to draw
+const runsOf = ({ rays: fan }) => {
   const runs = [];
 
-  spans.forEach((span, i) => {
-    if (!span.face || (!inside && !span.leave)) return;
+  fan.forEach((ray, i) => {
+    const run = runs[runs.length - 1];
 
-    const last = runs[runs.length - 1];
-    const previous = spans[i - 1];
+    if (!ray.hit) return;
 
-    if (last && last.to === i && span.outline === previous.outline &&
-      span.entry === previous.entry && span.exit === previous.exit) {
-      last.to++;
+    if (run && run.hit === ray.hit && run.to === i - 1) {
+      run.rays.push(ray);
+      run.to = i;
     } else {
-      runs.push({ from: i, to: i + 1 });
+      runs.push({ hit: ray.hit, rays: [ray], to: i });
     }
   });
 
-  return runs;
+  return runs.filter((run) => run.rays.length > 1);
 };
 
-const between = (near, far) => {
+// How far the light got, as the fan of everywhere its rays stopped
+export const litPath = ({ rays: fan }) => {
   const path = new Path2D();
 
-  near.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y));
-  for (let i = far.length; i--;) path.lineTo(far[i][0], far[i][1]);
+  path.moveTo(0, 0);
+  fan.forEach(({ at }) => path.lineTo(at.x, at.y));
   path.closePath();
 
   return path;
 };
 
-const throughAt = (beam, run, boundary) => {
-  const span = beam.spans[run.from];
-  const angle = beam.angles[boundary];
-  const { x, y } = directionOf(angle);
-  const from = span.outline[span.entry];
-  const to = span.outline[(span.entry + 1) % span.outline.length];
-  const distance = crossing(0, 0, from, to, x, y);
-  const enter = [x * distance, y * distance];
-  const passed = through(span.outline, enter[0], enter[1], x, y,
-    span.face, midIndex, beam.range);
-
-  return [enter, passed.slice(0, 2), ...passed.slice(2)];
-};
-
+// The slice of rock the light is actually crossing, from where it went in to
+// where it came out again
 export const insidePath = (beam) => {
   const path = new Path2D();
 
-  runsOf(beam, true).forEach((run) => {
-    const ends = [run.from, run.to].map((boundary) => throughAt(beam, run, boundary));
-
-    ends.forEach((end) => end[1] = pointBetween(end[0], end[1], beam.range / end[3]));
-    path.addPath(between(ends.map((end) => end[0]), ends.map((end) => end[1])));
-  });
+  runsOf(beam).forEach(({ rays: run }) => path.addPath(strip(
+    run.map(({ at }) => at),
+    run.map(({ out }) => out.at),
+  )));
 
   return path;
 };
@@ -273,46 +295,62 @@ export const drawInside = (ctx, lamp, beam) => {
   ctx.restore();
 };
 
+/**
+ * The rainbow: each sheet of light leaving a rock, cut across its width into as
+ * many equal stripes as there are colours. Stripes are laid down side by side
+ * and added rather than overlapped, so where two of them meet the half of a
+ * pixel each covers adds up to the whole of it, with no bright seam between
+ * them and no thread of background showing through either.
+ *
+ * Where two whole sheets cross, though, the second is kept out of the first
+ * rather than piled onto it: a rock splits the light it is given and cannot
+ * hand back more than it got, so a crossing never comes out whiter than white.
+ */
 export const drawSpectrum = (ctx, lamp, beam) => {
+  const covered = new Path2D();
+  const edges = Array.from({ length: spectrum.length + 1 }, (_, i) => i / spectrum.length);
+
   ctx.save();
-  ctx.globalCompositeOperation = 'lighten';
+  ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = lamp.anim * spectrumStrength;
 
-  runsOf(beam).forEach((run) => {
-    const middle = beam.spans[Math.floor((run.from + run.to - 1) / 2)];
-    const direction = directionOf(middle.angle);
-    const passed = [run.from, run.to].map((boundary) => throughAt(beam, run, boundary));
+  runsOf(beam).forEach(({ rays: run }) => {
+    const share = 1 / run.length;
+    const away = run.reduce((sum, { out }) => sum.add(out.away), Vector()).normalize();
+    const spin = run.reduce((sum, { out }) => sum + out.spin, 0) * share;
+    const length = run.reduce((sum, { out }) => sum + out.length, 0) * share;
+    // The stripes start on exactly the line the beam inside the rock ends on,
+    // so the two are the same width and meet at the face rather than one
+    // flaring out of the side of the other
+    const first = run[0].out.at;
+    const span = run[run.length - 1].out.at.subtract(first);
+    // Which way round the fan has to open for its stripes to spread apart
+    // rather than cross over one another
+    const sense = away.x * span.y - away.y * span.x > 0 ? 1 : -1;
+    const turn = sense *
+      Math.min(fanning * Math.abs(spin), span.length() * spreading / length);
+    const near = edges.map((across) => first.add(span.scale(across)));
+    const far = edges.map((across, i) => near[i].add(
+      Vector(rotatePoint(away, turn * (across - 0.5))).scale(length)));
+    // Squarely down the way the light is going, so a sheet gives out level with
+    // the face it came through rather than around one corner of it
+    const root = first.add(span.scale(0.5));
+    const tip = root.add(away.scale(length));
+    const sheet = strip(near, far);
+    const room = new Path2D();
 
-    if (passed.some((end) => end[4] === undefined)) return;
-
-    const ends = passed.map((end) => end[1]);
-    const span = Math.hypot(ends[1][0] - ends[0][0], ends[1][1] - ends[0][1]);
-
-    if (span < spectrum.length * minimumBeamWidth / game.scale) return;
-
-    const [red, violet] = [redIndex, violetIndex].map((index) => {
-      const into = refract(direction.x, direction.y, middle.face, 1 / index);
-
-      return refract(into[0], into[1], middle.leave, index);
-    });
-    const out = middle.out;
-    const sideX = ends[1][0] - ends[0][0];
-    const sideY = ends[1][1] - ends[0][1];
-    const way = (violet[0] - red[0]) * sideX + (violet[1] - red[1]) * sideY > 0;
-
+    room.addPath(sheet);
+    room.addPath(covered);
+    ctx.save();
+    ctx.clip(room, 'evenodd');
+    // Violet is bent furthest, so it belongs on the side the rock bent towards
     spectrum.forEach((color, band) => {
-      const from = band / spectrum.length;
-      const to = Math.min(1, (band + 1) / spectrum.length + seam / span);
-      const near = [pointBetween(ends[0], ends[1], from),
-        pointBetween(ends[0], ends[1], to)];
-      const far = near.map((point, i) => pointBetween(way ? red : violet,
-        way ? violet : red, i ? to : from)
-        .map((axis, coordinate) => point[coordinate] + axis * out));
-
       ctx.fillStyle = fillOf(ctx,
-        way ? color : spectrum[spectrum.length - band - 1], beam.range);
-      ctx.fill(between(near, far));
+        spectrum[sense * spin > 0 ? band : spectrum.length - 1 - band], root, tip);
+      ctx.fill(strip(near.slice(band, band + 2), far.slice(band, band + 2)));
     });
+    ctx.restore();
+    covered.addPath(sheet);
   });
 
   ctx.restore();
