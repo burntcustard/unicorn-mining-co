@@ -7,7 +7,7 @@ import {
   shadingStep,
   tint,
 } from './lighting';
-import { drawSpectrum, litPath, traceBeam } from './prism';
+import { drawInside, drawSpectrum, litPath, traceBeam } from './prism';
 import { linesPath, objectLineWidth } from './drawing';
 import { colors } from './colors';
 
@@ -42,6 +42,31 @@ export const renderCraft = (craft, scenery, zIndex) => {
   ctx.rotate(craft.rotation);
   ctx.lineJoin = 'bevel';
   ctx.lineWidth = objectLineWidth;
+
+  // @ifdef DEBUG
+  if (lights) {
+  // @endif
+    if (zIndex === -3 || zIndex === -1) {
+      craft.segments.forEach((segment) => {
+        if (!segment.module.beam || !segment.anim || !active(healthOf(segment))) return;
+
+        ctx.save();
+        ctx.translate(segment.x, segment.y);
+
+        if (zIndex === -3) {
+          const beam = segment.prism = traceBeam(craft, segment, scenery || []);
+
+          drawSpectrum(ctx, segment, beam);
+        } else {
+          drawInside(ctx, segment, segment.prism);
+        }
+
+        ctx.restore();
+      });
+    }
+  // @ifdef DEBUG
+  }
+  // @endif
 
   if (zIndex === -3 && craft.localMovementRadius) {
     ctx.strokeStyle = `${colors.cyan[2]}4`;
@@ -106,10 +131,9 @@ export const renderCraft = (craft, scenery, zIndex) => {
         // @ifdef DEBUG
         if (lights) {
         // @endif
-          const beam = traceBeam(craft, segment, scenery || []);
+          const beam = segment.prism || traceBeam(craft, segment, scenery || []);
 
           drawBeam(ctx, path, segment.shades[2], segment.module.reach, segment.anim, litPath(beam));
-          drawSpectrum(ctx, segment, beam);
         // @ifdef DEBUG
         }
         // @endif

@@ -225,8 +225,7 @@ window['testSections'] = () => {
   Object.assign(remainder, { x: playerShip.x, y: playerShip.y });
   const beam = traceBeam(playerShip, lamp, [remainder]);
 
-  if (beam.outlines.length !== remainder.sections.length ||
-    beam.outlines.some((outline) => !outline.edges)) throw Error('light');
+  if (beam.outlines[0].length !== remainder.outline.length) throw Error('light');
   const cargoRock = new Asteroid({ points: 5, radius: 90 });
   const cargoItem = new Item({ itemData: diamond });
   const otherCargo = new Item({ itemData: gold });
@@ -464,13 +463,13 @@ GameLoop({
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them, using the same z-index as ship modules
     for (let zIndex = -3; zIndex < 4; zIndex++) {
-      if (zIndex === -2) {
-        scenery.forEach((object) => {
-          object.render();
-          // A loose leaf cannot be mined any smaller, so its cargo stays in view.
-          object.sections || object.contents.forEach((item) => item.render());
-        });
+      scenery.filter((object) => object.zIndex === zIndex).forEach((object) => {
+        object.render();
+        // A loose leaf cannot be mined any smaller, so its cargo stays in view.
+        object.sections || object.contents.forEach((item) => item.render());
+      });
 
+      if (zIndex === -2) {
         // Cargo still inside mineable asteroids shows only through the slice
         // the floodlight is crossing, as if the lamp lets a pilot peer inside
         // @ifdef DEBUG
@@ -485,6 +484,7 @@ GameLoop({
             game.ctx.rotate(playerShip.rotation);
             game.ctx.translate(lamp.x, lamp.y);
             game.ctx.clip(insidePath(beam));
+            game.ctx.clip(beam.mask);
             game.ctx.setTransform(worldFrame);
 
             scenery.forEach((asteroid) =>

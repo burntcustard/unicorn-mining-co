@@ -83,6 +83,7 @@ export class Asteroid extends Sprite {
     // Drifts like everything else does, just with next to no drag of its own
     this.drag = asteroidDrag;
     this.maxSpeed = asteroidMaxSpeed;
+    this.zIndex ??= -2;
 
     // An asteroid doesn't changes shape until split, so its outline is worked out only
     // once. Anything else drifting about out there is the same but cut differently
