@@ -229,7 +229,7 @@ export const renderDocked = (game, ship) => {
     });
   });
 
-  if (stage >= 1) {
+  if (stage > 0) {
     mount.fits.forEach((module, i) => {
       renderText({
         color: colors.violet[2],
@@ -242,7 +242,7 @@ export const renderDocked = (game, ship) => {
     });
   }
 
-  if (stage >= 2) {
+  if (stage > 1) {
     const chosen = mount.fits[option];
 
     actions.forEach((name, i) => {
