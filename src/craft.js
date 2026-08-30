@@ -97,7 +97,7 @@ export class Craft extends Sprite {
       cargo: [],
       forward: 0,
       mounts: [],
-      turn: data.turn || 0,
+      turn: props.turn ?? data.turn ?? 0,
     });
     this.segments = data.hullSegments.map((hull) => {
       const segment = makeSegment(this, hull, hull);
@@ -324,10 +324,12 @@ export class Craft extends Sprite {
       if ((this.life -= dt) <= 0) this.dead = true;
     } else if (!this.dockedTo) {
       const push = this.accel * this.forward * dt;
-      const targetSpin = this.turn * this.turnRate * this.rotationalThrust * this.throttle / 16;
+      const rotationalThrust = this.rotationalThrust;
+      const targetSpin = rotationalThrust ?
+        this.turn * this.turnRate * rotationalThrust * this.throttle / 16 :
+        this.spin;
 
-      this.spin = approach(this.spin, targetSpin,
-        this.rotationalThrust * dt || (!this.cockpit && Math.abs(targetSpin - this.spin)));
+      this.spin = approach(this.spin, targetSpin, rotationalThrust * dt);
       this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
     }
 

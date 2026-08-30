@@ -58,6 +58,7 @@ export const testSections = (scenery, playerShip, lamp) => {
   cargoRock.bury(otherCargo);
 
   if (cargoRock.contents.length !== 2 ||
+    cargoRock.sections.filter(({ contents }) => contents.length).length !== 2 ||
     Math.hypot(cargoItem.buried.x - otherCargo.buried.x,
       cargoItem.buried.y - otherCargo.buried.y) < cargoRock.radius / 3) {
     throw Error('cargo placement');

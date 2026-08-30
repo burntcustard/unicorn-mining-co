@@ -22,7 +22,7 @@ const massMultiplier = 0.2;
 // Fastest an asteroid settles back to on nothing but its starting speed
 const asteroidMaxSpeed = 70;
 // Bigger asteroids need more points to be lumpy with
-const pointsFor = (radius) => Math.round(Math.sqrt(radius) / 3) * 2 - 1;
+const pointsFor = (radius) => Math.max(3, Math.round(Math.sqrt(radius) / 3) * 2 - 1);
 
 // Signed-edge sums give both exact polygon area and its physical centre
 const measure = (points) => {
@@ -233,8 +233,9 @@ export class Asteroid extends Sprite {
   * @param {Item} item
   */
   bury(item) {
-    distribute([item], { density: 2, width: this.radius }, [...this.contents]);
-    const { section, x, y } = this.sections
+    distribute([item], { density: this.radius / 4, radius: this.radius / 2 }, [...this.contents]);
+    const emptySections = this.sections.filter((section) => !section.contents.length);
+    const { section, x, y } = emptySections
       .map((section) => ({ section, ...measure(section.outline) }))
       .sort((a, b) => item.position.distance(a) - item.position.distance(b))[0];
 

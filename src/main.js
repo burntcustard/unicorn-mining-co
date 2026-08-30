@@ -19,8 +19,8 @@ import { GameLoop } from './game-loop';
 import { benchmarkFlag } from './benchmark';
 import { colors } from './colors';
 import { contacts } from './collisions';
-import { distribute } from './distribute';
 import { game } from './game';
+import { generateWorld } from './world';
 import { itemTypes } from './items';
 import { localMovement } from './local-movement';
 import { move } from './vector';
@@ -45,8 +45,8 @@ window.onresize = () => setSizing(game);
 const playerShip = new Craft({
   craftData: shipTypes.mustang,
   shades: colors.white,
-  x: game.width / 3,
-  y: game.height / 2,
+  x: 0,
+  y: 0,
 });
 
 horn.shades = colors.yellow;
@@ -57,94 +57,90 @@ thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
     module.owned = (module.owned || 0) + 1;
   });
 
-const corral = new Craft({
-  craftData: stationTypes.corral,
-  // Turned to face the ship, so its bay is in view from the off
-  rotation: Math.PI,
-  shades: colors.white,
-  x: game.width,
-  y: game.height / 2,
-});
-
 dockingBay.shades = colors.green;
-corral.fit(dockingBay);
+const world = generateWorld(13312);
+const resources = Object.fromEntries(itemTypes.map((itemData) => [itemData.name.toLowerCase(), itemData]));
+const stations = world.stations.map((properties) => {
+  const station = new Craft({ ...properties, craftData: stationTypes.corral, shades: colors.white });
 
-// Off the left edge of where the game starts, running a long way upwards
-// const northRoad = new Road({
-//   angle: -Math.PI / 2,
-//   distance: corral.radius * 5,
-//   x: -200,
-//   y: game.height,
-// });
+  station.fit(dockingBay);
 
-const makeAsteroid = (props) => new Asteroid({
-  dx: Math.random() * 2 - 1,
-  dy: Math.random() * 2 - 1,
-  radius: 50 + Math.random() * 100,
-  spin: (Math.round(Math.random()) - 0.5) * (1 + Math.random()) / 20,
-  ...props,
+  return station;
 });
-
-const asteroids = Array.from({ length: 2 }, () => makeAsteroid({
-  x: Math.random() * game.width / 2,
-  y: Math.random() * game.height,
+const wrecks = world.wrecks.map((properties) => new Craft({
+  ...properties,
+  craftData: shipTypes.mustang,
+  shades: colors.orange,
 }));
-
-// Build the exact field population first, including its cargo, then spread the
-// finished instances through an oval above the starting area
-const fieldAsteroids = Array.from({ length: 200 }, () => makeAsteroid());
-
-fieldAsteroids.forEach((asteroid, i) => {
-  if (!(i % 5)) {
-    for (let cargo = Math.floor(asteroid.radius / 30); cargo > 0; cargo--) {
-      asteroid.bury(new Item({
-        itemData: itemTypes[Math.floor(Math.random() * itemTypes.length)],
-      }));
-    }
-  }
-});
-
-const asteroidField = distribute(fieldAsteroids, {
-  density: 0,
-  height: 2000,
-  width: 10000,
-  x: 4500,
-  y: -2000,
-});
-
-// @ifdef BENCHMARK
-if (benchmarkFlag('field')) Object.assign(playerShip, { x: 4500, y: -2000 });
-// @endif
-
-const crafts = [
+const worldObjects = [
+  ...stations.map((instance) => instance.worldObject = { instance }),
+  ...wrecks.map((instance) => instance.worldObject = { instance }),
+  ...world.fields.flatMap(({ asteroids }) => asteroids)
+    .map((properties) => Object.assign(properties, { scenery: true })),
+];
+const activeWorldObjects = [];
+const scenery = [];
+const localCrafts = [
   playerShip,
   // @ifdef DEBUG
   ...debugCrafts(game),
   // @endif
-  corral,
 ];
-// const roads = [northRoad];
-const scenery = [
-  ...asteroids,
-  ...asteroidField,
-  // ...blocks
-];
+const crafts = [...localCrafts];
+
+const createWorldObject = (properties) => {
+  const object = new Asteroid({ ...properties, contents: [] });
+
+  properties.contents.forEach((resource) => {
+    if (resources[resource]) object.bury(new Item({ itemData: resources[resource] }));
+  });
+
+  properties.instance = object;
+  object.worldObject = properties;
+
+  return object;
+};
+
+const updateWorldObjects = () => {
+  activeWorldObjects.length = scenery.length = 0;
+  crafts.length = localCrafts.length;
+  worldObjects.forEach((properties) => {
+    let object = properties.instance || properties;
+
+    if (object.dead || Math.hypot(object.x - playerShip.x, object.y - playerShip.y) > 2000) return;
+    if (!properties.instance) object = createWorldObject(properties);
+    activeWorldObjects.push(object);
+    (properties.scenery ? scenery : crafts).push(object);
+  });
+};
+
+const trackWorldObjects = (objects, scenery) => objects.forEach((object) => {
+  if (object.worldObject) return;
+  const properties = { instance: object, scenery };
+
+  object.worldObject = properties;
+  worldObjects.push(properties);
+});
+
+// @ifdef BENCHMARK
+if (benchmarkFlag('field')) {
+  Object.assign(playerShip, {
+    x: world.fields[0].x,
+    y: world.fields[0].y,
+  });
+}
+// @endif
+
+updateWorldObjects();
 
 // @ifdef BENCHMARK
 window['testSections'] = () => testSections(scenery, playerShip, lamp);
 // @endif
 
-// One of everything, in a row below the ship to fly into and scoop up. These
-// will come out of mined asteroids rather than being placed
-const items = itemTypes.map((itemData, i) => new Item({
-  itemData,
-  spin: Math.random() - 0.5,
-  x: game.width / 3 - 180 + i * 60,
-  y: game.height / 2 + 110,
-}));
+const items = [];
 
 // Everything that can catch hold of a ship and carry it along
-const movers = [...crafts];
+const movers = crafts;
 
 const collide = (objects, targets) => {
   // @ifdef BENCHMARK
@@ -177,8 +173,6 @@ const physics = (dt) => {
 
   const otherCrafts = crafts.slice(1);
   const bodies = [...scenery, ...items, ...otherCrafts];
-  const nearby = scenery.filter((object) =>
-    object.position.distance(playerShip.position) < game.width);
   const step = dt / 4;
 
   // @ifdef BENCHMARK
@@ -194,7 +188,7 @@ const physics = (dt) => {
   // @endif
 
   const world = [
-    ...nearby.flatMap((asteroid) => asteroid.hitboxes()),
+    ...scenery.flatMap((asteroid) => asteroid.hitboxes()),
     ...items,
     ...otherCrafts.flatMap((craft) => craft.hitboxes()),
   ];
@@ -251,6 +245,11 @@ centerCamera(game, playerShip);
 
 GameLoop({
   render: () => {
+    const visibleScenery = scenery.filter((object) =>
+      object.position.distance(playerShip.position) < game.width);
+    const visibleCrafts = crafts.filter((object) =>
+      object === playerShip || object.position.distance(playerShip.position) < game.width);
+
     // The sky slides past at its own pace, so it moves itself
     // @ifdef BENCHMARK
     if (!benchmarkFlag('noBackground')) {
@@ -268,7 +267,7 @@ GameLoop({
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them, using the same z-index as ship modules
     for (let zIndex = -3; zIndex < 4; zIndex++) {
-      scenery.filter((object) => object.zIndex === zIndex).forEach((object) => {
+      visibleScenery.filter((object) => object.zIndex === zIndex).forEach((object) => {
         object.render();
         // A loose leaf cannot be mined any smaller, so its cargo stays in view.
         object.sections || object.contents.forEach((item) => item.render());
@@ -281,7 +280,7 @@ GameLoop({
         if (lights) {
         // @endif
           if (lamp.anim > 0.5) {
-            const beam = traceBeam(playerShip, lamp, scenery);
+            const beam = traceBeam(playerShip, lamp, visibleScenery);
             const worldFrame = game.ctx.getTransform();
 
             game.ctx.save();
@@ -292,7 +291,7 @@ GameLoop({
             game.ctx.clip(beam.mask);
             game.ctx.setTransform(worldFrame);
 
-            scenery.forEach((asteroid) =>
+            visibleScenery.forEach((asteroid) =>
               asteroid.sections && asteroid.contents.forEach((item) => item.render()));
 
             game.ctx.restore();
@@ -304,7 +303,7 @@ GameLoop({
         items.forEach((item) => item.render());
       }
 
-      crafts.forEach((craft) => renderCraft(craft, scenery, zIndex));
+      visibleCrafts.forEach((craft) => renderCraft(craft, visibleScenery, zIndex));
     }
 
     // Sparks off the horn sit over the asteroids and ships they come off
@@ -325,7 +324,7 @@ GameLoop({
     renderDebug(game, scenery, crafts);
     // @endif
 
-    renderIndicators(game, [corral], colors.green[2], 10000);
+    renderIndicators(game, stations, colors.green[2], 10000);
     renderControls(game, playerShip);
     if (playerShip.dockedTo) renderDocked(game, playerShip);
 
@@ -348,6 +347,7 @@ GameLoop({
   },
   update: (dt) => {
     // roads.forEach((road) => road.update(dt));
+    updateWorldObjects();
 
     // Backwards, because an item that goes off takes itself out of the list
     for (let i = items.length; i--;) {
@@ -377,20 +377,19 @@ GameLoop({
       (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
     );
 
-    crafts.forEach((craft) => craft.update(dt));
+    localCrafts.forEach((craft) => craft.update(dt));
+    activeWorldObjects.forEach((object) => object.update(dt, items));
     physics(dt);
-    scenery.forEach((object, i) => (object.update(dt, items), object.dead && scenery.splice(i, 1)));
 
     // Apply horn damage once per update, however many physics substeps found it
     [...scenery.flatMap((asteroid) => asteroid.sections || asteroid),
       ...items, ...crafts.flatMap((craft) => craft.segments)]
       .forEach((target) => grind(target, dt, scenery, items));
-    crafts.push(...crafts.flatMap((craft) => craft.fracture(items)));
-
-    for (let i = crafts.length; i-- > 1;) {
-      if (crafts[i].dead) crafts.splice(i, 1);
-    }
-
+    activeWorldObjects
+      .filter((object) => object.worldObject.scenery && !scenery.includes(object))
+      .forEach((object) => object.dead = true);
+    trackWorldObjects(scenery, true);
+    trackWorldObjects(crafts.flatMap((craft) => craft.fracture(items)), false);
     followTarget(game, playerShip, dt);
   },
 }).start();

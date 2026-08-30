@@ -7,6 +7,7 @@
     "benchmark": "node benchmarking/run.mjs",
     "dev": "vite",
     "dev:host": "vite --host",
+    "world-preview": "node scripts/world-preview.js",
     "build": "npm run build:full",
     "build:fast": "vite build --mode fast",
     "build:slow": "vite build --mode slow",

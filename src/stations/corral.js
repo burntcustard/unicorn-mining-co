@@ -68,9 +68,6 @@ const panel = [
 export const corral = {
   hullGradient: true,
   localMovementRadius: 620,
-  // Radians a second. A station is never still, it just turns very slowly
-  turn: 1,
-  turnRate: 0.05,
   zIndex: 2,
   hullSegments: [
     ...angles.flatMap((angle, i) => side.map((points, piece) => ({

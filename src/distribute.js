@@ -7,36 +7,58 @@ const maxAttempts = 200;
  * Bigger things go first; anything for which no place is found is left out.
  *
  * @param {Object[]} items
- * @param {Object} area - Its width and height must each fit every item's diameter.
+ * @param {Object} area
  * @param {Object[]} placed
+ * @param {Object[]} avoid
+ * @param {Function} random
  * @returns {Object[]} The instances that fitted, with x and y assigned.
  */
-export const distribute = (items, { width, height = width, density = 0, x = 0, y = 0 }, placed = []) => {
+export const distribute = (
+  items,
+  {
+    radius,
+    aspectRatio = 1,
+    density = 0,
+    variance = 0,
+    rotation = 0,
+    x = 0,
+    y = 0,
+  },
+  placed = [],
+  avoid = [],
+  random = Math.random,
+) => {
   items.sort((a, b) => b.radius - a.radius).forEach((item) => {
-    const radiusX = width / 2 - item.radius;
-    const radiusY = height / 2 - item.radius;
-    let bestPosition;
-    let bestSpace = -Infinity;
+    const itemRadius = item.collisionRadius || item.radius;
+    const radiusX = radius - itemRadius;
+    const radiusY = radius * aspectRatio - itemRadius;
+
+    if (radiusX < 0 || radiusY < 0) return;
 
     for (let i = maxAttempts; i--;) {
-      const angle = Math.random() * Math.PI * 2;
-      const distance = Math.sqrt(Math.random());
+      const angle = random() * Math.PI * 2;
+      const distance = Math.sqrt(random());
+      const localX = Math.cos(angle) * radiusX * distance;
+      const localY = Math.sin(angle) * radiusY * distance;
       const candidate = {
-        x: x + Math.cos(angle) * radiusX * distance,
-        y: y + Math.sin(angle) * radiusY * distance,
+        x: x + localX * Math.cos(rotation) - localY * Math.sin(rotation),
+        y: y + localX * Math.sin(rotation) + localY * Math.cos(rotation),
       };
-      const space = Math.min(...placed.map((other) =>
-        Math.hypot(candidate.x - other.x, candidate.y - other.y) - item.radius - other.radius));
+      const requiredSpace = density - random() * variance;
+      const overlaps = [...placed, ...avoid].some((other) => {
+        const otherRadius = other.collisionRadius || other.radius;
 
-      if (space >= density && space > bestSpace) {
-        bestPosition = candidate;
-        bestSpace = space;
+        return (
+          Math.hypot(candidate.x - other.x, candidate.y - other.y) <
+            itemRadius + otherRadius + requiredSpace
+        );
+      });
+
+      if (!overlaps) {
+        Object.assign(item, candidate);
+        placed.push(item);
+        break;
       }
-    }
-
-    if (bestPosition) {
-      Object.assign(item, bestPosition);
-      placed.push(item);
     }
   });
 
