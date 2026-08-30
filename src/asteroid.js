@@ -3,7 +3,6 @@ import { objectLineWidth, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
 import { createPolygon } from './polygon';
-import { distribute } from './distribute';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
 
@@ -22,7 +21,7 @@ const massMultiplier = 0.2;
 // Fastest an asteroid settles back to on nothing but its starting speed
 const asteroidMaxSpeed = 70;
 // Bigger asteroids need more points to be lumpy with
-const pointsFor = (radius) => Math.max(3, Math.round(Math.sqrt(radius) / 3) * 2 - 1);
+const pointsFor = (radius) => Math.round(Math.sqrt(radius) / 3) * 2 - 1;
 
 // Signed-edge sums give both exact polygon area and its physical centre
 const measure = (points) => {
@@ -114,13 +113,15 @@ export class Asteroid extends Sprite {
     // four-way cuts. The leaves carry health, so each can come free on its own.
     if (!props.triangles) {
       const health = this.health / triangles.length / 4;
+      const leaves = triangles.map(splitTriangle);
 
-      this.sections = triangles.flatMap((triangle) => splitTriangle(triangle).map((outline) => ({
+      // Every innermost leaf comes first, so the first thing buried sits in the middle
+      this.sections = [0, 1, 2, 3].flatMap((corner) => leaves.map((leaf) => ({
         contents: [],
         health,
         maxHealth: health,
         mass: this.mass / triangles.length / 4,
-        outline,
+        outline: leaf[corner],
         asteroid: this,
       })));
       groupsOf(this.sections);
@@ -227,17 +228,15 @@ export class Asteroid extends Sprite {
   }
 
   /**
-   * Distribute an item through the rock, then snap it to the nearest leaf.
-   * A buried item rides with that leaf until a horn cuts it loose.
+   * Tuck an item into the first leaf that has nothing in it yet, which works
+   * from the middle outwards. A buried item rides with that leaf until a horn
+   * cuts it loose.
    *
   * @param {Item} item
   */
   bury(item) {
-    distribute([item], { density: this.radius / 4, radius: this.radius / 2 }, [...this.contents]);
-    const emptySections = this.sections.filter((section) => !section.contents.length);
-    const { section, x, y } = emptySections
-      .map((section) => ({ section, ...measure(section.outline) }))
-      .sort((a, b) => item.position.distance(a) - item.position.distance(b))[0];
+    const section = this.sections.find(({ contents }) => !contents.length);
+    const { x, y } = measure(section.outline);
 
     Object.assign(item, item.buried = { rotation: Math.random() * Math.PI * 2, x, y });
     section.contents.push(item);

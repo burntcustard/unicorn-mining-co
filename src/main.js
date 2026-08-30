@@ -59,7 +59,6 @@ thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
 
 dockingBay.shades = colors.green;
 const world = generateWorld(13312);
-const resources = Object.fromEntries(itemTypes.map((itemData) => [itemData.name.toLowerCase(), itemData]));
 const stations = world.stations.map((properties) => {
   const station = new Craft({ ...properties, craftData: stationTypes.corral, shades: colors.white });
 
@@ -91,9 +90,8 @@ const crafts = [...localCrafts];
 const createWorldObject = (properties) => {
   const object = new Asteroid({ ...properties, contents: [] });
 
-  properties.contents.forEach((resource) => {
-    if (resources[resource]) object.bury(new Item({ itemData: resources[resource] }));
-  });
+  properties.contents.forEach((resource) =>
+    object.bury(new Item({ itemData: itemTypes[resource] })));
 
   properties.instance = object;
   object.worldObject = properties;

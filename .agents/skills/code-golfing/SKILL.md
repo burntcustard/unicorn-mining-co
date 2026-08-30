@@ -110,3 +110,24 @@ Re-measure if the surrounding code changes substantially.
 - Approximating both cone range and angle cost 13 bytes. The small-angle ratio alone was neutral, while using forward rather than diagonal reach cost 1 byte.
 - Addressing reversed spectrum colours with `spectrum.at(~band)` cost 1 byte; combining it with the callback's `color` cost 3 bytes.
 - Baking spectrum strength into `#RGBA` colours with an `e` alpha cost 30 bytes when mapping the spectrum, 6 bytes when suffixing the selected colour, and 3 bytes when suffixing once inside `fillOf`. Removing `globalAlpha` entirely still cost 6 bytes and also removed the lamp fade, so `lamp.anim * spectrumStrength` was retained.
+
+## Measured world generation experiments
+
+`build:slow`, seed `13312`, against the August 2026 world generation, taking
+13941B down to 13572B.
+
+- Replacing mulberry32 in `seeded-random.js` with a one-line LCG saved 25 bytes.
+- Dropping `distribute`'s `avoid` argument, `variance` spacing, `collisionRadius` fallbacks and its impossible negative-radius guard saved 35 bytes together.
+- Replacing the weighted `asteroidFieldProfiles` table, `weightedKey` and `randomStep` with a cubed roll over the price-ordered item list saved 129 bytes.
+- Burying an item in a random empty leaf, rather than distributing it and snapping to the nearest, saved 38 bytes and removed `distribute` from `asteroid.js` entirely.
+- Removing the now-unreachable `Math.max(3, ...)` from `pointsFor` saved 18 bytes.
+- Storing contents as `itemTypes` indexes, dropping `main.js`'s name-to-item map, saved 42 bytes.
+- Dropping the rotated field ellipse saved 44 bytes, and its now-unused `rotation` property another 5.
+- Returning the items rather than the `placed` list, taking the last attempt whether it fits or not, saved 3 bytes and removed the caller's `slice`, but left hundreds of overlapping asteroids per world, so it was reverted.
+- The world generator makes millions of `random()` calls, so a short-period generator (such as `(seed + 1) * 7 % 10009`) repeats positions outright. A Lehmer generator, `(seed + 1) * 48271 % 2147483647`, has a two-billion period without `Math.imul` or `>>>`, and saved 12 bytes over the 32-bit LCG.
+- Removing `distribute`'s biggest-first `sort` saved 5 bytes, and its unused `density = 0` default 1 byte.
+- Approximating the asteroid count as `fieldRadius ** 2 * aspectRatio / 1e5` saved 4 bytes.
+- Making fields circular, dropping `aspectRatio` from both `distribute` and the field data, saved 20 bytes.
+- A `scatter` helper for the near-identical station and wreck `distribute` calls cost 5 bytes.
+- Dropping the `Math.sqrt` that spreads points evenly across the disc cost 19 bytes.
+

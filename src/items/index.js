@@ -52,9 +52,9 @@ import { opal } from './opal';
 export const itemTypes = [
   diamond,
   // platinum, // Platinum disabled to save a few bytes
+  amethyst,
   gold,
   opal,
-  amethyst,
   explosive,
   message,
 ];
