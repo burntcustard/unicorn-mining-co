@@ -7,22 +7,10 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 
 ## Project rules
 
-- Full builds must keep `dist/game.zip` under 13,312 bytes.
+- The finished entry has to fit in 13,312 bytes, but going over while building a feature out is fine; it gets golfed back down afterwards.
 - Do not modify generated files in `dist/` by hand; produce them with the build command.
-
-## Code golfing
-
-- Judge size changes by the built ZIP; Roadroller compresses repeated code well, so fewer source characters do not guarantee a smaller entry.
-- Prefer truthy checks and omitted properties over setting or comparing `null` or `undefined` when falsy values do not have distinct meanings.
-- Write genuinely boolean state as `true` or `false` and trust Terser to shorten it, unless a build comparison proves the boolean form enlarges the ZIP. Keep numbers for levels and counters, and falsy sentinels for values that otherwise hold objects.
-- Keep descriptive local names because Terser mangles them; property and exported names will also affect size as we will be mangling those too.
-- Do not add abstractions or cached state solely to remove repetition unless a build comparison shows a saving.
-- Keep `Infinity` where it expresses an unbounded value; Terser already shortens it to `1/0`, so replacing it with e.g. `1e9` does not save space.
-- Never try to save space by shortening names of variables, properties, functions, etc. Terser will do that for us.
-- A helper that replaces a genuinely duplicated multi-line block tends to shrink the ZIP; Roadroller dedupes exact repeats better than it does structurally-similar-but-not-identical ones.
-- A helper or variable added only to shorten a short repeated expression (one line of arithmetic, a small reduce or map) tends to be neutral or worse, since the function-call indirection can cost more than the repetition did.
-- Recomputing a value is not automatically worse than reusing existing state, and vice versa; either can win or lose after minification, so measure rather than assume.
-- Check whether a guard or short-circuit is already redundant, i.e. whether the general case it's protecting against already produces the same result without it, before assuming it is required.
+- Never shorten names of variables, properties, functions, etc. Terser will do that for us.
+- For optimizing, minifying or code-golfing work, use the code-golfing skill.
 
 ## Before and after making a code change
 
@@ -34,22 +22,5 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - After editing, run the same build again and compare its ZIP size with the baseline.
 - Report only the before/after advzip sizes and difference; omit the unoptimized ZIP and pre-Roadroller sizes.
 - All builds pass Roadroller the fixed seed `13312`, so compare their ZIP sizes directly.
-- Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to confirm `dist/game.zip` is under 13,312 bytes for a release. `npm run build` is an alias, but prefer the explicit command.
-- At the end of the competition, we can use repeated `npm run build:full-random` builds to search for a smaller final ZIP that must be under 13,312 bytes.
-
-## Measured docking UI experiments
-
-These `build:slow` results used seed `13312` with the August 2026 docking implementation. Re-measure if surrounding code changes substantially.
-
-- Combining the dock menu's back and launch handling saved 5 bytes; literally moving its private stage into `main.js` was unnecessary.
-- Reusing the action list within one render saved 13 bytes.
-- Defining selectable craft slots by a truthy `fits` property saved 8 bytes.
-- Removing the then-unreachable `mount.fits` guard saved 5 bytes.
-- Initializing owned modules once beside the starter loadout saved 6 bytes.
-- Omitting `filter(Boolean)` from that starter list saved 1 byte.
-- Removing the shared `spend()` helper cost 17 bytes.
-- Replacing repeated label objects with a rendering helper cost 17 bytes.
-- Detecting priced actions by action-name length cost 3 bytes.
-- Caching the action list for the whole right-column interaction cost 10 bytes.
-- Removing BUY's repeated affordability branch while retaining `spend()` cost 27 bytes.
-- An explicit unique starter-module list cost 33 bytes; deduplicating it with `Set` cost 5 bytes.
+- Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to check a release. `npm run build` is an alias, but prefer the explicit command.
+- At the end of the competition, we can use repeated `npm run build:full-random` builds to search for a smaller final ZIP.
