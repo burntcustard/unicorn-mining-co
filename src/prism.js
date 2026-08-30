@@ -1,5 +1,16 @@
-import { Vector, movePoint, rotatePoint, rotatePoints } from './vector';
+import { Vector, directionOf, rotatePoint, rotatePoints } from './vector';
 import { colors } from './colors';
+import { within } from './polygon';
+
+const fillOf = (ctx, color, from, to, fade) => {
+  const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+
+  gradient.addColorStop(0, color);
+  gradient.addColorStop(fade, color);
+  gradient.addColorStop(1, '#0000');
+
+  return gradient;
+};
 
 /**
  * What the floodlight does when it runs into rock.
@@ -79,7 +90,7 @@ const minFacing = 0.35;
 
 // How many rays are fanned across the cone. Enough that the edge of the light
 // lands within a pixel or so of the edge of whatever is casting it
-const rays = 120;
+const rays = 64;
 
 // How far along a ray a crossing has to be to count, so that the face a ray is
 // setting off from is not found again as the face it runs into
@@ -95,18 +106,6 @@ const fades = 200;
 // closing a seam nor two sheets crossing shows up brighter than the rest of it
 const inside = '#555';
 const spectrumStrength = 0.9;
-
-const directionOf = (angle) => Vector(movePoint(Vector(), angle, 1));
-
-const fillOf = (ctx, color, from, to) => {
-  const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
-
-  gradient.addColorStop(0, color);
-  gradient.addColorStop(Math.max(0, 1 - fades / from.distance(to)), color);
-  gradient.addColorStop(1, '#0000');
-
-  return gradient;
-};
 
 /**
  * Where a ray first crosses a polygon: the point, how far along the ray it sits,
@@ -261,16 +260,6 @@ const strip = (near, far) => {
   return path;
 };
 
-// Whether somewhere is within an outline, counting how many of its edges lie
-// off to one side of it
-const within = (points, { x, y }) => points.reduce((so, [pointX, pointY], i) => {
-  const [nextX, nextY] = points[(i + 1) % points.length];
-  const crosses = (pointY > y) !== (nextY > y) &&
-    x < pointX + (y - pointY) / (nextY - pointY) * (nextX - pointX);
-
-  return crosses ? !so : so;
-}, false);
-
 // Neighbouring rays that went into the same rock and left it as one sheet of
 // light. A lone ray is too thin to draw.
 //
@@ -414,7 +403,8 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     // Violet is bent furthest, so it belongs on the side the rock bent towards
     spectrum.forEach((color, band) => {
       ctx.fillStyle = fillOf(ctx,
-        spectrum[sense * spin > 0 ? band : spectrum.length - 1 - band], root, tip);
+        spectrum[sense * spin > 0 ? band : spectrum.length - 1 - band], root, tip,
+        Math.max(0, 1 - fades / length));
       ctx.fill(strip(near.slice(band, band + 2), far.slice(band, band + 2)));
     });
   });
