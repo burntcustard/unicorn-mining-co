@@ -1,5 +1,6 @@
 import { Vector, directionOf, rotatePoint, rotatePoints } from './vector';
 import { colors } from './colors';
+import { strip } from './drawing';
 import { within } from './polygon';
 
 const fillOf = (ctx, color, from, to, fade) => {
@@ -51,7 +52,7 @@ const spectrum = [
 ];
 
 // How much rock bends light
-const rockIndex = 1.15;
+const rockIndex = 1.2;
 
 // How wide the stripes fan apart, measured against how far the rock bent the
 // light on its way through. A rock that hardly bends it hardly splits it, so
@@ -86,7 +87,7 @@ const thin = 4;
 // only grazes a face barely gets through one in the first place, and what does
 // leaves from somewhere wildly far round the far side, sweeping about as the
 // ship drifts, so it is taken as stopping at the face instead
-const minFacing = 0.35;
+const minFacing = 0.3;
 
 // How many rays are fanned across the cone. Enough that the edge of the light
 // lands within a pixel or so of the edge of whatever is casting it
@@ -126,10 +127,9 @@ const cross = (points, from, dir) => {
     const start = Vector(corner[0] - from.x, corner[1] - from.y);
     const along = (start.x * dir.y - start.y * dir.x) / denom;
     const distance = (start.x * edge.y - start.y * edge.x) / denom;
+    const face = Vector(edge.y, -edge.x).normalize();
 
     if (!denom || along < 0 || along > 1 || distance < inset || distance >= near) return;
-
-    const face = Vector(edge.y, -edge.x).normalize();
 
     near = distance;
     normal = dir.dot(face) > 0 ? face.scale(-1) : face;
@@ -248,18 +248,6 @@ export const traceBeam = (ship, lamp, scenery) => {
   };
 };
 
-// A sheet with one edge running out along one line of points and back along
-// another
-const strip = (near, far) => {
-  const path = new Path2D();
-
-  near.forEach(({ x, y }, i) => i ? path.lineTo(x, y) : path.moveTo(x, y));
-  for (let i = far.length; i--;) path.lineTo(far[i].x, far[i].y);
-  path.closePath();
-
-  return path;
-};
-
 // Neighbouring rays that went into the same rock and left it as one sheet of
 // light. A lone ray is too thin to draw.
 //
@@ -297,15 +285,6 @@ const runsOf = ({ rays: fan }) => {
   });
 
   return runs.filter((run) => run.length > 1);
-};
-
-// Square to the way a sheet travels through the rock, which is the line its
-// width is measured along
-const acrossRun = (run) => {
-  const through = run.reduce((sum, ray) =>
-    sum.add(ray.out.at.subtract(ray.at)), Vector()).normalize();
-
-  return Vector(-through.y, through.x);
 };
 
 // How far the light got, as the fan of everywhere its rays stopped
@@ -381,7 +360,9 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     // further along the face than the beam is thick
     const first = run[0].out.at;
     const span = run[run.length - 1].out.at.subtract(first);
-    const side = acrossRun(run);
+    const through = run.reduce((sum, ray) =>
+      sum.add(ray.out.at.subtract(ray.at)), Vector()).normalize();
+    const side = Vector(-through.y, through.x);
     // Its sign is which way round the fan has to open for the stripes to spread
     // apart rather than cross over one another
     const width = span.dot(side);

@@ -92,3 +92,13 @@ Re-measure if the surrounding code changes substantially.
 - A `bands` const for `spectrum.length`, used three times, cost 2 bytes.
 - Hoisting the constant `edges` array to module level cost 1 byte.
 - Deleting the sheet-crossing clip entirely saved only 9 bytes, and the `mask` clip in `drawInside` only 2, so both were kept.
+- Declaring `cross`'s `face` with its other callback locals, immediately before the guard, saved 3 bytes. Moving it directly after `edge` instead cost 17 bytes, and declaring `start` before `denom` cost 23 bytes.
+- Moving the shared `strip` path builder from `prism.js` to the end of `drawing.js` saved 5 bytes. Placing it immediately after or before `shapePath` instead cost 6 and 12 bytes respectively.
+- Inlining the single-use `acrossRun` helper saved 1 byte.
+- Replacing `cross`'s temporary vectors with scalar edge and start coordinates cost 9 bytes despite reducing pre-Roadroller JS by 33 bytes.
+- Moving the spectrum's thin-sheet guard below all of its local calculations cost 13 bytes.
+- Making `fillOf` assign `ctx.fillStyle` rather than return its gradient cost 3 bytes; using the `spectrum.forEach` callback's `color` on one ternary branch cost 1 byte.
+- Rewriting `outlineOf` with the shared `rotatePoint` helper cost 7 bytes despite reducing pre-Roadroller JS by 32 bytes.
+- Moving `refract` to `vector.js` cost 14 bytes, and moving `cross` beside `within` in `polygon.js` cost 44 bytes.
+- Moving `fillOf` beside its call or into `lighting.js`, and reordering the new `strip` import, were neutral.
+- Removing the production-unused returned `outlines` property cost 21 bytes, and moving it after `rays` cost 20 bytes, so its presence and original property order were retained.

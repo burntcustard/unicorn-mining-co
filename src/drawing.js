@@ -42,3 +42,15 @@ export const linesPath = (lines) => {
 
   return path;
 };
+
+// A sheet with one edge running out along one line of points and back along
+// another
+export const strip = (near, far) => {
+  const path = new Path2D();
+
+  near.forEach(({ x, y }, i) => i ? path.lineTo(x, y) : path.moveTo(x, y));
+  for (let i = far.length; i--;) path.lineTo(far[i].x, far[i].y);
+  path.closePath();
+
+  return path;
+};
