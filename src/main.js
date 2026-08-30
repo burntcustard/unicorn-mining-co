@@ -1,21 +1,16 @@
 import { Item, remove } from './item';
 import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
+// @ifdef DEBUG
+import { bindDebug, debugCrafts, lights, physicsOn, renderDebug, renderDebugDemos } from './debug';
+// @endif
 import { bindKeys, initKeys, keyDown } from './keyboard';
-import { camera, centerCamera, followTarget, renderDeadzone } from './camera';
+import { camera, centerCamera, followTarget } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualMd } from './modules';
 import { detonate, renderBlasts, updateBlasts } from './explosion';
-import {
-  // amethyst,
-  diamond,
-  gold,
-  itemTypes,
-  // opal
-} from './items';
 import { dock, flyOut } from './docking';
 import { grind, mine } from './mining';
 import { insidePath, traceBeam } from './prism';
 import { player, updatePlayer } from './player';
-import { renderBackground, sky } from './background';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
 import { Craft } from './craft';
@@ -23,15 +18,15 @@ import { GameLoop } from './game-loop';
 // import { Road } from './road';
 import { benchmarkFlag } from './benchmark';
 import { colors } from './colors';
-import { colorsDemo } from './colors-demo';
 import { contacts } from './collisions';
 import { distribute } from './distribute';
 import { game } from './game';
+import { itemTypes } from './items';
 import { localMovement } from './local-movement';
 import { move } from './vector';
+import { renderBackground } from './background';
 import { renderControls } from './ui/controls';
 import { renderCraft } from './craft-render';
-import { renderFps } from './fps';
 import { renderIndicators } from './ui/indicators';
 import { renderText } from './text';
 import { resolve } from './resolve';
@@ -39,10 +34,8 @@ import { scoop } from './scoop';
 import { setSizing } from './set-sizing';
 import { shipTypes } from './ships';
 import { stationTypes } from './stations';
-import { textDemo } from './text-demo';
-// @ifdef DEBUG
-// eslint-disable-next-line sort-imports -- these only exist in DEBUG builds
-import { glows, lights, toggleGlows, toggleLights } from './lighting';
+// @ifdef BENCHMARK
+import { testSections } from './section-test';
 // @endif
 
 setSizing(game);
@@ -63,26 +56,6 @@ thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
     playerShip.fit(module);
     module.owned = (module.owned || 0) + 1;
   });
-
-// @ifdef DEBUG
-// One hull of every colour, lined up to see how the light falls across them
-const swatches = [
-  colors.black,
-  colors.red,
-  colors.orange,
-  colors.yellow,
-  colors.green,
-  colors.cyan,
-  colors.violet,
-  colors.black,
-  colors.white,
-].map((shades, i) => new Craft({
-  craftData: shipTypes.mustang,
-  shades,
-  x: 120 + i * 120,
-  y: game.height - 100,
-}));
-// @endif
 
 const corral = new Craft({
   craftData: stationTypes.corral,
@@ -143,34 +116,10 @@ const asteroidField = distribute(fieldAsteroids, {
 if (benchmarkFlag('field')) Object.assign(playerShip, { x: 4500, y: -2000 });
 // @endif
 
-// Plain shapes sat still in a row in front of the ship, so that what the
-// floodlight does to them can be checked against something predictable
-// const blocks = [3, 3, 4, 4, 6].map((points, i) => new Asteroid({
-//   points,
-//   radius: 45,
-//   // Every other one turned a little, to catch a face rather than a corner
-//   rotation: (i % 2) * 0.6,
-//   spin: 0,
-//   // Just enough wander that no two faces come out parallel, because an asteroid
-//   // with a pair that are is a slab rather than a prism and splits nothing
-//   variance: 1,
-//   x: game.width / 3 + 260 + i * 30,
-//   y: game.height / 2 - 260 + i * 130,
-// }));
-
-// A few asteroids are salted with cargo, to light up with the floodlight
-// and grind open with the horn. The rest stay empty to mine against
-// blocks[0].bury(new Item({ itemData: diamond }));
-// blocks[0].bury(new Item({ itemData: gold }));
-// blocks[2].bury(new Item({ itemData: amethyst }));
-// blocks[2].bury(new Item({ itemData: platinum }));
-// blocks[4].bury(new Item({ itemData: opal }));
-// asteroids[0].bury(new Item({ itemData: gold }));
-
 const crafts = [
   playerShip,
   // @ifdef DEBUG
-  ...swatches,
+  ...debugCrafts(game),
   // @endif
   corral,
 ];
@@ -182,136 +131,7 @@ const scenery = [
 ];
 
 // @ifdef BENCHMARK
-window['testSections'] = () => {
-  const five = scenery.find((asteroid) =>
-    asteroid.outline.length === 5 && asteroid.health < 240);
-  const triangle = new Asteroid({ points: 3, radius: 90 });
-
-  if (triangle.sections.length !== 4 ||
-    five.sections.length !== five.outline.length * 4 ||
-    five.hitboxes().length !== 1 ||
-    five.sections.some((section) => section.asteroid !== five)) {
-    throw Error('five');
-  }
-
-  const asteroid = scenery.find((object) => object.outline.length === 7);
-  const leaf = asteroid.sections[0];
-  const count = asteroid.sections.length;
-  const velocity = asteroid.velocity;
-
-  asteroid.spin = 0;
-  leaf.health /= 2;
-  const [children] = asteroid.detach(leaf);
-  const [piece, remainder] = children;
-
-  scenery.splice(scenery.indexOf(asteroid), 1, ...children);
-
-  if (children.length !== 2 || asteroid.sections.length || remainder.sections.includes(leaf)) {
-    throw Error('detach');
-  }
-
-  if (remainder.sections.length !== count - 1 || !piece.life) {
-    throw Error('leaf');
-  }
-
-  const pieceSpeed = piece.velocity.subtract(velocity).length();
-  const remainderSpeed = remainder.velocity.subtract(velocity).length();
-
-  if (pieceSpeed <= remainderSpeed ||
-    Math.abs(pieceSpeed * piece.mass - remainderSpeed * remainder.mass) > 1e-9) {
-    throw Error('leaf force');
-  }
-
-  Object.assign(remainder, { x: playerShip.x, y: playerShip.y });
-  const beam = traceBeam(playerShip, lamp, [remainder]);
-
-  if (beam.outlines[0].length !== remainder.outline.length) throw Error('light');
-  const cargoRock = new Asteroid({ points: 5, radius: 90 });
-  const cargoItem = new Item({ itemData: diamond });
-  const otherCargo = new Item({ itemData: gold });
-
-  cargoRock.bury(cargoItem);
-  cargoRock.bury(otherCargo);
-
-  if (cargoRock.contents.length !== 2 ||
-    Math.hypot(cargoItem.buried.x - otherCargo.buried.x,
-      cargoItem.buried.y - otherCargo.buried.y) < cargoRock.radius / 3) {
-    throw Error('cargo placement');
-  }
-
-  const oversized = new Item({ itemData: gold });
-
-  oversized.radius = cargoRock.radius;
-  cargoRock.bury(oversized);
-
-  if (!cargoRock.contents.includes(oversized) ||
-    !cargoRock.sections.some((section) => section.contents.includes(oversized))) {
-    throw Error('cargo snap');
-  }
-
-  const [cargoParts, early] = cargoRock.detach(
-    cargoRock.sections.find((section) => !section.contents.length),
-  );
-  const cargoPart = cargoParts.find((part) =>
-    part.sections?.some((section) => section.contents.includes(cargoItem)));
-
-  if (early.length || !cargoPart) throw Error('cargo early');
-  const [cargoDebris, released] = cargoPart.detach(
-    cargoPart.sections.find((section) => section.contents.includes(cargoItem)),
-  );
-
-  const debris = cargoDebris.find((part) => part.contents.includes(cargoItem));
-  const expired = [];
-
-  debris.update(11, expired);
-
-  if (released.length || debris.dead || expired.length) throw Error('cargo expiry');
-
-  const [spent, mined] = debris.split();
-
-  if (spent.length || mined[0] !== cargoItem) throw Error('cargo mining');
-
-  const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
-
-  splitShip.segments[1].health = 0;
-  const fragments = splitShip.fracture([]);
-
-  if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
-    !splitShip.cockpit.hull.health || !splitShip.velocity.length() ||
-    !fragments[0].velocity.length() || fragments[0].position.distance(splitShip.position) < 1 ||
-    Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
-  const fragmentSpin = fragments[0].spin;
-
-  fragments[0].update(0.1);
-  if (fragments[0].spin !== fragmentSpin) throw Error('fragment spin');
-  splitShip.spin = 1;
-  splitShip.update(0.1);
-  if (splitShip.spin !== 1) throw Error('ship spin');
-  fragments[0].update(11);
-  if (!fragments[0].dead) throw Error('fragment life');
-  const wreck = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
-  const cargo = new Item({ itemData: diamond });
-  const loose = [];
-
-  wreck.cargo.push(cargo);
-  wreck.cockpit.hull.health = 0;
-  const wreckage = wreck.fracture(loose);
-
-  if (!wreck.dead || loose[0] !== cargo || cargo.velocity.x !== wreck.velocity.x) {
-    throw Error('wreck');
-  }
-
-  if (wreckage.length !== 7 || wreckage.some((part) => part.dead || part.velocity.length() < 29)) {
-    throw Error('wreck drift');
-  }
-
-  return {
-    children: children.length,
-    leafHealth: leaf.maxHealth,
-    fragments: fragments.length,
-    sections: asteroid.sections.length,
-  };
-};
+window['testSections'] = () => testSections(scenery, playerShip, lamp);
 // @endif
 
 // One of everything, in a row below the ship to fly into and scoop up. These
@@ -325,14 +145,6 @@ const items = itemTypes.map((itemData, i) => new Item({
 
 // Everything that can catch hold of a ship and carry it along
 const movers = [...crafts];
-
-// @ifdef DEBUG
-let physicsOn = 1;
-let showDeadzone = false;
-let showMass = false;
-let showTextDemo = false;
-let showColorsDemo = false;
-// @endif
 
 const collide = (objects, targets) => {
   // @ifdef BENCHMARK
@@ -413,14 +225,7 @@ const lamp = playerShip.segments.find((segment) => segment.module === floodlight
 initKeys();
 
 // @ifdef DEBUG
-bindKeys(['2'], () => showColorsDemo = !showColorsDemo);
-bindKeys(['3'], () => showTextDemo = !showTextDemo);
-bindKeys(['4'], () => showDeadzone = !showDeadzone);
-bindKeys(['5'], () => showMass = !showMass);
-bindKeys(['6'], sky.cycle);
-bindKeys(['7'], toggleLights);
-bindKeys(['8'], toggleGlows);
-bindKeys(['9'], () => physicsOn = !physicsOn);
+bindDebug();
 // @endif
 
 // Only the player's ship is flown off the keyboard. AI pilots work their own
@@ -517,28 +322,7 @@ GameLoop({
     game.ctx.restore();
 
     // @ifdef DEBUG
-    if (showDeadzone) renderDeadzone(game);
-    renderFps(game);
-    renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 90 });
-    renderText({ game, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 110 });
-    renderText({ game, text: `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, x: 10, y: 130 });
-    renderText({ game, text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, x: 10, y: 150 });
-    renderText({ game, text: `6 SKY:${sky.label}`, x: 10, y: 170 });
-    renderText({ game, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 190 });
-    renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 210 });
-    renderText({ game, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 230 });
-
-    if (showMass) {
-      game.ctx.save();
-      game.ctx.fillStyle = colors.white[2];
-      game.ctx.font = '12px monospace';
-      game.ctx.textAlign = 'center';
-      game.ctx.textBaseline = 'middle';
-      [...scenery, ...crafts].forEach(({ mass, x, y }) => {
-        if (mass) game.ctx.fillText(Math.round(mass), x, y);
-      });
-      game.ctx.restore();
-    }
+    renderDebug(game, scenery, crafts);
     // @endif
 
     renderIndicators(game, [corral], colors.green[2], 10000);
@@ -559,8 +343,7 @@ GameLoop({
     }
 
     // @ifdef DEBUG
-    if (showColorsDemo) colorsDemo(game);
-    if (showTextDemo) textDemo(game);
+    renderDebugDemos(game);
     // @endif
   },
   update: (dt) => {

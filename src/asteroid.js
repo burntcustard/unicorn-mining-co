@@ -17,7 +17,7 @@ const asteroidVariance = 0.3;
 const asteroidDrag = 1;
 
 // Five sides keep the old radius-squared mass; fewer sides lose some, more gain some
-const massMultiplier = 0.1;
+const massMultiplier = 0.2;
 
 // Fastest an asteroid settles back to on nothing but its starting speed
 const asteroidMaxSpeed = 70;
