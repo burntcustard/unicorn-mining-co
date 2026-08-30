@@ -94,14 +94,23 @@ export class Asteroid extends Sprite {
     });
     // Points that wandered outwards reach further than the radius they were
     // cut from, and a collision check has to know about all of them
+    // A star has a triangular core and a pointy triangle for each arm, so its
+    // cut pieces retain the same silhouette as its outline.
+    const inset = this.radiusEven && this.outline.filter((point, i) => !(i % 2));
     const triangles = props.triangles ||
-      (this.outline[3] ?
-          this.outline.map((point, i) => [
-            [0, 0],
+      (inset ?
+          [inset, ...inset.map((point, i) => [
             point,
-            this.outline[(i + 1) % this.outline.length],
-          ]) :
-          [this.outline]);
+            this.outline[i * 2 + 1],
+            inset[(i + 1) % inset.length],
+          ])] :
+        this.outline[3] ?
+            this.outline.map((point, i) => [
+              [0, 0],
+              point,
+              this.outline[(i + 1) % this.outline.length],
+            ]) :
+            [this.outline]);
     this.radius = Math.max(...this.outline.map(([x, y]) => Math.hypot(x, y)));
     // Heft grows with size, so a big asteroid shrugs off what shoves a pebble and
     // holds its drift far longer
@@ -110,20 +119,22 @@ export class Asteroid extends Sprite {
     this.path = shapePath(this.outline);
 
     // A hitbox starts with the complete outline before reaching one of these
-    // four-way cuts. The leaves carry health, so each can come free on its own.
+    // cuts. Ordinary faces quarter themselves; a star's four faces stay whole.
     if (!props.triangles) {
-      const health = this.health / triangles.length / 4;
-      const leaves = triangles.map(splitTriangle);
+      const sectionsPerFace = inset ? 1 : 4;
+      const health = this.health / triangles.length / sectionsPerFace;
+      const leaves = inset ? triangles.map((triangle) => [triangle]) : triangles.map(splitTriangle);
 
-      // Every innermost leaf comes first, so the first thing buried sits in the middle
-      this.sections = [0, 1, 2, 3].flatMap((corner) => leaves.map((leaf) => ({
-        contents: [],
-        health,
-        maxHealth: health,
-        mass: this.mass / triangles.length / 4,
-        outline: leaf[corner],
-        asteroid: this,
-      })));
+      // Every innermost leaf comes first, so centre-only cargo can find the middle.
+      this.sections = Array.from({ length: sectionsPerFace }, (_, corner) =>
+        leaves.map((leaf) => ({
+          contents: [],
+          health,
+          maxHealth: health,
+          mass: this.mass / triangles.length / sectionsPerFace,
+          outline: leaf[corner],
+          asteroid: this,
+        }))).flat();
       groupsOf(this.sections);
     } else if (!triangles[1] && !this.contents.length) {
       this.life = 9 + Math.random();
@@ -228,14 +239,24 @@ export class Asteroid extends Sprite {
   }
 
   /**
-   * Tuck an item into the first leaf that has nothing in it yet, which works
-   * from the middle outwards. A buried item rides with that leaf until a horn
-   * cuts it loose.
+   * Tuck an item into an empty leaf. A buried item rides with that leaf until
+   * a horn cuts it loose. Centre-only cargo goes in the leaf nearest the middle.
    *
   * @param {Item} item
   */
-  bury(item) {
-    const section = this.sections.find(({ contents }) => !contents.length);
+  bury(item, center) {
+    const empty = this.sections.filter(({ contents }) => !contents.length);
+
+    const middleDistance = ({ outline }) => {
+      const { x, y } = measure(outline);
+
+      return x ** 2 + y ** 2;
+    };
+
+    const section = center ?
+        empty.reduce((nearest, candidate) =>
+          middleDistance(candidate) < middleDistance(nearest) ? candidate : nearest) :
+      empty[Math.floor(Math.random() * empty.length)];
     const { x, y } = measure(section.outline);
 
     Object.assign(item, item.buried = { rotation: Math.random() * Math.PI * 2, x, y });

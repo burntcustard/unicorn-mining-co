@@ -21,8 +21,9 @@ const makeAsteroids = (field, worldObjects, random) => {
   const count = field.fieldRadius ** 2 / 32000;
 
   const asteroids = Array.from({ length: count }, () => {
-    const radius = 50 + random() * (gravel ? 0 : 100);
-    const capacity = Math.round(Math.sqrt(radius) / 3) * 2;
+    const radius = 50 + (gravel ? 50 : random() * 100);
+    // Small rocks hold little; capacity rises smoothly with size.
+    const capacity = Math.round((radius / 50) ** 2);
 
     let contents = [];
 
@@ -37,6 +38,7 @@ const makeAsteroids = (field, worldObjects, random) => {
     return {
       contents,
       radius,
+      ...(gravel && { points: 6, radiusEven: radius / 4 }),
       rotation: random() * Math.PI * 2,
       spin: randomSpin(random),
     };
@@ -60,7 +62,7 @@ const makeAsteroids = (field, worldObjects, random) => {
 export const generateWorld = (seed) => {
   const random = seededRandom(seed);
 
-  const stations = distribute(Array.from({ length: 32 }, () => ({
+  const stations = distribute(Array.from({ length: 24 }, () => ({
     radius: 400,
     spin: randomSpin(random),
   })), {
@@ -68,7 +70,7 @@ export const generateWorld = (seed) => {
     radius: worldRadius,
   }, [], random);
 
-  const wrecks = distribute(Array.from({ length: 32 }, () => ({
+  const wrecks = distribute(Array.from({ length: 24 }, () => ({
     radius: 100,
     spin: randomSpin(random),
   })), {
@@ -76,9 +78,9 @@ export const generateWorld = (seed) => {
     radius: worldRadius,
   }, [], random);
 
-  const fields = distribute(Array.from({ length: 80 }, () => {
-    // Half the fields hold a mix of everything; the rest are rich in one resource
-    const resource = random() < 0.5 ? 4 : randomResource(random);
+  const fields = distribute(Array.from({ length: 100 }, () => {
+    // 70% of fields hold a mix of everything; the rest are rich in one resource
+    const resource = random() < 0.7 ? 4 : randomResource(random);
 
     // The dearest resources, diamond and amethyst, come in small pockets
     const fieldRadius = (2100 + random() * 1900) / (resource < 2 ? 2 : 1);

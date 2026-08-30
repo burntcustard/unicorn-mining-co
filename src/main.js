@@ -1,4 +1,5 @@
 import { Item, remove } from './item';
+import { amethyst, itemTypes } from './items';
 import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
 // @ifdef DEBUG
 import { bindDebug, debugCrafts, lights, physicsOn, renderDebug, renderDebugDemos } from './debug';
@@ -21,7 +22,6 @@ import { colors } from './colors';
 import { contacts } from './collisions';
 import { game } from './game';
 import { generateWorld } from './world';
-import { itemTypes } from './items';
 import { localMovement } from './local-movement';
 import { move } from './vector';
 import { renderBackground } from './background';
@@ -89,9 +89,11 @@ const crafts = [...localCrafts];
 
 const createWorldObject = (properties) => {
   const object = new Asteroid({ ...properties, contents: [] });
+  const amethystOnly = properties.contents.length &&
+    properties.contents.every((resource) => itemTypes[resource] === amethyst);
 
   properties.contents.forEach((resource) =>
-    object.bury(new Item({ itemData: itemTypes[resource] })));
+    object.bury(new Item({ itemData: itemTypes[resource] }), amethystOnly));
 
   properties.instance = object;
   object.worldObject = properties;
