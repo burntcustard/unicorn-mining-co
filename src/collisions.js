@@ -1,4 +1,7 @@
 import { Vector, rotatePoints } from './vector';
+// @ifdef DEBUG
+import { game } from './game';
+// @endif
 
 /**
  * Collision checking, and nothing at all about what a collision means: the
@@ -24,12 +27,12 @@ import { Vector, rotatePoints } from './vector';
 const cellSize = 256;
 
 // How far either side of nothing a cell may sit and still key to a whole
-// number. Keys are numbers rather than strings of their two coordinates:
-// building one string per thing per frame costs more than everything else the
-// grid does put together once there are thousands of things in it
+// number. A single numeric key avoids joining both coordinates into a string
+// per thing per frame, which costs more than everything else the grid does put
+// together once there are thousands of things in it
 const reach = 1 << 15;
 
-const cells = new Map();
+let cells = {};
 let pass = 0;
 const keyOf = (cellX, cellY) => (cellX + reach) * reach * 2 + cellY + reach;
 const cellKey = (x, y) => keyOf(Math.floor(x / cellSize), Math.floor(y / cellSize));
@@ -223,30 +226,33 @@ const overlapOf = (a, b, between, gapX, gapY, aPoints, bPoints) => {
  * Every overlap in a world, once per collider pair for this physics step.
  * Rebuilding the small grid also drops colliders removed since the last step.
  *
- * @param {Object[]} objects
- * @param {Object[]} [targets] - The objects which should look for overlaps.
+ * @param {Object[]} sprites
  * @returns {Object[]} contacts
  */
-export const contacts = (objects, targets = objects) => {
+export const detectCollisions = (sprites) => {
+  // @ifdef DEBUG
+  if (!game.physicsOn) return [];
+  // @endif
+
   pass++;
-  cells.clear();
+  cells = {};
+  const objects = sprites.flatMap((sprite) => sprite.hitboxes());
   const found = [];
 
   objects.forEach((object, order) => {
     object.order = order;
     const cell = cellKey(object.x, object.y);
-    const sharing = cells.get(cell);
 
-    (sharing || cells.set(cell, []).get(cell)).push(object);
+    (cells[cell] ||= []).push(object);
   });
 
-  targets.forEach((object) => {
+  objects.forEach((object) => {
     const cellX = Math.floor(object.x / cellSize);
     const cellY = Math.floor(object.y / cellSize);
 
     for (let x = cellX - 1; x < cellX + 2; x++) {
       for (let y = cellY - 1; y < cellY + 2; y++) {
-        cells.get(keyOf(x, y))?.forEach((other) => {
+        cells[keyOf(x, y)]?.forEach((other) => {
           // Test each pair once, and never pieces of the same assembled body
           if (other.order >= object.order ||
             (object.owner || object) === (other.owner || other)) return;

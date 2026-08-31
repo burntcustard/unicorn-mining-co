@@ -1,3 +1,9 @@
+import { Craft } from './craft';
+import { colors } from './colors';
+import { flyOut } from './docking';
+import { keyDown } from './keyboard';
+import { shipTypes } from './ships';
+
 /**
  * Whoever is playing, as opposed to whichever craft they happen to be flying.
  * Credits and messages belong to the pilot; cargo belongs to a craft.
@@ -16,6 +22,13 @@ export const player = {
   note: '',
   noteFor: 0,
 };
+
+export const playerShip = new Craft({
+  craftData: shipTypes.mustang,
+  shades: colors.white,
+  x: 0,
+  y: 0,
+});
 
 /**
  * @param {String} text - Upper case, and only what the font actually has.
@@ -57,4 +70,15 @@ export const stow = (craft, item) => craft.cargo.push(item);
  */
 export const updatePlayer = (dt) => {
   player.noteFor = Math.max(0, player.noteFor - dt);
+
+  // An AI pilot will set its own ship's controls here. Whoever is aboard, a
+  // launching ship sees itself out of the bay, and a ship on a road has the
+  // road doing the driving for it
+  const thrusting = !playerShip.localMovementParent?.drives &&
+    (flyOut(playerShip, dt) || keyDown('ArrowUp'));
+
+  playerShip.fly(
+    thrusting ? 1 : 0,
+    (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
+  );
 };

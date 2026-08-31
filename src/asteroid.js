@@ -267,11 +267,11 @@ export class Asteroid extends Sprite {
   }
 
   /**
-   * @param {Number} dt - Seconds since the last update.
-   */
-  update(dt, movement) {
+  * @param {Number} dt - Seconds since the last update.
+  */
+  update(dt) {
     if (this.lifetime && (this.lifetime -= dt) <= 0) this.remove();
-    super.update(dt, movement);
+    super.update(dt);
     this.contents.forEach((item) => {
       const { buried } = item;
 

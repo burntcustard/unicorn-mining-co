@@ -26,8 +26,8 @@ export const scoopOpen = 0.5;
 
 // A door, hinged at its outer end and swinging forward as the scoop opens. A
 // long thin rectangle, which is the whole of why it can be collided with
-const doorPoints = (anim, side) => {
-  const angle = anim * openAngle;
+const doorPoints = (activationProgress, side) => {
+  const angle = activationProgress * openAngle;
   const fromY = side * scoopLength;
   const toX = scoopLength * Math.sin(angle);
   const toY = side * scoopLength * (1 - Math.cos(angle));
@@ -46,7 +46,7 @@ const doorPoints = (anim, side) => {
 
 const door = (side) => ({
   outline: [],
-  points: ({ anim }) => doorPoints(anim, side),
+  points: ({ activationProgress }) => doorPoints(activationProgress, side),
   radius: () => scoopLength * 2,
 });
 

@@ -10,6 +10,9 @@ export const game = {
   crafts: [],
   ctx: context,
   items: [],
+  // @ifdef DEBUG
+  physicsOn: true,
+  // @endif
   size: 1.5,
   sprites: [],
   // scale, width & height are set by setSizing()

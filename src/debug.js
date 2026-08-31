@@ -1,9 +1,10 @@
+import { camera, renderDeadzone } from './camera';
 import { glows, lights, toggleGlows, toggleLights } from './lighting';
 import { Craft } from './craft';
 import { bindKeys } from './keyboard';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
-import { renderDeadzone } from './camera';
+import { playerShip } from './player';
 import { renderFps } from './fps';
 import { renderText } from './text';
 import { shipTypes } from './ships';
@@ -16,7 +17,6 @@ let showTextDemo = false;
 let showColorsDemo = false;
 
 export { lights };
-export let physicsOn = true;
 
 // One hull of every colour, lined up to see how the light falls across them
 export const debugCrafts = (game) => [
@@ -36,7 +36,7 @@ export const debugCrafts = (game) => [
   y: game.height - 100,
 }));
 
-export const bindDebug = () => {
+export const bindDebug = (game) => {
   bindKeys(['2'], () => showColorsDemo = !showColorsDemo);
   bindKeys(['3'], () => showTextDemo = !showTextDemo);
   bindKeys(['4'], () => showDeadzone = !showDeadzone);
@@ -44,11 +44,22 @@ export const bindDebug = () => {
   bindKeys(['6'], sky.cycle);
   bindKeys(['7'], toggleLights);
   bindKeys(['8'], toggleGlows);
-  bindKeys(['9'], () => physicsOn = !physicsOn);
+  bindKeys(['9'], () => game.physicsOn = !game.physicsOn);
 };
 
-export const renderDebug = (game, sprites) => {
-  if (showDeadzone) renderDeadzone(game);
+export const renderDebug = (game, sprites, nearbyRadius) => {
+  if (showDeadzone) {
+    game.ctx.save();
+    game.ctx.scale(game.scale, game.scale);
+    game.ctx.translate(-camera.x, -camera.y);
+    game.ctx.beginPath();
+    game.ctx.arc(playerShip.x, playerShip.y, nearbyRadius, 0, Math.PI * 2);
+    game.ctx.strokeStyle = colors.red[2];
+    game.ctx.stroke();
+    game.ctx.restore();
+    renderDeadzone(game);
+  }
+
   renderFps(game);
   renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 90 });
   renderText({ game, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 110 });
@@ -57,7 +68,7 @@ export const renderDebug = (game, sprites) => {
   renderText({ game, text: `6 SKY:${sky.label}`, x: 10, y: 170 });
   renderText({ game, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 190 });
   renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 210 });
-  renderText({ game, text: `9 PHYSICS:${physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 230 });
+  renderText({ game, text: `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 230 });
 
   if (showMass) {
     game.ctx.save();

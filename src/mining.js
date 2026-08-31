@@ -50,7 +50,7 @@ export const mine = (contacts, dt) => {
     const { segment } = hitbox;
     const target = object.segment || object;
 
-    if (!segment?.module?.grinds || segment.anim <= 0.5 || !target.health) return;
+    if (!segment?.module?.grinds || segment.activationProgress <= 0.5 || !target.health) return;
 
     const [tipX, tipY] = tipOf(hitbox);
 

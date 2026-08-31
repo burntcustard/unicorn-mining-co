@@ -80,13 +80,9 @@ const tests = [
   { name: 'lamp on', lamp: true },
   { name: 'no beam', query: 'noBeam', lamp: true },
   { code: 'Digit7', key: '7', name: 'lighting off' },
-  { name: 'no movement', query: 'noMovement' },
-  { name: 'no collisions', query: 'noCollisions' },
   { name: 'asteroid field', query: 'field' },
   { name: 'asteroid field no beam', query: 'field&noBeam' },
-  { name: 'asteroid field no collisions', query: 'field&noCollisions' },
   { hold: 'ArrowRight', name: 'asteroid field spinning', query: 'field' },
-  { hold: 'ArrowRight', name: 'asteroid field spinning no collisions', query: 'field&noCollisions' },
   { name: 'asteroid sections', query: 'field', sections: true },
   { code: 'Digit9', key: '9', name: 'physics off' },
 ];

@@ -51,8 +51,11 @@ export class Sprite {
     game.sprites.splice(game.sprites.indexOf(this), 1);
   }
 
-  update(dt, movement = true) {
-    if (this.dead || !movement || this.buried) return;
+  update(dt) {
+    if (this.dead || this.buried) return;
+    // @ifdef DEBUG
+    if (!game.physicsOn) return;
+    // @endif
 
     this.rotation += (this.spin || 0) * dt;
     move(this, dt);

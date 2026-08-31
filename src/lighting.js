@@ -251,10 +251,10 @@ export const drawGlow = (ctx, path, color, strength, cache) => {
  * @param {Path2D} path
  * @param {String} color
  * @param {Number} reach - How far the beam carries at full strength.
- * @param {Number} level - How far up the lamp has come, 0 to 1.
+ * @param {Number} activationProgress - How far up the lamp has come, 0 to 1.
  * @param {Path2D} lit - How far the light got before it ran into anything.
  */
-export const drawBeam = (ctx, path, color, reach, level, lit) => {
+export const drawBeam = (ctx, path, color, reach, activationProgress, lit) => {
   // @ifdef DEBUG
   if (!lights) return;
   // @endif
@@ -272,7 +272,7 @@ export const drawBeam = (ctx, path, color, reach, level, lit) => {
   // The cone says how wide the beam is and the trace says how far it got, so
   // one is filled through the other
   ctx.clip(lit);
-  ctx.globalAlpha = level * beamStrength;
+  ctx.globalAlpha = activationProgress * beamStrength;
 
   // Cast off the beam rather than laid down under it, so it gives out along
   // with the light. A glow of its own has no idea how far down the beam it is
@@ -307,13 +307,13 @@ export const drawHalo = (ctx, nozzle) => {
   // @endif
 
   // The same figure that sizes the flare, so the two grow and die together
-  const level = nozzle.anim * Math.sqrt(nozzle.power);
+  const strength = nozzle.activationProgress * Math.sqrt(nozzle.power);
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = level * haloStrength;
+  ctx.globalAlpha = strength * haloStrength;
   ctx.translate(nozzle.x, nozzle.y);
-  ctx.scale(level * haloReach, level * haloReach);
+  ctx.scale(strength * haloReach, strength * haloReach);
   ctx.fillStyle = haloFill(ctx, nozzle.shades[2]);
   ctx.fill(haloPath);
   ctx.restore();

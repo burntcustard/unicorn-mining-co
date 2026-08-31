@@ -1,22 +1,19 @@
 import { amethyst, itemTypes } from './items';
-import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
+import { back, confirmSelection, moveSelection } from './ui/docked';
 // @ifdef DEBUG
 import {
   bindDebug,
   debugCrafts,
   lights,
-  physicsOn,
   renderDebug,
   renderDebugDemos,
-  showDeadzone,
 } from './debug';
 // @endif
-import { bindKeys, initKeys, keyDown } from './keyboard';
+import { bindKeys, initKeys } from './keyboard';
 import { camera, centerCamera, followTarget } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualMd } from './modules';
-import { dock, flyOut } from './docking';
 import { insidePath, traceBeam } from './prism';
-import { player, updatePlayer } from './player';
+import { playerShip, updatePlayer } from './player';
 import { renderBlasts, updateBlasts } from './explosion';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
@@ -27,16 +24,15 @@ import { Item } from './item';
 import { benchmarkFlag } from './benchmark';
 // @endif
 import { colors } from './colors';
-import { contacts } from './collisions';
+import { detectCollisions } from './collisions';
+import { dock } from './docking';
 import { game } from './game';
 import { generateWorld } from './world';
 import { mine } from './mining';
 // import { Road } from './road';
 import { renderBackground } from './background';
-import { renderControls } from './ui/controls';
 import { renderCraft } from './craft-render';
-import { renderIndicators } from './ui/indicators';
-import { renderText } from './text';
+import { renderUI } from './ui';
 import { resolve } from './resolve';
 import { scoop } from './scoop';
 import { setSizing } from './set-sizing';
@@ -50,13 +46,6 @@ setSizing(game);
 
 window.onresize = () => setSizing(game);
 
-const playerShip = new Craft({
-  craftData: shipTypes.mustang,
-  shades: colors.white,
-  x: 0,
-  y: 0,
-});
-
 horn.shades = colors.yellow;
 thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
 [thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight]
@@ -66,6 +55,7 @@ thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
   });
 
 dockingBay.shades = colors.green;
+
 const world = generateWorld(13312);
 const stations = world.stations.map((properties) => {
   const station = new Craft({ ...properties, craftData: stationTypes.corral, shades: colors.white });
@@ -74,11 +64,13 @@ const stations = world.stations.map((properties) => {
 
   return station;
 });
+
 world.wrecks.forEach((properties) => new Craft({
   ...properties,
   craftData: shipTypes.mustang,
   shades: colors.orange,
 }));
+
 world.fields.flatMap(({ asteroids }) => asteroids).forEach((properties) => {
   const object = new Asteroid({ ...properties, contents: [] });
   const amethystOnly = properties.contents.length &&
@@ -118,28 +110,18 @@ let updates = 0;
 
 initKeys();
 
-// @ifdef DEBUG
-bindDebug();
-// @endif
-
-// Only the player's ship is flown off the keyboard. AI pilots work their own
-// modules through the same methods. Each switchable module names the key that
-// works it, so the panel and the binding stay in step off the one letter
 [cargoScoop, horn, shield, floodlight].forEach((module) =>
   bindKeys([module.key], () => playerShip.toggle(module)));
-
-// Left steps back through the panel without undocking; Escape also launches
-// once there are no more columns to step out of
 bindKeys(['ArrowLeft'], () => playerShip.dockedTo && back());
 bindKeys(['Escape'], () => playerShip.dockedTo && back(playerShip));
-
-// Space or the right arrow drill into whichever column of the docked panel is open
 [' ', 'ArrowRight'].forEach((key) =>
   bindKeys([key], () => playerShip.dockedTo && confirmSelection(playerShip)));
-
-// Up and down move whichever of the docked panel's columns is open
 bindKeys(['ArrowUp'], () => playerShip.dockedTo && moveSelection(-1, playerShip));
 bindKeys(['ArrowDown'], () => playerShip.dockedTo && moveSelection(1, playerShip));
+
+// @ifdef DEBUG
+bindDebug(game);
+// @endif
 
 centerCamera(game, playerShip);
 
@@ -176,7 +158,7 @@ GameLoop({
         // @ifdef DEBUG
         if (lights) {
           // @endif
-          if (lamp.anim > 0.5) {
+          if (lamp.activationProgress > 0.5) {
             const beam = traceBeam(playerShip, lamp, activeSprites);
             const worldFrame = game.ctx.getTransform();
 
@@ -218,47 +200,22 @@ GameLoop({
     }
     // @endif
 
-    // @ifdef DEBUG
-    if (showDeadzone) {
-      game.ctx.beginPath();
-      game.ctx.arc(playerShip.x, playerShip.y, nearbyRadius, 0, Math.PI * 2);
-      game.ctx.strokeStyle = colors.red[2];
-      game.ctx.stroke();
-    }
-    // @endif
-
     game.ctx.restore();
 
     // @ifdef DEBUG
-    renderDebug(game, activeSprites);
-    // @endif
-
-    renderIndicators(game, stations, colors.green[2], 10000);
-    renderControls(game, playerShip);
-    if (playerShip.dockedTo) renderDocked(game, playerShip);
-
-    renderText({ game, text: `${Math.round(playerShip.x)}/${Math.round(playerShip.y)}`, x: 20, y: 20 });
-    renderText({ game, text: `$${player.credits}`, x: 10, y: 50 });
-
-    if (player.noteFor) {
-      renderText({
-        alignCenter: true,
-        game,
-        text: player.note,
-        x: game.uiWidth / 2,
-        y: game.uiHeight - 40,
-      });
-    }
-
-    // @ifdef DEBUG
+    renderDebug(game, activeSprites, nearbyRadius);
     renderDebugDemos(game);
     // @endif
+
+    renderUI(game, stations);
   },
   update: (dt) => {
-    // Things that happen every fourth update (~15 FPS): refresh the active tier.
-    if (!(updates++ % 4)) {
+    // Things that happen every fourth update (~15 FPS), or as soon as sprites
+    // come or go, so shipwreck fragments are not left out: refresh the active tier.
+    if (!(updates++ % 4) || game.count !== game.sprites.length) {
+      game.count = game.sprites.length;
       activeSprites = game.sprites.filter((sprite) =>
-        sprite.position.distanceTo(playerShip.position) <= activeRadius);
+        !sprite.dead && sprite.position.distanceTo(playerShip.position) <= activeRadius);
     }
 
     // Things that happen every update (~60 FPS).
@@ -269,81 +226,21 @@ GameLoop({
     updateSparks(dt);
     updatePlayer(dt);
 
-    // An AI pilot will set its own ship's controls here. Whoever is aboard, a
-    // launching ship sees itself out of the bay, and a ship on a road has the
-    // road doing the driving for it
-    const thrusting = !playerShip.localMovementParent?.drives &&
-      (flyOut(playerShip, dt) || keyDown('ArrowUp'));
+    activeSprites.forEach((sprite) =>
+      !sprite.dead && !nearbySprites.includes(sprite) && sprite.update(dt));
 
-    playerShip.fly(
-      thrusting ? 1 : 0,
-      (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
-    );
+    const spriteContacts = detectCollisions(activeSprites);
 
-    activeSprites.forEach((sprite) => {
-      if (!sprite.dead && !nearbySprites.includes(sprite)) {
-        sprite.update(
-          dt,
-          // @ifdef DEBUG
-          physicsOn,
-          // @endif
-          // @ifdef BENCHMARK
-          !benchmarkFlag('noPhysics') && !benchmarkFlag('noMovement'),
-          // @endif
-        );
-      }
-    });
-
-    activePhysics: {
-      // @ifdef DEBUG
-      if (!physicsOn) break activePhysics;
-      // @endif
-      // @ifdef BENCHMARK
-      if (benchmarkFlag('noPhysics')) break activePhysics;
-      // @endif
-      // @ifdef BENCHMARK
-      if (benchmarkFlag('noCollisions')) break activePhysics;
-      // @endif
-      const spriteContacts = contacts(activeSprites.flatMap((sprite) => sprite.hitboxes()));
-
-      scoop(spriteContacts);
-      mine(spriteContacts, dt);
-      dock(spriteContacts);
-      resolve(spriteContacts);
-    }
+    scoop(spriteContacts);
+    mine(spriteContacts, dt);
+    dock(spriteContacts);
+    resolve(spriteContacts);
 
     // Things that happen four times per update (~240 FPS): the nearby tier gets
     // four smaller movements and collision passes, preserving one dt in total.
     for (let step = nearbySteps; step--;) {
-      nearbySprites.forEach((sprite) => {
-        if (!sprite.dead) {
-          sprite.update(
-            dt / nearbySteps,
-            // @ifdef DEBUG
-            physicsOn,
-            // @endif
-            // @ifdef BENCHMARK
-            !benchmarkFlag('noPhysics') && !benchmarkFlag('noMovement'),
-            // @endif
-          );
-        }
-      });
-
-      nearbyPhysics: {
-        // @ifdef DEBUG
-        if (!physicsOn) break nearbyPhysics;
-        // @endif
-        // @ifdef BENCHMARK
-        if (benchmarkFlag('noPhysics')) break nearbyPhysics;
-        // @endif
-        // @ifdef BENCHMARK
-        if (benchmarkFlag('noCollisions')) break nearbyPhysics;
-        // @endif
-        const nearbySpriteContacts = contacts(
-          nearbySprites.flatMap((sprite) => sprite.hitboxes()));
-
-        resolve(nearbySpriteContacts);
-      }
+      nearbySprites.forEach((sprite) => !sprite.dead && sprite.update(dt / nearbySteps));
+      resolve(detectCollisions(nearbySprites));
     }
 
     followTarget(game, playerShip, dt);

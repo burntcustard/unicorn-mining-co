@@ -48,7 +48,7 @@ export const renderCraft = (craft, scenery, zIndex) => {
   // @endif
     if (zIndex === -3 || zIndex === -1) {
       craft.segments.forEach((segment) => {
-        if (!segment.module.beam || !segment.anim || !active(healthOf(segment))) return;
+        if (!segment.module.beam || !segment.activationProgress || !active(healthOf(segment))) return;
 
         ctx.save();
         ctx.translate(segment.x, segment.y);
@@ -95,7 +95,7 @@ export const renderCraft = (craft, scenery, zIndex) => {
     if (segment.zIndex !== zIndex || !active(health)) return;
 
     ctx.save();
-    if (segment.forwardThrust && segment.anim) drawHalo(ctx, segment);
+    if (segment.forwardThrust && segment.activationProgress) drawHalo(ctx, segment);
     ctx.translate(segment.x, segment.y);
 
     if (segment.glow && zIndex < 0) {
@@ -133,7 +133,8 @@ export const renderCraft = (craft, scenery, zIndex) => {
         // @endif
           const beam = segment.prism || traceBeam(craft, segment, scenery || []);
 
-          drawBeam(ctx, path, segment.shades[2], segment.module.reach, segment.anim, litPath(beam));
+          drawBeam(ctx, path, segment.shades[2], segment.module.reach,
+            segment.activationProgress, litPath(beam));
         // @ifdef DEBUG
         }
         // @endif

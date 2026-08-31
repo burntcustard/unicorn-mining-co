@@ -30,20 +30,19 @@ export const floodlight = {
   name: 'LIGHT',
   // A lamp throws its full length as it comes up, only changing brightness.
   model: [
-    { points: ({ anim }) => (
-      anim ?
-        [
-          [lens, -mouth],
-          [far - corner, -spread],
-          [far, corner - spread],
-          [far, spread - corner],
-          [far - corner, spread],
-          [lens, mouth],
-        ]
-        :
-        []
-      )
-    }
+    { points: ({ activationProgress }) => (
+      activationProgress ?
+          [
+            [lens, -mouth],
+            [far - corner, -spread],
+            [far, corner - spread],
+            [far, spread - corner],
+            [far - corner, spread],
+            [lens, mouth],
+          ] :
+          []
+    ),
+    },
   ],
   price: 450,
   reach,

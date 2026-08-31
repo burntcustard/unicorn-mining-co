@@ -57,7 +57,7 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
   return Object.assign(Object.create(part), {
     ...craftModule.state?.(),
     ...shape,
-    anim: 0,
+    activationProgress: 0,
     health,
     hull: !mount,
     module: craftModule,
@@ -207,11 +207,11 @@ export class Craft extends Sprite {
           dockSegment: segment.dockSegment,
           outline,
           physics: !segment.module.disablePhysics && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
-            module?.scoops && segments.some((part) => active(healthOf(part)) && part.anim > scoopOpen)
+            module?.scoops && segments.some((part) => active(healthOf(part)) && part.activationProgress > scoopOpen)
           )),
           radius: segment.radius(segment),
           rotation: this.rotation,
-          speed: segment.covers && segment.active > segment.anim && 60,
+          speed: segment.covers && segment.active > segment.activationProgress && 60,
           x: position.x,
           y: position.y,
         });
@@ -298,8 +298,6 @@ export class Craft extends Sprite {
       });
       this.remove();
     }
-
-    return fragments;
   }
 
   supply(craftModule, power) {
@@ -324,7 +322,7 @@ export class Craft extends Sprite {
     });
   }
 
-  update(dt, movement) {
+  update(dt) {
     if (this.lifetime) {
       if ((this.lifetime -= dt) <= 0) {
         this.remove();
@@ -342,13 +340,13 @@ export class Craft extends Sprite {
     }
 
     this.segments.forEach((segment) => {
-      const level = active(healthOf(segment)) ? segment.active : 0;
+      const target = active(healthOf(segment)) ? segment.active : 0;
 
-      segment.anim = approach(segment.anim, level, segment.rate * dt);
+      segment.activationProgress = approach(segment.activationProgress, target, segment.rate * dt);
       segment.update?.(segment, dt);
     });
 
-    super.update(dt, movement);
+    super.update(dt);
 
     if (!this.lifetime && this.cockpit) {
       const all = this.segments.filter(({ hull }) => hull);
@@ -356,7 +354,7 @@ export class Craft extends Sprite {
       const destroyed = hulls.reduce((sum, { health }) => sum + health, 0) < 30 ||
         !hulls.includes(this.cockpit.hull);
 
-      if (destroyed || hulls.length < all.length) return this.fracture(hulls, destroyed);
+      if (destroyed || hulls.length < all.length) this.fracture(hulls, destroyed);
     }
   }
 }

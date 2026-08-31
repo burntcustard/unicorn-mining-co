@@ -39,10 +39,11 @@ export const shield = {
       covers: true,
       // The bubble swells out of the dial as it comes up, and sinks back into
       // it on the way down
-      path: ({ anim }) => anim && circlePath(bubbleRadius * anim),
+      path: ({ activationProgress }) => activationProgress &&
+        circlePath(bubbleRadius * activationProgress),
       // With no outline to test it is simply a circle, and while it is
       // swelling out it can already shove things clear
-      radius: ({ anim }) => bubbleRadius * anim,
+      radius: ({ activationProgress }) => bubbleRadius * activationProgress,
       fillAlpha: 2,
     },
   ],
@@ -50,7 +51,7 @@ export const shield = {
   state: () => ({ phase: 0 }),
   // A quarter turn brings the cross back around to where it started
   update: (segment, dt) => {
-    segment.phase = (segment.phase + dt * spinRate * segment.anim) % (Math.PI / 2);
+    segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % (Math.PI / 2);
   },
   zIndex: 1,
 };

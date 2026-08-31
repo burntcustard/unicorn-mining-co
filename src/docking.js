@@ -8,7 +8,7 @@ const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardT
 
 /**
  * A craft docks the moment any of its pieces touches another craft's docking
- * segment. Docking is a one-way latch from there: once set, a collider.owner keeps its
+ * segment. Docking is a one-way latch from there: once set, a ship keeps its
  * hitboxes empty and its own physics frozen (see Craft#hitboxes and
  * Craft#update), and only `launch` clears it. Being carried along by the
  * parent from then on is `localMovement`'s job, same as anything else caught
@@ -17,18 +17,24 @@ const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardT
  * @param {Object[]} contacts - All contacts from the collision pass.
  */
 export const dock = (contacts) => {
-  contacts.forEach(({ collider, other: home }) => {
-    // Only a docking segment can latch a ship, and only when it is free to do so.
-    if (!home.dockSegment || collider.owner.dockedTo || collider.owner.launching) return;
+  contacts.forEach(({ collider, other }) => {
+    // Either side of a contact can be the bay, depending on which was built first
+    const home = collider.dockSegment ? collider : other;
+    const ship = (home === collider ? other : collider).owner;
+    const station = home.owner;
 
-    collider.owner.segments.forEach((segment) => (segment.active = false));
-    collider.owner.rotation = home.owner.rotation;
-    collider.owner.x = home.owner.x;
-    collider.owner.y = home.owner.y;
-    collider.owner.velocity.x = 0;
-    collider.owner.velocity.y = 0;
-    collider.owner.spin = 0;
-    collider.owner.dockedTo = home.owner;
+    // Only a docking segment can latch a ship, and only when it is not on its way out.
+    if (!home.dockSegment || !ship || ship.launching) return;
+
+    ship.segments.forEach((segment) => (segment.active = false));
+    ship.velocity.set(station.velocity);
+    Object.assign(ship, {
+      dockedTo: station,
+      rotation: station.rotation,
+      spin: 0,
+      x: station.x,
+      y: station.y,
+    });
   });
 };
 

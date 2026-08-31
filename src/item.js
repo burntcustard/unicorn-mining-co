@@ -88,7 +88,7 @@ export class Item extends Sprite {
   /**
    * @param {Number} dt - Seconds since the last update.
    */
-  update(dt, movement) {
+  update(dt) {
     if (this.buried) return;
 
     if (this.fuse && !(this.fuse = Math.max(0, this.fuse - dt))) {
@@ -105,7 +105,7 @@ export class Item extends Sprite {
       this.blink += dt * (calmRate + panicRate * (1 - left));
     }
 
-    super.update(dt, movement);
+    super.update(dt);
   }
 
   render() {

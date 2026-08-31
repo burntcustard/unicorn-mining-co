@@ -317,7 +317,7 @@ export const drawInside = (ctx, lamp, beam) => {
   ctx.save();
   ctx.clip(beam.mask);
   ctx.globalCompositeOperation = 'lighten';
-  ctx.globalAlpha = lamp.anim;
+  ctx.globalAlpha = lamp.activationProgress;
   ctx.fillStyle = inside;
   ctx.strokeStyle = inside;
   ctx.lineWidth = 1;
@@ -343,7 +343,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = lamp.anim * spectrumStrength;
+  ctx.globalAlpha = lamp.activationProgress * spectrumStrength;
 
   runsOf(beam).forEach((run) => {
     const away = run.reduce((sum, { out }) => sum.add(out.away), Vector()).normalize();

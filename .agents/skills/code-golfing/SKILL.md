@@ -71,6 +71,7 @@ Re-measure if the surrounding code changes substantially.
 - Caching the action list for the whole right-column interaction cost 10 bytes.
 - Removing BUY's repeated affordability branch while retaining `spend()` cost 27 bytes.
 - An explicit unique starter-module list cost 33 bytes; deduplicating it with `Set` cost 5 bytes.
+- Extracting the player key bindings cost 14 bytes as a local helper and 24–60 bytes across dependency-safe modules, callback parameters, split binders, or a `player.js`/docked-UI cycle, so the bindings stayed inline in `main.js`.
 
 ## Measured floodlight prism experiments
 
@@ -130,4 +131,3 @@ Re-measure if the surrounding code changes substantially.
 - Making fields circular, dropping `aspectRatio` from both `distribute` and the field data, saved 20 bytes.
 - A `scatter` helper for the near-identical station and wreck `distribute` calls cost 5 bytes.
 - Dropping the `Math.sqrt` that spreads points evenly across the disc cost 19 bytes.
-
