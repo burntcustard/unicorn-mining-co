@@ -232,7 +232,7 @@ GameLoop({
     const spriteContacts = detectCollisions(activeSprites);
 
     scoop(spriteContacts);
-    mine(spriteContacts, dt);
+    mine(spriteContacts);
     dock(spriteContacts);
     resolve(spriteContacts);
 

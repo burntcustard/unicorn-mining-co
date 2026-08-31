@@ -9,9 +9,6 @@ import { spray } from './shrapnel';
  * collisions.js supplies those contacts.
  */
 
-// How many sparks a second the horn throws off while it grinds
-const grindRate = 50;
-
 // How much of a leaf's own health is left when it comes free of the rest
 const crackHealth = 0.25;
 
@@ -39,9 +36,8 @@ const tipOf = (hitbox) => {
  * where the tip actually is rather than trusting a touch anywhere on the shape.
  *
  * @param {Object[]} contacts - Contacts from the normal-rate physics pass.
- * @param {Number} dt - Seconds since the last update.
  */
-export const mine = (contacts, dt) => {
+export const mine = (contacts) => {
   const surfaces = [];
 
   contacts.forEach(({ collider, other }) => {
@@ -83,7 +79,7 @@ export const mine = (contacts, dt) => {
     if (!targets.includes(target)) targets.push(target);
   });
 
-  targets.forEach((target) => grind(target, dt));
+  targets.forEach(grind);
 };
 
 /**
@@ -118,9 +114,8 @@ const breakAsteroid = (target, destroyed) => {
  * the horn touching it.
  *
  * @param {Object} target
- * @param {Number} dt - Seconds since the last update.
  */
-const grind = (target, dt) => {
+const grind = (target) => {
   if (!target.grinding) return;
 
   const pull = target.grindCarry.position.subtract(target.grinder.position).normalize();
@@ -130,7 +125,7 @@ const grind = (target, dt) => {
 
   // Sparks stream off wherever the horn is biting for as long as it grinds,
   // in the colour of the asteroid's own outline
-  spray(target.grindX, target.grindY, target.grindColor, grindRate * dt, target.grindCarry);
+  spray(target.grindX, target.grindY, target.grindColor, 1, target.grindCarry);
 
   damage(target, target.grinding);
   // Set fresh each update it is touched, so damage is applied only once
