@@ -1,4 +1,4 @@
-import { Item, remove } from './item';
+import { Item, items, remove } from './item';
 import { amethyst, itemTypes } from './items';
 import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
 // @ifdef DEBUG
@@ -137,17 +137,20 @@ updateWorldObjects();
 window['testSections'] = () => testSections(scenery, playerShip, lamp);
 // @endif
 
-const items = [];
-
 // Everything that can catch hold of a ship and carry it along
 const movers = crafts;
 
-const collide = (objects, targets) => {
+/**
+ * Find contacts among all collision objects. When `targets` is supplied, only
+ * those objects look for contacts: the player's moved hitboxes use that cheap
+ * one-sided pass between substeps, while the full world is checked once after.
+ */
+const collide = (objects, targets = objects) => {
   // @ifdef BENCHMARK
   if (benchmarkFlag('noCollisions')) {
-    scoop(items, []);
+    scoop([]);
     mine([]);
-    if (targets) dock([]);
+    dock([]);
     resolve([]);
     return;
   }
@@ -155,9 +158,9 @@ const collide = (objects, targets) => {
 
   const found = contacts(objects, targets);
 
-  scoop(items, found);
+  scoop(found);
   mine(found);
-  if (targets) dock(found.filter(({ other }) => other.dockSegment));
+  dock(found);
   resolve(found);
 };
 
@@ -357,7 +360,7 @@ GameLoop({
 
       // A fuse only ever reaches zero once it has been armed
       if (item.fuse === 0) {
-        remove(item, items);
+        remove(item);
         detonate(item, items, crafts);
       }
     }

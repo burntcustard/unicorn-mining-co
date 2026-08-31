@@ -44,7 +44,7 @@ const fluteLines = ({ phase }) => Array.from({ length: fluteCount }, (_, i) => {
 export const horn = {
   // Bites while it spins and lets go otherwise, so it does not bounce a ship
   // off what it is mining
-  bounciness: (segment) => (segment.anim > 0.5 ? grindBounce : undefined),
+  bounciness: (segment) => (segment.anim > 0.5 ? grindBounce : 0),
   // Damage dealt once per fixed game-loop update while its tip is biting
   damage: 0.5,
   // Grinds an asteroid down and cracks it open where it touches a loaded one

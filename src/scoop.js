@@ -1,5 +1,5 @@
 import { earn, roomFor, say, stow } from './player';
-import { remove } from './item';
+import { items, remove } from './item';
 
 /**
  * Taking cargo aboard, and nothing else. Shoving it about on the way in is
@@ -8,10 +8,9 @@ import { remove } from './item';
  */
 
 /**
- * @param {Object[]} items - Everything loose, which the caught are taken out of.
  * @param {Object[]} contacts - What each craft is touching, gathered once.
  */
-export const scoop = (items, contacts) => {
+export const scoop = (contacts) => {
   contacts.forEach(({ collider, other }) => {
     const hitbox = collider.segment?.catches ? collider : other;
     const item = hitbox === collider ? other : collider;
@@ -41,6 +40,6 @@ export const scoop = (items, contacts) => {
       say(item.name);
     }
 
-    remove(item, items);
+    remove(item);
   });
 };

@@ -14,12 +14,12 @@ const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardT
  * parent from then on is `localMovement`'s job, same as anything else caught
  * up in a mover.
  *
- * @param {Object[]} contacts - Already filtered down to ones touching a dockSegment.
+ * @param {Object[]} contacts - All contacts from the collision pass.
  */
 export const dock = (contacts) => {
   contacts.forEach(({ collider, other: home }) => {
-    // If the ship is already docked or is launching, don't re-dock
-    if (collider.owner.dockedTo || collider.owner.launching) return;
+    // Only a docking segment can latch a ship, and only when it is free to do so.
+    if (!home.dockSegment || collider.owner.dockedTo || collider.owner.launching) return;
 
     collider.owner.segments.forEach((segment) => (segment.active = false));
     collider.owner.rotation = home.owner.rotation;

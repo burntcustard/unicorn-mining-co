@@ -49,7 +49,7 @@ export const mine = (contacts) => {
     const { segment } = hitbox;
     const target = object.segment || object;
 
-    if (!segment?.module?.grinds || segment.anim <= 0.5 || target.mount || !target.health) return;
+    if (!segment?.module?.grinds || segment.anim <= 0.5 || !target.health) return;
 
     const [tipX, tipY] = tipOf(hitbox);
 
@@ -142,7 +142,7 @@ export const grind = (target, dt, scenery, items) => {
     if (target.asteroid || scenery.includes(target)) {
       breakAsteroid(target, scenery, items, true);
     } else if (items.includes(target)) {
-      remove(target, items);
+      remove(target);
     }
   } else if (target.asteroid && health <= target.maxHealth * crackHealth) {
     // A pre-cut leaf comes free well shy of zero instead of first turning

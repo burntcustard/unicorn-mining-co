@@ -34,6 +34,10 @@ const itemDrag = 2;
 // Fastest an item drifts on nothing but the speed it was given
 const itemMaxSpeed = 200;
 
+// Loose items have one world list, shared by the systems that release, collect,
+// update, and remove them.
+export const items = [];
+
 export class Item extends Sprite {
   constructor(props) {
     super(props);
@@ -147,9 +151,8 @@ export class Item extends Sprite {
  * pieces, or went off in the pilot's face.
  *
  * @param {Item} item
- * @param {Item[]} items - Everything still out there.
  */
-export const remove = (item, items) => {
+export const remove = (item) => {
   const at = items.indexOf(item);
 
   if (at >= 0) items.splice(at, 1);
