@@ -9,7 +9,7 @@ import { localMovement } from './local-movement';
  * coordinate setters.
  */
 export class Sprite {
-  constructor(properties = {}) {
+  constructor(properties) {
     const { x, y, dx, dy } = properties;
 
     this.position = Vector(x, y);
@@ -57,7 +57,7 @@ export class Sprite {
     if (!game.physicsOn) return;
     // @endif
 
-    this.rotation += (this.spin || 0) * dt;
+    this.rotation += this.spin * dt;
     move(this, dt);
     localMovement(this, game.crafts, dt);
   }

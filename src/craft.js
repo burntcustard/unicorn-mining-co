@@ -8,7 +8,6 @@ import { shapeOf } from './lighting';
 import { shapePath } from './drawing';
 
 const hullBounciness = 0.1; // Default restitution when a segment supplies none.
-const instantRate = 99; // Near-instant animation rate for modules without a duration.
 const thrustScale = 220; // Converts thrust per unit mass into acceleration.
 const speedScale = 85; // Converts thrust per unit drag into maximum speed.
 const steeringEase = 0.5; // Forward thrust retained by a nozzle eased during a turn.
@@ -66,7 +65,7 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     path: pathFor(part),
     power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
-    rate: duration ? 1 / duration : instantRate,
+    rate: 1 / duration,
     shades: craftModule.paints?.[craft.mounts.indexOf(mount)] || craftModule.shades || craft.shades,
     forwardThrust: (craftModule.forwardThrust || 0) / (craftModule.model?.length || 1),
     rotationalThrust: (craftModule.rotationalThrust || 0) / (craftModule.model?.length || 1),

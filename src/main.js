@@ -107,6 +107,7 @@ const nearbySteps = 4;
 let activeSprites = [];
 let nearbySprites = [];
 let updates = 0;
+let spriteCount;
 
 initKeys();
 
@@ -212,8 +213,8 @@ GameLoop({
   update: (dt) => {
     // Things that happen every fourth update (~15 FPS), or as soon as sprites
     // come or go, so shipwreck fragments are not left out: refresh the active tier.
-    if (!(updates++ % 4) || game.count !== game.sprites.length) {
-      game.count = game.sprites.length;
+    if (!(updates++ % 4) || spriteCount !== game.sprites.length) {
+      spriteCount = game.sprites.length;
       activeSprites = game.sprites.filter((sprite) =>
         !sprite.dead && sprite.position.distanceTo(playerShip.position) <= activeRadius);
     }

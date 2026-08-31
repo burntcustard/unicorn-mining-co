@@ -41,28 +41,28 @@ export class Item extends Sprite {
     super(props);
 
     const data = props.itemData;
-    const { lines, points, radius } = data;
+    const { glint, lines, notes, points, radius, shades } = data;
 
     // What kind of thing this is, which is how anything running into it tells
     // an item from an asteroid without knowing what item it is
     this.item = data;
     Object.assign(this, data);
-    this.fill = data.shades[1];
+    this.fill = shades[1];
     this.mass = itemMass;
     this.drag = itemDrag;
     // The fastest it settles back to on nothing but the speed it was given,
     // having none of a ship's thrusters to work a top speed out of
     this.maxSpeed = itemMaxSpeed;
-    this.stroke = data.shades[2];
+    this.stroke = shades[2];
     // A cut item is hit on its corners, a round one on its radius alone
     this.outline = points;
     this.radius = points ? Math.max(...points.map((point) => Vector(...point).length())) : radius;
     this.path = points ? shapePath(points) : circlePath(radius);
     this.lines = lines && linesPath(lines);
-    this.glint = data.glint && sparklePath(this.radius * glintSize);
+    this.glint = glint && sparklePath(this.radius * glintSize);
     // What a message says is settled when it is made, so two found in the same
     // asteroid do not say the same thing
-    this.message = props.message || (data.notes && data.notes[Math.floor(Math.random() * data.notes.length)]);
+    this.message = props.message || (notes && notes[Math.floor(Math.random() * notes.length)]);
     // How far through its own beat a glowing item is
     this.blink = 0;
   }

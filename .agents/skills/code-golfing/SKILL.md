@@ -141,3 +141,27 @@ Re-measure if the surrounding code changes substantially.
 - Making fields circular, dropping `aspectRatio` from both `distribute` and the field data, saved 20 bytes.
 - A `scatter` helper for the near-identical station and wreck `distribute` calls cost 5 bytes.
 - Dropping the `Math.sqrt` that spreads points evenly across the disc cost 19 bytes.
+
+## Measured main and entity experiments
+
+`build:slow`, seed `13312`, against the late-August 2026 `main.js`, `Craft`,
+`Item`, `Asteroid`, and `Sprite` implementation. The retained set took advzip
+from 13514B to 13506B. Deltas below were measured one change at a time against
+the then-current retained baseline.
+
+- Keeping the active-tier sprite count in a local rather than adding `count` to `game` saved 7 bytes.
+- Removing `Sprite`'s unused no-argument constructor default saved 1 byte.
+- Removing `Sprite.update`'s redundant `spin || 0` fallback was neutral and was kept as a simplification.
+- Removing `makeSegment`'s unreachable zero-duration rate branch and `instantRate` saved 2 bytes.
+- Destructuring all of `Item`'s locally used `glint`, `lines`, `notes`, `points`, `radius`, and `shades` together cost 2 bytes and was kept for consistency. Destructuring only `shades` cost 17 bytes.
+- Centralizing the extra `game.crafts` and `game.items` registration in `Sprite` through static subclass collections cost 30 bytes.
+- Replacing the two explicit craft thrust reducers with a property-driven helper cost 63 bytes.
+- Removing the early `dead` guards from the nearby filter and distant update cost 30 and 46 bytes respectively; removing it from active-tier construction cost 14 bytes.
+- Removing `Sprite.update`'s redundant `buried` guard cost 44 bytes.
+- Removing `Asteroid`'s defensive empty `contents` default cost 28 bytes. Separating generated resource indexes from runtime contents with rest destructuring in `main.js` cost 51 bytes.
+- Caching the module model length used by both thrust properties cost 3 bytes, and caching the nearby substep `dt` cost 13 bytes.
+- Removing `Craft.unfit`'s currently redundant empty-mount guard cost 13 bytes, while flattening `Craft.update`'s lifetime branch cost 16 bytes.
+- Caching `props.triangles` in the asteroid constructor cost 20 bytes, and changing its mass fallback to `||=` cost 13 bytes.
+- Replacing the scenery `filter().forEach()` with one guarded `forEach()` cost 5 bytes. Caching all render types cost 19 bytes; caching scenery alone cost 6 bytes.
+- Removing the currently unreachable dead-asteroid cargo-release branch cost 11 bytes, so it remained as defensive behavior.
+- Replacing the four-update modulo with a bitmask cost 18 bytes.
