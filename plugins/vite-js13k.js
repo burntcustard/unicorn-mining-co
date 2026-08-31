@@ -23,9 +23,11 @@ const customReplacement = (src) => src
   .replace(/active/g, '_active')
   .replace(/angle/g, '_angle')
   .replace(/(?<!\/)module/g, '_module')
+  .replace(/normalize/g, '_normalize')
   .replace(/points/g, '_points')
   .replace(/rotation/g, '_rotation')
   .replace(/segments/g, '_segments')
+  .replace(/zIndex/g, '_zIndex')
   // For some reason all other color names are mangled, but green isn't.
   // This actually cost more bytes for some reason???
   // .replace(/red/g, '_red')
