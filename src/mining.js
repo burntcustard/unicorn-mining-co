@@ -1,6 +1,6 @@
+import { Asteroid } from './asteroid';
 import { damage } from './craft';
 import { hit } from './collisions';
-import { remove } from './item';
 import { rotatePoint } from './vector';
 import { spray } from './shrapnel';
 
@@ -38,9 +38,10 @@ const tipOf = (hitbox) => {
  * along its side at an angle, but it only grinds at its point, so this asks
  * where the tip actually is rather than trusting a touch anywhere on the shape.
  *
- * @param {Object[]} contacts - Contacts from the shared world collision pass.
+ * @param {Object[]} contacts - Contacts from the normal-rate physics pass.
+ * @param {Number} dt - Seconds since the last update.
  */
-export const mine = (contacts) => {
+export const mine = (contacts, dt) => {
   const surfaces = [];
 
   contacts.forEach(({ collider, other }) => {
@@ -63,6 +64,7 @@ export const mine = (contacts) => {
   });
 
   const drills = [];
+  const targets = [];
 
   // A deeper tip overlap means the surface is nearer the tip's centre. Each
   // drill bites only the first of its touching surfaces.
@@ -78,7 +80,10 @@ export const mine = (contacts) => {
     target.grindColor = object.stroke || object.segment?.shades[2];
     target.grindCarry = object.owner || object;
     target.grinder = hitbox.owner;
+    if (!targets.includes(target)) targets.push(target);
   });
+
+  targets.forEach((target) => grind(target, dt));
 };
 
 /**
@@ -86,28 +91,24 @@ export const mine = (contacts) => {
  * until that leaf dies, then falls into space.
  *
  * @param {Object} asteroid
- * @param {Object[]} scenery - The asteroid is taken out of this.
- * @param {Object[]} items - Its freed cargo is added to this.
  */
-const breakAsteroid = (target, scenery, items, destroyed) => {
+const breakAsteroid = (target, destroyed) => {
   const asteroid = target.asteroid || target;
+
+  if (asteroid.dead) return;
 
   // Let go at the asteroid's speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
   if (target.grinder) target.grinder.velocity.set(asteroid.velocity);
 
-  const [children, loose] = target.asteroid ? asteroid.detach(target, destroyed) : asteroid.split();
+  const [, loose] = target.asteroid ? asteroid.detach(target, destroyed) : asteroid.split();
 
-  if (!target.asteroid || !asteroid.sections.length) {
-    scenery.splice(scenery.indexOf(asteroid), 1);
-  }
-
-  scenery.push(...children);
+  asteroid.remove();
 
   loose.forEach((item) => {
     item.velocity.set(asteroid.velocity);
     item.arm();
-    items.push(item);
+    item.buried = 0;
   });
 };
 
@@ -118,10 +119,8 @@ const breakAsteroid = (target, scenery, items, destroyed) => {
  *
  * @param {Object} target
  * @param {Number} dt - Seconds since the last update.
- * @param {Object[]} scenery - The asteroid is taken out of this when it breaks.
- * @param {Object[]} items - Its freed cargo is added to this.
  */
-export const grind = (target, dt, scenery, items) => {
+const grind = (target, dt) => {
   if (!target.grinding) return;
 
   const pull = target.grindCarry.position.subtract(target.grinder.position).normalize();
@@ -139,14 +138,14 @@ export const grind = (target, dt, scenery, items) => {
   const { health } = target;
 
   if (health < 1) {
-    if (target.asteroid || scenery.includes(target)) {
-      breakAsteroid(target, scenery, items, true);
-    } else if (items.includes(target)) {
-      remove(target);
+    if (target.asteroid || target instanceof Asteroid) {
+      breakAsteroid(target, true);
+    } else if (target.item) {
+      target.remove();
     }
   } else if (target.asteroid && health <= target.maxHealth * crackHealth) {
     // A pre-cut leaf comes free well shy of zero instead of first turning
     // into another set of pieces.
-    breakAsteroid(target, scenery, items);
+    breakAsteroid(target);
   }
 };

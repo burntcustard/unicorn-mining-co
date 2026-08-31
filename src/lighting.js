@@ -1,4 +1,6 @@
+// @ifdef BENCHMARK
 import { benchmarkFlag } from './benchmark';
+// @endif
 import { circlePath } from './drawing';
 import { colors } from './colors';
 import { game } from './game';

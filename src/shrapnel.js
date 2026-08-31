@@ -11,7 +11,7 @@ import { objectLineWidth } from './drawing';
 
 // Seconds a spark lasts at most, with some of that taken off at random so no
 // two die together
-const life = 0.5;
+const lifetime = 0.5;
 
 // How fast a spark flies off, in game units a second, and how much slower the
 // slowest of them go
@@ -50,7 +50,7 @@ export const spray = (x, y, color, amount, carry = {}) => {
       color,
       dx: velocity.x,
       dy: velocity.y,
-      life: life * (0.5 + Math.random() * 0.5),
+      lifetime: lifetime * (0.5 + Math.random() * 0.5),
       x,
       y,
     });
@@ -68,7 +68,7 @@ export const updateSparks = (dt) => {
 
     spark.age += dt;
 
-    if (spark.age >= spark.life) {
+    if (spark.age >= spark.lifetime) {
       sparks.splice(i, 1);
 
       continue;
@@ -95,7 +95,7 @@ export const renderSparks = ({ ctx }) => {
     const tailX = spark.x - (spark.dx / pace) * length;
     const tailY = spark.y - (spark.dy / pace) * length;
 
-    ctx.globalAlpha = 1 - spark.age / spark.life;
+    ctx.globalAlpha = 1 - spark.age / spark.lifetime;
     ctx.strokeStyle = spark.color;
     ctx.beginPath();
     ctx.moveTo(spark.x, spark.y);

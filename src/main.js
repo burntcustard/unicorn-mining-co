@@ -1,29 +1,37 @@
-import { Item, items, remove } from './item';
 import { amethyst, itemTypes } from './items';
 import { back, confirmSelection, moveSelection, renderDocked } from './ui/docked';
 // @ifdef DEBUG
-import { bindDebug, debugCrafts, lights, physicsOn, renderDebug, renderDebugDemos } from './debug';
+import {
+  bindDebug,
+  debugCrafts,
+  lights,
+  physicsOn,
+  renderDebug,
+  renderDebugDemos,
+  showDeadzone,
+} from './debug';
 // @endif
 import { bindKeys, initKeys, keyDown } from './keyboard';
 import { camera, centerCamera, followTarget } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualMd } from './modules';
-import { detonate, renderBlasts, updateBlasts } from './explosion';
 import { dock, flyOut } from './docking';
-import { grind, mine } from './mining';
 import { insidePath, traceBeam } from './prism';
 import { player, updatePlayer } from './player';
+import { renderBlasts, updateBlasts } from './explosion';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
 import { Craft } from './craft';
 import { GameLoop } from './game-loop';
-// import { Road } from './road';
+import { Item } from './item';
+// @ifdef BENCHMARK
 import { benchmarkFlag } from './benchmark';
+// @endif
 import { colors } from './colors';
 import { contacts } from './collisions';
 import { game } from './game';
 import { generateWorld } from './world';
-import { localMovement } from './local-movement';
-import { move } from './vector';
+import { mine } from './mining';
+// import { Road } from './road';
 import { renderBackground } from './background';
 import { renderControls } from './ui/controls';
 import { renderCraft } from './craft-render';
@@ -66,61 +74,23 @@ const stations = world.stations.map((properties) => {
 
   return station;
 });
-const wrecks = world.wrecks.map((properties) => new Craft({
+world.wrecks.forEach((properties) => new Craft({
   ...properties,
   craftData: shipTypes.mustang,
   shades: colors.orange,
 }));
-const worldObjects = [
-  ...stations.map((instance) => instance.worldObject = { instance }),
-  ...wrecks.map((instance) => instance.worldObject = { instance }),
-  ...world.fields.flatMap(({ asteroids }) => asteroids)
-    .map((properties) => Object.assign(properties, { scenery: true })),
-];
-const activeWorldObjects = [];
-const scenery = [];
-const localCrafts = [
-  playerShip,
-  // @ifdef DEBUG
-  ...debugCrafts(game),
-  // @endif
-];
-const crafts = [...localCrafts];
-
-const createWorldObject = (properties) => {
+world.fields.flatMap(({ asteroids }) => asteroids).forEach((properties) => {
   const object = new Asteroid({ ...properties, contents: [] });
   const amethystOnly = properties.contents.length &&
     properties.contents.every((resource) => itemTypes[resource] === amethyst);
 
   properties.contents.forEach((resource) =>
     object.bury(new Item({ itemData: itemTypes[resource] }), amethystOnly));
-
-  properties.instance = object;
-  object.worldObject = properties;
-
-  return object;
-};
-
-const updateWorldObjects = () => {
-  activeWorldObjects.length = scenery.length = 0;
-  crafts.length = localCrafts.length;
-  worldObjects.forEach((properties) => {
-    let object = properties.instance || properties;
-
-    if (object.dead || Math.hypot(object.x - playerShip.x, object.y - playerShip.y) > 2000) return;
-    if (!properties.instance) object = createWorldObject(properties);
-    activeWorldObjects.push(object);
-    (properties.scenery ? scenery : crafts).push(object);
-  });
-};
-
-const trackWorldObjects = (objects, scenery) => objects.forEach((object) => {
-  if (object.worldObject) return;
-  const properties = { instance: object, scenery };
-
-  object.worldObject = properties;
-  worldObjects.push(properties);
 });
+
+// @ifdef DEBUG
+debugCrafts(game);
+// @endif
 
 // @ifdef BENCHMARK
 if (benchmarkFlag('field')) {
@@ -131,93 +101,20 @@ if (benchmarkFlag('field')) {
 }
 // @endif
 
-updateWorldObjects();
-
 // @ifdef BENCHMARK
-window['testSections'] = () => testSections(scenery, playerShip, lamp);
+window['testSections'] = () => testSections(
+  game.sprites.filter(({ scenery }) => scenery), playerShip, lamp);
 // @endif
-
-// Everything that can catch hold of a ship and carry it along
-const movers = crafts;
-
-/**
- * Find contacts among all collision objects. When `targets` is supplied, only
- * those objects look for contacts: the player's moved hitboxes use that cheap
- * one-sided pass between substeps, while the full world is checked once after.
- */
-const collide = (objects, targets = objects) => {
-  // @ifdef BENCHMARK
-  if (benchmarkFlag('noCollisions')) {
-    scoop([]);
-    mine([]);
-    dock([]);
-    resolve([]);
-    return;
-  }
-  // @endif
-
-  const found = contacts(objects, targets);
-
-  scoop(found);
-  mine(found);
-  dock(found);
-  resolve(found);
-};
-
-// Move every physical body and find what it has run into, without any one
-// object type owning world collisions
-const physics = (dt) => {
-  // @ifdef BENCHMARK
-  if (benchmarkFlag('noPhysics')) return;
-  // @endif
-  // @ifdef DEBUG
-  if (!physicsOn) return;
-  // @endif
-
-  const otherCrafts = crafts.slice(1);
-  const bodies = [...scenery, ...items, ...otherCrafts];
-  const step = dt / 4;
-
-  // @ifdef BENCHMARK
-  if (!benchmarkFlag('noMovement')) {
-  // @endif
-    bodies.forEach((body) => {
-      body.rotation += (body.spin || 0) * dt;
-      move(body, dt);
-      localMovement(body, movers, dt);
-    });
-  // @ifdef BENCHMARK
-  }
-  // @endif
-
-  const world = [
-    ...scenery.flatMap((asteroid) => asteroid.hitboxes()),
-    ...items,
-    ...otherCrafts.flatMap((craft) => craft.hitboxes()),
-  ];
-
-  for (let steps = 4; steps--;) {
-    // @ifdef BENCHMARK
-    if (!benchmarkFlag('noMovement')) {
-    // @endif
-      playerShip.rotation += playerShip.spin * step;
-      move(playerShip, step);
-      localMovement(playerShip, movers, step);
-    // @ifdef BENCHMARK
-    }
-    // @endif
-
-    const hitboxes = playerShip.hitboxes();
-
-    collide([...world, ...hitboxes], hitboxes);
-  }
-
-  collide(world);
-};
 
 // The player's lamp, kept to hand so what it is picking out can be worked out
 // once a frame rather than hunted for in the segments every time
 const lamp = playerShip.segments.find((segment) => segment.module === floodlight);
+const activeRadius = 2000;
+const nearbyRadius = 100;
+const nearbySteps = 4;
+let activeSprites = [];
+let nearbySprites = [];
+let updates = 0;
 
 initKeys();
 
@@ -248,11 +145,6 @@ centerCamera(game, playerShip);
 
 GameLoop({
   render: () => {
-    const visibleScenery = scenery.filter((object) =>
-      object.position.distance(playerShip.position) < game.width);
-    const visibleCrafts = crafts.filter((object) =>
-      object === playerShip || object.position.distance(playerShip.position) < game.width);
-
     // The sky slides past at its own pace, so it moves itself
     // @ifdef BENCHMARK
     if (!benchmarkFlag('noBackground')) {
@@ -270,20 +162,22 @@ GameLoop({
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them, using the same z-index as ship modules
     for (let zIndex = -3; zIndex < 4; zIndex++) {
-      visibleScenery.filter((object) => object.zIndex === zIndex).forEach((object) => {
-        object.render();
-        // A loose leaf cannot be mined any smaller, so its cargo stays in view.
-        object.sections || object.contents.forEach((item) => item.render());
-      });
+      activeSprites
+        .filter((object) => object.scenery && object.zIndex === zIndex)
+        .forEach((object) => {
+          object.render();
+          // A loose leaf cannot be mined any smaller, so its cargo stays in view.
+          object.sections || object.contents.forEach((item) => item.render());
+        });
 
       if (zIndex === -2) {
         // Cargo still inside mineable asteroids shows only through the slice
         // the floodlight is crossing, as if the lamp lets a pilot peer inside
         // @ifdef DEBUG
         if (lights) {
-        // @endif
+          // @endif
           if (lamp.anim > 0.5) {
-            const beam = traceBeam(playerShip, lamp, visibleScenery);
+            const beam = traceBeam(playerShip, lamp, activeSprites);
             const worldFrame = game.ctx.getTransform();
 
             game.ctx.save();
@@ -294,8 +188,9 @@ GameLoop({
             game.ctx.clip(beam.mask);
             game.ctx.setTransform(worldFrame);
 
-            visibleScenery.forEach((asteroid) =>
-              asteroid.sections && asteroid.contents.forEach((item) => item.render()));
+            activeSprites.forEach((asteroid) =>
+              asteroid.scenery && asteroid.sections &&
+              asteroid.contents.forEach((item) => item.render()));
 
             game.ctx.restore();
           }
@@ -303,10 +198,12 @@ GameLoop({
         }
         // @endif
 
-        items.forEach((item) => item.render());
+        activeSprites.forEach((item) =>
+          item.item && !item.buried && !item.dead && item.render());
       }
 
-      visibleCrafts.forEach((craft) => renderCraft(craft, visibleScenery, zIndex));
+      activeSprites.forEach((craft) =>
+        craft.segments && !craft.dead && renderCraft(craft, activeSprites, zIndex));
     }
 
     // Sparks off the horn sit over the asteroids and ships they come off
@@ -321,10 +218,19 @@ GameLoop({
     }
     // @endif
 
+    // @ifdef DEBUG
+    if (showDeadzone) {
+      game.ctx.beginPath();
+      game.ctx.arc(playerShip.x, playerShip.y, nearbyRadius, 0, Math.PI * 2);
+      game.ctx.strokeStyle = colors.red[2];
+      game.ctx.stroke();
+    }
+    // @endif
+
     game.ctx.restore();
 
     // @ifdef DEBUG
-    renderDebug(game, scenery, crafts);
+    renderDebug(game, activeSprites);
     // @endif
 
     renderIndicators(game, stations, colors.green[2], 10000);
@@ -349,21 +255,15 @@ GameLoop({
     // @endif
   },
   update: (dt) => {
-    // roads.forEach((road) => road.update(dt));
-    updateWorldObjects();
-
-    // Backwards, because an item that goes off takes itself out of the list
-    for (let i = items.length; i--;) {
-      const item = items[i];
-
-      item.update(dt);
-
-      // A fuse only ever reaches zero once it has been armed
-      if (item.fuse === 0) {
-        remove(item);
-        detonate(item, items, crafts);
-      }
+    // Things that happen every fourth update (~15 FPS): refresh the active tier.
+    if (!(updates++ % 4)) {
+      activeSprites = game.sprites.filter((sprite) =>
+        sprite.position.distanceTo(playerShip.position) <= activeRadius);
     }
+
+    // Things that happen every update (~60 FPS).
+    nearbySprites = activeSprites.filter((sprite) =>
+      !sprite.dead && sprite.position.distanceTo(playerShip.position) <= nearbyRadius);
 
     updateBlasts(dt);
     updateSparks(dt);
@@ -380,19 +280,72 @@ GameLoop({
       (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
     );
 
-    localCrafts.forEach((craft) => craft.update(dt));
-    activeWorldObjects.forEach((object) => object.update(dt, items));
-    physics(dt);
+    activeSprites.forEach((sprite) => {
+      if (!sprite.dead && !nearbySprites.includes(sprite)) {
+        sprite.update(
+          dt,
+          // @ifdef DEBUG
+          physicsOn,
+          // @endif
+          // @ifdef BENCHMARK
+          !benchmarkFlag('noPhysics') && !benchmarkFlag('noMovement'),
+          // @endif
+        );
+      }
+    });
 
-    // Apply horn damage once per update, however many physics substeps found it
-    [...scenery.flatMap((asteroid) => asteroid.sections || asteroid),
-      ...items, ...crafts.flatMap((craft) => craft.segments)]
-      .forEach((target) => grind(target, dt, scenery, items));
-    activeWorldObjects
-      .filter((object) => object.worldObject.scenery && !scenery.includes(object))
-      .forEach((object) => object.dead = true);
-    trackWorldObjects(scenery, true);
-    trackWorldObjects(crafts.flatMap((craft) => craft.fracture(items)), false);
+    activePhysics: {
+      // @ifdef DEBUG
+      if (!physicsOn) break activePhysics;
+      // @endif
+      // @ifdef BENCHMARK
+      if (benchmarkFlag('noPhysics')) break activePhysics;
+      // @endif
+      // @ifdef BENCHMARK
+      if (benchmarkFlag('noCollisions')) break activePhysics;
+      // @endif
+      const spriteContacts = contacts(activeSprites.flatMap((sprite) => sprite.hitboxes()));
+
+      scoop(spriteContacts);
+      mine(spriteContacts, dt);
+      dock(spriteContacts);
+      resolve(spriteContacts);
+    }
+
+    // Things that happen four times per update (~240 FPS): the nearby tier gets
+    // four smaller movements and collision passes, preserving one dt in total.
+    for (let step = nearbySteps; step--;) {
+      nearbySprites.forEach((sprite) => {
+        if (!sprite.dead) {
+          sprite.update(
+            dt / nearbySteps,
+            // @ifdef DEBUG
+            physicsOn,
+            // @endif
+            // @ifdef BENCHMARK
+            !benchmarkFlag('noPhysics') && !benchmarkFlag('noMovement'),
+            // @endif
+          );
+        }
+      });
+
+      nearbyPhysics: {
+        // @ifdef DEBUG
+        if (!physicsOn) break nearbyPhysics;
+        // @endif
+        // @ifdef BENCHMARK
+        if (benchmarkFlag('noPhysics')) break nearbyPhysics;
+        // @endif
+        // @ifdef BENCHMARK
+        if (benchmarkFlag('noCollisions')) break nearbyPhysics;
+        // @endif
+        const nearbySpriteContacts = contacts(
+          nearbySprites.flatMap((sprite) => sprite.hitboxes()));
+
+        resolve(nearbySpriteContacts);
+      }
+    }
+
     followTarget(game, playerShip, dt);
   },
 }).start();

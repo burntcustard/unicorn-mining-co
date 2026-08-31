@@ -3,6 +3,7 @@ import { Asteroid } from './asteroid';
 import { Craft } from './craft';
 import { Item } from './item';
 import { colors } from './colors';
+import { game } from './game';
 import { shipTypes } from './ships';
 import { traceBeam } from './prism';
 
@@ -34,7 +35,7 @@ export const testSections = (scenery, playerShip, lamp) => {
     throw Error('detach');
   }
 
-  if (remainder.sections.length !== count - 1 || !piece.life) {
+  if (remainder.sections.length !== count - 1 || !piece.lifetime) {
     throw Error('leaf');
   }
 
@@ -98,11 +99,11 @@ export const testSections = (scenery, playerShip, lamp) => {
   const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
 
   splitShip.segments[1].health = 0;
-  const fragments = splitShip.fracture([]);
+  const fragments = splitShip.update(0);
 
   if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
     !splitShip.cockpit.hull.health || !splitShip.velocity.length() ||
-    !fragments[0].velocity.length() || fragments[0].position.distance(splitShip.position) < 1 ||
+    !fragments[0].velocity.length() || fragments[0].position.distanceTo(splitShip.position) < 1 ||
     Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
   const fragmentSpin = fragments[0].spin;
 
@@ -112,16 +113,16 @@ export const testSections = (scenery, playerShip, lamp) => {
   splitShip.update(0.1);
   if (splitShip.spin !== 1) throw Error('ship spin');
   fragments[0].update(11);
-  if (!fragments[0].dead) throw Error('fragment life');
+  if (!fragments[0].dead) throw Error('fragment lifetime');
   const wreck = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
   const cargo = new Item({ itemData: diamond });
-  const loose = [];
 
+  cargo.remove();
   wreck.cargo.push(cargo);
   wreck.cockpit.hull.health = 0;
-  const wreckage = wreck.fracture(loose);
+  const wreckage = wreck.update(0);
 
-  if (!wreck.dead || loose[0] !== cargo || cargo.velocity.x !== wreck.velocity.x) {
+  if (!wreck.dead || !game.items.includes(cargo) || cargo.velocity.x !== wreck.velocity.x) {
     throw Error('wreck');
   }
 

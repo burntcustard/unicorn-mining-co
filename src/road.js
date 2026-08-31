@@ -94,9 +94,9 @@ export class Road {
     ctx.fillStyle = background;
     ctx.fillRect(0, -roadWidth / 2, this.distance, roadWidth);
 
-    this.sparks.forEach(({ across, along, color, length, life }) => {
+    this.sparks.forEach(({ across, along, color, length, lifetime }) => {
       // Fading out over its last second is what stops a spark blinking away
-      ctx.globalAlpha = Math.min(1, life);
+      ctx.globalAlpha = Math.min(1, lifetime);
       ctx.strokeStyle = color;
       ctx.beginPath();
       ctx.moveTo(along - length, across * roadWidth);

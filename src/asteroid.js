@@ -78,6 +78,7 @@ export class Asteroid extends Sprite {
 
     this.contents ||= [];
     this.bounciness = asteroidBounciness;
+    this.scenery = true;
     this.stroke = colors.white[2];
     // Drifts like everything else does, just with next to no drag of its own
     this.drag = asteroidDrag;
@@ -137,7 +138,7 @@ export class Asteroid extends Sprite {
         }))).flat();
       groupsOf(this.sections);
     } else if (!triangles[1] && !this.contents.length) {
-      this.life = 9 + Math.random();
+      this.lifetime = 9 + Math.random();
     }
   }
 
@@ -260,6 +261,7 @@ export class Asteroid extends Sprite {
     const { x, y } = measure(section.outline);
 
     Object.assign(item, item.buried = { rotation: Math.random() * Math.PI * 2, x, y });
+    rotateAround(this, item, x, y, this.rotation);
     section.contents.push(item);
     this.contents.push(item);
   }
@@ -267,8 +269,9 @@ export class Asteroid extends Sprite {
   /**
    * @param {Number} dt - Seconds since the last update.
    */
-  update(dt, items) {
-    if (this.life && (this.life -= dt) <= 0) this.dead = true;
+  update(dt, movement) {
+    if (this.lifetime && (this.lifetime -= dt) <= 0) this.remove();
+    super.update(dt, movement);
     this.contents.forEach((item) => {
       const { buried } = item;
 
@@ -278,7 +281,7 @@ export class Asteroid extends Sprite {
       if (this.dead) {
         item.velocity.set(this.velocity);
         item.arm();
-        items.push(item);
+        item.buried = 0;
       }
     });
   }

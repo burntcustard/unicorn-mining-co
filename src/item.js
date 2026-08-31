@@ -2,7 +2,9 @@ import { circlePath, itemLineWidth, linesPath, shapePath, sparklePath } from './
 import { Sprite } from './sprite';
 import { Vector } from './vector';
 import { colors } from './colors';
+import { detonate } from './explosion';
 import { drawGlow } from './lighting';
+import { game } from './game';
 
 /**
  * One loose thing in the world, built from an item definition. Everything an
@@ -33,10 +35,6 @@ const itemDrag = 2;
 
 // Fastest an item drifts on nothing but the speed it was given
 const itemMaxSpeed = 200;
-
-// Loose items have one world list, shared by the systems that release, collect,
-// update, and remove them.
-export const items = [];
 
 export class Item extends Sprite {
   constructor(props) {
@@ -77,11 +75,27 @@ export class Item extends Sprite {
     if (this.item.fuse) this.fuse = this.item.fuse;
   }
 
+  add() {
+    super.add();
+    game.items.push(this);
+  }
+
+  remove() {
+    super.remove();
+    game.items.splice(game.items.indexOf(this), 1);
+  }
+
   /**
    * @param {Number} dt - Seconds since the last update.
    */
-  update(dt) {
-    if (this.fuse) this.fuse = Math.max(0, this.fuse - dt);
+  update(dt, movement) {
+    if (this.buried) return;
+
+    if (this.fuse && !(this.fuse = Math.max(0, this.fuse - dt))) {
+      this.remove();
+      detonate(this, game.items, game.crafts);
+      return;
+    }
 
     // Quietly while it is still buried, faster the less of the fuse there is
     // left, so the last second of one is unmistakable
@@ -90,6 +104,8 @@ export class Item extends Sprite {
 
       this.blink += dt * (calmRate + panicRate * (1 - left));
     }
+
+    super.update(dt, movement);
   }
 
   render() {
@@ -145,15 +161,3 @@ export class Item extends Sprite {
     ctx.restore();
   }
 }
-
-/**
- * Take an item out of the world for good, whether it was scooped up, shot to
- * pieces, or went off in the pilot's face.
- *
- * @param {Item} item
- */
-export const remove = (item) => {
-  const at = items.indexOf(item);
-
-  if (at >= 0) items.splice(at, 1);
-};

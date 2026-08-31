@@ -49,7 +49,7 @@ class VectorClass {
     return Math.hypot(this.x, this.y);
   }
 
-  distance(vector) {
+  distanceTo(vector) {
     return Math.hypot(this.x - vector.x, this.y - vector.y);
   }
 }

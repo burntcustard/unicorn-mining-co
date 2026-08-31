@@ -10,7 +10,7 @@ import { shipTypes } from './ships';
 import { sky } from './background';
 import { textDemo } from './text-demo';
 
-let showDeadzone = false;
+export let showDeadzone = false;
 let showMass = false;
 let showTextDemo = false;
 let showColorsDemo = false;
@@ -47,7 +47,7 @@ export const bindDebug = () => {
   bindKeys(['9'], () => physicsOn = !physicsOn);
 };
 
-export const renderDebug = (game, scenery, crafts) => {
+export const renderDebug = (game, sprites) => {
   if (showDeadzone) renderDeadzone(game);
   renderFps(game);
   renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 90 });
@@ -65,7 +65,7 @@ export const renderDebug = (game, scenery, crafts) => {
     game.ctx.font = '12px monospace';
     game.ctx.textAlign = 'center';
     game.ctx.textBaseline = 'middle';
-    [...scenery, ...crafts].forEach(({ mass, x, y }) => {
+    sprites.forEach(({ mass, x, y }) => {
       if (mass) game.ctx.fillText(Math.round(mass), x, y);
     });
     game.ctx.restore();

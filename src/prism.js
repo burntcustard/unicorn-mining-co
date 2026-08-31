@@ -236,8 +236,8 @@ export const traceBeam = (ship, lamp, scenery) => {
   const range = Math.hypot(lens + reach, spread);
   const edge = Math.atan2(spread, lens + reach);
   const mask = new Path2D();
-  const outlines = scenery.filter((object) => object.outline &&
-    object.position.distance(ship.position) - object.radius < range)
+  const outlines = scenery.filter((object) => object.scenery && object.outline &&
+    object.position.distanceTo(ship.position) - object.radius < range)
     .map((object) => outlineOf(ship, lamp, object, mask));
 
   return {

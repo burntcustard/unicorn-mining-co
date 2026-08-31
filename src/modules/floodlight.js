@@ -19,25 +19,8 @@ const spread = 35;
 // tapering to a point rather than being eased at the corners
 const corner = 10;
 
-/**
- * A lamp throws its full length the moment it is switched on, so the cone is
- * the same shape whenever it shows at all and only its brightness comes up.
- *
- * @param {Object} segment - `anim` runs 0 to 1 as the lamp comes up.
- */
-const cone = ({ anim }) => (anim ?
-    [
-      [lens, -mouth],
-      [far - corner, -spread],
-      [far, corner - spread],
-      [far, spread - corner],
-      [far - corner, spread],
-      [lens, mouth],
-    ] :
-    []);
-
 export const floodlight = {
-  activationDuration: 0.15,
+  activationDuration: 0.1,
   // Lit rather than painted, so it lifts everything already drawn under it
   beam: true,
   disablePhysics: true,
@@ -45,7 +28,23 @@ export const floodlight = {
   lens,
   mouth,
   name: 'LIGHT',
-  model: [{ points: cone }],
+  // A lamp throws its full length as it comes up, only changing brightness.
+  model: [
+    { points: ({ anim }) => (
+      anim ?
+        [
+          [lens, -mouth],
+          [far - corner, -spread],
+          [far, corner - spread],
+          [far, spread - corner],
+          [far - corner, spread],
+          [lens, mouth],
+        ]
+        :
+        []
+      )
+    }
+  ],
   price: 450,
   reach,
   spread,

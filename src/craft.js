@@ -2,6 +2,7 @@ import { Vector, applyForce, movePoint, rotatePoint } from './vector';
 import { active, healthOf, relightCraft } from './craft-render';
 import { cockpit, scoopOpen } from './modules';
 import { Sprite } from './sprite';
+import { game } from './game';
 import { outerEdges } from './collisions';
 import { shapeOf } from './lighting';
 import { shapePath } from './drawing';
@@ -23,6 +24,8 @@ const nozzleLevel = (thrusterNozzleSide, forward, turn) => {
   return turn === -thrusterNozzleSide ? 1 : forward * steeringEase;
 };
 
+// A part's optional outline is either fixed points or a function that returns
+// points for its current segment, so animated modules can update their shape.
 const pathFor = ({ path, points, unclosed }) => {
   if (Array.isArray(points)) {
     const fixed = shapePath(points, unclosed);
@@ -93,6 +96,8 @@ export class Craft extends Sprite {
 
     const data = props.craftData;
 
+    if (!data) return;
+
     Object.assign(this, data, {
       cargo: [],
       forward: 0,
@@ -115,12 +120,22 @@ export class Craft extends Sprite {
     if (this.hullGradient) relightCraft(this);
   }
 
+  add() {
+    super.add();
+    game.crafts.push(this);
+  }
+
+  remove() {
+    super.remove();
+    game.crafts.splice(game.crafts.indexOf(this), 1);
+  }
+
   get accel() {
     return this.mass ? thrustScale * this.forwardThrust / this.mass : 0;
   }
 
   get maxSpeed() {
-    return this.life ?
+    return this.lifetime ?
       180 :
         Math.max(
           this.drag ? speedScale * this.forwardThrust / this.drag : 0,
@@ -209,23 +224,15 @@ export class Craft extends Sprite {
 
   holds(child) {
     return child.dockedTo === this || (this.localMovementRadius &&
-      child.position.distance(this.position) <= this.localMovementRadius);
+      child.position.distanceTo(this.position) <= this.localMovementRadius);
   }
 
   momentum({ x, y }) {
     return Vector((this.y - y) * this.spin, (x - this.x) * this.spin);
   }
 
-  fracture(items) {
-    if (!this.cockpit) return [];
-
-    const all = this.segments.filter(({ hull }) => hull);
-    const hulls = all.filter(({ health }) => active(health));
+  fracture(hulls, destroyed) {
     const center = hulls.length && centerOf(hulls);
-    const destroyed = hulls.reduce((sum, { health }) => sum + health, 0) < 30 ||
-      !hulls.includes(this.cockpit.hull);
-
-    if (!destroyed && hulls.length === all.length) return [];
 
     const groups = destroyed ?
         hulls.map((_, i) => [i]) :
@@ -249,21 +256,19 @@ export class Craft extends Sprite {
           x: segment.x - middle.x,
           y: segment.y - middle.y,
         }));
-        const fragment = Object.assign(new Sprite({
+        const fragment = new Craft({
+          drag: 0.2,
           dx: velocity.x,
           dy: velocity.y,
-          rotation: this.rotation,
-          x: this.x + offset.x,
-          y: this.y + offset.y,
-        }), {
-          drag: 0.2,
-          life: 9 + Math.random(),
+          lifetime: 9 + Math.random(),
           mass: segments.length,
+          rotation: this.rotation,
           segments,
           spin: this.spin,
+          x: this.x + offset.x,
+          y: this.y + offset.y,
         });
 
-        Object.setPrototypeOf(fragment, Craft.prototype);
         applyForce(fragment, Vector(away).normalize().scale(30), Math.random() - 0.5);
         return fragment;
       });
@@ -289,9 +294,9 @@ export class Craft extends Sprite {
         item.position.set(position);
         item.velocity.set(this.velocity);
         item.arm();
-        items.push(item);
+        item.add();
       });
-      this.dead = true;
+      this.remove();
     }
 
     return fragments;
@@ -319,9 +324,12 @@ export class Craft extends Sprite {
     });
   }
 
-  update(dt) {
-    if (this.life) {
-      if ((this.life -= dt) <= 0) this.dead = true;
+  update(dt, movement) {
+    if (this.lifetime) {
+      if ((this.lifetime -= dt) <= 0) {
+        this.remove();
+        return;
+      }
     } else if (!this.dockedTo) {
       const push = this.accel * this.forward * dt;
       const rotationalThrust = this.rotationalThrust;
@@ -339,5 +347,16 @@ export class Craft extends Sprite {
       segment.anim = approach(segment.anim, level, segment.rate * dt);
       segment.update?.(segment, dt);
     });
+
+    super.update(dt, movement);
+
+    if (!this.lifetime && this.cockpit) {
+      const all = this.segments.filter(({ hull }) => hull);
+      const hulls = all.filter(({ health }) => active(health));
+      const destroyed = hulls.reduce((sum, { health }) => sum + health, 0) < 30 ||
+        !hulls.includes(this.cockpit.hull);
+
+      if (destroyed || hulls.length < all.length) return this.fracture(hulls, destroyed);
+    }
   }
 }

@@ -1,5 +1,7 @@
-import { Vector } from './vector';
+import { Vector, move } from './vector';
+import { game } from './game';
 import { getContext } from './core';
+import { localMovement } from './local-movement';
 
 /**
  * Shared position and movement state for physical game objects. Supplied
@@ -16,6 +18,7 @@ export class Sprite {
     this.spin = 0;
     this.ctx = getContext();
     Object.assign(this, properties);
+    this.add();
   }
 
   get x() {
@@ -32,5 +35,27 @@ export class Sprite {
 
   set y(value) {
     this.position.y = value;
+  }
+
+  hitboxes() {
+    return this.dead || this.buried ? [] : [this];
+  }
+
+  add() {
+    this.dead = false;
+    game.sprites.push(this);
+  }
+
+  remove() {
+    this.dead = true;
+    game.sprites.splice(game.sprites.indexOf(this), 1);
+  }
+
+  update(dt, movement = true) {
+    if (this.dead || !movement || this.buried) return;
+
+    this.rotation += (this.spin || 0) * dt;
+    move(this, dt);
+    localMovement(this, game.crafts, dt);
   }
 }

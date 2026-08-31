@@ -7,7 +7,10 @@ canvas.style = `display:block;width:100%;background:${colors.purple[0]}`;
 
 export const game = {
   canvas,
+  crafts: [],
   ctx: context,
+  items: [],
   size: 1.5,
+  sprites: [],
   // scale, width & height are set by setSizing()
 };

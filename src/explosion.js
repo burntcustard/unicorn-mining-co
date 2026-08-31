@@ -8,7 +8,7 @@ import { objectLineWidth } from './drawing';
  * outwards that everything nearby feels.
  *
  * The push is dealt out once, the moment it goes off, rather than pressed on
- * over the life of the flash. A blast is an instant thing that hands out speed
+ * over the lifetime of the flash. A blast is an instant thing that hands out speed
  * and then has nothing more to say, so what is left on screen afterwards is
  * only the look of it.
  */
@@ -23,7 +23,7 @@ const damage = 35;
 
 // Seconds the flash lasts, and how far past the shove its ring runs, since
 // light carries further than anything it is thrown by
-const life = 0.5;
+const lifetime = 0.5;
 const flashReach = reach * 1.15;
 
 export const blasts = [];
@@ -52,7 +52,9 @@ export const detonate = (blast, items, crafts) => {
   };
 
   items.forEach((item) => {
-    const share = shareAt(item.position.distance(blast.position));
+    if (item.buried) return;
+
+    const share = shareAt(item.position.distanceTo(blast.position));
 
     if (!share) return;
 
@@ -64,7 +66,7 @@ export const detonate = (blast, items, crafts) => {
   });
 
   crafts.forEach((craft) => {
-    const share = shareAt(craft.position.distance(blast.position));
+    const share = shareAt(craft.position.distanceTo(blast.position));
 
     if (!share) return;
 
@@ -83,7 +85,7 @@ export const updateBlasts = (dt) => {
   for (let i = blasts.length; i--;) {
     blasts[i].age += dt;
 
-    if (blasts[i].age >= life) blasts.splice(i, 1);
+    if (blasts[i].age >= lifetime) blasts.splice(i, 1);
   }
 };
 
@@ -92,7 +94,7 @@ export const updateBlasts = (dt) => {
  */
 export const renderBlasts = ({ ctx }) => {
   blasts.forEach(({ age, x, y }) => {
-    const along = age / life;
+    const along = age / lifetime;
     // Out fast and slowing as it goes, the way a shell of hot gas does
     const radius = flashReach * Math.sqrt(along);
     const fade = 1 - along;

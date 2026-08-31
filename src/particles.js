@@ -18,7 +18,7 @@ const bright = Object.entries(colors)
   .map(([, shades]) => shades[2]);
 
 // Seconds a spark lasts, and the shortest and longest streak one draws
-const sparkLife = 2;
+const sparklifetimetime = 2;
 const shortest = 10;
 const longest = 30;
 
@@ -27,7 +27,7 @@ const respawn = (spark, distance) => {
   spark.along = Math.random() * distance;
   spark.color = bright[Math.floor(Math.random() * bright.length)];
   spark.length = shortest + Math.random() * (longest - shortest);
-  spark.life = Math.random() * sparkLife;
+  spark.lifetime = Math.random() * sparklifetimetime;
 };
 
 /**
@@ -52,8 +52,8 @@ export const makeSparks = (count, distance) => Array.from({ length: count }, () 
 export const updateSparks = (sparks, distance, speed, dt) => {
   sparks.forEach((spark) => {
     spark.along += speed * dt;
-    spark.life -= dt;
+    spark.lifetime -= dt;
 
-    if (spark.life <= 0 || spark.along > distance) respawn(spark, distance);
+    if (spark.lifetime <= 0 || spark.along > distance) respawn(spark, distance);
   });
 };
