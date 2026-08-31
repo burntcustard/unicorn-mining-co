@@ -24,6 +24,16 @@ at the bottom before spending a build on an idea somebody has already priced.
 - Run `npm run lint` afterwards, reporting it only if it fails. Braces, spacing
   and line breaks are free, so a lint fix never costs bytes.
 
+## Areas to avoid
+
+- Do not try to code-golf scripts/world-preview.js, src/benchmark.js, or any code
+  which is locked behind the DEBUG or BENCHMARK flags as that code is not
+  included in the ZIP, and is only for development and testing.
+- The textjs glyphs have already been heavily optimized and are not worth further
+  golfing attempts unless it is specifically requested for.
+- Try to avoid moving code into main.js unless it makes a significant difference,
+  as we are trying to keep that file in particular as readable as possible.
+
 ## What tends to work
 
 - Deleting something outright. Removing a whole property, argument or return
