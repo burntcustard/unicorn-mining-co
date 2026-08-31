@@ -8,10 +8,6 @@
 // Store callbacks for single key pressed events
 let callbacks = {};
 
-// Different to Kontras - pressedKeys stores a list of which keys have been
-// pressed, but have not had anything done with the keyDown event yet.
-let pressedKeys = {};
-
 // Same as Kontra pressedKeys - a list of keys that are "held down", i.e.
 // haven't had a keyup even to "turn them off" yet.
 let downKeys = {};
@@ -19,26 +15,13 @@ let downKeys = {};
 /**
  * Execute a function that corresponds to a keyboard key.
  *
- * @param {KeyboardEvent} e
+ * @param {KeyboardEvent} event
  */
-const keydownEventHandler = (e) => {
-  // If it's a key event being repeated because of being held, do nothing
-  if (e.repeat) return;
-
-  pressedKeys[e.key] = true;
-  downKeys[e.key] = true;
-
-  if (callbacks[e.key]) {
-    callbacks[e.key](e);
-  }
+const keyEventHandler = (event) => {
+  const key = event.key.slice(-2);
+  downKeys[key] = event.type === 'keydown';
+  if (downKeys[key] && !event.repeat) callbacks[key]?.(event);
 };
-
-/**
- * Set the released key to not being pressed.
- *
- * @param {KeyboardEvent} e
- */
-const keyupEventHandler = (e) => downKeys[e.key] = false;
 
 /**
  * Reset pressed keys.
@@ -54,8 +37,8 @@ const keyupEventHandler = (e) => downKeys[e.key] = false;
  * @function initKeys
  */
 export const initKeys = () => {
-  window.addEventListener('keydown', keydownEventHandler);
-  window.addEventListener('keyup', keyupEventHandler);
+  window.addEventListener('keydown', keyEventHandler);
+  window.addEventListener('keyup', keyEventHandler);
   // window.addEventListener('blur', blurEventHandler);
 };
 
@@ -65,7 +48,7 @@ export const initKeys = () => {
  * developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values
  * @param  {Function} callback [description]
  */
-export const bindKeys = (keys, callback) => keys.map((key) => callbacks[key] = callback);
+export const bindKeys = (key, callback) => callbacks[key] = callback;
 
 /**
  * [unbindKeys description]
@@ -76,13 +59,5 @@ export const unbindKeys = (keys) => keys.map((key) => callbacks[key] = false);
 
 // We may not need this and/or unbind keys?...
 export const unbindAllKeys = () => callbacks = {};
-
-export const keyPressed = (key) => {
-  if (pressedKeys[key]) {
-    pressedKeys[key] = false;
-    return true;
-  }
-  // implicit else return undefined (falsey)
-};
 
 export const keyDown = (key) => !!downKeys[key];

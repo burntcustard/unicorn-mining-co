@@ -165,3 +165,8 @@ the then-current retained baseline.
 - Replacing the scenery `filter().forEach()` with one guarded `forEach()` cost 5 bytes. Caching all render types cost 19 bytes; caching scenery alone cost 6 bytes.
 - Removing the currently unreachable dead-asteroid cargo-release branch cost 11 bytes, so it remained as defensive behavior.
 - Replacing the four-update modulo with a bitmask cost 18 bytes.
+- Making module keys uppercase and lowercasing them only while binding saved 1 byte. Packing both forms lowercase-first (`'dD'`), using index 0 for input and index 1 for the HUD, saved 15 bytes instead; uppercase-first was 3 bytes worse.
+- With `'dD'`, `key[0]`, and `key[1]` held constant under `build:full`, direct indexing was 13319B advzip, adding `toLowerCase` to the input was 13351B, adding both `toUpperCase` calls to the HUD was 13343B, and using all three conversions was 13366B.
+- Normalizing keyboard event keys to their final two characters saved 6 bytes. Searching registered fragments with `find`/`includes` cost 15 bytes, while expanding fragments with `includes` cost 59 bytes.
+- Removing the unused `keyPressed` state saved 2 bytes, accepting one key per `bindKeys` call saved 3, optional callback invocation saved 4, and sharing one handler between keydown and keyup saved 1.
+- Registering keyboard listeners at module load instead of through `initKeys` cost 5 bytes, and storing held state on callback functions cost 8 bytes.

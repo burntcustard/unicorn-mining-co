@@ -24,7 +24,7 @@ export const floodlight = {
   // Lit rather than painted, so it lifts everything already drawn under it
   beam: true,
   disablePhysics: true,
-  key: 'l',
+  key: 'lL',
   lens,
   mouth,
   name: 'LIGHT',

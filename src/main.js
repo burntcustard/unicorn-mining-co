@@ -112,13 +112,13 @@ let spriteCount;
 initKeys();
 
 [cargoScoop, horn, shield, floodlight].forEach((module) =>
-  bindKeys([module.key], () => playerShip.toggle(module)));
-bindKeys(['ArrowLeft'], () => playerShip.dockedTo && back());
-bindKeys(['Escape'], () => playerShip.dockedTo && back(playerShip));
-[' ', 'ArrowRight'].forEach((key) =>
-  bindKeys([key], () => playerShip.dockedTo && confirmSelection(playerShip)));
-bindKeys(['ArrowUp'], () => playerShip.dockedTo && moveSelection(-1, playerShip));
-bindKeys(['ArrowDown'], () => playerShip.dockedTo && moveSelection(1, playerShip));
+  bindKeys(module.key[0], () => playerShip.toggle(module)));
+bindKeys('ft', () => playerShip.dockedTo && back());
+bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
+[' ', 'ht'].forEach((key) =>
+  bindKeys(key, () => playerShip.dockedTo && confirmSelection(playerShip)));
+bindKeys('Up', () => playerShip.dockedTo && moveSelection(-1, playerShip));
+bindKeys('wn', () => playerShip.dockedTo && moveSelection(1, playerShip));
 
 // @ifdef DEBUG
 bindDebug(game);

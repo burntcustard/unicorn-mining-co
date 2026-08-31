@@ -25,7 +25,7 @@ const arm = (angle) => {
 export const shield = {
   bounciness: 0.4,
   health: 40,
-  key: 's',
+  key: 'sS',
   name: 'SHIELD',
   model: [
     {

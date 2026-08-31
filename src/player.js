@@ -75,10 +75,10 @@ export const updatePlayer = (dt) => {
   // launching ship sees itself out of the bay, and a ship on a road has the
   // road doing the driving for it
   const thrusting = !playerShip.localMovementParent?.drives &&
-    (flyOut(playerShip, dt) || keyDown('ArrowUp'));
+    (flyOut(playerShip, dt) || keyDown('Up'));
 
   playerShip.fly(
     thrusting ? 1 : 0,
-    (keyDown('ArrowRight') ? 1 : 0) - (keyDown('ArrowLeft') ? 1 : 0),
+    (keyDown('ht') ? 1 : 0) - (keyDown('ft') ? 1 : 0),
   );
 };

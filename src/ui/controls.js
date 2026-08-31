@@ -30,7 +30,8 @@ const underInset = 1;
 const underDrop = 9;
 
 // Every module on the ship the pilot can switch, each the once, in the order
-// they sit in. Modules with no key of their own are left off the panel
+// they sit in. Modules with no key of their own are left off the panel. A key
+// packs its lowercase KeyboardEvent value first and uppercase HUD letter second.
 const modulesOf = (ship) => {
   const list = [];
 
@@ -80,7 +81,7 @@ export const renderControls = (game, ship) => {
 
     // A line under the one letter of the name that is the key to work it, a
     // touch narrower than the letter and dropped just below it
-    const under = textX + module.name.toUpperCase().indexOf(module.key.toUpperCase()) * glyph;
+    const under = textX + module.name.indexOf(module.key[1]) * glyph;
 
     ctx.strokeStyle = colors.violet[2];
     ctx.beginPath();

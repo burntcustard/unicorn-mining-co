@@ -37,14 +37,14 @@ export const debugCrafts = (game) => [
 }));
 
 export const bindDebug = (game) => {
-  bindKeys(['2'], () => showColorsDemo = !showColorsDemo);
-  bindKeys(['3'], () => showTextDemo = !showTextDemo);
-  bindKeys(['4'], () => showDeadzone = !showDeadzone);
-  bindKeys(['5'], () => showMass = !showMass);
-  bindKeys(['6'], sky.cycle);
-  bindKeys(['7'], toggleLights);
-  bindKeys(['8'], toggleGlows);
-  bindKeys(['9'], () => game.physicsOn = !game.physicsOn);
+  bindKeys('2', () => showColorsDemo = !showColorsDemo);
+  bindKeys('3', () => showTextDemo = !showTextDemo);
+  bindKeys('4', () => showDeadzone = !showDeadzone);
+  bindKeys('5', () => showMass = !showMass);
+  bindKeys('6', sky.cycle);
+  bindKeys('7', toggleLights);
+  bindKeys('8', toggleGlows);
+  bindKeys('9', () => game.physicsOn = !game.physicsOn);
 };
 
 export const renderDebug = (game, sprites, nearbyRadius) => {
