@@ -1,4 +1,4 @@
-import { back, confirmSelection, moveSelection } from './ui/docked';
+import { back, confirmSelection, moveSelection, moveSubSelection } from './ui/docked';
 // @ifdef DEBUG
 import {
   bindDebug,
@@ -119,10 +119,11 @@ initKeys();
 
 [cargoScoop, horn, shield, floodlight].forEach((module) =>
   bindKeys(module.key[0], () => playerShip.toggle(module)));
-bindKeys('ft', () => playerShip.dockedTo && back());
+bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
-[' ', 'ht'].forEach((key) =>
+[' '].forEach((key) =>
   bindKeys(key, () => playerShip.dockedTo && confirmSelection(playerShip)));
+bindKeys('ht', () => playerShip.dockedTo && moveSubSelection(1, playerShip));
 bindKeys('Up', () => playerShip.dockedTo && moveSelection(-1, playerShip));
 bindKeys('wn', () => playerShip.dockedTo && moveSelection(1, playerShip));
 

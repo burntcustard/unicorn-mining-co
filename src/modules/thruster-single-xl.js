@@ -8,6 +8,7 @@ export const thrusterSingleXl = {
     { points: (segment) => flare(segment, 6), thrusterNozzleSide: 0 },
   ],
   price: 200,
+  powerUsage: 10,
   forwardThrust: 26,
   rotationalThrust: 14,
   zIndex: -1,

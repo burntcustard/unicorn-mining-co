@@ -48,6 +48,7 @@ export const shield = {
     },
   ],
   price: 900,
+  powerUsage: 18,
   state: () => ({ phase: 0 }),
   // A quarter turn brings the cross back around to where it started
   update: (segment, dt) => {

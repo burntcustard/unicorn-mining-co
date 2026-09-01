@@ -67,7 +67,7 @@ const panel = [
 
 export const corral = {
   hullGradient: true,
-  localMovementRadius: 620,
+  localMovementRadius: 600,
   zIndex: 2,
   hullSegments: [
     ...angles.flatMap((angle, i) => side.map((points, piece) => ({

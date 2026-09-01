@@ -10,7 +10,8 @@
  * name, because the build mangles property names but leaves string literals
  * alone, so a `fits` list of modules costs less than a list of their names.
  *
- * Every module has a `price` to buy it. Modules do not take cargo space.
+ * Every module has a `price` to buy it and `powerUsage` while active. Modules
+ * do not take cargo space.
  *
  * A non-physical module with `health` is damaged with its hull. A solid `model`
  * with `health` is damaged directly; a healthless module vanishes with its hull.

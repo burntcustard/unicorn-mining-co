@@ -67,6 +67,7 @@ export const cargoScoop = {
     },
   ],
   price: 150,
+  powerUsage: 4,
   // An open mouth is what draws loose cargo in, so this is the piece that
   // decides whether a ship can pick anything up
   scoops: true,

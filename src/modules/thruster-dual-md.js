@@ -14,6 +14,7 @@ export const thrusterDualMd = {
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 350,
+  powerUsage: 15,
   forwardThrust: 16,
   rotationalThrust: 16,
   zIndex: -1,

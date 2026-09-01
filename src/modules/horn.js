@@ -57,6 +57,7 @@ export const horn = {
   }],
   name: 'DRILL',
   price: 350,
+  powerUsage: 12,
   state: () => ({ phase: 0 }),
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % 1;
