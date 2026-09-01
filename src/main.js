@@ -197,13 +197,13 @@ GameLoop({
     }
 
     // Sparks off the horn sit over the asteroids and ships they come off
-    renderSparks(game);
+    renderSparks(game.ctx);
 
     // Light rather than paint, so it goes over everything it lights up
     // @ifdef DEBUG
     if (lights) {
     // @endif
-      renderBlasts(game);
+      renderBlasts(game.ctx);
     // @ifdef DEBUG
     }
     // @endif

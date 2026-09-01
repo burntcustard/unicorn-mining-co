@@ -93,13 +93,6 @@ export const renderControls = (game, ship) => {
   ctx.restore();
 
   modules.forEach((module, i) => {
-    renderText({
-      color: colors.violet[2],
-      game,
-      size: textSize,
-      text: module.name,
-      x: textX,
-      y: top + i * rowGap,
-    });
+    renderText(game, module.name, textX, top + i * rowGap, textSize, colors.violet[2]);
   });
 };

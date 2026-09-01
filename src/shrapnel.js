@@ -82,9 +82,9 @@ export const updateSparks = (dt) => {
 };
 
 /**
- * @param {Object} game
+ * @param {CanvasRenderingContext2D} ctx - The game-world drawing context.
  */
-export const renderSparks = ({ ctx }) => {
+export const renderSparks = (ctx) => {
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineWidth = objectLineWidth;

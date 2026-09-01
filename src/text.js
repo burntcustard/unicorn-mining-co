@@ -104,39 +104,47 @@ export function drawText(props) {
   props.ctx.stroke(textPath(props.text));
 }
 
-export function renderText(props) {
-  const { ctx, uiScale } = props.game;
-  const size = props.size || 1;
+/**
+ * @param {Object} game - Supplies the UI canvas context and scale.
+ * @param {String|Number} text - The glyphs to draw.
+ * @param {Number} x - The text's horizontal anchor.
+ * @param {Number} y - The text's vertical anchor.
+ * @param {Number} [size=1] - The glyph scale.
+ * @param {String} [color='#fff'] - The stroke colour.
+ * @param {Number} [align=0] - Bit flags: 1 centre, 2 bottom, 4 right.
+ */
+export function renderText(game, text, x, y, size = 1, color = '#fff', align = 0) {
+  const { ctx, uiScale } = game;
   let xAlign = 0;
   let yAlign = 0;
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
 
-  if (props.alignCenter) {
+  if (align & 1) {
     yAlign = -6.5 * size;
-    xAlign = -props.text.toString().length * 6.5 * size;
+    xAlign = -text.toString().length * 6.5 * size;
   }
 
-  if (props.alignBottom) {
+  if (align & 2) {
     // Approx height of text
     yAlign = -17 * size;
   }
 
-  if (props.alignRight) {
+  if (align & 4) {
     // Approx width of text
-    xAlign = -props.text.toString().length * 13 * size;
+    xAlign = -text.toString().length * 13 * size;
   }
 
-  ctx.translate(props.x + xAlign, props.y + yAlign);
+  ctx.translate(x + xAlign, y + yAlign);
 
   ctx.scale(size, size);
-  ctx.strokeStyle = props.color || '#fff';
+  ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   // Corners cut off flat rather than drawn out to sharp points
   ctx.lineJoin = 'bevel';
 
-  const path = textPath(props.text);
+  const path = textPath(text);
 
   outline(ctx, path);
   ctx.stroke(path);

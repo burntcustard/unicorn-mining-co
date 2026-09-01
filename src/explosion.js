@@ -90,9 +90,9 @@ export const updateBlasts = (dt) => {
 };
 
 /**
- * @param {Object} game
+ * @param {CanvasRenderingContext2D} ctx - The game-world drawing context.
  */
-export const renderBlasts = ({ ctx }) => {
+export const renderBlasts = (ctx) => {
   blasts.forEach(({ age, x, y }) => {
     const along = age / lifetime;
     // Out fast and slowing as it goes, the way a shell of hot gas does

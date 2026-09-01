@@ -46,8 +46,8 @@ const actionsOf = (ship, mount, module) => {
   return [
     !owned && player.credits >= module.price && 'BUY',
     owned && mount.module !== module && 'EQUIP',
-    owned && (!equipped || mount.module === module) && 'SELL',
     mount.module === module && 'REMOVE',
+    owned && (!equipped || mount.module === module) && 'SELL',
   ].filter(Boolean);
 };
 
@@ -109,8 +109,7 @@ export const moveSubSelection = (delta, ship) => {
 };
 
 /**
- * Step back out a column rather than undocking, while there's one to step
- * back out of.
+ * Step back out of the current docked menu.
  *
  * @returns {Boolean} handled - Whether there was a column to back out of.
  */
@@ -164,7 +163,6 @@ export const confirmSelection = (ship) => {
         mount.segments.forEach((segment) => segment.shades = shades);
       }
 
-      stage = 1;
       return;
     } else if (picked === 'BUY') {
       if (spend(currentModule.price)) {
@@ -180,19 +178,17 @@ export const confirmSelection = (ship) => {
     } else if (picked === 'REMOVE') {
       ship.unfit(mount);
     }
-
-    if (picked !== 'BUY') stage = 1;
   }
 };
 
 // A row's own background, and its highlight when it's the one picked out in
 // its column. Appended digit is the fill's opacity
-const renderRow = (ctx, x0, x1, y, isCurrent, isFocused = isCurrent) => {
-  ctx.fillStyle = `${isCurrent ? colors.violet[3] : colors.purple[2]}c`;
+const renderButton = (ctx, x0, x1, y, isCurrent, isFocused = isCurrent) => {
+  ctx.fillStyle = `${colors.purple[2]}${isCurrent ? '' : '8'}`;
   ctx.fillRect(x0, y - rowPad, x1 - x0, rowGap - rowPad);
 
   if (isFocused) {
-    ctx.strokeStyle = `${colors.violet[2]}c`;
+    ctx.strokeStyle = `${colors.violet[0]}a`;
     ctx.strokeRect(x0, y - rowPad, x1 - x0, rowGap - rowPad);
   }
 };
@@ -264,22 +260,24 @@ export const renderDocked = (game, ship) => {
 
   menu.forEach((_, i) => {
     ctx.globalAlpha = stage === 2 && i !== moduleOption ? 0.3 : 1;
-    renderRow(ctx, ...col0, menuY(i), i === currentItem, stage !== 2 && i === currentItem);
+    renderButton(ctx, ...col0, menuY(i), i === currentItem, stage !== 2 && i === currentItem);
   });
   ctx.globalAlpha = stage === 2 ? 0.3 : 1;
-  renderRow(ctx, ...col0, bottom, currentItem === menu.length);
+  renderButton(ctx, ...col0, bottom, currentItem === menu.length);
   ctx.globalAlpha = 1;
 
   if (stage === 2) {
-    actionButtons.buttons.forEach((button, i) => renderRow(
+    actionButtons.buttons.forEach((button, i) => renderButton(
       ctx, col0[0] + button.x, col0[0] + button.x + button.width,
-      menuY(moduleOption) + (button.y + 1) * rowGap, focused === i));
+      menuY(moduleOption) + (button.y + 1) * rowGap, focused === i,
+    ));
     swatchButtons.buttons.forEach((button, i) => {
       const y = menuY(moduleOption) + (actionButtons.rows + button.y + 1) * rowGap;
 
-      renderRow(
+      renderButton(
         ctx, col0[0] + button.x, col0[0] + button.x + button.width, y,
-        button.item === selectedShades, focused === i + actions.length + 1);
+        button.item === selectedShades, focused === i + actions.length + 1,
+      );
       ctx.fillStyle = button.item[2];
       ctx.fillRect(col0[0] + button.x + rowPad, y, button.width - rowPad * 2, rowGap - rowPad * 3);
     });
@@ -303,40 +301,28 @@ export const renderDocked = (game, ship) => {
     if (stage === 0) text = `${i}:${item.module?.name || '-EMPTY-'}`;
 
     ctx.globalAlpha = stage === 2 && i !== moduleOption ? 0.3 : 1;
-    renderText({
-      color: colors.violet[2],
-      game,
-      size: textSize,
-      text,
-      x: col0[0] + textPad,
-      y: menuY(i) + 2,
-    });
+    renderText(game, text, col0[0] + textPad, menuY(i) + 2, textSize, colors.violet[2]);
   });
   ctx.globalAlpha = 1;
 
   if (stage === 2) {
-    actionButtons.buttons.forEach((button) => renderText({
-      color: colors.violet[2], game, size: textSize, text: button.item,
-      x: col0[0] + button.x + textPad, y: menuY(moduleOption) + (button.y + 1) * rowGap + 2,
-    }));
+    actionButtons.buttons.forEach((button) => renderText(
+      game, button.item, col0[0] + button.x + textPad,
+      menuY(moduleOption) + (button.y + 1) * rowGap + 2, textSize, colors.violet[2],
+    ));
   }
 
   ctx.globalAlpha = stage === 2 ? 0.3 : 1;
-  renderText({
-    color: colors.violet[2], game, size: textSize, text: stage ? 'BACK' : 'EXIT',
-    x: col0[0] + textPad, y: bottom + 2,
-  });
+  renderText(game, stage ? 'BACK' : 'EXIT', col0[0] + textPad, bottom + 2, textSize, colors.violet[2]);
   ctx.globalAlpha = 1;
 
   if (info) {
-    [info.name, 'HP', 'VALUE', 'PWR'].forEach((text, i) => renderText({
-      color: colors.violet[2], game, size: textSize, text,
-      x: col1[0] + textPad, y: top + i * rowGap + 2,
-    }));
+    [info.name, 'HP', 'VALUE', 'PWR'].forEach((text, i) => renderText(
+      game, text, col1[0] + textPad, top + i * rowGap + 2, textSize, colors.violet[2],
+    ));
 
-    [`${health}/${info.health}`, `$${info.price}`, info.powerUsage].forEach((text, i) => renderText({
-      alignRight: true, color: colors.violet[2], game, size: textSize, text,
-      x: col1[1] - textPad, y: top + (i + 1) * rowGap + 2,
-    }));
+    [`${health}/${info.health}`, `$${info.price}`, info.powerUsage].forEach((text, i) => renderText(
+      game, text, col1[1] - textPad, top + (i + 1) * rowGap + 2, textSize, colors.violet[2], 4,
+    ));
   }
 };

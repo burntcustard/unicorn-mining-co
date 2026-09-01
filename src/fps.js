@@ -25,10 +25,5 @@ export const renderFps = (game) => {
     frames = 0;
   }
 
-  renderText({
-    game,
-    text: `FPS:${rate}`,
-    x: 10,
-    y: 70,
-  });
+  renderText(game, `FPS:${rate}`, 10, 70);
 };

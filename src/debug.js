@@ -61,14 +61,14 @@ export const renderDebug = (game, sprites, nearbyRadius) => {
   }
 
   renderFps(game);
-  renderText({ game, text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, x: 10, y: 90 });
-  renderText({ game, text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, x: 10, y: 110 });
-  renderText({ game, text: `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, x: 10, y: 130 });
-  renderText({ game, text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, x: 10, y: 150 });
-  renderText({ game, text: `6 SKY:${sky.label}`, x: 10, y: 170 });
-  renderText({ game, text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, x: 10, y: 190 });
-  renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 10, y: 210 });
-  renderText({ game, text: `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`, x: 10, y: 230 });
+  renderText(game, `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, 10, 90);
+  renderText(game, `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, 10, 110);
+  renderText(game, `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, 10, 130);
+  renderText(game, `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, 10, 150);
+  renderText(game, `6 SKY:${sky.label}`, 10, 170);
+  renderText(game, `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, 10, 190);
+  renderText(game, `8 GLOWS:${glows ? 'ON' : 'OFF'}`, 10, 210);
+  renderText(game, `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`, 10, 230);
 
   if (showMass) {
     game.ctx.save();

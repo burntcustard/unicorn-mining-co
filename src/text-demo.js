@@ -8,21 +8,9 @@ const charset = [
 ];
 
 export const textDemo = (game) => {
-  renderText({
-    alignCenter: true,
-    game,
-    text: 'HELLO WORLD',
-    x: game.uiWidth / 2,
-    y: game.uiHeight / 2 - 150,
-  });
+  renderText(game, 'HELLO WORLD', game.uiWidth / 2, game.uiHeight / 2 - 150, 1, '#fff', 1);
 
   charset.forEach((text, i) => {
-    renderText({
-      alignCenter: true,
-      game,
-      text,
-      x: game.uiWidth / 2,
-      y: game.uiHeight / 2 - 150 + 40 + i * 20,
-    });
+    renderText(game, text, game.uiWidth / 2, game.uiHeight / 2 - 150 + 40 + i * 20, 1, '#fff', 1);
   });
 };

@@ -17,6 +17,7 @@ const stripIfdef = (src, flags) => src.replace(
   (match, flag, body) => (flags[flag] ? body : ''),
 );
 
+// Replacements which match file names require (?<!\/) to prevent import failure.
 const customReplacement = (src) => src
   // Give this repeated Kontra property a more compression-friendly spelling (~6B).
   .replace(/acceleration/g, '_acceleration')
@@ -24,9 +25,11 @@ const customReplacement = (src) => src
   .replace(/angle/g, '_angle')
   .replace(/(?<!\/)module/g, '_module')
   .replace(/normalize/g, '_normalize')
+  .replace(/(?<!\/)outline/g, '_outline')
   .replace(/points/g, '_points')
   .replace(/rotation/g, '_rotation')
   .replace(/segments/g, '_segments')
+  .replace(/update/g, '_update')
   .replace(/zIndex/g, '_zIndex')
   // For some reason all other color names are mangled, but green isn't.
   // This actually cost more bytes for some reason???

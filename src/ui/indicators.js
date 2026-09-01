@@ -51,15 +51,8 @@ export const renderIndicators = (game, targets, color, range) => {
     ctx.stroke(path);
     ctx.restore();
 
-    renderText({
-      alignCenter: true,
-      color,
-      game,
-      size: 0.5,
-      text: `${Math.round(dist)}m`,
-      x: uiWidth / 2 + edge.x,
-      y: uiHeight / 2 + edge.y - (indicatorsize + 10) * Math.sign(offset.y || -1),
-    });
+    renderText(game, `${Math.round(dist)}m`, uiWidth / 2 + edge.x,
+      uiHeight / 2 + edge.y - (indicatorsize + 10) * Math.sign(offset.y || -1), 0.5, color, 1);
   });
 
   ctx.restore();

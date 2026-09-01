@@ -143,6 +143,33 @@ Re-measure if the surrounding code changes substantially.
 - An explicit unique starter-module list cost 33 bytes; deduplicating it with `Set` cost 5 bytes.
 - Extracting the player key bindings cost 14 bytes as a local helper and 24–60 bytes across dependency-safe modules, callback parameters, split binders, or a `player.js`/docked-UI cycle, so the bindings stayed inline in `main.js`.
 
+## Measured positional-argument experiments
+
+`build:slow`, seed `13312`, against the September 2026 docked UI. Test each
+conversion in its current surrounding output: Roadroller's dictionary means a
+result can change after another retained conversion.
+
+- Named-property objects are already quite cheap because Terser mangles their
+  keys. Inspect the generated `dist/minified.js` when measuring: a destructured
+  one-property function can remain as an invoked wrapper, whereas a positional
+  argument can allow its body to inline directly into the caller.
+- Converting `renderText(props)` to `renderText(game, text, x, y, size, color,
+  align)` saved 43 bytes. Use documented positional arguments; `align` is a
+  bit field (1 centre, 2 bottom, 4 right) so the old independent alignment
+  flags stay available without another object.
+- Converting `renderBlasts({ ctx })` to `renderBlasts(ctx)` saved 11 bytes.
+- `renderSparks({ ctx })` initially cost 16 bytes, but after the `renderText`
+  conversion it saved 9 bytes: its destructured version remained an IIFE in
+  the minified output, while the positional version inlined. Retain the
+  positional form and remeasure context-sensitive trials after material wins.
+- `litPath({ rays })` cost 13 bytes before, and 5 bytes after, the `renderText`
+  conversion; the caller's added `.rays` costs more than the smaller parameter.
+- `runsOf({ rays })` cost 11 bytes before, and 8 bytes after, the `renderText`
+  conversion, for the same added-caller-property reason.
+- `Craft.momentum({ x, y })` cost 2 bytes; `GameLoop({ render, update })` cost
+  1 byte; and `pathFor({ path, points, unclosed })` cost 22 bytes. Keep all
+  three object forms.
+
 ## Measured floodlight prism experiments
 
 `build:slow`, seed `13312`, against the August 2026 rewrite of `src/prism.js`.
