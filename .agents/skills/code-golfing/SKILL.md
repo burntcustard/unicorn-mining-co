@@ -26,6 +26,31 @@ at the bottom before spending a build on an idea somebody has already priced.
 - Run `npm run lint` afterwards, reporting it only if it fails. Braces, spacing
   and line breaks are free, so a lint fix never costs bytes.
 
+## Property mangling pitfalls
+
+`vite.config.js` mangles every property name Terser can find (`mangle:
+{ properties: {} }`), and it renames literal property access consistently
+wherever that literal appears — `obj.foo` and `obj['foo']` are the same
+literal as far as the mangler is concerned. It cannot follow a value through
+a variable, so `obj[someVariable]` is left completely alone.
+
+This breaks any object that is written with a computed key in one place and
+read with a literal key in another: the write stays under its real runtime
+string, the literal read gets renamed to something else, and the lookup
+always misses. This is exactly what happened when `player.js` read
+`downKeys.Up`/`.ht`/`.ft` (literal) while `keyboard.js` wrote `downKeys[key]`
+with `key` computed from `event.key.slice(-2)` — arrow keys and thrusters
+went dead in every real build, but worked fine under `vite serve` since dev
+never runs Terser. Fixed by adding those exact names to
+`terserOptions.mangle.properties.reserved` in `vite.config.js`.
+
+If you add a new computed-key lookup table (keyboard, item-name maps, etc.),
+add every literal read site's key names to that `reserved` list, and verify
+by grepping the built `dist/minified.js` for the mangled object's dynamic
+write (e.g. `It[e]=`) against its dot-reads (e.g. `It.Up`) to confirm the
+names actually match — don't trust lint or a dev-server smoke test for this
+class of bug, since it only appears after a real Terser build.
+
 ## Areas to avoid
 
 - Do not try to code-golf scripts/world-preview.js, src/benchmark.js, or any code

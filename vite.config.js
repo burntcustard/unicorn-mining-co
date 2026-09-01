@@ -38,7 +38,10 @@ export default defineConfig(({ mode, command }) => {
           unsafe_comps: true,
           unsafe_math: true,
         },
-        mangle: { properties: {} },
+        // downKeys is written with a computed key (event.key.slice(-2)),
+        // so its literal reads in player.js must be reserved or property
+        // mangling renames them out of sync with the data they're reading.
+        mangle: { properties: { reserved: ['Up', 'ht', 'ft'] } },
         module: true,
       },
       assetsInlineLimit: 0,
