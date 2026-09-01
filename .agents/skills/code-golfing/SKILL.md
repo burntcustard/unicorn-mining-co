@@ -182,6 +182,16 @@ Re-measure if the surrounding code changes substantially.
 - Addressing reversed spectrum colours with `spectrum.at(~band)` cost 1 byte; combining it with the callback's `color` cost 3 bytes.
 - Baking spectrum strength into `#RGBA` colours with an `e` alpha cost 30 bytes when mapping the spectrum, 6 bytes when suffixing the selected colour, and 3 bytes when suffixing once inside `fillOf`. Removing `globalAlpha` entirely still cost 6 bytes and also removed the lamp fade, so `lamp.anim * spectrumStrength` was retained.
 
+## Measured Path2D, outline and alpha experiments
+
+`build:slow`, seed `13312`, against the September 2026 outline and prism code.
+
+- `Path2D.addPath` accepts a plain `DOMMatrix2DInit`. Replacing translation-only `new DOMMatrix().translate(...)` calls with `{ e, f }` saved 1 byte in `outline.js` and 3 bytes in `text.js`. Prefer this as the first experiment when only translation is needed.
+- For prism rotation plus translation, an inline six-property matrix object cost 3 bytes, writing transformed points directly into the mask cost 1, and caching trigonometry plus mapping the points cost 14. Reusing the already transformed outline through `mask.addPath(shapePath(outline))` saved 8 bytes and removed `DOMMatrix` from the build. In general, try to avoid constructing `DOMMatrix`, but measure full affine replacements: spelling out all six fields can lose.
+- Replacing the outline's eight normalized grid offsets with 16 evenly spaced trig offsets saved 21 bytes. `Array.from` with a callback-local angle beat a chained `forEach`, a countdown loop, array spread, and duplicating the angle expression.
+- Halving those offsets with `/ 2` cost 9 bytes; multiplying by `0.5` cost 20 bytes. Neither was retained in the measured version.
+- Fixed numeric alpha suffixes remained best as template literals in source. Changing all eight to numeric concatenation such as `color + 7` cost 14 bytes, and changing only the outline cost 1 byte, even though Terser emits fixed templates as string concatenation. Keep dynamic alpha concatenations and hexadecimal letter suffixes as they are unless a build proves otherwise.
+
 ## Measured world generation experiments
 
 `build:slow`, seed `13312`, against the August 2026 world generation, taking

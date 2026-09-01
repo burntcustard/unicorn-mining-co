@@ -93,7 +93,7 @@ const textPath = (text) => {
     const glyph = glyphs[c.charCodeAt(0)];
 
     if (glyph) {
-      path.addPath(glyph, new DOMMatrix().translate(i * 13, 0));
+      path.addPath(glyph, { e: i * 13 });
     }
   });
 

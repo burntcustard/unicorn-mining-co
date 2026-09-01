@@ -1,6 +1,6 @@
 import { Vector, directionOf, rotatePoint, rotatePoints } from './vector';
+import { shapePath, strip } from './drawing';
 import { colors } from './colors';
-import { strip } from './drawing';
 import { within } from './polygon';
 
 const fillOf = (ctx, color, from, to, fade) => {
@@ -169,11 +169,11 @@ const outlineOf = (ship, lamp, object, mask) => {
   const middleX = awayX * shipCos + awayY * shipSin - lamp.x;
   const middleY = awayY * shipCos - awayX * shipSin - lamp.y;
   const turn = object.rotation - ship.rotation;
+  const outline = rotatePoints(object.outline, turn, middleX, middleY);
 
-  mask.addPath(object.path, new DOMMatrix().translate(middleX, middleY)
-    .rotate(turn * 180 / Math.PI));
+  mask.addPath(shapePath(outline));
 
-  return rotatePoints(object.outline, turn, middleX, middleY);
+  return outline;
 };
 
 /**
