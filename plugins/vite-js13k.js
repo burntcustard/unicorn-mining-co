@@ -209,11 +209,8 @@ export function viteJs13k(buildLevel = 'full') {
       const args = [
         '--recompress',
         '--shrink-insane',
+        `--iter=${buildLevel === 'slow' ? 100 : 1000}`,
       ];
-
-      if (buildLevel === 'full' || buildLevel === 'full-random') {
-        args.push('--iter=1000');
-      }
 
       args.push('dist/game.zip');
 

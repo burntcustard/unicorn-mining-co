@@ -16,7 +16,7 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 
 - Do not run a build at all if you are only editing comments, whitespace, or other non-functional changes.
 - Use `npm run build:fast` for a single-line or small, localized change.
-- Use `npm run build:slow` for multi-file changes, refactors, new gameplay behavior, or build-system changes.
+- Use `npm run build:slow` for multi-file changes, refactors, new gameplay behavior, or build-system changes. It runs 100 advzip iterations, making its results more representative of the 1,000-iteration full build while remaining faster.
 - Before editing, run the appropriate build and record the ZIP size as the baseline.
 - Run `npm run lint` after source or configuration changes, but only report it if it fails.
 - After editing, run the same build again and compare its ZIP size with the baseline.

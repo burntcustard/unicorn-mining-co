@@ -18,8 +18,10 @@ at the bottom before spending a build on an idea somebody has already priced.
 - Change one thing at a time and build between each, or the numbers mean
   nothing.
 - `npm run build:slow` for anything structural, `npm run build:fast` for a
-  single-line or localized change. Not `build:full` while iterating: far more
-  Terser passes, too slow, and its absolute size is not the number to chase.
+  single-line or localized change. Slow uses 100 advzip iterations, enough to
+  track the 1,000-iteration full build more realistically without its runtime.
+  Do not use `build:full` while iterating: it has far more Terser passes, is too
+  slow, and its absolute size is not the number to chase.
 - Report only the before/after advzip sizes and the difference.
 - Run `npm run lint` afterwards, reporting it only if it fails. Braces, spacing
   and line breaks are free, so a lint fix never costs bytes.
