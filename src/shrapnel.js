@@ -38,9 +38,9 @@ export const sparks = [];
  * @param {Object} [carry] - Something whose own drift the sparks set off with.
  */
 export const spray = (x, y, color, amount, carry = {}) => {
-  const count = Math.floor(amount) + (Math.random() < amount % 1 ? 1 : 0);
+  let count = Math.floor(amount) + (Math.random() < amount % 1 ? 1 : 0);
 
-  for (let i = count; i--;) {
+  while (count--) {
     const angle = Math.random() * Math.PI * 2;
     const pace = speed * (1 - Math.random() * spread);
     const velocity = movePoint(carry.velocity || Vector(), angle, pace);

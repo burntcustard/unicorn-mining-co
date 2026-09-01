@@ -91,6 +91,39 @@ class of bug, since it only appears after a real Terser build.
 - Assuming recomputation is worse than reusing existing state, or the reverse.
   Either can win; measure.
 
+## Measured background experiments
+
+`build:slow`, seed `13312`, against the September 2026 background rewrite. The
+retained background and shared-loop changes took advzip from 13524B to 13408B.
+
+- Moving the named sky modes and their `parts.includes(...)` guards wholly
+  behind `DEBUG` saved 51 bytes.
+- Inlining the three uses of `wrapped` as one nine-step countdown loop saved 6
+  bytes. Nested reverse loops cost 10 bytes instead.
+- Consuming the cloud, dot and sparkle counts with `while (count--)` saved 9
+  bytes. Using the same counter-only idiom in `vector.move` and
+  `shrapnel.spray` saved another 5; forcing it onto main's substeps or the
+  indexed wrapping loops cost 21 and 20 bytes.
+- Replacing mixed layer objects with one dot-count list and index-derived cloud
+  counts, sizes, sparkle counts and depths saved 26 bytes cumulatively. Three
+  explicit `makeTile` calls still cost 4 bytes.
+- Inlining the single-use `tilesOf` was neutral. Checking each stale canvas
+  before replacing it with its bitmap saved 3 bytes; replacing the remaining
+  background `forEach` calls with loops cost 17 bytes together.
+- Putting only glow values into every layer cost 22 bytes, and completing that
+  idea as a generic data-driven dot/sparkle renderer cost 48 bytes. The two
+  concrete render blocks remained better.
+- Direct modulo wrapping for `left`/`top` beat the prior `Math.floor` plus
+  `Math.round` formulation by 17 bytes; adding only `Math.round` cost 21. Keep
+  the logical span rounded, though: a fractional span caused a visible one-pixel
+  seam, and oversizing the canvas fixed it but cost 1 byte.
+- Hard-coding the fixed four-entry palette length saved 3 bytes. Replacing the
+  random bracket indexes with `.at(...)` cost 23 bytes for the palettes and 25
+  across all four sites; bitwise random-index truncation cost 8 bytes.
+- Validate tiling changes while holding movement through exact positive and
+  negative repeat boundaries. Ordinary screenshots can miss a join because a
+  background tile is wider than the viewport.
+
 ## Measured docking UI experiments
 
 `build:slow`, seed `13312`, against the August 2026 docking implementation.

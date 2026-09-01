@@ -162,10 +162,10 @@ export const maxHop = 4;
  * @param {Number} dt - Seconds since the last update.
  */
 export const move = (object, dt) => {
-  const hops = Math.max(1, Math.ceil((object.velocity.length() * dt) / maxHop));
+  let hops = Math.max(1, Math.ceil((object.velocity.length() * dt) / maxHop));
   const step = dt / hops;
 
-  for (let hop = hops; hop--;) {
+  while (hops--) {
     slow(object, step);
 
     object.position.set(object.position.add(object.velocity.scale(step)));

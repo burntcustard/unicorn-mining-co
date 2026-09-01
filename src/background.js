@@ -24,11 +24,7 @@ let span;
 // close together too, so the nearest reads as far away rather than as near.
 // Most of the sky is plain white specks, and only a handful of stars are near
 // enough to flare out into a coloured sparkle
-const layers = [
-  { clouds: 4, depth: 0.02, dots: 150, size: 1, sparkles: 10 },
-  { clouds: 3, depth: 0.04, dots: 100, size: 1.2, sparkles: 8 },
-  { clouds: 2, depth: 0.06, dots: 70, size: 1.4, sparkles: 6 },
-];
+const dotCounts = [150, 100, 70];
 
 // A speck gets a touch of bloom and a sparkle a proper halo, so that none of
 // it looks like a shape cut out of paper
@@ -43,11 +39,12 @@ const sparkleTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors
 const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[1], colors.purple[2]];
 
 const starColor = (tints) => (Math.random() < tinted ?
-  tints[Math.floor(Math.random() * tints.length)] :
+  tints[Math.floor(Math.random() * 4)] :
   colors.white[2]);
 
 // Every layer, drawn in full. Debug builds can swap this out for a cut-down
 // mode to see what each part of the sky costs
+// @ifdef DEBUG
 const fullParts = ['clouds', 'dots', 'sparkles'];
 
 // Which parts of the sky are being drawn, and a label for them, so that what
@@ -56,33 +53,33 @@ export const sky = {
   label: 'ALL',
   parts: fullParts,
 };
+// @endif
 
-/**
- * Draw something nine times over, so that whatever lands near an edge of the
- * tile carries on across the join when it repeats.
- */
-const wrapped = (draw) => {
-  for (let x = -1; x < 2; x++) {
-    for (let y = -1; y < 2; y++) draw(x * tile, y * tile);
-  }
-};
-
-const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
+const makeTile = (clouds, dots, size, sparkles,
+  // @ifdef DEBUG
+  parts,
+  // @endif
+) => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
   canvas.width = canvas.height = span;
   ctx.scale(span / tile, span / tile);
 
+  // @ifdef DEBUG
   if (parts.includes('clouds')) {
-    Array.from({ length: clouds }).forEach(() => {
-      const color = cloudColors[Math.floor(Math.random() * cloudColors.length)];
+  // @endif
+    while (clouds--) {
+      const color = cloudColors[Math.floor(Math.random() * 4)];
       const radius = tile / 5 + Math.random() * tile / 4;
       const x = Math.random() * tile;
       const y = Math.random() * tile;
 
-      wrapped((offsetX, offsetY) => {
-        const at = [x + offsetX, y + offsetY];
+      for (let wrapped = 9; wrapped--;) {
+        const at = [
+          x + wrapped % 3 * tile - tile,
+          y + Math.floor(wrapped / 3) * tile - tile,
+        ];
         // Fading all the way out to nothing is what keeps a cloud an edgeless
         // smudge rather than a circle
         const fade = ctx.createRadialGradient(...at, 0, ...at, radius);
@@ -91,14 +88,18 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
         fade.addColorStop(1, `${color}0`);
         ctx.fillStyle = fade;
         ctx.fillRect(at[0] - radius, at[1] - radius, radius * 2, radius * 2);
-      });
-    });
+      }
+    }
+  // @ifdef DEBUG
   }
+  // @endif
 
   ctx.shadowBlur = dotGlow;
 
+  // @ifdef DEBUG
   if (parts.includes('dots')) {
-    Array.from({ length: dots }).forEach(() => {
+  // @endif
+    while (dots--) {
       const color = starColor(dotTints) + '3456789'[Math.floor(Math.random() * 7)];
       const path = circlePath(size * (0.4 + Math.random() * 0.6));
       const x = Math.random() * tile;
@@ -109,19 +110,26 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
       ctx.fillStyle = color;
       ctx.shadowColor = color;
 
-      wrapped((offsetX, offsetY) => {
+      for (let wrapped = 9; wrapped--;) {
         ctx.save();
-        ctx.translate(x + offsetX, y + offsetY);
+        ctx.translate(
+          x + wrapped % 3 * tile - tile,
+          y + Math.floor(wrapped / 3) * tile - tile,
+        );
         ctx.fill(path);
         ctx.restore();
-      });
-    });
+      }
+    }
+  // @ifdef DEBUG
   }
+  // @endif
 
   ctx.shadowBlur = sparkleGlow;
 
+  // @ifdef DEBUG
   if (parts.includes('sparkles')) {
-    Array.from({ length: sparkles }).forEach(() => {
+  // @endif
+    while (sparkles--) {
       const color = starColor(sparkleTints) + '6789ab'[Math.floor(Math.random() * 6)];
       const path = sparklePath(size * (1 + Math.random()));
       const x = Math.random() * tile;
@@ -132,19 +140,22 @@ const makeTile = ({ clouds, dots, size, sparkles }, parts) => {
       ctx.fillStyle = color;
       ctx.shadowColor = color;
 
-      wrapped((offsetX, offsetY) => {
+      for (let wrapped = 9; wrapped--;) {
         ctx.save();
-        ctx.translate(x + offsetX, y + offsetY);
+        ctx.translate(
+          x + wrapped % 3 * tile - tile,
+          y + Math.floor(wrapped / 3) * tile - tile,
+        );
         ctx.fill(path);
         ctx.restore();
-      });
-    });
+      }
+    }
+  // @ifdef DEBUG
   }
+  // @endif
 
   return canvas;
 };
-
-const tilesOf = (parts) => layers.map((layer) => makeTile(layer, parts));
 
 let tiles;
 
@@ -152,11 +163,15 @@ let tiles;
 // replayed on every blit, which makes a tile cost whatever it took to draw
 // rather than what it looks like. A bitmap is pixels and nothing else
 const build = () => {
-  const built = tilesOf(sky.parts);
+  tiles = dotCounts.map((dots, i) => makeTile(
+    4 - i, dots, 1 + i / 5, 10 - i * 2,
+    // @ifdef DEBUG
+    sky.parts,
+    // @endif
+  ));
 
-  tiles = built;
-  built.forEach((canvas, i) => createImageBitmap(canvas).then((bitmap) => {
-    if (tiles === built) built[i] = bitmap;
+  tiles.forEach((canvas, i) => createImageBitmap(canvas).then((bitmap) => {
+    if (tiles[i] === canvas) tiles[i] = bitmap;
   }));
 };
 
@@ -202,13 +217,13 @@ export const renderBackground = (game) => {
   if (!sky.parts.length) return;
   // @endif
 
-  layers.forEach(({ depth }, i) => {
-    // Shifting the sky rather than the camera is what makes a layer lag behind
-    // everything in front of it
-    const x = camera.x * depth;
-    const y = camera.y * depth;
-    const left = -(Math.round((x - Math.floor(x / tile) * tile) * scale) % span);
-    const top = -(Math.round((y - Math.floor(y / tile) * tile) * scale) % span);
+  tiles.forEach((_, i) => {
+    // Each layer shifts by (i + 1) / 50 of the camera, so distant sky lags.
+    // `-(offset % span + span) % span` wraps it into [-span, 0], equivalent to
+    // `-(offset - Math.floor(offset / span) * span)` for either sign, but leaves
+    // it unsnapped; stamping every `span` pixels then covers the viewport.
+    const left = -(camera.x * (i + 1) * scale / 50 % span + span) % span;
+    const top = -(camera.y * (i + 1) * scale / 50 % span + span) % span;
 
     for (let atX = left; atX < canvas.width; atX += span) {
       for (let atY = top; atY < canvas.height; atY += span) {
