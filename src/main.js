@@ -1,4 +1,3 @@
-import { amethyst, itemTypes } from './items';
 import { back, confirmSelection, moveSelection } from './ui/docked';
 // @ifdef DEBUG
 import {
@@ -12,6 +11,7 @@ import {
 import { bindKeys, initKeys } from './keyboard';
 import { camera, centerCamera, followTarget } from './camera';
 import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualMd } from './modules';
+import { dock, dockAt, launch } from './docking';
 import { insidePath, traceBeam } from './prism';
 import { playerShip, updatePlayer } from './player';
 import { renderBlasts, updateBlasts } from './explosion';
@@ -25,9 +25,9 @@ import { benchmarkFlag } from './benchmark';
 // @endif
 import { colors } from './colors';
 import { detectCollisions } from './collisions';
-import { dock, dockAt, launch } from './docking';
 import { game } from './game';
 import { generateWorld } from './world';
+import { itemTypes } from './items';
 import { mine } from './mining';
 // import { Road } from './road';
 import { renderBackground } from './background';
@@ -80,11 +80,9 @@ world.wrecks.forEach((properties) => new Craft({
 
 world.fields.flatMap(({ asteroids }) => asteroids).forEach((properties) => {
   const object = new Asteroid({ ...properties, contents: [] });
-  const amethystOnly = properties.contents.length &&
-    properties.contents.every((resource) => itemTypes[resource] === amethyst);
 
   properties.contents.forEach((resource) =>
-    object.bury(new Item({ itemData: itemTypes[resource] }), amethystOnly));
+    object.bury(new Item({ itemData: itemTypes[resource] })));
 });
 
 // @ifdef DEBUG

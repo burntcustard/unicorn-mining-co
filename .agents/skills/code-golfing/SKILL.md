@@ -168,6 +168,7 @@ Re-measure if the surrounding code changes substantially.
 - Making fields circular, dropping `aspectRatio` from both `distribute` and the field data, saved 20 bytes.
 - A `scatter` helper for the near-identical station and wreck `distribute` calls cost 5 bytes.
 - Dropping the `Math.sqrt` that spreads points evenly across the disc cost 19 bytes.
+- Removing amethyst asteroids' center-only burial branch after general burial became center-weighted saved 10 bytes.
 
 ## Measured main and entity experiments
 

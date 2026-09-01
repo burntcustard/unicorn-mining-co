@@ -241,23 +241,15 @@ export class Asteroid extends Sprite {
 
   /**
    * Tuck an item into an empty leaf. A buried item rides with that leaf until
-   * a horn cuts it loose. Centre-only cargo goes in the leaf nearest the middle.
+   * a horn cuts it loose.
    *
-  * @param {Item} item
-  */
-  bury(item, center) {
+   * @param {Item} item
+   */
+  bury(item) {
     const empty = this.sections.filter(({ contents }) => !contents.length);
-
-    const middleDistance = ({ outline }) => {
-      const { x, y } = measure(outline);
-
-      return x ** 2 + y ** 2;
-    };
-
-    const section = center ?
-        empty.reduce((nearest, candidate) =>
-          middleDistance(candidate) < middleDistance(nearest) ? candidate : nearest) :
-      empty[Math.floor(Math.random() * empty.length)];
+    // Sections are center-first, so soften their three-to-one outer bias.
+    const section =
+      empty[Math.floor(Math.random() ** 2 * empty.length)];
     const { x, y } = measure(section.outline);
 
     Object.assign(item, item.buried = { rotation: Math.random() * Math.PI * 2, x, y });
