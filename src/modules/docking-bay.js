@@ -48,7 +48,7 @@ const ontop = [
 
 export const dockingBay = {
   disablePhysics: true,
-  name: 'DOCKING BAY',
+  // name: 'DOCKING BAY', // Unused so commented out to save a few bytes
   // Both halves share one glow, but their outlines stop at the seam.
   model: [
     {
