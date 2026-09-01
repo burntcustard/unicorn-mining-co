@@ -23,10 +23,15 @@ const customReplacement = (src) => src
   .replace(/acceleration/g, '_acceleration')
   .replace(/active/g, '_active')
   .replace(/angle/g, '_angle')
+  // .replace(/forward/g, '_forward') // Increases size
+  .replace(/(?<!\/)message/g, '_message')
   .replace(/(?<!\/)module/g, '_module')
+  // .replace(/model/g, '_model') // Increases size
+  // .replace(/mount/g, '_mount') // Increases size
   .replace(/normalize/g, '_normalize')
   .replace(/(?<!\/)outline/g, '_outline')
   .replace(/points/g, '_points')
+  .replace(/position/g, '_position')
   .replace(/rotation/g, '_rotation')
   .replace(/segments/g, '_segments')
   .replace(/update/g, '_update')
