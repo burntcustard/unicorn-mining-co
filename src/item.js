@@ -14,11 +14,12 @@ import { game } from './game';
 
 // How big a glint is and how far out it sits, both against how far the item
 // reaches from its middle. A sparkle's long arms run to four times the size it
-// is given, so this is smaller than it looks. `glintAngle` is where on the
-// item it sits, in the item's own frame, so it rides round with the stone
+// is given, so this is smaller than it looks. Its position is fixed in the
+// item's own frame, so it rides round with the stone
 const glintSize = 0.3;
 const glintOffset = 0.4;
-const glintAngle = -Math.PI / 4;
+const glintX = 0.3;
+const glintY = -0.7;
 
 // How brightly an item that carries its own light burns, how much of that it
 // loses between beats, and how fast it beats. A fuse running down winds that
@@ -147,8 +148,8 @@ export class Item extends Sprite {
       // Fixed to the stone rather than to the light, so a tumbling item
       // carries its glint round with it instead of the glint sliding about
       ctx.translate(
-        Math.cos(glintAngle) * radius * glintOffset,
-        Math.sin(glintAngle) * radius * glintOffset,
+        glintX * radius,
+        glintY * radius * glintOffset,
       );
       // Turned back out of the item's frame so the sparkle keeps its arms
       // square to the world. Left to spin it would pass through being an x
