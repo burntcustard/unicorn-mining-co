@@ -25,7 +25,7 @@ import { benchmarkFlag } from './benchmark';
 // @endif
 import { colors } from './colors';
 import { detectCollisions } from './collisions';
-import { dock } from './docking';
+import { dock, dockAt, launch } from './docking';
 import { game } from './game';
 import { generateWorld } from './world';
 import { mine } from './mining';
@@ -65,6 +65,13 @@ const stations = world.stations.map((properties) => {
   return station;
 });
 
+// Closest-to-center first, so the player can start at any of the nearest few
+// without every player landing at the same one
+stations.sort((a, b) => a.x ** 2 + a.y ** 2 - b.x ** 2 - b.y ** 2);
+
+dockAt(playerShip, stations[Math.floor(Math.random() * 8)]);
+launch(playerShip);
+
 world.wrecks.forEach((properties) => new Craft({
   ...properties,
   craftData: shipTypes.mustang,
@@ -87,6 +94,7 @@ debugCrafts(game);
 // @ifdef BENCHMARK
 if (benchmarkFlag('field')) {
   Object.assign(playerShip, {
+    launching: 0,
     x: world.fields[0].x,
     y: world.fields[0].y,
   });

@@ -6,6 +6,19 @@ const launchCoastPower = 0.25;
 
 const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardThrust)?.module;
 
+/** Place a craft inside a station as though it had entered through its bay. */
+export const dockAt = (ship, station) => {
+  ship.segments.forEach((segment) => (segment.active = false));
+  ship.velocity.set(station.velocity);
+  Object.assign(ship, {
+    dockedTo: station,
+    rotation: station.rotation,
+    spin: 0,
+    x: station.x,
+    y: station.y,
+  });
+};
+
 /**
  * A craft docks the moment any of its pieces touches another craft's docking
  * segment. Docking is a one-way latch from there: once set, a ship keeps its
@@ -26,15 +39,7 @@ export const dock = (contacts) => {
     // Only a docking segment can latch a ship, and only when it is not on its way out.
     if (!home.dockSegment || !ship || ship.launching) return;
 
-    ship.segments.forEach((segment) => (segment.active = false));
-    ship.velocity.set(station.velocity);
-    Object.assign(ship, {
-      dockedTo: station,
-      rotation: station.rotation,
-      spin: 0,
-      x: station.x,
-      y: station.y,
-    });
+    dockAt(ship, station);
   });
 };
 
