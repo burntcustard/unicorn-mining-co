@@ -10,7 +10,7 @@ let callbacks = {};
 
 // Same as Kontra pressedKeys - a list of keys that are "held down", i.e.
 // haven't had a keyup even to "turn them off" yet.
-let downKeys = {};
+export const downKeys = {};
 
 /**
  * Execute a function that corresponds to a keyboard key.
@@ -19,7 +19,9 @@ let downKeys = {};
  */
 const keyEventHandler = (event) => {
   const key = event.key.slice(-2);
+
   downKeys[key] = event.type === 'keydown';
+
   if (downKeys[key] && !event.repeat) callbacks[key]?.(event);
 };
 
@@ -33,18 +35,21 @@ const keyEventHandler = (event) => {
 // }
 
 /**
- * Initialize keyboard event listeners. This function must be called before using other keyboard functions.
+ * Own the window's single keyup and keydown handler slots.
+ *
+ * This must run before keyboard input is expected. Assigning the handler
+ * properties saves bytes, but differs from addEventListener in two ways:
+ *
+ * - Any handlers previously assigned to these properties are replaced.
+ * - Assigning either property later will replace our handler.
+ *
  * @function initKeys
  */
-export const initKeys = () => {
-  window.addEventListener('keydown', keyEventHandler);
-  window.addEventListener('keyup', keyEventHandler);
-  // window.addEventListener('blur', blurEventHandler);
-};
+export const initKeys = () => window.onkeyup = window.onkeydown = keyEventHandler;
 
 /**
  * [bindKeys description]
- * @param  {Array}   keys     Array of KeyboardEvent.key codes -
+ * @param  {String}  key      A hacky shortened KeyboardEvent.key code
  * developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values
  * @param  {Function} callback [description]
  */
@@ -59,5 +64,3 @@ export const unbindKeys = (keys) => keys.map((key) => callbacks[key] = false);
 
 // We may not need this and/or unbind keys?...
 export const unbindAllKeys = () => callbacks = {};
-
-export const keyDown = (key) => !!downKeys[key];

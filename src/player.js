@@ -1,7 +1,7 @@
 import { Craft } from './craft';
 import { colors } from './colors';
+import { downKeys } from './keyboard';
 import { flyOut } from './docking';
-import { keyDown } from './keyboard';
 import { shipTypes } from './ships';
 
 /**
@@ -75,10 +75,10 @@ export const updatePlayer = (dt) => {
   // launching ship sees itself out of the bay, and a ship on a road has the
   // road doing the driving for it
   const thrusting = !playerShip.localMovementParent?.drives &&
-    (flyOut(playerShip, dt) || keyDown('Up'));
+    (flyOut(playerShip, dt) || downKeys.Up);
 
   playerShip.fly(
     thrusting ? 1 : 0,
-    (keyDown('ht') ? 1 : 0) - (keyDown('ft') ? 1 : 0),
+    (downKeys.ht ? 1 : 0) - (downKeys.ft ? 1 : 0),
   );
 };

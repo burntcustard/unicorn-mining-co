@@ -169,6 +169,16 @@ the then-current retained baseline.
 - Replacing the four-update modulo with a bitmask cost 18 bytes.
 - Making module keys uppercase and lowercasing them only while binding saved 1 byte. Packing both forms lowercase-first (`'dD'`), using index 0 for input and index 1 for the HUD, saved 15 bytes instead; uppercase-first was 3 bytes worse.
 - With `'dD'`, `key[0]`, and `key[1]` held constant under `build:full`, direct indexing was 13319B advzip, adding `toLowerCase` to the input was 13351B, adding both `toUpperCase` calls to the HUD was 13343B, and using all three conversions was 13366B.
-- Normalizing keyboard event keys to their final two characters saved 6 bytes. Searching registered fragments with `find`/`includes` cost 15 bytes, while expanding fragments with `includes` cost 59 bytes.
-- Removing the unused `keyPressed` state saved 2 bytes, accepting one key per `bindKeys` call saved 3, optional callback invocation saved 4, and sharing one handler between keydown and keyup saved 1.
-- Registering keyboard listeners at module load instead of through `initKeys` cost 5 bytes, and storing held state on callback functions cost 8 bytes.
+- Before slow builds used 100 advzip iterations, normalizing keyboard event keys to their final two characters saved 6 bytes. Searching registered fragments with `find`/`includes` cost 15 bytes, while expanding fragments with `includes` cost 59 bytes.
+- Under that earlier build, removing the unused `keyPressed` state saved 2 bytes, accepting one key per `bindKeys` call saved 3, optional callback invocation saved 4, and sharing one handler between keydown and keyup saved 1. Registering listeners at module load cost 5 bytes, and storing held state on callback functions cost 8 bytes.
+
+## Measured keyboard experiments with 100 advzip iterations
+
+`build:slow`, seed `13312`, against the September 2026 keyboard implementation.
+
+- Normalizing browser key names to their final two characters saved 33 bytes; restoring the array-based binding API cost 11 bytes, and restoring unused `keyPressed` bookkeeping cost 11 bytes.
+- Exporting `downKeys` for three direct player-control reads saved 2 bytes. Removing only `keyDown`'s `!!` coercion cost 28 bytes, while deleting unused unbinding exports was neutral.
+- Replacing the two keyboard `addEventListener` calls with chained `window.onkeyup` and `window.onkeydown` assignments saved 6 bytes. Putting `onkeyup` first saved another 18 bytes despite identical source length and behavior.
+- Explicit callback guarding cost 11 bytes versus optional invocation. Folding the held-state assignment into its callback condition cost 10 bytes.
+- Registering handlers at module load cost 1 byte, looping over the two listener names cost 17 bytes, and storing held state on callback functions cost 33 bytes.
+- Using the event type's truthy sixth character cost 1 byte; comparing its length was neutral. Arrays used as the held-key and callback maps cost 21 and 1 bytes respectively.
