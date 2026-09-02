@@ -367,8 +367,13 @@ export const renderDocked = (game, ship) => {
     let text = item.name;
 
     if (stage === 0) {
-      text = i === mounts.length ? 'HULL' : i === mounts.length + 1 ? 'CARGO' :
-        `${i}:${item.module?.name || '-EMPTY-'}`;
+      if (i === mounts.length) {
+        text = 'HULL';
+      } else if (i === mounts.length + 1) {
+        text = 'CARGO';
+      } else {
+        text = `${i}:${item.module?.name || '-EMPTY-'}`;
+      }
     } else if (hullMenu) {
       text = 'HULL';
     } else if (cargoMenu) {
@@ -392,12 +397,16 @@ export const renderDocked = (game, ship) => {
   ctx.globalAlpha = 1;
 
   if (info) {
-    const labels = currentHull ? ['HULL', 'HP'] :
-      currentCargo ? [info.name, 'VALUE'] : [info.name, 'HP', 'VALUE', 'PWR'];
+    const labels = currentHull ?
+        ['HULL', 'HP'] :
+      currentCargo ?
+          [info.name, 'VALUE'] :
+          [info.name, 'HP', 'VALUE', 'PWR'];
     const values = currentHull ?
         [`${Math.floor(hullHealth)}/${hullMaxHealth}`] :
-        currentCargo ? [`$${info.price * currentCargo[1]}`] :
-        [`${Math.floor(health)}/${info.health}`, `$${info.price}`, info.powerUsage];
+      currentCargo ?
+          [`$${info.price * currentCargo[1]}`] :
+          [`${Math.floor(health)}/${info.health}`, `$${info.price}`, info.powerUsage];
 
     labels.forEach((text, i) => renderText(
       game, text, col1[0] + textPad, top + i * rowGap + 2, textSize, colors.violet[2],

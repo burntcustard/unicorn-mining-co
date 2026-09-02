@@ -39,6 +39,13 @@ export const dock = (contacts) => {
     // Only a docking segment can latch a ship, and only when it is not on its way out.
     if (!home.dockSegment || !ship || ship.launching) return;
 
+    // Rocks can be shoved into a bay, but only crafts can use one: swallow the
+    // asteroid instead of treating its collision body as a docking ship.
+    if (ship.sections) {
+      ship.remove();
+      return;
+    }
+
     dockAt(ship, station);
   });
 };
