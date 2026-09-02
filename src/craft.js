@@ -78,10 +78,12 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
 
 export const damage = (segment, amount) => {
   const target = segment.mount || segment;
+  // Asteroids and items are ground down here too, and carry no module
+  const { module } = segment;
 
   // A module that says so is untouchable in one of its two states: a closed
   // scoop lies flat in the hull, and a raised shield is all energy
-  if (segment.module.unhurtWhen === segment.active) return;
+  if (module && module.unhurtWhen === segment.active) return;
 
   if (target.health) target.health -= amount;
   segment.mounts?.forEach((mount) => {

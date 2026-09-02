@@ -34,6 +34,10 @@ const maxCorrection = 12;
 // trembling on bounces too small to see
 const deadSpeed = 5;
 
+// Anything lighter than this bounces off a ship without marking it, so loose
+// items shove about underfoot rather than wearing a hull down
+const dentingMass = 10;
+
 /**
  * How springy two things are together. Normally the springier of the two has
  * its way, so a shield bouncing off an asteroid bounces like a shield. A negative
@@ -80,8 +84,8 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     const force = -closing / mass;
 
     if (force > 500) {
-      [[collider, a], [other, b]].forEach(([hitbox, body]) =>
-        body.cockpit && damage(hitbox.segment, (force - 500) / 2000));
+      [[collider, a, b], [other, b, a]].forEach(([hitbox, body, hit]) =>
+        body.cockpit && hit.mass >= dentingMass && damage(hitbox.segment, (force - 500) / 2000));
     }
 
     if (-closing >= deadSpeed) {

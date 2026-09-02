@@ -55,7 +55,7 @@ export const cargoScoop = {
   activationDuration: 0.7,
   key: 'cC',
   name: 'SCOOP',
-  health: 2,
+  health: 3,
   model: [
     door(-1),
     door(1),
