@@ -10,11 +10,13 @@
  * name, because the build mangles property names but leaves string literals
  * alone, so a `fits` list of modules costs less than a list of their names.
  *
- * Every module has a `price` to buy it and `powerUsage` while active. Modules
- * do not take cargo space.
+ * Every module has a `price` to buy it and `powerUsage` while active. A module
+ * that is owned but not fitted waits in its ship's `cargoBay`, taking one space
+ * there like any other piece of cargo.
  *
  * A non-physical module with `health` is damaged with its hull. A solid `model`
  * with `health` is damaged directly; a healthless module vanishes with its hull.
+ * A module takes no damage at all while its `active` matches its `unhurtWhen`.
  * A module that `covers` its ship, as a shield does, is all that ship can be
  * hit on while it is up.
  *

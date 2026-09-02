@@ -11,7 +11,7 @@
  * Every item has a `name`, a `price` it changes hands for, `health` before it
  * is destroyed, and how much of a `bounciness` it gives back. Every item is the
  * same weight and drags alike, so `Item` sets those rather than each one here.
- * Anything stowed fills exactly one of a hold, so none of them say how much
+ * Anything stowed fills exactly one of a cargo bay, so none of them say how much
  * room they take.
  *
  * An item brings either `points` or a `radius`, and that one shape is both

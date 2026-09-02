@@ -10,7 +10,7 @@ export const diamond = {
   health: 80,
   name: 'DIAMOND',
   points: [[-3, -4], [3, -4], [6, -2], [0, 6], [-6, -2]],
-  price: 600,
+  price: 800,
   shades: colors.cyan,
   glint: true,
 };

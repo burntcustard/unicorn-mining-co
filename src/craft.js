@@ -79,12 +79,16 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
 export const damage = (segment, amount) => {
   const target = segment.mount || segment;
 
+  // A module that says so is untouchable in one of its two states: a closed
+  // scoop lies flat in the hull, and a raised shield is all energy
+  if (segment.module.unhurtWhen === segment.active) return;
+
   if (target.health) target.health -= amount;
   segment.mounts?.forEach((mount) => {
     if (mount.health) {
       mount.health -= segment.health < 1 ?
         mount.health :
-        mount.module.disablePhysics && amount;
+        mount.module.disablePhysics ? amount : 0;
     }
   });
 };
@@ -100,6 +104,8 @@ export class Craft extends Sprite {
     Object.assign(this, data, {
       cargo: [],
       forward: 0,
+      // Modules bought but not fitted, riding along in the cargo bay
+      cargoBay: [],
       mounts: [],
       turn: props.turn ?? data.turn ?? 0,
     });
@@ -184,6 +190,63 @@ export class Craft extends Sprite {
     mount.module = 0;
     mount.health = 0;
     mount.segments = [];
+  }
+
+  // Restore the original hull data, including any pieces and mounting points
+  // lost when a damaged ship fractured.
+  fixHull() {
+    const hulls = this.segments.filter(({ hull }) => hull);
+
+    this.hullSegments.forEach((part) => {
+      const segment = hulls.find(({ module }) => module === part);
+
+      if (segment) {
+        segment.health = part.health;
+      } else {
+        const rebuilt = makeSegment(this, part, part);
+
+        rebuilt.mounts = (part.mounts || []).map((mount) => ({ ...mount, hull: rebuilt }));
+        hulls.push(rebuilt);
+        this.segments.push(rebuilt);
+        this.mounts.push(...rebuilt.mounts);
+      }
+    });
+    this.segments.sort((a, b) => a.zIndex - b.zIndex);
+    outerEdges(hulls.map(({ points }) => points));
+    this.cockpit = this.mounts.find(({ module }) => module === cockpit);
+    if (this.hullGradient) relightCraft(this);
+  }
+
+  // A broken module keeps its shape long enough to tumble away as debris,
+  // while the original mount is immediately free again for the dock menu.
+  detach(mount) {
+    const offset = rotatePoint(mount, this.rotation);
+    const position = this.position.add(offset);
+    const velocity = this.velocity.add(this.momentum(position));
+    const segments = mount.segments.map((segment) => Object.assign(Object.create(segment), {
+      health: 1,
+      hitbox: 0,
+      mount: { health: 1, y: mount.y },
+      x: segment.x - mount.x,
+      y: segment.y - mount.y,
+    }));
+
+    // The copy that broke away is gone, rather than returning to the cargo bay
+    this.unfit(mount);
+    const fragment = new Craft({
+      drag: 0.2,
+      dx: velocity.x,
+      dy: velocity.y,
+      lifetime: 9 + Math.random(),
+      mass: segments.length,
+      rotation: this.rotation,
+      segments,
+      spin: this.spin,
+      x: position.x,
+      y: position.y,
+    });
+
+    applyForce(fragment, Vector(offset).normalize().scale(30), Math.random() - 0.5);
   }
 
   hitboxes() {
@@ -348,6 +411,8 @@ export class Craft extends Sprite {
     super.update(dt);
 
     if (!this.lifetime && this.cockpit) {
+      this.mounts.filter(({ health, module }) => module && !active(health))
+        .forEach((mount) => this.detach(mount));
       const all = this.segments.filter(({ hull }) => hull);
       const hulls = all.filter(({ health }) => active(health));
       const destroyed = hulls.reduce((sum, { health }) => sum + health, 0) < 30 ||

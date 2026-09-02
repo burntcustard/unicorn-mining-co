@@ -20,7 +20,7 @@ const glowStrength = 0.15;
 
 export const active = (health) => !(health < 1);
 export const healthOf = (segment) =>
-  segment.mount?.health ?? segment.mount?.hull.health ?? segment.health;
+  segment.mount?.health ?? segment.mount?.hull?.health ?? segment.health;
 
 export const relightCraft = (craft) => {
   const light = lightAngle - craft.rotation;

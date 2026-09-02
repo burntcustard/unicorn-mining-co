@@ -54,14 +54,14 @@ export const spend = (amount) => {
 };
 
 /**
- * Anything stowed fills exactly one of a hold, so how full one is is simply
- * how much is in it.
+ * Anything stowed fills exactly one of a cargo bay, so how full one is is
+ * simply how much is in it.
  *
  * @param {Object} craft - Whichever craft is taking the cargo.
  * @returns {Boolean} room
  */
 export const roomFor = (craft) => !craft.cargoSpace ||
-  craft.cargo.length < craft.cargoSpace;
+  craft.cargo.length + craft.cargoBay.length < craft.cargoSpace;
 
 export const stow = (craft, item) => craft.cargo.push(item);
 

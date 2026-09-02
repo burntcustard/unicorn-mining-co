@@ -46,7 +46,7 @@ const doorPoints = (activationProgress, side) => {
 
 const door = (side) => ({
   outline: [],
-  points: ({ activationProgress }) => doorPoints(activationProgress, side),
+  points: ({ activationProgress, mount }) => side * mount?.y > 0 ? doorPoints(activationProgress, side) : [],
   radius: () => scoopLength * 2,
 });
 
@@ -55,7 +55,7 @@ export const cargoScoop = {
   activationDuration: 0.7,
   key: 'cC',
   name: 'SCOOP',
-  health: 20,
+  health: 2,
   model: [
     door(-1),
     door(1),
@@ -71,5 +71,7 @@ export const cargoScoop = {
   // An open mouth is what draws loose cargo in, so this is the piece that
   // decides whether a ship can pick anything up
   scoops: true,
+  // Doors lying flat in the hull are part of it, so nothing gets at them
+  unhurtWhen: 0,
   zIndex: -1,
 };

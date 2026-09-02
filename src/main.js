@@ -49,10 +49,7 @@ window.onresize = () => setSizing(game);
 horn.shades = colors.yellow;
 thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
 [thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight]
-  .forEach((module) => {
-    playerShip.fit(module);
-    module.owned = (module.owned || 0) + 1;
-  });
+  .forEach((module) => playerShip.fit(module));
 
 dockingBay.shades = colors.green;
 

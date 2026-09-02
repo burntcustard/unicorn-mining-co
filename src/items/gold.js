@@ -9,7 +9,7 @@ export const gold = {
   lines: [[[-5, -1], [5, -1]]],
   name: 'GOLD',
   points: [[-7, -4], [7, -4], [5, 3], [-5, 3]],
-  price: 600,
+  price: 300,
   shades: colors.yellow,
   glint: true,
 };

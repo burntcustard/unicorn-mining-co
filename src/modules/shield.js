@@ -54,5 +54,6 @@ export const shield = {
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % (Math.PI / 2);
   },
+  unhurtWhen: 1,
   zIndex: 1,
 };
