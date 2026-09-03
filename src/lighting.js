@@ -17,10 +17,6 @@ export const toggleLights = () => lights = !lights;
 // Where the light in this part of space comes from, in radians
 export const lightAngle = -Math.PI / 4;
 
-// How far a station has to turn before its shading is worth working out again.
-// One turn takes a couple of minutes, so redoing it every frame is waste
-export const shadingStep = 0.02;
-
 // How far along its range a piece runs between its lit and its shaded side.
 // Enough that neighbouring pieces meet at about the same tone rather than
 // stepping from one to the next

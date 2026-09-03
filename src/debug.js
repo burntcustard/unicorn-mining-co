@@ -1,13 +1,12 @@
 import { camera, renderDeadzone } from './camera';
 import { glows, lights, toggleGlows, toggleLights } from './lighting';
-import { Craft } from './craft';
+import { Ship } from './ship';
 import { bindKeys } from './keyboard';
 import { colors } from './colors';
 import { colorsDemo } from './colors-demo';
 import { playerShip } from './player';
 import { renderFps } from './fps';
 import { renderText } from './text';
-import { shipTypes } from './ships';
 import { sky } from './background';
 import { textDemo } from './text-demo';
 
@@ -29,8 +28,7 @@ export const debugCrafts = (game) => [
   colors.violet,
   colors.black,
   colors.white,
-].map((shades, i) => new Craft({
-  craftData: shipTypes.mustang,
+].map((shades, i) => new Ship({
   shades,
   x: 120 + i * 120,
   y: game.height - 100,

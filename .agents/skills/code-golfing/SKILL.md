@@ -339,3 +339,104 @@ The retained set took advzip from 14254B to 14209B.
 - Explicit callback guarding cost 11 bytes versus optional invocation. Folding the held-state assignment into its callback condition cost 10 bytes.
 - Registering handlers at module load cost 1 byte, looping over the two listener names cost 17 bytes, and storing held state on callback functions cost 33 bytes.
 - Using the event type's truthy sixth character cost 1 byte; comparing its length was neutral. Arrays used as the held-key and callback maps cost 21 and 1 bytes respectively.
+
+## Measured ship and station refactor experiments
+
+`build:slow`, seed `13312`, against the September 2026 split of `craft.js` into
+`ship.js` and `station.js`. The retained set took advzip from 13952B to 13823B.
+
+- Deleting the cached station hull gradient (`hullGradient`, `relightCraft`,
+  `craft.litAt`, `shadingStep`) and lighting stations with the same per-frame
+  `litFill` as ships was the single biggest win. A station hull piece has no
+  `module.health`, so `worn` already lands on `2`, which is exactly the shade
+  the cached gradient used. FPS was unchanged at ~85 in the DEBUG counter.
+- The single ship and station types were baked into `ship.js` and `station.js`,
+  removing `craftData`, `shipTypes`, `stationTypes` and the two index files.
+  Together with the lighting deletion and folding the docking bay into the
+  station hull, this saved 80 bytes.
+- Having the constructor call `fixHull()` rather than repeat the hull-building
+  loop saved 23 bytes: building a hull from nothing is the same job as putting
+  a broken one back together.
+- Deleting the `accel` getter and the `this.mass`/`this.drag` guards that only
+  a station needed, by guarding the whole flight block with `&& this.mass`,
+  saved 11 bytes. Inlining the single-use `throttle` getter saved 1 byte.
+- A shared `forget(list, entry)` for the five `list.splice(list.indexOf(x), 1)`
+  sites saved 16 bytes across `sprite`, `item`, `ship`, `asteroid` and the
+  docked UI.
+- Replacing the empty `cockpit` module and its mount with a `core: true` flag
+  on the hull piece the pilot sits in was byte-neutral, and was kept as a
+  simplification. `this.cockpit` is now that hull segment itself.
+- Helper extraction lost every time here, even for genuinely duplicated blocks:
+  a shared `debris()` builder for `detach` and `fracture` cost 7 bytes, an
+  `edgesOf(segments)` wrapper for the four `outerEdges(x.map(...))` calls cost
+  21, and a `shove(craft, away)` wrapper for the three `applyForce` calls cost
+  33. Roadroller dedupes the literal repeats better than it does a call.
+- The same applies to point data: deriving the two docking-bay halves from
+  slices of the shared bay ring cost 11 bytes over writing all twenty points
+  out. Prefer repeated literal geometry.
+- Dropping `holds`'s `child.dockedTo === this` term, which is redundant because
+  a docked ship sits at the station's own position, cost 7 bytes. Introducing a
+  `position` local in `fracture` cost 6.
+- Reading the drawing context from `game` instead of storing `ctx` on every
+  `Sprite` cost 6 bytes.
+- Removing the `Station` class and calling `new Ship(props, corral)` at the one
+  call site saved only 5 bytes, so the class was kept.
+- Duplication does **not** beat inheritance here. Making `Station` a standalone
+  `Sprite` subclass with its own trimmed `makeSegment`, `hitboxes`, `holds`,
+  `momentum` and `add`/`remove`, so nothing was shared with `Ship`, cost 117
+  bytes. Roadroller dedupes *identical* text well, but a trimmed copy is only
+  similar, and it pays for every difference; sharing a method costs nothing at
+  all. Reach for duplication only when the two copies would be character for
+  character the same.
+- Moving `holds` off `Ship` and onto `Station` alone, with `local-movement.js`
+  calling `mover.holds?.(child)`, saved 7 bytes: only a station ever carries
+  anything, and a docked ship sits at the station's own position so the
+  distance test already covers it.
+
+## Measured entity placement experiments
+
+`build:slow`, seed `13312`, continuing the ship and station refactor above.
+The retained set took advzip from 13816B to 13814B.
+
+- Moving the debris `lifetime` countdown out of both `Ship.update` and
+  `Asteroid.update` and into `Sprite.update` saved 5 bytes. Ship's flight block
+  keeps its own `!this.lifetime` guard, because debris has no `forward`.
+- Making `renderCraft` a `Ship.render(scenery, zIndex)` method and deleting
+  `craft-render.js` (moving `active` and `healthOf` into `ship.js` beside
+  `damage`) cost 10 bytes on its own, but two follow-on wins brought it back to
+  +3 net, which was accepted for the consistency: all four entity types now
+  render themselves.
+- Reordering `Asteroid.render`'s prologue to `lineJoin` before `lineWidth`, so
+  it matches `Ship.render` and `Item.render` character for character, saved 3
+  bytes. This is the one place aligning near-identical code across entities
+  actually paid.
+- Dropping the dead `scenery || []` fallbacks in the beam tracing, now that
+  `main.js` always passes the sprite list, saved 4 bytes.
+- Alphabetising `Asteroid.hitboxes`'s keys to line them up with `Ship.hitboxes`
+  cost 3 bytes, so the original order was kept. Matching *key order* between
+  two objects that hold different keys does not help.
+
+## Measured debris decay experiments
+
+`build:slow`, seed `13312`. Replacing the `lifetime` countdown with health
+decay took advzip from 13814B to 13813B, so the reuse of `health` was free.
+
+- `cockpit` already tells debris and stations apart from a crewed ship, so the
+  three `!this.lifetime` guards in `Ship` (`maxSpeed`, the flight block and the
+  fracture block) became `this.cockpit` checks, which also made the flight
+  block's `&& this.mass` station guard redundant. Saved 5 bytes.
+- Debris now carries `decay`, the health it loses a second, and `Sprite.update`
+  removes it once `health` runs out. As a straight swap this cost 8 bytes,
+  because ship debris needs two properties where `lifetime` was one.
+- Setting `decay`, `drag`, `health` and `mass` once in the `Ship` constructor's
+  debris branch, rather than in both the `detach` and `fracture` object
+  literals, saved only 1 byte — Roadroller was already handling those two
+  near-identical literals well.
+- Shrinking debris health from `50 + Math.random() * 10` at rate 6 to
+  `9 + Math.random()` at rate 1 saved 3 bytes for the same 9-10 second life.
+- Making `decay` a bare flag with one uniform rate, so `Sprite` could do
+  `this.health -= dt`, cost 18 bytes: it forces asteroid chunks to be given a
+  debris health of their own, and that duplicated expression costs more than
+  the `* this.decay` it removes. Keep `decay` as a per-object rate, and let a
+  rock chunk wear away at its own mined health (rate 6, so a bigger lump lasts
+  a little longer).

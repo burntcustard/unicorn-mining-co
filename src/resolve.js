@@ -1,4 +1,4 @@
-import { damage } from './craft';
+import { damage } from './ship';
 
 /**
  * What a collision does, once collisions.js has found one. Kept well apart

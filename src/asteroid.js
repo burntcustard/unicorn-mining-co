@@ -3,6 +3,7 @@ import { objectLineWidth, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
 import { createPolygon } from './polygon';
+import { forget } from './game';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
 
@@ -138,7 +139,9 @@ export class Asteroid extends Sprite {
         }))).flat();
       groupsOf(this.sections);
     } else if (!triangles[1] && !this.contents.length) {
-      this.lifetime = 9 + Math.random();
+      // A lone empty chunk is not worth mining, so it wears away at its own
+      // health instead: a bigger lump takes a little longer to go
+      this.decay = 6;
     }
   }
 
@@ -207,7 +210,7 @@ export class Asteroid extends Sprite {
     const loose = destroyed ? section.contents : [];
 
     if (destroyed) section.contents = [];
-    this.sections.splice(this.sections.indexOf(section), 1);
+    forget(this.sections, section);
 
     // What is left is rebuilt fresh through split rather than kept as this
     // same body: a lighter, lopsided remainder needs its own new centre and
@@ -262,7 +265,6 @@ export class Asteroid extends Sprite {
   * @param {Number} dt - Seconds since the last update.
   */
   update(dt) {
-    if (this.lifetime && (this.lifetime -= dt) <= 0) this.remove();
     super.update(dt);
     this.contents.forEach((item) => {
       const { buried } = item;
@@ -284,8 +286,8 @@ export class Asteroid extends Sprite {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
-    ctx.lineWidth = objectLineWidth;
     ctx.lineJoin = 'round';
+    ctx.lineWidth = objectLineWidth;
     ctx.fillStyle = colors.black[2];
     ctx.strokeStyle = this.stroke;
     ctx.fill(this.path);

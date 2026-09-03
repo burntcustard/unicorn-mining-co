@@ -4,7 +4,6 @@ import {
   drawHalo,
   lightAngle,
   litFill,
-  shadingStep,
   tint,
 } from './lighting';
 import { drawInside, drawSpectrum, litPath, traceBeam } from './prism';
@@ -21,18 +20,6 @@ const glowStrength = 0.15;
 export const active = (health) => !(health < 1);
 export const healthOf = (segment) =>
   segment.mount?.health ?? segment.mount?.hull?.health ?? segment.health;
-
-export const relightCraft = (craft) => {
-  const light = lightAngle - craft.rotation;
-
-  craft.litAt = craft.rotation;
-  craft.segments.forEach((segment) => {
-    if (segment.hull && segment.middle) {
-      segment.lit = litFill(craft.ctx, segment, light,
-        (along) => tint(craft.shades, 2, along));
-    }
-  });
-};
 
 export const renderCraft = (craft, scenery, zIndex) => {
   const { ctx } = craft;
@@ -77,16 +64,6 @@ export const renderCraft = (craft, scenery, zIndex) => {
     ctx.setLineDash([]);
   }
 
-  // @ifdef DEBUG
-  if (lights) {
-  // @endif
-    if (craft.hullGradient && Math.abs(craft.rotation - craft.litAt) >= shadingStep) {
-      relightCraft(craft);
-    }
-  // @ifdef DEBUG
-  }
-  // @endif
-
   const light = lightAngle - craft.rotation;
 
   craft.segments.forEach((segment) => {
@@ -109,14 +86,13 @@ export const renderCraft = (craft, scenery, zIndex) => {
       // @ifdef DEBUG
       if (!lights) {
         lit = tint(segment.shades, worn, 0.5);
-      } else
+      } else {
       // @endif
-        if (craft.hullGradient) {
-          lit = segment.hull && segment.lit;
-        } else {
-          lit = litFill(ctx, segment, light,
-            (along) => tint(segment.shades, worn, along));
-        }
+        lit = litFill(ctx, segment, light,
+          (along) => tint(segment.shades, worn, along));
+      // @ifdef DEBUG
+      }
+      // @endif
     }
 
     ctx.fillStyle = segment.fillAlpha ?

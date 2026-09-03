@@ -1,5 +1,6 @@
 import { roomFor, say } from '../player';
 import { colors } from '../colors';
+import { forget } from '../game';
 import { launch } from '../docking';
 import { renderText } from '../text';
 
@@ -247,7 +248,7 @@ export const confirmSelection = (ship) => {
     } else if (picked === 'EQUIP') {
       if (mount.module) ship.cargoBay.push(mount.module);
       ship.unfit(mount);
-      ship.cargoBay.splice(ship.cargoBay.indexOf(currentModule), 1);
+      forget(ship.cargoBay, currentModule);
       ship.fit(currentModule, mount);
     } else if (picked === 'REMOVE') {
       ship.cargoBay.push(mount.module);

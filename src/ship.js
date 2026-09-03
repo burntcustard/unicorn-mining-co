@@ -1,19 +1,94 @@
+/**
+ * A ship is a hexagonal hull split into eight triangular segments, with six
+ * mounting points for modules to be fitted to. There is only the one of them,
+ * so its measurements live here rather than in a catalogue of ship types.
+ *
+ * This is also what a station is built out of (see `station.js`) and what a
+ * piece breaking off either of them becomes: debris arrives with its segments
+ * already made, so it keeps none of the hull below.
+ */
 import { Vector, applyForce, movePoint, rotatePoint } from './vector';
-import { active, healthOf, relightCraft } from './craft-render';
-import { cockpit, scoopOpen } from './modules';
+import {
+  cargoScoop,
+  floodlight,
+  horn,
+  scoopOpen,
+  shield,
+  thrusterDualMd,
+  thrusterDualXl,
+  thrusterSingleXl,
+  thrusterTriple,
+} from './modules';
+import { drawBeam, drawGlow, drawHalo, lightAngle, litFill, shapeOf, tint } from './lighting';
+import { drawInside, drawSpectrum, litPath, traceBeam } from './prism';
+import { forget, game } from './game';
+import { linesPath, objectLineWidth, shapePath } from './drawing';
 import { Sprite } from './sprite';
-import { game } from './game';
+import { colors } from './colors';
+// @ifdef DEBUG
+// eslint-disable-next-line no-duplicate-imports -- lights only exists in DEBUG builds
+import { lights } from './lighting';
+// @endif
 import { outerEdges } from './collisions';
-import { shapeOf } from './lighting';
-import { shapePath } from './drawing';
+
+export const mustang = {
+  cargoSpace: 12,
+  drag: 5,
+  mass: 9,
+  name: 'Mustang',
+  price: 2000,
+  turnRate: 3,
+  hullSegments: [
+    { health: 5, points: [[-16, -36], [-4, -36], [-16, -20]] },
+    // The wedges the scoops open onto. They stand aside for cargo while the
+    // doors are open, which is what lets an item fall in under the hull and
+    // into the throat waiting behind them
+    {
+      health: 10,
+      mounts: [{ fits: [cargoScoop], x: 3, y: -13 }],
+      points: [[-4, -36], [20, -12], [-16, -20]],
+    },
+    { health: 10, points: [[-16, -20], [20, -12], [8, 0]] },
+    {
+      health: 15,
+      mounts: [
+        { fits: [thrusterDualMd, thrusterSingleXl, thrusterDualXl, thrusterTriple], x: -16, y: 0 },
+        { fits: [shield], x: 0, y: 0 },
+      ],
+      points: [[-16, -20], [8, 0], [-16, 20]],
+    },
+    {
+      health: 20,
+      // Where the pilot sits, so this is the piece the ship is lost without
+      core: true,
+      mounts: [
+        { fits: [horn], x: 20, y: 0 },
+        { fits: [floodlight], x: 20, y: 0 },
+      ],
+      points: [[20, -12], [20, 12], [8, 0]],
+    },
+    { health: 10, points: [[8, 0], [20, 12], [-16, 20]] },
+    {
+      health: 10,
+      mounts: [{ fits: [cargoScoop], x: 3, y: 13 }],
+      points: [[-16, 20], [20, 12], [-4, 36]],
+    },
+    { health: 5, points: [[-16, 20], [-4, 36], [-16, 36]] },
+  ],
+};
 
 const hullBounciness = 0.1; // Default restitution when a segment supplies none.
+const glowStrength = 0.15;
 const thrustScale = 220; // Converts thrust per unit mass into acceleration.
 const speedScale = 85; // Converts thrust per unit drag into maximum speed.
 const steeringEase = 0.5; // Forward thrust retained by a nozzle eased during a turn.
 const approach = (value, target, step) => (
   value + Math.max(-step, Math.min(step, target - value))
 );
+
+export const active = (health) => !(health < 1);
+export const healthOf = (segment) =>
+  segment.mount?.health ?? segment.mount?.hull?.health ?? segment.health;
 const centerOf = (segments) => segments.reduce((center, { middle }) =>
   center.add(Vector(...middle)), Vector()).scale(1 / segments.length);
 
@@ -95,13 +170,21 @@ export const damage = (segment, amount) => {
   });
 };
 
-export class Craft extends Sprite {
-  constructor(props) {
+export class Ship extends Sprite {
+  constructor(props, data = mustang) {
     super(props);
 
-    const data = props.craftData;
+    // Debris comes with its pieces already broken off something else. It is
+    // worth about the same few seconds however big it was, give or take, so a
+    // shipful of it does not all wink out at once
+    if (this.segments) {
+      this.decay = 1;
+      this.drag = 0.2;
+      this.health = 9 + Math.random();
+      this.mass = this.segments.length;
 
-    if (!data) return;
+      return;
+    }
 
     Object.assign(this, data, {
       cargo: [],
@@ -109,22 +192,14 @@ export class Craft extends Sprite {
       // Modules bought but not fitted, riding along in the cargo bay
       cargoBay: [],
       mounts: [],
-      turn: props.turn ?? data.turn ?? 0,
+      segments: [],
+      turn: 0,
     });
-    this.segments = data.hullSegments.map((hull) => {
-      const segment = makeSegment(this, hull, hull);
-
-      segment.mounts = (hull.mounts || []).map((mount) => ({ ...mount, hull: segment }));
-      this.mounts.push(...segment.mounts);
-
-      return segment;
-    });
-    outerEdges(this.segments.map(({ points }) => points));
-    this.cockpit = this.mounts.find(({ module }) => module === cockpit);
+    // Building a hull from nothing is the same job as putting a broken one
+    // back together
+    this.fixHull();
     this.radius = Math.max(...data.hullSegments
-      .flatMap(({ points }) => points.map((point) => Vector(...point).length())));
-
-    if (this.hullGradient) relightCraft(this);
+      .flatMap(({ points }) => points.map((point) => Math.hypot(...point))));
   }
 
   add() {
@@ -134,20 +209,12 @@ export class Craft extends Sprite {
 
   remove() {
     super.remove();
-    game.crafts.splice(game.crafts.indexOf(this), 1);
+    forget(game.crafts, this);
   }
 
-  get accel() {
-    return this.mass ? thrustScale * this.forwardThrust / this.mass : 0;
-  }
-
+  // Only a crewed ship flies: debris and stations have no cockpit to fly from
   get maxSpeed() {
-    return this.lifetime ?
-      180 :
-        Math.max(
-          this.drag ? speedScale * this.forwardThrust / this.drag : 0,
-          (this.localMovementRadius || 0) * Math.abs(this.spin),
-        );
+    return this.cockpit ? speedScale * this.forwardThrust / this.drag : 180;
   }
 
   get forwardThrust() {
@@ -162,14 +229,7 @@ export class Craft extends Sprite {
     ), 0);
   }
 
-  get throttle() {
-    const nozzle = this.segments.find((segment) => segment.forwardThrust);
-
-    return nozzle ? nozzle.power : 1;
-  }
-
-  // Every mount a pilot can actually fit something to, i.e. every mount bar
-  // the cockpit, which is wherever a pilot sits rather than a fittable slot
+  // Every mount a pilot can actually fit something to
   get slots() {
     return this.mounts.filter(({ fits }) => fits);
   }
@@ -215,8 +275,7 @@ export class Craft extends Sprite {
     });
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
     outerEdges(hulls.map(({ points }) => points));
-    this.cockpit = this.mounts.find(({ module }) => module === cockpit);
-    if (this.hullGradient) relightCraft(this);
+    this.cockpit = hulls.find(({ core }) => core);
   }
 
   // A broken module keeps its shape long enough to tumble away as debris,
@@ -235,12 +294,9 @@ export class Craft extends Sprite {
 
     // The copy that broke away is gone, rather than returning to the cargo bay
     this.unfit(mount);
-    const fragment = new Craft({
-      drag: 0.2,
+    const fragment = new Ship({
       dx: velocity.x,
       dy: velocity.y,
-      lifetime: 9 + Math.random(),
-      mass: segments.length,
       rotation: this.rotation,
       segments,
       spin: this.spin,
@@ -286,11 +342,6 @@ export class Craft extends Sprite {
     return cover ? [cover] : boxes;
   }
 
-  holds(child) {
-    return child.dockedTo === this || (this.localMovementRadius &&
-      child.position.distanceTo(this.position) <= this.localMovementRadius);
-  }
-
   momentum({ x, y }) {
     return Vector((this.y - y) * this.spin, (x - this.x) * this.spin);
   }
@@ -302,7 +353,7 @@ export class Craft extends Sprite {
         hulls.map((_, i) => [i]) :
         outerEdges(hulls.map(({ points }) => points));
     const core = !destroyed && groups.find((group) =>
-      group.includes(hulls.indexOf(this.cockpit.hull)));
+      group.includes(hulls.indexOf(this.cockpit)));
     const fragments = groups.filter((group) => group !== core)
       .map((group) => {
         let segments = group.map((i) => hulls[i]);
@@ -320,12 +371,9 @@ export class Craft extends Sprite {
           x: segment.x - middle.x,
           y: segment.y - middle.y,
         }));
-        const fragment = new Craft({
-          drag: 0.2,
+        const fragment = new Ship({
           dx: velocity.x,
           dy: velocity.y,
-          lifetime: 9 + Math.random(),
-          mass: segments.length,
           rotation: this.rotation,
           segments,
           spin: this.spin,
@@ -351,11 +399,8 @@ export class Craft extends Sprite {
     if (kept.length) {
       outerEdges(kept.map(({ points }) => points));
     } else {
-      const cockpit = rotatePoint(this.cockpit, this.rotation);
-      const position = this.position.add(cockpit);
-
       this.cargo.forEach((item) => {
-        item.position.set(position);
+        item.position.set(this.position);
         item.velocity.set(this.velocity);
         item.arm();
         item.add();
@@ -387,16 +432,12 @@ export class Craft extends Sprite {
   }
 
   update(dt) {
-    if (this.lifetime) {
-      if ((this.lifetime -= dt) <= 0) {
-        this.remove();
-        return;
-      }
-    } else if (!this.dockedTo) {
-      const push = this.accel * this.forward * dt;
+    if (this.cockpit && !this.dockedTo) {
+      const push = thrustScale * this.forwardThrust / this.mass * this.forward * dt;
       const rotationalThrust = this.rotationalThrust;
+      const nozzle = this.segments.find((segment) => segment.forwardThrust);
       const targetSpin = rotationalThrust ?
-        this.turn * this.turnRate * rotationalThrust * this.throttle / 16 :
+        this.turn * this.turnRate * rotationalThrust * (nozzle ? nozzle.power : 1) / 16 :
         this.spin;
 
       this.spin = approach(this.spin, targetSpin, rotationalThrust * dt);
@@ -412,15 +453,131 @@ export class Craft extends Sprite {
 
     super.update(dt);
 
-    if (!this.lifetime && this.cockpit) {
+    if (this.cockpit) {
       this.mounts.filter(({ health, module }) => module && !active(health))
         .forEach((mount) => this.detach(mount));
       const all = this.segments.filter(({ hull }) => hull);
       const hulls = all.filter(({ health }) => active(health));
       const destroyed = hulls.reduce((sum, { health }) => sum + health, 0) < 30 ||
-        !hulls.includes(this.cockpit.hull);
+        !hulls.includes(this.cockpit);
 
       if (destroyed || hulls.length < all.length) this.fracture(hulls, destroyed);
     }
+  }
+
+  render(scenery, zIndex) {
+    const { ctx } = this;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.lineJoin = 'bevel';
+    ctx.lineWidth = objectLineWidth;
+
+    // @ifdef DEBUG
+    if (lights) {
+    // @endif
+      if (zIndex === -3 || zIndex === -1) {
+        this.segments.forEach((segment) => {
+          if (!segment.module.beam || !segment.activationProgress || !active(healthOf(segment))) return;
+
+          ctx.save();
+          ctx.translate(segment.x, segment.y);
+
+          if (zIndex === -3) {
+            const beam = segment.prism = traceBeam(this, segment, scenery);
+
+            drawSpectrum(ctx, segment, beam);
+          } else {
+            drawInside(ctx, segment, segment.prism);
+          }
+
+          ctx.restore();
+        });
+      }
+    // @ifdef DEBUG
+    }
+    // @endif
+
+    if (zIndex === -3 && this.localMovementRadius) {
+      ctx.strokeStyle = `${colors.cyan[2]}4`;
+      ctx.setLineDash([12, 12]);
+      ctx.beginPath();
+      ctx.arc(0, 0, this.localMovementRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    const light = lightAngle - this.rotation;
+
+    this.segments.forEach((segment) => {
+      const health = healthOf(segment);
+
+      if (segment.zIndex !== zIndex || !active(health)) return;
+
+      ctx.save();
+      if (segment.forwardThrust && segment.activationProgress) drawHalo(ctx, segment);
+      ctx.translate(segment.x, segment.y);
+
+      if (segment.glow && zIndex < 0) {
+        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
+      }
+
+      const worn = health < segment.module.health / 2 ? 0 : 1 + segment.hull;
+      let lit;
+
+      if (segment.middle) {
+        // @ifdef DEBUG
+        if (!lights) {
+          lit = tint(segment.shades, worn, 0.5);
+        } else {
+        // @endif
+          lit = litFill(ctx, segment, light,
+            (along) => tint(segment.shades, worn, along));
+        // @ifdef DEBUG
+        }
+        // @endif
+      }
+
+      ctx.fillStyle = segment.fillAlpha ?
+        segment.shades[2] + segment.fillAlpha :
+        lit || segment.shades[worn];
+      ctx.strokeStyle = segment.shades[2];
+
+      const path = segment.path?.(segment);
+
+      if (path) {
+        if (segment.module.beam) {
+          // @ifdef DEBUG
+          if (lights) {
+          // @endif
+            const beam = segment.prism || traceBeam(this, segment, scenery);
+
+            drawBeam(ctx, path, segment.shades[2], segment.module.reach,
+              segment.activationProgress, litPath(beam));
+          // @ifdef DEBUG
+          }
+          // @endif
+        } else {
+          ctx.fill(path);
+          ctx.stroke(segment.outline ? linesPath(segment.outline) : path);
+        }
+      }
+
+      if (segment.lines) {
+        ctx.save();
+        if (segment.lines.call) ctx.clip(path);
+        ctx.stroke(linesPath(segment.lines.call ? segment.lines(segment) : segment.lines));
+        ctx.restore();
+      }
+
+      if (segment.glow && zIndex >= 0) {
+        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
+      }
+
+      ctx.restore();
+    });
+
+    ctx.restore();
   }
 }

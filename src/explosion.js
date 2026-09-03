@@ -1,6 +1,6 @@
 import { applyForce } from './vector';
 import { colors } from './colors';
-import { damage as hurt } from './craft';
+import { damage as hurt } from './ship';
 import { objectLineWidth } from './drawing';
 
 /**

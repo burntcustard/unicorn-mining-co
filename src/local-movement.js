@@ -28,7 +28,7 @@ export const localMovement = (child, movers, dt) => {
     parent = 0;
   }
 
-  parent ||= movers.find((mover) => mover !== child && mover.holds(child));
+  parent ||= movers.find((mover) => mover !== child && mover.holds?.(child));
   child.localMovementParent = parent;
   parent && rotateAround(parent, child, child.x - parent.x, child.y - parent.y, parent.spin * dt);
 };

@@ -1,5 +1,5 @@
 import { Asteroid } from './asteroid';
-import { damage } from './craft';
+import { damage } from './ship';
 import { hit } from './collisions';
 import { rotatePoint } from './vector';
 import { spray } from './shrapnel';

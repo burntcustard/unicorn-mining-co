@@ -5,6 +5,8 @@ const { canvas, context } = init();
 
 canvas.style = `display:block;width:100%;background:${colors.purple[0]}`;
 
+export const forget = (list, entry) => list.splice(list.indexOf(entry), 1);
+
 export const game = {
   canvas,
   crafts: [],

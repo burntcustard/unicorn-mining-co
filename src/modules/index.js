@@ -1,6 +1,6 @@
 /**
- * Modules are re-usable parts that can be damaged and destroyed. Stations are
- * built out of them the same way ships are, so a docking bay lives here too.
+ * Modules are re-usable parts that can be damaged and destroyed, fitted to the
+ * mounting points of a ship's hull.
  *
  * Modules bring their own geometry and no angle: a module is drawn the way
  * round it always is, so horns and shields face forwards and thrusters fire
@@ -43,9 +43,7 @@ import { thrusterSingleMd } from './thruster-single-md';
 import { thrusterSingleXl } from './thruster-single-xl';
 import { thrusterTriple } from './thruster-triple';
 
-export const cockpit = {};
 export { cargoScoop, scoopOpen } from './cargo-scoop';
-export { bayCorner, bayDepth, baySpan, dockingBay } from './docking-bay';
 export { floodlight } from './floodlight';
 export { horn } from './horn';
 export { shield } from './shield';

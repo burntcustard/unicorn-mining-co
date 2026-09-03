@@ -1,5 +1,5 @@
 import { Vector, move } from './vector';
-import { game } from './game';
+import { forget, game } from './game';
 import { getContext } from './core';
 import { localMovement } from './local-movement';
 
@@ -48,7 +48,7 @@ export class Sprite {
 
   remove() {
     this.dead = true;
-    game.sprites.splice(game.sprites.indexOf(this), 1);
+    forget(game.sprites, this);
   }
 
   update(dt) {
@@ -56,6 +56,13 @@ export class Sprite {
     // @ifdef DEBUG
     if (!game.physicsOn) return;
     // @endif
+
+    // Debris wears away rather than being counted down: `decay` is the health
+    // it loses a second, and it is gone once that health is
+    if (this.decay && (this.health -= this.decay * dt) <= 0) {
+      this.remove();
+      return;
+    }
 
     this.rotation += this.spin * dt;
     move(this, dt);

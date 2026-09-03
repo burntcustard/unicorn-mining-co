@@ -1,10 +1,10 @@
 import { circlePath, itemLineWidth, linesPath, shapePath, sparklePath } from './drawing';
+import { forget, game } from './game';
 import { Sprite } from './sprite';
 import { Vector } from './vector';
 import { colors } from './colors';
 import { detonate } from './explosion';
 import { drawGlow } from './lighting';
-import { game } from './game';
 
 /**
  * One loose thing in the world, built from an item definition. Everything an
@@ -83,7 +83,7 @@ export class Item extends Sprite {
 
   remove() {
     super.remove();
-    game.items.splice(game.items.indexOf(this), 1);
+    forget(game.items, this);
   }
 
   /**

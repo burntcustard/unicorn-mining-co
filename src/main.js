@@ -10,16 +10,17 @@ import {
 // @endif
 import { bindKeys, initKeys } from './keyboard';
 import { camera, centerCamera, followTarget } from './camera';
-import { cargoScoop, dockingBay, floodlight, horn, shield, thrusterDualMd } from './modules';
+import { cargoScoop, floodlight, horn, shield, thrusterDualMd } from './modules';
 import { dock, dockAt, launch } from './docking';
 import { insidePath, traceBeam } from './prism';
 import { playerShip, updatePlayer } from './player';
 import { renderBlasts, updateBlasts } from './explosion';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
-import { Craft } from './craft';
 import { GameLoop } from './game-loop';
 import { Item } from './item';
+import { Ship } from './ship';
+import { Station } from './station';
 // @ifdef BENCHMARK
 import { benchmarkFlag } from './benchmark';
 // @endif
@@ -33,13 +34,10 @@ import { itemTypes } from './items';
 import { grind, mine } from './mining';
 // import { Road } from './road';
 import { renderBackground } from './background';
-import { renderCraft } from './craft-render';
 import { renderUI } from './ui';
 import { resolve } from './resolve';
 import { scoop } from './scoop';
 import { setSizing } from './set-sizing';
-import { shipTypes } from './ships';
-import { stationTypes } from './stations';
 // @ifdef BENCHMARK
 import { testSections } from './section-test';
 // @endif
@@ -53,16 +51,9 @@ thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
 [thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight]
   .forEach((module) => playerShip.fit(module));
 
-dockingBay.shades = colors.green;
-
 const world = generateWorld(13312);
-const stations = world.stations.map((properties) => {
-  const station = new Craft({ ...properties, craftData: stationTypes.corral, shades: colors.white });
-
-  station.fit(dockingBay);
-
-  return station;
-});
+const stations = world.stations.map((properties) =>
+  new Station({ ...properties, shades: colors.white }));
 
 // Closest-to-center first, so the player can start at any of the nearest few
 // without every player landing at the same one
@@ -71,9 +62,8 @@ stations.sort((a, b) => a.x ** 2 + a.y ** 2 - b.x ** 2 - b.y ** 2);
 dockAt(playerShip, stations[Math.floor(Math.random() * 8)]);
 launch(playerShip);
 
-world.wrecks.forEach((properties) => new Craft({
+world.wrecks.forEach((properties) => new Ship({
   ...properties,
-  craftData: shipTypes.mustang,
   shades: colors.orange,
 }));
 
@@ -192,7 +182,7 @@ GameLoop({
       }
 
       activeSprites.forEach((craft) =>
-        craft.segments && !craft.dead && renderCraft(craft, activeSprites, zIndex));
+        craft.segments && !craft.dead && craft.render(activeSprites, zIndex));
     }
 
     // Sparks off the horn sit over the asteroids and ships they come off

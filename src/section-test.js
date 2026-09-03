@@ -1,10 +1,9 @@
 import { diamond, gold } from './items';
 import { Asteroid } from './asteroid';
-import { Craft } from './craft';
 import { Item } from './item';
+import { Ship } from './ship';
 import { colors } from './colors';
 import { game } from './game';
-import { shipTypes } from './ships';
 import { traceBeam } from './prism';
 
 export const testSections = (scenery, playerShip, lamp) => {
@@ -35,7 +34,7 @@ export const testSections = (scenery, playerShip, lamp) => {
     throw Error('detach');
   }
 
-  if (remainder.sections.length !== count - 1 || !piece.lifetime) {
+  if (remainder.sections.length !== count - 1 || !piece.decay) {
     throw Error('leaf');
   }
 
@@ -112,13 +111,13 @@ export const testSections = (scenery, playerShip, lamp) => {
 
   if (spent.length || mined[0] !== cargoItem) throw Error('cargo mining');
 
-  const splitShip = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
+  const splitShip = new Ship({ shades: colors.white });
 
   splitShip.segments[1].health = 0;
   const fragments = splitShip.update(0);
 
   if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
-    !splitShip.cockpit.hull.health || !splitShip.velocity.length() ||
+    !splitShip.cockpit.health || !splitShip.velocity.length() ||
     !fragments[0].velocity.length() || fragments[0].position.distanceTo(splitShip.position) < 1 ||
     Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
   const fragmentSpin = fragments[0].spin;
@@ -130,12 +129,12 @@ export const testSections = (scenery, playerShip, lamp) => {
   if (splitShip.spin !== 1) throw Error('ship spin');
   fragments[0].update(11);
   if (!fragments[0].dead) throw Error('fragment lifetime');
-  const wreck = new Craft({ craftData: shipTypes.mustang, shades: colors.white });
+  const wreck = new Ship({ shades: colors.white });
   const cargo = new Item({ itemData: diamond });
 
   cargo.remove();
   wreck.cargo.push(cargo);
-  wreck.cockpit.hull.health = 0;
+  wreck.cockpit.health = 0;
   const wreckage = wreck.update(0);
 
   if (!wreck.dead || !game.items.includes(cargo) || cargo.velocity.x !== wreck.velocity.x) {
