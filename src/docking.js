@@ -9,7 +9,7 @@ const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardT
 /** Place a craft inside a station as though it had entered through its bay. */
 export const dockAt = (ship, station) => {
   ship.segments.forEach((segment) => (segment.active = false));
-  ship.velocity.set(station.velocity);
+  ship.velocity.set({ x: 0, y: 0 });
   Object.assign(ship, {
     dockedTo: station,
     rotation: station.rotation,
