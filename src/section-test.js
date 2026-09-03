@@ -74,6 +74,22 @@ export const testSections = (scenery, playerShip, lamp) => {
     throw Error('cargo snap');
   }
 
+  const releaseRock = new Asteroid({ points: 5, radius: 90 });
+  const releaseItem = new Item({ itemData: diamond });
+
+  releaseRock.bury(releaseItem);
+  const destroyedSection = releaseRock.sections.find((section) => section.contents.includes(releaseItem));
+  const destroyedMass = destroyedSection.mass;
+  const releasePosition = { x: releaseItem.x, y: releaseItem.y };
+  const [releasedParts, releasedItems] = releaseRock.detach(destroyedSection, true);
+
+  if (releasedItems[0] !== releaseItem || releaseItem.x !== releasePosition.x ||
+    releaseItem.y !== releasePosition.y ||
+    Math.abs(releasedParts.reduce((sum, part) => sum + part.mass, 0) -
+      (releaseRock.mass - destroyedMass)) > 1e-9) {
+    throw Error('cargo release');
+  }
+
   const [cargoParts, early] = cargoRock.detach(
     cargoRock.sections.find((section) => !section.contents.length),
   );

@@ -79,7 +79,7 @@ export const mine = (contacts) => {
     if (!targets.includes(target)) targets.push(target);
   });
 
-  targets.forEach(grind);
+  return targets;
 };
 
 /**
@@ -115,7 +115,7 @@ const breakAsteroid = (target, destroyed) => {
  *
  * @param {Object} target
  */
-const grind = (target) => {
+export const grind = (target) => {
   if (!target.grinding) return;
 
   const pull = target.grindCarry.position.subtract(target.grinder.position).normalize();

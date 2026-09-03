@@ -218,7 +218,7 @@ export class Asteroid extends Sprite {
 
     this.sections = [];
 
-    const [children] = this.split([[section], ...islands]);
+    const [children] = this.split(destroyed ? islands : [[section], ...islands]);
 
     return [children, loose];
   }

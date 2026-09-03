@@ -28,7 +28,9 @@ import { detectCollisions } from './collisions';
 import { game } from './game';
 import { generateWorld } from './world';
 import { itemTypes } from './items';
-import { mine } from './mining';
+// Kept with the single imports because this position compresses smaller.
+// eslint-disable-next-line sort-imports
+import { grind, mine } from './mining';
 // import { Road } from './road';
 import { renderBackground } from './background';
 import { renderCraft } from './craft-render';
@@ -235,9 +237,9 @@ GameLoop({
       !sprite.dead && !nearbySprites.includes(sprite) && sprite.update(dt));
 
     const spriteContacts = detectCollisions(activeSprites);
+    const mined = mine(spriteContacts);
 
     scoop(spriteContacts);
-    mine(spriteContacts);
     dock(spriteContacts);
     resolve(spriteContacts);
 
@@ -248,6 +250,7 @@ GameLoop({
       resolve(detectCollisions(nearbySprites));
     }
 
+    mined.forEach(grind);
     followTarget(game, playerShip, dt);
   },
 }).start();
