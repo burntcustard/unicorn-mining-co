@@ -219,6 +219,24 @@ result can change after another retained conversion.
 - Halving those offsets with `/ 2` cost 9 bytes; multiplying by `0.5` cost 20 bytes. Neither was retained in the measured version.
 - Fixed numeric alpha suffixes remained best as template literals in source. Changing all eight to numeric concatenation such as `color + 7` cost 14 bytes, and changing only the outline cost 1 byte, even though Terser emits fixed templates as string concatenation. Keep dynamic alpha concatenations and hexadecimal letter suffixes as they are unless a build proves otherwise.
 
+## Measured cargo-scoop experiments
+
+`build:slow`, seed `13312`, against the September 2026 cargo-scoop model. The
+retained changes took advzip from 14295B to 14264B.
+
+- Replacing the two doors, each of which hid itself on the opposite mount, with
+  one door mirrored from `Math.sign(mount.y)` saved 29 bytes by removing a model
+  part and the empty-points branch.
+- The door delta always has length `scoopLength`, so replacing its `Math.hypot`
+  normalization with direct sine and cosine offsets was neutral but removed
+  unnecessary runtime work. Inlining that single-use point calculation into
+  the model then saved 2 bytes.
+- Replacing `Math.sign` with a ternary cost 19 bytes. Reusing the calculated
+  hinge Y in the endpoint-Y expression cost 20 bytes. Keep the repeated
+  `side * scoopLength` form unless the surrounding compression context changes.
+- Verify this model by checking that the lower door's reversed point order is
+  the Y-mirror of the upper door at closed, partly open, and fully open states.
+
 ## Measured world generation experiments
 
 `build:slow`, seed `13312`, against the August 2026 world generation, taking

@@ -24,32 +24,6 @@ const throatRadius = scoopLength * 0.75;
 // Far enough out that the doors are no longer a wall across the way in
 export const scoopOpen = 0.5;
 
-// A door, hinged at its outer end and swinging forward as the scoop opens. A
-// long thin rectangle, which is the whole of why it can be collided with
-const doorPoints = (activationProgress, side) => {
-  const angle = activationProgress * openAngle;
-  const fromY = side * scoopLength;
-  const toX = scoopLength * Math.sin(angle);
-  const toY = side * scoopLength * (1 - Math.cos(angle));
-  const runY = toY - fromY;
-  const length = Math.hypot(toX, runY);
-  const outX = (runY / length) * doorWidth;
-  const outY = (-toX / length) * doorWidth;
-
-  return [
-    [outX, fromY + outY],
-    [toX + outX, toY + outY],
-    [toX - outX, toY - outY],
-    [-outX, fromY - outY],
-  ];
-};
-
-const door = (side) => ({
-  outline: [],
-  points: ({ activationProgress, mount }) => side * mount?.y > 0 ? doorPoints(activationProgress, side) : [],
-  radius: () => scoopLength * 2,
-});
-
 export const cargoScoop = {
   // Slow enough to read as a door swinging rather than a flicker
   activationDuration: 0.7,
@@ -57,8 +31,30 @@ export const cargoScoop = {
   name: 'SCOOP',
   health: 3,
   model: [
-    door(-1),
-    door(1),
+    {
+      outline: [],
+      // A door, hinged at its outer end and swinging forward as the scoop
+      // opens. A long thin rectangle, which is why it can be collided with
+      points: ({ activationProgress, mount }) => {
+        const angle = activationProgress * openAngle;
+        const sine = Math.sin(angle);
+        const cosine = Math.cos(angle);
+        const side = Math.sign(mount.y);
+        const fromY = side * scoopLength;
+        const toX = scoopLength * sine;
+        const toY = side * scoopLength * (1 - cosine);
+        const outX = -side * cosine * doorWidth;
+        const outY = -sine * doorWidth;
+
+        return [
+          [outX, fromY + outY],
+          [toX + outX, toY + outY],
+          [toX - outX, toY - outY],
+          [-outX, fromY - outY],
+        ];
+      },
+      radius: () => scoopLength * 2,
+    },
     {
       // Nothing to see and nothing to bump into: a throat notices cargo
       // between the doors. Closed doors are still a hull-blocked route.
