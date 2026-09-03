@@ -287,6 +287,48 @@ the then-current retained baseline.
 - Before slow builds used 100 advzip iterations, normalizing keyboard event keys to their final two characters saved 6 bytes. Searching registered fragments with `find`/`includes` cost 15 bytes, while expanding fragments with `includes` cost 59 bytes.
 - Under that earlier build, removing the unused `keyPressed` state saved 2 bytes, accepting one key per `bindKeys` call saved 3, optional callback invocation saved 4, and sharing one handler between keydown and keyup saved 1. Registering listeners at module load cost 5 bytes, and storing held state on callback functions cost 8 bytes.
 
+## Measured player-state experiments
+
+`build:slow`, seed `13312`, against the September 2026 player implementation.
+The retained set took advzip from 14254B to 14209B.
+
+- The BUY action already checks affordability while constructing its current
+  action list. Removing `spend` and expressing the purchase as negative earnings
+  saved 13 bytes; after moving pilot state onto the ship, removing `earn` too and
+  mutating the existing `ship`/`craft` arguments directly saved another 6.
+- Moving the singleton credits, note and timer from a separate `player` object
+  onto `playerShip` saved 2 bytes and removed its imports. Removing the explicit
+  starting `x`/`y` or empty note instead cost 11 and 12 bytes.
+- Only the Mustang can carry cargo, so removing `roomFor`'s unreachable
+  no-capacity fallback saved 4 bytes. Inlining `roomFor` cost 7 bytes, inlining
+  the one-call `stow` cost 10, and combining the two helpers was neutral.
+- Caching the recovered-credit value used three times in `scoop` saved 6 bytes.
+  Caching a module price across BUY and SELL cost 5 bytes.
+- Inlining the one-use `thrusting` calculation into `playerShip.fly` saved 4
+  bytes. Unary coercion cost 1 byte there, and passing an initialized Up-key
+  boolean directly was neutral, so keep the numeric ternary.
+- `Road` is excluded from production, making its `drives` guard unreachable;
+  removing that guard saved 3 bytes. Restore it if roads are re-enabled.
+- Direct subtraction of held turn keys is unsafe while their map entries are
+  absent: it produces `NaN` before both keys have fired. Initializing only `ht`
+  and `ft` to `false` made subtraction safe and saved 10 bytes; initializing
+  every bound key cost 5 bytes instead. Keep these literal keys reserved from
+  property mangling because keyboard events write the same map dynamically.
+- Inlining `say` cost 6 bytes, and allowing the note timer to run negative with
+  a positive UI check cost 16 bytes. Keep the helper and zero clamp.
+- Always calling `renderText` with `noteFor ? note : ''` saved 1 byte in
+  repeated builds. Clearing the note from the timer update instead was 1 byte
+  worse without the clamp and 16 bytes worse with it.
+- During undocking, moving the forced `fly(1, 0)` into `flyOut` to ignore all
+  movement input cost 6 bytes; retaining one `fly` call and gating its turn from
+  a saved launch boolean cost 22. The existing `flyOut(...) || downKeys.Up`
+  formulation stays smaller, even though it permits steering during launch.
+- The brief full-bright flare at the end of launch comes from clamping
+  `launching` to zero before testing `launching && launching <= 2`: that final
+  active frame selects full power. Preserve this ordering. Inlining the
+  `coasting` expression cost 11 bytes, while letting inactive `flyOut` fall
+  through with `undefined` instead of returning explicit `false` saved 2.
+
 ## Measured keyboard experiments with 100 advzip iterations
 
 `build:slow`, seed `13312`, against the September 2026 keyboard implementation.

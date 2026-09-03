@@ -1,4 +1,4 @@
-import { earn, player, roomFor, say, spend } from '../player';
+import { roomFor, say } from '../player';
 import { colors } from '../colors';
 import { launch } from '../docking';
 import { renderText } from '../text';
@@ -62,7 +62,7 @@ const actionsOf = (ship, mount, module) => {
   const fitted = mount.module === module;
 
   return [
-    !fitted && player.credits >= module.price && 'BUY',
+    !fitted && ship.credits >= module.price && 'BUY',
     !fitted && ship.cargoBay.includes(module) && 'EQUIP',
     fitted && 'REMOVE',
     fitted && 'SELL',
@@ -196,7 +196,7 @@ export const confirmSelection = (ship) => {
 
       ship.cargoBay = ship.cargoBay.filter((stowed) => stowed !== item);
       ship.cargo = ship.cargo.filter((cargoItem) => cargoItem.item !== item);
-      earn(item.price * count);
+      ship.credits += item.price * count;
       moduleOption = Math.min(moduleOption, cargoOf(ship).length - 1);
 
       if (moduleOption < 0) {
@@ -220,11 +220,12 @@ export const confirmSelection = (ship) => {
     } else if (picked === 'BUY') {
       if (!roomFor(ship)) {
         say('CARGO FULL');
-      } else if (spend(currentModule.price)) {
+      } else {
+        ship.credits -= currentModule.price;
         ship.cargoBay.push(currentModule);
       }
     } else if (picked === 'SELL') {
-      earn(currentModule.price);
+      ship.credits += currentModule.price;
       ship.unfit(mount);
     } else if (picked === 'EQUIP') {
       if (mount.module) ship.cargoBay.push(mount.module);

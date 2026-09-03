@@ -1,5 +1,5 @@
-import { player, playerShip } from './player';
 import { colors } from './colors';
+import { playerShip } from './player';
 import { renderControls } from './ui/controls';
 import { renderDocked } from './ui/docked';
 import { renderIndicators } from './ui/indicators';
@@ -14,9 +14,10 @@ export const renderUI = (game, stations) => {
 
   renderText(game, `${Math.round(playerShip.x)}/${Math.round(playerShip.y)}`, 20, 20);
 
-  renderText(game, `$${player.credits}`, 10, 50);
+  renderText(game, `$${playerShip.credits}`, 10, 50);
 
-  if (player.noteFor) {
-    renderText(game, player.note, game.uiWidth / 2, game.uiHeight - 40, 1, '#fff', 1);
+  if (playerShip.noteFor) {
+    renderText(game, playerShip.note,
+      game.uiWidth / 2, game.uiHeight - 40, 1, '#fff', 1);
   }
 };

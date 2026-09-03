@@ -66,10 +66,10 @@ export const launch = (craft) => {
  *
  * @param {Object} craft
  * @param {Number} dt - Seconds since the last update.
- * @returns {Boolean} launching
+ * @returns {Boolean|undefined} launching
  */
 export const flyOut = (craft, dt) => {
-  if (!craft.launching) return false;
+  if (!craft.launching) return;
 
   craft.launching = Math.max(0, craft.launching - dt);
 

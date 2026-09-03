@@ -10,7 +10,7 @@ let callbacks = {};
 
 // Same as Kontra pressedKeys - a list of keys that are "held down", i.e.
 // haven't had a keyup even to "turn them off" yet.
-export const downKeys = {};
+export const downKeys = { ht: false, ft: false };
 
 /**
  * Execute a function that corresponds to a keyboard key.

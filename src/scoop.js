@@ -1,4 +1,4 @@
-import { earn, roomFor, say, stow } from './player';
+import { roomFor, say, stow } from './player';
 import { game } from './game';
 
 /**
@@ -18,6 +18,7 @@ export const scoop = (contacts) => {
     if (!item.item || !hitbox.segment?.catches || !game.items.includes(item)) return;
 
     const craft = hitbox.owner;
+    const credits = item.item.credits;
 
     // Taken in once its middle reaches the throat, rather than the moment a
     // corner of it brushes the edge, or cargo winks out while it still looks
@@ -26,9 +27,9 @@ export const scoop = (contacts) => {
 
     // Money is money, so it goes straight into the pilot's account and there
     // is never no room for it
-    if (item.item.credits) {
-      earn(item.item.credits);
-      say(`$${item.item.credits} RECOVERED`);
+    if (credits) {
+      craft.credits += credits;
+      say(`$${credits} FOUND`);
     } else if (item.message) {
       // Read on the way in and thrown away after, so a note never costs a
       // hold anything to carry
