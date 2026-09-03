@@ -371,7 +371,8 @@ export const drawSpectrum = (ctx, lamp, beam) => {
       Math.min(fanning * Math.abs(spin), Math.abs(width) * spreading / length);
     const near = edges.map((across) => first.add(span.scale(across)));
     const far = edges.map((across, i) => near[i].add(
-      Vector(rotatePoint(away, turn * (across - 0.5))).scale(length)));
+      rotatePoint(away, turn * (across - 0.5)).scale(length)),
+    );
 
     // Squarely down the way the light is going, so a sheet gives out level with
     // the face it came through rather than around one corner of it

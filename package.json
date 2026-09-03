@@ -12,7 +12,7 @@
     "build:fast": "vite build --mode fast",
     "build:slow": "vite build --mode slow",
     "build:full": "vite build --mode full",
-    "build:full-random": "vite build --mode full-random",
+    "test:collisions": "node tests/collisions.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

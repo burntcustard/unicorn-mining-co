@@ -21,6 +21,5 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - Run `npm run lint` after source or configuration changes, but only report it if it fails.
 - After editing, run the same build again and compare its ZIP size with the baseline.
 - Report only the before/after advzip sizes and difference; omit the unoptimized ZIP and pre-Roadroller sizes.
-- All builds pass Roadroller the fixed seed `13312`, so compare their ZIP sizes directly.
+- Roadroller always runs with the same fixed encoder parameters, so ZIP sizes are directly comparable across builds.
 - Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to check a release. `npm run build` is an alias, but prefer the explicit command.
-- At the end of the competition, we can use repeated `npm run build:full-random` builds to search for a smaller final ZIP.

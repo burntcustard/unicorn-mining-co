@@ -16,10 +16,9 @@ const fluteCount = hornLength / fluteSpacing + 2;
 // How many times a second the horn turns all the way around
 const spinRate = 1.5;
 
-// How the horn grips rather than bounces while it spins. A gently negative
-// bounciness holds the ship against the asteroid instead of springing it off, so
-// mining does not bat the ship away. Kept above minus one, so it only softens
-// the knock: it never drags the ship in or flings it off when the asteroid breaks.
+// Negative bounciness asks the resolver to grip with zero restitution while the
+// horn spins. It overrides the other surface's bounce without retaining inward
+// velocity, so mining neither bats the ship away nor drives the horn through.
 // Switched off, the horn says nothing and bounces like the bare hull it is a
 // spike on
 const grindBounce = -1;

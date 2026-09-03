@@ -248,7 +248,7 @@ export class Craft extends Sprite {
       y: position.y,
     });
 
-    applyForce(fragment, Vector(offset).normalize().scale(30), Math.random() - 0.5);
+    applyForce(fragment, offset.normalize().scale(30), Math.random() - 0.5);
   }
 
   hitboxes() {
@@ -333,7 +333,7 @@ export class Craft extends Sprite {
           y: this.y + offset.y,
         });
 
-        applyForce(fragment, Vector(away).normalize().scale(30), Math.random() - 0.5);
+        applyForce(fragment, away.normalize().scale(30), Math.random() - 0.5);
         return fragment;
       });
     const kept = (core || []).map((i) => hulls[i]);
@@ -341,7 +341,7 @@ export class Craft extends Sprite {
     if (core && fragments.length) {
       const away = rotatePoint(centerOf(kept).subtract(center), this.rotation);
 
-      applyForce(this, Vector(away).normalize().scale(30), Math.random() - 0.5);
+      applyForce(this, away.normalize().scale(30), Math.random() - 0.5);
     }
 
     this.segments = this.segments.filter((segment) =>

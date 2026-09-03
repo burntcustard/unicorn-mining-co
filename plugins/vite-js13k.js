@@ -1,11 +1,9 @@
-import { Packer, defaultSparseSelectors } from 'roadroller';
 import JSZip from 'jszip';
+import { Packer } from 'roadroller';
 import advzip from 'advzip-bin';
 import { execFile } from 'child_process';
 import fs from 'fs';
 import { minify } from 'html-minifier-terser';
-
-const roadrollerSeed = 13312;
 
 // Kontra-style compile-time flags. Whatever sits between "// @ifdef NAME" and
 // "// @endif" is kept only when that flag is truthy, and removed entirely
@@ -58,39 +56,11 @@ export function viteJs13kPre(flags = {}) {
   };
 }
 
-const seededRandom = (seed) => {
-  let state = seed;
-
-  return () => {
-    state = Math.imul(state, 1664525) + 1013904223 >>> 0;
-
-    return state / 4294967296;
-  };
-};
-
-const withRandomSeed = async (seed, action) => {
-  if (seed === null) return action();
-
-  const random = Math.random;
-
-  Math.random = seededRandom(seed);
-
-  try {
-    return await action();
-  } finally {
-    Math.random = random;
-  }
-};
-
-// generateBundle runs before Vite has written anything to disk
-function ensureDistDir() {
-  fs.mkdirSync('dist', { recursive: true });
-}
-
 async function zip(content) {
   const jszip = new JSZip();
 
-  ensureDistDir();
+  // generateBundle runs before Vite has written anything to disk
+  fs.mkdirSync('dist', { recursive: true });
 
   jszip.file(
     'index.html',
@@ -110,14 +80,7 @@ async function zip(content) {
   });
 }
 
-export async function replaceScript(
-  html,
-  scriptFilename,
-  scriptCode,
-  parameterOptimizationLevel = 2,
-  numberOfContexts = 16,
-  randomSeed = roadrollerSeed,
-) {
+export async function replaceScript(html, scriptFilename, scriptCode) {
   const reScript = new RegExp(`<script([^>]*?) src="[./]*${scriptFilename}"([^>]*)></script>`);
 
   // First we have to move the script to the end of the body, because vite is
@@ -128,29 +91,25 @@ export async function replaceScript(
     .replace(html.match(reScript)[0], '');
 
   console.log(`\nJS size: ${new Blob([scriptCode]).size}B (pre-roadroller)`);
-  ensureDistDir();
+  fs.mkdirSync('dist', { recursive: true });
   fs.writeFileSync('dist/minified.js', scriptCode);
 
-  const { firstLine, secondLine } = await withRandomSeed(randomSeed, async () => {
-    const packer = new Packer([{
-      action: 'eval',
-      data: scriptCode,
-      type: 'js',
-    }], {
-      allowFreeVars: true,
-      maxMemoryMB: 192, // We hit the 150 MB default so 200 MB helps
-      numAbbreviations: 30,
-      recipLearningRate: 2090,
-      modelMaxCount: 4,
-      modelRecipBaseCount: 41,
-      precision: 16,
-      sparseSelectors: [0, 1, 2, 3, 5, 7, 11, 13, 22, 42, 57, 209],
-    });
-
-    // await packer.optimize(parameterOptimizationLevel);
-
-    return packer.makeDecoder();
+  const packer = new Packer([{
+    action: 'eval',
+    data: scriptCode,
+    type: 'js',
+  }], {
+    allowFreeVars: true,
+    maxMemoryMB: 192, // We hit the 150 MB default so 192 MB helps
+    numAbbreviations: 30,
+    recipLearningRate: 2090,
+    modelMaxCount: 4,
+    modelRecipBaseCount: 41,
+    precision: 16,
+    sparseSelectors: [0, 1, 2, 3, 5, 7, 11, 13, 22, 42, 57, 209],
   });
+
+  const { firstLine, secondLine } = packer.makeDecoder();
 
   return movedHtml.replace(reScript, `<script>${firstLine + secondLine}</script>`);
 }
@@ -171,11 +130,6 @@ async function replaceHtml(html) {
 }
 
 export function viteJs13k(buildLevel = 'full') {
-  const buildLevelNumber = { 'fast': 1, 'slow': 2, 'full': 3, 'full-random': 3 }[buildLevel];
-  const numberOfContexts = (buildLevelNumber + 1) ** 2;
-  const parameterOptimizationLevel = buildLevelNumber - 1;
-  const randomSeed = buildLevel === 'full-random' ? null : roadrollerSeed;
-
   return {
     name: 'vite-js13k',
     enforce: 'post',
@@ -194,14 +148,7 @@ export function viteJs13k(buildLevel = 'full') {
 
           if (jsChunk.code != null) {
             bundlesToDelete.push(jsName);
-            replacedHtml = await replaceScript(
-              replacedHtml,
-              jsChunk.fileName,
-              jsChunk.code,
-              parameterOptimizationLevel,
-              numberOfContexts,
-              randomSeed,
-            );
+            replacedHtml = await replaceScript(replacedHtml, jsChunk.fileName, jsChunk.code);
           }
         }
 

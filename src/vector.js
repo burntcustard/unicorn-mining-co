@@ -12,13 +12,8 @@
 
 class VectorClass {
   constructor(x = 0, y = 0) {
-    if (x.x !== undefined) {
-      this.x = x.x;
-      this.y = x.y;
-    } else {
-      this.x = x;
-      this.y = y;
-    }
+    this.x = x;
+    this.y = y;
   }
 
   set(vector) {
@@ -65,15 +60,13 @@ export const rotatePoint = ({ x, y }, angle) => {
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
 
-  return { x: x * cos - y * sin, y: x * sin + y * cos };
+  return Vector(x * cos - y * sin, x * sin + y * cos);
 };
 
-export const movePoint = ({ x, y }, angle, distance) => ({
-  x: x + Math.cos(angle) * distance,
-  y: y + Math.sin(angle) * distance,
-});
+export const movePoint = ({ x, y }, angle, distance) =>
+  Vector(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance);
 
-export const directionOf = (angle) => Vector(movePoint(Vector(), angle, 1));
+export const directionOf = (angle) => Vector(Math.cos(angle), Math.sin(angle));
 
 // A point some way between two others, plain arrays rather than Vectors so it
 // also works on a polygon's raw points. `at` 0 gives `from`, 1 gives `to`,

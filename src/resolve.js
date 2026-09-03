@@ -1,4 +1,3 @@
-import { Vector } from './vector';
 import { damage } from './craft';
 
 /**
@@ -41,16 +40,15 @@ const dentingMass = 10;
 /**
  * How springy two things are together. Normally the springier of the two has
  * its way, so a shield bouncing off an asteroid bounces like a shield. A negative
- * bounciness, like a spinning horn's, grips rather than bounces, and the firmest
- * grip wins: it holds a ship against whatever it has hold of instead of letting
- * it spring off, while staying above minus one so it only ever softens the
- * knock rather than feeding speed back in and flinging the ship about.
+ * bounciness, like a spinning horn's, overrides the other surface and requests
+ * zero restitution: normal speeds match at the contact, so the drill neither
+ * rebounds nor retains velocity carrying it through the surface.
  *
  * @param {Number} a
  * @param {Number} b
  * @returns {Number} bounciness
  */
-const combineBounce = (a, b) => (a < 0 || b < 0 ? Math.min(a, b) : Math.max(a, b));
+const combineBounce = (a, b) => (a < 0 || b < 0 ? 0 : Math.max(a, b));
 
 /**
  * Resolve every physical contact using the same mass-weighted impulse and
@@ -70,22 +68,21 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
   if (!mass) return;
 
-  const normal = Vector(x, y);
-  const aSpin = a.momentum?.(collider) || Vector();
-  const bSpin = b.momentum?.(other) || Vector();
-  const closing = b.velocity
-    .add(bSpin)
-    .subtract(a.velocity)
-    .subtract(aSpin)
-    .dot(normal) - ((collider.speed || 0) + (other.speed || 0));
+  const aSpin = a.momentum?.(collider);
+  const bSpin = b.momentum?.(other);
+  const closing = (b.velocity.x + (bSpin?.x || 0) - a.velocity.x - (aSpin?.x || 0)) * x +
+    (b.velocity.y + (bSpin?.y || 0) - a.velocity.y - (aSpin?.y || 0)) * y -
+    ((collider.speed || 0) + (other.speed || 0));
 
   if (closing < 0) {
     let bounce = 0;
     const force = -closing / mass;
 
     if (force > 500) {
-      [[collider, a, b], [other, b, a]].forEach(([hitbox, body, hit]) =>
-        body.cockpit && hit.mass >= dentingMass && damage(hitbox.segment, (force - 500) / 2000));
+      const amount = (force - 500) / 2000;
+
+      if (a.cockpit && b.mass >= dentingMass) damage(collider.segment, amount);
+      if (b.cockpit && a.mass >= dentingMass) damage(other.segment, amount);
     }
 
     if (-closing >= deadSpeed) {
@@ -94,18 +91,18 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
     const impulse = force * (1 + bounce);
 
-    const push = normal.scale(impulse);
-
-    a.velocity.set(a.velocity.subtract(push.scale(aMass)));
-    b.velocity.set(b.velocity.add(push.scale(bMass)));
+    a.velocity.x -= x * impulse * aMass;
+    a.velocity.y -= y * impulse * aMass;
+    b.velocity.x += x * impulse * bMass;
+    b.velocity.y += y * impulse * bMass;
   }
 
   const correction = Math.min((depth - slop) * easing, maxCorrection) / mass;
 
   if (correction > 0) {
-    const push = normal.scale(correction);
-
-    a.position.set(a.position.subtract(push.scale(aMass)));
-    b.position.set(b.position.add(push.scale(bMass)));
+    a.position.x -= x * correction * aMass;
+    a.position.y -= y * correction * aMass;
+    b.position.x += x * correction * bMass;
+    b.position.y += y * correction * bMass;
   }
 });

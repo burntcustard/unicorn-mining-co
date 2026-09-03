@@ -12,7 +12,7 @@ import { outline } from './outline';
  *
  * Note that build:fast and build:slow show a size increase for using a long
  * string and .split()/.map() rather than defining the array directly, however
- * build:full and build:full-random show a size decrease. So a string it is.
+ * build:full shows a size decrease. So a string it is.
  *
  * @type {Array}
  */

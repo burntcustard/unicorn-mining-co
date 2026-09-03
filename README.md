@@ -29,15 +29,14 @@
 ## Build options
 
 | Command | Terser passes | Roadroller | advzip | Use |
-| --- | ---: | --- | --- | --- |
-| `npm run build:fast` | 1 | Level 0, 4 contexts, fixed seed | Skipped | Quick compilation checks and minor changes |
-| `npm run build:slow` | 4 | Level 1, 9 contexts, fixed seed | 100 iterations | Size comparisons after larger changes |
-| `npm run build:full` | 9 | Level 2, 16 contexts, fixed seed | 1,000 iterations | Reproducible release output and the final 13,312-byte check |
-| `npm run build:full-random` | 9 | Level 2, 16 contexts, random seed | 1,000 iterations | Try repeated builds for a smaller final competition ZIP |
+| --- | ---: | :---: | --- | --- |
+| `npm run build:fast` | 1 | ✅ | Skipped | Quick compilation checks and minor changes |
+| `npm run build:slow` | 4 | ✅ | 100 iterations | Size comparisons after larger changes |
+| `npm run build:full` | 9 | ✅ | 6,000 iterations | Reproducible release output and the final 13,312-byte check |
 
-`npm run build` runs the deterministic full build. `build:slow` uses 100 advzip
+`npm run build` runs the full build. `build:slow` uses 100 advzip
 recompression iterations so its size comparisons more closely reflect the
-1,000-iteration full builds without taking as long. Fast and slow ZIPs may
-exceed 13,312 bytes and are not release artifacts. All builds except
-`build:full-random` pass Roadroller the fixed seed `13312`, making their output
-reproducible.
+6,000-iteration full build without taking as long. Fast and slow ZIPs may
+exceed 13,312 bytes and are not release artifacts. Roadroller always runs
+with the same fixed encoder parameters, so every build's JS output is
+deterministic.
