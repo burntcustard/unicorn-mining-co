@@ -303,10 +303,7 @@ export const litPath = ({ rays: fan }) => {
 export const insidePath = (beam) => {
   const path = new Path2D();
 
-  runsOf(beam).forEach((run) => path.addPath(strip(
-    run.map(({ at }) => at),
-    run.map(({ out }) => out.at),
-  )));
+  runsOf(beam).forEach((run) => path.addPath(strip(run)));
 
   return path;
 };

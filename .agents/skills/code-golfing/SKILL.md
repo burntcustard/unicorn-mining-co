@@ -195,15 +195,16 @@ result can change after another retained conversion.
 - Inlining the single-use `acrossRun` helper saved 1 byte.
 - Replacing `cross`'s temporary vectors with scalar edge and start coordinates cost 9 bytes despite reducing pre-Roadroller JS by 33 bytes.
 - Moving the spectrum's thin-sheet guard below all of its local calculations cost 13 bytes.
-- Making `fillOf` assign `ctx.fillStyle` rather than return its gradient cost 3 bytes; using the `spectrum.forEach` callback's `color` on one ternary branch cost 1 byte.
+- Making `fillOf` assign `ctx.fillStyle` rather than return its gradient saved 3 bytes in the August build, but cost 18 bytes when remeasured after the September changes; keep the returned gradient in the current context. Using the `spectrum.forEach` callback's `color` on one ternary branch cost 1 byte.
 - Rewriting `outlineOf` with the shared `rotatePoint` helper cost 7 bytes despite reducing pre-Roadroller JS by 32 bytes.
 - Moving `refract` to `vector.js` cost 14 bytes, and moving `cross` beside `within` in `polygon.js` cost 44 bytes.
 - Moving `fillOf` beside its call or into `lighting.js`, and reordering the new `strip` import, were neutral.
 - Removing the production-unused returned `outlines` property cost 21 bytes, and moving it after `rays` cost 20 bytes, so its presence and original property order were retained.
 - Approximating `180 / Math.PI` as `57.296` cost 5 bytes; `57.3` was neutral, so the exact conversion was retained.
 - Retrying the spectrum loop after the surrounding changes cost 20 bytes for a forward `for`, 31 bytes for a countdown `for`, and 3 bytes for either `map` or `some`; `forEach` remained best.
-- Letting `strip` accept either point arrays or a run of rays made `insidePath` simply call `strip(run)` and saved 15 bytes. Drawing every run directly into one path instead cost 38 bytes.
+- Letting `strip` accept either point arrays or a run of rays made `insidePath` simply call `strip(run)` and saved 15 bytes originally, and 10 bytes when restored in the September build. Drawing every run directly into one path instead cost 38 bytes.
 - Giving `strip` a destination path and avoiding `addPath` cost 1 byte before that generalisation and 22 bytes after it. Moving the generalised helper back into `prism.js` also cost 22 bytes.
+- In the September remeasure, moving `strip` back into `prism.js` cost 11 bytes and replacing its first-point `moveTo` branch with unconditional `lineTo` cost 15. Passing the default far edge explicitly was neutral; replacing the spectrum slices with explicit pairs cost 3 bytes, while mapping only exits or only entries cost 8 and 15 bytes. Keep the generalised helper at the end of `drawing.js`.
 - Replacing the generated spectrum edges with three-decimal constants cost 11 bytes.
 - Approximating both cone range and angle cost 13 bytes. The small-angle ratio alone was neutral, while using forward rather than diagonal reach cost 1 byte.
 - Addressing reversed spectrum colours with `spectrum.at(~band)` cost 1 byte; combining it with the callback's `color` cost 3 bytes.
