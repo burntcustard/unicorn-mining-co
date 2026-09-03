@@ -47,23 +47,24 @@ const cargoOf = (ship) => [...ship.cargoBay, ...ship.cargo.map(({ item }) => ite
   .reduce((types, item) => {
     const type = types.find(([cargo]) => cargo === item);
 
-    if (type) {
-      type[1]++;
-    } else {
-      types.push([item, 1]);
-    }
+    type ? type[1]++ : types.push([item, 1]);
 
     return types;
   }, []);
+
+const hullActionsOf = (ship) => (ship.hullSegments.some((part) =>
+  ship.segments.find(({ module }) => module === part)?.health !== part.health) && ['FIX']) || [];
 
 // A module is bought into the cargo bay, fitted from there, and put back there
 // when taken off, so a pilot can own several of a kind and hang each in one slot.
 const actionsOf = (ship, mount, module) => {
   const fitted = mount.module === module;
+  const stowed = ship.cargoBay.includes(module);
 
   return [
-    !fitted && ship.credits >= module.price && 'BUY',
-    !fitted && ship.cargoBay.includes(module) && 'EQUIP',
+    fitted && mount.health < module.health && 'FIX',
+    !fitted && !stowed && ship.credits >= module.price && 'BUY',
+    !fitted && stowed && 'EQUIP',
     fitted && 'REMOVE',
     fitted && 'SELL',
   ].filter(Boolean);
@@ -71,7 +72,7 @@ const actionsOf = (ship, mount, module) => {
 
 // Paint is kept per mount, so there is only something to colour once this slot
 // is the one wearing the module
-const paintsOf = (mount, module) => mount.module === module ? paints : [];
+const paintsOf = (mount, module) => hullMenu || mount.module === module ? paints : [];
 
 /**
  * Move focus in the current menu.
@@ -85,21 +86,26 @@ export const moveSelection = (delta, ship) => {
   if (stage === 0) {
     mountOption = Math.max(0, Math.min(mounts.length + 2, mountOption + delta));
   } else if (stage === 1) {
-    const menu = hullMenu ? [ship] : cargoMenu ? cargoOf(ship) : mounts[mountOption].fits;
+    const menu = hullMenu ? [ship] : cargoMenu ? cargoOf(ship) : mounts[mountOption - 2].fits;
 
     moduleOption = Math.max(0, Math.min(menu.length, moduleOption + delta));
   } else {
-    const mount = mounts[mountOption];
+    const mount = mounts[mountOption - 2];
     const module = hullMenu ? 0 : cargoMenu ? cargoOf(ship)[moduleOption]?.[0] : mount.fits[moduleOption];
-    const actions = hullMenu ? ['FIX'] : cargoMenu ? ['SELL'] : actionsOf(ship, mount, module);
-    const swatches = hullMenu || cargoMenu ? [] : paintsOf(mount, module);
+    const actions = hullMenu ? hullActionsOf(ship) : cargoMenu ? ['SELL'] : actionsOf(ship, mount, module);
+    const swatches = cargoMenu ? [] : paintsOf(mount, module);
+    const backFocus = actions.length + swatches.length;
 
-    if (focused > actions.length) {
-      if (delta < 0) focused = actionFocus;
+    if (focused === backFocus) {
+      if (delta < 0) focused = swatches.length ? actions.length : actionFocus;
+    } else if (focused >= actions.length) {
+      focused = delta > 0 ? backFocus : actionFocus;
     } else if (delta > 0 && swatches.length) {
       const shades = module.paints?.[ship.mounts.indexOf(mount)] || module.shades || ship.shades;
 
-      focused = actions.length + 1 + Math.max(0, swatches.indexOf(shades));
+      focused = actions.length + Math.max(0, swatches.indexOf(shades));
+    } else if (delta > 0) {
+      focused = backFocus;
     }
   }
 };
@@ -114,16 +120,16 @@ export const moveSubSelection = (delta, ship) => {
   if (stage !== 2) return;
 
   const mounts = ship.slots;
-  const mount = mounts[mountOption];
+  const mount = mounts[mountOption - 2];
   const module = hullMenu ? 0 : cargoMenu ? cargoOf(ship)[moduleOption]?.[0] : mount.fits[moduleOption];
-  const actions = hullMenu ? ['FIX'] : cargoMenu ? ['SELL'] : actionsOf(ship, mount, module);
-  const firstSwatch = actions.length + 1;
-  const lastSwatch = firstSwatch + (hullMenu || cargoMenu ? 0 : paintsOf(mount, module).length) - 1;
+  const actions = hullMenu ? hullActionsOf(ship) : cargoMenu ? ['SELL'] : actionsOf(ship, mount, module);
+  const firstSwatch = actions.length;
+  const lastSwatch = firstSwatch + (cargoMenu ? [] : paintsOf(mount, module)).length - 1;
 
-  if (focused <= actions.length) {
-    focused = Math.max(0, Math.min(actions.length, focused + delta));
+  if (focused < actions.length) {
+    focused = Math.max(0, Math.min(actions.length - 1, focused + delta));
     actionFocus = focused;
-  } else {
+  } else if (focused <= lastSwatch) {
     focused = Math.max(firstSwatch, Math.min(lastSwatch, focused + delta));
   }
 };
@@ -150,7 +156,7 @@ export const back = (ship) => {
  * @param {Object} ship
  */
 export const confirmSelection = (ship) => {
-  const mount = ship.slots[mountOption];
+  const mount = ship.slots[mountOption - 2];
   const cargo = cargoOf(ship);
 
   if (stage === 0 && mountOption === ship.slots.length + 2) {
@@ -159,12 +165,13 @@ export const confirmSelection = (ship) => {
   }
 
   const currentModule = hullMenu ? 0 : cargoMenu ? cargo[moduleOption]?.[0] : mount?.fits[moduleOption];
-  const actions = stage === 2 ? hullMenu ? ['FIX'] : cargoMenu ? ['SELL'] : actionsOf(ship, mount, currentModule) : [];
-  const swatches = stage === 2 && !hullMenu && !cargoMenu ? paintsOf(mount, currentModule) : [];
-  const menu = stage ? hullMenu ? [ship] : cargoMenu ? cargo : mount.fits : [...ship.slots, 'HULL', 'CARGO'];
+  const actions = stage === 2 ? hullMenu ? hullActionsOf(ship) : cargoMenu ? ['SELL'] : actionsOf(ship, mount, currentModule) : [];
+  const swatches = stage === 2 && !cargoMenu ? paintsOf(mount, currentModule) : [];
+  const menu = stage ? hullMenu ? [ship] : cargoMenu ? cargo : mount.fits : ['CARGO', 'HULL', ...ship.slots];
+  const backFocus = actions.length + swatches.length;
   const focusedItem = [mountOption, moduleOption, focused][stage];
 
-  if (stage === 2 && focused === actions.length) {
+  if (stage === 2 && focused === backFocus) {
     back(ship);
     return;
   }
@@ -175,8 +182,8 @@ export const confirmSelection = (ship) => {
   }
 
   if (stage === 0) {
-    hullMenu = mountOption === ship.slots.length;
-    cargoMenu = mountOption === ship.slots.length + 1;
+    cargoMenu = mountOption === 0;
+    hullMenu = mountOption === 1;
     moduleOption = actionFocus = focused = 0;
     if (!hullMenu && !cargoMenu) moduleOption = Math.max(0, mount.fits.indexOf(mount.module));
     stage = hullMenu ? 2 : 1;
@@ -186,8 +193,15 @@ export const confirmSelection = (ship) => {
   } else if (stage === 2) {
     const picked = actions[focused];
 
-    if (hullMenu && picked === 'FIX') {
-      ship.fixHull();
+    if (picked === 'FIX') {
+      if (!hullMenu && mount.module !== currentModule) return;
+
+      if (hullMenu) {
+        ship.fixHull();
+      } else {
+        mount.health = currentModule.health;
+      }
+
       return;
     }
 
@@ -208,11 +222,14 @@ export const confirmSelection = (ship) => {
     }
 
     if (!picked) {
-      const shades = swatches[focused - actions.length - 1];
+      const shades = swatches[focused - actions.length];
 
-      (currentModule.paints ||= [])[ship.mounts.indexOf(mount)] = shades;
+      if (hullMenu) {
+        ship.shades = shades;
+        ship.segments.filter(({ hull }) => hull).forEach((segment) => segment.shades = shades);
+      } else {
+        (currentModule.paints ||= [])[ship.mounts.indexOf(mount)] = shades;
 
-      if (mount.module === currentModule) {
         mount.segments.forEach((segment) => segment.shades = shades);
       }
 
@@ -239,41 +256,36 @@ export const confirmSelection = (ship) => {
 
     // Parting with a module takes actions and paints away with it, so the
     // focus has to come back to whatever is left rather than sit past the end
-    focused = actionFocus = Math.min(focused, actionsOf(ship, mount, currentModule).length);
+    focused = actionFocus = Math.max(0, Math.min(focused, actionsOf(ship, mount, currentModule).length - 1));
   }
 };
 
 // A row's own background, and its highlight when it's the one picked out in
 // its column. Appended digit is the fill's opacity
-const renderButton = (ctx, x0, x1, y, isCurrent, isFocused = isCurrent) => {
+const renderButton = (ctx, x0, x1, y, isCurrent, isFocused = isCurrent, disabled) => {
+  if (disabled) ctx.globalAlpha = 0.3;
   ctx.fillStyle = `${colors.purple[2]}${isCurrent ? '' : '8'}`;
   ctx.fillRect(x0, y - rowPad, x1 - x0, rowGap - rowPad);
 
-  if (isFocused) {
+  if (isFocused && !disabled) {
     ctx.strokeStyle = `${colors.violet[0]}a`;
     ctx.strokeRect(x0, y - rowPad, x1 - x0, rowGap - rowPad);
   }
+
+  if (disabled) ctx.globalAlpha = 1;
 };
 
-const layoutButtons = (items, widthOf, width) => {
+const layoutButtons = (items, widthOf) => {
   let x = 0;
-  let rows = 0;
 
-  const buttons = items.map((item) => {
-    const buttonWidth = Math.min(width, widthOf(item));
+  return items.map((item) => {
+    const buttonWidth = widthOf(item);
 
-    if (x && x + buttonWidth > width) {
-      x = 0;
-      rows++;
-    }
-
-    const button = { item, width: buttonWidth, x, y: rows };
+    const button = { item, width: buttonWidth, x };
 
     x += buttonWidth + rowPad;
     return button;
   });
-
-  return { buttons, rows: rows + Boolean(items.length) };
 };
 
 /**
@@ -293,67 +305,73 @@ export const renderDocked = (game, ship) => {
   const col0 = [panelLeft + listInset, panelLeft + listInset + colWidth];
   const col1 = [col0[1] + colGap, col0[1] + colGap + colWidth];
 
-  ctx.save();
-  ctx.scale(uiScale, uiScale);
-  ctx.translate(uiWidth / 2, uiHeight / 2);
-  // Appended digit is the fill's opacity, so the world still shows through
-  ctx.fillStyle = `${colors.purple[0]}c`;
-  ctx.fillRect(-width / 2, -height / 2, width, height);
-  ctx.restore();
-
   const mounts = ship.slots;
-  const mount = mounts[mountOption];
+  const mount = mounts[mountOption - 2];
   const cargo = cargoOf(ship);
   const hulls = ship.segments.filter(({ hull }) => hull);
-  const currentModule = !hullMenu && !cargoMenu && stage && mount?.fits[moduleOption];
-  const currentHull = hullMenu && stage && hulls;
-  const currentCargo = cargoMenu && stage && cargo[moduleOption];
-  const actions = stage === 2 ? hullMenu ? ['FIX'] : cargoMenu ? ['SELL'] : actionsOf(ship, mount, currentModule) : [];
-  const swatches = stage === 2 && !hullMenu && !cargoMenu ? paintsOf(mount, currentModule) : [];
-  const menu = stage ? hullMenu ? ['HULL'] : cargoMenu ? cargo : mount?.fits : [...mounts, 'HULL', 'CARGO'];
+  const menu = stage ? hullMenu ? ['HULL'] : cargoMenu ? cargo : mount?.fits : ['CARGO', 'HULL', ...mounts];
   const currentItem = [mountOption, moduleOption, moduleOption][stage];
+  const item = menu[currentItem];
+  const currentModule = !hullMenu && !cargoMenu && stage && item;
+  const currentHull = item === 'HULL';
+  const currentCargo = item === 'CARGO' ? cargo[0] : cargoMenu && stage && item;
+  const actions = stage === 2 ? hullMenu ? hullActionsOf(ship) : cargoMenu ? ['SELL'] : actionsOf(ship, mount, currentModule) : [];
+  const swatches = stage === 2 && !cargoMenu ? paintsOf(mount, currentModule) : [];
+  const backFocus = actions.length + swatches.length;
   const info = currentHull || currentCargo?.[0] || currentModule || mount?.module;
-  const health = mount?.module === info ? mount?.health : info?.health;
-  const hullHealth = hulls.reduce((total, { health }) => total + health, 0);
-  const hullMaxHealth = ship.hullSegments.reduce((total, { health }) => total + health, 0);
+  const fitted = mount?.module === info;
+  const health = currentHull ? hulls.reduce((total, { health }) => total + health, 0) : fitted ? mount?.health : info?.health;
+  const maxHealth = currentHull ? ship.hullSegments.reduce((total, { health }) => total + health, 0) : info?.health;
   const infoRows = currentHull || currentCargo ? 2 : 4;
   const bottom = uiHeight / 2 + height / 2 - listInset - rowGap;
-  const actionButtons = layoutButtons([...actions, 'BACK'], (name) => name.length * 13 * textSize + textPad * 2, colWidth);
-  const swatchButtons = layoutButtons(swatches, () => rowGap - rowPad, colWidth);
-  const extraRows = stage === 2 ? actionButtons.rows + swatchButtons.rows : 0;
+  const actionButtons = layoutButtons(actions, (name) => name.length * 13 * textSize + textPad * 2);
+  const swatchButtons = layoutButtons(swatches, () => rowGap - rowPad);
+  const extraRows = stage === 2 ? Boolean(actions.length) + Boolean(swatches.length) + 1 : 0;
   const menuY = (i) => top + (i + (i > moduleOption ? extraRows : 0)) * rowGap;
-  const selectedShades = currentModule?.paints?.[ship.mounts.indexOf(mount)] || currentModule?.shades || ship.shades;
+  const selectedShades = (hullMenu && ship.shades) || currentModule?.paints?.[ship.mounts.indexOf(mount)] || currentModule?.shades || ship.shades;
+  const disabledText = `${colors.violet[2]}6`;
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
+  // Appended digit is the fill's opacity, so the world still shows through
+  ctx.fillStyle = `${colors.purple[0]}c`;
+  ctx.fillRect(panelLeft, top - listInset, width, height);
 
   menu.forEach((_, i) => {
-    ctx.globalAlpha = stage === 2 && i !== moduleOption ? 0.3 : 1;
-    renderButton(ctx, ...col0, menuY(i), i === currentItem, stage !== 2 && i === currentItem);
+    const disabled = stage === 2 && i !== moduleOption;
+
+    renderButton(ctx, ...col0, menuY(i), i === currentItem, stage !== 2 && i === currentItem, disabled);
   });
-  ctx.globalAlpha = stage === 2 ? 0.3 : 1;
-  renderButton(ctx, ...col0, bottom, currentItem === menu.length);
-  ctx.globalAlpha = 1;
+  if (stage !== 2) renderButton(ctx, ...col0, bottom, currentItem === menu.length);
 
   if (stage === 2) {
-    actionButtons.buttons.forEach((button, i) => renderButton(
-      ctx, col0[0] + button.x, col0[0] + button.x + button.width,
-      menuY(moduleOption) + (button.y + 1) * rowGap, focused === i,
-    ));
-    swatchButtons.buttons.forEach((button, i) => {
-      const y = menuY(moduleOption) + (actionButtons.rows + button.y + 1) * rowGap;
+    const actionY = menuY(moduleOption) + rowGap;
+    const backY = menuY(moduleOption) + extraRows * rowGap;
+
+    actionButtons.forEach((button, i) => {
+      renderButton(
+        ctx, col0[0] + button.x, col0[0] + button.x + button.width,
+        actionY,
+        focused === i,
+        focused === i,
+      );
+    });
+    swatchButtons.forEach((button, i) => {
+      const y = actionY + Boolean(actions.length) * rowGap;
 
       renderButton(
         ctx, col0[0] + button.x, col0[0] + button.x + button.width, y,
-        button.item === selectedShades, focused === i + actions.length + 1,
+        button.item === selectedShades, focused === i + actions.length,
       );
       ctx.fillStyle = button.item[2];
       ctx.fillRect(col0[0] + button.x + rowPad, y, button.width - rowPad * 2, rowGap - rowPad * 3);
     });
+    renderButton(ctx, col0[0], col0[0] + 13 * 4 * textSize + textPad * 2,
+      backY, focused === backFocus, focused === backFocus);
   }
 
   if (info) {
-    ctx.fillStyle = `${colors.purple[2]}c`;
+    ctx.fillStyle = `${colors.purple[2]}8`;
     ctx.fillRect(col1[0], top - rowPad, colWidth, rowGap * infoRows);
     ctx.strokeStyle = `${colors.violet[2]}c`;
     ctx.beginPath();
@@ -368,12 +386,10 @@ export const renderDocked = (game, ship) => {
     let text = item.name;
 
     if (stage === 0) {
-      if (i === mounts.length) {
-        text = 'HULL';
-      } else if (i === mounts.length + 1) {
-        text = 'CARGO';
+      if (i < 2) {
+        text = item;
       } else {
-        text = `${i}:${item.module?.name || '-EMPTY-'}`;
+        text = item.module?.name || '-EMPTY-';
       }
     } else if (hullMenu) {
       text = 'HULL';
@@ -381,21 +397,21 @@ export const renderDocked = (game, ship) => {
       text = `${item[0].name} *${item[1]}`;
     }
 
-    ctx.globalAlpha = stage === 2 && i !== moduleOption ? 0.3 : 1;
-    renderText(game, text, col0[0] + textPad, menuY(i) + 2, textSize, colors.violet[2]);
+    renderText(game, text, col0[0] + textPad, menuY(i) + 2, textSize, stage === 2 && i !== moduleOption ? disabledText : colors.violet[2]);
   });
-  ctx.globalAlpha = 1;
 
   if (stage === 2) {
-    actionButtons.buttons.forEach((button) => renderText(
-      game, button.item, col0[0] + button.x + textPad,
-      menuY(moduleOption) + (button.y + 1) * rowGap + 2, textSize, colors.violet[2],
-    ));
+    actionButtons.forEach((button) => {
+      renderText(
+        game, button.item, col0[0] + button.x + textPad,
+        menuY(moduleOption) + rowGap + 2, textSize, colors.violet[2],
+      );
+    });
+    renderText(game, 'BACK', col0[0] + textPad,
+      menuY(moduleOption) + extraRows * rowGap + 2, textSize, colors.violet[2]);
   }
 
-  ctx.globalAlpha = stage === 2 ? 0.3 : 1;
-  renderText(game, stage ? 'BACK' : 'EXIT', col0[0] + textPad, bottom + 2, textSize, colors.violet[2]);
-  ctx.globalAlpha = 1;
+  if (stage !== 2) renderText(game, stage ? 'BACK' : 'EXIT', col0[0] + textPad, bottom + 2, textSize, colors.violet[2]);
 
   if (info) {
     const labels = currentHull ?
@@ -404,10 +420,10 @@ export const renderDocked = (game, ship) => {
           [info.name, 'VALUE'] :
           [info.name, 'HP', 'VALUE', 'PWR'];
     const values = currentHull ?
-        [`${Math.floor(hullHealth)}/${hullMaxHealth}`] :
+        [`${health | 0}/${maxHealth}`] :
       currentCargo ?
           [`$${info.price * currentCargo[1]}`] :
-          [`${Math.floor(health)}/${info.health}`, `$${info.price}`, info.powerUsage];
+          [`${health | 0}/${maxHealth}`, `$${info.price}`, info.powerUsage];
 
     labels.forEach((text, i) => renderText(
       game, text, col1[0] + textPad, top + i * rowGap + 2, textSize, colors.violet[2],
