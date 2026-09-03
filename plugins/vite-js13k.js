@@ -138,11 +138,16 @@ export async function replaceScript(
       type: 'js',
     }], {
       allowFreeVars: true,
-      maxMemoryMB: 200, // We hit the 150 MB default so 200 MB helps
-      sparseSelectors: defaultSparseSelectors(numberOfContexts),
+      maxMemoryMB: 192, // We hit the 150 MB default so 200 MB helps
+      numAbbreviations: 30,
+      recipLearningRate: 2090,
+      modelMaxCount: 4,
+      modelRecipBaseCount: 41,
+      precision: 16,
+      sparseSelectors: [0, 1, 2, 3, 5, 7, 11, 13, 22, 42, 57, 209],
     });
 
-    await packer.optimize(parameterOptimizationLevel);
+    // await packer.optimize(parameterOptimizationLevel);
 
     return packer.makeDecoder();
   });
@@ -217,7 +222,7 @@ export function viteJs13k(buildLevel = 'full') {
       const args = [
         '--recompress',
         '--shrink-insane',
-        `--iter=${buildLevel === 'slow' ? 100 : 1000}`,
+        `--iter=${buildLevel === 'slow' ? 100 : 6000}`,
       ];
 
       args.push('dist/game.zip');
