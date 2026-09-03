@@ -19,14 +19,14 @@ export { lights };
 
 // One hull of every colour, lined up to see how the light falls across them
 export const debugCrafts = (game) => [
-  colors.black,
+  ['#000', '#111', '#222', '#879', '#200'],
   colors.red,
   colors.orange,
   colors.yellow,
   colors.green,
   colors.cyan,
   colors.violet,
-  colors.black,
+  ['#000', '#111', '#222', '#879', '#200'],
   colors.white,
 ].map((shades, i) => new Ship({
   shades,

@@ -11,7 +11,7 @@ export const explosive = {
   fuse: 3,
   glow: true,
   health: 15,
-  lineColor: colors.black[2],
+  lineColor: '#222',
   lines: [[[-6, 0], [6, 0]]],
   name: 'EXPLOSIVE',
   points: [[-9, -5], [9, -5], [9, 5], [-9, 5]],

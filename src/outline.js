@@ -1,5 +1,3 @@
-import { colors } from './colors';
-
 export const outline = (ctx, path) => {
   const outlinePath = new Path2D();
 
@@ -10,7 +8,7 @@ export const outline = (ctx, path) => {
   });
 
   ctx.save();
-  ctx.strokeStyle = `${colors.black[0]}7`;
+  ctx.strokeStyle = '#0007';
   ctx.stroke(outlinePath);
   ctx.restore();
 };
