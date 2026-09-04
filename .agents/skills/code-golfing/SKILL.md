@@ -479,3 +479,36 @@ construction. The retained changes took advzip from 13832B to 13809B (and
   regressed by 23 bytes (to 13832B advzip): while `Array.from` is used elsewhere,
   `isArray` is an unshared identifier and disrupts Roadroller's reuse of the
   `foo.call ? foo(...) : foo` pattern.
+
+## Measured shrapnel and particle experiments
+
+`build:slow`, seed `13312`, against `src/shrapnel.js` and `src/particles.js`.
+The retained changes took advzip from 13809B to 13745B (and `build:full` from
+13807B to 13743B).
+
+- Simplifying `spray` to take `(x, y, color, carry)` without the unused `amount`
+  loop/math and reading `carry.velocity` directly in `movePoint(carry.velocity, angle, pace)`
+  saved 19 bytes and allowed removing the `Vector` import from `shrapnel.js`.
+- Dropping alpha/transparency from sparks removed `ctx.globalAlpha` entirely,
+  and simplified spark life to a single `health: 0.25 + Math.random() * 0.25`
+  countdown (`spark.health -= dt`), dropping the `decay` property from sparks
+  for an additional 4B save.
+- Removing `|| 1` from `Math.hypot(spark.dx, spark.dy)` in `renderSparks` saved
+  3-4 bytes, as sparks always have non-zero velocity and never divide by zero.
+- Removing `drag` (linear speed without per-frame exponential slowdown) eliminated
+  the `slow` calculation and inlined clean `(spark.health -= dt) > 0`
+  movement.
+- Removing `ctx.lineCap = 'round'` in `renderSparks` removed the only `lineCap`
+  property access across the entire codebase.
+- Rounding spark speed to `100` matched the round constant patterns.
+- Inlining pace as `40 + Math.random() * 60` cost 26 bytes compared to
+  `100 * (1 - Math.random() * spread)` due to Roadroller's context matching.
+- Stubbing/commenting unused road particle generators in `particles.js` removed
+  dead color-palette queries.
+- Removing `ctx.lineCap = 'round'` in `renderSparks` removed the only `lineCap`
+  property access across the entire codebase.
+- Rounding spark speed to `100` matched the round constant patterns.
+- Inlining pace as `40 + Math.random() * 60` cost 26 bytes compared to
+  `100 * (1 - Math.random() * spread)` due to Roadroller's context matching.
+- Stubbing/commenting unused road particle generators in `particles.js` removed
+  dead color-palette queries.

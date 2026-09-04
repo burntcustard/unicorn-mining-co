@@ -125,7 +125,7 @@ export const grind = (target) => {
 
   // Sparks stream off wherever the horn is biting for as long as it grinds,
   // in the colour of the asteroid's own outline
-  spray(target.grindX, target.grindY, target.grindColor, 1, target.grindCarry);
+  spray(target.grindX, target.grindY, target.grindColor, target.grindCarry);
 
   damage(target, target.grinding);
   // Set fresh each update it is touched, so damage is applied only once

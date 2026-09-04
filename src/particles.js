@@ -1,15 +1,13 @@
-import { colors } from './colors';
+// import { colors } from './colors';
 
 /**
  * Sparks streaming along a road, so that an empty stretch of space reads as
  * something that will sweep a ship along it.
  *
- * They are kept in road coordinates: `along` is how far down the road a spark
- * has got, and `across` is where it sits between the two edges. Each one winks
- * in and out somewhere along the way rather than running the whole length, so
- * that no two look alike and neither end of a road looks like a starting line.
+ * ROADS ARE CURRENTLY UNUSED (commented out to save space)
  */
 
+/*
 // Colors that are there to stand out, rather than the ones meant to sit
 // behind things, which would be lost against the background
 const backdrops = ['black', 'purple', 'white'];
@@ -30,11 +28,6 @@ const respawn = (spark, distance) => {
   spark.lifetime = Math.random() * sparklifetimetime;
 };
 
-/**
- * @param {Number} count - Rounded down, so a road too small for one gets none.
- * @param {Number} distance - How far down the road the sparks may start.
- * @returns {Object[]} sparks
- */
 export const makeSparks = (count, distance) => Array.from({ length: count }, () => {
   const spark = {};
 
@@ -43,12 +36,6 @@ export const makeSparks = (count, distance) => Array.from({ length: count }, () 
   return spark;
 });
 
-/**
- * @param {Object[]} sparks
- * @param {Number} distance - How far the road runs.
- * @param {Number} speed - How fast the sparks travel down it.
- * @param {Number} dt - Seconds since the last update.
- */
 export const updateSparks = (sparks, distance, speed, dt) => {
   sparks.forEach((spark) => {
     spark.along += speed * dt;
@@ -57,3 +44,8 @@ export const updateSparks = (sparks, distance, speed, dt) => {
     if (spark.lifetime <= 0 || spark.along > distance) respawn(spark, distance);
   });
 };
+*/
+
+export const makeSparks = () => [];
+
+export const updateSparks = () => {};
