@@ -269,19 +269,32 @@ export const renderDocked = (game, ship) => {
   ctx.fillRect(outerPadding, top - listInset, width, height);
 
   menu.forEach((_, i) => {
-    const disabled = actionMenu && i !== currentItem;
-
-    renderButton(ctx, ...col0, menuY(i), !actionMenu && i === currentItem, disabled);
+    renderButton(
+      ctx,
+      ...col0,
+      menuY(i),
+      !actionMenu && i === currentItem,
+      actionMenu && i !== currentItem,
+    );
   });
-  if (!actionMenu || hullMenu) renderButton(ctx, ...col0, bottom, !hullMenu && currentItem === menu.length, hullMenu);
+
+  if (!actionMenu || hullMenu) {
+    renderButton(
+      ctx,
+      ...col0,
+      bottom,
+      !hullMenu && currentItem === menu.length,
+      hullMenu,
+    );
+  }
 
   if (actionMenu) {
-    const actionY = menuY(currentItem) + rowGap;
-
     actionButtons.forEach((button, i) => {
       renderButton(
-        ctx, col0[0] + button.x, col0[0] + button.x + button.width,
-        actionY,
+        ctx,
+        col0[0] + button.x,
+        col0[0] + button.x + button.width,
+        menuY(currentItem) + rowGap,
         focused === i,
       );
     });
