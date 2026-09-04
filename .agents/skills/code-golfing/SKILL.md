@@ -91,6 +91,17 @@ class of bug, since it only appears after a real Terser build.
 - Assuming recomputation is worse than reusing existing state, or the reverse.
   Either can win; measure.
 
+## Measured build pipeline compressor experiments
+
+`build:slow`, September 2026, from 13864B baseline.
+
+- `compress: { pure_getters: true }` saved 32B after `advzip` (to 13832B).
+  This assumes property reads have no side effects, so re-evaluate it if the
+  game adds accessor properties.
+- Disabling JSZip's `streamFiles` flag removed the one entry's 16B data
+  descriptor before `advzip`, but recompression still produced a 13832B ZIP.
+  Keep streaming enabled; it has no release-size cost.
+
 ## Measured background experiments
 
 `build:slow`, seed `13312`, against the September 2026 background rewrite. The

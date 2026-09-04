@@ -36,6 +36,7 @@ export default defineConfig(({ mode, command }) => {
           unsafe_arrows: true,
           unsafe_comps: true,
           unsafe_math: true,
+          pure_getters: true,
         },
         // downKeys is written with a computed key (event.key.slice(-2)),
         // so its literal reads in player.js must be reserved or property
