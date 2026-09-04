@@ -8,6 +8,10 @@ description: Shrink Unicorn Mining Co.'s built ZIP. Use when optimizing, minifyi
 Size is judged by the built ZIP and nothing else. Read the measured experiments
 at the bottom before spending a build on an idea somebody has already priced.
 
+For a full per-file size breakdown of the built JS, index.html, and ZIP, see
+[build-size-breakdown.md](../../build-size-breakdown.md). For the analysis
+methodology and tool inner workings, see the [build-size-analysis](../build-size-analysis/SKILL.md) skill.
+
 ## How to measure
 
 - Roadroller compresses repeated code well, so fewer source characters do not
