@@ -102,12 +102,12 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
   }], {
     allowFreeVars: true,
     maxMemoryMB: 192, // We hit the 150 MB default so 192 MB helps
-    numAbbreviations: 22,
-    recipLearningRate: 1910,
+    numAbbreviations: 25,
+    recipLearningRate: 2286,
     modelMaxCount: 4,
     modelRecipBaseCount: 40,
-    precision: 15,
-    sparseSelectors: [0, 1, 2, 3, 5, 7, 10, 13, 29, 58, 197, 305],
+    precision: 16,
+    sparseSelectors: [0, 1, 2, 3, 5, 7, 11, 14, 21, 57, 210, 417],
   });
 
   const { firstLine, secondLine } = packer.makeDecoder();
