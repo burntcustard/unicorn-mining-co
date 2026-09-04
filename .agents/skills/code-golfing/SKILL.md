@@ -457,3 +457,25 @@ decay took advzip from 13814B to 13813B, so the reuse of `health` was free.
   the `* this.decay` it removes. Keep `decay` as a per-object rate, and let a
   rock chunk wear away at its own mined health (rate 6, so a bigger lump lasts
   a little longer).
+
+## Measured segment outline and path experiments
+
+`build:slow`, seed `13312`, against the `src/ship.js` segment pathing and shape
+construction. The retained changes took advzip from 13832B to 13809B (and
+`build:full` from 13831B to 13807B).
+
+- Deleting the `pathFor` helper entirely and inlining conditional spread
+  `...(points && { path: (segment) => shapePath(points.call ? points(segment) : points, unclosed) })`
+  into `makeSegment` saved 23 bytes (advzip). Segments without `points` (e.g.
+  the shield bubble) inherit `part.path` directly via prototype from
+  `Object.create(part)`.
+- Reusing the `.call ? ... : ...` idiom matches `Ship.render`'s `lines.call`
+  and `hitboxes()`, letting Roadroller deduplicate the expression across the
+  module without introducing unique unmangled method names.
+- Checking `shape = points?.[0] && shapeOf(points, mount)` saved 2 bytes over
+  `Array.isArray(points)` in full builds, and completely eliminated
+  `Array.isArray` from the minified bundle.
+- Re-adding `Array.isArray(points)` into `makeSegment` (`Array.isArray(points) ? points : points(segment)`)
+  regressed by 23 bytes (to 13832B advzip): while `Array.from` is used elsewhere,
+  `isArray` is an unshared identifier and disrupts Roadroller's reuse of the
+  `foo.call ? foo(...) : foo` pattern.

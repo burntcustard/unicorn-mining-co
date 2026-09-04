@@ -97,18 +97,6 @@ const nozzleLevel = (thrusterNozzleSide, forward, turn) => {
   return turn === -thrusterNozzleSide ? 1 : forward * steeringEase;
 };
 
-// A part's optional outline is either fixed points or a function that returns
-// points for its current segment, so animated modules can update their shape.
-const pathFor = ({ path, points, unclosed }) => {
-  if (Array.isArray(points)) {
-    const fixed = shapePath(points, unclosed);
-
-    return () => fixed;
-  }
-
-  return points ? (segment) => shapePath(points(segment), unclosed) : path;
-};
-
 const bounceOf = (segment) => {
   const { bounciness } = segment.module;
   const value = typeof bounciness === 'function' ? bounciness(segment) : bounciness;
@@ -117,8 +105,8 @@ const bounceOf = (segment) => {
 };
 
 const makeSegment = (craft, craftModule = {}, part, mount) => {
-  const { glow, points } = part;
-  const shape = Array.isArray(points) && shapeOf(points, mount);
+  const { glow, points, unclosed } = part;
+  const shape = points?.[0] && shapeOf(points, mount);
   const health = mount ? undefined : part.health;
   // A thruster's flare is up about as soon as the key is down, unless told
   // otherwise, either on the module itself or (as the shield's bubble does)
@@ -130,13 +118,13 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
   return Object.assign(Object.create(part), {
     ...craftModule.state?.(),
     ...shape,
+    ...(points && { path: (segment) => shapePath(points.call ? points(segment) : points, unclosed) }),
     activationProgress: 0,
     health,
     hull: !mount,
     module: craftModule,
     mount,
     active: 0,
-    path: pathFor(part),
     power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
     rate: 1 / duration,
