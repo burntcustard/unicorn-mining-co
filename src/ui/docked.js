@@ -25,6 +25,15 @@ const colGap = 10;
 const rowPad = 4;
 const textPad = 8;
 
+// The paints on offer, which is every colour but the two the panel itself is
+// drawn in
+const paints = Object.values(colors).filter((_, i) => i - 5 && i - 7);
+
+// How far a paint square sits in from its square button's edge, and the size
+// that leaves it
+const swatchInset = 5;
+const swatchSize = rowGap - rowPad - swatchInset * 2;
+
 // Which mount is picked out, which of its fitting modules, and how far into
 // picking one out the pilot has got: 0 browsing mounts, 1 browsing modules
 // that fit the one picked out, 2 choosing an action for that module.
@@ -78,13 +87,23 @@ const moduleOf = (ship, mount) => hullMenu ?
     cargoOf(ship)[moduleOption]?.[0] :
     mount?.fits[moduleOption];
 
+// Paint is kept per mount, so there is only something to colour once this slot
+// is the one wearing the module
+const paintsOf = (mount, module) =>
+  (!cargoMenu && (hullMenu || mount?.module === module) && paints) || [];
+
+// The colour the thing being looked at is wearing now, which the segments
+// carrying it already know
+const shadesOf = (ship, mount) => hullMenu ? ship.shades : mount?.segments?.[0]?.shades;
+
 /**
  * Move focus in the current menu.
  *
  * @param {Number} delta - -1 or 1.
  * @param {Object} ship
+ * @param {Boolean} sub - Set by the alternate controls, which stay on one row.
  */
-export const moveSelection = (delta, ship) => {
+export const moveSelection = (delta, ship, sub) => {
   const mounts = ship.mounts;
 
   if (stage === 0) {
@@ -96,18 +115,34 @@ export const moveSelection = (delta, ship) => {
   } else {
     const mount = mounts[mountOption - 2];
     const module = moduleOf(ship, mount);
+    const swatches = paintsOf(mount, module);
     const actions = menuActions(ship, mount, module);
-    focused = Math.max(0, Math.min(actions.length, focused + delta));
+    const first = actions.length + 1;
+    const onPaints = focused >= first;
+
+    // Down drops from the action row onto the paint row, landing on the colour
+    // already worn, and up comes back off it. Any other move runs along the
+    // row focus is already on
+    if (!sub && onPaints && delta < 0) {
+      focused = 0;
+    } else if (!sub && !onPaints && delta > 0 && swatches.length) {
+      focused = first + Math.max(0, swatches.indexOf(shadesOf(ship, mount)));
+    } else if (onPaints) {
+      focused = Math.max(first, Math.min(first + swatches.length - 1, focused + delta));
+    } else {
+      focused = Math.max(0, Math.min(actions.length, focused + delta));
+    }
   }
 };
 
 /**
- * Move focus with the alternate directional controls.
+ * Move focus with the alternate directional controls, which run along the row
+ * focus is on rather than between rows.
  *
  * @param {Number} delta - -1 or 1.
  * @param {Object} ship
  */
-export const moveSubSelection = moveSelection;
+export const moveSubSelection = (delta, ship) => moveSelection(delta, ship, 1);
 
 /**
  * Step back out of the current docked menu.
@@ -155,6 +190,20 @@ export const confirmSelection = (ship) => {
   const currentModule = moduleOf(ship, mount);
   const actions = menuActions(ship, mount, currentModule);
   const picked = actions[focused];
+  // The swatch row sits after the actions and their BACK button
+  const shades = paintsOf(mount, currentModule)[focused - actions.length - 1];
+
+  if (shades) {
+    if (hullMenu) {
+      ship.shades = shades;
+      ship.segments.filter(({ hull }) => hull).forEach((segment) => segment.shades = shades);
+    } else {
+      (currentModule.paints ||= [])[ship.mounts.indexOf(mount)] = shades;
+      mount.segments.forEach((segment) => segment.shades = shades);
+    }
+
+    return;
+  }
 
   if (!picked) return back(ship);
 
@@ -244,19 +293,28 @@ export const renderDocked = (game, ship) => {
   const currentHull = item === 'HULL';
   const cargoItems = item === 'CARGO' ? cargo : cargoMenu && stage && item && [item];
   const actions = actionMenu ? menuActions(ship, mount, currentModule) : [];
+  const swatches = actionMenu ? paintsOf(mount, currentModule) : [];
+  const selected = shadesOf(ship, mount);
   const info = currentHull || cargoItems || currentModule || mount?.module;
   const health = currentHull ? hulls.reduce((total, { health }) => total + health, 0) : mount?.module === info ? mount?.health : info?.health;
   const maxHealth = currentHull ? ship.hullSegments.reduce((total, { health }) => total + health, 0) : info?.health;
   let actionX = 0;
   const actionButtons = [];
+  // The action row, and the swatch row under it when there is paint to pick
+  const extraRows = actionMenu + Boolean(swatches.length);
+  const menuY = (i) => top + (i + (i > currentItem ? extraRows : 0)) * rowGap;
+  const actionY = menuY(currentItem) + rowGap;
 
   [...actions, 'BACK'].forEach((item) => {
     const width = item.length * 13 * textSize + textPad * 2;
 
-    actionButtons.push({ item, width, x: actionX });
+    actionButtons.push({ item, width, x: col0[0] + actionX, y: actionY });
     actionX += width + rowPad;
   });
-  const menuY = (i) => top + (i + (i > currentItem ? actionMenu : 0)) * rowGap;
+  // Square buttons of their own on the row below, carrying on the same focus
+  swatches.forEach((shades, i) => actionButtons.push({
+    shades, width: rowGap - rowPad, x: col0[0] + i * rowGap, y: actionY + rowGap,
+  }));
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
@@ -285,14 +343,19 @@ export const renderDocked = (game, ship) => {
   }
 
   if (actionMenu) {
-    actionButtons.forEach((button, i) => {
-      renderButton(
-        ctx,
-        col0[0] + button.x,
-        col0[0] + button.x + button.width,
-        menuY(currentItem) + rowGap,
-        focused === i,
-      );
+    actionButtons.forEach(({ shades, width, x, y }, i) => {
+      renderButton(ctx, x, x + width, y, focused === i);
+
+      // A paint is outlined while it is only on offer, filled in once it is worn
+      if (shades) {
+        if (shades === selected) {
+          ctx.fillStyle = shades[2];
+          ctx.fillRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
+        }
+
+        ctx.strokeStyle = shades[2];
+        ctx.strokeRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
+      }
     });
   }
 
@@ -325,12 +388,9 @@ export const renderDocked = (game, ship) => {
   });
 
   if (actionMenu) {
-    actionButtons.forEach((button) => {
-      renderText(
-        game, button.item, col0[0] + button.x + textPad,
-        menuY(currentItem) + rowGap + 2, textSize, colors.violet[2],
-      );
-    });
+    actionButtons.forEach(({ item, x, y }) => item && renderText(
+      game, item, x + textPad, y + 2, textSize, colors.violet[2],
+    ));
   }
 
   if (!actionMenu || hullMenu) renderText(game, hullMenu ? 'EXIT' : stage ? 'BACK' : 'EXIT', col0[0] + textPad, top + rowGap * 10 + 2, textSize, hullMenu ? `${colors.violet[2]}6` : colors.violet[2]);

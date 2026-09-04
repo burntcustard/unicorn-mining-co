@@ -177,6 +177,34 @@ Re-measure if the surrounding code changes substantially.
 - Replacing the one-use `layoutButtons` helper with a preallocated action-button
   array populated by `forEach` saved 4B under `build:full`*. An inline `map`
   layout cost 14B; a `reduce` form saved 3B.
+- Paint swatches (2026-09-04, `build:full`*): a shared `renderSwatch(ctx, x, y,
+  size, color, wash)` exported from `ui/controls.js` and called from both the
+  module-panel boxes and the docked paint swatches cost 20B more (13462B) than
+  writing the same `fillStyle`/`fillRect`/`strokeStyle`/`strokeRect` sequence
+  inline at both sites (13442B). Roadroller compresses the literally-repeated
+  statement block better than a call site pair plus a cross-module export, so
+  prefer duplicated identical drawing code over a tiny shared canvas helper.
+- Paint swatch navigation and rendering (2026-09-04, `build:fast`, 13506B
+  baseline). Wins: folding the separate `moveSubSelection` body into
+  `moveSelection` behind a third `sub` argument saved 5B; dropping the
+  remembered `actionFocus` (up off the paint row lands on the first action
+  instead of the last one used) saved 22B; reading the worn paint off
+  `mount.segments[0].shades`/`ship.shades` instead of recomputing it from
+  `module.paints[mountIndex] || module.shades || ship.shades` saved 3B.
+  Losses, all reverted: unifying the hull and module repaint into one
+  `forEach` over a chosen segment list cost 3B; merging the two focus clamps
+  into shared `lo`/`hi` locals cost 2B; landing on the first swatch instead of
+  the worn one cost 5B *despite* less source; `ctx.strokeStyle = ctx.fillStyle
+  = shades[2]` with a one-line conditional `fillRect` cost 11B; hoisting the
+  repeated `y - rowPad + swatchInset` into a local cost 5B; precomputing the
+  square as a `square` array spread into `fillRect(...square)` cost 12B; and
+  deleting the `moveSubSelection` wrapper so `main.js` calls
+  `moveSelection(±1, playerShip, 1)` cost 8B. The theme: repeated *identical*
+  expression text is nearly free, and any local or spread that breaks the
+  repetition costs more than it saves. Folding the swatch buttons into the
+  existing `actionButtons` array (one layout, one render loop, `focused === i`
+  throughout) was net-neutral at +3B and was kept for clarity. Net 13506B ->
+  13479B.
 
 ## Measured positional-argument experiments
 

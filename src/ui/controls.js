@@ -16,13 +16,11 @@ const glyph = 13 * textSize;
 const lineHeight = 15 * textSize;
 
 // How far the panel sits in from the corner, how far one row drops below the
-// last, the size of a box and the gap from it to the name beside it, and how
-// far in from a box's edge its blue "on" square sits
+// last, the size of a module's swatch and the gap from it to the name beside it
 const inset = 16;
 const rowGap = 15;
 const box = 8;
 const gap = 6;
-const fill = 2;
 
 // How far in from each side of a letter its key-underline is drawn, and how far
 // below the row's top it sits
@@ -67,17 +65,15 @@ export const renderControls = (game, ship) => {
   modules.forEach((module, i) => {
     const y = top + i * rowGap;
 
-    // An empty box is a violet outline over a wash of the same; a running one
-    // carries a blue square inside it
-    ctx.fillStyle = `${colors.violet[2]}3`;
-    ctx.fillRect(boxX, y, box, box);
+    // Drawn the same way round as the docked menu's paint swatches: outlined
+    // while the module is idle, filled in while it runs
+    if (isOn(ship, module)) {
+      ctx.fillStyle = colors.violet[2];
+      ctx.fillRect(boxX, y, box, box);
+    }
+
     ctx.strokeStyle = colors.violet[2];
     ctx.strokeRect(boxX, y, box, box);
-
-    if (isOn(ship, module)) {
-      ctx.fillStyle = colors.cyan[2];
-      ctx.fillRect(boxX + fill, y + fill, box - fill * 2, box - fill * 2);
-    }
 
     // A line under the one letter of the name that is the key to work it, a
     // touch narrower than the letter and dropped just below it
