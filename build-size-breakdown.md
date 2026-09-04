@@ -87,6 +87,71 @@ For the complete methodology, sourcemap VLQ decoding script, and tool inner-work
 
 ---
 
+## Detailed Component Breakdown: `src/ship.js` (5,812 B total)
+
+Below is the code-chunk level breakdown of [src/ship.js](src/ship.js) (the largest single file in the build, representing 14.68% of minified JS).
+
+| Code Chunk / Symbol | Minified Bytes | % of File | % of Total JS | Est. `dist/index.html` | Est. `dist/game.zip` |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| `Ship.render()` method | 944 B | 16.24% | 2.38% | 433 B | 327 B |
+| `Ship.fracture()` method | 828 B | 14.25% | 2.09% | 379 B | 287 B |
+| `Ship.hitboxes()` method | 551 B | 9.48% | 1.39% | 252 B | 191 B |
+| `class Ship` (header & metadata) | 486 B | 8.36% | 1.23% | 223 B | 169 B |
+| `Ship.update()` method | 470 B | 8.09% | 1.19% | 215 B | 163 B |
+| `mustang` hull data object | 460 B | 7.91% | 1.16% | 211 B | 160 B |
+| `makeSegment()` helper | 409 B | 7.04% | 1.03% | 187 B | 142 B |
+| `Ship.fixHull()` method | 248 B | 4.27% | 0.63% | 114 B | 86 B |
+| `Ship.constructor()` method | 245 B | 4.22% | 0.62% | 112 B | 85 B |
+| `Ship.detach()` method | 237 B | 4.08% | 0.60% | 109 B | 82 B |
+| Other / Terser IIFE Wrapper | 193 B | 3.32% | 0.49% | 88 B | 67 B |
+| `damage()` helper function | 124 B | 2.13% | 0.31% | 57 B | 43 B |
+| `Ship.fit()` method | 109 B | 1.88% | 0.28% | 50 B | 38 B |
+| `Ship.get slots()` getter | 56 B | 0.96% | 0.14% | 26 B | 19 B |
+| `Ship.fly()` method | 53 B | 0.91% | 0.13% | 24 B | 18 B |
+| `bounceOf()` helper function | 41 B | 0.71% | 0.10% | 19 B | 14 B |
+| `Ship.get forwardThrust()` getter | 36 B | 0.62% | 0.09% | 16 B | 12 B |
+| `Ship.get maxSpeed()` getter | 34 B | 0.58% | 0.09% | 16 B | 12 B |
+| `Ship.supply()` method | 33 B | 0.57% | 0.08% | 15 B | 11 B |
+| `nozzleLevel()` helper function | 30 B | 0.52% | 0.08% | 14 B | 10 B |
+| `active()` helper function | 28 B | 0.48% | 0.07% | 13 B | 10 B |
+| `Ship.unfit()` method | 28 B | 0.48% | 0.07% | 13 B | 10 B |
+| `Ship.momentum()` method | 28 B | 0.48% | 0.07% | 13 B | 10 B |
+| `glowStrength` & constants | 27 B | 0.46% | 0.07% | 12 B | 9 B |
+| `Ship.toggle()` method | 26 B | 0.45% | 0.07% | 12 B | 9 B |
+| `approach()` helper function | 20 B | 0.34% | 0.05% | 9 B | 7 B |
+| `Ship.add()` method | 16 B | 0.28% | 0.04% | 7 B | 6 B |
+| Imports & Module Setup | 13 B | 0.22% | 0.03% | 6 B | 5 B |
+| `Ship.get rotationalThrust()` getter | 9 B | 0.15% | 0.02% | 4 B | 3 B |
+| `healthOf()` helper function | 9 B | 0.15% | 0.02% | 4 B | 3 B |
+| `centerOf()` helper function | 9 B | 0.15% | 0.02% | 4 B | 3 B |
+| `Ship.remove()` method | 7 B | 0.12% | 0.02% | 3 B | 2 B |
+| `hullBounciness` constant | 5 B | 0.09% | 0.01% | 2 B | 2 B |
+
+---
+
+## Detailed Component Breakdown: `src/ui/docked.js` (4,622 B total)
+
+Below is the code-chunk level breakdown of [src/ui/docked.js](src/ui/docked.js) (the second largest file, representing 11.67% of minified JS).
+
+| Code Chunk / Symbol | Minified Bytes | % of File | % of Total JS | Est. `dist/index.html` | Est. `dist/game.zip` |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| `renderDocked()` export function | 1,900 B | 41.11% | 4.80% | 871 B | 659 B |
+| `confirmSelection()` export function | 1,145 B | 24.77% | 2.89% | 525 B | 397 B |
+| `moveSelection()` export function | 471 B | 10.19% | 1.19% | 216 B | 163 B |
+| `moveSubSelection()` export function | 240 B | 5.19% | 0.61% | 110 B | 83 B |
+| `renderButton()` helper function | 179 B | 3.87% | 0.45% | 82 B | 62 B |
+| `actionsOf()` helper function | 139 B | 3.01% | 0.35% | 64 B | 48 B |
+| Other / Terser IIFE Wrapper | 120 B | 2.60% | 0.30% | 55 B | 42 B |
+| `cargoOf()` helper function | 118 B | 2.55% | 0.30% | 54 B | 41 B |
+| Layout constants & State variables (`mountOption`, `stage`, etc.) | 108 B | 2.34% | 0.27% | 49 B | 37 B |
+| `layoutButtons()` helper function | 79 B | 1.71% | 0.20% | 36 B | 27 B |
+| `hullActionsOf()` helper function | 58 B | 1.25% | 0.15% | 27 B | 20 B |
+| `back()` export function | 42 B | 0.91% | 0.11% | 19 B | 15 B |
+| `paintsOf()` helper function | 18 B | 0.39% | 0.05% | 8 B | 6 B |
+| Imports & Module Setup | 5 B | 0.11% | 0.01% | 2 B | 2 B |
+
+---
+
 ## Takeaways & Size Insights
 
 1. **Top Files Concentration**:
@@ -94,11 +159,21 @@ For the complete methodology, sourcemap VLQ decoding script, and tool inner-work
    * **Top 5 files** (`src/ship.js`, `src/ui/docked.js`, `src/prism.js`, `src/asteroid.js`, `src/collisions.js`) account for **45.91%** of all JavaScript (18,182 minified bytes, ~6,306 bytes in `game.zip`).
    * **Top 10 files** account for **65.88%** of the total JS payload.
 
-2. **Subfolder Aggregates**:
+2. **`src/ship.js` Internal Dominance (5,812 B total)**:
+   * **Rendering & Physics/Debris**: `Ship.render()` (944 B, 16.24%), `Ship.fracture()` (828 B, 14.25%), and `Ship.hitboxes()` (551 B, 9.48%) make up nearly **40%** of the file (2,323 B total).
+   * **Data Objects & Helpers**: `mustang` hull definition array (460 B) and `makeSegment()` helper (409 B) together cost 869 B (~15% of the file).
+   * **`Ship` Class Machinery**: Class declaration header, constructor, `update()`, and `fixHull()` together account for 1,449 B (~25% of the file).
+
+3. **`src/ui/docked.js` Internal Dominance (4,622 B total)**:
+   * **Rendering**: `renderDocked()` alone takes **1,900 B** (41.11% of the file, 4.80% of all minified JS).
+   * **State & Interaction Handling**: `confirmSelection()` takes **1,145 B** (24.77% of the file) and `moveSelection()` takes **471 B** (10.19% of the file).
+   * **Combined Impact**: These 3 functions alone constitute **76.07%** of `src/ui/docked.js` (3,516 B total, ~1,219 B in `game.zip`).
+
+4. **Subfolder Aggregates**:
    * **`src/ui/`**: 5,893 minified bytes (**14.88%** of JS, ~2,044 B in `game.zip`).
    * **`src/modules/`**: 1,521 minified bytes (**3.84%** of JS, ~528 B in `game.zip`).
    * **`src/items/`**: 689 minified bytes (**1.74%** of JS, ~239 B in `game.zip`).
 
-3. **Zero-Byte Files & Dead Code Elimination**:
+5. **Zero-Byte Files & Dead Code Elimination**:
    * Files wrapped under `// @ifdef DEBUG` or `// @ifdef BENCHMARK` (`src/benchmark.js`, `src/colors-demo.js`, `src/fps.js`, `src/section-test.js`, `src/text-demo.js`) are completely eliminated in `build:full` mode during `viteJs13kPre` pre-processing.
    * Dead source files (`src/craft-render.js`, `src/debug.js`, `src/items/cache.js`, `src/items/platinum.js`, `src/modules/index.js`, `src/modules/thruster-single-md.js`, `src/particles.js`, `src/road.js`) have 0 imports or are fully tree-shaken by Rollup, costing 0 bytes in release builds.
