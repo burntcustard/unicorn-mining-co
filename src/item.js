@@ -29,13 +29,8 @@ const glowBeat = 0.5;
 const calmRate = 3;
 const panicRate = 14;
 
-// Every item is the same weight and shrugs off its speed at the same rate, so
-// they shove about and drift alike whatever they happen to be
+// Every item is the same weight, so they shove about alike whatever they are
 const itemMass = 6;
-const itemDrag = 2;
-
-// Fastest an item drifts on nothing but the speed it was given
-const itemMaxSpeed = 200;
 
 export class Item extends Sprite {
   constructor(props) {
@@ -50,10 +45,6 @@ export class Item extends Sprite {
     Object.assign(this, data);
     this.fill = shades[1];
     this.mass = itemMass;
-    this.drag = itemDrag;
-    // The fastest it settles back to on nothing but the speed it was given,
-    // having none of a ship's thrusters to work a top speed out of
-    this.maxSpeed = itemMaxSpeed;
     this.stroke = shades[2];
     // A cut item is hit on its corners, a round one on its radius alone
     this.outline = points;

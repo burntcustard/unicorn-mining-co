@@ -13,14 +13,8 @@ const asteroidBounciness = 0.1;
 // Enough of a wander that no two asteroids come out the same shape
 const asteroidVariance = 0.3;
 
-// Next to no drag of its own, so an asteroid coasts where a ship soon slows
-const asteroidDrag = 1;
-
 // Five sides keep the old radius-squared mass; fewer sides lose some, more gain some
 const massMultiplier = 0.2;
-
-// Fastest an asteroid settles back to on nothing but its starting speed
-const asteroidMaxSpeed = 70;
 // Bigger asteroids need more points to be lumpy with
 const pointsFor = (radius) => Math.round(Math.sqrt(radius) / 3) * 2 - 1;
 
@@ -81,9 +75,6 @@ export class Asteroid extends Sprite {
     this.bounciness = asteroidBounciness;
     this.scenery = true;
     this.stroke = colors.white[2];
-    // Drifts like everything else does, just with next to no drag of its own
-    this.drag = asteroidDrag;
-    this.maxSpeed = asteroidMaxSpeed;
     this.zIndex ??= -2;
 
     // An asteroid doesn't changes shape until split, so its outline is worked out only
@@ -143,6 +134,10 @@ export class Asteroid extends Sprite {
       // health instead: a bigger lump takes a little longer to go
       this.decay = 6;
     }
+  }
+
+  get maxSpeed() {
+    return 70;
   }
 
   split(groups) {

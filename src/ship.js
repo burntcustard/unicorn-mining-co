@@ -80,7 +80,6 @@ export const mustang = {
 const hullBounciness = 0.1; // Default restitution when a segment supplies none.
 const glowStrength = 0.15;
 const thrustScale = 220; // Converts thrust per unit mass into acceleration.
-const speedScale = 85; // Converts thrust per unit drag into maximum speed.
 const steeringEase = 0.5; // Forward thrust retained by a nozzle eased during a turn.
 const approach = (value, target, step) => (
   value + Math.max(-step, Math.min(step, target - value))
@@ -179,7 +178,6 @@ export class Ship extends Sprite {
     // shipful of it does not all wink out at once
     if (this.segments) {
       this.decay = 1;
-      this.drag = 0.2;
       this.health = 9 + Math.random();
       this.mass = this.segments.length;
 
@@ -214,7 +212,7 @@ export class Ship extends Sprite {
 
   // Only a crewed ship flies: debris and stations have no cockpit to fly from
   get maxSpeed() {
-    return this.cockpit ? speedScale * this.forwardThrust / this.drag : 180;
+    return this.cockpit ? 17 * this.forwardThrust : 180;
   }
 
   get forwardThrust() {
