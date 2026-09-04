@@ -27,7 +27,7 @@ const customReplacement = (src) => src
   // .replace(/model/g, '_model') // Increases size
   // .replace(/mount/g, '_mount') // Increases size
   .replace(/normalize/g, '_normalize')
-  // .replace(/offset/g, '_offset')
+  // .replace(/offset/g, '_offset') // Increases size by 2 B
   .replace(/(?<!\/)outline/g, '_outline')
   .replace(/points/g, '_points')
   .replace(/position/g, '_position')
