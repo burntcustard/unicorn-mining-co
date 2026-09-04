@@ -10,8 +10,8 @@ import { outline } from './outline';
  * Empty characters (',') are used to make the output array indexes match up
  * with the UTF-16 code units that String.prototype.charCodeAt() returns.
  *
- * Note that build:fast and build:slow show a size increase for using a long
- * string and .split()/.map() rather than defining the array directly, however
+ * Note that build:fast shows a size increase for using a long string and
+ * .split()/.map() rather than defining the array directly, however
  * build:full shows a size decrease. So a string it is.
  *
  * @type {Array}

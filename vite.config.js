@@ -3,9 +3,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode, command }) => {
   const buildLevels = {
-    fast: 1,
-    slow: 2,
+    fast: 2,
     full: 3,
+    search: 3,
   };
   const buildLevel = mode in buildLevels ? mode : 'full';
   const buildLevelNumber = buildLevels[buildLevel];

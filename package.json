@@ -10,8 +10,8 @@
     "world-preview": "node scripts/world-preview.js",
     "build": "npm run build:full",
     "build:fast": "vite build --mode fast",
-    "build:slow": "vite build --mode slow",
     "build:full": "vite build --mode full",
+    "build:search": "vite build --mode search",
     "test:collisions": "node tests/collisions.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

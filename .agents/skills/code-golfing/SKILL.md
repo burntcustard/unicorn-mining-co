@@ -21,9 +21,9 @@ methodology and tool inner workings, see the [build-size-analysis](../build-size
   directly.
 - Change one thing at a time and build between each, or the numbers mean
   nothing.
-- `npm run build:slow` for anything structural, `npm run build:fast` for a
-  single-line or localized change. Slow uses 100 advzip iterations, enough to
-  track the 1,000-iteration full build more realistically without its runtime.
+- `npm run build:fast` for any change while iterating, structural or
+  single-line. It uses 10 advzip iterations, quick enough for rapid iteration
+  while still reflecting real recompression.
   Do not use `build:full` while iterating: it has far more Terser passes, is too
   slow, and its absolute size is not the number to chase.
 - Report only the before/after advzip sizes and the difference.
@@ -116,7 +116,12 @@ class of bug, since it only appears after a real Terser build.
 
 ## Measured background experiments
 
-`build:slow`, seed `13312`, against the September 2026 background rewrite. The
+> \* The measurement sections below predate the 2026-09-04 build script change:
+> `build:slow` (100 advzip iterations) was renamed to `build:fast`, and the old
+> `build:fast` (1 pass, no advzip) was removed. Historical `build:slow`*/`build:full`*
+> sizes below are not directly comparable to today's `build:fast` (10 iterations).
+
+`build:slow`*, seed `13312`, against the September 2026 background rewrite. The
 retained background and shared-loop changes took advzip from 13524B to 13408B.
 
 - Moving the named sky modes and their `parts.includes(...)` guards wholly
@@ -149,7 +154,7 @@ retained background and shared-loop changes took advzip from 13524B to 13408B.
 
 ## Measured docking UI experiments
 
-`build:slow`, seed `13312`, against the August 2026 docking implementation.
+`build:slow`*, seed `13312`, against the August 2026 docking implementation.
 Re-measure if the surrounding code changes substantially.
 
 - Combining the dock menu's back and launch handling saved 5 bytes; literally moving its private stage into `main.js` was unnecessary.
@@ -165,17 +170,17 @@ Re-measure if the surrounding code changes substantially.
 - Removing BUY's repeated affordability branch while retaining `spend()` cost 27 bytes.
 - An explicit unique starter-module list cost 33 bytes; deduplicating it with `Set` cost 5 bytes.
 - Extracting the player key bindings cost 14 bytes as a local helper and 24–60 bytes across dependency-safe modules, callback parameters, split binders, or a `player.js`/docked-UI cycle, so the bindings stayed inline in `main.js`.
-- In a `build:full` docked-UI remeasure, inlining its two-use bottom position,
+- In a `build:full`* docked-UI remeasure, inlining its two-use bottom position,
   disabled-text colour, panel width, and `ship.slots` alias saved 16B together.
   Inlining the one-use `maxHealth` reduction instead cost 28B: keep expensive
   calculations cached even when their result has one consumer.
 - Replacing the one-use `layoutButtons` helper with a preallocated action-button
-  array populated by `forEach` saved 4B under `build:full`. An inline `map`
+  array populated by `forEach` saved 4B under `build:full`*. An inline `map`
   layout cost 14B; a `reduce` form saved 3B.
 
 ## Measured positional-argument experiments
 
-`build:slow`, seed `13312`, against the September 2026 docked UI. Test each
+`build:slow`*, seed `13312`, against the September 2026 docked UI. Test each
 conversion in its current surrounding output: Roadroller's dictionary means a
 result can change after another retained conversion.
 
@@ -202,7 +207,7 @@ result can change after another retained conversion.
 
 ## Measured floodlight prism experiments
 
-`build:slow`, seed `13312`, against the August 2026 rewrite of `src/prism.js`.
+`build:slow`*, seed `13312`, against the August 2026 rewrite of `src/prism.js`.
 
 - Folding the spectrum clip's scratch `Path2D` into the accumulated `covered` path saved 15 bytes.
 - Dropping the `range` property off the returned beam once nothing read it saved 18 bytes.
@@ -243,7 +248,7 @@ result can change after another retained conversion.
 
 ## Measured Path2D, outline and alpha experiments
 
-`build:slow`, seed `13312`, against the September 2026 outline and prism code.
+`build:slow`*, seed `13312`, against the September 2026 outline and prism code.
 
 - `Path2D.addPath` accepts a plain `DOMMatrix2DInit`. Replacing translation-only `new DOMMatrix().translate(...)` calls with `{ e, f }` saved 1 byte in `outline.js` and 3 bytes in `text.js`. Prefer this as the first experiment when only translation is needed.
 - For prism rotation plus translation, an inline six-property matrix object cost 3 bytes, writing transformed points directly into the mask cost 1, and caching trigonometry plus mapping the points cost 14. Reusing the already transformed outline through `mask.addPath(shapePath(outline))` saved 8 bytes and removed `DOMMatrix` from the build. In general, try to avoid constructing `DOMMatrix`, but measure full affine replacements: spelling out all six fields can lose.
@@ -253,7 +258,7 @@ result can change after another retained conversion.
 
 ## Measured cargo-scoop experiments
 
-`build:slow`, seed `13312`, against the September 2026 cargo-scoop model. The
+`build:slow`*, seed `13312`, against the September 2026 cargo-scoop model. The
 retained changes took advzip from 14295B to 14264B.
 
 - Replacing the two doors, each of which hid itself on the opposite mount, with
@@ -271,7 +276,7 @@ retained changes took advzip from 14295B to 14264B.
 
 ## Measured world generation experiments
 
-`build:slow`, seed `13312`, against the August 2026 world generation, taking
+`build:slow`*, seed `13312`, against the August 2026 world generation, taking
 13941B down to 13572B.
 
 - Replacing mulberry32 in `seeded-random.js` with a one-line LCG saved 25 bytes.
@@ -292,7 +297,7 @@ retained changes took advzip from 14295B to 14264B.
 
 ## Measured main and entity experiments
 
-`build:slow`, seed `13312`, against the late-August 2026 `main.js`, `Craft`,
+`build:slow`*, seed `13312`, against the late-August 2026 `main.js`, `Craft`,
 `Item`, `Asteroid`, and `Sprite` implementation. The retained set took advzip
 from 13514B to 13506B. Deltas below were measured one change at a time against
 the then-current retained baseline.
@@ -314,13 +319,13 @@ the then-current retained baseline.
 - Removing the currently unreachable dead-asteroid cargo-release branch cost 11 bytes, so it remained as defensive behavior.
 - Replacing the four-update modulo with a bitmask cost 18 bytes.
 - Making module keys uppercase and lowercasing them only while binding saved 1 byte. Packing both forms lowercase-first (`'dD'`), using index 0 for input and index 1 for the HUD, saved 15 bytes instead; uppercase-first was 3 bytes worse.
-- With `'dD'`, `key[0]`, and `key[1]` held constant under `build:full`, direct indexing was 13319B advzip, adding `toLowerCase` to the input was 13351B, adding both `toUpperCase` calls to the HUD was 13343B, and using all three conversions was 13366B.
+- With `'dD'`, `key[0]`, and `key[1]` held constant under `build:full`*, direct indexing was 13319B advzip, adding `toLowerCase` to the input was 13351B, adding both `toUpperCase` calls to the HUD was 13343B, and using all three conversions was 13366B.
 - Before slow builds used 100 advzip iterations, normalizing keyboard event keys to their final two characters saved 6 bytes. Searching registered fragments with `find`/`includes` cost 15 bytes, while expanding fragments with `includes` cost 59 bytes.
 - Under that earlier build, removing the unused `keyPressed` state saved 2 bytes, accepting one key per `bindKeys` call saved 3, optional callback invocation saved 4, and sharing one handler between keydown and keyup saved 1. Registering listeners at module load cost 5 bytes, and storing held state on callback functions cost 8 bytes.
 
 ## Measured player-state experiments
 
-`build:slow`, seed `13312`, against the September 2026 player implementation.
+`build:slow`*, seed `13312`, against the September 2026 player implementation.
 The retained set took advzip from 14254B to 14209B.
 
 - The BUY action already checks affordability while constructing its current
@@ -362,7 +367,7 @@ The retained set took advzip from 14254B to 14209B.
 
 ## Measured keyboard experiments with 100 advzip iterations
 
-`build:slow`, seed `13312`, against the September 2026 keyboard implementation.
+`build:slow`*, seed `13312`, against the September 2026 keyboard implementation.
 
 - Normalizing browser key names to their final two characters saved 33 bytes; restoring the array-based binding API cost 11 bytes, and restoring unused `keyPressed` bookkeeping cost 11 bytes.
 - Exporting `downKeys` for three direct player-control reads saved 2 bytes. Removing only `keyDown`'s `!!` coercion cost 28 bytes, while deleting unused unbinding exports was neutral.
@@ -373,7 +378,7 @@ The retained set took advzip from 14254B to 14209B.
 
 ## Measured ship and station refactor experiments
 
-`build:slow`, seed `13312`, against the September 2026 split of `craft.js` into
+`build:slow`*, seed `13312`, against the September 2026 split of `craft.js` into
 `ship.js` and `station.js`. The retained set took advzip from 13952B to 13823B.
 
 - Deleting the cached station hull gradient (`hullGradient`, `relightCraft`,
@@ -426,7 +431,7 @@ The retained set took advzip from 14254B to 14209B.
 
 ## Measured entity placement experiments
 
-`build:slow`, seed `13312`, continuing the ship and station refactor above.
+`build:slow`*, seed `13312`, continuing the ship and station refactor above.
 The retained set took advzip from 13816B to 13814B.
 
 - Moving the debris `lifetime` countdown out of both `Ship.update` and
@@ -449,7 +454,7 @@ The retained set took advzip from 13816B to 13814B.
 
 ## Measured debris decay experiments
 
-`build:slow`, seed `13312`. Replacing the `lifetime` countdown with health
+`build:slow`*, seed `13312`. Replacing the `lifetime` countdown with health
 decay took advzip from 13814B to 13813B, so the reuse of `health` was free.
 
 - `cockpit` already tells debris and stations apart from a crewed ship, so the
@@ -474,9 +479,9 @@ decay took advzip from 13814B to 13813B, so the reuse of `health` was free.
 
 ## Measured segment outline and path experiments
 
-`build:slow`, seed `13312`, against the `src/ship.js` segment pathing and shape
+`build:slow`*, seed `13312`, against the `src/ship.js` segment pathing and shape
 construction. The retained changes took advzip from 13832B to 13809B (and
-`build:full` from 13831B to 13807B).
+`build:full`* from 13831B to 13807B).
 
 - Deleting the `pathFor` helper entirely and inlining conditional spread
   `...(points && { path: (segment) => shapePath(points.call ? points(segment) : points, unclosed) })`
@@ -496,8 +501,8 @@ construction. The retained changes took advzip from 13832B to 13809B (and
 
 ## Measured shrapnel and particle experiments
 
-`build:slow`, seed `13312`, against `src/shrapnel.js` and `src/particles.js`.
-The retained changes took advzip from 13809B to 13745B (and `build:full` from
+`build:slow`*, seed `13312`, against `src/shrapnel.js` and `src/particles.js`.
+The retained changes took advzip from 13809B to 13745B (and `build:full`* from
 13807B to 13743B).
 
 - Simplifying `spray` to take `(x, y, color, carry)` without the unused `amount`

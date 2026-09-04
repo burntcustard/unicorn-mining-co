@@ -30,13 +30,16 @@
 
 | Command | Terser passes | Roadroller | advzip | Use |
 | --- | ---: | :---: | --- | --- |
-| `npm run build:fast` | 1 | ✅ | Skipped | Quick compilation checks and minor changes |
-| `npm run build:slow` | 4 | ✅ | 100 iterations | Size comparisons after larger changes |
+| `npm run build:fast` | 4 | ✅ | 10 iterations | Quick size comparisons for small changes |
 | `npm run build:full` | 9 | ✅ | 6,000 iterations | Reproducible release output and the final 13,312-byte check |
+| `npm run build:search` | 9 | Search | Skipped | Search forever for optimal Roadroller encoder parameters |
 
-`npm run build` runs the full build. `build:slow` uses 100 advzip
-recompression iterations so its size comparisons more closely reflect the
-6,000-iteration full build without taking as long. Fast and slow ZIPs may
+`npm run build` runs the full build. `build:fast` uses 10 advzip
+recompression iterations so its size comparisons are quick while still
+reflecting real recompression, unlike skipping it entirely. Fast ZIPs may
 exceed 13,312 bytes and are not release artifacts. Roadroller always runs
-with the same fixed encoder parameters, so every build's JS output is
-deterministic.
+with the same fixed encoder parameters in `build:fast`/`build:full`, so every
+build's JS output is deterministic. `build:search` instead builds
+`dist/minified.js` the same way as `build:full` and then runs an indefinite
+Roadroller CLI search for better encoder parameters (stop it with Ctrl+C when
+you've found something worth trying) — it does not produce a ZIP.

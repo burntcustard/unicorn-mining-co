@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { Packer } from 'roadroller';
 import advzip from 'advzip-bin';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import fs from 'fs';
 import { minify } from 'html-minifier-terser';
 
@@ -81,6 +81,12 @@ async function zip(content) {
   });
 }
 
+function writeMinifiedJs(scriptCode) {
+  console.log(`\nJS size: ${new Blob([scriptCode]).size}B (pre-roadroller)`);
+  fs.mkdirSync('dist', { recursive: true });
+  fs.writeFileSync('dist/minified.js', scriptCode);
+}
+
 export async function replaceScript(html, scriptFilename, scriptCode) {
   const reScript = new RegExp(`<script([^>]*?) src="[./]*${scriptFilename}"([^>]*)></script>`);
 
@@ -91,9 +97,7 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
     .replace('</body>', html.match(reScript)[0] + '</body')
     .replace(html.match(reScript)[0], '');
 
-  console.log(`\nJS size: ${new Blob([scriptCode]).size}B (pre-roadroller)`);
-  fs.mkdirSync('dist', { recursive: true });
-  fs.writeFileSync('dist/minified.js', scriptCode);
+  writeMinifiedJs(scriptCode);
 
   const packer = new Packer([{
     action: 'eval',
@@ -149,13 +153,20 @@ export function viteJs13k(buildLevel = 'full') {
 
           if (jsChunk.code != null) {
             bundlesToDelete.push(jsName);
-            replacedHtml = await replaceScript(replacedHtml, jsChunk.fileName, jsChunk.code);
+
+            if (buildLevel === 'search') {
+              writeMinifiedJs(jsChunk.code);
+            } else {
+              replacedHtml = await replaceScript(replacedHtml, jsChunk.fileName, jsChunk.code);
+            }
           }
         }
 
-        replacedHtml = await replaceHtml(replacedHtml);
-        htmlChunk.source = replacedHtml;
-        await zip(replacedHtml);
+        if (buildLevel !== 'search') {
+          replacedHtml = await replaceHtml(replacedHtml);
+          htmlChunk.source = replacedHtml;
+          await zip(replacedHtml);
+        }
       }
 
       for (const name of bundlesToDelete) {
@@ -163,14 +174,28 @@ export function viteJs13k(buildLevel = 'full') {
       }
     },
     closeBundle: async () => {
-      console.log(`\nZip size: ${fs.statSync('dist/game.zip').size}B`);
+      if (buildLevel === 'search') {
+        console.log('\nSearching for optimal Roadroller parameters (Ctrl+C to stop)...');
 
-      if (buildLevel === 'fast') return;
+        await new Promise((resolve, reject) => {
+          const search = spawn(
+            'npx',
+            ['roadroller', '-OO', '-M', '192', '-v', 'dist/minified.js', '-o', 'dist/roadrolled.js'],
+            { stdio: 'inherit' },
+          );
+          search.on('close', resolve);
+          search.on('error', reject);
+        });
+
+        return;
+      }
+
+      console.log(`\nZip size: ${fs.statSync('dist/game.zip').size}B`);
 
       const args = [
         '--recompress',
         '--shrink-insane',
-        `--iter=${buildLevel === 'slow' ? 100 : 6000}`,
+        `--iter=${buildLevel === 'fast' ? 10 : 6000}`,
       ];
 
       args.push('dist/game.zip');

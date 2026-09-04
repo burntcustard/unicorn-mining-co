@@ -35,7 +35,7 @@ The build pipeline in `unicorn-mining-co` consists of several chained stages:
 
 4. **ZIP Creation & Re-compression (`advzip`)**:
    * JSZip compresses `dist/index.html` into `dist/game.zip` with DEFLATE level 9.
-   * In `closeBundle` (for `build:slow` or `build:full`), `advzip` re-compresses `dist/game.zip` with `--shrink-insane` (6000 iterations in `full` build mode).
+   * In `closeBundle` (for `build:fast` or `build:full`), `advzip` re-compresses `dist/game.zip` with `--shrink-insane` (10 iterations in `fast` mode, 6000 iterations in `full` build mode). `build:search` skips this and instead runs an indefinite Roadroller CLI parameter search against `dist/minified.js`.
 
 ---
 

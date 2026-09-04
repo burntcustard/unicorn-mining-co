@@ -15,11 +15,11 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 ## Before and after making a code change
 
 - Do not run a build at all if you are only editing comments, whitespace, or other non-functional changes.
-- Use `npm run build:fast` for a single-line or small, localized change.
-- Use `npm run build:slow` for multi-file changes, refactors, new gameplay behavior, or build-system changes. It runs 100 advzip iterations, making its results more representative of the 1,000-iteration full build while remaining faster.
+- Use `npm run build:fast` for small, localized changes and size comparisons while iterating. It runs 10 advzip iterations, making its results quick while still reflecting real recompression.
 - Before editing, run the appropriate build and record the ZIP size as the baseline.
 - Run `npm run lint` after source or configuration changes, but only report it if it fails.
 - After editing, run the same build again and compare its ZIP size with the baseline.
 - Report only the before/after advzip sizes and difference; omit the unoptimized ZIP and pre-Roadroller sizes.
 - Roadroller always runs with the same fixed encoder parameters, so ZIP sizes are directly comparable across builds.
-- Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to check a release. `npm run build` is an alias, but prefer the explicit command.
+- Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to check a release, or for larger changes. `npm run build` is an alias, but prefer the explicit command.
+- `npm run build:search` doesn't produce a ZIP; it builds `dist/minified.js` like `build:full` and then runs an indefinite Roadroller CLI search for better encoder parameters. Only run it when the user explicitly asks to search for parameters, since it never terminates on its own.
