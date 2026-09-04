@@ -209,6 +209,7 @@ result can change after another retained conversion.
 - Approximating both cone range and angle cost 13 bytes. The small-angle ratio alone was neutral, while using forward rather than diagonal reach cost 1 byte.
 - Addressing reversed spectrum colours with `spectrum.at(~band)` cost 1 byte; combining it with the callback's `color` cost 3 bytes.
 - Baking spectrum strength into `#RGBA` colours with an `e` alpha cost 30 bytes when mapping the spectrum, 6 bytes when suffixing the selected colour, and 3 bytes when suffixing once inside `fillOf`. Removing `globalAlpha` entirely still cost 6 bytes and also removed the lamp fade, so `lamp.anim * spectrumStrength` was retained.
+- Stopping a sheet inverting, by holding its width to at least the width of the beam feeding it, was free. Growing the existing slanted `span` about its middle by the shortfall cost 38 bytes; dropping `span` and `first` for a `middle` point with the stripes laid squarely across `side` cost 3, and then reusing that same `middle` as the gradient's root, in place of `near[spectrum.length >> 1]`, saved 5. A one-sided `width` also removes `sense` and both `Math.abs(width)` calls.
 
 ## Measured Path2D, outline and alpha experiments
 
