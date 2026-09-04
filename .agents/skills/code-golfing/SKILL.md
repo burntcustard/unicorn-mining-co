@@ -99,6 +99,13 @@ class of bug, since it only appears after a real Terser build.
 - Disabling JSZip's `streamFiles` flag removed the one entry's 16B data
   descriptor before `advzip`, but recompression still produced a 13832B ZIP.
   Keep streaming enabled; it has no release-size cost.
+- `unsafe_undefined`, `unsafe_methods`, `compress.ecma: 2015` (which enables
+  the configured `unsafe_arrows` transform), and `keep_fargs: false` all left
+  the fast ZIP unchanged at 14044B. Do not re-test them until production code
+  adds relevant syntax.
+- Terser 5.50 supports `compress.ecma: 2024`; it also left the fast ZIP at
+  14044B. It does not alter Vite's browser output target, but adds no useful
+  compressor transform for the current source.
 
 ## Measured background experiments
 
