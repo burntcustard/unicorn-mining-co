@@ -221,12 +221,11 @@ export const renderDocked = (game, ship) => {
   const { ctx, uiScale, uiWidth, uiHeight } = game;
   const padding = listInset - rowPad;
   const outerPadding = padding * 4;
-  const width = uiWidth - outerPadding * 2;
   const height = Math.max(
     uiHeight - outerPadding * 2,
     listInset + rowGap * 11 + padding - rowPad * 2,
   );
-  const colWidth = (width - padding * 2 - colGap * 2) / 3;
+  const colWidth = (uiWidth - outerPadding * 2 - padding * 2 - colGap * 2) / 3;
   const top = (uiHeight - height) / 2 + listInset;
 
   // Left and right edges of the menu and information columns; the last third
@@ -234,12 +233,11 @@ export const renderDocked = (game, ship) => {
   const col0 = [outerPadding + padding, outerPadding + padding + colWidth];
   const col1 = [col0[1] + colGap, col0[1] + colGap + colWidth];
 
-  const mounts = ship.slots;
-  const mount = mounts[mountOption - 2];
+  const mount = ship.slots[mountOption - 2];
   const cargo = cargoOf(ship);
   const hulls = ship.segments.filter(({ hull }) => hull);
   const actionMenu = stage > 1;
-  const menu = stage && !hullMenu ? cargoMenu ? cargo : mount?.fits : ['CARGO', 'HULL', ...mounts];
+  const menu = stage && !hullMenu ? cargoMenu ? cargo : mount?.fits : ['CARGO', 'HULL', ...ship.slots];
   const currentItem = hullMenu ? mountOption : [mountOption, moduleOption, moduleOption][stage];
   const item = menu[currentItem];
   const currentModule = !hullMenu && !cargoMenu && stage && item;
@@ -249,7 +247,6 @@ export const renderDocked = (game, ship) => {
   const info = currentHull || cargoItems || currentModule || mount?.module;
   const health = currentHull ? hulls.reduce((total, { health }) => total + health, 0) : mount?.module === info ? mount?.health : info?.health;
   const maxHealth = currentHull ? ship.hullSegments.reduce((total, { health }) => total + health, 0) : info?.health;
-  const bottom = top + rowGap * 10;
   let actionX = 0;
   const actionButtons = [];
 
@@ -260,13 +257,12 @@ export const renderDocked = (game, ship) => {
     actionX += width + rowPad;
   });
   const menuY = (i) => top + (i + (i > currentItem ? actionMenu : 0)) * rowGap;
-  const disabledText = `${colors.violet[2]}6`;
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
   // Appended digit is the fill's opacity, so the world still shows through
   ctx.fillStyle = `${colors.purple[0]}c`;
-  ctx.fillRect(outerPadding, top - listInset, width, height);
+  ctx.fillRect(outerPadding, top - listInset, uiWidth - outerPadding * 2, height);
 
   menu.forEach((_, i) => {
     renderButton(
@@ -282,7 +278,7 @@ export const renderDocked = (game, ship) => {
     renderButton(
       ctx,
       ...col0,
-      bottom,
+      top + rowGap * 10,
       !hullMenu && currentItem === menu.length,
       hullMenu,
     );
@@ -325,7 +321,7 @@ export const renderDocked = (game, ship) => {
       text = `${item[0].name} *${item[1]}`;
     }
 
-    renderText(game, text, col0[0] + textPad, menuY(i) + 2, textSize, actionMenu && i !== currentItem ? disabledText : colors.violet[2]);
+    renderText(game, text, col0[0] + textPad, menuY(i) + 2, textSize, actionMenu && i !== currentItem ? `${colors.violet[2]}6` : colors.violet[2]);
   });
 
   if (actionMenu) {
@@ -337,7 +333,7 @@ export const renderDocked = (game, ship) => {
     });
   }
 
-  if (!actionMenu || hullMenu) renderText(game, hullMenu ? 'EXIT' : stage ? 'BACK' : 'EXIT', col0[0] + textPad, bottom + 2, textSize, hullMenu ? disabledText : colors.violet[2]);
+  if (!actionMenu || hullMenu) renderText(game, hullMenu ? 'EXIT' : stage ? 'BACK' : 'EXIT', col0[0] + textPad, top + rowGap * 10 + 2, textSize, hullMenu ? `${colors.violet[2]}6` : colors.violet[2]);
 
   if (info) {
     const labels = currentHull ?

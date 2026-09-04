@@ -69,6 +69,9 @@ class of bug, since it only appears after a real Terser build.
 
 - Deleting something outright. Removing a whole property, argument or return
   value beats restructuring an expression, every time.
+- Inline a simple local that only feeds one or two calls, especially a value
+  passed directly into a render helper. Measure it: a local that caches a long
+  expression or serves several sites can still compress better.
 - Truthy checks and omitted properties, rather than setting or comparing `null`
   or `undefined` where falsy values have no distinct meaning.
 - A helper replacing a genuinely duplicated multi-line block. Roadroller dedupes
@@ -162,6 +165,13 @@ Re-measure if the surrounding code changes substantially.
 - Removing BUY's repeated affordability branch while retaining `spend()` cost 27 bytes.
 - An explicit unique starter-module list cost 33 bytes; deduplicating it with `Set` cost 5 bytes.
 - Extracting the player key bindings cost 14 bytes as a local helper and 24–60 bytes across dependency-safe modules, callback parameters, split binders, or a `player.js`/docked-UI cycle, so the bindings stayed inline in `main.js`.
+- In a `build:full` docked-UI remeasure, inlining its two-use bottom position,
+  disabled-text colour, panel width, and `ship.slots` alias saved 16B together.
+  Inlining the one-use `maxHealth` reduction instead cost 28B: keep expensive
+  calculations cached even when their result has one consumer.
+- Replacing the one-use `layoutButtons` helper with a preallocated action-button
+  array populated by `forEach` saved 4B under `build:full`. An inline `map`
+  layout cost 14B; a `reduce` form saved 3B.
 
 ## Measured positional-argument experiments
 
