@@ -10,7 +10,7 @@ import { objectLineWidth } from './drawing';
  */
 
 const speed = 100;
-const spread = 0.5
+const spread = 0.5;
 const length = 8;
 
 export const sparks = [];
