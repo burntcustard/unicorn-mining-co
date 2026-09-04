@@ -4,8 +4,8 @@
  * so its measurements live here rather than in a catalogue of ship types.
  *
  * This is also what a station is built out of (see `station.js`) and what a
- * piece breaking off either of them becomes: debris arrives with its segments
- * already made, so it keeps none of the hull below.
+ * piece breaking off either of them can become: debris arrives with its
+ * segments already made, so it keeps none of the hull below.
  */
 import { Vector, applyForce, movePoint, rotatePoint } from './vector';
 import {
@@ -37,6 +37,7 @@ export const mustang = {
   mass: 9,
   name: 'Mustang',
   price: 2000,
+  radius: 40,
   turnRate: 3,
   hullSegments: [
     { health: 5, points: [[-16, -36], [-4, -36], [-16, -20]] },
@@ -184,8 +185,6 @@ export class Ship extends Sprite {
     // Building a hull from nothing is the same job as putting a broken one
     // back together
     this.fixHull();
-    this.radius = Math.max(...data.hullSegments
-      .flatMap(({ points }) => points.map((point) => Math.hypot(...point))));
   }
 
   add() {
@@ -213,11 +212,6 @@ export class Ship extends Sprite {
     return this.segments.reduce((total, segment) => (
       total + (active(healthOf(segment)) ? segment.rotationalThrust * segment.power : 0)
     ), 0);
-  }
-
-  // Every mount a pilot can actually fit something to
-  get slots() {
-    return this.mounts.filter(({ fits }) => fits);
   }
 
   fit(craftModule, mount = this.mounts.find(({ fits, module }) => !module && fits.includes(craftModule))) {
@@ -334,7 +328,6 @@ export class Ship extends Sprite {
 
   fracture(hulls, destroyed) {
     const center = hulls.length && centerOf(hulls);
-
     const groups = destroyed ?
         hulls.map((_, i) => [i]) :
         outerEdges(hulls.map(({ points }) => points));
@@ -444,10 +437,10 @@ export class Ship extends Sprite {
         .forEach((mount) => this.detach(mount));
       const all = this.segments.filter(({ hull }) => hull);
       const hulls = all.filter(({ health }) => active(health));
-      const destroyed = hulls.reduce((sum, { health }) => sum + health, 0) < 30 ||
-        !hulls.includes(this.cockpit);
 
-      if (destroyed || hulls.length < all.length) this.fracture(hulls, destroyed);
+      if (!hulls.includes(this.cockpit) || hulls.length < all.length) {
+        this.fracture(hulls, !hulls.includes(this.cockpit));
+      }
     }
   }
 

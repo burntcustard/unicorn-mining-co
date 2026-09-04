@@ -67,6 +67,14 @@ world.wrecks.forEach((properties) => new Ship({
   shades: colors.orange,
 }));
 
+// @ifdef DEBUG
+new Ship({
+  shades: colors.orange,
+  x: playerShip.x + 500,
+  y: playerShip.y,
+});
+// @endif
+
 world.fields.flatMap(({ asteroids }) => asteroids).forEach((properties) => {
   const object = new Asteroid({ ...properties, contents: [] });
 

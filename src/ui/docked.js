@@ -85,7 +85,7 @@ const moduleOf = (ship, mount) => hullMenu ?
  * @param {Object} ship
  */
 export const moveSelection = (delta, ship) => {
-  const mounts = ship.slots;
+  const mounts = ship.mounts;
 
   if (stage === 0) {
     mountOption = Math.max(0, Math.min(mounts.length + 2, mountOption + delta));
@@ -131,10 +131,10 @@ export const back = (ship) => {
  * @param {Object} ship
  */
 export const confirmSelection = (ship) => {
-  const mount = ship.slots[mountOption - 2];
+  const mount = ship.mounts[mountOption - 2];
 
   if (!stage) {
-    if (mountOption === ship.slots.length + 2) return back(ship);
+    if (mountOption === ship.mounts.length + 2) return back(ship);
 
     cargoMenu = mountOption === 0;
     hullMenu = mountOption === 1;
@@ -233,11 +233,11 @@ export const renderDocked = (game, ship) => {
   const col0 = [outerPadding + padding, outerPadding + padding + colWidth];
   const col1 = [col0[1] + colGap, col0[1] + colGap + colWidth];
 
-  const mount = ship.slots[mountOption - 2];
+  const mount = ship.mounts[mountOption - 2];
   const cargo = cargoOf(ship);
   const hulls = ship.segments.filter(({ hull }) => hull);
   const actionMenu = stage > 1;
-  const menu = stage && !hullMenu ? cargoMenu ? cargo : mount?.fits : ['CARGO', 'HULL', ...ship.slots];
+  const menu = stage && !hullMenu ? cargoMenu ? cargo : mount?.fits : ['CARGO', 'HULL', ...ship.mounts];
   const currentItem = hullMenu ? mountOption : [mountOption, moduleOption, moduleOption][stage];
   const item = menu[currentItem];
   const currentModule = !hullMenu && !cargoMenu && stage && item;
