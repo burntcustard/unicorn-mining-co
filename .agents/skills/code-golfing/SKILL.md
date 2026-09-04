@@ -93,8 +93,6 @@ class of bug, since it only appears after a real Terser build.
 
 ## Measured build pipeline compressor experiments
 
-`build:slow`, September 2026, from 13864B baseline.
-
 - `compress: { pure_getters: true }` saved 32B after `advzip` (to 13832B).
   This assumes property reads have no side effects, so re-evaluate it if the
   game adds accessor properties.
