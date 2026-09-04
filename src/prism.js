@@ -119,7 +119,6 @@ const spectrumStrength = 0.9;
 const cross = (points, from, dir) => {
   let near = Infinity;
   let normal;
-  let faceIndex;
 
   points.forEach((corner, i) => {
     const next = points[(i + 1) % points.length];
@@ -133,11 +132,11 @@ const cross = (points, from, dir) => {
     if (!denom || along < 0 || along > 1 || distance < inset || distance >= near) return;
 
     near = distance;
-    faceIndex = i;
     normal = dir.dot(face) > 0 ? face.scale(-1) : face;
+    normal.face = corner;
   });
 
-  return normal && { at: from.add(dir.scale(near)), distance: near, face: faceIndex, normal };
+  return normal && { at: from.add(dir.scale(near)), distance: near, normal };
 };
 
 /**
@@ -216,7 +215,7 @@ const rayAt = (outlines, angle, range) => {
       at: out.at,
       away,
       // Which face it left by, taken as the way that face looks
-      face: out.face,
+      face: out.normal.face,
       // Whatever is left of the lamp's reach by the time the rock was reached.
       // Crossing it costs nothing, or a rock far enough off, or thick enough,
       // would swallow the whole of the reach and throw nothing out the far side
@@ -289,34 +288,38 @@ const runsOf = ({ rays: fan }) => {
   return runs.filter((run) => run.length > 1);
 };
 
-// One non-converging exit edge shared by the light inside a rock and the
-// rainbow outside it. It follows the real exit face, but never becomes
-// narrower across the beam than the edge that entered the rock.
-const sheetOf = (run) => {
+// One correctly oriented, non-converging exit edge shared by the light inside
+// a rock and the rainbow outside it. The rainbow is capped to the chord that
+// fits across the finite rock, so none of that edge can overhang into space.
+const sheetOf = (run, capped) => {
   const first = run[0];
   const last = run[run.length - 1];
   const through = run.reduce((sum, ray) =>
-    sum.add(ray.out.at.subtract(ray.at)), Vector()).normalize();
+    sum.add(ray.out.at).subtract(ray.at), Vector()).normalize();
   const side = Vector(-through.y, through.x);
   const feed = last.at.subtract(first.at);
   let span = last.out.at.subtract(first.out.at);
   const feedWidth = feed.dot(side);
-  let width = span.dot(side);
+  const width = span.dot(side);
 
   if (width * feedWidth < 0) {
     span = span.scale(-1);
-    width = -width;
   }
 
   if (Math.abs(width) < Math.abs(feedWidth)) {
-    span = width ? span.scale(feedWidth / width) : side.scale(feedWidth);
+    span = width ? span.scale(Math.abs(feedWidth / width)) : side.scale(feedWidth);
   }
 
-  return {
-    middle: last.out.at.add(first.out.at).scale(0.5),
-    side,
-    span,
-  };
+  if (capped) {
+    const middle = last.out.at.add(first.out.at).scale(0.5);
+    const fallback = Math.abs(width / feedWidth) / 2;
+    span = span.scale(Math.min(1, 2 * Math.min(
+      cross(first.hit, middle, span)?.distance || fallback,
+      cross(first.hit, middle, span.scale(-1))?.distance || fallback,
+    )));
+  }
+
+  return [last.out.at.add(first.out.at).subtract(span).scale(0.5), span, side];
 };
 
 // How far the light got, as the fan of everywhere its rays stopped
@@ -336,12 +339,11 @@ export const insidePath = (beam) => {
   const path = new Path2D();
 
   runsOf(beam).forEach((run) => {
-    const { middle, span } = sheetOf(run);
-    const edge = span.scale(0.5);
+    const [start, span] = sheetOf(run);
 
     path.addPath(strip(run));
     path.addPath(strip(run));
-    path.addPath(strip(run, [middle.subtract(edge), middle.add(edge)]));
+    path.addPath(strip(run, [start, start.add(span)]));
   });
 
   return path;
@@ -389,7 +391,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     // how far round the rock turned it, and which way
     const into = run[run.length >> 1].at.normalize();
     const spin = into.x * away.y - into.y * away.x;
-    const { middle, side, span } = sheetOf(run);
+    const [start, span, side] = sheetOf(run, true);
     // Its sign is which way round the fan has to open for the stripes to spread
     // apart rather than cross over one another
     const width = span.dot(side);
@@ -399,7 +401,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     const sense = width > 0 ? 1 : -1;
     const turn = sense *
       Math.min(fanning * Math.abs(spin), Math.abs(width) * spreading / length);
-    const near = edges.map((across) => middle.add(span.scale(across - 0.5)));
+    const near = edges.map((across) => start.add(span.scale(across)));
     const far = edges.map((across, i) => near[i].add(
       rotatePoint(away, turn * (across - 0.5)).scale(length)),
     );
