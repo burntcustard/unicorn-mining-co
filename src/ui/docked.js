@@ -1,6 +1,7 @@
 import { roomFor, say } from '../player';
 import { colors } from '../colors';
 import { forget } from '../game';
+import { instanceOf } from '../modules';
 import { launch } from '../docking';
 import { renderText } from '../text';
 
@@ -57,21 +58,39 @@ const cargoOf = (ship) => [...ship.cargoBay, ...ship.cargo.map(({ item }) => ite
     return types;
   }, []);
 
+// Ore of a kind stacks into one row, but two module instances never do, so a
+// count is only worth showing when there is more than one
+const cargoName = ([item, count]) => count > 1 ? `${item.name} *${count}` : item.name;
+
 const hullActionsOf = (ship) => (ship.hullSegments.some((part) =>
   ship.segments.find(({ module }) => module === part)?.health !== part.health) && ['FIX']) || [];
+
+// What a mount can be given, in the order its `fits` lists them: each module
+// type stands in for itself while the pilot owns none of it, and is replaced in
+// place by the ones they do own once they do. An entry with a `oneOf` is an
+// instance and can be equipped, sold and painted; one without can only be bought.
+const fitsOf = (ship, mount) => {
+  const held = [mount.module, ...ship.cargoBay];
+
+  return mount.fits.flatMap((type) => {
+    const owned = held.filter((module) => module?.oneOf === type);
+
+    return owned.length ? owned : type;
+  });
+};
 
 // A module is bought into the cargo bay, fitted from there, and put back there
 // when taken off, so a pilot can own several of a kind and hang each in one slot.
 const actionsOf = (ship, mount, module) => {
   const fitted = mount.module === module;
-  const stowed = ship.cargoBay.includes(module);
+  const owned = module.oneOf;
 
   return [
     fitted && mount.health < module.health && 'FIX',
-    !fitted && !stowed && ship.credits >= module.price && 'BUY',
-    !fitted && stowed && 'EQUIP',
+    !owned && ship.credits >= module.price && 'BUY',
+    owned && !fitted && 'EQUIP',
     fitted && 'REMOVE',
-    !fitted && stowed && 'SELL',
+    owned && !fitted && 'SELL',
   ].filter(Boolean);
 };
 
@@ -85,16 +104,13 @@ const moduleOf = (ship, mount) => hullMenu ?
   0 :
   cargoMenu ?
     cargoOf(ship)[moduleOption]?.[0] :
-    mount?.fits[moduleOption];
+    mount && fitsOf(ship, mount)[moduleOption];
 
-// Paint is kept per mount, so there is only something to colour once this slot
-// is the one wearing the module
-const paintsOf = (mount, module) =>
-  (!cargoMenu && (hullMenu || mount?.module === module) && paints) || [];
+// Only something the pilot owns is theirs to paint
+const paintsOf = (module) => hullMenu || module?.oneOf ? paints : [];
 
-// The colour the thing being looked at is wearing now, which the segments
-// carrying it already know
-const shadesOf = (ship, mount) => hullMenu ? ship.shades : mount?.segments?.[0]?.shades;
+// The colour the thing being looked at is wearing now
+const shadesOf = (ship, module) => (hullMenu ? ship : module)?.shades || ship.shades;
 
 /**
  * Move focus in the current menu.
@@ -109,13 +125,13 @@ export const moveSelection = (delta, ship, sub) => {
   if (stage === 0) {
     mountOption = Math.max(0, Math.min(mounts.length + 2, mountOption + delta));
   } else if (stage === 1) {
-    const menu = hullMenu ? [ship] : cargoMenu ? cargoOf(ship) : mounts[mountOption - 2].fits;
+    const menu = hullMenu ? [ship] : cargoMenu ? cargoOf(ship) : fitsOf(ship, mounts[mountOption - 2]);
 
     moduleOption = Math.max(0, Math.min(menu.length, moduleOption + delta));
   } else {
     const mount = mounts[mountOption - 2];
     const module = moduleOf(ship, mount);
-    const swatches = paintsOf(mount, module);
+    const swatches = paintsOf(module);
     const actions = menuActions(ship, mount, module);
     const first = actions.length + 1;
     const onPaints = focused >= first;
@@ -126,7 +142,7 @@ export const moveSelection = (delta, ship, sub) => {
     if (!sub && onPaints && delta < 0) {
       focused = 0;
     } else if (!sub && !onPaints && delta > 0 && swatches.length) {
-      focused = first + Math.max(0, swatches.indexOf(shadesOf(ship, mount)));
+      focused = first + Math.max(0, swatches.indexOf(shadesOf(ship, module)));
     } else if (onPaints) {
       focused = Math.max(first, Math.min(first + swatches.length - 1, focused + delta));
     } else {
@@ -179,7 +195,7 @@ export const confirmSelection = (ship) => {
   }
 
   if (stage === 1) {
-    const menu = cargoMenu ? cargoOf(ship) : mount.fits;
+    const menu = cargoMenu ? cargoOf(ship) : fitsOf(ship, mount);
 
     if (moduleOption === menu.length) return back(ship);
     focused = 0;
@@ -191,16 +207,13 @@ export const confirmSelection = (ship) => {
   const actions = menuActions(ship, mount, currentModule);
   const picked = actions[focused];
   // The swatch row sits after the actions and their BACK button
-  const shades = paintsOf(mount, currentModule)[focused - actions.length - 1];
+  const shades = paintsOf(currentModule)[focused - actions.length - 1];
 
   if (shades) {
-    if (hullMenu) {
-      ship.shades = shades;
-      ship.segments.filter(({ hull }) => hull).forEach((segment) => segment.shades = shades);
-    } else {
-      (currentModule.paints ||= [])[ship.mounts.indexOf(mount)] = shades;
-      mount.segments.forEach((segment) => segment.shades = shades);
-    }
+    (hullMenu ? ship : currentModule).shades = shades;
+    ship.segments
+      .filter((segment) => hullMenu ? segment.hull : segment.module === currentModule)
+      .forEach((segment) => segment.shades = shades);
 
     return;
   }
@@ -234,7 +247,7 @@ export const confirmSelection = (ship) => {
       say('CARGO FULL');
     } else {
       ship.credits -= currentModule.price;
-      ship.cargoBay.push(currentModule);
+      ship.cargoBay.push(instanceOf(currentModule));
     }
   } else if (picked === 'SELL') {
     ship.credits += currentModule.price;
@@ -248,6 +261,9 @@ export const confirmSelection = (ship) => {
     ship.cargoBay.push(mount.module);
     ship.unfit(mount);
   }
+
+  // Selling takes a row out from under the focus
+  moduleOption = Math.min(moduleOption, fitsOf(ship, mount).length - 1);
 };
 
 // A row's own background, and its highlight when it's the one picked out in
@@ -286,15 +302,15 @@ export const renderDocked = (game, ship) => {
   const cargo = cargoOf(ship);
   const hulls = ship.segments.filter(({ hull }) => hull);
   const actionMenu = stage > 1;
-  const menu = stage && !hullMenu ? cargoMenu ? cargo : mount?.fits : ['CARGO', 'HULL', ...ship.mounts];
+  const menu = stage && !hullMenu ? cargoMenu ? cargo : mount && fitsOf(ship, mount) : ['CARGO', 'HULL', ...ship.mounts];
   const currentItem = hullMenu ? mountOption : [mountOption, moduleOption, moduleOption][stage];
   const item = menu[currentItem];
   const currentModule = !hullMenu && !cargoMenu && stage && item;
   const currentHull = item === 'HULL';
   const cargoItems = item === 'CARGO' ? cargo : cargoMenu && stage && item && [item];
   const actions = actionMenu ? menuActions(ship, mount, currentModule) : [];
-  const swatches = actionMenu ? paintsOf(mount, currentModule) : [];
-  const selected = shadesOf(ship, mount);
+  const swatches = actionMenu ? paintsOf(currentModule) : [];
+  const selected = shadesOf(ship, currentModule);
   const info = currentHull || cargoItems || currentModule || mount?.module;
   const health = currentHull ? hulls.reduce((total, { health }) => total + health, 0) : mount?.module === info ? mount?.health : info?.health;
   const maxHealth = currentHull ? ship.hullSegments.reduce((total, { health }) => total + health, 0) : info?.health;
@@ -304,6 +320,7 @@ export const renderDocked = (game, ship) => {
   const extraRows = actionMenu + Boolean(swatches.length);
   const menuY = (i) => top + (i + (i > currentItem ? extraRows : 0)) * rowGap;
   const actionY = menuY(currentItem) + rowGap;
+  const swatchX = col0[1] - swatchInset - swatchSize;
 
   [...actions, 'BACK'].forEach((item) => {
     const width = item.length * 13 * textSize + textPad * 2;
@@ -322,14 +339,23 @@ export const renderDocked = (game, ship) => {
   ctx.fillStyle = `${colors.purple[0]}c`;
   ctx.fillRect(outerPadding, top - listInset, uiWidth - outerPadding * 2, height);
 
-  menu.forEach((_, i) => {
+  menu.forEach((item, i) => {
+    const y = menuY(i);
+
     renderButton(
       ctx,
       ...col0,
-      menuY(i),
+      y,
       !actionMenu && i === currentItem,
       actionMenu && i !== currentItem,
     );
+
+    // One the pilot owns wears its paint on the right of its row, which tells
+    // two scoops apart from each other and from the one on offer to buy
+    if (item.oneOf) {
+      ctx.fillStyle = shadesOf(ship, item)[2];
+      ctx.fillRect(swatchX, y - rowPad + swatchInset, swatchSize, swatchSize);
+    }
   });
 
   if (!actionMenu || hullMenu) {
@@ -346,14 +372,12 @@ export const renderDocked = (game, ship) => {
     actionButtons.forEach(({ shades, width, x, y }, i) => {
       renderButton(ctx, x, x + width, y, focused === i);
 
-      // A paint is outlined while it is only on offer, filled in once it is worn
+      // Appended digit is the fill's opacity, so a paint only on offer is a
+      // wash inside its outline while the one worn is solid
       if (shades) {
-        if (shades === selected) {
-          ctx.fillStyle = shades[2];
-          ctx.fillRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
-        }
-
+        ctx.fillStyle = `${shades[2]}${shades === selected ? '' : '3'}`;
         ctx.strokeStyle = shades[2];
+        ctx.fillRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
         ctx.strokeRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
       }
     });
@@ -381,10 +405,17 @@ export const renderDocked = (game, ship) => {
         text = item.module?.name || '-EMPTY-';
       }
     } else if (cargoMenu) {
-      text = `${item[0].name} *${item[1]}`;
+      text = cargoName(item);
     }
 
-    renderText(game, text, col0[0] + textPad, menuY(i) + 2, textSize, actionMenu && i !== currentItem ? `${colors.violet[2]}6` : colors.violet[2]);
+    renderText(
+      game,
+      text,
+      col0[0] + textPad,
+      menuY(i) + 2,
+      textSize,
+      actionMenu && i !== currentItem ? `${colors.violet[2]}6` : colors.violet[2],
+    );
   });
 
   if (actionMenu) {
@@ -393,13 +424,22 @@ export const renderDocked = (game, ship) => {
     ));
   }
 
-  if (!actionMenu || hullMenu) renderText(game, hullMenu ? 'EXIT' : stage ? 'BACK' : 'EXIT', col0[0] + textPad, top + rowGap * 10 + 2, textSize, hullMenu ? `${colors.violet[2]}6` : colors.violet[2]);
+  if (!actionMenu || hullMenu) {
+    renderText(
+      game,
+      hullMenu ? 'EXIT' : stage ? 'BACK' : 'EXIT',
+      col0[0] + textPad,
+      top + rowGap * 10 + 2,
+      textSize,
+      hullMenu ? `${colors.violet[2]}6` : colors.violet[2],
+    );
+  }
 
   if (info) {
     const labels = currentHull ?
         ['HULL', 'HP'] :
       cargoItems ?
-          ['CARGO', ...cargoItems.map(([item, count]) => `${item.name} *${count}`)] :
+          ['CARGO', ...cargoItems.map(cargoName)] :
           [info.name, 'HP', 'VALUE', 'PWR'];
     const values = currentHull ?
         [`${health | 0}/${maxHealth}`] :
@@ -408,11 +448,20 @@ export const renderDocked = (game, ship) => {
           [`${health | 0}/${maxHealth}`, `$${info.price}`, info.powerUsage];
 
     labels.forEach((text, i) => renderText(
-      game, text, col1[0] + textPad, top + (i ? (i + 1) * rowGap + 2 : (rowGap - 4) / 2), textSize, colors.violet[2],
+      game,
+      text,
+      col1[0] + textPad, top + (i ? (i + 1) * rowGap + 2 : (rowGap - 4) / 2),
+      textSize,
+      colors.violet[2],
     ));
 
     values.forEach((text, i) => renderText(
-      game, text, col1[1] - textPad, top + (i + 2) * rowGap + 2, textSize, colors.violet[2], 4,
+      game,
+      text,
+      col1[1] - textPad, top + (i + 2) * rowGap + 2,
+      textSize,
+      colors.violet[2],
+      4,
     ));
   }
 };

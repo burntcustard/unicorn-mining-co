@@ -129,7 +129,7 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
     rate: 1 / duration,
-    shades: craftModule.paints?.[craft.mounts.indexOf(mount)] || craftModule.shades || craft.shades,
+    shades: craftModule.shades || craft.shades,
     forwardThrust: (craftModule.forwardThrust || 0) / (craftModule.model?.length || 1),
     rotationalThrust: (craftModule.rotationalThrust || 0) / (craftModule.model?.length || 1),
     update: craftModule.update,
@@ -214,7 +214,7 @@ export class Ship extends Sprite {
     ), 0);
   }
 
-  fit(craftModule, mount = this.mounts.find(({ fits, module }) => !module && fits.includes(craftModule))) {
+  fit(craftModule, mount = this.mounts.find(({ fits, module }) => !module && fits.includes(craftModule.oneOf))) {
     if (!mount) return;
 
     mount.module = craftModule;
@@ -390,13 +390,13 @@ export class Ship extends Sprite {
 
   supply(craftModule, power) {
     this.segments.forEach((segment) => {
-      if (segment.module === craftModule) segment.power = power;
+      if (segment.module.oneOf === craftModule) segment.power = power;
     });
   }
 
   toggle(craftModule, on) {
     this.segments.forEach((segment) => {
-      if (segment.module === craftModule) segment.active = (on ?? !segment.active) ? 1 : 0;
+      if (segment.module.oneOf === craftModule) segment.active = (on ?? !segment.active) ? 1 : 0;
     });
   }
 

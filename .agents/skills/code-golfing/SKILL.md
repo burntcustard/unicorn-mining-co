@@ -84,6 +84,9 @@ class of bug, since it only appears after a real Terser build.
 - Reusing the idioms the codebase already uses elsewhere, which give Roadroller
   matching context. A bare `for` loop is novel text next to a `map` or
   `forEach`, and usually costs more than the callback argument it saves.
+- Repeating an identical expression, rather than hoisting it into a local, is
+  often free or cheaper — but not always (see the owned-module row swatch),
+  so measure both ways when the expression appears twice.
 
 ## What tends not to work
 
@@ -205,7 +208,38 @@ Re-measure if the surrounding code changes substantially.
   existing `actionButtons` array (one layout, one render loop, `focused === i`
   throughout) was net-neutral at +3B and was kept for clarity. Net 13506B ->
   13479B.
-
+- Paint storage and swatch fill (2026-09-04, `build:fast`, 13479B baseline).
+  Replacing the conditional `fillRect` with an always-drawn fill whose opacity
+  digit is appended when unselected — `${shades[2]}${shades === selected ? '' :
+  '3'}`, matching `renderButton`'s own idiom — cost 1B in `docked.js` but 21B
+  more when the identical rewrite was applied to `ui/controls.js` too, so
+  controls kept its conditional `fillRect`. Dropping per-mount
+  `module.paints[mountIndex]` for a plain `module.shades` (which also deletes
+  the `paints?.[craft.mounts.indexOf(mount)]` lookup from `ship.js`'s
+  `makeSegment`) saved 16B, but only once the repaint reused shapes already in
+  the file: `(hullMenu ? ship.segments.filter(({ hull }) => hull) :
+  mount.segments).forEach(...)` beat a single combined
+  `filter((segment) => hullMenu ? segment.hull : segment.module ===
+  currentModule)` by 21B. Net 13479B -> 13464B.- Per-instance modules (2026-09-04, `build:fast`): making `cargoBay` and
+  `mount.module` hold `Object.create(type)` instances rather than the shared
+  type, so paint follows a physical module, cost 61B in total (13464B ->
+  13525B) — much less than the ~100B guessed up front. Naming the type link
+  `type` cost 22B more than `oneOf`, because `type` is in Terser's `domprops`
+  list and `mangle.properties` therefore refuses to rename it. **Check
+  `domprops` before choosing a new property name**: anything the DOM also uses
+  (`type`, `kind`, `pattern`, `name`, `key`, `value`...) stays full-length in
+  the output. Colouring the docked menu's owned rows in their own paint, to
+  tell two scoops apart, cost 6B of that total.
+- Owned-module row swatch (2026-09-04, `build:fast`, 13525B baseline). Swapping
+  the paint-tinted row text for a filled square on the right of the row cost
+  59B as first written; hoisting the fixed `swatchX` column out of the loop and
+  dropping the `'6'` dimming suffix on disabled rows brought it to 13549B
+  (+24B). Two further attempts both lost: inlining `shadesOf(ship, item)[2]` as
+  `(item.shades || ship.shades)[2]` cost 4B, and replacing the `const y =
+  menuY(i)` local with two inline `menuY(i)` calls cost 20B. That last one
+  contradicts the "repeated identical text is nearly free" pattern from the
+  swatch-render experiments above, so treat that rule as a hypothesis to test
+  rather than something to apply blind.
 ## Measured positional-argument experiments
 
 `build:slow`*, seed `13312`, against the September 2026 docked UI. Test each

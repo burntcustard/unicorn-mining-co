@@ -10,7 +10,7 @@ import {
 // @endif
 import { bindKeys, initKeys } from './keyboard';
 import { camera, centerCamera, followTarget } from './camera';
-import { cargoScoop, floodlight, horn, shield, thrusterDualMd } from './modules';
+import { cargoScoop, floodlight, horn, instanceOf, shield, thrusterDualMd } from './modules';
 import { dock, dockAt, launch } from './docking';
 import { insidePath, traceBeam } from './prism';
 import { playerShip, updatePlayer } from './player';
@@ -49,7 +49,7 @@ window.onresize = () => setSizing(game);
 horn.shades = colors.yellow;
 thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
 [thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight]
-  .forEach((module) => playerShip.fit(module));
+  .forEach((module) => playerShip.fit(instanceOf(module)));
 
 const world = generateWorld(13312);
 const stations = world.stations.map((properties) =>
@@ -103,7 +103,7 @@ window['testSections'] = () => testSections(
 
 // The player's lamp, kept to hand so what it is picking out can be worked out
 // once a frame rather than hunted for in the segments every time
-const lamp = playerShip.segments.find((segment) => segment.module === floodlight);
+const lamp = playerShip.segments.find((segment) => segment.module.oneOf === floodlight);
 const activeRadius = 2000;
 const nearbyRadius = 100;
 const nearbySteps = 4;

@@ -27,21 +27,22 @@ const gap = 6;
 const underInset = 1;
 const underDrop = 9;
 
-// Every module on the ship the pilot can switch, each the once, in the order
-// they sit in. Modules with no key of their own are left off the panel. A key
-// packs its lowercase KeyboardEvent value first and uppercase HUD letter second.
+// Every module on the ship the pilot can switch, each type the once, in the
+// order they sit in. A pair of scoops is one row worked by one key. Modules
+// with no key of their own are left off the panel. A key packs its lowercase
+// KeyboardEvent value first and uppercase HUD letter second.
 const modulesOf = (ship) => {
   const list = [];
 
   ship.segments.forEach(({ module }) => {
-    if (module.key && !list.includes(module)) list.push(module);
+    if (module.key && !list.includes(module.oneOf)) list.push(module.oneOf);
   });
 
   return list;
 };
 
 // Whether any part of a module is switched on
-const isOn = (ship, module) => ship.segments.some((seg) => seg.module === module && seg.active);
+const isOn = (ship, module) => ship.segments.some((seg) => seg.module.oneOf === module && seg.active);
 
 /**
  * @param {Object} game
@@ -65,8 +66,6 @@ export const renderControls = (game, ship) => {
   modules.forEach((module, i) => {
     const y = top + i * rowGap;
 
-    // Drawn the same way round as the docked menu's paint swatches: outlined
-    // while the module is idle, filled in while it runs
     if (isOn(ship, module)) {
       ctx.fillStyle = colors.violet[2];
       ctx.fillRect(boxX, y, box, box);

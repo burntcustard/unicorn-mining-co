@@ -4,7 +4,7 @@ const launchBurnDuration = 1;
 const launchCoastDuration = 2;
 const launchCoastPower = 0.25;
 
-const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardThrust)?.module;
+const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardThrust)?.module.oneOf;
 
 /** Place a craft inside a station as though it had entered through its bay. */
 export const dockAt = (ship, station) => {

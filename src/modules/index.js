@@ -63,3 +63,14 @@ export const thrusters = [
   thrusterDualXl,
   thrusterTriple,
 ];
+
+/**
+ * One module the pilot owns, as against the type it is one of. Everything but
+ * its own paint is inherited, so a pink scoop and an orange one are two things
+ * that can be fitted, sold and painted apart from each other.
+ *
+ * `oneOf` rather than `type`, which the minifier leaves alone as a DOM name.
+ *
+ * @param {Object} type - The module in `src/modules` this is one of.
+ */
+export const instanceOf = (type) => Object.assign(Object.create(type), { oneOf: type });
