@@ -38,19 +38,6 @@ const deadSpeed = 5;
 const dentingMass = 10;
 
 /**
- * How springy two things are together. Normally the springier of the two has
- * its way, so a shield bouncing off an asteroid bounces like a shield. A negative
- * bounciness, like a spinning horn's, overrides the other surface and requests
- * zero restitution: normal speeds match at the contact, so the drill neither
- * rebounds nor retains velocity carrying it through the surface.
- *
- * @param {Number} a
- * @param {Number} b
- * @returns {Number} bounciness
- */
-const combineBounce = (a, b) => (a < 0 || b < 0 ? 0 : Math.max(a, b));
-
-/**
  * Resolve every physical contact using the same mass-weighted impulse and
  * positional correction. Non-physical colliders still report their contacts
  * to gameplay but never arrive here as a special collision category.
@@ -78,15 +65,22 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     let bounce = 0;
     const force = -closing / mass;
 
-    if (force > 500) {
-      const amount = (force - 500) / 2000;
+    // A gentle bump is harmless; past this, the mass-weighted normal impulse
+    // starts to dent a hull. This is slightly more punishing than before,
+    // without turning slow docking into damage.
+    if (force > 400) {
+      const amount = (force - 400) / 2e3;
 
       if (a.cockpit && b.mass >= dentingMass) damage(collider.segment, amount);
       if (b.cockpit && a.mass >= dentingMass) damage(other.segment, amount);
     }
 
     if (-closing >= deadSpeed) {
-      bounce = combineBounce(collider.bounciness || 0, other.bounciness || 0);
+      // A spinning horn's negative bounciness requests zero restitution;
+      // otherwise the springier surface decides the rebound.
+      bounce = collider.bounciness < 0 || other.bounciness < 0 ?
+        0 :
+          Math.max(collider.bounciness || 0, other.bounciness || 0);
     }
 
     const impulse = force * (1 + bounce);

@@ -163,6 +163,24 @@ assert.ok(rock.velocity.x > 0);
 assert.ok(rock.velocity.x - ship.velocity.x > 0);
 assert.ok(shipSegment.health < 10);
 
+// Impact damage is based on closing speed and the other body's mass. A slow
+// nudge into a heavy station is harmless, while a faster impact dents the hull.
+const station = { mass: 1500, position: vector(14, 0), velocity: vector() };
+ship.velocity.x = 20;
+shipSegment.health = 10;
+resolve([{
+  collider: { owner: ship, segment: shipSegment }, depth: 1,
+  other: { owner: station }, x: 1, y: 0,
+}]);
+assert.equal(shipSegment.health, 10);
+
+ship.velocity.x = 100;
+resolve([{
+  collider: { owner: ship, segment: shipSegment }, depth: 1,
+  other: { owner: station }, x: 1, y: 0,
+}]);
+assert.ok(shipSegment.health < 10);
+
 // A negative restitution is the drill's grip signal. It must override the
 // other body's bounce without leaving any velocity travelling into the face.
 ship.velocity.x = 100;

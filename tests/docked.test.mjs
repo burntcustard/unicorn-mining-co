@@ -17,6 +17,16 @@ import {
   fitsOf, selectionSnapshot,
 } from '${process.cwd()}/src/ui/docked.js';
 
+// A hull section destroyed by an impact also breaks off as short-lived,
+// physical wreckage instead of disappearing with the surviving hull's split.
+const battered = new Ship({shades: colors.white});
+const corner = battered.segments.find(({ hull, health }) => hull && health === 4);
+corner.health = 0;
+battered.update(0);
+const hullWreckage = game.crafts.at(-1);
+assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitboxes().length,
+  'destroyed hull remains as physical wreckage');
+
 const ship = new Ship({ shades: colors.white, credits: 10000 });
 const second = instanceOf(cargoScoop);
 const first = instanceOf(cargoScoop);

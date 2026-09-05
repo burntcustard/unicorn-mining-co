@@ -113,6 +113,9 @@ const halfBay = (points, zIndex) => ({
 
 const corral = {
   localMovementRadius: 600,
+  // Stations are fixed infrastructure, not a Mustang-sized craft: their
+  // collision impulse must be substantial enough to hurt an arriving ship.
+  mass: 900,
   zIndex: 2,
   hullSegments: [
     ...angles.flatMap((angle, i) => side.map((points, piece) => ({

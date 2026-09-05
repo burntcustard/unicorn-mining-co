@@ -331,7 +331,7 @@ export class Ship extends Sprite {
     return Vector((this.y - y) * this.spin, (x - this.x) * this.spin);
   }
 
-  fracture(hulls, destroyed) {
+  fracture(hulls, destroyed, wreckage) {
     const center = hulls.length && centerOf(hulls);
     const groups = destroyed ?
         hulls.map((_, i) => [i]) :
@@ -351,6 +351,7 @@ export class Ship extends Sprite {
 
         outerEdges(segments.map(({ points }) => points));
         segments = segments.map((segment) => Object.assign(Object.create(segment), {
+          ...(wreckage && { health: 1 }),
           hitbox: 0,
           x: segment.x - middle.x,
           y: segment.y - middle.y,
@@ -368,6 +369,10 @@ export class Ship extends Sprite {
         applyForce(fragment, away.normalize().scale(30), Math.random() - 0.5);
         return fragment;
       });
+
+    // Broken pieces are made into temporary wreckage before the intact hull
+    // is fractured, so do not let this pass alter the parent ship.
+    if (wreckage) return fragments;
     const kept = (core || []).map((i) => hulls[i]);
 
     if (core && fragments.length) {
@@ -445,8 +450,11 @@ export class Ship extends Sprite {
       const hulls = all.filter(({ health }) => active(health));
 
       if (!hulls.includes(this.cockpit) || hulls.length < all.length) {
-        all.filter((segment) => !hulls.includes(segment)).forEach((segment) =>
+        const broken = all.filter((segment) => !hulls.includes(segment));
+
+        broken.forEach((segment) =>
           this.destroyed?.(segment.module));
+        this.fracture(broken, true, true);
         this.fracture(hulls, !hulls.includes(this.cockpit));
       }
     }
