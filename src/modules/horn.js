@@ -48,7 +48,7 @@ export const horn = {
   damage: 0.5,
   // Grinds an asteroid down and cracks it open where it touches a loaded one
   grinds: true,
-  health: 1000,
+  health: 100,
   key: 'dD',
   model: [{
     lines: fluteLines,
