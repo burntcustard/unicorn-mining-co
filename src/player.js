@@ -1,3 +1,4 @@
+import { cargoScoop, floodlight, horn, instanceOf, shield, thrusterDualMd } from './modules';
 import { Ship } from './ship';
 import { colors } from './colors';
 import { downKeys } from './keyboard';
@@ -19,6 +20,12 @@ export const playerShip = new Ship({
   note: '',
   noteFor: 0,
 });
+
+// Keep acquisition order separate from where each module is fitted.
+horn.shades = colors.yellow;
+thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
+playerShip.modules = [thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight].map(instanceOf);
+playerShip.modules.forEach((module) => playerShip.fit(module));
 
 /**
  * @param {String} text - Upper case, and only what the font actually has.

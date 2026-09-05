@@ -23,12 +23,15 @@ export const localMovement = (child, movers, dt) => {
   let parent = child.localMovementParent;
 
   if (parent && !parent.holds(child)) {
-    // Drifted clear of whatever had hold of it, so it is on its own again
     child.velocity.set(child.velocity.add(parent.momentum(child)));
-    parent = 0;
+    parent = child.localMovementRate = 0;
   }
 
   parent ||= movers.find((mover) => mover !== child && mover.holds?.(child));
   child.localMovementParent = parent;
-  parent && rotateAround(parent, child, child.x - parent.x, child.y - parent.y, parent.spin * dt);
+
+  if (parent) {
+    rotateAround(parent, child, child.x - parent.x, child.y - parent.y,
+      parent.spin * dt * (child.localMovementRate = Math.min(1, (child.localMovementRate || 0) + dt)));
+  }
 };

@@ -10,7 +10,7 @@ import {
 // @endif
 import { bindKeys, initKeys } from './keyboard';
 import { camera, centerCamera, followTarget } from './camera';
-import { cargoScoop, floodlight, horn, instanceOf, shield, thrusterDualMd } from './modules';
+import { cargoScoop, floodlight, horn, shield } from './modules';
 import { dock, dockAt, launch } from './docking';
 import { insidePath, traceBeam } from './prism';
 import { playerShip, updatePlayer } from './player';
@@ -45,11 +45,6 @@ import { testSections } from './section-test';
 setSizing(game);
 
 window.onresize = () => setSizing(game);
-
-horn.shades = colors.yellow;
-thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;
-[thrusterDualMd, cargoScoop, cargoScoop, horn, shield, floodlight]
-  .forEach((module) => playerShip.fit(instanceOf(module)));
 
 const world = generateWorld(13312);
 const stations = world.stations.map((properties) =>

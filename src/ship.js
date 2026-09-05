@@ -6,6 +6,12 @@
  * This is also what a station is built out of (see `station.js`) and what a
  * piece breaking off either of them can become: debris arrives with its
  * segments already made, so it keeps none of the hull below.
+ *
+ * `modules` is the stable inventory, including fitted and loose instances.
+ * An instance's `mount` and the mount's `module` link the two while fitted.
+ * `segments` holds the live hull and module geometry; mounts are derived from
+ * its hull pieces, and `partsOf` finds the geometry attached to one mount.
+ * Neither equipping nor removing changes inventory order.
  */
 import { Vector, applyForce, movePoint, rotatePoint } from './vector';
 import {
@@ -92,23 +98,10 @@ export const healthOf = (segment) =>
 const centerOf = (segments) => segments.reduce((center, { middle }) =>
   center.add(Vector(...middle)), Vector()).scale(1 / segments.length);
 
-const nozzleLevel = (thrusterNozzleSide, forward, turn) => {
-  if (!turn || !thrusterNozzleSide) return forward;
-
-  return turn === -thrusterNozzleSide ? 1 : forward * steeringEase;
-};
-
-const bounceOf = (segment) => {
-  const { bounciness } = segment.module;
-  const value = typeof bounciness === 'function' ? bounciness(segment) : bounciness;
-
-  return value ?? hullBounciness;
-};
-
 const makeSegment = (craft, craftModule = {}, part, mount) => {
   const { glow, points, unclosed } = part;
   const shape = points?.[0] && shapeOf(points, mount);
-  const health = mount ? undefined : part.health;
+
   // A thruster's flare is up about as soon as the key is down, unless told
   // otherwise, either on the module itself or (as the shield's bubble does)
   // on just the one part of it
@@ -116,12 +109,13 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
 
   if (glow) glow.path ||= shapePath(glow);
 
+  // Hull health starts on the prototype; damage creates the instance's own
+  // value. Module parts share their mount's health through healthOf instead.
   return Object.assign(Object.create(part), {
     ...craftModule.state?.(),
     ...shape,
     ...(points && { path: (segment) => shapePath(points.call ? points(segment) : points, unclosed) }),
     activationProgress: 0,
-    health,
     hull: !mount,
     module: craftModule,
     mount,
@@ -176,9 +170,8 @@ export class Ship extends Sprite {
     Object.assign(this, data, {
       cargo: [],
       forward: 0,
-      // Modules bought but not fitted, riding along in the cargo bay
-      cargoBay: [],
-      mounts: [],
+      // Ownership order never changes when an instance is fitted or removed.
+      modules: [],
       segments: [],
       turn: 0,
     });
@@ -202,6 +195,18 @@ export class Ship extends Sprite {
     return this.cockpit ? 17 * this.forwardThrust : 180;
   }
 
+  get mounts() {
+    return this.segments.flatMap((segment) => segment.mounts || []);
+  }
+
+  partsOf(mount) {
+    return this.segments.filter((segment) => segment.mount === mount);
+  }
+
+  get cargoBay() {
+    return this.modules.filter(({ mount }) => !mount);
+  }
+
   get forwardThrust() {
     return this.segments.reduce((total, segment) => (
       total + (active(healthOf(segment)) ? segment.forwardThrust * segment.power : 0)
@@ -214,24 +219,23 @@ export class Ship extends Sprite {
     ), 0);
   }
 
+  // Fit an owned instance, or pass a falsy module to empty the mount. Replaced
+  // instances stay in the inventory and become cargo when their link clears.
   fit(craftModule, mount = this.mounts.find(({ fits, module }) => !module && fits.includes(craftModule.oneOf))) {
     if (!mount) return;
 
+    this.segments = this.segments.filter((segment) => segment.mount !== mount);
+    if (mount.module) mount.module.mount = 0;
     mount.module = craftModule;
-    mount.health = craftModule.health;
-    mount.segments = craftModule.model
-      .map((part) => makeSegment(this, craftModule, part, mount));
-    this.segments.push(...mount.segments);
+    mount.health = craftModule?.health;
+
+    if (craftModule) {
+      craftModule.mount = mount;
+      this.segments.push(...craftModule.model
+        .map((part) => makeSegment(this, craftModule, part, mount)));
+    }
+
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
-  }
-
-  unfit(mount) {
-    if (!mount.module) return;
-
-    this.segments = this.segments.filter((segment) => !mount.segments.includes(segment));
-    mount.module = 0;
-    mount.health = 0;
-    mount.segments = [];
   }
 
   // Restore the original hull data, including any pieces and mounting points
@@ -250,7 +254,6 @@ export class Ship extends Sprite {
         rebuilt.mounts = (part.mounts || []).map((mount) => ({ ...mount, hull: rebuilt }));
         hulls.push(rebuilt);
         this.segments.push(rebuilt);
-        this.mounts.push(...rebuilt.mounts);
       }
     });
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
@@ -264,7 +267,7 @@ export class Ship extends Sprite {
     const offset = rotatePoint(mount, this.rotation);
     const position = this.position.add(offset);
     const velocity = this.velocity.add(this.momentum(position));
-    const segments = mount.segments.map((segment) => Object.assign(Object.create(segment), {
+    const segments = this.partsOf(mount).map((segment) => Object.assign(Object.create(segment), {
       health: 1,
       hitbox: 0,
       mount: { health: 1, y: mount.y },
@@ -272,8 +275,9 @@ export class Ship extends Sprite {
       y: segment.y - mount.y,
     }));
 
-    // The copy that broke away is gone, rather than returning to the cargo bay
-    this.unfit(mount);
+    // Destroyed instances leave the inventory rather than becoming cargo.
+    forget(this.modules, mount.module);
+    this.fit(0, mount);
     const fragment = new Ship({
       dx: velocity.x,
       dy: velocity.y,
@@ -293,6 +297,7 @@ export class Ship extends Sprite {
     const boxes = this.segments
       .filter((segment) => segment.radius && active(healthOf(segment)))
       .map((segment) => {
+        const { bounciness } = segment.module;
         const points = segment.points?.call ? segment.points(segment) : segment.points;
         const [middleX, middleY] = segment.middle || [0, 0];
         const position = this.position.add(rotatePoint({
@@ -303,11 +308,11 @@ export class Ship extends Sprite {
           points.map(([x, y]) => [x - middleX, y - middleY]), { edges: points.edges });
 
         return Object.assign(segment.hitbox ||= { owner: this, segment }, {
-          bounciness: bounceOf(segment),
+          bounciness: (bounciness?.call ? bounciness(segment) : bounciness) ?? hullBounciness,
           dockSegment: segment.dockSegment,
           outline,
-          physics: !segment.module.disablePhysics && !segment.catches && !segment.mounts?.some(({ module, segments }) => (
-            module?.scoops && segments.some((part) => active(healthOf(part)) && part.activationProgress > scoopOpen)
+          physics: !segment.module.disablePhysics && !segment.catches && !segment.mounts?.some((mount) => (
+            mount.module?.scoops && this.partsOf(mount).some((part) => active(healthOf(part)) && part.activationProgress > scoopOpen)
           )),
           radius: segment.radius(segment),
           rotation: this.rotation,
@@ -373,7 +378,7 @@ export class Ship extends Sprite {
 
     this.segments = this.segments.filter((segment) =>
       kept.includes(segment) || kept.includes(segment.mount?.hull));
-    this.mounts = this.mounts.filter(({ hull }) => kept.includes(hull));
+    this.modules = this.modules.filter(({ mount }) => !mount || kept.includes(mount.hull));
 
     if (kept.length) {
       outerEdges(kept.map(({ points }) => points));
@@ -405,7 +410,9 @@ export class Ship extends Sprite {
     this.turn = turn;
     this.segments.forEach((segment) => {
       if (segment.forwardThrust) {
-        segment.active = nozzleLevel(segment.thrusterNozzleSide, forward, turn);
+        segment.active = turn && segment.thrusterNozzleSide ?
+          turn === -segment.thrusterNozzleSide ? 1 : forward * steeringEase :
+          forward;
       }
     });
   }
@@ -416,7 +423,7 @@ export class Ship extends Sprite {
       const rotationalThrust = this.rotationalThrust;
       const nozzle = this.segments.find((segment) => segment.forwardThrust);
       const targetSpin = rotationalThrust ?
-        this.turn * this.turnRate * rotationalThrust * (nozzle ? nozzle.power : 1) / 16 :
+        this.turn * this.turnRate * rotationalThrust * (nozzle?.power ?? 1) / 16 :
         this.spin;
 
       this.spin = approach(this.spin, targetSpin, rotationalThrust * dt);

@@ -1,7 +1,7 @@
+import { execFile, spawn } from 'child_process';
 import JSZip from 'jszip';
 import { Packer } from 'roadroller';
 import advzip from 'advzip-bin';
-import { execFile, spawn } from 'child_process';
 import fs from 'fs';
 import { minify } from 'html-minifier-terser';
 

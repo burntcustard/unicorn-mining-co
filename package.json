@@ -13,6 +13,7 @@
     "build:full": "vite build --mode full",
     "build:search": "vite build --mode search",
     "test:collisions": "node tests/collisions.test.mjs",
+    "test:docked": "node tests/docked.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

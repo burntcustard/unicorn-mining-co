@@ -11,8 +11,8 @@
  * alone, so a `fits` list of modules costs less than a list of their names.
  *
  * Every module has a `price` to buy it and `powerUsage` while active. A module
- * that is owned but not fitted waits in its ship's `cargoBay`, taking one space
- * there like any other piece of cargo.
+ * stays in its ship's ordered `modules` inventory. Without a `mount`, it also
+ * appears in the derived `cargoBay`, taking one space like other cargo.
  *
  * A non-physical module with `health` is damaged with its hull. A solid `model`
  * with `health` is damaged directly; a healthless module vanishes with its hull.
@@ -65,9 +65,9 @@ export const thrusters = [
 ];
 
 /**
- * One module the pilot owns, as against the type it is one of. Everything but
- * its own paint is inherited, so a pink scoop and an orange one are two things
- * that can be fitted, sold and painted apart from each other.
+ * One module the pilot owns, as against the type it is one of. The instance
+ * keeps its paint and mount link, and inherits the model and specifications.
+ * A pink scoop and an orange one can be fitted, sold and painted separately.
  *
  * `oneOf` rather than `type`, which the minifier leaves alone as a DOM name.
  *
