@@ -1,4 +1,4 @@
-import { roomFor, say, stow } from './player';
+import { roomFor, say, stow, unlockColor } from './player';
 import { game } from './game';
 
 /**
@@ -33,7 +33,7 @@ export const scoop = (contacts) => {
     } else if (item.message) {
       // Read on the way in and thrown away after, so a note never costs a
       // hold anything to carry
-      say(item.message);
+      item.unlock ? unlockColor(item.unlock) : say(item.message);
     } else {
       if (!roomFor(craft)) return;
 

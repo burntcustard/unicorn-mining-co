@@ -21,6 +21,39 @@ export const playerShip = new Ship({
   noteFor: 0,
 });
 
+// Violet is the pink paint in the palette, and only it and white are available
+// until the pilot has earned the rest.
+const paints = {
+  RED: colors.red,
+  ORANGE: colors.orange,
+  YELLOW: colors.yellow,
+  GREEN: colors.green,
+  BLUE: colors.cyan,
+};
+const unlockedPaints = [colors.violet, colors.white];
+const visitedStations = new Set();
+
+export const colorUnlocked = (shades) => unlockedPaints.includes(shades);
+
+export const unlockColor = (color) => {
+  const shades = paints[color];
+
+  if (!colorUnlocked(shades)) {
+    unlockedPaints.push(shades);
+    say(`${color} UNLOCKED`);
+  }
+};
+
+playerShip.destroyed = (module) => {
+  unlockColor('RED');
+  if (module.oneOf === horn) unlockColor('YELLOW');
+};
+
+playerShip.docked = (station) => {
+  visitedStations.add(station);
+  if (visitedStations.size > 2) unlockColor('GREEN');
+};
+
 // Keep acquisition order separate from where each module is fitted.
 horn.shades = colors.yellow;
 thrusterDualMd.shades = cargoScoop.shades = shield.shades = colors.violet;

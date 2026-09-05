@@ -47,6 +47,7 @@ export const dock = (contacts) => {
     }
 
     dockAt(ship, station);
+    ship.docked?.(station);
   });
 };
 

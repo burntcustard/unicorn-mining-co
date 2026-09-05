@@ -13,6 +13,7 @@ import { camera, centerCamera, followTarget } from './camera';
 import { cargoScoop, floodlight, horn, shield } from './modules';
 import { dock, dockAt, launch } from './docking';
 import { insidePath, traceBeam } from './prism';
+import { itemTypes, message } from './items';
 import { playerShip, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
@@ -27,7 +28,6 @@ import { colors } from './colors';
 import { detectCollisions } from './collisions';
 import { game } from './game';
 import { generateWorld } from './world';
-import { itemTypes } from './items';
 // Kept with the single imports because this position compresses smaller.
 // eslint-disable-next-line sort-imports
 import { grind, mine } from './mining';
@@ -56,17 +56,27 @@ stations.sort((a, b) => a.x ** 2 + a.y ** 2 - b.x ** 2 - b.y ** 2);
 dockAt(playerShip, stations[Math.floor(Math.random() * 8)]);
 launch(playerShip);
 
-world.wrecks.forEach((properties) => new Ship({
-  ...properties,
-  shades: colors.orange,
-}));
+world.wrecks.forEach((properties) => {
+  const wreck = new Ship({ ...properties, shades: colors.orange });
+  const note = new Item({ itemData: message });
+
+  // Every orange wreck has a slate that opens its paint once recovered.
+  note.unlock = 'ORANGE';
+  note.remove();
+  wreck.cargo.push(note);
+});
 
 // @ifdef DEBUG
-new Ship({
+const debugWreck = new Ship({
   shades: colors.orange,
   x: playerShip.x + 500,
   y: playerShip.y,
 });
+const debugNote = new Item({ itemData: message });
+
+debugNote.unlock = 'ORANGE';
+debugNote.remove();
+debugWreck.cargo.push(debugNote);
 // @endif
 
 world.fields.flatMap(({ asteroids }) => asteroids).forEach((properties) => {

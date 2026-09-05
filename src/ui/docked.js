@@ -1,4 +1,4 @@
-import { roomFor, say } from '../player';
+import { colorUnlocked, roomFor, say, unlockColor } from '../player';
 import { colors } from '../colors';
 import { instanceOf } from '../modules';
 import { launch } from '../docking';
@@ -112,6 +112,7 @@ export const moveSelection = (delta, ship, sub) => {
   } else {
     const first = actions.length + 1;
     const onPaints = focused >= first;
+    const availablePaints = swatches.filter(colorUnlocked);
 
     // Down drops from the action row onto the paint row, landing on the colour
     // already worn, and up comes back off it. Any other move runs along the
@@ -119,9 +120,13 @@ export const moveSelection = (delta, ship, sub) => {
     if (!sub && onPaints && delta < 0) {
       focused = 0;
     } else if (!sub && !onPaints && delta > 0 && swatches.length) {
-      focused = first + Math.max(0, swatches.indexOf(currentModule?.shades || ship.shades));
+      focused = first + swatches.indexOf(availablePaints[Math.max(0,
+        availablePaints.indexOf(currentModule?.shades || ship.shades))]);
     } else if (onPaints) {
-      focused = Math.max(first, Math.min(first + swatches.length - 1, focused + delta));
+      const paint = availablePaints.indexOf(swatches[focused - first]);
+
+      focused = first + swatches.indexOf(availablePaints[Math.max(0,
+        Math.min(availablePaints.length - 1, paint + delta))]);
     } else {
       focused = Math.max(0, Math.min(actions.length, focused + delta));
     }
@@ -180,6 +185,7 @@ export const confirmSelection = (ship) => {
   const shades = swatches[focused - actions.length - 1];
 
   if (shades) {
+    if (!colorUnlocked(shades)) return;
     currentModule.shades = shades;
     ship.segments
       .filter((segment) => hullMenu ? segment.hull : segment.module === currentModule)
@@ -201,6 +207,7 @@ export const confirmSelection = (ship) => {
     ship.modules = ship.modules.filter((module) => module !== item);
     ship.cargo = ship.cargo.filter((cargoItem) => cargoItem.item !== item);
     ship.credits += item.price * count;
+    if (item.name === 'DIAMOND') unlockColor('BLUE');
     moduleOption = Math.min(moduleOption, (cargoMenu ? cargoOf(ship) : fitsOf(ship, mount)).length - 1);
 
     // A sale returns to the list, leaving its replacement row focused rather
@@ -320,15 +327,25 @@ export const renderDocked = (game, ship) => {
 
   if (actionMenu) {
     actionButtons.forEach(({ shades, width, x, y }, i) => {
-      renderButton(ctx, x, x + width, y, focused === i);
+      const locked = shades && !colorUnlocked(shades);
+
+      renderButton(ctx, x, x + width, y, focused === i, locked);
 
       // Appended digit is the fill's opacity, so a paint only on offer is a
       // wash inside its outline while the one worn is solid
       if (shades) {
+        ctx.globalAlpha = locked ? 0.3 : 1;
         ctx.fillStyle = `${shades[2]}${shades === selected ? '' : '3'}`;
         ctx.strokeStyle = shades[2];
         ctx.fillRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
         ctx.strokeRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
+
+        if (locked) {
+          ctx.beginPath();
+          ctx.moveTo(x + swatchInset, y - rowPad + swatchInset);
+          ctx.lineTo(x + swatchInset + swatchSize, y - rowPad + swatchInset + swatchSize);
+          ctx.stroke();
+        }
       }
     });
   }

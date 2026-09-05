@@ -275,6 +275,7 @@ export class Ship extends Sprite {
     }));
 
     // Destroyed instances leave the inventory rather than becoming cargo.
+    this.destroyed?.(mount.module);
     forget(this.modules, mount.module);
     this.fit(0, mount);
     const fragment = new Ship({
@@ -444,6 +445,8 @@ export class Ship extends Sprite {
       const hulls = all.filter(({ health }) => active(health));
 
       if (!hulls.includes(this.cockpit) || hulls.length < all.length) {
+        all.filter((segment) => !hulls.includes(segment)).forEach((segment) =>
+          this.destroyed?.(segment.module));
         this.fracture(hulls, !hulls.includes(this.cockpit));
       }
     }
