@@ -42,4 +42,6 @@ with the same fixed encoder parameters in `build:fast`/`build:full`, so every
 build's JS output is deterministic. `build:search` instead builds
 `dist/minified.js` the same way as `build:full` and then runs an indefinite
 Roadroller CLI search for better encoder parameters (stop it with Ctrl+C when
-you've found something worth trying) — it does not produce a ZIP.
+you've found something worth trying). It preserves Roadroller's normal output
+and saves the best reported parameters to `plugins/roadroller-args.js`, which
+the normal packer uses on subsequent builds; it does not produce a ZIP.

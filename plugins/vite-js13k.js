@@ -4,6 +4,7 @@ import { Packer } from 'roadroller';
 import advzip from 'advzip-bin';
 import fs from 'fs';
 import { minify } from 'html-minifier-terser';
+import roadrollerArgs from './roadroller-args.js';
 
 // Kontra-style compile-time flags. Whatever sits between "// @ifdef NAME" and
 // "// @endif" is kept only when that flag is truthy, and removed entirely
@@ -87,6 +88,36 @@ function writeMinifiedJs(scriptCode) {
   fs.writeFileSync('dist/minified.js', scriptCode);
 }
 
+function saveRoadrollerArgs(searchOutput) {
+  const args = searchOutput.match(/use `([^`]+)` to replicate:/)?.[1]?.split(' ');
+  if (!args) return;
+
+  const options = {};
+
+  for (const arg of args) {
+    const [, option, value] = arg.match(/-(Zab|Zdy|Zlr|Zmc|Zmd|Zpr|S)(.+)/) || [];
+
+    if (option === 'S' && !value.startsWith('x')) {
+      options.sparseSelectors = value.split(',').map(Number);
+    } else if (option) {
+      options[{
+        Zab: 'numAbbreviations',
+        Zdy: 'dynamicModels',
+        Zlr: 'recipLearningRate',
+        Zmc: 'modelMaxCount',
+        Zmd: 'modelRecipBaseCount',
+        Zpr: 'precision',
+      }[option]] = Number(value);
+    }
+  }
+
+  fs.writeFileSync(
+    new URL('./roadroller-args.js', import.meta.url),
+    `export default ${JSON.stringify(options, null, 2)};\n`,
+  );
+  console.log('\nSaved matching Packer options to plugins/roadroller-args.js');
+}
+
 export async function replaceScript(html, scriptFilename, scriptCode) {
   const reScript = new RegExp(`<script([^>]*?) src="[./]*${scriptFilename}"([^>]*)></script>`);
 
@@ -106,12 +137,7 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
   }], {
     allowFreeVars: true,
     maxMemoryMB: 192, // We hit the 150 MB default so 192 MB helps
-    numAbbreviations: 25,
-    recipLearningRate: 2286,
-    modelMaxCount: 4,
-    modelRecipBaseCount: 40,
-    precision: 16,
-    sparseSelectors: [0, 1, 2, 3, 5, 7, 11, 14, 21, 57, 210, 417],
+    ...roadrollerArgs,
   });
 
   const { firstLine, secondLine } = packer.makeDecoder();
@@ -177,15 +203,29 @@ export function viteJs13k(buildLevel = 'full') {
       if (buildLevel === 'search') {
         console.log('\nSearching for optimal Roadroller parameters (Ctrl+C to stop)...');
 
+        const searchOutput = [];
+
+        const keepViteAlive = () => {};
+
+        process.once('SIGINT', keepViteAlive);
+
         await new Promise((resolve, reject) => {
           const search = spawn(
             'npx',
             ['roadroller', '-OO', '-M', '192', '-v', 'dist/minified.js', '-o', 'dist/roadrolled.js'],
-            { stdio: 'inherit' },
+            { stdio: ['inherit', 'pipe', 'pipe'] },
           );
+          search.stdout.pipe(process.stdout);
+          search.stderr.on('data', (chunk) => {
+            searchOutput.push(chunk);
+            process.stderr.write(chunk);
+          });
           search.on('close', resolve);
           search.on('error', reject);
         });
+
+        process.removeListener('SIGINT', keepViteAlive);
+        saveRoadrollerArgs(Buffer.concat(searchOutput).toString());
 
         return;
       }
