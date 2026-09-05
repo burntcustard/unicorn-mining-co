@@ -153,8 +153,6 @@ const overlapOf = (a, b, aPoints, bPoints) => {
 export const hit = (a, b) => {
   if (Math.hypot(b.x - a.x, b.y - a.y) > a.radius + b.radius) return;
 
-  const aParts = a.parts || [a];
-  const bParts = b.parts || [b];
   let deepest;
 
   shapesOf(a).forEach((aPoints, aIndex) => {
@@ -163,8 +161,8 @@ export const hit = (a, b) => {
 
       if (overlap && (!deepest || overlap.depth > deepest.depth)) {
         deepest = Object.assign(overlap, {
-          aPart: a.parts && aParts[aIndex],
-          bPart: b.parts && bParts[bIndex],
+          aPart: a.parts?.[aIndex],
+          bPart: b.parts?.[bIndex],
         });
       }
     });

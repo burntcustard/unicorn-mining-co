@@ -41,12 +41,12 @@ export const mustang = {
   cargoSpace: 12,
   drag: 5,
   mass: 9,
-  name: 'Mustang',
-  price: 2000,
+  name: '', // Was 'Mustang' but was never used
+  price: 0, // Was 2000 but was never used
   radius: 40,
   turnRate: 3,
   hullSegments: [
-    { health: 5, points: [[-16, -36], [-4, -36], [-16, -20]] },
+    { health: 4, points: [[-16, -36], [-4, -36], [-16, -20]] },
     // The wedges the scoops open onto. They stand aside for cargo while the
     // doors are open, which is what lets an item fall in under the hull and
     // into the throat waiting behind them
@@ -80,7 +80,7 @@ export const mustang = {
       mounts: [{ fits: [cargoScoop], x: 3, y: 13 }],
       points: [[-16, 20], [20, 12], [-4, 36]],
     },
-    { health: 5, points: [[-16, 20], [-4, 36], [-16, 36]] },
+    { health: 4, points: [[-16, 20], [-4, 36], [-16, 36]] },
   ],
 };
 

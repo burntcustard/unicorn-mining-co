@@ -623,6 +623,14 @@ The retained changes took advzip from 13809B to 13745B (and `build:full`* from
   `100 * (1 - Math.random() * spread)` due to Roadroller's context matching.
 - Stubbing/commenting unused road particle generators in `particles.js` removed
   dead color-palette queries.
+
+## Measured collision metadata experiment
+
+`build:fast`, seed `13312`, against the current collision implementation.
+- Replacing the one-use `aParts`/`bParts` aliases in `hit()` with optional indexed
+  access (`a.parts?.[aIndex]` and `b.parts?.[bIndex]`) saved 15B after advzip
+  (13334B -> 13319B). The equivalent world-generation alias removal cost 1B and
+  was reverted.
 - Removing `ctx.lineCap = 'round'` in `renderSparks` removed the only `lineCap`
   property access across the entire codebase.
 - Rounding spark speed to `100` matched the round constant patterns.
