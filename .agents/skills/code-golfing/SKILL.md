@@ -124,6 +124,43 @@ class of bug, since it only appears after a real Terser build.
 > `build:fast` (1 pass, no advzip) was removed. Historical `build:slow`*/`build:full`*
 > sizes below are not directly comparable to today's `build:fast` (10 iterations).
 
+## Measured thruster glow experiments
+
+`build:fast`, seed `13312`, against the September 2026 per-nozzle thruster glow.
+The retained version is a shared `drawThrusterGlow(ctx, nozzle)` in `lighting.js`,
+called after translating to each nozzle segment, with old `drawHalo` constants but
+no cached gradient/path.
+
+- Duplicating the halo-style helper in both `ship.js` and the unused
+  `craft-render.js` cost bytes and obscured the real bundle path; keep the helper
+  shared if the stale renderer stays in source.
+- Moving the shared helper back to `lighting.js` saved 4B over duplicated helpers
+  (13472B -> 13468B).
+- Dropping the per-colour radial-gradient cache and creating the tiny gradient in
+  the helper saved 27B (13468B -> 13441B).
+- Dropping `circlePath(1)` and drawing the unit circle directly with
+  `ctx.beginPath(); ctx.arc(...); ctx.fill()` saved another 13B (13441B ->
+  13428B). Replacing `Math.PI * 2` with `7` looked shorter but cost 6B.
+- In the cached `drawGlow` branch, replacing `const { scale } = game` with
+  direct `game.scale` reads saved 5B after fixing the accidental duplicate
+  `ctx.save()` in the measured source (13431B -> 13426B). Assigning
+  `const scale = cache.scale = game.scale` inside the refresh block cost 8B,
+  and swapping the comparison to `game.scale !== cache.scale` cost 2B.
+- Losing attempts: inlining `haloReach`/`haloStrength` was neutral; moving
+  gradient creation after the scale cost 5B; hoisting `nozzle.shades[2]` to a
+  local and using `color + 6` cost 3B; folding reach into `strength` and deriving
+  alpha as `/ 100` cost 19B; fully inlining the radial glow in `Ship.render()`
+  cost 23B. Reusing `drawGlow` instead of the radial helper saved 14B more
+  (13428B -> 13414B) but did not preserve the old `drawHalo` look as closely.
+  Splitting `drawGlow` into `drawDockingBayGlow` plus an item-only glow cost
+  19B while explosive items still used the generic glow path. After disabling
+  explosive items, removing their fuse/glow/blast wiring saved 310B (13426B ->
+  13116B), then renaming `drawGlow` to `drawDockingBayGlow` and dropping its
+  no-cache/variable-strength branch saved another 14B (13116B -> 13102B).
+  Deleting the now-unreferenced `explosion.js`/`items/explosive.js` files,
+  disabled explosive comments, and no-op `Item.arm()` calls saved 1B more
+  (13102B -> 13101B).
+
 `build:slow`*, seed `13312`, against the September 2026 background rewrite. The
 retained background and shared-loop changes took advzip from 13524B to 13408B.
 

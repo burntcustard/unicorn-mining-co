@@ -103,7 +103,6 @@ const breakAsteroid = (target, destroyed) => {
 
   loose.forEach((item) => {
     item.velocity.set(asteroid.velocity);
-    item.arm();
     item.buried = 0;
   });
 };

@@ -25,7 +25,7 @@ import {
   thrusterSingleXl,
   thrusterTriple,
 } from './modules';
-import { drawBeam, drawGlow, drawHalo, lightAngle, litFill, shapeOf, tint } from './lighting';
+import { drawBeam, drawDockingBayGlow, drawThrusterGlow, lightAngle, litFill, shapeOf, tint } from './lighting';
 import { drawInside, drawSpectrum, litPath, traceBeam } from './prism';
 import { forget, game } from './game';
 import { linesPath, objectLineWidth, shapePath } from './drawing';
@@ -85,7 +85,6 @@ export const mustang = {
 };
 
 const hullBounciness = 0.1; // Default restitution when a segment supplies none.
-const glowStrength = 0.15;
 const thrustScale = 220; // Converts thrust per unit mass into acceleration.
 const steeringEase = 0.5; // Forward thrust retained by a nozzle eased during a turn.
 const approach = (value, target, step) => (
@@ -386,7 +385,6 @@ export class Ship extends Sprite {
       this.cargo.forEach((item) => {
         item.position.set(this.position);
         item.velocity.set(this.velocity);
-        item.arm();
         item.add();
       });
       this.remove();
@@ -502,11 +500,15 @@ export class Ship extends Sprite {
       if (segment.zIndex !== zIndex || !active(health)) return;
 
       ctx.save();
-      if (segment.forwardThrust && segment.activationProgress) drawHalo(ctx, segment);
       ctx.translate(segment.x, segment.y);
 
+      if (segment.forwardThrust && segment.activationProgress) {
+        drawThrusterGlow(ctx, segment);
+      }
+
       if (segment.glow && zIndex < 0) {
-        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
+        // The subtle glow in/around the ship docking bay
+        drawDockingBayGlow(ctx, segment.glow.path, segment.shades[2], segment.glow);
       }
 
       const worn = health < segment.module.health / 2 ? 0 : 1 + segment.hull;
@@ -557,8 +559,8 @@ export class Ship extends Sprite {
         ctx.restore();
       }
 
-      if (segment.glow && zIndex >= 0) {
-        drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
+      if (segment.glow && zIndex > 0) {
+        drawDockingBayGlow(ctx, segment.glow.path, segment.shades[2], segment.glow);
       }
 
       ctx.restore();

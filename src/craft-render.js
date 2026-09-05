@@ -1,7 +1,7 @@
 import {
   drawBeam,
-  drawGlow,
-  drawHalo,
+  drawDockingBayGlow,
+  drawThrusterGlow,
   lightAngle,
   litFill,
   tint,
@@ -14,8 +14,6 @@ import { colors } from './colors';
 // eslint-disable-next-line no-duplicate-imports -- lights only exists in DEBUG builds
 import { lights } from './lighting';
 // @endif
-
-const glowStrength = 0.15;
 
 export const active = (health) => !(health < 1);
 export const healthOf = (segment) =>
@@ -72,11 +70,14 @@ export const renderCraft = (craft, scenery, zIndex) => {
     if (segment.zIndex !== zIndex || !active(health)) return;
 
     ctx.save();
-    if (segment.forwardThrust && segment.activationProgress) drawHalo(ctx, segment);
     ctx.translate(segment.x, segment.y);
 
+    if (segment.forwardThrust && segment.activationProgress) {
+      drawThrusterGlow(ctx, segment);
+    }
+
     if (segment.glow && zIndex < 0) {
-      drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
+      drawDockingBayGlow(ctx, segment.glow.path, segment.shades[2], segment.glow);
     }
 
     const worn = health < segment.module.health / 2 ? 0 : 1 + segment.hull;
@@ -128,7 +129,7 @@ export const renderCraft = (craft, scenery, zIndex) => {
     }
 
     if (segment.glow && zIndex >= 0) {
-      drawGlow(ctx, segment.glow.path, segment.shades[2], glowStrength, segment.glow);
+      drawDockingBayGlow(ctx, segment.glow.path, segment.shades[2], segment.glow);
     }
 
     ctx.restore();

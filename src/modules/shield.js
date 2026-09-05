@@ -16,7 +16,7 @@ const spinRate = 3;
 const dial = circlePath(radius);
 
 // One line of the cross, straight through the middle of the dial
-const arm = (angle) => {
+const crossLine = (angle) => {
   const point = movePoint(Vector(), angle, radius);
 
   return [[-point.x, -point.y], [point.x, point.y]];
@@ -29,7 +29,7 @@ export const shield = {
   name: 'SHIELD',
   model: [
     {
-      lines: ({ phase }) => [arm(phase), arm(phase + Math.PI / 2)],
+      lines: ({ phase }) => [crossLine(phase), crossLine(phase + Math.PI / 2)],
       path: () => dial,
       radius: () => radius,
     },

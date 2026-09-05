@@ -269,7 +269,6 @@ export class Asteroid extends Sprite {
 
       if (this.dead) {
         item.velocity.set(this.velocity);
-        item.arm();
         item.buried = 0;
       }
     });

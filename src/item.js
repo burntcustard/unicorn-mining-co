@@ -3,8 +3,6 @@ import { forget, game } from './game';
 import { Sprite } from './sprite';
 import { Vector } from './vector';
 import { colors } from './colors';
-import { detonate } from './explosion';
-import { drawGlow } from './lighting';
 
 /**
  * One loose thing in the world, built from an item definition. Everything an
@@ -20,14 +18,6 @@ const glintSize = 0.3;
 const glintOffset = 0.4;
 const glintX = 0.3;
 const glintY = -0.7;
-
-// How brightly an item that carries its own light burns, how much of that it
-// loses between beats, and how fast it beats. A fuse running down winds that
-// rate up to `panicRate` on top of its resting speed
-const glowStrength = 0.5;
-const glowBeat = 0.5;
-const calmRate = 3;
-const panicRate = 14;
 
 // Every item is the same weight, so they shove about alike whatever they are
 const itemMass = 6;
@@ -55,16 +45,6 @@ export class Item extends Sprite {
     // What a message says is settled when it is made, so two found in the same
     // asteroid do not say the same thing
     this.message = props.message || (notes && notes[Math.floor(Math.random() * notes.length)]);
-    // How far through its own beat a glowing item is
-    this.blink = 0;
-  }
-
-  /**
-   * Cut loose from whatever it was buried in. Most items do not care, and an
-   * unstable one starts counting down from here.
-   */
-  arm() {
-    if (this.item.fuse) this.fuse = this.item.fuse;
   }
 
   add() {
@@ -83,20 +63,6 @@ export class Item extends Sprite {
   update(dt) {
     if (this.buried) return;
 
-    if (this.fuse && !(this.fuse = Math.max(0, this.fuse - dt))) {
-      this.remove();
-      detonate(this, game.items, game.crafts);
-      return;
-    }
-
-    // Quietly while it is still buried, faster the less of the fuse there is
-    // left, so the last second of one is unmistakable
-    if (this.item.glow) {
-      const left = this.fuse === undefined ? 1 : this.fuse / this.item.fuse;
-
-      this.blink += dt * (calmRate + panicRate * (1 - left));
-    }
-
     super.update(dt);
   }
 
@@ -108,12 +74,6 @@ export class Item extends Sprite {
     ctx.rotate(this.rotation);
     ctx.lineJoin = 'bevel';
     ctx.lineWidth = itemLineWidth;
-
-    if (item.glow) {
-      const beat = (1 + Math.sin(this.blink)) / 2;
-
-      drawGlow(ctx, this.path, this.stroke, glowStrength * (1 - glowBeat * (1 - beat)));
-    }
 
     ctx.fillStyle = this.fill + (item.fillAlpha || '');
 

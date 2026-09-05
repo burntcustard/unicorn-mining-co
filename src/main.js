@@ -14,7 +14,6 @@ import { cargoScoop, floodlight, horn, shield } from './modules';
 import { dock, dockAt, launch } from './docking';
 import { insidePath, traceBeam } from './prism';
 import { playerShip, updatePlayer } from './player';
-import { renderBlasts, updateBlasts } from './explosion';
 import { renderSparks, updateSparks } from './shrapnel';
 import { Asteroid } from './asteroid';
 import { GameLoop } from './game-loop';
@@ -191,15 +190,6 @@ GameLoop({
     // Sparks off the horn sit over the asteroids and ships they come off
     renderSparks(game.ctx);
 
-    // Light rather than paint, so it goes over everything it lights up
-    // @ifdef DEBUG
-    if (lights) {
-    // @endif
-      renderBlasts(game.ctx);
-    // @ifdef DEBUG
-    }
-    // @endif
-
     game.ctx.restore();
 
     // @ifdef DEBUG
@@ -222,7 +212,6 @@ GameLoop({
     nearbySprites = activeSprites.filter((sprite) =>
       !sprite.dead && sprite.position.distanceTo(playerShip.position) <= nearbyRadius);
 
-    updateBlasts(dt);
     updateSparks(dt);
     updatePlayer(dt);
 

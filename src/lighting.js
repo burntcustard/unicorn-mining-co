@@ -1,7 +1,6 @@
 // @ifdef BENCHMARK
 import { benchmarkFlag } from './benchmark';
 // @endif
-import { circlePath } from './drawing';
 import { colors } from './colors';
 import { game } from './game';
 
@@ -35,12 +34,6 @@ const litTint = 0.32;
 const warmTint = 0.2;
 const shadeTint = 0.2;
 
-// How far a thruster's glow spills past its flame at full burn, in game units,
-// and how brightly. Close in and gentle, so the flame stays a shape rather
-// than turning into a cloud
-const haloReach = 45;
-const haloStrength = 0.45;
-
 // How far a lit shape's own glow carries past its edges, in screen pixels. A
 // blur is not put through the transform the way a path is, so this does not
 // grow and shrink with the view
@@ -69,7 +62,6 @@ const at = (along) => Math.round(Math.min(1, Math.max(0, along)) * (steps - 1));
 const table = (shade) => Array.from({ length: steps }, (_, i) => shade(i / (steps - 1)));
 
 const tints = {};
-const halos = {};
 
 const shadeOf = (shades, worn) => {
   const base = parse(shades[worn]);
@@ -156,34 +148,16 @@ export const litFill = (ctx, shape, light, shade) => {
   return gradient;
 };
 
-const haloOf = (ctx, color) => {
-  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-
-  gradient.addColorStop(0, color);
-  gradient.addColorStop(0.35, `${color}6`);
-  gradient.addColorStop(1, '#0000');
-
-  return gradient;
-};
-
-// A unit circle at the origin, so it is the same pool for everything glowing a
-// given colour and worth keeping hold of. Callers scale it to the size they
-// want rather than each having one of their own
-const haloPath = circlePath(1);
-const haloFill = (ctx, color) => (halos[color] ||= haloOf(ctx, color));
-
 /**
- * A pool of light shaped like whatever is lit up, blurred out past its own
- * edges. Meant to go down before the thing itself, so that what is drawn on
- * top covers the heart of it.
+ * A cached pool of light around a docking bay piece. Meant to go down before
+ * the thing itself, so that what is drawn on top covers the heart of it.
  *
  * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
  * @param {Path2D} path
  * @param {String} color
- * @param {Number} strength
- * @param {Number[][]} [cache]
+ * @param {Number[][]} cache
  */
-export const drawGlow = (ctx, path, color, strength, cache) => {
+export const drawDockingBayGlow = (ctx, path, color, cache) => {
   // @ifdef DEBUG
   if (!glows) return;
   // @endif
@@ -193,48 +167,53 @@ export const drawGlow = (ctx, path, color, strength, cache) => {
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = strength;
+  ctx.globalAlpha = 0.2;
 
-  // @ifdef BENCHMARK
-  if (benchmarkFlag('noBlur')) cache = null;
-  // @endif
+  if (!cache.image || cache.scale !== game.scale) {
+    const radius = Math.max(...cache.map(([x, y]) => Math.hypot(x, y)));
+    const reach = radius * game.scale + glowBlur * 2;
+    const image = document.createElement('canvas');
+    const paint = image.getContext('2d');
 
-  if (cache) {
-    const { scale } = game;
-
-    if (!cache.image || cache.scale !== scale) {
-      const radius = Math.max(...cache.map(([x, y]) => Math.hypot(x, y)));
-      const reach = radius * scale + glowBlur * 2;
-      const image = document.createElement('canvas');
-      const paint = image.getContext('2d');
-
-      image.width = image.height = reach * 2;
-      paint.translate(reach, reach);
-      paint.scale(scale, scale);
-      paint.shadowBlur = glowBlur;
-      paint.shadowColor = paint.fillStyle = color;
-      paint.fill(path);
-      cache.image = image;
-      cache.scale = scale;
-    }
-
-    const size = cache.image.width / cache.scale;
-
-    ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
-  } else {
-    // @ifdef BENCHMARK
-    if (!benchmarkFlag('noBlur')) {
-    // @endif
-      ctx.shadowBlur = glowBlur;
-      ctx.shadowColor = color;
-    // @ifdef BENCHMARK
-    }
-    // @endif
-
-    ctx.fillStyle = color;
-    ctx.fill(path);
+    image.width = image.height = reach * 2;
+    paint.translate(reach, reach);
+    paint.scale(game.scale, game.scale);
+    paint.shadowBlur = glowBlur;
+    paint.shadowColor = paint.fillStyle = color;
+    paint.fill(path);
+    cache.image = image;
+    cache.scale = game.scale;
   }
 
+  const size = cache.image.width / cache.scale;
+
+  ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
+
+  ctx.restore();
+};
+
+export const drawThrusterGlow = (ctx, nozzle) => {
+  // @ifdef DEBUG
+  if (!glows) return;
+  // @endif
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
+  // @endif
+
+  const strength = nozzle.activationProgress * Math.sqrt(nozzle.power);
+  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = strength * 0.4;
+  ctx.scale(strength * 45, strength * 45);
+  gradient.addColorStop(0, nozzle.shades[2]);
+  gradient.addColorStop(0.35, `${nozzle.shades[2]}6`);
+  gradient.addColorStop(1, '#0000');
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(0, 0, 1, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 };
 
@@ -284,33 +263,5 @@ export const drawBeam = (ctx, path, color, reach, activationProgress, lit) => {
 
   ctx.fillStyle = gradient;
   ctx.fill(path);
-  ctx.restore();
-};
-
-/**
- * The glow a burning nozzle throws around its flame. Round rather than shaped,
- * because a flame is a bright point and there are a lot of them.
- *
- * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
- * @param {Object} nozzle
- */
-export const drawHalo = (ctx, nozzle) => {
-  // @ifdef DEBUG
-  if (!glows) return;
-  // @endif
-  // @ifdef BENCHMARK
-  if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
-  // @endif
-
-  // The same figure that sizes the flare, so the two grow and die together
-  const strength = nozzle.activationProgress * Math.sqrt(nozzle.power);
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = strength * haloStrength;
-  ctx.translate(nozzle.x, nozzle.y);
-  ctx.scale(strength * haloReach, strength * haloReach);
-  ctx.fillStyle = haloFill(ctx, nozzle.shades[2]);
-  ctx.fill(haloPath);
   ctx.restore();
 };

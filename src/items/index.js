@@ -28,13 +28,10 @@
  *
  * The rest are what an item does when it is picked up or left alone: `credits`
  * are paid straight into the pilot's account rather than stowed instead of
- * being sold on, `message` is read out and used up on the spot, and a `fuse`
- * is how many seconds an item has left once it is cut loose, after which it
- * goes off.
+ * being sold on, and `message` is read out and used up on the spot.
  */
 export { amethyst } from './amethyst';
 export { diamond } from './diamond';
-export { explosive } from './explosive';
 export { gold } from './gold';
 export { message } from './message';
 export { opal } from './opal';
@@ -42,7 +39,6 @@ export { opal } from './opal';
 
 import { amethyst } from './amethyst';
 import { diamond } from './diamond';
-import { explosive } from './explosive';
 import { gold } from './gold';
 import { message } from './message';
 import { opal } from './opal';
@@ -55,6 +51,5 @@ export const itemTypes = [
   amethyst,
   gold,
   opal,
-  explosive,
   message,
 ];
