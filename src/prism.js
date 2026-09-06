@@ -68,14 +68,6 @@ const flipMargin = 0.01;
 // all proportion to it would be colour coming from nowhere
 const spreading = 1.2;
 
-// How nearly two neighbouring rays have to leave a rock going the same way to
-// count as one sheet of light. Rays either side of a sharp corner are thrown
-// far enough apart to be two sheets heading two ways, and one sheet made of
-// both is a beam far wider than the rock ever let through. A gentle corner
-// barely turns them at all and is left whole, because splitting that only cuts
-// one rainbow into a pair of half ones
-const steady = 0.9;
-
 // Narrower than this and a sheet is a thread a pixel or so across, too thin to
 // read as a rainbow and not worth the seven stripes it would be cut into
 const thin = 4;
@@ -202,23 +194,18 @@ const rayAt = (outlines, angle, range) => {
 
   if (!out) return { at: entry.at };
 
-  const away = refract(into, out.normal, rockIndex);
+  out.away = refract(into, out.normal, rockIndex);
+  // Whatever is left of the lamp's reach by the time the rock was reached.
+  // Crossing it costs nothing, or a rock far enough off, or thick enough,
+  // would swallow the whole of the reach and throw nothing out the far side.
+  out.length = range - entry.distance;
 
   return {
     at: entry.at,
     // Only ever the rock this ray went into, so light that comes out the far
     // side carries on into open space rather than through whatever is behind
     hit,
-    out: {
-      at: out.at,
-      away,
-      // Which face it left by, taken as the way that face looks
-      face: out.face,
-      // Whatever is left of the lamp's reach by the time the rock was reached.
-      // Crossing it costs nothing, or a rock far enough off, or thick enough,
-      // would swallow the whole of the reach and throw nothing out the far side
-      length: range - entry.distance,
-    },
+    out,
   };
 };
 
@@ -250,8 +237,26 @@ export const traceBeam = (ship, lamp, scenery) => {
 // Neighbouring rays that went into the same rock and left it as one sheet of
 // light. A lone ray is too thin to draw.
 //
-// Short of that, rays leaving by one face are one sheet. Across two faces, a
-// sharp corner still makes two sheets, but a gentle corner stays continuous.
+// Straight and outward corners stay continuous; inward corners separate sheets.
+// Mined sides can retain collinear vertices. Allow roundoff in their signed
+// turn, relative to edge lengths so rotation and asteroid size cannot split them.
+// Asteroid outlines, including cut children, run counter-clockwise.
+const joins = (points, from, to) => {
+  if (from === to) return true;
+
+  const count = points.length;
+
+  if ((from + 1) % count !== to) [from, to] = [to, from];
+  if ((from + 1) % count !== to) return false;
+
+  const corner = Vector(...points[to]);
+  const before = corner.subtract(Vector(...points[from]));
+  const after = Vector(...points[(to + 1) % count]).subtract(corner);
+
+  return before.x * after.y - before.y * after.x >=
+    -1e-8 * before.length() * after.length();
+};
+
 const runsOf = ({ rays: fan }) => {
   const runs = [];
 
@@ -261,9 +266,7 @@ const runsOf = ({ rays: fan }) => {
     const last = fan[i - 1];
     const step = last?.out && ray.out.at.subtract(last.out.at);
 
-    if (step && last.hit === ray.hit &&
-      (last.out.face === ray.out.face ||
-        last.out.away.dot(ray.out.away) > steady)) {
+    if (step && last.hit === ray.hit && joins(ray.hit, last.out.face, ray.out.face)) {
       runs[runs.length - 1].push(ray);
     } else {
       runs.push([ray]);
@@ -282,9 +285,8 @@ const sheetOf = (run) => {
   const through = run.reduce((sum, ray) =>
     sum.add(ray.out.at.subtract(ray.at)), Vector()).normalize();
   const side = Vector(-through.y, through.x);
-  const feed = last.at.subtract(first.at);
   let span = last.out.at.subtract(first.out.at);
-  const feedWidth = feed.dot(side);
+  const feedWidth = last.at.subtract(first.at).dot(side);
   let width = span.dot(side);
 
   if (width * feedWidth < 0) {
