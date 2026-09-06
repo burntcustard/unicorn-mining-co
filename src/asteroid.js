@@ -74,7 +74,7 @@ export class Asteroid extends Sprite {
     this.contents ||= [];
     this.bounciness = asteroidBounciness;
     this.scenery = true;
-    this.stroke = colors.white[2];
+    this.stroke = props.stroke ?? colors.white[2];
     this.zIndex ??= -2;
 
     // An asteroid doesn't changes shape until split, so its outline is worked out only
@@ -164,6 +164,7 @@ export class Asteroid extends Sprite {
         outline: outline.map(local),
         rotation: this.rotation,
         spin: this.spin,
+        stroke: this.stroke,
         triangles: triangles.map((triangle) => triangle.map(local)),
         x: this.x + offset.x,
         y: this.y + offset.y,

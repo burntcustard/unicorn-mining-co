@@ -1,7 +1,5 @@
 import { Asteroid } from './asteroid';
 import { damage } from './ship';
-import { hit } from './collisions';
-import { rotatePoint } from './vector';
 import { spray } from './shrapnel';
 
 /**
@@ -13,50 +11,24 @@ import { spray } from './shrapnel';
 const crackHealth = 0.25;
 
 /**
- * Where the point of a horn is in the world: the vertex of its shape reaching
- * furthest ahead of the mount, turned into place with the ship.
- *
- * @param {Object} hitbox - A horn's piece of a craft.
- * @returns {Number[]} [x, y]
- */
-const tipOf = (hitbox) => {
-  const [tipX, tipY] = hitbox.outline.reduce((far, corner) => (corner[0] > far[0] ? corner : far));
-  const tip = rotatePoint({ x: tipX, y: tipY }, hitbox.rotation);
-
-  return [
-    hitbox.x + tip.x,
-    hitbox.y + tip.y,
-  ];
-};
-
-/**
  * Flag the asteroids an active mining horn is biting into, so they can be counted
- * down towards breaking open. A horn is a wide thing that touches an asteroid
- * along its side at an angle, but it only grinds at its point, so this asks
- * where the tip actually is rather than trusting a touch anywhere on the shape.
+ * down towards breaking open. Its dedicated non-physical tip collider is the
+ * only horn contact that is allowed to grind.
  *
  * @param {Object[]} contacts - Contacts from the normal-rate physics pass.
  */
 export const mine = (contacts) => {
   const surfaces = [];
 
-  contacts.forEach(({ collider, other }) => {
+  contacts.forEach(({ collider, other, depth }) => {
     const hitbox = collider.segment?.module?.grinds ? collider : other;
     const object = hitbox === collider ? other : collider;
     const { segment } = hitbox;
     const target = object.segment || object;
 
-    if (!segment?.module?.grinds || segment.activationProgress <= 0.5 || !target.health) return;
+    if (!segment?.module?.grinds || hitbox.physics || segment.activationProgress <= 0.5 || !target.health) return;
 
-    const [tipX, tipY] = tipOf(hitbox);
-
-    // A small round cutting tip reaches slightly into inward corners without
-    // letting the wide base of the horn mine whatever it brushes side-on
-    const overlap = hit(object, { radius: 3, x: tipX, y: tipY });
-
-    if (!overlap) return;
-
-    surfaces.push({ depth: overlap.depth, hitbox, object, segment, target, tipX, tipY });
+    surfaces.push({ depth, hitbox, object, segment, target, tipX: hitbox.x, tipY: hitbox.y });
   });
 
   const drills = [];

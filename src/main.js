@@ -77,6 +77,26 @@ const debugNote = new Item({ itemData: message });
 debugNote.unlock = 'ORANGE';
 debugNote.remove();
 debugWreck.cargo.push(debugNote);
+
+// A pocket of the smallest, violet-outlined rocks makes the amethyst field
+// behaviour easy to inspect without flying to its far-off generated field.
+[
+  [-180, -130], [60, -150], [250, -50],
+  [-100, 100], [140, 120], [350, 120],
+].forEach(([x, y], i) => {
+  const asteroid = new Asteroid({
+    contents: [],
+    points: 6,
+    radius: 100,
+    radiusEven: 25,
+    rotation: i,
+    stroke: colors.violet[2],
+    x: playerShip.x + 900 + x,
+    y: playerShip.y + y,
+  });
+
+  asteroid.bury(new Item({ itemData: itemTypes[1] }));
+});
 // @endif
 
 world.fields.flatMap(({ asteroids }) => asteroids).forEach((properties) => {

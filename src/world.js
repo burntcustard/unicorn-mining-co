@@ -1,3 +1,4 @@
+import { colors } from './colors.js';
 import { distribute } from './distribute.js';
 import { seededRandom } from './seeded-random.js';
 
@@ -39,6 +40,7 @@ const makeAsteroids = (field, worldObjects, random) => {
       contents,
       radius,
       ...(gravel && { points: 6, radiusEven: radius / 4 }),
+      ...(gravel && { stroke: colors.violet[2] }),
       rotation: random() * Math.PI * 2,
       spin: randomSpin(random),
     };

@@ -52,6 +52,12 @@ export const renderDebug = (game, sprites, nearbyRadius) => {
     game.ctx.translate(-camera.x, -camera.y);
     game.ctx.beginPath();
     game.ctx.arc(playerShip.x, playerShip.y, nearbyRadius, 0, Math.PI * 2);
+    const drill = playerShip.hitboxes().find(({ outline, segment }) => !outline && segment.module?.grinds);
+
+    if (drill) {
+      game.ctx.arc(drill.x, drill.y, drill.radius, 0, Math.PI * 2);
+    }
+
     game.ctx.strokeStyle = colors.red[2];
     game.ctx.stroke();
     game.ctx.restore();
@@ -61,7 +67,7 @@ export const renderDebug = (game, sprites, nearbyRadius) => {
   renderFps(game);
   renderText(game, `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, 10, 90);
   renderText(game, `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, 10, 110);
-  renderText(game, `4 DEADZONE:${showDeadzone ? 'ON' : 'OFF'}`, 10, 130);
+  renderText(game, `4 ZONE-BORDERS:${showDeadzone ? 'ON' : 'OFF'}`, 10, 130);
   renderText(game, `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, 10, 150);
   renderText(game, `6 SKY:${sky.label}`, 10, 170);
   renderText(game, `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, 10, 190);

@@ -322,6 +322,22 @@ export class Ship extends Sprite {
         });
       })
       .filter(({ radius }) => radius);
+    const drill = boxes.find(({ segment }) => segment.module.grinds);
+
+    if (drill) {
+      const [x, y] = drill.outline.reduce((far, corner) => (corner[0] > far[0] ? corner : far));
+      const tip = rotatePoint({ x, y }, this.rotation);
+
+      boxes.push({
+        owner: this,
+        segment: drill.segment,
+        physics: false,
+        radius: 2,
+        x: drill.x + tip.x,
+        y: drill.y + tip.y,
+      });
+    }
+
     const cover = boxes.find(({ segment, radius }) => segment.covers && radius >= this.radius);
 
     return cover ? [cover] : boxes;
