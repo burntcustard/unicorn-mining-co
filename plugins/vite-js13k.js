@@ -113,7 +113,9 @@ function saveRoadrollerArgs(searchOutput) {
 
   fs.writeFileSync(
     new URL('./roadroller-args.js', import.meta.url),
-    `export default ${JSON.stringify(options, null, 2)};\n`,
+    `export default {\n${Object.entries(options)
+      .map(([key, value]) => `  ${key}: ${Array.isArray(value) ? `[${value.join(', ')}]` : value},`)
+      .join('\n')}\n};\n`,
   );
   console.log('\nSaved matching Packer options to plugins/roadroller-args.js');
 }
@@ -212,7 +214,7 @@ export function viteJs13k(buildLevel = 'full') {
         await new Promise((resolve, reject) => {
           const search = spawn(
             'npx',
-            ['roadroller', '-OO', '-M', '192', '-v', 'dist/minified.js', '-o', 'dist/roadrolled.js'],
+            ['roadroller', '-OO', '-D', '-M', '192', '-v', 'dist/minified.js', '-o', 'dist/roadrolled.js'],
             { stdio: ['inherit', 'pipe', 'pipe'] },
           );
           search.stdout.pipe(process.stdout);
