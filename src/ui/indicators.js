@@ -52,7 +52,7 @@ export const renderIndicators = (game, targets, color, range) => {
     ctx.restore();
 
     renderText(game, `${Math.round(dist)}m`, uiWidth / 2 + edge.x,
-      uiHeight / 2 + edge.y - (indicatorsize + 10) * Math.sign(offset.y || -1), 0.5, color, 1);
+      uiHeight / 2 + edge.y - (indicatorsize + 10) * Math.sign(offset.y || -1), 0.6, 0, color);
   });
 
   ctx.restore();

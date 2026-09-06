@@ -109,34 +109,16 @@ export function drawText(props) {
  * @param {String|Number} text - The glyphs to draw.
  * @param {Number} x - The text's horizontal anchor.
  * @param {Number} y - The text's vertical anchor.
- * @param {Number} [size=1] - The glyph scale.
+ * @param {Number} [size=0.6] - The glyph scale.
+ * @param {Number} [align=-1] - Horizontal alignment: -1 left, 0 centre, 1 right.
  * @param {String} [color='#fff'] - The stroke colour.
- * @param {Number} [align=0] - Bit flags: 1 centre, 2 bottom, 4 right.
  */
-export function renderText(game, text, x, y, size = 1, color = '#fff', align = 0) {
+export function renderText(game, text, x, y, size = 0.6, align = -1, color = '#fff') {
   const { ctx, uiScale } = game;
-  let xAlign = 0;
-  let yAlign = 0;
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
-
-  if (align & 1) {
-    yAlign = -6.5 * size;
-    xAlign = -text.toString().length * 6.5 * size;
-  }
-
-  if (align & 2) {
-    // Approx height of text
-    yAlign = -17 * size;
-  }
-
-  if (align & 4) {
-    // Approx width of text
-    xAlign = -text.toString().length * 13 * size;
-  }
-
-  ctx.translate(x + xAlign, y + yAlign);
+  ctx.translate(x - (align + 1) * text.toString().length * 6.5 * size, y);
 
   ctx.scale(size, size);
   ctx.strokeStyle = color;

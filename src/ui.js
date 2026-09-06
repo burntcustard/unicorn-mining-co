@@ -12,12 +12,13 @@ export const renderUI = (game, stations) => {
 
   if (playerShip.dockedTo) renderDocked(game, playerShip);
 
-  renderText(game, `${Math.round(playerShip.x)}/${Math.round(playerShip.y)}`, 20, 20);
+  renderText(game, `$${playerShip.credits}`, 20, 20, 1);
 
-  renderText(game, `$${playerShip.credits}`, 10, 50);
+  renderText(game, `${`${Math.round(playerShip.x)}`.padStart(8)}/${`${Math.round(playerShip.y)}`.padEnd(8)}`,
+    game.uiWidth / 2, 20, 1, 0);
 
   if (playerShip.noteFor) {
     renderText(game, playerShip.note,
-      game.uiWidth / 2, game.uiHeight - 40, 1, '#fff', 1);
+      game.uiWidth / 2, game.uiHeight - 40, 1, 0);
   }
 };

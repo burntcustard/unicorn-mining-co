@@ -381,13 +381,14 @@ export const renderDocked = (game, ship) => {
       col0[0] + textPad,
       menuY(i) + 2,
       textSize,
+      -1,
       actionMenu && i !== currentItem ? `${colors.violet[2]}6` : colors.violet[2],
     );
   });
 
   if (actionMenu) {
     actionButtons.forEach(({ item, x, y }) => item && renderText(
-      game, item, x + textPad, y + 2, textSize, colors.violet[2],
+      game, item, x + textPad, y + 2, textSize, -1, colors.violet[2],
     ));
   }
 
@@ -398,6 +399,7 @@ export const renderDocked = (game, ship) => {
       col0[0] + textPad,
       top + rowGap * 10 + 2,
       textSize,
+      -1,
       hullMenu ? `${colors.violet[2]}6` : colors.violet[2],
     );
   }
@@ -419,6 +421,7 @@ export const renderDocked = (game, ship) => {
       text,
       col1[0] + textPad, top + (i ? (i + 1) * rowGap + 2 : (rowGap - 4) / 2),
       textSize,
+      -1,
       colors.violet[2],
     ));
 
@@ -427,8 +430,8 @@ export const renderDocked = (game, ship) => {
       text,
       col1[1] - textPad, top + (i + 2) * rowGap + 2,
       textSize,
+      1,
       colors.violet[2],
-      4,
     ));
   }
 };
