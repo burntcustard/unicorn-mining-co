@@ -114,8 +114,7 @@ export class Asteroid extends Sprite {
             ]) :
             [this.outline]);
     this.radius = Math.max(...this.outline.map(([x, y]) => Math.hypot(x, y)));
-    // Heft grows with size, so a big asteroid shrugs off what shoves a pebble and
-    // holds its drift far longer
+    // Heft grows with size, so a big asteroid shrugs off what shoves a pebble
     this.mass = props.mass || massMultiplier * this.radius ** 2;
     this.health = this.radius * 2;
     this.path = shapePath(this.outline);

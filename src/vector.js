@@ -98,19 +98,17 @@ const maxSpeedDrag = 0.9;
  * whether it flies itself or was only ever shoved: the difference is in what
  * put speed into it beforehand, not in what happens to that speed afterwards.
  *
- * @param {Object} object - Anything with a place, a velocity and a `mass`.
+ * @param {Object} object - Anything with a place and a velocity.
  * @param {Number} dt - Seconds since the last update.
  */
-export const move = ({ position, velocity, mass, drag = 1, maxSpeed = 272 }, dt) => {
-  if (!mass) return;
-
+export const move = ({ position, velocity, drag = 0.15, maxSpeed = 272 }, dt) => {
   const speed = velocity.length();
 
   if (speed < 1) velocity.x = velocity.y = 0;
 
   const kept = speed > maxSpeed ?
     Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed :
-      Math.exp(-(drag / mass) * dt);
+      Math.exp(-drag * dt);
 
   velocity.x *= kept;
   velocity.y *= kept;
