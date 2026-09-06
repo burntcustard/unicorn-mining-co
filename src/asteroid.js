@@ -50,7 +50,15 @@ const outlineFrom = (outlines) => {
     outline.push(edges.splice(at, 1)[0][1]);
   }
 
-  return outline;
+  // A cut can leave several mesh edges along one straight outer side. Keep the
+  // silhouette but drop those invisible joins, so light sees one continuous face.
+  return outline.filter((point, i) => {
+    const before = outline.at(i - 1);
+    const next = outline[(i + 1) % outline.length];
+
+    return (point[0] - before[0]) * (next[1] - point[1]) !==
+      (point[1] - before[1]) * (next[0] - point[0]);
+  });
 };
 
 // Sections sharing an edge, regrouped as sections rather than bare outlines

@@ -1,7 +1,6 @@
 import { Vector, directionOf, rotatePoint, rotatePoints } from './vector';
 import { shapePath, strip } from './drawing';
 import { colors } from './colors';
-import { within } from './polygon';
 
 const fillOf = (ctx, color, from, to, fade) => {
   const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
@@ -59,6 +58,10 @@ const rockIndex = 1.2;
 // there is no width to swap ends when which end is the red one changes over
 const fanning = 0.6;
 
+// At a square face the turn can wobble either side of zero from one frame to
+// the next. Keep this narrow middle range in one spectrum order.
+const flipMargin = 0.01;
+
 // How far past the width it started at a sheet is ever allowed to open out.
 // However hard a rock bends the light, a beam squeezed to a sliver on its way
 // through only has a sliver of light to split, and a rainbow that opened out of
@@ -72,12 +75,6 @@ const spreading = 1.2;
 // barely turns them at all and is left whole, because splitting that only cuts
 // one rainbow into a pair of half ones
 const steady = 0.9;
-
-// How much further apart than they went in two neighbouring rays may come out
-// and still be one sheet, where they never crossed over on the way through.
-// Leaving by a face at a glancing angle spreads them a good way on its own, so
-// this is only ever tripped by a beam that has been split outright
-const parting = 20;
 
 // Narrower than this and a sheet is a thread a pixel or so across, too thin to
 // read as a rainbow and not worth the seven stripes it would be cut into
@@ -253,17 +250,8 @@ export const traceBeam = (ship, lamp, scenery) => {
 // Neighbouring rays that went into the same rock and left it as one sheet of
 // light. A lone ray is too thin to draw.
 //
-// Two rays that stepped one way going in and the other way coming out crossed
-// over inside the rock, which is what light entering either side of a point
-// does, and it leaves as the one sheet however far apart the two halves went.
-// Stepping the same way but far further is the opposite: the two never met, and
-// the beam has been split in two, as a notch splits it.
-//
-// Short of that, rays leaving by one face are one sheet. Where they leave by
-// two there are two sheets if the corner turned them sharply apart, or if the
-// stretch between the ways out lies outside the rock, as it does across the
-// mouth of a notch: a sheet spanning that would be seen bridging open space,
-// where one spanning unlit rock is covered by the rock itself
+// Short of that, rays leaving by one face are one sheet. Across two faces, a
+// sharp corner still makes two sheets, but a gentle corner stays continuous.
 const runsOf = ({ rays: fan }) => {
   const runs = [];
 
@@ -272,14 +260,10 @@ const runsOf = ({ rays: fan }) => {
 
     const last = fan[i - 1];
     const step = last?.out && ray.out.at.subtract(last.out.at);
-    const from = step && ray.at.subtract(last.at);
-    const parted = step && step.dot(from) > 0 &&
-      step.length() > from.length() * parting;
 
-    if (step && last.hit === ray.hit && !parted &&
+    if (step && last.hit === ray.hit &&
       (last.out.face === ray.out.face ||
-        (last.out.away.dot(ray.out.away) > steady &&
-          within(ray.hit, last.out.at.add(step.scale(0.5)))))) {
+        last.out.away.dot(ray.out.away) > steady)) {
       runs[runs.length - 1].push(ray);
     } else {
       runs.push([ray]);
@@ -412,7 +396,7 @@ export const drawSpectrum = (ctx, lamp, beam) => {
     // Violet is bent furthest, so it belongs on the side the rock bent towards
     spectrum.forEach((color, band) => {
       ctx.fillStyle = fillOf(ctx,
-        spectrum[sense * spin > 0 ? band : spectrum.length - 1 - band], root, tip,
+        spectrum[sense * spin > -flipMargin ? band : spectrum.length - 1 - band], root, tip,
         Math.max(0, 1 - fades / length));
       ctx.fill(strip(near.slice(band, band + 2), far.slice(band, band + 2)));
     });

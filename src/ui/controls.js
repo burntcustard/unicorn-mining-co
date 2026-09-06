@@ -24,7 +24,6 @@ const gap = 6;
 
 // How far in from each side of a letter its key-underline is drawn, and how far
 // below the row's top it sits
-const underInset = 1;
 const underDrop = 10;
 
 // Every module on the ship the pilot can switch, each type the once, in the
@@ -68,8 +67,8 @@ export const renderControls = (game, ship) => {
     const under = textX + module.name.indexOf(module.key[1]) * glyph;
 
     ctx.beginPath();
-    ctx.moveTo(under + underInset, y + underDrop);
-    ctx.lineTo(under + glyph - underInset, y + underDrop);
+    ctx.moveTo(under, y + underDrop);
+    ctx.lineTo(under + glyph - 1, y + underDrop);
     ctx.stroke();
   });
 

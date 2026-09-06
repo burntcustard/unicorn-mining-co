@@ -65,17 +65,19 @@ export const renderDebug = (game, sprites, nearbyRadius) => {
   }
 
   renderFps(game);
-  renderText(game, `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, 10, 90);
-  renderText(game, `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, 10, 110);
-  renderText(game, `4 ZONE-BORDERS:${showDeadzone ? 'ON' : 'OFF'}`, 10, 130);
-  renderText(game, `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, 10, 150);
-  renderText(game, `6 SKY:${sky.label}`, 10, 170);
-  renderText(game, `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, 10, 190);
-  renderText(game, `8 GLOWS:${glows ? 'ON' : 'OFF'}`, 10, 210);
-  renderText(game, `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`, 10, 230);
+  renderText(game, `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`, 20, 90);
+  renderText(game, `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`, 20, 110);
+  renderText(game, `4 ZONE-BORDERS:${showDeadzone ? 'ON' : 'OFF'}`, 20, 130);
+  renderText(game, `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`, 20, 150);
+  renderText(game, `6 SKY:${sky.label}`, 20, 170);
+  renderText(game, `7 LIGHTING:${lights ? 'ON' : 'OFF'}`, 20, 190);
+  renderText(game, `8 GLOWS:${glows ? 'ON' : 'OFF'}`, 20, 210);
+  renderText(game, `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`, 20, 230);
 
   if (showMass) {
     game.ctx.save();
+    game.ctx.scale(game.scale, game.scale);
+    game.ctx.translate(-camera.x, -camera.y);
     game.ctx.fillStyle = colors.white[2];
     game.ctx.font = '12px monospace';
     game.ctx.textAlign = 'center';
