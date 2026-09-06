@@ -174,19 +174,19 @@ const outlineOf = (ship, lamp, object, mask) => {
 const rayAt = (outlines, angle, range) => {
   const dir = directionOf(angle);
   const from = Vector();
-  let entry;
+  let entry = { at: dir.scale(range), distance: range };
   let hit;
 
   outlines.forEach((outline) => {
     const found = cross(outline, from, dir);
 
-    if (found && found.distance < range && (!entry || found.distance < entry.distance)) {
+    if (found && found.distance < entry.distance) {
       entry = found;
       hit = outline;
     }
   });
 
-  if (!entry) return { at: from.add(dir.scale(range)) };
+  if (!hit) return entry;
 
   const into = -dir.dot(entry.normal) >= minFacing &&
     refract(dir, entry.normal, 1 / rockIndex);
