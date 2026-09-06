@@ -11,12 +11,12 @@ import { rotateAround } from './local-movement';
 const asteroidBounciness = 0.1;
 
 // Enough of a wander that no two asteroids come out the same shape
-const asteroidVariance = 0.3;
+const asteroidVariance = 0.2;
 
 // Five sides keep the old radius-squared mass; fewer sides lose some, more gain some
-const massMultiplier = 0.2;
+const massMultiplier = 0.4;
 // Bigger asteroids need more points to be lumpy with
-const pointsFor = (radius) => Math.round(Math.sqrt(radius) / 3) * 2 - 1;
+const pointsFor = (radius) => Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
 
 // Signed-edge sums give both exact polygon area and its physical centre
 const measure = (points) => {

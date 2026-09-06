@@ -18,10 +18,10 @@ const makeAsteroids = (field, worldObjects, random) => {
   const gravel = field.resource === 1;
 
   // Roughly one asteroid per 100,000 square metres of the field
-  const count = field.fieldRadius ** 2 / 32000;
+  const count = field.fieldRadius ** 2 / 30000;
 
   const asteroids = Array.from({ length: count }, () => {
-    const radius = 50 + (gravel ? 50 : random() * 100);
+    const radius = 50 + (gravel ? 50 + random() * 2 : random() * 120);
     // Small rocks hold little; capacity rises smoothly with size.
     const capacity = Math.round((radius / 50) ** 2);
 
