@@ -124,6 +124,19 @@ class of bug, since it only appears after a real Terser build.
 > `build:fast` (1 pass, no advzip) was removed. Historical `build:slow`*/`build:full`*
 > sizes below are not directly comparable to today's `build:fast` (10 iterations).
 
+## Measured sparkle experiments
+
+`build:fast`, September 2026 rewrite of `background.js`'s sparkles.
+
+- Merging the `+` and `x` into one `Path2D` via `path.addPath(cross, { a, b, c,
+  d })` (nonzero winding, so the crossing is painted once instead of adding
+  under `'lighter'`) cost 15B advzip versus filling the `x` separately with its
+  own gradient — the DOMMatrixInit literal outweighs the gradient it removes.
+  Kept for the look; the additive overlap was the whole problem.
+- Hoisting the four `Math.SQRT1_2` reads in that literal into a `const` cost a
+  further 5B (13559B -> 13564B) and was reverted. Repeated `Math.X` property
+  chains compress well; a new binding name does not.
+
 ## Measured thruster glow experiments
 
 `build:fast`, seed `13312`, against the September 2026 per-nozzle thruster glow.

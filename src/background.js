@@ -22,21 +22,20 @@ let span;
 // How much of the camera's movement each layer takes, and what is in it.
 // Barely any of it, because all of this is a very long way off. The layers sit
 // close together too, so the nearest reads as far away rather than as near.
-// Most of the sky is plain white specks, and only a handful of stars are near
+// Most of the sky is fine coloured specks, and only a handful of stars are near
 // enough to flare out into a coloured sparkle
-const dotCounts = [150, 100, 70];
+const dotCounts = [550, 380, 230];
 
-// A speck gets a touch of bloom and a sparkle a proper halo, so that none of
-// it looks like a shape cut out of paper
+// A speck gets a touch of bloom, so that none of it looks like a shape cut out
+// of paper
 const dotGlow = 3;
-const sparkleGlow = 6;
 
 // How many of the stars are anything other than plain white
-const tinted = 0.15;
+const tinted = 0.8;
 
-const dotTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors.red[2]];
-const sparkleTints = [colors.yellow[2], colors.orange[2], colors.cyan[2], colors.violet[2]];
-const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[1], colors.purple[2]];
+const dotTints = [colors.yellow[2], colors.violet[2], colors.cyan[2], colors.indigo[1]];
+const sparkleTints = [colors.orange[2], colors.violet[2], colors.cyan[2], colors.violet[2]];
+const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[0], colors.indigo[1]];
 
 const starColor = (tints) => (Math.random() < tinted ?
   tints[Math.floor(Math.random() * 4)] :
@@ -71,7 +70,7 @@ const makeTile = (clouds, dots, size, sparkles,
   // @endif
     while (clouds--) {
       const color = cloudColors[Math.floor(Math.random() * 4)];
-      const radius = tile / 5 + Math.random() * tile / 4;
+      const radius = 120 + Math.random() ** 2 * 320;
       const x = Math.random() * tile;
       const y = Math.random() * tile;
 
@@ -80,11 +79,11 @@ const makeTile = (clouds, dots, size, sparkles,
           x + wrapped % 3 * tile - tile,
           y + Math.floor(wrapped / 3) * tile - tile,
         ];
-        // Fading all the way out to nothing is what keeps a cloud an edgeless
-        // smudge rather than a circle
+        // Broad washes overlap medium patches at low opacity, leaving the
+        // stars clear. Wrapped copies keep the edges seamless.
         const fade = ctx.createRadialGradient(...at, 0, ...at, radius);
 
-        fade.addColorStop(0, `${color}2`);
+        fade.addColorStop(0, `${color}1`);
         fade.addColorStop(1, `${color}0`);
         ctx.fillStyle = fade;
         ctx.fillRect(at[0] - radius, at[1] - radius, radius * 2, radius * 2);
@@ -94,14 +93,15 @@ const makeTile = (clouds, dots, size, sparkles,
   }
   // @endif
 
+  ctx.globalCompositeOperation = 'source-over';
   ctx.shadowBlur = dotGlow;
 
   // @ifdef DEBUG
   if (parts.includes('dots')) {
   // @endif
     while (dots--) {
-      const color = starColor(dotTints) + '3456789'[Math.floor(Math.random() * 7)];
-      const path = circlePath(size * (0.4 + Math.random() * 0.6));
+      const color = starColor(dotTints) + '456789a'[Math.floor(Math.random() * 7)];
+      const path = circlePath(size * (0.3 + Math.random() * 0.8));
       const x = Math.random() * tile;
       const y = Math.random() * tile;
 
@@ -123,20 +123,30 @@ const makeTile = (clouds, dots, size, sparkles,
   }
   // @endif
 
-  ctx.shadowBlur = sparkleGlow;
+  ctx.globalCompositeOperation = 'lighter';
+  // A sparkle's glow is painted, not shadowed, and the whole of one is a
+  // little see-through so the clouds behind still read through it
+  ctx.shadowBlur = 0.1;
+  ctx.globalAlpha = 0.4;
 
   // @ifdef DEBUG
   if (parts.includes('sparkles')) {
   // @endif
     while (sparkles--) {
-      const color = starColor(sparkleTints) + '6789ab'[Math.floor(Math.random() * 6)];
-      const path = sparklePath(size * (1 + Math.random()));
+      const color = starColor(sparkleTints) + '89abcd'[Math.floor(Math.random() * 6)];
+      const radius = size * (0.5 + Math.random() ** 2 * 4);
+      const reach = radius * 5.6;
+      const path = sparklePath(radius * 1.4, 0.4);
+      const halo = circlePath(reach * 2);
       const x = Math.random() * tile;
       const y = Math.random() * tile;
+      const base = color.slice(0, 4);
 
-      // No stroke on a sparkle, so it stays a glow rather than an outline, and
-      // never quite full strength or it sits in front of the sky rather than in
-      ctx.shadowColor = ctx.fillStyle = color;
+      // The x joins the + as a second subpath rather than a second fill, so
+      // nonzero winding paints where they cross once instead of adding it up
+      path.addPath(sparklePath(radius * 0.7, 0.7), {
+        a: Math.SQRT1_2, b: Math.SQRT1_2, c: -Math.SQRT1_2, d: Math.SQRT1_2,
+      });
 
       for (let wrapped = 9; wrapped--;) {
         ctx.save();
@@ -144,6 +154,39 @@ const makeTile = (clouds, dots, size, sparkles,
           x + wrapped % 3 * tile - tile,
           y + Math.floor(wrapped / 3) * tile - tile,
         );
+        // One bloom, bright and tight at the middle and trailing off well past
+        // the rays, then the star itself out of a white core. The stops bend
+        // the falloff off a straight ramp, which would leave a faint rim where
+        // it ran out
+        const bloom = ctx.createRadialGradient(0, 0, 0, 0, 0, reach * 2);
+
+        bloom.addColorStop(0, `${base}b`);
+        bloom.addColorStop(0.04, `${base}6`);
+        bloom.addColorStop(0.1, `${base}3`);
+        bloom.addColorStop(0.2, `${base}2`);
+        bloom.addColorStop(0.4, `${base}1`);
+        bloom.addColorStop(1, `${base}0`);
+        ctx.fillStyle = bloom;
+        ctx.fill(halo);
+
+        const rays = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
+
+        rays.addColorStop(0, colors.white[2]);
+        rays.addColorStop(0.1, color);
+        rays.addColorStop(1, `${base}0`);
+        ctx.fillStyle = rays;
+        ctx.fill(path);
+        // Smaller copies of the same star on top, the innermost one white,
+        // brighten the middle without any of it being a different shape
+        ctx.scale(0.7, 0.7);
+        ctx.fill(path);
+
+        const core = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
+
+        core.addColorStop(0, `${colors.white[2]}9`);
+        core.addColorStop(1, `${colors.white[2]}0`);
+        ctx.fillStyle = core;
+        ctx.scale(0.5, 0.5);
         ctx.fill(path);
         ctx.restore();
       }
@@ -162,7 +205,7 @@ let tiles;
 // rather than what it looks like. A bitmap is pixels and nothing else
 const build = () => {
   tiles = dotCounts.map((dots, i) => makeTile(
-    4 - i, dots, 1 + i / 5, 10 - i * 2,
+    16 - i * 4, dots, 1 + i / 5, 22 - i * 5,
     // @ifdef DEBUG
     sky.parts,
     // @endif
