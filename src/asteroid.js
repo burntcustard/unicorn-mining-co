@@ -45,7 +45,7 @@ const outlineFrom = (outlines) => {
   // One edge short of the full loop: the last edge would only re-add the
   // start point, closing the shape back on itself
   for (let i = edges.length - 1; i--;) {
-    const at = edges.findIndex(([from]) => from + '' === outline.at(-1) + '');
+    const at = edges.findIndex(([from]) => from + '' === outline[outline.length - 1] + '');
 
     outline.push(edges.splice(at, 1)[0][1]);
   }

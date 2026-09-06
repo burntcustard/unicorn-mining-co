@@ -86,7 +86,7 @@ const cornerAxis = (points, x, y) => {
     if (length && length < near) {
       near = length;
       result = [axis.normalize(length), !points.edges ||
-      points.edges[i] || points.edges.at(i - 1)];
+      points.edges[i] || points.edges[(i + points.length - 1) % points.length]];
     }
   });
   return result || [Vector(1, 0), true];

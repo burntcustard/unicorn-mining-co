@@ -306,6 +306,11 @@ result can change after another retained conversion.
 
 ## Measured floodlight prism experiments
 
+For the later seam-safe implementation and production-wide array-access sweep,
+read [September prism and array indexing experiments](references/prism-and-array-indexing.md)
+before retrying corner predicates, intersection-object reuse, property renaming,
+or `.at()` versus bracket indexing. These use today's `build:fast` measurement.
+
 `build:slow`*, seed `13312`, against the August 2026 rewrite of `src/prism.js`.
 
 - Folding the spectrum clip's scratch `Path2D` into the accumulated `covered` path saved 15 bytes.

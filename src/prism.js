@@ -123,7 +123,7 @@ const cross = (points, from, dir) => {
 
     near = distance;
     faceIndex = i;
-    normal = dir.dot(face) > 0 ? face.scale(-1) : face;
+    normal = denom > 0 ? face.scale(-1) : face;
   });
 
   return normal && { at: from.add(dir.scale(near)), distance: near, face: faceIndex, normal };
@@ -267,7 +267,7 @@ const runsOf = ({ rays: fan }) => {
     const step = last?.out && ray.out.at.subtract(last.out.at);
 
     if (step && last.hit === ray.hit && joins(ray.hit, last.out.face, ray.out.face)) {
-      runs[runs.length - 1].push(ray);
+      runs.at(-1).push(ray);
     } else {
       runs.push([ray]);
     }
@@ -281,7 +281,7 @@ const runsOf = ({ rays: fan }) => {
 // narrower across the beam than the edge that entered the rock.
 const sheetOf = (run) => {
   const first = run[0];
-  const last = run[run.length - 1];
+  const last = run.at(-1);
   const through = run.reduce((sum, ray) =>
     sum.add(ray.out.at.subtract(ray.at)), Vector()).normalize();
   const side = Vector(-through.y, through.x);
