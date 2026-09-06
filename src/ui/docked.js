@@ -53,10 +53,15 @@ const cargoOf = (ship) => Array.from([...ship.cargoBay, ...ship.cargo.map(({ ite
 // count is only worth showing when there is more than one
 const cargoName = ([item, count]) => count > 1 ? `${item.name} *${count}` : item.name;
 
-const hullActionsOf = (ship) => (ship.hullSegments.some((part) =>
-  ship.segments.find(({ module }) => module === part)?.health !== part.health) ?
-    ['FIX'] :
-    []);
+const hullHealthOf = (ship) => ship.segments
+  .filter(({ hull }) => hull)
+  .reduce((total, { health }) => total + health, 0);
+const hullMaxHealthOf = (ship) => ship.hullSegments
+  .reduce((total, { health }) => total + health, 0);
+
+// Health is displayed as a whole number, so repairing replaces every missing
+// displayed HP, including the fractional remainder hidden by the UI.
+const repairCostOf = (health, maxHealth) => maxHealth - (health | 0);
 
 // What a mount can be given, in the order its `fits` lists them: each module
 // type stands in for itself while the pilot owns none of it, and is replaced in
@@ -77,7 +82,7 @@ const actionsOf = (ship, mount, module) => {
 
   return fitted ?
       [mount.health < module.health && 'FIX', 'REMOVE'].filter(Boolean) :
-    owned ? ['EQUIP', 'SELL'] : ship.credits >= module.price ? ['BUY'] : [];
+    owned ? ['EQUIP', 'SELL'] : ['BUY'];
 };
 
 // One snapshot supplies navigation, actions and drawing with the same rows.
@@ -89,10 +94,15 @@ const selectionOf = (ship) => {
   const currentItem = stage && !hullMenu ? moduleOption : mountOption;
   const item = menu[currentItem];
   const currentModule = hullMenu ? ship : stage && (cargoMenu ? item?.[0] : item);
-  const actions = stage > 1 ? hullMenu ? hullActionsOf(ship) : cargoMenu ? ['SELL'] : actionsOf(ship, mount, currentModule) : [];
+  const repairCost = hullMenu ?
+      repairCostOf(hullHealthOf(ship), hullMaxHealthOf(ship)) :
+    mount?.module && mount.module === currentModule ? repairCostOf(mount.health, currentModule.health) : 0;
+  const actions = stage > 1 ? hullMenu ? repairCost ? ['FIX'] : [] : cargoMenu ? ['SELL'] : actionsOf(ship, mount, currentModule) : [];
   const swatches = stage > 1 && (hullMenu || currentModule?.oneOf) ? paints : [];
+  const disabledAction = !!actions[0] && ship.credits <
+    (actions[0] === 'BUY' ? currentModule.price : repairCost);
 
-  return { mount, menu, currentItem, item, currentModule, actions, swatches, hullMenu, cargoMenu };
+  return { mount, menu, currentItem, item, currentModule, actions, swatches, hullMenu, cargoMenu, repairCost, disabledAction };
 };
 
 /**
@@ -103,7 +113,7 @@ const selectionOf = (ship) => {
  * @param {Boolean} sub - Set by the alternate controls, which stay on one row.
  */
 export const moveSelection = (delta, ship, sub) => {
-  const { menu, currentModule, actions, swatches } = selectionOf(ship);
+  const { menu, currentModule, actions, swatches, disabledAction } = selectionOf(ship);
 
   if (!stage) {
     mountOption = Math.max(0, Math.min(menu.length, mountOption + delta));
@@ -118,7 +128,7 @@ export const moveSelection = (delta, ship, sub) => {
     // already worn, and up comes back off it. Any other move runs along the
     // row focus is already on
     if (!sub && onPaints && delta < 0) {
-      focused = 0;
+      focused = disabledAction ? actions.length : 0;
     } else if (!sub && !onPaints && delta > 0 && swatches.length) {
       focused = first + swatches.indexOf(availablePaints[Math.max(0,
         availablePaints.indexOf(currentModule?.shades || ship.shades))]);
@@ -128,7 +138,7 @@ export const moveSelection = (delta, ship, sub) => {
       focused = first + swatches.indexOf(availablePaints[Math.max(0,
         Math.min(availablePaints.length - 1, paint + delta))]);
     } else {
-      focused = Math.max(0, Math.min(actions.length, focused + delta));
+      focused = Math.max(+disabledAction, Math.min(actions.length, focused + delta));
     }
   }
 };
@@ -163,13 +173,14 @@ export const back = (ship) => {
  * @param {Object} ship
  */
 export const confirmSelection = (ship) => {
-  const { mount, menu, currentModule, actions, swatches, hullMenu, cargoMenu } = selectionOf(ship);
+  const { mount, menu, currentModule, actions, swatches, hullMenu, cargoMenu, repairCost } = selectionOf(ship);
 
   if (!stage) {
     if (mountOption === menu.length) return back(ship);
 
     moduleOption = focused = 0;
     stage = mountOption === 1 ? 2 : 1;
+    if (stage > 1) focused = +(selectionOf(ship).disabledAction && selectionOf(ship).actions.length);
     return;
   }
 
@@ -177,6 +188,7 @@ export const confirmSelection = (ship) => {
     if (moduleOption === menu.length) return back(ship);
     focused = 0;
     stage = 2;
+    focused = +(selectionOf(ship).disabledAction && selectionOf(ship).actions.length);
     return;
   }
 
@@ -197,6 +209,7 @@ export const confirmSelection = (ship) => {
   if (!picked) return back(ship);
 
   if (picked === 'FIX') {
+    ship.credits -= repairCost;
     hullMenu ? ship.fixHull() : mount.health = currentModule.health;
     return;
   }
@@ -233,7 +246,7 @@ export const confirmSelection = (ship) => {
 // A row's own background, and its highlight when it's the one picked out in
 // its column. Appended digit is the fill's opacity
 const renderButton = (ctx, x0, x1, y, focused, disabled) => {
-  if (disabled) ctx.globalAlpha = 0.3;
+  ctx.globalAlpha = disabled ? 0.3 : 1;
 
   ctx.fillStyle = `${colors.purple[2]}${focused ? '' : '9'}`;
   ctx.strokeStyle = `${colors.violet[2]}${focused ? '' : '0'}`;
@@ -262,15 +275,14 @@ export const renderDocked = (game, ship) => {
   const col0 = [outerPadding + padding, outerPadding + padding + colWidth];
   const col1 = [col0[1] + colGap, col0[1] + colGap + colWidth];
 
-  const { mount, menu, currentItem, item, currentModule, actions, swatches, hullMenu, cargoMenu } = selectionOf(ship);
-  const hulls = ship.segments.filter(({ hull }) => hull);
+  const { mount, menu, currentItem, item, currentModule, actions, swatches, hullMenu, cargoMenu, disabledAction } = selectionOf(ship);
   const actionMenu = stage > 1;
   const currentHull = item === 'HULL';
   const cargoItems = item === 'CARGO' ? cargoOf(ship) : cargoMenu && stage && item && [item];
   const selected = (currentModule?.shades || ship.shades);
   const info = currentHull || cargoItems || currentModule || mount?.module;
-  const health = currentHull ? hulls.reduce((total, { health }) => total + health, 0) : mount?.module === info ? mount?.health : info?.health;
-  const maxHealth = currentHull ? ship.hullSegments.reduce((total, { health }) => total + health, 0) : info?.health;
+  const health = currentHull ? hullHealthOf(ship) : mount?.module === info ? mount?.health : info?.health;
+  const maxHealth = currentHull ? hullMaxHealthOf(ship) : info?.health;
   let actionX = 0;
   const actionButtons = [];
   // The action row, and the swatch row under it when there is paint to pick
@@ -327,7 +339,7 @@ export const renderDocked = (game, ship) => {
 
   if (actionMenu) {
     actionButtons.forEach(({ shades, width, x, y }, i) => {
-      const locked = shades && !colorUnlocked(shades);
+      const locked = i < disabledAction || (shades && !colorUnlocked(shades));
 
       renderButton(ctx, x, x + width, y, focused === i, locked);
 
@@ -387,8 +399,9 @@ export const renderDocked = (game, ship) => {
   });
 
   if (actionMenu) {
-    actionButtons.forEach(({ item, x, y }) => item && renderText(
-      game, item, x + textPad, y + 2, textSize, -1, colors.violet[2],
+    actionButtons.forEach(({ item, x, y }, i) => item && renderText(
+      game, item, x + textPad, y + 2, textSize, -1,
+      i < disabledAction ? `${colors.violet[2]}6` : colors.violet[2],
     ));
   }
 

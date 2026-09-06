@@ -99,8 +99,16 @@ moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.red && first.shades === colors.red, 'paint purchased instance');
 moveSubSelection(1, ship); confirm();
 assert(bought.shades === colors.orange && first.shades === colors.red, 'independent paint');
-move(-1); mount.health = 1; confirm();
-assert(mount.health === cargoScoop.health, 'module repair');
+back(ship); mount.health = 3.11111;
+const repairCredits = ship.credits;
+ship.credits = 0; confirm();
+assert(selectionSnapshot(ship)[2][0] === 'FIX' && selectionSnapshot(ship)[3] === 2,
+  'unaffordable module repair is visible but cannot be focused');
+move(1); move(-1);
+assert(selectionSnapshot(ship)[3] === 2, 'up from paints skips disabled repair for BACK');
+ship.credits = repairCredits; back(ship); confirm(); confirm();
+assert(mount.health === cargoScoop.health && ship.credits === repairCredits - 1,
+  'module repair charges for displayed missing HP');
 confirm();
 assert(!bought.mount && ship.cargoBay[0] === bought, 'removed instance becomes cargo');
 
@@ -115,7 +123,12 @@ ship.fit(0, mount);
 assert(!roomFor(ship), 'removing consumes cargo space');
 
 // Full cargo blocks a purchase without altering inventory or credits.
-back(ship); back(ship); move(-100); move(3); confirm(); confirm();
+back(ship); back(ship); move(-100); move(3); confirm();
+const buyCredits = ship.credits;
+ship.credits = 0; confirm();
+assert(selectionSnapshot(ship)[2][0] === 'BUY' && selectionSnapshot(ship)[3] === 1,
+  'unaffordable purchase is visible but cannot be focused');
+ship.credits = buyCredits; back(ship); confirm();
 const fullCredits = ship.credits;
 confirm();
 assert(ship.credits === fullCredits && ship.modules.length === 2, 'full cargo blocks buy');
@@ -139,9 +152,14 @@ assert(playerShip.note === 'UNCHANGED', 'cyan only announces once');
 
 // Rebuild hulls without duplicating mounts or resurrecting destroyed inventory.
 confirm(); move(1); confirm();
-lowerMount.hull.health = 1;
+lowerMount.hull.health = 1.11111;
+const hullHealth = ship.segments.filter(({hull}) => hull).reduce((total, part) => total + part.health, 0);
+const hullMaxHealth = ship.hullSegments.reduce((total, part) => total + part.health, 0);
+const hullRepairCredits = ship.credits;
 confirm();
 assert(lowerMount.hull.health === lowerMount.hull.module.health, 'hull repair');
+assert(ship.credits === hullRepairCredits - hullMaxHealth + (hullHealth | 0),
+  'hull repair charges for displayed missing HP');
 const damaged = new Ship({shades: colors.white});
 const spare = instanceOf(cargoScoop);
 const lost = instanceOf(cargoScoop);
@@ -220,7 +238,7 @@ const bundle = await rolldown({
     resolveId: (id) => id === 'docked-scenario.js' ? '\0docked-scenario.js' : undefined,
     load: (id) => id === '\0docked-scenario.js' ? scenario : undefined,
     transform: (code, id) => id.endsWith('/src/ui/docked.js') ?
-      `${code}\nexport { fitsOf };\nexport const selectionSnapshot = () => [moduleOption, stage];` :
+      `${code}\nexport { fitsOf };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];` :
       undefined,
   }, viteJs13kPre()],
 });

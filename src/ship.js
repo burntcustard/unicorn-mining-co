@@ -459,6 +459,14 @@ export class Ship extends Sprite {
 
     super.update(dt);
 
+    // A stale contact can still nudge a ship the same update it docks; keep
+    // it pinned in its bay regardless. Rotation and spin need no help: they
+    // already track the station exactly via localMovement.
+    if (this.dockedTo) {
+      this.position.set(this.dockedTo.position);
+      this.velocity.set({ x: 0, y: 0 });
+    }
+
     if (this.cockpit) {
       this.mounts.filter(({ health, module }) => module && !active(health))
         .forEach((mount) => this.detach(mount));
