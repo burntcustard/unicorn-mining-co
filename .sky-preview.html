@@ -1,0 +1,318 @@
+<!doctype html><style>body{margin:0;background:#102}</style><canvas width="1200" height="900"></canvas><script>var skyPreview = (function(exports) {
+	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+	//#region src/polygon.js
+	/**
+	* Points spaced evenly around a circle, ready to be turned into a path.
+	*
+	* A plain hexagon, a jagged asteroid and a five pointed star are all the same
+	* shape with different props: pull every other point in with `radiusEven` for
+	* a star, and shove them all about with `variance` for an asteroid.
+	*
+	* @param {Object} props
+	* @param {Number} props.points - How many points, and lines between them.
+	* @param {Number} props.radius - How far each odd point sits from the middle.
+	* @param {Number} [props.radiusEven] - Same for the even ones, which without
+	*   one of its own is however far the odd ones sit.
+	* @param {Number} [props.variance] - How far a point may wander in or out of
+	*   where it would otherwise sit, as a fraction of its radius.
+	* @returns {Number[][]}
+	*/
+	const createPolygon = ({ points, radius, radiusEven = radius, variance = 0 }) => {
+		return Array.from({ length: points }, (_, i) => {
+			const angle = i / points * Math.PI * 2;
+			const wander = 1 + (Math.random() - .5) * variance;
+			const reach = (i % 2 ? radius : radiusEven) * wander;
+			return [Math.cos(angle) * reach, Math.sin(angle) * reach];
+		});
+	};
+	//#endregion
+	//#region src/drawing.js
+	const circlePath = (radius) => {
+		const path = new Path2D();
+		path.arc(0, 0, radius, 0, Math.PI * 2);
+		return path;
+	};
+	const shapePath = (points, unclosed) => {
+		const path = new Path2D();
+		points.forEach(([x, y]) => path.lineTo(x, y));
+		if (!unclosed) path.closePath();
+		return path;
+	};
+	const sparklePath = (size, width = .7) => shapePath(createPolygon({
+		points: 8,
+		radius: size * width,
+		radiusEven: size * 4
+	}));
+	//#endregion
+	//#region src/camera.js
+	/**
+	* The camera is the top left corner of the viewport in world coordinates.
+	* Everything in the world is drawn shifted by it, and the HUD is not.
+	*/
+	const camera = {
+		x: 0,
+		y: 0
+	};
+	//#endregion
+	//#region src/colors.js
+	/**
+	* Each color is three shades darkest first, then the two the light works with.
+	* How much darker a shade needs to be varies by hue, so these are picked by eye
+	* rather than computed.
+	*
+	* The darkest is used for damaged segments, the middle for module fills, the
+	* lightest for hull fills and lines. Then comes the shadow a dark side falls
+	* towards and the light a lit side lifts to. Both keep to the hue rather than
+	* heading for the same blue and pink whatever they start from, because a warm
+	* colour shaded towards blue only turns grey.
+	*/
+	const colors = {
+		red: [
+			"#c00",
+			"#d10",
+			"#f32",
+			"#400",
+			"#f20"
+		],
+		orange: [
+			"#c61",
+			"#e82",
+			"#fa3",
+			"#930",
+			"#f80"
+		],
+		yellow: [
+			"#ca1",
+			"#ec3",
+			"#fe4",
+			"#c50",
+			"#f95"
+		],
+		green: [
+			"#1b4",
+			"#2d6",
+			"#3f7",
+			"#06d",
+			"#efa"
+		],
+		cyan: [
+			"#0ac",
+			"#1bd",
+			"#4df",
+			"#148",
+			"#cff"
+		],
+		indigo: [
+			"#33c",
+			"#44d",
+			"#fff",
+			"#fff",
+			"#fff"
+		],
+		violet: [
+			"#c2c",
+			"#d3d",
+			"#e6f",
+			"#427",
+			"#e6f"
+		],
+		purple: [
+			"#102",
+			"#213",
+			"#325",
+			"#fff",
+			"#fff"
+		],
+		white: [
+			"#ddd",
+			"#eee",
+			"#fff",
+			"#33c",
+			"#f8d"
+		]
+	};
+	//#endregion
+	//#region src/background.js
+	/**
+	* The sky behind everything: sparks of starlight and soft clouds of colour,
+	* with nothing solid about any of it. None of it is ever collided with, so it
+	* can be any size it likes.
+	*
+	* Each layer is drawn once into a square tile and then stamped across the
+	* screen, which is why it costs a handful of blits a layer however much is in
+	* it. A layer slides past at a fraction of the camera's own movement, so the
+	* further back it is the slower it goes and the deeper the sky looks.
+	*/
+	const tile = 1200;
+	let span;
+	const dotCounts = [
+		550,
+		380,
+		230
+	];
+	const dotGlow = 3;
+	const tinted = .8;
+	const dotTints = [
+		colors.yellow[2],
+		colors.violet[2],
+		colors.cyan[2],
+		colors.indigo[1]
+	];
+	const sparkleTints = [
+		colors.orange[2],
+		colors.violet[2],
+		colors.cyan[2],
+		colors.violet[2]
+	];
+	const cloudColors = [
+		colors.violet[1],
+		colors.indigo[1],
+		colors.cyan[0],
+		colors.indigo[1]
+	];
+	const starColor = (tints) => Math.random() < tinted ? tints[Math.floor(Math.random() * 4)] : colors.white[2];
+	const fullParts = [
+		"clouds",
+		"dots",
+		"sparkles"
+	];
+	const sky = {
+		label: "ALL",
+		parts: fullParts
+	};
+	const makeTile = (clouds, dots, size, sparkles, parts) => {
+		const canvas = document.createElement("canvas");
+		const ctx = canvas.getContext("2d");
+		canvas.width = canvas.height = span;
+		ctx.scale(span / tile, span / tile);
+		if (parts.includes("clouds")) while (clouds--) {
+			const color = cloudColors[Math.floor(Math.random() * 4)];
+			const radius = 120 + Math.random() ** 2 * 320;
+			const x = Math.random() * tile;
+			const y = Math.random() * tile;
+			for (let wrapped = 9; wrapped--;) {
+				const at = [x + wrapped % 3 * tile - tile, y + Math.floor(wrapped / 3) * tile - tile];
+				const fade = ctx.createRadialGradient(...at, 0, ...at, radius);
+				fade.addColorStop(0, `${color}1`);
+				fade.addColorStop(1, `${color}0`);
+				ctx.fillStyle = fade;
+				ctx.fillRect(at[0] - radius, at[1] - radius, radius * 2, radius * 2);
+			}
+		}
+		ctx.globalCompositeOperation = "source-over";
+		ctx.shadowBlur = dotGlow;
+		if (parts.includes("dots")) while (dots--) {
+			const color = starColor(dotTints) + "456789a"[Math.floor(Math.random() * 7)];
+			const path = circlePath(size * (.3 + Math.random() * .8));
+			const x = Math.random() * tile;
+			const y = Math.random() * tile;
+			ctx.shadowColor = ctx.fillStyle = color;
+			for (let wrapped = 9; wrapped--;) {
+				ctx.save();
+				ctx.translate(x + wrapped % 3 * tile - tile, y + Math.floor(wrapped / 3) * tile - tile);
+				ctx.fill(path);
+				ctx.restore();
+			}
+		}
+		ctx.globalCompositeOperation = "lighter";
+		if (parts.includes("sparkles")) while (sparkles--) {
+			const color = starColor(sparkleTints) + "89abcd"[Math.floor(Math.random() * 6)];
+			const radius = size * (.5 + Math.random() ** 2 * 4);
+			const path = sparklePath(radius * 1.4, .42);
+			const x = Math.random() * tile;
+			const y = Math.random() * tile;
+			ctx.shadowColor = ctx.fillStyle = color;
+			for (let wrapped = 9; wrapped--;) {
+				ctx.save();
+				ctx.translate(x + wrapped % 3 * tile - tile, y + Math.floor(wrapped / 3) * tile - tile);
+				const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 8);
+				fade.addColorStop(0, colors.white[2]);
+				fade.addColorStop(.12, color);
+				fade.addColorStop(.25, `${color.slice(0, 4)}6`);
+				fade.addColorStop(1, `${color.slice(0, 4)}0`);
+				ctx.filter = "blur(0.5px)";
+				ctx.fillStyle = color;
+				ctx.globalAlpha = .3;
+				ctx.shadowBlur = radius * 2;
+				ctx.fill(sparklePath(radius * .6));
+				ctx.fillStyle = fade;
+				ctx.globalAlpha = .7;
+				ctx.shadowColor = `${colors.cyan[2]}3`;
+				ctx.shadowBlur = radius * 4;
+				ctx.save();
+				ctx.scale(.6, .6);
+				ctx.rotate(Math.PI / 4);
+				const diagonalFade = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 8);
+				diagonalFade.addColorStop(0, color);
+				diagonalFade.addColorStop(1, `${color.slice(0, 4)}0`);
+				ctx.fillStyle = diagonalFade;
+				ctx.fill(path);
+				ctx.restore();
+				ctx.fill(path);
+				ctx.restore();
+			}
+		}
+		return canvas;
+	};
+	let tiles;
+	const build = () => {
+		tiles = dotCounts.map((dots, i) => makeTile(16 - i * 4, dots, 1 + i / 5, 22 - i * 5, sky.parts));
+		tiles.forEach((canvas, i) => createImageBitmap(canvas).then((bitmap) => {
+			if (tiles[i] === canvas) tiles[i] = bitmap;
+		}));
+	};
+	const modes = [
+		{
+			label: "ALL",
+			parts: fullParts
+		},
+		{
+			label: "FOG",
+			parts: ["clouds"]
+		},
+		{
+			label: "DOTS",
+			parts: ["dots"]
+		},
+		{
+			label: "SPARKLES",
+			parts: ["sparkles"]
+		},
+		{
+			label: "OFF",
+			parts: []
+		}
+	];
+	let mode = 0;
+	sky.cycle = () => {
+		mode = (mode + 1) % modes.length;
+		sky.label = modes[mode].label;
+		sky.parts = modes[mode].parts;
+		build();
+	};
+	/**
+	* Stamped out rather than filled as a repeating pattern: a pattern under a
+	* scaled transform is resampled across the whole screen every frame, which
+	* costs more than everything else in the game put together.
+	*/
+	const renderBackground = (game) => {
+		const { canvas, ctx, scale } = game;
+		const size = Math.round(tile * scale);
+		if (span !== size) {
+			span = size;
+			build();
+		}
+		if (!sky.parts.length) return;
+		tiles.forEach((image, i) => {
+			const left = -(camera.x * (i + 1) * scale / 50 % span + span) % span;
+			const top = -(camera.y * (i + 1) * scale / 50 % span + span) % span;
+			for (let atX = left; atX < canvas.width; atX += span) for (let atY = top; atY < canvas.height; atY += span) ctx.drawImage(image, atX, atY);
+		});
+	};
+	//#endregion
+	exports.renderBackground = renderBackground;
+	exports.sky = sky;
+	return exports;
+})({});
+
+let seed=42;Math.random=()=>((seed=(seed+1)*48271%2147483647)/2147483647);const canvas=document.querySelector('canvas');skyPreview.renderBackground({canvas,ctx:canvas.getContext('2d'),scale:1});</script>
