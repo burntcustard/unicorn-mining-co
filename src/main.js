@@ -90,6 +90,7 @@ debugWreck.cargo.push(debugNote);
     radius: 100,
     radiusEven: 25,
     rotation: i,
+    fill: `${colors.purple[1]}9`,
     stroke: colors.violet[2],
     x: playerShip.x + 900 + x,
     y: playerShip.y + y,

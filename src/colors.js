@@ -15,9 +15,11 @@ export const colors = {
   yellow: ['#ca1', '#ec3', '#fe4', '#c50', '#f95'],
   green:  ['#1b4', '#2d6', '#3f7', '#06d', '#efa'],
   cyan:   ['#0ac', '#1bd', '#4df', '#148', '#cff'],
-  indigo: ['#33c', '#44d', '#55f', '#217', '#bdf'],
+  // Indigo's unused [2..4] were '#55f', '#217', '#bdf'
+  indigo: ['#33c', '#44d', '#fff', '#fff', '#fff'],
   violet: ['#c2c', '#d3d', '#e6f', '#427', '#e6f'],
-  purple: ['#102', '#213', '#325', '#001', '#647'],
+  // Purple's unused [3..4] were '#001', '#647'
+  purple: ['#102', '#213', '#325', '#fff', '#fff'],
   white:  ['#ddd', '#eee', '#fff', '#33c', '#f8d'],
   // Grey removed as it was only used for platinum and it saves a few bytes
   // grey:   ['#778', '#99a', '#bbc', '#334', '#eef'],

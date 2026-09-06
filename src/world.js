@@ -40,6 +40,7 @@ const makeAsteroids = (field, worldObjects, random) => {
       contents,
       radius,
       ...(gravel && { points: 6, radiusEven: radius / 4 }),
+      ...(gravel && { fill: `${colors.purple[1]}9` }), // 9 compresses well(???)
       ...(gravel && { stroke: colors.violet[2] }),
       rotation: random() * Math.PI * 2,
       spin: randomSpin(random),

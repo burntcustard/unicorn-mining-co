@@ -74,6 +74,7 @@ export class Asteroid extends Sprite {
     this.contents ||= [];
     this.bounciness = asteroidBounciness;
     this.scenery = true;
+    this.fill = props.fill ?? '#222';
     this.stroke = props.stroke ?? colors.white[2];
     this.zIndex ??= -2;
 
@@ -161,6 +162,7 @@ export class Asteroid extends Sprite {
         dy: this.velocity.y + offset.x * this.spin,
         contents,
         mass,
+        fill: this.fill,
         outline: outline.map(local),
         rotation: this.rotation,
         spin: this.spin,
@@ -283,7 +285,7 @@ export class Asteroid extends Sprite {
     ctx.rotate(this.rotation);
     ctx.lineJoin = 'round';
     ctx.lineWidth = objectLineWidth;
-    ctx.fillStyle = '#222';
+    ctx.fillStyle = this.fill;
     ctx.strokeStyle = this.stroke;
     ctx.fill(this.path);
     ctx.stroke(this.path);
