@@ -57,15 +57,6 @@ export class Item extends Sprite {
     forget(game.items, this);
   }
 
-  /**
-   * @param {Number} dt - Seconds since the last update.
-   */
-  update(dt) {
-    if (this.buried) return;
-
-    super.update(dt);
-  }
-
   render() {
     const { ctx, item, radius } = this;
 
@@ -75,6 +66,7 @@ export class Item extends Sprite {
     ctx.lineJoin = 'bevel';
     ctx.lineWidth = itemLineWidth;
 
+    ctx.strokeStyle = this.stroke;
     ctx.fillStyle = this.fill + (item.fillAlpha || '');
 
     if (item.rainbow) {
@@ -86,8 +78,6 @@ export class Item extends Sprite {
       ctx.fillStyle = rainbow;
     }
 
-    ctx.strokeStyle = this.stroke;
-
     ctx.fill(this.path);
 
     ctx.stroke(this.path);
@@ -95,7 +85,6 @@ export class Item extends Sprite {
     if (this.lines) ctx.stroke(this.lines);
 
     if (this.glint) {
-      ctx.save();
       // Fixed to the stone rather than to the light, so a tumbling item
       // carries its glint round with it instead of the glint sliding about
       ctx.translate(
@@ -107,7 +96,6 @@ export class Item extends Sprite {
       ctx.rotate(-this.rotation);
       ctx.fillStyle = colors.white[2];
       ctx.fill(this.glint);
-      ctx.restore();
     }
 
     ctx.restore();

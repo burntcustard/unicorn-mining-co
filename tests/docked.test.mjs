@@ -1,6 +1,7 @@
 /* global process */
 import { minify } from 'terser';
 import { rolldown } from 'rolldown';
+import viteConfig from '../vite.config.js';
 import { viteJs13kPre } from '../plugins/vite-js13k.js';
 
 // Keep the assertions in the bundle so production property mangling applies
@@ -9,7 +10,7 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { Ship, damage } from '${process.cwd()}/src/ship.js';
 import { instanceOf, cargoScoop, thrusterDualMd } from '${process.cwd()}/src/modules/index.js';
-import { roomFor, playerShip } from '${process.cwd()}/src/player.js';
+import { colorUnlocked, roomFor, playerShip, unlockColor } from '${process.cwd()}/src/player.js';
 import { game } from '${process.cwd()}/src/game.js';
 import { colors } from '${process.cwd()}/src/colors.js';
 import {
@@ -81,7 +82,20 @@ assert(bought.oneOf === cargoScoop && bought !== first, 'purchase appends a fres
 assert(ship.credits === beforeBuy - cargoScoop.price, 'purchase debits once');
 confirm();
 assert(mount.module === bought && !ship.cargoBay.length, 'new purchase fits');
+// Navigation skips locked colours: a new pilot has only pink and white.
+assert(!colorUnlocked(colors.red) && !colorUnlocked(colors.orange), 'red and orange start locked');
 move(1); moveSubSelection(-100, ship); confirm();
+assert(bought.shades === colors.violet, 'first unlocked paint is pink');
+moveSubSelection(1, ship); confirm();
+assert(bought.shades === colors.white && first.shades === colors.red, 'next unlocked paint is white');
+
+// The ownership checks below need these paints earned before selecting them.
+unlockColor('RED');
+assert(playerShip.note === 'RED UNLOCKED', 'red reward message');
+unlockColor('ORANGE');
+assert(colorUnlocked(colors.red) && colorUnlocked(colors.orange), 'earned paints become available');
+assert(playerShip.note === 'ORANGE UNLOCKED', 'orange reward message');
+moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.red && first.shades === colors.red, 'paint purchased instance');
 moveSubSelection(1, ship); confirm();
 assert(bought.shades === colors.orange && first.shades === colors.red, 'independent paint');
@@ -92,7 +106,7 @@ assert(!bought.mount && ship.cargoBay[0] === bought, 'removed instance becomes c
 
 // Capacity counts loose modules and physical cargo, excluding fitted modules.
 const ore = { name: 'ORE', price: 7 };
-const gem = { name: 'GEM', price: 11 };
+const gem = { name: 'DIAMOND', price: 11 };
 ship.cargo = Array.from({length: 11}, () => ({ item: ore }));
 assert(!roomFor(ship), 'loose module fills twelfth cargo space');
 ship.fit(bought, mount);
@@ -114,9 +128,14 @@ assert(selectionSnapshot()[1] === 1, 'cargo sale closes submenu');
 confirm(); confirm();
 assert(ship.cargo.length === 1 && ship.cargo[0].item === gem, 'ore stack sale');
 assert(selectionSnapshot()[1] === 1, 'stack sale closes submenu');
+assert(!colorUnlocked(colors.cyan), 'cyan is locked before selling a diamond');
 confirm(); confirm();
 assert(!ship.cargo.length && ship.credits === beforeSale + cargoScoop.price + 25, 'last cargo sale');
 assert(selectionSnapshot()[1] === 1, 'empty cargo returns to list');
+assert(colorUnlocked(colors.cyan) && playerShip.note === 'CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
+playerShip.note = 'UNCHANGED';
+unlockColor('CYAN');
+assert(playerShip.note === 'UNCHANGED', 'cyan only announces once');
 
 // Rebuild hulls without duplicating mounts or resurrecting destroyed inventory.
 confirm(); move(1); confirm();
@@ -179,6 +198,16 @@ flyer.fly(1, 1); flyer.update(0.1);
 assert(Number.isFinite(flyer.x) && Number.isFinite(flyer.spin), 'flight remains finite');
 flyer.fit(0, engine.mount);
 assert(flyer.forwardThrust === 0 && flyer.cargoBay[0] === engine, 'removing engine removes thrust');
+// Check the remaining reward names under production property mangling too.
+for (const [name, shades] of [['YELLOW', colors.yellow], ['GREEN', colors.green]]) {
+  assert(!colorUnlocked(shades), name + ' starts locked');
+  unlockColor(name);
+  assert(colorUnlocked(shades), name + ' unlocks its palette');
+  assert(playerShip.note === name + ' UNLOCKED', name + ' reward message');
+  playerShip.note = 'UNCHANGED';
+  unlockColor(name);
+  assert(playerShip.note === 'UNCHANGED', name + ' only announces once');
+}
 console.log('Inventory, menu, damage, repairs, scoop physics and flight tests passed');
 
 `;
@@ -207,19 +236,8 @@ globalThis.Path2D = class {
   moveTo() {}
 };
 
-const compressed = await minify(output[0].code, {
-  module: true,
-  toplevel: true,
-  compress: {
-    passes: 4,
-    unsafe: true,
-    unsafe_arrows: true,
-    unsafe_comps: true,
-    unsafe_math: true,
-    pure_getters: true,
-  },
-  mangle: { properties: { reserved: ['Up', 'ht', 'ft'] } },
-});
+const { build } = viteConfig({ mode: 'fast', command: 'build' });
+const compressed = await minify(output[0].code, build.terserOptions);
 
 for (const code of [output[0].code, compressed.code]) {
   await import(`data:text/javascript,${encodeURIComponent(code)}`);

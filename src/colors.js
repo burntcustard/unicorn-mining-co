@@ -9,6 +9,7 @@
  * heading for the same blue and pink whatever they start from, because a warm
  * colour shaded towards blue only turns grey.
  */
+// Keep the first five palettes in reward-name order (see unlockColor).
 export const colors = {
   red:    ['#c00', '#d10', '#f32', '#400', '#f20'],
   orange: ['#c61', '#e82', '#fa3', '#930', '#f80'],

@@ -643,3 +643,12 @@ The retained changes took advzip from 13809B to 13745B (and `build:full`* from
   `100 * (1 - Math.random() * spread)` due to Roadroller's context matching.
 - Stubbing/commenting unused road particle generators in `particles.js` removed
   dead color-palette queries.
+
+## Measured fallback and canvas experiments
+
+Before retrying redundant item updates, glint save/restore, glow-cache guards,
+mount-coordinate defaults, canvas assignment ordering, or single-element loops,
+read [September fallback and canvas experiments](references/fallback-and-canvas.md).
+The 2026-09-06 pass measured each candidate with `build:fast` and retained
+**13346 -> 13320B (-26B)**. The reference records individual wins, rejected
+attempts, and the invariants that make the deletions safe.

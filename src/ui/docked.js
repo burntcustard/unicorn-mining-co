@@ -207,7 +207,7 @@ export const confirmSelection = (ship) => {
     ship.modules = ship.modules.filter((module) => module !== item);
     ship.cargo = ship.cargo.filter((cargoItem) => cargoItem.item !== item);
     ship.credits += item.price * count;
-    if (item.name === 'DIAMOND') unlockColor('BLUE');
+    if (item.name === 'DIAMOND') unlockColor('CYAN');
     moduleOption = Math.min(moduleOption, (cargoMenu ? cargoOf(ship) : fitsOf(ship, mount)).length - 1);
 
     // A sale returns to the list, leaving its replacement row focused rather

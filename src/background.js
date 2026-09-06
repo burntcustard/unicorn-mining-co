@@ -107,8 +107,7 @@ const makeTile = (clouds, dots, size, sparkles,
 
       // Varying how faint each one is does more for the depth than varying how
       // big it is, at this sort of size
-      ctx.fillStyle = color;
-      ctx.shadowColor = color;
+      ctx.shadowColor = ctx.fillStyle = color;
 
       for (let wrapped = 9; wrapped--;) {
         ctx.save();
@@ -137,8 +136,7 @@ const makeTile = (clouds, dots, size, sparkles,
 
       // No stroke on a sparkle, so it stays a glow rather than an outline, and
       // never quite full strength or it sits in front of the sky rather than in
-      ctx.fillStyle = color;
-      ctx.shadowColor = color;
+      ctx.shadowColor = ctx.fillStyle = color;
 
       for (let wrapped = 9; wrapped--;) {
         ctx.save();
@@ -217,7 +215,7 @@ export const renderBackground = (game) => {
   if (!sky.parts.length) return;
   // @endif
 
-  tiles.forEach((_, i) => {
+  tiles.forEach((image, i) => {
     // Each layer shifts by (i + 1) / 50 of the camera, so distant sky lags.
     // `-(offset % span + span) % span` wraps it into [-span, 0], equivalent to
     // `-(offset - Math.floor(offset / span) * span)` for either sign, but leaves
@@ -228,7 +226,7 @@ export const renderBackground = (game) => {
     for (let atX = left; atX < canvas.width; atX += span) {
       for (let atY = top; atY < canvas.height; atY += span) {
         // Canvas clips whatever falls outside the screen
-        ctx.drawImage(tiles[i], atX, atY);
+        ctx.drawImage(image, atX, atY);
       }
     }
   });

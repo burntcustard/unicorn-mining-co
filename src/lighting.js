@@ -95,7 +95,7 @@ export const tint = (shades, worn, along) => (
  * @param {Number[][]} points - Outline, relative to wherever it is mounted.
  * @param {Object} [mount] - Where on the craft the piece sits.
  */
-export const shapeOf = (points, mount) => {
+export const shapeOf = (points, mount = { x: 0, y: 0 }) => {
   const middle = points
     .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
     .map((total) => total / points.length);
@@ -103,7 +103,7 @@ export const shapeOf = (points, mount) => {
   return {
     // Which way the piece looks, taken as the way out from the middle of the
     // craft towards the middle of the piece
-    facing: Math.atan2(middle[1] + (mount?.y || 0), middle[0] + (mount?.x || 0)),
+    facing: Math.atan2(middle[1] + mount.y, middle[0] + mount.x),
     middle,
     // How far it reaches from its own middle, which is how wide its shading
     // has to run
@@ -169,7 +169,7 @@ export const drawDockingBayGlow = (ctx, path, color, cache) => {
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = 0.2;
 
-  if (!cache.image || cache.scale !== game.scale) {
+  if (cache.scale !== game.scale) {
     const radius = Math.max(...cache.map(([x, y]) => Math.hypot(x, y)));
     const reach = radius * game.scale + glowBlur * 2;
     const image = document.createElement('canvas');

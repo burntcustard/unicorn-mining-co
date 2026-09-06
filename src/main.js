@@ -143,8 +143,7 @@ initKeys();
   bindKeys(module.key[0], () => playerShip.toggle(module)));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
-[' '].forEach((key) =>
-  bindKeys(key, () => playerShip.dockedTo && confirmSelection(playerShip)));
+bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));
 bindKeys('ht', () => playerShip.dockedTo && moveSubSelection(1, playerShip));
 bindKeys('Up', () => playerShip.dockedTo && moveSelection(-1, playerShip));
 bindKeys('wn', () => playerShip.dockedTo && moveSelection(1, playerShip));

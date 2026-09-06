@@ -23,20 +23,15 @@ export const playerShip = new Ship({
 
 // Violet is the pink paint in the palette, and only it and white are available
 // until the pilot has earned the rest.
-const paints = {
-  RED: colors.red,
-  ORANGE: colors.orange,
-  YELLOW: colors.yellow,
-  GREEN: colors.green,
-  BLUE: colors.cyan,
-};
 const unlockedPaints = [colors.violet, colors.white];
 const visitedStations = new Set();
 
 export const colorUnlocked = (shades) => unlockedPaints.includes(shades);
 
 export const unlockColor = (color) => {
-  const shades = paints[color];
+  // Reward names follow the first five palettes in colors; strings survive
+  // property mangling and also supply the exact name shown in the message.
+  const shades = Object.values(colors)['RED ORANGE YELLOW GREEN CYAN'.split(' ').indexOf(color)];
 
   if (!colorUnlocked(shades)) {
     unlockedPaints.push(shades);
