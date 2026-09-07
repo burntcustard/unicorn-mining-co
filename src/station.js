@@ -71,7 +71,7 @@ const side = [
 const angles = Array.from({ length: 5 }, (_, i) => i * Math.PI * 2 / 5);
 
 // The core is the ring of inner corners that every side shares
-const core = angles.map((angle) => rotatePoints([[inner, -innerCorner]], angle)[0]);
+const core = angles.flatMap((angle) => rotatePoints([[inner, -innerCorner]], angle));
 
 // A socket with no bay in it is filled by a panel cut to exactly its shape, so
 // that the line around a plain side falls where the line around the bay does

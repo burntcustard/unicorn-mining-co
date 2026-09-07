@@ -66,21 +66,12 @@ const makeAsteroids = (field, worldObjects, random) => {
 export const generateWorld = (seed) => {
   const random = seededRandom(seed);
 
-  const stations = distribute(Array.from({ length: 24 }, () => ({
-    radius: 400,
-    spin: randomSpin(random),
-  })), {
-    density: 8000,
-    radius: worldRadius,
-  }, [], random);
+  const scatter = (radius, density) => distribute(Array.from({ length: 24 }, () => ({
+    radius, spin: randomSpin(random),
+  })), { density, radius: worldRadius }, [], random);
 
-  const wrecks = distribute(Array.from({ length: 24 }, () => ({
-    radius: 100,
-    spin: randomSpin(random),
-  })), {
-    density: 250,
-    radius: worldRadius,
-  }, [], random);
+  const stations = scatter(400, 8000);
+  const wrecks = scatter(100, 250);
 
   const fields = distribute(Array.from({ length: 100 }, () => {
     const resource = random() < 0.7 ? 4 : randomResource(random) % 3 || 4;
@@ -122,9 +113,7 @@ export const generateWorld = (seed) => {
   wreckFields.forEach((wreckField) => {
     const { field, wreck } = wreckField;
     const hasClue = clueWrecks.has(wreckField);
-    const gemCount = 2 + Math.floor(random() * 3);
-
-    wreck.cargo = Array.from({ length: gemCount }, () =>
+    wreck.cargo = Array.from({ length: 2 + Math.floor(random() * 3) }, () =>
       hasClue ? field.resource : Math.floor(random() * 4));
 
     if (hasClue) {

@@ -3,6 +3,7 @@ import { benchmarkFlag } from './benchmark';
 // @endif
 import { colors } from './colors';
 import { game } from './game';
+import { pointBetween as mix } from './vector';
 
 // Profiling switches kept separate from module state, so lamps and engines
 // carry on running while either kind of light is hidden.
@@ -48,7 +49,6 @@ const beamStrength = 0.55;
 // byte before blending is what lets two pale colours meet somewhere other than
 // on one of the sixteen steps they started on
 const parse = (color) => [1, 2, 3].map((i) => parseInt(color[i], 16) * 17);
-const mix = (from, to, amount) => from.map((was, i) => was + (to[i] - was) * amount);
 const hex = (channels) => `#${channels
   .map((level) => Math.round(level).toString(16).padStart(2, '0'))
   .join('')}`;
@@ -65,15 +65,13 @@ const tints = {};
 
 const shadeOf = (shades, worn) => {
   const base = parse(shades[worn]);
-  const shadow = parse(shades[3]);
-  const light = parse(shades[4]);
 
   return table((along) => {
     const towards = (along - 0.5) * 2;
 
-    if (towards > 0) return hex(mix(base, shadow, towards * shadeTint));
+    if (towards > 0) return hex(mix(base, parse(shades[3]), towards * shadeTint));
 
-    return hex(mix(mix(base, white, -towards * litTint), light, -towards * warmTint));
+    return hex(mix(mix(base, white, -towards * litTint), parse(shades[4]), -towards * warmTint));
   });
 };
 
@@ -185,7 +183,7 @@ export const drawDockingBayGlow = (ctx, path, color, cache) => {
     cache.scale = game.scale;
   }
 
-  const size = cache.image.width / cache.scale;
+  const size = cache.image.width / game.scale;
 
   ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
 

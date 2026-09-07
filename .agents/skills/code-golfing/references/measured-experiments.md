@@ -711,3 +711,40 @@ User-authorized gameplay change: deleting `Asteroid.maxSpeed` lets asteroids
 use `move`'s existing 272-speed default instead of settling toward 70. Ordinary
 drag still applies. `build:fast`, seed 13312, 10 advzip iterations, reduced
 advzip from **13361B to 13357B (-4B)**. Collision/bounce tests and lint pass.
+
+
+## World, station and lighting retry sweep (2026-09-07)
+
+Sequential build:fast measurements, seed 13312, 10 advzip iterations.
+Roadroller: abbreviations 32, learning rate 2501, max count 4, reciprocal base
+count 40, precision 16, selectors [0,1,2,3,5,6,7,11,13,42,53,281].
+Changed source and encoder settings justified retrying old losses.
+Final confirmed advzip: **13443 -> 13424B (-19B)**.
+
+| File / candidate | Advzip before -> after | Status |
+| --- | --- | --- |
+| world: merge spike spreads | 13443 -> 13449B (+6B) | Reverted |
+| world: scatter helper retry | 13443 -> 13437B (-6B) | Retained |
+| world: inline item count | 13437 -> 13437B (0B) | Reverted |
+| world: inline gem count | 13437 -> 13435B (-2B) | Retained |
+| station: reuse glow vertices for bay halves | 13435 -> 13437B (+2B) | Reverted |
+| station: flatMap core rotation | 13435 -> 13434B (-1B) | Retained |
+| lighting: reuse pointBetween for mix | 13434 -> 13429B (-5B) | Retained |
+| lighting: inline tint parse locals | 13429 -> 13428B (-1B) | Retained |
+| lighting: glow game scale retry | 13428 -> 13424B (-4B) | Retained |
+
+The scatter helper previously cost 5B; using game.scale previously cost 17B.
+Both now save bytes. Scatter preserves random-call and placement order.
+Core rotation returns one point, so flatMap preserves coordinates and order.
+pointBetween uses identical channel arithmetic; all mix calls supply amount.
+Inline parsing adds work during cached tint-table creation only, not per frame.
+The glow refresh sets cache.scale to game.scale before drawing, so the two
+divisors are identical in this synchronous function.
+
+Behavior checks passed: complete world blueprint deep equality for seeds
+0, 1, 42, 13312 and 20260907; exact station corral data equality; 3015 tint
+comparisons covering all palettes/wear levels and ramp samples including
+clamp boundaries; identical mocked docking glow canvas commands at scales
+1, 1, 0.5, 2, 2 (creation, reuse and zoom invalidation). Temporary harness
+bundled original/current modules with unrelated browser initialization stubbed.
+Lint and final build:fast passed.
