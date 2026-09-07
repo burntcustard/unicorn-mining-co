@@ -43,7 +43,7 @@ const glowBlur = 40;
 // How much of its length a beam holds full strength for, and how hard it lifts
 // whatever it falls on
 const beamCore = 0.15;
-const beamStrength = 0.55;
+const beamStrength = 0.5;
 
 // Palette colours are one hex digit a channel. Spreading them over a whole
 // byte before blending is what lets two pale colours meet somewhere other than
