@@ -57,11 +57,14 @@ dockAt(playerShip, stations[Math.floor(Math.random() * 8)]);
 launch(playerShip);
 
 world.wrecks.forEach((properties) => {
-  const wreck = new Ship({ ...properties, shades: colors.orange });
-  const note = new Item({ itemData: message });
+  const wreck = new Ship(properties);
+  const note = new Item({
+    itemData: { ...message, shades: properties.shades },
+    message: properties.message,
+  });
 
-  // Every orange wreck has a slate that opens its paint once recovered.
-  note.unlock = 'ORANGE';
+  // Orange slates unlock paint first, then reveal their field on later pickups.
+  if (properties.shades === colors.orange) note.unlock = 'ORANGE';
   note.remove();
   wreck.cargo.push(note);
 });
@@ -72,7 +75,7 @@ const debugWreck = new Ship({
   x: playerShip.x + 500,
   y: playerShip.y,
 });
-const debugNote = new Item({ itemData: message });
+const debugNote = new Item({ itemData: message, message: world.wrecks[4].message });
 
 debugNote.unlock = 'ORANGE';
 debugNote.remove();

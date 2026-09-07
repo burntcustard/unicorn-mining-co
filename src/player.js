@@ -36,6 +36,7 @@ export const unlockColor = (color) => {
   if (!colorUnlocked(shades)) {
     unlockedPaints.push(shades);
     say(`${color} UNLOCKED`);
+    return true;
   }
 };
 

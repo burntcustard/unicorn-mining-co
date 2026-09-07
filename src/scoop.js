@@ -33,7 +33,7 @@ export const scoop = (contacts) => {
     } else if (item.message) {
       // Read on the way in and thrown away after, so a note never costs a
       // hold anything to carry
-      item.unlock ? unlockColor(item.unlock) : say(item.message);
+      if (!item.unlock || !unlockColor(item.unlock)) say(item.message);
     } else {
       if (!roomFor(craft)) return;
 

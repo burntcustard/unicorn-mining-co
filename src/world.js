@@ -1,3 +1,4 @@
+import { Vector } from './vector.js';
 import { colors } from './colors.js';
 import { distribute } from './distribute.js';
 import { seededRandom } from './seeded-random.js';
@@ -97,6 +98,18 @@ export const generateWorld = (seed) => {
     density: 350,
     radius: worldRadius,
   }, [], random);
+
+  const clueFields = fields.filter(({ resource }) => resource === 1 || resource === 2);
+
+  wrecks.sort((a, b) => b.x ** 2 + b.y ** 2 - a.x ** 2 - a.y ** 2);
+  wrecks.forEach((wreck, index) => {
+    wreck.shades = [colors.yellow, colors.green, colors.cyan, colors.red][index] || colors.orange;
+    const position = Vector(wreck.x, wreck.y);
+    const field = clueFields.reduce((nearest, candidate) =>
+      position.distanceTo(candidate) < position.distanceTo(nearest) ? candidate : nearest);
+
+    wreck.message = `${field.resource === 1 ? 'AMETHYST CLUSTER' : 'GOLD ORE'} ${Math.round(field.x)}/${Math.round(field.y)}`;
+  });
 
   const worldObjects = [...stations, ...wrecks];
 

@@ -27,7 +27,7 @@ export class Item extends Sprite {
     super(props);
 
     const data = props.itemData;
-    const { glint, lines, notes, points, radius, shades } = data;
+    const { glint, lines, points, radius, shades } = data;
 
     // What kind of thing this is, which is how anything running into it tells
     // an item from an asteroid without knowing what item it is
@@ -42,9 +42,6 @@ export class Item extends Sprite {
     this.path = points ? shapePath(points) : circlePath(radius);
     this.lines = lines && linesPath(lines);
     this.glint = glint && sparklePath(this.radius * glintSize);
-    // What a message says is settled when it is made, so two found in the same
-    // asteroid do not say the same thing
-    this.message = props.message || (notes && notes[Math.floor(Math.random() * notes.length)]);
   }
 
   add() {
