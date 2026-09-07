@@ -2,6 +2,7 @@ import { colorUnlocked, roomFor, say, unlockColor } from '../player';
 import { colors } from '../colors';
 import { instanceOf } from '../modules';
 import { launch } from '../docking';
+import { outline } from '../outline';
 import { renderText } from '../text';
 
 /**
@@ -289,6 +290,19 @@ export const renderDocked = (game, ship) => {
   const actionY = menuY(currentItem) + rowGap;
   const swatchX = col0[1] - swatchInset - swatchSize;
 
+  // A square of paint with the same small outline as the text, filled solid
+  // unless told it's only on offer rather than worn
+  const renderSwatch = (x, y, shades, worn = 1) => {
+    const path = new Path2D();
+
+    path.rect(x, y - rowPad + swatchInset, swatchSize, swatchSize);
+    ctx.fillStyle = `${shades[2]}${worn ? '' : '3'}`;
+    ctx.strokeStyle = shades[2];
+    ctx.fill(path);
+    outline(ctx, path, textSize);
+    ctx.stroke(path);
+  };
+
   [...actions, 'BACK'].forEach((item) => {
     const width = item.length * 13 * textSize + textPad * 2;
 
@@ -317,11 +331,17 @@ export const renderDocked = (game, ship) => {
       actionMenu && i !== currentItem,
     );
 
-    // One the pilot owns wears its paint on the right of its row, which tells
-    // two scoops apart from each other and from the one on offer to buy
-    if (item.oneOf) {
-      ctx.fillStyle = (item.shades || ship.shades)[2];
-      ctx.fillRect(swatchX, y - rowPad + swatchInset, swatchSize, swatchSize);
+    // One the pilot owns wears its paint on the right of its row — the hull
+    // and a fitted mount included — which tells two scoops apart from each
+    // other and from the one on offer to buy
+    const shades = item === 'HULL' ?
+      ship.shades :
+      item.oneOf ?
+        item.shades || ship.shades :
+        item.module && (item.module.shades || ship.shades);
+
+    if (shades) {
+      renderSwatch(swatchX, y, shades);
     }
   });
 
@@ -345,10 +365,7 @@ export const renderDocked = (game, ship) => {
       // wash inside its outline while the one worn is solid
       if (shades) {
         ctx.globalAlpha = locked ? 0.3 : 1;
-        ctx.fillStyle = `${shades[2]}${shades === selected ? '' : '3'}`;
-        ctx.strokeStyle = shades[2];
-        ctx.fillRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
-        ctx.strokeRect(x + swatchInset, y - rowPad + swatchInset, swatchSize, swatchSize);
+        renderSwatch(x + swatchInset, y, shades, shades === selected);
 
         if (locked) {
           ctx.beginPath();
