@@ -18,22 +18,43 @@ import { outline } from './outline';
  */
 const glyphs = ('' +
   ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,' + // 32 ctrl chars & space
+  // @ifdef DEBUG
   '5 0 5 9M5 11 5 13,' +                // !
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // !  // debug only
+  // @endif
   ',' +                                 // "
   ',' +                                 // #
   '3 1 3 11 5 12 7 11 7 1M0 5 10 5M0 8 10 8,' +  // $
+  // @ifdef DEBUG
   '1 5 1 2 4 2 4 5ZM2 14 9 0M7 9 10 9 10 12 7 12Z,' + // %
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // %  // debug only
+  // @endif
   ',' +                                 // &
   ',' +                                 // '
+  // @ifdef DEBUG
   '8 0 4 0 4 13 8 13,' +                // (
   '3 0 7 0 7 13 3 13,' +                // )
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // (  // debug only
+  ',' +                                 // )  // debug only
+  // @endif
   '3 4 8 9M8 4 3 9,' +                  // *
   // ',' +                              // /
   '6 2 6 10M2 6 10 6,' +                // +
   // ',' +                              // -
+  // @ifdef DEBUG
   '6 12 4 15,' +                        // ,
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // ,  // debug only
+  // @endif
   '3 6 8 6,' +                          // -
-  ',' +                                 // .
+  ',' +                                 // .  // unused
   '2 14 8 0,' +                         // /
   '4 1 8 1 10 7 8 12 4 12 2 7Z,' +      // 0
   '2 4 6 1 6 13,' +                     // 1
@@ -45,11 +66,21 @@ const glyphs = ('' +
   '2 1 10 1 5 13,' +                    // 7
   '2 4 6 0 10 4 2 9 6 13 10 9Z,' +      // 8
   '3 12 8 12 10 1 2 1 3 6 9 6,' +       // 9
+  // @ifdef DEBUG
   '2 4 4 4M2 9 4 9,' +                  // :
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // :  // debug only
+  // @endif
   ',' +                                 // ;
   ',' + // '10 4 2 8 10 12,' +          // <  // unused
   ',' + // '2 6 10 6M2 10 10 10,' +     // =  // unused
+  // @ifdef DEBUG
   '2 4 10 8 2 12,' +                    // >
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // >  // debug only
+  // @endif
   ',' +                                 // ?
   ',' +                                 // @
   '1 13 5 1 10 13M3 9 8 9,' +           // A
@@ -61,7 +92,12 @@ const glyphs = ('' +
   '7 1 2 4 2 10 6 12 9 8 5 8,' +        // G
   '2 13 2 0M9 13 9 0M2 6 9 6,' +        // H
   '3 12 9 12M3 1 9 1M6 12 6 1,' +       // I
+  // @ifdef DEBUG
   '2 10 6 13 9 10 9 1 4 1,' +           // J
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // J  // debug only
+  // @endif
   '3 13 3 0M9 1 4 7 9 13,' +            // K
   '4 0 4 12 9 12,' +                    // L
   '2 13 2 0 6 6 10 0 10 13,' +          // M
@@ -77,9 +113,14 @@ const glyphs = ('' +
   '1 0 3 12 6 5 9 12 11 0,' +           // W
   '2 0 10 13M10 0 2 13,' +              // X
   '6 13 6 8M2 0 6 8 10 0,' +            // Y
-  '1 1 9 1 1 12 9 12' +                 // Z
-  ',,,,,,,,,,,,,,,,,,,' +               // unused 91-108 ([ \ ] ^ _ ` a-l)
-  '2 13 2 6 6 11 10 6 10 13,'             // m
+  // @ifdef DEBUG
+  '1 1 9 1 1 12 9 12,' +                // Z
+  // @endif
+  // @ifndef DEBUG
+  ',' +                                 // Z  // debug only
+  // @endif
+  ',,,,,,,,,,,,,,,,,,' +                // unused 91-108 ([ \ ] ^ _ ` a-l)
+  '2 13 2 6 6 11 10 6 10 13,'           // m
   // We're using normal brackets for square ones to save ~3 bytes
   // '8 0 4 0 4 14 8 14',               // [
   // '8 15 2 0',                        // \

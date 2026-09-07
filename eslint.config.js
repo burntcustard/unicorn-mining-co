@@ -4,7 +4,7 @@ import js from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
 
 export default defineConfig([
-  globalIgnores(['dist/']),
+  globalIgnores(['dist/', '.sky-preview-profile/']),
   js.configs.recommended,
   stylistic.configs.recommended,
   {

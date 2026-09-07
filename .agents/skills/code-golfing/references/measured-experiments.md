@@ -684,3 +684,14 @@ Gameplay change: use `Math.round((force - 400) / 1200)` so heavy impacts
 cause more damage while a mass-6 item hit head-on at the starting ship's
 272-speed cap remains zero (`0.483` before rounding). A radius-100 asteroid
 now deals 2 rather than 1 damage in that same hit.
+
+## Unused production glyphs (2026-09-07)
+
+`build:fast`, seed 13312, 10 advzip iterations: omitting the unused
+`!%(),.:>JZ` glyph paths in production retained character-code alignment and
+reduced advzip from **13411B to 13361B (-50B)**. The production UI still uses
+all digits, `$`, `*`, `+`, `-`, `/`, lowercase `m`, and the remaining capital
+letters. `!%(),:>JZ` are retained between `@ifdef DEBUG` blocks for the debug
+text/FPS demos, with matching `@ifndef DEBUG` comma placeholders in production;
+the added preprocessor support has no production ZIP cost (13361B unchanged).
+`.` remains entirely unused.

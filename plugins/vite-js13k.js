@@ -6,14 +6,14 @@ import fs from 'fs';
 import { minify } from 'html-minifier-terser';
 import roadrollerArgs from './roadroller-args.js';
 
-// Kontra-style compile-time flags. Whatever sits between "// @ifdef NAME" and
-// "// @endif" is kept only when that flag is truthy, and removed entirely
-// otherwise - so debug and benchmark-only code never reaches dist.
-const ifdefPattern = /^[ \t]*\/\/ @ifdef (\w+)\r?\n([\s\S]*?)^[ \t]*\/\/ @endif\r?\n?/gm;
+// Kontra-style compile-time flags. `@ifdef` keeps a block when its flag is
+// truthy, while `@ifndef` keeps it when false; the other branch is removed
+// entirely, so debug and benchmark-only code never reaches dist.
+const ifdefPattern = /^[ \t]*\/\/ @(ifdef|ifndef) (\w+)\r?\n([\s\S]*?)^[ \t]*\/\/ @endif\r?\n?/gm;
 
 const stripIfdef = (src, flags) => src.replace(
   ifdefPattern,
-  (match, flag, body) => (flags[flag] ? body : ''),
+  (match, condition, flag, body) => ((condition === 'ifdef') === !!flags[flag] ? body : ''),
 );
 
 // Replacements which match file names require (?<!\/) to prevent import failure.
