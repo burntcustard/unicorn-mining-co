@@ -4,6 +4,8 @@
 [] Remove unused characters?
 [] Remove PWR?
 [] Remove asteroid maxSpeed if it saves space.
+[] Remove OPAL-only asterid fields.
+[] Maybe have OPAL-only asteroids in regular fields?
 [] Add 2-4 gems per wreck.
 [] Remove opal-only asteroid fields.
 [] Make gold asteroid fields stand out somehow.
