@@ -31,3 +31,5 @@ export const within = (points, { x, y }) => points.reduce((so, [pointX, pointY],
 
   return crosses ? !so : so;
 }, false);
+
+export const radiusOf = (points) => Math.max(...points.map(([x, y]) => Math.hypot(x, y)));

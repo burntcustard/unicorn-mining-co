@@ -748,3 +748,69 @@ clamp boundaries; identical mocked docking glow canvas commands at scales
 1, 1, 0.5, 2, 2 (creation, reuse and zoom invalidation). Temporary harness
 bundled original/current modules with unrelated browser initialization stubbed.
 Lint and final build:fast passed.
+
+
+## Follow-up helper and single-use value sweep (2026-09-07)
+
+Same build:fast, seed 13312, 10 advzip iterations and Roadroller parameters as
+the preceding world/station/lighting sweep. Fresh baseline 13424B. Twenty
+candidates measured independently against the retained source; final advzip
+**13424 -> 13420B (-4B)**, including import-order lint fixes.
+
+| File / candidate | Advzip before -> after | Status |
+| --- | --- | --- |
+| item: replace Vector radius with hypot retry | 13424 -> 13443B (+19B) | Reverted |
+| shrapnel: inline spark pace | 13424 -> 13425B (+1B) | Reverted |
+| shrapnel: inline tail coordinates | 13424 -> 13425B (+1B) | Reverted |
+| polygon: inline radius wander | 13424 -> 13444B (+20B) | Reverted |
+| local-movement: inline rotated point | 13424 -> 13441B (+17B) | Reverted |
+| asteroid: flatten leaves with flatMap retry | 13424 -> 13449B (+25B) | Reverted |
+| asteroid: single map for leaf branch | 13424 -> 13446B (+22B) | Reverted |
+| asteroid: inline child mass | 13424 -> 13454B (+30B) | Reverted |
+| asteroid: inline child contents | 13424 -> 13433B (+9B) | Reverted |
+| vector: share directionOf with movePoint | 13424 -> 13424B (0B) | Reverted |
+| camera: inline oval half dimensions | 13424 -> 13424B (0B) | Reverted |
+| collisions: inline edge key helper | 13424 -> 13425B (+1B) | Reverted |
+| collisions: inline placePoints helper | 13424 -> 13441B (+17B) | Reverted |
+| background: use integer truncation for sparkle palette index | 13424 -> 13432B (+8B) | Reverted |
+| background: inline dot color preserving random order | 13424 -> 13428B (+4B) | Reverted |
+| distribute: inline overlap flag | 13424 -> 13424B (0B) | Reverted |
+| ship: inline activation duration | 13424 -> 13427B (+3B) | Reverted |
+| vector: reuse length for distanceTo | 13424 -> 13444B (+20B) | Reverted |
+| polygon/item/asteroid/lighting: share radiusOf across three origin-radius calculations | 13424 -> 13420B (-4B) | Retained |
+| lighting: reuse radiusOf for offset shape reach | 13420 -> 13422B (+2B) | Reverted |
+
+The recent interpolation-helper win motivated sharing the three identical
+origin-radius calculations. This saves bytes where the standalone item hypot
+retry does not. All production vertices supply two numeric coordinates, so
+removing the item's intermediate Vector allocation preserves its radius.
+The offset shape-reach extension added an intermediate point-array allocation
+and cost bytes; reverted. No other candidate retained.
+
+Checks: 1001 radius cases match both original implementations exactly; prior
+world/station/lighting comparison harness still passes (five world seeds,
+station geometry, 3015 tint samples and glow cache/zoom canvas commands).
+Collision, docked inventory/damage/repair/scoop/flight, and prism suites pass.
+Lint passed after fixing import order; final build confirmed 13420B.
+
+
+## Fixed item and docking-glow radii (2026-09-07)
+
+User suggested fixed bounds instead of radiusOf. Same build:fast settings,
+seed 13312 and 10 advzip iterations as the preceding sweeps.
+
+| Candidate | Advzip before -> after | Status |
+| --- | --- | --- |
+| Docking glow fixed radius 280 | 13420 -> 13417B (-3B) | Retained |
+| Per-item constants: amethyst 7, diamond sqrt(40), gold sqrt(65), message sqrt(74); remove Item radius assignment | 13417 -> 13448B (+31B) | Reverted |
+| Item radius fallback 9, preserving opal radius 6 | 13417 -> 13432B (+15B) | Reverted |
+
+Final confirmed 13417B. Item keeps radiusOf: per-type constants cost bytes,
+and a shared bound also costs bytes while enlarging polygon-item glints.
+The only docking glow outline is the station bay, shared by both halves.
+Its measured origin radius is 278.6124952330746. Fixed 280 contains every
+vertex and preserves at least the former blur padding, checked against actual
+station geometry at scales 0.01, 0.1, 0.5, 1, 2 and 10. The cached canvas
+is slightly larger; cache invalidation and drawing logic are unchanged.
+Future bay geometry or new glow shapes must remain inside this bound or update
+it. Lint and final build:fast passed. No item-definition edits retained.

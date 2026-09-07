@@ -168,8 +168,8 @@ export const drawDockingBayGlow = (ctx, path, color, cache) => {
   ctx.globalAlpha = 0.2;
 
   if (cache.scale !== game.scale) {
-    const radius = Math.max(...cache.map(([x, y]) => Math.hypot(x, y)));
-    const reach = radius * game.scale + glowBlur * 2;
+    // The station bay fits within 280 world units of its local origin.
+    const reach = 280 * game.scale + glowBlur * 2;
     const image = document.createElement('canvas');
     const paint = image.getContext('2d');
 

@@ -1,8 +1,8 @@
 import { circlePath, itemLineWidth, linesPath, shapePath, sparklePath } from './drawing';
 import { forget, game } from './game';
 import { Sprite } from './sprite';
-import { Vector } from './vector';
 import { colors } from './colors';
+import { radiusOf } from './polygon';
 
 /**
  * One loose thing in the world, built from an item definition. Everything an
@@ -38,7 +38,7 @@ export class Item extends Sprite {
     this.stroke = shades[2];
     // A cut item is hit on its corners, a round one on its radius alone
     this.outline = points;
-    this.radius = points ? Math.max(...points.map((point) => Vector(...point).length())) : radius;
+    this.radius = points ? radiusOf(points) : radius;
     this.path = points ? shapePath(points) : circlePath(radius);
     this.lines = lines && linesPath(lines);
     this.glint = glint && sparklePath(this.radius * glintSize);

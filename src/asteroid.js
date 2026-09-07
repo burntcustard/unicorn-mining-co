@@ -1,8 +1,8 @@
 import { applyForce, pointBetween, rotatePoint } from './vector';
+import { createPolygon, radiusOf } from './polygon';
 import { objectLineWidth, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
-import { createPolygon } from './polygon';
 import { forget } from './game';
 import { outerEdges } from './collisions';
 import { rotateAround } from './local-movement';
@@ -113,7 +113,7 @@ export class Asteroid extends Sprite {
               this.outline[(i + 1) % this.outline.length],
             ]) :
             [this.outline]);
-    this.radius = Math.max(...this.outline.map(([x, y]) => Math.hypot(x, y)));
+    this.radius = radiusOf(this.outline);
     // Heft grows with size, so a big asteroid shrugs off what shoves a pebble
     this.mass = props.mass || massMultiplier * this.radius ** 2;
     this.health = this.radius * 2;
