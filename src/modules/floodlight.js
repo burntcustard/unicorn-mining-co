@@ -46,7 +46,6 @@ export const floodlight = {
     },
   ],
   price: 450,
-  powerUsage: 5,
   reach,
   spread,
   zIndex: -1,

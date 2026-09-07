@@ -200,7 +200,7 @@ export const drawThrusterGlow = (ctx, nozzle) => {
   if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
   // @endif
 
-  const strength = nozzle.activationProgress * Math.sqrt(nozzle.power);
+  const strength = nozzle.activationProgress;
   const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
 
   ctx.save();

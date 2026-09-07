@@ -28,3 +28,32 @@ Collision/bounce and docked inventory/menu/damage/repair/scoop/flight suites pas
 Thrust filtering preserves order and contributions. Menu entry resets module selection only at stage zero and calculates action focus after advancing. `cargoMenu` implies nonzero stage. Prism constructs the same normalized normal only for valid intersections, then multiplies by ±1. No computed property keys were introduced.
 
 An initial fraction-centering trial accidentally removed call parentheses; its measurement was discarded and the corrected version measured separately above.
+
+## Power removal with preserved launch motion
+
+Fresh restored-source baseline, `npm run build:fast`, seed 13312, 10 advzip
+iterations: **13494 -> 13411B (-83B)**. This supersedes the unsuccessful earlier
+power-removal attempt, which reduced acceleration without the launch speed cap.
+
+Removed module powerUsage/PWR display, segment power and supply(), and the
+per-nozzle thrust allocation/reduction. The single engine mount permits reading
+thrust from its healthy fitted module. A launch-only throttle getter sets nozzle
+activation to half during the existing two-second coast; its square preserves
+the original quarter thrust and speed cap. Steering retains both original coast
+factors. Ordinary flight and the final timer-expiry burn remain unchanged.
+Flare/glow now use activation alone; they ease into/out of the half-size coast
+rather than applying an immediate independent multiplier.
+
+| Candidate | Advzip before -> after | Status |
+| --- | --- | --- |
+| Power removal, engine lookup through mounts, preserved launch factors | 13494 -> 13425B | Retained (-69B) |
+| Inline single-use rotational getter | 13425 -> 13440B | Reverted (+15B) |
+| Find healthy fitted engine in inventory | 13425 -> 13417B | Retained (-8B) |
+| Remove zero-thrust target-spin branch (zero approach step already preserves spin) | 13417 -> 13411B | Retained (-6B) |
+
+Docked regression tests now compare every frame of launch speed, distance and
+speed cap against the original equations for all four equipable engines (240
+frames each), plus steering over 180 frames each. They verify half-active coast
+nozzles and zero thrust from broken/removed engines, both bundled and production
+mangled. Collision and prism suites pass. Source/tests lint passes; full lint
+still reports existing user_pref errors in .sky-preview-profile/prefs.js.

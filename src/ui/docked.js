@@ -437,12 +437,12 @@ export const renderDocked = (game, ship) => {
         ['HULL', 'HP'] :
       cargoItems ?
           ['CARGO', ...cargoItems.map(cargoName)] :
-          [info.name, 'HP', 'VALUE', 'PWR'];
+          [info.name, 'HP', 'VALUE'];
     const values = currentHull ?
         [`${health | 0}/${maxHealth}`] :
       cargoItems ?
           [] :
-          [`${health | 0}/${maxHealth}`, `$${info.price}`, info.powerUsage];
+          [`${health | 0}/${maxHealth}`, `$${info.price}`];
 
     labels.forEach((text, i) => renderText(
       game,

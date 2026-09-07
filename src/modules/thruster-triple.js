@@ -11,7 +11,6 @@ export const thrusterTriple = {
     { points: (segment) => flare(segment, 2), thrusterNozzleSide: 1 },
   ],
   price: 1800,
-  powerUsage: 30,
   forwardThrust: 28,
   rotationalThrust: 24,
   zIndex: -1,

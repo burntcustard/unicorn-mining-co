@@ -119,12 +119,9 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     module: craftModule,
     mount,
     active: 0,
-    power: 1,
     radius: part.radius || (shape && (() => shape.reach)),
     rate: 1 / duration,
     shades: craftModule.shades || craft.shades,
-    forwardThrust: (craftModule.forwardThrust || 0) / (craftModule.model?.length || 1),
-    rotationalThrust: (craftModule.rotationalThrust || 0) / (craftModule.model?.length || 1),
     update: craftModule.update,
     x: mount?.x || 0,
     y: (mount?.y || 0) + (part.thrusterNozzleSide || 0) * (craftModule.offset || 0),
@@ -206,16 +203,22 @@ export class Ship extends Sprite {
     return this.modules.filter(({ mount }) => !mount);
   }
 
+  // This hull has one engine mount; each nozzle belongs to the same module.
+  get engine() {
+    return this.modules?.find((module) => module.forwardThrust && module.mount && active(module.mount.health)) || {};
+  }
+
   get forwardThrust() {
-    return this.segments.filter((segment) => active(healthOf(segment))).reduce((total, segment) => (
-      total + segment.forwardThrust * segment.power
-    ), 0);
+    return (this.engine.forwardThrust || 0) * this.launchThrottle ** 2;
   }
 
   get rotationalThrust() {
-    return this.segments.filter((segment) => active(healthOf(segment))).reduce((total, segment) => (
-      total + segment.rotationalThrust * segment.power
-    ), 0);
+    return (this.engine.rotationalThrust || 0) * this.launchThrottle ** 2;
+  }
+
+  // Half-size nozzles retain the original quarter-thrust launch coast.
+  get launchThrottle() {
+    return this.launching && this.launching <= 2 ? 0.5 : 1;
   }
 
   // Fit an owned instance, or pass a falsy module to empty the mount. Replaced
@@ -424,12 +427,6 @@ export class Ship extends Sprite {
     }
   }
 
-  supply(craftModule, power) {
-    this.segments.forEach((segment) => {
-      if (segment.module.oneOf === craftModule) segment.power = power;
-    });
-  }
-
   toggle(craftModule, on) {
     this.segments.forEach((segment) => {
       if (segment.module.oneOf === craftModule) segment.active = (on ?? !segment.active) ? 1 : 0;
@@ -440,10 +437,11 @@ export class Ship extends Sprite {
     this.forward = forward;
     this.turn = turn;
     this.segments.forEach((segment) => {
-      if (segment.forwardThrust) {
+      if (segment.module.forwardThrust) {
         segment.active = turn && segment.thrusterNozzleSide ?
           turn === -segment.thrusterNozzleSide ? 1 : forward * steeringEase :
           forward;
+        segment.active *= this.launchThrottle;
       }
     });
   }
@@ -452,10 +450,7 @@ export class Ship extends Sprite {
     if (this.cockpit && !this.dockedTo) {
       const push = thrustScale * this.forwardThrust / this.mass * this.forward * dt;
       const rotationalThrust = this.rotationalThrust;
-      const nozzle = this.segments.find((segment) => segment.forwardThrust);
-      const targetSpin = rotationalThrust ?
-        this.turn * this.turnRate * rotationalThrust * (nozzle?.power ?? 1) / 16 :
-        this.spin;
+      const targetSpin = this.turn * this.turnRate * rotationalThrust * this.launchThrottle ** 2 / 16;
 
       this.spin = approach(this.spin, targetSpin, rotationalThrust * dt);
       this.velocity.set(movePoint(this.velocity, this.rotation + this.spin * dt, push));
@@ -548,7 +543,7 @@ export class Ship extends Sprite {
       ctx.save();
       ctx.translate(segment.x, segment.y);
 
-      if (segment.forwardThrust && segment.activationProgress) {
+      if (segment.module.forwardThrust && segment.activationProgress) {
         drawThrusterGlow(ctx, segment);
       }
 

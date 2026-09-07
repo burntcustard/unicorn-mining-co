@@ -10,7 +10,7 @@
  * name, because the build mangles property names but leaves string literals
  * alone, so a `fits` list of modules costs less than a list of their names.
  *
- * Every module has a `price` to buy it and `powerUsage` while active. A module
+ * Every module has a `price` to buy it. A module
  * stays in its ship's ordered `modules` inventory. Without a `mount`, it also
  * appears in the derived `cargoBay`, taking one space like other cargo.
  *

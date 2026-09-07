@@ -1,10 +1,6 @@
-// A craft shoves itself out of a bay at full power, then coasts the rest of the
-// way clear on a fraction of it
+// A craft burns for one second, then eases its nozzles halfway for two.
 const launchBurnDuration = 1;
 const launchCoastDuration = 2;
-const launchCoastPower = 0.25;
-
-const thrusterOf = (craft) => craft.mounts.find(({ module }) => module?.forwardThrust)?.module.oneOf;
 
 /** Place a craft inside a station as though it had entered through its bay. */
 export const dockAt = (ship, station) => {
@@ -73,12 +69,6 @@ export const flyOut = (craft, dt) => {
   if (!craft.launching) return;
 
   craft.launching = Math.max(0, craft.launching - dt);
-
-  // Full power while it shoves itself out, then a fraction of it to coast
-  // clear on, then back to whatever the pilot is asking for
-  const coasting = craft.launching && craft.launching <= launchCoastDuration;
-
-  craft.supply(thrusterOf(craft), coasting ? launchCoastPower : 1);
 
   return true;
 };
