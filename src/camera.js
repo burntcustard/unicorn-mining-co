@@ -34,7 +34,7 @@ export const followTarget = (game, target, dt) => {
   const x = target.x - camera.x - game.width / 2;
   const y = target.y - camera.y - game.height / 2;
   // 1 on the edge of the oval and more than that outside of it
-  const out = Math.sqrt((x / halfWidth) ** 2 + (y / halfHeight) ** 2);
+  const out = Math.hypot(x / halfWidth, y / halfHeight);
   const ease = 1 - (target.dockedTo ? dockLag : lag) ** dt;
 
   if (target.dockedTo) {

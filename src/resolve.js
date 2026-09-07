@@ -55,10 +55,10 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
   if (!mass) return;
 
-  const aSpin = a.momentum?.(collider);
-  const bSpin = b.momentum?.(other);
-  const closing = (b.velocity.x + (bSpin?.x || 0) - a.velocity.x - (aSpin?.x || 0)) * x +
-    (b.velocity.y + (bSpin?.y || 0) - a.velocity.y - (aSpin?.y || 0)) * y -
+  const aSpin = a.momentum?.(collider) || { x: 0, y: 0 };
+  const bSpin = b.momentum?.(other) || { x: 0, y: 0 };
+  const closing = (b.velocity.x + bSpin.x - a.velocity.x - aSpin.x) * x +
+    (b.velocity.y + bSpin.y - a.velocity.y - aSpin.y) * y -
     ((collider.speed || 0) + (other.speed || 0));
 
   if (closing < 0) {
