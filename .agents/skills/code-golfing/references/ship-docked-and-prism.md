@@ -51,6 +51,12 @@ rather than applying an immediate independent multiplier.
 | Find healthy fitted engine in inventory | 13425 -> 13417B | Retained (-8B) |
 | Remove zero-thrust target-spin branch (zero approach step already preserves spin) | 13417 -> 13411B | Retained (-6B) |
 
+Restoring the former per-segment `power` channel to make the coast-to-full
+transition immediate was measured separately at **13443 -> 13479B (+36B)** and
+reverted. The retained launch throttle already produces half-size coast flares
+and selects full throttle on the final active frame when `flyOut` clamps the
+timer to zero.
+
 Docked regression tests now compare every frame of launch speed, distance and
 speed cap against the original equations for all four equipable engines (240
 frames each), plus steering over 180 frames each. They verify half-active coast
