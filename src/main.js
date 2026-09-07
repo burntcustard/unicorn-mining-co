@@ -45,7 +45,7 @@ setSizing(game);
 
 window.onresize = () => setSizing(game);
 
-const world = generateWorld(13312);
+const world = generateWorld(0);
 const stations = world.stations.map((properties) =>
   new Station({ ...properties, shades: colors.white }));
 

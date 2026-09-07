@@ -584,6 +584,17 @@ The retained changes took advzip from 13809B to 13745B (and `build:full`* from
   (13334B -> 13319B). The equivalent world-generation alias removal cost 1B and
   was reverted.
 
+## Measured wreck max-speed experiment
+
+`build:fast`, seed `13312`, against the 2026-09-07 zero-thrust wreck behavior.
+- Changing `Ship.maxSpeed` from a cockpit ternary to
+  `(this.cockpit && 17 * this.forwardThrust) || 180` lets intact wrecks with no
+  thrusters use the same finite fallback speed as debris, so shove velocity is
+  no longer always treated as over-speed. Kept: it saved 1B after advzip
+  (13499B -> 13498B). `npm run test:docked` passed; focused
+  `npx eslint src/ship.js` passed. Full `npm run lint` is blocked by
+  unrelated `.sky-preview-profile/prefs.js` `user_pref` globals.
+
 ## Measured camera, momentum, mining and sizing experiments (2026-09-07)
 
 `build:fast`, seed 13312, 10 advzip iterations. Camera tracking, collision

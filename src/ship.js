@@ -191,7 +191,7 @@ export class Ship extends Sprite {
 
   // Only a crewed ship flies: debris and stations have no cockpit to fly from
   get maxSpeed() {
-    return this.cockpit ? 17 * this.forwardThrust : 180;
+    return (this.cockpit && 17 * this.forwardThrust) || 180;
   }
 
   get mounts() {
