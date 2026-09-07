@@ -17,7 +17,7 @@ export const distribute = (
     y = 0,
   },
   placed = [],
-  random = Math.random,
+  random,
 ) => {
   items.forEach((item) => {
     const spread = radius - item.radius;
