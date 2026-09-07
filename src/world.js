@@ -83,8 +83,7 @@ export const generateWorld = (seed) => {
   }, [], random);
 
   const fields = distribute(Array.from({ length: 100 }, () => {
-    let resource = random() < 0.7 ? 4 : randomResource(random);
-    if (resource === 0 || resource === 3) resource = 4;
+    const resource = random() < 0.7 ? 4 : randomResource(random) % 3 || 4;
 
     // Amethyst comes in small pockets
     const fieldRadius = (2000 + random() * 2000) / (resource < 2 ? 2 : 1);

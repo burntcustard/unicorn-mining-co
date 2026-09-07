@@ -348,6 +348,12 @@ retained changes took advzip from 14295B to 14264B.
 - A `scatter` helper for the near-identical station and wreck `distribute` calls cost 5 bytes.
 - Dropping the `Math.sqrt` that spreads points evenly across the disc cost 19 bytes.
 - Removing amethyst asteroids' center-only burial branch after general burial became center-weighted saved 10 bytes.
+- World-generation sweep (2026-09-07, `build:fast`): mapping rich-field rolls
+  with `randomResource(random) % 3 || 4` instead of separate diamond/opal
+  reassignment saved 7B (13465B -> 13458B). Retained. Folding wreck colour
+  assignment into the field map cost 1B, direct clue-record marking instead of
+  `Set` membership cost 13B, and treating amethyst as `resource < 2` in clue
+  labels cost 14B; all were reverted.
 
 ## Measured main and entity experiments
 
