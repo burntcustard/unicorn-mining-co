@@ -2,15 +2,19 @@
 
 This document provides the byte-level breakdown of all source JavaScript files in `src/` after Vite + Terser minification, along with estimated sizes after Roadroller JS packing in `dist/index.html` and `advzip` DEFLATE compression in `dist/game.zip`.
 
+All file-level HTML and ZIP estimates below are recalculated from the current full-build totals using the same global compression ratios as the actual release pipeline, so they remain semi-accurate even though Roadroller and ZIP operate on the entire bundle as one stream.
+
 For the complete methodology, sourcemap VLQ decoding script, and tool inner-workings, see [.agents/skills/build-size-analysis/SKILL.md](.agents/skills/build-size-analysis/SKILL.md).
 
 ---
 
 ## Build Totals Baseline
 
-* **`dist/minified.js` Total**: 38,676 bytes (38,633 B mapped source code + 43 B bundle wrapper).
-* **`dist/index.html` Total**: 17,795 bytes (~46.01% of minified JS size after Roadroller packing & HTML minification).
-* **`dist/game.zip` Total**: 13,452 bytes (~34.78% of minified JS size, ~75.60% of HTML size after `advzip` compression).
+* **`dist/minified.js` Total**: 38,519 bytes (pre-roadroller; the latest full build is ~157 B smaller than the previous estimate, but the same dominant files remain the largest contributors).
+* **`dist/index.html` Total**: 17,795 bytes (~46.18% of minified JS size after Roadroller packing & HTML minification).
+* **`dist/game.zip` Total**: 13,452 bytes (~34.94% of minified JS size, ~75.60% of HTML size after `advzip` compression).
+
+> Latest re-run check: `npm run build:full` reports `JS size: 38519B (pre-roadroller)`, `dist/index.html` at 17.79 kB, and `dist/game.zip` at 13,452 B after `advzip`.
 
 ---
 

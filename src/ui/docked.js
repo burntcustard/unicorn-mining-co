@@ -175,20 +175,18 @@ export const back = (ship) => {
 export const confirmSelection = (ship) => {
   const { mount, menu, currentModule, actions, swatches, hullMenu, cargoMenu, repairCost } = selectionOf(ship);
 
-  if (!stage) {
-    if (mountOption === menu.length) return back(ship);
-
-    moduleOption = focused = 0;
-    stage = mountOption === 1 ? 2 : 1;
-    if (stage > 1) focused = +(selectionOf(ship).disabledAction && selectionOf(ship).actions.length);
-    return;
-  }
-
-  if (stage === 1) {
-    if (moduleOption === menu.length) return back(ship);
+  if (stage < 2) {
+    if ((stage ? moduleOption : mountOption) === menu.length) return back(ship);
+    if (!stage) moduleOption = 0;
     focused = 0;
-    stage = 2;
-    focused = +(selectionOf(ship).disabledAction && selectionOf(ship).actions.length);
+    stage = stage || mountOption === 1 ? 2 : 1;
+
+    if (stage > 1) {
+      const { disabledAction, actions } = selectionOf(ship);
+
+      focused = +(disabledAction && actions.length);
+    }
+
     return;
   }
 
@@ -278,7 +276,7 @@ export const renderDocked = (game, ship) => {
   const { mount, menu, currentItem, item, currentModule, actions, swatches, hullMenu, cargoMenu, disabledAction } = selectionOf(ship);
   const actionMenu = stage > 1;
   const currentHull = item === 'HULL';
-  const cargoItems = item === 'CARGO' ? cargoOf(ship) : cargoMenu && stage && item && [item];
+  const cargoItems = item === 'CARGO' ? cargoOf(ship) : cargoMenu && item && [item];
   const selected = (currentModule?.shades || ship.shades);
   const info = currentHull || cargoItems || currentModule || mount?.module;
   const health = currentHull ? hullHealthOf(ship) : mount?.module === info ? mount?.health : info?.health;

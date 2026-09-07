@@ -117,13 +117,12 @@ const cross = (points, from, dir) => {
     const start = Vector(corner[0] - from.x, corner[1] - from.y);
     const along = (start.x * dir.y - start.y * dir.x) / denom;
     const distance = (start.x * edge.y - start.y * edge.x) / denom;
-    const face = Vector(edge.y, -edge.x).normalize();
 
     if (!denom || along < 0 || along > 1 || distance < inset || distance >= near) return;
 
     near = distance;
     faceIndex = i;
-    normal = denom > 0 ? face.scale(-1) : face;
+    normal = Vector(edge.y, -edge.x).normalize().scale(denom > 0 ? -1 : 1);
   });
 
   return normal && { at: from.add(dir.scale(near)), distance: near, face: faceIndex, normal };

@@ -59,9 +59,11 @@ The `mappings` string contains semicolon-separated lines (matching generated lin
 * **Sub-file / Symbol Level Analysis**: Using `acorn` to parse original source files into AST nodes (functions, methods, variables, classes), we get `(startLine, startColumn)` and `(endLine, endColumn)` ranges for each symbol. Each mapped minified segment is assigned to its matching AST chunk range to produce per-function, per-method, and per-variable size metrics.
 
 ### 3. Calculating Estimated Packed & Zipped Sizes
-Because Roadroller and DEFLATE operate on a single combined string, individual file compression ratios scale proportionately with the global compression factor:
-- **Roadroller Ratio**: $R_{\text{RR}} = \frac{\text{size}(\text{dist/index.html})}{\text{size}(\text{dist/minified.js})} \approx 0.4582$
-- **ZIP DEFLATE Ratio**: $R_{\text{ZIP}} = \frac{\text{size}(\text{dist/game.zip})}{\text{size}(\text{dist/minified.js})} \approx 0.3468$
+Because Roadroller and DEFLATE operate on a single combined string, individual file compression ratios scale proportionately with the global compression factor. For the current verified full build:
+- **Roadroller Ratio**: $R_{\text{RR}} = \frac{\text{size}(\text{dist/index.html})}{\text{size}(\text{dist/minified.js})} = \frac{17797}{38519} \approx 0.462$
+- **ZIP DEFLATE Ratio**: $R_{\text{ZIP}} = \frac{\text{size}(\text{dist/game.zip})}{\text{size}(\text{dist/minified.js})} = \frac{13452}{38519} \approx 0.349$
+
+These are the ratios used to re-estimate file-level HTML and ZIP contributions from the current real build output.
 
 *Note on Roadroller Context Sharing*: Standalone Roadroller compression of isolated file snippets yields higher ratios (~0.60 to ~1.00) because Roadroller relies on shared token contexts across the entire concatenated bundle. Ratio estimation based on global JS percentage accurately reflects each file's marginal contribution to the unified packed bundle.
 

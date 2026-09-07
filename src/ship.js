@@ -207,14 +207,14 @@ export class Ship extends Sprite {
   }
 
   get forwardThrust() {
-    return this.segments.reduce((total, segment) => (
-      total + (active(healthOf(segment)) ? segment.forwardThrust * segment.power : 0)
+    return this.segments.filter((segment) => active(healthOf(segment))).reduce((total, segment) => (
+      total + segment.forwardThrust * segment.power
     ), 0);
   }
 
   get rotationalThrust() {
-    return this.segments.reduce((total, segment) => (
-      total + (active(healthOf(segment)) ? segment.rotationalThrust * segment.power : 0)
+    return this.segments.filter((segment) => active(healthOf(segment))).reduce((total, segment) => (
+      total + segment.rotationalThrust * segment.power
     ), 0);
   }
 
