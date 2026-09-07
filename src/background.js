@@ -34,7 +34,7 @@ const dotGlow = 3;
 const tinted = 0.8;
 
 const dotTints = [colors.yellow[2], colors.violet[2], colors.cyan[2], colors.indigo[1]];
-const sparkleTints = [colors.orange[2], colors.violet[2], colors.cyan[2], colors.violet[2]];
+const sparkleTints = [colors.red[2], colors.orange[2], colors.violet[2], colors.cyan[2], colors.violet[2], colors.orange[2], colors.violet[2], colors.cyan[2]];
 const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[0], colors.indigo[1]];
 
 const starColor = (tints) => (Math.random() < tinted ?
@@ -100,8 +100,8 @@ const makeTile = (clouds, dots, size, sparkles,
   if (parts.includes('dots')) {
   // @endif
     while (dots--) {
-      const color = starColor(dotTints) + '456789a'[Math.floor(Math.random() * 7)];
-      const path = circlePath(size * (0.3 + Math.random() * 0.8));
+      const color = starColor(dotTints) + '6789a'[Math.floor(Math.random() * 4)];
+      const path = circlePath(size * Math.random());
       const x = Math.random() * tile;
       const y = Math.random() * tile;
 
@@ -133,14 +133,13 @@ const makeTile = (clouds, dots, size, sparkles,
   if (parts.includes('sparkles')) {
   // @endif
     while (sparkles--) {
-      const color = starColor(sparkleTints) + '89abcd'[Math.floor(Math.random() * 6)];
-      const radius = size * (0.5 + Math.random() ** 2 * 4);
-      const reach = radius * 5.6;
+      const color = sparkleTints[Math.floor(Math.random() * 8)];
+      const radius = size * (1 + Math.random() * 2);
+      const reach = radius * 5;
       const path = sparklePath(radius * 1.4, 0.4);
       const halo = circlePath(reach * 2);
       const x = Math.random() * tile;
       const y = Math.random() * tile;
-      const base = color.slice(0, 4);
 
       // The x joins the + as a second subpath rather than a second fill, so
       // nonzero winding paints where they cross once instead of adding it up
@@ -160,12 +159,11 @@ const makeTile = (clouds, dots, size, sparkles,
         // it ran out
         const bloom = ctx.createRadialGradient(0, 0, 0, 0, 0, reach * 2);
 
-        bloom.addColorStop(0, `${base}b`);
-        bloom.addColorStop(0.04, `${base}6`);
-        bloom.addColorStop(0.1, `${base}3`);
-        bloom.addColorStop(0.2, `${base}2`);
-        bloom.addColorStop(0.4, `${base}1`);
-        bloom.addColorStop(1, `${base}0`);
+        bloom.addColorStop(0, `${color}b`);
+        bloom.addColorStop(0.1, `${color}3`);
+        bloom.addColorStop(0.2, `${color}2`);
+        bloom.addColorStop(0.4, `${color}1`);
+        bloom.addColorStop(1, `${color}0`);
         ctx.fillStyle = bloom;
         ctx.fill(halo);
 
@@ -173,7 +171,7 @@ const makeTile = (clouds, dots, size, sparkles,
 
         rays.addColorStop(0, colors.white[2]);
         rays.addColorStop(0.1, color);
-        rays.addColorStop(1, `${base}0`);
+        rays.addColorStop(1, `${color}0`);
         ctx.fillStyle = rays;
         ctx.fill(path);
         // Smaller copies of the same star on top, the innermost one white,
@@ -183,7 +181,7 @@ const makeTile = (clouds, dots, size, sparkles,
 
         const core = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
 
-        core.addColorStop(0, `${colors.white[2]}9`);
+        core.addColorStop(0, `${colors.white[2]}`);
         core.addColorStop(1, `${colors.white[2]}0`);
         ctx.fillStyle = core;
         ctx.scale(0.5, 0.5);
@@ -205,7 +203,10 @@ let tiles;
 // rather than what it looks like. A bitmap is pixels and nothing else
 const build = () => {
   tiles = dotCounts.map((dots, i) => makeTile(
-    16 - i * 4, dots, 1 + i / 5, 22 - i * 5,
+    16 + i * 4,
+    dots,
+    1 + i / 5,
+    16 - i * 4,
     // @ifdef DEBUG
     sky.parts,
     // @endif
