@@ -33,10 +33,6 @@ const maxCorrection = 12;
 // trembling on bounces too small to see
 const deadSpeed = 5;
 
-// Anything lighter than this bounces off a ship without marking it, so loose
-// items shove about underfoot rather than wearing a hull down
-const dentingMass = 10;
-
 /**
  * Resolve every physical contact using the same mass-weighted impulse and
  * positional correction. Non-physical colliders still report their contacts
@@ -53,7 +49,8 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
   const bMass = b.mass ? 1 / b.mass : 0;
   const mass = aMass + bMass;
 
-  if (!mass) return;
+  // Unneccessary, only station walls have 0 mass and they won't collide with each other
+  // if (!mass) return;
 
   const aSpin = a.momentum?.(collider) || { x: 0, y: 0 };
   const bSpin = b.momentum?.(other) || { x: 0, y: 0 };
@@ -65,14 +62,12 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     let bounce = 0;
     const force = -closing / mass;
 
-    // A gentle bump is harmless; past this, the mass-weighted normal impulse
-    // starts to dent a hull. This is slightly more punishing than before,
-    // without turning slow docking into damage.
-    if (force > 400) {
-      const amount = (force - 400) / 2e3;
+    // A gentle bump is harmless after damage is rounded to whole points.
+    let amount;
 
-      if (a.cockpit && b.mass >= dentingMass) damage(collider.segment, amount);
-      if (b.cockpit && a.mass >= dentingMass) damage(other.segment, amount);
+    if ((amount = Math.round((force - 400) / 1200))) {
+      if (a.cockpit) damage(collider.segment, amount);
+      if (b.cockpit) damage(other.segment, amount);
     }
 
     if (-closing >= deadSpeed) {

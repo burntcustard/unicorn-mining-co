@@ -607,7 +607,7 @@ oval, within 1e-9 coordinate tolerance.
 
 `build:fast`, seed 13312, 10 advzip iterations, baseline 13468B. All
 attempts below were reverted; the original fractional damage and mass cutoff
-remain in place.
+remained in place at the end of that experiment.
 
 | Candidate in `resolve.js` | Advzip before -> after | Cost |
 | --- | --- | --- |
@@ -635,3 +635,39 @@ read [September fallback and canvas experiments](fallback-and-canvas.md).
 The 2026-09-06 pass measured each candidate with `build:fast` and retained
 **13346 -> 13320B (-26B)**. The reference records individual wins, rejected
 attempts, and the invariants that make the deletions safe.
+
+## Force-only collision damage (2026-09-07)
+
+User-requested gameplay simplification: remove `dentingMass` and both opposing
+mass checks, retaining `force > 400` and fractional `(force - 400) / 2000`
+damage. `build:fast`, seed 13312, 10 advzip iterations:
+**13468 -> 13483B (+15B)**. Retained for gameplay despite the size cost.
+This supersedes the mass cutoff retained in the earlier threshold experiments.
+
+Mass already scales the normal impulse. Against a mass-9 ship, a mass-6 item
+causes no damage at 100 units/s closing speed and 0.16 damage at 200 units/s.
+Collision/bounce tests pass, including these cases with both contact orderings.
+Targeted lint passes; repository lint fails on 40 pre-existing `user_pref`
+no-undef errors in `.sky-preview-profile/prefs.js`.
+
+## Rounded collision damage (2026-09-07)
+
+`build:fast`, seed 13312, 10 advzip iterations, against the existing
+force-only collision-damage version (13459B):
+
+| Candidate in `resolve.js` | Advzip before -> after | Outcome |
+| --- | --- | --- |
+| Assign rounded damage in the `if` condition, guarding zero damage | 13459 -> 13456B | Retained, -3B |
+| Derive `bounce` in one ternary instead of assigning after a speed guard | 13456 -> 13472B | Reverted, +16B |
+
+Damage was `Math.round((force - 400) / 2000)` at the end of this experiment. The zero-damage guard remains:
+calling `damage` with zero can still propagate destroyed-hull state to mounts.
+Collision/bounce tests pass. Targeted lint passes; repository lint still fails
+only on the pre-existing `user_pref` globals in `.sky-preview-profile/prefs.js`.
+
+## Steeper rounded collision damage (2026-09-07)
+
+Gameplay change: use `Math.round((force - 400) / 1200)` so heavy impacts
+cause more damage while a mass-6 item hit head-on at the starting ship's
+272-speed cap remains zero (`0.483` before rounding). A radius-100 asteroid
+now deals 2 rather than 1 damage in that same hit.

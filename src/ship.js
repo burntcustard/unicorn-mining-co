@@ -311,9 +311,19 @@ export class Ship extends Sprite {
           bounciness: (bounciness?.call ? bounciness(segment) : bounciness) ?? hullBounciness,
           dockSegment: segment.dockSegment,
           outline,
-          physics: !segment.module.disablePhysics && !segment.catches && !segment.mounts?.some((mount) => (
-            mount.module?.scoops && this.partsOf(mount).some((part) => active(healthOf(part)) && part.activationProgress > scoopOpen)
-          )),
+          // Scoop doors have no mounts, so remain physical open or closed.
+          // The cargo-catching throat is non-physical, but still reports contacts.
+          // A hull wedge stops colliding once its scoop has visibly opened,
+          // leaving the mouth clear for cargo to enter.
+          physics:
+            !segment.module.disablePhysics &&
+            !segment.catches &&
+            !segment.mounts?.some((mount) => {
+              return mount.module?.scoops &&
+                this.partsOf(mount).some((part) => {
+                  return active(healthOf(part)) && part.activationProgress > scoopOpen;
+                });
+            }),
           radius: segment.radius(segment),
           rotation: this.rotation,
           speed: segment.covers && segment.active > segment.activationProgress && 60,
@@ -372,6 +382,7 @@ export class Ship extends Sprite {
           x: segment.x - middle.x,
           y: segment.y - middle.y,
         }));
+
         const fragment = new Ship({
           dx: velocity.x,
           dy: velocity.y,

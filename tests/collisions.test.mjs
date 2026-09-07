@@ -161,10 +161,11 @@ closeTo(ship.mass * ship.velocity.x + rock.mass * rock.velocity.x, beforeMomentu
 assert.ok(ship.velocity.x < 0);
 assert.ok(rock.velocity.x > 0);
 assert.ok(rock.velocity.x - ship.velocity.x > 0);
-assert.ok(shipSegment.health < 10);
+assert.equal(shipSegment.health, 10);
 
 // Impact damage is based on closing speed and the other body's mass. A slow
-// nudge into a heavy station is harmless, while a faster impact dents the hull.
+// nudge into a heavy station is harmless, while a faster impact rounds to a
+// whole point of hull damage.
 const station = { mass: 1500, position: vector(14, 0), velocity: vector() };
 ship.velocity.x = 20;
 shipSegment.health = 10;
@@ -174,12 +175,31 @@ resolve([{
 }]);
 assert.equal(shipSegment.health, 10);
 
-ship.velocity.x = 100;
+ship.velocity.x = 272;
 resolve([{
   collider: { owner: ship, segment: shipSegment }, depth: 1,
   other: { owner: station }, x: 1, y: 0,
 }]);
-assert.ok(shipSegment.health < 10);
+assert.equal(shipSegment.health, 8);
+
+// Light objects stay harmless below a whole point of rounded impact damage,
+// but can dent either side of a contact at higher speeds.
+for (const reverse of [false, true]) {
+  for (const [speed, expectedHealth] of [[272, 10], [400, 9]]) {
+    const hull = { health: 10, module: 0 };
+    const pilot = { cockpit: true, mass: 9, position: vector(), velocity: vector(speed, 0) };
+    const item = { mass: 6, position: vector(14, 0), velocity: vector() };
+    const pilotCollider = { owner: pilot, segment: hull };
+    const itemCollider = { owner: item };
+
+    resolve([{
+      collider: reverse ? itemCollider : pilotCollider,
+      other: reverse ? pilotCollider : itemCollider,
+      depth: 1, x: reverse ? -1 : 1, y: 0,
+    }]);
+    closeTo(hull.health, expectedHealth);
+  }
+}
 
 // A negative restitution is the drill's grip signal. It must override the
 // other body's bounce without leaving any velocity travelling into the face.
