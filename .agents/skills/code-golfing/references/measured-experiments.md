@@ -695,3 +695,10 @@ letters. `!%(),:>JZ` are retained between `@ifdef DEBUG` blocks for the debug
 text/FPS demos, with matching `@ifndef DEBUG` comma placeholders in production;
 the added preprocessor support has no production ZIP cost (13361B unchanged).
 `.` remains entirely unused.
+
+## Asteroid max-speed removal (2026-09-07)
+
+User-authorized gameplay change: deleting `Asteroid.maxSpeed` lets asteroids
+use `move`'s existing 272-speed default instead of settling toward 70. Ordinary
+drag still applies. `build:fast`, seed 13312, 10 advzip iterations, reduced
+advzip from **13361B to 13357B (-4B)**. Collision/bounce tests and lint pass.

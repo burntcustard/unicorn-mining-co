@@ -144,10 +144,6 @@ export class Asteroid extends Sprite {
     }
   }
 
-  get maxSpeed() {
-    return 70;
-  }
-
   split(groups) {
     if (!groups) return [[], this.contents];
 
