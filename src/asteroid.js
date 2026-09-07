@@ -157,6 +157,7 @@ export class Asteroid extends Sprite {
       const center = measure(outline);
       const offset = rotatePoint(center, this.rotation);
       const local = ([x, y]) => [(x - center.x), (y - center.y)];
+
       // Rebase around the child's own centroid without moving any world point
       const child = new Asteroid({
         // The centroid carries the tangential speed it had while the parent
@@ -174,6 +175,7 @@ export class Asteroid extends Sprite {
         x: this.x + offset.x,
         y: this.y + offset.y,
       });
+
       const childSections = sections.map((section) => {
         const outline = section.outline.map(local);
 

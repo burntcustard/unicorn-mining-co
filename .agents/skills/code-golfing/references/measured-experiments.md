@@ -831,3 +831,18 @@ Six temporary direct scoop checks passed: ordinary cargo, full hold, message,
 paint unlock, item outside throat and duplicate contacts. All preserve account
 balance; normal cargo still requires room, notes are consumed without stowing,
 and already-removed items cannot be collected twice.
+## Lighting parse all characters (2026-09-07)
+
+Measured with `npm run build:fast`, fixed Roadroller settings/seed 13312 and
+10 advzip iterations. Baseline 13392B.
+
+- Parsing every palette entry with `shades.map(parse)` in `shadeOf`: 13397B
+  (+5B), reverted.
+- Parsing every character with `[...color].map(...)`, including the unused
+  `NaN` channel from `#`, and dropping that channel with `.slice(1)` after
+  formatting: 13388B (-4B), retained. The unused channel passes through
+  componentwise blending without affecting RGB; source comments explain why.
+
+Behavior check: 5850 exact before/after tint comparisons across all nine
+palettes, all five shade indexes and 130 ramp samples covering every table
+step and clamp boundaries. Lint passed.

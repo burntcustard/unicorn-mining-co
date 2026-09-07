@@ -52,8 +52,7 @@ playerShip.docked = (station) => {
 
 // Keep acquisition order separate from where each module is fitted.
 horn.shades = colors.yellow;
-thrusters.forEach((thruster) => thruster.shades = colors.violet);
-cargoScoop.shades = shield.shades = colors.violet;
+thrusters.forEach((thruster) => thruster.shades = cargoScoop.shades = shield.shades = colors.violet);
 playerShip.modules = [thrusterDualMd, cargoScoop, cargoScoop, horn, floodlight].map(instanceOf);
 playerShip.modules.forEach((module) => playerShip.fit(module));
 

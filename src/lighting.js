@@ -48,10 +48,12 @@ const beamStrength = 0.5;
 // Palette colours are one hex digit a channel. Spreading them over a whole
 // byte before blending is what lets two pale colours meet somewhere other than
 // on one of the sixteen steps they started on
-const parse = (color) => [1, 2, 3].map((i) => parseInt(color[i], 16) * 17);
+// Parsing '#' too creates an unused NaN channel that travels through blending.
+// Dropping it in hex saves a few bytes over selecting just the RGB digits here.
+const parse = (color) => [...color].map((channel) => parseInt(channel, 16) * 17);
 const hex = (channels) => `#${channels
   .map((level) => Math.round(level).toString(16).padStart(2, '0'))
-  .join('')}`;
+  .slice(1).join('')}`;
 
 const white = parse(colors.white[2]);
 

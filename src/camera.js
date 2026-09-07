@@ -48,7 +48,6 @@ export const followTarget = (game, target, dt) => {
   }
 };
 
-// TODO: Drop this once the camera feels right
 export const renderDeadzone = (game) => {
   const { ctx } = game;
 
