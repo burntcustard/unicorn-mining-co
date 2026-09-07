@@ -39,8 +39,7 @@
  */
 import { thrusterDualMd } from './thruster-dual-md';
 import { thrusterDualXl } from './thruster-dual-xl';
-import { thrusterSingleMd } from './thruster-single-md';
-import { thrusterSingleXl } from './thruster-single-xl';
+import { thrusterSingle } from './thruster-single';
 import { thrusterTriple } from './thruster-triple';
 
 export { cargoScoop, scoopOpen } from './cargo-scoop';
@@ -50,16 +49,14 @@ export { shield } from './shield';
 export {
   thrusterDualMd,
   thrusterDualXl,
-  thrusterSingleMd,
-  thrusterSingleXl,
+  thrusterSingle,
   thrusterTriple,
 };
 
 // Weakest first, which is the order a pilot works their way up through them
 export const thrusters = [
-  thrusterSingleXl,
+  thrusterSingle,
   thrusterDualMd,
-  thrusterSingleMd,
   thrusterDualXl,
   thrusterTriple,
 ];

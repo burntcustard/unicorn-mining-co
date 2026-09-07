@@ -45,7 +45,7 @@ setSizing(game);
 
 window.onresize = () => setSizing(game);
 
-const world = generateWorld(0);
+const world = generateWorld(8);
 const stations = world.stations.map((properties) =>
   new Station({ ...properties, shades: colors.white }));
 
@@ -58,15 +58,25 @@ launch(playerShip);
 
 world.wrecks.forEach((properties) => {
   const wreck = new Ship(properties);
-  const note = new Item({
-    itemData: { ...message, shades: properties.shades },
-    message: properties.message,
+
+  properties.cargo.forEach((resource) => {
+    const gem = new Item({ itemData: itemTypes[resource] });
+
+    gem.remove();
+    wreck.cargo.push(gem);
   });
 
-  // Orange slates unlock paint first, then reveal their field on later pickups.
-  if (properties.shades === colors.orange) note.unlock = 'ORANGE';
-  note.remove();
-  wreck.cargo.push(note);
+  if (properties.message) {
+    const note = new Item({
+      itemData: { ...message, shades: properties.shades },
+      message: properties.message,
+    });
+
+    // Orange slates unlock paint first, then reveal their field on later pickups.
+    if (properties.shades === colors.orange) note.unlock = 'ORANGE';
+    note.remove();
+    wreck.cargo.push(note);
+  }
 });
 
 // @ifdef DEBUG

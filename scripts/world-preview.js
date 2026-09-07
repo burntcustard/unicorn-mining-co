@@ -37,10 +37,8 @@ const key = [
   ['white', 'Space station'],
   ['#fa3', 'Ship wreck (ship color)'],
   ['white', 'Mixed asteroid field'],
-  ['#45d6c5', 'Opal-rich'],
   ['#ffd54a', 'Gold-rich'],
   ['#c86cff', 'Amethyst-rich'],
-  ['#62e8ff', 'Diamond-rich'],
   ['#c86cff', 'Violet line: amethyst message'],
   ['#ffd54a', 'Yellow line: gold message'],
 ].map(([color, label], i) =>
@@ -52,7 +50,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size
   `stroke-opacity=".08">${grid}</g>` +
   `${fields}<g stroke-opacity=".55">${messageLines}</g>` +
   `${circles(world.stations, 'white')}${circles(world.wrecks)}` +
-  `<g fill="white">${key}<text x="20" y="234">World diameter: 100,000 m</text></g></svg>`;
+  `<g fill="white">${key}<text x="20" y="190">World diameter: 100,000 m</text></g></svg>`;
 const filename = `world-${seed}.svg`;
 
 await writeFile(filename, svg);

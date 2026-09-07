@@ -102,6 +102,9 @@ no cached gradient/path.
   Deleting the now-unreferenced `explosion.js`/`items/explosive.js` files,
   disabled explosive comments, and no-op `Item.arm()` calls saved 1B more
   (13102B -> 13101B).
+- Removing `thrusterSingleMd`, renaming `thrusterSingleXl` to `thrusterSingle`,
+  and reducing its forward thrust to 22 saved 21B (13486B -> 13465B) under
+  `build:fast`; retain the renamed module and its four-thruster progression.
 
 ## Measured background experiments
 

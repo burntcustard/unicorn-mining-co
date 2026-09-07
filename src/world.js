@@ -16,14 +16,14 @@ const makeAsteroids = (field, worldObjects, random) => {
   // A field of anything and everything, rather than one rich in a single resource
   const mixed = field.resource > 3;
 
-  // An amethyst field is gravel: every rock as small as they come, one gem apiece
-  const gravel = field.resource === 1;
+  // An amethyst field is spikes
+  const spikes = field.resource === 1;
 
   // Roughly one asteroid per 100,000 square metres of the field
   const count = field.fieldRadius ** 2 / 30000;
 
   const asteroids = Array.from({ length: count }, () => {
-    const radius = 50 + (gravel ? 50 + random() * 2 : random() * 120);
+    const radius = 50 + (spikes ? 50 + random() * 2 : random() * 120);
     // Small rocks hold little; capacity rises smoothly with size.
     const capacity = Math.round((radius / 50) ** 2);
 
@@ -31,7 +31,7 @@ const makeAsteroids = (field, worldObjects, random) => {
 
     // A rich field is packed with its resource, while a mixed field is mostly bare rock
     if (random() < (mixed ? 0.3 : capacity / (capacity + 1))) {
-      const itemCount = gravel ? 1 : 1 + Math.floor(random() * capacity);
+      const itemCount = spikes ? 1 : 1 + Math.floor(random() * capacity);
 
       contents = Array.from({ length: itemCount },
         () => mixed ? randomResource(random) : field.resource);
@@ -40,9 +40,9 @@ const makeAsteroids = (field, worldObjects, random) => {
     return {
       contents,
       radius,
-      ...(gravel && { points: 6, radiusEven: radius / 4 }),
-      ...(gravel && { fill: `${colors.purple[1]}9` }), // 9 compresses well(???)
-      ...(gravel && { stroke: colors.violet[2] }),
+      ...(spikes && { points: 6, radiusEven: radius / 4 }),
+      ...(spikes && { fill: `${colors.purple[1]}9` }), // 9 compresses well(???)
+      ...(spikes && { stroke: colors.violet[2] }),
       rotation: random() * Math.PI * 2,
       spin: randomSpin(random),
     };
@@ -83,11 +83,11 @@ export const generateWorld = (seed) => {
   }, [], random);
 
   const fields = distribute(Array.from({ length: 100 }, () => {
-    // 70% of fields hold a mix of everything; the rest are rich in one resource
-    const resource = random() < 0.7 ? 4 : randomResource(random);
+    let resource = random() < 0.7 ? 4 : randomResource(random);
+    if (resource === 0 || resource === 3) resource = 4;
 
-    // The dearest resources, diamond and amethyst, come in small pockets
-    const fieldRadius = (2100 + random() * 1900) / (resource < 2 ? 2 : 1);
+    // Amethyst comes in small pockets
+    const fieldRadius = (2000 + random() * 2000) / (resource < 2 ? 2 : 1);
 
     return {
       fieldRadius,
@@ -102,13 +102,35 @@ export const generateWorld = (seed) => {
   const clueFields = fields.filter(({ resource }) => resource === 1 || resource === 2);
 
   wrecks.sort((a, b) => b.x ** 2 + b.y ** 2 - a.x ** 2 - a.y ** 2);
+
   wrecks.forEach((wreck, index) => {
     wreck.shades = [colors.yellow, colors.green, colors.cyan, colors.red][index] || colors.orange;
+  });
+
+  const wreckFields = wrecks.map((wreck) => {
     const position = Vector(wreck.x, wreck.y);
     const field = clueFields.reduce((nearest, candidate) =>
       position.distanceTo(candidate) < position.distanceTo(nearest) ? candidate : nearest);
 
-    wreck.message = `${field.resource === 1 ? 'AMETHYST CLUSTER' : 'GOLD ORE'} ${Math.round(field.x)}/${Math.round(field.y)}`;
+    return { distance: position.distanceTo(field), field, wreck };
+  });
+
+  // Each rich field gets slates on the three nearest wrecks that point to it.
+  const clueWrecks = new Set(clueFields.flatMap((field) =>
+    wreckFields.filter((wreckField) => wreckField.field === field)
+      .sort((a, b) => a.distance - b.distance).slice(0, 3)));
+
+  wreckFields.forEach((wreckField) => {
+    const { field, wreck } = wreckField;
+    const hasClue = clueWrecks.has(wreckField);
+    const gemCount = 2 + Math.floor(random() * 3);
+
+    wreck.cargo = Array.from({ length: gemCount }, () =>
+      hasClue ? field.resource : Math.floor(random() * 4));
+
+    if (hasClue) {
+      wreck.message = `${field.resource === 1 ? 'AMETHYST CLUSTER' : 'GOLD ORE'} ${Math.round(field.x)}/${Math.round(field.y)}`;
+    }
   });
 
   const worldObjects = [...stations, ...wrecks];

@@ -22,7 +22,7 @@ import {
   shield,
   thrusterDualMd,
   thrusterDualXl,
-  thrusterSingleXl,
+  thrusterSingle,
   thrusterTriple,
 } from './modules';
 import { drawBeam, drawDockingBayGlow, drawThrusterGlow, lightAngle, litFill, shapeOf, tint } from './lighting';
@@ -59,7 +59,7 @@ export const mustang = {
     {
       health: 15,
       mounts: [
-        { fits: [thrusterDualMd, thrusterSingleXl, thrusterDualXl, thrusterTriple], x: -16, y: 0 },
+        { fits: [thrusterDualMd, thrusterSingle, thrusterDualXl, thrusterTriple], x: -16, y: 0 },
         { fits: [shield], x: 0, y: 0 },
       ],
       points: [[-16, -20], [8, 0], [-16, 20]],

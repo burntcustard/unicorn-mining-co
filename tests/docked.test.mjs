@@ -9,7 +9,7 @@ import { viteJs13kPre } from '../plugins/vite-js13k.js';
 const scenario = `
 import assert from 'node:assert/strict';
 import { Ship, damage } from '${process.cwd()}/src/ship.js';
-import { instanceOf, cargoScoop, thrusterDualMd, thrusterDualXl, thrusterSingleXl, thrusterTriple } from '${process.cwd()}/src/modules/index.js';
+import { instanceOf, cargoScoop, horn, shield, thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple, thrusters } from '${process.cwd()}/src/modules/index.js';
 import { colorUnlocked, roomFor, playerShip, unlockColor } from '${process.cwd()}/src/player.js';
 import { launch, flyOut } from '${process.cwd()}/src/docking.js';
 import { game } from '${process.cwd()}/src/game.js';
@@ -197,9 +197,13 @@ assert(scoopShip.hitboxes().find(box => box.segment === scoopMount.hull).physics
 scoopShip.partsOf(scoopMount).forEach(part => part.activationProgress = 1);
 assert(!scoopShip.hitboxes().find(box => box.segment === scoopMount.hull).physics, 'open scoop hull admits cargo');
 // The starter loadout is owned once and completely fitted by player setup.
-assert(playerShip.modules.length === 6 && !playerShip.cargoBay.length, 'starter inventory');
-assert(new Set(playerShip.modules).size === 6, 'starter modules are distinct instances');
+assert(playerShip.modules.length === 5 && !playerShip.cargoBay.length, 'starter inventory');
+assert(new Set(playerShip.modules).size === 5, 'starter modules are distinct instances');
 assert(playerShip.modules.every(module => module.mount.module === module), 'starter mount links');
+assert(instanceOf(cargoScoop).shades === colors.violet && instanceOf(shield).shades === colors.violet &&
+  thrusters.every((thruster) => instanceOf(thruster).shades === colors.violet), 'purchased modules are pink');
+assert(instanceOf(horn).shades === colors.yellow, 'purchased horns are yellow');
+assert(thrusterSingle.name === 'THRUSTERS *1' && thrusterSingle.forwardThrust === 22, 'single thruster');
 const flyer = new Ship({shades: colors.white});
 const engine = instanceOf(thrusterDualMd);
 flyer.modules.push(engine); flyer.fit(engine);
@@ -219,7 +223,7 @@ flyer.fit(0, engine.mount);
 assert(flyer.forwardThrust === 0 && flyer.cargoBay[0] === engine, 'removing engine removes thrust');
 // Check actual launch motion against the old burn/coast dynamics, not just
 // nozzle state: coast used quarter thrust and speed cap, with half-size flames.
-for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingleXl, thrusterTriple]) {
+for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple]) {
   const departing = new Ship({shades: colors.white, x: 100000, y: 100000});
   const engine = instanceOf(type);
   departing.modules.push(engine); departing.fit(engine);
