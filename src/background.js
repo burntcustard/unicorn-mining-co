@@ -26,20 +26,9 @@ let span;
 // enough to flare out into a coloured sparkle
 const dotCounts = [550, 380, 230];
 
-// A speck gets a touch of bloom, so that none of it looks like a shape cut out
-// of paper
-const dotGlow = 3;
-
-// How many of the stars are anything other than plain white
-const tinted = 0.8;
-
-const dotTints = [colors.yellow[2], colors.violet[2], colors.cyan[2], colors.indigo[1]];
+const dotTints = [colors.yellow[2], colors.violet[2], colors.cyan[2], colors.indigo[1], colors.white[2]];
 const sparkleTints = [colors.red[2], colors.orange[2], colors.violet[2], colors.cyan[2], colors.violet[2], colors.orange[2], colors.violet[2], colors.cyan[2]];
 const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[0], colors.indigo[1]];
-
-const starColor = (tints) => (Math.random() < tinted ?
-  tints[Math.floor(Math.random() * 4)] :
-  colors.white[2]);
 
 // Every layer, drawn in full. Debug builds can swap this out for a cut-down
 // mode to see what each part of the sky costs
@@ -62,6 +51,23 @@ const makeTile = (clouds, dots, size, sparkles,
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
+  // Every mark fits within half a tile (clouds reach at most 440 units).
+  // Centred positions need only the original and its positive-axis copies.
+  const wrappedPaint = (paint) => {
+    const x = (Math.random() - 0.5) * tile;
+    const y = (Math.random() - 0.5) * tile;
+
+    for (let wrapped = 4; wrapped--;) {
+      ctx.save();
+      ctx.translate(
+        x + wrapped % 2 * tile,
+        y + Math.floor(wrapped / 2) * tile,
+      );
+      paint();
+      ctx.restore();
+    }
+  };
+
   canvas.width = canvas.height = span;
   ctx.scale(span / tile, span / tile);
 
@@ -71,53 +77,36 @@ const makeTile = (clouds, dots, size, sparkles,
     while (clouds--) {
       const color = cloudColors[Math.floor(Math.random() * 4)];
       const radius = 120 + Math.random() ** 2 * 320;
-      const x = Math.random() * tile;
-      const y = Math.random() * tile;
 
-      for (let wrapped = 9; wrapped--;) {
-        const at = [
-          x + wrapped % 3 * tile - tile,
-          y + Math.floor(wrapped / 3) * tile - tile,
-        ];
+      wrappedPaint(() => {
         // Broad washes overlap medium patches at low opacity, leaving the
         // stars clear. Wrapped copies keep the edges seamless.
-        const fade = ctx.createRadialGradient(...at, 0, ...at, radius);
+        const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
 
         fade.addColorStop(0, `${color}1`);
         fade.addColorStop(1, `${color}0`);
         ctx.fillStyle = fade;
-        ctx.fillRect(at[0] - radius, at[1] - radius, radius * 2, radius * 2);
-      }
+        ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+      });
     }
   // @ifdef DEBUG
   }
   // @endif
 
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.shadowBlur = dotGlow;
-
   // @ifdef DEBUG
   if (parts.includes('dots')) {
   // @endif
     while (dots--) {
-      const color = starColor(dotTints) + '6789a'[Math.floor(Math.random() * 4)];
+      const color = dotTints[Math.floor(Math.random() * 5)] + '8';
       const path = circlePath(size * Math.random());
-      const x = Math.random() * tile;
-      const y = Math.random() * tile;
 
-      // Varying how faint each one is does more for the depth than varying how
-      // big it is, at this sort of size
-      ctx.shadowColor = ctx.fillStyle = color;
+      // Small radii and a shared low opacity keep the pinpricks behind
+      // the larger sparkles.
+      ctx.fillStyle = color;
 
-      for (let wrapped = 9; wrapped--;) {
-        ctx.save();
-        ctx.translate(
-          x + wrapped % 3 * tile - tile,
-          y + Math.floor(wrapped / 3) * tile - tile,
-        );
+      wrappedPaint(() => {
         ctx.fill(path);
-        ctx.restore();
-      }
+      });
     }
   // @ifdef DEBUG
   }
@@ -126,7 +115,6 @@ const makeTile = (clouds, dots, size, sparkles,
   ctx.globalCompositeOperation = 'lighter';
   // A sparkle's glow is painted, not shadowed, and the whole of one is a
   // little see-through so the clouds behind still read through it
-  ctx.shadowBlur = 0.1;
   ctx.globalAlpha = 0.4;
 
   // @ifdef DEBUG
@@ -135,59 +123,42 @@ const makeTile = (clouds, dots, size, sparkles,
     while (sparkles--) {
       const color = sparkleTints[Math.floor(Math.random() * 8)];
       const radius = size * (1 + Math.random() * 2);
-      const reach = radius * 5;
       const path = sparklePath(radius * 1.4, 0.4);
-      const halo = circlePath(reach * 2);
-      const x = Math.random() * tile;
-      const y = Math.random() * tile;
+      const halo = circlePath(radius * 10);
 
       // The x joins the + as a second subpath rather than a second fill, so
       // nonzero winding paints where they cross once instead of adding it up
       path.addPath(sparklePath(radius * 0.7, 0.7), {
-        a: Math.SQRT1_2, b: Math.SQRT1_2, c: -Math.SQRT1_2, d: Math.SQRT1_2,
+        a: 0.7, b: 0.7, c: -0.7, d: 0.7,
       });
 
-      for (let wrapped = 9; wrapped--;) {
-        ctx.save();
-        ctx.translate(
-          x + wrapped % 3 * tile - tile,
-          y + Math.floor(wrapped / 3) * tile - tile,
-        );
+      wrappedPaint(() => {
         // One bloom, bright and tight at the middle and trailing off well past
         // the rays, then the star itself out of a white core. The stops bend
         // the falloff off a straight ramp, which would leave a faint rim where
         // it ran out
-        const bloom = ctx.createRadialGradient(0, 0, 0, 0, 0, reach * 2);
+        const bloom = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 10);
 
-        bloom.addColorStop(0, `${color}b`);
+        bloom.addColorStop(0, `${color}a`);
         bloom.addColorStop(0.1, `${color}3`);
-        bloom.addColorStop(0.2, `${color}2`);
         bloom.addColorStop(0.4, `${color}1`);
         bloom.addColorStop(1, `${color}0`);
         ctx.fillStyle = bloom;
         ctx.fill(halo);
 
-        const rays = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
+        const rays = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 5);
 
         rays.addColorStop(0, colors.white[2]);
         rays.addColorStop(0.1, color);
         rays.addColorStop(1, `${color}0`);
         ctx.fillStyle = rays;
         ctx.fill(path);
-        // Smaller copies of the same star on top, the innermost one white,
-        // brighten the middle without any of it being a different shape
-        ctx.scale(0.7, 0.7);
+        // A smaller white copy brightens the middle using the same shape.
+        ctx.fillStyle = colors.white[2];
+        ctx.globalAlpha = 0.3;
+        ctx.scale(0.35, 0.35);
         ctx.fill(path);
-
-        const core = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
-
-        core.addColorStop(0, `${colors.white[2]}`);
-        core.addColorStop(1, `${colors.white[2]}0`);
-        ctx.fillStyle = core;
-        ctx.scale(0.5, 0.5);
-        ctx.fill(path);
-        ctx.restore();
-      }
+      });
     }
   // @ifdef DEBUG
   }
