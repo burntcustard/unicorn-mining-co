@@ -526,7 +526,7 @@ export class Ship extends Sprite {
 
     if (zIndex === -3 && this.localMovementRadius) {
       ctx.strokeStyle = `${colors.cyan[2]}6`;
-      ctx.setLineDash([12, 12]);
+      ctx.setLineDash([12, 12]); // [12] works but 12 twice compressed better
       ctx.beginPath();
       ctx.arc(0, 0, this.localMovementRadius, 0, Math.PI * 2);
       ctx.stroke();

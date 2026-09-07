@@ -4,12 +4,13 @@ const launchCoastDuration = 2;
 
 /** Place a craft inside a station as though it had entered through its bay. */
 export const dockAt = (ship, station) => {
-  ship.segments.forEach((segment) => (segment.active = false));
-  ship.velocity.set({ x: 0, y: 0 });
+  // Disable disabling of activated things to save 2B
+  // ship.segments.forEach((segment) => (segment.active = false));
+
   Object.assign(ship, {
     dockedTo: station,
     rotation: station.rotation,
-    spin: 0,
+    // spin: 0,
     x: station.x,
     y: station.y,
   });
