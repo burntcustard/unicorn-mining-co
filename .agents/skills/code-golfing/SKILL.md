@@ -123,6 +123,9 @@ class of bug, since it only appears after a real Terser build.
 - [Prism and array indexing experiments](references/prism-and-array-indexing.md):
   seam-safe beam rendering, corner predicates and production array access.
 
+- [Ship, docked UI and prism experiments](references/ship-docked-and-prism.md):
+  measured ship, docked UI, prism, asteroid and collision refactors.
+
 Search these notes for the target file and proposed transformation, then read
 its measurements and invariants. Add results to the relevant reference; keep
 workflow here and avoid duplicating experiment entries.
