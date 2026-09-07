@@ -32,6 +32,7 @@ const customReplacement = (src) => src
   .replace(/(?<!\/)outline/g, '_outline')
   .replace(/points/g, '_points')
   .replace(/position/g, '_position')
+  .replace(/resource/g, '_resource')
   .replace(/rotation/g, '_rotation')
   .replace(/segments/g, '_segments')
   .replace(/update/g, '_update')
