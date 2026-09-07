@@ -26,9 +26,7 @@
  * item wears a sparkle, and a `rainbow` item fills itself with several colours
  * without following the light.
  *
- * The rest are what an item does when it is picked up or left alone: `credits`
- * are paid straight into the pilot's account rather than stowed instead of
- * being sold on, and `message` is read out and used up on the spot.
+ * A `message` is read out and used up on the spot instead of being stowed.
  */
 export { amethyst } from './amethyst';
 export { diamond } from './diamond';

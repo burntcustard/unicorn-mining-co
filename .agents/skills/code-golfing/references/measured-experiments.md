@@ -814,3 +814,20 @@ station geometry at scales 0.01, 0.1, 0.5, 1, 2 and 10. The cached canvas
 is slightly larger; cache invalidation and drawing logic are unchanged.
 Future bay geometry or new glow shapes must remain inside this bound or update
 it. Lint and final build:fast passed. No item-definition edits retained.
+
+
+## Remove obsolete credit pickups (2026-09-07)
+
+User requested removal after money-cache items were disabled. Deleted the
+item.item.credits lookup, direct account increment and dollar FOUND notice
+branch from scoop.js. Deleted the commented-out items/cache.js definition and
+removed its stale item-schema documentation. Repository search found no other
+credit-pickup paths; starting credits, HUD balance, buying, selling and repairs
+remain active and necessary.
+
+Same build:fast settings, seed 13312 and 10 advzip iterations: advzip
+**13417 -> 13391B (-26B)**. Retained. Lint and docked regression suite passed.
+Six temporary direct scoop checks passed: ordinary cargo, full hold, message,
+paint unlock, item outside throat and duplicate contacts. All preserve account
+balance; normal cargo still requires room, notes are consumed without stowing,
+and already-removed items cannot be collected twice.
