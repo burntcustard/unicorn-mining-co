@@ -153,7 +153,7 @@ let spriteCount;
 initKeys();
 
 [cargoScoop, horn, shield, floodlight].forEach((module) =>
-  bindKeys(module.key[0], () => playerShip.toggle(module)));
+  bindKeys(module.name[0].toLowerCase(), () => playerShip.toggle(module)));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
 bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));

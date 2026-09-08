@@ -29,8 +29,8 @@ const underDrop = 10;
 
 // Every module on the ship the pilot can switch, each type the once, in the
 // order their mounts sit in. A pair of scoops is one row worked by one key. Modules
-// with no key of their own are left off the panel. A key packs its lowercase
-// KeyboardEvent value first and uppercase HUD letter second.
+// worked through the separate flight controls are left off the panel. A module's
+// key is the first letter of its name.
 /**
  * @param {Object} game
  * @param {Object} ship - The ship whose modules are shown.
@@ -38,7 +38,7 @@ const underDrop = 10;
 export const renderControls = (game, ship) => {
   const { ctx, uiScale } = game;
   const modules = [];
-  ship.mounts.forEach(({ module }) => module?.key &&
+  ship.mounts.forEach(({ module }) => module && !module.forwardThrust &&
     !modules.includes(module.oneOf) && modules.push(module.oneOf));
   const widest = Math.max(...modules.map(({ name }) => name.length)) * glyph;
   const boxX = game.uiWidth - inset - widest - gap - box;
@@ -68,11 +68,9 @@ export const renderControls = (game, ship) => {
 
     // A line under the one letter of the name that is the key to work it, a
     // touch narrower than the letter and dropped just below it
-    const under = textX + module.name.indexOf(module.key[1]) * glyph;
-
     const underline = new Path2D();
-    underline.moveTo(under, y + underDrop);
-    underline.lineTo(under + glyph - 1, y + underDrop);
+    underline.moveTo(textX, y + underDrop);
+    underline.lineTo(textX + glyph - 1, y + underDrop);
     outline(ctx, underline, textSize);
     ctx.stroke(underline);
   });

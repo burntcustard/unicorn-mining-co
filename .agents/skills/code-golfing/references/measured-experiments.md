@@ -380,6 +380,11 @@ the then-current retained baseline.
 - Replacing the four-update modulo with a bitmask cost 18 bytes.
 - Making module keys uppercase and lowercasing them only while binding saved 1 byte. Packing both forms lowercase-first (`'dD'`), using index 0 for input and index 1 for the HUD, saved 15 bytes instead; uppercase-first was 3 bytes worse.
 - With `'dD'`, `key[0]`, and `key[1]` held constant under `build:full`*, direct indexing was 13319B advzip, adding `toLowerCase` to the input was 13351B, adding both `toUpperCase` calls to the HUD was 13343B, and using all three conversions was 13366B.
+- Module-name activation keys (2026-09-08, `build:fast`): removing the four
+  packed `key` properties, binding the lowercase first character of each module
+  name, underlining the first HUD character directly, and excluding thrusters
+  via their existing `forwardThrust` property saved 23 bytes (13360B -> 13337B).
+  Retained.
 - Before slow builds used 100 advzip iterations, normalizing keyboard event keys to their final two characters saved 6 bytes. Searching registered fragments with `find`/`includes` cost 15 bytes, while expanding fragments with `includes` cost 59 bytes.
 - Under that earlier build, removing the unused `keyPressed` state saved 2 bytes, accepting one key per `bindKeys` call saved 3, optional callback invocation saved 4, and sharing one handler between keydown and keyup saved 1. Registering listeners at module load cost 5 bytes, and storing held state on callback functions cost 8 bytes.
 

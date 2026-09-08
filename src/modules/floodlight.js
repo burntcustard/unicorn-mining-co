@@ -25,7 +25,6 @@ export const floodlight = {
   beam: true,
   disablePhysics: true,
   health: 10,
-  key: 'lL',
   lens,
   mouth,
   name: 'LIGHT',

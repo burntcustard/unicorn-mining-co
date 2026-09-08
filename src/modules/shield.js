@@ -25,7 +25,6 @@ const crossLine = (angle) => {
 export const shield = {
   bounciness: 0.4,
   health: 40,
-  key: 'sS',
   name: 'SHIELD',
   model: [
     {

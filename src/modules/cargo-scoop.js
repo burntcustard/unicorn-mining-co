@@ -27,7 +27,6 @@ export const scoopOpen = 0.5;
 export const cargoScoop = {
   // Slow enough to read as a door swinging rather than a flicker
   activationDuration: 0.7,
-  key: 'hH',
   name: 'HATCH',
   health: 4,
   model: [

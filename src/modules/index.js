@@ -23,8 +23,8 @@
  * Every module starts off. `activationProgress` runs from 0 to 1 over a module's
  * `activationDuration` in seconds while it is active, and back down again once it is off, which is
  * what drives every animation: flares grow out of thrusters, and cargo scoops
- * swing open and closed. A module the pilot works by hand names its
- * `key`, the character the controls panel underlines in its name to show it.
+ * swing open and closed. A module the pilot works by hand uses the first
+ * character of its name as its key, which the controls panel underlines.
  *
  * A module whose pieces switch on separately, like a pair of thrusters, splits
  * its geometry into `model`; visual-only modules set `disablePhysics`. They
