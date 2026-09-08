@@ -71,11 +71,7 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     }
 
     if (-closing >= deadSpeed) {
-      // A spinning horn's negative bounciness requests zero restitution;
-      // otherwise the springier surface decides the rebound.
-      bounce = collider.bounciness < 0 || other.bounciness < 0 ?
-        0 :
-          Math.max(collider.bounciness || 0, other.bounciness || 0);
+      bounce = (collider.bounciness || 0) + (other.bounciness || 0);
     }
 
     const impulse = force * (1 + bounce);

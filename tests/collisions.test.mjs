@@ -201,18 +201,20 @@ for (const reverse of [false, true]) {
   }
 }
 
-// A negative restitution is the drill's grip signal. It must override the
-// other body's bounce without leaving any velocity travelling into the face.
+// A negative restitution is the drill's grip signal, added to the other
+// body's bounce rather than overriding it. It softens the rebound to a
+// fraction of the closing speed rather than stopping it dead.
 ship.velocity.x = 100;
 rock.velocity.x = 0;
 resolve([{
-  collider: { bounciness: -1, owner: ship, segment: shipSegment },
+  collider: { bounciness: -0.2, owner: ship, segment: shipSegment },
   depth: 1,
   other: { bounciness: 0.1, owner: rock },
   x: 1,
   y: 0,
 }]);
-closeTo(rock.velocity.x - ship.velocity.x, 0);
+assert.ok(rock.velocity.x - ship.velocity.x < 0);
+assert.ok(rock.velocity.x - ship.velocity.x > -20);
 
 // Continuous thrust cannot carry a gripping triangular horn through a hull
 // made from convex pieces, even where its point is aimed at the shared seam.
@@ -226,7 +228,7 @@ const hullParts = [
 
 outerEdges(hullParts.map(({ outline }) => outline));
 const horn = {
-  bounciness: -1,
+  bounciness: -0.2,
   outline: [[0, -2], [6, 0], [0, 2]],
   owner: drillingShip,
   radius: 6,

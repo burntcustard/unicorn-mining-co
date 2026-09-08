@@ -16,12 +16,13 @@ const fluteCount = hornLength / fluteSpacing + 2;
 // How many times a second the horn turns all the way around
 const spinRate = 1.5;
 
-// Negative bounciness asks the resolver to grip with zero restitution while the
-// horn spins. It overrides the other surface's bounce without retaining inward
-// velocity, so mining neither bats the ship away nor drives the horn through.
+// Negative bounciness grips rather than bounces while the horn spins, added to
+// whatever the other surface offers rather than overriding it. Small enough
+// that it only softens a rebound, not reverse it, since most of what's mined
+// is asteroid rather than the rare item that gets grabbed too
 // Switched off, the horn says nothing and bounces like the bare hull it is a
 // spike on
-const grindBounce = -1;
+const grindBounce = -0.2;
 
 /**
  * Flutes are parallel lines that march towards the tip and wrap back around,

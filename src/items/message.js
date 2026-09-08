@@ -5,7 +5,7 @@ import { colors } from '../colors';
 // supplies the message, pointing to a resource field or unlocking paint.
 
 export const message = {
-  bounciness: 0.2,
+  bounciness: 0.1,
   health: 100,
   lines: [[[-4, -1], [4, -1]], [[-4, 2], [2, 2]]],
   // name: 'MESSAGE', // Commented out to save a few bytes

@@ -115,6 +115,8 @@ class of bug, since it only appears after a real Terser build.
 
 ## Experiment references
 
+- [Bounciness consistency](references/bounciness-consistency.md): item and
+  ordinary-module alignment, preserving the bouncy shield and drill grip.
 - [Measured experiments](references/measured-experiments.md): indexed history
   covering compression, rendering, UI, entities, input and physics, including
   the 2026-09-07 camera/momentum and collision-damage experiments.
