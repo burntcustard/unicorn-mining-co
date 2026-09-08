@@ -137,7 +137,8 @@ export const testSections = (scenery, playerShip, lamp) => {
   wreck.cockpit.health = 0;
   const wreckage = wreck.update(0);
 
-  if (!wreck.dead || !game.items.includes(cargo) || cargo.velocity.x !== wreck.velocity.x) {
+  if (!wreck.dead || !game.items.includes(cargo) ||
+    Math.abs(cargo.velocity.subtract(wreck.velocity).length() - 30 / cargo.mass) > 1e-9) {
     throw Error('wreck');
   }
 

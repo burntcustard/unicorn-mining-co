@@ -4,11 +4,10 @@ import { colors } from './colors';
 import { downKeys } from './keyboard';
 import { flyOut } from './docking';
 
-// What a pilot starts out with, which is not enough for anything good
 const startingCredits = 500;
 
 // How long a message stays up once it has been read, in seconds
-const readingTime = 6;
+const readingTime = 10;
 
 export const playerShip = new Ship({
   shades: colors.white,

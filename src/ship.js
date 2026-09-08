@@ -422,6 +422,7 @@ export class Ship extends Sprite {
       this.cargo.forEach((item) => {
         item.position.set(this.position);
         item.velocity.set(this.velocity);
+        applyForce(item, movePoint(Vector(), Math.random() * Math.PI * 2, 30), Math.random() - 0.5);
         item.add();
       });
       this.remove();

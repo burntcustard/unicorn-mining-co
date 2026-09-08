@@ -1,5 +1,25 @@
 # Golfing sweep — 2026-09-07
 
+## Cargo scatter — 2026-09-08
+
+Settings: `npm run build:fast`, seed 13312, 10 advzip iterations.
+Each candidate was measured independently against 13326B.
+
+| Candidate | Advzip after | Status |
+| --- | --- | --- |
+| Direct velocity and spin arithmetic | 13329B | Reverted (+3B) |
+| directionOf(angle).scale(30) | 13361B | Reverted (+35B) |
+| Shared scatter helper across four ship impulse sites (retry with new cargo caller) | 13360B | Reverted (+34B) |
+| rotatePoint(Vector(30), angle) | 13327B | Reverted (+1B) |
+| Set inherited spin before velocity | 13329B | Reverted (+3B) |
+| Uniform random angle centred on zero | 13332B | Reverted (+6B) |
+| Remove inherited ship spin, as requested by user | 13323B | Retained (-3B) |
+
+The retained gameplay change leaves each item's existing spin plus the small
+random impulse; ship spin is no longer copied. Outward force remains 30.
+Docked tests cover cargo and multiple messages in normal and production-mangled
+bundles, checking release, outward impulse and spin bounds.
+
 Settings: `npm run build:fast`, seed 13312, 10 advzip iterations. Candidates tested individually against the retained baseline. **13457 → 13437 bytes (-20 bytes)**. No gameplay approximations retained.
 
 | File | Candidate | Advzip before → after | Result |

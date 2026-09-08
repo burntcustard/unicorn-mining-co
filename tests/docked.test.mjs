@@ -9,6 +9,8 @@ import { viteJs13kPre } from '../plugins/vite-js13k.js';
 const scenario = `
 import assert from 'node:assert/strict';
 import { Ship, damage } from '${process.cwd()}/src/ship.js';
+import { Item } from '${process.cwd()}/src/item.js';
+import { diamond, message } from '${process.cwd()}/src/items/index.js';
 import { instanceOf, cargoScoop, horn, shield, thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple, thrusters } from '${process.cwd()}/src/modules/index.js';
 import { colorUnlocked, roomFor, playerShip, unlockColor } from '${process.cwd()}/src/player.js';
 import { launch, flyOut } from '${process.cwd()}/src/docking.js';
@@ -30,6 +32,21 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitboxes(
   'destroyed hull remains as physical wreckage');
 
 const ship = new Ship({ shades: colors.white, credits: 10000 });
+const wreck = new Ship({ shades: colors.white, dx: 12, dy: -7, spin: 0.2 });
+const contents = [diamond, message, message].map(itemData => new Item({ itemData }));
+contents.forEach(item => item.remove());
+wreck.cargo.push(...contents);
+wreck.cockpit.health = 0;
+wreck.update(0);
+assert(wreck.dead, 'destroyed ship is removed');
+for (const item of contents) {
+  assert(!item.dead && game.items.includes(item), 'cargo and every message are released');
+  assert(Math.abs(item.velocity.subtract(wreck.velocity).length() - 5) < 1e-9,
+    'released contents receive an outward impulse');
+  assert(Math.abs(item.spin) <= 0.5 / item.mass,
+    'released contents receive a small random impulse without inheriting ship spin');
+}
+assert(new Set(contents.map(item => item.spin)).size > 1, 'contents tumble independently');
 const second = instanceOf(cargoScoop);
 const first = instanceOf(cargoScoop);
 first.shades = colors.red;
