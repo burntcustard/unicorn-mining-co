@@ -984,3 +984,202 @@ fallback removal: **13,342B**; without that entire block: **13,343B**.
 Thus the guarded rewrite currently saves **1B** (6000 advzip iterations).
 Restored the block. The selectors variable and every calls run only at build
 time; only the resulting removal of the inner `|0` affects the shipped decoder.
+
+
+### Further decoder sweep (2026-09-08)
+
+`build:fast`, unchanged encoder settings, 10 advzip iterations. Baseline includes
+the Uint16 count table: **13,346B**. All measured candidates passed complete
+decoded-program equality in Node/V8 before and after their build.
+
+| Candidate | advzip bytes | Delta |
+| --- | ---: | ---: |
+| `constructor` | 13353 | +7 |
+| `alias_constructor` | 13347 | +1 |
+| `count_first` | 13350 | +4 |
+| `destructure_expansion` | 13343 | -3 |
+| `splice_expansion` | 13343 | -3 |
+| `quote_ternary` | 13346 | +0 |
+| `mask_modulo` | 13348 | +2 |
+| `state_ternary` | 13347 | +1 |
+| `state_factored` | 13347 | +1 |
+| `count_increment` | 13346 | +0 |
+| `byte_assign` | 13346 | +0 |
+| `fill_decimal` | 13346 | +0 |
+| `scale_decimal` | 13346 | +0 |
+| `hash_mask` | 13346 | +0 |
+| `match_expansion` | 13346 | +0 |
+| `destructure_match` | 13344 | -2 |
+| `destructure_numerator` | 13343 | -3 |
+| `destructure_denominator` | 13344 | -2 |
+| `splice_numerator` | 13346 | +0 |
+| `splice_denominator` | 13343 | -3 |
+| `destructure_loop` | 13344 | -2 |
+| `splice_loop` | 13344 | -2 |
+| `destructure_count` | 13348 | +2 |
+| `destructure_byte` | 13345 | -1 |
+| `scale_power` | 13347 | +1 |
+| `quote_bit_safe` | 13349 | +3 |
+
+Retained **destructure_expansion** only: replace
+`r=r.split(a),r=r.join(r.shift())` with
+`[a,...r]=r.split(a),r=r.join(a)`. The first split element is the abbreviation
+replacement; the remaining elements are joined with it. The regex match in a
+is no longer needed after splitting, and the next iteration overwrites a.
+Final rebuild confirmed **13,346 -> 13,343B (-3B)**.
+
+Candidate key: constructor uses `new a.constructor`; alias_constructor stores
+Uint16Array in a while allocating r first; count_first uses `a=r.slice().fill(...)`.
+splice_expansion uses `r=r.splice(1).join(r[0])`. match_expansion uses r.match
+instead of regex.exec; loop variants move joining into the for update clause.
+Numerator and denominator interactions retry previous neutral simplifications
+against the new expansion layouts. Other changes: modulo -> bit mask; rANS
+state branch/factor rewrites; count saturation -> ternary preincrement; byte
+subtraction -> XOR; decimal fill/scale constants; reordered hash mask; scale
+via exponentiation; quote boolean multiplication -> ternary or shifts.
+The unparenthesized quote shift candidate failed output equality and was not
+built; quote_bit_safe corrects its precedence but costs 3B. All other candidates
+were reverted, including equally sized alternatives to the simpler retained one.
+
+The retained transform also passed four fixtures covering quotes, templates,
+Unicode, control escapes and repeated abbreviations in Node/V8. Lint passed.
+Firefox 155.0.1 also passed the built-program and all four fixture comparisons.
+Built decoded SHA-256:
+`3d25f4c9fb6b06661e212193fa3efccd5c0a4966487c7972fa112c63e8d3948a`.
+
+
+### Full-build recheck of neutral decoder candidates (2026-09-08)
+
+User explicitly requested full builds to recheck the fast-build saving and ties.
+All measurements use full mode (6000 advzip iterations), unchanged source and
+encoder settings. Baseline is the original split-and-shift expansion with Uint16
+counts, **13,342B**. Every candidate passed complete decoded-program equality
+in Node/V8 before and after its build. Candidate names refer to the sweep above.
+
+| Candidate | advzip bytes | Delta |
+| --- | ---: | ---: |
+| `baseline` | 13342 | +0 |
+| `destructure_expansion` | 13342 | +0 |
+| `splice_expansion` | 13342 | +0 |
+| `quote_ternary` | 13344 | +2 |
+| `count_increment` | 13344 | +2 |
+| `byte_assign` | 13342 | +0 |
+| `fill_decimal` | 13344 | +2 |
+| `scale_decimal` | 13343 | +1 |
+| `hash_mask` | 13343 | +1 |
+| `match_expansion` | 13343 | +1 |
+| `splice_numerator` | 13342 | +0 |
+| `destructure_numerator` | 13342 | +0 |
+| `splice_denominator` | 13342 | +0 |
+
+No full-build wins. In particular, destructure_expansion and splice_expansion
+both save 3B with 10 advzip iterations but **0B** with 6000 iterations. Reverted
+the previously retained destructuring rewrite to the original split-and-shift
+expansion; no other candidates retained. This supersedes the retention decision
+in the preceding fast-build sweep. Full rebuild: **13,342 -> 13,342B (0B)**.
+Lint passed.
+
+
+### Decoder character-sequence reuse sweep (2026-09-08)
+
+User requested further reuse of characters and short sequences. Used full
+builds throughout (6000 advzip iterations), unchanged encoder settings, baseline
+**13,342B**. Each measured candidate passed complete decoded-program equality
+in Node/V8 before and after its build. No parameter search or payload changes.
+
+#### Expression and punctuation rewrites
+
+| Candidate | advzip bytes | Delta |
+| --- | ---: | ---: |
+| `comma_initializers` | 13343 | +1 |
+| `for_initializers` | 13343 | +1 |
+| `paired_tables` | 13350 | +8 |
+| `copy_then_fill` | 13347 | +5 |
+| `table_length` | 13347 | +5 |
+| `fill_shift` | 13343 | +1 |
+| `count_subtract` | 13343 | +1 |
+| `prediction_inline` | 13342 | +0 |
+| `prediction_repeat` | 13344 | +2 |
+| `prediction_complement` | 13342 | +0 |
+| `probability_sign` | 13341 | -1 |
+| `weight_subtract` | 13342 | +0 |
+| `state_add` | 13342 | +0 |
+| `state_subtract` | 13343 | +1 |
+| `bit_compare` | 13343 | +1 |
+| `quote_and` | 13343 | +1 |
+| `quote_compare` | 13342 | +0 |
+| `quote_nested` | 13341 | -1 |
+| `hash_complement` | 13343 | +1 |
+| `renormalize_shift` | 13343 | +1 |
+| `input_modulo` | 13343 | +1 |
+| `input_multiply` | 13342 | +0 |
+| `selectors_double` | 13341 | -1 |
+| `selectors_template` | 13342 | +0 |
+| `nested_split` | 13343 | +1 |
+| `split_loop` | 13341 | -1 |
+| `weights_map` | 13351 | +9 |
+
+#### Callback-local identifier reuse
+
+| Candidate | advzip bytes | Delta |
+| --- | ---: | ---: |
+| `index_x` | 13339 | -3 |
+| `index_y` | 13340 | -2 |
+| `index_M` | 13341 | -1 |
+| `index_p` | 13341 | -1 |
+| `context_x_index_y` | 13340 | -2 |
+| `context_y_index_x` | 13340 | -2 |
+| `context_p_index_x` | 13339 | -3 |
+| `context_M_index_x` | 13342 | +0 |
+
+#### Interactions with callback index x
+
+| Candidate | advzip bytes | Delta |
+| --- | ---: | ---: |
+| `index_x_sign` | 13339 | -3 |
+| `index_x_quote` | 13340 | -2 |
+| `index_x_sign_quote` | 13340 | -2 |
+| `index_x_selectors` | 13340 | -2 |
+| `index_x_sign_selectors` | 13340 | -2 |
+| `index_x_quote_selectors` | 13340 | -2 |
+| `index_x_sign_quote_selectors` | 13340 | -2 |
+| `index_x_loop` | 13341 | -1 |
+| `index_x_sign_loop` | 13342 | +0 |
+| `index_x_quote_loop` | 13341 | -1 |
+| `index_x_sign_quote_loop` | 13342 | +0 |
+| `index_x_selectors_loop` | 13341 | -1 |
+| `index_x_sign_selectors_loop` | 13341 | -1 |
+| `index_x_quote_selectors_loop` | 13341 | -1 |
+| `index_x_sign_quote_selectors_loop` | 13341 | -1 |
+
+Retained only **index_x**: change the callback-local index U to x, preserving
+identifier length and reusing the rANS state spelling. These callback bodies
+never read the outer x, so lexical shadowing is safe. Word-boundary matching
+leaves Uint16Array intact. Full rebuild: **13,342 -> 13,339B (-3B)**.
+
+Distinct decoder character-sequence counts (length 1/2/3/4) change from
+61/378/508/552 to 61/376/508/552. U still occurs in Uint16Array; the win removes
+two distinct bigrams, not a character from the overall alphabet. Reducing these
+counts alone does not ensure smaller DEFLATE: comma_initializers removed one
+distinct four-character sequence but cost 1B.
+
+Four other isolated rewrites saved 1B: probability_sign changes C-= to C+= and
+negates C in Math.exp; quote_nested uses i==f?0:f; selectors_double switches the
+selector string to double quotes; split_loop moves join into the for update.
+All 15 nonempty combinations of these with index_x were measured. None beat
+index_x alone; only adding probability_sign tied it. All were omitted.
+context_p_index_x also tied index_x and was omitted as an unnecessary rename.
+
+The remaining row names describe: initializer punctuation/placement; paired
+typed-array construction via map; copying before filling; count-table length
+from a.length; fill via c>>2; subtraction-based saturation; prediction assignment
+nesting/repetition or complement arithmetic; weight/state sign rewrites; bit
+comparison order; quote logic; complement hash mask; shifted renormalization
+condition; modulo input masking; input multiplication order; template selectors;
+nested split assignment; and weight initialization via map.
+
+Final decoder and four fixtures (quotes/templates, Unicode, repeated
+abbreviations and control escapes) decoded identically in Node/V8 and Firefox
+155.0.1. Built decoded SHA-256:
+`3d25f4c9fb6b06661e212193fa3efccd5c0a4966487c7972fa112c63e8d3948a`.
+Lint passed.

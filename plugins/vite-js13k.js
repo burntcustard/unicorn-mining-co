@@ -89,7 +89,7 @@ function writeMinifiedJs(scriptCode) {
   fs.writeFileSync('dist/minified.js', scriptCode);
 }
 
-// Modern-browser-only roadroller decoder code-golfing. Saves ~7B.
+// Modern-browser-only roadroller decoder code-golfing. Saves ~8 B
 function modernDecoder(decoder) {
   // Descending history offsets put missing bytes first. While they are missing,
   // the accumulator is zero and the outer |0 already converts NaN back to zero.
@@ -103,12 +103,16 @@ function modernDecoder(decoder) {
   }
 
   return decoder
+    // Callback bodies never read the outer x, so reuse it for their local index.
+    // This removes two distinct character pairs and saves 3 B.
+    .replace(/\bU\b/g, 'x')
     // Counts fit in either type; sharing Uint16Array saves 2 B but increases
     // decoding table system memory usage from 153 MB to 204 MB.
     .replace('new Uint8Array(', 'new Uint16Array(')
     // `i` is a decoded seven-bit char, so this identifies only ' & `, saves 2B.
     .replace('(i==34|i==96)&&i', 'i%62==34&&i')
-    // Reusing r for the temporary array saves ~2 B.
+    // Reuse r for the split array. Saves 2 B with a single advzip iteration but
+    // doesn't make a difference with 8000. Removing with() is nice though.
     .replace('with(r.split(a))r=join(', 'r=r.split(a),r=r.join(r.');
 }
 
