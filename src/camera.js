@@ -5,7 +5,7 @@
 export const camera = { x: 0, y: 0 };
 
 // How much of the viewport the oval the target is kept inside of spans
-const deadzone = 0.4;
+const deadzone = 0.3;
 
 // How much of the ground it has left to make up the camera still has a second
 // from now. Lower catches up harder, and 0 would snap straight to it

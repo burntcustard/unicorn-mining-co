@@ -217,8 +217,9 @@ export class Ship extends Sprite {
   }
 
   // Half-size nozzles retain the original quarter-thrust launch coast.
+  // Return to full power for the last 0.05 seconds of launch.
   get launchThrottle() {
-    return this.launching && this.launching <= 2 ? 0.5 : 1;
+    return this.launching > 0.05 && this.launching <= 2 ? 0.5 : 1;
   }
 
   // Fit an owned instance, or pass a falsy module to empty the mount. Replaced

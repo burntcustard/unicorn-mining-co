@@ -221,8 +221,8 @@ flyer.fly(1, 1); flyer.update(0.1);
 assert(Number.isFinite(flyer.x) && Number.isFinite(flyer.spin), 'flight remains finite');
 flyer.fit(0, engine.mount);
 assert(flyer.forwardThrust === 0 && flyer.cargoBay[0] === engine, 'removing engine removes thrust');
-// Check actual launch motion against the old burn/coast dynamics, not just
-// nozzle state: coast used quarter thrust and speed cap, with half-size flames.
+// Check actual launch motion, including the final 0.05-second full-power pulse:
+// coast uses quarter thrust and speed cap, with half-size flames.
 for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple]) {
   const departing = new Ship({shades: colors.white, x: 100000, y: 100000});
   const engine = instanceOf(type);
@@ -235,7 +235,7 @@ for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTrip
   for (let frame = 0; frame < 240; frame++) {
     const launching = timer > 0;
     timer = Math.max(0, timer - dt);
-    const fraction = timer && timer <= 2 ? 0.25 : 1;
+    const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
     const forward = launching ? 1 : 0;
     const cap = 17 * type.forwardThrust * fraction;
     expectedSpeed += 220 * type.forwardThrust * fraction / departing.mass * forward * dt;
@@ -246,9 +246,9 @@ for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTrip
     departing.fly(flyOut(departing, dt) ? 1 : 0, 0);
     departing.update(dt);
     assert(Math.abs(departing.velocity.length() - expectedSpeed) < 1e-8,
-      type.name + ': launch speed matches original each frame');
+      type.name + ': launch speed matches expected each frame');
     assert(Math.abs(departing.x - expectedX) < 1e-7,
-      type.name + ': launch distance matches original each frame');
+      type.name + ': launch distance matches expected each frame');
     assert(departing.maxSpeed === cap, type.name + ': coast lowers actual speed cap');
     assert(departing.partsOf(engine.mount).every(part => part.active === forward * Math.sqrt(fraction)),
       type.name + ': launch nozzle activation');
@@ -258,14 +258,14 @@ for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTrip
   let expectedSpin = departing.spin;
   for (let frame = 0; frame < 180; frame++) {
     timer = Math.max(0, timer - dt);
-    const fraction = timer && timer <= 2 ? 0.25 : 1;
+    const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
     const thrust = type.rotationalThrust * fraction;
     const target = departing.turnRate * thrust * fraction / 16;
     expectedSpin += Math.max(-thrust * dt, Math.min(thrust * dt, target - expectedSpin));
     departing.fly(flyOut(departing, dt) ? 1 : 0, 1);
     departing.update(dt);
     assert(Math.abs(departing.spin - expectedSpin) < 1e-8,
-      type.name + ': launch steering matches original each frame');
+      type.name + ': launch steering matches expected each frame');
   }
   engine.mount.health = 0;
   assert(departing.forwardThrust === 0 && departing.rotationalThrust === 0,
