@@ -91,8 +91,21 @@ function writeMinifiedJs(scriptCode) {
 
 // Modern-browser-only roadroller decoder code-golfing
 function modernDecoder(decoder) {
+  // Descending history offsets put missing bytes first. While they are missing,
+  // the accumulator is zero and the outer |0 already converts NaN back to zero.
+  const selectors = decoder.match(/p='([0-9]+)'\.split\(C=0\)/)?.[1].split('0');
+
+  if (selectors?.every((selector) => [...selector].every((offset, index) => (
+    !index || offset < selector[index - 1]
+  )))) {
+    decoder = decoder.replace('o=o*997+(n[t-e]|0)|0', 'o=o*997+n[t-e]|0');
+  }
+
   // `i` is a decoded seven-bit char, so this identifies only ' & `, saves 2B.
-  return decoder.replace('(i==34|i==96)&&i', 'i%62==34&&i');
+  return decoder
+    .replace('(i==34|i==96)&&i', 'i%62==34&&i')
+    // Reusing r for the temporary array compresses better than the with scope.
+    .replace('with(r.split(a))r=join(', 'r=r.split(a),r=r.join(r.');
 }
 
 function saveRoadrollerArgs(searchOutput) {
@@ -151,7 +164,7 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
 
   const { firstLine, secondLine } = packer.makeDecoder();
 
-  return movedHtml.replace(reScript, `<script>${modernDecoder(firstLine + secondLine)}</script>`);
+  return movedHtml.replace(reScript, `<script>${firstLine + modernDecoder(secondLine)}</script>`);
 }
 
 async function replaceHtml(html) {

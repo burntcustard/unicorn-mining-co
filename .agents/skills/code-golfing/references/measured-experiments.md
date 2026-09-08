@@ -865,3 +865,59 @@ The ZIP, rather than decoder character count, is the metric.
 The retained decoder produced the same captured decoded-program SHA-256 as the
 baseline: `67bae1a4a7fe160e0562b12776f9c9efe58c579c4aad639657c8b6665ff685a1`.
 Lint passed.
+
+### Broader decoder sweep (2026-09-08)
+
+User-requested `build:full` comparisons, unchanged encoder parameters and 6000
+advzip iterations. Baseline includes the quote modulo rewrite: **13,361B**.
+Every candidate below passed decoded-string equality before measurement and
+again on its generated build. Individual measurements are against that baseline.
+
+| Candidate | advzip bytes | Delta |
+| --- | ---: | ---: |
+| Remove unused `o=` from prediction update | 13362 | +1 |
+| Count array via `a.slice().fill(0)` | 13365 | +4 |
+| Weights via `new Float64Array(12)` | 13373 | +12 |
+| Wrap decoder in `with(Math)` and omit `Math.` | 13363 | +2 |
+| Input `x*64` -> `x<<6` | 13361 | 0 |
+| Prediction `a[e]*2+1` -> `(a[e]<<1\|1)` | 13363 | +2 |
+| Numerator `~-c` -> `(c-1)` | 13360 | -1 |
+| Remove outer `\|0` from history hash step | 13359 | -2 |
+| History fallback `(n[t-e]\|0)` -> `(n[t-e]\|\|0)` | 13362 | +1 |
+| Bit append `i=i*2+d` -> `i=2*i+d` | 13361 | 0 |
+| Expansion `with(r.split(a))r=join(shift())` -> `r=r.split(a),r=r.join(r.shift())` | 13360 | -1 |
+| Remove only nested map callback body parentheses | 13361 | 0 |
+| Remove inner history fallback: `(n[t-e]\|0)` -> `n[t-e]` | 13359 | -2 |
+| Count base `1/40` -> `.025` | 13361 | 0 |
+| Denominator `1+Math.exp(C)` -> `Math.exp(C)+1` | 13360 | -1 |
+| Bit append -> `i=i<<1\|d` | 13361 | 0 |
+| History hash via `reduce` | 13369 | +8 |
+| User suggestion `o=a[e]*2+1` -> `o=a[e]+a[e]+1` | 13361 | 0 |
+
+Interaction checks (all deltas relative to 13361B):
+
+- Numerator + outer hash truncation removal: 13360B (-1).
+- Those two + expansion rewrite: 13358B (-3); denominator reordering was neutral.
+- Numerator + expansion rewrite: 13359B (-2).
+- Outer hash truncation removal + expansion rewrite: 13359B (-2).
+- Inner history fallback removal + numerator: 13358B (-3); denominator
+  reordering was neutral.
+- **Inner history fallback removal + expansion rewrite: 13357B (-4), retained.**
+  Adding the numerator rewrite, or both numerator and denominator reordering,
+  remained 13357B, so these extra changes were omitted.
+- Repeated-addition prediction + retained pair: 13358B (-3); adding the numerator
+  rewrite remained 13358B. Repeated addition was therefore omitted.
+
+The retained history simplification relies on descending selector offsets:
+missing history entries form a prefix while the hash accumulator is still zero,
+so the outer `|0` already converts their NaN to zero. The postprocessor verifies
+this ordering before applying the replacement. Removing the outer truncation
+instead needs a separate exact-integer bound for short selectors, so it was not
+retained. Postprocessing now operates on `secondLine` only, leaving the encoded
+payload untouched.
+
+Final build confirmed **13,361 -> 13,357B (-4B)**. The built decoder and original
+Roadroller decoder produced identical strings in Node/V8 and Firefox 155.0.1,
+with the SHA-256 above. Four additional small fixtures (quotes, template strings,
+Unicode and repeated abbreviations) also decoded identically in Node. Chrome
+was not installed; V8 was exercised through Node. Lint passed.
