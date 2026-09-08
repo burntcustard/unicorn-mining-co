@@ -202,7 +202,6 @@ GameLoop({
           // @endif
           if (lamp.activationProgress > 0.5) {
             const beam = traceBeam(playerShip, lamp, activeSprites);
-            const worldFrame = game.ctx.getTransform();
 
             game.ctx.save();
             game.ctx.translate(playerShip.x, playerShip.y);
@@ -210,7 +209,9 @@ GameLoop({
             game.ctx.translate(lamp.x, lamp.y);
             game.ctx.clip(insidePath(beam));
             game.ctx.clip(beam.mask);
-            game.ctx.setTransform(worldFrame);
+            game.ctx.resetTransform();
+            game.ctx.scale(game.scale, game.scale);
+            game.ctx.translate(-camera.x, -camera.y);
 
             activeSprites.forEach((asteroid) =>
               asteroid.scenery && asteroid.sections &&

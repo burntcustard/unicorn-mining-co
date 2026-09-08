@@ -23,6 +23,8 @@ const customReplacement = (src) => src
   .replace(/active/g, '_active')
   .replace(/angle/g, '_angle')
   // .replace(/forward/g, '_forward') // Increases size by 5B
+  // For some reason most but not all color names are mangled. Green isn't.
+  .replace(/green/g, '_green') // Saves 2 B
   .replace(/(?<!\/)message/g, '_message')
   .replace(/(?<!\/)module/g, '_module')
   // .replace(/model/g, '_model') // Increases size
@@ -37,10 +39,7 @@ const customReplacement = (src) => src
   .replace(/segments/g, '_segments')
   .replace(/update/g, '_update')
   .replace(/zIndex/g, '_zIndex')
-  // For some reason all other color names are mangled, but green isn't.
-  // This actually cost more bytes for some reason???
   // .replace(/red/g, '_red')
-  // .replace(/green/g, '_green')
   // Dangerously replace strict equality with loose equality, saves 8B
   .replace(/===/g, '==')
   // Let Terser combine declarations without preserving const semantics (~19B)

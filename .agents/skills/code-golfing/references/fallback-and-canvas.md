@@ -1,5 +1,28 @@
 # September 2026 fallback and canvas experiments
 
+## World-frame restoration (2026-09-08)
+
+Measured against the current working tree, including its existing build-plugin
+edits, with fixed Roadroller seed 13312. Each candidate replaces the single
+`getTransform()` / `setTransform(worldFrame)` pair in `src/main.js`.
+
+| Candidate | Fast advzip | Full advzip | Status |
+| --- | --- | --- | --- |
+| Baseline | 13319B | 13314B | Replaced |
+| `resetTransform()`, then repeat world scale and camera translation | 13314B (-5B) | 13308B (-6B) | Retained |
+| Six-argument `setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)` | 13323B (+4B) | Not measured | Reverted |
+| Reverse lamp translation, ship rotation, and ship translation | 13312B (-7B) | 13308B (-6B) | Reverted |
+
+The retained version repeats the exact operations that establish the world
+transform at the start of rendering. The canvas starts with the identity
+transform and object renderers balance their save/restore calls. Resetting the
+transform preserves the already established floodlight clipping region; the
+surrounding save/restore still removes that clip afterwards. Unlike reversing
+the transforms, this avoids inverse-rotation floating-point residuals.
+Revisit this calculation if the outer world transform gains another operation.
+Lint and the prism suite (360 traced/rendered frames plus corner regressions)
+passed. No browser pixel comparison was performed.
+
 Measured on 2026-09-06 with `npm run build:fast`, fixed seed 13312 and 10
 advzip iterations. Each candidate was built separately against the retained
 source at that point. Final advzip result: **13346 -> 13320B (-26B)**.
