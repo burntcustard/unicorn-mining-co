@@ -945,3 +945,42 @@ Roadroller decoder produced identical strings in Node/V8 and Firefox 155.0.1,
 with the SHA-256 above. Four additional small fixtures (quotes, template strings,
 Unicode and repeated abbreviations) also decoded identically in Node. Chrome
 was not installed; V8 was exercised through Node. Lint passed.
+
+### Additional decoder suggestions (2026-09-08)
+
+Individual `build:fast` comparisons, unchanged encoder settings, 10 advzip
+iterations; baseline **13,348B**. No candidates retained.
+
+| Candidate | advzip bytes | Delta | Captured decoded program |
+| --- | ---: | ---: | --- |
+| Comma-delimited selectors, separate `C=0` | 13350 | +2 | Identical |
+| Array of selector strings | 13350 | +2 | Identical |
+| Nested numeric arrays, remove `[...e]` | 13349 | +1 | Identical |
+| Count table Uint8Array -> Uint16Array | 13346 | -2 | Identical |
+| Remove prediction update shifts, truncate division with `\|0` | 13344 | -4 | Different: rejected |
+
+Checks captured the complete eval argument in Node/V8 without running the game.
+The Uint16 count table preserves counts (0–4), but adds 51,000,000 bytes of live
+array storage (153 MB -> 204 MB total); omitted for this disproportionate cost.
+The floating-point experiment was a local update simplification, not a codec
+redesign; the latter needs matching encoder changes and further investigation.
+
+Roadroller explicitly omits an EOF symbol because output length is known.
+Removing `t<32119` loses termination; EOF detection needs encoder changes.
+There is no standalone `r=a=` cleanup in this build: abbreviation expansion
+already overwrites r with the output string and a with regex matches, finally
+null. These assignments are functional and cannot simply be deleted.
+
+Follow-up: the user explicitly accepted the additional 51 MB of memory.
+Retained the Uint8Array -> Uint16Array decoder postprocessing change. Fresh
+`build:fast` comparison confirmed **13,348 -> 13,346B (-2B)**. Both generated
+tables use Uint16Array; complete decoded programs are identical in Node/V8
+(SHA-256 `3d25f4c9fb6b06661e212193fa3efccd5c0a4966487c7972fa112c63e8d3948a`).
+Lint passed.
+
+Selector-guard follow-up: user requested `build:full` measurement with the
+Uint16 count table retained. With the selector validation and inner history
+fallback removal: **13,342B**; without that entire block: **13,343B**.
+Thus the guarded rewrite currently saves **1B** (6000 advzip iterations).
+Restored the block. The selectors variable and every calls run only at build
+time; only the resulting removal of the inner `|0` affects the shipped decoder.
