@@ -36,6 +36,7 @@ an experiment using the same settings; unrelated totals are not cumulative.
 - [Measured camera, momentum, mining and sizing experiments (2026-09-07)](#measured-camera-momentum-mining-and-sizing-experiments-2026-09-07)
 - [Measured collision damage threshold experiments (2026-09-07)](#measured-collision-damage-threshold-experiments-2026-09-07)
 - [Measured fallback and canvas experiments](#measured-fallback-and-canvas-experiments)
+- [Measured coordinate-display padding experiments (2026-09-08)](#measured-coordinate-display-padding-experiments-2026-09-08)
 
 ## Measured build pipeline compressor experiments
 
@@ -1191,3 +1192,35 @@ abbreviations and control escapes) decoded identically in Node/V8 and Firefox
 155.0.1. Built decoded SHA-256:
 `3d25f4c9fb6b06661e212193fa3efccd5c0a4966487c7972fa112c63e8d3948a`.
 Lint passed.
+
+## Measured coordinate-display padding experiments (2026-09-08)
+
+`src/ui.js`'s coordinate readout was
+`` `${`${Math.round(playerShip.x)}`.padStart(8)}/${`${Math.round(playerShip.y)}`.padEnd(8)}` ``.
+Baseline (build:fast, advzip): 13327B. Hypothesis was that swapping
+`padStart`/`padEnd` for `slice()` against a repeated-space literal would
+compress better (fewer distinct tokens), and that `Math.round` could be
+replaced with truncation (`| 0`) since fractional coordinates are never shown.
+
+- `| 0` instead of `Math.round`, keeping `padStart`/`padEnd`: 13330B (+3).
+- `.slice(-8)` / `.slice(0, 8)` against `"        "` (8-space) literals,
+  keeping `Math.round`: 13335B (+8). Tried both nested-template
+  (`` `        ${x}` ``) and string-concat (`'        ' + x`) forms for the
+  padding literal; both minified to the same size.
+- Both changes combined (`| 0` + `slice`): 13338B (+11), the worst of all
+  variants tried.
+
+Every variant regressed the ZIP; `padStart`/`padEnd` with `Math.round` was
+already smaller than any slice-based rewrite, despite the repeated-space
+literal appearing twice. Reverted; original code retained unchanged.
+
+The codebase's third and last `padStart` (`lighting.js`'s `hex`, padding a
+single hex byte to two digits with `'0'`) was also tried with the equivalent
+`` `0${Math.round(level).toString(16)}`.slice(-2) `` rewrite, both alone and
+together with the two `ui.js` swaps above:
+
+- Only `lighting.js`'s hex `padStart` swapped (coords left alone): 13329B (+2).
+- All three swapped together (`ui.js` coords + `lighting.js` hex): 13332B (+5).
+
+Swapping every `padStart`/`padEnd` in the codebase still nets a regression, not
+a saving. Reverted; both files retained unchanged.
