@@ -150,6 +150,14 @@ Re-measure if the surrounding code changes substantially.
 - Removing the then-unreachable `mount.fits` guard saved 5 bytes.
 - Initializing owned modules once beside the starter loadout saved 6 bytes.
 - Omitting `filter(Boolean)` from that starter list saved 1 byte.
+- The only remaining `.filter(Boolean)` (docked.js `actionsOf`'s
+  `[mount.health < module.health && 'FIX', 'REMOVE'].filter(Boolean)`):
+  replacing `Boolean` with an inline `(x) => x` arrow saved 11 bytes
+  (`build:fast`, seed 13312, 13338B -> 13327B) — Terser shortens the arrow's
+  param to a 1-letter name matching patterns already used elsewhere in the
+  bundle, while the `Boolean` global identifier can't be shortened. Splitting
+  into a ternary (`mount.health < module.health ? ['FIX', 'REMOVE'] :
+  ['REMOVE']`) instead cost 8 bytes (13338B -> 13346B) and was reverted.
 - Removing the shared `spend()` helper cost 17 bytes.
 - Replacing repeated label objects with a rendering helper cost 17 bytes.
 - Detecting priced actions by action-name length cost 3 bytes.

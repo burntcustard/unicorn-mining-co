@@ -81,8 +81,9 @@ const actionsOf = (ship, mount, module) => {
   const fitted = mount.module === module;
   const owned = module.oneOf;
 
+  // .filter(Boolean) made more sense but swapping to (x) => x saved 11 B
   return fitted ?
-      [mount.health < module.health && 'FIX', 'REMOVE'].filter(Boolean) :
+      [mount.health < module.health && 'FIX', 'REMOVE'].filter((x) => x) :
     owned ? ['EQUIP', 'SELL'] : ['BUY'];
 };
 
