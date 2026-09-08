@@ -22,13 +22,13 @@ const customReplacement = (src) => src
   .replace(/acceleration/g, '_acceleration')
   .replace(/active/g, '_active')
   .replace(/angle/g, '_angle')
-  // .replace(/forward/g, '_forward') // Increases size
+  // .replace(/forward/g, '_forward') // Increases sizeby 5B
   .replace(/(?<!\/)message/g, '_message')
   .replace(/(?<!\/)module/g, '_module')
   // .replace(/model/g, '_model') // Increases size
   // .replace(/mount/g, '_mount') // Increases size
   .replace(/normalize/g, '_normalize')
-  // .replace(/offset/g, '_offset') // Increases size by 2 B
+  // .replace(/offset/g, '_offset') // Increases size by 2B
   .replace(/(?<!\/)outline/g, '_outline')
   .replace(/points/g, '_points')
   .replace(/position/g, '_position')
@@ -89,6 +89,12 @@ function writeMinifiedJs(scriptCode) {
   fs.writeFileSync('dist/minified.js', scriptCode);
 }
 
+// Modern-browser-only roadroller decoder code-golfing
+function modernDecoder(decoder) {
+  // `i` is a decoded seven-bit char, so this identifies only ' & `, saves 2B.
+  return decoder.replace('(i==34|i==96)&&i', 'i%62==34&&i');
+}
+
 function saveRoadrollerArgs(searchOutput) {
   const args = searchOutput.match(/use `([^`]+)` to replicate:/)?.[1]?.split(' ');
   if (!args) return;
@@ -145,7 +151,7 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
 
   const { firstLine, secondLine } = packer.makeDecoder();
 
-  return movedHtml.replace(reScript, `<script>${firstLine + secondLine}</script>`);
+  return movedHtml.replace(reScript, `<script>${modernDecoder(firstLine + secondLine)}</script>`);
 }
 
 async function replaceHtml(html) {

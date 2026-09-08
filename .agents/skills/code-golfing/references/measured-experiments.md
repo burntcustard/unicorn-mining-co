@@ -846,3 +846,22 @@ Measured with `npm run build:fast`, fixed Roadroller settings/seed 13312 and
 Behavior check: 5850 exact before/after tint comparisons across all nine
 palettes, all five shade indexes and 130 ramp samples covering every table
 step and clamp boundaries. Lint passed.
+
+## Roadroller decoder ZIP golf (2026-09-08)
+
+All measurements use `npm run build:full`, fixed Roadroller settings/seed and
+the final advzip output. Baseline, with no decoder post-processing: **13,363B**.
+The ZIP, rather than decoder character count, is the metric.
+
+- `h=[0,...]` -> `h=Array(12).fill(0)`: 13,366B (+3B), reverted.
+- `.fill(1<<15)` -> `.fill(c/4)`: 13,363B (neutral), reverted.
+- `(i==34|i==96)&&i` -> `i%62==34&&i`: **13,361B (-2B)**, retained. `i` is a
+  seven-bit decoded character, and the expressions match for the two quote
+  delimiters (34 and 96).
+- Remove the unused nested `[...e].map` callback argument: 13,366B (+3B),
+  reverted.
+- `i=i*2+d` -> `i+=i+d`: 13,363B (neutral), reverted.
+
+The retained decoder produced the same captured decoded-program SHA-256 as the
+baseline: `67bae1a4a7fe160e0562b12776f9c9efe58c579c4aad639657c8b6665ff685a1`.
+Lint passed.
