@@ -16,13 +16,13 @@ const stripIfdef = (src, flags) => src.replace(
   (match, condition, flag, body) => ((condition === 'ifdef') === !!flags[flag] ? body : ''),
 );
 
-// Replacements which match file names require (?<!\/) to prevent import failure.
+// Replacements which match file names require (?<!\/) to prevent import failure
 const customReplacement = (src) => src
-  // Give this repeated Kontra property a more compression-friendly spelling (~6B).
+  // Give this repeated Kontra property a more compression-friendly spelling (~6B)
   .replace(/acceleration/g, '_acceleration')
   .replace(/active/g, '_active')
   .replace(/angle/g, '_angle')
-  // .replace(/forward/g, '_forward') // Increases sizeby 5B
+  // .replace(/forward/g, '_forward') // Increases size by 5B
   .replace(/(?<!\/)message/g, '_message')
   .replace(/(?<!\/)module/g, '_module')
   // .replace(/model/g, '_model') // Increases size
@@ -41,7 +41,9 @@ const customReplacement = (src) => src
   // This actually cost more bytes for some reason???
   // .replace(/red/g, '_red')
   // .replace(/green/g, '_green')
-  // Let Terser combine declarations without preserving const semantics (~19B).
+  // Dangerously replace strict equality with loose equality, saves 8B
+  .replace(/===/g, '==')
+  // Let Terser combine declarations without preserving const semantics (~19B)
   .replaceAll('const ', 'let ');
 
 export function viteJs13kPre(flags = {}) {
