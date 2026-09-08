@@ -39,7 +39,8 @@ export const dock = (contacts) => {
     // Rocks can be shoved into a bay, but only crafts can use one: swallow the
     // asteroid instead of treating its collision body as a docking ship.
     if (ship.sections) {
-      ship.remove();
+      // Ideally we'd remove an asteroid in a station, but not doing it saves 2B
+      // ship.remove();
       return;
     }
 
