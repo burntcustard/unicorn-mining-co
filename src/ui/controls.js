@@ -18,7 +18,7 @@ const lineHeight = 15 * textSize;
 
 // How far the panel sits in from the corner, how far one row drops below the
 // last, the size of a module's swatch and the gap from it to the name beside it
-const inset = 16;
+const inset = 20;
 const rowGap = 16;
 const box = 8;
 const gap = 6;

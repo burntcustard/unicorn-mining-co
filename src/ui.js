@@ -14,6 +14,9 @@ export const renderUI = (game, stations) => {
 
   renderText(game, `$${playerShip.credits}`, 20, 20, 1);
 
+  renderText(game, `${playerShip.cargo.length + playerShip.cargoBay.length}/${playerShip.cargoSpace}`,
+    game.uiWidth - 20, 20, 1, 1);
+
   renderText(game, `${`${Math.round(playerShip.x)}`.padStart(8)}/${`${Math.round(playerShip.y)}`.padEnd(8)}`,
     game.uiWidth / 2, 20, 1, 0);
 

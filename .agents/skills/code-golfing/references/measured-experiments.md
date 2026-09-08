@@ -157,6 +157,10 @@ Re-measure if the surrounding code changes substantially.
 - Removing BUY's repeated affordability branch while retaining `spend()` cost 27 bytes.
 - An explicit unique starter-module list cost 33 bytes; deduplicating it with `Set` cost 5 bytes.
 - Extracting the player key bindings cost 14 bytes as a local helper and 24–60 bytes across dependency-safe modules, callback parameters, split binders, or a `player.js`/docked-UI cycle, so the bindings stayed inline in `main.js`.
+- Restricting `moveSubSelection` to `stage > 1`, so left/right cannot move the
+  vertical mount or module columns, cost 3 bytes (13370B -> 13373B,
+  `build:fast`, 2026-09-08). Docked regression checks for both vertical stages
+  passed, but the candidate was reverted because it did not save space.
 - In a `build:full`* docked-UI remeasure, inlining its two-use bottom position,
   disabled-text colour, panel width, and `ship.slots` alias saved 16B together.
   Inlining the one-use `maxHealth` reduction instead cost 28B: keep expensive
