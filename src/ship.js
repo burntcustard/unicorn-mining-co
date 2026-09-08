@@ -41,8 +41,8 @@ export const mustang = {
   cargoSpace: 12,
   drag: 5 / 9,
   mass: 9,
-  name: '', // Was 'Mustang' but was never used
-  price: 0, // Was 2000 but was never used
+  // name: '', // Was 'Mustang' but was never used
+  // price: 0, // Was 2000 but was never used
   radius: 40,
   turnRate: 3,
   hullSegments: [
