@@ -7,10 +7,10 @@ import { colors } from '../colors';
 export const diamond = {
   bounciness: 0.1,
   fillAlpha: 6,
-  health: 80,
+  health: 100,
   name: 'DIAMOND',
   points: [[-3, -4], [3, -4], [6, -2], [0, 6], [-6, -2]],
-  price: 800,
+  price: 80,
   shades: colors.cyan,
   glint: true,
 };

@@ -8,9 +8,9 @@
  * Everything drawn from one is built once by `Item`, so a definition is only
  * ever the numbers that make this item different from the last.
  *
- * Every item has a `name`, a `price` it changes hands for, `health` before it
- * is destroyed, and how much of a `bounciness` it gives back. Every item is the
- * same weight and drags alike, so `Item` sets those rather than each one here.
+ * Every cargo item has a `name`, a `price` it changes hands for, `health` before
+ * it is destroyed, and how much of a `bounciness` it gives back. Every item is
+ * the same weight and drags alike, so `Item` sets those rather than each one here.
  * Anything stowed fills exactly one of a cargo bay, so none of them say how much
  * room they take.
  *
@@ -26,7 +26,7 @@
  * item wears a sparkle, and a `rainbow` item fills itself with several colours
  * without following the light.
  *
- * A `message` is read out and used up on the spot instead of being stowed.
+ * A `message` is read out and used up on the spot instead of being named or stowed.
  */
 export { amethyst } from './amethyst';
 export { diamond } from './diamond';

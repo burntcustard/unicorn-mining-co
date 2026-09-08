@@ -8,7 +8,7 @@ export const message = {
   bounciness: 0.2,
   health: 100,
   lines: [[[-4, -1], [4, -1]], [[-4, 2], [2, 2]]],
-  name: 'MESSAGE',
+  // name: 'MESSAGE', // Commented out to save a few bytes
   points: [[-7, -5], [7, -5], [7, 5], [-7, 5]],
   shades: colors.orange,
 };

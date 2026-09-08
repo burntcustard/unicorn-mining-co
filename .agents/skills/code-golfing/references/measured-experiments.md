@@ -385,6 +385,12 @@ the then-current retained baseline.
   name, underlining the first HUD character directly, and excluding thrusters
   via their existing `forwardThrust` property saved 23 bytes (13360B -> 13337B).
   Retained.
+- Global `forEach` to `map` preprocessing (2026-09-08, `build:full`): adding a
+  `.replaceAll('.forEach(', '.map(')` custom replacement changed all 85 source
+  occurrences and reduced the minified JS, but the advzip result was neutral
+  (13331B -> 13331B). The transformed bundle rendered successfully in Firefox;
+  lint and the collision, docked, and prism suites passed. Reverted because it
+  added build-time indirection without shrinking the judged ZIP.
 - Before slow builds used 100 advzip iterations, normalizing keyboard event keys to their final two characters saved 6 bytes. Searching registered fragments with `find`/`includes` cost 15 bytes, while expanding fragments with `includes` cost 59 bytes.
 - Under that earlier build, removing the unused `keyPressed` state saved 2 bytes, accepting one key per `bindKeys` call saved 3, optional callback invocation saved 4, and sharing one handler between keydown and keyup saved 1. Registering listeners at module load cost 5 bytes, and storing held state on callback functions cost 8 bytes.
 
@@ -836,6 +842,15 @@ Six temporary direct scoop checks passed: ordinary cargo, full hold, message,
 paint unlock, item outside throat and duplicate contacts. All preserve account
 balance; normal cargo still requires room, notes are consumed without stowing,
 and already-removed items cannot be collected twice.
+
+## Remove message item name (2026-09-08)
+
+The message item is always spawned with an instance `message`, so `scoop()`
+reads and removes it without reaching the cargo-name path. With `build:fast`,
+changing `name: 'MESSAGE'` to `name: ''` cost 11 bytes (13336B -> 13347B),
+while omitting `name` saved 4 bytes (13336B -> 13332B). The omitted property was
+retained; message pickup coverage in the docked suite passed.
+
 ## Lighting parse all characters (2026-09-07)
 
 Measured with `npm run build:fast`, fixed Roadroller settings/seed 13312 and

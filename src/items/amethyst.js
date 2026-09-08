@@ -7,10 +7,10 @@ import { createPolygon } from '../polygon';
 export const amethyst = {
   bounciness: 0.2,
   fillAlpha: 6,
-  health: 45,
+  health: 40,
   name: 'AMETHYST',
   points: createPolygon({ points: 6, radius: 7 }),
-  price: 450,
+  price: 45,
   shades: colors.violet,
   glint: true,
 };
