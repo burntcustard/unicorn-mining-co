@@ -45,6 +45,7 @@ const glyphs = ('' +
   // @endif
   '3 4 8 9M8 4 3 9,' +                  // *
   // ',' +                              // /
+  ',' +
   // '6 2 6 10M2 6 10 6,' +                // + // Removed to save 2B ish
   // ',' +                              // -
   // @ifdef DEBUG
