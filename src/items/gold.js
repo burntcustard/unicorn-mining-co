@@ -5,7 +5,7 @@ import { colors } from '../colors';
 // the top face so the two are told apart at a glance as well as by colour
 export const gold = {
   bounciness: 0.1,
-  health: 60,
+  health: 100,
   lines: [[[-5, -1], [5, -1]]],
   name: 'GOLD',
   points: [[-7, -4], [7, -4], [5, 3], [-5, 3]],

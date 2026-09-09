@@ -5,7 +5,7 @@ import { colors } from '../colors';
 // collided with as the circle it is
 export const opal = {
   bounciness: 0.1,
-  health: 40,
+  health: 25,
   name: 'OPAL',
   price: 45,
   radius: 6,

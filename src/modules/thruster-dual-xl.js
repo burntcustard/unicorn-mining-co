@@ -6,7 +6,7 @@ const offset = 11;
 
 export const thrusterDualXl = {
   health: 25,
-  name: 'THRUSTERS *2+',
+  name: 'THRUSTERS *2 XL',
   offset,
   disablePhysics: true,
   model: [
