@@ -1,7 +1,7 @@
 # Unicorn Mining Co
 
-> A web game created for [Js13kGames](https://js13kgames.com/)
-> \- the total size of the [zipped](dist/game.zip) [index.html](dist/index.html) is under 13,312B!
+> A web game created for [Js13kGames](https://js13kgames.com/) 2026
+> \- the total size of the [zipped](dist/game.zip) [index.html](dist/index.html) is (or will be) 13,312B!
 
 ## Tech used
 
