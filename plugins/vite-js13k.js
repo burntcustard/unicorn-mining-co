@@ -42,7 +42,7 @@ const customReplacement = (src) => src
     'points', // -35B
     'position', // -13B
     'radius', // -28B
-    // 'red', // +13B most colors are auto-mangled; green isn't
+    // 'red', // +13B most colors are auto-mangled; red isn't
     'resource', // -12B
     'rotation', // -15B
     'segments', // -13B
@@ -51,12 +51,11 @@ const customReplacement = (src) => src
     'update', // -19B
     'zIndex', // -31B
   ].join('|')})\\b`, 'g'), '_$1')
-  // Dangerously replace strict equality with loose equality, -12B
+  // Dangerously replace strict equality with loose equality saves 12B
   .replace(/===/g, '==')
-  // Every forEach result is unused. Reusing map's spelling helps Roadroller;
-  // the temporary result arrays are discarded (production FPS checked). -20B
+  // Swap forEach with map with unused return values saves 20B
   .replaceAll('.forEach(', '.map(')
-  // Keep lexical declarations consistent before bundling and Terser. -48B
+  // Keep lexical declarations consistent before bundling and Terser saves 48B
   .replaceAll('const ', 'let ');
 
 export function viteJs13kPre(flags = {}) {
