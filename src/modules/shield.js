@@ -47,7 +47,6 @@ export const shield = {
     },
   ],
   price: 900,
-  state: () => ({ phase: 0 }),
   // A quarter turn brings the cross back around to where it started
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % (Math.PI / 2);

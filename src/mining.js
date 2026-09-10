@@ -37,24 +37,19 @@ export const mine = (contacts) => {
     surfaces.push({ depth, hitbox, object, segment, target });
   });
 
-  const drills = [];
   const targets = [];
 
   // A deeper tip overlap means the surface is nearer the tip's centre. Each
   // drill bites only the first of its touching surfaces.
   surfaces.sort((a, b) => b.depth - a.depth).forEach((surface) => {
-    const { hitbox, object, segment, target } = surface;
+    const { hitbox, segment, target } = surface;
 
-    if (drills.includes(segment)) return;
-    drills.push(segment);
+    if (biting.includes(segment)) return;
 
     segment.biting = true;
     biting.push(segment);
-    target.grinding = segment.module.damage;
-    target.grindPoint = [hitbox.x, hitbox.y];
-    target.grindObject = object;
-    target.grindCarry = object.owner || object;
-    target.grinder = hitbox.owner;
+    target.grinding = surface;
+    surface.point = [hitbox.x, hitbox.y];
     if (!targets.includes(target)) targets.push(target);
   });
 
@@ -74,7 +69,9 @@ const breakAsteroid = (target, destroyed) => {
 
   // Let go at the asteroid's speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
-  if (target.grinder) target.grinder.velocity.set(asteroid.velocity);
+  const grinder = target.grinding?.hitbox.owner;
+
+  if (grinder) grinder.velocity.set(asteroid.velocity);
 
   const [, loose] = target.asteroid ? asteroid.detach(target, destroyed) : asteroid.split();
 
@@ -96,14 +93,17 @@ const breakAsteroid = (target, destroyed) => {
 export const grind = (target) => {
   if (!target.grinding) return;
 
-  const pull = target.grindCarry.position.subtract(target.grinder.position).normalize();
-  const grip = target.grindCarry.velocity.subtract(target.grinder.velocity).scale(0.1).add(pull);
+  const { object, segment, hitbox, point } = target.grinding;
+  const grinder = hitbox.owner;
+  const carry = object.owner || object;
+  const pull = carry.position.subtract(grinder.position).normalize();
+  const grip = carry.velocity.subtract(grinder.velocity).scale(0.1).add(pull);
 
-  target.grinder.velocity.set(target.grinder.velocity.add(grip));
+  grinder.velocity.set(grinder.velocity.add(grip));
 
-  damage(target.grindObject, target.grinding, target.grindPoint);
+  damage(object, segment.module.damage, point);
   // Set fresh each update it is touched, so damage is applied only once
-  target.grinder = target.grinding = 0;
+  target.grinding = 0;
 };
 
 export const fracture = (target) => {

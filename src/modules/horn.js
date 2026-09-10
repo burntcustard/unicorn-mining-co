@@ -66,7 +66,6 @@ export const horn = {
   }],
   name: 'DRILL',
   price: 350,
-  state: () => ({ phase: 0 }),
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % 1;
 
@@ -88,9 +87,7 @@ export const horn = {
         // at zero, so the loop has no seam to click or thump at, and no
         // randomness so the pitch doesn't shift on every restart. Crossfades
         // over the same time the drill itself takes to spin up/down
-        segment.drillSound = settledBiting ?
-            zzfx(0.2, 0, 25, 0.015, 0, 0.015, 1, 0.5, 1 / segment.rate) : // louder, deeper under load
-            zzfx(0.07, 0, 35, 0.015, 0, 0.015, 1, 0.5, 1 / segment.rate); // subtle idle purr
+        segment.drillSound = zzfx(settledBiting ? 0.2 : 0.07, 0, settledBiting ? 25 : 35, 0.015, 0, 0.015, 1, 0.5, 1 / segment.rate);
         segment.drillSound.loop = true;
         segment.wasBiting = settledBiting;
       }

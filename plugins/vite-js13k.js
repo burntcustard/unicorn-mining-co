@@ -83,6 +83,8 @@ async function zip(content) {
     'index.html',
     content,
     {
+      // A fixed ZIP timestamp makes byte comparisons reproducible.
+      date: new Date('1980-01-01T00:00:00Z'),
       compression: 'DEFLATE',
       compressionOptions: {
         level: 9,

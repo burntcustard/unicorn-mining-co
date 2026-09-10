@@ -113,7 +113,7 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
   // Hull health starts on the prototype; damage creates the instance's own
   // value. Module parts share their mount's health through healthOf instead.
   return Object.assign(Object.create(part), {
-    ...craftModule.state?.(),
+    phase: 0,
     ...shape,
     ...(points && { path: (segment) => shapePath(points.call ? points(segment) : points, unclosed) }),
     activationProgress: 0,

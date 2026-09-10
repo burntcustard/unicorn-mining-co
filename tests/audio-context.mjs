@@ -41,14 +41,23 @@ export class TestAudioContext {
       loop: false,
       starts: 0,
       stops: 0,
+      stopTimes: [],
+      set buffer(buffer) {
+        this.assignedBuffer = buffer;
+        this.assignedSamples = buffer.getChannelData(0).slice();
+      },
+      get buffer() {
+        return this.assignedBuffer;
+      },
       connect(destination) {
         this.destination = destination;
       },
       start() {
         this.starts++;
       },
-      stop() {
+      stop(time) {
         this.stops++;
+        this.stopTimes.push(time);
       },
     };
 

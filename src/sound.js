@@ -44,6 +44,7 @@ export const zzfx = (
   const length = attackSamples + sustainSamples + releaseSamples | 0;
   const source = zzfxX.createBufferSource();
   const gain = zzfxX.createGain();
+  const envelope = gain.gain;
   const buffer = zzfxX.createBuffer(1, length, sampleRate);
   const channel = buffer.getChannelData(0);
 
@@ -71,8 +72,8 @@ export const zzfx = (
 
   // Caller-supplied so a looping sound can crossfade over the same time its
   // own activation/deactivation takes, rather than an arbitrary fixed length
-  gain.gain.setValueAtTime(0, zzfxX.currentTime);
-  gain.gain.linearRampToValueAtTime(1, zzfxX.currentTime + fadeTime);
+  envelope.setValueAtTime(0, zzfxX.currentTime);
+  envelope.linearRampToValueAtTime(1, zzfxX.currentTime + fadeTime);
   source.start();
 
   // stop() truncates the wave wherever it happens to be, which pops - fade
@@ -84,10 +85,11 @@ export const zzfx = (
   source.stop = () => {
     const time = zzfxX.currentTime;
 
-    gain.gain.cancelScheduledValues(time);
-    gain.gain.setValueAtTime(gain.gain.value, time);
-    gain.gain.linearRampToValueAtTime(0, time + fadeTime);
-    setTimeout(stop, fadeTime * 1000);
+    envelope.cancelScheduledValues(time);
+    envelope.setValueAtTime(envelope.value, time);
+    envelope.linearRampToValueAtTime(0, time + fadeTime);
+    // Use the audio clock so stopping stays aligned with the end of the fade.
+    stop(time + fadeTime);
   };
 
   return source;

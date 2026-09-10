@@ -79,14 +79,11 @@ export const pointBetween = (from, to, at = 0.5) => {
  * Rotate local points around zero, then optionally move them into world space.
  * Used wherever shapes need the same coordinates after their owner turns.
  */
-export const rotatePoints = (points, angle, x = 0, y = 0) => {
-  const sin = Math.sin(angle);
-  const cos = Math.cos(angle);
+export const rotatePoints = (points, angle, x = 0, y = 0) => points.map(([pointX, pointY]) => {
+  const point = rotatePoint({ x: pointX, y: pointY }, angle);
 
-  return points.map(([pointX, pointY]) => {
-    return [x + pointX * cos - pointY * sin, y + pointX * sin + pointY * cos];
-  });
-};
+  return [x + point.x, y + point.y];
+});
 
 // How much of excess speed a thing keeps each sixtieth of a second while it
 // settles back to its top speed. Steep, so a launch or road fling is brief.

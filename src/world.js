@@ -40,9 +40,7 @@ const makeAsteroids = (field, worldObjects, random) => {
     return {
       contents,
       radius,
-      ...(spikes && { points: 6, radiusEven: radius / 4 }),
-      ...(spikes && { fill: `${colors.purple[1]}9` }), // 9 compresses well(???)
-      ...(spikes && { stroke: colors.violet[2] }),
+      ...(spikes && { points: 6, radiusEven: radius / 4, fill: `${colors.purple[1]}9`, stroke: colors.violet[2] }),
       rotation: random() * Math.PI * 2,
       spin: randomSpin(random),
     };

@@ -1,3 +1,5 @@
+import { Vector, movePoint } from './vector';
+
 /**
  * Spread new round things through a circle around anything already placed.
  * Anything that lands on something else is left out.
@@ -23,10 +25,7 @@ export const distribute = (
     const spread = radius - item.radius;
     const angle = random() * Math.PI * 2;
     const distance = Math.sqrt(random());
-    const candidate = {
-      x: x + Math.cos(angle) * spread * distance,
-      y: y + Math.sin(angle) * spread * distance,
-    };
+    const candidate = movePoint(Vector(x, y), angle, spread * distance);
     const overlaps = placed.some((other) =>
       Math.hypot(candidate.x - other.x, candidate.y - other.y) <
         item.radius + other.radius + density);

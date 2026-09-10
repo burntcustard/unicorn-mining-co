@@ -27,6 +27,7 @@ for (const shape of [0, 1, 2, 3]) {
   assert(samples.every(Number.isFinite), 'finite samples');
   assert.equal(samples[0], 0, 'attack starts at zero');
   assert(Math.max(...samples) > .1 && Math.min(...samples) < -.1, 'audible waveform');
+  assert(Math.max(...source.assignedSamples) > .1, 'buffer contains audio when assigned to source');
   assert(Math.abs(samples.at(-1)) < .001, 'release ends near zero');
 }
 
@@ -50,16 +51,28 @@ assert.equal(segment.drillSound, first, 'held drill does not restart');
 assert.equal(first.stops, 0);
 segment.activationProgress = .5;
 horn.update(segment, 1 / 60);
-// stop() itself fades the gain over half a second and only really stops once
-// silent, so it doesn't click - wait for that to land before checking it happened
-await new Promise((r) => setTimeout(r, 550));
+// The native stop is scheduled on the audio clock, after the half-second fade.
 assert.equal(first.stops, 1, 'crossing threshold stops sound');
+assert.equal(first.stopTimes[0], .5, 'native stop is scheduled for the end of the fade');
 for (let i = 0; i < 120; i++) horn.update(segment, 1 / 60);
 assert.equal(first.stops, 1, 'stopped source is not stopped again');
 segment.activationProgress = 1;
 horn.update(segment, 1 / 60);
 assert.notEqual(segment.drillSound, first, 'restart creates a new source');
 assert.equal(segment.drillSound.starts, 1);
+const idle = segment.drillSound;
+segment.biting = true;
+for (let i = 0; i < 3; i++) horn.update(segment, 1 / 60);
+assert.equal(segment.drillSound, idle, 'brief contact does not restart sound');
+segment.biting = false;
+for (let i = 0; i < 3; i++) horn.update(segment, 1 / 60);
+assert.equal(segment.drillSound, idle, 'brief loss of contact does not restart sound');
+segment.biting = true;
+for (let i = 0; i < 20; i++) horn.update(segment, 1 / 60);
+assert.notEqual(segment.drillSound, idle, 'settled contact starts the loaded preset');
+assert.equal(idle.stops, 1, 'old preset fades out when the loaded preset starts');
+assert.equal(segment.drillSound.buffer.length, 1323);
+assert(Math.max(...segment.drillSound.assignedSamples) > Math.max(...idle.assignedSamples), 'loaded preset is louder');
 assert.equal(TestAudioContext.instances.length, 1, 'all effects reuse the first audio context');
 `;
 

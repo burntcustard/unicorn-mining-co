@@ -142,6 +142,14 @@ for the full story before reordering buffer fill vs. buffer assignment again.
   automated check - read this before reordering a `source.buffer` assignment
   relative to filling its samples.
 
+- [Sound presets and crossfades](references/sound-presets-and-crossfades.md):
+  shared drill presets, gain parameter reuse, audio-clock stop scheduling,
+  ZIP timestamps and measured Terser experiments.
+
+- [Shared animation, mining and vectors](references/shared-animation-mining-and-vectors.md):
+  shared segment initialization, mining contact records, vector math reuse, and
+  rejected data-table/drawing experiments; includes the outline-renderer constraint.
+
 Search these notes for the target file and proposed transformation, then read
 its measurements and invariants. Add results to the relevant reference; keep
 workflow here and avoid duplicating experiment entries.

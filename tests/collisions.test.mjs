@@ -295,6 +295,26 @@ physics.mine([{
 assert.equal(minedItem.health, 9.5);
 assert.deepEqual(physics.sparks.slice(8).map(({ x, y, color }) => [x, y, color]), [[12, 4, '#456']]);
 
+// One drill selects its deepest contact and retains that tick's tip position.
+const shallowItem = { ...minedItem, health: 10 };
+const tip = { segment: drill, owner: impactShip, physics: false, x: 15, y: 6 };
+const selected = physics.mine([
+  { collider: tip, other: shallowItem, depth: 1 },
+  { collider: tip, other: minedItem, depth: 3 },
+  { collider: tip, other: minedItem, depth: 2 },
+]);
+assert.deepEqual(selected, [minedItem]);
+assert.equal(drill.biting, true);
+tip.x = 100;
+selected.forEach(physics.grind);
+assert.equal(shallowItem.health, 10);
+assert.equal(minedItem.health, 9);
+assert.deepEqual([physics.sparks.at(-1).x, physics.sparks.at(-1).y], [15, 6]);
+physics.grind(minedItem);
+assert.equal(minedItem.health, 9, 'a selected contact only applies damage once');
+physics.mine([]);
+assert.equal(drill.biting, false, 'lost contact clears the sound input');
+
 // The circle surface contact faces the other body, including reversed order.
 const smallCircle = polygon(undefined, { radius: 2, x: 9 });
 const largeCircle = polygon(undefined, { radius: 8 });
