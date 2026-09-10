@@ -1,8 +1,8 @@
 export default {
-  numAbbreviations: 32,
-  recipLearningRate: 2501,
+  numAbbreviations: 33,
+  recipLearningRate: 2090,
   modelMaxCount: 4,
-  modelRecipBaseCount: 40,
+  modelRecipBaseCount: 29,
   precision: 16,
-  sparseSelectors: [0, 1, 2, 3, 5, 6, 7, 11, 13, 42, 53, 281],
+  sparseSelectors: [0, 1, 2, 3, 5, 6, 11, 13, 26, 49, 201, 338],
 };

@@ -1,6 +1,8 @@
 // Mining horn
 // Starts a lineWidth ahead of its mount, so that where a mount sits on the
 // hull nose the two strokes touch exactly
+import { zzfx } from '../sound';
+
 const hornBase = 3;
 const hornLength = 24;
 const hornHalfWidth = 6;
@@ -59,6 +61,15 @@ export const horn = {
   state: () => ({ phase: 0 }),
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % 1;
+
+    // Loops for as long as the drill is switched on, not just while it bites
+    if (segment.activationProgress > 0.5 && !segment.drillSound) {
+      segment.drillSound = zzfx(0.15, 0, 90, 0.02, 0.05, 0.05, 3, 0.5);
+      segment.drillSound.loop = true;
+    } else if (segment.activationProgress <= 0.5 && segment.drillSound) {
+      segment.drillSound.stop();
+      segment.drillSound = 0;
+    }
   },
   zIndex: 1,
 };

@@ -48,7 +48,14 @@ export default defineConfig(({ mode, command }) => {
         // downKeys is written with a computed key (event.key.slice(-2)),
         // so its literal reads in player.js must be reserved or property
         // mangling renames them out of sync with the data they're reading.
-        mangle: { properties: { reserved: ['Up', 'ht', 'ft'] } },
+        // The Web Audio API property/method names in sound.js are reserved
+        // too: mangling them would rename our calls but not the browser's
+        // real methods, breaking playback.
+        mangle: { properties: { reserved: [
+          'Up', 'ht', 'ft',
+          'buffer', 'connect', 'createBuffer', 'createBufferSource',
+          'destination', 'getChannelData', 'loop', 'start', 'stop',
+        ] } },
         module: true,
       },
       assetsInlineLimit: 0,
