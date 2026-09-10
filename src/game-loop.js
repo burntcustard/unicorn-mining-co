@@ -21,7 +21,7 @@ export const GameLoop = ({ render, update }) => {
 
     // If more than a second has passed, don't try to catch up
     // Removed to save a few bytes
-    // if (elapsed > 1000) return;
+    if (elapsed > 1000) return;
 
     for (accumulator += elapsed; accumulator >= delta; accumulator -= delta) update(step);
     context.clearRect(0, 0, z.width, z.height);
