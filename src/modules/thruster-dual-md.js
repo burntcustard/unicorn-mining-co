@@ -5,7 +5,7 @@ const size = 4;
 const offset = 10;
 
 export const thrusterDualMd = {
-  health: 15,
+  health: 20,
   disablePhysics: true,
   name: 'THRUSTERS *2',
   offset,

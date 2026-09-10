@@ -2,7 +2,7 @@ import { flare } from '../flare';
 
 export const thrusterSingle = {
   health: 15,
-  name: 'THRUSTERS *1',
+  name: 'THRUSTERS *1 XL',
   disablePhysics: true,
   model: [
     { points: (segment) => flare(segment, 6), thrusterNozzleSide: 0 },

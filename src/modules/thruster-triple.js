@@ -1,7 +1,7 @@
 import { flare } from '../flare';
 
 export const thrusterTriple = {
-  health: 25,
+  health: 30,
   name: 'THRUSTERS *3',
   offset: 14,
   disablePhysics: true,

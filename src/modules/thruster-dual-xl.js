@@ -1,7 +1,7 @@
 import { flare } from '../flare';
 
 // Half height of each flare, and how far off the middle each nozzle sits
-const size = 5;
+const size = 6;
 const offset = 11;
 
 export const thrusterDualXl = {
@@ -14,7 +14,7 @@ export const thrusterDualXl = {
     { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
   ],
   price: 800,
-  forwardThrust: 20,
+  forwardThrust: 22,
   rotationalThrust: 24,
   zIndex: -1,
 };
