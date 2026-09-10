@@ -27,7 +27,7 @@ export const mine = (contacts) => {
 
     if (!segment?.module?.grinds || hitbox.physics || segment.activationProgress <= 0.5 || !target.health) return;
 
-    surfaces.push({ depth, hitbox, object, segment, target, tipX: hitbox.x, tipY: hitbox.y });
+    surfaces.push({ depth, hitbox, object, segment, target });
   });
 
   const drills = [];
@@ -36,13 +36,13 @@ export const mine = (contacts) => {
   // A deeper tip overlap means the surface is nearer the tip's centre. Each
   // drill bites only the first of its touching surfaces.
   surfaces.sort((a, b) => b.depth - a.depth).forEach((surface) => {
-    const { hitbox, object, segment, target, tipX, tipY } = surface;
+    const { hitbox, object, segment, target } = surface;
 
     if (drills.includes(segment)) return;
     drills.push(segment);
 
     target.grinding = segment.module.damage;
-    target.grindPoint = [tipX, tipY];
+    target.grindPoint = [hitbox.x, hitbox.y];
     target.grindObject = object;
     target.grindCarry = object.owner || object;
     target.grinder = hitbox.owner;

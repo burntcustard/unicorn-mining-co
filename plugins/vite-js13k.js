@@ -28,7 +28,6 @@ const customReplacement = (src) => src
   .replace(/(?<!\/)message/g, '_message')
   .replace(/(?<!\/)module/g, '_module')
   // .replace(/model/g, '_model') // Increases size
-  // .replace(/mount/g, '_mount') // Increases size
   .replace(/normalize/g, '_normalize')
   // .replace(/offset/g, '_offset') // Increases size by 2B
   .replace(/(?<!\/)outline/g, '_outline')
@@ -39,10 +38,16 @@ const customReplacement = (src) => src
   .replace(/segments/g, '_segments')
   .replace(/update/g, '_update')
   .replace(/zIndex/g, '_zIndex')
+  // These game-only fields otherwise collide with Terser's built-in names.
+  // Match whole names and leave import path components alone.
+  .replace(/(?<!\/)\b(note|mask|turn|speed|items|order|item|name|lines|mount|radius)\b/g, '_$1')
   // .replace(/red/g, '_red')
   // Dangerously replace strict equality with loose equality, saves 8B
   .replace(/===/g, '==')
-  // Let Terser combine declarations without preserving const semantics (~19B)
+  // Every forEach result is unused. Reusing map's spelling helps Roadroller;
+  // the temporary result arrays are discarded (production FPS checked).
+  .replaceAll('.forEach(', '.map(')
+  // Keep lexical declarations consistent before bundling and Terser.
   .replaceAll('const ', 'let ');
 
 export function viteJs13kPre(flags = {}) {
@@ -179,6 +184,7 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
 async function replaceHtml(html) {
   const minifiedHtml = await minify(html, {
     collapseWhitespace: true,
+    removeOptionalTags: true,
     removeAttributeQuotes: true,
   });
 
@@ -188,6 +194,7 @@ async function replaceHtml(html) {
     .replace(/<title>.*?<\/title>/, '')
     .replace('"width=device-width,initial-scale=1"', 'width=device-width,initial-scale=1')
     .replace(/ lang=[^>]*/, '')
+    .replace('<html>', '')
     .replace('</body></html>', '');
 }
 

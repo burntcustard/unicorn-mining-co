@@ -133,8 +133,7 @@ export const litFill = (ctx, shape, light, shade) => {
   const [middleX, middleY] = shape.middle;
   const towardsX = Math.cos(light) * shape.reach;
   const towardsY = Math.sin(light) * shape.reach;
-  const facing = (1 - Math.cos(shape.facing - light)) / 2;
-  const along = 0.5 + (facing - 0.5) * contrast;
+  const along = 0.5 - Math.cos(shape.facing - light) * contrast / 2;
   const gradient = ctx.createLinearGradient(
     middleX + towardsX,
     middleY + towardsY,

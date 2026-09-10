@@ -32,6 +32,13 @@ export default defineConfig(({ mode, command }) => {
         toplevel: true,
         compress: {
           passes: buildLevelNumber ** 2,
+          // Repeated statements pack better than joined expressions here.
+          // These settings are measured against the final build:fast ZIP.
+          conditionals: false,
+          join_vars: false,
+          comparisons: false,
+          booleans_as_integers: true,
+          sequences: false,
           unsafe: true,
           unsafe_arrows: true,
           unsafe_comps: true,

@@ -1,9 +1,6 @@
-import { colors } from './colors';
 import { init } from './core';
 
 const { canvas, context } = init();
-
-canvas.style = `display:block;width:100%;background:${colors.purple[0]}`;
 
 export const forget = (list, entry) => list.splice(list.indexOf(entry), 1);
 

@@ -220,7 +220,7 @@ assert(playerShip.modules.every(module => module.mount.module === module), 'star
 assert(instanceOf(cargoScoop).shades === colors.violet && instanceOf(shield).shades === colors.violet &&
   thrusters.every((thruster) => instanceOf(thruster).shades === colors.violet), 'purchased modules are pink');
 assert(instanceOf(horn).shades === colors.yellow, 'purchased horns are yellow');
-assert(thrusterSingle.name === 'THRUSTERS *1' && thrusterSingle.forwardThrust === 22, 'single thruster');
+assert(thrusterSingle.name === 'THRUSTERS *1 XL' && thrusterSingle.forwardThrust === 22, 'single thruster');
 const flyer = new Ship({shades: colors.white});
 const engine = instanceOf(thrusterDualMd);
 flyer.modules.push(engine); flyer.fit(engine);

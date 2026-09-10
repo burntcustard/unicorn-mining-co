@@ -232,16 +232,10 @@ export class Asteroid extends Sprite {
   hitboxes() {
     // Keep one body in the world grid.  `parts` is only inspected after this
     // body's radius and complete outline have already overlapped something.
-    return [Object.assign(this.hitbox ||= { owner: this }, {
-      bounciness: this.bounciness,
-      outline: this.outline,
+    // Inherit position, shape and material; only collision-specific state is own.
+    return [Object.assign(this.hitbox ||= Object.assign(Object.create(this), { owner: this }), {
       parts: this.sections,
       segment: this.sections ? undefined : this,
-      radius: this.radius,
-      rotation: this.rotation,
-      stroke: this.stroke,
-      x: this.x,
-      y: this.y,
     })];
   }
 
