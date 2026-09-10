@@ -16,32 +16,43 @@ const stripIfdef = (src, flags) => src.replace(
   (match, condition, flag, body) => ((condition === 'ifdef') === !!flags[flag] ? body : ''),
 );
 
-// Replacements which match file names require (?<!\/) to prevent import failure
+// Source-level rewrites that help Terser/Roadroller compress the JS further
 const customReplacement = (src) => src
-  // Give this repeated Kontra property a more compression-friendly spelling (~6B)
-  .replace(/acceleration/g, '_acceleration')
-  .replace(/active/g, '_active')
-  .replace(/angle/g, '_angle')
-  // .replace(/forward/g, '_forward') // Increases size by 5B
-  // For some reason most but not all color names are mangled. Green isn't.
-  .replace(/green/g, '_green') // Saves 2 B
-  .replace(/(?<!\/)message/g, '_message')
-  .replace(/(?<!\/)module/g, '_module')
-  // .replace(/model/g, '_model') // Increases size
-  .replace(/normalize/g, '_normalize')
-  // .replace(/offset/g, '_offset') // Increases size by 2B
-  .replace(/(?<!\/)outline/g, '_outline')
-  .replace(/points/g, '_points')
-  .replace(/position/g, '_position')
-  .replace(/resource/g, '_resource')
-  .replace(/rotation/g, '_rotation')
-  .replace(/segments/g, '_segments')
-  .replace(/update/g, '_update')
-  .replace(/zIndex/g, '_zIndex')
-  // These game-only fields otherwise collide with Terser's built-in names.
-  // Match whole names and leave import path components alone.
-  .replace(/(?<!\/)\b(note|mask|turn|speed|items|order|item|name|lines|mount|radius)\b/g, '_$1')
-  // .replace(/red/g, '_red')
+  // Whole-word matches only, so e.g. "pointsFor" and "moduleOption" are left
+  // alone; (?<!/) then skips a match right after a slash, so import paths
+  // like './message' keep their real file name instead of './_message'.
+  .replace(new RegExp(`(?<!/)\\b(${[
+    'acceleration',
+    'active',
+    'angle',
+    // 'forward', // Increases size by 5B
+    'green', // Most colors are auto-mangled; green isn't, saves 2B
+    'items',
+    'item',
+    'lines',
+    'mask',
+    'message',
+    'module',
+    'mount',
+    'name',
+    // 'model', // Increases size
+    'normalize',
+    'note',
+    // 'offset', // Increases size by 2B
+    'order',
+    'outline',
+    'points',
+    'position',
+    'radius',
+    // 'red',
+    'resource',
+    'rotation',
+    'segments',
+    'speed',
+    'turn',
+    'update',
+    'zIndex',
+  ].join('|')})\\b`, 'g'), '_$1')
   // Dangerously replace strict equality with loose equality, saves 8B
   .replace(/===/g, '==')
   // Every forEach result is unused. Reusing map's spelling helps Roadroller;
