@@ -1,5 +1,4 @@
 import { circlePath, itemLineWidth, linesPath, shapePath, sparklePath } from './drawing';
-import { forget, game } from './game';
 import { Sprite } from './sprite';
 import { colors } from './colors';
 import { radiusOf } from './polygon';
@@ -42,16 +41,6 @@ export class Item extends Sprite {
     this.path = points ? shapePath(points) : circlePath(radius);
     this.lines = lines && linesPath(lines);
     this.glint = glint && sparklePath(this.radius * glintSize);
-  }
-
-  add() {
-    super.add();
-    game.items.push(this);
-  }
-
-  remove() {
-    super.remove();
-    forget(game.items, this);
   }
 
   render() {

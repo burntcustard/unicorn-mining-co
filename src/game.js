@@ -8,7 +8,6 @@ export const game = {
   canvas,
   crafts: [],
   ctx: context,
-  items: [],
   // @ifdef DEBUG
   physicsOn: true,
   // @endif

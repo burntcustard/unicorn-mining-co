@@ -66,6 +66,15 @@ write (e.g. `It[e]=`) against its dot-reads (e.g. `It.Up`) to confirm the
 names actually match — don't trust lint or a dev-server smoke test for this
 class of bug, since it only appears after a real Terser build.
 
+A sibling pitfall hit `sound.js`: assigning an `AudioBuffer` to a
+`source.buffer` before filling its `getChannelData()` samples compressed 15
+bytes smaller and passed every automated/Node check, but played silence in
+real Firefox with no error. Web Audio buffer-timing bugs are invisible to
+automated and headless-Chromium testing the same way property mangling bugs
+are invisible to dev-server testing — see
+[Audio and collision experiments](references/audio-and-collision.md)
+for the full story before reordering buffer fill vs. buffer assignment again.
+
 ## Areas to avoid
 
 - Do not try to code-golf scripts/world-preview.js, src/benchmark.js, or any code
@@ -127,6 +136,11 @@ class of bug, since it only appears after a real Terser build.
 
 - [Ship, docked UI and prism experiments](references/ship-docked-and-prism.md):
   measured ship, docked UI, prism, asteroid and collision refactors.
+- [Audio and collision experiments](references/audio-and-collision.md):
+  the 2026-09-10 sound-system golfing pass, including the `direct-audio-buffer`
+  regression that silently broke real Firefox playback despite passing every
+  automated check - read this before reordering a `source.buffer` assignment
+  relative to filling its samples.
 
 Search these notes for the target file and proposed transformation, then read
 its measurements and invariants. Add results to the relevant reference; keep

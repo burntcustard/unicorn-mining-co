@@ -13,7 +13,6 @@ import { game } from './game';
 const cellSize = 256;
 const reach = 1 << 15;
 
-let cells = {};
 let pass = 0;
 const keyOf = (x, y) => (x + reach) * reach * 2 + y + reach;
 
@@ -189,17 +188,11 @@ export const detectCollisions = (sprites) => {
   // @endif
 
   pass++;
-  cells = {};
+  const cells = {};
   const objects = sprites.flatMap((sprite) => sprite.hitboxes());
   const found = [];
 
-  objects.forEach((object, order) => {
-    object.order = order;
-    const key = keyOf(Math.floor(object.x / cellSize), Math.floor(object.y / cellSize));
-
-    (cells[key] ||= []).push(object);
-  });
-
+  // Only earlier objects enter the grid, preserving pair order without an index.
   objects.forEach((object) => {
     const cellX = Math.floor(object.x / cellSize);
     const cellY = Math.floor(object.y / cellSize);
@@ -207,8 +200,7 @@ export const detectCollisions = (sprites) => {
     for (let x = cellX - 1; x < cellX + 2; x++) {
       for (let y = cellY - 1; y < cellY + 2; y++) {
         cells[keyOf(x, y)]?.forEach((other) => {
-          if (other.order >= object.order ||
-            (object.owner || object) === (other.owner || other)) return;
+          if ((object.owner || object) === (other.owner || other)) return;
 
           const overlap = hit(object, other);
 
@@ -227,6 +219,8 @@ export const detectCollisions = (sprites) => {
         });
       }
     }
+
+    (cells[keyOf(cellX, cellY)] ||= []).push(object);
   });
   return found;
 };

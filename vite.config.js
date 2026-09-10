@@ -32,9 +32,11 @@ export default defineConfig(({ mode, command }) => {
         toplevel: true,
         compress: {
           passes: buildLevelNumber ** 2,
+          // Keep shared bodies compact while still specializing constant sound presets.
+          inline: 1,
           // Repeated statements pack better than joined expressions here.
           // These settings are measured against the final build:fast ZIP.
-          conditionals: false,
+          conditionals: true, // Removes unused waveform branches for a fixed preset.
           join_vars: false,
           comparisons: false,
           booleans_as_integers: true,
@@ -53,8 +55,10 @@ export default defineConfig(({ mode, command }) => {
         // real methods, breaking playback.
         mangle: { properties: { reserved: [
           'Up', 'ht', 'ft',
-          'buffer', 'connect', 'createBuffer', 'createBufferSource',
-          'destination', 'getChannelData', 'loop', 'start', 'stop',
+          'buffer', 'cancelScheduledValues', 'connect', 'createBuffer',
+          'createBufferSource', 'createGain', 'currentTime', 'destination',
+          'gain', 'getChannelData', 'linearRampToValueAtTime', 'loop',
+          'resume', 'setValueAtTime', 'start', 'stop', 'value',
         ] } },
         module: true,
       },

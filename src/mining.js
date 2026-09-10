@@ -9,6 +9,10 @@ import { damage } from './ship';
 // How much of a leaf's own health is left when it comes free of the rest
 const crackHealth = 0.25;
 
+// Segments flagged as biting last call, so the flag can be cleared for
+// anything that stopped touching a target before this call sets it again
+let biting = [];
+
 /**
  * Flag the asteroids an active mining horn is biting into, so they can be counted
  * down towards breaking open. Its dedicated non-physical tip collider is the
@@ -18,6 +22,9 @@ const crackHealth = 0.25;
  */
 export const mine = (contacts) => {
   const surfaces = [];
+
+  biting.forEach((segment) => segment.biting = false);
+  biting = [];
 
   contacts.forEach(({ collider, other, depth }) => {
     const hitbox = collider.segment?.module?.grinds ? collider : other;
@@ -41,6 +48,8 @@ export const mine = (contacts) => {
     if (drills.includes(segment)) return;
     drills.push(segment);
 
+    segment.biting = true;
+    biting.push(segment);
     target.grinding = segment.module.damage;
     target.grindPoint = [hitbox.x, hitbox.y];
     target.grindObject = object;

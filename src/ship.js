@@ -124,7 +124,6 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     radius: part.radius || (shape && (() => shape.reach)),
     rate: 1 / duration,
     shades: craftModule.shades || craft.shades,
-    update: craftModule.update,
     x: mount?.x || 0,
     y: (mount?.y || 0) + (part.thrusterNozzleSide || 0) * (craftModule.offset || 0),
     zIndex: part.zIndex ?? craftModule.zIndex ?? craft.zIndex ?? 0,
@@ -475,7 +474,7 @@ export class Ship extends Sprite {
       const target = active(healthOf(segment)) ? segment.active : 0;
 
       segment.activationProgress = approach(segment.activationProgress, target, segment.rate * dt);
-      segment.update?.(segment, dt);
+      segment.module.update?.(segment, dt);
     });
 
     super.update(dt);

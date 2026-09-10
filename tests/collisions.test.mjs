@@ -1,5 +1,6 @@
 /* global Buffer, process */
 
+import './audio-context.mjs';
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
 

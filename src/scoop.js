@@ -15,7 +15,8 @@ export const scoop = (contacts) => {
     const hitbox = collider.segment?.catches ? collider : other;
     const item = hitbox === collider ? other : collider;
 
-    if (!item.item || !hitbox.segment?.catches || !game.items.includes(item)) return;
+    // Collection removes the item from sprites, so stale contacts cannot take it twice.
+    if (!item.item || !hitbox.segment?.catches || !game.sprites.includes(item)) return;
 
     const craft = hitbox.owner;
 

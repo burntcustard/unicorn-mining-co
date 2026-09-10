@@ -15,6 +15,7 @@
     "test:collisions": "node tests/collisions.test.mjs",
     "test:docked": "node tests/docked.test.mjs",
     "test:prism": "node tests/prism.test.mjs",
+    "test:sound": "node tests/sound.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

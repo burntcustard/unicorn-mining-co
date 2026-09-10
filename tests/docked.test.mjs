@@ -1,4 +1,5 @@
 /* global process */
+import './audio-context.mjs';
 import { minify } from 'terser';
 import { rolldown } from 'rolldown';
 import viteConfig from '../vite.config.js';
@@ -40,7 +41,7 @@ wreck.cockpit.health = 0;
 wreck.update(0);
 assert(wreck.dead, 'destroyed ship is removed');
 for (const item of contents) {
-  assert(!item.dead && game.items.includes(item), 'cargo and every message are released');
+  assert(!item.dead && game.sprites.includes(item), 'cargo and every message are released');
   assert(Math.abs(item.velocity.subtract(wreck.velocity).length() - 5) < 1e-9,
     'released contents receive an outward impulse');
   assert(Math.abs(item.spin) <= 0.5 / item.mass,

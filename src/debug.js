@@ -8,6 +8,7 @@ import { playerShip } from './player';
 import { renderFps } from './fps';
 import { renderText } from './text';
 import { sky } from './background';
+import { testTone } from './sound';
 import { textDemo } from './text-demo';
 
 export let showDeadzone = false;
@@ -43,6 +44,7 @@ export const bindDebug = (game) => {
   bindKeys('7', toggleLights);
   bindKeys('8', toggleGlows);
   bindKeys('9', () => game.physicsOn = !game.physicsOn);
+  bindKeys('0', testTone);
 };
 
 export const renderDebug = (game, sprites, nearbyRadius) => {

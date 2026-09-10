@@ -4,6 +4,7 @@
  *
  * But using event.key rather than event.which
  */
+import { unlockAudio } from './sound';
 
 // Store callbacks for single key pressed events
 let callbacks = {};
@@ -19,6 +20,10 @@ export const downKeys = { ht: false, ft: false };
  */
 const keyEventHandler = (event) => {
   const key = event.key.slice(-2);
+
+  // The first real key event is a genuine gesture; later audio unlocks (from
+  // code running a frame later, e.g. the drill) can otherwise be too late.
+  unlockAudio();
 
   downKeys[key] = event.type === 'keydown';
 
