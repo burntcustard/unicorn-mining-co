@@ -1,111 +1,99 @@
 /**
- * ZzFXMicro - Zuper Zmall Zound Zynth - v1.3.2 by Frank Force, edited by
- * burntcustard for size: only volume, randomness, frequency, attack, sustain,
- * release, shape and shapeCurve remain, and none of them default, so a sound
- * made with the full version at https://killedbyapixel.github.io/ZzFX/ needs
- * every other/trailing parameter dropped before it will work here.
- * https://github.com/KilledByAPixel/ZzFX
- * MIT License - Copyright 2026 Frank Force & burntcustard
+ * Sounds are plain Web Audio oscillators rather than generated sample buffers.
+ * A running oscillator has no loop point, so there is no seam to click at, and
+ * anything about a playing sound is changed by ramping one of its params.
+ * A looped buffer sounded fine loud but crackly quiet: its seam is broadband
+ * while its fundamental is low enough that quietening it takes the tone below
+ * audibility long before it takes the clicks with it.
  */
-let zzfxX = 0;
+let audio = 0;
 
 // Must run synchronously inside a real user gesture (keydown/click) to count
 // as one for autoplay purposes - a rAF-driven call a frame later is too late
 // for some browsers (Firefox in particular), which then leave the context
 // suspended forever with no error, so start() silently does nothing.
 export const unlockAudio = () => {
-  zzfxX ||= new AudioContext();
-  zzfxX.resume();
+  audio ||= new AudioContext();
+  audio.resume();
 };
 
-export const zzfx = (
-  volume,
-  randomness,
-  frequency,
-  attack,
-  sustain,
-  release,
-  shape,
-  shapeCurve,
-  fadeTime,
-) => {
+// Long enough that a change never clicks, short enough that the drill biting
+// into rock is heard as it happens rather than swelling in afterwards
+const rampTime = 0.1;
+
+/**
+ * Slide an AudioParam to a value from wherever it is now - jumping straight
+ * there clicks, and so does stopping a sound mid-wave. The ramp is anchored a
+ * little ahead of the clock because the audio thread has already rendered
+ * past it, and an event landing in that gap is skipped rather than played,
+ * which pops the front off a fade in.
+ *
+ * @returns {number} The audio-clock time the ramp lands on that value.
+ */
+export const ramp = (param, value) => {
+  const time = audio.currentTime + rampTime;
+
+  param.cancelScheduledValues(time);
+  param.setValueAtTime(param.value, time);
+  param.linearRampToValueAtTime(value, time + rampTime);
+
+  return time + rampTime;
+};
+
+/**
+ * Start a sound, silent: the caller ramps `gain` up to the level it wants, and
+ * can go on ramping it for as long as the sound plays.
+ *
+ * The tone is chopped in and out of silence at its own pitch by a second
+ * oscillator, which is what makes it purr like a running motor rather than
+ * hum like a held note - every chop then contains the same stretch of
+ * waveform, so it repeats steadily instead of drifting in and out of phase.
+ */
+export const tone = (frequency, type) => {
   unlockAudio();
-  const sampleRate = 44100;
 
-  if (randomness) frequency *= 1 + randomness * (2 * Math.random() - 1);
-  // Phase is measured in cycles; only the sine wave needs radians.
-  frequency /= sampleRate;
+  const oscillator = audio.createOscillator();
+  const pulse = audio.createOscillator();
+  const depth = audio.createGain();
+  const chop = audio.createGain();
+  const gain = audio.createGain();
 
-  // Separate locals let Terser fold a fixed preset without mutating its arguments.
-  const attackSamples = attack * sampleRate;
-  const sustainSamples = sustain * sampleRate;
-  const releaseSamples = release * sampleRate;
+  oscillator.type = pulse.type = type;
+  oscillator.frequency.value = pulse.frequency.value = frequency;
+  // An oscillator always swings a full -1 to 1, so its reach is set on the way
+  depth.gain.value = chop.gain.value = 0.5;
 
-  const length = attackSamples + sustainSamples + releaseSamples | 0;
-  const source = zzfxX.createBufferSource();
-  const gain = zzfxX.createGain();
-  const envelope = gain.gain;
-  const buffer = zzfxX.createBuffer(1, length, sampleRate);
-  const channel = buffer.getChannelData(0);
+  pulse.connect(depth);
+  depth.connect(chop.gain);
+  oscillator.connect(chop);
+  chop.connect(gain);
+  gain.connect(audio.destination);
 
-  // Fill the buffer before handing it to the source: assigning it first and
-  // writing samples after leaves Firefox playing silence, since it appears to
-  // snapshot the (still all-zero) buffer for its audio thread at assignment.
-  channel.forEach((_, i) => {
-    const t = frequency * i;
+  oscillator.gain = gain.gain;
+  oscillator.gain.value = 0;
+  oscillator.start();
+  pulse.start();
 
-    const s = shape ? // wave shape
-      shape > 1 ?
-        shape > 2 ?
-            (t % 1 < shapeCurve / 2) * 2 - 1 : // square
-          1 - (2 * t % 2 + 2) % 2 : // saw
-        1 - 4 * Math.abs(Math.round(t) - t) : // triangle
-        Math.sin(t * Math.PI * 2); // sine
+  const stop = oscillator.stop.bind(oscillator);
 
-    channel[i] = s * volume * (i < attackSamples ? i / attackSamples : (length - i) / releaseSamples); // envelope
-  });
+  // Use the audio clock so the native stops stay on the end of the fade out.
+  oscillator.stop = () => {
+    const time = ramp(oscillator.gain, 0);
 
-  source.buffer = buffer;
-
-  source.connect(gain);
-  gain.connect(zzfxX.destination);
-
-  // Caller-supplied so a looping sound can crossfade over the same time its
-  // own activation/deactivation takes, rather than an arbitrary fixed length
-  envelope.setValueAtTime(0, zzfxX.currentTime);
-  envelope.linearRampToValueAtTime(1, zzfxX.currentTime + fadeTime);
-  source.start();
-
-  // stop() truncates the wave wherever it happens to be, which pops - fade
-  // the gain to silence first, then stop once nothing is left to click.
-  // Cancelling and re-anchoring first avoids a jump if stop() interrupts the
-  // fade-in above before it has finished ramping up to 1
-  const stop = source.stop.bind(source);
-
-  source.stop = () => {
-    const time = zzfxX.currentTime;
-
-    envelope.cancelScheduledValues(time);
-    envelope.setValueAtTime(envelope.value, time);
-    envelope.linearRampToValueAtTime(0, time + fadeTime);
-    // Use the audio clock so stopping stays aligned with the end of the fade.
-    stop(time + fadeTime);
+    pulse.stop(time);
+    stop(time);
   };
 
-  return source;
+  return oscillator;
 };
 
 // @ifdef DEBUG
-// Bypasses our buffer-based zzfx entirely, to tell apart "Web Audio doesn't
-// work at all here" from "something in our zzfx code specifically is broken".
+// An audible beep, for telling "Web Audio doesn't work at all here" apart from
+// "the game's sounds specifically are wrong".
 export const testTone = () => {
-  unlockAudio();
+  const sound = tone(440, 'sine');
 
-  const oscillator = zzfxX.createOscillator();
-
-  oscillator.frequency.value = 440;
-  oscillator.connect(zzfxX.destination);
-  oscillator.start();
-  setTimeout(() => oscillator.stop(), 1000);
+  ramp(sound.gain, 0.5);
+  setTimeout(() => sound.stop(), 1000);
 };
 // @endif

@@ -1,7 +1,7 @@
 // Mining horn
 // Starts a lineWidth ahead of its mount, so that where a mount sits on the
 // hull nose the two strokes touch exactly
-import { zzfx } from '../sound';
+import { ramp, tone } from '../sound';
 
 const hornBase = 3;
 const hornLength = 24;
@@ -18,10 +18,11 @@ const fluteCount = hornLength / fluteSpacing + 2;
 // How many times a second the horn turns all the way around
 const spinRate = 1.5;
 
-// Contact right at an asteroid's edge can flicker on and off between ticks as
-// physics resolves it; the biting sound only follows a change once it has
-// held for this long, so that flicker doesn't restart (and click) every tick
-const bitingDebounce = 0.1;
+// How loud the drill purrs while it turns, and again while it bites, and the
+// pitch it purrs at
+const idleLevel = 0.06;
+const bitingLevel = 0.2;
+const drillPitch = 30;
 
 // Negative bounciness grips rather than bounces while the horn spins, added to
 // whatever the other surface offers rather than overriding it. Small enough
@@ -49,8 +50,6 @@ const fluteLines = ({ phase }) => Array.from({ length: fluteCount }, (_, i) => {
 });
 
 export const horn = {
-  // Also doubles as the idle/biting sound crossfade length, so switching
-  // sounds takes as long as the drill itself takes to spin up or down
   activationDuration: 0.5,
   // Bites while it spins and lets go otherwise, so it does not bounce a ship
   // off what it is mining
@@ -69,31 +68,23 @@ export const horn = {
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % 1;
 
-    segment.bitingFor = segment.biting === segment.wasChecked ? (segment.bitingFor || 0) + dt : 0;
-    segment.wasChecked = segment.biting;
-
-    const settledBiting = segment.bitingFor > bitingDebounce ? segment.biting : segment.wasBiting;
-
-    // Loops for as long as the drill is switched on, not just while it bites,
-    // but swaps to the louder, crunchier grind sound while it actually is
+    // Runs for as long as the drill is switched on, rising to full volume
+    // while it actually bites. Ramping one sound rather than swapping sounds
+    // means nothing restarts, so nothing clicks
     if (segment.activationProgress > 0.5) {
-      if (!segment.drillSound || settledBiting !== segment.wasBiting) {
-        // drillSound is reset to the falsy sentinel 0, not null/undefined, so
-        // `?.` wouldn't short-circuit here
-        if (segment.drillSound) segment.drillSound.stop();
-        // Noise read as abrasive static no matter how it was smoothed. A low
-        // triangle tone reads as a continuous engine purr instead - zero
-        // sustain makes the envelope a plain fade in/out that starts and ends
-        // at zero, so the loop has no seam to click or thump at, and no
-        // randomness so the pitch doesn't shift on every restart. Crossfades
-        // over the same time the drill itself takes to spin up/down
-        segment.drillSound = zzfx(settledBiting ? 0.2 : 0.07, 0, settledBiting ? 25 : 35, 0.015, 0, 0.015, 1, 0.5, 1 / segment.rate);
-        segment.drillSound.loop = true;
-        segment.wasBiting = settledBiting;
-      }
+      const level = segment.biting ? bitingLevel : idleLevel;
+
+      segment.drillSound ||= tone(drillPitch, 'triangle');
+
+      // Re-anchoring the gain every tick cancels automation the audio thread
+      // has already started rendering, which crackles
+      if (segment.drillLevel !== level) ramp(segment.drillSound.gain, level);
+      segment.drillLevel = level;
     } else if (segment.drillSound) {
+      // drillSound is reset to the falsy sentinel 0, not null/undefined, so
+      // `?.` wouldn't short-circuit here
       segment.drillSound.stop();
-      segment.drillSound = segment.wasBiting = segment.bitingFor = 0;
+      segment.drillSound = segment.drillLevel = 0;
     }
   },
   zIndex: 1,

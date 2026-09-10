@@ -72,3 +72,28 @@ used for final savings. Losers and ties were reverted; no Terser changes remain.
 | sound-release-call | 13504 | 13523 | Reverted |
 | triangle-remainder | 13504 | 13526 | Reverted |
 | horn-shared-stop | 13504 | 13515 | Reverted |
+
+## Single-source drill, short crossfade (2026-09-10, later pass)
+
+Baseline **13,452 bytes** (build:fast). Final **13,434 bytes**, **18 saved**.
+
+| Candidate | Before | After | Decision |
+| --- | ---: | ---: | --- |
+| one-source-gain-ramp (delete second preset, delete debounce, delete `fadeTime` param, `fadeTime` 0.5 -> 0.1) | 13452 | 13434 | Retained |
+| delete-sustain-param | 13434 | 13434 | Reverted (byte-identical) |
+
+The drill now starts one silent looping source and only ramps its gain between
+`0.3` and `1` as `segment.biting` changes, via a shared `fade(sound, level)`
+export that cancels, re-anchors and `linearRampToValueAtTime`s over `0.1`s, and
+returns the ramp end time for `stop()` to schedule the native stop on. Nothing
+restarts, so the edge-contact debounce, `wasBiting`/`bitingFor`/`wasChecked`
+state and the second preset were all deleted; contact flicker simply retargets
+an in-flight ramp. The idle/biting change is now heard in a tenth of a second
+rather than a half, which is what made it too subtle before.
+
+**Unused zzfx parameters and wave shapes are free.** Terser inlines `zzfx` into
+`horn.update` (one call site, all-literal arguments) and constant-folds it down
+to the triangle branch with the preset's numbers baked in, so removing the
+`sustain` parameter produced a byte-identical ZIP. Golf the call-site preset or
+the buffer math instead; check `dist/minified.js` around `createBufferSource`
+before pricing any further parameter deletion.

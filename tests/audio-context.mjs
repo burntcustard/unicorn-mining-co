@@ -1,4 +1,15 @@
 // Minimal Web Audio implementation for the Node gameplay tests.
+const audioParam = () => ({
+  value: 0,
+  setValueAtTime(value) {
+    this.value = value;
+  },
+  linearRampToValueAtTime(value) {
+    this.value = value;
+  },
+  cancelScheduledValues() {},
+});
+
 export class TestAudioContext {
   static instances = [];
   sampleRate = 44100;
@@ -14,41 +25,19 @@ export class TestAudioContext {
 
   createGain() {
     return {
-      gain: {
-        value: 0,
-        setValueAtTime(value) {
-          this.value = value;
-        },
-        linearRampToValueAtTime(value) {
-          this.value = value;
-        },
-        cancelScheduledValues() {},
-      },
+      gain: audioParam(),
       connect(destination) {
         this.destination = destination;
       },
     };
   }
 
-  createBuffer(channels, length, sampleRate) {
-    const data = Array.from({ length: channels }, () => new Float32Array(length));
-
-    return { length, sampleRate, getChannelData: (channel) => data[channel] };
-  }
-
-  createBufferSource() {
-    const source = {
-      loop: false,
+  createOscillator() {
+    const oscillator = {
+      frequency: audioParam(),
       starts: 0,
       stops: 0,
       stopTimes: [],
-      set buffer(buffer) {
-        this.assignedBuffer = buffer;
-        this.assignedSamples = buffer.getChannelData(0).slice();
-      },
-      get buffer() {
-        return this.assignedBuffer;
-      },
       connect(destination) {
         this.destination = destination;
       },
@@ -61,8 +50,8 @@ export class TestAudioContext {
       },
     };
 
-    this.sources.push(source);
-    return source;
+    this.sources.push(oscillator);
+    return oscillator;
   }
 }
 

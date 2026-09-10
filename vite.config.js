@@ -55,10 +55,10 @@ export default defineConfig(({ mode, command }) => {
         // real methods, breaking playback.
         mangle: { properties: { reserved: [
           'Up', 'ht', 'ft',
-          'buffer', 'cancelScheduledValues', 'connect', 'createBuffer',
-          'createBufferSource', 'createGain', 'currentTime', 'destination',
-          'gain', 'getChannelData', 'linearRampToValueAtTime', 'loop',
-          'resume', 'setValueAtTime', 'start', 'stop', 'value',
+          'cancelScheduledValues', 'connect', 'createGain', 'createOscillator',
+          'currentTime', 'destination', 'frequency', 'gain',
+          'linearRampToValueAtTime', 'resume', 'setValueAtTime', 'start',
+          'stop', 'type', 'value',
         ] } },
         module: true,
       },
