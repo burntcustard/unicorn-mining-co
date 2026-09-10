@@ -1,6 +1,5 @@
 import { Asteroid } from './asteroid';
 import { damage } from './ship';
-import { spray } from './shrapnel';
 
 /**
  * Damage from a mining horn, and nothing about finding what it is touching:
@@ -43,9 +42,8 @@ export const mine = (contacts) => {
     drills.push(segment);
 
     target.grinding = segment.module.damage;
-    target.grindX = tipX;
-    target.grindY = tipY;
-    target.grindColor = object.stroke || object.segment?.shades[2];
+    target.grindPoint = [tipX, tipY];
+    target.grindObject = object;
     target.grindCarry = object.owner || object;
     target.grinder = hitbox.owner;
     if (!targets.includes(target)) targets.push(target);
@@ -94,13 +92,12 @@ export const grind = (target) => {
 
   target.grinder.velocity.set(target.grinder.velocity.add(grip));
 
-  // Sparks stream off wherever the horn is biting for as long as it grinds,
-  // in the colour of the asteroid's own outline
-  spray(target.grindX, target.grindY, target.grindColor, target.grindCarry);
-
-  damage(target, target.grinding);
+  damage(target.grindObject, target.grinding, target.grindPoint);
   // Set fresh each update it is touched, so damage is applied only once
-  target.grinding = 0;
+  target.grinder = target.grinding = 0;
+};
+
+export const fracture = (target) => {
   const { health } = target;
 
   if (health < 1) {

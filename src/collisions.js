@@ -145,6 +145,13 @@ const overlapOf = (a, b, aPoints, bPoints) => {
   if (!apart && normal) return { depth, x: normal.x, y: normal.y };
 };
 
+const contactPoint = (object, points, x, y) => {
+  return points ?
+      points.reduce((best, point) =>
+        point[0] * x + point[1] * y > best[0] * x + best[1] * y ? point : best) :
+      [object.x + x * object.radius, object.y + y * object.radius];
+};
+
 /**
  * Return the deepest convex-piece overlap for a body pair. For a union of
  * pieces this is the contact that must move furthest before all touched pieces
@@ -161,6 +168,9 @@ export const hit = (a, b) => {
 
       if (overlap && (!deepest || overlap.depth > deepest.depth)) {
         deepest = Object.assign(overlap, {
+          point: a.radius < b.radius ?
+              contactPoint(a, aPoints, overlap.x, overlap.y) :
+              contactPoint(b, bPoints, -overlap.x, -overlap.y),
           aPart: a.parts?.[aIndex],
           bPart: b.parts?.[bIndex],
         });

@@ -31,11 +31,13 @@ import { forget, game } from './game';
 import { linesPath, objectLineWidth, shapePath } from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
+import { fracture } from './mining';
 // @ifdef DEBUG
 // eslint-disable-next-line no-duplicate-imports -- lights only exists in DEBUG builds
 import { lights } from './lighting';
 // @endif
 import { outerEdges } from './collisions';
+import { spray } from './shrapnel';
 
 export const mustang = {
   cargoSpace: 12,
@@ -129,7 +131,8 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
   });
 };
 
-export const damage = (segment, amount) => {
+export const damage = (object, amount, point) => {
+  const segment = object.segment || object;
   const target = segment.mount || segment;
   // Asteroids and items are ground down here too, and carry no module
   const { module } = segment;
@@ -138,7 +141,17 @@ export const damage = (segment, amount) => {
   // scoop lies flat in the hull, and a raised shield is all energy
   if (module && module.unhurtWhen === segment.active) return;
 
-  if (target.health) target.health -= amount;
+  if (target.health > 0) {
+    target.health -= amount;
+
+    // Half-point mining ticks emit one spark; impact bursts scale with damage.
+    for (let i = amount * 2; point && i > 0; i--) {
+      spray(point, object.stroke || segment.shades?.[2] || object.fill);
+    }
+
+    fracture(segment);
+  }
+
   segment.mounts?.forEach((mount) => {
     if (mount.health) {
       mount.health -= segment.health < 1 ?

@@ -1,13 +1,6 @@
-import { movePoint } from './vector';
 import { objectLineWidth } from './drawing';
 
-/**
- * Sparks thrown off where a mining horn bites into something: little bright
- * streaks in the colour of whatever is being ground, flung out from the touch
- * and fading as they fly. The horn will one day do to a hull what it does to a
- * asteroid, so this only ever asks for a point and a colour and does not care what
- * threw the sparks off.
- */
+/** Short streaks thrown from damage contacts in the damaged object's colour. */
 
 const speed = 100;
 const spread = 0.5;
@@ -18,20 +11,17 @@ export const sparks = [];
 /**
  * Throw some sparks off a point, spraying out every which way.
  *
- * @param {Number} x - Where they come from.
- * @param {Number} y
- * @param {String} color - The colour of the lines of whatever is being ground.
- * @param {Object} [carry] - Something whose own drift the sparks set off with.
+ * @param {Number[]} point - Where they come from.
+ * @param {String} color - The colour of the lines of whatever is being damaged.
  */
-export const spray = (x, y, color, carry) => {
+export const spray = ([x, y], color) => {
   const angle = Math.random() * Math.PI * 2;
   const pace = speed * (1 - Math.random() * spread);
-  const velocity = movePoint(carry.velocity, angle, pace);
 
   sparks.push({
     color,
-    dx: velocity.x,
-    dy: velocity.y,
+    dx: Math.cos(angle) * pace,
+    dy: Math.sin(angle) * pace,
     health: 0.2 + Math.random() * 0.2,
     x,
     y,

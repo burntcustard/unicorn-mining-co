@@ -19,8 +19,11 @@ const bundle = await rolldown({
     load: (id) => id === '\0physics' ?
       `
       export { detectCollisions, hit, outerEdges } from '${process.cwd()}/src/collisions.js';
+      export { sparks } from '${process.cwd()}/src/shrapnel.js';
+      export { damage } from '${process.cwd()}/src/ship.js';
+      export { mine, grind } from '${process.cwd()}/src/mining.js';
       export { resolve } from '${process.cwd()}/src/resolve.js';
-      export { movePoint, rotatePoint } from '${process.cwd()}/src/vector.js';
+      export { Vector, movePoint, rotatePoint } from '${process.cwd()}/src/vector.js';
     ` :
       undefined,
     resolveId: (id) => id === 'physics' ? '\0physics' : undefined,
@@ -256,3 +259,50 @@ for (let frame = 120; frame--;) {
 assert.ok(drillingShip.position.x + 6 < 8.6);
 
 console.log('collision and bounce tests passed');
+
+// Damage on both sides emits each surface colour at the same impact point.
+const damagedHull = { health: 10, shades: ['dark', 'fill', '#f00'] };
+const damagedRock = { health: 10 };
+const impactShip = { mass: 9, position: vector(), velocity: vector(272, 0) };
+const impactRock = { mass: 1500, position: vector(14, 0), velocity: vector() };
+physics.sparks.length = 0;
+resolve([{
+  collider: { owner: impactShip, segment: damagedHull },
+  other: { owner: impactRock, segment: damagedRock, stroke: '#abc' },
+  depth: 1, x: 1, y: 0, point: [7, 3],
+}]);
+assert.equal(damagedHull.health, 8);
+assert.equal(damagedRock.health, 8);
+assert.deepEqual(physics.sparks.map(({ x, y, color }) => [x, y, color]),
+  [...Array(4).fill([7, 3, '#f00']), ...Array(4).fill([7, 3, '#abc'])]);
+physics.sparks.forEach(({ dx, dy }) => {
+  const speed = Math.hypot(dx, dy);
+
+  assert.ok(speed >= 50 && speed <= 100, 'burst speed excludes body velocity');
+});
+physics.damage({ health: 0 }, 1, [0, 0]);
+physics.damage({ health: 10, module: { unhurtWhen: true }, active: true }, 1, [0, 0]);
+assert.equal(physics.sparks.length, 8, 'dead and invulnerable objects do not spark');
+
+// Mining retains the tip coordinates and uses the target's fallback fill.
+const minedItem = { health: 10, fill: '#456', position: physics.Vector(20), velocity: vector() };
+const drill = { module: { grinds: true, damage: 0.5 }, activationProgress: 1 };
+physics.mine([{
+  collider: { segment: drill, owner: impactShip, physics: false, x: 12, y: 4 },
+  other: minedItem, depth: 1,
+}]).forEach(physics.grind);
+assert.equal(minedItem.health, 9.5);
+assert.deepEqual(physics.sparks.slice(8).map(({ x, y, color }) => [x, y, color]), [[12, 4, '#456']]);
+
+// The circle surface contact faces the other body, including reversed order.
+const smallCircle = polygon(undefined, { radius: 2, x: 9 });
+const largeCircle = polygon(undefined, { radius: 8 });
+assert.deepEqual(hit(smallCircle, largeCircle).point, [7, 0]);
+assert.deepEqual(hit(largeCircle, smallCircle).point, [7, 0]);
+console.log('damage spark tests passed');
+
+physics.sparks.length = 0;
+physics.damage({ health: 100, fill: '#789' }, 50, [1, 2]);
+assert.equal(physics.sparks.length, 100, 'large hits emit two sparks per damage point without a cap');
+physics.damage({ health: 100, fill: '#789' }, 0, [1, 2]);
+assert.equal(physics.sparks.length, 100, 'zero damage emits no sparks');

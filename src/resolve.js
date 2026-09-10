@@ -40,7 +40,7 @@ const deadSpeed = 5;
  *
  * @param {Object[]} contacts
  */
-export const resolve = (contacts) => contacts.forEach(({ collider, depth, other, x, y }) => {
+export const resolve = (contacts) => contacts.forEach(({ collider, depth, other, x, y, point }) => {
   if (collider.physics === false || other.physics === false) return;
 
   const a = collider.owner || collider;
@@ -66,8 +66,8 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     let amount;
 
     if ((amount = Math.round((force - 400) / 1200))) {
-      if (a.cockpit) damage(collider.segment, amount);
-      if (b.cockpit) damage(other.segment, amount);
+      damage(collider, amount, point);
+      damage(other, amount, point);
     }
 
     if (-closing >= deadSpeed) {
