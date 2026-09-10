@@ -22,43 +22,41 @@ const customReplacement = (src) => src
   // alone; (?<!/) then skips a match right after a slash, so import paths
   // like './message' keep their real file name instead of './_message'.
   .replace(new RegExp(`(?<!/)\\b(${[
-    'acceleration',
-    'active',
-    'angle',
-    // 'forward', // Increases size by 5B
-    'green', // Most colors are auto-mangled; green isn't, saves 2B
-    'items',
-    'item',
-    'lines',
-    'mask',
-    'message',
-    'module',
-    'mount',
-    'name',
-    // 'model', // Increases size
-    'normalize',
-    'note',
-    // 'offset', // Increases size by 2B
-    'order',
-    'outline',
-    'points',
-    'position',
-    'radius',
-    // 'red',
-    'resource',
-    'rotation',
-    'segments',
-    'speed',
-    'turn',
-    'update',
-    'zIndex',
+    'active', // -29B
+    'forward', // -11B
+    'green', // -20B most colors are auto-mangled; green isn't
+    'items', // -44B
+    'item', // -9B
+    'lines', // -49B
+    'mask', // -12B
+    'message', // -7B
+    'module', // -9B
+    'mount', // -22B
+    'name', // -34B
+    // 'model', // +21B
+    'normalize', // -21B
+    'note', // -3B
+    // 'offset', // +19B
+    'order', // -33B
+    'outline', // -51B
+    'points', // -35B
+    'position', // -13B
+    'radius', // -28B
+    // 'red', // +13B most colors are auto-mangled; green isn't
+    'resource', // -12B
+    'rotation', // -15B
+    'segments', // -13B
+    'speed', // -4B
+    'turn', // -3B
+    'update', // -19B
+    'zIndex', // -31B
   ].join('|')})\\b`, 'g'), '_$1')
-  // Dangerously replace strict equality with loose equality, saves 8B
+  // Dangerously replace strict equality with loose equality, -12B
   .replace(/===/g, '==')
   // Every forEach result is unused. Reusing map's spelling helps Roadroller;
-  // the temporary result arrays are discarded (production FPS checked).
+  // the temporary result arrays are discarded (production FPS checked). -20B
   .replaceAll('.forEach(', '.map(')
-  // Keep lexical declarations consistent before bundling and Terser.
+  // Keep lexical declarations consistent before bundling and Terser. -48B
   .replaceAll('const ', 'let ');
 
 export function viteJs13kPre(flags = {}) {

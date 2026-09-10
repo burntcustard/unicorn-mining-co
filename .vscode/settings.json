@@ -57,6 +57,7 @@
       "approve": true,
       "matchCommandLine": true
     },
-    "printf": true
+    "printf": true,
+    "time": true
   }
 }
