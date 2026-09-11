@@ -284,8 +284,8 @@ export class Asteroid extends Sprite {
     ctx.rotate(this.rotation);
     ctx.lineJoin = 'round';
     ctx.lineWidth = objectLineWidth;
-    ctx.fillStyle = this.fill;
     ctx.strokeStyle = this.stroke;
+    ctx.fillStyle = this.fill;
     ctx.fill(this.path);
     ctx.stroke(this.path);
     ctx.restore();

@@ -13,9 +13,9 @@ export const renderIndicators = (game, targets, color, range) => {
   const { ctx, uiScale, uiWidth, uiHeight } = game;
 
   ctx.save();
+  ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.lineJoin = 'bevel';
-  ctx.strokeStyle = color;
 
   targets.forEach((target) => {
     const offset = Vector(
