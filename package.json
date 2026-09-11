@@ -46,6 +46,8 @@
   },
   "allowScripts": {
     "advzip-bin@2.0.0": true,
-    "core-js-pure@3.50.0": true
+    "core-js-pure@3.50.0": true,
+    "file:../../roadroller": true,
+    "github:burntcustard/roadroller#060797d469489fe6da01abd6dd8992778ee956c4": true
   }
 }

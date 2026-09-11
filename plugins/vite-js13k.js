@@ -132,6 +132,10 @@ function saveRoadrollerArgs(searchOutput) {
     }
   }
 
+  if (args.includes('--sse') || roadrollerArgs.sse) {
+    options.sse = true;
+  }
+
   fs.writeFileSync(
     new URL('./roadroller-args.js', import.meta.url),
     `export default {\n${Object.entries(options)
@@ -172,9 +176,7 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
     type: 'js',
   }], {
     allowFreeVars: true,
-    maxMemoryMB: 256,
-    // Saves a few compressed bytes for this game, at the cost of memory/load time.
-    useUint16Counts: true,
+    maxMemoryMB: 2000,
     ...roadrollerArgs,
   });
 
@@ -225,8 +227,10 @@ function roadrollerSearchArgs() {
       : [`-${flag}${Array.isArray(value) ? value.join(',') : value}`];
   });
 
+  if (roadrollerArgs.sse) args.push('--sse');
+
   if (roadrollerArgs.contextBits === undefined) {
-    args.push('-M256');
+    args.push('-M1000');
   }
 
   return args;
@@ -301,9 +305,6 @@ export function viteJs13k(buildLevel = 'full') {
               '--zopfli',
               '--optimize-wrapper',
               'dist/roadroller-wrapper.html',
-
-              // Match the decoder used by the production build.
-              '--uint16-counts',
 
               '-D',
 
