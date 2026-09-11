@@ -40,7 +40,7 @@
     "globals": "^17.11.0",
     "html-minifier-terser": "^7.2.0",
     "jszip": "^3.10.1",
-    "roadroller": "git+https://github.com/burntcustard/roadroller.git",
+    "roadroller": "git+https://github.com/burntcustard/roadroller.git#feature/hierarchical-mixers-zopfli-optimizations",
     "terser": "^5.50.0",
     "vite": "^8.2.1"
   },

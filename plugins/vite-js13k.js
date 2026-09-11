@@ -105,33 +105,6 @@ function writeMinifiedJs(scriptCode) {
   fs.writeFileSync('dist/minified.js', scriptCode);
 }
 
-// Modern-browser-only roadroller decoder code-golfing. Saves ~8 B
-function modernDecoder(decoder) {
-  // Descending history offsets put missing bytes first. While they are missing,
-  // the accumulator is zero and the outer |0 already converts NaN back to zero.
-  // Saves 1 B but adds a few ms to build time.
-  const selectors = decoder.match(/p='([0-9]+)'\.split\(C=0\)/)?.[1].split('0');
-
-  if (selectors?.every((selector) => [...selector].every((offset, index) => (
-    !index || offset < selector[index - 1]
-  )))) {
-    decoder = decoder.replace('o=o*997+(n[t-e]|0)|0', 'o=o*997+n[t-e]|0');
-  }
-
-  return decoder
-    // Callback bodies never read the outer x, so reuse it for their local index.
-    // This removes two distinct character pairs and saves 3 B.
-    .replace(/\bU\b/g, 'x')
-    // Counts fit in either type; sharing Uint16Array saves 2 B but increases
-    // decoding table system memory usage from 153 MB to 204 MB.
-    .replace('new Uint8Array(', 'new Uint16Array(')
-    // `i` is a decoded seven-bit char, so this identifies only ' & `, saves 2B.
-    .replace('(i==34|i==96)&&i', 'i%62==34&&i')
-    // Reuse r for the split array. Saves 2 B with a single advzip iteration but
-    // doesn't make a difference with 8000. Removing with() is nice though.
-    .replace('with(r.split(a))r=join(', 'r=r.split(a),r=r.join(r.');
-}
-
 function saveRoadrollerArgs(searchOutput) {
   const args = searchOutput.match(/use `([^`]+)` to replicate:/)?.[1]?.split(' ');
   if (!args) return;
@@ -139,7 +112,9 @@ function saveRoadrollerArgs(searchOutput) {
   const options = {};
 
   for (const arg of args) {
-    const [, option, value] = arg.match(/-(Zab|Zdy|Zlr|Zmc|Zmd|Zpr|S)(.+)/) || [];
+    const [, option, value] = arg.match(
+      /-(Zab|Zdy|Zlr|Zlp|Zmc|Zmd|Zpr|Zco|S)(.+)/
+    ) || [];
 
     if (option === 'S' && !value.startsWith('x')) {
       options.sparseSelectors = value.split(',').map(Number);
@@ -148,9 +123,11 @@ function saveRoadrollerArgs(searchOutput) {
         Zab: 'numAbbreviations',
         Zdy: 'dynamicModels',
         Zlr: 'recipLearningRate',
+        Zlp: 'pairRecipLearningRate',
         Zmc: 'modelMaxCount',
         Zmd: 'modelRecipBaseCount',
         Zpr: 'precision',
+        Zco: 'contextBits',
       }[option]] = Number(value);
     }
   }
@@ -164,15 +141,28 @@ function saveRoadrollerArgs(searchOutput) {
   console.log('\nSaved matching Packer options to plugins/roadroller-args.js');
 }
 
-export async function replaceScript(html, scriptFilename, scriptCode) {
+const roadrollerMarker = '__ROADROLLER__';
+
+function replaceScriptTag(html, scriptFilename, content) {
   const reScript = new RegExp(`<script([^>]*?) src="[./]*${scriptFilename}"([^>]*)></script>`);
 
-  // First we have to move the script to the end of the body, because vite is
-  // opinionated and otherwise just hoists it into <head>:
-  // https://github.com/vitejs/vite/issues/7838
+  const scriptTag = html.match(reScript)?.[0];
+
+  if (!scriptTag) {
+    throw new Error(`Could not find script ${scriptFilename}`);
+  }
+
   const movedHtml = html
-    .replace('</body>', html.match(reScript)[0] + '</body')
-    .replace(html.match(reScript)[0], '');
+    .replace('</body>', scriptTag + '</body')
+    .replace(scriptTag, '');
+
+  return movedHtml.replace(
+    reScript,
+    `<script>${content}</script>`,
+  );
+}
+
+export async function replaceScript(html, scriptFilename, scriptCode) {
 
   writeMinifiedJs(scriptCode);
 
@@ -182,13 +172,19 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
     type: 'js',
   }], {
     allowFreeVars: true,
-    maxMemoryMB: 192, // We hit the 150 MB default so 192 MB helps
+    maxMemoryMB: 256,
+    // Saves a few compressed bytes for this game, at the cost of memory/load time.
+    useUint16Counts: true,
     ...roadrollerArgs,
   });
 
   const { firstLine, secondLine } = packer.makeDecoder();
 
-  return movedHtml.replace(reScript, `<script>${firstLine + modernDecoder(secondLine)}</script>`);
+  return replaceScriptTag(
+    html,
+    scriptFilename,
+    firstLine + secondLine,
+  );
 }
 
 async function replaceHtml(html) {
@@ -206,6 +202,34 @@ async function replaceHtml(html) {
     .replace(/ lang=[^>]*/, '')
     .replace('<html>', '')
     .replace('</body></html>', '');
+}
+
+function roadrollerSearchArgs() {
+  const flags = {
+    numAbbreviations: 'Zab',
+    dynamicModels: 'Zdy',
+    recipLearningRate: 'Zlr',
+    pairRecipLearningRate: 'Zlp',
+    modelMaxCount: 'Zmc',
+    modelRecipBaseCount: 'Zmd',
+    precision: 'Zpr',
+    sparseSelectors: 'S',
+    contextBits: 'Zco',
+  };
+
+  const args = Object.entries(flags).flatMap(([key, flag]) => {
+    const value = roadrollerArgs[key];
+
+    return value === undefined
+      ? []
+      : [`-${flag}${Array.isArray(value) ? value.join(',') : value}`];
+  });
+
+  if (roadrollerArgs.contextBits === undefined) {
+    args.push('-M256');
+  }
+
+  return args;
 }
 
 export function viteJs13k(buildLevel = 'full') {
@@ -230,14 +254,23 @@ export function viteJs13k(buildLevel = 'full') {
 
             if (buildLevel === 'search') {
               writeMinifiedJs(jsChunk.code);
+              replacedHtml = replaceScriptTag(
+                replacedHtml,
+                jsChunk.fileName,
+                roadrollerMarker,
+              );
             } else {
               replacedHtml = await replaceScript(replacedHtml, jsChunk.fileName, jsChunk.code);
             }
           }
         }
 
-        if (buildLevel !== 'search') {
-          replacedHtml = await replaceHtml(replacedHtml);
+        replacedHtml = await replaceHtml(replacedHtml);
+
+        if (buildLevel === 'search') {
+          fs.mkdirSync('dist', { recursive: true });
+          fs.writeFileSync('dist/roadroller-wrapper.html', replacedHtml);
+        } else {
           htmlChunk.source = replacedHtml;
           await zip(replacedHtml);
         }
@@ -260,7 +293,28 @@ export function viteJs13k(buildLevel = 'full') {
         await new Promise((resolve, reject) => {
           const search = spawn(
             'npx',
-            ['roadroller', '-OO', '-D', '-M', '192', '-v', 'dist/minified.js', '-o', 'dist/roadrolled.js'],
+            [
+              'roadroller',
+              '-OO',
+
+              // Use the adaptive Zopfli fitness from our fork.
+              '--zopfli',
+              '--optimize-wrapper',
+              'dist/roadroller-wrapper.html',
+
+              // Match the decoder used by the production build.
+              '--uint16-counts',
+
+              '-D',
+
+              // Start from the parameters from our last successful search.
+              ...roadrollerSearchArgs(),
+
+              '-v',
+              'dist/minified.js',
+              '-o',
+              'dist/roadrolled.js',
+            ],
             { stdio: ['inherit', 'pipe', 'pipe'] },
           );
           search.stdout.pipe(process.stdout);
