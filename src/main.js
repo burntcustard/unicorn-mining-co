@@ -8,7 +8,7 @@ import {
   renderDebugDemos,
 } from './debug';
 // @endif
-import { bindKeys, initKeys } from './keyboard';
+import { bindKeys, bindStart, initKeys } from './keyboard';
 import { camera, centerCamera, followTarget } from './camera';
 import { cargoScoop, floodlight, horn, shield } from './modules';
 import { dock, dockAt, launch } from './docking';
@@ -165,7 +165,7 @@ initKeys();
     if (module === shield) playSound(segment.active ? soundEffects.shieldOn : soundEffects.shieldOff);
     if (module === floodlight) playSound(soundEffects.light);
   }));
-bindKeys('', () => !playerShip.started && launch(playerShip));
+bindStart(() => !playerShip.started && launch(playerShip));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
 bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));

@@ -1,3 +1,9 @@
+## Cached sound buffers and shared target ramps (2026-09-13)
+
+[Buffer golfing pass](sound-buffer-golf.md): **13,656 → 13,371 bytes, 285 saved**.
+Replaces oscillators, periodic waves and live filters with cached loops, and
+shares target ramps. Includes sound changes, checks and candidate measurements.
+
 # Sound preset and crossfade optimization experiments
 
 ## Restore air and exhaust texture (2026-09-12)

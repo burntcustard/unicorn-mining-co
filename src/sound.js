@@ -1,7 +1,7 @@
-// Drill tones use continuous oscillators; the thruster mixes turbulent air and a motor undertone.
+// The drill uses a cached loop; the engine mixes a motor with filtered air.
 // Parameter ramps avoid abrupt waveform jumps when either changes level.
 let audio = 0;
-let noiseBuffer;
+const loopBuffers = [];
 let motorWave;
 
 // Must run synchronously inside a real user gesture (keydown/click) to count
@@ -15,23 +15,20 @@ export const unlockAudio = () => {
 
 // Long enough that a change never clicks, short enough that the drill biting
 // into rock is heard as it happens rather than swelling in afterwards
-const rampTime = 0.1;
+const rampTime = 0.5;
 
 /**
  * Slide an AudioParam to a value from wherever it is now - jumping straight
  * there clicks, and so does stopping a sound mid-wave. The ramp is anchored a
- * little ahead of the clock because the audio thread has already rendered
- * past it, and an event landing in that gap is skipped rather than played,
- * which pops the front off a fade in.
+ * little ahead of the clock; changing the target keeps the in-flight curve
+ * continuous, which matters when thrust is tapped rapidly.
  *
- * @returns {number} The audio-clock time the ramp lands on that value.
+ * @returns {number} The audio-clock time the fade is effectively complete.
  */
 export const ramp = (param, value, duration = rampTime) => {
   const time = audio.currentTime + 0.01;
 
-  param.cancelScheduledValues(time);
-  param.setValueAtTime(param.value, time);
-  param.linearRampToValueAtTime(value, time + duration);
+  param.setTargetAtTime(value, time, duration / 5);
 
   return time + duration;
 };
@@ -40,70 +37,66 @@ export const ramp = (param, value, duration = rampTime) => {
  * Start a sound, silent: the caller ramps `gain` up to the level it wants, and
  * can go on ramping it for as long as the sound plays.
  *
- * The drill is chopped at its own pitch for its mechanical purr. The engine
- * mixes rounded exhaust pulses and a quiet air bed through one low-pass filter.
+ * The drill buffer contains one chopped 30 Hz cycle. The engine restores its
+ * separate exhaust motor and air bed, both softened by a shared low-pass filter.
  */
-export const tone = (frequency, type, engine) => {
+export const tone = (engine) => {
   unlockAudio();
 
-  const oscillator = engine ? audio.createBufferSource() : audio.createOscillator();
+  const oscillator = audio.createBufferSource();
   const gain = audio.createGain();
-  const pulse = audio.createOscillator();
-  const depth = audio.createGain();
-  const filter = engine ? audio.createBiquadFilter() : audio.createGain();
 
-  if (engine) {
-    if (!noiseBuffer) {
-      let pressure = 0;
+  let pressure = 0;
 
-      noiseBuffer = soundBuffer(44100, () => pressure = pressure * 0.95 + Math.random() * 0.06 - 0.03);
-
-      // Closely spaced pressure pulses retain a little cylinder-to-cylinder weight.
-      // Taper the upper harmonics so the growl has body without a buzzy edge.
-      motorWave = audio.createPeriodicWave(
-        [0, 2, 10, 1, 8, 2, 7, 1, 5, 1, 0, 1, 3, 0, 2, 0, 1],
-        [0, 0, 2, 0, 3, 0, 2, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0],
-      );
+  // Both loops are completely filled before Firefox receives their buffers.
+  oscillator.buffer = loopBuffers[engine ? 1 : 0] ||= soundBuffer(engine ? 44100 : 1470, (i) => {
+    if (engine) {
+      pressure = pressure * 0.96 + Math.random() * 0.06 - 0.03;
+      return pressure;
     }
 
-    // Fill before assigning: Firefox can snapshot the buffer on assignment.
-    oscillator.buffer = noiseBuffer;
-    oscillator.loop = true;
+    const phase = i / 1470;
+    const wave = 1 - 4 * Math.abs(Math.round(phase) - phase);
 
+    return wave * 0.3;
+  });
+
+  oscillator.loop = true;
+
+  if (engine) {
+    const filter = audio.createBiquadFilter();
+    const motor = audio.createOscillator();
+    const depth = audio.createGain();
+
+    motorWave ||= audio.createPeriodicWave(
+      [0, 5, 2, 1],
+      [0, 0, 0, 0],
+    );
+    motor.setPeriodicWave(motorWave);
+    motor.frequency.value = 14;
+    depth.gain.value = 0.2;
     filter.frequency.value = 200;
+    motor.connect(depth);
+    depth.connect(filter);
+    oscillator.connect(filter);
+    filter.connect(gain);
+    oscillator.motor = motor;
     oscillator.frequency = filter.frequency;
-
-    pulse.setPeriodicWave(motorWave);
-    pulse.frequency.value = 12;
-    // Keep some combustion texture underneath the pressurized exhaust.
-    depth.gain.value = 0.3;
-    oscillator.motorFrequency = pulse.frequency;
+    motor.start();
   } else {
-    oscillator.type = pulse.type = type;
-    oscillator.frequency.value = pulse.frequency.value = frequency;
-    depth.gain.value = filter.gain.value = 0.5;
+    const filter = audio.createBiquadFilter();
+
+    filter.frequency.value = 1000;
+    oscillator.playbackRate.value = 0.5;
+    oscillator.connect(filter);
+    filter.connect(gain);
   }
 
-  pulse.connect(depth);
-  depth.connect(engine ? filter : filter.gain);
-  oscillator.connect(filter);
-  filter.connect(gain);
   gain.connect(audio.destination);
 
   oscillator.gain = gain.gain;
   oscillator.gain.value = 0;
   oscillator.start();
-  pulse.start();
-
-  const stop = oscillator.stop;
-
-  // Use the audio clock so the native stops stay on the end of the fade out.
-  oscillator.stop = (duration = rampTime) => {
-    const time = ramp(oscillator.gain, 0, duration);
-
-    pulse.stop(time);
-    stop.call(oscillator, time);
-  };
 
   return oscillator;
 };
@@ -112,10 +105,12 @@ export const tone = (frequency, type, engine) => {
 // An audible beep, for telling "Web Audio doesn't work at all here" apart from
 // "the game's sounds specifically are wrong".
 export const testTone = () => {
-  const sound = tone(440, 'sine');
+  const sound = tone();
+
+  sound.playbackRate.value = 440 / 30;
 
   ramp(sound.gain, 0.5);
-  setTimeout(() => sound.stop(), 1000);
+  setTimeout(() => sound.stop(ramp(sound.gain, 0)), 1000);
 };
 // @endif
 
@@ -127,8 +122,8 @@ const soundBuffer = (length, sample) => {
   return buffer;
 };
 
-// Volume, frequency, attack, sustain, release, waveform, optional cutoff, optional endFrequency.
-// Waveforms used by the game: sine (0), triangle (1), noise (4).
+// Volume, frequency, attack, decay, optional noise cutoff, end frequency, cooldown.
+// Tonal effects are sine waves; a cutoff selects filtered noise instead.
 export const soundEffects = {
   hatchOpen: [0.7, 0, 0.03, 0.25, 160],
   hatchClose: [0.9, 0, 0.025, 0.35, 140],
@@ -156,7 +151,6 @@ export const playSound = (effect) => {
     const length = (attack + decay) * sampleRate | 0;
 
     let filtered = 0;
-
     let t = 0;
 
     effect.buffer = soundBuffer(length, (i) => {
@@ -177,32 +171,39 @@ export const playSound = (effect) => {
   source.start();
 };
 
+// A zero playbackRate selects the drill; positive rates select the engine.
 // Both motors keep their voice while held. Engine pitch follows motion/load; gain
 // follows thrust, so changes in speed do not keep restarting the volume attack.
-export const continuousSound = (sound, level, frequency, engine = false) => {
+export const continuousSound = (sound, level, playbackRate = 0) => {
   if (!sound && !level) return sound;
-  sound ||= tone(frequency, 'triangle', engine);
+  sound ||= tone(playbackRate);
 
-  const duration = level ? 0.04 : 0.3;
+  const duration = 0.3;
 
-  if (engine && sound.targetFrequency !== frequency) {
-    // Append short pitch ramps without cancelling their previous endpoints.
-    // Re-anchoring every speed update made the revs lag and catch up late.
-    const time = audio.currentTime + duration;
-
-    sound.frequency.linearRampToValueAtTime(frequency, time);
-    sound.motorFrequency.linearRampToValueAtTime(12 + (frequency - 200) / 30, time);
-    sound.targetFrequency = frequency;
+  if (playbackRate && sound.targetRate !== playbackRate) {
+    ramp(sound.motor.frequency, playbackRate * 14, duration);
+    ramp(sound.frequency, playbackRate * 360 - 160, duration);
+    sound.targetRate = playbackRate;
+  } else if (!playbackRate && sound.targetRate !== !!level) {
+    ramp(sound.playbackRate, level ? 0.5 : 0.4);
+    sound.targetRate = !!level;
   }
 
   if (level === sound.level) return sound;
 
   if (!level) {
-    sound.stop(engine ? duration : rampTime);
+    const time = ramp(sound.gain, 0, playbackRate ? duration : rampTime);
+
+    if (playbackRate) {
+      sound.level = 0;
+      return sound;
+    }
+
+    sound.stop(time);
     return 0;
   }
 
-  ramp(sound.gain, level, engine ? 0.04 : rampTime);
+  ramp(sound.gain, level, playbackRate ? duration : rampTime);
   sound.level = level;
   return sound;
 };
@@ -213,8 +214,7 @@ let thrusterSound;
 export const updateThrusterSound = (power, load = 0) => {
   if (!audio || audio.state !== 'running') return;
   // Translation and steering share one rev range; combining them cannot over-rev.
-  const pace = Math.max(0, Math.min(1, load));
-  const revs = power > 0 ? pace : 0;
+  const revs = Math.max(0, Math.min(1, load));
 
-  thrusterSound = continuousSound(thrusterSound, power > 0 ? 0.09 + power * 0.06 : 0, 200 + revs * 480, true);
+  thrusterSound = continuousSound(thrusterSound, power > 0 ? 0.09 + power * 0.06 : 0, 1 + revs * 4 / 3);
 };

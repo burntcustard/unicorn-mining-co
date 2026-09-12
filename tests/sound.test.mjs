@@ -15,19 +15,19 @@ assert.equal(TestAudioContext.instances.length, 0, 'import does not initialize a
 horn.update({ phase: 0, activationProgress: 0 }, 1 / 60);
 assert.equal(TestAudioContext.instances.length, 0, 'inactive drill does not initialize audio');
 
-const beep = tone(440, 'sine');
-assert.equal(beep.type, 'sine');
-assert.equal(beep.frequency.value, 440);
+const beep = tone();
+assert.equal(beep.buffer.getChannelData(0).length, 1470, 'one cached cycle of the chopped 30 Hz drill');
+assert.equal(beep.playbackRate.value, 1);
 assert.equal(beep.starts, 1, 'a tone plays as soon as it is made');
 assert.equal(beep.gain.value, 0, 'a tone starts silent');
 assert(beep.destination, 'oscillator is connected');
-assert.equal(TestAudioContext.instances[0].sources.length, 2, 'a tone is chopped by a second oscillator');
+assert.equal(TestAudioContext.instances[0].sources.length, 1, 'the chopped tone is premixed into one source');
 playSound();
 ramp(beep.gain, .5);
 assert.equal(beep.gain.value, .5, 'ramping reaches the level asked for');
 
 playSound(soundEffects.pickup);
-assert.equal(TestAudioContext.instances[0].sources.length, 3, 'a preset creates one buffer source');
+assert.equal(TestAudioContext.instances[0].sources.length, 2, 'a preset creates one buffer source');
 
 const segment = { phase: 0, active: 0 };
 horn.update(segment, 1 / 60);
@@ -71,37 +71,48 @@ assert.equal(context.sources.length, sourceCount, 'suspended context creates no 
 context.state = 'running';
 updateThrusterSound(.01);
 const engine = context.sources[sourceCount];
-assert.equal(context.sources.length, sourceCount + 2, 'any thrust starts a noise source and motor');
-const motor = context.sources[sourceCount + 1];
-assert.equal(motor.wave.real[0], 0, 'pressure waveform has no DC offset');
-assert(motor.wave.real[8] > 0 && motor.wave.real[16] > 0, 'exhaust pulses retain their firing harmonics');
-assert(Math.abs(motor.wave.real[1]) + Math.abs(motor.wave.imaginary[1]) > 0, 'a quieter mechanical fundamental remains');
-assert.equal(engine.gain.events[0][2], .01, 'attack begins after only 10 ms');
-assert.equal(engine.gain.events[1][2], .05, 'attack reaches volume at 50 ms');
-assert.equal(engine.frequency.events[0][1], 200, 'starts with a low exhaust rumble');
-assert.equal(engine.frequency.events[0][2], .04, 'frequency is ramped with the attack');
+assert.equal(context.sources.length, sourceCount + 1, 'air and motor use one premixed source');
+assert.equal(engine.gain.events[0][2], .01, 'attack starts after 10 ms');
+assert.equal(engine.gain.events[0][3], .008, 'attack approaches its target over 40 ms');
+assert.equal(engine.playbackRate.events[0][1], 1, 'idle engine starts at its base pitch');
+assert.equal(engine.playbackRate.events[0][2], .01, 'pitch follows the same short lead');
+const pitchEvents = engine.playbackRate.events.length;
 const gainEvents = engine.gain.events.length;
 for (let i = 0; i < 120; i++) updateThrusterSound(.01);
 assert.equal(engine.gain.events.length, gainEvents, 'held thrust leaves automation alone');
+assert.equal(engine.playbackRate.events.length, pitchEvents, 'held revs leave pitch automation alone');
 updateThrusterSound(1, 1);
-assert.equal(context.sources.length, sourceCount + 2, 'changing power keeps the voice');
-assert.equal(engine.frequency.value, 680, 'full thrust revs the exhaust');
-assert.equal(engine.motorFrequency.value, 28, 'motor spools with exhaust revs');
-assert(Math.abs(engine.gain.value * motor.destination.gain.value - .045) < 1e-8, 'effective motor gain stays quiet');
-assert.equal(engine.destination.destination.gain, engine.gain, 'air has an audible path through the filter and envelope');
-assert.equal(motor.destination.destination, engine.destination, 'motor and air share the low-pass filter');
+assert.equal(context.sources.length, sourceCount + 1, 'changing power keeps the voice');
+assert(Math.abs(engine.playbackRate.value - 7 / 3) < 1e-8, 'maximum load reaches the full rev range');
+assert(Math.abs(engine.gain.value - .15) < 1e-8, 'full thrust retains its master level');
+assert.equal(engine.destination.gain, engine.gain, 'premixed air and motor connect to the envelope');
 updateThrusterSound(0);
 assert.equal(engine.stopTimes[0], .31, 'release stops at the end of its 300 ms fade');
-assert.equal(context.sources[sourceCount + 1].stopTimes[0], .31, 'motor stops with the noise');
 assert.equal(engine.loop, true, 'exhaust noise loops continuously');
 assert(engine.assignedSamples.some(sample => sample !== 0), 'noise is filled before buffer assignment');
 updateThrusterSound(0);
 assert.equal(engine.stops, 1, 'idle updates do not stop twice');
 updateThrusterSound(1, 1);
-assert.equal(context.sources.length, sourceCount + 4, 'rapid restart creates a fresh fading-in voice');
-assert.equal(context.sources[sourceCount + 2].buffer, engine.buffer, 'restarts reuse the noise buffer');
-assert.equal(context.sources[sourceCount + 3].wave, motor.wave, 'restarts reuse the waveform');
+assert.equal(context.sources.length, sourceCount + 2, 'rapid restart creates a fresh fading-in voice');
+assert.equal(context.sources[sourceCount + 1].buffer, engine.buffer, 'restarts reuse the noise buffer');
 updateThrusterSound(0);
+
+// Every effect is audible, finite, filled before assignment, cached and debounced.
+for (const effect of Object.values(soundEffects)) {
+  context.currentTime += 1;
+  const count = context.sources.length;
+  playSound(effect);
+  const voice = context.sources[count];
+  const samples = voice.assignedSamples;
+  assert(samples.every(Number.isFinite), 'effect samples are finite');
+  assert(samples.some(sample => sample !== 0), 'effect is populated before assignment');
+  assert.equal(samples[0], 0, 'effect begins silently');
+  playSound(effect);
+  assert.equal(context.sources.length, count + 1, 'immediate repeats are debounced');
+  context.currentTime += 1;
+  playSound(effect);
+  assert.equal(context.sources[count + 1].buffer, voice.buffer, 'effect buffer is reused');
+}
 
 assert.equal(TestAudioContext.instances.length, 1, 'all effects reuse the first audio context');
 `;
@@ -126,5 +137,5 @@ for (const code of [output[0].code, compressed.code]) {
   await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
-assert(compressed.code.includes('createOscillator'), 'Web Audio methods stay unmangled');
+assert(compressed.code.includes('createBufferSource') && compressed.code.includes('setTargetAtTime'), 'Web Audio methods stay unmangled');
 console.log('Tones, ramps and drill start/stop passed, including production mangling.');

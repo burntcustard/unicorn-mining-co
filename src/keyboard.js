@@ -8,6 +8,7 @@ import { unlockAudio } from './sound';
 
 // Store callbacks for single key pressed events
 let callbacks = {};
+let start;
 
 // Same as Kontra pressedKeys - a list of keys that are "held down", i.e.
 // haven't had a keyup even to "turn them off" yet.
@@ -28,7 +29,7 @@ const keyEventHandler = (event) => {
   downKeys[key] = event.type === 'keydown';
 
   if (downKeys[key] && !event.repeat) {
-    callbacks['']?.(event);
+    start?.(event);
     callbacks[key]?.(event);
   }
 };
@@ -62,6 +63,9 @@ export const initKeys = () => window.onkeyup = window.onkeydown = keyEventHandle
  * @param  {Function} callback [description]
  */
 export const bindKeys = (key, callback) => callbacks[key] = callback;
+
+/** Run once when the player makes their first key press. */
+export const bindStart = (callback) => start = callback;
 
 /**
  * [unbindKeys description]

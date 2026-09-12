@@ -47,22 +47,20 @@ export default defineConfig(({ mode, command }) => {
           unsafe_math: true,
           pure_getters: true,
         },
-        // downKeys is written with a computed key (event.key.slice(-2)),
-        // so its literal reads in player.js must be reserved or property
+        // downKeys is written with a computed key (event.key.slice(-2)), so its
+        // literal reads must be reserved or property
         // mangling renames them out of sync with the data they're reading.
         // The Web Audio API property/method names in sound.js are reserved
         // too: mangling them would rename our calls but not the browser's
         // real methods, breaking playback.
         mangle: { properties: { reserved: [
           'Up', 'ht', 'ft',
-          'cancelScheduledValues', 'connect', 'createGain', 'createOscillator',
-          'createPeriodicWave', 'setPeriodicWave',
-          'currentTime', 'destination', 'frequency', 'gain',
-          'linearRampToValueAtTime', 'resume', 'setValueAtTime', 'start',
-          'stop', 'type', 'value',
-          'buffer', 'createBiquadFilter', 'createBuffer', 'createBufferSource',
-          'disconnect', 'exponentialRampToValueAtTime', 'getChannelData',
-          'loop', 'onended', 'Q', 'sampleRate', 'state', 'startRendering',
+          'buffer', 'connect', 'createBuffer', 'createBufferSource', 'createGain',
+          'currentTime', 'destination', 'gain', 'getChannelData', 'loop',
+          'playbackRate', 'resume', 'setTargetAtTime', 'start', 'state', 'stop',
+          'type', 'value',
+          'createBiquadFilter', 'createOscillator', 'createPeriodicWave',
+          'frequency', 'setPeriodicWave',
         ] } },
         module: true,
       },

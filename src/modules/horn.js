@@ -18,7 +18,6 @@ const fluteCount = hornLength / fluteSpacing + 2;
 // How many times a second the horn turns all the way around
 const spinRate = 1.5;
 
-const drillPitch = 30;
 const idleLevel = 0.3;
 const bitingLevel = 0.5;
 
@@ -69,7 +68,7 @@ export const horn = {
     const active = segment.active && (segment.mount ? segment.mount.health > 0 : true);
     const level = active ? (segment.biting ? bitingLevel : idleLevel) : 0;
 
-    segment.drillSound = continuousSound(segment.drillSound, level, drillPitch, false, 0.5);
+    segment.drillSound = continuousSound(segment.drillSound, level);
   },
   zIndex: 1,
 };
