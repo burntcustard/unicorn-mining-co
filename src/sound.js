@@ -79,7 +79,6 @@ export const tone = (frequency, type, engine) => {
     depth.gain.value = 0.3;
     oscillator.motorFrequency = pulse.frequency;
   } else {
-
     oscillator.type = pulse.type = type;
     oscillator.frequency.value = pulse.frequency.value = frequency;
     depth.gain.value = filter.gain.value = 0.5;
@@ -144,7 +143,7 @@ export const soundEffects = {
 
 export const playSound = (effect) => {
   // A real key gesture unlocks audio. Drop effects before that first gesture.
-  if (!audio || audio.state !== 'running') return;
+  if (!effect || !audio || audio.state !== 'running') return;
   const time = audio.currentTime;
 
   if (time < (effect.nextPlay || 0)) return;
@@ -169,7 +168,6 @@ export const playSound = (effect) => {
 
       return filtered += (sample - filtered) * (cutoff ? cutoff / (cutoff + sampleRate) : 1);
     });
-
   }
 
   const source = audio.createBufferSource();

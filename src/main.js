@@ -46,7 +46,7 @@ setSizing(game);
 
 window.onresize = () => setSizing(game);
 
-const world = generateWorld(8);
+const world = generateWorld(25);
 const stations = world.stations.map((properties) =>
   new Station({ ...properties, shades: colors.white }));
 
@@ -54,8 +54,7 @@ const stations = world.stations.map((properties) =>
 // without every player landing at the same one
 stations.sort((a, b) => a.x ** 2 + a.y ** 2 - b.x ** 2 - b.y ** 2);
 
-dockAt(playerShip, stations[Math.floor(Math.random() * 8)]);
-launch(playerShip);
+dockAt(playerShip, stations[Math.floor(Math.random() * 3)]);
 
 world.wrecks.forEach((properties) => {
   const wreck = new Ship(properties);
@@ -128,7 +127,9 @@ debugCrafts(game);
 // @ifdef BENCHMARK
 if (benchmarkFlag('field')) {
   Object.assign(playerShip, {
+    dockedTo: 0,
     launching: 0,
+    started: 1,
     x: world.fields[0].x,
     y: world.fields[0].y,
   });
@@ -155,6 +156,7 @@ initKeys();
 
 [cargoScoop, horn, shield, floodlight].forEach((module) =>
   bindKeys(module.name[0].toLowerCase(), () => {
+    if (playerShip.launching || playerShip.dockedTo) return;
     const segment = playerShip.segments.find((segment) =>
       segment.module.oneOf === module && segment.mount.health > 0);
 
@@ -163,6 +165,7 @@ initKeys();
     if (module === shield) playSound(segment.active ? soundEffects.shieldOn : soundEffects.shieldOff);
     if (module === floodlight) playSound(soundEffects.light);
   }));
+bindKeys('', () => !playerShip.started && launch(playerShip));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
 bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));

@@ -27,7 +27,10 @@ const keyEventHandler = (event) => {
 
   downKeys[key] = event.type === 'keydown';
 
-  if (downKeys[key] && !event.repeat) callbacks[key]?.(event);
+  if (downKeys[key] && !event.repeat) {
+    callbacks['']?.(event);
+    callbacks[key]?.(event);
+  }
 };
 
 /**

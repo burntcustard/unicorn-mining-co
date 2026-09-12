@@ -10,7 +10,7 @@ export const renderUI = (game, stations) => {
 
   renderControls(game, playerShip);
 
-  if (playerShip.dockedTo) renderDocked(game, playerShip);
+  if (playerShip.dockedTo && playerShip.started) renderDocked(game, playerShip);
 
   renderText(game, `$${playerShip.credits}`, 20, 20, 1);
 

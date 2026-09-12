@@ -87,9 +87,11 @@ export const updatePlayer = (dt) => {
   playerShip.noteFor = Math.max(0, playerShip.noteFor - dt);
 
   // A launching ship sees itself out of the bay
+  const launching = flyOut(playerShip, dt);
+
   playerShip.fly(
-    flyOut(playerShip, dt) || downKeys.Up ? 1 : 0,
-    downKeys.ht - downKeys.ft,
+    launching || (!playerShip.dockedTo && downKeys.Up) ? 1 : 0,
+    launching || playerShip.dockedTo ? 0 : downKeys.ht - downKeys.ft,
   );
   // Normalize spin against the same steering limit used by Ship.update.
   // Steering effort also covers braking a spin and reversing turn direction.

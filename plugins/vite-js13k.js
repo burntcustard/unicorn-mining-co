@@ -113,7 +113,7 @@ function saveRoadrollerArgs(searchOutput) {
 
   for (const arg of args) {
     const [, option, value] = arg.match(
-      /-(Zab|Zdy|Zlr|Zlp|Zmc|Zmd|Zpr|Zco|S)(.+)/
+      /-(Zab|Zdy|Zlr|Zlp|Zmc|Zmd|Zpr|Zco|S)(.+)/,
     ) || [];
 
     if (option === 'S' && !value.startsWith('x')) {
@@ -167,7 +167,6 @@ function replaceScriptTag(html, scriptFilename, content) {
 }
 
 export async function replaceScript(html, scriptFilename, scriptCode) {
-
   writeMinifiedJs(scriptCode);
 
   const packer = new Packer([{
@@ -222,9 +221,9 @@ function roadrollerSearchArgs() {
   const args = Object.entries(flags).flatMap(([key, flag]) => {
     const value = roadrollerArgs[key];
 
-    return value === undefined
-      ? []
-      : [`-${flag}${Array.isArray(value) ? value.join(',') : value}`];
+    return value === undefined ?
+        [] :
+        [`-${flag}${Array.isArray(value) ? value.join(',') : value}`];
   });
 
   if (roadrollerArgs.sse) args.push('--sse');

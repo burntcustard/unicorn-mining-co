@@ -57,6 +57,7 @@ export const dock = (contacts) => {
 export const launch = (craft) => {
   craft.dockedTo = 0;
   craft.launching = launchBurnDuration + launchCoastDuration;
+  craft.started = 1;
 };
 
 /**

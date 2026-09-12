@@ -1,7 +1,24 @@
-import { generateWorld, worldRadius } from '../src/world.js';
+import { rolldown } from 'rolldown';
 import { writeFile } from 'node:fs/promises';
 
-const seed = Number(process.argv[2] ?? 0);
+const bundle = await rolldown({
+  input: 'world-entry',
+  plugins: [{
+    name: 'world-entry',
+    load: (id) => id === '\0world-entry' ?
+      `export { generateWorld, worldRadius } from '${process.cwd()}/src/world.js';` :
+      undefined,
+    resolveId: (id) => id === 'world-entry' ? '\0world-entry' : undefined,
+  }],
+});
+const { output } = await bundle.generate({ format: 'esm' });
+await bundle.close();
+
+const { generateWorld, worldRadius } = await import(
+  `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`,
+);
+
+const seed = Number(process.argv[2] ?? 25);
 const world = generateWorld(seed);
 const size = 1000;
 const padding = 80;
@@ -43,6 +60,13 @@ const key = [
   ['#ffd54a', 'Yellow line: gold message'],
 ].map(([color, label], i) =>
   `<circle cx="30" cy="${30 + i * 22}" r="5" fill="${color}"/><text x="42" y="${34 + i * 22}">${label}</text>`).join('');
+
+const startingStations = [...world.stations]
+  .sort((a, b) => a.x ** 2 + a.y ** 2 - b.x ** 2 - b.y ** 2)
+  .slice(0, 3);
+const startRings = startingStations.map(({ x, y, radius }) =>
+  `<circle cx="${point(x)}" cy="${point(y)}" r="${Math.max(2, radius * scale) + 4}" fill="none" stroke="#45d6c5" stroke-width="2"/>`).join('');
+
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" ` +
   `style="background:#100c1c;font:14px sans-serif"><defs><clipPath id="world"><circle cx="${center}" ` +
   `cy="${center}" r="${worldRadius * scale}"/></clipPath></defs><circle cx="${center}" cy="${center}" ` +
@@ -50,6 +74,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size
   `stroke-opacity=".08">${grid}</g>` +
   `${fields}<g stroke-opacity=".55">${messageLines}</g>` +
   `${circles(world.stations, 'white')}${circles(world.wrecks)}` +
+  `${startRings}` +
   `<g fill="white">${key}<text x="20" y="190">World diameter: 100,000 m</text></g></svg>`;
 const filename = `world-${seed}.svg`;
 
