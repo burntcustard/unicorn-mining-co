@@ -32,6 +32,7 @@ import { generateWorld } from './world';
 // eslint-disable-next-line sort-imports
 import { grind, mine } from './mining';
 // import { Road } from './road';
+import { playSound, soundEffects } from './sound';
 import { renderBackground } from './background';
 import { renderUI } from './ui';
 import { resolve } from './resolve';
@@ -153,7 +154,16 @@ let spriteCount;
 initKeys();
 
 [cargoScoop, horn, shield, floodlight].forEach((module) =>
-  bindKeys(module.name[0].toLowerCase(), () => playerShip.toggle(module)));
+  bindKeys(module.name[0].toLowerCase(), () => {
+    const segment = playerShip.segments.find((segment) =>
+      segment.module.oneOf === module && segment.mount.health > 0);
+
+    playerShip.toggle(module);
+    if (!segment || playerShip.dead) return;
+    if (module === cargoScoop) playSound(soundEffects.hatchUnlock);
+    if (module === shield) playSound(segment.active ? soundEffects.shieldOn : soundEffects.shieldOff);
+    if (module === floodlight) playSound(soundEffects.light);
+  }));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
 bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));

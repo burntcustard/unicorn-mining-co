@@ -1,4 +1,5 @@
-import { roomFor, say, stow, unlockColor } from './player';
+import { playSound, soundEffects } from './sound';
+import { playerShip, roomFor, say, stow, unlockColor } from './player';
 import { game } from './game';
 
 /**
@@ -37,5 +38,6 @@ export const scoop = (contacts) => {
     }
 
     item.remove();
+    if (craft === playerShip) playSound(soundEffects.pickup);
   });
 };

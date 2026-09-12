@@ -1,5 +1,6 @@
 import { camera, renderDeadzone } from './camera';
 import { glows, lights, toggleGlows, toggleLights } from './lighting';
+import { playSound, soundEffects, testTone } from './sound';
 import { Ship } from './ship';
 import { bindKeys } from './keyboard';
 import { colors } from './colors';
@@ -8,13 +9,18 @@ import { playerShip } from './player';
 import { renderFps } from './fps';
 import { renderText } from './text';
 import { sky } from './background';
-import { testTone } from './sound';
 import { textDemo } from './text-demo';
 
 export let showDeadzone = false;
 let showMass = false;
 let showTextDemo = false;
 let showColorsDemo = false;
+
+// Future light candidates:
+// motor: [0.08, 0, 55, 0.04, 0.2, 0.6, 0, 1, 0, undefined, 0]
+// beam: [0.08, 0, 260, 0.02, 0.1, 0.35, 1, 1, 2, undefined, 0]
+// discharge: [0.08, 0, 900, 0.01, 0.03, 0.5, 0, 1, -0.8, undefined, 0]
+// whoosh: [0.1, 0, 0, 0.06, 0.12, 0.5, 4, 0.5, 700]
 
 export { lights };
 
@@ -45,6 +51,8 @@ export const bindDebug = (game) => {
   bindKeys('8', toggleGlows);
   bindKeys('9', () => game.physicsOn = !game.physicsOn);
   bindKeys('0', testTone);
+  bindKeys('c', () => playSound(soundEffects.light));
+  bindKeys('p', () => playSound(soundEffects.pickup));
 };
 
 export const renderDebug = (game, sprites, nearbyRadius) => {

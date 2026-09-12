@@ -14,13 +14,13 @@
 [x] Remove the shield from the player at the start.
 [-] Balance prices (divide by 10 maybe?).
 [x] Add 'CARGO 0/12' UI.
-[ ] Add sound: thruster.
-[ ] Add sound: Hatch clunk open.
-[ ] Add sound: Hatch clunk close.
-[ ] Add sound: Hatch clunk pickup item.
-[ ] Add sound: damage taken.
-[ ] Add sound: shield bounce.
-[ ] Add sound: shield activate.
-[ ] Add sound: shield deactivate.
-[ ] Add sound: UI bleep.
-[ ] Add sound: torch toggle click.
+[x] Add sound: thruster.
+[x] Add sound: Hatch clunk open.
+[x] Add sound: Hatch clunk close.
+[x] Add sound: Hatch clunk pickup item.
+[x] Add sound: metal+stone 'crash' into asteroid for damage taken.
+[x] Add sound: shield bounce.
+[x] Add sound: shield activate.
+[x] Add sound: shield deactivate.
+[x] Add sound: UI bleep.
+[x] Add sound: torch toggle click.

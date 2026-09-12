@@ -1,4 +1,5 @@
 import { colorUnlocked, roomFor, say, unlockColor } from '../player';
+import { playSound, soundEffects } from '../sound';
 import { colors } from '../colors';
 import { instanceOf } from '../modules';
 import { launch } from '../docking';
@@ -115,6 +116,7 @@ const selectionOf = (ship) => {
  * @param {Boolean} sub - Set by the alternate controls, which stay on one row.
  */
 export const moveSelection = (delta, ship, sub) => {
+  playSound(soundEffects.ui);
   const { menu, currentModule, actions, swatches, disabledAction } = selectionOf(ship);
 
   if (!stage) {
@@ -160,6 +162,8 @@ export const moveSubSelection = (delta, ship) => moveSelection(delta, ship, 1);
  * @returns {Boolean} handled - Whether there was a column to back out of.
  */
 export const back = (ship) => {
+  playSound(soundEffects.ui);
+
   if (stage) {
     // The hull has nothing to pick out, so its actions are the whole submenu
     stage = mountOption === 1 ? 0 : stage - 1;
@@ -175,6 +179,7 @@ export const back = (ship) => {
  * @param {Object} ship
  */
 export const confirmSelection = (ship) => {
+  playSound(soundEffects.ui);
   const { mount, menu, currentModule, actions, swatches, hullMenu, cargoMenu, repairCost } = selectionOf(ship);
 
   if (stage < 2) {

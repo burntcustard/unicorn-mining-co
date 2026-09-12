@@ -3,6 +3,7 @@ import { Ship } from './ship';
 import { colors } from './colors';
 import { downKeys } from './keyboard';
 import { flyOut } from './docking';
+import { updateThrusterSound } from './sound';
 
 const startingCredits = 500;
 
@@ -86,4 +87,8 @@ export const updatePlayer = (dt) => {
     flyOut(playerShip, dt) || downKeys.Up ? 1 : 0,
     downKeys.ht - downKeys.ft,
   );
+  updateThrusterSound(!playerShip.dead && !playerShip.dockedTo && playerShip.engine.mount ?
+      Math.max(0, ...playerShip.segments.filter((segment) => segment.module === playerShip.engine)
+        .map((segment) => segment.active)) :
+    0);
 };

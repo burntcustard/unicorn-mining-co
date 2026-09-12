@@ -8,7 +8,7 @@ import { viteJs13kPre } from '../plugins/vite-js13k.js';
 const scenario = `
 import { TestAudioContext } from '${process.cwd()}/tests/audio-context.mjs';
 import assert from 'node:assert/strict';
-import { ramp, tone } from '${process.cwd()}/src/sound.js';
+import { playSound, ramp, soundEffects, tone } from '${process.cwd()}/src/sound.js';
 import { horn } from '${process.cwd()}/src/modules/horn.js';
 
 assert.equal(TestAudioContext.instances.length, 0, 'import does not initialize audio');
@@ -22,8 +22,12 @@ assert.equal(beep.starts, 1, 'a tone plays as soon as it is made');
 assert.equal(beep.gain.value, 0, 'a tone starts silent');
 assert(beep.destination, 'oscillator is connected');
 assert.equal(TestAudioContext.instances[0].sources.length, 2, 'a tone is chopped by a second oscillator');
+playSound();
 ramp(beep.gain, .5);
 assert.equal(beep.gain.value, .5, 'ramping reaches the level asked for');
+
+playSound(soundEffects.pickup);
+assert.equal(TestAudioContext.instances[0].sources.length, 3, 'a preset creates one buffer source');
 
 const segment = { phase: 0, activationProgress: .5 };
 horn.update(segment, 1 / 60);
@@ -48,7 +52,7 @@ horn.update(segment, 1 / 60);
 assert.notEqual(segment.drillSound, first, 'restart creates a new sound');
 const idle = segment.drillSound;
 assert.equal(idle.starts, 1);
-assert.equal(idle.gain.value, .06, 'a drill touching nothing idles quietly');
+assert.equal(idle.gain.value, .08, 'a drill touching nothing idles quietly');
 segment.biting = true;
 horn.update(segment, 1 / 60);
 assert.equal(segment.drillSound, idle, 'biting ramps the sound rather than restarting it');
@@ -56,7 +60,7 @@ assert.equal(idle.gain.value, .2, 'biting rises to full volume');
 assert.equal(idle.stops, 0, 'biting does not stop the sound');
 segment.biting = false;
 horn.update(segment, 1 / 60);
-assert.equal(idle.gain.value, .06, 'losing contact drops back to the idle level');
+assert.equal(idle.gain.value, .08, 'losing contact drops back to the idle level');
 assert.equal(TestAudioContext.instances.length, 1, 'all effects reuse the first audio context');
 `;
 

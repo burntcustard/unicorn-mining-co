@@ -1,4 +1,6 @@
-import { damage } from './ship';
+import { damage, healthOf } from './ship';
+import { playSound, soundEffects } from './sound';
+import { playerShip } from './player';
 
 /**
  * What a collision does, once collisions.js has found one. Kept well apart
@@ -64,10 +66,15 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
 
     // A gentle bump is harmless after damage is rounded to whole points.
     let amount;
+    const playerCollider = a === playerShip ? collider : b === playerShip ? other : 0;
+    const playerHealth = playerCollider && healthOf(playerCollider.segment);
+
+    if (playerCollider && playerCollider.segment.covers && -closing >= deadSpeed) playSound(soundEffects.shieldBounce);
 
     if ((amount = Math.round((force - 400) / 1200))) {
       damage(collider, amount, point);
       damage(other, amount, point);
+      if (playerCollider && healthOf(playerCollider.segment) < playerHealth) playSound(soundEffects.crash);
     }
 
     if (-closing >= deadSpeed) {

@@ -1,3 +1,5 @@
+import { playSound, soundEffects } from '../sound';
+
 // Cargo scoop
 // A pair of doors hinged at their outer ends, lying flat inside the hull and
 // swinging forwards to open a mouth in the side of the ship: | closed, < open.
@@ -65,6 +67,19 @@ export const cargoScoop = {
   // An open mouth is what draws loose cargo in, so this is the piece that
   // decides whether a ship can pick anything up
   scoops: true,
+  update: (segment) => {
+    const progress = segment.activationProgress;
+    const previous = segment.hatchProgress;
+
+    // Follow the door itself, including partial travel and reversals. The
+    // invisible cargo throat shares the animation but must not sound twice.
+    if (!segment.catches && segment.mount.module === segment.module && segment.mount.health > 0 &&
+      previous > 0 && previous < 1 && progress === segment.active) {
+      playSound(progress ? soundEffects.hatchOpen : soundEffects.hatchClose);
+    }
+
+    segment.hatchProgress = progress;
+  },
   // Doors lying flat in the hull are part of it, so nothing gets at them
   unhurtWhen: 0,
   zIndex: -1,

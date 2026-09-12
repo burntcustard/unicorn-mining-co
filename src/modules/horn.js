@@ -18,11 +18,9 @@ const fluteCount = hornLength / fluteSpacing + 2;
 // How many times a second the horn turns all the way around
 const spinRate = 1.5;
 
-// How loud the drill purrs while it turns, and again while it bites, and the
-// pitch it purrs at
-const idleLevel = 0.06;
-const bitingLevel = 0.2;
 const drillPitch = 30;
+const idleLevel = 0.08;
+const bitingLevel = 0.2;
 
 // Negative bounciness grips rather than bounces while the horn spins, added to
 // whatever the other surface offers rather than overriding it. Small enough

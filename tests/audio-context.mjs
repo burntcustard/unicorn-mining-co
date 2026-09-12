@@ -14,6 +14,7 @@ export class TestAudioContext {
   static instances = [];
   sampleRate = 44100;
   currentTime = 0;
+  state = 'running';
   destination = {};
   sources = [];
 
@@ -30,6 +31,31 @@ export class TestAudioContext {
         this.destination = destination;
       },
     };
+  }
+
+  createBuffer(channels, length, sampleRate) {
+    return {
+      sampleRate,
+      data: new Float32Array(length),
+      getChannelData() {
+        return this.data;
+      },
+    };
+  }
+
+  createBufferSource() {
+    const source = {
+      starts: 0,
+      connect(destination) {
+        this.destination = destination;
+      },
+      start() {
+        this.starts++;
+      },
+    };
+
+    this.sources.push(source);
+    return source;
   }
 
   createOscillator() {
