@@ -13,7 +13,7 @@ import { Ship, damage } from '${process.cwd()}/src/ship.js';
 import { Item } from '${process.cwd()}/src/item.js';
 import { diamond, message } from '${process.cwd()}/src/items/index.js';
 import { instanceOf, cargoScoop, horn, shield, thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple, thrusters } from '${process.cwd()}/src/modules/index.js';
-import { colorUnlocked, roomFor, playerShip, unlockColor } from '${process.cwd()}/src/player.js';
+import { colorUnlocked, roomFor, playerShip, unlockColor, updatePlayer } from '${process.cwd()}/src/player.js';
 import { launch, flyOut } from '${process.cwd()}/src/docking.js';
 import { game } from '${process.cwd()}/src/game.js';
 import { colors } from '${process.cwd()}/src/colors.js';
@@ -291,7 +291,14 @@ for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTrip
   departing.remove();
 }
 // Check the remaining reward names under production property mangling too.
-for (const [name, shades] of [['YELLOW', colors.yellow], ['GREEN', colors.green]]) {
+assert(!colorUnlocked(colors.yellow), 'YELLOW starts locked');
+playerShip.x = 50000;
+playerShip.y = 0;
+updatePlayer(0);
+assert(colorUnlocked(colors.yellow), 'reaching the map edge unlocks YELLOW');
+assert(playerShip.note === 'YELLOW UNLOCKED', 'YELLOW reward message');
+
+for (const [name, shades] of [['GREEN', colors.green]]) {
   assert(!colorUnlocked(shades), name + ' starts locked');
   unlockColor(name);
   assert(colorUnlocked(shades), name + ' unlocks its palette');

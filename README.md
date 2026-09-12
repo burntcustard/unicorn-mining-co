@@ -45,3 +45,18 @@ Roadroller CLI search for better encoder parameters (stop it with Ctrl+C when
 you've found something worth trying). It preserves Roadroller's normal output
 and saves the best reported parameters to `plugins/roadroller-args.js`, which
 the normal packer uses on subsequent builds; it does not produce a ZIP.
+
+## Spoilers
+
+<details>
+<summary>Color Unlocks</summary>
+
+RED - Have a hull segment or fitted module destroyed.
+ORANGE - Collect an orange slate from an orange shipwreck.
+YELLOW - Fly to the edge of the map (50,000 m from the center).
+GREEN - Dock at 3 different space stations.
+CYAN - Sell a diamond at a space station.
+VIOLET - Unlocked by default from the start of the game.
+WHITE - Unlocked by default from the start of the game.
+
+</details>

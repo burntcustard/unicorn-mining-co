@@ -44,9 +44,8 @@ export const unlockColor = (color) => {
   }
 };
 
-playerShip.destroyed = (module) => {
+playerShip.destroyed = () => {
   unlockColor('RED');
-  if (module.oneOf === horn) unlockColor('YELLOW');
 };
 
 playerShip.docked = (station) => {
@@ -85,6 +84,8 @@ export const stow = (craft, item) => craft.cargo.push(item);
  */
 export const updatePlayer = (dt) => {
   playerShip.noteFor = Math.max(0, playerShip.noteFor - dt);
+
+  if (playerShip.position.length() >= 50000) unlockColor('YELLOW');
 
   // A launching ship sees itself out of the bay
   const launching = flyOut(playerShip, dt);
