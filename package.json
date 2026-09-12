@@ -51,6 +51,7 @@
     "file:../../roadroller": true,
     "github:burntcustard/roadroller#feature/hierarchical-mixers-zopfli-optimizations": true,
     "node-zopfli-es@2.0.6": true,
-    "github:burntcustard/roadroller#c616a8ff38d14f29774562042f153559b90de9df": true
+    "github:burntcustard/roadroller#c616a8ff38d14f29774562042f153559b90de9df": true,
+    "github:burntcustard/roadroller#85f46f296b122648d997a7c015306164153916d0": true
   }
 }
