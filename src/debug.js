@@ -53,6 +53,8 @@ export const bindDebug = (game) => {
   bindKeys('0', testTone);
   bindKeys('c', () => playSound(soundEffects.light));
   bindKeys('p', () => playSound(soundEffects.pickup));
+  bindKeys('m', () => playSound(soundEffects.shieldOn));
+  bindKeys('n', () => playSound(soundEffects.shieldOff));
 };
 
 export const renderDebug = (game, sprites, nearbyRadius) => {

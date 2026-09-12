@@ -160,7 +160,6 @@ initKeys();
 
     playerShip.toggle(module);
     if (!segment || playerShip.dead) return;
-    if (module === cargoScoop) playSound(soundEffects.hatchUnlock);
     if (module === shield) playSound(segment.active ? soundEffects.shieldOn : soundEffects.shieldOff);
     if (module === floodlight) playSound(soundEffects.light);
   }));

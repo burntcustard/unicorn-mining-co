@@ -1,13 +1,17 @@
 // Minimal Web Audio implementation for the Node gameplay tests.
 const audioParam = () => ({
   value: 0,
-  setValueAtTime(value) {
+  events: [],
+  setValueAtTime(value, time) {
+    this.events.push(['set', value, time]);
     this.value = value;
   },
-  linearRampToValueAtTime(value) {
+  linearRampToValueAtTime(value, time) {
+    this.events.push(['ramp', value, time]);
     this.value = value;
   },
   cancelScheduledValues() {},
+  cancelAndHoldAtTime() {},
 });
 
 export class TestAudioContext {
@@ -33,6 +37,12 @@ export class TestAudioContext {
     };
   }
 
+  createBiquadFilter() {
+    return { frequency: audioParam(), connect(destination) {
+      this.destination = destination;
+    } };
+  }
+
   createBuffer(channels, length, sampleRate) {
     return {
       sampleRate,
@@ -46,6 +56,19 @@ export class TestAudioContext {
   createBufferSource() {
     const source = {
       starts: 0,
+      stops: 0,
+      stopTimes: [],
+      set buffer(buffer) {
+        this.assignedSamples = buffer.getChannelData(0).slice();
+        this.audioBuffer = buffer;
+      },
+      get buffer() {
+        return this.audioBuffer;
+      },
+      stop(time) {
+        this.stops++;
+        this.stopTimes.push(time);
+      },
       connect(destination) {
         this.destination = destination;
       },
@@ -58,8 +81,15 @@ export class TestAudioContext {
     return source;
   }
 
+  createPeriodicWave(real, imaginary) {
+    return { real, imaginary };
+  }
+
   createOscillator() {
     const oscillator = {
+      setPeriodicWave(wave) {
+        this.wave = wave;
+      },
       frequency: audioParam(),
       starts: 0,
       stops: 0,

@@ -68,17 +68,14 @@ export const cargoScoop = {
   // decides whether a ship can pick anything up
   scoops: true,
   update: (segment) => {
-    const progress = segment.activationProgress;
-    const previous = segment.hatchProgress;
-
     // Follow the door itself, including partial travel and reversals. The
     // invisible cargo throat shares the animation but must not sound twice.
     if (!segment.catches && segment.mount.module === segment.module && segment.mount.health > 0 &&
-      previous > 0 && previous < 1 && progress === segment.active) {
-      playSound(progress ? soundEffects.hatchOpen : soundEffects.hatchClose);
+      segment.lastActive !== undefined && segment.lastActive !== segment.active) {
+      playSound(segment.active ? soundEffects.hatchOpen : soundEffects.hatchClose);
     }
 
-    segment.hatchProgress = progress;
+    segment.lastActive = segment.active;
   },
   // Doors lying flat in the hull are part of it, so nothing gets at them
   unhurtWhen: 0,

@@ -24,3 +24,6 @@
 [x] Add sound: shield deactivate.
 [x] Add sound: UI bleep.
 [x] Add sound: torch toggle click.
+[ ] More asteroids fewer gaps.
+[ ] Slightly increase number of wrecks and vary loot more.
+[ ] Change unlocking yellow from destroying a horn to reaching the map edge

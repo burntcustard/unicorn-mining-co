@@ -1,12 +1,8 @@
-/**
- * Continuous motor sounds use Web Audio oscillators.
- * A running oscillator has no loop point, so there is no seam to click at, and
- * anything about a playing sound is changed by ramping one of its params.
- * A looped buffer sounded fine loud but crackly quiet: its seam is broadband
- * while its fundamental is low enough that quietening it takes the tone below
- * audibility long before it takes the clicks with it.
- */
+// Drill tones use continuous oscillators; the thruster mixes turbulent air and a motor undertone.
+// Parameter ramps avoid abrupt waveform jumps when either changes level.
 let audio = 0;
+let noiseBuffer;
+let motorWave;
 
 // Must run synchronously inside a real user gesture (keydown/click) to count
 // as one for autoplay purposes - a rAF-driven call a frame later is too late
@@ -30,8 +26,8 @@ const rampTime = 0.1;
  *
  * @returns {number} The audio-clock time the ramp lands on that value.
  */
-export const ramp = (param, value, duration = rampTime, leadTime = rampTime) => {
-  const time = audio.currentTime + leadTime;
+export const ramp = (param, value, duration = rampTime) => {
+  const time = audio.currentTime + 0.01;
 
   param.cancelScheduledValues(time);
   param.setValueAtTime(param.value, time);
@@ -44,45 +40,70 @@ export const ramp = (param, value, duration = rampTime, leadTime = rampTime) => 
  * Start a sound, silent: the caller ramps `gain` up to the level it wants, and
  * can go on ramping it for as long as the sound plays.
  *
- * The tone is chopped in and out of silence at its own pitch by a second
- * oscillator, which is what makes it purr like a running motor rather than
- * hum like a held note - every chop then contains the same stretch of
- * waveform, so it repeats steadily instead of drifting in and out of phase.
+ * The drill is chopped at its own pitch for its mechanical purr. The engine
+ * mixes rounded exhaust pulses and a quiet air bed through one low-pass filter.
  */
-export const tone = (frequency, type) => {
+export const tone = (frequency, type, engine) => {
   unlockAudio();
 
-  const oscillator = audio.createOscillator();
+  const oscillator = engine ? audio.createBufferSource() : audio.createOscillator();
+  const gain = audio.createGain();
   const pulse = audio.createOscillator();
   const depth = audio.createGain();
-  const chop = audio.createGain();
-  const gain = audio.createGain();
+  const filter = engine ? audio.createBiquadFilter() : audio.createGain();
 
-  oscillator.type = pulse.type = type;
-  oscillator.frequency.value = pulse.frequency.value = frequency;
-  // An oscillator always swings a full -1 to 1, so its reach is set on the way
-  depth.gain.value = chop.gain.value = 0.5;
+  if (engine) {
+    if (!noiseBuffer) {
+      let pressure = 0;
+
+      noiseBuffer = soundBuffer(44100, () => pressure = pressure * 0.95 + Math.random() * 0.06 - 0.03);
+
+      // Closely spaced pressure pulses retain a little cylinder-to-cylinder weight.
+      // Taper the upper harmonics so the growl has body without a buzzy edge.
+      motorWave = audio.createPeriodicWave(
+        [0, 2, 10, 1, 8, 2, 7, 1, 5, 1, 0, 1, 3, 0, 2, 0, 1],
+        [0, 0, 2, 0, 3, 0, 2, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0],
+      );
+    }
+
+    // Fill before assigning: Firefox can snapshot the buffer on assignment.
+    oscillator.buffer = noiseBuffer;
+    oscillator.loop = true;
+
+    filter.frequency.value = 200;
+    oscillator.frequency = filter.frequency;
+
+    pulse.setPeriodicWave(motorWave);
+    pulse.frequency.value = 12;
+    // Keep some combustion texture underneath the pressurized exhaust.
+    depth.gain.value = 0.3;
+    oscillator.motorFrequency = pulse.frequency;
+  } else {
+
+    oscillator.type = pulse.type = type;
+    oscillator.frequency.value = pulse.frequency.value = frequency;
+    depth.gain.value = filter.gain.value = 0.5;
+  }
 
   pulse.connect(depth);
-  depth.connect(chop.gain);
-  oscillator.connect(chop);
-  chop.connect(gain);
+  depth.connect(engine ? filter : filter.gain);
+  oscillator.connect(filter);
+  filter.connect(gain);
   gain.connect(audio.destination);
 
-  oscillator.pulseFrequency = pulse.frequency;
   oscillator.gain = gain.gain;
   oscillator.gain.value = 0;
   oscillator.start();
   pulse.start();
 
-  const stop = oscillator.stop.bind(oscillator);
+  const stop = oscillator.stop;
 
   // Use the audio clock so the native stops stay on the end of the fade out.
-  oscillator.stop = (leadTime = rampTime) => {
-    const time = ramp(oscillator.gain, 0, rampTime, leadTime);
+  oscillator.stop = (duration = rampTime) => {
+    const time = ramp(oscillator.gain, 0, duration);
 
     pulse.stop(time);
-    stop(time);
+    stop.call(oscillator, time);
   };
 
   return oscillator;
@@ -99,83 +120,56 @@ export const testTone = () => {
 };
 // @endif
 
-// One reusable noise bed supplies filtered air, grit and mechanical transients.
-let noiseBuffer;
+// Finish writing every sample before a source receives the buffer (Firefox).
+const soundBuffer = (length, sample) => {
+  const buffer = audio.createBuffer(1, length, 44100);
 
-const noiseSource = (context = audio) => {
-  if (!noiseBuffer) {
-    noiseBuffer = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
-    const samples = noiseBuffer.getChannelData(0);
-
-    for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
-  }
-
-  const source = context.createBufferSource();
-
-  source.buffer = noiseBuffer;
-  source.loop = true;
-  return source;
+  buffer.getChannelData(0).forEach((_, i, samples) => samples[i] = sample(i));
+  return buffer;
 };
 
-// ZzFXMicro-style: volume, randomness, frequency, attack, sustain, release,
-// shape, shape curve, slide, delta slide. The adapter's cutoff follows those.
-// [volume] [randomness] [frequency] [attack] [sustain] [release] [shape]
-// [shape curve] [slide] [delta slide] [filter cutoff]
+// Volume, frequency, attack, sustain, release, waveform, optional cutoff, optional endFrequency.
+// Waveforms used by the game: sine (0), triangle (1), noise (4).
 export const soundEffects = {
-  hatchOpen: [0.7, 0, 0, 0.03, 0, 0.25, 4, 0.5, 160],
-  hatchClose: [0.9, 0, 0, 0.025, 0, 0.35, 4, 0.5, 140],
-  pickup: [0.3, 0, 250, 0.001, 0.02, 0.08, 0, 1, 1900],
-  crash: [1, 0, 0, 0.05, 0, 0.5, 4, 0.5, 70],
-  shieldBounce: [0.08, 0, 190, 0.01, 0.08, 0.19, 1, 1],
-  shieldOn: [0.06, 0, 65, 0.01, 0.1, 0.3, 1, 1],
-  shieldOff: [0.06, 0, 240, 0.01, 0.1, 0.24, 1, 1],
-  ui: [0.03, 0, 800, 0.005, 0.01, 0.025, 0, 1],
-  light: [0.1, 0, 0, 0.001, 0, 0.12, 4, 0.5, 3000],
-  // Accidentally found a really nice drum sound lol
-  // drum: [90, 135, .16, .29, 0, 1500, .006, 420, 8, .022],
+  hatchOpen: [0.7, 0, 0.03, 0.25, 160],
+  hatchClose: [0.9, 0, 0.025, 0.35, 140],
+  pickup: [0.08, 660, 0.001, 0.08, 0, 1320],
+  crash: [4, 0, 0.05, 0.5, 70, 0, 0.6],
+  shieldBounce: [0.08, 190, 0.01, 0.3, 0, 190, 0.18],
+  shieldOn: [0.08, 120, 0.02, 0.3, 0, 480],
+  shieldOff: [0.08, 480, 0.02, 0.3, 0, 120],
+  ui: [0.03, 800, 0.005, 0.04],
+  light: [0.1, 0, 0.001, 0.12, 3000],
 };
 
 export const playSound = (effect) => {
   // A real key gesture unlocks audio. Drop effects before that first gesture.
-  if (!effect || !audio || audio.state !== 'running' || audio.currentTime < (effect.nextPlay || 0)) return;
-  effect.nextPlay = audio.currentTime + (effect === soundEffects.crash ? 0.6 : effect === soundEffects.shieldBounce ? 0.18 : 0.06);
+  if (!audio || audio.state !== 'running') return;
+  const time = audio.currentTime;
+
+  if (time < (effect.nextPlay || 0)) return;
+  effect.nextPlay = time + (effect[6] || 0.06);
 
   // Render each complete effect once. Rapid playback then reuses one buffer.
   if (!effect.buffer) {
-    const [volume, randomness, frequency, attack, sustain, release, shape, curve] = effect;
-    const modern = effect.length > 10;
-    const slide = modern ? effect[8] : 0;
-    const cutoff = modern ? effect[10] : effect[8];
-    const endFrequency = modern ? frequency * (1 + slide) : effect[9] ?? frequency;
-    const endCutoff = cutoff / 3;
-    const sampleRate = audio.sampleRate;
-    const attackSamples = attack * sampleRate;
-    const sustainSamples = sustain * sampleRate;
-    const releaseSamples = release * sampleRate;
-    const length = attackSamples + sustainSamples + releaseSamples | 0;
-    const buffer = audio.createBuffer(1, length, sampleRate);
-    const samples = buffer.getChannelData(0);
-    const phase = (frequency * (1 + randomness * (2 * Math.random() - 1))) * Math.PI * 2 / sampleRate;
+    const [volume, frequency, attack, decay, cutoff, endFrequency = frequency] = effect;
+    const sampleRate = 44100;
+    const length = (attack + decay) * sampleRate | 0;
 
     let filtered = 0;
 
-    for (let i = 0, t = 0; i < length; i++) {
-      const frequencyAt = frequency + (endFrequency - frequency) * i / length;
-      t += phase * frequencyAt / frequency || phase;
-      const wave = shape > 3 ? Math.random() * 2 - 1 : shape > 2 ? (t / Math.PI / 2 % 1 < curve / 2) * 2 - 1 : shape > 1 ? 1 - (2 * t / Math.PI / 2 % 2 + 2) % 2 : shape ? 1 - 4 * Math.abs(Math.round(t / Math.PI / 2) - t / Math.PI / 2) : Math.sin(t);
-      const envelope = i < attackSamples ? i / attackSamples : cutoff ? 0.01 ** ((i - attackSamples) / (length - attackSamples)) : i < attackSamples + sustainSamples ? 1 : (length - i) / releaseSamples;
-      let sample = wave * envelope * volume;
+    let t = 0;
 
-      if (cutoff) {
-        const frequency = cutoff * (endCutoff / cutoff) ** (i / length);
-        filtered += (sample - filtered) * frequency / (frequency + sampleRate);
-        sample = filtered;
-      }
+    effect.buffer = soundBuffer(length, (i) => {
+      t += (frequency + (endFrequency - frequency) * i / length) / sampleRate;
+      const wave = cutoff ? Math.random() * 2 - 1 : Math.sin(t * Math.PI * 2);
+      const elapsed = i / sampleRate;
+      const envelope = Math.min(elapsed / attack, 0.01 ** ((elapsed - attack) / decay));
+      const sample = wave * envelope * volume;
 
-      samples[i] = sample;
-    }
+      return filtered += (sample - filtered) * (cutoff ? cutoff / (cutoff + sampleRate) : 1);
+    });
 
-    effect.buffer = buffer;
   }
 
   const source = audio.createBufferSource();
@@ -185,61 +179,44 @@ export const playSound = (effect) => {
   source.start();
 };
 
-let thrusterSound;
-let thrusterAir;
-let thrusterGain;
-let thrusterFilter;
-let thrusterLevel = 0;
+// Both motors keep their voice while held. Engine pitch follows motion/load; gain
+// follows thrust, so changes in speed do not keep restarting the volume attack.
+export const continuousSound = (sound, level, frequency, engine = false) => {
+  if (!sound && !level) return sound;
+  sound ||= tone(frequency, 'triangle', engine);
 
-// One engine mix for the whole player ship, so extra nozzles do not add volume.
-// Reuse the motor and noise: low mechanical throbbing under a resonant howl.
-// Audio-clock ramps spool both pitches and levels without restarting each tick.
-export const updateThrusterSound = (power) => {
-  if (!audio || audio.state !== 'running') return;
-  const level = power > 0 ? 0.03 + power * 0.03 : 0;
+  const duration = level ? 0.04 : 0.3;
 
-  if (level === thrusterLevel) return;
+  if (engine && sound.targetFrequency !== frequency) {
+    // Append short pitch ramps without cancelling their previous endpoints.
+    // Re-anchoring every speed update made the revs lag and catch up late.
+    const time = audio.currentTime + duration;
 
-  if (level && !thrusterSound) {
-    thrusterSound = tone(32, 'triangle');
-    thrusterAir = noiseSource();
-    thrusterFilter = audio.createBiquadFilter();
-    thrusterGain = audio.createGain();
-    thrusterFilter.frequency.value = 180;
-    thrusterFilter.Q.value = 2;
-    thrusterGain.gain.value = 0;
-    thrusterAir.connect(thrusterFilter);
-    thrusterFilter.connect(thrusterGain);
-    thrusterGain.connect(audio.destination);
-    thrusterAir.start();
+    sound.frequency.linearRampToValueAtTime(frequency, time);
+    sound.motorFrequency.linearRampToValueAtTime(12 + (frequency - 200) / 30, time);
+    sound.targetFrequency = frequency;
   }
 
-  const duration = !level ? rampTime : level > thrusterLevel ? 0.5 : 0.3;
-  const pitch = 32 + power * 16;
-
-  // Keep the motor's chopping oscillator at the same pitch as its carrier.
-  ramp(thrusterSound.frequency, pitch, duration, 0.01);
-  ramp(thrusterSound.pulseFrequency, pitch, duration, 0.01);
-  ramp(thrusterFilter.frequency, 180 + power * 420, duration, 0.01);
-  // Thrust is audible immediately; only the pitch and resonance spool slowly.
-  if (level) ramp(thrusterSound.gain, level, 0.04, 0.01);
-  ramp(thrusterGain.gain, level * 0.7, 0.04, 0.01);
-  thrusterLevel = level;
+  if (level === sound.level) return sound;
 
   if (!level) {
-    const air = thrusterAir;
-    const filter = thrusterFilter;
-    const gain = thrusterGain;
-
-    thrusterSound.stop(0.01);
-    air.stop(audio.currentTime + rampTime * 2);
-
-    air.onended = () => {
-      air.disconnect();
-      filter.disconnect();
-      gain.disconnect();
-    };
-
-    thrusterSound = 0;
+    sound.stop(engine ? duration : rampTime);
+    return 0;
   }
+
+  ramp(sound.gain, level, engine ? 0.04 : rampTime);
+  sound.level = level;
+  return sound;
+};
+
+let thrusterSound;
+
+// One engine voice for the whole ship, independent of its nozzle count.
+export const updateThrusterSound = (power, load = 0) => {
+  if (!audio || audio.state !== 'running') return;
+  // Translation and steering share one rev range; combining them cannot over-rev.
+  const pace = Math.max(0, Math.min(1, load));
+  const revs = power > 0 ? pace : 0;
+
+  thrusterSound = continuousSound(thrusterSound, power > 0 ? 0.09 + power * 0.06 : 0, 200 + revs * 480, true);
 };

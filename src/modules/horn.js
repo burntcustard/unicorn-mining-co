@@ -1,7 +1,7 @@
 // Mining horn
 // Starts a lineWidth ahead of its mount, so that where a mount sits on the
 // hull nose the two strokes touch exactly
-import { ramp, tone } from '../sound';
+import { continuousSound } from '../sound';
 
 const hornBase = 3;
 const hornLength = 24;
@@ -19,8 +19,8 @@ const fluteCount = hornLength / fluteSpacing + 2;
 const spinRate = 1.5;
 
 const drillPitch = 30;
-const idleLevel = 0.08;
-const bitingLevel = 0.2;
+const idleLevel = 0.3;
+const bitingLevel = 0.5;
 
 // Negative bounciness grips rather than bounces while the horn spins, added to
 // whatever the other surface offers rather than overriding it. Small enough
@@ -66,24 +66,10 @@ export const horn = {
   update: (segment, dt) => {
     segment.phase = (segment.phase + dt * spinRate * segment.activationProgress) % 1;
 
-    // Runs for as long as the drill is switched on, rising to full volume
-    // while it actually bites. Ramping one sound rather than swapping sounds
-    // means nothing restarts, so nothing clicks
-    if (segment.activationProgress > 0.5) {
-      const level = segment.biting ? bitingLevel : idleLevel;
+    const active = segment.active && (segment.mount ? segment.mount.health > 0 : true);
+    const level = active ? (segment.biting ? bitingLevel : idleLevel) : 0;
 
-      segment.drillSound ||= tone(drillPitch, 'triangle');
-
-      // Re-anchoring the gain every tick cancels automation the audio thread
-      // has already started rendering, which crackles
-      if (segment.drillLevel !== level) ramp(segment.drillSound.gain, level);
-      segment.drillLevel = level;
-    } else if (segment.drillSound) {
-      // drillSound is reset to the falsy sentinel 0, not null/undefined, so
-      // `?.` wouldn't short-circuit here
-      segment.drillSound.stop();
-      segment.drillSound = segment.drillLevel = 0;
-    }
+    segment.drillSound = continuousSound(segment.drillSound, level, drillPitch, false, 0.5);
   },
   zIndex: 1,
 };

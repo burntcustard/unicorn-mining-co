@@ -21,6 +21,10 @@ export const playerShip = new Ship({
   noteFor: 0,
 });
 
+// @ifdef DEBUG
+playerShip.credits = 10000;
+// @endif
+
 // Violet is the pink paint in the palette, and only it and white are available
 // until the pilot has earned the rest.
 const unlockedPaints = [colors.violet, colors.white];
@@ -87,8 +91,20 @@ export const updatePlayer = (dt) => {
     flyOut(playerShip, dt) || downKeys.Up ? 1 : 0,
     downKeys.ht - downKeys.ft,
   );
+  // Normalize spin against the same steering limit used by Ship.update.
+  // Steering effort also covers braking a spin and reversing turn direction.
+  const turningSpeed = playerShip.spin * 16 /
+    (playerShip.turnRate * playerShip.rotationalThrust * playerShip.launchThrottle ** 2 || 1);
+  const steeringEffort = Math.min(1, Math.abs(playerShip.turn - turningSpeed));
+  const engineLoad = Math.min(1, Math.max(
+    playerShip.velocity.length() / playerShip.maxSpeed,
+    Math.abs(turningSpeed),
+    steeringEffort * 0.65,
+  ));
+
   updateThrusterSound(!playerShip.dead && !playerShip.dockedTo && playerShip.engine.mount ?
-      Math.max(0, ...playerShip.segments.filter((segment) => segment.module === playerShip.engine)
-        .map((segment) => segment.active)) :
-    0);
+      Math.max(steeringEffort * playerShip.launchThrottle,
+        ...playerShip.segments.filter((segment) => segment.module === playerShip.engine)
+          .map((segment) => segment.active)) :
+    0, engineLoad);
 };

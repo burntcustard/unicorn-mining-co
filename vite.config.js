@@ -56,6 +56,7 @@ export default defineConfig(({ mode, command }) => {
         mangle: { properties: { reserved: [
           'Up', 'ht', 'ft',
           'cancelScheduledValues', 'connect', 'createGain', 'createOscillator',
+          'createPeriodicWave', 'setPeriodicWave',
           'currentTime', 'destination', 'frequency', 'gain',
           'linearRampToValueAtTime', 'resume', 'setValueAtTime', 'start',
           'stop', 'type', 'value',
