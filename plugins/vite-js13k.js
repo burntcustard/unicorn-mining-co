@@ -61,11 +61,13 @@ const customReplacement = (src) => src
     'update', // -19B
     'zIndex', // -31B
   ].join('|')})\\b`, 'g'), '_$1')
-  // Dangerously replace strict equality with loose equality saves 12B
+  // Dangerously replace strict equality with loose equality, saves 12B
   .replace(/===/g, '==')
-  // Swap forEach with map with unused return values saves 20B
+  // Swap forEach with map with unused return values, saves 20B
   .replaceAll('.forEach(', '.map(')
-  // Keep lexical declarations consistent before bundling and Terser saves 48B
+  // Standardize 2 * Math.PI to Math.PI * 2, saves 1B, maybe
+  .replaceAll('2 * Math.PI', 'Math.PI * 2')
+  // Keep lexical declarations consistent before bundling and Terser, saves 48B
   .replaceAll('const ', 'let ');
 
 export function viteJs13kPre(flags = {}) {

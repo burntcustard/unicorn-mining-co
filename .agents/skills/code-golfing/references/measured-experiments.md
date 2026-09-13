@@ -37,6 +37,7 @@ an experiment using the same settings; unrelated totals are not cumulative.
 - [Measured collision damage threshold experiments (2026-09-07)](#measured-collision-damage-threshold-experiments-2026-09-07)
 - [Measured fallback and canvas experiments](#measured-fallback-and-canvas-experiments)
 - [Measured coordinate-display padding experiments (2026-09-08)](#measured-coordinate-display-padding-experiments-2026-09-08)
+- [Custom replacement and pre-transform experiments (2026-09-13)](custom-replacement.md)
 
 ## Measured build pipeline compressor experiments
 
