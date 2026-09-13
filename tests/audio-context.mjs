@@ -41,12 +41,6 @@ export class TestAudioContext {
     };
   }
 
-  createBiquadFilter() {
-    return { frequency: audioParam(), connect(destination) {
-      this.destination = destination;
-    } };
-  }
-
   createBuffer(channels, length, sampleRate) {
     return {
       sampleRate,
@@ -84,35 +78,6 @@ export class TestAudioContext {
 
     this.sources.push(source);
     return source;
-  }
-
-  createPeriodicWave(real, imaginary) {
-    return { real, imaginary };
-  }
-
-  createOscillator() {
-    const oscillator = {
-      setPeriodicWave(wave) {
-        this.wave = wave;
-      },
-      frequency: audioParam(),
-      starts: 0,
-      stops: 0,
-      stopTimes: [],
-      connect(destination) {
-        this.destination = destination;
-      },
-      start() {
-        this.starts++;
-      },
-      stop(time) {
-        this.stops++;
-        this.stopTimes.push(time);
-      },
-    };
-
-    this.sources.push(oscillator);
-    return oscillator;
   }
 }
 
