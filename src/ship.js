@@ -176,7 +176,7 @@ export class Ship extends Sprite {
       return;
     }
 
-    Object.assign(this, data, {
+    Object.assign(this, data, props, {
       cargo: [],
       forward: 0,
       // Ownership order never changes when an instance is fitted or removed.
@@ -560,7 +560,7 @@ export class Ship extends Sprite {
         drawDockingBayGlow(ctx, segment.glow.path, segment.shades[2], segment.glow);
       }
 
-      const worn = health < segment.module.health / 2 ? 0 : segment.hull;
+      const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
       let lit;
 
       if (segment.middle) {

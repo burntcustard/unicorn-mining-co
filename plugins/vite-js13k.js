@@ -299,7 +299,7 @@ export function viteJs13k(buildLevel = 'full') {
       const args = [
         '--recompress',
         '--shrink-insane',
-        `--iter=${buildLevel === 'fast' ? 10 : 10000}`,
+        `--iter=${buildLevel === 'fast' ? 10 : 8000}`,
       ];
 
       args.push('dist/game.zip');
