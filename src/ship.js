@@ -59,7 +59,9 @@ export const mustang = {
     },
     { health: 10, points: [[-16, -20], [20, -12], [8, 0]] },
     {
-      health: 15,
+      health: 25,
+      // The engine mount: without it there is nothing left to fly
+      core: true,
       mounts: [
         { fits: [thrusterDualMd, thrusterSingle, thrusterDualXl, thrusterTriple], x: -16, y: 0 },
         { fits: [shield], x: 0, y: 0 },
@@ -275,6 +277,8 @@ export class Ship extends Sprite {
     });
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
     outerEdges(hulls.map(({ points }) => points));
+    // Either core anchors flight and the hull kept attached to it; losing one
+    // ends the ship, so which of the two is found here does not matter
     this.cockpit = hulls.find(({ core }) => core);
   }
 
@@ -485,14 +489,16 @@ export class Ship extends Sprite {
         .forEach((mount) => this.detach(mount));
       const all = this.segments.filter(({ hull }) => hull);
       const hulls = all.filter(({ health }) => active(health));
+      // Losing either core, the pilot's piece or the engine mount, ends the ship
+      const lost = hulls.filter(({ core }) => core).length < 2;
 
-      if (!hulls.includes(this.cockpit) || hulls.length < all.length) {
+      if (lost || hulls.length < all.length) {
         const broken = all.filter((segment) => !hulls.includes(segment));
 
         broken.forEach((segment) =>
           this.destroyed?.(segment.module));
         this.fracture(broken, true, true);
-        this.fracture(hulls, !hulls.includes(this.cockpit));
+        this.fracture(hulls, lost);
       }
     }
   }

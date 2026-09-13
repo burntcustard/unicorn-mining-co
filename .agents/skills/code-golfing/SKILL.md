@@ -75,6 +75,29 @@ are invisible to dev-server testing — see
 [Audio and collision experiments](references/audio-and-collision.md)
 for the full story before reordering buffer fill vs. buffer assignment again.
 
+## Roadroller's decoder shares the global scope
+
+The packed `dist/index.html` finishes with `eval(r)`, so the bundle runs in the
+same global scope as the decoder and every leftover decoder global (`t`, `e`,
+`r`, `M`, `h`, `n`, `c`, `p`, …) is still live. Terser emits top-level `var`s,
+and `var X;` with no initialiser leaves an existing global's value alone.
+
+So a module-level `let x;` with no initial value can start up holding one of
+the decoder's working arrays. This broke `sound.js`'s `thrusterSound`, which
+mangled to `M` and inherited the decoder's 16-element weight array. **Always
+give a module-level binding an initial value**, using the codebase's falsy `0`
+sentinel where it otherwise holds an object.
+
+This class of bug is production-only, silent in `vite serve`, and moves around
+as unrelated edits or new Roadroller parameters change which mangled name lands
+on which decoder global.
+
+To debug one: serve `dist/` over http (`file://` fails differently), open it
+with Playwright and listen for `pageerror`. The stack's `<anonymous>:1:NNN`
+offsets map almost directly into `dist/minified.js`, and temporary
+`console.log` calls added to `src/` survive a `build:fast` for inspection. A
+blank canvas with no console output is the usual first symptom.
+
 ## Areas to avoid
 
 - Do not try to code-golf scripts/world-preview.js, src/benchmark.js, or any code

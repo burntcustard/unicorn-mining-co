@@ -75,7 +75,11 @@ const breakAsteroid = (target, destroyed) => {
     playSound(4);
   }
 
-  const [, loose] = target.asteroid ? asteroid.detach(target, destroyed) : asteroid.split();
+  // Another leaf breaking in the same update can already have cut this one
+  // free as a lone chunk, which has no sections left to detach from
+  const [, loose] = target.asteroid?.sections ?
+      asteroid.detach(target, destroyed) :
+      asteroid.split();
 
   asteroid.remove();
 

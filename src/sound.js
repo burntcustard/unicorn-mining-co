@@ -158,7 +158,9 @@ export const continuousSound = (sound, level, playbackRate = level ? 1 - level /
   return sound;
 };
 
-let thrusterSound;
+// Initialised, not bare: Roadroller's decoder eval()s the bundle in the global
+// scope and leaves its own globals behind, and a bare `var` would keep one.
+let thrusterSound = 0;
 
 // One engine voice for the whole ship, independent of its nozzle count.
 export const updateThrusterSound = (power, load = 0) => {

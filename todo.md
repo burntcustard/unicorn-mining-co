@@ -28,7 +28,7 @@
 [x] Slightly increase number of wrecks and vary loot more.
 [x] Change unlocking yellow from destroying a horn to reaching the map edge.
 [ ] Add slightly more gems per wreck maybe?
-[ ] Remove controls from bottom right when docked?
+[x] Remove controls from bottom right when docked?
 [x] Turn modules off while docked again.
 [-] Match hit sound to when damage is actually taken? (Was complicated)
 [ ] Write 'ESC: LAUNCH' or 'ARROWS TO FLY' or similar at game start.
