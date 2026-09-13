@@ -61,18 +61,14 @@ export const renderControls = (game, ship) => {
       ctx.fillRect(boxX, y, box, box);
     }
 
-    const boxPath = new Path2D();
-    boxPath.rect(boxX, y, box, box);
-    outline(ctx, boxPath, textSize);
-    ctx.stroke(boxPath);
-
+    const path = new Path2D();
+    path.rect(boxX, y, box, box);
     // A line under the one letter of the name that is the key to work it, a
     // touch narrower than the letter and dropped just below it
-    const underline = new Path2D();
-    underline.moveTo(textX, y + underDrop);
-    underline.lineTo(textX + glyph - 1, y + underDrop);
-    outline(ctx, underline, textSize);
-    ctx.stroke(underline);
+    path.moveTo(textX, y + underDrop);
+    path.lineTo(textX + glyph - 1, y + underDrop);
+    outline(ctx, path, textSize);
+    ctx.stroke(path);
   });
 
   ctx.restore();

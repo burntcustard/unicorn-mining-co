@@ -263,9 +263,8 @@ const runsOf = ({ rays: fan }) => {
     if (!ray.hit) return;
 
     const last = fan[i - 1];
-    const step = last?.out && ray.out.at.subtract(last.out.at);
 
-    if (step && last.hit === ray.hit && joins(ray.hit, last.out.face, ray.out.face)) {
+    if (last?.out && last.hit === ray.hit && joins(ray.hit, last.out.face, ray.out.face)) {
       runs.at(-1).push(ray);
     } else {
       runs.push([ray]);

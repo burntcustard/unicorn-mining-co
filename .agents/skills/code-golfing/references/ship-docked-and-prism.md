@@ -83,3 +83,51 @@ frames each), plus steering over 180 frames each. They verify half-active coast
 nozzles and zero thrust from broken/removed engines, both bundled and production
 mangled. Collision and prism suites pass. Source/tests lint passes; full lint
 still reports existing user_pref errors in .sky-preview-profile/prefs.js.
+
+## Structural sweep — 2026-09-13
+
+Settings: `npm run build:fast`, seed 13312, 10 advzip iterations. Candidates
+measured one at a time, each against the running total. **13341 -> 13294B
+(-47B).** Lint clean, all four test suites pass.
+
+| File | Candidate | Advzip before -> after | Status |
+| --- | --- | --- | --- |
+| `src/prism.js` | drop `runsOf`'s `step` vector, testing `last?.out` directly | 13341 -> 13333 | Retained (-8B) |
+| `src/prism.js` | remove one of `insidePath`'s two identical `strip(run)` subpaths | 13333 -> 13332 | Reverted (-1B, not worth the winding risk) |
+| `src/ui/controls.js` | box rect + key underline as one `Path2D`, one `outline`/`stroke` | 13333 -> 13318 | Retained (-15B) |
+| `src/asteroid.js` | replace child `triangles` with `props.mass` as pre-split flag + `lone` | 13318 -> 13341 | Reverted (+23B) |
+| `src/asteroid.js` | pass the parent-frame `triangles` unrebased (only its length is read) | 13318 -> 13313 | Retained (-5B) |
+| `src/ui/docked.js` | shared `rowText(text, x, y, color, align)` helper over 5 `renderText` sites | 13313 -> 13337 | Reverted (+24B) |
+| `src/ship.js` | shared `spawn(origin, segments, own, away)` for `detach`/`fracture` | 13313 -> 13298 | Retained (-15B) |
+| `src/modules/thruster-dual-md.js` | match the other three variants' key order | 13298 -> 13294 | Retained (-4B) |
+| `src/sound.js` | `for` loop over `getChannelData` instead of `.forEach` | 13294 -> 13304 | Reverted (+10B) |
+| `src/main.js` + `src/ship.js` | reuse `lamp.prism` for buried cargo instead of a second `traceBeam` | 13294 -> 13309 | Reverted (+15B) |
+
+Notes and invariants:
+
+- `runsOf`'s `step` was only ever tested for truthiness, and `subtract()`
+  returns an object, so a zero-length step was already truthy. `ray.out` exists
+  whenever `ray.hit` does, so `last?.out` is the same guard.
+- The duplicate `strip(run)` in `insidePath` changes winding relative to the
+  extended strip it overlaps, so its 1B is not worth a fill-rule regression that
+  automated tests cannot see. Left alone deliberately.
+- `Asteroid`'s constructor only reads `props.triangles[1]` for a pre-split
+  child, so the rebasing `.map(local)` was dead work. Replacing the collection
+  outright with `props.mass` as the pre-split indicator plus a `lone` flag, and
+  moving triangulation into the fresh branch, was a clear **+23B loss** — the
+  repeated literal branch compresses better than the restructure saves. Don't
+  retry.
+- `Ship.spawn` keeps mount detachment (destroyed/forget/fit) and hull grouping
+  (`outerEdges`, `centerOf`) in their callers; only the origin rotation,
+  inherited velocity, segment rebasing, `new Ship` and separating impulse moved.
+  `own` is a plain object, not a callback, since neither caller varies it per
+  segment. `detach` captures `partsOf(mount)` before `fit(0, mount)` clears the
+  mount, but the copies are made afterwards, which is safe: `fit` only mutates
+  the mount and the module link, never the segment objects.
+- The docked row-text helper is a measured loss; so is the thruster factory
+  (already recorded at +56B in audio-and-collision.md). Aligning the dual-MD
+  literal's key order with the other three thrusters is the only win there.
+- Reusing `lamp.prism` for the buried-cargo clip is a real runtime win (one
+  fewer 64-ray trace per frame) but needs `segment.prism` cleared to `0` when
+  the lamp is unhealthy/off, plus a guard at the `-1` layer, which costs more
+  than it saves. Revisit only if frame time, not size, is the goal.

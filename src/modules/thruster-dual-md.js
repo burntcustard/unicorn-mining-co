@@ -6,9 +6,9 @@ const offset = 10;
 
 export const thrusterDualMd = {
   health: 20,
-  disablePhysics: true,
   name: 'THRUSTERS *2',
   offset,
+  disablePhysics: true,
   model: [
     { points: flare(size), thrusterNozzleSide: -1 },
     { points: flare(size), thrusterNozzleSide: 1 },

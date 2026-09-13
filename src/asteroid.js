@@ -175,7 +175,9 @@ export class Asteroid extends Sprite {
         rotation: this.rotation,
         spin: this.spin,
         stroke: this.stroke,
-        triangles: triangles.map((triangle) => triangle.map(local)),
+        // Only how many there are is read back: the child's own sections are
+        // rebased and assigned below
+        triangles,
         x: this.x + offset.x,
         y: this.y + offset.y,
       });

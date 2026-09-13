@@ -12,14 +12,16 @@ export const renderUI = (game, stations) => {
 
   renderControls(game, playerShip);
 
+  game.ctx.globalAlpha = 1;
+
+  if (playerShip.dockedTo && playerShip.started) renderDocked(game, playerShip);
+
+  // Messages keep their own visibility and sit over the docked panel, so a
+  // reward announced by a sale is still read
   if (playerShip.noteFor) {
     renderText(game, playerShip.note,
       game.uiWidth / 2, game.uiHeight - 40, 1, 0);
   }
-
-  game.ctx.globalAlpha = 1;
-
-  if (playerShip.dockedTo && playerShip.started) renderDocked(game, playerShip);
 
   renderText(game, `$${playerShip.credits}`, 20, 20, 1);
   renderText(game, `${playerShip.cargo.length + playerShip.cargoBay.length}/${playerShip.cargoSpace}`,

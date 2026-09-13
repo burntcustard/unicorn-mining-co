@@ -245,6 +245,9 @@ export class Ship extends Sprite {
 
     if (craftModule) {
       craftModule.mount = mount;
+      // Taken once, so repainting the hull later does not appear to repaint a
+      // module that is already built in the colour it was fitted in
+      craftModule.shades ||= this.shades;
       this.segments.push(...craftModule.model
         .map((part) => makeSegment(this, craftModule, part, mount)));
     }
@@ -275,35 +278,50 @@ export class Ship extends Sprite {
     this.cockpit = hulls.find(({ core }) => core);
   }
 
-  // A broken module keeps its shape long enough to tumble away as debris,
-  // while the original mount is immediately free again for the dock menu.
-  detach(mount) {
-    const offset = rotatePoint(mount, this.rotation);
-    const position = this.position.add(offset);
+  /**
+   * Throw a group of this ship's segments off as a loose body of its own:
+   * rebased around `origin`, carrying the motion it had while attached, and
+   * shoved clear along `away`.
+   *
+   * @param {Object} origin - The fragment's own centre, in this ship's frame.
+   * @param {Object[]} segments - The segments it takes with it.
+   * @param {Object} own - What each copied segment overrides of its original.
+   * @param {Object} away - Which way it is pushed, in this ship's frame.
+   */
+  spawn(origin, segments, own, away = origin) {
+    const position = this.position.add(rotatePoint(origin, this.rotation));
     const velocity = this.velocity.add(this.momentum(position));
-    const segments = this.partsOf(mount).map((segment) => Object.assign(Object.create(segment), {
-      health: 1,
-      hitbox: 0,
-      mount: { health: 1, y: mount.y },
-      x: segment.x - mount.x,
-      y: segment.y - mount.y,
-    }));
-
-    // Destroyed instances leave the inventory rather than becoming cargo.
-    this.destroyed?.(mount.module);
-    forget(this.modules, mount.module);
-    this.fit(0, mount);
     const fragment = new Ship({
       dx: velocity.x,
       dy: velocity.y,
       rotation: this.rotation,
-      segments,
+      segments: segments.map((segment) => Object.assign(Object.create(segment), {
+        ...own,
+        hitbox: 0,
+        x: segment.x - origin.x,
+        y: segment.y - origin.y,
+      })),
       spin: this.spin,
       x: position.x,
       y: position.y,
     });
 
-    applyForce(fragment, offset.normalize().scale(30), Math.random() - 0.5);
+    applyForce(fragment, rotatePoint(away, this.rotation).normalize().scale(30),
+      Math.random() - 0.5);
+
+    return fragment;
+  }
+
+  // A broken module keeps its shape long enough to tumble away as debris,
+  // while the original mount is immediately free again for the dock menu.
+  detach(mount) {
+    const segments = this.partsOf(mount);
+
+    // Destroyed instances leave the inventory rather than becoming cargo.
+    this.destroyed?.(mount.module);
+    forget(this.modules, mount.module);
+    this.fit(0, mount);
+    this.spawn(mount, segments, { health: 1, mount: { health: 1, y: mount.y } });
   }
 
   hitboxes() {
@@ -377,35 +395,13 @@ export class Ship extends Sprite {
       group.includes(hulls.indexOf(this.cockpit)));
     const fragments = groups.filter((group) => group !== core)
       .map((group) => {
-        let segments = group.map((i) => hulls[i]);
+        const segments = group.map((i) => hulls[i]);
         const middle = centerOf(segments);
-        const offset = rotatePoint(middle, this.rotation);
-        const away = rotatePoint(middle.subtract(center), this.rotation);
-        const velocity = this.velocity.add(this.momentum({
-          x: this.x + offset.x,
-          y: this.y + offset.y,
-        }));
 
         outerEdges(segments.map(({ points }) => points));
-        segments = segments.map((segment) => Object.assign(Object.create(segment), {
-          ...(wreckage && { health: 1 }),
-          hitbox: 0,
-          x: segment.x - middle.x,
-          y: segment.y - middle.y,
-        }));
 
-        const fragment = new Ship({
-          dx: velocity.x,
-          dy: velocity.y,
-          rotation: this.rotation,
-          segments,
-          spin: this.spin,
-          x: this.x + offset.x,
-          y: this.y + offset.y,
-        });
-
-        applyForce(fragment, away.normalize().scale(30), Math.random() - 0.5);
-        return fragment;
+        return this.spawn(middle, segments, wreckage && { health: 1 },
+          middle.subtract(center));
       });
 
     // Broken pieces are made into temporary wreckage before the intact hull
