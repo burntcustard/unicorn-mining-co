@@ -19,7 +19,7 @@ export const shapePath = (points, unclosed) => {
   const path = new Path2D();
 
   points.forEach(([x, y]) => path.lineTo(x, y));
-  if (!unclosed) path.closePath();
+  unclosed || path.closePath();
 
   return path;
 };

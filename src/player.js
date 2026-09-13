@@ -80,7 +80,7 @@ export const stow = (craft, item) => craft.cargo.push(item);
 export const updatePlayer = (dt) => {
   playerShip.noteFor = Math.max(0, playerShip.noteFor - dt);
 
-  if (playerShip.position.length() >= 50000) unlockColor('YELLOW');
+  if (playerShip.position.length() >= 5e4) unlockColor('YELLOW');
 
   // A launching ship sees itself out of the bay
   const launching = flyOut(playerShip, dt);

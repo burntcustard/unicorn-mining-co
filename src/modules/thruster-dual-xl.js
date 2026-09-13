@@ -10,8 +10,8 @@ export const thrusterDualXl = {
   offset,
   disablePhysics: true,
   model: [
-    { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
-    { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
+    { points: flare(size), thrusterNozzleSide: -1 },
+    { points: flare(size), thrusterNozzleSide: 1 },
   ],
   price: 800,
   forwardThrust: 22,

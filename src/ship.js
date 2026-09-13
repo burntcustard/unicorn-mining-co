@@ -466,6 +466,7 @@ export class Ship extends Sprite {
     }
 
     this.segments.forEach((segment) => {
+      if (this.dockedTo) segment.active = 0;
       const target = active(healthOf(segment)) ? segment.active : 0;
 
       segment.activationProgress = approach(segment.activationProgress, target, segment.rate * dt);
@@ -480,6 +481,7 @@ export class Ship extends Sprite {
     if (this.dockedTo) {
       this.position.set(this.dockedTo.position);
       this.velocity.set({ x: 0, y: 0 });
+      this.spin = 0;
     }
 
     if (this.cockpit) {

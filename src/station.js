@@ -68,7 +68,7 @@ const side = [
   [[inner, -innerCorner], [back, -cut], [back, cut], [inner, innerCorner]],
 ];
 
-const angles = Array.from({ length: 5 }, (_, i) => i * Math.PI * 2 / 5);
+const angles = Array.from({ length: 5 }, (_, i) => i * Math.PI * 0.4); // (2/5 of a full circle)
 
 // The core is the ring of inner corners that every side shares
 const core = angles.flatMap((angle) => rotatePoints([[inner, -innerCorner]], angle));

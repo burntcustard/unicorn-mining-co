@@ -91,7 +91,7 @@ export const generateWorld = (seed) => {
     radius: worldRadius,
   }, [], random);
 
-  const clueFields = fields.filter(({ resource }) => resource === 1 || resource === 2);
+  const clueFields = fields.filter(({ resource }) => resource < 3);
 
   const wreckFields = wrecks.map((wreck) => {
     const position = Vector(wreck.x, wreck.y);

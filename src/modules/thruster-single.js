@@ -5,7 +5,7 @@ export const thrusterSingle = {
   name: 'THRUSTERS *1 XL',
   disablePhysics: true,
   model: [
-    { points: (segment) => flare(segment, 7), thrusterNozzleSide: 0 },
+    { points: flare(7), thrusterNozzleSide: 0 },
   ],
   price: 200,
   forwardThrust: 22,

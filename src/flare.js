@@ -7,7 +7,7 @@
  *   up or eases back with the throttle.
  * @param {Number} height - Half height of the flare.
  */
-export const flare = ({ activationProgress }, height) => (activationProgress ?
+export const flare = (height) => ({ activationProgress }) => (activationProgress ?
     [
       [0, -height],
       [-height * 2.5 * activationProgress, 0],

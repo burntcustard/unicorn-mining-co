@@ -22,10 +22,6 @@ export const lightAngle = -Math.PI / 4;
 // stepping from one to the next
 const spread = 0.2;
 
-// How much of that range gets used at all. Below one, pieces keep to the middle
-// of it, so no two of them are wildly far apart
-const contrast = 0.8;
-
 // Craft are painted to be told apart at a glance, so the light only tints what
 // they are already wearing rather than replacing it. The lit side is lifted
 // towards white and then given a push towards the colour's own light, since
@@ -39,11 +35,6 @@ const shadeTint = 0.2;
 // blur is not put through the transform the way a path is, so this does not
 // grow and shrink with the view
 const glowBlur = 40;
-
-// How much of its length a beam holds full strength for, and how hard it lifts
-// whatever it falls on
-const beamCore = 0.15;
-const beamStrength = 0.5;
 
 // Palette colours are one hex digit a channel. Spreading them over a whole
 // byte before blending is what lets two pale colours meet somewhere other than
@@ -132,7 +123,7 @@ export const litFill = (ctx, shape, light, shade) => {
   const [middleX, middleY] = shape.middle;
   const towardsX = Math.cos(light) * shape.reach;
   const towardsY = Math.sin(light) * shape.reach;
-  const along = 0.5 - Math.cos(shape.facing - light) * contrast / 2;
+  const along = 0.5 - Math.cos(shape.facing - light) * 0.4;
   const gradient = ctx.createLinearGradient(
     middleX + towardsX,
     middleY + towardsY,
@@ -238,14 +229,14 @@ export const drawBeam = (ctx, path, color, reach, activationProgress, lit) => {
   const gradient = ctx.createLinearGradient(0, 0, reach, 0);
 
   gradient.addColorStop(0, color);
-  gradient.addColorStop(beamCore, `${color}c`);
+  gradient.addColorStop(0.15, `${color}c`);
   gradient.addColorStop(1, '#0000');
 
   ctx.save();
   // The cone says how wide the beam is and the trace says how far it got, so
   // one is filled through the other
   ctx.clip(lit);
-  ctx.globalAlpha = activationProgress * beamStrength;
+  ctx.globalAlpha = activationProgress * 0.5;
 
   // Cast off the beam rather than laid down under it, so it gives out along
   // with the light. A glow of its own has no idea how far down the beam it is

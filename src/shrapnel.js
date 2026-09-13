@@ -52,10 +52,9 @@ export const renderSparks = (ctx) => {
   ctx.lineWidth = objectLineWidth;
 
   sparks.forEach((spark) => {
-    const pace = Math.hypot(spark.dx, spark.dy);
-    // Drawn back along the way it is going, so it stretches into a streak
-    const tailX = spark.x - (spark.dx / pace) * length;
-    const tailY = spark.y - (spark.dy / pace) * length;
+    const scale = length / Math.hypot(spark.dx, spark.dy);
+    const tailX = spark.x - spark.dx * scale;
+    const tailY = spark.y - spark.dy * scale;
 
     ctx.strokeStyle = spark.color;
     ctx.beginPath();

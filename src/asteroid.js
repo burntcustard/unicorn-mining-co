@@ -124,8 +124,10 @@ export class Asteroid extends Sprite {
     // cuts. Ordinary faces quarter themselves; a star's four faces stay whole.
     if (!props.triangles) {
       const sectionsPerFace = inset ? 1 : 4;
-      const health = this.health / triangles.length / sectionsPerFace;
-      const leaves = inset ? triangles.map((triangle) => [triangle]) : triangles.map(splitTriangle);
+      const divisor = triangles.length * sectionsPerFace;
+      const health = this.health / divisor;
+      const mass = this.mass / divisor;
+      const leaves = triangles.map(inset ? (triangle) => [triangle] : splitTriangle);
 
       // Every innermost leaf comes first, so centre-only cargo can find the middle.
       this.sections = Array.from({ length: sectionsPerFace }, (_, corner) =>
@@ -133,7 +135,7 @@ export class Asteroid extends Sprite {
           contents: [],
           health,
           maxHealth: health,
-          mass: this.mass / triangles.length / sectionsPerFace,
+          mass,
           outline: leaf[corner],
           asteroid: this,
         }))).flat();
@@ -157,7 +159,7 @@ export class Asteroid extends Sprite {
       const outline = outlineFrom(triangles);
       const center = measure(outline);
       const offset = rotatePoint(center, this.rotation);
-      const local = ([x, y]) => [(x - center.x), (y - center.y)];
+      const local = ([x, y]) => [x - center.x, y - center.y];
 
       // Rebase around the child's own centroid without moving any world point
       const child = new Asteroid({

@@ -29,7 +29,7 @@
 [x] Change unlocking yellow from destroying a horn to reaching the map edge.
 [ ] Add slightly more gems per wreck maybe?
 [ ] Remove controls from bottom right when docked?
-[ ] Turn modules off while docked again.
+[x] Turn modules off while docked again.
 [ ] Match hit sound to when damage is actually taken?
 [ ] Write 'ESC: LAUNCH' or 'ARROWS TO FLY' or similar at game start.
 [ ] Add sound: Asteroid crack.

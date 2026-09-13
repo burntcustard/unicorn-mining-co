@@ -138,12 +138,9 @@ if (benchmarkFlag('field')) {
 
 // @ifdef BENCHMARK
 window['testSections'] = () => testSections(
-  game.sprites.filter(({ scenery }) => scenery), playerShip, lamp);
+  game.sprites.filter(({ scenery }) => scenery), playerShip);
 // @endif
 
-// The player's lamp, kept to hand so what it is picking out can be worked out
-// once a frame rather than hunted for in the segments every time
-const lamp = playerShip.segments.find((segment) => segment.module.oneOf === floodlight);
 const activeRadius = 2000;
 const nearbyRadius = 100;
 let activeSprites = [];
@@ -213,7 +210,9 @@ GameLoop({
         // @ifdef DEBUG
         if (lights) {
           // @endif
-          if (lamp.activationProgress > 0.5) {
+          const lamp = playerShip.segments.find((segment) => segment.module.beam);
+
+          if (lamp?.activationProgress > 0.5) {
             const beam = traceBeam(playerShip, lamp, activeSprites);
 
             ctx.save();

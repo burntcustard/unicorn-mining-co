@@ -14,14 +14,13 @@
  *   where it would otherwise sit, as a fraction of its radius.
  * @returns {Number[][]}
  */
-export const createPolygon = ({ points, radius, radiusEven = radius, variance = 0 }) => {
-  return Array.from({ length: points }, (_, i) => {
+export const createPolygon = ({ points, radius, radiusEven = radius, variance = 0 }) =>
+  Array.from({ length: points }, (_, i) => {
     const angle = i / points * Math.PI * 2;
     const wander = 1 + (Math.random() - 0.5) * variance;
     const reach = (i % 2 ? radius : radiusEven) * wander;
 
     return [Math.cos(angle) * reach, Math.sin(angle) * reach];
   });
-};
 
 export const radiusOf = (points) => Math.max(...points.map(([x, y]) => Math.hypot(x, y)));

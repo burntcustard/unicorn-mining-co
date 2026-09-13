@@ -6,7 +6,7 @@ import { colors } from './colors';
 import { game } from './game';
 import { traceBeam } from './prism';
 
-export const testSections = (scenery, playerShip, lamp) => {
+export const testSections = (scenery, playerShip, lamp = playerShip.segments.find(({ module }) => module.beam)) => {
   const five = scenery.find((asteroid) =>
     asteroid.outline.length === 5 && asteroid.health < 240);
   const triangle = new Asteroid({ points: 3, radius: 90 });

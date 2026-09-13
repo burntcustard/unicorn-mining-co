@@ -10,8 +10,8 @@ export const thrusterDualMd = {
   name: 'THRUSTERS *2',
   offset,
   model: [
-    { points: (segment) => flare(segment, size), thrusterNozzleSide: -1 },
-    { points: (segment) => flare(segment, size), thrusterNozzleSide: 1 },
+    { points: flare(size), thrusterNozzleSide: -1 },
+    { points: flare(size), thrusterNozzleSide: 1 },
   ],
   price: 350,
   forwardThrust: 16,
