@@ -1,11 +1,11 @@
 import { applyForce, pointBetween, rotatePoint } from './vector';
 import { createPolygon, radiusOf } from './polygon';
 import { objectLineWidth, shapePath } from './drawing';
-import { playSound, soundEffects } from './sound';
 import { Sprite } from './sprite';
 import { colors } from './colors';
 import { forget } from './game';
 import { outerEdges } from './collisions';
+import { playSound } from './sound';
 import { rotateAround } from './local-movement';
 
 // An asteroid gives a little, but nothing like a shield does
@@ -210,7 +210,7 @@ export class Asteroid extends Sprite {
     children.forEach((child) => applyForce(child,
       child.position.subtract(this.position).normalize().scale(force), spin));
 
-    playSound(soundEffects.asteroidBreak);
+    playSound(4);
 
     return [children, []];
   }

@@ -1,6 +1,6 @@
 import { camera, renderDeadzone } from './camera';
 import { glows, lights, toggleGlows, toggleLights } from './lighting';
-import { playSound, soundEffects, testTone } from './sound';
+import { playSound, testTone } from './sound';
 import { Ship } from './ship';
 import { bindKeys } from './keyboard';
 import { colors } from './colors';
@@ -51,10 +51,10 @@ export const bindDebug = (game) => {
   bindKeys('8', toggleGlows);
   bindKeys('9', () => game.physicsOn = !game.physicsOn);
   bindKeys('0', testTone);
-  bindKeys('c', () => playSound(soundEffects.light));
-  bindKeys('p', () => playSound(soundEffects.pickup));
-  bindKeys('m', () => playSound(soundEffects.shieldOn));
-  bindKeys('n', () => playSound(soundEffects.shieldOff));
+  bindKeys('c', () => playSound(9));
+  bindKeys('p', () => playSound(2));
+  bindKeys('m', () => playSound(6));
+  bindKeys('n', () => playSound(7));
 };
 
 export const renderDebug = (game, sprites, nearbyRadius) => {

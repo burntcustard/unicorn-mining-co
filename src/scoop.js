@@ -1,6 +1,6 @@
-import { playSound, soundEffects } from './sound';
 import { playerShip, roomFor, say, stow, unlockColor } from './player';
 import { game } from './game';
+import { playSound } from './sound';
 
 /**
  * Taking cargo aboard, and nothing else. Shoving it about on the way in is
@@ -29,7 +29,7 @@ export const scoop = (contacts) => {
     if (item.message) {
       // Read on the way in and thrown away after, so a note never costs a
       // hold anything to carry
-      if (!item.unlock || !unlockColor(item.unlock)) say(item.message);
+      if (!item.unlock || !unlockColor(item.unlock, 'CARGO FOUND')) say(item.message);
     } else {
       if (!roomFor(craft)) return;
 
@@ -38,6 +38,6 @@ export const scoop = (contacts) => {
     }
 
     item.remove();
-    if (craft === playerShip) playSound(soundEffects.pickup);
+    if (craft === playerShip) playSound(2);
   });
 };

@@ -1,9 +1,9 @@
 import { colorUnlocked, roomFor, say, unlockColor } from '../player';
-import { playSound, soundEffects } from '../sound';
 import { colors } from '../colors';
 import { instanceOf } from '../modules';
 import { launch } from '../docking';
 import { outline } from '../outline';
+import { playSound } from '../sound';
 import { renderText } from '../text';
 
 /**
@@ -116,7 +116,7 @@ const selectionOf = (ship) => {
  * @param {Boolean} sub - Set by the alternate controls, which stay on one row.
  */
 export const moveSelection = (delta, ship, sub) => {
-  playSound(soundEffects.ui);
+  playSound(8);
   const { menu, currentModule, actions, swatches, disabledAction } = selectionOf(ship);
 
   if (!stage) {
@@ -162,7 +162,7 @@ export const moveSubSelection = (delta, ship) => moveSelection(delta, ship, 1);
  * @returns {Boolean} handled - Whether there was a column to back out of.
  */
 export const back = (ship) => {
-  playSound(soundEffects.ui);
+  playSound(8);
 
   if (stage) {
     // The hull has nothing to pick out, so its actions are the whole submenu
@@ -179,7 +179,7 @@ export const back = (ship) => {
  * @param {Object} ship
  */
 export const confirmSelection = (ship) => {
-  playSound(soundEffects.ui);
+  playSound(8);
   const { mount, menu, currentModule, actions, swatches, hullMenu, cargoMenu, repairCost } = selectionOf(ship);
 
   if (stage < 2) {
@@ -225,7 +225,7 @@ export const confirmSelection = (ship) => {
     ship.modules = ship.modules.filter((module) => module !== item);
     ship.cargo = ship.cargo.filter((cargoItem) => cargoItem.item !== item);
     ship.credits += item.price * count;
-    if (item.name === 'DIAMOND') unlockColor('CYAN');
+    if (item.name === 'DIAMOND') unlockColor('CYAN', 'DIAMOND SOLD');
     moduleOption = Math.min(moduleOption, (cargoMenu ? cargoOf(ship) : fitsOf(ship, mount)).length - 1);
 
     // A sale returns to the list, leaving its replacement row focused rather

@@ -35,3 +35,5 @@
 [x] Add sound: Asteroid crack.
 [x] Change sound: Hatch open and close (too similar to hit sound right now).
 [x] Make gold asteroid fields have fewer, larger asteroids in, and fewer items.
+[ ] Show money spent or gained in top left.
+[x] Color unlock explanation messages.

@@ -14,7 +14,8 @@ export const replacePostTerser = (source) => {
       node.key.type === 'Identifier' && node.key.name !== 'length') {
       // Keep length eligible for Roadroller's five identifier abbreviations.
       // Quoting it displaces length with var and makes this bundle larger.
-      edits.push([node.key.start, node.key.end, JSON.stringify(node.key.name)]);
+      // Identifier names cannot contain a single quote, so this is safe here.
+      edits.push([node.key.start, node.key.end, `'${node.key.name}'`]);
     }
 
     if (node.type === 'ArrowFunctionExpression' && node.params.length === 1 &&

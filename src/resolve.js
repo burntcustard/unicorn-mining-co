@@ -1,5 +1,5 @@
 import { damage, healthOf } from './ship';
-import { playSound, soundEffects } from './sound';
+import { playSound } from './sound';
 import { playerShip } from './player';
 
 /**
@@ -69,12 +69,12 @@ export const resolve = (contacts) => contacts.forEach(({ collider, depth, other,
     const playerCollider = a === playerShip ? collider : b === playerShip ? other : 0;
     const playerHealth = playerCollider && healthOf(playerCollider.segment);
 
-    if (playerCollider && playerCollider.segment.covers && -closing >= deadSpeed) playSound(soundEffects.shieldBounce);
+    if (playerCollider && playerCollider.segment.covers && -closing >= deadSpeed) playSound(5);
 
     if ((amount = Math.round((force - 400) / 1200))) {
       damage(collider, amount, point);
       damage(other, amount, point);
-      if (playerCollider && healthOf(playerCollider.segment) < playerHealth) playSound(soundEffects.crash);
+      if (playerCollider && healthOf(playerCollider.segment) < playerHealth) playSound(3);
     }
 
     if (-closing >= deadSpeed) {

@@ -1,6 +1,6 @@
-import { playSound, soundEffects } from './sound';
 import { Asteroid } from './asteroid';
 import { damage } from './ship';
+import { playSound } from './sound';
 
 /**
  * Damage from a mining horn, and nothing about finding what it is touching:
@@ -72,7 +72,7 @@ const breakAsteroid = (target, destroyed) => {
   if (grinder) grinder.velocity.set(asteroid.velocity);
 
   if (destroyed && !target.asteroid && !target.sections) {
-    playSound(soundEffects.asteroidBreak);
+    playSound(4);
   }
 
   const [, loose] = target.asteroid ? asteroid.detach(target, destroyed) : asteroid.split();

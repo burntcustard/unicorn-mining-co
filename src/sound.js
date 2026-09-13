@@ -1,6 +1,8 @@
 // The drill and engine use looped audio buffers with smooth parameter ramps.
 let audio = 0;
 const loopBuffers = [];
+const effectBuffers = [];
+const effectNextPlay = [];
 
 // Must run synchronously inside a real user gesture (keydown/click) to count
 // as one for autoplay purposes - a rAF-driven call a frame later is too late
@@ -91,37 +93,38 @@ const soundBuffer = (length, sample) => {
 
 // Volume, frequency, attack, decay, optional noise cutoff, end frequency.
 // Tonal effects are sine waves; a cutoff selects filtered noise instead.
-export const soundEffects = {
-  hatchOpen: [2, 0, 0.01, 0.1, 1000],
-  hatchClose: [4, 0, 0.01, 0.1, 200],
-  pickup: [0.1, 660, 0.01, 0.1, 0, 1000],
-  crash: [30, 0, 0.05, 0.5, 70],
-  asteroidBreak: [8, 75, 0.01, 0.2, 0, 18],
-  shieldBounce: [1, 190, 0.01, 0.3, 0, 200],
-  shieldOn: [1, 120, 0.02, 0.3, 0, 480],
-  shieldOff: [0.2, 480, 0.02, 0.5, 0, 100],
-  ui: [0.2, 800, 0.01, 0.1],
-  light: [0.1, 1200, 0.01, 0.05],
-};
+const effectData = (
+  '2,0,0.01,0.1,1000,0,' +     // hatchOpen
+  '4,0,0.01,0.1,200,0,' +      // hatchClose
+  '0.1,660,0.01,0.1,0,1000,' + // pickup
+  '30,0,0.05,0.5,70,0,' +      // crash
+  '8,75,0.01,0.2,0,18,' +      // asteroidBreak
+  '1,190,0.01,0.3,0,200,' +    // shieldBounce
+  '1,120,0.02,0.3,0,480,' +    // shieldOn
+  '0.2,480,0.01,0.5,0,100,' +  // shieldOff
+  '0.2,800,0.01,0.1,0,800,' +  // ui
+  '0.1,1200,0.01,0.05,0,1200'  // light
+).split(',').map(Number);
 
 export const playSound = (effect) => {
   // A real key gesture unlocks audio. Drop effects before that first gesture.
   if (!audio || audio.state !== 'running') return;
   const time = audio.currentTime;
 
-  if (time < effect.nextPlay) return;
-  effect.nextPlay = time + 0.1;
+  if (time < effectNextPlay[effect]) return;
+  effectNextPlay[effect] = time + 0.1;
 
   // Render each complete effect once. Rapid playback then reuses one buffer.
-  if (!effect.buffer) {
-    const [volume, frequency, attack, decay, cutoff, endFrequency = frequency] = effect;
+  if (!effectBuffers[effect]) {
+    const [volume, frequency, attack, decay, cutoff, endFrequency = frequency] =
+      effectData.slice(effect * 6, effect * 6 + 6);
     const sampleRate = 44100;
     const length = (attack + decay) * sampleRate | 0;
 
     let filtered = 0;
     let t = 0;
 
-    effect.buffer = soundBuffer(length, (i) => {
+    effectBuffers[effect] = soundBuffer(length, (i) => {
       t += (frequency + (endFrequency - frequency) * i / length) / sampleRate;
       const wave = cutoff ? Math.random() * 2 - 1 : Math.sin(t * Math.PI * 2);
       const elapsed = i / sampleRate;
@@ -134,7 +137,7 @@ export const playSound = (effect) => {
 
   const source = audio.createBufferSource();
 
-  source.buffer = effect.buffer;
+  source.buffer = effectBuffers[effect];
   source.connect(audio.destination);
   source.start();
 };

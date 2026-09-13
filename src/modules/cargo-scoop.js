@@ -1,4 +1,4 @@
-import { playSound, soundEffects } from '../sound';
+import { playSound } from '../sound';
 
 // Cargo scoop
 // A pair of doors hinged at their outer ends, lying flat inside the hull and
@@ -72,7 +72,7 @@ export const cargoScoop = {
     // invisible cargo throat shares the animation but must not sound twice.
     if (!segment.catches && segment.mount.module === segment.module && segment.mount.health > 0 &&
       segment.lastActive !== undefined && segment.lastActive !== segment.active) {
-      playSound(segment.active ? soundEffects.hatchOpen : soundEffects.hatchClose);
+      playSound(segment.active ? 0 : 1);
     }
 
     segment.lastActive = segment.active;

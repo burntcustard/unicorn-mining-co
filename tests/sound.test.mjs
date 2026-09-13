@@ -8,7 +8,7 @@ import { viteJs13kPre } from '../plugins/vite-js13k.js';
 const scenario = `
 import { TestAudioContext } from '${process.cwd()}/tests/audio-context.mjs';
 import assert from 'node:assert/strict';
-import { playSound, ramp, soundEffects, tone, updateThrusterSound } from '${process.cwd()}/src/sound.js';
+import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/sound.js';
 import { horn } from '${process.cwd()}/src/modules/horn.js';
 
 assert.equal(TestAudioContext.instances.length, 0, 'import does not initialize audio');
@@ -25,7 +25,7 @@ assert.equal(TestAudioContext.instances[0].sources.length, 1, 'the chopped tone 
 ramp(beep.gain, .5);
 assert.equal(beep.gain.value, .5, 'ramping reaches the level asked for');
 
-playSound(soundEffects.pickup);
+playSound(2);
 assert.equal(TestAudioContext.instances[0].sources.length, 2, 'a preset creates one buffer source');
 
 const segment = { phase: 0, active: 0 };
@@ -97,7 +97,7 @@ assert.equal(context.sources[sourceCount + 1].buffer, engine.buffer, 'restarts r
 updateThrusterSound(0);
 
 // Every effect is audible, finite, filled before assignment, cached and debounced.
-for (const effect of Object.values(soundEffects)) {
+for (const effect of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
   context.currentTime += 1;
   const count = context.sources.length;
   playSound(effect);

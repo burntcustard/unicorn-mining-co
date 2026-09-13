@@ -109,11 +109,11 @@ moveSubSelection(1, ship); confirm();
 assert(bought.shades === colors.white && first.shades === colors.red, 'next unlocked paint is white');
 
 // The ownership checks below need these paints earned before selecting them.
-unlockColor('RED');
-assert(playerShip.note === 'RED UNLOCKED', 'red reward message');
-unlockColor('ORANGE');
+unlockColor('RED', 'DAMAGED');
+assert(playerShip.note === 'DAMAGED - RED UNLOCKED', 'red reward message');
+unlockColor('ORANGE', 'CARGO FOUND');
 assert(colorUnlocked(colors.red) && colorUnlocked(colors.orange), 'earned paints become available');
-assert(playerShip.note === 'ORANGE UNLOCKED', 'orange reward message');
+assert(playerShip.note === 'CARGO FOUND - ORANGE UNLOCKED', 'orange reward message');
 moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.red && first.shades === colors.red, 'paint purchased instance');
 moveSubSelection(1, ship); confirm();
@@ -164,7 +164,7 @@ assert(!colorUnlocked(colors.cyan), 'cyan is locked before selling a diamond');
 confirm(); confirm();
 assert(!ship.cargo.length && ship.credits === beforeSale + cargoScoop.price + 25, 'last cargo sale');
 assert(selectionSnapshot()[1] === 1, 'empty cargo returns to list');
-assert(colorUnlocked(colors.cyan) && playerShip.note === 'CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
+assert(colorUnlocked(colors.cyan) && playerShip.note === 'DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
 playerShip.note = 'UNCHANGED';
 unlockColor('CYAN');
 assert(playerShip.note === 'UNCHANGED', 'cyan only announces once');
@@ -296,13 +296,13 @@ playerShip.x = 50000;
 playerShip.y = 0;
 updatePlayer(0);
 assert(colorUnlocked(colors.yellow), 'reaching the map edge unlocks YELLOW');
-assert(playerShip.note === 'YELLOW UNLOCKED', 'YELLOW reward message');
+assert(playerShip.note === 'EDGE REACHED - YELLOW UNLOCKED', 'YELLOW reward message');
 
 for (const [name, shades] of [['GREEN', colors.green]]) {
   assert(!colorUnlocked(shades), name + ' starts locked');
-  unlockColor(name);
+  unlockColor(name, '3 STATION VISITS');
   assert(colorUnlocked(shades), name + ' unlocks its palette');
-  assert(playerShip.note === name + ' UNLOCKED', name + ' reward message');
+  assert(playerShip.note === '3 STATION VISITS - GREEN UNLOCKED', name + ' reward message');
   playerShip.note = 'UNCHANGED';
   unlockColor(name);
   assert(playerShip.note === 'UNCHANGED', name + ' only announces once');

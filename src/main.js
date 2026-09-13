@@ -32,7 +32,7 @@ import { generateWorld } from './world';
 // eslint-disable-next-line sort-imports
 import { grind, mine } from './mining';
 // import { Road } from './road';
-import { playSound, soundEffects } from './sound';
+import { playSound } from './sound';
 import { renderBackground } from './background';
 import { renderUI } from './ui';
 import { resolve } from './resolve';
@@ -158,8 +158,8 @@ initKeys();
 
     playerShip.toggle(module);
     if (!segment || playerShip.dead) return;
-    if (module === shield) playSound(segment.active ? soundEffects.shieldOn : soundEffects.shieldOff);
-    if (module === floodlight) playSound(soundEffects.light);
+    if (module === shield) playSound(segment.active ? 6 : 7);
+    if (module === floodlight) playSound(9);
   }));
 bindStart(() => !playerShip.started && launch(playerShip));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));

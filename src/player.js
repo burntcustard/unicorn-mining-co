@@ -14,6 +14,7 @@ export const playerShip = new Ship({
   // screen. Anything can set this, so a station can talk as well as a message
   note: '',
   noteFor: 0,
+  hudAlpha: 1,
 });
 
 // @ifdef DEBUG
@@ -27,25 +28,25 @@ const visitedStations = new Set();
 
 export const colorUnlocked = (shades) => unlockedPaints.includes(shades);
 
-export const unlockColor = (color) => {
+export const unlockColor = (color, reason) => {
   // Reward names follow the first five palettes in colors; strings survive
   // property mangling and also supply the exact name shown in the message.
   const shades = Object.values(colors)['RED ORANGE YELLOW GREEN CYAN'.split(' ').indexOf(color)];
 
   if (!colorUnlocked(shades)) {
     unlockedPaints.push(shades);
-    say(`${color} UNLOCKED`);
+    say(`${reason} - ${color} UNLOCKED`);
     return true;
   }
 };
 
 playerShip.destroyed = () => {
-  unlockColor('RED');
+  unlockColor('RED', 'DAMAGED');
 };
 
 playerShip.docked = (station) => {
   visitedStations.add(station);
-  if (visitedStations.size > 2) unlockColor('GREEN');
+  if (visitedStations.size > 2) unlockColor('GREEN', '3 STATION VISITS');
 };
 
 // Keep acquisition order separate from where each module is fitted.
@@ -79,8 +80,10 @@ export const stow = (craft, item) => craft.cargo.push(item);
  */
 export const updatePlayer = (dt) => {
   playerShip.noteFor = Math.max(0, playerShip.noteFor - dt);
+  playerShip.hudAlpha = Math.max(0, Math.min(1,
+    playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt));
 
-  if (playerShip.position.length() >= 5e4) unlockColor('YELLOW');
+  if (playerShip.position.length() >= 5e4) unlockColor('YELLOW', 'EDGE REACHED');
 
   // A launching ship sees itself out of the bay
   const launching = flyOut(playerShip, dt);

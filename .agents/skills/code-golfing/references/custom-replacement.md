@@ -25,6 +25,17 @@ joining, bracket access, leading decimal zeros, return blocks, and top-level
 var-to-let/const conversions lost. These post-mangling experiments are distinct
 from the earlier pre-Terser trials below.
 
+Follow-up on the current bundle (2026-09-13): changing the quoted property-key
+spelling from double quotes (`"key"`) to single quotes (`'key'`) saved 1B
+(`13354 -> 13353B`) after advzip. Identifier property names cannot contain a
+single quote, so this remains syntax-equivalent. Quoting `length` as well was
+retested and cost 56B (`13354 -> 13410B`); keep it bare for Roadroller's
+abbreviation dictionary. Converting integer literals to scientific notation
+was also retested against the current minified output: a broad rule for all
+shorter spellings cost 9B (`13353 -> 13362B`), while targeting only `1000`,
+`10000`, and `50000` cost 23B (`13353 -> 13376B`). Keep the existing exponent
+expansion rule; shorter numeric source is not a ZIP win here.
+
 Whole-game normalized AST equivalence, 23 differential runtime fixtures,
 idempotence, the packed decoder round trip, real fast/full builds and lint pass.
 No source-level sound expressions or timing changed. Final dist uses build:full.
