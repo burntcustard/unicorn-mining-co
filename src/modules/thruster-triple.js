@@ -6,9 +6,9 @@ export const thrusterTriple = {
   offset: 14,
   disablePhysics: true,
   model: [
-    { points: (segment) => flare(segment, 2), thrusterNozzleSide: -1 },
+    { points: (segment) => flare(segment, 3), thrusterNozzleSide: -1 },
     { points: (segment) => flare(segment, 5), thrusterNozzleSide: 0 },
-    { points: (segment) => flare(segment, 2), thrusterNozzleSide: 1 },
+    { points: (segment) => flare(segment, 3), thrusterNozzleSide: 1 },
   ],
   price: 1800,
   forwardThrust: 28,

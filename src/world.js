@@ -31,8 +31,8 @@ const makeAsteroids = (field, worldObjects, random) => {
     let contents = [];
 
     // A rich field is packed with its resource, while a mixed field is mostly bare rock
-    if (random() < (mixed ? 0.3 : gold ? 0.4 : capacity / (capacity + 1))) {
-      const itemCount = spikes ? 1 : 1 + Math.floor(random() * (gold ? 2 : capacity));
+    if (random() < (mixed ? 0.3 : capacity / (capacity + 1))) {
+      const itemCount = spikes ? 1 : 1 + Math.floor(random() * capacity);
 
       contents = Array.from({ length: itemCount },
         () => mixed ? randomResource(random) : field.resource);
