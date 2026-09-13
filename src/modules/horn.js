@@ -18,8 +18,8 @@ const fluteCount = hornLength / fluteSpacing + 2;
 // How many times a second the horn turns all the way around
 const spinRate = 1.5;
 
-const idleLevel = 0.4;
-const bitingLevel = 1;
+const idleLevel = 4;
+const bitingLevel = 8;
 
 // Negative bounciness grips rather than bounces while the horn spins, added to
 // whatever the other surface offers rather than overriding it. Small enough

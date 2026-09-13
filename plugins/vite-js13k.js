@@ -43,6 +43,7 @@ const customReplacement = (src) => src
     // 'offset', // +19B
     'order', // -33B
     'outline', // -51B
+    'pitch',
     'points', // -35B
     'position', // -13B
     'radius', // -28B

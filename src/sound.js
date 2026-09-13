@@ -16,7 +16,7 @@ export const unlockAudio = () => {
  *
  * @returns {number} The audio-clock time the fade is effectively complete.
  */
-export const ramp = (param, value, duration = 1) => {
+export const ramp = (param, value, duration = 1.2) => {
   const time = audio.currentTime + 0.01;
 
   param.setTargetAtTime(value, time, duration / 5);
@@ -92,15 +92,15 @@ const soundBuffer = (length, sample) => {
 // Volume, frequency, attack, decay, optional noise cutoff, end frequency.
 // Tonal effects are sine waves; a cutoff selects filtered noise instead.
 export const soundEffects = {
-  hatchOpen: [0.2, 0, 0.01, 0.1, 1000],
-  hatchClose: [0.4, 0, 0.01, 0.1, 200],
-  pickup: [0.01, 660, 0.01, 0.1, 0, 1000],
-  crash: [3, 0, 0.05, 0.5, 70],
-  shieldBounce: [0.1, 190, 0.01, 0.3, 0, 200],
-  shieldOn: [0.1, 120, 0.02, 0.3, 0, 480],
-  shieldOff: [0.03, 480, 0.02, 0.5, 0, 100],
-  ui: [0.03, 800, 0.01, 0.1],
-  light: [0.01, 1200, 0.01, 0.05],
+  hatchOpen: [2, 0, 0.01, 0.1, 1000],
+  hatchClose: [4, 0, 0.01, 0.1, 200],
+  pickup: [0.1, 660, 0.01, 0.1, 0, 1000],
+  crash: [30, 0, 0.05, 0.5, 70],
+  shieldBounce: [1, 190, 0.01, 0.3, 0, 200],
+  shieldOn: [1, 120, 0.02, 0.3, 0, 480],
+  shieldOff: [0.2, 480, 0.02, 0.5, 0, 100],
+  ui: [0.2, 800, 0.01, 0.1],
+  light: [0.1, 1200, 0.01, 0.05],
 };
 
 export const playSound = (effect) => {
@@ -138,26 +138,18 @@ export const playSound = (effect) => {
   source.start();
 };
 
-export const continuousSound = (sound, level, playbackRate = level ? (level > 0.5 ? 0.9 : 0.95) : 0.4, engine = 0) => {
-  if (!sound && !level) return sound;
+export const continuousSound = (sound, level, playbackRate = level ? 1 - level / 80 : 0.4, engine = 0) => {
+  if (!sound && !level) return;
   sound ||= tone(engine);
 
-  const duration = engine ? 1.2 : 1;
-
-  if (sound.targetRate !== playbackRate) {
-    ramp(sound.playbackRate, playbackRate, duration);
-    sound.targetRate = playbackRate;
-  }
+  if (sound.pitch !== playbackRate) ramp(sound.playbackRate, sound.pitch = playbackRate);
 
   if (level === sound.level) return sound;
 
-  const time = ramp(sound.gain, level, duration);
+  const time = ramp(sound.gain, level);
   sound.level = level;
 
-  if (!level) {
-    sound.stop(time);
-    return 0;
-  }
+  if (!level) return sound.stop(time);
 
   return sound;
 };
@@ -167,12 +159,12 @@ let thrusterSound;
 // One engine voice for the whole ship, independent of its nozzle count.
 export const updateThrusterSound = (power, load = 0) => {
   if (!audio || audio.state !== 'running') return;
-  const revs = Math.max(0, Math.min(1, load));
+  const revs = load * 1.2;
 
   thrusterSound = continuousSound(
     thrusterSound,
-    power * (0.2 + revs) * 0.12,
-    0.7 + revs * 1.2,
+    power * (0.24 + revs),
+    0.7 + revs,
     1,
   );
 };
