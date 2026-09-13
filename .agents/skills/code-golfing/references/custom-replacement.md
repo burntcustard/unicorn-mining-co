@@ -1,5 +1,36 @@
 # Custom replacement and pre-transform experiments (2026-09-13)
 
+## Post-Terser syntax pass (2026-09-13)
+
+The separate `replacePostTerser` in `plugins/replace-post-terser.js` runs after
+Terser and before Roadroller in normal builds and search-input generation.
+It quotes explicit identifier property keys except `length`, parenthesizes bare
+single-identifier arrow parameters, and expands finite decimal exponent literals
+to their canonical Number spelling. These are AST-located text edits: do not
+replace them with regexes over arbitrary minified JavaScript or reminify afterward.
+
+Fast ZIP **13,316 → 13,269 bytes (47 saved)**; full ZIP **13,312 → 13,264
+bytes (48 saved)**. The added 1,660 input characters improve final compression.
+The exact installed fork matches remote branch commit
+`85f46f296b122648d997a7c015306164153916d0`; Roadroller and Terser settings remain
+unchanged. Preserving bare `length` keeps its abbreviation slot. The retained
+three-rule combination beats individually selected rules: exponent expansion
+alone ties the full baseline, and adding arrow parentheses to key quoting alone
+is neutral, but the complete combination saves another 7 full-build bytes.
+
+The [research report](../../../../research/post-terser-compression.md) and
+[all 77 measurements](../../../../research/post-terser-measurements.csv) record
+the candidates, fork/Zopfli mechanisms and verification. Broad declaration
+joining, bracket access, leading decimal zeros, return blocks, and top-level
+var-to-let/const conversions lost. These post-mangling experiments are distinct
+from the earlier pre-Terser trials below.
+
+Whole-game normalized AST equivalence, 23 differential runtime fixtures,
+idempotence, the packed decoder round trip, real fast/full builds and lint pass.
+No source-level sound expressions or timing changed. Final dist uses build:full.
+
+## Earlier pre-Terser pass
+
 Measured with `npm run build:fast`, seed 13312, and 10 advzip iterations against the post-sound rewrite codebase (baseline ~13,316 B advzip).
 
 ## Retained customReplacement additions

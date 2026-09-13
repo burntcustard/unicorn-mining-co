@@ -38,6 +38,7 @@ an experiment using the same settings; unrelated totals are not cumulative.
 - [Measured fallback and canvas experiments](#measured-fallback-and-canvas-experiments)
 - [Measured coordinate-display padding experiments (2026-09-08)](#measured-coordinate-display-padding-experiments-2026-09-08)
 - [Custom replacement and pre-transform experiments (2026-09-13)](custom-replacement.md)
+- [Post-Terser syntax and fork/Zopfli research (2026-09-13)](custom-replacement.md#post-terser-syntax-pass-2026-09-13)
 
 ## Measured build pipeline compressor experiments
 
