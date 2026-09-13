@@ -34,4 +34,4 @@
 [ ] Write 'ESC: LAUNCH' or 'ARROWS TO FLY' or similar at game start.
 [ ] Add sound: Asteroid crack.
 [ ] Change sound: Hatch open and close (too similar to hit sound right now).
-[ ] Make gold asteroid fields have fewer, larger asteroids in, and fewer items.
+[x] Make gold asteroid fields have fewer, larger asteroids in, and fewer items.

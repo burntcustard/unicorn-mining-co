@@ -69,7 +69,7 @@ const breakAsteroid = (target, destroyed) => {
 
   // Let go at the asteroid's speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
-  const grinder = target.grinding?.hitbox.owner;
+  const grinder = target.grinding?.hitbox?.owner;
 
   if (grinder) grinder.velocity.set(asteroid.velocity);
 

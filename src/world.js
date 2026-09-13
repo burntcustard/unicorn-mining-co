@@ -16,22 +16,23 @@ const makeAsteroids = (field, worldObjects, random) => {
   // A field of anything and everything, rather than one rich in a single resource
   const mixed = field.resource > 3;
 
-  // An amethyst field is spikes
+  // An amethyst field is spikes, a gold field has huge boulders
   const spikes = field.resource === 1;
+  const gold = field.resource === 2;
 
-  // Roughly one asteroid per 100,000 square metres of the field
-  const count = field.fieldRadius ** 2 / 30000;
+  // Roughly one asteroid per 100,000 square metres of the field, sparser for gold
+  const count = field.fieldRadius ** 2 / (gold ? 70000 : 30000);
 
   const asteroids = Array.from({ length: count }, () => {
-    const radius = 50 + (spikes ? 50 + random() * 2 : random() * 120);
+    const radius = 50 + (spikes ? 50 + random() * 2 : gold ? 110 + random() * 60 : random() * 120);
     // Small rocks hold little; capacity rises smoothly with size.
     const capacity = Math.round((radius / 50) ** 2);
 
     let contents = [];
 
     // A rich field is packed with its resource, while a mixed field is mostly bare rock
-    if (random() < (mixed ? 0.3 : capacity / (capacity + 1))) {
-      const itemCount = spikes ? 1 : 1 + Math.floor(random() * capacity);
+    if (random() < (mixed ? 0.3 : gold ? 0.4 : capacity / (capacity + 1))) {
+      const itemCount = spikes ? 1 : 1 + Math.floor(random() * (gold ? 2 : capacity));
 
       contents = Array.from({ length: itemCount },
         () => mixed ? randomResource(random) : field.resource);

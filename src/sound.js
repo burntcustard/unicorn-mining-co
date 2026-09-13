@@ -91,7 +91,7 @@ const soundBuffer = (length, sample) => {
 // Volume, frequency, attack, decay, optional noise cutoff, end frequency.
 // Tonal effects are sine waves; a cutoff selects filtered noise instead.
 export const soundEffects = {
-  hatchOpen: [0.2, 0, 0.01, 0.1, 800],
+  hatchOpen: [0.1, 0, 0.01, 0.1, 1000],
   hatchClose: [0.3, 0, 0.01, 0.1, 200],
   pickup: [0.01, 660, 0.01, 0.1, 0, 1000],
   crash: [3, 0, 0.05, 0.5, 70],
@@ -99,7 +99,7 @@ export const soundEffects = {
   shieldOn: [0.1, 120, 0.02, 0.3, 0, 480],
   shieldOff: [0.03, 480, 0.02, 0.5, 0, 100],
   ui: [0.03, 800, 0.01, 0.1],
-  light: [0.03, 0, 0.01, 0.1, 3000],
+  light: [0.01, 1200, 0.01, 0.05],
 };
 
 export const playSound = (effect) => {
