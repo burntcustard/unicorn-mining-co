@@ -1,4 +1,4 @@
-# Build Size Breakdown (`build:full`)
+# Build Size Breakdown (outdated) (via `build:full`)
 
 This document provides the byte-level breakdown of all source JavaScript files in `src/` after Vite + Terser minification, along with estimated sizes after Roadroller JS packing in `dist/index.html` and `advzip` DEFLATE compression in `dist/game.zip`.
 

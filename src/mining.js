@@ -7,9 +7,6 @@ import { damage } from './ship';
  * collisions.js supplies those contacts.
  */
 
-// How much of a leaf's own health is left when it comes free of the rest
-const crackHealth = 0.25;
-
 // Segments flagged as biting last call, so the flag can be cleared for
 // anything that stopped touching a target before this call sets it again
 let biting = [];
@@ -114,15 +111,15 @@ export const grind = (target) => {
 export const fracture = (target) => {
   const { health } = target;
 
-  if (health < 1) {
+  if (target.asteroid && health < 1) {
+    // A pre-cut leaf comes free well shy of zero instead of first turning
+    // into another set of pieces.
+    breakAsteroid(target);
+  } else if (health < 1) {
     if (target.asteroid || target instanceof Asteroid) {
       breakAsteroid(target, true);
     } else if (target.item) {
       target.remove();
     }
-  } else if (target.asteroid && health <= target.maxHealth * crackHealth) {
-    // A pre-cut leaf comes free well shy of zero instead of first turning
-    // into another set of pieces.
-    breakAsteroid(target);
   }
 };

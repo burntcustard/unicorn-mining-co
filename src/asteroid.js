@@ -118,7 +118,7 @@ export class Asteroid extends Sprite {
     this.radius = radiusOf(this.outline);
     // Heft grows with size, so a big asteroid shrugs off what shoves a pebble
     this.mass = props.mass || massMultiplier * this.radius ** 2;
-    this.health = this.radius * 2;
+    this.health = this.radius * (props.mass ? 1 : 2);
     this.path = shapePath(this.outline);
 
     // A hitbox starts with the complete outline before reaching one of these
