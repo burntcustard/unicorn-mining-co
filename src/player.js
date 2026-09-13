@@ -68,10 +68,11 @@ export const say = (text) => {
  * simply how much is in it.
  *
  * @param {Object} craft - Whichever craft is taking the cargo.
- * @returns {Boolean} room
+ * @returns {Number} count
  */
-export const roomFor = (craft) =>
-  craft.cargo.length + craft.cargoBay.length < craft.cargoSpace;
+export const cargoCount = (craft) => craft.cargo.length + craft.cargoBay.length;
+
+export const roomFor = (craft) => cargoCount(craft) < craft.cargoSpace;
 
 export const stow = (craft, item) => craft.cargo.push(item);
 

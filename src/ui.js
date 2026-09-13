@@ -1,4 +1,4 @@
-import { playerShip, roomFor } from './player';
+import { cargoCount, playerShip, roomFor } from './player';
 import { colors } from './colors';
 import { renderControls } from './ui/controls';
 import { renderDocked } from './ui/docked';
@@ -25,10 +25,8 @@ export const renderUI = (game, stations) => {
 
   renderText(game, `$${playerShip.credits}`, 20, 20, 1);
 
-  const cargo = `${playerShip.cargo.length + playerShip.cargoBay.length}/${playerShip.cargoSpace}`;
-
   if (!roomFor(playerShip)) game.ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 300) / 2;
-  renderText(game, cargo, game.uiWidth - 20, 20, 1, 1);
+  renderText(game, `${cargoCount(playerShip)}/${playerShip.cargoSpace}`, game.uiWidth - 20, 20, 1, 1);
   game.ctx.globalAlpha = 1;
 
   renderText(game, `${`${Math.round(playerShip.x)}`.padStart(8)}/${`${Math.round(playerShip.y)}`.padEnd(8)}`,

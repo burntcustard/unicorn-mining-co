@@ -195,7 +195,8 @@ GameLoop({
     // roads.forEach((road) => road.render());
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them, using the same z-index as ship modules
-    for (let zIndex = -3; zIndex < 4; zIndex++) {
+    // The half layer puts every thruster glow above every flare, below hulls.
+    for (const zIndex of [-3, -2, -1, -0.5, 0, 1, 2, 3]) {
       activeSprites
         .filter((object) => object.scenery && object.zIndex === zIndex)
         .forEach((object) => {

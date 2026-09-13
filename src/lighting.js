@@ -189,13 +189,12 @@ export const drawThrusterGlow = (ctx, nozzle) => {
   if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
   // @endif
 
-  const strength = nozzle.activationProgress;
   const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = strength * 0.4;
-  ctx.scale(strength * 45, strength * 45);
+  ctx.globalAlpha = nozzle.activationProgress * 0.4;
+  ctx.scale(nozzle.activationProgress * 45, nozzle.activationProgress * 45);
   gradient.addColorStop(0, nozzle.shades[2]);
   gradient.addColorStop(0.35, `${nozzle.shades[2]}6`);
   gradient.addColorStop(1, '#0000');

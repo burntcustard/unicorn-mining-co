@@ -20,7 +20,6 @@ const spread = 35;
 const corner = 10;
 
 export const floodlight = {
-  activationDuration: 0.1,
   // Lit rather than painted, so it lifts everything already drawn under it
   beam: true,
   disablePhysics: true,

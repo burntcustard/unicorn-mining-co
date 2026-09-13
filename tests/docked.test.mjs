@@ -290,6 +290,53 @@ for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTrip
     'broken engine supplies no thrust');
   departing.remove();
 }
+// All nozzles on all craft draw their flares before any glow, then hulls.
+// Exercise the real renderer for each engine layout and both craft orders.
+for (const type of thrusters) {
+  const draws = [];
+  let saves = 0;
+  const ctx = {
+    save() { saves++; }, restore() { saves--; },
+    translate() {}, rotate() {}, scale() {}, beginPath() {}, arc() {}, stroke() {},
+    createLinearGradient: () => ({ addColorStop() {} }),
+    createRadialGradient: () => ({ addColorStop() {} }),
+    fill(path) { draws.push(path ? path.kind : 'glow'); },
+  };
+  const crafts = [0, 1].map(() => {
+    const craft = new Ship({ shades: colors.white });
+    const engine = instanceOf(type);
+    craft.modules.push(engine);
+    craft.fit(engine);
+    craft.ctx = ctx;
+    craft.segments.forEach(segment => {
+      segment.activationProgress = 1;
+      segment.path = () => ({ kind: segment.module.forwardThrust ? 'flare' : 'hull' });
+    });
+    return craft;
+  });
+  const render = () => {
+    draws.length = 0;
+    for (const layer of [-1, -0.5, 0]) crafts.forEach(craft => craft.render([], layer));
+    assert(saves === 0, 'renderer balances canvas state');
+  };
+  for (let order = 0; order < 2; order++) {
+    render();
+    const count = type.model.length * 2;
+    assert(draws.slice(0, count).length === count && draws.slice(0, count).every(kind => kind === 'flare'),
+      type.name + ': every flare precedes all glows');
+    assert(draws.slice(count, count * 2).length === count && draws.slice(count, count * 2).every(kind => kind === 'glow'),
+      type.name + ': glows share one layer across craft');
+    assert(draws.slice(count * 2).every(kind => kind === 'hull'),
+      'hulls remain above the glow layer');
+    crafts.reverse();
+  }
+  crafts[0].segments.forEach(segment => segment.activationProgress = 0);
+  crafts[1].engine.mount.health = 0;
+  render();
+  assert(!draws.includes('glow'), 'inactive and broken thrusters emit no glow');
+  crafts.forEach(craft => craft.remove());
+}
+
 // Check the remaining reward names under production property mangling too.
 assert(!colorUnlocked(colors.yellow), 'YELLOW starts locked');
 playerShip.x = 50000;

@@ -48,8 +48,8 @@ let stage = 0;
 
 // Cargo instances carry their item data directly, and a stowed module is its
 // own data, so collect like things into one menu entry with how many are aboard.
-const cargoOf = (ship) => Array.from([...ship.cargoBay, ...ship.cargo.map(({ item }) => item)]
-  .reduce((types, item) => types.set(item, (types.get(item) || 0) + 1), new Map()));
+const cargoOf = (ship) => [...[...ship.cargoBay, ...ship.cargo.map(({ item }) => item)]
+  .reduce((types, item) => types.set(item, (types.get(item) || 0) + 1), new Map())];
 
 // Ore of a kind stacks into one row, but two module instances never do, so a
 // count is only worth showing when there is more than one
@@ -82,9 +82,8 @@ const actionsOf = (ship, mount, module) => {
   const fitted = mount.module === module;
   const owned = module.oneOf;
 
-  // .filter(Boolean) made more sense but swapping to (x) => x saved 11 B
   return fitted ?
-      [mount.health < module.health && 'FIX', 'REMOVE'].filter((x) => x) :
+    mount.health < module.health ? ['FIX', 'REMOVE'] : ['REMOVE'] :
     owned ? ['EQUIP', 'SELL'] : ['BUY'];
 };
 

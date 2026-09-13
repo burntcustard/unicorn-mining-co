@@ -505,6 +505,8 @@ export class Ship extends Sprite {
 
   render(scenery, zIndex) {
     const { ctx } = this;
+    // Only the shared thruster-glow layer has a fractional z-index.
+    const glow = zIndex % 1;
 
     ctx.save();
     ctx.translate(this.x, this.y);
@@ -513,22 +515,19 @@ export class Ship extends Sprite {
     ctx.lineWidth = objectLineWidth;
 
     // @ifdef DEBUG
-    if (lights) {
+    if (lights || glow) {
     // @endif
-      if (zIndex === -3 || zIndex === -1) {
+      if (zIndex === -3 || zIndex === -1 || glow) {
         this.segments.forEach((segment) => {
-          if (!segment.module.beam || !segment.activationProgress || !active(healthOf(segment))) return;
+          if (!(glow ? segment.module.forwardThrust : segment.module.beam) ||
+            !segment.activationProgress || !active(healthOf(segment))) return;
 
           ctx.save();
           ctx.translate(segment.x, segment.y);
 
-          if (zIndex === -3) {
-            const beam = segment.prism = traceBeam(this, segment, scenery);
+          if (zIndex === -3) segment.prism = traceBeam(this, segment, scenery);
 
-            drawSpectrum(ctx, segment, beam);
-          } else {
-            drawInside(ctx, segment, segment.prism);
-          }
+          (glow ? drawThrusterGlow : zIndex === -3 ? drawSpectrum : drawInside)(ctx, segment, segment.prism);
 
           ctx.restore();
         });
@@ -556,16 +555,12 @@ export class Ship extends Sprite {
       ctx.save();
       ctx.translate(segment.x, segment.y);
 
-      if (segment.module.forwardThrust && segment.activationProgress) {
-        drawThrusterGlow(ctx, segment);
-      }
-
       if (segment.glow && zIndex < 0) {
         // The subtle glow in/around the ship docking bay
         drawDockingBayGlow(ctx, segment.glow.path, segment.shades[2], segment.glow);
       }
 
-      const worn = health < segment.module.health / 2 ? 0 : 1 + segment.hull;
+      const worn = health < segment.module.health / 2 ? 0 : segment.hull;
       let lit;
 
       if (segment.middle) {
