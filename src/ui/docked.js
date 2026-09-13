@@ -340,11 +340,7 @@ export const renderDocked = (game, ship) => {
     // One the pilot owns wears its paint on the right of its row — the hull
     // and a fitted mount included — which tells two scoops apart from each
     // other and from the one on offer to buy
-    const shades = item === 'HULL' ?
-      ship.shades :
-      item.oneOf ?
-        item.shades || ship.shades :
-        item.module && (item.module.shades || ship.shades);
+    const shades = (item === 'HULL' ? ship : item.oneOf ? item : item.module)?.shades || (item.module && ship.shades);
 
     if (shades) {
       renderSwatch(swatchX, y, shades);

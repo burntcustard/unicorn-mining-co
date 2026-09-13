@@ -1,7 +1,7 @@
-import { Vector } from './vector.js';
-import { colors } from './colors.js';
-import { distribute } from './distribute.js';
-import { seededRandom } from './seeded-random.js';
+import { Vector } from './vector';
+import { colors } from './colors';
+import { distribute } from './distribute';
+import { seededRandom } from './seeded-random';
 
 export const worldRadius = 50000;
 

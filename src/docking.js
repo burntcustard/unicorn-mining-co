@@ -1,7 +1,3 @@
-// A craft burns for one second, then eases its nozzles halfway for two.
-const launchBurnDuration = 1;
-const launchCoastDuration = 2;
-
 /** Place a craft inside a station as though it had entered through its bay. */
 export const dockAt = (ship, station) => {
   // Disable disabling of activated things to save 2B
@@ -56,7 +52,7 @@ export const dock = (contacts) => {
  */
 export const launch = (craft) => {
   craft.dockedTo = 0;
-  craft.launching = launchBurnDuration + launchCoastDuration;
+  craft.launching = 3;
   craft.started = 1;
 };
 

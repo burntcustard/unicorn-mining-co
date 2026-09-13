@@ -88,16 +88,16 @@ const soundBuffer = (length, sample) => {
   return buffer;
 };
 
-// Volume, frequency, attack, decay, optional noise cutoff, end frequency, cooldown.
+// Volume, frequency, attack, decay, optional noise cutoff, end frequency.
 // Tonal effects are sine waves; a cutoff selects filtered noise instead.
 export const soundEffects = {
   hatchOpen: [0.7, 0, 0.03, 0.25, 160],
   hatchClose: [0.9, 0, 0.025, 0.35, 140],
-  pickup: [0.08, 660, 0.001, 0.08, 0, 1320],
-  crash: [4, 0, 0.05, 0.5, 70, 0, 0.6],
-  shieldBounce: [0.08, 190, 0.01, 0.3, 0, 190, 0.18],
-  shieldOn: [0.08, 120, 0.02, 0.3, 0, 480],
-  shieldOff: [0.02, 480, 0.02, 0.5, 0, 120],
+  pickup: [0.1, 660, 0.001, 0.08, 0, 1320],
+  crash: [3, 0, 0.05, 0.5, 70],
+  shieldBounce: [0.08, 190, 0.01, 0.3, 0, 190],
+  shieldOn: [0.1, 120, 0.02, 0.3, 0, 480],
+  shieldOff: [0.03, 480, 0.02, 0.5, 0, 120],
   ui: [0.03, 800, 0.005, 0.04],
   light: [0.1, 0, 0.001, 0.12, 3000],
 };
@@ -108,7 +108,7 @@ export const playSound = (effect) => {
   const time = audio.currentTime;
 
   if (time < (effect.nextPlay || 0)) return;
-  effect.nextPlay = time + (effect[6] || 0.06);
+  effect.nextPlay = time + 0.1;
 
   // Render each complete effect once. Rapid playback then reuses one buffer.
   if (!effect.buffer) {

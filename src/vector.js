@@ -63,17 +63,16 @@ export const rotatePoint = ({ x, y }, angle) => {
   return Vector(x * cos - y * sin, x * sin + y * cos);
 };
 
-export const movePoint = ({ x, y }, angle, distance) =>
-  Vector(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance);
-
 export const directionOf = (angle) => Vector(Math.cos(angle), Math.sin(angle));
+
+export const movePoint = ({ x, y }, angle, distance) =>
+  directionOf(angle).scale(distance).add({ x, y });
 
 // A point some way between two others, plain arrays rather than Vectors so it
 // also works on a polygon's raw points. `at` 0 gives `from`, 1 gives `to`,
 // 0.5 the midpoint between them, and anywhere else the same share of the way
-export const pointBetween = (from, to, at = 0.5) => {
-  return from.map((value, axis) => value + (to[axis] - value) * at);
-};
+export const pointBetween = (from, to, at = 0.5) =>
+  from.map((value, axis) => value + (to[axis] - value) * at);
 
 /**
  * Rotate local points around zero, then optionally move them into world space.

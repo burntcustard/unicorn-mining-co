@@ -113,12 +113,12 @@ debugWreck.cargo.push(debugNote);
 });
 // @endif
 
-world.fields.flatMap(({ asteroids }) => asteroids).forEach((properties) => {
+world.fields.forEach(({ asteroids }) => asteroids.forEach((properties) => {
   const object = new Asteroid({ ...properties, contents: [] });
 
   properties.contents.forEach((resource) =>
     object.bury(new Item({ itemData: itemTypes[resource] })));
-});
+}));
 
 // @ifdef DEBUG
 debugCrafts(game);
@@ -146,7 +146,6 @@ window['testSections'] = () => testSections(
 const lamp = playerShip.segments.find((segment) => segment.module.oneOf === floodlight);
 const activeRadius = 2000;
 const nearbyRadius = 100;
-const nearbySteps = 4;
 let activeSprites = [];
 let nearbySprites = [];
 let updates = 0;
@@ -190,9 +189,11 @@ GameLoop({
     }
     // @endif
 
-    game.ctx.save();
-    game.ctx.scale(game.scale, game.scale);
-    game.ctx.translate(-camera.x, -camera.y);
+    const { ctx, scale } = game;
+
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.translate(-camera.x, -camera.y);
 
     // roads.forEach((road) => road.render());
     // Craft layers are global: a station floor can sit under every ship while
@@ -215,21 +216,21 @@ GameLoop({
           if (lamp.activationProgress > 0.5) {
             const beam = traceBeam(playerShip, lamp, activeSprites);
 
-            game.ctx.save();
-            game.ctx.translate(playerShip.x, playerShip.y);
-            game.ctx.rotate(playerShip.rotation);
-            game.ctx.translate(lamp.x, lamp.y);
-            game.ctx.clip(insidePath(beam));
-            game.ctx.clip(beam.mask);
-            game.ctx.resetTransform();
-            game.ctx.scale(game.scale, game.scale);
-            game.ctx.translate(-camera.x, -camera.y);
+            ctx.save();
+            ctx.translate(playerShip.x, playerShip.y);
+            ctx.rotate(playerShip.rotation);
+            ctx.translate(lamp.x, lamp.y);
+            ctx.clip(insidePath(beam));
+            ctx.clip(beam.mask);
+            ctx.resetTransform();
+            ctx.scale(scale, scale);
+            ctx.translate(-camera.x, -camera.y);
 
             activeSprites.forEach((asteroid) =>
               asteroid.scenery && asteroid.sections &&
               asteroid.contents.forEach((item) => item.render()));
 
-            game.ctx.restore();
+            ctx.restore();
           }
         // @ifdef DEBUG
         }
@@ -244,9 +245,9 @@ GameLoop({
     }
 
     // Sparks off the horn sit over the asteroids and ships they come off
-    renderSparks(game.ctx);
+    renderSparks(ctx);
 
-    game.ctx.restore();
+    ctx.restore();
 
     // @ifdef DEBUG
     renderDebug(game, activeSprites, nearbyRadius);
@@ -283,8 +284,8 @@ GameLoop({
 
     // Things that happen four times per update (~240 FPS): the nearby tier gets
     // four smaller movements and collision passes, preserving one dt in total.
-    for (let step = nearbySteps; step--;) {
-      nearbySprites.forEach((sprite) => !sprite.dead && sprite.update(dt / nearbySteps));
+    for (let step = 4; step--;) {
+      nearbySprites.forEach((sprite) => !sprite.dead && sprite.update(dt / 4));
       resolve(detectCollisions(nearbySprites));
     }
 

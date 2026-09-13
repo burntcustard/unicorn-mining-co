@@ -36,16 +36,10 @@ export const followTarget = (game, target, dt) => {
   // 1 on the edge of the oval and more than that outside of it
   const out = Math.hypot(x / halfWidth, y / halfHeight);
   const ease = 1 - (target.dockedTo ? dockLag : lag) ** dt;
+  const factor = target.dockedTo ? 1 : out > 1 ? 1 - 1 / out : 0;
 
-  if (target.dockedTo) {
-    camera.x += x * ease;
-    camera.y += y * ease;
-  } else if (out > 1) {
-    // Pulling the target back onto the edge is the same as pushing the camera
-    // out by however far past it the target has drifted
-    camera.x += (x - x / out) * ease;
-    camera.y += (y - y / out) * ease;
-  }
+  camera.x += x * factor * ease;
+  camera.y += y * factor * ease;
 };
 
 export const renderDeadzone = (game) => {

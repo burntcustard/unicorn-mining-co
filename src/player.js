@@ -5,16 +5,11 @@ import { downKeys } from './keyboard';
 import { flyOut } from './docking';
 import { updateThrusterSound } from './sound';
 
-const startingCredits = 500;
-
-// How long a message stays up once it has been read, in seconds
-const readingTime = 10;
-
 export const playerShip = new Ship({
   shades: colors.white,
   x: 0,
   y: 0,
-  credits: startingCredits,
+  credits: 500,
   // The last thing worth telling the pilot about, and how long it has left on
   // screen. Anything can set this, so a station can talk as well as a message
   note: '',
@@ -64,7 +59,7 @@ playerShip.modules.forEach((module) => playerShip.fit(module));
  */
 export const say = (text) => {
   playerShip.note = text;
-  playerShip.noteFor = readingTime;
+  playerShip.noteFor = 10;
 };
 
 /**

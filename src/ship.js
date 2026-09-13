@@ -334,12 +334,8 @@ export class Ship extends Sprite {
           physics:
             !segment.module.disablePhysics &&
             !segment.catches &&
-            !segment.mounts?.some((mount) => {
-              return mount.module?.scoops &&
-                this.partsOf(mount).some((part) => {
-                  return active(healthOf(part)) && part.activationProgress > scoopOpen;
-                });
-            }),
+            !segment.mounts?.some((mount) => mount.module?.scoops &&
+              this.partsOf(mount).some((part) => active(healthOf(part)) && part.activationProgress > scoopOpen)),
           radius: segment.radius(segment),
           rotation: this.rotation,
           speed: segment.covers && segment.active > segment.activationProgress && 60,

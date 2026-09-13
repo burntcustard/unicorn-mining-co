@@ -12,7 +12,7 @@ let start;
 
 // Same as Kontra pressedKeys - a list of keys that are "held down", i.e.
 // haven't had a keyup even to "turn them off" yet.
-export const downKeys = { ht: false, ft: false };
+export const downKeys = { ht: 0, ft: 0 };
 
 /**
  * Execute a function that corresponds to a keyboard key.
@@ -66,13 +66,3 @@ export const bindKeys = (key, callback) => callbacks[key] = callback;
 
 /** Run once when the player makes their first key press. */
 export const bindStart = (callback) => start = callback;
-
-/**
- * [unbindKeys description]
- * @param  {Array}   keys     Array of KeyboardEvent.key codes -
- * developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values
- */
-export const unbindKeys = (keys) => keys.map((key) => callbacks[key] = false);
-
-// We may not need this and/or unbind keys?...
-export const unbindAllKeys = () => callbacks = {};

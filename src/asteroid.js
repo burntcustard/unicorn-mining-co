@@ -33,7 +33,8 @@ const measure = (points) => {
     y += (atY + nextY) * cross;
   });
 
-  return { x: x / area / 3, y: y / area / 3 };
+  area *= 3;
+  return { x: x / area, y: y / area };
 };
 
 // Boundary edges of a set of outlines, stitched end-to-end into one loop

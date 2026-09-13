@@ -24,12 +24,4 @@ export const createPolygon = ({ points, radius, radiusEven = radius, variance = 
   });
 };
 
-export const within = (points, { x, y }) => points.reduce((so, [pointX, pointY], i) => {
-  const [nextX, nextY] = points[(i + 1) % points.length];
-  const crosses = (pointY > y) !== (nextY > y) &&
-    x < pointX + (y - pointY) / (nextY - pointY) * (nextX - pointX);
-
-  return crosses ? !so : so;
-}, false);
-
 export const radiusOf = (points) => Math.max(...points.map(([x, y]) => Math.hypot(x, y)));

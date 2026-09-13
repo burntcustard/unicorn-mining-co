@@ -141,10 +141,6 @@ const textPath = (text) => {
   return path;
 };
 
-export function drawText(props) {
-  props.ctx.stroke(textPath(props.text));
-}
-
 /**
  * @param {Object} game - Supplies the UI canvas context and scale.
  * @param {String|Number} text - The glyphs to draw.
