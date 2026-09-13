@@ -30,8 +30,8 @@
 [ ] Add slightly more gems per wreck maybe?
 [ ] Remove controls from bottom right when docked?
 [x] Turn modules off while docked again.
-[ ] Match hit sound to when damage is actually taken?
+[-] Match hit sound to when damage is actually taken? (Was complicated)
 [ ] Write 'ESC: LAUNCH' or 'ARROWS TO FLY' or similar at game start.
-[ ] Add sound: Asteroid crack.
-[ ] Change sound: Hatch open and close (too similar to hit sound right now).
+[x] Add sound: Asteroid crack.
+[x] Change sound: Hatch open and close (too similar to hit sound right now).
 [x] Make gold asteroid fields have fewer, larger asteroids in, and fewer items.

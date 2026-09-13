@@ -1,3 +1,4 @@
+import { playSound, soundEffects } from './sound';
 import { Asteroid } from './asteroid';
 import { damage } from './ship';
 
@@ -72,6 +73,10 @@ const breakAsteroid = (target, destroyed) => {
   const grinder = target.grinding?.hitbox?.owner;
 
   if (grinder) grinder.velocity.set(asteroid.velocity);
+
+  if (destroyed && !target.asteroid && !target.sections) {
+    playSound(soundEffects.asteroidBreak);
+  }
 
   const [, loose] = target.asteroid ? asteroid.detach(target, destroyed) : asteroid.split();
 

@@ -96,6 +96,7 @@ export const soundEffects = {
   hatchClose: [4, 0, 0.01, 0.1, 200],
   pickup: [0.1, 660, 0.01, 0.1, 0, 1000],
   crash: [30, 0, 0.05, 0.5, 70],
+  asteroidBreak: [8, 75, 0.01, 0.2, 0, 18],
   shieldBounce: [1, 190, 0.01, 0.3, 0, 200],
   shieldOn: [1, 120, 0.02, 0.3, 0, 480],
   shieldOff: [0.2, 480, 0.02, 0.5, 0, 100],
