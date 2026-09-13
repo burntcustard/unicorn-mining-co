@@ -135,7 +135,7 @@ export async function replaceScript(html, scriptFilename, scriptCode) {
     type: 'js',
   }], {
     allowFreeVars: true,
-    maxMemoryMB: 500,
+    maxMemoryMB: 2000,
     ...roadrollerArgs,
   });
 
@@ -189,7 +189,7 @@ function roadrollerSearchArgs() {
   if (roadrollerArgs.sse) args.push('--sse');
 
   if (roadrollerArgs.contextBits === undefined) {
-    args.push('-M500');
+    args.push('-M2000');
   }
 
   return args;
