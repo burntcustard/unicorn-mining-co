@@ -39,15 +39,16 @@ export const tone = (engine) => {
 
   const length = engine ? 44100 : 1470;
 
-  source.buffer = loopBuffers[engine ? 1 : 0] ||= soundBuffer(length, (i) => {
+  source.buffer = loopBuffers[length] ||= soundBuffer(length, (i) => {
     const phase = i / length;
 
     if (engine) {
       air += (Math.random() * 2 - 1 - air) * 0.02;
       filtered += (air - filtered) * 0.02;
       const p = phase * Math.PI * 44;
-      const stroke = Math.sin(p) * 0.5 + Math.sin(p * 2) * 0.3 + Math.sin(p * 3) * 0.2;
-      return stroke * 0.4 + filtered * (0.6 + 0.4 * Math.sin(p));
+      const fundamental = Math.sin(p);
+      const stroke = fundamental * 0.5 + Math.sin(p * 2) * 0.3 + Math.sin(p * 3) * 0.2;
+      return stroke * 0.4 + filtered * (0.6 + 0.4 * fundamental);
     }
 
     const t = phase * 35 / 30;
@@ -104,10 +105,10 @@ export const soundEffects = {
 
 export const playSound = (effect) => {
   // A real key gesture unlocks audio. Drop effects before that first gesture.
-  if (!effect || !audio || audio.state !== 'running') return;
+  if (!audio || audio.state !== 'running') return;
   const time = audio.currentTime;
 
-  if (time < (effect.nextPlay || 0)) return;
+  if (time < effect.nextPlay) return;
   effect.nextPlay = time + 0.1;
 
   // Render each complete effect once. Rapid playback then reuses one buffer.

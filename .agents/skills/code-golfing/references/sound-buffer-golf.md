@@ -1,5 +1,40 @@
 # Cached sound buffers and shared target ramps (2026-09-13)
 
+## Behavior-preserving follow-up pass (2026-09-13)
+
+Fresh `build:fast` baseline: **13,341 bytes**; retained final: **13,336
+bytes**, 5 saved. Roadroller usage/parameters and Terser settings unchanged.
+The user requested full-build comparisons for candidates within one byte.
+Isolated full baseline/final: **13,336 → 13,329 bytes**, 7 saved, 17 above
+the entry limit. Final dist is generated with build:full.
+
+| Candidate | Fast before | Fast after | Decision |
+| --- | ---: | ---: | --- |
+| Key loop cache by existing buffer length | 13341 | 13339 | Retained |
+| Remove cooldown zero fallback | 13339 | 13338 | Retained; full 13335 → 13334 |
+| Terser inline 0 with current buffer synthesis | 13338 | 13382 | Reverted |
+| Object instead of sparse array loop cache | 13338 | 13340 | Reverted |
+| Store loop cache on soundBuffer function | 13338 | 13343 | Reverted |
+| Remove missing-effect guard; all production callers supply presets | 13338 | 13335 | Retained |
+| Terser inline 2 with current buffer synthesis | 13335 | 13342 | Reverted |
+| Chain loop source/gain connections | 13335 | 13340 | Reverted |
+| Inline fixed sample-rate literal at each effect use | 13335 | 13365 | Reverted |
+| Cache repeated engine Math.sin(p) value | 13335 | 13336 | Retained; full 13331 → 13329 |
+
+Audio invariants reviewed: each loop length uniquely selects its waveform;
+an unset nextPlay compares false against nonnegative audio time; all production
+effect calls pass a defined preset. Memoizing Math.sin(p) reuses the exact same
+value without changing arithmetic order or random draws. Presets, sample counts,
+buffer-fill-before-assignment, connections, ramps, cooldown and stop timing remain
+unchanged. No test/debug files were inspected and no tests were run, as requested.
+
+Inspected dist/index.html and minified.js. The ZIP contains only index.html;
+the HTML contains the canvas and packed script. No console/debugger statements,
+debug/benchmark identifiers, testTone, localhost, fetch/WebSocket calls or source
+map links were found in the generated JS. Its two performance.now calls belong
+to the production frame loop. Production keyboard reservations and Web Audio
+API names remain intact. Lint passes.
+
 Final isolated `build:fast` comparison: **13,656 → 13,371 advzip bytes,
 285 saved**, 59 above the entry limit. Fixed seed 13312, 10 advzip iterations.
 The initial baseline was 13,651. Independent player changes landed during this
