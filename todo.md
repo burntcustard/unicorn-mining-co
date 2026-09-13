@@ -26,9 +26,11 @@
 [x] Add sound: torch toggle click.
 [x] More asteroids fewer gaps.
 [x] Slightly increase number of wrecks and vary loot more.
-[x] Change unlocking yellow from destroying a horn to reaching the map edge
+[x] Change unlocking yellow from destroying a horn to reaching the map edge.
 [ ] Add slightly more gems per wreck maybe?
 [ ] Remove controls from bottom right when docked?
 [ ] Turn modules off while docked again.
 [ ] Match hit sound to when damage is actually taken?
 [ ] Write 'ESC: LAUNCH' or 'ARROWS TO FLY' or similar at game start.
+[ ] Add sound: Asteroid crack.
+[ ] Change sound: Hatch open and close (too similar to hit sound right now),

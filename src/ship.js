@@ -94,8 +94,7 @@ const approach = (value, target, step) => (
 );
 
 export const active = (health) => !(health < 1);
-export const healthOf = (segment) =>
-  segment.mount?.health ?? segment.mount?.hull?.health ?? segment.health;
+export const healthOf = (segment) => (segment.mount || segment).health;
 const centerOf = (segments) => segments.reduce((center, { middle }) =>
   center.add(Vector(...middle)), Vector()).scale(1 / segments.length);
 
@@ -126,7 +125,7 @@ const makeSegment = (craft, craftModule = {}, part, mount) => {
     shades: craftModule.shades || craft.shades,
     x: mount?.x || 0,
     y: (mount?.y || 0) + (part.thrusterNozzleSide || 0) * (craftModule.offset || 0),
-    zIndex: part.zIndex ?? craftModule.zIndex ?? craft.zIndex ?? 0,
+    zIndex: part.zIndex || craftModule.zIndex || craft.zIndex || 0,
   });
 };
 
@@ -324,7 +323,7 @@ export class Ship extends Sprite {
           points.map(([x, y]) => [x - middleX, y - middleY]), { edges: points.edges });
 
         return Object.assign(segment.hitbox ||= { owner: this, segment }, {
-          bounciness: (bounciness?.call ? bounciness(segment) : bounciness) ?? hullBounciness,
+          bounciness: (bounciness?.call ? bounciness(segment) : bounciness) || hullBounciness,
           dockSegment: segment.dockSegment,
           outline,
           // Scoop doors have no mounts, so remain physical open or closed.
@@ -437,9 +436,9 @@ export class Ship extends Sprite {
     }
   }
 
-  toggle(craftModule, on) {
+  toggle(craftModule) {
     this.segments.forEach((segment) => {
-      if (segment.module.oneOf === craftModule) segment.active = (on ?? !segment.active) ? 1 : 0;
+      if (segment.module.oneOf === craftModule) segment.active = 1 - segment.active;
     });
   }
 

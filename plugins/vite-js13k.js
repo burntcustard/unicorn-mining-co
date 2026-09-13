@@ -238,7 +238,7 @@ function roadrollerSearchArgs() {
   if (roadrollerArgs.sse) args.push('--sse');
 
   if (roadrollerArgs.contextBits === undefined) {
-    args.push('-M1000');
+    args.push('-M2000');
   }
 
   return args;

@@ -59,9 +59,8 @@ const white = parse(colors.white[2]);
 
 // Shading is worked out up front and looked up, rather than colours being
 // built out of strings on every frame of every piece of every craft
-const steps = 64;
-const at = (along) => Math.round(Math.min(1, Math.max(0, along)) * (steps - 1));
-const table = (shade) => Array.from({ length: steps }, (_, i) => shade(i / (steps - 1)));
+const at = (along) => Math.round(Math.min(1, Math.max(0, along)) * 63);
+const table = (shade) => Array.from({ length: 64 }, (_, i) => shade(i / 63));
 
 const tints = {};
 

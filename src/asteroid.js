@@ -82,10 +82,10 @@ export class Asteroid extends Sprite {
 
     this.contents ||= [];
     this.bounciness = asteroidBounciness;
-    this.scenery = true;
-    this.fill = props.fill ?? '#222';
-    this.stroke = props.stroke ?? colors.white[2];
-    this.zIndex ??= -2;
+    this.scenery = 1;
+    this.fill = props.fill || '#222';
+    this.stroke = props.stroke || colors.white[2];
+    this.zIndex ||= -2;
 
     // An asteroid doesn't changes shape until split, so its outline is worked out only
     // once. Anything else drifting about out there is the same but cut differently
@@ -93,7 +93,7 @@ export class Asteroid extends Sprite {
       points: this.points || pointsFor(this.radius),
       radius: this.radius,
       radiusEven: this.radiusEven,
-      variance: this.variance ?? asteroidVariance,
+      variance: this.variance || asteroidVariance,
     });
     // Points that wandered outwards reach further than the radius they were
     // cut from, and a collision check has to know about all of them

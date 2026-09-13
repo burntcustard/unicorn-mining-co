@@ -92,12 +92,7 @@ const glyphs = ('' +
   '7 1 2 4 2 10 6 12 9 8 5 8,' +        // G
   '2 13 2 0M9 13 9 0M2 6 9 6,' +        // H
   '3 12 9 12M3 1 9 1M6 12 6 1,' +       // I
-  // @ifdef DEBUG
-  '2 10 6 13 9 10 9 1 4 1,' +           // J
-  // @endif
-  // @ifndef DEBUG
-  ',' +                                 // J  // debug only
-  // @endif
+  '2 13 2 6 6 11 10 6 10 13,' +         // J (used for 'm' meter indicator)
   '3 13 3 0M9 1 4 7 9 13,' +            // K
   '4 0 4 12 9 12,' +                    // L
   '2 13 2 0 6 6 10 0 10 13,' +          // M
@@ -112,25 +107,17 @@ const glyphs = ('' +
   '3 0 3 5 6 13 9 5 9 0,' +             // V
   '1 0 3 12 6 5 9 12 11 0,' +           // W
   '2 0 10 13M10 0 2 13,' +              // X
-  '6 13 6 8M2 0 6 8 10 0,' +            // Y
+  '6 13 6 8M2 0 6 8 10 0' +             // Y
   // @ifdef DEBUG
-  '1 1 9 1 1 12 9 12,' +                // Z
+  ',1 1 9 1 1 12 9 12' +                // Z
   // @endif
-  // @ifndef DEBUG
-  ',' +                                 // Z  // debug only
-  // @endif
-  ',,,,,,,,,,,,,,,,,,' +                // unused 91-108 ([ \ ] ^ _ ` a-l)
-  '2 13 2 6 6 11 10 6 10 13,'           // m
-  // We're using normal brackets for square ones to save ~3 bytes
-  // '8 0 4 0 4 14 8 14',               // [
-  // '8 15 2 0',                        // \
-  // '3 0 7 0 7 14 3 14',               // ]
+  ''
 ).split(',').map((path) => new Path2D('M' + path));
 
 const textPath = (text) => {
   const path = new Path2D();
 
-  [...text.toString()].forEach((c, i) => {
+  [...'' + text].forEach((c, i) => {
     const glyph = glyphs[c.charCodeAt(0)];
 
     if (glyph) {
@@ -155,7 +142,7 @@ export function renderText(game, text, x, y, size = 0.6, align = -1, color = '#f
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
-  ctx.translate(x - (align + 1) * text.toString().length * 6.5 * size, y);
+  ctx.translate(x - (align + 1) * ('' + text).length * 6.5 * size, y);
 
   ctx.scale(size, size);
   ctx.strokeStyle = color;
