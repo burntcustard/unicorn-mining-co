@@ -1,7 +1,7 @@
 import { cargoCount, playerShip, roomFor } from './player';
 import { colors } from './colors';
 import { renderControls } from './ui/controls';
-import { renderDocked } from './ui/docked';
+import { renderDocked } from './ui/docked-loader';
 import { renderIndicators } from './ui/indicators';
 import { renderText } from './text';
 

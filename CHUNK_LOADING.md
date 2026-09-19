@@ -9,15 +9,19 @@ exceeded. Vite prints its normal output-file size summary once.
 
 | Tier | Resource | Fetch trigger | Execution trigger |
 | --- | --- | --- | --- |
-| Inline | The `src/main` entry | Part of `index.html` | Normal module-script execution after HTML parsing |
-| Initial | Static game chunks | Discovered from the entry and Vite's `modulepreload` links | Before the entry module can run |
+| Initial | The `src/main` entry and static game chunks | Vite's module-script and `modulepreload` links during HTML parsing | Before the entry module can run |
 | Prefetched | `src/sound` | Low-priority `prefetch` after initial resources | None; prefetch only populates the browser cache |
 | Interaction | `src/sound` | Dynamic `import()` fallback if prefetch has not completed | The first keyboard event calls `unlockAudio()` |
+| Docked | `src/ui/docked` | The first docked render or docked-menu key press | Once the module finishes loading |
 
 `src/sound-loader.js` is the small always-available facade. Before interaction, sound
 calls are ignored as they were previously. Once `unlockAudio()` starts loading
 the runtime, an effect from that same input is queued behind the import. Looping
 sounds begin on a later update after the runtime is ready.
+
+`src/ui/docked-loader.js` is the matching facade for the docked menu. It starts the
+load when the player first docks, and queues a menu key press made while the panel is
+loading. The game draws the panel from the next animation frame after the module is ready.
 
 The sound chunk is served from the same origin as the page, so `preconnect`
 would not establish a connection the page does not already have. If chunks move
@@ -26,8 +30,8 @@ sound prefetch.
 
 ## Adding a loading boundary
 
-- Keep code required to size the canvas and begin loading the game in the inline
-  entry.
+- Keep code required to size the canvas and begin loading the game in the
+  initial entry.
 - Use a static import for code required before the first frame. ES modules are
   deferred automatically; adding classic blocking scripts, `async`, or `defer`
   does not improve their ordering.
@@ -54,6 +58,6 @@ other source-level minification rewrites before Terser.
 
 Terser minifies each emitted chunk directly; there is no post-Terser rewrite.
 
-`vite-build.js` inlines the entry, adds the sound prefetch, and warns when a
-resource exceeds the 14 KiB target. It does not create a ZIP, pack code, or
-estimate compressed sizes.
+`vite-build.js` adds the sound prefetch and warns when a resource exceeds the
+14 KiB target. It does not create a ZIP, pack code, or estimate compressed
+sizes.

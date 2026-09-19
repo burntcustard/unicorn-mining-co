@@ -20,23 +20,9 @@ export const terserMangleOptions = ({ nameCache = {}, reserved = [] } = {}) => (
 
 const bytes = (source) => Buffer.byteLength(source);
 
-const escapePattern = (source) => source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-const inlineEntry = (html, chunk) => html.replace(
-  new RegExp(
-    `<script[^>]*?src=["'][^"']*${escapePattern(chunk.fileName)}["'][^>]*></script>`,
-  ),
-  () => `<script type="module">${chunk.code}</script>`,
-);
-
 const addPrefetch = (html, fileName) => html.replace(
   '</head>',
   `  <link rel="prefetch" href="./${fileName}" as="script" />\n  </head>`,
-);
-
-const removePreload = (html, fileName) => html.replace(
-  new RegExp(`[ \\t]*<link[^>]*href=["'][^"']*${escapePattern(fileName)}["'][^>]*>\\r?\\n?`, 'g'),
-  '',
 );
 
 export function viteBuildPre(flags = {}) {
@@ -55,8 +41,8 @@ export function viteBuildPre(flags = {}) {
 }
 
 /**
- * Keep the HTML bootstrap inline, retain all other chunks as ordinary files,
- * and warn if any executable resource exceeds the 14 KiB target.
+ * Keep JavaScript chunks as ordinary files and warn if any executable resource
+ * exceeds the 14 KiB target.
  */
 export function viteBuild() {
   // Oxc cannot yet mangle properties consistently across multiple chunks, so
@@ -81,7 +67,6 @@ export function viteBuild() {
       order: 'post',
       handler(_, bundle) {
         const chunks = Object.values(bundle).filter((item) => item.type === 'chunk');
-        const entries = chunks.filter((chunk) => chunk.isEntry);
         const soundChunk = chunks.find((chunk) => chunk.name === 'sound');
 
         for (const chunk of chunks) {
@@ -95,12 +80,6 @@ export function viteBuild() {
         for (const htmlAsset of Object.values(bundle).filter((item) =>
           item.type === 'asset' && item.fileName.endsWith('.html'))) {
           let html = String(htmlAsset.source);
-
-          for (const entry of entries) {
-            html = inlineEntry(html, entry);
-            html = removePreload(html, entry.fileName);
-            delete bundle[entry.fileName];
-          }
 
           if (soundChunk) html = addPrefetch(html, soundChunk.fileName);
           htmlAsset.source = html;

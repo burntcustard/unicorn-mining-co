@@ -28,7 +28,7 @@ export default defineConfig(({ mode, command }) => {
       reportCompressedSize: false,
       rollupOptions: {
         output: {
-          // Keep chunk URLs relative so the inlined entry works from any path.
+          // Keep chunk URLs relative so the output works from any path.
           entryFileNames: '[name]-[hash].js',
           chunkFileNames: '[name]-[hash].js',
           assetFileNames: '[name]-[hash][extname]',
@@ -44,7 +44,7 @@ export default defineConfig(({ mode, command }) => {
               },
               {
                 name: 'interface',
-                test: /[\\/]src[\\/](?:ui(?:[\\/]|\.js)|text|outline)/,
+                test: /[\\/]src[\\/](?:ui[\\/](?!docked\.js$)|ui\.js$|text|outline)/,
                 priority: 5,
                 includeDependenciesRecursively: false,
               },
@@ -61,14 +61,20 @@ export default defineConfig(({ mode, command }) => {
                 includeDependenciesRecursively: false,
               },
               {
+                name: 'ship-core',
+                test: /[\\/]src[\\/](?:ship\.js|sprite\.js|modules[\\/])/,
+                priority: 3,
+                includeDependenciesRecursively: false,
+              },
+              {
                 name: 'gameplay',
-                test: /[\\/]src[\\/](?:ship|asteroid|mining|collisions|player|docking|resolve|scoop|shrapnel|item|station|modules[\\/])/,
+                test: /[\\/]src[\\/](?:ship|asteroid|mining|collisions|player|docking|resolve|scoop|shrapnel|item|sprite|station|modules[\\/])/,
                 priority: 2,
                 includeDependenciesRecursively: false,
               },
               {
                 name: 'engine',
-                tags: ['$initial'],
+                test: /[\\/]src[\\/](?:camera|core|game|game-loop|keyboard|set-sizing|sound-loader|vector)\.js$/,
                 includeDependenciesRecursively: false,
               },
             ],

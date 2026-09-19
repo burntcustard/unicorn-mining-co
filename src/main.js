@@ -1,4 +1,4 @@
-import { back, confirmSelection, moveSelection, moveSubSelection } from './ui/docked';
+import { back, confirmSelection, moveSelection, moveSubSelection } from './ui/docked-loader';
 // @ifdef DEBUG
 import {
   bindDebug,
