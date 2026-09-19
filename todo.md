@@ -1,5 +1,54 @@
 # TODO
 
+## MVP
+
+[ ] Native websockets front-end
+[ ] Native Node.js back-end
+[ ] Swap to full TypeScript
+[ ] Remove roadroller, swap optimization to gzip
+[ ] Code-splitting to load different JS files first
+[ ] PWA-ish stuff like webmanifest
+[ ] Remove unecessary docs like build-size-breakdown.md
+[ ] Remove roadroller/zip experiment and other AI stuff
+[ ] New full test suite
+[ ] Rethink update area ratios and timings
+[ ] Better benchmarking FPS test suite
+[ ] Rethink sound, perhaps more ZzFX-ey
+[ ] Remove auto-approve things in .vscode/settings.json
+[ ] Figure out if there's anything else we can remove
+[ ] Re-split ship and stations
+[ ] New items, unique values and health
+[ ] Collisions with rotation physics
+[ ] Figure out new hull/mounting-points relationship
+[ ] New UI v1
+[ ] Rewrite keyboard handler with full key strings
+[ ] Better text demo
+[ ] Add characters for lowercase and special chars
+[ ] Neaten up files, especially player.js & vector.js
+[ ] Better FPS counter with memory usage etc.
+[ ] Decide module (mount?) categories like thrusters
+[ ] Fix floodlight not revealing along its edge pixels
+
+## Big future things
+
+[ ] New UI v2
+[ ] Roads
+[ ] Map
+[ ] New ships
+[ ] New space stations, with more than 1 docking bay
+[ ] Flashy dots near docking bays
+[ ] Explosives
+[ ] New particle engine with batches
+[ ] New achievement system
+[ ] Ship decals
+[ ] New graphics like concept art
+[ ] Redo outline.js with different colors and stuff
+[ ] Make stars consistent with world location
+[ ] Shield should have health and UI so can be disrupted
+[ ] "Random" spaceship name generator
+
+## Js13kGames
+
 [-] Minifiy under 13312 B.
 [x] Remove unused characters?
 [x] Remove PWR?
