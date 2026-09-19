@@ -18,7 +18,7 @@ export const testSections = (scenery, playerShip, lamp = playerShip.segments.fin
     throw Error('five');
   }
 
-  const asteroid = scenery.find((object) => object.outline.length === 7);
+  const asteroid = new Asteroid({ points: 7, radius: 90 });
   const leaf = asteroid.sections[0];
   const count = asteroid.sections.length;
   const velocity = asteroid.velocity;
@@ -26,9 +26,10 @@ export const testSections = (scenery, playerShip, lamp = playerShip.segments.fin
   asteroid.spin = 0;
   leaf.health /= 2;
   const [children] = asteroid.detach(leaf);
-  const [piece, remainder] = children;
+  const piece = children.find(({ decay }) => decay);
+  const remainder = children.find(({ sections }) => sections);
 
-  scenery.splice(scenery.indexOf(asteroid), 1, ...children);
+  asteroid.remove();
 
   if (children.length !== 2 || asteroid.sections.length || remainder.sections.includes(leaf)) {
     throw Error('detach');

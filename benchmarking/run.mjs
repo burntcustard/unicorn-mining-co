@@ -11,6 +11,7 @@ const debugPort = Number(process.env.BENCH_DEBUG_PORT || 9333);
 const seconds = Number(process.env.BENCH_SECONDS || 5);
 const warmup = Number(process.env.BENCH_WARMUP || 2);
 const filter = process.env.BENCH_FILTER;
+const headless = process.env.BENCH_HEADLESS === '1';
 const chrome = process.env.CHROME_BIN || 'google-chrome';
 const profile = await mkdtemp(join(tmpdir(), 'unicorn-benchmark-'));
 const children = [];
@@ -97,7 +98,7 @@ try {
   await waitFor(`http://${host}:${gamePort}`);
 
   launch(chrome, [
-    '--headless=new',
+    ...(headless ? ['--headless=new'] : ['--new-window']),
     `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${profile}`,
     '--no-first-run',
@@ -156,7 +157,7 @@ try {
     if (test.sections) {
       const checked = await send('Runtime.evaluate', {
         returnByValue: true,
-        expression: `testSections()`,
+        expression: `window.testSections()`,
       });
 
       if (checked.exceptionDetails) throw Error(checked.exceptionDetails.exception.description);

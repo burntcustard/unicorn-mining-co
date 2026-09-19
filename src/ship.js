@@ -434,6 +434,8 @@ export class Ship extends Sprite {
       });
       this.remove();
     }
+
+    return fragments;
   }
 
   toggle(craftModule) {
@@ -498,7 +500,7 @@ export class Ship extends Sprite {
         broken.forEach((segment) =>
           this.destroyed?.(segment.module));
         this.fracture(broken, true, true);
-        this.fracture(hulls, lost);
+        return this.fracture(hulls, lost);
       }
     }
   }
