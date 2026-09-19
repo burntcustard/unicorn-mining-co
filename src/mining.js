@@ -1,6 +1,6 @@
 import { Asteroid } from './asteroid';
 import { damage } from './ship';
-import { playSound } from './sound';
+import { playSound } from './sound-loader';
 
 /**
  * Damage from a mining horn, and nothing about finding what it is touching:

@@ -47,7 +47,7 @@ export const renderIndicators = (game, targets, color, range) => {
     path.lineTo(0, -indicatorsize);
     path.lineTo(0, indicatorsize);
     path.closePath();
-    outline(ctx, path);
+    outline({ ctx, path });
     ctx.stroke(path);
     ctx.restore();
 

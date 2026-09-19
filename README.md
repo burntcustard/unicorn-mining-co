@@ -1,7 +1,7 @@
 # Unicorn Mining Co
 
 > A web game created for [Js13kGames](https://js13kgames.com/) 2026
-> \- the total size of the [zipped](dist/game.zip) [index.html](dist/index.html) is (or will be) 13,312B!
+> \- delivered as progressively loaded JavaScript resources targeting at most 14 KiB each.
 
 ## Gameplay
 
@@ -38,9 +38,8 @@ WHITE - Unlocked by default from the start of the game.
 ## Tech used
 
 - Game engine heavily inspired by [Kontra.js](https://straker.github.io/kontra/) by [Steven Lambert](https://stevenklambert.com/), rendering to an HTML canvas.
-- A [custom fork](https://github.com/burntcustard/roadroller/pull/1) of the JavaScript packer [Roadroller](https://lifthrasiir.github.io/roadroller/) by [Kang Seonghoon](https://mearie.org/).
-- [JSZip](https://stuk.github.io/jszip/) _and_ [advzip-bin](https://github.com/elliot-nelson/advzip-bin) for zip compression.
-- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a messy, unstable, project-specific [custom plugin](plugins/vite-js13k.js) for maximum minification.
+- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/vite-build.js) for chunking, minification, and size warnings.
+- [TypeScript 7](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) for fast type checking as source files are gradually converted to TypeScript.
 
 ## Run locally
 
@@ -53,28 +52,14 @@ WHITE - Unlocked by default from the start of the game.
 3. Run dev command to start up hot-reloading with [Vite](https://vitejs.dev/) at [localhost:3000](http://localhost:3000/) (you will need to open that URL yourself!)
   `npm run dev`
 
-4. Compile the output [index.html](dist/index.html) file and [game.zip](dist/game.zip) files (this takes a minute or so)
+4. Compile [index.html](dist/index.html) and its JavaScript chunks
    `npm run build`
 
 5. See [package.json](package.json) for other scripts
 
-## Build options
+## Build
 
-| Command | Terser passes | Roadroller | advzip | Use |
-| --- | ---: | :---: | --- | --- |
-| `npm run build:fast` | 4 | ✅ | 10 iterations | Quick size comparisons for small changes |
-| `npm run build:full` | 9 | ✅ | 6,000 iterations | Reproducible release output and the final 13,312-byte check |
-| `npm run build:search` | 9 | Search | Skipped | Search forever for optimal Roadroller encoder parameters |
-
-`npm run build` runs the full build. `build:fast` uses 10 advzip
-recompression iterations so its size comparisons are quick while still
-reflecting real recompression, unlike skipping it entirely. Fast ZIPs may
-exceed 13,312 bytes and are not release artifacts. Roadroller always runs
-with the same fixed encoder parameters in `build:fast`/`build:full`, so every
-build's JS output is deterministic. `build:search` instead builds
-`dist/minified.js` the same way as `build:full` and then runs an indefinite
-Roadroller CLI search for better encoder parameters (stop it with Ctrl+C when
-you've found something worth trying). It preserves Roadroller's normal output
-and saves the best reported parameters to `plugins/roadroller-args.js`, which
-the normal packer uses on subsequent builds; it does not produce a ZIP.
-
+`npm run build` runs TypeScript 7, builds with nine Terser passes, emits ordinary
+browser-cacheable ES modules, and warns if any JavaScript resource is larger
+than 14 KiB. See [CHUNK_LOADING.md](CHUNK_LOADING.md) for the current loading
+tiers and their triggers.

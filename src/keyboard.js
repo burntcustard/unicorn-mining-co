@@ -4,7 +4,7 @@
  *
  * But using event.key rather than event.which
  */
-import { unlockAudio } from './sound';
+import { unlockAudio } from './sound-loader';
 
 // Store callbacks for single key pressed events
 let callbacks = {};
@@ -12,7 +12,7 @@ let start;
 
 // Same as Kontra pressedKeys - a list of keys that are "held down", i.e.
 // haven't had a keyup even to "turn them off" yet.
-export const downKeys = { ht: 0, ft: 0 };
+export const downKeys = { ['ht']: 0, ['ft']: 0 };
 
 /**
  * Execute a function that corresponds to a keyboard key.

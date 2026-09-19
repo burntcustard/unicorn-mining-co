@@ -1,5 +1,5 @@
 import { damage, healthOf } from './ship';
-import { playSound } from './sound';
+import { playSound } from './sound-loader';
 import { playerShip } from './player';
 
 /**

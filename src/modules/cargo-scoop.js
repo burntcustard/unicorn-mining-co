@@ -1,4 +1,4 @@
-import { playSound } from '../sound';
+import { playSound } from '../sound-loader';
 
 // Cargo scoop
 // A pair of doors hinged at their outer ends, lying flat inside the hull and

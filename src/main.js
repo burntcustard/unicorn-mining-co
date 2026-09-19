@@ -32,7 +32,7 @@ import { generateWorld } from './world';
 // eslint-disable-next-line sort-imports
 import { grind, mine } from './mining';
 // import { Road } from './road';
-import { playSound } from './sound';
+import { playSound } from './sound-loader';
 import { renderBackground } from './background';
 import { renderUI } from './ui';
 import { resolve } from './resolve';

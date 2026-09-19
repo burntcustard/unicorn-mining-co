@@ -1,7 +1,7 @@
 // Mining horn
 // Starts a lineWidth ahead of its mount, so that where a mount sits on the
 // hull nose the two strokes touch exactly
-import { continuousSound } from '../sound';
+import { continuousSound } from '../sound-loader';
 
 const hornBase = 3;
 const hornLength = 24;

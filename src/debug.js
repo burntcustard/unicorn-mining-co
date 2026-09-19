@@ -1,6 +1,6 @@
 import { camera, renderDeadzone } from './camera';
 import { glows, lights, toggleGlows, toggleLights } from './lighting';
-import { playSound, testTone } from './sound';
+import { playSound, testTone } from './sound-loader';
 import { Ship } from './ship';
 import { bindKeys } from './keyboard';
 import { colors } from './colors';

@@ -5,7 +5,7 @@ import { Sprite } from './sprite';
 import { colors } from './colors';
 import { forget } from './game';
 import { outerEdges } from './collisions';
-import { playSound } from './sound';
+import { playSound } from './sound-loader';
 import { rotateAround } from './local-movement';
 
 // An asteroid gives a little, but nothing like a shield does

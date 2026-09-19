@@ -7,19 +7,42 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 
 ## Project rules
 
-- The finished entry has to fit in 13,312 bytes, but going over while building a feature out is fine; it gets golfed back down afterwards.
-- Do not modify generated files in `dist/` by hand; produce them with the build command.
-- Never shorten names of variables, properties, functions, etc. Terser will do that for us.
-- For optimizing, minifying or code-golfing work, use the code-golfing skill.
+- Every production JavaScript resource should target at most 14 KiB (14,336
+  UTF-8 bytes) after minification. The build warns rather than fails above that size,
+  and the inline entry counts as one JavaScript resource.
+- Do not modify generated files in `dist/` by hand; produce them with a build.
+- Never shorten names of variables, properties, or functions. The production
+  minifiers do that.
+- Prefer one options object with named properties over multiple positional
+  parameters when designing or changing helper APIs.
+- Preserve the loading tiers and document new triggers in `CHUNK_LOADING.md`.
+- A static import joins the initial load. Use `import()` only when code has a
+  concrete later trigger and can safely initialize at that time.
+- For optimization, minification, or code-golfing work, use the code-golfing
+  skill too.
 
-## Before and after making a code change
+## Before and after a code change
 
-- Do not run a build at all if you are only editing comments, whitespace, or other non-functional changes.
-- Use `npm run build:fast` for small, localized changes and size comparisons while iterating. It runs 10 advzip iterations, making its results quick while still reflecting real recompression.
-- Before editing, run the appropriate build and record the ZIP size as the baseline.
-- Run `npm run lint` after source or configuration changes, but only report it if it fails.
-- After editing, run the same build again and compare its ZIP size with the baseline.
-- Report only the before/after advzip sizes and difference; omit the unoptimized ZIP and pre-Roadroller sizes.
-- Roadroller always runs with the same fixed encoder parameters, so ZIP sizes are directly comparable across builds.
-- Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to check a release, or for larger changes. `npm run build` is an alias, but prefer the explicit command.
-- `npm run build:search` doesn't produce a ZIP; it builds `dist/minified.js` like `build:full` and then runs an indefinite Roadroller CLI search for better encoder parameters. Only run it when the user explicitly asks to search for parameters, since it never terminates on its own.
+- Do not build for comment-only or whitespace-only edits.
+- Before a functional change, run `npm run build` and record the affected
+  chunk sizes and the largest chunk. The build report is the source of truth.
+- Run the relevant tests and `npm run lint` after source or configuration
+  changes. Report lint only when it fails.
+- After editing, run `npm run build` again and compare the same resources.
+- Report raw per-resource sizes and deltas. Do not report ZIP, Roadroller, gzip,
+  or Brotli estimates as the acceptance metric.
+- The same Oxc plus Terser-mangling production build is used for iteration and
+  release checks.
+
+## TypeScript
+
+- TypeScript 7 runs through `npm run typecheck` before every production build.
+- Vite handles JavaScript and TypeScript module transforms. Source can migrate
+  from `.js` to `.ts` incrementally.
+- Prefer inferred types. Add annotations only when TypeScript cannot infer a
+  useful type from the initializer or surrounding context, such as exported
+  function parameters.
+- Let obvious return types be inferred; do not annotate `void` just to state
+  that a function returns nothing.
+- Keep `module: preserve` and `moduleResolution: bundler` unless the browser
+  bundling model changes.

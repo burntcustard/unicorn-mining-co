@@ -3,7 +3,7 @@ import { Ship } from './ship';
 import { colors } from './colors';
 import { downKeys } from './keyboard';
 import { flyOut } from './docking';
-import { updateThrusterSound } from './sound';
+import { updateThrusterSound } from './sound-loader';
 
 export const playerShip = new Ship({
   shades: colors.white,
@@ -90,8 +90,8 @@ export const updatePlayer = (dt) => {
   const launching = flyOut(playerShip, dt);
 
   playerShip.fly(
-    launching || (!playerShip.dockedTo && downKeys.Up) ? 1 : 0,
-    launching || playerShip.dockedTo ? 0 : downKeys.ht - downKeys.ft,
+    launching || (!playerShip.dockedTo && downKeys['Up']) ? 1 : 0,
+    launching || playerShip.dockedTo ? 0 : downKeys['ht'] - downKeys['ft'],
   );
   // Normalize spin against the same steering limit used by Ship.update.
   // Steering effort also covers braking a spin and reversing turn direction.

@@ -9,17 +9,15 @@
     "dev": "vite",
     "dev:host": "vite --host",
     "world-preview": "node scripts/world-preview.js",
-    "build": "npm run build:full",
-    "build:fast": "vite build --mode fast",
-    "build:full": "vite build --mode full",
-    "build:search": "vite build --mode search",
+    "build": "npm run typecheck && vite build",
     "test": "npm run test:collisions && npm run test:docked && npm run test:prism && npm run test:sound",
     "test:collisions": "node tests/collisions.test.mjs",
     "test:docked": "node tests/docked.test.mjs",
     "test:prism": "node tests/prism.test.mjs",
     "test:sound": "node tests/sound.test.mjs",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "repository": {
     "type": "git",
@@ -31,29 +29,13 @@
     "url": "https://github.com/burntcustard/unicorn-mining-co/issues"
   },
   "homepage": "https://github.com/burntcustard/unicorn-mining-co#readme",
-  "overrides": {
-    "preprocess": "3.2.0"
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "acorn": "^8.18.0",
-    "advzip-bin": "^2.0.0",
-    "eslint": "^10.8.1",
-    "globals": "^17.11.0",
-    "html-minifier-terser": "^7.2.0",
-    "jszip": "^3.10.1",
-    "roadroller": "github:burntcustard/roadroller#feature/hierarchical-mixers-zopfli-optimizations",
-    "terser": "^5.50.0",
-    "vite": "^8.2.1"
-  },
-  "allowScripts": {
-    "advzip-bin@2.0.0": true,
-    "core-js-pure@3.50.0": true,
-    "file:../../roadroller": true,
-    "github:burntcustard/roadroller#feature/hierarchical-mixers-zopfli-optimizations": true,
-    "node-zopfli-es@2.0.6": true,
-    "github:burntcustard/roadroller#c616a8ff38d14f29774562042f153559b90de9df": true,
-    "github:burntcustard/roadroller#85f46f296b122648d997a7c015306164153916d0": true
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "terser": "^5.51.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
   }
 }

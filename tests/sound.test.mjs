@@ -1,9 +1,8 @@
 /* global Buffer, process */
+import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
 import assert from 'node:assert/strict';
 import { minify } from 'terser';
 import { rolldown } from 'rolldown';
-import viteConfig from '../vite.config.js';
-import { viteJs13kPre } from '../plugins/vite-js13k.js';
 
 const scenario = `
 import { TestAudioContext } from '${process.cwd()}/tests/audio-context.mjs';
@@ -121,16 +120,22 @@ const bundle = await rolldown({
   external: ['node:assert/strict'],
   plugins: [{
     name: 'sound-test-entry',
-    resolveId: (id) => id === 'sound-scenario.js' ? '\0sound-scenario.js' : undefined,
+    resolveId: (id, importer) => {
+      if (id === 'sound-scenario.js') return '\0sound-scenario.js';
+
+      if (id === '../sound-loader' && importer?.endsWith('/src/modules/horn.js')) {
+        return `${process.cwd()}/src/sound.js`;
+      }
+    },
     load: (id) => id === '\0sound-scenario.js' ? scenario : undefined,
-  }, viteJs13kPre()],
+  }, viteBuildPre()],
 });
-const { output } = await bundle.generate({ format: 'esm' });
+const { output } = await bundle.generate({ format: 'esm', minify: true });
 await bundle.close();
-const { build } = viteConfig({ mode: 'fast', command: 'build' });
 // Node's assert methods are external to the bundled scenario, like Web Audio.
-build.terserOptions.mangle.properties.reserved.push('equal', 'notEqual');
-const compressed = await minify(output[0].code, build.terserOptions);
+const compressed = await minify(output[0].code, terserMangleOptions({
+  reserved: ['equal', 'notEqual'],
+}));
 
 for (const code of [output[0].code, compressed.code]) {
   await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);

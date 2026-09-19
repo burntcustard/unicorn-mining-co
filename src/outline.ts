@@ -1,4 +1,16 @@
-export const outline = (ctx, path, radius = 1) => {
+export interface OutlineOptions {
+  ctx: CanvasRenderingContext2D;
+  path: Path2D;
+  radius?: number;
+  strokeStyle?: string;
+}
+
+export const outline = ({
+  ctx,
+  path,
+  radius = 1,
+  strokeStyle = '#0007',
+}: OutlineOptions) => {
   const outlinePath = new Path2D();
 
   Array.from({ length: 16 }, (_, i) => {
@@ -8,7 +20,7 @@ export const outline = (ctx, path, radius = 1) => {
   });
 
   ctx.save();
-  ctx.strokeStyle = '#0007';
+  ctx.strokeStyle = strokeStyle;
   ctx.stroke(outlinePath);
   ctx.restore();
 };

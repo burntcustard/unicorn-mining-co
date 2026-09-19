@@ -3,7 +3,7 @@ import { colors } from '../colors';
 import { instanceOf } from '../modules';
 import { launch } from '../docking';
 import { outline } from '../outline';
-import { playSound } from '../sound';
+import { playSound } from '../sound-loader';
 import { renderText } from '../text';
 
 /**
@@ -304,7 +304,7 @@ export const renderDocked = (game, ship) => {
     ctx.fillStyle = `${shades[2]}${worn ? '' : '3'}`;
     ctx.strokeStyle = shades[2];
     ctx.fill(path);
-    outline(ctx, path, textSize);
+    outline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   };
 

@@ -67,7 +67,7 @@ export const renderControls = (game, ship) => {
     // touch narrower than the letter and dropped just below it
     path.moveTo(textX, y + underDrop);
     path.lineTo(textX + glyph - 1, y + underDrop);
-    outline(ctx, path, textSize);
+    outline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   });
 

@@ -1,9 +1,8 @@
 /* global process */
 import './audio-context.mjs';
+import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
 import { minify } from 'terser';
 import { rolldown } from 'rolldown';
-import viteConfig from '../vite.config.js';
-import { viteJs13kPre } from '../plugins/vite-js13k.js';
 
 // Keep the assertions in the bundle so production property mangling applies
 // consistently to both the game objects and the checks that inspect them.
@@ -368,9 +367,9 @@ const bundle = await rolldown({
     transform: (code, id) => id.endsWith('/src/ui/docked.js') ?
       `${code}\nexport { fitsOf };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];` :
       undefined,
-  }, viteJs13kPre()],
+  }, viteBuildPre()],
 });
-const { output } = await bundle.generate({ format: 'esm' });
+const { output } = await bundle.generate({ format: 'esm', minify: true });
 await bundle.close();
 
 globalThis.z = { getContext: () => ({}) };
@@ -382,8 +381,7 @@ globalThis.Path2D = class {
   moveTo() {}
 };
 
-const { build } = viteConfig({ mode: 'fast', command: 'build' });
-const compressed = await minify(output[0].code, build.terserOptions);
+const compressed = await minify(output[0].code, terserMangleOptions());
 
 for (const code of [output[0].code, compressed.code]) {
   await import(`data:text/javascript,${encodeURIComponent(code)}`);

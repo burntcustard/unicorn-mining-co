@@ -4,12 +4,12 @@
 
 [ ] Native websockets front-end
 [ ] Native Node.js back-end
-[ ] Swap to full TypeScript
-[ ] Remove roadroller, swap optimization to gzip
-[ ] Code-splitting to load different JS files first
+[-] Swap to full TypeScript
+[x] Remove roadroller and ZIP compression
+[x] Code-splitting to load different JS files first
 [ ] PWA-ish stuff like webmanifest
 [ ] Remove unecessary docs like build-size-breakdown.md
-[ ] Remove roadroller/zip experiment and other AI stuff
+[x] Remove active roadroller/zip build tooling
 [ ] New full test suite
 [ ] Rethink update area ratios and timings
 [ ] Better benchmarking FPS test suite

@@ -10,9 +10,8 @@ import { outline } from './outline';
  * Empty characters (',') are used to make the output array indexes match up
  * with the UTF-16 code units that String.prototype.charCodeAt() returns.
  *
- * Note that build:fast shows a size increase for using a long string and
- * .split()/.map() rather than defining the array directly, however
- * build:full shows a size decrease. So a string it is.
+ * The production build is smaller when this is stored as a long string and
+ * split/mapped than when the array is defined directly.
  *
  * @type {Array}
  */
@@ -152,7 +151,7 @@ export function renderText(game, text, x, y, size = 0.6, align = -1, color = '#f
 
   const path = textPath(text);
 
-  outline(ctx, path);
+  outline({ ctx, path });
   ctx.stroke(path);
   ctx.restore();
 }

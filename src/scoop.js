@@ -1,6 +1,6 @@
 import { playerShip, roomFor, say, stow, unlockColor } from './player';
 import { game } from './game';
-import { playSound } from './sound';
+import { playSound } from './sound-loader';
 
 /**
  * Taking cargo aboard, and nothing else. Shoving it about on the way in is
