@@ -132,10 +132,16 @@ const bundle = await rolldown({
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });
 await bundle.close();
-// Node's assert methods are external to the bundled scenario, like Web Audio.
-const compressed = await minify(output[0].code, terserMangleOptions({
-  reserved: ['equal', 'notEqual'],
-}));
+const compressed = await minify(output[0].code, {
+  ...terserMangleOptions(),
+  mangle: {
+    properties: {
+      // Node's assert methods are external to the bundled scenario, like Web Audio.
+      keep_quoted: true,
+      reserved: ['equal', 'notEqual'],
+    },
+  },
+});
 
 for (const code of [output[0].code, compressed.code]) {
   await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);

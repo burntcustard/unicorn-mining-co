@@ -1,36 +1,24 @@
 import { minify } from 'terser';
 import { replacePreTerser } from './replace-pre-terser.js';
 
-export const maxChunkSize = 14 * 1024;
-
-const scriptSourcePattern = /\.[cm]?[jt]sx?(?:\?|$)/;
-
-export const terserMangleOptions = ({ nameCache = {}, reserved = [] } = {}) => ({
+export const terserMangleOptions = (nameCache = {}) => ({
   compress: false,
   mangle: {
     properties: {
       // Quoted property syntax marks computed or external names as unmangleable.
       keep_quoted: true,
-      reserved,
     },
   },
   module: true,
   nameCache,
 });
 
-const bytes = (source) => Buffer.byteLength(source);
-
-const addPrefetch = (html, fileName) => html.replace(
-  '</head>',
-  `  <link rel="prefetch" href="./${fileName}" as="script" />\n  </head>`,
-);
-
 export function viteBuildPre(flags = {}) {
   return {
     name: 'vite-build-pre',
     enforce: 'pre',
     transform(source, id) {
-      if (scriptSourcePattern.test(id) && !id.includes('/node_modules/')) {
+      if (/\.[cm]?[jt]sx?(?:\?|$)/.test(id) && !id.includes('/node_modules/')) {
         return {
           code: replacePreTerser(source, flags),
           map: null,
@@ -57,7 +45,7 @@ export function viteBuild() {
     renderChunk: {
       order: 'post',
       handler(code) {
-        const mangled = mangleQueue.then(() => minify(code, terserMangleOptions({ nameCache })));
+        const mangled = mangleQueue.then(() => minify(code, terserMangleOptions(nameCache)));
 
         mangleQueue = mangled.then(() => undefined);
         return mangled;
@@ -70,9 +58,9 @@ export function viteBuild() {
         const soundChunk = chunks.find((chunk) => chunk.name === 'sound');
 
         for (const chunk of chunks) {
-          const size = bytes(chunk.code);
+          const size = Buffer.byteLength(chunk.code);
 
-          if (size > maxChunkSize) {
+          if (size > 14 * 1024) {
             this.warn(`${chunk.fileName} is ${size}B (over 14 KiB)`);
           }
         }
@@ -81,7 +69,13 @@ export function viteBuild() {
           item.type === 'asset' && item.fileName.endsWith('.html'))) {
           let html = String(htmlAsset.source);
 
-          if (soundChunk) html = addPrefetch(html, soundChunk.fileName);
+          if (soundChunk) {
+            html = html.replace(
+              '</head>',
+              `  <link rel="prefetch" href="./${soundChunk.fileName}" as="script" />\n  </head>`,
+            );
+          }
+
           htmlAsset.source = html;
         }
       },
