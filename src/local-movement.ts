@@ -24,7 +24,7 @@ export const localMovement = (child: any, movers: any[], dt: number) => {
   let parent = child.localMovementParent;
 
   if (parent && !parent.holds(child)) {
-    child.velocity.set(child.velocity.add(parent.momentum(child)));
+    child.velocity.set(child.velocity.add(parent.momentum(child.position)));
     parent = child.localMovementRate = 0;
   }
 

@@ -12,6 +12,9 @@ export class Sprite {
   [key: string]: any;
 
   position: VectorValue;
+  radius: number;
+  rotation: number;
+  spin: number;
   velocity: VectorValue;
 
   constructor(properties: any) {

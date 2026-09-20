@@ -4,7 +4,7 @@ import './audio-context.mjs';
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
 
-globalThis.z = { getContext: () => ({}) };
+globalThis.canvas = { getContext: () => ({}) };
 globalThis.location = { search: '' };
 globalThis.Path2D = class {
   arc() {}

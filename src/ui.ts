@@ -3,9 +3,10 @@ import { colors } from './colors';
 import { renderControls } from './ui/controls';
 import { renderDocked } from './ui/docked-loader';
 import { renderIndicators } from './ui/indicators';
+import { type Craft, type GameState } from './types';
 import { renderText } from './text';
 
-export const renderUI = (game, stations) => {
+export const renderUI = (game: GameState, stations: Craft[]) => {
   if (!game.uiAlpha) return;
 
   game.ctx.save();

@@ -8,7 +8,28 @@ import { forget } from './game';
 import { outerEdges } from './collisions';
 import { playSound } from './sound-loader';
 import { rotateAround } from './local-movement';
-import { Vector } from './vector';
+import { Vector, type Vector as VectorValue } from './vector';
+import { type Outline, type Point, type WorldObject } from './types';
+
+type Buried = { localPosition: VectorValue; rotation: number };
+type BuriedItem = WorldObject & { buried?: Buried | 0 };
+export type AsteroidSection = {
+  asteroid: Asteroid;
+  contents: BuriedItem[];
+  health: number;
+  hitbox?: 0;
+  mass: number;
+  maxHealth: number;
+  outline: Outline;
+};
+type AsteroidProperties = Partial<Asteroid> & {
+  contents?: BuriedItem[];
+  fill?: string;
+  mass?: number;
+  outline?: Outline;
+  points?: number;
+  triangles?: Outline[];
+};
 
 // An asteroid gives a little, but nothing like a shield does
 const asteroidBounciness = 0.1;
@@ -19,10 +40,10 @@ const asteroidVariance = 0.2;
 // Five sides keep the old radius-squared mass; fewer sides lose some, more gain some
 const massMultiplier = 0.4;
 // Bigger asteroids need more points to be lumpy with
-const pointsFor = (radius) => Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
+const pointsFor = (radius: number) => Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
 
 // Signed-edge sums give both exact polygon area and its physical centre
-const measure = (points) => {
+const measure = (points: Outline) => {
   let area = 0;
   let x = 0;
   let y = 0;
@@ -41,10 +62,10 @@ const measure = (points) => {
 };
 
 // Boundary edges of a set of outlines, stitched end-to-end into one loop
-const outlineFrom = (outlines) => {
+const outlineFrom = (outlines: Outline[]): Outline => {
   const edges = outlines.flatMap((outline) => outline.flatMap((from, i) =>
     outline.edges[i] ? [[from, outline[(i + 1) % outline.length]]] : []));
-  const outline = [edges[0][0]];
+  const outline: Outline = [edges[0][0]];
 
   // One edge short of the full loop: the last edge would only re-add the
   // start point, closing the shape back on itself
@@ -66,11 +87,11 @@ const outlineFrom = (outlines) => {
 };
 
 // Sections sharing an edge, regrouped as sections rather than bare outlines
-const groupsOf = (sections) => outerEdges(sections.map(({ outline }) => outline))
+const groupsOf = (sections: AsteroidSection[]) => outerEdges(sections.map(({ outline }) => outline))
   .map((indexes) => indexes.map((i) => sections[i]));
 
 // Midpoints quarter each face, leaving four equal triangles per side.
-const splitTriangle = (triangle) => {
+const splitTriangle = (triangle: Outline): Outline[] => {
   const [center, from, to] = triangle;
   const left = pointBetween(center, from);
   const outer = pointBetween(from, to);
@@ -80,7 +101,11 @@ const splitTriangle = (triangle) => {
 };
 
 export class Asteroid extends Sprite {
-  constructor(props: any) {
+  declare contents: BuriedItem[];
+  declare outline: Outline;
+  declare sections: AsteroidSection[];
+
+  constructor(props: AsteroidProperties) {
     super(props);
 
     this.contents ||= [];
@@ -135,7 +160,7 @@ export class Asteroid extends Sprite {
       // Every innermost leaf comes first, so centre-only cargo can find the middle.
       this.sections = Array.from({ length: sectionsPerFace }, (_, corner) =>
         leaves.map((leaf) => ({
-          contents: [],
+          contents: [] as BuriedItem[],
           health,
           maxHealth: health,
           mass,
@@ -150,7 +175,7 @@ export class Asteroid extends Sprite {
     }
   }
 
-  split(groups) {
+  split(groups?: AsteroidSection[][]): [Asteroid[], BuriedItem[]] {
     if (!groups) return [[], this.contents];
 
     const children = groups.map((sections) => {
@@ -162,7 +187,7 @@ export class Asteroid extends Sprite {
       const outline = outlineFrom(triangles);
       const center = measure(outline);
       const offset = rotatePoint(center, this.rotation);
-      const local = ([x, y]) => [x - center.x, y - center.y];
+      const local = ([x, y]: Point): Point => [x - center.x, y - center.y];
 
       // Rebase around the child's own centroid without moving any world point
       const child = new Asteroid({
@@ -186,6 +211,7 @@ export class Asteroid extends Sprite {
         const outline = section.outline.map(local);
 
         section.contents.forEach(({ buried }) => {
+          if (!buried) return;
           buried.localPosition.set(buried.localPosition.subtract(center));
         });
 
@@ -216,7 +242,7 @@ export class Asteroid extends Sprite {
     return [children, []];
   }
 
-  detach(section, destroyed?) {
+  detach(section: AsteroidSection, destroyed?: boolean): [Asteroid[], BuriedItem[]] {
     const loose = destroyed ? section.contents : [];
 
     if (destroyed) section.contents = [];
@@ -252,7 +278,7 @@ export class Asteroid extends Sprite {
    *
    * @param {Item} item
    */
-  bury(item) {
+  bury(item: BuriedItem) {
     const empty = this.sections.filter(({ contents }) => !contents.length);
     // Sections are center-first, so soften their three-to-one outer bias.
     const section =
@@ -269,11 +295,12 @@ export class Asteroid extends Sprite {
   /**
   * @param {Number} dt - Seconds since the last update.
   */
-  update(dt) {
+  update(dt: number) {
     super.update(dt);
     this.contents.forEach((item) => {
       const { buried } = item;
 
+      if (!buried) return;
       item.rotation = buried.rotation;
       rotateAround(this, item, buried.localPosition, this.rotation);
 

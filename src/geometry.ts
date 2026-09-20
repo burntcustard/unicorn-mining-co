@@ -1,4 +1,5 @@
 import { Vector, type Vector as VectorValue } from './vector';
+import { type Outline, type Point } from './types';
 
 export const rotatePoint = ({ x, y }: VectorValue, angle: number) => {
   const sin = Math.sin(angle);
@@ -24,9 +25,9 @@ export const pointBetween = (from: number[], to: number[], at = 0.5) =>
  * Rotate local polygon points around zero, then optionally move them into
  * world space. Used wherever shapes need the same coordinates after turning.
  */
-export const rotatePoints = (points: number[][], angle: number, position = Vector()) =>
+export const rotatePoints = (points: number[][], angle: number, position = Vector()): Outline =>
   points.map(([pointX, pointY]) => {
     const point = rotatePoint(Vector(pointX, pointY), angle);
 
-    return [position.x + point.x, position.y + point.y];
-  });
+    return [position.x + point.x, position.y + point.y] as Point;
+  }) as Outline;

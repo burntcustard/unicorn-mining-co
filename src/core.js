@@ -1,4 +1,4 @@
-/* global z */
+/* global canvas */
 
 /**
  * Based on Kontra core.js, available under the MIT licence:
@@ -10,9 +10,9 @@
 export let context;
 
 export const init = () => {
-  context = z.getContext('2d');
+  context = canvas.getContext('2d');
 
-  return { canvas: z, context };
+  return { canvas, context };
 };
 
 export const getContext = () => context;

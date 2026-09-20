@@ -5,6 +5,7 @@ import { downKeys } from './keyboard';
 import { flyOut } from './docking';
 import { updateThrusterSound } from './sound-loader';
 import { Vector } from './vector';
+import { type Module, type Palette, type Segment, type WorldObject } from './types';
 
 export const playerShip = new Ship({
   shades: colors.white,
@@ -23,12 +24,12 @@ playerShip.credits = 10000;
 
 // Violet is the pink paint in the palette, and only it and white are available
 // until the pilot has earned the rest.
-const unlockedPaints = [colors.violet, colors.white];
-const visitedStations = new Set();
+const unlockedPaints: Palette[] = [colors.violet, colors.white];
+const visitedStations = new Set<Ship>();
 
-export const colorUnlocked = (shades) => unlockedPaints.includes(shades);
+export const colorUnlocked = (shades: Palette) => unlockedPaints.includes(shades);
 
-export const unlockColor = (color, reason) => {
+export const unlockColor = (color: string, reason: string) => {
   // Reward names follow the first five palettes in colors; strings survive
   // property mangling and also supply the exact name shown in the message.
   const shades = Object.values(colors)['RED ORANGE YELLOW GREEN CYAN'.split(' ').indexOf(color)];
@@ -44,23 +45,23 @@ playerShip.destroyed = () => {
   unlockColor('RED', 'DAMAGED');
 };
 
-playerShip.docked = (station) => {
+playerShip.docked = (station: Ship) => {
   visitedStations.add(station);
   if (visitedStations.size > 2) unlockColor('GREEN', '3 STATION VISITS');
 };
 
 // Keep acquisition order separate from where each module is fitted.
-horn.shades = colors.yellow;
+Object.assign(horn, { shades: colors.yellow });
 thrusters.forEach((thruster) => Object.assign(thruster, { shades: colors.violet }));
 Object.assign(cargoScoop, { shades: colors.violet });
-shield.shades = colors.violet;
+Object.assign(shield, { shades: colors.violet });
 playerShip.modules = [thrusterDualMd, cargoScoop, cargoScoop, horn, floodlight].map(instanceOf);
-playerShip.modules.forEach((module) => playerShip.fit(module));
+playerShip.modules.forEach((module: Module) => playerShip.fit(module));
 
 /**
  * @param {String} text - Upper case, and only what the font actually has.
  */
-export const say = (text) => {
+export const say = (text: string) => {
   playerShip.note = text;
   playerShip.noteFor = 10;
 };
@@ -72,16 +73,16 @@ export const say = (text) => {
  * @param {Object} craft - Whichever craft is taking the cargo.
  * @returns {Number} count
  */
-export const cargoCount = (craft) => craft.cargo.length + craft.cargoBay.length;
+export const cargoCount = (craft: Ship) => craft.cargo.length + craft.cargoBay.length;
 
-export const roomFor = (craft) => cargoCount(craft) < craft.cargoSpace;
+export const roomFor = (craft: Ship) => cargoCount(craft) < craft.cargoSpace;
 
-export const stow = (craft, item) => craft.cargo.push(item);
+export const stow = (craft: Ship, item: WorldObject) => craft.cargo.push(item);
 
 /**
  * @param {Number} dt - Seconds since the last update.
  */
-export const updatePlayer = (dt) => {
+export const updatePlayer = (dt: number) => {
   playerShip.noteFor = Math.max(0, playerShip.noteFor - dt);
   playerShip.hudAlpha = Math.max(0, Math.min(1,
     playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt));
@@ -92,7 +93,7 @@ export const updatePlayer = (dt) => {
   const launching = flyOut(playerShip, dt);
 
   playerShip.fly(
-    launching || (!playerShip.dockedTo && downKeys['Up']) ? 1 : 0,
+    launching || (!playerShip.dockedTo && (downKeys as Record<string, number>)['Up']) ? 1 : 0,
     launching || playerShip.dockedTo ? 0 : downKeys['ht'] - downKeys['ft'],
   );
   // Normalize spin against the same steering limit used by Ship.update.
@@ -108,7 +109,7 @@ export const updatePlayer = (dt) => {
 
   updateThrusterSound(!playerShip.dead && !playerShip.dockedTo && playerShip.engine.mount ?
       Math.max(steeringEffort * playerShip.launchThrottle,
-        ...playerShip.segments.filter((segment) => segment.module === playerShip.engine)
-          .map((segment) => segment.active)) :
+        ...playerShip.segments.filter((segment: Segment) => segment.module === playerShip.engine)
+          .map((segment: Segment) => segment.active)) :
     0, engineLoad);
 };

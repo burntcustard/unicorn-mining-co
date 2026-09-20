@@ -1,9 +1,38 @@
 import { directionOf, rotatePoint, rotatePoints } from './geometry';
 import { shapePath, strip } from './drawing';
-import { Vector } from './vector';
+import { Vector, type Vector as VectorValue } from './vector';
 import { colors } from './colors';
+import { type Outline, type Segment, type WorldObject } from './types';
 
-const fillOf = (ctx, color, from, to, fade) => {
+type Crossing = {
+  at: VectorValue;
+  away?: VectorValue;
+  distance: number;
+  face: number;
+  length?: number;
+  normal: VectorValue;
+};
+type Ray = {
+  at: VectorValue;
+  distance?: number;
+  hit?: Outline;
+  out?: Crossing;
+};
+type CompleteRay = Ray & {
+  hit: Outline;
+  out: Crossing & { away: VectorValue; length: number };
+};
+type Beam = { mask: Path2D; outlines: Outline[]; rays: Ray[] };
+type Lamp = Segment;
+type Scenery = WorldObject & { outline: Outline; scenery?: boolean };
+
+const fillOf = (
+  ctx: CanvasRenderingContext2D,
+  color: string,
+  from: VectorValue,
+  to: VectorValue,
+  fade: number,
+) => {
   const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
 
   gradient.addColorStop(0, color);
@@ -106,10 +135,10 @@ const spectrumStrength = 0.9;
  * @param {Object} from - Where the ray starts.
  * @param {Object} dir - Which way it goes, as a unit vector.
  */
-const cross = (points, from, dir) => {
+const cross = (points: Outline, from: VectorValue, dir: VectorValue): Crossing | undefined => {
   let near = Infinity;
-  let normal;
-  let faceIndex;
+  let normal: VectorValue | undefined;
+  let faceIndex = 0;
 
   points.forEach((corner, i) => {
     const next = points[(i + 1) % points.length];
@@ -138,7 +167,7 @@ const cross = (points, from, dir) => {
  * @param {Object} normal - The face it is crossing, facing back at it.
  * @param {Number} index - How much the material it is entering slows it down.
  */
-const refract = (dir, normal, index) => {
+const refract = (dir: VectorValue, normal: VectorValue, index: number) => {
   const facing = -dir.dot(normal);
   // Both roots are held to what they can really be, because a ray meeting a
   // face square on, or one right on the edge of being trapped, comes out a hair
@@ -152,7 +181,12 @@ const refract = (dir, normal, index) => {
 
 // One scenery object's shape in the lamp's frame, added to the mask as a path
 // and handed back as points for the rays to be tested against
-const outlineOf = (ship, lamp, object, mask) => {
+const outlineOf = (
+  ship: WorldObject,
+  lamp: Segment,
+  object: Scenery,
+  mask: Path2D,
+) => {
   const middle = rotatePoint(
     object.position.subtract(ship.position), -ship.rotation,
   ).subtract(lamp.localPosition);
@@ -168,11 +202,11 @@ const outlineOf = (ship, lamp, object, mask) => {
  * One ray, all the way through. Where it stops is where the light stops, and
  * what it found on the way is everything the rainbow needs.
  */
-const rayAt = (outlines, angle, range) => {
+const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
   const dir = directionOf(angle);
   const from = Vector();
-  let entry: any = { at: dir.scale(range), distance: range };
-  let hit: any;
+  let entry: Crossing | Ray = { at: dir.scale(range), distance: range };
+  let hit: Outline | undefined;
 
   outlines.forEach((outline) => {
     const found = cross(outline, from, dir);
@@ -185,20 +219,21 @@ const rayAt = (outlines, angle, range) => {
 
   if (!hit) return entry;
 
-  const into = -dir.dot(entry.normal) >= minFacing &&
-    refract(dir, entry.normal, 1 / rockIndex);
-  const out: any = into && cross(hit, entry.at, into);
+  const crossing = entry as Crossing;
+  const into = -dir.dot(crossing.normal) >= minFacing &&
+    refract(dir, crossing.normal, 1 / rockIndex);
+  const out = into && cross(hit, crossing.at, into);
 
-  if (!out) return { at: entry.at };
+  if (!out) return { at: crossing.at };
 
   out.away = refract(into, out.normal, rockIndex);
   // Whatever is left of the lamp's reach by the time the rock was reached.
   // Crossing it costs nothing, or a rock far enough off, or thick enough,
   // would swallow the whole of the reach and throw nothing out the far side.
-  out.length = range - entry.distance;
+  out.length = range - crossing.distance;
 
   return {
-    at: entry.at,
+    at: crossing.at,
     // Only ever the rock this ray went into, so light that comes out the far
     // side carries on into open space rather than through whatever is behind
     hit,
@@ -214,12 +249,13 @@ const rayAt = (outlines, angle, range) => {
  * @param {Object} lamp - The lit segment, mounted at `x`, `y` on the ship.
  * @param {Object[]} scenery - Anything that might be in the way.
  */
-export const traceBeam = (ship, lamp, scenery) => {
+export const traceBeam = (ship: WorldObject, lamp: Lamp, scenery: WorldObject[]): Beam => {
   const { lens, reach, spread } = lamp.module;
   const range = Math.hypot(lens + reach, spread);
   const edge = Math.atan2(spread, lens + reach);
   const mask = new Path2D();
-  const outlines = scenery.filter((object) => object.scenery && object.outline &&
+  const outlines = scenery.filter((object): object is Scenery =>
+    !!object.scenery && !!object.outline &&
     object.position.distanceTo(ship.position) - object.radius < range)
     .map((object) => outlineOf(ship, lamp, object, mask));
 
@@ -238,7 +274,7 @@ export const traceBeam = (ship, lamp, scenery) => {
 // Mined sides can retain collinear vertices. Allow roundoff in their signed
 // turn, relative to edge lengths so rotation and asteroid size cannot split them.
 // Asteroid outlines, including cut children, run counter-clockwise.
-const joins = (points, from, to) => {
+const joins = (points: Outline, from: number, to: number) => {
   if (from === to) return true;
 
   const count = points.length;
@@ -254,18 +290,20 @@ const joins = (points, from, to) => {
     -1e-8 * before.length() * after.length();
 };
 
-const runsOf = ({ rays: fan }) => {
-  const runs = [];
+const runsOf = ({ rays: fan }: Beam) => {
+  const runs: CompleteRay[][] = [];
 
   fan.forEach((ray, i) => {
-    if (!ray.hit) return;
+    if (!ray.hit || !ray.out?.away || ray.out.length === undefined) return;
+    const complete = ray as CompleteRay;
 
     const last = fan[i - 1];
 
-    if (last?.out && last.hit === ray.hit && joins(ray.hit, last.out.face, ray.out.face)) {
-      runs.at(-1).push(ray);
+    if (last?.out && last.hit === complete.hit &&
+      joins(complete.hit, last.out.face, complete.out.face)) {
+      runs.at(-1)!.push(complete);
     } else {
-      runs.push([ray]);
+      runs.push([complete]);
     }
   });
 
@@ -275,7 +313,7 @@ const runsOf = ({ rays: fan }) => {
 // One non-converging exit edge shared by the light inside a rock and the
 // rainbow outside it. It follows the real exit face, but never becomes
 // narrower across the beam than the edge that entered the rock.
-const sheetOf = (run) => {
+const sheetOf = (run: CompleteRay[]) => {
   const first = run[0];
   const last = run.at(-1);
   const through = run.reduce((sum, ray) =>
@@ -302,7 +340,7 @@ const sheetOf = (run) => {
 };
 
 // How far the light got, as the fan of everywhere its rays stopped
-export const litPath = ({ rays: fan }) => {
+export const litPath = ({ rays: fan }: Beam) => {
   const path = new Path2D();
 
   path.moveTo(0, 0);
@@ -314,7 +352,7 @@ export const litPath = ({ rays: fan }) => {
 
 // The slice of rock the light is actually crossing, from where it went in to
 // where it came out again
-export const insidePath = (beam) => {
+export const insidePath = (beam: Beam) => {
   const path = new Path2D();
 
   runsOf(beam).forEach((run) => {
@@ -329,7 +367,7 @@ export const insidePath = (beam) => {
   return path;
 };
 
-export const drawInside = (ctx, lamp, beam) => {
+export const drawInside = (ctx: CanvasRenderingContext2D, lamp: Lamp, beam: Beam) => {
   const path = insidePath(beam);
 
   ctx.save();
@@ -356,7 +394,7 @@ export const drawInside = (ctx, lamp, beam) => {
  * another add up the same way: each is light, and light fades to nothing rather
  * than to a colour, so neither can take anything away from the other.
  */
-export const drawSpectrum = (ctx, lamp, beam) => {
+export const drawSpectrum = (ctx: CanvasRenderingContext2D, lamp: Lamp, beam: Beam) => {
   const edges = Array.from({ length: spectrum.length + 1 }, (_, i) => i / spectrum.length);
 
   ctx.save();

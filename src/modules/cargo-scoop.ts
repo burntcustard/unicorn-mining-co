@@ -1,4 +1,5 @@
 import { playSound } from '../sound-loader';
+import { type Mount, type Outline, type Segment } from '../types';
 
 // Cargo scoop
 // A pair of doors hinged at their outer ends, lying flat inside the hull and
@@ -33,10 +34,10 @@ export const cargoScoop = {
   health: 4,
   model: [
     {
-      outline: [],
+      outline: [] as Outline,
       // A door, hinged at its outer end and swinging forward as the scoop
       // opens. A long thin rectangle, which is why it can be collided with
-      points: ({ activationProgress, mount }) => {
+      points: ({ activationProgress, mount }: { activationProgress: number; mount: Mount }) => {
         const angle = activationProgress * openAngle;
         const sine = Math.sin(angle);
         const cosine = Math.cos(angle);
@@ -67,7 +68,7 @@ export const cargoScoop = {
   // An open mouth is what draws loose cargo in, so this is the piece that
   // decides whether a ship can pick anything up
   scoops: true,
-  update: (segment) => {
+  update: (segment: Segment) => {
     // Follow the door itself, including partial travel and reversals. The
     // invisible cargo throat shares the animation but must not sound twice.
     if (!segment.catches && segment.mount.module === segment.module && segment.mount.health > 0 &&

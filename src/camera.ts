@@ -1,5 +1,6 @@
 import { Vector } from './vector';
 import { ease } from './ease';
+import { type GameState, type WorldObject } from './types';
 
 /**
  * The camera is the top left corner of the viewport in world coordinates.
@@ -14,11 +15,11 @@ const deadzone = 0.3;
 // from now. Lower catches up harder, and 0 would snap straight to it
 const lag = 0.0001;
 export const dockDuration = 4;
-let dockedTo;
-let dockEase;
-let dockTo;
+let dockedTo: WorldObject | 0 | undefined;
+let dockEase: ReturnType<typeof ease>;
+let dockTo = Vector();
 
-export const centerCamera = (game, target) => {
+export const centerCamera = (game: GameState, target: WorldObject) => {
   camera.set(target.position.subtract(Vector(game.width / 2, game.height / 2)));
 };
 
@@ -33,7 +34,7 @@ export const centerCamera = (game, target) => {
  * @param {Object} target - Anything with a place in the world.
  * @param {Number} dt - Seconds since the last update.
  */
-export const followTarget = (game, target, dt) => {
+export const followTarget = (game: GameState, target: WorldObject, dt: number) => {
   if (target.dockedTo) {
     if (target.dockedTo !== dockedTo) {
       dockedTo = target.dockedTo;
@@ -61,7 +62,7 @@ export const followTarget = (game, target, dt) => {
   camera.set(camera.add(offset.scale(factor * followEase)));
 };
 
-export const renderDeadzone = (game) => {
+export const renderDeadzone = (game: GameState) => {
   const { ctx } = game;
 
   ctx.save();

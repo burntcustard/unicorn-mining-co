@@ -1,8 +1,16 @@
 import { makeSparks, updateSparks } from './particles';
 import { movePoint, rotatePoint } from './geometry';
-import { Vector } from './vector';
+import { Vector, type Vector as VectorValue } from './vector';
 import { colors } from './colors';
 import { getContext } from './core';
+
+type RoadSpark = {
+  across: number;
+  along: number;
+  color: string;
+  length: number;
+  lifetime: number;
+};
 
 // Every road sweeps at the same rate and cuts the same width of lane. Only
 // where one runs, and how far, is up to the road
@@ -34,7 +42,7 @@ const background = `${colors.cyan[2]}2`;
 export class Road {
   [key: string]: any;
 
-  constructor(props: any) {
+  constructor(props: { angle: number; distance: number; position: VectorValue }) {
     this.angle = props.angle;
     this.ctx = getContext();
     this.distance = props.distance;
@@ -96,7 +104,7 @@ export class Road {
     ctx.fillStyle = background;
     ctx.fillRect(0, -roadWidth / 2, this.distance, roadWidth);
 
-    this.sparks.forEach(({ across, along, color, length, lifetime }) => {
+    (this.sparks as RoadSpark[]).forEach(({ across, along, color, length, lifetime }) => {
       // Fading out over its last second is what stops a spark blinking away
       ctx.globalAlpha = Math.min(1, lifetime);
       ctx.strokeStyle = color;

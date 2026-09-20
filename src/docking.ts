@@ -1,5 +1,15 @@
+import { type Contact } from './types';
+
+type Dockable = Contact['collider'] & {
+  docked?: (station: Dockable) => void;
+  dockedTo?: Dockable | 0;
+  launching?: number;
+  sections?: unknown[];
+  started?: number;
+};
+
 /** Place a craft inside a station as though it had entered through its bay. */
-export const dockAt = (ship, station) => {
+export const dockAt = (ship: Dockable, station: Dockable) => {
   ship.position.set(station.position);
   Object.assign(ship, {
     dockedTo: station,
@@ -17,12 +27,12 @@ export const dockAt = (ship, station) => {
  *
  * @param {Object[]} contacts - All contacts from the collision pass.
  */
-export const dock = (contacts) => {
+export const dock = (contacts: Contact[]) => {
   contacts.forEach(({ collider, other }) => {
     // Either side of a contact can be the bay, depending on which was built first
     const home = collider.dockSegment ? collider : other;
-    const ship = (home === collider ? other : collider).owner;
-    const station = home.owner;
+    const ship = (home === collider ? other : collider).owner as Dockable;
+    const station = home.owner as Dockable;
 
     // Only a docking segment can latch a ship, and only when it is not on its way out.
     if (!home.dockSegment || !ship || ship.launching) return;
@@ -45,7 +55,7 @@ export const dock = (contacts) => {
  *
  * @param {Object} craft
  */
-export const launch = (craft) => {
+export const launch = (craft: Dockable) => {
   craft.dockedTo = 0;
   craft.launching = 3;
   craft.started = 1;
@@ -59,7 +69,7 @@ export const launch = (craft) => {
  * @param {Number} dt - Seconds since the last update.
  * @returns {Boolean|undefined} launching
  */
-export const flyOut = (craft, dt) => {
+export const flyOut = (craft: Dockable, dt: number) => {
   if (!craft.launching) return;
 
   craft.launching = Math.max(0, craft.launching - dt);

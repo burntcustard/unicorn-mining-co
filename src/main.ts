@@ -37,13 +37,27 @@ import { renderUI } from './ui';
 import { resolve } from './resolve';
 import { scoop } from './scoop';
 import { setSizing } from './set-sizing';
-import { Vector } from './vector';
+import { Vector, type Vector as VectorValue } from './vector';
+import { type Module, type WorldObject } from './types';
 // @ifdef BENCHMARK
 import { testSections } from './section-test';
 // @endif
 
-let gameStarted;
-const renderSky = () => globalThis.background.renderBackground(
+type WorldBlueprint = {
+  [key: string]: any;
+  cargo: number[];
+  contents: number[];
+  position: VectorValue;
+};
+
+type Background = {
+  renderBackground: (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D,
+    scale: number, x: number, y: number) => void;
+};
+
+let gameStarted = false;
+const background = (globalThis as typeof globalThis & { background: Background }).background;
+const renderSky = () => background.renderBackground(
   game.canvas,
   game.ctx,
   game.scale,
@@ -72,7 +86,7 @@ const startingStation = stations[Math.floor(Math.random() * 3)];
 world.wrecks.forEach((properties) => {
   const wreck = new Ship(properties);
 
-  properties.cargo.forEach((resource) => {
+  properties.cargo.forEach((resource: number) => {
     const gem = new Item({ itemData: itemTypes[resource] });
 
     gem.remove();
@@ -124,12 +138,13 @@ debugWreck.cargo.push(debugNote);
 });
 // @endif
 
-world.fields.forEach(({ asteroids }) => asteroids.forEach((properties) => {
+world.fields.forEach(({ asteroids }: { asteroids: WorldBlueprint[] }) =>
+  asteroids.forEach((properties: WorldBlueprint) => {
   const object = new Asteroid({ ...properties, contents: [] });
 
-  properties.contents.forEach((resource) =>
+  properties.contents.forEach((resource: number) =>
     object.bury(new Item({ itemData: itemTypes[resource] })));
-}));
+  }));
 
 // @ifdef DEBUG
 debugCrafts(game);
@@ -147,20 +162,20 @@ if (benchmarkFlag('field')) {
 // @endif
 
 // @ifdef BENCHMARK
-window['testSections'] = () => testSections(
-  game.sprites.filter(({ scenery }) => scenery), playerShip);
+Object.assign(window, { testSections: () => testSections(
+  game.sprites.filter(({ scenery }) => scenery) as Asteroid[], playerShip) });
 // @endif
 
 const activeRadius = 2000;
 const nearbyRadius = 100;
-let activeSprites = [];
-let nearbySprites = [];
+let activeSprites: WorldObject[] = [];
+let nearbySprites: WorldObject[] = [];
 let updates = 0;
-let spriteCount;
+let spriteCount = 0;
 
 initKeys();
 
-[cargoScoop, horn, shield, floodlight].forEach((module) =>
+([cargoScoop, horn, shield, floodlight] as Module[]).forEach((module) =>
   bindKeys(module.name[0].toLowerCase(), () => {
     if (playerShip.launching || playerShip.dockedTo) return;
     const segment = playerShip.segments.find((segment) =>
@@ -210,7 +225,7 @@ const gameLoop = GameLoop({
         .forEach((object) => {
           object.render();
           // A loose leaf cannot be mined any smaller, so its cargo stays in view.
-          object.sections || object.contents.forEach((item) => item.render());
+          object.sections || object.contents.forEach((item: WorldObject) => item.render());
         });
 
       if (zIndex === -2) {
@@ -236,7 +251,7 @@ const gameLoop = GameLoop({
 
             activeSprites.forEach((asteroid) =>
               asteroid.scenery && asteroid.sections &&
-              asteroid.contents.forEach((item) => item.render()));
+              asteroid.contents.forEach((item: WorldObject) => item.render()));
 
             ctx.restore();
           }
@@ -264,7 +279,7 @@ const gameLoop = GameLoop({
 
     renderUI(game, stations);
   },
-  update: (dt) => {
+  update: (dt: number) => {
     // Things that happen every fourth update (~15 FPS), or as soon as sprites
     // come or go, so shipwreck fragments are not left out: refresh the active tier.
     if (!(updates++ % 4) || spriteCount !== game.sprites.length) {

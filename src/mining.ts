@@ -1,6 +1,24 @@
-import { Asteroid } from './asteroid';
+import { Asteroid, type AsteroidSection } from './asteroid';
 import { damage } from './ship';
 import { playSound } from './sound-loader';
+import { type Collider, type Contact, type Point, type Segment } from './types';
+
+type MiningTarget = {
+  [key: string]: any;
+  asteroid?: Asteroid;
+  grinding?: MiningSurface | 0;
+  health: number;
+  sections?: unknown[];
+};
+
+type MiningSurface = {
+  depth: number;
+  hitbox: Collider;
+  object: Collider;
+  point?: Point;
+  segment: Segment;
+  target: MiningTarget;
+};
 
 /**
  * Damage from a mining horn, and nothing about finding what it is touching:
@@ -9,7 +27,7 @@ import { playSound } from './sound-loader';
 
 // Segments flagged as biting last call, so the flag can be cleared for
 // anything that stopped touching a target before this call sets it again
-let biting = [];
+let biting: Segment[] = [];
 
 /**
  * Flag the asteroids an active mining horn is biting into, so they can be counted
@@ -18,8 +36,8 @@ let biting = [];
  *
  * @param {Object[]} contacts - Contacts from the normal-rate physics pass.
  */
-export const mine = (contacts) => {
-  const surfaces = [];
+export const mine = (contacts: Contact[]) => {
+  const surfaces: MiningSurface[] = [];
 
   biting.forEach((segment) => segment.biting = false);
   biting = [];
@@ -28,14 +46,14 @@ export const mine = (contacts) => {
     const hitbox = collider.segment?.module?.grinds ? collider : other;
     const object = hitbox === collider ? other : collider;
     const { segment } = hitbox;
-    const target = object.segment || object;
+    const target = (object.segment || object) as MiningTarget;
 
     if (!segment?.module?.grinds || hitbox.physics || segment.activationProgress <= 0.5 || !target.health) return;
 
     surfaces.push({ depth, hitbox, object, segment, target });
   });
 
-  const targets = [];
+  const targets: MiningTarget[] = [];
 
   // A deeper tip overlap means the surface is nearer the tip's centre. Each
   // drill bites only the first of its touching surfaces.
@@ -60,14 +78,14 @@ export const mine = (contacts) => {
  *
  * @param {Object} asteroid
  */
-const breakAsteroid = (target, destroyed?) => {
-  const asteroid = target.asteroid || target;
+const breakAsteroid = (target: MiningTarget, destroyed?: boolean) => {
+  const asteroid = (target.asteroid || target) as Asteroid;
 
   if (asteroid.dead) return;
 
   // Let go at the asteroid's speed rather than releasing all the approach
   // speed that the active horn's grip had been holding back
-  const grinder = target.grinding?.hitbox?.owner;
+  const grinder = target.grinding && target.grinding.hitbox.owner;
 
   if (grinder) grinder.velocity.set(asteroid.velocity);
 
@@ -78,7 +96,7 @@ const breakAsteroid = (target, destroyed?) => {
   // Another leaf breaking in the same update can already have cut this one
   // free as a lone chunk, which has no sections left to detach from
   const [, loose] = target.asteroid?.sections ?
-      asteroid.detach(target, destroyed) :
+      asteroid.detach(target as AsteroidSection, destroyed) :
       asteroid.split();
 
   asteroid.remove();
@@ -96,7 +114,7 @@ const breakAsteroid = (target, destroyed?) => {
  *
  * @param {Object} target
  */
-export const grind = (target) => {
+export const grind = (target: MiningTarget) => {
   if (!target.grinding) return;
 
   const { object, segment, hitbox, point } = target.grinding;
@@ -112,7 +130,7 @@ export const grind = (target) => {
   target.grinding = 0;
 };
 
-export const fracture = (target) => {
+export const fracture = (target: MiningTarget) => {
   const { health } = target;
 
   if (target.asteroid && health < 1) {

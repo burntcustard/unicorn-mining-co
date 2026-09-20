@@ -2,6 +2,7 @@ import { Vector } from '../vector';
 import { camera } from '../camera';
 import { outline } from '../outline';
 import { renderText } from '../text';
+import { type GameState, type WorldObject } from '../types';
 
 /**
  * @param {Object} game
@@ -9,7 +10,12 @@ import { renderText } from '../text';
  * @param {String} color
  * @param {Number} range
  */
-export const renderIndicators = (game, targets, color, range) => {
+export const renderIndicators = (
+  game: GameState,
+  targets: WorldObject[],
+  color: string,
+  range: number,
+) => {
   const { ctx, uiScale, uiWidth, uiHeight } = game;
 
   ctx.save();

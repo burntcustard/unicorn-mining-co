@@ -30,7 +30,7 @@ import { forget, game } from './game';
 import { linesPath, objectLineWidth, shapePath } from './drawing';
 import { movePoint, rotatePoint } from './geometry';
 import { Sprite } from './sprite';
-import { Vector } from './vector';
+import { Vector, type Vector as VectorValue } from './vector';
 import { applyForce } from './apply-force';
 import { colors } from './colors';
 import { fracture } from './mining';
@@ -40,6 +40,32 @@ import { lights } from './lighting';
 // @endif
 import { outerEdges } from './collisions';
 import { spray } from './shrapnel';
+import {
+  type Module,
+  type Mount,
+  type Outline,
+  type Palette,
+  type Segment,
+  type WorldObject,
+} from './types';
+
+type ModuleRecord = Module;
+type HullPart = Partial<Segment> & {
+  [key: string]: any;
+  health: number;
+  mounts?: Mount[];
+  points?: Outline | ((segment: Segment) => Outline);
+};
+type ShipData = {
+  [key: string]: any;
+  hullSegments: HullPart[];
+};
+type ShipProperties = {
+  [key: string]: any;
+  position?: VectorValue;
+  segments?: Segment[];
+  velocity?: VectorValue;
+};
 
 export const mustang = {
   cargoSpace: 12,
@@ -96,18 +122,27 @@ export const mustang = {
 const hullBounciness = 0.1; // Default restitution when a segment supplies none.
 const thrustScale = 220; // Converts thrust per unit mass into acceleration.
 const steeringEase = 0.5; // Forward thrust retained by a nozzle eased during a turn.
-const approach = (value, target, step) => (
+const approach = (value: number, target: number, step: number) => (
   value + Math.max(-step, Math.min(step, target - value))
 );
 
-export const active = (health) => !(health < 1);
-export const healthOf = (segment) => (segment.mount || segment).health;
-const centerOf = (segments) => segments.reduce((center, { middle }) =>
-  center.add(Vector(...middle)), Vector()).scale(1 / segments.length);
+export const active = (health: number) => !(health < 1);
+export const healthOf = (segment: Segment) => (segment.mount || segment).health;
+const centerOf = (segments: Segment[]) => segments.reduce((center, { middle }) =>
+  center.add(Vector(...middle!)), Vector()).scale(1 / segments.length);
+const outlinesOf = (segments: Segment[]) => segments
+  .map(({ points }) => points)
+  .filter((points): points is Outline => Array.isArray(points));
 
-const makeSegment = (craft, craftModule: any = {}, part, mount?) => {
+const makeSegment = (
+  craft: Ship,
+  craftModule: ModuleRecord = {},
+  part: HullPart,
+  mount?: Mount,
+): Segment => {
   const { glow, points, unclosed } = part;
-  const shape = points?.[0] && shapeOf(points, mount);
+  const fixedPoints = Array.isArray(points) ? points : undefined;
+  const shape = fixedPoints?.[0] && shapeOf(fixedPoints, mount);
 
   // A thruster's flare is up about as soon as the key is down, unless told
   // otherwise, either on the module itself or (as the shield's bubble does)
@@ -121,7 +156,9 @@ const makeSegment = (craft, craftModule: any = {}, part, mount?) => {
   return Object.assign(Object.create(part), {
     phase: 0,
     ...shape,
-    ...(points && { path: (segment) => shapePath(points.call ? points(segment) : points, unclosed) }),
+    ...(points && { path: (segment: Segment) => shapePath(
+      typeof points === 'function' ? points(segment) : points, unclosed),
+    }),
     activationProgress: 0,
     hull: !mount,
     module: craftModule,
@@ -133,11 +170,11 @@ const makeSegment = (craft, craftModule: any = {}, part, mount?) => {
     localPosition: (mount?.localPosition || Vector()).add(Vector(
       0, (part.thrusterNozzleSide || 0) * (craftModule.offset || 0))),
     zIndex: part.zIndex || craftModule.zIndex || craft.zIndex || 0,
-  });
+  }) as Segment;
 };
 
-export const damage = (object, amount, point) => {
-  const segment = object.segment || object;
+export const damage = (object: WorldObject, amount: number, point?: number[]) => {
+  const segment = (object.segment || object) as Segment;
   const target = segment.mount || segment;
   // Asteroids and items are ground down here too, and carry no module
   const { module } = segment;
@@ -161,13 +198,21 @@ export const damage = (object, amount, point) => {
     if (mount.health) {
       mount.health -= segment.health < 1 ?
         mount.health :
-        mount.module.disablePhysics ? amount : 0;
+        mount.module && mount.module.disablePhysics ? amount : 0;
     }
   });
 };
 
 export class Ship extends Sprite {
-  constructor(props: any, data: any = mustang) {
+  declare cargo: WorldObject[];
+  declare cockpit?: Segment;
+  declare hullSegments: HullPart[];
+  declare mass: number;
+  declare modules: ModuleRecord[];
+  declare segments: Segment[];
+  declare shades: Palette;
+
+  constructor(props: ShipProperties, data: ShipData = mustang) {
     super(props);
 
     // Debris comes with its pieces already broken off something else. It is
@@ -213,7 +258,7 @@ export class Ship extends Sprite {
     return this.segments.flatMap((segment) => segment.mounts || []);
   }
 
-  partsOf(mount) {
+  partsOf(mount: Mount) {
     return this.segments.filter((segment) => segment.mount === mount);
   }
 
@@ -242,21 +287,22 @@ export class Ship extends Sprite {
 
   // Fit an owned instance, or pass a falsy module to empty the mount. Replaced
   // instances stay in the inventory and become cargo when their link clears.
-  fit(craftModule, mount = this.mounts.find(({ fits, module }) => !module && fits.includes(craftModule.oneOf))) {
+  fit(craftModule: ModuleRecord | 0, mount = this.mounts.find(({ fits, module }) =>
+    !module && fits.includes(craftModule && craftModule.oneOf))) {
     if (!mount) return;
 
     this.segments = this.segments.filter((segment) => segment.mount !== mount);
     if (mount.module) mount.module.mount = 0;
     mount.module = craftModule;
-    mount.health = craftModule?.health;
+    mount.health = craftModule && craftModule.health;
 
     if (craftModule) {
       craftModule.mount = mount;
       // Taken once, so repainting the hull later does not appear to repaint a
       // module that is already built in the colour it was fitted in
       craftModule.shades ||= this.shades;
-      this.segments.push(...craftModule.model
-        .map((part) => makeSegment(this, craftModule, part, mount)));
+      this.segments.push(...craftModule.model!
+        .map((part) => makeSegment(this, craftModule, part as HullPart, mount)));
     }
 
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
@@ -281,7 +327,7 @@ export class Ship extends Sprite {
       }
     });
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
-    outerEdges(hulls.map(({ points }) => points));
+    outerEdges(outlinesOf(hulls));
     // Either core anchors flight and the hull kept attached to it; losing one
     // ends the ship, so which of the two is found here does not matter
     this.cockpit = hulls.find(({ core }) => core);
@@ -297,7 +343,12 @@ export class Ship extends Sprite {
    * @param {Object} own - What each copied segment overrides of its original.
    * @param {Object} away - Which way it is pushed, in this ship's frame.
    */
-  spawn(origin, segments, own, away = origin) {
+  spawn(
+    origin: VectorValue,
+    segments: Segment[],
+    own: Partial<Segment>,
+    away = origin,
+  ) {
     const position = this.position.add(rotatePoint(origin, this.rotation));
     const velocity = this.velocity.add(this.momentum(position));
     const fragment = new Ship({
@@ -320,7 +371,7 @@ export class Ship extends Sprite {
 
   // A broken module keeps its shape long enough to tumble away as debris,
   // while the original mount is immediately free again for the dock menu.
-  detach(mount) {
+  detach(mount: Mount) {
     const segments = this.partsOf(mount);
 
     // Destroyed instances leave the inventory rather than becoming cargo.
@@ -340,12 +391,13 @@ export class Ship extends Sprite {
       .filter((segment) => segment.radius && active(healthOf(segment)))
       .map((segment) => {
         const { bounciness } = segment.module;
-        const points = segment.points?.call ? segment.points(segment) : segment.points;
+        const points = typeof segment.points === 'function' ?
+          segment.points(segment) : segment.points;
         const [middleX, middleY] = segment.middle || [0, 0];
         const position = this.position.add(rotatePoint(
           segment.localPosition.add(Vector(middleX, middleY)), this.rotation));
         const outline = points && Object.assign(
-          points.map(([x, y]) => [x - middleX, y - middleY]), { edges: points.edges });
+          points.map(([x, y]) => [x - middleX, y - middleY]), { edges: points.edges }) as Outline;
 
         return Object.assign(segment.hitbox ||= { owner: this, segment }, {
           bounciness: (bounciness?.call ? bounciness(segment) : bounciness) || hullBounciness,
@@ -358,7 +410,7 @@ export class Ship extends Sprite {
           physics:
             !segment.module.disablePhysics &&
             !segment.catches &&
-            !segment.mounts?.some((mount) => mount.module?.scoops &&
+            !segment.mounts?.some((mount) => mount.module && mount.module.scoops &&
               this.partsOf(mount).some((part) => active(healthOf(part)) && part.activationProgress > scoopOpen)),
           radius: segment.radius(segment),
           rotation: this.rotation,
@@ -370,7 +422,8 @@ export class Ship extends Sprite {
     const drill = boxes.find(({ segment }) => segment.module.grinds);
 
     if (drill) {
-      const [x, y] = drill.outline.reduce((far, corner) => (corner[0] > far[0] ? corner : far));
+      const [x, y] = (drill.outline as Outline).reduce((far, corner) =>
+        corner[0] > far[0] ? corner : far);
       const tip = rotatePoint(Vector(x, y), this.rotation);
 
       boxes.push({
@@ -387,17 +440,17 @@ export class Ship extends Sprite {
     return cover ? [cover] : boxes;
   }
 
-  momentum(position) {
+  momentum(position: VectorValue) {
     const offset = position.subtract(this.position);
 
     return Vector(-offset.y * this.spin, offset.x * this.spin);
   }
 
-  fracture(hulls, destroyed, wreckage?) {
+  fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
     const center = hulls.length && centerOf(hulls);
     const groups = destroyed ?
         hulls.map((_, i) => [i]) :
-        outerEdges(hulls.map(({ points }) => points));
+        outerEdges(outlinesOf(hulls));
     const core = !destroyed && groups.find((group) =>
       group.includes(hulls.indexOf(this.cockpit)));
     const fragments = groups.filter((group) => group !== core)
@@ -405,9 +458,9 @@ export class Ship extends Sprite {
         const segments = group.map((i) => hulls[i]);
         const middle = centerOf(segments);
 
-        outerEdges(segments.map(({ points }) => points));
+        outerEdges(outlinesOf(segments));
 
-        return this.spawn(middle, segments, wreckage && { health: 1 },
+        return this.spawn(middle, segments, wreckage ? { health: 1 } : {},
           middle.subtract(center));
       });
 
@@ -427,7 +480,7 @@ export class Ship extends Sprite {
     this.modules = this.modules.filter(({ mount }) => !mount || kept.includes(mount.hull));
 
     if (kept.length) {
-      outerEdges(kept.map(({ points }) => points));
+      outerEdges(outlinesOf(kept));
     } else {
       this.cargo.forEach((item) => {
         item.position.set(this.position);
@@ -441,13 +494,13 @@ export class Ship extends Sprite {
     return fragments;
   }
 
-  toggle(craftModule) {
+  toggle(craftModule: ModuleRecord) {
     this.segments.forEach((segment) => {
       if (segment.module.oneOf === craftModule) segment.active = 1 - segment.active;
     });
   }
 
-  fly(forward, turn) {
+  fly(forward: number, turn: number) {
     this.forward = forward;
     this.turn = turn;
     this.segments.forEach((segment) => {
@@ -460,7 +513,7 @@ export class Ship extends Sprite {
     });
   }
 
-  update(dt) {
+  update(dt: number) {
     if (this.cockpit && !this.dockedTo) {
       const push = thrustScale * this.forwardThrust / this.mass * this.forward * dt;
       const rotationalThrust = this.rotationalThrust;
@@ -508,7 +561,7 @@ export class Ship extends Sprite {
     }
   }
 
-  render(scenery, zIndex) {
+  render(scenery: WorldObject[], zIndex: number) {
     const { ctx } = this;
     // Only the shared thruster-glow layer has a fractional z-index.
     const glow = zIndex % 1;

@@ -26,4 +26,4 @@ export const colors = {
   // grey:   ['#778', '#99a', '#bbc', '#334', '#eef'],
   // Black removed to save a few bytes. It was usually used with transparency
   // black:  ['#000', '#111', '#222', '#879', '#200'],
-};
+} as const;

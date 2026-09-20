@@ -15,7 +15,7 @@ import { diamond, message } from '${process.cwd()}/src/items/index.js';
 import { instanceOf, cargoScoop, horn, shield, thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple, thrusters } from '${process.cwd()}/src/modules/index.js';
 import { colorUnlocked, roomFor, playerShip, unlockColor, updatePlayer } from '${process.cwd()}/src/player.ts';
 import { launch, flyOut } from '${process.cwd()}/src/docking.ts';
-import { game } from '${process.cwd()}/src/game.js';
+import { game } from '${process.cwd()}/src/game.ts';
 import { colors } from '${process.cwd()}/src/colors.js';
 import { Vector } from '${process.cwd()}/src/vector.ts';
 import {
@@ -373,7 +373,7 @@ const bundle = await rolldown({
 const { output } = await bundle.generate({ format: 'esm', minify: true });
 await bundle.close();
 
-globalThis.z = { getContext: () => ({}) };
+globalThis.canvas = { getContext: () => ({}) };
 globalThis.location = { search: '' };
 globalThis.Path2D = class {
   arc() {}

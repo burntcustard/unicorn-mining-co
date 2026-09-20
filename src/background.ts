@@ -16,7 +16,7 @@ import { colors } from './colors';
 // memory, and this is already wider than the screen
 const tile = 1200;
 // Final screen pixels across a tile, rebuilt whenever the display scale changes
-let span;
+let span: number | undefined;
 
 // How much of the camera's movement each layer takes, and what is in it.
 // Barely any of it, because all of this is a very long way off. The layers sit
@@ -24,6 +24,9 @@ let span;
 // Most of the sky is fine coloured specks, and only a handful of stars are near
 // enough to flare out into a coloured sparkle
 const dotCounts = [550, 380, 230];
+
+type Tile = HTMLCanvasElement | ImageBitmap;
+type Sky = { label: string; parts: string[]; cycle?: () => void };
 
 const dotTints = [colors.yellow[2], colors.violet[2], colors.cyan[2], colors.indigo[1], colors.white[2]];
 const sparkleTints = [colors.red[2], colors.orange[2], colors.violet[2], colors.cyan[2], colors.violet[2], colors.orange[2], colors.violet[2], colors.cyan[2]];
@@ -36,15 +39,15 @@ const fullParts = ['clouds', 'dots', 'sparkles'];
 
 // Which parts of the sky are being drawn, and a label for them, so that what
 // each one costs can be read off the frame rate one at a time
-export const sky = {
+export const sky: Sky = {
   label: 'ALL',
   parts: fullParts,
 };
 // @endif
 
-const makeTile = (clouds, dots, size, sparkles,
+const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
   // @ifdef DEBUG
-  parts,
+  parts: string[],
   // @endif
 ) => {
   const canvas = document.createElement('canvas');
@@ -52,7 +55,7 @@ const makeTile = (clouds, dots, size, sparkles,
 
   // Every mark fits within half a tile (clouds reach at most 440 units).
   // Centred positions need only the original and its positive-axis copies.
-  const wrappedPaint = (paint) => {
+  const wrappedPaint = (paint: () => void) => {
     const x = (Math.random() - 0.5) * tile;
     const y = (Math.random() - 0.5) * tile;
 
@@ -166,7 +169,7 @@ const makeTile = (clouds, dots, size, sparkles,
   return canvas;
 };
 
-let tiles;
+let tiles: Tile[];
 
 // A canvas can be held as the list of drawing commands that filled it and
 // replayed on every blit, which makes a tile cost whatever it took to draw
@@ -216,7 +219,13 @@ sky.cycle = () => {
  * scaled transform is resampled across the whole screen every frame, which
  * costs more than everything else in the game put together.
  */
-export const renderBackground = (canvas, ctx, scale, cameraX = 0, cameraY = 0) => {
+export const renderBackground = (
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  scale: number,
+  cameraX = 0,
+  cameraY = 0,
+) => {
   const size = Math.round(tile * scale);
 
   if (span !== size) {

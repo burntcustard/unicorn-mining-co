@@ -6,8 +6,13 @@ import { colors } from './colors';
 import { game } from './game';
 import { traceBeam } from './prism';
 import { Vector } from './vector';
+import { type Segment } from './types';
 
-export const testSections = (scenery, playerShip, lamp = playerShip.segments.find(({ module }) => module.beam)) => {
+export const testSections = (
+  scenery: Asteroid[],
+  playerShip: Ship,
+  lamp: Segment = playerShip.segments.find(({ module }) => module.beam),
+) => {
   const five = scenery.find((asteroid) =>
     asteroid.outline.length === 5 && asteroid.health < 240);
   const triangle = new Asteroid({ points: 3, radius: 90 });
@@ -103,11 +108,9 @@ export const testSections = (scenery, playerShip, lamp = playerShip.segments.fin
   );
 
   const debris = cargoDebris.find((part) => part.contents.includes(cargoItem));
-  const expired = [];
+  debris.update(11);
 
-  debris.update(11, expired);
-
-  if (released.length || debris.dead || expired.length) throw Error('cargo expiry');
+  if (released.length || debris.dead) throw Error('cargo expiry');
 
   const [spent, mined] = debris.split();
 

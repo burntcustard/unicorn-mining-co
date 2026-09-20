@@ -11,6 +11,7 @@ import { renderText } from './text';
 import { sky } from './background';
 import { textDemo } from './text-demo';
 import { Vector } from './vector';
+import { type Collider, type GameState, type WorldObject } from './types';
 
 export let showDeadzone = false;
 let showMass = false;
@@ -26,7 +27,7 @@ let showColorsDemo = false;
 export { lights };
 
 // One hull of every colour, lined up to see how the light falls across them
-export const debugCrafts = (game) => [
+export const debugCrafts = (game: GameState) => [
   ['#000', '#111', '#222', '#879', '#200'],
   colors.red,
   colors.orange,
@@ -41,12 +42,12 @@ export const debugCrafts = (game) => [
   position: Vector(120 + i * 120, game.height - 100),
 }));
 
-export const bindDebug = (game) => {
+export const bindDebug = (game: GameState) => {
   bindKeys('2', () => showColorsDemo = !showColorsDemo);
   bindKeys('3', () => showTextDemo = !showTextDemo);
   bindKeys('4', () => showDeadzone = !showDeadzone);
   bindKeys('5', () => showMass = !showMass);
-  bindKeys('6', sky.cycle);
+  bindKeys('6', (sky as typeof sky & { cycle: () => void }).cycle);
   bindKeys('7', toggleLights);
   bindKeys('8', toggleGlows);
   bindKeys('9', () => game.physicsOn = !game.physicsOn);
@@ -57,14 +58,15 @@ export const bindDebug = (game) => {
   bindKeys('n', () => playSound(7));
 };
 
-export const renderDebug = (game, sprites, nearbyRadius) => {
+export const renderDebug = (game: GameState, sprites: WorldObject[], nearbyRadius: number) => {
   if (showDeadzone) {
     game.ctx.save();
     game.ctx.scale(game.scale, game.scale);
     game.ctx.translate(-camera.x, -camera.y);
     game.ctx.beginPath();
     game.ctx.arc(playerShip.position.x, playerShip.position.y, nearbyRadius, 0, Math.PI * 2);
-    const drill = playerShip.hitboxes().find(({ outline, segment }) => !outline && segment.module?.grinds);
+    const drill = playerShip.hitboxes().find(({ outline, segment }: Collider) =>
+      !outline && segment?.module.grinds);
 
     if (drill) {
       game.ctx.arc(drill.position.x, drill.position.y, drill.radius, 0, Math.PI * 2);
@@ -94,14 +96,14 @@ export const renderDebug = (game, sprites, nearbyRadius) => {
     game.ctx.font = '12px monospace';
     game.ctx.textAlign = 'center';
     game.ctx.textBaseline = 'middle';
-    sprites.forEach(({ mass, x, y }) => {
-      if (mass) game.ctx.fillText(Math.round(mass), x, y);
+    sprites.forEach(({ mass, position }) => {
+      if (mass) game.ctx.fillText(`${Math.round(mass)}`, position.x, position.y);
     });
     game.ctx.restore();
   }
 };
 
-export const renderDebugDemos = (game) => {
+export const renderDebugDemos = (game: GameState) => {
   if (showColorsDemo) colorsDemo(game);
   if (showTextDemo) textDemo(game);
 };

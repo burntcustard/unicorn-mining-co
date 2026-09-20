@@ -2,6 +2,7 @@ import { damage, healthOf } from './ship';
 import { playSound } from './sound-loader';
 import { playerShip } from './player';
 import { Vector } from './vector';
+import { type Contact } from './types';
 
 /**
  * What a collision does, once collisions.ts has found one. Kept well apart
@@ -43,7 +44,9 @@ const deadSpeed = 5;
  *
  * @param {Object[]} contacts
  */
-export const resolve = (contacts: any[]) => contacts.forEach(({ collider, depth, normal, other, point }) => {
+export const resolve = (contacts: Contact[]) => contacts.forEach(({
+  collider, depth, normal, other, point,
+}) => {
   if (collider.physics === false || other.physics === false) return;
 
   const a = collider.owner || collider;

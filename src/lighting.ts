@@ -5,6 +5,10 @@ import { colors } from './colors';
 import { Vector } from './vector';
 import { game } from './game';
 import { pointBetween as mix } from './geometry';
+import { type Mount, type Outline, type Palette, type Point, type Segment } from './types';
+
+type LitShape = { facing?: number; middle?: Point; reach?: number };
+type GlowCache = { image?: HTMLCanvasElement; scale?: number };
 
 // Profiling switches kept separate from module state, so lamps and engines
 // carry on running while either kind of light is hidden.
@@ -42,8 +46,8 @@ const glowBlur = 40;
 // on one of the sixteen steps they started on
 // Parsing '#' too creates an unused NaN channel that travels through blending.
 // Dropping it in hex saves a few bytes over selecting just the RGB digits here.
-const parse = (color) => [...color].map((channel) => parseInt(channel, 16) * 17);
-const hex = (channels) => `#${channels
+const parse = (color: string) => [...color].map((channel) => parseInt(channel, 16) * 17);
+const hex = (channels: number[]) => `#${channels
   .map((level) => Math.round(level).toString(16).padStart(2, '0'))
   .slice(1).join('')}`;
 
@@ -51,12 +55,13 @@ const white = parse(colors.white[2]);
 
 // Shading is worked out up front and looked up, rather than colours being
 // built out of strings on every frame of every piece of every craft
-const at = (along) => Math.round(Math.min(1, Math.max(0, along)) * 63);
-const table = (shade) => Array.from({ length: 64 }, (_, i) => shade(i / 63));
+const at = (along: number) => Math.round(Math.min(1, Math.max(0, along)) * 63);
+const table = (shade: (along: number) => string) =>
+  Array.from({ length: 64 }, (_, i) => shade(i / 63));
 
-const tints = {};
+const tints: Record<string, string[]> = {};
 
-const shadeOf = (shades, worn) => {
+const shadeOf = (shades: Palette, worn: number) => {
   const base = parse(shades[worn]);
 
   return table((along) => {
@@ -75,7 +80,7 @@ const shadeOf = (shades, worn) => {
  * @param {Number} worn - Which of its shades the piece is currently wearing.
  * @param {Number} along - 0 facing the light, 1 facing right away from it.
  */
-export const tint = (shades, worn, along) => (
+export const tint = (shades: Palette, worn: number, along: number) => (
   tints[shades[worn]] ||= shadeOf(shades, worn)
 )[at(along)];
 
@@ -86,10 +91,13 @@ export const tint = (shades, worn, along) => (
  * @param {Number[][]} points - Outline, relative to wherever it is mounted.
  * @param {Object} [mount] - Where on the craft the piece sits.
  */
-export const shapeOf = (points, mount = { localPosition: Vector() }) => {
+export const shapeOf = (
+  points: Outline,
+  mount: Pick<Mount, 'localPosition'> = { localPosition: Vector() },
+): LitShape => {
   const middle = points
     .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
-    .map((total) => total / points.length);
+    .map((total) => total / points.length) as Point;
 
   return {
     // Which way the piece looks, taken as the way out from the middle of the
@@ -117,14 +125,19 @@ export const shapeOf = (points, mount = { localPosition: Vector() }) => {
  *   frame rather than the world's.
  * @param {Function} shade - Turns a place on the ramp into a colour.
  */
-export const litFill = (ctx, shape, light, shade) => {
+export const litFill = (
+  ctx: CanvasRenderingContext2D,
+  shape: LitShape,
+  light: number,
+  shade: (along: number) => string,
+) => {
   // @ifdef BENCHMARK
   if (benchmarkFlag('noLighting') || benchmarkFlag('noGradients')) {
     return shade(0.5);
   }
   // @endif
 
-  const [middleX, middleY] = shape.middle;
+  const [middleX, middleY] = shape.middle!;
   const towardsX = Math.cos(light) * shape.reach;
   const towardsY = Math.sin(light) * shape.reach;
   const along = 0.5 - Math.cos(shape.facing - light) * 0.4;
@@ -150,7 +163,12 @@ export const litFill = (ctx, shape, light, shade) => {
  * @param {String} color
  * @param {Number[][]} cache
  */
-export const drawDockingBayGlow = (ctx, path, color, cache) => {
+export const drawDockingBayGlow = (
+  ctx: CanvasRenderingContext2D,
+  path: Path2D,
+  color: string,
+  cache: GlowCache,
+) => {
   // @ifdef DEBUG
   if (!glows) return;
   // @endif
@@ -166,7 +184,7 @@ export const drawDockingBayGlow = (ctx, path, color, cache) => {
     // The station bay fits within 280 world units of its local origin.
     const reach = 280 * game.scale + glowBlur * 2;
     const image = document.createElement('canvas');
-    const paint = image.getContext('2d');
+    const paint = image.getContext('2d')!;
 
     image.width = image.height = reach * 2;
     paint.translate(reach, reach);
@@ -178,14 +196,14 @@ export const drawDockingBayGlow = (ctx, path, color, cache) => {
     cache.scale = game.scale;
   }
 
-  const size = cache.image.width / game.scale;
+  const size = cache.image!.width / game.scale;
 
-  ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
+  ctx.drawImage(cache.image!, -size / 2, -size / 2, size, size);
 
   ctx.restore();
 };
 
-export const drawThrusterGlow = (ctx, nozzle) => {
+export const drawThrusterGlow = (ctx: CanvasRenderingContext2D, nozzle: Segment) => {
   // @ifdef DEBUG
   if (!glows) return;
   // @endif
@@ -221,7 +239,14 @@ export const drawThrusterGlow = (ctx, nozzle) => {
  * @param {Number} activationProgress - How far up the lamp has come, 0 to 1.
  * @param {Path2D} lit - How far the light got before it ran into anything.
  */
-export const drawBeam = (ctx, path, color, reach, activationProgress, lit) => {
+export const drawBeam = (
+  ctx: CanvasRenderingContext2D,
+  path: Path2D,
+  color: string,
+  reach: number,
+  activationProgress: number,
+  lit: Path2D,
+) => {
   // @ifdef DEBUG
   if (!lights) return;
   // @endif
