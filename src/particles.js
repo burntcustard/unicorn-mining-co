@@ -46,6 +46,8 @@ export const updateSparks = (sparks, distance, speed, dt) => {
 };
 */
 
-export const makeSparks = () => [];
+// eslint-disable-next-line no-unused-vars -- unused-road stub shares the live implementation signature
+export const makeSparks = (count, distance) => [];
 
-export const updateSparks = () => {};
+// eslint-disable-next-line no-unused-vars -- unused-road stub shares the live implementation signature
+export const updateSparks = (sparks, distance, speed, dt) => {};

@@ -1,0 +1,404 @@
+import { directionOf, rotatePoint, rotatePoints } from './geometry';
+import { shapePath, strip } from './drawing';
+import { Vector } from './vector';
+import { colors } from './colors';
+
+const fillOf = (ctx, color, from, to, fade) => {
+  const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+
+  gradient.addColorStop(0, color);
+  gradient.addColorStop(fade, color);
+  gradient.addColorStop(1, '#0000');
+
+  return gradient;
+};
+
+/**
+ * What the floodlight does when it runs into rock.
+ *
+ * The whole thing is one idea repeated: fan a fixed number of rays across the
+ * cone, and follow each one until it is done with. A ray either reaches the end
+ * of the lamp's reach untouched, or it meets a rock, bends going in, crosses it,
+ * and bends again coming out. It is never asked what it meets after that, so
+ * light goes through one rock and no further, however many are lined up.
+ *
+ * Neighbouring rays that went into the same rock make one sheet of light. Where
+ * they leave it is taken as one straight line square to the way they are headed,
+ * set back far enough that the rock itself covers where the stripes begin, and
+ * that line is cut across into equal stripes, one a colour, each thrown out
+ * along its own share of a fan opened around the way the sheet was already
+ * going. It is a picture of a prism rather than a simulation of one: solid
+ * stripes, all the same width, fanning out from one place.
+ *
+ * A sheet is summed up by what all of its rays agree on rather than by the two
+ * on its ends, so a ray joining or leaving one nudges it instead of reshaping
+ * it. That, and the rays being always the same rays whatever is in front of the
+ * lamp, is what keeps the light steady: nothing is decided by which corners
+ * happen to be inside the cone this frame.
+ *
+ * Everything is worked out in the lamp's own frame, with the lens at zero and
+ * the beam running out along positive x.
+ */
+
+// The stripes the light splits into, reddest first
+const spectrum = [
+  colors.red[0],
+  colors.orange[0],
+  colors.yellow[0],
+  colors.green[0],
+  colors.cyan[0],
+  colors.indigo[0],
+  colors.violet[0],
+];
+
+// How much rock bends light
+const rockIndex = 1.2;
+
+// How wide the stripes fan apart, measured against how far the rock bent the
+// light on its way through. A rock that hardly bends it hardly splits it, so
+// there is no width to swap ends when which end is the red one changes over
+const fanning = 0.6;
+
+// At a square face the turn can wobble either side of zero from one frame to
+// the next. Keep this narrow middle range in one spectrum order.
+const flipMargin = 0.01;
+
+// How far past the width it started at a sheet is ever allowed to open out.
+// However hard a rock bends the light, a beam squeezed to a sliver on its way
+// through only has a sliver of light to split, and a rainbow that opened out of
+// all proportion to it would be colour coming from nowhere
+const spreading = 1.2;
+
+// Narrower than this and a sheet is a thread a pixel or so across, too thin to
+// read as a rainbow and not worth the seven stripes it would be cut into
+const thin = 4;
+
+// How square-on a ray has to strike a rock to get into it at all. Light that
+// only grazes a face barely gets through one in the first place, and what does
+// leaves from somewhere wildly far round the far side, sweeping about as the
+// ship drifts, so it is taken as stopping at the face instead
+const minFacing = 0.3;
+
+// How many rays are fanned across the cone. Enough that the edge of the light
+// lands within a pixel or so of the edge of whatever is casting it
+const rays = 64;
+
+// How far along a ray a crossing has to be to count, so that the face a ray is
+// setting off from is not found again as the face it runs into
+const inset = 1e-4;
+
+// How long a stretch of its end a sheet of light gives out over. A set distance
+// rather than a share of its length, so that a stub of a rainbow fades over the
+// whole of itself instead of holding solid and then stopping dead
+const fades = 200;
+
+// The lit slice inside a rock, as one flat tone rather than a wash. Laid down
+// solid it can be drawn over twice and come out the same, so neither the stroke
+// closing a seam nor two sheets crossing shows up brighter than the rest of it
+const inside = '#555';
+const spectrumStrength = 0.9;
+
+/**
+ * Where a ray first crosses a polygon: the point, how far along the ray it sits,
+ * and the face it landed on, as a normal turned to look back at the ray.
+ *
+ * @param {Number[][]} points - An outline in the lamp's frame.
+ * @param {Object} from - Where the ray starts.
+ * @param {Object} dir - Which way it goes, as a unit vector.
+ */
+const cross = (points, from, dir) => {
+  let near = Infinity;
+  let normal;
+  let faceIndex;
+
+  points.forEach((corner, i) => {
+    const next = points[(i + 1) % points.length];
+    const edge = Vector(next[0] - corner[0], next[1] - corner[1]);
+    const denom = dir.x * edge.y - dir.y * edge.x;
+    const start = Vector(corner[0] - from.x, corner[1] - from.y);
+    const along = (start.x * dir.y - start.y * dir.x) / denom;
+    const distance = (start.x * edge.y - start.y * edge.x) / denom;
+
+    if (!denom || along < 0 || along > 1 || distance < inset || distance >= near) return;
+
+    near = distance;
+    faceIndex = i;
+    normal = Vector(edge.y, -edge.x).normalize().scale(denom > 0 ? -1 : 1);
+  });
+
+  return normal && { at: from.add(dir.scale(near)), distance: near, face: faceIndex, normal };
+};
+
+/**
+ * Snell's law. A ray that would be trapped inside instead leaves along the face
+ * it hit, which keeps a band that is on the edge of being trapped from blinking
+ * out of existence as the ship drifts.
+ *
+ * @param {Object} dir - Which way the light is going.
+ * @param {Object} normal - The face it is crossing, facing back at it.
+ * @param {Number} index - How much the material it is entering slows it down.
+ */
+const refract = (dir, normal, index) => {
+  const facing = -dir.dot(normal);
+  // Both roots are held to what they can really be, because a ray meeting a
+  // face square on, or one right on the edge of being trapped, comes out a hair
+  // the wrong side of that and the root of it is not a number
+  const square = Math.max(0, 1 - facing * facing);
+  const eta = Math.min(index, 1 / Math.sqrt(square));
+  const sideways = Math.min(1, eta * eta * square);
+
+  return dir.scale(eta).add(normal.scale(eta * facing - Math.sqrt(1 - sideways)));
+};
+
+// One scenery object's shape in the lamp's frame, added to the mask as a path
+// and handed back as points for the rays to be tested against
+const outlineOf = (ship, lamp, object, mask) => {
+  const middle = rotatePoint(
+    object.position.subtract(ship.position), -ship.rotation,
+  ).subtract(lamp.localPosition);
+  const turn = object.rotation - ship.rotation;
+  const outline = rotatePoints(object.outline, turn, middle);
+
+  mask.addPath(shapePath(outline));
+
+  return outline;
+};
+
+/**
+ * One ray, all the way through. Where it stops is where the light stops, and
+ * what it found on the way is everything the rainbow needs.
+ */
+const rayAt = (outlines, angle, range) => {
+  const dir = directionOf(angle);
+  const from = Vector();
+  let entry: any = { at: dir.scale(range), distance: range };
+  let hit: any;
+
+  outlines.forEach((outline) => {
+    const found = cross(outline, from, dir);
+
+    if (found && found.distance < entry.distance) {
+      entry = found;
+      hit = outline;
+    }
+  });
+
+  if (!hit) return entry;
+
+  const into = -dir.dot(entry.normal) >= minFacing &&
+    refract(dir, entry.normal, 1 / rockIndex);
+  const out: any = into && cross(hit, entry.at, into);
+
+  if (!out) return { at: entry.at };
+
+  out.away = refract(into, out.normal, rockIndex);
+  // Whatever is left of the lamp's reach by the time the rock was reached.
+  // Crossing it costs nothing, or a rock far enough off, or thick enough,
+  // would swallow the whole of the reach and throw nothing out the far side.
+  out.length = range - entry.distance;
+
+  return {
+    at: entry.at,
+    // Only ever the rock this ray went into, so light that comes out the far
+    // side carries on into open space rather than through whatever is behind
+    hit,
+    out,
+  };
+};
+
+/**
+ * Follow the whole cone. Everything drawn afterwards reads this and works
+ * nothing out for itself.
+ *
+ * @param {Object} ship - Whatever is carrying the lamp.
+ * @param {Object} lamp - The lit segment, mounted at `x`, `y` on the ship.
+ * @param {Object[]} scenery - Anything that might be in the way.
+ */
+export const traceBeam = (ship, lamp, scenery) => {
+  const { lens, reach, spread } = lamp.module;
+  const range = Math.hypot(lens + reach, spread);
+  const edge = Math.atan2(spread, lens + reach);
+  const mask = new Path2D();
+  const outlines = scenery.filter((object) => object.scenery && object.outline &&
+    object.position.distanceTo(ship.position) - object.radius < range)
+    .map((object) => outlineOf(ship, lamp, object, mask));
+
+  return {
+    mask,
+    outlines,
+    rays: Array.from({ length: rays + 1 }, (_, i) =>
+      rayAt(outlines, edge * (i * 2 / rays - 1), range)),
+  };
+};
+
+// Neighbouring rays that went into the same rock and left it as one sheet of
+// light. A lone ray is too thin to draw.
+//
+// Straight and outward corners stay continuous; inward corners separate sheets.
+// Mined sides can retain collinear vertices. Allow roundoff in their signed
+// turn, relative to edge lengths so rotation and asteroid size cannot split them.
+// Asteroid outlines, including cut children, run counter-clockwise.
+const joins = (points, from, to) => {
+  if (from === to) return true;
+
+  const count = points.length;
+
+  if ((from + 1) % count !== to) [from, to] = [to, from];
+  if ((from + 1) % count !== to) return false;
+
+  const corner = Vector(...points[to]);
+  const before = corner.subtract(Vector(...points[from]));
+  const after = Vector(...points[(to + 1) % count]).subtract(corner);
+
+  return before.x * after.y - before.y * after.x >=
+    -1e-8 * before.length() * after.length();
+};
+
+const runsOf = ({ rays: fan }) => {
+  const runs = [];
+
+  fan.forEach((ray, i) => {
+    if (!ray.hit) return;
+
+    const last = fan[i - 1];
+
+    if (last?.out && last.hit === ray.hit && joins(ray.hit, last.out.face, ray.out.face)) {
+      runs.at(-1).push(ray);
+    } else {
+      runs.push([ray]);
+    }
+  });
+
+  return runs.filter((run) => run.length > 1);
+};
+
+// One non-converging exit edge shared by the light inside a rock and the
+// rainbow outside it. It follows the real exit face, but never becomes
+// narrower across the beam than the edge that entered the rock.
+const sheetOf = (run) => {
+  const first = run[0];
+  const last = run.at(-1);
+  const through = run.reduce((sum, ray) =>
+    sum.add(ray.out.at.subtract(ray.at)), Vector()).normalize();
+  const side = Vector(-through.y, through.x);
+  let span = last.out.at.subtract(first.out.at);
+  const feedWidth = last.at.subtract(first.at).dot(side);
+  let width = span.dot(side);
+
+  if (width * feedWidth < 0) {
+    span = span.scale(-1);
+    width = -width;
+  }
+
+  if (Math.abs(width) < Math.abs(feedWidth)) {
+    span = width ? span.scale(feedWidth / width) : side.scale(feedWidth);
+  }
+
+  return {
+    middle: last.out.at.add(first.out.at).scale(0.5),
+    side,
+    span,
+  };
+};
+
+// How far the light got, as the fan of everywhere its rays stopped
+export const litPath = ({ rays: fan }) => {
+  const path = new Path2D();
+
+  path.moveTo(0, 0);
+  fan.forEach(({ at }) => path.lineTo(at.x, at.y));
+  path.closePath();
+
+  return path;
+};
+
+// The slice of rock the light is actually crossing, from where it went in to
+// where it came out again
+export const insidePath = (beam) => {
+  const path = new Path2D();
+
+  runsOf(beam).forEach((run) => {
+    const { middle, span } = sheetOf(run);
+    const edge = span.scale(0.5);
+
+    path.addPath(strip(run));
+    path.addPath(strip(run));
+    path.addPath(strip(run, [middle.subtract(edge), middle.add(edge)]));
+  });
+
+  return path;
+};
+
+export const drawInside = (ctx, lamp, beam) => {
+  const path = insidePath(beam);
+
+  ctx.save();
+  ctx.clip(beam.mask);
+  ctx.globalCompositeOperation = 'lighten';
+  ctx.globalAlpha = lamp.activationProgress;
+  ctx.fillStyle = inside;
+  ctx.strokeStyle = inside;
+  ctx.lineWidth = 1;
+  ctx.fill(path);
+  // Where one sheet was split from the next they leave a ray's width of a gap
+  // between them, too thin to be anything but a black hair, so the same light
+  // is run round the edges to close it over
+  ctx.stroke(path);
+  ctx.restore();
+};
+
+/**
+ * The rainbow: each sheet of light leaving a rock, cut across its width into as
+ * many equal stripes as there are colours. Stripes are laid down side by side
+ * and added rather than overlapped, so where two of them meet the half of a
+ * pixel each covers adds up to the whole of it, with no bright seam between
+ * them and no thread of background showing through either. Sheets crossing one
+ * another add up the same way: each is light, and light fades to nothing rather
+ * than to a colour, so neither can take anything away from the other.
+ */
+export const drawSpectrum = (ctx, lamp, beam) => {
+  const edges = Array.from({ length: spectrum.length + 1 }, (_, i) => i / spectrum.length);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = lamp.activationProgress * spectrumStrength;
+
+  runsOf(beam).forEach((run) => {
+    const away = run.reduce((sum, { out }) => sum.add(out.away), Vector()).normalize();
+    const length = run.reduce((sum, { out }) => sum + out.length, 0) / run.length;
+    // Rays set off from the lamp itself, so where one went into a rock is also
+    // the way it was going, and against where it ended up pointing that says
+    // how far round the rock turned it, and which way
+    const into = run[run.length >> 1].at.normalize();
+    const spin = into.x * away.y - into.y * away.x;
+    const { middle, side, span } = sheetOf(run);
+    // Its sign is which way round the fan has to open for the stripes to spread
+    // apart rather than cross over one another
+    const width = span.dot(side);
+
+    if (Math.abs(width) < thin) return;
+
+    const sense = width > 0 ? 1 : -1;
+    const turn = sense *
+      Math.min(fanning * Math.abs(spin), Math.abs(width) * spreading / length);
+    const near = edges.map((across) => middle.add(span.scale(across - 0.5)));
+    const far = edges.map((across, i) => near[i].add(
+      rotatePoint(away, turn * (across - 0.5)).scale(length)),
+    );
+
+    // Squarely down the way the light is going, so a sheet gives out level with
+    // the face it came through rather than around one corner of it
+    const root = near[spectrum.length >> 1];
+    const tip = root.add(away.scale(length));
+
+    // Violet is bent furthest, so it belongs on the side the rock bent towards
+    spectrum.forEach((color, band) => {
+      ctx.fillStyle = fillOf(ctx,
+        spectrum[sense * spin > -flipMargin ? band : spectrum.length - 1 - band], root, tip,
+        Math.max(0, 1 - fades / length));
+      ctx.fill(strip(near.slice(band, band + 2), far.slice(band, band + 2)));
+    });
+  });
+
+  ctx.restore();
+};

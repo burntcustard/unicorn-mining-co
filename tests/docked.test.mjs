@@ -2,20 +2,22 @@
 import './audio-context.mjs';
 import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
 import { minify } from 'terser';
+import { replacePreTerser } from '../plugins/replace-pre-terser.js';
 import { rolldown } from 'rolldown';
 
 // Keep the assertions in the bundle so production property mangling applies
 // consistently to both the game objects and the checks that inspect them.
 const scenario = `
 import assert from 'node:assert/strict';
-import { Ship, damage } from '${process.cwd()}/src/ship.js';
-import { Item } from '${process.cwd()}/src/item.js';
+import { Ship, damage } from '${process.cwd()}/src/ship.ts';
+import { Item } from '${process.cwd()}/src/item.ts';
 import { diamond, message } from '${process.cwd()}/src/items/index.js';
 import { instanceOf, cargoScoop, horn, shield, thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple, thrusters } from '${process.cwd()}/src/modules/index.js';
-import { colorUnlocked, roomFor, playerShip, unlockColor, updatePlayer } from '${process.cwd()}/src/player.js';
-import { launch, flyOut } from '${process.cwd()}/src/docking.js';
+import { colorUnlocked, roomFor, playerShip, unlockColor, updatePlayer } from '${process.cwd()}/src/player.ts';
+import { launch, flyOut } from '${process.cwd()}/src/docking.ts';
 import { game } from '${process.cwd()}/src/game.js';
 import { colors } from '${process.cwd()}/src/colors.js';
+import { Vector } from '${process.cwd()}/src/vector.ts';
 import {
   back, confirmSelection, moveSelection, moveSubSelection,
   fitsOf, selectionSnapshot,
@@ -32,7 +34,7 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitboxes(
   'destroyed hull remains as physical wreckage');
 
 const ship = new Ship({ shades: colors.white, credits: 10000 });
-const wreck = new Ship({ shades: colors.white, dx: 12, dy: -7, spin: 0.2 });
+const wreck = new Ship({ shades: colors.white, velocity: Vector(12, -7), spin: 0.2 });
 const contents = [diamond, message, message].map(itemData => new Item({ itemData }));
 contents.forEach(item => item.remove());
 wreck.cargo.push(...contents);
@@ -235,19 +237,19 @@ for (const forward of [0, 1]) {
   }
 }
 flyer.fly(1, 1); flyer.update(0.1);
-assert(Number.isFinite(flyer.x) && Number.isFinite(flyer.spin), 'flight remains finite');
+assert(Number.isFinite(flyer.position.x) && Number.isFinite(flyer.spin), 'flight remains finite');
 flyer.fit(0, engine.mount);
 assert(flyer.forwardThrust === 0 && flyer.cargoBay[0] === engine, 'removing engine removes thrust');
 // Check actual launch motion, including the final 0.05-second full-power pulse:
 // coast uses quarter thrust and speed cap, with half-size flames.
 for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple]) {
-  const departing = new Ship({shades: colors.white, x: 100000, y: 100000});
+  const departing = new Ship({shades: colors.white, position: Vector(100000, 100000)});
   const engine = instanceOf(type);
   departing.modules.push(engine); departing.fit(engine);
   launch(departing);
   let timer = 3;
   let expectedSpeed = 0;
-  let expectedX = departing.x;
+  let expectedX = departing.position.x;
   const dt = 1 / 60;
   for (let frame = 0; frame < 240; frame++) {
     const launching = timer > 0;
@@ -264,7 +266,7 @@ for (const type of [thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTrip
     departing.update(dt);
     assert(Math.abs(departing.velocity.length() - expectedSpeed) < 1e-8,
       type.name + ': launch speed matches expected each frame');
-    assert(Math.abs(departing.x - expectedX) < 1e-7,
+    assert(Math.abs(departing.position.x - expectedX) < 1e-7,
       type.name + ': launch distance matches expected each frame');
     assert(departing.maxSpeed === cap, type.name + ': coast lowers actual speed cap');
     assert(departing.partsOf(engine.mount).every(part => part.active === forward * Math.sqrt(fraction)),
@@ -338,8 +340,7 @@ for (const type of thrusters) {
 
 // Check the remaining reward names under production property mangling too.
 assert(!colorUnlocked(colors.yellow), 'YELLOW starts locked');
-playerShip.x = 50000;
-playerShip.y = 0;
+playerShip.position.set(Vector(50000));
 updatePlayer(0);
 assert(colorUnlocked(colors.yellow), 'reaching the map edge unlocks YELLOW');
 assert(playerShip.note === 'EDGE REACHED - YELLOW UNLOCKED', 'YELLOW reward message');
@@ -363,7 +364,7 @@ const bundle = await rolldown({
   plugins: [{
     name: 'docked-test-entry',
     resolveId: (id) => id === 'docked-scenario.js' ? '\0docked-scenario.js' : undefined,
-    load: (id) => id === '\0docked-scenario.js' ? scenario : undefined,
+    load: (id) => id === '\0docked-scenario.js' ? replacePreTerser(scenario) : undefined,
     transform: (code, id) => id.endsWith('/src/ui/docked.js') ?
       `${code}\nexport { fitsOf };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];` :
       undefined,

@@ -1,0 +1,259 @@
+// @ifdef BENCHMARK
+import { benchmarkFlag } from './benchmark';
+// @endif
+import { colors } from './colors';
+import { Vector } from './vector';
+import { game } from './game';
+import { pointBetween as mix } from './geometry';
+
+// Profiling switches kept separate from module state, so lamps and engines
+// carry on running while either kind of light is hidden.
+// @ifdef DEBUG
+export let glows = true;
+export let lights = true;
+export const toggleGlows = () => glows = !glows;
+export const toggleLights = () => lights = !lights;
+// @endif
+
+// Where the light in this part of space comes from, in radians
+export const lightAngle = -Math.PI / 4;
+
+// How far along its range a piece runs between its lit and its shaded side.
+// Enough that neighbouring pieces meet at about the same tone rather than
+// stepping from one to the next
+const spread = 0.2;
+
+// Craft are painted to be told apart at a glance, so the light only tints what
+// they are already wearing rather than replacing it. The lit side is lifted
+// towards white and then given a push towards the colour's own light, since
+// tinting a pale colour straight at a hue only darkens it. The shaded side
+// falls towards the colour's own shadow
+const litTint = 0.32;
+const warmTint = 0.2;
+const shadeTint = 0.2;
+
+// How far a lit shape's own glow carries past its edges, in screen pixels. A
+// blur is not put through the transform the way a path is, so this does not
+// grow and shrink with the view
+const glowBlur = 40;
+
+// Palette colours are one hex digit a channel. Spreading them over a whole
+// byte before blending is what lets two pale colours meet somewhere other than
+// on one of the sixteen steps they started on
+// Parsing '#' too creates an unused NaN channel that travels through blending.
+// Dropping it in hex saves a few bytes over selecting just the RGB digits here.
+const parse = (color) => [...color].map((channel) => parseInt(channel, 16) * 17);
+const hex = (channels) => `#${channels
+  .map((level) => Math.round(level).toString(16).padStart(2, '0'))
+  .slice(1).join('')}`;
+
+const white = parse(colors.white[2]);
+
+// Shading is worked out up front and looked up, rather than colours being
+// built out of strings on every frame of every piece of every craft
+const at = (along) => Math.round(Math.min(1, Math.max(0, along)) * 63);
+const table = (shade) => Array.from({ length: 64 }, (_, i) => shade(i / 63));
+
+const tints = {};
+
+const shadeOf = (shades, worn) => {
+  const base = parse(shades[worn]);
+
+  return table((along) => {
+    const towards = (along - 0.5) * 2;
+
+    if (towards > 0) return hex(mix(base, parse(shades[3]), towards * shadeTint));
+
+    return hex(mix(mix(base, white, -towards * litTint), parse(shades[4]), -towards * warmTint));
+  });
+};
+
+/**
+ * Painted work, which keeps its colour and is only lightened or darkened.
+ *
+ * @param {String[]} shades - The colour the piece is painted.
+ * @param {Number} worn - Which of its shades the piece is currently wearing.
+ * @param {Number} along - 0 facing the light, 1 facing right away from it.
+ */
+export const tint = (shades, worn, along) => (
+  tints[shades[worn]] ||= shadeOf(shades, worn)
+)[at(along)];
+
+/**
+ * What shading a piece needs to know about itself, worked out once when it is
+ * built rather than every time it is drawn.
+ *
+ * @param {Number[][]} points - Outline, relative to wherever it is mounted.
+ * @param {Object} [mount] - Where on the craft the piece sits.
+ */
+export const shapeOf = (points, mount = { localPosition: Vector() }) => {
+  const middle = points
+    .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
+    .map((total) => total / points.length);
+
+  return {
+    // Which way the piece looks, taken as the way out from the middle of the
+    // craft towards the middle of the piece
+    facing: Math.atan2(
+      middle[1] + mount.localPosition.y,
+      middle[0] + mount.localPosition.x,
+    ),
+    middle,
+    // How far it reaches from its own middle, which is how wide its shading
+    // has to run
+    reach: Math.max(...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1]))),
+  };
+};
+
+/**
+ * A piece shaded across its own width, running from the edge of it nearest the
+ * light to the edge furthest away. Where along the ramp that slice falls is
+ * set by how squarely the piece faces the light to begin with, which is what
+ * gives a craft its form.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Object} shape - Anything built with a facing, middle and reach.
+ * @param {Number} light - Which way the light lies, in the craft's own turned
+ *   frame rather than the world's.
+ * @param {Function} shade - Turns a place on the ramp into a colour.
+ */
+export const litFill = (ctx, shape, light, shade) => {
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noGradients')) {
+    return shade(0.5);
+  }
+  // @endif
+
+  const [middleX, middleY] = shape.middle;
+  const towardsX = Math.cos(light) * shape.reach;
+  const towardsY = Math.sin(light) * shape.reach;
+  const along = 0.5 - Math.cos(shape.facing - light) * 0.4;
+  const gradient = ctx.createLinearGradient(
+    middleX + towardsX,
+    middleY + towardsY,
+    middleX - towardsX,
+    middleY - towardsY,
+  );
+
+  gradient.addColorStop(0, shade(along - spread));
+  gradient.addColorStop(1, shade(along + spread));
+
+  return gradient;
+};
+
+/**
+ * A cached pool of light around a docking bay piece. Meant to go down before
+ * the thing itself, so that what is drawn on top covers the heart of it.
+ *
+ * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
+ * @param {Path2D} path
+ * @param {String} color
+ * @param {Number[][]} cache
+ */
+export const drawDockingBayGlow = (ctx, path, color, cache) => {
+  // @ifdef DEBUG
+  if (!glows) return;
+  // @endif
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noGlows')) return;
+  // @endif
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.2;
+
+  if (cache.scale !== game.scale) {
+    // The station bay fits within 280 world units of its local origin.
+    const reach = 280 * game.scale + glowBlur * 2;
+    const image = document.createElement('canvas');
+    const paint = image.getContext('2d');
+
+    image.width = image.height = reach * 2;
+    paint.translate(reach, reach);
+    paint.scale(game.scale, game.scale);
+    paint.shadowBlur = glowBlur;
+    paint.shadowColor = paint.fillStyle = color;
+    paint.fill(path);
+    cache.image = image;
+    cache.scale = game.scale;
+  }
+
+  const size = cache.image.width / game.scale;
+
+  ctx.drawImage(cache.image, -size / 2, -size / 2, size, size);
+
+  ctx.restore();
+};
+
+export const drawThrusterGlow = (ctx, nozzle) => {
+  // @ifdef DEBUG
+  if (!glows) return;
+  // @endif
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
+  // @endif
+
+  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = nozzle.activationProgress * 0.4;
+  ctx.scale(nozzle.activationProgress * 45, nozzle.activationProgress * 45);
+  gradient.addColorStop(0, nozzle.shades[2]);
+  gradient.addColorStop(0.35, `${nozzle.shades[2]}6`);
+  gradient.addColorStop(1, '#0000');
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(0, 0, 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+};
+
+/**
+ * The light a lamp throws out in front of it: full at the lens and gone by the
+ * far end of its reach. Its translucent wash tints what is underneath without
+ * additive blending making bright points flare up.
+ *
+ * @param {CanvasRenderingContext2D} ctx - Already in the craft's own frame.
+ * @param {Path2D} path
+ * @param {String} color
+ * @param {Number} reach - How far the beam carries at full strength.
+ * @param {Number} activationProgress - How far up the lamp has come, 0 to 1.
+ * @param {Path2D} lit - How far the light got before it ran into anything.
+ */
+export const drawBeam = (ctx, path, color, reach, activationProgress, lit) => {
+  // @ifdef DEBUG
+  if (!lights) return;
+  // @endif
+  // @ifdef BENCHMARK
+  if (benchmarkFlag('noLighting') || benchmarkFlag('noBeam')) return;
+  // @endif
+
+  const gradient = ctx.createLinearGradient(0, 0, reach, 0);
+
+  gradient.addColorStop(0, color);
+  gradient.addColorStop(0.15, `${color}c`);
+  gradient.addColorStop(1, '#0000');
+
+  ctx.save();
+  // The cone says how wide the beam is and the trace says how far it got, so
+  // one is filled through the other
+  ctx.clip(lit);
+  ctx.globalAlpha = activationProgress * 0.5;
+
+  // Cast off the beam rather than laid down under it, so it gives out along
+  // with the light. A glow of its own has no idea how far down the beam it is
+  // and ends in a hard edge wherever the light happens to stop
+  // @ifdef BENCHMARK
+  if (!benchmarkFlag('noBlur')) {
+  // @endif
+    ctx.shadowBlur = glowBlur;
+    ctx.shadowColor = color;
+  // @ifdef BENCHMARK
+  }
+  // @endif
+
+  ctx.fillStyle = gradient;
+  ctx.fill(path);
+  ctx.restore();
+};

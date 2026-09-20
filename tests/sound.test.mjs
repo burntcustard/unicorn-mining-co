@@ -2,6 +2,7 @@
 import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
 import assert from 'node:assert/strict';
 import { minify } from 'terser';
+import { replacePreTerser } from '../plugins/replace-pre-terser.js';
 import { rolldown } from 'rolldown';
 
 const scenario = `
@@ -127,7 +128,7 @@ const bundle = await rolldown({
         return `${process.cwd()}/src/sound.js`;
       }
     },
-    load: (id) => id === '\0sound-scenario.js' ? scenario : undefined,
+    load: (id) => id === '\0sound-scenario.js' ? replacePreTerser(scenario) : undefined,
   }, viteBuildPre()],
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });

@@ -1,5 +1,6 @@
-import { Vector, movePoint } from '../vector';
+import { Vector } from '../vector';
 import { circlePath } from '../drawing';
+import { movePoint } from '../geometry';
 
 // Shield
 // A dial on the hull it protects, with a cross inside it that spins while the

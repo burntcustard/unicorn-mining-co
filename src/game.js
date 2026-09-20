@@ -13,5 +13,7 @@ export const game = {
   // @endif
   size: 1.5,
   sprites: [],
+  uiAlpha: 0,
+  uiVisible: 0,
   // scale, width & height are set by setSizing()
 };

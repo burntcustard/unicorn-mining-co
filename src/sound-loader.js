@@ -4,7 +4,7 @@ let loading;
 let sound;
 
 const loadSound = () => loading ||= import('./sound').then(
-  (module) => sound = module,
+  (module) => sound = module.default,
 );
 
 export const unlockAudio = () => loadSound().then((module) => module.unlockAudio());

@@ -1,5 +1,4 @@
 import { circlePath, sparklePath } from './drawing';
-import { camera } from './camera';
 import { colors } from './colors';
 
 /**
@@ -217,8 +216,7 @@ sky.cycle = () => {
  * scaled transform is resampled across the whole screen every frame, which
  * costs more than everything else in the game put together.
  */
-export const renderBackground = (game) => {
-  const { canvas, ctx, scale } = game;
+export const renderBackground = (canvas, ctx, scale, cameraX = 0, cameraY = 0) => {
   const size = Math.round(tile * scale);
 
   if (span !== size) {
@@ -235,8 +233,8 @@ export const renderBackground = (game) => {
     // `-(offset % span + span) % span` wraps it into [-span, 0], equivalent to
     // `-(offset - Math.floor(offset / span) * span)` for either sign, but leaves
     // it unsnapped; stamping every `span` pixels then covers the viewport.
-    const left = -(camera.x * (i + 1) * scale / 50 % span + span) % span;
-    const top = -(camera.y * (i + 1) * scale / 50 % span + span) % span;
+    const left = -(cameraX * (i + 1) * scale / 50 % span + span) % span;
+    const top = -(cameraY * (i + 1) * scale / 50 % span + span) % span;
 
     for (let atX = left; atX < canvas.width; atX += span) {
       for (let atY = top; atY < canvas.height; atY += span) {

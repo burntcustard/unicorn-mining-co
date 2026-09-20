@@ -10,16 +10,16 @@ globalThis.Path2D = class {
 };
 
 const bundle = await rolldown({
-  input: `${process.cwd()}/src/prism.js`,
+  input: `${process.cwd()}/src/prism.ts`,
   plugins: [{
     name: 'prism-test-exports',
-    transform: (code, id) => id.endsWith('/src/prism.js') ?
-      `${code}\nexport { joins, runsOf };` :
+    transform: (code, id) => id.endsWith('/src/prism.ts') ?
+      `${code}\nexport { joins, runsOf }; export { Vector } from './vector';` :
       undefined,
   }],
 });
 const { output } = await bundle.generate({ format: 'esm' });
-const { traceBeam, drawSpectrum, joins: joinFaces, runsOf } = await import(
+const { traceBeam, drawSpectrum, joins: joinFaces, runsOf, Vector } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`);
 await bundle.close();
 const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
@@ -29,14 +29,13 @@ const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
 for (const size of [10, 100, 1000]) {
   for (let frame = 0; frame < 120; frame++) {
     const rotation = frame * Math.PI / 60;
-    const lamp = { x: 0, y: 0, activationProgress: 1,
+    const lamp = { localPosition: Vector(), activationProgress: 1,
       module: { lens: 0, reach: size * 20, spread: size * 2 } };
-    const ship = { x: 0, y: 0, rotation, position: {} };
+    const ship = { rotation, position: Vector() };
     const rock = {
       scenery: true, radius: size * 2,
-      x: size * 4 * Math.cos(rotation), y: size * 4 * Math.sin(rotation),
       rotation: rotation + 0.17,
-      position: { distanceTo: () => size * 4 },
+      position: Vector(size * 4 * Math.cos(rotation), size * 4 * Math.sin(rotation)),
       outline: [[-1, -1], [1, -1], [1, 0], [1, 1], [-1, 1]]
         .map(([x, y]) => [x * size, y * size]),
     };

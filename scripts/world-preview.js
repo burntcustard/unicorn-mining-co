@@ -6,7 +6,7 @@ const bundle = await rolldown({
   plugins: [{
     name: 'world-entry',
     load: (id) => id === '\0world-entry' ?
-      `export { generateWorld, worldRadius } from '${process.cwd()}/src/world.js';` :
+      `export { generateWorld, worldRadius } from '${process.cwd()}/src/world.ts';` :
       undefined,
     resolveId: (id) => id === 'world-entry' ? '\0world-entry' : undefined,
   }],

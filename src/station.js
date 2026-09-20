@@ -14,7 +14,7 @@
  */
 import { Ship } from './ship';
 import { colors } from './colors';
-import { rotatePoints } from './vector';
+import { rotatePoints } from './geometry';
 
 // The flat right hand side runs between these two corners, and the ring runs
 // this far in before it meets the core

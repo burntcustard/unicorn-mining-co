@@ -1,0 +1,96 @@
+import { damage, healthOf } from './ship';
+import { playSound } from './sound-loader';
+import { playerShip } from './player';
+import { Vector } from './vector';
+
+/**
+ * What a collision does, once collisions.ts has found one. Kept well apart
+ * from the finding of them, the way Box2D and Matter.js keep them apart, and
+ * in the same two steps for the same reasons.
+ *
+ * Speed first. The part of the closing speed running straight into a surface
+ * is turned back on itself, and the part running along it is left alone, so a
+ * glancing blow slides rather than stopping dead.
+ *
+ * Place second, and never all of it at once. Box2D takes out a fifth of an
+ * overlap a frame on the grounds that taking out the lot overshoots, caps how
+ * far any one contact may shift a thing, and leaves a sliver of overlap alone
+ * entirely so that things at rest settle instead of buzzing against whatever
+ * they are resting on. All three of those are why this eases rather than
+ * teleports: shoving a thing the whole way clear in one frame is what throws
+ * it across the screen when the thing it is inside of is large.
+ */
+
+// How much of what is left of an overlap comes out in one go, which Box2D
+// calls baumgarte and sets to a fifth
+const easing = 0.4;
+
+// Overlap shallower than this is left well alone
+const slop = 0.5;
+
+// The most any one contact may shift a thing, so that a deep overlap eases
+// apart over a few frames rather than firing it off
+const maxCorrection = 12;
+
+// Below this a knock is dead rather than springy, or everything ends up
+// trembling on bounces too small to see
+const deadSpeed = 5;
+
+/**
+ * Resolve every physical contact using the same mass-weighted impulse and
+ * positional correction. Non-physical colliders still report their contacts
+ * to gameplay but never arrive here as a special collision category.
+ *
+ * @param {Object[]} contacts
+ */
+export const resolve = (contacts: any[]) => contacts.forEach(({ collider, depth, normal, other, point }) => {
+  if (collider.physics === false || other.physics === false) return;
+
+  const a = collider.owner || collider;
+  const b = other.owner || other;
+  const aMass = a.mass ? 1 / a.mass : 0;
+  const bMass = b.mass ? 1 / b.mass : 0;
+  const mass = aMass + bMass;
+
+  // Unneccessary, only station walls have 0 mass and they won't collide with each other
+  // if (!mass) return;
+
+  const aSpin = a.momentum?.(collider.position) || Vector();
+  const bSpin = b.momentum?.(other.position) || Vector();
+  const closing = b.velocity.add(bSpin).subtract(a.velocity.add(aSpin)).dot(normal) -
+    ((collider.speed || 0) + (other.speed || 0));
+
+  if (closing < 0) {
+    let bounce = 0;
+    const force = -closing / mass;
+
+    // A gentle bump is harmless after damage is rounded to whole points.
+    let amount;
+    const playerCollider = a === playerShip ? collider : b === playerShip ? other : 0;
+    const playerHealth = playerCollider && healthOf(playerCollider.segment);
+
+    if (playerCollider && playerCollider.segment.covers && -closing >= deadSpeed) playSound(5);
+
+    if ((amount = Math.round((force - 400) / 1200))) {
+      damage(collider, amount, point);
+      damage(other, amount, point);
+      if (playerCollider && healthOf(playerCollider.segment) < playerHealth) playSound(3);
+    }
+
+    if (-closing >= deadSpeed) {
+      bounce = (collider.bounciness || 0) + (other.bounciness || 0);
+    }
+
+    const impulse = force * (1 + bounce);
+
+    a.velocity.set(a.velocity.subtract(normal.scale(impulse * aMass)));
+    b.velocity.set(b.velocity.add(normal.scale(impulse * bMass)));
+  }
+
+  const correction = Math.min((depth - slop) * easing, maxCorrection) / mass;
+
+  if (correction > 0) {
+    a.position.set(a.position.subtract(normal.scale(correction * aMass)));
+    b.position.set(b.position.add(normal.scale(correction * bMass)));
+  }
+});

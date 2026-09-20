@@ -1,7 +1,7 @@
 # Unicorn Mining Co
 
 > A web game created for [Js13kGames](https://js13kgames.com/) 2026
-> \- delivered as progressively loaded JavaScript resources targeting at most 14 KiB each.
+> \- delivered as progressively loaded JavaScript resources targeting at most 14 KB gzipped each.
 
 ## Gameplay
 
@@ -61,5 +61,5 @@ WHITE - Unlocked by default from the start of the game.
 
 `npm run build` runs TypeScript 7, builds with nine Terser passes, emits ordinary
 browser-cacheable ES modules, and warns if any JavaScript resource is larger
-than 14 KiB. See [CHUNK_LOADING.md](CHUNK_LOADING.md) for the current loading
+than 14 KB gzipped. See [CHUNK_LOADING.md](CHUNK_LOADING.md) for the current loading
 tiers and their triggers.

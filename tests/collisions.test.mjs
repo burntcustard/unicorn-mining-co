@@ -19,12 +19,13 @@ const bundle = await rolldown({
     name: 'physics-test-entry',
     load: (id) => id === '\0physics' ?
       `
-      export { detectCollisions, hit, outerEdges } from '${process.cwd()}/src/collisions.js';
-      export { sparks } from '${process.cwd()}/src/shrapnel.js';
-      export { damage } from '${process.cwd()}/src/ship.js';
-      export { mine, grind } from '${process.cwd()}/src/mining.js';
-      export { resolve } from '${process.cwd()}/src/resolve.js';
-      export { Vector, movePoint, rotatePoint } from '${process.cwd()}/src/vector.js';
+      export { detectCollisions, hit, outerEdges } from '${process.cwd()}/src/collisions.ts';
+      export { sparks } from '${process.cwd()}/src/shrapnel.ts';
+      export { damage } from '${process.cwd()}/src/ship.ts';
+      export { mine, grind } from '${process.cwd()}/src/mining.ts';
+      export { resolve } from '${process.cwd()}/src/resolve.ts';
+      export { Vector } from '${process.cwd()}/src/vector.ts';
+      export { movePoint, rotatePoint } from '${process.cwd()}/src/geometry.ts';
     ` :
       undefined,
     resolveId: (id) => id === 'physics' ? '\0physics' : undefined,
@@ -32,42 +33,22 @@ const bundle = await rolldown({
 });
 const { output } = await bundle.generate({ format: 'esm' });
 const physics = await import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`);
-const { detectCollisions, hit, movePoint, outerEdges, resolve, rotatePoint } = physics;
+const { detectCollisions, hit, movePoint, outerEdges, resolve, rotatePoint, Vector } = physics;
 
 const closeTo = (actual, expected, tolerance = 1e-9) =>
   assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
 const polygon = (outline, properties = {}) => ({
   outline,
+  position: Vector(),
   radius: 20,
   rotation: 0,
-  x: 0,
-  y: 0,
   ...properties,
 });
-const vector = (x = 0, y = 0) => ({
-  x,
-  y,
-  add(other) {
-    return vector(this.x + other.x, this.y + other.y);
-  },
-  dot(other) {
-    return this.x * other.x + this.y * other.y;
-  },
-  scale(amount) {
-    return vector(this.x * amount, this.y * amount);
-  },
-  set(other) {
-    this.x = other.x;
-    this.y = other.y;
-  },
-  subtract(other) {
-    return vector(this.x - other.x, this.y - other.y);
-  },
-});
+const vector = Vector;
 
 // Geometry helpers return full vectors, so callers can continue calculating
 // with their results without wrapping or copying them first.
-const turned = rotatePoint({ x: 2, y: 0 }, Math.PI / 2);
+const turned = rotatePoint(Vector(2), Math.PI / 2);
 const moved = movePoint(turned, 0, 3);
 
 closeTo(turned.x, 0);
@@ -77,20 +58,19 @@ closeTo(moved.y, 2);
 assert.equal(typeof moved.normalize, 'function');
 
 // Circle-circle and circle-face contacts have exact penetration and normals.
-let contact = hit({ radius: 5, x: 0, y: 0 }, { radius: 5, x: 8, y: 0 });
+let contact = hit({ radius: 5, position: Vector() }, { radius: 5, position: Vector(8) });
 
 closeTo(contact.depth, 2);
-closeTo(contact.x, 1);
-closeTo(contact.y, 0);
+closeTo(contact.normal.x, 1);
+closeTo(contact.normal.y, 0);
 
 contact = hit(polygon([[-10, -10], [10, -10], [10, 10], [-10, 10]]), {
   radius: 5,
-  x: 14,
-  y: 0,
+  position: Vector(14),
 });
 closeTo(contact.depth, 1);
-closeTo(contact.x, 1);
-closeTo(contact.y, 0);
+closeTo(contact.normal.x, 1);
+closeTo(contact.normal.y, 0);
 
 // A compound pentagon is tested by its triangles. At a point its normal is
 // radial, not either neighboring face normal, including after body rotation.
@@ -108,39 +88,37 @@ const asteroid = polygon([[100, 100], [101, 100], [100, 101]], {
   radius: 10,
 });
 
-contact = hit(asteroid, { radius: 5, x: 14, y: 0 });
+contact = hit(asteroid, { radius: 5, position: Vector(14) });
 closeTo(contact.depth, 1);
-closeTo(contact.x, 1);
-closeTo(contact.y, 0);
+closeTo(contact.normal.x, 1);
+closeTo(contact.normal.y, 0);
 assert.ok(parts.includes(contact.aPart));
 
-contact = hit({ radius: 5, x: 14, y: 0 }, asteroid);
+contact = hit({ radius: 5, position: Vector(14) }, asteroid);
 closeTo(contact.depth, 1);
-closeTo(contact.x, -1);
-closeTo(contact.y, 0);
+closeTo(contact.normal.x, -1);
+closeTo(contact.normal.y, 0);
 assert.ok(parts.includes(contact.bPart));
 
 const rotated = { ...asteroid, rotation: Math.PI / 3, shapePass: -1 };
 
 contact = hit(rotated, {
   radius: 5,
-  x: 14 * Math.cos(rotated.rotation),
-  y: 14 * Math.sin(rotated.rotation),
+  position: Vector(14 * Math.cos(rotated.rotation), 14 * Math.sin(rotated.rotation)),
 });
-closeTo(contact.x, Math.cos(rotated.rotation));
-closeTo(contact.y, Math.sin(rotated.rotation));
+closeTo(contact.normal.x, Math.cos(rotated.rotation));
+closeTo(contact.normal.y, Math.sin(rotated.rotation));
 
 // The broad phase reports the actual convex part and excludes a shared owner.
 const owner = { mass: 1 };
 const hitbox = { ...asteroid, owner, rotation: 0 };
-const circle = { radius: 5, x: 14, y: 0 };
+const circle = { radius: 5, position: Vector(14) };
 const contacts = detectCollisions([
   { hitboxes: () => [hitbox] },
   { hitboxes: () => [circle, {
     ...circle,
     owner,
-    x: 14 * Math.cos(Math.PI * 2 / 5),
-    y: 14 * Math.sin(Math.PI * 2 / 5),
+    position: Vector(14 * Math.cos(Math.PI * 2 / 5), 14 * Math.sin(Math.PI * 2 / 5)),
   }] },
 ]);
 
@@ -158,8 +136,7 @@ resolve([{
   collider: { bounciness: 0.4, owner: ship, segment: shipSegment },
   depth: 1,
   other: { bounciness: 0.1, owner: rock },
-  x: 1,
-  y: 0,
+  normal: Vector(1),
 }]);
 closeTo(ship.mass * ship.velocity.x + rock.mass * rock.velocity.x, beforeMomentum);
 assert.ok(ship.velocity.x < 0);
@@ -175,14 +152,14 @@ ship.velocity.x = 20;
 shipSegment.health = 10;
 resolve([{
   collider: { owner: ship, segment: shipSegment }, depth: 1,
-  other: { owner: station }, x: 1, y: 0,
+  other: { owner: station }, normal: Vector(1),
 }]);
 assert.equal(shipSegment.health, 10);
 
 ship.velocity.x = 272;
 resolve([{
   collider: { owner: ship, segment: shipSegment }, depth: 1,
-  other: { owner: station }, x: 1, y: 0,
+  other: { owner: station }, normal: Vector(1),
 }]);
 assert.equal(shipSegment.health, 8);
 
@@ -199,7 +176,7 @@ for (const reverse of [false, true]) {
     resolve([{
       collider: reverse ? itemCollider : pilotCollider,
       other: reverse ? pilotCollider : itemCollider,
-      depth: 1, x: reverse ? -1 : 1, y: 0,
+      depth: 1, normal: Vector(reverse ? -1 : 1),
     }]);
     closeTo(hull.health, expectedHealth);
   }
@@ -214,8 +191,7 @@ resolve([{
   collider: { bounciness: -0.2, owner: ship, segment: shipSegment },
   depth: 1,
   other: { bounciness: 0.1, owner: rock },
-  x: 1,
-  y: 0,
+  normal: Vector(1),
 }]);
 assert.ok(rock.velocity.x - ship.velocity.x < 0);
 assert.ok(rock.velocity.x - ship.velocity.x > -20);
@@ -245,10 +221,9 @@ const hull = {
   parts: hullParts,
   radius: 7,
   rotation: 0,
-  x: 10,
-  y: 0,
+  position: Vector(10),
 };
-const hornSprite = { hitboxes: () => [Object.assign(horn, drillingShip.position)] };
+const hornSprite = { hitboxes: () => [Object.assign(horn, { position: drillingShip.position })] };
 const hullSprite = { hitboxes: () => [hull] };
 
 for (let frame = 120; frame--;) {
@@ -270,14 +245,14 @@ physics.sparks.length = 0;
 resolve([{
   collider: { owner: impactShip, segment: damagedHull },
   other: { owner: impactRock, segment: damagedRock, stroke: '#abc' },
-  depth: 1, x: 1, y: 0, point: [7, 3],
+  depth: 1, normal: Vector(1), point: [7, 3],
 }]);
 assert.equal(damagedHull.health, 8);
 assert.equal(damagedRock.health, 8);
-assert.deepEqual(physics.sparks.map(({ x, y, color }) => [x, y, color]),
+assert.deepEqual(physics.sparks.map(({ position, color }) => [position.x, position.y, color]),
   [...Array(4).fill([7, 3, '#f00']), ...Array(4).fill([7, 3, '#abc'])]);
-physics.sparks.forEach(({ dx, dy }) => {
-  const speed = Math.hypot(dx, dy);
+physics.sparks.forEach(({ velocity }) => {
+  const speed = velocity.length();
 
   assert.ok(speed >= 50 && speed <= 100, 'burst speed excludes body velocity');
 });
@@ -289,15 +264,16 @@ assert.equal(physics.sparks.length, 8, 'dead and invulnerable objects do not spa
 const minedItem = { health: 10, fill: '#456', position: physics.Vector(20), velocity: vector() };
 const drill = { module: { grinds: true, damage: 0.5 }, activationProgress: 1 };
 physics.mine([{
-  collider: { segment: drill, owner: impactShip, physics: false, x: 12, y: 4 },
+  collider: { segment: drill, owner: impactShip, physics: false, position: Vector(12, 4) },
   other: minedItem, depth: 1,
 }]).forEach(physics.grind);
 assert.equal(minedItem.health, 9.5);
-assert.deepEqual(physics.sparks.slice(8).map(({ x, y, color }) => [x, y, color]), [[12, 4, '#456']]);
+assert.deepEqual(physics.sparks.slice(8).map(({ position, color }) =>
+  [position.x, position.y, color]), [[12, 4, '#456']]);
 
 // One drill selects its deepest contact and retains that tick's tip position.
 const shallowItem = { ...minedItem, health: 10 };
-const tip = { segment: drill, owner: impactShip, physics: false, x: 15, y: 6 };
+const tip = { segment: drill, owner: impactShip, physics: false, position: Vector(15, 6) };
 const selected = physics.mine([
   { collider: tip, other: shallowItem, depth: 1 },
   { collider: tip, other: minedItem, depth: 3 },
@@ -305,18 +281,18 @@ const selected = physics.mine([
 ]);
 assert.deepEqual(selected, [minedItem]);
 assert.equal(drill.biting, true);
-tip.x = 100;
+tip.position.x = 100;
 selected.forEach(physics.grind);
 assert.equal(shallowItem.health, 10);
 assert.equal(minedItem.health, 9);
-assert.deepEqual([physics.sparks.at(-1).x, physics.sparks.at(-1).y], [15, 6]);
+assert.deepEqual([physics.sparks.at(-1).position.x, physics.sparks.at(-1).position.y], [15, 6]);
 physics.grind(minedItem);
 assert.equal(minedItem.health, 9, 'a selected contact only applies damage once');
 physics.mine([]);
 assert.equal(drill.biting, false, 'lost contact clears the sound input');
 
 // The circle surface contact faces the other body, including reversed order.
-const smallCircle = polygon(undefined, { radius: 2, x: 9 });
+const smallCircle = polygon(undefined, { radius: 2, position: Vector(9) });
 const largeCircle = polygon(undefined, { radius: 8 });
 assert.deepEqual(hit(smallCircle, largeCircle).point, [7, 0]);
 assert.deepEqual(hit(largeCircle, smallCircle).point, [7, 0]);

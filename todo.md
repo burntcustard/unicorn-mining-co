@@ -24,7 +24,7 @@
 [ ] Rewrite keyboard handler with full key strings
 [ ] Better text demo
 [ ] Add characters for lowercase and special chars
-[ ] Neaten up files, especially player.js & vector.js
+[ ] Neaten up files, especially player.ts & vector.ts
 [ ] Better FPS counter with memory usage etc.
 [ ] Decide module (mount?) categories like thrusters
 [ ] Fix floodlight not revealing along its edge pixels

@@ -172,3 +172,13 @@ export const updateThrusterSound = (power, load = 0) => {
     1,
   );
 };
+
+export default {
+  unlockAudio,
+  playSound,
+  continuousSound,
+  updateThrusterSound,
+  // @ifdef DEBUG
+  testTone,
+  // @endif
+};

@@ -1,4 +1,4 @@
-import { viteBuild, viteBuildPre } from './plugins/vite-build.js';
+import { viteBackground, viteBuild, viteBuildPre } from './plugins/vite-build.js';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode, command }) => {
@@ -17,6 +17,7 @@ export default defineConfig(({ mode, command }) => {
     },
     plugins: [
       viteBuildPre(flags),
+      viteBackground(flags),
       viteBuild(),
     ],
     build: {
@@ -33,51 +34,11 @@ export default defineConfig(({ mode, command }) => {
           chunkFileNames: '[name]-[hash].js',
           assetFileNames: '[name]-[hash][extname]',
           codeSplitting: {
-            // Rolldown partitions before Terser, so this source-size target is
-            // deliberately above the 14 KiB minified-output warning threshold.
-            maxSize: 45 * 1024,
-            groups: [
-              {
-                name: 'sound',
-                test: /[\\/]sound\.[jt]s$/,
-                priority: 10,
-              },
-              {
-                name: 'interface',
-                test: /[\\/]src[\\/](?:ui[\\/](?!docked\.js$)|ui\.js$|text|outline)/,
-                priority: 5,
-                includeDependenciesRecursively: false,
-              },
-              {
-                name: 'rendering',
-                test: /[\\/]src[\\/](?:background|lighting|prism|drawing|polygon|colors|flare)\.js$/,
-                priority: 4,
-                includeDependenciesRecursively: false,
-              },
-              {
-                name: 'world',
-                test: /[\\/]src[\\/](?:world|distribute|seeded-random|items[\\/])/,
-                priority: 3,
-                includeDependenciesRecursively: false,
-              },
-              {
-                name: 'ship-core',
-                test: /[\\/]src[\\/](?:ship\.js|sprite\.js|modules[\\/])/,
-                priority: 3,
-                includeDependenciesRecursively: false,
-              },
-              {
-                name: 'gameplay',
-                test: /[\\/]src[\\/](?:ship|asteroid|mining|collisions|player|docking|resolve|scoop|shrapnel|item|sprite|station|modules[\\/])/,
-                priority: 2,
-                includeDependenciesRecursively: false,
-              },
-              {
-                name: 'engine',
-                test: /[\\/]src[\\/](?:camera|core|game|game-loop|keyboard|set-sizing|sound-loader|vector)\.js$/,
-                includeDependenciesRecursively: false,
-              },
-            ],
+            groups: [{
+              name: 'rendering-world',
+              test: /[\\/]src[\\/](?:background|lighting|prism|drawing|polygon|colors|flare|world|distribute|seeded-random|items[\\/])/,
+              includeDependenciesRecursively: false,
+            }],
           },
         },
       },
