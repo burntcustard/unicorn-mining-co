@@ -13,24 +13,28 @@ const maxSpeedDrag = 0.9;
  * @param object Anything with a place and a velocity.
  * @param dt Seconds since the last update.
  */
-export const move = ({
-  position,
-  velocity,
-  drag = 0.15,
-  maxSpeed = 272,
-}: {
-  position: Vector;
-  velocity: Vector;
-  drag?: number;
-  maxSpeed?: number;
-}, dt: number) => {
+export const move = (
+  {
+    position,
+    velocity,
+    drag = 0.15,
+    maxSpeed = 272,
+  }: {
+    position: Vector;
+    velocity: Vector;
+    drag?: number;
+    maxSpeed?: number;
+  },
+  dt: number,
+) => {
   const speed = velocity.length();
 
   if (speed < 1) velocity.x = velocity.y = 0;
 
-  const kept = speed > maxSpeed ?
-    Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed :
-      Math.exp(-drag * dt);
+  const kept =
+    speed > maxSpeed
+      ? Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed
+      : Math.exp(-drag * dt);
 
   velocity.x *= kept;
   velocity.y *= kept;

@@ -135,7 +135,11 @@ const spectrumStrength = 0.9;
  * @param {Object} from - Where the ray starts.
  * @param {Object} dir - Which way it goes, as a unit vector.
  */
-const cross = (points: Outline, from: VectorValue, dir: VectorValue): Crossing | undefined => {
+const cross = (
+  points: Outline,
+  from: VectorValue,
+  dir: VectorValue,
+): Crossing | undefined => {
   let near = Infinity;
   let normal: VectorValue | undefined;
   let faceIndex = 0;
@@ -148,14 +152,30 @@ const cross = (points: Outline, from: VectorValue, dir: VectorValue): Crossing |
     const along = (start.x * dir.y - start.y * dir.x) / denom;
     const distance = (start.x * edge.y - start.y * edge.x) / denom;
 
-    if (!denom || along < 0 || along > 1 || distance < inset || distance >= near) return;
+    if (
+      !denom ||
+      along < 0 ||
+      along > 1 ||
+      distance < inset ||
+      distance >= near
+    )
+      return;
 
     near = distance;
     faceIndex = i;
-    normal = Vector(edge.y, -edge.x).normalize().scale(denom > 0 ? -1 : 1);
+    normal = Vector(edge.y, -edge.x)
+      .normalize()
+      .scale(denom > 0 ? -1 : 1);
   });
 
-  return normal && { at: from.add(dir.scale(near)), distance: near, face: faceIndex, normal };
+  return (
+    normal && {
+      at: from.add(dir.scale(near)),
+      distance: near,
+      face: faceIndex,
+      normal,
+    }
+  );
 };
 
 /**
@@ -176,7 +196,9 @@ const refract = (dir: VectorValue, normal: VectorValue, index: number) => {
   const eta = Math.min(index, 1 / Math.sqrt(square));
   const sideways = Math.min(1, eta * eta * square);
 
-  return dir.scale(eta).add(normal.scale(eta * facing - Math.sqrt(1 - sideways)));
+  return dir
+    .scale(eta)
+    .add(normal.scale(eta * facing - Math.sqrt(1 - sideways)));
 };
 
 // One scenery object's shape in the lamp's frame, added to the mask as a path
@@ -188,7 +210,8 @@ const outlineOf = (
   mask: Path2D,
 ) => {
   const middle = rotatePoint(
-    object.position.subtract(ship.position), -ship.rotation,
+    object.position.subtract(ship.position),
+    -ship.rotation,
   ).subtract(lamp.localPosition);
   const turn = object.rotation - ship.rotation;
   const outline = rotatePoints(object.outline, turn, middle);
@@ -220,7 +243,8 @@ const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
   if (!hit) return entry;
 
   const crossing = entry as Crossing;
-  const into = -dir.dot(crossing.normal) >= minFacing &&
+  const into =
+    -dir.dot(crossing.normal) >= minFacing &&
     refract(dir, crossing.normal, 1 / rockIndex);
   const out = into && cross(hit, crossing.at, into);
 
@@ -249,21 +273,30 @@ const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
  * @param {Object} lamp - The lit segment, mounted at `x`, `y` on the ship.
  * @param {Object[]} scenery - Anything that might be in the way.
  */
-export const traceBeam = (ship: WorldObject, lamp: Lamp, scenery: WorldObject[]): Beam => {
+export const traceBeam = (
+  ship: WorldObject,
+  lamp: Lamp,
+  scenery: WorldObject[],
+): Beam => {
   const { lens, reach, spread } = lamp.module;
   const range = Math.hypot(lens + reach, spread);
   const edge = Math.atan2(spread, lens + reach);
   const mask = new Path2D();
-  const outlines = scenery.filter((object): object is Scenery =>
-    !!object.scenery && !!object.outline &&
-    object.position.distanceTo(ship.position) - object.radius < range)
+  const outlines = scenery
+    .filter(
+      (object): object is Scenery =>
+        !!object.scenery &&
+        !!object.outline &&
+        object.position.distanceTo(ship.position) - object.radius < range,
+    )
     .map((object) => outlineOf(ship, lamp, object, mask));
 
   return {
     mask,
     outlines,
     rays: Array.from({ length: rays + 1 }, (_, i) =>
-      rayAt(outlines, edge * (i * 2 / rays - 1), range)),
+      rayAt(outlines, edge * ((i * 2) / rays - 1), range),
+    ),
   };
 };
 
@@ -286,8 +319,10 @@ const joins = (points: Outline, from: number, to: number) => {
   const before = corner.subtract(Vector(...points[from]));
   const after = Vector(...points[(to + 1) % count]).subtract(corner);
 
-  return before.x * after.y - before.y * after.x >=
-    -1e-8 * before.length() * after.length();
+  return (
+    before.x * after.y - before.y * after.x >=
+    -1e-8 * before.length() * after.length()
+  );
 };
 
 const runsOf = ({ rays: fan }: Beam) => {
@@ -299,8 +334,11 @@ const runsOf = ({ rays: fan }: Beam) => {
 
     const last = fan[i - 1];
 
-    if (last?.out && last.hit === complete.hit &&
-      joins(complete.hit, last.out.face, complete.out.face)) {
+    if (
+      last?.out &&
+      last.hit === complete.hit &&
+      joins(complete.hit, last.out.face, complete.out.face)
+    ) {
       runs.at(-1)!.push(complete);
     } else {
       runs.push([complete]);
@@ -316,8 +354,9 @@ const runsOf = ({ rays: fan }: Beam) => {
 const sheetOf = (run: CompleteRay[]) => {
   const first = run[0];
   const last = run.at(-1);
-  const through = run.reduce((sum, ray) =>
-    sum.add(ray.out.at.subtract(ray.at)), Vector()).normalize();
+  const through = run
+    .reduce((sum, ray) => sum.add(ray.out.at.subtract(ray.at)), Vector())
+    .normalize();
   const side = Vector(-through.y, through.x);
   let span = last.out.at.subtract(first.out.at);
   const feedWidth = last.at.subtract(first.at).dot(side);
@@ -367,7 +406,11 @@ export const insidePath = (beam: Beam) => {
   return path;
 };
 
-export const drawInside = (ctx: CanvasRenderingContext2D, lamp: Lamp, beam: Beam) => {
+export const drawInside = (
+  ctx: CanvasRenderingContext2D,
+  lamp: Lamp,
+  beam: Beam,
+) => {
   const path = insidePath(beam);
 
   ctx.save();
@@ -394,16 +437,26 @@ export const drawInside = (ctx: CanvasRenderingContext2D, lamp: Lamp, beam: Beam
  * another add up the same way: each is light, and light fades to nothing rather
  * than to a colour, so neither can take anything away from the other.
  */
-export const drawSpectrum = (ctx: CanvasRenderingContext2D, lamp: Lamp, beam: Beam) => {
-  const edges = Array.from({ length: spectrum.length + 1 }, (_, i) => i / spectrum.length);
+export const drawSpectrum = (
+  ctx: CanvasRenderingContext2D,
+  lamp: Lamp,
+  beam: Beam,
+) => {
+  const edges = Array.from(
+    { length: spectrum.length + 1 },
+    (_, i) => i / spectrum.length,
+  );
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = lamp.activationProgress * spectrumStrength;
 
   runsOf(beam).forEach((run) => {
-    const away = run.reduce((sum, { out }) => sum.add(out.away), Vector()).normalize();
-    const length = run.reduce((sum, { out }) => sum + out.length, 0) / run.length;
+    const away = run
+      .reduce((sum, { out }) => sum.add(out.away), Vector())
+      .normalize();
+    const length =
+      run.reduce((sum, { out }) => sum + out.length, 0) / run.length;
     // Rays set off from the lamp itself, so where one went into a rock is also
     // the way it was going, and against where it ended up pointing that says
     // how far round the rock turned it, and which way
@@ -417,11 +470,15 @@ export const drawSpectrum = (ctx: CanvasRenderingContext2D, lamp: Lamp, beam: Be
     if (Math.abs(width) < thin) return;
 
     const sense = width > 0 ? 1 : -1;
-    const turn = sense *
-      Math.min(fanning * Math.abs(spin), Math.abs(width) * spreading / length);
+    const turn =
+      sense *
+      Math.min(
+        fanning * Math.abs(spin),
+        (Math.abs(width) * spreading) / length,
+      );
     const near = edges.map((across) => middle.add(span.scale(across - 0.5)));
-    const far = edges.map((across, i) => near[i].add(
-      rotatePoint(away, turn * (across - 0.5)).scale(length)),
+    const far = edges.map((across, i) =>
+      near[i].add(rotatePoint(away, turn * (across - 0.5)).scale(length)),
     );
 
     // Squarely down the way the light is going, so a sheet gives out level with
@@ -431,9 +488,15 @@ export const drawSpectrum = (ctx: CanvasRenderingContext2D, lamp: Lamp, beam: Be
 
     // Violet is bent furthest, so it belongs on the side the rock bent towards
     spectrum.forEach((color, band) => {
-      ctx.fillStyle = fillOf(ctx,
-        spectrum[sense * spin > -flipMargin ? band : spectrum.length - 1 - band], root, tip,
-        Math.max(0, 1 - fades / length));
+      ctx.fillStyle = fillOf(
+        ctx,
+        spectrum[
+          sense * spin > -flipMargin ? band : spectrum.length - 1 - band
+        ],
+        root,
+        tip,
+        Math.max(0, 1 - fades / length),
+      );
       ctx.fill(strip(near.slice(band, band + 2), far.slice(band, band + 2)));
     });
   });

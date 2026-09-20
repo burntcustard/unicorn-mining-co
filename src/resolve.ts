@@ -44,56 +44,63 @@ const deadSpeed = 5;
  *
  * @param {Object[]} contacts
  */
-export const resolve = (contacts: Contact[]) => contacts.forEach(({
-  collider, depth, normal, other, point,
-}) => {
-  if (collider.physics === false || other.physics === false) return;
+export const resolve = (contacts: Contact[]) =>
+  contacts.forEach(({ collider, depth, normal, other, point }) => {
+    if (collider.physics === false || other.physics === false) return;
 
-  const a = collider.owner || collider;
-  const b = other.owner || other;
-  const aMass = a.mass ? 1 / a.mass : 0;
-  const bMass = b.mass ? 1 / b.mass : 0;
-  const mass = aMass + bMass;
+    const a = collider.owner || collider;
+    const b = other.owner || other;
+    const aMass = a.mass ? 1 / a.mass : 0;
+    const bMass = b.mass ? 1 / b.mass : 0;
+    const mass = aMass + bMass;
 
-  // Unneccessary, only station walls have 0 mass and they won't collide with each other
-  // if (!mass) return;
+    // Unneccessary, only station walls have 0 mass and they won't collide with each other
+    // if (!mass) return;
 
-  const aSpin = a.momentum?.(collider.position) || Vector();
-  const bSpin = b.momentum?.(other.position) || Vector();
-  const closing = b.velocity.add(bSpin).subtract(a.velocity.add(aSpin)).dot(normal) -
-    ((collider.speed || 0) + (other.speed || 0));
+    const aSpin = a.momentum?.(collider.position) || Vector();
+    const bSpin = b.momentum?.(other.position) || Vector();
+    const closing =
+      b.velocity.add(bSpin).subtract(a.velocity.add(aSpin)).dot(normal) -
+      ((collider.speed || 0) + (other.speed || 0));
 
-  if (closing < 0) {
-    let bounce = 0;
-    const force = -closing / mass;
+    if (closing < 0) {
+      let bounce = 0;
+      const force = -closing / mass;
 
-    // A gentle bump is harmless after damage is rounded to whole points.
-    let amount;
-    const playerCollider = a === playerShip ? collider : b === playerShip ? other : 0;
-    const playerHealth = playerCollider && healthOf(playerCollider.segment);
+      // A gentle bump is harmless after damage is rounded to whole points.
+      let amount;
+      const playerCollider =
+        a === playerShip ? collider : b === playerShip ? other : 0;
+      const playerHealth = playerCollider && healthOf(playerCollider.segment);
 
-    if (playerCollider && playerCollider.segment.covers && -closing >= deadSpeed) playSound(5);
+      if (
+        playerCollider &&
+        playerCollider.segment.covers &&
+        -closing >= deadSpeed
+      )
+        playSound(5);
 
-    if ((amount = Math.round((force - 400) / 1200))) {
-      damage(collider, amount, point);
-      damage(other, amount, point);
-      if (playerCollider && healthOf(playerCollider.segment) < playerHealth) playSound(3);
+      if ((amount = Math.round((force - 400) / 1200))) {
+        damage(collider, amount, point);
+        damage(other, amount, point);
+        if (playerCollider && healthOf(playerCollider.segment) < playerHealth)
+          playSound(3);
+      }
+
+      if (-closing >= deadSpeed) {
+        bounce = (collider.bounciness || 0) + (other.bounciness || 0);
+      }
+
+      const impulse = force * (1 + bounce);
+
+      a.velocity.set(a.velocity.subtract(normal.scale(impulse * aMass)));
+      b.velocity.set(b.velocity.add(normal.scale(impulse * bMass)));
     }
 
-    if (-closing >= deadSpeed) {
-      bounce = (collider.bounciness || 0) + (other.bounciness || 0);
+    const correction = Math.min((depth - slop) * easing, maxCorrection) / mass;
+
+    if (correction > 0) {
+      a.position.set(a.position.subtract(normal.scale(correction * aMass)));
+      b.position.set(b.position.add(normal.scale(correction * bMass)));
     }
-
-    const impulse = force * (1 + bounce);
-
-    a.velocity.set(a.velocity.subtract(normal.scale(impulse * aMass)));
-    b.velocity.set(b.velocity.add(normal.scale(impulse * bMass)));
-  }
-
-  const correction = Math.min((depth - slop) * easing, maxCorrection) / mass;
-
-  if (correction > 0) {
-    a.position.set(a.position.subtract(normal.scale(correction * aMass)));
-    b.position.set(b.position.add(normal.scale(correction * bMass)));
-  }
-});
+  });

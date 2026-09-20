@@ -8,8 +8,8 @@ import { rolldown } from 'rolldown';
 const scenario = `
 import { TestAudioContext } from '${process.cwd()}/tests/audio-context.mjs';
 import assert from 'node:assert/strict';
-import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/sound.js';
-import { horn } from '${process.cwd()}/src/modules/horn.js';
+import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/sound.ts';
+import { horn } from '${process.cwd()}/src/modules/horn.ts';
 
 assert.equal(TestAudioContext.instances.length, 0, 'import does not initialize audio');
 horn.update({ phase: 0, activationProgress: 0 }, 1 / 60);
@@ -119,17 +119,25 @@ assert.equal(TestAudioContext.instances.length, 1, 'all effects reuse the first 
 const bundle = await rolldown({
   input: 'sound-scenario.js',
   external: ['node:assert/strict'],
-  plugins: [{
-    name: 'sound-test-entry',
-    resolveId: (id, importer) => {
-      if (id === 'sound-scenario.js') return '\0sound-scenario.js';
+  plugins: [
+    {
+      name: 'sound-test-entry',
+      resolveId: (id, importer) => {
+        if (id === 'sound-scenario.js') return '\0sound-scenario.js';
 
-      if (id === '../sound-loader' && importer?.endsWith('/src/modules/horn.js')) {
-        return `${process.cwd()}/src/sound.js`;
-      }
+        if (
+          id === '../sound-loader' &&
+          importer?.endsWith('/src/modules/horn.ts')
+        ) {
+          return `${process.cwd()}/src/sound.ts`;
+        }
+      },
+      load: (id) => {
+        if (id === '\0sound-scenario.js') return replacePreTerser(scenario);
+      },
     },
-    load: (id) => id === '\0sound-scenario.js' ? replacePreTerser(scenario) : undefined,
-  }, viteBuildPre()],
+    viteBuildPre(),
+  ],
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });
 await bundle.close();
@@ -145,8 +153,16 @@ const compressed = await minify(output[0].code, {
 });
 
 for (const code of [output[0].code, compressed.code]) {
-  await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  await import(
+    `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
+  );
 }
 
-assert(compressed.code.includes('createBufferSource') && compressed.code.includes('setTargetAtTime'), 'Web Audio methods stay unmangled');
-console.log('Tones, ramps and drill start/stop passed, including production mangling.');
+assert(
+  compressed.code.includes('createBufferSource') &&
+    compressed.code.includes('setTargetAtTime'),
+  'Web Audio methods stay unmangled',
+);
+console.log(
+  'Tones, ramps and drill start/stop passed, including production mangling.',
+);

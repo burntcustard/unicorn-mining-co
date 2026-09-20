@@ -42,7 +42,11 @@ const background = `${colors.cyan[2]}2`;
 export class Road {
   [key: string]: any;
 
-  constructor(props: { angle: number; distance: number; position: VectorValue }) {
+  constructor(props: {
+    angle: number;
+    distance: number;
+    position: VectorValue;
+  }) {
     this.angle = props.angle;
     this.ctx = getContext();
     this.distance = props.distance;
@@ -51,7 +55,10 @@ export class Road {
     // A road does the driving for whatever it has hold of, so a ship caught on
     // one cuts its own engines. A station carries a ship without driving it
     this.drives = true;
-    this.sparks = makeSparks(this.distance * roadWidth * sparkDensity, this.distance);
+    this.sparks = makeSparks(
+      this.distance * roadWidth * sparkDensity,
+      this.distance,
+    );
   }
 
   /**
@@ -59,9 +66,16 @@ export class Road {
    * @returns {Boolean} inside
    */
   holds(child: any) {
-    const local = rotatePoint(child.position.subtract(this.position), -this.angle);
+    const local = rotatePoint(
+      child.position.subtract(this.position),
+      -this.angle,
+    );
 
-    return local.x >= 0 && local.x <= this.distance && Math.abs(local.y) <= roadWidth / 2;
+    return (
+      local.x >= 0 &&
+      local.x <= this.distance &&
+      Math.abs(local.y) <= roadWidth / 2
+    );
   }
 
   /**
@@ -104,15 +118,17 @@ export class Road {
     ctx.fillStyle = background;
     ctx.fillRect(0, -roadWidth / 2, this.distance, roadWidth);
 
-    (this.sparks as RoadSpark[]).forEach(({ across, along, color, length, lifetime }) => {
-      // Fading out over its last second is what stops a spark blinking away
-      ctx.globalAlpha = Math.min(1, lifetime);
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(along - length, across * roadWidth);
-      ctx.lineTo(along, across * roadWidth);
-      ctx.stroke();
-    });
+    (this.sparks as RoadSpark[]).forEach(
+      ({ across, along, color, length, lifetime }) => {
+        // Fading out over its last second is what stops a spark blinking away
+        ctx.globalAlpha = Math.min(1, lifetime);
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(along - length, across * roadWidth);
+        ctx.lineTo(along, across * roadWidth);
+        ctx.stroke();
+      },
+    );
 
     ctx.restore();
   }

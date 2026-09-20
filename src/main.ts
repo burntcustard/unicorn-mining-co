@@ -1,4 +1,9 @@
-import { back, confirmSelection, moveSelection, moveSubSelection } from './ui/docked-loader';
+import {
+  back,
+  confirmSelection,
+  moveSelection,
+  moveSubSelection,
+} from './ui/docked-loader';
 // @ifdef DEBUG
 import {
   bindDebug,
@@ -51,19 +56,27 @@ type WorldBlueprint = {
 };
 
 type Background = {
-  renderBackground: (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D,
-    scale: number, x: number, y: number) => void;
+  renderBackground: (
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+    scale: number,
+    x: number,
+    y: number,
+  ) => void;
 };
 
 let gameStarted = false;
-const background = (globalThis as typeof globalThis & { background: Background }).background;
-const renderSky = () => background.renderBackground(
-  game.canvas,
-  game.ctx,
-  game.scale,
-  camera.x,
-  camera.y,
-);
+const background = (
+  globalThis as typeof globalThis & { background: Background }
+).background;
+const renderSky = () =>
+  background.renderBackground(
+    game.canvas,
+    game.ctx,
+    game.scale,
+    camera.x,
+    camera.y,
+  );
 
 setSizing(game);
 renderSky();
@@ -74,8 +87,9 @@ window.onresize = () => {
 };
 
 const world = generateWorld(25);
-const stations = world.stations.map((properties) =>
-  new Station({ ...properties, shades: colors.white }));
+const stations = world.stations.map(
+  (properties) => new Station({ ...properties, shades: colors.white }),
+);
 
 // Closest-to-center first, so the player can start at any of the nearest few
 // without every player landing at the same one
@@ -111,7 +125,10 @@ const debugWreck = new Ship({
   shades: colors.orange,
   position: playerShip.position.add(Vector(500)),
 });
-const debugNote = new Item({ itemData: message, message: world.wrecks[4].message });
+const debugNote = new Item({
+  itemData: message,
+  message: world.wrecks[4].message,
+});
 
 debugNote.unlock = 'ORANGE';
 debugNote.remove();
@@ -120,8 +137,12 @@ debugWreck.cargo.push(debugNote);
 // A pocket of the smallest, violet-outlined rocks makes the amethyst field
 // behaviour easy to inspect without flying to its far-off generated field.
 [
-  [-180, -130], [60, -150], [250, -50],
-  [-100, 100], [140, 120], [350, 120],
+  [-180, -130],
+  [60, -150],
+  [250, -50],
+  [-100, 100],
+  [140, 120],
+  [350, 120],
 ].forEach(([x, y], i) => {
   const asteroid = new Asteroid({
     contents: [],
@@ -140,11 +161,13 @@ debugWreck.cargo.push(debugNote);
 
 world.fields.forEach(({ asteroids }: { asteroids: WorldBlueprint[] }) =>
   asteroids.forEach((properties: WorldBlueprint) => {
-  const object = new Asteroid({ ...properties, contents: [] });
+    const object = new Asteroid({ ...properties, contents: [] });
 
-  properties.contents.forEach((resource: number) =>
-    object.bury(new Item({ itemData: itemTypes[resource] })));
-  }));
+    properties.contents.forEach((resource: number) =>
+      object.bury(new Item({ itemData: itemTypes[resource] })),
+    );
+  }),
+);
 
 // @ifdef DEBUG
 debugCrafts(game);
@@ -162,8 +185,13 @@ if (benchmarkFlag('field')) {
 // @endif
 
 // @ifdef BENCHMARK
-Object.assign(window, { testSections: () => testSections(
-  game.sprites.filter(({ scenery }) => scenery) as Asteroid[], playerShip) });
+Object.assign(window, {
+  testSections: () =>
+    testSections(
+      game.sprites.filter(({ scenery }) => scenery) as Asteroid[],
+      playerShip,
+    ),
+});
 // @endif
 
 const activeRadius = 2000;
@@ -178,14 +206,16 @@ initKeys();
 ([cargoScoop, horn, shield, floodlight] as Module[]).forEach((module) =>
   bindKeys(module.name[0].toLowerCase(), () => {
     if (playerShip.launching || playerShip.dockedTo) return;
-    const segment = playerShip.segments.find((segment) =>
-      segment.module.oneOf === module && segment.mount.health > 0);
+    const segment = playerShip.segments.find(
+      (segment) => segment.module.oneOf === module && segment.mount.health > 0,
+    );
 
     playerShip.toggle(module);
     if (!segment || playerShip.dead) return;
     if (module === shield) playSound(segment.active ? 6 : 7);
     if (module === floodlight) playSound(9);
-  }));
+  }),
+);
 bindStart(() => gameStarted && !playerShip.started && launch(playerShip));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
@@ -203,9 +233,9 @@ const gameLoop = GameLoop({
     // The sky slides past at its own pace, so it moves itself
     // @ifdef BENCHMARK
     if (!benchmarkFlag('noBackground')) {
-    // @endif
+      // @endif
       renderSky();
-    // @ifdef BENCHMARK
+      // @ifdef BENCHMARK
     }
     // @endif
 
@@ -225,7 +255,8 @@ const gameLoop = GameLoop({
         .forEach((object) => {
           object.render();
           // A loose leaf cannot be mined any smaller, so its cargo stays in view.
-          object.sections || object.contents.forEach((item: WorldObject) => item.render());
+          object.sections ||
+            object.contents.forEach((item: WorldObject) => item.render());
         });
 
       if (zIndex === -2) {
@@ -234,7 +265,9 @@ const gameLoop = GameLoop({
         // @ifdef DEBUG
         if (lights) {
           // @endif
-          const lamp = playerShip.segments.find((segment) => segment.module.beam);
+          const lamp = playerShip.segments.find(
+            (segment) => segment.module.beam,
+          );
 
           if (lamp?.activationProgress > 0.5) {
             const beam = traceBeam(playerShip, lamp, activeSprites);
@@ -249,22 +282,28 @@ const gameLoop = GameLoop({
             ctx.scale(scale, scale);
             ctx.translate(-camera.x, -camera.y);
 
-            activeSprites.forEach((asteroid) =>
-              asteroid.scenery && asteroid.sections &&
-              asteroid.contents.forEach((item: WorldObject) => item.render()));
+            activeSprites.forEach(
+              (asteroid) =>
+                asteroid.scenery &&
+                asteroid.sections &&
+                asteroid.contents.forEach((item: WorldObject) => item.render()),
+            );
 
             ctx.restore();
           }
-        // @ifdef DEBUG
+          // @ifdef DEBUG
         }
         // @endif
 
-        activeSprites.forEach((item) =>
-          item.item && !item.buried && !item.dead && item.render());
+        activeSprites.forEach(
+          (item) => item.item && !item.buried && !item.dead && item.render(),
+        );
       }
 
-      activeSprites.forEach((craft) =>
-        craft.segments && !craft.dead && craft.render(activeSprites, zIndex));
+      activeSprites.forEach(
+        (craft) =>
+          craft.segments && !craft.dead && craft.render(activeSprites, zIndex),
+      );
     }
 
     // Sparks off the horn sit over the asteroids and ships they come off
@@ -284,20 +323,28 @@ const gameLoop = GameLoop({
     // come or go, so shipwreck fragments are not left out: refresh the active tier.
     if (!(updates++ % 4) || spriteCount !== game.sprites.length) {
       spriteCount = game.sprites.length;
-      activeSprites = game.sprites.filter((sprite) =>
-        !sprite.dead && sprite.position.distanceTo(playerShip.position) <= activeRadius);
+      activeSprites = game.sprites.filter(
+        (sprite) =>
+          !sprite.dead &&
+          sprite.position.distanceTo(playerShip.position) <= activeRadius,
+      );
     }
 
     // Things that happen every update (~60 FPS).
-    nearbySprites = activeSprites.filter((sprite) =>
-      !sprite.dead && sprite.position.distanceTo(playerShip.position) <= nearbyRadius);
+    nearbySprites = activeSprites.filter(
+      (sprite) =>
+        !sprite.dead &&
+        sprite.position.distanceTo(playerShip.position) <= nearbyRadius,
+    );
 
     updateSparks(dt);
     updatePlayer(dt);
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
 
-    activeSprites.forEach((sprite) =>
-      !sprite.dead && !nearbySprites.includes(sprite) && sprite.update(dt));
+    activeSprites.forEach(
+      (sprite) =>
+        !sprite.dead && !nearbySprites.includes(sprite) && sprite.update(dt),
+    );
 
     const spriteContacts = detectCollisions(activeSprites);
     const mined = mine(spriteContacts);
@@ -324,5 +371,5 @@ setTimeout(() => {
   gameStarted = true;
   gameLoop.start();
   // Keep the camera transition clear before bringing the HUD into view.
-  setTimeout(() => game.uiVisible = 1, dockDuration * 1000);
+  setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
 });

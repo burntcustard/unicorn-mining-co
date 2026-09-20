@@ -28,9 +28,29 @@ const dotCounts = [550, 380, 230];
 type Tile = HTMLCanvasElement | ImageBitmap;
 type Sky = { label: string; parts: string[]; cycle?: () => void };
 
-const dotTints = [colors.yellow[2], colors.violet[2], colors.cyan[2], colors.indigo[1], colors.white[2]];
-const sparkleTints = [colors.red[2], colors.orange[2], colors.violet[2], colors.cyan[2], colors.violet[2], colors.orange[2], colors.violet[2], colors.cyan[2]];
-const cloudColors = [colors.violet[1], colors.indigo[1], colors.cyan[0], colors.indigo[1]];
+const dotTints = [
+  colors.yellow[2],
+  colors.violet[2],
+  colors.cyan[2],
+  colors.indigo[1],
+  colors.white[2],
+];
+const sparkleTints = [
+  colors.red[2],
+  colors.orange[2],
+  colors.violet[2],
+  colors.cyan[2],
+  colors.violet[2],
+  colors.orange[2],
+  colors.violet[2],
+  colors.cyan[2],
+];
+const cloudColors = [
+  colors.violet[1],
+  colors.indigo[1],
+  colors.cyan[0],
+  colors.indigo[1],
+];
 
 // Every layer, drawn in full. Debug builds can swap this out for a cut-down
 // mode to see what each part of the sky costs
@@ -45,7 +65,11 @@ export const sky: Sky = {
 };
 // @endif
 
-const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
+const makeTile = (
+  clouds: number,
+  dots: number,
+  size: number,
+  sparkles: number,
   // @ifdef DEBUG
   parts: string[],
   // @endif
@@ -62,7 +86,7 @@ const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
     for (let wrapped = 4; wrapped--;) {
       ctx.save();
       ctx.translate(
-        x + wrapped % 2 * tile,
+        x + (wrapped % 2) * tile,
         y + Math.floor(wrapped / 2) * tile,
       );
       paint();
@@ -75,7 +99,7 @@ const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
 
   // @ifdef DEBUG
   if (parts.includes('clouds')) {
-  // @endif
+    // @endif
     while (clouds--) {
       const color = cloudColors[Math.floor(Math.random() * 4)];
       const radius = 120 + Math.random() ** 2 * 320;
@@ -91,13 +115,13 @@ const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
         ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
       });
     }
-  // @ifdef DEBUG
+    // @ifdef DEBUG
   }
   // @endif
 
   // @ifdef DEBUG
   if (parts.includes('dots')) {
-  // @endif
+    // @endif
     while (dots--) {
       const color = dotTints[Math.floor(Math.random() * 5)] + '8';
       const path = circlePath(size * Math.random());
@@ -110,7 +134,7 @@ const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
         ctx.fill(path);
       });
     }
-  // @ifdef DEBUG
+    // @ifdef DEBUG
   }
   // @endif
 
@@ -121,7 +145,7 @@ const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
 
   // @ifdef DEBUG
   if (parts.includes('sparkles')) {
-  // @endif
+    // @endif
     while (sparkles--) {
       const color = sparkleTints[Math.floor(Math.random() * 8)];
       const radius = size * (1 + Math.random() * 2);
@@ -131,7 +155,10 @@ const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
       // The x joins the + as a second subpath rather than a second fill, so
       // nonzero winding paints where they cross once instead of adding it up
       path.addPath(sparklePath(radius * 0.7, 0.7), {
-        a: 0.7, b: 0.7, c: -0.7, d: 0.7,
+        a: 0.7,
+        b: 0.7,
+        c: -0.7,
+        d: 0.7,
       });
 
       wrappedPaint(() => {
@@ -162,7 +189,7 @@ const makeTile = (clouds: number, dots: number, size: number, sparkles: number,
         ctx.fill(path);
       });
     }
-  // @ifdef DEBUG
+    // @ifdef DEBUG
   }
   // @endif
 
@@ -175,19 +202,23 @@ let tiles: Tile[];
 // replayed on every blit, which makes a tile cost whatever it took to draw
 // rather than what it looks like. A bitmap is pixels and nothing else
 const build = () => {
-  tiles = dotCounts.map((dots, i) => makeTile(
-    16 + i * 4,
-    dots,
-    1 + i / 5,
-    16 - i * 4,
-    // @ifdef DEBUG
-    sky.parts,
-    // @endif
-  ));
+  tiles = dotCounts.map((dots, i) =>
+    makeTile(
+      16 + i * 4,
+      dots,
+      1 + i / 5,
+      16 - i * 4,
+      // @ifdef DEBUG
+      sky.parts,
+      // @endif
+    ),
+  );
 
-  tiles.forEach((canvas, i) => createImageBitmap(canvas).then((bitmap) => {
-    if (tiles[i] === canvas) tiles[i] = bitmap;
-  }));
+  tiles.forEach((canvas, i) =>
+    createImageBitmap(canvas).then((bitmap) => {
+      if (tiles[i] === canvas) tiles[i] = bitmap;
+    }),
+  );
 };
 
 // @ifdef DEBUG
@@ -242,8 +273,8 @@ export const renderBackground = (
     // `-(offset % span + span) % span` wraps it into [-span, 0], equivalent to
     // `-(offset - Math.floor(offset / span) * span)` for either sign, but leaves
     // it unsnapped; stamping every `span` pixels then covers the viewport.
-    const left = -(cameraX * (i + 1) * scale / 50 % span + span) % span;
-    const top = -(cameraY * (i + 1) * scale / 50 % span + span) % span;
+    const left = -((((cameraX * (i + 1) * scale) / 50) % span) + span) % span;
+    const top = -((((cameraY * (i + 1) * scale) / 50) % span) + span) % span;
 
     for (let atX = left; atX < canvas.width; atX += span) {
       for (let atY = top; atY < canvas.height; atY += span) {

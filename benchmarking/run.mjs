@@ -23,18 +23,22 @@ const launch = (command, args) => {
   child.stderr.on('data', (chunk) => {
     const message = chunk.toString();
 
-    if (/error|failed/i.test(message) && !/registration/i.test(message)) process.stderr.write(message);
+    if (/error|failed/i.test(message) && !/registration/i.test(message)) {
+      process.stderr.write(message);
+    }
   });
   return child;
 };
 
-const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-const stop = (child) => new Promise((resolve) => {
-  if (child.exitCode !== null || child.signalCode) return resolve();
+const pause = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+const stop = (child) =>
+  new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode) return resolve();
 
-  child.once('exit', resolve);
-  child.kill('SIGTERM');
-});
+    child.once('exit', resolve);
+    child.kill('SIGTERM');
+  });
 
 const waitFor = async (url, attempts = 50) => {
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -55,12 +59,13 @@ const waitFor = async (url, attempts = 50) => {
 let socket;
 let messageId = 0;
 const pending = new Map();
-const send = (method, params = {}) => new Promise((resolve, reject) => {
-  const id = ++messageId;
+const send = (method, params = {}) =>
+  new Promise((resolve, reject) => {
+    const id = ++messageId;
 
-  pending.set(id, { reject, resolve });
-  socket.send(JSON.stringify({ id, method, params }));
-});
+    pending.set(id, { reject, resolve });
+    socket.send(JSON.stringify({ id, method, params }));
+  });
 
 const press = async (key, code) => {
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code });
@@ -90,10 +95,13 @@ const tests = [
 
 try {
   launch(join(process.cwd(), 'node_modules/.bin/vite'), [
-    '--host', host,
-    '--port', String(gamePort),
+    '--host',
+    host,
+    '--port',
+    String(gamePort),
     '--strictPort',
-    '--mode', 'benchmark',
+    '--mode',
+    'benchmark',
   ]);
   await waitFor(`http://${host}:${gamePort}`);
 
@@ -106,7 +114,9 @@ try {
     '--window-size=2880,1800',
     'about:blank',
   ]);
-  const pages = await (await waitFor(`http://${host}:${debugPort}/json`)).json();
+  const pages = await (
+    await waitFor(`http://${host}:${debugPort}/json`)
+  ).json();
   const page = pages.find(({ type }) => type === 'page');
 
   if (!page) throw new Error('Chrome did not expose a page target');
@@ -139,18 +149,28 @@ try {
 
   const results = [];
 
-  for (const test of filter ? tests.filter(({ name }) => name.includes(filter)) : tests) {
+  const selectedTests = filter
+    ? tests.filter(({ name }) => name.includes(filter))
+    : tests;
+
+  for (const test of selectedTests) {
     await send('Page.navigate', {
       url: `http://${host}:${gamePort}/?${test.query || ''}`,
     });
     await pause(warmup * 1000);
-    for (let cycle = 0; cycle < (test.sky || 0); cycle++) await press('6', 'Digit6');
+
+    for (let cycle = 0; cycle < (test.sky || 0); cycle++) {
+      await press('6', 'Digit6');
+    }
+
     if (test.lamp) await press('l', 'KeyL');
     if (test.key) await press(test.key, test.code);
 
     if (test.hold) {
       await send('Input.dispatchKeyEvent', {
-        type: 'keyDown', key: test.hold, code: test.hold,
+        type: 'keyDown',
+        key: test.hold,
+        code: test.hold,
       });
     }
 
@@ -160,7 +180,10 @@ try {
         expression: `window.testSections()`,
       });
 
-      if (checked.exceptionDetails) throw Error(checked.exceptionDetails.exception.description);
+      if (checked.exceptionDetails) {
+        throw Error(checked.exceptionDetails.exception.description);
+      }
+
       console.table([checked.result.value]);
     }
 
@@ -194,7 +217,9 @@ try {
 
     if (test.hold) {
       await send('Input.dispatchKeyEvent', {
-        type: 'keyUp', key: test.hold, code: test.hold,
+        type: 'keyUp',
+        key: test.hold,
+        code: test.hold,
       });
     }
 
@@ -214,5 +239,10 @@ try {
 } finally {
   socket?.close();
   await Promise.all(children.reverse().map(stop));
-  await rm(profile, { force: true, maxRetries: 5, recursive: true, retryDelay: 200 });
+  await rm(profile, {
+    force: true,
+    maxRetries: 5,
+    recursive: true,
+    retryDelay: 200,
+  });
 }

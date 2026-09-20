@@ -13,14 +13,17 @@ export const testSections = (
   playerShip: Ship,
   lamp: Segment = playerShip.segments.find(({ module }) => module.beam),
 ) => {
-  const five = scenery.find((asteroid) =>
-    asteroid.outline.length === 5 && asteroid.health < 240);
+  const five = scenery.find(
+    (asteroid) => asteroid.outline.length === 5 && asteroid.health < 240,
+  );
   const triangle = new Asteroid({ points: 3, radius: 90 });
 
-  if (triangle.sections.length !== 4 ||
+  if (
+    triangle.sections.length !== 4 ||
     five.sections.length !== five.outline.length * 4 ||
     five.hitboxes().length !== 1 ||
-    five.sections.some((section) => section.asteroid !== five)) {
+    five.sections.some((section) => section.asteroid !== five)
+  ) {
     throw Error('five');
   }
 
@@ -37,7 +40,11 @@ export const testSections = (
 
   asteroid.remove();
 
-  if (children.length !== 2 || asteroid.sections.length || remainder.sections.includes(leaf)) {
+  if (
+    children.length !== 2 ||
+    asteroid.sections.length ||
+    remainder.sections.includes(leaf)
+  ) {
     throw Error('detach');
   }
 
@@ -48,15 +55,18 @@ export const testSections = (
   const pieceSpeed = piece.velocity.subtract(velocity).length();
   const remainderSpeed = remainder.velocity.subtract(velocity).length();
 
-  if (pieceSpeed <= remainderSpeed ||
-    Math.abs(pieceSpeed * piece.mass - remainderSpeed * remainder.mass) > 1e-9) {
+  if (
+    pieceSpeed <= remainderSpeed ||
+    Math.abs(pieceSpeed * piece.mass - remainderSpeed * remainder.mass) > 1e-9
+  ) {
     throw Error('leaf force');
   }
 
   remainder.position.set(playerShip.position);
   const beam = traceBeam(playerShip, lamp, [remainder]);
 
-  if (beam.outlines[0].length !== remainder.outline.length) throw Error('light');
+  if (beam.outlines[0].length !== remainder.outline.length)
+    throw Error('light');
   const cargoRock = new Asteroid({ points: 5, radius: 90 });
   const cargoItem = new Item({ itemData: diamond });
   const otherCargo = new Item({ itemData: gold });
@@ -64,9 +74,11 @@ export const testSections = (
   cargoRock.bury(cargoItem);
   cargoRock.bury(otherCargo);
 
-  if (cargoRock.contents.length !== 2 ||
+  if (
+    cargoRock.contents.length !== 2 ||
     cargoRock.sections.filter(({ contents }) => contents.length).length !== 2 ||
-    cargoItem.buried.localPosition.x === otherCargo.buried.localPosition.x) {
+    cargoItem.buried.localPosition.x === otherCargo.buried.localPosition.x
+  ) {
     throw Error('cargo placement');
   }
 
@@ -75,8 +87,10 @@ export const testSections = (
   oversized.radius = cargoRock.radius;
   cargoRock.bury(oversized);
 
-  if (!cargoRock.contents.includes(oversized) ||
-    !cargoRock.sections.some((section) => section.contents.includes(oversized))) {
+  if (
+    !cargoRock.contents.includes(oversized) ||
+    !cargoRock.sections.some((section) => section.contents.includes(oversized))
+  ) {
     throw Error('cargo snap');
   }
 
@@ -84,15 +98,25 @@ export const testSections = (
   const releaseItem = new Item({ itemData: diamond });
 
   releaseRock.bury(releaseItem);
-  const destroyedSection = releaseRock.sections.find((section) => section.contents.includes(releaseItem));
+  const destroyedSection = releaseRock.sections.find((section) =>
+    section.contents.includes(releaseItem),
+  );
   const destroyedMass = destroyedSection.mass;
   const releasePosition = releaseItem.position.add(Vector());
-  const [releasedParts, releasedItems] = releaseRock.detach(destroyedSection, true);
+  const [releasedParts, releasedItems] = releaseRock.detach(
+    destroyedSection,
+    true,
+  );
 
-  if (releasedItems[0] !== releaseItem || releaseItem.position.x !== releasePosition.x ||
+  if (
+    releasedItems[0] !== releaseItem ||
+    releaseItem.position.x !== releasePosition.x ||
     releaseItem.position.y !== releasePosition.y ||
-    Math.abs(releasedParts.reduce((sum, part) => sum + part.mass, 0) -
-      (releaseRock.mass - destroyedMass)) > 1e-9) {
+    Math.abs(
+      releasedParts.reduce((sum, part) => sum + part.mass, 0) -
+        (releaseRock.mass - destroyedMass),
+    ) > 1e-9
+  ) {
     throw Error('cargo release');
   }
 
@@ -100,7 +124,8 @@ export const testSections = (
     cargoRock.sections.find((section) => !section.contents.length),
   );
   const cargoPart = cargoParts.find((part) =>
-    part.sections?.some((section) => section.contents.includes(cargoItem)));
+    part.sections?.some((section) => section.contents.includes(cargoItem)),
+  );
 
   if (early.length || !cargoPart) throw Error('cargo early');
   const [cargoDebris, released] = cargoPart.detach(
@@ -121,10 +146,16 @@ export const testSections = (
   splitShip.segments[1].health = 0;
   const fragments = splitShip.update(0);
 
-  if (fragments.length !== 1 || fragments[0].segments.length !== 1 ||
-    !splitShip.cockpit.health || !splitShip.velocity.length() ||
-    !fragments[0].velocity.length() || fragments[0].position.distanceTo(splitShip.position) < 1 ||
-    Object.getPrototypeOf(fragments[0]) === splitShip) throw Error('ship edge');
+  if (
+    fragments.length !== 1 ||
+    fragments[0].segments.length !== 1 ||
+    !splitShip.cockpit.health ||
+    !splitShip.velocity.length() ||
+    !fragments[0].velocity.length() ||
+    fragments[0].position.distanceTo(splitShip.position) < 1 ||
+    Object.getPrototypeOf(fragments[0]) === splitShip
+  )
+    throw Error('ship edge');
   const fragmentSpin = fragments[0].spin;
 
   fragments[0].update(0.1);
@@ -142,12 +173,20 @@ export const testSections = (
   wreck.cockpit.health = 0;
   const wreckage = wreck.update(0);
 
-  if (!wreck.dead || !game.sprites.includes(cargo) ||
-    Math.abs(cargo.velocity.subtract(wreck.velocity).length() - 30 / cargo.mass) > 1e-9) {
+  if (
+    !wreck.dead ||
+    !game.sprites.includes(cargo) ||
+    Math.abs(
+      cargo.velocity.subtract(wreck.velocity).length() - 30 / cargo.mass,
+    ) > 1e-9
+  ) {
     throw Error('wreck');
   }
 
-  if (wreckage.length !== 7 || wreckage.some((part) => part.dead || part.velocity.length() < 29)) {
+  if (
+    wreckage.length !== 7 ||
+    wreckage.some((part) => part.dead || part.velocity.length() < 29)
+  ) {
     throw Error('wreck drift');
   }
 

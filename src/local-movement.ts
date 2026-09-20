@@ -1,7 +1,12 @@
 import { rotatePoint } from './geometry';
 import { type Vector } from './vector';
 
-export const rotateAround = (parent: any, child: any, offset: Vector, angle: number) => {
+export const rotateAround = (
+  parent: any,
+  child: any,
+  offset: Vector,
+  angle: number,
+) => {
   const point = rotatePoint(offset, angle);
 
   child.rotation += angle;
@@ -32,7 +37,16 @@ export const localMovement = (child: any, movers: any[], dt: number) => {
   child.localMovementParent = parent;
 
   if (parent) {
-    rotateAround(parent, child, child.position.subtract(parent.position),
-      parent.spin * dt * (child.localMovementRate = Math.min(1, (child.localMovementRate || 0) + dt)));
+    rotateAround(
+      parent,
+      child,
+      child.position.subtract(parent.position),
+      parent.spin *
+        dt *
+        (child.localMovementRate = Math.min(
+          1,
+          (child.localMovementRate || 0) + dt,
+        )),
+    );
   }
 };

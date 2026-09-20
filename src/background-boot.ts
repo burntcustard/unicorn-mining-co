@@ -10,6 +10,6 @@ const scale = innerWidth / (720 * 1.5);
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 renderBackground(canvas, ctx, scale);
-requestAnimationFrame(() => canvas.style.opacity = '');
+requestAnimationFrame(() => (canvas.style.opacity = ''));
 
 export { renderBackground };

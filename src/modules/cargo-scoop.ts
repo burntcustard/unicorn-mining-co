@@ -37,7 +37,13 @@ export const cargoScoop = {
       outline: [] as Outline,
       // A door, hinged at its outer end and swinging forward as the scoop
       // opens. A long thin rectangle, which is why it can be collided with
-      points: ({ activationProgress, mount }: { activationProgress: number; mount: Mount }) => {
+      points: ({
+        activationProgress,
+        mount,
+      }: {
+        activationProgress: number;
+        mount: Mount;
+      }) => {
         const angle = activationProgress * openAngle;
         const sine = Math.sin(angle);
         const cosine = Math.cos(angle);
@@ -71,8 +77,13 @@ export const cargoScoop = {
   update: (segment: Segment) => {
     // Follow the door itself, including partial travel and reversals. The
     // invisible cargo throat shares the animation but must not sound twice.
-    if (!segment.catches && segment.mount.module === segment.module && segment.mount.health > 0 &&
-      segment.lastActive !== undefined && segment.lastActive !== segment.active) {
+    if (
+      !segment.catches &&
+      segment.mount.module === segment.module &&
+      segment.mount.health > 0 &&
+      segment.lastActive !== undefined &&
+      segment.lastActive !== segment.active
+    ) {
       playSound(segment.active ? 0 : 1);
     }
 

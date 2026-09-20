@@ -32,17 +32,26 @@ export function viteBackground(flags = {}) {
         if (context.server) return;
 
         const bundle = await rolldown({
-          input: resolve(process.cwd(), 'src/background-boot.js'),
-          plugins: [{
-            name: 'background-flags',
-            transform: (source) => ({ code: replacePreTerser(source, flags), map: null }),
-          }],
+          input: resolve(process.cwd(), 'src/background-boot.ts'),
+          plugins: [
+            {
+              name: 'background-flags',
+              transform: (source) => ({
+                code: replacePreTerser(source, flags),
+                map: null,
+              }),
+            },
+          ],
         });
-        const { output } = await bundle.generate({ format: 'iife', name: 'background', minify: true });
+        const { output } = await bundle.generate({
+          format: 'iife',
+          name: 'background',
+          minify: true,
+        });
 
         await bundle.close();
         return html.replace(
-          '<script type="module" src="src/background-boot.js"></script>',
+          '<script type="module" src="src/background-boot.ts"></script>',
           `<script>${output[0].code}</script>`,
         );
       },
@@ -82,14 +91,18 @@ export function viteBuild() {
     renderChunk: {
       order: 'post',
       handler(code) {
-        mangleQueue = mangleQueue.then(() => minify(code, terserMangleOptions(nameCache)));
+        mangleQueue = mangleQueue.then(() =>
+          minify(code, terserMangleOptions(nameCache)),
+        );
         return mangleQueue;
       },
     },
     generateBundle: {
       order: 'post',
       handler(_, bundle) {
-        const chunks = Object.values(bundle).filter((item) => item.type === 'chunk');
+        const chunks = Object.values(bundle).filter(
+          (item) => item.type === 'chunk',
+        );
 
         for (const chunk of chunks) {
           const gzipSize = gzipSync(chunk.code, gzipOptions).length;

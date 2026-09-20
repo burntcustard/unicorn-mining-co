@@ -47,10 +47,10 @@ WHITE - Unlocked by default from the start of the game.
    `git clone git@github.com:burntcustard/unicorn-mining-co.git`
 
 2. Install dependencies
-  `npm install`
+   `npm install`
 
 3. Run dev command to start up hot-reloading with [Vite](https://vitejs.dev/) at [localhost:3000](http://localhost:3000/) (you will need to open that URL yourself!)
-  `npm run dev`
+   `npm run dev`
 
 4. Compile [index.html](dist/index.html) and its JavaScript chunks
    `npm run build`

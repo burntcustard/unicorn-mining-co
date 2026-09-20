@@ -1,39 +1,39 @@
 {
   "name": "unicorn-mining-co",
   "version": "1.0.0",
-  "type": "module",
   "description": "A web game created for Js13kGames",
+  "homepage": "https://github.com/burntcustard/unicorn-mining-co#readme",
+  "bugs": {
+    "url": "https://github.com/burntcustard/unicorn-mining-co/issues"
+  },
+  "license": "MIT",
+  "author": "burntcustard",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/burntcustard/unicorn-mining-co.git"
+  },
+  "type": "module",
   "scripts": {
     "benchmark": "node benchmarking/run.mjs",
     "benchmark:headless": "BENCH_HEADLESS=1 node benchmarking/run.mjs",
     "dev": "vite",
     "dev:host": "vite --host",
     "world-preview": "node scripts/world-preview.js",
-    "build": "npm run typecheck && vite build",
+    "build": "vite build",
     "test": "npm run test:collisions && npm run test:docked && npm run test:prism && npm run test:sound",
     "test:collisions": "node tests/collisions.test.mjs",
     "test:docked": "node tests/docked.test.mjs",
     "test:prism": "node tests/prism.test.mjs",
     "test:sound": "node tests/sound.test.mjs",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "typecheck": "tsc -p tsconfig.json"
+    "lint": "oxlint --type-aware --type-check .",
+    "lint:fix": "oxlint --type-aware --type-check --fix .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check ."
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/burntcustard/unicorn-mining-co.git"
-  },
-  "author": "burntcustard",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/burntcustard/unicorn-mining-co/issues"
-  },
-  "homepage": "https://github.com/burntcustard/unicorn-mining-co#readme",
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@stylistic/eslint-plugin": "^5.10.0",
-    "eslint": "^10.11.0",
-    "globals": "^17.12.0",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
+    "oxlint-tsgolint": "^7.0.2002",
     "terser": "^5.51.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.0"

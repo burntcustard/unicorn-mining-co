@@ -40,7 +40,8 @@ const asteroidVariance = 0.2;
 // Five sides keep the old radius-squared mass; fewer sides lose some, more gain some
 const massMultiplier = 0.4;
 // Bigger asteroids need more points to be lumpy with
-const pointsFor = (radius: number) => Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
+const pointsFor = (radius: number) =>
+  Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
 
 // Signed-edge sums give both exact polygon area and its physical centre
 const measure = (points: Outline) => {
@@ -63,14 +64,19 @@ const measure = (points: Outline) => {
 
 // Boundary edges of a set of outlines, stitched end-to-end into one loop
 const outlineFrom = (outlines: Outline[]): Outline => {
-  const edges = outlines.flatMap((outline) => outline.flatMap((from, i) =>
-    outline.edges[i] ? [[from, outline[(i + 1) % outline.length]]] : []));
+  const edges = outlines.flatMap((outline) =>
+    outline.flatMap((from, i) =>
+      outline.edges[i] ? [[from, outline[(i + 1) % outline.length]]] : [],
+    ),
+  );
   const outline: Outline = [edges[0][0]];
 
   // One edge short of the full loop: the last edge would only re-add the
   // start point, closing the shape back on itself
   for (let i = edges.length - 1; i--;) {
-    const at = edges.findIndex(([from]) => from + '' === outline[outline.length - 1] + '');
+    const at = edges.findIndex(
+      ([from]) => from + '' === outline[outline.length - 1] + '',
+    );
 
     outline.push(edges.splice(at, 1)[0][1]);
   }
@@ -81,14 +87,18 @@ const outlineFrom = (outlines: Outline[]): Outline => {
     const before = outline.at(i - 1);
     const next = outline[(i + 1) % outline.length];
 
-    return (point[0] - before[0]) * (next[1] - point[1]) !==
-      (point[1] - before[1]) * (next[0] - point[0]);
+    return (
+      (point[0] - before[0]) * (next[1] - point[1]) !==
+      (point[1] - before[1]) * (next[0] - point[0])
+    );
   });
 };
 
 // Sections sharing an edge, regrouped as sections rather than bare outlines
-const groupsOf = (sections: AsteroidSection[]) => outerEdges(sections.map(({ outline }) => outline))
-  .map((indexes) => indexes.map((i) => sections[i]));
+const groupsOf = (sections: AsteroidSection[]) =>
+  outerEdges(sections.map(({ outline }) => outline)).map((indexes) =>
+    indexes.map((i) => sections[i]),
+  );
 
 // Midpoints quarter each face, leaving four equal triangles per side.
 const splitTriangle = (triangle: Outline): Outline[] => {
@@ -97,7 +107,12 @@ const splitTriangle = (triangle: Outline): Outline[] => {
   const outer = pointBetween(from, to);
   const right = pointBetween(to, center);
 
-  return [[center, left, right], [left, from, outer], [left, outer, right], [outer, to, right]];
+  return [
+    [center, left, right],
+    [left, from, outer],
+    [left, outer, right],
+    [outer, to, right],
+  ];
 };
 
 export class Asteroid extends Sprite {
@@ -117,31 +132,38 @@ export class Asteroid extends Sprite {
 
     // An asteroid doesn't changes shape until split, so its outline is worked out only
     // once. Anything else drifting about out there is the same but cut differently
-    this.outline = props.outline || createPolygon({
-      points: this.points || pointsFor(this.radius),
-      radius: this.radius,
-      radiusEven: this.radiusEven,
-      variance: this.variance || asteroidVariance,
-    });
+    this.outline =
+      props.outline ||
+      createPolygon({
+        points: this.points || pointsFor(this.radius),
+        radius: this.radius,
+        radiusEven: this.radiusEven,
+        variance: this.variance || asteroidVariance,
+      });
     // Points that wandered outwards reach further than the radius they were
     // cut from, and a collision check has to know about all of them
     // A star has a triangular core and a pointy triangle for each arm, so its
     // cut pieces retain the same silhouette as its outline.
-    const inset = this.radiusEven && this.outline.filter((point, i) => !(i % 2));
-    const triangles = props.triangles ||
-      (inset ?
-          [inset, ...inset.map((point, i) => [
-            point,
-            this.outline[i * 2 + 1],
-            inset[(i + 1) % inset.length],
-          ])] :
-        this.outline[3] ?
-            this.outline.map((point, i) => [
+    const inset =
+      this.radiusEven && this.outline.filter((point, i) => !(i % 2));
+    const triangles =
+      props.triangles ||
+      (inset
+        ? [
+            inset,
+            ...inset.map((point, i) => [
+              point,
+              this.outline[i * 2 + 1],
+              inset[(i + 1) % inset.length],
+            ]),
+          ]
+        : this.outline[3]
+          ? this.outline.map((point, i) => [
               [0, 0],
               point,
               this.outline[(i + 1) % this.outline.length],
-            ]) :
-            [this.outline]);
+            ])
+          : [this.outline]);
     this.radius = radiusOf(this.outline);
     // Heft grows with size, so a big asteroid shrugs off what shoves a pebble
     this.mass = props.mass || massMultiplier * this.radius ** 2;
@@ -155,7 +177,9 @@ export class Asteroid extends Sprite {
       const divisor = triangles.length * sectionsPerFace;
       const health = this.health / divisor;
       const mass = this.mass / divisor;
-      const leaves = triangles.map(inset ? (triangle) => [triangle] : splitTriangle);
+      const leaves = triangles.map(
+        inset ? (triangle) => [triangle] : splitTriangle,
+      );
 
       // Every innermost leaf comes first, so centre-only cargo can find the middle.
       this.sections = Array.from({ length: sectionsPerFace }, (_, corner) =>
@@ -166,7 +190,8 @@ export class Asteroid extends Sprite {
           mass,
           outline: leaf[corner],
           asteroid: this,
-        }))).flat();
+        })),
+      ).flat();
       groupsOf(this.sections);
     } else if (!triangles[1] && !this.contents.length) {
       // A lone empty chunk is not worth mining, so it wears away at its own
@@ -193,7 +218,9 @@ export class Asteroid extends Sprite {
       const child = new Asteroid({
         // The centroid carries the tangential speed it had while the parent
         // rotated, so neither position nor motion jumps at the split
-        velocity: this.velocity.add(Vector(-offset.y, offset.x).scale(this.spin)),
+        velocity: this.velocity.add(
+          Vector(-offset.y, offset.x).scale(this.spin),
+        ),
         contents,
         mass,
         fill: this.fill,
@@ -232,17 +259,25 @@ export class Asteroid extends Sprite {
     });
 
     const force = 3 / children.reduce((sum, child) => sum + 1 / child.mass, 0);
-    const spin = (Math.random() - 0.5) * force / 3;
+    const spin = ((Math.random() - 0.5) * force) / 3;
 
-    children.forEach((child) => applyForce(child,
-      child.position.subtract(this.position).normalize().scale(force), spin));
+    children.forEach((child) =>
+      applyForce(
+        child,
+        child.position.subtract(this.position).normalize().scale(force),
+        spin,
+      ),
+    );
 
     playSound(4);
 
     return [children, []];
   }
 
-  detach(section: AsteroidSection, destroyed?: boolean): [Asteroid[], BuriedItem[]] {
+  detach(
+    section: AsteroidSection,
+    destroyed?: boolean,
+  ): [Asteroid[], BuriedItem[]] {
     const loose = destroyed ? section.contents : [];
 
     if (destroyed) section.contents = [];
@@ -257,7 +292,9 @@ export class Asteroid extends Sprite {
 
     this.sections = [];
 
-    const [children] = this.split(destroyed ? islands : [[section], ...islands]);
+    const [children] = this.split(
+      destroyed ? islands : [[section], ...islands],
+    );
 
     return [children, loose];
   }
@@ -266,10 +303,15 @@ export class Asteroid extends Sprite {
     // Keep one body in the world grid.  `parts` is only inspected after this
     // body's radius and complete outline have already overlapped something.
     // Inherit position, shape and material; only collision-specific state is own.
-    return [Object.assign(this.hitbox ||= Object.assign(Object.create(this), { owner: this }), {
-      parts: this.sections,
-      segment: this.sections ? undefined : this,
-    })];
+    return [
+      Object.assign(
+        (this.hitbox ||= Object.assign(Object.create(this), { owner: this })),
+        {
+          parts: this.sections,
+          segment: this.sections ? undefined : this,
+        },
+      ),
+    ];
   }
 
   /**
@@ -281,8 +323,7 @@ export class Asteroid extends Sprite {
   bury(item: BuriedItem) {
     const empty = this.sections.filter(({ contents }) => !contents.length);
     // Sections are center-first, so soften their three-to-one outer bias.
-    const section =
-      empty[Math.floor(Math.random() ** 2 * empty.length)];
+    const section = empty[Math.floor(Math.random() ** 2 * empty.length)];
     const localPosition = measure(section.outline);
 
     item.buried = { rotation: Math.random() * Math.PI * 2, localPosition };
@@ -293,8 +334,8 @@ export class Asteroid extends Sprite {
   }
 
   /**
-  * @param {Number} dt - Seconds since the last update.
-  */
+   * @param {Number} dt - Seconds since the last update.
+   */
   update(dt: number) {
     super.update(dt);
     this.contents.forEach((item) => {

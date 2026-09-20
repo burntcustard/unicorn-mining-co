@@ -5,7 +5,13 @@ import { colors } from './colors';
 import { Vector } from './vector';
 import { game } from './game';
 import { pointBetween as mix } from './geometry';
-import { type Mount, type Outline, type Palette, type Point, type Segment } from './types';
+import {
+  type Mount,
+  type Outline,
+  type Palette,
+  type Point,
+  type Segment,
+} from './types';
 
 type LitShape = { facing?: number; middle?: Point; reach?: number };
 type GlowCache = { image?: HTMLCanvasElement; scale?: number };
@@ -15,8 +21,8 @@ type GlowCache = { image?: HTMLCanvasElement; scale?: number };
 // @ifdef DEBUG
 export let glows = true;
 export let lights = true;
-export const toggleGlows = () => glows = !glows;
-export const toggleLights = () => lights = !lights;
+export const toggleGlows = () => (glows = !glows);
+export const toggleLights = () => (lights = !lights);
 // @endif
 
 // Where the light in this part of space comes from, in radians
@@ -46,10 +52,13 @@ const glowBlur = 40;
 // on one of the sixteen steps they started on
 // Parsing '#' too creates an unused NaN channel that travels through blending.
 // Dropping it in hex saves a few bytes over selecting just the RGB digits here.
-const parse = (color: string) => [...color].map((channel) => parseInt(channel, 16) * 17);
-const hex = (channels: number[]) => `#${channels
-  .map((level) => Math.round(level).toString(16).padStart(2, '0'))
-  .slice(1).join('')}`;
+const parse = (color: string) =>
+  [...color].map((channel) => parseInt(channel, 16) * 17);
+const hex = (channels: number[]) =>
+  `#${channels
+    .map((level) => Math.round(level).toString(16).padStart(2, '0'))
+    .slice(1)
+    .join('')}`;
 
 const white = parse(colors.white[2]);
 
@@ -67,9 +76,16 @@ const shadeOf = (shades: Palette, worn: number) => {
   return table((along) => {
     const towards = (along - 0.5) * 2;
 
-    if (towards > 0) return hex(mix(base, parse(shades[3]), towards * shadeTint));
+    if (towards > 0)
+      return hex(mix(base, parse(shades[3]), towards * shadeTint));
 
-    return hex(mix(mix(base, white, -towards * litTint), parse(shades[4]), -towards * warmTint));
+    return hex(
+      mix(
+        mix(base, white, -towards * litTint),
+        parse(shades[4]),
+        -towards * warmTint,
+      ),
+    );
   });
 };
 
@@ -80,9 +96,8 @@ const shadeOf = (shades: Palette, worn: number) => {
  * @param {Number} worn - Which of its shades the piece is currently wearing.
  * @param {Number} along - 0 facing the light, 1 facing right away from it.
  */
-export const tint = (shades: Palette, worn: number, along: number) => (
-  tints[shades[worn]] ||= shadeOf(shades, worn)
-)[at(along)];
+export const tint = (shades: Palette, worn: number, along: number) =>
+  (tints[shades[worn]] ||= shadeOf(shades, worn))[at(along)];
 
 /**
  * What shading a piece needs to know about itself, worked out once when it is
@@ -109,7 +124,9 @@ export const shapeOf = (
     middle,
     // How far it reaches from its own middle, which is how wide its shading
     // has to run
-    reach: Math.max(...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1]))),
+    reach: Math.max(
+      ...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1])),
+    ),
   };
 };
 
@@ -203,7 +220,10 @@ export const drawDockingBayGlow = (
   ctx.restore();
 };
 
-export const drawThrusterGlow = (ctx: CanvasRenderingContext2D, nozzle: Segment) => {
+export const drawThrusterGlow = (
+  ctx: CanvasRenderingContext2D,
+  nozzle: Segment,
+) => {
   // @ifdef DEBUG
   if (!glows) return;
   // @endif
@@ -271,10 +291,10 @@ export const drawBeam = (
   // and ends in a hard edge wherever the light happens to stop
   // @ifdef BENCHMARK
   if (!benchmarkFlag('noBlur')) {
-  // @endif
+    // @endif
     ctx.shadowBlur = glowBlur;
     ctx.shadowColor = color;
-  // @ifdef BENCHMARK
+    // @ifdef BENCHMARK
   }
   // @endif
 

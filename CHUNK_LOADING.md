@@ -7,12 +7,12 @@ warns when a chunk exceeds the target. See [Critical Resources and the First
 
 ## Current loading triggers
 
-| Tier | Resource | Fetch trigger | Execution trigger |
-| --- | --- | --- | --- |
-| Boot | Inline canvas and background renderer | HTML parsing | Paints the intro sky and fades in |
-| Initial | `index` and `rendering-world` | Vite's module-script and `modulepreload` links during HTML parsing | Builds the game, starts its camera after a 0.2-second intro hold, then fades in its UI when the four-second pan ends |
-| Interaction | `src/sound` | First keyboard input after the playable game is ready | The same input calls `unlockAudio()` |
-| Docked | `src/ui/docked` | The first docked render or docked-menu key press | Once the module finishes loading |
+| Tier        | Resource                              | Fetch trigger                                                      | Execution trigger                                                                                                    |
+| ----------- | ------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Boot        | Inline canvas and background renderer | HTML parsing                                                       | Paints the intro sky and fades in                                                                                    |
+| Initial     | `index` and `rendering-world`         | Vite's module-script and `modulepreload` links during HTML parsing | Builds the game, starts its camera after a 0.2-second intro hold, then fades in its UI when the four-second pan ends |
+| Interaction | `src/sound`                           | First keyboard input after the playable game is ready              | The same input calls `unlockAudio()`                                                                                 |
+| Docked      | `src/ui/docked`                       | The first docked render or docked-menu key press                   | Once the module finishes loading                                                                                     |
 
 The boot renderer stays active during the 0.2-second hold. The docked-camera
 easing then pans the same sky from the intro origin to the starting station;

@@ -1,4 +1,10 @@
-import { circlePath, itemLineWidth, linesPath, shapePath, sparklePath } from './drawing';
+import {
+  circlePath,
+  itemLineWidth,
+  linesPath,
+  shapePath,
+  sparklePath,
+} from './drawing';
 import { Sprite } from './sprite';
 import { colors } from './colors';
 import { radiusOf } from './polygon';
@@ -73,10 +79,7 @@ export class Item extends Sprite {
     if (this.glint) {
       // Fixed to the stone rather than to the light, so a tumbling item
       // carries its glint round with it instead of the glint sliding about
-      ctx.translate(
-        glintX * radius,
-        glintY * radius * glintOffset,
-      );
+      ctx.translate(glintX * radius, glintY * radius * glintOffset);
       // Turned back out of the item's frame so the sparkle keeps its arms
       // square to the world. Left to spin it would pass through being an x
       ctx.rotate(-this.rotation);

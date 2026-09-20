@@ -39,7 +39,7 @@ let biting: Segment[] = [];
 export const mine = (contacts: Contact[]) => {
   const surfaces: MiningSurface[] = [];
 
-  biting.forEach((segment) => segment.biting = false);
+  biting.forEach((segment) => (segment.biting = false));
   biting = [];
 
   contacts.forEach(({ collider, other, depth }) => {
@@ -48,7 +48,13 @@ export const mine = (contacts: Contact[]) => {
     const { segment } = hitbox;
     const target = (object.segment || object) as MiningTarget;
 
-    if (!segment?.module?.grinds || hitbox.physics || segment.activationProgress <= 0.5 || !target.health) return;
+    if (
+      !segment?.module?.grinds ||
+      hitbox.physics ||
+      segment.activationProgress <= 0.5 ||
+      !target.health
+    )
+      return;
 
     surfaces.push({ depth, hitbox, object, segment, target });
   });
@@ -57,17 +63,19 @@ export const mine = (contacts: Contact[]) => {
 
   // A deeper tip overlap means the surface is nearer the tip's centre. Each
   // drill bites only the first of its touching surfaces.
-  surfaces.sort((a, b) => b.depth - a.depth).forEach((surface) => {
-    const { hitbox, segment, target } = surface;
+  surfaces
+    .sort((a, b) => b.depth - a.depth)
+    .forEach((surface) => {
+      const { hitbox, segment, target } = surface;
 
-    if (biting.includes(segment)) return;
+      if (biting.includes(segment)) return;
 
-    segment.biting = true;
-    biting.push(segment);
-    target.grinding = surface;
-    surface.point = [hitbox.position.x, hitbox.position.y];
-    if (!targets.includes(target)) targets.push(target);
-  });
+      segment.biting = true;
+      biting.push(segment);
+      target.grinding = surface;
+      surface.point = [hitbox.position.x, hitbox.position.y];
+      if (!targets.includes(target)) targets.push(target);
+    });
 
   return targets;
 };
@@ -95,9 +103,9 @@ const breakAsteroid = (target: MiningTarget, destroyed?: boolean) => {
 
   // Another leaf breaking in the same update can already have cut this one
   // free as a lone chunk, which has no sections left to detach from
-  const [, loose] = target.asteroid?.sections ?
-      asteroid.detach(target as AsteroidSection, destroyed) :
-      asteroid.split();
+  const [, loose] = target.asteroid?.sections
+    ? asteroid.detach(target as AsteroidSection, destroyed)
+    : asteroid.split();
 
   asteroid.remove();
 

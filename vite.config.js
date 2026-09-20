@@ -1,4 +1,8 @@
-import { viteBackground, viteBuild, viteBuildPre } from './plugins/vite-build.js';
+import {
+  viteBackground,
+  viteBuild,
+  viteBuildPre,
+} from './plugins/vite-build.js';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode, command }) => {
@@ -15,11 +19,7 @@ export default defineConfig(({ mode, command }) => {
     server: {
       port: 3000,
     },
-    plugins: [
-      viteBuildPre(flags),
-      viteBackground(flags),
-      viteBuild(),
-    ],
+    plugins: [viteBuildPre(flags), viteBackground(flags), viteBuild()],
     build: {
       minify: 'oxc',
       assetsInlineLimit: 0,
@@ -34,11 +34,14 @@ export default defineConfig(({ mode, command }) => {
           chunkFileNames: '[name]-[hash].js',
           assetFileNames: '[name]-[hash][extname]',
           codeSplitting: {
-            groups: [{
-              name: 'rendering-world',
-              test: /[\\/]src[\\/](?:background|lighting|prism|drawing|polygon|colors|flare|world|distribute|seeded-random|items[\\/])/,
-              includeDependenciesRecursively: false,
-            }],
+            groups: [
+              {
+                name: 'rendering-world',
+                // eslint-disable-next-line @stylistic/max-len -- one path regex
+                test: /[\\/]src[\\/](?:background|lighting|prism|drawing|polygon|colors|flare|world|distribute|seeded-random|items[\\/])/,
+                includeDependenciesRecursively: false,
+              },
+            ],
           },
         },
       },

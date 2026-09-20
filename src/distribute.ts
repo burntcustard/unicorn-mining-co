@@ -13,11 +13,7 @@ import { movePoint } from './geometry';
  */
 export const distribute = (
   items: any[],
-  {
-    radius,
-    density,
-    position = Vector(),
-  }: any,
+  { radius, density, position = Vector() }: any,
   placed: any[] = [],
   random: () => number,
 ) => {
@@ -26,9 +22,11 @@ export const distribute = (
     const angle = random() * Math.PI * 2;
     const distance = Math.sqrt(random());
     const candidate = movePoint(position, angle, spread * distance);
-    const overlaps = placed.some((other) =>
-      candidate.distanceTo(other.position) <
-        item.radius + other.radius + density);
+    const overlaps = placed.some(
+      (other) =>
+        candidate.distanceTo(other.position) <
+        item.radius + other.radius + density,
+    );
 
     if (!overlaps) {
       item.position = candidate;

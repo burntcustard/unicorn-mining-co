@@ -24,20 +24,40 @@ export const renderUI = (game: GameState, stations: Craft[]) => {
   // Messages keep their own visibility and sit over the docked panel, so a
   // reward announced by a sale is still read
   if (playerShip.noteFor) {
-    renderText(game, playerShip.note,
-      game.uiWidth / 2, game.uiHeight - 40, 1, 0);
+    renderText({
+      game,
+      text: playerShip.note,
+      x: game.uiWidth / 2,
+      y: game.uiHeight - 40,
+      size: 1,
+      align: 0,
+    });
   }
 
-  renderText(game, `$${playerShip.credits}`, 20, 20, 1);
+  renderText({ game, text: `$${playerShip.credits}`, x: 20, y: 20, size: 1 });
 
   if (!roomFor(playerShip)) {
-    game.ctx.globalAlpha = game.uiAlpha * (0.5 + Math.sin(Date.now() / 300) / 2);
+    game.ctx.globalAlpha =
+      game.uiAlpha * (0.5 + Math.sin(Date.now() / 300) / 2);
   }
 
-  renderText(game, `${cargoCount(playerShip)}/${playerShip.cargoSpace}`, game.uiWidth - 20, 20, 1, 1);
+  renderText({
+    game,
+    text: `${cargoCount(playerShip)}/${playerShip.cargoSpace}`,
+    x: game.uiWidth - 20,
+    y: 20,
+    size: 1,
+    align: 1,
+  });
   game.ctx.globalAlpha = game.uiAlpha;
 
-  renderText(game, `${`${Math.round(playerShip.position.x)}`.padStart(8)}/${`${Math.round(playerShip.position.y)}`.padEnd(8)}`,
-    game.uiWidth / 2, 20, 1, 0);
+  renderText({
+    game,
+    text: `${`${Math.round(playerShip.position.x)}`.padStart(8)}/${`${Math.round(playerShip.position.y)}`.padEnd(8)}`,
+    x: game.uiWidth / 2,
+    y: 20,
+    size: 1,
+    align: 0,
+  });
   game.ctx.restore();
 };

@@ -1,7 +1,5 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": false,
     "lib": ["DOM", "ES2024"],
     "module": "preserve",
     "moduleResolution": "bundler",
@@ -11,5 +9,5 @@
     "strictNullChecks": false,
     "target": "ES2024"
   },
-  "include": ["src/**/*.js", "src/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }

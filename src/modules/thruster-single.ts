@@ -1,0 +1,12 @@
+import { flare } from '../flare';
+
+export const thrusterSingle = {
+  health: 15,
+  name: 'THRUSTERS *1 XL',
+  disablePhysics: true,
+  model: [{ points: flare(7), thrusterNozzleSide: 0 }],
+  price: 200,
+  forwardThrust: 22,
+  rotationalThrust: 14,
+  zIndex: -1,
+};

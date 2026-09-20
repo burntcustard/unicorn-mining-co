@@ -34,7 +34,11 @@ export const centerCamera = (game: GameState, target: WorldObject) => {
  * @param {Object} target - Anything with a place in the world.
  * @param {Number} dt - Seconds since the last update.
  */
-export const followTarget = (game: GameState, target: WorldObject, dt: number) => {
+export const followTarget = (
+  game: GameState,
+  target: WorldObject,
+  dt: number,
+) => {
   if (target.dockedTo) {
     if (target.dockedTo !== dockedTo) {
       dockedTo = target.dockedTo;
@@ -42,14 +46,16 @@ export const followTarget = (game: GameState, target: WorldObject, dt: number) =
       dockEase = ease({ duration: dockDuration, from: camera, to: dockTo });
     }
 
-    dockTo.set(target.position.subtract(Vector(game.width / 2, game.height / 2)));
+    dockTo.set(
+      target.position.subtract(Vector(game.width / 2, game.height / 2)),
+    );
     camera.set(dockEase(dt));
     return;
   }
 
   dockedTo = 0;
-  const halfWidth = game.width * deadzone / 2;
-  const halfHeight = game.height * deadzone / 2;
+  const halfWidth = (game.width * deadzone) / 2;
+  const halfHeight = (game.height * deadzone) / 2;
   const offset = Vector(
     target.position.x - camera.x - game.width / 2,
     target.position.y - camera.y - game.height / 2,
@@ -71,8 +77,8 @@ export const renderDeadzone = (game: GameState) => {
   ctx.ellipse(
     game.width / 2,
     game.height / 2,
-    game.width * deadzone / 2,
-    game.height * deadzone / 2,
+    (game.width * deadzone) / 2,
+    (game.height * deadzone) / 2,
     0,
     0,
     Math.PI * 2,

@@ -50,7 +50,9 @@ export const renderSparks = (ctx: CanvasRenderingContext2D) => {
   ctx.lineWidth = objectLineWidth;
 
   sparks.forEach((spark) => {
-    const tail = spark.position.subtract(spark.velocity.normalize().scale(length));
+    const tail = spark.position.subtract(
+      spark.velocity.normalize().scale(length),
+    );
 
     ctx.strokeStyle = spark.color;
     ctx.beginPath();

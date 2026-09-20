@@ -29,19 +29,22 @@ export const renderIndicators = (
       target.position.y - camera.y - game.height / 2,
     );
 
-    const dist = Math.max(
-      Math.abs(offset.x) - game.width / 2,
-      Math.abs(offset.y) - game.height / 2,
-    ) - target.radius;
+    const dist =
+      Math.max(
+        Math.abs(offset.x) - game.width / 2,
+        Math.abs(offset.y) - game.height / 2,
+      ) - target.radius;
 
     if (dist > range || dist < 0) return;
 
-    const indicatorsize = 10 - 9 * dist / range;
+    const indicatorsize = 10 - (9 * dist) / range;
 
-    const edge = offset.scale(Math.min(
-      (uiWidth / 2 - 20) / Math.abs(offset.x),
-      (uiHeight / 2 - 20) / Math.abs(offset.y),
-    ));
+    const edge = offset.scale(
+      Math.min(
+        (uiWidth / 2 - 20) / Math.abs(offset.x),
+        (uiHeight / 2 - 20) / Math.abs(offset.y),
+      ),
+    );
 
     ctx.save();
     ctx.scale(uiScale, uiScale);
@@ -57,8 +60,18 @@ export const renderIndicators = (
     ctx.stroke(path);
     ctx.restore();
 
-    renderText(game, `${Math.round(dist)}J`, uiWidth / 2 + edge.x,
-      uiHeight / 2 + edge.y - (indicatorsize + 10) * Math.sign(offset.y || -1), 0.6, 0, color);
+    renderText({
+      game,
+      text: `${Math.round(dist)}J`,
+      x: uiWidth / 2 + edge.x,
+      y:
+        uiHeight / 2 +
+        edge.y -
+        (indicatorsize + 10) * Math.sign(offset.y || -1),
+      size: 0.6,
+      align: 0,
+      color,
+    });
   });
 
   ctx.restore();

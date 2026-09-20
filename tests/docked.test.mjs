@@ -11,17 +11,17 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { Ship, damage } from '${process.cwd()}/src/ship.ts';
 import { Item } from '${process.cwd()}/src/item.ts';
-import { diamond, message } from '${process.cwd()}/src/items/index.js';
-import { instanceOf, cargoScoop, horn, shield, thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple, thrusters } from '${process.cwd()}/src/modules/index.js';
+import { diamond, message } from '${process.cwd()}/src/items/index.ts';
+import { instanceOf, cargoScoop, horn, shield, thrusterDualMd, thrusterDualXl, thrusterSingle, thrusterTriple, thrusters } from '${process.cwd()}/src/modules/index.ts';
 import { colorUnlocked, roomFor, playerShip, unlockColor, updatePlayer } from '${process.cwd()}/src/player.ts';
 import { launch, flyOut } from '${process.cwd()}/src/docking.ts';
 import { game } from '${process.cwd()}/src/game.ts';
-import { colors } from '${process.cwd()}/src/colors.js';
+import { colors } from '${process.cwd()}/src/colors.ts';
 import { Vector } from '${process.cwd()}/src/vector.ts';
 import {
   back, confirmSelection, moveSelection, moveSubSelection,
   fitsOf, selectionSnapshot,
-} from '${process.cwd()}/src/ui/docked.js';
+} from '${process.cwd()}/src/ui/docked.ts';
 
 // A hull section destroyed by an impact also breaks off as short-lived,
 // physical wreckage instead of disappearing with the surviving hull's split.
@@ -361,14 +361,22 @@ console.log('Inventory, menu, damage, repairs, scoop physics and flight tests pa
 const bundle = await rolldown({
   input: 'docked-scenario.js',
   external: ['node:assert/strict'],
-  plugins: [{
-    name: 'docked-test-entry',
-    resolveId: (id) => id === 'docked-scenario.js' ? '\0docked-scenario.js' : undefined,
-    load: (id) => id === '\0docked-scenario.js' ? replacePreTerser(scenario) : undefined,
-    transform: (code, id) => id.endsWith('/src/ui/docked.js') ?
-      `${code}\nexport { fitsOf };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];` :
-      undefined,
-  }, viteBuildPre()],
+  plugins: [
+    {
+      name: 'docked-test-entry',
+      resolveId: (id) => {
+        if (id === 'docked-scenario.js') return '\0docked-scenario.js';
+      },
+      load: (id) => {
+        if (id === '\0docked-scenario.js') return replacePreTerser(scenario);
+      },
+      transform: (code, id) =>
+        id.endsWith('/src/ui/docked.ts')
+          ? `${code}\nexport { fitsOf };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];`
+          : undefined,
+    },
+    viteBuildPre(),
+  ],
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });
 await bundle.close();

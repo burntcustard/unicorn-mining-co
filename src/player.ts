@@ -1,11 +1,24 @@
-import { cargoScoop, floodlight, horn, instanceOf, shield, thrusterDualMd, thrusters } from './modules';
+import {
+  cargoScoop,
+  floodlight,
+  horn,
+  instanceOf,
+  shield,
+  thrusterDualMd,
+  thrusters,
+} from './modules';
 import { Ship } from './ship';
 import { colors } from './colors';
 import { downKeys } from './keyboard';
 import { flyOut } from './docking';
 import { updateThrusterSound } from './sound-loader';
 import { Vector } from './vector';
-import { type Module, type Palette, type Segment, type WorldObject } from './types';
+import {
+  type Module,
+  type Palette,
+  type Segment,
+  type WorldObject,
+} from './types';
 
 export const playerShip = new Ship({
   shades: colors.white,
@@ -27,12 +40,16 @@ playerShip.credits = 10000;
 const unlockedPaints: Palette[] = [colors.violet, colors.white];
 const visitedStations = new Set<Ship>();
 
-export const colorUnlocked = (shades: Palette) => unlockedPaints.includes(shades);
+export const colorUnlocked = (shades: Palette) =>
+  unlockedPaints.includes(shades);
 
 export const unlockColor = (color: string, reason: string) => {
   // Reward names follow the first five palettes in colors; strings survive
   // property mangling and also supply the exact name shown in the message.
-  const shades = Object.values(colors)['RED ORANGE YELLOW GREEN CYAN'.split(' ').indexOf(color)];
+  const shades =
+    Object.values(colors)[
+      'RED ORANGE YELLOW GREEN CYAN'.split(' ').indexOf(color)
+    ];
 
   if (!colorUnlocked(shades)) {
     unlockedPaints.push(shades);
@@ -52,10 +69,18 @@ playerShip.docked = (station: Ship) => {
 
 // Keep acquisition order separate from where each module is fitted.
 Object.assign(horn, { shades: colors.yellow });
-thrusters.forEach((thruster) => Object.assign(thruster, { shades: colors.violet }));
+thrusters.forEach((thruster) =>
+  Object.assign(thruster, { shades: colors.violet }),
+);
 Object.assign(cargoScoop, { shades: colors.violet });
 Object.assign(shield, { shades: colors.violet });
-playerShip.modules = [thrusterDualMd, cargoScoop, cargoScoop, horn, floodlight].map(instanceOf);
+playerShip.modules = [
+  thrusterDualMd,
+  cargoScoop,
+  cargoScoop,
+  horn,
+  floodlight,
+].map(instanceOf);
 playerShip.modules.forEach((module: Module) => playerShip.fit(module));
 
 /**
@@ -73,7 +98,8 @@ export const say = (text: string) => {
  * @param {Object} craft - Whichever craft is taking the cargo.
  * @returns {Number} count
  */
-export const cargoCount = (craft: Ship) => craft.cargo.length + craft.cargoBay.length;
+export const cargoCount = (craft: Ship) =>
+  craft.cargo.length + craft.cargoBay.length;
 
 export const roomFor = (craft: Ship) => cargoCount(craft) < craft.cargoSpace;
 
@@ -84,32 +110,52 @@ export const stow = (craft: Ship, item: WorldObject) => craft.cargo.push(item);
  */
 export const updatePlayer = (dt: number) => {
   playerShip.noteFor = Math.max(0, playerShip.noteFor - dt);
-  playerShip.hudAlpha = Math.max(0, Math.min(1,
-    playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt));
+  playerShip.hudAlpha = Math.max(
+    0,
+    Math.min(1, playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt),
+  );
 
-  if (playerShip.position.length() >= 5e4) unlockColor('YELLOW', 'EDGE REACHED');
+  if (playerShip.position.length() >= 5e4)
+    unlockColor('YELLOW', 'EDGE REACHED');
 
   // A launching ship sees itself out of the bay
   const launching = flyOut(playerShip, dt);
 
   playerShip.fly(
-    launching || (!playerShip.dockedTo && (downKeys as Record<string, number>)['Up']) ? 1 : 0,
-    launching || playerShip.dockedTo ? 0 : downKeys['ht'] - downKeys['ft'],
+    launching ||
+      (!playerShip.dockedTo && (downKeys as Record<string, number>)['Up'])
+      ? 1
+      : 0,
+    launching || playerShip.dockedTo
+      ? 0
+      : (downKeys['ht'] as number) - (downKeys['ft'] as number),
   );
   // Normalize spin against the same steering limit used by Ship.update.
   // Steering effort also covers braking a spin and reversing turn direction.
-  const turningSpeed = playerShip.spin * 16 /
-    (playerShip.turnRate * playerShip.rotationalThrust * playerShip.launchThrottle ** 2 || 1);
+  const turningSpeed =
+    ((playerShip.spin as number) * 16) /
+    ((playerShip.turnRate as number) *
+      (playerShip.rotationalThrust as number) *
+      (playerShip.launchThrottle as number) ** 2 || 1);
   const steeringEffort = Math.min(1, Math.abs(playerShip.turn - turningSpeed));
-  const engineLoad = Math.min(1, Math.max(
-    playerShip.velocity.length() / playerShip.maxSpeed,
-    Math.abs(turningSpeed),
-    steeringEffort * 0.65,
-  ));
+  const engineLoad = Math.min(
+    1,
+    Math.max(
+      playerShip.velocity.length() / playerShip.maxSpeed,
+      Math.abs(turningSpeed),
+      steeringEffort * 0.65,
+    ),
+  );
 
-  updateThrusterSound(!playerShip.dead && !playerShip.dockedTo && playerShip.engine.mount ?
-      Math.max(steeringEffort * playerShip.launchThrottle,
-        ...playerShip.segments.filter((segment: Segment) => segment.module === playerShip.engine)
-          .map((segment: Segment) => segment.active)) :
-    0, engineLoad);
+  updateThrusterSound(
+    !playerShip.dead && !playerShip.dockedTo && playerShip.engine.mount
+      ? Math.max(
+          steeringEffort * playerShip.launchThrottle,
+          ...playerShip.segments
+            .filter((segment: Segment) => segment.module === playerShip.engine)
+            .map((segment: Segment) => segment.active),
+        )
+      : 0,
+    engineLoad,
+  );
 };

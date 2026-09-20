@@ -8,10 +8,14 @@ export const rotatePoint = ({ x, y }: VectorValue, angle: number) => {
   return Vector(x * cos - y * sin, x * sin + y * cos);
 };
 
-export const directionOf = (angle: number) => Vector(Math.cos(angle), Math.sin(angle));
+export const directionOf = (angle: number) =>
+  Vector(Math.cos(angle), Math.sin(angle));
 
-export const movePoint = (point: VectorValue, angle: number, distance: number) =>
-  directionOf(angle).scale(distance).add(point);
+export const movePoint = (
+  point: VectorValue,
+  angle: number,
+  distance: number,
+) => directionOf(angle).scale(distance).add(point);
 
 /**
  * Return a point some way between two polygon points. Plain arrays keep this
@@ -25,7 +29,11 @@ export const pointBetween = (from: number[], to: number[], at = 0.5) =>
  * Rotate local polygon points around zero, then optionally move them into
  * world space. Used wherever shapes need the same coordinates after turning.
  */
-export const rotatePoints = (points: number[][], angle: number, position = Vector()): Outline =>
+export const rotatePoints = (
+  points: number[][],
+  angle: number,
+  position = Vector(),
+): Outline =>
   points.map(([pointX, pointY]) => {
     const point = rotatePoint(Vector(pointX, pointY), angle);
 
