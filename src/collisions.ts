@@ -47,7 +47,8 @@ const keyOf = (x: number, y: number) => (x + reach) * reach * 2 + y + reach;
  * groups of them. Exact reversed pairs are internal seams.
  */
 export const outerEdges = (outlines: Outline[]) => {
-  const edge = (from: Point, to: Point) => [from, to].sort() + '';
+  // oxlint-disable-next-line typescript/require-array-sort-compare -- Sort endpoint strings to canonicalize an undirected edge key.
+  const edge = (from: Point, to: Point) => String([from, to].sort());
   const sides = outlines.map((points) =>
     points.map((from, i) => edge(from, points[(i + 1) % points.length])),
   );

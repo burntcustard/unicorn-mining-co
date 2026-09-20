@@ -116,9 +116,12 @@ const glyphs = (
   .split(',')
   .map((path) => new Path2D('M' + path));
 
+const supportedText = (text: string) => text.replace(/[^\0-\x7f]+/g, 'X');
+
 const textPath = (text: string) => {
   const path = new Path2D();
 
+  // oxlint-disable-next-line typescript/no-misused-spread -- text has been reduced to ASCII, so code-point iteration is safe.
   [...text].forEach((c, i) => {
     const glyph = glyphs[c.charCodeAt(0)];
 
@@ -150,10 +153,11 @@ export function renderText({
   color = '#fff',
 }: RenderTextProps) {
   const { ctx, uiScale } = game;
+  const displayText = supportedText(text);
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
-  ctx.translate(x - (align + 1) * text.length * 6.5 * size, y);
+  ctx.translate(x - (align + 1) * displayText.length * 6.5 * size, y);
 
   ctx.scale(size, size);
   ctx.strokeStyle = color;
@@ -161,7 +165,7 @@ export function renderText({
   // Corners cut off flat rather than drawn out to sharp points
   ctx.lineJoin = 'bevel';
 
-  const path = textPath(text);
+  const path = textPath(displayText);
 
   outline({ ctx, path });
   ctx.stroke(path);

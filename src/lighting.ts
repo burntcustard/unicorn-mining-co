@@ -53,6 +53,7 @@ const glowBlur = 40;
 // Parsing '#' too creates an unused NaN channel that travels through blending.
 // Dropping it in hex saves a few bytes over selecting just the RGB digits here.
 const parse = (color: string) =>
+  // oxlint-disable-next-line typescript/no-misused-spread -- Colours are internally generated ASCII hex strings.
   [...color].map((channel) => parseInt(channel, 16) * 17);
 const hex = (channels: number[]) =>
   `#${channels
