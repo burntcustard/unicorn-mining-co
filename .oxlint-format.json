@@ -1,0 +1,10 @@
+{
+  "plugins": ["import"],
+  "categories": { "correctness": "off" },
+  "rules": {
+    "import/newline-after-import": [
+      "error",
+      { "count": 1, "considerComments": true }
+    ]
+  }
+}

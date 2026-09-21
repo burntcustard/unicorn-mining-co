@@ -1,0 +1,22 @@
+interface FlareState {
+  // Rises from 0 to 1 as the nozzle lights up, then eases back with the throttle.
+  activationProgress: number;
+}
+
+/**
+ * The flame out of the back of a thruster nozzle. It grows as the nozzle
+ * lights up and is no shape at all while the thruster is off, which is what
+ * hides it.
+ *
+ * height: Half height of the flare.
+ */
+export const flare =
+  (height: number) =>
+  ({ activationProgress }: FlareState): number[][] =>
+    activationProgress
+      ? [
+          [0, -height],
+          [-height * 2.5 * activationProgress, 0],
+          [0, height],
+        ]
+      : [];

@@ -1,0 +1,26 @@
+import { Asteroid } from '../../shared/simulation/asteroid';
+import { colors } from '../../shared/colors';
+import { game } from '../game';
+import { giveRender } from '../give-render';
+import { objectLineWidth } from '../drawing';
+import { presentation } from './presentation';
+import '../game-object';
+
+giveRender({
+  Type: Asteroid,
+  render({ parent }) {
+    const { path } = presentation({ asteroid: this });
+    parent({
+      draw: () => {
+        const { ctx } = game;
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = objectLineWidth;
+        ctx.strokeStyle =
+          this.resource === 1 ? colors.violet[2] : colors.white[2];
+        ctx.fillStyle = this.resource === 1 ? `${colors.purple[1]}9` : '#222';
+        ctx.fill(path);
+        ctx.stroke(path);
+      },
+    });
+  },
+});
