@@ -1,10 +1,10 @@
 export { createAsteroid } from './asteroid';
-export { createItem } from './item';
-export { createRandom, type Random } from '../../seeded-random';
+export { createItem } from '../items/create-item';
+export { createRandom, type Random } from '../seeded-random';
 export { generateRegion, regionSeed, regionSize } from './region-generation';
 export { RegionManager, worldRanges } from './region-manager';
-export { createShip } from './ship';
-export { createStation } from './station';
+export { createShip } from '../craft/create-ship';
+export { createStation } from '../craft/create-station';
 export { updateWorld } from './update-world';
 export {
   captureWorld,

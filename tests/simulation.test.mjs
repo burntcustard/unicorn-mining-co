@@ -15,7 +15,8 @@ const bundle = await rolldown({
         id === '\0simulation'
           ? `
       export * from '${process.cwd()}/src/shared/simulation/index.ts';
-      export { Vector } from '${process.cwd()}/src/vector.ts';
+      export { detectCollisions } from '${process.cwd()}/src/shared/simulation/collisions.ts';
+      export { Vector } from '${process.cwd()}/src/shared/vector.ts';
       export { PredictionManager } from '${process.cwd()}/src/client/prediction.ts';
     `
           : undefined,
@@ -35,6 +36,7 @@ const {
   createStation,
   createWorld,
   cloneEntity,
+  detectCollisions,
   PredictionManager,
   updateWorld,
   Vector,
@@ -161,6 +163,68 @@ const dockingShape = () => {
 dockingShape();
 dockedMovement();
 
+const compoundShipGeometry = () => {
+  const world = createWorld();
+  const first = createShip(world, { position: Vector() });
+  const separated = createShip(world, { position: Vector(0, 75) });
+
+  // Their 40-unit bounding circles overlap, but their real hulls do not.
+  assert.equal(
+    detectCollisions({ entities: [first, separated] }).some(
+      ({ collider, other }) =>
+        collider.physics !== false && other.physics !== false,
+    ),
+    false,
+  );
+  separated.position.y = 60;
+  assert.equal(
+    detectCollisions({ entities: [first, separated] }).some(
+      ({ collider, other }) =>
+        collider.physics !== false && other.physics !== false,
+    ),
+    true,
+  );
+};
+
+const stationGeometry = () => {
+  const world = createWorld();
+  const station = createStation({ id: 100, position: Vector(), radius: 400 });
+  const bayShip = createShip(world, { position: Vector(210) });
+  const wallShip = createShip(world, { position: Vector(0, 250) });
+
+  assert.equal(
+    detectCollisions({ entities: [station, bayShip] }).filter(
+      ({ collider, other }) =>
+        collider.physics !== false && other.physics !== false,
+    ).length,
+    0,
+  );
+  assert.equal(
+    detectCollisions({ entities: [station, wallShip] }).some(
+      ({ collider, other }) =>
+        collider.physics !== false && other.physics !== false,
+    ),
+    true,
+  );
+
+  const dockingWorld = createWorld();
+  const dockingStation = addEntity(
+    dockingWorld,
+    createStation({ id: 200, position: Vector(), radius: 400 }),
+  );
+  const dockingShip = addEntity(
+    dockingWorld,
+    createShip(dockingWorld, { playerId: 8, position: Vector(150) }),
+  );
+
+  addPlayer(dockingWorld, { id: 8, shipId: dockingShip.id });
+  updateWorld(dockingWorld, new Map());
+  assert.equal(dockingShip.dockedTo, dockingStation.id);
+};
+
+compoundShipGeometry();
+stationGeometry();
+
 const collisionAndThrust = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
@@ -229,6 +293,48 @@ const drillingDoesNotBounce = () => {
 
 drillingDoesNotBounce();
 
+const drillSelectsTouchedSection = () => {
+  const world = createWorld({ seed: 25 });
+  const ship = addEntity(
+    world,
+    createShip(world, { playerId: 7, position: Vector() }),
+  );
+  const asteroid = addEntity(
+    world,
+    createAsteroid(world, { position: Vector(60), radius: 25 }),
+  );
+  const before = asteroid.sections.map(({ health }) => health);
+  ship.segments
+    .filter((part) => part.module.grinds)
+    .forEach((part) => (part.activationProgress = 1));
+
+  addPlayer(world, { id: 7, shipId: ship.id });
+  updateWorld(
+    world,
+    new Map([
+      [
+        7,
+        {
+          drill: true,
+          hatch: false,
+          launch: false,
+          light: false,
+          shield: false,
+          thrust: 0,
+          turn: 0,
+        },
+      ],
+    ]),
+  );
+  assert.equal(
+    asteroid.sections.filter(({ health }, index) => health < before[index])
+      .length,
+    1,
+  );
+};
+
+drillSelectsTouchedSection();
+
 const diamondPickup = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
@@ -251,7 +357,7 @@ const diamondPickup = () => {
     launch: false,
     light: false,
     shield: false,
-    thrust: 1,
+    thrust: 0,
     turn: 0,
   };
   const miningEvents = [];
@@ -263,6 +369,16 @@ const diamondPickup = () => {
     ![...world.entities.values()].some(({ kind }) => kind === 'item');
     i++
   ) {
+    const target = [...world.entities.values()].find(
+      (entity) => entity.kind === 'asteroid' && entity.contents.length,
+    );
+
+    // A pilot has to keep aiming as pieces move after a split. Keep the drill
+    // tip on the resource-bearing child so this covers split -> child -> item.
+    if (target) {
+      ship.position.set(target.position.subtract(Vector(47)));
+      ship.velocity.set(Vector());
+    }
     miningEvents.push(...updateWorld(world, new Map([[7, drillInput]])));
     fracturedChunk ||= [...world.entities.values()].find(
       (entity) =>
@@ -283,6 +399,8 @@ const diamondPickup = () => {
   const item = [...world.entities.values()].find(({ kind }) => kind === 'item');
 
   assert.equal(item?.resource, 0);
+  item.position.set(ship.position.add(Vector(3, -13)));
+  item.velocity.set(Vector());
 
   const pickupInput = {
     ...drillInput,
@@ -292,10 +410,13 @@ const diamondPickup = () => {
   };
   const pickupEvents = [];
 
-  for (let i = 0; i < 120 && !ship.cargo?.length; i++)
+  for (let i = 0; i < 120 && !ship.cargoContents?.length; i++)
     pickupEvents.push(...updateWorld(world, new Map([[7, pickupInput]])));
 
-  assert.deepEqual(ship.cargo, [0]);
+  assert.deepEqual(
+    ship.cargoContents.map((item) => item.resource),
+    [0],
+  );
   assert.equal(
     [...world.entities.values()].some(({ kind }) => kind === 'item'),
     false,
@@ -334,6 +455,76 @@ const starAsteroidLosesOneArm = () => {
 
 starAsteroidLosesOneArm();
 
+const splitConservesOriginalGeometry = () => {
+  const area = (outline) =>
+    Math.abs(
+      outline.reduce((sum, [x, y], index) => {
+        const next = outline[(index + 1) % outline.length];
+        return sum + x * next[1] - next[0] * y;
+      }, 0),
+    ) / 2;
+  for (const star of [true, false]) {
+    const world = createWorld({ seed: 25 });
+    const rock = addEntity(
+      world,
+      createAsteroid(world, {
+        radius: 100,
+        points: star ? 6 : 7,
+        radiusEven: star ? 25 : undefined,
+        resource: 1,
+        contents: [1, 1, 1],
+        rotation: 0.4,
+        position: Vector(200, 300),
+      }),
+    );
+    const originalArea = rock.sections.reduce(
+      (sum, section) => sum + area(section.outline),
+      0,
+    );
+    const originalMass = rock.mass;
+    const leaves = rock.sections.length;
+    for (let split = 0; split < leaves; split++) {
+      const parent = [...world.entities.values()].find(
+        (object) => object.sections?.length,
+      );
+      if (!parent) break;
+      const section = parent.sections.reduce((outer, next) =>
+        Math.max(...outer.outline.map(([x]) => x)) >
+        Math.max(...next.outline.map(([x]) => x))
+          ? outer
+          : next,
+      );
+      parent.detach({ section, world });
+      const children = [...world.entities.values()];
+      assert(parent.dead);
+      assert(children.every((child) => child.resource === 1));
+      assert.equal(
+        children.reduce((sum, child) => sum + child.contents.length, 0),
+        3,
+      );
+      assert(
+        Math.abs(
+          children.reduce((sum, child) => sum + child.mass, 0) - originalMass,
+        ) < 1e-8,
+      );
+      assert(
+        Math.abs(
+          children.reduce((sum, child) => sum + area(child.outline), 0) -
+            originalArea,
+        ) < 1e-8,
+        'repeated splits neither duplicate nor lose rock',
+      );
+    }
+    assert.equal(
+      world.entities.size,
+      leaves,
+      'original star faces and ordinary quarter-faces remain the final leaves',
+    );
+  }
+};
+
+splitConservesOriginalGeometry();
+
 const authoritativeSnapshotReplacesPredictedSplit = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
@@ -353,6 +544,9 @@ const authoritativeSnapshotReplacesPredictedSplit = () => {
     cloneEntity({ entity }),
   );
   const prediction = new PredictionManager({ world });
+  ship.segments
+    .filter((part) => part.module.grinds)
+    .forEach((part) => (part.activationProgress = 1));
 
   asteroid.sections.forEach((section) => (section.health = 0.5));
   authoritative
@@ -377,7 +571,7 @@ const authoritativeSnapshotReplacesPredictedSplit = () => {
 
   assert.equal(world.entities.has(asteroid.id), false);
   assert(predictedIds.length > 0);
-  prediction.reconcile({ checkpoints: [], entities: authoritative, tick: 0 });
+  prediction.reconcile({ entities: authoritative, tick: 0 });
   assert.equal(world.entities.has(asteroid.id), true);
   assert.equal(
     predictedIds.some((id) => world.entities.has(id)),
@@ -424,6 +618,9 @@ const run = () => {
   ]);
   const events = [];
 
+  ship.segments
+    .filter((part) => part.module.grinds)
+    .forEach((part) => (part.activationProgress = 1));
   for (let i = 0; i < 100; i++) events.push(...updateWorld(world, inputs));
 
   return { asteroid, events, ship, world };
@@ -431,6 +628,85 @@ const run = () => {
 
 const first = run();
 const second = run();
+
+// Shared 120/60/15 Hz tiers conserve elapsed time on both client and server.
+for (const multiplayer of [false, true]) {
+  const world = createWorld();
+  const pilot = addEntity(
+    world,
+    createShip(world, { playerId: 1, position: Vector() }),
+  );
+  const remote = addEntity(
+    world,
+    createShip(world, { playerId: 2, position: Vector(10000) }),
+  );
+  addPlayer(world, { id: 1, shipId: pilot.id });
+  if (multiplayer) addPlayer(world, { id: 2, shipId: remote.id });
+  const bodies = [Vector(150), Vector(1000), Vector(5000), Vector(10150)].map(
+    (position) =>
+      addEntity(
+        world,
+        createAsteroid(world, { position, radius: 10, points: 3 }),
+      ),
+  );
+  const calls = bodies.map(() => []);
+  bodies.forEach((body, index) => {
+    body.update = (dt) => calls[index].push(dt);
+  });
+  for (let tick = 0; tick < 60; tick++) updateWorld(world, new Map());
+  assert.deepEqual(
+    calls.map((steps) => steps.length),
+    [120, 60, 15, multiplayer ? 120 : 15],
+  );
+  calls.forEach((steps) =>
+    assert(Math.abs(steps.reduce((total, dt) => total + dt, 0) - 1) < 1e-12),
+  );
+  updateWorld(world, new Map());
+  updateWorld(world, new Map());
+  assert.equal(bodies[2].pendingUpdateTime, 2 / 60);
+  const saved = cloneEntity({ entity: bodies[2] });
+  bodies[2].position.set(Vector(1000));
+  updateWorld(world, new Map());
+  assert(
+    Math.abs(calls[2].at(-1) - 3 / 60) < 1e-12,
+    'tier promotion consumes accumulated time once',
+  );
+  assert.equal(bodies[2].pendingUpdateTime, 0);
+  assert.equal(
+    saved.pendingUpdateTime,
+    2 / 60,
+    'rollback retains scheduler phase',
+  );
+}
+
+// Movement-parent discovery is shared by a substep, not repeated/allocated for
+// each asteroid, item and ship in the region.
+const movementWorld = createWorld();
+for (let i = 0; i < 50; i++)
+  addEntity(
+    movementWorld,
+    createAsteroid(movementWorld, {
+      position: Vector(i * 1000, 10000),
+      radius: 10,
+      points: 3,
+    }),
+  );
+const values = movementWorld.entities.values.bind(movementWorld.entities);
+let entityScans = 0;
+movementWorld.entities.values = () => {
+  entityScans++;
+  return values();
+};
+updateWorld(movementWorld, new Map());
+assert(
+  entityScans <= 4,
+  'movement does not allocate an entity array per object',
+);
+assert.equal(
+  movementWorld.movementParents,
+  undefined,
+  'temporary movement cache cannot survive a tick or rollback',
+);
 
 assert.equal(first.world.tick, 100);
 assert.equal(first.world.entities.has(first.asteroid.id), false);
@@ -446,10 +722,24 @@ assert.deepEqual(
 assert.deepEqual(
   {
     events: first.events,
-    ship: first.ship,
+    ship: {
+      position: first.ship.position,
+      velocity: first.ship.velocity,
+      rotation: first.ship.rotation,
+      spin: first.ship.spin,
+      hullHealth: first.ship.hullHealth,
+      modules: first.ship.moduleStates,
+    },
   },
   {
     events: second.events,
-    ship: second.ship,
+    ship: {
+      position: second.ship.position,
+      velocity: second.ship.velocity,
+      rotation: second.ship.rotation,
+      spin: second.ship.spin,
+      hullHealth: second.ship.hullHealth,
+      modules: second.ship.moduleStates,
+    },
   },
 );

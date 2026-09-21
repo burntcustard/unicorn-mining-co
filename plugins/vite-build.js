@@ -9,17 +9,12 @@ const gzipOptions = { level: 1 };
 // ten 1,500B packets less 40B of TCP/IP headers each.
 const gzipBudget = 14_000;
 
-export const terserMangleOptions = (nameCache = {}) => ({
+export const terserMangleOptions = () => ({
   compress: false,
-  mangle: {
-    properties: {
-      // Quoted property syntax marks computed or external names as unmangleable.
-      keep_quoted: true,
-      reserved: ['background', 'renderBackground'],
-    },
-  },
+  // Object properties cross lazy-chunk and network boundaries. Only shorten
+  // lexical names; per-chunk property mangling cannot preserve those contracts.
+  mangle: true,
   module: true,
-  nameCache,
 });
 
 export function viteBackground(flags = {}) {
@@ -32,7 +27,7 @@ export function viteBackground(flags = {}) {
         if (context.server) return;
 
         const bundle = await rolldown({
-          input: resolve(process.cwd(), 'src/background-boot.ts'),
+          input: resolve(process.cwd(), 'src/client/background-boot.ts'),
           plugins: [
             {
               name: 'background-flags',
@@ -51,7 +46,7 @@ export function viteBackground(flags = {}) {
 
         await bundle.close();
         return html.replace(
-          '<script type="module" src="src/background-boot.ts"></script>',
+          '<script type="module" src="src/client/background-boot.ts"></script>',
           `<script>${output[0].code}</script>`,
         );
       },
@@ -79,22 +74,13 @@ export function viteBuildPre(flags = {}) {
  * transfer size exceeds the 14 KB target.
  */
 export function viteBuild() {
-  // Oxc cannot yet mangle properties consistently across multiple chunks, so
-  // Terser handles only mangling with one shared cache until Rolldown supports it:
-  // https://github.com/rolldown/rolldown/issues/10771
-  const nameCache = {};
-  let mangleQueue = Promise.resolve();
-
   return {
     name: 'vite-build',
     enforce: 'post',
     renderChunk: {
       order: 'post',
       handler(code) {
-        mangleQueue = mangleQueue.then(() =>
-          minify(code, terserMangleOptions(nameCache)),
-        );
-        return mangleQueue;
+        return minify(code, terserMangleOptions());
       },
     },
     generateBundle: {

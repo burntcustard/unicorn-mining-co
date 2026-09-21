@@ -10,7 +10,7 @@ const bundle = await rolldown({
         id === '\0world-entry'
           ? `
             export { RegionManager } from '${process.cwd()}/src/world.ts';
-            export { Vector } from '${process.cwd()}/src/vector.ts';
+            export { Vector } from '${process.cwd()}/src/shared/vector.ts';
           `
           : undefined,
       resolveId: (id) => (id === 'world-entry' ? '\0world-entry' : undefined),

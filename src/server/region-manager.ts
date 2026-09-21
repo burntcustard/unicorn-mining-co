@@ -1,7 +1,8 @@
-import { Vector, type Vector as VectorValue } from '../vector';
+import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { createAsteroid } from '../shared/simulation/asteroid';
-import { createShip } from '../shared/simulation/ship';
-import { createStation } from '../shared/simulation/station';
+import { createShip } from '../shared/craft/create-ship';
+import { createItem } from '../shared/items/create-item';
+import { createStation } from '../shared/craft/create-station';
 import {
   RegionManager as ProceduralRegionManager,
   worldRanges,
@@ -11,17 +12,19 @@ import {
   type RegionalView,
   type WorldRanges,
 } from '../shared/protocol/regions';
-import { type Entity, type StationEntity } from '../shared/protocol/entities';
+import { type WorldObject } from '../shared/simulation/world';
+import { Station } from '../shared/craft/station';
 
 const serverRanges: WorldRanges = {
   ...worldRanges,
   asteroid: 2500,
-  stationPhysics: 2500,
+  stationPhysics: 11000,
   wreck: 2500,
 };
 
 export class RegionManager {
   private managed = new Set<number>();
+  private sleeping = new Map<number, WorldObject>();
   private regions: ProceduralRegionManager;
 
   constructor({ worldSeed }: { worldSeed: number }) {
@@ -39,6 +42,32 @@ export class RegionManager {
     world: SimulationWorld;
     positions: VectorValue[];
   }) {
+    const nearby = (entity: WorldObject) =>
+      positions.some(
+        (position) =>
+          entity.position.distanceTo(position) <=
+          (entity instanceof Station
+            ? serverRanges.stationPhysics
+            : serverRanges.asteroid),
+      );
+    // Procedural sources are managed below. Runtime fragments and dropped cargo
+    // must also leave the active simulation, but retain their state on return.
+    this.sleeping.forEach((entity, id) => {
+      if (!nearby(entity)) return;
+      addEntity(world, entity);
+      if (entity instanceof Station) this.managed.add(id);
+      this.sleeping.delete(id);
+    });
+    world.entities.forEach((entity, id) => {
+      if (
+        this.managed.has(id) ||
+        entity.playerId !== undefined ||
+        nearby(entity)
+      )
+        return;
+      this.sleeping.set(id, entity);
+      world.entities.delete(id);
+    });
     const views = positions.map((position) =>
       this.regions.query({ position, ranges: serverRanges }),
     );
@@ -79,8 +108,13 @@ export class RegionManager {
       view.stations.forEach((description) => {
         wanted.add(description.id);
         if (world.entities.has(description.id)) return;
+        if (this.managed.has(description.id)) {
+          this.regions.remove({ id: description.id });
+          this.managed.delete(description.id);
+          return;
+        }
 
-        const station: StationEntity = createStation({
+        const station = createStation({
           id: description.id,
           position: description.position.add(Vector()),
           radius: description.radius,
@@ -100,7 +134,12 @@ export class RegionManager {
             id: description.id,
             position: description.position.add(Vector()),
           }),
-          { cargo: description.cargo, paint: description.paint },
+          {
+            cargoContents: description.cargoContents.map((resource) =>
+              createItem(world, { resource }),
+            ),
+            paint: description.paint,
+          },
         );
 
         addEntity(world, wreck);
@@ -110,6 +149,8 @@ export class RegionManager {
 
     this.managed.forEach((id) => {
       if (!wanted.has(id)) {
+        const entity = world.entities.get(id);
+        if (entity instanceof Station) this.sleeping.set(id, entity);
         world.entities.delete(id);
         this.managed.delete(id);
       }
@@ -117,14 +158,7 @@ export class RegionManager {
 
     return views;
   }
-
-  markers({ position }: { position: VectorValue }) {
-    return this.regions.query({
-      position,
-      ranges: { ...serverRanges, stationMarker: 11000 },
-    }).stationMarkers;
-  }
 }
 
 export type ServerRegionalView = RegionalView;
-export type ServerEntity = Entity;
+export type ServerEntity = WorldObject;

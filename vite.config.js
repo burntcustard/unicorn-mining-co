@@ -43,16 +43,6 @@ export default defineConfig(({ mode, command }) => {
           entryFileNames: '[name]-[hash].js',
           chunkFileNames: '[name]-[hash].js',
           assetFileNames: '[name]-[hash][extname]',
-          codeSplitting: {
-            groups: [
-              {
-                name: 'rendering-world',
-                // eslint-disable-next-line @stylistic/max-len -- one path regex
-                test: /[\\/]src[\\/](?:background|lighting|prism|drawing|polygon|colors|flare|world|distribute|seeded-random|items[\\/]|shared[\\/](?:protocol[\\/]regions|simulation[\\/](?:random|region-generation|region-manager)))/,
-                includeDependenciesRecursively: false,
-              },
-            ],
-          },
         },
       },
     },

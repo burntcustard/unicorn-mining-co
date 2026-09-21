@@ -1,62 +1,49 @@
-import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
-import { type PlayerId, type ShipEntity } from '../protocol/entities';
+import { type PlayerId } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
-import { resolveCollision } from './collisions';
-import { inDockingBay, tryDock } from './docking';
-import { scoop } from './scoop';
+import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
+import { detectCollisions, resolve } from './collisions';
+import { dock } from './docking';
 import { mine } from './mining';
-import { controlShip } from './ship';
+import { type Contact } from './physics';
+import { controlShip } from '../craft/control-ship';
+import { scoop } from './scoop';
 import { type SimulationWorld } from './world';
+import { Ship } from '../craft/ship';
+import { updateEntities } from './update-tier';
 
-const dt = 1 / 60;
-
-export const simulationStep = dt;
-
+/** Advance every entity through the shared gameplay and compound-SAT pipeline. */
 export const updateWorld = (
   world: SimulationWorld,
   inputs: Map<PlayerId, PlayerInput>,
 ): SimulationEvent[] => {
   const events: SimulationEvent[] = [];
-  const ships: ShipEntity[] = [];
+  world.entities.forEach((entity) => {
+    if (entity instanceof Ship)
+      entity.segments.forEach((segment) => {
+        segment.biting = false;
+      });
+  });
 
-  [...world.players].forEach(([playerId, player]) => {
+  world.players.forEach((player, playerId) => {
     const ship = world.entities.get(player.shipId);
 
-    if (ship?.kind === 'ship')
+    if (ship instanceof Ship)
       controlShip(ship, inputs.get(playerId) || emptyPlayerInput(), events);
   });
 
-  [...world.entities.values()].forEach((entity) => {
-    if (entity.kind === 'ship') ships.push(entity);
-    if (entity.update(dt)) world.entities.delete(entity.id);
+  const contacts: Contact[] = [];
+  updateEntities({
+    world,
+    afterUpdate: ({ entities, substep }) => {
+      const found = detectCollisions({ entities });
+      contacts.push(...found);
+      resolve({ contacts: found, events: substep ? undefined : events });
+    },
   });
 
-  ships.forEach((ship) => mine(world, ship, events));
-  ships.forEach((ship) => scoop(world, ship, events));
-
-  const entities = [...world.entities.values()];
-
-  entities.forEach((entity, index) => {
-    entities.slice(index + 1).forEach((other) => {
-      if (entity.kind === 'ship' && other.kind === 'station')
-        tryDock(entity, other, events) ||
-          (!entity.launching &&
-            !inDockingBay(entity, other) &&
-            resolveCollision(entity, other, events));
-      else if (other.kind === 'ship' && entity.kind === 'station')
-        tryDock(other, entity, events) ||
-          (!other.launching &&
-            !inDockingBay(other, entity) &&
-            resolveCollision(other, entity, events));
-      else if (
-        (entity.kind === 'asteroid' && entity.decay) ||
-        (other.kind === 'asteroid' && other.decay)
-      )
-        return;
-      else resolveCollision(entity, other, events);
-    });
-  });
-
+  dock({ contacts, events });
+  scoop({ contacts, events, world });
+  mine({ contacts, events, world });
   world.tick++;
   return events;
 };

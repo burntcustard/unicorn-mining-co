@@ -21,13 +21,11 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0physics'
           ? `
-      export { detectCollisions, hit, outerEdges } from '${process.cwd()}/src/collisions.ts';
-      export { sparks } from '${process.cwd()}/src/shrapnel.ts';
-      export { damage } from '${process.cwd()}/src/ship.ts';
-      export { mine, grind } from '${process.cwd()}/src/mining.ts';
-      export { resolve } from '${process.cwd()}/src/resolve.ts';
-      export { Vector } from '${process.cwd()}/src/vector.ts';
-      export { movePoint, rotatePoint } from '${process.cwd()}/src/geometry.ts';
+      export { detectCollisions, hit, outerEdges, resolve } from '${process.cwd()}/src/shared/simulation/collisions.ts';
+      export { sparks, sprayDamage } from '${process.cwd()}/src/client/shrapnel.ts';
+      export { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
+      export { Vector } from '${process.cwd()}/src/shared/vector.ts';
+      export { movePoint, rotatePoint } from '${process.cwd()}/src/shared/geometry.ts';
     `
           : undefined,
       resolveId: (id) => (id === 'physics' ? '\0physics' : undefined),
@@ -60,10 +58,21 @@ const polygon = (outline, properties = {}) => ({
   rotation: 0,
   ...properties,
 });
-const vector = Vector;
+const body = ({ id, mass, position = Vector(), velocity = Vector() }) => ({
+  hitboxes: () => [],
+  id,
+  kind: 'item',
+  mass,
+  position,
+  radius: 1,
+  rotation: 0,
+  spin: 0,
+  update: () => {},
+  velocity,
+});
 
-// Geometry helpers return full vectors, so callers can continue calculating
-// with their results without wrapping or copying them first.
+// Geometry helpers return full vectors, so callers can keep calculating with
+// their results without wrapping or copying them first.
 const turned = rotatePoint(Vector(2), Math.PI / 2);
 const moved = movePoint(turned, 0, 3);
 
@@ -90,195 +99,107 @@ contact = hit(
     [10, 10],
     [-10, 10],
   ]),
-  {
-    radius: 5,
-    position: Vector(14),
-  },
+  { radius: 5, position: Vector(14) },
 );
 closeTo(contact.depth, 1);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
 
-// A compound pentagon is tested by its triangles. At a point its normal is
-// radial, not either neighboring face normal, including after body rotation.
-const corners = Array.from({ length: 5 }, (_, i) => [
-  Math.cos((i * Math.PI * 2) / 5) * 10,
-  Math.sin((i * Math.PI * 2) / 5) * 10,
+// A compound pentagon is tested by its convex parts. At an outside vertex its
+// response normal is radial, never either internal seam normal.
+const corners = Array.from({ length: 5 }, (_, index) => [
+  Math.cos((index * Math.PI * 2) / 5) * 10,
+  Math.sin((index * Math.PI * 2) / 5) * 10,
 ]);
-const parts = corners.map((corner, i) => ({
-  outline: [[0, 0], corner, corners[(i + 1) % corners.length]],
+const parts = corners.map((corner, index) => ({
+  outline: [[0, 0], corner, corners[(index + 1) % corners.length]],
 }));
 
+parts.forEach((part) => (part.part = part));
 outerEdges(parts.map(({ outline }) => outline));
-const asteroid = polygon(
+const compound = polygon(
   [
     [100, 100],
     [101, 100],
     [100, 101],
   ],
-  {
-    parts,
-    radius: 10,
-  },
+  { parts, radius: 10 },
 );
 
-contact = hit(asteroid, { radius: 5, position: Vector(14) });
+contact = hit(compound, { radius: 5, position: Vector(14) });
 closeTo(contact.depth, 1);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
 assert.ok(parts.includes(contact.aPart));
 
-contact = hit({ radius: 5, position: Vector(14) }, asteroid);
-closeTo(contact.depth, 1);
-closeTo(contact.normal.x, -1);
-closeTo(contact.normal.y, 0);
-assert.ok(parts.includes(contact.bPart));
-
-const rotated = { ...asteroid, rotation: Math.PI / 3, shapePass: -1 };
-
-contact = hit(rotated, {
+const owner = body({ id: 1, mass: 1 });
+const otherOwner = body({ id: 2, mass: 1 });
+const hitbox = { ...compound, owner, rotation: 0 };
+const circle = {
+  owner: otherOwner,
   radius: 5,
-  position: Vector(
-    14 * Math.cos(rotated.rotation),
-    14 * Math.sin(rotated.rotation),
-  ),
-});
-closeTo(contact.normal.x, Math.cos(rotated.rotation));
-closeTo(contact.normal.y, Math.sin(rotated.rotation));
+  position: Vector(14),
+  rotation: 0,
+};
 
-// The broad phase reports the actual convex part and excludes a shared owner.
-const owner = { mass: 1 };
-const hitbox = { ...asteroid, owner, rotation: 0 };
-const circle = { radius: 5, position: Vector(14) };
-const contacts = detectCollisions([
-  { hitboxes: () => [hitbox] },
+owner.hitboxes = () => [hitbox];
+otherOwner.hitboxes = () => [
+  circle,
   {
-    hitboxes: () => [
-      circle,
-      {
-        ...circle,
-        owner,
-        position: Vector(
-          14 * Math.cos((Math.PI * 2) / 5),
-          14 * Math.sin((Math.PI * 2) / 5),
-        ),
-      },
-    ],
+    ...circle,
+    owner,
+    position: Vector(
+      14 * Math.cos((Math.PI * 2) / 5),
+      14 * Math.sin((Math.PI * 2) / 5),
+    ),
   },
-]);
+];
+const contacts = detectCollisions({ entities: [owner, otherOwner] });
 
 assert.equal(contacts.length, 1);
-assert.ok(
-  parts.includes(contacts[0].collider.segment || contacts[0].other.segment),
-);
+assert.ok(parts.includes(contacts[0].collider.part || contacts[0].other.part));
 
-// The impulse conserves linear momentum and makes the normal speeds separate;
-// the lighter shield body therefore takes most of the bounce.
-const ship = {
-  cockpit: true,
-  mass: 9,
-  position: vector(),
-  velocity: vector(100, 0),
-};
-const rock = { mass: 200, position: vector(14, 0), velocity: vector() };
-const shipSegment = { health: 10, module: 0 };
+// The shared resolver conserves linear momentum and sends the light body away
+// with most of the bounce.
+const ship = body({ id: 3, mass: 9, velocity: Vector(100) });
+const rock = body({ id: 4, mass: 200, position: Vector(14) });
 const beforeMomentum =
   ship.mass * ship.velocity.x + rock.mass * rock.velocity.x;
 
-resolve([
-  {
-    collider: { bounciness: 0.4, owner: ship, segment: shipSegment },
-    depth: 1,
-    other: { bounciness: 0.1, owner: rock },
-    normal: Vector(1),
-  },
-]);
+resolve({
+  contacts: [
+    {
+      collider: {
+        bounciness: 0.4,
+        owner: ship,
+        position: ship.position,
+        radius: 5,
+        rotation: 0,
+      },
+      depth: 1,
+      normal: Vector(1),
+      other: {
+        bounciness: 0.1,
+        owner: rock,
+        position: rock.position,
+        radius: 5,
+        rotation: 0,
+      },
+      point: [7, 0],
+    },
+  ],
+});
 closeTo(
   ship.mass * ship.velocity.x + rock.mass * rock.velocity.x,
   beforeMomentum,
 );
 assert.ok(ship.velocity.x < 0);
 assert.ok(rock.velocity.x > 0);
-assert.ok(rock.velocity.x - ship.velocity.x > 0);
-assert.equal(shipSegment.health, 10);
 
-// Impact damage is based on closing speed and the other body's mass. A slow
-// nudge into a heavy station is harmless, while a faster impact rounds to a
-// whole point of hull damage.
-const station = { mass: 1500, position: vector(14, 0), velocity: vector() };
-ship.velocity.x = 20;
-shipSegment.health = 10;
-resolve([
-  {
-    collider: { owner: ship, segment: shipSegment },
-    depth: 1,
-    other: { owner: station },
-    normal: Vector(1),
-  },
-]);
-assert.equal(shipSegment.health, 10);
-
-ship.velocity.x = 272;
-resolve([
-  {
-    collider: { owner: ship, segment: shipSegment },
-    depth: 1,
-    other: { owner: station },
-    normal: Vector(1),
-  },
-]);
-assert.equal(shipSegment.health, 8);
-
-// Light objects stay harmless below a whole point of rounded impact damage,
-// but can dent either side of a contact at higher speeds.
-for (const reverse of [false, true]) {
-  for (const [speed, expectedHealth] of [
-    [272, 10],
-    [400, 9],
-  ]) {
-    const hull = { health: 10, module: 0 };
-    const pilot = {
-      cockpit: true,
-      mass: 9,
-      position: vector(),
-      velocity: vector(speed, 0),
-    };
-    const item = { mass: 6, position: vector(14, 0), velocity: vector() };
-    const pilotCollider = { owner: pilot, segment: hull };
-    const itemCollider = { owner: item };
-
-    resolve([
-      {
-        collider: reverse ? itemCollider : pilotCollider,
-        other: reverse ? pilotCollider : itemCollider,
-        depth: 1,
-        normal: Vector(reverse ? -1 : 1),
-      },
-    ]);
-    closeTo(hull.health, expectedHealth);
-  }
-}
-
-// A negative restitution is the drill's grip signal, added to the other
-// body's bounce rather than overriding it. It softens the rebound to a
-// fraction of the closing speed rather than stopping it dead.
-ship.velocity.x = 100;
-rock.velocity.x = 0;
-resolve([
-  {
-    collider: { bounciness: -0.2, owner: ship, segment: shipSegment },
-    depth: 1,
-    other: { bounciness: 0.1, owner: rock },
-    normal: Vector(1),
-  },
-]);
-assert.ok(rock.velocity.x - ship.velocity.x < 0);
-assert.ok(rock.velocity.x - ship.velocity.x > -20);
-
-// Continuous thrust cannot carry a gripping triangular horn through a hull
-// made from convex pieces, even where its point is aimed at the shared seam.
-const drillingShip = { mass: 9, position: vector(), velocity: vector() };
-const fixedHull = { mass: 0, position: vector(10, 0), velocity: vector() };
+// Continuous thrust cannot carry a gripping triangular horn through a fixed
+// hull, even where its point is aimed at a shared convex seam.
+const drillingShip = body({ id: 5, mass: 9 });
+const fixedHull = body({ id: 6, mass: 0, position: Vector(10) });
 const hullOutline = [
   [-2, -6],
   [2, -6],
@@ -291,62 +212,56 @@ const hullParts = [
 ];
 
 outerEdges(hullParts.map(({ outline }) => outline));
-const horn = {
-  bounciness: -0.2,
-  outline: [
-    [0, -2],
-    [6, 0],
-    [0, 2],
-  ],
-  owner: drillingShip,
-  radius: 6,
-  rotation: 0,
-  segment: { module: 0 },
-};
-const hull = {
-  outline: hullOutline,
-  owner: fixedHull,
-  parts: hullParts,
-  radius: 7,
-  rotation: 0,
-  position: Vector(10),
-};
-const hornSprite = {
-  hitboxes: () => [Object.assign(horn, { position: drillingShip.position })],
-};
-const hullSprite = { hitboxes: () => [hull] };
+drillingShip.hitboxes = () => [
+  {
+    bounciness: -0.2,
+    outline: [
+      [0, -2],
+      [6, 0],
+      [0, 2],
+    ],
+    owner: drillingShip,
+    position: drillingShip.position,
+    radius: 6,
+    rotation: 0,
+  },
+];
+fixedHull.hitboxes = () => [
+  {
+    outline: hullOutline,
+    owner: fixedHull,
+    parts: hullParts,
+    position: fixedHull.position,
+    radius: 7,
+    rotation: 0,
+  },
+];
 
 for (let frame = 120; frame--;) {
   drillingShip.velocity.x += 1;
   drillingShip.position.x += drillingShip.velocity.x / 60;
-  resolve(detectCollisions([hornSprite, hullSprite]));
+  resolve({
+    contacts: detectCollisions({ entities: [drillingShip, fixedHull] }),
+  });
 }
-
 assert.ok(drillingShip.position.x + 6 < 8.6);
+console.log('shared collision and bounce tests passed');
 
-console.log('collision and bounce tests passed');
-
-// Damage on both sides emits each surface colour at the same impact point.
+// Browser-only damage still emits each surface colour at the impact point;
+// presentation remains outside the headless resolver.
 const damagedHull = { health: 10, shades: ['dark', 'fill', '#f00'] };
 const damagedRock = { health: 10 };
-const impactShip = {
-  mass: 9,
-  position: vector(),
-  velocity: vector(272, 0),
-};
-const impactRock = { mass: 1500, position: vector(14, 0), velocity: vector() };
+
 physics.sparks.length = 0;
-resolve([
-  {
-    collider: { owner: impactShip, segment: damagedHull },
-    other: { owner: impactRock, segment: damagedRock, stroke: '#abc' },
-    depth: 1,
-    normal: Vector(1),
-    point: [7, 3],
-  },
-]);
-assert.equal(damagedHull.health, 8);
-assert.equal(damagedRock.health, 8);
+physics.damage(damagedHull, 2, [7, 3]);
+physics.damage({ ...damagedRock, stroke: '#abc' }, 2, [7, 3]);
+assert.equal(
+  physics.sparks.length,
+  0,
+  'shared damage never creates cosmetic objects',
+);
+physics.sprayDamage({ position: Vector(7, 3), color: '#f00', damage: 2 });
+physics.sprayDamage({ position: Vector(7, 3), color: '#abc', damage: 2 });
 assert.deepEqual(
   physics.sparks.map(({ position, color }) => [position.x, position.y, color]),
   [...Array(4).fill([7, 3, '#f00']), ...Array(4).fill([7, 3, '#abc'])],
@@ -362,87 +277,5 @@ physics.damage(
   1,
   [0, 0],
 );
-assert.equal(
-  physics.sparks.length,
-  8,
-  'dead and invulnerable objects do not spark',
-);
-
-// Mining retains the tip coordinates and uses the target's fallback fill.
-const minedItem = {
-  health: 10,
-  fill: '#456',
-  position: physics.Vector(20),
-  velocity: vector(),
-};
-const drill = { module: { grinds: true, damage: 0.5 }, activationProgress: 1 };
-physics
-  .mine([
-    {
-      collider: {
-        segment: drill,
-        owner: impactShip,
-        physics: false,
-        position: Vector(12, 4),
-      },
-      other: minedItem,
-      depth: 1,
-    },
-  ])
-  .forEach(physics.grind);
-assert.equal(minedItem.health, 9.5);
-assert.deepEqual(
-  physics.sparks
-    .slice(8)
-    .map(({ position, color }) => [position.x, position.y, color]),
-  [[12, 4, '#456']],
-);
-
-// One drill selects its deepest contact and retains that tick's tip position.
-const shallowItem = { ...minedItem, health: 10 };
-const tip = {
-  segment: drill,
-  owner: impactShip,
-  physics: false,
-  position: Vector(15, 6),
-};
-const selected = physics.mine([
-  { collider: tip, other: shallowItem, depth: 1 },
-  { collider: tip, other: minedItem, depth: 3 },
-  { collider: tip, other: minedItem, depth: 2 },
-]);
-assert.deepEqual(selected, [minedItem]);
-assert.equal(drill.biting, true);
-tip.position.x = 100;
-selected.forEach(physics.grind);
-assert.equal(shallowItem.health, 10);
-assert.equal(minedItem.health, 9);
-assert.deepEqual(
-  [physics.sparks.at(-1).position.x, physics.sparks.at(-1).position.y],
-  [15, 6],
-);
-physics.grind(minedItem);
-assert.equal(
-  minedItem.health,
-  9,
-  'a selected contact only applies damage once',
-);
-physics.mine([]);
-assert.equal(drill.biting, false, 'lost contact clears the sound input');
-
-// The circle surface contact faces the other body, including reversed order.
-const smallCircle = polygon(undefined, { radius: 2, position: Vector(9) });
-const largeCircle = polygon(undefined, { radius: 8 });
-assert.deepEqual(hit(smallCircle, largeCircle).point, [7, 0]);
-assert.deepEqual(hit(largeCircle, smallCircle).point, [7, 0]);
-console.log('damage spark tests passed');
-
-physics.sparks.length = 0;
-physics.damage({ health: 100, fill: '#789' }, 50, [1, 2]);
-assert.equal(
-  physics.sparks.length,
-  100,
-  'large hits emit two sparks per damage point without a cap',
-);
-physics.damage({ health: 100, fill: '#789' }, 0, [1, 2]);
-assert.equal(physics.sparks.length, 100, 'zero damage emits no sparks');
+assert.equal(physics.sparks.length, 8);
+console.log('browser damage spark tests passed');

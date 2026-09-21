@@ -12,7 +12,7 @@ The suite isolates the sky modes, background, lighting effects,
 movement, collision detection, and all physics. It prints each result as it
 completes and finishes with machine-readable JSON.
 
-The benchmark-only query switches in `src/main.ts` and `src/lighting.ts` are
+The benchmark-only query switches in `src/client/main.ts` and `src/client/lighting.ts` are
 removed from normal builds by Vite. They are not available in the development
 or release modes.
 

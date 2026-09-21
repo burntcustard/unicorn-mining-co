@@ -1,31 +1,39 @@
-import { createRandom, type Random } from '../../seeded-random';
+import { createRandom, type Random } from '../seeded-random';
 import {
-  type Entity,
   type EntityId,
   type Player,
   type PlayerId,
 } from '../protocol/entities';
+import { type GameObject } from '../game-object';
+
+export type WorldObject = GameObject;
 
 export interface SimulationWorld {
-  entities: Map<EntityId, Entity>;
+  entities: Map<EntityId, WorldObject>;
+  movementParents?: WorldObject[];
   nextEntityId: EntityId;
   players: Map<PlayerId, Player>;
   random: Random;
   tick: number;
 }
 
-export const createWorld = ({ seed = 1 }: { seed?: number } = {}) => ({
-  entities: new Map<EntityId, Entity>(),
+export const createWorld = ({
+  seed = 1,
+}: {
+  seed?: number;
+} = {}): SimulationWorld => ({
+  entities: new Map<EntityId, WorldObject>(),
   nextEntityId: 1,
   players: new Map<PlayerId, Player>(),
   random: createRandom(seed),
   tick: 0,
 });
 
-export const addEntity = <WorldEntity extends Entity>(
+export const addEntity = <Object extends WorldObject>(
   world: SimulationWorld,
-  entity: WorldEntity,
+  entity: Object,
 ) => {
+  entity.world = world;
   world.entities.set(entity.id, entity);
   world.nextEntityId = Math.max(world.nextEntityId, entity.id + 1);
   return entity;

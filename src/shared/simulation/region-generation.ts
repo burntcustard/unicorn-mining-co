@@ -1,11 +1,11 @@
-import { Vector, type Vector as VectorValue } from '../../vector';
+import { Vector, type Vector as VectorValue } from '../vector';
 import {
   type AsteroidDescription,
   type RegionDescription,
   type StationDescription,
   type WreckDescription,
 } from '../protocol/regions';
-import { createRandom, type Random } from '../../seeded-random';
+import { createRandom, type Random } from '../seeded-random';
 
 export const regionSize = 2000;
 
@@ -126,8 +126,9 @@ export const generateRegion = ({
 
   if (random.next() < 0.18)
     wrecks.push({
-      cargo: Array.from({ length: 2 + Math.floor(random.next() * 3) }, () =>
-        Math.floor(random.next() * 4),
+      cargoContents: Array.from(
+        { length: 2 + Math.floor(random.next() * 3) },
+        () => Math.floor(random.next() * 4),
       ),
       id: descriptionId({ seed, kind: 3, index: 0 }),
       paint: Math.floor(random.next() * 5),

@@ -1,40 +1,44 @@
-import { Vector } from '../../vector';
-import { type ItemEntity, type ShipEntity } from '../protocol/entities';
+import { CargoScoop } from '../modules';
 import { type SimulationEvent } from '../protocol/events';
+import { Item } from '../items/item';
+import { type Contact } from './physics';
+import { Ship } from '../craft/ship';
 import { type SimulationWorld } from './world';
 
-const cargoSpace = 12;
-const scoopReach = 32;
-
-export const scoop = (
-  world: SimulationWorld,
-  ship: ShipEntity,
-  events: SimulationEvent[],
-) => {
-  if (!ship.hatch || ship.playerId === undefined) return;
-
-  const forward = Vector(Math.cos(ship.rotation), Math.sin(ship.rotation));
-  const cargo = ship.cargo || (ship.cargo = []);
-
-  for (const [id, entity] of world.entities) {
-    if (entity.kind !== 'item' || cargo.length >= cargoSpace) continue;
-
-    const item = entity as ItemEntity;
-    const offset = item.position.subtract(ship.position);
-    const distance = offset.length();
+/** Collect items whose centres have reached an open ship's scoop throat. */
+export const scoop = ({
+  contacts,
+  events,
+  world,
+}: {
+  contacts: Contact[];
+  events: SimulationEvent[];
+  world: SimulationWorld;
+}) => {
+  contacts.forEach(({ collider, other }) => {
+    const throat = collider.role === 'scoop' ? collider : other;
+    const cargoCollider = throat === collider ? other : collider;
+    const ship = throat.owner;
+    const item = cargoCollider.owner;
 
     if (
-      offset.dot(forward) >= 0 &&
-      distance <= ship.radius + scoopReach + item.radius
-    ) {
-      cargo.push(item.resource);
-      world.entities.delete(id);
-      events.push({
-        by: ship.playerId,
-        itemId: id,
-        resource: item.resource,
-        type: 'itemCollected',
-      });
-    }
-  }
+      throat.role !== 'scoop' ||
+      !(ship instanceof Ship) ||
+      !ship.moduleActive({ module: CargoScoop }) ||
+      ship.playerId === undefined ||
+      !(item instanceof Item) ||
+      !world.entities.has(item.id) ||
+      item.position.distanceTo(throat.position) > throat.radius
+    )
+      return;
+    if (ship.cargoContents.length >= ship.cargoSpace) return;
+    ship.cargoContents.push(item);
+    item.remove();
+    events.push({
+      by: ship.playerId,
+      itemId: item.id,
+      resource: item.resource,
+      type: 'itemCollected',
+    });
+  });
 };

@@ -8,11 +8,20 @@ import { rolldown } from 'rolldown';
 const scenario = `
 import { TestAudioContext } from '${process.cwd()}/tests/audio-context.mjs';
 import assert from 'node:assert/strict';
-import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/sound.ts';
-import { horn } from '${process.cwd()}/src/modules/horn.ts';
+import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/client/sound.ts';
+import { Horn } from '${process.cwd()}/src/shared/modules/horn.ts';
+import '${process.cwd()}/src/client/modules/horn.ts';
+import { updateDrillSounds } from '${process.cwd()}/src/client/update-drill-sounds.ts';
+const horn = new Horn();
+const mount = { health: 100, module: horn };
+const updateHorn = (segment, dt) => {
+  horn.updateVisual({segments: [segment], dt});
+  updateDrillSounds({crafts: [{id: 42, mounts: [mount], partsOf: () => [segment]}]});
+};
+const lastVoice = () => TestAudioContext.instances[0].sources.at(-1);
 
 assert.equal(TestAudioContext.instances.length, 0, 'import does not initialize audio');
-horn.update({ phase: 0, activationProgress: 0 }, 1 / 60);
+updateHorn({ phase: 0, activationProgress: 0 }, 1 / 60);
 assert.equal(TestAudioContext.instances.length, 0, 'inactive drill does not initialize audio');
 
 const beep = tone();
@@ -29,37 +38,69 @@ playSound(2);
 assert.equal(TestAudioContext.instances[0].sources.length, 2, 'a preset creates one buffer source');
 
 const segment = { phase: 0, active: 0 };
-horn.update(segment, 1 / 60);
-assert(!segment.drillSound, 'silent when inactive');
+updateHorn(segment, 1 / 60);
+assert.equal(TestAudioContext.instances[0].sources.length, 2, 'silent when inactive');
 segment.active = 1;
-horn.update(segment, 1 / 60);
-const first = segment.drillSound;
+updateHorn(segment, 1 / 60);
+const first = lastVoice();
 assert.equal(first.starts, 1, 'drill starts a sound');
-for (let i = 0; i < 120; i++) horn.update(segment, 1 / 60);
-assert.equal(segment.drillSound, first, 'held drill does not restart');
+for (let i = 0; i < 120; i++) updateHorn(segment, 1 / 60);
+assert.equal(lastVoice(), first, 'held drill does not restart');
 assert.equal(first.stops, 0);
 segment.active = 0;
-horn.update(segment, 1 / 60);
+updateHorn(segment, 1 / 60);
 // The native stop is scheduled on the audio clock, at the end of the fade out.
 assert.equal(first.stops, 1, 'stopping sound schedules native stop');
 assert.equal(Math.round(first.stopTimes[0] * 100) / 100, 1.21, 'native stop is scheduled for the end of the fade');
 assert.equal(first.gain.value, 0, 'stopping fades to silence');
-for (let i = 0; i < 120; i++) horn.update(segment, 1 / 60);
+for (let i = 0; i < 120; i++) updateHorn(segment, 1 / 60);
 assert.equal(first.stops, 1, 'stopped source is not stopped again');
 segment.active = 1;
-horn.update(segment, 1 / 60);
-assert.notEqual(segment.drillSound, first, 'restart creates a new sound');
-const idle = segment.drillSound;
+updateHorn(segment, 1 / 60);
+assert.notEqual(lastVoice(), first, 'restart creates a new sound');
+const idle = lastVoice();
 assert.equal(idle.starts, 1);
 assert.equal(idle.gain.value, 4, 'a drill touching nothing idles quietly');
 segment.biting = true;
-horn.update(segment, 1 / 60);
-assert.equal(segment.drillSound, idle, 'biting ramps the sound rather than restarting it');
+updateHorn(segment, 1 / 60);
+assert.equal(lastVoice(), idle, 'biting ramps the sound rather than restarting it');
 assert.equal(idle.gain.value, 8, 'biting rises to full volume');
 assert.equal(idle.stops, 0, 'biting does not stop the sound');
 segment.biting = false;
-horn.update(segment, 1 / 60);
+updateHorn(segment, 1 / 60);
 assert.equal(idle.gain.value, 4, 'losing contact drops back to the idle level');
+// Reconciliation replaces simulation objects, but must not orphan their audio.
+const replacement = { ...segment };
+updateHorn(replacement, 1 / 60);
+assert.equal(lastVoice(), idle, 'replacement segment retains the existing voice');
+replacement.active = 0;
+updateHorn(replacement, 1 / 60);
+assert.equal(idle.stops, 1, 'deactivation after rollback stops the original voice');
+replacement.active = 1;
+updateHorn(replacement, 1 / 60);
+const removed = lastVoice();
+updateDrillSounds({crafts: []});
+assert.equal(removed.stops, 1, 'unloading a craft stops its drill');
+updateHorn(replacement, 1 / 60);
+const damaged = lastVoice();
+mount.health = 0;
+updateHorn(replacement, 1 / 60);
+assert.equal(damaged.stops, 1, 'destroying a drill mount stops its voice');
+mount.health = 100;
+const remoteSegment = { active: 1 };
+const localCraft = { id: 42, mounts: [mount], partsOf: () => [replacement] };
+const remoteCraft = { id: 43, mounts: [mount], partsOf: () => [remoteSegment] };
+updateDrillSounds({crafts: [localCraft]});
+const localVoice = lastVoice();
+updateDrillSounds({crafts: [localCraft, remoteCraft]});
+const remoteVoice = lastVoice();
+assert.notEqual(localVoice, remoteVoice, 'players have independent drill voices');
+replacement.active = 0;
+updateDrillSounds({crafts: [localCraft, remoteCraft]});
+assert.equal(localVoice.stops, 1, 'local deactivation stops only its own drill');
+assert.equal(remoteVoice.stops, 0, 'remote drill keeps playing');
+updateDrillSounds({crafts: []});
+assert.equal(remoteVoice.stops, 1, 'remote unload stops its drill');
 const context = TestAudioContext.instances[0];
 const sourceCount = context.sources.length;
 updateThrusterSound(0);
@@ -126,13 +167,15 @@ const bundle = await rolldown({
         if (id === 'sound-scenario.js') return '\0sound-scenario.js';
 
         if (
-          id === '../sound-loader' &&
-          importer?.endsWith('/src/modules/horn.ts')
+          id === './sound-loader' &&
+          importer?.endsWith('/src/client/update-drill-sounds.ts')
         ) {
-          return `${process.cwd()}/src/sound.ts`;
+          return `${process.cwd()}/src/client/sound.ts`;
         }
+        if (id === '../game' || id === './game') return '\0mock-game';
       },
       load: (id) => {
+        if (id === '\0mock-game') return 'export const game = {ctx:{}};';
         if (id === '\0sound-scenario.js') return replacePreTerser(scenario);
       },
     },
@@ -141,16 +184,7 @@ const bundle = await rolldown({
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });
 await bundle.close();
-const compressed = await minify(output[0].code, {
-  ...terserMangleOptions(),
-  mangle: {
-    properties: {
-      // Node's assert methods are external to the bundled scenario, like Web Audio.
-      keep_quoted: true,
-      reserved: ['equal', 'notEqual'],
-    },
-  },
-});
+const compressed = await minify(output[0].code, terserMangleOptions());
 
 for (const code of [output[0].code, compressed.code]) {
   await import(

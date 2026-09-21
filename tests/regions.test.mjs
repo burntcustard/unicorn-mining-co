@@ -14,10 +14,11 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0regions'
           ? `
-      export { generateRegion, RegionManager } from '${process.cwd()}/src/world.ts';
+      export { generateRegion } from '${process.cwd()}/src/shared/simulation/region-generation.ts';
+      export { RegionManager } from '${process.cwd()}/src/shared/simulation/region-manager.ts';
       export { RegionManager as ServerRegionManager } from '${process.cwd()}/src/server/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/shared/simulation/world.ts';
-      export { Vector } from '${process.cwd()}/src/vector.ts';
+      export { Vector } from '${process.cwd()}/src/shared/vector.ts';
     `
           : undefined,
       resolveId: (id) => (id === 'regions' ? '\0regions' : undefined),
@@ -89,6 +90,12 @@ const serverRegions = new ServerRegionManager({ worldSeed: 25 });
 const world = createWorld({ seed: 25 });
 
 serverRegions.sync({ positions: [position], world });
+const distantStation = [...world.entities.values()].find(
+  (entity) =>
+    entity.kind === 'station' && entity.position.distanceTo(position) > 2000,
+);
+assert(distantStation, 'off-screen stations are materialised');
+distantStation.rotation = 1.234;
 const regionalAsteroid = [...world.entities.values()].find(
   ({ kind }) => kind === 'asteroid',
 );
@@ -111,6 +118,36 @@ assert.equal(
     .view({ position })
     .asteroids.some(({ id }) => id === regionalAsteroid.id),
   false,
+);
+
+serverRegions.sync({ positions: [Vector(50000, 50000)], world });
+assert(
+  !world.entities.has(distantStation.id),
+  'unloaded stations leave simulation',
+);
+assert(
+  fragments.every(({ id }) => !world.entities.has(id)),
+  'distant fragments stop participating in physics',
+);
+serverRegions.sync({ positions: [position], world });
+assert.equal(
+  world.entities.get(distantStation.id),
+  distantStation,
+  'station state survives unloading',
+);
+assert.equal(
+  distantStation.rotation,
+  1.234,
+  'unloaded stations do not advance',
+);
+assert(
+  fragments.every((fragment) => world.entities.get(fragment.id) === fragment),
+  'returning restores fragment identity and mined state',
+);
+assert.equal(
+  world.entities.has(regionalAsteroid.id),
+  false,
+  'sleeping fragments do not resurrect their source',
 );
 
 console.log(

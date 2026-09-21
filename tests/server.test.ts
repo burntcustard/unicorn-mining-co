@@ -1,12 +1,15 @@
+import { Horn } from '../src/shared/modules/horn';
 import assert from 'node:assert/strict';
+import { Ship } from '../src/shared/craft/ship';
 import { once } from 'node:events';
 import WebSocket from 'ws';
 import { GameServer } from '../src/server/game-server';
 import { createAsteroid } from '../src/shared/simulation/asteroid';
+import { Item } from '../src/shared/items/item';
 import { type ServerMessage } from '../src/shared/protocol/network';
 import { protocolVersion } from '../src/shared/protocol/network';
 import { addEntity } from '../src/shared/simulation/world';
-import { Vector } from '../src/vector';
+import { Vector } from '../src/shared/vector';
 
 const waitFor = async ({
   messages,
@@ -86,11 +89,19 @@ assert.equal(load.type, 'load');
 assert(load.fullEntities.some(({ id }) => id === welcome.shipId));
 assert(load.fullEntities.some(({ kind }) => kind === 'asteroid'));
 assert(load.fullEntities.some(({ kind }) => kind === 'station'));
-assert(load.stationMarkers.length > 0);
-assert(load.checkpoints.some(({ entityId }) => entityId === welcome.shipId));
-const startingStation = load.fullEntities.find(
-  ({ kind }) => kind === 'station',
-);
+const startingStation = load.fullEntities
+  .filter(({ kind }) => kind === 'station')
+  .sort(
+    (a, b) =>
+      Math.hypot(
+        a.position.x - welcome.spawn.x,
+        a.position.y - welcome.spawn.y,
+      ) -
+      Math.hypot(
+        b.position.x - welcome.spawn.x,
+        b.position.y - welcome.spawn.y,
+      ),
+  )[0];
 
 assert(startingStation);
 assert(
@@ -103,6 +114,28 @@ assert(
 const playerShip = server.world.entities.get(welcome.shipId);
 
 assert(playerShip?.kind === 'ship');
+server.world.entities.forEach((entity) => {
+  if (entity.kind === 'asteroid') server.world.entities.delete(entity.id);
+});
+await new Promise((resolve) => setTimeout(resolve, 50));
+socket.send(
+  JSON.stringify({
+    input: {
+      drill: true,
+      hatch: false,
+      light: false,
+      shield: false,
+      thrust: 0,
+      turn: 0,
+    },
+    sequence: 1,
+    tick: server.world.tick,
+    type: 'input',
+  }),
+);
+await waitUntil({
+  condition: () => playerShip.moduleActive({ module: Horn }),
+});
 const asteroid = addEntity(
   server.world,
   createAsteroid(server.world, {
@@ -118,30 +151,17 @@ const asteroid = addEntity(
   }),
 );
 
-socket.send(
-  JSON.stringify({
-    input: {
-      drill: true,
-      hatch: false,
-      light: false,
-      shield: false,
-      thrust: 1,
-      turn: 0,
-    },
-    sequence: 1,
-    tick: server.world.tick,
-    type: 'input',
-  }),
-);
 await waitUntil({
   condition: () => !server.world.entities.has(asteroid.id),
   timeout: 5000,
 });
 const item = [...server.world.entities.values()].find(
-  (entity) => entity.kind === 'item' && entity.resource === 0,
+  (entity): entity is Item => entity instanceof Item && entity.resource === 0,
 );
 
 assert(item);
+item.position.set(playerShip.position.add(Vector(3, -13)));
+item.velocity.set(Vector());
 socket.send(
   JSON.stringify({
     input: {
@@ -161,7 +181,10 @@ await waitUntil({
   condition: () => {
     const current = server.world.entities.get(welcome.shipId);
 
-    return current?.kind === 'ship' && Boolean(current.cargo?.includes(0));
+    return (
+      current instanceof Ship &&
+      current.cargoContents.some((item) => item.resource === 0)
+    );
   },
 });
 
@@ -186,13 +209,62 @@ const snapshots = messages.filter(({ type }) => type === 'snapshot');
 const latest = snapshots.at(-1);
 
 assert(latest?.type === 'snapshot');
+assert.equal(
+  snapshots.filter(
+    (snapshot) =>
+      snapshot.type === 'snapshot' && snapshot.inputLead !== undefined,
+  ).length,
+  3,
+  'each of the three inputs reports its timing once, not on every snapshot',
+);
+assert.equal(latest.inputLead, undefined);
 const ship = latest.fullEntities.find(({ id }) => id === welcome.shipId);
 
 assert(ship);
 assert.notDeepEqual(ship.position, welcome.spawn);
 assert(latest.serverTick > welcome.serverTick);
 
-const stationEntity = load.fullEntities.find(({ kind }) => kind === 'station');
+// A resynchronised client can send a newer input for an earlier tick. The
+// older future input must not take the controls back when that tick arrives.
+socket.send(
+  JSON.stringify({
+    type: 'input',
+    sequence: 4,
+    tick: server.world.tick + 6,
+    input: {
+      drill: false,
+      hatch: false,
+      light: false,
+      shield: false,
+      thrust: 1,
+      turn: 1,
+    },
+  }),
+);
+socket.send(
+  JSON.stringify({
+    type: 'input',
+    sequence: 5,
+    tick: server.world.tick,
+    input: {
+      drill: false,
+      hatch: false,
+      light: false,
+      shield: false,
+      thrust: 0,
+      turn: 0,
+    },
+  }),
+);
+await new Promise((resolve) => setTimeout(resolve, 200));
+assert.equal(
+  playerShip.thrust,
+  0,
+  'newer input supersedes a previously queued future input',
+);
+assert.equal(playerShip.turn, 0);
+
+const stationEntity = startingStation;
 
 assert(stationEntity);
 const authoritativeShip = server.world.entities.get(welcome.shipId);
@@ -213,7 +285,7 @@ socket.send(
       thrust: 0,
       turn: 0,
     },
-    sequence: 2,
+    sequence: 6,
     tick: server.world.tick,
     type: 'input',
   }),
@@ -223,9 +295,8 @@ await waitUntil({
     messages.some(
       (message) =>
         message.type === 'snapshot' &&
-        message.checkpoints.some(
-          ({ entityId, dockedTo }) =>
-            entityId === welcome.shipId && dockedTo === undefined,
+        message.fullEntities.some(
+          ({ id, dockedTo }) => id === welcome.shipId && dockedTo === undefined,
         ),
     ),
 });
@@ -277,8 +348,14 @@ await waitUntil({
         message.fullEntities.some(
           (entity) =>
             entity.playerId === secondWelcome.playerId &&
-            entity.drill === true &&
-            entity.light === true &&
+            entity.modules?.some(
+              ({ type, parts }) =>
+                type === 6 && parts.some((part) => part.active),
+            ) &&
+            entity.modules?.some(
+              ({ type, parts }) =>
+                type === 5 && parts.some((part) => part.active),
+            ) &&
             entity.thrust === 1 &&
             entity.turn === 1,
         ),

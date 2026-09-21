@@ -10,13 +10,13 @@ globalThis.Path2D = class {
 };
 
 const bundle = await rolldown({
-  input: `${process.cwd()}/src/prism.ts`,
+  input: `${process.cwd()}/src/client/prism.ts`,
   plugins: [
     {
       name: 'prism-test-exports',
       transform: (code, id) =>
-        id.endsWith('/src/prism.ts')
-          ? `${code}\nexport { joins, runsOf }; export { Vector } from './vector';`
+        id.endsWith('/src/client/prism.ts')
+          ? `${code}\nexport { joins, runsOf }; export { Vector } from '../shared/vector';`
           : undefined,
     },
   ],

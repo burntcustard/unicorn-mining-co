@@ -1,168 +1,142 @@
-import { Vector, type Vector as VectorValue } from '../vector';
-import { type Entity } from '../shared/protocol/entities';
+import { Vector } from '../shared/vector';
 import { type PlayerInput } from '../shared/protocol/input';
+import { type SimulationEvent } from '../shared/protocol/events';
 import {
   protocolVersion,
   type ClientMessage,
-  type PlayerCheckpoint,
   type ReplicatedEntity,
-  type ReplicatedStationMarker,
   type ServerMessage,
 } from '../shared/protocol/network';
-import { createRandom } from '../seeded-random';
+import { createRandom } from '../shared/seeded-random';
 import { addPlayer, createWorld } from '../shared/simulation/world';
 import { createAsteroid } from '../shared/simulation/asteroid';
-import { createItem } from '../shared/simulation/item';
-import { createShip } from '../shared/simulation/ship';
-import { createStation } from '../shared/simulation/station';
+import { createItem } from '../shared/items/create-item';
+import { GameObject } from '../shared/game-object';
+import { Craft } from '../shared/craft/craft';
+import { Ship } from '../shared/craft/ship';
+import { Station } from '../shared/craft/station';
+import { createShip } from '../shared/craft/create-ship';
+import { createWreckage } from '../shared/craft/create-wreckage';
+import { createStation } from '../shared/craft/create-station';
 import { type SimulationWorld } from '../shared/simulation/world';
-import { PredictionManager, type SimulationCheckpoint } from './prediction';
+import { type WorldObject } from '../shared/simulation/world';
+import { PredictionManager } from './prediction';
+import { RemoteMotion } from './remote-motion';
 
-type ClientStationMarker = {
-  id: number;
-  position: VectorValue;
-  radius: number;
-};
-
-// Split names rewritten by the game's pre-minification pass. These are wire
-// keys, so they must keep the exact spelling used by the unbundled Node server.
-const launchingKey = `launc${'hing'}` as 'launching';
-const outlineKey = `out${'line'}` as 'outline';
-const pointsKey = `poi${'nts'}` as 'points';
-const positionKey = `posi${'tion'}` as 'position';
-const radiusKey = `rad${'ius'}` as 'radius';
-const resourceKey = `resou${'rce'}` as 'resource';
-const rotationKey = `rota${'tion'}` as 'rotation';
-const turnKey = `tu${'rn'}` as 'turn';
-
-// The client simulates ahead of the server so its input lands on the tick it
-// was stamped with rather than one the server has already left behind.
-const startingTickLead = 6;
-const minTickLead = 2;
-const maxTickLead = 40;
-// Ticks of room the server should still have when an input reaches it.
-const minInputLead = 2;
+// Use the same prediction horizon on every client. Input arrival timing also
+// includes missed frames: using it to change this lead puts peers on different
+// timelines throughout a turn or thrust, even after their clocks catch up.
+const predictionTickLead = 2;
 // How far the clock may wander before it is worth nudging, since the tick a
 // snapshot was sent on is only ever a latency-blurred reading of it.
-const driftSlack = 3;
-// Past this the clock is wrong rather than drifting, so it is simply reset.
-const maxTickJump = 30;
-
-const makeCheckpoint = ({
-  checkpoint,
-}: {
-  checkpoint: PlayerCheckpoint;
-}): SimulationCheckpoint => {
-  const wirePosition = checkpoint[positionKey];
-  const wireVelocity = checkpoint['velocity'];
-
-  return {
-    acknowledgedSequence: checkpoint['acknowledgedSequence'],
-    dockedTo: checkpoint['dockedTo'],
-    drill: checkpoint['drill'],
-    entityId: checkpoint['entityId'],
-    hatch: checkpoint['hatch'],
-    health: checkpoint['health'],
-    inputLead: checkpoint['inputLead'],
-    launching: checkpoint[launchingKey],
-    light: checkpoint['light'],
-    playerId: checkpoint['playerId'],
-    position: Vector(wirePosition.x, wirePosition.y),
-    rotation: checkpoint[rotationKey],
-    shield: checkpoint['shield'],
-    spin: checkpoint['spin'],
-    thrust: checkpoint['thrust'],
-    tick: checkpoint['tick'],
-    turn: checkpoint[turnKey],
-    velocity: Vector(wireVelocity.x, wireVelocity.y),
-  };
-};
+const driftSlack = 1;
 
 const makeEntity = ({
   entity,
   world,
+  previous,
 }: {
   entity: ReplicatedEntity;
   world: SimulationWorld;
-}): Entity => {
-  const wirePosition = entity[positionKey];
-  const wireVelocity = entity['velocity'];
+  previous?: WorldObject;
+}): WorldObject => {
+  const wirePosition = entity.position;
+  const wireVelocity = entity.velocity;
   const common = {
-    id: entity['id'],
-    mass: entity['mass'],
+    world,
+    ...(entity.health !== undefined && { health: entity.health }),
+    ...(entity.label !== undefined && { label: entity.label }),
+    id: entity.id,
+    mass: entity.mass,
+    pendingUpdateTime: entity.pendingUpdateTime,
     position: Vector(wirePosition.x, wirePosition.y),
-    radius: entity[radiusKey],
-    rotation: entity[rotationKey],
-    spin: entity['spin'],
+    radius: entity.radius,
+    rotation: entity.rotation,
+    spin: entity.spin,
     velocity: Vector(wireVelocity.x, wireVelocity.y),
   };
 
-  if (entity['kind'] === 'asteroid') {
-    const wireSections = entity['sections'];
-
-    return createAsteroid(world, {
-      contents: entity['contents'] || [],
-      decay: entity['decay'],
-      health: entity['health'] ?? entity[radiusKey] * 2,
-      id: common.id,
-      mass: common.mass,
-      maxHealth: entity['maxHealth'] || entity[radiusKey] * 2,
-      outline: entity[outlineKey],
-      points: entity[pointsKey],
-      position: common.position,
-      radius: common.radius,
-      radiusEven: entity['radiusEven'],
-      resource: entity[resourceKey],
-      rotation: common.rotation,
-      // A section's own outline is a wire key too, so it needs reading by the
-      // spelling the unbundled server wrote it with.
-      sections: wireSections?.every((section) =>
-        Array.isArray(section[outlineKey]),
-      )
-        ? wireSections.map((section) => ({
-            contents: section['contents'] || [],
-            health: section['health'],
-            mass: section['mass'],
-            maxHealth: section['maxHealth'],
-            outline: section[outlineKey],
-          }))
-        : undefined,
-      spin: common.spin,
-      velocity: common.velocity,
-    });
-  }
-  if (entity['kind'] === 'station')
-    return Object.assign(createStation(common), common);
-  if (entity['kind'] === 'item')
+  if (entity.kind === 'object') return new GameObject(common);
+  if (entity.kind === 'asteroid')
+    return Object.assign(
+      createAsteroid(world, {
+        ...entity,
+        ...common,
+        contents: entity.contents || [],
+        health: entity.health ?? entity.radius * 2,
+        maxHealth: entity.maxHealth || entity.radius * 2,
+      }),
+      { pendingUpdateTime: common.pendingUpdateTime },
+    );
+  if (entity.kind === 'item')
     return Object.assign(
       createItem(world, {
         id: common.id,
         position: common.position,
-        resource: entity[resourceKey] || 0,
+        resource: entity.resource || 0,
         velocity: common.velocity,
       }),
       common,
     );
-  return Object.assign(createShip(world, common), common, {
-    cargo: entity['contents'],
-    dockedTo: entity['dockedTo'],
-    drill: entity['drill'] ?? false,
-    hatch: entity['hatch'] ?? false,
-    health: entity['health'] ?? 100,
-    launching: entity[launchingKey],
-    light: entity['light'] ?? false,
-    maxSpeed: entity['maxSpeed'] ?? 272,
-    paint: entity['paint'],
-    playerId: entity['playerId'],
-    shield: entity['shield'] ?? false,
-    thrust: entity['thrust'] ?? 0,
-    turn: entity[turnKey] ?? 0,
+  const wreckage = entity.wreckage;
+  if (entity.kind !== 'ship' && entity.kind !== 'station')
+    throw new Error('Unknown replicated entity kind');
+  const ship = Object.assign(
+    wreckage
+      ? createWreckage({
+          properties: {
+            ...common,
+            world,
+            decay: entity.decay,
+            health: entity.health,
+          },
+          parts: wreckage,
+        })
+      : previous instanceof Craft &&
+          !previous.decay &&
+          ((entity.kind === 'station' && previous instanceof Station) ||
+            (entity.kind === 'ship' && previous instanceof Ship))
+        ? previous
+        : entity.kind === 'station'
+          ? createStation({ ...common, world, shades: entity.shades })
+          : createShip(world, {
+              ...common,
+              ...(entity.shades && { shades: entity.shades }),
+            }),
+    common,
+    {
+      dockedTo: entity.dockedTo,
+      health: entity.health ?? 100,
+      ...(!wreckage && {
+        ...(entity.hullHealth && { hullHealth: entity.hullHealth }),
+      }),
+      launching: entity.launching,
+      paint: entity.paint,
+      playerId: entity.playerId,
+      thrust: entity.thrust ?? 0,
+      turn: entity.turn ?? 0,
+    },
+  );
+
+  if (entity.shades) ship.shades = entity.shades;
+  ship.segments.forEach((part) => {
+    if (part.hull) part.shades = part.module.shades || ship.shades;
   });
+  ship.moduleStates = entity.modules || [];
+  const modules = ship.modules;
+  ship.cargoContents = (entity.cargoContents || []).map((object) =>
+    'moduleIndex' in object
+      ? modules[object.moduleIndex]
+      : makeEntity({ entity: object, world }),
+  );
+
+  return ship;
 };
 
 export class NetworkClient {
+  readonly remoteMotion = new RemoteMotion();
+  readonly events: SimulationEvent[] = [];
   readonly ready: Promise<void>;
-  readonly stationMarkers = new Map<number, ClientStationMarker>();
   readonly world = createWorld();
   playerId?: number;
   serverTick = 0;
@@ -171,10 +145,18 @@ export class NetworkClient {
   private compatible = true;
   private resolveReady!: () => void;
   private prediction = new PredictionManager({ world: this.world });
+  // Separate from predicted objects: decoding must never mutate live state or
+  // rollback history. Retain only the current interest set between packets.
+  private authoritativeEntities = new Map<number, WorldObject>();
   private socket: WebSocket;
+  private pendingSnapshot?: Exclude<ServerMessage, { type: 'welcome' }>;
+  private pendingEntities = new Map<
+    number,
+    { entity: ReplicatedEntity; tick: number }
+  >();
   // Ticks still owed to (or borrowed from) the clock, paid off one per update.
   private tickAdjust = 0;
-  private tickLead = startingTickLead;
+  private readonly tickLead = predictionTickLead;
   private welcomed = false;
 
   constructor({ url }: { url: string }) {
@@ -192,6 +174,20 @@ export class NetworkClient {
 
   update({ input }: { input: PlayerInput }) {
     if (this.playerId === undefined) return;
+    if (this.pendingSnapshot) {
+      const message = {
+        ...this.pendingSnapshot,
+        fullEntities: [...this.pendingEntities.values()].map(
+          ({ entity }) => entity,
+        ),
+      };
+      const entityTicks = new Map(
+        [...this.pendingEntities].map(([id, { tick }]) => [id, tick]),
+      );
+      this.pendingSnapshot = undefined;
+      this.pendingEntities.clear();
+      this.applySnapshot({ message, entityTicks });
+    }
     let steps = 1;
 
     if (this.tickAdjust > 0) {
@@ -201,82 +197,55 @@ export class NetworkClient {
       steps = 0;
       this.tickAdjust++;
     }
+    // A checkpoint may already have recovered the missed time. Do not also
+    // spend the render loop's old frame debt predicting past the 33ms horizon.
+    steps = Math.min(
+      steps,
+      Math.max(0, this.serverTick + this.tickLead - this.world.tick),
+    );
     // A launch is said once, so a skipped tick must not swallow it.
     if (input.launch) steps ||= 1;
 
+    const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
+      input,
+      send: ({ input, sequence, tick }) =>
+        this.send({ input, sequence, tick, type: 'input' }),
+    };
+    // Releases must still reach the server while we wait for the next snapshot.
+    this.prediction.recordInput(predictionInput);
+
     while (steps--) {
-      this.prediction.step({
-        input,
-        send: ({ input, sequence, tick }) =>
-          this.send({ input, sequence, tick, type: 'input' }),
-      });
+      this.events.push(...this.prediction.step(predictionInput));
       input.launch = false;
     }
     input.launch = false;
   }
 
+  takeEvents() {
+    return this.events.splice(0);
+  }
+
   /**
-   * Keep the client's clock the measured lead ahead of the server's, and keep
-   * that lead big enough for input to arrive before its tick is simulated.
+   * Keep the client's clock at the common prediction horizon. Missed frames
+   * need clock catch-up, not a permanently larger prediction lead.
    */
-  private retune({ checkpoints }: { checkpoints: SimulationCheckpoint[] }) {
-    const lead = checkpoints.find(
-      ({ entityId }) => entityId === this.shipId,
-    )?.inputLead;
-
-    if (lead !== undefined) {
-      if (lead < minInputLead)
-        this.tickLead = Math.min(
-          maxTickLead,
-          this.tickLead + minInputLead - lead,
-        );
-      else if (lead > minInputLead + 4)
-        this.tickLead = Math.max(minTickLead, this.tickLead - 1);
-    }
-
+  private retune() {
     const drift = this.serverTick + this.tickLead - this.world.tick;
 
-    if (Math.abs(drift) > maxTickJump) {
-      this.world.tick += drift;
-      this.prediction.reset();
-      this.tickAdjust = 0;
-    } else if (Math.abs(drift) > driftSlack)
-      // One tick at a time: a snapshot arrives ten times a second, so even a
-      // long drift is walked off without the pilot seeing a jump.
-      this.tickAdjust = Math.sign(drift);
+    // Reconciliation handles large discontinuities using actual server state,
+    // not by relabelling the tick of a still-predicted world.
+    this.tickAdjust = Math.abs(drift) > driftSlack ? Math.sign(drift) : 0;
   }
 
   private send(message: ClientMessage) {
     if (this.socket.readyState !== WebSocket.OPEN) return;
-    const wireMessage =
-      message['type'] === 'hello'
-        ? {
-            playerToken: message['playerToken'],
-            protocolVersion: message['protocolVersion'],
-            type: 'hello',
-          }
-        : {
-            input: {
-              drill: message['input']['drill'],
-              hatch: message['input']['hatch'],
-              light: message['input']['light'],
-              launch: message['input']['launch'],
-              shield: message['input']['shield'],
-              thrust: message['input']['thrust'],
-              [turnKey]: message['input'].turn,
-            },
-            sequence: message['sequence'],
-            tick: message['tick'],
-            type: 'input',
-          };
-
-    this.socket.send(JSON.stringify(wireMessage));
+    this.socket.send(JSON.stringify(message));
   }
 
   private receive({ message }: { message: ServerMessage }) {
     if (!this.compatible) return;
-    if (message['type'] === 'welcome') {
-      if (message['protocolVersion'] !== protocolVersion) {
+    if (message.type === 'welcome') {
+      if (message.protocolVersion !== protocolVersion) {
         this.compatible = false;
         this.socket.close();
         console.error(
@@ -284,63 +253,96 @@ export class NetworkClient {
         );
         return;
       }
-      localStorage.setItem('playerToken', message['playerToken']);
-      this.playerId = message['playerId'];
-      this.shipId = message['shipId'];
-      this.worldSeed = message['worldSeed'];
-      this.serverTick = message['serverTick'];
-      this.world.tick = message['serverTick'] + this.tickLead;
-      this.world.random = createRandom(message['worldSeed']);
+      localStorage.setItem('playerToken', message.playerToken);
+      this.playerId = message.playerId;
+      this.shipId = message.shipId;
+      this.worldSeed = message.worldSeed;
+      this.serverTick = message.serverTick;
+      this.world.tick = message.serverTick + this.tickLead;
+      this.world.random = createRandom(message.worldSeed);
       addPlayer(this.world, {
-        id: message['playerId'],
-        shipId: message['shipId'],
+        id: message.playerId,
+        shipId: message.shipId,
       });
-      this.prediction.setLocalPlayer({ playerId: message['playerId'] });
+      this.prediction.setLocalPlayer({ playerId: message.playerId });
       this.welcomed = true;
       return;
     }
 
-    this.serverTick = message['serverTick'];
-    if (message['type'] === 'load') {
-      this.stationMarkers.clear();
+    if (
+      message.type === 'snapshot' &&
+      message.serverTick <=
+        (this.pendingSnapshot?.serverTick ?? this.serverTick)
+    )
+      return;
+    this.remoteMotion.receive({
+      entities: message.fullEntities,
+      entityIds: message.entityIds,
+      shipId: this.shipId,
+      tick: message.serverTick,
+    });
+    if (message.type === 'snapshot') {
+      // Keep the latest update for each retained entity, not a queue of full
+      // worlds to reconcile individually when the browser resumes.
+      this.pendingSnapshot = message;
+      message.fullEntities.forEach((entity) =>
+        this.pendingEntities.set(entity.id, {
+          entity,
+          tick: message.serverTick,
+        }),
+      );
+      const retained = new Set(message.entityIds);
+      this.pendingEntities.forEach((_, id) => {
+        if (!retained.has(id)) this.pendingEntities.delete(id);
+      });
+      return;
+    }
+    this.applySnapshot({ message });
+  }
+
+  private applySnapshot({
+    message,
+    entityTicks,
+  }: {
+    message: Exclude<ServerMessage, { type: 'welcome' }>;
+    entityTicks?: Map<number, number>;
+  }) {
+    this.serverTick = message.serverTick;
+    if (message.type === 'load') {
+      this.pendingSnapshot = undefined;
+      this.pendingEntities.clear();
+      this.authoritativeEntities.clear();
       this.prediction.reset();
       this.world.tick = this.serverTick;
     }
 
-    message['stationMarkers'].forEach((marker: ReplicatedStationMarker) => {
-      const wirePosition = marker[positionKey];
-
-      this.stationMarkers.set(marker['id'], {
-        id: marker['id'],
-        position: Vector(wirePosition.x, wirePosition.y),
-        radius: marker[radiusKey],
-      });
-    });
-
-    if (message['type'] === 'snapshot')
-      message['unloadedStationMarkerIds'].forEach((id) =>
-        this.stationMarkers.delete(id),
-      );
-
-    // Every replicated entity is described as of the server's tick, so the
-    // prediction rolls back to that tick before taking any of it.
-    const checkpoints = message['checkpoints'].map((checkpoint) =>
-      makeCheckpoint({ checkpoint }),
+    const entities = message.fullEntities.map((entity) =>
+      makeEntity({
+        entity,
+        world: this.world,
+        previous: this.authoritativeEntities.get(entity.id),
+      }),
     );
-
+    const entityIds = message.entityIds;
+    const retained = new Set(entityIds);
+    this.authoritativeEntities.forEach((_, id) => {
+      if (!retained.has(id)) this.authoritativeEntities.delete(id);
+    });
+    entities.forEach((entity) =>
+      this.authoritativeEntities.set(entity.id, entity),
+    );
     this.prediction.reconcile({
-      checkpoints,
-      entities: message['fullEntities'].map((entity) =>
-        makeEntity({ entity, world: this.world }),
-      ),
+      entities,
+      entityIds,
+      entityTicks,
       tick: this.serverTick,
     });
 
-    if (message['type'] === 'load') {
-      this.world.tick = this.serverTick + this.tickLead;
+    if (message.type === 'load') {
+      this.prediction.replayTo({ targetTick: this.serverTick + this.tickLead });
       this.tickAdjust = 0;
       if (this.welcomed) this.resolveReady();
-    } else this.retune({ checkpoints });
+    } else this.retune();
   }
 }
 

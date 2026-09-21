@@ -1,26 +1,33 @@
 import { type PlayerInput } from './input';
 import { type AsteroidSection } from './entities';
+import { type ModuleState } from '../craft/module-state';
+import { type WreckagePart } from '../craft/wreckage-part';
 
-export const protocolVersion = 6;
+export const protocolVersion = 13;
 
 export type NetworkVector = { x: number; y: number };
+export type ReplicatedModule = ModuleState;
 
 export type ReplicatedEntity = {
+  cargoContents?: (ReplicatedEntity | { moduleIndex: number })[];
   contents?: number[];
   decay?: number;
   dockedTo?: number;
-  drill?: boolean;
-  hatch?: boolean;
   health?: number;
+  hullHealth?: number[];
   id: number;
-  kind: 'asteroid' | 'item' | 'ship' | 'station';
+  kind: 'asteroid' | 'item' | 'ship' | 'station' | 'object';
+  label?: string;
   launching?: number;
-  light?: boolean;
   mass: number;
+  pendingUpdateTime: number;
   maxSpeed?: number;
   maxHealth?: number;
+  modules?: ReplicatedModule[];
+  wreckage?: WreckagePart[];
   outline?: number[][];
   paint?: number;
+  shades?: readonly string[];
   playerId?: number;
   points?: number;
   position: NetworkVector;
@@ -28,40 +35,10 @@ export type ReplicatedEntity = {
   radiusEven?: number;
   resource?: number;
   rotation: number;
-  shield?: boolean;
   spin: number;
   sections?: AsteroidSection[];
   thrust?: number;
   turn?: number;
-  velocity: NetworkVector;
-};
-
-export type ReplicatedStationMarker = {
-  id: number;
-  position: NetworkVector;
-  radius: number;
-  type: 'station';
-};
-
-export type PlayerCheckpoint = {
-  acknowledgedSequence?: number;
-  dockedTo?: number;
-  drill: boolean;
-  entityId: number;
-  hatch: boolean;
-  health: number;
-  /** How far ahead of the server the owner's last input arrived, in ticks. */
-  inputLead?: number;
-  launching?: number;
-  light: boolean;
-  playerId: number;
-  position: NetworkVector;
-  rotation: number;
-  shield: boolean;
-  spin: number;
-  thrust: number;
-  tick: number;
-  turn: number;
   velocity: NetworkVector;
 };
 
@@ -92,18 +69,10 @@ export type ServerMessage =
       worldSeed: number;
     }
   | {
-      checkpoints: PlayerCheckpoint[];
+      acknowledgedSequence?: number;
+      inputLead?: number;
       fullEntities: ReplicatedEntity[];
       serverTick: number;
-      stationMarkers: ReplicatedStationMarker[];
-      type: 'load';
-    }
-  | {
-      checkpoints: PlayerCheckpoint[];
-      fullEntities: ReplicatedEntity[];
-      serverTick: number;
-      stationMarkers: ReplicatedStationMarker[];
-      type: 'snapshot';
-      unloadedEntityIds: number[];
-      unloadedStationMarkerIds: number[];
+      type: 'load' | 'snapshot';
+      entityIds: number[];
     };

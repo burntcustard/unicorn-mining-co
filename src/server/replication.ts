@@ -1,47 +1,72 @@
+import { Craft } from '../shared/craft/craft';
+import { Module } from '../shared/modules/module';
+import { type EntityId } from '../shared/protocol/entities';
 import {
-  type Entity,
-  type EntityId,
-  type ShipEntity,
-} from '../shared/protocol/entities';
-import {
-  type PlayerCheckpoint,
   type ReplicatedEntity,
-  type ReplicatedStationMarker,
   type ServerMessage,
 } from '../shared/protocol/network';
-import { type StationDescription } from '../shared/protocol/regions';
 import { type SimulationWorld } from '../shared/simulation/world';
+import { type WorldObject } from '../shared/simulation/world';
+import { Ship } from '../shared/craft/ship';
+import { Asteroid } from '../shared/simulation/asteroid';
+import { Item } from '../shared/items/item';
+import { Station } from '../shared/craft/station';
+import { updateTier } from '../shared/simulation/update-tier';
 
 const entityLoad = 2000;
 const entityUnload = 2500;
 const markerLoad = 10000;
 const markerUnload = 11000;
 
-const replicateEntity = ({ entity }: { entity: Entity }): ReplicatedEntity => ({
-  ...(entity.kind === 'asteroid' && { contents: entity.contents }),
-  ...(entity.kind === 'asteroid' && { decay: entity.decay }),
-  ...(entity.kind === 'asteroid' && { maxHealth: entity.maxHealth }),
-  ...(entity.kind === 'asteroid' && { outline: entity.outline }),
-  ...(entity.kind === 'asteroid' && { sections: entity.sections }),
-  ...(entity.kind === 'ship' && { contents: entity.cargo }),
-  ...(entity.kind === 'ship' && { dockedTo: entity.dockedTo }),
-  ...(entity.kind === 'ship' && { drill: entity.drill }),
-  ...(entity.kind === 'ship' && { hatch: entity.hatch }),
-  ...(entity.kind === 'ship' && { launching: entity.launching }),
-  ...(entity.kind === 'ship' && { light: entity.light }),
-  ...(entity.kind === 'ship' && { maxSpeed: entity.maxSpeed }),
-  ...(entity.kind === 'ship' && { shield: entity.shield }),
-  ...(entity.kind === 'ship' && { thrust: entity.thrust }),
-  ...(entity.kind === 'ship' && { turn: entity.turn }),
+const replicateEntity = ({
+  entity,
+}: {
+  entity: WorldObject;
+}): ReplicatedEntity => ({
+  ...(entity instanceof Asteroid && { contents: entity.contents }),
+  ...(entity instanceof Asteroid && { decay: entity.decay }),
+  ...(entity instanceof Asteroid && { maxHealth: entity.maxHealth }),
+  ...(entity instanceof Asteroid && { outline: entity.outline }),
+  ...(entity instanceof Asteroid && { sections: entity.sections }),
+  ...(entity instanceof Craft && {
+    cargoContents: entity.cargoContents.map((object) =>
+      object instanceof Module
+        ? { moduleIndex: entity.modules.indexOf(object) }
+        : replicateEntity({ entity: object }),
+    ),
+  }),
+  ...(entity instanceof Craft && { dockedTo: entity.dockedTo }),
+  ...(entity instanceof Craft && { hullHealth: entity.hullHealth }),
+  ...(entity instanceof Craft && { launching: entity.launching }),
+  ...(entity instanceof Craft && { maxSpeed: entity.maxSpeed }),
+  ...(entity instanceof Craft && {
+    modules: entity.moduleStates,
+    wreckage: entity.wreckage,
+    decay: entity.decay,
+    shades: entity.shades,
+  }),
+  ...(entity instanceof Ship && { thrust: entity.thrust }),
+  ...(entity instanceof Ship && { turn: entity.turn }),
   ...('health' in entity && { health: entity.health }),
+  ...('label' in entity && { label: entity.label }),
   ...('paint' in entity && { paint: entity.paint }),
   ...('playerId' in entity && { playerId: entity.playerId }),
   ...('points' in entity && { points: entity.points }),
   ...('radiusEven' in entity && { radiusEven: entity.radiusEven }),
   ...('resource' in entity && { resource: entity.resource }),
   id: entity.id,
-  kind: entity.kind,
+  kind:
+    entity instanceof Asteroid
+      ? 'asteroid'
+      : entity instanceof Item
+        ? 'item'
+        : entity instanceof Station
+          ? 'station'
+          : entity instanceof Craft
+            ? 'ship'
+            : 'object',
   mass: entity.mass,
+  pendingUpdateTime: entity.pendingUpdateTime,
   position: { x: entity.position.x, y: entity.position.y },
   radius: entity.radius,
   rotation: entity.rotation,
@@ -49,174 +74,61 @@ const replicateEntity = ({ entity }: { entity: Entity }): ReplicatedEntity => ({
   velocity: { x: entity.velocity.x, y: entity.velocity.y },
 });
 
-const replicateMarker = ({
-  marker,
-}: {
-  marker: StationDescription;
-}): ReplicatedStationMarker => ({
-  id: marker.id,
-  position: { x: marker.position.x, y: marker.position.y },
-  radius: marker.radius,
-  type: 'station',
-});
-
-const checkpoint = ({
-  ship,
-  tick,
-  acknowledgedSequence,
-  inputLead,
-}: {
-  ship: ShipEntity;
-  tick: number;
+type SnapshotOptions = {
+  world: SimulationWorld;
+  shipId: EntityId;
   acknowledgedSequence?: number;
   inputLead?: number;
-}): PlayerCheckpoint => ({
-  ...(acknowledgedSequence !== undefined && { acknowledgedSequence }),
-  ...(inputLead !== undefined && { inputLead }),
-  ...(ship.dockedTo !== undefined && { dockedTo: ship.dockedTo }),
-  ...(ship.launching !== undefined && { launching: ship.launching }),
-  drill: ship.drill,
-  entityId: ship.id,
-  hatch: ship.hatch,
-  health: ship.health,
-  light: ship.light,
-  playerId: ship.playerId!,
-  position: { x: ship.position.x, y: ship.position.y },
-  rotation: ship.rotation,
-  shield: ship.shield,
-  spin: ship.spin,
-  thrust: ship.thrust,
-  tick,
-  turn: ship.turn,
-  velocity: { x: ship.velocity.x, y: ship.velocity.y },
-});
+};
 
 export class ReplicationManager {
   private entities = new Set<EntityId>();
-  private markers = new Set<number>();
 
-  initial({
-    world,
-    shipId,
-    stationMarkers,
-    acknowledgedSequence,
-    inputLead,
-  }: {
-    world: SimulationWorld;
-    shipId: EntityId;
-    stationMarkers: StationDescription[];
-    acknowledgedSequence?: number;
-    inputLead?: number;
-  }): ServerMessage {
-    const ship = world.entities.get(shipId)!;
-    const nearby = [...world.entities.values()].filter(
-      (entity) =>
-        entity.id === shipId ||
-        entity.position.distanceTo(ship.position) <= entityLoad,
-    );
-    const markers = stationMarkers.filter(
-      ({ position }) => position.distanceTo(ship.position) <= markerLoad,
-    );
-
-    this.entities = new Set(nearby.map(({ id }) => id));
-    this.markers = new Set(markers.map(({ id }) => id));
-    return {
-      checkpoints: nearby
-        .filter(
-          (entity): entity is ShipEntity =>
-            entity.id === shipId && entity.kind === 'ship',
-        )
-        .map((ship) =>
-          checkpoint({
-            acknowledgedSequence:
-              ship.id === shipId ? acknowledgedSequence : undefined,
-            inputLead: ship.id === shipId ? inputLead : undefined,
-            ship,
-            tick: world.tick,
-          }),
-        ),
-      fullEntities: nearby.map((entity) => replicateEntity({ entity })),
-      serverTick: world.tick,
-      stationMarkers: markers.map((marker) => replicateMarker({ marker })),
-      type: 'load',
-    };
+  initial(options: SnapshotOptions): ServerMessage {
+    this.entities.clear();
+    return { ...this.snapshot(options), type: 'load' };
   }
 
   snapshot({
     world,
     shipId,
-    stationMarkers,
     acknowledgedSequence,
     inputLead,
-  }: {
-    world: SimulationWorld;
-    shipId: EntityId;
-    stationMarkers: StationDescription[];
-    acknowledgedSequence?: number;
-    inputLead?: number;
-  }): ServerMessage {
+  }: SnapshotOptions) {
     const ship = world.entities.get(shipId)!;
-    const candidates = [...world.entities.values()];
-    const markerCandidates = stationMarkers;
-    const nextEntities = new Set<EntityId>();
-    const nextMarkers = new Set<number>();
-
-    candidates.forEach((entity) => {
-      const range = this.entities.has(entity.id) ? entityUnload : entityLoad;
-
-      if (
+    const visible = [...world.entities.values()].filter((entity) => {
+      const loaded = this.entities.has(entity.id);
+      const range =
+        entity instanceof Station
+          ? loaded
+            ? markerUnload
+            : markerLoad
+          : loaded
+            ? entityUnload
+            : entityLoad;
+      return (
         entity.id === shipId ||
         entity.position.distanceTo(ship.position) <= range
+      );
+    });
+    const fullEntities = visible
+      .filter(
+        (entity) =>
+          !this.entities.has(entity.id) ||
+          world.tick %
+            updateTier({ entity, observers: [ship] }).replicateEvery ===
+            0,
       )
-        nextEntities.add(entity.id);
-    });
-    markerCandidates.forEach((marker) => {
-      const range = this.markers.has(marker.id) ? markerUnload : markerLoad;
+      .map((entity) => replicateEntity({ entity }));
 
-      if (marker.position.distanceTo(ship.position) <= range)
-        nextMarkers.add(marker.id);
-    });
-
-    const unloadedEntityIds = [...this.entities].filter(
-      (id) => !nextEntities.has(id),
-    );
-    const unloadedStationMarkerIds = [...this.markers].filter(
-      (id) => !nextMarkers.has(id),
-    );
-
-    this.entities = nextEntities;
-    this.markers = nextMarkers;
+    this.entities = new Set(visible.map((entity) => entity.id));
     return {
-      checkpoints: candidates
-        .filter(
-          (entity): entity is ShipEntity =>
-            nextEntities.has(entity.id) &&
-            entity.kind === 'ship' &&
-            entity.id === shipId,
-        )
-        .map((ship) =>
-          checkpoint({
-            acknowledgedSequence:
-              ship.id === shipId ? acknowledgedSequence : undefined,
-            inputLead: ship.id === shipId ? inputLead : undefined,
-            ship,
-            tick: world.tick,
-          }),
-        ),
-      fullEntities: candidates
-        .filter(({ id }) => nextEntities.has(id))
-        .map((entity) => replicateEntity({ entity })),
+      acknowledgedSequence,
+      inputLead,
+      entityIds: [...this.entities],
+      fullEntities,
       serverTick: world.tick,
-      stationMarkers: markerCandidates
-        .filter(({ id }) => nextMarkers.has(id))
-        .map((marker) => replicateMarker({ marker })),
-      type: 'snapshot',
-      unloadedEntityIds,
-      unloadedStationMarkerIds,
+      type: 'snapshot' as const,
     };
-  }
-
-  hasEntity({ id }: { id: EntityId }) {
-    return this.entities.has(id);
   }
 }

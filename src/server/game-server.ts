@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import WebSocket, { WebSocketServer } from 'ws';
-import { Vector } from '../vector';
+import { Vector } from '../shared/vector';
 import { emptyPlayerInput, type PlayerInput } from '../shared/protocol/input';
 import {
   protocolVersion,
   type ClientMessage,
   type ServerMessage,
 } from '../shared/protocol/network';
-import { createShip } from '../shared/simulation/ship';
+import { createShip } from '../shared/craft/create-ship';
 import { updateWorld } from '../shared/simulation/update-world';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
@@ -54,6 +54,7 @@ export class GameServer {
   }: { port?: number; worldSeed?: number } = {}) {
     this.port = port;
     this.worldSeed = worldSeed;
+    // Client and server use the same distance-based simulation schedule.
     this.world = createWorld({ seed: worldSeed });
     this.regions = new RegionManager({ worldSeed });
   }
@@ -163,7 +164,12 @@ export class GameServer {
 
     const ship = this.world.entities.get(player.shipId)!;
 
-    this.regions.sync({ world: this.world, positions: [ship.position] });
+    this.regions.sync({
+      world: this.world,
+      positions: [...this.players.values()]
+        .map((player) => this.world.entities.get(player.shipId)?.position)
+        .filter((position) => position !== undefined),
+    });
     send({
       socket,
       message: {
@@ -182,7 +188,6 @@ export class GameServer {
       message: player.replication.initial({
         world: this.world,
         shipId: player.shipId,
-        stationMarkers: this.regions.markers({ position: ship.position }),
         acknowledgedSequence: player.lastSequence,
         inputLead: player.inputLead,
       }),
@@ -230,7 +235,7 @@ export class GameServer {
       const input = player.inputs.get(tick);
       const sequence = player.inputSequences.get(tick);
 
-      if (input && sequence !== undefined) {
+      if (input && sequence !== undefined && sequence > player.lastSequence) {
         player.lastInput = input;
         player.lastSequence = Math.max(player.lastSequence, sequence);
       }
@@ -251,35 +256,17 @@ export class GameServer {
       const ship = this.world.entities.get(player.shipId);
 
       if (!socket || !ship) return;
-      const nearestPlayer = Math.min(
-        ...[...this.players.values()]
-          .filter(
-            (other) =>
-              other !== player &&
-              player.replication.hasEntity({ id: other.shipId }),
-          )
-          .map((other) =>
-            ship.position.distanceTo(
-              this.world.entities.get(other.shipId)!.position,
-            ),
-          ),
-      );
-      // Quiet space needs only a broad authoritative heartbeat. Ships sharing
-      // a screen get 30 Hz checkpoints, rising to every server tick up close.
-      const snapshotEvery =
-        nearestPlayer <= 300 ? 1 : nearestPlayer < 2500 ? 2 : 4;
-
-      if (this.world.tick % snapshotEvery) return;
       send({
         socket,
         message: player.replication.snapshot({
           world: this.world,
           shipId: player.shipId,
-          stationMarkers: this.regions.markers({ position: ship.position }),
           acknowledgedSequence: player.lastSequence,
           inputLead: player.inputLead,
         }),
       });
+      // Timing feedback describes one received input, not every later snapshot.
+      player.inputLead = undefined;
     });
   }
 }

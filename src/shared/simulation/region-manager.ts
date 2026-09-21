@@ -1,4 +1,4 @@
-import { Vector, type Vector as VectorValue } from '../../vector';
+import { Vector, type Vector as VectorValue } from '../vector';
 import {
   type LoadedRegion,
   type RegionalView,

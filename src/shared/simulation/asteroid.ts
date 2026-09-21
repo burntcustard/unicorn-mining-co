@@ -1,12 +1,11 @@
-import { Vector, type Vector as VectorValue } from '../../vector';
-import { createPolygon, radiusOf } from '../../polygon';
-import { createRandom } from '../../seeded-random';
-import {
-  type AsteroidEntity,
-  type AsteroidSection,
-} from '../protocol/entities';
+import { Vector, type Vector as VectorValue } from '../vector';
+import { createPolygon, radiusOf } from '../polygon';
+import { createRandom } from '../seeded-random';
+import { type AsteroidSection } from '../protocol/entities';
 import { addEntity, type SimulationWorld, entityId } from './world';
-import { SimulationEntity } from './entity';
+import { GameObject } from '../game-object';
+import { type Collider, type Outline } from './physics';
+import { outerEdges } from './collisions';
 
 // Enough of a wander that no two asteroids come out the same shape
 export const asteroidVariance = 0.2;
@@ -22,7 +21,7 @@ const outlines = new Map<string, number[][]>();
  * and on the server, is cut from its own id, so they all agree on it without
  * it ever going over the wire.
  */
-export const outlineOf = (asteroid: AsteroidEntity) => {
+export const outlineOf = (asteroid: Asteroid) => {
   if (asteroid.outline) return asteroid.outline;
   const key = [
     asteroid.id,
@@ -198,10 +197,17 @@ const outlineFrom = (sections: AsteroidSection[]) => {
     if (samePoint(next, outline[0])) break;
     outline.push(next);
   }
-  return outline;
+  return outline.filter((point, index) => {
+    const before = outline.at(index - 1)!;
+    const next = outline[(index + 1) % outline.length];
+    return (
+      (point[0] - before[0]) * (next[1] - point[1]) !==
+      (point[1] - before[1]) * (next[0] - point[0])
+    );
+  });
 };
 
-const centerOf = (outline: number[][]) => {
+export const centerOf = (outline: number[][]) => {
   let area = 0;
   let x = 0;
   let y = 0;
@@ -217,36 +223,12 @@ const centerOf = (outline: number[][]) => {
   return Vector(x / (area * 3), y / (area * 3));
 };
 
-export const nearestSection = ({
-  asteroid,
-  position,
-}: {
-  asteroid: AsteroidEntity;
-  position: VectorValue;
-}) => {
-  if (!asteroid.sections?.length) return;
-  const cosine = Math.cos(asteroid.rotation);
-  const sine = Math.sin(asteroid.rotation);
-  const offset = position.subtract(asteroid.position);
-  const local = Vector(
-    offset.x * cosine + offset.y * sine,
-    offset.y * cosine - offset.x * sine,
-  );
-
-  return asteroid.sections.reduce((nearest, section) =>
-    centerOf(section.outline).distanceTo(local) <
-    centerOf(nearest.outline).distanceTo(local)
-      ? section
-      : nearest,
-  );
-};
-
 const detachSection = ({
   asteroid,
   section,
   world,
 }: {
-  asteroid: AsteroidEntity;
+  asteroid: Asteroid;
   section: AsteroidSection;
   world: SimulationWorld;
 }) => {
@@ -255,7 +237,7 @@ const detachSection = ({
   );
   const groups = [[section], ...groupsOf(remaining)];
 
-  world.entities.delete(asteroid.id);
+  asteroid.remove();
   const children = groups.map((group) => {
     const outline = outlineFrom(group);
     const center = centerOf(outline);
@@ -284,6 +266,7 @@ const detachSection = ({
       outline: childOutline,
       position: asteroid.position.add(offset),
       radius,
+      resource: asteroid.resource,
       rotation: asteroid.rotation,
       sections: group.length > 1 ? childSections : undefined,
       spin: asteroid.spin,
@@ -339,7 +322,7 @@ export const asteroidContact = ({
   position,
   radius,
 }: {
-  asteroid: AsteroidEntity;
+  asteroid: Asteroid;
   position: VectorValue;
   radius: number;
 }) => {
@@ -392,7 +375,7 @@ export const asteroidContact = ({
   };
 };
 
-export class Asteroid extends SimulationEntity implements AsteroidEntity {
+export class Asteroid extends GameObject {
   contents: number[];
   decay?: number;
   health: number;
@@ -415,7 +398,7 @@ export class Asteroid extends SimulationEntity implements AsteroidEntity {
     resource,
     sections,
     ...properties
-  }: ConstructorParameters<typeof SimulationEntity>[0] & {
+  }: ConstructorParameters<typeof GameObject>[0] & {
     contents: number[];
     decay?: number;
     health: number;
@@ -456,11 +439,33 @@ export class Asteroid extends SimulationEntity implements AsteroidEntity {
         radiusEven,
         random: createRandom(this.id + 1).next,
       });
+    if (this.sections?.length)
+      outerEdges(this.sections.map((section) => section.outline as Outline));
   }
 
-  update(dt: number) {
-    if (this.decay && (this.health -= this.decay * dt) <= 0) return true;
-    super.update(dt);
+  hitboxes(): Collider[] {
+    const parts = this.sections?.map((section) => ({
+      outline: section.outline as Outline,
+      owner: this,
+      part: section,
+      position: this.position,
+      radius: this.radius,
+      rotation: this.rotation,
+    }));
+
+    return [
+      Object.assign(
+        {
+          bounciness: 0.1,
+          outline: outlineOf(this) as Outline,
+          owner: this,
+          position: this.position,
+          radius: this.radius,
+          rotation: this.rotation,
+        },
+        parts?.length && { parts },
+      ),
+    ];
   }
 
   detach({

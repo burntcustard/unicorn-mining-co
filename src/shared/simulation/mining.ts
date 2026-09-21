@@ -1,85 +1,134 @@
-import { type AsteroidEntity, type ShipEntity } from '../protocol/entities';
+import { Vector } from '../vector';
+import { type AsteroidSection } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
-import { Vector } from '../../vector';
-import { addEntity } from './world';
-import { Asteroid, asteroidContact, nearestSection } from './asteroid';
-import { createItem } from './item';
-import { type SimulationWorld } from './world';
+import { Asteroid } from './asteroid';
+import { createItem } from '../items/create-item';
+import { type Contact } from './physics';
+import { Ship } from '../craft/ship';
+import { addEntity, type SimulationWorld } from './world';
+import { type Segment } from '../types';
 
-const drillReach = 24;
-const drillDamage = 0.5;
+type MiningSurface = {
+  asteroid: Asteroid;
+  depth: number;
+  position: Vector;
+  section?: AsteroidSection;
+  ship: Ship;
+  segment: Segment;
+};
 
-export const mine = (
-  world: SimulationWorld,
-  ship: ShipEntity,
-  events: SimulationEvent[],
-) => {
-  if (!ship.drill || ship.playerId === undefined) return;
+const destroy = ({
+  asteroid,
+  by,
+  events,
+  world,
+}: {
+  asteroid: Asteroid;
+  by: number;
+  events: SimulationEvent[];
+  world: SimulationWorld;
+}) => {
+  asteroid.remove();
+  asteroid.contents.forEach((resource) =>
+    addEntity(
+      world,
+      createItem(world, {
+        position: asteroid.position.add(Vector()),
+        resource,
+        velocity: asteroid.velocity.add(Vector()),
+      }),
+    ),
+  );
+  events.push({
+    asteroidId: asteroid.id,
+    by,
+    contents: asteroid.contents,
+    type: 'asteroidDestroyed',
+  });
+};
 
-  let target: AsteroidEntity | undefined;
-  let nearest = Infinity;
+/** Apply one mining bite to the exact asteroid section touched by each drill. */
+export const mine = ({
+  contacts,
+  events,
+  world,
+}: {
+  contacts: Contact[];
+  events: SimulationEvent[];
+  world: SimulationWorld;
+}) => {
+  const surfaces: MiningSurface[] = [];
 
-  [...world.entities.values()].forEach((entity) => {
-    if (entity.kind !== 'asteroid' || entity.decay) return;
-
-    const offset = entity.position.subtract(ship.position);
-    const distance = offset.length();
-    const along = offset.dot(
-      Vector(Math.cos(ship.rotation), Math.sin(ship.rotation)),
-    );
+  contacts.forEach(({ collider, depth, other }) => {
+    const drill = collider.role === 'drill' ? collider : other;
+    const rock = drill === collider ? other : collider;
+    const ship = drill.owner;
+    const asteroid = rock.owner;
 
     if (
-      along >= 0 &&
-      distance < nearest &&
-      distance <= ship.radius + drillReach + entity.radius &&
-      asteroidContact({
-        asteroid: entity,
-        position: ship.position,
-        radius: ship.radius + drillReach,
-      })
-    ) {
-      nearest = distance;
-      target = entity;
-    }
-  });
+      drill.role !== 'drill' ||
+      !(ship instanceof Ship) ||
+      !drill.segment ||
+      drill.segment.activationProgress <= 0.5 ||
+      !drill.segment.module.grinds ||
+      ship.playerId === undefined ||
+      !(asteroid instanceof Asteroid) ||
+      asteroid.dead
+    )
+      return;
+    const section = asteroid.sections?.includes(rock.part as AsteroidSection)
+      ? (rock.part as AsteroidSection)
+      : undefined;
 
-  if (!target) return;
-
-  const section = nearestSection({ asteroid: target, position: ship.position });
-
-  if (section) section.health -= drillDamage;
-  else target.health -= drillDamage;
-  events.push({
-    asteroidId: target.id,
-    by: ship.playerId,
-    damage: drillDamage,
-    type: 'asteroidMined',
-  });
-
-  if (section && section.health < 1) {
-    if (target instanceof Asteroid) target.detach({ section, world });
-    return;
-  }
-
-  if (target.health < 1) {
-    world.entities.delete(target.id);
-    target.contents.forEach((resource) =>
-      addEntity(
-        world,
-        createItem(world, {
-          position: target.position.add(Vector()),
-          resource,
-          velocity: target.velocity.add(
-            Vector(world.random.next() * 2 - 1, world.random.next() * 2 - 1),
-          ),
-        }),
-      ),
-    );
-    events.push({
-      asteroidId: target.id,
-      by: ship.playerId,
-      contents: target.contents,
-      type: 'asteroidDestroyed',
+    surfaces.push({
+      asteroid,
+      depth,
+      position: drill.position,
+      section,
+      ship,
+      segment: drill.segment,
     });
-  }
+  });
+
+  const drills = new Set<Segment>();
+
+  surfaces
+    .sort((a, b) => b.depth - a.depth)
+    .forEach(({ asteroid, position, section, ship, segment }) => {
+      if (drills.has(segment) || !world.entities.has(asteroid.id)) return;
+      drills.add(segment);
+      segment.biting = true;
+      const drillDamage = segment.module.damage;
+
+      const pull = asteroid.position.subtract(ship.position).normalize();
+      const grip = asteroid.velocity
+        .subtract(ship.velocity)
+        .scale(0.1)
+        .add(pull);
+
+      ship.velocity.set(ship.velocity.add(grip));
+      if (section) section.health -= drillDamage;
+      else asteroid.health -= drillDamage;
+      events.push({
+        asteroidId: asteroid.id,
+        by: ship.playerId!,
+        damage: drillDamage,
+        resource: asteroid.resource,
+        position,
+        type: 'asteroidMined',
+      });
+
+      if (section && section.health < 1) {
+        ship.velocity.set(asteroid.velocity);
+        const children = asteroid.detach({ section, world });
+        events.push({
+          type: 'asteroidSplit',
+          asteroidId: asteroid.id,
+          childIds: children.map((child) => child.id),
+        });
+      } else if (asteroid.health < 1) {
+        ship.velocity.set(asteroid.velocity);
+        destroy({ asteroid, by: ship.playerId!, events, world });
+      }
+    });
 };

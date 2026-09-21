@@ -1,4 +1,4 @@
-import { type Vector } from '../../vector';
+import { type Vector } from '../vector';
 
 export type StationDescription = {
   id: number;
@@ -22,7 +22,7 @@ export type AsteroidDescription = {
 };
 
 export type WreckDescription = {
-  cargo: number[];
+  cargoContents: number[];
   id: number;
   paint: number;
   position: Vector;

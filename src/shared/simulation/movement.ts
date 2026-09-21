@@ -1,4 +1,4 @@
-import { type Vector } from '../../vector';
+import { type Vector } from '../vector';
 
 const maxSpeedDrag = 0.9;
 
