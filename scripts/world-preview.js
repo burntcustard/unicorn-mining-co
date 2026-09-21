@@ -8,7 +8,10 @@ const bundle = await rolldown({
       name: 'world-entry',
       load: (id) =>
         id === '\0world-entry'
-          ? `export { generateWorld, worldRadius } from '${process.cwd()}/src/world.ts';`
+          ? `
+            export { RegionManager } from '${process.cwd()}/src/world.ts';
+            export { Vector } from '${process.cwd()}/src/vector.ts';
+          `
           : undefined,
       resolveId: (id) => (id === 'world-entry' ? '\0world-entry' : undefined),
     },
@@ -17,97 +20,72 @@ const bundle = await rolldown({
 const { output } = await bundle.generate({ format: 'esm' });
 await bundle.close();
 
-const { generateWorld, worldRadius } = await import(
+const { RegionManager, Vector } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
 const seed = Number(process.argv[2] ?? 25);
-const world = generateWorld(seed);
+const worldRadius = 10000;
+const manager = new RegionManager({ worldSeed: seed });
+const world = manager.query({ position: Vector() });
 const size = 1000;
 const padding = 80;
 const scale = (size - padding * 2) / (worldRadius * 2);
 const center = size / 2;
 const point = (value) => center + value * scale;
-const fieldColors = ['#62e8ff', '#c86cff', '#ffd54a', '#45d6c5'];
-const circles = (objects, fill) =>
+const circles = ({ objects, fill }) =>
   objects
     .map(
-      ({ x, y, radius, shades }) =>
-        `<circle cx="${point(x)}" cy="${point(y)}" r="${Math.max(2, radius * scale)}" fill="${fill || shades[2]}"/>`,
+      ({ position, radius }) =>
+        `<circle cx="${point(position.x)}" cy="${point(position.y)}" ` +
+        `r="${Math.max(2, radius * scale)}" fill="${fill}"/>`,
     )
     .join('');
-const grid = Array.from({ length: 11 }, (_, i) => -worldRadius + i * 10000)
+const grid = Array.from(
+  { length: 11 },
+  (_, index) => -worldRadius + index * 2000,
+)
   .flatMap((offset) => [
     `<line x1="${point(offset)}" y1="${point(-worldRadius)}" x2="${point(offset)}" y2="${point(worldRadius)}"/>`,
     `<line x1="${point(-worldRadius)}" y1="${point(offset)}" x2="${point(worldRadius)}" y2="${point(offset)}"/>`,
   ])
   .join('');
-const fields = world.fields
-  .map(
-    (field) =>
-      `<circle cx="${point(field.x)}" cy="${point(field.y)}" r="${field.fieldRadius * scale}" ` +
-      `fill="black" fill-opacity=".35" stroke="${fieldColors[field.resource] || 'white'}"/>`,
-  )
-  .join('');
-const messageLines = world.wrecks
-  .map((wreck) => {
-    const clue = /^(AMETHYST CLUSTER|GOLD ORE) (-?\d+)\/(-?\d+)$/.exec(
-      wreck.message,
-    );
-
-    if (!clue) return '';
-
-    const resource = clue[1] === 'AMETHYST CLUSTER' ? 1 : 2;
-    const field = world.fields.find(
-      (candidate) =>
-        candidate.resource === resource &&
-        Math.round(candidate.x) === Number(clue[2]) &&
-        Math.round(candidate.y) === Number(clue[3]),
-    );
-
-    if (!field) throw Error(`No field matches wreck message: ${wreck.message}`);
-
-    return (
-      `<line x1="${point(wreck.x)}" y1="${point(wreck.y)}" ` +
-      `x2="${point(field.x)}" y2="${point(field.y)}" stroke="${fieldColors[resource]}"><title>${wreck.message}</title></line>`
-    );
-  })
-  .join('');
-const key = [
-  ['white', 'Space station'],
-  ['#fa3', 'Ship wreck (ship color)'],
-  ['white', 'Mixed asteroid field'],
-  ['#ffd54a', 'Gold-rich'],
-  ['#c86cff', 'Amethyst-rich'],
-  ['#c86cff', 'Violet line: amethyst message'],
-  ['#ffd54a', 'Yellow line: gold message'],
-]
-  .map(
-    ([color, label], i) =>
-      `<circle cx="30" cy="${30 + i * 22}" r="5" fill="${color}"/><text x="42" y="${34 + i * 22}">${label}</text>`,
-  )
-  .join('');
-
-const startingStations = [...world.stations]
-  .sort((a, b) => a.x ** 2 + a.y ** 2 - b.x ** 2 - b.y ** 2)
+const startingStations = [...world.stationMarkers]
+  .sort((a, b) => a.position.length() ** 2 - b.position.length() ** 2)
   .slice(0, 3);
 const startRings = startingStations
   .map(
-    ({ x, y, radius }) =>
-      `<circle cx="${point(x)}" cy="${point(y)}" r="${Math.max(2, radius * scale) + 4}" fill="none" stroke="#45d6c5" stroke-width="2"/>`,
+    ({ position, radius }) =>
+      `<circle cx="${point(position.x)}" cy="${point(position.y)}" ` +
+      `r="${Math.max(2, radius * scale) + 4}" fill="none" ` +
+      `stroke="#45d6c5" stroke-width="2"/>`,
+  )
+  .join('');
+const key = [
+  ['white', 'Station description'],
+  ['#fa3', 'Wreck description'],
+  ['#555', 'Asteroid description'],
+  ['#45d6c5', 'Nearest starting stations'],
+]
+  .map(
+    ([color, label], index) =>
+      `<circle cx="30" cy="${30 + index * 22}" r="5" fill="${color}"/>` +
+      `<text x="42" y="${34 + index * 22}">${label}</text>`,
   )
   .join('');
 
 const svg =
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" ` +
-  `style="background:#100c1c;font:14px sans-serif"><defs><clipPath id="world"><circle cx="${center}" ` +
-  `cy="${center}" r="${worldRadius * scale}"/></clipPath></defs><circle cx="${center}" cy="${center}" ` +
-  `r="${worldRadius * scale}" fill="#171326"/><g clip-path="url(#world)" stroke="#fff" ` +
-  `stroke-opacity=".08">${grid}</g>` +
-  `${fields}<g stroke-opacity=".55">${messageLines}</g>` +
-  `${circles(world.stations, 'white')}${circles(world.wrecks)}` +
-  `${startRings}` +
-  `<g fill="white">${key}<text x="20" y="190">World diameter: 100,000 m</text></g></svg>`;
+  `style="background:#100c1c;font:14px sans-serif"><defs><clipPath id="world">` +
+  `<circle cx="${center}" cy="${center}" r="${worldRadius * scale}"/>` +
+  `</clipPath></defs><circle cx="${center}" cy="${center}" ` +
+  `r="${worldRadius * scale}" fill="#171326"/><g clip-path="url(#world)" ` +
+  `stroke="#fff" stroke-opacity=".08">${grid}</g>` +
+  `${circles({ objects: world.asteroids, fill: '#555' })}` +
+  `${circles({ objects: world.stationMarkers, fill: 'white' })}` +
+  `${circles({ objects: world.wrecks, fill: '#fa3' })}${startRings}` +
+  `<g fill="white">${key}<text x="20" y="130">20 km regional preview</text>` +
+  `<text x="20" y="150">No simulation entities constructed</text></g></svg>`;
 const filename = `world-${seed}.svg`;
 
 await writeFile(filename, svg);

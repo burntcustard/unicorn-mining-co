@@ -3,10 +3,14 @@ import { colors } from './colors';
 import { renderControls } from './ui/controls';
 import { renderDocked } from './ui/docked-loader';
 import { renderIndicators } from './ui/indicators';
-import { type Craft, type GameState } from './types';
+import { type GameState } from './types';
+import { type Vector } from './vector';
 import { renderText } from './text';
 
-export const renderUI = (game: GameState, stations: Craft[]) => {
+export const renderUI = (
+  game: GameState,
+  stations: Array<{ position: Vector; radius: number }>,
+) => {
   if (!game.uiAlpha) return;
 
   game.ctx.save();

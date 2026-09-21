@@ -13,11 +13,21 @@ export default defineConfig(({ mode, command }) => {
     BENCHMARK: mode === 'benchmark' && command === 'serve',
     DEBUG: command === 'serve',
   };
+  const proxy = {
+    '/game-socket': {
+      target: process.env.GAME_SERVER_URL || 'ws://127.0.0.1:3001',
+      ws: true,
+    },
+  };
 
   return {
     base: './',
+    preview: {
+      proxy,
+    },
     server: {
       port: 3000,
+      proxy,
     },
     plugins: [viteBuildPre(flags), viteBackground(flags), viteBuild()],
     build: {
@@ -38,7 +48,7 @@ export default defineConfig(({ mode, command }) => {
               {
                 name: 'rendering-world',
                 // eslint-disable-next-line @stylistic/max-len -- one path regex
-                test: /[\\/]src[\\/](?:background|lighting|prism|drawing|polygon|colors|flare|world|distribute|seeded-random|items[\\/])/,
+                test: /[\\/]src[\\/](?:background|lighting|prism|drawing|polygon|colors|flare|world|distribute|seeded-random|items[\\/]|shared[\\/](?:protocol[\\/]regions|simulation[\\/](?:random|region-generation|region-manager)))/,
                 includeDependenciesRecursively: false,
               },
             ],

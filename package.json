@@ -18,11 +18,19 @@
     "benchmark:headless": "BENCH_HEADLESS=1 node benchmarking/run.mjs",
     "dev": "vite",
     "dev:host": "vite --host",
+    "dev:server": "tsx watch src/server/index.ts",
+    "start:server": "tsx src/server/index.ts",
+    "preview": "vite preview --host --port 3000",
     "world-preview": "node scripts/world-preview.js",
     "build": "vite build",
-    "test": "npm run test:collisions && npm run test:docked && npm run test:prism && npm run test:sound",
+    "test": "npm run test:simulation && npm run test:regions && npm run test:server && npm run test:prediction && npm run test:collisions && npm run test:docked && npm run test:prism && npm run test:sound && npm run test:input",
+    "test:simulation": "node tests/simulation.test.mjs",
+    "test:regions": "node tests/regions.test.mjs",
+    "test:server": "tsx tests/server.test.ts",
+    "test:prediction": "tsx tests/prediction.test.ts",
     "test:collisions": "node tests/collisions.test.mjs",
     "test:docked": "node tests/docked.test.mjs",
+    "test:input": "node tests/input.test.mjs",
     "test:prism": "node tests/prism.test.mjs",
     "test:sound": "node tests/sound.test.mjs",
     "lint": "oxlint --type-aware --type-check .",
@@ -30,12 +38,20 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."
   },
+  "dependencies": {
+    "ws": "^8.21.3"
+  },
   "devDependencies": {
+    "@types/ws": "^8.18.1",
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0",
     "oxlint-tsgolint": "^7.0.2002",
     "terser": "^5.51.2",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

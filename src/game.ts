@@ -3,8 +3,11 @@ import { type GameState } from './types';
 
 const { canvas, context } = init();
 
-export const forget = <Entry>(list: Entry[], entry: Entry) =>
-  list.splice(list.indexOf(entry), 1);
+export const forget = <Entry>(list: Entry[], entry: Entry) => {
+  const index = list.indexOf(entry);
+
+  if (index >= 0) list.splice(index, 1);
+};
 
 export const game = {
   canvas,

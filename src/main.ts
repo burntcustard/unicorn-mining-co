@@ -13,15 +13,14 @@ import {
   renderDebugDemos,
 } from './debug';
 // @endif
-import { bindKeys, bindStart, initKeys } from './keyboard';
+import { bindKeys, initKeys, playerInput } from './client/input';
+import { network } from './client/network';
 import { camera, dockDuration, followTarget } from './camera';
 import { cargoScoop, floodlight, horn, shield } from './modules';
-import { dock, dockAt, launch } from './docking';
 import { insidePath, traceBeam } from './prism';
 import { itemTypes, message } from './items';
-import { playerShip, updatePlayer } from './player';
+import { fitStarterModules, playerShip, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './shrapnel';
-import { Asteroid } from './asteroid';
 import { GameLoop } from './game-loop';
 import { Item } from './item';
 import { Ship } from './ship';
@@ -30,30 +29,18 @@ import { Station } from './station';
 import { benchmarkFlag } from './benchmark';
 // @endif
 import { colors } from './colors';
-import { detectCollisions } from './collisions';
 import { game } from './game';
-import { generateWorld } from './world';
-// Kept with the single imports because this position compresses smaller.
-// eslint-disable-next-line sort-imports
-import { grind, mine } from './mining';
 // import { Road } from './road';
+import { Asteroid as SimulationAsteroid } from './shared/simulation/asteroid';
+import { renderAsteroid } from './client/render/asteroid';
+import { renderItem } from './client/render/item';
+import { Item as SimulationItem } from './shared/simulation/item';
 import { playSound } from './sound-loader';
 import { renderUI } from './ui';
-import { resolve } from './resolve';
-import { scoop } from './scoop';
 import { setSizing } from './set-sizing';
 import { Vector, type Vector as VectorValue } from './vector';
 import { type Module, type WorldObject } from './types';
-// @ifdef BENCHMARK
-import { testSections } from './section-test';
-// @endif
-
-type WorldBlueprint = {
-  [key: string]: any;
-  cargo: number[];
-  contents: number[];
-  position: VectorValue;
-};
+import { type Entity } from './shared/protocol/entities';
 
 type Background = {
   renderBackground: (
@@ -86,39 +73,168 @@ window.onresize = () => {
   gameStarted || renderSky();
 };
 
-const world = generateWorld(25);
-const stations = world.stations.map(
-  (properties) => new Station({ ...properties, shades: colors.white }),
-);
+const regionalObjects = new Map<number, WorldObject>();
+let stationMarkers: { position: VectorValue; radius: number }[] = [];
+let syncedCargo = '';
 
-// Closest-to-center first, so the player can start at any of the nearest few
-// without every player landing at the same one
-stations.sort((a, b) => a.position.length() ** 2 - b.position.length() ** 2);
+const materialize = ({ entity }: { entity: Entity }) => {
+  let object: WorldObject;
 
-const startingStation = stations[Math.floor(Math.random() * 3)];
-
-world.wrecks.forEach((properties) => {
-  const wreck = new Ship(properties);
-
-  properties.cargo.forEach((resource: number) => {
-    const gem = new Item({ itemData: itemTypes[resource] });
-
-    gem.remove();
-    wreck.cargo.push(gem);
-  });
-
-  if (properties.message) {
-    const note = new Item({
-      itemData: { ...message, shades: properties.shades },
-      message: properties.message,
+  if (entity.kind === 'station') {
+    object = new Station({
+      ...entity,
+      position: entity.position.add(Vector()),
+      shades: colors.white,
+    });
+  } else if (entity.kind === 'ship') {
+    const wreck = new Ship({
+      cargo: entity.cargo,
+      health: entity.health,
+      id: entity.id,
+      mass: entity.mass,
+      position: entity.position.add(Vector()),
+      radius: entity.radius,
+      rotation: entity.rotation,
+      spin: entity.spin,
+      shades: [
+        colors.yellow,
+        colors.green,
+        colors.cyan,
+        colors.red,
+        colors.orange,
+      ][entity.paint || 0],
+      velocity: entity.velocity,
     });
 
-    // Orange slates unlock paint first, then reveal their field on later pickups.
-    if (properties.shades === colors.orange) note.unlock = 'ORANGE';
-    note.remove();
-    wreck.cargo.push(note);
+    if (entity.playerId !== undefined) fitStarterModules(wreck);
+
+    entity.cargo?.forEach((resource) => {
+      const gem = new Item({ itemData: itemTypes[resource] });
+
+      gem.remove();
+      wreck.cargo.push(gem);
+    });
+    object = wreck;
+  } else if (entity.kind === 'item') {
+    object = renderItem({ item: entity as SimulationItem });
+  } else {
+    object = renderAsteroid({ asteroid: entity as SimulationAsteroid });
   }
-});
+
+  object.networked = 1;
+  regionalObjects.set(entity.id, object);
+  return object;
+};
+
+const refreshReplication = () => {
+  stationMarkers = [...network.stationMarkers.values()].map((marker) => ({
+    ...marker,
+    position: Vector(marker.position.x, marker.position.y),
+  }));
+  const entities = [...network.world.entities.values()].filter(
+    ({ id }) => id !== network.shipId,
+  );
+  const wanted = new Set(entities.map(({ id }) => id));
+
+  entities.forEach((entity) => {
+    const rendered = regionalObjects.get(entity.id);
+
+    if (
+      !rendered ||
+      ((entity.kind === 'asteroid' || entity.kind === 'item') &&
+        rendered !== entity)
+    ) {
+      rendered?.remove();
+      materialize({ entity });
+    }
+  });
+  [...regionalObjects].forEach(([id, object]) => {
+    if (!wanted.has(id) && playerShip.dockedTo !== object) {
+      object.remove();
+      regionalObjects.delete(id);
+    }
+  });
+};
+
+const syncPlayerShip = () => {
+  const entity = network.shipId
+    ? network.world.entities.get(network.shipId)
+    : undefined;
+
+  if (entity?.kind !== 'ship') return;
+  playerShip.position.set(entity.position);
+  playerShip.velocity.set(entity.velocity);
+  playerShip.rotation = entity.rotation;
+  playerShip.spin = entity.spin;
+  playerShip.launching = entity.launching || 0;
+  playerShip.fly(entity.thrust, entity.turn);
+  playerShip.dockedTo = entity.dockedTo
+    ? regionalObjects.get(entity.dockedTo)
+    : 0;
+
+  const cargo = entity.cargo || [];
+  const cargoKey = cargo.join(',');
+
+  if (cargoKey !== syncedCargo) {
+    playerShip.cargo.forEach((item) => item.remove());
+    playerShip.cargo = cargo.map((resource) => {
+      const item = new Item({ itemData: itemTypes[resource] });
+
+      item.remove();
+      return item;
+    });
+    syncedCargo = cargoKey;
+  }
+};
+
+const syncSimulationObjects = (dt: number) => {
+  [...regionalObjects].forEach(([id, object]) => {
+    const entity = network.world.entities.get(id);
+
+    if (!entity) return;
+    if (entity.kind === 'ship' && object instanceof Ship) {
+      // Remote ships extrapolate in the shared simulation. Ease their rendered
+      // copy towards each fresh authoritative path instead of visibly snapping.
+      const correction = 1 - Math.exp(-18 * dt);
+      const angle =
+        ((entity.rotation - object.rotation + Math.PI * 3) % (Math.PI * 2)) -
+        Math.PI;
+
+      object.position.set(
+        object.position.add(
+          entity.position.subtract(object.position).scale(correction),
+        ),
+      );
+      object.velocity.set(entity.velocity);
+      object.rotation += angle * correction;
+      object.spin = entity.spin;
+      object.fly(entity.thrust, entity.turn);
+      object.segments.forEach((segment) => {
+        const type = segment.module.oneOf;
+
+        if (type === cargoScoop) segment.active = Number(entity.hatch);
+        else if (type === horn) segment.active = Number(entity.drill);
+        else if (type === shield) segment.active = Number(entity.shield);
+        else if (type === floodlight) segment.active = Number(entity.light);
+      });
+      const hulls = object.segments.filter(({ hull }) => hull);
+      const surviving = Math.ceil(
+        hulls.length * Math.max(0, Math.min(1, entity.health / 100)),
+      );
+
+      hulls.forEach((segment, index) => {
+        segment.health = index < surviving ? segment.module.health : 0;
+      });
+      object.updateVisual(dt);
+    } else {
+      object.position.set(entity.position);
+      object.velocity.set(entity.velocity);
+      object.rotation = entity.rotation;
+      object.spin = entity.spin;
+      if (entity.kind === 'asteroid') object.health = entity.health;
+    }
+  });
+};
 
 // @ifdef DEBUG
 const debugWreck = new Ship({
@@ -127,47 +243,12 @@ const debugWreck = new Ship({
 });
 const debugNote = new Item({
   itemData: message,
-  message: world.wrecks[4].message,
+  message: 'REGION 0/0',
 });
 
 debugNote.unlock = 'ORANGE';
 debugNote.remove();
 debugWreck.cargo.push(debugNote);
-
-// A pocket of the smallest, violet-outlined rocks makes the amethyst field
-// behaviour easy to inspect without flying to its far-off generated field.
-[
-  [-180, -130],
-  [60, -150],
-  [250, -50],
-  [-100, 100],
-  [140, 120],
-  [350, 120],
-].forEach(([x, y], i) => {
-  const asteroid = new Asteroid({
-    contents: [],
-    points: 6,
-    radius: 100,
-    radiusEven: 25,
-    rotation: i,
-    fill: `${colors.purple[1]}9`,
-    stroke: colors.violet[2],
-    position: playerShip.position.add(Vector(900 + x, y)),
-  });
-
-  asteroid.bury(new Item({ itemData: itemTypes[1] }));
-});
-// @endif
-
-world.fields.forEach(({ asteroids }: { asteroids: WorldBlueprint[] }) =>
-  asteroids.forEach((properties: WorldBlueprint) => {
-    const object = new Asteroid({ ...properties, contents: [] });
-
-    properties.contents.forEach((resource: number) =>
-      object.bury(new Item({ itemData: itemTypes[resource] })),
-    );
-  }),
-);
 
 // @ifdef DEBUG
 debugCrafts(game);
@@ -179,19 +260,15 @@ if (benchmarkFlag('field')) {
     dockedTo: 0,
     launching: 0,
     started: 1,
-    position: world.fields[0].position.add(Vector()),
+    position: Vector(),
   });
 }
 // @endif
 
-// @ifdef BENCHMARK
-Object.assign(window, {
-  testSections: () =>
-    testSections(
-      game.sprites.filter(({ scenery }) => scenery) as Asteroid[],
-      playerShip,
-    ),
-});
+// @ifdef DEBUG
+// Lets the console (and automated checks) watch the clock the client is
+// predicting on against the last tick the server reported.
+Object.assign(window, { game, network, playerShip });
 // @endif
 
 const activeRadius = 2000;
@@ -216,7 +293,6 @@ initKeys();
     if (module === floodlight) playSound(9);
   }),
 );
-bindStart(() => gameStarted && !playerShip.started && launch(playerShip));
 bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
 bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
 bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));
@@ -256,7 +332,9 @@ const gameLoop = GameLoop({
           object.render();
           // A loose leaf cannot be mined any smaller, so its cargo stays in view.
           object.sections ||
-            object.contents.forEach((item: WorldObject) => item.render());
+            object.renderContents?.forEach((item: WorldObject) =>
+              item.render(),
+            );
         });
 
       if (zIndex === -2) {
@@ -286,7 +364,9 @@ const gameLoop = GameLoop({
               (asteroid) =>
                 asteroid.scenery &&
                 asteroid.sections &&
-                asteroid.contents.forEach((item: WorldObject) => item.render()),
+                asteroid.renderContents?.forEach((item: WorldObject) =>
+                  item.render(),
+                ),
             );
 
             ctx.restore();
@@ -316,12 +396,21 @@ const gameLoop = GameLoop({
     renderDebugDemos(game);
     // @endif
 
-    renderUI(game, stations);
+    renderUI(game, stationMarkers);
   },
   update: (dt: number) => {
+    if (playerShip.launchRequested) {
+      playerInput.launch = true;
+      playerShip.launchRequested = 0;
+    }
+    network.update({ input: playerInput });
+    syncSimulationObjects(dt);
+    syncPlayerShip();
+
     // Things that happen every fourth update (~15 FPS), or as soon as sprites
     // come or go, so shipwreck fragments are not left out: refresh the active tier.
     if (!(updates++ % 4) || spriteCount !== game.sprites.length) {
+      refreshReplication();
       spriteCount = game.sprites.length;
       activeSprites = game.sprites.filter(
         (sprite) =>
@@ -339,37 +428,38 @@ const gameLoop = GameLoop({
 
     updateSparks(dt);
     updatePlayer(dt);
+    playerShip.updateVisual(dt);
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
 
     activeSprites.forEach(
       (sprite) =>
-        !sprite.dead && !nearbySprites.includes(sprite) && sprite.update(dt),
+        !sprite.dead &&
+        !sprite.networked &&
+        !nearbySprites.includes(sprite) &&
+        sprite.update(dt),
     );
-
-    const spriteContacts = detectCollisions(activeSprites);
-    const mined = mine(spriteContacts);
-
-    scoop(spriteContacts);
-    dock(spriteContacts);
-    resolve(spriteContacts);
 
     // Things that happen four times per update (~240 FPS): the nearby tier gets
     // four smaller movements and collision passes, preserving one dt in total.
     for (let step = 4; step--;) {
-      nearbySprites.forEach((sprite) => !sprite.dead && sprite.update(dt / 4));
-      resolve(detectCollisions(nearbySprites));
+      nearbySprites.forEach(
+        (sprite) => !sprite.dead && !sprite.networked && sprite.update(dt / 4),
+      );
     }
 
-    mined.forEach(grind);
     followTarget(game, playerShip, dt);
   },
 });
 
 // Let the inline sky settle before the game reveals its real starting place.
 setTimeout(() => {
-  dockAt(playerShip, startingStation);
-  gameStarted = true;
-  gameLoop.start();
-  // Keep the camera transition clear before bringing the HUD into view.
-  setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
+  void network.ready.then(() => {
+    refreshReplication();
+    syncPlayerShip();
+    playerShip.started = 1;
+    gameStarted = true;
+    gameLoop.start();
+    // Keep the camera transition clear before bringing the HUD into view.
+    setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
+  });
 });

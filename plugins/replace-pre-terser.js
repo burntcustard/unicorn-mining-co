@@ -60,8 +60,6 @@ export const replacePreTerser = (source, flags = {}) =>
     .replace(renamedWordPattern, '_$1')
     // Strict equality is deliberately weakened throughout production code.
     .replace(/===/g, '==')
-    // These forEach calls use no return value, so map has equivalent side effects.
-    .replaceAll('.forEach(', '.map(')
     // Keep equivalent full-circle expressions consistently ordered.
     .replaceAll('2 * Math.PI', 'Math.PI * 2')
     // Keep lexical declarations consistent before bundling and Terser.

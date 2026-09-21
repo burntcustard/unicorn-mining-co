@@ -1,11 +1,9 @@
-import { Asteroid, type AsteroidSection } from './asteroid';
 import { damage } from './ship';
-import { playSound } from './sound-loader';
 import { type Collider, type Contact, type Point, type Segment } from './types';
 
 type MiningTarget = {
   [key: string]: any;
-  asteroid?: Asteroid;
+  asteroid?: MiningTarget;
   grinding?: MiningSurface | 0;
   health: number;
   sections?: unknown[];
@@ -81,41 +79,6 @@ export const mine = (contacts: Contact[]) => {
 };
 
 /**
- * Split an asteroid along the mined leaf. Cargo stays with its assigned leaf
- * until that leaf dies, then falls into space.
- *
- * @param {Object} asteroid
- */
-const breakAsteroid = (target: MiningTarget, destroyed?: boolean) => {
-  const asteroid = (target.asteroid || target) as Asteroid;
-
-  if (asteroid.dead) return;
-
-  // Let go at the asteroid's speed rather than releasing all the approach
-  // speed that the active horn's grip had been holding back
-  const grinder = target.grinding && target.grinding.hitbox.owner;
-
-  if (grinder) grinder.velocity.set(asteroid.velocity);
-
-  if (destroyed && !target.asteroid && !target.sections) {
-    playSound(4);
-  }
-
-  // Another leaf breaking in the same update can already have cut this one
-  // free as a lone chunk, which has no sections left to detach from
-  const [, loose] = target.asteroid?.sections
-    ? asteroid.detach(target as AsteroidSection, destroyed)
-    : asteroid.split();
-
-  asteroid.remove();
-
-  loose.forEach((item) => {
-    item.velocity.set(asteroid.velocity);
-    item.buried = 0;
-  });
-};
-
-/**
  * Apply one update's mining damage and destroy anything whose health is gone.
  * Called once per fixed game-loop update, however many physics substeps found
  * the horn touching it.
@@ -139,17 +102,5 @@ export const grind = (target: MiningTarget) => {
 };
 
 export const fracture = (target: MiningTarget) => {
-  const { health } = target;
-
-  if (target.asteroid && health < 1) {
-    // A pre-cut leaf comes free well shy of zero instead of first turning
-    // into another set of pieces.
-    breakAsteroid(target);
-  } else if (health < 1) {
-    if (target.asteroid || target instanceof Asteroid) {
-      breakAsteroid(target, true);
-    } else if (target.item) {
-      target.remove();
-    }
-  }
+  if (target.health < 1 && target.item) target.remove();
 };

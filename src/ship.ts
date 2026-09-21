@@ -647,6 +647,20 @@ export class Ship extends Sprite {
     });
   }
 
+  updateVisual(dt: number) {
+    this.segments.forEach((segment) => {
+      if (this.dockedTo) segment.active = 0;
+      const target = active(healthOf(segment)) ? segment.active : 0;
+
+      segment.activationProgress = approach(
+        segment.activationProgress,
+        target,
+        segment.rate * dt,
+      );
+      segment.module.update?.(segment, dt);
+    });
+  }
+
   update(dt: number) {
     if (this.cockpit && !this.dockedTo) {
       const push =
@@ -665,17 +679,7 @@ export class Ship extends Sprite {
       );
     }
 
-    this.segments.forEach((segment) => {
-      if (this.dockedTo) segment.active = 0;
-      const target = active(healthOf(segment)) ? segment.active : 0;
-
-      segment.activationProgress = approach(
-        segment.activationProgress,
-        target,
-        segment.rate * dt,
-      );
-      segment.module.update?.(segment, dt);
-    });
+    this.updateVisual(dt);
 
     super.update(dt);
 

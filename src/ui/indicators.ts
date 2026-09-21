@@ -1,8 +1,8 @@
-import { Vector } from '../vector';
+import { Vector, type Vector as VectorValue } from '../vector';
 import { camera } from '../camera';
 import { outline } from '../outline';
 import { renderText } from '../text';
-import { type GameState, type WorldObject } from '../types';
+import { type GameState } from '../types';
 
 /**
  * @param {Object} game
@@ -12,7 +12,7 @@ import { type GameState, type WorldObject } from '../types';
  */
 export const renderIndicators = (
   game: GameState,
-  targets: WorldObject[],
+  targets: Array<{ position: VectorValue; radius: number }>,
   color: string,
   range: number,
 ) => {

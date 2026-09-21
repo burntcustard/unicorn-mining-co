@@ -9,8 +9,8 @@
 
 class VectorClass {
   constructor(
-    public x = 0,
-    public y = 0,
+    public x: number,
+    public y: number,
   ) {}
 
   set(vector: Vector) {

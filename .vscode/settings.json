@@ -114,6 +114,7 @@
     "/^node -e \"\nconst code = fs\\.readFileSync\\('dist/minified\\.js', 'utf8'\\);\nconst props = new Set\\(code\\.match\\(/\\\\\\.\\[a-zA-Z0-9_\\$\\]\\+/g\\) \\|\\| \\[\\]\\);\nconsole\\.log\\(\\[\\.\\.\\.props\\]\\.sort\\(\\)\\.join\\('\\\\n'\\)\\);\n\"$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "npx tsc": true
   }
 }

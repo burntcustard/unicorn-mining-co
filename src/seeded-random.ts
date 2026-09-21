@@ -5,3 +5,7 @@
  **/
 export const seededRandom = (seed: number) => () =>
   (seed = ((seed + 1) * 48271) % 2147483647) / 2147483647;
+
+export const createRandom = (seed = 1) => ({ next: seededRandom(seed) });
+
+export type Random = ReturnType<typeof createRandom>;

@@ -1,29 +1,20 @@
 import { forget, game } from './game';
-import { Vector, type Vector as VectorValue } from './vector';
+import { Vector } from './vector';
 import { getContext } from './core';
 import { localMovement } from './local-movement';
-import { move } from './move';
+import { SimulationEntity } from './shared/simulation/entity';
 
 /**
  * Shared position and movement state for physical game objects. Position and
  * velocity default to zero Vectors; supplied properties replace the defaults.
  */
-export class Sprite {
+export class Sprite extends SimulationEntity {
   [key: string]: any;
-
-  position: VectorValue;
-  radius: number;
-  rotation: number;
-  spin: number;
-  velocity: VectorValue;
 
   constructor(properties: any) {
     const { position = Vector(), velocity = Vector() } = properties;
 
-    this.position = position;
-    this.velocity = velocity;
-    this.rotation = 0;
-    this.spin = 0;
+    super({ id: properties.id || 0, ...properties, position, velocity });
     this.ctx = getContext();
     Object.assign(this, properties);
     this.add();
@@ -56,8 +47,7 @@ export class Sprite {
       return;
     }
 
-    this.rotation += this.spin * dt;
-    move(this, dt);
+    super.update(dt);
     localMovement(this, game.crafts, dt);
   }
 }

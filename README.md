@@ -49,13 +49,21 @@ WHITE - Unlocked by default from the start of the game.
 2. Install dependencies
    `npm install`
 
-3. Run dev command to start up hot-reloading with [Vite](https://vitejs.dev/) at [localhost:3000](http://localhost:3000/) (you will need to open that URL yourself!)
+3. Start the authoritative game server
+   `npm run dev:server`
+
+4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
+   [localhost:3000](http://localhost:3000/)
    `npm run dev`
 
-4. Compile [index.html](dist/index.html) and its JavaScript chunks
+5. Compile [index.html](dist/index.html) and its JavaScript chunks
    `npm run build`
 
-5. See [package.json](package.json) for other scripts
+6. To run that production build locally, keep `npm run start:server` running in
+   one terminal and serve the build from another
+   `npm run preview`
+
+7. See [package.json](package.json) for other scripts
 
 ## Build
 

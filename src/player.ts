@@ -9,8 +9,6 @@ import {
 } from './modules';
 import { Ship } from './ship';
 import { colors } from './colors';
-import { downKeys } from './keyboard';
-import { flyOut } from './docking';
 import { updateThrusterSound } from './sound-loader';
 import { Vector } from './vector';
 import {
@@ -29,6 +27,7 @@ export const playerShip = new Ship({
   note: '',
   noteFor: 0,
   hudAlpha: 0,
+  networked: 1,
 });
 
 // @ifdef DEBUG
@@ -74,14 +73,14 @@ thrusters.forEach((thruster) =>
 );
 Object.assign(cargoScoop, { shades: colors.violet });
 Object.assign(shield, { shades: colors.violet });
-playerShip.modules = [
-  thrusterDualMd,
-  cargoScoop,
-  cargoScoop,
-  horn,
-  floodlight,
-].map(instanceOf);
-playerShip.modules.forEach((module: Module) => playerShip.fit(module));
+export const fitStarterModules = (ship: Ship) => {
+  ship.modules = [thrusterDualMd, cargoScoop, cargoScoop, horn, floodlight].map(
+    instanceOf,
+  );
+  ship.modules.forEach((module: Module) => ship.fit(module));
+};
+
+fitStarterModules(playerShip);
 
 /**
  * @param {String} text - Upper case, and only what the font actually has.
@@ -118,20 +117,8 @@ export const updatePlayer = (dt: number) => {
   if (playerShip.position.length() >= 5e4)
     unlockColor('YELLOW', 'EDGE REACHED');
 
-  // A launching ship sees itself out of the bay
-  const launching = flyOut(playerShip, dt);
-
-  playerShip.fly(
-    launching ||
-      (!playerShip.dockedTo && (downKeys as Record<string, number>)['Up'])
-      ? 1
-      : 0,
-    launching || playerShip.dockedTo
-      ? 0
-      : (downKeys['ht'] as number) - (downKeys['ft'] as number),
-  );
-  // Normalize spin against the same steering limit used by Ship.update.
-  // Steering effort also covers braking a spin and reversing turn direction.
+  // Normalize the replicated spin against the same steering limit used by the
+  // simulation. Steering effort also covers braking and reversing direction.
   const turningSpeed =
     ((playerShip.spin as number) * 16) /
     ((playerShip.turnRate as number) *
