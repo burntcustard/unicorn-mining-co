@@ -3,12 +3,12 @@
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
 
-globalThis.window = {};
-globalThis.KeyboardEvent = class {
-  constructor(type, { key }) {
+globalThis.window = new EventTarget();
+globalThis.KeyboardEvent = class extends Event {
+  constructor(type, { key, repeat = false }) {
+    super(type, { cancelable: true });
     this.key = key;
-    this.repeat = false;
-    this.type = type;
+    this.repeat = repeat;
   }
 };
 
@@ -34,20 +34,49 @@ const input = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
-input.initKeys();
-window.onkeydown(new KeyboardEvent('keydown', { key: 'd' }));
+const changes = [];
+input.initKeys({ onChange: (state) => changes.push(state) });
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
 assert.equal(input.playerInput.drill, true);
-window.onkeyup(new KeyboardEvent('keyup', { key: 'd' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
 assert.equal(input.playerInput.drill, true);
-window.onkeydown(new KeyboardEvent('keydown', { key: 'd' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
 assert.equal(input.playerInput.drill, false);
 
 console.log('toggle input test passed');
+
+const beforeTap = changes.length;
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+assert.equal(changes.at(-1).turn, -1, 'press is captured synchronously');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' }));
+assert.equal(
+  changes.at(-1).turn,
+  0,
+  'release is captured before any frame runs',
+);
+assert.equal(changes.length, beforeTap + 2);
+assert.equal(
+  changes.at(-2).turn,
+  -1,
+  'captured states are not mutable aliases',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+window.dispatchEvent(new Event('blur'));
+assert.equal(input.playerInput.thrust, 0);
+assert.equal(input.playerInput.turn, 0, 'focus loss releases movement');
+let escaped = false;
+input.bindKeys('Escape', () => {
+  escaped = true;
+});
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+assert(escaped, 'full key names work for menu bindings');
 
 const clock = globalThis.performance;
 let now = 0;
 let updates = 0;
 let renders = 0;
+let frameTime;
 const frames = [];
 globalThis.performance = { now: () => now };
 globalThis.canvas = { width: 1, height: 1 };
@@ -55,25 +84,45 @@ globalThis.requestAnimationFrame = (frame) => frames.push(frame);
 try {
   input
     .GameLoop({
-      update() {
+      update(timing) {
         updates++;
+        frameTime = timing;
+        // Vary the time spent simulating without moving the frame's clock.
+        now += updates % 2 ? 8 : 1;
       },
-      render() {
+      render(timing) {
+        const { dt } = timing;
+        assert.equal(
+          timing,
+          frameTime,
+          'prediction and rendering share the timestamp from before update work',
+        );
+        assert(timing.now < now, 'CPU work must not advance the rendered pose');
         renders++;
+        assert(
+          dt > 0 && dt <= 0.1,
+          'camera frame time is bounded after stalls',
+        );
       },
     })
     .start();
   now = 750;
   frames.shift()();
-  assert(updates <= 4, 'a stall must not trigger dozens of catch-up updates');
+  assert.equal(updates, 1, 'a stall must not trigger catch-up updates');
   assert.equal(renders, 1, 'the stalled frame still renders');
   now += 1000 / 60;
   frames.shift()();
-  assert(updates <= 5, 'old frame debt must not carry into the next frame');
+  assert.equal(updates, 2, 'old frame debt must not carry into the next frame');
   now += 2000;
   frames.shift()();
-  assert(updates <= 9, 'a long background pause is bounded too');
+  assert.equal(updates, 3, 'a long background pause is bounded too');
   assert.equal(renders, 3);
+  for (let frame = 0; frame < 12; frame++) {
+    now += 1000 / 120;
+    frames.shift()();
+  }
+  assert.equal(updates, 15, 'each high-refresh frame updates before rendering');
+  assert.equal(renders, updates);
 } finally {
   globalThis.performance = clock;
   delete globalThis.requestAnimationFrame;

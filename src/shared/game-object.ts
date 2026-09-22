@@ -2,7 +2,7 @@ import { Vector, type Vector as VectorValue } from './vector';
 import { createRandom, type Random } from './seeded-random';
 import { move } from './simulation/movement';
 import { localMovement } from './simulation/local-movement';
-import { type Collider } from './simulation/physics';
+import { type Collider } from './physics/collision/types';
 import { type SimulationWorld } from './simulation/world';
 
 let nextId = -1;
@@ -13,6 +13,8 @@ export class GameObject {
   velocity: VectorValue;
   rotation = 0;
   spin = 0;
+  angularDrag = 0;
+  angularInertiaScale = 1;
   mass = 0;
   radius = 0;
   dead = false;
@@ -83,6 +85,7 @@ export class GameObject {
       this.remove();
       return;
     }
+    this.spin *= Math.exp(-this.angularDrag * dt);
     this.rotation += this.spin * dt;
     move(this, dt);
     localMovement(

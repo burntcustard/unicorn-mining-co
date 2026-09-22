@@ -1,21 +1,32 @@
 import { type PlayerId } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
 import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
-import { detectCollisions, resolve } from './collisions';
+import { type InputFrame } from '../protocol/input-frame';
+import { GamePhysics } from '../physics/game-physics';
+import { Vector } from '../vector';
 import { dock } from './docking';
 import { mine } from './mining';
-import { type Contact } from './physics';
 import { controlShip } from '../craft/control-ship';
 import { scoop } from './scoop';
 import { type SimulationWorld } from './world';
 import { Ship } from '../craft/ship';
-import { updateEntities } from './update-tier';
+import { updateEntities, simulationStep } from './update-tier';
 
-/** Advance every entity through the shared gameplay and compound-SAT pipeline. */
-export const updateWorld = (
-  world: SimulationWorld,
-  inputs: Map<PlayerId, PlayerInput>,
-): SimulationEvent[] => {
+const physicsWorlds = new WeakMap<SimulationWorld, GamePhysics>();
+
+/*
+ * Preserve gameplay movement, then sweep it through shared rigid-body physics.
+ * The resulting physical and sensor contacts drive docking, scooping and mining.
+ */
+export const updateWorld = ({
+  world,
+  inputs,
+  dt = simulationStep,
+}: {
+  world: SimulationWorld;
+  inputs: Map<PlayerId, PlayerInput | InputFrame>;
+  dt?: number;
+}): SimulationEvent[] => {
   const events: SimulationEvent[] = [];
   world.entities.forEach((entity) => {
     if (entity instanceof Ship)
@@ -27,18 +38,31 @@ export const updateWorld = (
   world.players.forEach((player, playerId) => {
     const ship = world.entities.get(player.shipId);
 
+    const input = inputs.get(playerId) || emptyPlayerInput();
     if (ship instanceof Ship)
-      controlShip(ship, inputs.get(playerId) || emptyPlayerInput(), events);
+      controlShip(ship, 'changes' in input ? input.input : input, events);
   });
 
-  const contacts: Contact[] = [];
-  updateEntities({
-    world,
-    afterUpdate: ({ entities, substep }) => {
-      const found = detectCollisions({ entities });
-      contacts.push(...found);
-      resolve({ contacts: found, events: substep ? undefined : events });
-    },
+  let physics = physicsWorlds.get(world);
+  if (!physics) {
+    physics = new GamePhysics();
+    physicsWorlds.set(world, physics);
+  }
+  const previous = new Map(
+    [...world.entities].map(([id, entity]) => [
+      id,
+      {
+        position: entity.position.add(Vector()),
+        rotation: entity.rotation,
+      },
+    ]),
+  );
+  updateEntities({ world, inputs, events, dt });
+  const contacts = physics.step({
+    entities: [...world.entities.values()],
+    previous,
+    dt,
+    events,
   });
 
   dock({ contacts, events });

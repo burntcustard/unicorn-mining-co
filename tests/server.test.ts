@@ -7,9 +7,56 @@ import { GameServer } from '../src/server/game-server';
 import { createAsteroid } from '../src/shared/simulation/asteroid';
 import { Item } from '../src/shared/items/item';
 import { type ServerMessage } from '../src/shared/protocol/network';
-import { protocolVersion } from '../src/shared/protocol/network';
 import { addEntity } from '../src/shared/simulation/world';
 import { Vector } from '../src/shared/vector';
+import { rotatePoint } from '../src/shared/geometry';
+import { simulationStep } from '../src/shared/simulation/update-tier';
+
+// Integer-millisecond timer delays must not turn 30 Hz into 30.303 Hz.
+{
+  const original = {
+    performance: globalThis.performance,
+    setTimeout: globalThis.setTimeout,
+    setInterval: globalThis.setInterval,
+    clearTimeout: globalThis.clearTimeout,
+    clearInterval: globalThis.clearInterval,
+  };
+  let now = 0;
+  let pending: { callback: () => void; delay: number };
+  const schedule = (callback: () => void, delay: number) => {
+    pending = { callback, delay: Math.max(1, Math.trunc(delay)) };
+    return 1;
+  };
+  const timed = new GameServer({ port: 0 });
+  Object.assign(globalThis, {
+    performance: { now: () => now },
+    setTimeout: schedule,
+    setInterval: schedule,
+    clearTimeout() {},
+    clearInterval() {},
+  });
+  try {
+    timed.start();
+    for (let tick = 1; tick <= 1000; tick++) {
+      now += pending!.delay;
+      pending!.callback();
+      assert(
+        Math.abs(now - tick * simulationStep * 1000) <= 1.001,
+        'server deadlines must not accumulate timer rounding or processing costs',
+      );
+      // Include variable simulation/scheduling overhead between callbacks.
+      const cost = tick % 3;
+      now += cost;
+      pending!.delay -= cost;
+    }
+    now += 1000;
+    pending!.callback();
+    assert(pending!.delay >= 1, 'a stall must not schedule a catch-up storm');
+  } finally {
+    await timed.stop();
+    Object.assign(globalThis, original);
+  }
+}
 
 const waitFor = async ({
   messages,
@@ -76,9 +123,7 @@ const messages: ServerMessage[] = [];
 
 collect({ messages, socket });
 await once(socket, 'open');
-socket.send(
-  JSON.stringify({ playerToken: null, protocolVersion, type: 'hello' }),
-);
+socket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
 
 const welcome = await waitFor({ messages, type: 'welcome' });
 const load = await waitFor({ messages, type: 'load' });
@@ -113,7 +158,7 @@ assert(
 
 const playerShip = server.world.entities.get(welcome.shipId);
 
-assert(playerShip?.kind === 'ship');
+assert(playerShip instanceof Ship);
 server.world.entities.forEach((entity) => {
   if (entity.kind === 'asteroid') server.world.entities.delete(entity.id);
 });
@@ -134,7 +179,11 @@ socket.send(
   }),
 );
 await waitUntil({
-  condition: () => playerShip.moduleActive({ module: Horn }),
+  condition: () =>
+    playerShip.segments.some(
+      (segment) =>
+        segment.module instanceof Horn && segment.activationProgress > 0.5,
+    ),
 });
 const asteroid = addEntity(
   server.world,
@@ -146,7 +195,11 @@ const asteroid = addEntity(
       [-25, 25],
       [-25, -25],
     ],
-    position: playerShip.position.add(Vector(55)),
+    // Touch the deployed drill, rather than spawning a rock inside the hull.
+    position: playerShip.position.add(
+      rotatePoint(Vector(70), playerShip.rotation),
+    ),
+    rotation: playerShip.rotation,
     radius: 25,
   }),
 );
@@ -160,7 +213,9 @@ const item = [...server.world.entities.values()].find(
 );
 
 assert(item);
-item.position.set(playerShip.position.add(Vector(3, -13)));
+item.position.set(
+  playerShip.position.add(rotatePoint(Vector(3, -13), playerShip.rotation)),
+);
 item.velocity.set(Vector());
 socket.send(
   JSON.stringify({
@@ -264,6 +319,42 @@ assert.equal(
 );
 assert.equal(playerShip.turn, 0);
 
+const tapTick = server.world.tick + 3;
+for (const { sequence, offset, thrust } of [
+  { sequence: 6, offset: 0.005, thrust: 1 },
+  { sequence: 7, offset: 0.015, thrust: 0 },
+]) {
+  socket.send(
+    JSON.stringify({
+      type: 'input',
+      tick: tapTick,
+      sequence,
+      offset,
+      input: {
+        drill: false,
+        hatch: false,
+        light: false,
+        shield: false,
+        launch: false,
+        thrust,
+        turn: 0,
+      },
+    }),
+  );
+}
+await waitUntil({
+  condition: () =>
+    messages.some(
+      (message) =>
+        message.type === 'snapshot' && message.acknowledgedSequence === 7,
+    ),
+});
+assert.equal(playerShip.thrust, 0, 'a within-tick release stops thrust');
+assert(
+  playerShip.velocity.length() > 0.1,
+  'the preceding short press was not overwritten',
+);
+
 const stationEntity = startingStation;
 
 assert(stationEntity);
@@ -285,7 +376,7 @@ socket.send(
       thrust: 0,
       turn: 0,
     },
-    sequence: 6,
+    sequence: 8,
     tick: server.world.tick,
     type: 'input',
   }),
@@ -301,14 +392,12 @@ await waitUntil({
     ),
 });
 
-const secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+let secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}`);
 const secondMessages: ServerMessage[] = [];
 
 collect({ messages: secondMessages, socket: secondSocket });
 await once(secondSocket, 'open');
-secondSocket.send(
-  JSON.stringify({ playerToken: null, protocolVersion, type: 'hello' }),
-);
+secondSocket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
 const secondWelcome = await waitFor({
   messages: secondMessages,
   type: 'welcome',
@@ -365,6 +454,79 @@ assert.equal(
   messages.some(({ type }) => (type as string) === 'remoteInput'),
   false,
 );
+
+// Both a reconnect after disconnecting and a live connection takeover start
+// a new input sequence, while keeping the same player and ship.
+for (const disconnectFirst of [true, false]) {
+  const previousSocket = secondSocket;
+  const previousClosed = once(previousSocket, 'close');
+
+  if (disconnectFirst) {
+    previousSocket.close();
+    await previousClosed;
+  }
+
+  secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+  const reconnectMessages: ServerMessage[] = [];
+
+  collect({ messages: reconnectMessages, socket: secondSocket });
+  await once(secondSocket, 'open');
+  secondSocket.send(
+    JSON.stringify({ playerToken: secondWelcome.playerToken, type: 'hello' }),
+  );
+  const reconnectWelcome = await waitFor({
+    messages: reconnectMessages,
+    type: 'welcome',
+  });
+  const reconnectLoad = await waitFor({
+    messages: reconnectMessages,
+    type: 'load',
+  });
+
+  await previousClosed;
+  assert.equal(reconnectWelcome.type, 'welcome');
+  assert.equal(reconnectWelcome.playerId, secondWelcome.playerId);
+  assert.equal(reconnectWelcome.shipId, secondWelcome.shipId);
+  assert.equal(reconnectLoad.type, 'load');
+  assert.equal(reconnectLoad.acknowledgedSequence, 0);
+  secondSocket.send(
+    JSON.stringify({
+      type: 'input',
+      sequence: 1,
+      tick: server.world.tick,
+      input: {
+        thrust: 1,
+        turn: -1,
+        hatch: true,
+        light: true,
+        drill: false,
+        shield: false,
+      },
+    }),
+  );
+  await waitUntil({
+    condition: () =>
+      reconnectMessages.some(
+        (message) =>
+          message.type === 'snapshot' &&
+          message.acknowledgedSequence === 1 &&
+          message.fullEntities.some(
+            (entity) =>
+              entity.id === secondWelcome.shipId &&
+              entity.thrust === 1 &&
+              entity.turn === -1 &&
+              entity.modules?.some(
+                ({ type, parts }) =>
+                  type === 5 && parts.some((part) => part.active),
+              ) &&
+              entity.modules?.some(
+                ({ type, parts }) =>
+                  type === 4 && parts.some((part) => part.active),
+              ),
+          ),
+      ),
+  });
+}
 
 const closed = Promise.all([
   once(socket, 'close'),

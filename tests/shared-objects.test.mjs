@@ -23,7 +23,7 @@ import { Asteroid } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
 import { moduleTypes, Horn } from '${process.cwd()}/src/shared/modules/index.ts';
 import { createWreckage } from '${process.cwd()}/src/shared/craft/create-wreckage.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/shared/simulation/world.ts';
-import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/shared/simulation/world-state.ts';
+import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/shared/physics/serializer/world-state.ts';
 import { Vector } from '${process.cwd()}/src/shared/vector.ts';
 
 assert.equal(typeof document, 'undefined');

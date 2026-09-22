@@ -20,7 +20,13 @@ const cache = new WeakMap<
   }
 >();
 
-export const presentation = ({ asteroid }: { asteroid: Asteroid }) => {
+export const presentation = ({
+  asteroid,
+  pose = asteroid,
+}: {
+  asteroid: Asteroid;
+  pose?: Pick<Asteroid, 'position' | 'rotation'>;
+}) => {
   const sections = asteroid.sections || [
     { outline: outlineOf(asteroid), contents: asteroid.contents },
   ];
@@ -46,17 +52,17 @@ export const presentation = ({ asteroid }: { asteroid: Asteroid }) => {
   }
   asteroid.parts = asteroid.sections;
   asteroid.renderContents = state.buried.map(({ item, local, rotation }) => {
-    const cosine = Math.cos(asteroid.rotation),
-      sine = Math.sin(asteroid.rotation);
+    const cosine = Math.cos(pose.rotation),
+      sine = Math.sin(pose.rotation);
     item.position.set(
-      asteroid.position.add(
+      pose.position.add(
         Vector(
           local.x * cosine - local.y * sine,
           local.x * sine + local.y * cosine,
         ),
       ),
     );
-    item.rotation = rotation + asteroid.rotation;
+    item.rotation = rotation + pose.rotation;
     return item;
   });
   return state;

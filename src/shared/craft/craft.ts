@@ -6,7 +6,7 @@ import { GameObject } from '../game-object';
 import { colors } from '../colors';
 import { Vector, type Vector as VectorValue } from '../vector';
 import { applyForce } from '../simulation/apply-force';
-import { outerEdges } from '../simulation/collisions';
+import { outerEdges } from '../physics/collision/outer-edges';
 import { Module } from '../modules/module';
 import { type Mount, type Outline, type Palette, type Segment } from '../types';
 import { entityId } from '../simulation/world';

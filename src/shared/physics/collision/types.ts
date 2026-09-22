@@ -1,15 +1,17 @@
-import { type Vector } from '../vector';
-import { type GameObject } from '../game-object';
-import { type Segment } from '../types';
+import { type Vector } from '../../vector';
+import { type GameObject } from '../../game-object';
+import { type Segment } from '../../types';
+import { type AsteroidSection } from '../../protocol/entities';
 
 export type Outline = number[][] & { edges?: boolean[] };
 
 export type Collider = {
   bounciness?: number;
+  collisionMargin?: number;
   dockSegment?: boolean;
   outline?: Outline;
   owner: GameObject;
-  part?: unknown;
+  part?: AsteroidSection;
   segment?: Segment;
   speed?: number;
   physics?: boolean;
@@ -20,6 +22,7 @@ export type Collider = {
 };
 
 export type Contact = {
+  swept?: boolean;
   collider: Collider;
   depth: number;
   normal: Vector;

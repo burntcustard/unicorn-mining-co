@@ -1,7 +1,7 @@
 import { CargoScoop } from '../modules';
 import { type SimulationEvent } from '../protocol/events';
 import { Item } from '../items/item';
-import { type Contact } from './physics';
+import { type Contact } from '../physics/collision/types';
 import { Ship } from '../craft/ship';
 import { type SimulationWorld } from './world';
 
@@ -15,7 +15,7 @@ export const scoop = ({
   events: SimulationEvent[];
   world: SimulationWorld;
 }) => {
-  contacts.forEach(({ collider, other }) => {
+  contacts.forEach(({ collider, other, swept }) => {
     const throat = collider.role === 'scoop' ? collider : other;
     const cargoCollider = throat === collider ? other : collider;
     const ship = throat.owner;
@@ -28,7 +28,7 @@ export const scoop = ({
       ship.playerId === undefined ||
       !(item instanceof Item) ||
       !world.entities.has(item.id) ||
-      item.position.distanceTo(throat.position) > throat.radius
+      (!swept && item.position.distanceTo(throat.position) > throat.radius)
     )
       return;
     if (ship.cargoContents.length >= ship.cargoSpace) return;

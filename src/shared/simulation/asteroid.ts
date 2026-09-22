@@ -4,8 +4,10 @@ import { createRandom } from '../seeded-random';
 import { type AsteroidSection } from '../protocol/entities';
 import { addEntity, type SimulationWorld, entityId } from './world';
 import { GameObject } from '../game-object';
-import { type Collider, type Outline } from './physics';
-import { outerEdges } from './collisions';
+import { type Collider, type Outline } from '../physics/collision/types';
+import { outerEdges } from '../physics/collision/outer-edges';
+import { createItem } from '../items/create-item';
+import { type SimulationEvent } from '../protocol/events';
 
 // Enough of a wander that no two asteroids come out the same shape
 export const asteroidVariance = 0.2;
@@ -376,6 +378,7 @@ export const asteroidContact = ({
 };
 
 export class Asteroid extends GameObject {
+  static angularDrag = 0.15;
   contents: number[];
   decay?: number;
   health: number;
@@ -444,7 +447,9 @@ export class Asteroid extends GameObject {
   }
 
   hitboxes(): Collider[] {
+    // Cut faces already meet exactly; polygon padding would overlap siblings.
     const parts = this.sections?.map((section) => ({
+      collisionMargin: 0,
       outline: section.outline as Outline,
       owner: this,
       part: section,
@@ -453,11 +458,25 @@ export class Asteroid extends GameObject {
       rotation: this.rotation,
     }));
 
+    const outline = outlineOf(this);
+    const center = !parts?.length && centerOf(outline);
+    // Detached leaves get a tiny collision-only inset. Keep the render outline,
+    // mass and resources intact, and never shrink the remaining asteroid.
+    const collisionOutline = center
+      ? outline.map(([x, y]) => {
+          const offset = Vector(x, y).subtract(center);
+          const point = center.add(
+            offset.scale(Math.max(0.5, 1 - 0.1 / (offset.length() || 1))),
+          );
+          return [point.x, point.y];
+        })
+      : outline;
     return [
       Object.assign(
         {
           bounciness: 0.1,
-          outline: outlineOf(this) as Outline,
+          collisionMargin: 0,
+          outline: collisionOutline as Outline,
           owner: this,
           position: this.position,
           radius: this.radius,
@@ -466,6 +485,47 @@ export class Asteroid extends GameObject {
         parts?.length && { parts },
       ),
     ];
+  }
+
+  fracture({
+    section,
+    by,
+    events,
+    world,
+  }: {
+    section?: AsteroidSection;
+    by: number;
+    events: SimulationEvent[];
+    world: SimulationWorld;
+  }) {
+    if (this.dead) return false;
+    if (this.health < 1) {
+      this.remove();
+      this.contents.forEach((resource) =>
+        addEntity(
+          world,
+          createItem(world, {
+            position: this.position.add(Vector()),
+            resource,
+            velocity: this.velocity.add(Vector()),
+          }),
+        ),
+      );
+      events.push({
+        type: 'asteroidDestroyed',
+        asteroidId: this.id,
+        by,
+        contents: this.contents,
+      });
+    } else if (section && section.health < 1) {
+      const children = this.detach({ section, world });
+      events.push({
+        type: 'asteroidSplit',
+        asteroidId: this.id,
+        childIds: children.map((child) => child.id),
+      });
+    } else return false;
+    return true;
   }
 
   detach({

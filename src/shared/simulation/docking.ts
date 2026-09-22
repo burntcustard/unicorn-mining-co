@@ -1,6 +1,6 @@
 import { type SimulationEvent } from '../protocol/events';
 import { Vector } from '../vector';
-import { type Contact } from './physics';
+import { type Contact } from '../physics/collision/types';
 import { Ship } from '../craft/ship';
 import { Station } from '../craft/station';
 

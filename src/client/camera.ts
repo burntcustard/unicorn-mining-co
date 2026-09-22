@@ -35,7 +35,7 @@ export const centerCamera = (game: GameState, target: WorldObject) => {
  */
 export const followTarget = (
   game: GameState,
-  target: WorldObject,
+  target: Pick<WorldObject, 'position' | 'dockedTo'>,
   dt: number,
 ) => {
   if (target.dockedTo) {

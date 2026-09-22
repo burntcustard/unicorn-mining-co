@@ -1,12 +1,12 @@
-import { Vector } from '../vector';
+import { type Vector } from '../vector';
 import { type AsteroidSection } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
 import { Asteroid } from './asteroid';
-import { createItem } from '../items/create-item';
-import { type Contact } from './physics';
+import { type Contact } from '../physics/collision/types';
 import { Ship } from '../craft/ship';
-import { addEntity, type SimulationWorld } from './world';
+import { type SimulationWorld } from './world';
 import { type Segment } from '../types';
+import { simulationStep } from './update-tier';
 
 type MiningSurface = {
   asteroid: Asteroid;
@@ -15,36 +15,6 @@ type MiningSurface = {
   section?: AsteroidSection;
   ship: Ship;
   segment: Segment;
-};
-
-const destroy = ({
-  asteroid,
-  by,
-  events,
-  world,
-}: {
-  asteroid: Asteroid;
-  by: number;
-  events: SimulationEvent[];
-  world: SimulationWorld;
-}) => {
-  asteroid.remove();
-  asteroid.contents.forEach((resource) =>
-    addEntity(
-      world,
-      createItem(world, {
-        position: asteroid.position.add(Vector()),
-        resource,
-        velocity: asteroid.velocity.add(Vector()),
-      }),
-    ),
-  );
-  events.push({
-    asteroidId: asteroid.id,
-    by,
-    contents: asteroid.contents,
-    type: 'asteroidDestroyed',
-  });
 };
 
 /** Apply one mining bite to the exact asteroid section touched by each drill. */
@@ -76,15 +46,11 @@ export const mine = ({
       asteroid.dead
     )
       return;
-    const section = asteroid.sections?.includes(rock.part as AsteroidSection)
-      ? (rock.part as AsteroidSection)
-      : undefined;
-
     surfaces.push({
       asteroid,
       depth,
       position: drill.position,
-      section,
+      section: rock.part,
       ship,
       segment: drill.segment,
     });
@@ -98,17 +64,17 @@ export const mine = ({
       if (drills.has(segment) || !world.entities.has(asteroid.id)) return;
       drills.add(segment);
       segment.biting = true;
-      const drillDamage = segment.module.damage;
+      const biteSteps = simulationStep * 60;
+      const drillDamage = segment.module.damage * biteSteps;
 
       const pull = asteroid.position.subtract(ship.position).normalize();
       const grip = asteroid.velocity
         .subtract(ship.velocity)
-        .scale(0.1)
-        .add(pull);
+        .scale(1 - 0.9 ** biteSteps)
+        .add(pull.scale((1 - 0.9 ** biteSteps) / 0.1));
 
       ship.velocity.set(ship.velocity.add(grip));
-      if (section) section.health -= drillDamage;
-      else asteroid.health -= drillDamage;
+      (section || asteroid).health -= drillDamage;
       events.push({
         asteroidId: asteroid.id,
         by: ship.playerId!,
@@ -118,17 +84,14 @@ export const mine = ({
         type: 'asteroidMined',
       });
 
-      if (section && section.health < 1) {
+      if (
+        asteroid.fracture({
+          section,
+          by: ship.playerId!,
+          events,
+          world,
+        })
+      )
         ship.velocity.set(asteroid.velocity);
-        const children = asteroid.detach({ section, world });
-        events.push({
-          type: 'asteroidSplit',
-          asteroidId: asteroid.id,
-          childIds: children.map((child) => child.id),
-        });
-      } else if (asteroid.health < 1) {
-        ship.velocity.set(asteroid.velocity);
-        destroy({ asteroid, by: ship.playerId!, events, world });
-      }
     });
 };

@@ -1,35 +1,31 @@
 import { type GameObject } from '../game-object';
 import { type SimulationWorld } from './world';
+import { type PlayerId } from '../protocol/entities';
+import { type PlayerInput } from '../protocol/input';
+import { type InputFrame } from '../protocol/input-frame';
+import { type SimulationEvent } from '../protocol/events';
+import { controlShip } from '../craft/control-ship';
+import { Ship } from '../craft/ship';
 
-export const simulationStep = 1 / 60;
+export const simulationStep = 1 / 30;
+// Authoritative ticks run at 30 Hz; client prediction can sample a partial tick.
+// Visible movement normally uses 1/60 s subdivisions, independent of rendering.
+// Replication sends nearby state at 30 Hz and distant state at 7.5 Hz.
 export const updateTiers = {
-  close: { substeps: 2, updateEvery: 1, replicateEvery: 1 },
-  visible: { substeps: 1, updateEvery: 1, replicateEvery: 2 },
-  distant: { substeps: 1, updateEvery: 4, replicateEvery: 8 },
+  visible: { substeps: 2, updateEvery: 1, replicateEvery: 1 },
+  distant: { substeps: 1, updateEvery: 2, replicateEvery: 4 },
 } as const;
 
 /*
- * Include hull extents and relative travel in the small-collision tier.
+ * Nearby and on-screen objects share the same movement schedule.
  */
 export const updateTier = ({
   entity,
   observers,
 }: {
-  entity: GameObject;
-  observers: GameObject[];
+  entity: Pick<GameObject, 'position'>;
+  observers: Pick<GameObject, 'position'>[];
 }) => {
-  if (
-    observers.some(
-      (observer) =>
-        entity.position.distanceTo(observer.position) <=
-        100 +
-          entity.radius +
-          observer.radius +
-          (entity.velocity.length() + observer.velocity.length()) *
-            simulationStep,
-    )
-  )
-    return updateTiers.close;
   return observers.some(
     (observer) => entity.position.distanceTo(observer.position) <= 2000,
   )
@@ -39,47 +35,67 @@ export const updateTier = ({
 
 /*
  * One movement schedule for normal simulation and snapshot catch-up.
- * Normal simulation adds contacts after each pass; catch-up only moves bodies.
+ * The normal world update sweeps the resulting motion through physics;
+ * snapshot catch-up only moves bodies.
  * Pending time is mechanics state, so tier changes and rollback preserve it.
  */
 export const updateEntities = ({
   world,
   entities = [...world.entities.values()],
   tick = world.tick,
-  afterUpdate,
+  inputs,
+  events = [],
+  dt = simulationStep,
 }: {
   world: SimulationWorld;
   entities?: GameObject[];
   tick?: number;
-  afterUpdate?: (pass: { entities: GameObject[]; substep: number }) => void;
+  inputs?: Map<PlayerId, PlayerInput | InputFrame>;
+  events?: SimulationEvent[];
+  dt?: number;
 }) => {
   const observers = [...world.players.values()]
     .map((player) => world.entities.get(player.shipId))
     .filter((entity) => entity !== undefined);
-  const scheduled = entities.map((entity) => ({
-    entity,
-    tier: observers.length
+  const scheduled = entities.map((entity) => {
+    const tier = observers.length
       ? updateTier({ entity, observers })
-      : updateTiers.close,
-  }));
-  for (let substep = 0; substep < updateTiers.close.substeps; substep++) {
-    world.movementParents = [...world.entities.values()].filter(
-      (entity) => entity.holds,
-    );
-    const active = scheduled
-      .filter(({ entity, tier }) => {
-        if (entity.dead) return false;
-        if (!substep) entity.pendingUpdateTime += simulationStep;
-        if ((tick + 1) % tier.updateEvery || substep >= tier.substeps)
-          return false;
-        const dt = entity.pendingUpdateTime / (tier.substeps - substep);
-        entity.pendingUpdateTime -= dt;
-        entity.update(dt);
-        if (entity.dead) world.entities.delete(entity.id);
-        return !entity.dead;
-      })
-      .map(({ entity }) => entity);
-    world.movementParents = undefined;
-    afterUpdate?.({ entities: active, substep });
+      : updateTiers.visible;
+    // Partial samples use the same subdivision boundary as a complete tick,
+    // including any time carried over from the distant tier.
+    const step = (entity.pendingUpdateTime + simulationStep) / tier.substeps;
+    return { entity, tier, step };
+  });
+  world.movementParents = [...world.entities.values()].filter(
+    (entity) => entity.holds,
+  );
+  for (let substep = 0; substep < updateTiers.visible.substeps; substep++) {
+    scheduled.forEach(({ entity, tier, step }) => {
+      if (entity.dead) return;
+      if (!substep) entity.pendingUpdateTime += dt;
+      if ((tick + 1) % tier.updateEvery || substep >= tier.substeps) return;
+      if (entity.pendingUpdateTime <= 0) return;
+      const duration = Math.min(entity.pendingUpdateTime, step);
+      let elapsed = dt - entity.pendingUpdateTime;
+      entity.pendingUpdateTime -= duration;
+      const end = elapsed + duration;
+      const input =
+        entity instanceof Ship && entity.playerId !== undefined
+          ? inputs?.get(entity.playerId)
+          : undefined;
+      // Split only where a control actually changed, preserving short taps
+      // without raising the regular movement or collision frequency.
+      if (input && 'changes' in input && entity instanceof Ship) {
+        input.changes.forEach(({ input, offset }) => {
+          if (offset < elapsed || offset >= end) return;
+          if (offset > elapsed) entity.update(offset - elapsed);
+          controlShip(entity, input, events);
+          elapsed = offset;
+        });
+      }
+      entity.update(end - elapsed);
+      if (entity.dead) world.entities.delete(entity.id);
+    });
   }
+  world.movementParents = undefined;
 };

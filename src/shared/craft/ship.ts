@@ -5,6 +5,8 @@ import { approach } from '../utilities/approach';
 const thrustScale = 220;
 const steeringEase = 0.5;
 export class Ship extends Craft {
+  // Resist collision torque without changing the pilot's steering response.
+  static angularInertiaScale = 1.5;
   kind = 'ship';
   get thrust() {
     return this.forward || 0;

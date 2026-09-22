@@ -13,8 +13,9 @@ import '../game-object';
 
 giveRender({
   Type: Item,
-  render({ parent }) {
+  render(this: Item, { parent, pose = this }) {
     parent({
+      pose,
       draw: () => {
         const { ctx } = game;
         const path = this.points
@@ -41,7 +42,7 @@ giveRender({
         if (this.lines) ctx.stroke(linesPath(this.lines));
         if (this.glint) {
           ctx.translate(this.radius * 0.3, this.radius * -0.28);
-          ctx.rotate(-this.rotation);
+          ctx.rotate(-pose.rotation);
           ctx.fillStyle = colors.white[2];
           ctx.fill(sparklePath(this.radius * 0.3));
         }

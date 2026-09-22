@@ -10,31 +10,25 @@ export const GameLoop = ({
   render,
   update,
 }: {
-  render: () => void;
-  update: (step: number) => void;
+  render: (frame: { dt: number; now: number }) => void;
+  update: (frame: { dt: number; now: number }) => void;
 }) => {
   let last = 0;
-  let accumulator = 0;
-  const delta = 1000 / 60;
-  const step = 1 / 60;
 
   const frame = () => {
     requestAnimationFrame(frame);
     const now = performance.now();
-    const elapsed = now - last;
+    // Discard frame debt after a stall; networking restores the server clock.
+    const dt = Math.min((now - last) / 1000, 1 / 15);
 
     last = now;
 
-    // Drop excessive frame debt. Networking restores the authoritative clock;
-    // simulating every missed frame here would create another stall.
-    for (
-      accumulator = Math.min(accumulator + elapsed, delta * 4);
-      accumulator >= delta;
-      accumulator -= delta
-    )
-      update(step);
+    // Updating a network tick is heavier than an in-between frame. Both phases
+    // must sample the same instant, not turn that extra CPU time into movement.
+    const timing = { dt, now };
+    update(timing);
     context.clearRect(0, 0, canvas.width, canvas.height);
-    render();
+    render(timing);
   };
 
   return {

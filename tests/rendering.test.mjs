@@ -59,7 +59,7 @@ import '${root}/src/client/craft/ship.ts';
 import '${root}/src/client/craft/station.ts';
 import '${root}/src/client/items/item.ts';
 import {createWorld} from '${root}/src/shared/simulation/world.ts';
-import {cloneEntity} from '${root}/src/shared/simulation/world-state.ts';
+import {cloneEntity} from '${root}/src/shared/physics/serializer/world-state.ts';
 import {Mustang} from '${root}/src/shared/craft/ships/mustang.ts';
 import {Corral} from '${root}/src/shared/craft/stations/corral.ts';
 import {Thruster} from '${root}/src/shared/modules/thruster.ts';
@@ -207,6 +207,16 @@ for(const [index,stage] of packet['miningStages'].entries()){
     assert.equal(draws[0].style,colors.purple[1]+'9');
     assert.equal(strokes[0],colors.violet[2]);
     assert.equal(predicted.renderContents.length,predicted.contents.length,'cargo stays visible in a detached leaf');
+    const origin=predicted.position.add(Vector());
+    const cargoPositions=predicted.renderContents.map(item=>item.position.add(Vector()));
+    const offset=Vector(123,456);
+    predicted.render({pose:{position:origin.add(offset),rotation:predicted.rotation+Math.PI/2}});
+    predicted.renderContents.forEach((item,index)=>{
+      const relative=cargoPositions[index].subtract(origin);
+      const expected=origin.add(offset).add(Vector(-relative.y,relative.x));
+      assert(item.position.distanceTo(expected)<1e-8,'buried cargo follows the same interpolated pose as its asteroid');
+    });
+    assert(predicted.position.distanceTo(origin)<1e-8,'render poses do not change asteroid physics');
   }
   if(index===1){
     const loot=entities.filter(entity=>entity instanceof Amethyst);

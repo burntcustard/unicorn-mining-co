@@ -2,14 +2,15 @@ import {
   type EntityId,
   type Player,
   type PlayerId,
-} from '../protocol/entities';
-import { type SimulationWorld, type WorldObject } from './world';
-import { GameObject } from '../game-object';
-import { Module } from '../modules/module';
-import { createRandom } from '../seeded-random';
+} from '../../protocol/entities';
+import { type SimulationWorld, type WorldObject } from '../../simulation/world';
+import { GameObject } from '../../game-object';
+import { Module } from '../../modules/module';
+import { createRandom } from '../../seeded-random';
+import { EntityState } from './entity-state';
 
 export type SimulationWorldState = {
-  entities: Map<EntityId, WorldObject>;
+  entities: Map<EntityId, EntityState>;
   nextEntityId: EntityId;
   players: Map<PlayerId, Player>;
   randomState: number;
@@ -42,7 +43,8 @@ const definitions: Record<string, boolean> = {
 /*
  * Copy mutable mechanics, preserving prototype-based hull/module definitions
  * and the links between a ship's segments, mounts and inventory.
- * Presentation caches and world ownership never belong in a checkpoint.
+ * This is for materialising independent authoritative objects, not tick
+ * history. History below stores compact EntityState records instead.
  */
 export const cloneEntity = ({
   entity,
@@ -95,7 +97,7 @@ export const captureWorld = ({
   world: SimulationWorld;
 }): SimulationWorldState => ({
   entities: new Map(
-    [...world.entities].map(([id, entity]) => [id, cloneEntity({ entity })]),
+    [...world.entities].map(([id, entity]) => [id, new EntityState(entity)]),
   ),
   nextEntityId: world.nextEntityId,
   players: new Map(
@@ -114,7 +116,7 @@ export const restoreWorld = ({
 }) => {
   world.entities = new Map(
     [...state.entities].map(([id, entity]) => {
-      const restored = cloneEntity({ entity });
+      const restored = entity.restore();
       restored.world = world;
       restored.random = world.random;
       return [id, restored];

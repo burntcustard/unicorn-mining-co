@@ -12,7 +12,7 @@ import { sky } from './background';
 import { textDemo } from './text-demo';
 import { Vector } from '../shared/vector';
 import { type WorldObject } from '../shared/types';
-import { type Collider } from '../shared/simulation/physics';
+import { type Collider } from '../shared/physics/collision/types';
 
 export let showDeadzone = false;
 let showMass = false;

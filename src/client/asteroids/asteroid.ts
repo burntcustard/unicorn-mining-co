@@ -8,9 +8,10 @@ import '../game-object';
 
 giveRender({
   Type: Asteroid,
-  render({ parent }) {
-    const { path } = presentation({ asteroid: this });
+  render({ parent, pose }) {
+    const { path } = presentation({ asteroid: this, pose });
     parent({
+      pose,
       draw: () => {
         const { ctx } = game;
         ctx.lineJoin = 'round';

@@ -3,6 +3,7 @@ import { minify } from 'terser';
 import { replacePreTerser } from './replace-pre-terser.js';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
+import { readFileSync } from 'node:fs';
 
 const gzipOptions = { level: 1 };
 // Leave 600B for response overhead inside the 14,600B initial TCP window:
@@ -58,6 +59,16 @@ export function viteBuildPre(flags = {}) {
   return {
     name: 'vite-build-pre',
     enforce: 'pre',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'physics-LICENSE.txt',
+        source: readFileSync(
+          new URL('../src/shared/physics/LICENSE.txt', import.meta.url),
+          'utf8',
+        ),
+      });
+    },
     transform(source, id) {
       if (id.includes('/src/') && /\.[cm]?[jt]sx?(?:\?|$)/.test(id)) {
         return {

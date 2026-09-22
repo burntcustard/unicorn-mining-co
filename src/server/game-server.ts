@@ -2,13 +2,15 @@ import { randomUUID } from 'node:crypto';
 import WebSocket, { WebSocketServer } from 'ws';
 import { Vector } from '../shared/vector';
 import { emptyPlayerInput, type PlayerInput } from '../shared/protocol/input';
+import { type InputFrame } from '../shared/protocol/input-frame';
 import {
-  protocolVersion,
   type ClientMessage,
+  type PlayerInputMessage,
   type ServerMessage,
 } from '../shared/protocol/network';
 import { createShip } from '../shared/craft/create-ship';
 import { updateWorld } from '../shared/simulation/update-world';
+import { simulationStep } from '../shared/simulation/update-tier';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
 import { ReplicationManager } from './replication';
@@ -16,8 +18,7 @@ import { ReplicationManager } from './replication';
 type PlayerRecord = {
   /** How far ahead of the simulation this player's last input arrived. */
   inputLead?: number;
-  inputSequences: Map<number, number>;
-  inputs: Map<number, PlayerInput>;
+  inputs: Map<number, PlayerInputMessage[]>;
   lastInput: PlayerInput;
   lastSequence: number;
   playerId: number;
@@ -41,7 +42,7 @@ const send = ({
 export class GameServer {
   readonly worldSeed: number;
   readonly world;
-  private interval?: ReturnType<typeof setInterval>;
+  private timer?: ReturnType<typeof setTimeout>;
   private nextPlayerId = 1;
   private players = new Map<string, PlayerRecord>();
   private port: number;
@@ -74,9 +75,7 @@ export class GameServer {
         ) as ClientMessage;
 
         if (message.type === 'hello') {
-          if (message.protocolVersion !== protocolVersion)
-            socket.close(1002, 'Client/server protocol mismatch');
-          else this.hello({ socket, token: message.playerToken });
+          this.hello({ socket, token: message.playerToken });
         } else if (message.type === 'input') {
           const player = [...this.players.values()].find(
             (candidate) => candidate.socket === socket,
@@ -96,16 +95,28 @@ export class GameServer {
         // instead of holding whatever was last pressed forever.
         player.lastInput = emptyPlayerInput();
         player.inputs.clear();
-        player.inputSequences.clear();
       });
     });
-    this.interval = setInterval(() => this.tick(), 1000 / 60);
+    const period = simulationStep * 1000;
+    let nextTick = performance.now() + period;
+    const tick = () => {
+      this.tick();
+      // Schedule against a deadline: repeating a rounded 33 ms interval runs
+      // faster than 30 Hz and makes clients periodically jump a whole tick.
+      // Drop old debt after a stall instead of scheduling an unbounded replay.
+      nextTick = Math.max(nextTick + period, performance.now());
+      this.timer = setTimeout(
+        tick,
+        Math.max(1, Math.ceil(nextTick - performance.now())),
+      );
+    };
+    this.timer = setTimeout(tick, Math.ceil(period));
     return this.server;
   }
 
   async stop() {
-    if (this.interval) clearInterval(this.interval);
-    this.interval = undefined;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = undefined;
 
     const server = this.server;
 
@@ -147,7 +158,6 @@ export class GameServer {
       addEntity(this.world, ship);
       addPlayer(this.world, { id: playerId, shipId: ship.id });
       player = {
-        inputSequences: new Map(),
         inputs: new Map(),
         lastInput: emptyPlayerInput(),
         lastSequence: 0,
@@ -161,6 +171,11 @@ export class GameServer {
 
     player.socket?.close();
     player.socket = socket;
+    // Input sequences belong to a connection, not the persistent player.
+    player.inputs.clear();
+    player.lastInput = emptyPlayerInput();
+    player.lastSequence = 0;
+    player.inputLead = undefined;
 
     const ship = this.world.entities.get(player.shipId)!;
 
@@ -175,7 +190,6 @@ export class GameServer {
       message: {
         playerId: player.playerId,
         playerToken: player.token,
-        protocolVersion,
         serverTick: this.world.tick,
         shipId: player.shipId,
         spawn: { x: ship.position.x, y: ship.position.y },
@@ -216,9 +230,10 @@ export class GameServer {
       return;
     }
 
-    if (message.sequence > (player.inputSequences.get(message.tick) || -1)) {
-      player.inputs.set(message.tick, message.input);
-      player.inputSequences.set(message.tick, message.sequence);
+    const changes = player.inputs.get(message.tick) || [];
+    if (message.sequence > (changes.at(-1)?.sequence ?? player.lastSequence)) {
+      changes.push(message);
+      player.inputs.set(message.tick, changes);
     }
   }
 
@@ -229,27 +244,32 @@ export class GameServer {
 
     this.regions.sync({ world: this.world, positions });
     const tick = this.world.tick;
-    const inputs = new Map<number, PlayerInput>();
+    const inputs = new Map<number, InputFrame>();
 
     this.players.forEach((player) => {
-      const input = player.inputs.get(tick);
-      const sequence = player.inputSequences.get(tick);
-
-      if (input && sequence !== undefined && sequence > player.lastSequence) {
+      const changes = (player.inputs.get(tick) || []).filter(
+        ({ sequence }) => sequence > player.lastSequence,
+      );
+      const frame: InputFrame = { input: player.lastInput, changes: [] };
+      changes.forEach(({ input, sequence, offset = 0 }) => {
+        offset = Math.max(
+          frame.changes.at(-1)?.offset || 0,
+          Math.min(simulationStep - 1e-9, Math.max(0, offset)),
+        );
+        frame.changes.push({ input, offset });
         player.lastInput = input;
-        player.lastSequence = Math.max(player.lastSequence, sequence);
-      }
+        player.lastSequence = sequence;
+      });
       // Whatever a player last said stands until they say otherwise, so
       // anything the simulation has reached has had its say and can go.
       player.inputs.forEach((_, stale) => {
         if (stale <= tick) {
           player.inputs.delete(stale);
-          player.inputSequences.delete(stale);
         }
       });
-      inputs.set(player.playerId, player.lastInput);
+      inputs.set(player.playerId, frame);
     });
-    updateWorld(this.world, inputs);
+    updateWorld({ world: this.world, inputs: inputs });
 
     this.players.forEach((player) => {
       const { socket } = player;

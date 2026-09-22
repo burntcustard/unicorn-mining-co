@@ -28,7 +28,6 @@ const bundle = await rolldown({
         id === '\0snapshots-test'
           ? `
       export { network, NetworkClient } from '${resolve('src/client/network.ts')}';
-      export { protocolVersion } from '${resolve('src/shared/protocol/network.ts')}';
       export { updateWorld } from '${resolve('src/shared/simulation/update-world.ts')}';
       export { emptyPlayerInput } from '${resolve('src/shared/protocol/input.ts')}';
       export { ReplicationManager } from '${resolve('src/server/replication.ts')}';
@@ -46,7 +45,6 @@ await bundle.close();
 const {
   network,
   NetworkClient,
-  protocolVersion,
   updateWorld,
   emptyPlayerInput,
   addPlayer,
@@ -79,7 +77,7 @@ assert(
   'stations are fully loaded at 8 km',
 );
 const counts = new Map([...world.entities.keys()].map((id) => [id, 0]));
-for (let tick = 1; tick <= 120; tick++) {
+for (let tick = 1; tick <= 60; tick++) {
   world.tick = tick;
   const packet = replication.snapshot({
     world,
@@ -88,14 +86,14 @@ for (let tick = 1; tick <= 120; tick++) {
   packet.fullEntities.forEach((entity) =>
     counts.set(entity.id, counts.get(entity.id) + 1),
   );
-  if (tick % 8 === 0)
+  if (tick % 4 === 0)
     assert.equal(
       packet.fullEntities.length,
       3,
       'all due tiers share one packet',
     );
 }
-assert.equal(counts.get(ship.id), 120, 'close replication is 60 Hz');
+assert.equal(counts.get(ship.id), 60, 'close replication is 30 Hz');
 assert.equal(counts.get(station.id), 60, 'visible replication is 30 Hz');
 assert.equal(
   counts.get(distantStation.id),
@@ -138,7 +136,6 @@ world.tick = 0;
 socket.onmessage({
   data: JSON.stringify({
     type: 'welcome',
-    protocolVersion,
     playerToken: 'snapshots',
     playerId: 1,
     shipId: ship.id,
@@ -262,7 +259,6 @@ const sendState = (message) =>
 const turningReplication = new ReplicationManager();
 sendState({
   type: 'welcome',
-  protocolVersion,
   playerToken: 'test',
   playerId: 1,
   shipId: observer.id,
@@ -277,13 +273,13 @@ const idle = emptyPlayerInput();
 const turn = { ...idle, turn: 1 };
 for (let tick = 0; tick < 30; tick++) {
   client.update({ input: idle });
-  updateWorld(
-    turningWorld,
-    new Map([
+  updateWorld({
+    world: turningWorld,
+    inputs: new Map([
       [1, idle],
       [2, turn],
     ]),
-  );
+  });
   sendState(
     turningReplication.snapshot({ world: turningWorld, shipId: observer.id }),
   );
@@ -295,7 +291,7 @@ assert(
 const remote = client.world.entities.get(turningShip.id);
 const expectedRotation =
   turningShip.rotation +
-  (turningShip.spin * (client.world.tick - turningWorld.tick)) / 60;
+  (turningShip.spin * (client.world.tick - turningWorld.tick)) / 30;
 assert(
   Math.abs(remote.rotation - expectedRotation) < 1e-9,
   'turning remote ships must be extrapolated to the client tick, not left at the older snapshot tick',

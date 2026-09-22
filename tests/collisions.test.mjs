@@ -21,7 +21,14 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0physics'
           ? `
-      export { detectCollisions, hit, outerEdges, resolve } from '${process.cwd()}/src/shared/simulation/collisions.ts';
+      export { detectCollisions } from '${process.cwd()}/src/shared/physics/collision/detect-collisions.ts';
+      export { hit } from '${process.cwd()}/src/shared/physics/collision/hit.ts';
+      export { outerEdges } from '${process.cwd()}/src/shared/physics/collision/outer-edges.ts';
+      export { GamePhysics } from '${process.cwd()}/src/shared/physics/game-physics.ts';
+      export { GameObject } from '${process.cwd()}/src/shared/game-object.ts';
+      export * from '${process.cwd()}/src/shared/simulation/index.ts';
+      export { controlShip } from '${process.cwd()}/src/shared/craft/control-ship.ts';
+      export { simulationStep } from '${process.cwd()}/src/shared/simulation/update-tier.ts';
       export { sparks, sprayDamage } from '${process.cwd()}/src/client/shrapnel.ts';
       export { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
       export { Vector } from '${process.cwd()}/src/shared/vector.ts';
@@ -41,7 +48,19 @@ const {
   hit,
   movePoint,
   outerEdges,
-  resolve,
+  GamePhysics,
+  GameObject,
+  createWorld,
+  addEntity,
+  addPlayer,
+  createShip,
+  createItem,
+  createAsteroid,
+  updateWorld,
+  controlShip,
+  simulationStep,
+  captureWorld,
+  restoreWorld,
   rotatePoint,
   Vector,
 } = physics;
@@ -101,7 +120,7 @@ contact = hit(
   ]),
   { radius: 5, position: Vector(14) },
 );
-closeTo(contact.depth, 1);
+closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
 
@@ -127,7 +146,7 @@ const compound = polygon(
 );
 
 contact = hit(compound, { radius: 5, position: Vector(14) });
-closeTo(contact.depth, 1);
+closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
 assert.ok(parts.includes(contact.aPart));
@@ -159,93 +178,402 @@ const contacts = detectCollisions({ entities: [owner, otherOwner] });
 assert.equal(contacts.length, 1);
 assert.ok(parts.includes(contacts[0].collider.part || contacts[0].other.part));
 
-// The shared resolver conserves linear momentum and sends the light body away
-// with most of the bounce.
-const ship = body({ id: 3, mass: 9, velocity: Vector(100) });
-const rock = body({ id: 4, mass: 200, position: Vector(14) });
-const beforeMomentum =
-  ship.mass * ship.velocity.x + rock.mass * rock.velocity.x;
+// Off-centre impacts exchange angular as well as linear momentum.
+const triangle = new GameObject({
+  id: 10,
+  mass: 200,
+  radius: 30,
+  outline: [
+    [-20, -20],
+    [20, 0],
+    [-20, 20],
+  ],
+  drag: 0,
+  maxSpeed: 10000,
+});
+const projectile = new GameObject({
+  id: 11,
+  mass: 6,
+  radius: 3,
+  position: Vector(15, -20),
+  velocity: Vector(0, 200),
+  drag: 0,
+  maxSpeed: 10000,
+});
+const torqueWorld = createWorld();
+addEntity(torqueWorld, triangle);
+addEntity(torqueWorld, projectile);
+const beforeImpact = captureWorld({ world: torqueWorld });
+for (let i = 0; i < 20; i++)
+  updateWorld({ world: torqueWorld, inputs: new Map() });
+assert(
+  Math.abs(triangle.spin) > 0.01,
+  'pushing a triangular tip rotates the rock',
+);
+const impactResult = {
+  position: triangle.position.add(Vector()),
+  spin: triangle.spin,
+};
+restoreWorld({ world: torqueWorld, state: beforeImpact });
+for (let i = 0; i < 20; i++)
+  updateWorld({ world: torqueWorld, inputs: new Map() });
+closeTo(triangle.position.distanceTo(impactResult.position), 0, 1e-7);
+closeTo(triangle.spin, impactResult.spin, 1e-7);
 
-resolve({
-  contacts: [
-    {
-      collider: {
-        bounciness: 0.4,
-        owner: ship,
-        position: ship.position,
-        radius: 5,
-        rotation: 0,
-      },
-      depth: 1,
-      normal: Vector(1),
-      other: {
-        bounciness: 0.1,
-        owner: rock,
-        position: rock.position,
-        radius: 5,
-        rotation: 0,
-      },
-      point: [7, 0],
-    },
+// A fast ship damages the contacted asteroid section, not the whole body's health.
+{
+  const world = createWorld();
+  const ship = addEntity(
+    world,
+    createShip(world, {
+      playerId: 1,
+      position: Vector(-85, 22.5),
+      velocity: Vector(400),
+    }),
+  );
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const rock = addEntity(
+    world,
+    createAsteroid(world, {
+      radius: 25,
+      points: 5,
+      contents: [0, 1, 2, 3],
+    }),
+  );
+  const health = rock.health;
+  const events = [];
+  for (let tick = 0; tick < 60; tick++)
+    events.push(...updateWorld({ world: world, inputs: new Map() }));
+  assert.equal(
+    rock.health,
+    health,
+    'impact damage belongs to the struck section',
+  );
+  assert(
+    events.some(({ type }) => type === 'asteroidSplit'),
+    'a broken impact section splits off without a drill',
+  );
+  assert.deepEqual(
+    [...world.entities.values()]
+      .flatMap((entity) => entity.contents || [])
+      .sort((a, b) => a - b),
+    [0, 1, 2, 3],
+  );
+}
+
+// CCD must stop a small body crossing a thin moving-body collider in one tick.
+const ccdWorld = createWorld();
+const fast = addEntity(
+  ccdWorld,
+  new GameObject({
+    mass: 6,
+    radius: 1,
+    position: Vector(-50),
+    velocity: Vector(6000),
+    drag: 0,
+    maxSpeed: 10000,
+  }),
+);
+const wall = addEntity(
+  ccdWorld,
+  new GameObject({
+    mass: 100000,
+    radius: 30,
+    outline: [
+      [-0.5, -30],
+      [0.5, -30],
+      [0.5, 30],
+      [-0.5, 30],
+    ],
+    drag: 0,
+    maxSpeed: 10000,
+  }),
+);
+updateWorld({ world: ccdWorld, inputs: new Map() });
+assert(
+  fast.position.x < wall.position.x,
+  'CCD prevents crossing the thin face',
+);
+
+// A sensor attached to a rotating body must sweep its arc, not a straight ray.
+const rotating = new GameObject({
+  id: 40,
+  mass: 6,
+  radius: 52,
+  rotation: Math.PI / 2,
+});
+rotating.hitboxes = () => [
+  {
+    owner: rotating,
+    position: rotating.position.add(rotatePoint(Vector(50), rotating.rotation)),
+    radius: 2,
+    rotation: rotating.rotation,
+    physics: false,
+    role: 'drill',
+  },
+];
+const sensorTarget = new GameObject({
+  id: 41,
+  mass: 100,
+  radius: 2,
+  position: Vector(35.35, 35.35),
+});
+const swept = new GamePhysics().step({
+  entities: [rotating, sensorTarget],
+  dt: 1 / 60,
+  previous: new Map([[rotating.id, { position: Vector(), rotation: 0 }]]),
+});
+assert(
+  swept.some(({ collider }) => collider.role === 'drill'),
+  'rotational CCD catches the drill arc',
+);
+
+const swinging = new GameObject({
+  id: 42,
+  mass: 100,
+  radius: 51,
+  rotation: Math.PI / 2,
+  outline: [
+    [0, -0.5],
+    [50, -0.5],
+    [50, 0.5],
+    [0, 0.5],
   ],
 });
-closeTo(
-  ship.mass * ship.velocity.x + rock.mass * rock.velocity.x,
-  beforeMomentum,
+const struck = new GameObject({
+  id: 43,
+  mass: 6,
+  radius: 2,
+  position: Vector(35.35, 35.35),
+});
+const angularContacts = new GamePhysics().step({
+  entities: [swinging, struck],
+  dt: 1 / 60,
+  previous: new Map([[swinging.id, { position: Vector(), rotation: 0 }]]),
+});
+assert(
+  angularContacts.length > 0 && struck.velocity.length() > 0,
+  'a thin rotating solid sweeps and pushes the item',
 );
-assert.ok(ship.velocity.x < 0);
-assert.ok(rock.velocity.x > 0);
 
-// Continuous thrust cannot carry a gripping triangular horn through a fixed
-// hull, even where its point is aimed at a shared convex seam.
-const drillingShip = body({ id: 5, mass: 9 });
-const fixedHull = body({ id: 6, mass: 0, position: Vector(10) });
-const hullOutline = [
-  [-2, -6],
-  [2, -6],
-  [2, 6],
-  [-2, 6],
-];
-const hullParts = [
-  { outline: [hullOutline[0], hullOutline[1], hullOutline[2]] },
-  { outline: [hullOutline[0], hullOutline[2], hullOutline[3]] },
-];
+// Preserve the additive hull/shield restitution rule and mass-weighted push.
+const bounce = (bounciness) => {
+  const world = createWorld();
+  const moving = addEntity(
+    world,
+    new GameObject({
+      mass: 9,
+      radius: 5,
+      velocity: Vector(100),
+      bounciness,
+      drag: 0,
+      maxSpeed: 10000,
+    }),
+  );
+  const heavy = addEntity(
+    world,
+    new GameObject({
+      mass: 200,
+      radius: 5,
+      position: Vector(14),
+      bounciness: 0.1,
+      drag: 0,
+      maxSpeed: 10000,
+    }),
+  );
+  for (let i = 0; i < 6; i++) updateWorld({ world: world, inputs: new Map() });
+  closeTo(
+    moving.mass * moving.velocity.x + heavy.mass * heavy.velocity.x,
+    900,
+    1e-7,
+  );
+  assert(heavy.velocity.x > 0);
+  return moving.velocity.x;
+};
+assert(
+  bounce(0.4) < bounce(0.1),
+  'shield bounce stays stronger than hull bounce',
+);
 
-outerEdges(hullParts.map(({ outline }) => outline));
-drillingShip.hitboxes = () => [
-  {
-    bounciness: -0.2,
-    outline: [
-      [0, -2],
-      [6, 0],
-      [0, 2],
-    ],
-    owner: drillingShip,
-    position: drillingShip.position,
-    radius: 6,
-    rotation: 0,
-  },
-];
-fixedHull.hitboxes = () => [
-  {
-    outline: hullOutline,
-    owner: fixedHull,
-    parts: hullParts,
-    position: fixedHull.position,
-    radius: 7,
-    rotation: 0,
-  },
-];
-
-for (let frame = 120; frame--;) {
-  drillingShip.velocity.x += 1;
-  drillingShip.position.x += drillingShip.velocity.x / 60;
-  resolve({
-    contacts: detectCollisions({ entities: [drillingShip, fixedHull] }),
+// Once a section detaches, touching cut faces must not create an artificial
+// separation impulse. Remove the intentional split drift to isolate the solver.
+for (const radiusEven of [undefined, 25]) {
+  const world = createWorld();
+  const asteroid = addEntity(
+    world,
+    createAsteroid(world, {
+      radius: 100,
+      points: radiusEven ? 6 : 7,
+      radiusEven,
+      rotation: 0.4,
+      position: Vector(200, 300),
+    }),
+  );
+  const children = asteroid.detach({ section: asteroid.sections[0], world });
+  const leaf = children[0];
+  const visualOutline = JSON.stringify(leaf.outline);
+  leaf.hitboxes()[0].outline.forEach(([x, y], index) => {
+    closeTo(Vector(x, y).distanceTo(Vector(...leaf.outline[index])), 0.1);
   });
+  const positions = children.map((child) => child.position.add(Vector()));
+  children.forEach((child) => {
+    child.velocity.set(Vector());
+    child.spin = 0;
+  });
+  assert.equal(
+    detectCollisions({ entities: children }).length,
+    0,
+    'split pieces have no padded collision overlap',
+  );
+  for (let tick = 0; tick < 10; tick++)
+    updateWorld({ world: world, inputs: new Map() });
+  children.forEach((child, index) => {
+    closeTo(child.position.distanceTo(positions[index]), 0, 1e-8);
+    closeTo(child.spin, 0, 1e-8);
+  });
+  assert.equal(
+    JSON.stringify(leaf.outline),
+    visualOutline,
+    'collision clearance does not alter the rendered chunk',
+  );
 }
-assert.ok(drillingShip.position.x + 6 < 8.6);
-console.log('shared collision and bounce tests passed');
+
+// In unobstructed flight the solver must not replace steering or drag.
+const flightWorld = createWorld();
+const flying = addEntity(flightWorld, createShip(flightWorld, { playerId: 1 }));
+addPlayer(flightWorld, { id: 1, shipId: flying.id });
+const referenceWorld = createWorld();
+const reference = createShip(referenceWorld, { playerId: 1 });
+for (let tick = 0; tick < 240; tick++) {
+  const input = {
+    thrust: tick < 120 ? 1 : 0,
+    turn: tick < 30 ? 1 : tick < 60 ? -1 : 0,
+    drill: false,
+    hatch: false,
+    light: false,
+    shield: false,
+    launch: false,
+  };
+  controlShip(reference, input, []);
+  reference.update(1 / 60);
+  reference.update(1 / 60);
+  updateWorld({ world: flightWorld, inputs: new Map([[1, input]]) });
+  closeTo(flying.position.distanceTo(reference.position), 0, 1e-7);
+  closeTo(flying.velocity.distanceTo(reference.velocity), 0, 1e-7);
+  closeTo(flying.rotation, reference.rotation, 1e-9);
+}
+
+// Recorded against pre-Planck commit 6adcc82, holding left/right for five seconds
+// then releasing. The 60 Hz integrator keeps the acceleration/braking curve;
+// allow half of the old/new step difference in integrated angle, not slower steering.
+for (const direction of [-1, 1]) {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  addPlayer(world, { id: 1, shipId: ship.id });
+  let angle = 0;
+  let referenceAngle = 0;
+  let referenceSpin = 0;
+  let fullTurnTime;
+  for (let tick = 1; tick <= 6 / simulationStep; tick++) {
+    const turn = tick <= 5 / simulationStep ? direction : 0;
+    for (let part = 0; part < Math.round(simulationStep * 120); part++) {
+      const change = Math.max(
+        -16 / 120,
+        Math.min(16 / 120, turn * 3 - referenceSpin),
+      );
+      referenceSpin += change;
+      referenceAngle += referenceSpin / 120;
+    }
+    const previous = ship.rotation;
+    const before = angle;
+    updateWorld({
+      world: world,
+      inputs: new Map([
+        [
+          1,
+          {
+            thrust: 0,
+            turn,
+            drill: false,
+            hatch: false,
+            light: false,
+            shield: false,
+            launch: false,
+          },
+        ],
+      ]),
+    });
+    angle += Math.atan2(
+      Math.sin(ship.rotation - previous),
+      Math.cos(ship.rotation - previous),
+    );
+    closeTo(angle, referenceAngle, 0.013);
+    closeTo(ship.spin, referenceSpin);
+    if (fullTurnTime === undefined && angle * direction >= 4 * Math.PI)
+      fullTurnTime =
+        (tick - 1) * simulationStep +
+        ((4 * Math.PI - before * direction) / ((angle - before) * direction)) *
+          simulationStep;
+  }
+  closeTo(fullTurnTime, 4.278419834415983, 1 / 120);
+  closeTo(ship.spin, 0);
+}
+
+const offCentreStrike = ({ angularInertiaScale }) => {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  if (angularInertiaScale !== undefined)
+    ship.angularInertiaScale = angularInertiaScale;
+  addPlayer(world, { id: 1, shipId: ship.id });
+  addEntity(
+    world,
+    new GameObject({
+      position: Vector(-70, -25),
+      velocity: Vector(150),
+      radius: 5,
+      mass: 9,
+      drag: 0,
+    }),
+  );
+  let peakSpin = 0;
+  for (let tick = 0; tick < 20; tick++) {
+    updateWorld({ world: world, inputs: new Map() });
+    peakSpin = Math.max(peakSpin, Math.abs(ship.spin));
+  }
+  return peakSpin;
+};
+const originalImpactSpin = offCentreStrike({ angularInertiaScale: 1 });
+const resistedImpactSpin = offCentreStrike({});
+assert(
+  originalImpactSpin > 1 && resistedImpactSpin > 0,
+  'the off-centre strike causes real rotation',
+);
+assert(
+  resistedImpactSpin < originalImpactSpin * 0.85,
+  'ship inertia reduces collision spin without changing steering',
+);
+
+// Item coast uses exactly the old drag and low-speed cutoff, not solver damping.
+const driftWorld = createWorld();
+const drifting = addEntity(
+  driftWorld,
+  createItem(driftWorld, { velocity: Vector(150), resource: 0 }),
+);
+const referenceItem = createItem(createWorld(), {
+  velocity: Vector(150),
+  resource: 0,
+});
+for (let tick = 0; tick < 2200; tick++) {
+  referenceItem.update(1 / 60);
+  referenceItem.update(1 / 60);
+  updateWorld({ world: driftWorld, inputs: new Map() });
+  closeTo(drifting.position.distanceTo(referenceItem.position), 0, 1e-7);
+  closeTo(drifting.velocity.distanceTo(referenceItem.velocity), 0, 1e-7);
+}
+assert.equal(drifting.velocity.length(), 0);
+console.log(
+  'Planck CCD, angular response, shield bounce, original steering and drift passed',
+);
 
 // Browser-only damage still emits each surface colour at the impact point;
 // presentation remains outside the headless resolver.

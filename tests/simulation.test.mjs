@@ -15,7 +15,7 @@ const bundle = await rolldown({
         id === '\0simulation'
           ? `
       export * from '${process.cwd()}/src/shared/simulation/index.ts';
-      export { detectCollisions } from '${process.cwd()}/src/shared/simulation/collisions.ts';
+      export { detectCollisions } from '${process.cwd()}/src/shared/physics/collision/detect-collisions.ts';
       export { Vector } from '${process.cwd()}/src/shared/vector.ts';
       export { PredictionManager } from '${process.cwd()}/src/client/prediction.ts';
     `
@@ -63,9 +63,9 @@ const dockedMovement = () => {
 
   ship.dockedTo = station.id;
   addPlayer(world, { id: 7, shipId: ship.id });
-  updateWorld(
-    world,
-    new Map([
+  updateWorld({
+    world: world,
+    inputs: new Map([
       [
         7,
         {
@@ -79,13 +79,13 @@ const dockedMovement = () => {
         },
       ],
     ]),
-  );
+  });
   assert(Number.isFinite(ship.position.x));
   assert(Number.isFinite(ship.position.y));
 
-  updateWorld(
-    world,
-    new Map([
+  updateWorld({
+    world: world,
+    inputs: new Map([
       [
         7,
         {
@@ -99,12 +99,12 @@ const dockedMovement = () => {
         },
       ],
     ]),
-  );
+  });
   const position = ship.position.x;
 
-  updateWorld(
-    world,
-    new Map([
+  updateWorld({
+    world: world,
+    inputs: new Map([
       [
         7,
         {
@@ -118,7 +118,7 @@ const dockedMovement = () => {
         },
       ],
     ]),
-  );
+  });
   assert(ship.position.x > position);
 };
 
@@ -135,26 +135,40 @@ const dockingShape = () => {
   );
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector(0, 210) }),
+    createShip(world, {
+      playerId: 7,
+      position: Vector(0, 400),
+      velocity: Vector(0, -200),
+    }),
   );
-
+  // Start outside the wall: spawning inside it tests penetration recovery,
+  // whose direction depends on inertia, rather than an approach to the station.
+  assert.equal(detectCollisions({ entities: [station, ship] }).length, 0);
   addPlayer(world, { id: 7, shipId: ship.id });
-  updateWorld(
-    world,
-    new Map([
-      [
-        7,
-        {
-          drill: false,
-          hatch: false,
-          launch: false,
-          light: false,
-          shield: false,
-          thrust: 0,
-          turn: 0,
-        },
-      ],
-    ]),
+  const events = [];
+  for (let tick = 0; tick < 90; tick++)
+    events.push(
+      ...updateWorld({
+        world: world,
+        inputs: new Map([
+          [
+            7,
+            {
+              drill: false,
+              hatch: false,
+              launch: false,
+              light: false,
+              shield: false,
+              thrust: 0,
+              turn: 0,
+            },
+          ],
+        ]),
+      }),
+    );
+  assert(
+    events.some(({ type }) => type === 'collision'),
+    'the approaching ship hits the station wall',
   );
   assert.equal(ship.dockedTo, undefined);
   assert.equal(station.kind, 'station');
@@ -218,7 +232,7 @@ const stationGeometry = () => {
   );
 
   addPlayer(dockingWorld, { id: 8, shipId: dockingShip.id });
-  updateWorld(dockingWorld, new Map());
+  updateWorld({ world: dockingWorld, inputs: new Map() });
   assert.equal(dockingShip.dockedTo, dockingStation.id);
 };
 
@@ -248,7 +262,7 @@ const collisionAndThrust = () => {
   let events = [];
 
   for (let i = 0; i < 120; i++) {
-    events = updateWorld(world, new Map([[7, input]]));
+    events = updateWorld({ world: world, inputs: new Map([[7, input]]) });
     if (events.some(({ type }) => type === 'collision')) break;
   }
 
@@ -271,9 +285,9 @@ const drillingDoesNotBounce = () => {
   );
   addEntity(world, createAsteroid(world, { position: Vector(50), radius: 25 }));
   addPlayer(world, { id: 7, shipId: ship.id });
-  updateWorld(
-    world,
-    new Map([
+  updateWorld({
+    world: world,
+    inputs: new Map([
       [
         7,
         {
@@ -287,7 +301,7 @@ const drillingDoesNotBounce = () => {
         },
       ],
     ]),
-  );
+  });
   assert(ship.velocity.x >= 0);
 };
 
@@ -301,7 +315,11 @@ const drillSelectsTouchedSection = () => {
   );
   const asteroid = addEntity(
     world,
-    createAsteroid(world, { position: Vector(60), radius: 25 }),
+    createAsteroid(world, {
+      position: Vector(60),
+      radius: 25,
+      contents: [0, 1, 2],
+    }),
   );
   const before = asteroid.sections.map(({ health }) => health);
   ship.segments
@@ -309,9 +327,9 @@ const drillSelectsTouchedSection = () => {
     .forEach((part) => (part.activationProgress = 1));
 
   addPlayer(world, { id: 7, shipId: ship.id });
-  updateWorld(
-    world,
-    new Map([
+  updateWorld({
+    world: world,
+    inputs: new Map([
       [
         7,
         {
@@ -325,11 +343,39 @@ const drillSelectsTouchedSection = () => {
         },
       ],
     ]),
-  );
+  });
   assert.equal(
     asteroid.sections.filter(({ health }, index) => health < before[index])
       .length,
     1,
+  );
+  assert(
+    world.entities.has(asteroid.id),
+    'a healthy section keeps the parent intact',
+  );
+  assert(
+    ![...world.entities.values()].some((entity) => entity.kind === 'item'),
+    'the parent does not dump its cargo at its centre',
+  );
+  // Whole-body destruction remains valid, even with healthy sections remaining.
+  asteroid.health = 0;
+  const events = [];
+  assert(
+    asteroid.fracture({ section: asteroid.sections[0], by: 7, events, world }),
+  );
+  assert(!world.entities.has(asteroid.id));
+  assert.deepEqual(
+    [...world.entities.values()]
+      .filter((entity) => entity.kind === 'item')
+      .map((item) => item.resource)
+      .sort((a, b) => a - b),
+    [0, 1, 2],
+  );
+  assert.equal(events[0].type, 'asteroidDestroyed');
+  assert.equal(
+    asteroid.fracture({ by: 7, events, world }),
+    false,
+    'stale contacts cannot release the cargo twice',
   );
 };
 
@@ -376,10 +422,14 @@ const diamondPickup = () => {
     // A pilot has to keep aiming as pieces move after a split. Keep the drill
     // tip on the resource-bearing child so this covers split -> child -> item.
     if (target) {
+      ship.rotation = 0;
+      ship.spin = 0;
       ship.position.set(target.position.subtract(Vector(47)));
       ship.velocity.set(Vector());
     }
-    miningEvents.push(...updateWorld(world, new Map([[7, drillInput]])));
+    miningEvents.push(
+      ...updateWorld({ world: world, inputs: new Map([[7, drillInput]]) }),
+    );
     fracturedChunk ||= [...world.entities.values()].find(
       (entity) =>
         entity.kind === 'asteroid' && entity.id !== asteroid.id && entity.decay,
@@ -393,12 +443,17 @@ const diamondPickup = () => {
     true,
   );
   assert.deepEqual(
-    miningEvents.find(({ type }) => type === 'asteroidDestroyed')?.contents,
+    miningEvents
+      .filter(({ type }) => type === 'asteroidDestroyed')
+      .flatMap(({ contents }) => contents),
     [0],
   );
   const item = [...world.entities.values()].find(({ kind }) => kind === 'item');
 
   assert.equal(item?.resource, 0);
+  ship.rotation = 0;
+  ship.spin = 0;
+  ship.velocity.set(Vector());
   item.position.set(ship.position.add(Vector(3, -13)));
   item.velocity.set(Vector());
 
@@ -411,7 +466,9 @@ const diamondPickup = () => {
   const pickupEvents = [];
 
   for (let i = 0; i < 120 && !ship.cargoContents?.length; i++)
-    pickupEvents.push(...updateWorld(world, new Map([[7, pickupInput]])));
+    pickupEvents.push(
+      ...updateWorld({ world: world, inputs: new Map([[7, pickupInput]]) }),
+    );
 
   assert.deepEqual(
     ship.cargoContents.map((item) => item.resource),
@@ -621,7 +678,8 @@ const run = () => {
   ship.segments
     .filter((part) => part.module.grinds)
     .forEach((part) => (part.activationProgress = 1));
-  for (let i = 0; i < 100; i++) events.push(...updateWorld(world, inputs));
+  for (let i = 0; i < 100; i++)
+    events.push(...updateWorld({ world: world, inputs: inputs }));
 
   return { asteroid, events, ship, world };
 };
@@ -629,7 +687,7 @@ const run = () => {
 const first = run();
 const second = run();
 
-// Shared 120/60/15 Hz tiers conserve elapsed time on both client and server.
+// Shared 60/15 Hz tiers conserve elapsed time on both client and server.
 for (const multiplayer of [false, true]) {
   const world = createWorld();
   const pilot = addEntity(
@@ -653,22 +711,22 @@ for (const multiplayer of [false, true]) {
   bodies.forEach((body, index) => {
     body.update = (dt) => calls[index].push(dt);
   });
-  for (let tick = 0; tick < 60; tick++) updateWorld(world, new Map());
+  for (let tick = 0; tick < 30; tick++)
+    updateWorld({ world: world, inputs: new Map() });
   assert.deepEqual(
     calls.map((steps) => steps.length),
-    [120, 60, 15, multiplayer ? 120 : 15],
+    [60, 60, 15, multiplayer ? 60 : 15],
   );
   calls.forEach((steps) =>
     assert(Math.abs(steps.reduce((total, dt) => total + dt, 0) - 1) < 1e-12),
   );
-  updateWorld(world, new Map());
-  updateWorld(world, new Map());
+  updateWorld({ world: world, inputs: new Map() });
   assert.equal(bodies[2].pendingUpdateTime, 2 / 60);
   const saved = cloneEntity({ entity: bodies[2] });
   bodies[2].position.set(Vector(1000));
-  updateWorld(world, new Map());
+  updateWorld({ world: world, inputs: new Map() });
   assert(
-    Math.abs(calls[2].at(-1) - 3 / 60) < 1e-12,
+    Math.abs(calls[2].at(-1) - 2 / 60) < 1e-12,
     'tier promotion consumes accumulated time once',
   );
   assert.equal(bodies[2].pendingUpdateTime, 0);
@@ -697,7 +755,7 @@ movementWorld.entities.values = () => {
   entityScans++;
   return values();
 };
-updateWorld(movementWorld, new Map());
+updateWorld({ world: movementWorld, inputs: new Map() });
 assert(
   entityScans <= 4,
   'movement does not allocate an entity array per object',

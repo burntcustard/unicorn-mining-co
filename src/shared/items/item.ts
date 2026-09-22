@@ -4,6 +4,7 @@ import { radiusOf } from '../polygon';
 export class Item extends GameObject {
   static [key: string]: any;
   static mass = 6;
+  static angularDrag = 0.15;
   static radius = 8;
   kind = 'item' as const;
   declare resource: number;

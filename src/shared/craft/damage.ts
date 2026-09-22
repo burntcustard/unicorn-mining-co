@@ -1,11 +1,13 @@
 import { type WorldObject, type Segment } from '../types';
+import { type AsteroidSection } from '../protocol/entities';
 
 export const damage = (
-  object: WorldObject | Segment,
+  object: WorldObject | Segment | AsteroidSection,
   amount: number,
   _point?: number[],
 ) => {
-  const segment = (object.segment || object) as Segment;
+  const segment = (('segment' in object && object.segment) ||
+    object) as Segment;
   const target = segment.mount || segment;
   // Asteroids and items are ground down here too, and carry no module
   const { module } = segment;

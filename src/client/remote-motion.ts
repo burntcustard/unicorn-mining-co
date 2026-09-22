@@ -1,6 +1,10 @@
 import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { type ReplicatedEntity } from '../shared/protocol/network';
-import { simulationStep, updateTiers } from '../shared/simulation/update-tier';
+import {
+  simulationStep,
+  updateTier,
+  updateTiers,
+} from '../shared/simulation/update-tier';
 import { type SimulationWorld } from '../shared/simulation/world';
 
 type Frame = {
@@ -10,19 +14,44 @@ type Frame = {
   dockedTo?: number;
 };
 
+type Track = {
+  frames: Frame[];
+  interval: number;
+  receivedAt: number;
+  renderTick: number;
+};
+
 // Blend over 25m, reaching the collision pose before the hulls can touch.
 const contactMargin = 25;
 
+const interpolate = ({
+  from,
+  to,
+  fraction,
+}: {
+  from: Pick<Frame, 'position' | 'rotation'>;
+  to: Pick<Frame, 'position' | 'rotation'>;
+  fraction: number;
+}) => ({
+  position: from.position.add(
+    to.position.subtract(from.position).scale(fraction),
+  ),
+  rotation:
+    from.rotation +
+    Math.atan2(
+      Math.sin(to.rotation - from.rotation),
+      Math.cos(to.rotation - from.rotation),
+    ) *
+      fraction,
+});
+
 /*
  * Presentation only: never feed these delayed poses back into physics.
- * One on-screen snapshot interval gives us two known endpoints to draw between.
+ * Each object's snapshot interval gives us two known endpoints to draw between.
  * If packets stop, hold the last endpoint instead of guessing another turn.
  */
 export class RemoteMotion {
-  private frames = new Map<number, Frame[]>();
-  private serverTick = 0;
-  private receivedAt = 0;
-  private renderTick = -Infinity;
+  private tracks = new Map<number, Track>();
 
   receive({
     entities,
@@ -37,21 +66,23 @@ export class RemoteMotion {
     tick: number;
     now?: number;
   }) {
-    this.serverTick = tick;
-    this.receivedAt = now;
     const retained = new Set(entityIds);
-    this.frames.forEach((_, id) => {
-      if (!retained.has(id)) this.frames.delete(id);
+    this.tracks.forEach((_, id) => {
+      if (!retained.has(id)) this.tracks.delete(id);
     });
+    const ship = entities.find((entity) => entity.id === shipId);
+    const observers = ship
+      ? [{ position: Vector(ship.position.x, ship.position.y) }]
+      : [];
     entities.forEach((entity) => {
-      if (
-        entity.id === shipId ||
-        entity.playerId === undefined ||
-        entity.kind !== 'ship'
-      )
-        return;
-      let frames = this.frames.get(entity.id) || [];
-      const previous = frames.at(-1);
+      if (entity.id === shipId) return;
+      const track = this.tracks.get(entity.id) || {
+        frames: [],
+        interval: updateTiers.visible.replicateEvery,
+        receivedAt: now,
+        renderTick: -Infinity,
+      };
+      const previous = track.frames.at(-1);
       if (previous && tick <= previous.tick) return;
       // Docking/teleporting is a discontinuity, not a flight across the screen.
       const position = Vector(entity.position.x, entity.position.y);
@@ -59,38 +90,57 @@ export class RemoteMotion {
         previous &&
         (previous.dockedTo !== entity.dockedTo ||
           previous.position.distanceTo(position) > 1000)
-      )
-        frames = [];
-      frames.push({
+      ) {
+        track.frames = [];
+        track.renderTick = -Infinity;
+      }
+      track.frames.push({
         tick,
         position,
         rotation: entity.rotation,
         dockedTo: entity.dockedTo,
       });
-      this.frames.set(entity.id, frames.slice(-4));
+      track.frames = track.frames.slice(-4);
+      track.receivedAt = now;
+      if (observers.length)
+        track.interval = updateTier({
+          entity: { position },
+          observers,
+        }).replicateEvery;
+      this.tracks.set(entity.id, track);
     });
   }
 
   sample({
     now = performance.now(),
     world,
+    predicted = world,
     shipId,
-  }: { now?: number; world?: SimulationWorld; shipId?: number } = {}) {
+  }: {
+    now?: number;
+    world?: SimulationWorld;
+    predicted?: SimulationWorld;
+    shipId?: number;
+  } = {}) {
     const local =
-      shipId === undefined ? undefined : world?.entities.get(shipId);
-    this.renderTick = Math.max(
-      this.renderTick,
-      this.serverTick +
-        Math.min(
-          (now - this.receivedAt) / (simulationStep * 1000),
-          updateTiers.visible.replicateEvery,
-        ) -
-        updateTiers.visible.replicateEvery,
+      shipId === undefined ? undefined : predicted?.entities.get(shipId);
+    const poses = new Map<number, Pick<Frame, 'position' | 'rotation'>>(
+      [...(predicted?.entities.values() || [])].map((entity) => [
+        entity.id,
+        { position: entity.position.add(Vector()), rotation: entity.rotation },
+      ]),
     );
-    const poses = new Map<number, Pick<Frame, 'position' | 'rotation'>>();
-    this.frames.forEach((frames, id) => {
+    this.tracks.forEach((track, id) => {
+      const { frames, interval, receivedAt } = track;
+      track.renderTick = Math.max(
+        track.renderTick,
+        frames.at(-1)!.tick +
+          Math.min((now - receivedAt) / (simulationStep * 1000), interval) -
+          interval,
+      );
       const to =
-        frames.find((frame) => frame.tick >= this.renderTick) || frames.at(-1)!;
+        frames.find((frame) => frame.tick >= track.renderTick) ||
+        frames.at(-1)!;
       const from = frames[Math.max(0, frames.indexOf(to) - 1)];
       const fraction =
         to.tick === from.tick
@@ -99,33 +149,25 @@ export class RemoteMotion {
               0,
               Math.min(
                 1,
-                (this.renderTick - from.tick) / (to.tick - from.tick),
+                (track.renderTick - from.tick) / (to.tick - from.tick),
               ),
             );
-      const angle = Math.atan2(
-        Math.sin(to.rotation - from.rotation),
-        Math.cos(to.rotation - from.rotation),
-      );
-      const pose = {
-        position: from.position.add(
-          to.position.subtract(from.position).scale(fraction),
-        ),
-        rotation: from.rotation + angle * fraction,
-      };
-      const predicted = world?.entities.get(id);
-      if (local && predicted) {
+      const pose = interpolate({ from, to, fraction });
+      const entity = world?.entities.get(id);
+      const predictedPose = poses.get(id) || entity;
+      if (local && predictedPose && entity) {
         // Mixing a predicted local hull with a delayed remote hull invents
         // gaps/overlap at contact. Blend into the shared simulation pose before
         // contact; distant free flight keeps its non-extrapolated presentation.
         const gap =
           Math.min(
             local.position.distanceTo(pose.position),
-            local.position.distanceTo(predicted.position),
+            local.position.distanceTo(predictedPose.position),
           ) -
           local.radius -
-          predicted.radius;
+          entity.radius;
         const travel =
-          predicted.velocity.subtract(local.velocity).length() *
+          entity.velocity.subtract(local.velocity).length() *
           simulationStep *
           updateTiers.visible.replicateEvery;
         const weight = Math.max(
@@ -133,12 +175,12 @@ export class RemoteMotion {
           Math.min(1, (2 * contactMargin + travel - gap) / contactMargin),
         );
         pose.position = pose.position.add(
-          predicted.position.subtract(pose.position).scale(weight),
+          predictedPose.position.subtract(pose.position).scale(weight),
         );
-        const turn = predicted.rotation - pose.rotation;
+        const turn = predictedPose.rotation - pose.rotation;
         pose.rotation =
           weight === 1
-            ? predicted.rotation
+            ? predictedPose.rotation
             : pose.rotation +
               Math.atan2(Math.sin(turn), Math.cos(turn)) * weight;
       }

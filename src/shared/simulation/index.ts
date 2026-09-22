@@ -11,7 +11,7 @@ export {
   cloneEntity,
   restoreWorld,
   type SimulationWorldState,
-} from './world-state';
+} from '../physics/serializer/world-state';
 export {
   addEntity,
   addPlayer,

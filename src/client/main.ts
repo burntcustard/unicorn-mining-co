@@ -103,10 +103,8 @@ const materialize = ({ entity }: { entity: SimulationObject }) => {
 };
 
 const refreshReplication = () => {
-  stationMarkers = [...network.world.entities.values()].filter(
-    (entity) => entity instanceof Station,
-  );
   const entities = [...network.world.entities.values()];
+  stationMarkers = entities.filter((entity) => entity instanceof Station);
   const wanted = new Set(entities.map(({ id }) => id));
   entities.forEach((entity) => {
     const old = regionalObjects.get(entity.id);
@@ -134,7 +132,6 @@ const syncPlayerShip = () => {
 };
 
 const syncSimulationObjects = (dt: number) => {
-  refreshReplication();
   regionalObjects.forEach((object) => {
     if (object instanceof Craft && object !== playerShip)
       object.updateVisual(dt);
@@ -178,11 +175,12 @@ Object.assign(window, { game, network, playerShip });
 const activeRadius = 2000;
 const nearbyRadius = 100;
 let activeSprites: WorldObject[] = [];
-let nearbySprites: WorldObject[] = [];
-let updates = 0;
+let activeTime = 0;
 let spriteCount = 0;
 
-initKeys();
+initKeys({
+  onChange: (input) => network.recordInput({ input }),
+});
 
 [CargoScoop, Horn, Shield, Light].forEach((module) =>
   bindKeys(module.label[0].toLowerCase(), () => {
@@ -197,19 +195,41 @@ initKeys();
     if (module === Light) playSound(9);
   }),
 );
-bindKeys('ft', () => playerShip.dockedTo && moveSubSelection(-1, playerShip));
-bindKeys('pe', () => playerShip.dockedTo && back(playerShip));
+bindKeys(
+  'ArrowLeft',
+  () => playerShip.dockedTo && moveSubSelection(-1, playerShip),
+);
+bindKeys('Escape', () => playerShip.dockedTo && back(playerShip));
 bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));
-bindKeys('ht', () => playerShip.dockedTo && moveSubSelection(1, playerShip));
-bindKeys('Up', () => playerShip.dockedTo && moveSelection(-1, playerShip));
-bindKeys('wn', () => playerShip.dockedTo && moveSelection(1, playerShip));
+bindKeys(
+  'ArrowRight',
+  () => playerShip.dockedTo && moveSubSelection(1, playerShip),
+);
+bindKeys('ArrowUp', () => playerShip.dockedTo && moveSelection(-1, playerShip));
+bindKeys(
+  'ArrowDown',
+  () => playerShip.dockedTo && moveSelection(1, playerShip),
+);
 
 // @ifdef DEBUG
 bindDebug(game);
 // @endif
 
 const gameLoop = GameLoop({
-  render: () => {
+  render: ({ dt, now }) => {
+    const predicted = network.predictFrame({ now });
+    const remotePoses = network.remoteMotion.sample({
+      now,
+      world: network.world,
+      predicted,
+      shipId: network.shipId,
+    });
+    const playerPose = remotePoses.get(playerShip.id) || playerShip;
+    followTarget(
+      game,
+      { position: playerPose.position, dockedTo: playerShip.dockedTo },
+      dt,
+    );
     // The sky slides past at its own pace, so it moves itself
     // @ifdef BENCHMARK
     if (!benchmarkFlag('noBackground')) {
@@ -220,10 +240,6 @@ const gameLoop = GameLoop({
     // @endif
 
     const { ctx, scale } = game;
-    const remotePoses = network.remoteMotion.sample({
-      world: network.world,
-      shipId: network.shipId,
-    });
 
     ctx.save();
     ctx.scale(scale, scale);
@@ -237,7 +253,7 @@ const gameLoop = GameLoop({
       activeSprites
         .filter((object) => object.scenery && object.zIndex === zIndex)
         .forEach((object) => {
-          object.render();
+          object.render({ pose: remotePoses.get(object.id) });
           // A loose leaf cannot be mined any smaller, so its cargo stays in view.
           object.sections ||
             object.renderContents?.forEach((item: WorldObject) =>
@@ -256,11 +272,11 @@ const gameLoop = GameLoop({
           );
 
           if (lamp?.activationProgress > 0.5) {
-            const beam = traceBeam(playerShip, lamp, activeSprites);
+            const beam = traceBeam(playerPose, lamp, activeSprites);
 
             ctx.save();
-            ctx.translate(playerShip.position.x, playerShip.position.y);
-            ctx.rotate(playerShip.rotation);
+            ctx.translate(playerPose.position.x, playerPose.position.y);
+            ctx.rotate(playerPose.rotation);
             ctx.translate(lamp.localPosition.x, lamp.localPosition.y);
             ctx.clip(insidePath(beam));
             ctx.clip(beam.mask);
@@ -284,7 +300,11 @@ const gameLoop = GameLoop({
         // @endif
 
         activeSprites.forEach(
-          (item) => item.item && !item.buried && !item.dead && item.render(),
+          (item) =>
+            item.item &&
+            !item.buried &&
+            !item.dead &&
+            item.render({ pose: remotePoses.get(item.id) }),
         );
       }
 
@@ -292,7 +312,7 @@ const gameLoop = GameLoop({
         (craft) =>
           craft.segments &&
           !craft.dead &&
-          craft.render({
+          craft.render.call(predicted.entities.get(craft.id) || craft, {
             scenery: activeSprites,
             zIndex,
             pose: remotePoses.get(craft.id),
@@ -312,20 +332,26 @@ const gameLoop = GameLoop({
 
     renderUI(game, stationMarkers);
   },
-  update: (dt: number) => {
+  update: ({ dt, now }) => {
     if (playerShip.launchRequested) {
       playerInput.launch = true;
       playerShip.launchRequested = 0;
     }
-    network.update({ input: playerInput });
-    presentEvents({ events: network.takeEvents(), playerId: network.playerId });
-    syncSimulationObjects(dt);
-    syncPlayerShip();
-
-    // Things that happen every fourth update (~15 FPS), or as soon as sprites
-    // come or go, so shipwreck fragments are not left out: refresh the active tier.
-    if (!(updates++ % 4) || spriteCount !== game.sprites.length) {
+    if (network.updateFrame({ input: playerInput, dt, now })) {
       refreshReplication();
+      syncPlayerShip();
+      presentEvents({
+        events: network.takeEvents(),
+        playerId: network.playerId,
+      });
+    }
+    syncSimulationObjects(dt);
+
+    // Things that happen at 15 Hz, or as soon as sprites
+    // come or go, so shipwreck fragments are not left out: refresh the active tier.
+    activeTime += dt;
+    if (activeTime >= 1 / 15 || spriteCount !== game.sprites.length) {
+      activeTime %= 1 / 15;
       spriteCount = game.sprites.length;
       activeSprites = game.sprites.filter(
         (sprite) =>
@@ -334,13 +360,7 @@ const gameLoop = GameLoop({
       );
     }
 
-    // Things that happen every update (~60 FPS).
-    nearbySprites = activeSprites.filter(
-      (sprite) =>
-        !sprite.dead &&
-        sprite.position.distanceTo(playerShip.position) <= nearbyRadius,
-    );
-
+    // Presentation follows the display rate, not the network tick rate.
     updateSparks(dt);
     updatePlayer(dt);
     playerShip.updateVisual(dt);
@@ -351,22 +371,8 @@ const gameLoop = GameLoop({
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
 
     activeSprites.forEach(
-      (sprite) =>
-        !sprite.dead &&
-        !sprite.networked &&
-        !nearbySprites.includes(sprite) &&
-        sprite.update(dt),
+      (sprite) => !sprite.dead && !sprite.networked && sprite.update(dt),
     );
-
-    // Things that happen four times per update (~240 FPS): the nearby tier gets
-    // four smaller movements and collision passes, preserving one dt in total.
-    for (let step = 4; step--;) {
-      nearbySprites.forEach(
-        (sprite) => !sprite.dead && !sprite.networked && sprite.update(dt / 4),
-      );
-    }
-
-    followTarget(game, playerShip, dt);
   },
 });
 

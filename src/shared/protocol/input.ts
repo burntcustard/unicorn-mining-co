@@ -20,8 +20,7 @@ export const emptyPlayerInput = (): PlayerInput => ({
 });
 
 /**
- * Both sides only record an input when it changes and read back the newest one
- * at or before a tick, so telling two apart is part of the protocol.
+ * Only changed controls need a new transition; held keys need no repeat packets.
  */
 export const sameInput = (a: PlayerInput, b: PlayerInput) =>
   a.drill === b.drill &&

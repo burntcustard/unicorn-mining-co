@@ -2,7 +2,6 @@ import { Vector } from '../shared/vector';
 import { type PlayerInput } from '../shared/protocol/input';
 import { type SimulationEvent } from '../shared/protocol/events';
 import {
-  protocolVersion,
   type ClientMessage,
   type ReplicatedEntity,
   type ServerMessage,
@@ -22,11 +21,12 @@ import { type SimulationWorld } from '../shared/simulation/world';
 import { type WorldObject } from '../shared/simulation/world';
 import { PredictionManager } from './prediction';
 import { RemoteMotion } from './remote-motion';
+import { simulationStep } from '../shared/simulation/update-tier';
 
 // Use the same prediction horizon on every client. Input arrival timing also
 // includes missed frames: using it to change this lead puts peers on different
 // timelines throughout a turn or thrust, even after their clocks catch up.
-const predictionTickLead = 2;
+const predictionTickLead = 1;
 // How far the clock may wander before it is worth nudging, since the tick a
 // snapshot was sent on is only ever a latency-blurred reading of it.
 const driftSlack = 1;
@@ -142,7 +142,6 @@ export class NetworkClient {
   serverTick = 0;
   shipId?: number;
   worldSeed?: number;
-  private compatible = true;
   private resolveReady!: () => void;
   private prediction = new PredictionManager({ world: this.world });
   // Separate from predicted objects: decoding must never mutate live state or
@@ -158,6 +157,8 @@ export class NetworkClient {
   private tickAdjust = 0;
   private readonly tickLead = predictionTickLead;
   private welcomed = false;
+  private inputTickStartedAt = performance.now();
+  private pendingTime = 0;
 
   constructor({ url }: { url: string }) {
     this.ready = new Promise((resolve) => (this.resolveReady = resolve));
@@ -165,15 +166,53 @@ export class NetworkClient {
     this.socket.onopen = () =>
       this.send({
         playerToken: localStorage.getItem('playerToken'),
-        protocolVersion,
         type: 'hello',
       });
     this.socket.onmessage = ({ data }) =>
       this.receive({ message: JSON.parse(String(data)) as ServerMessage });
   }
 
-  update({ input }: { input: PlayerInput }) {
+  recordInput({ input }: { input: PlayerInput }) {
+    this.prediction.recordInput({
+      input,
+      offset: (performance.now() - this.inputTickStartedAt) / 1000,
+      send: (message) => this.send({ ...message, type: 'input' }),
+    });
+  }
+
+  predictFrame({ now = performance.now() }: { now?: number } = {}) {
+    return this.prediction.predictFrame({
+      elapsed: (now - this.inputTickStartedAt) / 1000,
+    });
+  }
+
+  updateFrame({
+    input,
+    dt,
+    now = performance.now(),
+  }: {
+    input: PlayerInput;
+    dt: number;
+    now?: number;
+  }) {
+    this.pendingTime += dt;
+    const updated = this.pendingTime >= simulationStep;
+    while (this.pendingTime >= simulationStep) {
+      this.pendingTime -= simulationStep;
+      this.update({ input, now: now - this.pendingTime * 1000 });
+    }
+    return updated;
+  }
+
+  update({
+    input,
+    now = performance.now(),
+  }: {
+    input: PlayerInput;
+    now?: number;
+  }) {
     if (this.playerId === undefined) return;
+    const previousTick = this.world.tick;
     if (this.pendingSnapshot) {
       const message = {
         ...this.pendingSnapshot,
@@ -197,19 +236,22 @@ export class NetworkClient {
       steps = 0;
       this.tickAdjust++;
     }
-    // A checkpoint may already have recovered the missed time. Do not also
-    // spend the render loop's old frame debt predicting past the 33ms horizon.
+    // Keep the same one-tick phase tolerance as retune(). Capping strictly at
+    // the latest packet makes independent 30 Hz clocks alternate wait/catch-up.
+    // Still bound frame debt after a stall; the target lead remains one tick.
     steps = Math.min(
       steps,
-      Math.max(0, this.serverTick + this.tickLead - this.world.tick),
+      Math.max(
+        0,
+        this.serverTick + this.tickLead + driftSlack - this.world.tick,
+      ),
     );
     // A launch is said once, so a skipped tick must not swallow it.
     if (input.launch) steps ||= 1;
 
     const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
       input,
-      send: ({ input, sequence, tick }) =>
-        this.send({ input, sequence, tick, type: 'input' }),
+      send: (message) => this.send({ ...message, type: 'input' }),
     };
     // Releases must still reach the server while we wait for the next snapshot.
     this.prediction.recordInput(predictionInput);
@@ -219,6 +261,9 @@ export class NetworkClient {
       input.launch = false;
     }
     input.launch = false;
+    // Keyboard edges and fractional prediction share the same tick boundary,
+    // including the frame's remainder rather than rounding it away.
+    if (this.world.tick !== previousTick) this.inputTickStartedAt = now;
   }
 
   takeEvents() {
@@ -243,16 +288,7 @@ export class NetworkClient {
   }
 
   private receive({ message }: { message: ServerMessage }) {
-    if (!this.compatible) return;
     if (message.type === 'welcome') {
-      if (message.protocolVersion !== protocolVersion) {
-        this.compatible = false;
-        this.socket.close();
-        console.error(
-          'Client/server protocol mismatch: restart both the game server and client',
-        );
-        return;
-      }
       localStorage.setItem('playerToken', message.playerToken);
       this.playerId = message.playerId;
       this.shipId = message.shipId;
@@ -341,6 +377,8 @@ export class NetworkClient {
     if (message.type === 'load') {
       this.prediction.replayTo({ targetTick: this.serverTick + this.tickLead });
       this.tickAdjust = 0;
+      this.pendingTime = 0;
+      this.inputTickStartedAt = performance.now();
       if (this.welcomed) this.resolveReady();
     } else this.retune();
   }

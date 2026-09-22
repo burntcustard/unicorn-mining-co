@@ -208,7 +208,7 @@ const refract = (dir: VectorValue, normal: VectorValue, index: number) => {
 // One scenery object's shape in the lamp's frame, added to the mask as a path
 // and handed back as points for the rays to be tested against
 const outlineOf = (
-  ship: WorldObject,
+  ship: Pick<WorldObject, 'position' | 'rotation'>,
   lamp: Segment,
   object: Scenery,
   mask: Path2D,
@@ -278,7 +278,7 @@ const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
  * scenery: Anything that might be in the way.
  */
 export const traceBeam = (
-  ship: WorldObject,
+  ship: Pick<WorldObject, 'position' | 'rotation'>,
   lamp: Lamp,
   scenery: WorldObject[],
 ): Beam => {

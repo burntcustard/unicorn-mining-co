@@ -3,8 +3,6 @@ import { type AsteroidSection } from './entities';
 import { type ModuleState } from '../craft/module-state';
 import { type WreckagePart } from '../craft/wreckage-part';
 
-export const protocolVersion = 13;
-
 export type NetworkVector = { x: number; y: number };
 export type ReplicatedModule = ModuleState;
 
@@ -44,6 +42,8 @@ export type ReplicatedEntity = {
 
 export type PlayerInputMessage = {
   input: PlayerInput;
+  /** Seconds into the simulation tick; omitted by tick-aligned callers. */
+  offset?: number;
   sequence: number;
   tick: number;
   type: 'input';
@@ -52,7 +52,6 @@ export type PlayerInputMessage = {
 export type ClientMessage =
   | {
       playerToken: string | null;
-      protocolVersion: number;
       type: 'hello';
     }
   | PlayerInputMessage;
@@ -61,7 +60,6 @@ export type ServerMessage =
   | {
       playerId: number;
       playerToken: string;
-      protocolVersion: number;
       serverTick: number;
       shipId: number;
       spawn: NetworkVector;

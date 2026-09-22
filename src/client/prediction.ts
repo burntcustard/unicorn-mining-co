@@ -1,6 +1,8 @@
 import { Craft } from '../shared/craft/craft';
+import { FramePrediction } from './frame-prediction';
 import { Module } from '../shared/modules/module';
 import { type PlayerId } from '../shared/protocol/entities';
+import { type InputFrame } from '../shared/protocol/input-frame';
 import {
   emptyPlayerInput,
   sameInput,
@@ -9,25 +11,25 @@ import {
 import { updateWorld } from '../shared/simulation/update-world';
 import {
   updateEntities,
-  updateTier,
-  updateTiers,
+  simulationStep,
 } from '../shared/simulation/update-tier';
 import { type SimulationEvent } from '../shared/protocol/events';
 import { Asteroid } from '../shared/simulation/asteroid';
 import { type SimulationWorld } from '../shared/simulation/world';
 import { type WorldObject } from '../shared/simulation/world';
 import { Ship } from '../shared/craft/ship';
+import { type EntityState } from '../shared/physics/serializer/entity-state';
 import {
   captureWorld,
   cloneEntity,
   restoreWorld,
   type SimulationWorldState,
-} from '../shared/simulation/world-state';
+} from '../shared/physics/serializer/world-state';
 
-const historyLength = 120;
-// Normal prediction is two ticks. A longer replay after a stall only adds
+const historyLength = 60;
+// Normal prediction is one tick. A longer replay after a stall only adds
 // more frame debt; recover from the checkpoint instead.
-const maxReplayTicks = 4;
+const maxReplayTicks = 2;
 
 // @ifdef DEBUG
 /** How hard the server has had to argue with the prediction lately. */
@@ -36,7 +38,13 @@ export const predictionStats = { corrections: 0, steps: 0, worst: 0 };
 Object.assign(globalThis, { predictionStats });
 // @endif
 
-const matches = ({ ship, checkpoint }: { ship: Ship; checkpoint: Ship }) => {
+const matches = ({
+  ship,
+  checkpoint,
+}: {
+  ship: EntityState;
+  checkpoint: Ship;
+}) => {
   const hullHealth = checkpoint.hullHealth;
   return (
     ship.position.distanceTo(checkpoint.position) < 0.25 &&
@@ -117,9 +125,10 @@ const applyEntity = ({
 };
 
 export class PredictionManager {
+  private frame = new FramePrediction();
   private history = new Map<number, SimulationWorldState>();
   private lastSent?: PlayerInput;
-  private localInputs = new Map<number, PlayerInput>();
+  private localInputs = new Map<number, InputFrame['changes']>();
   private localPlayerId?: PlayerId;
   private sequence = 0;
   private world: SimulationWorld;
@@ -133,33 +142,54 @@ export class PredictionManager {
   }
 
   reset() {
+    this.frame.reset();
     this.history.clear();
     this.localInputs.clear();
     this.lastSent = undefined;
   }
 
+  predictFrame({ elapsed }: { elapsed: number }) {
+    return this.localPlayerId === undefined
+      ? this.world
+      : this.frame.sample({
+          world: this.world,
+          playerId: this.localPlayerId,
+          input: this.inputAt({ tick: this.world.tick }),
+          elapsed,
+        });
+  }
+
   recordInput({
     input,
     send,
+    offset = 0,
   }: {
     input: PlayerInput;
+    offset?: number;
     send: (message: {
       input: PlayerInput;
       sequence: number;
       tick: number;
+      offset: number;
     }) => void;
   }) {
     if (this.localPlayerId === undefined) return;
     const tick = this.world.tick;
 
-    // A pilot holding a key says the same thing every tick, and both sides read
-    // back the newest input at or before a tick, so only changes are recorded.
+    // Preserve every edge, including multiple changes within the same tick.
+    // Held controls need no repeated messages.
     if (!this.lastSent || !sameInput(this.lastSent, input)) {
       const savedInput = { ...input };
 
       this.lastSent = savedInput;
-      this.localInputs.set(tick, savedInput);
-      send({ input: savedInput, sequence: ++this.sequence, tick });
+      const changes = this.localInputs.get(tick) || [];
+      offset = Math.max(
+        changes.at(-1)?.offset || 0,
+        Math.min(simulationStep - 1e-9, Math.max(0, offset)),
+      );
+      changes.push({ input: savedInput, offset });
+      this.localInputs.set(tick, changes);
+      send({ input: savedInput, sequence: ++this.sequence, tick, offset });
     }
   }
 
@@ -189,6 +219,7 @@ export class PredictionManager {
     tick: number;
   }) {
     const targetTick = this.world.tick;
+    this.frame.reset();
     if (Math.abs(targetTick - tick) > maxReplayTicks) {
       this.reset();
       this.world.tick = tick;
@@ -228,19 +259,24 @@ export class PredictionManager {
         if (
           !(entity instanceof Ship) ||
           entity.id === own.id ||
-          updateTier({ entity, observers: [own] }) !== updateTiers.close
+          entity.position.distanceTo(own.position) >
+            100 +
+              entity.radius +
+              own.radius +
+              (entity.velocity.length() + own.velocity.length()) *
+                simulationStep
         )
           return false;
         const before = state.entities.get(entity.id);
         return (
-          !(before instanceof Ship) ||
+          !(before?.entity instanceof Ship) ||
           !matches({ ship: before, checkpoint: entity })
         );
       });
 
     if (
       !own ||
-      (predicted instanceof Ship &&
+      (predicted?.entity instanceof Ship &&
         matches({ ship: predicted, checkpoint: own }) &&
         !neighbourChanged)
     ) {
@@ -343,31 +379,22 @@ export class PredictionManager {
     // left behind rather than measuring the next correction against it.
     this.history.set(tick, captureWorld({ world: this.world }));
 
-    const inputs = new Map<PlayerId, PlayerInput>();
-    const input = this.inputAt({ inputs: this.localInputs, tick });
-
-    inputs.set(this.localPlayerId!, input || emptyPlayerInput());
-    return updateWorld(this.world, inputs);
+    const inputs = new Map<PlayerId, InputFrame>();
+    inputs.set(this.localPlayerId!, this.inputAt({ tick }));
+    return updateWorld({ world: this.world, inputs: inputs });
   }
 
-  private inputAt({
-    inputs,
-    tick,
-  }: {
-    inputs?: Map<number, PlayerInput>;
-    tick: number;
-  }) {
-    if (!inputs) return;
-    let value: PlayerInput | undefined;
+  private inputAt({ tick }: { tick: number }) {
+    let value = emptyPlayerInput();
     let valueTick = -Infinity;
 
-    [...inputs].forEach(([inputTick, candidate]) => {
-      if (inputTick <= tick && inputTick > valueTick) {
-        value = candidate;
+    this.localInputs.forEach((changes, inputTick) => {
+      if (inputTick < tick && inputTick > valueTick) {
+        value = changes.at(-1)!.input;
         valueTick = inputTick;
       }
     });
-    return value;
+    return { input: value, changes: this.localInputs.get(tick) || [] };
   }
 
   private discardBefore({ tick }: { tick: number }) {

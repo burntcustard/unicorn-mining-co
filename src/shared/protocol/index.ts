@@ -8,7 +8,6 @@ export type {
   ReplicatedEntity,
   ServerMessage,
 } from './network';
-export { protocolVersion } from './network';
 export type {
   AsteroidDescription,
   LoadedRegion,

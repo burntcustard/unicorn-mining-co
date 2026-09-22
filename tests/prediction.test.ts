@@ -13,18 +13,216 @@ import {
   createWorld,
 } from '../src/shared/simulation/world';
 import { createShip } from '../src/shared/craft/create-ship';
-import {
-  cloneEntity,
-  captureWorld,
-  restoreWorld,
-} from '../src/shared/simulation/world-state';
+import { createStation } from '../src/shared/craft/create-station';
+import { createItem } from '../src/shared/items/create-item';
+import { cloneEntity } from '../src/shared/physics/serializer/world-state';
 import { updateWorld } from '../src/shared/simulation/update-world';
 import { PredictionManager } from '../src/client/prediction';
 import { RemoteMotion } from '../src/client/remote-motion';
 import { ReplicationManager } from '../src/server/replication';
 import { Vector } from '../src/shared/vector';
-import { detectCollisions } from '../src/shared/simulation/collisions';
+import { detectCollisions } from '../src/shared/physics/collision/detect-collisions';
 import { GameObject } from '../src/shared/game-object';
+import {
+  simulationStep,
+  updateTiers,
+} from '../src/shared/simulation/update-tier';
+
+// Scenery and loose cargo need render-rate poses too, including the slow tier.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const rock = addEntity(
+    world,
+    createAsteroid(world, { id: 2, position: Vector(700), radius: 30 }),
+  );
+  const item = addEntity(
+    world,
+    createItem(world, { id: 3, position: Vector(800), resource: 0 }),
+  );
+  const station = addEntity(
+    world,
+    createStation({ world, id: 4, position: Vector(8000) }),
+  );
+  const motion = new RemoteMotion();
+  const replication = new ReplicationManager();
+  const receive = (now: number) => {
+    const packet = replication.snapshot({ world, shipId: ship.id });
+    motion.receive({
+      entities: packet.fullEntities,
+      entityIds: packet.entityIds,
+      shipId: ship.id,
+      tick: world.tick,
+      now,
+    });
+  };
+  receive(0);
+  world.tick = 1;
+  for (const entity of [rock, item]) {
+    entity.position.x += 10;
+    entity.rotation += 0.1;
+  }
+  receive(1000 / 30);
+  let last = -Infinity;
+  for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
+    const poses = motion.sample({ now: ((1 + fraction) * 1000) / 30 });
+    for (const entity of [rock, item]) {
+      const pose = poses.get(entity.id)!;
+      assert(
+        Math.abs(pose.position.x - (entity.position.x - 10 + 10 * fraction)) <
+          1e-8,
+      );
+      assert(
+        Math.abs(pose.rotation - (entity.rotation - 0.1 + 0.1 * fraction)) <
+          1e-8,
+      );
+    }
+    assert(
+      poses.get(rock.id)!.position.x > last,
+      'scenery advances on intermediate frames',
+    );
+    last = poses.get(rock.id)!.position.x;
+  }
+  world.tick = 4;
+  station.rotation += 0.4;
+  receive(4000 / 30);
+  for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
+    const pose = motion
+      .sample({ now: ((4 + 4 * fraction) * 1000) / 30 })
+      .get(station.id)!;
+    assert(
+      Math.abs(pose.rotation - (station.rotation - 0.4 + 0.4 * fraction)) <
+        1e-8,
+      'distant stations interpolate over their own snapshot interval',
+    );
+  }
+  assert.equal(
+    motion.sample({ now: 1000 }).get(station.id)!.rotation,
+    station.rotation,
+    'slow-tier interpolation reaches the endpoint when packets stop',
+  );
+  world.entities.delete(rock.id);
+  world.tick = 5;
+  receive(1000);
+  assert(
+    !motion.sample().has(rock.id),
+    'destroyed/unloaded scenery has no stale pose',
+  );
+}
+
+// Rendering predicts the unfinished tick, not the previous tick's pose.
+// Sampling more frames must not advance history or change the eventual solve.
+for (const fps of [60, 120, 144]) {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  addPlayer(world, { id: 1, shipId: ship.id });
+  addEntity(world, new GameObject({ id: 100, position: Vector(8000) }));
+  const prediction = new PredictionManager({ world });
+  prediction.setLocalPlayer({ playerId: 1 });
+  const input = { ...emptyPlayerInput(), thrust: 1, turn: -1 };
+  let messages = 0;
+  const send = () => {
+    messages++;
+  };
+  prediction.recordInput({ input, offset: 0.001, send });
+  const frame = prediction.predictFrame({ elapsed: 1 / fps });
+  const drawn = frame.entities.get(ship.id)!;
+  assert(drawn.velocity.length() > 0, `${fps} FPS: thrust reacts this frame`);
+  assert(drawn.rotation < 0, `${fps} FPS: steering reacts this frame`);
+  assert.equal(world.tick, 0, 'frames do not consume a network tick');
+  assert.equal(ship.rotation, 0, 'frames do not mutate committed history');
+  assert.equal(ship.velocity.length(), 0);
+  assert(!frame.entities.has(100), 'distant objects are not copied each frame');
+  const position = drawn.position.add(Vector());
+  const rotation = drawn.rotation;
+  const repeated = prediction
+    .predictFrame({ elapsed: 1 / fps })
+    .entities.get(ship.id)!;
+  assert(position.distanceTo(repeated.position) < 1e-9);
+  assert.equal(
+    repeated.rotation,
+    rotation,
+    'resampling does not accumulate drift',
+  );
+
+  prediction.recordInput({ input: emptyPlayerInput(), offset: 0.018, send });
+  const released = prediction
+    .predictFrame({ elapsed: 0.024 })
+    .entities.get(ship.id)!;
+  assert.equal(released.turn, 0, 'release is applied before the network tick');
+  assert.equal(released.thrust, 0);
+  const endpoint = prediction
+    .predictFrame({ elapsed: simulationStep })
+    .entities.get(ship.id)!;
+  const endPosition = endpoint.position.add(Vector());
+  const endRotation = endpoint.rotation;
+  const stalled = prediction
+    .predictFrame({ elapsed: 2 })
+    .entities.get(ship.id)!;
+  assert(
+    stalled.position.distanceTo(endPosition) < 1e-9,
+    'a stalled connection cannot predict beyond one unfinished tick',
+  );
+  prediction.step({ input: emptyPlayerInput(), send });
+  assert(ship.position.distanceTo(endPosition) < 1e-9);
+  assert.equal(
+    ship.rotation,
+    endRotation,
+    'frame endpoint equals committed physics',
+  );
+  assert.equal(messages, 2, 'rendering does not send more network messages');
+  const corrected = cloneEntity({ entity: ship });
+  corrected.position.x += 100;
+  prediction.reconcile({ tick: world.tick, entities: [corrected] });
+  assert.equal(
+    prediction.predictFrame({ elapsed: 0 }).entities.get(ship.id)!.position.x,
+    corrected.position.x,
+    'a correction invalidates the cached frame even at the same tick',
+  );
+}
+
+// Two immediate transitions in one tick must retain the duration of a short tap.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new PredictionManager({ world });
+  prediction.setLocalPlayer({ playerId: 1 });
+  const sent: { offset: number; input: ReturnType<typeof emptyPlayerInput> }[] =
+    [];
+  const send = (message: (typeof sent)[number]) => {
+    sent.push(message);
+  };
+  prediction.recordInput({
+    input: { ...emptyPlayerInput(), thrust: 1 },
+    offset: 0.005,
+    send,
+  });
+  prediction.recordInput({ input: emptyPlayerInput(), offset: 0.015, send });
+  assert.equal(
+    sent.length,
+    2,
+    'both transitions are sent before simulation runs',
+  );
+  prediction.step({ input: emptyPlayerInput(), send });
+  assert(
+    ship.velocity.length() > 0,
+    'a released short tap still produces movement',
+  );
+  assert.equal(ship.thrust, 0);
+  const expected = createWorld();
+  const authoritative = addEntity(
+    expected,
+    createShip(expected, { playerId: 1 }),
+  );
+  addPlayer(expected, { id: 1, shipId: authoritative.id });
+  updateWorld({
+    world: expected,
+    inputs: new Map([[1, { input: emptyPlayerInput(), changes: sent }]]),
+  });
+  assert(ship.position.distanceTo(authoritative.position) < 1e-9);
+  assert(ship.velocity.distanceTo(authoritative.velocity) < 1e-9);
+}
 
 // A clock reset must not leave a future input waiting to reactivate thrust.
 {
@@ -69,7 +267,7 @@ import { GameObject } from '../src/shared/game-object';
     ]),
   });
   assert(
-    Math.abs(drifting.rotation - 4 / 60) < 1e-9,
+    Math.abs(drifting.rotation - 4 / 30) < 1e-9,
     'batched slow-tier state retains its own original tick',
   );
   const checkpoint = [...world.entities.values()].map((entity) =>
@@ -114,20 +312,13 @@ for (const localId of [1, 2]) {
   const remote = checkpoint.find((entity) => entity.id !== localId)!;
   remote.position.x += localId === 1 ? -20 : 20;
   const expected = createWorld();
-  restoreWorld({
-    world: expected,
-    state: {
-      ...captureWorld({ world }),
-      entities: new Map(
-        checkpoint.map((entity) => [entity.id, cloneEntity({ entity })]),
-      ),
-    },
-  });
+  checkpoint.forEach((entity) => addEntity(expected, cloneEntity({ entity })));
+  addPlayer(expected, { id: localId, shipId: localId });
   const prediction = new PredictionManager({ world });
   prediction.setLocalPlayer({ playerId: localId });
   for (let tick = 0; tick < 2; tick++) {
     prediction.step({ input: emptyPlayerInput(), send() {} });
-    updateWorld(expected, new Map());
+    updateWorld({ world: expected, inputs: new Map() });
   }
   prediction.reconcile({ entities: checkpoint, tick: 0 });
   for (const id of [1, 2]) {
@@ -167,6 +358,46 @@ for (const localId of [1, 2]) {
     pose.position.distanceTo(other.position) < 1e-8,
     'contact presentation uses the collision position for both pilots',
   );
+  const physicsPositions = [local.position.x, other.position.x];
+  for (const elapsed of [1 / 144, 1 / 120, 1 / 60, simulationStep]) {
+    const predicted = prediction.predictFrame({ elapsed });
+    const poses = motion.sample({ now: 0, world, predicted, shipId: localId });
+    for (const entity of [local, other])
+      assert(
+        poses
+          .get(entity.id)!
+          .position.distanceTo(predicted.entities.get(entity.id)!.position) <
+          1e-8,
+        'local and contacting remote ships use the same frame collision solve',
+      );
+  }
+  assert.deepEqual(
+    [local.position.x, other.position.x],
+    physicsPositions,
+    'sampling presentation must not move physics bodies',
+  );
+  const endpoint = prediction.predictFrame({ elapsed: simulationStep });
+  const framePositions = new Map(
+    [...endpoint.entities].map(([id, entity]) => [
+      id,
+      entity.position.add(Vector()),
+    ]),
+  );
+  prediction.step({ input: emptyPlayerInput(), send() {} });
+  for (const id of [1, 2])
+    assert(
+      world.entities.get(id)!.position.distanceTo(framePositions.get(id)!) <
+        1e-8,
+      'fractional contact prediction ends at the same solved tick',
+    );
+  const beforeDock = local.position.x;
+  local.dockedTo = 123;
+  local.position.x += 500;
+  assert.equal(
+    motion.sample({ world, shipId: localId }).get(localId)!.position.x,
+    beforeDock + 500,
+    'docking resets presentation instead of interpolating through the station',
+  );
 }
 console.log(
   'Both collision perspectives replay shared physics and render matching contact poses',
@@ -201,7 +432,7 @@ const observer = new NetworkClient({ url: `ws://127.0.0.1:${address.port}` });
 await observer.ready;
 
 const input = emptyPlayerInput();
-const step = 1000 / 60;
+const step = simulationStep * 1000;
 // The prediction only earns its keep against the clock the server keeps, so
 // this runs in real time rather than as fast as it can.
 let paused = false;
@@ -245,8 +476,8 @@ assert(
   'recovery must bound replay plus the current update',
 );
 assert(
-  Math.abs(network.world.tick - network.serverTick - 2) <= 1,
-  'the recovered clock returns to the two-tick prediction lead',
+  Math.abs(network.world.tick - network.serverTick - 1) <= 1,
+  'the recovered clock returns to the one-tick lead with phase tolerance',
 );
 paused = false;
 await fly({ ticks: 30 });
@@ -279,9 +510,21 @@ let worstRotationError = 0;
 let worstPositionError = 0;
 for (let sample = 0; sample < 10; sample++) {
   await fly({ ticks: 3 });
-  const seen = observer.world.entities.get(shipId);
-  const own = predicted();
-  assert(seen, 'the second client must see the turning ship');
+  const remote = observer.world.entities.get(shipId);
+  assert(remote, 'the second client must see the turning ship');
+  const own = cloneEntity({ entity: predicted() });
+  const seen = cloneEntity({ entity: remote });
+  const tickDifference = network.world.tick - observer.world.tick;
+  assert(
+    Math.abs(tickDifference) <= 2,
+    'independent client clocks stay bounded',
+  );
+  // Independent timers can straddle a server tick. Compare the same simulation
+  // time rather than treating two ticks of correct turning as a rotation error.
+  const earlier = tickDifference > 0 ? seen : own;
+  for (let tick = 0; tick < Math.abs(tickDifference); tick++)
+    for (let part = 0; part < updateTiers.visible.substeps; part++)
+      earlier.update(simulationStep / updateTiers.visible.substeps);
   const error = Math.abs(
     Math.atan2(
       Math.sin(seen.rotation - own.rotation),
@@ -296,11 +539,11 @@ for (let sample = 0; sample < 10; sample++) {
 }
 assert(
   worstRotationError < 0.12,
-  `raw rotation error ${worstRotationError}; client ticks ${network.world.tick}/${observer.world.tick}`,
+  `same-tick rotation error ${worstRotationError}; client ticks ${network.world.tick}/${observer.world.tick}`,
 );
 assert(
   worstPositionError < predicted().maxSpeed / 30,
-  `raw position error ${worstPositionError} exceeds two ticks of travel`,
+  `same-tick position error ${worstPositionError} exceeds one tick of travel`,
 );
 input.turn = 0;
 await fly({ ticks: 60 });
@@ -359,7 +602,7 @@ assert(
   'both clients agree after steering stops too',
 );
 console.log(
-  `Two-client turning: worst raw rotation error ${worstRotationError.toFixed(4)} radians, position error ${worstPositionError.toFixed(3)} units`,
+  `Two-client turning: worst same-tick rotation error ${worstRotationError.toFixed(4)} radians, position error ${worstPositionError.toFixed(3)} units`,
 );
 
 const authority = server.world.entities.get(shipId);
@@ -395,7 +638,7 @@ const leading = network.world.tick - network.serverTick;
 
 assert(
   authority.position.distanceTo(client.position) <
-    ((leading + 6) * client.maxSpeed) / 60,
+    ((leading + 6) * client.maxSpeed) / 30,
   `the authoritative ship trailed the predicted one by ${authority.position.distanceTo(
     client.position,
   )} units over ${leading} ticks`,
@@ -535,7 +778,13 @@ const watching = setInterval(() => {
     worstContactOffset = Math.max(
       worstContactOffset,
       pose.position.distanceTo(other.position),
-      Math.abs(pose.rotation - other.rotation),
+      // Interpolation can represent the identical heading one full turn apart.
+      Math.abs(
+        Math.atan2(
+          Math.sin(pose.rotation - other.rotation),
+          Math.cos(pose.rotation - other.rotation),
+        ),
+      ),
     );
   }
 }, 8);

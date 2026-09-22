@@ -75,13 +75,13 @@ const measure = ({ name, run }) => {
 };
 measure({
   name: 'shared simulation tick',
-  run: (world) => updateWorld(world, new Map()),
+  run: (world) => updateWorld({ world: world, inputs: new Map() }),
 });
 measure({ name: 'rollback capture', run: (world) => captureWorld({ world }) });
 measure({
   name: 'predicted tick with capture',
   run: (world) => {
     captureWorld({ world });
-    updateWorld(world, new Map());
+    updateWorld({ world: world, inputs: new Map() });
   },
 });
