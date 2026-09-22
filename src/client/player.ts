@@ -122,7 +122,6 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
     destroyed: previous.destroyed,
     docked: previous.docked,
   });
-  ship.shades = previous.shades;
   ship.networked = 1;
   playerShip = ship;
   if (!game.sprites.includes(ship)) ship.add();

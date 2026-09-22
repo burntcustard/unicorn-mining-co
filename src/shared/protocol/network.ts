@@ -5,9 +5,15 @@ import { type WreckagePart } from '../craft/wreckage-part';
 
 export type NetworkVector = { x: number; y: number };
 export type ReplicatedModule = ModuleState;
+export type CraftAction =
+  | { action: 'buy'; module: number; moduleId: number }
+  | { action: 'equip'; moduleId: number; mount: number }
+  | { action: 'paint'; moduleId?: number; mount?: number; paint: number }
+  | { action: 'remove'; mount: number };
 
 export type ReplicatedEntity = {
   cargoContents?: (ReplicatedEntity | { moduleIndex: number })[];
+  credits?: number;
   contents?: number[];
   decay?: number;
   dockedTo?: number;
@@ -54,6 +60,7 @@ export type ClientMessage =
       playerToken: string | null;
       type: 'hello';
     }
+  | ({ type: 'dock' } & CraftAction)
   | PlayerInputMessage;
 
 export type ServerMessage =

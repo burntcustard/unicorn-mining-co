@@ -3,4 +3,6 @@ export type WreckagePart = {
   radius: number;
   offset: { x: number; y: number };
   health: number;
+  fillShade?: number;
+  stroke?: number[][][];
 };

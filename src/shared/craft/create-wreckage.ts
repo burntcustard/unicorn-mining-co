@@ -15,5 +15,7 @@ export const createWreckage = ({
       radius: () => part.radius,
       localPosition: Vector(part.offset.x, part.offset.y),
       health: part.health,
+      fillShade: part.fillShade,
+      outline: part.stroke,
     })),
   });

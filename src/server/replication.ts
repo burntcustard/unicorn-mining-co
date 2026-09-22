@@ -35,6 +35,7 @@ const replicateEntity = ({
         : replicateEntity({ entity: object }),
     ),
   }),
+  ...(entity instanceof Craft && { credits: entity.credits }),
   ...(entity instanceof Craft && { dockedTo: entity.dockedTo }),
   ...(entity instanceof Craft && { hullHealth: entity.hullHealth }),
   ...(entity instanceof Craft && { launching: entity.launching }),

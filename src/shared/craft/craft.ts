@@ -3,7 +3,7 @@ import { type WreckagePart } from './wreckage-part';
 import { scoopOpen, moduleTypes } from '../modules';
 import { movePoint, rotatePoint, shapeOf } from '../geometry';
 import { GameObject } from '../game-object';
-import { colors } from '../colors';
+import { colors, paletteOf } from '../colors';
 import { Vector, type Vector as VectorValue } from '../vector';
 import { applyForce } from '../simulation/apply-force';
 import { outerEdges } from '../physics/collision/outer-edges';
@@ -161,7 +161,7 @@ export class Craft extends GameObject {
       const module: Module = unchanged ? previous[index] : new definition();
       if (state.id !== undefined) module.id = state.id;
       module.health = state.mount >= 0 ? definition.health : state.health;
-      if (state.shades) module.shades = state.shades;
+      if (state.shades) module.shades = paletteOf(state.shades);
       if (state.mount >= 0) {
         const mount = mounts[state.mount];
         if (mount) {
@@ -187,6 +187,8 @@ export class Craft extends GameObject {
           radius: segment.radius?.(segment) || 0,
           offset: segment.localPosition,
           health: (segment.mount || segment).health,
+          fillShade: segment.fillShade,
+          stroke: segment.outline,
         }))
       : undefined;
   }
@@ -299,13 +301,14 @@ export class Craft extends GameObject {
       world: this.world,
       collections: this.collections,
       random: this.random,
+      shades: own.shades || this.shades,
       velocity,
       rotation: this.rotation,
       segments: segments.map((segment) =>
         Object.assign(Object.create(segment), {
           ...own,
           hitbox: 0,
-          localPosition: segment.localPosition.subtract(origin),
+          localPosition: own.localPosition || segment.localPosition.subtract(origin),
         }),
       ),
       spin: this.spin,
@@ -325,7 +328,43 @@ export class Craft extends GameObject {
   // A broken module keeps its shape long enough to tumble away as debris,
   // while the original mount is immediately free again for the dock menu.
   detach(mount: Mount) {
-    const segments = this.partsOf(mount);
+    const mountedSegments = this.partsOf(mount);
+    const debrisSegments = mountedSegments.filter(
+      (segment) => segment.debris !== false,
+    );
+    let debrisMiddle: VectorValue | undefined;
+    const segments = debrisSegments.map((segment) => {
+        const debris = segment.debris;
+        const points =
+          typeof segment.points === 'function'
+            ? segment.points(segment)
+            : segment.points;
+        const middle = points?.length
+          ? points
+              .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
+              .map((sum) => sum / points.length)
+          : [0, 0];
+        const radius = points
+          ? Math.max(
+              ...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1])),
+            )
+          : 0;
+
+        if (debris && typeof debris === 'object') {
+          if (debrisSegments.length === 1)
+            debrisMiddle = Vector(middle[0], middle[1]);
+          return Object.assign(Object.create(segment), debris, {
+            points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
+            fillShade:
+              (segment.mount || segment).health < segment.module.health / 2
+                ? 0
+                : 1,
+            radius: () => radius,
+          });
+        }
+        return segment;
+      });
+    const origin = mount.localPosition.add(debrisMiddle || Vector());
 
     // Destroyed instances leave the inventory rather than becoming cargo.
     this.destroyed?.(mount.module);
@@ -335,10 +374,17 @@ export class Craft extends GameObject {
       this.cargoContents = this.cargoContents.filter(
         (object) => object !== destroyed,
       );
-    this.spawn(mount.localPosition, segments, {
-      health: 1,
-      mount: { health: 1, localPosition: mount.localPosition },
-    });
+    this.spawn(
+      origin,
+      segments,
+      {
+        health: 1,
+        mount: { health: 1, localPosition: mount.localPosition },
+        shades: (destroyed && destroyed.shades) || this.shades,
+        ...(debrisMiddle && { localPosition: Vector() }),
+      },
+      origin,
+    );
   }
 
   hitboxes() {

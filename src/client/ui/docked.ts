@@ -2,11 +2,13 @@ import { Module } from '../../shared/modules/module';
 import { type Ship } from '../../shared/craft/ship';
 import { type GameState } from '../game';
 import { colorUnlocked, say, unlockColor } from '../player';
-import { colors } from '../../shared/colors';
+import { colors, paintColors } from '../../shared/colors';
 import { launch } from '../../shared/simulation/docking';
 import { outline } from '../outline';
 import { playSound } from '../sound-loader';
 import { renderText } from '../text';
+import { moduleTypes } from '../../shared/modules';
+import { sendCraftAction } from '../craft-actions';
 
 /**
  * The panel shown over everything while a ship sits in a bay: a plain
@@ -29,15 +31,7 @@ const colGap = 10;
 const rowPad = 4;
 const textPad = 8;
 
-const paints = [
-  colors.red,
-  colors.orange,
-  colors.yellow,
-  colors.green,
-  colors.cyan,
-  colors.violet,
-  colors.white,
-];
+const paints = [...paintColors];
 
 // How far a paint square sits in from its square button's edge, and the size
 // that leaves it
@@ -305,6 +299,18 @@ export const confirmSelection = (ship: Ship) => {
         hullMenu ? segment.hull : segment.module === currentModule,
       )
       .forEach((segment: any) => (segment.shades = shades));
+    sendCraftAction({
+      action: 'paint',
+      ...(hullMenu
+        ? {}
+        : {
+            moduleId: currentModule.id,
+            ...(mount?.module === currentModule && {
+              mount: ship.mounts.indexOf(mount),
+            }),
+          }),
+      paint: paints.indexOf(shades),
+    });
 
     return;
   }
@@ -343,10 +349,26 @@ export const confirmSelection = (ship: Ship) => {
       say('CARGO FULL');
     } else {
       ship.credits -= currentModule.price;
-      ship.cargoContents.push(new currentModule());
+      const module = new currentModule();
+
+      ship.cargoContents.push(module);
+      sendCraftAction({
+        action: 'buy',
+        module: moduleTypes.indexOf(currentModule),
+        moduleId: module.id,
+      });
     }
   } else {
     ship.fit(picked === 'EQUIP' && currentModule, mount);
+    sendCraftAction(
+      picked === 'EQUIP'
+        ? {
+            action: 'equip',
+            moduleId: currentModule.id,
+            mount: ship.mounts.indexOf(mount),
+          }
+        : { action: 'remove', mount: ship.mounts.indexOf(mount) },
+    );
   }
 };
 

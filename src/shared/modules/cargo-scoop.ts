@@ -63,11 +63,16 @@ export class CargoScoop extends Module {
         });
       },
       radius: () => cargoScoopPhysics.doorRadius,
+      // A loose door keeps this same solid, outline-free presentation.
+      debris: {},
     },
     {
       // Nothing to see and nothing to bump into: a throat notices cargo
-      // between the doors. Closed doors are still a hull-blocked route.
+      // between the doors. Closed doors are still a hull-blocked route. It is
+      // only a sensor, so a broken scoop leaves it behind rather than turning
+      // it into a round piece of debris.
       catches: true,
+      debris: false,
       radius: () => cargoScoopPhysics.throatRadius,
     },
   ];

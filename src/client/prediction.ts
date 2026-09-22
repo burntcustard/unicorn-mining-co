@@ -97,6 +97,7 @@ const applyEntity = ({
       .filter((object) => !(object instanceof Module))
       .map((object) => cargo.get(object)!);
     entity.dockedTo = server.dockedTo;
+    entity.credits = server.credits;
     entity.health = server.health;
     entity.decay = server.decay;
     if (server.decay) {

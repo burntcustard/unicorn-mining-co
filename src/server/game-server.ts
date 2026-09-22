@@ -14,6 +14,9 @@ import { simulationStep } from '../shared/simulation/update-tier';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
 import { ReplicationManager } from './replication';
+import { moduleTypes } from '../shared/modules';
+import { Ship } from '../shared/craft/ship';
+import { paintColors } from '../shared/colors';
 
 type PlayerRecord = {
   /** How far ahead of the simulation this player's last input arrived. */
@@ -82,6 +85,12 @@ export class GameServer {
           );
 
           if (player) this.input({ message, player });
+        } else if (message.type === 'dock') {
+          const player = [...this.players.values()].find(
+            (candidate) => candidate.socket === socket,
+          );
+
+          if (player) this.dock({ message, player });
         }
       });
       socket.on('close', () => {
@@ -235,6 +244,63 @@ export class GameServer {
       changes.push(message);
       player.inputs.set(message.tick, changes);
     }
+  }
+
+  private dock({
+    message,
+    player,
+  }: {
+    message: Extract<ClientMessage, { type: 'dock' }>;
+    player: PlayerRecord;
+  }) {
+    const ship = this.world.entities.get(player.shipId);
+
+    if (!(ship instanceof Ship) || !ship.dockedTo) return;
+    const mount = 'mount' in message ? ship.mounts[message.mount] : undefined;
+
+    if (message.action === 'buy') {
+      const Type = moduleTypes[message.module];
+
+      if (
+        !Type ||
+        ship.credits < Type.price ||
+        ship.cargoContents.length >= ship.cargoSpace
+      )
+        return;
+      ship.credits -= Type.price;
+      ship.cargoContents.push(new Type({ id: message.moduleId }));
+    } else if (message.action === 'equip') {
+      const module = ship.modules.find(({ id }) => id === message.moduleId);
+
+      if (!mount || !module || !mount.fits.includes(module.constructor)) return;
+      ship.fit(module, mount);
+    } else if (message.action === 'paint') {
+      const shades = paintColors[message.paint];
+      const module =
+        message.mount === undefined
+          ? ship.modules.find(({ id }) => id === message.moduleId)
+          : ship.mounts[message.mount]?.module;
+
+      if (!shades || (message.moduleId !== undefined && !module)) return;
+      if (module) module.shades = shades;
+      else ship.shades = shades;
+      ship.segments
+        .filter((segment) =>
+          module ? segment.module === module : segment.hull,
+        )
+        .forEach((segment) => (segment.shades = shades));
+    } else if (mount) ship.fit(0, mount);
+
+    if (player.socket)
+      send({
+        socket: player.socket,
+        message: player.replication.snapshot({
+          world: this.world,
+          shipId: player.shipId,
+          acknowledgedSequence: player.lastSequence,
+          inputLead: player.inputLead,
+        }),
+      });
   }
 
   private tick() {

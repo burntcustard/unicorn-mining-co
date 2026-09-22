@@ -15,3 +15,20 @@ export const colors = {
   grey: ['#778', '#99a', '#bbc', '#334', '#eef'],
   black: ['#000', '#111', '#222', '#879', '#200'],
 } as const;
+
+export const paintColors = [
+  colors.red,
+  colors.orange,
+  colors.yellow,
+  colors.green,
+  colors.cyan,
+  colors.violet,
+  colors.white,
+] as const;
+
+export const paletteOf = (shades: readonly string[]) =>
+  Object.values(colors).find(
+    (palette) =>
+      palette.length === shades.length &&
+      palette.every((color, index) => color === shades[index]),
+  ) || shades;

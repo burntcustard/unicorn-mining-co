@@ -215,12 +215,25 @@ const brokenMount = damaged.mounts.find(slot => slot.fits.includes(CargoScoop));
 damaged.fit(spare, brokenMount);
 const part = damaged.partsOf(brokenMount)[0];
 part.active = 1;
+const attachedDoor = part.points(part).map(([x,y]) => part.localPosition.add(Vector(x,y)));
 damage(part, CargoScoop.health);
 damaged.update(0);
 assert(!damaged.modules.length && !damaged.cargoContents.length && !brokenMount.module, 'destroyed module removed');
 assert(!damaged.partsOf(brokenMount).length, 'destroyed geometry detached');
 const debris = game.crafts.at(-1);
 assert(debris !== damaged && debris.decay && debris.hitboxes().length, 'detached scoop remains physical debris');
+assert.equal(debris.segments.length, 1, 'detached scoop leaves only its physical door');
+assert(!debris.segments[0].catches, 'detached scoop omits its round cargo sensor');
+assert.deepEqual(debris.shades, colors.violet, 'detached scoop retains its pink module colour');
+const hatchOutline = debris.segments[0].points;
+assert.deepEqual(hatchOutline.map(([x,y]) => debris.position.add(Vector(x,y))), attachedDoor,
+  'detached scoop starts at its mounted door geometry');
+const hatchMiddle = hatchOutline
+  .reduce(([sumX,sumY],[x,y]) => [sumX+x,sumY+y],[0,0])
+  .map(sum => sum/hatchOutline.length);
+assert(Math.hypot(debris.segments[0].localPosition.x+hatchMiddle[0],debris.segments[0].localPosition.y+hatchMiddle[1]) < 1e-9,
+  'detached scoop is centred on its existing door outline');
+assert(debris.hitboxes()[0].radius < 9, 'detached scoop collision fits the narrow strip');
 
 // Scoop doors still suppress their hull collision only while sufficiently open.
 const scoopShip = new Mustang({shades: colors.white});

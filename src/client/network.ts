@@ -22,6 +22,9 @@ import { type WorldObject } from '../shared/simulation/world';
 import { PredictionManager } from './prediction';
 import { RemoteMotion } from './remote-motion';
 import { simulationStep } from '../shared/simulation/update-tier';
+import { setCraftActionDispatcher } from './craft-actions';
+import { type CraftAction } from '../shared/protocol/network';
+import { paletteOf } from '../shared/colors';
 
 // Use the same prediction horizon on every client. Input arrival timing also
 // includes missed frames: using it to change this lead puts peers on different
@@ -98,14 +101,19 @@ const makeEntity = ({
             (entity.kind === 'ship' && previous instanceof Ship))
         ? previous
         : entity.kind === 'station'
-          ? createStation({ ...common, world, shades: entity.shades })
+          ? createStation({
+              ...common,
+              world,
+              shades: entity.shades && paletteOf(entity.shades),
+            })
           : createShip(world, {
               ...common,
-              ...(entity.shades && { shades: entity.shades }),
+              ...(entity.shades && { shades: paletteOf(entity.shades) }),
             }),
     common,
     {
       dockedTo: entity.dockedTo,
+      credits: entity.credits,
       health: entity.health ?? 100,
       ...(!wreckage && {
         ...(entity.hullHealth && { hullHealth: entity.hullHealth }),
@@ -118,7 +126,7 @@ const makeEntity = ({
     },
   );
 
-  if (entity.shades) ship.shades = entity.shades;
+  if (entity.shades) ship.shades = paletteOf(entity.shades);
   ship.segments.forEach((part) => {
     if (part.hull) part.shades = part.module.shades || ship.shades;
   });
@@ -178,6 +186,10 @@ export class NetworkClient {
       offset: (performance.now() - this.inputTickStartedAt) / 1000,
       send: (message) => this.send({ ...message, type: 'input' }),
     });
+  }
+
+  sendCraftAction(action: CraftAction) {
+    this.send({ ...action, type: 'dock' });
   }
 
   predictFrame({ now = performance.now() }: { now?: number } = {}) {
@@ -307,7 +319,7 @@ export class NetworkClient {
 
     if (
       message.type === 'snapshot' &&
-      message.serverTick <=
+      message.serverTick <
         (this.pendingSnapshot?.serverTick ?? this.serverTick)
     )
       return;
@@ -389,3 +401,5 @@ const socketProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
 export const network = new NetworkClient({
   url: `${socketProtocol}//${location.host}/game-socket`,
 });
+
+setCraftActionDispatcher((action) => network.sendCraftAction(action));

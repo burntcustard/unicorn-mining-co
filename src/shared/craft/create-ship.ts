@@ -33,6 +33,7 @@ export const createShip = (
     rotation,
     velocity,
     ...(shades && { shades }),
+    credits: 500,
   });
   fitStarterModules(ship);
   return ship;
