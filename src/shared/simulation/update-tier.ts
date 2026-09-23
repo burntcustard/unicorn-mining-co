@@ -64,36 +64,46 @@ export const updateEntities = ({
     // Partial samples use the same subdivision boundary as a complete tick,
     // including any time carried over from the distant tier.
     const step = (entity.pendingUpdateTime + simulationStep) / tier.substeps;
+
     return { entity, tier, step };
   });
+
   world.movementParents = [...world.entities.values()].filter(
     (entity) => entity.holds,
   );
+
   for (let substep = 0; substep < updateTiers.visible.substeps; substep++) {
     scheduled.forEach(({ entity, tier, step }) => {
       if (entity.dead) return;
+
       if (!substep) entity.pendingUpdateTime += dt;
+
       if ((tick + 1) % tier.updateEvery || substep >= tier.substeps) return;
+
       if (entity.pendingUpdateTime <= 0) return;
       const duration = Math.min(entity.pendingUpdateTime, step);
       let elapsed = dt - entity.pendingUpdateTime;
+
       entity.pendingUpdateTime -= duration;
       const end = elapsed + duration;
       const input =
         entity instanceof Ship && entity.playerId !== undefined
           ? inputs?.get(entity.playerId)
           : undefined;
+
       // Split only where a control actually changed, preserving short taps
       // without raising the regular movement or collision frequency.
       if (input && 'changes' in input && entity instanceof Ship) {
         input.changes.forEach(({ input, offset }) => {
           if (offset < elapsed || offset >= end) return;
+
           if (offset > elapsed) entity.update(offset - elapsed);
           controlShip(entity, input, events);
           elapsed = offset;
         });
       }
       entity.update(end - elapsed);
+
       if (entity.dead) world.entities.delete(entity.id);
     });
   }

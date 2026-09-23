@@ -14,6 +14,7 @@ const deadzone = 0.3;
 // How much of the ground it has left to make up the camera still has a second
 // from now. Lower catches up harder, and 0 would snap straight to it
 const lag = 0.0001;
+
 export const dockDuration = 4;
 let dockedTo: WorldObject | 0 | undefined;
 let dockEase: ReturnType<typeof ease>;

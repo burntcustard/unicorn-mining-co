@@ -10,10 +10,12 @@ giveRender({
   Type: Asteroid,
   render({ parent, pose }) {
     const { path } = presentation({ asteroid: this, pose });
+
     parent({
       pose,
       draw: () => {
         const { ctx } = game;
+
         ctx.lineJoin = 'round';
         ctx.lineWidth = objectLineWidth;
         ctx.strokeStyle =

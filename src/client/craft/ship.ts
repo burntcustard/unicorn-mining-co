@@ -13,6 +13,7 @@ giveRender({
       drawHull: ({ segment, health }: { segment: Segment; health: number }) => {
         const { ctx } = game;
         const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
+
         ctx.fillStyle = segment.fillAlpha
           ? segment.shades[2] + segment.fillAlpha
           : segment.shades[worn];

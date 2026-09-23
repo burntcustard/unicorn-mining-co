@@ -67,6 +67,7 @@ export class RemoteMotion {
     now?: number;
   }) {
     const retained = new Set(entityIds);
+
     this.tracks.forEach((_, id) => {
       if (!retained.has(id)) this.tracks.delete(id);
     });
@@ -74,6 +75,7 @@ export class RemoteMotion {
     const observers = ship
       ? [{ position: Vector(ship.position.x, ship.position.y) }]
       : [];
+
     entities.forEach((entity) => {
       if (entity.id === shipId) return;
       const track = this.tracks.get(entity.id) || {
@@ -83,9 +85,11 @@ export class RemoteMotion {
         renderTick: -Infinity,
       };
       const previous = track.frames.at(-1);
+
       if (previous && tick <= previous.tick) return;
       // Docking/teleporting is a discontinuity, not a flight across the screen.
       const position = Vector(entity.position.x, entity.position.y);
+
       if (
         previous &&
         (previous.dockedTo !== entity.dockedTo ||
@@ -102,11 +106,13 @@ export class RemoteMotion {
       });
       track.frames = track.frames.slice(-4);
       track.receivedAt = now;
-      if (observers.length)
+
+      if (observers.length) {
         track.interval = updateTier({
           entity: { position },
           observers,
         }).replicateEvery;
+      }
       this.tracks.set(entity.id, track);
     });
   }
@@ -130,8 +136,10 @@ export class RemoteMotion {
         { position: entity.position.add(Vector()), rotation: entity.rotation },
       ]),
     );
+
     this.tracks.forEach((track, id) => {
       const { frames, interval, receivedAt } = track;
+
       track.renderTick = Math.max(
         track.renderTick,
         frames.at(-1)!.tick +
@@ -155,6 +163,7 @@ export class RemoteMotion {
       const pose = interpolate({ from, to, fraction });
       const entity = world?.entities.get(id);
       const predictedPose = poses.get(id) || entity;
+
       if (local && predictedPose && entity) {
         // Mixing a predicted local hull with a delayed remote hull invents
         // gaps/overlap at contact. Blend into the shared simulation pose before
@@ -174,10 +183,12 @@ export class RemoteMotion {
           0,
           Math.min(1, (2 * contactMargin + travel - gap) / contactMargin),
         );
+
         pose.position = pose.position.add(
           predictedPose.position.subtract(pose.position).scale(weight),
         );
         const turn = predictedPose.rotation - pose.rotation;
+
         pose.rotation =
           weight === 1
             ? predictedPose.rotation

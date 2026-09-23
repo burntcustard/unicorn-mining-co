@@ -12,12 +12,15 @@ export const giveRender = ({
   updateVisual?: (this: any, options: any) => void;
 }) => {
   const parent = Object.getPrototypeOf(Type.prototype).render;
-  if (render)
+
+  if (render) {
     Type.prototype.render = function (options: any = {}) {
       render.call(this, {
         ...options,
         parent: (next: any) => parent?.call(this, next),
       });
     };
+  }
+
   if (updateVisual) Type.prototype.updateVisual = updateVisual;
 };

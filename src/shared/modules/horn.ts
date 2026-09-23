@@ -1,5 +1,12 @@
 import { colors } from '../colors';
 import { Module } from './module';
+import { type Vector } from '../vector';
+import { type AsteroidSection } from '../protocol/entities';
+import { type SimulationEvent } from '../protocol/events';
+import { type Segment } from '../types';
+import { type Asteroid } from '../simulation/asteroid';
+import { type Ship } from '../craft/ship';
+import { type SimulationWorld } from '../simulation/world';
 
 export class Horn extends Module {
   static shades = colors.yellow;
@@ -21,4 +28,62 @@ export class Horn extends Module {
   static label = 'DRILL';
   static price = 350;
   static zIndex = -1;
+
+  mine({
+    ship,
+    segment,
+    asteroid,
+    section,
+    position,
+    events,
+    world,
+    dt,
+  }: {
+    ship: Ship;
+    segment: Segment;
+    asteroid: Asteroid;
+    section?: AsteroidSection;
+    position: Vector;
+    events: SimulationEvent[];
+    world: SimulationWorld;
+    dt: number;
+  }) {
+    if (
+      segment.activationProgress <= 0.5 ||
+      ship.playerId === undefined ||
+      !world.entities.has(asteroid.id)
+    ) {
+      return;
+    }
+    segment.biting = true;
+    const biteSteps = dt * 60;
+    const drillDamage = this.damage * biteSteps;
+    const pull = asteroid.position.subtract(ship.position).normalize();
+    const grip = asteroid.velocity
+      .subtract(ship.velocity)
+      .scale(1 - 0.9 ** biteSteps)
+      .add(pull.scale((1 - 0.9 ** biteSteps) / 0.1));
+
+    ship.velocity.set(ship.velocity.add(grip));
+    (section || asteroid).health -= drillDamage;
+    events.push({
+      asteroidId: asteroid.id,
+      by: ship.playerId,
+      damage: drillDamage,
+      resource: asteroid.resource,
+      position,
+      type: 'asteroidMined',
+    });
+
+    if (
+      asteroid.fracture({
+        section,
+        by: ship.playerId,
+        events,
+        world,
+      })
+    ) {
+      ship.velocity.set(asteroid.velocity);
+    }
+  }
 }

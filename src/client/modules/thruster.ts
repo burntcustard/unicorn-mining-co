@@ -6,7 +6,8 @@ import './module';
 giveRender({
   Type: Thruster,
   render({ segment, parent }) {
-    if (segment.activationProgress > 0)
+    if (segment.activationProgress > 0) {
       parent({ segment, points: flare(segment.flareSize)(segment) });
+    }
   },
 });

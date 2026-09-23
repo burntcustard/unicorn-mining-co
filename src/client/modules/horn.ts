@@ -9,6 +9,7 @@ giveRender({
   render({ segment, parent }) {
     parent({ segment });
     const { ctx } = game;
+
     ctx.save();
     ctx.strokeStyle = (this.shades || segment.shades)[2];
     ctx.clip(shapePath(segment.points));
@@ -16,6 +17,7 @@ giveRender({
       linesPath(
         Array.from({ length: 6 }, (_, index) => {
           const middle = 3 + (index - 1 + (segment.phase || 0)) * 6;
+
           return [
             [middle - 3, -6],
             [middle + 3, 6],

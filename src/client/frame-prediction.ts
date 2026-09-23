@@ -12,7 +12,7 @@ import {
   cloneEntity,
   restoreWorld,
   type SimulationWorldState,
-} from '../shared/physics/serializer/world-state';
+} from '../shared/serializer/simulation-world-state';
 
 /*
  * Predict the unfinished tick at display rate using the same gameplay/CCD as
@@ -41,14 +41,16 @@ export class FramePrediction {
   }) {
     const player = world.players.get(playerId);
     const ship = player && world.entities.get(player.shipId);
+
     if (!ship) return world;
 
     if (!this.state || this.state.tick !== world.tick) {
       const nearby = new Set([ship]);
       const candidates = [...world.entities.values()];
+
       // Include contact chains and moving bodies that can reach us this tick,
       // rather than predicting the pilot through a stationary neighbour.
-      for (const member of nearby)
+      for (const member of nearby) {
         candidates.forEach((entity) => {
           if (
             !entity.dead &&
@@ -59,9 +61,11 @@ export class FramePrediction {
                 100 +
                 (member.velocity.length() + entity.velocity.length()) *
                   simulationStep
-          )
+          ) {
             nearby.add(entity);
+          }
         });
+      }
 
       this.world.entities.clear();
       this.world.players = new Map([[playerId, { ...player! }]]);
@@ -73,6 +77,7 @@ export class FramePrediction {
         .filter((entity) => nearby.has(entity))
         .forEach((entity) => {
           const copy = cloneEntity({ entity });
+
           copy.random = this.world.random;
           addEntity(this.world, copy);
         });
@@ -85,12 +90,14 @@ export class FramePrediction {
 
     restoreWorld({ world: this.world, state: this.state });
     const dt = Math.max(0, Math.min(simulationStep, elapsed));
-    if (dt > 0)
+
+    if (dt > 0) {
       updateWorld({
         world: this.world,
         inputs: new Map([[playerId, input]]),
         dt,
       });
+    }
     return this.world;
   }
 }

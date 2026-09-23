@@ -6,6 +6,8 @@ import { join, resolve } from 'node:path';
 
 const directory = mkdtempSync(join(tmpdir(), 'import-spacing-'));
 const file = join(directory, 'fixture.ts');
+const spacingFile = join(directory, 'spacing.ts');
+const inlineFile = join(directory, 'inline.ts');
 const source =
   "import './dependency';\n// Following code must be separated too.\nexport const value = 1;\n";
 const lint = ({ config, fix = false }) =>
@@ -38,7 +40,46 @@ try {
     0,
     'formatted imports pass normal lint',
   );
-  console.log('Import spacing is enforced and automatically fixed');
+  writeFileSync(
+    spacingFile,
+    'function example() {\n  const a = 1;\n  const b = 2;\n  console.log(a);\n  if (\n    a &&\n    b\n  )\n    console.log(b);\n  for (const value of [a, b]) {\n    console.log(value);\n  }\n  switch (a) {\n    case 1:\n      break;\n    case 2:\n      break;\n  }\n}\n',
+  );
+  const checkSpacing = (fix = false, target = spacingFile) =>
+    spawnSync(
+      resolve('node_modules/.bin/oxlint'),
+      [
+        '-c',
+        resolve('.oxlint-format.json'),
+        '--no-ignore',
+        ...(fix ? ['--fix'] : []),
+        target,
+      ],
+      { encoding: 'utf8' },
+    );
+
+  assert.equal(checkSpacing().status, 1, 'missing braces and spacing fail');
+  const fixedResult = checkSpacing(true);
+
+  assert.equal(fixedResult.status, 0, fixedResult.stdout + fixedResult.stderr);
+  const fixed = readFileSync(spacingFile, 'utf8');
+
+  assert.match(fixed, /const b = 2;\n\n  console\.log\(a\);/);
+  assert.match(
+    fixed,
+    /console\.log\(a\);\n\n  if \([\s\S]*\)\s*\{\s*console\.log\(b\);\s*\}/,
+  );
+  assert.match(fixed, /\n\n  for \(/);
+  assert.match(fixed, /\n\n  switch \(/);
+  assert.match(fixed, /break;\n\n    case 2:/);
+  assert.equal(checkSpacing().status, 0, 'fixed braces and spacing pass');
+  writeFileSync(
+    inlineFile,
+    'function inline() { const value = 1; if (value) console.log(value); }\n',
+  );
+  assert.equal(checkSpacing(false, inlineFile).status, 1);
+  assert.equal(checkSpacing(true, inlineFile).status, 0);
+  assert.match(readFileSync(inlineFile, 'utf8'), /value = 1;\s*\n\s*\nif \(/);
+  console.log('Import spacing, braces, and statement spacing are enforced');
 } finally {
   rmSync(directory, { recursive: true });
 }

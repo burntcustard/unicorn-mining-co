@@ -91,12 +91,13 @@ let stationMarkers: { position: VectorValue; radius: number }[] = [];
 
 const materialize = ({ entity }: { entity: SimulationObject }) => {
   let object: WorldObject;
+
   if (entity instanceof Craft) {
     object = decorateGameObject({ sprite: entity });
   } else if (entity instanceof Item) object = renderItem({ item: entity });
-  else if (entity instanceof Asteroid)
+  else if (entity instanceof Asteroid) {
     object = renderAsteroid({ asteroid: entity });
-  else object = decorateGameObject({ sprite: entity });
+  } else object = decorateGameObject({ sprite: entity });
   object.networked = 1;
   regionalObjects.set(entity.id, object);
   return object;
@@ -104,10 +105,13 @@ const materialize = ({ entity }: { entity: SimulationObject }) => {
 
 const refreshReplication = () => {
   const entities = [...network.world.entities.values()];
+
   stationMarkers = entities.filter((entity) => entity instanceof Station);
   const wanted = new Set(entities.map(({ id }) => id));
+
   entities.forEach((entity) => {
     const old = regionalObjects.get(entity.id);
+
     if (old !== entity) {
       old?.remove();
       spriteCount = -1;
@@ -124,7 +128,9 @@ const refreshReplication = () => {
 
 const syncPlayerShip = () => {
   const ship = network.world.entities.get(network.shipId!);
+
   if (!(ship instanceof Ship)) return;
+
   if (playerShip !== ship) {
     refreshReplication();
     adoptPlayerShip({ ship });
@@ -133,8 +139,9 @@ const syncPlayerShip = () => {
 
 const syncSimulationObjects = (dt: number) => {
   regionalObjects.forEach((object) => {
-    if (object instanceof Craft && object !== playerShip)
+    if (object instanceof Craft && object !== playerShip) {
       object.updateVisual(dt);
+    }
   });
 };
 
@@ -191,7 +198,9 @@ initKeys({
     );
 
     if (!segment || playerShip.dead) return;
+
     if (module === Shield) playSound(segment.active ? 6 : 7);
+
     if (module === Light) playSound(9);
   }),
 );
@@ -225,6 +234,7 @@ const gameLoop = GameLoop({
       shipId: network.shipId,
     });
     const playerPose = remotePoses.get(playerShip.id) || playerShip;
+
     followTarget(
       game,
       { position: playerPose.position, dockedTo: playerShip.dockedTo },
@@ -232,6 +242,7 @@ const gameLoop = GameLoop({
     );
     // The sky slides past at its own pace, so it moves itself
     // @ifdef BENCHMARK
+
     if (!benchmarkFlag('noBackground')) {
       // @endif
       renderSky();
@@ -337,6 +348,7 @@ const gameLoop = GameLoop({
       playerInput.launch = true;
       playerShip.launchRequested = 0;
     }
+
     if (network.updateFrame({ input: playerInput, dt, now })) {
       refreshReplication();
       syncPlayerShip();
@@ -350,6 +362,7 @@ const gameLoop = GameLoop({
     // Things that happen at 15 Hz, or as soon as sprites
     // come or go, so shipwreck fragments are not left out: refresh the active tier.
     activeTime += dt;
+
     if (activeTime >= 1 / 15 || spriteCount !== game.sprites.length) {
       activeTime %= 1 / 15;
       spriteCount = game.sprites.length;
@@ -368,6 +381,7 @@ const gameLoop = GameLoop({
     game.crafts.forEach((craft) => {
       if (!craft.render) decorateGameObject({ sprite: craft as Craft });
     });
+
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
 
     activeSprites.forEach(

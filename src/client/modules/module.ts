@@ -24,9 +24,11 @@ giveRender({
           : segment.radius
             ? circlePath(segment.radius(segment))
             : undefined;
+
         if (!shape) return;
         const shades = this.shades || segment.shades;
         const worn = segment.mount?.health < this.health / 2 ? 0 : 1;
+
         ctx.fillStyle = segment.fillAlpha
           ? shades[2] + segment.fillAlpha
           : shades[worn];

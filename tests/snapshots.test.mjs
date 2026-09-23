@@ -5,6 +5,7 @@ import { performance } from 'node:perf_hooks';
 import { rolldown } from 'rolldown';
 
 let socket;
+
 Object.assign(globalThis, {
   location: { protocol: 'http:', host: 'localhost' },
   localStorage: { getItem: () => null, setItem() {} },
@@ -41,6 +42,7 @@ const bundle = await rolldown({
   ],
 });
 const { output } = await bundle.generate({ format: 'esm' });
+
 await bundle.close();
 const {
   network,
@@ -72,26 +74,31 @@ const initial = replication.initial({
   world,
   shipId: ship.id,
 });
+
 assert(
   initial.fullEntities.some((entity) => entity.id === distantStation.id),
   'stations are fully loaded at 8 km',
 );
 const counts = new Map([...world.entities.keys()].map((id) => [id, 0]));
+
 for (let tick = 1; tick <= 60; tick++) {
   world.tick = tick;
   const packet = replication.snapshot({
     world,
     shipId: ship.id,
   });
+
   packet.fullEntities.forEach((entity) =>
     counts.set(entity.id, counts.get(entity.id) + 1),
   );
-  if (tick % 4 === 0)
+
+  if (tick % 4 === 0) {
     assert.equal(
       packet.fullEntities.length,
       3,
       'all due tiers share one packet',
     );
+  }
 }
 assert.equal(counts.get(ship.id), 60, 'close replication is 30 Hz');
 assert.equal(counts.get(station.id), 60, 'visible replication is 30 Hz');
@@ -107,6 +114,7 @@ const departed = replication.snapshot({
   world,
   shipId: ship.id,
 });
+
 assert(
   !departed.entityIds.includes(distantStation.id),
   'unloads do not wait for a distant snapshot',
@@ -117,6 +125,7 @@ const returned = replication.snapshot({
   world,
   shipId: ship.id,
 });
+
 assert(
   returned.fullEntities.some((entity) => entity.id === distantStation.id),
   'new interest loads immediately between distant update ticks',
@@ -127,6 +136,7 @@ const destroyed = replication.snapshot({
   world,
   shipId: ship.id,
 });
+
 assert(
   !destroyed.entityIds.includes(distantStation.id),
   'destruction removes authoritative membership immediately',
@@ -149,12 +159,16 @@ const deliver = (message) => {
   socket.onmessage({
     data: JSON.stringify({ ...message, serverTick: ++packetTick }),
   });
-  if (message.type === 'snapshot')
+
+  if (message.type === 'snapshot') {
     network.update({ input: emptyPlayerInput() });
+  }
 };
+
 deliver(initial);
 const decoded = network.authoritativeEntities.get(station.id);
 const live = network.world.entities.get(station.id);
+
 assert.notEqual(
   decoded,
   live,
@@ -166,6 +180,7 @@ const snapshot = {
   type: 'snapshot',
   entityIds: initial.fullEntities.map((entity) => entity.id),
 };
+
 deliver(snapshot);
 assert.equal(
   network.authoritativeEntities.get(station.id),
@@ -185,6 +200,7 @@ assert.equal(
 );
 const damaged = structuredClone(snapshot);
 const state = damaged.fullEntities.find((entity) => entity.id === station.id);
+
 state.hullHealth = state.hullHealth.map((health) =>
   health > 0 ? health / 2 : health,
 );
@@ -207,9 +223,12 @@ const applyNext = () => {
   socket.onmessage({ data: wires[packet++] });
   network.update({ input: emptyPlayerInput() });
 };
+
 for (let i = 0; i < 100; i++) applyNext();
+
 for (const reuse of [false, true]) {
   const start = performance.now();
+
   for (let i = 0; i < 1000; i++) {
     if (!reuse) network.authoritativeEntities.clear();
     applyNext();
@@ -248,6 +267,7 @@ const turningShip = addEntity(
   turningWorld,
   createShip(turningWorld, { playerId: 2, position: Vector(500) }),
 );
+
 addPlayer(turningWorld, { id: 1, shipId: observer.id });
 addPlayer(turningWorld, { id: 2, shipId: turningShip.id });
 turningShip.fly(0, 1);
@@ -257,6 +277,7 @@ const clientSocket = socket;
 const sendState = (message) =>
   clientSocket.onmessage({ data: JSON.stringify(message) });
 const turningReplication = new ReplicationManager();
+
 sendState({
   type: 'welcome',
   playerToken: 'test',
@@ -271,6 +292,7 @@ sendState(
 );
 const idle = emptyPlayerInput();
 const turn = { ...idle, turn: 1 };
+
 for (let tick = 0; tick < 30; tick++) {
   client.update({ input: idle });
   updateWorld({
@@ -292,6 +314,7 @@ const remote = client.world.entities.get(turningShip.id);
 const expectedRotation =
   turningShip.rotation +
   (turningShip.spin * (client.world.tick - turningWorld.tick)) / 30;
+
 assert(
   Math.abs(remote.rotation - expectedRotation) < 1e-9,
   'turning remote ships must be extrapolated to the client tick, not left at the older snapshot tick',

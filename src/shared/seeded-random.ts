@@ -11,6 +11,7 @@ export const createRandom = (seed = 1) => {
       return random.state / 2147483647;
     },
   };
+
   return random;
 };
 

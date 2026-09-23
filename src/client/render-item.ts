@@ -13,6 +13,7 @@ export const renderItem = ({
   item.networked = 1;
   item.fill = item.shades[1];
   item.stroke = item.shades[2];
+
   if (add) item.add();
   return item;
 };

@@ -2,10 +2,11 @@ import { Vector, type Vector as VectorValue } from './vector';
 import { createRandom, type Random } from './seeded-random';
 import { move } from './simulation/movement';
 import { localMovement } from './simulation/local-movement';
-import { type Collider } from './physics/collision/types';
+import { type Collider } from './collision/types';
 import { type SimulationWorld } from './simulation/world';
 
 let nextId = -1;
+
 export class GameObject {
   [key: string]: any;
   id: number;
@@ -16,6 +17,7 @@ export class GameObject {
   angularDrag = 0;
   angularInertiaScale = 1;
   mass = 0;
+  physics = true;
   radius = 0;
   dead = false;
   pendingUpdateTime = 0;
@@ -38,14 +40,16 @@ export class GameObject {
       properties.world?.random ||
       createRandom(this.id >>> 0);
     const definitions: Function[] = [];
+
     // Inherited model defaults are available before a craft builds its hull.
     // Per-instance properties, including restored state, always take priority.
     for (
       let type: any = this.constructor;
       type && type !== GameObject;
       type = Object.getPrototypeOf(type)
-    )
+    ) {
       definitions.unshift(type);
+    }
     Object.assign(this, ...definitions, properties);
   }
   add() {
@@ -58,10 +62,12 @@ export class GameObject {
   remove() {
     this.dead = true;
     const resident: GameObject | undefined = this.world?.entities.get(this.id);
+
     if (resident === this) this.world?.entities.delete(this.id);
     // Registries are shared by their members, so preserve the array identity.
     this.collections.forEach((list) => {
       const index = list.indexOf(this);
+
       if (index >= 0) list.splice(index, 1);
     });
   }
@@ -76,11 +82,13 @@ export class GameObject {
             rotation: this.rotation,
             outline: this.outline,
             bounciness: this.bounciness,
+            physics: this.physics,
           },
         ];
   }
   update(dt: number) {
     if (this.dead || this.buried) return;
+
     if (this.decay && (this.health -= this.decay * dt) <= 0) {
       this.remove();
       return;

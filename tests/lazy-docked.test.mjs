@@ -8,6 +8,7 @@ import { viteBuild, viteBuildPre } from '../plugins/vite-build.js';
 import { replacePreTerser } from '../plugins/replace-pre-terser.js';
 
 const wireContract = `const item = JSON.parse('{"position":1}'); item.position === 1;`;
+
 assert.equal(
   replacePreTerser(wireContract),
   wireContract,
@@ -40,6 +41,7 @@ const context = new Proxy(
   {},
   { get: (object, key) => object[key] ?? (() => {}) },
 );
+
 globalThis.canvas = { getContext: () => context };
 globalThis.Path2D = class {
   rect() {}
@@ -75,6 +77,7 @@ try {
     entryFileNames: 'entry.mjs',
     chunkFileNames: '[name]-[hash].mjs',
   });
+
   await bundle.close();
   assert(
     output.some(
@@ -86,6 +89,7 @@ try {
     'docked UI must remain a separately compiled lazy chunk',
   );
   const { run } = await import(pathToFileURL(join(directory, 'entry.mjs')));
+
   assert.equal(
     await run(),
     1,

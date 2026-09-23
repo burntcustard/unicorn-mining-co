@@ -62,12 +62,14 @@ export const tone = (engine = 0) => {
       const fundamental = Math.sin(p);
       const stroke =
         fundamental * 0.5 + Math.sin(p * 2) * 0.3 + Math.sin(p * 3) * 0.2;
+
       return stroke * 0.4 + filtered * (0.6 + 0.4 * fundamental);
     }
 
     const t = (phase * 35) / 30;
     const wave = 1 - 4 * Math.abs(Math.round(t) - t);
     const env = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+
     return wave * env * 0.3;
   });
 
@@ -169,12 +171,14 @@ export const continuousSound = (
   if (!sound && !level) return;
   sound ||= tone(engine);
 
-  if (sound.pitch !== playbackRate)
+  if (sound.pitch !== playbackRate) {
     ramp(sound.playbackRate, (sound.pitch = playbackRate));
+  }
 
   if (level === sound.level) return sound;
 
   const time = ramp(sound.gain, level);
+
   sound.level = level;
 
   if (!level) return sound.stop(time);

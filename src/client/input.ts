@@ -8,6 +8,7 @@ import { unlockAudio } from './sound-loader';
 
 const callbacks = new Map<string, (event: KeyboardEvent) => void>();
 const pressed = new Set<string>();
+
 export const playerInput = emptyPlayerInput();
 
 export const bindKeys = (
@@ -30,31 +31,38 @@ export const initKeys = ({
   };
   const keyDown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
+
     if (key.startsWith('arrow') || key === ' ') event.preventDefault();
+
     if (event.repeat || pressed.has(key)) return;
     unlockAudio();
     const previous = { ...playerInput };
+
     pressed.add(key);
     updateMovement();
     moduleControls.forEach(({ Type, input }) => {
-      if (key === Type.label[0].toLowerCase())
+      if (key === Type.label[0].toLowerCase()) {
         playerInput[input] = !playerInput[input];
+      }
     });
     notify(previous);
     callbacks.get(key)?.(event);
   };
   const keyUp = (event: KeyboardEvent) => {
     const previous = { ...playerInput };
+
     pressed.delete(event.key.toLowerCase());
     updateMovement();
     notify(previous);
   };
   const blur = () => {
     const previous = { ...playerInput };
+
     pressed.clear();
     updateMovement();
     notify(previous);
   };
+
   window.addEventListener('keydown', keyDown);
   window.addEventListener('keyup', keyUp);
   window.addEventListener('blur', blur);

@@ -223,7 +223,7 @@ assert(!damaged.partsOf(brokenMount).length, 'destroyed geometry detached');
 const debris = game.crafts.at(-1);
 assert(debris !== damaged && debris.decay && debris.hitboxes().length, 'detached scoop remains physical debris');
 assert.equal(debris.segments.length, 1, 'detached scoop leaves only its physical door');
-assert(!debris.segments[0].catches, 'detached scoop omits its round cargo sensor');
+assert(!debris.segments[0].catches, 'detached scoop omits its cargo contact point');
 assert.deepEqual(debris.shades, colors.violet, 'detached scoop retains its pink module colour');
 const hatchOutline = debris.segments[0].points;
 assert.deepEqual(hatchOutline.map(([x,y]) => debris.position.add(Vector(x,y))), attachedDoor,
@@ -240,9 +240,17 @@ const scoopShip = new Mustang({shades: colors.white});
 const scoopModule = new CargoScoop();
 scoopShip.cargoContents.push(scoopModule); scoopShip.fit(scoopModule);
 const scoopMount = scoopModule.mount;
+const scoopDoor = scoopShip.partsOf(scoopMount).find(part => !part.catches);
 assert(scoopShip.hitboxes().find(box => box.segment === scoopMount.hull).physics, 'closed scoop hull blocks');
-scoopShip.partsOf(scoopMount).forEach(part => part.activationProgress = 1);
+assert.equal(scoopShip.hitboxes().find(box => box.segment === scoopDoor).collides, false,
+  'closed scoop door does not collide');
+scoopShip.partsOf(scoopMount).forEach(part => { part.active = 1; part.activationProgress = 1; });
 assert(!scoopShip.hitboxes().find(box => box.segment === scoopMount.hull).physics, 'open scoop hull admits cargo');
+assert.equal(scoopShip.hitboxes().find(box => box.segment === scoopDoor).collides, true,
+  'open scoop door collides');
+scoopShip.partsOf(scoopMount).forEach(part => { part.active = 0; part.activationProgress = 0; });
+assert.equal(scoopShip.hitboxes().find(box => box.segment === scoopDoor).collides, false,
+  'closing the scoop removes door contacts again');
 // The starter loadout is owned once and completely fitted by player setup.
 assert(playerShip.modules.length === 5 && !playerShip.cargoContents.length, 'starter inventory');
 assert(new Set(playerShip.modules).size === 5, 'starter modules are distinct instances');
@@ -416,6 +424,7 @@ const bundle = await rolldown({
   ],
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });
+
 await bundle.close();
 
 globalThis.canvas = { getContext: () => ({}) };

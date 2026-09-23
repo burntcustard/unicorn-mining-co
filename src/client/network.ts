@@ -60,7 +60,8 @@ const makeEntity = ({
   };
 
   if (entity.kind === 'object') return new GameObject(common);
-  if (entity.kind === 'asteroid')
+
+  if (entity.kind === 'asteroid') {
     return Object.assign(
       createAsteroid(world, {
         ...entity,
@@ -71,7 +72,9 @@ const makeEntity = ({
       }),
       { pendingUpdateTime: common.pendingUpdateTime },
     );
-  if (entity.kind === 'item')
+  }
+
+  if (entity.kind === 'item') {
     return Object.assign(
       createItem(world, {
         id: common.id,
@@ -81,9 +84,12 @@ const makeEntity = ({
       }),
       common,
     );
+  }
   const wreckage = entity.wreckage;
-  if (entity.kind !== 'ship' && entity.kind !== 'station')
+
+  if (entity.kind !== 'ship' && entity.kind !== 'station') {
     throw new Error('Unknown replicated entity kind');
+  }
   const ship = Object.assign(
     wreckage
       ? createWreckage({
@@ -132,6 +138,7 @@ const makeEntity = ({
   });
   ship.moduleStates = entity.modules || [];
   const modules = ship.modules;
+
   ship.cargoContents = (entity.cargoContents || []).map((object) =>
     'moduleIndex' in object
       ? modules[object.moduleIndex]
@@ -209,6 +216,7 @@ export class NetworkClient {
   }) {
     this.pendingTime += dt;
     const updated = this.pendingTime >= simulationStep;
+
     while (this.pendingTime >= simulationStep) {
       this.pendingTime -= simulationStep;
       this.update({ input, now: now - this.pendingTime * 1000 });
@@ -225,6 +233,7 @@ export class NetworkClient {
   }) {
     if (this.playerId === undefined) return;
     const previousTick = this.world.tick;
+
     if (this.pendingSnapshot) {
       const message = {
         ...this.pendingSnapshot,
@@ -235,6 +244,7 @@ export class NetworkClient {
       const entityTicks = new Map(
         [...this.pendingEntities].map(([id, { tick }]) => [id, tick]),
       );
+
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
       this.applySnapshot({ message, entityTicks });
@@ -259,12 +269,14 @@ export class NetworkClient {
       ),
     );
     // A launch is said once, so a skipped tick must not swallow it.
+
     if (input.launch) steps ||= 1;
 
     const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
       input,
       send: (message) => this.send({ ...message, type: 'input' }),
     };
+
     // Releases must still reach the server while we wait for the next snapshot.
     this.prediction.recordInput(predictionInput);
 
@@ -275,6 +287,7 @@ export class NetworkClient {
     input.launch = false;
     // Keyboard edges and fractional prediction share the same tick boundary,
     // including the frame's remainder rather than rounding it away.
+
     if (this.world.tick !== previousTick) this.inputTickStartedAt = now;
   }
 
@@ -319,16 +332,17 @@ export class NetworkClient {
 
     if (
       message.type === 'snapshot' &&
-      message.serverTick <
-        (this.pendingSnapshot?.serverTick ?? this.serverTick)
-    )
+      message.serverTick < (this.pendingSnapshot?.serverTick ?? this.serverTick)
+    ) {
       return;
+    }
     this.remoteMotion.receive({
       entities: message.fullEntities,
       entityIds: message.entityIds,
       shipId: this.shipId,
       tick: message.serverTick,
     });
+
     if (message.type === 'snapshot') {
       // Keep the latest update for each retained entity, not a queue of full
       // worlds to reconcile individually when the browser resumes.
@@ -340,6 +354,7 @@ export class NetworkClient {
         }),
       );
       const retained = new Set(message.entityIds);
+
       this.pendingEntities.forEach((_, id) => {
         if (!retained.has(id)) this.pendingEntities.delete(id);
       });
@@ -356,6 +371,7 @@ export class NetworkClient {
     entityTicks?: Map<number, number>;
   }) {
     this.serverTick = message.serverTick;
+
     if (message.type === 'load') {
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
@@ -373,6 +389,7 @@ export class NetworkClient {
     );
     const entityIds = message.entityIds;
     const retained = new Set(entityIds);
+
     this.authoritativeEntities.forEach((_, id) => {
       if (!retained.has(id)) this.authoritativeEntities.delete(id);
     });
@@ -391,6 +408,7 @@ export class NetworkClient {
       this.tickAdjust = 0;
       this.pendingTime = 0;
       this.inputTickStartedAt = performance.now();
+
       if (this.welcomed) this.resolveReady();
     } else this.retune();
   }

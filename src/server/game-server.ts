@@ -38,8 +38,9 @@ const send = ({
   socket: WebSocket;
   message: ServerMessage;
 }) => {
-  if (socket.readyState === WebSocket.OPEN)
+  if (socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));
+  }
 };
 
 export class GameServer {
@@ -119,6 +120,7 @@ export class GameServer {
         Math.max(1, Math.ceil(nextTick - performance.now())),
       );
     };
+
     this.timer = setTimeout(tick, Math.ceil(period));
     return this.server;
   }
@@ -130,6 +132,7 @@ export class GameServer {
     const server = this.server;
 
     this.server = undefined;
+
     if (!server) return;
     server.clients.forEach((socket) => socket.close());
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -240,6 +243,7 @@ export class GameServer {
     }
 
     const changes = player.inputs.get(message.tick) || [];
+
     if (message.sequence > (changes.at(-1)?.sequence ?? player.lastSequence)) {
       changes.push(message);
       player.inputs.set(message.tick, changes);
@@ -265,8 +269,9 @@ export class GameServer {
         !Type ||
         ship.credits < Type.price ||
         ship.cargoContents.length >= ship.cargoSpace
-      )
+      ) {
         return;
+      }
       ship.credits -= Type.price;
       ship.cargoContents.push(new Type({ id: message.moduleId }));
     } else if (message.action === 'equip') {
@@ -282,6 +287,7 @@ export class GameServer {
           : ship.mounts[message.mount]?.module;
 
       if (!shades || (message.moduleId !== undefined && !module)) return;
+
       if (module) module.shades = shades;
       else ship.shades = shades;
       ship.segments
@@ -291,7 +297,7 @@ export class GameServer {
         .forEach((segment) => (segment.shades = shades));
     } else if (mount) ship.fit(0, mount);
 
-    if (player.socket)
+    if (player.socket) {
       send({
         socket: player.socket,
         message: player.replication.snapshot({
@@ -301,6 +307,7 @@ export class GameServer {
           inputLead: player.inputLead,
         }),
       });
+    }
   }
 
   private tick() {
@@ -317,6 +324,7 @@ export class GameServer {
         ({ sequence }) => sequence > player.lastSequence,
       );
       const frame: InputFrame = { input: player.lastInput, changes: [] };
+
       changes.forEach(({ input, sequence, offset = 0 }) => {
         offset = Math.max(
           frame.changes.at(-1)?.offset || 0,

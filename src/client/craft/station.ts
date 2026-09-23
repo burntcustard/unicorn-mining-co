@@ -16,6 +16,7 @@ giveRender({
   Type: Station,
   render({ parent, zIndex = 0, ...options }) {
     const { ctx } = game;
+
     parent({
       ...options,
       zIndex,
@@ -30,16 +31,19 @@ giveRender({
       },
       drawHull: ({ segment, health }: { segment: Segment; health: number }) => {
         if (segment.glow) segment.glow.path ||= shapePath(segment.glow);
-        if (segment.glow && zIndex < 0)
+
+        if (segment.glow && zIndex < 0) {
           drawDockingBayGlow(
             ctx,
             segment.glow.path,
             segment.shades[2],
             segment.glow,
           );
+        }
 
         const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
         let lit;
+
         if (segment.hull && segment.middle) {
           // @ifdef DEBUG
           if (!lights) lit = tint(segment.shades, worn, 0.5);
@@ -58,13 +62,14 @@ giveRender({
         ctx.strokeStyle = segment.shades[2];
         drawSegment({ ctx, segment });
 
-        if (segment.glow && zIndex > 0)
+        if (segment.glow && zIndex > 0) {
           drawDockingBayGlow(
             ctx,
             segment.glow.path,
             segment.shades[2],
             segment.glow,
           );
+        }
       },
     });
   },

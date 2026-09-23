@@ -54,6 +54,7 @@ playerShip.destroyed = () => {
 
 playerShip.docked = (station: Ship) => {
   visitedStations.add(station);
+
   if (visitedStations.size > 2) unlockColor('GREEN', '3 STATION VISITS');
 };
 
@@ -77,8 +78,9 @@ export const updatePlayer = (dt: number) => {
     Math.min(1, playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt),
   );
 
-  if (playerShip.position.length() >= 5e4)
+  if (playerShip.position.length() >= 5e4) {
     unlockColor('YELLOW', 'EDGE REACHED');
+  }
 
   // Normalize the replicated spin against the same steering limit used by the
   // simulation. Steering effort also covers braking and reversing direction.
@@ -112,6 +114,7 @@ export const updatePlayer = (dt: number) => {
 
 export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
   const previous = playerShip;
+
   if (previous !== ship) previous.remove();
   Object.assign(ship, {
     credits: previous.credits,
@@ -124,5 +127,6 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
   });
   ship.networked = 1;
   playerShip = ship;
+
   if (!game.sprites.includes(ship)) ship.add();
 };

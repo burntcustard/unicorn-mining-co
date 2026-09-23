@@ -172,10 +172,12 @@ const bundle = await rolldown({
         ) {
           return `${process.cwd()}/src/client/sound.ts`;
         }
+
         if (id === '../game' || id === './game') return '\0mock-game';
       },
       load: (id) => {
         if (id === '\0mock-game') return 'export const game = {ctx:{}};';
+
         if (id === '\0sound-scenario.js') return replacePreTerser(scenario);
       },
     },
@@ -183,6 +185,7 @@ const bundle = await rolldown({
   ],
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });
+
 await bundle.close();
 const compressed = await minify(output[0].code, terserMangleOptions());
 

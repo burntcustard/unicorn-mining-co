@@ -21,10 +21,10 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0physics'
           ? `
-      export { detectCollisions } from '${process.cwd()}/src/shared/physics/collision/detect-collisions.ts';
-      export { hit } from '${process.cwd()}/src/shared/physics/collision/hit.ts';
-      export { outerEdges } from '${process.cwd()}/src/shared/physics/collision/outer-edges.ts';
-      export { GamePhysics } from '${process.cwd()}/src/shared/physics/game-physics.ts';
+      export { detectCollisions } from '${process.cwd()}/src/shared/collision/detect-collisions.ts';
+      export { hit } from '${process.cwd()}/src/shared/collision/hit.ts';
+      export { outerEdges } from '${process.cwd()}/src/shared/collision/outer-edges.ts';
+      export { GameCollisions } from '${process.cwd()}/src/shared/collision/game-collisions.ts';
       export { GameObject } from '${process.cwd()}/src/shared/game-object.ts';
       export * from '${process.cwd()}/src/shared/simulation/index.ts';
       export { controlShip } from '${process.cwd()}/src/shared/craft/control-ship.ts';
@@ -48,7 +48,7 @@ const {
   hit,
   movePoint,
   outerEdges,
-  GamePhysics,
+  GameCollisions,
   GameObject,
   createWorld,
   addEntity,
@@ -201,11 +201,14 @@ const projectile = new GameObject({
   maxSpeed: 10000,
 });
 const torqueWorld = createWorld();
+
 addEntity(torqueWorld, triangle);
 addEntity(torqueWorld, projectile);
 const beforeImpact = captureWorld({ world: torqueWorld });
-for (let i = 0; i < 20; i++)
+
+for (let i = 0; i < 20; i++) {
   updateWorld({ world: torqueWorld, inputs: new Map() });
+}
 assert(
   Math.abs(triangle.spin) > 0.01,
   'pushing a triangular tip rotates the rock',
@@ -214,9 +217,12 @@ const impactResult = {
   position: triangle.position.add(Vector()),
   spin: triangle.spin,
 };
+
 restoreWorld({ world: torqueWorld, state: beforeImpact });
-for (let i = 0; i < 20; i++)
+
+for (let i = 0; i < 20; i++) {
   updateWorld({ world: torqueWorld, inputs: new Map() });
+}
 closeTo(triangle.position.distanceTo(impactResult.position), 0, 1e-7);
 closeTo(triangle.spin, impactResult.spin, 1e-7);
 
@@ -231,6 +237,7 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
       velocity: Vector(400),
     }),
   );
+
   addPlayer(world, { id: 1, shipId: ship.id });
   const rock = addEntity(
     world,
@@ -242,8 +249,10 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
   );
   const health = rock.health;
   const events = [];
-  for (let tick = 0; tick < 60; tick++)
+
+  for (let tick = 0; tick < 60; tick++) {
     events.push(...updateWorld({ world: world, inputs: new Map() }));
+  }
   assert.equal(
     rock.health,
     health,
@@ -289,44 +298,146 @@ const wall = addEntity(
     maxSpeed: 10000,
   }),
 );
+
 updateWorld({ world: ccdWorld, inputs: new Map() });
 assert(
   fast.position.x < wall.position.x,
   'CCD prevents crossing the thin face',
 );
 
-// A sensor attached to a rotating body must sweep its arc, not a straight ray.
-const rotating = new GameObject({
+// Nonphysical contacts use the physics broad phase but apply no impulse.
+const trigger = new GameObject({
   id: 40,
   mass: 6,
-  radius: 52,
-  rotation: Math.PI / 2,
+  radius: 10,
 });
-rotating.hitboxes = () => [
+
+trigger.hitboxes = () => [
   {
-    owner: rotating,
-    position: rotating.position.add(rotatePoint(Vector(50), rotating.rotation)),
-    radius: 2,
-    rotation: rotating.rotation,
+    owner: trigger,
+    position: trigger.position,
+    radius: 10,
+    rotation: 0,
     physics: false,
-    role: 'drill',
+    role: 'scoop',
   },
 ];
-const sensorTarget = new GameObject({
+const triggerTarget = new GameObject({
   id: 41,
-  mass: 100,
+  mass: 10,
   radius: 2,
-  position: Vector(35.35, 35.35),
+  position: Vector(5),
 });
-const swept = new GamePhysics().step({
-  entities: [rotating, sensorTarget],
+const distantTarget = new GameObject({
+  id: 42,
+  mass: 10,
+  radius: 2,
+  position: Vector(15000),
+});
+const triggerContacts = new GameCollisions().step({
+  entities: [trigger, triggerTarget, distantTarget],
   dt: 1 / 60,
-  previous: new Map([[rotating.id, { position: Vector(), rotation: 0 }]]),
+  previous: new Map(),
 });
+
 assert(
-  swept.some(({ collider }) => collider.role === 'drill'),
-  'rotational CCD catches the drill arc',
+  triggerContacts.some(
+    ({ collider, other }) =>
+      collider.role === 'scoop' && other.owner === triggerTarget,
+  ),
+  'overlapping nonphysical fixtures report a contact',
 );
+assert(
+  triggerContacts.every(({ other }) => other.owner !== distantTarget),
+  'distant objects do not contact the trigger',
+);
+closeTo(triggerTarget.position.x, 5);
+
+const fastTriggerTarget = new GameObject({
+  id: 44,
+  mass: 10,
+  radius: 2,
+  position: Vector(25),
+});
+const continuousContacts = new GameCollisions().step({
+  entities: [trigger, fastTriggerTarget],
+  dt: 1 / 60,
+  previous: new Map([
+    [fastTriggerTarget.id, { position: Vector(-25), rotation: 0 }],
+  ]),
+});
+
+assert(
+  continuousContacts.some(({ other }) => other.owner === fastTriggerTarget),
+  'a nonphysical contact detects a complete crossing between ticks',
+);
+closeTo(fastTriggerTarget.position.x, 25);
+
+// A pickup point crossing the open mouth between ticks still collects cargo.
+// The item's physical body remains separate from its nonphysical centre point.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 7 }));
+  const mouthPart = ship.segments.find((segment) => segment.catches);
+
+  ship.segments
+    .filter((segment) => segment.module === mouthPart.module)
+    .forEach((segment) => {
+      segment.active = 1;
+      segment.activationProgress = 1;
+    });
+  const mouth = ship.hitboxes().find((box) => box.segment === mouthPart);
+  const crossingY = mouth.position.y - 10;
+  const item = addEntity(
+    world,
+    createItem(world, {
+      resource: 0,
+      position: Vector(mouth.position.x - 25, crossingY),
+    }),
+  );
+  const crossingContacts = new GameCollisions().step({
+    entities: [ship, item],
+    previous: new Map([
+      [
+        item.id,
+        { position: Vector(mouth.position.x + 25, crossingY), rotation: 0 },
+      ],
+    ]),
+    dt: 1 / 30,
+  });
+
+  assert(
+    crossingContacts.some(
+      ({ collider, other }) =>
+        (collider.segment === mouthPart && other.pickupPoint) ||
+        (other.segment === mouthPart && collider.pickupPoint),
+    ),
+    'continuous collision detects the item centre crossing the mouth',
+  );
+  assert(
+    crossingContacts.every(
+      ({ collider, other }) =>
+        (!collider.pickupPoint && !other.pickupPoint) ||
+        collider.segment === mouthPart ||
+        other.segment === mouthPart,
+    ),
+    'item centre contacts are filtered to scoop mouths',
+  );
+  const events = [];
+
+  ship.handleContacts({
+    contacts: crossingContacts,
+    events,
+    world,
+    dt: 1 / 30,
+  });
+  assert(ship.cargoContents.includes(item), 'the crossing item enters cargo');
+  assert(
+    item.position.distanceTo(mouth.position) > mouth.radius,
+    'pickup occurs even though the item ends the tick beyond the mouth',
+  );
+  assert(events.some(({ type }) => type === 'itemCollected'));
+}
 
 const swinging = new GameObject({
   id: 42,
@@ -346,11 +457,12 @@ const struck = new GameObject({
   radius: 2,
   position: Vector(35.35, 35.35),
 });
-const angularContacts = new GamePhysics().step({
+const angularContacts = new GameCollisions().step({
   entities: [swinging, struck],
   dt: 1 / 60,
   previous: new Map([[swinging.id, { position: Vector(), rotation: 0 }]]),
 });
+
 assert(
   angularContacts.length > 0 && struck.velocity.length() > 0,
   'a thin rotating solid sweeps and pushes the item',
@@ -381,6 +493,7 @@ const bounce = (bounciness) => {
       maxSpeed: 10000,
     }),
   );
+
   for (let i = 0; i < 6; i++) updateWorld({ world: world, inputs: new Map() });
   closeTo(
     moving.mass * moving.velocity.x + heavy.mass * heavy.velocity.x,
@@ -390,6 +503,7 @@ const bounce = (bounciness) => {
   assert(heavy.velocity.x > 0);
   return moving.velocity.x;
 };
+
 assert(
   bounce(0.4) < bounce(0.1),
   'shield bounce stays stronger than hull bounce',
@@ -412,10 +526,12 @@ for (const radiusEven of [undefined, 25]) {
   const children = asteroid.detach({ section: asteroid.sections[0], world });
   const leaf = children[0];
   const visualOutline = JSON.stringify(leaf.outline);
+
   leaf.hitboxes()[0].outline.forEach(([x, y], index) => {
     closeTo(Vector(x, y).distanceTo(Vector(...leaf.outline[index])), 0.1);
   });
   const positions = children.map((child) => child.position.add(Vector()));
+
   children.forEach((child) => {
     child.velocity.set(Vector());
     child.spin = 0;
@@ -425,8 +541,10 @@ for (const radiusEven of [undefined, 25]) {
     0,
     'split pieces have no padded collision overlap',
   );
-  for (let tick = 0; tick < 10; tick++)
+
+  for (let tick = 0; tick < 10; tick++) {
     updateWorld({ world: world, inputs: new Map() });
+  }
   children.forEach((child, index) => {
     closeTo(child.position.distanceTo(positions[index]), 0, 1e-8);
     closeTo(child.spin, 0, 1e-8);
@@ -441,9 +559,11 @@ for (const radiusEven of [undefined, 25]) {
 // In unobstructed flight the solver must not replace steering or drag.
 const flightWorld = createWorld();
 const flying = addEntity(flightWorld, createShip(flightWorld, { playerId: 1 }));
+
 addPlayer(flightWorld, { id: 1, shipId: flying.id });
 const referenceWorld = createWorld();
 const reference = createShip(referenceWorld, { playerId: 1 });
+
 for (let tick = 0; tick < 240; tick++) {
   const input = {
     thrust: tick < 120 ? 1 : 0,
@@ -454,6 +574,7 @@ for (let tick = 0; tick < 240; tick++) {
     shield: false,
     launch: false,
   };
+
   controlShip(reference, input, []);
   reference.update(1 / 60);
   reference.update(1 / 60);
@@ -469,23 +590,28 @@ for (let tick = 0; tick < 240; tick++) {
 for (const direction of [-1, 1]) {
   const world = createWorld();
   const ship = addEntity(world, createShip(world, { playerId: 1 }));
+
   addPlayer(world, { id: 1, shipId: ship.id });
   let angle = 0;
   let referenceAngle = 0;
   let referenceSpin = 0;
   let fullTurnTime;
+
   for (let tick = 1; tick <= 6 / simulationStep; tick++) {
     const turn = tick <= 5 / simulationStep ? direction : 0;
+
     for (let part = 0; part < Math.round(simulationStep * 120); part++) {
       const change = Math.max(
         -16 / 120,
         Math.min(16 / 120, turn * 3 - referenceSpin),
       );
+
       referenceSpin += change;
       referenceAngle += referenceSpin / 120;
     }
     const previous = ship.rotation;
     const before = angle;
+
     updateWorld({
       world: world,
       inputs: new Map([
@@ -509,11 +635,13 @@ for (const direction of [-1, 1]) {
     );
     closeTo(angle, referenceAngle, 0.013);
     closeTo(ship.spin, referenceSpin);
-    if (fullTurnTime === undefined && angle * direction >= 4 * Math.PI)
+
+    if (fullTurnTime === undefined && angle * direction >= 4 * Math.PI) {
       fullTurnTime =
         (tick - 1) * simulationStep +
         ((4 * Math.PI - before * direction) / ((angle - before) * direction)) *
           simulationStep;
+    }
   }
   closeTo(fullTurnTime, 4.278419834415983, 1 / 120);
   closeTo(ship.spin, 0);
@@ -522,8 +650,10 @@ for (const direction of [-1, 1]) {
 const offCentreStrike = ({ angularInertiaScale }) => {
   const world = createWorld();
   const ship = addEntity(world, createShip(world, { playerId: 1 }));
-  if (angularInertiaScale !== undefined)
+
+  if (angularInertiaScale !== undefined) {
     ship.angularInertiaScale = angularInertiaScale;
+  }
   addPlayer(world, { id: 1, shipId: ship.id });
   addEntity(
     world,
@@ -536,6 +666,7 @@ const offCentreStrike = ({ angularInertiaScale }) => {
     }),
   );
   let peakSpin = 0;
+
   for (let tick = 0; tick < 20; tick++) {
     updateWorld({ world: world, inputs: new Map() });
     peakSpin = Math.max(peakSpin, Math.abs(ship.spin));
@@ -544,6 +675,7 @@ const offCentreStrike = ({ angularInertiaScale }) => {
 };
 const originalImpactSpin = offCentreStrike({ angularInertiaScale: 1 });
 const resistedImpactSpin = offCentreStrike({});
+
 assert(
   originalImpactSpin > 1 && resistedImpactSpin > 0,
   'the off-centre strike causes real rotation',
@@ -563,6 +695,7 @@ const referenceItem = createItem(createWorld(), {
   velocity: Vector(150),
   resource: 0,
 });
+
 for (let tick = 0; tick < 2200; tick++) {
   referenceItem.update(1 / 60);
   referenceItem.update(1 / 60);

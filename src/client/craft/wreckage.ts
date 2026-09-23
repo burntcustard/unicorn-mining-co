@@ -14,7 +14,9 @@ export const renderWreckage = ({
 }) => {
   const { ctx } = game;
   const worn =
-    segment.fillShade ?? (health < segment.module.health / 2 ? 0 : +!!segment.hull);
+    segment.fillShade ??
+    (health < segment.module.health / 2 ? 0 : +!!segment.hull);
+
   ctx.fillStyle = segment.fillAlpha
     ? segment.shades[2] + segment.fillAlpha
     : segment.shades[worn];

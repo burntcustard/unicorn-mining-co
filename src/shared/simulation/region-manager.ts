@@ -98,55 +98,70 @@ export class RegionManager {
     position: VectorValue;
     ranges?: WorldRanges;
   }): RegionalView {
+    return this.queryMany({ positions: [position], ranges })[0];
+  }
+
+  queryMany({
+    positions,
+    ranges = worldRanges,
+  }: {
+    positions: VectorValue[];
+    ranges?: WorldRanges;
+  }): RegionalView[] {
     const reach = Math.max(...Object.values(ranges));
-    const from = Vector(
-      Math.floor((position.x - reach) / regionSize),
-      Math.floor((position.y - reach) / regionSize),
-    );
-    const to = Vector(
-      Math.floor((position.x + reach) / regionSize),
-      Math.floor((position.y + reach) / regionSize),
-    );
     const needed = new Set<string>();
-    const descriptions: RegionDescription[] = [];
+    const views = positions.map((position) => {
+      const from = Vector(
+        Math.floor((position.x - reach) / regionSize),
+        Math.floor((position.y - reach) / regionSize),
+      );
+      const to = Vector(
+        Math.floor((position.x + reach) / regionSize),
+        Math.floor((position.y + reach) / regionSize),
+      );
+      const descriptions: RegionDescription[] = [];
 
-    for (let x = from.x; x <= to.x; x++) {
-      for (let y = from.y; y <= to.y; y++) {
-        const region = Vector(x, y);
+      for (let x = from.x; x <= to.x; x++) {
+        for (let y = from.y; y <= to.y; y++) {
+          const region = Vector(x, y);
 
-        needed.add(keyOf({ region }));
-        descriptions.push(this.load({ region }).description);
+          needed.add(keyOf({ region }));
+          descriptions.push(this.load({ region }).description);
+        }
       }
-    }
 
-    [...this.loaded.values()].forEach(({ description }) => {
-      if (!needed.has(keyOf({ region: description.region })))
-        this.unload({ region: description.region });
+      const stations = descriptions.flatMap(({ stations }) => stations);
+
+      return {
+        asteroids: descriptionsWithin({
+          descriptions: descriptions.flatMap(({ asteroids }) => asteroids),
+          position,
+          range: ranges.asteroid,
+        }),
+        stationMarkers: descriptionsWithin({
+          descriptions: stations,
+          position,
+          range: ranges.stationMarker,
+        }),
+        stations: descriptionsWithin({
+          descriptions: stations,
+          position,
+          range: ranges.stationPhysics,
+        }),
+        wrecks: descriptionsWithin({
+          descriptions: descriptions.flatMap(({ wrecks }) => wrecks),
+          position,
+          range: ranges.wreck,
+        }),
+      };
     });
 
-    const stations = descriptions.flatMap(({ stations }) => stations);
+    [...this.loaded.values()].forEach(({ description }) => {
+      if (!needed.has(keyOf({ region: description.region }))) {
+        this.unload({ region: description.region });
+      }
+    });
 
-    return {
-      asteroids: descriptionsWithin({
-        descriptions: descriptions.flatMap(({ asteroids }) => asteroids),
-        position,
-        range: ranges.asteroid,
-      }),
-      stationMarkers: descriptionsWithin({
-        descriptions: stations,
-        position,
-        range: ranges.stationMarker,
-      }),
-      stations: descriptionsWithin({
-        descriptions: stations,
-        position,
-        range: ranges.stationPhysics,
-      }),
-      wrecks: descriptionsWithin({
-        descriptions: descriptions.flatMap(({ wrecks }) => wrecks),
-        position,
-        range: ranges.wreck,
-      }),
-    };
+    return views;
   }
 }

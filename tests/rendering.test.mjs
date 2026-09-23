@@ -15,7 +15,6 @@ import {colors} from '${root}/src/shared/colors.ts';
 import {Diamond} from '${root}/src/shared/items/diamond.ts';
 import {GameObject} from '${root}/src/shared/game-object.ts';
 import {createAsteroid,Asteroid} from '${root}/src/shared/simulation/asteroid.ts';
-import {mine} from '${root}/src/shared/simulation/mining.ts';
 import {Vector} from '${root}/src/shared/vector.ts';
 const world=createWorld();
 const ship=addEntity(world,createShip(world,{playerId:1,shades:colors.cyan}));
@@ -33,7 +32,7 @@ drill.active=1;
 drill.activationProgress=.5;
 const section=rock.sections[1];
 section.health=.5;
-const hit=asteroid=>mine({world,events:[],contacts:[{collider:{owner:ship,role:'drill',segment:drill,position:ship.position},other:{owner:asteroid,part:asteroid===rock?section:undefined},depth:1}]});
+const hit=asteroid=>ship.handleContacts({world,events:[],dt:1/30,contacts:[{collider:{owner:ship,role:'drill',segment:drill,position:ship.position},other:{owner:asteroid,part:asteroid===rock?section:undefined},depth:1}]});
 hit(rock);
 if(!world.entities.has(rock.id)||section.health!==.5)throw Error('a drill must spin up before mining');
 drill.activationProgress=1;
@@ -59,7 +58,7 @@ import '${root}/src/client/craft/ship.ts';
 import '${root}/src/client/craft/station.ts';
 import '${root}/src/client/items/item.ts';
 import {createWorld} from '${root}/src/shared/simulation/world.ts';
-import {cloneEntity} from '${root}/src/shared/physics/serializer/world-state.ts';
+import {cloneEntity} from '${root}/src/shared/serializer/simulation-world-state.ts';
 import {Mustang} from '${root}/src/shared/craft/ships/mustang.ts';
 import {Corral} from '${root}/src/shared/craft/stations/corral.ts';
 import {Thruster} from '${root}/src/shared/modules/thruster.ts';
@@ -248,6 +247,7 @@ globalThis.Path2D = class {
   rect() {}
   addPath() {}
 };
+
 for (const mode of ['fixture', 'source', 'production']) {
   const production = mode === 'production';
   const source = mode === 'fixture' ? fixture : scenario;
@@ -259,26 +259,33 @@ for (const mode of ['fixture', 'source', 'production']) {
         name: 'render-test',
         resolveId: (id) => (id === 'render-test' ? '\0render-test' : undefined),
         load(id) {
-          if (id.endsWith('/src/client/sound-loader.ts'))
+          if (id.endsWith('/src/client/sound-loader.ts')) {
             return "export const playSound=value=>globalThis['sounds'].push(value);export const continuousSound=()=>undefined;";
-          if (id === '\0render-test')
+          }
+
+          if (id === '\0render-test') {
             return production
               ? replacePreTerser(
                   source.replace(/assert\.(\w+)/g, "assert['$1']"),
                 )
               : source;
+          }
         },
         transform(code, id) {
-          if (id.endsWith('/src/client/network.ts'))
+          if (id.endsWith('/src/client/network.ts')) {
             return code + '\nexport {makeEntity};';
-          if (id.endsWith('/src/client/prediction.ts'))
+          }
+
+          if (id.endsWith('/src/client/prediction.ts')) {
             return code + '\nexport {applyEntity};';
+          }
         },
       },
       ...(production ? [viteBuildPre()] : []),
     ],
   });
   const { output } = await bundle.generate({ format: 'esm' });
+
   await bundle.close();
   const code = production
     ? (await minify(output[0].code, terserMangleOptions())).code
@@ -286,5 +293,6 @@ for (const mode of ['fixture', 'source', 'production']) {
   const result = await import(
     'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
   );
+
   if (mode === 'fixture') globalThis.packet = result.default;
 }

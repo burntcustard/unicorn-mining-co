@@ -1,10 +1,13 @@
 {
   "plugins": ["import"],
+  "jsPlugins": ["./scripts/oxlint-spacing.js"],
   "categories": { "correctness": "off" },
   "rules": {
+    "curly": ["error", "multi-line"],
     "import/newline-after-import": [
       "error",
       { "count": 1, "considerComments": true }
-    ]
+    ],
+    "local/statement-spacing": "error"
   }
 }

@@ -31,6 +31,7 @@ const {
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
+
 await bundle.close();
 const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
 
@@ -69,6 +70,7 @@ for (const size of [10, 100, 1000]) {
       `split at size ${size}, frame ${frame}`,
     );
     let fills = 0;
+
     drawSpectrum(
       {
         save() {},

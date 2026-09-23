@@ -18,13 +18,13 @@ import { Asteroid } from '../shared/simulation/asteroid';
 import { type SimulationWorld } from '../shared/simulation/world';
 import { type WorldObject } from '../shared/simulation/world';
 import { Ship } from '../shared/craft/ship';
-import { type EntityState } from '../shared/physics/serializer/entity-state';
+import { type EntityState } from '../shared/serializer/simulation-entity-state';
 import {
   captureWorld,
   cloneEntity,
   restoreWorld,
   type SimulationWorldState,
-} from '../shared/physics/serializer/world-state';
+} from '../shared/serializer/simulation-world-state';
 
 const historyLength = 60;
 // Normal prediction is one tick. A longer replay after a stall only adds
@@ -46,6 +46,7 @@ const matches = ({
   checkpoint: Ship;
 }) => {
   const hullHealth = checkpoint.hullHealth;
+
   return (
     ship.position.distanceTo(checkpoint.position) < 0.25 &&
     ship.velocity.distanceTo(checkpoint.velocity) < 0.25 &&
@@ -73,6 +74,7 @@ const applyEntity = ({
   entity.mass = server.mass;
   entity.radius = server.radius;
   entity.pendingUpdateTime = server.pendingUpdateTime;
+
   if (entity instanceof Asteroid && server instanceof Asteroid) {
     entity.contents = [...server.contents];
     entity.decay = server.decay;
@@ -93,6 +95,7 @@ const applyEntity = ({
         .filter((object) => !(object instanceof Module))
         .map((object) => [object, cloneEntity({ entity: object })]),
     );
+
     entity.cargoContents = server.cargoContents
       .filter((object) => !(object instanceof Module))
       .map((object) => cargo.get(object)!);
@@ -100,14 +103,17 @@ const applyEntity = ({
     entity.credits = server.credits;
     entity.health = server.health;
     entity.decay = server.decay;
+
     if (server.decay) {
       const copied = cloneEntity({ entity: server }) as Craft;
+
       entity.hullSegments = copied.hullSegments;
       entity.segments = copied.segments;
       entity.cockpit = undefined;
     } else entity.hullHealth = [...server.hullHealth];
     entity.moduleStates = server.moduleStates;
     const modules = entity.modules;
+
     entity.cargoContents = server.cargoContents.map((object) =>
       object instanceof Module
         ? modules[server.modules.indexOf(object)]
@@ -120,8 +126,10 @@ const applyEntity = ({
       if (part.hull) part.shades = part.module.shades || server.shades;
     });
     entity.playerId = server.playerId;
-    if (entity instanceof Ship && server instanceof Ship)
+
+    if (entity instanceof Ship && server instanceof Ship) {
       entity.fly(server.thrust, server.turn);
+    }
   }
 };
 
@@ -184,6 +192,7 @@ export class PredictionManager {
 
       this.lastSent = savedInput;
       const changes = this.localInputs.get(tick) || [];
+
       offset = Math.max(
         changes.at(-1)?.offset || 0,
         Math.min(simulationStep - 1e-9, Math.max(0, offset)),
@@ -200,6 +209,7 @@ export class PredictionManager {
     if (this.localPlayerId === undefined) return [];
     this.recordInput(options);
     const events = this.simulate({ tick: this.world.tick });
+
     this.trim();
     return events;
   }
@@ -220,7 +230,9 @@ export class PredictionManager {
     tick: number;
   }) {
     const targetTick = this.world.tick;
+
     this.frame.reset();
+
     if (Math.abs(targetTick - tick) > maxReplayTicks) {
       this.reset();
       this.world.tick = tick;
@@ -266,9 +278,11 @@ export class PredictionManager {
               own.radius +
               (entity.velocity.length() + own.velocity.length()) *
                 simulationStep
-        )
+        ) {
           return false;
+        }
         const before = state.entities.get(entity.id);
+
         return (
           !(before?.entity instanceof Ship) ||
           !matches({ ship: before, checkpoint: entity })
@@ -335,10 +349,12 @@ export class PredictionManager {
         const entity = this.world.entities.get(server.id);
 
         if (server.id === exclude) return;
-        if (entity && entity.constructor === server.constructor)
+
+        if (entity && entity.constructor === server.constructor) {
           applyEntity({ entity, server });
-        else {
+        } else {
           const restored = cloneEntity({ entity: server });
+
           restored.world = this.world;
           restored.random = this.world.random;
           this.world.entities.set(server.id, restored);
@@ -358,17 +374,20 @@ export class PredictionManager {
     const fromTick = (entity: WorldObject) =>
       entityTicks?.get(entity.id) ?? this.world.tick - catchUp;
     const oldest = Math.min(this.world.tick, ...updated.map(fromTick));
-    for (let tick = oldest; tick < this.world.tick; tick++)
+
+    for (let tick = oldest; tick < this.world.tick; tick++) {
       updateEntities({
         world: this.world,
         entities: updated.filter((entity) => fromTick(entity) <= tick),
         tick,
       });
+    }
   }
 
   replayTo({ targetTick }: { targetTick: number }) {
-    while (this.world.tick < targetTick)
+    while (this.world.tick < targetTick) {
       this.simulate({ tick: this.world.tick });
+    }
     this.trim();
   }
 
@@ -381,6 +400,7 @@ export class PredictionManager {
     this.history.set(tick, captureWorld({ world: this.world }));
 
     const inputs = new Map<PlayerId, InputFrame>();
+
     inputs.set(this.localPlayerId!, this.inputAt({ tick }));
     return updateWorld({ world: this.world, inputs: inputs });
   }
@@ -417,9 +437,10 @@ export class PredictionManager {
       .sort((a, b) => a - b)
       .at(-1);
 
-    if (newestStale !== undefined)
+    if (newestStale !== undefined) {
       [...this.localInputs.keys()].forEach((tick) => {
         if (tick < newestStale) this.localInputs.delete(tick);
       });
+    }
   }
 }

@@ -40,6 +40,7 @@ const underDrop = 10;
 export const renderControls = (game: GameState, ship: Ship) => {
   const { ctx, uiScale } = game;
   const modules: (typeof Module)[] = [];
+
   ship.mounts.forEach(
     ({ module }: { module?: Module | 0 }) =>
       module &&
@@ -74,6 +75,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
     }
 
     const path = new Path2D();
+
     path.rect(boxX, y, box, box);
     // A line under the one letter of the name that is the key to work it, a
     // touch narrower than the letter and dropped just below it

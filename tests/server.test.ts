@@ -28,6 +28,7 @@ import { simulationStep } from '../src/shared/simulation/update-tier';
     return 1;
   };
   const timed = new GameServer({ port: 0 });
+
   Object.assign(globalThis, {
     performance: { now: () => now },
     setTimeout: schedule,
@@ -35,8 +36,10 @@ import { simulationStep } from '../src/shared/simulation/update-tier';
     clearTimeout() {},
     clearInterval() {},
   });
+
   try {
     timed.start();
+
     for (let tick = 1; tick <= 1000; tick++) {
       now += pending!.delay;
       pending!.callback();
@@ -46,6 +49,7 @@ import { simulationStep } from '../src/shared/simulation/update-tier';
       );
       // Include variable simulation/scheduling overhead between callbacks.
       const cost = tick % 3;
+
       now += cost;
       pending!.delay -= cost;
     }
@@ -320,6 +324,7 @@ assert.equal(
 assert.equal(playerShip.turn, 0);
 
 const tapTick = server.world.tick + 3;
+
 for (const { sequence, offset, thrust } of [
   { sequence: 6, offset: 0.005, thrust: 1 },
   { sequence: 7, offset: 0.015, thrust: 0 },

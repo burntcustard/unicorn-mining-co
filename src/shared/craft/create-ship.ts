@@ -35,6 +35,7 @@ export const createShip = (
     ...(shades && { shades }),
     credits: 500,
   });
+
   fitStarterModules(ship);
   return ship;
 };

@@ -22,6 +22,7 @@ const bundle = await rolldown({
   ],
 });
 const { output } = await bundle.generate({ format: 'esm' });
+
 await bundle.close();
 const {
   createWorld,
@@ -50,16 +51,20 @@ const setup = () => {
       position: station.position.add(Vector(700)),
     }),
   );
+
   addPlayer(world, { id: 1, shipId: ship.id });
   regions.sync({ world, positions: [ship.position] });
   return world;
 };
 const measure = ({ name, run }) => {
   const world = setup();
+
   for (let i = 0; i < 120; i++) run(world);
   const samples = [];
+
   for (let batch = 0; batch < 7; batch++) {
     const start = performance.now();
+
     for (let i = 0; i < 300; i++) run(world);
     samples.push((performance.now() - start) / 300);
   }
@@ -73,6 +78,7 @@ const measure = ({ name, run }) => {
     }),
   );
 };
+
 measure({
   name: 'shared simulation tick',
   run: (world) => updateWorld({ world: world, inputs: new Map() }),

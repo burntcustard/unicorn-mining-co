@@ -11,6 +11,7 @@ giveRender({
   render({ segment, craft, scenery, parent, pose = craft }) {
     if (!segment.activationProgress) return;
     const beam = segment.prism || traceBeam(pose, segment, scenery);
+
     parent({
       segment,
       draw: () =>

@@ -7,6 +7,7 @@ giveRender({
   Type: GameObject,
   render(this: GameObject, { draw, pose = this }) {
     const { ctx } = game;
+
     ctx.save();
     ctx.translate(pose.position.x, pose.position.y);
     ctx.rotate(pose.rotation);

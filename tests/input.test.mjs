@@ -18,12 +18,17 @@ const bundle = await rolldown({
     {
       name: 'input-test-entry',
       load: (id) => {
-        if (id === '\0input')
+        if (id === '\0input') {
           return `export * from '${process.cwd()}/src/client/input.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';`;
-        if (id.endsWith('/src/client/core.ts'))
+        }
+
+        if (id.endsWith('/src/client/core.ts')) {
           return 'export const context={clearRect(){}};';
-        if (id.endsWith('/src/client/sound-loader.ts'))
+        }
+
+        if (id.endsWith('/src/client/sound-loader.ts')) {
           return 'export const unlockAudio = () => {};';
+        }
       },
       resolveId: (id) => (id === 'input' ? '\0input' : undefined),
     },
@@ -35,6 +40,7 @@ const input = await import(
 );
 
 const changes = [];
+
 input.initKeys({ onChange: (state) => changes.push(state) });
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
 assert.equal(input.playerInput.drill, true);
@@ -46,6 +52,7 @@ assert.equal(input.playerInput.drill, false);
 console.log('toggle input test passed');
 
 const beforeTap = changes.length;
+
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
 assert.equal(changes.at(-1).turn, -1, 'press is captured synchronously');
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' }));
@@ -66,6 +73,7 @@ window.dispatchEvent(new Event('blur'));
 assert.equal(input.playerInput.thrust, 0);
 assert.equal(input.playerInput.turn, 0, 'focus loss releases movement');
 let escaped = false;
+
 input.bindKeys('Escape', () => {
   escaped = true;
 });
@@ -78,9 +86,11 @@ let updates = 0;
 let renders = 0;
 let frameTime;
 const frames = [];
+
 globalThis.performance = { now: () => now };
 globalThis.canvas = { width: 1, height: 1 };
 globalThis.requestAnimationFrame = (frame) => frames.push(frame);
+
 try {
   input
     .GameLoop({
@@ -92,6 +102,7 @@ try {
       },
       render(timing) {
         const { dt } = timing;
+
         assert.equal(
           timing,
           frameTime,
@@ -117,6 +128,7 @@ try {
   frames.shift()();
   assert.equal(updates, 3, 'a long background pause is bounded too');
   assert.equal(renders, 3);
+
   for (let frame = 0; frame < 12; frame++) {
     now += 1000 / 120;
     frames.shift()();

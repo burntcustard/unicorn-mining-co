@@ -26,14 +26,17 @@ export const controlShip = (
 
   for (const { Type, input: command } of moduleControls) {
     const enabled = input[command];
+
     if (ship.moduleActive({ module: Type }) === enabled) continue;
     ship.setModuleActive({ module: Type, active: enabled });
-    if (ship.playerId !== undefined && command !== 'drill')
+
+    if (ship.playerId !== undefined && command !== 'drill') {
       events.push({
         type: 'moduleChanged',
         module: command,
         active: enabled,
         playerId: ship.playerId,
       });
+    }
   }
 };

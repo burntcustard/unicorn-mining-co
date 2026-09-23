@@ -52,14 +52,16 @@ giveRender({
                 !(glow ? segment.module.forwardThrust : segment.module.beam) ||
                 !segment.activationProgress ||
                 (segment.mount || segment).health < 1
-              )
+              ) {
                 return;
+              }
 
               ctx.save();
               ctx.translate(segment.localPosition.x, segment.localPosition.y);
 
-              if (zIndex === -3)
+              if (zIndex === -3) {
                 segment.prism = traceBeam(pose, segment, scenery);
+              }
 
               (glow
                 ? drawThrusterGlow
@@ -85,9 +87,10 @@ giveRender({
           ctx.translate(segment.localPosition.x, segment.localPosition.y);
 
           segment.shades ||= segment.module.shades || this.shades;
-          if (segment.module instanceof Module)
+
+          if (segment.module instanceof Module) {
             segment.module.render({ segment, craft: this, scenery, pose });
-          else drawHull({ segment, health });
+          } else drawHull({ segment, health });
 
           ctx.restore();
         });

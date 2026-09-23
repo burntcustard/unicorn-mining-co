@@ -41,6 +41,7 @@ controlShip(ship,playerInput,[]);
 assert(!ship.moduleActive({module:Light}),'there are no hidden module key aliases');
 console.log('Drill, light, hatch and shield keyboard-to-simulation toggles passed');
 `;
+
 for (const production of [false, true]) {
   const bundle = await rolldown({
     input: 'input-test',
@@ -50,20 +51,25 @@ for (const production of [false, true]) {
         name: 'input-test',
         resolveId: (id) => (id === 'input-test' ? '\0input-test' : undefined),
         load(id) {
-          if (id === '\0input-test')
+          if (id === '\0input-test') {
             return production ? replacePreTerser(scenario) : scenario;
-          if (id.endsWith('/src/client/sound-loader.ts'))
+          }
+
+          if (id.endsWith('/src/client/sound-loader.ts')) {
             return 'export const unlockAudio=()=>{};';
+          }
         },
       },
       ...(production ? [viteBuildPre()] : []),
     ],
   });
   const { output } = await bundle.generate({ format: 'esm' });
+
   await bundle.close();
   const code = production
     ? (await minify(output[0].code, terserMangleOptions())).code
     : output[0].code;
+
   await import(
     'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
   );

@@ -62,11 +62,8 @@ export function viteBuildPre(flags = {}) {
     generateBundle() {
       this.emitFile({
         type: 'asset',
-        fileName: 'physics-LICENSE.txt',
-        source: readFileSync(
-          new URL('../src/shared/physics/LICENSE.txt', import.meta.url),
-          'utf8',
-        ),
+        fileName: 'LICENSE.txt',
+        source: readFileSync(new URL('../LICENSE', import.meta.url), 'utf8'),
       });
     },
     transform(source, id) {

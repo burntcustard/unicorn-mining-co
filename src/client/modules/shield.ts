@@ -8,6 +8,7 @@ giveRender({
   Type: Shield,
   render({ segment, parent }) {
     parent({ segment });
+
     if (segment.covers) return;
     game.ctx.stroke(
       linesPath(
@@ -15,6 +16,7 @@ giveRender({
           (angle) => {
             const x = Math.cos(angle) * 7,
               y = Math.sin(angle) * 7;
+
             return [
               [-x, -y],
               [x, y],

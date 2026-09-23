@@ -162,8 +162,9 @@ const cross = (
       along > 1 ||
       distance < inset ||
       distance >= near
-    )
+    ) {
       return;
+    }
 
     near = distance;
     faceIndex = i;
@@ -317,6 +318,7 @@ const joins = (points: Outline, from: number, to: number) => {
   const count = points.length;
 
   if ((from + 1) % count !== to) [from, to] = [to, from];
+
   if ((from + 1) % count !== to) return false;
 
   const corner = Vector(...points[to]);

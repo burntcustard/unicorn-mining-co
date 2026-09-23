@@ -10,6 +10,7 @@ giveRender({
   },
   updateVisual({ segments }) {
     const active = Boolean(segments.some((segment: any) => segment.active));
+
     if (active !== Boolean(this.lastActive)) playSound(active ? 0 : 1);
     this.lastActive = active;
   },

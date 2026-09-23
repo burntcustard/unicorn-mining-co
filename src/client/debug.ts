@@ -12,7 +12,7 @@ import { sky } from './background';
 import { textDemo } from './text-demo';
 import { Vector } from '../shared/vector';
 import { type WorldObject } from '../shared/types';
-import { type Collider } from '../shared/physics/collision/types';
+import { type Collider } from '../shared/collision/types';
 
 export let showDeadzone = false;
 let showMass = false;
@@ -150,8 +150,9 @@ export const renderDebug = (
     game.ctx.textAlign = 'center';
     game.ctx.textBaseline = 'middle';
     sprites.forEach(({ mass, position }) => {
-      if (mass)
+      if (mass) {
         game.ctx.fillText(`${Math.round(mass)}`, position.x, position.y);
+      }
     });
     game.ctx.restore();
   }
@@ -159,6 +160,7 @@ export const renderDebug = (
 
 export const renderDebugDemos = (game: GameState) => {
   if (showColorsDemo) colorsDemo(game);
+
   if (showTextDemo) textDemo(game);
 };
 

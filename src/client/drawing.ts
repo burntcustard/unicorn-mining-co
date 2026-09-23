@@ -66,12 +66,15 @@ export const drawSegment = ({
     : segment.radius
       ? circlePath(segment.radius(segment))
       : undefined;
+
   if (path) {
     ctx.fill(path);
     ctx.stroke(segment.outline ? linesPath(segment.outline) : path);
   }
+
   if (segment.lines) {
     ctx.save();
+
     if (segment.lines.call) ctx.clip(path);
     ctx.stroke(
       linesPath(segment.lines.call ? segment.lines(segment) : segment.lines),

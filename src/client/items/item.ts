@@ -21,10 +21,12 @@ giveRender({
         const path = this.points
           ? shapePath(this.points)
           : circlePath(this.radius);
+
         ctx.lineJoin = 'bevel';
         ctx.lineWidth = itemLineWidth;
         ctx.strokeStyle = this.shades[2];
         ctx.fillStyle = this.shades[1] + (this.fillAlpha || '');
+
         if (this.rainbow) {
           const rainbow = ctx.createLinearGradient(
             -this.radius,
@@ -32,6 +34,7 @@ giveRender({
             this.radius,
             0,
           );
+
           rainbow.addColorStop(0, colors.violet[2]);
           rainbow.addColorStop(0.5, colors.yellow[2]);
           rainbow.addColorStop(1, colors.cyan[2]);
@@ -39,7 +42,9 @@ giveRender({
         }
         ctx.fill(path);
         ctx.stroke(path);
+
         if (this.lines) ctx.stroke(linesPath(this.lines));
+
         if (this.glint) {
           ctx.translate(this.radius * 0.3, this.radius * -0.28);
           ctx.rotate(-pose.rotation);

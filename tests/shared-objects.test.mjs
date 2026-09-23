@@ -23,7 +23,7 @@ import { Asteroid } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
 import { moduleTypes, Horn } from '${process.cwd()}/src/shared/modules/index.ts';
 import { createWreckage } from '${process.cwd()}/src/shared/craft/create-wreckage.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/shared/simulation/world.ts';
-import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/shared/physics/serializer/world-state.ts';
+import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/shared/serializer/simulation-world-state.ts';
 import { Vector } from '${process.cwd()}/src/shared/vector.ts';
 
 assert.equal(typeof document, 'undefined');
@@ -170,6 +170,7 @@ assert.deepEqual(debris.hitboxes().map(part=>part.outline),fragment.hitboxes().m
 assert.equal(debris.cockpit,undefined,'wreckage must not materialise as a complete Mustang');
 console.log('Shared object hierarchy, flexible modules and rollback passed');
 `;
+
 for (const production of [false, true]) {
   const bundle = await rolldown({
     input: 'shared-objects',
@@ -192,10 +193,12 @@ for (const production of [false, true]) {
     ],
   });
   const { output } = await bundle.generate({ format: 'esm' });
+
   await bundle.close();
   const code = production
     ? (await minify(output[0].code, terserMangleOptions())).code
     : output[0].code;
+
   await import(
     'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
   );

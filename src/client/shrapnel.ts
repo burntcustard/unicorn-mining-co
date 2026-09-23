@@ -29,8 +29,9 @@ export const sprayDamage = ({
   color: string;
   damage: number;
 }) => {
-  for (let index = 0; index < damage * 2; index++)
+  for (let index = 0; index < damage * 2; index++) {
     spray([position.x, position.y], color);
+  }
 };
 
 /**

@@ -50,11 +50,13 @@ export class RegionManager {
             ? serverRanges.stationPhysics
             : serverRanges.asteroid),
       );
+
     // Procedural sources are managed below. Runtime fragments and dropped cargo
     // must also leave the active simulation, but retain their state on return.
     this.sleeping.forEach((entity, id) => {
       if (!nearby(entity)) return;
       addEntity(world, entity);
+
       if (entity instanceof Station) this.managed.add(id);
       this.sleeping.delete(id);
     });
@@ -63,24 +65,25 @@ export class RegionManager {
         this.managed.has(id) ||
         entity.playerId !== undefined ||
         nearby(entity)
-      )
+      ) {
         return;
+      }
       this.sleeping.set(id, entity);
       world.entities.delete(id);
     });
-    const views = positions.map((position) =>
-      this.regions.query({ position, ranges: serverRanges }),
-    );
+    const views = this.regions.queryMany({ positions, ranges: serverRanges });
     const wanted = new Set<number>();
 
     views.forEach((view) => {
       view.asteroids.forEach((description) => {
         wanted.add(description.id);
+
         if (world.entities.has(description.id)) return;
         // A managed object missing while its description is still in range was
         // destroyed or replaced by simulation children. Remove the procedural
         // source too, or the next regional sync would resurrect its parent on
         // top of those children.
+
         if (this.managed.has(description.id)) {
           this.regions.remove({ id: description.id });
           this.managed.delete(description.id);
@@ -107,7 +110,9 @@ export class RegionManager {
 
       view.stations.forEach((description) => {
         wanted.add(description.id);
+
         if (world.entities.has(description.id)) return;
+
         if (this.managed.has(description.id)) {
           this.regions.remove({ id: description.id });
           this.managed.delete(description.id);
@@ -127,6 +132,7 @@ export class RegionManager {
 
       view.wrecks.forEach((description) => {
         wanted.add(description.id);
+
         if (world.entities.has(description.id)) return;
 
         const wreck = Object.assign(
@@ -150,6 +156,7 @@ export class RegionManager {
     this.managed.forEach((id) => {
       if (!wanted.has(id)) {
         const entity = world.entities.get(id);
+
         if (entity instanceof Station) this.sleeping.set(id, entity);
         world.entities.delete(id);
         this.managed.delete(id);

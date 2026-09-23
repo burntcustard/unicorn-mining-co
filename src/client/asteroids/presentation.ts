@@ -35,6 +35,7 @@ export const presentation = ({
     sections.map(({ outline, contents }) => ({ outline, contents })),
   ]);
   let state = cache.get(asteroid);
+
   if (!state || state.key !== key) {
     state = {
       key,
@@ -54,6 +55,7 @@ export const presentation = ({
   asteroid.renderContents = state.buried.map(({ item, local, rotation }) => {
     const cosine = Math.cos(pose.rotation),
       sine = Math.sin(pose.rotation);
+
     item.position.set(
       pose.position.add(
         Vector(

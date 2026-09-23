@@ -6,7 +6,8 @@ import { GameObject } from '../game-object';
 import { colors, paletteOf } from '../colors';
 import { Vector, type Vector as VectorValue } from '../vector';
 import { applyForce } from '../simulation/apply-force';
-import { outerEdges } from '../physics/collision/outer-edges';
+import { outerEdges } from '../collision/outer-edges';
+import { collisionCategories } from '../collision/types';
 import { Module } from '../modules/module';
 import { type Mount, type Outline, type Palette, type Segment } from '../types';
 import { entityId } from '../simulation/world';
@@ -30,7 +31,9 @@ type CraftProperties = {
   velocity?: VectorValue;
 };
 
-const hullBounciness = 0.1; // Default restitution when a segment supplies none.
+const hullBounciness = 0.1;
+
+// Default restitution when a segment supplies none.
 import { approach } from '../utilities/approach';
 
 const centerOf = (segments: Segment[]) =>
@@ -120,6 +123,7 @@ export class Craft extends GameObject {
 
   get moduleStates(): ModuleState[] {
     const mounts = this.mounts;
+
     return this.modules.map((module) => ({
       ...(!module.mount && { id: module.id }),
       type: moduleTypes.findIndex((Type) => module instanceof Type),
@@ -142,6 +146,7 @@ export class Craft extends GameObject {
       previous.length === states.length &&
       states.every((state, index) => {
         const module = previous[index];
+
         return (
           (state.id === undefined || module.id === state.id) &&
           moduleTypes.findIndex((Type) => module instanceof Type) ===
@@ -149,6 +154,7 @@ export class Craft extends GameObject {
           mounts.indexOf(module.mount) === state.mount
         );
       });
+
     if (!unchanged) {
       mounts.forEach((mount) => this.fit(0, mount));
       this.cargoContents = this.cargoContents.filter(
@@ -157,13 +163,18 @@ export class Craft extends GameObject {
     }
     states.forEach((state, index) => {
       const definition = moduleTypes[state.type];
+
       if (!definition) throw new Error('Unknown ship module');
       const module: Module = unchanged ? previous[index] : new definition();
+
       if (state.id !== undefined) module.id = state.id;
       module.health = state.mount >= 0 ? definition.health : state.health;
+
       if (state.shades) module.shades = paletteOf(state.shades);
+
       if (state.mount >= 0) {
         const mount = mounts[state.mount];
+
         if (mount) {
           if (!unchanged) this.fit(module, mount);
           mount.health = state.health;
@@ -222,9 +233,12 @@ export class Craft extends GameObject {
     if (!mount) return;
 
     if (mount.module === craftModule) return;
-    if (craftModule && craftModule.mount && craftModule.mount !== mount)
+
+    if (craftModule && craftModule.mount && craftModule.mount !== mount) {
       this.fit(0, craftModule.mount);
+    }
     this.segments = this.segments.filter((segment) => segment.mount !== mount);
+
     if (mount.module) {
       mount.module.mount = 0;
       this.cargoContents.push(mount.module);
@@ -308,7 +322,8 @@ export class Craft extends GameObject {
         Object.assign(Object.create(segment), {
           ...own,
           hitbox: 0,
-          localPosition: own.localPosition || segment.localPosition.subtract(origin),
+          localPosition:
+            own.localPosition || segment.localPosition.subtract(origin),
         }),
       ),
       spin: this.spin,
@@ -334,46 +349,50 @@ export class Craft extends GameObject {
     );
     let debrisMiddle: VectorValue | undefined;
     const segments = debrisSegments.map((segment) => {
-        const debris = segment.debris;
-        const points =
-          typeof segment.points === 'function'
-            ? segment.points(segment)
-            : segment.points;
-        const middle = points?.length
-          ? points
-              .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
-              .map((sum) => sum / points.length)
-          : [0, 0];
-        const radius = points
-          ? Math.max(
-              ...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1])),
-            )
-          : 0;
+      const debris = segment.debris;
+      const points =
+        typeof segment.points === 'function'
+          ? segment.points(segment)
+          : segment.points;
+      const middle = points?.length
+        ? points
+            .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
+            .map((sum) => sum / points.length)
+        : [0, 0];
+      const radius = points
+        ? Math.max(
+            ...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1])),
+          )
+        : 0;
 
-        if (debris && typeof debris === 'object') {
-          if (debrisSegments.length === 1)
-            debrisMiddle = Vector(middle[0], middle[1]);
-          return Object.assign(Object.create(segment), debris, {
-            points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
-            fillShade:
-              (segment.mount || segment).health < segment.module.health / 2
-                ? 0
-                : 1,
-            radius: () => radius,
-          });
+      if (debris && typeof debris === 'object') {
+        if (debrisSegments.length === 1) {
+          debrisMiddle = Vector(middle[0], middle[1]);
         }
-        return segment;
-      });
+        return Object.assign(Object.create(segment), debris, {
+          points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
+          fillShade:
+            (segment.mount || segment).health < segment.module.health / 2
+              ? 0
+              : 1,
+          radius: () => radius,
+        });
+      }
+      return segment;
+    });
     const origin = mount.localPosition.add(debrisMiddle || Vector());
 
     // Destroyed instances leave the inventory rather than becoming cargo.
     this.destroyed?.(mount.module);
     const destroyed = mount.module;
+
     this.fit(0, mount);
-    if (destroyed)
+
+    if (destroyed) {
       this.cargoContents = this.cargoContents.filter(
         (object) => object !== destroyed,
       );
+    }
     this.spawn(
       origin,
       segments,
@@ -414,30 +433,51 @@ export class Craft extends GameObject {
             { edges: points.edges },
           ) as Outline);
 
+        const physics =
+          this.physics &&
+          !segment.module.disablePhysics &&
+          !segment.catches &&
+          !(
+            segment.module.scoops &&
+            !segment.active &&
+            !segment.activationProgress
+          ) &&
+          !segment.mounts?.some(
+            (mount) =>
+              mount.module &&
+              mount.module.scoops &&
+              this.partsOf(mount).some(
+                (part) =>
+                  !((part.mount || part).health < 1) &&
+                  part.activationProgress > scoopOpen,
+              ),
+          );
+        const collides =
+          physics ||
+          segment.dockSegment ||
+          (segment.catches &&
+            segment.active &&
+            segment.activationProgress > scoopOpen);
+
         return Object.assign((segment.hitbox ||= { owner: this, segment }), {
           bounciness:
             (bounciness?.call ? bounciness(segment) : bounciness) ||
             hullBounciness,
           dockSegment: segment.dockSegment,
-          role: segment.catches ? 'scoop' : undefined,
+          role: segment.catches
+            ? 'scoop'
+            : segment.module.grinds
+              ? 'drill'
+              : undefined,
           outline,
-          // Scoop doors have no mounts, so remain physical open or closed.
-          // The cargo-catching throat is non-physical, but still reports contacts.
-          // A hull wedge stops colliding once its scoop has visibly opened,
-          // leaving the mouth clear for cargo to enter.
-          physics:
-            !segment.module.disablePhysics &&
-            !segment.catches &&
-            !segment.mounts?.some(
-              (mount) =>
-                mount.module &&
-                mount.module.scoops &&
-                this.partsOf(mount).some(
-                  (part) =>
-                    !((part.mount || part).health < 1) &&
-                    part.activationProgress > scoopOpen,
-                ),
-            ),
+          collides: Boolean(collides),
+          collisionCategory: segment.catches
+            ? collisionCategories.scoopMouth
+            : collisionCategories.solid,
+          collisionMask: segment.catches
+            ? collisionCategories.pickupPoint
+            : collisionCategories.solid,
+          physics,
           radius: segment.radius(segment),
           rotation: this.rotation,
           speed:
@@ -446,25 +486,6 @@ export class Craft extends GameObject {
         });
       })
       .filter(({ radius }) => radius);
-    const drill = boxes.find(({ segment }) => segment.module.grinds);
-
-    if (drill) {
-      const [x, y] = (drill.outline as Outline).reduce((far, corner) =>
-        corner[0] > far[0] ? corner : far,
-      );
-      const tip = rotatePoint(Vector(x, y), this.rotation);
-
-      boxes.push({
-        owner: this,
-        segment: drill.segment,
-        role: 'drill',
-        rotation: this.rotation,
-        physics: false,
-        radius: 2,
-        position: drill.position.add(tip),
-      });
-    }
-
     const cover = boxes.find(
       ({ segment, radius }) => segment.covers && radius >= this.radius,
     );
@@ -524,12 +545,14 @@ export class Craft extends GameObject {
         item.world = this.world;
         item.position.set(this.position);
         item.velocity.set(this.velocity);
-        if (item.mass > 0)
+
+        if (item.mass > 0) {
           applyForce(
             item,
             movePoint(Vector(), this.random.next() * Math.PI * 2, 30),
             this.random.next() - 0.5,
           );
+        }
         item.add();
       });
       this.remove();
@@ -549,6 +572,7 @@ export class Craft extends GameObject {
   }
   set hullHealth(values: number[]) {
     const current = this.hullHealth;
+
     if (
       current.length === values.length &&
       current.every((health, index) => health === values[index]) &&
@@ -556,8 +580,9 @@ export class Craft extends GameObject {
         (segment) =>
           (segment.hull ? segment : segment.mount?.hull || segment).health < 1,
       )
-    )
+    ) {
       return;
+    }
     // Restoring a checkpoint changes geometry without spawning another copy
     // of the wreckage already present in the authoritative entity list.
     this.fixHull();
@@ -565,6 +590,7 @@ export class Craft extends GameObject {
       const segment = this.segments.find(
         (segment) => segment.hull && segment.module === part,
       );
+
       if (segment && part.health !== undefined) segment.health = values[index];
     });
     this.segments = this.segments.filter(
@@ -599,8 +625,9 @@ export class Craft extends GameObject {
 
   toggle(craftModule: typeof Module) {
     this.segments.forEach((segment) => {
-      if (segment.module instanceof craftModule)
+      if (segment.module instanceof craftModule) {
         segment.active = 1 - segment.active;
+      }
     });
   }
 
@@ -632,6 +659,7 @@ export class Craft extends GameObject {
         typeof this.dockedTo === 'number'
           ? this.world?.entities.get(this.dockedTo)
           : this.dockedTo;
+
       if (station) {
         this.position.set(station.position);
         this.rotation = station.rotation;

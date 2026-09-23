@@ -18,6 +18,7 @@ const bundle = await rolldown({
   ],
 });
 const { output } = await bundle.generate({ format: 'esm' });
+
 await bundle.close();
 
 const { RegionManager, Vector } = await import(

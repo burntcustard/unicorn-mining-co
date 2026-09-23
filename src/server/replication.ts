@@ -107,6 +107,7 @@ export class ReplicationManager {
           : loaded
             ? entityUnload
             : entityLoad;
+
       return (
         entity.id === shipId ||
         entity.position.distanceTo(ship.position) <= range

@@ -15,7 +15,7 @@ const bundle = await rolldown({
         id === '\0simulation'
           ? `
       export * from '${process.cwd()}/src/shared/simulation/index.ts';
-      export { detectCollisions } from '${process.cwd()}/src/shared/physics/collision/detect-collisions.ts';
+      export { detectCollisions } from '${process.cwd()}/src/shared/collision/detect-collisions.ts';
       export { Vector } from '${process.cwd()}/src/shared/vector.ts';
       export { PredictionManager } from '${process.cwd()}/src/client/prediction.ts';
     `
@@ -32,6 +32,7 @@ const {
   addEntity,
   addPlayer,
   createAsteroid,
+  createItem,
   createShip,
   createStation,
   createWorld,
@@ -141,12 +142,14 @@ const dockingShape = () => {
       velocity: Vector(0, -200),
     }),
   );
+
   // Start outside the wall: spawning inside it tests penetration recovery,
   // whose direction depends on inertia, rather than an approach to the station.
   assert.equal(detectCollisions({ entities: [station, ship] }).length, 0);
   addPlayer(world, { id: 7, shipId: ship.id });
   const events = [];
-  for (let tick = 0; tick < 90; tick++)
+
+  for (let tick = 0; tick < 90; tick++) {
     events.push(
       ...updateWorld({
         world: world,
@@ -166,6 +169,7 @@ const dockingShape = () => {
         ]),
       }),
     );
+  }
   assert(
     events.some(({ type }) => type === 'collision'),
     'the approaching ship hits the station wall',
@@ -245,6 +249,7 @@ const collisionAndThrust = () => {
     world,
     createShip(world, { playerId: 7, position: Vector() }),
   );
+
   addEntity(
     world,
     createAsteroid(world, { position: Vector(200), radius: 25 }),
@@ -263,6 +268,7 @@ const collisionAndThrust = () => {
 
   for (let i = 0; i < 120; i++) {
     events = updateWorld({ world: world, inputs: new Map([[7, input]]) });
+
     if (events.some(({ type }) => type === 'collision')) break;
   }
 
@@ -283,6 +289,7 @@ const drillingDoesNotBounce = () => {
       velocity: Vector(10),
     }),
   );
+
   addEntity(world, createAsteroid(world, { position: Vector(50), radius: 25 }));
   addPlayer(world, { id: 7, shipId: ship.id });
   updateWorld({
@@ -316,12 +323,13 @@ const drillSelectsTouchedSection = () => {
   const asteroid = addEntity(
     world,
     createAsteroid(world, {
-      position: Vector(60),
+      position: Vector(55),
       radius: 25,
       contents: [0, 1, 2],
     }),
   );
   const before = asteroid.sections.map(({ health }) => health);
+
   ship.segments
     .filter((part) => part.module.grinds)
     .forEach((part) => (part.activationProgress = 1));
@@ -360,6 +368,7 @@ const drillSelectsTouchedSection = () => {
   // Whole-body destruction remains valid, even with healthy sections remaining.
   asteroid.health = 0;
   const events = [];
+
   assert(
     asteroid.fracture({ section: asteroid.sections[0], by: 7, events, world }),
   );
@@ -465,10 +474,11 @@ const diamondPickup = () => {
   };
   const pickupEvents = [];
 
-  for (let i = 0; i < 120 && !ship.cargoContents?.length; i++)
+  for (let i = 0; i < 120 && !ship.cargoContents?.length; i++) {
     pickupEvents.push(
       ...updateWorld({ world: world, inputs: new Map([[7, pickupInput]]) }),
     );
+  }
 
   assert.deepEqual(
     ship.cargoContents.map((item) => item.resource),
@@ -485,6 +495,61 @@ const diamondPickup = () => {
 };
 
 diamondPickup();
+
+// The cargo contact may overlap an item's edge, but pickup waits for its centre.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 9 }));
+  const throat = ship.hitboxes().find(({ role }) => role === 'scoop');
+  const door = ship
+    .hitboxes()
+    .find(
+      ({ segment }) =>
+        segment.module === throat.segment.module && segment !== throat.segment,
+    );
+  const item = addEntity(
+    world,
+    createItem(world, {
+      resource: 0,
+      position: throat.position.add(Vector(throat.radius + 2)),
+    }),
+  );
+  const module = throat.segment.module;
+
+  throat.segment.active = 1;
+  const events = [];
+  const [cargoBody, cargoPoint] = item.hitboxes();
+
+  module.collect({
+    ship,
+    contact: { collider: door, other: cargoPoint },
+    events,
+    world,
+  });
+  module.collect({
+    ship,
+    contact: { collider: throat, other: cargoBody },
+    events,
+    world,
+  });
+  assert.equal(
+    ship.cargoContents.length,
+    0,
+    'door contact or edge overlap cannot collect cargo',
+  );
+  item.position.set(throat.position);
+  module.collect({
+    ship,
+    contact: { collider: throat, other: cargoPoint },
+    events,
+    world,
+  });
+  assert.equal(
+    ship.cargoContents[0],
+    item,
+    'the item centre reaching the mouth collects it',
+  );
+}
 
 const starAsteroidLosesOneArm = () => {
   const world = createWorld({ seed: 25 });
@@ -517,9 +582,11 @@ const splitConservesOriginalGeometry = () => {
     Math.abs(
       outline.reduce((sum, [x, y], index) => {
         const next = outline[(index + 1) % outline.length];
+
         return sum + x * next[1] - next[0] * y;
       }, 0),
     ) / 2;
+
   for (const star of [true, false]) {
     const world = createWorld({ seed: 25 });
     const rock = addEntity(
@@ -540,10 +607,12 @@ const splitConservesOriginalGeometry = () => {
     );
     const originalMass = rock.mass;
     const leaves = rock.sections.length;
+
     for (let split = 0; split < leaves; split++) {
       const parent = [...world.entities.values()].find(
         (object) => object.sections?.length,
       );
+
       if (!parent) break;
       const section = parent.sections.reduce((outer, next) =>
         Math.max(...outer.outline.map(([x]) => x)) >
@@ -551,8 +620,10 @@ const splitConservesOriginalGeometry = () => {
           ? outer
           : next,
       );
+
       parent.detach({ section, world });
       const children = [...world.entities.values()];
+
       assert(parent.dead);
       assert(children.every((child) => child.resource === 1));
       assert.equal(
@@ -601,6 +672,7 @@ const authoritativeSnapshotReplacesPredictedSplit = () => {
     cloneEntity({ entity }),
   );
   const prediction = new PredictionManager({ world });
+
   ship.segments
     .filter((part) => part.module.grinds)
     .forEach((part) => (part.activationProgress = 1));
@@ -678,8 +750,10 @@ const run = () => {
   ship.segments
     .filter((part) => part.module.grinds)
     .forEach((part) => (part.activationProgress = 1));
-  for (let i = 0; i < 100; i++)
+
+  for (let i = 0; i < 100; i++) {
     events.push(...updateWorld({ world: world, inputs: inputs }));
+  }
 
   return { asteroid, events, ship, world };
 };
@@ -698,7 +772,9 @@ for (const multiplayer of [false, true]) {
     world,
     createShip(world, { playerId: 2, position: Vector(10000) }),
   );
+
   addPlayer(world, { id: 1, shipId: pilot.id });
+
   if (multiplayer) addPlayer(world, { id: 2, shipId: remote.id });
   const bodies = [Vector(150), Vector(1000), Vector(5000), Vector(10150)].map(
     (position) =>
@@ -708,11 +784,14 @@ for (const multiplayer of [false, true]) {
       ),
   );
   const calls = bodies.map(() => []);
+
   bodies.forEach((body, index) => {
     body.update = (dt) => calls[index].push(dt);
   });
-  for (let tick = 0; tick < 30; tick++)
+
+  for (let tick = 0; tick < 30; tick++) {
     updateWorld({ world: world, inputs: new Map() });
+  }
   assert.deepEqual(
     calls.map((steps) => steps.length),
     [60, 60, 15, multiplayer ? 60 : 15],
@@ -723,6 +802,7 @@ for (const multiplayer of [false, true]) {
   updateWorld({ world: world, inputs: new Map() });
   assert.equal(bodies[2].pendingUpdateTime, 2 / 60);
   const saved = cloneEntity({ entity: bodies[2] });
+
   bodies[2].position.set(Vector(1000));
   updateWorld({ world: world, inputs: new Map() });
   assert(
@@ -740,7 +820,8 @@ for (const multiplayer of [false, true]) {
 // Movement-parent discovery is shared by a substep, not repeated/allocated for
 // each asteroid, item and ship in the region.
 const movementWorld = createWorld();
-for (let i = 0; i < 50; i++)
+
+for (let i = 0; i < 50; i++) {
   addEntity(
     movementWorld,
     createAsteroid(movementWorld, {
@@ -749,8 +830,10 @@ for (let i = 0; i < 50; i++)
       points: 3,
     }),
   );
+}
 const values = movementWorld.entities.values.bind(movementWorld.entities);
 let entityScans = 0;
+
 movementWorld.entities.values = () => {
   entityScans++;
   return values();

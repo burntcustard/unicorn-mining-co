@@ -91,6 +91,7 @@ const fitsOf = (ship: any, mount: any) => {
   const rows = (moduleRows.get(ship) || []).filter((module) =>
     modules.includes(module),
   );
+
   modules.forEach((module: Module) => {
     if (!rows.includes(module)) rows.push(module);
   });
@@ -274,6 +275,7 @@ export const confirmSelection = (ship: Ship) => {
 
   if (stage < 2) {
     if ((stage ? moduleOption : mountOption) === menu.length) return back(ship);
+
     if (!stage) moduleOption = 0;
     focused = 0;
     stage = stage || mountOption === 1 ? 2 : 1;
@@ -330,6 +332,7 @@ export const confirmSelection = (ship: Ship) => {
       (object: any) => object !== item && object.item !== item,
     );
     ship.credits += item.price * count;
+
     if (item.label === 'DIAMOND') unlockColor('CYAN', 'DIAMOND SOLD');
     moduleOption = Math.min(
       moduleOption,
@@ -339,6 +342,7 @@ export const confirmSelection = (ship: Ship) => {
     // A sale returns to the list, leaving its replacement row focused rather
     // than treating it as though the pilot had picked it.
     stage = 1;
+
     if (moduleOption < 0) moduleOption = 0;
 
     return;

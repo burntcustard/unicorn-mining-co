@@ -76,8 +76,9 @@ const shadeOf = (shades: Palette, worn: number) => {
   return table((along) => {
     const towards = (along - 0.5) * 2;
 
-    if (towards > 0)
+    if (towards > 0) {
       return hex(mix(base, parse(shades[3]), towards * shadeTint));
+    }
 
     return hex(
       mix(
@@ -155,6 +156,7 @@ export const drawDockingBayGlow = (
   if (!glows) return;
   // @endif
   // @ifdef BENCHMARK
+
   if (benchmarkFlag('noLighting') || benchmarkFlag('noGlows')) return;
   // @endif
 
@@ -193,6 +195,7 @@ export const drawThrusterGlow = (
   if (!glows) return;
   // @endif
   // @ifdef BENCHMARK
+
   if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
   // @endif
 
@@ -234,6 +237,7 @@ export const drawBeam = (
   if (!lights) return;
   // @endif
   // @ifdef BENCHMARK
+
   if (benchmarkFlag('noLighting') || benchmarkFlag('noBeam')) return;
   // @endif
 

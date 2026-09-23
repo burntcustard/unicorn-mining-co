@@ -86,6 +86,30 @@ assert.ok(
 );
 assert.ok(view.stationMarkers.length > view.stations.length);
 
+const spread = new RegionManager({ worldSeed: 25 });
+const spreadPositions = [Vector(), Vector(30000, 0)];
+const spreadViews = spread.queryMany({ positions: spreadPositions });
+
+assert.deepEqual(
+  spreadViews[0],
+  new RegionManager({ worldSeed: 25 }).query({ position: spreadPositions[0] }),
+);
+assert.deepEqual(
+  spreadViews[1],
+  new RegionManager({ worldSeed: 25 }).query({ position: spreadPositions[1] }),
+);
+assert.equal(
+  spread.loadedRegionCount,
+  242,
+  'both distant players retain their regions',
+);
+spread.queryMany({ positions: [spreadPositions[0]] });
+assert.equal(
+  spread.loadedRegionCount,
+  121,
+  'regions unload after their last player leaves',
+);
+
 const serverRegions = new ServerRegionManager({ worldSeed: 25 });
 const world = createWorld({ seed: 25 });
 
@@ -94,6 +118,7 @@ const distantStation = [...world.entities.values()].find(
   (entity) =>
     entity.kind === 'station' && entity.position.distanceTo(position) > 2000,
 );
+
 assert(distantStation, 'off-screen stations are materialised');
 distantStation.rotation = 1.234;
 const regionalAsteroid = [...world.entities.values()].find(

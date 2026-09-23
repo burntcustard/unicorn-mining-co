@@ -115,7 +115,7 @@ export const generateRegion = ({
   const stations: StationDescription[] = [];
   const wrecks: WreckDescription[] = [];
 
-  if (random.next() < 0.12)
+  if (random.next() < 0.12) {
     stations.push({
       id: descriptionId({ seed, kind: 2, index: 0 }),
       position: randomPosition({ random, region }),
@@ -123,8 +123,9 @@ export const generateRegion = ({
       spin: randomSpin({ random }),
       type: 'station',
     });
+  }
 
-  if (random.next() < 0.18)
+  if (random.next() < 0.18) {
     wrecks.push({
       cargoContents: Array.from(
         { length: 2 + Math.floor(random.next() * 3) },
@@ -137,6 +138,7 @@ export const generateRegion = ({
       spin: randomSpin({ random }),
       type: 'wreck',
     });
+  }
 
   return {
     asteroids: Array.from({ length: asteroidCount }, (_, index) =>

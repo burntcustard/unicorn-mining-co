@@ -4,8 +4,8 @@ import { createRandom } from '../seeded-random';
 import { type AsteroidSection } from '../protocol/entities';
 import { addEntity, type SimulationWorld, entityId } from './world';
 import { GameObject } from '../game-object';
-import { type Collider, type Outline } from '../physics/collision/types';
-import { outerEdges } from '../physics/collision/outer-edges';
+import { type Collider, type Outline } from '../collision/types';
+import { outerEdges } from '../collision/outer-edges';
 import { createItem } from '../items/create-item';
 import { type SimulationEvent } from '../protocol/events';
 
@@ -44,6 +44,7 @@ export const outlineOf = (asteroid: Asteroid) => {
       variance: asteroidVariance,
     });
     // A long session flies past more rock than is worth remembering.
+
     if (outlines.size > 5000) outlines.clear();
     outlines.set(key, outline);
   }
@@ -159,10 +160,13 @@ const groupsOf = (sections: AsteroidSection[]) => {
   while (left.length) {
     const group = [left.pop()!];
 
-    for (let index = 0; index < group.length; index++)
-      for (let candidate = left.length; candidate--;)
-        if (sharesEdge(group[index], left[candidate]))
+    for (let index = 0; index < group.length; index++) {
+      for (let candidate = left.length; candidate--;) {
+        if (sharesEdge(group[index], left[candidate])) {
           group.push(left.splice(candidate, 1)[0]);
+        }
+      }
+    }
     groups.push(group);
   }
   return groups;
@@ -202,6 +206,7 @@ const outlineFrom = (sections: AsteroidSection[]) => {
   return outline.filter((point, index) => {
     const before = outline.at(index - 1)!;
     const next = outline[(index + 1) % outline.length];
+
     return (
       (point[0] - before[0]) * (next[1] - point[1]) !==
       (point[1] - before[1]) * (next[0] - point[0])
@@ -276,6 +281,7 @@ const detachSection = ({
         Vector(-offset.y, offset.x).scale(asteroid.spin),
       ),
     });
+
     return addEntity(world, child);
   });
   const force = 3 / children.reduce((sum, child) => sum + 1 / child.mass, 0);
@@ -433,7 +439,7 @@ export class Asteroid extends GameObject {
       outline: section.outline.map(([x, y]) => [x, y]),
     }));
 
-    if (!outline && !validSections)
+    if (!outline && !validSections) {
       this.sections = sectionsOf({
         contents,
         health,
@@ -442,8 +448,11 @@ export class Asteroid extends GameObject {
         radiusEven,
         random: createRandom(this.id + 1).next,
       });
-    if (this.sections?.length)
+    }
+
+    if (this.sections?.length) {
       outerEdges(this.sections.map((section) => section.outline as Outline));
+    }
   }
 
   hitboxes(): Collider[] {
@@ -468,9 +477,11 @@ export class Asteroid extends GameObject {
           const point = center.add(
             offset.scale(Math.max(0.5, 1 - 0.1 / (offset.length() || 1))),
           );
+
           return [point.x, point.y];
         })
       : outline;
+
     return [
       Object.assign(
         {
@@ -499,6 +510,7 @@ export class Asteroid extends GameObject {
     world: SimulationWorld;
   }) {
     if (this.dead) return false;
+
     if (this.health < 1) {
       this.remove();
       this.contents.forEach((resource) =>
@@ -519,6 +531,7 @@ export class Asteroid extends GameObject {
       });
     } else if (section && section.health < 1) {
       const children = this.detach({ section, world });
+
       events.push({
         type: 'asteroidSplit',
         asteroidId: this.id,

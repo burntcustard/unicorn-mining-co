@@ -26,6 +26,7 @@ export const GameLoop = ({
     // Updating a network tick is heavier than an in-between frame. Both phases
     // must sample the same instant, not turn that extra CPU time into movement.
     const timing = { dt, now };
+
     update(timing);
     context.clearRect(0, 0, canvas.width, canvas.height);
     render(timing);

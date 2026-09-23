@@ -164,6 +164,7 @@ try {
     }
 
     if (test.lamp) await press('l', 'KeyL');
+
     if (test.key) await press(test.key, test.code);
 
     if (test.hold) {

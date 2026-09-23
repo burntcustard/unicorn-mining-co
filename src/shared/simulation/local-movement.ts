@@ -42,13 +42,14 @@ export const localMovement = (
     parent = child.localMovementRate = 0;
   }
 
-  if (!parent)
+  if (!parent) {
     for (const mover of movers) {
       if (mover !== child && !mover.dead && mover.holds?.(child)) {
         parent = mover;
         break;
       }
     }
+  }
   child.localMovementParent = parent;
 
   if (parent) {
