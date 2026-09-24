@@ -166,6 +166,14 @@ const deliver = (message) => {
 };
 
 deliver(initial);
+const wireShip = initial.fullEntities.find((entity) => entity.id === ship.id);
+const decodedShip = network.authoritativeEntities.get(ship.id);
+
+assert.deepEqual(
+  decodedShip.modules.map(({ id }) => id),
+  wireShip.modules.map(({ id }) => id),
+  'mounted module IDs survive snapshot decoding for later sales',
+);
 const decoded = network.authoritativeEntities.get(station.id);
 const live = network.world.entities.get(station.id);
 

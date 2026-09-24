@@ -2,7 +2,6 @@ import { colors } from '../../shared/colors';
 import { outline } from '../outline';
 import { renderText } from '../text';
 import { type Module } from '../../shared/modules/module';
-import { type Segment } from '../../shared/types';
 import { type Ship } from '../../shared/craft/ship';
 import { moduleControls } from '../../shared/craft/control-ship';
 import { defaultKeybindings } from '../keybindings';
@@ -67,11 +66,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
   modules.forEach((module, i) => {
     const y = top + i * rowGap;
 
-    if (
-      ship.segments.some(
-        (seg: Segment) => seg.module.constructor === module && seg.active,
-      )
-    ) {
+    if (ship.moduleActive({ module })) {
       ctx.fillStyle = colors.violet[2];
       ctx.fillRect(boxX, y, box, box);
     }

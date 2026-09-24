@@ -23,6 +23,7 @@ import { ReplicationManager } from '../src/server/replication';
 import { Vector } from '../src/shared/vector';
 import { detectCollisions } from '../src/shared/collision/detect-collisions';
 import { GameObject } from '../src/shared/game-object';
+import { CargoHatch } from '../src/shared/modules/cargo-hatch';
 import {
   simulationStep,
   updateTiers,
@@ -242,6 +243,81 @@ for (const fps of [60, 120, 144]) {
   });
   assert(ship.position.distanceTo(authoritative.position) < 1e-9);
   assert(ship.velocity.distanceTo(authoritative.velocity) < 1e-9);
+}
+
+// A server hatch correction must apply even when the ship's motion matches.
+// Rapid toggles can leave the command and animation at different stages.
+for (const { active, progress } of [
+  { active: 0, progress: 0 },
+  { active: 1, progress: 0.15 },
+]) {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new PredictionManager({ world });
+
+  prediction.setLocalPlayer({ playerId: 1 });
+  const open = { ...emptyPlayerInput(), cargoHatch: true };
+
+  for (let tick = 0; tick < 8; tick++) {
+    prediction.step({ input: open, send() {} });
+  }
+  const authoritative = cloneEntity({ entity: ship }) as typeof ship;
+
+  authoritative.segments
+    .filter((segment) => segment.module instanceof CargoHatch)
+    .forEach((segment) => {
+      segment.active = active;
+      segment.activationProgress = progress;
+    });
+  prediction.step({ input: emptyPlayerInput(), send() {} });
+  prediction.reconcile({ tick: 8, entities: [authoritative] });
+
+  const hatches = ship.segments.filter(
+    (segment) => segment.module instanceof CargoHatch,
+  );
+  const expected = Math.max(0, progress - simulationStep / 0.7);
+
+  assert(hatches.length > 0);
+  hatches.forEach((segment) => {
+    assert.equal(segment.active, 0);
+    assert(
+      Math.abs(segment.activationProgress - expected) < 1e-8,
+      'hatch animation resumes from the server state after reconciliation',
+    );
+  });
+}
+
+// Station snapshots can change credits or cargo without changing ship motion.
+for (const correction of ['credits', 'cargo'] as const) {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new PredictionManager({ world });
+
+  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.step({ input: emptyPlayerInput(), send() {} });
+  prediction.step({ input: emptyPlayerInput(), send() {} });
+  const authoritative = cloneEntity({ entity: ship }) as typeof ship;
+
+  if (correction === 'credits') {
+    authoritative.credits += CargoHatch.price;
+  } else {
+    authoritative.cargoContents.push(
+      createItem(world, { id: 1000, resource: 0 }),
+    );
+  }
+  prediction.step({ input: emptyPlayerInput(), send() {} });
+  prediction.reconcile({ tick: 2, entities: [authoritative] });
+
+  assert.equal(ship.credits, authoritative.credits);
+  assert.deepEqual(
+    ship.cargoContents.map(({ id }) => id),
+    authoritative.cargoContents.map(({ id }) => id),
+    `${correction} from the server reaches the predicted ship`,
+  );
 }
 
 // A clock reset must not leave a future input waiting to reactivate thrust.

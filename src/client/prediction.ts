@@ -48,6 +48,9 @@ const matches = ({
   checkpoint: Ship;
 }) => {
   const hullHealth = checkpoint.hullHealth;
+  const modules = checkpoint.moduleStates;
+  const reportedModules = ship.moduleStates;
+  const cargoIds = ship.cargoIds;
 
   return (
     ship.position.distanceTo(checkpoint.position) < 0.25 &&
@@ -56,7 +59,32 @@ const matches = ({
     Math.abs(ship.spin - checkpoint.spin) < 0.002 &&
     (ship.launching || 0) === (checkpoint.launching || 0) &&
     ship.health === checkpoint.health &&
+    ship.credits === checkpoint.credits &&
+    checkpoint.cargoContents.length === cargoIds?.length &&
+    checkpoint.cargoContents.every(
+      (object, index) => object.id === cargoIds[index],
+    ) &&
     ship.hullHealth.every((health, index) => health === hullHealth[index]) &&
+    modules?.length === reportedModules.length &&
+    reportedModules.every((module, index) => {
+      const predicted = modules[index];
+
+      return (
+        predicted.id === module.id &&
+        predicted.type === module.type &&
+        predicted.mount === module.mount &&
+        predicted.health === module.health &&
+        predicted.segments.length === module.segments.length &&
+        module.segments.every(
+          (segment, segmentIndex) =>
+            segment.active === predicted.segments[segmentIndex].active &&
+            Math.abs(
+              segment.activationProgress -
+                predicted.segments[segmentIndex].activationProgress,
+            ) < 1e-8,
+        )
+      );
+    }) &&
     ship.dockedTo === checkpoint.dockedTo
   );
 };

@@ -132,6 +132,11 @@ const selectionOf = (ship: any) => {
         ? cargoMenuEntriesOf(ship)
         : fitsOf(ship, mount)
       : ['CARGO', 'HULL', ...ship.mounts];
+
+  if (stage && !hullMenu) {
+    moduleOption = Math.max(0, Math.min(moduleOption, menu.length));
+  }
+
   const currentItem = stage && !hullMenu ? moduleOption : mountOption;
   const item = menu[currentItem];
   const currentModule = hullMenu
@@ -194,10 +199,13 @@ export const moveSelection = (delta: number, ship: Ship, sub: number) => {
     const onPaints = focused >= first;
     const availablePaints = swatches.filter(paintUnlocked);
 
-    // Down drops from the action row onto the paint row, landing on the colour
-    // already worn, and up comes back off it. Any other move runs along the
-    // row focus is already on
+    // Down reaches BACK before the paint row. Left and right still move
+    // along the row, and up retraces the same route.
     if (!sub && onPaints && delta < 0) {
+      focused = actions.length;
+    } else if (!sub && !onPaints && delta > 0 && focused < actions.length) {
+      focused = actions.length;
+    } else if (!sub && !onPaints && delta < 0 && focused === actions.length) {
       focused = disabledAction ? actions.length : 0;
     } else if (!sub && !onPaints && delta > 0 && swatches.length) {
       focused =
@@ -326,24 +334,19 @@ export const confirmSelection = (ship: Ship) => {
   }
 
   if (picked === 'SELL') {
-    const [item, count] = cargoMenu ? menu[moduleOption] : [currentModule, 1];
+    const item = cargoMenu ? menu[moduleOption][0] : currentModule;
+    const objectIds = ship.cargoContents
+      .filter((object: any) => object === item || object.item === item)
+      .map((object) => object.id);
 
-    ship.cargoContents = ship.cargoContents.filter(
-      (object: any) => object !== item && object.item !== item,
-    );
-    ship.credits += item.price * count;
+    sendCraftAction({ action: 'sell', objectIds });
 
     if (item.label === 'DIAMOND') unlockPaint('CYAN', 'DIAMOND SOLD');
-    moduleOption = Math.min(
-      moduleOption,
-      (cargoMenu ? cargoMenuEntriesOf(ship) : fitsOf(ship, mount)).length - 1,
-    );
+    moduleOption = Math.min(moduleOption, Math.max(0, menu.length - 2));
 
     // A sale returns to the list, leaving its replacement row focused rather
     // than treating it as though the pilot had picked it.
     stage = 1;
-
-    if (moduleOption < 0) moduleOption = 0;
 
     return;
   }

@@ -15,6 +15,8 @@ function Mustang(properties, data) { return createRenderedShip(properties, data)
 import { Diamond, itemTypes, Message } from '${process.cwd()}/src/shared/items/index.ts';
 import { createRenderedItem } from '${process.cwd()}/src/client/create-rendered-item.ts';
 import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple, thrusters } from '${process.cwd()}/src/shared/modules/index.ts';
+import { Item } from '${process.cwd()}/src/shared/items/item.ts';
+import { setCraftActionDispatcher } from '${process.cwd()}/src/client/craft-actions.ts';
 import { adoptPlayerShip, paintUnlocked, playerShip, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { launch } from '${process.cwd()}/src/shared/simulation/docking.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
@@ -48,6 +50,18 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().
   'destroyed hull remains as physical wreckage');
 
 const ship = new Mustang({ shades: colors.white, credits: 10000 });
+const pendingSales = [];
+setCraftActionDispatcher(action => {
+  if (action.action === 'sell') pendingSales.push(action);
+});
+const settleSale = () => {
+  const request = pendingSales.shift();
+  assert(request?.objectIds.length, 'sale sends exact cargo IDs');
+  const sold = ship.cargoContents.filter(object => request.objectIds.includes(object.id));
+  assert.equal(sold.length, request.objectIds.length);
+  ship.cargoContents = ship.cargoContents.filter(object => !request.objectIds.includes(object.id));
+  ship.credits += sold.reduce((total, object) => total + object.price, 0);
+};
 const wreck = new Mustang({ shades: colors.white, velocity: Vector(12, -7), spin: 0.2 });
 const contents = [Diamond, Message, Message].map(itemData =>
   createRenderedItem({resource: itemTypes.indexOf(itemData)}));
@@ -100,8 +114,15 @@ assert(ship.segments.filter(segment => segment.mount === mount).every(segment =>
 confirm();
 check(second, 'remove swapped instance');
 moveSubSelection(1, ship); confirm();
+assert(ship.cargoContents.includes(second), 'sale waits for the server snapshot');
+settleSale();
 assert(!ship.cargoContents.includes(second) && ship.cargoContents.includes(first), 'sell selected instance');
 assert(fitsOf(ship, mount)[0] === first && selectionSnapshot()[0] === 0 && selectionSnapshot()[1] === 1, 'sale closes on replacement');
+move(1);
+assert(selectionSnapshot()[0] === fitsOf(ship, mount).length, 'down reaches BACK after module sale');
+confirm();
+assert(selectionSnapshot()[1] === 0, 'BACK leaves module list');
+confirm();
 // An equipped instance on another mount must not be offered or counted as cargo.
 const lowerMount = ship.mounts[5];
 ship.fit(first, lowerMount);
@@ -115,10 +136,15 @@ confirm();
 const bought = ship.modules[1];
 assert(bought.constructor === CargoHatch && bought !== first, 'purchase appends a fresh instance');
 assert(ship.credits === beforeBuy - CargoHatch.price, 'purchase debits once');
+move(1);
+assert(selectionSnapshot()[3] === 2, 'down reaches BACK after buying');
+move(-1);
 confirm();
 assert(mount.module === bought && !ship.cargoContents.length, 'new purchase fits');
 // Navigation skips locked colours: a new pilot has only pink and white.
 assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
+move(1);
+assert(selectionSnapshot()[3] === 1, 'down reaches BACK after equipping');
 move(1); moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.violet, 'first unlocked paint is pink');
 moveSubSelection(1, ship); confirm();
@@ -148,9 +174,11 @@ confirm();
 assert(!bought.mount && ship.cargoContents[0] === bought, 'removed instance becomes cargo');
 
 // Capacity counts loose modules and physical cargo, excluding fitted modules.
-const ore = { label: 'ORE', price: 7 };
-const gem = { label: 'DIAMOND', price: 11 };
-ship.cargoContents.push(...Array.from({length: 11}, () => ({ item: ore })));
+class Ore extends Item { static label = 'ORE'; static price = 7; }
+class Gem extends Item { static label = 'DIAMOND'; static price = 11; }
+const ore = Ore;
+const gem = Gem;
+ship.cargoContents.push(...Array.from({length: 11}, () => new Ore()));
 assert(ship.cargoContents.length >= ship.cargoSpace, 'loose module fills twelfth cargo space');
 ship.fit(bought, mount);
 assert((ship.cargoContents.length < ship.cargoSpace), 'equipping frees cargo space');
@@ -168,16 +196,19 @@ const fullCredits = ship.credits;
 confirm();
 assert(ship.credits === fullCredits && ship.modules.length === 2, 'full cargo blocks buy');
 back(ship); back(ship); move(-100);
-ship.cargoContents = [bought, {item: ore}, {item: gem}, {item: ore}];
+ship.cargoContents = [bought, new Ore(), new Gem(), new Ore()];
 const beforeSale = ship.credits;
-confirm(); confirm(); confirm();
+confirm(); confirm(); confirm(); settleSale();
 assert(ship.modules.length === 1 && ship.modules[0] === first, 'cargo sale preserves equipped module');
 assert(selectionSnapshot()[1] === 1, 'cargo sale closes submenu');
+move(1); move(1);
+assert(selectionSnapshot()[0] === 2, 'down reaches BACK after cargo sale');
 confirm(); confirm();
+confirm(); confirm(); settleSale();
 assert(ship.cargoContents.length === 1 && ship.cargoContents[0].item === gem, 'ore stack sale');
 assert(selectionSnapshot()[1] === 1, 'stack sale closes submenu');
 assert(!paintUnlocked(colors.cyan), 'cyan is locked before selling a Diamond');
-confirm(); confirm();
+confirm(); confirm(); settleSale();
 assert(!ship.cargoContents.length && ship.credits === beforeSale + CargoHatch.price + 25, 'last cargo sale');
 assert(selectionSnapshot()[1] === 1, 'empty cargo returns to list');
 assert(paintUnlocked(colors.cyan) && playerShip.note === 'DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');

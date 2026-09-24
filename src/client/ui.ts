@@ -4,11 +4,13 @@ import { renderControls } from './ui/controls';
 import { renderDocked } from './ui/docked-loader';
 import { renderIndicators } from './ui/indicators';
 import { type Vector } from '../shared/vector';
+import { type Ship } from '../shared/craft/ship';
 import { renderText } from './text';
 
 export const renderUI = (
   game: GameState,
   stations: Array<{ position: Vector; radius: number }>,
+  { controlsShip }: { controlsShip: Ship },
 ) => {
   if (!game.uiAlpha) return;
 
@@ -18,7 +20,7 @@ export const renderUI = (
 
   game.ctx.globalAlpha = game.uiAlpha * playerShip.hudAlpha;
 
-  renderControls(game, playerShip);
+  renderControls(game, controlsShip);
 
   game.ctx.globalAlpha = game.uiAlpha;
 

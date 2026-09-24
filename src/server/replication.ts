@@ -41,7 +41,10 @@ const replicateEntity = ({
   ...(entity instanceof Craft && { launching: entity.launching }),
   ...(entity instanceof Craft && { maxSpeed: entity.maxSpeed }),
   ...(entity instanceof Craft && {
-    modules: entity.moduleStates,
+    modules: entity.moduleStates.map((state, index) => ({
+      ...state,
+      id: entity.modules[index].id,
+    })),
     wreckage: entity.wreckage,
     decay: entity.decay,
     shades: entity.shades,

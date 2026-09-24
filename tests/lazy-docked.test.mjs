@@ -20,20 +20,30 @@ const entry = `
 import { playerShip } from '${resolve('src/client/player.ts')}';
 import { game } from '${resolve('src/client/game.ts')}';
 import { Diamond } from '${resolve('src/shared/items/diamond.ts')}';
+import { setCraftActionDispatcher } from '${resolve('src/client/craft-actions.ts')}';
 import { renderDocked, confirmSelection, back, moveSelection } from '${resolve('src/client/ui/docked-loader.ts')}';
 // The entry sees a quoted wire key; the independently loaded UI sees dot access.
 playerShip.cargoContents = JSON.parse('{"cargoContents":[]}')['cargoContents'];
 playerShip.cargoContents.push(new Diamond());
+const sales = [];
+setCraftActionDispatcher(action => {
+  if (action.action === 'sell') sales.push(action);
+});
 Object.assign(game, {uiScale:1, uiWidth:1200, uiHeight:800});
 export const run = async () => {
   renderDocked(game, playerShip);
   await confirmSelection(playerShip);
   renderDocked(game, playerShip);
+  await confirmSelection(playerShip);
+  await confirmSelection(playerShip);
   await back(playerShip);
   await moveSelection(1, playerShip);
   await confirmSelection(playerShip);
   renderDocked(game, playerShip);
-  return playerShip.cargoContents.length;
+  return [
+    playerShip.cargoContents.length,
+    sales[0]?.objectIds?.[0] === playerShip.cargoContents[0].id,
+  ];
 };
 `;
 
@@ -90,10 +100,10 @@ try {
   );
   const { run } = await import(pathToFileURL(join(directory, 'entry.mjs')));
 
-  assert.equal(
+  assert.deepEqual(
     await run(),
-    1,
-    'cargo and hull menus work across the lazy boundary',
+    [1, true],
+    'cargo sale and hull menu work across the lazy boundary',
   );
   console.log('Production lazy docked chunk renders cargo and hull menus');
 } finally {

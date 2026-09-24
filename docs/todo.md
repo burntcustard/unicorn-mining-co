@@ -1,5 +1,11 @@
 # TODO
 
+## High priority
+
+[ ] Fix drilling particles coming from center of drill not contact point
+[ ] Fix things being slipperier than they should be, like the horn drill
+[ ] Combine Plank.js code with ours better, e.g. remove duplicate vector
+
 ## MVP
 
 [x] Native websockets front-end
@@ -25,9 +31,12 @@
 [ ] Better text demo
 [ ] Add characters for lowercase and special chars
 [ ] Neaten up files, especially player.ts & vector.ts
-[ ] Better FPS counter with memory usage etc.
-[ ] Decide module (mount?) categories like thrusters
+[ ] Better non-debug-only FPS counter with memory usage etc.
+[ ] Refine module (mount?) categories like thrusters
+[ ] More modules.
 [ ] Fix floodlight not revealing along its edge pixels
+[ ] Smoothly move camera to center of station again
+[ ] Ensure tests aren't overlapping with each other
 
 ## Big future things
 

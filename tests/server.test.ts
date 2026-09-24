@@ -1,4 +1,5 @@
 import { HornDrill } from '../src/shared/modules/horn-drill';
+import { CargoHatch } from '../src/shared/modules/cargo-hatch';
 import assert from 'node:assert/strict';
 import { Ship } from '../src/shared/craft/ship';
 import { once } from 'node:events';
@@ -365,11 +366,92 @@ const stationEntity = startingStation;
 assert(stationEntity);
 const authoritativeShip = server.world.entities.get(welcome.shipId);
 
-assert(authoritativeShip?.kind === 'ship');
+assert(authoritativeShip instanceof Ship);
 authoritativeShip.position.set(
   server.world.entities.get(stationEntity.id)!.position,
 );
 authoritativeShip.dockedTo = stationEntity.id;
+
+// Selling a cargo module and item must change the authoritative ship once.
+// Repeating a sale cannot mint credits after the object has left cargo.
+const hatchMount = authoritativeShip.mounts.findIndex(
+  ({ module }) => module instanceof CargoHatch,
+);
+
+assert(hatchMount >= 0);
+const hatchModule = authoritativeShip.mounts[hatchMount].module;
+
+assert(hatchModule instanceof CargoHatch);
+const hatchId = hatchModule.id;
+const startingCredits = authoritativeShip.credits;
+
+assert(
+  load.fullEntities
+    .find(({ id }) => id === welcome.shipId)
+    ?.modules?.some(({ id }) => id === hatchId),
+  'mounted module IDs reach the client before they can be sold',
+);
+socket.send(
+  JSON.stringify({ type: 'dock', action: 'remove', mount: hatchMount }),
+);
+await waitUntil({
+  condition: () =>
+    authoritativeShip.cargoContents.some(({ id }) => id === hatchId),
+});
+socket.send(
+  JSON.stringify({ type: 'dock', action: 'sell', objectIds: [hatchId] }),
+);
+await waitUntil({
+  condition: () =>
+    authoritativeShip.credits === startingCredits + CargoHatch.price,
+});
+assert(!authoritativeShip.cargoContents.some(({ id }) => id === hatchId));
+socket.send(
+  JSON.stringify({ type: 'dock', action: 'sell', objectIds: [hatchId] }),
+);
+await new Promise((resolve) => setTimeout(resolve, 70));
+assert.equal(
+  authoritativeShip.credits,
+  startingCredits + CargoHatch.price,
+  'duplicate sale does not pay twice',
+);
+const soldItem = authoritativeShip.cargoContents.find(
+  (object): object is Item => object instanceof Item && object.resource === 0,
+);
+
+assert(soldItem);
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'sell',
+    objectIds: [soldItem.id, 999999],
+  }),
+);
+await new Promise((resolve) => setTimeout(resolve, 70));
+assert(authoritativeShip.cargoContents.includes(soldItem));
+assert.equal(authoritativeShip.credits, startingCredits + CargoHatch.price);
+socket.send(
+  JSON.stringify({ type: 'dock', action: 'sell', objectIds: [soldItem.id] }),
+);
+await waitUntil({
+  condition: () =>
+    authoritativeShip.credits ===
+    startingCredits + CargoHatch.price + soldItem.price,
+});
+assert(!authoritativeShip.cargoContents.some(({ id }) => id === soldItem.id));
+await waitUntil({
+  condition: () =>
+    messages.some(
+      (message) =>
+        message.type === 'snapshot' &&
+        message.fullEntities.some(
+          (entity) =>
+            entity.id === welcome.shipId &&
+            entity.credits === authoritativeShip.credits,
+        ),
+    ),
+});
+
 socket.send(
   JSON.stringify({
     input: {

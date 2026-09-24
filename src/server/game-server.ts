@@ -15,6 +15,8 @@ import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
 import { ReplicationManager } from './replication';
 import { moduleTypes } from '../shared/modules';
+import { Module } from '../shared/modules/module';
+import { Item } from '../shared/items/item';
 import { Ship } from '../shared/craft/ship';
 import { paintColors } from '../shared/colors';
 
@@ -264,7 +266,35 @@ export class GameServer {
     if (!(ship instanceof Ship) || !ship.dockedTo) return;
     const mount = 'mount' in message ? ship.mounts[message.mount] : undefined;
 
-    if (message.action === 'buy') {
+    if (message.action === 'sell') {
+      const ids = message.objectIds;
+
+      if (
+        !Array.isArray(ids) ||
+        !ids.length ||
+        ids.length > ship.cargoContents.length ||
+        ids.some((id) => !Number.isInteger(id)) ||
+        new Set(ids).size !== ids.length
+      ) {
+        return;
+      }
+      const objects = ids.map((id) =>
+        ship.cargoContents.find((object) => object.id === id),
+      );
+      const sale = objects.filter(
+        (object): object is Module | Item =>
+          object instanceof Module || object instanceof Item,
+      );
+
+      if (sale.length !== ids.length) return;
+      ship.cargoContents = ship.cargoContents.filter(
+        (object) => !ids.includes(object.id),
+      );
+      ship.credits += sale.reduce(
+        (total, object) => total + (object.price || 0),
+        0,
+      );
+    } else if (message.action === 'buy') {
       const Type = moduleTypes[message.module];
 
       if (

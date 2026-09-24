@@ -1,6 +1,7 @@
 import { type GameObject } from '../game-object';
 import { Vector } from '../vector';
 import { Craft } from '../craft/craft';
+import { type ModuleState } from '../craft/module-state';
 
 /*
  * Checkpoints retain model geometry and identities, not cloned class graphs.
@@ -42,6 +43,9 @@ export class EntityState {
   readonly launching: number;
   readonly dockedTo: number;
   readonly hullHealth?: number[];
+  readonly moduleStates?: ModuleState[];
+  readonly credits?: number;
+  readonly cargoIds?: number[];
   private readonly values: Record<string, any>;
   private readonly capturedStates: {
     target: any;
@@ -75,6 +79,9 @@ export class EntityState {
 
     if (entity instanceof Craft) {
       this.hullHealth = entity.hullHealth;
+      this.moduleStates = entity.moduleStates;
+      this.credits = entity.credits;
+      this.cargoIds = entity.cargoContents.map((object) => object.id);
       this.segments = [...entity.segments];
       this.cockpit = entity.cockpit;
       this.cargoContents = entity.cargoContents.map(

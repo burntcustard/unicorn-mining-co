@@ -9,7 +9,8 @@ export type CraftAction =
   | { action: 'buy'; module: number; moduleId: number }
   | { action: 'equip'; moduleId: number; mount: number }
   | { action: 'paint'; moduleId?: number; mount?: number; paint: number }
-  | { action: 'remove'; mount: number };
+  | { action: 'remove'; mount: number }
+  | { action: 'sell'; objectIds: number[] };
 
 export type ReplicatedEntity = {
   cargoContents?: (ReplicatedEntity | { moduleIndex: number })[];

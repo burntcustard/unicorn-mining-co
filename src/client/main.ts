@@ -348,7 +348,11 @@ const gameLoop = GameLoop({
     renderDebugDemos(game);
     // @endif
 
-    renderUI(game, stationMarkers);
+    const controlsShip = predicted.entities.get(playerShip.id);
+
+    renderUI(game, stationMarkers, {
+      controlsShip: controlsShip instanceof Ship ? controlsShip : playerShip,
+    });
   },
   update: ({ dt, now }) => {
     if (playerShip.launchRequested) {
