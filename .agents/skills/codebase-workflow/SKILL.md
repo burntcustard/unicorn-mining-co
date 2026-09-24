@@ -5,9 +5,9 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 
 # Codebase workflow
 
-- Read `CHUNK_LOADING.md` before changing imports, chunks, or loading triggers.
+- Read `docs/CHUNK_LOADING.md` before changing imports, chunks, or loading triggers.
 - Use static imports for first-frame code and `import()` only for a concrete
-  later trigger. Document loading-trigger changes in `CHUNK_LOADING.md`.
+  later trigger. Document loading-trigger changes in `docs/CHUNK_LOADING.md`.
 - Keep production object properties and wire keys unchanged. Do not reintroduce
   property mangling or regex-based identifier rewriting: a shared Terser name
   cache does not share quoted-property reservations between chunks.

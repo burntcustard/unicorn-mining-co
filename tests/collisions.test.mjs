@@ -22,7 +22,7 @@ const bundle = await rolldown({
         id === '\0physics'
           ? `
       export { detectCollisions } from '${process.cwd()}/src/shared/collision/detect-collisions.ts';
-      export { hit } from '${process.cwd()}/src/shared/collision/hit.ts';
+      export { contactBetween } from '${process.cwd()}/src/shared/collision/contact-between.ts';
       export { outerEdges } from '${process.cwd()}/src/shared/collision/outer-edges.ts';
       export { GameCollisions } from '${process.cwd()}/src/shared/collision/game-collisions.ts';
       export { GameObject } from '${process.cwd()}/src/shared/game-object.ts';
@@ -45,7 +45,7 @@ const physics = await import(
 );
 const {
   detectCollisions,
-  hit,
+  contactBetween,
   movePoint,
   outerEdges,
   GameCollisions,
@@ -78,7 +78,7 @@ const polygon = (outline, properties = {}) => ({
   ...properties,
 });
 const body = ({ id, mass, position = Vector(), velocity = Vector() }) => ({
-  hitboxes: () => [],
+  hitbox: () => [],
   id,
   kind: 'item',
   mass,
@@ -102,7 +102,7 @@ closeTo(moved.y, 2);
 assert.equal(typeof moved.normalize, 'function');
 
 // Circle-circle and circle-face contacts have exact penetration and normals.
-let contact = hit(
+let contact = contactBetween(
   { radius: 5, position: Vector() },
   { radius: 5, position: Vector(8) },
 );
@@ -111,7 +111,7 @@ closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
 
-contact = hit(
+contact = contactBetween(
   polygon([
     [-10, -10],
     [10, -10],
@@ -130,30 +130,29 @@ const corners = Array.from({ length: 5 }, (_, index) => [
   Math.cos((index * Math.PI * 2) / 5) * 10,
   Math.sin((index * Math.PI * 2) / 5) * 10,
 ]);
-const parts = corners.map((corner, index) => ({
+const colliders = corners.map((corner, index) => ({
   outline: [[0, 0], corner, corners[(index + 1) % corners.length]],
 }));
 
-parts.forEach((part) => (part.part = part));
-outerEdges(parts.map(({ outline }) => outline));
+outerEdges(colliders.map(({ outline }) => outline));
 const compound = polygon(
   [
     [100, 100],
     [101, 100],
     [100, 101],
   ],
-  { parts, radius: 10 },
+  { colliders, radius: 10 },
 );
 
-contact = hit(compound, { radius: 5, position: Vector(14) });
+contact = contactBetween(compound, { radius: 5, position: Vector(14) });
 closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
-assert.ok(parts.includes(contact.aPart));
+assert.ok(colliders.includes(contact.aCollider));
 
 const owner = body({ id: 1, mass: 1 });
 const otherOwner = body({ id: 2, mass: 1 });
-const hitbox = { ...compound, owner, rotation: 0 };
+const collider = { ...compound, owner, rotation: 0 };
 const circle = {
   owner: otherOwner,
   radius: 5,
@@ -161,8 +160,8 @@ const circle = {
   rotation: 0,
 };
 
-owner.hitboxes = () => [hitbox];
-otherOwner.hitboxes = () => [
+owner.hitbox = () => [collider];
+otherOwner.hitbox = () => [
   circle,
   {
     ...circle,
@@ -176,7 +175,13 @@ otherOwner.hitboxes = () => [
 const contacts = detectCollisions({ entities: [owner, otherOwner] });
 
 assert.equal(contacts.length, 1);
-assert.ok(parts.includes(contacts[0].collider.part || contacts[0].other.part));
+assert.ok(
+  colliders.some(
+    ({ outline }) =>
+      outline === contacts[0].collider.outline ||
+      outline === contacts[0].other.outline,
+  ),
+);
 
 // Off-centre impacts exchange angular as well as linear momentum.
 const triangle = new GameObject({
@@ -226,7 +231,7 @@ for (let i = 0; i < 20; i++) {
 closeTo(triangle.position.distanceTo(impactResult.position), 0, 1e-7);
 closeTo(triangle.spin, impactResult.spin, 1e-7);
 
-// A fast ship damages the contacted asteroid section, not the whole body's health.
+// A fast ship damages the contacted asteroid segment, not the whole body's health.
 {
   const world = createWorld();
   const ship = addEntity(
@@ -243,7 +248,7 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
     world,
     createAsteroid(world, {
       radius: 25,
-      points: 5,
+      pointCount: 5,
       contents: [0, 1, 2, 3],
     }),
   );
@@ -256,11 +261,11 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
   assert.equal(
     rock.health,
     health,
-    'impact damage belongs to the struck section',
+    'impact damage belongs to the struck asteroid segment',
   );
   assert(
     events.some(({ type }) => type === 'asteroidSplit'),
-    'a broken impact section splits off without a drill',
+    'a broken impact asteroid segment splits off without a drill',
   );
   assert.deepEqual(
     [...world.entities.values()]
@@ -312,14 +317,14 @@ const trigger = new GameObject({
   radius: 10,
 });
 
-trigger.hitboxes = () => [
+trigger.hitbox = () => [
   {
     owner: trigger,
     position: trigger.position,
     radius: 10,
     rotation: 0,
     physics: false,
-    role: 'scoop',
+    role: 'cargoHatch',
   },
 ];
 const triggerTarget = new GameObject({
@@ -343,7 +348,7 @@ const triggerContacts = new GameCollisions().step({
 assert(
   triggerContacts.some(
     ({ collider, other }) =>
-      collider.role === 'scoop' && other.owner === triggerTarget,
+      collider.role === 'cargoHatch' && other.owner === triggerTarget,
   ),
   'overlapping nonphysical fixtures report a contact',
 );
@@ -386,7 +391,7 @@ closeTo(fastTriggerTarget.position.x, 25);
       segment.active = 1;
       segment.activationProgress = 1;
     });
-  const mouth = ship.hitboxes().find((box) => box.segment === mouthPart);
+  const mouth = ship.hitbox().find((box) => box.segment === mouthPart);
   const crossingY = mouth.position.y - 10;
   const item = addEntity(
     world,
@@ -421,7 +426,7 @@ closeTo(fastTriggerTarget.position.x, 25);
         collider.segment === mouthPart ||
         other.segment === mouthPart,
     ),
-    'item centre contacts are filtered to scoop mouths',
+    'item centre contacts are filtered to cargo hatch mouths',
   );
   const events = [];
 
@@ -509,7 +514,7 @@ assert(
   'shield bounce stays stronger than hull bounce',
 );
 
-// Once a section detaches, touching cut faces must not create an artificial
+// Once an asteroid segment detaches, touching cut faces must not create an artificial
 // separation impulse. Remove the intentional split drift to isolate the solver.
 for (const radiusEven of [undefined, 25]) {
   const world = createWorld();
@@ -517,17 +522,20 @@ for (const radiusEven of [undefined, 25]) {
     world,
     createAsteroid(world, {
       radius: 100,
-      points: radiusEven ? 6 : 7,
+      pointCount: radiusEven ? 6 : 7,
       radiusEven,
       rotation: 0.4,
       position: Vector(200, 300),
     }),
   );
-  const children = asteroid.detach({ section: asteroid.sections[0], world });
+  const children = asteroid.detach({
+    asteroidSegment: asteroid.segments[0],
+    world,
+  });
   const leaf = children[0];
   const visualOutline = JSON.stringify(leaf.outline);
 
-  leaf.hitboxes()[0].outline.forEach(([x, y], index) => {
+  leaf.hitbox()[0].outline.forEach(([x, y], index) => {
     closeTo(Vector(x, y).distanceTo(Vector(...leaf.outline[index])), 0.1);
   });
   const positions = children.map((child) => child.position.add(Vector()));
@@ -568,10 +576,10 @@ for (let tick = 0; tick < 240; tick++) {
   const input = {
     thrust: tick < 120 ? 1 : 0,
     turn: tick < 30 ? 1 : tick < 60 ? -1 : 0,
-    drill: false,
-    hatch: false,
-    light: false,
-    shield: false,
+    hornDrill: false,
+    cargoHatch: false,
+    searchLight: false,
+    shieldGenerator: false,
     launch: false,
   };
 
@@ -620,10 +628,10 @@ for (const direction of [-1, 1]) {
           {
             thrust: 0,
             turn,
-            drill: false,
-            hatch: false,
-            light: false,
-            shield: false,
+            hornDrill: false,
+            cargoHatch: false,
+            searchLight: false,
+            shieldGenerator: false,
             launch: false,
           },
         ],

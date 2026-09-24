@@ -766,7 +766,7 @@ assert(
   asteroidContact({
     asteroid: rock,
     position: resting.position,
-    // The Mustang's horn reaches seven units beyond its nominal hull radius.
+    // The Mustang's horn drill reaches seven units beyond its nominal hull radius.
     radius: resting.radius + 10,
   }),
   'the ship should be resting against the rock it is drawn against',

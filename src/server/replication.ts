@@ -6,7 +6,7 @@ import {
   type ServerMessage,
 } from '../shared/protocol/network';
 import { type SimulationWorld } from '../shared/simulation/world';
-import { type WorldObject } from '../shared/simulation/world';
+import { type GameObject } from '../shared/game-object';
 import { Ship } from '../shared/craft/ship';
 import { Asteroid } from '../shared/simulation/asteroid';
 import { Item } from '../shared/items/item';
@@ -21,13 +21,13 @@ const markerUnload = 11000;
 const replicateEntity = ({
   entity,
 }: {
-  entity: WorldObject;
+  entity: GameObject;
 }): ReplicatedEntity => ({
   ...(entity instanceof Asteroid && { contents: entity.contents }),
   ...(entity instanceof Asteroid && { decay: entity.decay }),
   ...(entity instanceof Asteroid && { maxHealth: entity.maxHealth }),
   ...(entity instanceof Asteroid && { outline: entity.outline }),
-  ...(entity instanceof Asteroid && { sections: entity.sections }),
+  ...(entity instanceof Asteroid && { segments: entity.segments }),
   ...(entity instanceof Craft && {
     cargoContents: entity.cargoContents.map((object) =>
       object instanceof Module
@@ -52,7 +52,7 @@ const replicateEntity = ({
   ...('label' in entity && { label: entity.label }),
   ...('paint' in entity && { paint: entity.paint }),
   ...('playerId' in entity && { playerId: entity.playerId }),
-  ...('points' in entity && { points: entity.points }),
+  ...('pointCount' in entity && { pointCount: entity.pointCount }),
   ...('radiusEven' in entity && { radiusEven: entity.radiusEven }),
   ...('resource' in entity && { resource: entity.resource }),
   id: entity.id,

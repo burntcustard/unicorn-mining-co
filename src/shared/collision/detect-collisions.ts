@@ -1,16 +1,16 @@
-import { hit } from './hit';
+import { contactBetween } from './contact-between';
 import { type GameObject } from '../game-object';
 import { collisionCategories, type Contact } from './types';
 
 /* Read-only query for diagnostics; simulation contacts come from GameCollisions. */
 export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
-  const boxes = entities
-    .flatMap((entity) => entity.hitboxes())
+  const colliders = entities
+    .flatMap((entity) => entity.hitbox())
     .filter(({ collides }) => collides !== false);
   const contacts: Contact[] = [];
 
-  boxes.forEach((a, index) =>
-    boxes.slice(index + 1).forEach((b) => {
+  colliders.forEach((a, index) =>
+    colliders.slice(index + 1).forEach((b) => {
       if (
         a.owner === b.owner ||
         !(
@@ -25,13 +25,13 @@ export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
       ) {
         return;
       }
-      const contact = hit(a, b);
+      const contact = contactBetween(a, b);
 
       if (contact) {
         contacts.push({
           ...contact,
-          collider: { ...a, ...contact.aPart },
-          other: { ...b, ...contact.bPart },
+          collider: { ...a, ...contact.aCollider },
+          other: { ...b, ...contact.bCollider },
         });
       }
     }),

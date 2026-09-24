@@ -3,18 +3,18 @@ import { type Module } from './modules/module';
 
 export type Point = number[];
 export type Outline = Point[] & { edges?: boolean[] };
-export type Palette = readonly string[];
+export type Shades = readonly string[];
 
-export type WorldObject = {
+export type GameObjectLike = {
   [key: string]: any;
   position: Vector;
   velocity: Vector;
   radius: number;
   rotation: number;
-  hitboxes?: () => unknown[];
+  hitbox?: () => unknown[];
 };
 
-export type ModulePart = {
+export type ModuleSegmentPlan = {
   [key: string]: any;
   points?: Outline | ((segment: Segment) => Outline);
 };
@@ -38,6 +38,6 @@ export type Segment = {
   mount?: Mount;
   middle?: Point;
   points?: Outline | ((segment: Segment) => Outline);
-  shades: Palette;
+  shades: Shades;
   zIndex: number;
 };

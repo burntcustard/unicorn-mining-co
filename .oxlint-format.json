@@ -8,6 +8,7 @@
       "error",
       { "count": 1, "considerComments": true }
     ],
-    "local/statement-spacing": "error"
+    "local/statement-spacing": "error",
+    "local/multiline-doc-comments": "error"
   }
 }

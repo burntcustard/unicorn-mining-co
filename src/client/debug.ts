@@ -11,7 +11,7 @@ import { renderText } from './text';
 import { sky } from './background';
 import { textDemo } from './text-demo';
 import { Vector } from '../shared/vector';
-import { type WorldObject } from '../shared/types';
+import { type GameObjectLike } from '../shared/types';
 import { type Collider } from '../shared/collision/types';
 
 export let showDeadzone = false;
@@ -64,7 +64,7 @@ export const bindDebug = (game: GameState) => {
 
 export const renderDebug = (
   game: GameState,
-  sprites: WorldObject[],
+  sprites: GameObjectLike[],
   nearbyRadius: number,
 ) => {
   if (showDeadzone) {
@@ -79,17 +79,17 @@ export const renderDebug = (
       0,
       Math.PI * 2,
     );
-    const drill = playerShip
-      .hitboxes()
+    const hornDrillCollider = playerShip
+      .hitbox()
       .find(
         ({ outline, segment }: Collider) => !outline && segment?.module.grinds,
       );
 
-    if (drill) {
+    if (hornDrillCollider) {
       game.ctx.arc(
-        drill.position.x,
-        drill.position.y,
-        drill.radius,
+        hornDrillCollider.position.x,
+        hornDrillCollider.position.y,
+        hornDrillCollider.radius,
         0,
         Math.PI * 2,
       );

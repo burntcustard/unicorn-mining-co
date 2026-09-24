@@ -1,6 +1,6 @@
 import { Module } from './module';
 
-// Light
+// SearchLight
 // A lamp slung under the nose that throws a cone of light out ahead of the
 // ship. It sits below the hull so that what it falls on is whatever the ship
 // is flying over, with the hull itself sat dark on top of it.
@@ -21,13 +21,13 @@ const spread = 35;
 // tapering to a point rather than being eased at the corners
 const corner = 10;
 
-export class Light extends Module {
+export class SearchLight extends Module {
   static beam = true;
   static disablePhysics = true;
   static health = 10;
   static lens = lens;
   static mouth = mouth;
-  static label = 'LIGHT';
+  static label = 'SEARCH LIGHT';
   static model: any[] = [
     {
       points: ({ activationProgress }: { activationProgress: number }) =>

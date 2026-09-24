@@ -12,7 +12,7 @@ import {
   type RegionalView,
   type WorldRanges,
 } from '../shared/protocol/regions';
-import { type WorldObject } from '../shared/simulation/world';
+import { type GameObject } from '../shared/game-object';
 import { Station } from '../shared/craft/station';
 
 const serverRanges: WorldRanges = {
@@ -24,7 +24,7 @@ const serverRanges: WorldRanges = {
 
 export class RegionManager {
   private managed = new Set<number>();
-  private sleeping = new Map<number, WorldObject>();
+  private sleeping = new Map<number, GameObject>();
   private regions: ProceduralRegionManager;
 
   constructor({ worldSeed }: { worldSeed: number }) {
@@ -42,7 +42,7 @@ export class RegionManager {
     world: SimulationWorld;
     positions: VectorValue[];
   }) {
-    const nearby = (entity: WorldObject) =>
+    const nearby = (entity: GameObject) =>
       positions.some(
         (position) =>
           entity.position.distanceTo(position) <=
@@ -99,7 +99,7 @@ export class RegionManager {
               velocity: Vector(),
             }),
             {
-              points: description.points,
+              pointCount: description.pointCount,
               radiusEven: description.radiusEven,
               resource: description.resource,
             },
@@ -168,4 +168,4 @@ export class RegionManager {
 }
 
 export type ServerRegionalView = RegionalView;
-export type ServerEntity = WorldObject;
+export type ServerEntity = GameObject;

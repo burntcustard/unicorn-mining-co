@@ -1,7 +1,9 @@
 /* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/util/options.ts
  * MIT licensed; see LICENSE in the repository root.
  */
-/** @internal */
+/**
+ * @internal
+ */
 export const options = function <T extends Record<PropertyKey, any>>(
   input: T,
   defaults: Record<PropertyKey, any>,

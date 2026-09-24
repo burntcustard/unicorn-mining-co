@@ -1,5 +1,5 @@
 import { type Craft } from '../shared/craft/craft';
-import { Horn } from '../shared/modules/horn';
+import { HornDrill } from '../shared/modules/horn-drill';
 import { continuousSound } from './sound-loader';
 
 const voices = new Map<string, Parameters<typeof continuousSound>[0]>();
@@ -7,16 +7,20 @@ const voices = new Map<string, Parameters<typeof continuousSound>[0]>();
 /**
  * Keep audio outside rollback-owned objects, and retire voices no longer present.
  */
-export const updateDrillSounds = ({ crafts }: { crafts: Iterable<Craft> }) => {
+export const updateHornDrillSounds = ({
+  crafts,
+}: {
+  crafts: Iterable<Craft>;
+}) => {
   const playing = new Set<string>();
 
   for (const craft of crafts) {
     if (craft.dead) continue;
     craft.mounts.forEach((mount, mountIndex) => {
-      if (!(mount.module instanceof Horn) || mount.health <= 0) return;
-      craft.partsOf(mount).forEach((segment, partIndex) => {
+      if (!(mount.module instanceof HornDrill) || mount.health <= 0) return;
+      craft.segmentsAtMount(mount).forEach((segment, segmentIndex) => {
         if (!segment.active) return;
-        const key = `${craft.id}:${mountIndex}:${partIndex}`;
+        const key = `${craft.id}:${mountIndex}:${segmentIndex}`;
         const voice = continuousSound(voices.get(key), segment.biting ? 8 : 4);
 
         if (voice) voices.set(key, voice);

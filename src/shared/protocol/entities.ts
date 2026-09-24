@@ -1,7 +1,7 @@
 export type EntityId = number;
 export type PlayerId = number;
 
-export type AsteroidSection = {
+export type AsteroidSegment = {
   contents: number[];
   health: number;
   mass: number;

@@ -1,7 +1,7 @@
 import { type PlayerInput } from './input';
-import { type AsteroidSection } from './entities';
+import { type AsteroidSegment } from './entities';
 import { type ModuleState } from '../craft/module-state';
-import { type WreckagePart } from '../craft/wreckage-part';
+import { type WreckageSegment } from '../craft/wreckage-segment';
 
 export type NetworkVector = { x: number; y: number };
 export type ReplicatedModule = ModuleState;
@@ -28,19 +28,19 @@ export type ReplicatedEntity = {
   maxSpeed?: number;
   maxHealth?: number;
   modules?: ReplicatedModule[];
-  wreckage?: WreckagePart[];
+  wreckage?: WreckageSegment[];
   outline?: number[][];
   paint?: number;
   shades?: readonly string[];
   playerId?: number;
-  points?: number;
+  pointCount?: number;
   position: NetworkVector;
   radius: number;
   radiusEven?: number;
   resource?: number;
   rotation: number;
   spin: number;
-  sections?: AsteroidSection[];
+  segments?: AsteroidSegment[];
   thrust?: number;
   turn?: number;
   velocity: NetworkVector;
@@ -48,7 +48,9 @@ export type ReplicatedEntity = {
 
 export type PlayerInputMessage = {
   input: PlayerInput;
-  /** Seconds into the simulation tick; omitted by tick-aligned callers. */
+  /**
+   * Seconds into the simulation tick; omitted by tick-aligned callers.
+   */
   offset?: number;
   sequence: number;
   tick: number;

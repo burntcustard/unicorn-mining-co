@@ -6,8 +6,8 @@ import { type SimulationEvent } from '../protocol/events';
 import { type SimulationWorld } from '../simulation/world';
 import { type Segment } from '../types';
 import { Asteroid } from '../simulation/asteroid';
-import { Horn } from '../modules/horn';
-import { CargoScoop } from '../modules/cargo-scoop';
+import { HornDrill } from '../modules/horn-drill';
+import { CargoHatch } from '../modules/cargo-hatch';
 
 const thrustScale = 220;
 const steeringEase = 0.5;
@@ -24,11 +24,11 @@ export class Ship extends Craft {
     world: SimulationWorld;
     dt: number;
   }) {
-    const drills = new Map<
+    const hornDrills = new Map<
       Segment,
       {
         contact: Contact;
-        drill: Contact['collider'];
+        hornDrill: Contact['collider'];
         rock: Contact['collider'];
       }
     >();
@@ -42,28 +42,33 @@ export class Ship extends Craft {
             ? other
             : undefined;
 
-      if (own?.segment?.module instanceof CargoScoop) {
+      if (own?.segment?.module instanceof CargoHatch) {
         own.segment.module.collect({ ship: this, contact, events, world });
       }
-      const drill = own;
+      const hornDrill = own;
 
-      if (!drill?.segment || !(drill.segment.module instanceof Horn)) return;
-      const rock = drill === collider ? other : collider;
+      if (
+        !hornDrill?.segment ||
+        !(hornDrill.segment.module instanceof HornDrill)
+      ) {
+        return;
+      }
+      const rock = hornDrill === collider ? other : collider;
 
       if (!(rock.owner instanceof Asteroid)) return;
-      const current = drills.get(drill.segment);
+      const current = hornDrills.get(hornDrill.segment);
 
       if (!current || contact.depth > current.contact.depth) {
-        drills.set(drill.segment, { contact, drill, rock });
+        hornDrills.set(hornDrill.segment, { contact, hornDrill, rock });
       }
     });
-    drills.forEach(({ drill, rock }) => {
-      (drill.segment!.module as Horn).mine({
+    hornDrills.forEach(({ hornDrill, rock }) => {
+      (hornDrill.segment!.module as HornDrill).mine({
         ship: this,
-        segment: drill.segment!,
+        segment: hornDrill.segment!,
         asteroid: rock.owner as Asteroid,
-        section: rock.part,
-        position: drill.position,
+        asteroidSegment: rock.asteroidSegment,
+        position: hornDrill.position,
         events,
         world,
         dt,
@@ -79,7 +84,7 @@ export class Ship extends Craft {
   set thrust(value: number) {
     this.fly(value, this.turn || 0);
   }
-  // Only a crewed ship flies: debris and stations have no cockpit to fly from
+  // Only a crewed ship flies: wreckage and stations have no cockpit to fly from
   get maxSpeed() {
     return (this.cockpit && 17 * this.forwardThrust) || 180;
   }

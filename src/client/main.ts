@@ -17,7 +17,7 @@ import {
 } from './debug';
 
 // @endif
-import { bindKeys, initKeys, playerInput } from './input';
+import { bindAction, initKeys, playerInput } from './input';
 import { network } from './network';
 import { camera, dockDuration, followTarget } from './camera';
 
@@ -28,7 +28,8 @@ import { renderSparks, updateSparks } from './shrapnel';
 import { presentEvents } from './present-events';
 import { GameLoop } from './game-loop';
 import { Ship } from '../shared/craft/ship';
-import { CargoScoop, Horn, Shield, Light } from '../shared/modules';
+import { ShieldGenerator, SearchLight } from '../shared/modules';
+import { moduleControls } from '../shared/craft/control-ship';
 import { createRenderedShip } from './create-rendered-ship';
 import { decorateGameObject } from './game-object';
 import './craft/station';
@@ -48,12 +49,12 @@ import { createRenderedItem } from './create-rendered-item';
 import { renderItem } from './render-item';
 import { Item } from '../shared/items/item';
 import { playSound } from './sound-loader';
-import { updateDrillSounds } from './update-drill-sounds';
+import { updateHornDrillSounds } from './update-horn-drill-sounds';
 import { renderUI } from './ui';
 import { setSizing } from './set-sizing';
 import { Vector, type Vector as VectorValue } from '../shared/vector';
-import { type WorldObject } from '../shared/types';
-import { type WorldObject as SimulationObject } from '../shared/simulation/world';
+import { type GameObjectLike } from '../shared/types';
+import { type GameObject as SimulationObject } from '../shared/game-object';
 
 type Background = {
   renderBackground: (
@@ -86,11 +87,11 @@ window.onresize = () => {
   gameStarted || renderSky();
 };
 
-const regionalObjects = new Map<number, WorldObject>();
+const regionalObjects = new Map<number, GameObjectLike>();
 let stationMarkers: { position: VectorValue; radius: number }[] = [];
 
 const materialize = ({ entity }: { entity: SimulationObject }) => {
-  let object: WorldObject;
+  let object: GameObjectLike;
 
   if (entity instanceof Craft) {
     object = decorateGameObject({ sprite: entity });
@@ -181,7 +182,7 @@ Object.assign(window, { game, network, playerShip });
 
 const activeRadius = 2000;
 const nearbyRadius = 100;
-let activeSprites: WorldObject[] = [];
+let activeSprites: GameObjectLike[] = [];
 let activeTime = 0;
 let spriteCount = 0;
 
@@ -189,34 +190,40 @@ initKeys({
   onChange: (input) => network.recordInput({ input }),
 });
 
-[CargoScoop, Horn, Shield, Light].forEach((module) =>
-  bindKeys(module.label[0].toLowerCase(), () => {
+moduleControls.forEach(({ Type, input: action }) =>
+  bindAction(action, () => {
     if (playerShip.launching || playerShip.dockedTo) return;
     const segment = playerShip.segments.find(
       (segment) =>
-        segment.module.constructor === module && segment.mount.health > 0,
+        segment.module.constructor === Type && segment.mount.health > 0,
     );
 
     if (!segment || playerShip.dead) return;
 
-    if (module === Shield) playSound(segment.active ? 6 : 7);
+    if (Type === ShieldGenerator) playSound(segment.active ? 6 : 7);
 
-    if (module === Light) playSound(9);
+    if (Type === SearchLight) playSound(9);
   }),
 );
-bindKeys(
-  'ArrowLeft',
+bindAction(
+  'menuLeft',
   () => playerShip.dockedTo && moveSubSelection(-1, playerShip),
 );
-bindKeys('Escape', () => playerShip.dockedTo && back(playerShip));
-bindKeys(' ', () => playerShip.dockedTo && confirmSelection(playerShip));
-bindKeys(
-  'ArrowRight',
+bindAction('menuBack', () => playerShip.dockedTo && back(playerShip));
+bindAction(
+  'menuSelect',
+  () => playerShip.dockedTo && confirmSelection(playerShip),
+);
+bindAction(
+  'menuRight',
   () => playerShip.dockedTo && moveSubSelection(1, playerShip),
 );
-bindKeys('ArrowUp', () => playerShip.dockedTo && moveSelection(-1, playerShip));
-bindKeys(
-  'ArrowDown',
+bindAction(
+  'menuUp',
+  () => playerShip.dockedTo && moveSelection(-1, playerShip),
+);
+bindAction(
+  'menuDown',
   () => playerShip.dockedTo && moveSelection(1, playerShip),
 );
 
@@ -266,15 +273,15 @@ const gameLoop = GameLoop({
         .forEach((object) => {
           object.render({ pose: remotePoses.get(object.id) });
           // A loose leaf cannot be mined any smaller, so its cargo stays in view.
-          object.sections ||
-            object.renderContents?.forEach((item: WorldObject) =>
+          object.segments ||
+            object.renderContents?.forEach((item: GameObjectLike) =>
               item.render(),
             );
         });
 
       if (zIndex === -2) {
         // Cargo still inside mineable asteroids shows only through the slice
-        // the Light is crossing, as if the lamp lets a pilot peer inside
+        // the SearchLight is crossing, as if the lamp lets a pilot peer inside
         // @ifdef DEBUG
         if (lights) {
           // @endif
@@ -298,8 +305,8 @@ const gameLoop = GameLoop({
             activeSprites.forEach(
               (asteroid) =>
                 asteroid.scenery &&
-                asteroid.sections &&
-                asteroid.renderContents?.forEach((item: WorldObject) =>
+                asteroid.segments &&
+                asteroid.renderContents?.forEach((item: GameObjectLike) =>
                   item.render(),
                 ),
             );
@@ -331,7 +338,7 @@ const gameLoop = GameLoop({
       );
     }
 
-    // Sparks off the Horn sit over the asteroids and ships they come off
+    // Sparks off the HornDrill sit over the asteroids and ships they come off
     renderSparks(ctx);
 
     ctx.restore();
@@ -377,7 +384,7 @@ const gameLoop = GameLoop({
     updateSparks(dt);
     updatePlayer(dt);
     playerShip.updateVisual(dt);
-    updateDrillSounds({ crafts: game.crafts });
+    updateHornDrillSounds({ crafts: game.crafts });
     game.crafts.forEach((craft) => {
       if (!craft.render) decorateGameObject({ sprite: craft as Craft });
     });

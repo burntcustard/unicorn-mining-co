@@ -1,11 +1,11 @@
-import { Horn } from '../../shared/modules/horn';
+import { HornDrill } from '../../shared/modules/horn-drill';
 import { giveRender } from '../give-render';
 import { game } from '../game';
 import { linesPath, shapePath } from '../drawing';
 import './module';
 
 giveRender({
-  Type: Horn,
+  Type: HornDrill,
   render({ segment, parent }) {
     parent({ segment });
     const { ctx } = game;

@@ -2,7 +2,11 @@ import { directionOf, rotatePoint, rotatePoints } from '../shared/geometry';
 import { shapePath, strip } from './drawing';
 import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { colors } from '../shared/colors';
-import { type Outline, type Segment, type WorldObject } from '../shared/types';
+import {
+  type Outline,
+  type Segment,
+  type GameObjectLike,
+} from '../shared/types';
 
 type Crossing = {
   at: VectorValue;
@@ -28,7 +32,7 @@ export interface Beam {
   rays: Ray[];
 }
 type Lamp = Segment;
-type Scenery = WorldObject & { outline: Outline; scenery?: boolean };
+type Scenery = GameObjectLike & { outline: Outline; scenery?: boolean };
 
 const fillOf = (
   ctx: CanvasRenderingContext2D,
@@ -106,7 +110,7 @@ const spreading = 1.2;
 // read as a rainbow and not worth the seven stripes it would be cut into
 const thin = 4;
 
-// How square-on a ray has to strike a rock to get into it at all. Light that
+// How square-on a ray has to strike a rock to get into it at all. SearchLight that
 // only grazes a face barely gets through one in the first place, and what does
 // leaves from somewhere wildly far round the far side, sweeping about as the
 // ship drifts, so it is taken as stopping at the face instead
@@ -209,7 +213,7 @@ const refract = (dir: VectorValue, normal: VectorValue, index: number) => {
 // One scenery object's shape in the lamp's frame, added to the mask as a path
 // and handed back as points for the rays to be tested against
 const outlineOf = (
-  ship: Pick<WorldObject, 'position' | 'rotation'>,
+  ship: Pick<GameObjectLike, 'position' | 'rotation'>,
   lamp: Segment,
   object: Scenery,
   mask: Path2D,
@@ -279,9 +283,9 @@ const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
  * scenery: Anything that might be in the way.
  */
 export const traceBeam = (
-  ship: Pick<WorldObject, 'position' | 'rotation'>,
+  ship: Pick<GameObjectLike, 'position' | 'rotation'>,
   lamp: Lamp,
-  scenery: WorldObject[],
+  scenery: GameObjectLike[],
 ): Beam => {
   const { lens, reach, spread } = lamp.module;
   const range = Math.hypot(lens + reach, spread);

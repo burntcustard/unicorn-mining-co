@@ -18,13 +18,12 @@ import { createShip } from '../shared/craft/create-ship';
 import { createWreckage } from '../shared/craft/create-wreckage';
 import { createStation } from '../shared/craft/create-station';
 import { type SimulationWorld } from '../shared/simulation/world';
-import { type WorldObject } from '../shared/simulation/world';
 import { PredictionManager } from './prediction';
 import { RemoteMotion } from './remote-motion';
 import { simulationStep } from '../shared/simulation/update-tier';
 import { setCraftActionDispatcher } from './craft-actions';
 import { type CraftAction } from '../shared/protocol/network';
-import { paletteOf } from '../shared/colors';
+import { shadesOf } from '../shared/colors';
 
 // Use the same prediction horizon on every client. Input arrival timing also
 // includes missed frames: using it to change this lead puts peers on different
@@ -41,8 +40,8 @@ const makeEntity = ({
 }: {
   entity: ReplicatedEntity;
   world: SimulationWorld;
-  previous?: WorldObject;
-}): WorldObject => {
+  previous?: GameObject;
+}): GameObject => {
   const wirePosition = entity.position;
   const wireVelocity = entity.velocity;
   const common = {
@@ -99,7 +98,7 @@ const makeEntity = ({
             decay: entity.decay,
             health: entity.health,
           },
-          parts: wreckage,
+          segments: wreckage,
         })
       : previous instanceof Craft &&
           !previous.decay &&
@@ -110,11 +109,11 @@ const makeEntity = ({
           ? createStation({
               ...common,
               world,
-              shades: entity.shades && paletteOf(entity.shades),
+              shades: entity.shades && shadesOf(entity.shades),
             })
           : createShip(world, {
               ...common,
-              ...(entity.shades && { shades: paletteOf(entity.shades) }),
+              ...(entity.shades && { shades: shadesOf(entity.shades) }),
             }),
     common,
     {
@@ -132,9 +131,9 @@ const makeEntity = ({
     },
   );
 
-  if (entity.shades) ship.shades = paletteOf(entity.shades);
-  ship.segments.forEach((part) => {
-    if (part.hull) part.shades = part.module.shades || ship.shades;
+  if (entity.shades) ship.shades = shadesOf(entity.shades);
+  ship.segments.forEach((segment) => {
+    if (segment.hull) segment.shades = segment.module.shades || ship.shades;
   });
   ship.moduleStates = entity.modules || [];
   const modules = ship.modules;
@@ -161,7 +160,7 @@ export class NetworkClient {
   private prediction = new PredictionManager({ world: this.world });
   // Separate from predicted objects: decoding must never mutate live state or
   // rollback history. Retain only the current interest set between packets.
-  private authoritativeEntities = new Map<number, WorldObject>();
+  private authoritativeEntities = new Map<number, GameObject>();
   private socket: WebSocket;
   private pendingSnapshot?: Exclude<ServerMessage, { type: 'welcome' }>;
   private pendingEntities = new Map<

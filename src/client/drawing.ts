@@ -31,7 +31,7 @@ export const shapePath = (points: number[][], unclosed = false) => {
 export const sparklePath = (size: number, width = 0.7) =>
   shapePath(
     createPolygon({
-      points: 8,
+      pointCount: 8,
       radius: size * width,
       radiusEven: size * 4,
     }),

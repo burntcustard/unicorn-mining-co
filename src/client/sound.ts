@@ -118,7 +118,7 @@ const effectData = (
   '0.2,480,0.01,0.5,0,100,' + // shieldOff
   '0.2,800,0.01,0.1,0,800,' + // ui
   '0.1,1200,0.01,0.05,0,1200'
-) // light
+) // search light
   .split(',')
   .map(Number);
 

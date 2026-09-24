@@ -127,7 +127,7 @@ const regionalAsteroid = [...world.entities.values()].find(
 
 assert(regionalAsteroid);
 const fragments = regionalAsteroid.detach({
-  section: regionalAsteroid.sections[0],
+  asteroidSegment: regionalAsteroid.segments[0],
   world,
 });
 

@@ -6,23 +6,23 @@ import { type SimulationWorld } from '../simulation/world';
 import { type Ship } from '../craft/ship';
 import { Item } from '../items/item';
 
-const scoopLength = 16;
-const scoopOpenAngle = 2.5;
-const scoopDoorWidth = 1.5;
+const cargoHatchLength = 16;
+const cargoHatchOpenAngle = 2.5;
+const cargoHatchDoorWidth = 1.5;
 
-export const cargoScoopGeometry = {
-  doorRadius: scoopLength * 2,
+export const cargoHatchGeometry = {
+  doorRadius: cargoHatchLength * 2,
   openingThreshold: 0.5,
-  throatRadius: scoopLength * 0.75,
+  throatRadius: cargoHatchLength * 0.75,
   doorOutline: ({ progress, side }: { progress: number; side: number }) => {
-    const angle = progress * scoopOpenAngle;
+    const angle = progress * cargoHatchOpenAngle;
     const sine = Math.sin(angle);
     const cosine = Math.cos(angle);
-    const fromY = side * scoopLength;
-    const toX = scoopLength * sine;
-    const toY = side * scoopLength * (1 - cosine);
-    const outX = -side * cosine * scoopDoorWidth;
-    const outY = -sine * scoopDoorWidth;
+    const fromY = side * cargoHatchLength;
+    const toX = cargoHatchLength * sine;
+    const toY = side * cargoHatchLength * (1 - cosine);
+    const outX = -side * cosine * cargoHatchDoorWidth;
+    const outY = -sine * cargoHatchDoorWidth;
 
     return [
       [outX, fromY + outY],
@@ -35,23 +35,23 @@ export const cargoScoopGeometry = {
 
 import { type Mount, type Outline } from '../types';
 
-// Cargo scoop
+// Cargo hatch
 // A pair of doors hinged at their outer ends, lying flat inside the hull and
 // swinging forwards to open a mouth in the side of the ship: | closed, < open.
 // It sits far enough in that only the door on the outside of the ship swings
-// clear of the hull, so the scoop reads the same on either side of it
+// clear of the hull, so the hatch reads the same on either side of it
 // Far enough out that the doors are no longer a wall across the way in
-export const scoopOpen = cargoScoopGeometry.openingThreshold;
+export const cargoHatchOpen = cargoHatchGeometry.openingThreshold;
 
-export class CargoScoop extends Module {
+export class CargoHatch extends Module {
   static shades = colors.violet;
   static activationDuration = 0.7;
-  static label = 'HATCH';
+  static label = 'CARGO HATCH';
   static health = 4;
   static model: any[] = [
     {
       outline: [] as Outline,
-      // A door, hinged at its outer end and swinging forward as the scoop
+      // A door, hinged at its outer end and swinging forward as the hatch
       // opens. A long thin rectangle, which is why it can be collided with
       points: ({
         activationProgress,
@@ -62,24 +62,24 @@ export class CargoScoop extends Module {
       }) => {
         const side = Math.sign(mount.localPosition.y);
 
-        return cargoScoopGeometry.doorOutline({
+        return cargoHatchGeometry.doorOutline({
           progress: activationProgress,
           side,
         });
       },
-      radius: () => cargoScoopGeometry.doorRadius,
+      radius: () => cargoHatchGeometry.doorRadius,
       // A loose door keeps this same solid, outline-free presentation.
-      debris: {},
+      wreckage: {},
     },
     {
       // A nonphysical contact at the mouth, checked against the item's centre.
       catches: true,
-      debris: false,
-      radius: () => cargoScoopGeometry.throatRadius,
+      wreckage: false,
+      radius: () => cargoHatchGeometry.throatRadius,
     },
   ];
   static price = 150;
-  static scoops = true;
+  static collectsCargo = true;
   static unhurtWhen = 0;
   static zIndex = -1;
 
@@ -96,9 +96,9 @@ export class CargoScoop extends Module {
   }) {
     const { collider, other } = contact;
     const throat =
-      collider.segment?.module === this && collider.role === 'scoop'
+      collider.segment?.module === this && collider.role === 'cargoHatch'
         ? collider
-        : other.segment?.module === this && other.role === 'scoop'
+        : other.segment?.module === this && other.role === 'cargoHatch'
           ? other
           : undefined;
 
@@ -109,7 +109,7 @@ export class CargoScoop extends Module {
       !(item instanceof Item) ||
       !(throat === collider ? other : collider).pickupPoint ||
       ship.playerId === undefined ||
-      !ship.moduleActive({ module: CargoScoop }) ||
+      !ship.moduleActive({ module: CargoHatch }) ||
       !world.entities.has(item.id) ||
       ship.cargoContents.length >= ship.cargoSpace
     ) {

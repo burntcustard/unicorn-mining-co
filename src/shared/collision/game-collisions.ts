@@ -167,11 +167,11 @@ export class GameCollisions {
           [other, collider],
         ]) {
           if (hit.owner.dead) continue;
-          damage(hit.segment || hit.part || hit.owner, amount);
+          damage(hit.segment || hit.asteroidSegment || hit.owner, amount);
 
           if (hit.owner instanceof Asteroid && hit.owner.world) {
             hit.owner.fracture({
-              section: hit.part,
+              asteroidSegment: hit.asteroidSegment,
               by: struckBy.owner.playerId ?? 0,
               events,
               world: hit.owner.world,
@@ -212,12 +212,12 @@ export class GameCollisions {
       this.bodies.set(entity.id, record);
     }
     const colliders = entity
-      .hitboxes()
-      .flatMap((collider: Collider & { parts?: Collider[] }) =>
-        collider.parts?.length
-          ? collider.parts.map((part) => ({
+      .hitbox()
+      .flatMap((collider: Collider & { colliders?: Collider[] }) =>
+        collider.colliders?.length
+          ? collider.colliders.map((nestedCollider) => ({
               ...collider,
-              ...part,
+              ...nestedCollider,
               bounciness: collider.bounciness,
             }))
           : [collider],

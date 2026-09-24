@@ -4,6 +4,8 @@ import { renderText } from '../text';
 import { type Module } from '../../shared/modules/module';
 import { type Segment } from '../../shared/types';
 import { type Ship } from '../../shared/craft/ship';
+import { moduleControls } from '../../shared/craft/control-ship';
+import { defaultKeybindings } from '../keybindings';
 
 /**
  * The bottom-right readout of the ship's modules, after the fashion of an Elite
@@ -31,9 +33,9 @@ const gap = 6;
 const underDrop = 10;
 
 // Every module on the ship the pilot can switch, each type the once, in the
-// order their mounts sit in. A pair of scoops is one row worked by one key. Modules
-// worked through the separate flight controls are left off the panel. A module's
-// key is the first letter of its name.
+// order their mounts sit in. A pair of cargo hatches is one row worked by one key. Modules
+// worked through the separate flight controls are left off the panel. The
+// underline follows the configured key instead of the module name.
 /**
  * ship: The ship whose modules are shown.
  */
@@ -77,10 +79,15 @@ export const renderControls = (game: GameState, ship: Ship) => {
     const path = new Path2D();
 
     path.rect(boxX, y, box, box);
-    // A line under the one letter of the name that is the key to work it, a
-    // touch narrower than the letter and dropped just below it
-    path.moveTo(textX, y + underDrop);
-    path.lineTo(textX + glyph - 1, y + underDrop);
+    // Underline the first bound key that occurs in this module's label.
+    const action = moduleControls.find(({ Type }) => Type === module)?.input;
+    const key = action && defaultKeybindings[action].keys[0]?.toLowerCase();
+    const keyIndex = key ? module.label.toLowerCase().indexOf(key) : -1;
+
+    if (keyIndex >= 0) {
+      path.moveTo(textX + keyIndex * glyph, y + underDrop);
+      path.lineTo(textX + (keyIndex + 1) * glyph - 1, y + underDrop);
+    }
     outline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   });

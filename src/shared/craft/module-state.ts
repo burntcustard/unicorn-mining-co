@@ -4,5 +4,5 @@ export type ModuleState = {
   mount: number;
   health?: number;
   shades?: readonly string[];
-  parts: { active: number; activationProgress: number }[];
+  segments: { active: number; activationProgress: number }[];
 };

@@ -1,5 +1,5 @@
 /**
- * Each palette contains damage, module fill, hull/line, shadow and highlight
+ * Each set of shades contains damage, module fill, hull/line, shadow and highlight
  * colours. Shades are picked by eye to suit each hue.
  */
 export const colors = {
@@ -26,9 +26,9 @@ export const paintColors = [
   colors.white,
 ] as const;
 
-export const paletteOf = (shades: readonly string[]) =>
+export const shadesOf = (shades: readonly string[]) =>
   Object.values(colors).find(
-    (palette) =>
-      palette.length === shades.length &&
-      palette.every((color, index) => color === shades[index]),
+    (knownShades) =>
+      knownShades.length === shades.length &&
+      knownShades.every((color, index) => color === shades[index]),
   ) || shades;

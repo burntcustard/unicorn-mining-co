@@ -1,7 +1,7 @@
 import { Module } from '../../shared/modules/module';
 import { type Ship } from '../../shared/craft/ship';
 import { type GameState } from '../game';
-import { colorUnlocked, say, unlockColor } from '../player';
+import { paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../shared/colors';
 import { launch } from '../../shared/simulation/docking';
 import { outline } from '../outline';
@@ -50,7 +50,7 @@ let stage = 0;
 
 // Cargo instances carry their item data directly, and a stowed module is its
 // own data, so collect like things into one menu entry with how many are aboard.
-const cargoOf = (ship: any) => [
+const cargoMenuEntriesOf = (ship: any) => [
   ...ship.cargoContents
     .map((object: any) => object.item || object)
     .reduce(
@@ -62,7 +62,7 @@ const cargoOf = (ship: any) => [
 
 // Ore of a kind stacks into one row, but two module instances never do, so a
 // count is only worth showing when there is more than one
-const cargoName = ([item, count]: any[]) =>
+const cargoMenuEntryName = ([item, count]: any[]) =>
   count > 1 ? `${item.label} *${count}` : item.label;
 
 const hullHealthOf = (ship: any) =>
@@ -84,7 +84,7 @@ const repairCostOf = (health: number, maxHealth: number) =>
 // type stands in for itself while the pilot owns none of it, and is replaced in
 // place by the ones they do own once they do. A Module instance can be equipped,
 // sold and painted; its constructor in the catalogue can only be bought.
-// Filtering the inventory preserves acquisition order across fitting changes.
+// Filtering the owned modules preserves acquisition order across fitting changes.
 const moduleRows = new WeakMap<object, Module[]>();
 const fitsOf = (ship: any, mount: any) => {
   const modules = ship.modules;
@@ -129,7 +129,7 @@ const selectionOf = (ship: any) => {
   const menu =
     stage && !hullMenu
       ? cargoMenu
-        ? cargoOf(ship)
+        ? cargoMenuEntriesOf(ship)
         : fitsOf(ship, mount)
       : ['CARGO', 'HULL', ...ship.mounts];
   const currentItem = stage && !hullMenu ? moduleOption : mountOption;
@@ -192,7 +192,7 @@ export const moveSelection = (delta: number, ship: Ship, sub: number) => {
   } else {
     const first = actions.length + 1;
     const onPaints = focused >= first;
-    const availablePaints = swatches.filter(colorUnlocked);
+    const availablePaints = swatches.filter(paintUnlocked);
 
     // Down drops from the action row onto the paint row, landing on the colour
     // already worn, and up comes back off it. Any other move runs along the
@@ -294,7 +294,7 @@ export const confirmSelection = (ship: Ship) => {
   const shades = swatches[focused - actions.length - 1];
 
   if (shades) {
-    if (!colorUnlocked(shades)) return;
+    if (!paintUnlocked(shades)) return;
     currentModule.shades = shades;
     ship.segments
       .filter((segment: any) =>
@@ -333,10 +333,10 @@ export const confirmSelection = (ship: Ship) => {
     );
     ship.credits += item.price * count;
 
-    if (item.label === 'DIAMOND') unlockColor('CYAN', 'DIAMOND SOLD');
+    if (item.label === 'DIAMOND') unlockPaint('CYAN', 'DIAMOND SOLD');
     moduleOption = Math.min(
       moduleOption,
-      (cargoMenu ? cargoOf(ship) : fitsOf(ship, mount)).length - 1,
+      (cargoMenu ? cargoMenuEntriesOf(ship) : fitsOf(ship, mount)).length - 1,
     );
 
     // A sale returns to the list, leaving its replacement row focused rather
@@ -396,7 +396,7 @@ const renderButton = (
 };
 
 /**
- * Render the docked ship's mounts and inventory.
+ * Render the docked ship's mounts and cargo contents.
  */
 export const renderDocked = (game: GameState, ship: Ship) => {
   const { ctx, uiScale, uiWidth, uiHeight } = game;
@@ -434,10 +434,11 @@ export const renderDocked = (game: GameState, ship: Ship) => {
   } = selectionOf(ship);
   const actionMenu = Number(stage > 1);
   const currentHull = item === 'HULL';
-  const cargoItems =
-    item === 'CARGO' ? cargoOf(ship) : cargoMenu && item && [item];
+  const cargoMenuEntries =
+    item === 'CARGO' ? cargoMenuEntriesOf(ship) : cargoMenu && item && [item];
   const selected = currentModule?.shades || ship.shades;
-  const info = currentHull || cargoItems || currentModule || mount?.module;
+  const info =
+    currentHull || cargoMenuEntries || currentModule || mount?.module;
   const health = currentHull
     ? hullHealthOf(ship)
     : mount?.module === info
@@ -505,7 +506,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
     );
 
     // One the pilot owns wears its paint on the right of its row — the hull
-    // and a fitted mount included — which tells two scoops apart from each
+    // and a fitted mount included — which tells two cargo hatches apart from each
     // other and from the one on offer to buy
     const shades = (
       item === 'HULL' ? ship : item instanceof Module ? item : item.module
@@ -528,7 +529,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
 
   if (actionMenu) {
     actionButtons.forEach(({ shades, width, x, y }: any, i: number) => {
-      const locked = i < disabledAction || (shades && !colorUnlocked(shades));
+      const locked = i < disabledAction || (shades && !paintUnlocked(shades));
 
       renderButton(ctx, x, x + width, y, focused === i, locked);
 
@@ -573,7 +574,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
         text = item.module?.label || '-EMPTY-';
       }
     } else if (cargoMenu) {
-      text = cargoName(item);
+      text = cargoMenuEntryName(item);
     }
 
     renderText({
@@ -621,12 +622,12 @@ export const renderDocked = (game: GameState, ship: Ship) => {
   if (info) {
     const labels = currentHull
       ? ['HULL', 'HP']
-      : cargoItems
-        ? ['CARGO', ...cargoItems.map(cargoName)]
+      : cargoMenuEntries
+        ? ['CARGO', ...cargoMenuEntries.map(cargoMenuEntryName)]
         : [info.label, 'HP', 'VALUE'];
     const values = currentHull
       ? [`${health | 0}/${maxHealth}`]
-      : cargoItems
+      : cargoMenuEntries
         ? []
         : [`${health | 0}/${maxHealth}`, `$${info.price}`];
 

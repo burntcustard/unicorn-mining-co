@@ -1,20 +1,22 @@
-/** Commands for one player during a single simulation tick. */
+/**
+ * Commands for one player during a single simulation tick.
+ */
 export type PlayerInput = {
-  drill: boolean;
-  hatch: boolean;
-  light: boolean;
+  hornDrill: boolean;
+  cargoHatch: boolean;
+  searchLight: boolean;
   launch: boolean;
-  shield: boolean;
+  shieldGenerator: boolean;
   thrust: number;
   turn: number;
 };
 
 export const emptyPlayerInput = (): PlayerInput => ({
-  drill: false,
-  hatch: false,
-  light: false,
+  hornDrill: false,
+  cargoHatch: false,
+  searchLight: false,
   launch: false,
-  shield: false,
+  shieldGenerator: false,
   thrust: 0,
   turn: 0,
 });
@@ -23,10 +25,10 @@ export const emptyPlayerInput = (): PlayerInput => ({
  * Only changed controls need a new transition; held keys need no repeat packets.
  */
 export const sameInput = (a: PlayerInput, b: PlayerInput) =>
-  a.drill === b.drill &&
-  a.hatch === b.hatch &&
-  a.light === b.light &&
+  a.hornDrill === b.hornDrill &&
+  a.cargoHatch === b.cargoHatch &&
+  a.searchLight === b.searchLight &&
   a.launch === b.launch &&
-  a.shield === b.shield &&
+  a.shieldGenerator === b.shieldGenerator &&
   a.thrust === b.thrust &&
   a.turn === b.turn;

@@ -1,6 +1,6 @@
 import { Vector } from '../shared/vector';
 import { ease } from '../shared/utilities/ease';
-import { type WorldObject } from '../shared/types';
+import { type GameObjectLike } from '../shared/types';
 
 /**
  * The camera is the top left corner of the viewport in world coordinates.
@@ -16,11 +16,11 @@ const deadzone = 0.3;
 const lag = 0.0001;
 
 export const dockDuration = 4;
-let dockedTo: WorldObject | 0 | undefined;
+let dockedTo: GameObjectLike | 0 | undefined;
 let dockEase: ReturnType<typeof ease>;
 let dockTo = Vector();
 
-export const centerCamera = (game: GameState, target: WorldObject) => {
+export const centerCamera = (game: GameState, target: GameObjectLike) => {
   camera.set(target.position.subtract(Vector(game.width / 2, game.height / 2)));
 };
 
@@ -36,7 +36,7 @@ export const centerCamera = (game: GameState, target: WorldObject) => {
  */
 export const followTarget = (
   game: GameState,
-  target: Pick<WorldObject, 'position' | 'dockedTo'>,
+  target: Pick<GameObjectLike, 'position' | 'dockedTo'>,
   dt: number,
 ) => {
   if (target.dockedTo) {

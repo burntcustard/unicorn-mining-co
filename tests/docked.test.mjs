@@ -14,8 +14,8 @@ import { createRenderedShip } from '${process.cwd()}/src/client/create-rendered-
 function Mustang(properties, data) { return createRenderedShip(properties, data); }
 import { Diamond, itemTypes, Message } from '${process.cwd()}/src/shared/items/index.ts';
 import { createRenderedItem } from '${process.cwd()}/src/client/create-rendered-item.ts';
-import { CargoScoop, Horn, Shield, ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple, thrusters } from '${process.cwd()}/src/shared/modules/index.ts';
-import { adoptPlayerShip, colorUnlocked, playerShip, unlockColor, updatePlayer } from '${process.cwd()}/src/client/player.ts';
+import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple, thrusters } from '${process.cwd()}/src/shared/modules/index.ts';
+import { adoptPlayerShip, paintUnlocked, playerShip, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { launch } from '${process.cwd()}/src/shared/simulation/docking.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { colors } from '${process.cwd()}/src/shared/colors.ts';
@@ -30,21 +30,21 @@ assert(colors.black.join() === '#000,#111,#222,#879,#200');
 assert(colors.indigo.join() === '#33c,#44d,#55f,#217,#bdf');
 assert(colors.purple.join() === '#102,#213,#325,#001,#647');
 // Reward lookup must not depend on the palette object's enumeration order.
-const redPalette = colors.red;
+const redShades = colors.red;
 delete colors.red;
-colors.red = redPalette;
+colors.red = redShades;
 const noteBeforeUnknownReward = playerShip.note;
-assert(unlockColor('UNKNOWN', 'TEST') === undefined);
+assert(unlockPaint('UNKNOWN', 'TEST') === undefined);
 assert(playerShip.note === noteBeforeUnknownReward);
 
-// A hull section destroyed by an impact also breaks off as short-lived,
+// A hull segment destroyed by an impact also breaks off as short-lived,
 // physical wreckage instead of disappearing with the surviving hull's split.
 const battered = new Mustang({shades: colors.white});
 const corner = battered.segments.find(({ hull, health }) => hull && health === 4);
 corner.health = 0;
 battered.update(0);
 const hullWreckage = game.crafts.at(-1);
-assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitboxes().length,
+assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().length,
   'destroyed hull remains as physical wreckage');
 
 const ship = new Mustang({ shades: colors.white, credits: 10000 });
@@ -64,8 +64,8 @@ for (const item of contents) {
     'released contents receive a small random impulse without inheriting ship spin');
 }
 assert(new Set(contents.map(item => item.spin)).size > 1, 'contents tumble independently');
-const second = new CargoScoop();
-const first = new CargoScoop();
+const second = new CargoHatch();
+const first = new CargoHatch();
 first.shades = colors.red;
 second.shades = colors.orange;
 ship.cargoContents.push(first, second);
@@ -95,7 +95,7 @@ back(ship); move(1); confirm(); confirm();
 assert(mount.module === second && ship.cargoContents.includes(first), 'swap fitted instances');
 check(second, 'after swap');
 assert(first.shades === colors.red && second.shades === colors.orange, 'paint identity');
-assert(ship.segments.filter(part => part.mount === mount).every(part => part.shades === colors.orange), 'equipped paint');
+assert(ship.segments.filter(segment => segment.mount === mount).every(segment => segment.shades === colors.orange), 'equipped paint');
 
 confirm();
 check(second, 'remove swapped instance');
@@ -105,7 +105,7 @@ assert(fitsOf(ship, mount)[0] === first && selectionSnapshot()[0] === 0 && selec
 // An equipped instance on another mount must not be offered or counted as cargo.
 const lowerMount = ship.mounts[5];
 ship.fit(first, lowerMount);
-assert(fitsOf(ship, mount)[0] === CargoScoop, 'other mount only offers a new type');
+assert(fitsOf(ship, mount)[0] === CargoHatch, 'other mount only offers a new type');
 assert(!ship.cargoContents.length && ship.modules[0] === first, 'fitting preserves ownership');
 
 // Buy through the menu, paint, repair, and remove the exact purchased instance.
@@ -113,22 +113,22 @@ back(ship); move(-100); move(2); confirm(); confirm();
 const beforeBuy = ship.credits;
 confirm();
 const bought = ship.modules[1];
-assert(bought.constructor === CargoScoop && bought !== first, 'purchase appends a fresh instance');
-assert(ship.credits === beforeBuy - CargoScoop.price, 'purchase debits once');
+assert(bought.constructor === CargoHatch && bought !== first, 'purchase appends a fresh instance');
+assert(ship.credits === beforeBuy - CargoHatch.price, 'purchase debits once');
 confirm();
 assert(mount.module === bought && !ship.cargoContents.length, 'new purchase fits');
 // Navigation skips locked colours: a new pilot has only pink and white.
-assert(!colorUnlocked(colors.red) && !colorUnlocked(colors.orange), 'red and orange start locked');
+assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
 move(1); moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.violet, 'first unlocked paint is pink');
 moveSubSelection(1, ship); confirm();
 assert(bought.shades === colors.white && first.shades === colors.red, 'next unlocked paint is white');
 
 // The ownership checks below need these paints earned before selecting them.
-unlockColor('RED', 'DAMAGED');
+unlockPaint('RED', 'DAMAGED');
 assert(playerShip.note === 'DAMAGED - RED UNLOCKED', 'red reward Message');
-unlockColor('ORANGE', 'CARGO FOUND');
-assert(colorUnlocked(colors.red) && colorUnlocked(colors.orange), 'earned paints become available');
+unlockPaint('ORANGE', 'CARGO FOUND');
+assert(paintUnlocked(colors.red) && paintUnlocked(colors.orange), 'earned paints become available');
 assert(playerShip.note === 'CARGO FOUND - ORANGE UNLOCKED', 'orange reward Message');
 moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.red && first.shades === colors.red, 'paint purchased instance');
@@ -142,7 +142,7 @@ assert(selectionSnapshot(ship)[2][0] === 'FIX' && selectionSnapshot(ship)[3] ===
 move(1); move(-1);
 assert(selectionSnapshot(ship)[3] === 2, 'up from paints skips disabled repair for BACK');
 ship.credits = repairCredits; back(ship); confirm(); confirm();
-assert(mount.health === CargoScoop.health && ship.credits === repairCredits - 1,
+assert(mount.health === CargoHatch.health && ship.credits === repairCredits - 1,
   'module repair charges for displayed missing HP');
 confirm();
 assert(!bought.mount && ship.cargoContents[0] === bought, 'removed instance becomes cargo');
@@ -157,7 +157,7 @@ assert((ship.cargoContents.length < ship.cargoSpace), 'equipping frees cargo spa
 ship.fit(0, mount);
 assert(ship.cargoContents.length >= ship.cargoSpace, 'removing consumes cargo space');
 
-// Full cargo blocks a purchase without altering inventory or credits.
+// Full cargo blocks a purchase without altering cargo contents or credits.
 back(ship); back(ship); move(-100); move(3); confirm();
 const buyCredits = ship.credits;
 ship.credits = 0; confirm();
@@ -176,28 +176,28 @@ assert(selectionSnapshot()[1] === 1, 'cargo sale closes submenu');
 confirm(); confirm();
 assert(ship.cargoContents.length === 1 && ship.cargoContents[0].item === gem, 'ore stack sale');
 assert(selectionSnapshot()[1] === 1, 'stack sale closes submenu');
-assert(!colorUnlocked(colors.cyan), 'cyan is locked before selling a Diamond');
+assert(!paintUnlocked(colors.cyan), 'cyan is locked before selling a Diamond');
 confirm(); confirm();
-assert(!ship.cargoContents.length && ship.credits === beforeSale + CargoScoop.price + 25, 'last cargo sale');
+assert(!ship.cargoContents.length && ship.credits === beforeSale + CargoHatch.price + 25, 'last cargo sale');
 assert(selectionSnapshot()[1] === 1, 'empty cargo returns to list');
-assert(colorUnlocked(colors.cyan) && playerShip.note === 'DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
+assert(paintUnlocked(colors.cyan) && playerShip.note === 'DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
 playerShip.note = 'UNCHANGED';
-unlockColor('CYAN');
+unlockPaint('CYAN');
 assert(playerShip.note === 'UNCHANGED', 'cyan only announces once');
 
-// Rebuild hulls without duplicating mounts or resurrecting destroyed inventory.
+// Rebuild hulls without duplicating mounts or resurrecting destroyed cargo contents.
 confirm(); move(1); confirm();
 lowerMount.hull.health = 1.11111;
-const hullHealth = ship.segments.filter(({hull}) => hull).reduce((total, part) => total + part.health, 0);
-const hullMaxHealth = ship.hullSegments.reduce((total, part) => total + part.health, 0);
+const hullHealth = ship.segments.filter(({hull}) => hull).reduce((total, segment) => total + segment.health, 0);
+const hullMaxHealth = ship.hullSegments.reduce((total, segment) => total + segment.health, 0);
 const hullRepairCredits = ship.credits;
 confirm();
 assert(lowerMount.hull.health === lowerMount.hull.module.health, 'hull repair');
 assert(ship.credits === hullRepairCredits - hullMaxHealth + (hullHealth | 0),
   'hull repair charges for displayed missing HP');
 const damaged = new Mustang({shades: colors.white});
-const spare = new CargoScoop();
-const lost = new CargoScoop();
+const spare = new CargoHatch();
+const lost = new CargoHatch();
 damaged.cargoContents.push(spare, lost);
 const lostMount = damaged.mounts[0];
 damaged.fit(lost, lostMount);
@@ -210,54 +210,54 @@ damaged.fixHull(); damaged.fixHull();
 assert(damaged.mounts.length === oldMountCount, 'repair restores mounts exactly once');
 assert(damaged.cargoContents.length === 1 && damaged.cargoContents[0] === spare, 'repair does not restore lost modules');
 
-// A destroyed module becomes debris, not a free module in the hold.
-const brokenMount = damaged.mounts.find(slot => slot.fits.includes(CargoScoop));
+// A destroyed module becomes wreckage, not a free module in the hold.
+const brokenMount = damaged.mounts.find(slot => slot.fits.includes(CargoHatch));
 damaged.fit(spare, brokenMount);
-const part = damaged.partsOf(brokenMount)[0];
-part.active = 1;
-const attachedDoor = part.points(part).map(([x,y]) => part.localPosition.add(Vector(x,y)));
-damage(part, CargoScoop.health);
+const segment = damaged.segmentsAtMount(brokenMount)[0];
+segment.active = 1;
+const attachedDoor = segment.points(segment).map(([x,y]) => segment.localPosition.add(Vector(x,y)));
+damage(segment, CargoHatch.health);
 damaged.update(0);
 assert(!damaged.modules.length && !damaged.cargoContents.length && !brokenMount.module, 'destroyed module removed');
-assert(!damaged.partsOf(brokenMount).length, 'destroyed geometry detached');
-const debris = game.crafts.at(-1);
-assert(debris !== damaged && debris.decay && debris.hitboxes().length, 'detached scoop remains physical debris');
-assert.equal(debris.segments.length, 1, 'detached scoop leaves only its physical door');
-assert(!debris.segments[0].catches, 'detached scoop omits its cargo contact point');
-assert.deepEqual(debris.shades, colors.violet, 'detached scoop retains its pink module colour');
-const hatchOutline = debris.segments[0].points;
-assert.deepEqual(hatchOutline.map(([x,y]) => debris.position.add(Vector(x,y))), attachedDoor,
-  'detached scoop starts at its mounted door geometry');
+assert(!damaged.segmentsAtMount(brokenMount).length, 'destroyed geometry detached');
+const wreckage = game.crafts.at(-1);
+assert(wreckage !== damaged && wreckage.decay && wreckage.hitbox().length, 'detached cargo hatch remains physical wreckage');
+assert.equal(wreckage.segments.length, 1, 'detached cargo hatch leaves only its physical door');
+assert(!wreckage.segments[0].catches, 'detached cargo hatch omits its cargo contact point');
+assert.deepEqual(wreckage.shades, colors.violet, 'detached cargo hatch retains its pink module colour');
+const hatchOutline = wreckage.segments[0].points;
+assert.deepEqual(hatchOutline.map(([x,y]) => wreckage.position.add(Vector(x,y))), attachedDoor,
+  'detached cargo hatch starts at its mounted door geometry');
 const hatchMiddle = hatchOutline
   .reduce(([sumX,sumY],[x,y]) => [sumX+x,sumY+y],[0,0])
   .map(sum => sum/hatchOutline.length);
-assert(Math.hypot(debris.segments[0].localPosition.x+hatchMiddle[0],debris.segments[0].localPosition.y+hatchMiddle[1]) < 1e-9,
-  'detached scoop is centred on its existing door outline');
-assert(debris.hitboxes()[0].radius < 9, 'detached scoop collision fits the narrow strip');
+assert(Math.hypot(wreckage.segments[0].localPosition.x+hatchMiddle[0],wreckage.segments[0].localPosition.y+hatchMiddle[1]) < 1e-9,
+  'detached cargo hatch is centred on its existing door outline');
+assert(wreckage.hitbox()[0].radius < 9, 'detached cargo hatch collision fits the narrow strip');
 
 // Scoop doors still suppress their hull collision only while sufficiently open.
-const scoopShip = new Mustang({shades: colors.white});
-const scoopModule = new CargoScoop();
-scoopShip.cargoContents.push(scoopModule); scoopShip.fit(scoopModule);
-const scoopMount = scoopModule.mount;
-const scoopDoor = scoopShip.partsOf(scoopMount).find(part => !part.catches);
-assert(scoopShip.hitboxes().find(box => box.segment === scoopMount.hull).physics, 'closed scoop hull blocks');
-assert.equal(scoopShip.hitboxes().find(box => box.segment === scoopDoor).collides, false,
-  'closed scoop door does not collide');
-scoopShip.partsOf(scoopMount).forEach(part => { part.active = 1; part.activationProgress = 1; });
-assert(!scoopShip.hitboxes().find(box => box.segment === scoopMount.hull).physics, 'open scoop hull admits cargo');
-assert.equal(scoopShip.hitboxes().find(box => box.segment === scoopDoor).collides, true,
-  'open scoop door collides');
-scoopShip.partsOf(scoopMount).forEach(part => { part.active = 0; part.activationProgress = 0; });
-assert.equal(scoopShip.hitboxes().find(box => box.segment === scoopDoor).collides, false,
-  'closing the scoop removes door contacts again');
+const hatchShip = new Mustang({shades: colors.white});
+const hatchModule = new CargoHatch();
+hatchShip.cargoContents.push(hatchModule); hatchShip.fit(hatchModule);
+const hatchMount = hatchModule.mount;
+const hatchDoor = hatchShip.segmentsAtMount(hatchMount).find(segment => !segment.catches);
+assert(hatchShip.hitbox().find(box => box.segment === hatchMount.hull).physics, 'closed cargo hatch hull blocks');
+assert.equal(hatchShip.hitbox().find(box => box.segment === hatchDoor).collides, false,
+  'closed cargo hatch door does not collide');
+hatchShip.segmentsAtMount(hatchMount).forEach(segment => { segment.active = 1; segment.activationProgress = 1; });
+assert(!hatchShip.hitbox().find(box => box.segment === hatchMount.hull).physics, 'open cargo hatch hull admits cargo');
+assert.equal(hatchShip.hitbox().find(box => box.segment === hatchDoor).collides, true,
+  'open cargo hatch door collides');
+hatchShip.segmentsAtMount(hatchMount).forEach(segment => { segment.active = 0; segment.activationProgress = 0; });
+assert.equal(hatchShip.hitbox().find(box => box.segment === hatchDoor).collides, false,
+  'closing the cargo hatch removes door contacts again');
 // The starter loadout is owned once and completely fitted by player setup.
-assert(playerShip.modules.length === 5 && !playerShip.cargoContents.length, 'starter inventory');
+assert(playerShip.modules.length === 5 && !playerShip.cargoContents.length, 'starter cargo contents');
 assert(new Set(playerShip.modules).size === 5, 'starter modules are distinct instances');
 assert(playerShip.modules.every(module => module.mount.module === module), 'starter mount links');
-assert(new CargoScoop().shades === colors.violet && new Shield().shades === colors.violet &&
+assert(new CargoHatch().shades === colors.violet && new ShieldGenerator().shades === colors.violet &&
   thrusters.every((thruster) => new thruster().shades === colors.violet), 'purchased modules are pink');
-assert(new Horn().shades === colors.yellow, 'purchased horns are yellow');
+assert(new HornDrill().shades === colors.yellow, 'purchased horns are yellow');
 assert(ThrusterSingle.label === 'THRUSTERS *1 XL' && ThrusterSingle.forwardThrust === 22, 'single thruster');
 const flyer = new Mustang({shades: colors.white});
 const engine = new ThrusterDualMd();
@@ -265,10 +265,10 @@ flyer.cargoContents.push(engine); flyer.fit(engine);
 for (const forward of [0, 1]) {
   for (const turn of [-1, 0, 1]) {
     flyer.fly(forward, turn);
-    flyer.partsOf(engine.mount).forEach(part => {
-      const side = part.thrusterNozzleSide;
+    flyer.segmentsAtMount(engine.mount).forEach(segment => {
+      const side = segment.thrusterNozzleSide;
       const expected = !turn || !side ? forward : turn === -side ? 1 : forward * 0.5;
-      assert(part.active === expected, 'nozzle steering behavior');
+      assert(segment.active === expected, 'nozzle steering behavior');
     });
   }
 }
@@ -305,7 +305,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     assert(Math.abs(departing.position.x - expectedX) < 1e-7,
       type.label + ': launch distance matches expected each frame');
     assert(departing.maxSpeed === cap, type.label + ': coast lowers actual speed cap');
-    assert(departing.partsOf(engine.mount).every(part => part.active === forward * Math.sqrt(fraction)),
+    assert(departing.segmentsAtMount(engine.mount).every(segment => segment.active === forward * Math.sqrt(fraction)),
       type.label + ': launch nozzle activation');
   }
   launch(departing);
@@ -375,19 +375,19 @@ for (const type of thrusters) {
 }
 
 // Check the remaining reward names under production minification too.
-assert(!colorUnlocked(colors.yellow), 'YELLOW starts locked');
+assert(!paintUnlocked(colors.yellow), 'YELLOW starts locked');
 playerShip.position.set(Vector(50000));
 updatePlayer(0);
-assert(colorUnlocked(colors.yellow), 'reaching the map edge unlocks YELLOW');
+assert(paintUnlocked(colors.yellow), 'reaching the map edge unlocks YELLOW');
 assert(playerShip.note === 'EDGE REACHED - YELLOW UNLOCKED', 'YELLOW reward Message');
 
 for (const [name, shades] of [['GREEN', colors.green]]) {
-  assert(!colorUnlocked(shades), name + ' starts locked');
-  unlockColor(name, '3 STATION VISITS');
-  assert(colorUnlocked(shades), name + ' unlocks its palette');
+  assert(!paintUnlocked(shades), name + ' starts locked');
+  unlockPaint(name, '3 STATION VISITS');
+  assert(paintUnlocked(shades), name + ' unlocks its paint');
   assert(playerShip.note === '3 STATION VISITS - GREEN UNLOCKED', name + ' reward Message');
   playerShip.note = 'UNCHANGED';
-  unlockColor(name);
+  unlockPaint(name);
   assert(playerShip.note === 'UNCHANGED', name + ' only announces once');
 }
 const replacement = createRenderedShip({shades:colors.white});
@@ -399,7 +399,7 @@ assert(playerShip.credits === creditsBefore, 'presentation survives snapshot obj
 assert(playerShip.update === updateBefore, 'decoration does not replace shared physics');
 adoptPlayerShip({ship:replacement});
 assert(!replacement.dead && game.sprites.includes(replacement), 'adopting the current ship does not remove it');
-console.log('Inventory, menu, damage, repairs, scoop physics and flight tests passed');
+console.log('Cargo contents, menu, damage, repairs, cargo hatch physics and flight tests passed');
 
 `;
 

@@ -1,8 +1,8 @@
 import { Ship } from './ship';
-import { ThrusterDualMd, CargoScoop, Horn, Light } from '../modules';
+import { ThrusterDualMd, CargoHatch, HornDrill, SearchLight } from '../modules';
 
 export const fitStarterModules = (ship: Ship) => {
-  [ThrusterDualMd, CargoScoop, CargoScoop, Horn, Light].forEach((Type) =>
-    ship.fit(new Type()),
+  [ThrusterDualMd, CargoHatch, CargoHatch, HornDrill, SearchLight].forEach(
+    (Type) => ship.fit(new Type()),
   );
 };

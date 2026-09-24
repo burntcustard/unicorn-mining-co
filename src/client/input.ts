@@ -3,7 +3,11 @@ import {
   sameInput,
   type PlayerInput,
 } from '../shared/protocol/input';
-import { moduleControls } from '../shared/craft/control-ship';
+import {
+  defaultKeybindings,
+  matchesBinding,
+  type KeyAction,
+} from './keybindings';
 import { unlockAudio } from './sound-loader';
 
 const callbacks = new Map<string, (event: KeyboardEvent) => void>();
@@ -16,6 +20,11 @@ export const bindKeys = (
   callback: (event: KeyboardEvent) => void,
 ) => callbacks.set(key.toLowerCase(), callback);
 
+export const bindAction = (
+  action: KeyAction,
+  callback: (event: KeyboardEvent) => void,
+) => defaultKeybindings[action].keys.forEach((key) => bindKeys(key, callback));
+
 export const initKeys = ({
   onChange = () => {},
 }: {
@@ -25,9 +34,13 @@ export const initKeys = ({
     if (!sameInput(previous, playerInput)) onChange({ ...playerInput });
   };
   const updateMovement = () => {
-    playerInput.thrust = Number(pressed.has('arrowup'));
-    playerInput.turn =
-      Number(pressed.has('arrowright')) - Number(pressed.has('arrowleft'));
+    const held = (action: KeyAction) =>
+      defaultKeybindings[action].keys.some((key) =>
+        pressed.has(key.toLowerCase()),
+      );
+
+    playerInput.thrust = Number(held('forwardThrust'));
+    playerInput.turn = Number(held('turnRight')) - Number(held('turnLeft'));
   };
   const keyDown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
@@ -40,9 +53,11 @@ export const initKeys = ({
 
     pressed.add(key);
     updateMovement();
-    moduleControls.forEach(({ Type, input }) => {
-      if (key === Type.label[0].toLowerCase()) {
-        playerInput[input] = !playerInput[input];
+    (
+      ['hornDrill', 'cargoHatch', 'searchLight', 'shieldGenerator'] as const
+    ).forEach((action) => {
+      if (matchesBinding(defaultKeybindings[action], key)) {
+        playerInput[action] = !playerInput[action];
       }
     });
     notify(previous);

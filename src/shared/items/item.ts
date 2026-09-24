@@ -17,8 +17,8 @@ export class Item extends GameObject {
     if (this.outline) this.radius = radiusOf(this.outline);
   }
 
-  hitboxes(): Collider[] {
-    const body = super.hitboxes();
+  hitbox(): Collider[] {
+    const body = super.hitbox();
 
     return body.length
       ? [
@@ -31,7 +31,7 @@ export class Item extends GameObject {
             physics: false,
             pickupPoint: true,
             collisionCategory: collisionCategories.pickupPoint,
-            collisionMask: collisionCategories.scoopMouth,
+            collisionMask: collisionCategories.cargoHatchMouth,
           },
         ]
       : body;

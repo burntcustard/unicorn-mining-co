@@ -1,19 +1,19 @@
 import { type ModuleState } from './module-state';
-import { type WreckagePart } from './wreckage-part';
-import { scoopOpen, moduleTypes } from '../modules';
+import { type WreckageSegment } from './wreckage-segment';
+import { cargoHatchOpen, moduleTypes } from '../modules';
 import { movePoint, rotatePoint, shapeOf } from '../geometry';
 import { GameObject } from '../game-object';
-import { colors, paletteOf } from '../colors';
+import { colors, shadesOf } from '../colors';
 import { Vector, type Vector as VectorValue } from '../vector';
 import { applyForce } from '../simulation/apply-force';
 import { outerEdges } from '../collision/outer-edges';
 import { collisionCategories } from '../collision/types';
 import { Module } from '../modules/module';
-import { type Mount, type Outline, type Palette, type Segment } from '../types';
+import { type Mount, type Outline, type Shades, type Segment } from '../types';
 import { entityId } from '../simulation/world';
 
 type ModuleRecord = Module;
-type HullPart = Partial<Segment> & {
+type HullSegmentPlan = Partial<Segment> & {
   [key: string]: any;
   health?: number;
   mounts?: Mount[];
@@ -21,7 +21,7 @@ type HullPart = Partial<Segment> & {
 };
 type CraftData = {
   [key: string]: any;
-  hullSegments: HullPart[];
+  hullSegments: HullSegmentPlan[];
 };
 type CraftProperties = {
   [key: string]: any;
@@ -47,23 +47,23 @@ const outlinesOf = (segments: Segment[]) =>
 
 const makeSegment = (
   craft: Craft,
-  craftModule: ModuleRecord | HullPart,
-  part: HullPart,
+  craftModule: ModuleRecord | HullSegmentPlan,
+  segmentPlan: HullSegmentPlan,
   mount?: Mount,
 ): Segment => {
-  const { points } = part;
+  const { points } = segmentPlan;
   const fixedPoints = Array.isArray(points) ? points : undefined;
   const shape = fixedPoints?.[0] && shapeOf(fixedPoints, mount);
 
   // A thruster's flare is up about as soon as the key is down, unless told
   // otherwise, either on the module itself or (as the shield's bubble does)
-  // on just the one part of it
+  // on just the one segment of it
   const duration =
-    part.activationDuration || craftModule.activationDuration || 0.1;
+    segmentPlan.activationDuration || craftModule.activationDuration || 0.1;
 
   // Hull health starts on the prototype; damage creates the instance's own
-  // value. Module parts share their mount's health directly.
-  return Object.assign(Object.create(part), {
+  // value. Module segments share their mount's health directly.
+  return Object.assign(Object.create(segmentPlan), {
     phase: 0,
     ...shape,
     activationProgress: 0,
@@ -71,28 +71,35 @@ const makeSegment = (
     module: craftModule,
     mount,
     active: 0,
-    radius: part.radius || (shape && (() => shape.reach)),
+    radius: segmentPlan.radius || (shape && (() => shape.reach)),
     rate: 1 / duration,
     shades: craftModule.shades || craft.shades,
-    localPosition: (mount?.localPosition || part.localPosition || Vector()).add(
-      Vector(0, (part.thrusterNozzleSide || 0) * (craftModule.offset || 0)),
+    localPosition: (
+      mount?.localPosition ||
+      segmentPlan.localPosition ||
+      Vector()
+    ).add(
+      Vector(
+        0,
+        (segmentPlan.thrusterNozzleSide || 0) * (craftModule.offset || 0),
+      ),
     ),
-    zIndex: part.zIndex || craftModule.zIndex || craft.zIndex || 0,
+    zIndex: segmentPlan.zIndex || craftModule.zIndex || craft.zIndex || 0,
   }) as Segment;
 };
 
 export class Craft extends GameObject {
-  static hullSegments: HullPart[] = [];
+  static hullSegments: HullSegmentPlan[] = [];
   static shades = colors.white;
   kind: string = 'craft';
   declare cargoContents: GameObject[];
   declare playerId?: number;
   health = 100;
   declare cockpit?: Segment;
-  declare hullSegments: HullPart[];
+  declare hullSegments: HullSegmentPlan[];
   declare mass: number;
   declare segments: Segment[];
-  declare shades: Palette;
+  declare shades: Shades;
 
   constructor(props: CraftProperties = {}, data?: CraftData) {
     super(props);
@@ -130,11 +137,11 @@ export class Craft extends GameObject {
       mount: mounts.indexOf(module.mount),
       health: module.mount ? module.mount.health : module.health,
       shades: module.shades,
-      parts: this.partsOf(module.mount)
-        .filter((part) => part.module === module)
-        .map((part) => ({
-          active: part.active,
-          activationProgress: part.activationProgress,
+      segments: this.segmentsAtMount(module.mount)
+        .filter((segment) => segment.module === module)
+        .map((segment) => ({
+          active: segment.active,
+          activationProgress: segment.activationProgress,
         })),
     }));
   }
@@ -170,7 +177,7 @@ export class Craft extends GameObject {
       if (state.id !== undefined) module.id = state.id;
       module.health = state.mount >= 0 ? definition.health : state.health;
 
-      if (state.shades) module.shades = paletteOf(state.shades);
+      if (state.shades) module.shades = shadesOf(state.shades);
 
       if (state.mount >= 0) {
         const mount = mounts[state.mount];
@@ -178,8 +185,8 @@ export class Craft extends GameObject {
         if (mount) {
           if (!unchanged) this.fit(module, mount);
           mount.health = state.health;
-          this.partsOf(mount).forEach((part, index) =>
-            Object.assign(part, state.parts[index], {
+          this.segmentsAtMount(mount).forEach((segment, index) =>
+            Object.assign(segment, state.segments[index], {
               shades: module.shades || this.shades,
             }),
           );
@@ -188,7 +195,7 @@ export class Craft extends GameObject {
     });
   }
 
-  get wreckage(): WreckagePart[] | undefined {
+  get wreckage(): WreckageSegment[] | undefined {
     return this.decay
       ? this.segments.map((segment) => ({
           outline:
@@ -208,7 +215,7 @@ export class Craft extends GameObject {
     return this.segments.flatMap((segment) => segment.mounts || []);
   }
 
-  partsOf(mount: Mount) {
+  segmentsAtMount(mount: Mount) {
     return this.segments.filter((segment) => segment.mount === mount);
   }
 
@@ -222,7 +229,7 @@ export class Craft extends GameObject {
   }
 
   // Fit an owned instance, or pass a falsy module to empty the mount. Replaced
-  // instances stay in the inventory and become cargo when their link clears.
+  // instances remain owned and enter cargo contents when their link clears.
   fit(
     craftModule: ModuleRecord | 0,
     mount = this.mounts.find(
@@ -255,8 +262,8 @@ export class Craft extends GameObject {
       // module that is already built in the colour it was fitted in
       craftModule.shades ||= this.shades;
       this.segments.push(
-        ...craftModule.model!.map((part) =>
-          makeSegment(this, craftModule, part as HullPart, mount),
+        ...craftModule.model!.map((segmentPlan) =>
+          makeSegment(this, craftModule, segmentPlan as HullSegmentPlan, mount),
         ),
       );
     }
@@ -269,15 +276,15 @@ export class Craft extends GameObject {
   fixHull() {
     const hulls = this.segments.filter(({ hull }) => hull);
 
-    this.hullSegments.forEach((part) => {
-      const segment = hulls.find(({ module }) => module === part);
+    this.hullSegments.forEach((segmentPlan) => {
+      const segment = hulls.find(({ module }) => module === segmentPlan);
 
       if (segment) {
-        segment.health = part.health;
+        segment.health = segmentPlan.health;
       } else {
-        const rebuilt = makeSegment(this, part, part);
+        const rebuilt = makeSegment(this, segmentPlan, segmentPlan);
 
-        rebuilt.mounts = (part.mounts || []).map((mount) => ({
+        rebuilt.mounts = (segmentPlan.mounts || []).map((mount) => ({
           ...mount,
           hull: rebuilt,
         }));
@@ -321,7 +328,7 @@ export class Craft extends GameObject {
       segments: segments.map((segment) =>
         Object.assign(Object.create(segment), {
           ...own,
-          hitbox: 0,
+          collider: 0,
           localPosition:
             own.localPosition || segment.localPosition.subtract(origin),
         }),
@@ -340,16 +347,16 @@ export class Craft extends GameObject {
     return fragment;
   }
 
-  // A broken module keeps its shape long enough to tumble away as debris,
+  // A broken module keeps its shape long enough to tumble away as wreckage,
   // while the original mount is immediately free again for the dock menu.
   detach(mount: Mount) {
-    const mountedSegments = this.partsOf(mount);
-    const debrisSegments = mountedSegments.filter(
-      (segment) => segment.debris !== false,
+    const mountedSegments = this.segmentsAtMount(mount);
+    const wreckageSegments = mountedSegments.filter(
+      (segment) => segment.wreckage !== false,
     );
-    let debrisMiddle: VectorValue | undefined;
-    const segments = debrisSegments.map((segment) => {
-      const debris = segment.debris;
+    let wreckageMiddle: VectorValue | undefined;
+    const segments = wreckageSegments.map((segment) => {
+      const wreckage = segment.wreckage;
       const points =
         typeof segment.points === 'function'
           ? segment.points(segment)
@@ -365,11 +372,11 @@ export class Craft extends GameObject {
           )
         : 0;
 
-      if (debris && typeof debris === 'object') {
-        if (debrisSegments.length === 1) {
-          debrisMiddle = Vector(middle[0], middle[1]);
+      if (wreckage && typeof wreckage === 'object') {
+        if (wreckageSegments.length === 1) {
+          wreckageMiddle = Vector(middle[0], middle[1]);
         }
-        return Object.assign(Object.create(segment), debris, {
+        return Object.assign(Object.create(segment), wreckage, {
           points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
           fillShade:
             (segment.mount || segment).health < segment.module.health / 2
@@ -380,9 +387,9 @@ export class Craft extends GameObject {
       }
       return segment;
     });
-    const origin = mount.localPosition.add(debrisMiddle || Vector());
+    const origin = mount.localPosition.add(wreckageMiddle || Vector());
 
-    // Destroyed instances leave the inventory rather than becoming cargo.
+    // Destroyed instances are removed rather than entering cargo contents.
     this.destroyed?.(mount.module);
     const destroyed = mount.module;
 
@@ -400,16 +407,16 @@ export class Craft extends GameObject {
         health: 1,
         mount: { health: 1, localPosition: mount.localPosition },
         shades: (destroyed && destroyed.shades) || this.shades,
-        ...(debrisMiddle && { localPosition: Vector() }),
+        ...(wreckageMiddle && { localPosition: Vector() }),
       },
       origin,
     );
   }
 
-  hitboxes() {
+  hitbox() {
     if (this.dockedTo !== undefined && this.dockedTo !== 0) return [];
 
-    const boxes = this.segments
+    const colliders = this.segments
       .filter(
         (segment) => segment.radius && !((segment.mount || segment).health < 1),
       )
@@ -438,18 +445,18 @@ export class Craft extends GameObject {
           !segment.module.disablePhysics &&
           !segment.catches &&
           !(
-            segment.module.scoops &&
+            segment.module.collectsCargo &&
             !segment.active &&
             !segment.activationProgress
           ) &&
           !segment.mounts?.some(
             (mount) =>
               mount.module &&
-              mount.module.scoops &&
-              this.partsOf(mount).some(
-                (part) =>
-                  !((part.mount || part).health < 1) &&
-                  part.activationProgress > scoopOpen,
+              mount.module.collectsCargo &&
+              this.segmentsAtMount(mount).some(
+                (segment) =>
+                  !((segment.mount || segment).health < 1) &&
+                  segment.activationProgress > cargoHatchOpen,
               ),
           );
         const collides =
@@ -457,22 +464,22 @@ export class Craft extends GameObject {
           segment.dockSegment ||
           (segment.catches &&
             segment.active &&
-            segment.activationProgress > scoopOpen);
+            segment.activationProgress > cargoHatchOpen);
 
-        return Object.assign((segment.hitbox ||= { owner: this, segment }), {
+        return Object.assign((segment.collider ||= { owner: this, segment }), {
           bounciness:
             (bounciness?.call ? bounciness(segment) : bounciness) ||
             hullBounciness,
           dockSegment: segment.dockSegment,
           role: segment.catches
-            ? 'scoop'
+            ? 'cargoHatch'
             : segment.module.grinds
-              ? 'drill'
+              ? 'hornDrill'
               : undefined,
           outline,
           collides: Boolean(collides),
           collisionCategory: segment.catches
-            ? collisionCategories.scoopMouth
+            ? collisionCategories.cargoHatchMouth
             : collisionCategories.solid,
           collisionMask: segment.catches
             ? collisionCategories.pickupPoint
@@ -486,11 +493,11 @@ export class Craft extends GameObject {
         });
       })
       .filter(({ radius }) => radius);
-    const cover = boxes.find(
+    const cover = colliders.find(
       ({ segment, radius }) => segment.covers && radius >= this.radius,
     );
 
-    return cover ? [cover] : boxes;
+    return cover ? [cover] : colliders;
   }
 
   momentum(position: VectorValue) {
@@ -541,19 +548,19 @@ export class Craft extends GameObject {
     if (kept.length) {
       outerEdges(outlinesOf(kept));
     } else {
-      this.cargoContents.splice(0).forEach((item) => {
-        item.world = this.world;
-        item.position.set(this.position);
-        item.velocity.set(this.velocity);
+      this.cargoContents.splice(0).forEach((object) => {
+        object.world = this.world;
+        object.position.set(this.position);
+        object.velocity.set(this.velocity);
 
-        if (item.mass > 0) {
+        if (object.mass > 0) {
           applyForce(
-            item,
+            object,
             movePoint(Vector(), this.random.next() * Math.PI * 2, 30),
             this.random.next() - 0.5,
           );
         }
-        item.add();
+        object.add();
       });
       this.remove();
     }
@@ -562,11 +569,11 @@ export class Craft extends GameObject {
   }
 
   get hullHealth() {
-    return this.hullSegments.map((part) =>
-      part.health === undefined
+    return this.hullSegments.map((segmentPlan) =>
+      segmentPlan.health === undefined
         ? -1
         : this.segments.find(
-            (segment) => segment.hull && segment.module === part,
+            (segment) => segment.hull && segment.module === segmentPlan,
           )?.health || 0,
     );
   }
@@ -586,12 +593,14 @@ export class Craft extends GameObject {
     // Restoring a checkpoint changes geometry without spawning another copy
     // of the wreckage already present in the authoritative entity list.
     this.fixHull();
-    this.hullSegments.forEach((part, index) => {
+    this.hullSegments.forEach((segmentPlan, index) => {
       const segment = this.segments.find(
-        (segment) => segment.hull && segment.module === part,
+        (segment) => segment.hull && segment.module === segmentPlan,
       );
 
-      if (segment && part.health !== undefined) segment.health = values[index];
+      if (segment && segmentPlan.health !== undefined) {
+        segment.health = values[index];
+      }
     });
     this.segments = this.segments.filter(
       (segment) =>

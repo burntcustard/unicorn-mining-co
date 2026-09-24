@@ -1,10 +1,10 @@
-import { CargoScoop } from '../../shared/modules/cargo-scoop';
+import { CargoHatch } from '../../shared/modules/cargo-hatch';
 import { giveRender } from '../give-render';
 import { playSound } from '../sound-loader';
 import './module';
 
 giveRender({
-  Type: CargoScoop,
+  Type: CargoHatch,
   render({ segment, parent }) {
     if (!segment.catches) parent({ segment });
   },

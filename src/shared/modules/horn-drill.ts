@@ -1,14 +1,14 @@
 import { colors } from '../colors';
 import { Module } from './module';
 import { type Vector } from '../vector';
-import { type AsteroidSection } from '../protocol/entities';
+import { type AsteroidSegment } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
 import { type Segment } from '../types';
 import { type Asteroid } from '../simulation/asteroid';
 import { type Ship } from '../craft/ship';
 import { type SimulationWorld } from '../simulation/world';
 
-export class Horn extends Module {
+export class HornDrill extends Module {
   static shades = colors.yellow;
   static activationDuration = 0.5;
   static bounciness = (segment: any) =>
@@ -25,7 +25,7 @@ export class Horn extends Module {
       ],
     },
   ];
-  static label = 'DRILL';
+  static label = 'HORN DRILL';
   static price = 350;
   static zIndex = -1;
 
@@ -33,7 +33,7 @@ export class Horn extends Module {
     ship,
     segment,
     asteroid,
-    section,
+    asteroidSegment,
     position,
     events,
     world,
@@ -42,7 +42,7 @@ export class Horn extends Module {
     ship: Ship;
     segment: Segment;
     asteroid: Asteroid;
-    section?: AsteroidSection;
+    asteroidSegment?: AsteroidSegment;
     position: Vector;
     events: SimulationEvent[];
     world: SimulationWorld;
@@ -65,7 +65,7 @@ export class Horn extends Module {
       .add(pull.scale((1 - 0.9 ** biteSteps) / 0.1));
 
     ship.velocity.set(ship.velocity.add(grip));
-    (section || asteroid).health -= drillDamage;
+    (asteroidSegment || asteroid).health -= drillDamage;
     events.push({
       asteroidId: asteroid.id,
       by: ship.playerId,
@@ -77,7 +77,7 @@ export class Horn extends Module {
 
     if (
       asteroid.fracture({
-        section,
+        asteroidSegment,
         by: ship.playerId,
         events,
         world,

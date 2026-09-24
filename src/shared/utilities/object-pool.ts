@@ -10,19 +10,29 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-/** @internal */
+/**
+ * @internal
+ */
 export interface PoolOptions<T> {
   max?: number;
   create?: () => T;
-  /** Called when an object is being re-allocated. */
+  /**
+   * Called when an object is being re-allocated.
+   */
   allocate?: (item: T) => void;
-  /** Called when an object is returned to pool. */
+  /**
+   * Called when an object is returned to pool.
+   */
   release?: (item: T) => void;
-  /** Called when an object is returned to the pool but will be disposed from pool. */
+  /**
+   * Called when an object is returned to the pool but will be disposed from pool.
+   */
   dispose?: (item: T) => T;
 }
 
-/** @internal */
+/**
+ * @internal
+ */
 export class Pool<T> {
   _list: T[] = [];
   _max: number = Infinity;

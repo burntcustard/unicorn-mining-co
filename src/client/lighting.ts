@@ -5,7 +5,7 @@ import { benchmarkFlag } from './benchmark';
 import { colors } from '../shared/colors';
 import { game } from './game';
 import { pointBetween as mix } from '../shared/geometry';
-import { type Palette, type Segment } from '../shared/types';
+import { type Shades, type Segment } from '../shared/types';
 
 type GlowCache = { image?: HTMLCanvasElement; scale?: number };
 interface LitShape {
@@ -46,7 +46,7 @@ const shadeTint = 0.2;
 // grow and shrink with the view
 const glowBlur = 40;
 
-// Palette colours are one hex digit a channel. Spreading them over a whole
+// Shades are one hex digit a channel. Spreading them over a whole
 // byte before blending is what lets two pale colours meet somewhere other than
 // on one of the sixteen steps they started on
 // Parsing '#' too creates an unused NaN channel that travels through blending.
@@ -70,7 +70,7 @@ const table = (shade: (along: number) => string) =>
 
 const tints: Record<string, string[]> = {};
 
-const shadeOf = (shades: Palette, worn: number) => {
+const shadeOf = (shades: Shades, worn: number) => {
   const base = parse(shades[worn]);
 
   return table((along) => {
@@ -97,7 +97,7 @@ const shadeOf = (shades: Palette, worn: number) => {
  * worn: Which of its shades the piece is currently wearing.
  * along: 0 facing the light, 1 facing right away from it.
  */
-export const tint = (shades: Palette, worn: number, along: number) =>
+export const tint = (shades: Shades, worn: number, along: number) =>
   (tints[shades[worn]] ||= shadeOf(shades, worn))[at(along)];
 
 /**

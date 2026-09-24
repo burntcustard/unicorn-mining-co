@@ -19,7 +19,9 @@ import { Ship } from '../shared/craft/ship';
 import { paintColors } from '../shared/colors';
 
 type PlayerRecord = {
-  /** How far ahead of the simulation this player's last input arrived. */
+  /**
+   * How far ahead of the simulation this player's last input arrived.
+   */
   inputLead?: number;
   inputs: Map<number, PlayerInputMessage[]>;
   lastInput: PlayerInput;

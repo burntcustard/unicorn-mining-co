@@ -89,7 +89,7 @@ const tests = [
   { name: 'asteroid field', query: 'field' },
   { name: 'asteroid field no beam', query: 'field&noBeam' },
   { hold: 'ArrowRight', name: 'asteroid field spinning', query: 'field' },
-  { name: 'asteroid sections', query: 'field', sections: true },
+  { name: 'asteroid segments', query: 'field', asteroidSegments: true },
   { code: 'Digit9', key: '9', name: 'physics off' },
 ];
 
@@ -175,10 +175,10 @@ try {
       });
     }
 
-    if (test.sections) {
+    if (test.asteroidSegments) {
       const checked = await send('Runtime.evaluate', {
         returnByValue: true,
-        expression: `window.testSections()`,
+        expression: `window.testSegments()`,
       });
 
       if (checked.exceptionDetails) {

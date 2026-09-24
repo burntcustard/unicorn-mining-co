@@ -1,13 +1,18 @@
-import { CargoScoop, Light, Shield, Horn } from '../modules';
+import {
+  CargoHatch,
+  SearchLight,
+  ShieldGenerator,
+  HornDrill,
+} from '../modules';
 import { Ship } from './ship';
 import { type PlayerInput } from '../protocol/input';
 import { type SimulationEvent } from '../protocol/events';
 
 export const moduleControls = [
-  { Type: CargoScoop, input: 'hatch' },
-  { Type: Light, input: 'light' },
-  { Type: Shield, input: 'shield' },
-  { Type: Horn, input: 'drill' },
+  { Type: CargoHatch, input: 'cargoHatch' },
+  { Type: SearchLight, input: 'searchLight' },
+  { Type: ShieldGenerator, input: 'shieldGenerator' },
+  { Type: HornDrill, input: 'hornDrill' },
 ] as const;
 
 export const controlShip = (
@@ -30,7 +35,7 @@ export const controlShip = (
     if (ship.moduleActive({ module: Type }) === enabled) continue;
     ship.setModuleActive({ module: Type, active: enabled });
 
-    if (ship.playerId !== undefined && command !== 'drill') {
+    if (ship.playerId !== undefined && command !== 'hornDrill') {
       events.push({
         type: 'moduleChanged',
         module: command,

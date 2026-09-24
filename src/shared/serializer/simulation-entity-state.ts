@@ -25,10 +25,10 @@ const fields = [
   'localMovementRate',
   'localMovementParent',
   'outline',
-  'sections',
+  'segments',
   'contents',
   'resource',
-  'points',
+  'pointCount',
   'radiusEven',
 ] as const;
 
@@ -43,8 +43,11 @@ export class EntityState {
   readonly dockedTo: number;
   readonly hullHealth?: number[];
   private readonly values: Record<string, any>;
-  private readonly parts: { target: any; values: Record<string, any> }[] = [];
-  private readonly cargo?: EntityState[];
+  private readonly capturedStates: {
+    target: any;
+    values: Record<string, any>;
+  }[] = [];
+  private readonly cargoContents?: EntityState[];
   private readonly segments?: Craft['segments'];
   private readonly cockpit?: Craft['cockpit'];
   private readonly randomState: number;
@@ -61,11 +64,11 @@ export class EntityState {
     this.randomState = entity.random.state;
     this.values = Object.fromEntries(fields.map((key) => [key, entity[key]]));
 
-    if (entity.sections) {
-      this.parts.push(
-        ...entity.sections.map((section: any) => ({
-          target: section,
-          values: { health: section.health },
+    if (entity.segments) {
+      this.capturedStates.push(
+        ...entity.segments.map((segment: any) => ({
+          target: segment,
+          values: { health: segment.health },
         })),
       );
     }
@@ -74,7 +77,7 @@ export class EntityState {
       this.hullHealth = entity.hullHealth;
       this.segments = [...entity.segments];
       this.cockpit = entity.cockpit;
-      this.cargo = entity.cargoContents.map(
+      this.cargoContents = entity.cargoContents.map(
         (object) => new EntityState(object),
       );
       const targets = new Set<any>([
@@ -84,7 +87,7 @@ export class EntityState {
       ]);
 
       targets.forEach((target) =>
-        this.parts.push({
+        this.capturedStates.push({
           target,
           values: Object.fromEntries(
             [
@@ -108,14 +111,18 @@ export class EntityState {
     entity.position.set(this.position);
     entity.velocity.set(this.velocity);
     entity.random.state = this.randomState;
-    this.parts.forEach(({ target, values }) => Object.assign(target, values));
+    this.capturedStates.forEach(({ target, values }) =>
+      Object.assign(target, values),
+    );
 
     if (entity instanceof Craft) {
       entity.segments = [...this.segments!];
       entity.cockpit = this.cockpit;
-      entity.cargoContents = this.cargo!.map((state) => state.restore());
+      entity.cargoContents = this.cargoContents!.map((state) =>
+        state.restore(),
+      );
       entity.segments.forEach((segment) => {
-        segment.hitbox = undefined;
+        segment.collider = undefined;
       });
     }
     return entity;

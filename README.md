@@ -69,5 +69,5 @@ WHITE - Unlocked by default from the start of the game.
 
 `npm run build` runs TypeScript 7, builds with nine Terser passes, emits ordinary
 browser-cacheable ES modules, and warns if any JavaScript resource is larger
-than 14 KB gzipped. See [CHUNK_LOADING.md](CHUNK_LOADING.md) for the current loading
+than 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for the current loading
 tiers and their triggers.

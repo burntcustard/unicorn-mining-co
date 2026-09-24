@@ -5,7 +5,7 @@ description: Reduce Unicorn Mining Co.'s production JavaScript while preserving 
 
 # Code golfing
 
-Read `CHUNK_LOADING.md` before moving code across an import boundary. Measure
+Read `docs/CHUNK_LOADING.md` before moving code across an import boundary. Measure
 with `npm run build`; size policy and loading tiers live there.
 
 - Compare the affected gzip chunk, initial-tier total, and request count; a

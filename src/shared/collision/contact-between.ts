@@ -12,40 +12,42 @@ import { physicsScale } from '../common/game-physics-settings';
 type ShapeData = Partial<Collider> & {
   position: Vector;
   radius: number;
-  parts?: ShapeData[];
+  colliders?: ShapeData[];
 };
 
 /*
  * Read-only overlap query using the same narrow phase as the dynamics solver.
  * Contact skin is included: resting bodies need not geometrically penetrate.
  */
-export const hit = (a: ShapeData, b: ShapeData) => {
+export const contactBetween = (a: ShapeData, b: ShapeData) => {
   let deepest:
     | {
         depth: number;
         normal: Vector;
         point: Vector;
-        aPart?: ShapeData;
-        bPart?: ShapeData;
+        aCollider?: ShapeData;
+        bCollider?: ShapeData;
       }
     | undefined;
 
-  (a.parts || [a]).forEach((pa) =>
-    (b.parts || [b]).forEach((pb) => {
-      const shape = (part: ShapeData) => {
-        const result = part.outline
+  (a.colliders || [a]).forEach((colliderA) =>
+    (b.colliders || [b]).forEach((colliderB) => {
+      const shape = (collider: ShapeData) => {
+        const result = collider.outline
           ? new PolygonShape(
-              part.outline.map(([x, y]) => Vector(x, y).scale(physicsScale)),
+              collider.outline.map(([x, y]) =>
+                Vector(x, y).scale(physicsScale),
+              ),
             )
-          : new CircleShape(part.radius * physicsScale);
+          : new CircleShape(collider.radius * physicsScale);
 
-        if (part.outline && part.collisionMargin !== undefined) {
-          result.m_radius = part.collisionMargin * physicsScale;
+        if (collider.outline && collider.collisionMargin !== undefined) {
+          result.m_radius = collider.collisionMargin * physicsScale;
         }
         return result;
       };
-      const sa = shape(pa),
-        sb = shape(pb);
+      const sa = shape(colliderA),
+        sb = shape(colliderB);
       const xa = new Transform(a.position.scale(physicsScale), a.rotation || 0);
       const xb = new Transform(b.position.scale(physicsScale), b.rotation || 0);
       const manifold = new Manifold();
@@ -77,8 +79,8 @@ export const hit = (a: ShapeData, b: ShapeData) => {
         point: Vector(contact.points[0].x, contact.points[0].y).scale(
           1 / physicsScale,
         ),
-        aPart: a.parts ? pa : undefined,
-        bPart: b.parts ? pb : undefined,
+        aCollider: a.colliders ? colliderA : undefined,
+        bCollider: b.colliders ? colliderB : undefined,
       };
     }),
   );

@@ -1,8 +1,8 @@
-import { type WorldObject, type Segment } from '../types';
-import { type AsteroidSection } from '../protocol/entities';
+import { type GameObjectLike, type Segment } from '../types';
+import { type AsteroidSegment } from '../protocol/entities';
 
 export const damage = (
-  object: WorldObject | Segment | AsteroidSection,
+  object: GameObjectLike | Segment | AsteroidSegment,
   amount: number,
   _point?: number[],
 ) => {
@@ -13,7 +13,7 @@ export const damage = (
   const { module } = segment;
 
   // A module that says so is untouchable in one of its two states: a closed
-  // scoop lies flat in the hull, and a raised shield is all energy
+  // cargo hatch lies flat in the hull, and a raised shield is all energy
   if (module && module.unhurtWhen === segment.active) return;
 
   if (target.health > 0) {

@@ -41,7 +41,7 @@ export class GameObject {
       createRandom(this.id >>> 0);
     const definitions: Function[] = [];
 
-    // Inherited model defaults are available before a craft builds its hull.
+    // Inherited class defaults are available before a craft builds its hull.
     // Per-instance properties, including restored state, always take priority.
     for (
       let type: any = this.constructor;
@@ -71,7 +71,7 @@ export class GameObject {
       if (index >= 0) list.splice(index, 1);
     });
   }
-  hitboxes(): Collider[] {
+  hitbox(): Collider[] {
     return this.dead || this.buried
       ? []
       : [

@@ -7,21 +7,25 @@ import { replacePreTerser } from '../plugins/replace-pre-terser.js';
 const scenario = `
 import assert from 'node:assert/strict';
 import {initKeys,playerInput} from '${process.cwd()}/src/client/input.ts';
+import {defaultKeybindings} from '${process.cwd()}/src/client/keybindings.ts';
 import {createShip} from '${process.cwd()}/src/shared/craft/create-ship.ts';
 import {createWorld} from '${process.cwd()}/src/shared/simulation/world.ts';
 import {controlShip} from '${process.cwd()}/src/shared/craft/control-ship.ts';
-import {Horn,Light,CargoScoop,Shield} from '${process.cwd()}/src/shared/modules/index.ts';
+import {HornDrill,SearchLight,CargoHatch,ShieldGenerator} from '${process.cwd()}/src/shared/modules/index.ts';
 globalThis.window=new EventTarget();
 initKeys();
 const ship=createShip(createWorld());
-const shield=new Shield();
-ship.cargoContents.push(shield);
-ship.fit(shield,ship.mounts.find(mount=>mount.fits.includes(Shield)));
+const shieldGenerator=new ShieldGenerator();
+ship.cargoContents.push(shieldGenerator);
+ship.fit(shieldGenerator,ship.mounts.find(mount=>mount.fits.includes(ShieldGenerator)));
 const keyEvent=(type,key,repeat=false)=>window.dispatchEvent(Object.assign(new Event(type),{key,repeat}));
 const press=key=>keyEvent('keydown',key);
 const release=key=>keyEvent('keyup',key);
-for(const Type of [Horn,Light,CargoScoop,Shield]){
-  const key=Type.label[0];
+for(const [Type,action,label] of [[HornDrill,'hornDrill','HORN DRILL'],[SearchLight,'searchLight','SEARCH LIGHT'],[CargoHatch,'cargoHatch','CARGO HATCH'],[ShieldGenerator,'shieldGenerator','SHIELD GENERATOR']]){
+  assert.equal(Type.label,label,'module label uses terminology');
+  const binding=defaultKeybindings[action];
+  assert(Array.isArray(binding.keys) && binding.mode==='toggle');
+  const key=binding.keys[0].toUpperCase();
   press(key);
   controlShip(ship,playerInput,[]);
   assert(ship.moduleActive({module:Type}),key+' activates its fitted module');
@@ -38,8 +42,8 @@ for(const Type of [Horn,Light,CargoScoop,Shield]){
 }
 press('f');
 controlShip(ship,playerInput,[]);
-assert(!ship.moduleActive({module:Light}),'there are no hidden module key aliases');
-console.log('Drill, light, hatch and shield keyboard-to-simulation toggles passed');
+assert(!ship.moduleActive({module:SearchLight}),'there are no hidden module key aliases');
+console.log('Horn drill, search light, cargo hatch and shield generator key toggles passed');
 `;
 
 for (const production of [false, true]) {

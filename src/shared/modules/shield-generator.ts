@@ -1,11 +1,11 @@
 import { colors } from '../colors';
 import { Module } from './module';
 
-export class Shield extends Module {
+export class ShieldGenerator extends Module {
   static shades = colors.violet;
   static bounciness = 0.4;
   static health = 40;
-  static label = 'SHIELD';
+  static label = 'SHIELD GENERATOR';
   static model: any[] = [
     { radius: () => 7 },
     {

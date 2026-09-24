@@ -14,7 +14,7 @@ const cache = new WeakMap<
     path: Path2D;
     buried: {
       item: ReturnType<typeof createRenderedItem>;
-      local: Vector;
+      localPosition: Vector;
       rotation: number;
     }[];
   }
@@ -27,12 +27,12 @@ export const presentation = ({
   asteroid: Asteroid;
   pose?: Pick<Asteroid, 'position' | 'rotation'>;
 }) => {
-  const sections = asteroid.sections || [
+  const segments = asteroid.segments || [
     { outline: outlineOf(asteroid), contents: asteroid.contents },
   ];
   const key = JSON.stringify([
     outlineOf(asteroid),
-    sections.map(({ outline, contents }) => ({ outline, contents })),
+    segments.map(({ outline, contents }) => ({ outline, contents })),
   ]);
   let state = cache.get(asteroid);
 
@@ -41,31 +41,33 @@ export const presentation = ({
       key,
       path: shapePath(outlineOf(asteroid)),
       buried:
-        sections.flatMap((section) =>
-          section.contents.map((resource, index) => ({
+        segments.flatMap((asteroidSegment) =>
+          asteroidSegment.contents.map((resource, index) => ({
             item: createRenderedItem({ add: false, resource }),
-            local: centerOf(section.outline),
-            rotation: (asteroid.id + section.outline.length + index) % 6,
+            localPosition: centerOf(asteroidSegment.outline),
+            rotation:
+              (asteroid.id + asteroidSegment.outline.length + index) % 6,
           })),
         ) || [],
     };
     cache.set(asteroid, state);
   }
-  asteroid.parts = asteroid.sections;
-  asteroid.renderContents = state.buried.map(({ item, local, rotation }) => {
-    const cosine = Math.cos(pose.rotation),
-      sine = Math.sin(pose.rotation);
+  asteroid.renderContents = state.buried.map(
+    ({ item, localPosition, rotation }) => {
+      const cosine = Math.cos(pose.rotation),
+        sine = Math.sin(pose.rotation);
 
-    item.position.set(
-      pose.position.add(
-        Vector(
-          local.x * cosine - local.y * sine,
-          local.x * sine + local.y * cosine,
+      item.position.set(
+        pose.position.add(
+          Vector(
+            localPosition.x * cosine - localPosition.y * sine,
+            localPosition.x * sine + localPosition.y * cosine,
+          ),
         ),
-      ),
-    );
-    item.rotation = rotation + pose.rotation;
-    return item;
-  });
+      );
+      item.rotation = rotation + pose.rotation;
+      return item;
+    },
+  );
   return state;
 };

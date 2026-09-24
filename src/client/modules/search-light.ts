@@ -1,4 +1,4 @@
-import { Light } from '../../shared/modules/light';
+import { SearchLight } from '../../shared/modules/search-light';
 import { giveRender } from '../give-render';
 import { game } from '../game';
 import { shapePath } from '../drawing';
@@ -7,7 +7,7 @@ import { traceBeam, litPath } from '../prism';
 import './module';
 
 giveRender({
-  Type: Light,
+  Type: SearchLight,
   render({ segment, craft, scenery, parent, pose = craft }) {
     if (!segment.activationProgress) return;
     const beam = segment.prism || traceBeam(pose, segment, scenery);

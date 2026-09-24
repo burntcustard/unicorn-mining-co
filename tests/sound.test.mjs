@@ -9,23 +9,23 @@ const scenario = `
 import { TestAudioContext } from '${process.cwd()}/tests/audio-context.mjs';
 import assert from 'node:assert/strict';
 import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/client/sound.ts';
-import { Horn } from '${process.cwd()}/src/shared/modules/horn.ts';
-import '${process.cwd()}/src/client/modules/horn.ts';
-import { updateDrillSounds } from '${process.cwd()}/src/client/update-drill-sounds.ts';
-const horn = new Horn();
-const mount = { health: 100, module: horn };
-const updateHorn = (segment, dt) => {
-  horn.updateVisual({segments: [segment], dt});
-  updateDrillSounds({crafts: [{id: 42, mounts: [mount], partsOf: () => [segment]}]});
+import { HornDrill } from '${process.cwd()}/src/shared/modules/horn-drill.ts';
+import '${process.cwd()}/src/client/modules/horn-drill.ts';
+import { updateHornDrillSounds } from '${process.cwd()}/src/client/update-horn-drill-sounds.ts';
+const hornDrill = new HornDrill();
+const mount = { health: 100, module: hornDrill };
+const updateHornDrill = (segment, dt) => {
+  hornDrill.updateVisual({segments: [segment], dt});
+  updateHornDrillSounds({crafts: [{id: 42, mounts: [mount], segmentsAtMount: () => [segment]}]});
 };
 const lastVoice = () => TestAudioContext.instances[0].sources.at(-1);
 
 assert.equal(TestAudioContext.instances.length, 0, 'import does not initialize audio');
-updateHorn({ phase: 0, activationProgress: 0 }, 1 / 60);
-assert.equal(TestAudioContext.instances.length, 0, 'inactive drill does not initialize audio');
+updateHornDrill({ phase: 0, activationProgress: 0 }, 1 / 60);
+assert.equal(TestAudioContext.instances.length, 0, 'inactive horn drill does not initialize audio');
 
 const beep = tone();
-assert.equal(beep.buffer.getChannelData(0).length, 1470, 'one cached cycle of the chopped 30 Hz drill');
+assert.equal(beep.buffer.getChannelData(0).length, 1470, 'one cached cycle of the chopped 30 Hz horn drill');
 assert.equal(beep.playbackRate.value, 0.4);
 assert.equal(beep.starts, 1, 'a tone plays as soon as it is made');
 assert.equal(beep.gain.value, 0, 'a tone starts silent');
@@ -38,69 +38,69 @@ playSound(2);
 assert.equal(TestAudioContext.instances[0].sources.length, 2, 'a preset creates one buffer source');
 
 const segment = { phase: 0, active: 0 };
-updateHorn(segment, 1 / 60);
+updateHornDrill(segment, 1 / 60);
 assert.equal(TestAudioContext.instances[0].sources.length, 2, 'silent when inactive');
 segment.active = 1;
-updateHorn(segment, 1 / 60);
+updateHornDrill(segment, 1 / 60);
 const first = lastVoice();
-assert.equal(first.starts, 1, 'drill starts a sound');
-for (let i = 0; i < 120; i++) updateHorn(segment, 1 / 60);
-assert.equal(lastVoice(), first, 'held drill does not restart');
+assert.equal(first.starts, 1, 'horn drill starts a sound');
+for (let i = 0; i < 120; i++) updateHornDrill(segment, 1 / 60);
+assert.equal(lastVoice(), first, 'held horn drill does not restart');
 assert.equal(first.stops, 0);
 segment.active = 0;
-updateHorn(segment, 1 / 60);
+updateHornDrill(segment, 1 / 60);
 // The native stop is scheduled on the audio clock, at the end of the fade out.
 assert.equal(first.stops, 1, 'stopping sound schedules native stop');
 assert.equal(Math.round(first.stopTimes[0] * 100) / 100, 1.21, 'native stop is scheduled for the end of the fade');
 assert.equal(first.gain.value, 0, 'stopping fades to silence');
-for (let i = 0; i < 120; i++) updateHorn(segment, 1 / 60);
+for (let i = 0; i < 120; i++) updateHornDrill(segment, 1 / 60);
 assert.equal(first.stops, 1, 'stopped source is not stopped again');
 segment.active = 1;
-updateHorn(segment, 1 / 60);
+updateHornDrill(segment, 1 / 60);
 assert.notEqual(lastVoice(), first, 'restart creates a new sound');
 const idle = lastVoice();
 assert.equal(idle.starts, 1);
-assert.equal(idle.gain.value, 4, 'a drill touching nothing idles quietly');
+assert.equal(idle.gain.value, 4, 'a horn drill touching nothing idles quietly');
 segment.biting = true;
-updateHorn(segment, 1 / 60);
+updateHornDrill(segment, 1 / 60);
 assert.equal(lastVoice(), idle, 'biting ramps the sound rather than restarting it');
 assert.equal(idle.gain.value, 8, 'biting rises to full volume');
 assert.equal(idle.stops, 0, 'biting does not stop the sound');
 segment.biting = false;
-updateHorn(segment, 1 / 60);
+updateHornDrill(segment, 1 / 60);
 assert.equal(idle.gain.value, 4, 'losing contact drops back to the idle level');
 // Reconciliation replaces simulation objects, but must not orphan their audio.
 const replacement = { ...segment };
-updateHorn(replacement, 1 / 60);
+updateHornDrill(replacement, 1 / 60);
 assert.equal(lastVoice(), idle, 'replacement segment retains the existing voice');
 replacement.active = 0;
-updateHorn(replacement, 1 / 60);
+updateHornDrill(replacement, 1 / 60);
 assert.equal(idle.stops, 1, 'deactivation after rollback stops the original voice');
 replacement.active = 1;
-updateHorn(replacement, 1 / 60);
+updateHornDrill(replacement, 1 / 60);
 const removed = lastVoice();
-updateDrillSounds({crafts: []});
-assert.equal(removed.stops, 1, 'unloading a craft stops its drill');
-updateHorn(replacement, 1 / 60);
+updateHornDrillSounds({crafts: []});
+assert.equal(removed.stops, 1, 'unloading a craft stops its horn drill');
+updateHornDrill(replacement, 1 / 60);
 const damaged = lastVoice();
 mount.health = 0;
-updateHorn(replacement, 1 / 60);
-assert.equal(damaged.stops, 1, 'destroying a drill mount stops its voice');
+updateHornDrill(replacement, 1 / 60);
+assert.equal(damaged.stops, 1, 'destroying a horn drill mount stops its voice');
 mount.health = 100;
 const remoteSegment = { active: 1 };
-const localCraft = { id: 42, mounts: [mount], partsOf: () => [replacement] };
-const remoteCraft = { id: 43, mounts: [mount], partsOf: () => [remoteSegment] };
-updateDrillSounds({crafts: [localCraft]});
+const localCraft = { id: 42, mounts: [mount], segmentsAtMount: () => [replacement] };
+const remoteCraft = { id: 43, mounts: [mount], segmentsAtMount: () => [remoteSegment] };
+updateHornDrillSounds({crafts: [localCraft]});
 const localVoice = lastVoice();
-updateDrillSounds({crafts: [localCraft, remoteCraft]});
+updateHornDrillSounds({crafts: [localCraft, remoteCraft]});
 const remoteVoice = lastVoice();
-assert.notEqual(localVoice, remoteVoice, 'players have independent drill voices');
+assert.notEqual(localVoice, remoteVoice, 'players have independent horn drill voices');
 replacement.active = 0;
-updateDrillSounds({crafts: [localCraft, remoteCraft]});
+updateHornDrillSounds({crafts: [localCraft, remoteCraft]});
 assert.equal(localVoice.stops, 1, 'local deactivation stops only its own drill');
-assert.equal(remoteVoice.stops, 0, 'remote drill keeps playing');
-updateDrillSounds({crafts: []});
-assert.equal(remoteVoice.stops, 1, 'remote unload stops its drill');
+assert.equal(remoteVoice.stops, 0, 'remote horn drill keeps playing');
+updateHornDrillSounds({crafts: []});
+assert.equal(remoteVoice.stops, 1, 'remote unload stops its horn drill');
 const context = TestAudioContext.instances[0];
 const sourceCount = context.sources.length;
 updateThrusterSound(0);
@@ -168,7 +168,7 @@ const bundle = await rolldown({
 
         if (
           id === './sound-loader' &&
-          importer?.endsWith('/src/client/update-drill-sounds.ts')
+          importer?.endsWith('/src/client/update-horn-drill-sounds.ts')
         ) {
           return `${process.cwd()}/src/client/sound.ts`;
         }
@@ -201,5 +201,5 @@ assert(
   'Web Audio methods stay unmangled',
 );
 console.log(
-  'Tones, ramps and drill start/stop passed, including production mangling.',
+  'Tones, ramps and horn drill start/stop passed, including production mangling.',
 );

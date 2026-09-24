@@ -11,7 +11,7 @@ export type StationDescription = {
 export type AsteroidDescription = {
   contents: number[];
   id: number;
-  points?: number;
+  pointCount?: number;
   position: Vector;
   radius: number;
   radiusEven?: number;

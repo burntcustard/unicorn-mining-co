@@ -2,7 +2,7 @@ import { type Outline } from './types';
 
 export interface PolygonOptions {
   // Number of corners and edges.
-  points: number;
+  pointCount: number;
   // Distance of odd corners from the centre.
   radius: number;
   // Distance of even corners; defaults to radius.
@@ -21,14 +21,14 @@ export interface PolygonOptions {
  * a star, and shove them all about with `variance` for an asteroid.
  */
 export const createPolygon = ({
-  points,
+  pointCount,
   radius,
   radiusEven = radius,
   variance = 0,
   random = () => 0,
 }: PolygonOptions): Outline =>
-  Array.from({ length: points }, (_, i) => {
-    const angle = (i / points) * Math.PI * 2;
+  Array.from({ length: pointCount }, (_, i) => {
+    const angle = (i / pointCount) * Math.PI * 2;
     // Only ever inwards, so no point reaches past the radius the rest of the
     // world bounds this shape by.
     const wander = 1 - random() * variance;

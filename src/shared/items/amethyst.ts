@@ -11,7 +11,7 @@ export class Amethyst extends Item {
   static fillAlpha = 6;
   static health = 100;
   static label = 'AMETHYST';
-  static points = createPolygon({ points: 6, radius: 7 });
+  static points = createPolygon({ pointCount: 6, radius: 7 });
   static price = 45;
   static shades = colors.violet;
   static glint = true;

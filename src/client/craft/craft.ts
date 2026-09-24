@@ -3,10 +3,10 @@ import { Module } from '../../shared/modules/module';
 import { giveRender } from '../give-render';
 import '../game-object';
 import '../modules/module';
-import '../modules/horn';
-import '../modules/cargo-scoop';
-import '../modules/light';
-import '../modules/shield';
+import '../modules/horn-drill';
+import '../modules/cargo-hatch';
+import '../modules/search-light';
+import '../modules/shield-generator';
 import '../modules/thruster';
 import { drawThrusterGlow } from '../lighting';
 import { drawInside, drawSpectrum, traceBeam } from '../prism';
@@ -99,7 +99,10 @@ giveRender({
   },
   updateVisual(dt: number) {
     this.modules.forEach((module: Module) =>
-      module.updateVisual?.({ dt, segments: this.partsOf(module.mount) }),
+      module.updateVisual?.({
+        dt,
+        segments: this.segmentsAtMount(module.mount),
+      }),
     );
   },
 });

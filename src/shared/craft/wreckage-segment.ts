@@ -1,4 +1,4 @@
-export type WreckagePart = {
+export type WreckageSegment = {
   outline?: number[][];
   radius: number;
   offset: { x: number; y: number };

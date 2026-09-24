@@ -1,7 +1,7 @@
 import { Vector, type Vector as VectorValue } from '../vector';
 import { createPolygon, radiusOf } from '../polygon';
 import { createRandom } from '../seeded-random';
-import { type AsteroidSection } from '../protocol/entities';
+import { type AsteroidSegment } from '../protocol/entities';
 import { addEntity, type SimulationWorld, entityId } from './world';
 import { GameObject } from '../game-object';
 import { type Collider, type Outline } from '../collision/types';
@@ -13,7 +13,7 @@ import { type SimulationEvent } from '../protocol/events';
 export const asteroidVariance = 0.2;
 
 // Bigger asteroids need more points to be lumpy with
-export const pointsFor = (radius: number) =>
+export const pointCountFor = (radius: number) =>
   Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
 
 const outlines = new Map<string, number[][]>();
@@ -27,7 +27,7 @@ export const outlineOf = (asteroid: Asteroid) => {
   if (asteroid.outline) return asteroid.outline;
   const key = [
     asteroid.id,
-    asteroid.points,
+    asteroid.pointCount,
     asteroid.radius,
     asteroid.radiusEven,
   ].join(':');
@@ -37,7 +37,7 @@ export const outlineOf = (asteroid: Asteroid) => {
     const random = createRandom(asteroid.id);
 
     outline = createPolygon({
-      points: asteroid.points || pointsFor(asteroid.radius),
+      pointCount: asteroid.pointCount || pointCountFor(asteroid.radius),
       radius: asteroid.radius,
       radiusEven: asteroid.radiusEven,
       random: random.next,
@@ -77,7 +77,7 @@ const splitTriangle = (triangle: number[][]) => {
   ];
 };
 
-const sectionsOf = ({
+const segmentsOf = ({
   contents,
   health,
   mass,
@@ -109,37 +109,37 @@ const sectionsOf = ({
           outline[(index + 1) % outline.length],
         ])
       : [outline];
-  const sectionsPerFace = inset ? 1 : 4;
+  const segmentsPerFace = inset ? 1 : 4;
   const leaves = triangles.map(
     inset ? (triangle) => [triangle] : splitTriangle,
   );
-  const sectionHealth = health / (triangles.length * sectionsPerFace);
-  const sectionMass = mass / (triangles.length * sectionsPerFace);
+  const asteroidSegmentHealth = health / (triangles.length * segmentsPerFace);
+  const asteroidSegmentMass = mass / (triangles.length * segmentsPerFace);
   // Match the original topology order: all centre leaves first, then the next
   // corner from every face. Cargo placement depends on that centre-first bias.
-  const outlines = Array.from({ length: sectionsPerFace }, (_, corner) =>
+  const outlines = Array.from({ length: segmentsPerFace }, (_, corner) =>
     leaves.map((leaf) => leaf[corner]),
   ).flat();
-  const sections: AsteroidSection[] = outlines.map((section) => ({
+  const segments: AsteroidSegment[] = outlines.map((asteroidSegment) => ({
     contents: [] as number[],
-    health: sectionHealth,
-    mass: sectionMass,
-    maxHealth: sectionHealth,
-    outline: section.map(([x, y]) => [x, y]),
+    health: asteroidSegmentHealth,
+    mass: asteroidSegmentMass,
+    maxHealth: asteroidSegmentHealth,
+    outline: asteroidSegment.map(([x, y]) => [x, y]),
   }));
-  const empty = [...sections];
+  const empty = [...segments];
 
   contents.forEach((resource) => {
     const index = Math.floor(random() ** 2 * empty.length);
 
-    (empty.splice(index, 1)[0] || sections[0]).contents.push(resource);
+    (empty.splice(index, 1)[0] || segments[0]).contents.push(resource);
   });
-  return sections;
+  return segments;
 };
 
 const samePoint = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1];
 
-const sharesEdge = (a: AsteroidSection, b: AsteroidSection) =>
+const sharesEdge = (a: AsteroidSegment, b: AsteroidSegment) =>
   a.outline.some((from, index) => {
     const to = a.outline[(index + 1) % a.outline.length];
 
@@ -153,9 +153,9 @@ const sharesEdge = (a: AsteroidSection, b: AsteroidSection) =>
     });
   });
 
-const groupsOf = (sections: AsteroidSection[]) => {
-  const left = [...sections];
-  const groups: AsteroidSection[][] = [];
+const groupsOf = (segments: AsteroidSegment[]) => {
+  const left = [...segments];
+  const groups: AsteroidSegment[][] = [];
 
   while (left.length) {
     const group = [left.pop()!];
@@ -172,8 +172,8 @@ const groupsOf = (sections: AsteroidSection[]) => {
   return groups;
 };
 
-const outlineFrom = (sections: AsteroidSection[]) => {
-  const edges = sections.flatMap(({ outline }) =>
+const outlineFrom = (segments: AsteroidSegment[]) => {
+  const edges = segments.flatMap(({ outline }) =>
     outline.map((from, index) => ({
       from,
       to: outline[(index + 1) % outline.length],
@@ -230,19 +230,19 @@ export const centerOf = (outline: number[][]) => {
   return Vector(x / (area * 3), y / (area * 3));
 };
 
-const detachSection = ({
+const detachSegment = ({
   asteroid,
-  section,
+  asteroidSegment,
   world,
 }: {
   asteroid: Asteroid;
-  section: AsteroidSection;
+  asteroidSegment: AsteroidSegment;
   world: SimulationWorld;
 }) => {
-  const remaining = asteroid.sections!.filter(
-    (candidate) => candidate !== section,
+  const remaining = asteroid.segments!.filter(
+    (candidate) => candidate !== asteroidSegment,
   );
-  const groups = [[section], ...groupsOf(remaining)];
+  const groups = [[asteroidSegment], ...groupsOf(remaining)];
 
   asteroid.remove();
   const children = groups.map((group) => {
@@ -256,13 +256,18 @@ const detachSection = ({
     );
     const local = ([x, y]: number[]) => [x - center.x, y - center.y];
     const childOutline = outline.map(local);
-    const childSections = group.map((part) => ({
-      ...part,
-      contents: [...part.contents],
-      outline: part.outline.map(local),
+    const childSegments = group.map((asteroidSegment) => ({
+      ...asteroidSegment,
+      contents: [...asteroidSegment.contents],
+      outline: asteroidSegment.outline.map(local),
     }));
-    const contents = group.flatMap((part) => part.contents);
-    const mass = group.reduce((sum, part) => sum + part.mass, 0);
+    const contents = group.flatMap(
+      (asteroidSegment) => asteroidSegment.contents,
+    );
+    const mass = group.reduce(
+      (sum, asteroidSegment) => sum + asteroidSegment.mass,
+      0,
+    );
     const radius = radiusOf(childOutline);
     const child = createAsteroid(world, {
       contents,
@@ -275,7 +280,7 @@ const detachSection = ({
       radius,
       resource: asteroid.resource,
       rotation: asteroid.rotation,
-      sections: group.length > 1 ? childSections : undefined,
+      segments: group.length > 1 ? childSegments : undefined,
       spin: asteroid.spin,
       velocity: asteroid.velocity.add(
         Vector(-offset.y, offset.x).scale(asteroid.spin),
@@ -301,7 +306,9 @@ const detachSection = ({
   return children;
 };
 
-/** Whether a point lies within a shape cut radially about its own middle. */
+/**
+ * Whether a point lies within a shape cut radially about its own middle.
+ */
 const insideOutline = ({
   outline,
   local,
@@ -391,10 +398,10 @@ export class Asteroid extends GameObject {
   kind = 'asteroid' as const;
   maxHealth: number;
   outline?: number[][];
-  points?: number;
+  pointCount?: number;
   radiusEven?: number;
   resource?: number;
-  sections?: AsteroidSection[];
+  segments?: AsteroidSegment[];
 
   constructor({
     contents,
@@ -402,10 +409,10 @@ export class Asteroid extends GameObject {
     health,
     maxHealth,
     outline,
-    points,
+    pointCount,
     radiusEven,
     resource,
-    sections,
+    segments,
     ...properties
   }: ConstructorParameters<typeof GameObject>[0] & {
     contents: number[];
@@ -413,10 +420,10 @@ export class Asteroid extends GameObject {
     health: number;
     maxHealth: number;
     outline?: number[][];
-    points?: number;
+    pointCount?: number;
     radiusEven?: number;
     resource?: number;
-    sections?: AsteroidSection[];
+    segments?: AsteroidSegment[];
   }) {
     super(properties);
     this.contents = [...contents];
@@ -424,23 +431,24 @@ export class Asteroid extends GameObject {
     this.health = health;
     this.maxHealth = maxHealth;
     this.outline = outline?.map(([x, y]) => [x, y]);
-    this.points = points;
+    this.pointCount = pointCount;
     this.radiusEven = radiusEven;
     this.resource = resource;
-    const validSections = sections?.every(
-      (section) => section && Array.isArray(section.outline),
+    const validSegments = segments?.every(
+      (asteroidSegment) =>
+        asteroidSegment && Array.isArray(asteroidSegment.outline),
     )
-      ? sections
+      ? segments
       : undefined;
 
-    this.sections = validSections?.map((section) => ({
-      ...section,
-      contents: [...section.contents],
-      outline: section.outline.map(([x, y]) => [x, y]),
+    this.segments = validSegments?.map((asteroidSegment) => ({
+      ...asteroidSegment,
+      contents: [...asteroidSegment.contents],
+      outline: asteroidSegment.outline.map(([x, y]) => [x, y]),
     }));
 
-    if (!outline && !validSections) {
-      this.sections = sectionsOf({
+    if (!outline && !validSegments) {
+      this.segments = segmentsOf({
         contents,
         health,
         mass: this.mass,
@@ -450,25 +458,29 @@ export class Asteroid extends GameObject {
       });
     }
 
-    if (this.sections?.length) {
-      outerEdges(this.sections.map((section) => section.outline as Outline));
+    if (this.segments?.length) {
+      outerEdges(
+        this.segments.map(
+          (asteroidSegment) => asteroidSegment.outline as Outline,
+        ),
+      );
     }
   }
 
-  hitboxes(): Collider[] {
+  hitbox(): Collider[] {
     // Cut faces already meet exactly; polygon padding would overlap siblings.
-    const parts = this.sections?.map((section) => ({
+    const colliders = this.segments?.map((asteroidSegment) => ({
       collisionMargin: 0,
-      outline: section.outline as Outline,
+      outline: asteroidSegment.outline as Outline,
       owner: this,
-      part: section,
+      asteroidSegment,
       position: this.position,
       radius: this.radius,
       rotation: this.rotation,
     }));
 
     const outline = outlineOf(this);
-    const center = !parts?.length && centerOf(outline);
+    const center = !colliders?.length && centerOf(outline);
     // Detached leaves get a tiny collision-only inset. Keep the render outline,
     // mass and resources intact, and never shrink the remaining asteroid.
     const collisionOutline = center
@@ -493,18 +505,18 @@ export class Asteroid extends GameObject {
           radius: this.radius,
           rotation: this.rotation,
         },
-        parts?.length && { parts },
+        colliders?.length && { colliders },
       ),
     ];
   }
 
   fracture({
-    section,
+    asteroidSegment,
     by,
     events,
     world,
   }: {
-    section?: AsteroidSection;
+    asteroidSegment?: AsteroidSegment;
     by: number;
     events: SimulationEvent[];
     world: SimulationWorld;
@@ -529,8 +541,8 @@ export class Asteroid extends GameObject {
         by,
         contents: this.contents,
       });
-    } else if (section && section.health < 1) {
-      const children = this.detach({ section, world });
+    } else if (asteroidSegment && asteroidSegment.health < 1) {
+      const children = this.detach({ asteroidSegment, world });
 
       events.push({
         type: 'asteroidSplit',
@@ -542,13 +554,13 @@ export class Asteroid extends GameObject {
   }
 
   detach({
-    section,
+    asteroidSegment,
     world,
   }: {
-    section: AsteroidSection;
+    asteroidSegment: AsteroidSegment;
     world: SimulationWorld;
   }) {
-    return detachSection({ asteroid: this, section, world });
+    return detachSegment({ asteroid: this, asteroidSegment, world });
   }
 }
 
@@ -562,14 +574,14 @@ export const createAsteroid = (
     mass,
     maxHealth,
     outline,
-    points,
+    pointCount,
     position = Vector(),
     radius = 25,
     rotation = 0,
     spin = 0,
     radiusEven,
     resource,
-    sections,
+    segments,
     velocity = Vector(),
   }: {
     contents?: number[];
@@ -579,14 +591,14 @@ export const createAsteroid = (
     mass?: number;
     maxHealth?: number;
     outline?: number[][];
-    points?: number;
+    pointCount?: number;
     position?: VectorValue;
     radius?: number;
     rotation?: number;
     spin?: number;
     radiusEven?: number;
     resource?: number;
-    sections?: AsteroidSection[];
+    segments?: AsteroidSegment[];
     velocity?: VectorValue;
   } = {},
 ): Asteroid => {
@@ -600,13 +612,13 @@ export const createAsteroid = (
     mass: mass ?? 0.4 * radius ** 2,
     maxHealth: fullHealth,
     outline,
-    points,
+    pointCount,
     position,
     radius,
     radiusEven,
     resource,
     rotation,
-    sections,
+    segments,
     spin,
     velocity,
   });

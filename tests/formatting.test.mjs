@@ -8,12 +8,13 @@ const directory = mkdtempSync(join(tmpdir(), 'import-spacing-'));
 const file = join(directory, 'fixture.ts');
 const spacingFile = join(directory, 'spacing.ts');
 const inlineFile = join(directory, 'inline.ts');
+const commentFile = join(directory, 'comments.ts');
 const source =
   "import './dependency';\n// Following code must be separated too.\nexport const value = 1;\n";
-const lint = ({ config, fix = false }) =>
+const lint = ({ config, fix = false, target = file }) =>
   spawnSync(
     resolve('node_modules/.bin/oxlint'),
-    ['-c', resolve(config), '--no-ignore', ...(fix ? ['--fix'] : []), file],
+    ['-c', resolve(config), '--no-ignore', ...(fix ? ['--fix'] : []), target],
     { encoding: 'utf8' },
   );
 
@@ -79,7 +80,58 @@ try {
   assert.equal(checkSpacing(false, inlineFile).status, 1);
   assert.equal(checkSpacing(true, inlineFile).status, 0);
   assert.match(readFileSync(inlineFile, 'utf8'), /value = 1;\s*\n\s*\nif \(/);
-  console.log('Import spacing, braces, and statement spacing are enforced');
+  writeFileSync(
+    commentFile,
+    '/** Compact documentation. */\nexport const value = 1;\n',
+  );
+  assert.equal(
+    lint({ config: '.oxlintrc.json', target: commentFile }).status,
+    1,
+  );
+  assert.equal(
+    lint({ config: '.oxlint-format.json', target: commentFile }).status,
+    1,
+  );
+  assert.equal(
+    lint({ config: '.oxlint-format.json', fix: true, target: commentFile })
+      .status,
+    0,
+  );
+  assert.equal(
+    readFileSync(commentFile, 'utf8'),
+    '/**\n * Compact documentation.\n */\nexport const value = 1;\n',
+  );
+  assert.equal(
+    lint({ config: '.oxlintrc.json', target: commentFile }).status,
+    0,
+  );
+  writeFileSync(
+    commentFile,
+    '// Short documentation.\nexport const value = 1;\n',
+  );
+  assert.equal(
+    lint({ config: '.oxlint-format.json', target: commentFile }).status,
+    0,
+  );
+  writeFileSync(
+    commentFile,
+    '/** \n * The opener has a trailing space.\n */\nexport const value = 1;\n',
+  );
+  assert.equal(
+    lint({ config: '.oxlint-format.json', target: commentFile }).status,
+    1,
+  );
+  writeFileSync(
+    commentFile,
+    'export const example = "/** text in a string */";\n',
+  );
+  assert.equal(
+    lint({ config: '.oxlint-format.json', target: commentFile }).status,
+    0,
+  );
+  console.log(
+    'Import spacing, braces, statement spacing, and documentation comments are enforced',
+  );
 } finally {
   rmSync(directory, { recursive: true });
 }

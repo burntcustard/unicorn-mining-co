@@ -43,11 +43,11 @@ const changes = [];
 
 input.initKeys({ onChange: (state) => changes.push(state) });
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
-assert.equal(input.playerInput.drill, true);
+assert.equal(input.playerInput.hornDrill, true);
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
-assert.equal(input.playerInput.drill, true);
+assert.equal(input.playerInput.hornDrill, true);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
-assert.equal(input.playerInput.drill, false);
+assert.equal(input.playerInput.hornDrill, false);
 
 console.log('toggle input test passed');
 

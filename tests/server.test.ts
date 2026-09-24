@@ -1,4 +1,4 @@
-import { Horn } from '../src/shared/modules/horn';
+import { HornDrill } from '../src/shared/modules/horn-drill';
 import assert from 'node:assert/strict';
 import { Ship } from '../src/shared/craft/ship';
 import { once } from 'node:events';
@@ -170,10 +170,10 @@ await new Promise((resolve) => setTimeout(resolve, 50));
 socket.send(
   JSON.stringify({
     input: {
-      drill: true,
-      hatch: false,
-      light: false,
-      shield: false,
+      hornDrill: true,
+      cargoHatch: false,
+      searchLight: false,
+      shieldGenerator: false,
       thrust: 0,
       turn: 0,
     },
@@ -186,7 +186,7 @@ await waitUntil({
   condition: () =>
     playerShip.segments.some(
       (segment) =>
-        segment.module instanceof Horn && segment.activationProgress > 0.5,
+        segment.module instanceof HornDrill && segment.activationProgress > 0.5,
     ),
 });
 const asteroid = addEntity(
@@ -199,7 +199,7 @@ const asteroid = addEntity(
       [-25, 25],
       [-25, -25],
     ],
-    // Touch the deployed drill, rather than spawning a rock inside the hull.
+    // Touch the deployed horn drill, rather than spawning a rock inside the hull.
     position: playerShip.position.add(
       rotatePoint(Vector(70), playerShip.rotation),
     ),
@@ -224,10 +224,10 @@ item.velocity.set(Vector());
 socket.send(
   JSON.stringify({
     input: {
-      drill: false,
-      hatch: true,
-      light: false,
-      shield: false,
+      hornDrill: false,
+      cargoHatch: true,
+      searchLight: false,
+      shieldGenerator: false,
       thrust: 0,
       turn: 0,
     },
@@ -250,10 +250,10 @@ await waitUntil({
 socket.send(
   JSON.stringify({
     input: {
-      drill: false,
-      hatch: false,
-      light: false,
-      shield: false,
+      hornDrill: false,
+      cargoHatch: false,
+      searchLight: false,
+      shieldGenerator: false,
       thrust: 1,
       turn: 0,
     },
@@ -291,10 +291,10 @@ socket.send(
     sequence: 4,
     tick: server.world.tick + 6,
     input: {
-      drill: false,
-      hatch: false,
-      light: false,
-      shield: false,
+      hornDrill: false,
+      cargoHatch: false,
+      searchLight: false,
+      shieldGenerator: false,
       thrust: 1,
       turn: 1,
     },
@@ -306,10 +306,10 @@ socket.send(
     sequence: 5,
     tick: server.world.tick,
     input: {
-      drill: false,
-      hatch: false,
-      light: false,
-      shield: false,
+      hornDrill: false,
+      cargoHatch: false,
+      searchLight: false,
+      shieldGenerator: false,
       thrust: 0,
       turn: 0,
     },
@@ -336,10 +336,10 @@ for (const { sequence, offset, thrust } of [
       sequence,
       offset,
       input: {
-        drill: false,
-        hatch: false,
-        light: false,
-        shield: false,
+        hornDrill: false,
+        cargoHatch: false,
+        searchLight: false,
+        shieldGenerator: false,
         launch: false,
         thrust,
         turn: 0,
@@ -373,11 +373,11 @@ authoritativeShip.dockedTo = stationEntity.id;
 socket.send(
   JSON.stringify({
     input: {
-      drill: false,
-      hatch: false,
+      hornDrill: false,
+      cargoHatch: false,
       launch: true,
-      light: false,
-      shield: false,
+      searchLight: false,
+      shieldGenerator: false,
       thrust: 0,
       turn: 0,
     },
@@ -422,10 +422,10 @@ await waitUntil({
 secondSocket.send(
   JSON.stringify({
     input: {
-      drill: true,
-      hatch: false,
-      light: true,
-      shield: false,
+      hornDrill: true,
+      cargoHatch: false,
+      searchLight: true,
+      shieldGenerator: false,
       thrust: 1,
       turn: 1,
     },
@@ -443,12 +443,12 @@ await waitUntil({
           (entity) =>
             entity.playerId === secondWelcome.playerId &&
             entity.modules?.some(
-              ({ type, parts }) =>
-                type === 6 && parts.some((part) => part.active),
+              ({ type, segments }) =>
+                type === 6 && segments.some((segment) => segment.active),
             ) &&
             entity.modules?.some(
-              ({ type, parts }) =>
-                type === 5 && parts.some((part) => part.active),
+              ({ type, segments }) =>
+                type === 5 && segments.some((segment) => segment.active),
             ) &&
             entity.thrust === 1 &&
             entity.turn === 1,
@@ -502,10 +502,10 @@ for (const disconnectFirst of [true, false]) {
       input: {
         thrust: 1,
         turn: -1,
-        hatch: true,
-        light: true,
-        drill: false,
-        shield: false,
+        cargoHatch: true,
+        searchLight: true,
+        hornDrill: false,
+        shieldGenerator: false,
       },
     }),
   );
@@ -521,12 +521,12 @@ for (const disconnectFirst of [true, false]) {
               entity.thrust === 1 &&
               entity.turn === -1 &&
               entity.modules?.some(
-                ({ type, parts }) =>
-                  type === 5 && parts.some((part) => part.active),
+                ({ type, segments }) =>
+                  type === 5 && segments.some((segment) => segment.active),
               ) &&
               entity.modules?.some(
-                ({ type, parts }) =>
-                  type === 4 && parts.some((part) => part.active),
+                ({ type, segments }) =>
+                  type === 4 && segments.some((segment) => segment.active),
               ),
           ),
       ),

@@ -3,7 +3,7 @@ import {
   type Player,
   type PlayerId,
 } from '../protocol/entities';
-import { type SimulationWorld, type WorldObject } from '../simulation/world';
+import { type SimulationWorld } from '../simulation/world';
 import { GameObject } from '../game-object';
 import { Module } from '../modules/module';
 import { createRandom } from '../seeded-random';
@@ -26,7 +26,7 @@ const omitted: Record<string, boolean> = {
   prism: true,
   updateVisual: true,
   path: true,
-  hitbox: true,
+  collider: true,
   shapes: true,
   shapePass: true,
   localMovementParent: true,
@@ -43,15 +43,11 @@ const definitions: Record<string, boolean> = {
 
 /*
  * Copy mutable mechanics, preserving prototype-based hull/module definitions
- * and the links between a ship's segments, mounts and inventory.
+ * and the links between a ship's segments, mounts and cargo contents.
  * This is for materialising independent authoritative objects, not tick
  * history. History below stores compact EntityState records instead.
  */
-export const cloneEntity = ({
-  entity,
-}: {
-  entity: WorldObject;
-}): WorldObject => {
+export const cloneEntity = ({ entity }: { entity: GameObject }): GameObject => {
   const copies = new Map<object, any>();
   const special: Record<string, (value: any) => any> = {
     random: (value) => createRandom(value.state),

@@ -5,7 +5,7 @@ import { createRenderedShip } from './create-rendered-ship';
 import { colors } from '../shared/colors';
 import { updateThrusterSound } from './sound-loader';
 import { Vector } from '../shared/vector';
-import { type Palette, type Segment } from '../shared/types';
+import { type Shades, type Segment } from '../shared/types';
 
 export let playerShip = createRenderedShip({
   shades: colors.white,
@@ -23,10 +23,10 @@ export let playerShip = createRenderedShip({
 playerShip.credits = 10000;
 // @endif
 
-// Violet is the pink paint in the palette, and only it and white are available
+// Violet is the pink paint in the paint selection, and only it and white are available
 // until the pilot has earned the rest.
-const unlockedPaints: Palette[] = [colors.violet, colors.white];
-const paintUnlocks = new Map<string, Palette>([
+const unlockedPaints: Shades[] = [colors.violet, colors.white];
+const paintUnlocks = new Map<string, Shades>([
   ['RED', colors.red],
   ['ORANGE', colors.orange],
   ['YELLOW', colors.yellow],
@@ -35,13 +35,13 @@ const paintUnlocks = new Map<string, Palette>([
 ]);
 const visitedStations = new Set<Ship>();
 
-export const colorUnlocked = (shades: Palette) =>
+export const paintUnlocked = (shades: Shades) =>
   unlockedPaints.includes(shades);
 
-export const unlockColor = (color: string, reason: string) => {
+export const unlockPaint = (color: string, reason: string) => {
   const shades = paintUnlocks.get(color);
 
-  if (shades && !colorUnlocked(shades)) {
+  if (shades && !paintUnlocked(shades)) {
     unlockedPaints.push(shades);
     say(`${reason} - ${color} UNLOCKED`);
     return true;
@@ -49,13 +49,13 @@ export const unlockColor = (color: string, reason: string) => {
 };
 
 playerShip.destroyed = () => {
-  unlockColor('RED', 'DAMAGED');
+  unlockPaint('RED', 'DAMAGED');
 };
 
 playerShip.docked = (station: Ship) => {
   visitedStations.add(station);
 
-  if (visitedStations.size > 2) unlockColor('GREEN', '3 STATION VISITS');
+  if (visitedStations.size > 2) unlockPaint('GREEN', '3 STATION VISITS');
 };
 
 fitStarterModules(playerShip);
@@ -79,7 +79,7 @@ export const updatePlayer = (dt: number) => {
   );
 
   if (playerShip.position.length() >= 5e4) {
-    unlockColor('YELLOW', 'EDGE REACHED');
+    unlockPaint('YELLOW', 'EDGE REACHED');
   }
 
   // Normalize the replicated spin against the same steering limit used by the

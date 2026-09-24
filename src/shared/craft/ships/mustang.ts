@@ -1,10 +1,10 @@
 import { Ship } from '../ship';
 import { Vector } from '../../vector';
 import {
-  CargoScoop,
-  Light,
-  Horn,
-  Shield,
+  CargoHatch,
+  SearchLight,
+  HornDrill,
+  ShieldGenerator,
   ThrusterDualMd,
   ThrusterDualXl,
   ThrusterSingle,
@@ -26,12 +26,12 @@ export class Mustang extends Ship {
         [-16, -20],
       ],
     },
-    // The wedges the scoops open onto. They stand aside for cargo while the
+    // The wedges the cargo hatches open onto. They stand aside for cargo while the
     // doors are open, which is what lets an item fall in under the hull and
     // into the throat waiting behind them
     {
       health: 10,
-      mounts: [{ fits: [CargoScoop], localPosition: Vector(3, -13) }],
+      mounts: [{ fits: [CargoHatch], localPosition: Vector(3, -13) }],
       points: [
         [-4, -36],
         [20, -12],
@@ -60,7 +60,7 @@ export class Mustang extends Ship {
           ],
           localPosition: Vector(-16, 0),
         },
-        { fits: [Shield], localPosition: Vector() },
+        { fits: [ShieldGenerator], localPosition: Vector() },
       ],
       points: [
         [-16, -20],
@@ -73,8 +73,8 @@ export class Mustang extends Ship {
       // Where the pilot sits, so this is the piece the ship is lost without
       core: true,
       mounts: [
-        { fits: [Horn], localPosition: Vector(20, 0) },
-        { fits: [Light], localPosition: Vector(20, 0) },
+        { fits: [HornDrill], localPosition: Vector(20, 0) },
+        { fits: [SearchLight], localPosition: Vector(20, 0) },
       ],
       points: [
         [20, -12],
@@ -92,7 +92,7 @@ export class Mustang extends Ship {
     },
     {
       health: 10,
-      mounts: [{ fits: [CargoScoop], localPosition: Vector(3, 13) }],
+      mounts: [{ fits: [CargoHatch], localPosition: Vector(3, 13) }],
       points: [
         [-16, 20],
         [20, 12],

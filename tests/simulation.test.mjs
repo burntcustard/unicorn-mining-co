@@ -70,11 +70,11 @@ const dockedMovement = () => {
       [
         7,
         {
-          drill: false,
-          hatch: false,
+          hornDrill: false,
+          cargoHatch: false,
           launch: false,
-          light: false,
-          shield: false,
+          searchLight: false,
+          shieldGenerator: false,
           thrust: 0,
           turn: 0,
         },
@@ -90,11 +90,11 @@ const dockedMovement = () => {
       [
         7,
         {
-          drill: false,
-          hatch: false,
+          hornDrill: false,
+          cargoHatch: false,
           launch: true,
-          light: false,
-          shield: false,
+          searchLight: false,
+          shieldGenerator: false,
           thrust: 1,
           turn: 0,
         },
@@ -109,11 +109,11 @@ const dockedMovement = () => {
       [
         7,
         {
-          drill: false,
-          hatch: false,
+          hornDrill: false,
+          cargoHatch: false,
           launch: false,
-          light: false,
-          shield: false,
+          searchLight: false,
+          shieldGenerator: false,
           thrust: 1,
           turn: 0,
         },
@@ -157,11 +157,11 @@ const dockingShape = () => {
           [
             7,
             {
-              drill: false,
-              hatch: false,
+              hornDrill: false,
+              cargoHatch: false,
               launch: false,
-              light: false,
-              shield: false,
+              searchLight: false,
+              shieldGenerator: false,
               thrust: 0,
               turn: 0,
             },
@@ -256,11 +256,11 @@ const collisionAndThrust = () => {
   );
   addPlayer(world, { id: 7, shipId: ship.id });
   const input = {
-    drill: false,
-    hatch: false,
+    hornDrill: false,
+    cargoHatch: false,
     launch: false,
-    light: false,
-    shield: false,
+    searchLight: false,
+    shieldGenerator: false,
     thrust: 1,
     turn: 0,
   };
@@ -298,11 +298,11 @@ const drillingDoesNotBounce = () => {
       [
         7,
         {
-          drill: true,
-          hatch: false,
+          hornDrill: true,
+          cargoHatch: false,
           launch: false,
-          light: false,
-          shield: false,
+          searchLight: false,
+          shieldGenerator: false,
           thrust: 0,
           turn: 0,
         },
@@ -314,7 +314,7 @@ const drillingDoesNotBounce = () => {
 
 drillingDoesNotBounce();
 
-const drillSelectsTouchedSection = () => {
+const drillSelectsTouchedSegment = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
@@ -328,11 +328,11 @@ const drillSelectsTouchedSection = () => {
       contents: [0, 1, 2],
     }),
   );
-  const before = asteroid.sections.map(({ health }) => health);
+  const before = asteroid.segments.map(({ health }) => health);
 
   ship.segments
-    .filter((part) => part.module.grinds)
-    .forEach((part) => (part.activationProgress = 1));
+    .filter((segment) => segment.module.grinds)
+    .forEach((segment) => (segment.activationProgress = 1));
 
   addPlayer(world, { id: 7, shipId: ship.id });
   updateWorld({
@@ -341,11 +341,11 @@ const drillSelectsTouchedSection = () => {
       [
         7,
         {
-          drill: true,
-          hatch: false,
+          hornDrill: true,
+          cargoHatch: false,
           launch: false,
-          light: false,
-          shield: false,
+          searchLight: false,
+          shieldGenerator: false,
           thrust: 0,
           turn: 0,
         },
@@ -353,24 +353,29 @@ const drillSelectsTouchedSection = () => {
     ]),
   });
   assert.equal(
-    asteroid.sections.filter(({ health }, index) => health < before[index])
+    asteroid.segments.filter(({ health }, index) => health < before[index])
       .length,
     1,
   );
   assert(
     world.entities.has(asteroid.id),
-    'a healthy section keeps the parent intact',
+    'a healthy asteroid segment keeps the parent intact',
   );
   assert(
     ![...world.entities.values()].some((entity) => entity.kind === 'item'),
-    'the parent does not dump its cargo at its centre',
+    'the parent does not release its contents at its centre',
   );
-  // Whole-body destruction remains valid, even with healthy sections remaining.
+  // Whole-body destruction remains valid, even with healthy segments remaining.
   asteroid.health = 0;
   const events = [];
 
   assert(
-    asteroid.fracture({ section: asteroid.sections[0], by: 7, events, world }),
+    asteroid.fracture({
+      asteroidSegment: asteroid.segments[0],
+      by: 7,
+      events,
+      world,
+    }),
   );
   assert(!world.entities.has(asteroid.id));
   assert.deepEqual(
@@ -384,11 +389,11 @@ const drillSelectsTouchedSection = () => {
   assert.equal(
     asteroid.fracture({ by: 7, events, world }),
     false,
-    'stale contacts cannot release the cargo twice',
+    'stale contacts cannot release the contents twice',
   );
 };
 
-drillSelectsTouchedSection();
+drillSelectsTouchedSegment();
 
 const diamondPickup = () => {
   const world = createWorld({ seed: 25 });
@@ -407,11 +412,11 @@ const diamondPickup = () => {
 
   addPlayer(world, { id: 7, shipId: ship.id });
   const drillInput = {
-    drill: true,
-    hatch: false,
+    hornDrill: true,
+    cargoHatch: false,
     launch: false,
-    light: false,
-    shield: false,
+    searchLight: false,
+    shieldGenerator: false,
     thrust: 0,
     turn: 0,
   };
@@ -428,7 +433,7 @@ const diamondPickup = () => {
       (entity) => entity.kind === 'asteroid' && entity.contents.length,
     );
 
-    // A pilot has to keep aiming as pieces move after a split. Keep the drill
+    // A pilot has to keep aiming as pieces move after a split. Keep the horn drill
     // tip on the resource-bearing child so this covers split -> child -> item.
     if (target) {
       ship.rotation = 0;
@@ -468,8 +473,8 @@ const diamondPickup = () => {
 
   const pickupInput = {
     ...drillInput,
-    drill: false,
-    hatch: true,
+    hornDrill: false,
+    cargoHatch: true,
     thrust: 0,
   };
   const pickupEvents = [];
@@ -500,9 +505,9 @@ diamondPickup();
 {
   const world = createWorld();
   const ship = addEntity(world, createShip(world, { playerId: 9 }));
-  const throat = ship.hitboxes().find(({ role }) => role === 'scoop');
+  const throat = ship.hitbox().find(({ role }) => role === 'cargoHatch');
   const door = ship
-    .hitboxes()
+    .hitbox()
     .find(
       ({ segment }) =>
         segment.module === throat.segment.module && segment !== throat.segment,
@@ -518,7 +523,7 @@ diamondPickup();
 
   throat.segment.active = 1;
   const events = [];
-  const [cargoBody, cargoPoint] = item.hitboxes();
+  const [cargoBody, cargoPoint] = item.hitbox();
 
   module.collect({
     ship,
@@ -556,23 +561,23 @@ const starAsteroidLosesOneArm = () => {
   const asteroid = addEntity(
     world,
     createAsteroid(world, {
-      points: 6,
+      pointCount: 6,
       position: Vector(60),
       radius: 25,
       radiusEven: 12,
     }),
   );
 
-  asteroid.detach({ section: asteroid.sections[1], world });
+  asteroid.detach({ asteroidSegment: asteroid.segments[1], world });
   const pieces = [...world.entities.values()].filter(
     ({ kind }) => kind === 'asteroid',
   );
   const arm = pieces.find(({ decay }) => decay);
-  const remainder = pieces.find(({ sections }) => sections?.length);
+  const remainder = pieces.find(({ segments }) => segments?.length);
 
   assert.equal(world.entities.has(asteroid.id), false);
   assert.equal(arm.outline.length, 3);
-  assert.equal(remainder.sections.length, 3);
+  assert.equal(remainder.segments.length, 3);
 };
 
 starAsteroidLosesOneArm();
@@ -593,7 +598,7 @@ const splitConservesOriginalGeometry = () => {
       world,
       createAsteroid(world, {
         radius: 100,
-        points: star ? 6 : 7,
+        pointCount: star ? 6 : 7,
         radiusEven: star ? 25 : undefined,
         resource: 1,
         contents: [1, 1, 1],
@@ -601,27 +606,27 @@ const splitConservesOriginalGeometry = () => {
         position: Vector(200, 300),
       }),
     );
-    const originalArea = rock.sections.reduce(
-      (sum, section) => sum + area(section.outline),
+    const originalArea = rock.segments.reduce(
+      (sum, asteroidSegment) => sum + area(asteroidSegment.outline),
       0,
     );
     const originalMass = rock.mass;
-    const leaves = rock.sections.length;
+    const leaves = rock.segments.length;
 
     for (let split = 0; split < leaves; split++) {
       const parent = [...world.entities.values()].find(
-        (object) => object.sections?.length,
+        (object) => object.segments?.length,
       );
 
       if (!parent) break;
-      const section = parent.sections.reduce((outer, next) =>
+      const asteroidSegment = parent.segments.reduce((outer, next) =>
         Math.max(...outer.outline.map(([x]) => x)) >
         Math.max(...next.outline.map(([x]) => x))
           ? outer
           : next,
       );
 
-      parent.detach({ section, world });
+      parent.detach({ asteroidSegment, world });
       const children = [...world.entities.values()];
 
       assert(parent.dead);
@@ -662,7 +667,7 @@ const authoritativeSnapshotReplacesPredictedSplit = () => {
   const asteroid = addEntity(
     world,
     createAsteroid(world, {
-      points: 6,
+      pointCount: 6,
       position: Vector(60),
       radius: 25,
       radiusEven: 12,
@@ -674,21 +679,23 @@ const authoritativeSnapshotReplacesPredictedSplit = () => {
   const prediction = new PredictionManager({ world });
 
   ship.segments
-    .filter((part) => part.module.grinds)
-    .forEach((part) => (part.activationProgress = 1));
+    .filter((segment) => segment.module.grinds)
+    .forEach((segment) => (segment.activationProgress = 1));
 
-  asteroid.sections.forEach((section) => (section.health = 0.5));
+  asteroid.segments.forEach(
+    (asteroidSegment) => (asteroidSegment.health = 0.5),
+  );
   authoritative
     .find(({ kind }) => kind === 'asteroid')
-    .sections.forEach((section) => (section.health = 0.5));
+    .segments.forEach((asteroidSegment) => (asteroidSegment.health = 0.5));
   addPlayer(world, { id: 7, shipId: ship.id });
   prediction.setLocalPlayer({ playerId: 7 });
   prediction.step({
     input: {
-      drill: true,
-      hatch: false,
-      light: false,
-      shield: false,
+      hornDrill: true,
+      cargoHatch: false,
+      searchLight: false,
+      shieldGenerator: false,
       thrust: 0,
       turn: 0,
     },
@@ -736,10 +743,10 @@ const run = () => {
     [
       7,
       {
-        drill: true,
-        hatch: false,
-        light: false,
-        shield: false,
+        hornDrill: true,
+        cargoHatch: false,
+        searchLight: false,
+        shieldGenerator: false,
         thrust: 0,
         turn: 0,
       },
@@ -748,8 +755,8 @@ const run = () => {
   const events = [];
 
   ship.segments
-    .filter((part) => part.module.grinds)
-    .forEach((part) => (part.activationProgress = 1));
+    .filter((segment) => segment.module.grinds)
+    .forEach((segment) => (segment.activationProgress = 1));
 
   for (let i = 0; i < 100; i++) {
     events.push(...updateWorld({ world: world, inputs: inputs }));
@@ -780,7 +787,7 @@ for (const multiplayer of [false, true]) {
     (position) =>
       addEntity(
         world,
-        createAsteroid(world, { position, radius: 10, points: 3 }),
+        createAsteroid(world, { position, radius: 10, pointCount: 3 }),
       ),
   );
   const calls = bodies.map(() => []);
@@ -827,7 +834,7 @@ for (let i = 0; i < 50; i++) {
     createAsteroid(movementWorld, {
       position: Vector(i * 1000, 10000),
       radius: 10,
-      points: 3,
+      pointCount: 3,
     }),
   );
 }

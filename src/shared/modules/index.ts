@@ -1,27 +1,33 @@
-import { CargoScoop } from './cargo-scoop';
-import { Light } from './light';
-import { Horn } from './horn';
-import { Shield } from './shield';
+import { CargoHatch } from './cargo-hatch';
+import { SearchLight } from './search-light';
+import { HornDrill } from './horn-drill';
+import { ShieldGenerator } from './shield-generator';
 import { ThrusterSingle } from './thruster-single';
 import { ThrusterDualMd } from './thruster-dual-md';
 import { ThrusterDualXl } from './thruster-dual-xl';
 import { ThrusterTriple } from './thruster-triple';
 
 export {
-  CargoScoop,
-  Light,
-  Horn,
-  Shield,
+  CargoHatch,
+  SearchLight,
+  HornDrill,
+  ShieldGenerator,
   ThrusterSingle,
   ThrusterDualMd,
   ThrusterDualXl,
   ThrusterTriple,
 };
-export { scoopOpen } from './cargo-scoop';
+export { cargoHatchOpen } from './cargo-hatch';
 export const thrusters = [
   ThrusterSingle,
   ThrusterDualMd,
   ThrusterDualXl,
   ThrusterTriple,
 ];
-export const moduleTypes = [...thrusters, CargoScoop, Light, Horn, Shield];
+export const moduleTypes = [
+  ...thrusters,
+  CargoHatch,
+  SearchLight,
+  HornDrill,
+  ShieldGenerator,
+];

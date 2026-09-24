@@ -1,12 +1,12 @@
 import { type Vector } from '../vector';
 import { type GameObject } from '../game-object';
 import { type Segment } from '../types';
-import { type AsteroidSection } from '../protocol/entities';
+import { type AsteroidSegment } from '../protocol/entities';
 
 export const collisionCategories = {
   solid: 1,
   pickupPoint: 2,
-  scoopMouth: 4,
+  cargoHatchMouth: 4,
 } as const;
 
 export type Outline = number[][] & { edges?: boolean[] };
@@ -20,14 +20,14 @@ export type Collider = {
   dockSegment?: boolean;
   outline?: Outline;
   owner: GameObject;
-  part?: AsteroidSection;
+  asteroidSegment?: AsteroidSegment;
   pickupPoint?: boolean;
   segment?: Segment;
   speed?: number;
   physics?: boolean;
   position: Vector;
   radius: number;
-  role?: 'drill' | 'scoop';
+  role?: 'hornDrill' | 'cargoHatch';
   rotation: number;
 };
 

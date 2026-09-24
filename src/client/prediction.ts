@@ -16,7 +16,7 @@ import {
 import { type SimulationEvent } from '../shared/protocol/events';
 import { Asteroid } from '../shared/simulation/asteroid';
 import { type SimulationWorld } from '../shared/simulation/world';
-import { type WorldObject } from '../shared/simulation/world';
+import { type GameObject } from '../shared/game-object';
 import { Ship } from '../shared/craft/ship';
 import { type EntityState } from '../shared/serializer/simulation-entity-state';
 import {
@@ -32,7 +32,9 @@ const historyLength = 60;
 const maxReplayTicks = 2;
 
 // @ifdef DEBUG
-/** How hard the server has had to argue with the prediction lately. */
+/**
+ * How hard the server has had to argue with the prediction lately.
+ */
 export const predictionStats = { corrections: 0, steps: 0, worst: 0 };
 
 Object.assign(globalThis, { predictionStats });
@@ -59,13 +61,15 @@ const matches = ({
   );
 };
 
-/** Copy one replicated entity over the client's own copy of it. */
+/**
+ * Copy one replicated entity over the client's own copy of it.
+ */
 const applyEntity = ({
   entity,
   server,
 }: {
-  entity: WorldObject;
-  server: WorldObject;
+  entity: GameObject;
+  server: GameObject;
 }) => {
   entity.position.set(server.position);
   entity.velocity.set(server.velocity);
@@ -81,16 +85,16 @@ const applyEntity = ({
     entity.health = server.health;
     entity.maxHealth = server.maxHealth;
     entity.resource = server.resource;
-    entity.points = server.points;
+    entity.pointCount = server.pointCount;
     entity.radiusEven = server.radiusEven;
     entity.outline = server.outline?.map(([x, y]) => [x, y]);
-    entity.sections = server.sections?.map((section) => ({
-      ...section,
-      contents: [...section.contents],
-      outline: section.outline.map(([x, y]) => [x, y]),
+    entity.segments = server.segments?.map((asteroidSegment) => ({
+      ...asteroidSegment,
+      contents: [...asteroidSegment.contents],
+      outline: asteroidSegment.outline.map(([x, y]) => [x, y]),
     }));
   } else if (entity instanceof Craft && server instanceof Craft) {
-    const cargo = new Map(
+    const cargoCopies = new Map(
       server.cargoContents
         .filter((object) => !(object instanceof Module))
         .map((object) => [object, cloneEntity({ entity: object })]),
@@ -98,7 +102,7 @@ const applyEntity = ({
 
     entity.cargoContents = server.cargoContents
       .filter((object) => !(object instanceof Module))
-      .map((object) => cargo.get(object)!);
+      .map((object) => cargoCopies.get(object)!);
     entity.dockedTo = server.dockedTo;
     entity.credits = server.credits;
     entity.health = server.health;
@@ -117,13 +121,13 @@ const applyEntity = ({
     entity.cargoContents = server.cargoContents.map((object) =>
       object instanceof Module
         ? modules[server.modules.indexOf(object)]
-        : cargo.get(object)!,
+        : cargoCopies.get(object)!,
     );
     entity.launching = server.launching;
     entity.paint = server.paint;
     entity.shades = server.shades;
-    entity.segments.forEach((part) => {
-      if (part.hull) part.shades = part.module.shades || server.shades;
+    entity.segments.forEach((segment) => {
+      if (segment.hull) segment.shades = segment.module.shades || server.shades;
     });
     entity.playerId = server.playerId;
 
@@ -224,7 +228,7 @@ export class PredictionManager {
     entityTicks,
     tick,
   }: {
-    entities?: WorldObject[];
+    entities?: GameObject[];
     entityIds?: number[];
     entityTicks?: Map<number, number>;
     tick: number;
@@ -333,7 +337,7 @@ export class PredictionManager {
     exclude,
     catchUp = 0,
   }: {
-    entities?: WorldObject[];
+    entities?: GameObject[];
     entityIds?: number[];
     entityTicks?: Map<number, number>;
     exclude?: number;
@@ -371,7 +375,7 @@ export class PredictionManager {
       .filter((entity) => entity !== undefined);
     // A packet batch can contain older slow-tier state. Preserve each sample's
     // tick rather than pretending all merged entities came from the last packet.
-    const fromTick = (entity: WorldObject) =>
+    const fromTick = (entity: GameObject) =>
       entityTicks?.get(entity.id) ?? this.world.tick - catchUp;
     const oldest = Math.min(this.world.tick, ...updated.map(fromTick));
 

@@ -89,7 +89,7 @@ const makeAsteroid = ({
       resource > 3 ? randomResource({ random }) : resource,
     ),
     id: descriptionId({ seed, kind: 1, index }),
-    ...(spikes && { points: 6, radiusEven: radius / 4 }),
+    ...(spikes && { pointCount: 6, radiusEven: radius / 4 }),
     position: randomPosition({ random, region }),
     radius,
     resource,

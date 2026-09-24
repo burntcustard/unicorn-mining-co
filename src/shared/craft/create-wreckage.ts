@@ -1,21 +1,21 @@
 import { Craft } from './craft';
 import { Vector } from '../vector';
-import { type WreckagePart } from './wreckage-part';
+import { type WreckageSegment } from './wreckage-segment';
 
 export const createWreckage = ({
   properties,
-  parts,
+  segments,
 }: {
   properties: ConstructorParameters<typeof Craft>[0];
-  parts: WreckagePart[];
+  segments: WreckageSegment[];
 }) =>
   new Craft(properties, {
-    hullSegments: parts.map((part) => ({
-      points: part.outline,
-      radius: () => part.radius,
-      localPosition: Vector(part.offset.x, part.offset.y),
-      health: part.health,
-      fillShade: part.fillShade,
-      outline: part.stroke,
+    hullSegments: segments.map((segment) => ({
+      points: segment.outline,
+      radius: () => segment.radius,
+      localPosition: Vector(segment.offset.x, segment.offset.y),
+      health: segment.health,
+      fillShade: segment.fillShade,
+      outline: segment.stroke,
     })),
   });

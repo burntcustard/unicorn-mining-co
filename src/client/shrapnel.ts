@@ -1,7 +1,9 @@
 import { objectLineWidth } from './drawing';
 import { Vector, type Vector as VectorValue } from '../shared/vector';
 
-/** Short streaks thrown from damage contacts in the damaged object's colour. */
+/**
+ * Short streaks thrown from damage contacts in the damaged object's colour.
+ */
 
 const speed = 100;
 const spread = 0.5;
