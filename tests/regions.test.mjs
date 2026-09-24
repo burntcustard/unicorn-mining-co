@@ -167,7 +167,7 @@ assert.equal(
 );
 assert(
   fragments.every((fragment) => world.entities.get(fragment.id) === fragment),
-  'returning restores fragment identity and mined state',
+  'returning restores fragment identity and damaged state',
 );
 assert.equal(
   world.entities.has(regionalAsteroid.id),

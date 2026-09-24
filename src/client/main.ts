@@ -181,7 +181,6 @@ Object.assign(window, { game, network, playerShip });
 // @endif
 
 const activeRadius = 2000;
-const nearbyRadius = 100;
 let activeSprites: GameObjectLike[] = [];
 let activeTime = 0;
 let spriteCount = 0;
@@ -240,7 +239,10 @@ const gameLoop = GameLoop({
       predicted,
       shipId: network.shipId,
     });
-    const playerPose = remotePoses.get(playerShip.id) || playerShip;
+    const predictedPlayerShip = predicted.entities.get(playerShip.id);
+    const renderedShip =
+      predictedPlayerShip instanceof Ship ? predictedPlayerShip : playerShip;
+    const playerPose = remotePoses.get(playerShip.id) || renderedShip;
 
     followTarget(
       game,
@@ -272,7 +274,7 @@ const gameLoop = GameLoop({
         .filter((object) => object.scenery && object.zIndex === zIndex)
         .forEach((object) => {
           object.render({ pose: remotePoses.get(object.id) });
-          // A loose leaf cannot be mined any smaller, so its cargo stays in view.
+          // A loose leaf cannot be split any smaller, so its cargo stays in view.
           object.segments ||
             object.renderContents?.forEach((item: GameObjectLike) =>
               item.render(),
@@ -280,7 +282,7 @@ const gameLoop = GameLoop({
         });
 
       if (zIndex === -2) {
-        // Cargo still inside mineable asteroids shows only through the slice
+        // Cargo still inside asteroids with contents shows only through the slice
         // the SearchLight is crossing, as if the lamp lets a pilot peer inside
         // @ifdef DEBUG
         if (lights) {
@@ -344,15 +346,15 @@ const gameLoop = GameLoop({
     ctx.restore();
 
     // @ifdef DEBUG
-    renderDebug(game, activeSprites, nearbyRadius);
+    renderDebug({
+      game,
+      sprites: activeSprites,
+      ship: renderedShip,
+    });
     renderDebugDemos(game);
     // @endif
 
-    const controlsShip = predicted.entities.get(playerShip.id);
-
-    renderUI(game, stationMarkers, {
-      controlsShip: controlsShip instanceof Ship ? controlsShip : playerShip,
-    });
+    renderUI(game, stationMarkers, { controlsShip: renderedShip });
   },
   update: ({ dt, now }) => {
     if (playerShip.launchRequested) {

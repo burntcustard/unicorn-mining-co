@@ -32,9 +32,9 @@ hornDrillSegment.active=1;
 hornDrillSegment.activationProgress=.5;
 const asteroidSegment=rock.segments[1];
 asteroidSegment.health=.5;
-const hit=asteroid=>ship.handleContacts({world,events:[],dt:1/30,contacts:[{collider:{owner:ship,role:'hornDrill',segment:hornDrillSegment,position:ship.position},other:{owner:asteroid,asteroidSegment:asteroid===rock?asteroidSegment:undefined},depth:1}]});
+const hit=asteroid=>ship.handleContacts({world,events:[],dt:1/30,contacts:[{collider:{owner:ship,role:'hornDrill',segment:hornDrillSegment,position:ship.position},other:{owner:asteroid,asteroidSegment:asteroid===rock?asteroidSegment:undefined},point:ship.position,depth:1}]});
 hit(rock);
-if(!world.entities.has(rock.id)||asteroidSegment.health!==.5)throw Error('a drill must spin up before mining');
+if(!world.entities.has(rock.id)||asteroidSegment.health!==.5)throw Error('a drill must spin up before drilling');
 hornDrillSegment.activationProgress=1;
 hit(rock);
 if(!rock.dead || world.entities.has(rock.id))throw Error('split must remove its parent');
@@ -46,8 +46,8 @@ ship.velocity.set(Vector(300,100));
 loose.velocity.set(Vector(5,2));
 loose.health=.5;
 hit(loose);
-if(ship.velocity.distanceTo(Vector(5,2))>1e-9)throw Error('breaking loose must release the mining grip');
-export default JSON.stringify({...packet,miningStages:[split,checkpoint()]});
+if(ship.velocity.distanceTo(Vector(5,2))>1e-9)throw Error('breaking loose must release the drilling grip');
+export default JSON.stringify({...packet,drillingStages:[split,checkpoint()]});
 `;
 const scenario = `
 import assert from 'node:assert/strict';
@@ -189,9 +189,9 @@ draws.length=0;
 diamond.render();
 assert(draws.length>0,'concrete items inherit the Item renderer');
 assert.equal(saves,0,'parent renderers balance all canvas state');
-for(const [index,stage] of packet['miningStages'].entries()){
+for(const [index,stage] of packet['drillingStages'].entries()){
   const entities=stage.map(entity=>makeEntity({entity,world}));
-  assert(!entities.some(entity=>entity instanceof Craft),'mined loot must never hydrate as a ship or wreck');
+  assert(!entities.some(entity=>entity instanceof Craft),'drilled loot must never hydrate as a ship or wreck');
   const rocks=entities.filter(entity=>entity instanceof Asteroid);
   assert.equal(rocks.length,index===0?2:1,'split replaces the parent with an arm and remainder');
   for(const asteroid of rocks){

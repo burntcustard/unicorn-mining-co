@@ -6,7 +6,7 @@ import { type ModuleState } from '../craft/module-state';
 /*
  * Checkpoints retain model geometry and identities, not cloned class graphs.
  * Only mutable mechanics are copied. Removed objects stay alive in history
- * until that history expires, allowing mining and cargo transfers to rewind.
+ * until that history expires, allowing drilling and cargo transfers to rewind.
  */
 const fields = [
   'rotation',

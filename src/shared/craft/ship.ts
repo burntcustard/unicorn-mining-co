@@ -5,7 +5,6 @@ import { type Contact } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
 import { type SimulationWorld } from '../simulation/world';
 import { type Segment } from '../types';
-import { Asteroid } from '../simulation/asteroid';
 import { HornDrill } from '../modules/horn-drill';
 import { CargoHatch } from '../modules/cargo-hatch';
 
@@ -29,7 +28,7 @@ export class Ship extends Craft {
       {
         contact: Contact;
         hornDrill: Contact['collider'];
-        rock: Contact['collider'];
+        target: Contact['collider'];
       }
     >();
 
@@ -49,26 +48,24 @@ export class Ship extends Craft {
 
       if (
         !hornDrill?.segment ||
-        !(hornDrill.segment.module instanceof HornDrill)
+        !(hornDrill.segment.module instanceof HornDrill) ||
+        hornDrill.role !== 'hornDrill'
       ) {
         return;
       }
-      const rock = hornDrill === collider ? other : collider;
-
-      if (!(rock.owner instanceof Asteroid)) return;
+      const target = hornDrill === collider ? other : collider;
       const current = hornDrills.get(hornDrill.segment);
 
       if (!current || contact.depth > current.contact.depth) {
-        hornDrills.set(hornDrill.segment, { contact, hornDrill, rock });
+        hornDrills.set(hornDrill.segment, { contact, hornDrill, target });
       }
     });
-    hornDrills.forEach(({ hornDrill, rock }) => {
-      (hornDrill.segment!.module as HornDrill).mine({
+    hornDrills.forEach(({ contact, hornDrill, target }) => {
+      (hornDrill.segment!.module as HornDrill).drill({
         ship: this,
         segment: hornDrill.segment!,
-        asteroid: rock.owner as Asteroid,
-        asteroidSegment: rock.asteroidSegment,
-        position: hornDrill.position,
+        target,
+        position: contact.point,
         events,
         world,
         dt,

@@ -861,7 +861,7 @@ assert(
 );
 
 // Drive a real authoritative ship-to-ship bump over both socket connections.
-// Clear a small test arena and reset damaged hulls from the mining approach.
+// Clear a small test arena and reset damaged hulls from the drilling approach.
 const centre = resting.position.add(Vector(0, 400));
 const worstBeforeArenaReset = predictionStats.worst;
 

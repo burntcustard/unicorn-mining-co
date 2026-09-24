@@ -16,7 +16,7 @@ const collisionWorlds = new WeakMap<SimulationWorld, GameCollisions>();
 
 /*
  * Preserve gameplay movement, then sweep it through the shared collision system.
- * Contacts drive docking, scooping and mining; physical contacts also resolve motion.
+ * Contacts drive docking, scooping and drilling; physical contacts also resolve motion.
  */
 export const updateWorld = ({
   world,

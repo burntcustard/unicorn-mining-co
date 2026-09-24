@@ -2,7 +2,7 @@
 
 ## High priority
 
-[ ] Fix drilling particles coming from center of drill not contact point
+[x] Fix drilling particles coming from center of drill not contact point
 [ ] Fix things being slipperier than they should be, like the horn drill
 [ ] Combine Plank.js code with ours better, e.g. remove duplicate vector
 

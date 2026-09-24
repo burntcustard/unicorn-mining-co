@@ -10,12 +10,12 @@ export type SimulationEvent =
       type: 'asteroidDestroyed';
     }
   | {
-      asteroidId: EntityId;
+      targetId: EntityId;
       by: PlayerId;
       damage: number;
       resource?: number;
       position: Vector;
-      type: 'asteroidMined';
+      type: 'drillDamage';
     }
   | {
       a: EntityId;

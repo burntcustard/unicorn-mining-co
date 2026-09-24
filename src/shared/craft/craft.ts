@@ -7,7 +7,7 @@ import { colors, shadesOf } from '../colors';
 import { Vector, type Vector as VectorValue } from '../vector';
 import { applyForce } from '../simulation/apply-force';
 import { outerEdges } from '../collision/outer-edges';
-import { collisionCategories } from '../collision/types';
+import { collisionCategories, type Collider } from '../collision/types';
 import { Module } from '../modules/module';
 import { type Mount, type Outline, type Shades, type Segment } from '../types';
 import { entityId } from '../simulation/world';
@@ -420,7 +420,7 @@ export class Craft extends GameObject {
       .filter(
         (segment) => segment.radius && !((segment.mount || segment).health < 1),
       )
-      .map((segment) => {
+      .flatMap((segment): Collider[] => {
         const { bounciness } = segment.module;
         const points =
           typeof segment.points === 'function'
@@ -466,31 +466,54 @@ export class Craft extends GameObject {
             segment.active &&
             segment.activationProgress > cargoHatchOpen);
 
-        return Object.assign((segment.collider ||= { owner: this, segment }), {
-          bounciness:
-            (bounciness?.call ? bounciness(segment) : bounciness) ||
-            hullBounciness,
-          dockSegment: segment.dockSegment,
-          role: segment.catches
-            ? 'cargoHatch'
-            : segment.module.grinds
-              ? 'hornDrill'
-              : undefined,
-          outline,
-          collides: Boolean(collides),
-          collisionCategory: segment.catches
-            ? collisionCategories.cargoHatchMouth
-            : collisionCategories.solid,
-          collisionMask: segment.catches
-            ? collisionCategories.pickupPoint
-            : collisionCategories.solid,
-          physics,
-          radius: segment.radius(segment),
-          rotation: this.rotation,
-          speed:
-            segment.covers && segment.active > segment.activationProgress && 60,
-          position,
-        });
+        const collider = Object.assign(
+          (segment.collider ||= { owner: this, segment }),
+          {
+            bounciness:
+              (bounciness?.call ? bounciness(segment) : bounciness) ||
+              hullBounciness,
+            dockSegment: segment.dockSegment,
+            role: segment.catches ? 'cargoHatch' : undefined,
+            outline,
+            collides: Boolean(collides),
+            collisionCategory: segment.catches
+              ? collisionCategories.cargoHatchMouth
+              : collisionCategories.solid,
+            collisionMask: segment.catches
+              ? collisionCategories.pickupPoint
+              : collisionCategories.solid,
+            physics,
+            radius: segment.radius(segment),
+            rotation: this.rotation,
+            speed:
+              segment.covers &&
+              segment.active > segment.activationProgress &&
+              60,
+            position,
+          },
+        );
+        const drillTip = segment.module.drillTip;
+
+        return drillTip
+          ? [
+              collider,
+              {
+                owner: this,
+                segment,
+                role: 'hornDrill',
+                position: this.position.add(
+                  rotatePoint(
+                    segment.localPosition.add(drillTip.position),
+                    this.rotation,
+                  ),
+                ),
+                radius: drillTip.radius,
+                rotation: this.rotation,
+                physics: false,
+                collides: Boolean(collides),
+              },
+            ]
+          : [collider];
       })
       .filter(({ radius }) => radius);
     const cover = colliders.find(

@@ -314,6 +314,161 @@ const drillingDoesNotBounce = () => {
 
 drillingDoesNotBounce();
 
+const drillDamagesOnlyAtTip = () => {
+  const world = createWorld({ seed: 25 });
+  const ship = addEntity(
+    world,
+    createShip(world, { playerId: 7, position: Vector() }),
+  );
+  const drill = ship.hitbox().filter(({ segment }) => segment?.module.grinds);
+  const body = drill.find(({ outline }) => outline);
+  const tip = drill.find(({ role }) => role === 'hornDrill');
+
+  assert(body?.physics, 'the drill body remains a physical collider');
+  assert.equal(body.role, undefined);
+  assert.equal(tip?.physics, false);
+  assert.equal(tip?.radius, 3);
+  assert(tip.position.distanceTo(Vector(46)) < 1e-9);
+
+  const check = (position) => {
+    const asteroid = addEntity(
+      world,
+      createAsteroid(world, {
+        position,
+        radius: 5,
+        radiusEven: 5,
+        pointCount: 6,
+      }),
+    );
+    const contacts = detectCollisions({ entities: [ship, asteroid] });
+    const events = [];
+
+    ship.segments
+      .filter((segment) => segment.module.grinds)
+      .forEach((segment) => (segment.activationProgress = 1));
+    ship.handleContacts({ contacts, events, world, dt: 1 / 60 });
+    asteroid.remove();
+    return { contacts, events };
+  };
+
+  const flank = check(Vector(35, 7));
+
+  assert(
+    flank.contacts.some(({ collider, other }) =>
+      [collider, other].some(
+        ({ segment, role }) => segment === body.segment && role !== 'hornDrill',
+      ),
+    ),
+    'the drill body still touches a rock on its flank',
+  );
+  assert.equal(
+    flank.events.some(({ type }) => type === 'drillDamage'),
+    false,
+    'a flank contact cannot drill',
+  );
+  assert.equal(Boolean(tip.segment.biting), false);
+
+  const head = check(Vector(50));
+
+  const tipContact = head.contacts.find(
+    ({ collider, other }) =>
+      collider.role === 'hornDrill' || other.role === 'hornDrill',
+  );
+  const drilled = head.events.find(({ type }) => type === 'drillDamage');
+
+  assert(tipContact, 'the tip circle touches a rock head-on');
+  assert(drilled, 'a tip contact damages the asteroid');
+  assert.equal(drilled.position, tipContact.point);
+  assert(drilled.position.distanceTo(body.position) > 10);
+  assert.equal(tip.segment.biting, true);
+
+  const otherShip = addEntity(
+    world,
+    createShip(world, { playerId: 8, position: Vector(60) }),
+  );
+  const craftContacts = detectCollisions({ entities: [ship, otherShip] })
+    .filter(
+      ({ collider, other }) =>
+        collider.role === 'hornDrill' || other.role === 'hornDrill',
+    )
+    .sort((a, b) => b.depth - a.depth);
+  const craftContact = craftContacts[0];
+  const struck =
+    craftContact?.collider.role === 'hornDrill'
+      ? craftContact.other
+      : craftContact?.collider;
+  const damaged = struck?.segment?.mount || struck?.segment;
+  const before = damaged?.health;
+  const craftEvents = [];
+
+  assert.equal(struck?.owner, otherShip, 'the drill tip touches another ship');
+  ship.handleContacts({
+    contacts: craftContacts,
+    events: craftEvents,
+    world,
+    dt: 1 / 60,
+  });
+
+  assert(
+    damaged.health < before,
+    'the drill damages the contacted craft segment',
+  );
+  const craftDrilling = craftEvents.find(({ type }) => type === 'drillDamage');
+
+  assert.equal(craftDrilling?.targetId, otherShip.id);
+  assert.equal(craftDrilling?.position, craftContact.point);
+  assert.equal(craftDrilling?.resource, undefined);
+};
+
+drillDamagesOnlyAtTip();
+
+const drillDamagesCraftInWorld = () => {
+  const world = createWorld({ seed: 25 });
+  const ship = addEntity(
+    world,
+    createShip(world, { playerId: 7, position: Vector() }),
+  );
+  const otherShip = addEntity(
+    world,
+    createShip(world, { playerId: 8, position: Vector(60) }),
+  );
+
+  addPlayer(world, { id: 7, shipId: ship.id });
+  ship.segments
+    .filter((segment) => segment.module.grinds)
+    .forEach((segment) => {
+      segment.active = 1;
+      segment.activationProgress = 1;
+    });
+  const events = updateWorld({
+    world,
+    inputs: new Map([
+      [
+        7,
+        {
+          hornDrill: true,
+          cargoHatch: false,
+          launch: false,
+          searchLight: false,
+          shieldGenerator: false,
+          thrust: 0,
+          turn: 0,
+        },
+      ],
+    ]),
+  });
+
+  assert(
+    events.some(
+      ({ type, targetId }) =>
+        type === 'drillDamage' && targetId === otherShip.id,
+    ),
+    'the physics world delivers a drill-tip contact against another ship',
+  );
+};
+
+drillDamagesCraftInWorld();
+
 const drillSelectsTouchedSegment = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
@@ -420,7 +575,7 @@ const diamondPickup = () => {
     thrust: 0,
     turn: 0,
   };
-  const miningEvents = [];
+  const drillingEvents = [];
   let fracturedChunk;
 
   for (
@@ -441,7 +596,7 @@ const diamondPickup = () => {
       ship.position.set(target.position.subtract(Vector(47)));
       ship.velocity.set(Vector());
     }
-    miningEvents.push(
+    drillingEvents.push(
       ...updateWorld({ world: world, inputs: new Map([[7, drillInput]]) }),
     );
     fracturedChunk ||= [...world.entities.values()].find(
@@ -453,11 +608,11 @@ const diamondPickup = () => {
   assert.equal(world.entities.has(asteroid.id), false);
   assert(fracturedChunk?.outline?.length >= 3);
   assert.equal(
-    miningEvents.some(({ type }) => type === 'asteroidMined'),
+    drillingEvents.some(({ type }) => type === 'drillDamage'),
     true,
   );
   assert.deepEqual(
-    miningEvents
+    drillingEvents
       .filter(({ type }) => type === 'asteroidDestroyed')
       .flatMap(({ contents }) => contents),
     [0],
@@ -467,6 +622,8 @@ const diamondPickup = () => {
   assert.equal(item?.resource, 0);
   ship.rotation = 0;
   ship.spin = 0;
+  // Collect clear of the asteroid fragments left by the drilling stage.
+  ship.position.set(Vector(-200));
   ship.velocity.set(Vector());
   item.position.set(ship.position.add(Vector(3, -13)));
   item.velocity.set(Vector());

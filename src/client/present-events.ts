@@ -16,7 +16,7 @@ export const presentEvents = ({
   events.forEach((event) => {
     if (event.type === 'itemCollected') {
       if (event.by === playerId) playSound(2);
-    } else if (event.type === 'asteroidMined') {
+    } else if (event.type === 'drillDamage') {
       const color = event.resource === 1 ? colors.violet[2] : colors.white[2];
 
       sprayDamage({ position: event.position, color, damage: event.damage });

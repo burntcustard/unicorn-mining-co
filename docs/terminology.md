@@ -1,6 +1,6 @@
 # Terminology
 
-**asteroid** - A mineable rock made of destructible segments. It may contain resources that become items.
+**asteroid** - A rock made of destructible segments. It may contain resources that become items.
 
 **asteroid segment** - One destructible piece of an asteroid, with its own shape, health, and contents.
 
@@ -14,11 +14,15 @@
 
 **collider** - A shape used to detect when game objects touch. One object can have several colliders.
 
-**contact** - A recorded touch or overlap between two colliders. It can trigger a collision, docking, mining, or collecting an item.
+**contact** - A recorded touch or overlap between two colliders. It can trigger a collision, docking, drilling, or collecting an item.
 
 **craft** - An object built from hull and module segments, such as a ship or station. Broken-off craft fragments use the same structure.
 
 **docking** - A ship entering a station's docking bay and becoming attached to that station.
+
+**drill tip** - A small nonphysical collider at the horn drill's point. Only its contacts can cause drilling damage.
+
+**drilling** - What happens when damage is dealt by an active horn drill through contact at its drill tip.
 
 **entity** - A game object currently present in the world. Objects stored inside cargo need not be world entities.
 
@@ -28,7 +32,7 @@
 
 **hitbox** - One or more colliders used to detect collisions for a game object.
 
-**horn drill** - A mining module with a pointed horn that grinds asteroid segments.
+**horn drill** - A pointed drill module fitted to a craft.
 
 **hull** - The structural body of a craft, made from hull segments rather than fitted modules.
 

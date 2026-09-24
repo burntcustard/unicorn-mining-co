@@ -313,7 +313,7 @@ export const traceBeam = (
 // light. A lone ray is too thin to draw.
 //
 // Straight and outward corners stay continuous; inward corners separate sheets.
-// Mined sides can retain collinear vertices. Allow roundoff in their signed
+// Drilled sides can retain collinear vertices. Allow roundoff in their signed
 // turn, relative to edge lengths so rotation and asteroid size cannot split them.
 // Asteroid outlines, including cut children, run counter-clockwise.
 const joins = (points: Outline, from: number, to: number) => {

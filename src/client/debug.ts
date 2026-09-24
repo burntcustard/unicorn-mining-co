@@ -5,14 +5,13 @@ import { createRenderedShip } from './create-rendered-ship';
 import { bindKeys } from './input';
 import { colors } from '../shared/colors';
 import { colorsDemo } from './colors-demo';
-import { playerShip } from './player';
 import { renderFps } from './fps';
 import { renderText } from './text';
 import { sky } from './background';
 import { textDemo } from './text-demo';
 import { Vector } from '../shared/vector';
 import { type GameObjectLike } from '../shared/types';
-import { type Collider } from '../shared/collision/types';
+import { type Ship } from '../shared/craft/ship';
 
 export let showDeadzone = false;
 let showMass = false;
@@ -62,42 +61,36 @@ export const bindDebug = (game: GameState) => {
   bindKeys('n', () => playSound(7));
 };
 
-export const renderDebug = (
-  game: GameState,
-  sprites: GameObjectLike[],
-  nearbyRadius: number,
-) => {
+export const renderDebug = ({
+  game,
+  sprites,
+  ship,
+}: {
+  game: GameState;
+  sprites: GameObjectLike[];
+  ship: Ship;
+}) => {
   if (showDeadzone) {
-    game.ctx.save();
-    game.ctx.scale(game.scale, game.scale);
-    game.ctx.translate(-camera.x, -camera.y);
-    game.ctx.beginPath();
-    game.ctx.arc(
-      playerShip.position.x,
-      playerShip.position.y,
-      nearbyRadius,
-      0,
-      Math.PI * 2,
-    );
-    const hornDrillCollider = playerShip
+    const drillTipCollider = ship
       .hitbox()
-      .find(
-        ({ outline, segment }: Collider) => !outline && segment?.module.grinds,
-      );
+      .find(({ role }) => role === 'hornDrill');
 
-    if (hornDrillCollider) {
+    if (drillTipCollider) {
+      game.ctx.save();
+      game.ctx.scale(game.scale, game.scale);
+      game.ctx.translate(-camera.x, -camera.y);
+      game.ctx.beginPath();
       game.ctx.arc(
-        hornDrillCollider.position.x,
-        hornDrillCollider.position.y,
-        hornDrillCollider.radius,
+        drillTipCollider.position.x,
+        drillTipCollider.position.y,
+        drillTipCollider.radius,
         0,
         Math.PI * 2,
       );
+      game.ctx.strokeStyle = colors.red[2];
+      game.ctx.stroke();
+      game.ctx.restore();
     }
-
-    game.ctx.strokeStyle = colors.red[2];
-    game.ctx.stroke();
-    game.ctx.restore();
     renderDeadzone(game);
   }
 

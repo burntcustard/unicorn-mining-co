@@ -1,10 +1,11 @@
 import { colors } from '../colors';
 import { Module } from './module';
-import { type Vector } from '../vector';
-import { type AsteroidSegment } from '../protocol/entities';
+import { Vector } from '../vector';
+import { type Collider } from '../collision/types';
+import { damage } from '../craft/damage';
 import { type SimulationEvent } from '../protocol/events';
 import { type Segment } from '../types';
-import { type Asteroid } from '../simulation/asteroid';
+import { Asteroid } from '../simulation/asteroid';
 import { type Ship } from '../craft/ship';
 import { type SimulationWorld } from '../simulation/world';
 
@@ -15,6 +16,7 @@ export class HornDrill extends Module {
     segment.activationProgress > 0.5 ? -0.2 : 0;
   static damage = 0.5;
   static grinds = true;
+  static drillTip = { position: Vector(26, 0), radius: 3 };
   static health = 100;
   static model: any[] = [
     {
@@ -29,11 +31,10 @@ export class HornDrill extends Module {
   static price = 350;
   static zIndex = -1;
 
-  mine({
+  drill({
     ship,
     segment,
-    asteroid,
-    asteroidSegment,
+    target,
     position,
     events,
     world,
@@ -41,43 +42,56 @@ export class HornDrill extends Module {
   }: {
     ship: Ship;
     segment: Segment;
-    asteroid: Asteroid;
-    asteroidSegment?: AsteroidSegment;
+    target: Collider;
     position: Vector;
     events: SimulationEvent[];
     world: SimulationWorld;
     dt: number;
   }) {
+    const targetPart = target.segment || target.asteroidSegment || target.owner;
+    const healthTarget = target.segment?.mount || targetPart;
+    const before = healthTarget.health;
+
     if (
       segment.activationProgress <= 0.5 ||
       ship.playerId === undefined ||
-      !world.entities.has(asteroid.id)
+      !world.entities.has(target.owner.id) ||
+      !(before > 0)
     ) {
       return;
     }
-    segment.biting = true;
-    const biteSteps = dt * 60;
-    const drillDamage = this.damage * biteSteps;
-    const pull = asteroid.position.subtract(ship.position).normalize();
-    const grip = asteroid.velocity
-      .subtract(ship.velocity)
-      .scale(1 - 0.9 ** biteSteps)
-      .add(pull.scale((1 - 0.9 ** biteSteps) / 0.1));
+    const drillSteps = dt * 60;
+    const drillDamage = this.damage * drillSteps;
 
-    ship.velocity.set(ship.velocity.add(grip));
-    (asteroidSegment || asteroid).health -= drillDamage;
+    damage(targetPart, drillDamage);
+
+    if (!(healthTarget.health < before)) return;
+    segment.biting = true;
+    const asteroid =
+      target.owner instanceof Asteroid ? target.owner : undefined;
+
+    if (asteroid) {
+      const pull = asteroid.position.subtract(ship.position).normalize();
+      const gripFactor = 1 - 0.9 ** drillSteps;
+      const grip = asteroid.velocity
+        .subtract(ship.velocity)
+        .scale(gripFactor)
+        .add(pull.scale(gripFactor / 0.1));
+
+      ship.velocity.set(ship.velocity.add(grip));
+    }
     events.push({
-      asteroidId: asteroid.id,
+      targetId: target.owner.id,
       by: ship.playerId,
       damage: drillDamage,
-      resource: asteroid.resource,
+      ...(asteroid && { resource: asteroid.resource }),
       position,
-      type: 'asteroidMined',
+      type: 'drillDamage',
     });
 
     if (
-      asteroid.fracture({
-        asteroidSegment,
+      asteroid?.fracture({
+        asteroidSegment: target.asteroidSegment,
         by: ship.playerId,
         events,
         world,
