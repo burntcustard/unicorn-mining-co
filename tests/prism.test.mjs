@@ -16,7 +16,7 @@ const bundle = await rolldown({
       name: 'prism-test-exports',
       transform: (code, id) =>
         id.endsWith('/src/client/prism.ts')
-          ? `${code}\nexport { joins, runsOf }; export { Vector } from '../shared/vector';`
+          ? `${code}\nexport { joins, runsOf }; export { Vector } from '../shared/vector'; export { createAsteroid } from '../shared/simulation/asteroid';`
           : undefined,
     },
   ],
@@ -28,12 +28,55 @@ const {
   joins: joinFaces,
   runsOf,
   Vector,
+  createAsteroid,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
 await bundle.close();
 const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
+
+// Whole asteroids generate their outline from their ID. The prism must see
+// that shape before mining creates children with explicit outlines.
+{
+  const asteroid = createAsteroid(
+    {},
+    {
+      id: 10,
+      position: Vector(40, 0),
+      radius: 12,
+      pointCount: 7,
+    },
+  );
+
+  asteroid.scenery = true;
+  assert.equal(asteroid.outline, undefined);
+  const lamp = {
+    localPosition: Vector(),
+    activationProgress: 1,
+    module: { lens: 0, reach: 100, spread: 30 },
+  };
+  const beam = traceBeam({ position: Vector(), rotation: 0 }, lamp, [asteroid]);
+
+  assert.equal(beam.outlines.length, 1);
+  assert.ok(beam.rays.some((ray) => ray.out?.away));
+  assert.ok(runsOf(beam).length);
+  let bands = 0;
+
+  drawSpectrum(
+    {
+      save() {},
+      restore() {},
+      fill() {
+        bands++;
+      },
+      createLinearGradient: () => ({ addColorStop() {} }),
+    },
+    lamp,
+    beam,
+  );
+  assert.equal(bands, 7);
+}
 
 // An invisible seam halfway along the far side of a square. Test the public
 // trace/render path: exactly seven band fills, not two separate seven-band fans.

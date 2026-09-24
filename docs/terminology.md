@@ -40,7 +40,11 @@
 
 **input frame** - The controls held at the start of a simulation tick, together with any changes during that tick.
 
+**interior light** - Light visible inside an asteroid where a search light beam passes through it. It illuminates that slice of rock and reveals buried items there.
+
 **item** - A collectible game object, such as a gem or message.
+
+**light beam** - The visible cone projected by an active search light, from its lens to the first asteroid it meets or the end of its reach.
 
 **local position** - A location measured from a craft's centre, used for its mounts and segments.
 
@@ -78,7 +82,7 @@
 
 **resource** - A numbered kind of item or asteroid material. Resources inside an asteroid determine which items it can release.
 
-**search light** - A module that shines a beam ahead of a craft.
+**search light** - A module that projects a light beam ahead of a craft.
 
 **segment** - One piece of a larger object. Kinds of segments include: asteroid segment, hull segment, module segment.
 
@@ -89,6 +93,8 @@
 **ship** - A craft that can fly when intact and dock at a station. A ship may belong to a player.
 
 **snapshot** - A server update describing which objects are in a player's view and the current state of some of them.
+
+**spectrum** - The rainbow of coloured light projected from the far side of an asteroid when a search light beam passes through it.
 
 **station** - A craft with docking bays that can receive ships.
 

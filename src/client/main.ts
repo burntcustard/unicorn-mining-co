@@ -287,7 +287,7 @@ const gameLoop = GameLoop({
         // @ifdef DEBUG
         if (lights) {
           // @endif
-          const lamp = playerShip.segments.find(
+          const lamp = renderedShip.segments.find(
             (segment) => segment.module.beam,
           );
 
@@ -330,7 +330,7 @@ const gameLoop = GameLoop({
 
       activeSprites.forEach(
         (craft) =>
-          craft.segments &&
+          craft instanceof Craft &&
           !craft.dead &&
           craft.render.call(predicted.entities.get(craft.id) || craft, {
             scenery: activeSprites,

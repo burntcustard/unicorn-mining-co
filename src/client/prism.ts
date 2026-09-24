@@ -3,6 +3,10 @@ import { shapePath, strip } from './drawing';
 import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { colors } from '../shared/colors';
 import {
+  Asteroid,
+  outlineOf as asteroidOutlineOf,
+} from '../shared/simulation/asteroid';
+import {
   type Outline,
   type Segment,
   type GameObjectLike,
@@ -32,7 +36,7 @@ export interface Beam {
   rays: Ray[];
 }
 type Lamp = Segment;
-type Scenery = GameObjectLike & { outline: Outline; scenery?: boolean };
+type Scenery = GameObjectLike & { outline?: Outline; scenery?: boolean };
 
 const fillOf = (
   ctx: CanvasRenderingContext2D,
@@ -223,7 +227,11 @@ const outlineOf = (
     -ship.rotation,
   ).subtract(lamp.localPosition);
   const turn = object.rotation - ship.rotation;
-  const outline = rotatePoints(object.outline, turn, middle);
+  const outline = rotatePoints(
+    object instanceof Asteroid ? asteroidOutlineOf(object) : object.outline!,
+    turn,
+    middle,
+  );
 
   mask.addPath(shapePath(outline));
 
@@ -295,7 +303,7 @@ export const traceBeam = (
     .filter(
       (object): object is Scenery =>
         !!object.scenery &&
-        !!object.outline &&
+        (object instanceof Asteroid || !!object.outline) &&
         object.position.distanceTo(ship.position) - object.radius < range,
     )
     .map((object) => outlineOf(ship, lamp, object, mask));
