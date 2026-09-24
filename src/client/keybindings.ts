@@ -1,6 +1,3 @@
-/**
- * Keyboard defaults. A player profile can later provide another Keybindings value.
- */
 export type KeyAction =
   | 'forwardThrust'
   | 'turnLeft'
