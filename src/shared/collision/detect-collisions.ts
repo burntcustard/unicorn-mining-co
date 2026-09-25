@@ -24,8 +24,8 @@ export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
       if (contact) {
         contacts.push({
           ...contact,
-          collider: { ...a, ...contact.aCollider },
-          other: { ...b, ...contact.bCollider },
+          collider: a,
+          other: b,
         });
       }
     }),

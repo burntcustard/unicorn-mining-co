@@ -465,48 +465,46 @@ export class Asteroid extends GameObject {
 
   hitbox(): Collider[] {
     // Cut faces already meet exactly; polygon padding would overlap siblings.
-    const colliders = this.segments?.map((asteroidSegment) => ({
-      collisionMargin: 0,
-      outline: asteroidSegment.outline as Outline,
-      owner: this,
-      asteroidSegment,
-      friction: this.friction,
-      position: this.position,
-      radius: this.radius,
-      rotation: this.rotation,
-    }));
+    if (this.segments?.length) {
+      return this.segments.map((asteroidSegment) => ({
+        bounciness: 0.2,
+        collisionMargin: 0,
+        outline: asteroidSegment.outline as Outline,
+        owner: this,
+        asteroidSegment,
+        friction: this.friction,
+        position: this.position,
+        radius: this.radius,
+        rotation: this.rotation,
+      }));
+    }
 
     const outline = outlineOf(this);
-    const center = !colliders?.length && centerOf(outline);
+    const center = centerOf(outline);
     // Detached leaves get a tiny collision-only inset. Keep the render outline,
     // mass and resources intact, and never shrink the remaining asteroid.
-    const collisionOutline = center
-      ? outline.map(([x, y]) => {
-          const offset = Vec.subtract(Vec.create(x, y), center);
-          const point = Vec.addScaled(
-            center,
-            offset,
-            Math.max(0.5, 1 - 0.1 / (Vec.length(offset) || 1)),
-          );
+    const collisionOutline = outline.map(([x, y]) => {
+      const offset = Vec.subtract(Vec.create(x, y), center);
+      const point = Vec.addScaled(
+        center,
+        offset,
+        Math.max(0.5, 1 - 0.1 / (Vec.length(offset) || 1)),
+      );
 
-          return [point.x, point.y];
-        })
-      : outline;
+      return [point.x, point.y];
+    });
 
     return [
-      Object.assign(
-        {
-          bounciness: 0.2,
-          friction: this.friction,
-          collisionMargin: 0,
-          outline: collisionOutline as Outline,
-          owner: this,
-          position: this.position,
-          radius: this.radius,
-          rotation: this.rotation,
-        },
-        colliders?.length && { colliders },
-      ),
+      {
+        bounciness: 0.2,
+        friction: this.friction,
+        collisionMargin: 0,
+        outline: collisionOutline as Outline,
+        owner: this,
+        position: this.position,
+        radius: this.radius,
+        rotation: this.rotation,
+      },
     ];
   }
 

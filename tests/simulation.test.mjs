@@ -395,7 +395,14 @@ const drillDamagesOnlyAtTip = () => {
 
   assert(tipContact, 'the tip circle touches a rock head-on');
   assert(drilled, 'a tip contact damages the asteroid');
-  assert.equal(drilled.position, tipContact.point);
+  assert(
+    head.contacts.some(
+      ({ collider, other, point }) =>
+        (collider.role === 'hornDrill' || other.role === 'hornDrill') &&
+        point === drilled.position,
+    ),
+    'drill damage records the point of one tip contact',
+  );
   assert(Vec.distance(drilled.position, body.position) > 10);
   assert.equal(tip.segment.biting, true);
 

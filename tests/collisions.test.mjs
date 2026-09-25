@@ -140,8 +140,8 @@ closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
 
-// A compound pentagon is tested by its convex parts. At an outside vertex its
-// response normal is radial, never either internal seam normal.
+// A compound pentagon exposes each convex piece as a collider. At an outside
+// vertex, the deepest contact has a radial normal and identifies its piece.
 const corners = Array.from({ length: 5 }, (_, index) => [
   Math.cos((index * Math.PI * 2) / 5) * 10,
   Math.sin((index * Math.PI * 2) / 5) * 10,
@@ -151,24 +151,25 @@ const colliders = corners.map((corner, index) => ({
 }));
 
 outerEdges(colliders.map(({ outline }) => outline));
-const compound = polygon(
-  [
-    [100, 100],
-    [101, 100],
-    [100, 101],
-  ],
-  { colliders, radius: 10 },
-);
+const compound = colliders.map(({ outline }) => polygon(outline));
+const circleAtVertex = { radius: 5, position: Vec.create(14) };
+const deepest = compound
+  .map((piece) => contactBetween(piece, circleAtVertex))
+  .filter(Boolean)
+  .sort((a, b) => b.depth - a.depth)[0];
 
-contact = contactBetween(compound, { radius: 5, position: Vec.create(14) });
-closeTo(contact.depth, 2);
-closeTo(contact.normal.x, 1);
-closeTo(contact.normal.y, 0);
-assert.ok(colliders.includes(contact.aCollider));
+closeTo(deepest.depth, 2);
+closeTo(deepest.normal.x, 1);
+closeTo(deepest.normal.y, 0);
 
 const owner = body({ id: 1, mass: 1 });
 const otherOwner = body({ id: 2, mass: 1 });
-const collider = { ...compound, owner, rotation: 0 };
+const pieces = compound.map((piece) => ({
+  ...piece,
+  owner,
+  rotation: 0,
+  friction: 0.2,
+}));
 const circle = {
   owner: otherOwner,
   radius: 5,
@@ -176,7 +177,7 @@ const circle = {
   rotation: 0,
 };
 
-owner.hitbox = () => [collider];
+owner.hitbox = () => pieces;
 otherOwner.hitbox = () => [
   circle,
   {
@@ -190,12 +191,10 @@ otherOwner.hitbox = () => [
 ];
 const contacts = detectCollisions({ entities: [owner, otherOwner] });
 
-assert.equal(contacts.length, 1);
-assert.ok(
-  colliders.some(
-    ({ outline }) =>
-      outline === contacts[0].collider.outline ||
-      outline === contacts[0].other.outline,
+assert(contacts.length > 0);
+assert(
+  contacts.every(
+    ({ collider, other }) => pieces.includes(collider) && other === circle,
   ),
 );
 
@@ -813,7 +812,7 @@ assert(
   'a thin rotating solid sweeps and pushes the item',
 );
 
-// Nested colliders inherit material values, while an explicit zero removes
+// Each fixture uses its collider's material, including explicit zero values.
 // A subclass without a material override inherits the game object's default.
 class DefaultMaterial extends GameObject {}
 assert.equal(new DefaultMaterial({ id: 460 }).friction, 0.01);
@@ -840,7 +839,6 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
       rotation: 0,
       friction: parent.friction,
       bounciness: parent.bounciness,
-      colliders: [{ radius: 5 }],
     },
   ];
   const other = new GameObject({
@@ -859,7 +857,7 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
   });
   const contact = solver.world.m_contactList;
 
-  assert(contacts.length, 'the nested physical collider contacts its target');
+  assert(contacts.length, 'the physical collider contacts its target');
   assert.equal(contact.getFriction(), 0, 'explicit zero friction wins the mix');
   closeTo(contact.getRestitution(), 1.3);
   assert.equal(contact.getFixtureA().getUserData().friction, 0);
@@ -982,6 +980,34 @@ assert(
   const cover = ship.hitbox().find(({ segment }) => segment?.covers);
 
   assert.equal(cover.speed, 0, 'a fully extended shield stops expanding');
+}
+
+// Each asteroid segment becomes one fixture with its own damage target.
+{
+  const world = createWorld();
+  const asteroid = createAsteroid(world, { radius: 25, pointCount: 7 });
+  const colliders = asteroid.hitbox();
+
+  assert.equal(colliders.length, asteroid.segments.length);
+  colliders.forEach((collider, index) => {
+    assert.equal(collider.asteroidSegment, asteroid.segments[index]);
+    assert.equal(collider.outline, asteroid.segments[index].outline);
+    assert.equal(collider.bounciness, 0.2);
+    assert.equal(collider.collisionMargin, 0);
+  });
+
+  const solver = new GameCollisions();
+
+  solver.step({ entities: [asteroid], previous: new Map(), dt: 1 / 60 });
+  let fixture = solver.world.m_bodyList.m_fixtureList;
+  const targets = [];
+
+  while (fixture) {
+    targets.push(fixture.getUserData().asteroidSegment);
+    fixture = fixture.m_next;
+  }
+  assert.equal(targets.length, asteroid.segments.length);
+  assert(asteroid.segments.every((segment) => targets.includes(segment)));
 }
 
 // Once an asteroid segment detaches, touching cut faces must not create an artificial

@@ -241,30 +241,18 @@ export class GameCollisions {
       this.bodies.set(entity.id, record);
     }
 
-    const colliders = entity
-      .hitbox()
-      .flatMap((collider: Collider & { colliders?: Collider[] }) =>
-        collider.colliders?.length
-          ? collider.colliders.map((nestedCollider) => ({
-              ...collider,
-              ...nestedCollider,
-              bounciness: nestedCollider.bounciness ?? collider.bounciness,
-              friction: nestedCollider.friction ?? collider.friction,
-            }))
-          : [collider],
-      )
-      .filter(
-        ({ outline, collides }) =>
-          collides !== false &&
-          (!outline ||
-            Math.abs(
-              outline.reduce((area, [x, y], index) => {
-                const next = outline[(index + 1) % outline.length];
+    const colliders = entity.hitbox().filter(
+      ({ outline, collides }) =>
+        collides !== false &&
+        (!outline ||
+          Math.abs(
+            outline.reduce((area, [x, y], index) => {
+              const next = outline[(index + 1) % outline.length];
 
-                return area + x * next[1] - next[0] * y;
-              }, 0),
-            ) > 0.1),
-      );
+              return area + x * next[1] - next[0] * y;
+            }, 0),
+          ) > 0.1),
+    );
 
     const shapes = colliders.map((collider) => {
       const offset = rotatePoint(
