@@ -42,9 +42,9 @@ export class DistanceInput {
  * Output for the distance query.
  */
 export class DistanceOutput {
-  /** closest point on shapeA */
+  // closest point on shapeA
   pointA = matrix.vec2(0, 0);
-  /** closest point on shapeB */
+  // closest point on shapeB
   pointB = matrix.vec2(0, 0);
   distance = 0;
 }
@@ -53,11 +53,11 @@ export class DistanceOutput {
  * Warm-starts the distance query. Set count to zero on the first call.
  */
 export class SimplexCache {
-  /** length or area */
+  // length or area
   metric = 0;
-  /** vertices on shape A */
+  // vertices on shape A
   indexA: number[] = [];
-  /** vertices on shape B */
+  // vertices on shape B
   indexB: number[] = [];
   count = 0;
   recycle() {
@@ -207,19 +207,19 @@ export class DistanceProxy {
 }
 
 class SimplexVertex {
-  /** support point in proxyA */
+  // support point in proxyA
   wA = matrix.vec2(0, 0);
-  /** wA index */
+  // wA index
   indexA = 0;
 
-  /** support point in proxyB */
+  // support point in proxyB
   wB = matrix.vec2(0, 0);
-  /** wB index */
+  // wB index
   indexB = 0;
 
-  /** wB - wA; */
+  // wB - wA;
   w = matrix.vec2(0, 0);
-  /** barycentric coordinate for closest point */
+  // barycentric coordinate for closest point
   a = 0;
 
   recycle() {

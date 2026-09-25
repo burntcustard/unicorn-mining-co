@@ -52,27 +52,6 @@ export default {
     'multiline-doc-comments': {
       meta: { type: 'layout', fixable: 'whitespace' },
       create(context) {
-        // The imported physics engine retains its upstream JSDoc layout.
-        const filename = context.physicalFilename.replaceAll('\\', '/');
-        const physicsCollisionFiles = new Set([
-          'time-of-impact.ts',
-          'axis-aligned-bounds.ts',
-          'dynamic-tree.ts',
-          'outer-edges.ts',
-          'collision-shape.ts',
-          'broad-phase.ts',
-          'contact-manifold.ts',
-          'shape-distance.ts',
-        ]);
-        const collisionFile = filename.split('/src/shared/collision/')[1];
-        const importedPhysics =
-          /\/src\/shared\/(?:common|dynamics)\//.test(filename) ||
-          (collisionFile &&
-            (collisionFile.startsWith('shape/') ||
-              physicsCollisionFiles.has(collisionFile)));
-
-        if (importedPhysics) return {};
-
         return {
           Program(node) {
             for (const comment of node.comments) {
@@ -89,16 +68,17 @@ export default {
               context.report({
                 node: comment,
                 message:
-                  'Start documentation comments with /** followed by a newline, or use //.',
+                  'Use // for single-line comments, or start documentation comments with /** followed by a newline.',
                 fix: (fixer) => {
                   if (source.includes('\n')) return null;
-                  const indentation = ' '.repeat(comment.loc.start.column);
+                  const restOfLine = context.sourceCode.text
+                    .slice(comment.range[1])
+                    .split(/\r?\n/, 1)[0];
+
+                  if (restOfLine.trim()) return null;
                   const content = source.slice(3, -2).trim();
 
-                  return fixer.replaceTextRange(
-                    comment.range,
-                    `/**\n${indentation} * ${content}\n${indentation} */`,
-                  );
+                  return fixer.replaceTextRange(comment.range, `// ${content}`);
                 },
               });
             }

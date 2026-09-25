@@ -99,12 +99,39 @@ try {
   );
   assert.equal(
     readFileSync(commentFile, 'utf8'),
-    '/**\n * Compact documentation.\n */\nexport const value = 1;\n',
+    '// Compact documentation.\nexport const value = 1;\n',
   );
   assert.equal(
     lint({ config: '.oxlintrc.json', target: commentFile }).status,
     0,
   );
+  writeFileSync(
+    commentFile,
+    'export class Sweep {\n  /** World angle */\n  a = 0;\n}\n',
+  );
+  assert.equal(
+    lint({ config: '.oxlintrc.json', target: commentFile }).status,
+    1,
+  );
+  assert.equal(
+    lint({ config: '.oxlint-format.json', fix: true, target: commentFile })
+      .status,
+    0,
+  );
+  assert.equal(
+    readFileSync(commentFile, 'utf8'),
+    'export class Sweep {\n  // World angle\n  a = 0;\n}\n',
+  );
+  const inlineDocumentation =
+    'export const first = 1; /** Keep this code */ export const second = 2;\n';
+
+  writeFileSync(commentFile, inlineDocumentation);
+  assert.equal(
+    lint({ config: '.oxlint-format.json', fix: true, target: commentFile })
+      .status,
+    1,
+  );
+  assert.equal(readFileSync(commentFile, 'utf8'), inlineDocumentation);
   writeFileSync(
     commentFile,
     '// Short documentation.\nexport const value = 1;\n',

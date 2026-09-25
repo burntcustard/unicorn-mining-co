@@ -192,11 +192,11 @@ export class Contact {
   // Nodes for connecting bodies.
   m_toiCount = 0;
   // This contact has a valid TOI in m_toi
-  /** This contact can be disabled (by user) */
+  // This contact can be disabled (by user)
   m_enabledFlag = true;
-  /** Used when crawling contact graph when forming islands. */
+  // Used when crawling contact graph when forming islands.
   m_islandFlag = false;
-  /** Set when the shapes are touching. */
+  // Set when the shapes are touching.
   m_touchingFlag = false;
 
   // VelocityConstraint

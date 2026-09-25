@@ -100,9 +100,7 @@ export class Ship extends Craft {
 
   repairCost(mount?: Mount) {
     if (!mount) return this.hullMaxHealth - (this.hullHealthTotal | 0);
-    return mount.module
-      ? mount.module.health - ((mount.health ?? 0) | 0)
-      : 0;
+    return mount.module ? mount.module.health - ((mount.health ?? 0) | 0) : 0;
   }
 
   /**

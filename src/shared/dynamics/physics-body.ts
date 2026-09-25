@@ -69,9 +69,9 @@ export class Body {
   m_next: Body | null;
   m_destroyed: boolean;
 
-  /** the body origin transform */
+  // the body origin transform
   m_xf: Transform;
-  /** the swept motion for CCD */
+  // the swept motion for CCD
   m_sweep: Sweep;
   // position and velocity correction
   constructor(world: World, def: BodyDef) {
@@ -281,7 +281,9 @@ export class Body {
     return true;
   }
 
-  /** Attach a fixture and create its broad-phase proxy. */
+  /**
+   * Attach a fixture and create its broad-phase proxy.
+   */
   _addFixture(fixture: Fixture): Fixture {
     if (this.isWorldLocked()) {
       return null;
@@ -299,7 +301,9 @@ export class Body {
     return fixture;
   }
 
-  /** Attach a shape to this body for collision detection and response. */
+  /**
+   * Attach a shape to this body for collision detection and response.
+   */
   createFixture(shape: Shape, definition: FixtureOpt): Fixture {
     if (this.isWorldLocked()) {
       return null;

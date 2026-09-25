@@ -23,16 +23,16 @@ const temp = matrix.vec2(0, 0);
  * of mass position.
  */
 export class Sweep {
-  /** Local center of mass position */
+  // Local center of mass position
   localCenter = Vec2.zero();
 
-  /** World center position */
+  // World center position
   c = Vec2.zero();
 
-  /** World angle */
+  // World angle
   a = 0;
 
-  /** Fraction of the current time step in the range [0,1], c0 and a0 are c and a at alpha0. */
+  // Fraction of the current time step in the range [0,1], c0 and a0 are c and a at alpha0.
   alpha0 = 0;
 
   c0 = Vec2.zero();

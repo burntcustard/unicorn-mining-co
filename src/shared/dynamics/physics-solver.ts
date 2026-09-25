@@ -31,9 +31,9 @@ const maxRotation = 0.5 * Math.PI;
 const maxRotationSquared = maxRotation * maxRotation;
 
 export class TimeStep {
-  /** time step */
+  // time step
   dt = 0;
-  /** inverse time step (0 if dt == 0) */
+  // inverse time step (0 if dt == 0)
   inv_dt = 0;
   velocityIterations = 0;
   positionIterations = 0;

@@ -1,6 +1,8 @@
 import { type Outline } from './types';
 
-/** Mark outside polygon edges and return groups connected by shared edges. */
+/**
+ * Mark outside polygon edges and return groups connected by shared edges.
+ */
 export const outerEdges = (outlines: Outline[]) => {
   // oxlint-disable-next-line typescript/require-array-sort-compare -- Endpoint strings canonicalize an undirected edge.
   const edge = (from: number[], to: number[]) => String([from, to].sort());

@@ -37,9 +37,9 @@ export interface FixtureOpt {
    * Restitution contribution; contact mixing permits damping and bounce above 1.
    */
   restitution?: number;
-  /** Whether collisions involving this fixture apply physical response. */
+  // Whether collisions involving this fixture apply physical response.
   physics?: boolean;
-  /** Styling for dev-tools. */
+  // Styling for dev-tools.
 }
 
 /**
@@ -97,7 +97,9 @@ export class Fixture {
     return this.m_shape;
   }
 
-  /** Whether this fixture participates in physical response. */
+  /**
+   * Whether this fixture participates in physical response.
+   */
   hasPhysics(): boolean {
     return this.m_physics;
   }

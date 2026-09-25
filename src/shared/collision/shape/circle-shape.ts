@@ -20,7 +20,7 @@ import { DistanceProxy } from '../shape-distance';
 
 const temp = matrix.vec2(0, 0);
 
-/** Circle shape. */
+// Circle shape.
 export class CircleShape extends Shape {
   declare m_type: 'circle';
   m_p: Vec2;

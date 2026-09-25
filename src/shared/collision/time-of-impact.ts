@@ -29,11 +29,11 @@ export interface TOIInput {
   proxyB: DistanceProxy;
   sweepA: Sweep;
   sweepB: Sweep;
-  /** Defines the sweep interval [0, tMax]. */
+  // Defines the sweep interval [0, tMax].
   tMax: number;
 }
 
-/** Output parameters for the time-of-impact query. */
+// Output parameters for the time-of-impact query.
 export interface TOIOutput {
   touching: boolean;
   t: number;

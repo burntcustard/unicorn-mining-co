@@ -78,10 +78,10 @@ export class Manifold {
    */
   localPoint = matrix.vec2(0, 0);
 
-  /** The points of contact */
+  // The points of contact
   points: ManifoldPoint[] = [new ManifoldPoint(), new ManifoldPoint()];
 
-  /** The number of manifold points */
+  // The number of manifold points
   pointCount = 0;
 
   set(that: Manifold): void {
@@ -257,16 +257,16 @@ export class ContactID {
    */
   key = -1;
 
-  /** ContactFeature index on shapeA */
+  // ContactFeature index on shapeA
   indexA = -1;
 
-  /** ContactFeature index on shapeB */
+  // ContactFeature index on shapeB
   indexB = -1;
 
-  /** ContactFeature type on shapeA */
+  // ContactFeature type on shapeA
   typeA: ContactFeatureType | -1 = -1;
 
-  /** ContactFeature type on shapeB */
+  // ContactFeature type on shapeB
   typeB: ContactFeatureType | -1 = -1;
 
   setFeatures(
@@ -319,16 +319,16 @@ export class ContactID {
  * This is used to compute the current state of a contact manifold.
  */
 export class WorldManifold {
-  /** World vector pointing from A to B */
+  // World vector pointing from A to B
   normal = matrix.vec2(0, 0);
 
-  /** World contact point (point of intersection) */
+  // World contact point (point of intersection)
   points = [matrix.vec2(0, 0), matrix.vec2(0, 0)]; // [maxManifoldPoints]
 
-  /** A negative value indicates overlap, in meters */
+  // A negative value indicates overlap, in meters
   separations = [0, 0]; // [maxManifoldPoints]
 
-  /** The number of manifold points */
+  // The number of manifold points
   pointCount = 0;
 
   recycle() {

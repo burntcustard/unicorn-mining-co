@@ -23,7 +23,7 @@ export interface TransformValue {
   q: RotValue;
 }
 
-/** Position and rotation of a collider in the solver. */
+// Position and rotation of a collider in the solver.
 export class Transform implements TransformValue {
   p = Vec2.zero();
   q: RotValue = { s: 0, c: 1 };

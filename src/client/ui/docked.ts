@@ -273,15 +273,8 @@ export const back = (ship: Ship): void => {
  */
 export const confirmSelection = (ship: Ship) => {
   playSound(8);
-  const {
-    mount,
-    menu,
-    currentModule,
-    actions,
-    swatches,
-    hullMenu,
-    cargoMenu,
-  } = selectionOf(ship);
+  const { mount, menu, currentModule, actions, swatches, hullMenu, cargoMenu } =
+    selectionOf(ship);
 
   if (stage < 2) {
     if ((stage ? moduleOption : mountOption) === menu.length) return back(ship);

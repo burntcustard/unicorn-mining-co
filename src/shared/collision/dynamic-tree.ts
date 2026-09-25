@@ -24,13 +24,13 @@ export type DynamicTreeQueryCallback = (nodeId: number) => boolean;
  */
 export class TreeNode<T> {
   id: number;
-  /** Enlarged AABB */
+  // Enlarged AABB
   aabb: AABB = new AABB();
   userData: T = null;
   parent: TreeNode<T> = null;
   child1: TreeNode<T> = null;
   child2: TreeNode<T> = null;
-  /** 0: leaf, -1: free node */
+  // 0: leaf, -1: free node
   height = -1;
 
   constructor(id?: number) {

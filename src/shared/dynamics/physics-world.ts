@@ -47,7 +47,9 @@ export class World {
     return this.m_locked;
   }
 
-  /** Add a body to the world's linked list. */
+  /**
+   * Add a body to the world's linked list.
+   */
   _addBody(body: Body): void {
     if (this.isLocked()) {
       return;

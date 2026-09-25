@@ -171,7 +171,9 @@ export class PolygonShape extends Shape {
     this.m_centroid = computeCentroid(this.m_vertices, m);
   }
 
-  /** Fallback shape for degenerate input. */
+  /**
+   * Fallback shape for degenerate input.
+   */
   _setAsBox(hx: number, hy: number): void {
     // start with right-bottom, counter-clockwise, as in Gift wrapping algorithm in PolygonShape._set()
     this.m_vertices[0] = Vec2.neo(hx, -hy);

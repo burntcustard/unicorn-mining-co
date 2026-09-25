@@ -527,7 +527,9 @@ await waitUntil({
 
 // Repairs must reach the authoritative ship, charge once, and appear in its
 // next snapshot. A stale module ID cannot repair a different fitted module.
-const repairMountIndex = authoritativeShip.mounts.findIndex(({ module }) => module);
+const repairMountIndex = authoritativeShip.mounts.findIndex(
+  ({ module }) => module,
+);
 
 assert(repairMountIndex >= 0);
 const repairMount = authoritativeShip.mounts[repairMountIndex];

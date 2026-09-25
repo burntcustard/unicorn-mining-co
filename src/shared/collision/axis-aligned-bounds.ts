@@ -12,13 +12,13 @@
 
 import { Vec2, Vec2Value } from '../vector';
 
-/** Axis-aligned bounding box */
+// Axis-aligned bounding box
 export interface AABBValue {
   lowerBound: Vec2Value;
   upperBound: Vec2Value;
 }
 
-/** Axis-aligned bounding box */
+// Axis-aligned bounding box
 export class AABB {
   lowerBound: Vec2;
   upperBound: Vec2;
