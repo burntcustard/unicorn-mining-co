@@ -10,34 +10,29 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../common/physics-matrix';
-import { ShapeType } from '../collision/collision-shape';
-import { TransformValue } from '../common/physics-transform';
-import { Mat22 } from '../common/matrix-2x2';
+import * as matrix from '../vector-math';
+import { ShapeType } from '../collision/shape/base';
+import { TransformValue } from '../vector-math';
 import { contactSpeedThreshold, linearSlop } from '../settings';
 import {
   Manifold,
   type ManifoldType,
   WorldManifold,
 } from '../collision/contact-manifold';
-import { Fixture } from './collision-fixture';
-import { Body } from './physics-body';
-import { TimeStep } from './physics-solver';
+import { Fixture } from './fixture';
+import { Body } from './body';
 import { Pool } from '../utilities/object-pool';
-import type { Vec2Value } from '../vector';
+import { Vec2, type Vec2Value } from '../vector';
 
-/* Contact transform adapted from Planck Position.ts; MIT licensed. */
-function getTransform(
-  xf: TransformValue,
-  p: Vec2Value,
-  c: Vec2Value,
-  angle: number,
-): TransformValue {
+class Mat22 {
+  ex = Vec2.zero();
+  ey = Vec2.zero();
+}
+
+function getTransform(xf: TransformValue, c: Vec2Value, angle: number): void {
   xf.q.c = Math.cos(angle);
   xf.q.s = Math.sin(angle);
-  xf.p.x = c.x - (xf.q.c * p.x - xf.q.s * p.y);
-  xf.p.y = c.y - (xf.q.s * p.x + xf.q.c * p.y);
-  return xf;
+  matrix.copyVec2(xf.p, c);
 }
 
 const contactPool = new Pool<Contact>({
@@ -80,25 +75,6 @@ export type EvaluateFunction = (
   fixtureB: Fixture,
 ) => void;
 
-/**
- * Friction mixing law. The idea is to allow either fixture to drive the
- * friction to zero. For example, anything slides on ice.
- */
-export function mixFriction(friction1: number, friction2: number): number {
-  return Math.sqrt(friction1 * friction2);
-}
-
-/**
- * Average both material contributions, retaining damping and exaggerated
- * values before the final nonnegative clamp.
- */
-export function mixRestitution(
-  restitution1: number,
-  restitution2: number,
-): number {
-  return Math.max(0, (restitution1 + restitution2) / 2);
-}
-
 const s_registers: Record<string, Record<string, EvaluateFunction>> = {};
 
 export class VelocityConstraintPoint {
@@ -109,16 +85,6 @@ export class VelocityConstraintPoint {
   normalMass = 0;
   tangentMass = 0;
   velocityBias = 0;
-
-  recycle() {
-    matrix.zeroVec2(this.rA);
-    matrix.zeroVec2(this.rB);
-    this.normalImpulse = 0;
-    this.tangentImpulse = 0;
-    this.normalMass = 0;
-    this.tangentMass = 0;
-    this.velocityBias = 0;
-  }
 }
 
 const cA = matrix.vec2(0, 0);
@@ -163,8 +129,6 @@ export class Contact {
   p_localPoints = [matrix.vec2(0, 0), matrix.vec2(0, 0)]; // [maxManifoldPoints];
   p_localNormal = matrix.vec2(0, 0);
   p_localPoint = matrix.vec2(0, 0);
-  p_localCenterA = matrix.vec2(0, 0);
-  p_localCenterB = matrix.vec2(0, 0);
   m_fixtureA: Fixture | null = null;
   m_fixtureB: Fixture | null = null;
   m_evaluateFcn: EvaluateFunction | null = null;
@@ -176,19 +140,13 @@ export class Contact {
   m_restitution = 0;
   m_surfaceSpeed = 0;
   v_pointCount = 0;
-  v_friction = 0;
-  v_restitution = 0;
-  v_invMassA = 0;
-  v_invMassB = 0;
-  v_invIA = 0;
+  invMassA = 0;
+  invMassB = 0;
+  invIA = 0;
   p_type: ManifoldType = undefined;
   p_radiusA = 0;
   p_radiusB = 0;
   p_pointCount = 0;
-  p_invMassA = 0;
-  p_invMassB = 0;
-  p_invIA = 0;
-  p_invIB = 0;
   // Nodes for connecting bodies.
   m_toiCount = 0;
   // This contact has a valid TOI in m_toi
@@ -201,7 +159,7 @@ export class Contact {
 
   // VelocityConstraint
   v_points = [new VelocityConstraintPoint(), new VelocityConstraintPoint()]; // [maxManifoldPoints];
-  v_invIB = 0;
+  invIB = 0;
 
   // PositionConstraint
   initialize(fA: Fixture, fB: Fixture, evaluateFcn: EvaluateFunction) {
@@ -209,15 +167,6 @@ export class Contact {
     this.m_fixtureB = fB;
 
     this.m_evaluateFcn = evaluateFcn;
-
-    this.m_friction = mixFriction(
-      this.m_fixtureA.m_friction,
-      this.m_fixtureB.m_friction,
-    );
-    this.m_restitution = mixRestitution(
-      this.m_fixtureA.m_restitution,
-      this.m_fixtureB.m_restitution,
-    );
   }
   recycle() {
     this.m_nodeA.recycle();
@@ -237,77 +186,29 @@ export class Contact {
     this.m_enabledFlag = true;
     this.m_islandFlag = false;
     this.m_touchingFlag = false;
-
-    // VelocityConstraint
-    for (const point of this.v_points) {
-      point.recycle();
-    }
-    matrix.zeroVec2(this.v_normal);
-    this.v_normalMass.setZero();
-    this.v_K.setZero();
-    this.v_pointCount = 0;
-    this.v_friction = 0;
-    this.v_restitution = 0;
-    this.v_invMassA = 0;
-    this.v_invMassB = 0;
-    this.v_invIA = 0;
-    this.v_invIB = 0;
-
-    // PositionConstraint
-    for (const point of this.p_localPoints) {
-      matrix.zeroVec2(point);
-    }
-    matrix.zeroVec2(this.p_localNormal);
-    matrix.zeroVec2(this.p_localPoint);
-    matrix.zeroVec2(this.p_localCenterA);
-    matrix.zeroVec2(this.p_localCenterB);
-    this.p_type = undefined;
-    this.p_radiusA = 0;
-    this.p_radiusB = 0;
-    this.p_pointCount = 0;
-    this.p_invMassA = 0;
-    this.p_invMassB = 0;
-    this.p_invIA = 0;
-    this.p_invIB = 0;
+    // Solver fields are refreshed by initConstraint before this contact is solved.
   }
 
   initConstraint(): void {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return;
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
 
-    if (bodyA === null || bodyB === null) return;
     const shapeA = fixtureA.m_shape;
     const shapeB = fixtureB.m_shape;
-
-    if (shapeA === null || shapeB === null) return;
 
     const manifold = this.m_manifold;
 
     const pointCount = manifold.pointCount;
 
-    this.v_invMassA = bodyA.m_invMass;
-    this.v_invMassB = bodyB.m_invMass;
-    this.v_invIA = bodyA.m_invI;
-    this.v_invIB = bodyB.m_invI;
-
-    this.v_friction = this.m_friction;
-    this.v_restitution = this.m_restitution;
+    this.invMassA = bodyA.m_invMass;
+    this.invMassB = bodyB.m_invMass;
+    this.invIA = bodyA.m_invI;
+    this.invIB = bodyB.m_invI;
 
     this.v_pointCount = pointCount;
-
-    this.v_K.setZero();
-    this.v_normalMass.setZero();
-
-    this.p_invMassA = bodyA.m_invMass;
-    this.p_invMassB = bodyB.m_invMass;
-    this.p_invIA = bodyA.m_invI;
-    this.p_invIB = bodyB.m_invI;
-    matrix.copyVec2(this.p_localCenterA, bodyA.m_sweep.localCenter);
-    matrix.copyVec2(this.p_localCenterB, bodyB.m_sweep.localCenter);
 
     this.p_radiusA = shapeA.m_radius;
     this.p_radiusB = shapeB.m_radius;
@@ -317,15 +218,12 @@ export class Contact {
     matrix.copyVec2(this.p_localPoint, manifold.localPoint);
     this.p_pointCount = pointCount;
 
-    for (let j = 0; j < this.v_points.length; ++j) {
-      this.v_points[j].recycle();
-      matrix.zeroVec2(this.p_localPoints[j]);
-    }
-
     for (let j = 0; j < pointCount; ++j) {
-      const cp = manifold.points[j];
+      const point = this.v_points[j];
 
-      matrix.copyVec2(this.p_localPoints[j], cp.localPoint);
+      point.normalImpulse = 0;
+      point.tangentImpulse = 0;
+      matrix.copyVec2(this.p_localPoints[j], manifold.points[j].localPoint);
     }
   }
 
@@ -338,15 +236,11 @@ export class Contact {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return;
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
 
-    if (bodyA === null || bodyB === null) return;
     const shapeA = fixtureA.m_shape;
     const shapeB = fixtureB.m_shape;
-
-    if (shapeA === null || shapeB === null) return;
 
     return this.m_manifold.getWorldManifold(
       worldManifold,
@@ -402,8 +296,7 @@ export class Contact {
   }
 
   /**
-   * Override the default friction mixture. You can call this in
-   * the pre-solve callback for this contact.
+   * Set contact friction before the solver builds velocity constraints.
    */
   setFriction(friction: number): void {
     this.m_friction = friction;
@@ -417,8 +310,7 @@ export class Contact {
   }
 
   /**
-   * Override the default restitution mixture. You can call this in
-   * the pre-solve callback for this contact.
+   * Set contact restitution before the solver builds velocity constraints.
    */
   setRestitution(restitution: number): void {
     this.m_restitution = restitution;
@@ -442,7 +334,6 @@ export class Contact {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return;
     this.m_evaluateFcn(manifold, xfA, fixtureA, xfB, fixtureB);
   }
 
@@ -457,21 +348,11 @@ export class Contact {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return;
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
 
-    if (bodyA === null || bodyB === null) return;
-    const shapeA = fixtureA.m_shape;
-    const shapeB = fixtureB.m_shape;
-
-    if (shapeA === null || shapeB === null) return;
-
     // Re-enable this contact.
     this.m_enabledFlag = true;
-
-    let touching = false;
-    const wasTouching = this.m_touchingFlag;
 
     const xfA = bodyA.m_xf;
     const xfB = bodyB.m_xf;
@@ -479,12 +360,7 @@ export class Contact {
     this.m_manifold.recycle();
 
     this.evaluate(this.m_manifold, xfA, xfB);
-    touching = this.m_manifold.pointCount > 0;
-
-    if (touching !== wasTouching) {
-      bodyA.setAwake(true);
-      bodyB.setAwake(true);
-    }
+    const touching = this.m_manifold.pointCount > 0;
 
     this.m_touchingFlag = touching;
 
@@ -509,32 +385,26 @@ export class Contact {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return minSeparation;
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
 
-    if (bodyA === null || bodyB === null) return minSeparation;
-
     const positionA = bodyA.c_position;
     const positionB = bodyB.c_position;
-
-    const localCenterA = this.p_localCenterA;
-    const localCenterB = this.p_localCenterB;
 
     let mA = 0;
     let iA = 0;
 
     if (!toi || bodyA === toiA || bodyA === toiB) {
-      mA = this.p_invMassA;
-      iA = this.p_invIA;
+      mA = this.invMassA;
+      iA = this.invIA;
     }
 
     let mB = 0;
     let iB = 0;
 
     if (!toi || bodyB === toiA || bodyB === toiB) {
-      mB = this.p_invMassB;
-      iB = this.p_invIB;
+      mB = this.invMassB;
+      iB = this.invIB;
     }
 
     matrix.copyVec2(cA, positionA.c);
@@ -545,8 +415,8 @@ export class Contact {
 
     // Solve normal constraints
     for (let j = 0; j < this.p_pointCount; ++j) {
-      getTransform(xfA, localCenterA, cA, aA);
-      getTransform(xfB, localCenterB, cB, aB);
+      getTransform(xfA, cA, aA);
+      getTransform(xfB, cB, aB);
 
       // PositionSolverManifold
       let separation: number;
@@ -642,15 +512,12 @@ export class Contact {
     return minSeparation;
   }
 
-  initVelocityConstraint(step: TimeStep): void {
+  initVelocityConstraint(): void {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return;
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
-
-    if (bodyA === null || bodyB === null) return;
 
     const velocityA = bodyA.c_velocity;
     const velocityB = bodyB.c_velocity;
@@ -662,12 +529,10 @@ export class Contact {
     const radiusB = this.p_radiusB;
     const manifold = this.m_manifold;
 
-    const mA = this.v_invMassA;
-    const mB = this.v_invMassB;
-    const iA = this.v_invIA;
-    const iB = this.v_invIB;
-    const localCenterA = this.p_localCenterA;
-    const localCenterB = this.p_localCenterB;
+    const mA = this.invMassA;
+    const mB = this.invMassB;
+    const iA = this.invIA;
+    const iB = this.invIB;
 
     matrix.copyVec2(cA, positionA.c);
     const aA = positionA.a;
@@ -681,8 +546,8 @@ export class Contact {
     matrix.copyVec2(vB, velocityB.v);
     const wB = velocityB.w;
 
-    getTransform(xfA, localCenterA, cA, aA);
-    getTransform(xfB, localCenterB, cB, aB);
+    getTransform(xfA, cA, aA);
+    getTransform(xfB, cB, aB);
 
     worldManifold.recycle();
     manifold.getWorldManifold(worldManifold, xfA, radiusA, xfB, radiusB);
@@ -701,7 +566,7 @@ export class Contact {
 
       const kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
 
-      vcp.normalMass = kNormal > 0 ? 1 / kNormal : 0;
+      vcp.normalMass = 1 / kNormal;
 
       matrix.crossVec2Num(tangent, this.v_normal, 1);
 
@@ -710,7 +575,7 @@ export class Contact {
 
       const kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
 
-      vcp.tangentMass = kTangent > 0 ? 1 / kTangent : 0;
+      vcp.tangentMass = 1 / kTangent;
 
       // A growing surface separates bodies even when their centres are still.
       vcp.velocityBias = 0;
@@ -733,12 +598,12 @@ export class Contact {
       }
 
       if (vRel < -contactSpeedThreshold) {
-        vcp.velocityBias -= this.v_restitution * vRel;
+        vcp.velocityBias -= this.m_restitution * vRel;
       }
     }
 
     // If we have two points, then prepare the block solver.
-    if (this.v_pointCount === 2 && step.blockSolve) {
+    if (this.v_pointCount === 2) {
       const vcp1 = this.v_points[0]; // VelocityConstraintPoint
       const vcp2 = this.v_points[1]; // VelocityConstraintPoint
 
@@ -762,11 +627,8 @@ export class Contact {
         const b = this.v_K.ey.x;
         const c = this.v_K.ex.y;
         const d = this.v_K.ey.y;
-        let det = a * d - b * c;
+        const det = 1 / (a * d - b * c);
 
-        if (det !== 0) {
-          det = 1 / det;
-        }
         this.v_normalMass.ex.x = det * d;
         this.v_normalMass.ey.x = -det * b;
         this.v_normalMass.ex.y = -det * c;
@@ -788,24 +650,21 @@ export class Contact {
     velocityB.w = wB;
   }
 
-  solveVelocityConstraint(step: TimeStep): void {
+  solveVelocityConstraint(): void {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return;
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
-
-    if (bodyA === null || bodyB === null) return;
 
     const velocityA = bodyA.c_velocity;
 
     const velocityB = bodyB.c_velocity;
 
-    const mA = this.v_invMassA;
-    const iA = this.v_invIA;
-    const mB = this.v_invMassB;
-    const iB = this.v_invIB;
+    const mA = this.invMassA;
+    const iA = this.invIA;
+    const mB = this.invMassB;
+    const iB = this.invIB;
 
     matrix.copyVec2(vA, velocityA.v);
     let wA = velocityA.w;
@@ -815,7 +674,7 @@ export class Contact {
 
     matrix.copyVec2(normal, this.v_normal);
     matrix.crossVec2Num(tangent, normal, 1);
-    const friction = this.v_friction;
+    const friction = this.m_friction;
 
     // Solve tangent constraints first because non-penetration is more important
     // than friction.
@@ -854,7 +713,7 @@ export class Contact {
     }
 
     // Solve normal constraints
-    if (this.v_pointCount === 1 || !step.blockSolve) {
+    if (this.v_pointCount === 1) {
       for (let i = 0; i < this.v_pointCount; ++i) {
         const vcp = this.v_points[i]; // VelocityConstraintPoint
 
@@ -1175,23 +1034,14 @@ export class Contact {
     }
     bodyB.m_contactList = contact.m_nodeB;
 
-    // Wake up the bodies
-    if (fixtureA.hasPhysics() && fixtureB.hasPhysics()) {
-      bodyA.setAwake(true);
-      bodyB.setAwake(true);
-    }
-
     return contact;
   }
   static destroy(contact: Contact): void {
     const fixtureA = contact.m_fixtureA;
     const fixtureB = contact.m_fixtureB;
 
-    if (fixtureA === null || fixtureB === null) return;
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
-
-    if (bodyA === null || bodyB === null) return;
 
     // Remove from body 1
     if (contact.m_nodeA.prev) {
@@ -1217,15 +1067,6 @@ export class Contact {
 
     if (contact.m_nodeB === bodyB.m_contactList) {
       bodyB.m_contactList = contact.m_nodeB.next;
-    }
-
-    if (
-      contact.m_manifold.pointCount > 0 &&
-      fixtureA.m_physics &&
-      fixtureB.m_physics
-    ) {
-      bodyA.setAwake(true);
-      bodyB.setAwake(true);
     }
 
     contactPool.release(contact);

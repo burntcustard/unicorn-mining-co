@@ -10,22 +10,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from './physics-matrix';
+import * as matrix from '../vector-math';
 import { Vec2 } from '../vector';
-import { TransformValue } from './physics-transform';
-
-const temp = matrix.vec2(0, 0);
+import { TransformValue } from '../vector-math';
 
 /**
- * This describes the motion of a body/shape for TOI computation. Shapes are
- * defined with respect to the body origin, which may not coincide with the
- * center of mass. However, to support dynamics we must interpolate the center
- * of mass position.
+ * This describes body motion for TOI computation. Game-object mass is centered
+ * at the body origin, so the swept position is the body's transform position.
  */
 export class Sweep {
-  // Local center of mass position
-  localCenter = Vec2.zero();
-
   // World center position
   c = Vec2.zero();
 
@@ -38,9 +31,8 @@ export class Sweep {
   c0 = Vec2.zero();
   a0 = 0;
   setTransform(xf: TransformValue): void {
-    matrix.transformVec2(temp, xf, this.localCenter);
-    matrix.copyVec2(this.c, temp);
-    matrix.copyVec2(this.c0, temp);
+    matrix.copyVec2(this.c, xf.p);
+    matrix.copyVec2(this.c0, xf.p);
 
     this.a = this.a0 = Math.atan2(xf.q.s, xf.q.c);
   }
@@ -51,12 +43,9 @@ export class Sweep {
    * @param xf
    * @param beta A factor in [0,1], where 0 indicates alpha0
    */
-  getTransform(xf: TransformValue, beta = 0): void {
+  getTransform(xf: TransformValue, beta: number): void {
     matrix.setRotAngle(xf.q, (1 - beta) * this.a0 + beta * this.a);
     matrix.combine2Vec2(xf.p, 1 - beta, this.c0, beta, this.c);
-
-    // shift to origin
-    matrix.minusVec2(xf.p, matrix.rotVec2(temp, xf.q, this.localCenter));
   }
 
   /**
@@ -84,7 +73,6 @@ export class Sweep {
   }
 
   set(that: Sweep): void {
-    matrix.copyVec2(this.localCenter, that.localCenter);
     matrix.copyVec2(this.c, that.c);
     this.a = that.a;
     this.alpha0 = that.alpha0;

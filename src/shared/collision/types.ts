@@ -1,9 +1,7 @@
 import { type Vector } from '../vector';
 import { type GameObject } from '../game-object';
-import { type Segment } from '../types';
+import { type Outline, type Segment } from '../types';
 import { type AsteroidSegment } from '../protocol/entities';
-
-export type Outline = number[][] & { edges?: boolean[] };
 
 export type Collider = {
   bounciness?: number;

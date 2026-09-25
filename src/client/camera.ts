@@ -20,7 +20,10 @@ let dockedTo: GameObject | number | undefined;
 let dockEase: ReturnType<typeof ease>;
 let dockTo = Vector();
 
-export const centerCamera = (game: GameState, target: GameObject) => {
+export const centerCamera = (
+  game: GameState,
+  target: Pick<GameObject, 'position'>,
+) => {
   camera.set(target.position.subtract(Vector(game.width / 2, game.height / 2)));
 };
 

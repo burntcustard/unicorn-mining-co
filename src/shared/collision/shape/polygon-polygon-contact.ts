@@ -10,8 +10,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { TransformValue } from '../../common/physics-transform';
-import * as matrix from '../../common/physics-matrix';
+import { TransformValue } from '../../vector-math';
+import * as matrix from '../../vector-math';
 import { linearSlop } from '../../settings';
 import {
   Manifold,
@@ -20,9 +20,9 @@ import {
   faceFeature,
   vertexFeature,
 } from '../contact-manifold';
-import { Contact } from '../../dynamics/collision-contact';
+import { Contact } from '../../physics/contact';
 import { PolygonShape } from './polygon-shape';
-import { Fixture } from '../../dynamics/collision-fixture';
+import { Fixture } from '../../physics/fixture';
 
 const incidentEdge = [new ClipVertex(), new ClipVertex()];
 const clipPoints1 = [new ClipVertex(), new ClipVertex()];

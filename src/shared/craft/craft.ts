@@ -5,8 +5,8 @@ import { movePoint, outlineExtent, rotatePoint, shapeOf } from '../geometry';
 import { GameObject } from '../game-object';
 import { colors, shadesOf } from '../colors';
 import { Vector, type Vector as VectorValue } from '../vector';
-import { applyForce } from '../simulation/apply-force';
-import { outerEdges } from '../collision/outer-edges';
+import { applyForce } from '../physics/apply-force';
+import { outerEdges } from '../polygon';
 import { type Collider } from '../collision/types';
 import { cargoContactAllowed } from '../modules/cargo-hatch';
 import { Module } from '../modules/module';
@@ -577,13 +577,11 @@ export class Craft extends GameObject {
         object.position.set(this.position);
         object.velocity.set(this.velocity);
 
-        if (object.mass > 0) {
-          applyForce(
-            object,
-            movePoint(Vector(), this.random.next() * Math.PI * 2, 30),
-            this.random.next() - 0.5,
-          );
-        }
+        applyForce(
+          object,
+          movePoint(Vector(), this.random.next() * Math.PI * 2, 30),
+          this.random.next() - 0.5,
+        );
         object.add();
       });
       this.remove();

@@ -11,11 +11,11 @@
  */
 
 import { BroadPhase } from '../collision/broad-phase';
-import { Solver, TimeStep } from './physics-solver';
-import { Body, BodyDef } from './physics-body';
-import { Contact } from './collision-contact';
+import { Solver, TimeStep } from './solver';
+import { Body } from './body';
+import { Contact } from './contact';
 
-import { FixtureProxy } from './collision-fixture';
+import { FixtureProxy } from './fixture';
 
 /**
  * Owns rigid bodies, contacts and the continuous collision solver.
@@ -66,14 +66,11 @@ export class World {
   }
 
   /**
-   * Create a rigid body given a definition. No reference to the definition is
-   * retained.
-   *
    * Bodies and fixtures are changed between physics steps.
    */
-  createBody(def: BodyDef): Body {
+  createBody(): Body {
     if (this.isLocked()) throw new Error('Cannot create a body during a step');
-    const body = new Body(this, def);
+    const body = new Body(this);
 
     this._addBody(body);
     return body;
@@ -163,10 +160,9 @@ export class World {
 
     this.m_locked = true;
 
-    this.s_step.reset(timeStep);
+    this.s_step.dt = timeStep;
     this.s_step.velocityIterations = velocityIterations;
     this.s_step.positionIterations = positionIterations;
-    this.s_step.blockSolve = true;
 
     // Update contacts. This is where some contacts are destroyed.
     this.updateContacts();
@@ -185,12 +181,8 @@ export class World {
         // Update fixtures (for broad-phase).
         b.synchronizeFixtures();
       }
-      // Look for new contacts.
+      // Look for new contacts, then handle time-of-impact events.
       this.findNewContacts();
-    }
-
-    // Handle TOI events.
-    if (timeStep > 0) {
       this.m_solver.solveWorldTOI(this.s_step);
     }
 
@@ -231,22 +223,15 @@ export class World {
         const fA = edge.contact.getFixtureA();
         const fB = edge.contact.getFixtureB();
 
-        if (fA === fixtureA && fB === fixtureB) {
-          // A contact already exists.
-          return;
-        }
-
-        if (fA === fixtureB && fB === fixtureA) {
-          // A contact already exists.
+        if (
+          (fA === fixtureA && fB === fixtureB) ||
+          (fA === fixtureB && fB === fixtureA)
+        ) {
           return;
         }
       }
 
       edge = edge.next;
-    }
-
-    if (!bodyB.shouldCollide(bodyA)) {
-      return;
     }
 
     if (!fixtureB.shouldCollide(fixtureA)) {
@@ -274,7 +259,7 @@ export class World {
    * Removes old non-overlapping contacts, applies filters and updates contacts.
    */
   updateContacts(): void {
-    // Update awake contacts.
+    // Update all contacts.
     let c: Contact;
     let next_c = this.m_contactList;
 
@@ -282,17 +267,6 @@ export class World {
       next_c = c.getNext();
       const fixtureA = c.getFixtureA();
       const fixtureB = c.getFixtureB();
-      const bodyA = fixtureA.getBody();
-      const bodyB = fixtureB.getBody();
-
-      const activeA = bodyA.isAwake();
-      const activeB = bodyB.isAwake();
-
-      // At least one body must be awake.
-      if (!activeA && !activeB) {
-        continue;
-      }
-
       const proxyIdA = fixtureA.m_proxy.proxyId;
       const proxyIdB = fixtureB.m_proxy.proxyId;
       const overlap = this.m_broadPhase.testOverlap(proxyIdA, proxyIdB);

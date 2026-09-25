@@ -10,13 +10,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../../common/physics-matrix';
-import { TransformValue } from '../../common/physics-transform';
-import { Contact } from '../../dynamics/collision-contact';
+import * as matrix from '../../vector-math';
+import { TransformValue } from '../../vector-math';
+import { Contact } from '../../physics/contact';
 import { CircleShape } from './circle-shape';
 import { PolygonShape } from './polygon-shape';
 import { Manifold, vertexFeature } from '../contact-manifold';
-import { Fixture } from '../../dynamics/collision-fixture';
+import { Fixture } from '../../physics/fixture';
 
 Contact.addType(
   PolygonShape.TYPE,
@@ -116,27 +116,17 @@ export function collidePolygonCircle(
       return;
     }
 
-    manifold.pointCount = 1;
-    manifold.type = 'faceA';
     matrix.subVec2(manifold.localNormal, cLocal, v1);
     matrix.normalizeVec2(manifold.localNormal);
     matrix.copyVec2(manifold.localPoint, v1);
-    matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
-
-    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
   } else if (u2 <= 0) {
     if (matrix.distSqrVec2(cLocal, v2) > radius * radius) {
       return;
     }
 
-    manifold.pointCount = 1;
-    manifold.type = 'faceA';
     matrix.subVec2(manifold.localNormal, cLocal, v2);
     matrix.normalizeVec2(manifold.localNormal);
     matrix.copyVec2(manifold.localPoint, v2);
-    matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
-
-    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
   } else {
     matrix.combine2Vec2(faceCenter, 0.5, v1, 0.5, v2);
     const separation =
@@ -147,12 +137,12 @@ export function collidePolygonCircle(
       return;
     }
 
-    manifold.pointCount = 1;
-    manifold.type = 'faceA';
     matrix.copyVec2(manifold.localNormal, normals[vertIndex1]);
     matrix.copyVec2(manifold.localPoint, faceCenter);
-    matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
-
-    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
   }
+
+  manifold.pointCount = 1;
+  manifold.type = 'faceA';
+  matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
+  manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
 }

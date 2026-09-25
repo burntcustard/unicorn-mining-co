@@ -31,7 +31,7 @@ const halfBay = (points: number[][], zIndex: number) => ({
 
 export class Corral extends Station {
   static localMovementRadius = 600;
-  static mass = 900;
+  static mass = 1e9;
   static zIndex = 2;
   static hullSegments = [
     ...stationGeometry.sides.map(({ opening, outline }) => ({

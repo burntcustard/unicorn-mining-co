@@ -66,9 +66,14 @@ export type ClientMessage =
       type: 'hello';
     }
   | ({ type: 'dock' } & CraftAction)
+  | { type: 'respawn' }
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | {
+      shipId: number;
+      type: 'respawn';
+    }
   | {
       playerId: number;
       playerToken: string;

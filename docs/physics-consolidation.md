@@ -166,6 +166,8 @@ value. Contact friction uses the existing geometric mean through one
 low-speed threshold remains. Existing authored bounce values were doubled to
 retain their earlier pair responses (hull/asteroid/items 0.2, shield 0.8,
 active horn drill -0.4). The inactive drill still inherits hull bounce.
+A later cleanup inlined both formulas in the game pre-solve callback and removed
+creation-time material copies from fixtures and contacts.
 
 The optional network `friction` field is sent when an object differs from its
 class default, including explicit zero. Client decoding resets an omitted
@@ -2824,3 +2826,123 @@ predicted-with-capture medians were 1.519, 1.525 and 1.525 ms versus 1.511,
 1.516 and 1.522 ms. These are within baseline variation. Keyboard behavior
 and the plain network command shape are unchanged. Browser benchmarks remain
 excluded by the user's choice.
+
+## Finite-mass collision bodies (2026-09-25)
+
+The game now gives generic loose objects, including unequipped modules, an
+item-scale mass of 6. Mounted module segments still use their craft body, and
+module wreckage still uses a separate craft body. Shape-less loose objects no
+longer create point collision fixtures; this prevents coincident dropped cargo
+from generating pairwise contacts. Current craft fracture and module detach
+paths create fragments with segments; empty hulls are removed. Corral stations
+use finite mass 1e9, making collision recoil negligible
+while leaving the existing reduced-mass damage calculation effectively
+unchanged for ship-station impacts.
+
+With all game collision bodies using positive finite mass, the solver no longer
+needs dynamic/kinematic types, type-change body recreation, or kinematic-only
+island and pair filters. The 12-module overlap regression reports zero
+contacts. Full tests, lint, formatting and production build passed. The main
+chunk fell from 48,295 to 48,185 build-reported compressed bytes in an
+isolated build with unrelated concurrent edits removed. A 37-entity shared
+simulation benchmark measured 1.692 ms per tick after the change. The
+speculative six-mass fallback for empty fragments was subsequently removed; it
+reduced the then-current main chunk by another two compressed bytes.
+
+## Positive-mass follow-up audit (2026-09-25)
+
+A source-wide search found no remaining dynamic/kinematic body type or
+sleep transition, and no zero-mass branch in the physics or collision path. Every game collision body is assigned its positive
+object mass when its fixtures are first synchronized. The previous body
+creation also calculated inverse mass before fixture construction, then
+calculated it again with inertia; that first calculation is gone. The cargo
+release path no longer tests whether its object's mass is positive.
+
+The solver still carried an always-true awake flag and checks on every island
+and contact traversal. These were removed. Position and velocity constraints
+also stored two copies of the same inverse mass and inverse inertia. They now
+share one set. The sweep's local center was always zero, so its offset field and
+rotation work were removed. The always-enabled block solver flag, unused
+inverse-time-step value, and reciprocal guards whose denominator must be
+positive for two finite-mass bodies were removed. The contact pool no longer
+clears solver fields on release and again before use; initialization now resets
+only the impulses for active manifold points. Reused contacts retain their
+lifecycle reset, and material response reads the contact's friction and
+restitution directly rather than copying them into constraint fields.
+
+The remaining zero values have different meanings: a body with no physical
+shape has zero inverse rotational inertia, and TOI position correction assigns
+zero _local_ inverse mass to neighboring bodies outside the primary TOI pair.
+That TOI case also requires the effective-mass guard. Nonphysical fixtures
+still report docking, cargo, and drill contacts without solver response.
+Contact flags for enabled/touching, island traversal, TOI caching, fixture
+creation, and world locking all have live callers. A zero-duration world step
+is also used for contact sampling.
+
+The main production chunk changed from 48,459 to 47,607 build-reported
+compressed bytes in this working tree, a reduction of 852 bytes. The sound and
+docked chunks remained about 1.69 and 5.41 kB raw, with no loading change.
+Across the seven edited TypeScript files, the follow-up removed 290 lines and
+added 66, including formatting. Full tests, typecheck, lint, and build passed.
+Two sequential paired runs against a temporary copy containing the exact
+pre-audit physics files measured shared-tick medians of 1.825 and 1.780 ms
+before, versus 1.784 and 1.729 ms after, with 37 entities. Predicted-tick
+medians were 2.156 and 2.110 ms before, versus 2.069 and 2.089 ms after.
+This scenario shows no simulation regression; it does not measure browser
+rendering or every collision density.
+
+## Vector math ownership and sweep location (2026-09-25)
+
+`src/shared/common` contained only three active files: vector output helpers,
+rigid transforms, and swept motion. The five scalar vector formulas now live
+with `Vec2` in `vector.ts`; its instance `dot` calls the local formula. The
+remaining allocation-free vector and transform operations, transform types,
+and `Transform` class share `vector-math.ts`. `Sweep` is now in
+`dynamics/motion-sweep.ts`, beside the body and solver that own it. The empty
+`common` directory and the unused `Vec2.setZero` method were removed. This
+reduces three helper files to two and avoids a runtime import cycle between
+`Vec2` and `Transform`.
+
+The solver still writes into plain `{x, y}` scratch values. Those values need
+out-parameter functions such as `zeroVec2` and `copyVec2`; making them `Vec2`
+methods would change allocation and call behavior. A prior measured trial of
+static `Vec2` scalar methods increased both chunk size and tick time, so the
+scalar formulas remain named functions. No loading trigger or lazy import
+changed.
+
+The build transformed 121 modules instead of 122. The main chunk fell from
+47,607 to 47,583 build-reported compressed bytes; the sound and docked chunks
+remained about 1.69 and 5.41 kB raw. The full test suite passed after moving
+the modules; typecheck, lint, formatting, and the final build passed after
+removing the unused method. Two paired shared-simulation benchmark runs of
+the old and reorganized modules overlapped: 1.763/1.765 ms per tick before and
+1.745/1.810 ms after with 37 entities. Predicted-tick medians were
+2.084/2.070 ms before and 2.113/2.081 ms after. There is no clear sustained
+change in this scenario.
+
+## Physics and collision folder ownership (2026-09-25)
+
+Renamed `shared/dynamics` to `shared/physics` and removed the redundant
+`physics-` and `collision-` prefixes from its body, world, solver, fixture,
+and contact files. The sweep moved with them. The general force application
+used by craft fracture moved from `simulation` to `physics` and now accepts a
+`GameObject` type instead of `any`. The abstract collision shape lives with
+its concrete shapes at `collision/shape/base.ts`.
+
+`collision/outer-edges.ts` was unrelated to contact detection: it marks polygon
+boundary edges and groups connected polygon pieces for craft and asteroid
+geometry. It now lives in the existing `polygon.ts`; the extra file is gone.
+`Outline` likewise has one definition in shared `types.ts`, while collider and
+contact types remain in `collision/types.ts`. The broad phase, shape distance,
+manifold, contact query, TOI, and gameplay collision adapter remain in
+`collision`. General vector math, rendering geometry, shared settings, and the
+reusable object pool keep their existing owners. Simulation movement and tier
+scheduling remain in `simulation`.
+
+The build transformed 120 modules instead of 121. The main chunk changed from
+47,583 to 47,573 build-reported compressed bytes. Sound and docked chunks
+remain about 1.69 and 5.41 kB raw, with the same loading triggers. The full
+test suite, typecheck, lint, formatting, and production build passed. Two paired 37-entity benchmark runs
+measured shared-tick medians of 1.799/1.740 ms before and 1.727/1.730 ms
+after; predicted-tick medians were 2.018/2.024 ms before and 2.014/2.043 ms
+after. The move shows no sustained slowdown in this scenario.

@@ -1,18 +1,5 @@
 import { rotatePoint } from '../geometry';
-import { type Vector } from '../vector';
 import { type GameObject } from '../game-object';
-
-export const rotateAround = (
-  parent: Pick<GameObject, 'position'>,
-  child: Pick<GameObject, 'position' | 'rotation'>,
-  offset: Vector,
-  angle: number,
-) => {
-  const point = rotatePoint(offset, angle);
-
-  child.rotation += angle;
-  child.position.set(parent.position.add(point));
-};
 
 /**
  * Local movement is whatever a child is caught up in and carried along by, on
@@ -53,16 +40,16 @@ export const localMovement = (
   child.localMovementParent = parent;
 
   if (parent) {
-    rotateAround(
-      parent,
-      child,
-      child.position.subtract(parent.position),
+    const angle =
       parent.spin *
-        dt *
-        (child.localMovementRate = Math.min(
-          1,
-          (child.localMovementRate || 0) + dt,
-        )),
-    );
+      dt *
+      (child.localMovementRate = Math.min(
+        1,
+        (child.localMovementRate || 0) + dt,
+      ));
+    const point = rotatePoint(child.position.subtract(parent.position), angle);
+
+    child.rotation += angle;
+    child.position.set(parent.position.add(point));
   }
 };

@@ -14,11 +14,35 @@
  * licence: https://github.com/straker/kontra/blob/main/src/vector.js
  */
 
-import { dotVec2 } from './common/physics-matrix';
-
 export interface Vec2Value {
   x: number;
   y: number;
+}
+
+export function crossVec2Vec2(a: Vec2Value, b: Vec2Value): number {
+  return a.x * b.y - a.y * b.x;
+}
+
+export function dotVec2(a: Vec2Value, b: Vec2Value): number {
+  return a.x * b.x + a.y * b.y;
+}
+
+export function lengthSqrVec2(a: Vec2Value): number {
+  return a.x * a.x + a.y * a.y;
+}
+
+export function distVec2(a: Vec2Value, b: Vec2Value): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+export function distSqrVec2(a: Vec2Value, b: Vec2Value): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+
+  return dx * dx + dy * dy;
 }
 
 /**
@@ -58,12 +82,6 @@ export class Vec2 implements Vec2Value {
       this.x = value.x;
       this.y = value.y;
     }
-    return this;
-  }
-
-  setZero(): this {
-    this.x = 0;
-    this.y = 0;
     return this;
   }
 
@@ -124,14 +142,6 @@ export class Vec2 implements Vec2Value {
 
   static crossVec2Num(value: Vec2Value, amount: number) {
     return Vec2.neo(amount * value.y, -amount * value.x);
-  }
-
-  static crossNumVec2(amount: number, value: Vec2Value) {
-    return Vec2.neo(-amount * value.y, amount * value.x);
-  }
-
-  static add(a: Vec2Value, b: Vec2Value) {
-    return Vec2.neo(a.x + b.x, a.y + b.y);
   }
 
   static sub(a: Vec2Value, b: Vec2Value) {

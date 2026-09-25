@@ -32,26 +32,16 @@ export const sprayDamage = ({
   damage: number;
 }) => {
   for (let index = 0; index < damage * 2; index++) {
-    spray([position.x, position.y], color);
+    const angle = Math.random() * Math.PI * 2;
+    const pace = speed * (1 - Math.random() * spread);
+
+    sparks.push({
+      color,
+      velocity: Vector(Math.cos(angle) * pace, Math.sin(angle) * pace),
+      health: 0.2 + Math.random() * 0.2,
+      position: Vector(position.x, position.y),
+    });
   }
-};
-
-/**
- * Throw some sparks off a point, spraying out every which way.
- *
- * point: Where they come from.
- * color: The colour of the lines of whatever is being damaged.
- */
-export const spray = ([x, y]: number[], color: string) => {
-  const angle = Math.random() * Math.PI * 2;
-  const pace = speed * (1 - Math.random() * spread);
-
-  sparks.push({
-    color,
-    velocity: Vector(Math.cos(angle) * pace, Math.sin(angle) * pace),
-    health: 0.2 + Math.random() * 0.2,
-    position: Vector(x, y),
-  });
 };
 
 /**

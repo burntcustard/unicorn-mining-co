@@ -1,10 +1,10 @@
 import { Vector, type Vector as VectorValue } from './vector';
 import { createRandom, type Random } from './seeded-random';
-import { move } from './simulation/movement';
 import { localMovement } from './simulation/local-movement';
 import { type Collider } from './collision/types';
 import { type SimulationWorld } from './simulation/world';
 
+const maxSpeedDrag = 0.9;
 let nextId = -1;
 
 export class GameObject {
@@ -17,7 +17,8 @@ export class GameObject {
   spin = 0;
   angularDrag = 0;
   angularInertiaScale = 1;
-  mass = 0;
+  // Loose modules use the same small default mass as items.
+  mass = 6;
   physics = true;
   friction = (this.constructor as typeof GameObject).friction;
   radius = 0;
@@ -74,7 +75,8 @@ export class GameObject {
     });
   }
   hitbox(): Collider[] {
-    return this.dead || this.buried
+    // Loose modules and other objects without geometry need no contact fixture.
+    return this.dead || this.buried || (!this.radius && !this.outline)
       ? []
       : [
           {
@@ -98,7 +100,21 @@ export class GameObject {
     }
     this.spin *= Math.exp(-this.angularDrag * dt);
     this.rotation += this.spin * dt;
-    move(this, dt);
+
+    const { position, velocity, drag = 0.15, maxSpeed = 272 } = this;
+    const speed = velocity.length();
+
+    if (speed < 1) velocity.x = velocity.y = 0;
+
+    const kept =
+      speed > maxSpeed
+        ? Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed
+        : Math.exp(-drag * dt);
+
+    velocity.x *= kept;
+    velocity.y *= kept;
+    position.set(position.add(velocity.scale(dt)));
+
     localMovement(
       this,
       this.world

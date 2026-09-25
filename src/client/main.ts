@@ -19,7 +19,7 @@ import {
 // @endif
 import { bindAction, initKeys, playerInput } from './input';
 import { network } from './network';
-import { camera, dockDuration, followTarget } from './camera';
+import { camera, centerCamera, dockDuration, followTarget } from './camera';
 
 import { revealBuriedItems } from './lighting';
 import { itemTypes, Message } from '../shared/items';
@@ -185,6 +185,11 @@ let spriteCount = 0;
 
 initKeys({
   onChange: (input) => network.recordInput({ input }),
+  onKeyDown: () => {
+    if (!network.shipDestroyed) return false;
+    network.requestRespawn();
+    return true;
+  },
 });
 
 moduleControls.forEach(({ Type, input: action }) =>
@@ -242,11 +247,13 @@ const gameLoop = GameLoop({
       predictedPlayerShip instanceof Ship ? predictedPlayerShip : playerShip;
     const playerPose = remotePoses.get(playerShip.id) || renderedShip;
 
-    followTarget(
-      game,
-      { position: playerPose.position, dockedTo: playerShip.dockedTo },
-      dt,
-    );
+    if (!network.shipDestroyed) {
+      followTarget(
+        game,
+        { position: playerPose.position, dockedTo: playerShip.dockedTo },
+        dt,
+      );
+    }
     // The sky slides past at its own pace, so it moves itself
     // @ifdef BENCHMARK
 
@@ -328,7 +335,10 @@ const gameLoop = GameLoop({
     renderDebugDemos(game);
     // @endif
 
-    renderUI(game, stationMarkers, { controlsShip: renderedShip });
+    renderUI(game, stationMarkers, {
+      controlsShip: renderedShip,
+      shipDestroyed: network.shipDestroyed,
+    });
   },
   update: ({ dt, now }) => {
     if (playerShip.launchRequested) {
@@ -383,9 +393,16 @@ setTimeout(() => {
     refreshReplication();
     syncPlayerShip();
     playerShip.started = 1;
+
+    if (network.shipDestroyed) {
+      centerCamera(game, { position: network.spawnPosition });
+      game.uiVisible = 1;
+      game.uiAlpha = 1;
+    } else {
+      // Keep the camera transition clear before bringing the HUD into view.
+      setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
+    }
     gameStarted = true;
     gameLoop.start();
-    // Keep the camera transition clear before bringing the HUD into view.
-    setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
   });
 });

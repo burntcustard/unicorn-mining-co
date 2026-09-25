@@ -10,12 +10,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../../common/physics-matrix';
+import * as matrix from '../../vector-math';
 
 import { Vec2, Vec2Value } from '../../vector';
-import { Shape } from '../collision-shape';
+import { Shape } from './base';
 import { AABBValue } from '../axis-aligned-bounds';
-import { TransformValue } from '../../common/physics-transform';
+import { TransformValue } from '../../vector-math';
 import { DistanceProxy } from '../shape-distance';
 
 const temp = matrix.vec2(0, 0);

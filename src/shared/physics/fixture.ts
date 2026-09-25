@@ -10,14 +10,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../common/physics-matrix';
+import * as matrix from '../vector-math';
 
 import { AABB } from '../collision/axis-aligned-bounds';
 import { collidersCanContact, type Collider } from '../collision/types';
-import { Shape } from '../collision/collision-shape';
-import { Body } from './physics-body';
+import { Shape } from '../collision/shape/base';
+import { Body } from './body';
 import { BroadPhase } from '../collision/broad-phase';
-import { TransformValue } from '../common/physics-transform';
+import { TransformValue } from '../vector-math';
 
 const synchronize_aabb1 = new AABB();
 const synchronize_aabb2 = new AABB();
@@ -29,17 +29,8 @@ const displacement = matrix.vec2(0, 0);
  */
 export interface FixtureOpt {
   userData?: unknown;
-  /**
-   * The friction coefficient, usually in the range [0,1]
-   */
-  friction: number;
-  /**
-   * Restitution contribution; contact mixing permits damping and bounce above 1.
-   */
-  restitution?: number;
   // Whether collisions involving this fixture apply physical response.
   physics?: boolean;
-  // Styling for dev-tools.
 }
 
 /**
@@ -58,14 +49,12 @@ export class FixtureProxy {
 /**
  * A fixture is used to attach a shape to a body for collision detection. A
  * fixture inherits its transform from its parent. Fixtures hold additional
- * non-geometric data such as friction, collision filters, etc.
+ * non-geometric data such as physical-response flags and collider data.
  *
  * To create a new Fixture use {@link Body.createFixture}.
  */
 export class Fixture {
   m_body: Body;
-  m_friction: number;
-  m_restitution: number;
   m_physics: boolean;
   m_shape: Shape;
   m_next: Fixture | null;
@@ -75,8 +64,6 @@ export class Fixture {
   constructor(body: Body, shape: Shape, definition: FixtureOpt) {
     this.m_body = body;
 
-    this.m_friction = definition.friction;
-    this.m_restitution = definition.restitution ?? 0;
     this.m_physics = definition.physics ?? true;
 
     this.m_shape = shape;

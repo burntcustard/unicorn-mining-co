@@ -10,9 +10,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../common/physics-matrix';
+import * as matrix from '../vector-math';
 import { type Vec2Value } from '../vector';
-import { type TransformValue } from '../common/physics-transform';
+import { type TransformValue } from '../vector-math';
 
 const temp = matrix.vec2(0, 0);
 const e12 = matrix.vec2(0, 0);

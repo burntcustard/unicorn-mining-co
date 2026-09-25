@@ -1,6 +1,7 @@
 import { Craft } from '../shared/craft/craft';
 import { Module } from '../shared/modules/module';
 import { type EntityId } from '../shared/protocol/entities';
+import { type Vector } from '../shared/vector';
 import {
   type ReplicatedEntity,
   type ServerMessage,
@@ -85,6 +86,7 @@ const replicateEntity = ({
 type SnapshotOptions = {
   world: SimulationWorld;
   shipId: EntityId;
+  position?: Vector;
   acknowledgedSequence?: number;
   inputLead?: number;
 };
@@ -100,10 +102,11 @@ export class ReplicationManager {
   snapshot({
     world,
     shipId,
+    position,
     acknowledgedSequence,
     inputLead,
   }: SnapshotOptions) {
-    const ship = world.entities.get(shipId)!;
+    const ship = world.entities.get(shipId) || { position: position! };
     const visible = [...world.entities.values()].filter((entity) => {
       const loaded = this.entities.has(entity.id);
       const range =

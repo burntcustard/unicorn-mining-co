@@ -23,9 +23,10 @@ const bundle = await rolldown({
           ? `
       export { detectCollisions } from '${process.cwd()}/src/shared/collision/detect-collisions.ts';
       export { contactBetween } from '${process.cwd()}/src/shared/collision/contact-between.ts';
-      export { outerEdges } from '${process.cwd()}/src/shared/collision/outer-edges.ts';
+      export { outerEdges } from '${process.cwd()}/src/shared/polygon.ts';
       export { GameCollisions } from '${process.cwd()}/src/shared/collision/game-collisions.ts';
       export { GameObject } from '${process.cwd()}/src/shared/game-object.ts';
+      export { Module } from '${process.cwd()}/src/shared/modules/module.ts';
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/shared/simulation/world.ts';
       export { createShip } from '${process.cwd()}/src/shared/craft/create-ship.ts';
       export { Diamond } from '${process.cwd()}/src/shared/items/diamond.ts';
@@ -57,6 +58,7 @@ const {
   outerEdges,
   GameCollisions,
   GameObject,
+  Module,
   createWorld,
   entityId,
   addEntity,
@@ -193,8 +195,23 @@ assert.ok(
   ),
 );
 
-// Object mass is explicit; only physical collider geometry sets spin resistance.
-assert.equal(new GameObject().mass, 0);
+// Loose cargo modules have no shape, even when many leave a wreck at once.
+{
+  const modules = Array.from(
+    { length: 12 },
+    (_, index) => new Module({ id: 11000 + index }),
+  );
+  const contacts = new GameCollisions().step({
+    entities: modules,
+    previous: new Map(),
+    dt: 1 / 30,
+  });
+
+  assert.equal(contacts.length, 0);
+}
+
+// Object mass is independent of geometry; only physical shapes set spin resistance.
+assert.equal(new GameObject().mass, 6);
 {
   const object = new GameObject({ id: 90, mass: 10, radius: 0 });
 
@@ -249,10 +266,10 @@ assert.equal(new GameObject().mass, 0);
   collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
   closeTo(collisions.bodies.get(object.id).body.m_invI, 1 / 800);
 
-  object.mass = 0;
+  object.mass = 100;
   collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
-  assert.equal(collisions.bodies.get(object.id).body.m_invMass, 0);
-  assert.equal(collisions.bodies.get(object.id).body.m_invI, 0);
+  closeTo(collisions.bodies.get(object.id).body.m_invMass, 1 / 100);
+  closeTo(collisions.bodies.get(object.id).body.m_invI, 1 / 8000);
 }
 
 // Off-centre impacts exchange angular as well as linear momentum.
@@ -370,7 +387,7 @@ for (const count of [20, 30]) {
   });
   const obstacle = new GameObject({
     id: 700 + count,
-    mass: 0,
+    mass: 1e9,
     position: Vector(90),
     outline,
   });
@@ -441,7 +458,7 @@ assert(
       new GameObject({
         id: 36 + index,
         radius: 1,
-        mass: 0,
+        mass: 1e9,
         position: Vector(x),
         bounciness: 0.5,
       }),
@@ -507,7 +524,7 @@ for (const travel of [190, 210, 400]) {
   });
   const face = new GameObject({
     id: 91 + travel,
-    mass: 0,
+    mass: 1e9,
     position: Vector(90),
     outline: [
       [-0.25, -20],
@@ -863,6 +880,30 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
 
   closeTo(contact.getFriction(), 0.05);
   assert.equal(contact.getRestitution(), 0);
+}
+
+// Changing material without changing geometry updates an existing contact.
+{
+  const first = new GameObject({ id: 480, mass: 9, radius: 5, friction: 0.25 });
+  const second = new GameObject({
+    id: 481,
+    mass: 9,
+    radius: 5,
+    position: Vector(9),
+    friction: 0.25,
+  });
+  const solver = new GameCollisions();
+  const step = () =>
+    solver.step({ entities: [first, second], dt: 0, previous: new Map() });
+
+  step();
+  const fixture = solver.world.m_contactList.getFixtureA();
+
+  closeTo(solver.world.m_contactList.getFriction(), 0.25);
+  first.friction = 0;
+  step();
+  assert.equal(solver.world.m_contactList.getFixtureA(), fixture);
+  assert.equal(solver.world.m_contactList.getFriction(), 0);
 }
 
 // Preserve the earlier hull/shield pair response under averaged material

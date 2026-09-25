@@ -10,12 +10,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../../common/physics-matrix';
-import { TransformValue } from '../../common/physics-transform';
-import { Contact } from '../../dynamics/collision-contact';
+import * as matrix from '../../vector-math';
+import { TransformValue } from '../../vector-math';
+import { Contact } from '../../physics/contact';
 import { CircleShape } from './circle-shape';
 import { Manifold, vertexFeature } from '../contact-manifold';
-import { Fixture } from '../../dynamics/collision-fixture';
+import { Fixture } from '../../physics/fixture';
 
 Contact.addType(
   CircleShape.TYPE,

@@ -10,18 +10,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../common/physics-matrix';
+import * as matrix from '../vector-math';
 import { linearSlop } from '../settings';
-import { Body } from './physics-body';
-import type { Contact } from './collision-contact';
+import { Body } from './body';
+import type { Contact } from './contact';
 import {
   findTimeOfImpact,
   type TOIInput,
   type TOIOutput,
 } from '../collision/time-of-impact';
 import { DistanceProxy } from '../collision/shape-distance';
-import { World } from './physics-world';
-import { Sweep } from '../common/motion-sweep';
+import { World } from './world';
+import { Sweep } from './motion-sweep';
 
 const maxTOISubsteps = 8;
 const toiEndTolerance = 1e-8;
@@ -33,16 +33,8 @@ const maxRotationSquared = maxRotation * maxRotation;
 export class TimeStep {
   // time step
   dt = 0;
-  // inverse time step (0 if dt == 0)
-  inv_dt = 0;
   velocityIterations = 0;
   positionIterations = 0;
-  blockSolve = true;
-
-  reset(dt: number): void {
-    this.dt = dt;
-    this.inv_dt = dt === 0 ? 0 : 1 / dt;
-  }
 }
 
 // reuse
@@ -104,15 +96,11 @@ export class Solver {
       c.m_islandFlag = false;
     }
 
-    // Build and simulate all awake islands.
+    // Build and simulate all islands.
     const stack = this.m_stack;
 
     for (let seed = world.m_bodyList; seed; seed = seed.m_next) {
       if (seed.m_islandFlag) {
-        continue;
-      }
-
-      if (!seed.isAwake()) {
         continue;
       }
 
@@ -129,9 +117,6 @@ export class Solver {
         const b = stack.pop();
 
         this.addBody(b);
-
-        // Make sure the body is awake (without resetting sleep timer).
-        b.m_awakeFlag = true;
 
         // Search all contacts connected to this body.
         for (let ce = b.m_contactList; ce; ce = ce.next) {
@@ -206,7 +191,7 @@ export class Solver {
     for (let i = 0; i < this.m_contacts.length; ++i) {
       const contact = this.m_contacts[i];
 
-      contact.initVelocityConstraint(step);
+      contact.initVelocityConstraint();
     }
 
     // Solve velocity constraints
@@ -214,7 +199,7 @@ export class Solver {
       for (let j = 0; j < this.m_contacts.length; ++j) {
         const contact = this.m_contacts[j];
 
-        contact.solveVelocityConstraint(step);
+        contact.solveVelocityConstraint();
       }
     }
 
@@ -336,14 +321,6 @@ export class Solver {
           const bA = fA.getBody();
           const bB = fB.getBody();
 
-          const activeA = bA.isAwake();
-          const activeB = bB.isAwake();
-
-          // At least one body must be awake.
-          if (!activeA && !activeB) {
-            continue;
-          }
-
           // Compute the TOI for this contact.
           // Put the sweeps onto the same time interval.
           let alpha0 = bA.m_sweep.alpha0;
@@ -430,9 +407,6 @@ export class Solver {
         continue;
       }
 
-      bA.setAwake(true);
-      bB.setAwake(true);
-
       // Build the island
       this.clear();
       this.addBody(bA);
@@ -449,62 +423,58 @@ export class Solver {
       for (let i = 0; i < bodies.length; ++i) {
         const body = bodies[i];
 
-        if (body.isDynamic()) {
-          for (let ce = body.m_contactList; ce; ce = ce.next) {
-            const contact = ce.contact;
+        for (let ce = body.m_contactList; ce; ce = ce.next) {
+          const contact = ce.contact;
 
-            // Has this contact already been added to the island?
-            if (contact.m_islandFlag) {
-              continue;
-            }
-
-            const other = ce.other;
-
-            if (
-              !contact.m_fixtureA.hasPhysics() ||
-              !contact.m_fixtureB.hasPhysics()
-            ) {
-              continue;
-            }
-
-            // Tentatively advance the body to the TOI.
-            backup.set(other.m_sweep);
-
-            if (!other.m_islandFlag) {
-              other.advance(minAlpha);
-            }
-
-            // Update the contact points
-            contact.update(world);
-
-            // Was the contact disabled by the user?
-            // Are there contact points?
-            if (!contact.isEnabled() || !contact.isTouching()) {
-              other.m_sweep.set(backup);
-              other.synchronizeTransform();
-              continue;
-            }
-
-            // Add the contact to the island
-            contact.m_islandFlag = true;
-            this.addContact(contact);
-
-            // Has the other body already been added to the island?
-            if (other.m_islandFlag) {
-              continue;
-            }
-
-            // Add the other body to the island.
-            other.m_islandFlag = true;
-
-            other.setAwake(true);
-
-            this.addBody(other);
+          // Has this contact already been added to the island?
+          if (contact.m_islandFlag) {
+            continue;
           }
+
+          const other = ce.other;
+
+          if (
+            !contact.m_fixtureA.hasPhysics() ||
+            !contact.m_fixtureB.hasPhysics()
+          ) {
+            continue;
+          }
+
+          // Tentatively advance the body to the TOI.
+          backup.set(other.m_sweep);
+
+          if (!other.m_islandFlag) {
+            other.advance(minAlpha);
+          }
+
+          // Update the contact points
+          contact.update(world);
+
+          // Was the contact disabled by the user?
+          // Are there contact points?
+          if (!contact.isEnabled() || !contact.isTouching()) {
+            other.m_sweep.set(backup);
+            other.synchronizeTransform();
+            continue;
+          }
+
+          // Add the contact to the island
+          contact.m_islandFlag = true;
+          this.addContact(contact);
+
+          // Has the other body already been added to the island?
+          if (other.m_islandFlag) {
+            continue;
+          }
+
+          // Add the other body to the island.
+          other.m_islandFlag = true;
+
+          this.addBody(other);
         }
       }
 
-      s_subStep.reset((1 - minAlpha) * step.dt);
+      s_subStep.dt = (1 - minAlpha) * step.dt;
       s_subStep.positionIterations = 20;
       s_subStep.velocityIterations = step.velocityIterations;
 
@@ -515,10 +485,6 @@ export class Solver {
         const body = this.m_bodies[i];
 
         body.m_islandFlag = false;
-
-        if (!body.isDynamic()) {
-          continue;
-        }
 
         body.synchronizeFixtures();
 
@@ -583,7 +549,7 @@ export class Solver {
     for (let i = 0; i < this.m_contacts.length; ++i) {
       const contact = this.m_contacts[i];
 
-      contact.initVelocityConstraint(subStep);
+      contact.initVelocityConstraint();
     }
 
     // Solve velocity constraints.
@@ -591,7 +557,7 @@ export class Solver {
       for (let j = 0; j < this.m_contacts.length; ++j) {
         const contact = this.m_contacts[j];
 
-        contact.solveVelocityConstraint(subStep);
+        contact.solveVelocityConstraint();
       }
     }
 

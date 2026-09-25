@@ -10,24 +10,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../common/physics-matrix';
+import * as matrix from '../vector-math';
 import { Vec2, Vec2Value } from '../vector';
 
-import { Sweep } from '../common/motion-sweep';
-import { Transform } from '../common/physics-transform';
-import { Fixture, FixtureOpt } from './collision-fixture';
-import { Shape } from '../collision/collision-shape';
-import { World } from './physics-world';
-import { ContactEdge } from './collision-contact';
+import { Sweep } from './motion-sweep';
+import { Transform } from '../vector-math';
+import { Fixture, FixtureOpt } from './fixture';
+import { Shape } from '../collision/shape/base';
+import { World } from './world';
+import { ContactEdge } from './contact';
 
-/**
- * Dynamic bodies respond to contact impulses. Massless kinematic bodies move
- * with their assigned velocity and can contact dynamic bodies without receiving
- * an impulse.
- */
-export type BodyType = 'kinematic' | 'dynamic';
-
-/* Body state adapted from Planck Position.ts and Velocity.ts; MIT licensed. */
 class Velocity {
   v = Vec2.zero();
   w = 0;
@@ -38,14 +30,7 @@ class Position {
   a = 0;
 }
 
-const DYNAMIC = 'dynamic';
-
 const xf = matrix.transform(0, 0, 0);
-
-export interface BodyDef {
-  type: BodyType;
-  mass: number;
-}
 
 /**
  * A rigid body composed of one or more fixtures.
@@ -54,9 +39,7 @@ export interface BodyDef {
  */
 export class Body {
   m_world: World;
-  m_awakeFlag: boolean;
   m_islandFlag: boolean;
-  m_type: BodyType;
   m_invMass: number;
   m_invI: number;
   c_velocity: Velocity;
@@ -74,16 +57,12 @@ export class Body {
   // the swept motion for CCD
   m_sweep: Sweep;
   // position and velocity correction
-  constructor(world: World, def: BodyDef) {
+  constructor(world: World) {
     this.m_world = world;
-
-    this.m_awakeFlag = true;
 
     this.m_islandFlag = false;
 
-    this.m_type = def.type;
-
-    this.m_invMass = this.m_type === DYNAMIC ? 1 / def.mass : 0;
+    this.m_invMass = 0;
     this.m_invI = 0;
 
     // the body origin transform
@@ -91,7 +70,6 @@ export class Body {
 
     // the swept motion for CCD
     this.m_sweep = new Sweep();
-    this.m_sweep.setTransform(this.m_xf);
 
     // position and velocity correction
     this.c_velocity = new Velocity();
@@ -121,24 +99,6 @@ export class Body {
     return this.m_contactList;
   }
 
-  isDynamic(): boolean {
-    return this.m_type === DYNAMIC;
-  }
-
-  isAwake(): boolean {
-    return this.m_awakeFlag;
-  }
-
-  // Keep bodies awake when contacts change or new motion is assigned.
-  setAwake(flag: boolean): void {
-    this.m_awakeFlag = flag;
-
-    if (!flag) {
-      this.m_linearVelocity.setZero();
-      this.m_angularVelocity = 0;
-    }
-  }
-
   /**
    * Get the world transform for the body's origin.
    */
@@ -158,7 +118,6 @@ export class Body {
     for (let f = this.m_fixtureList; f; f = f.m_next) {
       f.synchronize(broadPhase, this.m_xf, this.m_xf);
     }
-    this.setAwake(true);
   }
 
   synchronizeTransform(): void {
@@ -218,11 +177,12 @@ export class Body {
    * @param worldPoint A point in world coordinates.
    */
   getLinearVelocityFromWorldPoint(worldPoint: Vec2Value): Vec2 {
-    const localCenter = Vec2.sub(worldPoint, this.m_sweep.c);
+    const center = this.m_sweep.c;
+    const spin = this.m_angularVelocity;
 
-    return Vec2.add(
-      this.m_linearVelocity,
-      Vec2.crossNumVec2(this.m_angularVelocity, localCenter),
+    return Vec2.neo(
+      this.m_linearVelocity.x - spin * (worldPoint.y - center.y),
+      this.m_linearVelocity.y + spin * (worldPoint.x - center.x),
     );
   }
 
@@ -232,9 +192,6 @@ export class Body {
    * @param v The new linear velocity of the center of mass.
    */
   setLinearVelocity(v: Vec2Value): void {
-    if (matrix.dotVec2(v, v) > 0) {
-      this.setAwake(true);
-    }
     this.m_linearVelocity.setVec2(v);
   }
 
@@ -253,32 +210,15 @@ export class Body {
    * @param w The new angular velocity in radians/second.
    */
   setAngularVelocity(w: number): void {
-    if (w * w > 0) {
-      this.setAwake(true);
-    }
     this.m_angularVelocity = w;
   }
 
   // Game objects own mass. Shape geometry supplies only spin resistance.
   setMass(mass: number, inertia: number): void {
-    if (this.isWorldLocked() || !this.isDynamic()) return;
+    if (this.isWorldLocked()) return;
 
     this.m_invMass = 1 / mass;
     this.m_invI = inertia > 0 ? 1 / inertia : 0;
-  }
-
-  /**
-   * This is used to test if two bodies should collide.
-   *
-   * Bodies do not collide when:
-   * - Neither of them is dynamic
-   */
-  shouldCollide(that: Body): boolean {
-    // At least one body should be dynamic.
-    if (this.m_type !== DYNAMIC && that.m_type !== DYNAMIC) {
-      return false;
-    }
-    return true;
   }
 
   /**

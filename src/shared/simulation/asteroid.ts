@@ -1,12 +1,12 @@
 import { Vector, type Vector as VectorValue } from '../vector';
 import { rotatePoint } from '../geometry';
-import { createPolygon, radiusOf } from '../polygon';
+import { createPolygon, outerEdges, radiusOf } from '../polygon';
 import { createRandom } from '../seeded-random';
 import { type AsteroidSegment } from '../protocol/entities';
 import { addEntity, type SimulationWorld, entityId } from './world';
 import { GameObject } from '../game-object';
-import { type Collider, type Outline } from '../collision/types';
-import { outerEdges } from '../collision/outer-edges';
+import { type Collider } from '../collision/types';
+import { type Outline } from '../types';
 import { itemTypes } from '../items';
 import { type SimulationEvent } from '../protocol/events';
 
@@ -18,6 +18,17 @@ export const pointCountFor = (radius: number) =>
   Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
 
 const outlines = new Map<string, number[][]>();
+
+const withoutCollinearPoints = (outline: number[][]) =>
+  outline.filter((point, index) => {
+    const before = outline.at(index - 1)!;
+    const next = outline[(index + 1) % outline.length];
+
+    return (
+      (point[0] - before[0]) * (next[1] - point[1]) !==
+      (point[1] - before[1]) * (next[0] - point[0])
+    );
+  });
 
 /**
  * The shape an asteroid is actually cut to. Every copy of one, on any client
@@ -49,15 +60,7 @@ export const outlineOf = (asteroid: Asteroid) => {
     if (outlines.size > 5000) outlines.clear();
     outlines.set(key, outline);
   }
-  return outline.filter((point, index) => {
-    const before = outline.at(index - 1)!;
-    const next = outline[(index + 1) % outline.length];
-
-    return (
-      (point[0] - before[0]) * (next[1] - point[1]) !==
-      (point[1] - before[1]) * (next[0] - point[0])
-    );
-  });
+  return withoutCollinearPoints(outline);
 };
 
 const splitTriangle = (triangle: number[][]) => {
@@ -189,17 +192,7 @@ const outlinesFromMarked = (segments: AsteroidSegment[]) => {
       outline.push(at);
       edge = outer.splice(nextIndex, 1)[0];
     }
-    outlines.push(
-      outline.filter((point, index) => {
-        const before = outline.at(index - 1)!;
-        const next = outline[(index + 1) % outline.length];
-
-        return (
-          (point[0] - before[0]) * (next[1] - point[1]) !==
-          (point[1] - before[1]) * (next[0] - point[0])
-        );
-      }),
-    );
+    outlines.push(withoutCollinearPoints(outline));
   }
   return outlines;
 };

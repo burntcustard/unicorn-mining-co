@@ -28,8 +28,10 @@ export const bindAction = (
 
 export const initKeys = ({
   onChange = () => {},
+  onKeyDown,
 }: {
   onChange?: (input: PlayerInput) => void;
+  onKeyDown?: (event: KeyboardEvent) => boolean;
 } = {}) => {
   const notify = (previous: PlayerInput) => {
     updateMovement(pressed, playerInput);
@@ -44,6 +46,8 @@ export const initKeys = ({
 
     if (event.repeat || pressed.has(key)) return;
     unlockAudio();
+
+    if (onKeyDown?.(event)) return;
     const previous = { ...playerInput };
 
     pressed.add(key);

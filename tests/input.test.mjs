@@ -41,7 +41,8 @@ const input = await import(
 
 const changes = [];
 
-input.initKeys({ onChange: (state) => changes.push(state) });
+const stopKeys = input.initKeys({ onChange: (state) => changes.push(state) });
+
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
 assert.equal(input.playerInput.hornDrill, true);
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
@@ -79,6 +80,20 @@ input.bindKeys('Escape', () => {
 });
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 assert(escaped, 'full key names work for menu bindings');
+
+stopKeys();
+let respawnKeys = 0;
+const stopDeadKeys = input.initKeys({
+  onKeyDown: () => {
+    respawnKeys++;
+    return true;
+  },
+});
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.equal(respawnKeys, 1, 'any new key can request a respawn');
+assert.equal(input.playerInput.thrust, 0, 'respawn key does not fly the ship');
+stopDeadKeys();
 
 const clock = globalThis.performance;
 let now = 0;

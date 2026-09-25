@@ -10,9 +10,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../common/physics-matrix';
+import * as matrix from '../vector-math';
 import { linearSlop } from '../settings';
-import { Sweep } from '../common/motion-sweep';
+import { Sweep } from '../physics/motion-sweep';
 import {
   computeDistance,
   DistanceInput,

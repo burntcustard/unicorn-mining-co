@@ -165,7 +165,9 @@ export class NetworkClient {
   readonly world = createWorld();
   playerId?: number;
   serverTick = 0;
+  spawnPosition = Vector();
   shipId?: number;
+  shipDestroyed = false;
   worldSeed?: number;
   private resolveReady!: () => void;
   private prediction = new PredictionManager({ world: this.world });
@@ -173,7 +175,10 @@ export class NetworkClient {
   // rollback history. Retain only the current interest set between packets.
   private authoritativeEntities = new Map<number, GameObject>();
   private socket: WebSocket;
-  private pendingSnapshot?: Exclude<ServerMessage, { type: 'welcome' }>;
+  private pendingSnapshot?: Extract<
+    ServerMessage,
+    { type: 'load' | 'snapshot' }
+  >;
   private pendingEntities = new Map<
     number,
     { entity: ReplicatedEntity; tick: number }
@@ -203,6 +208,10 @@ export class NetworkClient {
       offset: (performance.now() - this.inputTickStartedAt) / 1000,
       send: (message) => this.send({ ...message, type: 'input' }),
     });
+  }
+
+  requestRespawn() {
+    if (this.shipDestroyed) this.send({ type: 'respawn' });
   }
 
   sendCraftAction(action: CraftAction) {
@@ -327,6 +336,8 @@ export class NetworkClient {
       localStorage.setItem('playerToken', message.playerToken);
       this.playerId = message.playerId;
       this.shipId = message.shipId;
+      this.spawnPosition.set(message.spawn);
+      this.shipDestroyed = false;
       this.worldSeed = message.worldSeed;
       this.serverTick = message.serverTick;
       this.world.tick = message.serverTick + this.tickLead;
@@ -340,12 +351,22 @@ export class NetworkClient {
       return;
     }
 
+    if (message.type === 'respawn') {
+      this.shipId = message.shipId;
+      this.shipDestroyed = false;
+      this.pendingSnapshot = undefined;
+      this.pendingEntities.clear();
+      this.world.players.get(this.playerId!)!.shipId = message.shipId;
+      return;
+    }
+
     if (
       message.type === 'snapshot' &&
       message.serverTick < (this.pendingSnapshot?.serverTick ?? this.serverTick)
     ) {
       return;
     }
+    this.shipDestroyed = !message.entityIds.includes(this.shipId!);
     this.remoteMotion.receive({
       entities: message.fullEntities,
       entityIds: message.entityIds,
@@ -377,7 +398,7 @@ export class NetworkClient {
     message,
     entityTicks,
   }: {
-    message: Exclude<ServerMessage, { type: 'welcome' }>;
+    message: Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
     entityTicks?: Map<number, number>;
   }) {
     this.serverTick = message.serverTick;

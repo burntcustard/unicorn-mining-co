@@ -124,7 +124,7 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
 
   if (previous !== ship) previous.remove();
   Object.assign(ship, {
-    credits: previous.credits,
+    credits: previous.id < 0 ? previous.credits : ship.credits,
     note: previous.note,
     noteFor: previous.noteFor,
     hudAlpha: previous.hudAlpha,

@@ -11,11 +11,12 @@ import {
 } from '../shared/protocol/network';
 import { createShip } from '../shared/craft/create-ship';
 import { updateWorld } from '../shared/simulation/update-world';
-import { simulationStep } from '../shared/settings';
+import { simulationStep, worldRanges } from '../shared/settings';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
 import { ReplicationManager } from './replication';
 import { Ship } from '../shared/craft/ship';
+import { Station } from '../shared/craft/station';
 
 type PlayerRecord = {
   /**
@@ -27,6 +28,7 @@ type PlayerRecord = {
   lastSequence: number;
   playerId: number;
   replication: ReplicationManager;
+  ship: Ship;
   shipId: number;
   socket?: WebSocket;
   token: string;
@@ -87,6 +89,12 @@ export class GameServer {
           );
 
           if (player) this.input({ message, player });
+        } else if (message.type === 'respawn') {
+          const player = [...this.players.values()].find(
+            (candidate) => candidate.socket === socket,
+          );
+
+          if (player) this.respawn(player);
         } else if (message.type === 'dock') {
           const player = [...this.players.values()].find(
             (candidate) => candidate.socket === socket,
@@ -174,6 +182,7 @@ export class GameServer {
         lastSequence: 0,
         playerId,
         replication: new ReplicationManager(),
+        ship,
         shipId: ship.id,
         token: playerToken,
       };
@@ -188,13 +197,13 @@ export class GameServer {
     player.lastSequence = 0;
     player.inputLead = undefined;
 
-    const ship = this.world.entities.get(player.shipId)!;
+    const ship = player.ship;
 
     this.regions.sync({
       world: this.world,
-      positions: [...this.players.values()]
-        .map((player) => this.world.entities.get(player.shipId)?.position)
-        .filter((position) => position !== undefined),
+      positions: [...this.players.values()].map(
+        (player) => player.ship.position,
+      ),
     });
     send({
       socket,
@@ -213,8 +222,70 @@ export class GameServer {
       message: player.replication.initial({
         world: this.world,
         shipId: player.shipId,
+        position: player.ship.position,
         acknowledgedSequence: player.lastSequence,
         inputLead: player.inputLead,
+      }),
+    });
+  }
+
+  private respawn(player: PlayerRecord) {
+    if (this.world.entities.has(player.shipId)) return;
+
+    const position = player.ship.position;
+    let range = 10000;
+    let stations = this.regions.view({ position }).stationMarkers;
+
+    while (!stations.length) {
+      range *= 2;
+      stations = this.regions.view({
+        position,
+        ranges: { ...worldRanges, stationMarker: range },
+      }).stationMarkers;
+    }
+    const nearest = stations.reduce((closest, station) =>
+      station.position.distanceTo(position) <
+      closest.position.distanceTo(position)
+        ? station
+        : closest,
+    );
+
+    this.regions.sync({
+      world: this.world,
+      positions: [
+        ...[...this.players.values()].map(({ ship }) => ship.position),
+        nearest.position,
+      ],
+    });
+    const station = this.world.entities.get(nearest.id);
+
+    if (!(station instanceof Station)) return;
+    const ship = createShip(this.world, {
+      playerId: player.playerId,
+      position: station.position.add(Vector()),
+      rotation: station.rotation,
+    });
+
+    ship.dockedTo = station.id;
+    addEntity(this.world, ship);
+    this.world.players.get(player.playerId)!.shipId = ship.id;
+    player.ship = ship;
+    player.shipId = ship.id;
+    player.inputs.clear();
+    player.lastInput = emptyPlayerInput();
+    player.inputLead = undefined;
+
+    if (!player.socket) return;
+    send({
+      socket: player.socket,
+      message: { shipId: ship.id, type: 'respawn' },
+    });
+    send({
+      socket: player.socket,
+      message: player.replication.initial({
+        world: this.world,
+        shipId: ship.id,
+        acknowledgedSequence: player.lastSequence,
       }),
     });
   }
@@ -276,9 +347,9 @@ export class GameServer {
   }
 
   private tick() {
-    const positions = [...this.players.values()]
-      .map(({ shipId }) => this.world.entities.get(shipId)?.position)
-      .filter((position) => position !== undefined);
+    const positions = [...this.players.values()].map(
+      ({ ship }) => ship.position,
+    );
 
     this.regions.sync({ world: this.world, positions });
     const tick = this.world.tick;
@@ -312,14 +383,14 @@ export class GameServer {
 
     this.players.forEach((player) => {
       const { socket } = player;
-      const ship = this.world.entities.get(player.shipId);
 
-      if (!socket || !ship) return;
+      if (!socket) return;
       send({
         socket,
         message: player.replication.snapshot({
           world: this.world,
           shipId: player.shipId,
+          position: player.ship.position,
           acknowledgedSequence: player.lastSequence,
           inputLead: player.inputLead,
         }),

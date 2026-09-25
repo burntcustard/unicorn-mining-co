@@ -2,6 +2,7 @@ import { HornDrill } from '../src/shared/modules/horn-drill';
 import { CargoHatch } from '../src/shared/modules/cargo-hatch';
 import assert from 'node:assert/strict';
 import { Ship } from '../src/shared/craft/ship';
+import { Station } from '../src/shared/craft/station';
 import { once } from 'node:events';
 import WebSocket from 'ws';
 import { GameServer } from '../src/server/game-server';
@@ -794,6 +795,78 @@ for (const disconnectFirst of [true, false]) {
       ),
   });
 }
+
+// A lost ship keeps receiving world updates until its pilot requests a new one.
+const deathPosition = playerShip.position.add(Vector());
+const nearestStation = [...server.world.entities.values()]
+  .filter((entity): entity is Station => entity instanceof Station)
+  .sort(
+    (a, b) =>
+      a.position.distanceTo(deathPosition) -
+      b.position.distanceTo(deathPosition),
+  )[0];
+const deathMessageStart = messages.length;
+
+assert(nearestStation);
+playerShip.remove();
+await waitUntil({
+  condition: () =>
+    messages
+      .slice(deathMessageStart)
+      .some(
+        (message) =>
+          message.type === 'snapshot' &&
+          !message.entityIds.includes(welcome.shipId) &&
+          message.entityIds.includes(nearestStation.id),
+      ),
+});
+const deathSnapshot = messages
+  .slice(deathMessageStart)
+  .find(
+    (message) =>
+      message.type === 'snapshot' &&
+      !message.entityIds.includes(welcome.shipId),
+  );
+
+assert(deathSnapshot?.type === 'snapshot');
+await waitUntil({
+  condition: () =>
+    messages
+      .slice(deathMessageStart)
+      .some(
+        (message) =>
+          message.type === 'snapshot' &&
+          message.serverTick > deathSnapshot.serverTick,
+      ),
+});
+socket.send(JSON.stringify({ type: 'respawn' }));
+await waitUntil({
+  condition: () =>
+    messages.slice(deathMessageStart).some(({ type }) => type === 'respawn'),
+});
+const respawnMessage = messages
+  .slice(deathMessageStart)
+  .find((message) => message.type === 'respawn');
+
+assert(respawnMessage?.type === 'respawn');
+assert.notEqual(respawnMessage.shipId, welcome.shipId);
+await waitUntil({
+  condition: () =>
+    messages
+      .slice(deathMessageStart)
+      .some(
+        (message) =>
+          message.type === 'load' &&
+          message.entityIds.includes(respawnMessage.shipId),
+      ),
+});
+const respawned = server.world.entities.get(respawnMessage.shipId);
+
+assert(respawned instanceof Ship);
+assert.equal(server.world.players.get(welcome.playerId)?.shipId, respawned.id);
+assert.equal(respawned.dockedTo, nearestStation.id);
+assert.equal(respawned.credits, 500);
+assert(respawned.position.distanceTo(nearestStation.position) < 1);
 
 const closed = Promise.all([
   once(socket, 'close'),

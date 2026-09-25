@@ -10,9 +10,27 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { RotValue, TransformValue } from './physics-transform';
-import type { Vec2Value } from '../vector';
+import { Vec2, type Vec2Value } from './vector';
 
+export {
+  crossVec2Vec2,
+  dotVec2,
+  lengthSqrVec2,
+  distVec2,
+  distSqrVec2,
+} from './vector';
+
+export type RotValue = {
+  s: number;
+  c: number;
+};
+
+export type TransformValue = {
+  p: Vec2Value;
+  q: RotValue;
+};
+
+// Solver scratch values use plain objects and explicit output parameters.
 export function vec2(x: number, y: number): Vec2Value {
   return { x, y };
 }
@@ -167,32 +185,6 @@ export function crossNumVec2(
   return out;
 }
 
-export function crossVec2Vec2(a: Vec2Value, b: Vec2Value): number {
-  return a.x * b.y - a.y * b.x;
-}
-
-export function dotVec2(a: Vec2Value, b: Vec2Value): number {
-  return a.x * b.x + a.y * b.y;
-}
-
-export function lengthSqrVec2(a: Vec2Value): number {
-  return a.x * a.x + a.y * a.y;
-}
-
-export function distVec2(a: Vec2Value, b: Vec2Value): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-export function distSqrVec2(a: Vec2Value, b: Vec2Value): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-
-  return dx * dx + dy * dy;
-}
-
 export function setRotAngle(out: RotValue, a: number): RotValue {
   out.c = Math.cos(a);
   out.s = Math.sin(a);
@@ -299,4 +291,21 @@ export function detransformTransform(
   out.p.x = x;
   out.p.y = y;
   return out;
+}
+
+// Position and rotation of a collider in the solver.
+export class Transform implements TransformValue {
+  p = Vec2.zero();
+  q: RotValue = { s: 0, c: 1 };
+
+  constructor(position?: Vec2Value, rotation?: number) {
+    if (position) this.p.setVec2(position);
+
+    if (rotation !== undefined) setRotAngle(this.q, rotation);
+  }
+
+  setNum(position: Vec2Value, rotation: number): void {
+    this.p.setVec2(position);
+    setRotAngle(this.q, rotation);
+  }
 }

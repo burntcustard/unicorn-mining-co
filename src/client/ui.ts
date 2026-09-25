@@ -10,12 +10,31 @@ import { renderText } from './text';
 export const renderUI = (
   game: GameState,
   stations: Array<{ position: Vector; radius: number }>,
-  { controlsShip }: { controlsShip: Ship },
+  {
+    controlsShip,
+    shipDestroyed,
+  }: { controlsShip: Ship; shipDestroyed: boolean },
 ) => {
   if (!game.uiAlpha) return;
 
   game.ctx.save();
   game.ctx.globalAlpha = game.uiAlpha;
+
+  if (shipDestroyed) {
+    const message = 'YOU DIED - PRESS ANY KEY TO RESPAWN';
+
+    renderText({
+      game,
+      text: message,
+      x: game.uiWidth / 2,
+      y: game.uiHeight / 2,
+      size: Math.min(1, (game.uiWidth - 24) / (message.length * 13)),
+      align: 0,
+    });
+    game.ctx.restore();
+    return;
+  }
+
   renderIndicators(game, stations, colors.green[2], 10000);
 
   game.ctx.globalAlpha = game.uiAlpha * playerShip.hudAlpha;

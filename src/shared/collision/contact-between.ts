@@ -4,7 +4,7 @@ import { PolygonShape } from './shape/polygon-shape';
 import { collideCircles } from './shape/circle-circle-contact';
 import { collidePolygons } from './shape/polygon-polygon-contact';
 import { collidePolygonCircle } from './shape/circle-polygon-contact';
-import { Transform } from '../common/physics-transform';
+import { Transform } from '../vector-math';
 import { Vector } from '../vector';
 import { type Collider } from './types';
 
@@ -13,6 +13,17 @@ type ShapeData = Partial<Collider> & {
   radius: number;
   colliders?: ShapeData[];
 };
+
+const shapesOf = (parent: ShapeData) =>
+  (parent.colliders || [parent]).map((collider) => ({
+    collider,
+    shape: collider.outline
+      ? new PolygonShape(
+          collider.outline.map(([x, y]) => Vector(x, y)),
+          collider.collisionMargin,
+        )
+      : new CircleShape(Vector(), collider.radius),
+  }));
 
 /*
  * Read-only overlap query using the same narrow phase as the dynamics solver.
@@ -28,20 +39,14 @@ export const contactBetween = (a: ShapeData, b: ShapeData) => {
         bCollider?: ShapeData;
       }
     | undefined;
+  const shapesA = shapesOf(a);
+  const shapesB = shapesOf(b);
+  const xa = new Transform(a.position, a.rotation || 0);
+  const xb = new Transform(b.position, b.rotation || 0);
+  const manifold = new Manifold();
 
-  (a.colliders || [a]).forEach((colliderA) =>
-    (b.colliders || [b]).forEach((colliderB) => {
-      const [sa, sb] = [colliderA, colliderB].map((collider) =>
-        collider.outline
-          ? new PolygonShape(
-              collider.outline.map(([x, y]) => Vector(x, y)),
-              collider.collisionMargin,
-            )
-          : new CircleShape(Vector(), collider.radius),
-      );
-      const xa = new Transform(a.position, a.rotation || 0);
-      const xb = new Transform(b.position, b.rotation || 0);
-      const manifold = new Manifold();
+  shapesA.forEach(({ collider: colliderA, shape: sa }) =>
+    shapesB.forEach(({ collider: colliderB, shape: sb }) => {
       let reversed = false;
 
       if (sa instanceof PolygonShape && sb instanceof PolygonShape) {

@@ -13,7 +13,7 @@
 import { Vec2Value } from '../vector';
 import { AABB, AABBValue } from './axis-aligned-bounds';
 import { DynamicTree } from './dynamic-tree';
-import { FixtureProxy } from '../dynamics/collision-fixture';
+import { FixtureProxy } from '../physics/fixture';
 
 /**
  * The broad-phase wraps and extends a dynamic-tree to keep track of moved

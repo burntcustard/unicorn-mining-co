@@ -10,9 +10,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { AABBValue } from './axis-aligned-bounds';
-import { DistanceProxy } from './shape-distance';
-import { TransformValue } from '../common/physics-transform';
+import { AABBValue } from '../axis-aligned-bounds';
+import { DistanceProxy } from '../shape-distance';
+import { TransformValue } from '../../vector-math';
 
 /**
  * A shape is used for collision detection. You can create a shape however you
