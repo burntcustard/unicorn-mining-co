@@ -22,7 +22,7 @@ const bundle = await rolldown({
       export { cloneEntity } from '${process.cwd()}/src/shared/simulation/world-state.ts';
       export { updateWorld } from '${process.cwd()}/src/shared/simulation/update-world.ts';
       export { detectCollisions } from '${process.cwd()}/src/shared/collision/detect-collisions.ts';
-      export { Vector } from '${process.cwd()}/src/shared/vector.ts';
+      export * as Vec from '${process.cwd()}/src/shared/vector.ts';
       export { PredictionManager } from '${process.cwd()}/src/client/prediction.ts';
     `
           : undefined,
@@ -48,7 +48,7 @@ const {
   outlinesFrom,
   PredictionManager,
   updateWorld,
-  Vector,
+  Vec,
 } = simulation;
 
 const dockedMovement = () => {
@@ -57,7 +57,7 @@ const dockedMovement = () => {
     world,
     createStation({
       id: 100,
-      position: Vector(),
+      position: Vec.create(),
       radius: 400,
       spin: 0,
     }),
@@ -66,7 +66,7 @@ const dockedMovement = () => {
     world,
     createShip(world, {
       playerId: 7,
-      position: Vector(),
+      position: Vec.create(),
     }),
   );
 
@@ -137,7 +137,7 @@ const dockingShape = () => {
     world,
     createStation({
       id: 100,
-      position: Vector(),
+      position: Vec.create(),
       radius: 400,
       spin: 0,
     }),
@@ -146,8 +146,8 @@ const dockingShape = () => {
     world,
     createShip(world, {
       playerId: 7,
-      position: Vector(0, 400),
-      velocity: Vector(0, -200),
+      position: Vec.create(0, 400),
+      velocity: Vec.create(0, -200),
     }),
   );
 
@@ -191,8 +191,8 @@ dockedMovement();
 
 const compoundShipGeometry = () => {
   const world = createWorld();
-  const first = createShip(world, { position: Vector() });
-  const separated = createShip(world, { position: Vector(0, 75) });
+  const first = createShip(world, { position: Vec.create() });
+  const separated = createShip(world, { position: Vec.create(0, 75) });
 
   // Their 40-unit bounding circles overlap, but their real hulls do not.
   assert.equal(
@@ -214,9 +214,13 @@ const compoundShipGeometry = () => {
 
 const stationGeometry = () => {
   const world = createWorld();
-  const station = createStation({ id: 100, position: Vector(), radius: 400 });
-  const bayShip = createShip(world, { position: Vector(210) });
-  const wallShip = createShip(world, { position: Vector(0, 250) });
+  const station = createStation({
+    id: 100,
+    position: Vec.create(),
+    radius: 400,
+  });
+  const bayShip = createShip(world, { position: Vec.create(210) });
+  const wallShip = createShip(world, { position: Vec.create(0, 250) });
 
   assert.equal(
     detectCollisions({ entities: [station, bayShip] }).filter(
@@ -236,11 +240,11 @@ const stationGeometry = () => {
   const dockingWorld = createWorld();
   const dockingStation = addEntity(
     dockingWorld,
-    createStation({ id: 200, position: Vector(), radius: 400 }),
+    createStation({ id: 200, position: Vec.create(), radius: 400 }),
   );
   const dockingShip = addEntity(
     dockingWorld,
-    createShip(dockingWorld, { playerId: 8, position: Vector(150) }),
+    createShip(dockingWorld, { playerId: 8, position: Vec.create(150) }),
   );
 
   addPlayer(dockingWorld, { id: 8, shipId: dockingShip.id });
@@ -255,12 +259,12 @@ const collisionAndThrust = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector() }),
+    createShip(world, { playerId: 7, position: Vec.create() }),
   );
 
   addEntity(
     world,
-    createAsteroid(world, { position: Vector(200), radius: 25 }),
+    createAsteroid(world, { position: Vec.create(200), radius: 25 }),
   );
   addPlayer(world, { id: 7, shipId: ship.id });
   const input = {
@@ -281,7 +285,7 @@ const collisionAndThrust = () => {
   }
 
   assert.equal(ship.thrust, 1);
-  assert(ship.velocity.length() > 0);
+  assert(Vec.length(ship.velocity) > 0);
   assert(events.some(({ type }) => type === 'collision'));
 };
 
@@ -293,12 +297,15 @@ const drillingDoesNotBounce = () => {
     world,
     createShip(world, {
       playerId: 7,
-      position: Vector(),
-      velocity: Vector(10),
+      position: Vec.create(),
+      velocity: Vec.create(10),
     }),
   );
 
-  addEntity(world, createAsteroid(world, { position: Vector(50), radius: 25 }));
+  addEntity(
+    world,
+    createAsteroid(world, { position: Vec.create(50), radius: 25 }),
+  );
   addPlayer(world, { id: 7, shipId: ship.id });
   updateWorld({
     world: world,
@@ -326,7 +333,7 @@ const drillDamagesOnlyAtTip = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector() }),
+    createShip(world, { playerId: 7, position: Vec.create() }),
   );
   const drill = ship.hitbox().filter(({ segment }) => segment?.module.grinds);
   const body = drill.find(({ outline }) => outline);
@@ -338,7 +345,7 @@ const drillDamagesOnlyAtTip = () => {
   assert.equal(body.role, undefined);
   assert.equal(tip?.physics, false);
   assert.equal(tip?.radius, 3);
-  assert(tip.position.distanceTo(Vector(46)) < 1e-9);
+  assert(Vec.distance(tip.position, Vec.create(46)) < 1e-9);
 
   const check = (position) => {
     const asteroid = addEntity(
@@ -361,7 +368,7 @@ const drillDamagesOnlyAtTip = () => {
     return { contacts, events };
   };
 
-  const flank = check(Vector(35, 7));
+  const flank = check(Vec.create(35, 7));
 
   assert(
     flank.contacts.some(({ collider, other }) =>
@@ -378,7 +385,7 @@ const drillDamagesOnlyAtTip = () => {
   );
   assert.equal(Boolean(tip.segment.biting), false);
 
-  const head = check(Vector(50));
+  const head = check(Vec.create(50));
 
   const tipContact = head.contacts.find(
     ({ collider, other }) =>
@@ -389,12 +396,12 @@ const drillDamagesOnlyAtTip = () => {
   assert(tipContact, 'the tip circle touches a rock head-on');
   assert(drilled, 'a tip contact damages the asteroid');
   assert.equal(drilled.position, tipContact.point);
-  assert(drilled.position.distanceTo(body.position) > 10);
+  assert(Vec.distance(drilled.position, body.position) > 10);
   assert.equal(tip.segment.biting, true);
 
   const otherShip = addEntity(
     world,
-    createShip(world, { playerId: 8, position: Vector(60) }),
+    createShip(world, { playerId: 8, position: Vec.create(60) }),
   );
   const craftContacts = detectCollisions({ entities: [ship, otherShip] })
     .filter(
@@ -440,7 +447,11 @@ drillDamagesOnlyAtTip();
 
   addEntity(
     world,
-    createAsteroid(world, { position: Vector(55), radius: 25, pointCount: 6 }),
+    createAsteroid(world, {
+      position: Vec.create(55),
+      radius: 25,
+      pointCount: 6,
+    }),
   );
   addPlayer(world, { id: 7, shipId: ship.id });
   ship.segments
@@ -449,7 +460,7 @@ drillDamagesOnlyAtTip();
       segment.active = 1;
       segment.activationProgress = 1;
     });
-  ship.velocity.set(Vector(0, 100));
+  Vec.set(ship.velocity, Vec.create(0, 100));
   let damageContacts = 0;
 
   for (let tick = 0; tick < 5; tick++) {
@@ -479,11 +490,11 @@ const drillDamagesCraftInWorld = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector() }),
+    createShip(world, { playerId: 7, position: Vec.create() }),
   );
   const otherShip = addEntity(
     world,
-    createShip(world, { playerId: 8, position: Vector(60) }),
+    createShip(world, { playerId: 8, position: Vec.create(60) }),
   );
 
   addPlayer(world, { id: 7, shipId: ship.id });
@@ -526,12 +537,12 @@ const drillSelectsTouchedSegment = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector() }),
+    createShip(world, { playerId: 7, position: Vec.create() }),
   );
   const asteroid = addEntity(
     world,
     createAsteroid(world, {
-      position: Vector(55),
+      position: Vec.create(55),
       radius: 25,
       contents: [0, 1, 2],
     }),
@@ -607,13 +618,13 @@ const diamondPickup = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector() }),
+    createShip(world, { playerId: 7, position: Vec.create() }),
   );
   const asteroid = addEntity(
     world,
     createAsteroid(world, {
       contents: [0],
-      position: Vector(60),
+      position: Vec.create(60),
       radius: 25,
     }),
   );
@@ -646,8 +657,8 @@ const diamondPickup = () => {
     if (target) {
       ship.rotation = 0;
       ship.spin = 0;
-      ship.position.set(target.position.subtract(Vector(47)));
-      ship.velocity.set(Vector());
+      Vec.set(ship.position, Vec.subtract(target.position, Vec.create(47)));
+      Vec.set(ship.velocity, Vec.create());
     }
     drillingEvents.push(
       ...updateWorld({ world: world, inputs: new Map([[7, drillInput]]) }),
@@ -676,10 +687,10 @@ const diamondPickup = () => {
   ship.rotation = 0;
   ship.spin = 0;
   // Collect clear of the asteroid fragments left by the drilling stage.
-  ship.position.set(Vector(-200));
-  ship.velocity.set(Vector());
-  item.position.set(ship.position.add(Vector(3, -13)));
-  item.velocity.set(Vector());
+  Vec.set(ship.position, Vec.create(-200));
+  Vec.set(ship.velocity, Vec.create());
+  Vec.set(item.position, Vec.add(ship.position, Vec.create(3, -13)));
+  Vec.set(item.velocity, Vec.create());
 
   const pickupInput = {
     ...drillInput,
@@ -727,7 +738,7 @@ diamondPickup();
     new Diamond({
       world,
       id: entityId(world),
-      position: throat.position.add(Vector(throat.radius + 2)),
+      position: Vec.add(throat.position, Vec.create(throat.radius + 2)),
     }),
   );
   const module = throat.segment.module;
@@ -753,7 +764,7 @@ diamondPickup();
     0,
     'door contact or edge overlap cannot collect cargo',
   );
-  item.position.set(throat.position);
+  Vec.set(item.position, throat.position);
   module.collect({
     ship,
     contact: { collider: throat, other: cargoPoint },
@@ -773,7 +784,7 @@ const starAsteroidLosesOneArm = () => {
     world,
     createAsteroid(world, {
       pointCount: 6,
-      position: Vector(60),
+      position: Vec.create(60),
       radius: 25,
       radiusEven: 12,
     }),
@@ -814,7 +825,7 @@ const splitConservesOriginalGeometry = () => {
         resource: 1,
         contents: [1, 1, 1],
         rotation: 0.4,
-        position: Vector(200, 300),
+        position: Vec.create(200, 300),
       }),
     );
     const originalArea = rock.segments.reduce(
@@ -972,13 +983,13 @@ const authoritativeSnapshotReplacesPredictedSplit = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector() }),
+    createShip(world, { playerId: 7, position: Vec.create() }),
   );
   const asteroid = addEntity(
     world,
     createAsteroid(world, {
       pointCount: 6,
-      position: Vector(60),
+      position: Vec.create(60),
       radius: 25,
       radiusEven: 12,
     }),
@@ -1031,7 +1042,7 @@ const run = () => {
   const world = createWorld({ seed: 25 });
   const ship = addEntity(
     world,
-    createShip(world, { playerId: 7, position: Vector() }),
+    createShip(world, { playerId: 7, position: Vec.create() }),
   );
   const asteroid = addEntity(
     world,
@@ -1042,7 +1053,7 @@ const run = () => {
         [-25, 25],
         [-25, -25],
       ],
-      position: Vector(70),
+      position: Vec.create(70),
       radius: 25,
     }),
   );
@@ -1083,22 +1094,26 @@ for (const multiplayer of [false, true]) {
   const world = createWorld();
   const pilot = addEntity(
     world,
-    createShip(world, { playerId: 1, position: Vector() }),
+    createShip(world, { playerId: 1, position: Vec.create() }),
   );
   const remote = addEntity(
     world,
-    createShip(world, { playerId: 2, position: Vector(10000) }),
+    createShip(world, { playerId: 2, position: Vec.create(10000) }),
   );
 
   addPlayer(world, { id: 1, shipId: pilot.id });
 
   if (multiplayer) addPlayer(world, { id: 2, shipId: remote.id });
-  const bodies = [Vector(150), Vector(1000), Vector(5000), Vector(10150)].map(
-    (position) =>
-      addEntity(
-        world,
-        createAsteroid(world, { position, radius: 10, pointCount: 3 }),
-      ),
+  const bodies = [
+    Vec.create(150),
+    Vec.create(1000),
+    Vec.create(5000),
+    Vec.create(10150),
+  ].map((position) =>
+    addEntity(
+      world,
+      createAsteroid(world, { position, radius: 10, pointCount: 3 }),
+    ),
   );
   const calls = bodies.map(() => []);
 
@@ -1120,7 +1135,7 @@ for (const multiplayer of [false, true]) {
   assert.equal(bodies[2].pendingUpdateTime, 2 / 60);
   const saved = cloneEntity({ entity: bodies[2] });
 
-  bodies[2].position.set(Vector(1000));
+  Vec.set(bodies[2].position, Vec.create(1000));
   updateWorld({ world: world, inputs: new Map() });
   assert(
     Math.abs(calls[2].at(-1) - 2 / 60) < 1e-12,
@@ -1142,7 +1157,7 @@ for (let i = 0; i < 50; i++) {
   addEntity(
     movementWorld,
     createAsteroid(movementWorld, {
-      position: Vector(i * 1000, 10000),
+      position: Vec.create(i * 1000, 10000),
       radius: 10,
       pointCount: 3,
     }),

@@ -1,15 +1,15 @@
+import * as Vec from '../vector';
 import { Manifold } from './contact-manifold';
 import { CircleShape } from './shape/circle-shape';
 import { PolygonShape } from './shape/polygon-shape';
 import { collideCircles } from './shape/circle-circle-contact';
 import { collidePolygons } from './shape/polygon-polygon-contact';
 import { collidePolygonCircle } from './shape/circle-polygon-contact';
-import { Transform } from '../vector-math';
-import { Vector } from '../vector';
+import { transform } from '../vector-math';
 import { type Collider } from './types';
 
 type ShapeData = Partial<Collider> & {
-  position: Vector;
+  position: Vec.Value;
   radius: number;
   colliders?: ShapeData[];
 };
@@ -19,10 +19,10 @@ const shapesOf = (parent: ShapeData) =>
     collider,
     shape: collider.outline
       ? new PolygonShape(
-          collider.outline.map(([x, y]) => Vector(x, y)),
+          collider.outline.map(([x, y]) => Vec.create(x, y)),
           collider.collisionMargin,
         )
-      : new CircleShape(Vector(), collider.radius),
+      : new CircleShape(Vec.create(), collider.radius),
   }));
 
 /*
@@ -33,16 +33,16 @@ export const contactBetween = (a: ShapeData, b: ShapeData) => {
   let deepest:
     | {
         depth: number;
-        normal: Vector;
-        point: Vector;
+        normal: Vec.Value;
+        point: Vec.Value;
         aCollider?: ShapeData;
         bCollider?: ShapeData;
       }
     | undefined;
   const shapesA = shapesOf(a);
   const shapesB = shapesOf(b);
-  const xa = new Transform(a.position, a.rotation || 0);
-  const xb = new Transform(b.position, b.rotation || 0);
+  const xa = transform(a.position.x, a.position.y, a.rotation || 0);
+  const xb = transform(b.position.x, b.position.y, b.rotation || 0);
   const manifold = new Manifold();
 
   shapesA.forEach(({ collider: colliderA, shape: sa }) =>
@@ -69,10 +69,8 @@ export const contactBetween = (a: ShapeData, b: ShapeData) => {
       if (deepest && deepest.depth >= depth) return;
       deepest = {
         depth,
-        normal: Vector(contact.normal.x, contact.normal.y).scale(
-          reversed ? -1 : 1,
-        ),
-        point: Vector(contact.points[0].x, contact.points[0].y),
+        normal: Vec.scale(Vec.clone(contact.normal), reversed ? -1 : 1),
+        point: Vec.create(contact.points[0].x, contact.points[0].y),
         aCollider: a.colliders ? colliderA : undefined,
         bCollider: b.colliders ? colliderB : undefined,
       };

@@ -1,4 +1,4 @@
-import { Vector, type Vector as VectorValue } from '../vector';
+import * as Vec from '../vector';
 import { rotatePoint } from '../geometry';
 import { createPolygon, outerEdges, radiusOf } from '../polygon';
 import { createRandom } from '../seeded-random';
@@ -215,7 +215,7 @@ export const centerOf = (outline: number[][]) => {
     x += (atX + nextX) * cross;
     y += (atY + nextY) * cross;
   });
-  return Vector(x / (area * 3), y / (area * 3));
+  return Vec.create(x / (area * 3), y / (area * 3));
 };
 
 const detachSegment = ({
@@ -264,14 +264,16 @@ const detachSegment = ({
       mass,
       maxHealth: radius,
       outline: childOutline,
-      position: asteroid.position.add(offset),
+      position: Vec.add(asteroid.position, offset),
       radius,
       resource: asteroid.resource,
       rotation: asteroid.rotation,
       segments: group.length > 1 ? childSegments : undefined,
       spin: asteroid.spin,
-      velocity: asteroid.velocity.add(
-        Vector(-offset.y, offset.x).scale(asteroid.spin),
+      velocity: Vec.addScaled(
+        asteroid.velocity,
+        Vec.create(-offset.y, offset.x),
+        asteroid.spin,
       ),
     });
 
@@ -281,12 +283,14 @@ const detachSegment = ({
   const spin = ((createRandom(asteroid.id).next() - 0.5) * force) / 3;
 
   children.forEach((child) => {
-    child.velocity.set(
-      child.velocity.add(
-        child.position
-          .subtract(asteroid.position)
-          .normalize()
-          .scale(force / child.mass),
+    Vec.set(
+      child.velocity,
+      Vec.add(
+        child.velocity,
+        Vec.scale(
+          Vec.normalize(Vec.subtract(child.position, asteroid.position)),
+          force / child.mass,
+        ),
       ),
     );
     child.spin += spin / child.mass;
@@ -302,7 +306,7 @@ const insideOutline = ({
   local,
 }: {
   outline: number[][];
-  local: VectorValue;
+  local: Vec.Value;
 }) => {
   const count = outline.length;
   const turn = Math.atan2(local.y, local.x) / (Math.PI * 2);
@@ -326,15 +330,15 @@ export const asteroidContact = ({
   radius,
 }: {
   asteroid: Asteroid;
-  position: VectorValue;
+  position: Vec.Value;
   radius: number;
 }) => {
   const outline = outlineOf(asteroid);
-  const offset = position.subtract(asteroid.position);
+  const offset = Vec.subtract(position, asteroid.position);
   const cosine = Math.cos(asteroid.rotation);
   const sine = Math.sin(asteroid.rotation);
   // The outline is cut in the asteroid's own frame, so the body comes to it.
-  const local = Vector(
+  const local = Vec.create(
     offset.x * cosine + offset.y * sine,
     offset.y * cosine - offset.x * sine,
   );
@@ -343,16 +347,17 @@ export const asteroidContact = ({
 
   outline.forEach(([x, y], i) => {
     const [toX, toY] = outline[(i + 1) % outline.length];
-    const edge = Vector(toX - x, toY - y);
+    const edge = Vec.create(toX - x, toY - y);
     const along = Math.min(
       1,
       Math.max(
         0,
-        Vector(local.x - x, local.y - y).dot(edge) / (edge.dot(edge) || 1),
+        Vec.dot(Vec.create(local.x - x, local.y - y), edge) /
+          (Vec.dot(edge, edge) || 1),
       ),
     );
-    const point = Vector(x + edge.x * along, y + edge.y * along);
-    const distance = point.distanceTo(local);
+    const point = Vec.create(x + edge.x * along, y + edge.y * along);
+    const distance = Vec.distance(point, local);
 
     if (distance < nearest) {
       nearest = distance;
@@ -365,12 +370,14 @@ export const asteroidContact = ({
 
   if (overlap <= 0) return;
 
-  const away = inside ? closest.subtract(local) : local.subtract(closest);
-  const normal = away.length() ? away.normalize() : Vector(1, 0);
+  const away = inside
+    ? Vec.subtract(closest, local)
+    : Vec.subtract(local, closest);
+  const normal = Vec.length(away) ? Vec.normalize(away) : Vec.create(1, 0);
 
   return {
     // Back out into the world the body is actually moving through.
-    normal: Vector(
+    normal: Vec.create(
       normal.x * cosine - normal.y * sine,
       normal.x * sine + normal.y * cosine,
     ),
@@ -475,9 +482,11 @@ export class Asteroid extends GameObject {
     // mass and resources intact, and never shrink the remaining asteroid.
     const collisionOutline = center
       ? outline.map(([x, y]) => {
-          const offset = Vector(x, y).subtract(center);
-          const point = center.add(
-            offset.scale(Math.max(0.5, 1 - 0.1 / (offset.length() || 1))),
+          const offset = Vec.subtract(Vec.create(x, y), center);
+          const point = Vec.addScaled(
+            center,
+            offset,
+            Math.max(0.5, 1 - 0.1 / (Vec.length(offset) || 1)),
           );
 
           return [point.x, point.y];
@@ -522,8 +531,8 @@ export class Asteroid extends GameObject {
           new itemTypes[resource]({
             world,
             id: entityId(world),
-            position: this.position.add(Vector()),
-            velocity: this.velocity.add(Vector()),
+            position: Vec.clone(this.position),
+            velocity: Vec.clone(this.velocity),
           }),
         ),
       );
@@ -567,14 +576,14 @@ export const createAsteroid = (
     maxHealth,
     outline,
     pointCount,
-    position = Vector(),
+    position = Vec.create(),
     radius = 25,
     rotation = 0,
     spin = 0,
     radiusEven,
     resource,
     segments,
-    velocity = Vector(),
+    velocity = Vec.create(),
   }: {
     contents?: number[];
     decay?: number;
@@ -584,14 +593,14 @@ export const createAsteroid = (
     maxHealth?: number;
     outline?: number[][];
     pointCount?: number;
-    position?: VectorValue;
+    position?: Vec.Value;
     radius?: number;
     rotation?: number;
     spin?: number;
     radiusEven?: number;
     resource?: number;
     segments?: AsteroidSegment[];
-    velocity?: VectorValue;
+    velocity?: Vec.Value;
   } = {},
 ): Asteroid => {
   const fullHealth = maxHealth ?? health ?? radius * 2;

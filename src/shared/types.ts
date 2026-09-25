@@ -1,4 +1,4 @@
-import { type Vector } from './vector';
+import * as Vec from './vector';
 import { type Module } from './modules/module';
 
 export type Point = number[];
@@ -12,7 +12,7 @@ export type ModuleSegmentPlan = {
 
 export type Mount = {
   [key: string]: any;
-  localPosition: Vector;
+  localPosition: Vec.Value;
   health?: number;
   module?: Module | 0;
 };
@@ -23,7 +23,7 @@ export type Segment = {
   activationProgress: number;
   health: number;
   hull: boolean;
-  localPosition: Vector;
+  localPosition: Vec.Value;
   module: any;
   mounts?: Mount[];
   mount?: Mount;

@@ -1,8 +1,8 @@
-import { type Vector } from '../vector';
+import * as Vec from '../vector';
 
 export type StationDescription = {
   id: number;
-  position: Vector;
+  position: Vec.Value;
   radius: number;
   spin: number;
   type: 'station';
@@ -12,7 +12,7 @@ export type AsteroidDescription = {
   contents: number[];
   id: number;
   pointCount?: number;
-  position: Vector;
+  position: Vec.Value;
   radius: number;
   radiusEven?: number;
   resource: number;
@@ -25,7 +25,7 @@ export type WreckDescription = {
   cargoContents: number[];
   id: number;
   paint: number;
-  position: Vector;
+  position: Vec.Value;
   radius: number;
   spin: number;
   type: 'wreck';
@@ -33,7 +33,7 @@ export type WreckDescription = {
 
 export type RegionDescription = {
   asteroids: AsteroidDescription[];
-  region: Vector;
+  region: Vec.Value;
   stations: StationDescription[];
   wrecks: WreckDescription[];
 };

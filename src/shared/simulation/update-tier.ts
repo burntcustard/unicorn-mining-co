@@ -1,3 +1,4 @@
+import * as Vec from '../vector';
 import { type GameObject } from '../game-object';
 import { type SimulationWorld } from './world';
 import { type PlayerId } from '../protocol/entities';
@@ -19,7 +20,8 @@ export const updateTier = ({
   observers: Pick<GameObject, 'position'>[];
 }) => {
   return observers.some(
-    (observer) => entity.position.distanceTo(observer.position) <= visibleRange,
+    (observer) =>
+      Vec.distance(entity.position, observer.position) <= visibleRange,
   )
     ? updateTiers.visible
     : updateTiers.distant;

@@ -1,4 +1,4 @@
-import { Vector } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { type PlayerInput } from '../shared/protocol/input';
 import { type SimulationEvent } from '../shared/protocol/events';
 import {
@@ -52,11 +52,11 @@ const makeEntity = ({
     id: entity.id,
     mass: entity.mass,
     pendingUpdateTime: entity.pendingUpdateTime,
-    position: Vector(wirePosition.x, wirePosition.y),
+    position: Vec.clone(wirePosition),
     radius: entity.radius,
     rotation: entity.rotation,
     spin: entity.spin,
-    velocity: Vector(wireVelocity.x, wireVelocity.y),
+    velocity: Vec.clone(wireVelocity),
   };
 
   const withFriction = <T extends GameObject>(object: T): T => {
@@ -165,7 +165,7 @@ export class NetworkClient {
   readonly world = createWorld();
   playerId?: number;
   serverTick = 0;
-  spawnPosition = Vector();
+  spawnPosition = Vec.create();
   shipId?: number;
   shipDestroyed = false;
   worldSeed?: number;
@@ -336,7 +336,7 @@ export class NetworkClient {
       localStorage.setItem('playerToken', message.playerToken);
       this.playerId = message.playerId;
       this.shipId = message.shipId;
-      this.spawnPosition.set(message.spawn);
+      Vec.set(this.spawnPosition, message.spawn);
       this.shipDestroyed = false;
       this.worldSeed = message.worldSeed;
       this.serverTick = message.serverTick;

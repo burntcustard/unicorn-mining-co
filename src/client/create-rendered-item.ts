@@ -1,13 +1,13 @@
 import { itemTypes } from '../shared/items';
-import { Vector, type Vector as VectorValue } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { renderItem } from './render-item';
 
 export const createRenderedItem = ({
   add = true,
-  position = Vector(),
+  position = Vec.create(),
   resource,
 }: {
   add?: boolean;
-  position?: VectorValue;
+  position?: Vec.Value;
   resource: number;
 }) => renderItem({ add, item: new itemTypes[resource]({ position }) });

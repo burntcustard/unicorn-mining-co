@@ -1,4 +1,4 @@
-import { Vector, type Vector as VectorValue } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { type ReplicatedEntity } from '../shared/protocol/network';
 import { simulationStep, updateTiers } from '../shared/settings';
 import { updateTier } from '../shared/simulation/update-tier';
@@ -6,7 +6,7 @@ import { type SimulationWorld } from '../shared/simulation/world';
 
 type Frame = {
   tick: number;
-  position: VectorValue;
+  position: Vec.Value;
   rotation: number;
   dockedTo?: number;
 };
@@ -30,8 +30,10 @@ const interpolate = ({
   to: Pick<Frame, 'position' | 'rotation'>;
   fraction: number;
 }) => ({
-  position: from.position.add(
-    to.position.subtract(from.position).scale(fraction),
+  position: Vec.addScaled(
+    from.position,
+    Vec.subtract(to.position, from.position),
+    fraction,
   ),
   rotation:
     from.rotation +
@@ -69,9 +71,7 @@ export class RemoteMotion {
       if (!retained.has(id)) this.tracks.delete(id);
     });
     const ship = entities.find((entity) => entity.id === shipId);
-    const observers = ship
-      ? [{ position: Vector(ship.position.x, ship.position.y) }]
-      : [];
+    const observers = ship ? [{ position: Vec.clone(ship.position) }] : [];
 
     entities.forEach((entity) => {
       if (entity.id === shipId) return;
@@ -85,12 +85,12 @@ export class RemoteMotion {
 
       if (previous && tick <= previous.tick) return;
       // Docking/teleporting is a discontinuity, not a flight across the screen.
-      const position = Vector(entity.position.x, entity.position.y);
+      const position = Vec.clone(entity.position);
 
       if (
         previous &&
         (previous.dockedTo !== entity.dockedTo ||
-          previous.position.distanceTo(position) > 1000)
+          Vec.distance(previous.position, position) > 1000)
       ) {
         track.frames = [];
         track.renderTick = -Infinity;
@@ -130,7 +130,7 @@ export class RemoteMotion {
     const poses = new Map<number, Pick<Frame, 'position' | 'rotation'>>(
       [...(predicted?.entities.values() || [])].map((entity) => [
         entity.id,
-        { position: entity.position.add(Vector()), rotation: entity.rotation },
+        { position: Vec.clone(entity.position), rotation: entity.rotation },
       ]),
     );
 
@@ -167,13 +167,13 @@ export class RemoteMotion {
         // contact; distant free flight keeps its non-extrapolated presentation.
         const gap =
           Math.min(
-            local.position.distanceTo(pose.position),
-            local.position.distanceTo(predictedPose.position),
+            Vec.distance(local.position, pose.position),
+            Vec.distance(local.position, predictedPose.position),
           ) -
           local.radius -
           entity.radius;
         const travel =
-          entity.velocity.subtract(local.velocity).length() *
+          Vec.length(Vec.subtract(entity.velocity, local.velocity)) *
           simulationStep *
           updateTiers.visible.replicateEvery;
         const weight = Math.max(
@@ -181,8 +181,10 @@ export class RemoteMotion {
           Math.min(1, (2 * contactMargin + travel - gap) / contactMargin),
         );
 
-        pose.position = pose.position.add(
-          predictedPose.position.subtract(pose.position).scale(weight),
+        pose.position = Vec.addScaled(
+          pose.position,
+          Vec.subtract(predictedPose.position, pose.position),
+          weight,
         );
         const turn = predictedPose.rotation - pose.rotation;
 

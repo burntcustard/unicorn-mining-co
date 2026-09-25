@@ -37,7 +37,7 @@ const bundle = await rolldown({
       export { simulationStep } from '${process.cwd()}/src/shared/settings.ts';
       export { sparks, sprayDamage } from '${process.cwd()}/src/client/shrapnel.ts';
       export { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
-      export { Vector } from '${process.cwd()}/src/shared/vector.ts';
+      export * as Vec from '${process.cwd()}/src/shared/vector.ts';
       export { PolygonShape } from '${process.cwd()}/src/shared/collision/shape/polygon-shape.ts';
       export { ShieldGenerator } from '${process.cwd()}/src/shared/modules/shield-generator.ts';
       export { movePoint, rotatePoint } from '${process.cwd()}/src/shared/geometry.ts';
@@ -72,9 +72,9 @@ const {
   captureWorld,
   restoreWorld,
   rotatePoint,
-  Vector,
   PolygonShape,
   ShieldGenerator,
+  Vec,
 } = physics;
 
 const closeTo = (actual, expected, tolerance = 1e-9) =>
@@ -84,12 +84,17 @@ const closeTo = (actual, expected, tolerance = 1e-9) =>
   );
 const polygon = (outline, properties = {}) => ({
   outline,
-  position: Vector(),
+  position: Vec.create(),
   radius: 20,
   rotation: 0,
   ...properties,
 });
-const body = ({ id, mass, position = Vector(), velocity = Vector() }) => ({
+const body = ({
+  id,
+  mass,
+  position = Vec.create(),
+  velocity = Vec.create(),
+}) => ({
   hitbox: () => [],
   id,
   kind: 'item',
@@ -102,21 +107,20 @@ const body = ({ id, mass, position = Vector(), velocity = Vector() }) => ({
   velocity,
 });
 
-// Geometry helpers return full vectors, so callers can keep calculating with
-// their results without wrapping or copying them first.
-const turned = rotatePoint(Vector(2), Math.PI / 2);
+// Geometry helpers return plain vector coordinates.
+const turned = rotatePoint(Vec.create(2), Math.PI / 2);
 const moved = movePoint(turned, 0, 3);
 
 closeTo(turned.x, 0);
 closeTo(turned.y, 2);
 closeTo(moved.x, 3);
 closeTo(moved.y, 2);
-assert.equal(typeof moved.normalize, 'function');
+assert.deepEqual(Object.keys(moved).sort(), ['x', 'y']);
 
 // Circle-circle and circle-face contacts have exact penetration and normals.
 let contact = contactBetween(
-  { radius: 5, position: Vector() },
-  { radius: 5, position: Vector(8) },
+  { radius: 5, position: Vec.create() },
+  { radius: 5, position: Vec.create(8) },
 );
 
 closeTo(contact.depth, 2);
@@ -130,7 +134,7 @@ contact = contactBetween(
     [10, 10],
     [-10, 10],
   ]),
-  { radius: 5, position: Vector(14) },
+  { radius: 5, position: Vec.create(14) },
 );
 closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
@@ -156,7 +160,7 @@ const compound = polygon(
   { colliders, radius: 10 },
 );
 
-contact = contactBetween(compound, { radius: 5, position: Vector(14) });
+contact = contactBetween(compound, { radius: 5, position: Vec.create(14) });
 closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
@@ -168,7 +172,7 @@ const collider = { ...compound, owner, rotation: 0 };
 const circle = {
   owner: otherOwner,
   radius: 5,
-  position: Vector(14),
+  position: Vec.create(14),
   rotation: 0,
 };
 
@@ -178,7 +182,7 @@ otherOwner.hitbox = () => [
   {
     ...circle,
     owner,
-    position: Vector(
+    position: Vec.create(
       14 * Math.cos((Math.PI * 2) / 5),
       14 * Math.sin((Math.PI * 2) / 5),
     ),
@@ -219,21 +223,21 @@ assert.equal(new GameObject().mass, 6);
   object.hitbox = () => [
     {
       owner: object,
-      position: Vector(),
+      position: Vec.create(),
       rotation: 0,
       radius: 2,
       friction: 0.01,
     },
     {
       owner: object,
-      position: Vector(6),
+      position: Vec.create(6),
       rotation: 0,
       radius: 1,
       friction: 0.01,
     },
     {
       owner: object,
-      position: Vector(100),
+      position: Vec.create(100),
       rotation: 0,
       radius: 20,
       friction: 0.01,
@@ -251,7 +255,7 @@ assert.equal(new GameObject().mass, 6);
   object.hitbox = () => [
     {
       owner: object,
-      position: Vector(5),
+      position: Vec.create(5),
       rotation: 0,
       radius: 0,
       outline: [
@@ -289,8 +293,8 @@ const projectile = new GameObject({
   id: 11,
   mass: 6,
   radius: 3,
-  position: Vector(15, -20),
-  velocity: Vector(0, 200),
+  position: Vec.create(15, -20),
+  velocity: Vec.create(0, 200),
   drag: 0,
   maxSpeed: 10000,
 });
@@ -308,7 +312,7 @@ assert(
   'pushing a triangular tip rotates the rock',
 );
 const impactResult = {
-  position: triangle.position.add(Vector()),
+  position: Vec.add(triangle.position, Vec.create()),
   spin: triangle.spin,
 };
 
@@ -317,7 +321,7 @@ restoreWorld({ world: torqueWorld, state: beforeImpact });
 for (let i = 0; i < 20; i++) {
   updateWorld({ world: torqueWorld, inputs: new Map() });
 }
-closeTo(triangle.position.distanceTo(impactResult.position), 0, 1e-7);
+closeTo(Vec.distance(triangle.position, impactResult.position), 0, 1e-7);
 closeTo(triangle.spin, impactResult.spin, 1e-7);
 
 // A fast ship damages the contacted asteroid segment, not the whole body's health.
@@ -327,8 +331,8 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
     world,
     createShip(world, {
       playerId: 1,
-      position: Vector(-85, 22.5),
-      velocity: Vector(400),
+      position: Vec.create(-85, 22.5),
+      velocity: Vec.create(400),
     }),
   );
 
@@ -371,7 +375,7 @@ for (const count of [20, 30]) {
 
     return [Math.cos(angle) * 20, Math.sin(angle) * 20];
   });
-  const shape = new PolygonShape(outline.map(([x, y]) => Vector(x, y)));
+  const shape = new PolygonShape(outline.map(([x, y]) => Vec.create(x, y)));
 
   assert.equal(
     shape.m_count,
@@ -383,18 +387,18 @@ for (const count of [20, 30]) {
     id: 600 + count,
     mass: 6,
     radius: 0.5,
-    position: Vector(180),
+    position: Vec.create(180),
   });
   const obstacle = new GameObject({
     id: 700 + count,
     mass: 1e9,
-    position: Vector(90),
+    position: Vec.create(90),
     outline,
   });
   const contacts = new GameCollisions().step({
     entities: [mover, obstacle],
     dt: 1 / 30,
-    previous: new Map([[mover.id, { position: Vector(), rotation: 0 }]]),
+    previous: new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]),
   });
 
   assert(
@@ -414,8 +418,8 @@ const fast = addEntity(
   new GameObject({
     mass: 6,
     radius: 1,
-    position: Vector(-50),
-    velocity: Vector(6000),
+    position: Vec.create(-50),
+    velocity: Vec.create(6000),
     drag: 0,
     maxSpeed: 10000,
   }),
@@ -449,8 +453,8 @@ assert(
     id: 35,
     mass: 6,
     radius: 1,
-    position: Vector(50),
-    velocity: Vector(1500),
+    position: Vec.create(50),
+    velocity: Vec.create(1500),
     bounciness: 0.5,
   });
   const faces = [-10, 10].map(
@@ -459,14 +463,14 @@ assert(
         id: 36 + index,
         radius: 1,
         mass: 1e9,
-        position: Vector(x),
+        position: Vec.create(x),
         bounciness: 0.5,
       }),
   );
   const contacts = new GameCollisions().step({
     entities: [mover, ...faces],
     dt: 1 / 30,
-    previous: new Map([[mover.id, { position: Vector(), rotation: 0 }]]),
+    previous: new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]),
   });
 
   assert(
@@ -488,7 +492,7 @@ assert(
     id: 39,
     mass: 100000,
     radius: 20,
-    position: Vector(20),
+    position: Vec.create(20),
     outline: [
       [-0.25, -20],
       [0.25, -20],
@@ -500,7 +504,7 @@ assert(
     entities: [target, movingWall],
     dt: 1 / 30,
     previous: new Map([
-      [movingWall.id, { position: Vector(-20), rotation: 0 }],
+      [movingWall.id, { position: Vec.create(-20), rotation: 0 }],
     ]),
   });
 
@@ -520,12 +524,12 @@ for (const travel of [190, 210, 400]) {
     id: 90 + travel,
     mass: 6,
     radius: 0.5,
-    position: Vector(travel),
+    position: Vec.create(travel),
   });
   const face = new GameObject({
     id: 91 + travel,
     mass: 1e9,
-    position: Vector(90),
+    position: Vec.create(90),
     outline: [
       [-0.25, -20],
       [0.25, -20],
@@ -536,7 +540,7 @@ for (const travel of [190, 210, 400]) {
   const contacts = new GameCollisions().step({
     entities: [mover, face],
     dt: 1 / 30,
-    previous: new Map([[mover.id, { position: Vector(), rotation: 0 }]]),
+    previous: new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]),
   });
 
   assert(
@@ -553,10 +557,14 @@ for (const travel of [190, 210, 400]) {
 // solver's capped motion or applying a contact impulse.
 {
   const makeMover = (id) =>
-    new GameObject({ id, mass: 6, radius: 0.5, position: Vector(400) });
+    new GameObject({ id, mass: 6, radius: 0.5, position: Vec.create(400) });
   const baseline = makeMover(496);
   const crossing = makeMover(497);
-  const trigger = new GameObject({ id: 498, position: Vector(90), radius: 1 });
+  const trigger = new GameObject({
+    id: 498,
+    position: Vec.create(90),
+    radius: 1,
+  });
 
   trigger.hitbox = () => [
     {
@@ -569,7 +577,7 @@ for (const travel of [190, 210, 400]) {
     },
   ];
   const previous = (mover) =>
-    new Map([[mover.id, { position: Vector(), rotation: 0 }]]);
+    new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]);
 
   new GameCollisions().step({
     entities: [baseline],
@@ -592,7 +600,7 @@ for (const travel of [190, 210, 400]) {
 {
   const obstacle = new GameObject({
     id: 500,
-    position: Vector(),
+    position: Vec.create(),
     outline: [
       [-1, -5],
       [1, -5],
@@ -604,7 +612,7 @@ for (const travel of [190, 210, 400]) {
     id: 501,
     mass: 5,
     radius: 1,
-    position: Vector(8),
+    position: Vec.create(8),
   });
   const collisions = new GameCollisions();
   const step = () =>
@@ -653,13 +661,13 @@ const triggerTarget = new GameObject({
   id: 41,
   mass: 10,
   radius: 2,
-  position: Vector(5),
+  position: Vec.create(5),
 });
 const distantTarget = new GameObject({
   id: 42,
   mass: 10,
   radius: 2,
-  position: Vector(15000),
+  position: Vec.create(15000),
 });
 const triggerContacts = new GameCollisions().step({
   entities: [trigger, triggerTarget, distantTarget],
@@ -684,13 +692,13 @@ const fastTriggerTarget = new GameObject({
   id: 44,
   mass: 10,
   radius: 2,
-  position: Vector(25),
+  position: Vec.create(25),
 });
 const continuousContacts = new GameCollisions().step({
   entities: [trigger, fastTriggerTarget],
   dt: 1 / 60,
   previous: new Map([
-    [fastTriggerTarget.id, { position: Vector(-25), rotation: 0 }],
+    [fastTriggerTarget.id, { position: Vec.create(-25), rotation: 0 }],
   ]),
 });
 
@@ -721,7 +729,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
     new Diamond({
       world,
       id: entityId(world),
-      position: Vector(mouth.position.x - 25, crossingY),
+      position: Vec.create(mouth.position.x - 25, crossingY),
     }),
   );
   const crossingContacts = new GameCollisions().step({
@@ -729,7 +737,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
     previous: new Map([
       [
         item.id,
-        { position: Vector(mouth.position.x + 25, crossingY), rotation: 0 },
+        { position: Vec.create(mouth.position.x + 25, crossingY), rotation: 0 },
       ],
     ]),
     dt: 1 / 30,
@@ -770,7 +778,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
   });
   assert(ship.cargoContents.includes(item), 'the crossing item enters cargo');
   assert(
-    item.position.distanceTo(mouth.position) > mouth.radius,
+    Vec.distance(item.position, mouth.position) > mouth.radius,
     'pickup occurs even though the item ends the tick beyond the mouth',
   );
   assert(events.some(({ type }) => type === 'itemCollected'));
@@ -792,16 +800,16 @@ const struck = new GameObject({
   id: 43,
   mass: 6,
   radius: 2,
-  position: Vector(35.35, 35.35),
+  position: Vec.create(35.35, 35.35),
 });
 const angularContacts = new GameCollisions().step({
   entities: [swinging, struck],
   dt: 1 / 60,
-  previous: new Map([[swinging.id, { position: Vector(), rotation: 0 }]]),
+  previous: new Map([[swinging.id, { position: Vec.create(), rotation: 0 }]]),
 });
 
 assert(
-  angularContacts.length > 0 && struck.velocity.length() > 0,
+  angularContacts.length > 0 && Vec.length(struck.velocity) > 0,
   'a thin rotating solid sweeps and pushes the item',
 );
 
@@ -839,7 +847,7 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
     id: 47,
     mass: 9,
     radius: 5,
-    position: Vector(9),
+    position: Vec.create(9),
     friction: 0.25,
     bounciness: 3,
   });
@@ -847,7 +855,7 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
   const contacts = solver.step({
     entities: [parent, other],
     dt: 1 / 30,
-    previous: new Map([[other.id, { position: Vector(9.5), rotation: 0 }]]),
+    previous: new Map([[other.id, { position: Vec.create(9.5), rotation: 0 }]]),
   });
   const contact = solver.world.m_contactList;
 
@@ -865,7 +873,7 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
     id: 49,
     mass: 9,
     radius: 5,
-    position: Vector(9),
+    position: Vec.create(9),
     friction: 0.25,
     bounciness: 3,
   });
@@ -874,7 +882,9 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
   solver.step({
     entities: [first, second],
     dt: 1 / 30,
-    previous: new Map([[second.id, { position: Vector(9.1), rotation: 0 }]]),
+    previous: new Map([
+      [second.id, { position: Vec.create(9.1), rotation: 0 }],
+    ]),
   });
   const contact = solver.world.m_contactList;
 
@@ -889,7 +899,7 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
     id: 481,
     mass: 9,
     radius: 5,
-    position: Vector(9),
+    position: Vec.create(9),
     friction: 0.25,
   });
   const solver = new GameCollisions();
@@ -915,7 +925,7 @@ const bounce = (bounciness) => {
     new GameObject({
       mass: 9,
       radius: 5,
-      velocity: Vector(100),
+      velocity: Vec.create(100),
       bounciness,
       drag: 0,
       maxSpeed: 10000,
@@ -926,7 +936,7 @@ const bounce = (bounciness) => {
     new GameObject({
       mass: 200,
       radius: 5,
-      position: Vector(14),
+      position: Vec.create(14),
       bounciness: 0.1,
       drag: 0,
       maxSpeed: 10000,
@@ -960,7 +970,7 @@ assert(
   ship.setModuleActive({ module: ShieldGenerator, active: true });
   const item = addEntity(
     world,
-    new Diamond({ world, id: entityId(world), position: Vector(54) }),
+    new Diamond({ world, id: entityId(world), position: Vec.create(54) }),
   );
 
   for (let tick = 0; tick < 6; tick++) {
@@ -985,7 +995,7 @@ for (const radiusEven of [undefined, 25]) {
       pointCount: radiusEven ? 6 : 7,
       radiusEven,
       rotation: 0.4,
-      position: Vector(200, 300),
+      position: Vec.create(200, 300),
     }),
   );
   const children = asteroid.detach({
@@ -996,12 +1006,17 @@ for (const radiusEven of [undefined, 25]) {
   const visualOutline = JSON.stringify(leaf.outline);
 
   leaf.hitbox()[0].outline.forEach(([x, y], index) => {
-    closeTo(Vector(x, y).distanceTo(Vector(...leaf.outline[index])), 0.1);
+    closeTo(
+      Vec.distance(Vec.create(x, y), Vec.create(...leaf.outline[index])),
+      0.1,
+    );
   });
-  const positions = children.map((child) => child.position.add(Vector()));
+  const positions = children.map((child) =>
+    Vec.add(child.position, Vec.create()),
+  );
 
   children.forEach((child) => {
-    child.velocity.set(Vector());
+    Vec.set(child.velocity, Vec.create());
     child.spin = 0;
   });
   assert.equal(
@@ -1014,7 +1029,7 @@ for (const radiusEven of [undefined, 25]) {
     updateWorld({ world: world, inputs: new Map() });
   }
   children.forEach((child, index) => {
-    closeTo(child.position.distanceTo(positions[index]), 0, 1e-8);
+    closeTo(Vec.distance(child.position, positions[index]), 0, 1e-8);
     closeTo(child.spin, 0, 1e-8);
   });
   assert.equal(
@@ -1047,8 +1062,8 @@ for (let tick = 0; tick < 240; tick++) {
   reference.update(1 / 60);
   reference.update(1 / 60);
   updateWorld({ world: flightWorld, inputs: new Map([[1, input]]) });
-  closeTo(flying.position.distanceTo(reference.position), 0, 1e-7);
-  closeTo(flying.velocity.distanceTo(reference.velocity), 0, 1e-7);
+  closeTo(Vec.distance(flying.position, reference.position), 0, 1e-7);
+  closeTo(Vec.distance(flying.velocity, reference.velocity), 0, 1e-7);
   closeTo(flying.rotation, reference.rotation, 1e-9);
 }
 
@@ -1126,8 +1141,8 @@ const offCentreStrike = ({ angularInertiaScale }) => {
   addEntity(
     world,
     new GameObject({
-      position: Vector(-70, -25),
-      velocity: Vector(150),
+      position: Vec.create(-70, -25),
+      velocity: Vec.create(150),
       radius: 5,
       mass: 9,
       drag: 0,
@@ -1160,24 +1175,24 @@ const drifting = addEntity(
   new Diamond({
     world: driftWorld,
     id: entityId(driftWorld),
-    velocity: Vector(150),
+    velocity: Vec.create(150),
   }),
 );
 const driftReferenceWorld = createWorld();
 const referenceItem = new Diamond({
   world: driftReferenceWorld,
   id: entityId(driftReferenceWorld),
-  velocity: Vector(150),
+  velocity: Vec.create(150),
 });
 
 for (let tick = 0; tick < 2200; tick++) {
   referenceItem.update(1 / 60);
   referenceItem.update(1 / 60);
   updateWorld({ world: driftWorld, inputs: new Map() });
-  closeTo(drifting.position.distanceTo(referenceItem.position), 0, 1e-7);
-  closeTo(drifting.velocity.distanceTo(referenceItem.velocity), 0, 1e-7);
+  closeTo(Vec.distance(drifting.position, referenceItem.position), 0, 1e-7);
+  closeTo(Vec.distance(drifting.velocity, referenceItem.velocity), 0, 1e-7);
 }
-assert.equal(drifting.velocity.length(), 0);
+assert.equal(Vec.length(drifting.velocity), 0);
 console.log(
   'Planck CCD, angular response, shield bounce, original steering and drift passed',
 );
@@ -1195,14 +1210,14 @@ assert.equal(
   0,
   'shared damage never creates cosmetic objects',
 );
-physics.sprayDamage({ position: Vector(7, 3), color: '#f00', damage: 2 });
-physics.sprayDamage({ position: Vector(7, 3), color: '#abc', damage: 2 });
+physics.sprayDamage({ position: Vec.create(7, 3), color: '#f00', damage: 2 });
+physics.sprayDamage({ position: Vec.create(7, 3), color: '#abc', damage: 2 });
 assert.deepEqual(
   physics.sparks.map(({ position, color }) => [position.x, position.y, color]),
   [...Array(4).fill([7, 3, '#f00']), ...Array(4).fill([7, 3, '#abc'])],
 );
 physics.sparks.forEach(({ velocity }) => {
-  const speed = velocity.length();
+  const speed = Vec.length(velocity);
 
   assert.ok(speed >= 50 && speed <= 100, 'burst speed excludes body velocity');
 });

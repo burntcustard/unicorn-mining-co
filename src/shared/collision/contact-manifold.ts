@@ -11,17 +11,17 @@
  */
 
 import * as matrix from '../vector-math';
-import { Vec2Value } from '../vector';
+import * as Vec from '../vector';
 import { TransformValue } from '../vector-math';
 
-const pointA = matrix.vec2(0, 0);
-const pointB = matrix.vec2(0, 0);
-const temp = matrix.vec2(0, 0);
-const cA = matrix.vec2(0, 0);
-const cB = matrix.vec2(0, 0);
-const dist = matrix.vec2(0, 0);
-const planePoint = matrix.vec2(0, 0);
-const clipPoint = matrix.vec2(0, 0);
+const pointA = Vec.create();
+const pointB = Vec.create();
+const temp = Vec.create();
+const cA = Vec.create();
+const cB = Vec.create();
+const dist = Vec.create();
+const planePoint = Vec.create();
+const clipPoint = Vec.create();
 const minimumCircleNormalSquared = 1e-18;
 
 export type ManifoldType = 'circles' | 'faceA' | 'faceB' | undefined;
@@ -34,15 +34,15 @@ type ContactFeatureType = typeof vertexFeature | typeof faceFeature;
  * Used for computing contact manifolds.
  */
 export class ClipVertex {
-  v = matrix.vec2(0, 0);
+  v = Vec.create();
   id: ContactID = new ContactID();
 
   set(o: ClipVertex): void {
-    matrix.copyVec2(this.v, o.v);
+    Vec.set(this.v, o.v);
     this.id.set(o.id);
   }
   recycle() {
-    matrix.zeroVec2(this.v);
+    Vec.setXY(this.v, 0, 0);
     this.id.recycle();
   }
 }
@@ -68,7 +68,7 @@ export class Manifold {
    * - faceA: the normal on polygonA
    * - faceB: the normal on polygonB
    */
-  localNormal = matrix.vec2(0, 0);
+  localNormal = Vec.create();
 
   /**
    * Usage depends on manifold type:
@@ -76,7 +76,7 @@ export class Manifold {
    * - faceA: the center of faceA
    * - faceB: the center of faceB
    */
-  localPoint = matrix.vec2(0, 0);
+  localPoint = Vec.create();
 
   // The points of contact
   points: ManifoldPoint[] = [new ManifoldPoint(), new ManifoldPoint()];
@@ -86,8 +86,8 @@ export class Manifold {
 
   set(that: Manifold): void {
     this.type = that.type;
-    matrix.copyVec2(this.localNormal, that.localNormal);
-    matrix.copyVec2(this.localPoint, that.localPoint);
+    Vec.set(this.localNormal, that.localNormal);
+    Vec.set(this.localPoint, that.localPoint);
     this.pointCount = that.pointCount;
     this.points[0].set(that.points[0]);
     this.points[1].set(that.points[1]);
@@ -95,8 +95,8 @@ export class Manifold {
 
   recycle(): void {
     this.type = undefined;
-    matrix.zeroVec2(this.localNormal);
-    matrix.zeroVec2(this.localPoint);
+    Vec.setXY(this.localNormal, 0, 0);
+    Vec.setXY(this.localPoint, 0, 0);
     this.pointCount = 0;
     this.points[0].recycle();
     this.points[1].recycle();
@@ -128,77 +128,69 @@ export class Manifold {
 
     switch (this.type) {
       case 'circles': {
-        matrix.setVec2(normal, 1, 0);
+        Vec.setXY(normal, 1, 0);
         const manifoldPoint = this.points[0];
 
-        matrix.transformVec2(pointA, xfA, this.localPoint);
-        matrix.transformVec2(pointB, xfB, manifoldPoint.localPoint);
-        matrix.subVec2(dist, pointB, pointA);
-        const lengthSqr = matrix.lengthSqrVec2(dist);
+        matrix.transformInto(pointA, xfA, this.localPoint);
+        matrix.transformInto(pointB, xfB, manifoldPoint.localPoint);
+        Vec.subtract(pointB, pointA, dist);
+        const lengthSqr = Vec.lengthSquared(dist);
 
         if (lengthSqr > minimumCircleNormalSquared) {
           const length = Math.sqrt(lengthSqr);
 
-          matrix.scaleVec2(normal, 1 / length, dist);
+          Vec.scale(dist, 1 / length, normal);
         }
-        matrix.combine2Vec2(cA, 1, pointA, radiusA, normal);
-        matrix.combine2Vec2(cB, 1, pointB, -radiusB, normal);
-        matrix.combine2Vec2(points[0], 0.5, cA, 0.5, cB);
-        separations[0] = matrix.dotVec2(matrix.subVec2(temp, cB, cA), normal);
+        Vec.addScaled(pointA, normal, radiusA, cA);
+        Vec.addScaled(pointB, normal, -radiusB, cB);
+        Vec.combine2Into(points[0], 0.5, cA, 0.5, cB);
+        separations[0] = Vec.dot(Vec.subtract(cB, cA, temp), normal);
         break;
       }
 
       case 'faceA': {
-        matrix.rotVec2(normal, xfA.q, this.localNormal);
-        matrix.transformVec2(planePoint, xfA, this.localPoint);
+        matrix.rotateInto(normal, xfA.q, this.localNormal);
+        matrix.transformInto(planePoint, xfA, this.localPoint);
 
         for (let i = 0; i < this.pointCount; ++i) {
           const manifoldPoint = this.points[i];
 
-          matrix.transformVec2(clipPoint, xfB, manifoldPoint.localPoint);
-          matrix.combine2Vec2(
-            cA,
-            1,
+          matrix.transformInto(clipPoint, xfB, manifoldPoint.localPoint);
+          Vec.addScaled(
             clipPoint,
-            radiusA -
-              matrix.dotVec2(
-                matrix.subVec2(temp, clipPoint, planePoint),
-                normal,
-              ),
             normal,
+            radiusA -
+              Vec.dot(Vec.subtract(clipPoint, planePoint, temp), normal),
+            cA,
           );
-          matrix.combine2Vec2(cB, 1, clipPoint, -radiusB, normal);
-          matrix.combine2Vec2(points[i], 0.5, cA, 0.5, cB);
-          separations[i] = matrix.dotVec2(matrix.subVec2(temp, cB, cA), normal);
+          Vec.addScaled(clipPoint, normal, -radiusB, cB);
+          Vec.combine2Into(points[i], 0.5, cA, 0.5, cB);
+          separations[i] = Vec.dot(Vec.subtract(cB, cA, temp), normal);
         }
         break;
       }
 
       case 'faceB': {
-        matrix.rotVec2(normal, xfB.q, this.localNormal);
-        matrix.transformVec2(planePoint, xfB, this.localPoint);
+        matrix.rotateInto(normal, xfB.q, this.localNormal);
+        matrix.transformInto(planePoint, xfB, this.localPoint);
 
         for (let i = 0; i < this.pointCount; ++i) {
           const manifoldPoint = this.points[i];
 
-          matrix.transformVec2(clipPoint, xfA, manifoldPoint.localPoint);
-          matrix.combine2Vec2(
-            cB,
-            1,
+          matrix.transformInto(clipPoint, xfA, manifoldPoint.localPoint);
+          Vec.addScaled(
             clipPoint,
-            radiusB -
-              matrix.dotVec2(
-                matrix.subVec2(temp, clipPoint, planePoint),
-                normal,
-              ),
             normal,
+            radiusB -
+              Vec.dot(Vec.subtract(clipPoint, planePoint, temp), normal),
+            cB,
           );
-          matrix.combine2Vec2(cA, 1, clipPoint, -radiusA, normal);
-          matrix.combine2Vec2(points[i], 0.5, cA, 0.5, cB);
-          separations[i] = matrix.dotVec2(matrix.subVec2(temp, cA, cB), normal);
+          Vec.addScaled(clipPoint, normal, -radiusA, cA);
+          Vec.combine2Into(points[i], 0.5, cA, 0.5, cB);
+          separations[i] = Vec.dot(Vec.subtract(cA, cB, temp), normal);
         }
         // Ensure normal points from A to B.
-        matrix.negVec2(normal);
+        Vec.scale(normal, -1, normal);
         break;
       }
     }
@@ -223,7 +215,7 @@ export class ManifoldPoint {
    * - faceA: the local center of circleB or the clip point of polygonB
    * - faceB: the clip point of polygonA
    */
-  localPoint = matrix.vec2(0, 0);
+  localPoint = Vec.create();
   /**
    * The non-penetration impulse
    */
@@ -236,12 +228,12 @@ export class ManifoldPoint {
   readonly id = new ContactID();
 
   set(that: ManifoldPoint): void {
-    matrix.copyVec2(this.localPoint, that.localPoint);
+    Vec.set(this.localPoint, that.localPoint);
     this.id.set(that.id);
   }
 
   recycle(): void {
-    matrix.zeroVec2(this.localPoint);
+    Vec.setXY(this.localPoint, 0, 0);
     this.id.recycle();
   }
 }
@@ -320,10 +312,10 @@ export class ContactID {
  */
 export class WorldManifold {
   // World vector pointing from A to B
-  normal = matrix.vec2(0, 0);
+  normal = Vec.create();
 
   // World contact point (point of intersection)
-  points = [matrix.vec2(0, 0), matrix.vec2(0, 0)]; // [maxManifoldPoints]
+  points = [Vec.create(), Vec.create()]; // [maxManifoldPoints]
 
   // A negative value indicates overlap, in meters
   separations = [0, 0]; // [maxManifoldPoints]
@@ -332,9 +324,9 @@ export class WorldManifold {
   pointCount = 0;
 
   recycle() {
-    matrix.zeroVec2(this.normal);
-    matrix.zeroVec2(this.points[0]);
-    matrix.zeroVec2(this.points[1]);
+    Vec.setXY(this.normal, 0, 0);
+    Vec.setXY(this.points[0], 0, 0);
+    Vec.setXY(this.points[1], 0, 0);
     this.separations[0] = 0;
     this.separations[1] = 0;
     this.pointCount = 0;
@@ -347,7 +339,7 @@ export class WorldManifold {
 export function clipSegmentToLine(
   vOut: ClipVertex[],
   vIn: ClipVertex[],
-  normal: Vec2Value,
+  normal: Vec.Value,
   offset: number,
   vertexIndexA: number,
 ): number {
@@ -355,8 +347,8 @@ export function clipSegmentToLine(
   let numOut = 0;
 
   // Calculate the distance of end points to the line
-  const distance0 = matrix.dotVec2(normal, vIn[0].v) - offset;
-  const distance1 = matrix.dotVec2(normal, vIn[1].v) - offset;
+  const distance0 = Vec.dot(normal, vIn[0].v) - offset;
+  const distance1 = Vec.dot(normal, vIn[1].v) - offset;
 
   // If the points are behind the plane
   if (distance0 <= 0) vOut[numOut++].set(vIn[0]);
@@ -368,7 +360,7 @@ export function clipSegmentToLine(
     // Find intersection point of edge and plane
     const interp = distance0 / (distance0 - distance1);
 
-    matrix.combine2Vec2(vOut[numOut].v, 1 - interp, vIn[0].v, interp, vIn[1].v);
+    Vec.combine2Into(vOut[numOut].v, 1 - interp, vIn[0].v, interp, vIn[1].v);
 
     // VertexA is hitting edgeB.
     vOut[numOut].id.setFeatures(

@@ -10,6 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import * as Vec from '../vector';
 import * as matrix from '../vector-math';
 import { ShapeType } from '../collision/shape/base';
 import { TransformValue } from '../vector-math';
@@ -22,17 +23,16 @@ import {
 import { Fixture } from './fixture';
 import { Body } from './body';
 import { Pool } from '../utilities/object-pool';
-import { Vec2, type Vec2Value } from '../vector';
 
 class Mat22 {
-  ex = Vec2.zero();
-  ey = Vec2.zero();
+  ex = Vec.create();
+  ey = Vec.create();
 }
 
-function getTransform(xf: TransformValue, c: Vec2Value, angle: number): void {
+function getTransform(xf: TransformValue, c: Vec.Value, angle: number): void {
   xf.q.c = Math.cos(angle);
   xf.q.s = Math.sin(angle);
-  matrix.copyVec2(xf.p, c);
+  Vec.set(xf.p, c);
 }
 
 const contactPool = new Pool<Contact>({
@@ -78,8 +78,8 @@ export type EvaluateFunction = (
 const s_registers: Record<string, Record<string, EvaluateFunction>> = {};
 
 export class VelocityConstraintPoint {
-  rA = matrix.vec2(0, 0);
-  rB = matrix.vec2(0, 0);
+  rA = Vec.create();
+  rB = Vec.create();
   normalImpulse = 0;
   tangentImpulse = 0;
   normalMass = 0;
@@ -87,32 +87,32 @@ export class VelocityConstraintPoint {
   velocityBias = 0;
 }
 
-const cA = matrix.vec2(0, 0);
-const vA = matrix.vec2(0, 0);
-const cB = matrix.vec2(0, 0);
-const vB = matrix.vec2(0, 0);
-const tangent = matrix.vec2(0, 0);
+const cA = Vec.create();
+const vA = Vec.create();
+const cB = Vec.create();
+const vB = Vec.create();
+const tangent = Vec.create();
 const xfA = matrix.transform(0, 0, 0);
 const xfB = matrix.transform(0, 0, 0);
-const pointA = matrix.vec2(0, 0);
-const pointB = matrix.vec2(0, 0);
-const clipPoint = matrix.vec2(0, 0);
-const planePoint = matrix.vec2(0, 0);
-const rA = matrix.vec2(0, 0);
-const rB = matrix.vec2(0, 0);
-const P = matrix.vec2(0, 0);
-const normal = matrix.vec2(0, 0);
-const point = matrix.vec2(0, 0);
-const dv = matrix.vec2(0, 0);
-const dv1 = matrix.vec2(0, 0);
-const dv2 = matrix.vec2(0, 0);
-const b = matrix.vec2(0, 0);
-const a = matrix.vec2(0, 0);
-const x = matrix.vec2(0, 0);
-const d = matrix.vec2(0, 0);
-const P1 = matrix.vec2(0, 0);
-const P2 = matrix.vec2(0, 0);
-const temp = matrix.vec2(0, 0);
+const pointA = Vec.create();
+const pointB = Vec.create();
+const clipPoint = Vec.create();
+const planePoint = Vec.create();
+const rA = Vec.create();
+const rB = Vec.create();
+const P = Vec.create();
+const normal = Vec.create();
+const point = Vec.create();
+const dv = Vec.create();
+const dv1 = Vec.create();
+const dv2 = Vec.create();
+const b = Vec.create();
+const a = Vec.create();
+const x = Vec.create();
+const d = Vec.create();
+const P1 = Vec.create();
+const P2 = Vec.create();
+const temp = Vec.create();
 
 /**
  * The class manages contact between two shapes. A contact exists for each
@@ -123,12 +123,12 @@ export class Contact {
   m_nodeA = new ContactEdge(this);
   m_nodeB = new ContactEdge(this);
   m_manifold: Manifold = new Manifold();
-  v_normal = matrix.vec2(0, 0);
+  v_normal = Vec.create();
   v_normalMass: Mat22 = new Mat22();
   v_K: Mat22 = new Mat22();
-  p_localPoints = [matrix.vec2(0, 0), matrix.vec2(0, 0)]; // [maxManifoldPoints];
-  p_localNormal = matrix.vec2(0, 0);
-  p_localPoint = matrix.vec2(0, 0);
+  p_localPoints = [Vec.create(), Vec.create()]; // [maxManifoldPoints];
+  p_localNormal = Vec.create();
+  p_localPoint = Vec.create();
   m_fixtureA: Fixture | null = null;
   m_fixtureB: Fixture | null = null;
   m_evaluateFcn: EvaluateFunction | null = null;
@@ -214,8 +214,8 @@ export class Contact {
     this.p_radiusB = shapeB.m_radius;
 
     this.p_type = manifold.type;
-    matrix.copyVec2(this.p_localNormal, manifold.localNormal);
-    matrix.copyVec2(this.p_localPoint, manifold.localPoint);
+    Vec.set(this.p_localNormal, manifold.localNormal);
+    Vec.set(this.p_localPoint, manifold.localPoint);
     this.p_pointCount = pointCount;
 
     for (let j = 0; j < pointCount; ++j) {
@@ -223,7 +223,7 @@ export class Contact {
 
       point.normalImpulse = 0;
       point.tangentImpulse = 0;
-      matrix.copyVec2(this.p_localPoints[j], manifold.points[j].localPoint);
+      Vec.set(this.p_localPoints[j], manifold.points[j].localPoint);
     }
   }
 
@@ -407,10 +407,10 @@ export class Contact {
       iB = this.invIB;
     }
 
-    matrix.copyVec2(cA, positionA.c);
+    Vec.set(cA, positionA.c);
     let aA = positionA.a;
 
-    matrix.copyVec2(cB, positionB.c);
+    Vec.set(cB, positionB.c);
     let aB = positionB.a;
 
     // Solve normal constraints
@@ -423,46 +423,46 @@ export class Contact {
 
       switch (this.p_type) {
         case 'circles': {
-          matrix.transformVec2(pointA, xfA, this.p_localPoint);
-          matrix.transformVec2(pointB, xfB, this.p_localPoints[0]);
-          matrix.subVec2(normal, pointB, pointA);
-          matrix.normalizeVec2(normal);
+          matrix.transformInto(pointA, xfA, this.p_localPoint);
+          matrix.transformInto(pointB, xfB, this.p_localPoints[0]);
+          Vec.subtract(pointB, pointA, normal);
+          Vec.normalize(normal, normal);
 
-          matrix.combine2Vec2(point, 0.5, pointA, 0.5, pointB);
+          Vec.combine2Into(point, 0.5, pointA, 0.5, pointB);
           separation =
-            matrix.dotVec2(pointB, normal) -
-            matrix.dotVec2(pointA, normal) -
+            Vec.dot(pointB, normal) -
+            Vec.dot(pointA, normal) -
             this.p_radiusA -
             this.p_radiusB;
           break;
         }
 
         case 'faceA': {
-          matrix.rotVec2(normal, xfA.q, this.p_localNormal);
-          matrix.transformVec2(planePoint, xfA, this.p_localPoint);
-          matrix.transformVec2(clipPoint, xfB, this.p_localPoints[j]);
+          matrix.rotateInto(normal, xfA.q, this.p_localNormal);
+          matrix.transformInto(planePoint, xfA, this.p_localPoint);
+          matrix.transformInto(clipPoint, xfB, this.p_localPoints[j]);
           separation =
-            matrix.dotVec2(clipPoint, normal) -
-            matrix.dotVec2(planePoint, normal) -
+            Vec.dot(clipPoint, normal) -
+            Vec.dot(planePoint, normal) -
             this.p_radiusA -
             this.p_radiusB;
-          matrix.copyVec2(point, clipPoint);
+          Vec.set(point, clipPoint);
           break;
         }
 
         case 'faceB': {
-          matrix.rotVec2(normal, xfB.q, this.p_localNormal);
-          matrix.transformVec2(planePoint, xfB, this.p_localPoint);
-          matrix.transformVec2(clipPoint, xfA, this.p_localPoints[j]);
+          matrix.rotateInto(normal, xfB.q, this.p_localNormal);
+          matrix.transformInto(planePoint, xfB, this.p_localPoint);
+          matrix.transformInto(clipPoint, xfA, this.p_localPoints[j]);
           separation =
-            matrix.dotVec2(clipPoint, normal) -
-            matrix.dotVec2(planePoint, normal) -
+            Vec.dot(clipPoint, normal) -
+            Vec.dot(planePoint, normal) -
             this.p_radiusA -
             this.p_radiusB;
-          matrix.copyVec2(point, clipPoint);
+          Vec.set(point, clipPoint);
 
           // Ensure normal points from A to B
-          matrix.negVec2(normal);
+          Vec.scale(normal, -1, normal);
           break;
         }
 
@@ -471,8 +471,8 @@ export class Contact {
         }
       }
 
-      matrix.subVec2(rA, point, cA);
-      matrix.subVec2(rB, point, cB);
+      Vec.subtract(point, cA, rA);
+      Vec.subtract(point, cB, rB);
 
       // Track max constraint error.
       minSeparation = Math.min(minSeparation, separation);
@@ -487,26 +487,26 @@ export class Contact {
       );
 
       // Compute the effective mass.
-      const rnA = matrix.crossVec2Vec2(rA, normal);
-      const rnB = matrix.crossVec2Vec2(rB, normal);
+      const rnA = Vec.cross(rA, normal);
+      const rnB = Vec.cross(rB, normal);
       const K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
 
       // Compute normal impulse
       const impulse = K > 0 ? -C / K : 0;
 
-      matrix.scaleVec2(P, impulse, normal);
+      Vec.scale(normal, impulse, P);
 
-      matrix.minusScaleVec2(cA, mA, P);
-      aA -= iA * matrix.crossVec2Vec2(rA, P);
+      Vec.addScaled(cA, P, -mA, cA);
+      aA -= iA * Vec.cross(rA, P);
 
-      matrix.plusScaleVec2(cB, mB, P);
-      aB += iB * matrix.crossVec2Vec2(rB, P);
+      Vec.addScaled(cB, P, mB, cB);
+      aB += iB * Vec.cross(rB, P);
     }
 
-    matrix.copyVec2(positionA.c, cA);
+    Vec.set(positionA.c, cA);
     positionA.a = aA;
 
-    matrix.copyVec2(positionB.c, cB);
+    Vec.set(positionB.c, cB);
     positionB.a = aB;
 
     return minSeparation;
@@ -534,16 +534,16 @@ export class Contact {
     const iA = this.invIA;
     const iB = this.invIB;
 
-    matrix.copyVec2(cA, positionA.c);
+    Vec.set(cA, positionA.c);
     const aA = positionA.a;
 
-    matrix.copyVec2(vA, velocityA.v);
+    Vec.set(vA, velocityA.v);
     const wA = velocityA.w;
 
-    matrix.copyVec2(cB, positionB.c);
+    Vec.set(cB, positionB.c);
     const aB = positionB.a;
 
-    matrix.copyVec2(vB, velocityB.v);
+    Vec.set(vB, velocityB.v);
     const wB = velocityB.w;
 
     getTransform(xfA, cA, aA);
@@ -552,26 +552,26 @@ export class Contact {
     worldManifold.recycle();
     manifold.getWorldManifold(worldManifold, xfA, radiusA, xfB, radiusB);
 
-    matrix.copyVec2(this.v_normal, worldManifold.normal);
+    Vec.set(this.v_normal, worldManifold.normal);
 
     for (let j = 0; j < this.v_pointCount; ++j) {
       const vcp = this.v_points[j]; // VelocityConstraintPoint
       const wmp = worldManifold.points[j];
 
-      matrix.subVec2(vcp.rA, wmp, cA);
-      matrix.subVec2(vcp.rB, wmp, cB);
+      Vec.subtract(wmp, cA, vcp.rA);
+      Vec.subtract(wmp, cB, vcp.rB);
 
-      const rnA = matrix.crossVec2Vec2(vcp.rA, this.v_normal);
-      const rnB = matrix.crossVec2Vec2(vcp.rB, this.v_normal);
+      const rnA = Vec.cross(vcp.rA, this.v_normal);
+      const rnB = Vec.cross(vcp.rB, this.v_normal);
 
       const kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
 
       vcp.normalMass = 1 / kNormal;
 
-      matrix.crossVec2Num(tangent, this.v_normal, 1);
+      Vec.crossScalarInto(tangent, this.v_normal, 1);
 
-      const rtA = matrix.crossVec2Vec2(vcp.rA, tangent);
-      const rtB = matrix.crossVec2Vec2(vcp.rB, tangent);
+      const rtA = Vec.cross(vcp.rA, tangent);
+      const rtB = Vec.cross(vcp.rB, tangent);
 
       const kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
 
@@ -581,16 +581,10 @@ export class Contact {
       vcp.velocityBias = 0;
       let vRel = 0;
 
-      vRel += matrix.dotVec2(this.v_normal, vB);
-      vRel += matrix.dotVec2(
-        this.v_normal,
-        matrix.crossNumVec2(temp, wB, vcp.rB),
-      );
-      vRel -= matrix.dotVec2(this.v_normal, vA);
-      vRel -= matrix.dotVec2(
-        this.v_normal,
-        matrix.crossNumVec2(temp, wA, vcp.rA),
-      );
+      vRel += Vec.dot(this.v_normal, vB);
+      vRel += Vec.dot(this.v_normal, Vec.crossScalarInto(temp, vcp.rB, -wB));
+      vRel -= Vec.dot(this.v_normal, vA);
+      vRel -= Vec.dot(this.v_normal, Vec.crossScalarInto(temp, vcp.rA, -wA));
 
       if (this.m_surfaceSpeed) {
         vRel -= this.m_surfaceSpeed;
@@ -607,10 +601,10 @@ export class Contact {
       const vcp1 = this.v_points[0]; // VelocityConstraintPoint
       const vcp2 = this.v_points[1]; // VelocityConstraintPoint
 
-      const rn1A = matrix.crossVec2Vec2(vcp1.rA, this.v_normal);
-      const rn1B = matrix.crossVec2Vec2(vcp1.rB, this.v_normal);
-      const rn2A = matrix.crossVec2Vec2(vcp2.rA, this.v_normal);
-      const rn2B = matrix.crossVec2Vec2(vcp2.rB, this.v_normal);
+      const rn1A = Vec.cross(vcp1.rA, this.v_normal);
+      const rn1B = Vec.cross(vcp1.rB, this.v_normal);
+      const rn2A = Vec.cross(vcp2.rA, this.v_normal);
+      const rn2B = Vec.cross(vcp2.rB, this.v_normal);
 
       const k11 = mA + mB + iA * rn1A * rn1A + iB * rn1B * rn1B;
       const k22 = mA + mB + iA * rn2A * rn2A + iB * rn2B * rn2B;
@@ -621,8 +615,8 @@ export class Contact {
 
       if (k11 * k11 < k_maxConditionNumber * (k11 * k22 - k12 * k12)) {
         // K is safe to invert.
-        this.v_K.ex.setNum(k11, k12);
-        this.v_K.ey.setNum(k12, k22);
+        Vec.setXY(this.v_K.ex, k11, k12);
+        Vec.setXY(this.v_K.ey, k12, k22);
         const a = this.v_K.ex.x;
         const b = this.v_K.ey.x;
         const c = this.v_K.ex.y;
@@ -639,14 +633,14 @@ export class Contact {
       }
     }
 
-    matrix.copyVec2(positionA.c, cA);
+    Vec.set(positionA.c, cA);
     positionA.a = aA;
-    matrix.copyVec2(velocityA.v, vA);
+    Vec.set(velocityA.v, vA);
     velocityA.w = wA;
 
-    matrix.copyVec2(positionB.c, cB);
+    Vec.set(positionB.c, cB);
     positionB.a = aB;
-    matrix.copyVec2(velocityB.v, vB);
+    Vec.set(velocityB.v, vB);
     velocityB.w = wB;
   }
 
@@ -666,14 +660,14 @@ export class Contact {
     const mB = this.invMassB;
     const iB = this.invIB;
 
-    matrix.copyVec2(vA, velocityA.v);
+    Vec.set(vA, velocityA.v);
     let wA = velocityA.w;
 
-    matrix.copyVec2(vB, velocityB.v);
+    Vec.set(vB, velocityB.v);
     let wB = velocityB.w;
 
-    matrix.copyVec2(normal, this.v_normal);
-    matrix.crossVec2Num(tangent, normal, 1);
+    Vec.set(normal, this.v_normal);
+    Vec.crossScalarInto(tangent, normal, 1);
     const friction = this.m_friction;
 
     // Solve tangent constraints first because non-penetration is more important
@@ -682,14 +676,14 @@ export class Contact {
       const vcp = this.v_points[j]; // VelocityConstraintPoint
 
       // Relative velocity at contact
-      matrix.zeroVec2(dv);
-      matrix.plusVec2(dv, vB);
-      matrix.plusVec2(dv, matrix.crossNumVec2(temp, wB, vcp.rB));
-      matrix.minusVec2(dv, vA);
-      matrix.minusVec2(dv, matrix.crossNumVec2(temp, wA, vcp.rA));
+      Vec.setXY(dv, 0, 0);
+      Vec.add(dv, vB, dv);
+      Vec.add(dv, Vec.crossScalarInto(temp, vcp.rB, -wB), dv);
+      Vec.subtract(dv, vA, dv);
+      Vec.subtract(dv, Vec.crossScalarInto(temp, vcp.rA, -wA), dv);
 
       // Compute tangent force
-      const vt = matrix.dotVec2(dv, tangent);
+      const vt = Vec.dot(dv, tangent);
       let lambda = vcp.tangentMass * -vt;
 
       // Clamp the accumulated force
@@ -703,13 +697,13 @@ export class Contact {
       vcp.tangentImpulse = newImpulse;
 
       // Apply contact impulse
-      matrix.scaleVec2(P, lambda, tangent);
+      Vec.scale(tangent, lambda, P);
 
-      matrix.minusScaleVec2(vA, mA, P);
-      wA -= iA * matrix.crossVec2Vec2(vcp.rA, P);
+      Vec.addScaled(vA, P, -mA, vA);
+      wA -= iA * Vec.cross(vcp.rA, P);
 
-      matrix.plusScaleVec2(vB, mB, P);
-      wB += iB * matrix.crossVec2Vec2(vcp.rB, P);
+      Vec.addScaled(vB, P, mB, vB);
+      wB += iB * Vec.cross(vcp.rB, P);
     }
 
     // Solve normal constraints
@@ -718,14 +712,14 @@ export class Contact {
         const vcp = this.v_points[i]; // VelocityConstraintPoint
 
         // Relative velocity at contact
-        matrix.zeroVec2(dv);
-        matrix.plusVec2(dv, vB);
-        matrix.plusVec2(dv, matrix.crossNumVec2(temp, wB, vcp.rB));
-        matrix.minusVec2(dv, vA);
-        matrix.minusVec2(dv, matrix.crossNumVec2(temp, wA, vcp.rA));
+        Vec.setXY(dv, 0, 0);
+        Vec.add(dv, vB, dv);
+        Vec.add(dv, Vec.crossScalarInto(temp, vcp.rB, -wB), dv);
+        Vec.subtract(dv, vA, dv);
+        Vec.subtract(dv, Vec.crossScalarInto(temp, vcp.rA, -wA), dv);
 
         // Compute normal impulse
-        const vn = matrix.dotVec2(dv, normal);
+        const vn = Vec.dot(dv, normal);
         let lambda = -vcp.normalMass * (vn - vcp.velocityBias);
 
         // Clamp the accumulated impulse
@@ -735,13 +729,13 @@ export class Contact {
         vcp.normalImpulse = newImpulse;
 
         // Apply contact impulse
-        matrix.scaleVec2(P, lambda, normal);
+        Vec.scale(normal, lambda, P);
 
-        matrix.minusScaleVec2(vA, mA, P);
-        wA -= iA * matrix.crossVec2Vec2(vcp.rA, P);
+        Vec.addScaled(vA, P, -mA, vA);
+        wA -= iA * Vec.cross(vcp.rA, P);
 
-        matrix.plusScaleVec2(vB, mB, P);
-        wB += iB * matrix.crossVec2Vec2(vcp.rB, P);
+        Vec.addScaled(vB, P, mB, vB);
+        wB += iB * Vec.cross(vcp.rB, P);
       }
     } else {
       // Block solver developed in collaboration with Dirk Gregorius (back in
@@ -787,26 +781,26 @@ export class Contact {
       const vcp1 = this.v_points[0]; // VelocityConstraintPoint
       const vcp2 = this.v_points[1]; // VelocityConstraintPoint
 
-      matrix.setVec2(a, vcp1.normalImpulse, vcp2.normalImpulse);
+      Vec.setXY(a, vcp1.normalImpulse, vcp2.normalImpulse);
 
       // Relative velocity at contact
-      matrix.zeroVec2(dv1);
-      matrix.plusVec2(dv1, vB);
-      matrix.plusVec2(dv1, matrix.crossNumVec2(temp, wB, vcp1.rB));
-      matrix.minusVec2(dv1, vA);
-      matrix.minusVec2(dv1, matrix.crossNumVec2(temp, wA, vcp1.rA));
+      Vec.setXY(dv1, 0, 0);
+      Vec.add(dv1, vB, dv1);
+      Vec.add(dv1, Vec.crossScalarInto(temp, vcp1.rB, -wB), dv1);
+      Vec.subtract(dv1, vA, dv1);
+      Vec.subtract(dv1, Vec.crossScalarInto(temp, vcp1.rA, -wA), dv1);
 
-      matrix.zeroVec2(dv2);
-      matrix.plusVec2(dv2, vB);
-      matrix.plusVec2(dv2, matrix.crossNumVec2(temp, wB, vcp2.rB));
-      matrix.minusVec2(dv2, vA);
-      matrix.minusVec2(dv2, matrix.crossNumVec2(temp, wA, vcp2.rA));
+      Vec.setXY(dv2, 0, 0);
+      Vec.add(dv2, vB, dv2);
+      Vec.add(dv2, Vec.crossScalarInto(temp, vcp2.rB, -wB), dv2);
+      Vec.subtract(dv2, vA, dv2);
+      Vec.subtract(dv2, Vec.crossScalarInto(temp, vcp2.rA, -wA), dv2);
 
       // Compute normal velocity
-      let vn1 = matrix.dotVec2(dv1, normal);
-      let vn2 = matrix.dotVec2(dv2, normal);
+      let vn1 = Vec.dot(dv1, normal);
+      let vn2 = Vec.dot(dv2, normal);
 
-      matrix.setVec2(b, vn1 - vcp1.velocityBias, vn2 - vcp2.velocityBias);
+      Vec.setXY(b, vn1 - vcp1.velocityBias, vn2 - vcp2.velocityBias);
 
       // Compute b'
       b.x -= this.v_K.ex.x * a.x + this.v_K.ey.x * a.y;
@@ -822,29 +816,23 @@ export class Contact {
         //
         // x = - inv(A) * b'
         //
-        matrix.zeroVec2(x);
+        Vec.setXY(x, 0, 0);
         x.x = -(this.v_normalMass.ex.x * b.x + this.v_normalMass.ey.x * b.y);
         x.y = -(this.v_normalMass.ex.y * b.x + this.v_normalMass.ey.y * b.y);
 
         if (x.x >= 0 && x.y >= 0) {
           // Get the incremental impulse
-          matrix.subVec2(d, x, a);
+          Vec.subtract(x, a, d);
 
           // Apply incremental impulse
-          matrix.scaleVec2(P1, d.x, normal);
-          matrix.scaleVec2(P2, d.y, normal);
+          Vec.scale(normal, d.x, P1);
+          Vec.scale(normal, d.y, P2);
 
-          matrix.combine3Vec2(vA, -mA, P1, -mA, P2, 1, vA);
-          wA -=
-            iA *
-            (matrix.crossVec2Vec2(vcp1.rA, P1) +
-              matrix.crossVec2Vec2(vcp2.rA, P2));
+          Vec.combine3Into(vA, -mA, P1, -mA, P2, 1, vA);
+          wA -= iA * (Vec.cross(vcp1.rA, P1) + Vec.cross(vcp2.rA, P2));
 
-          matrix.combine3Vec2(vB, mB, P1, mB, P2, 1, vB);
-          wB +=
-            iB *
-            (matrix.crossVec2Vec2(vcp1.rB, P1) +
-              matrix.crossVec2Vec2(vcp2.rB, P2));
+          Vec.combine3Into(vB, mB, P1, mB, P2, 1, vB);
+          wB += iB * (Vec.cross(vcp1.rB, P1) + Vec.cross(vcp2.rB, P2));
 
           // Accumulate
           vcp1.normalImpulse = x.x;
@@ -866,23 +854,17 @@ export class Contact {
 
         if (x.x >= 0 && vn2 >= 0) {
           // Get the incremental impulse
-          matrix.subVec2(d, x, a);
+          Vec.subtract(x, a, d);
 
           // Apply incremental impulse
-          matrix.scaleVec2(P1, d.x, normal);
-          matrix.scaleVec2(P2, d.y, normal);
+          Vec.scale(normal, d.x, P1);
+          Vec.scale(normal, d.y, P2);
 
-          matrix.combine3Vec2(vA, -mA, P1, -mA, P2, 1, vA);
-          wA -=
-            iA *
-            (matrix.crossVec2Vec2(vcp1.rA, P1) +
-              matrix.crossVec2Vec2(vcp2.rA, P2));
+          Vec.combine3Into(vA, -mA, P1, -mA, P2, 1, vA);
+          wA -= iA * (Vec.cross(vcp1.rA, P1) + Vec.cross(vcp2.rA, P2));
 
-          matrix.combine3Vec2(vB, mB, P1, mB, P2, 1, vB);
-          wB +=
-            iB *
-            (matrix.crossVec2Vec2(vcp1.rB, P1) +
-              matrix.crossVec2Vec2(vcp2.rB, P2));
+          Vec.combine3Into(vB, mB, P1, mB, P2, 1, vB);
+          wB += iB * (Vec.cross(vcp1.rB, P1) + Vec.cross(vcp2.rB, P2));
 
           // Accumulate
           vcp1.normalImpulse = x.x;
@@ -904,23 +886,17 @@ export class Contact {
 
         if (x.y >= 0 && vn1 >= 0) {
           // Resubstitute for the incremental impulse
-          matrix.subVec2(d, x, a);
+          Vec.subtract(x, a, d);
 
           // Apply incremental impulse
-          matrix.scaleVec2(P1, d.x, normal);
-          matrix.scaleVec2(P2, d.y, normal);
+          Vec.scale(normal, d.x, P1);
+          Vec.scale(normal, d.y, P2);
 
-          matrix.combine3Vec2(vA, -mA, P1, -mA, P2, 1, vA);
-          wA -=
-            iA *
-            (matrix.crossVec2Vec2(vcp1.rA, P1) +
-              matrix.crossVec2Vec2(vcp2.rA, P2));
+          Vec.combine3Into(vA, -mA, P1, -mA, P2, 1, vA);
+          wA -= iA * (Vec.cross(vcp1.rA, P1) + Vec.cross(vcp2.rA, P2));
 
-          matrix.combine3Vec2(vB, mB, P1, mB, P2, 1, vB);
-          wB +=
-            iB *
-            (matrix.crossVec2Vec2(vcp1.rB, P1) +
-              matrix.crossVec2Vec2(vcp2.rB, P2));
+          Vec.combine3Into(vB, mB, P1, mB, P2, 1, vB);
+          wB += iB * (Vec.cross(vcp1.rB, P1) + Vec.cross(vcp2.rB, P2));
 
           // Accumulate
           vcp1.normalImpulse = x.x;
@@ -942,23 +918,17 @@ export class Contact {
 
         if (vn1 >= 0 && vn2 >= 0) {
           // Resubstitute for the incremental impulse
-          matrix.subVec2(d, x, a);
+          Vec.subtract(x, a, d);
 
           // Apply incremental impulse
-          matrix.scaleVec2(P1, d.x, normal);
-          matrix.scaleVec2(P2, d.y, normal);
+          Vec.scale(normal, d.x, P1);
+          Vec.scale(normal, d.y, P2);
 
-          matrix.combine3Vec2(vA, -mA, P1, -mA, P2, 1, vA);
-          wA -=
-            iA *
-            (matrix.crossVec2Vec2(vcp1.rA, P1) +
-              matrix.crossVec2Vec2(vcp2.rA, P2));
+          Vec.combine3Into(vA, -mA, P1, -mA, P2, 1, vA);
+          wA -= iA * (Vec.cross(vcp1.rA, P1) + Vec.cross(vcp2.rA, P2));
 
-          matrix.combine3Vec2(vB, mB, P1, mB, P2, 1, vB);
-          wB +=
-            iB *
-            (matrix.crossVec2Vec2(vcp1.rB, P1) +
-              matrix.crossVec2Vec2(vcp2.rB, P2));
+          Vec.combine3Into(vB, mB, P1, mB, P2, 1, vB);
+          wB += iB * (Vec.cross(vcp1.rB, P1) + Vec.cross(vcp2.rB, P2));
 
           // Accumulate
           vcp1.normalImpulse = x.x;
@@ -973,10 +943,10 @@ export class Contact {
       }
     }
 
-    matrix.copyVec2(velocityA.v, vA);
+    Vec.set(velocityA.v, vA);
     velocityA.w = wA;
 
-    matrix.copyVec2(velocityB.v, vB);
+    Vec.set(velocityB.v, vB);
     velocityB.w = wB;
   }
   static addType(

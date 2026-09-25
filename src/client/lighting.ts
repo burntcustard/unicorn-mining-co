@@ -5,7 +5,7 @@ import { benchmarkFlag } from './benchmark';
 import { colors } from '../shared/colors';
 import { Craft } from '../shared/craft/craft';
 import { type GameObject } from '../shared/game-object';
-import { type Vector } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { camera } from './camera';
 import { insidePath, traceBeam } from './prism';
 import { game } from './game';
@@ -255,7 +255,7 @@ export const revealBuriedItems = ({
 }: {
   sprites: GameObject[];
   predicted: ReadonlyMap<number, GameObject>;
-  poses: ReadonlyMap<number, { position: Vector; rotation: number }>;
+  poses: ReadonlyMap<number, { position: Vec.Value; rotation: number }>;
 }) => {
   const asteroids = sprites.filter(
     (sprite) => sprite.scenery && sprite.segments && sprite.renderContents,

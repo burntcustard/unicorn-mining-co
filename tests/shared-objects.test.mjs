@@ -8,6 +8,7 @@ import { replacePreTerser } from '../plugins/replace-pre-terser.js';
 
 assert.deepEqual(readdirSync('src').sort(), ['client', 'server', 'shared']);
 const scenario = `
+import * as Vec from '${process.cwd()}/src/shared/vector.ts';
 import assert from 'node:assert/strict';
 import { GameObject } from '${process.cwd()}/src/shared/game-object.ts';
 import { Mustang } from '${process.cwd()}/src/shared/craft/ships/mustang.ts';
@@ -25,7 +26,6 @@ import { colors } from '${process.cwd()}/src/shared/colors.ts';
 import { createWreckage } from '${process.cwd()}/src/shared/craft/create-wreckage.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/shared/simulation/world.ts';
 import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/shared/simulation/world-state.ts';
-import { Vector } from '${process.cwd()}/src/shared/vector.ts';
 
 assert.equal(typeof document, 'undefined');
 assert.equal(typeof window, 'undefined');
@@ -134,10 +134,10 @@ restored.modules.forEach(module => {
   assert(restored.segmentsAtMount(module.mount).every(segment => segment.module === module));
  }
 });
-const before = restored.position.add(Vector());
+const before = Vec.add(restored.position, Vec.create());
 restored.fly(1,0);
 restored.update(1/60);
-assert(restored.position.distanceTo(before)>0,'restored original hull still flies');
+assert(Vec.distance(restored.position, before)>0,'restored original hull still flies');
 const empty = cloneEntity({entity:bare});
 assert.equal(empty.modules.length,0);
 restored.moduleStates = [];

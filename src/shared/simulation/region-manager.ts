@@ -1,4 +1,4 @@
-import { Vector, type Vector as VectorValue } from '../vector';
+import * as Vec from '../vector';
 import {
   type LoadedRegion,
   type RegionalView,
@@ -8,20 +8,19 @@ import {
 import { regionSize, worldRanges } from '../settings';
 import { generateRegion, regionSeed } from './region-generation';
 
-const keyOf = ({ region }: { region: VectorValue }) =>
-  `${region.x},${region.y}`;
+const keyOf = ({ region }: { region: Vec.Value }) => `${region.x},${region.y}`;
 
-const descriptionsWithin = <Description extends { position: VectorValue }>({
+const descriptionsWithin = <Description extends { position: Vec.Value }>({
   descriptions,
   position,
   range,
 }: {
   descriptions: Description[];
-  position: VectorValue;
+  position: Vec.Value;
   range: number;
 }) =>
   descriptions.filter(
-    (description) => description.position.distanceTo(position) <= range,
+    (description) => Vec.distance(description.position, position) <= range,
   );
 
 export class RegionManager {
@@ -37,7 +36,7 @@ export class RegionManager {
     return this.loaded.size;
   }
 
-  load({ region }: { region: VectorValue }): LoadedRegion {
+  load({ region }: { region: Vec.Value }): LoadedRegion {
     const key = keyOf({ region });
     const existing = this.loaded.get(key);
 
@@ -56,7 +55,7 @@ export class RegionManager {
     return loaded;
   }
 
-  unload({ region }: { region: VectorValue }) {
+  unload({ region }: { region: Vec.Value }) {
     const key = keyOf({ region });
     const loaded = this.loaded.get(key);
 
@@ -88,7 +87,7 @@ export class RegionManager {
     position,
     ranges = worldRanges,
   }: {
-    position: VectorValue;
+    position: Vec.Value;
     ranges?: WorldRanges;
   }): RegionalView {
     return this.queryMany({ positions: [position], ranges })[0];
@@ -98,17 +97,17 @@ export class RegionManager {
     positions,
     ranges = worldRanges,
   }: {
-    positions: VectorValue[];
+    positions: Vec.Value[];
     ranges?: WorldRanges;
   }): RegionalView[] {
     const reach = Math.max(...Object.values(ranges));
     const needed = new Set<string>();
     const views = positions.map((position) => {
-      const from = Vector(
+      const from = Vec.create(
         Math.floor((position.x - reach) / regionSize),
         Math.floor((position.y - reach) / regionSize),
       );
-      const to = Vector(
+      const to = Vec.create(
         Math.floor((position.x + reach) / regionSize),
         Math.floor((position.y + reach) / regionSize),
       );
@@ -116,7 +115,7 @@ export class RegionManager {
 
       for (let x = from.x; x <= to.x; x++) {
         for (let y = from.y; y <= to.y; y++) {
-          const region = Vector(x, y);
+          const region = Vec.create(x, y);
 
           needed.add(keyOf({ region }));
           descriptions.push(this.load({ region }).description);

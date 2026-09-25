@@ -134,7 +134,7 @@
 
 **tunnelling** - When a moving object appears to phase through another because a collision between its sampled positions was missed. Continuous collision detection checks the intervening sweep. Also known as 'phasing' although we should avoid using that word.
 
-**vector** - A two-dimensional value with `x` and `y` coordinates, used for positions, velocities, directions, and solver geometry. Game code uses the shared `Vector` API; the solver can write calculations into existing vectors to avoid allocations.
+**vector** - A plain two-dimensional `{ x, y }` value used for positions, velocities, directions, and solver geometry. `Vec.create()` creates one; `Vec` operations return new vectors or write into an explicitly supplied output. Use `Vec.Value` where a type annotation is needed.
 
 **world** - The running simulation and its current game objects, players, and tick.
 

@@ -1,5 +1,5 @@
+import * as Vec from '../vector';
 import { Craft } from './craft';
-import { Vector, type Vector as VectorValue } from '../vector';
 import { type Contact } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
 import { Ship } from './ship';
@@ -33,9 +33,9 @@ export class Station extends Craft {
         return;
       }
       ship.dockedTo = this.id;
-      ship.position.set(this.position);
+      Vec.set(ship.position, this.position);
       ship.rotation = this.rotation;
-      ship.velocity.set(Vector());
+      Vec.set(ship.velocity, Vec.create());
       ship.spin = 0;
 
       if (ship.playerId !== undefined) {
@@ -47,7 +47,9 @@ export class Station extends Craft {
       }
     });
   }
-  holds(child: { position: VectorValue }) {
-    return child.position.distanceTo(this.position) <= this.localMovementRadius;
+  holds(child: { position: Vec.Value }) {
+    return (
+      Vec.distance(child.position, this.position) <= this.localMovementRadius
+    );
   }
 }

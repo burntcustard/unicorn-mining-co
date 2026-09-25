@@ -1,3 +1,4 @@
+import * as Vec from '../vector';
 import { contactBetween } from './contact-between';
 import { type GameObject } from '../game-object';
 import { collidersCanContact, type Contact } from './types';
@@ -14,7 +15,7 @@ export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
       if (
         a.owner === b.owner ||
         !collidersCanContact(a, b) ||
-        a.position.distanceTo(b.position) > a.radius + b.radius + 2
+        Vec.distance(a.position, b.position) > a.radius + b.radius + 2
       ) {
         return;
       }

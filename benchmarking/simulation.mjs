@@ -17,7 +17,7 @@ const bundle = await rolldown({
       export { createShip } from '${resolve('src/shared/craft/create-ship.ts')}';
       export { captureWorld } from '${resolve('src/shared/simulation/world-state.ts')}';
       export { updateWorld } from '${resolve('src/shared/simulation/update-world.ts')}';
-      export {Vector} from '${resolve('src/shared/vector.ts')}';
+      export * as Vec from '${resolve('src/shared/vector.ts')}';
       export {RegionManager as ServerRegions} from '${resolve('src/server/region-manager.ts')}';
     `
           : undefined,
@@ -35,7 +35,7 @@ const {
   captureWorld,
   updateWorld,
   ServerRegions,
-  Vector,
+  Vec,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
@@ -43,15 +43,15 @@ const setup = () => {
   const world = createWorld({ seed: 25 });
   const regions = new ServerRegions({ worldSeed: 25 });
   const station = regions
-    .view({ position: Vector() })
+    .view({ position: Vec.create() })
     .stationMarkers.sort(
-      (a, b) => a.position.length() - b.position.length(),
+      (a, b) => Vec.length(a.position) - Vec.length(b.position),
     )[0];
   const ship = addEntity(
     world,
     createShip(world, {
       playerId: 1,
-      position: station.position.add(Vector(700)),
+      position: Vec.add(station.position, Vec.create(700)),
     }),
   );
 

@@ -16,7 +16,7 @@ const bundle = await rolldown({
       name: 'prism-test-exports',
       transform: (code, id) =>
         id.endsWith('/src/client/prism.ts')
-          ? `${code}\nexport { joins, runsOf }; export { Vector } from '../shared/vector'; export { createAsteroid } from '../shared/simulation/asteroid';`
+          ? `${code}\nexport { joins, runsOf }; export * as Vec from '../shared/vector'; export { createAsteroid } from '../shared/simulation/asteroid';`
           : undefined,
     },
   ],
@@ -27,8 +27,8 @@ const {
   drawSpectrum,
   joins: joinFaces,
   runsOf,
-  Vector,
   createAsteroid,
+  Vec,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
@@ -43,7 +43,7 @@ const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
     {},
     {
       id: 10,
-      position: Vector(40, 0),
+      position: Vec.create(40, 0),
       radius: 12,
       pointCount: 7,
     },
@@ -52,11 +52,13 @@ const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
   asteroid.scenery = true;
   assert.equal(asteroid.outline, undefined);
   const lamp = {
-    localPosition: Vector(),
+    localPosition: Vec.create(),
     activationProgress: 1,
     module: { lens: 0, reach: 100, spread: 30 },
   };
-  const beam = traceBeam({ position: Vector(), rotation: 0 }, lamp, [asteroid]);
+  const beam = traceBeam({ position: Vec.create(), rotation: 0 }, lamp, [
+    asteroid,
+  ]);
 
   assert.equal(beam.outlines.length, 1);
   assert.ok(beam.rays.some((ray) => ray.out?.away));
@@ -84,16 +86,16 @@ for (const size of [10, 100, 1000]) {
   for (let frame = 0; frame < 120; frame++) {
     const rotation = (frame * Math.PI) / 60;
     const lamp = {
-      localPosition: Vector(),
+      localPosition: Vec.create(),
       activationProgress: 1,
       module: { lens: 0, reach: size * 20, spread: size * 2 },
     };
-    const ship = { rotation, position: Vector() };
+    const ship = { rotation, position: Vec.create() };
     const rock = {
       scenery: true,
       radius: size * 2,
       rotation: rotation + 0.17,
-      position: Vector(
+      position: Vec.create(
         size * 4 * Math.cos(rotation),
         size * 4 * Math.sin(rotation),
       ),

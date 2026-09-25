@@ -2,7 +2,7 @@ import { Ship } from './ship';
 import { Mustang } from './ships/mustang';
 import { ThrusterDualMd, CargoHatch, HornDrill, SearchLight } from '../modules';
 import { type SimulationWorld, entityId } from '../simulation/world';
-import { Vector, type Vector as VectorValue } from '../vector';
+import * as Vec from '../vector';
 import { type PlayerId } from '../protocol/entities';
 
 export const createShip = (
@@ -10,16 +10,16 @@ export const createShip = (
   {
     id = entityId(world),
     playerId,
-    position = Vector(),
+    position = Vec.create(),
     rotation = 0,
-    velocity = Vector(),
+    velocity = Vec.create(),
     shades,
   }: {
     id?: number;
     playerId?: PlayerId;
-    position?: VectorValue;
+    position?: Vec.Value;
     rotation?: number;
-    velocity?: VectorValue;
+    velocity?: Vec.Value;
     shades?: readonly string[];
   } = {},
 ): Ship => {

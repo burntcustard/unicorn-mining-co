@@ -10,23 +10,23 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import * as Vec from '../vector';
 import * as matrix from '../vector-math';
-import { Vec2, Vec2Value } from '../vector';
 
 import { Sweep } from './motion-sweep';
-import { Transform } from '../vector-math';
+import { type TransformValue } from '../vector-math';
 import { Fixture, FixtureOpt } from './fixture';
 import { Shape } from '../collision/shape/base';
 import { World } from './world';
 import { ContactEdge } from './contact';
 
 class Velocity {
-  v = Vec2.zero();
+  v = Vec.create();
   w = 0;
 }
 
 class Position {
-  c = Vec2.zero();
+  c = Vec.create();
   a = 0;
 }
 
@@ -44,7 +44,7 @@ export class Body {
   m_invI: number;
   c_velocity: Velocity;
   c_position: Position;
-  m_linearVelocity: Vec2;
+  m_linearVelocity: Vec.Value;
   m_angularVelocity: number;
   m_contactList: ContactEdge | null;
   m_fixtureList: Fixture | null;
@@ -53,7 +53,7 @@ export class Body {
   m_destroyed: boolean;
 
   // the body origin transform
-  m_xf: Transform;
+  m_xf: TransformValue;
   // the swept motion for CCD
   m_sweep: Sweep;
   // position and velocity correction
@@ -66,7 +66,7 @@ export class Body {
     this.m_invI = 0;
 
     // the body origin transform
-    this.m_xf = new Transform();
+    this.m_xf = matrix.transform(0, 0, 0);
 
     // the swept motion for CCD
     this.m_sweep = new Sweep();
@@ -75,7 +75,7 @@ export class Body {
     this.c_velocity = new Velocity();
     this.c_position = new Position();
 
-    this.m_linearVelocity = Vec2.zero();
+    this.m_linearVelocity = Vec.create();
     this.m_angularVelocity = 0;
 
     this.m_contactList = null;
@@ -102,15 +102,15 @@ export class Body {
   /**
    * Get the world transform for the body's origin.
    */
-  getTransform(): Transform {
+  getTransform(): TransformValue {
     return this.m_xf;
   }
 
   // Set the body's pose before the next physics step.
-  setTransform(position: Vec2Value, angle: number): void {
+  setTransform(position: Vec.Value, angle: number): void {
     if (this.isWorldLocked()) return;
 
-    this.m_xf.setNum(position, angle);
+    matrix.setTransform(this.m_xf, position, angle);
     this.m_sweep.setTransform(this.m_xf);
 
     const broadPhase = this.m_world.m_broadPhase;
@@ -143,7 +143,7 @@ export class Body {
   advance(alpha: number): void {
     // Advance to the new safe time. This doesn't sync the broad-phase.
     this.m_sweep.advance(alpha);
-    matrix.copyVec2(this.m_sweep.c, this.m_sweep.c0);
+    Vec.set(this.m_sweep.c, this.m_sweep.c0);
     this.m_sweep.a = this.m_sweep.a0;
     this.m_sweep.getTransform(this.m_xf, 1);
   }
@@ -151,7 +151,7 @@ export class Body {
   /**
    * Get the world position for the body's origin.
    */
-  getPosition(): Vec2 {
+  getPosition(): Vec.Value {
     return this.m_xf.p;
   }
 
@@ -167,7 +167,7 @@ export class Body {
    *
    * @return the linear velocity of the center of mass.
    */
-  getLinearVelocity(): Vec2 {
+  getLinearVelocity(): Vec.Value {
     return this.m_linearVelocity;
   }
 
@@ -176,11 +176,11 @@ export class Body {
    *
    * @param worldPoint A point in world coordinates.
    */
-  getLinearVelocityFromWorldPoint(worldPoint: Vec2Value): Vec2 {
+  getLinearVelocityFromWorldPoint(worldPoint: Vec.Value): Vec.Value {
     const center = this.m_sweep.c;
     const spin = this.m_angularVelocity;
 
-    return Vec2.neo(
+    return Vec.create(
       this.m_linearVelocity.x - spin * (worldPoint.y - center.y),
       this.m_linearVelocity.y + spin * (worldPoint.x - center.x),
     );
@@ -191,8 +191,8 @@ export class Body {
    *
    * @param v The new linear velocity of the center of mass.
    */
-  setLinearVelocity(v: Vec2Value): void {
-    this.m_linearVelocity.setVec2(v);
+  setLinearVelocity(v: Vec.Value): void {
+    Vec.set(this.m_linearVelocity, v);
   }
 
   /**

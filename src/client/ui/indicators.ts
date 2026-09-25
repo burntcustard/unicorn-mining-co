@@ -1,10 +1,10 @@
-import { Vector, type Vector as VectorValue } from '../../shared/vector';
+import * as Vec from '../../shared/vector';
 import { camera } from '../camera';
 import { outline } from '../outline';
 import { renderText } from '../text';
 
 interface IndicatorTarget {
-  position: VectorValue;
+  position: Vec.Value;
   radius: number;
 }
 
@@ -22,7 +22,7 @@ export const renderIndicators = (
   ctx.lineJoin = 'bevel';
 
   targets.forEach((target) => {
-    const offset = Vector(
+    const offset = Vec.create(
       target.position.x - camera.x - game.width / 2,
       target.position.y - camera.y - game.height / 2,
     );
@@ -37,7 +37,8 @@ export const renderIndicators = (
 
     const indicatorsize = 10 - (9 * dist) / range;
 
-    const edge = offset.scale(
+    const edge = Vec.scale(
+      offset,
       Math.min(
         (uiWidth / 2 - 20) / Math.abs(offset.x),
         (uiHeight / 2 - 20) / Math.abs(offset.y),

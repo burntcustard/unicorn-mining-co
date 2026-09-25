@@ -1,3 +1,4 @@
+import * as Vec from '../shared/vector';
 import { Craft } from '../shared/craft/craft';
 import { Station } from '../shared/craft/station';
 import {
@@ -51,7 +52,6 @@ import { playSound } from './sound-loader';
 import { updateHornDrillSounds } from './update-horn-drill-sounds';
 import { renderUI } from './ui';
 import { setSizing } from './set-sizing';
-import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { type GameObject as SimulationObject } from '../shared/game-object';
 
 type Background = {
@@ -86,7 +86,7 @@ window.onresize = () => {
 };
 
 const regionalObjects = new Map<number, SimulationObject>();
-let stationMarkers: { position: VectorValue; radius: number }[] = [];
+let stationMarkers: { position: Vec.Value; radius: number }[] = [];
 
 const materialize = ({ entity }: { entity: SimulationObject }) => {
   let object: SimulationObject;
@@ -147,7 +147,7 @@ const syncSimulationObjects = (dt: number) => {
 // @ifdef DEBUG
 const debugWreck = createRenderedShip({
   shades: colors.orange,
-  position: playerShip.position.add(Vector(500)),
+  position: Vec.add(playerShip.position, Vec.create(500)),
 });
 const debugNote = createRenderedItem({ resource: itemTypes.indexOf(Message) });
 
@@ -167,7 +167,7 @@ if (benchmarkFlag('field')) {
     dockedTo: 0,
     launching: 0,
     started: 1,
-    position: Vector(),
+    position: Vec.create(),
   });
 }
 // @endif
@@ -366,7 +366,7 @@ const gameLoop = GameLoop({
       activeSprites = game.sprites.filter(
         (sprite) =>
           !sprite.dead &&
-          sprite.position.distanceTo(playerShip.position) <= activeRadius,
+          Vec.distance(sprite.position, playerShip.position) <= activeRadius,
       );
     }
 

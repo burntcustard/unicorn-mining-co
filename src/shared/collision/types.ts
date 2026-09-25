@@ -1,4 +1,4 @@
-import { type Vector } from '../vector';
+import * as Vec from '../vector';
 import { type GameObject } from '../game-object';
 import { type Outline, type Segment } from '../types';
 import { type AsteroidSegment } from '../protocol/entities';
@@ -17,7 +17,7 @@ export type Collider = {
   segment?: Segment;
   speed?: number;
   physics?: boolean;
-  position: Vector;
+  position: Vec.Value;
   radius: number;
   role?: 'hornDrill' | 'cargoHatch';
   rotation: number;
@@ -26,9 +26,9 @@ export type Collider = {
 export type Contact = {
   collider: Collider;
   depth: number;
-  normal: Vector;
+  normal: Vec.Value;
   other: Collider;
-  point: Vector;
+  point: Vec.Value;
 };
 
 export const collidersCanContact = (a: Collider, b: Collider) =>

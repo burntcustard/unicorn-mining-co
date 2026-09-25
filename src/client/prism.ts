@@ -1,6 +1,6 @@
+import * as Vec from '../shared/vector';
 import { directionOf, rotatePoint, rotatePoints } from '../shared/geometry';
 import { shapePath, strip } from './drawing';
-import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { colors } from '../shared/colors';
 import {
   Asteroid,
@@ -10,22 +10,22 @@ import { type Outline, type Segment } from '../shared/types';
 import { type GameObject } from '../shared/game-object';
 
 type Crossing = {
-  at: VectorValue;
-  away?: VectorValue;
+  at: Vec.Value;
+  away?: Vec.Value;
   distance: number;
   face: number;
   length?: number;
-  normal: VectorValue;
+  normal: Vec.Value;
 };
 type Ray = {
-  at: VectorValue;
+  at: Vec.Value;
   distance?: number;
   hit?: Outline;
   out?: Crossing;
 };
 type CompleteRay = Ray & {
   hit: Outline;
-  out: Crossing & { away: VectorValue; length: number };
+  out: Crossing & { away: Vec.Value; length: number };
 };
 export interface Beam {
   mask: Path2D;
@@ -38,8 +38,8 @@ type Scenery = GameObject & { outline?: Outline; scenery?: boolean };
 const fillOf = (
   ctx: CanvasRenderingContext2D,
   color: string,
-  from: VectorValue,
-  to: VectorValue,
+  from: Vec.Value,
+  to: Vec.Value,
   fade: number,
 ) => {
   const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
@@ -146,20 +146,20 @@ const spectrumStrength = 0.9;
  */
 const cross = (
   points: Outline,
-  from: VectorValue,
-  dir: VectorValue,
+  from: Vec.Value,
+  dir: Vec.Value,
 ): Crossing | undefined => {
   let near = Infinity;
-  let normal: VectorValue | undefined;
+  let normal: Vec.Value | undefined;
   let faceIndex = 0;
 
   points.forEach((corner, i) => {
     const next = points[(i + 1) % points.length];
-    const edge = Vector(next[0] - corner[0], next[1] - corner[1]);
-    const denom = dir.x * edge.y - dir.y * edge.x;
-    const start = Vector(corner[0] - from.x, corner[1] - from.y);
-    const along = (start.x * dir.y - start.y * dir.x) / denom;
-    const distance = (start.x * edge.y - start.y * edge.x) / denom;
+    const edge = Vec.create(next[0] - corner[0], next[1] - corner[1]);
+    const denom = Vec.cross(dir, edge);
+    const start = Vec.create(corner[0] - from.x, corner[1] - from.y);
+    const along = Vec.cross(start, dir) / denom;
+    const distance = Vec.cross(start, edge) / denom;
 
     if (
       !denom ||
@@ -173,14 +173,15 @@ const cross = (
 
     near = distance;
     faceIndex = i;
-    normal = Vector(edge.y, -edge.x)
-      .normalize()
-      .scale(denom > 0 ? -1 : 1);
+    normal = Vec.scale(
+      Vec.normalize(Vec.create(edge.y, -edge.x)),
+      denom > 0 ? -1 : 1,
+    );
   });
 
   return (
     normal && {
-      at: from.add(dir.scale(near)),
+      at: Vec.addScaled(from, dir, near),
       distance: near,
       face: faceIndex,
       normal,
@@ -197,8 +198,8 @@ const cross = (
  * normal: The face it is crossing, facing back at it.
  * index: How much the material it is entering slows it down.
  */
-const refract = (dir: VectorValue, normal: VectorValue, index: number) => {
-  const facing = -dir.dot(normal);
+const refract = (dir: Vec.Value, normal: Vec.Value, index: number) => {
+  const facing = -Vec.dot(dir, normal);
   // Both roots are held to what they can really be, because a ray meeting a
   // face square on, or one right on the edge of being trapped, comes out a hair
   // the wrong side of that and the root of it is not a number
@@ -206,9 +207,10 @@ const refract = (dir: VectorValue, normal: VectorValue, index: number) => {
   const eta = Math.min(index, 1 / Math.sqrt(square));
   const sideways = Math.min(1, eta * eta * square);
 
-  return dir
-    .scale(eta)
-    .add(normal.scale(eta * facing - Math.sqrt(1 - sideways)));
+  return Vec.add(
+    Vec.scale(dir, eta),
+    Vec.scale(normal, eta * facing - Math.sqrt(1 - sideways)),
+  );
 };
 
 // One scenery object's shape in the lamp's frame, added to the mask as a path
@@ -219,10 +221,10 @@ const outlineOf = (
   object: Scenery,
   mask: Path2D,
 ) => {
-  const middle = rotatePoint(
-    object.position.subtract(ship.position),
-    -ship.rotation,
-  ).subtract(lamp.localPosition);
+  const middle = Vec.subtract(
+    rotatePoint(Vec.subtract(object.position, ship.position), -ship.rotation),
+    lamp.localPosition,
+  );
   const turn = object.rotation - ship.rotation;
   const outline = rotatePoints(
     object instanceof Asteroid ? asteroidOutlineOf(object) : object.outline!,
@@ -241,8 +243,8 @@ const outlineOf = (
  */
 const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
   const dir = directionOf(angle);
-  const from = Vector();
-  let entry: Crossing | Ray = { at: dir.scale(range), distance: range };
+  const from = Vec.create();
+  let entry: Crossing | Ray = { at: Vec.scale(dir, range), distance: range };
   let hit: Outline | undefined;
 
   outlines.forEach((outline) => {
@@ -258,7 +260,7 @@ const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
 
   const crossing = entry as Crossing;
   const into =
-    -dir.dot(crossing.normal) >= minFacing &&
+    -Vec.dot(dir, crossing.normal) >= minFacing &&
     refract(dir, crossing.normal, 1 / rockIndex);
   const out = into && cross(hit, crossing.at, into);
 
@@ -301,7 +303,7 @@ export const traceBeam = (
       (object): object is Scenery =>
         !!object.scenery &&
         (object instanceof Asteroid || !!object.outline) &&
-        object.position.distanceTo(ship.position) - object.radius < range,
+        Vec.distance(object.position, ship.position) - object.radius < range,
     )
     .map((object) => outlineOf(ship, lamp, object, mask));
 
@@ -330,13 +332,12 @@ const joins = (points: Outline, from: number, to: number) => {
 
   if ((from + 1) % count !== to) return false;
 
-  const corner = Vector(...points[to]);
-  const before = corner.subtract(Vector(...points[from]));
-  const after = Vector(...points[(to + 1) % count]).subtract(corner);
+  const corner = Vec.create(...points[to]);
+  const before = Vec.subtract(corner, Vec.create(...points[from]));
+  const after = Vec.subtract(Vec.create(...points[(to + 1) % count]), corner);
 
   return (
-    before.x * after.y - before.y * after.x >=
-    -1e-8 * before.length() * after.length()
+    Vec.cross(before, after) >= -1e-8 * Vec.length(before) * Vec.length(after)
   );
 };
 
@@ -369,25 +370,30 @@ const runsOf = ({ rays: fan }: Beam) => {
 const sheetOf = (run: CompleteRay[]) => {
   const first = run[0];
   const last = run.at(-1);
-  const through = run
-    .reduce((sum, ray) => sum.add(ray.out.at.subtract(ray.at)), Vector())
-    .normalize();
-  const side = Vector(-through.y, through.x);
-  let span = last.out.at.subtract(first.out.at);
-  const feedWidth = last.at.subtract(first.at).dot(side);
-  let width = span.dot(side);
+  const through = Vec.normalize(
+    run.reduce(
+      (sum, ray) => Vec.add(sum, Vec.subtract(ray.out.at, ray.at)),
+      Vec.create(),
+    ),
+  );
+  const side = Vec.create(-through.y, through.x);
+  let span = Vec.subtract(last.out.at, first.out.at);
+  const feedWidth = Vec.dot(Vec.subtract(last.at, first.at), side);
+  let width = Vec.dot(span, side);
 
   if (width * feedWidth < 0) {
-    span = span.scale(-1);
+    span = Vec.scale(span, -1);
     width = -width;
   }
 
   if (Math.abs(width) < Math.abs(feedWidth)) {
-    span = width ? span.scale(feedWidth / width) : side.scale(feedWidth);
+    span = width
+      ? Vec.scale(span, feedWidth / width)
+      : Vec.scale(side, feedWidth);
   }
 
   return {
-    middle: last.out.at.add(first.out.at).scale(0.5),
+    middle: Vec.scale(Vec.add(last.out.at, first.out.at), 0.5),
     side,
     span,
   };
@@ -411,11 +417,13 @@ export const insidePath = (beam: Beam) => {
 
   runsOf(beam).forEach((run) => {
     const { middle, span } = sheetOf(run);
-    const edge = span.scale(0.5);
+    const edge = Vec.scale(span, 0.5);
 
     path.addPath(strip(run));
     path.addPath(strip(run));
-    path.addPath(strip(run, [middle.subtract(edge), middle.add(edge)]));
+    path.addPath(
+      strip(run, [Vec.subtract(middle, edge), Vec.add(middle, edge)]),
+    );
   });
 
   return path;
@@ -467,20 +475,20 @@ export const drawSpectrum = (
   ctx.globalAlpha = lamp.activationProgress * spectrumStrength;
 
   runsOf(beam).forEach((run) => {
-    const away = run
-      .reduce((sum, { out }) => sum.add(out.away), Vector())
-      .normalize();
+    const away = Vec.normalize(
+      run.reduce((sum, { out }) => Vec.add(sum, out.away), Vec.create()),
+    );
     const length =
       run.reduce((sum, { out }) => sum + out.length, 0) / run.length;
     // Rays set off from the lamp itself, so where one went into a rock is also
     // the way it was going, and against where it ended up pointing that says
     // how far round the rock turned it, and which way
-    const into = run[run.length >> 1].at.normalize();
-    const spin = into.x * away.y - into.y * away.x;
+    const into = Vec.normalize(run[run.length >> 1].at);
+    const spin = Vec.cross(into, away);
     const { middle, side, span } = sheetOf(run);
     // Its sign is which way round the fan has to open for the stripes to spread
     // apart rather than cross over one another
-    const width = span.dot(side);
+    const width = Vec.dot(span, side);
 
     if (Math.abs(width) < thin) return;
 
@@ -491,15 +499,17 @@ export const drawSpectrum = (
         fanning * Math.abs(spin),
         (Math.abs(width) * spreading) / length,
       );
-    const near = edges.map((across) => middle.add(span.scale(across - 0.5)));
+    const near = edges.map((across) =>
+      Vec.addScaled(middle, span, across - 0.5),
+    );
     const far = edges.map((across, i) =>
-      near[i].add(rotatePoint(away, turn * (across - 0.5)).scale(length)),
+      Vec.addScaled(near[i], rotatePoint(away, turn * (across - 0.5)), length),
     );
 
     // Squarely down the way the light is going, so a sheet gives out level with
     // the face it came through rather than around one corner of it
     const root = near[spectrum.length >> 1];
-    const tip = root.add(away.scale(length));
+    const tip = Vec.addScaled(root, away, length);
 
     // Violet is bent furthest, so it belongs on the side the rock bent towards
     spectrum.forEach((_, band) => {

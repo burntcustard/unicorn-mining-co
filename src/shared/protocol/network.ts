@@ -1,9 +1,10 @@
+import * as Vec from '../vector';
 import { type PlayerInput } from './input';
 import { type AsteroidSegment } from './entities';
 import { type ModuleState } from '../craft/module-state';
 import { type WreckageSegment } from '../craft/wreckage-segment';
 
-export type NetworkVector = { x: number; y: number };
+export type NetworkVector = Vec.Value;
 export type ReplicatedModule = ModuleState;
 export type CraftAction =
   | { action: 'buy'; module: number; moduleId: number }

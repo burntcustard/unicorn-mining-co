@@ -1,10 +1,10 @@
+import * as Vec from '../vector';
 import { type ModuleState } from './module-state';
 import { type WreckageSegment } from './wreckage-segment';
 import { cargoHatchOpen, moduleTypes } from '../modules';
 import { movePoint, outlineExtent, rotatePoint, shapeOf } from '../geometry';
 import { GameObject } from '../game-object';
 import { colors, shadesOf } from '../colors';
-import { Vector, type Vector as VectorValue } from '../vector';
 import { applyForce } from '../physics/apply-force';
 import { outerEdges } from '../polygon';
 import { type Collider } from '../collision/types';
@@ -27,9 +27,9 @@ type CraftData = {
 type CraftProperties = {
   [key: string]: any;
   cargoContents?: GameObject[];
-  position?: VectorValue;
+  position?: Vec.Value;
   segments?: Segment[];
-  velocity?: VectorValue;
+  velocity?: Vec.Value;
 };
 
 const hullBounciness = 0.2;
@@ -38,9 +38,13 @@ const hullBounciness = 0.2;
 import { approach } from '../utilities/approach';
 
 const centerOf = (segments: Segment[]) =>
-  segments
-    .reduce((center, { middle }) => center.add(Vector(...middle!)), Vector())
-    .scale(1 / segments.length);
+  Vec.scale(
+    segments.reduce(
+      (center, { middle }) => Vec.add(center, Vec.create(...middle!)),
+      Vec.create(),
+    ),
+    1 / segments.length,
+  );
 const outlinesOf = (segments: Segment[]) =>
   segments
     .map(({ points }) => points)
@@ -75,12 +79,9 @@ const makeSegment = (
     radius: segmentPlan.radius || (shape && (() => shape.reach)),
     rate: 1 / duration,
     shades: craftModule.shades || craft.shades,
-    localPosition: (
-      mount?.localPosition ||
-      segmentPlan.localPosition ||
-      Vector()
-    ).add(
-      Vector(
+    localPosition: Vec.add(
+      mount?.localPosition || segmentPlan.localPosition || Vec.create(),
+      Vec.create(
         0,
         (segmentPlan.thrusterNozzleSide || 0) * (craftModule.offset || 0),
       ),
@@ -317,13 +318,13 @@ export class Craft extends GameObject {
    * away: Which way it is pushed, in this ship's frame.
    */
   spawn(
-    origin: VectorValue,
+    origin: Vec.Value,
     segments: Segment[],
     own: Partial<Segment>,
     away = origin,
   ) {
-    const position = this.position.add(rotatePoint(origin, this.rotation));
-    const velocity = this.velocity.add(this.momentum(position));
+    const position = Vec.add(this.position, rotatePoint(origin, this.rotation));
+    const velocity = Vec.add(this.velocity, this.momentum(position));
     const fragment = new Craft({
       id: this.world ? entityId(this.world) : undefined,
       world: this.world,
@@ -337,7 +338,7 @@ export class Craft extends GameObject {
           ...own,
           collider: 0,
           localPosition:
-            own.localPosition || segment.localPosition.subtract(origin),
+            own.localPosition || Vec.subtract(segment.localPosition, origin),
         }),
       ),
       spin: this.spin,
@@ -346,7 +347,7 @@ export class Craft extends GameObject {
 
     applyForce(
       fragment,
-      rotatePoint(away, this.rotation).normalize().scale(30),
+      Vec.scale(Vec.normalize(rotatePoint(away, this.rotation)), 30),
       this.random.next() - 0.5,
     );
 
@@ -361,7 +362,7 @@ export class Craft extends GameObject {
     const wreckageSegments = mountedSegments.filter(
       (segment) => segment.wreckage !== false,
     );
-    let wreckageMiddle: VectorValue | undefined;
+    let wreckageMiddle: Vec.Value | undefined;
     const segments = wreckageSegments.map((segment) => {
       const wreckage = segment.wreckage;
       const shape: Segment['points'] =
@@ -375,7 +376,7 @@ export class Craft extends GameObject {
 
       if (wreckage && typeof wreckage === 'object') {
         if (wreckageSegments.length === 1) {
-          wreckageMiddle = Vector(middle[0], middle[1]);
+          wreckageMiddle = Vec.create(middle[0], middle[1]);
         }
         return Object.assign(Object.create(segment), wreckage, {
           points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
@@ -389,7 +390,7 @@ export class Craft extends GameObject {
       }
       return segment;
     });
-    const origin = mount.localPosition.add(wreckageMiddle || Vector());
+    const origin = Vec.add(mount.localPosition, wreckageMiddle || Vec.create());
 
     // Destroyed instances are removed rather than entering cargo contents.
     this.destroyed?.(mount.module);
@@ -409,7 +410,7 @@ export class Craft extends GameObject {
         health: 1,
         mount: { health: 1, localPosition: mount.localPosition },
         shades: (destroyed && destroyed.shades) || this.shades,
-        ...(wreckageMiddle && { localPosition: Vector() }),
+        ...(wreckageMiddle && { localPosition: Vec.create() }),
       },
       origin,
     );
@@ -429,9 +430,10 @@ export class Craft extends GameObject {
             ? segment.points(segment)
             : segment.points;
         const [middleX, middleY] = segment.middle || [0, 0];
-        const position = this.position.add(
+        const position = Vec.add(
+          this.position,
           rotatePoint(
-            segment.localPosition.add(Vector(middleX, middleY)),
+            Vec.add(segment.localPosition, Vec.create(middleX, middleY)),
             this.rotation,
           ),
         );
@@ -502,9 +504,10 @@ export class Craft extends GameObject {
                 segment,
                 role: 'hornDrill',
                 friction: this.friction,
-                position: this.position.add(
+                position: Vec.add(
+                  this.position,
                   rotatePoint(
-                    segment.localPosition.add(drillTip.position),
+                    Vec.add(segment.localPosition, drillTip.position),
                     this.rotation,
                   ),
                 ),
@@ -524,10 +527,10 @@ export class Craft extends GameObject {
     return cover ? [cover] : colliders;
   }
 
-  momentum(position: VectorValue) {
-    const offset = position.subtract(this.position);
+  momentum(position: Vec.Value) {
+    const offset = Vec.subtract(position, this.position);
 
-    return Vector(-offset.y * this.spin, offset.x * this.spin);
+    return Vec.create(-offset.y * this.spin, offset.x * this.spin);
   }
 
   fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
@@ -550,7 +553,7 @@ export class Craft extends GameObject {
           middle,
           segments,
           wreckage ? { health: 1 } : {},
-          middle.subtract(center),
+          Vec.subtract(middle, center),
         );
       });
 
@@ -560,9 +563,16 @@ export class Craft extends GameObject {
     const kept = (core || []).map((i) => hulls[i]);
 
     if (core && fragments.length) {
-      const away = rotatePoint(centerOf(kept).subtract(center), this.rotation);
+      const away = rotatePoint(
+        Vec.subtract(centerOf(kept), center),
+        this.rotation,
+      );
 
-      applyForce(this, away.normalize().scale(30), this.random.next() - 0.5);
+      applyForce(
+        this,
+        Vec.scale(Vec.normalize(away), 30),
+        this.random.next() - 0.5,
+      );
     }
 
     this.segments = this.segments.filter(
@@ -574,12 +584,12 @@ export class Craft extends GameObject {
     } else {
       this.cargoContents.splice(0).forEach((object) => {
         object.world = this.world;
-        object.position.set(this.position);
-        object.velocity.set(this.velocity);
+        Vec.set(object.position, this.position);
+        Vec.set(object.velocity, this.velocity);
 
         applyForce(
           object,
-          movePoint(Vector(), this.random.next() * Math.PI * 2, 30),
+          movePoint(Vec.create(), this.random.next() * Math.PI * 2, 30),
           this.random.next() - 0.5,
         );
         object.add();
@@ -698,10 +708,10 @@ export class Craft extends GameObject {
           : this.dockedTo;
 
       if (station) {
-        this.position.set(station.position);
+        Vec.set(this.position, station.position);
         this.rotation = station.rotation;
       }
-      this.velocity.set(Vector());
+      Vec.set(this.velocity, Vec.create());
       this.spin = 0;
     }
 

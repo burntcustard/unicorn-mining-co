@@ -1,3 +1,4 @@
+import * as Vec from '../src/shared/vector';
 import { HornDrill } from '../src/shared/modules/horn-drill';
 import { CargoHatch } from '../src/shared/modules/cargo-hatch';
 import assert from 'node:assert/strict';
@@ -10,7 +11,6 @@ import { createAsteroid } from '../src/shared/simulation/asteroid';
 import { Item } from '../src/shared/items/item';
 import { type ServerMessage } from '../src/shared/protocol/network';
 import { addEntity } from '../src/shared/simulation/world';
-import { Vector } from '../src/shared/vector';
 import { rotatePoint } from '../src/shared/geometry';
 import { simulationStep } from '../src/shared/settings';
 import { moduleTypes } from '../src/shared/modules';
@@ -204,8 +204,9 @@ const asteroid = addEntity(
       [-25, -25],
     ],
     // Touch the deployed horn drill, rather than spawning a rock inside the hull.
-    position: playerShip.position.add(
-      rotatePoint(Vector(70), playerShip.rotation),
+    position: Vec.add(
+      playerShip.position,
+      rotatePoint(Vec.create(70), playerShip.rotation),
     ),
     rotation: playerShip.rotation,
     radius: 25,
@@ -247,8 +248,8 @@ const activeMouth = playerShip
   .find((collider) => collider.role === 'cargoHatch' && collider.collides);
 
 assert(activeMouth);
-item.position.set(activeMouth.position);
-item.velocity.set(playerShip.velocity);
+Vec.set(item.position, activeMouth.position);
+Vec.set(item.velocity, playerShip.velocity);
 await waitUntil({
   condition: () => {
     const current = server.world.entities.get(welcome.shipId);
@@ -369,7 +370,7 @@ await waitUntil({
 });
 assert.equal(playerShip.thrust, 0, 'a within-tick release stops thrust');
 assert(
-  playerShip.velocity.length() > 0.1,
+  Vec.length(playerShip.velocity) > 0.1,
   'the preceding short press was not overwritten',
 );
 
@@ -379,7 +380,8 @@ assert(stationEntity);
 const authoritativeShip = server.world.entities.get(welcome.shipId);
 
 assert(authoritativeShip instanceof Ship);
-authoritativeShip.position.set(
+Vec.set(
+  authoritativeShip.position,
   server.world.entities.get(stationEntity.id)!.position,
 );
 authoritativeShip.dockedTo = stationEntity.id;
@@ -797,13 +799,13 @@ for (const disconnectFirst of [true, false]) {
 }
 
 // A lost ship keeps receiving world updates until its pilot requests a new one.
-const deathPosition = playerShip.position.add(Vector());
+const deathPosition = Vec.add(playerShip.position, Vec.create());
 const nearestStation = [...server.world.entities.values()]
   .filter((entity): entity is Station => entity instanceof Station)
   .sort(
     (a, b) =>
-      a.position.distanceTo(deathPosition) -
-      b.position.distanceTo(deathPosition),
+      Vec.distance(a.position, deathPosition) -
+      Vec.distance(b.position, deathPosition),
   )[0];
 const deathMessageStart = messages.length;
 
@@ -866,7 +868,7 @@ assert(respawned instanceof Ship);
 assert.equal(server.world.players.get(welcome.playerId)?.shipId, respawned.id);
 assert.equal(respawned.dockedTo, nearestStation.id);
 assert.equal(respawned.credits, 500);
-assert(respawned.position.distanceTo(nearestStation.position) < 1);
+assert(Vec.distance(respawned.position, nearestStation.position) < 1);
 
 const closed = Promise.all([
   once(socket, 'close'),

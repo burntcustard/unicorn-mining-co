@@ -1,3 +1,4 @@
+import * as Vec from '../vector';
 import { rotatePoint } from '../geometry';
 import { type GameObject } from '../game-object';
 
@@ -25,7 +26,7 @@ export const localMovement = (
       (child.world && child.world.entities.get(parent.id) !== parent) ||
       !parent.holds(child))
   ) {
-    child.velocity.set(child.velocity.add(parent.momentum(child.position)));
+    Vec.add(child.velocity, parent.momentum(child.position), child.velocity);
     parent = child.localMovementRate = 0;
   }
 
@@ -47,9 +48,12 @@ export const localMovement = (
         1,
         (child.localMovementRate || 0) + dt,
       ));
-    const point = rotatePoint(child.position.subtract(parent.position), angle);
+    const point = rotatePoint(
+      Vec.subtract(child.position, parent.position),
+      angle,
+    );
 
     child.rotation += angle;
-    child.position.set(parent.position.add(point));
+    Vec.add(parent.position, point, child.position);
   }
 };

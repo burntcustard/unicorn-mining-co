@@ -1,5 +1,5 @@
+import * as Vec from '../vector';
 import { type GameObject } from '../game-object';
-import { Vector } from '../vector';
 import { Craft } from '../craft/craft';
 import { type ModuleState } from '../craft/module-state';
 
@@ -36,8 +36,8 @@ const fields = [
 
 export class EntityState {
   readonly entity: GameObject;
-  readonly position: Vector;
-  readonly velocity: Vector;
+  readonly position: Vec.Value;
+  readonly velocity: Vec.Value;
   readonly rotation: number;
   readonly spin: number;
   readonly health: number;
@@ -59,8 +59,8 @@ export class EntityState {
 
   constructor(entity: GameObject) {
     this.entity = entity;
-    this.position = entity.position.add(Vector());
-    this.velocity = entity.velocity.add(Vector());
+    this.position = Vec.clone(entity.position);
+    this.velocity = Vec.clone(entity.velocity);
     this.rotation = entity.rotation;
     this.spin = entity.spin;
     this.health = entity.health;
@@ -116,8 +116,8 @@ export class EntityState {
     const entity = this.entity;
 
     Object.assign(entity, this.values);
-    entity.position.set(this.position);
-    entity.velocity.set(this.velocity);
+    Vec.set(entity.position, this.position);
+    Vec.set(entity.velocity, this.velocity);
     entity.random.state = this.randomState;
     this.capturedStates.forEach(({ target, values }) =>
       Object.assign(target, values),

@@ -1,4 +1,4 @@
-import { Vector, type Vector as VectorValue } from './vector';
+import * as Vec from './vector';
 import { createRandom, type Random } from './seeded-random';
 import { localMovement } from './simulation/local-movement';
 import { type Collider } from './collision/types';
@@ -11,8 +11,8 @@ export class GameObject {
   static friction = 0.01;
   [key: string]: any;
   id: number;
-  position: VectorValue;
-  velocity: VectorValue;
+  position: Vec.Value;
+  velocity: Vec.Value;
   rotation = 0;
   spin = 0;
   angularDrag = 0;
@@ -31,13 +31,13 @@ export class GameObject {
     properties: {
       [key: string]: any;
       id?: number;
-      position?: VectorValue;
-      velocity?: VectorValue;
+      position?: Vec.Value;
+      velocity?: Vec.Value;
     } = {},
   ) {
     this.id = properties.id ?? nextId--;
-    this.position = properties.position || Vector();
-    this.velocity = properties.velocity || Vector();
+    this.position = properties.position || Vec.create();
+    this.velocity = properties.velocity || Vec.create();
     this.random =
       properties.random ||
       properties.world?.random ||
@@ -102,7 +102,7 @@ export class GameObject {
     this.rotation += this.spin * dt;
 
     const { position, velocity, drag = 0.15, maxSpeed = 272 } = this;
-    const speed = velocity.length();
+    const speed = Vec.length(velocity);
 
     if (speed < 1) velocity.x = velocity.y = 0;
 
@@ -111,9 +111,8 @@ export class GameObject {
         ? Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed
         : Math.exp(-drag * dt);
 
-    velocity.x *= kept;
-    velocity.y *= kept;
-    position.set(position.add(velocity.scale(dt)));
+    Vec.scale(velocity, kept, velocity);
+    Vec.addScaled(position, velocity, dt, position);
 
     localMovement(
       this,

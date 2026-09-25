@@ -8,6 +8,7 @@ import { rolldown } from 'rolldown';
 // Exercise the mechanics and assertions together under production transforms.
 // The separate lazy-docked test checks the actual module boundary.
 const scenario = `
+import * as Vec from '${process.cwd()}/src/shared/vector.ts';
 import assert from 'node:assert/strict';
 import { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
 import { createRenderedShip } from '${process.cwd()}/src/client/create-rendered-ship.ts';
@@ -20,7 +21,6 @@ import { setCraftActionDispatcher } from '${process.cwd()}/src/client/craft-acti
 import { adoptPlayerShip, paintUnlocked, playerShip, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { colors } from '${process.cwd()}/src/shared/colors.ts';
-import { Vector } from '${process.cwd()}/src/shared/vector.ts';
 import {
   back, confirmSelection, moveSelection, moveSubSelection,
   fitsOf, selectionSnapshot,
@@ -63,7 +63,7 @@ const settleSale = () => {
   ship.cargoContents = ship.cargoContents.filter(object => !request.objectIds.includes(object.id));
   ship.credits += sold.reduce((total, object) => total + object.price, 0);
 };
-const wreck = new Mustang({ shades: colors.white, velocity: Vector(12, -7), spin: 0.2 });
+const wreck = new Mustang({ shades: colors.white, velocity: Vec.create(12, -7), spin: 0.2 });
 const contents = [Diamond, Message, Message].map(itemData =>
   createRenderedItem({resource: itemTypes.indexOf(itemData)}));
 contents.forEach(item => item.remove());
@@ -73,7 +73,7 @@ wreck.update(0);
 assert(wreck.dead, 'destroyed ship is removed');
 for (const item of contents) {
   assert(!item.dead && game.sprites.includes(item), 'cargo and every Message are released');
-  assert(Math.abs(item.velocity.subtract(wreck.velocity).length() - 5) < 1e-9,
+  assert(Math.abs(Vec.length(Vec.subtract(item.velocity, wreck.velocity)) - 5) < 1e-9,
     'released contents receive an outward impulse');
   assert(Math.abs(item.spin) <= 0.5 / item.mass,
     'released contents receive a small random impulse without inheriting ship spin');
@@ -267,7 +267,7 @@ const brokenMount = damaged.mounts.find(slot => slot.fits.includes(CargoHatch));
 damaged.fit(spare, brokenMount);
 const segment = damaged.segmentsAtMount(brokenMount)[0];
 segment.active = 1;
-const attachedDoor = segment.points(segment).map(([x,y]) => segment.localPosition.add(Vector(x,y)));
+const attachedDoor = segment.points(segment).map(([x,y]) => Vec.add(segment.localPosition, Vec.create(x,y)));
 damage(segment, CargoHatch.health);
 damaged.update(0);
 assert(!damaged.modules.length && !damaged.cargoContents.length && !brokenMount.module, 'destroyed module removed');
@@ -278,7 +278,7 @@ assert.equal(wreckage.segments.length, 1, 'detached cargo hatch leaves only its 
 assert(!wreckage.segments[0].catches, 'detached cargo hatch omits its cargo contact point');
 assert.deepEqual(wreckage.shades, colors.violet, 'detached cargo hatch retains its pink module colour');
 const hatchOutline = wreckage.segments[0].points;
-assert.deepEqual(hatchOutline.map(([x,y]) => wreckage.position.add(Vector(x,y))), attachedDoor,
+assert.deepEqual(hatchOutline.map(([x,y]) => Vec.add(wreckage.position, Vec.create(x,y))), attachedDoor,
   'detached cargo hatch starts at its mounted door geometry');
 const hatchMiddle = hatchOutline
   .reduce(([sumX,sumY],[x,y]) => [sumX+x,sumY+y],[0,0])
@@ -331,7 +331,7 @@ assert(flyer.forwardThrust === 0 && flyer.cargoContents[0] === engine, 'removing
 // Check actual launch motion, including the final 0.05-second full-power pulse:
 // coast uses quarter thrust and speed cap, with half-size flames.
 for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple]) {
-  const departing = new Mustang({shades: colors.white, position: Vector(100000, 100000)});
+  const departing = new Mustang({shades: colors.white, position: Vec.create(100000, 100000)});
   const engine = new type();
   departing.cargoContents.push(engine); departing.fit(engine);
   departing.launch();
@@ -352,7 +352,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     expectedX += expectedSpeed * dt;
     departing.fly(departing.launching ? 1 : 0, 0);
     departing.update(dt);
-    assert(Math.abs(departing.velocity.length() - expectedSpeed) < 1e-8,
+    assert(Math.abs(Vec.length(departing.velocity) - expectedSpeed) < 1e-8,
       type.label + ': launch speed matches expected each frame');
     assert(Math.abs(departing.position.x - expectedX) < 1e-7,
       type.label + ': launch distance matches expected each frame');
@@ -428,7 +428,7 @@ for (const type of thrusters) {
 
 // Check the remaining reward names under production minification too.
 assert(!paintUnlocked(colors.yellow), 'YELLOW starts locked');
-playerShip.position.set(Vector(50000));
+Vec.set(playerShip.position, Vec.create(50000));
 updatePlayer(0);
 assert(paintUnlocked(colors.yellow), 'reaching the map edge unlocks YELLOW');
 assert(playerShip.note === 'EDGE REACHED - YELLOW UNLOCKED', 'YELLOW reward Message');

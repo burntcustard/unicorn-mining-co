@@ -18,7 +18,7 @@ const bundle = await rolldown({
       export { RegionManager } from '${process.cwd()}/src/shared/simulation/region-manager.ts';
       export { RegionManager as ServerRegionManager } from '${process.cwd()}/src/server/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/shared/simulation/world.ts';
-      export { Vector } from '${process.cwd()}/src/shared/vector.ts';
+      export * as Vec from '${process.cwd()}/src/shared/vector.ts';
     `
           : undefined,
       resolveId: (id) => (id === 'regions' ? '\0regions' : undefined),
@@ -32,25 +32,25 @@ const {
   asteroidSpacing,
   RegionManager,
   ServerRegionManager,
-  Vector,
+  Vec,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
 assert.equal(asteroidSpacing, 30);
-const options = { worldSeed: 25, region: Vector(5, 8) };
+const options = { worldSeed: 25, region: Vec.create(5, 8) };
 const first = generateRegion(options);
 
-generateRegion({ worldSeed: 25, region: Vector(4, 8) });
+generateRegion({ worldSeed: 25, region: Vec.create(4, 8) });
 assert.deepEqual(generateRegion(options), first);
 assert.notDeepEqual(
-  generateRegion({ worldSeed: 26, region: Vector(5, 8) }),
+  generateRegion({ worldSeed: 26, region: Vec.create(5, 8) }),
   first,
 );
 
 const nearbyDescriptions = [4, 5, 6].flatMap((x) =>
   [-1, 0, 1].map((y) =>
-    generateRegion({ worldSeed: 25, region: Vector(x, y) }),
+    generateRegion({ worldSeed: 25, region: Vec.create(x, y) }),
   ),
 );
 const nearbyAsteroids = nearbyDescriptions.flatMap(
@@ -66,14 +66,14 @@ nearbyAsteroids.forEach((asteroid, index) => {
     .slice(index + 1)
     .forEach((other) =>
       assert(
-        asteroid.position.distanceTo(other.position) >=
+        Vec.distance(asteroid.position, other.position) >=
           asteroid.radius + other.radius + asteroidSpacing,
         `generated asteroids ${asteroid.id} and ${other.id} have room to move`,
       ),
     );
   nearbyObstacles.forEach((other) =>
     assert(
-      asteroid.position.distanceTo(other.position) >=
+      Vec.distance(asteroid.position, other.position) >=
         asteroid.radius + other.radius + asteroidSpacing,
       `generated asteroid ${asteroid.id} clears station or wreck ${other.id}`,
     ),
@@ -81,47 +81,49 @@ nearbyAsteroids.forEach((asteroid, index) => {
 });
 
 const manager = new RegionManager({ worldSeed: 25 });
-const loaded = manager.load({ region: Vector(5, 8) });
+const loaded = manager.load({ region: Vec.create(5, 8) });
 
 loaded.description.asteroids[0].radius = 321;
-manager.unload({ region: Vector(5, 8) });
+manager.unload({ region: Vec.create(5, 8) });
 assert.equal(
-  manager.load({ region: Vector(5, 8) }).description.asteroids[0].radius,
+  manager.load({ region: Vec.create(5, 8) }).description.asteroids[0].radius,
   321,
 );
-const removedId = manager.load({ region: Vector(5, 8) }).description
+const removedId = manager.load({ region: Vec.create(5, 8) }).description
   .asteroids[0].id;
 
 manager.remove({ id: removedId });
-manager.unload({ region: Vector(5, 8) });
+manager.unload({ region: Vec.create(5, 8) });
 assert.equal(
   manager
-    .load({ region: Vector(5, 8) })
+    .load({ region: Vec.create(5, 8) })
     .description.asteroids.some(({ id }) => id === removedId),
   false,
 );
 
-const position = Vector();
+const position = Vec.create();
 const view = manager.query({ position });
 
 assert.ok(manager.loadedRegionCount <= 121);
 assert.ok(view.asteroids.length > 0);
 assert.ok(view.stationMarkers.length > 0);
 assert.ok(
-  view.asteroids.every(({ position: at }) => at.distanceTo(position) <= 2000),
+  view.asteroids.every(
+    ({ position: at }) => Vec.distance(at, position) <= 2000,
+  ),
 );
 assert.ok(
-  view.stations.every(({ position: at }) => at.distanceTo(position) <= 2000),
+  view.stations.every(({ position: at }) => Vec.distance(at, position) <= 2000),
 );
 assert.ok(
   view.stationMarkers.every(
-    ({ position: at }) => at.distanceTo(position) <= 10000,
+    ({ position: at }) => Vec.distance(at, position) <= 10000,
   ),
 );
 assert.ok(view.stationMarkers.length > view.stations.length);
 
 const spread = new RegionManager({ worldSeed: 25 });
-const spreadPositions = [Vector(), Vector(30000, 0)];
+const spreadPositions = [Vec.create(), Vec.create(30000, 0)];
 const spreadViews = spread.queryMany({ positions: spreadPositions });
 
 assert.deepEqual(
@@ -150,7 +152,7 @@ const world = createWorld({ seed: 25 });
 serverRegions.sync({ positions: [position], world });
 const distantStation = [...world.entities.values()].find(
   (entity) =>
-    entity.kind === 'station' && entity.position.distanceTo(position) > 2000,
+    entity.kind === 'station' && Vec.distance(entity.position, position) > 2000,
 );
 
 assert(distantStation, 'off-screen stations are materialised');
@@ -179,7 +181,7 @@ assert.equal(
   false,
 );
 
-serverRegions.sync({ positions: [Vector(50000, 50000)], world });
+serverRegions.sync({ positions: [Vec.create(50000, 50000)], world });
 assert(
   !world.entities.has(distantStation.id),
   'unloaded stations leave simulation',
@@ -214,14 +216,14 @@ assert.equal(
 // again over the fragments.
 const sharedRegions = new ServerRegionManager({ worldSeed: 25 });
 const sharedWorld = createWorld({ seed: 25 });
-const sharedPositions = [Vector(2500, 1200), Vector(2600, 1200)];
+const sharedPositions = [Vec.create(2500, 1200), Vec.create(2600, 1200)];
 
 sharedRegions.sync({ positions: sharedPositions, world: sharedWorld });
 const sharedSource = [...sharedWorld.entities.values()].find(
   (entity) =>
     entity.kind === 'asteroid' &&
     sharedPositions.every(
-      (position) => entity.position.distanceTo(position) < 2500,
+      (position) => Vec.distance(entity.position, position) < 2500,
     ),
 );
 

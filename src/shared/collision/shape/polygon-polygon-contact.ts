@@ -10,6 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import * as Vec from '../../vector';
 import { TransformValue } from '../../vector-math';
 import * as matrix from '../../vector-math';
 import { linearSlop } from '../../settings';
@@ -27,18 +28,18 @@ import { Fixture } from '../../physics/fixture';
 const incidentEdge = [new ClipVertex(), new ClipVertex()];
 const clipPoints1 = [new ClipVertex(), new ClipVertex()];
 const clipPoints2 = [new ClipVertex(), new ClipVertex()];
-const clipSegmentToLineNormal = matrix.vec2(0, 0);
-const v1 = matrix.vec2(0, 0);
-const n = matrix.vec2(0, 0);
+const clipSegmentToLineNormal = Vec.create();
+const v1 = Vec.create();
+const n = Vec.create();
 const xf = matrix.transform(0, 0, 0);
-const v11 = matrix.vec2(0, 0);
-const v12 = matrix.vec2(0, 0);
-const localTangent = matrix.vec2(0, 0);
-const localNormal = matrix.vec2(0, 0);
-const planePoint = matrix.vec2(0, 0);
-const tangent = matrix.vec2(0, 0);
-const normal = matrix.vec2(0, 0);
-const normal1 = matrix.vec2(0, 0);
+const v11 = Vec.create();
+const v12 = Vec.create();
+const localTangent = Vec.create();
+const localNormal = Vec.create();
+const planePoint = Vec.create();
+const tangent = Vec.create();
+const normal = Vec.create();
+const normal1 = Vec.create();
 
 Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, evaluatePolygonContact);
 
@@ -87,14 +88,14 @@ function findMaxSeparation(
 
   for (let i = 0; i < count1; ++i) {
     // Get poly1 normal in frame2.
-    matrix.rotVec2(n, xf.q, n1s[i]);
-    matrix.transformVec2(v1, xf, v1s[i]);
+    matrix.rotateInto(n, xf.q, n1s[i]);
+    matrix.transformInto(v1, xf, v1s[i]);
 
     // Find deepest point for normal i.
     let si = Infinity;
 
     for (let j = 0; j < count2; ++j) {
-      const sij = matrix.dotVec2(n, v2s[j]) - matrix.dotVec2(n, v1);
+      const sij = Vec.dot(n, v2s[j]) - Vec.dot(n, v1);
 
       if (sij < si) {
         si = sij;
@@ -127,14 +128,14 @@ function findIncidentEdge(
   const normals2 = poly2.m_normals;
 
   // Get the normal of the reference edge in poly2's frame.
-  matrix.rerotVec2(normal1, xf2.q, xf1.q, normals1[edge1]);
+  matrix.rerotateInto(normal1, xf2.q, xf1.q, normals1[edge1]);
 
   // Find the incident edge on poly2.
   let index = 0;
   let minDot = Infinity;
 
   for (let i = 0; i < count2; ++i) {
-    const dot = matrix.dotVec2(normal1, normals2[i]);
+    const dot = Vec.dot(normal1, normals2[i]);
 
     if (dot < minDot) {
       minDot = dot;
@@ -146,10 +147,10 @@ function findIncidentEdge(
   const i1 = index;
   const i2 = i1 + 1 < count2 ? i1 + 1 : 0;
 
-  matrix.transformVec2(clipVertex[0].v, xf2, vertices2[i1]);
+  matrix.transformInto(clipVertex[0].v, xf2, vertices2[i1]);
   clipVertex[0].id.setFeatures(edge1, faceFeature, i1, vertexFeature);
 
-  matrix.transformVec2(clipVertex[1].v, xf2, vertices2[i2]);
+  matrix.transformInto(clipVertex[1].v, xf2, vertices2[i2]);
   clipVertex[1].id.setFeatures(edge1, faceFeature, i2, vertexFeature);
 }
 
@@ -226,27 +227,27 @@ export function collidePolygons(
   const iv1 = edge1;
   const iv2 = edge1 + 1 < count1 ? edge1 + 1 : 0;
 
-  matrix.copyVec2(v11, vertices1[iv1]);
-  matrix.copyVec2(v12, vertices1[iv2]);
+  Vec.set(v11, vertices1[iv1]);
+  Vec.set(v12, vertices1[iv2]);
 
-  matrix.subVec2(localTangent, v12, v11);
-  matrix.normalizeVec2(localTangent);
+  Vec.subtract(v12, v11, localTangent);
+  Vec.normalize(localTangent, localTangent);
 
-  matrix.crossVec2Num(localNormal, localTangent, 1);
-  matrix.combine2Vec2(planePoint, 0.5, v11, 0.5, v12);
+  Vec.crossScalarInto(localNormal, localTangent, 1);
+  Vec.combine2Into(planePoint, 0.5, v11, 0.5, v12);
 
-  matrix.rotVec2(tangent, xf1.q, localTangent);
-  matrix.crossVec2Num(normal, tangent, 1);
+  matrix.rotateInto(tangent, xf1.q, localTangent);
+  Vec.crossScalarInto(normal, tangent, 1);
 
-  matrix.transformVec2(v11, xf1, v11);
-  matrix.transformVec2(v12, xf1, v12);
+  matrix.transformInto(v11, xf1, v11);
+  matrix.transformInto(v12, xf1, v12);
 
   // Face offset.
-  const frontOffset = matrix.dotVec2(normal, v11);
+  const frontOffset = Vec.dot(normal, v11);
 
   // Side offsets, extended by polytope skin thickness.
-  const sideOffset1 = -matrix.dotVec2(tangent, v11) + totalRadius;
-  const sideOffset2 = matrix.dotVec2(tangent, v12) + totalRadius;
+  const sideOffset1 = -Vec.dot(tangent, v11) + totalRadius;
+  const sideOffset2 = Vec.dot(tangent, v12) + totalRadius;
 
   // Clip incident edge against extruded edge1 side edges.
   clipPoints1[0].recycle();
@@ -255,7 +256,7 @@ export function collidePolygons(
   clipPoints2[1].recycle();
 
   // Clip to box side 1
-  matrix.setVec2(clipSegmentToLineNormal, -tangent.x, -tangent.y);
+  Vec.setXY(clipSegmentToLineNormal, -tangent.x, -tangent.y);
   const np1 = clipSegmentToLine(
     clipPoints1,
     incidentEdge,
@@ -269,7 +270,7 @@ export function collidePolygons(
   }
 
   // Clip to negative box side 1
-  matrix.setVec2(clipSegmentToLineNormal, tangent.x, tangent.y);
+  Vec.setXY(clipSegmentToLineNormal, tangent.x, tangent.y);
   const np2 = clipSegmentToLine(
     clipPoints2,
     clipPoints1,
@@ -283,18 +284,18 @@ export function collidePolygons(
   }
 
   // Now clipPoints2 contains the clipped points.
-  matrix.copyVec2(manifold.localNormal, localNormal);
-  matrix.copyVec2(manifold.localPoint, planePoint);
+  Vec.set(manifold.localNormal, localNormal);
+  Vec.set(manifold.localPoint, planePoint);
 
   let pointCount = 0;
 
   for (let i = 0; i < clipPoints2.length /* maxManifoldPoints */; ++i) {
-    const separation = matrix.dotVec2(normal, clipPoints2[i].v) - frontOffset;
+    const separation = Vec.dot(normal, clipPoints2[i].v) - frontOffset;
 
     if (separation <= totalRadius) {
       const cp = manifold.points[pointCount];
 
-      matrix.detransformVec2(cp.localPoint, xf2, clipPoints2[i].v);
+      matrix.inverseTransformInto(cp.localPoint, xf2, clipPoints2[i].v);
       cp.id.set(clipPoints2[i].id);
 
       if (flip) {

@@ -1,4 +1,4 @@
-import { Vector, type Vector as VectorValue } from '../vector';
+import * as Vec from '../vector';
 import {
   type AsteroidDescription,
   type RegionDescription,
@@ -22,7 +22,7 @@ export const regionSeed = ({
   region,
 }: {
   worldSeed: number;
-  region: VectorValue;
+  region: Vec.Value;
 }) => mix(worldSeed ^ mix(region.x) ^ mix(region.y + 0x9e3779b9));
 
 const descriptionId = ({
@@ -40,9 +40,9 @@ const randomPosition = ({
   region,
 }: {
   random: Random;
-  region: VectorValue;
+  region: Vec.Value;
 }) =>
-  Vector(
+  Vec.create(
     (region.x + random.next()) * regionSize,
     (region.y + random.next()) * regionSize,
   );
@@ -62,7 +62,7 @@ const makeAsteroid = ({
   seed: number;
   index: number;
   random: Random;
-  region: VectorValue;
+  region: Vec.Value;
 }): AsteroidDescription => {
   const roll = random.next();
   const resource = roll < 0.05 ? 1 : roll < 0.12 ? 2 : 4;
@@ -103,7 +103,7 @@ const generateCandidates = ({
   region,
 }: {
   worldSeed: number;
-  region: VectorValue;
+  region: Vec.Value;
 }): RegionDescription => {
   const seed = regionSeed({ worldSeed, region });
   const random = createRandom(seed);
@@ -140,7 +140,7 @@ const generateCandidates = ({
     asteroids: Array.from({ length: asteroidCount }, (_, index) =>
       makeAsteroid({ seed, index, random, region }),
     ),
-    region: Vector(region.x, region.y),
+    region: Vec.clone(region),
     stations,
     wrecks,
   };
@@ -155,7 +155,7 @@ export const generateRegion = ({
   region,
 }: {
   worldSeed: number;
-  region: VectorValue;
+  region: Vec.Value;
 }): RegionDescription => {
   const current = generateCandidates({ worldSeed, region });
   const nearby = [-1, 0, 1].flatMap((y) =>
@@ -163,7 +163,7 @@ export const generateRegion = ({
       x || y
         ? generateCandidates({
             worldSeed,
-            region: Vector(region.x + x, region.y + y),
+            region: Vec.create(region.x + x, region.y + y),
           })
         : current,
     ),
@@ -174,9 +174,9 @@ export const generateRegion = ({
   ]);
   const overlaps = (
     asteroid: AsteroidDescription,
-    other: { position: VectorValue; radius: number },
+    other: { position: Vec.Value; radius: number },
   ) =>
-    asteroid.position.distanceTo(other.position) <
+    Vec.distance(asteroid.position, other.position) <
     asteroid.radius + other.radius + asteroidSpacing;
   const candidates = nearby
     .flatMap(({ asteroids }) => asteroids)

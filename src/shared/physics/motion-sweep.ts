@@ -11,7 +11,7 @@
  */
 
 import * as matrix from '../vector-math';
-import { Vec2 } from '../vector';
+import * as Vec from '../vector';
 import { TransformValue } from '../vector-math';
 
 /**
@@ -20,7 +20,7 @@ import { TransformValue } from '../vector-math';
  */
 export class Sweep {
   // World center position
-  c = Vec2.zero();
+  c = Vec.create();
 
   // World angle
   a = 0;
@@ -28,11 +28,11 @@ export class Sweep {
   // Fraction of the current time step in the range [0,1], c0 and a0 are c and a at alpha0.
   alpha0 = 0;
 
-  c0 = Vec2.zero();
+  c0 = Vec.create();
   a0 = 0;
   setTransform(xf: TransformValue): void {
-    matrix.copyVec2(this.c, xf.p);
-    matrix.copyVec2(this.c0, xf.p);
+    Vec.set(this.c, xf.p);
+    Vec.set(this.c0, xf.p);
 
     this.a = this.a0 = Math.atan2(xf.q.s, xf.q.c);
   }
@@ -45,7 +45,7 @@ export class Sweep {
    */
   getTransform(xf: TransformValue, beta: number): void {
     matrix.setRotAngle(xf.q, (1 - beta) * this.a0 + beta * this.a);
-    matrix.combine2Vec2(xf.p, 1 - beta, this.c0, beta, this.c);
+    Vec.combine2Into(xf.p, 1 - beta, this.c0, beta, this.c);
   }
 
   /**
@@ -56,7 +56,7 @@ export class Sweep {
   advance(alpha: number): void {
     const beta = (alpha - this.alpha0) / (1 - this.alpha0);
 
-    matrix.combine2Vec2(this.c0, beta, this.c, 1 - beta, this.c0);
+    Vec.combine2Into(this.c0, beta, this.c, 1 - beta, this.c0);
     this.a0 = beta * this.a + (1 - beta) * this.a0;
     this.alpha0 = alpha;
   }
@@ -73,10 +73,10 @@ export class Sweep {
   }
 
   set(that: Sweep): void {
-    matrix.copyVec2(this.c, that.c);
+    Vec.set(this.c, that.c);
     this.a = that.a;
     this.alpha0 = that.alpha0;
-    matrix.copyVec2(this.c0, that.c0);
+    Vec.set(this.c0, that.c0);
     this.a0 = that.a0;
   }
 }

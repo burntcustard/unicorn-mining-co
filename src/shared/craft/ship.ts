@@ -1,3 +1,4 @@
+import * as Vec from '../vector';
 import { Craft } from './craft';
 import { movePoint } from '../geometry';
 import { approach } from '../utilities/approach';
@@ -283,7 +284,8 @@ export class Ship extends Craft {
         16;
 
       this.spin = approach(this.spin, targetSpin, rotationalThrust * dt);
-      this.velocity.set(
+      Vec.set(
+        this.velocity,
         movePoint(this.velocity, this.rotation + this.spin * dt, push),
       );
     }

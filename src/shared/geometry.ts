@@ -1,22 +1,19 @@
-import { Vector, type Vector as VectorValue } from './vector';
+import * as Vec from './vector';
 import { type Mount, type Outline, type Point } from './types';
 import { radiusOf } from './polygon';
 
-export const rotatePoint = ({ x, y }: VectorValue, angle: number) => {
+export const rotatePoint = ({ x, y }: Vec.Value, angle: number) => {
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
 
-  return Vector(x * cos - y * sin, x * sin + y * cos);
+  return Vec.create(x * cos - y * sin, x * sin + y * cos);
 };
 
 export const directionOf = (angle: number) =>
-  Vector(Math.cos(angle), Math.sin(angle));
+  Vec.create(Math.cos(angle), Math.sin(angle));
 
-export const movePoint = (
-  point: VectorValue,
-  angle: number,
-  distance: number,
-) => directionOf(angle).scale(distance).add(point);
+export const movePoint = (point: Vec.Value, angle: number, distance: number) =>
+  Vec.addScaled(point, directionOf(angle), distance);
 
 /**
  * Return a point some way between two polygon points. Plain arrays keep this
@@ -33,10 +30,10 @@ export const pointBetween = (from: number[], to: number[], at = 0.5) =>
 export const rotatePoints = (
   points: number[][],
   angle: number,
-  position = Vector(),
+  position = Vec.create(),
 ): Outline =>
   points.map(([pointX, pointY]) => {
-    const point = rotatePoint(Vector(pointX, pointY), angle);
+    const point = rotatePoint(Vec.create(pointX, pointY), angle);
 
     return [position.x + point.x, position.y + point.y] as Point;
   }) as Outline;
@@ -56,7 +53,7 @@ export const outlineExtent = (points: Outline) => {
  */
 export const shapeOf = (
   points: Outline,
-  mount: Pick<Mount, 'localPosition'> = { localPosition: Vector() },
+  mount: Pick<Mount, 'localPosition'> = { localPosition: Vec.create() },
 ) => {
   const { middle, reach } = outlineExtent(points);
 

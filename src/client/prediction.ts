@@ -1,3 +1,4 @@
+import * as Vec from '../shared/vector';
 import { Craft } from '../shared/craft/craft';
 import { FramePrediction } from './frame-prediction';
 import { Module } from '../shared/modules/module';
@@ -51,8 +52,8 @@ const matches = ({
   const cargoIds = ship.cargoIds;
 
   return (
-    ship.position.distanceTo(checkpoint.position) < 0.25 &&
-    ship.velocity.distanceTo(checkpoint.velocity) < 0.25 &&
+    Vec.distance(ship.position, checkpoint.position) < 0.25 &&
+    Vec.distance(ship.velocity, checkpoint.velocity) < 0.25 &&
     Math.abs(ship.rotation - checkpoint.rotation) < 0.002 &&
     Math.abs(ship.spin - checkpoint.spin) < 0.002 &&
     (ship.launching || 0) === (checkpoint.launching || 0) &&
@@ -97,8 +98,8 @@ const applyEntity = ({
   entity: GameObject;
   server: GameObject;
 }) => {
-  entity.position.set(server.position);
-  entity.velocity.set(server.velocity);
+  Vec.set(entity.position, server.position);
+  Vec.set(entity.velocity, server.velocity);
   entity.rotation = server.rotation;
   entity.spin = server.spin;
   entity.mass = server.mass;
@@ -303,11 +304,11 @@ export class PredictionManager {
         if (
           !(entity instanceof Ship) ||
           entity.id === own.id ||
-          entity.position.distanceTo(own.position) >
+          Vec.distance(entity.position, own.position) >
             100 +
               entity.radius +
               own.radius +
-              (entity.velocity.length() + own.velocity.length()) *
+              (Vec.length(entity.velocity) + Vec.length(own.velocity)) *
                 simulationStep
         ) {
           return false;
@@ -346,7 +347,7 @@ export class PredictionManager {
     predictionStats.corrections++;
     predictionStats.worst = Math.max(
       predictionStats.worst,
-      predicted!.position.distanceTo(own.position),
+      Vec.distance(predicted!.position, own.position),
     );
     // @endif
     this.replayTo({ targetTick });

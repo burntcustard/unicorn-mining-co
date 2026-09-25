@@ -12,10 +12,10 @@ description: Apply Unicorn Mining Co.'s local source-style conventions when writ
 - Keep general-purpose helpers in `src/shared/utilities`; put object-specific
   behaviour on its owning class rather than in standalone helper files.
 - Represent positions, offsets, velocities, and other `{ x, y }` values with
-  the project's `Vector` and its helpers wherever possible.
-- Type vector values with the exported `Vector` type instead of deriving
-  `ReturnType<typeof Vector>`. When the factory and type share an import, alias
-  the type as `VectorValue`.
+  `import * as Vec from '.../vector'`, using `Vec.create` and its operations.
+  Pass an output vector when an existing object's identity must be preserved.
+- Let local vector types be inferred. Use `Vec.Value` for parameters, fields,
+  and public shapes that need an explicit type; it shares the `Vec` import.
 - Declare at most one TypeScript `interface` per file. Move another public
   interface to the file that owns it; use a local type alias for a private
   shape when a separate interface would add no value.

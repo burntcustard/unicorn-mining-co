@@ -1,7 +1,7 @@
+import * as Vec from '../shared/vector';
 import { Craft } from '../shared/craft/craft';
 import { Module } from '../shared/modules/module';
 import { type EntityId } from '../shared/protocol/entities';
-import { type Vector } from '../shared/vector';
 import {
   type ReplicatedEntity,
   type ServerMessage,
@@ -86,7 +86,7 @@ const replicateEntity = ({
 type SnapshotOptions = {
   world: SimulationWorld;
   shipId: EntityId;
-  position?: Vector;
+  position?: Vec.Value;
   acknowledgedSequence?: number;
   inputLead?: number;
 };
@@ -120,7 +120,7 @@ export class ReplicationManager {
 
       return (
         entity.id === shipId ||
-        entity.position.distanceTo(ship.position) <= range
+        Vec.distance(entity.position, ship.position) <= range
       );
     });
     const fullEntities = visible

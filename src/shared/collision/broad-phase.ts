@@ -10,7 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Vec2Value } from '../vector';
+import * as Vec from '../vector';
 import { AABB, AABBValue } from './axis-aligned-bounds';
 import { DynamicTree } from './dynamic-tree';
 import { FixtureProxy } from '../physics/fixture';
@@ -59,7 +59,7 @@ export class BroadPhase {
    * Call moveProxy as many times as you like, then when you are done call
    * UpdatePairs to finalized the proxy pairs (for your time step).
    */
-  moveProxy(proxyId: number, aabb: AABB, displacement: Vec2Value): void {
+  moveProxy(proxyId: number, aabb: AABB, displacement: Vec.Value): void {
     const changed = this.m_tree.moveProxy(proxyId, aabb, displacement);
 
     if (changed) {

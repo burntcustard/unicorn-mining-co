@@ -9,7 +9,7 @@ import { renderFps } from './fps';
 import { renderText } from './text';
 import { sky } from './background';
 import { textDemo } from './text-demo';
-import { Vector } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { type GameObject } from '../shared/game-object';
 import { type Ship } from '../shared/craft/ship';
 
@@ -41,7 +41,7 @@ export const debugCrafts = (game: GameState) =>
   ].map((shades, i) =>
     createRenderedShip({
       shades,
-      position: Vector(120 + i * 120, game.height - 100),
+      position: Vec.create(120 + i * 120, game.height - 100),
     }),
   );
 

@@ -1,5 +1,5 @@
+import * as Vec from '../shared/vector';
 import { objectLineWidth } from './drawing';
-import { Vector, type Vector as VectorValue } from '../shared/vector';
 
 /**
  * Short streaks thrown from damage contacts in the damaged object's colour.
@@ -11,10 +11,10 @@ const length = 8;
 
 interface Spark {
   color: string;
-  velocity: VectorValue;
+  velocity: Vec.Value;
   // Remaining lifetime in seconds.
   health: number;
-  position: VectorValue;
+  position: Vec.Value;
 }
 
 export const sparks: Spark[] = [];
@@ -27,7 +27,7 @@ export const sprayDamage = ({
   color,
   damage,
 }: {
-  position: VectorValue;
+  position: Vec.Value;
   color: string;
   damage: number;
 }) => {
@@ -37,9 +37,9 @@ export const sprayDamage = ({
 
     sparks.push({
       color,
-      velocity: Vector(Math.cos(angle) * pace, Math.sin(angle) * pace),
+      velocity: Vec.create(Math.cos(angle) * pace, Math.sin(angle) * pace),
       health: 0.2 + Math.random() * 0.2,
-      position: Vector(position.x, position.y),
+      position: Vec.clone(position),
     });
   }
 };
@@ -52,7 +52,7 @@ export const updateSparks = (dt: number) => {
     const spark = sparks[i];
 
     if ((spark.health -= dt) > 0) {
-      spark.position.set(spark.position.add(spark.velocity.scale(dt)));
+      Vec.addScaled(spark.position, spark.velocity, dt, spark.position);
     } else {
       sparks.splice(i, 1);
     }
@@ -67,8 +67,9 @@ export const renderSparks = (ctx: CanvasRenderingContext2D) => {
   ctx.lineWidth = objectLineWidth;
 
   sparks.forEach((spark) => {
-    const tail = spark.position.subtract(
-      spark.velocity.normalize().scale(length),
+    const tail = Vec.subtract(
+      spark.position,
+      Vec.scale(Vec.normalize(spark.velocity), length),
     );
 
     ctx.strokeStyle = spark.color;

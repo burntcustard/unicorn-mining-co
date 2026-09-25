@@ -35,7 +35,7 @@ const bundle = await rolldown({
       export { createWorld, addEntity, addPlayer } from '${resolve('src/shared/simulation/world.ts')}';
       export { createShip } from '${resolve('src/shared/craft/create-ship.ts')}';
       export { createStation } from '${resolve('src/shared/craft/create-station.ts')}';
-      export { Vector } from '${resolve('src/shared/vector.ts')}';
+      export * as Vec from '${resolve('src/shared/vector.ts')}';
       export { captureWorld, restoreWorld } from '${resolve('src/shared/simulation/world-state.ts')}';
     `
           : undefined,
@@ -56,9 +56,9 @@ const {
   addEntity,
   createShip,
   createStation,
-  Vector,
   captureWorld,
   restoreWorld,
+  Vec,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
@@ -66,12 +66,12 @@ const world = createWorld();
 const ship = addEntity(world, createShip(world, { playerId: 1 }));
 const station = addEntity(
   world,
-  createStation({ world, position: Vector(700) }),
+  createStation({ world, position: Vec.create(700) }),
 );
 const replication = new ReplicationManager();
 const distantStation = addEntity(
   world,
-  createStation({ world, position: Vector(8000) }),
+  createStation({ world, position: Vec.create(8000) }),
 );
 const initial = replication.initial({
   world,
@@ -122,7 +122,7 @@ assert.equal(
 );
 world.tick = 0;
 world.tick = 121;
-distantStation.position.set(Vector(12000));
+Vec.set(distantStation.position, Vec.create(12000));
 const departed = replication.snapshot({
   world,
   shipId: ship.id,
@@ -132,7 +132,7 @@ assert(
   !departed.entityIds.includes(distantStation.id),
   'unloads do not wait for a distant snapshot',
 );
-distantStation.position.set(Vector(8000));
+Vec.set(distantStation.position, Vec.create(8000));
 world.tick = 122;
 const returned = replication.snapshot({
   world,
@@ -306,7 +306,7 @@ const observer = addEntity(
 );
 const turningShip = addEntity(
   turningWorld,
-  createShip(turningWorld, { playerId: 2, position: Vector(500) }),
+  createShip(turningWorld, { playerId: 2, position: Vec.create(500) }),
 );
 
 addPlayer(turningWorld, { id: 1, shipId: observer.id });

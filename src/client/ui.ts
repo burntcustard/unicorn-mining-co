@@ -3,13 +3,13 @@ import { colors } from '../shared/colors';
 import { renderControls } from './ui/controls';
 import { renderDocked } from './ui/docked-loader';
 import { renderIndicators } from './ui/indicators';
-import { type Vector } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { type Ship } from '../shared/craft/ship';
 import { renderText } from './text';
 
 export const renderUI = (
   game: GameState,
-  stations: Array<{ position: Vector; radius: number }>,
+  stations: Array<{ position: Vec.Value; radius: number }>,
   {
     controlsShip,
     shipDestroyed,

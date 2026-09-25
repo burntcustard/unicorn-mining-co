@@ -9,8 +9,8 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0world-entry'
           ? `
-            export { RegionManager } from '${process.cwd()}/src/world.ts';
-            export { Vector } from '${process.cwd()}/src/shared/vector.ts';
+            export { RegionManager } from '${process.cwd()}/src/shared/simulation/region-manager.ts';
+            export * as Vec from '${process.cwd()}/src/shared/vector.ts';
           `
           : undefined,
       resolveId: (id) => (id === 'world-entry' ? '\0world-entry' : undefined),
@@ -21,14 +21,14 @@ const { output } = await bundle.generate({ format: 'esm' });
 
 await bundle.close();
 
-const { RegionManager, Vector } = await import(
+const { RegionManager, Vec } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
 const seed = Number(process.argv[2] ?? 25);
 const worldRadius = 10000;
 const manager = new RegionManager({ worldSeed: seed });
-const world = manager.query({ position: Vector() });
+const world = manager.query({ position: Vec.create() });
 const size = 1000;
 const padding = 80;
 const scale = (size - padding * 2) / (worldRadius * 2);
@@ -52,7 +52,7 @@ const grid = Array.from(
   ])
   .join('');
 const startingStations = [...world.stationMarkers]
-  .sort((a, b) => a.position.length() ** 2 - b.position.length() ** 2)
+  .sort((a, b) => Vec.length(a.position) - Vec.length(b.position))
   .slice(0, 3);
 const startRings = startingStations
   .map(

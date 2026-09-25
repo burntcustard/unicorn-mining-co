@@ -1,3 +1,4 @@
+import * as Vec from '../vector';
 import { World } from '../physics/world';
 import { type Body } from '../physics/body';
 import { type Fixture } from '../physics/fixture';
@@ -8,7 +9,6 @@ import './shape/circle-circle-contact';
 import './shape/polygon-polygon-contact';
 import './shape/circle-polygon-contact';
 import { type GameObject } from '../game-object';
-import { Vector } from '../vector';
 import { rotatePoint } from '../geometry';
 import { type Collider, type Contact } from './types';
 import { contactSpeedThreshold } from '../settings';
@@ -114,8 +114,8 @@ export class GameCollisions {
         collider: a,
         other: b,
         depth: Math.max(0, -Math.min(...manifold.separations)),
-        normal: Vector(manifold.normal.x, manifold.normal.y),
-        point: Vector(point.x, point.y),
+        normal: Vec.clone(manifold.normal),
+        point: Vec.clone(point),
       };
 
       this.contacts.push(found);
@@ -138,7 +138,7 @@ export class GameCollisions {
     events = [],
   }: {
     entities: GameObject[];
-    previous: Map<number, { position: Vector; rotation: number }>;
+    previous: Map<number, { position: Vec.Value; rotation: number }>;
     dt: number;
     events?: SimulationEvent[];
   }) {
@@ -160,8 +160,8 @@ export class GameCollisions {
       };
       const record = this.sync(entity);
       const velocity = dt
-        ? entity.position.subtract(start.position).scale(1 / dt)
-        : Vector();
+        ? Vec.scale(Vec.subtract(entity.position, start.position), 1 / dt)
+        : Vec.create();
       const spin = dt ? (entity.rotation - start.rotation) / dt : 0;
 
       record.body.setTransform(start.position, start.rotation);
@@ -176,12 +176,11 @@ export class GameCollisions {
       const position = body.getPosition();
       const resolved = body.getLinearVelocity();
 
-      entity.position.set(position);
+      Vec.set(entity.position, position);
       entity.rotation = body.getAngle();
 
-      entity.velocity.set(
-        entity.velocity.add(Vector(resolved.x, resolved.y).subtract(velocity)),
-      );
+      entity.velocity.x += resolved.x - velocity.x;
+      entity.velocity.y += resolved.y - velocity.y;
       entity.spin += body.getAngularVelocity() - spin;
     });
 
@@ -269,14 +268,18 @@ export class GameCollisions {
 
     const shapes = colliders.map((collider) => {
       const offset = rotatePoint(
-        collider.position.subtract(entity.position),
+        Vec.subtract(collider.position, entity.position),
         -entity.rotation,
       );
 
       return collider.outline
         ? collider.outline.map(([x, y]) =>
-            offset.add(
-              rotatePoint(Vector(x, y), collider.rotation - entity.rotation),
+            Vec.add(
+              offset,
+              rotatePoint(
+                Vec.create(x, y),
+                collider.rotation - entity.rotation,
+              ),
             ),
           )
         : {

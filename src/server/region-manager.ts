@@ -1,4 +1,4 @@
-import { Vector, type Vector as VectorValue } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { createAsteroid } from '../shared/simulation/asteroid';
 import { createShip } from '../shared/craft/create-ship';
 import { itemTypes } from '../shared/items';
@@ -33,7 +33,7 @@ export class RegionManager {
     this.regions = new ProceduralRegionManager({ worldSeed });
   }
 
-  view({ position, ranges }: { position: VectorValue; ranges?: WorldRanges }) {
+  view({ position, ranges }: { position: Vec.Value; ranges?: WorldRanges }) {
     return this.regions.query({ position, ranges });
   }
 
@@ -42,12 +42,12 @@ export class RegionManager {
     positions,
   }: {
     world: SimulationWorld;
-    positions: VectorValue[];
+    positions: Vec.Value[];
   }) {
     const nearby = (entity: GameObject) =>
       positions.some(
         (position) =>
-          entity.position.distanceTo(position) <=
+          Vec.distance(entity.position, position) <=
           (entity instanceof Station
             ? serverRanges.stationPhysics
             : serverRanges.asteroid),
@@ -98,8 +98,8 @@ export class RegionManager {
           Object.assign(
             createAsteroid(world, {
               ...description,
-              position: description.position.add(Vector()),
-              velocity: Vector(),
+              position: Vec.clone(description.position),
+              velocity: Vec.create(),
             }),
             {
               pointCount: description.pointCount,
@@ -125,7 +125,7 @@ export class RegionManager {
 
         const station = createStation({
           id: description.id,
-          position: description.position.add(Vector()),
+          position: Vec.clone(description.position),
           radius: description.radius,
           spin: description.spin,
         });
@@ -143,7 +143,7 @@ export class RegionManager {
         const wreck = Object.assign(
           createShip(world, {
             id: description.id,
-            position: description.position.add(Vector()),
+            position: Vec.clone(description.position),
           }),
           {
             cargoContents: description.cargoContents.map(

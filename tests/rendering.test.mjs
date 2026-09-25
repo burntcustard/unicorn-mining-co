@@ -15,7 +15,7 @@ import {colors} from '${root}/src/shared/colors.ts';
 import {Diamond} from '${root}/src/shared/items/diamond.ts';
 import {GameObject} from '${root}/src/shared/game-object.ts';
 import {createAsteroid,Asteroid} from '${root}/src/shared/simulation/asteroid.ts';
-import {Vector} from '${root}/src/shared/vector.ts';
+import * as Vec from '${root}/src/shared/vector.ts';
 const world=createWorld();
 const ship=addEntity(world,createShip(world,{playerId:1,shades:colors.cyan}));
 ship.fly(1,0);
@@ -26,7 +26,7 @@ ship.update(.1);
 ship.cargoContents.push(new Diamond({id:321,health:42}),new HornDrill({id:322}),new GameObject({id:323,label:'CRATE',health:19}));
 addEntity(world,new Corral({world,id:99,shades:colors.white,cargoContents:[new Diamond({id:421}),new HornDrill({id:422}),new GameObject({id:423})]}));
 const packet = new ReplicationManager().initial({world,shipId:ship.id});
-const rock=addEntity(world,createAsteroid(world,{id:500,radius:25,radiusEven:12,pointCount:6,resource:1,contents:[1,1,1,1],position:Vector(150)}));
+const rock=addEntity(world,createAsteroid(world,{id:500,radius:25,radiusEven:12,pointCount:6,resource:1,contents:[1,1,1,1],position:Vec.create(150)}));
 const hornDrillSegment=ship.segments.find(segment=>segment.module instanceof HornDrill);
 hornDrillSegment.active=1;
 hornDrillSegment.activationProgress=.5;
@@ -42,11 +42,11 @@ const children=[...world.entities.values()].filter(entity=>entity instanceof Ast
 const loose=children.find(entity=>!entity.segments);
 const checkpoint=()=>JSON.parse(JSON.stringify(new ReplicationManager().initial({world,shipId:ship.id}))).fullEntities.filter(entity=>children.some(child=>child.id===entity.id)||entity.kind==='item');
 const split=checkpoint();
-ship.velocity.set(Vector(300,100));
-loose.velocity.set(Vector(5,2));
+Vec.set(ship.velocity, Vec.create(300,100));
+Vec.set(loose.velocity, Vec.create(5,2));
 loose.health=.5;
 hit(loose);
-if(ship.velocity.distanceTo(Vector(5,2))>1e-9)throw Error('breaking loose must release the drilling grip');
+if(Vec.distance(ship.velocity, Vec.create(5,2))>1e-9)throw Error('breaking loose must release the drilling grip');
 export default JSON.stringify({...packet,drillingStages:[split,checkpoint()]});
 `;
 const scenario = `
@@ -67,7 +67,7 @@ import {Amethyst} from '${root}/src/shared/items/amethyst.ts';
 import {Asteroid,createAsteroid} from '${root}/src/shared/simulation/asteroid.ts';
 import {Craft} from '${root}/src/shared/craft/craft.ts';
 import {createWreckage} from '${root}/src/shared/craft/create-wreckage.ts';
-import {Vector} from '${root}/src/shared/vector.ts';
+import * as Vec from '${root}/src/shared/vector.ts';
 import {renderAsteroid} from '${root}/src/client/render-asteroid.ts';
 import {revealBuriedItems} from '${root}/src/client/lighting.ts';
 import {colors} from '${root}/src/shared/colors.ts';
@@ -120,9 +120,9 @@ game.ctx={
 };
 Object.assign(game,{scale:1,uiScale:1,uiWidth:640,uiHeight:480});
 const local=cloneEntity({entity:remote});
-const physicsPosition=remote.position.add(Vector());
+const physicsPosition=Vec.add(remote.position, Vec.create());
 const physicsRotation=remote.rotation;
-remote.render({zIndex:0,pose:{position:Vector(123,456),rotation:.75}});
+remote.render({zIndex:0,pose:{position:Vec.create(123,456),rotation:.75}});
 assert.deepEqual(transforms[0],[123,456],'remote hull renders at the buffered position');
 assert.equal(transforms[1],.75,'remote hull renders at the buffered rotation');
 assert.deepEqual(remote.position,physicsPosition,'presentation never changes collision position');
@@ -169,11 +169,11 @@ shield.render({segment:shieldSegment});
 assert.equal(strokes.at(-1),colors.violet[2],'the shield generator plus uses its violet outline colour');
 let revealed=0;
 const litRock={
-  scenery:true,segments:[{}],position:remote.position.add(Vector(60)),rotation:0,radius:20,
+  scenery:true,segments:[{}],position:Vec.add(remote.position, Vec.create(60)),rotation:0,radius:20,
   outline:[[-20,-20],[20,-20],[20,20],[-20,20]],
   renderContents:[{render(){revealed++;}}]
 };
-const remotePose={position:Vector(900,800),rotation:.3};
+const remotePose={position:Vec.create(900,800),rotation:.3};
 const remotePrediction=cloneEntity({entity:remote});
 const predictedLamp=remotePrediction.segments.find(segment=>segment.module instanceof SearchLight);
 const remoteLamp=remote.segments.find(segment=>segment.module instanceof SearchLight);
@@ -209,7 +209,7 @@ for(const craftOrder of [[drilling,receiving],[receiving,drilling]]){
 }
 station.render({zIndex:2});
 assert(gradients>before,'station hulls retain gradient shading');
-const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{outline:[[0,0],[20,0],[0,20]],radius:20,offset:Vector(),health:2}]});
+const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{outline:[[0,0],[20,0],[0,20]],radius:20,offset:Vec.create(),health:2}]});
 draws.length=0;
 const beforeWreck=gradients;
 for(const zIndex of new Set(wreckage.segments.map(segment=>segment.zIndex)))wreckage.render({zIndex});
@@ -237,16 +237,16 @@ for(const [index,stage] of packet['drillingStages'].entries()){
     assert.equal(draws[0].style,colors.purple[1]+'9');
     assert.equal(strokes[0],colors.violet[2]);
     assert.equal(predicted.renderContents.length,predicted.contents.length,'cargo stays visible in a detached leaf');
-    const origin=predicted.position.add(Vector());
-    const cargoPositions=predicted.renderContents.map(item=>item.position.add(Vector()));
-    const offset=Vector(123,456);
-    predicted.render({pose:{position:origin.add(offset),rotation:predicted.rotation+Math.PI/2}});
+    const origin=Vec.add(predicted.position, Vec.create());
+    const cargoPositions=predicted.renderContents.map(item=>Vec.add(item.position, Vec.create()));
+    const offset=Vec.create(123,456);
+    predicted.render({pose:{position:Vec.add(origin, offset),rotation:predicted.rotation+Math.PI/2}});
     predicted.renderContents.forEach((item,index)=>{
-      const relative=cargoPositions[index].subtract(origin);
-      const expected=origin.add(offset).add(Vector(-relative.y,relative.x));
-      assert(item.position.distanceTo(expected)<1e-8,'buried cargo follows the same interpolated pose as its asteroid');
+      const relative=Vec.subtract(cargoPositions[index], origin);
+      const expected=Vec.add(Vec.add(origin, offset), Vec.create(-relative.y,relative.x));
+      assert(Vec.distance(item.position, expected)<1e-8,'buried cargo follows the same interpolated pose as its asteroid');
     });
-    assert(predicted.position.distanceTo(origin)<1e-8,'render poses do not change asteroid physics');
+    assert(Vec.distance(predicted.position, origin)<1e-8,'render poses do not change asteroid physics');
   }
   if(index===1){
     const loot=entities.filter(entity=>entity instanceof Amethyst);

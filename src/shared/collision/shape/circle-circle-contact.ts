@@ -10,6 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import * as Vec from '../../vector';
 import * as matrix from '../../vector-math';
 import { TransformValue } from '../../vector-math';
 import { Contact } from '../../physics/contact';
@@ -39,8 +40,8 @@ function evaluateCircleCircleContact(
   );
 }
 
-const pA = matrix.vec2(0, 0);
-const pB = matrix.vec2(0, 0);
+const pA = Vec.create();
+const pB = Vec.create();
 
 export function collideCircles(
   manifold: Manifold,
@@ -51,10 +52,10 @@ export function collideCircles(
 ): void {
   manifold.pointCount = 0;
 
-  matrix.transformVec2(pA, xfA, circleA.m_p);
-  matrix.transformVec2(pB, xfB, circleB.m_p);
+  matrix.transformInto(pA, xfA, circleA.m_p);
+  matrix.transformInto(pB, xfB, circleB.m_p);
 
-  const distSqr = matrix.distSqrVec2(pB, pA);
+  const distSqr = Vec.distanceSquared(pB, pA);
   const rA = circleA.m_radius;
   const rB = circleB.m_radius;
   const radius = rA + rB;
@@ -64,10 +65,10 @@ export function collideCircles(
   }
 
   manifold.type = 'circles';
-  matrix.copyVec2(manifold.localPoint, circleA.m_p);
-  matrix.zeroVec2(manifold.localNormal);
+  Vec.set(manifold.localPoint, circleA.m_p);
+  Vec.setXY(manifold.localNormal, 0, 0);
   manifold.pointCount = 1;
-  matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
+  Vec.set(manifold.points[0].localPoint, circleB.m_p);
 
   manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
 }

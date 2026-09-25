@@ -1,3 +1,4 @@
+import * as Vec from '../src/shared/vector';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { GameServer } from '../src/server/game-server';
@@ -20,7 +21,6 @@ import { updateWorld } from '../src/shared/simulation/update-world';
 import { PredictionManager } from '../src/client/prediction';
 import { RemoteMotion } from '../src/client/remote-motion';
 import { ReplicationManager } from '../src/server/replication';
-import { Vector } from '../src/shared/vector';
 import { detectCollisions } from '../src/shared/collision/detect-collisions';
 import { GameObject } from '../src/shared/game-object';
 import { CargoHatch } from '../src/shared/modules/cargo-hatch';
@@ -32,15 +32,15 @@ import { simulationStep, updateTiers } from '../src/shared/settings';
   const ship = addEntity(world, createShip(world, { playerId: 1 }));
   const rock = addEntity(
     world,
-    createAsteroid(world, { id: 2, position: Vector(700), radius: 30 }),
+    createAsteroid(world, { id: 2, position: Vec.create(700), radius: 30 }),
   );
   const item = addEntity(
     world,
-    new Diamond({ world, id: 3, position: Vector(800) }),
+    new Diamond({ world, id: 3, position: Vec.create(800) }),
   );
   const station = addEntity(
     world,
-    createStation({ world, id: 4, position: Vector(8000) }),
+    createStation({ world, id: 4, position: Vec.create(8000) }),
   );
   const motion = new RemoteMotion();
   const replication = new ReplicationManager();
@@ -123,7 +123,7 @@ for (const fps of [60, 120, 144]) {
   const ship = addEntity(world, createShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
-  addEntity(world, new GameObject({ id: 100, position: Vector(8000) }));
+  addEntity(world, new GameObject({ id: 100, position: Vec.create(8000) }));
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
@@ -137,19 +137,22 @@ for (const fps of [60, 120, 144]) {
   const frame = prediction.predictFrame({ elapsed: 1 / fps });
   const drawn = frame.entities.get(ship.id)!;
 
-  assert(drawn.velocity.length() > 0, `${fps} FPS: thrust reacts this frame`);
+  assert(
+    Vec.length(drawn.velocity) > 0,
+    `${fps} FPS: thrust reacts this frame`,
+  );
   assert(drawn.rotation < 0, `${fps} FPS: steering reacts this frame`);
   assert.equal(world.tick, 0, 'frames do not consume a network tick');
   assert.equal(ship.rotation, 0, 'frames do not mutate committed history');
-  assert.equal(ship.velocity.length(), 0);
+  assert.equal(Vec.length(ship.velocity), 0);
   assert(!frame.entities.has(100), 'distant objects are not copied each frame');
-  const position = drawn.position.add(Vector());
+  const position = Vec.add(drawn.position, Vec.create());
   const rotation = drawn.rotation;
   const repeated = prediction
     .predictFrame({ elapsed: 1 / fps })
     .entities.get(ship.id)!;
 
-  assert(position.distanceTo(repeated.position) < 1e-9);
+  assert(Vec.distance(position, repeated.position) < 1e-9);
   assert.equal(
     repeated.rotation,
     rotation,
@@ -166,18 +169,18 @@ for (const fps of [60, 120, 144]) {
   const endpoint = prediction
     .predictFrame({ elapsed: simulationStep })
     .entities.get(ship.id)!;
-  const endPosition = endpoint.position.add(Vector());
+  const endPosition = Vec.add(endpoint.position, Vec.create());
   const endRotation = endpoint.rotation;
   const stalled = prediction
     .predictFrame({ elapsed: 2 })
     .entities.get(ship.id)!;
 
   assert(
-    stalled.position.distanceTo(endPosition) < 1e-9,
+    Vec.distance(stalled.position, endPosition) < 1e-9,
     'a stalled connection cannot predict beyond one unfinished tick',
   );
   prediction.step({ input: emptyPlayerInput(), send });
-  assert(ship.position.distanceTo(endPosition) < 1e-9);
+  assert(Vec.distance(ship.position, endPosition) < 1e-9);
   assert.equal(
     ship.rotation,
     endRotation,
@@ -223,7 +226,7 @@ for (const fps of [60, 120, 144]) {
   );
   prediction.step({ input: emptyPlayerInput(), send });
   assert(
-    ship.velocity.length() > 0,
+    Vec.length(ship.velocity) > 0,
     'a released short tap still produces movement',
   );
   assert.equal(ship.thrust, 0);
@@ -238,8 +241,8 @@ for (const fps of [60, 120, 144]) {
     world: expected,
     inputs: new Map([[1, { input: emptyPlayerInput(), changes: sent }]]),
   });
-  assert(ship.position.distanceTo(authoritative.position) < 1e-9);
-  assert(ship.velocity.distanceTo(authoritative.velocity) < 1e-9);
+  assert(Vec.distance(ship.position, authoritative.position) < 1e-9);
+  assert(Vec.distance(ship.velocity, authoritative.velocity) < 1e-9);
 }
 
 // A server hatch correction must apply even when the ship's motion matches.
@@ -346,7 +349,7 @@ for (const correction of ['credits', 'cargo'] as const) {
   addPlayer(world, { id: 1, shipId: ship.id });
   const drifting = addEntity(
     world,
-    new GameObject({ id: 99, position: Vector(500), spin: 1 }),
+    new GameObject({ id: 99, position: Vec.create(500), spin: 1 }),
   );
   const prediction = new PredictionManager({ world });
 
@@ -392,8 +395,8 @@ for (const localId of [1, 2]) {
     createShip(world, {
       id: 1,
       playerId: 1,
-      position: Vector(-85),
-      velocity: Vector(300),
+      position: Vec.create(-85),
+      velocity: Vec.create(300),
     }),
   );
   addEntity(
@@ -401,7 +404,7 @@ for (const localId of [1, 2]) {
     createShip(world, {
       id: 2,
       playerId: 2,
-      position: Vector(),
+      position: Vec.create(),
       rotation: Math.PI,
     }),
   );
@@ -431,10 +434,10 @@ for (const localId of [1, 2]) {
     const correct = expected.entities.get(id)!;
 
     assert(
-      actual.position.distanceTo(correct.position) < 1e-8,
+      Vec.distance(actual.position, correct.position) < 1e-8,
       `player ${localId}: ship ${id} must replay the collision, not coast through it`,
     );
-    assert(actual.velocity.distanceTo(correct.velocity) < 1e-8);
+    assert(Vec.distance(actual.velocity, correct.velocity) < 1e-8);
   }
   // Both pilots must see the same geometry that their own solver just used.
   const motion = new RemoteMotion();
@@ -455,16 +458,16 @@ for (const localId of [1, 2]) {
   local.position.x += 8;
   other.position.x += 8;
   assert(
-    motion
-      .sample({ now: 0 })
-      .get(other.id)!
-      .position.distanceTo(other.position) > 7,
+    Vec.distance(
+      motion.sample({ now: 0 }).get(other.id)!.position,
+      other.position,
+    ) > 7,
     'delaying only the other hull produces the original contact disparity',
   );
   const pose = motion.sample({ now: 0, world, shipId: localId }).get(other.id)!;
 
   assert(
-    pose.position.distanceTo(other.position) < 1e-8,
+    Vec.distance(pose.position, other.position) < 1e-8,
     'contact presentation uses the collision position for both pilots',
   );
   const physicsPositions = [local.position.x, other.position.x];
@@ -475,10 +478,10 @@ for (const localId of [1, 2]) {
 
     for (const entity of [local, other]) {
       assert(
-        poses
-          .get(entity.id)!
-          .position.distanceTo(predicted.entities.get(entity.id)!.position) <
-          1e-8,
+        Vec.distance(
+          poses.get(entity.id)!.position,
+          predicted.entities.get(entity.id)!.position,
+        ) < 1e-8,
         'local and contacting remote ships use the same frame collision solve',
       );
     }
@@ -492,7 +495,7 @@ for (const localId of [1, 2]) {
   const framePositions = new Map(
     [...endpoint.entities].map(([id, entity]) => [
       id,
-      entity.position.add(Vector()),
+      Vec.add(entity.position, Vec.create()),
     ]),
   );
 
@@ -500,7 +503,7 @@ for (const localId of [1, 2]) {
 
   for (const id of [1, 2]) {
     assert(
-      world.entities.get(id)!.position.distanceTo(framePositions.get(id)!) <
+      Vec.distance(world.entities.get(id)!.position, framePositions.get(id)!) <
         1e-8,
       'fractional contact prediction ends at the same solved tick',
     );
@@ -615,7 +618,7 @@ const predicted = () => {
   assert(ship?.kind === 'ship');
   return ship;
 };
-const from = predicted().position.add(Vector());
+const from = Vec.add(predicted().position, Vec.create());
 
 input.thrust = 1;
 await fly({ ticks: 120 });
@@ -662,7 +665,7 @@ for (let sample = 0; sample < 10; sample++) {
   worstRotationError = Math.max(worstRotationError, error);
   worstPositionError = Math.max(
     worstPositionError,
-    seen.position.distanceTo(own.position),
+    Vec.distance(seen.position, own.position),
   );
 }
 assert(
@@ -685,8 +688,11 @@ for (const separation of [160, 1000]) {
   const other = server.world.entities.get(observer.shipId!)!;
   const worstBeforeTeleport = predictionStats.worst;
 
-  other.position.set(authority.position.add(Vector(0, separation)));
-  other.velocity.set(Vector());
+  Vec.set(
+    other.position,
+    Vec.add(authority.position, Vec.create(0, separation)),
+  );
+  Vec.set(other.velocity, Vec.create());
   await fly({ ticks: 30 });
   // The observer's deliberate teleport is not a prediction error from flight.
   predictionStats.worst = worstBeforeTeleport;
@@ -745,7 +751,7 @@ const client = predicted();
 
 assert(authority?.kind === 'ship');
 assert(
-  client.position.distanceTo(from) > 100,
+  Vec.distance(client.position, from) > 100,
   'the ship should have flown somewhere',
 );
 assert(
@@ -772,11 +778,9 @@ assert(
 const leading = network.world.tick - network.serverTick;
 
 assert(
-  authority.position.distanceTo(client.position) <
+  Vec.distance(authority.position, client.position) <
     ((leading + 6) * client.maxSpeed) / 30,
-  `the authoritative ship trailed the predicted one by ${authority.position.distanceTo(
-    client.position,
-  )} units over ${leading} ticks`,
+  `the authoritative ship trailed the predicted one by ${Vec.distance(authority.position, client.position)} units over ${leading} ticks`,
 );
 
 // Flying into a rock: both sides have to agree on the shape of it, not just
@@ -785,15 +789,17 @@ const settling = setInterval(() => network.update({ input }), step);
 
 input.thrust = 0;
 input.turn = 0;
-authority.velocity.set(Vector());
+Vec.set(authority.velocity, Vec.create());
 authority.spin = 0;
 await fly({ ticks: 30 });
 
 const rock = addEntity(
   server.world,
   createAsteroid(server.world, {
-    position: authority.position.add(
-      Vector(Math.cos(authority.rotation), Math.sin(authority.rotation)).scale(
+    position: Vec.add(
+      authority.position,
+      Vec.scale(
+        Vec.create(Math.cos(authority.rotation), Math.sin(authority.rotation)),
         700,
       ),
     ),
@@ -806,12 +812,12 @@ const outline = outlineOf(rock);
 const faces = outline.map(([x, y], i) => {
   const [toX, toY] = outline[(i + 1) % outline.length];
 
-  return Vector((x + toX) / 2, (y + toY) / 2);
+  return Vec.create((x + toX) / 2, (y + toY) / 2);
 });
 const deepest = faces.reduce((best, face) =>
-  face.length() < best.length() ? face : best,
+  Vec.length(face) < Vec.length(best) ? face : best,
 );
-const towards = authority.position.subtract(rock.position);
+const towards = Vec.subtract(authority.position, rock.position);
 
 rock.rotation =
   Math.atan2(towards.y, towards.x) - Math.atan2(deepest.y, deepest.x);
@@ -825,7 +831,7 @@ clearInterval(settling);
 const resting = server.world.entities.get(shipId);
 
 assert(resting?.kind === 'ship');
-const gap = resting.position.distanceTo(rock.position);
+const gap = Vec.distance(resting.position, rock.position);
 
 assert(
   gap < rock.radius + resting.radius - 15,
@@ -857,13 +863,13 @@ assert(
 
 // Drive a real authoritative ship-to-ship bump over both socket connections.
 // Clear a small test arena and reset damaged hulls from the drilling approach.
-const centre = resting.position.add(Vector(0, 400));
+const centre = Vec.add(resting.position, Vec.create(0, 400));
 const worstBeforeArenaReset = predictionStats.worst;
 
 server.world.entities.forEach((entity, id) => {
   if (
     entity.playerId === undefined &&
-    entity.position.distanceTo(centre) < 600
+    Vec.distance(entity.position, centre) < 600
   ) {
     server.world.entities.delete(id);
   }
@@ -873,7 +879,7 @@ const attacker = addEntity(
   createShip(server.world, {
     id: shipId,
     playerId: network.playerId,
-    position: centre.add(Vector(-220)),
+    position: Vec.add(centre, Vec.create(-220)),
     rotation: 0,
   }),
 );
@@ -882,7 +888,7 @@ const target = addEntity(
   createShip(server.world, {
     id: observer.shipId,
     playerId: observer.playerId,
-    position: centre.add(Vector()),
+    position: Vec.add(centre, Vec.create()),
     rotation: Math.PI,
   }),
 );
@@ -922,7 +928,7 @@ const watching = setInterval(() => {
 
     worstContactOffset = Math.max(
       worstContactOffset,
-      pose.position.distanceTo(other.position),
+      Vec.distance(pose.position, other.position),
       // Interpolation can represent the identical heading one full turn apart.
       Math.abs(
         Math.atan2(
@@ -945,7 +951,7 @@ assert(
   'both clients must actually simulate physical contact',
 );
 assert(
-  target.position.distanceTo(centre) > 1,
+  Vec.distance(target.position, centre) > 1,
   'the authoritative target must receive the bump',
 );
 assert(

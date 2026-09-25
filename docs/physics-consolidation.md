@@ -2946,3 +2946,50 @@ test suite, typecheck, lint, formatting, and production build passed. Two paired
 measured shared-tick medians of 1.799/1.740 ms before and 1.727/1.730 ms
 after; predicted-tick medians were 2.018/2.024 ms before and 2.014/2.043 ms
 after. The move shows no sustained slowdown in this scenario.
+
+## Plain vector values (2026-09-25)
+
+Removed the `Vec2` class. `Vector()` now creates a plain `{ x, y }` value for
+both game state and solver scratch data. Game arithmetic uses named functions;
+`setVector` preserves position and velocity object identity when updating state.
+The solver retains its output-parameter arithmetic and reuses the same plain
+vector shape. The separate solver `vec2` constructor and `Transform` class were
+removed; transforms now use the existing value type and a setter.
+
+Network coordinates use the shared vector type without changing their `x` and
+`y` wire keys. Game movement and force updates that previously allocated
+intermediate vectors now write their two coordinates directly. The production
+main chunk changed from 47,573 to 47,381 gzip-level-1 bytes; sound and docked
+remain separate lazy chunks with their existing triggers. The full test suite,
+production build, lint, and formatting checks passed.
+
+## Shared vector arithmetic (2026-09-25)
+
+The game and solver now call the same `addVector`, `subtractVector`,
+`scaleVector`, `addScaledVector`, and `normalizeVector` implementations. They
+create a vector by default; the solver passes a reusable vector as the final
+argument. This removes the separate mutable add, subtract, scale, zero, negate,
+and normalize implementations. `vector.ts` owns the remaining vector operations;
+`vector-math.ts` now contains only rotations and transforms. Solver callers
+import arithmetic directly from `vector.ts`. Weighted combinations and
+scalar-cross operations remain because they perform distinct calculations.
+
+The production main chunk changed from 47,381 to 47,354 gzip-level-1 bytes.
+Sound and docked remain separate lazy chunks. The full test suite and production
+build passed.
+
+## Vector namespace and shared formulas (2026-09-25)
+
+Callers now import the vector module as `Vec`: `Vec.create`, `Vec.add`,
+`Vec.subtract`, and the other operations share one static import. `Vec.Value`
+names the structural type only where inference cannot describe an API or field.
+The module namespace adds no runtime object; the production build emitted the
+same main chunk before the further formula changes.
+
+The two scalar-cross directions now use one implementation with opposite signs.
+Prism cross products, point movement, simple contact offsets, and in-place
+movement, force, camera, and particle updates use the shared operations.
+Weighted solver combinations and rotation/transform routines retain their
+distinct calculations. The main chunk changed from 47,354 to 47,227
+gzip-level-1 bytes; sound and docked keep their existing lazy triggers. The
+full test suite and production build passed.

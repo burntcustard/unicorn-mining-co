@@ -1,4 +1,4 @@
-import { Vector } from '../shared/vector';
+import * as Vec from '../shared/vector';
 import { ease } from '../shared/utilities/ease';
 import { type GameObject } from '../shared/game-object';
 
@@ -6,7 +6,7 @@ import { type GameObject } from '../shared/game-object';
  * The camera is the top left corner of the viewport in world coordinates.
  * Everything in the world is drawn shifted by it, and the HUD is not.
  */
-export const camera = Vector();
+export const camera = Vec.create();
 
 // How much of the viewport the oval the target is kept inside of spans
 const deadzone = 0.3;
@@ -18,13 +18,16 @@ const lag = 0.0001;
 export const dockDuration = 4;
 let dockedTo: GameObject | number | undefined;
 let dockEase: ReturnType<typeof ease>;
-let dockTo = Vector();
+let dockTo = Vec.create();
 
 export const centerCamera = (
   game: GameState,
   target: Pick<GameObject, 'position'>,
 ) => {
-  camera.set(target.position.subtract(Vector(game.width / 2, game.height / 2)));
+  Vec.set(
+    camera,
+    Vec.subtract(target.position, Vec.create(game.width / 2, game.height / 2)),
+  );
 };
 
 /**
@@ -45,21 +48,25 @@ export const followTarget = (
   if (target.dockedTo) {
     if (target.dockedTo !== dockedTo) {
       dockedTo = target.dockedTo;
-      dockTo = Vector();
+      dockTo = Vec.create();
       dockEase = ease({ duration: dockDuration, from: camera, to: dockTo });
     }
 
-    dockTo.set(
-      target.position.subtract(Vector(game.width / 2, game.height / 2)),
+    Vec.set(
+      dockTo,
+      Vec.subtract(
+        target.position,
+        Vec.create(game.width / 2, game.height / 2),
+      ),
     );
-    camera.set(dockEase(dt));
+    Vec.set(camera, dockEase(dt));
     return;
   }
 
   dockedTo = 0;
   const halfWidth = (game.width * deadzone) / 2;
   const halfHeight = (game.height * deadzone) / 2;
-  const offset = Vector(
+  const offset = Vec.create(
     target.position.x - camera.x - game.width / 2,
     target.position.y - camera.y - game.height / 2,
   );
@@ -68,7 +75,9 @@ export const followTarget = (
   const followEase = 1 - lag ** dt;
   const factor = out > 1 ? 1 - 1 / out : 0;
 
-  camera.set(camera.add(offset.scale(factor * followEase)));
+  const step = factor * followEase;
+
+  Vec.addScaled(camera, offset, step, camera);
 };
 
 export const renderDeadzone = (game: GameState) => {

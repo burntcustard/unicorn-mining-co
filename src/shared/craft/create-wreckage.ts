@@ -1,5 +1,5 @@
 import { Craft } from './craft';
-import { Vector } from '../vector';
+import * as Vec from '../vector';
 import { type WreckageSegment } from './wreckage-segment';
 
 export const createWreckage = ({
@@ -13,7 +13,7 @@ export const createWreckage = ({
     hullSegments: segments.map((segment) => ({
       points: segment.outline,
       radius: () => segment.radius,
-      localPosition: Vector(segment.offset.x, segment.offset.y),
+      localPosition: Vec.clone(segment.offset),
       health: segment.health,
       fillShade: segment.fillShade,
       outline: segment.stroke,

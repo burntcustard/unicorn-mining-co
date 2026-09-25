@@ -1,5 +1,5 @@
 import { type EntityId, type PlayerId } from './entities';
-import { type Vector } from '../vector';
+import * as Vec from '../vector';
 
 export type SimulationEvent =
   | { asteroidId: EntityId; childIds: EntityId[]; type: 'asteroidSplit' }
@@ -14,14 +14,14 @@ export type SimulationEvent =
       by: PlayerId;
       damage: number;
       resource?: number;
-      position: Vector;
+      position: Vec.Value;
       type: 'drillDamage';
     }
   | {
       a: EntityId;
       b: EntityId;
       impact: number;
-      position: Vector;
+      position: Vec.Value;
       type: 'collision';
     }
   | {

@@ -1,9 +1,9 @@
+import * as Vec from '../vector';
 import { type PlayerId } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
 import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
 import { type InputFrame } from '../protocol/input-frame';
 import { GameCollisions } from '../collision/game-collisions';
-import { Vector } from '../vector';
 import { controlShip } from '../craft/control-ship';
 import { type SimulationWorld } from './world';
 import { Ship } from '../craft/ship';
@@ -58,7 +58,7 @@ export const updateWorld = ({
     [...world.entities].map(([id, entity]) => [
       id,
       {
-        position: entity.position.add(Vector()),
+        position: Vec.clone(entity.position),
         rotation: entity.rotation,
       },
     ]),

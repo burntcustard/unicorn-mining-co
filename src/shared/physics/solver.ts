@@ -10,7 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../vector-math';
+import * as Vec from '../vector';
 import { linearSlop } from '../settings';
 import { Body } from './body';
 import type { Contact } from './contact';
@@ -39,9 +39,9 @@ export class TimeStep {
 
 // reuse
 const s_subStep = new TimeStep();
-const c = matrix.vec2(0, 0);
-const v = matrix.vec2(0, 0);
-const translation = matrix.vec2(0, 0);
+const c = Vec.create();
+const v = Vec.create();
+const translation = Vec.create();
 const input: TOIInput = {
   proxyA: new DistanceProxy(),
   proxyB: new DistanceProxy(),
@@ -166,19 +166,19 @@ export class Solver {
     for (let i = 0; i < this.m_bodies.length; ++i) {
       const body = this.m_bodies[i];
 
-      matrix.copyVec2(c, body.m_sweep.c);
+      Vec.set(c, body.m_sweep.c);
       const a = body.m_sweep.a;
 
-      matrix.copyVec2(v, body.m_linearVelocity);
+      Vec.set(v, body.m_linearVelocity);
       let w = body.m_angularVelocity;
 
       // Store positions for continuous collision.
-      matrix.copyVec2(body.m_sweep.c0, body.m_sweep.c);
+      Vec.set(body.m_sweep.c0, body.m_sweep.c);
       body.m_sweep.a0 = body.m_sweep.a;
 
-      matrix.copyVec2(body.c_position.c, c);
+      Vec.set(body.c_position.c, c);
       body.c_position.a = a;
-      matrix.copyVec2(body.c_velocity.v, v);
+      Vec.set(body.c_velocity.v, v);
       body.c_velocity.w = w;
     }
 
@@ -207,20 +207,20 @@ export class Solver {
     for (let i = 0; i < this.m_bodies.length; ++i) {
       const body = this.m_bodies[i];
 
-      matrix.copyVec2(c, body.c_position.c);
+      Vec.set(c, body.c_position.c);
       let a = body.c_position.a;
 
-      matrix.copyVec2(v, body.c_velocity.v);
+      Vec.set(v, body.c_velocity.v);
       let w = body.c_velocity.w;
 
       // Check for large velocities
-      matrix.scaleVec2(translation, h, v);
-      const translationLengthSqr = matrix.lengthSqrVec2(translation);
+      Vec.scale(v, h, translation);
+      const translationLengthSqr = Vec.lengthSquared(translation);
 
       if (translationLengthSqr > maxTranslationSquared) {
         const ratio = maxTranslation / Math.sqrt(translationLengthSqr);
 
-        matrix.mulVec2(v, ratio);
+        Vec.scale(v, ratio, v);
       }
 
       const rotation = h * w;
@@ -232,12 +232,12 @@ export class Solver {
       }
 
       // Integrate
-      matrix.plusScaleVec2(c, h, v);
+      Vec.addScaled(c, v, h, c);
       a += h * w;
 
-      matrix.copyVec2(body.c_position.c, c);
+      Vec.set(body.c_position.c, c);
       body.c_position.a = a;
-      matrix.copyVec2(body.c_velocity.v, v);
+      Vec.set(body.c_velocity.v, v);
       body.c_velocity.w = w;
     }
 
@@ -266,9 +266,9 @@ export class Solver {
     for (let i = 0; i < this.m_bodies.length; ++i) {
       const body = this.m_bodies[i];
 
-      matrix.copyVec2(body.m_sweep.c, body.c_position.c);
+      Vec.set(body.m_sweep.c, body.c_position.c);
       body.m_sweep.a = body.c_position.a;
-      matrix.copyVec2(body.m_linearVelocity, body.c_velocity.v);
+      Vec.set(body.m_linearVelocity, body.c_velocity.v);
       body.m_angularVelocity = body.c_velocity.w;
       body.synchronizeTransform();
     }
@@ -507,9 +507,9 @@ export class Solver {
     for (let i = 0; i < this.m_bodies.length; ++i) {
       const body = this.m_bodies[i];
 
-      matrix.copyVec2(body.c_position.c, body.m_sweep.c);
+      Vec.set(body.c_position.c, body.m_sweep.c);
       body.c_position.a = body.m_sweep.a;
-      matrix.copyVec2(body.c_velocity.v, body.m_linearVelocity);
+      Vec.set(body.c_velocity.v, body.m_linearVelocity);
       body.c_velocity.w = body.m_angularVelocity;
     }
 
@@ -539,9 +539,9 @@ export class Solver {
     }
 
     // Leap of faith to new safe state.
-    matrix.copyVec2(toiA.m_sweep.c0, toiA.c_position.c);
+    Vec.set(toiA.m_sweep.c0, toiA.c_position.c);
     toiA.m_sweep.a0 = toiA.c_position.a;
-    matrix.copyVec2(toiB.m_sweep.c0, toiB.c_position.c);
+    Vec.set(toiB.m_sweep.c0, toiB.c_position.c);
     toiB.m_sweep.a0 = toiB.c_position.a;
 
     // No warm starting is needed for TOI events because warm
@@ -570,20 +570,20 @@ export class Solver {
     for (let i = 0; i < this.m_bodies.length; ++i) {
       const body = this.m_bodies[i];
 
-      matrix.copyVec2(c, body.c_position.c);
+      Vec.set(c, body.c_position.c);
       let a = body.c_position.a;
 
-      matrix.copyVec2(v, body.c_velocity.v);
+      Vec.set(v, body.c_velocity.v);
       let w = body.c_velocity.w;
 
       // Check for large velocities
-      matrix.scaleVec2(translation, h, v);
-      const translationLengthSqr = matrix.lengthSqrVec2(translation);
+      Vec.scale(v, h, translation);
+      const translationLengthSqr = Vec.lengthSquared(translation);
 
       if (translationLengthSqr > maxTranslationSquared) {
         const ratio = maxTranslation / Math.sqrt(translationLengthSqr);
 
-        matrix.mulVec2(v, ratio);
+        Vec.scale(v, ratio, v);
       }
 
       const rotation = h * w;
@@ -595,18 +595,18 @@ export class Solver {
       }
 
       // Integrate
-      matrix.plusScaleVec2(c, h, v);
+      Vec.addScaled(c, v, h, c);
       a += h * w;
 
-      matrix.copyVec2(body.c_position.c, c);
+      Vec.set(body.c_position.c, c);
       body.c_position.a = a;
-      matrix.copyVec2(body.c_velocity.v, v);
+      Vec.set(body.c_velocity.v, v);
       body.c_velocity.w = w;
 
       // Sync bodies
-      matrix.copyVec2(body.m_sweep.c, c);
+      Vec.set(body.m_sweep.c, c);
       body.m_sweep.a = a;
-      matrix.copyVec2(body.m_linearVelocity, v);
+      Vec.set(body.m_linearVelocity, v);
       body.m_angularVelocity = w;
       body.synchronizeTransform();
     }

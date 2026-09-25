@@ -1,6 +1,6 @@
+import * as Vec from '../vector';
 import { colors } from '../colors';
 import { Module } from './module';
-import { Vector } from '../vector';
 import { type Collider } from '../collision/types';
 import { damage } from '../craft/damage';
 import { type SimulationEvent } from '../protocol/events';
@@ -17,7 +17,7 @@ export class HornDrill extends Module {
   static friction = 0.3;
   static damage = 0.5;
   static grinds = true;
-  static drillTip = { position: Vector(26, 0), radius: 3 };
+  static drillTip = { position: Vec.create(26, 0), radius: 3 };
   static health = 100;
   static model: any[] = [
     {
@@ -44,7 +44,7 @@ export class HornDrill extends Module {
     ship: Ship;
     segment: Segment;
     target: Collider;
-    position: Vector;
+    position: Vec.Value;
     events: SimulationEvent[];
     world: SimulationWorld;
     dt: number;
@@ -72,14 +72,16 @@ export class HornDrill extends Module {
       target.owner instanceof Asteroid ? target.owner : undefined;
 
     if (asteroid) {
-      const pull = asteroid.position.subtract(ship.position).normalize();
+      const pull = Vec.normalize(
+        Vec.subtract(asteroid.position, ship.position),
+      );
       const gripFactor = 1 - 0.9 ** drillSteps;
-      const grip = asteroid.velocity
-        .subtract(ship.velocity)
-        .scale(gripFactor)
-        .add(pull.scale(gripFactor / 0.1));
+      const grip = Vec.add(
+        Vec.scale(Vec.subtract(asteroid.velocity, ship.velocity), gripFactor),
+        Vec.scale(pull, gripFactor / 0.1),
+      );
 
-      ship.velocity.set(ship.velocity.add(grip));
+      Vec.set(ship.velocity, Vec.add(ship.velocity, grip));
     }
     events.push({
       targetId: target.owner.id,
@@ -98,7 +100,7 @@ export class HornDrill extends Module {
         world,
       })
     ) {
-      ship.velocity.set(asteroid.velocity);
+      Vec.set(ship.velocity, asteroid.velocity);
     }
   }
 }

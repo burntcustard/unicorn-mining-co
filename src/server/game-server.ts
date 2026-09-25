@@ -1,6 +1,6 @@
+import * as Vec from '../shared/vector';
 import { randomUUID } from 'node:crypto';
 import WebSocket, { WebSocketServer } from 'ws';
-import { Vector } from '../shared/vector';
 import { directionOf } from '../shared/geometry';
 import { emptyPlayerInput, type PlayerInput } from '../shared/protocol/input';
 import { type InputFrame } from '../shared/protocol/input-frame';
@@ -159,16 +159,18 @@ export class GameServer {
     if (!player) {
       const playerToken = randomUUID();
       const playerId = this.nextPlayerId++;
-      const originView = this.regions.view({ position: Vector() });
+      const originView = this.regions.view({ position: Vec.create() });
       const station = [...originView.stationMarkers].sort(
-        (a, b) => a.position.length() ** 2 - b.position.length() ** 2,
+        (a, b) => Vec.length(a.position) ** 2 - Vec.length(b.position) ** 2,
       )[0];
       const spawnAngle = playerId * 2.4;
       const spawn = station
-        ? station.position.add(
-            directionOf(spawnAngle).scale(station.radius + 250),
+        ? Vec.addScaled(
+            station.position,
+            directionOf(spawnAngle),
+            station.radius + 250,
           )
-        : Vector();
+        : Vec.create();
       const ship = createShip(this.world, {
         playerId,
         position: spawn,
@@ -244,8 +246,8 @@ export class GameServer {
       }).stationMarkers;
     }
     const nearest = stations.reduce((closest, station) =>
-      station.position.distanceTo(position) <
-      closest.position.distanceTo(position)
+      Vec.distance(station.position, position) <
+      Vec.distance(closest.position, position)
         ? station
         : closest,
     );
@@ -262,7 +264,7 @@ export class GameServer {
     if (!(station instanceof Station)) return;
     const ship = createShip(this.world, {
       playerId: player.playerId,
-      position: station.position.add(Vector()),
+      position: Vec.clone(station.position),
       rotation: station.rotation,
     });
 

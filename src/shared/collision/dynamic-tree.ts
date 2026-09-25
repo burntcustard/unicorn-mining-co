@@ -11,7 +11,7 @@
  */
 
 import { Pool } from '../utilities/object-pool';
-import { Vec2Value } from '../vector';
+import * as Vec from '../vector';
 import { AABB, AABBValue } from './axis-aligned-bounds';
 
 const aabbExtension = 10;
@@ -156,7 +156,7 @@ export class DynamicTree<T> {
    *
    * @return true if the proxy was re-inserted.
    */
-  moveProxy(id: number, aabb: AABBValue, d: Vec2Value): boolean {
+  moveProxy(id: number, aabb: AABBValue, d: Vec.Value): boolean {
     const node = this.m_nodes[id];
 
     if (node.aabb.contains(aabb)) {

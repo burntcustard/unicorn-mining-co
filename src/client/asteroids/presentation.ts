@@ -1,10 +1,10 @@
+import * as Vec from '../../shared/vector';
 import {
   centerOf,
   outlineOf,
   outlinesFrom,
   type Asteroid,
 } from '../../shared/simulation/asteroid';
-import { Vector } from '../../shared/vector';
 import { rotatePoint } from '../../shared/geometry';
 import { createRenderedItem } from '../create-rendered-item';
 import { shapePath } from '../drawing';
@@ -16,7 +16,7 @@ const cache = new WeakMap<
     path: Path2D;
     buried: {
       item: ReturnType<typeof createRenderedItem>;
-      localPosition: Vector;
+      localPosition: Vec.Value;
       rotation: number;
     }[];
   }
@@ -62,8 +62,9 @@ export const presentation = ({
   }
   asteroid.renderContents = state.buried.map(
     ({ item, localPosition, rotation }) => {
-      item.position.set(
-        pose.position.add(rotatePoint(localPosition, pose.rotation)),
+      Vec.set(
+        item.position,
+        Vec.add(pose.position, rotatePoint(localPosition, pose.rotation)),
       );
       item.rotation = rotation + pose.rotation;
       return item;

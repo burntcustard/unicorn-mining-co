@@ -10,22 +10,22 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Vec2, Vec2Value } from '../vector';
+import * as Vec from '../vector';
 
 // Axis-aligned bounding box
 export interface AABBValue {
-  lowerBound: Vec2Value;
-  upperBound: Vec2Value;
+  lowerBound: Vec.Value;
+  upperBound: Vec.Value;
 }
 
 // Axis-aligned bounding box
 export class AABB {
-  lowerBound: Vec2;
-  upperBound: Vec2;
+  lowerBound: Vec.Value;
+  upperBound: Vec.Value;
 
   constructor() {
-    this.lowerBound = Vec2.zero();
-    this.upperBound = Vec2.zero();
+    this.lowerBound = Vec.create();
+    this.upperBound = Vec.create();
   }
 
   /**
@@ -55,13 +55,13 @@ export class AABB {
     const upperX = Math.max(upperB.x, upperA.x);
     const upperY = Math.max(upperB.y, upperA.y);
 
-    this.lowerBound.setNum(lowerX, lowerY);
-    this.upperBound.setNum(upperX, upperY);
+    Vec.setXY(this.lowerBound, lowerX, lowerY);
+    Vec.setXY(this.upperBound, upperX, upperY);
   }
 
   set(aabb: AABBValue): void {
-    this.lowerBound.setNum(aabb.lowerBound.x, aabb.lowerBound.y);
-    this.upperBound.setNum(aabb.upperBound.x, aabb.upperBound.y);
+    Vec.setXY(this.lowerBound, aabb.lowerBound.x, aabb.lowerBound.y);
+    Vec.setXY(this.upperBound, aabb.upperBound.x, aabb.upperBound.y);
   }
 
   contains(aabb: AABBValue): boolean {

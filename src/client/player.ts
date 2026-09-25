@@ -1,3 +1,4 @@
+import * as Vec from '../shared/vector';
 import { Ship } from '../shared/craft/ship';
 import {
   ThrusterDualMd,
@@ -9,12 +10,11 @@ import { game } from './game';
 import { createRenderedShip } from './create-rendered-ship';
 import { colors } from '../shared/colors';
 import { updateThrusterSound } from './sound-loader';
-import { Vector } from '../shared/vector';
 import { type Shades, type Segment } from '../shared/types';
 
 export let playerShip = createRenderedShip({
   shades: colors.white,
-  position: Vector(),
+  position: Vec.create(),
   credits: 500,
   // The last thing worth telling the pilot about, and how long it has left on
   // screen. Anything can set this, so a station can talk as well as a message
@@ -85,7 +85,7 @@ export const updatePlayer = (dt: number) => {
     Math.min(1, playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt),
   );
 
-  if (playerShip.position.length() >= 5e4) {
+  if (Vec.length(playerShip.position) >= 5e4) {
     unlockPaint('YELLOW', 'EDGE REACHED');
   }
 
@@ -100,7 +100,7 @@ export const updatePlayer = (dt: number) => {
   const engineLoad = Math.min(
     1,
     Math.max(
-      playerShip.velocity.length() / playerShip.maxSpeed,
+      Vec.length(playerShip.velocity) / playerShip.maxSpeed,
       Math.abs(turningSpeed),
       steeringEffort * 0.65,
     ),

@@ -1,3 +1,4 @@
+import * as Vec from '../shared/vector';
 import { type PlayerId } from '../shared/protocol/entities';
 import { type InputFrame } from '../shared/protocol/input-frame';
 import {
@@ -55,11 +56,11 @@ export class FramePrediction {
           if (
             !entity.dead &&
             !nearby.has(entity) &&
-            member.position.distanceTo(entity.position) <=
+            Vec.distance(member.position, entity.position) <=
               member.radius +
                 entity.radius +
                 100 +
-                (member.velocity.length() + entity.velocity.length()) *
+                (Vec.length(member.velocity) + Vec.length(entity.velocity)) *
                   simulationStep
           ) {
             nearby.add(entity);

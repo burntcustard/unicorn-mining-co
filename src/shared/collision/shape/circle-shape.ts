@@ -12,26 +12,26 @@
 
 import * as matrix from '../../vector-math';
 
-import { Vec2, Vec2Value } from '../../vector';
+import * as Vec from '../../vector';
 import { Shape } from './base';
 import { AABBValue } from '../axis-aligned-bounds';
 import { TransformValue } from '../../vector-math';
 import { DistanceProxy } from '../shape-distance';
 
-const temp = matrix.vec2(0, 0);
+const temp = Vec.create();
 
 // Circle shape.
 export class CircleShape extends Shape {
   declare m_type: 'circle';
-  m_p: Vec2;
+  m_p: Vec.Value;
   static TYPE = 'circle' as const;
 
   declare m_radius: number;
 
-  constructor(position: Vec2Value, radius: number) {
+  constructor(position: Vec.Value, radius: number) {
     super();
     this.m_type = CircleShape.TYPE;
-    this.m_p = Vec2.clone(position);
+    this.m_p = Vec.clone(position);
     this.m_radius = radius;
   }
 
@@ -43,10 +43,10 @@ export class CircleShape extends Shape {
    * @param xf The world transform of the shape.
    */
   computeAABB(aabb: AABBValue, xf: TransformValue): void {
-    const p = matrix.transformVec2(temp, xf, this.m_p);
+    const p = matrix.transformInto(temp, xf, this.m_p);
 
-    matrix.setVec2(aabb.lowerBound, p.x - this.m_radius, p.y - this.m_radius);
-    matrix.setVec2(aabb.upperBound, p.x + this.m_radius, p.y + this.m_radius);
+    Vec.setXY(aabb.lowerBound, p.x - this.m_radius, p.y - this.m_radius);
+    Vec.setXY(aabb.upperBound, p.x + this.m_radius, p.y + this.m_radius);
   }
 
   computeDistanceProxy(proxy: DistanceProxy): void {

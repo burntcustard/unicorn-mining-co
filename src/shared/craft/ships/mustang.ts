@@ -1,5 +1,5 @@
 import { Ship } from '../ship';
-import { Vector } from '../../vector';
+import * as Vec from '../../vector';
 import {
   CargoHatch,
   SearchLight,
@@ -31,7 +31,7 @@ export class Mustang extends Ship {
     // into the throat waiting behind them
     {
       health: 10,
-      mounts: [{ fits: [CargoHatch], localPosition: Vector(3, -13) }],
+      mounts: [{ fits: [CargoHatch], localPosition: Vec.create(3, -13) }],
       points: [
         [-4, -36],
         [20, -12],
@@ -58,9 +58,9 @@ export class Mustang extends Ship {
             ThrusterDualXl,
             ThrusterTriple,
           ],
-          localPosition: Vector(-16, 0),
+          localPosition: Vec.create(-16, 0),
         },
-        { fits: [ShieldGenerator], localPosition: Vector() },
+        { fits: [ShieldGenerator], localPosition: Vec.create() },
       ],
       points: [
         [-16, -20],
@@ -73,8 +73,8 @@ export class Mustang extends Ship {
       // Where the pilot sits, so this is the piece the ship is lost without
       core: true,
       mounts: [
-        { fits: [HornDrill], localPosition: Vector(20, 0) },
-        { fits: [SearchLight], localPosition: Vector(20, 0) },
+        { fits: [HornDrill], localPosition: Vec.create(20, 0) },
+        { fits: [SearchLight], localPosition: Vec.create(20, 0) },
       ],
       points: [
         [20, -12],
@@ -92,7 +92,7 @@ export class Mustang extends Ship {
     },
     {
       health: 10,
-      mounts: [{ fits: [CargoHatch], localPosition: Vector(3, 13) }],
+      mounts: [{ fits: [CargoHatch], localPosition: Vec.create(3, 13) }],
       points: [
         [-16, 20],
         [20, 12],

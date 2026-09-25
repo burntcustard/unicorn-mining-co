@@ -10,7 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as matrix from '../vector-math';
+import * as Vec from '../vector';
 
 import { AABB } from '../collision/axis-aligned-bounds';
 import { collidersCanContact, type Collider } from '../collision/types';
@@ -21,7 +21,7 @@ import { TransformValue } from '../vector-math';
 
 const synchronize_aabb1 = new AABB();
 const synchronize_aabb2 = new AABB();
-const displacement = matrix.vec2(0, 0);
+const displacement = Vec.create();
 
 /**
  * A fixture definition is used to create a fixture. This class defines an
@@ -63,15 +63,10 @@ export class Fixture {
 
   constructor(body: Body, shape: Shape, definition: FixtureOpt) {
     this.m_body = body;
-
     this.m_physics = definition.physics ?? true;
-
     this.m_shape = shape;
-
     this.m_next = null;
-
     this.m_proxy = new FixtureProxy(this);
-
     this.m_userData = definition.userData;
   }
 
@@ -149,7 +144,7 @@ export class Fixture {
     this.m_shape.computeAABB(synchronize_aabb2, xf2);
     proxy.aabb.combine(synchronize_aabb1, synchronize_aabb2);
 
-    matrix.subVec2(displacement, xf2.p, xf1.p);
+    Vec.subtract(xf2.p, xf1.p, displacement);
     broadPhase.moveProxy(proxy.proxyId, proxy.aabb, displacement);
   }
 
