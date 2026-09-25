@@ -4,6 +4,10 @@
 
 **asteroid segment** - One destructible piece of an asteroid, with its own shape, health, and contents.
 
+**bounciness** - A physical material’s bounce contribution. A contact mixes the two surfaces by averaging their values and clamping the result at zero. A negative contribution can damp a bounce; a value above 1 can exaggerate it. Slow contacts use no bounce.
+
+**buy** - A docked action that pays credits for a new module or item and puts it in cargo contents. It is the opposite of selling. Buying does not automatically equip a module.
+
 **cargo** - Things carried inside a craft. Always clarify with an additional term, for example to refer to a craft's contents, capacity, or entry point.
 
 **cargo contents** - The collection of game objects carried inside a craft, including items and spare modules.
@@ -13,6 +17,10 @@
 **cargo space** - The maximum number of game objects a craft can carry in its cargo.
 
 **collider** - A shape used to detect when game objects touch. One object can have several colliders.
+
+**collision detection** - Finding where colliders touch or cross during a step and reporting their contacts. Detection alone does not push objects apart or change their velocity.
+
+**continuous collision detection** - Using collider sweeps and time of impact to find contacts between sampled positions, including fast crossings of thin shapes and nonphysical triggers.
 
 **contact** - A recorded touch or overlap between two colliders. It can trigger a collision, docking, drilling, or collecting an item.
 
@@ -25,6 +33,10 @@
 **drilling** - What happens when damage is dealt by an active horn drill through contact at its drill tip.
 
 **entity** - A game object currently present in the world. Objects stored inside cargo need not be world entities.
+
+**equip** - A docked action that puts a module the ship owns on a compatible mount, moving it out of cargo contents. It is the opposite of remove.
+
+**friction** - A physical material’s resistance to sliding along a contact. The solver mixes two surfaces using the geometric mean, so either surface with zero friction makes the contact frictionless. A nonphysical trigger has no friction impulse.
 
 **game object** - Anything in the game with its own identity and state, such as a craft, asteroid, item, or module.
 
@@ -62,6 +74,10 @@
 
 **paint** - A choice of colour scheme for a craft or module.
 
+**physical response** - The solver’s position correction and impulses at a contact between physical colliders. Nonphysical contacts still produce gameplay events without this response.
+
+**physics substep** - A shorter interval that the continuous collision solver advances after a time-of-impact contact within a simulation tick. It is separate from the game’s movement subdivision.
+
 **player** - A participant in the game, associated with a ship. The player and ship are separate things.
 
 **player input** - The controls a player uses to fly a ship or operate its modules.
@@ -78,6 +94,8 @@
 
 **region description** - A plan for the asteroids, stations, and wrecks in a region before they appear as objects in the world.
 
+**remove** - A docked action that takes an equipped module off its mount and puts it in cargo contents. It is the opposite of equip.
+
 **replication** - Sending relevant game object state from the server to a client.
 
 **resource** - A numbered kind of item or asteroid material. Resources inside an asteroid determine which items it can release.
@@ -86,11 +104,17 @@
 
 **segment** - One piece of a larger object. Kinds of segments include: asteroid segment, hull segment, module segment.
 
+**sell** - A docked action that exchanges cargo contents for credits. Selling a module or item is the opposite of buying it. An equipped module must be removed before it can be sold.
+
 **shades** - The colours used to draw a craft or module, including its fill, outline, shadow, and highlight.
 
 **shield generator** - A module that projects a protective shield around a craft.
 
 **ship** - A craft that can fly when intact and dock at a station. A ship may belong to a player.
+
+**simulation** - The shared rules that advance the game world through fixed ticks. The server runs the authoritative simulation; the client uses the same rules for prediction.
+
+**simulation state** - An in-memory checkpoint of world and entity mechanics used to restore or replay the simulation. It keeps object identities and is separate from a network snapshot.
 
 **snapshot** - A server update describing which objects are in a player's view and the current state of some of them.
 
@@ -98,11 +122,19 @@
 
 **station** - A craft with docking bays that can receive ships.
 
+**sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.
+
+**time of impact** - The earliest fraction of a sweep at which two colliders touch. The continuous collision solver advances to it before resolving that contact and searching for later impacts.
+
 **thruster** - A module used to propel a craft.
 
 **flare** - A visual effect that expresses craft thrust. A thruster flare may appear larger, smaller, or not be visible at all, depending on its associated thruster's activation status.
 
 **tick** - One fixed step of the game simulation.
+
+**tunnelling** - When a moving object appears to phase through another because a collision between its sampled positions was missed. Continuous collision detection checks the intervening sweep. Also known as 'phasing' although we should avoid using that word.
+
+**vector** - A two-dimensional value with `x` and `y` coordinates, used for positions, velocities, directions, and solver geometry. Game code uses the shared `Vector` API; the solver can write calculations into existing vectors to avoid allocations.
 
 **world** - The running simulation and its current game objects, players, and tick.
 

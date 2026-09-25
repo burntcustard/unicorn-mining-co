@@ -1,6 +1,9 @@
-import { Thruster } from './thruster';
+import { Module } from './module';
+import { colors } from '../colors';
 
-export class ThrusterTriple extends Thruster {
+export class ThrusterTriple extends Module {
+  static shades = colors.violet;
+  static disablePhysics = true;
   static health = 30;
   static label = 'THRUSTERS *3';
   static offset = 14;

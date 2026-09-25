@@ -10,7 +10,8 @@ import { Ship } from '../craft/ship';
 import { Station } from '../craft/station';
 import { type GameObject } from '../game-object';
 import { type Contact } from '../collision/types';
-import { updateEntities, simulationStep } from './update-tier';
+import { simulationStep } from '../settings';
+import { updateEntities } from './update-tier';
 
 const collisionWorlds = new WeakMap<SimulationWorld, GameCollisions>();
 

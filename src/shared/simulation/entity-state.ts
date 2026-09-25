@@ -12,6 +12,7 @@ const fields = [
   'rotation',
   'spin',
   'mass',
+  'friction',
   'radius',
   'dead',
   'pendingUpdateTime',

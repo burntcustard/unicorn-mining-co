@@ -1,3 +1,5 @@
+import { type PlayerInput } from '../shared/protocol/input';
+
 export type KeyAction =
   | 'forwardThrust'
   | 'turnLeft'
@@ -40,3 +42,16 @@ export const defaultKeybindings = {
 
 export const matchesBinding = (binding: KeyBinding, key: string) =>
   binding.keys.some((boundKey) => boundKey.toLowerCase() === key);
+
+export const updateMovement = (
+  pressed: ReadonlySet<string>,
+  input: PlayerInput,
+) => {
+  const held = (action: KeyAction) =>
+    defaultKeybindings[action].keys.some((key) =>
+      pressed.has(key.toLowerCase()),
+    );
+
+  input.thrust = Number(held('forwardThrust'));
+  input.turn = Number(held('turnRight')) - Number(held('turnLeft'));
+};

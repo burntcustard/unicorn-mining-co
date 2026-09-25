@@ -10,7 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Vec2 } from './physics-vector';
+import { Vec2 } from '../vector';
 
 /**
  * A 2-by-2 matrix. Stored in column-major order.
@@ -20,9 +20,9 @@ export class Mat22 {
   ey = Vec2.zero();
 
   setZero(): void {
-    this.ex.x = 0.0;
-    this.ey.x = 0.0;
-    this.ex.y = 0.0;
-    this.ey.y = 0.0;
+    this.ex.x = 0;
+    this.ey.x = 0;
+    this.ex.y = 0;
+    this.ey.y = 0;
   }
 }

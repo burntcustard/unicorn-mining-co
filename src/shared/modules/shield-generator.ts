@@ -3,7 +3,7 @@ import { Module } from './module';
 
 export class ShieldGenerator extends Module {
   static shades = colors.violet;
-  static bounciness = 0.4;
+  static bounciness = 0.8;
   static health = 40;
   static label = 'SHIELD GENERATOR';
   static model: any[] = [

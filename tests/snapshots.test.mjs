@@ -36,6 +36,7 @@ const bundle = await rolldown({
       export { createShip } from '${resolve('src/shared/craft/create-ship.ts')}';
       export { createStation } from '${resolve('src/shared/craft/create-station.ts')}';
       export { Vector } from '${resolve('src/shared/vector.ts')}';
+      export { captureWorld, restoreWorld } from '${resolve('src/shared/simulation/world-state.ts')}';
     `
           : undefined,
     },
@@ -56,6 +57,8 @@ const {
   createShip,
   createStation,
   Vector,
+  captureWorld,
+  restoreWorld,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
@@ -74,6 +77,16 @@ const initial = replication.initial({
   world,
   shipId: ship.id,
 });
+const saved = captureWorld({ world });
+
+station.friction = 0;
+restoreWorld({ world, state: saved });
+assert.equal(station.friction, 0.2, 'rollback restores the material value');
+assert.equal(
+  initial.fullEntities.find((entity) => entity.id === station.id).friction,
+  undefined,
+  'default friction does not enlarge the wire snapshot',
+);
 
 assert(
   initial.fullEntities.some((entity) => entity.id === distantStation.id),
@@ -166,6 +179,26 @@ const deliver = (message) => {
 };
 
 deliver(initial);
+station.friction = 0;
+const slippery = replication.snapshot({ world, shipId: ship.id });
+
+assert.equal(
+  slippery.fullEntities.find((entity) => entity.id === station.id).friction,
+  0,
+  'an explicit zero is sent to clients',
+);
+deliver(slippery);
+assert.equal(network.authoritativeEntities.get(station.id).friction, 0);
+assert.equal(network.world.entities.get(station.id).friction, 0);
+station.friction = 0.2;
+const normal = replication.snapshot({ world, shipId: ship.id });
+
+assert.equal(
+  normal.fullEntities.find((entity) => entity.id === station.id).friction,
+  undefined,
+);
+deliver(normal);
+assert.equal(network.authoritativeEntities.get(station.id).friction, 0.2);
 const wireShip = initial.fullEntities.find((entity) => entity.id === ship.id);
 const decodedShip = network.authoritativeEntities.get(ship.id);
 

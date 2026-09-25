@@ -3,11 +3,11 @@ import {
   type Player,
   type PlayerId,
 } from '../protocol/entities';
-import { type SimulationWorld } from '../simulation/world';
+import { type SimulationWorld } from './world';
 import { GameObject } from '../game-object';
 import { Module } from '../modules/module';
 import { createRandom } from '../seeded-random';
-import { EntityState } from './simulation-entity-state';
+import { EntityState } from './entity-state';
 
 export type SimulationWorldState = {
   entities: Map<EntityId, EntityState>;

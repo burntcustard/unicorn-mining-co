@@ -26,12 +26,19 @@ const bundle = await rolldown({
       export { outerEdges } from '${process.cwd()}/src/shared/collision/outer-edges.ts';
       export { GameCollisions } from '${process.cwd()}/src/shared/collision/game-collisions.ts';
       export { GameObject } from '${process.cwd()}/src/shared/game-object.ts';
-      export * from '${process.cwd()}/src/shared/simulation/index.ts';
+      export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/shared/simulation/world.ts';
+      export { createShip } from '${process.cwd()}/src/shared/craft/create-ship.ts';
+      export { Diamond } from '${process.cwd()}/src/shared/items/diamond.ts';
+      export { createAsteroid } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
+      export { updateWorld } from '${process.cwd()}/src/shared/simulation/update-world.ts';
+      export { captureWorld, restoreWorld } from '${process.cwd()}/src/shared/simulation/world-state.ts';
       export { controlShip } from '${process.cwd()}/src/shared/craft/control-ship.ts';
-      export { simulationStep } from '${process.cwd()}/src/shared/simulation/update-tier.ts';
+      export { simulationStep } from '${process.cwd()}/src/shared/settings.ts';
       export { sparks, sprayDamage } from '${process.cwd()}/src/client/shrapnel.ts';
       export { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
       export { Vector } from '${process.cwd()}/src/shared/vector.ts';
+      export { PolygonShape } from '${process.cwd()}/src/shared/collision/shape/polygon-shape.ts';
+      export { ShieldGenerator } from '${process.cwd()}/src/shared/modules/shield-generator.ts';
       export { movePoint, rotatePoint } from '${process.cwd()}/src/shared/geometry.ts';
     `
           : undefined,
@@ -51,10 +58,11 @@ const {
   GameCollisions,
   GameObject,
   createWorld,
+  entityId,
   addEntity,
   addPlayer,
   createShip,
-  createItem,
+  Diamond,
   createAsteroid,
   updateWorld,
   controlShip,
@@ -63,6 +71,8 @@ const {
   restoreWorld,
   rotatePoint,
   Vector,
+  PolygonShape,
+  ShieldGenerator,
 } = physics;
 
 const closeTo = (actual, expected, tolerance = 1e-9) =>
@@ -183,6 +193,68 @@ assert.ok(
   ),
 );
 
+// Object mass is explicit; only physical collider geometry sets spin resistance.
+assert.equal(new GameObject().mass, 0);
+{
+  const object = new GameObject({ id: 90, mass: 10, radius: 0 });
+
+  object.angularInertiaScale = 3;
+  object.hitbox = () => [
+    {
+      owner: object,
+      position: Vector(),
+      rotation: 0,
+      radius: 2,
+      friction: 0.01,
+    },
+    {
+      owner: object,
+      position: Vector(6),
+      rotation: 0,
+      radius: 1,
+      friction: 0.01,
+    },
+    {
+      owner: object,
+      position: Vector(100),
+      rotation: 0,
+      radius: 20,
+      friction: 0.01,
+      physics: false,
+    },
+  ];
+  const collisions = new GameCollisions();
+
+  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  const solverBody = collisions.bodies.get(object.id).body;
+
+  closeTo(solverBody.m_invMass, 1 / 10);
+  closeTo(solverBody.m_invI, 1 / (10 * 8.9 * 3));
+
+  object.hitbox = () => [
+    {
+      owner: object,
+      position: Vector(5),
+      rotation: 0,
+      radius: 0,
+      outline: [
+        [-2, -1],
+        [2, -1],
+        [2, 1],
+        [-2, 1],
+      ],
+      friction: 0.01,
+    },
+  ];
+  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  closeTo(collisions.bodies.get(object.id).body.m_invI, 1 / 800);
+
+  object.mass = 0;
+  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  assert.equal(collisions.bodies.get(object.id).body.m_invMass, 0);
+  assert.equal(collisions.bodies.get(object.id).body.m_invI, 0);
+}
+
 // Off-centre impacts exchange angular as well as linear momentum.
 const triangle = new GameObject({
   id: 10,
@@ -275,6 +347,49 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
   );
 }
 
+// Hull construction keeps every convex vertex and still supports swept contact.
+for (const count of [20, 30]) {
+  const outline = Array.from({ length: count }, (_, index) => {
+    const angle = (index * Math.PI * 2) / count;
+
+    return [Math.cos(angle) * 20, Math.sin(angle) * 20];
+  });
+  const shape = new PolygonShape(outline.map(([x, y]) => Vector(x, y)));
+
+  assert.equal(
+    shape.m_count,
+    count,
+    `the ${count}-point hull is not truncated`,
+  );
+
+  const mover = new GameObject({
+    id: 600 + count,
+    mass: 6,
+    radius: 0.5,
+    position: Vector(180),
+  });
+  const obstacle = new GameObject({
+    id: 700 + count,
+    mass: 0,
+    position: Vector(90),
+    outline,
+  });
+  const contacts = new GameCollisions().step({
+    entities: [mover, obstacle],
+    dt: 1 / 30,
+    previous: new Map([[mover.id, { position: Vector(), rotation: 0 }]]),
+  });
+
+  assert(
+    contacts.some(
+      ({ collider, other }) =>
+        collider.owner === obstacle || other.owner === obstacle,
+    ),
+    `a fast body meets the ${count}-point obstacle`,
+  );
+  assert(mover.position.x < obstacle.position.x);
+}
+
 // CCD must stop a small body crossing a thin moving-body collider in one tick.
 const ccdWorld = createWorld();
 const fast = addEntity(
@@ -310,6 +425,195 @@ assert(
   'CCD prevents crossing the thin face',
 );
 
+// A bullet may strike another face after its first bounce within one tick.
+// The solver's internal TOI loop must continue after the first impact.
+{
+  const mover = new GameObject({
+    id: 35,
+    mass: 6,
+    radius: 1,
+    position: Vector(50),
+    velocity: Vector(1500),
+    bounciness: 0.5,
+  });
+  const faces = [-10, 10].map(
+    (x, index) =>
+      new GameObject({
+        id: 36 + index,
+        radius: 1,
+        mass: 0,
+        position: Vector(x),
+        bounciness: 0.5,
+      }),
+  );
+  const contacts = new GameCollisions().step({
+    entities: [mover, ...faces],
+    dt: 1 / 30,
+    previous: new Map([[mover.id, { position: Vector(), rotation: 0 }]]),
+  });
+
+  assert(
+    faces.every((face) =>
+      contacts.some(
+        ({ collider, other }) =>
+          collider.owner === face || other.owner === face,
+      ),
+    ),
+    'two separate physical faces contact one fast body in a tick',
+  );
+}
+
+// A small stationary bullet must also meet a narrow obstacle sweeping across
+// it; CCD cannot rely only on movement of the smaller body.
+{
+  const target = new GameObject({ id: 38, mass: 6, radius: 0.5 });
+  const movingWall = new GameObject({
+    id: 39,
+    mass: 100000,
+    radius: 20,
+    position: Vector(20),
+    outline: [
+      [-0.25, -20],
+      [0.25, -20],
+      [0.25, 20],
+      [-0.25, 20],
+    ],
+  });
+  const contacts = new GameCollisions().step({
+    entities: [target, movingWall],
+    dt: 1 / 30,
+    previous: new Map([
+      [movingWall.id, { position: Vector(-20), rotation: 0 }],
+    ]),
+  });
+
+  assert(
+    contacts.some(
+      ({ collider, other }) =>
+        collider.owner === target || other.owner === target,
+    ),
+    'a moving thin obstacle contacts a small target during its sweep',
+  );
+}
+
+// Crossings on both sides of the 200-game-unit solver translation cap still
+// find a thin face when the impact lies within the permitted translation.
+for (const travel of [190, 210, 400]) {
+  const mover = new GameObject({
+    id: 90 + travel,
+    mass: 6,
+    radius: 0.5,
+    position: Vector(travel),
+  });
+  const face = new GameObject({
+    id: 91 + travel,
+    mass: 0,
+    position: Vector(90),
+    outline: [
+      [-0.25, -20],
+      [0.25, -20],
+      [0.25, 20],
+      [-0.25, 20],
+    ],
+  });
+  const contacts = new GameCollisions().step({
+    entities: [mover, face],
+    dt: 1 / 30,
+    previous: new Map([[mover.id, { position: Vector(), rotation: 0 }]]),
+  });
+
+  assert(
+    contacts.some(
+      ({ collider, other }) =>
+        collider.owner === mover || other.owner === mover,
+    ),
+    `a ${travel}-unit crossing finds the thin face`,
+  );
+  assert(mover.position.x < face.position.x, 'the body stays before the face');
+}
+
+// A trigger crossed beyond the cap reports an event without changing the
+// solver's capped motion or applying a contact impulse.
+{
+  const makeMover = (id) =>
+    new GameObject({ id, mass: 6, radius: 0.5, position: Vector(400) });
+  const baseline = makeMover(496);
+  const crossing = makeMover(497);
+  const trigger = new GameObject({ id: 498, position: Vector(90), radius: 1 });
+
+  trigger.hitbox = () => [
+    {
+      owner: trigger,
+      position: trigger.position,
+      rotation: 0,
+      radius: 1,
+      physics: false,
+      friction: trigger.friction,
+    },
+  ];
+  const previous = (mover) =>
+    new Map([[mover.id, { position: Vector(), rotation: 0 }]]);
+
+  new GameCollisions().step({
+    entities: [baseline],
+    dt: 1 / 30,
+    previous: previous(baseline),
+  });
+  const contacts = new GameCollisions().step({
+    entities: [crossing, trigger],
+    dt: 1 / 30,
+    previous: previous(crossing),
+  });
+
+  assert(contacts.length > 0, 'the fast crossing reaches the trigger');
+  closeTo(crossing.position.x, baseline.position.x);
+  closeTo(crossing.velocity.x, baseline.velocity.x);
+}
+
+// Fixture synchronisation must rebuild changing outlines and discard the old
+// broad-phase proxy when the outline shrinks again.
+{
+  const obstacle = new GameObject({
+    id: 500,
+    position: Vector(),
+    outline: [
+      [-1, -5],
+      [1, -5],
+      [1, 5],
+      [-1, 5],
+    ],
+  });
+  const target = new GameObject({
+    id: 501,
+    mass: 5,
+    radius: 1,
+    position: Vector(8),
+  });
+  const collisions = new GameCollisions();
+  const step = () =>
+    collisions.step({
+      entities: [obstacle, target],
+      dt: 1 / 30,
+      previous: new Map(),
+    });
+
+  assert.equal(step().length, 0);
+  obstacle.outline = [
+    [-1, -5],
+    [10, -5],
+    [10, 5],
+    [-1, 5],
+  ];
+  assert(step().length > 0, 'a grown outline acquires a contact');
+  obstacle.outline = [
+    [-1, -5],
+    [1, -5],
+    [1, 5],
+    [-1, 5],
+  ];
+  assert.equal(step().length, 0, 'a shrunk outline releases its contact');
+}
+
 // Nonphysical contacts use the physics broad phase but apply no impulse.
 const trigger = new GameObject({
   id: 40,
@@ -324,6 +628,7 @@ trigger.hitbox = () => [
     radius: 10,
     rotation: 0,
     physics: false,
+    friction: trigger.friction,
     role: 'cargoHatch',
   },
 ];
@@ -377,6 +682,7 @@ assert(
   'a nonphysical contact detects a complete crossing between ticks',
 );
 closeTo(fastTriggerTarget.position.x, 25);
+closeTo(fastTriggerTarget.velocity.x, 0);
 
 // A pickup point crossing the open mouth between ticks still collects cargo.
 // The item's physical body remains separate from its nonphysical centre point.
@@ -395,8 +701,9 @@ closeTo(fastTriggerTarget.position.x, 25);
   const crossingY = mouth.position.y - 10;
   const item = addEntity(
     world,
-    createItem(world, {
-      resource: 0,
+    new Diamond({
+      world,
+      id: entityId(world),
       position: Vector(mouth.position.x - 25, crossingY),
     }),
   );
@@ -427,6 +734,14 @@ closeTo(fastTriggerTarget.position.x, 25);
         other.segment === mouthPart,
     ),
     'item centre contacts are filtered to cargo hatch mouths',
+  );
+  assert(
+    crossingContacts.every(
+      ({ collider, other }) =>
+        (collider.role !== 'cargoHatch' || other.pickupPoint) &&
+        (other.role !== 'cargoHatch' || collider.pickupPoint),
+    ),
+    'cargo hatch mouths ignore the item body and all other solid colliders',
   );
   const events = [];
 
@@ -473,7 +788,85 @@ assert(
   'a thin rotating solid sweeps and pushes the item',
 );
 
-// Preserve the additive hull/shield restitution rule and mass-weighted push.
+// Nested colliders inherit material values, while an explicit zero removes
+// A subclass without a material override inherits the game object's default.
+class DefaultMaterial extends GameObject {}
+assert.equal(new DefaultMaterial({ id: 460 }).friction, 0.01);
+class ZeroMaterial extends GameObject {
+  static friction = 0;
+}
+assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
+
+// tangential friction and a negative contribution damps exaggerated bounce.
+{
+  const parent = new GameObject({
+    id: 46,
+    mass: 9,
+    radius: 5,
+    friction: 0,
+    bounciness: -0.4,
+  });
+
+  parent.hitbox = () => [
+    {
+      owner: parent,
+      position: parent.position,
+      radius: 5,
+      rotation: 0,
+      friction: parent.friction,
+      bounciness: parent.bounciness,
+      colliders: [{ radius: 5 }],
+    },
+  ];
+  const other = new GameObject({
+    id: 47,
+    mass: 9,
+    radius: 5,
+    position: Vector(9),
+    friction: 0.25,
+    bounciness: 3,
+  });
+  const solver = new GameCollisions();
+  const contacts = solver.step({
+    entities: [parent, other],
+    dt: 1 / 30,
+    previous: new Map([[other.id, { position: Vector(9.5), rotation: 0 }]]),
+  });
+  const contact = solver.world.m_contactList;
+
+  assert(contacts.length, 'the nested physical collider contacts its target');
+  assert.equal(contact.getFriction(), 0, 'explicit zero friction wins the mix');
+  closeTo(contact.getRestitution(), 1.3);
+  assert.equal(contact.getFixtureA().getUserData().friction, 0);
+  assert.equal(contact.getFixtureA().getUserData().bounciness, -0.4);
+}
+
+// Low-speed contact keeps the existing bounce threshold with positive friction.
+{
+  const first = new GameObject({ id: 48, mass: 9, radius: 5 });
+  const second = new GameObject({
+    id: 49,
+    mass: 9,
+    radius: 5,
+    position: Vector(9),
+    friction: 0.25,
+    bounciness: 3,
+  });
+  const solver = new GameCollisions();
+
+  solver.step({
+    entities: [first, second],
+    dt: 1 / 30,
+    previous: new Map([[second.id, { position: Vector(9.1), rotation: 0 }]]),
+  });
+  const contact = solver.world.m_contactList;
+
+  closeTo(contact.getFriction(), 0.05);
+  assert.equal(contact.getRestitution(), 0);
+}
+
+// Preserve the earlier hull/shield pair response under averaged material
+// contributions, as well as mass-weighted push.
 const bounce = (bounciness) => {
   const world = createWorld();
   const moving = addEntity(
@@ -513,6 +906,32 @@ assert(
   bounce(0.4) < bounce(0.1),
   'shield bounce stays stronger than hull bounce',
 );
+
+// Growing shield geometry has a surface velocity even when its ship is still.
+// It must launch a nearby item, then stop supplying that velocity once open.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world));
+  const shield = new ShieldGenerator();
+
+  ship.cargoContents.push(shield);
+  ship.fit(shield);
+  ship.setModuleActive({ module: ShieldGenerator, active: true });
+  const item = addEntity(
+    world,
+    new Diamond({ world, id: entityId(world), position: Vector(54) }),
+  );
+
+  for (let tick = 0; tick < 6; tick++) {
+    updateWorld({ world, inputs: new Map() });
+  }
+  assert(item.velocity.x > 20, 'the expanding shield bounces a nearby item');
+  assert(ship.velocity.x < 0, 'the expansion impulse pushes back on the ship');
+  updateWorld({ world, inputs: new Map() });
+  const cover = ship.hitbox().find(({ segment }) => segment?.covers);
+
+  assert.equal(cover.speed, 0, 'a fully extended shield stops expanding');
+}
 
 // Once an asteroid segment detaches, touching cut faces must not create an artificial
 // separation impulse. Remove the intentional split drift to isolate the solver.
@@ -697,11 +1116,17 @@ assert(
 const driftWorld = createWorld();
 const drifting = addEntity(
   driftWorld,
-  createItem(driftWorld, { velocity: Vector(150), resource: 0 }),
+  new Diamond({
+    world: driftWorld,
+    id: entityId(driftWorld),
+    velocity: Vector(150),
+  }),
 );
-const referenceItem = createItem(createWorld(), {
+const driftReferenceWorld = createWorld();
+const referenceItem = new Diamond({
+  world: driftReferenceWorld,
+  id: entityId(driftReferenceWorld),
   velocity: Vector(150),
-  resource: 0,
 });
 
 for (let tick = 0; tick < 2200; tick++) {

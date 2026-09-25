@@ -3,9 +3,14 @@ import { benchmarkFlag } from './benchmark';
 
 // @endif
 import { colors } from '../shared/colors';
+import { Craft } from '../shared/craft/craft';
+import { type GameObject } from '../shared/game-object';
+import { type Vector } from '../shared/vector';
+import { camera } from './camera';
+import { insidePath, traceBeam } from './prism';
 import { game } from './game';
 import { pointBetween as mix } from '../shared/geometry';
-import { type Shades, type Segment } from '../shared/types';
+import { type Shades } from '../shared/types';
 
 type GlowCache = { image?: HTMLCanvasElement; scale?: number };
 interface LitShape {
@@ -187,34 +192,6 @@ export const drawDockingBayGlow = (
   ctx.restore();
 };
 
-export const drawThrusterGlow = (
-  ctx: CanvasRenderingContext2D,
-  nozzle: Segment,
-) => {
-  // @ifdef DEBUG
-  if (!glows) return;
-  // @endif
-  // @ifdef BENCHMARK
-
-  if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
-  // @endif
-
-  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = nozzle.activationProgress * 0.4;
-  ctx.scale(nozzle.activationProgress * 45, nozzle.activationProgress * 45);
-  gradient.addColorStop(0, nozzle.shades[2]);
-  gradient.addColorStop(0.35, `${nozzle.shades[2]}6`);
-  gradient.addColorStop(1, '#0000');
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.arc(0, 0, 1, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-};
-
 /**
  * The light a lamp throws out in front of it: full at the lens and gone by the
  * far end of its reach. Its translucent wash tints what is underneath without
@@ -268,4 +245,58 @@ export const drawBeam = (
   ctx.fillStyle = gradient;
   ctx.fill(path);
   ctx.restore();
+};
+
+// Both local and remote beams reveal the contents of rock they cross.
+export const revealBuriedItems = ({
+  sprites,
+  predicted,
+  poses,
+}: {
+  sprites: GameObject[];
+  predicted: ReadonlyMap<number, GameObject>;
+  poses: ReadonlyMap<number, { position: Vector; rotation: number }>;
+}) => {
+  const asteroids = sprites.filter(
+    (sprite) => sprite.scenery && sprite.segments && sprite.renderContents,
+  );
+
+  if (!asteroids.length) return;
+
+  const { ctx, scale } = game;
+
+  sprites.forEach((sprite) => {
+    if (!(sprite instanceof Craft) || sprite.dead) return;
+    const prediction = predicted.get(sprite.id);
+    const craft = prediction instanceof Craft ? prediction : sprite;
+    const pose = poses.get(sprite.id) || craft;
+
+    craft.segments.forEach((lamp) => {
+      if (
+        !lamp.module.beam ||
+        lamp.activationProgress <= 0.5 ||
+        (lamp.mount || lamp).health < 1
+      ) {
+        return;
+      }
+
+      const beam = lamp.prism || traceBeam(pose, lamp, sprites);
+
+      ctx.save();
+      ctx.translate(pose.position.x, pose.position.y);
+      ctx.rotate(pose.rotation);
+      ctx.translate(lamp.localPosition.x, lamp.localPosition.y);
+      ctx.clip(insidePath(beam));
+      ctx.clip(beam.mask);
+      ctx.resetTransform();
+      ctx.scale(scale, scale);
+      ctx.translate(-camera.x, -camera.y);
+
+      asteroids.forEach((asteroid) =>
+        asteroid.renderContents.forEach((item: GameObject) => item.render()),
+      );
+
+      ctx.restore();
+    });
+  });
 };

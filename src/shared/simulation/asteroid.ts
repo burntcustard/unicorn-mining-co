@@ -1,4 +1,5 @@
 import { Vector, type Vector as VectorValue } from '../vector';
+import { rotatePoint } from '../geometry';
 import { createPolygon, radiusOf } from '../polygon';
 import { createRandom } from '../seeded-random';
 import { type AsteroidSegment } from '../protocol/entities';
@@ -6,7 +7,7 @@ import { addEntity, type SimulationWorld, entityId } from './world';
 import { GameObject } from '../game-object';
 import { type Collider, type Outline } from '../collision/types';
 import { outerEdges } from '../collision/outer-edges';
-import { createItem } from '../items/create-item';
+import { itemTypes } from '../items';
 import { type SimulationEvent } from '../protocol/events';
 
 // Enough of a wander that no two asteroids come out the same shape
@@ -139,79 +140,73 @@ const segmentsOf = ({
 
 const samePoint = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1];
 
-const sharesEdge = (a: AsteroidSegment, b: AsteroidSegment) =>
-  a.outline.some((from, index) => {
-    const to = a.outline[(index + 1) % a.outline.length];
+const groupsOf = (segments: AsteroidSegment[]) =>
+  outerEdges(segments.map(({ outline }) => outline as Outline)).map((indices) =>
+    indices.map((index) => segments[index]),
+  );
 
-    return b.outline.some((otherFrom, otherIndex) => {
-      const otherTo = b.outline[(otherIndex + 1) % b.outline.length];
+// groupsOf has already marked exterior edges on its connected groups.
+const outlinesFromMarked = (segments: AsteroidSegment[]) => {
+  const outer = segments.flatMap(({ outline }) => {
+    const polygon = outline as Outline;
 
-      return (
-        (samePoint(from, otherFrom) && samePoint(to, otherTo)) ||
-        (samePoint(from, otherTo) && samePoint(to, otherFrom))
-      );
-    });
+    return polygon.flatMap((from, index) =>
+      polygon.edges?.[index]
+        ? [{ from, to: polygon[(index + 1) % polygon.length] }]
+        : [],
+    );
   });
-
-const groupsOf = (segments: AsteroidSegment[]) => {
-  const left = [...segments];
-  const groups: AsteroidSegment[][] = [];
-
-  while (left.length) {
-    const group = [left.pop()!];
-
-    for (let index = 0; index < group.length; index++) {
-      for (let candidate = left.length; candidate--;) {
-        if (sharesEdge(group[index], left[candidate])) {
-          group.push(left.splice(candidate, 1)[0]);
-        }
-      }
-    }
-    groups.push(group);
-  }
-  return groups;
-};
-
-const outlineFrom = (segments: AsteroidSegment[]) => {
-  const edges = segments.flatMap(({ outline }) =>
-    outline.map((from, index) => ({
-      from,
-      to: outline[(index + 1) % outline.length],
-    })),
-  );
-  const outer = edges.filter(
-    ({ from, to }) =>
-      edges.filter(
-        (edge) =>
-          (samePoint(from, edge.from) && samePoint(to, edge.to)) ||
-          (samePoint(from, edge.to) && samePoint(to, edge.from)),
-      ).length === 1,
-  );
-  const first = outer.shift()!;
-  const outline = [first.from, first.to];
+  const outlines: number[][][] = [];
 
   while (outer.length) {
-    const at = outline.at(-1)!;
-    const index = outer.findIndex(
-      ({ from, to }) => samePoint(from, at) || samePoint(to, at),
+    const first = outer.shift()!;
+    const outline = [first.from];
+    let edge = first;
+
+    while (!samePoint(edge.to, first.from)) {
+      const at = edge.to;
+      // More than one loop can meet at a corner. The next clockwise edge
+      // from the incoming reverse keeps each hole on its own boundary.
+      const reverse = Math.atan2(edge.from[1] - at[1], edge.from[0] - at[0]);
+      let nextIndex = -1;
+      let smallestTurn = Infinity;
+
+      outer.forEach((candidate, index) => {
+        if (!samePoint(candidate.from, at)) return;
+        const direction = Math.atan2(
+          candidate.to[1] - at[1],
+          candidate.to[0] - at[0],
+        );
+        const clockwise = (reverse - direction + Math.PI * 2) % (Math.PI * 2);
+
+        if (clockwise < smallestTurn) {
+          smallestTurn = clockwise;
+          nextIndex = index;
+        }
+      });
+
+      if (nextIndex < 0) break;
+      outline.push(at);
+      edge = outer.splice(nextIndex, 1)[0];
+    }
+    outlines.push(
+      outline.filter((point, index) => {
+        const before = outline.at(index - 1)!;
+        const next = outline[(index + 1) % outline.length];
+
+        return (
+          (point[0] - before[0]) * (next[1] - point[1]) !==
+          (point[1] - before[1]) * (next[0] - point[0])
+        );
+      }),
     );
-
-    if (index < 0) break;
-    const edge = outer.splice(index, 1)[0];
-    const next = samePoint(edge.from, at) ? edge.to : edge.from;
-
-    if (samePoint(next, outline[0])) break;
-    outline.push(next);
   }
-  return outline.filter((point, index) => {
-    const before = outline.at(index - 1)!;
-    const next = outline[(index + 1) % outline.length];
+  return outlines;
+};
 
-    return (
-      (point[0] - before[0]) * (next[1] - point[1]) !==
-      (point[1] - before[1]) * (next[0] - point[0])
-    );
-  });
+export const outlinesFrom = (segments: AsteroidSegment[]) => {
+  outerEdges(segments.map(({ outline }) => outline as Outline));
+  return outlinesFromMarked(segments);
 };
 
 export const centerOf = (outline: number[][]) => {
@@ -246,14 +241,14 @@ const detachSegment = ({
 
   asteroid.remove();
   const children = groups.map((group) => {
-    const outline = outlineFrom(group);
+    const outline =
+      group.length === 1
+        ? group[0].outline
+        : outlinesFromMarked(group).reduce((largest, candidate) =>
+            radiusOf(candidate) > radiusOf(largest) ? candidate : largest,
+          );
     const center = centerOf(outline);
-    const cosine = Math.cos(asteroid.rotation);
-    const sine = Math.sin(asteroid.rotation);
-    const offset = Vector(
-      center.x * cosine - center.y * sine,
-      center.x * sine + center.y * cosine,
-    );
+    const offset = rotatePoint(center, asteroid.rotation);
     const local = ([x, y]: number[]) => [x - center.x, y - center.y];
     const childOutline = outline.map(local);
     const childSegments = group.map((asteroidSegment) => ({
@@ -391,6 +386,7 @@ export const asteroidContact = ({
 };
 
 export class Asteroid extends GameObject {
+  static friction = 0.2;
   static angularDrag = 0.15;
   contents: number[];
   decay?: number;
@@ -474,6 +470,7 @@ export class Asteroid extends GameObject {
       outline: asteroidSegment.outline as Outline,
       owner: this,
       asteroidSegment,
+      friction: this.friction,
       position: this.position,
       radius: this.radius,
       rotation: this.rotation,
@@ -497,7 +494,8 @@ export class Asteroid extends GameObject {
     return [
       Object.assign(
         {
-          bounciness: 0.1,
+          bounciness: 0.2,
+          friction: this.friction,
           collisionMargin: 0,
           outline: collisionOutline as Outline,
           owner: this,
@@ -528,9 +526,10 @@ export class Asteroid extends GameObject {
       this.contents.forEach((resource) =>
         addEntity(
           world,
-          createItem(world, {
+          new itemTypes[resource]({
+            world,
+            id: entityId(world),
             position: this.position.add(Vector()),
-            resource,
             velocity: this.velocity.add(Vector()),
           }),
         ),

@@ -13,7 +13,10 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0simulation-benchmark'
           ? `
-      export * from '${resolve('src/shared/simulation/index.ts')}';
+      export { createWorld, addEntity, addPlayer } from '${resolve('src/shared/simulation/world.ts')}';
+      export { createShip } from '${resolve('src/shared/craft/create-ship.ts')}';
+      export { captureWorld } from '${resolve('src/shared/simulation/world-state.ts')}';
+      export { updateWorld } from '${resolve('src/shared/simulation/update-world.ts')}';
       export {Vector} from '${resolve('src/shared/vector.ts')}';
       export {RegionManager as ServerRegions} from '${resolve('src/server/region-manager.ts')}';
     `

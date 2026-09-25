@@ -13,7 +13,8 @@ export class HornDrill extends Module {
   static shades = colors.yellow;
   static activationDuration = 0.5;
   static bounciness = (segment: any) =>
-    segment.activationProgress > 0.5 ? -0.2 : 0;
+    segment.activationProgress > 0.5 ? -0.4 : undefined;
+  static friction = 0.3;
   static damage = 0.5;
   static grinds = true;
   static drillTip = { position: Vector(26, 0), radius: 3 };

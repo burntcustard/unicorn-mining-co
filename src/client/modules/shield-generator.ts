@@ -10,6 +10,8 @@ giveRender({
     parent({ segment });
 
     if (segment.covers) return;
+    game.ctx.save();
+    game.ctx.strokeStyle = this.shades[2];
     game.ctx.stroke(
       linesPath(
         [segment.phase || 0, (segment.phase || 0) + Math.PI / 2].map(
@@ -25,6 +27,7 @@ giveRender({
         ),
       ),
     );
+    game.ctx.restore();
   },
   updateVisual({ dt, segments }) {
     segments.forEach(

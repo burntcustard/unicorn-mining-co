@@ -1,13 +1,14 @@
 import { type ModuleState } from './module-state';
 import { type WreckageSegment } from './wreckage-segment';
 import { cargoHatchOpen, moduleTypes } from '../modules';
-import { movePoint, rotatePoint, shapeOf } from '../geometry';
+import { movePoint, outlineExtent, rotatePoint, shapeOf } from '../geometry';
 import { GameObject } from '../game-object';
 import { colors, shadesOf } from '../colors';
 import { Vector, type Vector as VectorValue } from '../vector';
 import { applyForce } from '../simulation/apply-force';
 import { outerEdges } from '../collision/outer-edges';
-import { collisionCategories, type Collider } from '../collision/types';
+import { type Collider } from '../collision/types';
+import { cargoContactAllowed } from '../modules/cargo-hatch';
 import { Module } from '../modules/module';
 import { type Mount, type Outline, type Shades, type Segment } from '../types';
 import { entityId } from '../simulation/world';
@@ -31,7 +32,7 @@ type CraftProperties = {
   velocity?: VectorValue;
 };
 
-const hullBounciness = 0.1;
+const hullBounciness = 0.2;
 
 // Default restitution when a segment supplies none.
 import { approach } from '../utilities/approach';
@@ -89,9 +90,10 @@ const makeSegment = (
 };
 
 export class Craft extends GameObject {
+  static friction = 0.2;
   static hullSegments: HullSegmentPlan[] = [];
   static shades = colors.white;
-  kind: string = 'craft';
+  kind = 'craft';
   declare cargoContents: GameObject[];
   declare playerId?: number;
   health = 100;
@@ -126,6 +128,11 @@ export class Craft extends GameObject {
     // Building a hull from nothing is the same job as putting a broken one
     // back together
     this.fixHull();
+  }
+
+  launch() {
+    this.dockedTo = undefined;
+    this.launching = 3;
   }
 
   get moduleStates(): ModuleState[] {
@@ -357,20 +364,14 @@ export class Craft extends GameObject {
     let wreckageMiddle: VectorValue | undefined;
     const segments = wreckageSegments.map((segment) => {
       const wreckage = segment.wreckage;
-      const points =
-        typeof segment.points === 'function'
-          ? segment.points(segment)
+      const shape: Segment['points'] =
+        wreckage && typeof wreckage === 'object'
+          ? (wreckage.points ?? segment.points)
           : segment.points;
-      const middle = points?.length
-        ? points
-            .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
-            .map((sum) => sum / points.length)
-        : [0, 0];
-      const radius = points
-        ? Math.max(
-            ...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1])),
-          )
-        : 0;
+      const points = typeof shape === 'function' ? shape(segment) : shape;
+      const { middle, reach: radius } = points?.length
+        ? outlineExtent(points)
+        : { middle: [0, 0], reach: points ? -Infinity : 0 };
 
       if (wreckage && typeof wreckage === 'object') {
         if (wreckageSegments.length === 1) {
@@ -379,9 +380,10 @@ export class Craft extends GameObject {
         return Object.assign(Object.create(segment), wreckage, {
           points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
           fillShade:
-            (segment.mount || segment).health < segment.module.health / 2
+            wreckage.fillShade ??
+            ((segment.mount || segment).health < segment.module.health / 2
               ? 0
-              : 1,
+              : 1),
           radius: () => radius,
         });
       }
@@ -421,7 +423,7 @@ export class Craft extends GameObject {
         (segment) => segment.radius && !((segment.mount || segment).health < 1),
       )
       .flatMap((segment): Collider[] => {
-        const { bounciness } = segment.module;
+        const { bounciness, friction } = segment.module;
         const points =
           typeof segment.points === 'function'
             ? segment.points(segment)
@@ -470,25 +472,23 @@ export class Craft extends GameObject {
           (segment.collider ||= { owner: this, segment }),
           {
             bounciness:
-              (bounciness?.call ? bounciness(segment) : bounciness) ||
+              (bounciness?.call ? bounciness(segment) : bounciness) ??
               hullBounciness,
+            friction:
+              (friction?.call ? friction(segment) : friction) ?? this.friction,
             dockSegment: segment.dockSegment,
             role: segment.catches ? 'cargoHatch' : undefined,
             outline,
             collides: Boolean(collides),
-            collisionCategory: segment.catches
-              ? collisionCategories.cargoHatchMouth
-              : collisionCategories.solid,
-            collisionMask: segment.catches
-              ? collisionCategories.pickupPoint
-              : collisionCategories.solid,
+            contactFilter: segment.catches ? cargoContactAllowed : undefined,
             physics,
             radius: segment.radius(segment),
             rotation: this.rotation,
             speed:
-              segment.covers &&
-              segment.active > segment.activationProgress &&
-              60,
+              segment.expandingTick !== undefined &&
+              segment.expandingTick === this.world?.tick
+                ? 60
+                : 0,
             position,
           },
         );
@@ -501,6 +501,7 @@ export class Craft extends GameObject {
                 owner: this,
                 segment,
                 role: 'hornDrill',
+                friction: this.friction,
                 position: this.position.add(
                   rotatePoint(
                     segment.localPosition.add(drillTip.position),
@@ -670,11 +671,17 @@ export class Craft extends GameObject {
         ? segment.active
         : 0;
 
+      const previousProgress = segment.activationProgress;
+
       segment.activationProgress = approach(
-        segment.activationProgress,
+        previousProgress,
         target,
         segment.rate * dt,
       );
+
+      if (segment.covers && segment.activationProgress > previousProgress) {
+        segment.expandingTick = this.world?.tick;
+      }
     });
   }
 

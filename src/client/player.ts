@@ -1,5 +1,10 @@
 import { Ship } from '../shared/craft/ship';
-import { fitStarterModules } from '../shared/craft/fit-starter-modules';
+import {
+  ThrusterDualMd,
+  CargoHatch,
+  HornDrill,
+  SearchLight,
+} from '../shared/modules';
 import { game } from './game';
 import { createRenderedShip } from './create-rendered-ship';
 import { colors } from '../shared/colors';
@@ -58,7 +63,9 @@ playerShip.docked = (station: Ship) => {
   if (visitedStations.size > 2) unlockPaint('GREEN', '3 STATION VISITS');
 };
 
-fitStarterModules(playerShip);
+[ThrusterDualMd, CargoHatch, CargoHatch, HornDrill, SearchLight].forEach(
+  (Type) => playerShip.fit(new Type()),
+);
 
 /**
  * Show a message using uppercase characters supported by the font.

@@ -10,13 +10,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { SettingsInternal as Settings } from '../common/engine-settings';
 import { Pool } from '../utilities/object-pool';
-import { Vec2, Vec2Value } from '../common/physics-vector';
+import { Vec2Value } from '../vector';
 import { AABB, AABBValue } from './axis-aligned-bounds';
 
-/** @internal */ const _ASSERT = false;
-/** @internal */ const math_max = Math.max;
+const aabbExtension = 10;
+const aabbMultiplier = 2;
 
 export type DynamicTreeQueryCallback = (nodeId: number) => boolean;
 
@@ -32,15 +31,10 @@ export class TreeNode<T> {
   child1: TreeNode<T> = null;
   child2: TreeNode<T> = null;
   /** 0: leaf, -1: free node */
-  height: number = -1;
+  height = -1;
 
   constructor(id?: number) {
     this.id = id;
-  }
-
-  /** @internal */
-  toString(): string {
-    return this.id + ': ' + this.userData;
   }
 
   isLeaf(): boolean {
@@ -48,7 +42,7 @@ export class TreeNode<T> {
   }
 }
 
-/** @internal */ const poolTreeNode = new Pool<TreeNode<any>>({
+const poolTreeNode = new Pool<TreeNode<any>>({
   create(): TreeNode<any> {
     return new TreeNode();
   },
@@ -94,7 +88,6 @@ export class DynamicTree<T> {
   getUserData(id: number): T {
     const node = this.m_nodes[id];
 
-    if (_ASSERT) console.assert(!!node);
     return node.userData;
   }
 
@@ -106,7 +99,6 @@ export class DynamicTree<T> {
   getFatAABB(id: number): AABB {
     const node = this.m_nodes[id];
 
-    if (_ASSERT) console.assert(!!node);
     return node.aabb;
   }
 
@@ -119,7 +111,6 @@ export class DynamicTree<T> {
   }
 
   freeNode(node: TreeNode<T>): void {
-    // tslint:disable-next-line:no-dynamic-delete
     delete this.m_nodes[node.id];
     poolTreeNode.release(node);
   }
@@ -131,14 +122,12 @@ export class DynamicTree<T> {
    * Create a proxy. Provide a tight fitting AABB and a userData pointer.
    */
   createProxy(aabb: AABBValue, userData: T): number {
-    if (_ASSERT) console.assert(AABB.isValid(aabb));
-
     const node = this.allocateNode();
 
     node.aabb.set(aabb);
 
     // Fatten the aabb.
-    AABB.extend(node.aabb, Settings.aabbExtension);
+    AABB.extend(node.aabb, aabbExtension);
 
     node.userData = userData;
     node.height = 0;
@@ -154,10 +143,6 @@ export class DynamicTree<T> {
   destroyProxy(id: number): void {
     const node = this.m_nodes[id];
 
-    if (_ASSERT) console.assert(!!node);
-
-    if (_ASSERT) console.assert(node.isLeaf());
-
     this.removeLeaf(node);
     this.freeNode(node);
   }
@@ -172,15 +157,7 @@ export class DynamicTree<T> {
    * @return true if the proxy was re-inserted.
    */
   moveProxy(id: number, aabb: AABBValue, d: Vec2Value): boolean {
-    if (_ASSERT) console.assert(AABB.isValid(aabb));
-
-    if (_ASSERT) console.assert(!d || Vec2.isValid(d));
-
     const node = this.m_nodes[id];
-
-    if (_ASSERT) console.assert(!!node);
-
-    if (_ASSERT) console.assert(node.isLeaf());
 
     if (node.aabb.contains(aabb)) {
       return false;
@@ -192,21 +169,20 @@ export class DynamicTree<T> {
 
     // Extend AABB.
     aabb = node.aabb;
-    AABB.extend(aabb, Settings.aabbExtension);
+    AABB.extend(aabb, aabbExtension);
 
     // Predict AABB displacement.
-    // const d = Vec2.mul(Settings.aabbMultiplier, displacement);
 
-    if (d.x < 0.0) {
-      aabb.lowerBound.x += d.x * Settings.aabbMultiplier;
+    if (d.x < 0) {
+      aabb.lowerBound.x += d.x * aabbMultiplier;
     } else {
-      aabb.upperBound.x += d.x * Settings.aabbMultiplier;
+      aabb.upperBound.x += d.x * aabbMultiplier;
     }
 
-    if (d.y < 0.0) {
-      aabb.lowerBound.y += d.y * Settings.aabbMultiplier;
+    if (d.y < 0) {
+      aabb.lowerBound.y += d.y * aabbMultiplier;
     } else {
-      aabb.upperBound.y += d.y * Settings.aabbMultiplier;
+      aabb.upperBound.y += d.y * aabbMultiplier;
     }
 
     this.insertLeaf(node);
@@ -215,8 +191,6 @@ export class DynamicTree<T> {
   }
 
   insertLeaf(leaf: TreeNode<T>): void {
-    if (_ASSERT) console.assert(AABB.isValid(leaf.aabb));
-
     if (this.m_root == null) {
       this.m_root = leaf;
       this.m_root.parent = null;
@@ -236,10 +210,10 @@ export class DynamicTree<T> {
       const combinedArea = AABB.combinedPerimeter(index.aabb, leafAABB);
 
       // Cost of creating a new parent for this node and the new leaf
-      const cost = 2.0 * combinedArea;
+      const cost = 2 * combinedArea;
 
       // Minimum cost of pushing the leaf further down the tree
-      const inheritanceCost = 2.0 * (combinedArea - area);
+      const inheritanceCost = 2 * (combinedArea - area);
 
       // Cost of descending into child1
       const newArea1 = AABB.combinedPerimeter(leafAABB, child1.aabb);
@@ -315,17 +289,11 @@ export class DynamicTree<T> {
       const child1 = index.child1;
       const child2 = index.child2;
 
-      if (_ASSERT) console.assert(child1 != null);
-
-      if (_ASSERT) console.assert(child2 != null);
-
-      index.height = 1 + math_max(child1.height, child2.height);
+      index.height = 1 + Math.max(child1.height, child2.height);
       index.aabb.combine(child1.aabb, child2.aabb);
 
       index = index.parent;
     }
-
-    // validate();
   }
 
   removeLeaf(leaf: TreeNode<T>): void {
@@ -364,7 +332,7 @@ export class DynamicTree<T> {
         const child2 = index.child2;
 
         index.aabb.combine(child1.aabb, child2.aabb);
-        index.height = 1 + math_max(child1.height, child2.height);
+        index.height = 1 + Math.max(child1.height, child2.height);
 
         index = index.parent;
       }
@@ -373,8 +341,6 @@ export class DynamicTree<T> {
       sibling.parent = null;
       this.freeNode(parent);
     }
-
-    // validate();
   }
 
   /**
@@ -382,8 +348,6 @@ export class DynamicTree<T> {
    * root index.
    */
   balance(iA: TreeNode<T>): TreeNode<T> {
-    if (_ASSERT) console.assert(iA != null);
-
     const A = iA;
 
     if (A.isLeaf() || A.height < 2) {
@@ -424,8 +388,8 @@ export class DynamicTree<T> {
         A.aabb.combine(B.aabb, G.aabb);
         C.aabb.combine(A.aabb, F.aabb);
 
-        A.height = 1 + math_max(B.height, G.height);
-        C.height = 1 + math_max(A.height, F.height);
+        A.height = 1 + Math.max(B.height, G.height);
+        C.height = 1 + Math.max(A.height, F.height);
       } else {
         C.child2 = G;
         A.child2 = F;
@@ -433,8 +397,8 @@ export class DynamicTree<T> {
         A.aabb.combine(B.aabb, F.aabb);
         C.aabb.combine(A.aabb, G.aabb);
 
-        A.height = 1 + math_max(B.height, F.height);
-        C.height = 1 + math_max(A.height, G.height);
+        A.height = 1 + Math.max(B.height, F.height);
+        C.height = 1 + Math.max(A.height, G.height);
       }
 
       return C;
@@ -469,8 +433,8 @@ export class DynamicTree<T> {
         A.aabb.combine(C.aabb, E.aabb);
         B.aabb.combine(A.aabb, D.aabb);
 
-        A.height = 1 + math_max(C.height, E.height);
-        B.height = 1 + math_max(A.height, D.height);
+        A.height = 1 + Math.max(C.height, E.height);
+        B.height = 1 + Math.max(A.height, D.height);
       } else {
         B.child2 = E;
         A.child1 = D;
@@ -478,8 +442,8 @@ export class DynamicTree<T> {
         A.aabb.combine(C.aabb, D.aabb);
         B.aabb.combine(A.aabb, E.aabb);
 
-        A.height = 1 + math_max(C.height, D.height);
-        B.height = 1 + math_max(A.height, E.height);
+        A.height = 1 + Math.max(C.height, D.height);
+        B.height = 1 + Math.max(A.height, E.height);
       }
 
       return B;
@@ -493,7 +457,6 @@ export class DynamicTree<T> {
    * proxy that overlaps the supplied AABB.
    */
   query(aabb: AABBValue, queryCallback: DynamicTreeQueryCallback): void {
-    if (_ASSERT) console.assert(typeof queryCallback === 'function');
     const stack = this.stackPool.allocate();
 
     stack.push(this.m_root);

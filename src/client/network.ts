@@ -9,7 +9,7 @@ import {
 import { createRandom } from '../shared/seeded-random';
 import { addPlayer, createWorld } from '../shared/simulation/world';
 import { createAsteroid } from '../shared/simulation/asteroid';
-import { createItem } from '../shared/items/create-item';
+import { itemTypes } from '../shared/items';
 import { GameObject } from '../shared/game-object';
 import { Craft } from '../shared/craft/craft';
 import { Ship } from '../shared/craft/ship';
@@ -20,7 +20,7 @@ import { createStation } from '../shared/craft/create-station';
 import { type SimulationWorld } from '../shared/simulation/world';
 import { PredictionManager } from './prediction';
 import { RemoteMotion } from './remote-motion';
-import { simulationStep } from '../shared/simulation/update-tier';
+import { simulationStep } from '../shared/settings';
 import { setCraftActionDispatcher } from './craft-actions';
 import { type CraftAction } from '../shared/protocol/network';
 import { shadesOf } from '../shared/colors';
@@ -46,6 +46,7 @@ const makeEntity = ({
   const wireVelocity = entity.velocity;
   const common = {
     world,
+    ...(entity.friction !== undefined && { friction: entity.friction }),
     ...(entity.health !== undefined && { health: entity.health }),
     ...(entity.label !== undefined && { label: entity.label }),
     id: entity.id,
@@ -58,30 +59,40 @@ const makeEntity = ({
     velocity: Vector(wireVelocity.x, wireVelocity.y),
   };
 
-  if (entity.kind === 'object') return new GameObject(common);
+  const withFriction = <T extends GameObject>(object: T): T => {
+    object.friction =
+      entity.friction ?? (object.constructor as typeof GameObject).friction;
+    return object;
+  };
+
+  if (entity.kind === 'object') return withFriction(new GameObject(common));
 
   if (entity.kind === 'asteroid') {
-    return Object.assign(
-      createAsteroid(world, {
-        ...entity,
-        ...common,
-        contents: entity.contents || [],
-        health: entity.health ?? entity.radius * 2,
-        maxHealth: entity.maxHealth || entity.radius * 2,
-      }),
-      { pendingUpdateTime: common.pendingUpdateTime },
+    return withFriction(
+      Object.assign(
+        createAsteroid(world, {
+          ...entity,
+          ...common,
+          contents: entity.contents || [],
+          health: entity.health ?? entity.radius * 2,
+          maxHealth: entity.maxHealth || entity.radius * 2,
+        }),
+        { pendingUpdateTime: common.pendingUpdateTime },
+      ),
     );
   }
 
   if (entity.kind === 'item') {
-    return Object.assign(
-      createItem(world, {
-        id: common.id,
-        position: common.position,
-        resource: entity.resource || 0,
-        velocity: common.velocity,
-      }),
-      common,
+    return withFriction(
+      Object.assign(
+        new itemTypes[entity.resource || 0]({
+          world,
+          id: common.id,
+          position: common.position,
+          velocity: common.velocity,
+        }),
+        common,
+      ),
     );
   }
   const wreckage = entity.wreckage;
@@ -144,7 +155,7 @@ const makeEntity = ({
       : makeEntity({ entity: object, world }),
   );
 
-  return ship;
+  return withFriction(ship);
 };
 
 export class NetworkClient {

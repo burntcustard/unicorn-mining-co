@@ -20,10 +20,7 @@ export const controlShip = (
   input: PlayerInput,
   events: SimulationEvent[],
 ) => {
-  if (input.launch) {
-    ship.dockedTo = undefined;
-    ship.launching = 3;
-  }
+  if (input.launch) ship.launch();
   ship.fly(
     ship.launching || input.launch ? 1 : Math.max(0, Math.min(1, input.thrust)),
     Math.max(-1, Math.min(1, input.turn)),

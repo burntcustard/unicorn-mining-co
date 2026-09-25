@@ -1,5 +1,6 @@
 import { Vector, type Vector as VectorValue } from './vector';
 import { type Mount, type Outline, type Point } from './types';
+import { radiusOf } from './polygon';
 
 export const rotatePoint = ({ x, y }: VectorValue, angle: number) => {
   const sin = Math.sin(angle);
@@ -40,6 +41,15 @@ export const rotatePoints = (
     return [position.x + point.x, position.y + point.y] as Point;
   }) as Outline;
 
+// Midpoint and farthest-point distance for a nonempty outline.
+export const outlineExtent = (points: Outline) => {
+  const middle = points
+    .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
+    .map((total) => total / points.length) as Point;
+
+  return { middle, reach: radiusOf(points, middle) };
+};
+
 /**
  * Work out a piece's shading geometry once when it is built.
  * Points are relative to the mount's position on the craft.
@@ -48,9 +58,7 @@ export const shapeOf = (
   points: Outline,
   mount: Pick<Mount, 'localPosition'> = { localPosition: Vector() },
 ) => {
-  const middle = points
-    .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
-    .map((total) => total / points.length) as Point;
+  const { middle, reach } = outlineExtent(points);
 
   return {
     // Which way the piece looks, taken as the way out from the middle of the
@@ -62,8 +70,6 @@ export const shapeOf = (
     middle,
     // How far it reaches from its own middle, which is how wide its shading
     // has to run
-    reach: Math.max(
-      ...points.map(([x, y]) => Math.hypot(x - middle[0], y - middle[1])),
-    ),
+    reach,
   };
 };

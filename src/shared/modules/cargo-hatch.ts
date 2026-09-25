@@ -1,14 +1,30 @@
 import { colors } from '../colors';
 import { Module } from './module';
-import { type Contact } from '../collision/types';
+import { type Collider, type Contact } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
 import { type SimulationWorld } from '../simulation/world';
 import { type Ship } from '../craft/ship';
 import { Item } from '../items/item';
+import { type GameObject } from '../game-object';
 
 const cargoHatchLength = 16;
 const cargoHatchOpenAngle = 2.5;
 const cargoHatchDoorWidth = 1.5;
+
+export const cargoContactAllowed = (self: Collider, other: Collider) =>
+  (self.pickupPoint === true && other.role === 'cargoHatch') ||
+  (self.role === 'cargoHatch' && other.pickupPoint === true);
+
+export const cargoPickupPoint = (item: GameObject): Collider => ({
+  owner: item,
+  position: item.position,
+  radius: 0,
+  rotation: item.rotation,
+  physics: false,
+  friction: item.friction,
+  pickupPoint: true,
+  contactFilter: cargoContactAllowed,
+});
 
 export const cargoHatchGeometry = {
   doorRadius: cargoHatchLength * 2,
@@ -103,11 +119,12 @@ export class CargoHatch extends Module {
           : undefined;
 
     if (!throat) return;
-    const item = (throat === collider ? other : collider).owner;
+    const pickup = throat === collider ? other : collider;
+    const item = pickup.owner;
 
     if (
       !(item instanceof Item) ||
-      !(throat === collider ? other : collider).pickupPoint ||
+      !cargoContactAllowed(throat, pickup) ||
       ship.playerId === undefined ||
       !ship.moduleActive({ module: CargoHatch }) ||
       !world.entities.has(item.id) ||

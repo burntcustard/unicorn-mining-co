@@ -14,8 +14,8 @@ import {
 } from '../src/shared/simulation/world';
 import { createShip } from '../src/shared/craft/create-ship';
 import { createStation } from '../src/shared/craft/create-station';
-import { createItem } from '../src/shared/items/create-item';
-import { cloneEntity } from '../src/shared/serializer/simulation-world-state';
+import { Diamond } from '../src/shared/items';
+import { cloneEntity } from '../src/shared/simulation/world-state';
 import { updateWorld } from '../src/shared/simulation/update-world';
 import { PredictionManager } from '../src/client/prediction';
 import { RemoteMotion } from '../src/client/remote-motion';
@@ -24,10 +24,7 @@ import { Vector } from '../src/shared/vector';
 import { detectCollisions } from '../src/shared/collision/detect-collisions';
 import { GameObject } from '../src/shared/game-object';
 import { CargoHatch } from '../src/shared/modules/cargo-hatch';
-import {
-  simulationStep,
-  updateTiers,
-} from '../src/shared/simulation/update-tier';
+import { simulationStep, updateTiers } from '../src/shared/settings';
 
 // Scenery and loose cargo need render-rate poses too, including the slow tier.
 {
@@ -39,7 +36,7 @@ import {
   );
   const item = addEntity(
     world,
-    createItem(world, { id: 3, position: Vector(800), resource: 0 }),
+    new Diamond({ world, id: 3, position: Vector(800) }),
   );
   const station = addEntity(
     world,
@@ -305,9 +302,7 @@ for (const correction of ['credits', 'cargo'] as const) {
   if (correction === 'credits') {
     authoritative.credits += CargoHatch.price;
   } else {
-    authoritative.cargoContents.push(
-      createItem(world, { id: 1000, resource: 0 }),
-    );
+    authoritative.cargoContents.push(new Diamond({ world, id: 1000 }));
   }
   prediction.step({ input: emptyPlayerInput(), send() {} });
   prediction.reconcile({ tick: 2, entities: [authoritative] });

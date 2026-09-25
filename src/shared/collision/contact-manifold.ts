@@ -11,47 +11,24 @@
  */
 
 import * as matrix from '../common/physics-matrix';
-import { Vec2Value } from '../common/physics-vector';
+import { Vec2Value } from '../vector';
 import { TransformValue } from '../common/physics-transform';
-import { EPSILON } from '../common/physics-math';
 
-/** @internal */ const math_sqrt = Math.sqrt;
+const pointA = matrix.vec2(0, 0);
+const pointB = matrix.vec2(0, 0);
+const temp = matrix.vec2(0, 0);
+const cA = matrix.vec2(0, 0);
+const cB = matrix.vec2(0, 0);
+const dist = matrix.vec2(0, 0);
+const planePoint = matrix.vec2(0, 0);
+const clipPoint = matrix.vec2(0, 0);
+const minimumCircleNormalSquared = 1e-18;
 
-/** @internal */ const pointA = matrix.vec2(0, 0);
-/** @internal */ const pointB = matrix.vec2(0, 0);
-/** @internal */ const temp = matrix.vec2(0, 0);
-/** @internal */ const cA = matrix.vec2(0, 0);
-/** @internal */ const cB = matrix.vec2(0, 0);
-/** @internal */ const dist = matrix.vec2(0, 0);
-/** @internal */ const planePoint = matrix.vec2(0, 0);
-/** @internal */ const clipPoint = matrix.vec2(0, 0);
+export type ManifoldType = 'circles' | 'faceA' | 'faceB' | undefined;
 
-export enum ManifoldType {
-  e_unset = -1,
-  e_circles = 0,
-  e_faceA = 1,
-  e_faceB = 2,
-}
-
-export enum ContactFeatureType {
-  e_unset = -1,
-  e_vertex = 0,
-  e_face = 1,
-}
-
-/**
- * This is used for determining the state of contact points.
- */
-export enum PointState {
-  /** Point does not exist */
-  nullState = 0,
-  /** Point was added in the update */
-  addState = 1,
-  /** Point persisted across the update */
-  persistState = 2,
-  /** Point was removed in the update */
-  removeState = 3,
-}
+export const vertexFeature = 0;
+export const faceFeature = 1;
+type ContactFeatureType = typeof vertexFeature | typeof faceFeature;
 
 /**
  * Used for computing contact manifolds.
@@ -105,7 +82,7 @@ export class Manifold {
   points: ManifoldPoint[] = [new ManifoldPoint(), new ManifoldPoint()];
 
   /** The number of manifold points */
-  pointCount: number = 0;
+  pointCount = 0;
 
   set(that: Manifold): void {
     this.type = that.type;
@@ -117,7 +94,7 @@ export class Manifold {
   }
 
   recycle(): void {
-    this.type = ManifoldType.e_unset;
+    this.type = undefined;
     matrix.zeroVec2(this.localNormal);
     matrix.zeroVec2(this.localPoint);
     this.pointCount = 0;
@@ -137,7 +114,7 @@ export class Manifold {
     xfB: TransformValue,
     radiusB: number,
   ): WorldManifold {
-    if (this.pointCount == 0) {
+    if (this.pointCount === 0) {
       return wm;
     }
 
@@ -150,8 +127,8 @@ export class Manifold {
     const separations = wm.separations;
 
     switch (this.type) {
-      case ManifoldType.e_circles: {
-        matrix.setVec2(normal, 1.0, 0.0);
+      case 'circles': {
+        matrix.setVec2(normal, 1, 0);
         const manifoldPoint = this.points[0];
 
         matrix.transformVec2(pointA, xfA, this.localPoint);
@@ -159,8 +136,8 @@ export class Manifold {
         matrix.subVec2(dist, pointB, pointA);
         const lengthSqr = matrix.lengthSqrVec2(dist);
 
-        if (lengthSqr > EPSILON * EPSILON) {
-          const length = math_sqrt(lengthSqr);
+        if (lengthSqr > minimumCircleNormalSquared) {
+          const length = Math.sqrt(lengthSqr);
 
           matrix.scaleVec2(normal, 1 / length, dist);
         }
@@ -171,7 +148,7 @@ export class Manifold {
         break;
       }
 
-      case ManifoldType.e_faceA: {
+      case 'faceA': {
         matrix.rotVec2(normal, xfA.q, this.localNormal);
         matrix.transformVec2(planePoint, xfA, this.localPoint);
 
@@ -197,7 +174,7 @@ export class Manifold {
         break;
       }
 
-      case ManifoldType.e_faceB: {
+      case 'faceB': {
         matrix.rotVec2(normal, xfB.q, this.localNormal);
         matrix.transformVec2(planePoint, xfB, this.localPoint);
 
@@ -228,11 +205,6 @@ export class Manifold {
 
     return wm;
   }
-
-  static clipSegmentToLine = clipSegmentToLine;
-  static ClipVertex = ClipVertex;
-  static getPointStates = getPointStates;
-  static PointState = PointState;
 }
 
 /**
@@ -255,11 +227,9 @@ export class ManifoldPoint {
   /**
    * The non-penetration impulse
    */
-  normalImpulse = 0;
   /**
    * The friction impulse
    */
-  tangentImpulse = 0;
   /**
    * Uniquely identifies a contact point between two shapes to facilitate warm starting
    */
@@ -267,15 +237,11 @@ export class ManifoldPoint {
 
   set(that: ManifoldPoint): void {
     matrix.copyVec2(this.localPoint, that.localPoint);
-    this.normalImpulse = that.normalImpulse;
-    this.tangentImpulse = that.tangentImpulse;
     this.id.set(that.id);
   }
 
   recycle(): void {
     matrix.zeroVec2(this.localPoint);
-    this.normalImpulse = 0;
-    this.tangentImpulse = 0;
     this.id.recycle();
   }
 }
@@ -298,10 +264,10 @@ export class ContactID {
   indexB = -1;
 
   /** ContactFeature type on shapeA */
-  typeA = ContactFeatureType.e_unset;
+  typeA: ContactFeatureType | -1 = -1;
 
   /** ContactFeature type on shapeB */
-  typeB = ContactFeatureType.e_unset;
+  typeB: ContactFeatureType | -1 = -1;
 
   setFeatures(
     indexA: number,
@@ -343,8 +309,8 @@ export class ContactID {
   recycle(): void {
     this.indexA = 0;
     this.indexB = 0;
-    this.typeA = ContactFeatureType.e_unset;
-    this.typeB = ContactFeatureType.e_unset;
+    this.typeA = -1;
+    this.typeB = -1;
     this.key = -1;
   }
 }
@@ -376,53 +342,6 @@ export class WorldManifold {
 }
 
 /**
- * Compute the point states given two manifolds. The states pertain to the
- * transition from manifold1 to manifold2. So state1 is either persist or remove
- * while state2 is either add or persist.
- */
-export function getPointStates(
-  state1: PointState[],
-  state2: PointState[],
-  manifold1: Manifold,
-  manifold2: Manifold,
-): void {
-  // state1, state2: PointState[Settings.maxManifoldPoints]
-
-  // for (var i = 0; i < Settings.maxManifoldPoints; ++i) {
-  // state1[i] = PointState.nullState;
-  // state2[i] = PointState.nullState;
-  // }
-
-  // Detect persists and removes.
-  for (let i = 0; i < manifold1.pointCount; ++i) {
-    const id = manifold1.points[i].id;
-
-    state1[i] = PointState.removeState;
-
-    for (let j = 0; j < manifold2.pointCount; ++j) {
-      if (manifold2.points[j].id.key === id.key) {
-        state1[i] = PointState.persistState;
-        break;
-      }
-    }
-  }
-
-  // Detect persists and adds.
-  for (let i = 0; i < manifold2.pointCount; ++i) {
-    const id = manifold2.points[i].id;
-
-    state2[i] = PointState.addState;
-
-    for (let j = 0; j < manifold1.pointCount; ++j) {
-      if (manifold1.points[j].id.key === id.key) {
-        state2[i] = PointState.persistState;
-        break;
-      }
-    }
-  }
-}
-
-/**
  * Clipping for contact manifolds. Sutherland-Hodgman clipping.
  */
 export function clipSegmentToLine(
@@ -440,12 +359,12 @@ export function clipSegmentToLine(
   const distance1 = matrix.dotVec2(normal, vIn[1].v) - offset;
 
   // If the points are behind the plane
-  if (distance0 <= 0.0) vOut[numOut++].set(vIn[0]);
+  if (distance0 <= 0) vOut[numOut++].set(vIn[0]);
 
-  if (distance1 <= 0.0) vOut[numOut++].set(vIn[1]);
+  if (distance1 <= 0) vOut[numOut++].set(vIn[1]);
 
   // If the points are on different sides of the plane
-  if (distance0 * distance1 < 0.0) {
+  if (distance0 * distance1 < 0) {
     // Find intersection point of edge and plane
     const interp = distance0 / (distance0 - distance1);
 
@@ -454,9 +373,9 @@ export function clipSegmentToLine(
     // VertexA is hitting edgeB.
     vOut[numOut].id.setFeatures(
       vertexIndexA,
-      ContactFeatureType.e_vertex,
+      vertexFeature,
       vIn[0].id.indexB,
-      ContactFeatureType.e_face,
+      faceFeature,
     );
     ++numOut;
   }

@@ -18,7 +18,6 @@ import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl,
 import { Item } from '${process.cwd()}/src/shared/items/item.ts';
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/craft-actions.ts';
 import { adoptPlayerShip, paintUnlocked, playerShip, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
-import { launch } from '${process.cwd()}/src/shared/simulation/docking.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { colors } from '${process.cwd()}/src/shared/colors.ts';
 import { Vector } from '${process.cwd()}/src/shared/vector.ts';
@@ -51,8 +50,10 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().
 
 const ship = new Mustang({ shades: colors.white, credits: 10000 });
 const pendingSales = [];
+const pendingRepairs = [];
 setCraftActionDispatcher(action => {
   if (action.action === 'sell') pendingSales.push(action);
+  if (action.action === 'repair') pendingRepairs.push(action);
 });
 const settleSale = () => {
   const request = pendingSales.shift();
@@ -95,6 +96,11 @@ const check = (selected, Message) => {
 
 move(2); confirm(); move(1); confirm();
 check(second, 'before equip');
+move(1);
+assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
+  'down from EQUIP jumps directly to the paint row');
+move(-1);
+assert(selectionSnapshot(ship)[3] === 0, 'up from paint returns to EQUIP');
 confirm();
 assert(mount.module === second, 'equip second instance');
 check(second, 'after equip');
@@ -132,19 +138,29 @@ assert(!ship.cargoContents.length && ship.modules[0] === first, 'fitting preserv
 // Buy through the menu, paint, repair, and remove the exact purchased instance.
 back(ship); move(-100); move(2); confirm(); confirm();
 const beforeBuy = ship.credits;
+move(1);
+assert(selectionSnapshot(ship)[3] === 1, 'down from BUY reaches BACK');
+move(-1);
 confirm();
 const bought = ship.modules[1];
 assert(bought.constructor === CargoHatch && bought !== first, 'purchase appends a fresh instance');
 assert(ship.credits === beforeBuy - CargoHatch.price, 'purchase debits once');
 move(1);
-assert(selectionSnapshot()[3] === 2, 'down reaches BACK after buying');
+assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
+  'down from EQUIP after buying reaches the paint row');
 move(-1);
+assert(selectionSnapshot(ship)[3] === 0, 'up from paint returns to EQUIP after buying');
 confirm();
 assert(mount.module === bought && !ship.cargoContents.length, 'new purchase fits');
 // Navigation skips locked colours: a new pilot has only pink and white.
 assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
 move(1);
 assert(selectionSnapshot()[3] === 1, 'down reaches BACK after equipping');
+move(1);
+assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
+  'down from BACK reaches the paint row');
+move(-1);
+assert(selectionSnapshot(ship)[3] === 1, 'up from paint returns to BACK');
 move(1); moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.violet, 'first unlocked paint is pink');
 moveSubSelection(1, ship); confirm();
@@ -170,6 +186,9 @@ assert(selectionSnapshot(ship)[3] === 2, 'up from paints skips disabled repair f
 ship.credits = repairCredits; back(ship); confirm(); confirm();
 assert(mount.health === CargoHatch.health && ship.credits === repairCredits - 1,
   'module repair charges for displayed missing HP');
+assert.deepEqual(pendingRepairs.shift(),
+  {action: 'repair', moduleId: bought.id, mount: ship.mounts.indexOf(mount)},
+  'module repair sends its mounted instance');
 confirm();
 assert(!bought.mount && ship.cargoContents[0] === bought, 'removed instance becomes cargo');
 
@@ -226,6 +245,8 @@ confirm();
 assert(lowerMount.hull.health === lowerMount.hull.module.health, 'hull repair');
 assert(ship.credits === hullRepairCredits - hullMaxHealth + (hullHealth | 0),
   'hull repair charges for displayed missing HP');
+assert.deepEqual(pendingRepairs.shift(), {action: 'repair'},
+  'hull repair sends its own dock action');
 const damaged = new Mustang({shades: colors.white});
 const spare = new CargoHatch();
 const lost = new CargoHatch();
@@ -313,7 +334,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
   const departing = new Mustang({shades: colors.white, position: Vector(100000, 100000)});
   const engine = new type();
   departing.cargoContents.push(engine); departing.fit(engine);
-  launch(departing);
+  departing.launch();
   let timer = 3;
   let expectedSpeed = 0;
   let expectedX = departing.position.x;
@@ -339,7 +360,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     assert(departing.segmentsAtMount(engine.mount).every(segment => segment.active === forward * Math.sqrt(fraction)),
       type.label + ': launch nozzle activation');
   }
-  launch(departing);
+  departing.launch();
   timer = 3;
   let expectedSpin = departing.spin;
   for (let frame = 0; frame < 180; frame++) {

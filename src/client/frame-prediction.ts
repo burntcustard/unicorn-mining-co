@@ -5,14 +5,14 @@ import {
   createWorld,
   type SimulationWorld,
 } from '../shared/simulation/world';
-import { simulationStep } from '../shared/simulation/update-tier';
+import { simulationStep } from '../shared/settings';
 import { updateWorld } from '../shared/simulation/update-world';
 import {
   captureWorld,
   cloneEntity,
   restoreWorld,
   type SimulationWorldState,
-} from '../shared/serializer/simulation-world-state';
+} from '../shared/simulation/world-state';
 
 /*
  * Predict the unfinished tick at display rate using the same gameplay/CCD as

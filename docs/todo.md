@@ -3,8 +3,9 @@
 ## High priority
 
 [x] Fix drilling particles coming from center of drill not contact point
-[ ] Fix things being slipperier than they should be, like the horn drill
-[ ] Combine Plank.js code with ours better, e.g. remove duplicate vector
+[x] Fix things being slipperier than they should be, like the horn drill
+[x] Combine Plank.js code with ours better, e.g. remove duplicate vector
+[x] Fix internal light or other players not revealing items
 
 ## MVP
 
@@ -29,6 +30,8 @@
 [ ] New UI v1
 [ ] Rewrite keyboard handler with full key strings
 [ ] Better text demo
+[ ] Create lower case versions of A-Z
+[ ] Create more symbols
 [ ] Add characters for lowercase and special chars
 [ ] Neaten up files, especially player.ts & vector.ts
 [ ] Better non-debug-only FPS counter with memory usage etc.
@@ -37,6 +40,8 @@
 [ ] Fix floodlight not revealing along its edge pixels
 [ ] Smoothly move camera to center of station again
 [ ] Ensure tests aren't overlapping with each other
+[ ] Swap 'FIX' with 'REPAIR' or 'Repair'
+[ ] Fix colors unlocked not saving on reconnect
 
 ## Big future things
 

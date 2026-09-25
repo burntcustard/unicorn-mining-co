@@ -1,4 +1,4 @@
-import { type Outline } from './types';
+import { type Outline, type Point } from './types';
 
 export interface PolygonOptions {
   // Number of corners and edges.
@@ -37,5 +37,5 @@ export const createPolygon = ({
     return [Math.cos(angle) * reach, Math.sin(angle) * reach];
   });
 
-export const radiusOf = (points: number[][]) =>
-  Math.max(...points.map(([x, y]) => Math.hypot(x, y)));
+export const radiusOf = (points: number[][], center: Point = [0, 0]) =>
+  Math.max(...points.map(([x, y]) => Math.hypot(x - center[0], y - center[1])));

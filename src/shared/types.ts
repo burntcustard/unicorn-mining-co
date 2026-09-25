@@ -5,15 +5,6 @@ export type Point = number[];
 export type Outline = Point[] & { edges?: boolean[] };
 export type Shades = readonly string[];
 
-export type GameObjectLike = {
-  [key: string]: any;
-  position: Vector;
-  velocity: Vector;
-  radius: number;
-  rotation: number;
-  hitbox?: () => unknown[];
-};
-
 export type ModuleSegmentPlan = {
   [key: string]: any;
   points?: Outline | ((segment: Segment) => Outline);

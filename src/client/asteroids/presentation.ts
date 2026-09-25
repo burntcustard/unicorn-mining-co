@@ -1,9 +1,11 @@
 import {
   centerOf,
   outlineOf,
+  outlinesFrom,
   type Asteroid,
 } from '../../shared/simulation/asteroid';
 import { Vector } from '../../shared/vector';
+import { rotatePoint } from '../../shared/geometry';
 import { createRenderedItem } from '../create-rendered-item';
 import { shapePath } from '../drawing';
 
@@ -37,9 +39,15 @@ export const presentation = ({
   let state = cache.get(asteroid);
 
   if (!state || state.key !== key) {
+    const path = new Path2D();
+    const outlines = asteroid.segments?.length
+      ? outlinesFrom(asteroid.segments)
+      : [outlineOf(asteroid)];
+
+    outlines.forEach((outline) => path.addPath(shapePath(outline)));
     state = {
       key,
-      path: shapePath(outlineOf(asteroid)),
+      path,
       buried:
         segments.flatMap((asteroidSegment) =>
           asteroidSegment.contents.map((resource, index) => ({
@@ -54,16 +62,8 @@ export const presentation = ({
   }
   asteroid.renderContents = state.buried.map(
     ({ item, localPosition, rotation }) => {
-      const cosine = Math.cos(pose.rotation),
-        sine = Math.sin(pose.rotation);
-
       item.position.set(
-        pose.position.add(
-          Vector(
-            localPosition.x * cosine - localPosition.y * sine,
-            localPosition.x * sine + localPosition.y * cosine,
-          ),
-        ),
+        pose.position.add(rotatePoint(localPosition, pose.rotation)),
       );
       item.rotation = rotation + pose.rotation;
       return item;

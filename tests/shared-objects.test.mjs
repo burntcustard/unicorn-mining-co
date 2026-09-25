@@ -20,10 +20,11 @@ import { Station } from '${process.cwd()}/src/shared/craft/station.ts';
 import { Diamond } from '${process.cwd()}/src/shared/items/diamond.ts';
 import { Item } from '${process.cwd()}/src/shared/items/item.ts';
 import { Asteroid } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
-import { moduleTypes, HornDrill } from '${process.cwd()}/src/shared/modules/index.ts';
+import { moduleTypes, HornDrill, SearchLight } from '${process.cwd()}/src/shared/modules/index.ts';
+import { colors } from '${process.cwd()}/src/shared/colors.ts';
 import { createWreckage } from '${process.cwd()}/src/shared/craft/create-wreckage.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/shared/simulation/world.ts';
-import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/shared/serializer/simulation-world-state.ts';
+import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/shared/simulation/world-state.ts';
 import { Vector } from '${process.cwd()}/src/shared/vector.ts';
 
 assert.equal(typeof document, 'undefined');
@@ -168,6 +169,31 @@ const wreckage = createWreckage({properties:{position:fragment.position,rotation
 assert.equal(wreckage.hitbox().length,fragment.hitbox().length);
 assert.deepEqual(wreckage.hitbox().map(segment=>segment.outline),fragment.hitbox().map(segment=>segment.outline),'replicated wreckage keeps its actual geometry');
 assert.equal(wreckage.cockpit,undefined,'wreckage must not materialise as a complete Mustang');
+for (const activationProgress of [0, 1]) {
+  const lightWorld = createWorld({seed:25});
+  const lightShip = addEntity(lightWorld,createShip(lightWorld,{shades:colors.cyan}));
+  const light = lightShip.modules.find(module=>module instanceof SearchLight);
+  const lightSegment = lightShip.segments.find(segment=>segment.module===light);
+
+  lightSegment.activationProgress = activationProgress;
+  lightShip.detach(light.mount);
+  const debris = [...lightWorld.entities.values()].find(entity=>entity!==lightShip && entity.decay);
+  const outline = debris.wreckage[0].outline;
+  const width = Math.max(...outline.map(([x])=>x)) - Math.min(...outline.map(([x])=>x));
+  const height = Math.max(...outline.map(([,y])=>y)) - Math.min(...outline.map(([,y])=>y));
+
+  assert.equal(width,8,'light debris is half the cargo door length');
+  assert.equal(height,3,'light debris keeps the cargo door width');
+  assert.equal(debris.wreckage[0].fillShade,2,'light debris keeps the lit color');
+  assert.deepEqual(debris.shades,colors.cyan,'light debris keeps the module palette');
+  const replicatedDebris = createWreckage({
+    properties:{shades:debris.shades,decay:debris.decay},
+    segments:debris.wreckage,
+  });
+  assert.deepEqual(replicatedDebris.hitbox()[0].outline,outline,'replicated light debris keeps its housing shape');
+  assert.equal(replicatedDebris.wreckage[0].fillShade,2,'replicated light debris keeps its bright shade');
+}
+
 console.log('Shared object hierarchy, flexible modules and rollback passed');
 `;
 

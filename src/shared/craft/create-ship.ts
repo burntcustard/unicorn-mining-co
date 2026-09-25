@@ -1,6 +1,6 @@
 import { Ship } from './ship';
 import { Mustang } from './ships/mustang';
-import { fitStarterModules } from './fit-starter-modules';
+import { ThrusterDualMd, CargoHatch, HornDrill, SearchLight } from '../modules';
 import { type SimulationWorld, entityId } from '../simulation/world';
 import { Vector, type Vector as VectorValue } from '../vector';
 import { type PlayerId } from '../protocol/entities';
@@ -26,16 +26,16 @@ export const createShip = (
   const ship = new Mustang({
     world,
     id,
-    mass: 9,
     playerId,
     position,
-    radius: 40,
     rotation,
     velocity,
     ...(shades && { shades }),
     credits: 500,
   });
 
-  fitStarterModules(ship);
+  [ThrusterDualMd, CargoHatch, CargoHatch, HornDrill, SearchLight].forEach(
+    (Type) => ship.fit(new Type()),
+  );
   return ship;
 };

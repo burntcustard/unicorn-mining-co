@@ -6,7 +6,7 @@ import {
   type ServerMessage,
 } from '../shared/protocol/network';
 import { type SimulationWorld } from '../shared/simulation/world';
-import { type GameObject } from '../shared/game-object';
+import { GameObject } from '../shared/game-object';
 import { Ship } from '../shared/craft/ship';
 import { Asteroid } from '../shared/simulation/asteroid';
 import { Item } from '../shared/items/item';
@@ -51,6 +51,10 @@ const replicateEntity = ({
   }),
   ...(entity instanceof Ship && { thrust: entity.thrust }),
   ...(entity instanceof Ship && { turn: entity.turn }),
+  ...(entity.friction !==
+    (entity.constructor as typeof GameObject).friction && {
+    friction: entity.friction,
+  }),
   ...('health' in entity && { health: entity.health }),
   ...('label' in entity && { label: entity.label }),
   ...('paint' in entity && { paint: entity.paint }),

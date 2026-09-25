@@ -8,6 +8,7 @@ import { type SimulationWorld } from './simulation/world';
 let nextId = -1;
 
 export class GameObject {
+  static friction = 0.01;
   [key: string]: any;
   id: number;
   position: VectorValue;
@@ -18,6 +19,7 @@ export class GameObject {
   angularInertiaScale = 1;
   mass = 0;
   physics = true;
+  friction = (this.constructor as typeof GameObject).friction;
   radius = 0;
   dead = false;
   pendingUpdateTime = 0;
@@ -82,6 +84,7 @@ export class GameObject {
             rotation: this.rotation,
             outline: this.outline,
             bounciness: this.bounciness,
+            friction: this.friction,
             physics: this.physics,
           },
         ];

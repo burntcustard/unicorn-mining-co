@@ -10,11 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Vec2, Vec2Value } from '../common/physics-vector';
-
-/** @internal */ const _ASSERT = false;
-/** @internal */ const math_max = Math.max;
-/** @internal */ const math_min = Math.min;
+import { Vec2, Vec2Value } from '../vector';
 
 /** Axis-aligned bounding box */
 export interface AABBValue {
@@ -27,61 +23,9 @@ export class AABB {
   lowerBound: Vec2;
   upperBound: Vec2;
 
-  constructor(lower?: Vec2Value, upper?: Vec2Value) {
+  constructor() {
     this.lowerBound = Vec2.zero();
     this.upperBound = Vec2.zero();
-
-    if (typeof lower === 'object') {
-      this.lowerBound.setVec2(lower);
-    }
-
-    if (typeof upper === 'object') {
-      this.upperBound.setVec2(upper);
-    } else if (typeof lower === 'object') {
-      this.upperBound.setVec2(lower);
-    }
-  }
-
-  /**
-   * Verify that the bounds are sorted.
-   */
-  isValid(): boolean {
-    return AABB.isValid(this);
-  }
-
-  static isValid(obj: any): boolean {
-    if (obj === null || typeof obj === 'undefined') {
-      return false;
-    }
-    return (
-      Vec2.isValid(obj.lowerBound) &&
-      Vec2.isValid(obj.upperBound) &&
-      Vec2.sub(obj.upperBound, obj.lowerBound).lengthSquared() >= 0
-    );
-  }
-
-  static assert(o: any): void {
-    if (_ASSERT) console.assert(!AABB.isValid(o), 'Invalid AABB!', o);
-  }
-
-  /**
-   * Get the center of the AABB.
-   */
-  getCenter(): Vec2 {
-    return Vec2.neo(
-      (this.lowerBound.x + this.upperBound.x) * 0.5,
-      (this.lowerBound.y + this.upperBound.y) * 0.5,
-    );
-  }
-
-  /**
-   * Get the extents of the AABB (half-widths).
-   */
-  getExtents(): Vec2 {
-    return Vec2.neo(
-      (this.upperBound.x - this.lowerBound.x) * 0.5,
-      (this.upperBound.y - this.lowerBound.y) * 0.5,
-    );
   }
 
   /**
@@ -89,7 +33,7 @@ export class AABB {
    */
   getPerimeter(): number {
     return (
-      2.0 *
+      2 *
       (this.upperBound.x -
         this.lowerBound.x +
         this.upperBound.y -
@@ -100,26 +44,19 @@ export class AABB {
   /**
    * Combine one or two AABB into this one.
    */
-  combine(a: AABBValue, b?: AABBValue): void {
-    b = b || this;
-
+  combine(a: AABBValue, b: AABBValue): void {
     const lowerA = a.lowerBound;
     const upperA = a.upperBound;
     const lowerB = b.lowerBound;
     const upperB = b.upperBound;
 
-    const lowerX = math_min(lowerA.x, lowerB.x);
-    const lowerY = math_min(lowerA.y, lowerB.y);
-    const upperX = math_max(upperB.x, upperA.x);
-    const upperY = math_max(upperB.y, upperA.y);
+    const lowerX = Math.min(lowerA.x, lowerB.x);
+    const lowerY = Math.min(lowerA.y, lowerB.y);
+    const upperX = Math.max(upperB.x, upperA.x);
+    const upperY = Math.max(upperB.y, upperA.y);
 
     this.lowerBound.setNum(lowerX, lowerY);
     this.upperBound.setNum(upperX, upperY);
-  }
-
-  combinePoints(a: Vec2Value, b: Vec2Value): void {
-    this.lowerBound.setNum(math_min(a.x, b.x), math_min(a.y, b.y));
-    this.upperBound.setNum(math_max(a.x, b.x), math_max(a.y, b.y));
   }
 
   set(aabb: AABBValue): void {
@@ -135,11 +72,6 @@ export class AABB {
     result = result && aabb.upperBound.x <= this.upperBound.x;
     result = result && aabb.upperBound.y <= this.upperBound.y;
     return result;
-  }
-
-  extend(value: number): AABB {
-    AABB.extend(this, value);
-    return this;
   }
 
   static extend(out: AABBValue, value: number): AABBValue {
@@ -163,53 +95,12 @@ export class AABB {
     return true;
   }
 
-  static areEqual(a: AABBValue, b: AABBValue): boolean {
-    return (
-      Vec2.areEqual(a.lowerBound, b.lowerBound) &&
-      Vec2.areEqual(a.upperBound, b.upperBound)
-    );
-  }
-
-  static diff(a: AABBValue, b: AABBValue): number {
-    const wD = math_max(
-      0,
-      math_min(a.upperBound.x, b.upperBound.x) -
-        math_max(b.lowerBound.x, a.lowerBound.x),
-    );
-    const hD = math_max(
-      0,
-      math_min(a.upperBound.y, b.upperBound.y) -
-        math_max(b.lowerBound.y, a.lowerBound.y),
-    );
-
-    const wA = a.upperBound.x - a.lowerBound.x;
-    const hA = a.upperBound.y - a.lowerBound.y;
-
-    const wB = b.upperBound.x - b.lowerBound.x;
-    const hB = b.upperBound.y - b.lowerBound.y;
-
-    return wA * hA + wB * hB - wD * hD;
-  }
-
-  /** @hidden */
-  toString(): string {
-    return JSON.stringify(this);
-  }
-
-  static combinePoints(out: AABBValue, a: Vec2Value, b: Vec2Value): AABBValue {
-    out.lowerBound.x = math_min(a.x, b.x);
-    out.lowerBound.y = math_min(a.y, b.y);
-    out.upperBound.x = math_max(a.x, b.x);
-    out.upperBound.y = math_max(a.y, b.y);
-    return out;
-  }
-
   static combinedPerimeter(a: AABBValue, b: AABBValue) {
-    const lx = math_min(a.lowerBound.x, b.lowerBound.x);
-    const ly = math_min(a.lowerBound.y, b.lowerBound.y);
-    const ux = math_max(a.upperBound.x, b.upperBound.x);
-    const uy = math_max(a.upperBound.y, b.upperBound.y);
+    const lx = Math.min(a.lowerBound.x, b.lowerBound.x);
+    const ly = Math.min(a.lowerBound.y, b.lowerBound.y);
+    const ux = Math.max(a.upperBound.x, b.upperBound.x);
+    const uy = Math.max(a.upperBound.y, b.upperBound.y);
 
-    return 2.0 * (ux - lx + uy - ly);
+    return 2 * (ux - lx + uy - ly);
   }
 }

@@ -12,52 +12,44 @@
 
 import { TransformValue } from '../../common/physics-transform';
 import * as matrix from '../../common/physics-matrix';
-import { SettingsInternal as Settings } from '../../common/engine-settings';
+import { linearSlop } from '../../settings';
 import {
   Manifold,
   clipSegmentToLine,
   ClipVertex,
-  ContactFeatureType,
-  ManifoldType,
+  faceFeature,
+  vertexFeature,
 } from '../contact-manifold';
 import { Contact } from '../../dynamics/collision-contact';
 import { PolygonShape } from './polygon-shape';
 import { Fixture } from '../../dynamics/collision-fixture';
 
-/** @internal */ const _ASSERT = false;
+const incidentEdge = [new ClipVertex(), new ClipVertex()];
+const clipPoints1 = [new ClipVertex(), new ClipVertex()];
+const clipPoints2 = [new ClipVertex(), new ClipVertex()];
+const clipSegmentToLineNormal = matrix.vec2(0, 0);
+const v1 = matrix.vec2(0, 0);
+const n = matrix.vec2(0, 0);
+const xf = matrix.transform(0, 0, 0);
+const v11 = matrix.vec2(0, 0);
+const v12 = matrix.vec2(0, 0);
+const localTangent = matrix.vec2(0, 0);
+const localNormal = matrix.vec2(0, 0);
+const planePoint = matrix.vec2(0, 0);
+const tangent = matrix.vec2(0, 0);
+const normal = matrix.vec2(0, 0);
+const normal1 = matrix.vec2(0, 0);
 
-/** @internal */ const incidentEdge = [new ClipVertex(), new ClipVertex()];
-/** @internal */ const clipPoints1 = [new ClipVertex(), new ClipVertex()];
-/** @internal */ const clipPoints2 = [new ClipVertex(), new ClipVertex()];
-/** @internal */ const clipSegmentToLineNormal = matrix.vec2(0, 0);
-/** @internal */ const v1 = matrix.vec2(0, 0);
-/** @internal */ const n = matrix.vec2(0, 0);
-/** @internal */ const xf = matrix.transform(0, 0, 0);
-/** @internal */ const _temp = matrix.vec2(0, 0);
-/** @internal */ const v11 = matrix.vec2(0, 0);
-/** @internal */ const v12 = matrix.vec2(0, 0);
-/** @internal */ const localTangent = matrix.vec2(0, 0);
-/** @internal */ const localNormal = matrix.vec2(0, 0);
-/** @internal */ const planePoint = matrix.vec2(0, 0);
-/** @internal */ const tangent = matrix.vec2(0, 0);
-/** @internal */ const normal = matrix.vec2(0, 0);
-/** @internal */ const normal1 = matrix.vec2(0, 0);
+Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, evaluatePolygonContact);
 
-Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, PolygonContact);
-
-/** @internal */ function PolygonContact(
+function evaluatePolygonContact(
   manifold: Manifold,
   xfA: TransformValue,
   fixtureA: Fixture,
-  indexA: number,
   xfB: TransformValue,
   fixtureB: Fixture,
-  _indexB: number,
 ): void {
-  if (_ASSERT) console.assert(fixtureA.getType() == PolygonShape.TYPE);
-
-  if (_ASSERT) console.assert(fixtureB.getType() == PolygonShape.TYPE);
-  CollidePolygons(
+  collidePolygons(
     manifold,
     fixtureA.getShape() as PolygonShape,
     xfA,
@@ -66,7 +58,7 @@ Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, PolygonContact);
   );
 }
 
-/** @internal */ interface MaxSeparation {
+interface MaxSeparation {
   maxSeparation: number;
   bestIndex: number;
 }
@@ -75,7 +67,7 @@ Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, PolygonContact);
  * Find the max separation between poly1 and poly2 using edge normals from
  * poly1.
  */
-/** @internal */ function findMaxSeparation(
+function findMaxSeparation(
   poly1: PolygonShape,
   xf1: TransformValue,
   poly2: PolygonShape,
@@ -120,7 +112,7 @@ Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, PolygonContact);
   output.bestIndex = bestIndex;
 }
 
-/** @internal */ function findIncidentEdge(
+function findIncidentEdge(
   clipVertex: ClipVertex[],
   poly1: PolygonShape,
   xf1: TransformValue,
@@ -133,8 +125,6 @@ Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, PolygonContact);
   const count2 = poly2.m_count;
   const vertices2 = poly2.m_vertices;
   const normals2 = poly2.m_normals;
-
-  if (_ASSERT) console.assert(0 <= edge1 && edge1 < poly1.m_count);
 
   // Get the normal of the reference edge in poly2's frame.
   matrix.rerotVec2(normal1, xf2.q, xf1.q, normals1[edge1]);
@@ -157,23 +147,13 @@ Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, PolygonContact);
   const i2 = i1 + 1 < count2 ? i1 + 1 : 0;
 
   matrix.transformVec2(clipVertex[0].v, xf2, vertices2[i1]);
-  clipVertex[0].id.setFeatures(
-    edge1,
-    ContactFeatureType.e_face,
-    i1,
-    ContactFeatureType.e_vertex,
-  );
+  clipVertex[0].id.setFeatures(edge1, faceFeature, i1, vertexFeature);
 
   matrix.transformVec2(clipVertex[1].v, xf2, vertices2[i2]);
-  clipVertex[1].id.setFeatures(
-    edge1,
-    ContactFeatureType.e_face,
-    i2,
-    ContactFeatureType.e_vertex,
-  );
+  clipVertex[1].id.setFeatures(edge1, faceFeature, i2, vertexFeature);
 }
 
-/** @internal */ const maxSeparation = {
+const maxSeparation = {
   maxSeparation: 0,
   bestIndex: 0,
 };
@@ -188,7 +168,7 @@ Contact.addType(PolygonShape.TYPE, PolygonShape.TYPE, PolygonContact);
  *
  * The normal points from 1 to 2
  */
-export const CollidePolygons = function (
+export function collidePolygons(
   manifold: Manifold,
   polyA: PolygonShape,
   xfA: TransformValue,
@@ -216,7 +196,7 @@ export const CollidePolygons = function (
   let xf2: TransformValue;
   let edge1: number; // reference edge
   let flip: boolean;
-  const k_tol = 0.1 * Settings.linearSlop;
+  const k_tol = 0.1 * linearSlop;
 
   if (separationB > separationA + k_tol) {
     poly1 = polyB;
@@ -224,7 +204,7 @@ export const CollidePolygons = function (
     xf1 = xfB;
     xf2 = xfA;
     edge1 = edgeB;
-    manifold.type = ManifoldType.e_faceB;
+    manifold.type = 'faceB';
     flip = true;
   } else {
     poly1 = polyA;
@@ -232,7 +212,7 @@ export const CollidePolygons = function (
     xf1 = xfA;
     xf2 = xfB;
     edge1 = edgeA;
-    manifold.type = ManifoldType.e_faceA;
+    manifold.type = 'faceA';
     flip = false;
   }
 
@@ -252,11 +232,11 @@ export const CollidePolygons = function (
   matrix.subVec2(localTangent, v12, v11);
   matrix.normalizeVec2(localTangent);
 
-  matrix.crossVec2Num(localNormal, localTangent, 1.0);
+  matrix.crossVec2Num(localNormal, localTangent, 1);
   matrix.combine2Vec2(planePoint, 0.5, v11, 0.5, v12);
 
   matrix.rotVec2(tangent, xf1.q, localTangent);
-  matrix.crossVec2Num(normal, tangent, 1.0);
+  matrix.crossVec2Num(normal, tangent, 1);
 
   matrix.transformVec2(v11, xf1, v11);
   matrix.transformVec2(v12, xf1, v12);
@@ -326,4 +306,4 @@ export const CollidePolygons = function (
   }
 
   manifold.pointCount = pointCount;
-};
+}

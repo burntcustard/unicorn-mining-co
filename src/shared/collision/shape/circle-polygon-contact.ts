@@ -11,35 +11,27 @@
  */
 
 import * as matrix from '../../common/physics-matrix';
-import { EPSILON } from '../../common/physics-math';
 import { TransformValue } from '../../common/physics-transform';
 import { Contact } from '../../dynamics/collision-contact';
 import { CircleShape } from './circle-shape';
 import { PolygonShape } from './polygon-shape';
-import {
-  Manifold,
-  ContactFeatureType,
-  ManifoldType,
-} from '../contact-manifold';
+import { Manifold, vertexFeature } from '../contact-manifold';
 import { Fixture } from '../../dynamics/collision-fixture';
 
-/** @internal */ const _ASSERT = false;
+Contact.addType(
+  PolygonShape.TYPE,
+  CircleShape.TYPE,
+  evaluatePolygonCircleContact,
+);
 
-Contact.addType(PolygonShape.TYPE, CircleShape.TYPE, PolygonCircleContact);
-
-/** @internal */ function PolygonCircleContact(
+function evaluatePolygonCircleContact(
   manifold: Manifold,
   xfA: TransformValue,
   fixtureA: Fixture,
-  indexA: number,
   xfB: TransformValue,
   fixtureB: Fixture,
-  _indexB: number,
 ): void {
-  if (_ASSERT) console.assert(fixtureA.getType() == PolygonShape.TYPE);
-
-  if (_ASSERT) console.assert(fixtureB.getType() == CircleShape.TYPE);
-  CollidePolygonCircle(
+  collidePolygonCircle(
     manifold,
     fixtureA.getShape() as PolygonShape,
     xfA,
@@ -48,10 +40,10 @@ Contact.addType(PolygonShape.TYPE, CircleShape.TYPE, PolygonCircleContact);
   );
 }
 
-/** @internal */ const cLocal = matrix.vec2(0, 0);
-/** @internal */ const faceCenter = matrix.vec2(0, 0);
+const cLocal = matrix.vec2(0, 0);
+const faceCenter = matrix.vec2(0, 0);
 
-export const CollidePolygonCircle = function (
+export function collidePolygonCircle(
   manifold: Manifold,
   polygonA: PolygonShape,
   xfA: TransformValue,
@@ -94,20 +86,14 @@ export const CollidePolygonCircle = function (
   const v2 = vertices[vertIndex2];
 
   // If the center is inside the polygon ...
-  if (separation < EPSILON) {
+  if (separation <= 0) {
     manifold.pointCount = 1;
-    manifold.type = ManifoldType.e_faceA;
+    manifold.type = 'faceA';
     matrix.copyVec2(manifold.localNormal, normals[normalIndex]);
     matrix.combine2Vec2(manifold.localPoint, 0.5, v1, 0.5, v2);
     matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
 
-    // manifold.points[0].id.key = 0;
-    manifold.points[0].id.setFeatures(
-      0,
-      ContactFeatureType.e_vertex,
-      0,
-      ContactFeatureType.e_vertex,
-    );
+    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
     return;
   }
 
@@ -125,44 +111,32 @@ export const CollidePolygonCircle = function (
     matrix.dotVec2(v2, v1) +
     matrix.dotVec2(v2, v2);
 
-  if (u1 <= 0.0) {
+  if (u1 <= 0) {
     if (matrix.distSqrVec2(cLocal, v1) > radius * radius) {
       return;
     }
 
     manifold.pointCount = 1;
-    manifold.type = ManifoldType.e_faceA;
+    manifold.type = 'faceA';
     matrix.subVec2(manifold.localNormal, cLocal, v1);
     matrix.normalizeVec2(manifold.localNormal);
     matrix.copyVec2(manifold.localPoint, v1);
     matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
 
-    // manifold.points[0].id.key = 0;
-    manifold.points[0].id.setFeatures(
-      0,
-      ContactFeatureType.e_vertex,
-      0,
-      ContactFeatureType.e_vertex,
-    );
-  } else if (u2 <= 0.0) {
+    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
+  } else if (u2 <= 0) {
     if (matrix.distSqrVec2(cLocal, v2) > radius * radius) {
       return;
     }
 
     manifold.pointCount = 1;
-    manifold.type = ManifoldType.e_faceA;
+    manifold.type = 'faceA';
     matrix.subVec2(manifold.localNormal, cLocal, v2);
     matrix.normalizeVec2(manifold.localNormal);
     matrix.copyVec2(manifold.localPoint, v2);
     matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
 
-    // manifold.points[0].id.key = 0;
-    manifold.points[0].id.setFeatures(
-      0,
-      ContactFeatureType.e_vertex,
-      0,
-      ContactFeatureType.e_vertex,
-    );
+    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
   } else {
     matrix.combine2Vec2(faceCenter, 0.5, v1, 0.5, v2);
     const separation =
@@ -174,17 +148,11 @@ export const CollidePolygonCircle = function (
     }
 
     manifold.pointCount = 1;
-    manifold.type = ManifoldType.e_faceA;
+    manifold.type = 'faceA';
     matrix.copyVec2(manifold.localNormal, normals[vertIndex1]);
     matrix.copyVec2(manifold.localPoint, faceCenter);
     matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
 
-    // manifold.points[0].id.key = 0;
-    manifold.points[0].id.setFeatures(
-      0,
-      ContactFeatureType.e_vertex,
-      0,
-      ContactFeatureType.e_vertex,
-    );
+    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
   }
-};
+}

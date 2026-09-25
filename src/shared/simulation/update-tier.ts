@@ -6,15 +6,7 @@ import { type InputFrame } from '../protocol/input-frame';
 import { type SimulationEvent } from '../protocol/events';
 import { controlShip } from '../craft/control-ship';
 import { Ship } from '../craft/ship';
-
-export const simulationStep = 1 / 30;
-// Authoritative ticks run at 30 Hz; client prediction can sample a partial tick.
-// Visible movement normally uses 1/60 s subdivisions, independent of rendering.
-// Replication sends nearby state at 30 Hz and distant state at 7.5 Hz.
-export const updateTiers = {
-  visible: { substeps: 2, updateEvery: 1, replicateEvery: 1 },
-  distant: { substeps: 1, updateEvery: 2, replicateEvery: 4 },
-} as const;
+import { simulationStep, updateTiers, visibleRange } from '../settings';
 
 /*
  * Nearby and on-screen objects share the same movement schedule.
@@ -27,7 +19,7 @@ export const updateTier = ({
   observers: Pick<GameObject, 'position'>[];
 }) => {
   return observers.some(
-    (observer) => entity.position.distanceTo(observer.position) <= 2000,
+    (observer) => entity.position.distanceTo(observer.position) <= visibleRange,
   )
     ? updateTiers.visible
     : updateTiers.distant;

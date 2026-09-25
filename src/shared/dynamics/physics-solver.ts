@@ -11,107 +11,56 @@
  */
 
 import * as matrix from '../common/physics-matrix';
-import { SettingsInternal as Settings } from '../common/engine-settings';
-import { EPSILON } from '../common/physics-math';
+import { linearSlop } from '../settings';
 import { Body } from './physics-body';
 import type { Contact } from './collision-contact';
 import {
-  TimeOfImpact,
-  TOIInput,
-  TOIOutput,
-  TOIOutputState,
+  findTimeOfImpact,
+  type TOIInput,
+  type TOIOutput,
 } from '../collision/time-of-impact';
+import { DistanceProxy } from '../collision/shape-distance';
 import { World } from './physics-world';
 import { Sweep } from '../common/motion-sweep';
 
-/** @internal */ const _ASSERT = false;
-/** @internal */ const math_abs = Math.abs;
-/** @internal */ const math_sqrt = Math.sqrt;
-/** @internal */ const math_min = Math.min;
+const maxTOISubsteps = 8;
+const toiEndTolerance = 1e-8;
+const maxTranslation = 200;
+const maxTranslationSquared = maxTranslation * maxTranslation;
+const maxRotation = 0.5 * Math.PI;
+const maxRotationSquared = maxRotation * maxRotation;
 
 export class TimeStep {
   /** time step */
-  dt: number = 0;
+  dt = 0;
   /** inverse time step (0 if dt == 0) */
-  inv_dt: number = 0;
-  velocityIterations: number = 0;
-  positionIterations: number = 0;
-  warmStarting: boolean = false;
-  blockSolve: boolean = true;
-
-  /** timestep ratio for variable timestep */
-  inv_dt0: number = 0.0;
-  /** dt * inv_dt0 */
-  dtRatio: number = 1;
+  inv_dt = 0;
+  velocityIterations = 0;
+  positionIterations = 0;
+  blockSolve = true;
 
   reset(dt: number): void {
-    if (this.dt > 0.0) {
-      this.inv_dt0 = this.inv_dt;
-    }
     this.dt = dt;
-    this.inv_dt = dt == 0 ? 0 : 1 / dt;
-    this.dtRatio = dt * this.inv_dt0;
+    this.inv_dt = dt === 0 ? 0 : 1 / dt;
   }
 }
 
 // reuse
-/** @internal */ const s_subStep = new TimeStep();
-/** @internal */ const c = matrix.vec2(0, 0);
-/** @internal */ const v = matrix.vec2(0, 0);
-/** @internal */ const translation = matrix.vec2(0, 0);
-/** @internal */ const input = new TOIInput();
-/** @internal */ const output = new TOIOutput();
-/** @internal */ const backup = new Sweep();
-/** @internal */ const backup1 = new Sweep();
-/** @internal */ const backup2 = new Sweep();
-
-/**
- * Contact impulses for reporting. Impulses are used instead of forces because
- * sub-step forces may approach infinity for rigid body collisions. These match
- * up one-to-one with the contact points in Manifold.
- */
-export class ContactImpulse {
-  // TODO: merge with Contact class?
-
-  private readonly contact: Contact;
-  private readonly normals: number[];
-  private readonly tangents: number[];
-
-  constructor(contact: Contact) {
-    this.contact = contact;
-    this.normals = [];
-    this.tangents = [];
-  }
-
-  recycle() {
-    this.normals.length = 0;
-    this.tangents.length = 0;
-  }
-
-  get normalImpulses(): number[] {
-    const contact = this.contact;
-    const normals = this.normals;
-
-    normals.length = 0;
-
-    for (let p = 0; p < contact.v_points.length; ++p) {
-      normals.push(contact.v_points[p].normalImpulse);
-    }
-    return normals;
-  }
-
-  get tangentImpulses(): number[] {
-    const contact = this.contact;
-    const tangents = this.tangents;
-
-    tangents.length = 0;
-
-    for (let p = 0; p < contact.v_points.length; ++p) {
-      tangents.push(contact.v_points[p].tangentImpulse);
-    }
-    return tangents;
-  }
-}
+const s_subStep = new TimeStep();
+const c = matrix.vec2(0, 0);
+const v = matrix.vec2(0, 0);
+const translation = matrix.vec2(0, 0);
+const input: TOIInput = {
+  proxyA: new DistanceProxy(),
+  proxyB: new DistanceProxy(),
+  sweepA: new Sweep(),
+  sweepB: new Sweep(),
+  tMax: 1,
+};
+const output: TOIOutput = { touching: false, t: -1 };
+const backup = new Sweep();
+const backup1 = new Sweep();
+const backup2 = new Sweep();
 
 /**
  * Finds and solves islands. An island is a connected subset of the world.
@@ -136,17 +85,10 @@ export class Solver {
   }
 
   addBody(body: Body): void {
-    if (_ASSERT) console.assert(body instanceof Body, 'Not a Body!', body);
     this.m_bodies.push(body);
-    // why?
-    // body.c_position.c.setZero();
-    // body.c_position.a = 0;
-    // body.c_velocity.v.setZero();
-    // body.c_velocity.w = 0;
   }
 
   addContact(contact: Contact): void {
-    // if (_ASSERT) console.assert(contact instanceof Contact, 'Not a Contact!', contact);
     this.m_contacts.push(contact);
   }
 
@@ -164,21 +106,13 @@ export class Solver {
 
     // Build and simulate all awake islands.
     const stack = this.m_stack;
-    let loop = -1;
 
     for (let seed = world.m_bodyList; seed; seed = seed.m_next) {
-      loop++;
-
       if (seed.m_islandFlag) {
         continue;
       }
 
-      if (seed.isAwake() == false || seed.isActive() == false) {
-        continue;
-      }
-
-      // The seed can be dynamic or kinematic.
-      if (seed.isStatic()) {
+      if (!seed.isAwake()) {
         continue;
       }
 
@@ -194,17 +128,10 @@ export class Solver {
         // Grab the next body off the stack and add it to the island.
         const b = stack.pop();
 
-        if (_ASSERT) console.assert(b.isActive() == true);
         this.addBody(b);
 
         // Make sure the body is awake (without resetting sleep timer).
         b.m_awakeFlag = true;
-
-        // To keep islands as small as possible, we don't
-        // propagate islands across static bodies.
-        if (b.isStatic()) {
-          continue;
-        }
 
         // Search all contacts connected to this body.
         for (let ce = b.m_contactList; ce; ce = ce.next) {
@@ -216,7 +143,7 @@ export class Solver {
           }
 
           // Is this contact solid and touching?
-          if (contact.isEnabled() == false || contact.isTouching() == false) {
+          if (!contact.isEnabled() || !contact.isTouching()) {
             continue;
           }
 
@@ -237,34 +164,17 @@ export class Solver {
           if (other.m_islandFlag) {
             continue;
           }
-
-          // if (_ASSERT) console.assert(stack.length < world.m_bodyCount);
           stack.push(other);
           other.m_islandFlag = true;
         }
       }
 
       this.solveIsland(step);
-
-      // Post solve cleanup.
-      for (let i = 0; i < this.m_bodies.length; ++i) {
-        // Allow static bodies to participate in other islands.
-        // TODO: are they added at all?
-        const b = this.m_bodies[i];
-
-        if (b.isStatic()) {
-          b.m_islandFlag = false;
-        }
-      }
     }
   }
 
   solveIsland(step: TimeStep): void {
     // B2: Island Solve
-    const world = this.m_world;
-    const gravity = world.m_gravity;
-    const allowSleep = world.m_allowSleep;
-
     const h = step.dt;
 
     // Integrate velocities and apply damping. Initialize the body state.
@@ -281,26 +191,6 @@ export class Solver {
       matrix.copyVec2(body.m_sweep.c0, body.m_sweep.c);
       body.m_sweep.a0 = body.m_sweep.a;
 
-      if (body.isDynamic()) {
-        // Integrate velocities.
-        matrix.plusScaleVec2(v, h * body.m_gravityScale, gravity);
-        matrix.plusScaleVec2(v, h * body.m_invMass, body.m_force);
-        w += h * body.m_invI * body.m_torque;
-        /**
-         * <pre>
-         * Apply damping.
-         * ODE: dv/dt + c * v = 0
-         * Solution: v(t) = v0 * exp(-c * t)
-         * Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
-         * v2 = exp(-c * dt) * v1
-         * Pade approximation:
-         * v2 = v1 * 1 / (1 + c * dt)
-         * </pre>
-         */
-        matrix.scaleVec2(v, 1.0 / (1.0 + h * body.m_linearDamping), v);
-        w *= 1.0 / (1.0 + h * body.m_angularDamping);
-      }
-
       matrix.copyVec2(body.c_position.c, c);
       body.c_position.a = a;
       matrix.copyVec2(body.c_velocity.v, v);
@@ -310,22 +200,13 @@ export class Solver {
     for (let i = 0; i < this.m_contacts.length; ++i) {
       const contact = this.m_contacts[i];
 
-      contact.initConstraint(step);
+      contact.initConstraint();
     }
 
     for (let i = 0; i < this.m_contacts.length; ++i) {
       const contact = this.m_contacts[i];
 
       contact.initVelocityConstraint(step);
-    }
-
-    if (step.warmStarting) {
-      // Warm start.
-      for (let i = 0; i < this.m_contacts.length; ++i) {
-        const contact = this.m_contacts[i];
-
-        contact.warmStartConstraint(step);
-      }
     }
 
     // Solve velocity constraints
@@ -335,13 +216,6 @@ export class Solver {
 
         contact.solveVelocityConstraint(step);
       }
-    }
-
-    // Store impulses for warm starting
-    for (let i = 0; i < this.m_contacts.length; ++i) {
-      const contact = this.m_contacts[i];
-
-      contact.storeConstraintImpulses(step);
     }
 
     // Integrate positions
@@ -358,16 +232,16 @@ export class Solver {
       matrix.scaleVec2(translation, h, v);
       const translationLengthSqr = matrix.lengthSqrVec2(translation);
 
-      if (translationLengthSqr > Settings.maxTranslationSquared) {
-        const ratio = Settings.maxTranslation / math_sqrt(translationLengthSqr);
+      if (translationLengthSqr > maxTranslationSquared) {
+        const ratio = maxTranslation / Math.sqrt(translationLengthSqr);
 
         matrix.mulVec2(v, ratio);
       }
 
       const rotation = h * w;
 
-      if (rotation * rotation > Settings.maxRotationSquared) {
-        const ratio = Settings.maxRotation / math_abs(rotation);
+      if (rotation * rotation > maxRotationSquared) {
+        const ratio = maxRotation / Math.abs(rotation);
 
         w *= ratio;
       }
@@ -383,24 +257,22 @@ export class Solver {
     }
 
     // Solve position constraints
-    let positionSolved = false;
 
     for (let i = 0; i < step.positionIterations; ++i) {
-      let minSeparation = 0.0;
+      let minSeparation = 0;
 
       for (let j = 0; j < this.m_contacts.length; ++j) {
         const contact = this.m_contacts[j];
-        const separation = contact.solvePositionConstraint(step);
+        const separation = contact.solvePositionConstraint();
 
-        minSeparation = math_min(minSeparation, separation);
+        minSeparation = Math.min(minSeparation, separation);
       }
-      // We can't expect minSpeparation >= -Settings.linearSlop because we don't
-      // push the separation above -Settings.linearSlop.
-      const contactsOkay = minSeparation >= -3.0 * Settings.linearSlop;
+      // We can't expect minSpeparation >= -linearSlop because we don't
+      // push the separation above -linearSlop.
+      const contactsOkay = minSeparation >= -3 * linearSlop;
 
       if (contactsOkay) {
         // Exit early if the position errors are small.
-        positionSolved = true;
         break;
       }
     }
@@ -415,43 +287,6 @@ export class Solver {
       body.m_angularVelocity = body.c_velocity.w;
       body.synchronizeTransform();
     }
-
-    this.postSolveIsland();
-
-    if (allowSleep) {
-      let minSleepTime = Infinity;
-
-      const linTolSqr = Settings.linearSleepToleranceSqr;
-      const angTolSqr = Settings.angularSleepToleranceSqr;
-
-      for (let i = 0; i < this.m_bodies.length; ++i) {
-        const body = this.m_bodies[i];
-
-        if (body.isStatic()) {
-          continue;
-        }
-
-        if (
-          body.m_autoSleepFlag == false ||
-          body.m_angularVelocity * body.m_angularVelocity > angTolSqr ||
-          matrix.lengthSqrVec2(body.m_linearVelocity) > linTolSqr
-        ) {
-          body.m_sleepTime = 0.0;
-          minSleepTime = 0.0;
-        } else {
-          body.m_sleepTime += h;
-          minSleepTime = math_min(minSleepTime, body.m_sleepTime);
-        }
-      }
-
-      if (minSleepTime >= Settings.timeToSleep && positionSolved) {
-        for (let i = 0; i < this.m_bodies.length; ++i) {
-          const body = this.m_bodies[i];
-
-          body.setAwake(false);
-        }
-      }
-    }
   }
 
   /**
@@ -460,39 +295,36 @@ export class Solver {
   solveWorldTOI(step: TimeStep): void {
     const world = this.m_world;
 
-    if (world.m_stepComplete) {
-      for (let b = world.m_bodyList; b; b = b.m_next) {
-        b.m_islandFlag = false;
-        b.m_sweep.alpha0 = 0.0;
-      }
+    for (let b = world.m_bodyList; b; b = b.m_next) {
+      b.m_islandFlag = false;
+      b.m_sweep.alpha0 = 0;
+    }
 
-      for (let c = world.m_contactList; c; c = c.m_next) {
-        // Invalidate TOI
-        c.m_toiFlag = false;
-        c.m_islandFlag = false;
-        c.m_toiCount = 0;
-        c.m_toi = 1.0;
-      }
+    for (let c = world.m_contactList; c; c = c.m_next) {
+      c.m_toiFlag = false;
+      c.m_islandFlag = false;
+      c.m_toiCount = 0;
+      c.m_toi = 1;
     }
 
     // Find TOI events and solve them.
     for (;;) {
       // Find the first TOI.
       let minContact: Contact | null = null;
-      let minAlpha = 1.0;
+      let minAlpha = 1;
 
       for (let c = world.m_contactList; c; c = c.m_next) {
         // Is this contact disabled?
-        if (c.isEnabled() == false) {
+        if (!c.isEnabled()) {
           continue;
         }
 
         // Prevent excessive sub-stepping.
-        if (c.m_toiCount > Settings.maxSubSteps) {
+        if (c.m_toiCount > maxTOISubsteps) {
           continue;
         }
 
-        let alpha = 1.0;
+        let alpha = 1;
 
         if (c.m_toiFlag) {
           // This contact has a valid cached TOI.
@@ -504,21 +336,11 @@ export class Solver {
           const bA = fA.getBody();
           const bB = fB.getBody();
 
-          if (_ASSERT) console.assert(bA.isDynamic() || bB.isDynamic());
+          const activeA = bA.isAwake();
+          const activeB = bB.isAwake();
 
-          const activeA = bA.isAwake() && !bA.isStatic();
-          const activeB = bB.isAwake() && !bB.isStatic();
-
-          // Is at least one body active (awake and dynamic or kinematic)?
-          if (activeA == false && activeB == false) {
-            continue;
-          }
-
-          const collideA = bA.isBullet() || !bA.isDynamic();
-          const collideB = bB.isBullet() || !bB.isDynamic();
-
-          // Are these two non-bullet dynamic bodies?
-          if (collideA == false && collideB == false) {
+          // At least one body must be awake.
+          if (!activeA && !activeB) {
             continue;
           }
 
@@ -534,30 +356,22 @@ export class Solver {
             bB.m_sweep.advance(alpha0);
           }
 
-          if (_ASSERT) console.assert(alpha0 < 1.0);
-
-          const indexA = c.getChildIndexA();
-          const indexB = c.getChildIndexB();
-
-          // const sweepA = bA.m_sweep;
-          // const sweepB = bB.m_sweep;
-
           // Compute the time of impact in interval [0, minTOI]
-          input.proxyA.set(fA.getShape(), indexA);
-          input.proxyB.set(fB.getShape(), indexB);
+          fA.getShape().computeDistanceProxy(input.proxyA);
+          fB.getShape().computeDistanceProxy(input.proxyB);
           input.sweepA.set(bA.m_sweep);
           input.sweepB.set(bB.m_sweep);
-          input.tMax = 1.0;
+          input.tMax = 1;
 
-          TimeOfImpact(output, input);
+          findTimeOfImpact(output, input);
 
           // Beta is the fraction of the remaining portion of the [time?].
           const beta = output.t;
 
-          if (output.state == TOIOutputState.e_touching) {
-            alpha = math_min(alpha0 + (1.0 - alpha0) * beta, 1.0);
+          if (output.touching) {
+            alpha = Math.min(alpha0 + (1 - alpha0) * beta, 1);
           } else {
-            alpha = 1.0;
+            alpha = 1;
           }
 
           c.m_toi = alpha;
@@ -571,9 +385,8 @@ export class Solver {
         }
       }
 
-      if (minContact == null || 1.0 - 10.0 * EPSILON < minAlpha) {
+      if (minContact == null || 1 - toiEndTolerance < minAlpha) {
         // No more TOI events. Done!
-        world.m_stepComplete = true;
         break;
       }
 
@@ -595,7 +408,7 @@ export class Solver {
       ++minContact.m_toiCount;
 
       // Is the contact solid?
-      if (minContact.isEnabled() == false || minContact.isTouching() == false) {
+      if (!minContact.isEnabled() || !minContact.isTouching()) {
         // Restore the sweeps.
         minContact.setEnabled(false);
         bA.m_sweep.set(backup1);
@@ -608,7 +421,7 @@ export class Solver {
       if (!fA.hasPhysics() || !fB.hasPhysics()) {
         // Keep the reported time-of-impact contact, then allow both bodies to
         // continue along their original paths without an impulse.
-        minContact.m_toi = 1.0;
+        minContact.m_toi = 1;
         minContact.m_toiFlag = true;
         bA.m_sweep.set(backup1);
         bB.m_sweep.set(backup2);
@@ -638,9 +451,6 @@ export class Solver {
 
         if (body.isDynamic()) {
           for (let ce = body.m_contactList; ce; ce = ce.next) {
-            // if (this.m_bodyCount == this.m_bodyCapacity) { break; }
-            // if (this.m_contactCount == this.m_contactCapacity) { break; }
-
             const contact = ce.contact;
 
             // Has this contact already been added to the island?
@@ -648,12 +458,7 @@ export class Solver {
               continue;
             }
 
-            // Only add if either is static, kinematic or bullet.
             const other = ce.other;
-
-            if (other.isDynamic() && !body.isBullet() && !other.isBullet()) {
-              continue;
-            }
 
             if (
               !contact.m_fixtureA.hasPhysics() ||
@@ -665,7 +470,7 @@ export class Solver {
             // Tentatively advance the body to the TOI.
             backup.set(other.m_sweep);
 
-            if (other.m_islandFlag == false) {
+            if (!other.m_islandFlag) {
               other.advance(minAlpha);
             }
 
@@ -674,7 +479,7 @@ export class Solver {
 
             // Was the contact disabled by the user?
             // Are there contact points?
-            if (contact.isEnabled() == false || contact.isTouching() == false) {
+            if (!contact.isEnabled() || !contact.isTouching()) {
               other.m_sweep.set(backup);
               other.synchronizeTransform();
               continue;
@@ -692,20 +497,16 @@ export class Solver {
             // Add the other body to the island.
             other.m_islandFlag = true;
 
-            if (!other.isStatic()) {
-              other.setAwake(true);
-            }
+            other.setAwake(true);
 
             this.addBody(other);
           }
         }
       }
 
-      s_subStep.reset((1.0 - minAlpha) * step.dt);
-      s_subStep.dtRatio = 1.0;
+      s_subStep.reset((1 - minAlpha) * step.dt);
       s_subStep.positionIterations = 20;
       s_subStep.velocityIterations = step.velocityIterations;
-      s_subStep.warmStarting = false;
 
       this.solveIslandTOI(s_subStep, bA, bB);
 
@@ -732,11 +533,6 @@ export class Solver {
       // are created.
       // Also, some contacts can be destroyed.
       world.findNewContacts();
-
-      if (world.m_subStepping) {
-        world.m_stepComplete = false;
-        break;
-      }
     }
   }
 
@@ -754,26 +550,22 @@ export class Solver {
     for (let i = 0; i < this.m_contacts.length; ++i) {
       const contact = this.m_contacts[i];
 
-      contact.initConstraint(subStep);
+      contact.initConstraint();
     }
 
     // Solve position constraints.
     for (let i = 0; i < subStep.positionIterations; ++i) {
-      let minSeparation = 0.0;
+      let minSeparation = 0;
 
       for (let j = 0; j < this.m_contacts.length; ++j) {
         const contact = this.m_contacts[j];
-        const separation = contact.solvePositionConstraintTOI(
-          subStep,
-          toiA,
-          toiB,
-        );
+        const separation = contact.solvePositionConstraintTOI(toiA, toiB);
 
-        minSeparation = math_min(minSeparation, separation);
+        minSeparation = Math.min(minSeparation, separation);
       }
-      // We can't expect minSpeparation >= -Settings.linearSlop because we don't
-      // push the separation above -Settings.linearSlop.
-      const contactsOkay = minSeparation >= -1.5 * Settings.linearSlop;
+      // We can't expect minSpeparation >= -linearSlop because we don't
+      // push the separation above -linearSlop.
+      const contactsOkay = minSeparation >= -1.5 * linearSlop;
 
       if (contactsOkay) {
         break;
@@ -822,16 +614,16 @@ export class Solver {
       matrix.scaleVec2(translation, h, v);
       const translationLengthSqr = matrix.lengthSqrVec2(translation);
 
-      if (translationLengthSqr > Settings.maxTranslationSquared) {
-        const ratio = Settings.maxTranslation / math_sqrt(translationLengthSqr);
+      if (translationLengthSqr > maxTranslationSquared) {
+        const ratio = maxTranslation / Math.sqrt(translationLengthSqr);
 
         matrix.mulVec2(v, ratio);
       }
 
       const rotation = h * w;
 
-      if (rotation * rotation > Settings.maxRotationSquared) {
-        const ratio = Settings.maxRotation / math_abs(rotation);
+      if (rotation * rotation > maxRotationSquared) {
+        const ratio = maxRotation / Math.abs(rotation);
 
         w *= ratio;
       }
@@ -852,19 +644,5 @@ export class Solver {
       body.m_angularVelocity = w;
       body.synchronizeTransform();
     }
-
-    this.postSolveIsland();
-  }
-
-  /** @internal */
-  postSolveIsland(): void {
-    for (let c = 0; c < this.m_contacts.length; ++c) {
-      const contact = this.m_contacts[c];
-
-      this.m_world.postSolve(contact, contact.m_impulse);
-    }
   }
 }
-
-// @ts-ignore
-Solver.TimeStep = TimeStep;

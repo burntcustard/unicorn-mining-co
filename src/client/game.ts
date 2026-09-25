@@ -1,6 +1,6 @@
 import { init } from './core';
 import { type Craft } from '../shared/craft/craft';
-import { type GameObjectLike } from '../shared/types';
+import { type GameObject } from '../shared/game-object';
 
 export type GameState = {
   canvas: HTMLCanvasElement;
@@ -15,7 +15,7 @@ export type GameState = {
   uiVisible: number;
   uiWidth: number;
   physicsOn?: boolean;
-  sprites: GameObjectLike[];
+  sprites: GameObject[];
   crafts: Craft[];
 };
 

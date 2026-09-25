@@ -14,7 +14,7 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0regions'
           ? `
-      export { generateRegion } from '${process.cwd()}/src/shared/simulation/region-generation.ts';
+      export { generateRegion, asteroidSpacing } from '${process.cwd()}/src/shared/simulation/region-generation.ts';
       export { RegionManager } from '${process.cwd()}/src/shared/simulation/region-manager.ts';
       export { RegionManager as ServerRegionManager } from '${process.cwd()}/src/server/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/shared/simulation/world.ts';
@@ -29,6 +29,7 @@ const { output } = await bundle.generate({ format: 'esm' });
 const {
   createWorld,
   generateRegion,
+  asteroidSpacing,
   RegionManager,
   ServerRegionManager,
   Vector,
@@ -36,6 +37,7 @@ const {
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
+assert.equal(asteroidSpacing, 30);
 const options = { worldSeed: 25, region: Vector(5, 8) };
 const first = generateRegion(options);
 
@@ -45,6 +47,38 @@ assert.notDeepEqual(
   generateRegion({ worldSeed: 26, region: Vector(5, 8) }),
   first,
 );
+
+const nearbyDescriptions = [4, 5, 6].flatMap((x) =>
+  [-1, 0, 1].map((y) =>
+    generateRegion({ worldSeed: 25, region: Vector(x, y) }),
+  ),
+);
+const nearbyAsteroids = nearbyDescriptions.flatMap(
+  ({ asteroids }) => asteroids,
+);
+const nearbyObstacles = nearbyDescriptions.flatMap(({ stations, wrecks }) => [
+  ...stations,
+  ...wrecks,
+]);
+
+nearbyAsteroids.forEach((asteroid, index) => {
+  nearbyAsteroids
+    .slice(index + 1)
+    .forEach((other) =>
+      assert(
+        asteroid.position.distanceTo(other.position) >=
+          asteroid.radius + other.radius + asteroidSpacing,
+        `generated asteroids ${asteroid.id} and ${other.id} have room to move`,
+      ),
+    );
+  nearbyObstacles.forEach((other) =>
+    assert(
+      asteroid.position.distanceTo(other.position) >=
+        asteroid.radius + other.radius + asteroidSpacing,
+      `generated asteroid ${asteroid.id} clears station or wreck ${other.id}`,
+    ),
+  );
+});
 
 const manager = new RegionManager({ worldSeed: 25 });
 const loaded = manager.load({ region: Vector(5, 8) });
@@ -173,6 +207,42 @@ assert.equal(
   world.entities.has(regionalAsteroid.id),
   false,
   'sleeping fragments do not resurrect their source',
+);
+
+// Both players can see the same procedural source in one regional sync.
+// Splitting it must remove that source only once, before any view can load it
+// again over the fragments.
+const sharedRegions = new ServerRegionManager({ worldSeed: 25 });
+const sharedWorld = createWorld({ seed: 25 });
+const sharedPositions = [Vector(2500, 1200), Vector(2600, 1200)];
+
+sharedRegions.sync({ positions: sharedPositions, world: sharedWorld });
+const sharedSource = [...sharedWorld.entities.values()].find(
+  (entity) =>
+    entity.kind === 'asteroid' &&
+    sharedPositions.every(
+      (position) => entity.position.distanceTo(position) < 2500,
+    ),
+);
+
+assert(sharedSource, 'both players can reach the starter asteroid');
+const sharedChildren = sharedSource.detach({
+  asteroidSegment: sharedSource.segments[0],
+  world: sharedWorld,
+});
+
+sharedRegions.sync({ positions: sharedPositions, world: sharedWorld });
+assert.equal(
+  sharedWorld.entities.has(sharedSource.id),
+  false,
+  'a second player view cannot resurrect a fractured asteroid',
+);
+assert(
+  Math.abs(
+    sharedChildren.reduce((mass, child) => mass + child.mass, 0) -
+      sharedSource.mass,
+  ) < 1e-8,
+  'the fragments contain the source mass exactly once',
 );
 
 console.log(

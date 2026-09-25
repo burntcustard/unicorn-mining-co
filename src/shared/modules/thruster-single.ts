@@ -1,6 +1,9 @@
-import { Thruster } from './thruster';
+import { Module } from './module';
+import { colors } from '../colors';
 
-export class ThrusterSingle extends Thruster {
+export class ThrusterSingle extends Module {
+  static shades = colors.violet;
+  static disablePhysics = true;
   static health = 15;
   static label = 'THRUSTERS *1 XL';
   static model: any[] = [{ flareSize: 7, thrusterNozzleSide: 0 }];

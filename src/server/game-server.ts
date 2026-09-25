@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import WebSocket, { WebSocketServer } from 'ws';
 import { Vector } from '../shared/vector';
+import { directionOf } from '../shared/geometry';
 import { emptyPlayerInput, type PlayerInput } from '../shared/protocol/input';
 import { type InputFrame } from '../shared/protocol/input-frame';
 import {
@@ -10,15 +11,11 @@ import {
 } from '../shared/protocol/network';
 import { createShip } from '../shared/craft/create-ship';
 import { updateWorld } from '../shared/simulation/update-world';
-import { simulationStep } from '../shared/simulation/update-tier';
+import { simulationStep } from '../shared/settings';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
 import { ReplicationManager } from './replication';
-import { moduleTypes } from '../shared/modules';
-import { Module } from '../shared/modules/module';
-import { Item } from '../shared/items/item';
 import { Ship } from '../shared/craft/ship';
-import { paintColors } from '../shared/colors';
 
 type PlayerRecord = {
   /**
@@ -161,9 +158,7 @@ export class GameServer {
       const spawnAngle = playerId * 2.4;
       const spawn = station
         ? station.position.add(
-            Vector(Math.cos(spawnAngle), Math.sin(spawnAngle)).scale(
-              station.radius + 250,
-            ),
+            directionOf(spawnAngle).scale(station.radius + 250),
           )
         : Vector();
       const ship = createShip(this.world, {
@@ -264,70 +259,8 @@ export class GameServer {
     const ship = this.world.entities.get(player.shipId);
 
     if (!(ship instanceof Ship) || !ship.dockedTo) return;
-    const mount = 'mount' in message ? ship.mounts[message.mount] : undefined;
 
-    if (message.action === 'sell') {
-      const ids = message.objectIds;
-
-      if (
-        !Array.isArray(ids) ||
-        !ids.length ||
-        ids.length > ship.cargoContents.length ||
-        ids.some((id) => !Number.isInteger(id)) ||
-        new Set(ids).size !== ids.length
-      ) {
-        return;
-      }
-      const objects = ids.map((id) =>
-        ship.cargoContents.find((object) => object.id === id),
-      );
-      const sale = objects.filter(
-        (object): object is Module | Item =>
-          object instanceof Module || object instanceof Item,
-      );
-
-      if (sale.length !== ids.length) return;
-      ship.cargoContents = ship.cargoContents.filter(
-        (object) => !ids.includes(object.id),
-      );
-      ship.credits += sale.reduce(
-        (total, object) => total + (object.price || 0),
-        0,
-      );
-    } else if (message.action === 'buy') {
-      const Type = moduleTypes[message.module];
-
-      if (
-        !Type ||
-        ship.credits < Type.price ||
-        ship.cargoContents.length >= ship.cargoSpace
-      ) {
-        return;
-      }
-      ship.credits -= Type.price;
-      ship.cargoContents.push(new Type({ id: message.moduleId }));
-    } else if (message.action === 'equip') {
-      const module = ship.modules.find(({ id }) => id === message.moduleId);
-
-      if (!mount || !module || !mount.fits.includes(module.constructor)) return;
-      ship.fit(module, mount);
-    } else if (message.action === 'paint') {
-      const shades = paintColors[message.paint];
-      const module =
-        message.mount === undefined
-          ? ship.modules.find(({ id }) => id === message.moduleId)
-          : ship.mounts[message.mount]?.module;
-
-      if (!shades || (message.moduleId !== undefined && !module)) return;
-
-      if (module) module.shades = shades;
-      else ship.shades = shades;
-      ship.segments
-        .filter((segment) =>
-          module ? segment.module === module : segment.hull,
-        )
-        .forEach((segment) => (segment.shades = shades));
-    } else if (mount) ship.fit(0, mount);
+    if (!ship.applyDockAction(message)) return;
 
     if (player.socket) {
       send({

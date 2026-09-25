@@ -14,30 +14,23 @@ import * as matrix from '../../common/physics-matrix';
 import { TransformValue } from '../../common/physics-transform';
 import { Contact } from '../../dynamics/collision-contact';
 import { CircleShape } from './circle-shape';
-import {
-  Manifold,
-  ContactFeatureType,
-  ManifoldType,
-} from '../contact-manifold';
+import { Manifold, vertexFeature } from '../contact-manifold';
 import { Fixture } from '../../dynamics/collision-fixture';
 
-/** @internal */ const _ASSERT = false;
+Contact.addType(
+  CircleShape.TYPE,
+  CircleShape.TYPE,
+  evaluateCircleCircleContact,
+);
 
-Contact.addType(CircleShape.TYPE, CircleShape.TYPE, CircleCircleContact);
-
-/** @internal */ function CircleCircleContact(
+function evaluateCircleCircleContact(
   manifold: Manifold,
   xfA: TransformValue,
   fixtureA: Fixture,
-  indexA: number,
   xfB: TransformValue,
   fixtureB: Fixture,
-  _indexB: number,
 ): void {
-  if (_ASSERT) console.assert(fixtureA.getType() == CircleShape.TYPE);
-
-  if (_ASSERT) console.assert(fixtureB.getType() == CircleShape.TYPE);
-  CollideCircles(
+  collideCircles(
     manifold,
     fixtureA.getShape() as CircleShape,
     xfA,
@@ -46,10 +39,10 @@ Contact.addType(CircleShape.TYPE, CircleShape.TYPE, CircleCircleContact);
   );
 }
 
-/** @internal */ const pA = matrix.vec2(0, 0);
-/** @internal */ const pB = matrix.vec2(0, 0);
+const pA = matrix.vec2(0, 0);
+const pB = matrix.vec2(0, 0);
 
-export const CollideCircles = function (
+export function collideCircles(
   manifold: Manifold,
   circleA: CircleShape,
   xfA: TransformValue,
@@ -70,17 +63,11 @@ export const CollideCircles = function (
     return;
   }
 
-  manifold.type = ManifoldType.e_circles;
+  manifold.type = 'circles';
   matrix.copyVec2(manifold.localPoint, circleA.m_p);
   matrix.zeroVec2(manifold.localNormal);
   manifold.pointCount = 1;
   matrix.copyVec2(manifold.points[0].localPoint, circleB.m_p);
 
-  // manifold.points[0].id.key = 0;
-  manifold.points[0].id.setFeatures(
-    0,
-    ContactFeatureType.e_vertex,
-    0,
-    ContactFeatureType.e_vertex,
-  );
-};
+  manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
+}

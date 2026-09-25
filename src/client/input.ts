@@ -6,6 +6,7 @@ import {
 import {
   defaultKeybindings,
   matchesBinding,
+  updateMovement,
   type KeyAction,
 } from './keybindings';
 import { unlockAudio } from './sound-loader';
@@ -31,17 +32,11 @@ export const initKeys = ({
   onChange?: (input: PlayerInput) => void;
 } = {}) => {
   const notify = (previous: PlayerInput) => {
+    updateMovement(pressed, playerInput);
+
     if (!sameInput(previous, playerInput)) onChange({ ...playerInput });
   };
-  const updateMovement = () => {
-    const held = (action: KeyAction) =>
-      defaultKeybindings[action].keys.some((key) =>
-        pressed.has(key.toLowerCase()),
-      );
 
-    playerInput.thrust = Number(held('forwardThrust'));
-    playerInput.turn = Number(held('turnRight')) - Number(held('turnLeft'));
-  };
   const keyDown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
 
@@ -52,7 +47,6 @@ export const initKeys = ({
     const previous = { ...playerInput };
 
     pressed.add(key);
-    updateMovement();
     (
       ['hornDrill', 'cargoHatch', 'searchLight', 'shieldGenerator'] as const
     ).forEach((action) => {
@@ -63,24 +57,25 @@ export const initKeys = ({
     notify(previous);
     callbacks.get(key)?.(event);
   };
+
   const keyUp = (event: KeyboardEvent) => {
     const previous = { ...playerInput };
 
     pressed.delete(event.key.toLowerCase());
-    updateMovement();
     notify(previous);
   };
+
   const blur = () => {
     const previous = { ...playerInput };
 
     pressed.clear();
-    updateMovement();
     notify(previous);
   };
 
   window.addEventListener('keydown', keyDown);
   window.addEventListener('keyup', keyUp);
   window.addEventListener('blur', blur);
+
   return () => {
     window.removeEventListener('keydown', keyDown);
     window.removeEventListener('keyup', keyUp);

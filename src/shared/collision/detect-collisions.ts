@@ -1,6 +1,6 @@
 import { contactBetween } from './contact-between';
 import { type GameObject } from '../game-object';
-import { collisionCategories, type Contact } from './types';
+import { collidersCanContact, type Contact } from './types';
 
 /* Read-only query for diagnostics; simulation contacts come from GameCollisions. */
 export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
@@ -13,14 +13,7 @@ export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
     colliders.slice(index + 1).forEach((b) => {
       if (
         a.owner === b.owner ||
-        !(
-          (a.collisionCategory ?? collisionCategories.solid) &
-          (b.collisionMask ?? collisionCategories.solid)
-        ) ||
-        !(
-          (b.collisionCategory ?? collisionCategories.solid) &
-          (a.collisionMask ?? collisionCategories.solid)
-        ) ||
+        !collidersCanContact(a, b) ||
         a.position.distanceTo(b.position) > a.radius + b.radius + 2
       ) {
         return;

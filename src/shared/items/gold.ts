@@ -6,7 +6,7 @@ import { colors } from '../colors';
 // the top face so the two are told apart at a glance as well as by colour
 export class Gold extends Item {
   static resource = 2;
-  static bounciness = 0.1;
+  static bounciness = 0.2;
   static health = 100;
   static lines = [
     [

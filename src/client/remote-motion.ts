@@ -1,10 +1,7 @@
 import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { type ReplicatedEntity } from '../shared/protocol/network';
-import {
-  simulationStep,
-  updateTier,
-  updateTiers,
-} from '../shared/simulation/update-tier';
+import { simulationStep, updateTiers } from '../shared/settings';
+import { updateTier } from '../shared/simulation/update-tier';
 import { type SimulationWorld } from '../shared/simulation/world';
 
 type Frame = {

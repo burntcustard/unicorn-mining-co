@@ -6,7 +6,7 @@ import { colors } from '../colors';
 // collided with as the circle it is
 export class Opal extends Item {
   static resource = 3;
-  static bounciness = 0.1;
+  static bounciness = 0.2;
   static health = 100;
   static label = 'OPAL';
   static price = 45;

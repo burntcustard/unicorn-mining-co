@@ -7,7 +7,7 @@ import { colors } from '../colors';
 
 export class Message extends Item {
   static resource = 4;
-  static bounciness = 0.1;
+  static bounciness = 0.2;
   static health = 100;
   static lines = [
     [

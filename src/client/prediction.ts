@@ -9,22 +9,20 @@ import {
   type PlayerInput,
 } from '../shared/protocol/input';
 import { updateWorld } from '../shared/simulation/update-world';
-import {
-  updateEntities,
-  simulationStep,
-} from '../shared/simulation/update-tier';
+import { simulationStep } from '../shared/settings';
+import { updateEntities } from '../shared/simulation/update-tier';
 import { type SimulationEvent } from '../shared/protocol/events';
 import { Asteroid } from '../shared/simulation/asteroid';
 import { type SimulationWorld } from '../shared/simulation/world';
 import { type GameObject } from '../shared/game-object';
 import { Ship } from '../shared/craft/ship';
-import { type EntityState } from '../shared/serializer/simulation-entity-state';
+import { type EntityState } from '../shared/simulation/entity-state';
 import {
   captureWorld,
   cloneEntity,
   restoreWorld,
   type SimulationWorldState,
-} from '../shared/serializer/simulation-world-state';
+} from '../shared/simulation/world-state';
 
 const historyLength = 60;
 // Normal prediction is one tick. A longer replay after a stall only adds
@@ -104,6 +102,7 @@ const applyEntity = ({
   entity.rotation = server.rotation;
   entity.spin = server.spin;
   entity.mass = server.mass;
+  entity.friction = server.friction;
   entity.radius = server.radius;
   entity.pendingUpdateTime = server.pendingUpdateTime;
 

@@ -11,7 +11,9 @@ import { type ServerMessage } from '../src/shared/protocol/network';
 import { addEntity } from '../src/shared/simulation/world';
 import { Vector } from '../src/shared/vector';
 import { rotatePoint } from '../src/shared/geometry';
-import { simulationStep } from '../src/shared/simulation/update-tier';
+import { simulationStep } from '../src/shared/settings';
+import { moduleTypes } from '../src/shared/modules';
+import { colors, paintColors } from '../src/shared/colors';
 
 // Integer-millisecond timer delays must not turn 30 Hz into 30.303 Hz.
 {
@@ -218,10 +220,6 @@ const item = [...server.world.entities.values()].find(
 );
 
 assert(item);
-item.position.set(
-  playerShip.position.add(rotatePoint(Vector(3, -13), playerShip.rotation)),
-);
-item.velocity.set(Vector());
 socket.send(
   JSON.stringify({
     input: {
@@ -237,6 +235,19 @@ socket.send(
     type: 'input',
   }),
 );
+await waitUntil({
+  condition: () =>
+    playerShip
+      .hitbox()
+      .some((collider) => collider.role === 'cargoHatch' && collider.collides),
+});
+const activeMouth = playerShip
+  .hitbox()
+  .find((collider) => collider.role === 'cargoHatch' && collider.collides);
+
+assert(activeMouth);
+item.position.set(activeMouth.position);
+item.velocity.set(playerShip.velocity);
 await waitUntil({
   condition: () => {
     const current = server.world.entities.get(welcome.shipId);
@@ -451,6 +462,173 @@ await waitUntil({
         ),
     ),
 });
+
+// Buy, equip, and paint actions use the same ship rules as the docked menu.
+const purchasedId = 999998;
+const creditsBeforePurchase = authoritativeShip.credits;
+
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'buy',
+    module: moduleTypes.indexOf(CargoHatch),
+    moduleId: purchasedId,
+  }),
+);
+await waitUntil({
+  condition: () =>
+    authoritativeShip.cargoContents.some(({ id }) => id === purchasedId),
+});
+assert.equal(
+  authoritativeShip.credits,
+  creditsBeforePurchase - CargoHatch.price,
+);
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'equip',
+    moduleId: purchasedId,
+    mount: hatchMount,
+  }),
+);
+await waitUntil({
+  condition: () => {
+    const fitted = authoritativeShip.mounts[hatchMount].module;
+
+    return fitted instanceof CargoHatch && fitted.id === purchasedId;
+  },
+});
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'paint',
+    moduleId: purchasedId,
+    mount: hatchMount,
+    paint: paintColors.indexOf(colors.orange),
+  }),
+);
+await waitUntil({
+  condition: () => {
+    const fitted = authoritativeShip.mounts[hatchMount].module;
+
+    return fitted instanceof CargoHatch && fitted.shades === colors.orange;
+  },
+});
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'paint',
+    paint: paintColors.indexOf(colors.red),
+  }),
+);
+await waitUntil({
+  condition: () => authoritativeShip.shades === colors.red,
+});
+
+// Repairs must reach the authoritative ship, charge once, and appear in its
+// next snapshot. A stale module ID cannot repair a different fitted module.
+const repairMountIndex = authoritativeShip.mounts.findIndex(({ module }) => module);
+
+assert(repairMountIndex >= 0);
+const repairMount = authoritativeShip.mounts[repairMountIndex];
+const repairModule = repairMount.module;
+
+assert(repairModule);
+repairMount.health = repairModule.health - 1.11111;
+const moduleRepairCost = repairModule.health - (repairMount.health | 0);
+const beforeModuleRepair = authoritativeShip.credits;
+
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'repair',
+    moduleId: 999999,
+    mount: repairMountIndex,
+  }),
+);
+await new Promise((resolve) => setTimeout(resolve, 70));
+assert.equal(repairMount.health, repairModule.health - 1.11111);
+assert.equal(authoritativeShip.credits, beforeModuleRepair);
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'repair',
+    moduleId: repairModule.id,
+    mount: repairMountIndex,
+  }),
+);
+await waitUntil({
+  condition: () =>
+    repairMount.health === repairModule.health &&
+    authoritativeShip.credits === beforeModuleRepair - moduleRepairCost,
+});
+await waitUntil({
+  condition: () =>
+    messages.some(
+      (message) =>
+        message.type === 'snapshot' &&
+        message.fullEntities.some(
+          (entity) =>
+            entity.id === welcome.shipId &&
+            entity.credits === authoritativeShip.credits &&
+            entity.modules?.some(
+              ({ mount, health }) =>
+                mount === repairMountIndex && health === repairModule.health,
+            ),
+        ),
+    ),
+});
+socket.send(
+  JSON.stringify({
+    type: 'dock',
+    action: 'repair',
+    moduleId: repairModule.id,
+    mount: repairMountIndex,
+  }),
+);
+await new Promise((resolve) => setTimeout(resolve, 70));
+assert.equal(authoritativeShip.credits, beforeModuleRepair - moduleRepairCost);
+
+const damagedHull = authoritativeShip.segments.find(
+  ({ hull, health }) => hull && health > 2,
+);
+
+assert(damagedHull);
+damagedHull.health -= 1.11111;
+const hullHealth = authoritativeShip.segments
+  .filter(({ hull }) => hull)
+  .reduce((total, segment) => total + segment.health, 0);
+const hullMaxHealth = authoritativeShip.hullSegments.reduce(
+  (total, segment) => total + (segment.health ?? 0),
+  0,
+);
+const hullRepairCost = hullMaxHealth - (hullHealth | 0);
+const beforeHullRepair = authoritativeShip.credits;
+
+socket.send(JSON.stringify({ type: 'dock', action: 'repair' }));
+await waitUntil({
+  condition: () =>
+    damagedHull.health === damagedHull.module.health &&
+    authoritativeShip.credits === beforeHullRepair - hullRepairCost,
+});
+await waitUntil({
+  condition: () =>
+    messages.some(
+      (message) =>
+        message.type === 'snapshot' &&
+        message.fullEntities.some(
+          (entity) =>
+            entity.id === welcome.shipId &&
+            entity.credits === authoritativeShip.credits &&
+            entity.hullHealth?.every(
+              (health, index) => health === authoritativeShip.hullHealth[index],
+            ),
+        ),
+    ),
+});
+socket.send(JSON.stringify({ type: 'dock', action: 'repair' }));
+await new Promise((resolve) => setTimeout(resolve, 70));
+assert.equal(authoritativeShip.credits, beforeHullRepair - hullRepairCost);
 
 socket.send(
   JSON.stringify({

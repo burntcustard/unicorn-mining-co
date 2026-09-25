@@ -3,20 +3,14 @@ import { type GameObject } from '../game-object';
 import { type Segment } from '../types';
 import { type AsteroidSegment } from '../protocol/entities';
 
-export const collisionCategories = {
-  solid: 1,
-  pickupPoint: 2,
-  cargoHatchMouth: 4,
-} as const;
-
 export type Outline = number[][] & { edges?: boolean[] };
 
 export type Collider = {
   bounciness?: number;
+  friction: number;
   collisionMargin?: number;
-  collisionCategory?: number;
-  collisionMask?: number;
   collides?: boolean;
+  contactFilter?: (self: Collider, other: Collider) => boolean;
   dockSegment?: boolean;
   outline?: Outline;
   owner: GameObject;
@@ -38,3 +32,7 @@ export type Contact = {
   other: Collider;
   point: Vector;
 };
+
+export const collidersCanContact = (a: Collider, b: Collider) =>
+  (!a.contactFilter && !b.contactFilter) ||
+  ((a.contactFilter?.(a, b) ?? true) && (b.contactFilter?.(b, a) ?? true));

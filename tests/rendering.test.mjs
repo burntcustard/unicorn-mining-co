@@ -57,19 +57,19 @@ import {game} from '${root}/src/client/game.ts';
 import '${root}/src/client/craft/ship.ts';
 import '${root}/src/client/craft/station.ts';
 import '${root}/src/client/items/item.ts';
-import {createWorld} from '${root}/src/shared/simulation/world.ts';
-import {cloneEntity} from '${root}/src/shared/serializer/simulation-world-state.ts';
+import {createWorld,addEntity} from '${root}/src/shared/simulation/world.ts';
+import {cloneEntity} from '${root}/src/shared/simulation/world-state.ts';
 import {Mustang} from '${root}/src/shared/craft/ships/mustang.ts';
 import {Corral} from '${root}/src/shared/craft/stations/corral.ts';
-import {Thruster} from '${root}/src/shared/modules/thruster.ts';
-import {SearchLight,CargoHatch,HornDrill} from '${root}/src/shared/modules/index.ts';
+import {SearchLight,CargoHatch,HornDrill,ShieldGenerator,thrusters} from '${root}/src/shared/modules/index.ts';
 import {Diamond} from '${root}/src/shared/items/diamond.ts';
 import {Amethyst} from '${root}/src/shared/items/amethyst.ts';
-import {Asteroid} from '${root}/src/shared/simulation/asteroid.ts';
+import {Asteroid,createAsteroid} from '${root}/src/shared/simulation/asteroid.ts';
 import {Craft} from '${root}/src/shared/craft/craft.ts';
 import {createWreckage} from '${root}/src/shared/craft/create-wreckage.ts';
 import {Vector} from '${root}/src/shared/vector.ts';
 import {renderAsteroid} from '${root}/src/client/render-asteroid.ts';
+import {revealBuriedItems} from '${root}/src/client/lighting.ts';
 import {colors} from '${root}/src/shared/colors.ts';
 import {renderControls} from '${root}/src/client/ui/controls.ts';
 import {presentEvents} from '${root}/src/client/present-events.ts';
@@ -108,17 +108,17 @@ const draws=[];
 const strokes=[];
 const styles=[];
 const transforms=[];
-let saves=0,gradients=0,boxes=0;
+let saves=0,gradients=0,boxes=0,clips=0;
 game.ctx={
   strokeStyle:'#000',fillStyle:'#000',
   save(){saves++;styles.push({strokeStyle:this.strokeStyle,fillStyle:this.fillStyle});},restore(){saves--;Object.assign(this,styles.pop());},translate(x,y){transforms.push([x,y]);},rotate(angle){transforms.push(angle);},scale(){},
-  beginPath(){},arc(){},stroke(){strokes.push(this.strokeStyle);},clip(){},setLineDash(){},
+  beginPath(){},arc(){},stroke(){strokes.push(this.strokeStyle);},clip(){clips++;},resetTransform(){},setLineDash(){},
   createLinearGradient(){gradients++;return {addColorStop(){}};},
   createRadialGradient(){return {addColorStop(){}};},
-  fill(path){draws.push({path,style:this.fillStyle});},
+  fill(path,rule){draws.push({path,rule,style:this.fillStyle});},
   fillRect(){boxes++;}
 };
-Object.assign(game,{uiScale:1,uiWidth:640,uiHeight:480});
+Object.assign(game,{scale:1,uiScale:1,uiWidth:640,uiHeight:480});
 const local=cloneEntity({entity:remote});
 const physicsPosition=remote.position.add(Vector());
 const physicsRotation=remote.rotation;
@@ -129,7 +129,7 @@ assert.deepEqual(remote.position,physicsPosition,'presentation never changes col
 assert.equal(remote.rotation,physicsRotation,'presentation never changes collision rotation');
 for(const ship of [local,remote]){
   assert(!Object.hasOwn(ship,'render'),'rendering lives on the shared class prototype');
-  const nozzles=ship.segments.filter(segment=>segment.module instanceof Thruster);
+  const nozzles=ship.segments.filter(segment=>thrusters.some(Type=>segment.module instanceof Type));
   draws.length=0;
   for(const segment of nozzles)segment.module.render({segment:segment});
   assert.equal(draws.length,nozzles.length,'each active local/remote nozzle renders a flare');
@@ -160,6 +160,37 @@ for(const ship of [local,remote]){
   ship.updateVisual(1/60);
   assert(sounds.slice(beforeSound).includes(1),'closing a replicated cargo hatch plays its sound');
 }
+const shieldCraft=new Mustang({shades:colors.cyan});
+const shield=new ShieldGenerator();
+shieldCraft.fit(shield);
+const shieldSegment=shieldCraft.segments.find(segment=>segment.module===shield && !segment.covers);
+strokes.length=0;
+shield.render({segment:shieldSegment});
+assert.equal(strokes.at(-1),colors.violet[2],'the shield generator plus uses its violet outline colour');
+let revealed=0;
+const litRock={
+  scenery:true,segments:[{}],position:remote.position.add(Vector(60)),rotation:0,radius:20,
+  outline:[[-20,-20],[20,-20],[20,20],[-20,20]],
+  renderContents:[{render(){revealed++;}}]
+};
+const remotePose={position:Vector(900,800),rotation:.3};
+const remotePrediction=cloneEntity({entity:remote});
+const predictedLamp=remotePrediction.segments.find(segment=>segment.module instanceof SearchLight);
+const remoteLamp=remote.segments.find(segment=>segment.module instanceof SearchLight);
+const reveal=()=>revealBuriedItems({sprites:[remote,litRock],predicted:new Map([[remote.id,remotePrediction]]),poses:new Map([[remote.id,remotePose]])});
+transforms.length=0;
+const clipsBefore=clips;
+reveal();
+assert.equal(revealed,1,'an active remote lamp reveals buried cargo');
+assert.equal(clips-clipsBefore,2,'the cargo is clipped to the remote beam and rock slice');
+assert.deepEqual(transforms[0],[900,800],'the remote light uses its displayed pose');
+predictedLamp.activationProgress=0;
+reveal();
+assert.equal(revealed,1,'the predicted lamp state controls remote cargo reveal');
+remoteLamp.activationProgress=0;
+predictedLamp.activationProgress=1;
+reveal();
+assert.equal(revealed,2,'predicted light can reveal cargo while the base sprite is stale');
 const before=gradients;
 // Global layers must put either ship's horn drill behind both hulls, irrespective
 // of the order the two craft entered the renderer.
@@ -224,7 +255,26 @@ for(const [index,stage] of packet['drillingStages'].entries()){
     assert.equal(loot[0].velocity.y,2);
   }
 }
-console.log('Replicated flares, light beams, module checkboxes, palettes and render inheritance passed');
+const holeWorld=createWorld();
+const solid=addEntity(holeWorld,createAsteroid(holeWorld,{radius:150,pointCount:7}));
+const pieces=solid.detach({asteroidSegment:solid.segments[0],world:holeWorld});
+const remainder=pieces.find(piece=>piece.segments?.length);
+const predictedRemainder=cloneEntity({entity:remainder});
+applyEntity({entity:predictedRemainder,server:remainder});
+assert.equal(predictedRemainder.segments[0].outline.edges,undefined,'prediction copies polygon points without cached edge marks');
+renderAsteroid({asteroid:predictedRemainder});
+draws.length=0;
+predictedRemainder.render();
+const painted=draws[0];
+const area=outline=>Math.abs(outline.reduce((sum,[x,y],index)=>{
+  const [nextX,nextY]=outline[(index+1)%outline.length];
+  return sum+x*nextY-nextX*y;
+},0))/2;
+const ringAreas=painted.path.contours.map(area).sort((a,b)=>b-a);
+assert.equal(painted.rule,'evenodd','asteroid fill handles interior holes');
+assert.equal(ringAreas.length,2,'the renderer draws the outer edge and the drilled hole');
+assert(Math.abs(ringAreas[0]-ringAreas[1]-remainder.segments.reduce((sum,segment)=>sum+area(segment.outline),0))<1e-8,'rendered rock area equals the remaining segments');
+console.log('Replicated flares, light beams, module checkboxes, palettes, render inheritance and asteroid holes passed');
 `;
 
 globalThis.canvas = { getContext: () => ({}) };
@@ -235,17 +285,34 @@ globalThis.sounds = [];
 globalThis.Path2D = class {
   constructor() {
     this.vertices = [];
+    this.contours = [];
+    this.current = undefined;
   }
   moveTo(x, y) {
-    this.vertices.push([x, y]);
+    this.current = [];
+    this.contours.push(this.current);
+    this.lineTo(x, y);
   }
   lineTo(x, y) {
+    if (!this.current) {
+      this.current = [];
+      this.contours.push(this.current);
+    }
+    this.current.push([x, y]);
     this.vertices.push([x, y]);
   }
   arc() {}
-  closePath() {}
+  closePath() {
+    this.current = undefined;
+  }
   rect() {}
-  addPath() {}
+  addPath(other) {
+    this.contours.push(
+      ...other.contours.map((contour) => contour.map((point) => [...point])),
+    );
+    this.vertices.push(...other.vertices.map((point) => [...point]));
+    this.current = undefined;
+  }
 };
 
 for (const mode of ['fixture', 'source', 'production']) {

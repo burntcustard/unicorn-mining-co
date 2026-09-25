@@ -1,13 +1,15 @@
 import { Vector, type Vector as VectorValue } from '../shared/vector';
 import { createAsteroid } from '../shared/simulation/asteroid';
 import { createShip } from '../shared/craft/create-ship';
-import { createItem } from '../shared/items/create-item';
+import { itemTypes } from '../shared/items';
 import { createStation } from '../shared/craft/create-station';
+import { worldRanges } from '../shared/settings';
+import { RegionManager as ProceduralRegionManager } from '../shared/simulation/region-manager';
 import {
-  RegionManager as ProceduralRegionManager,
-  worldRanges,
-} from '../shared/simulation/region-manager';
-import { addEntity, type SimulationWorld } from '../shared/simulation/world';
+  addEntity,
+  entityId,
+  type SimulationWorld,
+} from '../shared/simulation/world';
 import {
   type RegionalView,
   type WorldRanges,
@@ -76,6 +78,7 @@ export class RegionManager {
 
     views.forEach((view) => {
       view.asteroids.forEach((description) => {
+        if (wanted.has(description.id)) return;
         wanted.add(description.id);
 
         if (world.entities.has(description.id)) return;
@@ -109,6 +112,7 @@ export class RegionManager {
       });
 
       view.stations.forEach((description) => {
+        if (wanted.has(description.id)) return;
         wanted.add(description.id);
 
         if (world.entities.has(description.id)) return;
@@ -131,6 +135,7 @@ export class RegionManager {
       });
 
       view.wrecks.forEach((description) => {
+        if (wanted.has(description.id)) return;
         wanted.add(description.id);
 
         if (world.entities.has(description.id)) return;
@@ -141,8 +146,9 @@ export class RegionManager {
             position: description.position.add(Vector()),
           }),
           {
-            cargoContents: description.cargoContents.map((resource) =>
-              createItem(world, { resource }),
+            cargoContents: description.cargoContents.map(
+              (resource) =>
+                new itemTypes[resource]({ world, id: entityId(world) }),
             ),
             paint: description.paint,
           },

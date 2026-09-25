@@ -5,15 +5,8 @@ import {
   type RegionDescription,
   type WorldRanges,
 } from '../protocol/regions';
-import { generateRegion, regionSeed, regionSize } from './region-generation';
-
-export const worldRanges: WorldRanges = {
-  asteroid: 2000,
-  item: 2000,
-  stationMarker: 10000,
-  stationPhysics: 2000,
-  wreck: 2000,
-};
+import { regionSize, worldRanges } from '../settings';
+import { generateRegion, regionSeed } from './region-generation';
 
 const keyOf = ({ region }: { region: VectorValue }) =>
   `${region.x},${region.y}`;

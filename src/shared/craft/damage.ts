@@ -1,8 +1,9 @@
-import { type GameObjectLike, type Segment } from '../types';
+import { type Segment } from '../types';
+import { type GameObject } from '../game-object';
 import { type AsteroidSegment } from '../protocol/entities';
 
 export const damage = (
-  object: GameObjectLike | Segment | AsteroidSegment,
+  object: GameObject | Segment | AsteroidSegment,
   amount: number,
   _point?: number[],
 ) => {

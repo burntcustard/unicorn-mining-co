@@ -14,7 +14,13 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0simulation'
           ? `
-      export * from '${process.cwd()}/src/shared/simulation/index.ts';
+      export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/shared/simulation/world.ts';
+      export { createAsteroid, outlinesFrom } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
+      export { Diamond } from '${process.cwd()}/src/shared/items/diamond.ts';
+      export { createShip } from '${process.cwd()}/src/shared/craft/create-ship.ts';
+      export { createStation } from '${process.cwd()}/src/shared/craft/create-station.ts';
+      export { cloneEntity } from '${process.cwd()}/src/shared/simulation/world-state.ts';
+      export { updateWorld } from '${process.cwd()}/src/shared/simulation/update-world.ts';
       export { detectCollisions } from '${process.cwd()}/src/shared/collision/detect-collisions.ts';
       export { Vector } from '${process.cwd()}/src/shared/vector.ts';
       export { PredictionManager } from '${process.cwd()}/src/client/prediction.ts';
@@ -32,12 +38,14 @@ const {
   addEntity,
   addPlayer,
   createAsteroid,
-  createItem,
+  Diamond,
   createShip,
   createStation,
   createWorld,
+  entityId,
   cloneEntity,
   detectCollisions,
+  outlinesFrom,
   PredictionManager,
   updateWorld,
   Vector,
@@ -325,6 +333,8 @@ const drillDamagesOnlyAtTip = () => {
   const tip = drill.find(({ role }) => role === 'hornDrill');
 
   assert(body?.physics, 'the drill body remains a physical collider');
+  assert.equal(body.friction, 0.3);
+  assert.equal(tip.friction, ship.friction);
   assert.equal(body.role, undefined);
   assert.equal(tip?.physics, false);
   assert.equal(tip?.radius, 3);
@@ -421,6 +431,49 @@ const drillDamagesOnlyAtTip = () => {
 };
 
 drillDamagesOnlyAtTip();
+
+// The physical drill surface still lets a moving ship slide along a rock while
+// the tip keeps drilling; the existing velocity adjustment retains inward pull.
+{
+  const world = createWorld({ seed: 25 });
+  const ship = addEntity(world, createShip(world, { playerId: 7 }));
+
+  addEntity(
+    world,
+    createAsteroid(world, { position: Vector(55), radius: 25, pointCount: 6 }),
+  );
+  addPlayer(world, { id: 7, shipId: ship.id });
+  ship.segments
+    .filter((segment) => segment.module.grinds)
+    .forEach((segment) => {
+      segment.active = 1;
+      segment.activationProgress = 1;
+    });
+  ship.velocity.set(Vector(0, 100));
+  let damageContacts = 0;
+
+  for (let tick = 0; tick < 5; tick++) {
+    damageContacts += updateWorld({
+      world,
+      inputs: new Map([
+        [
+          7,
+          {
+            hornDrill: true,
+            cargoHatch: false,
+            searchLight: false,
+            shieldGenerator: false,
+            thrust: 0,
+            turn: 0,
+          },
+        ],
+      ]),
+    }).filter(({ type }) => type === 'drillDamage').length;
+  }
+  assert.equal(damageContacts, 5);
+  assert(ship.position.y > 4, 'the drill slides tangentially across the rock');
+  assert(ship.velocity.x > 0, 'drilling retains inward velocity adjustment');
+}
 
 const drillDamagesCraftInWorld = () => {
   const world = createWorld({ seed: 25 });
@@ -671,8 +724,9 @@ diamondPickup();
     );
   const item = addEntity(
     world,
-    createItem(world, {
-      resource: 0,
+    new Diamond({
+      world,
+      id: entityId(world),
       position: throat.position.add(Vector(throat.radius + 2)),
     }),
   );
@@ -814,6 +868,105 @@ const splitConservesOriginalGeometry = () => {
 };
 
 splitConservesOriginalGeometry();
+
+const interiorSplitRetainsHole = () => {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 7 }));
+  const rock = addEntity(
+    world,
+    createAsteroid(world, { radius: 150, pointCount: 7 }),
+  );
+  const broken = rock.segments[0];
+  const drill = ship.segments.find((segment) => segment.module.grinds);
+  const events = [];
+
+  broken.health = 0.5;
+  drill.activationProgress = 1;
+  ship.handleContacts({
+    contacts: [
+      {
+        collider: { owner: ship, role: 'hornDrill', segment: drill },
+        other: { owner: rock, asteroidSegment: broken },
+        point: ship.position,
+        depth: 1,
+      },
+    ],
+    events,
+    world,
+    dt: 1 / 30,
+  });
+  const children = [...world.entities.values()].filter(
+    (entity) => entity.kind === 'asteroid',
+  );
+  const remainder = children.find((child) => child.segments?.length);
+
+  assert.equal(events.filter(({ type }) => type === 'asteroidSplit').length, 1);
+  assert.equal(
+    children.length,
+    2,
+    'drilling one inner segment creates two children',
+  );
+  const rings = outlinesFrom(remainder.segments);
+  const area = (outline) =>
+    Math.abs(
+      outline.reduce((sum, [x, y], index) => {
+        const next = outline[(index + 1) % outline.length];
+
+        return sum + x * next[1] - next[0] * y;
+      }, 0),
+    ) / 2;
+
+  assert.equal(rings.length, 2, 'an interior break leaves a real hole');
+  const ringAreas = rings.map(area).sort((a, b) => b - a);
+
+  assert(
+    Math.abs(
+      ringAreas[0] -
+        ringAreas[1] -
+        remainder.segments.reduce(
+          (sum, segment) => sum + area(segment.outline),
+          0,
+        ),
+    ) < 1e-8,
+    'the remaining visible boundary excludes the detached piece',
+  );
+
+  for (const seed of [5, 6]) {
+    const world = createWorld({ seed });
+
+    addEntity(world, createAsteroid(world, { radius: 150, pointCount: 7 }));
+
+    for (let step = 0; step < 10; step++) {
+      const parents = [...world.entities.values()].filter(
+        (entity) => entity.segments?.length,
+      );
+      const parent = parents[(seed + step) % parents.length];
+      const segment =
+        parent.segments[(seed * 3 + step * 5) % parent.segments.length];
+
+      parent.detach({ asteroidSegment: segment, world });
+      world.entities.forEach((child) => {
+        if (!child.segments) return;
+        const areas = outlinesFrom(child.segments)
+          .map(area)
+          .sort((a, b) => b - a);
+        const visible =
+          areas[0] - areas.slice(1).reduce((sum, hole) => sum + hole, 0);
+        const actual = child.segments.reduce(
+          (sum, piece) => sum + area(piece.outline),
+          0,
+        );
+
+        assert(
+          Math.abs(visible - actual) < 1e-8,
+          'repeated interior splits preserve all holes and visible area',
+        );
+      });
+    }
+  }
+};
+
+interiorSplitRetainsHole();
 
 const authoritativeSnapshotReplacesPredictedSplit = () => {
   const world = createWorld({ seed: 25 });

@@ -6,11 +6,8 @@ import {
   Asteroid,
   outlineOf as asteroidOutlineOf,
 } from '../shared/simulation/asteroid';
-import {
-  type Outline,
-  type Segment,
-  type GameObjectLike,
-} from '../shared/types';
+import { type Outline, type Segment } from '../shared/types';
+import { type GameObject } from '../shared/game-object';
 
 type Crossing = {
   at: VectorValue;
@@ -36,7 +33,7 @@ export interface Beam {
   rays: Ray[];
 }
 type Lamp = Segment;
-type Scenery = GameObjectLike & { outline?: Outline; scenery?: boolean };
+type Scenery = GameObject & { outline?: Outline; scenery?: boolean };
 
 const fillOf = (
   ctx: CanvasRenderingContext2D,
@@ -217,7 +214,7 @@ const refract = (dir: VectorValue, normal: VectorValue, index: number) => {
 // One scenery object's shape in the lamp's frame, added to the mask as a path
 // and handed back as points for the rays to be tested against
 const outlineOf = (
-  ship: Pick<GameObjectLike, 'position' | 'rotation'>,
+  ship: Pick<GameObject, 'position' | 'rotation'>,
   lamp: Segment,
   object: Scenery,
   mask: Path2D,
@@ -291,9 +288,9 @@ const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
  * scenery: Anything that might be in the way.
  */
 export const traceBeam = (
-  ship: Pick<GameObjectLike, 'position' | 'rotation'>,
+  ship: Pick<GameObject, 'position' | 'rotation'>,
   lamp: Lamp,
-  scenery: GameObjectLike[],
+  scenery: GameObject[],
 ): Beam => {
   const { lens, reach, spread } = lamp.module;
   const range = Math.hypot(lens + reach, spread);
@@ -505,7 +502,7 @@ export const drawSpectrum = (
     const tip = root.add(away.scale(length));
 
     // Violet is bent furthest, so it belongs on the side the rock bent towards
-    spectrum.forEach((color, band) => {
+    spectrum.forEach((_, band) => {
       ctx.fillStyle = fillOf(
         ctx,
         spectrum[

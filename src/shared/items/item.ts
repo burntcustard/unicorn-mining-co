@@ -1,6 +1,7 @@
 import { GameObject } from '../game-object';
 import { radiusOf } from '../polygon';
-import { collisionCategories, type Collider } from '../collision/types';
+import { type Collider } from '../collision/types';
+import { cargoPickupPoint } from '../modules/cargo-hatch';
 
 export class Item extends GameObject {
   static [key: string]: any;
@@ -20,20 +21,6 @@ export class Item extends GameObject {
   hitbox(): Collider[] {
     const body = super.hitbox();
 
-    return body.length
-      ? [
-          ...body,
-          {
-            owner: this,
-            position: this.position,
-            radius: 0,
-            rotation: this.rotation,
-            physics: false,
-            pickupPoint: true,
-            collisionCategory: collisionCategories.pickupPoint,
-            collisionMask: collisionCategories.cargoHatchMouth,
-          },
-        ]
-      : body;
+    return body.length ? [...body, cargoPickupPoint(this)] : body;
   }
 }

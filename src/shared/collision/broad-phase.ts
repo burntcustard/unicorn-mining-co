@@ -10,14 +10,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Vec2Value } from '../common/physics-vector';
+import { Vec2Value } from '../vector';
 import { AABB, AABBValue } from './axis-aligned-bounds';
-import { DynamicTree, DynamicTreeQueryCallback } from './dynamic-tree';
+import { DynamicTree } from './dynamic-tree';
 import { FixtureProxy } from '../dynamics/collision-fixture';
-
-/** @internal */ const _ASSERT = false;
-/** @internal */ const math_max = Math.max;
-/** @internal */ const math_min = Math.min;
 
 /**
  * The broad-phase wraps and extends a dynamic-tree to keep track of moved
@@ -31,13 +27,6 @@ export class BroadPhase {
   m_queryProxyId: number;
 
   /**
-   * Get user data from a proxy. Returns null if the id is invalid.
-   */
-  getUserData(proxyId: number): FixtureProxy {
-    return this.m_tree.getUserData(proxyId);
-  }
-
-  /**
    * Test overlap of fat AABBs.
    */
   testOverlap(proxyIdA: number, proxyIdB: number): boolean {
@@ -48,26 +37,10 @@ export class BroadPhase {
   }
 
   /**
-   * Get the fat AABB for a proxy.
-   */
-  getFatAABB(proxyId: number): AABB {
-    return this.m_tree.getFatAABB(proxyId);
-  }
-
-  /**
-   * Query an AABB for overlapping proxies. The callback class is called for each
-   * proxy that overlaps the supplied AABB.
-   */
-  query = (aabb: AABBValue, queryCallback: DynamicTreeQueryCallback): void => {
-    this.m_tree.query(aabb, queryCallback);
-  };
-
-  /**
    * Create a proxy with an initial AABB. Pairs are not reported until UpdatePairs
    * is called.
    */
   createProxy(aabb: AABBValue, userData: FixtureProxy): number {
-    if (_ASSERT) console.assert(AABB.isValid(aabb));
     const proxyId = this.m_tree.createProxy(aabb, userData);
 
     this.bufferMove(proxyId);
@@ -87,7 +60,6 @@ export class BroadPhase {
    * UpdatePairs to finalized the proxy pairs (for your time step).
    */
   moveProxy(proxyId: number, aabb: AABB, displacement: Vec2Value): void {
-    if (_ASSERT) console.assert(AABB.isValid(aabb));
     const changed = this.m_tree.moveProxy(proxyId, aabb, displacement);
 
     if (changed) {
@@ -99,9 +71,6 @@ export class BroadPhase {
    * Call to trigger a re-processing of it's pairs on the next call to
    * UpdatePairs.
    */
-  touchProxy(proxyId: number): void {
-    this.bufferMove(proxyId);
-  }
 
   bufferMove(proxyId: number): void {
     this.m_moveBuffer.push(proxyId);
@@ -121,7 +90,6 @@ export class BroadPhase {
   updatePairs(
     addPairCallback: (userDataA: FixtureProxy, userDataB: FixtureProxy) => void,
   ): void {
-    if (_ASSERT) console.assert(typeof addPairCallback === 'function');
     this.m_callback = addPairCallback;
 
     // Perform tree queries for all moving proxies.
@@ -139,9 +107,6 @@ export class BroadPhase {
       // Query tree, create pairs and add them pair buffer.
       this.m_tree.query(fatAABB, this.queryCallback);
     }
-
-    // Try to keep the tree balanced.
-    // this.m_tree.rebalance(4);
   }
 
   queryCallback = (proxyId: number): boolean => {
@@ -150,10 +115,8 @@ export class BroadPhase {
       return true;
     }
 
-    const proxyIdA = math_min(proxyId, this.m_queryProxyId);
-    const proxyIdB = math_max(proxyId, this.m_queryProxyId);
-
-    // TODO: Skip any duplicate pairs.
+    const proxyIdA = Math.min(proxyId, this.m_queryProxyId);
+    const proxyIdB = Math.max(proxyId, this.m_queryProxyId);
 
     const userDataA = this.m_tree.getUserData(proxyIdA);
     const userDataB = this.m_tree.getUserData(proxyIdB);

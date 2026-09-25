@@ -3,7 +3,6 @@ import { type Ship } from '../../shared/craft/ship';
 import { type GameState } from '../game';
 import { paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../shared/colors';
-import { launch } from '../../shared/simulation/docking';
 import { outline } from '../outline';
 import { playSound } from '../sound-loader';
 import { renderText } from '../text';
@@ -46,6 +45,7 @@ const swatchSize = rowGap - rowPad - swatchInset * 2;
 let mountOption = 0;
 let moduleOption = 0;
 let focused = 0;
+let paintReturnFocus = 0;
 let stage = 0;
 
 // Cargo instances carry their item data directly, and a stowed module is its
@@ -65,20 +65,15 @@ const cargoMenuEntriesOf = (ship: any) => [
 const cargoMenuEntryName = ([item, count]: any[]) =>
   count > 1 ? `${item.label} *${count}` : item.label;
 
-const hullHealthOf = (ship: any) =>
-  ship.segments
-    .filter(({ hull }: any) => hull)
-    .reduce((total: number, { health }: any) => total + health, 0);
-const hullMaxHealthOf = (ship: any) =>
-  ship.hullSegments.reduce(
-    (total: number, { health }: any) => total + health,
-    0,
-  );
+const sendAppliedAction = (
+  ship: Ship,
+  action: Parameters<Ship['applyDockAction']>[0],
+) => {
+  const applied = ship.applyDockAction(action);
 
-// Health is displayed as a whole number, so repairing replaces every missing
-// displayed HP, including the fractional remainder hidden by the UI.
-const repairCostOf = (health: number, maxHealth: number) =>
-  maxHealth - (health | 0);
+  if (applied) sendCraftAction(applied);
+  return applied;
+};
 
 // What a mount can be given, in the order its `fits` lists them: each module
 // type stands in for itself while the pilot owns none of it, and is replaced in
@@ -107,12 +102,13 @@ const fitsOf = (ship: any, mount: any) => {
   });
 };
 
-// Fitting changes a mount link, while buying and selling change ownership.
-const actionsOf = (ship: any, mount: any, module: any) => {
-  const fitted = mount.module === module;
+// Equip and remove move a module between cargo and a mount; buy and sell
+// change ownership.
+const moduleActionsOf = (mount: any, module: any) => {
+  const equipped = mount.module === module;
   const owned = module instanceof Module;
 
-  return fitted
+  return equipped
     ? mount.health < module.health
       ? ['FIX', 'REMOVE']
       : ['REMOVE']
@@ -143,9 +139,9 @@ const selectionOf = (ship: any) => {
     ? ship
     : stage && (cargoMenu ? item?.[0] : item);
   const repairCost = hullMenu
-    ? repairCostOf(hullHealthOf(ship), hullMaxHealthOf(ship))
+    ? ship.repairCost()
     : mount?.module && mount.module === currentModule
-      ? repairCostOf(mount.health, currentModule.health)
+      ? ship.repairCost(mount)
       : 0;
   const actions =
     stage > 1
@@ -155,7 +151,7 @@ const selectionOf = (ship: any) => {
           : []
         : cargoMenu
           ? ['SELL']
-          : actionsOf(ship, mount, currentModule)
+          : moduleActionsOf(mount, currentModule)
       : [];
   const swatches =
     stage > 1 && (hullMenu || currentModule instanceof Module) ? paints : [];
@@ -199,15 +195,20 @@ export const moveSelection = (delta: number, ship: Ship, sub: number) => {
     const onPaints = focused >= first;
     const availablePaints = swatches.filter(paintUnlocked);
 
-    // Down reaches BACK before the paint row. Left and right still move
-    // along the row, and up retraces the same route.
+    // Down from EQUIP or BACK enters the paint row; other actions reach BACK.
+    // Up from paint returns to the button used to enter that row.
     if (!sub && onPaints && delta < 0) {
-      focused = actions.length;
-    } else if (!sub && !onPaints && delta > 0 && focused < actions.length) {
-      focused = actions.length;
+      focused = paintReturnFocus;
     } else if (!sub && !onPaints && delta < 0 && focused === actions.length) {
       focused = disabledAction ? actions.length : 0;
-    } else if (!sub && !onPaints && delta > 0 && swatches.length) {
+    } else if (
+      !sub &&
+      !onPaints &&
+      delta > 0 &&
+      swatches.length &&
+      (focused === actions.length || actions[focused] === 'EQUIP')
+    ) {
+      paintReturnFocus = focused;
       focused =
         first +
         swatches.indexOf(
@@ -218,6 +219,8 @@ export const moveSelection = (delta: number, ship: Ship, sub: number) => {
             )
           ],
         );
+    } else if (!sub && !onPaints && delta > 0 && focused < actions.length) {
+      focused = actions.length;
     } else if (onPaints) {
       const paint = availablePaints.indexOf(swatches[focused - first]);
 
@@ -258,7 +261,7 @@ export const back = (ship: Ship): void => {
     // The hull has nothing to pick out, so its actions are the whole submenu
     stage = mountOption === 1 ? 0 : stage - 1;
   } else {
-    launch(ship);
+    ship.launch();
     ship.launchRequested = 1;
     ship.started = 1;
   }
@@ -278,7 +281,6 @@ export const confirmSelection = (ship: Ship) => {
     swatches,
     hullMenu,
     cargoMenu,
-    repairCost,
   } = selectionOf(ship);
 
   if (stage < 2) {
@@ -303,13 +305,7 @@ export const confirmSelection = (ship: Ship) => {
 
   if (shades) {
     if (!paintUnlocked(shades)) return;
-    currentModule.shades = shades;
-    ship.segments
-      .filter((segment: any) =>
-        hullMenu ? segment.hull : segment.module === currentModule,
-      )
-      .forEach((segment: any) => (segment.shades = shades));
-    sendCraftAction({
+    sendAppliedAction(ship, {
       action: 'paint',
       ...(hullMenu
         ? {}
@@ -328,8 +324,13 @@ export const confirmSelection = (ship: Ship) => {
   if (!picked) return back(ship);
 
   if (picked === 'FIX') {
-    ship.credits -= repairCost;
-    hullMenu ? ship.fixHull() : (mount.health = currentModule.health);
+    sendAppliedAction(ship, {
+      action: 'repair',
+      ...(!hullMenu && {
+        moduleId: currentModule.id,
+        mount: ship.mounts.indexOf(mount),
+      }),
+    });
     return;
   }
 
@@ -355,27 +356,22 @@ export const confirmSelection = (ship: Ship) => {
     if (ship.cargoContents.length >= ship.cargoSpace) {
       say('CARGO FULL');
     } else {
-      ship.credits -= currentModule.price;
-      const module = new currentModule();
-
-      ship.cargoContents.push(module);
-      sendCraftAction({
+      sendAppliedAction(ship, {
         action: 'buy',
         module: moduleTypes.indexOf(currentModule),
-        moduleId: module.id,
       });
     }
-  } else {
-    ship.fit(picked === 'EQUIP' && currentModule, mount);
-    sendCraftAction(
-      picked === 'EQUIP'
-        ? {
-            action: 'equip',
-            moduleId: currentModule.id,
-            mount: ship.mounts.indexOf(mount),
-          }
-        : { action: 'remove', mount: ship.mounts.indexOf(mount) },
-    );
+  } else if (picked === 'EQUIP') {
+    sendAppliedAction(ship, {
+      action: 'equip',
+      moduleId: currentModule.id,
+      mount: ship.mounts.indexOf(mount),
+    });
+  } else if (picked === 'REMOVE') {
+    sendAppliedAction(ship, {
+      action: 'remove',
+      mount: ship.mounts.indexOf(mount),
+    });
   }
 };
 
@@ -443,11 +439,11 @@ export const renderDocked = (game: GameState, ship: Ship) => {
   const info =
     currentHull || cargoMenuEntries || currentModule || mount?.module;
   const health = currentHull
-    ? hullHealthOf(ship)
+    ? ship.hullHealthTotal
     : mount?.module === info
       ? mount?.health
       : info?.health;
-  const maxHealth = currentHull ? hullMaxHealthOf(ship) : info?.health;
+  const maxHealth = currentHull ? ship.hullMaxHealth : info?.health;
   let actionX = 0;
   const actionButtons: any[] = [];
   // The action row, and the swatch row under it when there is paint to pick

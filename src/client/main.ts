@@ -21,7 +21,7 @@ import { bindAction, initKeys, playerInput } from './input';
 import { network } from './network';
 import { camera, dockDuration, followTarget } from './camera';
 
-import { insidePath, traceBeam } from './prism';
+import { revealBuriedItems } from './lighting';
 import { itemTypes, Message } from '../shared/items';
 import { adoptPlayerShip, playerShip, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './shrapnel';
@@ -41,7 +41,6 @@ import { benchmarkFlag } from './benchmark';
 import { colors } from '../shared/colors';
 import { game } from './game';
 
-// import { Road } from './road';
 import { Asteroid } from '../shared/simulation/asteroid';
 
 import { renderAsteroid } from './render-asteroid';
@@ -53,7 +52,6 @@ import { updateHornDrillSounds } from './update-horn-drill-sounds';
 import { renderUI } from './ui';
 import { setSizing } from './set-sizing';
 import { Vector, type Vector as VectorValue } from '../shared/vector';
-import { type GameObjectLike } from '../shared/types';
 import { type GameObject as SimulationObject } from '../shared/game-object';
 
 type Background = {
@@ -87,11 +85,11 @@ window.onresize = () => {
   gameStarted || renderSky();
 };
 
-const regionalObjects = new Map<number, GameObjectLike>();
+const regionalObjects = new Map<number, SimulationObject>();
 let stationMarkers: { position: VectorValue; radius: number }[] = [];
 
 const materialize = ({ entity }: { entity: SimulationObject }) => {
-  let object: GameObjectLike;
+  let object: SimulationObject;
 
   if (entity instanceof Craft) {
     object = decorateGameObject({ sprite: entity });
@@ -181,7 +179,7 @@ Object.assign(window, { game, network, playerShip });
 // @endif
 
 const activeRadius = 2000;
-let activeSprites: GameObjectLike[] = [];
+let activeSprites: SimulationObject[] = [];
 let activeTime = 0;
 let spriteCount = 0;
 
@@ -265,7 +263,6 @@ const gameLoop = GameLoop({
     ctx.scale(scale, scale);
     ctx.translate(-camera.x, -camera.y);
 
-    // roads.forEach((road) => road.render());
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them, using the same z-index as ship modules
     // The half layer puts every thruster glow above every flare, below hulls.
@@ -276,7 +273,7 @@ const gameLoop = GameLoop({
           object.render({ pose: remotePoses.get(object.id) });
           // A loose leaf cannot be split any smaller, so its cargo stays in view.
           object.segments ||
-            object.renderContents?.forEach((item: GameObjectLike) =>
+            object.renderContents?.forEach((item: SimulationObject) =>
               item.render(),
             );
         });
@@ -287,34 +284,11 @@ const gameLoop = GameLoop({
         // @ifdef DEBUG
         if (lights) {
           // @endif
-          const lamp = renderedShip.segments.find(
-            (segment) => segment.module.beam,
-          );
-
-          if (lamp?.activationProgress > 0.5) {
-            const beam = traceBeam(playerPose, lamp, activeSprites);
-
-            ctx.save();
-            ctx.translate(playerPose.position.x, playerPose.position.y);
-            ctx.rotate(playerPose.rotation);
-            ctx.translate(lamp.localPosition.x, lamp.localPosition.y);
-            ctx.clip(insidePath(beam));
-            ctx.clip(beam.mask);
-            ctx.resetTransform();
-            ctx.scale(scale, scale);
-            ctx.translate(-camera.x, -camera.y);
-
-            activeSprites.forEach(
-              (asteroid) =>
-                asteroid.scenery &&
-                asteroid.segments &&
-                asteroid.renderContents?.forEach((item: GameObjectLike) =>
-                  item.render(),
-                ),
-            );
-
-            ctx.restore();
-          }
+          revealBuriedItems({
+            sprites: activeSprites,
+            predicted: predicted.entities,
+            poses: remotePoses,
+          });
           // @ifdef DEBUG
         }
         // @endif

@@ -7,16 +7,18 @@ export type NetworkVector = { x: number; y: number };
 export type ReplicatedModule = ModuleState;
 export type CraftAction =
   | { action: 'buy'; module: number; moduleId: number }
+  | { action: 'sell'; objectIds: number[] }
   | { action: 'equip'; moduleId: number; mount: number }
-  | { action: 'paint'; moduleId?: number; mount?: number; paint: number }
   | { action: 'remove'; mount: number }
-  | { action: 'sell'; objectIds: number[] };
+  | { action: 'paint'; moduleId?: number; mount?: number; paint: number }
+  | { action: 'repair'; moduleId?: number; mount?: number };
 
 export type ReplicatedEntity = {
   cargoContents?: (ReplicatedEntity | { moduleIndex: number })[];
   credits?: number;
   contents?: number[];
   decay?: number;
+  friction?: number;
   dockedTo?: number;
   health?: number;
   hullHealth?: number[];

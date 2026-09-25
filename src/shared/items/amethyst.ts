@@ -7,7 +7,7 @@ import { createPolygon } from '../polygon';
 // it reads as a stone with depth in it
 export class Amethyst extends Item {
   static resource = 1;
-  static bounciness = 0.1;
+  static bounciness = 0.2;
   static fillAlpha = 6;
   static health = 100;
   static label = 'AMETHYST';

@@ -30,6 +30,16 @@ export class SearchLight extends Module {
   static label = 'SEARCH LIGHT';
   static model: any[] = [
     {
+      wreckage: {
+        // The lamp housing is half the length of a cargo-hatch door.
+        points: [
+          [lens, -1.5],
+          [lens + 8, -1.5],
+          [lens + 8, 1.5],
+          [lens, 1.5],
+        ],
+        fillShade: 2,
+      },
       points: ({ activationProgress }: { activationProgress: number }) =>
         activationProgress
           ? [

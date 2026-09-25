@@ -1,21 +1,23 @@
+import * as matrix from '../common/physics-matrix';
 import { World } from '../dynamics/physics-world';
 import { type Body } from '../dynamics/physics-body';
 import { type Fixture } from '../dynamics/collision-fixture';
-import { type Contact as PhysicsContact } from '../dynamics/collision-contact';
+import {
+  mixFriction,
+  mixRestitution,
+  type Contact as PhysicsContact,
+} from '../dynamics/collision-contact';
 import { CircleShape } from './shape/circle-shape';
 import { PolygonShape } from './shape/polygon-shape';
 import './shape/circle-circle-contact';
 import './shape/polygon-polygon-contact';
 import './shape/circle-polygon-contact';
-import { Vec2 } from '../common/physics-vector';
-import {
-  physicsScale,
-  contactSpeedThreshold,
-} from '../common/game-physics-settings';
+import { Vec2 } from '../vector';
 import { type GameObject } from '../game-object';
 import { Vector } from '../vector';
 import { rotatePoint } from '../geometry';
-import { collisionCategories, type Collider, type Contact } from './types';
+import { type Collider, type Contact } from './types';
+import { contactSpeedThreshold } from '../settings';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../craft/damage';
 import { Asteroid } from '../simulation/asteroid';
@@ -27,13 +29,49 @@ type BodyRecord = {
   geometry: string;
 };
 
-export class GameCollisions {
-  private world = new World({
-    gravity: Vec2.zero(),
-    // Replays must not depend on impulses cached by the abandoned timeline.
-    warmStarting: false,
-    allowSleep: false,
+// Explicit object mass controls translation. Geometry only determines how
+// strongly an off-centre hit rotates it around the object's origin.
+const inertiaPerMass = (fixtures: Fixture[]) => {
+  let area = 0;
+  let moment = 0;
+
+  fixtures.forEach(({ m_physics, m_shape }) => {
+    if (!m_physics) return;
+
+    if (m_shape instanceof CircleShape) {
+      const radiusSquared = m_shape.m_radius ** 2;
+      const circleArea = Math.PI * radiusSquared;
+      const { x, y } = m_shape.m_p;
+
+      area += circleArea;
+      moment += circleArea * (radiusSquared / 2 + x * x + y * y);
+    } else if (m_shape instanceof PolygonShape) {
+      const vertices = m_shape.m_vertices;
+
+      vertices.forEach(({ x, y }, index) => {
+        const next = vertices[(index + 1) % vertices.length];
+        const cross = x * next.y - next.x * y;
+
+        area += cross / 2;
+        moment +=
+          (cross *
+            (x * x +
+              x * next.x +
+              next.x * next.x +
+              y * y +
+              y * next.y +
+              next.y * next.y)) /
+          12;
+      });
+    }
   });
+
+  return area > 0 ? moment / area : 0;
+};
+
+export class GameCollisions {
+  // Replays must not reuse impulses or sleeping bodies from an old timeline.
+  private world = new World();
   private bodies = new Map<number, BodyRecord>();
   private contacts: Contact[] = [];
   private impacts = new Map<
@@ -42,7 +80,7 @@ export class GameCollisions {
   >();
 
   constructor() {
-    this.world.on('pre-solve', (contact) => {
+    this.world.onPreSolve((contact) => {
       const a = contact.getFixtureA().getUserData() as Collider;
       const b = contact.getFixtureB().getUserData() as Collider;
       const manifold = contact.getWorldManifold(null);
@@ -58,23 +96,26 @@ export class GameCollisions {
         .getBody()
         .getLinearVelocityFromWorldPoint(point);
       const physical = a.physics !== false && b.physics !== false;
+      const surfaceSpeed = physical ? (a.speed || 0) + (b.speed || 0) : 0;
       const impact = physical
-        ? -Vec2.dot(Vec2.sub(vb, va), manifold.normal) / physicsScale
+        ? surfaceSpeed - matrix.dotVec2(Vec2.sub(vb, va), manifold.normal)
         : 0;
 
       if (physical) {
+        contact.setSurfaceSpeed(surfaceSpeed);
+        contact.setFriction(mixFriction(a.friction, b.friction));
         contact.setRestitution(
           impact < contactSpeedThreshold
             ? 0
-            : Math.max(0, (a.bounciness || 0) + (b.bounciness || 0)),
+            : mixRestitution(a.bounciness ?? 0, b.bounciness ?? 0),
         );
       }
       const found: Contact = {
         collider: a,
         other: b,
-        depth: Math.max(0, -Math.min(...manifold.separations)) / physicsScale,
+        depth: Math.max(0, -Math.min(...manifold.separations)),
         normal: Vector(manifold.normal.x, manifold.normal.y),
-        point: Vector(point.x / physicsScale, point.y / physicsScale),
+        point: Vector(point.x, point.y),
       };
 
       this.contacts.push(found);
@@ -122,11 +163,8 @@ export class GameCollisions {
         : Vector();
       const spin = dt ? (entity.rotation - start.rotation) / dt : 0;
 
-      record.body.setTransform(
-        start.position.scale(physicsScale),
-        start.rotation,
-      );
-      record.body.setLinearVelocity(velocity.scale(physicsScale));
+      record.body.setTransform(start.position, start.rotation);
+      record.body.setLinearVelocity(velocity);
       record.body.setAngularVelocity(spin);
       return { record, start, velocity, spin };
     });
@@ -136,18 +174,13 @@ export class GameCollisions {
       const position = body.getPosition();
       const resolved = body.getLinearVelocity();
 
-      entity.position.set(
-        Vector(position.x / physicsScale, position.y / physicsScale),
-      );
+      entity.position.set(position);
       entity.rotation = body.getAngle();
 
       if (entity.mass) {
         entity.velocity.set(
           entity.velocity.add(
-            Vector(
-              resolved.x / physicsScale,
-              resolved.y / physicsScale,
-            ).subtract(velocity),
+            Vector(resolved.x, resolved.y).subtract(velocity),
           ),
         );
         entity.spin += body.getAngularVelocity() - spin;
@@ -193,7 +226,11 @@ export class GameCollisions {
   private sync(entity: GameObject) {
     let record = this.bodies.get(entity.id);
 
-    if (record && record.entity !== entity) {
+    if (
+      record &&
+      (record.entity !== entity ||
+        record.body.isDynamic() !== Boolean(entity.mass))
+    ) {
       this.world.destroyBody(record.body);
       this.bodies.delete(entity.id);
       record = undefined;
@@ -204,7 +241,7 @@ export class GameCollisions {
         entity,
         body: this.world.createBody({
           type: entity.mass ? 'dynamic' : 'kinematic',
-          bullet: true,
+          mass: entity.mass,
         }),
         fixtures: [],
         geometry: '',
@@ -218,7 +255,8 @@ export class GameCollisions {
           ? collider.colliders.map((nestedCollider) => ({
               ...collider,
               ...nestedCollider,
-              bounciness: collider.bounciness,
+              bounciness: nestedCollider.bounciness ?? collider.bounciness,
+              friction: nestedCollider.friction ?? collider.friction,
             }))
           : [collider],
       )
@@ -242,15 +280,13 @@ export class GameCollisions {
 
       return collider.outline
         ? collider.outline.map(([x, y]) =>
-            offset
-              .add(
-                rotatePoint(Vector(x, y), collider.rotation - entity.rotation),
-              )
-              .scale(physicsScale),
+            offset.add(
+              rotatePoint(Vector(x, y), collider.rotation - entity.rotation),
+            ),
           )
         : {
-            center: offset.scale(physicsScale),
-            radius: collider.radius * physicsScale,
+            center: offset,
+            radius: collider.radius,
           };
     });
     // Quantisation here only compares geometry, never simulation positions.
@@ -262,12 +298,12 @@ export class GameCollisions {
         colliders.map((c) => [
           c.physics !== false,
           c.collisionMargin,
-          c.collisionCategory ?? collisionCategories.solid,
-          c.collisionMask ?? collisionCategories.solid,
+          c.pickupPoint === true,
+          c.role === 'cargoHatch',
         ]),
       ],
       (_, value) =>
-        typeof value === 'number' ? Math.round(value * 1e8) / 1e8 : value,
+        typeof value === 'number' ? Math.round(value * 1e6) / 1e6 : value,
     );
 
     if (geometry !== record.geometry) {
@@ -277,38 +313,25 @@ export class GameCollisions {
       record.fixtures = shapes.map((shape, index) => {
         const collider = colliders[index];
         const fixtureShape = Array.isArray(shape)
-          ? new PolygonShape(shape)
+          ? new PolygonShape(shape, collider.collisionMargin)
           : new CircleShape(shape.center, shape.radius);
 
-        if (Array.isArray(shape) && collider.collisionMargin !== undefined) {
-          fixtureShape.m_radius = collider.collisionMargin * physicsScale;
-        }
         return record!.body.createFixture(fixtureShape, {
-          density: colliders[index].physics === false ? 0 : 1,
-          friction: 0,
+          friction: colliders[index].friction,
+          restitution: colliders[index].bounciness ?? 0,
           physics: colliders[index].physics !== false,
-          filterCategoryBits:
-            colliders[index].collisionCategory ?? collisionCategories.solid,
-          filterMaskBits:
-            colliders[index].collisionMask ?? collisionCategories.solid,
           userData: colliders[index],
         });
       });
       record.geometry = geometry;
 
       if (entity.mass) {
-        const mass = record.body.getMass();
-
-        record.body.setMassData({
-          mass: entity.mass,
-          center: Vec2.zero(),
-          I: mass
-            ? (record.body.getInertia() *
-                entity.mass *
-                entity.angularInertiaScale) /
-              mass
-            : 0,
-        });
+        record.body.setMass(
+          entity.mass,
+          entity.mass *
+            entity.angularInertiaScale *
+            inertiaPerMass(record.fixtures),
+        );
       }
     } else {
       record.fixtures.forEach((fixture, index) =>

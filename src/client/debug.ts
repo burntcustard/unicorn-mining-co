@@ -10,7 +10,7 @@ import { renderText } from './text';
 import { sky } from './background';
 import { textDemo } from './text-demo';
 import { Vector } from '../shared/vector';
-import { type GameObjectLike } from '../shared/types';
+import { type GameObject } from '../shared/game-object';
 import { type Ship } from '../shared/craft/ship';
 
 export let showDeadzone = false;
@@ -67,7 +67,7 @@ export const renderDebug = ({
   ship,
 }: {
   game: GameState;
-  sprites: GameObjectLike[];
+  sprites: GameObject[];
   ship: Ship;
 }) => {
   if (showDeadzone) {

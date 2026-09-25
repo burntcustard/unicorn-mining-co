@@ -10,20 +10,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-/** @internal */ const math_sin = Math.sin;
-/** @internal */ const math_cos = Math.cos;
-/** @internal */ const math_sqrt = Math.sqrt;
-
-import { RotValue } from './physics-rotation';
-import { TransformValue } from './physics-transform';
-import { Vec2Value } from './physics-vector';
+import type { RotValue, TransformValue } from './physics-transform';
+import type { Vec2Value } from '../vector';
 
 export function vec2(x: number, y: number): Vec2Value {
   return { x, y };
-}
-
-export function rotation(angle: number): RotValue {
-  return { s: math_sin(angle), c: math_cos(angle) };
 }
 
 export function setVec2(out: Vec2Value, x: number, y: number): Vec2Value {
@@ -53,12 +44,6 @@ export function negVec2(out: Vec2Value): Vec2Value {
 export function plusVec2(out: Vec2Value, w: Vec2Value): Vec2Value {
   out.x += w.x;
   out.y += w.y;
-  return out;
-}
-
-export function addVec2(out: Vec2Value, v: Vec2Value, w: Vec2Value): Vec2Value {
-  out.x = v.x + w.x;
-  out.y = v.y + w.y;
   return out;
 }
 
@@ -133,7 +118,7 @@ export function combine3Vec2(
 }
 
 export function normalizeVec2Length(out: Vec2Value): number {
-  const length = math_sqrt(out.x * out.x + out.y * out.y);
+  const length = Math.sqrt(out.x * out.x + out.y * out.y);
 
   if (length !== 0) {
     const invLength = 1 / length;
@@ -145,7 +130,7 @@ export function normalizeVec2Length(out: Vec2Value): number {
 }
 
 export function normalizeVec2(out: Vec2Value): Vec2Value {
-  const length = math_sqrt(out.x * out.x + out.y * out.y);
+  const length = Math.sqrt(out.x * out.x + out.y * out.y);
 
   if (length > 0) {
     const invLength = 1 / length;
@@ -198,7 +183,7 @@ export function distVec2(a: Vec2Value, b: Vec2Value): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
 
-  return math_sqrt(dx * dx + dy * dy);
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 export function distSqrVec2(a: Vec2Value, b: Vec2Value): number {
@@ -209,8 +194,8 @@ export function distSqrVec2(a: Vec2Value, b: Vec2Value): number {
 }
 
 export function setRotAngle(out: RotValue, a: number): RotValue {
-  out.c = math_cos(a);
-  out.s = math_sin(a);
+  out.c = Math.cos(a);
+  out.s = Math.sin(a);
   return out;
 }
 
@@ -250,18 +235,7 @@ export function rerotVec2(
 }
 
 export function transform(x: number, y: number, a: number): TransformValue {
-  return { p: vec2(x, y), q: rotation(a) };
-}
-
-export function copyTransform(
-  out: TransformValue,
-  transform: TransformValue,
-): TransformValue {
-  out.p.x = transform.p.x;
-  out.p.y = transform.p.y;
-  out.q.s = transform.q.s;
-  out.q.c = transform.q.c;
-  return out;
+  return { p: vec2(x, y), q: { s: Math.sin(a), c: Math.cos(a) } };
 }
 
 export function transformVec2(

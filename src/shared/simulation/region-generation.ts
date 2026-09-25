@@ -6,8 +6,7 @@ import {
   type WreckDescription,
 } from '../protocol/regions';
 import { createRandom, type Random } from '../seeded-random';
-
-export const regionSize = 2000;
+import { regionSize } from '../settings';
 
 const mix = (value: number) => {
   value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
@@ -99,10 +98,7 @@ const makeAsteroid = ({
   };
 };
 
-/**
- * Generate lightweight descriptions for exactly one deterministic region.
- */
-export const generateRegion = ({
+const generateCandidates = ({
   worldSeed,
   region,
 }: {
@@ -147,5 +143,55 @@ export const generateRegion = ({
     region: Vector(region.x, region.y),
     stations,
     wrecks,
+  };
+};
+
+// The old world distributor left this much clear space beyond both radii.
+export const asteroidSpacing = 30;
+
+// Reject crowded candidates in a stable order, independent of region load order.
+export const generateRegion = ({
+  worldSeed,
+  region,
+}: {
+  worldSeed: number;
+  region: VectorValue;
+}): RegionDescription => {
+  const current = generateCandidates({ worldSeed, region });
+  const nearby = [-1, 0, 1].flatMap((y) =>
+    [-1, 0, 1].map((x) =>
+      x || y
+        ? generateCandidates({
+            worldSeed,
+            region: Vector(region.x + x, region.y + y),
+          })
+        : current,
+    ),
+  );
+  const obstacles = nearby.flatMap(({ stations, wrecks }) => [
+    ...stations,
+    ...wrecks,
+  ]);
+  const overlaps = (
+    asteroid: AsteroidDescription,
+    other: { position: VectorValue; radius: number },
+  ) =>
+    asteroid.position.distanceTo(other.position) <
+    asteroid.radius + other.radius + asteroidSpacing;
+  const candidates = nearby
+    .flatMap(({ asteroids }) => asteroids)
+    .filter(
+      (asteroid) => !obstacles.some((other) => overlaps(asteroid, other)),
+    );
+
+  return {
+    ...current,
+    asteroids: current.asteroids.filter(
+      (asteroid) =>
+        candidates.includes(asteroid) &&
+        !candidates.some(
+          (other) => other.id < asteroid.id && overlaps(asteroid, other),
+        ),
+    ),
   };
 };
