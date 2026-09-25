@@ -131,6 +131,21 @@ const messages: ServerMessage[] = [];
 
 collect({ messages, socket });
 await once(socket, 'open');
+
+for (const payload of ['{', 'null']) {
+  const invalidSocket: WebSocket = new WebSocket(
+    `ws://127.0.0.1:${address.port}`,
+  );
+
+  await once(invalidSocket, 'open');
+  invalidSocket.send(payload);
+  const code = await new Promise<number>((resolve) =>
+    invalidSocket.once('close', (closeCode) => resolve(closeCode)),
+  );
+
+  assert.equal(code, 1007);
+}
+
 socket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
 
 const welcome = await waitFor({ messages, type: 'welcome' });
@@ -171,6 +186,56 @@ server.world.entities.forEach((entity) => {
   if (entity.kind === 'asteroid') server.world.entities.delete(entity.id);
 });
 await new Promise((resolve) => setTimeout(resolve, 50));
+const invalidControlSocket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+const invalidControlMessages: ServerMessage[] = [];
+
+collect({ messages: invalidControlMessages, socket: invalidControlSocket });
+await once(invalidControlSocket, 'open');
+invalidControlSocket.send(
+  JSON.stringify({ playerToken: null, type: 'hello' }),
+);
+const invalidControlWelcome = await waitFor({
+  messages: invalidControlMessages,
+  type: 'welcome',
+});
+
+assert.equal(invalidControlWelcome.type, 'welcome');
+const invalidControlShip = server.world.entities.get(invalidControlWelcome.shipId);
+
+assert(invalidControlShip instanceof Ship);
+const invalidInputTick = server.world.tick + 3;
+const invalidControlClose = new Promise<number>((resolve) =>
+  invalidControlSocket.once('close', (code) => resolve(code)),
+);
+
+invalidControlSocket.send(
+  JSON.stringify({
+    type: 'input',
+    sequence: 1,
+    tick: invalidInputTick,
+    input: {
+      hornDrill: false,
+      cargoHatch: false,
+      searchLight: false,
+      shieldGenerator: false,
+      launch: false,
+      thrust: 'bad',
+      turn: 0,
+    },
+  }),
+);
+assert.equal(await invalidControlClose, 1007);
+await waitUntil({ condition: () => server.world.tick > invalidInputTick });
+assert(
+  [
+    invalidControlShip.position.x,
+    invalidControlShip.position.y,
+    invalidControlShip.velocity.x,
+    invalidControlShip.velocity.y,
+  ].every(Number.isFinite),
+  'invalid controls cannot introduce non-finite ship state',
+);
+
 socket.send(
   JSON.stringify({
     input: {
@@ -178,6 +243,7 @@ socket.send(
       cargoHatch: false,
       searchLight: false,
       shieldGenerator: false,
+      launch: false,
       thrust: 0,
       turn: 0,
     },
@@ -229,6 +295,7 @@ socket.send(
       cargoHatch: true,
       searchLight: false,
       shieldGenerator: false,
+      launch: false,
       thrust: 0,
       turn: 0,
     },
@@ -268,6 +335,7 @@ socket.send(
       cargoHatch: false,
       searchLight: false,
       shieldGenerator: false,
+      launch: false,
       thrust: 1,
       turn: 0,
     },
@@ -309,6 +377,7 @@ socket.send(
       cargoHatch: false,
       searchLight: false,
       shieldGenerator: false,
+      launch: false,
       thrust: 1,
       turn: 1,
     },
@@ -324,6 +393,7 @@ socket.send(
       cargoHatch: false,
       searchLight: false,
       shieldGenerator: false,
+      launch: false,
       thrust: 0,
       turn: 0,
     },
@@ -691,6 +761,7 @@ secondSocket.send(
       cargoHatch: false,
       searchLight: true,
       shieldGenerator: false,
+      launch: false,
       thrust: 1,
       turn: 1,
     },
@@ -765,6 +836,7 @@ for (const disconnectFirst of [true, false]) {
       sequence: 1,
       tick: server.world.tick,
       input: {
+        launch: false,
         thrust: 1,
         turn: -1,
         cargoHatch: true,

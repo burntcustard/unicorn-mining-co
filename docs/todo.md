@@ -23,7 +23,7 @@
 [ ] Rethink sound, perhaps more ZzFX-ey
 [ ] Remove auto-approve things in .vscode/settings.json
 [ ] Figure out if there's anything else we can remove
-[ ] Re-split ship and stations
+[x] Re-split ship and stations
 [ ] New items, unique values and health
 [-] Collisions with rotation physics
 [ ] Figure out new hull/mounting-points relationship
@@ -37,7 +37,7 @@
 [ ] Better non-debug-only FPS counter with memory usage etc.
 [ ] Refine module (mount?) categories like thrusters
 [ ] More modules.
-[ ] Fix floodlight not revealing along its edge pixels
+[?] Fix floodlight not revealing along its edge pixels
 [ ] Smoothly move camera to center of station again
 [ ] Ensure tests aren't overlapping with each other
 [ ] Swap 'FIX' with 'REPAIR' or 'Repair'
