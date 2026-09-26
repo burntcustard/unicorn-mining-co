@@ -149,14 +149,14 @@ assert.deepEqual(
 );
 assert.equal(
   spread.loadedRegionCount,
-  242,
-  'both distant players retain their regions',
+  18,
+  'both distant players retain nearby detail regions',
 );
 spread.queryMany({ positions: [spreadPositions[0]] });
 assert.equal(
   spread.loadedRegionCount,
-  121,
-  'regions unload after their last player leaves',
+  9,
+  'detail regions unload after their last player leaves',
 );
 
 const serverRegions = new ServerRegionManager({ worldSeed: 25 });
@@ -369,3 +369,124 @@ console.log(
     `${view.stationMarkers.length} station markers within 10 km, ` +
     `${view.stations.length} stations within physics range.`,
 );
+
+// Cached region rectangles still filter each new position, range and live edit.
+{
+  const cached = new RegionManager({ worldSeed: 25 });
+  const reference = new RegionManager({ worldSeed: 25 });
+  const routes = [
+    [Vec.create(-3727, -8190), Vec.create(4500, 6500)],
+    [Vec.create(-3690, -8130), Vec.create(4530, 6500)],
+    [Vec.create(20000, 20000), Vec.create(-3690, -8130)],
+    [Vec.create(-3690, -8130)],
+    [],
+  ];
+
+  for (const positions of routes) {
+    for (const asteroid of [2500, 800]) {
+      const ranges = {
+        asteroid,
+        wreck: 2500,
+        stationMarker: 11000,
+        stationPhysics: 1000,
+      };
+      const options = { positions, ranges };
+      const expected = reference.queryMany(options);
+      // Deliberately invalidate only the reference manager's cached rectangle.
+
+      reference.load({ region: Vec.create(100, 100) });
+      reference.unload({ region: Vec.create(100, 100) });
+      assert.deepEqual(cached.queryMany(options), expected);
+      assert.deepEqual(cached.queryMany(options), reference.queryMany(options));
+    }
+  }
+  const options = { positions: routes[0] };
+  const views = cached.queryMany(options);
+  const removed = views.flatMap(({ asteroids }) => asteroids)[0];
+
+  assert.ok(removed);
+  cached.remove({ id: removed.id });
+  reference.remove({ id: removed.id });
+  assert.deepEqual(cached.queryMany(options), reference.queryMany(options));
+  const loaded = cached.load({ region: Vec.create(100, 100) });
+
+  assert.ok(loaded);
+  assert.deepEqual(cached.queryMany(options), reference.queryMany(options));
+  assert.equal(cached.loadedRegionCount, reference.loadedRegionCount);
+}
+
+// Cached procedural candidates never share mutable descriptions with callers,
+// and a different seed must not reuse another world's candidates.
+{
+  const options = { worldSeed: 25, region: Vec.create(5, 8) };
+  const expected = generateRegion(options);
+  const edited = generateRegion(options);
+
+  edited.asteroids.forEach((asteroid) => {
+    asteroid.position.x += 123;
+    asteroid.contents.length = 0;
+  });
+  edited.stations.length = 0;
+  Vec.setXY(edited.region, 999, 999);
+  generateRegion({ ...options, worldSeed: 26 });
+  assert.deepEqual(generateRegion(options), expected);
+}
+
+// Marker-only generation must match a full regional scan, including negative
+// coordinates and region boundaries, while loading only nearby detail regions.
+for (const position of [Vec.create(), Vec.create(-1999, 2001)]) {
+  const manager = new RegionManager({ worldSeed: 25 });
+  const expected = [];
+
+  for (
+    let x = Math.floor((position.x - 10000) / 2000);
+    x <= Math.floor((position.x + 10000) / 2000);
+    x++
+  ) {
+    for (
+      let y = Math.floor((position.y - 10000) / 2000);
+      y <= Math.floor((position.y + 10000) / 2000);
+      y++
+    ) {
+      expected.push(
+        ...generateRegion({ worldSeed: 25, region: Vec.create(x, y) }).stations,
+      );
+    }
+  }
+  const markers = expected.filter(
+    (station) => Vec.distanceSquared(position, station.position) <= 10000 ** 2,
+  );
+
+  assert.deepEqual(manager.query({ position }).stationMarkers, markers);
+  assert(manager.loadedRegionCount <= 9);
+  const removed = markers[0];
+
+  assert(removed);
+  manager.remove({ id: removed.id });
+  manager.query({ position: Vec.create(40000, -40000) });
+  assert.deepEqual(
+    manager.query({ position }).stationMarkers,
+    markers.filter(({ id }) => id !== removed.id),
+  );
+}
+
+// Marker generation must retain edits made through loaded region state.
+{
+  const manager = new RegionManager({ worldSeed: 25 });
+  const marker = manager.query({ position: Vec.create() }).stationMarkers[0];
+  const region = Vec.create(
+    Math.floor(marker.position.x / 2000),
+    Math.floor(marker.position.y / 2000),
+  );
+  const state = manager.load({ region }).description;
+  const station = state.stations.find(({ id }) => id === marker.id);
+
+  station.radius += 10;
+  manager.unload({ region });
+  assert.equal(
+    manager
+      .query({ position: Vec.create() })
+      .stationMarkers.find(({ id }) => id === marker.id).radius,
+    station.radius,
+  );
+}

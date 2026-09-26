@@ -11,7 +11,7 @@
  */
 
 import { AABBValue } from '../axis-aligned-bounds';
-import { DistanceProxy } from '../shape-distance';
+import * as Vec from '../../vector';
 import { TransformValue } from '../../vector-math';
 
 /**
@@ -37,7 +37,33 @@ export abstract class Shape {
    */
   abstract computeAABB(aabb: AABBValue, xf: TransformValue): void;
 
-  abstract computeDistanceProxy(proxy: DistanceProxy): void;
+  declare m_count: number;
+  declare m_vertices: Vec.Value[];
+
+  /**
+   * Get a vertex by index for the distance query.
+   */
+  getVertex(index: number): Vec.Value {
+    return this.m_vertices[index];
+  }
+
+  /**
+   * Get the supporting vertex index in the given direction.
+   */
+  getSupport(d: Vec.Value): number {
+    let bestIndex = -1;
+    let bestValue = -Infinity;
+
+    for (let i = 0; i < this.m_count; ++i) {
+      const value = Vec.dot(this.m_vertices[i], d);
+
+      if (value > bestValue) {
+        bestIndex = i;
+        bestValue = value;
+      }
+    }
+    return bestIndex;
+  }
 }
 
 export type ShapeType = 'circle' | 'polygon';

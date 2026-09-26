@@ -31,7 +31,7 @@ path = '/healthz'
 [[vm]]
 # Shared CPU quota is pooled: two vCPUs provide a 12.5% sustained allowance;
 # four vCPUs provide 25% if this tier proves insufficient after deployment.
-# The heaviest post-fix local test needed ~13% before network overhead.
+# Measurements: docs/performance-investigation-2026-09-26-three-player.md
 memory = '512mb'
 cpu_kind = 'shared'
 cpus = 2

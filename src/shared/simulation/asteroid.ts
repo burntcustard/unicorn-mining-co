@@ -280,7 +280,7 @@ const detachSegment = ({
       ),
     });
 
-    return addEntity(world, child);
+    return addEntity(world, child.lockGeometry());
   });
   const force = 3 / children.reduce((sum, child) => sum + 1 / child.mass, 0);
   const spin = ((createRandom(asteroid.id).next() - 0.5) * force) / 3;
@@ -388,6 +388,54 @@ export const asteroidContact = ({
   };
 };
 
+// Derived caches stay outside cloned/checkpointed entity state.
+class AsteroidCollider implements Collider {
+  bounciness = 0.2;
+  collisionMargin = 0;
+  owner: Asteroid;
+  asteroidSegment?: AsteroidSegment;
+  private collisionOutline?: ShapeOutline;
+
+  constructor({
+    owner,
+    asteroidSegment,
+    shapeOutline,
+  }: {
+    owner: Asteroid;
+    asteroidSegment?: AsteroidSegment;
+    shapeOutline?: ShapeOutline;
+  }) {
+    this.owner = owner;
+    this.asteroidSegment = asteroidSegment;
+    this.collisionOutline = shapeOutline;
+  }
+
+  get position() {
+    return this.owner.position;
+  }
+  get rotation() {
+    return this.owner.rotation;
+  }
+  get friction() {
+    return this.owner.friction;
+  }
+  get radius() {
+    return this.owner.radius;
+  }
+  get shapeOutline() {
+    return (this.asteroidSegment?.shapeOutline ||
+      this.collisionOutline) as ShapeOutline;
+  }
+}
+
+const segmentColliders = new WeakMap<
+  Asteroid,
+  { geometrySource?: object; colliders: AsteroidCollider[] }
+>();
+const lockedGeometry = new WeakSet<object>();
+const lockedSegments = new WeakMap<AsteroidSegment[], AsteroidSegment[]>();
+const collisionOutlines = new WeakMap<number[][], number[][]>();
+
 export class Asteroid extends GameObject {
   static friction = 0.2;
   static angularDrag = 0;
@@ -466,49 +514,104 @@ export class Asteroid extends GameObject {
     }
   }
 
-  hitbox(): Collider[] {
-    // Cut faces already meet exactly; polygon padding would overlap siblings.
+  // Procedural and fractured geometry is replaced as a whole. Health and
+  // outside-edge markings remain mutable; numeric vertices cannot drift.
+  lockGeometry() {
+    const lock = (outline: number[][]) => {
+      const polygon = outline as ShapeOutline;
+
+      polygon.edges ||= polygon.map(() => true);
+      outline.forEach(Object.freeze);
+      Object.freeze(outline);
+      lockedGeometry.add(outline);
+    };
+
+    if (this.shapeOutline) lock(this.shapeOutline);
+    this.segments?.forEach((segment) => {
+      lock(segment.shapeOutline);
+      Object.defineProperties(segment, {
+        shapeOutline: { writable: false, configurable: false },
+      });
+    });
+
+    if (this.segments) {
+      lockedSegments.set(this.segments, this.segments.slice());
+    }
+    return this;
+  }
+
+  get geometrySource() {
     if (this.segments?.length) {
-      return this.segments.map((asteroidSegment) => ({
-        bounciness: 0.2,
-        collisionMargin: 0,
-        shapeOutline: asteroidSegment.shapeOutline as ShapeOutline,
-        owner: this,
-        asteroidSegment,
-        friction: this.friction,
-        position: this.position,
-        radius: this.radius,
-        rotation: this.rotation,
-      }));
+      const source = lockedSegments.get(this.segments);
+
+      return source?.length === this.segments.length &&
+        this.segments.every((segment, i) => segment === source[i])
+        ? source
+        : undefined;
+    }
+    return this.shapeOutline && lockedGeometry.has(this.shapeOutline)
+      ? this.shapeOutline
+      : undefined;
+  }
+
+  hitbox(): Collider[] {
+    const source = this.geometrySource;
+    const cached = segmentColliders.get(this);
+
+    if (source && source === cached?.geometrySource) return cached.colliders;
+
+    if (this.segments?.length) {
+      const colliders = this.segments.map((asteroidSegment, index) =>
+        cached?.colliders[index]?.asteroidSegment === asteroidSegment
+          ? cached.colliders[index]
+          : new AsteroidCollider({ owner: this, asteroidSegment }),
+      );
+
+      if (source) {
+        colliders.forEach(Object.freeze);
+        Object.freeze(colliders);
+      }
+      segmentColliders.set(this, { geometrySource: source, colliders });
+      return colliders;
     }
 
     const shapeOutline = shapeOutlineOf(this);
-    const center = centerOf(shapeOutline);
-    // Detached leaves get a tiny collision-only inset. Keep the render shape outline,
-    // mass and resources intact, and never shrink the remaining asteroid.
-    const collisionShapeOutline = shapeOutline.map(([x, y]) => {
-      const offset = Vec.subtract(Vec.create(x, y), center);
-      const point = Vec.addScaled(
-        center,
-        offset,
-        Math.max(0.5, 1 - 0.1 / (Vec.length(offset) || 1)),
-      );
+    let collisionShapeOutline = collisionOutlines.get(shapeOutline);
 
-      return [point.x, point.y];
-    });
+    if (!collisionShapeOutline) {
+      const center = centerOf(shapeOutline);
 
-    return [
-      {
-        bounciness: 0.2,
-        friction: this.friction,
-        collisionMargin: 0,
-        shapeOutline: collisionShapeOutline as ShapeOutline,
+      // Detached leaves get a collision-only inset, preserving render geometry.
+      collisionShapeOutline = shapeOutline.map(([x, y]) => {
+        const offset = Vec.subtract(Vec.create(x, y), center);
+        const point = Vec.addScaled(
+          center,
+          offset,
+          Math.max(0.5, 1 - 0.1 / (Vec.length(offset) || 1)),
+        );
+
+        return [point.x, point.y];
+      });
+
+      if (lockedGeometry.has(shapeOutline)) {
+        collisionShapeOutline.forEach(Object.freeze);
+        Object.freeze(collisionShapeOutline);
+        collisionOutlines.set(shapeOutline, collisionShapeOutline);
+      }
+    }
+    const colliders = [
+      new AsteroidCollider({
         owner: this,
-        position: this.position,
-        radius: this.radius,
-        rotation: this.rotation,
-      },
+        shapeOutline: collisionShapeOutline as ShapeOutline,
+      }),
     ];
+
+    if (source) {
+      colliders.forEach(Object.freeze);
+      Object.freeze(colliders);
+      segmentColliders.set(this, { geometrySource: source, colliders });
+    }
+    return colliders;
   }
 
   fracture({

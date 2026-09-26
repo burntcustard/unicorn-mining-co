@@ -218,6 +218,13 @@ const featuresWithin = ({
   return features;
 };
 
+export const generateStations = (options: {
+  worldSeed: number;
+  from: Vec.Value;
+  to: Vec.Value;
+}) =>
+  featuresWithin({ ...options, kind: stationFeature }) as StationDescription[];
+
 /**
  * Expose the field outlines to the world preview without storing them in regions.
  */
@@ -328,6 +335,10 @@ const makeAsteroid = ({
   };
 };
 
+// Adjacent region loads repeatedly inspect the same nine candidate regions.
+// Keep a bounded immutable source cache; generateRegion returns a detached copy.
+const candidateRegions = new Map<string, RegionCandidates>();
+
 const generateCandidates = ({
   worldSeed,
   region,
@@ -335,6 +346,10 @@ const generateCandidates = ({
   worldSeed: number;
   region: Vec.Value;
 }): RegionCandidates => {
+  const key = `${worldSeed}:${region.x},${region.y}`;
+  const cached = candidateRegions.get(key);
+
+  if (cached) return cached;
   const from = Vec.scale(region, regionSize);
   const to = Vec.add(from, Vec.create(regionSize, regionSize));
   const stations = featuresWithin({
@@ -369,7 +384,14 @@ const generateCandidates = ({
     );
   });
 
-  return { asteroids, region: Vec.clone(region), stations, wrecks };
+  const candidates = { asteroids, region: Vec.clone(region), stations, wrecks };
+
+  candidateRegions.set(key, candidates);
+
+  if (candidateRegions.size > 1024) {
+    candidateRegions.delete(candidateRegions.keys().next().value!);
+  }
+  return candidates;
 };
 
 // The old world distributor left this much clear space beyond both radii.
@@ -430,7 +452,7 @@ export const generateRegion = ({
     buckets.set(key, bucket);
   });
 
-  return {
+  return structuredClone({
     ...current,
     wrecks: current.wrecks.map((wreck) => {
       const clueField = nearestRichField({
@@ -457,5 +479,5 @@ export const generateRegion = ({
         ),
       );
     }),
-  };
+  });
 };

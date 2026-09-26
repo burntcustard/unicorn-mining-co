@@ -12,26 +12,28 @@
 
 import * as Vec from '../vector';
 import { AABB, AABBValue } from './axis-aligned-bounds';
-import { DynamicTree } from './dynamic-tree';
-import { FixtureProxy } from '../physics/fixture';
+import { SpatialGrid, type SpatialProxy } from './spatial-grid';
+import { Fixture } from '../physics/fixture';
 
 /**
- * The broad-phase wraps and extends a dynamic-tree to keep track of moved
- * objects and query them on update.
+ * The broad-phase tracks moved fixtures and queries their spatial grid.
  */
 export class BroadPhase {
-  m_tree: DynamicTree<FixtureProxy> = new DynamicTree<FixtureProxy>();
-  m_moveBuffer: number[] = [];
+  m_grid: SpatialGrid<Fixture> = new SpatialGrid<Fixture>();
+  m_moveBuffer: SpatialProxy<Fixture>[] = [];
 
   m_callback: (userDataA: any, userDataB: any) => void;
-  m_queryProxyId: number;
+  m_queryProxy: SpatialProxy<Fixture>;
 
   /**
    * Test overlap of fat AABBs.
    */
-  testOverlap(proxyIdA: number, proxyIdB: number): boolean {
-    const aabbA = this.m_tree.getFatAABB(proxyIdA);
-    const aabbB = this.m_tree.getFatAABB(proxyIdB);
+  testOverlap(
+    proxyIdA: SpatialProxy<Fixture>,
+    proxyIdB: SpatialProxy<Fixture>,
+  ): boolean {
+    const aabbA = proxyIdA.aabb;
+    const aabbB = proxyIdB.aabb;
 
     return AABB.testOverlap(aabbA, aabbB);
   }
@@ -40,8 +42,8 @@ export class BroadPhase {
    * Create a proxy with an initial AABB. Pairs are not reported until UpdatePairs
    * is called.
    */
-  createProxy(aabb: AABBValue, userData: FixtureProxy): number {
-    const proxyId = this.m_tree.createProxy(aabb, userData);
+  createProxy(aabb: AABBValue, userData: Fixture): SpatialProxy<Fixture> {
+    const proxyId = this.m_grid.createProxy(aabb, userData, userData.m_body);
 
     this.bufferMove(proxyId);
     return proxyId;
@@ -50,17 +52,21 @@ export class BroadPhase {
   /**
    * Destroy a proxy. It is up to the client to remove any pairs.
    */
-  destroyProxy(proxyId: number): void {
+  destroyProxy(proxyId: SpatialProxy<Fixture>): void {
     this.unbufferMove(proxyId);
-    this.m_tree.destroyProxy(proxyId);
+    this.m_grid.destroyProxy(proxyId);
   }
 
   /**
    * Call moveProxy as many times as you like, then when you are done call
    * UpdatePairs to finalized the proxy pairs (for your time step).
    */
-  moveProxy(proxyId: number, aabb: AABB, displacement: Vec.Value): void {
-    const changed = this.m_tree.moveProxy(proxyId, aabb, displacement);
+  moveProxy(
+    proxyId: SpatialProxy<Fixture>,
+    aabb: AABB,
+    displacement: Vec.Value,
+  ): void {
+    const changed = this.m_grid.moveProxy(proxyId, aabb, displacement);
 
     if (changed) {
       this.bufferMove(proxyId);
@@ -72,11 +78,11 @@ export class BroadPhase {
    * UpdatePairs.
    */
 
-  bufferMove(proxyId: number): void {
+  bufferMove(proxyId: SpatialProxy<Fixture>): void {
     this.m_moveBuffer.push(proxyId);
   }
 
-  unbufferMove(proxyId: number): void {
+  unbufferMove(proxyId: SpatialProxy<Fixture>): void {
     for (let i = 0; i < this.m_moveBuffer.length; ++i) {
       if (this.m_moveBuffer[i] === proxyId) {
         this.m_moveBuffer[i] = null;
@@ -88,38 +94,40 @@ export class BroadPhase {
    * Update the pairs. This results in pair callbacks. This can only add pairs.
    */
   updatePairs(
-    addPairCallback: (userDataA: FixtureProxy, userDataB: FixtureProxy) => void,
+    addPairCallback: (userDataA: Fixture, userDataB: Fixture) => void,
   ): void {
     this.m_callback = addPairCallback;
 
-    // Perform tree queries for all moving proxies.
+    // Perform grid queries for all moving proxies.
     while (this.m_moveBuffer.length > 0) {
-      this.m_queryProxyId = this.m_moveBuffer.pop();
+      this.m_queryProxy = this.m_moveBuffer.pop();
 
-      if (this.m_queryProxyId === null) {
+      if (this.m_queryProxy === null) {
         continue;
       }
 
-      // We have to query the tree with the fat AABB so that
+      // We have to query the grid with the fat AABB so that
       // we don't fail to create a pair that may touch later.
-      const fatAABB = this.m_tree.getFatAABB(this.m_queryProxyId);
+      const fatAABB = this.m_queryProxy.aabb;
 
-      // Query tree, create pairs and add them pair buffer.
-      this.m_tree.query(fatAABB, this.queryCallback);
+      // Query the grid and create contacts.
+      this.m_grid.query(fatAABB, this.queryCallback, this.m_queryProxy.owner);
     }
   }
 
-  queryCallback = (proxyId: number): boolean => {
+  queryCallback = (proxyId: SpatialProxy<Fixture>): boolean => {
     // A proxy cannot form a pair with itself.
-    if (proxyId === this.m_queryProxyId) {
+    if (proxyId === this.m_queryProxy) {
       return true;
     }
 
-    const proxyIdA = Math.min(proxyId, this.m_queryProxyId);
-    const proxyIdB = Math.max(proxyId, this.m_queryProxyId);
+    const proxyIdA =
+      proxyId.id < this.m_queryProxy.id ? proxyId : this.m_queryProxy;
+    const proxyIdB =
+      proxyId.id < this.m_queryProxy.id ? this.m_queryProxy : proxyId;
 
-    const userDataA = this.m_tree.getUserData(proxyIdA);
-    const userDataB = this.m_tree.getUserData(proxyIdB);
+    const userDataA = proxyIdA.userData;
+    const userDataB = proxyIdB.userData;
 
     // Send the pairs back to the client.
     this.m_callback(userDataA, userDataB);

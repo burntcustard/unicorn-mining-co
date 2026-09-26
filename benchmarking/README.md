@@ -51,3 +51,55 @@ Phase costs are total milliseconds across the block; `wallPerTick` and
 `cpuPerTick` are milliseconds per tick. Socket stubs still serialize outgoing
 packets, but exclude actual transport. Run on the same machine before and after
 changes; these source-server measurements do not predict production capacity.
+
+## Three-player flight CPU comparison
+
+```sh
+node benchmarking/three-player-flight.mjs --save=/tmp/before.mjs > /tmp/before.jsonl
+# After changing the source:
+node benchmarking/three-player-flight.mjs --save=/tmp/after.mjs > /tmp/after.jsonl
+node benchmarking/three-player-flight.mjs --bundle=/tmp/before.mjs
+node benchmarking/three-player-flight.mjs --bundle=/tmp/after.mjs
+```
+
+Run these sequentially, with browser captures and other CPU-heavy tests stopped.
+The saved bundle freezes the simulation code; the same harness can replay it
+later. Keep the workspace dependencies installed because `ws` is external.
+
+Each run uses three players holding thrust with occasional steering, no mining,
+and three routes: a convoy, separated players, and an asteroid contact area.
+Only the initial placement is assigned directly. The next 300 ticks warm up the
+session; the following 9,000 ticks represent five minutes at 30 Hz. Stub sockets
+retain real snapshot serialization and hash every outgoing packet. Identical
+hashes, byte counts and final positions provide a deterministic behavior check.
+The run excludes browser rendering and real network transport.
+
+`cpuMs` is process user + system CPU milliseconds per tick, including background
+V8 work; `wallMs` is elapsed time per tick. `p50`, `p95` and `max` cover tick wall
+time. Compare repeat runs on the same machine, not these values against a Fly
+CPU capacity estimate. `--ticks=3000` shortens the measurement;
+`--scenario=convoy` selects one route. `--profile` adds inclusive phase timers
+that have their own overhead; use uninstrumented runs for final comparisons.
+A V8 sampling profile can be collected with `node --cpu-prof`.
+
+### Comparing broad-phase implementations
+
+Use `--ordered-pairs` on **both** bundles when comparing different collision
+indexes. It orders candidate fixture pairs consistently so collision ordering
+does not change the flight path, fractures, entity density or outgoing traffic.
+The production grid already uses stable fixture ordering; the flag also applies
+that order to the former tree. Check all packet hashes, byte counts, positions
+and entity counts before comparing CPU results. This normalization adds a small
+amount of benchmark-only query work.
+
+Keep the ordinary fresh-process results. Also use `--warm` to measure a running
+server after V8 compilation and procedural caches have warmed up: it runs one
+complete untimed cycle of the selected routes, creates new sessions, then
+measures the same routes. Each measured session still has its usual 300-tick
+warm-up and 9,000 measured ticks. Run identical options on both bundles; warmed
+and ordinary packet hashes differ because process-wide generated IDs advance.
+
+```sh
+node benchmarking/three-player-flight.mjs --bundle=/tmp/before.mjs --ordered-pairs --warm
+node benchmarking/three-player-flight.mjs --bundle=/tmp/after.mjs --ordered-pairs --warm
+```

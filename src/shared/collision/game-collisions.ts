@@ -1,4 +1,5 @@
 import * as Vec from '../vector';
+import { rotatePoint } from '../geometry';
 import { World } from '../physics/world';
 import { type Body } from '../physics/body';
 import { type Fixture } from '../physics/fixture';
@@ -9,11 +10,11 @@ import './shape/circle-circle-contact';
 import './shape/polygon-polygon-contact';
 import './shape/circle-polygon-contact';
 import { type GameObject } from '../game-object';
-import { rotatePoint } from '../geometry';
 import { type Collider, type Contact } from './types';
 import { contactSpeedThreshold } from '../settings';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../craft/damage';
+import { Craft } from '../craft/craft';
 import { Asteroid } from '../simulation/asteroid';
 import { type Pose } from '../types';
 
@@ -22,6 +23,7 @@ type BodyRecord = {
   entity: GameObject;
   fixtures: Fixture[];
   geometry: number[];
+  geometrySource?: object;
 };
 
 // Explicit object mass controls translation. Geometry only determines how
@@ -63,6 +65,17 @@ const inertiaPerMass = (fixtures: Fixture[]) => {
 
   return area > 0 ? moment / area : 0;
 };
+
+const same = (a: number, b: number) =>
+  a === b || Math.round(a * 1e6) === Math.round(b * 1e6);
+
+// Four fixture flags fit below the polygon vertex count.
+const geometryFlags = (collider: Collider) =>
+  ((collider.shapeOutline?.length || 0) << 4) |
+  +(collider.physics !== false) |
+  (+(collider.collisionMargin !== undefined) << 1) |
+  (+(collider.pickupPoint === true) << 2) |
+  (+(collider.role === 'cargoHatch') << 3);
 
 export class GameCollisions {
   // Replays must not reuse bodies or contacts from an old timeline.
@@ -242,7 +255,23 @@ export class GameCollisions {
       this.bodies.set(entity.id, record);
     }
 
-    const colliders = entity.hitbox().filter(
+    const geometrySource =
+      entity instanceof Asteroid && entity.hitbox === Asteroid.prototype.hitbox
+        ? entity.geometrySource
+        : undefined;
+
+    if (
+      geometrySource &&
+      geometrySource === record.geometrySource &&
+      same(entity.mass, record.geometry[0]) &&
+      same(entity.angularInertiaScale, record.geometry[1])
+    ) {
+      return record;
+    }
+    const hitbox =
+      entity instanceof Craft ? entity.hitbox(true) : entity.hitbox();
+
+    const colliders = hitbox.filter(
       ({ shapeOutline, collides }) =>
         collides !== false &&
         (!shapeOutline ||
@@ -255,83 +284,121 @@ export class GameCollisions {
           ) > 0.1),
     );
 
-    const shapes = colliders.map((collider) => {
+    let cursor = 2;
+    const previous = record.geometry;
+    const inverseSin = Math.sin(-entity.rotation);
+    const inverseCos = Math.cos(-entity.rotation);
+    const unchanged =
+      same(entity.mass, previous[0]) &&
+      same(entity.angularInertiaScale, previous[1]) &&
+      colliders.every((collider) => {
+        const dx = collider.position.x - entity.position.x;
+        const dy = collider.position.y - entity.position.y;
+        const x = dx * inverseCos - dy * inverseSin;
+        const y = dx * inverseSin + dy * inverseCos;
+        const angle = collider.rotation - entity.rotation;
+        const sin = Math.sin(angle);
+        const cos = Math.cos(angle);
+        const start = cursor;
+        const outline = collider.shapeOutline;
+
+        cursor += 2 + (outline ? outline.length * 2 : 3);
+        return (
+          previous[start] === geometryFlags(collider) &&
+          same(previous[start + 1], collider.collisionMargin ?? 0) &&
+          (outline
+            ? outline.every(
+                (point, index) =>
+                  same(
+                    x + (point[0] * cos - point[1] * sin),
+                    previous[start + 2 + index * 2],
+                  ) &&
+                  same(
+                    y + (point[0] * sin + point[1] * cos),
+                    previous[start + 3 + index * 2],
+                  ),
+              )
+            : same(x, previous[start + 2]) &&
+              same(y, previous[start + 3]) &&
+              same(collider.radius, previous[start + 4]))
+        );
+      });
+
+    if (unchanged && cursor === previous.length) {
+      record.fixtures.forEach((fixture, index) =>
+        fixture.setUserData(colliders[index]),
+      );
+      record.geometrySource =
+        hitbox.length === record.fixtures.length ? geometrySource : undefined;
+      return record;
+    }
+
+    const geometry = [entity.mass, entity.angularInertiaScale];
+
+    colliders.forEach((collider) => {
       const offset = rotatePoint(
         Vec.subtract(collider.position, entity.position),
         -entity.rotation,
       );
+      const angle = collider.rotation - entity.rotation;
+      const sin = Math.sin(angle);
+      const cos = Math.cos(angle);
 
-      return collider.shapeOutline
-        ? collider.shapeOutline.map(([x, y]) =>
-            Vec.add(
-              offset,
-              rotatePoint(
-                Vec.create(x, y),
-                collider.rotation - entity.rotation,
-              ),
-            ),
+      geometry.push(geometryFlags(collider), collider.collisionMargin ?? 0);
+
+      if (collider.shapeOutline) {
+        collider.shapeOutline.forEach(([x, y]) =>
+          geometry.push(
+            offset.x + (x * cos - y * sin),
+            offset.y + (x * sin + y * cos),
+          ),
+        );
+      } else geometry.push(offset.x, offset.y, collider.radius);
+    });
+
+    record.fixtures.forEach((fixture) => record!.body.destroyFixture(fixture));
+    cursor = 2;
+
+    record.fixtures = colliders.map((collider) => {
+      cursor += 2;
+      const point = () => Vec.create(geometry[cursor++], geometry[cursor++]);
+      const shape = collider.shapeOutline
+        ? new PolygonShape(
+            collider.shapeOutline.map(point),
+            collider.collisionMargin,
           )
-        : {
-            center: offset,
-            radius: collider.radius,
-          };
-    });
+        : new CircleShape(point(), geometry[cursor++]);
 
-    // Compare a flat numeric signature instead of serializing every vertex each
-    // tick. Shape lengths and margin presence preserve structural boundaries.
-    // Quantisation here only compares geometry, never simulation positions.
-    const geometry = [entity.mass, entity.angularInertiaScale];
-
-    shapes.forEach((shape, index) => {
-      const collider = colliders[index];
-
-      geometry.push(
-        Array.isArray(shape) ? shape.length : 0,
-        +(collider.physics !== false),
-        +(collider.collisionMargin !== undefined),
-        collider.collisionMargin ?? 0,
-        +(collider.pickupPoint === true),
-        +(collider.role === 'cargoHatch'),
-      );
-
-      if (Array.isArray(shape)) {
-        shape.forEach(({ x, y }) => geometry.push(x, y));
-      } else geometry.push(shape.center.x, shape.center.y, shape.radius);
-    });
-    const rounded = geometry.map((value) => Math.round(value * 1e6) / 1e6);
-
-    if (
-      rounded.length !== record.geometry.length ||
-      rounded.some((value, index) => value !== record.geometry[index])
-    ) {
-      record.fixtures.forEach((fixture) =>
-        record!.body.destroyFixture(fixture),
-      );
-      record.fixtures = shapes.map((shape, index) => {
-        const collider = colliders[index];
-        const fixtureShape = Array.isArray(shape)
-          ? new PolygonShape(shape, collider.collisionMargin)
-          : new CircleShape(shape.center, shape.radius);
-
-        return record!.body.createFixture(fixtureShape, {
-          physics: colliders[index].physics !== false,
-          userData: colliders[index],
-        });
+      return record!.body.createFixture(shape, {
+        physics: collider.physics !== false,
+        userData: collider,
       });
-      record.geometry = rounded;
+    });
+    record.geometry = geometry;
+    record.body.setProxyRadius(
+      Math.max(
+        0,
+        ...record.fixtures.map(
+          ({ m_shape }) =>
+            m_shape.m_radius +
+            (m_shape instanceof PolygonShape
+              ? Math.max(
+                  ...m_shape.m_vertices.map((vertex) => Vec.length(vertex)),
+                )
+              : Vec.length((m_shape as CircleShape).m_p)),
+        ),
+      ),
+    );
 
-      record.body.setMass(
-        entity.mass,
-        entity.mass *
-          entity.angularInertiaScale *
-          inertiaPerMass(record.fixtures),
-      );
-    } else {
-      record.fixtures.forEach((fixture, index) =>
-        fixture.setUserData(colliders[index]),
-      );
-    }
+    record.body.setMass(
+      entity.mass,
+      entity.mass *
+        entity.angularInertiaScale *
+        inertiaPerMass(record.fixtures),
+    );
 
+    record.geometrySource =
+      hitbox.length === record.fixtures.length ? geometrySource : undefined;
     return record;
   }
 }

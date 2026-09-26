@@ -38,6 +38,10 @@ const bundle = await rolldown({
       export { sparks, sprayDamage } from '${process.cwd()}/src/client/shrapnel.ts';
       export { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
       export * as Vec from '${process.cwd()}/src/shared/vector.ts';
+      export { SpatialGrid } from '${process.cwd()}/src/shared/collision/spatial-grid.ts';
+      export { AABB } from '${process.cwd()}/src/shared/collision/axis-aligned-bounds.ts';
+      export { World as PhysicsWorld } from '${process.cwd()}/src/shared/physics/world.ts';
+      export { CircleShape } from '${process.cwd()}/src/shared/collision/shape/circle-shape.ts';
       export { PolygonShape } from '${process.cwd()}/src/shared/collision/shape/polygon-shape.ts';
       export { ShieldGenerator } from '${process.cwd()}/src/shared/modules/shield-generator.ts';
       export { movePoint, rotatePoint } from '${process.cwd()}/src/shared/geometry.ts';
@@ -1325,3 +1329,317 @@ physics.damage(
 );
 assert.equal(physics.sparks.length, 8);
 console.log('browser damage spark tests passed');
+
+// Owner pruning must match exhaustive bounds queries across movement,
+// removal and grid-cell changes.
+{
+  const tree = new physics.SpatialGrid();
+  const owners = [{}, {}, {}, {}];
+  const proxies = [];
+  let seed = 17;
+  const random = () =>
+    (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
+  const box = () => {
+    const bounds = new physics.AABB();
+
+    Vec.setXY(bounds.lowerBound, random() * 500, random() * 500);
+    Vec.add(
+      bounds.lowerBound,
+      Vec.create(5 + random() * 50, 5 + random() * 50),
+      bounds.upperBound,
+    );
+    return bounds;
+  };
+
+  for (let tick = 0; tick < 500; tick++) {
+    if (proxies.length > 80 && tick % 3 === 0) {
+      tree.destroyProxy(proxies.shift());
+    }
+    proxies.push(tree.createProxy(box(), tick, owners[tick % owners.length]));
+
+    if (tick % 2 === 0) {
+      tree.moveProxy(
+        proxies[Math.floor(random() * proxies.length)],
+        box(),
+        Vec.create(1, -2),
+      );
+    }
+    const query = box();
+    const owner = owners[tick % owners.length];
+    const found = [];
+
+    tree.query(
+      query,
+      (node) => {
+        found.push(node.id);
+        return true;
+      },
+      owner,
+    );
+    assert.deepEqual(
+      found.sort((a, b) => a - b),
+      proxies
+        .filter(
+          (node) =>
+            node.owner !== owner && physics.AABB.testOverlap(node.aabb, query),
+        )
+        .map((node) => node.id)
+        .sort((a, b) => a - b),
+    );
+  }
+}
+
+// Bounds reuse must make exactly the same proxy updates as full synchronization.
+{
+  const make = (cached) => {
+    const world = new physics.PhysicsWorld();
+    const body = world.createBody();
+    const shape = new PolygonShape([
+      Vec.create(-100, -1),
+      Vec.create(100, -1),
+      Vec.create(100, 1),
+      Vec.create(-100, 1),
+    ]);
+    const fixture = body.createFixture(shape, {});
+
+    body.createFixture(new physics.CircleShape(Vec.create(40, -20), 10), {});
+    let calls = 0;
+    const compute = shape.computeAABB.bind(shape);
+
+    shape.computeAABB = (...args) => {
+      calls++;
+      return compute(...args);
+    };
+
+    if (cached) body.setProxyRadius(102);
+    return { world, body, fixture, calls: () => calls };
+  };
+  const full = make(false);
+  const cached = make(true);
+  const compare = () => {
+    let expected = full.body.m_fixtureList;
+    let actual = cached.body.m_fixtureList;
+
+    while (expected) {
+      assert.deepEqual(actual.m_proxy.aabb, expected.m_proxy.aabb);
+      expected = expected.m_next;
+      actual = actual.m_next;
+    }
+    assert.deepEqual(
+      cached.world.m_broadPhase.m_moveBuffer.map((node) => node?.id),
+      full.world.m_broadPhase.m_moveBuffer.map((node) => node?.id),
+    );
+  };
+
+  for (let tick = 0; tick < 4000; tick++) {
+    const position = Vec.create(tick * 0.03, Math.sin(tick / 200));
+
+    if (tick % 701 === 0) Vec.setXY(position, -tick, tick * 2);
+
+    for (const { body, world } of [full, cached]) {
+      world.m_broadPhase.m_moveBuffer.length = 0;
+      body.setTransform(position, tick / 20000);
+      Vec.add(body.m_sweep.c, Vec.create(0.01, -0.01), body.m_sweep.c);
+      body.m_sweep.a += tick % 503 === 0 ? 1 : 0.0001;
+      body.synchronizeTransform();
+      body.synchronizeFixtures();
+    }
+    compare();
+  }
+  assert(cached.calls() < full.calls() / 4);
+
+  for (const { body } of [full, cached]) {
+    body.createFixture(new physics.CircleShape(Vec.create(1000, 1000), 20), {});
+    body.setTransform(Vec.create(200, 200), 0.3);
+  }
+  compare();
+}
+
+// Degenerate colliders do not shift user-data mappings for subsequent fixtures.
+{
+  const object = new GameObject({ id: 902, mass: 10, radius: 5 });
+  const empty = {
+    owner: object,
+    position: object.position,
+    rotation: 0,
+    radius: 5,
+    friction: 0,
+    shapeOutline: [],
+  };
+  const solid = {
+    ...empty,
+    shapeOutline: [
+      [-2, -2],
+      [2, -2],
+      [2, 2],
+      [-2, 2],
+    ],
+  };
+  const collisions = new GameCollisions();
+
+  object.hitbox = () => [empty, solid];
+
+  for (let tick = 0; tick < 2; tick++) {
+    collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+    assert.equal(collisions.bodies.get(object.id).fixtures.length, 1);
+    assert.equal(
+      collisions.bodies.get(object.id).fixtures[0].getUserData(),
+      solid,
+    );
+  }
+  const fixture = collisions.bodies.get(object.id).fixtures[0];
+
+  empty.shapeOutline.push([0, 0], [1, 0]);
+  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  assert.equal(
+    collisions.bodies.get(object.id).fixtures[0],
+    fixture,
+    'changing a degenerate collider must not rebuild unrelated fixtures',
+  );
+  empty.shapeOutline = [
+    [-1, -1],
+    [1, -1],
+    [0, 1],
+  ];
+  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  assert.equal(collisions.bodies.get(object.id).fixtures.length, 2);
+}
+
+// The body-local asteroid fast path still detects in-place segment edits.
+{
+  const world = createWorld();
+  const asteroid = createAsteroid(world, {
+    radius: 80,
+    position: Vec.create(),
+  });
+  const collisions = new GameCollisions();
+  const sync = () => {
+    collisions.step({ entities: [asteroid], previous: new Map(), dt: 0 });
+    return collisions.bodies.get(asteroid.id).fixtures[0];
+  };
+  const original = sync();
+
+  assert.equal(sync(), original);
+  asteroid.friction = 0.75;
+  assert.equal(sync(), original);
+  assert.equal(original.getUserData().friction, 0.75);
+  asteroid.segments[0].shapeOutline[0][0] -= 0.5;
+  const changed = sync();
+
+  assert.notEqual(changed, original);
+  assert.equal(sync(), changed);
+  asteroid.position = Vec.create(123, 456);
+  asteroid.segments[0].shapeOutline = asteroid.segments[0].shapeOutline.map(
+    ([x, y]) => [x, y],
+  );
+  const restored = sync();
+
+  assert.equal(restored.getUserData().position, asteroid.position);
+  assert.equal(
+    restored.getUserData().shapeOutline,
+    asteroid.segments[0].shapeOutline,
+  );
+  assert.equal(restored.getUserData().asteroidSegment, asteroid.segments[0]);
+}
+
+// Locked procedural vertices cannot silently invalidate cached fixtures. Health,
+// material and pose remain live, and replacing list entries takes the checked path.
+{
+  const world = createWorld();
+  const asteroid = createAsteroid(world, {
+    radius: 40,
+    pointCount: 7,
+  }).lockGeometry();
+  const source = asteroid.geometrySource;
+  const colliders = asteroid.hitbox();
+  const segment = asteroid.segments[0];
+
+  assert(source);
+  assert.throws(() => {
+    segment.shapeOutline[0][0]++;
+  }, TypeError);
+  assert.throws(() => {
+    segment.shapeOutline = [];
+  }, TypeError);
+  segment.health--;
+  asteroid.friction = 0.7;
+  asteroid.position = Vec.create(90, 50);
+  asteroid.rotation = 0.8;
+  assert.equal(asteroid.geometrySource, source);
+  assert.equal(asteroid.hitbox(), colliders);
+  assert.equal(colliders[0].friction, 0.7);
+  assert.equal(colliders[0].position, asteroid.position);
+  assert.equal(colliders[0].rotation, 0.8);
+  const solver = new GameCollisions();
+  const step = () =>
+    solver.step({ entities: [asteroid], previous: new Map(), dt: 1 / 60 });
+
+  step();
+  asteroid.segments[0] = {
+    ...segment,
+    shapeOutline: segment.shapeOutline.map((point) => [...point]),
+  };
+  asteroid.segments[0].shapeOutline[0][0] += 2;
+  assert.equal(asteroid.geometrySource, undefined);
+  step();
+  assert(
+    solver.bodies
+      .get(asteroid.id)
+      .fixtures.some(
+        (fixture) =>
+          fixture.getUserData().asteroidSegment === asteroid.segments[0],
+      ),
+  );
+  asteroid.segments.pop();
+  step();
+  assert.equal(
+    solver.bodies.get(asteroid.id).fixtures.length,
+    asteroid.segments.length,
+  );
+}
+
+// Deliberately collide two integer cell hashes: a bucket collision may add
+// candidates, but must neither report a distant fixture nor lose one on removal.
+{
+  const grid = new physics.SpatialGrid();
+  const box = (x, y) => {
+    const bounds = new physics.AABB();
+
+    Vec.setXY(bounds.lowerBound, x, y);
+    Vec.setXY(bounds.upperBound, x + 5, y + 5);
+    return bounds;
+  };
+  const near = grid.createProxy(box(64, 64), 'near', {});
+  const far = grid.createProxy(
+    box(320, Math.imul(1, 0x9e3779b1) * 256 + 64),
+    'far',
+    {},
+  );
+  const query = (bounds) => {
+    const found = [];
+
+    grid.query(bounds, (node) => {
+      found.push(node.userData);
+      return true;
+    });
+    return found;
+  };
+
+  assert.deepEqual(query(near.aabb), ['near']);
+  assert.equal(
+    grid.gridCells.size,
+    1,
+    'the two occupied cells intentionally share a hash',
+  );
+  grid.destroyProxy(near);
+  assert.deepEqual(query(far.aabb), ['far']);
+}
+
+// Circle center replacement remains visible to distance and bounds queries.
+{
+  const circle = new physics.CircleShape(Vec.create(5, 6), 3);
+
+  circle.m_p = Vec.create(7, 8);
+  assert.deepEqual(circle.getVertex(0), Vec.create(7, 8));
+  assert.equal(circle.getSupport(Vec.create(1, 0)), 0);
+}

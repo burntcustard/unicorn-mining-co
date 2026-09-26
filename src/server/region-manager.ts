@@ -48,10 +48,11 @@ export class RegionManager {
     const nearby = (entity: GameObject) =>
       positions.some(
         (position) =>
-          Vec.distance(entity.position, position) <=
+          Vec.distanceSquared(entity.position, position) <=
           (entity instanceof Station
             ? serverRanges.stationPhysics
-            : serverRanges.asteroid),
+            : serverRanges.asteroid) **
+            2,
       );
 
     // Procedural sources are managed below. Runtime fragments and dropped cargo
@@ -101,7 +102,7 @@ export class RegionManager {
               ...description,
               position: Vec.clone(description.position),
               velocity: Vec.create(),
-            }),
+            }).lockGeometry(),
             {
               pointCount: description.pointCount,
               radiusEven: description.radiusEven,

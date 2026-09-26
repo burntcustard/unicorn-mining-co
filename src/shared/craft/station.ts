@@ -49,7 +49,8 @@ export class Station extends Craft {
   }
   holds(child: { position: Vec.Value }) {
     return (
-      Vec.distance(child.position, this.position) <= this.localMovementRadius
+      Vec.distanceSquared(child.position, this.position) <=
+      this.localMovementRadius ** 2
     );
   }
 }

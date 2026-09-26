@@ -426,110 +426,115 @@ export class Craft extends GameObject {
     );
   }
 
-  hitbox() {
+  hitbox(collidingOnly = false) {
     if (this.dockedTo !== undefined && this.dockedTo !== 0) return [];
 
-    const colliders = this.segments
-      .filter(
-        (segment) => segment.radius && !((segment.mount || segment).health < 1),
-      )
-      .flatMap((segment): Collider[] => {
-        const { bounciness, friction } = segment.module;
-        const points =
-          typeof segment.points === 'function'
-            ? segment.points(segment)
-            : segment.points;
-        const [middleX, middleY] = segment.middle || [0, 0];
-        const position = Vec.add(
-          this.position,
-          rotatePoint(
-            Vec.add(segment.localPosition, Vec.create(middleX, middleY)),
-            this.rotation,
+    const sin = Math.sin(this.rotation);
+    const cos = Math.cos(this.rotation);
+    const colliders: Collider[] = [];
+
+    this.segments.forEach((segment) => {
+      if (!segment.radius || (segment.mount || segment).health < 1) return;
+      const physics =
+        this.physics &&
+        !segment.module.disablePhysics &&
+        !segment.catches &&
+        !(
+          segment.module.collectsCargo &&
+          !segment.active &&
+          !segment.activationProgress
+        ) &&
+        !segment.mounts?.some(
+          (mount) =>
+            mount.module &&
+            mount.module.collectsCargo &&
+            this.segmentsAtMount(mount).some(
+              (segment) =>
+                !((segment.mount || segment).health < 1) &&
+                segment.activationProgress > cargoHatchOpen,
+            ),
+        );
+      const collides =
+        physics ||
+        segment.dockSegment ||
+        (segment.catches &&
+          segment.active &&
+          segment.activationProgress > cargoHatchOpen);
+
+      if (collidingOnly && !collides) return;
+
+      const { bounciness, friction } = segment.module;
+      const points =
+        typeof segment.points === 'function'
+          ? segment.points(segment)
+          : segment.points;
+      const [middleX, middleY] = segment.middle || [0, 0];
+      const x = segment.localPosition.x + middleX;
+      const y = segment.localPosition.y + middleY;
+      const position = Vec.create(
+        this.position.x + (x * cos - y * sin),
+        this.position.y + (x * sin + y * cos),
+      );
+      const collider = (segment.collider ||= { owner: this, segment });
+      const shapeOutline = points
+        ? (collider.shapeOutline ||= [] as ShapeOutline)
+        : undefined;
+
+      if (shapeOutline && points) {
+        shapeOutline.length = points.length;
+        points.forEach(([x, y], index) => {
+          const point = (shapeOutline[index] ||= [0, 0]);
+
+          point[0] = x - middleX;
+          point[1] = y - middleY;
+        });
+        shapeOutline.edges = points.edges;
+      }
+
+      collider.bounciness =
+        (bounciness?.call ? bounciness(segment) : bounciness) ?? hullBounciness;
+      collider.friction =
+        (friction?.call ? friction(segment) : friction) ?? this.friction;
+      collider.dockSegment = segment.dockSegment;
+      collider.role = segment.catches ? 'cargoHatch' : undefined;
+      collider.shapeOutline = shapeOutline;
+      collider.collides = Boolean(collides);
+      collider.contactFilter = segment.catches
+        ? cargoContactAllowed
+        : undefined;
+      collider.physics = physics;
+      collider.radius = segment.radius(segment);
+      collider.rotation = this.rotation;
+      collider.speed =
+        segment.expandingTick !== undefined &&
+        segment.expandingTick === this.world?.tick
+          ? 60
+          : 0;
+      collider.position = position;
+      const drillTip = segment.module.drillTip;
+
+      if (collider.radius) colliders.push(collider);
+
+      if (drillTip?.radius) {
+        colliders.push({
+          owner: this,
+          segment,
+          role: 'hornDrill',
+          friction: this.friction,
+          position: Vec.add(
+            this.position,
+            rotatePoint(
+              Vec.add(segment.localPosition, drillTip.position),
+              this.rotation,
+            ),
           ),
-        );
-        const shapeOutline =
-          points &&
-          (Object.assign(
-            points.map(([x, y]) => [x - middleX, y - middleY]),
-            { edges: points.edges },
-          ) as ShapeOutline);
-
-        const physics =
-          this.physics &&
-          !segment.module.disablePhysics &&
-          !segment.catches &&
-          !(
-            segment.module.collectsCargo &&
-            !segment.active &&
-            !segment.activationProgress
-          ) &&
-          !segment.mounts?.some(
-            (mount) =>
-              mount.module &&
-              mount.module.collectsCargo &&
-              this.segmentsAtMount(mount).some(
-                (segment) =>
-                  !((segment.mount || segment).health < 1) &&
-                  segment.activationProgress > cargoHatchOpen,
-              ),
-          );
-        const collides =
-          physics ||
-          segment.dockSegment ||
-          (segment.catches &&
-            segment.active &&
-            segment.activationProgress > cargoHatchOpen);
-
-        const collider = Object.assign(
-          (segment.collider ||= { owner: this, segment }),
-          {
-            bounciness:
-              (bounciness?.call ? bounciness(segment) : bounciness) ??
-              hullBounciness,
-            friction:
-              (friction?.call ? friction(segment) : friction) ?? this.friction,
-            dockSegment: segment.dockSegment,
-            role: segment.catches ? 'cargoHatch' : undefined,
-            shapeOutline,
-            collides: Boolean(collides),
-            contactFilter: segment.catches ? cargoContactAllowed : undefined,
-            physics,
-            radius: segment.radius(segment),
-            rotation: this.rotation,
-            speed:
-              segment.expandingTick !== undefined &&
-              segment.expandingTick === this.world?.tick
-                ? 60
-                : 0,
-            position,
-          },
-        );
-        const drillTip = segment.module.drillTip;
-
-        return drillTip
-          ? [
-              collider,
-              {
-                owner: this,
-                segment,
-                role: 'hornDrill',
-                friction: this.friction,
-                position: Vec.add(
-                  this.position,
-                  rotatePoint(
-                    Vec.add(segment.localPosition, drillTip.position),
-                    this.rotation,
-                  ),
-                ),
-                radius: drillTip.radius,
-                rotation: this.rotation,
-                physics: false,
-                collides: Boolean(collides),
-              },
-            ]
-          : [collider];
-      })
-      .filter(({ radius }) => radius);
+          radius: drillTip.radius,
+          rotation: this.rotation,
+          physics: false,
+          collides: Boolean(collides),
+        });
+      }
+    });
     const cover = colliders.find(
       ({ segment, radius }) => segment.covers && radius >= this.radius,
     );

@@ -11,9 +11,7 @@
  */
 
 import * as Vec from '../../vector';
-import * as matrix from '../../vector-math';
 import { AABBValue } from '../axis-aligned-bounds';
-import { DistanceProxy } from '../shape-distance';
 import { TransformValue } from '../../vector-math';
 import { linearSlop } from '../../settings';
 import { Shape } from './base';
@@ -27,9 +25,7 @@ const temp = Vec.create();
 export class PolygonShape extends Shape {
   declare m_type: 'polygon';
   m_centroid: Vec.Value;
-  m_vertices: Vec.Value[];
   m_normals: Vec.Value[];
-  m_count: number;
   static TYPE = 'polygon' as const;
 
   declare m_radius: number;
@@ -203,25 +199,18 @@ export class PolygonShape extends Shape {
     let maxY = -Infinity;
 
     for (let i = 0; i < this.m_count; ++i) {
-      const v = matrix.transformInto(temp, xf, this.m_vertices[i]);
+      const v = this.m_vertices[i];
+      const x = xf.q.c * v.x - xf.q.s * v.y + xf.p.x;
+      const y = xf.q.s * v.x + xf.q.c * v.y + xf.p.y;
 
-      minX = Math.min(minX, v.x);
-      maxX = Math.max(maxX, v.x);
-      minY = Math.min(minY, v.y);
-      maxY = Math.max(maxY, v.y);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
     }
 
     Vec.setXY(aabb.lowerBound, minX - this.m_radius, minY - this.m_radius);
     Vec.setXY(aabb.upperBound, maxX + this.m_radius, maxY + this.m_radius);
-  }
-
-  computeDistanceProxy(proxy: DistanceProxy): void {
-    for (let i = 0; i < this.m_count; ++i) {
-      proxy.m_vertices[i] = this.m_vertices[i];
-    }
-    proxy.m_vertices.length = this.m_count;
-    proxy.m_count = this.m_count;
-    proxy.m_radius = this.m_radius;
   }
 }
 

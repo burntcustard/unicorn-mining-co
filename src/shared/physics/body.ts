@@ -51,6 +51,10 @@ export class Body {
   m_prev: Body | null;
   m_next: Body | null;
   m_destroyed: boolean;
+  private proxyRadius = Infinity;
+  private proxyMotion = 0;
+  private proxyMargin = 0;
+  private proxyTransform = matrix.transform(0, 0, 0);
 
   // the body origin transform
   m_xf: TransformValue;
@@ -113,11 +117,7 @@ export class Body {
     matrix.setTransform(this.m_xf, position, angle);
     this.m_sweep.setTransform(this.m_xf);
 
-    const broadPhase = this.m_world.m_broadPhase;
-
-    for (let f = this.m_fixtureList; f; f = f.m_next) {
-      f.synchronize(broadPhase, this.m_xf, this.m_xf);
-    }
+    this.synchronizeProxies(this.m_xf, this.m_xf);
   }
 
   synchronizeTransform(): void {
@@ -130,11 +130,58 @@ export class Body {
   synchronizeFixtures(): void {
     this.m_sweep.getTransform(xf, 0);
 
-    const broadPhase = this.m_world.m_broadPhase;
+    this.synchronizeProxies(xf, this.m_xf);
+  }
 
-    for (let f = this.m_fixtureList; f; f = f.m_next) {
-      f.synchronize(broadPhase, xf, this.m_xf);
+  /**
+   * Opt in to bounds reuse for fixtures whose geometry is immutable. The game
+   * replaces fixtures whenever geometry changes, then supplies the new radius.
+   * Direct physics users that mutate shapes retain the full synchronization path.
+   */
+  setProxyRadius(radius: number): void {
+    this.proxyRadius = radius;
+    this.proxyMotion = 0;
+    this.proxyMargin = 0;
+
+    for (let fixture = this.m_fixtureList; fixture; fixture = fixture.m_next) {
+      fixture.proxyMargin = 0;
     }
+  }
+
+  private synchronizeProxies(from: TransformValue, to: TransformValue): void {
+    const cached = this.proxyTransform;
+    // Accumulate a conservative bound on coordinate motion once per body.
+    // Each fixture spends its own tree margin against this shared distance.
+    const motion = (pose: TransformValue) =>
+      Math.max(
+        Math.abs(pose.p.x - cached.p.x),
+        Math.abs(pose.p.y - cached.p.y),
+      ) +
+      this.proxyRadius *
+        (Math.abs(pose.q.s - cached.q.s) + Math.abs(pose.q.c - cached.q.c));
+
+    if (this.proxyRadius < Infinity) {
+      this.proxyMotion += Math.max(motion(from), motion(to));
+    }
+    Vec.set(cached.p, to.p);
+    cached.q.s = to.q.s;
+    cached.q.c = to.q.c;
+
+    if (this.proxyRadius < Infinity && this.proxyMotion < this.proxyMargin) {
+      return;
+    }
+    let margin = Infinity;
+
+    for (let fixture = this.m_fixtureList; fixture; fixture = fixture.m_next) {
+      fixture.synchronize(
+        this.m_world.m_broadPhase,
+        from,
+        to,
+        this.proxyRadius < Infinity ? this.proxyMotion : Infinity,
+      );
+      margin = Math.min(margin, fixture.proxyMargin);
+    }
+    this.proxyMargin = margin;
   }
 
   /**
@@ -245,6 +292,8 @@ export class Body {
    * Attach a shape to this body for collision detection and response.
    */
   createFixture(shape: Shape, definition: FixtureOpt): Fixture {
+    this.setProxyRadius(Infinity);
+
     if (this.isWorldLocked()) {
       return null;
     }
@@ -266,6 +315,8 @@ export class Body {
    * @param fixture The fixture to be removed.
    */
   destroyFixture(fixture: Fixture): void {
+    this.setProxyRadius(Infinity);
+
     if (this.isWorldLocked()) {
       return;
     }

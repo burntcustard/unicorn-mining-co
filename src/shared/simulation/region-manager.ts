@@ -4,9 +4,14 @@ import {
   type RegionalView,
   type RegionDescription,
   type WorldRanges,
+  type StationDescription,
 } from '../protocol/regions';
 import { regionSize, worldRanges } from '../settings';
-import { generateRegion, regionSeed } from './region-generation';
+import {
+  generateRegion,
+  generateStations,
+  regionSeed,
+} from './region-generation';
 
 const keyOf = ({ region }: { region: Vec.Value }) => `${region.x},${region.y}`;
 
@@ -20,13 +25,20 @@ const descriptionsWithin = <Description extends { position: Vec.Value }>({
   range: number;
 }) =>
   descriptions.filter(
-    (description) => Vec.distance(description.position, position) <= range,
+    (description) =>
+      Vec.distanceSquared(description.position, position) <= range * range,
   );
 
 export class RegionManager {
   private loaded = new Map<string, LoadedRegion>();
   private saved = new Map<string, RegionDescription>();
   private worldSeed: number;
+  private removed = new Set<number>();
+  private queriedRegions?: {
+    bounds: string;
+    descriptions: RegionDescription[][];
+    stations: StationDescription[][];
+  };
 
   constructor({ worldSeed }: { worldSeed: number }) {
     this.worldSeed = worldSeed;
@@ -50,6 +62,7 @@ export class RegionManager {
       seed: regionSeed({ worldSeed: this.worldSeed, region }),
     };
 
+    this.queriedRegions = undefined;
     this.saved.delete(key);
     this.loaded.set(key, loaded);
     return loaded;
@@ -60,11 +73,14 @@ export class RegionManager {
     const loaded = this.loaded.get(key);
 
     if (!loaded) return;
+    this.queriedRegions = undefined;
     this.saved.set(key, loaded.description);
     this.loaded.delete(key);
   }
 
   remove({ id }: { id: number }) {
+    this.removed.add(id);
+    this.queriedRegions = undefined;
     const removeFrom = (description: RegionDescription) => {
       description.asteroids = description.asteroids.filter(
         (asteroid) => asteroid.id !== id,
@@ -100,29 +116,78 @@ export class RegionManager {
     positions: Vec.Value[];
     ranges?: WorldRanges;
   }): RegionalView[] {
-    const reach = Math.max(...Object.values(ranges));
-    const needed = new Set<string>();
-    const views = positions.map((position) => {
-      const from = Vec.create(
-        Math.floor((position.x - reach) / regionSize),
-        Math.floor((position.y - reach) / regionSize),
-      );
-      const to = Vec.create(
-        Math.floor((position.x + reach) / regionSize),
-        Math.floor((position.y + reach) / regionSize),
-      );
-      const descriptions: RegionDescription[] = [];
+    // Marker range needs station seeds, not full asteroid generation.
+    const boundsFor = (reach: number) =>
+      positions.map((position) => ({
+        from: Vec.create(
+          Math.floor((position.x - reach) / regionSize),
+          Math.floor((position.y - reach) / regionSize),
+        ),
+        to: Vec.create(
+          Math.floor((position.x + reach) / regionSize),
+          Math.floor((position.y + reach) / regionSize),
+        ),
+      }));
+    const bounds = boundsFor(Math.max(ranges.asteroid, ranges.wreck));
+    const stationBounds = boundsFor(
+      Math.max(ranges.stationMarker, ranges.stationPhysics),
+    );
+    const key = [...bounds, ...stationBounds]
+      .map(({ from, to }) => `${from.x},${from.y},${to.x},${to.y}`)
+      .join(';');
 
-      for (let x = from.x; x <= to.x; x++) {
-        for (let y = from.y; y <= to.y; y++) {
-          const region = Vec.create(x, y);
+    // Movement within the same region rectangles changes range filtering, but
+    // not the loaded region union. Reuse that union until a boundary is crossed.
+    if (this.queriedRegions?.bounds !== key) {
+      const needed = new Set<string>();
+      const descriptions = bounds.map(({ from, to }) => {
+        const found: RegionDescription[] = [];
 
-          needed.add(keyOf({ region }));
-          descriptions.push(this.load({ region }).description);
+        for (let x = from.x; x <= to.x; x++) {
+          for (let y = from.y; y <= to.y; y++) {
+            const region = Vec.create(x, y);
+
+            needed.add(keyOf({ region }));
+            found.push(this.load({ region }).description);
+          }
         }
-      }
+        return found;
+      });
 
-      const stations = descriptions.flatMap(({ stations }) => stations);
+      [...this.loaded.values()].forEach(({ description }) => {
+        if (!needed.has(keyOf({ region: description.region }))) {
+          this.unload({ region: description.region });
+        }
+      });
+      const stations = stationBounds.map(({ from, to }) => {
+        const found: StationDescription[] = [];
+
+        for (let x = from.x; x <= to.x; x++) {
+          for (let y = from.y; y <= to.y; y++) {
+            const region = Vec.create(x, y);
+            const key = keyOf({ region });
+            const description =
+              this.loaded.get(key)?.description || this.saved.get(key);
+            const candidates =
+              description?.stations ||
+              generateStations({
+                worldSeed: this.worldSeed,
+                from: Vec.scale(region, regionSize),
+                to: Vec.scale(Vec.add(region, Vec.create(1, 1)), regionSize),
+              });
+
+            found.push(...candidates.filter(({ id }) => !this.removed.has(id)));
+          }
+        }
+        return found;
+      });
+
+      this.queriedRegions = { bounds: key, descriptions, stations };
+    }
+
+    return positions.map((position, index) => {
+      const descriptions = this.queriedRegions!.descriptions[index];
+      const stations = this.queriedRegions!.stations[index];
 
       return {
         asteroids: descriptionsWithin({
@@ -147,13 +212,5 @@ export class RegionManager {
         }),
       };
     });
-
-    [...this.loaded.values()].forEach(({ description }) => {
-      if (!needed.has(keyOf({ region: description.region }))) {
-        this.unload({ region: description.region });
-      }
-    });
-
-    return views;
   }
 }

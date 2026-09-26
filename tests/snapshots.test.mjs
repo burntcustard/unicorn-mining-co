@@ -532,3 +532,129 @@ assert(
   Math.abs(remote.rotation - expectedRotation) < 1e-9,
   'turning remote ships must be extrapolated to the client tick, not left at the older snapshot tick',
 );
+
+// One emission round shares preparation, while each player keeps independent
+// interest membership and delta history. Immediate same-tick updates stay fresh.
+{
+  const world = createWorld();
+  const ships = [0, 100, 200].map((x, index) =>
+    addEntity(
+      world,
+      createShip(world, { playerId: index + 1, position: Vec.create(x, 0) }),
+    ),
+  );
+  const asteroid = addEntity(
+    world,
+    createAsteroid(world, {
+      position: Vec.create(300, 0),
+      radius: 40,
+    }),
+  );
+  const cached = ships.map(() => new ReplicationManager());
+  const reference = ships.map(() => new ReplicationManager());
+  let reads = 0;
+
+  Object.defineProperty(asteroid, 'pointCount', {
+    get() {
+      reads++;
+      return 5;
+    },
+  });
+  const compare = () => {
+    const replicationRecords = new Map();
+    let preparedReads = 0;
+
+    ships.forEach((ship, index) => {
+      const options = { world, shipId: ship.id };
+      const before = reads;
+      const actual = cached[index].snapshot({ ...options, replicationRecords });
+
+      preparedReads += reads - before;
+      assert.deepEqual(
+        JSON.stringify(actual),
+        JSON.stringify(reference[index].snapshot(options)),
+      );
+    });
+    return preparedReads;
+  };
+
+  assert.equal(
+    compare(),
+    1,
+    'overlapping views prepare the asteroid only once',
+  );
+  Vec.setXY(asteroid.velocity, 10, 20);
+  compare();
+  Vec.setXY(asteroid.velocity, 0, 0);
+  compare();
+  ships[0].credits += 10;
+  const immediate = { world, shipId: ships[0].id };
+
+  assert.deepEqual(
+    cached[0].snapshot(immediate),
+    reference[0].snapshot(immediate),
+    'an immediate update in the same world tick does not reuse old preparation',
+  );
+  assert.ok(cached[0].snapshot(immediate).fullEntities.length === 0);
+  Vec.setXY(ships[1].position, 20000, 0);
+  compare();
+  ships[2].credits += 1;
+  compare();
+  Vec.setXY(ships[1].position, 100, 0);
+  compare();
+  world.entities.delete(asteroid.id);
+  compare();
+}
+
+// Frozen geometry may be shared in snapshot history, but damage, cargo and
+// mutable replacement vertices must still produce deltas for each receiver.
+for (const locked of [false, true]) {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const rock = addEntity(
+    world,
+    createAsteroid(world, { radius: 40, position: Vec.clone(ship.position) }),
+  );
+
+  if (locked) rock.lockGeometry();
+  rock.segments[0].health--;
+  const replication = new ReplicationManager();
+  const options = { world, shipId: ship.id };
+  const initial = JSON.parse(JSON.stringify(replication.initial(options)));
+
+  assert(initial.fullEntities.find(({ id }) => id === rock.id).segments);
+  assert(
+    !replication
+      .snapshot(options)
+      .fullEntities.some(({ id }) => id === rock.id),
+  );
+
+  for (const mutate of [
+    () => {
+      rock.segments[0].health--;
+    },
+    () => {
+      rock.segments[0].contents.push(3);
+    },
+    () => {
+      rock.segments = rock.segments.map((segment) => ({
+        ...segment,
+        shapeOutline: segment.shapeOutline.map((point) => [...point]),
+      }));
+      rock.segments[0].shapeOutline[0][0]++;
+    },
+  ]) {
+    mutate();
+    const update = replication
+      .snapshot(options)
+      .fullEntities.find(({ id }) => id === rock.id);
+
+    assert(update.segments);
+    assert.deepEqual(update.segments, rock.segments);
+    assert(
+      !replication
+        .snapshot(options)
+        .fullEntities.some(({ id }) => id === rock.id),
+    );
+  }
+}

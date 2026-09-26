@@ -10,6 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { type Shape } from './shape/base';
 import * as Vec from '../vector';
 import * as matrix from '../vector-math';
 import { linearSlop } from '../settings';
@@ -18,7 +19,6 @@ import {
   computeDistance,
   DistanceInput,
   DistanceOutput,
-  DistanceProxy,
   SimplexCache,
 } from './shape-distance';
 
@@ -26,8 +26,8 @@ import {
  * Input parameters for the time-of-impact query.
  */
 export interface TOIInput {
-  proxyA: DistanceProxy;
-  proxyB: DistanceProxy;
+  proxyA: Shape;
+  proxyB: Shape;
   sweepA: Sweep;
   sweepB: Sweep;
   // Defines the sweep interval [0, tMax].
@@ -72,8 +72,8 @@ export function findTimeOfImpact(output: TOIOutput, input: TOIInput): void {
   output.touching = false;
   output.t = input.tMax;
 
-  const proxyA = input.proxyA; // DistanceProxy
-  const proxyB = input.proxyB; // DistanceProxy
+  const proxyA = input.proxyA; // Shape
+  const proxyB = input.proxyB; // Shape
 
   const sweepA = input.sweepA; // Sweep
   const sweepB = input.sweepB; // Sweep
@@ -241,8 +241,8 @@ type SeparationFunctionType = 'points' | 'faceA' | 'faceB' | undefined;
 
 class SeparationFunction {
   // input cache
-  m_proxyA: DistanceProxy = null;
-  m_proxyB: DistanceProxy = null;
+  m_proxyA: Shape = null;
+  m_proxyB: Shape = null;
   m_sweepA: Sweep = null;
   m_sweepB: Sweep = null;
 
@@ -271,9 +271,9 @@ class SeparationFunction {
 
   initialize(
     cache: SimplexCache,
-    proxyA: DistanceProxy,
+    proxyA: Shape,
     sweepA: Sweep,
-    proxyB: DistanceProxy,
+    proxyB: Shape,
     sweepB: Sweep,
     t1: number,
   ): number {

@@ -14,7 +14,7 @@ import { updateWorld } from '../shared/simulation/update-world';
 import { simulationStep, worldRanges } from '../shared/settings';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
-import { ReplicationManager } from './replication';
+import { ReplicationManager, type ReplicationRecords } from './replication';
 import { Ship } from '../shared/craft/ship';
 import { Station } from '../shared/craft/station';
 
@@ -190,6 +190,7 @@ export class GameSession {
       inputs.set(player.playerId, frame);
     });
     updateWorld({ world: this.world, inputs });
+    const replicationRecords: ReplicationRecords = new Map();
 
     this.players.forEach((player) => {
       const { socket } = player;
@@ -198,6 +199,7 @@ export class GameSession {
       send({
         socket,
         message: player.replication.snapshot({
+          replicationRecords,
           world: this.world,
           shipId: player.shipId,
           position: player.ship.position,

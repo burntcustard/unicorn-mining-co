@@ -10,6 +10,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { type Shape } from './shape/base';
 import * as matrix from '../vector-math';
 import * as Vec from '../vector';
 import { type TransformValue } from '../vector-math';
@@ -29,8 +30,8 @@ const minimumSimplexMetric = 1e-9;
 
 // References the TOI inputs for one synchronous GJK query.
 export class DistanceInput {
-  proxyA!: DistanceProxy;
-  proxyB!: DistanceProxy;
+  proxyA!: Shape;
+  proxyB!: Shape;
 
   constructor(
     readonly transformA: TransformValue,
@@ -171,41 +172,6 @@ export function computeDistance(
   simplex.writeCache(cache);
 }
 
-/**
- * A distance proxy is used by the GJK algorithm. It encapsulates any shape.
- */
-export class DistanceProxy {
-  m_count = 0;
-  m_vertices: Vec.Value[] = [];
-  // The TOI target uses the shape skin radius.
-  m_radius = 0;
-
-  /**
-   * Get a vertex by index for the distance query.
-   */
-  getVertex(index: number): Vec.Value {
-    return this.m_vertices[index];
-  }
-
-  /**
-   * Get the supporting vertex index in the given direction.
-   */
-  getSupport(d: Vec.Value): number {
-    let bestIndex = -1;
-    let bestValue = -Infinity;
-
-    for (let i = 0; i < this.m_count; ++i) {
-      const value = Vec.dot(this.m_vertices[i], d);
-
-      if (value > bestValue) {
-        bestIndex = i;
-        bestValue = value;
-      }
-    }
-    return bestIndex;
-  }
-}
-
 class SimplexVertex {
   // support point in proxyA
   wA = Vec.create();
@@ -305,9 +271,9 @@ class Simplex {
 
   readCache(
     cache: SimplexCache,
-    proxyA: DistanceProxy,
+    proxyA: Shape,
     transformA: TransformValue,
-    proxyB: DistanceProxy,
+    proxyB: Shape,
     transformB: TransformValue,
   ): void {
     // Copy data from cache.

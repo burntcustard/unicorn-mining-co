@@ -19,7 +19,6 @@ import {
   type TOIInput,
   type TOIOutput,
 } from '../collision/time-of-impact';
-import { DistanceProxy } from '../collision/shape-distance';
 import { World } from './world';
 import { Sweep } from './motion-sweep';
 
@@ -43,8 +42,8 @@ const c = Vec.create();
 const v = Vec.create();
 const translation = Vec.create();
 const input: TOIInput = {
-  proxyA: new DistanceProxy(),
-  proxyB: new DistanceProxy(),
+  proxyA: undefined!,
+  proxyB: undefined!,
   sweepA: new Sweep(),
   sweepB: new Sweep(),
   tMax: 1,
@@ -98,9 +97,16 @@ export class Solver {
 
     // Build and simulate all islands.
     const stack = this.m_stack;
+    const isolated: Body[] = [];
 
     for (let seed = world.m_bodyList; seed; seed = seed.m_next) {
       if (seed.m_islandFlag) {
+        continue;
+      }
+
+      if (!seed.m_contactList) {
+        seed.m_islandFlag = true;
+        isolated.push(seed);
         continue;
       }
 
@@ -156,6 +162,10 @@ export class Solver {
 
       this.solveIsland(step);
     }
+    this.clear();
+    this.m_bodies = isolated;
+
+    if (isolated.length) this.solveIsland(step);
   }
 
   solveIsland(step: TimeStep): void {
@@ -166,20 +176,14 @@ export class Solver {
     for (let i = 0; i < this.m_bodies.length; ++i) {
       const body = this.m_bodies[i];
 
-      Vec.set(c, body.m_sweep.c);
-      const a = body.m_sweep.a;
-
-      Vec.set(v, body.m_linearVelocity);
-      let w = body.m_angularVelocity;
-
       // Store positions for continuous collision.
       Vec.set(body.m_sweep.c0, body.m_sweep.c);
       body.m_sweep.a0 = body.m_sweep.a;
 
-      Vec.set(body.c_position.c, c);
-      body.c_position.a = a;
-      Vec.set(body.c_velocity.v, v);
-      body.c_velocity.w = w;
+      Vec.set(body.c_position.c, body.m_sweep.c);
+      body.c_position.a = body.m_sweep.a;
+      Vec.set(body.c_velocity.v, body.m_linearVelocity);
+      body.c_velocity.w = body.m_angularVelocity;
     }
 
     for (let i = 0; i < this.m_contacts.length; ++i) {
@@ -207,10 +211,10 @@ export class Solver {
     for (let i = 0; i < this.m_bodies.length; ++i) {
       const body = this.m_bodies[i];
 
-      Vec.set(c, body.c_position.c);
+      const c = body.c_position.c;
       let a = body.c_position.a;
 
-      Vec.set(v, body.c_velocity.v);
+      const v = body.c_velocity.v;
       let w = body.c_velocity.w;
 
       // Check for large velocities
@@ -235,9 +239,7 @@ export class Solver {
       Vec.addScaled(c, v, h, c);
       a += h * w;
 
-      Vec.set(body.c_position.c, c);
       body.c_position.a = a;
-      Vec.set(body.c_velocity.v, v);
       body.c_velocity.w = w;
     }
 
@@ -334,8 +336,8 @@ export class Solver {
           }
 
           // Compute the time of impact in interval [0, minTOI]
-          fA.getShape().computeDistanceProxy(input.proxyA);
-          fB.getShape().computeDistanceProxy(input.proxyB);
+          input.proxyA = fA.getShape();
+          input.proxyB = fB.getShape();
           input.sweepA.set(bA.m_sweep);
           input.sweepB.set(bB.m_sweep);
           input.tMax = 1;

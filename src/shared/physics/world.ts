@@ -15,7 +15,7 @@ import { Solver, TimeStep } from './solver';
 import { Body } from './body';
 import { Contact } from './contact';
 
-import { FixtureProxy } from './fixture';
+import { Fixture } from './fixture';
 
 /**
  * Owns rigid bodies, contacts and the continuous collision solver.
@@ -193,19 +193,15 @@ export class World {
    * Call this method to find new contacts.
    */
   findNewContacts(): void {
-    this.m_broadPhase.updatePairs(
-      (proxyA: FixtureProxy, proxyB: FixtureProxy) =>
-        this.createContact(proxyA, proxyB),
+    this.m_broadPhase.updatePairs((proxyA: Fixture, proxyB: Fixture) =>
+      this.createContact(proxyA, proxyB),
     );
   }
 
   /**
    * Callback for broad-phase.
    */
-  createContact(proxyA: FixtureProxy, proxyB: FixtureProxy): void {
-    const fixtureA = proxyA.fixture;
-    const fixtureB = proxyB.fixture;
-
+  createContact(fixtureA: Fixture, fixtureB: Fixture): void {
     const bodyA = fixtureA.getBody();
     const bodyB = fixtureB.getBody();
 
@@ -267,8 +263,8 @@ export class World {
       next_c = c.getNext();
       const fixtureA = c.getFixtureA();
       const fixtureB = c.getFixtureB();
-      const proxyIdA = fixtureA.m_proxy.proxyId;
-      const proxyIdB = fixtureB.m_proxy.proxyId;
+      const proxyIdA = fixtureA.m_proxy;
+      const proxyIdB = fixtureB.m_proxy;
       const overlap = this.m_broadPhase.testOverlap(proxyIdA, proxyIdB);
 
       // Here we destroy contacts that cease to overlap in the broad-phase.

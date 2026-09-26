@@ -185,3 +185,9 @@ heaviest post-fix local contact test used 4.34 ms per tick before transport
 overhead, so this tier needs a sustained live test after rollout. Four shared
 CPUs would provide 25% (about 8.33 ms per tick) if this tier still throttles.
 The live machine has not been resized by this config edit.
+
+## Three-player follow-up
+
+The deployed fixes and two-shared-CPU configuration were investigated again in
+[the three-player follow-up](performance-investigation-2026-09-26-three-player.md),
+which contains further CPU fixes and before/after measurements.

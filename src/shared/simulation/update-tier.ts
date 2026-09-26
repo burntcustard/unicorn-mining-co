@@ -21,7 +21,8 @@ export const updateTier = ({
 }) => {
   return observers.some(
     (observer) =>
-      Vec.distance(entity.position, observer.position) <= visibleRange,
+      Vec.distanceSquared(entity.position, observer.position) <=
+      visibleRange * visibleRange,
   )
     ? updateTiers.visible
     : updateTiers.distant;

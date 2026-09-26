@@ -16,14 +16,20 @@ import * as Vec from '../../vector';
 import { Shape } from './base';
 import { AABBValue } from '../axis-aligned-bounds';
 import { TransformValue } from '../../vector-math';
-import { DistanceProxy } from '../shape-distance';
 
 const temp = Vec.create();
 
 // Circle shape.
 export class CircleShape extends Shape {
   declare m_type: 'circle';
-  m_p: Vec.Value;
+  m_count = 1;
+
+  get m_p() {
+    return this.m_vertices[0];
+  }
+  set m_p(point: Vec.Value) {
+    this.m_vertices[0] = point;
+  }
   static TYPE = 'circle' as const;
 
   declare m_radius: number;
@@ -31,7 +37,7 @@ export class CircleShape extends Shape {
   constructor(position: Vec.Value, radius: number) {
     super();
     this.m_type = CircleShape.TYPE;
-    this.m_p = Vec.clone(position);
+    this.m_vertices = [Vec.clone(position)];
     this.m_radius = radius;
   }
 
@@ -47,13 +53,6 @@ export class CircleShape extends Shape {
 
     Vec.setXY(aabb.lowerBound, p.x - this.m_radius, p.y - this.m_radius);
     Vec.setXY(aabb.upperBound, p.x + this.m_radius, p.y + this.m_radius);
-  }
-
-  computeDistanceProxy(proxy: DistanceProxy): void {
-    proxy.m_vertices[0] = this.m_p;
-    proxy.m_vertices.length = 1;
-    proxy.m_count = 1;
-    proxy.m_radius = this.m_radius;
   }
 }
 

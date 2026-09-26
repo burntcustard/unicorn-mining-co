@@ -13,6 +13,7 @@ export const propertyNames = [
   'back',
   // 'background', // Must match the unmangled inline boot global.
   'balance',
+  'bounds',
   'chance',
   'clearance',
   'clueField',

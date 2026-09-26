@@ -65,13 +65,12 @@ export class AABB {
   }
 
   contains(aabb: AABBValue): boolean {
-    let result = true;
-
-    result = result && this.lowerBound.x <= aabb.lowerBound.x;
-    result = result && this.lowerBound.y <= aabb.lowerBound.y;
-    result = result && aabb.upperBound.x <= this.upperBound.x;
-    result = result && aabb.upperBound.y <= this.upperBound.y;
-    return result;
+    return (
+      this.lowerBound.x <= aabb.lowerBound.x &&
+      this.lowerBound.y <= aabb.lowerBound.y &&
+      aabb.upperBound.x <= this.upperBound.x &&
+      aabb.upperBound.y <= this.upperBound.y
+    );
   }
 
   static extend(out: AABBValue, value: number): AABBValue {
@@ -83,16 +82,12 @@ export class AABB {
   }
 
   static testOverlap(a: AABBValue, b: AABBValue): boolean {
-    const d1x = b.lowerBound.x - a.upperBound.x;
-    const d2x = a.lowerBound.x - b.upperBound.x;
-
-    const d1y = b.lowerBound.y - a.upperBound.y;
-    const d2y = a.lowerBound.y - b.upperBound.y;
-
-    if (d1x > 0 || d1y > 0 || d2x > 0 || d2y > 0) {
-      return false;
-    }
-    return true;
+    return !(
+      b.lowerBound.x > a.upperBound.x ||
+      b.lowerBound.y > a.upperBound.y ||
+      a.lowerBound.x > b.upperBound.x ||
+      a.lowerBound.y > b.upperBound.y
+    );
   }
 
   static combinedPerimeter(a: AABBValue, b: AABBValue) {

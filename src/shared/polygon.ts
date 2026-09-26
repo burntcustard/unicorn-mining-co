@@ -55,12 +55,14 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
   const left = shapeOutlines.map((_, index) => index);
   const groups: number[][] = [];
 
-  shapeOutlines.forEach(
-    (points, index) =>
-      (points.edges = sides[index].map(
-        (side) => !all.includes(side, all.indexOf(side) + 1),
-      )),
-  );
+  shapeOutlines.forEach((points, index) => {
+    const edges = (points.edges ||= []);
+
+    edges.length = points.length;
+    sides[index].forEach((side, i) => {
+      edges[i] = !all.includes(side, all.indexOf(side) + 1);
+    });
+  });
 
   while (left.length) {
     const group = [left.pop()!];
