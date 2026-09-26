@@ -85,7 +85,7 @@ The public game runs at [unicorn-mining.co](https://unicorn-mining.co/) on one
 always-running Fly Machine in London. The authoritative world and players are
 in memory: a Machine restart or every push to `main` resets the game. The
 `www` hostname redirects to the root domain. There is no database or Fly
-volume.
+volume. Fly's trial stops Machines after five minutes even with `auto_stop_machines = 'off'`; add a payment method before an extended player session ([Fly trial terms](https://fly.io/docs/about/free-trial/)).
 
 1. Install `flyctl` using [Fly's installation guide](https://fly.io/agent-ready.md),
    sign in with `fly auth login`, and run `fly apps list` to check whether the

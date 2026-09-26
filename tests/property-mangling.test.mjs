@@ -81,3 +81,60 @@ export async function run() {
 } finally {
   await rm(directory, { recursive: true, force: true });
 }
+
+const keybindingEntry = resolve('src/__mangle_keybindings.ts');
+const keybindingBundle = await rolldown({
+  input: keybindingEntry,
+  plugins: [
+    {
+      name: 'keybinding-fixture',
+      resolveId: (id) => (id === keybindingEntry ? keybindingEntry : undefined),
+      load: (id) =>
+        id === keybindingEntry
+          ? `import { defaultKeybindings, updateMovement } from './client/keybindings';
+export function inspectBindings() {
+  const actions = ['forwardThrust', 'turnLeft', 'turnRight', 'hornDrill', 'cargoHatch', 'searchLight', 'shieldGenerator', 'menuLeft', 'menuRight', 'menuUp', 'menuDown', 'menuBack', 'menuSelect'];
+  return actions.map(action => defaultKeybindings[action].keys[0]);
+}
+export function inspectMovement() {
+  const input = { thrust: 0, turn: 0 };
+  updateMovement(new Set(['arrowup', 'arrowleft']), input);
+  return [input.thrust, input.turn];
+}`
+          : undefined,
+    },
+    { ...buildPlugin(), generateBundle: undefined },
+  ],
+});
+
+try {
+  const { output } = await keybindingBundle.generate({
+    format: 'esm',
+    minify: true,
+  });
+  const chunk = output.find((item) => item.type === 'chunk');
+
+  assert(chunk);
+  const built = await import(
+    `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
+  );
+
+  assert.deepEqual(built.inspectBindings(), [
+    'ArrowUp',
+    'ArrowLeft',
+    'ArrowRight',
+    'd',
+    'h',
+    'l',
+    's',
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowUp',
+    'ArrowDown',
+    'Escape',
+    ' ',
+  ]);
+  assert.deepEqual(built.inspectMovement(), [1, -1]);
+} finally {
+  await keybindingBundle.close();
+}

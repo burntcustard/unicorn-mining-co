@@ -235,6 +235,25 @@ try {
   assert.equal(www.status, 308);
   assert.equal(www.location, 'https://unicorn-mining.co/');
 
+  const rejectedSocket = new WebSocket(
+    `ws://127.0.0.1:${address.port}/game-socket`,
+    { origin: 'https://elsewhere.example' },
+  );
+  const rejectionCode = await Promise.race([
+    new Promise<string | undefined>((resolve, reject) => {
+      rejectedSocket.once('error', (error: NodeJS.ErrnoException) =>
+        resolve(error.code),
+      );
+      rejectedSocket.once('open', () => reject(Error('Unexpected upgrade')));
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(Error('Rejected upgrade timed out')), 3000),
+    ),
+  ]);
+
+  assert.equal(rejectionCode, 'ECONNRESET');
+  assert.equal((await fetch(`${origin}/healthz`)).status, 200);
+
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
   const packets = receive(socket);
 

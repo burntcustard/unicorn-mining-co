@@ -11,6 +11,7 @@ export const propertyNames = [
   'align',
   'axis',
   'back',
+  // 'background', // Must match the unmangled inline boot global.
   'balance',
   'chance',
   'clearance',
@@ -23,7 +24,7 @@ export const propertyNames = [
   'contains',
   'count',
   'description',
-  'destroy',
+  // 'destroy', // Node socket.destroy must keep its native name.
   'detach',
   'disconnect',
   'distance', // Vec.distance stays exported; state fields can mangle.
