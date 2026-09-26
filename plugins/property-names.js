@@ -11,7 +11,6 @@ export const propertyNames = [
   'align',
   'axis',
   'back',
-  'background',
   'balance',
   'chance',
   'clearance',

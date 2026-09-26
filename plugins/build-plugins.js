@@ -40,6 +40,7 @@ const sourceFiles = (directory) =>
 
 const reservedProperties = () => {
   const reserved = new Set([
+    'background',
     'bufferedAmount',
     'clients',
     'destroy',
