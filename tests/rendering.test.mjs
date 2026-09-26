@@ -72,7 +72,7 @@ import {Craft} from '${root}/src/shared/craft/craft.ts';
 import {createWreckage} from '${root}/src/shared/craft/create-wreckage.ts';
 import * as Vec from '${root}/src/shared/vector.ts';
 import {renderAsteroid} from '${root}/src/client/render-asteroid.ts';
-import {revealBuriedItems} from '${root}/src/client/lighting.ts';
+import {revealBuriedItems,tint} from '${root}/src/client/lighting.ts';
 import {colors} from '${root}/src/shared/colors.ts';
 import {renderControls} from '${root}/src/client/ui/controls.ts';
 import {presentEvents} from '${root}/src/client/present-events.ts';
@@ -116,7 +116,7 @@ game.ctx={
   strokeStyle:'#000',fillStyle:'#000',
   save(){saves++;styles.push({strokeStyle:this.strokeStyle,fillStyle:this.fillStyle});},restore(){saves--;Object.assign(this,styles.pop());},translate(x,y){transforms.push([x,y]);},rotate(angle){transforms.push(angle);},scale(){},
   beginPath(){},arc(){},stroke(){strokes.push(this.strokeStyle);},clip(){clips++;},resetTransform(){},setLineDash(){},
-  createLinearGradient(){gradients++;return {addColorStop(){}};},
+  createLinearGradient(){gradients++;return {stops:[],addColorStop(offset,color){this.stops.push(color);}};},
   createRadialGradient(){return {addColorStop(){}};},
   fill(path,rule){draws.push({path,rule,style:this.fillStyle});},
   fillRect(){boxes++;}
@@ -147,13 +147,14 @@ for(const ship of [local,remote]){
   draws.length=0;
   const beforeHull=gradients;
   ship.render({zIndex:0});
-  assert.equal(gradients,beforeHull,'ship hulls use flat fills');
-  assert(draws.some(draw=>draw.style===colors.cyan[1]),'remote hull uses the authoritative colour');
+  assert(gradients>beforeHull,'ship hulls retain gradient shading');
+  const cyanTints=Array.from({length:64},(_,i)=>tint(colors.cyan,1,i/63));
+  assert(draws.some(draw=>draw.style.stops?.every(stop=>cyanTints.includes(stop))),'remote hull is lit from the authoritative colour');
   const hornDrillSegment=ship.segments.find(segment=>segment.module instanceof HornDrill);
   draws.length=0;
   strokes.length=0;
   hornDrillSegment.module.render({segment:hornDrillSegment});
-  assert(draws.some(draw=>draw.style===colors.yellow[0]),'replicated module damage uses the worn colour');
+  assert(draws.some(draw=>draw.style===colors.yellow[0]),'modules are filled with their darkest shade');
   assert(strokes.every(color=>color===colors.yellow[2]),'horn drill shapeOutline and flutes retain their colour across parent canvas restore');
   const sounds=globalThis['sounds'];
   const beforeSound=sounds.length;

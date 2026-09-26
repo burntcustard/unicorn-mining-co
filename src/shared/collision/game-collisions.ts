@@ -15,6 +15,7 @@ import { contactSpeedThreshold } from '../settings';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../craft/damage';
 import { Asteroid } from '../simulation/asteroid';
+import { type Pose } from '../types';
 
 type BodyRecord = {
   body: Body;
@@ -138,7 +139,7 @@ export class GameCollisions {
     events = [],
   }: {
     entities: GameObject[];
-    previous: Map<number, { position: Vec.Value; rotation: number }>;
+    previous: Map<number, Pose>;
     dt: number;
     events?: SimulationEvent[];
   }) {

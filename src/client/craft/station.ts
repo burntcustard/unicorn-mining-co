@@ -3,14 +3,9 @@ import { giveRender } from '../give-render';
 import { drawSegment, shapePath } from '../drawing';
 import { game } from '../game';
 import { colors } from '../../shared/colors';
-import { type Segment } from '../../shared/types';
-import { drawDockingBayGlow, lightAngle, litFill, tint } from '../lighting';
+import { type Pose, type Segment } from '../../shared/types';
+import { drawDockingBayGlow, hullSegmentFill } from '../lighting';
 import './craft';
-
-// @ifdef DEBUG
-import { lights } from '../lighting';
-
-// @endif
 
 giveRender({
   Type: Station,
@@ -29,7 +24,15 @@ giveRender({
         ctx.stroke();
         ctx.setLineDash([]);
       },
-      drawHull: ({ segment, health }: { segment: Segment; health: number }) => {
+      drawHull: ({
+        segment,
+        health,
+        pose,
+      }: {
+        segment: Segment;
+        health: number;
+        pose: Pose;
+      }) => {
         if (segment.glow) segment.glow.path ||= shapePath(segment.glow);
 
         if (segment.glow && zIndex < 0) {
@@ -42,23 +45,13 @@ giveRender({
         }
 
         const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
-        let lit;
 
-        if (segment.hull && segment.middle) {
-          // @ifdef DEBUG
-          if (!lights) lit = tint(segment.shades, worn, 0.5);
-          else {
-            // @endif
-            lit = litFill(ctx, segment, lightAngle - this.rotation, (along) =>
-              tint(segment.shades, worn, along),
-            );
-            // @ifdef DEBUG
-          }
-          // @endif
-        }
-        ctx.fillStyle = segment.fillAlpha
-          ? segment.shades[2] + segment.fillAlpha
-          : lit || segment.shades[worn];
+        ctx.fillStyle = hullSegmentFill({
+          ctx,
+          segment,
+          worn,
+          rotation: pose.rotation,
+        });
         ctx.strokeStyle = segment.shades[2];
         drawSegment({ ctx, segment });
 

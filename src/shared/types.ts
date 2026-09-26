@@ -4,6 +4,7 @@ import { type Module } from './modules/module';
 export type Point = number[];
 export type ShapeOutline = Point[] & { edges?: boolean[] };
 export type Shades = readonly string[];
+export type Pose = { position: Vec.Value; rotation: number };
 
 export type ModuleSegmentPlan = {
   [key: string]: any;

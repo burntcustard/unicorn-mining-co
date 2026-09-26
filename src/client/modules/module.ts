@@ -27,11 +27,11 @@ giveRender({
 
         if (!shape) return;
         const shades = this.shades || segment.shades;
-        const worn = segment.mount?.health < this.health / 2 ? 0 : 1;
 
+        // Modules wear their darkest shade, a step below the hull's.
         ctx.fillStyle = segment.fillAlpha
           ? shades[2] + segment.fillAlpha
-          : shades[worn];
+          : shades[0];
         ctx.strokeStyle = shades[2];
         ctx.fill(shape);
         ctx.stroke(

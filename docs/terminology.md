@@ -84,6 +84,8 @@
 
 **points** - The places marking the corners of a shape, usually in order around its shape outline. In a model, points can give a segment its shape.
 
+**pose** - Where a game object is and which way it faces: its position and rotation angle, typed as `Pose`. An entity is its own pose; rendering may be given a smoothed one instead. Unlike a transform, it stores the angle rather than its sine and cosine.
+
 **position** - A game object's location in the world.
 
 **prediction** - The client's estimate of what happens after player input, before the matching server update arrives.
@@ -133,6 +135,8 @@
 **flare** - A visual effect that expresses craft thrust. A thruster flare may appear larger, smaller, or not be visible at all, depending on its associated thruster's activation status.
 
 **tick** - One fixed step of the game simulation.
+
+**transform** - The physics solver's position and rotation, stored as `{ p, q }` with the rotation's sine and cosine so hot collision code avoids trig. Unlike a pose, it is internal to physics and usually written in place.
 
 **tunnelling** - When a moving object appears to phase through another because a collision between its sampled positions was missed. Continuous collision detection checks the intervening sweep. Also known as 'phasing' although we should avoid using that word.
 

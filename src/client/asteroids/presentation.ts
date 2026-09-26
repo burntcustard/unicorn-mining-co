@@ -6,6 +6,7 @@ import {
   type Asteroid,
 } from '../../shared/simulation/asteroid';
 import { rotatePoint } from '../../shared/geometry';
+import { type Pose } from '../../shared/types';
 import { createRenderedItem } from '../create-rendered-item';
 import { shapePath } from '../drawing';
 
@@ -27,7 +28,7 @@ export const presentation = ({
   pose = asteroid,
 }: {
   asteroid: Asteroid;
-  pose?: Pick<Asteroid, 'position' | 'rotation'>;
+  pose?: Pose;
 }) => {
   const segments = asteroid.segments || [
     { shapeOutline: shapeOutlineOf(asteroid), contents: asteroid.contents },

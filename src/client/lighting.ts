@@ -5,12 +5,11 @@ import { benchmarkFlag } from './benchmark';
 import { colors } from '../shared/colors';
 import { Craft } from '../shared/craft/craft';
 import { type GameObject } from '../shared/game-object';
-import * as Vec from '../shared/vector';
 import { camera } from './camera';
 import { insidePath, traceBeam } from './prism';
 import { game } from './game';
 import { pointBetween as mix } from '../shared/geometry';
-import { type Shades } from '../shared/types';
+import { type Pose, type Segment, type Shades } from '../shared/types';
 
 type GlowCache = { image?: HTMLCanvasElement; scale?: number };
 interface LitShape {
@@ -146,6 +145,33 @@ export const litFill = (
 };
 
 /**
+ * The fill for a crewed craft's hull segment, lit as the craft is turned.
+ */
+export const hullSegmentFill = ({
+  ctx,
+  segment,
+  worn,
+  rotation,
+}: {
+  ctx: CanvasRenderingContext2D;
+  segment: Segment;
+  worn: number;
+  rotation: number;
+}) => {
+  if (segment.fillAlpha) return segment.shades[2] + segment.fillAlpha;
+
+  if (!segment.middle) return segment.shades[worn];
+  // @ifdef DEBUG
+
+  if (!lights) return tint(segment.shades, worn, 0.5);
+  // @endif
+
+  return litFill(ctx, segment, lightAngle - rotation, (along) =>
+    tint(segment.shades, worn, along),
+  );
+};
+
+/**
  * A cached pool of light around a docking bay piece. Meant to go down before
  * the thing itself, so that what is drawn on top covers the heart of it.
  *
@@ -255,7 +281,7 @@ export const revealBuriedItems = ({
 }: {
   sprites: GameObject[];
   predicted: ReadonlyMap<number, GameObject>;
-  poses: ReadonlyMap<number, { position: Vec.Value; rotation: number }>;
+  poses: ReadonlyMap<number, Pose>;
 }) => {
   const asteroids = sprites.filter(
     (sprite) => sprite.scenery && sprite.segments && sprite.renderContents,

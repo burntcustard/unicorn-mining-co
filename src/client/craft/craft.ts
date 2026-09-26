@@ -89,7 +89,7 @@ giveRender({
 
           if (segment.module instanceof Module) {
             segment.module.render({ segment, craft: this, scenery, pose });
-          } else drawHull({ segment, health });
+          } else drawHull({ segment, health, pose });
 
           ctx.restore();
         });

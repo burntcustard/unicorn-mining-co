@@ -3,11 +3,10 @@ import { type ReplicatedEntity } from '../shared/protocol/network';
 import { simulationStep, updateTiers } from '../shared/settings';
 import { updateTier } from '../shared/simulation/update-tier';
 import { type SimulationWorld } from '../shared/simulation/world';
+import { type Pose } from '../shared/types';
 
-type Frame = {
+type Frame = Pose & {
   tick: number;
-  position: Vec.Value;
-  rotation: number;
   dockedTo?: number;
 };
 
@@ -26,8 +25,8 @@ const interpolate = ({
   to,
   fraction,
 }: {
-  from: Pick<Frame, 'position' | 'rotation'>;
-  to: Pick<Frame, 'position' | 'rotation'>;
+  from: Pose;
+  to: Pose;
   fraction: number;
 }) => ({
   position: Vec.addScaled(
@@ -127,7 +126,7 @@ export class RemoteMotion {
   } = {}) {
     const local =
       shipId === undefined ? undefined : predicted?.entities.get(shipId);
-    const poses = new Map<number, Pick<Frame, 'position' | 'rotation'>>(
+    const poses = new Map<number, Pose>(
       [...(predicted?.entities.values() || [])].map((entity) => [
         entity.id,
         { position: Vec.clone(entity.position), rotation: entity.rotation },

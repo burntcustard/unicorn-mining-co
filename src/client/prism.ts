@@ -6,7 +6,7 @@ import {
   Asteroid,
   shapeOutlineOf as asteroidShapeOutlineOf,
 } from '../shared/simulation/asteroid';
-import { type ShapeOutline, type Segment } from '../shared/types';
+import { type Pose, type ShapeOutline, type Segment } from '../shared/types';
 import { type GameObject } from '../shared/game-object';
 
 type Crossing = {
@@ -216,7 +216,7 @@ const refract = (dir: Vec.Value, normal: Vec.Value, index: number) => {
 // One scenery object's shape in the lamp's frame, added to the mask as a path
 // and handed back as points for the rays to be tested against
 const shapeOutlineOf = (
-  ship: Pick<GameObject, 'position' | 'rotation'>,
+  ship: Pose,
   lamp: Segment,
   object: Scenery,
   mask: Path2D,
@@ -296,7 +296,7 @@ const rayAt = (
  * scenery: Anything that might be in the way.
  */
 export const traceBeam = (
-  ship: Pick<GameObject, 'position' | 'rotation'>,
+  ship: Pose,
   lamp: Lamp,
   scenery: GameObject[],
 ): Beam => {
