@@ -7,6 +7,9 @@
 [x] Combine Plank.js code with ours better, e.g. remove duplicate vector
 [x] Fix internal light or other players not revealing items
 [ ] Fix not being able to paint equipped thrusters
+[ ] Improve server CPU performance
+[ ] Make cargo hatches use the brightest color rather than darkest
+[ ] Fix asteroids gaining spin when splitting(?)
 
 ## MVP
 
