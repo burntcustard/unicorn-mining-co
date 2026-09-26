@@ -30,3 +30,24 @@ Environment variables:
 The absolute result depends heavily on whether Chrome uses hardware or software
 rasterization. Comparisons between variants from the same run are the useful
 part.
+
+## Server tick profiling
+
+```sh
+node --import tsx benchmarking/server-performance.mjs
+node --import tsx benchmarking/server-performance.mjs --flight
+```
+
+The first command measures empty, one-player and three-player sessions at spawn
+and in the northern asteroid field. The second moves one player through ten
+minutes of simulation at 300 world units per simulated second, without sending
+mining inputs. It sets the position directly to keep the route repeatable; it is
+not a browser flight or a real-time networking test.
+
+Each JSON line covers 1,000 ticks and includes wall time, process CPU time,
+active entities, loaded/saved regions, sleeping entities, and nested phase costs.
+`geometry` is part of `collisions`, as is `solver`: do not add those columns.
+Phase costs are total milliseconds across the block; `wallPerTick` and
+`cpuPerTick` are milliseconds per tick. Socket stubs still serialize outgoing
+packets, but exclude actual transport. Run on the same machine before and after
+changes; these source-server measurements do not predict production capacity.

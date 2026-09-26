@@ -130,7 +130,14 @@ export class GameSession {
       const idleBefore = Date.now() - 5 * 60 * 1000;
 
       this.players.forEach((player) => {
-        if (!player.socket || player.lastInputAt > idleBefore) return;
+        if (!player.socket) return;
+        // Held movement sends no repeated transitions, but is still activity.
+
+        if (player.lastInput.thrust || player.lastInput.turn) {
+          player.lastInputAt = Date.now();
+        }
+
+        if (player.lastInputAt > idleBefore) return;
         const socket = player.socket;
 
         this.disconnect({ socket });

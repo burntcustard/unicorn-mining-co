@@ -6,6 +6,7 @@
 [x] Fix things being slipperier than they should be, like the horn drill
 [x] Combine Plank.js code with ours better, e.g. remove duplicate vector
 [x] Fix internal light or other players not revealing items
+[ ] Fix not being able to paint equipped thrusters
 
 ## MVP
 

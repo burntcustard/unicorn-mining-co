@@ -15,6 +15,7 @@ import {
   type ServerMessage,
 } from '../src/shared/protocol/network';
 import {
+  type PlayerInput,
   packPlayerInput,
   unpackPlayerInput,
 } from '../src/shared/protocol/input';
@@ -991,11 +992,24 @@ assert.equal(idleWelcome.type, 'welcome');
 const session = Reflect.get(server, 'session');
 const playerRecords = Reflect.get(session, 'players') as Map<
   string,
-  { lastInputAt: number }
+  { lastInputAt: number; lastInput: PlayerInput }
 >;
 const idleRecord = playerRecords.get(idleWelcome.playerToken);
 
 assert(idleRecord);
+// Unchanged held movement must not be mistaken for five minutes of inactivity.
+
+for (const movement of ['thrust', 'turn'] as const) {
+  idleRecord.lastInput[movement] = 1;
+  idleRecord.lastInputAt = Date.now() - 5 * 60 * 1000 - 1000;
+  server.world.tick = Math.ceil(server.world.tick / 30) * 30;
+  session.tick();
+  assert.equal(idleSocket.readyState, WebSocket.OPEN);
+  assert(idleRecord.lastInputAt > Date.now() - 1000);
+  idleRecord.lastInput[movement] = 0;
+}
+// Latched module switches must not keep an unattended player connected.
+idleRecord.lastInput.searchLight = true;
 idleRecord.lastInputAt = Date.now() - 5 * 60 * 1000 - 1000;
 const [idleCloseCode] = await once(idleSocket, 'close');
 

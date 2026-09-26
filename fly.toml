@@ -29,7 +29,10 @@ method = 'GET'
 path = '/healthz'
 
 [[vm]]
+# Shared CPU quota is pooled: two vCPUs provide a 12.5% sustained allowance;
+# four vCPUs provide 25% if this tier proves insufficient after deployment.
+# The heaviest post-fix local test needed ~13% before network overhead.
 memory = '512mb'
 cpu_kind = 'shared'
-cpus = 1
+cpus = 2
 memory_mb = 512

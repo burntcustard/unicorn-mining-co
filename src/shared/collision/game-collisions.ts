@@ -21,7 +21,7 @@ type BodyRecord = {
   body: Body;
   entity: GameObject;
   fixtures: Fixture[];
-  geometry: string;
+  geometry: number[];
 };
 
 // Explicit object mass controls translation. Geometry only determines how
@@ -237,7 +237,7 @@ export class GameCollisions {
         entity,
         body: this.world.createBody(),
         fixtures: [],
-        geometry: '',
+        geometry: [],
       };
       this.bodies.set(entity.id, record);
     }
@@ -277,24 +277,33 @@ export class GameCollisions {
           };
     });
 
+    // Compare a flat numeric signature instead of serializing every vertex each
+    // tick. Shape lengths and margin presence preserve structural boundaries.
     // Quantisation here only compares geometry, never simulation positions.
-    const geometry = JSON.stringify(
-      [
-        entity.mass,
-        entity.angularInertiaScale,
-        shapes,
-        colliders.map((c) => [
-          c.physics !== false,
-          c.collisionMargin,
-          c.pickupPoint === true,
-          c.role === 'cargoHatch',
-        ]),
-      ],
-      (_, value) =>
-        typeof value === 'number' ? Math.round(value * 1e6) / 1e6 : value,
-    );
+    const geometry = [entity.mass, entity.angularInertiaScale];
 
-    if (geometry !== record.geometry) {
+    shapes.forEach((shape, index) => {
+      const collider = colliders[index];
+
+      geometry.push(
+        Array.isArray(shape) ? shape.length : 0,
+        +(collider.physics !== false),
+        +(collider.collisionMargin !== undefined),
+        collider.collisionMargin ?? 0,
+        +(collider.pickupPoint === true),
+        +(collider.role === 'cargoHatch'),
+      );
+
+      if (Array.isArray(shape)) {
+        shape.forEach(({ x, y }) => geometry.push(x, y));
+      } else geometry.push(shape.center.x, shape.center.y, shape.radius);
+    });
+    const rounded = geometry.map((value) => Math.round(value * 1e6) / 1e6);
+
+    if (
+      rounded.length !== record.geometry.length ||
+      rounded.some((value, index) => value !== record.geometry[index])
+    ) {
       record.fixtures.forEach((fixture) =>
         record!.body.destroyFixture(fixture),
       );
@@ -309,7 +318,7 @@ export class GameCollisions {
           userData: colliders[index],
         });
       });
-      record.geometry = geometry;
+      record.geometry = rounded;
 
       record.body.setMass(
         entity.mass,

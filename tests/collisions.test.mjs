@@ -275,6 +275,74 @@ assert.equal(new GameObject().mass, 6);
   closeTo(collisions.bodies.get(object.id).body.m_invI, 1 / 8000);
 }
 
+// Moving rigid shapes reuse fixtures; geometry and collision flags invalidate them.
+{
+  const object = new GameObject({ id: 900, mass: 10, radius: 4 });
+  const collider = {
+    owner: object,
+    position: object.position,
+    rotation: object.rotation,
+    radius: 4,
+    friction: 0.1,
+  };
+
+  object.hitbox = () => [collider];
+  const collisions = new GameCollisions();
+  const sync = () => {
+    collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+    return collisions.bodies.get(object.id).fixtures[0];
+  };
+  let fixture = sync();
+
+  Vec.setXY(object.position, 12345, -98765);
+  collider.rotation = object.rotation = 0.7;
+  assert.equal(sync(), fixture, 'rigid motion preserves the fixture');
+  collider.radius += 1e-8;
+  assert.equal(sync(), fixture, 'sub-quantisation noise preserves the fixture');
+  collider.friction = 0.5;
+  assert.equal(sync(), fixture, 'material updates preserve the fixture');
+  assert.equal(fixture.getUserData().friction, 0.5);
+
+  for (const change of [
+    () => (collider.radius = 5),
+    () =>
+      (collider.shapeOutline = [
+        [-2, -1],
+        [2, -1],
+        [2, 1],
+        [-2, 1],
+      ]),
+    () => (collider.shapeOutline[0][0] = -3),
+    () => (collider.collisionMargin = 0),
+    () => delete collider.collisionMargin,
+    () => (collider.physics = false),
+    () => (collider.pickupPoint = true),
+    () => (collider.role = 'cargoHatch'),
+    () => (object.mass = 20),
+    () => (object.angularInertiaScale = 2),
+    () => delete collider.shapeOutline,
+  ]) {
+    change();
+    const changed = sync();
+
+    assert.notEqual(
+      changed,
+      fixture,
+      'a geometry or collision flag change rebuilds the fixture',
+    );
+    fixture = changed;
+    assert.equal(
+      sync(),
+      fixture,
+      'unchanged geometry reuses the rebuilt fixture',
+    );
+  }
+  collider.collides = false;
+  assert.equal(sync(), undefined, 'disabled colliders remove their fixtures');
+  collider.collides = true;
+  assert.ok(sync(), 'reenabled colliders recreate their fixtures');
+}
+
 // Off-centre impacts exchange angular as well as linear momentum.
 const triangle = new GameObject({
   id: 10,
