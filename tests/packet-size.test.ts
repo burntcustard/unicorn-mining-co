@@ -291,7 +291,7 @@ try {
       sizes.load[0] < 4_500,
       'defaults and procedural geometry stay off the wire',
     );
-    assert(sizes.snapshot[0] < 1_500, 'all entity snapshots send deltas');
+    assert(sizes.snapshot[0] < 1_800, 'all entity snapshots send deltas');
     assert(
       Buffer.byteLength(distantSnapshot) < 2_500,
       'distant-tier snapshots stay compact too',

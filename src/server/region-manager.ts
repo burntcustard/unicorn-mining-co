@@ -1,7 +1,8 @@
 import * as Vec from '../shared/vector';
 import { createAsteroid } from '../shared/simulation/asteroid';
 import { createShip } from '../shared/craft/create-ship';
-import { itemTypes } from '../shared/items';
+import { itemTypes, Message } from '../shared/items';
+import { fieldMessage } from '../shared/simulation/region-generation';
 import { createStation } from '../shared/craft/create-station';
 import { worldRanges } from '../shared/settings';
 import { RegionManager as ProceduralRegionManager } from '../shared/simulation/region-manager';
@@ -146,10 +147,17 @@ export class RegionManager {
             position: Vec.clone(description.position),
           }),
           {
-            cargoContents: description.cargoContents.map(
-              (resource) =>
-                new itemTypes[resource]({ world, id: entityId(world) }),
-            ),
+            cargoContents: [
+              ...description.cargoContents.map(
+                (resource) =>
+                  new itemTypes[resource]({ world, id: entityId(world) }),
+              ),
+              new Message({
+                world,
+                id: entityId(world),
+                message: fieldMessage(description.clueField),
+              }),
+            ],
             paint: description.paint,
           },
         );

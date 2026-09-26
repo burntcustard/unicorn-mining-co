@@ -134,15 +134,22 @@ export class CargoHatch extends Module {
       ship.playerId === undefined ||
       !ship.moduleActive({ module: CargoHatch }) ||
       !world.entities.has(item.id) ||
-      ship.cargoContents.length >= ship.cargoSpace
+      (item.message === undefined &&
+        ship.cargoContents.length >= ship.cargoSpace)
     ) {
       return;
     }
-    ship.cargoContents.push(item);
+
+    if (item.message === undefined) ship.cargoContents.push(item);
+
     item.remove();
     events.push({
       by: ship.playerId,
       itemId: item.id,
+      ...(item.message !== undefined && {
+        message: item.message,
+        unlock: item.unlock,
+      }),
       resource: item.resource,
       type: 'itemCollected',
     });

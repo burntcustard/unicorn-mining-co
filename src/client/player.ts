@@ -39,6 +39,7 @@ const paintUnlocks = new Map<string, Shades>([
   ['CYAN', colors.cyan],
 ]);
 const visitedStations = new Set<Ship>();
+const queuedNotes: string[] = [];
 
 export const paintUnlocked = (shades: Shades) =>
   unlockedPaints.includes(shades);
@@ -75,11 +76,31 @@ export const say = (text: string) => {
   playerShip.noteFor = 10;
 };
 
+export const queueNote = (text: string) => {
+  if (playerShip.noteFor > 0) queuedNotes.push(text);
+  else say(text);
+};
+
+export const readSlate = ({
+  message,
+  unlock,
+}: {
+  message: string;
+  unlock?: string;
+}) => {
+  if (unlock) unlockPaint(unlock, 'CARGO FOUND');
+
+  queueNote(message);
+};
+
 /**
  * dt: Seconds since the last update.
  */
 export const updatePlayer = (dt: number) => {
   playerShip.noteFor = Math.max(0, playerShip.noteFor - dt);
+
+  if (!playerShip.noteFor && queuedNotes.length) say(queuedNotes.shift()!);
+
   playerShip.hudAlpha = Math.max(
     0,
     Math.min(1, playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt),

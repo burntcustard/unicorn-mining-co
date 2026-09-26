@@ -24,7 +24,7 @@ import { camera, centerCamera, dockDuration, followTarget } from './camera';
 
 import { revealBuriedItems } from './lighting';
 import { itemTypes, Message } from '../shared/items';
-import { adoptPlayerShip, playerShip, updatePlayer } from './player';
+import { adoptPlayerShip, playerShip, readSlate, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './shrapnel';
 import { presentEvents } from './present-events';
 import { GameLoop } from './game-loop';
@@ -351,6 +351,7 @@ const gameLoop = GameLoop({
       syncPlayerShip();
       presentEvents({
         events: network.takeEvents(),
+        onMessage: readSlate,
         playerId: network.playerId,
       });
     }

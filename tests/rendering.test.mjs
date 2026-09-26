@@ -84,6 +84,8 @@ presentEvents({playerId:1,events:[{type:'itemCollected',by:2,itemId:889,resource
 assert.equal(globalThis['sounds'].length,soundCount+1,'other pilots do not play our cargo notification');
 const packet=JSON.parse(globalThis['packet']);
 const world=createWorld();
+const hydratedSlate=makeEntity({entity:{id:9999,kind:'item',resource:4,message:'GOLD ORE 100/200',position:Vec.create(),radius:8,rotation:0,spin:0},world});
+assert.equal(hydratedSlate.message,'GOLD ORE 100/200','the replicated slate keeps its field coordinates');
 const objects=packet['fullEntities'].map(entity=>makeEntity({entity,world}));
 assert.throws(()=>makeEntity({entity:{...packet['fullEntities'][0],['kind']:'unknown'},world}),/Unknown replicated entity kind/,'unknown wire kinds must not turn into ships');
 const remote=objects.find(entity=>entity instanceof Mustang);

@@ -22,8 +22,9 @@ import { createRenderedItem } from '${process.cwd()}/src/client/create-rendered-
 import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple, thrusters } from '${process.cwd()}/src/shared/modules/index.ts';
 import { Item } from '${process.cwd()}/src/shared/items/item.ts';
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/craft-actions.ts';
-import { adoptPlayerShip, paintUnlocked, playerShip, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
+import { adoptPlayerShip, paintUnlocked, playerShip, readSlate, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
+import { presentEvents } from '${process.cwd()}/src/client/present-events.ts';
 import { colors } from '${process.cwd()}/src/shared/colors.ts';
 import {
   back, confirmSelection, moveSelection, moveSubSelection,
@@ -173,9 +174,19 @@ assert(bought.shades === colors.white && first.shades === colors.red, 'next unlo
 // The ownership checks below need these paints earned before selecting them.
 unlockPaint('RED', 'DAMAGED');
 assert(playerShip.note === 'DAMAGED - RED UNLOCKED', 'red reward Message');
-unlockPaint('ORANGE', 'CARGO FOUND');
+const slatePickup = {type:'itemCollected',itemId:999,resource:4,unlock:'ORANGE',message:'GOLD ORE 100/200'};
+const noteBeforeOtherPickup = playerShip.note;
+presentEvents({playerId:1,events:[{...slatePickup,by:2}],onMessage:readSlate});
+assert(!paintUnlocked(colors.orange) && playerShip.note === noteBeforeOtherPickup,
+  'another player reading a slate does not show our message or unlock');
+presentEvents({playerId:1,events:[{...slatePickup,by:1}],onMessage:readSlate});
 assert(paintUnlocked(colors.red) && paintUnlocked(colors.orange), 'earned paints become available');
-assert(playerShip.note === 'CARGO FOUND - ORANGE UNLOCKED', 'orange reward Message');
+assert(playerShip.note === 'CARGO FOUND - ORANGE UNLOCKED', 'orange unlock appears first');
+updatePlayer(10);
+assert(playerShip.note === 'GOLD ORE 100/200', 'field coordinates follow the unlock');
+playerShip.noteFor = 0;
+presentEvents({playerId:1,events:[{...slatePickup,by:1,message:'AMETHYST CLUSTER 300/400'}],onMessage:readSlate});
+assert(playerShip.note === 'AMETHYST CLUSTER 300/400', 'already unlocked orange shows coordinates only');
 moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.red && first.shades === colors.red, 'paint purchased instance');
 moveSubSelection(1, ship); confirm();

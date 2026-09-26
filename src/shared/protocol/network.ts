@@ -28,6 +28,7 @@ export type ReplicatedEntity = {
   label?: string;
   launching?: number;
   mass?: number;
+  message?: string;
   pendingUpdateTime?: number;
   maxSpeed?: number;
   maxHealth?: number;

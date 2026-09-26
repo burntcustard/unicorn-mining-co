@@ -23,6 +23,7 @@ export type AsteroidDescription = {
 
 export type WreckDescription = {
   cargoContents: number[];
+  clueField: { position: Vec.Value; resource: number };
   id: number;
   paint: number;
   position: Vec.Value;

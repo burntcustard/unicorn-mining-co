@@ -17,6 +17,7 @@ const bundle = await rolldown({
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/shared/simulation/world.ts';
       export { createAsteroid, shapeOutlinesFrom } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
       export { Diamond } from '${process.cwd()}/src/shared/items/diamond.ts';
+      export { Message } from '${process.cwd()}/src/shared/items/message.ts';
       export { createShip } from '${process.cwd()}/src/shared/craft/create-ship.ts';
       export { createStation } from '${process.cwd()}/src/shared/craft/create-station.ts';
       export { cloneEntity } from '${process.cwd()}/src/shared/simulation/world-state.ts';
@@ -39,6 +40,7 @@ const {
   addPlayer,
   createAsteroid,
   Diamond,
+  Message,
   createShip,
   createStation,
   createWorld,
@@ -50,6 +52,16 @@ const {
   updateWorld,
   Vec,
 } = simulation;
+
+const spinWorld = createWorld({ seed: 25 });
+const spinningAsteroid = addEntity(
+  spinWorld,
+  createAsteroid(spinWorld, { id: 900, spin: 0.04 }),
+);
+
+spinningAsteroid.update(60);
+assert.equal(spinningAsteroid.spin, 0.04);
+assert.equal(spinningAsteroid.rotation, 2.4);
 
 const dockedMovement = () => {
   const world = createWorld({ seed: 25 });
@@ -783,6 +795,46 @@ diamondPickup();
     item,
     'the item centre reaching the mouth collects it',
   );
+}
+
+// A slate is read at the hatch even when ordinary cargo has filled the hold.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 9 }));
+  const throat = ship.hitbox().find(({ role }) => role === 'cargoHatch');
+  const module = throat.segment.module;
+
+  throat.segment.active = 1;
+  ship.cargoContents.push(
+    ...Array.from({ length: ship.cargoSpace }, () => new Diamond({ world })),
+  );
+  const slate = addEntity(
+    world,
+    new Message({
+      world,
+      id: entityId(world),
+      message: 'GOLD ORE 100/200',
+      position: Vec.clone(throat.position),
+    }),
+  );
+  const events = [];
+
+  module.collect({
+    ship,
+    contact: { collider: throat, other: slate.hitbox()[1] },
+    events,
+    world,
+  });
+  assert.equal(ship.cargoContents.length, ship.cargoSpace);
+  assert.equal(world.entities.has(slate.id), false);
+  assert.deepEqual(events[0], {
+    by: 9,
+    itemId: slate.id,
+    message: 'GOLD ORE 100/200',
+    resource: 4,
+    type: 'itemCollected',
+    unlock: 'ORANGE',
+  });
 }
 
 const starAsteroidLosesOneArm = () => {

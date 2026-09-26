@@ -27,7 +27,9 @@ export type SimulationEvent =
   | {
       by: PlayerId;
       itemId: EntityId;
+      message?: string;
       resource: number;
+      unlock?: string;
       type: 'itemCollected';
     }
   | {

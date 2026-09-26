@@ -49,6 +49,7 @@ const makeEntity = ({
     ...(entity.friction !== undefined && { friction: entity.friction }),
     ...(entity.health !== undefined && { health: entity.health }),
     ...(entity.label !== undefined && { label: entity.label }),
+    ...(entity.message !== undefined && { message: entity.message }),
     id: entity.id,
     ...(entity.mass !== undefined && { mass: entity.mass }),
     pendingUpdateTime: entity.pendingUpdateTime ?? 0,

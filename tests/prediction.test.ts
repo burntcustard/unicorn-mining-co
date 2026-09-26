@@ -807,6 +807,17 @@ Vec.set(authority.velocity, Vec.create());
 authority.spin = 0;
 await fly({ ticks: 30 });
 
+// Keep the shape-contact fixture clear of procedural scenery. Field density
+// varies by seed, and this test needs the inserted rock to be the first hit.
+server.world.entities.forEach((entity, id) => {
+  if (
+    entity.kind !== 'ship' &&
+    Vec.distance(entity.position, authority.position) < 1500
+  ) {
+    server.world.entities.delete(id);
+  }
+});
+
 const rock = addEntity(
   server.world,
   createAsteroid(server.world, {

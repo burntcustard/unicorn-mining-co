@@ -390,7 +390,7 @@ export const asteroidContact = ({
 
 export class Asteroid extends GameObject {
   static friction = 0.2;
-  static angularDrag = 0.15;
+  static angularDrag = 0;
   contents: number[];
   decay?: number;
   health: number;

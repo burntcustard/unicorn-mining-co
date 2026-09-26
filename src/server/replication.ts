@@ -81,6 +81,7 @@ const replicateEntity = ({
         : entity.health,
   }),
   ...('label' in entity && { label: entity.label }),
+  ...('message' in entity && { message: entity.message }),
   ...('paint' in entity && { paint: entity.paint }),
   ...('playerId' in entity && { playerId: entity.playerId }),
   ...('pointCount' in entity && { pointCount: entity.pointCount }),

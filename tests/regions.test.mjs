@@ -14,10 +14,12 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0regions'
           ? `
-      export { generateRegion, asteroidSpacing } from '${process.cwd()}/src/shared/simulation/region-generation.ts';
+      export { generateRegion, generateFields, fieldMessage, asteroidSpacing } from '${process.cwd()}/src/shared/simulation/region-generation.ts';
       export { RegionManager } from '${process.cwd()}/src/shared/simulation/region-manager.ts';
       export { RegionManager as ServerRegionManager } from '${process.cwd()}/src/server/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/shared/simulation/world.ts';
+      export { Message } from '${process.cwd()}/src/shared/items/message.ts';
+      export { ReplicationManager } from '${process.cwd()}/src/server/replication.ts';
       export * as Vec from '${process.cwd()}/src/shared/vector.ts';
     `
           : undefined,
@@ -29,7 +31,11 @@ const { output } = await bundle.generate({ format: 'esm' });
 const {
   createWorld,
   generateRegion,
+  generateFields,
+  fieldMessage,
   asteroidSpacing,
+  Message,
+  ReplicationManager,
   RegionManager,
   ServerRegionManager,
   Vec,
@@ -253,6 +259,110 @@ assert(
   ) < 1e-8,
   'the fragments contain the source mass exactly once',
 );
+
+// Compare seed 25 against the finite world on main, within its old 50 km radius.
+const oldWorldRadius = 50000;
+const withinOldWorld = ({ position }) => Vec.length(position) < oldWorldRadius;
+const oldWorldFields = generateFields({
+  worldSeed: 25,
+  from: Vec.create(-oldWorldRadius, -oldWorldRadius),
+  to: Vec.create(oldWorldRadius, oldWorldRadius),
+}).filter(withinOldWorld);
+const distribution = { asteroids: [], stations: [], wrecks: [] };
+
+for (let x = -25; x < 25; x++) {
+  for (let y = -25; y < 25; y++) {
+    const region = generateRegion({ worldSeed: 25, region: Vec.create(x, y) });
+
+    distribution.asteroids.push(...region.asteroids.filter(withinOldWorld));
+    distribution.stations.push(...region.stations.filter(withinOldWorld));
+    distribution.wrecks.push(...region.wrecks.filter(withinOldWorld));
+  }
+}
+
+assert(oldWorldFields.length >= 95 && oldWorldFields.length <= 120);
+assert(
+  distribution.asteroids.length >= 11000 &&
+    distribution.asteroids.length <= 16000,
+);
+const meanAsteroidRadius =
+  distribution.asteroids.reduce((sum, asteroid) => sum + asteroid.radius, 0) /
+  distribution.asteroids.length;
+
+assert(meanAsteroidRadius > 105.5 && meanAsteroidRadius < 107);
+assert(distribution.asteroids.some(({ spin }) => spin < -0.025));
+assert(distribution.asteroids.some(({ spin }) => spin > 0.025));
+assert(
+  distribution.stations.length >= 13 && distribution.stations.length <= 22,
+);
+assert(distribution.wrecks.length >= 23 && distribution.wrecks.length <= 35);
+assert(oldWorldFields.filter(({ resource }) => resource === 1).length >= 5);
+assert(oldWorldFields.filter(({ resource }) => resource === 2).length >= 6);
+assert(
+  distribution.wrecks.filter(({ paint }) => paint === 1).length >=
+    distribution.wrecks.length * 0.55,
+);
+assert(
+  distribution.wrecks.filter(({ paint }) => paint === 1).length <=
+    distribution.wrecks.length * 0.8,
+);
+const richFields = generateFields({
+  worldSeed: 25,
+  from: Vec.create(-100000, -100000),
+  to: Vec.create(100000, 100000),
+}).filter(({ resource }) => resource < 3);
+const richFieldById = new Map(richFields.map((field) => [field.id, field]));
+
+distribution.wrecks.forEach(({ cargoContents, clueField }) => {
+  assert.deepEqual(clueField, richFieldById.get(clueField.id));
+  assert(cargoContents.every((resource) => resource === clueField.resource));
+  assert.match(
+    fieldMessage(clueField),
+    /^(AMETHYST CLUSTER|GOLD ORE) -?\d+\/-?\d+$/,
+  );
+});
+
+const clueWreck = distribution.wrecks[0];
+const clueWorld = createWorld({ seed: 25 });
+const clueRegions = new ServerRegionManager({ worldSeed: 25 });
+
+clueRegions.sync({ positions: [clueWreck.position], world: clueWorld });
+const materializedWreck = clueWorld.entities.get(clueWreck.id);
+const slate = materializedWreck?.cargoContents.find(
+  (object) => object instanceof Message,
+);
+
+assert(slate instanceof Message, 'every wreck carries a clue slate');
+assert.equal(slate.message, fieldMessage(clueWreck.clueField));
+assert.equal(slate.unlock, 'ORANGE');
+const clueLoad = new ReplicationManager().initial({
+  world: clueWorld,
+  shipId: clueWreck.id,
+  position: clueWreck.position,
+});
+const replicatedWreck = clueLoad.fullEntities.find(
+  ({ id }) => id === clueWreck.id,
+);
+
+assert(
+  replicatedWreck.cargoContents.some(
+    ({ message }) => message === fieldMessage(clueWreck.clueField),
+  ),
+  'the wreck slate reaches a client with its coordinates',
+);
+
+distribution.asteroids.forEach(({ contents, radius, resource }) => {
+  if (resource === 1) {
+    assert(radius >= 100 && radius <= 102);
+    assert(contents.every((item) => item === 1));
+  } else if (resource === 2) {
+    assert(radius >= 160 && radius <= 220);
+    assert(contents.every((item) => item === 2));
+  } else {
+    assert(radius >= 51.25 && radius <= 171.25);
+    assert(contents.length <= 6);
+  }
+});
 
 console.log(
   `Regional view: ${view.asteroids.length} full asteroids within 2 km, ` +

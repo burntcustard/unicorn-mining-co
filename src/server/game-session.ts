@@ -56,6 +56,26 @@ export class GameSession {
     this.regions = new RegionManager({ worldSeed });
   }
 
+  private nearestStation(position: Vec.Value) {
+    let range = worldRanges.stationMarker;
+    let stations = this.regions.view({ position }).stationMarkers;
+
+    while (!stations.length) {
+      range *= 2;
+      stations = this.regions.view({
+        position,
+        ranges: { ...worldRanges, stationMarker: range },
+      }).stationMarkers;
+    }
+
+    return stations.reduce((closest, station) =>
+      Vec.distance(station.position, position) <
+      Vec.distance(closest.position, position)
+        ? station
+        : closest,
+    );
+  }
+
   receive({ message, socket }: { message: ClientMessage; socket: WebSocket }) {
     if (message.type === 'hello') {
       this.hello({ socket, token: message.playerToken });
@@ -150,18 +170,13 @@ export class GameSession {
     if (!player) {
       const playerToken = randomUUID();
       const playerId = this.nextPlayerId++;
-      const originView = this.regions.view({ position: Vec.create() });
-      const station = [...originView.stationMarkers].sort(
-        (a, b) => Vec.length(a.position) ** 2 - Vec.length(b.position) ** 2,
-      )[0];
+      const station = this.nearestStation(Vec.create());
       const spawnAngle = playerId * 2.4;
-      const spawn = station
-        ? Vec.addScaled(
-            station.position,
-            directionOf(spawnAngle),
-            station.radius + 250,
-          )
-        : Vec.create();
+      const spawn = Vec.addScaled(
+        station.position,
+        directionOf(spawnAngle),
+        station.radius + 250,
+      );
 
       Vec.setXY(spawn, Math.round(spawn.x), Math.round(spawn.y));
       const ship = createShip(this.world, {
@@ -232,22 +247,7 @@ export class GameSession {
     if (this.world.entities.has(player.shipId)) return;
 
     const position = player.ship.position;
-    let range = 10000;
-    let stations = this.regions.view({ position }).stationMarkers;
-
-    while (!stations.length) {
-      range *= 2;
-      stations = this.regions.view({
-        position,
-        ranges: { ...worldRanges, stationMarker: range },
-      }).stationMarkers;
-    }
-    const nearest = stations.reduce((closest, station) =>
-      Vec.distance(station.position, position) <
-      Vec.distance(closest.position, position)
-        ? station
-        : closest,
-    );
+    const nearest = this.nearestStation(position);
 
     this.regions.sync({
       world: this.world,
