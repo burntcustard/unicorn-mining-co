@@ -442,11 +442,7 @@ for (const type of thrusters) {
 }
 
 // Check the remaining reward names under production minification too.
-assert(!paintUnlocked(colors.yellow), 'YELLOW starts locked');
-Vec.set(playerShip.position, Vec.create(50000));
-updatePlayer(0);
-assert(paintUnlocked(colors.yellow), 'reaching the map edge unlocks YELLOW');
-assert(playerShip.note === 'EDGE REACHED - YELLOW UNLOCKED', 'YELLOW reward Message');
+assert(paintUnlocked(colors.yellow), 'YELLOW starts unlocked');
 
 for (const [name, shades] of [['GREEN', colors.green]]) {
   assert(!paintUnlocked(shades), name + ' starts locked');

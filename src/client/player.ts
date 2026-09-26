@@ -28,9 +28,8 @@ export let playerShip = createRenderedShip({
 playerShip.credits = 10000;
 // @endif
 
-// Violet is the pink paint in the paint selection, and only it and white are available
-// until the pilot has earned the rest.
-const unlockedPaints: Shades[] = [colors.violet, colors.white];
+// Violet is the pink paint in the paint selection.
+const unlockedPaints: Shades[] = [colors.violet, colors.white, colors.yellow];
 const paintUnlocks = new Map<string, Shades>([
   ['RED', colors.red],
   ['ORANGE', colors.orange],
@@ -105,10 +104,6 @@ export const updatePlayer = (dt: number) => {
     0,
     Math.min(1, playerShip.hudAlpha + (playerShip.dockedTo ? -2 : 2) * dt),
   );
-
-  if (Vec.length(playerShip.position) >= 5e4) {
-    unlockPaint('YELLOW', 'EDGE REACHED');
-  }
 
   // Normalize the replicated spin against the same steering limit used by the
   // simulation. Steering effort also covers braking and reversing direction.
