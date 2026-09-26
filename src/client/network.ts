@@ -238,6 +238,11 @@ export class NetworkClient {
         this.showConnectionStatus('GAME OPEN IN ANOTHER TAB');
         return;
       }
+
+      if (code === 4002) {
+        this.showConnectionStatus('AWAY TOO LONG - RELOAD TO PLAY');
+        return;
+      }
       this.showConnectionStatus('CONNECTION LOST - RETRYING...');
       const delay = this.retryDelay * (0.8 + Math.random() * 0.4);
 

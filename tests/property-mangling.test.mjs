@@ -15,6 +15,16 @@ assert.equal(
   'quoted chunk paths must stay intact while distance is mangled',
 );
 
+const stationBranch = `entity.kind === "station" ? createStation() : createShip()`;
+const replacedStationBranch = replacePreTerser(stationBranch);
+const encodedStation = replacePreTerser('"station"');
+
+assert.equal(
+  replacedStationBranch,
+  `entity._kind === ${encodedStation} ? createStation() : createShip()`,
+  'a ternary between quoted tags must mangle the entity kind access',
+);
+
 const entryId = resolve('src/__mangle_entry.ts');
 const lazyId = resolve('src/__mangle_lazy.ts');
 const property = 'crossChunkCounterForMangleTest';

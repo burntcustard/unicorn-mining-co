@@ -19,10 +19,16 @@ const tagPattern = new RegExp(
   'g',
 );
 
-// Protect quoted paths and Node builtins, and Vec.distance's export before matching properties.
-// This leaves shape-distance intact and lets unrelated distance fields mangle.
+// Consume complete quoted strings before matching properties. A path-like
+// string stays literal; other strings may contain dynamic property keys.
+// Matching only path-like quotes can mistake code between two literals for a
+// path when that code contains a ternary colon.
+const propertyNamePattern = new RegExp(
+  `\\b(${propertyNames.join('|')})\\b`,
+  'g',
+);
 const propertyPattern = new RegExp(
-  `(["'])(?:[^"'\\r\\n]*[/:-][^"'\\r\\n]*)\\1|\\b(?:export\\s+)?function\\s+distance\\b|\\bVec\\.distance\\b|\\b(${propertyNames.join('|')})\\b`,
+  String.raw`(["'])(?:\\.|(?!\1)[^\\\r\n])*\1|\b(?:export\s+)?function\s+distance\b|\bVec\.distance\b|\b(${propertyNames.join('|')})\b`,
   'g',
 );
 
@@ -35,6 +41,12 @@ export const replacePreTerser = (src) =>
       tagPattern,
       (_, quote, tag) => quote + encodeProtocolTags.get(tag) + quote,
     )
-    .replace(propertyPattern, (match, _quote, name) =>
-      name ? `_${name}` : match,
-    );
+    .replace(propertyPattern, (match, quote, name) => {
+      if (quote) {
+        return match.includes('/') || /[:-]/.test(match)
+          ? match
+          : match.replace(propertyNamePattern, (property) => `_${property}`);
+      }
+
+      return name ? `_${name}` : match;
+    });

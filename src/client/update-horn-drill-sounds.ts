@@ -21,7 +21,12 @@ export const updateHornDrillSounds = ({
       craft.segmentsAtMount(mount).forEach((segment, segmentIndex) => {
         if (!segment.active) return;
         const key = `${craft.id}:${mountIndex}:${segmentIndex}`;
-        const voice = continuousSound(voices.get(key), segment.biting ? 8 : 4);
+        const level = segment.biting ? 8 : 4;
+        const voice = continuousSound(
+          voices.get(key),
+          level / 2,
+          1 - level / 80,
+        );
 
         if (voice) voices.set(key, voice);
         playing.add(key);

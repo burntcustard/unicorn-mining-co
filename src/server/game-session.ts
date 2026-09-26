@@ -23,6 +23,8 @@ type PlayerRecord = {
   inputs: Map<number, PlayerInputMessage[]>;
   lastInput: PlayerInput;
   lastSequence: number;
+  lastInputAt: number;
+  hiddenShip: boolean;
   playerId: number;
   replication: ReplicationManager;
   ship: Ship;
@@ -92,6 +94,7 @@ export class GameSession {
     );
 
     if (!player) return;
+    player.lastInputAt = Date.now();
 
     if (message.type === 'input') this.input({ message, player });
     else if (message.type === 'respawn') this.respawn(player);
@@ -106,6 +109,13 @@ export class GameSession {
     if (!player) return;
     player.socket = undefined;
     player.disconnectedAt = Date.now();
+    player.hiddenShip = this.world.entities.delete(player.shipId);
+    this.world.players.delete(player.playerId);
+    player.ship.localMovementParent = 0;
+    player.ship.localMovementRate = 0;
+    Vec.set(player.ship.velocity, Vec.create());
+    player.ship.spin = 0;
+    player.ship.fly(0, 0);
     player.lastInput = emptyPlayerInput();
     player.inputs.clear();
     Vec.setXY(
@@ -116,6 +126,18 @@ export class GameSession {
   }
 
   tick() {
+    if (this.world.tick % 30 === 0) {
+      const idleBefore = Date.now() - 5 * 60 * 1000;
+
+      this.players.forEach((player) => {
+        if (!player.socket || player.lastInputAt > idleBefore) return;
+        const socket = player.socket;
+
+        this.disconnect({ socket });
+        socket.close(4002, 'Idle timeout');
+      });
+    }
+
     if (this.world.tick % 900 === 0) {
       const expired = Date.now() - 30 * 60 * 1000;
 
@@ -131,15 +153,16 @@ export class GameSession {
         this.world.entities.delete(player.shipId);
       });
     }
-    const positions = [...this.players.values()].map(
-      ({ ship }) => ship.position,
-    );
+    const positions = [...this.players.values()]
+      .filter(({ socket }) => socket)
+      .map(({ ship }) => ship.position);
 
     this.regions.sync({ world: this.world, positions });
     const tick = this.world.tick;
     const inputs = new Map<number, InputFrame>();
 
     this.players.forEach((player) => {
+      if (!player.socket) return;
       const changes = (player.inputs.get(tick) || []).filter(
         ({ sequence }) => sequence > player.lastSequence,
       );
@@ -211,6 +234,8 @@ export class GameSession {
         inputs: new Map(),
         lastInput: emptyPlayerInput(),
         lastSequence: 0,
+        lastInputAt: Date.now(),
+        hiddenShip: false,
         playerId,
         replication: new ReplicationManager(),
         ship,
@@ -221,7 +246,15 @@ export class GameSession {
     }
 
     player.socket?.close(4001, 'Session opened elsewhere');
+
+    if (player.hiddenShip) {
+      addEntity(this.world, player.ship);
+      player.hiddenShip = false;
+    }
+
+    addPlayer(this.world, { id: player.playerId, shipId: player.shipId });
     player.socket = socket;
+    player.lastInputAt = Date.now();
     player.disconnectedAt = undefined;
     player.inputs.clear();
     player.lastInput = emptyPlayerInput();
@@ -235,12 +268,14 @@ export class GameSession {
       Math.round(ship.position.x),
       Math.round(ship.position.y),
     );
+
     this.regions.sync({
       world: this.world,
-      positions: [...this.players.values()].map(
-        (player) => player.ship.position,
-      ),
+      positions: [...this.players.values()]
+        .filter(({ socket }) => socket)
+        .map(({ ship }) => ship.position),
     });
+
     send({
       socket,
       message: {
@@ -253,6 +288,7 @@ export class GameSession {
         worldSeed: this.worldSeed,
       },
     });
+
     send({
       socket,
       message: player.replication.initial({
@@ -274,7 +310,9 @@ export class GameSession {
     this.regions.sync({
       world: this.world,
       positions: [
-        ...[...this.players.values()].map(({ ship }) => ship.position),
+        ...[...this.players.values()]
+          .filter(({ socket }) => socket)
+          .map(({ ship }) => ship.position),
         nearest.position,
       ],
     });

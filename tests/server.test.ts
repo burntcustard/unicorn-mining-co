@@ -888,8 +888,27 @@ for (const disconnectFirst of [true, false]) {
   const previousClosed = once(previousSocket, 'close');
 
   if (disconnectFirst) {
+    const disconnectSnapshotStart = messages.length;
+
     previousSocket.close();
     await previousClosed;
+    assert.equal(
+      server.world.entities.has(secondWelcome.shipId),
+      false,
+      'a disconnected ship is removed immediately',
+    );
+    assert.equal(server.world.players.has(secondWelcome.playerId), false);
+    await waitUntil({
+      condition: () =>
+        messages
+          .slice(disconnectSnapshotStart)
+          .some(
+            (message) =>
+              message.type === 'snapshot' &&
+              !!message.entityIds &&
+              !message.entityIds.includes(secondWelcome.shipId),
+          ),
+    });
   }
 
   secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
@@ -917,6 +936,8 @@ for (const disconnectFirst of [true, false]) {
   assert(Number.isInteger(reconnectWelcome.spawn.y));
   assert.equal(reconnectLoad.type, 'load');
   assert.equal(reconnectLoad.acknowledgedSequence, 0);
+  assert(server.world.entities.has(secondWelcome.shipId));
+  assert(server.world.players.has(secondWelcome.playerId));
   secondSocket.send(
     inputPacket({
       type: 'input',
@@ -956,6 +977,31 @@ for (const disconnectFirst of [true, false]) {
       ),
   });
 }
+
+// A socket with no input for five minutes is closed and its ship disappears.
+const idleSocket = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
+const idleMessages: ServerMessage[] = [];
+
+collect({ messages: idleMessages, socket: idleSocket });
+await once(idleSocket, 'open');
+idleSocket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
+const idleWelcome = await waitFor({ messages: idleMessages, type: 'welcome' });
+
+assert.equal(idleWelcome.type, 'welcome');
+const session = Reflect.get(server, 'session');
+const playerRecords = Reflect.get(session, 'players') as Map<
+  string,
+  { lastInputAt: number }
+>;
+const idleRecord = playerRecords.get(idleWelcome.playerToken);
+
+assert(idleRecord);
+idleRecord.lastInputAt = Date.now() - 5 * 60 * 1000 - 1000;
+const [idleCloseCode] = await once(idleSocket, 'close');
+
+assert.equal(idleCloseCode, 4002);
+assert.equal(server.world.entities.has(idleWelcome.shipId), false);
+assert.equal(server.world.players.has(idleWelcome.playerId), false);
 
 // A lost ship keeps receiving world updates until its pilot requests a new one.
 const deathPosition = Vec.add(playerShip.position, Vec.create());

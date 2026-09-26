@@ -194,7 +194,12 @@ export const updateThrusterSound = (power: number, load = 0) => {
   const revs = load * 1.2;
 
   thrusterSound =
-    continuousSound(thrusterSound, power * (0.24 + revs), 0.7 + revs, 1) || 0;
+    continuousSound(
+      thrusterSound,
+      (power * (0.24 + revs)) / 2,
+      0.7 + revs,
+      1,
+    ) || 0;
 };
 
 export default {
