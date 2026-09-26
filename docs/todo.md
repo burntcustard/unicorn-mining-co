@@ -42,6 +42,7 @@
 [ ] Ensure tests aren't overlapping with each other
 [ ] Swap 'FIX' with 'REPAIR' or 'Repair'
 [ ] Fix colors unlocked not saving on reconnect
+[ ] Remove or refactor updateHornDrillSounds because its weird
 
 ## Big future things
 
