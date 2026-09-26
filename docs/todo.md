@@ -43,6 +43,8 @@
 [ ] Swap 'FIX' with 'REPAIR' or 'Repair'
 [ ] Fix colors unlocked not saving on reconnect
 [ ] Remove or refactor updateHornDrillSounds because its weird
+[ ] Adjust sounds v1 (less bassy, less annoying?)
+[ ] Adjust sounds v2 (custom with more levers & layers)
 
 ## Big future things
 
