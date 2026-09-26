@@ -526,6 +526,7 @@ export class NetworkClient {
       entities,
       entityIds,
       entityTicks,
+      nextEntityId: message.nextEntityId,
       tick: this.serverTick,
     });
 

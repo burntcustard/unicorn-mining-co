@@ -157,7 +157,7 @@ move(-1);
 assert(selectionSnapshot(ship)[3] === 0, 'up from paint returns to EQUIP after buying');
 confirm();
 assert(mount.module === bought && !ship.cargoContents.length, 'new purchase fits');
-// Navigation skips locked colours: a new pilot has only pink and white.
+// Navigation skips locked colours: a new pilot has only yellow, pink and white.
 assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
 move(1);
 assert(selectionSnapshot()[3] === 1, 'down reaches BACK after equipping');
@@ -167,9 +167,9 @@ assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
 move(-1);
 assert(selectionSnapshot(ship)[3] === 1, 'up from paint returns to BACK');
 move(1); moveSubSelection(-100, ship); confirm();
-assert(bought.shades === colors.violet, 'first unlocked paint is pink');
+assert(bought.shades === colors.yellow, 'first unlocked paint is yellow');
 moveSubSelection(1, ship); confirm();
-assert(bought.shades === colors.white && first.shades === colors.red, 'next unlocked paint is white');
+assert(bought.shades === colors.violet && first.shades === colors.red, 'next unlocked paint is pink');
 
 // The ownership checks below need these paints earned before selecting them.
 unlockPaint('RED', 'DAMAGED');

@@ -89,6 +89,9 @@ export type ServerMessage =
       acknowledgedSequence?: number;
       inputLead?: number;
       fullEntities: ReplicatedEntity[];
+      // Runtime spawns out of replication range still consume ids, so the
+      // counter has to travel or prediction reuses one that is already taken.
+      nextEntityId: number;
       serverTick: number;
       type: 'load' | 'snapshot';
       entityIds?: number[];

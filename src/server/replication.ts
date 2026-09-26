@@ -210,6 +210,7 @@ export class ReplicationManager {
       inputLead,
       entityIds: membershipChanged ? [...entities] : undefined,
       fullEntities,
+      nextEntityId: world.nextEntityId,
       serverTick: world.tick,
       type: 'snapshot' as const,
     };

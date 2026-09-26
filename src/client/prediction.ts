@@ -254,15 +254,21 @@ export class PredictionManager {
     entities,
     entityIds = entities?.map((entity) => entity.id),
     entityTicks,
+    nextEntityId,
     tick,
   }: {
     entities?: GameObject[];
     entityIds?: number[];
     entityTicks?: Map<number, number>;
+    nextEntityId?: number;
     tick: number;
   }) {
     const targetTick = this.world.tick;
 
+    // Prediction may already have taken the next id or two of its own.
+    if (nextEntityId !== undefined) {
+      this.world.nextEntityId = Math.max(this.world.nextEntityId, nextEntityId);
+    }
     this.frame.reset();
 
     if (Math.abs(targetTick - tick) > maxReplayTicks) {
