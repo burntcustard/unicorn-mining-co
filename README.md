@@ -59,13 +59,13 @@ WHITE - Unlocked by default from the start of the game.
 5. Compile [index.html](dist/index.html) and its JavaScript chunks
    `npm run build`
 
-6. To run that production build locally, keep `npm run start:server` running in
-   one terminal and serve the build from another
-   `npm run preview`
+6. To run the production build locally, start `npm run start:server` and open
+   [localhost:3001](http://localhost:3001/). It serves the client and WebSocket
+   on the same port. `npm run preview` also works with `start:server` running.
 
-Use `dev` with `dev:server`, or `preview` with `start:server`. Production
-builds mangle packet fields, so mixing the two modes leaves the client waiting
-for a welcome packet.
+Use `dev` with `dev:server`, or the production build with `start:server`.
+Production builds mangle packet fields, so mixing the modes leaves the client
+waiting for a welcome packet.
 
 7. See [package.json](package.json) for other scripts
 
@@ -78,3 +78,46 @@ production server as `dist/server.js`, and warns if a browser JavaScript chunk
 exceeds 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading
 tiers and their triggers. `npm run test:packets` reports client/server packet
 sizes before and after production mangling.
+
+## Deploy on Fly.io
+
+The public game runs at [unicorn-mining.co](https://unicorn-mining.co/) on one
+always-running Fly Machine in London. The authoritative world and players are
+in memory: a Machine restart or every push to `main` resets the game. The
+`www` hostname redirects to the root domain. There is no database or Fly
+volume.
+
+1. Install `flyctl` using [Fly's installation guide](https://fly.io/agent-ready.md),
+   sign in with `fly auth login`, and run `fly apps list` to check whether the
+   app already exists. If `unicorn-mining-co` is unavailable, choose another
+   app name and update `fly.toml` before deploying.
+2. Create the app with `fly apps create unicorn-mining-co` if it does not
+   already exist. This keeps the committed `fly.toml`. Allocate public
+   addresses with `fly ips allocate-v4 --shared` and `fly ips allocate-v6`
+   (check `fly ips list` first if the app already existed). Deploy with
+   `fly deploy --ha=false`, then check `fly status`, `fly logs`, and the
+   app's `https://<app>.fly.dev/` URL. Verify that exactly one Machine is
+   running and `/healthz` returns `ok`.
+3. Create a named, app-scoped deploy token with
+   `fly tokens create deploy -a <app> --name github-actions --expiry 2160h`.
+   Save it in the GitHub repository's Actions secrets as `FLY_API_TOKEN`;
+   rotate it before expiry. The workflow checks the code and automatically
+   deploys each push to `main`. Do not put the token in source or `fly.toml`.
+4. Attach both hostnames using `fly certs add unicorn-mining.co` and
+   `fly certs add www.unicorn-mining.co`. Run `fly certs setup` for each to
+   obtain the exact DNS values. In Namecheap's **Advanced DNS**, replace only
+   the parking A record for `@` with Fly's A and AAAA addresses, and replace
+   the parking `www` record with Fly's CNAME target. Add any ownership or
+   ACME verification records that `fly certs setup` requests. Keep the
+   existing MX and SPF records used for email forwarding. Use
+   `fly certs check` for both hostnames until both certificates are active.
+5. Verify HTTPS at the root, the HTTPS redirect from `www`, and a WSS game
+   connection from a second network. Update public links and disable the old
+   GitHub Pages publication once the Fly site is working. Inspect Fly logs
+   and CPU/memory graphs during the first player session.
+
+The production Dockerfile builds both client and server, then copies only the
+built files and the `ws` runtime dependency into the final image. The HTTP
+listener binds to `0.0.0.0:$PORT`; `fly.toml` supplies port 8080, HTTPS, and
+an HTTP health check. Its in-memory single-world design requires one Machine;
+adding another Machine would create a separate world.

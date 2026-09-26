@@ -166,6 +166,7 @@ export class NetworkClient {
   readonly events: SimulationEvent[] = [];
   readonly ready: Promise<void>;
   readonly world = createWorld();
+  connected = false;
   playerId?: number;
   serverTick = 0;
   spawnPosition = Vec.create();
@@ -178,7 +179,8 @@ export class NetworkClient {
   // rollback history. Retain only the current interest set between packets.
   private authoritativeEntities = new Map<number, GameObject>();
   private entityRecords = new Map<number, ReplicatedEntity>();
-  private socket: WebSocket;
+  private socket!: WebSocket;
+  private retryDelay = 500;
   private pendingSnapshot?: Extract<
     ServerMessage,
     { type: 'load' | 'snapshot' }
@@ -196,17 +198,56 @@ export class NetworkClient {
 
   constructor({ url }: { url: string }) {
     this.ready = new Promise((resolve) => (this.resolveReady = resolve));
-    this.socket = new WebSocket(url);
-    this.socket.onopen = () =>
+    this.connect(url);
+  }
+
+  private showConnectionStatus(message?: string) {
+    if (typeof document === 'undefined') return;
+    const status = document.getElementById('connection-status');
+
+    if (!status) return;
+    status.hidden = !message;
+    status.textContent = message || '';
+  }
+
+  private connect(url: string) {
+    this.showConnectionStatus('CONNECTING TO GAME...');
+    const socket = new WebSocket(url);
+
+    this.socket = socket;
+    this.welcomed = false;
+    socket.onopen = () =>
       this.send({
         playerToken: localStorage.getItem('playerToken'),
         type: 'hello',
       });
-    this.socket.onmessage = ({ data }) =>
-      this.receive({ message: JSON.parse(String(data)) as ServerMessage });
+    socket.onmessage = ({ data }) => {
+      try {
+        this.receive({ message: JSON.parse(String(data)) as ServerMessage });
+      } catch {
+        socket.close(1007, 'Invalid server message');
+      }
+    };
+    socket.onclose = ({ code }) => {
+      if (this.socket !== socket) return;
+      this.connected = false;
+      this.pendingTime = 0;
+      this.events.length = 0;
+
+      if (code === 4001) {
+        this.showConnectionStatus('GAME OPEN IN ANOTHER TAB');
+        return;
+      }
+      this.showConnectionStatus('CONNECTION LOST - RETRYING...');
+      const delay = this.retryDelay * (0.8 + Math.random() * 0.4);
+
+      this.retryDelay = Math.min(10000, this.retryDelay * 2);
+      setTimeout(() => this.connect(url), delay);
+    };
   }
 
   recordInput({ input }: { input: PlayerInput }) {
+    if (!this.connected) return;
     this.prediction.recordInput({
       input,
       offset: (performance.now() - this.inputTickStartedAt) / 1000,
@@ -215,14 +256,16 @@ export class NetworkClient {
   }
 
   requestRespawn() {
-    if (this.shipDestroyed) this.send({ type: 'respawn' });
+    if (this.connected && this.shipDestroyed) this.send({ type: 'respawn' });
   }
 
   sendCraftAction(action: CraftAction) {
+    if (!this.connected) return;
     this.send({ ...action, type: 'dock' });
   }
 
   predictFrame({ now = performance.now() }: { now?: number } = {}) {
+    if (!this.connected) return this.world;
     return this.prediction.predictFrame({
       elapsed: (now - this.inputTickStartedAt) / 1000,
     });
@@ -237,6 +280,7 @@ export class NetworkClient {
     dt: number;
     now?: number;
   }) {
+    if (!this.connected) return false;
     this.pendingTime += dt;
     const updated = this.pendingTime >= simulationStep;
 
@@ -254,7 +298,7 @@ export class NetworkClient {
     input: PlayerInput;
     now?: number;
   }) {
-    if (this.playerId === undefined) return;
+    if (!this.connected || this.playerId === undefined) return;
     const previousTick = this.world.tick;
 
     if (this.pendingSnapshot) {
@@ -349,6 +393,16 @@ export class NetworkClient {
 
   private receive({ message }: { message: ServerMessage }) {
     if (message.type === 'welcome') {
+      this.world.entities.clear();
+      this.world.players.clear();
+      this.world.nextEntityId = 1;
+      this.authoritativeEntities.clear();
+      this.entityRecords.clear();
+      this.pendingSnapshot = undefined;
+      this.pendingEntities.clear();
+      this.events.length = 0;
+      this.remoteMotion.reset();
+      this.prediction.reset();
       localStorage.setItem('playerToken', message.playerToken);
       this.playerId = message.playerId;
       this.shipId = message.shipId;
@@ -476,7 +530,13 @@ export class NetworkClient {
       this.pendingTime = 0;
       this.inputTickStartedAt = performance.now();
 
-      if (this.welcomed) this.resolveReady();
+      if (this.welcomed) {
+        this.connected = true;
+        this.retryDelay = 500;
+        this.pendingTime = simulationStep;
+        this.showConnectionStatus();
+        this.resolveReady();
+      }
     } else this.retune();
   }
 }

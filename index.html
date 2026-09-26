@@ -17,6 +17,25 @@
         transition: opacity 2s;
       "
     ></canvas>
+    <div
+      id="connection-status"
+      role="status"
+      aria-live="polite"
+      style="
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        background: #213;
+        padding: 14px;
+        font: bold 16px sans-serif;
+        text-align: center;
+        z-index: 10;
+      "
+    >
+      CONNECTING TO GAME...
+    </div>
     <script type="module" src="src/client/background-boot.ts"></script>
     <script type="module" src="src/client/main.ts"></script>
   </body>

@@ -553,7 +553,10 @@ Object.assign(globalThis, {
     getItem: (key: string) => stored.get(key) ?? null,
     setItem: (key: string, value: string) => stored.set(key, value),
   },
-  location: { host: `127.0.0.1:${address.port}`, protocol: 'http:' },
+  location: {
+    host: `127.0.0.1:${address.port}`,
+    protocol: 'http:',
+  },
 });
 
 const { network, NetworkClient } = await import('../src/client/network');
@@ -561,7 +564,9 @@ const { predictionStats } = await import('../src/client/prediction');
 
 await network.ready;
 stored.delete('playerToken');
-const observer = new NetworkClient({ url: `ws://127.0.0.1:${address.port}` });
+const observer = new NetworkClient({
+  url: `ws://127.0.0.1:${address.port}/game-socket`,
+});
 
 await observer.ready;
 

@@ -54,6 +54,22 @@ for (const code of [-1, 192, 256, 1.5, '1', null]) {
   );
 }
 
+for (const message of [
+  [-1, 1, 0],
+  [1, -1, 0],
+  [1, 1.5, 0],
+  [1, 1, 0, -0.1],
+  [1, 1, 0, simulationStep],
+  { type: 'hello', playerToken: 'not-a-token' },
+  { type: 'dock', action: 'sell', objectIds: ['bad'] },
+  { type: 'dock', action: 'buy', module: 1, moduleId: null },
+]) {
+  assert.equal(
+    parseClientMessage(Buffer.from(JSON.stringify(message))),
+    undefined,
+  );
+}
+
 // Integer-millisecond timer delays must not turn 30 Hz into 30.303 Hz.
 {
   const original = {
@@ -74,7 +90,7 @@ for (const code of [-1, 192, 256, 1.5, '1', null]) {
   Object.assign(globalThis, {
     performance: { now: () => now },
     setTimeout: schedule,
-    setInterval: schedule,
+    setInterval: () => 2,
     clearTimeout() {},
     clearInterval() {},
   });
@@ -185,7 +201,7 @@ await once(listener, 'listening');
 const address = listener.address();
 
 assert(address && typeof address !== 'string');
-const socket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+const socket = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
 const messages: ServerMessage[] = [];
 
 collect({ messages, socket });
@@ -193,7 +209,7 @@ await once(socket, 'open');
 
 for (const payload of ['{', 'null']) {
   const invalidSocket: WebSocket = new WebSocket(
-    `ws://127.0.0.1:${address.port}`,
+    `ws://127.0.0.1:${address.port}/game-socket`,
   );
 
   await once(invalidSocket, 'open');
@@ -204,6 +220,20 @@ for (const payload of ['{', 'null']) {
 
   assert.equal(code, 1007);
 }
+
+const wrongOrigin = new WebSocket(
+  `ws://127.0.0.1:${address.port}/game-socket`,
+  { origin: 'https://elsewhere.example' },
+);
+
+await assert.rejects(once(wrongOrigin, 'open'));
+const oversized = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
+
+await once(oversized, 'open');
+oversized.send('x'.repeat(33000));
+const [limitCode] = await once(oversized, 'close');
+
+assert.equal(limitCode, 1009);
 
 socket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
 
@@ -247,7 +277,9 @@ server.world.entities.forEach((entity) => {
   if (entity.kind === 'asteroid') server.world.entities.delete(entity.id);
 });
 await new Promise((resolve) => setTimeout(resolve, 50));
-const invalidControlSocket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+const invalidControlSocket = new WebSocket(
+  `ws://127.0.0.1:${address.port}/game-socket`,
+);
 const invalidControlMessages: ServerMessage[] = [];
 
 collect({ messages: invalidControlMessages, socket: invalidControlSocket });
@@ -785,7 +817,7 @@ await waitUntil({
     ),
 });
 
-let secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+let secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
 const secondMessages: ServerMessage[] = [];
 
 collect({ messages: secondMessages, socket: secondSocket });
@@ -860,7 +892,7 @@ for (const disconnectFirst of [true, false]) {
     await previousClosed;
   }
 
-  secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+  secondSocket = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
   const reconnectMessages: ServerMessage[] = [];
 
   collect({ messages: reconnectMessages, socket: secondSocket });

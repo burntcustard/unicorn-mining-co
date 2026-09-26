@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { request } from 'node:http';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
 import WebSocket, { type RawData } from 'ws';
@@ -112,7 +113,9 @@ await once(listener, 'listening');
 const sourceAddress = listener.address();
 
 assert(sourceAddress && typeof sourceAddress !== 'string');
-const sourceSocket = new WebSocket(`ws://127.0.0.1:${sourceAddress.port}`);
+const sourceSocket = new WebSocket(
+  `ws://127.0.0.1:${sourceAddress.port}/game-socket`,
+);
 const sourcePackets: string[] = [];
 
 sourceSocket.on('message', (data) => sourcePackets.push(sourceOf(data)));
@@ -185,7 +188,54 @@ try {
     ),
   ]);
 
-  const socket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+  const origin = `http://127.0.0.1:${address.port}`;
+  const health = await fetch(`${origin}/healthz`);
+  const page = await fetch(origin);
+  const html = await page.text();
+  const entry = html.match(/src="\.\/(index-[^" ]+\.js)"/)?.[1];
+
+  assert.equal(health.status, 200);
+  assert.equal(await health.text(), 'ok');
+  assert.equal(page.status, 200);
+  assert(html.includes('connection-status'));
+  assert(entry, 'built HTML names its entry chunk');
+  assert.equal(page.headers.get('cache-control'), 'no-cache');
+  const script = await fetch(`${origin}/${entry}`);
+
+  assert.equal(script.status, 200);
+  assert.match(script.headers.get('content-type') || '', /javascript/);
+  assert.match(script.headers.get('cache-control') || '', /immutable/);
+  assert.equal((await fetch(`${origin}/missing`)).status, 404);
+  assert.equal((await fetch(`${origin}/server.js`)).status, 404);
+  const www = await new Promise<{ status: number; location?: string }>(
+    (resolve, reject) => {
+      const probe = request(
+        {
+          hostname: '127.0.0.1',
+          port: address.port,
+          path: '/',
+          headers: { Host: 'www.unicorn-mining.co' },
+        },
+        (response) => {
+          response.resume();
+          response.on('end', () =>
+            resolve({
+              status: response.statusCode!,
+              location: response.headers.location,
+            }),
+          );
+        },
+      );
+
+      probe.on('error', reject);
+      probe.end();
+    },
+  );
+
+  assert.equal(www.status, 308);
+  assert.equal(www.location, 'https://unicorn-mining.co/');
+
+  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
   const packets = receive(socket);
 
   try {

@@ -51,6 +51,10 @@ const interpolate = ({
 export class RemoteMotion {
   private tracks = new Map<number, Track>();
 
+  reset() {
+    this.tracks.clear();
+  }
+
   receive({
     entities,
     entityIds,

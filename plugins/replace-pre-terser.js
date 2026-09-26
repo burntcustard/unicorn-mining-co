@@ -19,10 +19,10 @@ const tagPattern = new RegExp(
   'g',
 );
 
-// Protect quoted paths and Vec.distance's export before matching properties.
+// Protect quoted paths and Node builtins, and Vec.distance's export before matching properties.
 // This leaves shape-distance intact and lets unrelated distance fields mangle.
 const propertyPattern = new RegExp(
-  `(["'])(?:[^"'\\r\\n]*[/-][^"'\\r\\n]*)\\1|\\b(?:export\\s+)?function\\s+distance\\b|\\bVec\\.distance\\b|\\b(${propertyNames.join('|')})\\b`,
+  `(["'])(?:[^"'\\r\\n]*[/:-][^"'\\r\\n]*)\\1|\\b(?:export\\s+)?function\\s+distance\\b|\\bVec\\.distance\\b|\\b(${propertyNames.join('|')})\\b`,
   'g',
 );
 

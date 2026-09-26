@@ -28,6 +28,7 @@ type PlayerRecord = {
   ship: Ship;
   shipId: number;
   socket?: WebSocket;
+  disconnectedAt?: number;
   token: string;
 };
 
@@ -39,6 +40,10 @@ const send = ({
   message: ServerMessage;
 }) => {
   if (socket.readyState === WebSocket.OPEN) {
+    if (socket.bufferedAmount > 1024 * 1024) {
+      socket.terminate();
+      return;
+    }
     socket.send(JSON.stringify(message));
   }
 };
@@ -100,6 +105,7 @@ export class GameSession {
 
     if (!player) return;
     player.socket = undefined;
+    player.disconnectedAt = Date.now();
     player.lastInput = emptyPlayerInput();
     player.inputs.clear();
     Vec.setXY(
@@ -110,6 +116,21 @@ export class GameSession {
   }
 
   tick() {
+    if (this.world.tick % 900 === 0) {
+      const expired = Date.now() - 30 * 60 * 1000;
+
+      this.players.forEach((player, token) => {
+        if (
+          player.disconnectedAt === undefined ||
+          player.disconnectedAt > expired
+        ) {
+          return;
+        }
+        this.players.delete(token);
+        this.world.players.delete(player.playerId);
+        this.world.entities.delete(player.shipId);
+      });
+    }
     const positions = [...this.players.values()].map(
       ({ ship }) => ship.position,
     );
@@ -199,8 +220,9 @@ export class GameSession {
       this.players.set(playerToken, player);
     }
 
-    player.socket?.close();
+    player.socket?.close(4001, 'Session opened elsewhere');
     player.socket = socket;
+    player.disconnectedAt = undefined;
     player.inputs.clear();
     player.lastInput = emptyPlayerInput();
     player.lastSequence = 0;

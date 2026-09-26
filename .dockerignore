@@ -1,0 +1,10 @@
+.git
+.github
+.agents
+.vscode
+node_modules
+dist
+benchmarking
+docs
+tests
+*.svg

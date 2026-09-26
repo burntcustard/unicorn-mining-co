@@ -13,8 +13,11 @@ const server = new GameServer({
   worldSeed: Number(process.env.WORLD_SEED || 25),
 });
 
-server.start();
-console.log(`Game server listening on ws://localhost:${port}`);
+server
+  .start()
+  .on('listening', () =>
+    console.log(`Game server listening on http://0.0.0.0:${port}`),
+  );
 
 const stop = async () => {
   await server.stop();

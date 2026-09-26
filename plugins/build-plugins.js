@@ -39,7 +39,15 @@ const sourceFiles = (directory) =>
   });
 
 const reservedProperties = () => {
-  const reserved = new Set();
+  const reserved = new Set([
+    'bufferedAmount',
+    'clients',
+    'destroy',
+    'handleUpgrade',
+    'listen',
+    'maxPayload',
+    'noServer',
+  ]);
   const reserve = (name) => {
     reserved.add(name);
     // Keep the Vec.distance export literal; its unrelated _distance field may mangle.
@@ -204,6 +212,11 @@ export function buildPlugin(flags = {}) {
     },
     async transform(code, id) {
       if (!id.includes('/src/') || !/\.ts(?:\?|$)/.test(id)) return;
+
+      // HTTP headers, MIME strings, and Node response methods are external APIs.
+      if (id.endsWith('/server/http-handler.ts')) {
+        return { code: (await transformWithOxc(code, id)).code, map: null };
+      }
 
       // Direct Rolldown consumers can reach this hook with TypeScript intact.
       const javascript = annotateStateKeys(
