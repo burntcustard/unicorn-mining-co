@@ -56,5 +56,5 @@ export class SearchLight extends Module {
   static price = 450;
   static reach = reach;
   static spread = spread;
-  static zIndex = -1;
+  static zIndex = -2;
 }
