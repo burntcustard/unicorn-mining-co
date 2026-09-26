@@ -19,6 +19,7 @@ import {
 
 // @endif
 import { bindAction, initKeys, playerInput } from './input';
+import { defaultKeybindings, moduleBinding } from './keybindings';
 import { network } from './network';
 import { camera, centerCamera, dockDuration, followTarget } from './camera';
 
@@ -193,7 +194,7 @@ initKeys({
 });
 
 moduleControls.forEach(({ Type, input: action }) =>
-  bindAction(action, () => {
+  bindAction(moduleBinding(action), () => {
     if (playerShip.launching || playerShip.dockedTo) return;
     const segment = playerShip.segments.find(
       (segment) =>
@@ -208,24 +209,27 @@ moduleControls.forEach(({ Type, input: action }) =>
   }),
 );
 bindAction(
-  'menuLeft',
+  defaultKeybindings.menuLeft,
   () => playerShip.dockedTo && moveSubSelection(-1, playerShip),
 );
-bindAction('menuBack', () => playerShip.dockedTo && back(playerShip));
 bindAction(
-  'menuSelect',
+  defaultKeybindings.menuBack,
+  () => playerShip.dockedTo && back(playerShip),
+);
+bindAction(
+  defaultKeybindings.menuSelect,
   () => playerShip.dockedTo && confirmSelection(playerShip),
 );
 bindAction(
-  'menuRight',
+  defaultKeybindings.menuRight,
   () => playerShip.dockedTo && moveSubSelection(1, playerShip),
 );
 bindAction(
-  'menuUp',
+  defaultKeybindings.menuUp,
   () => playerShip.dockedTo && moveSelection(-1, playerShip),
 );
 bindAction(
-  'menuDown',
+  defaultKeybindings.menuDown,
   () => playerShip.dockedTo && moveSelection(1, playerShip),
 );
 

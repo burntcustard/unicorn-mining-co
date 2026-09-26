@@ -7,7 +7,7 @@ import {
   defaultKeybindings,
   matchesBinding,
   updateMovement,
-  type KeyAction,
+  type KeyBinding,
 } from './keybindings';
 import { unlockAudio } from './sound-loader';
 
@@ -22,9 +22,9 @@ export const bindKeys = (
 ) => callbacks.set(key.toLowerCase(), callback);
 
 export const bindAction = (
-  action: KeyAction,
+  binding: KeyBinding,
   callback: (event: KeyboardEvent) => void,
-) => defaultKeybindings[action].keys.forEach((key) => bindKeys(key, callback));
+) => binding.keys.forEach((key) => bindKeys(key, callback));
 
 export const initKeys = ({
   onChange = () => {},
@@ -51,13 +51,22 @@ export const initKeys = ({
     const previous = { ...playerInput };
 
     pressed.add(key);
-    (
-      ['hornDrill', 'cargoHatch', 'searchLight', 'shieldGenerator'] as const
-    ).forEach((action) => {
-      if (matchesBinding(defaultKeybindings[action], key)) {
-        playerInput[action] = !playerInput[action];
-      }
-    });
+
+    if (matchesBinding(defaultKeybindings.hornDrill, key)) {
+      playerInput.hornDrill = !playerInput.hornDrill;
+    }
+
+    if (matchesBinding(defaultKeybindings.cargoHatch, key)) {
+      playerInput.cargoHatch = !playerInput.cargoHatch;
+    }
+
+    if (matchesBinding(defaultKeybindings.searchLight, key)) {
+      playerInput.searchLight = !playerInput.searchLight;
+    }
+
+    if (matchesBinding(defaultKeybindings.shieldGenerator, key)) {
+      playerInput.shieldGenerator = !playerInput.shieldGenerator;
+    }
     notify(previous);
     callbacks.get(key)?.(event);
   };

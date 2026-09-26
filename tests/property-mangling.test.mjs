@@ -91,10 +91,10 @@ const keybindingBundle = await rolldown({
       resolveId: (id) => (id === keybindingEntry ? keybindingEntry : undefined),
       load: (id) =>
         id === keybindingEntry
-          ? `import { defaultKeybindings, updateMovement } from './client/keybindings';
+          ? `import { defaultKeybindings, moduleBinding, updateMovement } from './client/keybindings';
 export function inspectBindings() {
-  const actions = ['forwardThrust', 'turnLeft', 'turnRight', 'hornDrill', 'cargoHatch', 'searchLight', 'shieldGenerator', 'menuLeft', 'menuRight', 'menuUp', 'menuDown', 'menuBack', 'menuSelect'];
-  return actions.map(action => defaultKeybindings[action].keys[0]);
+  const bindings = [defaultKeybindings.forwardThrust, defaultKeybindings.turnLeft, defaultKeybindings.turnRight, moduleBinding('hornDrill'), moduleBinding('cargoHatch'), moduleBinding('searchLight'), moduleBinding('shieldGenerator'), defaultKeybindings.menuLeft, defaultKeybindings.menuRight, defaultKeybindings.menuUp, defaultKeybindings.menuDown, defaultKeybindings.menuBack, defaultKeybindings.menuSelect];
+  return bindings.map(binding => binding.keys[0]);
 }
 export function inspectMovement() {
   const input = { thrust: 0, turn: 0 };
@@ -115,6 +115,12 @@ try {
   const chunk = output.find((item) => item.type === 'chunk');
 
   assert(chunk);
+  assert(
+    !/\b(?:forwardThrust|turnLeft|turnRight|menuLeft|menuRight|menuUp|menuDown|menuBack|menuSelect)\b/.test(
+      chunk.code,
+    ),
+    'action properties must be short in the built client',
+  );
   const built = await import(
     `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
   );
@@ -137,4 +143,56 @@ try {
   assert.deepEqual(built.inspectMovement(), [1, -1]);
 } finally {
   await keybindingBundle.close();
+}
+
+const inputEntry = resolve('src/__mangle_input.ts');
+const inputBundle = await rolldown({
+  input: inputEntry,
+  plugins: [
+    {
+      name: 'input-fixture',
+      resolveId: (id) => (id === inputEntry ? inputEntry : undefined),
+      load: (id) => {
+        if (id === inputEntry) {
+          return `import { initKeys, playerInput } from './client/input';
+import { packPlayerInput, unpackPlayerInput } from './shared/protocol/input';
+import { moduleControls } from './shared/craft/control-ship';
+export function pressModuleKeys() {
+  globalThis.window = new EventTarget();
+  const stop = initKeys();
+  for (const key of ['d', 'h', 'l', 's']) {
+    window.dispatchEvent(Object.assign(new Event('keydown'), { key, repeat: false }));
+    window.dispatchEvent(Object.assign(new Event('keyup'), { key }));
+  }
+  const bits = packPlayerInput(playerInput);
+  const active = moduleControls.map(({ readInput }) => readInput(unpackPlayerInput(bits)));
+  stop();
+  return [bits, active];
+}`;
+        }
+
+        if (id.endsWith('/src/client/sound-loader.ts')) {
+          return 'export const unlockAudio = () => {};';
+        }
+      },
+    },
+    { ...buildPlugin(), generateBundle: undefined },
+  ],
+});
+
+try {
+  const { output } = await inputBundle.generate({
+    format: 'esm',
+    minify: true,
+  });
+  const chunk = output.find((item) => item.type === 'chunk');
+
+  assert(chunk);
+  const built = await import(
+    `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
+  );
+
+  assert.deepEqual(built.pressModuleKeys(), [15, [true, true, true, true]]);
+} finally {
+  await inputBundle.close();
 }

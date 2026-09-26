@@ -4,7 +4,7 @@ import { renderText } from '../text';
 import { type Module } from '../../shared/modules/module';
 import { type Ship } from '../../shared/craft/ship';
 import { moduleControls } from '../../shared/craft/control-ship';
-import { defaultKeybindings } from '../keybindings';
+import { moduleBinding } from '../keybindings';
 
 /**
  * The bottom-right readout of the ship's modules, after the fashion of an Elite
@@ -76,7 +76,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
     path.rect(boxX, y, box, box);
     // Underline the first bound key that occurs in this module's label.
     const action = moduleControls.find(({ Type }) => Type === module)?.input;
-    const key = action && defaultKeybindings[action].keys[0]?.toLowerCase();
+    const key = action && moduleBinding(action).keys[0]?.toLowerCase();
     const keyIndex = key ? module.label.toLowerCase().indexOf(key) : -1;
 
     if (keyIndex >= 0) {
