@@ -1,11 +1,11 @@
 import { createPolygon } from '../shared/polygon';
 import { type Segment } from '../shared/types';
 
-// Stroke width in game units, shared by every drawn object's outline
+// Stroke width in game units, shared by every drawn object's shape outline
 export const objectLineWidth = 3;
 
 // Stroke width in game units. Finer than a ship's, because an item is a small
-// thing and a heavy outline swallows it
+// thing and a heavy shape outline swallows it
 export const itemLineWidth = 2;
 
 export const circlePath = (radius: number) => {
@@ -69,7 +69,7 @@ export const drawSegment = ({
 
   if (path) {
     ctx.fill(path);
-    ctx.stroke(segment.outline ? linesPath(segment.outline) : path);
+    ctx.stroke(segment.shapeOutline ? linesPath(segment.shapeOutline) : path);
   }
 
   if (segment.lines) {

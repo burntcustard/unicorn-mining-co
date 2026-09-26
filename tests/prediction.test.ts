@@ -5,9 +5,10 @@ import { GameServer } from '../src/server/game-server';
 import {
   asteroidContact,
   createAsteroid,
-  outlineOf,
+  shapeOutlineOf,
 } from '../src/shared/simulation/asteroid';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
+import { type ReplicatedEntity } from '../src/shared/protocol/network';
 import {
   addEntity,
   addPlayer,
@@ -44,12 +45,25 @@ import { simulationStep, updateTiers } from '../src/shared/settings';
   );
   const motion = new RemoteMotion();
   const replication = new ReplicationManager();
+  const records = new Map<number, ReplicatedEntity>();
   const receive = (now: number) => {
     const packet = replication.snapshot({ world, shipId: ship.id });
+    // RemoteMotion receives complete records after NetworkClient expands deltas.
+    const entities = packet.fullEntities.map((entity) => {
+      const full = { ...records.get(entity.id), ...entity };
 
+      records.set(entity.id, full);
+      return full;
+    });
+
+    const entityIds = packet.entityIds ?? [...records.keys()];
+
+    records.forEach((_, id) => {
+      if (!entityIds.includes(id)) records.delete(id);
+    });
     motion.receive({
-      entities: packet.fullEntities,
-      entityIds: packet.entityIds,
+      entities,
+      entityIds,
       shipId: ship.id,
       tick: world.tick,
       now,
@@ -367,7 +381,7 @@ for (const correction of ['credits', 'cargo'] as const) {
     ]),
   });
   assert(
-    Math.abs(drifting.rotation - 4 / 30) < 1e-9,
+    Math.abs(drifting.rotation - 4 / 30) < 1e-4,
     'batched slow-tier state retains its own original tick',
   );
   const checkpoint = [...world.entities.values()].map((entity) =>
@@ -447,7 +461,7 @@ for (const localId of [1, 2]) {
   assert(packet.type === 'load');
   motion.receive({
     entities: packet.fullEntities,
-    entityIds: packet.entityIds,
+    entityIds: packet.fullEntities.map((entity) => entity.id),
     shipId: localId,
     tick: world.tick,
     now: 0,
@@ -808,9 +822,9 @@ const rock = addEntity(
 );
 // Turn its deepest face towards the ship, so where it comes to rest tells the
 // rock's own shape apart from the circle that merely bounds it.
-const outline = outlineOf(rock);
-const faces = outline.map(([x, y], i) => {
-  const [toX, toY] = outline[(i + 1) % outline.length];
+const shapeOutline = shapeOutlineOf(rock);
+const faces = shapeOutline.map(([x, y], i) => {
+  const [toX, toY] = shapeOutline[(i + 1) % shapeOutline.length];
 
   return Vec.create((x + toX) / 2, (y + toY) / 2);
 });

@@ -27,13 +27,13 @@ export type ReplicatedEntity = {
   kind: 'asteroid' | 'item' | 'ship' | 'station' | 'object';
   label?: string;
   launching?: number;
-  mass: number;
-  pendingUpdateTime: number;
+  mass?: number;
+  pendingUpdateTime?: number;
   maxSpeed?: number;
   maxHealth?: number;
   modules?: ReplicatedModule[];
   wreckage?: WreckageSegment[];
-  outline?: number[][];
+  shapeOutline?: number[][];
   paint?: number;
   shades?: readonly string[];
   playerId?: number;
@@ -47,7 +47,7 @@ export type ReplicatedEntity = {
   segments?: AsteroidSegment[];
   thrust?: number;
   turn?: number;
-  velocity: NetworkVector;
+  velocity?: NetworkVector;
 };
 
 export type PlayerInputMessage = {
@@ -90,5 +90,5 @@ export type ServerMessage =
       fullEntities: ReplicatedEntity[];
       serverTick: number;
       type: 'load' | 'snapshot';
-      entityIds: number[];
+      entityIds?: number[];
     };

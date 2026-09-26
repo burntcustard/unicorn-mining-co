@@ -1,5 +1,5 @@
 export type WreckageSegment = {
-  outline?: number[][];
+  shapeOutline?: number[][];
   radius: number;
   offset: { x: number; y: number };
   health: number;

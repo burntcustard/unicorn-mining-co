@@ -242,12 +242,12 @@ export class GameCollisions {
     }
 
     const colliders = entity.hitbox().filter(
-      ({ outline, collides }) =>
+      ({ shapeOutline, collides }) =>
         collides !== false &&
-        (!outline ||
+        (!shapeOutline ||
           Math.abs(
-            outline.reduce((area, [x, y], index) => {
-              const next = outline[(index + 1) % outline.length];
+            shapeOutline.reduce((area, [x, y], index) => {
+              const next = shapeOutline[(index + 1) % shapeOutline.length];
 
               return area + x * next[1] - next[0] * y;
             }, 0),
@@ -260,8 +260,8 @@ export class GameCollisions {
         -entity.rotation,
       );
 
-      return collider.outline
-        ? collider.outline.map(([x, y]) =>
+      return collider.shapeOutline
+        ? collider.shapeOutline.map(([x, y]) =>
             Vec.add(
               offset,
               rotatePoint(

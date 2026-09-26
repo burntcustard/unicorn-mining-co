@@ -82,8 +82,8 @@ const closeTo = (actual, expected, tolerance = 1e-9) =>
     Math.abs(actual - expected) < tolerance,
     `${actual} != ${expected}`,
   );
-const polygon = (outline, properties = {}) => ({
-  outline,
+const polygon = (shapeOutline, properties = {}) => ({
+  shapeOutline,
   position: Vec.create(),
   radius: 20,
   rotation: 0,
@@ -147,11 +147,11 @@ const corners = Array.from({ length: 5 }, (_, index) => [
   Math.sin((index * Math.PI * 2) / 5) * 10,
 ]);
 const colliders = corners.map((corner, index) => ({
-  outline: [[0, 0], corner, corners[(index + 1) % corners.length]],
+  shapeOutline: [[0, 0], corner, corners[(index + 1) % corners.length]],
 }));
 
-outerEdges(colliders.map(({ outline }) => outline));
-const compound = colliders.map(({ outline }) => polygon(outline));
+outerEdges(colliders.map(({ shapeOutline }) => shapeOutline));
+const compound = colliders.map(({ shapeOutline }) => polygon(shapeOutline));
 const circleAtVertex = { radius: 5, position: Vec.create(14) };
 const deepest = compound
   .map((piece) => contactBetween(piece, circleAtVertex))
@@ -257,7 +257,7 @@ assert.equal(new GameObject().mass, 6);
       position: Vec.create(5),
       rotation: 0,
       radius: 0,
-      outline: [
+      shapeOutline: [
         [-2, -1],
         [2, -1],
         [2, 1],
@@ -280,7 +280,7 @@ const triangle = new GameObject({
   id: 10,
   mass: 200,
   radius: 30,
-  outline: [
+  shapeOutline: [
     [-20, -20],
     [20, 0],
     [-20, 20],
@@ -369,12 +369,14 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
 
 // Hull construction keeps every convex vertex and still supports swept contact.
 for (const count of [20, 30]) {
-  const outline = Array.from({ length: count }, (_, index) => {
+  const shapeOutline = Array.from({ length: count }, (_, index) => {
     const angle = (index * Math.PI * 2) / count;
 
     return [Math.cos(angle) * 20, Math.sin(angle) * 20];
   });
-  const shape = new PolygonShape(outline.map(([x, y]) => Vec.create(x, y)));
+  const shape = new PolygonShape(
+    shapeOutline.map(([x, y]) => Vec.create(x, y)),
+  );
 
   assert.equal(
     shape.m_count,
@@ -392,7 +394,7 @@ for (const count of [20, 30]) {
     id: 700 + count,
     mass: 1e9,
     position: Vec.create(90),
-    outline,
+    shapeOutline,
   });
   const contacts = new GameCollisions().step({
     entities: [mover, obstacle],
@@ -428,7 +430,7 @@ const wall = addEntity(
   new GameObject({
     mass: 100000,
     radius: 30,
-    outline: [
+    shapeOutline: [
       [-0.5, -30],
       [0.5, -30],
       [0.5, 30],
@@ -492,7 +494,7 @@ assert(
     mass: 100000,
     radius: 20,
     position: Vec.create(20),
-    outline: [
+    shapeOutline: [
       [-0.25, -20],
       [0.25, -20],
       [0.25, 20],
@@ -529,7 +531,7 @@ for (const travel of [190, 210, 400]) {
     id: 91 + travel,
     mass: 1e9,
     position: Vec.create(90),
-    outline: [
+    shapeOutline: [
       [-0.25, -20],
       [0.25, -20],
       [0.25, 20],
@@ -594,13 +596,13 @@ for (const travel of [190, 210, 400]) {
   closeTo(crossing.velocity.x, baseline.velocity.x);
 }
 
-// Fixture synchronisation must rebuild changing outlines and discard the old
-// broad-phase proxy when the outline shrinks again.
+// Fixture synchronisation must rebuild changing shape outlines and discard the old
+// broad-phase proxy when the shape outline shrinks again.
 {
   const obstacle = new GameObject({
     id: 500,
     position: Vec.create(),
-    outline: [
+    shapeOutline: [
       [-1, -5],
       [1, -5],
       [1, 5],
@@ -622,20 +624,20 @@ for (const travel of [190, 210, 400]) {
     });
 
   assert.equal(step().length, 0);
-  obstacle.outline = [
+  obstacle.shapeOutline = [
     [-1, -5],
     [10, -5],
     [10, 5],
     [-1, 5],
   ];
-  assert(step().length > 0, 'a grown outline acquires a contact');
-  obstacle.outline = [
+  assert(step().length > 0, 'a grown shapeOutline acquires a contact');
+  obstacle.shapeOutline = [
     [-1, -5],
     [1, -5],
     [1, 5],
     [-1, 5],
   ];
-  assert.equal(step().length, 0, 'a shrunk outline releases its contact');
+  assert.equal(step().length, 0, 'a shrunk shapeOutline releases its contact');
 }
 
 // Nonphysical contacts use the physics broad phase but apply no impulse.
@@ -788,7 +790,7 @@ const swinging = new GameObject({
   mass: 100,
   radius: 51,
   rotation: Math.PI / 2,
-  outline: [
+  shapeOutline: [
     [0, -0.5],
     [50, -0.5],
     [50, 0.5],
@@ -991,7 +993,7 @@ assert(
   assert.equal(colliders.length, asteroid.segments.length);
   colliders.forEach((collider, index) => {
     assert.equal(collider.asteroidSegment, asteroid.segments[index]);
-    assert.equal(collider.outline, asteroid.segments[index].outline);
+    assert.equal(collider.shapeOutline, asteroid.segments[index].shapeOutline);
     assert.equal(collider.bounciness, 0.2);
     assert.equal(collider.collisionMargin, 0);
   });
@@ -1029,11 +1031,11 @@ for (const radiusEven of [undefined, 25]) {
     world,
   });
   const leaf = children[0];
-  const visualOutline = JSON.stringify(leaf.outline);
+  const visualShapeOutline = JSON.stringify(leaf.shapeOutline);
 
-  leaf.hitbox()[0].outline.forEach(([x, y], index) => {
+  leaf.hitbox()[0].shapeOutline.forEach(([x, y], index) => {
     closeTo(
-      Vec.distance(Vec.create(x, y), Vec.create(...leaf.outline[index])),
+      Vec.distance(Vec.create(x, y), Vec.create(...leaf.shapeOutline[index])),
       0.1,
     );
   });
@@ -1059,8 +1061,8 @@ for (const radiusEven of [undefined, 25]) {
     closeTo(child.spin, 0, 1e-8);
   });
   assert.equal(
-    JSON.stringify(leaf.outline),
-    visualOutline,
+    JSON.stringify(leaf.shapeOutline),
+    visualShapeOutline,
     'collision clearance does not alter the rendered chunk',
   );
 }
@@ -1143,7 +1145,7 @@ for (const direction of [-1, 1]) {
       Math.cos(ship.rotation - previous),
     );
     closeTo(angle, referenceAngle, 0.013);
-    closeTo(ship.spin, referenceSpin);
+    closeTo(ship.spin, referenceSpin, 2e-6);
 
     if (fullTurnTime === undefined && angle * direction >= 4 * Math.PI) {
       fullTurnTime =

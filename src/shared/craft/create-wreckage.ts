@@ -11,11 +11,11 @@ export const createWreckage = ({
 }) =>
   new Craft(properties, {
     hullSegments: segments.map((segment) => ({
-      points: segment.outline,
+      points: segment.shapeOutline,
       radius: () => segment.radius,
       localPosition: Vec.clone(segment.offset),
       health: segment.health,
       fillShade: segment.fillShade,
-      outline: segment.stroke,
+      shapeOutline: segment.stroke,
     })),
   });

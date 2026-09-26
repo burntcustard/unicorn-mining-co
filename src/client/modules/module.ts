@@ -14,13 +14,13 @@ giveRender({
           return;
         }
         const { ctx } = game;
-        const outline =
+        const shapeOutline =
           points ??
           (typeof segment.points === 'function'
             ? segment.points(segment)
             : segment.points);
-        const shape = outline?.length
-          ? shapePath(outline, segment.unclosed)
+        const shape = shapeOutline?.length
+          ? shapePath(shapeOutline, segment.unclosed)
           : segment.radius
             ? circlePath(segment.radius(segment))
             : undefined;
@@ -34,7 +34,9 @@ giveRender({
           : shades[worn];
         ctx.strokeStyle = shades[2];
         ctx.fill(shape);
-        ctx.stroke(segment.outline ? linesPath(segment.outline) : shape);
+        ctx.stroke(
+          segment.shapeOutline ? linesPath(segment.shapeOutline) : shape,
+        );
       },
     });
   },

@@ -59,7 +59,7 @@ export const cloneEntity = ({ entity }: { entity: GameObject }): GameObject => {
 
     if (copies.has(value)) return copies.get(value);
     // Arrays contain mechanics data, not entity fields. Copy their elements
-    // directly, retaining named metadata such as collision-outline edges.
+    // directly, retaining named metadata such as collision shape outline edges.
 
     if (Array.isArray(value)) {
       // Allocate the known length without a second resize in this hot path.

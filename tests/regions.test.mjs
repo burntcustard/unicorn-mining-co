@@ -41,6 +41,13 @@ assert.equal(asteroidSpacing, 30);
 const options = { worldSeed: 25, region: Vec.create(5, 8) };
 const first = generateRegion(options);
 
+assert(
+  first.asteroids.every(
+    ({ position }) =>
+      Number.isInteger(position.x) && Number.isInteger(position.y),
+  ),
+  'procedural asteroids start at whole-number coordinates',
+);
 generateRegion({ worldSeed: 25, region: Vec.create(4, 8) });
 assert.deepEqual(generateRegion(options), first);
 assert.notDeepEqual(

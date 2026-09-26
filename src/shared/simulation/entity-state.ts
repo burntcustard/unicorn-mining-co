@@ -26,7 +26,7 @@ const fields = [
   'turn',
   'localMovementRate',
   'localMovementParent',
-  'outline',
+  'shapeOutline',
   'segments',
   'contents',
   'resource',

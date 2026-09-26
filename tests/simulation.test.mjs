@@ -15,7 +15,7 @@ const bundle = await rolldown({
         id === '\0simulation'
           ? `
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/shared/simulation/world.ts';
-      export { createAsteroid, outlinesFrom } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
+      export { createAsteroid, shapeOutlinesFrom } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
       export { Diamond } from '${process.cwd()}/src/shared/items/diamond.ts';
       export { createShip } from '${process.cwd()}/src/shared/craft/create-ship.ts';
       export { createStation } from '${process.cwd()}/src/shared/craft/create-station.ts';
@@ -45,7 +45,7 @@ const {
   entityId,
   cloneEntity,
   detectCollisions,
-  outlinesFrom,
+  shapeOutlinesFrom,
   PredictionManager,
   updateWorld,
   Vec,
@@ -336,7 +336,7 @@ const drillDamagesOnlyAtTip = () => {
     createShip(world, { playerId: 7, position: Vec.create() }),
   );
   const drill = ship.hitbox().filter(({ segment }) => segment?.module.grinds);
-  const body = drill.find(({ outline }) => outline);
+  const body = drill.find(({ shapeOutline }) => shapeOutline);
   const tip = drill.find(({ role }) => role === 'hornDrill');
 
   assert(body?.physics, 'the drill body remains a physical collider');
@@ -677,7 +677,7 @@ const diamondPickup = () => {
   }
 
   assert.equal(world.entities.has(asteroid.id), false);
-  assert(fracturedChunk?.outline?.length >= 3);
+  assert(fracturedChunk?.shapeOutline?.length >= 3);
   assert.equal(
     drillingEvents.some(({ type }) => type === 'drillDamage'),
     true,
@@ -805,17 +805,17 @@ const starAsteroidLosesOneArm = () => {
   const remainder = pieces.find(({ segments }) => segments?.length);
 
   assert.equal(world.entities.has(asteroid.id), false);
-  assert.equal(arm.outline.length, 3);
+  assert.equal(arm.shapeOutline.length, 3);
   assert.equal(remainder.segments.length, 3);
 };
 
 starAsteroidLosesOneArm();
 
 const splitConservesOriginalGeometry = () => {
-  const area = (outline) =>
+  const area = (shapeOutline) =>
     Math.abs(
-      outline.reduce((sum, [x, y], index) => {
-        const next = outline[(index + 1) % outline.length];
+      shapeOutline.reduce((sum, [x, y], index) => {
+        const next = shapeOutline[(index + 1) % shapeOutline.length];
 
         return sum + x * next[1] - next[0] * y;
       }, 0),
@@ -836,7 +836,7 @@ const splitConservesOriginalGeometry = () => {
       }),
     );
     const originalArea = rock.segments.reduce(
-      (sum, asteroidSegment) => sum + area(asteroidSegment.outline),
+      (sum, asteroidSegment) => sum + area(asteroidSegment.shapeOutline),
       0,
     );
     const originalMass = rock.mass;
@@ -849,8 +849,8 @@ const splitConservesOriginalGeometry = () => {
 
       if (!parent) break;
       const asteroidSegment = parent.segments.reduce((outer, next) =>
-        Math.max(...outer.outline.map(([x]) => x)) >
-        Math.max(...next.outline.map(([x]) => x))
+        Math.max(...outer.shapeOutline.map(([x]) => x)) >
+        Math.max(...next.shapeOutline.map(([x]) => x))
           ? outer
           : next,
       );
@@ -871,7 +871,7 @@ const splitConservesOriginalGeometry = () => {
       );
       assert(
         Math.abs(
-          children.reduce((sum, child) => sum + area(child.outline), 0) -
+          children.reduce((sum, child) => sum + area(child.shapeOutline), 0) -
             originalArea,
         ) < 1e-8,
         'repeated splits neither duplicate nor lose rock',
@@ -924,11 +924,11 @@ const interiorSplitRetainsHole = () => {
     2,
     'drilling one inner segment creates two children',
   );
-  const rings = outlinesFrom(remainder.segments);
-  const area = (outline) =>
+  const rings = shapeOutlinesFrom(remainder.segments);
+  const area = (shapeOutline) =>
     Math.abs(
-      outline.reduce((sum, [x, y], index) => {
-        const next = outline[(index + 1) % outline.length];
+      shapeOutline.reduce((sum, [x, y], index) => {
+        const next = shapeOutline[(index + 1) % shapeOutline.length];
 
         return sum + x * next[1] - next[0] * y;
       }, 0),
@@ -942,7 +942,7 @@ const interiorSplitRetainsHole = () => {
       ringAreas[0] -
         ringAreas[1] -
         remainder.segments.reduce(
-          (sum, segment) => sum + area(segment.outline),
+          (sum, segment) => sum + area(segment.shapeOutline),
           0,
         ),
     ) < 1e-8,
@@ -965,13 +965,13 @@ const interiorSplitRetainsHole = () => {
       parent.detach({ asteroidSegment: segment, world });
       world.entities.forEach((child) => {
         if (!child.segments) return;
-        const areas = outlinesFrom(child.segments)
+        const areas = shapeOutlinesFrom(child.segments)
           .map(area)
           .sort((a, b) => b - a);
         const visible =
           areas[0] - areas.slice(1).reduce((sum, hole) => sum + hole, 0);
         const actual = child.segments.reduce(
-          (sum, piece) => sum + area(piece.outline),
+          (sum, piece) => sum + area(piece.shapeOutline),
           0,
         );
 
@@ -1055,7 +1055,7 @@ const run = () => {
     world,
     createAsteroid(world, {
       contents: [2],
-      outline: [
+      shapeOutline: [
         [25, 0],
         [-25, 25],
         [-25, -25],

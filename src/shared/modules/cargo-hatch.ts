@@ -30,7 +30,13 @@ export const cargoHatchGeometry = {
   doorRadius: cargoHatchLength * 2,
   openingThreshold: 0.5,
   throatRadius: cargoHatchLength * 0.75,
-  doorOutline: ({ progress, side }: { progress: number; side: number }) => {
+  doorShapeOutline: ({
+    progress,
+    side,
+  }: {
+    progress: number;
+    side: number;
+  }) => {
     const angle = progress * cargoHatchOpenAngle;
     const sine = Math.sin(angle);
     const cosine = Math.cos(angle);
@@ -45,11 +51,11 @@ export const cargoHatchGeometry = {
       [toX + outX, toY + outY],
       [toX - outX, toY - outY],
       [-outX, fromY - outY],
-    ] as Outline;
+    ] as ShapeOutline;
   },
 };
 
-import { type Mount, type Outline } from '../types';
+import { type Mount, type ShapeOutline } from '../types';
 
 // Cargo hatch
 // A pair of doors hinged at their outer ends, lying flat inside the hull and
@@ -66,7 +72,7 @@ export class CargoHatch extends Module {
   static health = 4;
   static model: any[] = [
     {
-      outline: [] as Outline,
+      shapeOutline: [] as ShapeOutline,
       // A door, hinged at its outer end and swinging forward as the hatch
       // opens. A long thin rectangle, which is why it can be collided with
       points: ({
@@ -78,13 +84,13 @@ export class CargoHatch extends Module {
       }) => {
         const side = Math.sign(mount.localPosition.y);
 
-        return cargoHatchGeometry.doorOutline({
+        return cargoHatchGeometry.doorShapeOutline({
           progress: activationProgress,
           side,
         });
       },
       radius: () => cargoHatchGeometry.doorRadius,
-      // A loose door keeps this same solid, outline-free presentation.
+      // A loose door keeps this same solid presentation without a shape outline.
       wreckage: {},
     },
     {

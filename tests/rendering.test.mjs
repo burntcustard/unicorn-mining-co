@@ -1,8 +1,11 @@
 /* global Buffer, process */
 import { rolldown } from 'rolldown';
 import { minify } from 'terser';
-import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
-import { replacePreTerser } from '../plugins/replace-pre-terser.js';
+import {
+  terserMangleOptions,
+  buildPrePlugin,
+} from '../plugins/build-plugins.js';
+import { stripIfdef } from '../plugins/replace-pre-terser.js';
 
 const root = process.cwd();
 const fixture = `
@@ -151,7 +154,7 @@ for(const ship of [local,remote]){
   strokes.length=0;
   hornDrillSegment.module.render({segment:hornDrillSegment});
   assert(draws.some(draw=>draw.style===colors.yellow[0]),'replicated module damage uses the worn colour');
-  assert(strokes.every(color=>color===colors.yellow[2]),'horn drill outline and flutes retain their colour across parent canvas restore');
+  assert(strokes.every(color=>color===colors.yellow[2]),'horn drill shapeOutline and flutes retain their colour across parent canvas restore');
   const sounds=globalThis['sounds'];
   const beforeSound=sounds.length;
   ship.updateVisual(1/60);
@@ -166,11 +169,11 @@ shieldCraft.fit(shield);
 const shieldSegment=shieldCraft.segments.find(segment=>segment.module===shield && !segment.covers);
 strokes.length=0;
 shield.render({segment:shieldSegment});
-assert.equal(strokes.at(-1),colors.violet[2],'the shield generator plus uses its violet outline colour');
+assert.equal(strokes.at(-1),colors.violet[2],'the shield generator plus uses its violet shapeOutline colour');
 let revealed=0;
 const litRock={
   scenery:true,segments:[{}],position:Vec.add(remote.position, Vec.create(60)),rotation:0,radius:20,
-  outline:[[-20,-20],[20,-20],[20,20],[-20,20]],
+  shapeOutline:[[-20,-20],[20,-20],[20,20],[-20,20]],
   renderContents:[{render(){revealed++;}}]
 };
 const remotePose={position:Vec.create(900,800),rotation:.3};
@@ -209,7 +212,7 @@ for(const craftOrder of [[drilling,receiving],[receiving,drilling]]){
 }
 station.render({zIndex:2});
 assert(gradients>before,'station hulls retain gradient shading');
-const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{outline:[[0,0],[20,0],[0,20]],radius:20,offset:Vec.create(),health:2}]});
+const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{shapeOutline:[[0,0],[20,0],[0,20]],radius:20,offset:Vec.create(),health:2}]});
 draws.length=0;
 const beforeWreck=gradients;
 for(const zIndex of new Set(wreckage.segments.map(segment=>segment.zIndex)))wreckage.render({zIndex});
@@ -261,19 +264,19 @@ const pieces=solid.detach({asteroidSegment:solid.segments[0],world:holeWorld});
 const remainder=pieces.find(piece=>piece.segments?.length);
 const predictedRemainder=cloneEntity({entity:remainder});
 applyEntity({entity:predictedRemainder,server:remainder});
-assert.equal(predictedRemainder.segments[0].outline.edges,undefined,'prediction copies polygon points without cached edge marks');
+assert.equal(predictedRemainder.segments[0].shapeOutline.edges,undefined,'prediction copies polygon points without cached edge marks');
 renderAsteroid({asteroid:predictedRemainder});
 draws.length=0;
 predictedRemainder.render();
 const painted=draws[0];
-const area=outline=>Math.abs(outline.reduce((sum,[x,y],index)=>{
-  const [nextX,nextY]=outline[(index+1)%outline.length];
+const area=shapeOutline=>Math.abs(shapeOutline.reduce((sum,[x,y],index)=>{
+  const [nextX,nextY]=shapeOutline[(index+1)%shapeOutline.length];
   return sum+x*nextY-nextX*y;
 },0))/2;
 const ringAreas=painted.path.contours.map(area).sort((a,b)=>b-a);
 assert.equal(painted.rule,'evenodd','asteroid fill handles interior holes');
 assert.equal(ringAreas.length,2,'the renderer draws the outer edge and the drilled hole');
-assert(Math.abs(ringAreas[0]-ringAreas[1]-remainder.segments.reduce((sum,segment)=>sum+area(segment.outline),0))<1e-8,'rendered rock area equals the remaining segments');
+assert(Math.abs(ringAreas[0]-ringAreas[1]-remainder.segments.reduce((sum,segment)=>sum+area(segment.shapeOutline),0))<1e-8,'rendered rock area equals the remaining segments');
 console.log('Replicated flares, light beams, module checkboxes, palettes, render inheritance and asteroid holes passed');
 `;
 
@@ -332,9 +335,7 @@ for (const mode of ['fixture', 'source', 'production']) {
 
           if (id === '\0render-test') {
             return production
-              ? replacePreTerser(
-                  source.replace(/assert\.(\w+)/g, "assert['$1']"),
-                )
+              ? stripIfdef(source.replace(/assert\.(\w+)/g, "assert['$1']"))
               : source;
           }
         },
@@ -348,7 +349,7 @@ for (const mode of ['fixture', 'source', 'production']) {
           }
         },
       },
-      ...(production ? [viteBuildPre()] : []),
+      ...(production ? [buildPrePlugin()] : []),
     ],
   });
   const { output } = await bundle.generate({ format: 'esm' });

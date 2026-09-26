@@ -31,12 +31,38 @@ that can introduce a cyclic chunk dependency during class initialization.
 
 ## Production contracts
 
-Production minification shortens lexical names, not object properties. Source
-transforms only remove feature-flag blocks; they do not rename identifiers or
-rewrite strings and equality operators. This keeps shared entity state, wire
-keys and lazy APIs consistent across independently emitted chunks.
+Both production entry points use `plugins/build-plugins.js`; the server runner
+lives beside it in `plugins/build-server.js`. Production minification mangles
+object properties in each source module before Rolldown splits the code into
+chunks. The client and server builds seed Terser's
+property name cache from the same source files in the same order, so lazy chunks
+and JSON packets use matching short keys. The build prefixes audited app-owned
+properties from `plugins/property-names.js` with the small regex in
+`replace-pre-terser.js`, then lets Terser shorten them. The regex skips
+quoted paths, so `distance` can be mangled without changing imports of
+`shape-distance`. Exact message,
+entity, event and equipment tags in `plugins/protocol-tags.js` get shared
+one-byte values on both sides. Input transitions use positional JSON arrays
+`[tick, sequence, controlBits, offset?]`, with no field names or type tag.
+Untouched procedural asteroids recreate their segments from shared seeds instead
+of receiving them. Each player receives a full entity record on entry, then
+only fields that changed; `null` clears a field. Load records provide their
+own IDs, and later interest sets are sent only when membership changes. Values
+the client can reconstruct are omitted. The client expands records
+before motion tracking and prediction. Shared simulation rounds positions,
+rotation and spin, and generated asteroid geometry to eight decimal places;
+velocity retains full precision for collision momentum. The `object` tag stays
+long because JavaScript's `typeof` uses that literal.
+The build also annotates computed checkpoint keys for Terser.
+Module export names and native browser/JavaScript properties remain protected.
+Later Terser passes shorten lexical names and compress the bundled server.
+`npm run start:server` runs that bundle from `dist/server.js`.
 
 Both lazy facades load a typed default API object. `npm run test:docked` exercises
 the real docked loader against separately emitted production chunks, including
-quoted wire-key access in the shared ship chunk. Keep this boundary intact in
-tests: bundling everything into one file masked the original cargo-menu crash.
+shared mangled state in the ship chunk. It also checks that a private
+property is mangled consistently across two chunks. `npm run test:packets`
+measures real WebSocket packet sizes against the source server and checks that
+the built server acknowledges mangled client input. Keep the lazy boundary
+intact in tests: bundling everything into one file masked the original
+cargo-menu crash.

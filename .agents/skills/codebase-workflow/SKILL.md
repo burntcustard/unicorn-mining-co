@@ -8,9 +8,13 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - Read `docs/CHUNK_LOADING.md` before changing imports, chunks, or loading triggers.
 - Use static imports for first-frame code and `import()` only for a concrete
   later trigger. Document loading-trigger changes in `docs/CHUNK_LOADING.md`.
-- Keep production object properties and wire keys unchanged. Do not reintroduce
-  property mangling or regex-based identifier rewriting: a shared Terser name
-  cache does not share quoted-property reservations between chunks.
+- Before adding or renaming serialized fields or app-owned properties, review
+  `plugins/property-names.js`. Add names Terser leaves long, one per line;
+  avoid native APIs; quoted import paths are protected by the rewrite regex.
+- Before adding or changing protocol message, entity, event, or equipment
+  string values, review `plugins/protocol-tags.js`. Add eligible exact tags
+  there so client and server use the same one-byte value. List order assigns
+  each value; run `npm run test:packets` after changing either list.
 - Lazy modules expose a typed `default` API object, loaded as in `sound-loader`.
 - Test lazy features with separately emitted production chunks and exercise
   their real loader. A test that bundles both sides into one file does not

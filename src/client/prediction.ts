@@ -115,11 +115,11 @@ const applyEntity = ({
     entity.resource = server.resource;
     entity.pointCount = server.pointCount;
     entity.radiusEven = server.radiusEven;
-    entity.outline = server.outline?.map(([x, y]) => [x, y]);
+    entity.shapeOutline = server.shapeOutline?.map(([x, y]) => [x, y]);
     entity.segments = server.segments?.map((asteroidSegment) => ({
       ...asteroidSegment,
       contents: [...asteroidSegment.contents],
-      outline: asteroidSegment.outline.map(([x, y]) => [x, y]),
+      shapeOutline: asteroidSegment.shapeOutline.map(([x, y]) => [x, y]),
     }));
   } else if (entity instanceof Craft && server instanceof Craft) {
     const cargoCopies = new Map(

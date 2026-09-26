@@ -1,6 +1,6 @@
 import * as Vec from '../../shared/vector';
 import { camera } from '../camera';
-import { outline } from '../outline';
+import { textOutline } from '../text-outline';
 import { renderText } from '../text';
 
 interface IndicatorTarget {
@@ -55,7 +55,7 @@ export const renderIndicators = (
     path.lineTo(0, -indicatorsize);
     path.lineTo(0, indicatorsize);
     path.closePath();
-    outline({ ctx, path });
+    textOutline({ ctx, path });
     ctx.stroke(path);
     ctx.restore();
 

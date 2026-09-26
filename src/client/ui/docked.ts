@@ -3,7 +3,7 @@ import { type Ship } from '../../shared/craft/ship';
 import { type GameState } from '../game';
 import { paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../shared/colors';
-import { outline } from '../outline';
+import { textOutline } from '../text-outline';
 import { playSound } from '../sound-loader';
 import { renderText } from '../text';
 import { moduleTypes } from '../../shared/modules';
@@ -446,7 +446,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
   const actionY = menuY(currentItem) + rowGap;
   const swatchX = col0[1] - swatchInset - swatchSize;
 
-  // A square of paint with the same small outline as the text, filled solid
+  // A square of paint with the same small stroke used around the text, filled solid
   // unless told it's only on offer rather than worn
   const renderSwatch = (x: number, y: number, shades: any, worn = 1) => {
     const path = new Path2D();
@@ -455,7 +455,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
     ctx.fillStyle = `${shades[2]}${worn ? '' : '3'}`;
     ctx.strokeStyle = shades[2];
     ctx.fill(path);
-    outline({ ctx, path, radius: textSize });
+    textOutline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   };
 
@@ -526,7 +526,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
       renderButton(ctx, x, x + width, y, focused === i, locked);
 
       // Appended digit is the fill's opacity, so a paint only on offer is a
-      // wash inside its outline while the one worn is solid
+      // wash inside its border while the one worn is solid
       if (shades) {
         ctx.globalAlpha = locked ? 0.3 : 1;
         renderSwatch(x + swatchInset, y, shades, Number(shades === selected));

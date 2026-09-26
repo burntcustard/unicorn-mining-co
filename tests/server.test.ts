@@ -7,14 +7,52 @@ import { Station } from '../src/shared/craft/station';
 import { once } from 'node:events';
 import WebSocket from 'ws';
 import { GameServer } from '../src/server/game-server';
+import { parseClientMessage } from '../src/server/parse-client-message';
 import { createAsteroid } from '../src/shared/simulation/asteroid';
 import { Item } from '../src/shared/items/item';
-import { type ServerMessage } from '../src/shared/protocol/network';
+import {
+  type ReplicatedEntity,
+  type ServerMessage,
+} from '../src/shared/protocol/network';
+import {
+  packPlayerInput,
+  unpackPlayerInput,
+} from '../src/shared/protocol/input';
 import { addEntity } from '../src/shared/simulation/world';
 import { rotatePoint } from '../src/shared/geometry';
 import { simulationStep } from '../src/shared/settings';
 import { moduleTypes } from '../src/shared/modules';
 import { colors, paintColors } from '../src/shared/colors';
+
+const inputPacket = ({
+  tick,
+  sequence,
+  input,
+  offset,
+}: {
+  type: 'input';
+  tick: number;
+  sequence: number;
+  input: number;
+  offset?: number;
+}) =>
+  JSON.stringify(
+    offset === undefined
+      ? [tick, sequence, input]
+      : [tick, sequence, input, offset],
+  );
+
+// Every valid control combination must survive its packed wire representation.
+for (let code = 0; code < 192; code++) {
+  assert.equal(packPlayerInput(unpackPlayerInput(code)), code);
+}
+
+for (const code of [-1, 192, 256, 1.5, '1', null]) {
+  assert.equal(
+    parseClientMessage(Buffer.from(JSON.stringify([1, 1, code]))),
+    undefined,
+  );
+}
 
 // Integer-millisecond timer delays must not turn 30 Hz into 30.303 Hz.
 {
@@ -108,16 +146,37 @@ const collect = ({
 }: {
   socket: WebSocket;
   messages: ServerMessage[];
-}) =>
-  socket.on('message', (data) => {
+}) => {
+  const records = new Map<number, ReplicatedEntity>();
+
+  return socket.on('message', (data) => {
     const serialized = Array.isArray(data)
       ? Buffer.concat(data).toString('utf8')
       : Buffer.from(
           data instanceof ArrayBuffer ? new Uint8Array(data) : data,
         ).toString('utf8');
+    const message = JSON.parse(serialized) as ServerMessage;
 
-    messages.push(JSON.parse(serialized) as ServerMessage);
+    if (message.type === 'load') records.clear();
+
+    if (message.type === 'load' || message.type === 'snapshot') {
+      message.fullEntities = message.fullEntities.map((record) => {
+        const full = { ...records.get(record.id), ...record };
+
+        Object.entries(record).forEach(([key, value]) => {
+          if (value === null) delete (full as Record<string, unknown>)[key];
+        });
+        records.set(record.id, full);
+        return full;
+      });
+      message.entityIds ??= [...records.keys()];
+      records.forEach((_, id) => {
+        if (!message.entityIds!.includes(id)) records.delete(id);
+      });
+    }
+    messages.push(message);
   });
+};
 
 const server = new GameServer({ port: 0, worldSeed: 8675309 });
 const listener = server.start();
@@ -153,6 +212,8 @@ const load = await waitFor({ messages, type: 'load' });
 
 assert.equal(welcome.type, 'welcome');
 assert.equal(welcome.worldSeed, 8675309);
+assert(Number.isInteger(welcome.spawn.x));
+assert(Number.isInteger(welcome.spawn.y));
 assert.equal(load.type, 'load');
 assert(load.fullEntities.some(({ id }) => id === welcome.shipId));
 assert(load.fullEntities.some(({ kind }) => kind === 'asteroid'));
@@ -191,16 +252,16 @@ const invalidControlMessages: ServerMessage[] = [];
 
 collect({ messages: invalidControlMessages, socket: invalidControlSocket });
 await once(invalidControlSocket, 'open');
-invalidControlSocket.send(
-  JSON.stringify({ playerToken: null, type: 'hello' }),
-);
+invalidControlSocket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
 const invalidControlWelcome = await waitFor({
   messages: invalidControlMessages,
   type: 'welcome',
 });
 
 assert.equal(invalidControlWelcome.type, 'welcome');
-const invalidControlShip = server.world.entities.get(invalidControlWelcome.shipId);
+const invalidControlShip = server.world.entities.get(
+  invalidControlWelcome.shipId,
+);
 
 assert(invalidControlShip instanceof Ship);
 const invalidInputTick = server.world.tick + 3;
@@ -209,19 +270,11 @@ const invalidControlClose = new Promise<number>((resolve) =>
 );
 
 invalidControlSocket.send(
-  JSON.stringify({
+  inputPacket({
     type: 'input',
     sequence: 1,
     tick: invalidInputTick,
-    input: {
-      hornDrill: false,
-      cargoHatch: false,
-      searchLight: false,
-      shieldGenerator: false,
-      launch: false,
-      thrust: 'bad',
-      turn: 0,
-    },
+    input: 256,
   }),
 );
 assert.equal(await invalidControlClose, 1007);
@@ -237,8 +290,8 @@ assert(
 );
 
 socket.send(
-  JSON.stringify({
-    input: {
+  inputPacket({
+    input: packPlayerInput({
       hornDrill: true,
       cargoHatch: false,
       searchLight: false,
@@ -246,7 +299,7 @@ socket.send(
       launch: false,
       thrust: 0,
       turn: 0,
-    },
+    }),
     sequence: 1,
     tick: server.world.tick,
     type: 'input',
@@ -264,7 +317,7 @@ const asteroid = addEntity(
   createAsteroid(server.world, {
     contents: [0],
     health: 0.5,
-    outline: [
+    shapeOutline: [
       [25, 0],
       [-25, 25],
       [-25, -25],
@@ -289,8 +342,8 @@ const item = [...server.world.entities.values()].find(
 
 assert(item);
 socket.send(
-  JSON.stringify({
-    input: {
+  inputPacket({
+    input: packPlayerInput({
       hornDrill: false,
       cargoHatch: true,
       searchLight: false,
@@ -298,7 +351,7 @@ socket.send(
       launch: false,
       thrust: 0,
       turn: 0,
-    },
+    }),
     sequence: 2,
     tick: server.world.tick,
     type: 'input',
@@ -329,8 +382,8 @@ await waitUntil({
 });
 
 socket.send(
-  JSON.stringify({
-    input: {
+  inputPacket({
+    input: packPlayerInput({
       hornDrill: false,
       cargoHatch: false,
       searchLight: false,
@@ -338,7 +391,7 @@ socket.send(
       launch: false,
       thrust: 1,
       turn: 0,
-    },
+    }),
     sequence: 3,
     tick: server.world.tick,
     type: 'input',
@@ -368,11 +421,11 @@ assert(latest.serverTick > welcome.serverTick);
 // A resynchronised client can send a newer input for an earlier tick. The
 // older future input must not take the controls back when that tick arrives.
 socket.send(
-  JSON.stringify({
+  inputPacket({
     type: 'input',
     sequence: 4,
     tick: server.world.tick + 6,
-    input: {
+    input: packPlayerInput({
       hornDrill: false,
       cargoHatch: false,
       searchLight: false,
@@ -380,15 +433,15 @@ socket.send(
       launch: false,
       thrust: 1,
       turn: 1,
-    },
+    }),
   }),
 );
 socket.send(
-  JSON.stringify({
+  inputPacket({
     type: 'input',
     sequence: 5,
     tick: server.world.tick,
-    input: {
+    input: packPlayerInput({
       hornDrill: false,
       cargoHatch: false,
       searchLight: false,
@@ -396,7 +449,7 @@ socket.send(
       launch: false,
       thrust: 0,
       turn: 0,
-    },
+    }),
   }),
 );
 await new Promise((resolve) => setTimeout(resolve, 200));
@@ -414,12 +467,12 @@ for (const { sequence, offset, thrust } of [
   { sequence: 7, offset: 0.015, thrust: 0 },
 ]) {
   socket.send(
-    JSON.stringify({
+    inputPacket({
       type: 'input',
       tick: tapTick,
       sequence,
       offset,
-      input: {
+      input: packPlayerInput({
         hornDrill: false,
         cargoHatch: false,
         searchLight: false,
@@ -427,7 +480,7 @@ for (const { sequence, offset, thrust } of [
         launch: false,
         thrust,
         turn: 0,
-      },
+      }),
     }),
   );
 }
@@ -706,8 +759,8 @@ await new Promise((resolve) => setTimeout(resolve, 70));
 assert.equal(authoritativeShip.credits, beforeHullRepair - hullRepairCost);
 
 socket.send(
-  JSON.stringify({
-    input: {
+  inputPacket({
+    input: packPlayerInput({
       hornDrill: false,
       cargoHatch: false,
       launch: true,
@@ -715,7 +768,7 @@ socket.send(
       shieldGenerator: false,
       thrust: 0,
       turn: 0,
-    },
+    }),
     sequence: 8,
     tick: server.world.tick,
     type: 'input',
@@ -755,8 +808,8 @@ await waitUntil({
     ),
 });
 secondSocket.send(
-  JSON.stringify({
-    input: {
+  inputPacket({
+    input: packPlayerInput({
       hornDrill: true,
       cargoHatch: false,
       searchLight: true,
@@ -764,7 +817,7 @@ secondSocket.send(
       launch: false,
       thrust: 1,
       turn: 1,
-    },
+    }),
     sequence: 1,
     tick: server.world.tick,
     type: 'input',
@@ -828,14 +881,16 @@ for (const disconnectFirst of [true, false]) {
   assert.equal(reconnectWelcome.type, 'welcome');
   assert.equal(reconnectWelcome.playerId, secondWelcome.playerId);
   assert.equal(reconnectWelcome.shipId, secondWelcome.shipId);
+  assert(Number.isInteger(reconnectWelcome.spawn.x));
+  assert(Number.isInteger(reconnectWelcome.spawn.y));
   assert.equal(reconnectLoad.type, 'load');
   assert.equal(reconnectLoad.acknowledgedSequence, 0);
   secondSocket.send(
-    JSON.stringify({
+    inputPacket({
       type: 'input',
       sequence: 1,
       tick: server.world.tick,
-      input: {
+      input: packPlayerInput({
         launch: false,
         thrust: 1,
         turn: -1,
@@ -843,7 +898,7 @@ for (const disconnectFirst of [true, false]) {
         searchLight: true,
         hornDrill: false,
         shieldGenerator: false,
-      },
+      }),
     }),
   );
   await waitUntil({
@@ -890,8 +945,8 @@ await waitUntil({
       .some(
         (message) =>
           message.type === 'snapshot' &&
-          !message.entityIds.includes(welcome.shipId) &&
-          message.entityIds.includes(nearestStation.id),
+          !message.entityIds!.includes(welcome.shipId) &&
+          message.entityIds!.includes(nearestStation.id),
       ),
 });
 const deathSnapshot = messages
@@ -899,7 +954,7 @@ const deathSnapshot = messages
   .find(
     (message) =>
       message.type === 'snapshot' &&
-      !message.entityIds.includes(welcome.shipId),
+      !message.entityIds!.includes(welcome.shipId),
   );
 
 assert(deathSnapshot?.type === 'snapshot');
@@ -931,7 +986,7 @@ await waitUntil({
       .some(
         (message) =>
           message.type === 'load' &&
-          message.entityIds.includes(respawnMessage.shipId),
+          message.entityIds!.includes(respawnMessage.shipId),
       ),
 });
 const respawned = server.world.entities.get(respawnMessage.shipId);

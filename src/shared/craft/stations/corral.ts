@@ -4,7 +4,7 @@ import { stationGeometry } from './corral-geometry';
 
 const { back: bay, corner: bayCorner, lip, nose, seam } = stationGeometry.bay;
 
-// Both halves as one outline, so the light pools along the whole bay rather
+// Both halves as one shape outline, so the light pools along the whole bay rather
 // than in either end of it. It goes down on both layers, so a ship sat in the
 // bay has it under and over at once and reads as being inside the light
 const glow = [
@@ -18,7 +18,7 @@ const glow = [
   [bay, lip - bayCorner],
 ];
 
-// Both halves share the one glow, but their outlines stop at the seam
+// Both halves share the one glow, but their shape outlines stop at the seam
 const halfBay = (points: number[][], zIndex: number) => ({
   disablePhysics: true,
   fillAlpha: 4,
@@ -34,11 +34,11 @@ export class Corral extends Station {
   static mass = 1e9;
   static zIndex = 2;
   static hullSegments = [
-    ...stationGeometry.sides.map(({ opening, outline }) => ({
+    ...stationGeometry.sides.map(({ opening, shapeOutline }) => ({
       // Only the socket with the bay in it can be flown through. The other
       // four are the same shape repeated, and are as solid as the rest
       disablePhysics: opening,
-      points: outline,
+      points: shapeOutline,
     })),
     {
       disablePhysics: true,

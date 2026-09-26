@@ -1,8 +1,11 @@
 /* global Buffer, process */
-import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
+import {
+  terserMangleOptions,
+  buildPrePlugin,
+} from '../plugins/build-plugins.js';
 import assert from 'node:assert/strict';
 import { minify } from 'terser';
-import { replacePreTerser } from '../plugins/replace-pre-terser.js';
+import { stripIfdef } from '../plugins/replace-pre-terser.js';
 import { rolldown } from 'rolldown';
 
 const scenario = `
@@ -178,10 +181,10 @@ const bundle = await rolldown({
       load: (id) => {
         if (id === '\0mock-game') return 'export const game = {ctx:{}};';
 
-        if (id === '\0sound-scenario.js') return replacePreTerser(scenario);
+        if (id === '\0sound-scenario.js') return stripIfdef(scenario);
       },
     },
-    viteBuildPre(),
+    buildPrePlugin(),
   ],
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });

@@ -1,14 +1,18 @@
 /* global process */
 import './audio-context.mjs';
-import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
+import {
+  terserMangleOptions,
+  buildPrePlugin,
+} from '../plugins/build-plugins.js';
 import { minify } from 'terser';
-import { replacePreTerser } from '../plugins/replace-pre-terser.js';
+import { stripIfdef } from '../plugins/replace-pre-terser.js';
 import { rolldown } from 'rolldown';
 
 // Exercise the mechanics and assertions together under production transforms.
 // The separate lazy-docked test checks the actual module boundary.
 const scenario = `
 import * as Vec from '${process.cwd()}/src/shared/vector.ts';
+import { round } from '${process.cwd()}/src/shared/utilities/round.ts';
 import assert from 'node:assert/strict';
 import { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
 import { createRenderedShip } from '${process.cwd()}/src/client/create-rendered-ship.ts';
@@ -277,14 +281,14 @@ assert(wreckage !== damaged && wreckage.decay && wreckage.hitbox().length, 'deta
 assert.equal(wreckage.segments.length, 1, 'detached cargo hatch leaves only its physical door');
 assert(!wreckage.segments[0].catches, 'detached cargo hatch omits its cargo contact point');
 assert.deepEqual(wreckage.shades, colors.violet, 'detached cargo hatch retains its pink module colour');
-const hatchOutline = wreckage.segments[0].points;
-assert.deepEqual(hatchOutline.map(([x,y]) => Vec.add(wreckage.position, Vec.create(x,y))), attachedDoor,
+const hatchShapeOutline = wreckage.segments[0].points;
+assert.deepEqual(hatchShapeOutline.map(([x,y]) => Vec.add(wreckage.position, Vec.create(x,y))), attachedDoor,
   'detached cargo hatch starts at its mounted door geometry');
-const hatchMiddle = hatchOutline
+const hatchMiddle = hatchShapeOutline
   .reduce(([sumX,sumY],[x,y]) => [sumX+x,sumY+y],[0,0])
-  .map(sum => sum/hatchOutline.length);
+  .map(sum => sum/hatchShapeOutline.length);
 assert(Math.hypot(wreckage.segments[0].localPosition.x+hatchMiddle[0],wreckage.segments[0].localPosition.y+hatchMiddle[1]) < 1e-9,
-  'detached cargo hatch is centred on its existing door outline');
+  'detached cargo hatch is centred on its existing door shapeOutline');
 assert(wreckage.hitbox()[0].radius < 9, 'detached cargo hatch collision fits the narrow strip');
 
 // Scoop doors still suppress their hull collision only while sufficiently open.
@@ -349,7 +353,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     if (expectedSpeed < 1) expectedSpeed = 0;
     expectedSpeed = expectedSpeed > cap ? Math.max(cap, expectedSpeed * 0.9) :
       expectedSpeed * Math.exp(-departing.drag * dt);
-    expectedX += expectedSpeed * dt;
+    expectedX = round(expectedX + expectedSpeed * dt);
     departing.fly(departing.launching ? 1 : 0, 0);
     departing.update(dt);
     assert(Math.abs(Vec.length(departing.velocity) - expectedSpeed) < 1e-8,
@@ -368,7 +372,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
     const thrust = type.rotationalThrust * fraction;
     const target = departing.turnRate * thrust * fraction / 16;
-    expectedSpin += Math.max(-thrust * dt, Math.min(thrust * dt, target - expectedSpin));
+    expectedSpin = round(expectedSpin + Math.max(-thrust * dt, Math.min(thrust * dt, target - expectedSpin)));
     departing.fly(departing.launching ? 1 : 0, 1);
     departing.update(dt);
     assert(Math.abs(departing.spin - expectedSpin) < 1e-8,
@@ -465,14 +469,14 @@ const bundle = await rolldown({
         if (id === 'docked-scenario.js') return '\0docked-scenario.js';
       },
       load: (id) => {
-        if (id === '\0docked-scenario.js') return replacePreTerser(scenario);
+        if (id === '\0docked-scenario.js') return stripIfdef(scenario);
       },
       transform: (code, id) =>
         id.endsWith('/src/client/ui/docked.ts')
           ? `${code}\nexport { fitsOf };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];`
           : undefined,
     },
-    viteBuildPre(),
+    buildPrePlugin(),
   ],
 });
 const { output } = await bundle.generate({ format: 'esm', minify: true });

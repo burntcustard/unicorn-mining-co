@@ -13,9 +13,9 @@ export class Item extends GameObject {
   constructor(properties: ConstructorParameters<typeof GameObject>[0] = {}) {
     super(properties);
     this.item = this.constructor;
-    this.outline = this.points;
+    this.shapeOutline = this.points;
 
-    if (this.outline) this.radius = radiusOf(this.outline);
+    if (this.shapeOutline) this.radius = radiusOf(this.shapeOutline);
   }
 
   hitbox(): Collider[] {

@@ -2,12 +2,12 @@ import * as Vec from './vector';
 import { type Module } from './modules/module';
 
 export type Point = number[];
-export type Outline = Point[] & { edges?: boolean[] };
+export type ShapeOutline = Point[] & { edges?: boolean[] };
 export type Shades = readonly string[];
 
 export type ModuleSegmentPlan = {
   [key: string]: any;
-  points?: Outline | ((segment: Segment) => Outline);
+  points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
 };
 
 export type Mount = {
@@ -28,7 +28,7 @@ export type Segment = {
   mounts?: Mount[];
   mount?: Mount;
   middle?: Point;
-  points?: Outline | ((segment: Segment) => Outline);
+  points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
   shades: Shades;
   zIndex: number;
 };

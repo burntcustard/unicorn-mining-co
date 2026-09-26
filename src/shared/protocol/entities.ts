@@ -6,7 +6,7 @@ export type AsteroidSegment = {
   health: number;
   mass: number;
   maxHealth: number;
-  outline: number[][];
+  shapeOutline: number[][];
 };
 
 export type Player = {

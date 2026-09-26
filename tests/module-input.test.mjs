@@ -1,8 +1,11 @@
 /* global Buffer, process */
 import { rolldown } from 'rolldown';
 import { minify } from 'terser';
-import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
-import { replacePreTerser } from '../plugins/replace-pre-terser.js';
+import {
+  terserMangleOptions,
+  buildPrePlugin,
+} from '../plugins/build-plugins.js';
+import { stripIfdef } from '../plugins/replace-pre-terser.js';
 
 const scenario = `
 import assert from 'node:assert/strict';
@@ -56,7 +59,7 @@ for (const production of [false, true]) {
         resolveId: (id) => (id === 'input-test' ? '\0input-test' : undefined),
         load(id) {
           if (id === '\0input-test') {
-            return production ? replacePreTerser(scenario) : scenario;
+            return production ? stripIfdef(scenario) : scenario;
           }
 
           if (id.endsWith('/src/client/sound-loader.ts')) {
@@ -64,7 +67,7 @@ for (const production of [false, true]) {
           }
         },
       },
-      ...(production ? [viteBuildPre()] : []),
+      ...(production ? [buildPrePlugin()] : []),
     ],
   });
   const { output } = await bundle.generate({ format: 'esm' });

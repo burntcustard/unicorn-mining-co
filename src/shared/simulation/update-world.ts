@@ -94,6 +94,8 @@ export const updateWorld = ({
       entity.handleContacts({ contacts: ownContacts, events, world, dt });
     }
   });
+  // Contacts and docking can move entities after their own update.
+  world.entities.forEach((entity) => entity.roundMotion());
   world.tick++;
   return events;
 };

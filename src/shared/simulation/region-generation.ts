@@ -7,6 +7,7 @@ import {
 } from '../protocol/regions';
 import { createRandom, type Random } from '../seeded-random';
 import { regionSize } from '../settings';
+import { round } from '../utilities/round';
 
 const mix = (value: number) => {
   value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
@@ -43,12 +44,12 @@ const randomPosition = ({
   region: Vec.Value;
 }) =>
   Vec.create(
-    (region.x + random.next()) * regionSize,
-    (region.y + random.next()) * regionSize,
+    round((region.x + random.next()) * regionSize),
+    round((region.y + random.next()) * regionSize),
   );
 
 const randomSpin = ({ random }: { random: Random }) =>
-  ((random.next() < 0.5 ? -1 : 1) * (1 + random.next())) / 40;
+  round(((random.next() < 0.5 ? -1 : 1) * (1 + random.next())) / 40);
 
 const randomResource = ({ random }: { random: Random }) =>
   3 - Math.floor(random.next() ** 3 * 4);
@@ -68,13 +69,14 @@ const makeAsteroid = ({
   const resource = roll < 0.05 ? 1 : roll < 0.12 ? 2 : 4;
   const spikes = resource === 1;
   const gold = resource === 2;
-  const radius =
+  const radius = round(
     50 +
-    (spikes
-      ? 50 + random.next() * 2
-      : gold
-        ? 110 + random.next() * 60
-        : random.next() * 120);
+      (spikes
+        ? 50 + random.next() * 2
+        : gold
+          ? 110 + random.next() * 60
+          : random.next() * 120),
+  );
   const capacity = Math.round((radius / 50) ** 2);
   const itemCount =
     random.next() < (resource > 3 ? 0.3 : capacity / (capacity + 1))
@@ -83,16 +85,20 @@ const makeAsteroid = ({
         : 1 + Math.floor(random.next() * capacity)
       : 0;
 
+  const contents = Array.from({ length: itemCount }, () =>
+    resource > 3 ? randomResource({ random }) : resource,
+  );
+  const position = randomPosition({ random, region });
+
+  Vec.setXY(position, Math.round(position.x), Math.round(position.y));
   return {
-    contents: Array.from({ length: itemCount }, () =>
-      resource > 3 ? randomResource({ random }) : resource,
-    ),
+    contents,
     id: descriptionId({ seed, kind: 1, index }),
-    ...(spikes && { pointCount: 6, radiusEven: radius / 4 }),
-    position: randomPosition({ random, region }),
+    ...(spikes && { pointCount: 6, radiusEven: round(radius / 4) }),
+    position,
     radius,
     resource,
-    rotation: random.next() * Math.PI * 2,
+    rotation: round(random.next() * Math.PI * 2),
     spin: randomSpin({ random }),
     type: 'asteroid',
   };

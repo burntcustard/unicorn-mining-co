@@ -1,5 +1,5 @@
 import * as Vec from '../shared/vector';
-import { type PlayerInput } from '../shared/protocol/input';
+import { packPlayerInput, type PlayerInput } from '../shared/protocol/input';
 import { type SimulationEvent } from '../shared/protocol/events';
 import {
   type ClientMessage,
@@ -43,15 +43,15 @@ const makeEntity = ({
   previous?: GameObject;
 }): GameObject => {
   const wirePosition = entity.position;
-  const wireVelocity = entity.velocity;
+  const wireVelocity = entity.velocity || Vec.create();
   const common = {
     world,
     ...(entity.friction !== undefined && { friction: entity.friction }),
     ...(entity.health !== undefined && { health: entity.health }),
     ...(entity.label !== undefined && { label: entity.label }),
     id: entity.id,
-    mass: entity.mass,
-    pendingUpdateTime: entity.pendingUpdateTime,
+    ...(entity.mass !== undefined && { mass: entity.mass }),
+    pendingUpdateTime: entity.pendingUpdateTime ?? 0,
     position: Vec.clone(wirePosition),
     radius: entity.radius,
     rotation: entity.rotation,
@@ -120,7 +120,7 @@ const makeEntity = ({
           ? createStation({
               ...common,
               world,
-              shades: entity.shades && shadesOf(entity.shades),
+              ...(entity.shades && { shades: shadesOf(entity.shades) }),
             })
           : createShip(world, {
               ...common,
@@ -142,7 +142,9 @@ const makeEntity = ({
     },
   );
 
-  if (entity.shades) ship.shades = shadesOf(entity.shades);
+  ship.shades = entity.shades
+    ? shadesOf(entity.shades)
+    : (ship.constructor as typeof Craft).shades;
   ship.segments.forEach((segment) => {
     if (segment.hull) segment.shades = segment.module.shades || ship.shades;
   });
@@ -174,6 +176,7 @@ export class NetworkClient {
   // Separate from predicted objects: decoding must never mutate live state or
   // rollback history. Retain only the current interest set between packets.
   private authoritativeEntities = new Map<number, GameObject>();
+  private entityRecords = new Map<number, ReplicatedEntity>();
   private socket: WebSocket;
   private pendingSnapshot?: Extract<
     ServerMessage,
@@ -328,6 +331,18 @@ export class NetworkClient {
 
   private send(message: ClientMessage) {
     if (this.socket.readyState !== WebSocket.OPEN) return;
+
+    if (message.type === 'input') {
+      const packet = [
+        message.tick,
+        message.sequence,
+        packPlayerInput(message.input),
+      ];
+
+      if (message.offset) packet.push(message.offset);
+      this.socket.send(JSON.stringify(packet));
+      return;
+    }
     this.socket.send(JSON.stringify(message));
   }
 
@@ -366,6 +381,26 @@ export class NetworkClient {
     ) {
       return;
     }
+
+    if (message.type === 'load') this.entityRecords.clear();
+    message.fullEntities = message.fullEntities.map((record) => {
+      const previous = this.entityRecords.get(record.id);
+      const full = { ...previous, ...record } as ReplicatedEntity;
+
+      Object.entries(record).forEach(([key, value]) => {
+        if (value === null) {
+          delete (full as unknown as Record<string, unknown>)[key];
+        }
+      });
+      this.entityRecords.set(record.id, full);
+      return full;
+    });
+    message.entityIds ??= [...this.entityRecords.keys()];
+    const visible = new Set(message.entityIds);
+
+    this.entityRecords.forEach((_, id) => {
+      if (!visible.has(id)) this.entityRecords.delete(id);
+    });
     this.shipDestroyed = !message.entityIds.includes(this.shipId!);
     this.remoteMotion.receive({
       entities: message.fullEntities,

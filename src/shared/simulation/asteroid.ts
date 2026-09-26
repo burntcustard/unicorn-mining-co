@@ -6,9 +6,10 @@ import { type AsteroidSegment } from '../protocol/entities';
 import { addEntity, type SimulationWorld, entityId } from './world';
 import { GameObject } from '../game-object';
 import { type Collider } from '../collision/types';
-import { type Outline } from '../types';
+import { type ShapeOutline } from '../types';
 import { itemTypes } from '../items';
 import { type SimulationEvent } from '../protocol/events';
+import { round } from '../utilities/round';
 
 // Enough of a wander that no two asteroids come out the same shape
 export const asteroidVariance = 0.2;
@@ -17,12 +18,13 @@ export const asteroidVariance = 0.2;
 export const pointCountFor = (radius: number) =>
   Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
 
-const outlines = new Map<string, number[][]>();
+const shapeOutlines = new Map<string, number[][]>();
+const roundPoint = ([x, y]: number[]) => [round(x), round(y)];
 
-const withoutCollinearPoints = (outline: number[][]) =>
-  outline.filter((point, index) => {
-    const before = outline.at(index - 1)!;
-    const next = outline[(index + 1) % outline.length];
+const withoutCollinearPoints = (shapeOutline: number[][]) =>
+  shapeOutline.filter((point, index) => {
+    const before = shapeOutline.at(index - 1)!;
+    const next = shapeOutline[(index + 1) % shapeOutline.length];
 
     return (
       (point[0] - before[0]) * (next[1] - point[1]) !==
@@ -35,32 +37,32 @@ const withoutCollinearPoints = (outline: number[][]) =>
  * and on the server, is cut from its own id, so they all agree on it without
  * it ever going over the wire.
  */
-export const outlineOf = (asteroid: Asteroid) => {
-  if (asteroid.outline) return asteroid.outline;
+export const shapeOutlineOf = (asteroid: Asteroid) => {
+  if (asteroid.shapeOutline) return asteroid.shapeOutline;
   const key = [
     asteroid.id,
     asteroid.pointCount,
     asteroid.radius,
     asteroid.radiusEven,
   ].join(':');
-  let outline = outlines.get(key);
+  let shapeOutline = shapeOutlines.get(key);
 
-  if (!outline) {
+  if (!shapeOutline) {
     const random = createRandom(asteroid.id);
 
-    outline = createPolygon({
+    shapeOutline = createPolygon({
       pointCount: asteroid.pointCount || pointCountFor(asteroid.radius),
       radius: asteroid.radius,
       radiusEven: asteroid.radiusEven,
       random: random.next,
       variance: asteroidVariance,
-    });
+    }).map(roundPoint);
     // A long session flies past more rock than is worth remembering.
 
-    if (outlines.size > 5000) outlines.clear();
-    outlines.set(key, outline);
+    if (shapeOutlines.size > 5000) shapeOutlines.clear();
+    shapeOutlines.set(key, shapeOutline);
   }
-  return withoutCollinearPoints(outline);
+  return withoutCollinearPoints(shapeOutline);
 };
 
 const splitTriangle = (triangle: number[][]) => {
@@ -85,34 +87,34 @@ const segmentsOf = ({
   contents,
   health,
   mass,
-  outline,
+  shapeOutline,
   radiusEven,
   random,
 }: {
   contents: number[];
   health: number;
   mass: number;
-  outline: number[][];
+  shapeOutline: number[][];
   radiusEven?: number;
   random: () => number;
 }) => {
-  const inset = radiusEven && outline.filter((_, index) => !(index % 2));
+  const inset = radiusEven && shapeOutline.filter((_, index) => !(index % 2));
   const triangles = inset
     ? [
         inset,
         ...inset.map((point, index) => [
           point,
-          outline[index * 2 + 1],
+          shapeOutline[index * 2 + 1],
           inset[(index + 1) % inset.length],
         ]),
       ]
-    : outline[3]
-      ? outline.map((point, index) => [
+    : shapeOutline[3]
+      ? shapeOutline.map((point, index) => [
           [0, 0],
           point,
-          outline[(index + 1) % outline.length],
+          shapeOutline[(index + 1) % shapeOutline.length],
         ])
-      : [outline];
+      : [shapeOutline];
   const segmentsPerFace = inset ? 1 : 4;
   const leaves = triangles.map(
     inset ? (triangle) => [triangle] : splitTriangle,
@@ -121,15 +123,15 @@ const segmentsOf = ({
   const asteroidSegmentMass = mass / (triangles.length * segmentsPerFace);
   // Match the original topology order: all centre leaves first, then the next
   // corner from every face. Cargo placement depends on that centre-first bias.
-  const outlines = Array.from({ length: segmentsPerFace }, (_, corner) =>
+  const shapeOutlines = Array.from({ length: segmentsPerFace }, (_, corner) =>
     leaves.map((leaf) => leaf[corner]),
   ).flat();
-  const segments: AsteroidSegment[] = outlines.map((asteroidSegment) => ({
+  const segments: AsteroidSegment[] = shapeOutlines.map((asteroidSegment) => ({
     contents: [] as number[],
     health: asteroidSegmentHealth,
     mass: asteroidSegmentMass,
     maxHealth: asteroidSegmentHealth,
-    outline: asteroidSegment.map(([x, y]) => [x, y]),
+    shapeOutline: asteroidSegment.map(roundPoint),
   }));
   const empty = [...segments];
 
@@ -144,14 +146,14 @@ const segmentsOf = ({
 const samePoint = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1];
 
 const groupsOf = (segments: AsteroidSegment[]) =>
-  outerEdges(segments.map(({ outline }) => outline as Outline)).map((indices) =>
-    indices.map((index) => segments[index]),
-  );
+  outerEdges(
+    segments.map(({ shapeOutline }) => shapeOutline as ShapeOutline),
+  ).map((indices) => indices.map((index) => segments[index]));
 
 // groupsOf has already marked exterior edges on its connected groups.
-const outlinesFromMarked = (segments: AsteroidSegment[]) => {
-  const outer = segments.flatMap(({ outline }) => {
-    const polygon = outline as Outline;
+const shapeOutlinesFromMarked = (segments: AsteroidSegment[]) => {
+  const outer = segments.flatMap(({ shapeOutline }) => {
+    const polygon = shapeOutline as ShapeOutline;
 
     return polygon.flatMap((from, index) =>
       polygon.edges?.[index]
@@ -159,11 +161,11 @@ const outlinesFromMarked = (segments: AsteroidSegment[]) => {
         : [],
     );
   });
-  const outlines: number[][][] = [];
+  const shapeOutlines: number[][][] = [];
 
   while (outer.length) {
     const first = outer.shift()!;
-    const outline = [first.from];
+    const shapeOutline = [first.from];
     let edge = first;
 
     while (!samePoint(edge.to, first.from)) {
@@ -189,26 +191,26 @@ const outlinesFromMarked = (segments: AsteroidSegment[]) => {
       });
 
       if (nextIndex < 0) break;
-      outline.push(at);
+      shapeOutline.push(at);
       edge = outer.splice(nextIndex, 1)[0];
     }
-    outlines.push(withoutCollinearPoints(outline));
+    shapeOutlines.push(withoutCollinearPoints(shapeOutline));
   }
-  return outlines;
+  return shapeOutlines;
 };
 
-export const outlinesFrom = (segments: AsteroidSegment[]) => {
-  outerEdges(segments.map(({ outline }) => outline as Outline));
-  return outlinesFromMarked(segments);
+export const shapeOutlinesFrom = (segments: AsteroidSegment[]) => {
+  outerEdges(segments.map(({ shapeOutline }) => shapeOutline as ShapeOutline));
+  return shapeOutlinesFromMarked(segments);
 };
 
-export const centerOf = (outline: number[][]) => {
+export const centerOf = (shapeOutline: number[][]) => {
   let area = 0;
   let x = 0;
   let y = 0;
 
-  outline.forEach(([atX, atY], index) => {
-    const [nextX, nextY] = outline[(index + 1) % outline.length];
+  shapeOutline.forEach(([atX, atY], index) => {
+    const [nextX, nextY] = shapeOutline[(index + 1) % shapeOutline.length];
     const cross = atX * nextY - nextX * atY;
 
     area += cross;
@@ -234,20 +236,21 @@ const detachSegment = ({
 
   asteroid.remove();
   const children = groups.map((group) => {
-    const outline =
+    const shapeOutline =
       group.length === 1
-        ? group[0].outline
-        : outlinesFromMarked(group).reduce((largest, candidate) =>
+        ? group[0].shapeOutline
+        : shapeOutlinesFromMarked(group).reduce((largest, candidate) =>
             radiusOf(candidate) > radiusOf(largest) ? candidate : largest,
           );
-    const center = centerOf(outline);
+    const center = centerOf(shapeOutline);
     const offset = rotatePoint(center, asteroid.rotation);
-    const local = ([x, y]: number[]) => [x - center.x, y - center.y];
-    const childOutline = outline.map(local);
+    const local = ([x, y]: number[]) =>
+      roundPoint([x - center.x, y - center.y]);
+    const childShapeOutline = shapeOutline.map(local);
     const childSegments = group.map((asteroidSegment) => ({
       ...asteroidSegment,
       contents: [...asteroidSegment.contents],
-      outline: asteroidSegment.outline.map(local),
+      shapeOutline: asteroidSegment.shapeOutline.map(local),
     }));
     const contents = group.flatMap(
       (asteroidSegment) => asteroidSegment.contents,
@@ -256,14 +259,14 @@ const detachSegment = ({
       (sum, asteroidSegment) => sum + asteroidSegment.mass,
       0,
     );
-    const radius = radiusOf(childOutline);
+    const radius = radiusOf(childShapeOutline);
     const child = createAsteroid(world, {
       contents,
       decay: group.length === 1 && !contents.length ? 6 : undefined,
       health: radius,
       mass,
       maxHealth: radius,
-      outline: childOutline,
+      shapeOutline: childShapeOutline,
       position: Vec.add(asteroid.position, offset),
       radius,
       resource: asteroid.resource,
@@ -301,18 +304,18 @@ const detachSegment = ({
 /**
  * Whether a point lies within a shape cut radially about its own middle.
  */
-const insideOutline = ({
-  outline,
+const insideShapeOutline = ({
+  shapeOutline,
   local,
 }: {
-  outline: number[][];
+  shapeOutline: number[][];
   local: Vec.Value;
 }) => {
-  const count = outline.length;
+  const count = shapeOutline.length;
   const turn = Math.atan2(local.y, local.x) / (Math.PI * 2);
   const face = Math.floor((((turn % 1) + 1) % 1) * count);
-  const [x, y] = outline[face];
-  const [toX, toY] = outline[(face + 1) % count];
+  const [x, y] = shapeOutline[face];
+  const [toX, toY] = shapeOutline[(face + 1) % count];
   // How far out the face between those two points sits, as a multiple of how
   // far out the point itself is.
   const across = local.x * (toY - y) - local.y * (toX - x);
@@ -321,7 +324,7 @@ const insideOutline = ({
 };
 
 /**
- * Where a round body meets an asteroid's outline, rather than the circle that
+ * Where a round body meets an asteroid's shape outline, rather than the circle that
  * only bounds it: the normal points out of the rock, towards the body.
  */
 export const asteroidContact = ({
@@ -333,11 +336,11 @@ export const asteroidContact = ({
   position: Vec.Value;
   radius: number;
 }) => {
-  const outline = outlineOf(asteroid);
+  const shapeOutline = shapeOutlineOf(asteroid);
   const offset = Vec.subtract(position, asteroid.position);
   const cosine = Math.cos(asteroid.rotation);
   const sine = Math.sin(asteroid.rotation);
-  // The outline is cut in the asteroid's own frame, so the body comes to it.
+  // The shape outline is cut in the asteroid's own frame, so the body comes to it.
   const local = Vec.create(
     offset.x * cosine + offset.y * sine,
     offset.y * cosine - offset.x * sine,
@@ -345,8 +348,8 @@ export const asteroidContact = ({
   let closest = local;
   let nearest = Infinity;
 
-  outline.forEach(([x, y], i) => {
-    const [toX, toY] = outline[(i + 1) % outline.length];
+  shapeOutline.forEach(([x, y], i) => {
+    const [toX, toY] = shapeOutline[(i + 1) % shapeOutline.length];
     const edge = Vec.create(toX - x, toY - y);
     const along = Math.min(
       1,
@@ -365,7 +368,7 @@ export const asteroidContact = ({
     }
   });
 
-  const inside = insideOutline({ outline, local });
+  const inside = insideShapeOutline({ shapeOutline, local });
   const overlap = inside ? radius + nearest : radius - nearest;
 
   if (overlap <= 0) return;
@@ -393,7 +396,7 @@ export class Asteroid extends GameObject {
   health: number;
   kind = 'asteroid' as const;
   maxHealth: number;
-  outline?: number[][];
+  shapeOutline?: number[][];
   pointCount?: number;
   radiusEven?: number;
   resource?: number;
@@ -404,7 +407,7 @@ export class Asteroid extends GameObject {
     decay,
     health,
     maxHealth,
-    outline,
+    shapeOutline,
     pointCount,
     radiusEven,
     resource,
@@ -415,7 +418,7 @@ export class Asteroid extends GameObject {
     decay?: number;
     health: number;
     maxHealth: number;
-    outline?: number[][];
+    shapeOutline?: number[][];
     pointCount?: number;
     radiusEven?: number;
     resource?: number;
@@ -426,13 +429,13 @@ export class Asteroid extends GameObject {
     this.decay = decay;
     this.health = health;
     this.maxHealth = maxHealth;
-    this.outline = outline?.map(([x, y]) => [x, y]);
+    this.shapeOutline = shapeOutline?.map(([x, y]) => [x, y]);
     this.pointCount = pointCount;
     this.radiusEven = radiusEven;
     this.resource = resource;
     const validSegments = segments?.every(
       (asteroidSegment) =>
-        asteroidSegment && Array.isArray(asteroidSegment.outline),
+        asteroidSegment && Array.isArray(asteroidSegment.shapeOutline),
     )
       ? segments
       : undefined;
@@ -440,15 +443,15 @@ export class Asteroid extends GameObject {
     this.segments = validSegments?.map((asteroidSegment) => ({
       ...asteroidSegment,
       contents: [...asteroidSegment.contents],
-      outline: asteroidSegment.outline.map(([x, y]) => [x, y]),
+      shapeOutline: asteroidSegment.shapeOutline.map(([x, y]) => [x, y]),
     }));
 
-    if (!outline && !validSegments) {
+    if (!shapeOutline && !validSegments) {
       this.segments = segmentsOf({
         contents,
         health,
         mass: this.mass,
-        outline: outlineOf(this),
+        shapeOutline: shapeOutlineOf(this),
         radiusEven,
         random: createRandom(this.id + 1).next,
       });
@@ -457,7 +460,7 @@ export class Asteroid extends GameObject {
     if (this.segments?.length) {
       outerEdges(
         this.segments.map(
-          (asteroidSegment) => asteroidSegment.outline as Outline,
+          (asteroidSegment) => asteroidSegment.shapeOutline as ShapeOutline,
         ),
       );
     }
@@ -469,7 +472,7 @@ export class Asteroid extends GameObject {
       return this.segments.map((asteroidSegment) => ({
         bounciness: 0.2,
         collisionMargin: 0,
-        outline: asteroidSegment.outline as Outline,
+        shapeOutline: asteroidSegment.shapeOutline as ShapeOutline,
         owner: this,
         asteroidSegment,
         friction: this.friction,
@@ -479,11 +482,11 @@ export class Asteroid extends GameObject {
       }));
     }
 
-    const outline = outlineOf(this);
-    const center = centerOf(outline);
-    // Detached leaves get a tiny collision-only inset. Keep the render outline,
+    const shapeOutline = shapeOutlineOf(this);
+    const center = centerOf(shapeOutline);
+    // Detached leaves get a tiny collision-only inset. Keep the render shape outline,
     // mass and resources intact, and never shrink the remaining asteroid.
-    const collisionOutline = outline.map(([x, y]) => {
+    const collisionShapeOutline = shapeOutline.map(([x, y]) => {
       const offset = Vec.subtract(Vec.create(x, y), center);
       const point = Vec.addScaled(
         center,
@@ -499,7 +502,7 @@ export class Asteroid extends GameObject {
         bounciness: 0.2,
         friction: this.friction,
         collisionMargin: 0,
-        outline: collisionOutline as Outline,
+        shapeOutline: collisionShapeOutline as ShapeOutline,
         owner: this,
         position: this.position,
         radius: this.radius,
@@ -572,7 +575,7 @@ export const createAsteroid = (
     id = entityId(world),
     mass,
     maxHealth,
-    outline,
+    shapeOutline,
     pointCount,
     position = Vec.create(),
     radius = 25,
@@ -589,7 +592,7 @@ export const createAsteroid = (
     id?: number;
     mass?: number;
     maxHealth?: number;
-    outline?: number[][];
+    shapeOutline?: number[][];
     pointCount?: number;
     position?: Vec.Value;
     radius?: number;
@@ -610,7 +613,7 @@ export const createAsteroid = (
     id,
     mass: mass ?? 0.4 * radius ** 2,
     maxHealth: fullHealth,
-    outline,
+    shapeOutline,
     pointCount,
     position,
     radius,

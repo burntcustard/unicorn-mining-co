@@ -4,7 +4,7 @@ import { colors } from '../colors';
 // Diamond
 // A brilliant cut seen face on: the flat table across the top, shoulders out
 // to the widest point at the girdle, and the pavilion tapering to a point
-// below. Nothing but the outline, which at this size is all that reads anyway
+// below. Nothing but the shape outline, which at this size is all that reads anyway
 export class Diamond extends Item {
   static resource = 0;
   static bounciness = 0.2;

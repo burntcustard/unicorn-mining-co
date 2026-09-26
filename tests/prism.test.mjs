@@ -36,8 +36,8 @@ const {
 await bundle.close();
 const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
 
-// Whole asteroids generate their outline from their ID. The prism must see
-// that shape before mining creates children with explicit outlines.
+// Whole asteroids generate their shape outline from their ID. The prism must see
+// that shape before mining creates children with explicit shape outlines.
 {
   const asteroid = createAsteroid(
     {},
@@ -50,7 +50,7 @@ const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
   );
 
   asteroid.scenery = true;
-  assert.equal(asteroid.outline, undefined);
+  assert.equal(asteroid.shapeOutline, undefined);
   const lamp = {
     localPosition: Vec.create(),
     activationProgress: 1,
@@ -60,7 +60,7 @@ const joins = (last, ray) => joinFaces(ray.hit, last.out.face, ray.out.face);
     asteroid,
   ]);
 
-  assert.equal(beam.outlines.length, 1);
+  assert.equal(beam.shapeOutlines.length, 1);
   assert.ok(beam.rays.some((ray) => ray.out?.away));
   assert.ok(runsOf(beam).length);
   let bands = 0;
@@ -99,7 +99,7 @@ for (const size of [10, 100, 1000]) {
         size * 4 * Math.cos(rotation),
         size * 4 * Math.sin(rotation),
       ),
-      outline: [
+      shapeOutline: [
         [-1, -1],
         [1, -1],
         [1, 0],

@@ -56,7 +56,7 @@
 [ ] New achievement system
 [ ] Ship decals
 [ ] New graphics like concept art
-[ ] Redo outline.js with different colors and stuff
+[ ] Redo text-outline.ts with different colors and stuff
 [ ] Make stars consistent with world location
 [ ] Shield generator should have health and UI so can be disrupted
 [ ] "Random" spaceship name generator

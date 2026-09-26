@@ -1,8 +1,8 @@
 import * as Vec from '../../shared/vector';
 import {
   centerOf,
-  outlineOf,
-  outlinesFrom,
+  shapeOutlineOf,
+  shapeOutlinesFrom,
   type Asteroid,
 } from '../../shared/simulation/asteroid';
 import { rotatePoint } from '../../shared/geometry';
@@ -30,21 +30,23 @@ export const presentation = ({
   pose?: Pick<Asteroid, 'position' | 'rotation'>;
 }) => {
   const segments = asteroid.segments || [
-    { outline: outlineOf(asteroid), contents: asteroid.contents },
+    { shapeOutline: shapeOutlineOf(asteroid), contents: asteroid.contents },
   ];
   const key = JSON.stringify([
-    outlineOf(asteroid),
-    segments.map(({ outline, contents }) => ({ outline, contents })),
+    shapeOutlineOf(asteroid),
+    segments.map(({ shapeOutline, contents }) => ({ shapeOutline, contents })),
   ]);
   let state = cache.get(asteroid);
 
   if (!state || state.key !== key) {
     const path = new Path2D();
-    const outlines = asteroid.segments?.length
-      ? outlinesFrom(asteroid.segments)
-      : [outlineOf(asteroid)];
+    const shapeOutlines = asteroid.segments?.length
+      ? shapeOutlinesFrom(asteroid.segments)
+      : [shapeOutlineOf(asteroid)];
 
-    outlines.forEach((outline) => path.addPath(shapePath(outline)));
+    shapeOutlines.forEach((shapeOutline) =>
+      path.addPath(shapePath(shapeOutline)),
+    );
     state = {
       key,
       path,
@@ -52,9 +54,9 @@ export const presentation = ({
         segments.flatMap((asteroidSegment) =>
           asteroidSegment.contents.map((resource, index) => ({
             item: createRenderedItem({ add: false, resource }),
-            localPosition: centerOf(asteroidSegment.outline),
+            localPosition: centerOf(asteroidSegment.shapeOutline),
             rotation:
-              (asteroid.id + asteroidSegment.outline.length + index) % 6,
+              (asteroid.id + asteroidSegment.shapeOutline.length + index) % 6,
           })),
         ) || [],
     };

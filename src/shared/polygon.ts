@@ -1,4 +1,4 @@
-import { type Outline, type Point } from './types';
+import { type ShapeOutline, type Point } from './types';
 
 export interface PolygonOptions {
   // Number of corners and edges.
@@ -26,7 +26,7 @@ export const createPolygon = ({
   radiusEven = radius,
   variance = 0,
   random = () => 0,
-}: PolygonOptions): Outline =>
+}: PolygonOptions): ShapeOutline =>
   Array.from({ length: pointCount }, (_, i) => {
     const angle = (i / pointCount) * Math.PI * 2;
     // Only ever inwards, so no point reaches past the radius the rest of the
@@ -43,19 +43,19 @@ export const radiusOf = (points: number[][], center: Point = [0, 0]) =>
 /**
  * Mark outside polygon edges and return groups connected by shared edges.
  */
-export const outerEdges = (outlines: Outline[]) => {
+export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
   // oxlint-disable-next-line typescript/require-array-sort-compare -- Endpoint strings canonicalize an undirected edge.
   const edge = (from: number[], to: number[]) => String([from, to].sort());
-  const sides = outlines.map((points) =>
+  const sides = shapeOutlines.map((points) =>
     points.map((from, index) =>
       edge(from, points[(index + 1) % points.length]),
     ),
   );
   const all = sides.flat();
-  const left = outlines.map((_, index) => index);
+  const left = shapeOutlines.map((_, index) => index);
   const groups: number[][] = [];
 
-  outlines.forEach(
+  shapeOutlines.forEach(
     (points, index) =>
       (points.edges = sides[index].map(
         (side) => !all.includes(side, all.indexOf(side) + 1),

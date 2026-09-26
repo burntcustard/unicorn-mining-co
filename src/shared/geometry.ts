@@ -1,5 +1,5 @@
 import * as Vec from './vector';
-import { type Mount, type Outline, type Point } from './types';
+import { type Mount, type ShapeOutline, type Point } from './types';
 import { radiusOf } from './polygon';
 
 export const rotatePoint = ({ x, y }: Vec.Value, angle: number) => {
@@ -31,15 +31,15 @@ export const rotatePoints = (
   points: number[][],
   angle: number,
   position = Vec.create(),
-): Outline =>
+): ShapeOutline =>
   points.map(([pointX, pointY]) => {
     const point = rotatePoint(Vec.create(pointX, pointY), angle);
 
     return [position.x + point.x, position.y + point.y] as Point;
-  }) as Outline;
+  }) as ShapeOutline;
 
-// Midpoint and farthest-point distance for a nonempty outline.
-export const outlineExtent = (points: Outline) => {
+// Midpoint and farthest-point distance for a nonempty shape outline.
+export const shapeOutlineExtent = (points: ShapeOutline) => {
   const middle = points
     .reduce(([sumX, sumY], [x, y]) => [sumX + x, sumY + y], [0, 0])
     .map((total) => total / points.length) as Point;
@@ -52,10 +52,10 @@ export const outlineExtent = (points: Outline) => {
  * Points are relative to the mount's position on the craft.
  */
 export const shapeOf = (
-  points: Outline,
+  points: ShapeOutline,
   mount: Pick<Mount, 'localPosition'> = { localPosition: Vec.create() },
 ) => {
-  const { middle, reach } = outlineExtent(points);
+  const { middle, reach } = shapeOutlineExtent(points);
 
   return {
     // Which way the piece looks, taken as the way out from the middle of the

@@ -70,8 +70,6 @@
 
 **mount** - A location on a craft where a module can be fitted. The mount is the fitting location rather than the module itself.
 
-**outline** - A sequence of points tracing the edge of a shape.
-
 **paint** - A choice of colour scheme for a craft or module.
 
 **physical response** - The solver’s position correction and impulses at a contact between physical colliders. Nonphysical contacts still produce gameplay events without this response.
@@ -82,9 +80,9 @@
 
 **player input** - The controls a player uses to fly a ship or operate its modules.
 
-**point count** - The number of points used to form a shape, such as an asteroid's outline.
+**point count** - The number of points used to form a shape, such as an asteroid's shape outline.
 
-**points** - The places marking the corners of a shape, usually in order around its outline. In a model, points can give a segment its shape.
+**points** - The places marking the corners of a shape, usually in order around its shape outline. In a model, points can give a segment its shape.
 
 **position** - A game object's location in the world.
 
@@ -106,7 +104,9 @@
 
 **sell** - A docked action that exchanges cargo contents for credits. Selling a module or item is the opposite of buying it. An equipped module must be removed before it can be sold.
 
-**shades** - The colours used to draw a craft or module, including its fill, outline, shadow, and highlight.
+**shades** - The colours used to draw a craft or module, including its fill, edge stroke, shadow, and highlight.
+
+**shape outline** - An ordered sequence of points tracing a game shape, used for geometry, collision, and replication.
 
 **shield generator** - A module that projects a protective shield around a craft.
 
@@ -123,6 +123,8 @@
 **station** - A craft with docking bays that can receive ships.
 
 **sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.
+
+**text outline** - A stroke around text paths for legibility.
 
 **time of impact** - The earliest fraction of a sweep at which two colliders touch. The continuous collision solver advances to it before resolving that contact and searching for later impacts.
 

@@ -34,6 +34,7 @@ const bundle = await rolldown({
       export { ReplicationManager } from '${resolve('src/server/replication.ts')}';
       export { createWorld, addEntity, addPlayer } from '${resolve('src/shared/simulation/world.ts')}';
       export { createShip } from '${resolve('src/shared/craft/create-ship.ts')}';
+      export { createAsteroid } from '${resolve('src/shared/simulation/asteroid.ts')}';
       export { createStation } from '${resolve('src/shared/craft/create-station.ts')}';
       export * as Vec from '${resolve('src/shared/vector.ts')}';
       export { captureWorld, restoreWorld } from '${resolve('src/shared/simulation/world-state.ts')}';
@@ -55,6 +56,7 @@ const {
   createWorld,
   addEntity,
   createShip,
+  createAsteroid,
   createStation,
   captureWorld,
   restoreWorld,
@@ -77,16 +79,22 @@ const initial = replication.initial({
   world,
   shipId: ship.id,
 });
+
+assert.equal(initial.entityIds, undefined, 'load IDs come from full records');
 const saved = captureWorld({ world });
 
 station.friction = 0;
 restoreWorld({ world, state: saved });
 assert.equal(station.friction, 0.2, 'rollback restores the material value');
-assert.equal(
-  initial.fullEntities.find((entity) => entity.id === station.id).friction,
-  undefined,
-  'default friction does not enlarge the wire snapshot',
+const stationRecord = initial.fullEntities.find(
+  (entity) => entity.id === station.id,
 );
+
+assert.equal(stationRecord.friction, undefined);
+assert.equal(stationRecord.hullHealth, undefined);
+assert.equal(stationRecord.shades, undefined);
+assert.equal(stationRecord.velocity, undefined);
+assert.equal(stationRecord.pendingUpdateTime, undefined);
 
 assert(
   initial.fullEntities.some((entity) => entity.id === distantStation.id),
@@ -96,6 +104,7 @@ const counts = new Map([...world.entities.keys()].map((id) => [id, 0]));
 
 for (let tick = 1; tick <= 60; tick++) {
   world.tick = tick;
+  ship.rotation = station.rotation = distantStation.rotation = tick;
   const packet = replication.snapshot({
     world,
     shipId: ship.id,
@@ -103,6 +112,11 @@ for (let tick = 1; tick <= 60; tick++) {
 
   packet.fullEntities.forEach((entity) =>
     counts.set(entity.id, counts.get(entity.id) + 1),
+  );
+  assert.equal(
+    packet.entityIds,
+    undefined,
+    'unchanged interest has no id list',
   );
 
   if (tick % 4 === 0) {
@@ -179,6 +193,14 @@ const deliver = (message) => {
 };
 
 deliver(initial);
+assert.deepEqual(
+  network.authoritativeEntities.get(station.id).hullHealth,
+  station.hullHealth,
+);
+assert.deepEqual(
+  network.authoritativeEntities.get(station.id).shades,
+  station.shades,
+);
 station.friction = 0;
 const slippery = replication.snapshot({ world, shipId: ship.id });
 
@@ -195,7 +217,8 @@ const normal = replication.snapshot({ world, shipId: ship.id });
 
 assert.equal(
   normal.fullEntities.find((entity) => entity.id === station.id).friction,
-  undefined,
+  null,
+  'clearing an optional field sends a null marker',
 );
 deliver(normal);
 assert.equal(network.authoritativeEntities.get(station.id).friction, 0.2);
@@ -240,20 +263,20 @@ assert.equal(
   'prediction does not mutate decoded authority',
 );
 const damaged = structuredClone(snapshot);
-const state = damaged.fullEntities.find((entity) => entity.id === station.id);
+const state = damaged.fullEntities.find((entity) => entity.id === ship.id);
 
 state.hullHealth = state.hullHealth.map((health) =>
   health > 0 ? health / 2 : health,
 );
 deliver(damaged);
 assert.deepEqual(
-  network.world.entities.get(station.id).hullHealth,
+  network.world.entities.get(ship.id).hullHealth,
   state.hullHealth,
 );
 deliver(snapshot);
 assert.deepEqual(
-  network.world.entities.get(station.id).hullHealth,
-  station.hullHealth,
+  network.world.entities.get(ship.id).hullHealth,
+  ship.hullHealth,
   'repair restores authoritative health',
 );
 const wires = Array.from({ length: 2100 }, () =>
@@ -296,6 +319,155 @@ assert.equal(
   'unloaded predicted entities are removed',
 );
 console.log('Snapshot reuse, damage, repair, isolation and eviction passed');
+
+// A compact asteroid update is expanded before motion tracking and prediction.
+const asteroidWorld = createWorld();
+const asteroidObserver = addEntity(
+  asteroidWorld,
+  createShip(asteroidWorld, { playerId: 1 }),
+);
+const asteroid = addEntity(
+  asteroidWorld,
+  createAsteroid(asteroidWorld, {
+    contents: [1],
+    position: Vec.create(300),
+    radius: 100,
+  }),
+);
+const asteroidReplication = new ReplicationManager();
+const asteroidLoad = asteroidReplication.initial({
+  world: asteroidWorld,
+  shipId: asteroidObserver.id,
+});
+const pristine = asteroidLoad.fullEntities.find(
+  (entity) => entity.id === asteroid.id,
+);
+
+assert.equal(pristine.segments, undefined);
+const asteroidClient = new NetworkClient({ url: 'ws://asteroid-test' });
+const asteroidSocket = socket;
+const deliverAsteroid = (message) =>
+  asteroidSocket.onmessage({ data: JSON.stringify(message) });
+
+deliverAsteroid({
+  type: 'welcome',
+  playerToken: 'asteroid-test',
+  playerId: 1,
+  shipId: asteroidObserver.id,
+  serverTick: 0,
+  worldSeed: 1,
+  spawn: { x: 0, y: 0 },
+});
+deliverAsteroid(asteroidLoad);
+assert.deepEqual(
+  asteroidClient.authoritativeEntities.get(asteroid.id).segments,
+  asteroid.segments,
+  'client rebuilds untouched asteroid segments from the same seed',
+);
+asteroid.segments[0].health -= 1;
+asteroid.rotation = 0.5;
+asteroidWorld.tick = 1;
+const asteroidUpdate = asteroidReplication.snapshot({
+  world: asteroidWorld,
+  shipId: asteroidObserver.id,
+});
+const damagedAsteroid = asteroidUpdate.fullEntities.find(
+  (entity) => entity.id === asteroid.id,
+);
+
+assert(damagedAsteroid.segments, 'changed segments are sent once');
+assert.equal(damagedAsteroid.contents, undefined);
+deliverAsteroid(asteroidUpdate);
+asteroidClient.update({ input: emptyPlayerInput() });
+assert.equal(
+  asteroidClient.authoritativeEntities.get(asteroid.id).segments[0].health,
+  asteroid.segments[0].health,
+);
+asteroid.rotation = 1;
+asteroidWorld.tick = 2;
+const motionUpdate = asteroidReplication.snapshot({
+  world: asteroidWorld,
+  shipId: asteroidObserver.id,
+});
+const movingAsteroid = motionUpdate.fullEntities.find(
+  (entity) => entity.id === asteroid.id,
+);
+
+assert.equal(movingAsteroid.segments, undefined);
+assert.equal(movingAsteroid.contents, undefined);
+assert.equal(movingAsteroid.rotation, 1);
+deliverAsteroid(motionUpdate);
+asteroidClient.update({ input: emptyPlayerInput() });
+assert.equal(
+  asteroidClient.authoritativeEntities.get(asteroid.id).segments[0].health,
+  asteroid.segments[0].health,
+  'a later motion update retains the last segment state',
+);
+asteroid.decay = 2;
+asteroidWorld.tick = 3;
+deliverAsteroid(
+  asteroidReplication.snapshot({
+    world: asteroidWorld,
+    shipId: asteroidObserver.id,
+  }),
+);
+asteroidClient.update({ input: emptyPlayerInput() });
+assert.equal(asteroidClient.authoritativeEntities.get(asteroid.id).decay, 2);
+asteroid.decay = undefined;
+asteroidWorld.tick = 4;
+const cleared = asteroidReplication.snapshot({
+  world: asteroidWorld,
+  shipId: asteroidObserver.id,
+});
+
+assert.equal(
+  cleared.fullEntities.find((entity) => entity.id === asteroid.id).decay,
+  null,
+  'cleared optional fields use a null wire marker',
+);
+deliverAsteroid(cleared);
+asteroidClient.update({ input: emptyPlayerInput() });
+assert.equal(
+  asteroidClient.authoritativeEntities.get(asteroid.id).decay,
+  undefined,
+);
+Vec.setXY(asteroid.position, 5000, 0);
+asteroidWorld.tick = 5;
+deliverAsteroid(
+  asteroidReplication.snapshot({
+    world: asteroidWorld,
+    shipId: asteroidObserver.id,
+  }),
+);
+asteroidClient.update({ input: emptyPlayerInput() });
+Vec.setXY(asteroid.position, 300, 0);
+asteroidWorld.tick = 6;
+const reentered = asteroidReplication.snapshot({
+  world: asteroidWorld,
+  shipId: asteroidObserver.id,
+});
+
+assert.equal(
+  reentered.fullEntities.find((entity) => entity.id === asteroid.id).kind,
+  'asteroid',
+  'an asteroid reentering view gets a full record',
+);
+deliverAsteroid(reentered);
+asteroidClient.update({ input: emptyPlayerInput() });
+assert.equal(
+  asteroidClient.authoritativeEntities.get(asteroid.id).segments[0].health,
+  asteroid.segments[0].health,
+);
+asteroidWorld.tick = 7;
+const unchanged = asteroidReplication.snapshot({
+  world: asteroidWorld,
+  shipId: asteroidObserver.id,
+});
+
+assert(
+  !unchanged.fullEntities.some((entity) => entity.id === asteroid.id),
+  'unchanged asteroids need no record at all',
+);
 
 // No delayed packets: even immediate snapshots used to keep throwing away
 // the history needed to reconcile a client that starts ahead of the server.

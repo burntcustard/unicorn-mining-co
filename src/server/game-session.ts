@@ -56,13 +56,7 @@ export class GameSession {
     this.regions = new RegionManager({ worldSeed });
   }
 
-  receive({
-    message,
-    socket,
-  }: {
-    message: ClientMessage;
-    socket: WebSocket;
-  }) {
+  receive({ message, socket }: { message: ClientMessage; socket: WebSocket }) {
     if (message.type === 'hello') {
       this.hello({ socket, token: message.playerToken });
       return;
@@ -88,6 +82,11 @@ export class GameSession {
     player.socket = undefined;
     player.lastInput = emptyPlayerInput();
     player.inputs.clear();
+    Vec.setXY(
+      player.ship.position,
+      Math.round(player.ship.position.x),
+      Math.round(player.ship.position.y),
+    );
   }
 
   tick() {
@@ -163,6 +162,8 @@ export class GameSession {
             station.radius + 250,
           )
         : Vec.create();
+
+      Vec.setXY(spawn, Math.round(spawn.x), Math.round(spawn.y));
       const ship = createShip(this.world, {
         playerId,
         position: spawn,
@@ -192,6 +193,11 @@ export class GameSession {
 
     const ship = player.ship;
 
+    Vec.setXY(
+      ship.position,
+      Math.round(ship.position.x),
+      Math.round(ship.position.y),
+    );
     this.regions.sync({
       world: this.world,
       positions: [...this.players.values()].map(

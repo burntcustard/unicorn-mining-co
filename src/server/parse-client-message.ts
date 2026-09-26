@@ -1,23 +1,11 @@
 import { type RawData } from 'ws';
-import { emptyPlayerInput, type PlayerInput } from '../shared/protocol/input';
+import { unpackPlayerInput } from '../shared/protocol/input';
 import { type ClientMessage } from '../shared/protocol/network';
-
-const isPlayerInput = (input: unknown): input is PlayerInput =>
-  !!input &&
-  typeof input === 'object' &&
-  Object.entries(emptyPlayerInput()).every(([key, value]) => {
-    const received = (input as Record<string, unknown>)[key];
-
-    return (
-      typeof received === typeof value &&
-      (typeof value !== 'number' || Number.isFinite(received))
-    );
-  });
 
 export const parseClientMessage = (
   data: RawData,
 ): ClientMessage | undefined => {
-  let message: ClientMessage;
+  let message: unknown;
 
   try {
     message = JSON.parse(
@@ -26,22 +14,32 @@ export const parseClientMessage = (
         : Buffer.from(
             data instanceof ArrayBuffer ? new Uint8Array(data) : data,
           ).toString('utf8'),
-    ) as ClientMessage;
+    );
   } catch {
     return;
   }
 
-  if (typeof message !== 'object' || message === null) return;
+  // Input packets use [tick, sequence, control bits, offset?].
+  if (Array.isArray(message)) {
+    if (message.length < 3 || message.length > 4) return;
+    const [tick, sequence, code, offset] = message;
 
-  if (
-    message.type === 'input' &&
-    (!Number.isSafeInteger(message.tick) ||
-      !Number.isSafeInteger(message.sequence) ||
-      (message.offset !== undefined && !Number.isFinite(message.offset)) ||
-      !isPlayerInput(message.input))
-  ) {
-    return;
+    if (!Number.isInteger(code) || code < 0 || code >= 192) {
+      return;
+    }
+
+    return {
+      type: 'input',
+      tick,
+      sequence,
+      input: unpackPlayerInput(code),
+      offset,
+    };
   }
 
-  return message;
+  if (typeof message !== 'object' || message === null) return;
+  const other = message as ClientMessage;
+
+  if (other.type === 'input') return;
+  return other;
 };

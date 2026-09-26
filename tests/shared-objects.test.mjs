@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { rolldown } from 'rolldown';
 import { minify } from 'terser';
-import { terserMangleOptions, viteBuildPre } from '../plugins/vite-build.js';
-import { replacePreTerser } from '../plugins/replace-pre-terser.js';
+import {
+  terserMangleOptions,
+  buildPrePlugin,
+} from '../plugins/build-plugins.js';
+import { stripIfdef } from '../plugins/replace-pre-terser.js';
 
 assert.deepEqual(readdirSync('src').sort(), ['client', 'server', 'shared']);
 const scenario = `
@@ -49,15 +52,15 @@ brokenSegment.health = 0;
 pendingDamage.hullHealth = pendingDamage.hullHealth;
 assert(!pendingDamage.segments.includes(brokenSegment), 'matching health still removes pending destroyed hulls without spawning wreckage');
 const arrayObject = new GameObject();
-arrayObject.outline = [[1, 2], [3, 4]];
-arrayObject.outline.edges = [true, false];
-arrayObject.alias = arrayObject.outline;
+arrayObject.shapeOutline = [[1, 2], [3, 4]];
+arrayObject.shapeOutline.edges = [true, false];
+arrayObject.alias = arrayObject.shapeOutline;
 const arrayCopy = cloneEntity({entity:arrayObject});
-assert.equal(arrayCopy.outline, arrayCopy.alias, 'array aliases survive rollback copying');
-arrayCopy.outline[0][0] = 9;
-arrayCopy.outline.edges[0] = false;
-assert.equal(arrayObject.outline[0][0], 1, 'outline coordinates are isolated');
-assert.equal(arrayObject.outline.edges[0], true, 'outline collision metadata is isolated');
+assert.equal(arrayCopy.shapeOutline, arrayCopy.alias, 'array aliases survive rollback copying');
+arrayCopy.shapeOutline[0][0] = 9;
+arrayCopy.shapeOutline.edges[0] = false;
+assert.equal(arrayObject.shapeOutline[0][0], 1, 'shapeOutline coordinates are isolated');
+assert.equal(arrayObject.shapeOutline.edges[0], true, 'shapeOutline collision metadata is isolated');
 assert.equal(bare.modules.length, 0);
 assert(bare.hitbox().length > 0);
 assert.equal(bare.forwardThrust, 0);
@@ -167,7 +170,7 @@ replica.update(0);
 assert.equal(world.entities.size,count,'applying damaged hull state does not duplicate fragments');
 const wreckage = createWreckage({properties:{position:fragment.position,rotation:fragment.rotation,decay:fragment.decay},segments:fragment.wreckage});
 assert.equal(wreckage.hitbox().length,fragment.hitbox().length);
-assert.deepEqual(wreckage.hitbox().map(segment=>segment.outline),fragment.hitbox().map(segment=>segment.outline),'replicated wreckage keeps its actual geometry');
+assert.deepEqual(wreckage.hitbox().map(segment=>segment.shapeOutline),fragment.hitbox().map(segment=>segment.shapeOutline),'replicated wreckage keeps its actual geometry');
 assert.equal(wreckage.cockpit,undefined,'wreckage must not materialise as a complete Mustang');
 for (const activationProgress of [0, 1]) {
   const lightWorld = createWorld({seed:25});
@@ -178,9 +181,9 @@ for (const activationProgress of [0, 1]) {
   lightSegment.activationProgress = activationProgress;
   lightShip.detach(light.mount);
   const debris = [...lightWorld.entities.values()].find(entity=>entity!==lightShip && entity.decay);
-  const outline = debris.wreckage[0].outline;
-  const width = Math.max(...outline.map(([x])=>x)) - Math.min(...outline.map(([x])=>x));
-  const height = Math.max(...outline.map(([,y])=>y)) - Math.min(...outline.map(([,y])=>y));
+  const shapeOutline = debris.wreckage[0].shapeOutline;
+  const width = Math.max(...shapeOutline.map(([x])=>x)) - Math.min(...shapeOutline.map(([x])=>x));
+  const height = Math.max(...shapeOutline.map(([,y])=>y)) - Math.min(...shapeOutline.map(([,y])=>y));
 
   assert.equal(width,8,'light debris is half the cargo door length');
   assert.equal(height,3,'light debris keeps the cargo door width');
@@ -190,7 +193,7 @@ for (const activationProgress of [0, 1]) {
     properties:{shades:debris.shades,decay:debris.decay},
     segments:debris.wreckage,
   });
-  assert.deepEqual(replicatedDebris.hitbox()[0].outline,outline,'replicated light debris keeps its housing shape');
+  assert.deepEqual(replicatedDebris.hitbox()[0].shapeOutline,shapeOutline,'replicated light debris keeps its housing shape');
   assert.equal(replicatedDebris.wreckage[0].fillShade,2,'replicated light debris keeps its bright shade');
 }
 
@@ -209,13 +212,11 @@ for (const production of [false, true]) {
         load: (id) =>
           id === '\0shared-objects'
             ? production
-              ? replacePreTerser(
-                  scenario.replace(/assert\.(\w+)/g, "assert['$1']"),
-                )
+              ? stripIfdef(scenario.replace(/assert\.(\w+)/g, "assert['$1']"))
               : scenario
             : undefined,
       },
-      ...(production ? [viteBuildPre()] : []),
+      ...(production ? [buildPrePlugin()] : []),
     ],
   });
   const { output } = await bundle.generate({ format: 'esm' });

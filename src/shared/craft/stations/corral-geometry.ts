@@ -1,5 +1,5 @@
 import { rotatePoints } from '../../geometry';
-import { type Outline } from '../../types';
+import { type ShapeOutline } from '../../types';
 
 const face = 250;
 const corner = 182;
@@ -44,7 +44,7 @@ const side = [
 const angles = Array.from({ length: 5 }, (_, index) => index * Math.PI * 0.4);
 const core = angles.flatMap((angle) =>
   rotatePoints([[inner, -innerCorner]], angle),
-) as Outline;
+) as ShapeOutline;
 const panel = [
   [back, -cut],
   [notch, -edge],
@@ -56,14 +56,14 @@ const panel = [
   [back, cut],
 ];
 const stationSides = angles.flatMap((angle, sideIndex) =>
-  side.map((outline, piece) => ({
+  side.map((shapeOutline, piece) => ({
     opening: sideIndex === 0 && piece === 2,
-    outline: rotatePoints(outline, angle) as Outline,
+    shapeOutline: rotatePoints(shapeOutline, angle) as ShapeOutline,
   })),
 );
 const stationPanels = angles
   .slice(1)
-  .map((angle) => rotatePoints(panel, angle) as Outline);
+  .map((angle) => rotatePoints(panel, angle) as ShapeOutline);
 
 export const stationGeometry = {
   bay: {

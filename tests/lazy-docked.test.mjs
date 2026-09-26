@@ -4,26 +4,27 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { rolldown } from 'rolldown';
-import { viteBuild, viteBuildPre } from '../plugins/vite-build.js';
-import { replacePreTerser } from '../plugins/replace-pre-terser.js';
+import { buildPlugin, buildPrePlugin } from '../plugins/build-plugins.js';
+import { stripIfdef } from '../plugins/replace-pre-terser.js';
 
 const wireContract = `const item = JSON.parse('{"position":1}'); item.position === 1;`;
 
 assert.equal(
-  replacePreTerser(wireContract),
+  stripIfdef(wireContract),
   wireContract,
   'feature stripping must preserve property names, strings and equality',
 );
 
 const directory = await mkdtemp(join(tmpdir(), 'lazy-docked-'));
+const entryId = resolve('src/__lazy_docked_test.ts');
 const entry = `
 import { playerShip } from '${resolve('src/client/player.ts')}';
 import { game } from '${resolve('src/client/game.ts')}';
 import { Diamond } from '${resolve('src/shared/items/diamond.ts')}';
 import { setCraftActionDispatcher } from '${resolve('src/client/craft-actions.ts')}';
 import { renderDocked, confirmSelection, back, moveSelection } from '${resolve('src/client/ui/docked-loader.ts')}';
-// The entry sees a quoted wire key; the independently loaded UI sees dot access.
-playerShip.cargoContents = JSON.parse('{"cargoContents":[]}')['cargoContents'];
+// The entry and independently loaded UI both access the same mangled state.
+playerShip.cargoContents ||= [];
 playerShip.cargoContents.push(new Diamond());
 const sales = [];
 setCraftActionDispatcher(action => {
@@ -68,16 +69,15 @@ try {
     plugins: [
       {
         name: 'lazy-docked-test',
-        resolveId: (id) =>
-          id === 'lazy-docked-test' ? '\0lazy-docked-test' : undefined,
-        load: (id) => (id === '\0lazy-docked-test' ? entry : undefined),
+        resolveId: (id) => (id === 'lazy-docked-test' ? entryId : undefined),
+        load: (id) => (id === entryId ? entry : undefined),
         transform: (code, id) =>
           id.endsWith('/src/client/player.ts')
             ? code + '\nplayerShip["cargoContents"] ||= [];'
             : undefined,
       },
-      viteBuildPre(),
-      { ...viteBuild(), generateBundle: undefined },
+      buildPrePlugin(),
+      { ...buildPlugin(), generateBundle: undefined },
     ],
   });
   const { output } = await bundle.write({

@@ -1,6 +1,6 @@
 import * as Vec from '../vector';
 import { type GameObject } from '../game-object';
-import { type Outline, type Segment } from '../types';
+import { type ShapeOutline, type Segment } from '../types';
 import { type AsteroidSegment } from '../protocol/entities';
 
 export type Collider = {
@@ -10,7 +10,7 @@ export type Collider = {
   collides?: boolean;
   contactFilter?: (self: Collider, other: Collider) => boolean;
   dockSegment?: boolean;
-  outline?: Outline;
+  shapeOutline?: ShapeOutline;
   owner: GameObject;
   asteroidSegment?: AsteroidSegment;
   pickupPoint?: boolean;

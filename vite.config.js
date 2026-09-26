@@ -1,8 +1,8 @@
 import {
   viteBackground,
-  viteBuild,
-  viteBuildPre,
-} from './plugins/vite-build.js';
+  buildPlugin,
+  buildPrePlugin,
+} from './plugins/build-plugins.js';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode, command }) => {
@@ -29,7 +29,7 @@ export default defineConfig(({ mode, command }) => {
       port: 3000,
       proxy,
     },
-    plugins: [viteBuildPre(flags), viteBackground(flags), viteBuild()],
+    plugins: [buildPrePlugin(flags), viteBackground(flags), buildPlugin(flags)],
     build: {
       minify: 'oxc',
       assetsInlineLimit: 0,

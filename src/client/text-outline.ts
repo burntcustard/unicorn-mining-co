@@ -1,22 +1,22 @@
-export interface OutlineOptions {
+export interface TextOutlineOptions {
   ctx: CanvasRenderingContext2D;
   path: Path2D;
   radius?: number;
   strokeStyle?: string;
 }
 
-export const outline = ({
+export const textOutline = ({
   ctx,
   path,
   radius = 1,
   strokeStyle = '#0007',
-}: OutlineOptions) => {
-  const outlinePath = new Path2D();
+}: TextOutlineOptions) => {
+  const textOutlinePath = new Path2D();
 
   Array.from({ length: 16 }, (_, i) => {
     const angle = (i * Math.PI) / 8;
 
-    outlinePath.addPath(path, {
+    textOutlinePath.addPath(path, {
       e: radius * Math.cos(angle),
       f: radius * Math.sin(angle),
     });
@@ -24,6 +24,6 @@ export const outline = ({
 
   ctx.save();
   ctx.strokeStyle = strokeStyle;
-  ctx.stroke(outlinePath);
+  ctx.stroke(textOutlinePath);
   ctx.restore();
 };

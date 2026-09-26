@@ -14,9 +14,9 @@ type ShapeData = Partial<Collider> & {
 };
 
 const shapeOf = (collider: ShapeData) =>
-  collider.outline
+  collider.shapeOutline
     ? new PolygonShape(
-        collider.outline.map(([x, y]) => Vec.create(x, y)),
+        collider.shapeOutline.map(([x, y]) => Vec.create(x, y)),
         collider.collisionMargin,
       )
     : new CircleShape(Vec.create(), collider.radius);

@@ -24,31 +24,48 @@ const replicateEntity = ({
 }: {
   entity: GameObject;
 }): ReplicatedEntity => ({
-  ...(entity instanceof Asteroid && { contents: entity.contents }),
+  ...(entity instanceof Asteroid &&
+    entity.contents.length && { contents: entity.contents }),
   ...(entity instanceof Asteroid && { decay: entity.decay }),
-  ...(entity instanceof Asteroid && { maxHealth: entity.maxHealth }),
-  ...(entity instanceof Asteroid && { outline: entity.outline }),
-  ...(entity instanceof Asteroid && { segments: entity.segments }),
-  ...(entity instanceof Craft && {
-    cargoContents: entity.cargoContents.map((object) =>
-      object instanceof Module
-        ? { moduleIndex: entity.modules.indexOf(object) }
-        : replicateEntity({ entity: object }),
-    ),
-  }),
+  ...(entity instanceof Asteroid &&
+    entity.maxHealth !== entity.radius * 2 && { maxHealth: entity.maxHealth }),
+  ...(entity instanceof Asteroid && { shapeOutline: entity.shapeOutline }),
+  // Untouched procedural segments are recreated from the asteroid's ID and
+  // other replicated fields. Damaged and split asteroids need their own state.
+  ...(entity instanceof Asteroid &&
+    (entity.shapeOutline ||
+      entity.segments?.some(
+        ({ health, maxHealth }) => health !== maxHealth,
+      )) && {
+      segments: entity.segments,
+    }),
+  ...(entity instanceof Craft &&
+    entity.cargoContents.length && {
+      cargoContents: entity.cargoContents.map((object) =>
+        object instanceof Module
+          ? { moduleIndex: entity.modules.indexOf(object) }
+          : replicateEntity({ entity: object }),
+      ),
+    }),
   ...(entity instanceof Craft && { credits: entity.credits }),
   ...(entity instanceof Craft && { dockedTo: entity.dockedTo }),
-  ...(entity instanceof Craft && { hullHealth: entity.hullHealth }),
+  ...(entity instanceof Craft &&
+    !(entity instanceof Station) && { hullHealth: entity.hullHealth }),
   ...(entity instanceof Craft && { launching: entity.launching }),
   ...(entity instanceof Craft && { maxSpeed: entity.maxSpeed }),
   ...(entity instanceof Craft && {
-    modules: entity.moduleStates.map((state, index) => ({
-      ...state,
-      id: entity.modules[index].id,
-    })),
+    modules: entity.modules.length
+      ? entity.moduleStates.map((state, index) => ({
+          ...state,
+          id: entity.modules[index].id,
+        }))
+      : undefined,
     wreckage: entity.wreckage,
     decay: entity.decay,
-    shades: entity.shades,
+    shades:
+      entity.shades === (entity.constructor as typeof Craft).shades
+        ? undefined
+        : entity.shades,
   }),
   ...(entity instanceof Ship && { thrust: entity.thrust }),
   ...(entity instanceof Ship && { turn: entity.turn }),
@@ -56,7 +73,13 @@ const replicateEntity = ({
     (entity.constructor as typeof GameObject).friction && {
     friction: entity.friction,
   }),
-  ...('health' in entity && { health: entity.health }),
+  ...('health' in entity && {
+    health:
+      (entity instanceof Asteroid && entity.health === entity.radius * 2) ||
+      (entity instanceof Craft && entity.health === 100)
+        ? undefined
+        : entity.health,
+  }),
   ...('label' in entity && { label: entity.label }),
   ...('paint' in entity && { paint: entity.paint }),
   ...('playerId' in entity && { playerId: entity.playerId }),
@@ -74,13 +97,19 @@ const replicateEntity = ({
           : entity instanceof Craft
             ? 'ship'
             : 'object',
-  mass: entity.mass,
-  pendingUpdateTime: entity.pendingUpdateTime,
+  mass:
+    entity instanceof Asteroid && entity.mass === 0.4 * entity.radius ** 2
+      ? undefined
+      : entity.mass,
+  pendingUpdateTime: entity.pendingUpdateTime || undefined,
   position: { x: entity.position.x, y: entity.position.y },
   radius: entity.radius,
   rotation: entity.rotation,
   spin: entity.spin,
-  velocity: { x: entity.velocity.x, y: entity.velocity.y },
+  velocity:
+    entity.velocity.x || entity.velocity.y
+      ? { x: entity.velocity.x, y: entity.velocity.y }
+      : undefined,
 });
 
 type SnapshotOptions = {
@@ -93,10 +122,12 @@ type SnapshotOptions = {
 
 export class ReplicationManager {
   private entities = new Set<EntityId>();
+  private previousFields = new Map<EntityId, Map<string, string>>();
 
   initial(options: SnapshotOptions): ServerMessage {
     this.entities.clear();
-    return { ...this.snapshot(options), type: 'load' };
+    this.previousFields.clear();
+    return { ...this.snapshot(options), entityIds: undefined, type: 'load' };
   }
 
   snapshot({
@@ -131,13 +162,52 @@ export class ReplicationManager {
             updateTier({ entity, observers: [ship] }).replicateEvery ===
             0,
       )
-      .map((entity) => replicateEntity({ entity }));
+      .map((entity) => {
+        const full = replicateEntity({ entity });
 
-    this.entities = new Set(visible.map((entity) => entity.id));
+        const fields = new Map(
+          Object.entries(full)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => [key, JSON.stringify(value)]),
+        );
+        const previous = this.previousFields.get(entity.id);
+
+        this.previousFields.set(entity.id, fields);
+
+        if (!previous) return full;
+
+        // The client keeps each entity's first full record. Send only fields
+        // whose serialized values changed, and null to clear an old field.
+        return {
+          id: entity.id,
+          ...Object.fromEntries([
+            ...Object.entries(full).filter(
+              ([key, value]) =>
+                key !== 'id' &&
+                value !== undefined &&
+                fields.get(key) !== previous.get(key),
+            ),
+            ...[...previous.keys()]
+              .filter((key) => !fields.has(key))
+              .map((key) => [key, null]),
+          ]),
+        } as ReplicatedEntity;
+      })
+      .filter((record) => Object.keys(record).length > 1);
+
+    const entities = new Set(visible.map((entity) => entity.id));
+    const membershipChanged =
+      entities.size !== this.entities.size ||
+      [...entities].some((id) => !this.entities.has(id));
+
+    this.entities = entities;
+    this.previousFields.forEach((_, id) => {
+      if (!entities.has(id)) this.previousFields.delete(id);
+    });
     return {
       acknowledgedSequence,
       inputLead,
-      entityIds: [...this.entities],
+      entityIds: membershipChanged ? [...entities] : undefined,
       fullEntities,
       serverTick: world.tick,
       type: 'snapshot' as const,

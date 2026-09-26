@@ -38,7 +38,7 @@ WHITE - Unlocked by default from the start of the game.
 ## Tech used
 
 - Game engine heavily inspired by [Kontra.js](https://straker.github.io/kontra/) by [Steven Lambert](https://stevenklambert.com/), rendering to an HTML canvas.
-- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/vite-build.js) for chunking, minification, and size warnings.
+- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/build-plugins.js) for chunking, minification, and size warnings.
 - [TypeScript 7](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) for fast type checking as source files are gradually converted to TypeScript.
 
 ## Run locally
@@ -63,11 +63,18 @@ WHITE - Unlocked by default from the start of the game.
    one terminal and serve the build from another
    `npm run preview`
 
+Use `dev` with `dev:server`, or `preview` with `start:server`. Production
+builds mangle packet fields, so mixing the two modes leaves the client waiting
+for a welcome packet.
+
 7. See [package.json](package.json) for other scripts
 
 ## Build
 
-`npm run build` runs TypeScript 7, builds with nine Terser passes, emits ordinary
-browser-cacheable ES modules, and warns if any JavaScript resource is larger
-than 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for the current loading
-tiers and their triggers.
+`npm run build` type-checks and builds the client and server with the same
+Terser property names. Both entry points use the shared plugins in
+`plugins/build-plugins.js`; `plugins/build-server.js` runs the server bundle. It emits browser-cacheable ES modules, bundles the
+production server as `dist/server.js`, and warns if a browser JavaScript chunk
+exceeds 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading
+tiers and their triggers. `npm run test:packets` reports client/server packet
+sizes before and after production mangling.

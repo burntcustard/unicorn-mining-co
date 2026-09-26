@@ -1,4 +1,4 @@
-import { outline } from './outline';
+import { textOutline } from './text-outline';
 
 /**
  * Array of Path2Ds that represent each character.
@@ -165,7 +165,7 @@ export function renderText({
 
   const path = textPath(displayText);
 
-  outline({ ctx, path });
+  textOutline({ ctx, path });
   ctx.stroke(path);
   ctx.restore();
 }

@@ -1,6 +1,7 @@
 import * as Vec from './vector';
 import { createRandom, type Random } from './seeded-random';
 import { localMovement } from './simulation/local-movement';
+import { round } from './utilities/round';
 import { type Collider } from './collision/types';
 import { type SimulationWorld } from './simulation/world';
 
@@ -76,7 +77,7 @@ export class GameObject {
   }
   hitbox(): Collider[] {
     // Loose modules and other objects without geometry need no contact fixture.
-    return this.dead || this.buried || (!this.radius && !this.outline)
+    return this.dead || this.buried || (!this.radius && !this.shapeOutline)
       ? []
       : [
           {
@@ -84,12 +85,20 @@ export class GameObject {
             position: this.position,
             radius: this.radius,
             rotation: this.rotation,
-            outline: this.outline,
+            shapeOutline: this.shapeOutline,
             bounciness: this.bounciness,
             friction: this.friction,
             physics: this.physics,
           },
         ];
+  }
+  /**
+   * Keep predicted and authoritative motion on the same numeric grid.
+   */
+  roundMotion() {
+    Vec.setXY(this.position, round(this.position.x), round(this.position.y));
+    this.rotation = round(this.rotation);
+    this.spin = round(this.spin);
   }
   update(dt: number) {
     if (this.dead || this.buried) return;
@@ -121,5 +130,6 @@ export class GameObject {
         : this.collections[1] || [],
       dt,
     );
+    this.roundMotion();
   }
 }

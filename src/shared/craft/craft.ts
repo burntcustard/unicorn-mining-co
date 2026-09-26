@@ -2,7 +2,12 @@ import * as Vec from '../vector';
 import { type ModuleState } from './module-state';
 import { type WreckageSegment } from './wreckage-segment';
 import { cargoHatchOpen, moduleTypes } from '../modules';
-import { movePoint, outlineExtent, rotatePoint, shapeOf } from '../geometry';
+import {
+  movePoint,
+  shapeOutlineExtent,
+  rotatePoint,
+  shapeOf,
+} from '../geometry';
 import { GameObject } from '../game-object';
 import { colors, shadesOf } from '../colors';
 import { applyForce } from '../physics/apply-force';
@@ -10,7 +15,12 @@ import { outerEdges } from '../polygon';
 import { type Collider } from '../collision/types';
 import { cargoContactAllowed } from '../modules/cargo-hatch';
 import { Module } from '../modules/module';
-import { type Mount, type Outline, type Shades, type Segment } from '../types';
+import {
+  type Mount,
+  type ShapeOutline,
+  type Shades,
+  type Segment,
+} from '../types';
 import { entityId } from '../simulation/world';
 
 type ModuleRecord = Module;
@@ -18,7 +28,7 @@ type HullSegmentPlan = Partial<Segment> & {
   [key: string]: any;
   health?: number;
   mounts?: Mount[];
-  points?: Outline | ((segment: Segment) => Outline);
+  points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
 };
 type CraftData = {
   [key: string]: any;
@@ -48,7 +58,7 @@ const centerOf = (segments: Segment[]) =>
 const outlinesOf = (segments: Segment[]) =>
   segments
     .map(({ points }) => points)
-    .filter((points): points is Outline => Array.isArray(points));
+    .filter((points): points is ShapeOutline => Array.isArray(points));
 
 const makeSegment = (
   craft: Craft,
@@ -206,7 +216,7 @@ export class Craft extends GameObject {
   get wreckage(): WreckageSegment[] | undefined {
     return this.decay
       ? this.segments.map((segment) => ({
-          outline:
+          shapeOutline:
             typeof segment.points === 'function'
               ? segment.points(segment)
               : segment.points,
@@ -214,7 +224,7 @@ export class Craft extends GameObject {
           offset: segment.localPosition,
           health: (segment.mount || segment).health,
           fillShade: segment.fillShade,
-          stroke: segment.outline,
+          stroke: segment.shapeOutline,
         }))
       : undefined;
   }
@@ -371,7 +381,7 @@ export class Craft extends GameObject {
           : segment.points;
       const points = typeof shape === 'function' ? shape(segment) : shape;
       const { middle, reach: radius } = points?.length
-        ? outlineExtent(points)
+        ? shapeOutlineExtent(points)
         : { middle: [0, 0], reach: points ? -Infinity : 0 };
 
       if (wreckage && typeof wreckage === 'object') {
@@ -437,12 +447,12 @@ export class Craft extends GameObject {
             this.rotation,
           ),
         );
-        const outline =
+        const shapeOutline =
           points &&
           (Object.assign(
             points.map(([x, y]) => [x - middleX, y - middleY]),
             { edges: points.edges },
-          ) as Outline);
+          ) as ShapeOutline);
 
         const physics =
           this.physics &&
@@ -480,7 +490,7 @@ export class Craft extends GameObject {
               (friction?.call ? friction(segment) : friction) ?? this.friction,
             dockSegment: segment.dockSegment,
             role: segment.catches ? 'cargoHatch' : undefined,
-            outline,
+            shapeOutline,
             collides: Boolean(collides),
             contactFilter: segment.catches ? cargoContactAllowed : undefined,
             physics,

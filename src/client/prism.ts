@@ -4,9 +4,9 @@ import { shapePath, strip } from './drawing';
 import { colors } from '../shared/colors';
 import {
   Asteroid,
-  outlineOf as asteroidOutlineOf,
+  shapeOutlineOf as asteroidShapeOutlineOf,
 } from '../shared/simulation/asteroid';
-import { type Outline, type Segment } from '../shared/types';
+import { type ShapeOutline, type Segment } from '../shared/types';
 import { type GameObject } from '../shared/game-object';
 
 type Crossing = {
@@ -20,20 +20,20 @@ type Crossing = {
 type Ray = {
   at: Vec.Value;
   distance?: number;
-  hit?: Outline;
+  hit?: ShapeOutline;
   out?: Crossing;
 };
 type CompleteRay = Ray & {
-  hit: Outline;
+  hit: ShapeOutline;
   out: Crossing & { away: Vec.Value; length: number };
 };
 export interface Beam {
   mask: Path2D;
-  outlines: Outline[];
+  shapeOutlines: ShapeOutline[];
   rays: Ray[];
 }
 type Lamp = Segment;
-type Scenery = GameObject & { outline?: Outline; scenery?: boolean };
+type Scenery = GameObject & { shapeOutline?: ShapeOutline; scenery?: boolean };
 
 const fillOf = (
   ctx: CanvasRenderingContext2D,
@@ -140,12 +140,12 @@ const spectrumStrength = 0.9;
  * Where a ray first crosses a polygon: the point, how far along the ray it sits,
  * and the face it landed on, as a normal turned to look back at the ray.
  *
- * points: An outline in the lamp's frame.
+ * points: A shape outline in the lamp's frame.
  * from: Where the ray starts.
  * dir: Which way it goes, as a unit vector.
  */
 const cross = (
-  points: Outline,
+  points: ShapeOutline,
   from: Vec.Value,
   dir: Vec.Value,
 ): Crossing | undefined => {
@@ -215,7 +215,7 @@ const refract = (dir: Vec.Value, normal: Vec.Value, index: number) => {
 
 // One scenery object's shape in the lamp's frame, added to the mask as a path
 // and handed back as points for the rays to be tested against
-const outlineOf = (
+const shapeOutlineOf = (
   ship: Pick<GameObject, 'position' | 'rotation'>,
   lamp: Segment,
   object: Scenery,
@@ -226,33 +226,39 @@ const outlineOf = (
     lamp.localPosition,
   );
   const turn = object.rotation - ship.rotation;
-  const outline = rotatePoints(
-    object instanceof Asteroid ? asteroidOutlineOf(object) : object.outline!,
+  const shapeOutline = rotatePoints(
+    object instanceof Asteroid
+      ? asteroidShapeOutlineOf(object)
+      : object.shapeOutline!,
     turn,
     middle,
   );
 
-  mask.addPath(shapePath(outline));
+  mask.addPath(shapePath(shapeOutline));
 
-  return outline;
+  return shapeOutline;
 };
 
 /**
  * One ray, all the way through. Where it stops is where the light stops, and
  * what it found on the way is everything the rainbow needs.
  */
-const rayAt = (outlines: Outline[], angle: number, range: number): Ray => {
+const rayAt = (
+  shapeOutlines: ShapeOutline[],
+  angle: number,
+  range: number,
+): Ray => {
   const dir = directionOf(angle);
   const from = Vec.create();
   let entry: Crossing | Ray = { at: Vec.scale(dir, range), distance: range };
-  let hit: Outline | undefined;
+  let hit: ShapeOutline | undefined;
 
-  outlines.forEach((outline) => {
-    const found = cross(outline, from, dir);
+  shapeOutlines.forEach((shapeOutline) => {
+    const found = cross(shapeOutline, from, dir);
 
     if (found && found.distance < entry.distance) {
       entry = found;
-      hit = outline;
+      hit = shapeOutline;
     }
   });
 
@@ -298,20 +304,20 @@ export const traceBeam = (
   const range = Math.hypot(lens + reach, spread);
   const edge = Math.atan2(spread, lens + reach);
   const mask = new Path2D();
-  const outlines = scenery
+  const shapeOutlines = scenery
     .filter(
       (object): object is Scenery =>
         !!object.scenery &&
-        (object instanceof Asteroid || !!object.outline) &&
+        (object instanceof Asteroid || !!object.shapeOutline) &&
         Vec.distance(object.position, ship.position) - object.radius < range,
     )
-    .map((object) => outlineOf(ship, lamp, object, mask));
+    .map((object) => shapeOutlineOf(ship, lamp, object, mask));
 
   return {
     mask,
-    outlines,
+    shapeOutlines,
     rays: Array.from({ length: rays + 1 }, (_, i) =>
-      rayAt(outlines, edge * ((i * 2) / rays - 1), range),
+      rayAt(shapeOutlines, edge * ((i * 2) / rays - 1), range),
     ),
   };
 };
@@ -322,8 +328,8 @@ export const traceBeam = (
 // Straight and outward corners stay continuous; inward corners separate sheets.
 // Drilled sides can retain collinear vertices. Allow roundoff in their signed
 // turn, relative to edge lengths so rotation and asteroid size cannot split them.
-// Asteroid outlines, including cut children, run counter-clockwise.
-const joins = (points: Outline, from: number, to: number) => {
+// Asteroid shape outlines, including cut children, run counter-clockwise.
+const joins = (points: ShapeOutline, from: number, to: number) => {
   if (from === to) return true;
 
   const count = points.length;
