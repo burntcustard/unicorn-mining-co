@@ -5,21 +5,49 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 
 # Codebase workflow
 
-## Project rules
+- Read `docs/CHUNK_LOADING.md` before changing imports, chunks, or loading triggers.
+- Use static imports for first-frame code and `import()` only for a concrete
+  later trigger. Document loading-trigger changes in `docs/CHUNK_LOADING.md`.
+- Before adding or renaming serialized fields or app-owned properties, review
+  `plugins/property-names.js`. Add names Terser leaves long, one per line;
+  avoid native APIs; quoted import paths are protected by the rewrite regex.
+- Before adding or changing protocol message, entity, event, or equipment
+  string values, review `plugins/protocol-tags.js`. Add eligible exact tags
+  there so client and server use the same one-byte value. List order assigns
+  each value; run `npm run test:packets` after changing either list.
+- Lazy modules expose a typed `default` API object, loaded as in `sound-loader`.
+- Test lazy features with separately emitted production chunks and exercise
+  their real loader. A test that bundles both sides into one file does not
+  validate the boundary; see `tests/lazy-docked.test.mjs`.
+- After changing a lazy module boundary, inspect the production importer and
+  imported chunk to confirm the API names agree, then exercise the
+  loading trigger.
+- Prefer named options objects to multiple positional helper arguments.
 
-- The finished entry has to fit in 13,312 bytes, but going over while building a feature out is fine; it gets golfed back down afterwards.
-- Do not modify generated files in `dist/` by hand; produce them with the build command.
-- Never shorten names of variables, properties, functions, etc. Terser will do that for us.
-- For optimizing, minifying or code-golfing work, use the code-golfing skill.
+For functional source or configuration changes, run `npm run build` before and
+after, plus relevant tests and `npm run lint` afterward. Report changed resource
+sizes. Skip the build for comment or whitespace-only changes.
 
-## Before and after making a code change
+TypeScript runs through `npm run typecheck` before production builds. Prefer
+inference unless an annotation is required to clarify an exported API.
 
-- Do not run a build at all if you are only editing comments, whitespace, or other non-functional changes.
-- Use `npm run build:fast` for small, localized changes and size comparisons while iterating. It runs 10 advzip iterations, making its results quick while still reflecting real recompression.
-- Before editing, run the appropriate build and record the ZIP size as the baseline.
-- Run `npm run lint` after source or configuration changes, but only report it if it fails.
-- After editing, run the same build again and compare its ZIP size with the baseline.
-- Report only the before/after advzip sizes and difference; omit the unoptimized ZIP and pre-Roadroller sizes.
-- Roadroller always runs with the same fixed encoder parameters, so ZIP sizes are directly comparable across builds.
-- Do not use `npm run build:full` for before/after comparisons while golfing or iterating: it runs far more Terser passes, is too slow for quick iteration, and its absolute size is not the number to chase mid-session. Only use it when a full build is explicitly requested, to check a release, or for larger changes. `npm run build` is an alias, but prefer the explicit command.
-- `npm run build:search` doesn't produce a ZIP; it builds `dist/minified.js` like `build:full` and then runs an indefinite Roadroller CLI search for better encoder parameters. Only run it when the user explicitly asks to search for parameters, since it never terminates on its own.
+## Local browser testing
+
+- Before a browser testing session, inspect host processes and listening ports.
+  Stop all existing game servers and Vite dev/preview servers belonging to this
+  checkout, including any on alternate ports. Confirm ownership from the command
+  and working directory; do not stop unrelated applications just because they
+  occupy a desired port. Stop watcher parents as well as their server children
+  so they cannot restart the old server, and verify the ports are released.
+- Start one fresh game server with `npm run dev:server` (port 3001) and one
+  frontend with `npm run dev -- --strictPort` (port 3000), or
+  `npm run preview -- --strictPort` for production testing. Use the default
+  WebSocket proxy; do not add `PORT`, `GAME_SERVER_URL`, or alternate-port
+  overrides to testing commands. If an unrelated service blocks a default
+  port, report the conflict instead of choosing another port.
+- Reuse that pair throughout the investigation. Track the process sessions
+  and stop them when testing finishes, including browser automation processes
+  started for the investigation. Do not accumulate servers between attempts.
+- Finish builds before starting browser captures so rebuilds and page reloads
+  do not invalidate the run. Workflow-only edits do not require starting or
+  stopping game servers.

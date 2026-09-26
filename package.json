@@ -1,58 +1,62 @@
 {
   "name": "unicorn-mining-co",
   "version": "1.0.0",
-  "type": "module",
   "description": "A web game created for Js13kGames",
-  "scripts": {
-    "benchmark": "node benchmarking/run.mjs",
-    "dev": "vite",
-    "dev:host": "vite --host",
-    "world-preview": "node scripts/world-preview.js",
-    "build": "npm run build:full",
-    "build:fast": "vite build --mode fast",
-    "build:full": "vite build --mode full",
-    "build:search": "vite build --mode search",
-    "test": "npm run test:collisions && npm run test:docked && npm run test:prism && npm run test:sound",
-    "test:collisions": "node tests/collisions.test.mjs",
-    "test:docked": "node tests/docked.test.mjs",
-    "test:prism": "node tests/prism.test.mjs",
-    "test:sound": "node tests/sound.test.mjs",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+  "homepage": "https://github.com/burntcustard/unicorn-mining-co#readme",
+  "bugs": {
+    "url": "https://github.com/burntcustard/unicorn-mining-co/issues"
   },
+  "license": "MIT",
+  "author": "burntcustard",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/burntcustard/unicorn-mining-co.git"
   },
-  "author": "burntcustard",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/burntcustard/unicorn-mining-co/issues"
+  "type": "module",
+  "scripts": {
+    "benchmark": "node benchmarking/run.mjs",
+    "benchmark:simulation": "node benchmarking/simulation.mjs",
+    "benchmark:headless": "BENCH_HEADLESS=1 node benchmarking/run.mjs",
+    "dev": "vite",
+    "dev:host": "vite --host",
+    "dev:server": "tsx watch src/server/index.ts",
+    "start:server": "node dist/server.js",
+    "preview": "vite preview --host --port 3000",
+    "world-preview": "node scripts/world-preview.js",
+    "build": "npm run typecheck && vite build && node plugins/build-server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && npm run test:formatting && npm run test:shared && npm run test:simulation && npm run test:regions && npm run test:server && npm run test:packets && npm run test:prediction && npm run test:collisions && npm run test:docked && npm run test:prism && npm run test:sound && npm run test:input",
+    "test:formatting": "node tests/formatting.test.mjs",
+    "test:shared": "node tests/shared-objects.test.mjs && node tests/rendering.test.mjs",
+    "test:simulation": "node tests/simulation.test.mjs && node tests/snapshots.test.mjs",
+    "test:regions": "node tests/regions.test.mjs",
+    "test:server": "tsx tests/server.test.ts",
+    "test:packets": "npm run build && tsx tests/packet-size.test.ts",
+    "test:prediction": "tsx tests/prediction.test.ts",
+    "test:collisions": "node tests/collisions.test.mjs",
+    "test:docked": "node tests/docked.test.mjs && node tests/lazy-docked.test.mjs && node tests/property-mangling.test.mjs",
+    "test:input": "node tests/input.test.mjs && node tests/module-input.test.mjs",
+    "test:prism": "node tests/prism.test.mjs",
+    "test:sound": "node tests/sound.test.mjs",
+    "lint": "oxlint --type-aware --type-check .",
+    "lint:fix": "oxlint --type-aware --type-check --fix .",
+    "format": "oxlint -c .oxlint-format.json --fix . && oxfmt .",
+    "format:check": "oxlint -c .oxlint-format.json . && oxfmt --check ."
   },
-  "homepage": "https://github.com/burntcustard/unicorn-mining-co#readme",
-  "overrides": {
-    "preprocess": "3.2.0"
+  "dependencies": {
+    "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@stylistic/eslint-plugin": "^5.10.0",
-    "acorn": "^8.18.0",
-    "advzip-bin": "^2.0.0",
-    "eslint": "^10.8.1",
-    "globals": "^17.11.0",
-    "html-minifier-terser": "^7.2.0",
-    "jszip": "^3.10.1",
-    "roadroller": "github:burntcustard/roadroller#feature/hierarchical-mixers-zopfli-optimizations",
-    "terser": "^5.50.0",
-    "vite": "^8.2.1"
+    "@types/ws": "^8.18.1",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
+    "oxlint-tsgolint": "^7.0.2002",
+    "terser": "^5.51.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
   },
   "allowScripts": {
-    "advzip-bin@2.0.0": true,
-    "core-js-pure@3.50.0": true,
-    "file:../../roadroller": true,
-    "github:burntcustard/roadroller#feature/hierarchical-mixers-zopfli-optimizations": true,
-    "node-zopfli-es@2.0.6": true,
-    "github:burntcustard/roadroller#c616a8ff38d14f29774562042f153559b90de9df": true,
-    "github:burntcustard/roadroller#85f46f296b122648d997a7c015306164153916d0": true
+    "esbuild@0.28.2": true
   }
 }

@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "lib": ["DOM", "ES2024"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noImplicitAny": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "target": "ES2024"
+  },
+  "include": ["src/**/*.ts"]
+}
