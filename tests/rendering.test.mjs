@@ -302,13 +302,20 @@ console.log('Replicated flares, light beams, module checkboxes, palettes, render
 // Private fields enforce canvas receiver identity, like the browser's DOM getters.
 class TestCanvas {
   #width = 0;
-  get width() { return this.#width; }
-  set width(value) { this.#width = value; }
+  get width() {
+    return this.#width;
+  }
+  set width(value) {
+    this.#width = value;
+  }
   getContext() {
     return { translate() {}, scale() {}, fill() {} };
   }
 }
-globalThis.document = { createElement: () => new TestCanvas() };
+globalThis.document = {
+  createElement: () => new TestCanvas(),
+  getElementById: () => null,
+};
 globalThis.canvas = { getContext: () => ({}) };
 globalThis.location = { protocol: 'http:', host: 'localhost' };
 globalThis.WebSocket = class {};

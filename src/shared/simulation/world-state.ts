@@ -36,6 +36,8 @@ const omitted: Record<string, boolean> = {
 };
 const definitions: Record<string, boolean> = {
   hullSegments: true,
+  // Shared glow geometry carries browser-only path/canvas caches.
+  glow: true,
   item: true,
   fits: true,
   shades: true,
