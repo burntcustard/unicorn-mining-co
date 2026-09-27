@@ -152,13 +152,20 @@ export class Body {
     const cached = this.proxyTransform;
     // Accumulate a conservative bound on coordinate motion once per body.
     // Each fixture spends its own tree margin against this shared distance.
-    const motion = (pose: TransformValue) =>
-      Math.max(
-        Math.abs(pose.p.x - cached.p.x),
-        Math.abs(pose.p.y - cached.p.y),
-      ) +
-      this.proxyRadius *
-        (Math.abs(pose.q.s - cached.q.s) + Math.abs(pose.q.c - cached.q.c));
+    // The rotation difference maps every point within the radius by at most
+    // radius * hypot(deltaSin, deltaCos), regardless of its direction.
+    const motion = (pose: TransformValue) => {
+      const sin = pose.q.s - cached.q.s;
+      const cos = pose.q.c - cached.q.c;
+
+      return (
+        Math.max(
+          Math.abs(pose.p.x - cached.p.x),
+          Math.abs(pose.p.y - cached.p.y),
+        ) +
+        this.proxyRadius * Math.sqrt(sin * sin + cos * cos)
+      );
+    };
 
     if (this.proxyRadius < Infinity) {
       this.proxyMotion += Math.max(motion(from), motion(to));

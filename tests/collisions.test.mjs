@@ -1440,7 +1440,10 @@ console.log('browser damage spark tests passed');
 
     for (const { body, world } of [full, cached]) {
       world.m_broadPhase.m_moveBuffer.length = 0;
-      body.setTransform(position, tick / 20000);
+      body.setTransform(
+        position,
+        tick / 20000 + (Math.floor(tick / 1000) * Math.PI) / 2,
+      );
       Vec.add(body.m_sweep.c, Vec.create(0.01, -0.01), body.m_sweep.c);
       body.m_sweep.a += tick % 503 === 0 ? 1 : 0.0001;
       body.synchronizeTransform();
@@ -1701,4 +1704,50 @@ console.log('browser damage spark tests passed');
       'GJK matches independent rectangle/point distance regardless of earlier queries',
     );
   }
+}
+
+// Cached reference rounding preserves the existing geometry tolerance in both
+// directions, and refreshes after rebuilding fixtures.
+{
+  const object = new GameObject({
+    id: 1901,
+    mass: 10,
+    shapeOutline: [
+      [-2, -2],
+      [2, -2],
+      [2, 2],
+      [-2, 2],
+    ],
+  });
+  const collisions = new GameCollisions();
+  const sync = () => {
+    collisions.step({ entities: [object], previous: new Map(), dt: 0 });
+    return collisions.bodies.get(object.id).fixtures[0];
+  };
+  let fixture = sync();
+
+  for (const [index, sign] of [
+    [0, -1],
+    [1, 1],
+  ]) {
+    object.shapeOutline[index][0] = sign * 2.0000004;
+    assert.equal(sync(), fixture, 'sub-tolerance changes reuse the fixture');
+    object.shapeOutline[index][0] = sign * 2.0000006;
+    const changed = sync();
+
+    assert.notEqual(
+      changed,
+      fixture,
+      'crossing the rounding boundary rebuilds',
+    );
+    assert.equal(sync(), changed, 'the rebuilt signature is cached');
+    fixture = changed;
+  }
+  object.mass++;
+  const changedMass = sync();
+
+  assert.notEqual(changedMass, fixture);
+  assert.equal(sync(), changedMass);
+  object.angularInertiaScale *= 2;
+  assert.notEqual(sync(), changedMass);
 }

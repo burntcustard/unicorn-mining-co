@@ -214,3 +214,43 @@ the current source in both comparisons.
 
 See [persistent-state results](../docs/performance-persistent-state-2026-09-27.md)
 for the retained implementation and the rejected region/GC experiments.
+
+The [collision cache follow-up](../docs/performance-collision-caches-2026-09-27.md)
+records three-player production comparisons for persistent motion scratch data,
+cached geometry quantization, and a tighter conservative rotation bound.
+
+## Region pre-generation experiments
+
+`region-prewarm.mjs` builds a source-only experimental server bundle; it does not
+change production code or deployment configuration. The default radius is 50,000
+and seed is 25. Examples:
+
+```sh
+node benchmarking/region-prewarm.mjs --mode=descriptions
+node benchmarking/region-prewarm.mjs --mode=asteroids --flight --scenario=spread
+node benchmarking/region-prewarm.mjs --mode=geometry --compact-geometry --indexed-removal --flight --scenario=spread
+node benchmarking/region-prewarm.mjs --mode=bodies --compact-geometry --indexed-removal --validate
+node benchmarking/region-prewarm.mjs --mode=bodies --compact-geometry --indexed-removal --flight --old-space=512
+```
+
+Compare `cold`, `descriptions`, `geometry` and `bodies` across `spread`, `convoy`
+and `contact`, sequentially in alternating order. `--flight` runs three players
+for 3,600 measured ticks after 300 warm-up ticks. `--activation` instead measures
+151 three-observer placements and cannot be combined with `--flight`. Other
+memory diagnostic modes are `objects`, `hitboxes` and `fixtures`. Geometry and
+body modes prepare asteroids only, preserving on-demand wreck cargo ID allocation.
+
+Each child has a 290-second wall timeout and uses a 16 MiB semi-space.
+`--cooldown=1000` settles startup work before flight setup and after warm-up.
+`--old-space=512` sets the child's V8 old-space limit, not its total RSS; the
+reported heap limit verifies flag forwarding. `--memory-limit=2048` is an RSS
+stop guard checked between regions during object preparation. Forced GC reports
+retained memory between diagnostic stages, outside flight measurements.
+
+Prepared objects stay outside active simulation and are consumed on first
+activation. This prototype does not introduce persistent mutable state for
+unloaded asteroids. `--validate` checks prepared cache use, geometry invalidation,
+mining, cargo pickup and unload/reload behavior for geometry/body modes.
+
+See [the investigation](../docs/performance-region-prewarm-2026-09-27.md) for
+memory tradeoffs, indexed removal, limitations and the repeated flight results.

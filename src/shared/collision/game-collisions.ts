@@ -24,7 +24,10 @@ type BodyRecord = {
   entity: GameObject;
   fixtures: Fixture[];
   geometry: number[];
+  roundedGeometry: number[];
   geometrySource?: object;
+  velocity: Vec.Value;
+  spin: number;
 };
 
 // Explicit object mass controls translation. Geometry only determines how
@@ -86,6 +89,8 @@ export class GameCollisions {
   private velocityB = Vec.create();
   private bodies = new Map<number, BodyRecord>();
   private contacts: Contact[] = [];
+  private retained = new Set<number>();
+  private motions: BodyRecord[] = [];
   private impacts = new Map<
     PhysicsContact,
     { contact: Contact; impact: number }
@@ -166,7 +171,10 @@ export class GameCollisions {
   }) {
     this.contacts = [];
     this.impacts.clear();
-    const retained = new Set(entities.map((entity) => entity.id));
+    const retained = this.retained;
+
+    retained.clear();
+    entities.forEach((entity) => retained.add(entity.id));
 
     this.bodies.forEach(({ body }, id) => {
       if (!retained.has(id)) {
@@ -175,26 +183,32 @@ export class GameCollisions {
       }
     });
 
-    const motions = entities.map((entity) => {
+    const motions = this.motions;
+
+    motions.length = 0;
+    entities.forEach((entity) => {
       const start = previous.get(entity.id) || {
         position: entity.position,
         rotation: entity.rotation,
       };
       const record = this.sync(entity);
-      const velocity = dt
-        ? Vec.scale(Vec.subtract(entity.position, start.position), 1 / dt)
-        : Vec.create();
-      const spin = dt ? (entity.rotation - start.rotation) / dt : 0;
+      const velocity = record.velocity;
+
+      if (dt) {
+        Vec.subtract(entity.position, start.position, velocity);
+        Vec.scale(velocity, 1 / dt, velocity);
+      } else Vec.setXY(velocity, 0, 0);
+      record.spin = dt ? (entity.rotation - start.rotation) / dt : 0;
 
       record.body.setTransform(start.position, start.rotation);
       record.body.setLinearVelocity(velocity);
-      record.body.setAngularVelocity(spin);
-      return { record, start, velocity, spin };
+      record.body.setAngularVelocity(record.spin);
+      motions.push(record);
     });
 
     this.world.step(dt, 8, 3);
 
-    motions.forEach(({ record: { body, entity }, velocity, spin }) => {
+    motions.forEach(({ body, entity, velocity, spin }) => {
       const position = body.getPosition();
       const resolved = body.getLinearVelocity();
 
@@ -259,6 +273,9 @@ export class GameCollisions {
         body: this.world.createBody(),
         fixtures: [],
         geometry: [],
+        roundedGeometry: [],
+        velocity: Vec.create(),
+        spin: 0,
       };
       this.bodies.set(entity.id, record);
     }
@@ -294,11 +311,16 @@ export class GameCollisions {
 
     let cursor = 2;
     const previous = record.geometry;
+    // Keep the original values for exact matches and cache their quantization.
+    // Only the incoming geometry needs rounding on subsequent comparisons.
+    const rounded = record.roundedGeometry;
+    const matches = (value: number, index: number) =>
+      value === previous[index] || Math.round(value * 1e6) === rounded[index];
     const inverseSin = Math.sin(-entity.rotation);
     const inverseCos = Math.cos(-entity.rotation);
     const unchanged =
-      same(entity.mass, previous[0]) &&
-      same(entity.angularInertiaScale, previous[1]) &&
+      matches(entity.mass, 0) &&
+      matches(entity.angularInertiaScale, 1) &&
       colliders.every((collider) => {
         const dx = collider.position.x - entity.position.x;
         const dy = collider.position.y - entity.position.y;
@@ -313,22 +335,22 @@ export class GameCollisions {
         cursor += 2 + (outline ? outline.length * 2 : 3);
         return (
           previous[start] === geometryFlags(collider) &&
-          same(previous[start + 1], collider.collisionMargin ?? 0) &&
+          matches(collider.collisionMargin ?? 0, start + 1) &&
           (outline
             ? outline.every(
                 (point, index) =>
-                  same(
+                  matches(
                     x + (point[0] * cos - point[1] * sin),
-                    previous[start + 2 + index * 2],
+                    start + 2 + index * 2,
                   ) &&
-                  same(
+                  matches(
                     y + (point[0] * sin + point[1] * cos),
-                    previous[start + 3 + index * 2],
+                    start + 3 + index * 2,
                   ),
               )
-            : same(x, previous[start + 2]) &&
-              same(y, previous[start + 3]) &&
-              same(collider.radius, previous[start + 4]))
+            : matches(x, start + 2) &&
+              matches(y, start + 3) &&
+              matches(collider.radius, start + 4))
         );
       });
 
@@ -383,6 +405,7 @@ export class GameCollisions {
       });
     });
     record.geometry = geometry;
+    record.roundedGeometry = geometry.map((value) => Math.round(value * 1e6));
     record.body.setProxyRadius(
       Math.max(
         0,
