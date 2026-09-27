@@ -19,7 +19,7 @@ const bundle = await rolldown({
       name: 'input-test-entry',
       load: (id) => {
         if (id === '\0input') {
-          return `export * from '${process.cwd()}/src/client/input.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';`;
+          return `export * from '${process.cwd()}/src/client/input.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';export {maxPredictionTicks, simulationStep} from '${process.cwd()}/src/shared/settings.ts';`;
         }
 
         if (id.endsWith('/src/client/core.ts')) {
@@ -101,6 +101,7 @@ let updates = 0;
 let renders = 0;
 let frameTime;
 const frames = [];
+const maxFrameTime = input.maxPredictionTicks * input.simulationStep;
 
 globalThis.performance = { now: () => now };
 globalThis.canvas = { width: 1, height: 1 };
@@ -126,30 +127,38 @@ try {
         assert(timing.now < now, 'CPU work must not advance the rendered pose');
         renders++;
         assert(
-          dt > 0 && dt <= 0.1,
-          'camera frame time is bounded after stalls',
+          dt > 0 && dt <= maxFrameTime,
+          'frame catch-up is bounded by the prediction horizon',
         );
       },
     })
     .start();
-  now = 750;
-  frames.shift()();
-  assert.equal(updates, 1, 'a stall must not trigger catch-up updates');
-  assert.equal(renders, 1, 'the stalled frame still renders');
-  now += 1000 / 60;
-  frames.shift()();
-  assert.equal(updates, 2, 'old frame debt must not carry into the next frame');
-  now += 2000;
-  frames.shift()();
-  assert.equal(updates, 3, 'a long background pause is bounded too');
-  assert.equal(renders, 3);
+  // Ordinary slow frames retain all elapsed time. Longer pauses are capped,
+  // and the first normal frame afterward must not replay the discarded debt.
+  const elapsedFrames = [
+    750,
+    1000 / 60,
+    100,
+    200,
+    2000,
+    1000 / 60,
+    ...Array(12).fill(1000 / 120),
+  ];
 
-  for (let frame = 0; frame < 12; frame++) {
-    now += 1000 / 120;
+  elapsedFrames.forEach((elapsedMs, index) => {
+    now = (frameTime?.now || 0) + elapsedMs;
+    const frameStartedAt = now;
+
     frames.shift()();
-  }
-  assert.equal(updates, 15, 'each high-refresh frame updates before rendering');
-  assert.equal(renders, updates);
+    assert.equal(updates, index + 1, 'each frame invokes update once');
+    assert.equal(renders, updates, 'each update is followed by rendering');
+    assert.equal(frameTime.now, frameStartedAt);
+    assert(
+      Math.abs(frameTime.dt - Math.min(elapsedMs / 1000, maxFrameTime)) < 1e-12,
+      `${elapsedMs}ms frame preserves elapsed time up to the catch-up limit`,
+    );
+    assert.equal(frames.length, 1, 'only the next animation frame is queued');
+  });
 } finally {
   globalThis.performance = clock;
   delete globalThis.requestAnimationFrame;
