@@ -23,6 +23,13 @@ const options = Object.fromEntries(
     ),
 );
 
+if (
+  options.sample &&
+  (typeof options.sample !== 'string' || !options.scenario)
+) {
+  throw new Error('--sample needs a file path and one --scenario');
+}
+
 if (options.profile && options['broken-cache']) {
   throw new Error('--profile and --broken-cache must be measured separately');
 }
@@ -135,12 +142,12 @@ try {
               options['broken-cache'] &&
               id.endsWith('/src/server/replication.ts')
             ) {
-              if (!code.includes('value === full.segments')) {
+              if (!code.includes('segments &&= value !== undefined;')) {
                 throw new Error('Cache fault-injection marker changed');
               }
               return code.replace(
-                'value === full.segments',
-                "key === 'segments'",
+                'segments &&= value !== undefined;',
+                "segments = field.key === 'segments' && value !== undefined;",
               );
             }
           },
@@ -158,7 +165,28 @@ try {
           },
           load(id) {
             if (id === '\0flight-native') {
-              return `${resourceRuntime} ${phaseRuntime} import {createHash} from 'node:crypto'; export function cpuTime(){const used=process.cpuUsage();return used.user+used.system;} export function createPacketHash(){const hash=createHash('sha256');return [packet=>${options.profile ? "measure('Harness packet hashing', () => hash.update(packet))" : 'hash.update(packet)'},()=>hash.digest('hex')];}`;
+              const sampling = options.sample
+                ? `
+import {Session} from 'node:inspector';
+import {writeFileSync} from 'node:fs';
+const profiler = new Session();
+profiler.connect();
+profiler.post('Profiler.enable');
+let cpuCalls = 0;
+`
+                : '';
+              const startSampling = options.sample
+                ? `if (++cpuCalls === ${options.warm ? 3 : 1}) profiler.post('Profiler.start');`
+                : '';
+              const stopSampling = options.sample
+                ? `if (cpuCalls === ${options.warm ? 4 : 2}) profiler.post('Profiler.stop', (error, result) => {
+if (error) throw error;
+writeFileSync(${JSON.stringify(options.sample)}, JSON.stringify(result.profile));
+profiler.disconnect();
+});`
+                : '';
+
+              return `${resourceRuntime} ${phaseRuntime} ${sampling} import {createHash} from 'node:crypto'; export function cpuTime(){${startSampling}const used=process.cpuUsage();${stopSampling}return used.user+used.system;} export function createPacketHash(){const hash=createHash('sha256');return [packet=>${options.profile ? "measure('Harness packet hashing', () => hash.update(packet))" : 'hash.update(packet)'},()=>hash.digest('hex')];}`;
             }
 
             if (id === entryId) {
@@ -197,6 +225,7 @@ ${workload}`;
     const compressed = await minify(chunk.code, {
       ...terserMangleOptions(),
       compress: { passes: 2 },
+      format: { beautify: Boolean(options.readable) },
     });
 
     await writeFile(entry, compressed.code);
@@ -210,7 +239,10 @@ ${workload}`;
   const child = spawnSync(
     process.execPath,
     [
-      ...(options['node-flag'] ? [options['node-flag']] : []),
+      ...process.argv
+        .slice(2)
+        .filter((arg) => arg.startsWith('--node-flag='))
+        .map((arg) => arg.slice('--node-flag='.length)),
       ...(options['semi-space']
         ? [`--max-semi-space-size=${Number(options['semi-space'])}`]
         : []),

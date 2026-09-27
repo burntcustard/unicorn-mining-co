@@ -440,14 +440,14 @@ export class Asteroid extends GameObject {
   static friction = 0.2;
   static angularDrag = 0;
   contents: number[];
-  decay?: number;
-  health: number;
+  declare decay?: number;
+  declare health: number;
   kind = 'asteroid' as const;
   maxHealth: number;
   shapeOutline?: number[][];
-  pointCount?: number;
-  radiusEven?: number;
-  resource?: number;
+  declare pointCount?: number;
+  declare radiusEven?: number;
+  declare resource?: number;
   segments?: AsteroidSegment[];
 
   constructor({

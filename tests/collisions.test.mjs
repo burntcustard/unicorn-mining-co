@@ -1751,3 +1751,45 @@ console.log('browser damage spark tests passed');
   object.angularInertiaScale *= 2;
   assert.notEqual(sync(), changedMass);
 }
+
+// Craft geometry caching retains live materials and detects shape, membership,
+// docking and explicit collision-margin changes.
+{
+  const world = createWorld();
+  const ship = createShip(world, { position: Vec.create() });
+  const collisions = new GameCollisions();
+  const sync = () => {
+    collisions.step({ entities: [ship], previous: new Map(), dt: 0 });
+    return collisions.bodies.get(ship.id).fixtures;
+  };
+  const index = sync().findIndex(
+    (fixture) => fixture.getUserData().segment.hull,
+  );
+  const original = sync()[index];
+
+  ship.position = Vec.create(100, 200);
+  ship.rotation = 0.3;
+  ship.friction = 0.75;
+  assert.equal(sync()[index], original);
+  assert.equal(original.getUserData().friction, 0.75);
+  const segment = original.getUserData().segment;
+
+  segment.points = segment.points.map((point) => [...point]);
+  segment.points[0][0] += 1;
+  const changed = sync()[index];
+
+  assert.notEqual(changed, original);
+  assert.equal(sync()[index], changed);
+  segment.localPosition.x += 2;
+  assert.notEqual(sync()[index], changed);
+  segment.collider.collisionMargin = 0.125;
+  assert.equal(sync()[index].getShape().m_radius, 0.125);
+  ship.dockedTo = 123;
+  assert.equal(sync().length, 0);
+  ship.dockedTo = undefined;
+  assert(sync().length > 0);
+  ship.physics = false;
+  assert.equal(sync().length, 0);
+  ship.physics = true;
+  assert(sync().length > 0);
+}

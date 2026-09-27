@@ -228,12 +228,34 @@ export class Ship extends Craft {
 
   // This hull has one engine mount; each nozzle belongs to the same module.
   get engine(): any {
-    return (
-      this.modules?.find(
-        (module) =>
-          module.forwardThrust && module.mount && !(module.mount.health < 1),
-      ) || {}
-    );
+    for (const segment of this.segments) {
+      if (!segment.mounts) continue;
+
+      for (const mount of segment.mounts) {
+        const module = mount.module;
+
+        if (
+          module &&
+          module.forwardThrust &&
+          module.mount &&
+          !(module.mount.health < 1)
+        ) {
+          return module;
+        }
+      }
+    }
+
+    for (const object of this.cargoContents) {
+      if (
+        object instanceof Module &&
+        object.forwardThrust &&
+        object.mount &&
+        !(object.mount.health < 1)
+      ) {
+        return object;
+      }
+    }
+    return {};
   }
 
   get forwardThrust() {

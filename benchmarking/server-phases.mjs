@@ -53,6 +53,42 @@ export function instrumentPhases(code, id, detail = false) {
       'Collision and physics',
     ],
   ];
+
+  if (detail) {
+    methods.push(
+      [
+        'shared/collision/game-collisions.ts',
+        'GameCollisions',
+        'sync',
+        'Fixture geometry synchronization',
+      ],
+      ['shared/physics/world.ts', 'World', 'step', 'Physics bookkeeping'],
+      [
+        'shared/physics/world.ts',
+        'World',
+        'findNewContacts',
+        'Broadphase contact discovery',
+      ],
+      [
+        'shared/physics/world.ts',
+        'World',
+        'updateContacts',
+        'Existing contact detection',
+      ],
+      [
+        'shared/physics/solver.ts',
+        'Solver',
+        'solveWorld',
+        'Discrete physics solving',
+      ],
+      [
+        'shared/physics/solver.ts',
+        'Solver',
+        'solveWorldTOI',
+        'Continuous physics solving',
+      ],
+    );
+  }
   const functions = [
     [
       'shared/simulation/local-movement.ts',

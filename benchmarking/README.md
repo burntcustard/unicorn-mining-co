@@ -176,8 +176,9 @@ if using `taskset`; do not run builds or other benchmarks concurrently.
 passes input transitions through the real wire parser. Nested phases are
 subtracted from their callers. Hashing and client wire construction are reported
 as harness costs. `--profile=detail` adds per-entity wrappers for snapshot
-extraction, base movement, carrier motion and module activation; it adds more
-overhead. Timings are foreground hotspot estimates, not per-phase process CPU.
+extraction, base movement, carrier motion and module activation, plus fixture
+synchronization, broad-phase searches, contact updates and discrete/continuous
+solvers. It adds overhead, especially for methods called per entity. Timings are foreground hotspot estimates, not per-phase process CPU.
 Use unprofiled runs for total CPU comparisons. Profiling cannot be combined with
 `--broken-cache`.
 
@@ -193,9 +194,24 @@ assessment are in [the server phase report](../docs/performance-server-phases-20
 
 ### Persistent-state comparison and receiver oracle
 
-`--node-flag=--single-threaded-gc` passes one additional Node/V8 flag to a
-production-flight child for experiments. It does not change deployment flags.
+`--node-flag=--single-threaded-gc` passes an additional Node/V8 flag to a
+production-flight child for experiments. Repeat `--node-flag=...` to pass several.
+It does not change deployment flags.
 Use the same saved bundle and semi-space size for both variants.
+
+`--readable` beautifies the final production-compressed bundle for inspection.
+`--sample=/tmp/flight.cpuprofile` collects a V8 sampling profile during the
+measured route only, after warm-up; it requires one explicit `--scenario` and
+must be used when compiling the bundle. Sampling has overhead: use separate
+uninstrumented bundles for CPU comparisons.
+
+```sh
+node benchmarking/production-flight.mjs --scenario=spread --ticks=3600 --warm --semi-space=16 --readable --sample=/tmp/flight.cpuprofile --save=/tmp/flight-readable.mjs
+```
+
+The [server CPU follow-up](../docs/performance-server-cpu-2026-09-27.md) records
+incremental acceptance tests, rejected experiments and the complete-patch
+comparison against the deployed baseline.
 
 The replication oracle compares the new implementation with a saved previous
 `replication.ts`, reconstructing receiver state with the real client's merge and

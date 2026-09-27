@@ -1,4 +1,5 @@
 import * as Vec from '../shared/vector';
+import { type GameObject } from '../shared/game-object';
 import { type PlayerId } from '../shared/protocol/entities';
 import { type InputFrame } from '../shared/protocol/input-frame';
 import {
@@ -82,10 +83,14 @@ export class FramePrediction {
           copy.random = this.world.random;
           addEntity(this.world, copy);
         });
-      nearby.forEach((entity) => {
-        this.world.entities.get(entity.id)!.localMovementParent =
-          this.world.entities.get(entity.localMovementParent?.id);
-      });
+      [...nearby]
+        .filter((entity) => entity.localMovementParent)
+        .forEach((entity) => {
+          this.world.entities.get(entity.id)!.localMovementParent =
+            this.world.entities.get(
+              (entity.localMovementParent as GameObject).id,
+            );
+        });
       this.state = captureWorld({ world: this.world });
     }
 

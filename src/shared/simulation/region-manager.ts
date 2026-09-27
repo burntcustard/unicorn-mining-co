@@ -37,7 +37,8 @@ export class RegionManager {
   private descriptionOwners = new Map<number, Set<RegionDescription>>();
   private queriedRegions?: {
     bounds: string;
-    descriptions: RegionDescription[][];
+    asteroids: RegionDescription['asteroids'][];
+    wrecks: RegionDescription['wrecks'][];
     stations: StationDescription[][];
   };
 
@@ -229,16 +230,24 @@ export class RegionManager {
         return found;
       });
 
-      this.queriedRegions = { bounds: key, descriptions, stations };
+      this.queriedRegions = {
+        bounds: key,
+        asteroids: descriptions.map((regions) =>
+          regions.flatMap(({ asteroids }) => asteroids),
+        ),
+        wrecks: descriptions.map((regions) =>
+          regions.flatMap(({ wrecks }) => wrecks),
+        ),
+        stations,
+      };
     }
 
     return positions.map((position, index) => {
-      const descriptions = this.queriedRegions!.descriptions[index];
       const stations = this.queriedRegions!.stations[index];
 
       return {
         asteroids: descriptionsWithin({
-          descriptions: descriptions.flatMap(({ asteroids }) => asteroids),
+          descriptions: this.queriedRegions!.asteroids[index],
           position,
           range: ranges.asteroid,
         }),
@@ -253,7 +262,7 @@ export class RegionManager {
           range: ranges.stationPhysics,
         }),
         wrecks: descriptionsWithin({
-          descriptions: descriptions.flatMap(({ wrecks }) => wrecks),
+          descriptions: this.queriedRegions!.wrecks[index],
           position,
           range: ranges.wreck,
         }),

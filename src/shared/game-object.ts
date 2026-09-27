@@ -25,6 +25,21 @@ export class GameObject {
   radius = 0;
   dead = false;
   pendingUpdateTime = 0;
+  // Initialize hot optional fields before subclasses add their own properties.
+  localMovementParent: GameObject | 0 | undefined = undefined;
+  localMovementRate: number | undefined = undefined;
+  drag: number | undefined = undefined;
+  decay?: number = undefined;
+  health: number | undefined = undefined;
+  buried: boolean | undefined = undefined;
+  label?: string = undefined;
+  message?: string = undefined;
+  paint?: number = undefined;
+  playerId?: number = undefined;
+  pointCount?: number = undefined;
+  radiusEven?: number = undefined;
+  resource?: number = undefined;
+  kind?: string = undefined;
   world?: SimulationWorld;
   collections: any[][] = [];
   random: Random;

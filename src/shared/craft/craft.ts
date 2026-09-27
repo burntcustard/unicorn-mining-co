@@ -42,9 +42,19 @@ type CraftProperties = {
   velocity?: Vec.Value;
 };
 
-const hullBounciness = 0.2;
-
 // Default restitution when a segment supplies none.
+const hullBounciness = 0.2;
+const collisionCaches = new WeakMap<
+  Craft,
+  { colliders: Collider[]; source: object }
+>();
+const drillColliders = new WeakMap<Segment, Collider>();
+const lockedOutlines = new WeakSet<ShapeOutline>();
+const collisionOutlines = new WeakMap<
+  ShapeOutline,
+  { x: number; y: number; shapeOutline: ShapeOutline }
+>();
+
 import { approach } from '../utilities/approach';
 
 const centerOf = (segments: Segment[]) =>
@@ -70,34 +80,80 @@ const makeSegment = (
   const fixedPoints = Array.isArray(points) ? points : undefined;
   const shape = fixedPoints?.[0] && shapeOf(fixedPoints, mount);
 
+  // Model vertices are shared definitions. Edge markings remain mutable;
+  // changed geometry supplies another outline, including animated models.
+  if (fixedPoints && !lockedOutlines.has(fixedPoints)) {
+    fixedPoints.edges ||= fixedPoints.map(() => true);
+    fixedPoints.forEach(Object.freeze);
+    Object.freeze(fixedPoints);
+    lockedOutlines.add(fixedPoints);
+  }
+
   // A thruster's flare is up about as soon as the key is down, unless told
   // otherwise, either on the module itself or (as the shield's bubble does)
   // on just the one segment of it
   const duration =
     segmentPlan.activationDuration || craftModule.activationDuration || 0.1;
 
-  // Hull health starts on the prototype; damage creates the instance's own
-  // value. Module segments share their mount's health directly.
-  return Object.assign(Object.create(segmentPlan), {
-    phase: 0,
-    ...shape,
-    activationProgress: 0,
-    hull: !mount,
-    module: craftModule,
-    mount,
-    active: 0,
-    radius: segmentPlan.radius || (shape && (() => shape.reach)),
-    rate: 1 / duration,
-    shades: craftModule.shades || craft.shades,
-    localPosition: Vec.add(
-      mount?.localPosition || segmentPlan.localPosition || Vec.create(),
-      Vec.create(
-        0,
-        (segmentPlan.thrusterNozzleSide || 0) * (craftModule.offset || 0),
+  // Give hulls and modules the same runtime layout. Blueprint values are
+  // copied once instead of making every blueprint a different prototype.
+  return Object.assign(
+    {
+      health: undefined,
+      points: undefined,
+      mounts: undefined,
+      core: undefined,
+      disablePhysics: undefined,
+      dockSegment: undefined,
+      activationDuration: undefined,
+      covers: undefined,
+      fillAlpha: undefined,
+      fillShade: undefined,
+      shapeOutline: undefined,
+      wreckage: undefined,
+      catches: undefined,
+      flareSize: undefined,
+      thrusterNozzleSide: undefined,
+      facing: undefined,
+      middle: undefined,
+      reach: undefined,
+      biting: undefined,
+      collider: undefined,
+      expandingTick: undefined,
+      phase: 0,
+      activationProgress: 0,
+      hull: false,
+      module: undefined,
+      mount: undefined,
+      active: 0,
+      radius: undefined,
+      rate: 0,
+      shades: undefined,
+      localPosition: undefined,
+      zIndex: 0,
+    },
+    segmentPlan,
+    {
+      phase: 0,
+      ...shape,
+      activationProgress: 0,
+      hull: !mount,
+      module: craftModule,
+      mount,
+      active: 0,
+      radius: segmentPlan.radius || (shape && (() => shape.reach)),
+      rate: 1 / duration,
+      shades: craftModule.shades || craft.shades,
+      localPosition: Vec.add(
+        mount?.localPosition || segmentPlan.localPosition || Vec.create(),
+        Vec.create(
+          0,
+          (segmentPlan.thrusterNozzleSide || 0) * (craftModule.offset || 0),
+        ),
       ),
-    ),
-    zIndex: segmentPlan.zIndex || craftModule.zIndex || craft.zIndex || 0,
-  }) as Segment;
+      zIndex: segmentPlan.zIndex || craftModule.zIndex || craft.zIndex || 0,
+    },
+  ) as Segment;
 };
 
 export class Craft extends GameObject {
@@ -230,7 +286,12 @@ export class Craft extends GameObject {
   }
 
   get mounts() {
-    return this.segments.flatMap((segment) => segment.mounts || []);
+    const mounts: Mount[] = [];
+
+    for (const segment of this.segments) {
+      if (segment.mounts) mounts.push(...segment.mounts);
+    }
+    return mounts;
   }
 
   segmentsAtMount(mount: Mount) {
@@ -238,12 +299,20 @@ export class Craft extends GameObject {
   }
 
   get modules(): Module[] {
-    return [
-      ...this.mounts.flatMap(({ module }) => (module ? [module] : [])),
-      ...this.cargoContents.filter(
-        (object): object is Module => object instanceof Module,
-      ),
-    ];
+    const modules: Module[] = [];
+
+    for (const segment of this.segments) {
+      if (!segment.mounts) continue;
+
+      for (const mount of segment.mounts) {
+        if (mount.module) modules.push(mount.module);
+      }
+    }
+
+    for (const object of this.cargoContents) {
+      if (object instanceof Module) modules.push(object);
+    }
+    return modules;
   }
 
   // Fit an owned instance, or pass a falsy module to empty the mount. Replaced
@@ -426,8 +495,18 @@ export class Craft extends GameObject {
     );
   }
 
+  // The hitbox pass already visits every changing point. Its token lets physics
+  // reuse fixtures without repeating the geometry scan and coordinate conversion.
+  get geometrySource() {
+    return collisionCaches.get(this)?.source;
+  }
+
   hitbox(collidingOnly = false) {
-    if (this.dockedTo !== undefined && this.dockedTo !== 0) return [];
+    if (this.dockedTo !== undefined && this.dockedTo !== 0) {
+      collisionCaches.delete(this);
+      return [];
+    }
+    let changed = false;
 
     const sin = Math.sin(this.rotation);
     const cos = Math.cos(this.rotation);
@@ -476,17 +555,57 @@ export class Craft extends GameObject {
         this.position.y + (x * sin + y * cos),
       );
       const collider = (segment.collider ||= { owner: this, segment });
-      const shapeOutline = points
-        ? (collider.shapeOutline ||= [] as ShapeOutline)
-        : undefined;
+      const radius = segment.radius(segment);
 
-      if (shapeOutline && points) {
+      changed ||=
+        collider.localPosition?.x !== x ||
+        collider.localPosition?.y !== y ||
+        collider.physics !== physics ||
+        collider.role !== (segment.catches ? 'cargoHatch' : undefined) ||
+        collider.collisionMargin !== undefined ||
+        collider.pickupPoint !== undefined ||
+        collider.radius !== radius ||
+        Boolean(collider.shapeOutline) !== Boolean(points);
+      collider.localPosition = Vec.setXY(
+        collider.localPosition || Vec.create(),
+        x,
+        y,
+      );
+      let shapeOutline = points ? collider.shapeOutline : undefined;
+
+      if (points && lockedOutlines.has(points)) {
+        let cached = collisionOutlines.get(points);
+
+        if (!cached || cached.x !== middleX || cached.y !== middleY) {
+          const outline = points.map(([x, y]) => [
+            x - middleX,
+            y - middleY,
+          ]) as ShapeOutline;
+
+          outline.edges = points.edges;
+          outline.forEach(Object.freeze);
+          Object.freeze(outline);
+          cached = { x: middleX, y: middleY, shapeOutline: outline };
+          collisionOutlines.set(points, cached);
+        }
+        changed ||= shapeOutline !== cached.shapeOutline;
+        shapeOutline = cached.shapeOutline;
+      } else if (points) {
+        if (!shapeOutline || Object.isFrozen(shapeOutline)) {
+          changed = true;
+          shapeOutline = [] as ShapeOutline;
+        }
+        changed ||= shapeOutline.length !== points.length;
         shapeOutline.length = points.length;
         points.forEach(([x, y], index) => {
           const point = (shapeOutline[index] ||= [0, 0]);
 
-          point[0] = x - middleX;
-          point[1] = y - middleY;
+          const localX = x - middleX;
+          const localY = y - middleY;
+
+          changed ||= point[0] !== localX || point[1] !== localY;
+          point[0] = localX;
+          point[1] = localY;
         });
         shapeOutline.edges = points.edges;
       }
@@ -503,7 +622,7 @@ export class Craft extends GameObject {
         ? cargoContactAllowed
         : undefined;
       collider.physics = physics;
-      collider.radius = segment.radius(segment);
+      collider.radius = radius;
       collider.rotation = this.rotation;
       collider.speed =
         segment.expandingTick !== undefined &&
@@ -516,30 +635,59 @@ export class Craft extends GameObject {
       if (collider.radius) colliders.push(collider);
 
       if (drillTip?.radius) {
-        colliders.push({
-          owner: this,
-          segment,
-          role: 'hornDrill',
-          friction: this.friction,
-          position: Vec.add(
-            this.position,
-            rotatePoint(
-              Vec.add(segment.localPosition, drillTip.position),
-              this.rotation,
-            ),
-          ),
-          radius: drillTip.radius,
-          rotation: this.rotation,
-          physics: false,
-          collides: Boolean(collides),
-        });
+        let tip = drillColliders.get(segment);
+        const local = Vec.add(segment.localPosition, drillTip.position);
+
+        if (!tip) {
+          tip = {
+            owner: this,
+            segment,
+            role: 'hornDrill',
+            physics: false,
+            friction: this.friction,
+            position: this.position,
+            radius: 0,
+            rotation: this.rotation,
+          };
+          drillColliders.set(segment, tip);
+        }
+        changed ||=
+          tip.localPosition?.x !== local.x ||
+          tip.localPosition?.y !== local.y ||
+          tip.radius !== drillTip.radius;
+        tip.localPosition = local;
+        tip.position = Vec.add(
+          this.position,
+          rotatePoint(local, this.rotation),
+        );
+        tip.radius = drillTip.radius;
+        tip.rotation = this.rotation;
+        tip.friction = this.friction;
+        tip.collides = Boolean(collides);
+        colliders.push(tip);
       }
     });
     const cover = colliders.find(
       ({ segment, radius }) => segment.covers && radius >= this.radius,
     );
 
-    return cover ? [cover] : colliders;
+    const result = cover ? [cover] : colliders;
+    let cached = collisionCaches.get(this);
+
+    if (!cached) {
+      cached = { colliders: [], source: {} };
+      collisionCaches.set(this, cached);
+    }
+
+    if (
+      changed ||
+      result.length !== cached.colliders.length ||
+      result.some((collider, index) => collider !== cached.colliders[index])
+    ) {
+      cached.source = {};
+    }
+    cached.colliders = result;
+    return result;
   }
 
   momentum(position: Vec.Value) {

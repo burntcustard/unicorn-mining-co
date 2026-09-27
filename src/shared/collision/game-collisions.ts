@@ -28,6 +28,7 @@ type BodyRecord = {
   geometrySource?: object;
   velocity: Vec.Value;
   spin: number;
+  previous: Pose;
 };
 
 // Explicit object mass controls translation. Geometry only determines how
@@ -154,6 +155,18 @@ export class GameCollisions {
   }
 
   /*
+   * Capture starting poses beside their bodies before gameplay advances them.
+   */
+  capturePoses(entities: Iterable<GameObject>) {
+    for (const entity of entities) {
+      const { previous } = this.recordFor(entity);
+
+      Vec.set(previous.position, entity.position);
+      previous.rotation = entity.rotation;
+    }
+  }
+
+  /*
    * Gameplay still calculates steering, thrust, drag and its intended endpoint.
    * The solver sweeps that motion, replacing only the displacement/velocity
    * caused by contacts. It does not apply a second damping or thrust model.
@@ -165,7 +178,7 @@ export class GameCollisions {
     events = [],
   }: {
     entities: GameObject[];
-    previous: Map<number, Pose>;
+    previous?: Map<number, Pose>;
     dt: number;
     events?: SimulationEvent[];
   }) {
@@ -187,11 +200,9 @@ export class GameCollisions {
 
     motions.length = 0;
     entities.forEach((entity) => {
-      const start = previous.get(entity.id) || {
-        position: entity.position,
-        rotation: entity.rotation,
-      };
       const record = this.sync(entity);
+      const start =
+        (previous ? previous.get(entity.id) : record.previous) || entity;
       const velocity = record.velocity;
 
       if (dt) {
@@ -258,7 +269,7 @@ export class GameCollisions {
     return this.contacts;
   }
 
-  private sync(entity: GameObject) {
+  private recordFor(entity: GameObject) {
     let record = this.bodies.get(entity.id);
 
     if (record && record.entity !== entity) {
@@ -276,11 +287,21 @@ export class GameCollisions {
         roundedGeometry: [],
         velocity: Vec.create(),
         spin: 0,
+        previous: {
+          position: Vec.clone(entity.position),
+          rotation: entity.rotation,
+        },
       };
       this.bodies.set(entity.id, record);
     }
 
-    const geometrySource =
+    return record;
+  }
+
+  private sync(entity: GameObject) {
+    const record = this.recordFor(entity);
+
+    let geometrySource: object | undefined =
       entity instanceof Asteroid && entity.hitbox === Asteroid.prototype.hitbox
         ? entity.geometrySource
         : undefined;
@@ -295,6 +316,19 @@ export class GameCollisions {
     }
     const hitbox =
       entity instanceof Craft ? entity.hitbox(true) : entity.hitbox();
+
+    if (entity instanceof Craft && entity.hitbox === Craft.prototype.hitbox) {
+      geometrySource = entity.geometrySource;
+
+      if (
+        geometrySource &&
+        geometrySource === record.geometrySource &&
+        same(entity.mass, record.geometry[0]) &&
+        same(entity.angularInertiaScale, record.geometry[1])
+      ) {
+        return record;
+      }
+    }
 
     const colliders = hitbox.filter(
       ({ shapeOutline, collides }) =>

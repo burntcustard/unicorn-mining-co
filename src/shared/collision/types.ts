@@ -17,6 +17,7 @@ export type Collider = {
   segment?: Segment;
   speed?: number;
   physics?: boolean;
+  localPosition?: Vec.Value;
   position: Vec.Value;
   radius: number;
   role?: 'hornDrill' | 'cargoHatch';

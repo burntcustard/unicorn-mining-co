@@ -98,110 +98,126 @@ const records = new WeakMap<GameObject, ReplicationRecord>();
 type ReplicationRecord = {
   entity: ReplicatedEntity;
   revision: number;
+  previousRevision: number;
+  changes: ReplicationRecord['fields'];
+  changeCount: number;
   fields: {
     key: string;
-    read: () => any;
     value: any;
     revision: number;
   }[];
 };
 
-// Readers capture the entity once. History stores only observer revisions;
-// unchanged field values and their comparison copies survive across ticks.
+// History stores observer revisions and retains comparison values across ticks.
 const createRecord = (entity: GameObject): ReplicationRecord => {
-  const readers = {
+  // Keep this key order aligned with the updateField calls below. Literal keys
+  // pass through the same property mangling as the client and server protocol.
+  const keys = {
     ...(entity instanceof Asteroid && {
-      contents: () => (entity.contents.length ? entity.contents : undefined),
-      decay: () => entity.decay,
-      maxHealth: () =>
-        entity.maxHealth !== entity.radius * 2 ? entity.maxHealth : undefined,
-      shapeOutline: () => entity.shapeOutline,
-      segments: () =>
-        entity.shapeOutline ||
-        entity.segments?.some(({ health, maxHealth }) => health !== maxHealth)
-          ? entity.segments
-          : undefined,
+      contents: 0,
+      decay: 0,
+      maxHealth: 0,
+      shapeOutline: 0,
+      segments: 0,
     }),
     ...(entity instanceof Craft && {
-      cargoContents: () => {
-        if (!entity.cargoContents.length) return;
-        const modules = entity.modules;
-
-        return entity.cargoContents.map((object) =>
-          object instanceof Module
-            ? { moduleIndex: modules.indexOf(object) }
-            : { ...replicateEntity({ entity: object }).entity },
-        );
-      },
-      credits: () => entity.credits,
-      dockedTo: () => entity.dockedTo,
+      cargoContents: 0,
+      credits: 0,
+      dockedTo: 0,
       ...(!(entity instanceof Station) && {
-        hullHealth: () => entity.hullHealth,
+        hullHealth: 0,
       }),
-      launching: () => entity.launching,
-      maxSpeed: () => entity.maxSpeed,
-      modules: () => readModules(entity),
-      wreckage: () => entity.wreckage,
-      decay: () => entity.decay,
-      shades: () =>
-        entity.shades === (entity.constructor as typeof Craft).shades
-          ? undefined
-          : entity.shades,
+      launching: 0,
+      maxSpeed: 0,
+      modules: 0,
+      wreckage: 0,
+      decay: 0,
+      shades: 0,
     }),
     ...(entity instanceof Ship && {
-      thrust: () => entity.thrust,
-      turn: () => entity.turn,
+      thrust: 0,
+      turn: 0,
     }),
-    friction: () =>
-      entity.friction !== (entity.constructor as typeof GameObject).friction
-        ? entity.friction
-        : undefined,
-    health: () =>
-      (entity instanceof Asteroid && entity.health === entity.radius * 2) ||
-      (entity instanceof Craft && entity.health === 100)
-        ? undefined
-        : entity.health,
-    label: () => entity.label,
-    message: () => entity.message,
-    paint: () => entity.paint,
-    playerId: () => entity.playerId,
-    pointCount: () => entity.pointCount,
-    radiusEven: () => entity.radiusEven,
-    resource: () => entity.resource,
-    id: () => entity.id,
-    kind: () =>
-      entity instanceof Asteroid
-        ? 'asteroid'
-        : entity instanceof Item
-          ? 'item'
-          : entity instanceof Station
-            ? 'station'
-            : entity instanceof Craft
-              ? 'ship'
-              : 'object',
-    mass: () =>
-      entity instanceof Asteroid && entity.mass === 0.4 * entity.radius ** 2
-        ? undefined
-        : entity.mass,
-    pendingUpdateTime: () => entity.pendingUpdateTime || undefined,
-    position: () => entity.position,
-    radius: () => entity.radius,
-    rotation: () => entity.rotation,
-    spin: () => entity.spin,
-    velocity: () =>
-      entity.velocity.x || entity.velocity.y ? entity.velocity : undefined,
+    friction: 0,
+    health: 0,
+    label: 0,
+    message: 0,
+    paint: 0,
+    playerId: 0,
+    pointCount: 0,
+    radiusEven: 0,
+    resource: 0,
+    id: 0,
+    kind: 0,
+    mass: 0,
+    pendingUpdateTime: 0,
+    position: 0,
+    radius: 0,
+    rotation: 0,
+    spin: 0,
+    velocity: 0,
   };
 
   return {
     entity: {} as ReplicatedEntity,
     revision: 0,
-    fields: Object.entries(readers).map(([key, read]) => ({
+    previousRevision: 0,
+    changes: [],
+    changeCount: 0,
+    fields: Object.keys(keys).map((key) => ({
       key,
-      read,
       value: undefined as ReplicationRecord['fields'][number]['value'],
       revision: 0,
     })),
   };
+};
+
+const updateField = (
+  record: ReplicationRecord,
+  field: ReplicationRecord['fields'][number],
+  value: any,
+  segments = false,
+) => {
+  segments &&= value !== undefined;
+  const normalized = segments
+    ? value
+    : Array.isArray(value)
+      ? (moduleEncodings.get(value) ?? JSON.stringify(value))
+      : typeof value === 'number' && !Number.isFinite(value)
+        ? null
+        : value;
+
+  if (Array.isArray(value)) {
+    (record.entity as Record<string, unknown>)[field.key] = value;
+  }
+
+  if (
+    segments
+      ? sameSegments(value, field.value)
+      : normalized === field.value ||
+        (normalized &&
+          field.value &&
+          typeof normalized === 'object' &&
+          normalized.x === field.value.x &&
+          normalized.y === field.value.y)
+  ) {
+    return;
+  }
+  field.value = segments
+    ? copySegments(value)
+    : normalized && typeof normalized === 'object'
+      ? Vec.clone(normalized)
+      : normalized;
+  field.revision = ++record.revision;
+  record.changes[record.changeCount++] = field;
+
+  if (value === undefined) {
+    delete record.entity[field.key as keyof ReplicatedEntity];
+  } else {
+    (record.entity as Record<string, unknown>)[field.key] = Array.isArray(value)
+      ? value
+      : field.value;
+  }
 };
 
 const replicateEntity = ({ entity }: { entity: GameObject }) => {
@@ -212,53 +228,130 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
     records.set(entity, record);
   }
 
-  for (const field of record.fields) {
-    const value = field.read();
-    const segments =
-      entity instanceof Asteroid &&
-      value !== undefined &&
-      value === entity.segments;
-    const normalized = segments
-      ? value
-      : Array.isArray(value)
-        ? (moduleEncodings.get(value) ?? JSON.stringify(value))
-        : typeof value === 'number' && !Number.isFinite(value)
-          ? null
-          : value;
+  record.previousRevision = record.revision;
+  record.changeCount = 0;
+  let cursor = 0;
 
-    if (Array.isArray(value)) {
-      (record.entity as Record<string, unknown>)[field.key] = value;
-    }
-
-    if (
-      segments
-        ? sameSegments(value, field.value)
-        : normalized === field.value ||
-          (normalized &&
-            field.value &&
-            typeof normalized === 'object' &&
-            normalized.x === field.value.x &&
-            normalized.y === field.value.y)
-    ) {
-      continue;
-    }
-    field.value = segments
-      ? copySegments(value)
-      : normalized && typeof normalized === 'object'
-        ? Vec.clone(normalized)
-        : normalized;
-    field.revision = ++record.revision;
-
-    if (value === undefined) {
-      delete record.entity[field.key as keyof ReplicatedEntity];
-    } else {
-      (record.entity as Record<string, unknown>)[field.key] = Array.isArray(
-        value,
-      )
-        ? value
-        : field.value;
-    }
+  if (entity instanceof Asteroid) {
+    updateField(
+      record,
+      record.fields[cursor++],
+      entity.contents.length ? entity.contents : undefined,
+    );
+    updateField(record, record.fields[cursor++], entity.decay);
+    updateField(
+      record,
+      record.fields[cursor++],
+      entity.maxHealth !== entity.radius * 2 ? entity.maxHealth : undefined,
+    );
+    updateField(record, record.fields[cursor++], entity.shapeOutline);
+    updateField(
+      record,
+      record.fields[cursor++],
+      entity.shapeOutline ||
+        entity.segments?.some(({ health, maxHealth }) => health !== maxHealth)
+        ? entity.segments
+        : undefined,
+      true,
+    );
   }
+
+  if (entity instanceof Craft) {
+    updateField(
+      record,
+      record.fields[cursor++],
+      (() => {
+        if (!entity.cargoContents.length) return;
+        const modules = entity.modules;
+
+        return entity.cargoContents.map((object) =>
+          object instanceof Module
+            ? { moduleIndex: modules.indexOf(object) }
+            : { ...replicateEntity({ entity: object }).entity },
+        );
+      })(),
+    );
+    updateField(record, record.fields[cursor++], entity.credits);
+    updateField(record, record.fields[cursor++], entity.dockedTo);
+
+    if (!(entity instanceof Station)) {
+      updateField(record, record.fields[cursor++], entity.hullHealth);
+    }
+    updateField(record, record.fields[cursor++], entity.launching);
+    updateField(record, record.fields[cursor++], entity.maxSpeed);
+    updateField(record, record.fields[cursor++], readModules(entity));
+    updateField(record, record.fields[cursor++], entity.wreckage);
+    updateField(record, record.fields[cursor++], entity.decay);
+    updateField(
+      record,
+      record.fields[cursor++],
+      entity.shades === (entity.constructor as typeof Craft).shades
+        ? undefined
+        : entity.shades,
+    );
+  }
+
+  if (entity instanceof Ship) {
+    updateField(record, record.fields[cursor++], entity.thrust);
+    updateField(record, record.fields[cursor++], entity.turn);
+  }
+  updateField(
+    record,
+    record.fields[cursor++],
+    entity.friction !== (entity.constructor as typeof GameObject).friction
+      ? entity.friction
+      : undefined,
+  );
+  updateField(
+    record,
+    record.fields[cursor++],
+    (entity instanceof Asteroid && entity.health === entity.radius * 2) ||
+      (entity instanceof Craft && entity.health === 100)
+      ? undefined
+      : entity.health,
+  );
+  updateField(record, record.fields[cursor++], entity.label);
+  updateField(record, record.fields[cursor++], entity.message);
+  updateField(record, record.fields[cursor++], entity.paint);
+  updateField(record, record.fields[cursor++], entity.playerId);
+  updateField(record, record.fields[cursor++], entity.pointCount);
+  updateField(record, record.fields[cursor++], entity.radiusEven);
+  updateField(record, record.fields[cursor++], entity.resource);
+  updateField(record, record.fields[cursor++], entity.id);
+  updateField(
+    record,
+    record.fields[cursor++],
+    entity instanceof Asteroid
+      ? 'asteroid'
+      : entity instanceof Item
+        ? 'item'
+        : entity instanceof Station
+          ? 'station'
+          : entity instanceof Craft
+            ? 'ship'
+            : 'object',
+  );
+  updateField(
+    record,
+    record.fields[cursor++],
+    entity instanceof Asteroid && entity.mass === 0.4 * entity.radius ** 2
+      ? undefined
+      : entity.mass,
+  );
+  updateField(
+    record,
+    record.fields[cursor++],
+    entity.pendingUpdateTime || undefined,
+  );
+  updateField(record, record.fields[cursor++], entity.position);
+  updateField(record, record.fields[cursor++], entity.radius);
+  updateField(record, record.fields[cursor++], entity.rotation);
+  updateField(record, record.fields[cursor++], entity.spin);
+  updateField(
+    record,
+    record.fields[cursor++],
+    entity.velocity.x || entity.velocity.y ? entity.velocity : undefined,
+  );
   return record;
 };
 
@@ -328,7 +421,11 @@ export class ReplicationManager {
     replicationRecords = new Map(),
   }: SnapshotOptions) {
     const ship = world.entities.get(shipId) || { position: position! };
-    const visible = [...world.entities.values()].filter((entity) => {
+    const fullEntities: ReplicatedEntity[] = [];
+    const entities = new Set<EntityId>();
+    let membershipChanged = false;
+
+    for (const entity of world.entities.values()) {
       const loaded = this.entities.has(entity.id);
       const range =
         entity instanceof Station
@@ -339,71 +436,80 @@ export class ReplicationManager {
             ? entityUnload
             : entityLoad;
 
-      return (
-        entity.id === shipId ||
-        Vec.distanceSquared(entity.position, ship.position) <= range * range
-      );
-    });
-    const fullEntities = visible
-      .filter(
-        (entity) =>
-          !this.entities.has(entity.id) ||
-          world.tick %
-            updateTier({ entity, observers: [ship] }).replicateEvery ===
-            0,
-      )
-      .map((entity) => {
-        const previous = this.previousFields.get(entity.id);
-        let prepared = replicationRecords.get(entity.id);
+      if (
+        entity.id !== shipId &&
+        !(Vec.distanceSquared(entity.position, ship.position) <= range * range)
+      ) {
+        continue;
+      }
+      entities.add(entity.id);
 
-        if (!prepared) {
-          prepared = replicateEntity({ entity });
-          replicationRecords.set(entity.id, prepared);
-        }
-        const previousRecord = previous?.record;
-        const revision = previousRecord === prepared ? previous!.revision : -1;
+      if (!loaded) membershipChanged = true;
 
-        if (previous) {
-          previous.record = prepared;
-          previous.revision = prepared.revision;
-        } else {
-          this.previousFields.set(entity.id, {
-            record: prepared,
-            revision: prepared.revision,
-          });
-        }
+      if (
+        loaded &&
+        world.tick % updateTier({ entity, observers: [ship] }).replicateEvery
+      ) {
+        continue;
+      }
+      const previous = this.previousFields.get(entity.id);
+      let prepared = replicationRecords.get(entity.id);
 
-        if (revision < 0) {
-          const full = { ...prepared.entity };
-          // Receivers merge records even when kind is present. Replacing an
-          // object under an existing ID must clear the old optional fields.
+      if (!prepared) {
+        prepared = replicateEntity({ entity });
+        replicationRecords.set(entity.id, prepared);
+      }
+      const previousRecord = previous?.record;
+      const revision = previousRecord === prepared ? previous!.revision : -1;
 
-          previousRecord?.fields.forEach(({ key }) => {
-            if (!(key in full)) (full as Record<string, unknown>)[key] = null;
-          });
-          return full;
-        }
-        let changed: ReplicatedEntity | undefined;
+      if (previous) {
+        previous.record = prepared;
+        previous.revision = prepared.revision;
+      } else {
+        this.previousFields.set(entity.id, {
+          record: prepared,
+          revision: prepared.revision,
+        });
+      }
 
-        for (const field of prepared.fields) {
-          if (field.revision <= revision) continue;
-          changed ||= { id: entity.id } as ReplicatedEntity;
-          (changed as Record<string, unknown>)[field.key] =
-            prepared.entity[field.key as keyof ReplicatedEntity] ?? null;
-        }
-        return changed;
-      })
-      .filter((record) => record !== undefined);
+      if (revision < 0) {
+        const full = { ...prepared.entity };
+        // Receivers merge records even when kind is present. Replacing an
+        // object under an existing ID must clear the old optional fields.
 
-    const entities = new Set(visible.map((entity) => entity.id));
-    const membershipChanged =
-      entities.size !== this.entities.size ||
-      [...entities].some((id) => !this.entities.has(id));
+        previousRecord?.fields.forEach(({ key }) => {
+          if (!(key in full)) (full as Record<string, unknown>)[key] = null;
+        });
+        fullEntities.push(full);
+        continue;
+      }
+      let changed: ReplicatedEntity | undefined;
 
+      // Most observers need only this preparation's changes. A distant or
+      // returning observer may need revisions from several preparations ago.
+      const recent = revision >= prepared.previousRevision;
+      const fields = recent ? prepared.changes : prepared.fields;
+      const count = recent ? prepared.changeCount : fields.length;
+
+      for (let index = 0; index < count; index++) {
+        const field = fields[index];
+
+        if (field.revision <= revision) continue;
+        changed ||= { id: entity.id } as ReplicatedEntity;
+        (changed as Record<string, unknown>)[field.key] =
+          prepared.entity[field.key as keyof ReplicatedEntity] ?? null;
+      }
+
+      if (changed) fullEntities.push(changed);
+    }
+    membershipChanged ||= entities.size !== this.entities.size;
     this.entities = entities;
-    this.previousFields.forEach((_, id) => {
-      if (!entities.has(id)) this.previousFields.delete(id);
-    });
+
+    if (membershipChanged) {
+      this.previousFields.forEach((_, id) => {
+        if (!entities.has(id)) this.previousFields.delete(id);
+      });
+    }
     return {
       acknowledgedSequence,
       inputLead,
