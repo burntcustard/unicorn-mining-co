@@ -11,7 +11,7 @@ import './shape/circle-circle-contact';
 import './shape/polygon-polygon-contact';
 import './shape/circle-polygon-contact';
 import { type GameObject } from '../game-object';
-import { type Collider, type Contact } from './types';
+import { outlineColorOf, type Collider, type Contact } from './types';
 import { contactSpeedThreshold } from '../settings';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../craft/damage';
@@ -233,9 +233,11 @@ export class GameCollisions {
 
     this.impacts.forEach(({ contact: { collider, other, point }, impact }) => {
       const inverseMass = 1 / collider.owner.mass + 1 / other.owner.mass;
+      // Keep the first-damage threshold near 1000 while making harder hits
+      // climb roughly twice as fast.
       const amount = Math.max(
         0,
-        Math.round((impact / inverseMass - 400) / 1200),
+        Math.round((impact / inverseMass - 700) / 600),
       );
 
       if (amount) {
@@ -262,6 +264,7 @@ export class GameCollisions {
         a: collider.owner.id,
         b: other.owner.id,
         impact,
+        colors: [outlineColorOf(collider), outlineColorOf(other)],
         position: point,
       });
     });

@@ -206,7 +206,7 @@ export class Craft extends GameObject {
     const mounts = this.mounts;
 
     return this.modules.map((module) => ({
-      ...(!module.mount && { id: module.id }),
+      id: module.id,
       type: moduleTypes.findIndex((Type) => module instanceof Type),
       mount: mounts.indexOf(module.mount),
       health: module.mount ? module.mount.health : module.health,

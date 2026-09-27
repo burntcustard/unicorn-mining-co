@@ -1,7 +1,7 @@
 import * as Vec from '../vector';
 import { colors } from '../colors';
 import { Module } from './module';
-import { type Collider } from '../collision/types';
+import { outlineColorOf, type Collider } from '../collision/types';
 import { damage } from '../craft/damage';
 import { type SimulationEvent } from '../protocol/events';
 import { type Segment } from '../types';
@@ -87,6 +87,7 @@ export class HornDrill extends Module {
       targetId: target.owner.id,
       by: ship.playerId,
       damage: drillDamage,
+      color: outlineColorOf(target),
       ...(asteroid && { resource: asteroid.resource }),
       position,
       type: 'drillDamage',

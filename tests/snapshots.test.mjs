@@ -230,6 +230,51 @@ assert.deepEqual(
   wireShip.modules.map(({ id }) => id),
   'mounted module IDs survive snapshot decoding for later sales',
 );
+const repairMountIndex = ship.mounts.findIndex(({ module }) => module);
+const repairMount = ship.mounts[repairMountIndex];
+const repairModule = repairMount.module;
+const liveShip = network.world.entities.get(ship.id);
+
+repairMount.health -= 1;
+deliver(replication.snapshot({ world, shipId: ship.id }));
+assert.equal(
+  network.authoritativeEntities.get(ship.id).mounts[repairMountIndex].health,
+  repairMount.health,
+);
+assert.equal(
+  liveShip.mounts[repairMountIndex].health,
+  repairMount.health,
+  'module damage reaches the mounted client instance',
+);
+assert.equal(
+  liveShip.mounts[repairMountIndex].module.id,
+  repairModule.id,
+  'mounted ID survives the damage reconciliation',
+);
+liveShip.fit(0, liveShip.mounts[repairMountIndex]);
+liveShip.moduleStates = decodedShip.moduleStates;
+assert.equal(
+  liveShip.mounts[repairMountIndex].module.id,
+  repairModule.id,
+  'rebuilding an equipped module retains its server ID',
+);
+ship.applyDockAction({
+  action: 'repair',
+  moduleId: repairModule.id,
+  mount: repairMountIndex,
+});
+deliver(replication.snapshot({ world, shipId: ship.id }));
+assert.equal(
+  liveShip.mounts[repairMountIndex].health,
+  repairModule.health,
+  'FIX restores mounted health without removing and equipping',
+);
+assert.equal(
+  liveShip.mounts[repairMountIndex].module.id,
+  repairModule.id,
+  'FIX keeps the server module ID for later dock actions',
+);
+
 const decoded = network.authoritativeEntities.get(station.id);
 const live = network.world.entities.get(station.id);
 

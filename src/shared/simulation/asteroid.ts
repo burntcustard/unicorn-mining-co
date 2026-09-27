@@ -285,7 +285,7 @@ const detachSegment = ({
   const force = 3 / children.reduce((sum, child) => sum + 1 / child.mass, 0);
   const spin = ((createRandom(asteroid.id).next() - 0.5) * force) / 3;
 
-  children.forEach((child) => {
+  children.forEach((child, index) => {
     Vec.set(
       child.velocity,
       Vec.add(
@@ -296,7 +296,9 @@ const detachSegment = ({
         ),
       ),
     );
-    child.spin += spin / child.mass;
+
+    // Only loose chips tumble. The connected remainder keeps its parent's spin.
+    if (groups[index].length === 1) child.spin += spin / child.mass;
   });
   return children;
 };

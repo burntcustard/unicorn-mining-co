@@ -1,5 +1,4 @@
 import { type SimulationEvent } from '../shared/protocol/events';
-import { colors } from '../shared/colors';
 import { playSound } from './sound-loader';
 import { sprayDamage } from './shrapnel';
 
@@ -25,19 +24,21 @@ export const presentEvents = ({
         onMessage?.({ message: event.message, unlock: event.unlock });
       }
     } else if (event.type === 'drillDamage') {
-      const color = event.resource === 1 ? colors.violet[2] : colors.white[2];
-
-      sprayDamage({ position: event.position, color, damage: event.damage });
+      sprayDamage({
+        position: event.position,
+        color: event.color,
+        damage: event.damage,
+      });
     } else if (
       event.type === 'asteroidSplit' ||
       event.type === 'asteroidDestroyed'
     ) {
       playSound(4);
     } else if (event.type === 'collision' && event.impact >= 40) {
-      sprayDamage({
-        position: event.position,
-        color: colors.white[2],
-        damage: Math.min(4, event.impact / 40),
-      });
+      const damage = Math.min(4, event.impact / 40);
+
+      event.colors.forEach((color) =>
+        sprayDamage({ position: event.position, color, damage: damage / 2 }),
+      );
     }
   });

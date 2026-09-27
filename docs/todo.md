@@ -1,22 +1,27 @@
 # TODO
 
-## High priority
+## Ongoing
+
+[-] Further improve server CPU performance, limits still hit with 2 players
+
+## High Priority
 
 [x] Fix drilling particles coming from center of drill not contact point
 [x] Fix things being slipperier than they should be, like the horn drill
 [x] Combine Plank.js code with ours better, e.g. remove duplicate vector
 [x] Fix internal light or other players not revealing items
 [x] Improve server CPU performance
-[ ] Improve server CPU performance v2, limits still hit with 2 players
 [x] Make cargo hatches use the brightest color rather than darkest
-[ ] Fix asteroids gaining spin when splitting(?)
-[ ] Fix not being able to paint equipped modules (cargo hatch, thrusters)
-[ ] Fix shield bounce not working player-on-player
-[ ] Figure out 1 player freezing completely on the server
-[ ] Make ships tougher so teamkilling is harder
-[ ] Make sure fixing updates on client without needing removal & equipping
-[ ] Fix mini horn visual bug
-[ ] Fix getting all your money back (500 credits) on respawn
+[x] Fix asteroids gaining spin when splitting(?)
+[x] Fix not being able to paint equipped modules (cargo hatch, thrusters)
+[x] Fix shield bounce not working player-on-player(?)
+[x] Figure out 1 player freezing completely on the server
+[x] Make ships 2x tougher so teamkilling is harder but 2x collision damage too
+[x] Make sure FIX updates on client without needing module removal & equipping
+[ ] Fix mini horn visual bug (incorrect position on respawn?)
+[x] Fix getting all your credits back (500) on respawn. Should have old credits.
+[x] Fix sparks not being the color of the outline of object being damaged
+[x] Fix horizontal menu selecting BACK instead of colors when down pressed
 
 ## MVP
 

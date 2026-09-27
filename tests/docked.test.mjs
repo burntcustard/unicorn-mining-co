@@ -25,6 +25,7 @@ import { setCraftActionDispatcher } from '${process.cwd()}/src/client/craft-acti
 import { adoptPlayerShip, paintUnlocked, playerShip, readSlate, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { presentEvents } from '${process.cwd()}/src/client/present-events.ts';
+import { sparks } from '${process.cwd()}/src/client/shrapnel.ts';
 import { colors } from '${process.cwd()}/src/shared/colors.ts';
 import {
   back, confirmSelection, moveSelection, moveSubSelection,
@@ -43,10 +44,22 @@ const noteBeforeUnknownReward = playerShip.note;
 assert(unlockPaint('UNKNOWN', 'TEST') === undefined);
 assert(playerShip.note === noteBeforeUnknownReward);
 
+sparks.length = 0;
+presentEvents({ events: [
+  { type: 'drillDamage', targetId: 1, by: 1, damage: 1,
+    color: '#f0a', position: Vec.create() },
+  { type: 'collision', a: 1, b: 2, impact: 80,
+    colors: ['#f00', '#0af'], position: Vec.create() },
+] });
+assert.deepEqual(new Set(sparks.map(({ color }) => color)),
+  new Set(['#f0a', '#f00', '#0af']),
+  'damage sparks use the contacted outlines');
+sparks.length = 0;
+
 // A hull segment destroyed by an impact also breaks off as short-lived,
 // physical wreckage instead of disappearing with the surviving hull's split.
 const battered = new Mustang({shades: colors.white});
-const corner = battered.segments.find(({ hull, health }) => hull && health === 4);
+const corner = battered.segments.find(({ hull, health }) => hull && health === 8);
 corner.health = 0;
 battered.update(0);
 const hullWreckage = game.crafts.at(-1);
@@ -54,6 +67,7 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().
   'destroyed hull remains as physical wreckage');
 
 const ship = new Mustang({ shades: colors.white, credits: 10000 });
+assert.equal(ship.hullMaxHealth, 186, 'Mustang hull has twice its original 93 HP');
 const pendingSales = [];
 const pendingRepairs = [];
 setCraftActionDispatcher(action => {
@@ -109,6 +123,12 @@ assert(selectionSnapshot(ship)[3] === 0, 'up from paint returns to EQUIP');
 confirm();
 assert(mount.module === second, 'equip second instance');
 check(second, 'after equip');
+move(1);
+assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
+  'down from REMOVE on an equipped hatch reaches paint');
+move(-1);
+assert(selectionSnapshot(ship)[3] === 0,
+  'up from equipped hatch paint returns to REMOVE');
 confirm();
 assert(!mount.module && ship.cargoContents.includes(second), 'remove second instance');
 check(second, 'after remove');
@@ -160,7 +180,11 @@ assert(mount.module === bought && !ship.cargoContents.length, 'new purchase fits
 // Navigation skips locked colours: a new pilot has only yellow, pink and white.
 assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
 move(1);
-assert(selectionSnapshot()[3] === 1, 'down reaches BACK after equipping');
+assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
+  'down from REMOVE reaches the paint row after equipping');
+move(-1);
+moveSubSelection(1, ship);
+assert(selectionSnapshot()[3] === 1, 'right reaches BACK after equipping');
 move(1);
 assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
   'down from BACK reaches the paint row');
@@ -198,7 +222,14 @@ assert(selectionSnapshot(ship)[2][0] === 'FIX' && selectionSnapshot(ship)[3] ===
   'unaffordable module repair is visible but cannot be focused');
 move(1); move(-1);
 assert(selectionSnapshot(ship)[3] === 2, 'up from paints skips disabled repair for BACK');
-ship.credits = repairCredits; back(ship); confirm(); confirm();
+ship.credits = repairCredits; back(ship); confirm();
+move(1);
+assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
+  'down from FIX on a horizontal action row reaches paint, not BACK');
+move(-1);
+assert(selectionSnapshot(ship)[3] === 0,
+  'up from paint returns to FIX on a horizontal action row');
+confirm();
 assert(mount.health === CargoHatch.health && ship.credits === repairCredits - 1,
   'module repair charges for displayed missing HP');
 assert.deepEqual(pendingRepairs.shift(),

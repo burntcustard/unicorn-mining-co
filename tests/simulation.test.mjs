@@ -63,6 +63,44 @@ spinningAsteroid.update(60);
 assert.equal(spinningAsteroid.spin, 0.04);
 assert.equal(spinningAsteroid.rotation, 2.4);
 
+const splitWorld = createWorld({ seed: 25 });
+const stillAsteroid = addEntity(
+  splitWorld,
+  createAsteroid(splitWorld, { id: 901, spin: 0 }),
+);
+const splitChildren = stillAsteroid.detach({
+  asteroidSegment: stillAsteroid.segments[0],
+  world: splitWorld,
+});
+
+assert(splitChildren.length > 1);
+assert(
+  splitChildren.some((child) => !child.segments && child.spin !== 0),
+  'loose chips gain a small random spin',
+);
+const connectedRemainder = splitChildren.find(
+  (child) => child.segments?.length > 1,
+);
+
+assert(connectedRemainder, 'the connected asteroid remainder survives');
+assert.equal(
+  connectedRemainder.spin,
+  0,
+  'the remainder inherits only parent spin',
+);
+const splitAgain = connectedRemainder.detach({
+  asteroidSegment: connectedRemainder.segments[0],
+  world: splitWorld,
+});
+
+assert(splitAgain.some((child) => !child.segments && child.spin !== 0));
+assert(
+  splitAgain
+    .filter((child) => child.segments?.length > 1)
+    .every((child) => child.spin === 0),
+  'repeated splits cannot add random spin to the connected remainder',
+);
+
 const dockedMovement = () => {
   const world = createWorld({ seed: 25 });
   const station = addEntity(
@@ -435,6 +473,11 @@ const drillDamagesOnlyAtTip = () => {
       : craftContact?.collider;
   const damaged = struck?.segment?.mount || struck?.segment;
   const before = damaged?.health;
+  const outline = ['#111', '#222', '#f0a'];
+
+  struck.segment.shades = outline;
+
+  if (!struck.segment.hull) struck.segment.module.shades = outline;
   const craftEvents = [];
 
   assert.equal(struck?.owner, otherShip, 'the drill tip touches another ship');
@@ -454,6 +497,7 @@ const drillDamagesOnlyAtTip = () => {
   assert.equal(craftDrilling?.targetId, otherShip.id);
   assert.equal(craftDrilling?.position, craftContact.point);
   assert.equal(craftDrilling?.resource, undefined);
+  assert.equal(craftDrilling?.color, '#f0a');
 };
 
 drillDamagesOnlyAtTip();
@@ -1260,7 +1304,7 @@ assert.deepEqual(
       rotation: first.ship.rotation,
       spin: first.ship.spin,
       hullHealth: first.ship.hullHealth,
-      modules: first.ship.moduleStates,
+      modules: first.ship.moduleStates.map((state) => ({ ...state, id: 0 })),
     },
   },
   {
@@ -1271,7 +1315,7 @@ assert.deepEqual(
       rotation: second.ship.rotation,
       spin: second.ship.spin,
       hullHealth: second.ship.hullHealth,
-      modules: second.ship.moduleStates,
+      modules: second.ship.moduleStates.map((state) => ({ ...state, id: 0 })),
     },
   },
 );

@@ -158,7 +158,7 @@ const stationParts = station.hitbox().length;
 station.hullHealth = [...station.hullHealth];
 assert.equal(station.hitbox().length,stationParts,'station walls survive snapshot restoration');
 const damaged = addEntity(world,createShip(world));
-damaged.segments.find(segment => segment.hull && segment.health === 4).health = 0;
+damaged.segments.find(segment => segment.hull && segment.health === 8).health = 0;
 damaged.update(0);
 const fragment = [...world.entities.values()].find(entity => entity.decay);
 assert(fragment instanceof Craft);

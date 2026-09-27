@@ -195,19 +195,13 @@ export const moveSelection = (delta: number, ship: Ship, sub: number) => {
     const onPaints = focused >= first;
     const availablePaints = swatches.filter(paintUnlocked);
 
-    // Down from EQUIP or BACK enters the paint row; other actions reach BACK.
+    // Down from any action enters the paint row; right reaches BACK.
     // Up from paint returns to the button used to enter that row.
     if (!sub && onPaints && delta < 0) {
       focused = paintReturnFocus;
     } else if (!sub && !onPaints && delta < 0 && focused === actions.length) {
       focused = disabledAction ? actions.length : 0;
-    } else if (
-      !sub &&
-      !onPaints &&
-      delta > 0 &&
-      swatches.length &&
-      (focused === actions.length || actions[focused] === 'EQUIP')
-    ) {
+    } else if (!sub && !onPaints && delta > 0 && swatches.length) {
       paintReturnFocus = focused;
       focused =
         first +

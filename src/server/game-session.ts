@@ -439,6 +439,7 @@ export class GameSession {
       rotation: station.rotation,
     });
 
+    ship.credits = player.ship.credits;
     ship.dockedTo = station.id;
     addEntity(this.world, ship);
     this.world.players.get(player.playerId)!.shipId = ship.id;

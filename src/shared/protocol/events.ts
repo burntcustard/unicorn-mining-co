@@ -13,6 +13,7 @@ export type SimulationEvent =
       targetId: EntityId;
       by: PlayerId;
       damage: number;
+      color: string;
       resource?: number;
       position: Vec.Value;
       type: 'drillDamage';
@@ -21,6 +22,7 @@ export type SimulationEvent =
       a: EntityId;
       b: EntityId;
       impact: number;
+      colors: [string, string];
       position: Vec.Value;
       type: 'collision';
     }

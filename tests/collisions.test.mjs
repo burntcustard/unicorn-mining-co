@@ -397,6 +397,89 @@ for (let i = 0; i < 20; i++) {
 closeTo(Vec.distance(triangle.position, impactResult.position), 0, 1e-7);
 closeTo(triangle.spin, impactResult.spin, 1e-7);
 
+// Strong collisions deal about twice the old damage on both bodies.
+{
+  const world = createWorld();
+  const left = addEntity(
+    world,
+    new GameObject({
+      id: 100,
+      mass: 200,
+      radius: 5,
+      health: 100,
+      shades: ['#111', '#222', '#f00'],
+      position: Vec.create(-6),
+      velocity: Vec.create(100),
+      drag: 0,
+      maxSpeed: 10000,
+    }),
+  );
+  const right = addEntity(
+    world,
+    new GameObject({
+      id: 101,
+      mass: 200,
+      radius: 5,
+      health: 100,
+      shades: ['#111', '#222', '#0af'],
+      position: Vec.create(6),
+      velocity: Vec.create(-100),
+      drag: 0,
+      maxSpeed: 10000,
+    }),
+  );
+  const events = updateWorld({ world, inputs: new Map() });
+
+  const collision = events.find(({ type }) => type === 'collision');
+
+  assert(collision);
+  assert.deepEqual(new Set(collision.colors), new Set(['#f00', '#0af']));
+  assert.equal(left.health, 68);
+  assert.equal(right.health, 68);
+}
+
+// Light items cannot chip a ship at ordinary closing speed, but an unusually
+// fast item can still cause damage.
+const itemShipDamage = (speed) => {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world));
+  const item = addEntity(
+    world,
+    new Diamond({
+      world,
+      id: entityId(world),
+      position: Vec.create(-50),
+      velocity: Vec.create(speed),
+      maxSpeed: 10000,
+      drag: 0,
+    }),
+  );
+  const before = ship.hullHealthTotal;
+
+  for (let tick = 0; tick < 15; tick++) {
+    const events = updateWorld({ world, inputs: new Map() });
+
+    if (
+      events.some(
+        ({ type, a, b }) =>
+          type === 'collision' &&
+          ((a === ship.id && b === item.id) ||
+            (a === item.id && b === ship.id)),
+      )
+    ) {
+      return before - ship.hullHealthTotal;
+    }
+  }
+  throw new Error('item never reached the ship');
+};
+
+assert.equal(
+  itemShipDamage(200),
+  0,
+  'ordinary item-to-ship contact does no hull damage',
+);
+assert(itemShipDamage(600) > 0, 'an unusually fast item can damage a ship');
+
 // A fast ship damages the contacted asteroid segment, not the whole body's health.
 {
   const world = createWorld();
@@ -1057,6 +1140,72 @@ assert(
 
   assert.equal(cover.speed, 0, 'a fully extended shield stops expanding');
 }
+
+// Two player ships use the raised shield as their physical collision surface.
+const playerCollision = (shielded) => {
+  const world = createWorld();
+  const left = addEntity(
+    world,
+    createShip(world, {
+      playerId: 1,
+      position: Vec.create(-120),
+      velocity: Vec.create(100),
+    }),
+  );
+  const right = addEntity(
+    world,
+    createShip(world, {
+      playerId: 2,
+      position: Vec.create(120),
+      velocity: Vec.create(-100),
+    }),
+  );
+
+  addPlayer(world, { id: 1, shipId: left.id });
+  addPlayer(world, { id: 2, shipId: right.id });
+
+  if (shielded) left.fit(new ShieldGenerator());
+
+  const inputs = new Map(
+    [1, 2].map((id) => [
+      id,
+      {
+        thrust: 0,
+        turn: 0,
+        hornDrill: false,
+        cargoHatch: false,
+        searchLight: false,
+        shieldGenerator: shielded && id === 1,
+        launch: false,
+      },
+    ]),
+  );
+
+  for (let tick = 0; tick < 60; tick++) {
+    if (
+      updateWorld({ world, inputs }).some(({ type }) => type === 'collision')
+    ) {
+      return {
+        tick,
+        leftVelocity: left.velocity.x,
+        rightVelocity: right.velocity.x,
+      };
+    }
+  }
+  throw new Error('player ships never collided');
+};
+const hullCollision = playerCollision(false);
+const shieldCollision = playerCollision(true);
+
+assert.equal(shieldCollision.tick, hullCollision.tick);
+assert(
+  shieldCollision.leftVelocity < hullCollision.leftVelocity - 10,
+  'a raised shield rebounds harder against another player ship',
+);
+assert(
+  shieldCollision.rightVelocity > hullCollision.rightVelocity + 10,
+  'the other player receives the shield rebound',
+);
 
 // Each asteroid segment becomes one fixture with its own damage target.
 {

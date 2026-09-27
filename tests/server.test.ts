@@ -1054,6 +1054,7 @@ const nearestStation = [...server.world.entities.values()]
 const deathMessageStart = messages.length;
 
 assert(nearestStation);
+playerShip.credits = 237;
 playerShip.remove();
 await waitUntil({
   condition: () =>
@@ -1111,7 +1112,7 @@ const respawned = server.world.entities.get(respawnMessage.shipId);
 assert(respawned instanceof Ship);
 assert.equal(server.world.players.get(welcome.playerId)?.shipId, respawned.id);
 assert.equal(respawned.dockedTo, nearestStation.id);
-assert.equal(respawned.credits, 500);
+assert.equal(respawned.credits, 237);
 assert(Vec.distance(respawned.position, nearestStation.position) < 1);
 
 const closed = Promise.all([

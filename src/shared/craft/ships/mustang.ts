@@ -19,7 +19,7 @@ export class Mustang extends Ship {
   static turnRate = 3;
   static hullSegments = [
     {
-      health: 4,
+      health: 8,
       points: [
         [-16, -36],
         [-4, -36],
@@ -30,7 +30,7 @@ export class Mustang extends Ship {
     // doors are open, which is what lets an item fall in under the hull and
     // into the throat waiting behind them
     {
-      health: 10,
+      health: 20,
       mounts: [{ fits: [CargoHatch], localPosition: Vec.create(3, -13) }],
       points: [
         [-4, -36],
@@ -39,7 +39,7 @@ export class Mustang extends Ship {
       ],
     },
     {
-      health: 10,
+      health: 20,
       points: [
         [-16, -20],
         [20, -12],
@@ -47,7 +47,7 @@ export class Mustang extends Ship {
       ],
     },
     {
-      health: 25,
+      health: 50,
       // The engine mount: without it there is nothing left to fly
       core: true,
       mounts: [
@@ -69,7 +69,7 @@ export class Mustang extends Ship {
       ],
     },
     {
-      health: 20,
+      health: 40,
       // Where the pilot sits, so this is the piece the ship is lost without
       core: true,
       mounts: [
@@ -83,7 +83,7 @@ export class Mustang extends Ship {
       ],
     },
     {
-      health: 10,
+      health: 20,
       points: [
         [8, 0],
         [20, 12],
@@ -91,7 +91,7 @@ export class Mustang extends Ship {
       ],
     },
     {
-      health: 10,
+      health: 20,
       mounts: [{ fits: [CargoHatch], localPosition: Vec.create(3, 13) }],
       points: [
         [-16, 20],
@@ -100,7 +100,7 @@ export class Mustang extends Ship {
       ],
     },
     {
-      health: 4,
+      health: 8,
       points: [
         [-16, 20],
         [-4, 36],

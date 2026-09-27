@@ -20,6 +20,7 @@ export const propertyNames = [
   'collect',
   'collections',
   'color',
+  'colors',
   'command',
   'compute',
   'contains',
