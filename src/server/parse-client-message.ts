@@ -63,8 +63,17 @@ export const parseClientMessage = (
   if (typeof message !== 'object' || message === null) return;
   const other = message as Record<string, unknown>;
 
-  if (other.type === 'hello' && token(other.playerToken)) {
+  if (
+    other.type === 'hello' &&
+    token(other.playerToken) &&
+    (other.snapshotAcknowledgements === undefined ||
+      typeof other.snapshotAcknowledgements === 'boolean')
+  ) {
     return other as ClientMessage;
+  }
+
+  if (other.type === 'snapshotAck' && nonnegative(other.sequence)) {
+    return { type: 'snapshotAck', sequence: other.sequence as number };
   }
 
   if (other.type === 'respawn') return { type: 'respawn' };

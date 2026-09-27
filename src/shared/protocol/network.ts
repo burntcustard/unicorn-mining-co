@@ -66,9 +66,11 @@ export type ClientMessage =
   | {
       playerToken: string | null;
       type: 'hello';
+      snapshotAcknowledgements?: boolean;
     }
   | ({ type: 'dock' } & CraftAction)
   | { type: 'respawn' }
+  | { type: 'snapshotAck'; sequence: number }
   | PlayerInputMessage;
 
 export type ServerMessage =
@@ -86,6 +88,7 @@ export type ServerMessage =
       worldSeed: number;
     }
   | {
+      snapshotSequence?: number;
       acknowledgedSequence?: number;
       inputLead?: number;
       fullEntities: ReplicatedEntity[];

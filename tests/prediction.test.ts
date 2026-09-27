@@ -587,8 +587,14 @@ const fly = async ({ ticks }: { ticks: number }) =>
   new Promise((resolve) => setTimeout(resolve, ticks * step));
 
 await fly({ ticks: 60 });
-// Hold one browser's socket callbacks during a stall, then deliver the entire
-// backlog. Receipt should accumulate state, not replay once per old packet.
+// Emulate a legacy server without receipt flow control. A new client must still
+// merge its backlog without replaying once per packet when flow control is absent.
+const legacyPlayer = [
+  ...Reflect.get(Reflect.get(server, 'session'), 'players').values(),
+].find((player) => player.playerId === network.playerId);
+
+legacyPlayer.snapshotAcknowledgements = false;
+// Hold one browser's socket callbacks during a stall, then deliver the backlog.
 const socket = Reflect.get(network, 'socket') as WebSocket;
 const receive = socket.onmessage!;
 const backlog: MessageEvent[] = [];
@@ -625,7 +631,10 @@ assert(
 paused = false;
 await fly({ ticks: 30 });
 assert.equal(network.world.entities.get(network.shipId!)!.thrust, 0);
-console.log(`Recovered ${backlog.length} queued snapshots in one update`);
+legacyPlayer.snapshotAcknowledgements = true;
+console.log(
+  `Recovered ${backlog.length} legacy queued snapshots in one update`,
+);
 Object.assign(predictionStats, { corrections: 0, steps: 0, worst: 0 });
 
 const shipId = network.shipId!;

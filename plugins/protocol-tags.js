@@ -28,6 +28,7 @@ export const protocolTags = [
   'hornDrill',
   'searchLight',
   'shieldGenerator',
+  'snapshotAck',
 ];
 
 /**

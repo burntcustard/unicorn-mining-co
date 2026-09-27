@@ -11,14 +11,31 @@ import {
 } from '../shared/protocol/network';
 import { createShip } from '../shared/craft/create-ship';
 import { updateWorld } from '../shared/simulation/update-world';
-import { simulationStep, worldRanges } from '../shared/settings';
+import {
+  maxCatchUpTicks,
+  simulationStep,
+  worldRanges,
+} from '../shared/settings';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
 import { ReplicationManager, type ReplicationRecords } from './replication';
 import { Ship } from '../shared/craft/ship';
 import { Station } from '../shared/craft/station';
 
+// Let a slow receiver drain before sending another world state. The next
+// snapshot is computed from the last one actually sent to that player.
+const maxBufferedSnapshotBytes = 128 * 1024;
+const maxSocketBufferBytes = 1024 * 1024;
+// Bound snapshots beyond Node's buffer too (kernel, proxy and browser).
+// Two in flight maintain 30 Hz up to a 66 ms round trip; slower receivers
+// get fewer, current snapshots instead of a growing queue of stale ticks.
+const maxPendingSnapshots = 2;
+
 type PlayerRecord = {
+  snapshotAcknowledgements: boolean;
+  snapshotSequence: number;
+  pendingSnapshots: number[];
+  needsLoad: boolean;
   inputLead?: number;
   inputs: Map<number, PlayerInputMessage[]>;
   lastInput: PlayerInput;
@@ -42,7 +59,7 @@ const send = ({
   message: ServerMessage;
 }) => {
   if (socket.readyState === WebSocket.OPEN) {
-    if (socket.bufferedAmount > 1024 * 1024) {
+    if (socket.bufferedAmount > maxSocketBufferBytes) {
       socket.terminate();
       return;
     }
@@ -85,7 +102,11 @@ export class GameSession {
 
   receive({ message, socket }: { message: ClientMessage; socket: WebSocket }) {
     if (message.type === 'hello') {
-      this.hello({ socket, token: message.playerToken });
+      this.hello({
+        socket,
+        token: message.playerToken,
+        snapshotAcknowledgements: message.snapshotAcknowledgements === true,
+      });
       return;
     }
 
@@ -94,6 +115,15 @@ export class GameSession {
     );
 
     if (!player) return;
+
+    if (message.type === 'snapshotAck') {
+      const index = player.pendingSnapshots.indexOf(message.sequence);
+
+      // Only a sequence actually sent on this connection can free its window.
+      // Acknowledgements are transport activity, not player input/idle activity.
+      if (index >= 0) player.pendingSnapshots.splice(0, index + 1);
+      return;
+    }
     player.lastInputAt = Date.now();
 
     if (message.type === 'input') this.input({ message, player });
@@ -201,31 +231,69 @@ export class GameSession {
     });
     const replicationRecords: ReplicationRecords = new Map();
 
-    this.players.forEach((player) => {
-      const { socket } = player;
+    this.players.forEach((player) =>
+      this.sendSnapshot({ player, replicationRecords }),
+    );
+  }
 
-      if (!socket) return;
-      send({
-        socket,
-        message: player.replication.snapshot({
-          replicationRecords,
-          world: this.world,
-          shipId: player.shipId,
-          position: player.ship.position,
-          acknowledgedSequence: player.lastSequence,
-          inputLead: player.inputLead,
-        }),
-      });
-      player.inputLead = undefined;
-    });
+  private sendSnapshot({
+    player,
+    replicationRecords,
+  }: {
+    player: PlayerRecord;
+    replicationRecords?: ReplicationRecords;
+  }) {
+    const { socket } = player;
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    if (socket.bufferedAmount > maxSocketBufferBytes) {
+      socket.terminate();
+      return;
+    }
+
+    if (
+      socket.bufferedAmount > maxBufferedSnapshotBytes ||
+      (player.snapshotAcknowledgements &&
+        player.pendingSnapshots.length >= maxPendingSnapshots)
+    ) {
+      return;
+    }
+
+    // Build only when sending: skipped ticks must not advance delta baselines.
+    const options = {
+      replicationRecords,
+      world: this.world,
+      shipId: player.shipId,
+      position: player.ship.position,
+      acknowledgedSequence: player.lastSequence,
+      inputLead: player.inputLead,
+    };
+    const message: ServerMessage = player.needsLoad
+      ? player.replication.initial(options)
+      : player.replication.snapshot(options);
+
+    player.needsLoad = false;
+    player.inputLead = undefined;
+
+    if (
+      player.snapshotAcknowledgements &&
+      (message.type === 'load' || message.type === 'snapshot')
+    ) {
+      message.snapshotSequence = ++player.snapshotSequence;
+      player.pendingSnapshots.push(message.snapshotSequence);
+    }
+    send({ socket, message });
   }
 
   private hello({
     socket,
     token,
+    snapshotAcknowledgements,
   }: {
     socket: WebSocket;
     token: string | null;
+    snapshotAcknowledgements: boolean;
   }) {
     let player = token ? this.players.get(token) : undefined;
 
@@ -249,6 +317,10 @@ export class GameSession {
       addEntity(this.world, ship);
       addPlayer(this.world, { id: playerId, shipId: ship.id });
       player = {
+        snapshotAcknowledgements,
+        snapshotSequence: 0,
+        pendingSnapshots: [],
+        needsLoad: true,
         inputs: new Map(),
         lastInput: emptyPlayerInput(),
         lastSequence: 0,
@@ -272,6 +344,10 @@ export class GameSession {
 
     addPlayer(this.world, { id: player.playerId, shipId: player.shipId });
     player.socket = socket;
+    player.snapshotAcknowledgements = snapshotAcknowledgements;
+    player.snapshotSequence = 0;
+    player.pendingSnapshots = [];
+    player.needsLoad = true;
     player.lastInputAt = Date.now();
     player.disconnectedAt = undefined;
     player.inputs.clear();
@@ -307,16 +383,7 @@ export class GameSession {
       },
     });
 
-    send({
-      socket,
-      message: player.replication.initial({
-        world: this.world,
-        shipId: player.shipId,
-        position: player.ship.position,
-        acknowledgedSequence: player.lastSequence,
-        inputLead: player.inputLead,
-      }),
-    });
+    this.sendSnapshot({ player });
   }
 
   private respawn(player: PlayerRecord) {
@@ -357,14 +424,8 @@ export class GameSession {
       socket: player.socket,
       message: { shipId: ship.id, type: 'respawn' },
     });
-    send({
-      socket: player.socket,
-      message: player.replication.initial({
-        world: this.world,
-        shipId: ship.id,
-        acknowledgedSequence: player.lastSequence,
-      }),
-    });
+    player.needsLoad = true;
+    this.sendSnapshot({ player });
   }
 
   private input({
@@ -376,10 +437,11 @@ export class GameSession {
   }) {
     const lead = message.tick - this.world.tick;
 
-    if (Math.abs(lead) > 120) return;
     player.inputLead = lead;
 
-    if (lead < 0) {
+    // A pilot may keep predicting while snapshots are delayed. Do not park
+    // their newer controls several seconds in the future (or discard them).
+    if (lead < 0 || lead > maxCatchUpTicks) {
       if (message.sequence > player.lastSequence) {
         player.lastInput = message.input;
         player.lastSequence = message.sequence;
@@ -408,16 +470,6 @@ export class GameSession {
 
     if (!ship.applyDockAction(message)) return;
 
-    if (player.socket) {
-      send({
-        socket: player.socket,
-        message: player.replication.snapshot({
-          world: this.world,
-          shipId: player.shipId,
-          acknowledgedSequence: player.lastSequence,
-          inputLead: player.inputLead,
-        }),
-      });
-    }
+    this.sendSnapshot({ player });
   }
 }

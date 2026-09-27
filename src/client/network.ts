@@ -220,9 +220,12 @@ export class NetworkClient {
     socket.onopen = () =>
       this.send({
         playerToken: localStorage.getItem('playerToken'),
+        snapshotAcknowledgements: true,
         type: 'hello',
       });
     socket.onmessage = ({ data }) => {
+      if (this.socket !== socket) return;
+
       try {
         this.receive({ message: JSON.parse(String(data)) as ServerMessage });
       } catch {
@@ -292,7 +295,16 @@ export class NetworkClient {
 
     while (this.pendingTime >= simulationStep) {
       this.pendingTime -= simulationStep;
-      this.update({ input, now: now - this.pendingTime * 1000 });
+      this.update({
+        input,
+        now: now - this.pendingTime * 1000,
+        // The last step can consume everything received before this frame.
+        // Its fractional movement still starts at the whole-tick boundary.
+        snapshotNow:
+          this.pendingTime < simulationStep
+            ? now
+            : now - this.pendingTime * 1000,
+      });
     }
     return updated;
   }
@@ -300,9 +312,11 @@ export class NetworkClient {
   update({
     input,
     now = performance.now(),
+    snapshotNow = now,
   }: {
     input: PlayerInput;
     now?: number;
+    snapshotNow?: number;
   }) {
     if (!this.connected || this.playerId === undefined) return;
     const previousTick = this.world.tick;
@@ -310,7 +324,7 @@ export class NetworkClient {
     // A missed browser frame can replay several earlier clock boundaries.
     // Do not apply a newer snapshot to one of those earlier boundaries and
     // then simulate its elapsed time a second time.
-    if (this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt) {
+    if (this.pendingSnapshot && snapshotNow + 1e-6 >= this.snapshotReceivedAt) {
       const message = {
         ...this.pendingSnapshot,
         fullEntities: [...this.pendingEntities.values()].map(
@@ -481,6 +495,12 @@ export class NetworkClient {
       shipId: this.shipId,
       tick: message.serverTick,
     });
+
+    // Receipt acknowledges decoded deltas, independent of render cadence.
+    // The server can now replace skipped ticks with its latest state.
+    if (message.snapshotSequence !== undefined) {
+      this.send({ type: 'snapshotAck', sequence: message.snapshotSequence });
+    }
 
     if (message.type === 'snapshot') {
       // Keep the latest update for each retained entity, not a queue of full

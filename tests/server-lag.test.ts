@@ -7,7 +7,9 @@ import { parseClientMessage } from '../src/server/parse-client-message';
 import { ReplicationManager } from '../src/server/replication';
 import { GameObject } from '../src/shared/game-object';
 import { createStation } from '../src/shared/craft/create-station';
+import { createAsteroid } from '../src/shared/simulation/asteroid';
 import { createShip } from '../src/shared/craft/create-ship';
+import { Ship } from '../src/shared/craft/ship';
 import {
   addEntity,
   addPlayer,
@@ -15,8 +17,10 @@ import {
 } from '../src/shared/simulation/world';
 import { updateWorld } from '../src/shared/simulation/update-world';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
-import { simulationStep, maxPredictionTicks } from '../src/shared/settings';
+import { SearchLight } from '../src/shared/modules';
+import { maxPredictionTicks, simulationStep } from '../src/shared/settings';
 import { type InputFrame } from '../src/shared/protocol/input-frame';
+import { type ServerMessage } from '../src/shared/protocol/network';
 
 // Batched movement preserves short input edges, including edges in later ticks.
 const runInputs = (batched: boolean) => {
@@ -158,10 +162,13 @@ assert.equal(batched.ship.turn, 0);
   const queued = new GameSession({ worldSeed: 25 });
 
   Reflect.get(queued, 'regions').sync = () => {};
+  const sent: ServerMessage[] = [];
   const socket = {
     readyState: 1,
     bufferedAmount: 0,
-    send() {},
+    send(data: string) {
+      sent.push(JSON.parse(data) as ServerMessage);
+    },
     close() {},
     terminate() {},
   } as unknown as WebSocket;
@@ -192,6 +199,171 @@ assert.equal(batched.ship.turn, 0);
   queued.tick({ ticks: 2 });
   assert.equal(player.lastSequence, 3);
   assert.equal(player.ship.thrust, 1);
+
+  queued.receive({
+    socket,
+    message: {
+      type: 'input',
+      tick: queued.world.tick + 180,
+      sequence: 4,
+      input: { ...emptyPlayerInput(), searchLight: true },
+    },
+  });
+  assert.equal(player.lastSequence, 4);
+  assert.equal(player.inputs.size, 0, 'far-ahead controls are not parked');
+  queued.tick();
+  assert(player.ship.moduleActive({ module: SearchLight }));
+
+  const packetsBeforeCongestion = sent.length;
+
+  Reflect.set(socket, 'bufferedAmount', 128 * 1024 + 1);
+  player.ship.position.x += 100;
+  queued.tick();
+  assert.equal(sent.length, packetsBeforeCongestion);
+  Reflect.set(socket, 'bufferedAmount', 0);
+  queued.tick();
+  const resumed = sent.at(-1);
+
+  assert(resumed?.type === 'snapshot');
+  assert(
+    resumed.fullEntities.some(
+      (entity) =>
+        entity.id === player.shipId &&
+        entity.position?.x === player.ship.position.x,
+    ),
+    'the resumed snapshot includes changes since the last one sent',
+  );
+}
+
+// Every snapshot path shares one receipt window, including dock and respawn.
+{
+  const game = new GameSession({ worldSeed: 25 });
+
+  Reflect.get(game, 'regions').sync = () => {};
+  const sent: ServerMessage[] = [];
+  const socket = {
+    readyState: 1,
+    bufferedAmount: 0,
+    send(data: string) {
+      sent.push(JSON.parse(data) as ServerMessage);
+    },
+    close() {},
+    terminate() {},
+  } as unknown as WebSocket;
+
+  game.receive({
+    socket,
+    message: {
+      type: 'hello',
+      playerToken: null,
+      snapshotAcknowledgements: true,
+    },
+  });
+  const player = [...Reflect.get(game, 'players').values()][0];
+  const acknowledge = (sequence: number) =>
+    game.receive({ socket, message: { type: 'snapshotAck', sequence } });
+
+  game.tick();
+  assert.equal(sent.length, 3);
+  acknowledge(1000);
+  game.tick();
+  assert.equal(
+    sent.length,
+    3,
+    'unsent acknowledgements cannot bypass the window',
+  );
+  const lastInputAt = player.lastInputAt;
+
+  acknowledge(1);
+  assert.equal(
+    player.lastInputAt,
+    lastInputAt,
+    'receipts do not defeat idle timeout',
+  );
+  game.tick();
+  acknowledge(1);
+  game.tick();
+  assert.equal(
+    sent.length,
+    4,
+    'duplicate acknowledgements do not free another slot',
+  );
+
+  player.ship.dockedTo = -1;
+  player.ship.credits = 1000;
+  const previousShades = player.ship.shades;
+
+  game.receive({
+    socket,
+    message: { type: 'dock', action: 'paint', paint: 1 },
+  });
+  assert.equal(sent.length, 4, 'dock actions cannot bypass congestion');
+  assert.notDeepEqual(player.ship.shades, previousShades);
+  acknowledge(3);
+  game.tick();
+  const resumed = sent.at(-1);
+
+  assert(resumed?.type === 'snapshot');
+  assert(
+    resumed.fullEntities.some(
+      (entity) =>
+        entity.id === player.shipId &&
+        JSON.stringify(entity.shades) === JSON.stringify(player.ship.shades),
+    ),
+  );
+  game.tick();
+  const beforeRespawn = sent.length;
+
+  game.world.entities.delete(player.shipId);
+  const station = addEntity(
+    game.world,
+    createStation({ id: 900, position: Vec.create() }),
+  );
+
+  Reflect.set(game, 'nearestStation', () => station);
+  game.receive({ socket, message: { type: 'respawn' } });
+  assert.equal(
+    sent.length,
+    beforeRespawn + 1,
+    'respawn control is immediate, its load waits for capacity',
+  );
+  assert.equal(sent.at(-1)?.type, 'respawn');
+  acknowledge(5);
+  game.tick();
+  const load = sent.at(-1);
+
+  assert(load?.type === 'load');
+  assert(load.fullEntities.some((entity) => entity.id === player.shipId));
+
+  const replacement = {
+    readyState: 1,
+    bufferedAmount: 0,
+    close() {},
+    terminate() {},
+    send(data: string) {
+      sent.push(JSON.parse(data) as ServerMessage);
+    },
+  } as WebSocket;
+
+  game.disconnect({ socket });
+  game.receive({
+    socket: replacement,
+    message: {
+      type: 'hello',
+      playerToken: player.token,
+      snapshotAcknowledgements: true,
+    },
+  });
+  const reloaded = sent.at(-1);
+
+  assert(reloaded?.type === 'load');
+  assert.equal(reloaded.snapshotSequence, 1);
+  acknowledge(1);
+  assert.deepEqual(
+    player.pendingSnapshots,
+    [1],
+    'old connections cannot acknowledge the replacement load',
+  );
 }
 
 let now = 0;
@@ -229,6 +401,209 @@ Object.assign(globalThis, {
 
 try {
   const { NetworkClient } = await import('../src/client/network');
+
+  // Reproduce the live phase lock: packets arrive after the synthetic tick
+  // boundary but before RAF. Continuous traffic must never starve application.
+  {
+    now = 0;
+    session = new GameSession({ worldSeed: 25 });
+    Reflect.get(session, 'regions').sync = () => {};
+    const clients = Array.from(
+      { length: 3 },
+      () => new NetworkClient({ url: 'ws://test' }),
+    );
+
+    clients.forEach((client) =>
+      (Reflect.get(client, 'socket') as Socket).onopen?.(),
+    );
+    await Promise.all(clients.map((client) => client.ready));
+    const pending: { data: string }[][] = clients.map(() => []);
+    const receivers = clients.map((client, index) => {
+      const socket = Reflect.get(client, 'socket') as Socket;
+      const receive = socket.onmessage!;
+
+      socket.onmessage = (message) => pending[index].push(message);
+      return receive;
+    });
+
+    now = 10;
+    clients.forEach((client) =>
+      client.updateFrame({ input: emptyPlayerInput(), dt: 0.01, now }),
+    );
+    const start = clients.map((client) =>
+      Vec.clone(client.world.entities.get(client.shipId!)!.position),
+    );
+    let largestLag = 0;
+
+    for (let frame = 1; frame <= 600; frame++) {
+      now = (frame * 1000) / 60;
+
+      if (frame % 2 === 0) session.tick();
+      clients.forEach((client, index) => {
+        now = (frame * 1000) / 60 + [-5, 5, 9][index];
+        pending[index].splice(0).forEach(receivers[index]);
+        now = (frame * 1000) / 60 + 10;
+        client.updateFrame({
+          input: { ...emptyPlayerInput(), thrust: 1, searchLight: true },
+          dt: 1 / 60,
+          now,
+        });
+        largestLag = Math.max(
+          largestLag,
+          session.world.tick - client.serverTick,
+        );
+      });
+    }
+    assert.equal(
+      largestLag,
+      0,
+      'every arriving snapshot applies in the next whole simulation step',
+    );
+    clients.forEach((client, index) => {
+      const ship = client.world.entities.get(client.shipId!) as Ship;
+
+      assert(Vec.distance(start[index], ship.position) > 1000);
+      assert(
+        ship.segments.some(
+          (segment) =>
+            segment.module instanceof SearchLight &&
+            segment.activationProgress > 0.9,
+        ),
+      );
+    });
+    console.log(
+      'Three arrival phases: all 300 snapshots applied, movement and lights progress',
+    );
+  }
+
+  // Replay the observed ~3.1 KB packets over a 5 KiB/s downstream link.
+  // The proxy accepts writes immediately: Node bufferedAmount stays zero.
+  // Pad small isolated-world packets to the size recorded in the asteroid field.
+  for (const flowControlled of [false, true]) {
+    now = 0;
+    session = new GameSession({ worldSeed: 25 });
+    Reflect.get(session, 'regions').sync = () => {};
+    const clients = Array.from(
+      { length: 3 },
+      () => new NetworkClient({ url: 'ws://test' }),
+    );
+
+    clients.forEach((client) =>
+      (Reflect.get(client, 'socket') as Socket).onopen?.(),
+    );
+    await Promise.all(clients.map((client) => client.ready));
+    const player = [...Reflect.get(session, 'players').values()][0];
+
+    player.snapshotAcknowledgements = flowControlled;
+    const socket = Reflect.get(clients[0], 'socket') as Socket;
+    const receive = socket.onmessage!;
+    const queue: { data: string; remaining: number }[] = [];
+
+    socket.onmessage = ({ data }) => {
+      const packet = JSON.parse(data);
+
+      packet.padding = ' '.repeat(Math.max(0, 3100 - Buffer.byteLength(data)));
+      data = JSON.stringify(packet);
+      queue.push({ data, remaining: Buffer.byteLength(data) });
+    };
+    let largestQueue = 0;
+    let largestLag = 0;
+    let healthyLag = 0;
+    let recoveryFrames = 0;
+
+    for (let frame = 1; frame <= 780; frame++) {
+      now = (frame * 1000) / 60;
+
+      if (frame % 2 === 0) session.tick();
+      let bytes = (frame <= 720 ? 5 * 1024 : 100 * 1024) / 60;
+
+      while (queue.length && bytes > 0) {
+        const packet = queue[0];
+        const consumed = Math.min(bytes, packet.remaining);
+
+        bytes -= consumed;
+        packet.remaining -= consumed;
+
+        if (packet.remaining <= 0) {
+          queue.shift();
+          receive({ data: packet.data });
+        }
+      }
+      clients.forEach((client) =>
+        client.updateFrame({
+          input: { ...emptyPlayerInput(), thrust: 1, searchLight: true },
+          dt: 1 / 60,
+          now,
+        }),
+      );
+      largestQueue = Math.max(largestQueue, queue.length);
+      largestLag = Math.max(
+        largestLag,
+        session.world.tick - clients[0].serverTick,
+      );
+      healthyLag = Math.max(
+        healthyLag,
+        ...clients
+          .slice(1)
+          .map((client) => session.world.tick - client.serverTick),
+      );
+
+      if (
+        frame > 720 &&
+        !recoveryFrames &&
+        session.world.tick - clients[0].serverTick <= 2
+      ) {
+        recoveryFrames = frame - 720;
+      }
+    }
+    assert.equal(
+      healthyLag,
+      0,
+      'the slow receiver never holds up other players',
+    );
+
+    if (flowControlled) {
+      assert(largestQueue <= 2);
+      assert(
+        largestLag < 60,
+        'slow delivery cannot accumulate seconds of stale snapshots',
+      );
+      assert(
+        recoveryFrames > 0 && recoveryFrames <= 6,
+        'current state arrives within 100ms of bandwidth recovery',
+      );
+      assert.equal(socket.peer.bufferedAmount, 0);
+      const clientShip = clients[0].world.entities.get(
+        clients[0].shipId!,
+      ) as Ship;
+
+      assert(
+        clientShip.segments.some(
+          (segment) =>
+            segment.module instanceof SearchLight &&
+            segment.activationProgress > 0.9,
+        ),
+      );
+    } else {
+      assert(
+        largestQueue > 250,
+        'without receipt acknowledgements the observed backlog reproduces',
+      );
+      assert(
+        largestLag >= 279,
+        'the old sender reproduces at least the live 9.3-second backlog',
+      );
+    }
+    console.log(
+      JSON.stringify({
+        flowControlled,
+        largestQueue,
+        largestLag,
+        healthyLag,
+        recoveryFrames,
+      }),
+    );
+  }
 
   for (const [interval, frameStep] of [
     [2, 1],
@@ -344,23 +719,47 @@ try {
         clientTravel: previous.map((x, i) => x - start[i]),
       }),
     );
-    // One observer can miss packets while another keeps receiving them.
-    // Its local ship must not stop at the old 500 ms snapshot-age limit.
+    // One pilot misses ten seconds of snapshots while others stay current.
     const delayed = clients[0];
     const socket = Reflect.get(delayed, 'socket') as Socket;
     const receive = socket.onmessage;
-    let delayedTravel = 0;
     const delayedMessages: { data: string }[] = [];
+    const delayedTicks = interval === 2 && frameStep === 1 ? 300 : 24;
+    let delayedTravel = 0;
+
+    if (delayedTicks === 300) {
+      for (let index = 0; index < 8; index++) {
+        addEntity(
+          session.world,
+          createAsteroid(session.world, {
+            position: Vec.create(
+              players[1].ship.position.x + 1400 + (index % 4) * 30,
+              Math.floor(index / 4) * 30,
+            ),
+            radius: 25,
+            velocity: Vec.create(index % 2 ? -10 : 10),
+          }),
+        );
+      }
+    }
 
     socket.onmessage = (message) => delayedMessages.push(message);
 
-    for (let tick = 0; tick < 24; tick++) {
+    for (let tick = 0; tick < delayedTicks; tick++) {
       now += 1000 / 30;
       session.tick();
       const before = delayed.world.entities.get(delayed.shipId!)!.position.x;
+      const input = {
+        ...emptyPlayerInput(),
+        searchLight: tick >= 180,
+      };
 
-      clients.forEach((client) =>
-        client.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now }),
+      clients.forEach((client, index) =>
+        client.updateFrame({
+          input: index === 0 ? input : emptyPlayerInput(),
+          dt: 1 / 30,
+          now,
+        }),
       );
 
       if (tick >= 18) {
@@ -368,17 +767,44 @@ try {
           delayed.world.entities.get(delayed.shipId!)!.position.x - before;
       }
     }
-    assert(delayedTravel > 10, 'delayed pilot keeps moving after 500 ms');
+    assert(delayedTravel > 10, 'prediction bridges short delivery gaps');
+    assert(
+      delayedMessages.length <= 2,
+      'an outage queues at most two snapshots',
+    );
+    assert(delayed.world.tick <= delayed.serverTick + 2 * maxPredictionTicks);
     assert(clients[1].serverTick > delayed.serverTick);
+
+    if (delayedTicks === 300) {
+      const ship = players[0].ship;
+
+      assert(ship instanceof Ship);
+      const light = ship.segments.find(
+        (segment) => segment.module instanceof SearchLight,
+      );
+
+      assert(light);
+      assert(
+        light.activationProgress > 0.9,
+        'stale-tick controls still activate the authoritative light',
+      );
+      assert(
+        Reflect.get(Reflect.get(delayed, 'prediction'), 'history').size <= 60,
+        'long gaps retain bounded prediction history',
+      );
+    }
     socket.onmessage = receive;
     delayedMessages.forEach((message) => receive?.(message));
+    now += 1000 / 30;
+    session.tick();
     delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now });
     assert(
       Math.abs(delayed.world.tick - clients[1].world.tick) <= 2,
       'delayed pilot catches up when snapshots resume',
     );
 
-    // A lost connection still bounds prediction; pending releases still get sent.
+    // A genuine outage bounds prediction, but input releases still reach the server.
+
     for (let i = 0; i < 120; i++) {
       now += 1000 / 60;
       delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 60, now });

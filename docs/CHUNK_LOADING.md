@@ -44,6 +44,12 @@ quoted paths, so `distance` can be mangled without changing imports of
 entity, event and equipment tags in `plugins/protocol-tags.js` get shared
 one-byte values on both sides. Input transitions use positional JSON arrays
 `[tick, sequence, controlBits, offset?]`, with no field names or type tag.
+Clients opt into snapshot receipt acknowledgements in `hello`. The server assigns
+connection-local snapshot sequences and keeps at most two snapshots outstanding
+per player, including initial and respawn loads. The client acknowledges after
+decoding; skipped sends do not advance replication baselines, so the next send
+contains current changes. Peers without this capability keep the original send
+behavior. Client and server production assets must be built and released together.
 Untouched procedural asteroids recreate their segments from shared seeds instead
 of receiving them. Each player receives a full entity record on entry, then
 only fields that changed; `null` clears a field. Load records provide their

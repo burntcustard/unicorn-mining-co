@@ -33,7 +33,11 @@ assert(
 const entryId = resolve('src/__packet_client_test.ts');
 const entry = `
 import { emptyPlayerInput, packPlayerInput } from './shared/protocol/input';
-export const hello = () => JSON.stringify({ type: 'hello', playerToken: null });
+export const hello = () => JSON.stringify({ type: 'hello', playerToken: null, snapshotAcknowledgements: true });
+export const acknowledge = source => {
+  const message = JSON.parse(source);
+  return message.snapshotSequence === undefined ? undefined : JSON.stringify({ type: 'snapshotAck', sequence: message.snapshotSequence });
+};
 export const makeInput = (tick, offset, active = false) => JSON.stringify([
   tick,
   active ? 2 : 1,
@@ -82,7 +86,14 @@ const sourceOf = (data: RawData) =>
 const receive = (socket: WebSocket) => {
   const packets: string[] = [];
 
-  socket.on('message', (data) => packets.push(sourceOf(data)));
+  socket.on('message', (data) => {
+    const source = sourceOf(data);
+
+    packets.push(source);
+    const acknowledgement = client.acknowledge(source);
+
+    if (acknowledgement) socket.send(acknowledgement);
+  });
   return packets;
 };
 const waitFor = async (
@@ -333,6 +344,10 @@ try {
       Object.entries(sizes)
         .map(([type, [compact, plain]]) => `${type}: ${compact}/${plain}B`)
         .join(', '),
+    );
+    assert(
+      client.acknowledge(load),
+      'built server negotiates and sequences snapshots',
     );
     assert(client.inspect(load)[3] > 0, 'mangled client reads server entities');
     const [loadIds, visibleIds] = client.entityIds(load);

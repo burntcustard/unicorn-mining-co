@@ -62,6 +62,10 @@ for (const message of [
   [1, 1, 0, -0.1],
   [1, 1, 0, simulationStep],
   { type: 'hello', playerToken: 'not-a-token' },
+  { type: 'hello', playerToken: null, snapshotAcknowledgements: 1 },
+  { type: 'snapshotAck', sequence: -1 },
+  { type: 'snapshotAck', sequence: 1.5 },
+  { type: 'snapshotAck', sequence: '1' },
   { type: 'dock', action: 'sell', objectIds: ['bad'] },
   { type: 'dock', action: 'buy', module: 1, moduleId: null },
 ]) {
