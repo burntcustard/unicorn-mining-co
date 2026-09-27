@@ -18,6 +18,8 @@ const bundle = await rolldown({
       export { RegionManager } from '${process.cwd()}/src/shared/simulation/region-manager.ts';
       export { RegionManager as ServerRegionManager } from '${process.cwd()}/src/server/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/shared/simulation/world.ts';
+      export { shapeOutlineOf, createAsteroid } from '${process.cwd()}/src/shared/simulation/asteroid.ts';
+      export { preGeneratedRadius } from '${process.cwd()}/src/shared/settings.ts';
       export { Message } from '${process.cwd()}/src/shared/items/message.ts';
       export { ReplicationManager } from '${process.cwd()}/src/server/replication.ts';
       export * as Vec from '${process.cwd()}/src/shared/vector.ts';
@@ -30,6 +32,9 @@ const bundle = await rolldown({
 const { output } = await bundle.generate({ format: 'esm' });
 const {
   createWorld,
+  createAsteroid,
+  shapeOutlineOf,
+  preGeneratedRadius,
   generateRegion,
   generateFields,
   fieldMessage,
@@ -488,5 +493,91 @@ for (const position of [Vec.create(), Vec.create(-1999, 2001)]) {
       .query({ position: Vec.create() })
       .stationMarkers.find(({ id }) => id === marker.id).radius,
     station.radius,
+  );
+}
+
+// Preparation retains descriptions, not active regions/entities, and keeps edits
+// and marker tombstones across region changes. Outside coverage stays on demand.
+{
+  assert.equal(preGeneratedRadius, 50000);
+  const prepared = new RegionManager({ worldSeed: 25 });
+  const cold = new RegionManager({ worldSeed: 25 });
+
+  prepared.preGenerate({ radius: preGeneratedRadius });
+  assert.equal(prepared.loadedRegionCount, 0);
+  assert.equal(prepared.saved.size, 2040);
+  const descriptions = [...prepared.saved.values()];
+  const asteroids = descriptions.flatMap(({ asteroids }) => asteroids);
+  const world = createWorld({ seed: 25 });
+  const buckets = new Map();
+
+  for (const asteroid of asteroids) {
+    const x = Math.floor(asteroid.position.x / 500);
+    const y = Math.floor(asteroid.position.y / 500);
+
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const other of buckets.get(`${x + dx},${y + dy}`) || []) {
+          assert(
+            Vec.distance(asteroid.position, other.position) >=
+              asteroid.radius + other.radius + asteroidSpacing,
+          );
+        }
+      }
+    }
+    const key = `${x},${y}`;
+    const bucket = buckets.get(key) || [];
+
+    bucket.push(asteroid);
+    buckets.set(key, bucket);
+    const entity = createAsteroid(world, asteroid);
+    const outline = shapeOutlineOf(entity);
+
+    for (const [px, py] of [
+      ...outline,
+      ...entity.segments.flatMap((segment) => segment.shapeOutline),
+    ]) {
+      assert(
+        Math.hypot(px, py) <= asteroid.radius + 1e-7,
+        'rounded outer vertices and subdivided segments remain within the generation radius',
+      );
+    }
+  }
+  assert.equal(world.entities.size, 0);
+
+  for (const position of [
+    Vec.create(),
+    Vec.create(-48000, 0),
+    Vec.create(50000, 0),
+    Vec.create(80000, -60000),
+  ]) {
+    assert.deepEqual(prepared.query({ position }), cold.query({ position }));
+  }
+  const victim = descriptions.find(({ asteroids }) => asteroids.length)
+    .asteroids[0];
+
+  prepared.remove({ id: victim.id });
+  const region = Vec.create(
+    Math.floor(victim.position.x / 2000),
+    Math.floor(victim.position.y / 2000),
+  );
+  const surviving = prepared.load({ region }).description;
+
+  assert(!surviving.asteroids.some(({ id }) => id === victim.id));
+  prepared.unload({ region });
+  prepared.preGenerate({ radius: preGeneratedRadius });
+  assert.equal(prepared.load({ region }).description, surviving);
+  assert(!surviving.asteroids.some(({ id }) => id === victim.id));
+
+  const markerManager = new RegionManager({ worldSeed: 25 });
+  const station = markerManager.query({ position: Vec.create() })
+    .stationMarkers[0];
+
+  markerManager.remove({ id: station.id });
+  markerManager.preGenerate({ radius: preGeneratedRadius });
+  assert(
+    !markerManager
+      .query({ position: station.position })
+      .stations.some(({ id }) => id === station.id),
   );
 }

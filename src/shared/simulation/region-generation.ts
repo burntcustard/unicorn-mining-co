@@ -389,12 +389,16 @@ const generateCandidates = ({
   candidateRegions.set(key, candidates);
 
   if (candidateRegions.size > 1024) {
-    candidateRegions.delete(candidateRegions.keys().next().value!);
+    for (const oldest of candidateRegions.keys()) {
+      candidateRegions.delete(oldest);
+      break;
+    }
   }
   return candidates;
 };
 
-// The old world distributor left this much clear space beyond both radii.
+// Polygon variance is inward-only; this clearance beyond both full radii
+// also covers coordinate rounding, so rotation cannot close the gap.
 export const asteroidSpacing = 30;
 
 // Reject crowded candidates in a stable order, independent of region load order.

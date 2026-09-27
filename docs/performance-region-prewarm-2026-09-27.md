@@ -7,7 +7,10 @@ However, in the repeated three-player tests, descriptions alone gave the lowest
 average CPU. Bigger caches made first-time activation cheaper, but did not provide
 an additional sustained CPU win over descriptions alone.
 
-This is a benchmark-only prototype and investigation. It changes neither server
+This records the original benchmark-only prototype and investigation.
+The subsequent production implementation is documented in
+[the dormant-world follow-up](performance-dormant-world-2026-09-27.md).
+The prototype itself changes neither server
 startup nor `fly.toml`. The previous collision optimization remains untouched.
 There is no world export, upload, or off-server generation pipeline.
 

@@ -29,49 +29,9 @@ if (!options.child) {
       plugins: [
         {
           name: 'prewarm-entry',
-          // Benchmark-only factory lookups. The deployed region manager is unchanged.
+          // Factory lookups exist only in this experimental bundle.
           transform(code, id) {
-            if (
-              options['indexed-removal'] &&
-              id.endsWith('/src/shared/simulation/region-manager.ts')
-            ) {
-              const start = code.indexOf(
-                '    [...this.loaded.values()].forEach(({ description }) =>\n      removeFrom(description),',
-              );
-              const end = code.indexOf(
-                '    [...this.saved.values()].forEach((description) => removeFrom(description));',
-                start,
-              );
-
-              assert(start >= 0 && end >= 0, 'Missing removal index marker');
-              code =
-                code.slice(0, start) +
-                `
-    const description = this.owners.get(id);
-    if (description) removeFrom(description);
-    this.owners.delete(id);
-` +
-                code.slice(
-                  end +
-                    '    [...this.saved.values()].forEach((description) => removeFrom(description));'
-                      .length,
-                );
-              return code
-                .replace(
-                  '  private removed = new Set<number>();',
-                  '  private removed = new Set<number>();\n  private owners = new Map<number, RegionDescription>();',
-                )
-                .replace(
-                  '    const loaded = {',
-                  `
-    if (!this.saved.has(key)) {
-      [...description.asteroids, ...description.stations, ...description.wrecks]
-        .forEach(source => this.owners.set(source.id, description));
-    }
-    const loaded = {`,
-                );
-            }
-
+            // Removal indexing is now production behavior in every mode.
             if (id.endsWith('/src/shared/collision/game-collisions.ts')) {
               const marker =
                 '    const hitbox =\n      entity instanceof Craft';
@@ -134,6 +94,11 @@ if (!options.child) {
             }
 
             if (!id.endsWith('/src/server/region-manager.ts')) return;
+            // This harness owns preparation timing, including its cold mode.
+            code = code.replace(
+              '    this.regions.preGenerate({ radius: preGeneratedRadius });',
+              '',
+            );
             const markers = [
               [
                 '          Object.assign(\n            createAsteroid',

@@ -4,7 +4,7 @@ import { createShip } from '../shared/craft/create-ship';
 import { itemTypes, Message } from '../shared/items';
 import { fieldMessage } from '../shared/simulation/region-generation';
 import { createStation } from '../shared/craft/create-station';
-import { worldRanges } from '../shared/settings';
+import { preGeneratedRadius, worldRanges } from '../shared/settings';
 import { RegionManager as ProceduralRegionManager } from '../shared/simulation/region-manager';
 import {
   addEntity,
@@ -32,6 +32,7 @@ export class RegionManager {
 
   constructor({ worldSeed }: { worldSeed: number }) {
     this.regions = new ProceduralRegionManager({ worldSeed });
+    this.regions.preGenerate({ radius: preGeneratedRadius });
   }
 
   view({ position, ranges }: { position: Vec.Value; ranges?: WorldRanges }) {

@@ -344,3 +344,47 @@ try {
 } finally {
   await replicationBundle.close();
 }
+
+// Startup crosses the candidate-cache eviction threshold. Native iterator APIs
+// must remain callable after the game's property rewriting/minification.
+const regionEntry = resolve('src/__mangle_regions.ts');
+const regionBundle = await rolldown({
+  input: regionEntry,
+  plugins: [
+    {
+      name: 'region-startup-fixture',
+      resolveId: (id) => (id === regionEntry ? regionEntry : undefined),
+      load: (id) =>
+        id === regionEntry
+          ? `
+        import { RegionManager } from './shared/simulation/region-manager';
+        import { preGeneratedRadius } from './shared/settings';
+        export function inspectRegions() {
+          const regions = new RegionManager({ worldSeed: 25 });
+          regions.preGenerate({ radius: preGeneratedRadius });
+          const inactive = regions.loadedRegionCount;
+          const first = regions.query({ position: { x: 0, y: 0 } });
+          regions.query({ position: { x: 80000, y: -60000 } });
+          const returned = regions.query({ position: { x: 0, y: 0 } });
+          return [inactive, first.asteroids.length, JSON.stringify(first) === JSON.stringify(returned)];
+        }
+      `
+          : undefined,
+    },
+    { ...buildPlugin(), generateBundle: undefined },
+  ],
+});
+
+try {
+  const { output } = await regionBundle.generate({
+    format: 'esm',
+    minify: true,
+  });
+  const built = await import(
+    `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
+  );
+
+  assert.deepEqual(built.inspectRegions(), [0, 36, true]);
+} finally {
+  await regionBundle.close();
+}

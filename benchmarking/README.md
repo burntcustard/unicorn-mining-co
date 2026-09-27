@@ -254,3 +254,27 @@ mining, cargo pickup and unload/reload behavior for geometry/body modes.
 
 See [the investigation](../docs/performance-region-prewarm-2026-09-27.md) for
 memory tradeoffs, indexed removal, limitations and the repeated flight results.
+
+### Production description cache
+
+The server now pre-generates central descriptions using `preGeneratedRadius` in
+`src/shared/settings.ts`. The archived `region-prewarm.mjs` experiment disables
+that automatic startup step so its explicit preparation stages and `cold` mode
+still work. Indexed removal is now normal behavior in every mode;
+`--indexed-removal` remains accepted for older commands.
+
+Use `production-flight.mjs --ticks=3600 --warm --players=3 --semi-space=16`
+with one `--scenario=spread`, `convoy` or `contact` per invocation for current
+production comparisons. Save each implementation with `--save=/tmp/name.mjs`,
+then alternate runs using `--bundle=/tmp/name.mjs`. A warmed invocation runs two
+3,900-tick sessions (260 simulated seconds total); the child timeout is 290
+seconds. Compare snapshot hashes, packet bytes and positions as well as CPU.
+
+See [the implementation measurements](../docs/performance-dormant-world-2026-09-27.md)
+for the description-only decision and rejected collision experiments.
+
+`--pre-generated-radius=0` overrides the setting in a newly compiled flight
+bundle, leaving the workspace's production setting unchanged. This isolates
+startup pre-generation from the remaining implementation. It was used to test
+collision skipping alone before that feature was removed. The override is embedded by
+`--save`; it has no effect when running an existing `--bundle`.

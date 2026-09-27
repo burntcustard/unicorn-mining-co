@@ -17,7 +17,9 @@ const options = Object.fromEntries(
   process.argv
     .slice(2)
     .map((arg) =>
-      arg.includes('=') ? arg.slice(2).split('=') : [arg.slice(2), true],
+      arg.includes('=')
+        ? arg.slice(2).split(/=(.*)/s, 2)
+        : [arg.slice(2), true],
     ),
 );
 
@@ -103,6 +105,28 @@ try {
         {
           name: 'production-flight-entry',
           transform(code, id) {
+            if (
+              options['pre-generated-radius'] !== undefined &&
+              id.endsWith('/src/shared/settings.ts')
+            ) {
+              const radius = Number(options['pre-generated-radius']);
+              const declaration = /export const preGeneratedRadius = \d+;/;
+
+              if (
+                !Number.isFinite(radius) ||
+                radius < 0 ||
+                !declaration.test(code)
+              ) {
+                throw new Error(
+                  'Invalid pre-generation radius or missing setting',
+                );
+              }
+              return code.replace(
+                declaration,
+                `export const preGeneratedRadius = ${radius};`,
+              );
+            }
+
             if (options.profile) {
               return instrumentPhases(code, id, options.profile === 'detail');
             }

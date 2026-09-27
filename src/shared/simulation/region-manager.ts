@@ -34,6 +34,7 @@ export class RegionManager {
   private saved = new Map<string, RegionDescription>();
   private worldSeed: number;
   private removed = new Set<number>();
+  private descriptionOwners = new Map<number, Set<RegionDescription>>();
   private queriedRegions?: {
     bounds: string;
     descriptions: RegionDescription[][];
@@ -48,6 +49,31 @@ export class RegionManager {
     return this.loaded.size;
   }
 
+  /**
+   * Retain descriptions intersecting the central circle without activating them.
+   */
+  preGenerate({ radius }: { radius: number }) {
+    const reach = Math.ceil(radius / regionSize);
+
+    for (let x = -reach; x < reach; x++) {
+      for (let y = -reach; y < reach; y++) {
+        const nearestX = Math.max(x, 0, -x - 1) * regionSize;
+        const nearestY = Math.max(y, 0, -y - 1) * regionSize;
+        const region = Vec.create(x, y);
+
+        if (
+          nearestX * nearestX + nearestY * nearestY >= radius * radius ||
+          this.loaded.has(keyOf({ region })) ||
+          this.saved.has(keyOf({ region }))
+        ) {
+          continue;
+        }
+        this.load({ region });
+        this.unload({ region });
+      }
+    }
+  }
+
   load({ region }: { region: Vec.Value }): LoadedRegion {
     const key = keyOf({ region });
     const existing = this.loaded.get(key);
@@ -57,6 +83,29 @@ export class RegionManager {
     const description =
       this.saved.get(key) ||
       generateRegion({ worldSeed: this.worldSeed, region });
+
+    if (!this.saved.has(key)) {
+      description.asteroids = description.asteroids.filter(
+        ({ id }) => !this.removed.has(id),
+      );
+      description.stations = description.stations.filter(
+        ({ id }) => !this.removed.has(id),
+      );
+      description.wrecks = description.wrecks.filter(
+        ({ id }) => !this.removed.has(id),
+      );
+      [
+        ...description.asteroids,
+        ...description.stations,
+        ...description.wrecks,
+      ].forEach(({ id }) => {
+        const owners =
+          this.descriptionOwners.get(id) || new Set<RegionDescription>();
+
+        owners.add(description);
+        this.descriptionOwners.set(id, owners);
+      });
+    }
     const loaded = {
       description,
       seed: regionSeed({ worldSeed: this.worldSeed, region }),
@@ -93,10 +142,8 @@ export class RegionManager {
       );
     };
 
-    [...this.loaded.values()].forEach(({ description }) =>
-      removeFrom(description),
-    );
-    [...this.saved.values()].forEach((description) => removeFrom(description));
+    this.descriptionOwners.get(id)?.forEach(removeFrom);
+    this.descriptionOwners.delete(id);
   }
 
   query({

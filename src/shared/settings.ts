@@ -14,6 +14,7 @@ export const updateTiers = {
 
 // Region Settings
 export const regionSize = 2000;
+export const preGeneratedRadius = 50000;
 export const worldRanges: WorldRanges = {
   asteroid: 2000,
   item: 2000,
