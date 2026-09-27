@@ -151,10 +151,18 @@ assert.equal(batched.ship.turn, 0);
     tick: 4,
     now: 100,
   });
-  assert(
-    Math.abs(motion.sample({ now: 150 }).get(2)!.position.x - 5) < 1e-9,
-    'remote movement spans the whole 100ms packet interval without a local ship delta',
-  );
+
+  // The extra buffer is one simulation tick, even with 100ms snapshots.
+  for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
+    const pose = motion
+      .sample({ now: 100 + simulationStep * 1000 + fraction * 100 })
+      .get(2)!;
+
+    assert(
+      Math.abs(pose.position.x - fraction * 10) < 1e-9,
+      'after one extra tick, remote movement spans the whole 100ms packet interval without a local ship delta',
+    );
+  }
 }
 
 // A batch must consume each queued tick and retain later input transitions.
