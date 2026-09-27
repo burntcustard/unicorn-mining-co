@@ -6,10 +6,17 @@
 [x] Fix things being slipperier than they should be, like the horn drill
 [x] Combine Plank.js code with ours better, e.g. remove duplicate vector
 [x] Fix internal light or other players not revealing items
-[ ] Fix not being able to paint equipped thrusters
-[ ] Improve server CPU performance
-[ ] Make cargo hatches use the brightest color rather than darkest
+[x] Improve server CPU performance
+[ ] Improve server CPU performance v2, limits still hit with 2 players
+[x] Make cargo hatches use the brightest color rather than darkest
 [ ] Fix asteroids gaining spin when splitting(?)
+[ ] Fix not being able to paint equipped modules (cargo hatch, thrusters)
+[ ] Fix shield bounce not working player-on-player
+[ ] Figure out 1 player freezing completely on the server
+[ ] Make ships tougher so teamkilling is harder
+[ ] Make sure fixing updates on client without needing removal & equipping
+[ ] Fix mini horn visual bug
+[ ] Fix getting all your money back (500 credits) on respawn
 
 ## MVP
 
@@ -47,6 +54,8 @@
 [ ] Swap 'FIX' with 'REPAIR' or 'Repair'
 [ ] Fix colors unlocked not saving on reconnect
 [ ] Remove or refactor updateHornDrillSounds because its weird
+[ ] Adjust sound volumes depending on distance to camera
+[ ] Adjust sound location (left/right) depending on position
 [ ] Adjust sounds v1 (less bassy, less annoying?)
 [ ] Adjust sounds v2 (custom with more levers & layers)
 
