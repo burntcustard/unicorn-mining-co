@@ -90,8 +90,9 @@ export class CargoHatch extends Module {
         });
       },
       radius: () => cargoHatchGeometry.doorRadius,
+      fillShade: 2,
       // A loose door keeps this same solid presentation without a shape outline.
-      wreckage: {},
+      wreckage: { fillShade: 2 },
     },
     {
       // A nonphysical contact at the mouth, checked against the item's centre.

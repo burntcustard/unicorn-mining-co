@@ -158,6 +158,10 @@ for(const ship of [local,remote]){
   hornDrillSegment.module.render({segment:hornDrillSegment});
   assert(draws.some(draw=>draw.style===colors.yellow[0]),'modules are filled with their darkest shade');
   assert(strokes.every(color=>color===colors.yellow[2]),'horn drill shapeOutline and flutes retain their colour across parent canvas restore');
+  const hatchDoor=ship.segments.find(segment=>segment.module instanceof CargoHatch && !segment.catches);
+  draws.length=0;
+  hatchDoor.module.render({segment:hatchDoor});
+  assert(draws.some(draw=>draw.style===colors.violet[2]),'attached cargo hatch uses its light shade');
   const sounds=globalThis['sounds'];
   const beforeSound=sounds.length;
   ship.updateVisual(1/60);
@@ -215,11 +219,12 @@ for(const craftOrder of [[drilling,receiving],[receiving,drilling]]){
 }
 station.render({zIndex:2});
 assert(gradients>before,'station hulls retain gradient shading');
-const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{shapeOutline:[[0,0],[20,0],[0,20]],radius:20,offset:Vec.create(),health:2}]});
+const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{shapeOutline:[[0,0],[20,0],[0,20]],radius:20,offset:Vec.create(),health:2,fillShade:2}]});
 draws.length=0;
 const beforeWreck=gradients;
 for(const zIndex of new Set(wreckage.segments.map(segment=>segment.zIndex)))wreckage.render({zIndex});
 assert(draws.length>0,'bare Craft wreckage retains its own hull rendering');
+assert(draws.some(draw=>draw.style===colors.cyan[2]),'detached wreckage keeps its light fill shade');
 assert.equal(gradients,beforeWreck,'wreckage does not inherit station gradients');
 const diamond=new Diamond();
 draws.length=0;

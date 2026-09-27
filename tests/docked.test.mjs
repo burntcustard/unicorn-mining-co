@@ -292,6 +292,7 @@ assert(wreckage !== damaged && wreckage.decay && wreckage.hitbox().length, 'deta
 assert.equal(wreckage.segments.length, 1, 'detached cargo hatch leaves only its physical door');
 assert(!wreckage.segments[0].catches, 'detached cargo hatch omits its cargo contact point');
 assert.deepEqual(wreckage.shades, colors.violet, 'detached cargo hatch retains its pink module colour');
+assert.equal(wreckage.segments[0].fillShade, 2, 'detached cargo hatch keeps its light fill shade');
 const hatchShapeOutline = wreckage.segments[0].points;
 assert.deepEqual(hatchShapeOutline.map(([x,y]) => Vec.add(wreckage.position, Vec.create(x,y))), attachedDoor,
   'detached cargo hatch starts at its mounted door geometry');

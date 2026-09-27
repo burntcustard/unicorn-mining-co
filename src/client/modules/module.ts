@@ -28,10 +28,10 @@ giveRender({
         if (!shape) return;
         const shades = this.shades || segment.shades;
 
-        // Modules wear their darkest shade, a step below the hull's.
+        // Modules default to their darkest shade, a step below the hull's.
         ctx.fillStyle = segment.fillAlpha
           ? shades[2] + segment.fillAlpha
-          : shades[0];
+          : shades[segment.fillShade ?? 0];
         ctx.strokeStyle = shades[2];
         ctx.fill(shape);
         ctx.stroke(
