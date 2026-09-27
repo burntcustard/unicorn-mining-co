@@ -124,7 +124,7 @@ export function findTimeOfImpact(output: TOIOutput, input: TOIInput): void {
     }
 
     // Initialize the separating axis.
-    separationFunction.initialize(cache, proxyA, sweepA, proxyB, sweepB, t1);
+    separationFunction.initialize(cache, proxyA, sweepA, proxyB, sweepB);
 
     // Compute the TOI on the separating axis. We do this by successively
     // resolving the deepest point. This loop is bounded by the number of
@@ -233,8 +233,6 @@ export function findTimeOfImpact(output: TOIOutput, input: TOIInput): void {
       break;
     }
   }
-
-  separationFunction.recycle();
 }
 
 type SeparationFunctionType = 'points' | 'faceA' | 'faceB' | undefined;
@@ -255,27 +253,12 @@ class SeparationFunction {
   indexA = -1;
   indexB = -1;
 
-  recycle() {
-    this.m_proxyA = null;
-    this.m_proxyB = null;
-    this.m_sweepA = null;
-    this.m_sweepB = null;
-
-    this.m_type = undefined;
-    Vec.setXY(this.m_localPoint, 0, 0);
-    Vec.setXY(this.m_axis, 0, 0);
-
-    this.indexA = -1;
-    this.indexB = -1;
-  }
-
   initialize(
     cache: SimplexCache,
     proxyA: Shape,
     sweepA: Sweep,
     proxyB: Shape,
     sweepB: Sweep,
-    t1: number,
   ): number {
     const count = cache.count;
 
@@ -284,8 +267,7 @@ class SeparationFunction {
     this.m_sweepA = sweepA;
     this.m_sweepB = sweepB;
 
-    this.m_sweepA.getTransform(xfA, t1);
-    this.m_sweepB.getTransform(xfB, t1);
+    // The distance query already placed xfA and xfB at the current time.
 
     if (count === 1) {
       this.m_type = 'points';

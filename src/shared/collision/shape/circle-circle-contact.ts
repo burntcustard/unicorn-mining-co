@@ -15,7 +15,7 @@ import * as matrix from '../../vector-math';
 import { TransformValue } from '../../vector-math';
 import { Contact } from '../../physics/contact';
 import { CircleShape } from './circle-shape';
-import { Manifold, vertexFeature } from '../contact-manifold';
+import { Manifold } from '../contact-manifold';
 import { Fixture } from '../../physics/fixture';
 
 Contact.addType(
@@ -68,7 +68,5 @@ export function collideCircles(
   Vec.set(manifold.localPoint, circleA.m_p);
   Vec.setXY(manifold.localNormal, 0, 0);
   manifold.pointCount = 1;
-  Vec.set(manifold.points[0].localPoint, circleB.m_p);
-
-  manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
+  Vec.set(manifold.points[0], circleB.m_p);
 }

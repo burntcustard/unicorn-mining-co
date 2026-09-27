@@ -1,6 +1,7 @@
 import * as Vec from '../vector';
 import { rotatePoint } from '../geometry';
 import { World } from '../physics/world';
+import { WorldManifold } from './contact-manifold';
 import { type Body } from '../physics/body';
 import { type Fixture } from '../physics/fixture';
 import { type Contact as PhysicsContact } from '../physics/contact';
@@ -80,6 +81,9 @@ const geometryFlags = (collider: Collider) =>
 export class GameCollisions {
   // Replays must not reuse bodies or contacts from an old timeline.
   private world = new World();
+  private manifold = new WorldManifold();
+  private velocityA = Vec.create();
+  private velocityB = Vec.create();
   private bodies = new Map<number, BodyRecord>();
   private contacts: Contact[] = [];
   private impacts = new Map<
@@ -91,18 +95,18 @@ export class GameCollisions {
     this.world.onPreSolve((contact) => {
       const a = contact.getFixtureA().getUserData() as Collider;
       const b = contact.getFixtureB().getUserData() as Collider;
-      const manifold = contact.getWorldManifold(null);
+      const manifold = contact.getWorldManifold(this.manifold);
 
       if (!manifold?.points.length) return;
       const point = manifold.points[0];
       const va = contact
         .getFixtureA()
         .getBody()
-        .getLinearVelocityFromWorldPoint(point);
+        .getLinearVelocityFromWorldPoint(point, this.velocityA);
       const vb = contact
         .getFixtureB()
         .getBody()
-        .getLinearVelocityFromWorldPoint(point);
+        .getLinearVelocityFromWorldPoint(point, this.velocityB);
       const physical = a.physics !== false && b.physics !== false;
       const surfaceSpeed = physical ? (a.speed || 0) + (b.speed || 0) : 0;
       const impact = physical
@@ -127,7 +131,11 @@ export class GameCollisions {
       const found: Contact = {
         collider: a,
         other: b,
-        depth: Math.max(0, -Math.min(...manifold.separations)),
+        depth: Math.max(
+          0,
+          -manifold.separations[0],
+          manifold.pointCount > 1 ? -manifold.separations[1] : 0,
+        ),
         normal: Vec.clone(manifold.normal),
         point: Vec.clone(point),
       };

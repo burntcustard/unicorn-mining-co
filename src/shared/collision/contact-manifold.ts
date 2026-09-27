@@ -26,27 +26,6 @@ const minimumCircleNormalSquared = 1e-18;
 
 export type ManifoldType = 'circles' | 'faceA' | 'faceB' | undefined;
 
-export const vertexFeature = 0;
-export const faceFeature = 1;
-type ContactFeatureType = typeof vertexFeature | typeof faceFeature;
-
-/**
- * Used for computing contact manifolds.
- */
-export class ClipVertex {
-  v = Vec.create();
-  id: ContactID = new ContactID();
-
-  set(o: ClipVertex): void {
-    Vec.set(this.v, o.v);
-    this.id.set(o.id);
-  }
-  recycle() {
-    Vec.setXY(this.v, 0, 0);
-    this.id.recycle();
-  }
-}
-
 /**
  * A manifold for two touching convex shapes. Manifolds are created in `evaluate`
  * method of Contact subclasses.
@@ -79,27 +58,18 @@ export class Manifold {
   localPoint = Vec.create();
 
   // The points of contact
-  points: ManifoldPoint[] = [new ManifoldPoint(), new ManifoldPoint()];
+  points = [Vec.create(), Vec.create()];
 
   // The number of manifold points
   pointCount = 0;
-
-  set(that: Manifold): void {
-    this.type = that.type;
-    Vec.set(this.localNormal, that.localNormal);
-    Vec.set(this.localPoint, that.localPoint);
-    this.pointCount = that.pointCount;
-    this.points[0].set(that.points[0]);
-    this.points[1].set(that.points[1]);
-  }
 
   recycle(): void {
     this.type = undefined;
     Vec.setXY(this.localNormal, 0, 0);
     Vec.setXY(this.localPoint, 0, 0);
     this.pointCount = 0;
-    this.points[0].recycle();
-    this.points[1].recycle();
+    Vec.setXY(this.points[0], 0, 0);
+    Vec.setXY(this.points[1], 0, 0);
   }
 
   /**
@@ -132,7 +102,7 @@ export class Manifold {
         const manifoldPoint = this.points[0];
 
         matrix.transformInto(pointA, xfA, this.localPoint);
-        matrix.transformInto(pointB, xfB, manifoldPoint.localPoint);
+        matrix.transformInto(pointB, xfB, manifoldPoint);
         Vec.subtract(pointB, pointA, dist);
         const lengthSqr = Vec.lengthSquared(dist);
 
@@ -155,7 +125,7 @@ export class Manifold {
         for (let i = 0; i < this.pointCount; ++i) {
           const manifoldPoint = this.points[i];
 
-          matrix.transformInto(clipPoint, xfB, manifoldPoint.localPoint);
+          matrix.transformInto(clipPoint, xfB, manifoldPoint);
           Vec.addScaled(
             clipPoint,
             normal,
@@ -177,7 +147,7 @@ export class Manifold {
         for (let i = 0; i < this.pointCount; ++i) {
           const manifoldPoint = this.points[i];
 
-          matrix.transformInto(clipPoint, xfA, manifoldPoint.localPoint);
+          matrix.transformInto(clipPoint, xfA, manifoldPoint);
           Vec.addScaled(
             clipPoint,
             normal,
@@ -196,114 +166,6 @@ export class Manifold {
     }
 
     return wm;
-  }
-}
-
-/**
- * A manifold point is a contact point belonging to a contact manifold. It holds
- * details related to the geometry and dynamics of the contact points.
- *
- * This structure is stored across time steps, so we keep it small.
- *
- * Note: impulses are used for internal caching and may not provide reliable
- * contact forces, especially for high speed collisions.
- */
-export class ManifoldPoint {
-  /**
-   * Usage depends on manifold type:
-   * - circles: the local center of circleB
-   * - faceA: the local center of circleB or the clip point of polygonB
-   * - faceB: the clip point of polygonA
-   */
-  localPoint = Vec.create();
-  /**
-   * The non-penetration impulse
-   */
-  /**
-   * The friction impulse
-   */
-  /**
-   * Uniquely identifies a contact point between two shapes to facilitate warm starting
-   */
-  readonly id = new ContactID();
-
-  set(that: ManifoldPoint): void {
-    Vec.set(this.localPoint, that.localPoint);
-    this.id.set(that.id);
-  }
-
-  recycle(): void {
-    Vec.setXY(this.localPoint, 0, 0);
-    this.id.recycle();
-  }
-}
-
-/**
- * Contact ids to facilitate warm starting.
- *
- * ContactFeature: The features that intersect to form the contact point.
- */
-export class ContactID {
-  /**
-   * Used to quickly compare contact ids.
-   */
-  key = -1;
-
-  // ContactFeature index on shapeA
-  indexA = -1;
-
-  // ContactFeature index on shapeB
-  indexB = -1;
-
-  // ContactFeature type on shapeA
-  typeA: ContactFeatureType | -1 = -1;
-
-  // ContactFeature type on shapeB
-  typeB: ContactFeatureType | -1 = -1;
-
-  setFeatures(
-    indexA: number,
-    typeA: ContactFeatureType,
-    indexB: number,
-    typeB: ContactFeatureType,
-  ): void {
-    this.indexA = indexA;
-    this.indexB = indexB;
-    this.typeA = typeA;
-    this.typeB = typeB;
-    this.key =
-      this.indexA + this.indexB * 4 + this.typeA * 16 + this.typeB * 64;
-  }
-
-  set(that: ContactID): void {
-    this.indexA = that.indexA;
-    this.indexB = that.indexB;
-    this.typeA = that.typeA;
-    this.typeB = that.typeB;
-    this.key =
-      this.indexA + this.indexB * 4 + this.typeA * 16 + this.typeB * 64;
-  }
-
-  swapFeatures(): void {
-    const indexA = this.indexA;
-    const indexB = this.indexB;
-    const typeA = this.typeA;
-    const typeB = this.typeB;
-
-    this.indexA = indexB;
-    this.indexB = indexA;
-    this.typeA = typeB;
-    this.typeB = typeA;
-    this.key =
-      this.indexA + this.indexB * 4 + this.typeA * 16 + this.typeB * 64;
-  }
-
-  recycle(): void {
-    this.indexA = 0;
-    this.indexB = 0;
-    this.typeA = -1;
-    this.typeB = -1;
-    this.key = -1;
   }
 }
 
@@ -337,38 +199,30 @@ export class WorldManifold {
  * Clipping for contact manifolds. Sutherland-Hodgman clipping.
  */
 export function clipSegmentToLine(
-  vOut: ClipVertex[],
-  vIn: ClipVertex[],
+  vOut: Vec.Value[],
+  vIn: Vec.Value[],
   normal: Vec.Value,
   offset: number,
-  vertexIndexA: number,
 ): number {
   // Start with no output points
   let numOut = 0;
 
   // Calculate the distance of end points to the line
-  const distance0 = Vec.dot(normal, vIn[0].v) - offset;
-  const distance1 = Vec.dot(normal, vIn[1].v) - offset;
+  const distance0 = Vec.dot(normal, vIn[0]) - offset;
+  const distance1 = Vec.dot(normal, vIn[1]) - offset;
 
   // If the points are behind the plane
-  if (distance0 <= 0) vOut[numOut++].set(vIn[0]);
+  if (distance0 <= 0) Vec.set(vOut[numOut++], vIn[0]);
 
-  if (distance1 <= 0) vOut[numOut++].set(vIn[1]);
+  if (distance1 <= 0) Vec.set(vOut[numOut++], vIn[1]);
 
   // If the points are on different sides of the plane
   if (distance0 * distance1 < 0) {
     // Find intersection point of edge and plane
     const interp = distance0 / (distance0 - distance1);
 
-    Vec.combine2Into(vOut[numOut].v, 1 - interp, vIn[0].v, interp, vIn[1].v);
+    Vec.combine2Into(vOut[numOut], 1 - interp, vIn[0], interp, vIn[1]);
 
-    // VertexA is hitting edgeB.
-    vOut[numOut].id.setFeatures(
-      vertexIndexA,
-      vertexFeature,
-      vIn[0].id.indexB,
-      faceFeature,
-    );
     ++numOut;
   }
 

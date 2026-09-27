@@ -14,20 +14,14 @@ import * as Vec from '../../vector';
 import { TransformValue } from '../../vector-math';
 import * as matrix from '../../vector-math';
 import { linearSlop } from '../../settings';
-import {
-  Manifold,
-  clipSegmentToLine,
-  ClipVertex,
-  faceFeature,
-  vertexFeature,
-} from '../contact-manifold';
+import { Manifold, clipSegmentToLine } from '../contact-manifold';
 import { Contact } from '../../physics/contact';
 import { PolygonShape } from './polygon-shape';
 import { Fixture } from '../../physics/fixture';
 
-const incidentEdge = [new ClipVertex(), new ClipVertex()];
-const clipPoints1 = [new ClipVertex(), new ClipVertex()];
-const clipPoints2 = [new ClipVertex(), new ClipVertex()];
+const incidentEdge = [Vec.create(), Vec.create()];
+const clipPoints1 = [Vec.create(), Vec.create()];
+const clipPoints2 = [Vec.create(), Vec.create()];
 const clipSegmentToLineNormal = Vec.create();
 const v1 = Vec.create();
 const n = Vec.create();
@@ -114,7 +108,7 @@ function findMaxSeparation(
 }
 
 function findIncidentEdge(
-  clipVertex: ClipVertex[],
+  clipVertex: Vec.Value[],
   poly1: PolygonShape,
   xf1: TransformValue,
   edge1: number,
@@ -147,11 +141,9 @@ function findIncidentEdge(
   const i1 = index;
   const i2 = i1 + 1 < count2 ? i1 + 1 : 0;
 
-  matrix.transformInto(clipVertex[0].v, xf2, vertices2[i1]);
-  clipVertex[0].id.setFeatures(edge1, faceFeature, i1, vertexFeature);
+  matrix.transformInto(clipVertex[0], xf2, vertices2[i1]);
 
-  matrix.transformInto(clipVertex[1].v, xf2, vertices2[i2]);
-  clipVertex[1].id.setFeatures(edge1, faceFeature, i2, vertexFeature);
+  matrix.transformInto(clipVertex[1], xf2, vertices2[i2]);
 }
 
 const maxSeparation = {
@@ -196,7 +188,6 @@ export function collidePolygons(
   let xf1: TransformValue;
   let xf2: TransformValue;
   let edge1: number; // reference edge
-  let flip: boolean;
   const k_tol = 0.1 * linearSlop;
 
   if (separationB > separationA + k_tol) {
@@ -206,7 +197,6 @@ export function collidePolygons(
     xf2 = xfA;
     edge1 = edgeB;
     manifold.type = 'faceB';
-    flip = true;
   } else {
     poly1 = polyA;
     poly2 = polyB;
@@ -214,11 +204,8 @@ export function collidePolygons(
     xf2 = xfB;
     edge1 = edgeA;
     manifold.type = 'faceA';
-    flip = false;
   }
 
-  incidentEdge[0].recycle();
-  incidentEdge[1].recycle();
   findIncidentEdge(incidentEdge, poly1, xf1, edge1, poly2, xf2);
 
   const count1 = poly1.m_count;
@@ -250,10 +237,6 @@ export function collidePolygons(
   const sideOffset2 = Vec.dot(tangent, v12) + totalRadius;
 
   // Clip incident edge against extruded edge1 side edges.
-  clipPoints1[0].recycle();
-  clipPoints1[1].recycle();
-  clipPoints2[0].recycle();
-  clipPoints2[1].recycle();
 
   // Clip to box side 1
   Vec.setXY(clipSegmentToLineNormal, -tangent.x, -tangent.y);
@@ -262,7 +245,6 @@ export function collidePolygons(
     incidentEdge,
     clipSegmentToLineNormal,
     sideOffset1,
-    iv1,
   );
 
   if (np1 < 2) {
@@ -276,7 +258,6 @@ export function collidePolygons(
     clipPoints1,
     clipSegmentToLineNormal,
     sideOffset2,
-    iv2,
   );
 
   if (np2 < 2) {
@@ -290,18 +271,12 @@ export function collidePolygons(
   let pointCount = 0;
 
   for (let i = 0; i < clipPoints2.length /* maxManifoldPoints */; ++i) {
-    const separation = Vec.dot(normal, clipPoints2[i].v) - frontOffset;
+    const separation = Vec.dot(normal, clipPoints2[i]) - frontOffset;
 
     if (separation <= totalRadius) {
       const cp = manifold.points[pointCount];
 
-      matrix.inverseTransformInto(cp.localPoint, xf2, clipPoints2[i].v);
-      cp.id.set(clipPoints2[i].id);
-
-      if (flip) {
-        // Swap features
-        cp.id.swapFeatures();
-      }
+      matrix.inverseTransformInto(cp, xf2, clipPoints2[i]);
       ++pointCount;
     }
   }

@@ -15,6 +15,11 @@ const options = Object.fromEntries(
         : [arg.replace(/^--/, ''), true],
     ),
 );
+const playerCount = Number(options.players || 3);
+
+if (![1, 2, 3].includes(playerCount)) {
+  throw new Error('--players must be 1, 2 or 3');
+}
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-three-player-'));
 const entry = options.bundle || join(directory, 'session.mjs');
 
@@ -167,7 +172,7 @@ try {
     let recording = false,
       bytes = 0,
       packets = 0;
-    const sockets = Array.from({ length: 3 }, () => ({
+    const sockets = Array.from({ length: playerCount }, () => ({
       readyState: 1,
       bufferedAmount: 0,
       send(packet) {
@@ -248,7 +253,7 @@ try {
         warmed: Boolean(options.warm),
         scenario: scenario.name,
         ticks,
-        players: 3,
+        players: playerCount,
         heapMiB: process.memoryUsage().heapUsed / 2 ** 20,
         rssMiB: process.memoryUsage().rss / 2 ** 20,
         wallMs: elapsed / ticks,

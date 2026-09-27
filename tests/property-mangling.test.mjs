@@ -206,3 +206,95 @@ try {
 } finally {
   await inputBundle.close();
 }
+
+// Performance-sensitive dynamic property handling must survive the production
+// build too: checking a long literal against a mangled key silently bypassed
+// the asteroid segment cache while preserving every network packet.
+const replicationEntry = resolve('src/__mangle_replication.ts');
+const replicationBundle = await rolldown({
+  input: replicationEntry,
+  platform: 'node',
+  plugins: [
+    {
+      name: 'replication-mangling-fixture',
+      resolveId: (id) => (id === replicationEntry ? id : undefined),
+      load: (id) =>
+        id === replicationEntry
+          ? `
+import { ReplicationManager } from './server/replication';
+import { createWorld, addEntity } from './shared/simulation/world';
+import { createAsteroid } from './shared/simulation/asteroid';
+import { createShip } from './shared/craft/create-ship';
+export function inspectSegments(locked) {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const rock = addEntity(world, createAsteroid(world, { radius: 40, position: { ...ship.position } }));
+  if (locked) rock.lockGeometry();
+  rock.segments[0].health--;
+  const replication = new ReplicationManager();
+  const options = { world, shipId: ship.id };
+  const stringify = JSON.stringify;
+  let serialized = 0;
+  JSON.stringify = (value, ...args) => {
+    if (Array.isArray(value) && value[0]?.shapeOutline) serialized++;
+    return stringify(value, ...args);
+  };
+  try {
+    const initial = replication.initial(options).fullEntities.find(record => record.id === rock.id);
+    const results = [!!initial.segments];
+    for (let tick = 0; tick < 10; tick++) {
+      world.tick++;
+      results.push(!replication.snapshot(options).fullEntities.some(record => record.id === rock.id));
+    }
+    const mutations = [
+      () => rock.segments[0].health--,
+      () => rock.segments[0].contents.push(3),
+      () => {
+        rock.segments = rock.segments.map(segment => ({ ...segment, shapeOutline: segment.shapeOutline.map(point => [...point]) }));
+        rock.segments[0].shapeOutline[0][0]++;
+      },
+    ];
+    for (const mutate of mutations) {
+      mutate();
+      const delta = replication.snapshot(options).fullEntities.find(record => record.id === rock.id);
+      results.push(stringify(delta?.segments) === stringify(rock.segments));
+      results.push(!replication.snapshot(options).fullEntities.some(record => record.id === rock.id));
+    }
+    return [serialized, results];
+  } finally { JSON.stringify = stringify; }
+}`
+          : undefined,
+    },
+    { ...buildPlugin(), generateBundle: undefined },
+  ],
+});
+
+try {
+  const { output } = await replicationBundle.generate({
+    format: 'esm',
+    minify: true,
+  });
+  const chunk = output.find((item) => item.type === 'chunk');
+  const built = await import(
+    `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
+  );
+
+  for (const locked of [false, true]) {
+    const [serialized, results] = built.inspectSegments(locked);
+
+    assert(
+      results.every(Boolean),
+      'production snapshots retain damage, cargo and mutable geometry changes',
+    );
+    assert.equal(
+      serialized,
+      0,
+      'production must not stringify segment arrays to compare snapshot history',
+    );
+  }
+  console.log(
+    'Production snapshots reuse asteroid segment geometry without stringifying it',
+  );
+} finally {
+  await replicationBundle.close();
+}

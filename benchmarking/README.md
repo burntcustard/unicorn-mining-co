@@ -103,3 +103,56 @@ and ordinary packet hashes differ because process-wide generated IDs advance.
 node benchmarking/three-player-flight.mjs --bundle=/tmp/before.mjs --ordered-pairs --warm
 node benchmarking/three-player-flight.mjs --bundle=/tmp/after.mjs --ordered-pairs --warm
 ```
+
+### Single-player and physics experiments
+
+`--players=1` (or `2`) selects the first players from the same routes. For a
+20-minute single-player simulation, run:
+
+```sh
+node benchmarking/three-player-flight.mjs --bundle=/tmp/before.mjs --players=1 --ticks=36000 --scenario=convoy
+```
+
+The following isolated experiments compare polygon bounds using ordinary
+objects, Float64/Float32/Float16 arrays, Float64 SIMD WebAssembly, and a persistent
+two-worker pool:
+
+```sh
+node benchmarking/physics-bounds-kernels.mjs
+node benchmarking/physics-workers.mjs
+```
+
+They are microbenchmarks, **not full-game CPU estimates**. Kernel representations
+run in separate processes; geometry is already packed, and the Wasm kernel
+returns a checksum rather than copying four bounds back. Its readable source is
+`physics-bounds.wat`. Worker geometry is preloaded and messages contain only a
+batch size. Neither experiment includes the cost of moving live game state to
+another representation or thread. Compare total process CPU as well as elapsed
+time; Fly's shared CPU allowance applies across all threads.
+
+### Production flight replay
+
+Use this for server CPU comparisons: it applies the real property rewriting,
+shared name cache and final two Terser compression passes to the game and the
+same flight workload. Source-only timing can miss optimizations that are broken
+by minification. Native crypto and CPU-accounting accesses stay outside the game
+property rewrite. Reports use fixed positional values across that boundary.
+
+```sh
+node benchmarking/production-flight.mjs --save=/tmp/production-before.mjs --warm
+# After a change:
+node benchmarking/production-flight.mjs --save=/tmp/production-after.mjs --warm
+node benchmarking/production-flight.mjs --bundle=/tmp/production-before.mjs --warm
+node benchmarking/production-flight.mjs --bundle=/tmp/production-after.mjs --warm
+```
+
+`--players`, `--ticks` and `--scenario` work as in the source harness. Saved
+bundles freeze the game and workload; arguments still select the duration and
+route. Run comparisons serially. Production packets have mangled names, so
+compare hashes between builds with the same field-name mapping; source and
+production hashes naturally differ. Also compare positions and entity counts.
+
+`--broken-cache` is a deliberate benchmark-only fault injection reproducing the
+September 27 segment-cache bug. It restores the old key-literal comparison in
+the build without editing application files. Use it when compiling a saved
+baseline to isolate that fix; it has no effect on an already saved bundle.

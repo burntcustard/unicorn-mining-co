@@ -223,7 +223,7 @@ export class Contact {
 
       point.normalImpulse = 0;
       point.tangentImpulse = 0;
-      Vec.set(this.p_localPoints[j], manifold.points[j].localPoint);
+      Vec.set(this.p_localPoints[j], manifold.points[j]);
     }
   }
 
@@ -357,8 +357,7 @@ export class Contact {
     const xfA = bodyA.m_xf;
     const xfB = bodyB.m_xf;
 
-    this.m_manifold.recycle();
-
+    // Each evaluator writes every active point and resets pointCount.
     this.evaluate(this.m_manifold, xfA, xfB);
     const touching = this.m_manifold.pointCount > 0;
 

@@ -16,7 +16,7 @@ import { TransformValue } from '../../vector-math';
 import { Contact } from '../../physics/contact';
 import { CircleShape } from './circle-shape';
 import { PolygonShape } from './polygon-shape';
-import { Manifold, vertexFeature } from '../contact-manifold';
+import { Manifold } from '../contact-manifold';
 import { Fixture } from '../../physics/fixture';
 
 Contact.addType(
@@ -90,9 +90,8 @@ export function collidePolygonCircle(
     manifold.type = 'faceA';
     Vec.set(manifold.localNormal, normals[normalIndex]);
     Vec.combine2Into(manifold.localPoint, 0.5, v1, 0.5, v2);
-    Vec.set(manifold.points[0].localPoint, circleB.m_p);
+    Vec.set(manifold.points[0], circleB.m_p);
 
-    manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
     return;
   }
 
@@ -142,6 +141,5 @@ export function collidePolygonCircle(
 
   manifold.pointCount = 1;
   manifold.type = 'faceA';
-  Vec.set(manifold.points[0].localPoint, circleB.m_p);
-  manifold.points[0].id.setFeatures(0, vertexFeature, 0, vertexFeature);
+  Vec.set(manifold.points[0], circleB.m_p);
 }

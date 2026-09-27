@@ -1,0 +1,188 @@
+/* global process */
+import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { rolldown } from 'rolldown';
+import { minify } from 'terser';
+import {
+  buildPlugin,
+  buildPrePlugin,
+  terserMangleOptions,
+} from '../plugins/build-plugins.js';
+
+const options = Object.fromEntries(
+  process.argv
+    .slice(2)
+    .map((arg) =>
+      arg.includes('=') ? arg.slice(2).split('=') : [arg.slice(2), true],
+    ),
+);
+const directory = await mkdtemp(join(tmpdir(), 'unicorn-production-flight-'));
+const entry = options.bundle || options.save || join(directory, 'flight.mjs');
+const labels = [
+  'warmed',
+  'scenario',
+  'ticks',
+  'players',
+  'heapMiB',
+  'rssMiB',
+  'wallMs',
+  'cpuMs',
+  'p50',
+  'p95',
+  'max',
+  'entities',
+  'maxEntities',
+  'positions',
+  'packets',
+  'bytes',
+  'hash',
+  'costs',
+];
+
+try {
+  if (!options.bundle) {
+    // Use the same workload, but compile its game accesses together with the game.
+    // An unmangled driver cannot call production's mangled methods/properties.
+    const source = await readFile(
+      new URL('./three-player-flight.mjs', import.meta.url),
+      'utf8',
+    );
+    const start = source.indexOf('  const scenarios = [');
+    const end = source.lastIndexOf('\n} finally');
+
+    if (start < 0 || end < start) {
+      throw new Error('Flight workload markers changed');
+    }
+    let workload = source.slice(start, end);
+    const reportStart = workload.lastIndexOf('    console.log(');
+
+    if (reportStart < 0) throw new Error('Flight report marker changed');
+    workload =
+      workload.slice(0, reportStart) +
+      workload
+        .slice(reportStart)
+        .replace('JSON.stringify({', 'JSON.stringify(Object.values({')
+        .replace(/\n      \}\),\n    \);/, '\n      })),\n    );');
+    workload = workload
+      .replace(
+        "const hash = createHash('sha256');",
+        'const [updateHash, digestHash] = createPacketHash();',
+      )
+      .replace('hash.update(packet)', 'updateHash(packet)')
+      .replace("hash.digest('hex')", 'digestHash()')
+      .replace('process.cpuUsage()', 'cpuTime()')
+      .replace('process.cpuUsage(cpu)', 'cpuTime() - cpu')
+      .replace(
+        '(used.user + used.system) / 1000 / ticks',
+        'used / 1000 / ticks',
+      );
+    const entryId = resolve('src/__production_flight.ts');
+    const bundle = await rolldown({
+      input: entryId,
+      platform: 'node',
+      plugins: [
+        {
+          name: 'production-flight-entry',
+          transform(code, id) {
+            if (
+              options['broken-cache'] &&
+              id.endsWith('/src/server/replication.ts')
+            ) {
+              if (!code.includes('value === full.segments')) {
+                throw new Error('Cache fault-injection marker changed');
+              }
+              return code.replace(
+                'value === full.segments',
+                "key === 'segments'",
+              );
+            }
+          },
+          resolveId(id) {
+            if (id === 'flight-native') return '\0flight-native';
+
+            if (id === entryId) return id;
+
+            if (id === 'ws') {
+              return {
+                id: resolve('node_modules/ws/wrapper.mjs'),
+                external: true,
+              };
+            }
+          },
+          load(id) {
+            if (id === '\0flight-native') {
+              return `import {createHash} from 'node:crypto'; export function cpuTime(){const used=process.cpuUsage();return used.user+used.system;} export function createPacketHash(){const hash=createHash('sha256');return [packet=>hash.update(packet),()=>hash.digest('hex')];}`;
+            }
+
+            if (id === entryId) {
+              return `import {createPacketHash,cpuTime} from 'flight-native';
+import {GameSession} from './server/game-session';
+const api = { GameSession };
+const [ticks, playerCount, warm, scenario] = JSON.parse(process.argv[2]);
+const options = {ticks, warm, scenario};
+const costs = {};
+${workload}`;
+            }
+          },
+        },
+        { ...buildPrePlugin(), generateBundle: undefined },
+        { ...buildPlugin(), generateBundle: undefined },
+      ],
+    });
+    const { output } = await bundle.generate({ format: 'esm' });
+    const chunk = output.find((item) => item.type === 'chunk');
+    const compressed = await minify(chunk.code, {
+      ...terserMangleOptions(),
+      compress: { passes: 2 },
+    });
+
+    await writeFile(entry, compressed.code);
+    await bundle.close();
+  }
+  const players = Number(options.players || 3);
+
+  if (![1, 2, 3].includes(players)) {
+    throw new Error('--players must be 1, 2 or 3');
+  }
+  const child = spawnSync(
+    process.execPath,
+    [
+      entry,
+      JSON.stringify([
+        Number(options.ticks || 9000),
+        players,
+        Boolean(options.warm),
+        options.scenario || null,
+      ]),
+    ],
+    { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+  );
+
+  if (child.stderr) process.stderr.write(child.stderr);
+
+  if (child.status !== 0) {
+    throw new Error(`Flight exited ${child.status}: ${child.error || ''}`);
+  }
+
+  for (const line of child.stdout.trim().split('\n')) {
+    const values = JSON.parse(line);
+
+    if (
+      !Array.isArray(values) ||
+      values.length !== labels.length ||
+      !Number.isFinite(values[7])
+    ) {
+      throw new Error('Flight report fields changed');
+    }
+    console.log(
+      JSON.stringify({
+        production: true,
+        ...Object.fromEntries(labels.map((key, i) => [key, values[i]])),
+      }),
+    );
+  }
+} finally {
+  await rm(directory, { recursive: true, force: true });
+}

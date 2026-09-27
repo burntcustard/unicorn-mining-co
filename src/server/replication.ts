@@ -241,10 +241,11 @@ export class ReplicationManager {
             const value = full[key as keyof ReplicatedEntity];
 
             // Vectors are already copied by replicateEntity. Only arrays need
-            // an isolated value for detecting in-place mutations.
+            // an isolated value for detecting in-place mutations. Compare the
+            // segment value, not a key literal that production mangling can miss.
             if (value !== undefined) {
               fields[key] = (
-                key === 'segments'
+                value === full.segments
                   ? sameSegments(
                       value as AsteroidSegment[],
                       previous?.[key] as AsteroidSegment[] | undefined,

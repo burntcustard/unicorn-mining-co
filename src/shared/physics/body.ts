@@ -223,11 +223,15 @@ export class Body {
    *
    * @param worldPoint A point in world coordinates.
    */
-  getLinearVelocityFromWorldPoint(worldPoint: Vec.Value): Vec.Value {
+  getLinearVelocityFromWorldPoint(
+    worldPoint: Vec.Value,
+    out = Vec.create(),
+  ): Vec.Value {
     const center = this.m_sweep.c;
     const spin = this.m_angularVelocity;
 
-    return Vec.create(
+    return Vec.setXY(
+      out,
       this.m_linearVelocity.x - spin * (worldPoint.y - center.y),
       this.m_linearVelocity.y + spin * (worldPoint.x - center.x),
     );

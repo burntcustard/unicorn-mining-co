@@ -38,6 +38,8 @@ const bundle = await rolldown({
       export { sparks, sprayDamage } from '${process.cwd()}/src/client/shrapnel.ts';
       export { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
       export * as Vec from '${process.cwd()}/src/shared/vector.ts';
+      export { computeDistance, DistanceInput, DistanceOutput, SimplexCache } from '${process.cwd()}/src/shared/collision/shape-distance.ts';
+      export * as matrix from '${process.cwd()}/src/shared/vector-math.ts';
       export { SpatialGrid } from '${process.cwd()}/src/shared/collision/spatial-grid.ts';
       export { AABB } from '${process.cwd()}/src/shared/collision/axis-aligned-bounds.ts';
       export { World as PhysicsWorld } from '${process.cwd()}/src/shared/physics/world.ts';
@@ -1642,4 +1644,61 @@ console.log('browser damage spark tests passed');
   circle.m_p = Vec.create(7, 8);
   assert.deepEqual(circle.getVertex(0), Vec.create(7, 8));
   assert.equal(circle.getSupport(Vec.create(1, 0)), 0);
+}
+
+// Reused GJK scratch must not carry state from overlapping polygons into a
+// separated pair, or from a two/three-point simplex into a point query.
+{
+  const {
+    computeDistance,
+    DistanceInput,
+    DistanceOutput,
+    SimplexCache,
+    matrix,
+    CircleShape,
+    PolygonShape,
+  } = physics;
+  const cache = new SimplexCache();
+  const output = new DistanceOutput();
+  let seed = 731;
+  const random = () =>
+    (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
+  const box = (x, y) =>
+    new PolygonShape([
+      Vec.create(-x, -y),
+      Vec.create(x, -y),
+      Vec.create(x, y),
+      Vec.create(-x, y),
+    ]);
+  const queries = Array.from({ length: 500 }, (_, i) => {
+    const ax = i % 3 ? 1 + random() * 20 : 0;
+    const ay = ax ? 1 + random() * 20 : 0;
+    const bx = i % 4 ? 1 + random() * 20 : 0;
+    const by = bx ? 1 + random() * 20 : 0;
+    const x = (random() - 0.5) * 80,
+      y = (random() - 0.5) * 80;
+    const input = new DistanceInput(
+      matrix.transform(0, 0, 0),
+      matrix.transform(x, y, 0),
+    );
+
+    input.proxyA = ax ? box(ax, ay) : new CircleShape(Vec.create(), 2);
+    input.proxyB = bx ? box(bx, by) : new CircleShape(Vec.create(), 3);
+    return {
+      input,
+      expected: Math.hypot(
+        Math.max(0, Math.abs(x) - ax - bx),
+        Math.max(0, Math.abs(y) - ay - by),
+      ),
+    };
+  });
+
+  for (const query of [...queries, ...queries.toReversed(), ...queries]) {
+    cache.recycle();
+    computeDistance(output, cache, query.input);
+    assert.ok(
+      Math.abs(output.distance - query.expected) < 1e-9,
+      'GJK matches independent rectangle/point distance regardless of earlier queries',
+    );
+  }
 }

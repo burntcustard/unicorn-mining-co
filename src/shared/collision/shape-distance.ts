@@ -62,9 +62,6 @@ export class SimplexCache {
   indexB: number[] = [];
   count = 0;
   recycle() {
-    this.metric = 0;
-    this.indexA.length = 0;
-    this.indexB.length = 0;
     this.count = 0;
   }
 }
@@ -84,7 +81,6 @@ export function computeDistance(
   const xfB = input.transformB;
 
   // Initialize the simplex.
-  simplex.recycle();
   simplex.readCache(cache, proxyA, xfA, proxyB, xfB);
 
   // Get simplex vertices as an array.
@@ -188,14 +184,6 @@ class SimplexVertex {
   // barycentric coordinate for closest point
   a = 0;
 
-  recycle() {
-    this.indexA = 0;
-    this.indexB = 0;
-    Vec.setXY(this.wA, 0, 0);
-    Vec.setXY(this.wB, 0, 0);
-    Vec.setXY(this.w, 0, 0);
-    this.a = 0;
-  }
   set(v: SimplexVertex): void {
     this.indexA = v.indexA;
     this.indexB = v.indexB;
@@ -214,61 +202,6 @@ class Simplex {
   m_v3 = new SimplexVertex();
   m_v = [this.m_v1, this.m_v2, this.m_v3];
   m_count: number;
-  recycle() {
-    this.m_v1.recycle();
-    this.m_v2.recycle();
-    this.m_v3.recycle();
-    this.m_count = 0;
-  }
-
-  toString(): string {
-    if (this.m_count === 3) {
-      return [
-        '+' + this.m_count,
-        this.m_v1.a,
-        this.m_v1.wA.x,
-        this.m_v1.wA.y,
-        this.m_v1.wB.x,
-        this.m_v1.wB.y,
-        this.m_v2.a,
-        this.m_v2.wA.x,
-        this.m_v2.wA.y,
-        this.m_v2.wB.x,
-        this.m_v2.wB.y,
-        this.m_v3.a,
-        this.m_v3.wA.x,
-        this.m_v3.wA.y,
-        this.m_v3.wB.x,
-        this.m_v3.wB.y,
-      ].toString();
-    } else if (this.m_count === 2) {
-      return [
-        '+' + this.m_count,
-        this.m_v1.a,
-        this.m_v1.wA.x,
-        this.m_v1.wA.y,
-        this.m_v1.wB.x,
-        this.m_v1.wB.y,
-        this.m_v2.a,
-        this.m_v2.wA.x,
-        this.m_v2.wA.y,
-        this.m_v2.wB.x,
-        this.m_v2.wB.y,
-      ].toString();
-    } else if (this.m_count === 1) {
-      return [
-        '+' + this.m_count,
-        this.m_v1.a,
-        this.m_v1.wA.x,
-        this.m_v1.wA.y,
-        this.m_v1.wB.x,
-        this.m_v1.wB.y,
-      ].toString();
-    } else {
-      return '+' + this.m_count;
-    }
-  }
-
   readCache(
     cache: SimplexCache,
     proxyA: Shape,
