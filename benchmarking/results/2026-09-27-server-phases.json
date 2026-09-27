@@ -1,0 +1,1633 @@
+{
+  "baselineCommit": "442548e1fb663d5d4d75c5747c866a299b4f78bc",
+  "localNode": "26.8.2",
+  "liveNode": "26.10.0",
+  "cpuAffinity": [4, 5],
+  "ticksPerMeasuredRun": 3600,
+  "players": 3,
+  "method": "Two warmed runs per route; exclusive elapsed phase timers, not per-phase process CPU. Process CPU includes V8/background work. Resources include the whole child, including warm-up. No real sockets/TLS in this replay. Each run simulates 260 seconds including warm-up and has a 290-second wall timeout.",
+  "phaseSummary": [
+    {
+      "category": "Collision and physics",
+      "elapsedMsPerTick": 0.3144114861574079,
+      "foregroundPercent": 40.96844068217352
+    },
+    {
+      "category": "Snapshot preparation and deltas",
+      "elapsedMsPerTick": 0.21729941504629482,
+      "foregroundPercent": 28.314545070844524
+    },
+    {
+      "category": "Entity movement and updates",
+      "elapsedMsPerTick": 0.09984719638888799,
+      "foregroundPercent": 13.010287863629658
+    },
+    {
+      "category": "World bookkeeping and contact gameplay",
+      "elapsedMsPerTick": 0.04924405064814734,
+      "foregroundPercent": 6.416597537783813
+    },
+    {
+      "category": "Region entity lifecycle",
+      "elapsedMsPerTick": 0.034001111990737035,
+      "foregroundPercent": 4.43041237692909
+    },
+    {
+      "category": "Region queries",
+      "elapsedMsPerTick": 0.02149845939815394,
+      "foregroundPercent": 2.801291929170934
+    },
+    {
+      "category": "Packet JSON encoding",
+      "elapsedMsPerTick": 0.015641719351850745,
+      "foregroundPercent": 2.038147076830019
+    },
+    {
+      "category": "Procedural generation",
+      "elapsedMsPerTick": 0.009510470231479096,
+      "foregroundPercent": 1.239233147299407
+    },
+    {
+      "category": "Session bookkeeping",
+      "elapsedMsPerTick": 0.00588060143518939,
+      "foregroundPercent": 0.7662540386722595
+    },
+    {
+      "category": "Input decoding and validation",
+      "elapsedMsPerTick": 8.381995370349934e-5,
+      "foregroundPercent": 0.010921906331262814
+    },
+    {
+      "category": "Input handling",
+      "elapsedMsPerTick": 2.968773148156574e-5,
+      "foregroundPercent": 0.0038683703354969335
+    }
+  ],
+  "profileRuns": [
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 174.890625,
+        "heapLimitMiB": 4108,
+        "gcMs": 289.23873802646995,
+        "gcCount": 1345
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 3600,
+      "players": 3,
+      "heapMiB": 52.5074462890625,
+      "rssMiB": 172.2890625,
+      "wallMs": 0.6816336155555555,
+      "cpuMs": 0.7725225,
+      "p50": 0.6302529999993567,
+      "p95": 1.0806289999995897,
+      "max": 4.71306100000038,
+      "entities": 146,
+      "maxEntities": 146,
+      "positions": [
+        {
+          "x": 5284.28835448,
+          "y": -22997.56601634
+        },
+        {
+          "x": 8092.18961472,
+          "y": -19563.7007312
+        },
+        {
+          "x": -21687.75660796,
+          "y": -7444.36780982
+        }
+      ],
+      "packets": 10800,
+      "bytes": 11742765,
+      "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+      "costs": {
+        "Region queries": 0.02254076277779455,
+        "Region entity lifecycle": 0.02980882555555038,
+        "Entity movement and updates": 0.09399221777776953,
+        "Collision and physics": 0.26355235277776995,
+        "World bookkeeping and contact gameplay": 0.04464224055556378,
+        "Snapshot preparation and deltas": 0.18938373666666494,
+        "Packet JSON encoding": 0.013801831944439173,
+        "Harness packet hashing": 0.004238391666658193,
+        "Session bookkeeping": 0.005754687500015557,
+        "Procedural generation": 0.011709379166659978,
+        "Harness wire construction": 5.096694444495774e-5,
+        "Input decoding and validation": 8.174888888801333e-5,
+        "Input handling": 2.9689166666331503e-5
+      }
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 173.89453125,
+        "heapLimitMiB": 4108,
+        "gcMs": 365.86978194862604,
+        "gcCount": 1641
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 3600,
+      "players": 3,
+      "heapMiB": 72.37711334228516,
+      "rssMiB": 170.4765625,
+      "wallMs": 0.9120351119444444,
+      "cpuMs": 1.0234205555555556,
+      "p50": 0.85387400000036,
+      "p95": 1.4698600000001534,
+      "max": 5.459604000000581,
+      "entities": 82,
+      "maxEntities": 209,
+      "positions": [
+        {
+          "x": -8087.79381632,
+          "y": -17773.68056091
+        },
+        {
+          "x": -4094.50379975,
+          "y": -15928.83431993
+        },
+        {
+          "x": 9761.05815855,
+          "y": 19058.41600173
+        }
+      ],
+      "packets": 10800,
+      "bytes": 15188268,
+      "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+      "costs": {
+        "Region queries": 0.02274696333328949,
+        "Region entity lifecycle": 0.03903824222222915,
+        "Entity movement and updates": 0.11693666888889286,
+        "Collision and physics": 0.37831840527779076,
+        "World bookkeeping and contact gameplay": 0.0570674902777609,
+        "Snapshot preparation and deltas": 0.2576306936110975,
+        "Packet JSON encoding": 0.017778464444447258,
+        "Harness packet hashing": 0.005761862500000664,
+        "Session bookkeeping": 0.0065041341666776335,
+        "Procedural generation": 0.007775081666706632,
+        "Harness wire construction": 5.355083333370203e-5,
+        "Input decoding and validation": 8.269083333339545e-5,
+        "Input handling": 3.1238611111095655e-5
+      }
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 182.1640625,
+        "heapLimitMiB": 4108,
+        "gcMs": 310.8848249427974,
+        "gcCount": 1408
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 3600,
+      "players": 3,
+      "heapMiB": 48.832489013671875,
+      "rssMiB": 180.62109375,
+      "wallMs": 0.7522468822222222,
+      "cpuMs": 0.8417702777777778,
+      "p50": 0.7043330000001333,
+      "p95": 1.2690739999998186,
+      "max": 5.518783999999869,
+      "entities": 73,
+      "maxEntities": 168,
+      "positions": [
+        {
+          "x": 6484.24479074,
+          "y": -13588.15991121
+        },
+        {
+          "x": 5125.999238,
+          "y": -28369.15215298
+        },
+        {
+          "x": -5399.61187237,
+          "y": -20256.13445617
+        }
+      ],
+      "packets": 10800,
+      "bytes": 13686530,
+      "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+      "costs": {
+        "Region queries": 0.022341541944446007,
+        "Region entity lifecycle": 0.032389406666658384,
+        "Entity movement and updates": 0.09219886388888679,
+        "Collision and physics": 0.3117334605555575,
+        "World bookkeeping and contact gameplay": 0.04772177472221579,
+        "Snapshot preparation and deltas": 0.20790580166666853,
+        "Packet JSON encoding": 0.01569684361112119,
+        "Harness packet hashing": 0.0046720055555516,
+        "Session bookkeeping": 0.005570881111117513,
+        "Procedural generation": 0.009590381111111759,
+        "Harness wire construction": 5.053888888836708e-5,
+        "Input decoding and validation": 9.83038888879643e-5,
+        "Input handling": 2.9090555555942248e-5
+      }
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 170.65625,
+        "heapLimitMiB": 4108,
+        "gcMs": 304.9270700328052,
+        "gcCount": 1404
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 3600,
+      "players": 3,
+      "heapMiB": 72.7839584350586,
+      "rssMiB": 168.375,
+      "wallMs": 0.7517471633333335,
+      "cpuMs": 0.84397,
+      "p50": 0.7069780000001629,
+      "p95": 1.212788000000728,
+      "max": 6.875952999999754,
+      "entities": 73,
+      "maxEntities": 168,
+      "positions": [
+        {
+          "x": 6484.24479074,
+          "y": -13588.15991121
+        },
+        {
+          "x": 5125.999238,
+          "y": -28369.15215298
+        },
+        {
+          "x": -5399.61187237,
+          "y": -20256.13445617
+        }
+      ],
+      "packets": 10800,
+      "bytes": 13686530,
+      "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+      "costs": {
+        "Region queries": 0.02158449722225694,
+        "Region entity lifecycle": 0.033047492777769145,
+        "Entity movement and updates": 0.09140618472222084,
+        "Collision and physics": 0.3086447216666674,
+        "World bookkeeping and contact gameplay": 0.04772090972222057,
+        "Snapshot preparation and deltas": 0.21112009916667288,
+        "Packet JSON encoding": 0.015559845555552303,
+        "Harness packet hashing": 0.004519663055566778,
+        "Session bookkeeping": 0.005884028055547282,
+        "Procedural generation": 0.009911702499970892,
+        "Harness wire construction": 5.6850000000723515e-5,
+        "Input decoding and validation": 8.32619444447068e-5,
+        "Input handling": 3.055749999943045e-5
+      }
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 170.70703125,
+        "heapLimitMiB": 4108,
+        "gcMs": 389.44844295457006,
+        "gcCount": 1656
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 3600,
+      "players": 3,
+      "heapMiB": 45.01502990722656,
+      "rssMiB": 167.4921875,
+      "wallMs": 0.8955393963888888,
+      "cpuMs": 0.9869600000000001,
+      "p50": 0.8384539999997287,
+      "p95": 1.4138960000000225,
+      "max": 7.173742000000857,
+      "entities": 82,
+      "maxEntities": 209,
+      "positions": [
+        {
+          "x": -8087.79381632,
+          "y": -17773.68056091
+        },
+        {
+          "x": -4094.50379975,
+          "y": -15928.83431993
+        },
+        {
+          "x": 9761.05815855,
+          "y": 19058.41600173
+        }
+      ],
+      "packets": 10800,
+      "bytes": 15188268,
+      "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+      "costs": {
+        "Region queries": 0.02103455527780145,
+        "Region entity lifecycle": 0.03889546416666361,
+        "Entity movement and updates": 0.1143483738888944,
+        "Collision and physics": 0.3750360869444381,
+        "World bookkeeping and contact gameplay": 0.05769133277778792,
+        "Snapshot preparation and deltas": 0.2508614480555601,
+        "Packet JSON encoding": 0.01710270722220836,
+        "Harness packet hashing": 0.004908503333341387,
+        "Session bookkeeping": 0.005746923333334608,
+        "Procedural generation": 0.007473799999980252,
+        "Harness wire construction": 7.193527777695231e-5,
+        "Input decoding and validation": 8.284694444455454e-5,
+        "Input handling": 2.9983611112432604e-5
+      }
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 136.26953125,
+        "heapLimitMiB": 4108,
+        "gcMs": 268.41861102730036,
+        "gcCount": 1368
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 3600,
+      "players": 3,
+      "heapMiB": 40.749351501464844,
+      "rssMiB": 133.0546875,
+      "wallMs": 0.6533347275000001,
+      "cpuMs": 0.7152719444444444,
+      "p50": 0.6079709999999068,
+      "p95": 1.0267690000000584,
+      "max": 5.748015000000123,
+      "entities": 146,
+      "maxEntities": 146,
+      "positions": [
+        {
+          "x": 5284.28835448,
+          "y": -22997.56601634
+        },
+        {
+          "x": 8092.18961472,
+          "y": -19563.7007312
+        },
+        {
+          "x": -21687.75660796,
+          "y": -7444.36780982
+        }
+      ],
+      "packets": 10800,
+      "bytes": 11742765,
+      "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+      "costs": {
+        "Region queries": 0.01874243583333522,
+        "Region entity lifecycle": 0.030827240555551548,
+        "Entity movement and updates": 0.0902008691666635,
+        "Collision and physics": 0.2491838897222236,
+        "World bookkeeping and contact gameplay": 0.04062055583333505,
+        "Snapshot preparation and deltas": 0.18689471111110492,
+        "Packet JSON encoding": 0.013910623333336187,
+        "Harness packet hashing": 0.00424598944444761,
+        "Session bookkeeping": 0.005822954444443743,
+        "Procedural generation": 0.010602476944445067,
+        "Harness wire construction": 4.851416666661458e-5,
+        "Input decoding and validation": 7.406722222236163e-5,
+        "Input handling": 2.7566944444161993e-5
+      }
+    }
+  ],
+  "experiments": {
+    "compare-baseline": [
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 141.8828125,
+          "heapLimitMiB": 4108,
+          "gcMs": 263.9139529392123,
+          "gcCount": 1350
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 68.24542236328125,
+        "rssMiB": 141.046875,
+        "wallMs": 0.6215718536111111,
+        "cpuMs": 0.6652513888888889,
+        "p50": 0.5828650000003108,
+        "p95": 0.952980000000025,
+        "max": 3.8152060000002166,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 156.78125,
+          "heapLimitMiB": 4108,
+          "gcMs": 271.4428610801697,
+          "gcCount": 1339
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 60.77061462402344,
+        "rssMiB": 155.80859375,
+        "wallMs": 0.6580355452777776,
+        "cpuMs": 0.7222324999999999,
+        "p50": 0.6160770000001321,
+        "p95": 1.008864999999787,
+        "max": 8.762075999999979,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 173.8046875,
+          "heapLimitMiB": 4108,
+          "gcMs": 358.0177919603884,
+          "gcCount": 1649
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 33.32041931152344,
+        "rssMiB": 171.9296875,
+        "wallMs": 0.9035777094444446,
+        "cpuMs": 1.0264622222222222,
+        "p50": 0.8459989999992104,
+        "p95": 1.4390729999995528,
+        "max": 5.027732000000469,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 175.32421875,
+          "heapLimitMiB": 4108,
+          "gcMs": 336.5835149139166,
+          "gcCount": 1632
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 102.0148696899414,
+        "rssMiB": 174.94921875,
+        "wallMs": 0.8730025780555556,
+        "cpuMs": 0.9432638888888889,
+        "p50": 0.8245889999998326,
+        "p95": 1.4051289999997607,
+        "max": 5.039644000000408,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 173.59765625,
+          "heapLimitMiB": 4108,
+          "gcMs": 307.58599296584725,
+          "gcCount": 1395
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 70.52906036376953,
+        "rssMiB": 170.28515625,
+        "wallMs": 0.7320681569444444,
+        "cpuMs": 0.8261225000000001,
+        "p50": 0.6903959999999643,
+        "p95": 1.1887219999998706,
+        "max": 11.284260999999788,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 173.4921875,
+          "heapLimitMiB": 4108,
+          "gcMs": 306.1513640880585,
+          "gcCount": 1393
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 68.17230987548828,
+        "rssMiB": 171.73046875,
+        "wallMs": 0.7358321338888888,
+        "cpuMs": 0.8306450000000001,
+        "p50": 0.691569000000527,
+        "p95": 1.2013159999996788,
+        "max": 9.446400000000267,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      }
+    ],
+    "compare-cached": [
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 144.57421875,
+          "heapLimitMiB": 4108,
+          "gcMs": 261.1078160330653,
+          "gcCount": 1343
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 66.85494995117188,
+        "rssMiB": 144.39453125,
+        "wallMs": 0.610695523611111,
+        "cpuMs": 0.6561177777777778,
+        "p50": 0.5714929999999185,
+        "p95": 0.9560749999991458,
+        "max": 3.21215200000006,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 162.4453125,
+          "heapLimitMiB": 4108,
+          "gcMs": 278.96378099545836,
+          "gcCount": 1307
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 60.68180847167969,
+        "rssMiB": 161.5390625,
+        "wallMs": 0.6634966436111112,
+        "cpuMs": 0.74661,
+        "p50": 0.6119689999995899,
+        "p95": 1.0846870000000308,
+        "max": 4.661454999999933,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 164.6484375,
+          "heapLimitMiB": 4108,
+          "gcMs": 361.5680330656469,
+          "gcCount": 1646
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 43.003517150878906,
+        "rssMiB": 161.29296875,
+        "wallMs": 0.8845387641666667,
+        "cpuMs": 0.9791794444444444,
+        "p50": 0.8297880000000077,
+        "p95": 1.3985569999995278,
+        "max": 10.3734800000002,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 180.01171875,
+          "heapLimitMiB": 4108,
+          "gcMs": 347.80683505162597,
+          "gcCount": 1630
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 36.360450744628906,
+        "rssMiB": 178.3359375,
+        "wallMs": 0.877546079722222,
+        "cpuMs": 0.9747730555555556,
+        "p50": 0.8321029999997336,
+        "p95": 1.4088760000004186,
+        "max": 5.525045999999747,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 187.46484375,
+          "heapLimitMiB": 4108,
+          "gcMs": 304.52424009144306,
+          "gcCount": 1377
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 55.67302703857422,
+        "rssMiB": 186.9375,
+        "wallMs": 0.7277569722222222,
+        "cpuMs": 0.8256138888888889,
+        "p50": 0.6889439999999922,
+        "p95": 1.1880410000003394,
+        "max": 6.678521000000728,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 175.36328125,
+          "heapLimitMiB": 4108,
+          "gcMs": 300.5236819833517,
+          "gcCount": 1378
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 65.31974029541016,
+        "rssMiB": 174.67578125,
+        "wallMs": 0.727256151111111,
+        "cpuMs": 0.8263363888888889,
+        "p50": 0.6868299999996452,
+        "p95": 1.2145710000004328,
+        "max": 4.192042000000583,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      }
+    ],
+    "heap-4": [
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 139.20703125,
+          "heapLimitMiB": 4108,
+          "gcMs": 255.69973495602608,
+          "gcCount": 1354
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 65.02694702148438,
+        "rssMiB": 138.95703125,
+        "wallMs": 0.6220527436111112,
+        "cpuMs": 0.6718538888888889,
+        "p50": 0.5864510000001246,
+        "p95": 0.964350999999624,
+        "max": 2.137724999999591,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 138.3046875,
+          "heapLimitMiB": 4108,
+          "gcMs": 257.1929770074785,
+          "gcCount": 1354
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 68.28466796875,
+        "rssMiB": 138.1796875,
+        "wallMs": 0.6253584405555556,
+        "cpuMs": 0.6737555555555556,
+        "p50": 0.5902679999999236,
+        "p95": 0.9578989999999976,
+        "max": 2.892101000000366,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 182.01953125,
+          "heapLimitMiB": 4108,
+          "gcMs": 337.89947003498673,
+          "gcCount": 1636
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 103.6341552734375,
+        "rssMiB": 181.64453125,
+        "wallMs": 0.8752778786111112,
+        "cpuMs": 0.9475836111111111,
+        "p50": 0.8327939999999217,
+        "p95": 1.3816139999998995,
+        "max": 5.687922000000071,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 178.45703125,
+          "heapLimitMiB": 4108,
+          "gcMs": 361.96920297667384,
+          "gcCount": 1664
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 34.958290100097656,
+        "rssMiB": 175,
+        "wallMs": 0.8755373630555555,
+        "cpuMs": 0.9672833333333333,
+        "p50": 0.8216929999998683,
+        "p95": 1.3847210000003543,
+        "max": 7.837246999999479,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 178.83984375,
+          "heapLimitMiB": 4108,
+          "gcMs": 315.153854906559,
+          "gcCount": 1393
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 69.25794982910156,
+        "rssMiB": 176.89453125,
+        "wallMs": 0.7389792019444446,
+        "cpuMs": 0.8333427777777778,
+        "p50": 0.6898160000000644,
+        "p95": 1.2278059999998732,
+        "max": 5.221847000000253,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 172.1015625,
+          "heapLimitMiB": 4108,
+          "gcMs": 306.04729502275586,
+          "gcCount": 1401
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 57.38352966308594,
+        "rssMiB": 170.48046875,
+        "wallMs": 0.7435958661111111,
+        "cpuMs": 0.8402988888888889,
+        "p50": 0.699282999999923,
+        "p95": 1.216885999999704,
+        "max": 6.209031000000323,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      }
+    ],
+    "heap-16": [
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 169.5234375,
+          "heapLimitMiB": 4144,
+          "gcMs": 127.81294497102499,
+          "gcCount": 354
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 43.37870788574219,
+        "rssMiB": 163.0078125,
+        "wallMs": 0.6074942933333335,
+        "cpuMs": 0.6714780555555555,
+        "p50": 0.5655520000000251,
+        "p95": 0.9509349999998449,
+        "max": 9.453031999999439,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 168.91796875,
+          "heapLimitMiB": 4144,
+          "gcMs": 126.56694805249572,
+          "gcCount": 353
+        },
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 65.3448486328125,
+        "rssMiB": 168.79296875,
+        "wallMs": 0.5936541416666667,
+        "cpuMs": 0.6364080555555556,
+        "p50": 0.5550419999999576,
+        "p95": 0.928693999999723,
+        "max": 3.560645999999906,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 216.7734375,
+          "heapLimitMiB": 4144,
+          "gcMs": 162.15163204818964,
+          "gcCount": 419
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 26.188003540039062,
+        "rssMiB": 212.29296875,
+        "wallMs": 0.8495316099999999,
+        "cpuMs": 0.952271388888889,
+        "p50": 0.7765389999995023,
+        "p95": 1.3674380000002202,
+        "max": 4.73237700000027,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 207.4140625,
+          "heapLimitMiB": 4144,
+          "gcMs": 157.29492998868227,
+          "gcCount": 419
+        },
+        "warmed": true,
+        "scenario": "spread",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 27.147865295410156,
+        "rssMiB": 205.67578125,
+        "wallMs": 0.8460630991666667,
+        "cpuMs": 0.9448258333333334,
+        "p50": 0.7801750000003267,
+        "p95": 1.335877999999866,
+        "max": 7.359900999999809,
+        "entities": 82,
+        "maxEntities": 209,
+        "positions": [
+          {
+            "x": -8087.79381632,
+            "y": -17773.68056091
+          },
+          {
+            "x": -4094.50379975,
+            "y": -15928.83431993
+          },
+          {
+            "x": 9761.05815855,
+            "y": 19058.41600173
+          }
+        ],
+        "packets": 10800,
+        "bytes": 15188268,
+        "hash": "1980d5433ed461a06d749bc6ea8697662820aa03c9c29dff5e909e1159f3bdeb",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 221.8046875,
+          "heapLimitMiB": 4144,
+          "gcMs": 199.13407804071903,
+          "gcCount": 371
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 45.035438537597656,
+        "rssMiB": 219.6953125,
+        "wallMs": 0.6984476677777778,
+        "cpuMs": 0.7951186111111112,
+        "p50": 0.6591980000002877,
+        "p95": 1.184063000000151,
+        "max": 7.962513999999828,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "resources": {
+          "peakRssMiB": 205.35546875,
+          "heapLimitMiB": 4144,
+          "gcMs": 205.2227249443531,
+          "gcCount": 374
+        },
+        "warmed": true,
+        "scenario": "contact",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 75.7519302368164,
+        "rssMiB": 204.1015625,
+        "wallMs": 0.7016468955555556,
+        "cpuMs": 0.8027219444444444,
+        "p50": 0.6580859999994573,
+        "p95": 1.1869489999999132,
+        "max": 6.59217099999978,
+        "entities": 73,
+        "maxEntities": 168,
+        "positions": [
+          {
+            "x": 6484.24479074,
+            "y": -13588.15991121
+          },
+          {
+            "x": 5125.999238,
+            "y": -28369.15215298
+          },
+          {
+            "x": -5399.61187237,
+            "y": -20256.13445617
+          }
+        ],
+        "packets": 10800,
+        "bytes": 13686530,
+        "hash": "135710a1e9b9e34e71ff3f947ba36042e74fd7780fe6c9283765fd0940fbffe1",
+        "costs": {}
+      }
+    ],
+    "heap-trial": [
+      {
+        "production": true,
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 62.00349426269531,
+        "rssMiB": 161.19921875,
+        "wallMs": 0.6166785033333334,
+        "cpuMs": 0.6618363888888888,
+        "p50": 0.5722249999998894,
+        "p95": 0.9993679999997767,
+        "max": 2.3480509999999413,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 60.65618896484375,
+        "rssMiB": 187.15625,
+        "wallMs": 0.589950405,
+        "cpuMs": 0.6312977777777777,
+        "p50": 0.5523069999999279,
+        "p95": 0.9160210000000006,
+        "max": 2.795169999999871,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 62.79608154296875,
+        "rssMiB": 256.72265625,
+        "wallMs": 0.592737548611111,
+        "cpuMs": 0.6351244444444444,
+        "p50": 0.5601719999999659,
+        "p95": 0.8966239999999743,
+        "max": 2.2368719999999485,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      }
+    ],
+    "heap-small": [
+      {
+        "production": true,
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 30.77435302734375,
+        "rssMiB": 173.046875,
+        "wallMs": 0.74191709,
+        "cpuMs": 0.8401141666666667,
+        "p50": 0.6910480000005919,
+        "p95": 1.170879000000241,
+        "max": 7.25702100000035,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 75.1321029663086,
+        "rssMiB": 153.02734375,
+        "wallMs": 0.6549184497222222,
+        "cpuMs": 0.7188863888888889,
+        "p50": 0.6092549999993935,
+        "p95": 1.018062999999529,
+        "max": 5.148433999999725,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      },
+      {
+        "production": true,
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 58.93798828125,
+        "rssMiB": 144.3984375,
+        "wallMs": 0.6051738766666666,
+        "cpuMs": 0.6435552777777778,
+        "p50": 0.5692099999996572,
+        "p95": 0.9408779999994294,
+        "max": 2.087191999999959,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {}
+      }
+    ],
+    "profile-detail-convoy": [
+      {
+        "production": true,
+        "warmed": true,
+        "scenario": "convoy",
+        "ticks": 3600,
+        "players": 3,
+        "heapMiB": 33.80522918701172,
+        "rssMiB": 171.21484375,
+        "wallMs": 0.7576387530555555,
+        "cpuMs": 0.8526261111111112,
+        "p50": 0.7053959999998369,
+        "p95": 1.1888039999994362,
+        "max": 10.786959000000024,
+        "entities": 146,
+        "maxEntities": 146,
+        "positions": [
+          {
+            "x": 5284.28835448,
+            "y": -22997.56601634
+          },
+          {
+            "x": 8092.18961472,
+            "y": -19563.7007312
+          },
+          {
+            "x": -21687.75660796,
+            "y": -7444.36780982
+          }
+        ],
+        "packets": 10800,
+        "bytes": 11742765,
+        "hash": "5c6b50d6663d7fcd0de38624148e33b5a5e82f188df66785e48f976792e2f858",
+        "costs": {
+          "Region queries": 0.015071717222225263,
+          "Region entity lifecycle": 0.030714963055555825,
+          "Module activation": 0.008167118611111416,
+          "Local _parent movement": 0.016094921944389978,
+          "Base movement integration": 0.05661872611123626,
+          "Entity movement and updates": 0.07318235694436882,
+          "Collision and physics": 0.26238433777777936,
+          "World bookkeeping and contact gameplay": 0.044443945277787535,
+          "Snapshot extraction": 0.0832280563888523,
+          "Snapshot preparation and deltas": 0.13063084833335917,
+          "Packet JSON encoding": 0.013779493333346157,
+          "Harness packet hashing": 0.004098269722225546,
+          "Session bookkeeping": 0.005639828888877471,
+          "Procedural generation": 0.011469568055549896,
+          "Harness _input encoding": 4.938972222273858e-5,
+          "Input decoding and validation": 7.656527777764192e-5,
+          "Input handling": 2.8534166666910702e-5
+        }
+      }
+    ]
+  },
+  "allReplayOutputsIdentical": true,
+  "heapTrialOrderMiB": [16, 32, 64],
+  "heapSmallOrderMiB": [1, 4, 8],
+  "memoryGuestCheck": {
+    "defaultHeapLimitMiB": 268,
+    "explicit4MiBHeapLimitMiB": 268,
+    "explicit16MiBHeapLimitMiB": 304,
+    "note": "Fresh Node subprocesses on the same live VM, not inspection of the running game heap."
+  }
+}

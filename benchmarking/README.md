@@ -156,3 +156,61 @@ production hashes naturally differ. Also compare positions and entity counts.
 September 27 segment-cache bug. It restores the old key-literal comparison in
 the build without editing application files. Use it when compiling a saved
 baseline to isolate that fix; it has no effect on an already saved bundle.
+
+### Server phase and memory investigation
+
+Use one route per invocation for independently interpretable resource totals:
+
+```sh
+node benchmarking/production-flight.mjs --profile --scenario=convoy --ticks=3600 --warm --semi-space=4
+node benchmarking/production-flight.mjs --profile=detail --scenario=convoy --ticks=3600 --warm --semi-space=4
+node benchmarking/production-flight.mjs --scenario=spread --ticks=3600 --warm --semi-space=16
+```
+
+Repeat `convoy`, `spread` and `contact`. Each command above covers 260 simulated
+seconds including warm-up. Children have a 290-second wall timeout. Serialize
+comparisons, alternate variant order and pin the same available physical CPUs
+if using `taskset`; do not run builds or other benchmarks concurrently.
+
+`--profile` injects exclusive elapsed timers through the production build and
+passes input transitions through the real wire parser. Nested phases are
+subtracted from their callers. Hashing and client wire construction are reported
+as harness costs. `--profile=detail` adds per-entity wrappers for snapshot
+extraction, base movement, carrier motion and module activation; it adds more
+overhead. Timings are foreground hotspot estimates, not per-phase process CPU.
+Use unprofiled runs for total CPU comparisons. Profiling cannot be combined with
+`--broken-cache`.
+
+`--semi-space=N` passes `--max-semi-space-size=N` to the benchmark child only.
+`resources` reports process peak RSS, heap limit, GC count and elapsed GC duration.
+Those values include the entire child, including warm-up and all selected routes;
+`cpuMs` and `costs` cover the measured route. GC time overlaps foreground timings
+and must not be added to them. The local host's old-space default is unchanged.
+Saved bundles retain their instrumentation; `--bundle` does not rebuild them.
+
+These replays omit actual socket transport/TLS. Results and the optimization
+assessment are in [the server phase report](../docs/performance-server-phases-2026-09-27.md).
+
+### Persistent-state comparison and receiver oracle
+
+`--node-flag=--single-threaded-gc` passes one additional Node/V8 flag to a
+production-flight child for experiments. It does not change deployment flags.
+Use the same saved bundle and semi-space size for both variants.
+
+The replication oracle compares the new implementation with a saved previous
+`replication.ts`, reconstructing receiver state with the real client's merge and
+null-clear rules after every snapshot:
+
+```sh
+git show 442548e:src/server/replication.ts > /tmp/replication-before.ts
+node benchmarking/replication-oracle.mjs --reference=/tmp/replication-before.ts --scenario=convoy --ticks=3600
+```
+
+Repeat for `spread` and `contact`. These are correctness runs, not performance
+measurements: the extra reference implementation and state assertions add work.
+The oracle permits redundant deltas and property-order changes, but requires
+identical reconstructed state. Entity lifecycle and simulation still run through
+the current source in both comparisons.
+
+See [persistent-state results](../docs/performance-persistent-state-2026-09-27.md)
+for the retained implementation and the rejected region/GC experiments.

@@ -225,6 +225,40 @@ import { ReplicationManager } from './server/replication';
 import { createWorld, addEntity } from './shared/simulation/world';
 import { createAsteroid } from './shared/simulation/asteroid';
 import { createShip } from './shared/craft/create-ship';
+export function inspectModules() {
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, {playerId: 1}));
+  const replication = new ReplicationManager();
+  const options = {world, shipId: ship.id};
+  const stringify = JSON.stringify;
+  let serializations = 0;
+  JSON.stringify = (value, ...args) => {
+    if (Array.isArray(value) && value[0]?.segments && typeof value[0].mount === 'number') serializations++;
+    return stringify(value, ...args);
+  };
+  try {
+    replication.initial(options);
+    serializations = 0;
+    for (let tick = 0; tick < 10; tick++) {world.tick++; replication.snapshot(options);}
+    const unchanged = serializations;
+    const module = ship.modules[0];
+    const results = [];
+    for (const mutate of [
+      () => module.mount.health--,
+      () => ship.segmentsAtMount(module.mount)[0].activationProgress = 0.375,
+      () => module.shades = ['red', 'green', 'blue'],
+      () => module.shades[1] = 'yellow',
+      () => module.id++,
+    ]) {
+      mutate();
+      const delta = replication.snapshot(options).fullEntities.find(record => record.id === ship.id);
+      const expected = ship.moduleStates.map((state, i) => ({...state, id: ship.modules[i].id}));
+      results.push(stringify(delta?.modules) === stringify(expected));
+      results.push(replication.snapshot(options).fullEntities.length === 0);
+    }
+    return [unchanged, results];
+  } finally {JSON.stringify = stringify;}
+}
 export function inspectSegments(locked) {
   const world = createWorld();
   const ship = addEntity(world, createShip(world, { playerId: 1 }));
@@ -277,6 +311,18 @@ try {
   const chunk = output.find((item) => item.type === 'chunk');
   const built = await import(
     `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
+  );
+
+  const [moduleSerializations, moduleResults] = built.inspectModules();
+
+  assert.equal(
+    moduleSerializations,
+    0,
+    'unchanged production module snapshots must not be rebuilt or serialized',
+  );
+  assert(
+    moduleResults.every(Boolean),
+    'production module caches observe damage, activation, shades and identity changes',
   );
 
   for (const locked of [false, true]) {

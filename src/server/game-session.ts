@@ -108,6 +108,7 @@ export class GameSession {
 
     if (!player) return;
     player.socket = undefined;
+    player.replication = new ReplicationManager();
     player.disconnectedAt = Date.now();
     player.hiddenShip = this.world.entities.delete(player.shipId);
     this.world.players.delete(player.playerId);

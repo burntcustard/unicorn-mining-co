@@ -28,6 +28,19 @@ export const updateTier = ({
     : updateTiers.distant;
 };
 
+const schedules = new WeakMap<
+  SimulationWorld,
+  {
+    observers: GameObject[];
+    parents: GameObject[];
+    entries: {
+      entity: GameObject;
+      tier: typeof updateTiers.visible | typeof updateTiers.distant;
+      step: number;
+    }[];
+  }
+>();
+
 /*
  * One movement schedule for normal simulation and snapshot catch-up.
  * The normal world update sweeps the resulting motion through physics;
@@ -49,23 +62,38 @@ export const updateEntities = ({
   events?: SimulationEvent[];
   dt?: number;
 }) => {
-  const observers = [...world.players.values()]
-    .map((player) => world.entities.get(player.shipId))
-    .filter((entity) => entity !== undefined);
-  const scheduled = entities.map((entity) => {
+  let schedule = schedules.get(world);
+
+  if (!schedule) {
+    schedule = { observers: [], parents: [], entries: [] };
+    schedules.set(world, schedule);
+  }
+  const { observers, parents, entries: scheduled } = schedule;
+
+  observers.length = parents.length = 0;
+  world.players.forEach((player) => {
+    const entity = world.entities.get(player.shipId);
+
+    if (entity) observers.push(entity);
+  });
+  entities.forEach((entity, index) => {
     const tier = observers.length
       ? updateTier({ entity, observers })
       : updateTiers.visible;
-    // Partial samples use the same subdivision boundary as a complete tick,
-    // including any time carried over from the distant tier.
     const step = (entity.pendingUpdateTime + simulationStep) / tier.substeps;
+    const entry = scheduled[index];
 
-    return { entity, tier, step };
+    if (entry) {
+      entry.entity = entity;
+      entry.tier = tier;
+      entry.step = step;
+    } else scheduled.push({ entity, tier, step });
   });
-
-  world.movementParents = [...world.entities.values()].filter(
-    (entity) => entity.holds,
-  );
+  scheduled.length = entities.length;
+  world.entities.forEach((entity) => {
+    if (entity.holds) parents.push(entity);
+  });
+  world.movementParents = parents;
 
   for (let substep = 0; substep < updateTiers.visible.substeps; substep++) {
     scheduled.forEach(({ entity, tier, step }) => {

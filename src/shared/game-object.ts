@@ -107,20 +107,22 @@ export class GameObject {
       this.remove();
       return;
     }
-    this.spin *= Math.exp(-this.angularDrag * dt);
+
+    if (this.angularDrag) this.spin *= Math.exp(-this.angularDrag * dt);
     this.rotation += this.spin * dt;
 
     const { position, velocity, drag = 0.15, maxSpeed = 272 } = this;
     const speed = Vec.length(velocity);
 
     if (speed < 1) velocity.x = velocity.y = 0;
+    else {
+      const kept =
+        speed > maxSpeed
+          ? Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed
+          : Math.exp(-drag * dt);
 
-    const kept =
-      speed > maxSpeed
-        ? Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed
-        : Math.exp(-drag * dt);
-
-    Vec.scale(velocity, kept, velocity);
+      Vec.scale(velocity, kept, velocity);
+    }
     Vec.addScaled(position, velocity, dt, position);
 
     localMovement(

@@ -13,7 +13,13 @@ import { type Contact } from '../collision/types';
 import { simulationStep } from '../settings';
 import { updateEntities } from './update-tier';
 
-const collisionWorlds = new WeakMap<SimulationWorld, GameCollisions>();
+const collisionWorlds = new WeakMap<
+  SimulationWorld,
+  {
+    collisions: GameCollisions;
+    previous: Map<number, { position: Vec.Value; rotation: number }>;
+  }
+>();
 
 /*
  * Preserve gameplay movement, then sweep it through the shared collision system.
@@ -48,21 +54,30 @@ export const updateWorld = ({
     }
   });
 
-  let collisions = collisionWorlds.get(world);
+  let state = collisionWorlds.get(world);
 
-  if (!collisions) {
-    collisions = new GameCollisions();
-    collisionWorlds.set(world, collisions);
+  if (!state) {
+    state = { collisions: new GameCollisions(), previous: new Map() };
+    collisionWorlds.set(world, state);
   }
-  const previous = new Map(
-    [...world.entities].map(([id, entity]) => [
-      id,
-      {
+  const { collisions, previous } = state;
+
+  previous.forEach((_, id) => {
+    if (!world.entities.has(id)) previous.delete(id);
+  });
+  world.entities.forEach((entity, id) => {
+    const pose = previous.get(id);
+
+    if (pose) {
+      Vec.set(pose.position, entity.position);
+      pose.rotation = entity.rotation;
+    } else {
+      previous.set(id, {
         position: Vec.clone(entity.position),
         rotation: entity.rotation,
-      },
-    ]),
-  );
+      });
+    }
+  });
 
   updateEntities({ world, inputs, events, dt });
   const contacts = collisions.step({

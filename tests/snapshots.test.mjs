@@ -658,3 +658,75 @@ for (const locked of [false, true]) {
     );
   }
 }
+
+// Persistent records must observe in-place changes, clears, independent cursors
+// and replacement objects even when they share an entity ID or world tick.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  let rock = addEntity(world, createAsteroid(world, { radius: 40 }));
+  const observers = [new ReplicationManager(), new ReplicationManager()];
+  const options = { world, shipId: ship.id };
+
+  observers.forEach((observer) => observer.initial(options));
+  rock.label = 'changed';
+  observers[0].snapshot(options);
+  rock.label = undefined;
+  Vec.setXY(rock.velocity, 10, 20);
+
+  for (const observer of observers) {
+    const delta = observer
+      .snapshot(options)
+      .fullEntities.find(({ id }) => id === rock.id);
+
+    assert.deepEqual(delta.velocity, { x: 10, y: 20 });
+    assert.equal(delta.label, null);
+    assert.equal(observer.snapshot(options).fullEntities.length, 0);
+  }
+  rock = addEntity(world, createAsteroid(world, { id: rock.id, radius: 60 }));
+
+  for (const observer of observers) {
+    const delta = observer
+      .snapshot(options)
+      .fullEntities.find(({ id }) => id === rock.id);
+
+    assert.equal(delta.kind, 'asteroid');
+    assert.equal(delta.radius, 60);
+    assert.equal(
+      delta.velocity,
+      null,
+      'same-ID replacements clear old motion defaults',
+    );
+  }
+  const module = ship.modules[0];
+  const checkModules = () => {
+    const expected = ship.moduleStates.map((state, index) => ({
+      ...state,
+      id: ship.modules[index].id,
+    }));
+
+    for (const observer of observers) {
+      const packet = observer.snapshot(options);
+      const actual = packet.fullEntities.find(
+        ({ id }) => id === ship.id,
+      )?.modules;
+
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(actual)),
+        JSON.parse(JSON.stringify(expected)),
+      );
+      assert.equal(observer.snapshot(options).fullEntities.length, 0);
+    }
+  };
+
+  module.mount.health--;
+  checkModules();
+  ship.segmentsAtMount(module.mount)[0].activationProgress = 0.375;
+  checkModules();
+  module.shades = ['red', 'green', 'blue'];
+  checkModules();
+  module.shades[1] = 'yellow';
+  checkModules();
+  module.id++;
+  checkModules();
+}
