@@ -338,7 +338,10 @@ export class NetworkClient {
     // horizon bounds speculation if the connection stops making progress.
     steps = Math.min(
       steps,
-      Math.max(0, this.serverTick + maxPredictionTicks - this.world.tick),
+      Math.max(
+        0,
+        this.estimatedServerTick() + maxPredictionTicks - this.world.tick,
+      ),
     );
     // A launch is said once, so a skipped tick must not swallow it.
 
@@ -372,18 +375,19 @@ export class NetworkClient {
    * need clock catch-up, not a permanently larger prediction lead.
    */
   private retune() {
-    const elapsed =
-      Math.max(0, performance.now() - this.snapshotReceivedAt) /
-      (simulationStep * 1000);
-    const drift =
-      this.serverTick +
-      Math.min(Math.floor(elapsed), maxPredictionTicks) +
-      this.tickLead -
-      this.world.tick;
+    const drift = this.estimatedServerTick() + this.tickLead - this.world.tick;
 
     // Reconciliation handles large discontinuities using actual server state,
     // not by relabelling the tick of a still-predicted world.
     this.tickAdjust = Math.abs(drift) > driftSlack ? Math.sign(drift) : 0;
+  }
+
+  private estimatedServerTick() {
+    const elapsed =
+      Math.max(0, performance.now() - this.snapshotReceivedAt) /
+      (simulationStep * 1000);
+
+    return this.serverTick + Math.min(Math.floor(elapsed), maxPredictionTicks);
   }
 
   private send(message: ClientMessage) {

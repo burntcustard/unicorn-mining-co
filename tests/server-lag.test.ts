@@ -344,14 +344,46 @@ try {
         clientTravel: previous.map((x, i) => x - start[i]),
       }),
     );
-    // A lost connection still bounds prediction; pending releases still get sent.
-    const client = clients[0];
+    // One observer can miss packets while another keeps receiving them.
+    // Its local ship must not stop at the old 500 ms snapshot-age limit.
+    const delayed = clients[0];
+    const socket = Reflect.get(delayed, 'socket') as Socket;
+    const receive = socket.onmessage;
+    let delayedTravel = 0;
+    const delayedMessages: { data: string }[] = [];
 
+    socket.onmessage = (message) => delayedMessages.push(message);
+
+    for (let tick = 0; tick < 24; tick++) {
+      now += 1000 / 30;
+      session.tick();
+      const before = delayed.world.entities.get(delayed.shipId!)!.position.x;
+
+      clients.forEach((client) =>
+        client.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now }),
+      );
+
+      if (tick >= 18) {
+        delayedTravel +=
+          delayed.world.entities.get(delayed.shipId!)!.position.x - before;
+      }
+    }
+    assert(delayedTravel > 10, 'delayed pilot keeps moving after 500 ms');
+    assert(clients[1].serverTick > delayed.serverTick);
+    socket.onmessage = receive;
+    delayedMessages.forEach((message) => receive?.(message));
+    delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now });
+    assert(
+      Math.abs(delayed.world.tick - clients[1].world.tick) <= 2,
+      'delayed pilot catches up when snapshots resume',
+    );
+
+    // A lost connection still bounds prediction; pending releases still get sent.
     for (let i = 0; i < 120; i++) {
       now += 1000 / 60;
-      client.updateFrame({ input: emptyPlayerInput(), dt: 1 / 60, now });
+      delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 60, now });
     }
-    assert(client.world.tick <= client.serverTick + maxPredictionTicks);
+    assert(delayed.world.tick <= delayed.serverTick + 2 * maxPredictionTicks);
   }
 } finally {
   Object.assign(globalThis, { performance: originalPerformance });
