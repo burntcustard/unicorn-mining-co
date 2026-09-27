@@ -335,3 +335,32 @@ cost of the same workload.
 See [the elapsed-time report](../docs/performance-elapsed-time-2026-09-27.md) for
 normal-rate comparisons, delayed-server/client tests, browser frame times and
 limits. `npm run test:server` includes the deterministic three-client lag tests.
+
+## Object-shape and optional-argument experiments
+
+`production-flight.mjs --shape-experiment=NAME` applies one isolated build-time
+variant: `required-dt`, `tier-position`, or `world-shape`. Release builds do not
+import the experiment module. The variants respectively require an explicit
+movement delta, pass a position directly to the tier lookup, or initialize the
+world's optional movement-parent cache at creation.
+
+```sh
+node benchmarking/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=spread --shape-experiment=world-shape --save=/tmp/world-shape.mjs
+node benchmarking/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=convoy --bundle=/tmp/world-shape.mjs
+```
+
+Save the unchanged baseline without `--shape-experiment`. Alternate saved-bundle
+runs sequentially; compare packet hashes, byte counts, entity counts and positions.
+The experiment is embedded in saved bundles, so new flags do not change a bundle.
+
+For separate V8 diagnostics, use a readable bundle and forward the logging flags:
+
+```sh
+node benchmarking/production-flight.mjs --ticks=1800 --warm --scenario=spread --semi-space=16 --readable --save=/tmp/shape-readable.mjs --node-flag=--log-ic --node-flag=--no-logfile-per-isolate --node-flag=--logfile=/tmp/shape-ic.log
+node --trace-deopt --trace-file-names --max-semi-space-size=16 /tmp/shape-readable.mjs '[1800,3,true,"spread"]'
+```
+
+Diagnostic runs must not be compared with uninstrumented timings. Inline-cache
+logs record transitions, not how often a property was read. Startup map changes
+and cumulative map counts are not evidence of a continuously megamorphic site.
+See [the monomorphism follow-up](../docs/performance-monomorphism-2026-09-27.md).

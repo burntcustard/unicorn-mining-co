@@ -8,6 +8,7 @@ import { minify } from 'terser';
 import { instrumentPhases, phaseRuntime } from './server-phases.mjs';
 import { resourceRuntime } from './flight-resources.mjs';
 import { numericExperiment } from './numeric-experiments.mjs';
+import { shapeExperiment } from './shape-experiments.mjs';
 import {
   buildPlugin,
   buildPrePlugin,
@@ -147,6 +148,10 @@ try {
         {
           name: 'production-flight-entry',
           transform(code, id) {
+            if (options['shape-experiment']) {
+              code = shapeExperiment(code, id, options['shape-experiment']);
+            }
+
             if (options['numeric-experiment']) {
               code = numericExperiment(code, id, options['numeric-experiment']);
             }
