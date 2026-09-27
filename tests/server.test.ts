@@ -115,6 +115,27 @@ for (const message of [
     now += 1000;
     pending!.callback();
     assert(pending!.delay >= 1, 'a stall must not schedule a catch-up storm');
+
+    for (let callback = 0; callback < 120; callback++) {
+      const before = timed.world.tick;
+
+      // Model a server that spends 100ms processing each callback.
+      now += 100;
+      pending!.callback();
+      assert(
+        timed.world.tick - before <= 6,
+        'catch-up work per callback is bounded',
+      );
+
+      if (callback > 10) {
+        assert(
+          Math.abs(
+            timed.world.tick - Math.floor(now / (simulationStep * 1000)),
+          ) <= 1,
+          'sustained 100ms callbacks must preserve the real-time simulation clock',
+        );
+      }
+    }
   } finally {
     await timed.stop();
     Object.assign(globalThis, original);

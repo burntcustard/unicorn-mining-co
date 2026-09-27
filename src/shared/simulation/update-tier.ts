@@ -54,6 +54,7 @@ export const updateEntities = ({
   inputs,
   events = [],
   dt = simulationStep,
+  inputOffset = 0,
 }: {
   world: SimulationWorld;
   entities?: GameObject[];
@@ -61,6 +62,7 @@ export const updateEntities = ({
   inputs?: Map<PlayerId, PlayerInput | InputFrame>;
   events?: SimulationEvent[];
   dt?: number;
+  inputOffset?: number;
 }) => {
   let schedule = schedules.get(world);
 
@@ -118,6 +120,8 @@ export const updateEntities = ({
       // without raising the regular movement or collision frequency.
       if (input && 'changes' in input && entity instanceof Ship) {
         input.changes.forEach(({ input, offset }) => {
+          offset -= inputOffset;
+
           if (offset < elapsed || offset >= end) return;
 
           if (offset > elapsed) entity.update(offset - elapsed);

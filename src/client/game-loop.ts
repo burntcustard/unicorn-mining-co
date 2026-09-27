@@ -1,6 +1,7 @@
 /* global canvas */
 
 import { context } from './core';
+import { maxPredictionTicks, simulationStep } from '../shared/settings';
 
 /**
  * Based on Kontra gameLoop.js, available under the MIT licence:
@@ -18,8 +19,11 @@ export const GameLoop = ({
   const frame = () => {
     requestAnimationFrame(frame);
     const now = performance.now();
-    // Discard frame debt after a stall; networking restores the server clock.
-    const dt = Math.min((now - last) / 1000, 1 / 15);
+    // Catch up ordinary missed frames; a longer outage recovers from snapshots.
+    const dt = Math.min(
+      (now - last) / 1000,
+      maxPredictionTicks * simulationStep,
+    );
 
     last = now;
 

@@ -22,10 +22,12 @@ export const updateWorld = ({
   world,
   inputs,
   dt = simulationStep,
+  ticks = 1,
 }: {
   world: SimulationWorld;
   inputs: Map<PlayerId, PlayerInput | InputFrame>;
   dt?: number;
+  ticks?: number;
 }): SimulationEvent[] => {
   const events: SimulationEvent[] = [];
 
@@ -55,7 +57,18 @@ export const updateWorld = ({
   }
   collisions.capturePoses(world.entities.values());
 
-  updateEntities({ world, inputs, events, dt });
+  // Integrate movement and timed input edges at the usual cadence, while an
+  // overdue server update shares one collision sweep across the elapsed ticks.
+  for (let index = 0; index < ticks; index++) {
+    updateEntities({
+      world,
+      inputs,
+      events,
+      dt: dt / ticks,
+      tick: world.tick + index,
+      inputOffset: (index * dt) / ticks,
+    });
+  }
   const contacts = collisions.step({
     entities: [...world.entities.values()],
     dt,
@@ -86,6 +99,6 @@ export const updateWorld = ({
   });
   // Contacts and docking can move entities after their own update.
   world.entities.forEach((entity) => entity.roundMotion());
-  world.tick++;
+  world.tick += ticks;
   return events;
 };

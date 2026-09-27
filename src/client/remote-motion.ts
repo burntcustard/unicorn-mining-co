@@ -1,6 +1,10 @@
 import * as Vec from '../shared/vector';
 import { type ReplicatedEntity } from '../shared/protocol/network';
-import { simulationStep, updateTiers } from '../shared/settings';
+import {
+  maxPredictionTicks,
+  simulationStep,
+  updateTiers,
+} from '../shared/settings';
 import { updateTier } from '../shared/simulation/update-tier';
 import { type SimulationWorld } from '../shared/simulation/world';
 import { type Pose } from '../shared/types';
@@ -13,6 +17,7 @@ type Frame = Pose & {
 type Track = {
   frames: Frame[];
   interval: number;
+  replicateEvery: number;
   receivedAt: number;
   renderTick: number;
 };
@@ -50,9 +55,11 @@ const interpolate = ({
  */
 export class RemoteMotion {
   private tracks = new Map<number, Track>();
+  private snapshotTick = 0;
 
   reset() {
     this.tracks.clear();
+    this.snapshotTick = 0;
   }
 
   receive({
@@ -68,6 +75,12 @@ export class RemoteMotion {
     tick: number;
     now?: number;
   }) {
+    const snapshotInterval = Math.max(
+      1,
+      Math.min(maxPredictionTicks, tick - this.snapshotTick),
+    );
+
+    this.snapshotTick = tick;
     const retained = new Set(entityIds);
 
     this.tracks.forEach((_, id) => {
@@ -81,6 +94,7 @@ export class RemoteMotion {
       const track = this.tracks.get(entity.id) || {
         frames: [],
         interval: updateTiers.visible.replicateEvery,
+        replicateEvery: updateTiers.visible.replicateEvery,
         receivedAt: now,
         renderTick: -Infinity,
       };
@@ -108,11 +122,12 @@ export class RemoteMotion {
       track.receivedAt = now;
 
       if (observers.length) {
-        track.interval = updateTier({
+        track.replicateEvery = updateTier({
           entity: { position },
           observers,
         }).replicateEvery;
       }
+      track.interval = Math.max(snapshotInterval, track.replicateEvery);
       this.tracks.set(entity.id, track);
     });
   }

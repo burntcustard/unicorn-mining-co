@@ -10,7 +10,7 @@ import {
   type PlayerInput,
 } from '../shared/protocol/input';
 import { updateWorld } from '../shared/simulation/update-world';
-import { simulationStep } from '../shared/settings';
+import { maxPredictionTicks, simulationStep } from '../shared/settings';
 import { updateEntities } from '../shared/simulation/update-tier';
 import { type SimulationEvent } from '../shared/protocol/events';
 import { Asteroid } from '../shared/simulation/asteroid';
@@ -26,9 +26,8 @@ import {
 } from '../shared/simulation/world-state';
 
 const historyLength = 60;
-// Normal prediction is one tick. A longer replay after a stall only adds
-// more frame debt; recover from the checkpoint instead.
-const maxReplayTicks = 2;
+// Replay short gaps on the real-time prediction clock; resync longer outages.
+const maxReplayTicks = maxPredictionTicks;
 
 // @ifdef DEBUG
 /**

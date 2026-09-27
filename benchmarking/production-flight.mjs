@@ -7,6 +7,7 @@ import { rolldown } from 'rolldown';
 import { minify } from 'terser';
 import { instrumentPhases, phaseRuntime } from './server-phases.mjs';
 import { resourceRuntime } from './flight-resources.mjs';
+import { numericExperiment } from './numeric-experiments.mjs';
 import {
   buildPlugin,
   buildPrePlugin,
@@ -94,6 +95,40 @@ try {
         'used / 1000 / ticks',
       );
 
+    if (options['batch-ticks']) {
+      const batch = Number(options['batch-ticks']);
+
+      if (
+        ![1, 2, 3, 6].includes(batch) ||
+        Number(options.ticks || 9000) % batch
+      ) {
+        throw new Error(
+          '--batch-ticks must be 1, 2, 3 or 6 and divide --ticks',
+        );
+      }
+      workload = workload
+        .replace(
+          'const steer = (tick) =>',
+          'const steer = (tick, offset = 0) =>',
+        )
+        .replace(
+          'tick: session.world.tick,',
+          'tick: session.world.tick + offset,',
+        )
+        .replace('tick < 300; tick++', `tick < 300; tick += ${batch}`)
+        .replace('tick < ticks; tick++', `tick < ticks; tick += ${batch}`)
+        .replace(
+          'steer(tick);',
+          `for (let offset = 0; offset < ${batch}; offset++) steer(tick + offset, offset);`,
+        )
+        .replace(
+          'steer(tick + 300);',
+          `for (let offset = 0; offset < ${batch}; offset++) steer(tick + 300 + offset, offset);`,
+        )
+        .replaceAll('session.tick();', `session.tick({ticks: ${batch}});`)
+        .replaceAll('Math.floor(ticks *', 'Math.floor(samples.length *');
+    }
+
     if (options.profile) {
       workload = workload.replace(
         'for (const key in costs) costs[key] = 0;',
@@ -112,6 +147,10 @@ try {
         {
           name: 'production-flight-entry',
           transform(code, id) {
+            if (options['numeric-experiment']) {
+              code = numericExperiment(code, id, options['numeric-experiment']);
+            }
+
             if (
               options['pre-generated-radius'] !== undefined &&
               id.endsWith('/src/shared/settings.ts')
@@ -150,6 +189,7 @@ try {
                 "segments = field.key === 'segments' && value !== undefined;",
               );
             }
+            return code;
           },
           resolveId(id) {
             if (id === 'flight-native') return '\0flight-native';

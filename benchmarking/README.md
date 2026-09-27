@@ -298,3 +298,40 @@ collision skipping alone before that feature was removed. The override is embedd
 The [server Set-iteration follow-up](../docs/performance-set-iteration-2026-09-27.md)
 compares temporary spread-array conversions while preserving stored Sets,
 including independent candidates and the final incremental acceptance checks.
+
+## Integer and fixed-point experiments
+
+`production-flight.mjs --numeric-experiment=NAME` applies a benchmark-only
+transformation. Values are `baseline`, `grid1000`, `grid1024`, `grid1000-smi`,
+`position1000` and `vector-double`. Use the usual saved-bundle, three-player,
+three-route comparison described above; no arithmetic changes enter release builds.
+
+`node benchmarking/numeric-kernels.mjs` compares prepacked object/typed-array
+arithmetic in separate processes. `node benchmarking/numeric-accuracy.mjs`
+compares thin-wall, oblique, circular and sustained contacts at three world offsets.
+These probes do not constitute a complete integer physics implementation.
+
+See [the numeric representation investigation](../docs/performance-numeric-representations-2026-09-27.md)
+for CPU measurements, accuracy limits and raw results.
+
+## Elapsed-time catch-up
+
+`production-flight.mjs --batch-ticks=1|2|3|6` runs that many logical 30 Hz ticks
+per server callback. Keep `--ticks` divisible by the batch size. Queued inputs
+retain their logical tick offsets. The saved bundle embeds the batch size;
+passing a new size with `--bundle` does not modify an existing bundle.
+
+```sh
+node benchmarking/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=spread --batch-ticks=3 --save=/tmp/flight-batch3.mjs
+node benchmarking/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=convoy --bundle=/tmp/flight-batch3.mjs
+```
+
+`cpuMs` and `wallMs` remain normalized per **logical tick**; multiply by the batch
+size for cost per callback. `p50`, `p95` and `max` are wall time **per callback**.
+Compare equal simulated durations. Coarser collisions change trajectories, so
+also inspect positions/entity counts before treating CPU differences as the
+cost of the same workload.
+
+See [the elapsed-time report](../docs/performance-elapsed-time-2026-09-27.md) for
+normal-rate comparisons, delayed-server/client tests, browser frame times and
+limits. `npm run test:server` includes the deterministic three-client lag tests.

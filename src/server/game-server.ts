@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer } from 'ws';
 import { parseClientMessage } from './parse-client-message';
-import { simulationStep } from '../shared/settings';
+import { maxCatchUpTicks, simulationStep } from '../shared/settings';
 import { GameSession } from './game-session';
 import { handleHttp } from './http-handler';
 
@@ -117,11 +117,15 @@ export class GameServer {
     const period = simulationStep * 1000;
     let nextTick = performance.now() + period;
     const tick = () => {
-      this.session.tick();
-      // Schedule against a deadline: repeating a rounded 33 ms interval runs
-      // faster than 30 Hz and makes clients periodically jump a whole tick.
-      // Drop old debt after a stall instead of scheduling an unbounded replay.
-      nextTick = Math.max(nextTick + period, performance.now());
+      const ticks = Math.min(
+        maxCatchUpTicks,
+        Math.max(1, Math.floor((performance.now() - nextTick) / period) + 1),
+      );
+
+      this.session.tick({ ticks });
+      // Advance the simulation clock by elapsed whole ticks, retaining any debt.
+      // One collision sweep and snapshot cover the batch; yield before the next.
+      nextTick += ticks * period;
       this.timer = setTimeout(
         tick,
         Math.max(1, Math.ceil(nextTick - performance.now())),

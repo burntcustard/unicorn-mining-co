@@ -400,6 +400,7 @@ type SnapshotOptions = {
 };
 
 export class ReplicationManager {
+  private snapshotTick = 0;
   private entities = new Set<EntityId>();
   private previousFields = new Map<
     EntityId,
@@ -446,9 +447,13 @@ export class ReplicationManager {
 
       if (!loaded) membershipChanged = true;
 
+      const interval = updateTier({ entity, observers: [ship] }).replicateEvery;
+
       if (
         loaded &&
-        world.tick % updateTier({ entity, observers: [ship] }).replicateEvery
+        world.tick % interval &&
+        Math.floor(world.tick / interval) ===
+          Math.floor(this.snapshotTick / interval)
       ) {
         continue;
       }
@@ -504,6 +509,7 @@ export class ReplicationManager {
     }
     membershipChanged ||= entities.size !== this.entities.size;
     this.entities = entities;
+    this.snapshotTick = world.tick;
 
     if (membershipChanged) {
       this.previousFields.forEach((_, id) => {

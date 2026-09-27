@@ -126,8 +126,8 @@ export class GameSession {
     );
   }
 
-  tick() {
-    if (this.world.tick % 30 === 0) {
+  tick({ ticks = 1 }: { ticks?: number } = {}) {
+    if (this.world.tick % 30 === 0 || (this.world.tick % 30) + ticks > 30) {
       const idleBefore = Date.now() - 5 * 60 * 1000;
 
       this.players.forEach((player) => {
@@ -146,7 +146,7 @@ export class GameSession {
       });
     }
 
-    if (this.world.tick % 900 === 0) {
+    if (this.world.tick % 900 === 0 || (this.world.tick % 900) + ticks > 900) {
       const expired = Date.now() - 30 * 60 * 1000;
 
       this.players.forEach((player, token) => {
@@ -171,26 +171,34 @@ export class GameSession {
 
     this.players.forEach((player) => {
       if (!player.socket) return;
-      const changes = (player.inputs.get(tick) || []).filter(
-        ({ sequence }) => sequence > player.lastSequence,
-      );
       const frame: InputFrame = { input: player.lastInput, changes: [] };
 
-      changes.forEach(({ input, sequence, offset = 0 }) => {
-        offset = Math.max(
-          frame.changes.at(-1)?.offset || 0,
-          Math.min(simulationStep - 1e-9, Math.max(0, offset)),
-        );
-        frame.changes.push({ input, offset });
-        player.lastInput = input;
-        player.lastSequence = sequence;
-      });
+      for (let index = 0; index < ticks; index++) {
+        const changes = player.inputs.get(tick + index) || [];
+
+        changes.forEach(({ input, sequence, offset = 0 }) => {
+          if (sequence <= player.lastSequence) return;
+          offset = Math.max(
+            frame.changes.at(-1)?.offset || 0,
+            index * simulationStep +
+              Math.min(simulationStep - 1e-9, Math.max(0, offset)),
+          );
+          frame.changes.push({ input, offset });
+          player.lastInput = input;
+          player.lastSequence = sequence;
+        });
+      }
       player.inputs.forEach((_, stale) => {
-        if (stale <= tick) player.inputs.delete(stale);
+        if (stale < tick + ticks) player.inputs.delete(stale);
       });
       inputs.set(player.playerId, frame);
     });
-    updateWorld({ world: this.world, inputs });
+    updateWorld({
+      world: this.world,
+      inputs,
+      dt: ticks * simulationStep,
+      ticks,
+    });
     const replicationRecords: ReplicationRecords = new Map();
 
     this.players.forEach((player) => {

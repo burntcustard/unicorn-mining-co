@@ -1,0 +1,1630 @@
+{
+  "date": "2026-09-27",
+  "baseCommit": "c52ae10",
+  "node": "26.8.2",
+  "v8": "14.6",
+  "cpu": "AMD Ryzen 7 5800X3D",
+  "method": {
+    "players": 3,
+    "measuredLogicalTicks": 1800,
+    "warmupLogicalTicks": 300,
+    "warm": true,
+    "semiSpaceMiB": 16,
+    "repeats": 3,
+    "order": "Rotate before/after/batch3/batch6 by repeat; reverse for convoy; sequential processes",
+    "cpuMs": "CPU milliseconds per logical 1/30 second tick",
+    "wallMs": "Wall milliseconds per logical tick",
+    "p50_p95_max": "Wall milliseconds per callback, which advances 1, 3 or 6 ticks",
+    "limitations": "Batched collisions change routes/entity counts. Do not interpret batch CPU reductions as a same-workload optimization. Browser callbacks were delayed, not made CPU-expensive."
+  },
+  "flights": [
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 241.08203125,
+        "heapLimitMiB": 4144,
+        "gcMs": 88.85321600735188,
+        "gcCount": 185
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 96.52113342285156,
+      "rssMiB": 237.34375,
+      "wallMs": 0.5408801561111111,
+      "cpuMs": 0.6489499999999999,
+      "p50": 0.5035859999998138,
+      "p95": 0.9630069999998341,
+      "max": 2.303863999999976,
+      "entities": 199,
+      "maxEntities": 203,
+      "positions": [
+        {
+          "x": -2869.1421097,
+          "y": -17427.48567428
+        },
+        {
+          "x": -4082.64061397,
+          "y": -17126.71224991
+        },
+        {
+          "x": 9866.52104034,
+          "y": 13821.69738296
+        }
+      ],
+      "packets": 5400,
+      "bytes": 7490224,
+      "hash": "20f2f4618ff997a7d8f38b59041d7607575f451cb4179310a3ec6d97ee2aa4f8",
+      "costs": {},
+      "variant": "before",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 244.23046875,
+        "heapLimitMiB": 4144,
+        "gcMs": 88.62929508090019,
+        "gcCount": 191
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 105.70814514160156,
+      "rssMiB": 241.80078125,
+      "wallMs": 0.5500863238888888,
+      "cpuMs": 0.6614066666666666,
+      "p50": 0.5163690000003953,
+      "p95": 0.9653520000001663,
+      "max": 2.2702509999999165,
+      "entities": 199,
+      "maxEntities": 203,
+      "positions": [
+        {
+          "x": -2869.1421097,
+          "y": -17427.48567428
+        },
+        {
+          "x": -4082.64061397,
+          "y": -17126.71224991
+        },
+        {
+          "x": 9866.52104034,
+          "y": 13821.69738296
+        }
+      ],
+      "packets": 5400,
+      "bytes": 7490224,
+      "hash": "cf0d6213185900867854137c94abcc435cee503316ba7b9474649de1da0fe90b",
+      "costs": {},
+      "variant": "after",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 239.6796875,
+        "heapLimitMiB": 4144,
+        "gcMs": 68.02249702811241,
+        "gcCount": 144
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 32.86198425292969,
+      "rssMiB": 238.6796875,
+      "wallMs": 0.18576358611111118,
+      "cpuMs": 0.26561111111111113,
+      "p50": 0.46978199999989556,
+      "p95": 1.26825000000008,
+      "max": 3.726664000000028,
+      "entities": 80,
+      "maxEntities": 129,
+      "positions": [
+        {
+          "x": -12770.79515775,
+          "y": -10425.7296054
+        },
+        {
+          "x": -6745.53618354,
+          "y": -30880.17422874
+        },
+        {
+          "x": 9235.77305665,
+          "y": 16260.81774465
+        }
+      ],
+      "packets": 1800,
+      "bytes": 1539524,
+      "hash": "942063fa8e641bbba421d01d371b2c1462f397957c65f28e50706cbcfb65c224",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 233.90625,
+        "heapLimitMiB": 4144,
+        "gcMs": 74.03899812698364,
+        "gcCount": 145
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 42.651702880859375,
+      "rssMiB": 231.85546875,
+      "wallMs": 0.19171588555555547,
+      "cpuMs": 0.3014033333333333,
+      "p50": 0.8858319999999367,
+      "p95": 2.5649650000000292,
+      "max": 6.790525000000343,
+      "entities": 155,
+      "maxEntities": 165,
+      "positions": [
+        {
+          "x": -14779.59610975,
+          "y": -8937.63604845
+        },
+        {
+          "x": -5261.63199049,
+          "y": -27138.60499063
+        },
+        {
+          "x": 9253.8235985,
+          "y": 16258.18064991
+        }
+      ],
+      "packets": 900,
+      "bytes": 1117524,
+      "hash": "547adfeeff8a604822cd5e36dacdcc378ef51fab93deaabd1d6f7a648a681ee1",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 227.5859375,
+        "heapLimitMiB": 4144,
+        "gcMs": 69.66522689163685,
+        "gcCount": 143
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 132.58615112304688,
+      "rssMiB": 227.3359375,
+      "wallMs": 0.2106745694444444,
+      "cpuMs": 0.27779611111111113,
+      "p50": 1.0522549999998319,
+      "p95": 2.649122000000034,
+      "max": 4.027018999999882,
+      "entities": 142,
+      "maxEntities": 147,
+      "positions": [
+        {
+          "x": -14779.59610975,
+          "y": -8937.63604845
+        },
+        {
+          "x": -3218.93413427,
+          "y": -4144.22550011
+        },
+        {
+          "x": -5678.96183825,
+          "y": -6066.80782105
+        }
+      ],
+      "packets": 900,
+      "bytes": 1975861,
+      "hash": "6ae187b1931767f984faff8bbf247c4c6e4b828c196dbbad6357c6ed0d0b2dd4",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 226.32421875,
+        "heapLimitMiB": 4144,
+        "gcMs": 65.31967389583588,
+        "gcCount": 143
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 134.90840911865234,
+      "rssMiB": 225.44921875,
+      "wallMs": 0.22663421333333342,
+      "cpuMs": 0.2948733333333334,
+      "p50": 0.5720930000002227,
+      "p95": 1.2623999999996158,
+      "max": 3.7907450000000154,
+      "entities": 144,
+      "maxEntities": 147,
+      "positions": [
+        {
+          "x": -12770.79515775,
+          "y": -10425.7296054
+        },
+        {
+          "x": -3438.96573401,
+          "y": -3955.85310724
+        },
+        {
+          "x": -10128.3297108,
+          "y": -2244.18117452
+        }
+      ],
+      "packets": 1800,
+      "bytes": 2620252,
+      "hash": "e5b9fff0d0dca16196597b6a3d0bef4bb39ad8db8e7555a3c25c5c9d090add64",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 242.93359375,
+        "heapLimitMiB": 4144,
+        "gcMs": 70.79285395145416,
+        "gcCount": 167
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 140.31649017333984,
+      "rssMiB": 242.80859375,
+      "wallMs": 0.3778939155555556,
+      "cpuMs": 0.4417327777777778,
+      "p50": 0.33815499999991516,
+      "p95": 0.6470549999999093,
+      "max": 2.0027890000001207,
+      "entities": 100,
+      "maxEntities": 142,
+      "positions": [
+        {
+          "x": -1671.90004101,
+          "y": -16291.4973124
+        },
+        {
+          "x": 1508.31994136,
+          "y": -16435.19625884
+        },
+        {
+          "x": -12105.7294695,
+          "y": -7177.06306966
+        }
+      ],
+      "packets": 5400,
+      "bytes": 6478259,
+      "hash": "425f3fd389f334763f6432a6cdc1b01b691f7d03aade60b81dc449a4b3c921fc",
+      "costs": {},
+      "variant": "after",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 239.96484375,
+        "heapLimitMiB": 4144,
+        "gcMs": 74.6749439239502,
+        "gcCount": 167
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 44.27442932128906,
+      "rssMiB": 238.9609375,
+      "wallMs": 0.382032583888889,
+      "cpuMs": 0.47108277777777774,
+      "p50": 0.33876599999985046,
+      "p95": 0.6556610000002365,
+      "max": 2.6894479999996292,
+      "entities": 100,
+      "maxEntities": 142,
+      "positions": [
+        {
+          "x": -1671.90004101,
+          "y": -16291.4973124
+        },
+        {
+          "x": 1508.31994136,
+          "y": -16435.19625884
+        },
+        {
+          "x": -12105.7294695,
+          "y": -7177.06306966
+        }
+      ],
+      "packets": 5400,
+      "bytes": 6478259,
+      "hash": "88ce9d29e12c371ef05f84803e260cec053d2fc3180a6f3b5401b89f194a196f",
+      "costs": {},
+      "variant": "before",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 237.30078125,
+        "heapLimitMiB": 4144,
+        "gcMs": 72.40403610467911,
+        "gcCount": 174
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 34.784812927246094,
+      "rssMiB": 235.3046875,
+      "wallMs": 0.46481425277777794,
+      "cpuMs": 0.5844438888888889,
+      "p50": 0.4196970000002693,
+      "p95": 0.8617570000001251,
+      "max": 3.5465970000000198,
+      "entities": 81,
+      "maxEntities": 163,
+      "positions": [
+        {
+          "x": 3152.31525851,
+          "y": -14866.87603505
+        },
+        {
+          "x": 1038.79317354,
+          "y": -18721.96028854
+        },
+        {
+          "x": -3116.37910179,
+          "y": -13529.73506171
+        }
+      ],
+      "packets": 5400,
+      "bytes": 8645210,
+      "hash": "231581485a2b5fd0dd7065d752b41c6e740e53b2a731b25df659430370d76adf",
+      "costs": {},
+      "variant": "before",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 242.625,
+        "heapLimitMiB": 4144,
+        "gcMs": 72.32715910673141,
+        "gcCount": 171
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 142.63848876953125,
+      "rssMiB": 242.375,
+      "wallMs": 0.44261217555555554,
+      "cpuMs": 0.5234366666666667,
+      "p50": 0.40572100000008504,
+      "p95": 0.8220219999998335,
+      "max": 2.189679999999953,
+      "entities": 81,
+      "maxEntities": 163,
+      "positions": [
+        {
+          "x": 3152.31525851,
+          "y": -14866.87603505
+        },
+        {
+          "x": 1038.79317354,
+          "y": -18721.96028854
+        },
+        {
+          "x": -3116.37910179,
+          "y": -13529.73506171
+        }
+      ],
+      "packets": 5400,
+      "bytes": 8645210,
+      "hash": "6ff10653d63ab85cdfa94e16e7ca51d7062756fbf9ad1b906adf654e644cc6fe",
+      "costs": {},
+      "variant": "after",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 213.8046875,
+        "heapLimitMiB": 4144,
+        "gcMs": 56.329768002033234,
+        "gcCount": 124
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 112.57311248779297,
+      "rssMiB": 213.5546875,
+      "wallMs": 0.10930176722222225,
+      "cpuMs": 0.17439833333333332,
+      "p50": 0.267332000000124,
+      "p95": 0.8072159999999258,
+      "max": 2.759939999999915,
+      "entities": 96,
+      "maxEntities": 96,
+      "positions": [
+        {
+          "x": -11496.71222098,
+          "y": -18823.21291833
+        },
+        {
+          "x": -4487.11117831,
+          "y": -14227.24870761
+        },
+        {
+          "x": -13635.41281079,
+          "y": -9328.85134059
+        }
+      ],
+      "packets": 1800,
+      "bytes": 1295983,
+      "hash": "116b172e8b4d045e611c32bce7c65eff27e664deafa2de0581d157035ea9e1cd",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 208.4765625,
+        "heapLimitMiB": 4144,
+        "gcMs": 54.57272110879421,
+        "gcCount": 119
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 101.37126159667969,
+      "rssMiB": 208.2265625,
+      "wallMs": 0.07909066888888888,
+      "cpuMs": 0.12814166666666665,
+      "p50": 0.3773280000000341,
+      "p95": 1.1003059999998186,
+      "max": 5.710972999999967,
+      "entities": 79,
+      "maxEntities": 98,
+      "positions": [
+        {
+          "x": -15116.62158453,
+          "y": -13100.89022131
+        },
+        {
+          "x": -12094.66527799,
+          "y": -7414.81515574
+        },
+        {
+          "x": -13523.40848816,
+          "y": -10561.69826824
+        }
+      ],
+      "packets": 900,
+      "bytes": 848105,
+      "hash": "51135d38642cc2c92309077371c2aadd82ffd5679ed87a795a6b86ad9a193537",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 0
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 243.92578125,
+        "heapLimitMiB": 4144,
+        "gcMs": 85.33726701140404,
+        "gcCount": 183
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 107.44451904296875,
+      "rssMiB": 241.85546875,
+      "wallMs": 0.5427551988888889,
+      "cpuMs": 0.6427111111111111,
+      "p50": 0.5046179999999367,
+      "p95": 0.9669560000002093,
+      "max": 3.793533000000025,
+      "entities": 199,
+      "maxEntities": 203,
+      "positions": [
+        {
+          "x": -2869.1421097,
+          "y": -17427.48567428
+        },
+        {
+          "x": -4082.64061397,
+          "y": -17126.71224991
+        },
+        {
+          "x": 9866.52104034,
+          "y": 13821.69738296
+        }
+      ],
+      "packets": 5400,
+      "bytes": 7490224,
+      "hash": "cf0d6213185900867854137c94abcc435cee503316ba7b9474649de1da0fe90b",
+      "costs": {},
+      "variant": "after",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 231.66015625,
+        "heapLimitMiB": 4144,
+        "gcMs": 72.841677069664,
+        "gcCount": 144
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 145.5347671508789,
+      "rssMiB": 231.16015625,
+      "wallMs": 0.1706228255555555,
+      "cpuMs": 0.22803222222222225,
+      "p50": 0.4395759999999882,
+      "p95": 1.040463999999929,
+      "max": 2.102929000000131,
+      "entities": 80,
+      "maxEntities": 129,
+      "positions": [
+        {
+          "x": -12770.79515775,
+          "y": -10425.7296054
+        },
+        {
+          "x": -6745.53618354,
+          "y": -30880.17422874
+        },
+        {
+          "x": 9235.77305665,
+          "y": 16260.81774465
+        }
+      ],
+      "packets": 1800,
+      "bytes": 1539524,
+      "hash": "942063fa8e641bbba421d01d371b2c1462f397957c65f28e50706cbcfb65c224",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 232.8046875,
+        "heapLimitMiB": 4144,
+        "gcMs": 81.78098882734776,
+        "gcCount": 146
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 40.83453369140625,
+      "rssMiB": 231.00390625,
+      "wallMs": 0.19684494444444442,
+      "cpuMs": 0.29847,
+      "p50": 0.9552029999999831,
+      "p95": 2.3687270000000353,
+      "max": 6.554386999999906,
+      "entities": 155,
+      "maxEntities": 165,
+      "positions": [
+        {
+          "x": -14779.59610975,
+          "y": -8937.63604845
+        },
+        {
+          "x": -5261.63199049,
+          "y": -27138.60499063
+        },
+        {
+          "x": 9253.8235985,
+          "y": 16258.18064991
+        }
+      ],
+      "packets": 900,
+      "bytes": 1117524,
+      "hash": "547adfeeff8a604822cd5e36dacdcc378ef51fab93deaabd1d6f7a648a681ee1",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 248.9375,
+        "heapLimitMiB": 4144,
+        "gcMs": 89.05240008234978,
+        "gcCount": 189
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 99.20061492919922,
+      "rssMiB": 245.26953125,
+      "wallMs": 0.5540900755555555,
+      "cpuMs": 0.6663727777777778,
+      "p50": 0.5172809999999117,
+      "p95": 0.9889769999999771,
+      "max": 2.3883850000001985,
+      "entities": 199,
+      "maxEntities": 203,
+      "positions": [
+        {
+          "x": -2869.1421097,
+          "y": -17427.48567428
+        },
+        {
+          "x": -4082.64061397,
+          "y": -17126.71224991
+        },
+        {
+          "x": 9866.52104034,
+          "y": 13821.69738296
+        }
+      ],
+      "packets": 5400,
+      "bytes": 7490224,
+      "hash": "20f2f4618ff997a7d8f38b59041d7607575f451cb4179310a3ec6d97ee2aa4f8",
+      "costs": {},
+      "variant": "before",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 237.1171875,
+        "heapLimitMiB": 4144,
+        "gcMs": 74.40422903001308,
+        "gcCount": 167
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 135.6817398071289,
+      "rssMiB": 236.7421875,
+      "wallMs": 0.37691607111111125,
+      "cpuMs": 0.4367655555555556,
+      "p50": 0.33239400000002206,
+      "p95": 0.6585869999998977,
+      "max": 2.0939620000003742,
+      "entities": 100,
+      "maxEntities": 142,
+      "positions": [
+        {
+          "x": -1671.90004101,
+          "y": -16291.4973124
+        },
+        {
+          "x": 1508.31994136,
+          "y": -16435.19625884
+        },
+        {
+          "x": -12105.7294695,
+          "y": -7177.06306966
+        }
+      ],
+      "packets": 5400,
+      "bytes": 6478259,
+      "hash": "88ce9d29e12c371ef05f84803e260cec053d2fc3180a6f3b5401b89f194a196f",
+      "costs": {},
+      "variant": "before",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 232.296875,
+        "heapLimitMiB": 4144,
+        "gcMs": 70.01889200508595,
+        "gcCount": 142
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 132.54501342773438,
+      "rssMiB": 232.046875,
+      "wallMs": 0.21282729777777767,
+      "cpuMs": 0.28076833333333334,
+      "p50": 1.0439910000000054,
+      "p95": 2.6563169999999445,
+      "max": 4.176521999999977,
+      "entities": 142,
+      "maxEntities": 147,
+      "positions": [
+        {
+          "x": -14779.59610975,
+          "y": -8937.63604845
+        },
+        {
+          "x": -3218.93413427,
+          "y": -4144.22550011
+        },
+        {
+          "x": -5678.96183825,
+          "y": -6066.80782105
+        }
+      ],
+      "packets": 900,
+      "bytes": 1975861,
+      "hash": "6ae187b1931767f984faff8bbf247c4c6e4b828c196dbbad6357c6ed0d0b2dd4",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 232.47265625,
+        "heapLimitMiB": 4144,
+        "gcMs": 69.40464095771313,
+        "gcCount": 147
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 128.97325897216797,
+      "rssMiB": 231.97265625,
+      "wallMs": 0.22617802611111112,
+      "cpuMs": 0.29395,
+      "p50": 0.5743379999998979,
+      "p95": 1.2693030000000363,
+      "max": 2.747389000000112,
+      "entities": 144,
+      "maxEntities": 147,
+      "positions": [
+        {
+          "x": -12770.79515775,
+          "y": -10425.7296054
+        },
+        {
+          "x": -3438.96573401,
+          "y": -3955.85310724
+        },
+        {
+          "x": -10128.3297108,
+          "y": -2244.18117452
+        }
+      ],
+      "packets": 1800,
+      "bytes": 2620252,
+      "hash": "e5b9fff0d0dca16196597b6a3d0bef4bb39ad8db8e7555a3c25c5c9d090add64",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 248.390625,
+        "heapLimitMiB": 4144,
+        "gcMs": 73.8283840417862,
+        "gcCount": 167
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 132.5698013305664,
+      "rssMiB": 248.265625,
+      "wallMs": 0.38446942611111123,
+      "cpuMs": 0.4478288888888889,
+      "p50": 0.34205199999996694,
+      "p95": 0.6632849999996324,
+      "max": 1.8973620000001574,
+      "entities": 100,
+      "maxEntities": 142,
+      "positions": [
+        {
+          "x": -1671.90004101,
+          "y": -16291.4973124
+        },
+        {
+          "x": 1508.31994136,
+          "y": -16435.19625884
+        },
+        {
+          "x": -12105.7294695,
+          "y": -7177.06306966
+        }
+      ],
+      "packets": 5400,
+      "bytes": 6478259,
+      "hash": "425f3fd389f334763f6432a6cdc1b01b691f7d03aade60b81dc449a4b3c921fc",
+      "costs": {},
+      "variant": "after",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 233.4140625,
+        "heapLimitMiB": 4144,
+        "gcMs": 73.34185999631882,
+        "gcCount": 174
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 130.6066665649414,
+      "rssMiB": 232.05078125,
+      "wallMs": 0.44769726055555564,
+      "cpuMs": 0.5463161111111111,
+      "p50": 0.4074150000001282,
+      "p95": 0.8373830000000453,
+      "max": 2.926013999999668,
+      "entities": 81,
+      "maxEntities": 163,
+      "positions": [
+        {
+          "x": 3152.31525851,
+          "y": -14866.87603505
+        },
+        {
+          "x": 1038.79317354,
+          "y": -18721.96028854
+        },
+        {
+          "x": -3116.37910179,
+          "y": -13529.73506171
+        }
+      ],
+      "packets": 5400,
+      "bytes": 8645210,
+      "hash": "6ff10653d63ab85cdfa94e16e7ca51d7062756fbf9ad1b906adf654e644cc6fe",
+      "costs": {},
+      "variant": "after",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 213.7109375,
+        "heapLimitMiB": 4144,
+        "gcMs": 56.199088022112846,
+        "gcCount": 125
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 112.08739471435547,
+      "rssMiB": 213.5859375,
+      "wallMs": 0.11177419722222226,
+      "cpuMs": 0.18034833333333333,
+      "p50": 0.2703369999999268,
+      "p95": 0.8076969999999619,
+      "max": 2.733933999999863,
+      "entities": 96,
+      "maxEntities": 96,
+      "positions": [
+        {
+          "x": -11496.71222098,
+          "y": -18823.21291833
+        },
+        {
+          "x": -4487.11117831,
+          "y": -14227.24870761
+        },
+        {
+          "x": -13635.41281079,
+          "y": -9328.85134059
+        }
+      ],
+      "packets": 1800,
+      "bytes": 1295983,
+      "hash": "116b172e8b4d045e611c32bce7c65eff27e664deafa2de0581d157035ea9e1cd",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 207.21875,
+        "heapLimitMiB": 4144,
+        "gcMs": 51.65733800828457,
+        "gcCount": 118
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 104.62718963623047,
+      "rssMiB": 206.453125,
+      "wallMs": 0.07897791222222218,
+      "cpuMs": 0.12995222222222222,
+      "p50": 0.3811759999998685,
+      "p95": 1.1411729999999807,
+      "max": 5.744044999999915,
+      "entities": 79,
+      "maxEntities": 98,
+      "positions": [
+        {
+          "x": -15116.62158453,
+          "y": -13100.89022131
+        },
+        {
+          "x": -12094.66527799,
+          "y": -7414.81515574
+        },
+        {
+          "x": -13523.40848816,
+          "y": -10561.69826824
+        }
+      ],
+      "packets": 900,
+      "bytes": 848105,
+      "hash": "51135d38642cc2c92309077371c2aadd82ffd5679ed87a795a6b86ad9a193537",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 245.54296875,
+        "heapLimitMiB": 4144,
+        "gcMs": 72.99104903638363,
+        "gcCount": 172
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 130.35808563232422,
+      "rssMiB": 245.1640625,
+      "wallMs": 0.4529392588888888,
+      "cpuMs": 0.5413905555555556,
+      "p50": 0.41271499999993466,
+      "p95": 0.8567689999999857,
+      "max": 2.107466999999815,
+      "entities": 81,
+      "maxEntities": 163,
+      "positions": [
+        {
+          "x": 3152.31525851,
+          "y": -14866.87603505
+        },
+        {
+          "x": 1038.79317354,
+          "y": -18721.96028854
+        },
+        {
+          "x": -3116.37910179,
+          "y": -13529.73506171
+        }
+      ],
+      "packets": 5400,
+      "bytes": 8645210,
+      "hash": "231581485a2b5fd0dd7065d752b41c6e740e53b2a731b25df659430370d76adf",
+      "costs": {},
+      "variant": "before",
+      "repeat": 1
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 237.921875,
+        "heapLimitMiB": 4144,
+        "gcMs": 67.34005995094776,
+        "gcCount": 144
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 43.78556823730469,
+      "rssMiB": 235.875,
+      "wallMs": 0.17816738055555562,
+      "cpuMs": 0.25904666666666665,
+      "p50": 0.44875200000001314,
+      "p95": 1.1542070000000422,
+      "max": 2.9201929999999265,
+      "entities": 80,
+      "maxEntities": 129,
+      "positions": [
+        {
+          "x": -12770.79515775,
+          "y": -10425.7296054
+        },
+        {
+          "x": -6745.53618354,
+          "y": -30880.17422874
+        },
+        {
+          "x": 9235.77305665,
+          "y": 16260.81774465
+        }
+      ],
+      "packets": 1800,
+      "bytes": 1539524,
+      "hash": "942063fa8e641bbba421d01d371b2c1462f397957c65f28e50706cbcfb65c224",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 231.30078125,
+        "heapLimitMiB": 4144,
+        "gcMs": 70.50974014401436,
+        "gcCount": 145
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 41.366188049316406,
+      "rssMiB": 229.5078125,
+      "wallMs": 0.18984058722222205,
+      "cpuMs": 0.2901361111111111,
+      "p50": 0.9280720000001565,
+      "p95": 2.573622000000114,
+      "max": 6.381080999999995,
+      "entities": 155,
+      "maxEntities": 165,
+      "positions": [
+        {
+          "x": -14779.59610975,
+          "y": -8937.63604845
+        },
+        {
+          "x": -5261.63199049,
+          "y": -27138.60499063
+        },
+        {
+          "x": 9253.8235985,
+          "y": 16258.18064991
+        }
+      ],
+      "packets": 900,
+      "bytes": 1117524,
+      "hash": "547adfeeff8a604822cd5e36dacdcc378ef51fab93deaabd1d6f7a648a681ee1",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 243.609375,
+        "heapLimitMiB": 4144,
+        "gcMs": 93.51784805953503,
+        "gcCount": 190
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 99.45391845703125,
+      "rssMiB": 240.453125,
+      "wallMs": 0.546749837777778,
+      "cpuMs": 0.6564022222222221,
+      "p50": 0.5141450000000987,
+      "p95": 0.9844880000000558,
+      "max": 2.2899489999999787,
+      "entities": 199,
+      "maxEntities": 203,
+      "positions": [
+        {
+          "x": -2869.1421097,
+          "y": -17427.48567428
+        },
+        {
+          "x": -4082.64061397,
+          "y": -17126.71224991
+        },
+        {
+          "x": 9866.52104034,
+          "y": 13821.69738296
+        }
+      ],
+      "packets": 5400,
+      "bytes": 7490224,
+      "hash": "20f2f4618ff997a7d8f38b59041d7607575f451cb4179310a3ec6d97ee2aa4f8",
+      "costs": {},
+      "variant": "before",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 235.26171875,
+        "heapLimitMiB": 4144,
+        "gcMs": 86.37280005216599,
+        "gcCount": 190
+      },
+      "warmed": true,
+      "scenario": "spread",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 115.62022399902344,
+      "rssMiB": 232.63671875,
+      "wallMs": 0.5667394766666667,
+      "cpuMs": 0.6766533333333334,
+      "p50": 0.5285330000001522,
+      "p95": 1.0079319999999825,
+      "max": 3.4605679999999666,
+      "entities": 199,
+      "maxEntities": 203,
+      "positions": [
+        {
+          "x": -2869.1421097,
+          "y": -17427.48567428
+        },
+        {
+          "x": -4082.64061397,
+          "y": -17126.71224991
+        },
+        {
+          "x": 9866.52104034,
+          "y": 13821.69738296
+        }
+      ],
+      "packets": 5400,
+      "bytes": 7490224,
+      "hash": "cf0d6213185900867854137c94abcc435cee503316ba7b9474649de1da0fe90b",
+      "costs": {},
+      "variant": "after",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 241.8984375,
+        "heapLimitMiB": 4144,
+        "gcMs": 75.55958400666714,
+        "gcCount": 167
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 137.89282989501953,
+      "rssMiB": 241.6484375,
+      "wallMs": 0.38543900777777784,
+      "cpuMs": 0.4482277777777777,
+      "p50": 0.34023900000011054,
+      "p95": 0.6629950000001372,
+      "max": 2.125630999999885,
+      "entities": 100,
+      "maxEntities": 142,
+      "positions": [
+        {
+          "x": -1671.90004101,
+          "y": -16291.4973124
+        },
+        {
+          "x": 1508.31994136,
+          "y": -16435.19625884
+        },
+        {
+          "x": -12105.7294695,
+          "y": -7177.06306966
+        }
+      ],
+      "packets": 5400,
+      "bytes": 6478259,
+      "hash": "425f3fd389f334763f6432a6cdc1b01b691f7d03aade60b81dc449a4b3c921fc",
+      "costs": {},
+      "variant": "after",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 240.2734375,
+        "heapLimitMiB": 4144,
+        "gcMs": 76.55051800608635,
+        "gcCount": 167
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 138.11087799072266,
+      "rssMiB": 240.1484375,
+      "wallMs": 0.37652433611111114,
+      "cpuMs": 0.43245333333333336,
+      "p50": 0.33478900000000067,
+      "p95": 0.6427060000000893,
+      "max": 1.8628170000001774,
+      "entities": 100,
+      "maxEntities": 142,
+      "positions": [
+        {
+          "x": -1671.90004101,
+          "y": -16291.4973124
+        },
+        {
+          "x": 1508.31994136,
+          "y": -16435.19625884
+        },
+        {
+          "x": -12105.7294695,
+          "y": -7177.06306966
+        }
+      ],
+      "packets": 5400,
+      "bytes": 6478259,
+      "hash": "88ce9d29e12c371ef05f84803e260cec053d2fc3180a6f3b5401b89f194a196f",
+      "costs": {},
+      "variant": "before",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 228.78125,
+        "heapLimitMiB": 4144,
+        "gcMs": 74.71526300907135,
+        "gcCount": 143
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 135.51178741455078,
+      "rssMiB": 228.40625,
+      "wallMs": 0.21062038722222232,
+      "cpuMs": 0.2694738888888889,
+      "p50": 1.0637469999999212,
+      "p95": 2.7449239999998554,
+      "max": 4.097663999999895,
+      "entities": 142,
+      "maxEntities": 147,
+      "positions": [
+        {
+          "x": -14779.59610975,
+          "y": -8937.63604845
+        },
+        {
+          "x": -3218.93413427,
+          "y": -4144.22550011
+        },
+        {
+          "x": -5678.96183825,
+          "y": -6066.80782105
+        }
+      ],
+      "packets": 900,
+      "bytes": 1975861,
+      "hash": "6ae187b1931767f984faff8bbf247c4c6e4b828c196dbbad6357c6ed0d0b2dd4",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 231.671875,
+        "heapLimitMiB": 4144,
+        "gcMs": 71.71340088546276,
+        "gcCount": 146
+      },
+      "warmed": true,
+      "scenario": "convoy",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 132.78128051757812,
+      "rssMiB": 231.171875,
+      "wallMs": 0.22778236111111103,
+      "cpuMs": 0.2983183333333333,
+      "p50": 0.573336000000154,
+      "p95": 1.297326000000112,
+      "max": 2.8899959999998828,
+      "entities": 144,
+      "maxEntities": 147,
+      "positions": [
+        {
+          "x": -12770.79515775,
+          "y": -10425.7296054
+        },
+        {
+          "x": -3438.96573401,
+          "y": -3955.85310724
+        },
+        {
+          "x": -10128.3297108,
+          "y": -2244.18117452
+        }
+      ],
+      "packets": 1800,
+      "bytes": 2620252,
+      "hash": "e5b9fff0d0dca16196597b6a3d0bef4bb39ad8db8e7555a3c25c5c9d090add64",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 218.171875,
+        "heapLimitMiB": 4144,
+        "gcMs": 60.91875605285168,
+        "gcCount": 126
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 112.49903869628906,
+      "rssMiB": 217.921875,
+      "wallMs": 0.11874300444444442,
+      "cpuMs": 0.1854427777777778,
+      "p50": 0.27868400000011206,
+      "p95": 0.9476089999998294,
+      "max": 3.107535000000098,
+      "entities": 96,
+      "maxEntities": 96,
+      "positions": [
+        {
+          "x": -11496.71222098,
+          "y": -18823.21291833
+        },
+        {
+          "x": -4487.11117831,
+          "y": -14227.24870761
+        },
+        {
+          "x": -13635.41281079,
+          "y": -9328.85134059
+        }
+      ],
+      "packets": 1800,
+      "bytes": 1295983,
+      "hash": "116b172e8b4d045e611c32bce7c65eff27e664deafa2de0581d157035ea9e1cd",
+      "costs": {},
+      "variant": "batch3",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 206.52734375,
+        "heapLimitMiB": 4144,
+        "gcMs": 54.10148403048515,
+        "gcCount": 119
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 109.40733337402344,
+      "rssMiB": 206.40234375,
+      "wallMs": 0.08271926000000007,
+      "cpuMs": 0.1335822222222222,
+      "p50": 0.39407900000014706,
+      "p95": 1.010157000000163,
+      "max": 6.101436000000149,
+      "entities": 79,
+      "maxEntities": 98,
+      "positions": [
+        {
+          "x": -15116.62158453,
+          "y": -13100.89022131
+        },
+        {
+          "x": -12094.66527799,
+          "y": -7414.81515574
+        },
+        {
+          "x": -13523.40848816,
+          "y": -10561.69826824
+        }
+      ],
+      "packets": 900,
+      "bytes": 848105,
+      "hash": "51135d38642cc2c92309077371c2aadd82ffd5679ed87a795a6b86ad9a193537",
+      "costs": {},
+      "variant": "batch6",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 238.515625,
+        "heapLimitMiB": 4144,
+        "gcMs": 72.68556000292301,
+        "gcCount": 174
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 49.106040954589844,
+      "rssMiB": 235.45703125,
+      "wallMs": 0.4745678911111112,
+      "cpuMs": 0.59518,
+      "p50": 0.4228640000001178,
+      "p95": 0.8891100000000733,
+      "max": 4.768403000000035,
+      "entities": 81,
+      "maxEntities": 163,
+      "positions": [
+        {
+          "x": 3152.31525851,
+          "y": -14866.87603505
+        },
+        {
+          "x": 1038.79317354,
+          "y": -18721.96028854
+        },
+        {
+          "x": -3116.37910179,
+          "y": -13529.73506171
+        }
+      ],
+      "packets": 5400,
+      "bytes": 8645210,
+      "hash": "231581485a2b5fd0dd7065d752b41c6e740e53b2a731b25df659430370d76adf",
+      "costs": {},
+      "variant": "before",
+      "repeat": 2
+    },
+    {
+      "production": true,
+      "resources": {
+        "peakRssMiB": 237.97265625,
+        "heapLimitMiB": 4144,
+        "gcMs": 70.63780605792999,
+        "gcCount": 174
+      },
+      "warmed": true,
+      "scenario": "contact",
+      "ticks": 1800,
+      "players": 3,
+      "heapMiB": 42.48381042480469,
+      "rssMiB": 235.92578125,
+      "wallMs": 0.4615232427777778,
+      "cpuMs": 0.5815816666666667,
+      "p50": 0.41660200000023906,
+      "p95": 0.89072299999998,
+      "max": 3.4006650000001173,
+      "entities": 81,
+      "maxEntities": 163,
+      "positions": [
+        {
+          "x": 3152.31525851,
+          "y": -14866.87603505
+        },
+        {
+          "x": 1038.79317354,
+          "y": -18721.96028854
+        },
+        {
+          "x": -3116.37910179,
+          "y": -13529.73506171
+        }
+      ],
+      "packets": 5400,
+      "bytes": 8645210,
+      "hash": "6ff10653d63ab85cdfa94e16e7ca51d7062756fbf9ad1b906adf654e644cc6fe",
+      "costs": {},
+      "variant": "after",
+      "repeat": 2
+    }
+  ],
+  "virtualClockClients": [
+    {
+      "pausedRemoteFrames": 0,
+      "snapshotMs": 33.333333333333336,
+      "clientFrameMs": 16.666666666666668,
+      "serverTick": 900,
+      "pausedFrames": 0,
+      "largestAdvance": 1.666666670000268,
+      "clientTravel": [3003.3792804, 3003.3792804, 3003.3792804]
+    },
+    {
+      "pausedRemoteFrames": 0,
+      "snapshotMs": 100,
+      "clientFrameMs": 16.666666666666668,
+      "serverTick": 900,
+      "pausedFrames": 0,
+      "largestAdvance": 1.666666670000268,
+      "clientTravel": [3003.3792804, 3003.3792804, 3003.3792804]
+    },
+    {
+      "pausedRemoteFrames": 0,
+      "snapshotMs": 200,
+      "clientFrameMs": 16.666666666666668,
+      "serverTick": 900,
+      "pausedFrames": 0,
+      "largestAdvance": 1.666666670000268,
+      "clientTravel": [3003.3792804, 3003.3792804, 3003.3792804]
+    },
+    {
+      "pausedRemoteFrames": 0,
+      "snapshotMs": 100,
+      "clientFrameMs": 100,
+      "serverTick": 900,
+      "pausedFrames": 0,
+      "largestAdvance": 10.000000020000243,
+      "clientTravel": [3003.3792804, 3003.3792804, 3003.3792804]
+    }
+  ],
+  "chromeDelayedServer": [
+    {
+      "frameCount": 901,
+      "elapsedMs": 15017.40000000596,
+      "p95FrameMs": 19.599999994039536,
+      "serverTickAdvance": 448,
+      "snapshotCount": 148,
+      "tickJumps": [3, 4],
+      "travel": 3962.7052740797667,
+      "errors": []
+    },
+    {
+      "frameCount": 900,
+      "elapsedMs": 14999.10000000894,
+      "p95FrameMs": 20.200000002980232,
+      "serverTickAdvance": 445,
+      "snapshotCount": 147,
+      "tickJumps": [3, 4],
+      "travel": 3904.5120768243123,
+      "errors": []
+    },
+    {
+      "frameCount": 901,
+      "elapsedMs": 15016.5,
+      "p95FrameMs": 20,
+      "serverTickAdvance": 445,
+      "snapshotCount": 147,
+      "tickJumps": [3, 4],
+      "travel": 3651.5557497386094,
+      "errors": []
+    }
+  ],
+  "buildBytes": {
+    "main": {
+      "before": 96688,
+      "after": 96988,
+      "gzip1Before": 42964,
+      "gzip1After": 43100
+    },
+    "server": {
+      "before": 81210,
+      "after": 81470,
+      "gzip1Before": 35018,
+      "gzip1After": 35202
+    },
+    "docked": {
+      "before": 4740,
+      "after": 4740,
+      "gzip1Before": 2446,
+      "gzip1After": 2446
+    },
+    "sound": {
+      "before": 1681,
+      "after": 1681,
+      "gzip1Before": 942,
+      "gzip1After": 942
+    }
+  }
+}

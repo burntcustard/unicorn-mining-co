@@ -20,7 +20,7 @@ import { createStation } from '../shared/craft/create-station';
 import { type SimulationWorld } from '../shared/simulation/world';
 import { PredictionManager } from './prediction';
 import { RemoteMotion } from './remote-motion';
-import { simulationStep } from '../shared/settings';
+import { maxPredictionTicks, simulationStep } from '../shared/settings';
 import { setCraftActionDispatcher } from './craft-actions';
 import { type CraftAction } from '../shared/protocol/network';
 import { shadesOf } from '../shared/colors';
@@ -195,6 +195,7 @@ export class NetworkClient {
   private welcomed = false;
   private inputTickStartedAt = performance.now();
   private pendingTime = 0;
+  private snapshotReceivedAt = performance.now();
 
   constructor({ url }: { url: string }) {
     this.ready = new Promise((resolve) => (this.resolveReady = resolve));
@@ -306,7 +307,10 @@ export class NetworkClient {
     if (!this.connected || this.playerId === undefined) return;
     const previousTick = this.world.tick;
 
-    if (this.pendingSnapshot) {
+    // A missed browser frame can replay several earlier clock boundaries.
+    // Do not apply a newer snapshot to one of those earlier boundaries and
+    // then simulate its elapsed time a second time.
+    if (this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt) {
       const message = {
         ...this.pendingSnapshot,
         fullEntities: [...this.pendingEntities.values()].map(
@@ -330,15 +334,11 @@ export class NetworkClient {
       steps = 0;
       this.tickAdjust++;
     }
-    // Keep the same one-tick phase tolerance as retune(). Capping strictly at
-    // the latest packet makes independent 30 Hz clocks alternate wait/catch-up.
-    // Still bound frame debt after a stall; the target lead remains one tick.
+    // Continue at wall-clock speed during short server/network stalls. The
+    // horizon bounds speculation if the connection stops making progress.
     steps = Math.min(
       steps,
-      Math.max(
-        0,
-        this.serverTick + this.tickLead + driftSlack - this.world.tick,
-      ),
+      Math.max(0, this.serverTick + maxPredictionTicks - this.world.tick),
     );
     // A launch is said once, so a skipped tick must not swallow it.
 
@@ -372,7 +372,14 @@ export class NetworkClient {
    * need clock catch-up, not a permanently larger prediction lead.
    */
   private retune() {
-    const drift = this.serverTick + this.tickLead - this.world.tick;
+    const elapsed =
+      Math.max(0, performance.now() - this.snapshotReceivedAt) /
+      (simulationStep * 1000);
+    const drift =
+      this.serverTick +
+      Math.min(Math.floor(elapsed), maxPredictionTicks) +
+      this.tickLead -
+      this.world.tick;
 
     // Reconciliation handles large discontinuities using actual server state,
     // not by relabelling the tick of a still-predicted world.
@@ -441,6 +448,8 @@ export class NetworkClient {
     ) {
       return;
     }
+
+    this.snapshotReceivedAt = performance.now();
 
     if (message.type === 'load') this.entityRecords.clear();
     message.fullEntities = message.fullEntities.map((record) => {
