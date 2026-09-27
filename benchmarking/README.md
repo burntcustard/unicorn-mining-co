@@ -364,3 +364,54 @@ Diagnostic runs must not be compared with uninstrumented timings. Inline-cache
 logs record transitions, not how often a property was read. Startup map changes
 and cumulative map counts are not evidence of a continuously megamorphic site.
 See [the monomorphism follow-up](../docs/performance-monomorphism-2026-09-27.md).
+
+## Networking scalability comparison
+
+The flight harness accepts `--players=1` through `--players=40`. Existing
+one-to-three-player routes are unchanged; additional players form groups around
+the same anchors, with 14,000-unit spacing for `spread` and 350 for crowded routes.
+
+`production-flight.mjs --network-baseline=DIR` overlays saved `game-session.ts`
+and `replication.ts` files during compilation. Use it to freeze the previous
+networking implementation with the same workload and production name mapping.
+It does not edit source files and does not apply to an existing `--bundle`.
+
+```sh
+node benchmarking/compare-networking.mjs --before=/tmp/network-before.mjs --after=/tmp/network-after.mjs --output=/tmp/networking-results.json
+node benchmarking/network-routing.mjs
+node benchmarking/network-routing.mjs --network-baseline=/tmp/unicorn-network-baseline
+```
+
+The comparison defaults to 4, 8, and 16 players across convoy, spread, contact,
+and module-action routes (12 combinations), with three sequential alternating
+repeats. It requires identical packets/state, and rejects median
+process CPU increases above 10%. The routing microbenchmark isolates incoming
+snapshot acknowledgement lookup with 40 active and up to 4,000 retained
+sessions. Neither workload measures real socket throughput or browser CPU.
+See the [nengi investigation](../docs/networking-nengi-2026-09-27.md) for exact
+baseline setup, results, limits, and the techniques considered.
+
+## Remote presentation buffering
+
+`remote-motion.mjs` builds the presentation workload through the production name
+mapping. `--baseline=FILE` substitutes a saved `remote-motion.ts`; `--save=FILE`
+freezes a bundle, and `--bundle=FILE` runs one without rebuilding. Fixtures use
+4/8/16 players and steady, jittered, bursty, slow, and interrupted delivery.
+
+```sh
+node benchmarking/compare-remote-motion.mjs --before=/tmp/motion-before.mjs --after=/tmp/motion-after.mjs --output=/tmp/motion-results.json
+```
+
+The comparison runs sequentially and checks forward playback, no more stalls,
+lower jitter/burst speed variation, at most 33.33ms additional mean/maximum lag,
+and the same 10% median CPU limit against the original interpolator. An optional
+`--previous=FILE` also measures the superseded adaptive buffer: three repetitions
+rotate all three variants through each run position and enforce the CPU limit
+against both baselines. The current buffer uses one extra tick with a simple
+playback clock; it does not keep arrival statistics or adjust playback speed.
+
+See the [small-buffer results](../docs/networking-buffer-2026-09-27.md) for latency,
+CPU and reproduction, and the [alpha follow-up](../docs/networking-alpha-2026-09-27.md)
+for shared encoding and nearby-audio delivery constraints. Server routes and
+populations can be selected with `compare-networking.mjs --players=4,8,16
+--scenarios=convoy,spread,contact,modules`.

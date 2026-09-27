@@ -81,7 +81,8 @@ import { simulationStep, updateTiers } from '../src/shared/settings';
   let last = -Infinity;
 
   for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
-    const poses = motion.sample({ now: ((1 + fraction) * 1000) / 30 });
+    // One additional tick of buffering precedes the same interpolation path.
+    const poses = motion.sample({ now: ((2 + fraction) * 1000) / 30 });
 
     for (const entity of [rock, item]) {
       const pose = poses.get(entity.id)!;
@@ -107,7 +108,7 @@ import { simulationStep, updateTiers } from '../src/shared/settings';
 
   for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
     const pose = motion
-      .sample({ now: ((4 + 4 * fraction) * 1000) / 30 })
+      .sample({ now: ((5 + 4 * fraction) * 1000) / 30 })
       .get(station.id)!;
 
     assert(

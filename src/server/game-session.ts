@@ -18,7 +18,12 @@ import {
 } from '../shared/settings';
 import { addEntity, addPlayer, createWorld } from '../shared/simulation/world';
 import { RegionManager } from './region-manager';
-import { ReplicationManager, type ReplicationRecords } from './replication';
+import {
+  ReplicationManager,
+  ReplicationView,
+  SnapshotEncoder,
+  type ReplicationRecords,
+} from './replication';
 import { Ship } from '../shared/craft/ship';
 import { Station } from '../shared/craft/station';
 
@@ -54,16 +59,20 @@ type PlayerRecord = {
 const send = ({
   socket,
   message,
+  packetEncoder,
 }: {
   socket: WebSocket;
   message: ServerMessage;
+  packetEncoder?: SnapshotEncoder;
 }) => {
   if (socket.readyState === WebSocket.OPEN) {
     if (socket.bufferedAmount > maxSocketBufferBytes) {
       socket.terminate();
       return;
     }
-    socket.send(JSON.stringify(message));
+    socket.send(
+      packetEncoder?.encodeSnapshot(message) ?? JSON.stringify(message),
+    );
   }
 };
 
@@ -71,6 +80,7 @@ export class GameSession {
   readonly world;
   private nextPlayerId = 1;
   private players = new Map<string, PlayerRecord>();
+  private playersBySocket = new Map<WebSocket, PlayerRecord>();
   private regions: RegionManager;
   private worldSeed: number;
 
@@ -110,9 +120,7 @@ export class GameSession {
       return;
     }
 
-    const player = [...this.players.values()].find(
-      (candidate) => candidate.socket === socket,
-    );
+    const player = this.playersBySocket.get(socket);
 
     if (!player) return;
 
@@ -132,11 +140,10 @@ export class GameSession {
   }
 
   disconnect({ socket }: { socket: WebSocket }) {
-    const player = [...this.players.values()].find(
-      (candidate) => candidate.socket === socket,
-    );
+    const player = this.playersBySocket.get(socket);
 
     if (!player) return;
+    this.playersBySocket.delete(socket);
     player.socket = undefined;
     player.replication = new ReplicationManager();
     player.disconnectedAt = Date.now();
@@ -230,18 +237,34 @@ export class GameSession {
       ticks,
     });
     const replicationRecords: ReplicationRecords = new Map();
+    const packetEncoder = new SnapshotEncoder();
+    // Amortize indexing across larger audiences. The view builds lazily so
+    // backpressure that skips every receiver does not index the world.
+    const replicationView =
+      this.playersBySocket.size >= 8 && this.world.entities.size >= 256
+        ? new ReplicationView(this.world)
+        : undefined;
 
     this.players.forEach((player) =>
-      this.sendSnapshot({ player, replicationRecords }),
+      this.sendSnapshot({
+        player,
+        replicationRecords,
+        replicationView,
+        packetEncoder,
+      }),
     );
   }
 
   private sendSnapshot({
     player,
     replicationRecords,
+    replicationView,
+    packetEncoder,
   }: {
     player: PlayerRecord;
     replicationRecords?: ReplicationRecords;
+    replicationView?: ReplicationView;
+    packetEncoder?: SnapshotEncoder;
   }) {
     const { socket } = player;
 
@@ -263,6 +286,8 @@ export class GameSession {
     // Build only when sending: skipped ticks must not advance delta baselines.
     const options = {
       replicationRecords,
+      replicationView,
+      packetEncoder,
       world: this.world,
       shipId: player.shipId,
       position: player.ship.position,
@@ -283,7 +308,7 @@ export class GameSession {
       message.snapshotSequence = ++player.snapshotSequence;
       player.pendingSnapshots.push(message.snapshotSequence);
     }
-    send({ socket, message });
+    send({ socket, message, packetEncoder });
   }
 
   private hello({
@@ -335,7 +360,10 @@ export class GameSession {
       this.players.set(playerToken, player);
     }
 
-    player.socket?.close(4001, 'Session opened elsewhere');
+    if (player.socket) {
+      this.playersBySocket.delete(player.socket);
+      player.socket.close(4001, 'Session opened elsewhere');
+    }
 
     if (player.hiddenShip) {
       addEntity(this.world, player.ship);
@@ -344,6 +372,7 @@ export class GameSession {
 
     addPlayer(this.world, { id: player.playerId, shipId: player.shipId });
     player.socket = socket;
+    this.playersBySocket.set(socket, player);
     player.snapshotAcknowledgements = snapshotAcknowledgements;
     player.snapshotSequence = 0;
     player.pendingSnapshots = [];

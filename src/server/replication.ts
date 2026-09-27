@@ -99,6 +99,7 @@ type ReplicationRecord = {
   entity: ReplicatedEntity;
   revision: number;
   previousRevision: number;
+  recentDelta: ReplicatedEntity | null | undefined;
   changes: ReplicationRecord['fields'];
   changeCount: number;
   fields: {
@@ -162,6 +163,7 @@ const createRecord = (entity: GameObject): ReplicationRecord => {
     entity: {} as ReplicatedEntity,
     revision: 0,
     previousRevision: 0,
+    recentDelta: undefined,
     changes: [],
     changeCount: 0,
     fields: Object.keys(keys).map((key) => ({
@@ -228,6 +230,7 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
     records.set(entity, record);
   }
 
+  record.recentDelta = undefined;
   record.previousRevision = record.revision;
   record.changeCount = 0;
   let cursor = 0;
@@ -390,8 +393,118 @@ const copySegments = (segments: AsteroidSegment[]) =>
 
 export type ReplicationRecords = Map<EntityId, ReplicationRecord>;
 
+const entityMarker = JSON.stringify({ fullEntities: [] }).slice(1, -1);
+
+/*
+ * Share only entity fragments within one completed simulation batch. Receiver
+ * headers, membership and revision cursors remain independent. A replaced ID
+ * with receiver-specific clears bypasses sharing. Shared snapshots must be
+ * encoded before the next world mutation; callers must not edit their records.
+ */
+export class SnapshotEncoder {
+  private encoded = new Map<ReplicatedEntity, string>();
+
+  encodeSnapshot(message: ServerMessage) {
+    if (
+      (message.type !== 'load' && message.type !== 'snapshot') ||
+      message.fullEntities.length < 2
+    ) {
+      return JSON.stringify(message);
+    }
+    const fragments = message.fullEntities.map((entity) => {
+      let encoded = this.encoded.get(entity);
+
+      if (encoded === undefined) {
+        encoded = JSON.stringify(entity);
+        this.encoded.set(entity, encoded);
+      }
+      return encoded;
+    });
+    // Derive the marker from a literal key so production property rewriting
+    // stays identical to the normal JSON encoder. Replacement is a callback:
+    // user strings containing $& or $' must remain literal JSON content.
+
+    return JSON.stringify({ ...message, fullEntities: [] }).replace(
+      entityMarker,
+      () => entityMarker.slice(0, -1) + fragments.join(',') + ']',
+    );
+  }
+}
+
+type ViewEntry = { entity: GameObject; index: number };
+
+/*
+ * One snapshot batch owns this index, built after simulation and discarded
+ * before the next mutation. Cells only select candidates: exact circular
+ * ranges and each receiver's load/unload hysteresis remain in snapshot().
+ */
+export class ReplicationView {
+  private viewCells?: Map<string, ViewEntry[]>;
+  private stations: ViewEntry[] = [];
+  private world: SimulationWorld;
+
+  constructor(world: SimulationWorld) {
+    this.world = world;
+  }
+
+  query(position: Vec.Value) {
+    const { world } = this;
+
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+      return world.entities.values();
+    }
+
+    if (!this.viewCells) {
+      this.viewCells = new Map();
+      let order = 0;
+
+      for (const entity of world.entities.values()) {
+        const entry = { entity, index: order++ };
+
+        // Stations have a much larger marker range and are sparse.
+        if (entity instanceof Station) {
+          this.stations.push(entry);
+          continue;
+        }
+        const key = `${Math.floor(entity.position.x / entityUnload)}:${Math.floor(entity.position.y / entityUnload)}`;
+        const cell = this.viewCells.get(key);
+
+        if (cell) cell.push(entry);
+        else this.viewCells.set(key, [entry]);
+      }
+    }
+    const candidates = [...this.stations];
+    const minX = Math.floor((position.x - entityUnload) / entityUnload);
+    const maxX = Math.floor((position.x + entityUnload) / entityUnload);
+    const minY = Math.floor((position.y - entityUnload) / entityUnload);
+    const maxY = Math.floor((position.y + entityUnload) / entityUnload);
+
+    for (let x = 0; x <= maxX - minX; x++) {
+      for (let y = 0; y <= maxY - minY; y++) {
+        const cell = this.viewCells.get(`${minX + x}:${minY + y}`);
+
+        if (cell) {
+          for (const entry of cell) candidates.push(entry);
+        }
+      }
+    }
+
+    // A crowded view cannot profit from sorting most of the world.
+    if (candidates.length > world.entities.size / 2) {
+      return world.entities.values();
+    }
+    // Preserve world insertion order, including ID reuse, for identical wire
+    // ordering and client reconstruction behavior.
+    return candidates
+      .sort((a, b) => a.index - b.index)
+      .map(({ entity }) => entity);
+  }
+}
+
 type SnapshotOptions = {
   replicationRecords?: ReplicationRecords;
+  replicationView?: ReplicationView;
+  packetEncoder?: SnapshotEncoder;
   world: SimulationWorld;
   shipId: EntityId;
   position?: Vec.Value;
@@ -420,13 +533,18 @@ export class ReplicationManager {
     acknowledgedSequence,
     inputLead,
     replicationRecords = new Map(),
+    replicationView,
+    packetEncoder,
   }: SnapshotOptions) {
     const ship = world.entities.get(shipId) || { position: position! };
     const fullEntities: ReplicatedEntity[] = [];
     const entities = new Set<EntityId>();
     let membershipChanged = false;
 
-    for (const entity of world.entities.values()) {
+    const candidates =
+      replicationView?.query(ship.position) || world.entities.values();
+
+    for (const entity of candidates) {
       const loaded = this.entities.has(entity.id);
       const range =
         entity instanceof Station
@@ -477,8 +595,19 @@ export class ReplicationManager {
         });
       }
 
+      const shareDelta =
+        packetEncoder && revision === prepared.previousRevision;
+
+      if (shareDelta && prepared.recentDelta !== undefined) {
+        if (prepared.recentDelta) fullEntities.push(prepared.recentDelta);
+        continue;
+      }
+
       if (revision < 0) {
-        const full = { ...prepared.entity };
+        const full =
+          packetEncoder && !previousRecord
+            ? prepared.entity
+            : { ...prepared.entity };
         // Receivers merge records even when kind is present. Replacing an
         // object under an existing ID must clear the old optional fields.
 
@@ -504,6 +633,8 @@ export class ReplicationManager {
         (changed as Record<string, unknown>)[field.key] =
           prepared.entity[field.key as keyof ReplicatedEntity] ?? null;
       }
+
+      if (shareDelta) prepared.recentDelta = changed ?? null;
 
       if (changed) fullEntities.push(changed);
     }

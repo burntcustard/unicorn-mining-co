@@ -17,8 +17,8 @@ const options = Object.fromEntries(
 );
 const playerCount = Number(options.players || 3);
 
-if (![1, 2, 3].includes(playerCount)) {
-  throw new Error('--players must be 1, 2 or 3');
+if (!Number.isInteger(playerCount) || playerCount < 1 || playerCount > 40) {
+  throw new Error('--players must be an integer from 1 to 40');
 }
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-three-player-'));
 const entry = options.bundle || join(directory, 'session.mjs');
@@ -142,6 +142,15 @@ try {
       rotations: [-1.5, -1.5, -1.5],
     },
     {
+      name: 'modules',
+      positions: [
+        [-3727, -8190],
+        [-3427, -8190],
+        [-3127, -8190],
+      ],
+      rotations: [-1.5, -1.5, -1.5],
+    },
+    {
       name: 'spread',
       positions: [
         [-3727, -8190],
@@ -195,20 +204,43 @@ try {
     const players = [...session.players.values()];
 
     players.forEach((p, i) => {
-      [p.ship.position.x, p.ship.position.y] = scenario.positions[i];
-      p.ship.rotation = scenario.rotations[i];
+      const origin = scenario.positions[i % 3];
+      const group = Math.floor(i / 3);
+      const spacing = scenario.name === 'spread' ? 14000 : 350;
+
+      p.ship.position.x = origin[0] + (group % 4) * spacing;
+      p.ship.position.y = origin[1] + Math.floor(group / 4) * spacing;
+      p.ship.rotation = scenario.rotations[i % 3];
     });
-    const sequences = [0, 0, 0];
+    const sequences = Array(playerCount).fill(0);
     const steer = (tick) =>
       players.forEach((p, i) => {
         const phase = (tick + i * 100) % 600;
         const input = {
           ...p.lastInput,
           thrust: 1,
+          hornDrill:
+            scenario.name === 'modules'
+              ? tick % 180 < 90
+              : p.lastInput.hornDrill,
+          cargoHatch:
+            scenario.name === 'modules'
+              ? tick % 120 < 60
+              : p.lastInput.cargoHatch,
+          shieldGenerator:
+            scenario.name === 'modules'
+              ? tick % 240 < 120
+              : p.lastInput.shieldGenerator,
           turn: phase < 20 ? (Math.floor(tick / 600) % 2 ? 1 : -1) : 0,
         };
 
-        if (tick === 0 || input.turn !== p.lastInput.turn) {
+        if (
+          tick === 0 ||
+          input.turn !== p.lastInput.turn ||
+          input.hornDrill !== p.lastInput.hornDrill ||
+          input.cargoHatch !== p.lastInput.cargoHatch ||
+          input.shieldGenerator !== p.lastInput.shieldGenerator
+        ) {
           session.receive({
             socket: sockets[i],
             message: {

@@ -35,6 +35,18 @@ if (
 if (options.profile && options['broken-cache']) {
   throw new Error('--profile and --broken-cache must be measured separately');
 }
+// Optional source overlay freezes the two networking implementations while
+// keeping the workload and production compilation identical for comparisons.
+const networkingBaseline = new Map();
+
+if (options['network-baseline']) {
+  for (const name of ['game-session.ts', 'replication.ts']) {
+    networkingBaseline.set(
+      resolve('src/server', name),
+      await readFile(join(options['network-baseline'], name), 'utf8'),
+    );
+  }
+}
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-production-flight-'));
 const entry = options.bundle || options.save || join(directory, 'flight.mjs');
 const labels = [
@@ -148,6 +160,8 @@ try {
         {
           name: 'production-flight-entry',
           transform(code, id) {
+            code = networkingBaseline.get(id) ?? code;
+
             if (options['shape-experiment']) {
               code = shapeExperiment(code, id, options['shape-experiment']);
             }
@@ -278,8 +292,8 @@ ${workload}`;
   }
   const players = Number(options.players || 3);
 
-  if (![1, 2, 3].includes(players)) {
-    throw new Error('--players must be 1, 2 or 3');
+  if (!Number.isInteger(players) || players < 1 || players > 40) {
+    throw new Error('--players must be an integer from 1 to 40');
   }
   const child = spawnSync(
     process.execPath,

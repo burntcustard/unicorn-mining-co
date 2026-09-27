@@ -47,6 +47,12 @@ export function instrumentPhases(code, id, detail = false) {
       'Snapshot preparation and deltas',
     ],
     [
+      'server/replication.ts',
+      'SnapshotEncoder',
+      'encodeSnapshot',
+      'Packet JSON encoding',
+    ],
+    [
       'shared/collision/game-collisions.ts',
       'GameCollisions',
       'step',
@@ -126,6 +132,13 @@ export function instrumentPhases(code, id, detail = false) {
 
   for (const [file, owner, method, label] of methods) {
     if (!id.endsWith('/' + file)) continue;
+
+    if (
+      owner === 'SnapshotEncoder' &&
+      !code.includes('class SnapshotEncoder')
+    ) {
+      continue;
+    }
 
     if (!detail && ['update', 'updateModules'].includes(method)) continue;
     code += `\n{const original = ${owner}.prototype.${method}; ${owner}.prototype.${method} = function(...args) {return measure('${label}', () => original.apply(this, args));};}`;

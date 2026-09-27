@@ -56,10 +56,12 @@ const interpolate = ({
 export class RemoteMotion {
   private tracks = new Map<number, Track>();
   private snapshotTick = 0;
+  private sampledAt = 0;
 
   reset() {
     this.tracks.clear();
     this.snapshotTick = 0;
+    this.sampledAt = 0;
   }
 
   receive({
@@ -152,14 +154,24 @@ export class RemoteMotion {
       ]),
     );
 
+    const elapsed = Math.max(0, now - this.sampledAt) / (simulationStep * 1000);
+
+    this.sampledAt = Math.max(this.sampledAt, now);
     this.tracks.forEach((track, id) => {
       const { frames, interval, receivedAt } = track;
 
+      const latest = frames.at(-1)!.tick;
+
+      // Advance at render speed, holding at the newest known pose. One extra
+      // tick (33ms) behind the arrival clock bounds buffering and catches up
+      // immediately after a stall instead of accumulating presentation delay.
       track.renderTick = Math.max(
         track.renderTick,
-        frames.at(-1)!.tick +
+        Math.min(latest, track.renderTick + elapsed),
+        latest +
           Math.min((now - receivedAt) / (simulationStep * 1000), interval) -
-          interval,
+          interval -
+          1,
       );
       const to =
         frames.find((frame) => frame.tick >= track.renderTick) ||
