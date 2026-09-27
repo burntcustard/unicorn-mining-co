@@ -121,7 +121,8 @@ game.ctx={
   createLinearGradient(){gradients++;return {stops:[],addColorStop(offset,color){this.stops.push(color);}};},
   createRadialGradient(){return {addColorStop(){}};},
   fill(path,rule){draws.push({path,rule,style:this.fillStyle});},
-  fillRect(){boxes++;}
+  fillRect(){boxes++;},
+  drawImage(image){assert(image.width>0,'glows use a real canvas after prediction cloning');}
 };
 Object.assign(game,{scale:1,uiScale:1,uiWidth:640,uiHeight:480});
 const local=cloneEntity({entity:remote});
@@ -219,6 +220,16 @@ for(const craftOrder of [[drilling,receiving],[receiving,drilling]]){
 }
 station.render({zIndex:2});
 assert(gradients>before,'station hulls retain gradient shading');
+// Warm the docking glow before cloning, as rendering does between network ticks.
+for(const zIndex of [-3,3])station.render({zIndex});
+const predictedStation=cloneEntity({entity:station});
+for(const zIndex of [-3,3])predictedStation.render({zIndex});
+const stationGlow=station.segments.find(segment=>segment.glow).glow;
+assert.equal(predictedStation.segments.find(segment=>segment.glow).glow,stationGlow,'prediction shares the immutable glow definition and its render cache');
+game.scale=2;
+for(const craft of [predictedStation,station])for(const zIndex of [-3,3])craft.render({zIndex});
+game.scale=1;
+
 const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{shapeOutline:[[0,0],[20,0],[0,20]],radius:20,offset:Vec.create(),health:2,fillShade:2}]});
 draws.length=0;
 const beforeWreck=gradients;
@@ -288,6 +299,16 @@ assert(Math.abs(ringAreas[0]-ringAreas[1]-remainder.segments.reduce((sum,segment
 console.log('Replicated flares, light beams, module checkboxes, palettes, render inheritance and asteroid holes passed');
 `;
 
+// Private fields enforce canvas receiver identity, like the browser's DOM getters.
+class TestCanvas {
+  #width = 0;
+  get width() { return this.#width; }
+  set width(value) { this.#width = value; }
+  getContext() {
+    return { translate() {}, scale() {}, fill() {} };
+  }
+}
+globalThis.document = { createElement: () => new TestCanvas() };
 globalThis.canvas = { getContext: () => ({}) };
 globalThis.location = { protocol: 'http:', host: 'localhost' };
 globalThis.WebSocket = class {};

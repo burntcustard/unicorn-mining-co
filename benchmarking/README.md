@@ -294,3 +294,7 @@ bundle, leaving the workspace's production setting unchanged. This isolates
 startup pre-generation from the remaining implementation. It was used to test
 collision skipping alone before that feature was removed. The override is embedded by
 `--save`; it has no effect when running an existing `--bundle`.
+
+The [server Set-iteration follow-up](../docs/performance-set-iteration-2026-09-27.md)
+compares temporary spread-array conversions while preserving stored Sets,
+including independent candidates and the final incremental acceptance checks.
