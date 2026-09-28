@@ -70,7 +70,7 @@ export const updateWorld = ({
     });
   }
   const contacts = collisions.step({
-    entities: [...world.entities.values()],
+    entities: world.entities,
     dt,
     events,
   });

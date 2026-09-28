@@ -83,6 +83,9 @@ const {
   Vec,
 } = physics;
 
+const entityMap = (entities) =>
+  new Map(entities.map((entity) => [entity.id, entity]));
+
 const closeTo = (actual, expected, tolerance = 1e-9) =>
   assert.ok(
     Math.abs(actual - expected) < tolerance,
@@ -211,7 +214,7 @@ assert(
     (_, index) => new Module({ id: 11000 + index }),
   );
   const contacts = new GameCollisions().step({
-    entities: modules,
+    entities: entityMap(modules),
     previous: new Map(),
     dt: 1 / 30,
   });
@@ -251,7 +254,11 @@ assert.equal(new GameObject().mass, 6);
   ];
   const collisions = new GameCollisions();
 
-  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  collisions.step({
+    entities: entityMap([object]),
+    previous: new Map(),
+    dt: 1 / 30,
+  });
   const solverBody = collisions.bodies.get(object.id).body;
 
   closeTo(solverBody.m_invMass, 1 / 10);
@@ -272,11 +279,19 @@ assert.equal(new GameObject().mass, 6);
       friction: 0.01,
     },
   ];
-  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  collisions.step({
+    entities: entityMap([object]),
+    previous: new Map(),
+    dt: 1 / 30,
+  });
   closeTo(collisions.bodies.get(object.id).body.m_invI, 1 / 800);
 
   object.mass = 100;
-  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  collisions.step({
+    entities: entityMap([object]),
+    previous: new Map(),
+    dt: 1 / 30,
+  });
   closeTo(collisions.bodies.get(object.id).body.m_invMass, 1 / 100);
   closeTo(collisions.bodies.get(object.id).body.m_invI, 1 / 8000);
 }
@@ -295,7 +310,11 @@ assert.equal(new GameObject().mass, 6);
   object.hitbox = () => [collider];
   const collisions = new GameCollisions();
   const sync = () => {
-    collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+    collisions.step({
+      entities: entityMap([object]),
+      previous: new Map(),
+      dt: 1 / 30,
+    });
     return collisions.bodies.get(object.id).fixtures[0];
   };
   let fixture = sync();
@@ -554,7 +573,7 @@ for (const count of [20, 30]) {
     shapeOutline,
   });
   const contacts = new GameCollisions().step({
-    entities: [mover, obstacle],
+    entities: entityMap([mover, obstacle]),
     dt: 1 / 30,
     previous: new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]),
   });
@@ -626,7 +645,7 @@ assert(
       }),
   );
   const contacts = new GameCollisions().step({
-    entities: [mover, ...faces],
+    entities: entityMap([mover, ...faces]),
     dt: 1 / 30,
     previous: new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]),
   });
@@ -659,7 +678,7 @@ assert(
     ],
   });
   const contacts = new GameCollisions().step({
-    entities: [target, movingWall],
+    entities: entityMap([target, movingWall]),
     dt: 1 / 30,
     previous: new Map([
       [movingWall.id, { position: Vec.create(-20), rotation: 0 }],
@@ -696,7 +715,7 @@ for (const travel of [190, 210, 400]) {
     ],
   });
   const contacts = new GameCollisions().step({
-    entities: [mover, face],
+    entities: entityMap([mover, face]),
     dt: 1 / 30,
     previous: new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]),
   });
@@ -738,12 +757,12 @@ for (const travel of [190, 210, 400]) {
     new Map([[mover.id, { position: Vec.create(), rotation: 0 }]]);
 
   new GameCollisions().step({
-    entities: [baseline],
+    entities: entityMap([baseline]),
     dt: 1 / 30,
     previous: previous(baseline),
   });
   const contacts = new GameCollisions().step({
-    entities: [crossing, trigger],
+    entities: entityMap([crossing, trigger]),
     dt: 1 / 30,
     previous: previous(crossing),
   });
@@ -775,7 +794,7 @@ for (const travel of [190, 210, 400]) {
   const collisions = new GameCollisions();
   const step = () =>
     collisions.step({
-      entities: [obstacle, target],
+      entities: entityMap([obstacle, target]),
       dt: 1 / 30,
       previous: new Map(),
     });
@@ -828,7 +847,7 @@ const distantTarget = new GameObject({
   position: Vec.create(15000),
 });
 const triggerContacts = new GameCollisions().step({
-  entities: [trigger, triggerTarget, distantTarget],
+  entities: entityMap([trigger, triggerTarget, distantTarget]),
   dt: 1 / 60,
   previous: new Map(),
 });
@@ -853,7 +872,7 @@ const fastTriggerTarget = new GameObject({
   position: Vec.create(25),
 });
 const continuousContacts = new GameCollisions().step({
-  entities: [trigger, fastTriggerTarget],
+  entities: entityMap([trigger, fastTriggerTarget]),
   dt: 1 / 60,
   previous: new Map([
     [fastTriggerTarget.id, { position: Vec.create(-25), rotation: 0 }],
@@ -891,7 +910,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
     }),
   );
   const crossingContacts = new GameCollisions().step({
-    entities: [ship, item],
+    entities: entityMap([ship, item]),
     previous: new Map([
       [
         item.id,
@@ -961,7 +980,7 @@ const struck = new GameObject({
   position: Vec.create(35.35, 35.35),
 });
 const angularContacts = new GameCollisions().step({
-  entities: [swinging, struck],
+  entities: entityMap([swinging, struck]),
   dt: 1 / 60,
   previous: new Map([[swinging.id, { position: Vec.create(), rotation: 0 }]]),
 });
@@ -1010,7 +1029,7 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
   });
   const solver = new GameCollisions();
   const contacts = solver.step({
-    entities: [parent, other],
+    entities: entityMap([parent, other]),
     dt: 1 / 30,
     previous: new Map([[other.id, { position: Vec.create(9.5), rotation: 0 }]]),
   });
@@ -1037,7 +1056,7 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
   const solver = new GameCollisions();
 
   solver.step({
-    entities: [first, second],
+    entities: entityMap([first, second]),
     dt: 1 / 30,
     previous: new Map([
       [second.id, { position: Vec.create(9.1), rotation: 0 }],
@@ -1061,7 +1080,11 @@ assert.equal(new ZeroMaterial({ id: 461 }).friction, 0);
   });
   const solver = new GameCollisions();
   const step = () =>
-    solver.step({ entities: [first, second], dt: 0, previous: new Map() });
+    solver.step({
+      entities: entityMap([first, second]),
+      dt: 0,
+      previous: new Map(),
+    });
 
   step();
   const fixture = solver.world.m_contactList.getFixtureA();
@@ -1223,7 +1246,11 @@ assert(
 
   const solver = new GameCollisions();
 
-  solver.step({ entities: [asteroid], previous: new Map(), dt: 1 / 60 });
+  solver.step({
+    entities: entityMap([asteroid]),
+    previous: new Map(),
+    dt: 1 / 60,
+  });
   let fixture = solver.world.m_bodyList.m_fixtureList;
   const targets = [];
 
@@ -1634,7 +1661,11 @@ console.log('browser damage spark tests passed');
   object.hitbox = () => [empty, solid];
 
   for (let tick = 0; tick < 2; tick++) {
-    collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+    collisions.step({
+      entities: entityMap([object]),
+      previous: new Map(),
+      dt: 1 / 30,
+    });
     assert.equal(collisions.bodies.get(object.id).fixtures.length, 1);
     assert.equal(
       collisions.bodies.get(object.id).fixtures[0].getUserData(),
@@ -1644,7 +1675,11 @@ console.log('browser damage spark tests passed');
   const fixture = collisions.bodies.get(object.id).fixtures[0];
 
   empty.shapeOutline.push([0, 0], [1, 0]);
-  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  collisions.step({
+    entities: entityMap([object]),
+    previous: new Map(),
+    dt: 1 / 30,
+  });
   assert.equal(
     collisions.bodies.get(object.id).fixtures[0],
     fixture,
@@ -1655,7 +1690,11 @@ console.log('browser damage spark tests passed');
     [1, -1],
     [0, 1],
   ];
-  collisions.step({ entities: [object], previous: new Map(), dt: 1 / 30 });
+  collisions.step({
+    entities: entityMap([object]),
+    previous: new Map(),
+    dt: 1 / 30,
+  });
   assert.equal(collisions.bodies.get(object.id).fixtures.length, 2);
 }
 
@@ -1668,7 +1707,11 @@ console.log('browser damage spark tests passed');
   });
   const collisions = new GameCollisions();
   const sync = () => {
-    collisions.step({ entities: [asteroid], previous: new Map(), dt: 0 });
+    collisions.step({
+      entities: entityMap([asteroid]),
+      previous: new Map(),
+      dt: 0,
+    });
     return collisions.bodies.get(asteroid.id).fixtures[0];
   };
   const original = sync();
@@ -1726,7 +1769,11 @@ console.log('browser damage spark tests passed');
   assert.equal(colliders[0].rotation, 0.8);
   const solver = new GameCollisions();
   const step = () =>
-    solver.step({ entities: [asteroid], previous: new Map(), dt: 1 / 60 });
+    solver.step({
+      entities: entityMap([asteroid]),
+      previous: new Map(),
+      dt: 1 / 60,
+    });
 
   step();
   asteroid.segments[0] = {
@@ -1750,6 +1797,112 @@ console.log('browser damage spark tests passed');
     solver.bodies.get(asteroid.id).fixtures.length,
     asteroid.segments.length,
   );
+}
+
+// Locked asteroid geometry still takes the detailed sync path when mass,
+// inertia or a custom hitbox changes despite a stable geometry source.
+{
+  const asteroid = createAsteroid(createWorld(), {
+    radius: 40,
+    pointCount: 7,
+  }).lockGeometry();
+  const collisions = new GameCollisions();
+  const step = () => {
+    collisions.step({
+      entities: entityMap([asteroid]),
+      previous: new Map(),
+      dt: 0,
+    });
+    return collisions.bodies.get(asteroid.id).fixtures[0];
+  };
+  const original = step();
+
+  assert.equal(step(), original);
+  asteroid.mass++;
+  const changedMass = step();
+
+  assert.notEqual(changedMass, original);
+  assert.equal(step(), changedMass);
+  asteroid.angularInertiaScale++;
+  const changedInertia = step();
+
+  assert.notEqual(changedInertia, changedMass);
+  assert.equal(step(), changedInertia);
+  const builtInHitbox = asteroid.hitbox.bind(asteroid);
+  let customCalls = 0;
+
+  asteroid.hitbox = () => {
+    customCalls++;
+    return builtInHitbox();
+  };
+  step();
+  assert.equal(customCalls, 1, 'an overridden hitbox uses detailed sync');
+}
+
+// Cleanup removes departed IDs and replaces a body when an ID changes owner.
+{
+  const world = createWorld();
+  const first = addEntity(
+    world,
+    new GameObject({ id: 2101, mass: 1, radius: 2, position: Vec.create() }),
+  );
+  const second = addEntity(
+    world,
+    new GameObject({ id: 2102, mass: 1, radius: 2, position: Vec.create(100) }),
+  );
+  const collisions = new GameCollisions();
+  const step = () => collisions.step({ entities: world.entities, dt: 0 });
+
+  step();
+  assert.deepEqual([...collisions.bodies.keys()], [first.id, second.id]);
+  first.remove();
+  step();
+  assert.equal(collisions.bodies.has(first.id), false);
+  const oldBody = collisions.bodies.get(second.id).body;
+  const replacement = addEntity(
+    world,
+    new GameObject({
+      id: second.id,
+      mass: 2,
+      radius: 3,
+      position: Vec.create(200),
+    }),
+  );
+
+  step();
+  assert.equal(collisions.bodies.get(second.id).entity, replacement);
+  assert.notEqual(collisions.bodies.get(second.id).body, oldBody);
+  replacement.remove();
+  step();
+  assert.equal(collisions.bodies.size, 0);
+}
+
+// A hitbox can add an entity, which must wait until the next collision step.
+{
+  const world = createWorld();
+  const first = addEntity(
+    world,
+    new GameObject({ id: 2103, mass: 1, radius: 2, position: Vec.create() }),
+  );
+  const late = new GameObject({
+    id: 2104,
+    mass: 1,
+    radius: 2,
+    position: Vec.create(100),
+  });
+  const builtInHitbox = first.hitbox.bind(first);
+
+  first.hitbox = () => {
+    if (!world.entities.has(late.id)) addEntity(world, late);
+    return builtInHitbox();
+  };
+  const collisions = new GameCollisions();
+
+  collisions.step({ entities: world.entities, dt: 0 });
+  assert.equal(world.entities.has(late.id), true);
+  assert.deepEqual([...collisions.bodies.keys()], [first.id]);
+  collisions.step({ entities: world.entities, dt: 0 });
+  assert.deepEqual([...collisions.bodies.keys()], [first.id, late.id]);
 }
 
 // Deliberately collide two integer cell hashes: a bucket collision may add
@@ -1870,7 +2023,11 @@ console.log('browser damage spark tests passed');
   });
   const collisions = new GameCollisions();
   const sync = () => {
-    collisions.step({ entities: [object], previous: new Map(), dt: 0 });
+    collisions.step({
+      entities: entityMap([object]),
+      previous: new Map(),
+      dt: 0,
+    });
     return collisions.bodies.get(object.id).fixtures[0];
   };
   let fixture = sync();
@@ -1908,7 +2065,11 @@ console.log('browser damage spark tests passed');
   const ship = createShip(world, { position: Vec.create() });
   const collisions = new GameCollisions();
   const sync = () => {
-    collisions.step({ entities: [ship], previous: new Map(), dt: 0 });
+    collisions.step({
+      entities: entityMap([ship]),
+      previous: new Map(),
+      dt: 0,
+    });
     return collisions.bodies.get(ship.id).fixtures;
   };
   const index = sync().findIndex(

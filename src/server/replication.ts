@@ -222,6 +222,32 @@ const updateField = (
   }
 };
 
+/*
+ * Keep primitive fields out of the generic array/vector path. Most are
+ * unchanged, so compare before normalizing nonfinite numbers.
+ */
+const updateScalar = (
+  record: ReplicationRecord,
+  field: ReplicationRecord['fields'][number],
+  value: string | number | boolean | null | undefined,
+) => {
+  if (value === field.value) return;
+
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    if (field.value === null) return;
+    value = null;
+  }
+  field.value = value;
+  field.revision = ++record.revision;
+  record.changes[record.changeCount++] = field;
+
+  if (value === undefined) {
+    delete record.entity[field.key as keyof ReplicatedEntity];
+  } else {
+    (record.entity as Record<string, unknown>)[field.key] = value;
+  }
+};
+
 const replicateEntity = ({ entity }: { entity: GameObject }) => {
   let record = records.get(entity);
 
@@ -241,7 +267,7 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
       record.fields[cursor++],
       entity.contents.length ? entity.contents : undefined,
     );
-    updateField(record, record.fields[cursor++], entity.decay);
+    updateScalar(record, record.fields[cursor++], entity.decay);
     updateField(
       record,
       record.fields[cursor++],
@@ -274,17 +300,17 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
         );
       })(),
     );
-    updateField(record, record.fields[cursor++], entity.credits);
-    updateField(record, record.fields[cursor++], entity.dockedTo);
+    updateScalar(record, record.fields[cursor++], entity.credits);
+    updateScalar(record, record.fields[cursor++], entity.dockedTo);
 
     if (!(entity instanceof Station)) {
       updateField(record, record.fields[cursor++], entity.hullHealth);
     }
-    updateField(record, record.fields[cursor++], entity.launching);
-    updateField(record, record.fields[cursor++], entity.maxSpeed);
+    updateScalar(record, record.fields[cursor++], entity.launching);
+    updateScalar(record, record.fields[cursor++], entity.maxSpeed);
     updateField(record, record.fields[cursor++], readModules(entity));
     updateField(record, record.fields[cursor++], entity.wreckage);
-    updateField(record, record.fields[cursor++], entity.decay);
+    updateScalar(record, record.fields[cursor++], entity.decay);
     updateField(
       record,
       record.fields[cursor++],
@@ -295,17 +321,17 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
   }
 
   if (entity instanceof Ship) {
-    updateField(record, record.fields[cursor++], entity.thrust);
-    updateField(record, record.fields[cursor++], entity.turn);
+    updateScalar(record, record.fields[cursor++], entity.thrust);
+    updateScalar(record, record.fields[cursor++], entity.turn);
   }
-  updateField(
+  updateScalar(
     record,
     record.fields[cursor++],
     entity.friction !== (entity.constructor as typeof GameObject).friction
       ? entity.friction
       : undefined,
   );
-  updateField(
+  updateScalar(
     record,
     record.fields[cursor++],
     (entity instanceof Asteroid && entity.health === entity.radius * 2) ||
@@ -313,15 +339,15 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
       ? undefined
       : entity.health,
   );
-  updateField(record, record.fields[cursor++], entity.label);
-  updateField(record, record.fields[cursor++], entity.message);
-  updateField(record, record.fields[cursor++], entity.paint);
-  updateField(record, record.fields[cursor++], entity.playerId);
-  updateField(record, record.fields[cursor++], entity.pointCount);
-  updateField(record, record.fields[cursor++], entity.radiusEven);
-  updateField(record, record.fields[cursor++], entity.resource);
-  updateField(record, record.fields[cursor++], entity.id);
-  updateField(
+  updateScalar(record, record.fields[cursor++], entity.label);
+  updateScalar(record, record.fields[cursor++], entity.message);
+  updateScalar(record, record.fields[cursor++], entity.paint);
+  updateScalar(record, record.fields[cursor++], entity.playerId);
+  updateScalar(record, record.fields[cursor++], entity.pointCount);
+  updateScalar(record, record.fields[cursor++], entity.radiusEven);
+  updateScalar(record, record.fields[cursor++], entity.resource);
+  updateScalar(record, record.fields[cursor++], entity.id);
+  updateScalar(
     record,
     record.fields[cursor++],
     entity instanceof Asteroid
@@ -334,22 +360,22 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
             ? 'ship'
             : 'object',
   );
-  updateField(
+  updateScalar(
     record,
     record.fields[cursor++],
     entity instanceof Asteroid && entity.mass === 0.4 * entity.radius ** 2
       ? undefined
       : entity.mass,
   );
-  updateField(
+  updateScalar(
     record,
     record.fields[cursor++],
     entity.pendingUpdateTime || undefined,
   );
   updateField(record, record.fields[cursor++], entity.position);
-  updateField(record, record.fields[cursor++], entity.radius);
-  updateField(record, record.fields[cursor++], entity.rotation);
-  updateField(record, record.fields[cursor++], entity.spin);
+  updateScalar(record, record.fields[cursor++], entity.radius);
+  updateScalar(record, record.fields[cursor++], entity.rotation);
+  updateScalar(record, record.fields[cursor++], entity.spin);
   updateField(
     record,
     record.fields[cursor++],

@@ -140,6 +140,64 @@ import { addEntity, createWorld } from '../src/shared/simulation/world';
   }
 }
 
+// Scalar replication normalizes nonfinite values once, then keeps revisions
+// stable until a meaningful value or optional field changes.
+{
+  const world = createWorld();
+  const observer = addEntity(world, new GameObject({ id: 3001 }));
+  const target = addEntity(
+    world,
+    new GameObject({
+      id: 3002,
+      position: Vec.create(10),
+      rotation: 1,
+      label: 'tracked',
+    }),
+  );
+  const replication = new ReplicationManager();
+
+  replication.initial({ world, shipId: observer.id });
+  const read = () => {
+    world.tick++;
+    const prepared = new Map();
+    const snapshot = replication.snapshot({
+      world,
+      shipId: observer.id,
+      replicationRecords: prepared,
+    });
+
+    return {
+      delta: snapshot.fullEntities.find(({ id }) => id === target.id),
+      revision: prepared.get(target.id)?.revision,
+      packet: JSON.stringify(snapshot),
+    };
+  };
+
+  target.rotation = NaN;
+  const nonfinite = read();
+
+  assert.deepEqual(nonfinite.delta, { id: target.id, rotation: null });
+  assert.match(nonfinite.packet, /"rotation":null/);
+  target.rotation = Infinity;
+  const repeated = read();
+
+  assert.equal(repeated.delta, undefined);
+  assert.equal(repeated.revision, nonfinite.revision);
+  target.rotation = 1.25;
+  const finite = read();
+
+  assert.deepEqual(finite.delta, { id: target.id, rotation: 1.25 });
+  assert(finite.revision > repeated.revision);
+  target.label = undefined;
+  const removed = read();
+
+  assert.deepEqual(removed.delta, { id: target.id, label: null });
+  const unchanged = read();
+
+  assert.equal(unchanged.delta, undefined);
+  assert.equal(unchanged.revision, removed.revision);
+}
+
 // Identical baselines reuse a delta object, while skipped sends retain their own.
 {
   const world = createWorld();

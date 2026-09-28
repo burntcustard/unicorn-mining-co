@@ -515,7 +515,7 @@ if (!options.child) {
       syncSamples.push(performance.now() - mark);
       mark = performance.now();
       collisions.step({
-        entities: [...world.entities.values()],
+        entities: world.entities,
         previous: new Map(),
         dt: 0,
       });
@@ -767,7 +767,7 @@ if (!options.child) {
     const solver = new api.GameCollisions();
 
     solver.step({
-      entities: [...world.entities.values()],
+      entities: world.entities,
       previous: new Map(),
       dt: 0,
     });
@@ -800,7 +800,7 @@ if (!options.child) {
 
     edited.mass++;
     solver.step({
-      entities: [...world.entities.values()],
+      entities: world.entities,
       previous: new Map(),
       dt: 0,
     });
@@ -814,7 +814,7 @@ if (!options.child) {
     };
     edited.segments[0].shapeOutline[0][0] += 1;
     solver.step({
-      entities: [...world.entities.values()],
+      entities: world.entities,
       previous: new Map(),
       dt: 0,
     });
@@ -858,7 +858,7 @@ if (!options.child) {
         .asteroids.some((source) => source.id === target.id),
     );
     solver.step({
-      entities: [...world.entities.values()],
+      entities: world.entities,
       previous: new Map(),
       dt: 0,
     });
@@ -882,7 +882,10 @@ if (!options.child) {
 
     api.Vec.setXY(item.position, mouth.position.x - 25, crossingY);
     const contacts = new api.GameCollisions().step({
-      entities: [ship, item],
+      entities: new Map([
+        [ship.id, ship],
+        [item.id, item],
+      ]),
       previous: new Map([
         [
           item.id,

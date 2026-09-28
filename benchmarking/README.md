@@ -157,6 +157,42 @@ September 27 segment-cache bug. It restores the old key-literal comparison in
 the build without editing application files. Use it when compiling a saved
 baseline to isolate that fix; it has no effect on an already saved bundle.
 
+### Comparing CPU changes at 4, 8 and 16 players
+
+Compile one frozen production bundle per variant with
+`node benchmarking/production-flight.mjs --save=/tmp/name.mjs`, then compare
+them with:
+
+```sh
+node benchmarking/compare-cpu.mjs \
+  --baseline=/tmp/baseline.mjs \
+  --variant=change-one:/tmp/change-one.mjs \
+  --variant=combined:/tmp/combined.mjs \
+  --players=4 --ticks=1800 --repeats=8 \
+  --output=/tmp/cpu-comparison.json
+```
+
+The script alternates variant order, runs each replay in a separate process,
+and checks packet hashes, bytes, final positions and entity counts against the
+baseline. It uses warmed production bundles and a 16 MiB V8 semi-space. It
+reports CPU milliseconds per tick for each route, the reduction from route
+medians, and the median of repeat-paired savings across all routes. Use the
+paired aggregate when a few GC or JIT runs shift scenario medians. A local
+replay does not include live socket transport or VM contention.
+
+Source edits can shift Terser's short packet-key names even when packet values
+are identical. After a separate structural packet comparison confirms a
+consistent one-to-one key rename and identical values, add
+`--allow-mangled-wire-keys` to skip only the exact hash assertion. The runner
+still checks packet and byte counts, positions and entity counts, and marks the
+saved result with `wireHashCompared: false`. Do not use the flag to excuse an
+unexplained packet difference.
+
+The [September 28 CPU report](../docs/performance-cpu-players-2026-09-28.md)
+includes the frozen-bundle hashes and raw results for standalone and combined
+changes. Its final comparisons use 1,800 measured ticks per route, with eight
+repeats at four players and five repeats at eight and sixteen players.
+
 ### Server phase and memory investigation
 
 Use one route per invocation for independently interpretable resource totals:

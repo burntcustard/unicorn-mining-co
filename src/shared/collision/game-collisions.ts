@@ -90,7 +90,6 @@ export class GameCollisions {
   private velocityB = Vec.create();
   private bodies = new Map<number, BodyRecord>();
   private contacts: Contact[] = [];
-  private retained = new Set<number>();
   private motions: BodyRecord[] = [];
   private impacts = new Map<
     PhysicsContact,
@@ -177,20 +176,20 @@ export class GameCollisions {
     dt,
     events = [],
   }: {
-    entities: GameObject[];
+    entities: ReadonlyMap<number, GameObject>;
     previous?: Map<number, Pose>;
     dt: number;
     events?: SimulationEvent[];
   }) {
     this.contacts = [];
     this.impacts.clear();
-    const retained = this.retained;
 
-    retained.clear();
-    entities.forEach((entity) => retained.add(entity.id));
+    // Hitboxes can change membership while syncing, so visit a fresh snapshot.
+    const visiting = [...entities.values()];
 
+    // The ID-keyed map removes stale bodies without rebuilding a Set.
     this.bodies.forEach(({ body }, id) => {
-      if (!retained.has(id)) {
+      if (!entities.has(id)) {
         this.world.destroyBody(body);
         this.bodies.delete(id);
       }
@@ -199,7 +198,7 @@ export class GameCollisions {
     const motions = this.motions;
 
     motions.length = 0;
-    entities.forEach((entity) => {
+    visiting.forEach((entity) => {
       const record = this.sync(entity);
       const start =
         (previous ? previous.get(entity.id) : record.previous) || entity;
@@ -304,19 +303,31 @@ export class GameCollisions {
   private sync(entity: GameObject) {
     const record = this.recordFor(entity);
 
-    let geometrySource: object | undefined =
-      entity instanceof Asteroid && entity.hitbox === Asteroid.prototype.hitbox
-        ? entity.geometrySource
-        : undefined;
-
+    // Check cached asteroid geometry before constructing its built-in hitbox.
     if (
-      geometrySource &&
-      geometrySource === record.geometrySource &&
-      same(entity.mass, record.geometry[0]) &&
-      same(entity.angularInertiaScale, record.geometry[1])
+      entity instanceof Asteroid &&
+      entity.hitbox === Asteroid.prototype.hitbox
     ) {
-      return record;
+      const geometrySource = entity.geometrySource;
+
+      if (
+        geometrySource &&
+        geometrySource === record.geometrySource &&
+        same(entity.mass, record.geometry[0]) &&
+        same(entity.angularInertiaScale, record.geometry[1])
+      ) {
+        return record;
+      }
+      return this.syncDetailed(entity, record, geometrySource);
     }
+    return this.syncDetailed(entity, record);
+  }
+
+  private syncDetailed(
+    entity: GameObject,
+    record: BodyRecord,
+    geometrySource?: object,
+  ) {
     const hitbox =
       entity instanceof Craft ? entity.hitbox(true) : entity.hitbox();
 
