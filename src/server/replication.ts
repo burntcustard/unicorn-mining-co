@@ -300,10 +300,7 @@ const replicateEntity = ({ entity }: { entity: GameObject }) => {
     updateField(
       record,
       record.fields[cursor++],
-      entity.shapeOutline ||
-        entity.segments?.some(({ health, maxHealth }) => health !== maxHealth)
-        ? entity.segments
-        : undefined,
+      entity.shapeOutline || entity.damaged ? entity.segments : undefined,
       true,
     );
   }

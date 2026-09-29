@@ -44,12 +44,18 @@ export const controlShip = (
 
   // One pass finds which controlled modules are running, as moduleActive does.
   const running = moduleControls.map(() => false);
+  const segments = ship.segments;
 
-  for (const segment of ship.segments) {
+  for (let index = 0; index < segments.length; index++) {
+    const segment = segments[index];
+
     if (!segment.active || (segment.mount || segment).health < 1) continue;
-    moduleControls.forEach(({ Type }, index) => {
-      if (segment.module instanceof Type) running[index] = true;
-    });
+
+    for (let control = 0; control < moduleControls.length; control++) {
+      if (segment.module instanceof moduleControls[control].Type) {
+        running[control] = true;
+      }
+    }
   }
   moduleControls.forEach(({ Type, input: command, readInput }, index) => {
     const enabled = readInput(input);

@@ -287,9 +287,14 @@ export class Craft extends GameObject {
 
   get mounts() {
     const mounts: Mount[] = [];
+    const segments = this.segments;
 
-    for (const segment of this.segments) {
-      if (segment.mounts) mounts.push(...segment.mounts);
+    for (let index = 0; index < segments.length; index++) {
+      const segmentMounts = segments[index].mounts;
+
+      for (let at = 0; segmentMounts && at < segmentMounts.length; at++) {
+        mounts.push(segmentMounts[at]);
+      }
     }
     return mounts;
   }
@@ -547,14 +552,18 @@ export class Craft extends GameObject {
         typeof segment.points === 'function'
           ? segment.points(segment)
           : segment.points;
-      const [middleX, middleY] = segment.middle || [0, 0];
+      const middle = segment.middle;
+      const middleX = middle ? middle[0] : 0;
+      const middleY = middle ? middle[1] : 0;
       const x = segment.localPosition.x + middleX;
       const y = segment.localPosition.y + middleY;
-      const position = Vec.create(
+      const collider = (segment.collider ||= { owner: this, segment });
+      // Colliders are read within the step, so their position is reused.
+      const position = Vec.setXY(
+        collider.position || Vec.create(),
         this.position.x + (x * cos - y * sin),
         this.position.y + (x * sin + y * cos),
       );
-      const collider = (segment.collider ||= { owner: this, segment });
       const radius = segment.radius(segment);
 
       changed ||=
@@ -885,6 +894,32 @@ export class Craft extends GameObject {
     }
 
     if (this.cockpit) {
+      // Count first; most ticks nothing is broken and nothing is allocated.
+      const segments = this.segments;
+      let brokenMount = false;
+      let hullCount = 0;
+      let intact = 0;
+      let cores = 0;
+
+      for (let index = 0; index < segments.length; index++) {
+        const { hull, health, core, mounts } = segments[index];
+
+        for (let at = 0; mounts && at < mounts.length; at++) {
+          brokenMount ||= !!mounts[at].module && mounts[at].health < 1;
+        }
+
+        if (hull) {
+          hullCount++;
+
+          if (!(health < 1)) {
+            intact++;
+
+            if (core) cores++;
+          }
+        }
+      }
+
+      if (!brokenMount && cores >= 2 && intact === hullCount) return;
       this.mounts
         .filter(({ health, module }) => module && health < 1)
         .forEach((mount) => this.detach(mount));

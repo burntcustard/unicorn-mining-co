@@ -40,12 +40,13 @@ const xf = matrix.transform(0, 0, 0);
 export class Body {
   m_world: World;
   m_islandFlag: boolean;
-  m_invMass: number;
-  m_invI: number;
+  // Numeric fields start as numbers, not undefined, so writes stay unboxed.
+  m_invMass = 0;
+  m_invI = 0;
   c_velocity: Velocity;
   c_position: Position;
   m_linearVelocity: Vec.Value;
-  m_angularVelocity: number;
+  m_angularVelocity = 0;
   m_contactList: ContactEdge | null;
   m_fixtureList: Fixture | null;
   m_prev: Body | null;
@@ -68,9 +69,6 @@ export class Body {
 
     this.m_islandFlag = false;
 
-    this.m_invMass = 0;
-    this.m_invI = 0;
-
     // the body origin transform
     this.m_xf = matrix.transform(0, 0, 0);
 
@@ -82,7 +80,6 @@ export class Body {
     this.c_position = new Position();
 
     this.m_linearVelocity = Vec.create();
-    this.m_angularVelocity = 0;
 
     this.m_contactList = null;
     this.m_fixtureList = null;

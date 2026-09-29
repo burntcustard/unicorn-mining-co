@@ -121,15 +121,19 @@ export const updateEntities = ({
   });
   world.movementParents = parents;
 
+  // Plain loops: a callback capturing the reassigned elapsed time would box
+  // it, and allocate a context, for every entity.
   for (let substep = 0; substep < updateTiers.visible.substeps; substep++) {
-    scheduled.forEach(({ entity, tier, step }) => {
-      if (entity.dead) return;
+    for (let index = 0; index < scheduled.length; index++) {
+      const { entity, tier, step } = scheduled[index];
+
+      if (entity.dead) continue;
 
       if (!substep) entity.pendingUpdateTime += dt;
 
-      if ((tick + 1) % tier.updateEvery || substep >= tier.substeps) return;
+      if ((tick + 1) % tier.updateEvery || substep >= tier.substeps) continue;
 
-      if (entity.pendingUpdateTime <= 0) return;
+      if (entity.pendingUpdateTime <= 0) continue;
       const duration = Math.min(entity.pendingUpdateTime, step);
       let elapsed = dt - entity.pendingUpdateTime;
 
@@ -143,20 +147,20 @@ export const updateEntities = ({
       // Split only where a control actually changed, preserving short taps
       // without raising the regular movement or collision frequency.
       if (input && 'changes' in input && entity instanceof Ship) {
-        input.changes.forEach(({ input, offset }) => {
-          offset -= inputOffset;
+        for (const change of input.changes) {
+          const offset = change.offset - inputOffset;
 
-          if (offset < elapsed || offset >= end) return;
+          if (offset < elapsed || offset >= end) continue;
 
           if (offset > elapsed) entity.update(offset - elapsed);
-          controlShip(entity, input, events);
+          controlShip(entity, change.input, events);
           elapsed = offset;
-        });
+        }
       }
       entity.update(end - elapsed);
 
       if (entity.dead) world.entities.delete(entity.id);
-    });
+    }
   }
   world.movementParents = undefined;
 };

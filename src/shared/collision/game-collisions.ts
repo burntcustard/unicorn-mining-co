@@ -37,6 +37,8 @@ type BodyRecord = {
   deferred?: Asteroid;
   // Geometry sync postponed while parked.
   syncPending?: boolean;
+  // Whether the entity is in the ballistic set.
+  ballistic?: boolean;
 };
 
 // Match the solver's per-step motion limits for bodies integrated here.
@@ -49,6 +51,14 @@ const ballisticEntities = new WeakSet<GameObject>();
 
 export const isBallistic = (entity: GameObject) =>
   ballisticEntities.has(entity);
+
+// The record's flag mirrors set membership, so the set changes only on
+// transitions rather than for every object every step.
+const markBallistic = (record: BodyRecord) => {
+  if (record.ballistic) return;
+  record.ballistic = true;
+  ballisticEntities.add(record.entity);
+};
 
 // Explicit object mass controls translation. Geometry only determines how
 // strongly an off-centre hit rotates it around the object's origin.
@@ -110,6 +120,7 @@ export class GameCollisions {
   private bodies = new Map<number, BodyRecord>();
   private contacts: Contact[] = [];
   private motions: BodyRecord[] = [];
+  private found: (BodyRecord | undefined)[] = [];
   private bounds = new Float64Array(0);
   private sortOrder: number[] = [];
   private free = new Uint8Array(0);
@@ -178,13 +189,13 @@ export class GameCollisions {
   /*
    * Capture starting poses beside their bodies before gameplay advances them.
    */
-  capturePoses(entities: Iterable<GameObject>) {
-    for (const entity of entities) {
+  capturePoses(entities: ReadonlyMap<number, GameObject>) {
+    entities.forEach((entity) => {
       const { previous } = this.recordFor(entity);
 
       Vec.set(previous.position, entity.position);
       previous.rotation = entity.rotation;
-    }
+    });
   }
 
   /*
@@ -208,20 +219,34 @@ export class GameCollisions {
 
     // Hitboxes can change membership while syncing, so visit a fresh snapshot.
     const visiting = [...entities.values()];
+    const found = this.found;
+    let live = 0;
 
-    // The ID-keyed map removes stale bodies without rebuilding a Set.
-    this.bodies.forEach(({ body }, id) => {
-      if (!entities.has(id)) {
-        this.world.destroyBody(body);
-        this.bodies.delete(id);
-      }
-    });
+    found.length = 0;
+
+    for (let index = 0; index < visiting.length; index++) {
+      const record = this.bodies.get(visiting[index].id);
+
+      found.push(record);
+
+      if (record?.entity === visiting[index]) live++;
+    }
+
+    // Records are keyed by ID, so any beyond the live ones may have left.
+    if (live !== this.bodies.size) {
+      this.bodies.forEach(({ body }, id) => {
+        if (!entities.has(id)) {
+          this.world.destroyBody(body);
+          this.bodies.delete(id);
+        }
+      });
+    }
 
     const motions = this.motions;
 
     motions.length = 0;
-    visiting.forEach((entity) => {
-      let record = this.bodies.get(entity.id);
+    visiting.forEach((entity, index) => {
+      let record = found[index];
 
       // Parked rocks and stations with locked geometry cannot grow, so their
       // last bound holds until something wakes them.
@@ -252,7 +277,7 @@ export class GameCollisions {
 
       if (free[index] && !body.m_contactList) {
         if (!body.m_parked) body.park();
-        ballisticEntities.add(entity);
+        markBallistic(record);
         return;
       }
 
@@ -273,12 +298,12 @@ export class GameCollisions {
     });
 
     this.world.step(dt, 8, 3);
-    motions.forEach(({ body, entity }) => {
-      if (!body.m_parked) ballisticEntities.add(entity);
+    motions.forEach((record) => {
+      if (!record.body.m_parked) markBallistic(record);
     });
     this.contacts.forEach(({ collider, other }) => {
-      ballisticEntities.delete(collider.owner);
-      ballisticEntities.delete(other.owner);
+      this.touched(collider.owner);
+      this.touched(other.owner);
     });
 
     motions.forEach(({ body, entity, velocity, spin, sweepStart: start }) => {
@@ -445,6 +470,13 @@ export class GameCollisions {
     return free;
   }
 
+  private touched(owner: GameObject) {
+    const record = this.bodies.get(owner.id);
+
+    if (record?.entity === owner) record.ballistic = false;
+    ballisticEntities.delete(owner);
+  }
+
   private recordFor(entity: GameObject) {
     let record = this.bodies.get(entity.id);
 
@@ -498,14 +530,7 @@ export class GameCollisions {
 
       // Most asteroids never meet anything: measure them, build on contact.
       if (geometrySource && !record.fixtures.length) {
-        let radius = 0;
-
-        entity.hitbox().forEach(({ shapeOutline }) =>
-          shapeOutline.forEach(([x, y]) => {
-            radius = Math.max(radius, Math.sqrt(x * x + y * y));
-          }),
-        );
-        record.radius = radius + 2 * linearSlop;
+        record.radius = entity.extent + 2 * linearSlop;
         record.geometrySource = geometrySource;
         record.deferred = entity;
         return record;

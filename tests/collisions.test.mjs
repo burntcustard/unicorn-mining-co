@@ -2146,7 +2146,7 @@ console.log('browser damage spark tests passed');
   assert.equal(collisions.bodies.get(asteroid.id).fixtures.length, 0);
 
   for (let tick = 0; tick < 10; tick++) {
-    collisions.capturePoses(world.entities.values());
+    collisions.capturePoses(world.entities);
     world.entities.forEach((entity) => entity.update(1 / 30));
     collisions.step({ entities: world.entities, dt: 1 / 30 });
   }

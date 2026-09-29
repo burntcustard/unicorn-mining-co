@@ -78,11 +78,18 @@ const separatedThroughout = (
     sinB * boundB.x +
     cosB * boundB.y -
     (sweepA.c0.y + sinA * boundA.x + cosA * boundA.y);
+  // Math.hypot allocates for its variable arguments; plain roots do not.
+  const ax = sweepA.c.x - sweepA.c0.x;
+  const ay = sweepA.c.y - sweepA.c0.y;
+  const bx = sweepB.c.x - sweepB.c0.x;
+  const by = sweepB.c.y - sweepB.c0.y;
   const motion =
-    Math.hypot(sweepA.c.x - sweepA.c0.x, sweepA.c.y - sweepA.c0.y) +
-    Math.hypot(boundA.x, boundA.y) * Math.abs(sweepA.a - sweepA.a0) +
-    Math.hypot(sweepB.c.x - sweepB.c0.x, sweepB.c.y - sweepB.c0.y) +
-    Math.hypot(boundB.x, boundB.y) * Math.abs(sweepB.a - sweepB.a0);
+    Math.sqrt(ax * ax + ay * ay) +
+    Math.sqrt(boundA.x * boundA.x + boundA.y * boundA.y) *
+      Math.abs(sweepA.a - sweepA.a0) +
+    Math.sqrt(bx * bx + by * by) +
+    Math.sqrt(boundB.x * boundB.x + boundB.y * boundB.y) *
+      Math.abs(sweepB.a - sweepB.a0);
   const target = Math.max(
     linearSlop,
     shapeA.m_radius + shapeB.m_radius - 3 * linearSlop,

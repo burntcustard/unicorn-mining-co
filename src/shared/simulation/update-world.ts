@@ -55,7 +55,7 @@ export const updateWorld = ({
     collisions = new GameCollisions();
     collisionWorlds.set(world, collisions);
   }
-  collisions.capturePoses(world.entities.values());
+  collisions.capturePoses(world.entities);
 
   // Integrate movement and timed input edges at the usual cadence, while an
   // overdue server update shares one collision sweep across the elapsed ticks.

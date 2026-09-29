@@ -435,8 +435,12 @@ const segmentColliders = new WeakMap<
   { geometrySource?: object; colliders: AsteroidCollider[] }
 >();
 const lockedGeometry = new WeakSet<object>();
-const lockedSegments = new WeakMap<AsteroidSegment[], AsteroidSegment[]>();
+const lockedSegments = new WeakMap<
+  AsteroidSegment[],
+  { segments: AsteroidSegment[]; source: object }
+>();
 const collisionOutlines = new WeakMap<number[][], number[][]>();
+const fixedProperty = { writable: false, configurable: false };
 
 export class Asteroid extends GameObject {
   static friction = 0.2;
@@ -450,7 +454,15 @@ export class Asteroid extends GameObject {
   declare pointCount?: number;
   declare radiusEven?: number;
   declare resource?: number;
-  segments?: AsteroidSegment[];
+  private segmentList?: AsteroidSegment[];
+  // Procedural rock is cut into segments only when something needs them;
+  // most drift past untouched. The cut uses its values from construction.
+  private uncut?: {
+    contents: number[];
+    health: number;
+    mass: number;
+    locked?: boolean;
+  };
 
   constructor({
     contents,
@@ -497,23 +509,59 @@ export class Asteroid extends GameObject {
     }));
 
     if (!shapeOutline && !validSegments) {
-      this.segments = segmentsOf({
-        contents,
-        health,
-        mass: this.mass,
+      this.uncut = { contents: [...contents], health, mass: this.mass };
+    }
+  }
+
+  get segments() {
+    const uncut = this.uncut;
+
+    if (uncut) {
+      this.uncut = undefined;
+      this.segmentList = segmentsOf({
+        ...uncut,
         shapeOutline: shapeOutlineOf(this),
-        radiusEven,
+        radiusEven: this.radiusEven,
         random: createRandom(this.id + 1).next,
       });
-    }
 
-    if (this.segments?.length) {
-      outerEdges(
-        this.segments.map(
-          (asteroidSegment) => asteroidSegment.shapeOutline as ShapeOutline,
-        ),
+      if (uncut.locked) {
+        this.lockGeometry();
+        // Cutting fixed geometry does not change it.
+        lockedSegments.get(this.segmentList)!.source = uncut;
+      }
+    }
+    return this.segmentList;
+  }
+
+  set segments(segments: AsteroidSegment[] | undefined) {
+    this.uncut = undefined;
+    this.segmentList = segments;
+  }
+
+  // Whether any segment has been mined or struck, without cutting new rock.
+  get damaged() {
+    return (
+      !this.uncut &&
+      !!this.segmentList?.some(({ health, maxHealth }) => health !== maxHealth)
+    );
+  }
+
+  // Farthest collision vertex from the origin, without cutting new rock.
+  get extent() {
+    let extent = 0;
+    const measure = ([x, y]: number[]) => {
+      extent = Math.max(extent, Math.sqrt(x * x + y * y));
+    };
+
+    // Segment vertices never reach past the outline they are cut from.
+    if (this.uncut) shapeOutlineOf(this).forEach(measure);
+    else {
+      this.hitbox().forEach(({ shapeOutline }) =>
+        shapeOutline.forEach(measure),
       );
     }
+    return extent;
   }
 
   // Procedural and fractured geometry is replaced as a whole. Health and
@@ -528,27 +576,36 @@ export class Asteroid extends GameObject {
       lockedGeometry.add(outline);
     };
 
+    if (this.uncut) {
+      this.uncut.locked = true;
+      return this;
+    }
+
     if (this.shapeOutline) lock(this.shapeOutline);
     this.segments?.forEach((segment) => {
       lock(segment.shapeOutline);
-      Object.defineProperties(segment, {
-        shapeOutline: { writable: false, configurable: false },
-      });
+      Object.defineProperty(segment, 'shapeOutline', fixedProperty);
     });
 
     if (this.segments) {
-      lockedSegments.set(this.segments, this.segments.slice());
+      const segments = this.segments.slice();
+
+      lockedSegments.set(this.segments, { segments, source: segments });
     }
     return this;
   }
 
   get geometrySource() {
-    if (this.segments?.length) {
-      const source = lockedSegments.get(this.segments);
+    // Uncut rock is procedural: its eventual segments are already fixed.
+    if (this.uncut) return this.uncut.locked ? this.uncut : undefined;
+    const segments = this.segmentList;
 
-      return source?.length === this.segments.length &&
-        this.segments.every((segment, i) => segment === source[i])
-        ? source
+    if (segments?.length) {
+      const locked = lockedSegments.get(segments);
+
+      return locked?.segments.length === segments.length &&
+        segments.every((segment, i) => segment === locked.segments[i])
+        ? locked.source
         : undefined;
     }
     return this.shapeOutline && lockedGeometry.has(this.shapeOutline)
@@ -557,13 +614,14 @@ export class Asteroid extends GameObject {
   }
 
   hitbox(): Collider[] {
+    const segments = this.segments;
     const source = this.geometrySource;
     const cached = segmentColliders.get(this);
 
     if (source && source === cached?.geometrySource) return cached.colliders;
 
-    if (this.segments?.length) {
-      const colliders = this.segments.map((asteroidSegment, index) =>
+    if (segments?.length) {
+      const colliders = segments.map((asteroidSegment, index) =>
         cached?.colliders[index]?.asteroidSegment === asteroidSegment
           ? cached.colliders[index]
           : new AsteroidCollider({ owner: this, asteroidSegment }),
