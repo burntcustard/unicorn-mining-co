@@ -119,12 +119,12 @@ try {
       render(timing) {
         const { dt } = timing;
 
+        assert.equal(dt, frameTime.dt, 'rendering uses the frame interval');
         assert.equal(
-          timing,
-          frameTime,
-          'prediction and rendering share the timestamp from before update work',
+          timing.now,
+          now,
+          'prediction uses the current clock after update work',
         );
-        assert(timing.now < now, 'CPU work must not advance the rendered pose');
         renders++;
         assert(
           dt > 0 && dt <= maxFrameTime,

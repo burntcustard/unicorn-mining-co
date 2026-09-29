@@ -27,13 +27,11 @@ export const GameLoop = ({
 
     last = now;
 
-    // Updating a network tick is heavier than an in-between frame. Both phases
-    // must sample the same instant, not turn that extra CPU time into movement.
-    const timing = { dt, now };
-
-    update(timing);
+    update({ dt, now });
     context.clearRect(0, 0, canvas.width, canvas.height);
-    render(timing);
+    // A network tick can take much longer than an in-between frame. Predict
+    // the displayed pose from the latest clock, after that work is finished.
+    render({ dt, now: performance.now() });
   };
 
   return {
