@@ -245,7 +245,9 @@ export class GameCollisions {
     const motions = this.motions;
 
     motions.length = 0;
-    visiting.forEach((entity, index) => {
+
+    for (let index = 0; index < visiting.length; index++) {
+      const entity = visiting[index];
       let record = found[index];
 
       // Parked rocks and stations with locked geometry cannot grow, so their
@@ -269,16 +271,17 @@ export class GameCollisions {
       record.spin = dt ? (entity.rotation - start.rotation) / dt : 0;
       record.sweepStart = start;
       motions.push(record);
-    });
+    }
     const free = this.findFree(motions);
 
-    motions.forEach((record, index) => {
+    for (let index = 0; index < motions.length; index++) {
+      const record = motions[index];
       const { body, entity, sweepStart: start } = record;
 
       if (free[index] && !body.m_contactList) {
         if (!body.m_parked) body.park();
         markBallistic(record);
-        return;
+        continue;
       }
 
       if (record.syncPending) {
@@ -295,18 +298,29 @@ export class GameCollisions {
       body.setAngularVelocity(record.spin);
 
       if (body.m_parked) body.unpark();
-    });
+    }
 
     this.world.step(dt, 8, 3);
-    motions.forEach((record) => {
+
+    for (let index = 0; index < motions.length; index++) {
+      const record = motions[index];
+
       if (!record.body.m_parked) markBallistic(record);
-    });
+    }
     this.contacts.forEach(({ collider, other }) => {
       this.touched(collider.owner);
       this.touched(other.owner);
     });
 
-    motions.forEach(({ body, entity, velocity, spin, sweepStart: start }) => {
+    for (let index = 0; index < motions.length; index++) {
+      const {
+        body,
+        entity,
+        velocity,
+        spin,
+        sweepStart: start,
+      } = motions[index];
+
       if (body.m_parked) {
         // An isolated island: the solver's integration without its setup.
         // Bodies report angles in [-pi, pi], as the sweep's atan2 would.
@@ -349,7 +363,7 @@ export class GameCollisions {
           entity.spin += w - spin;
         } else Vec.set(entity.position, start.position);
         entity.rotation = angle;
-        return;
+        continue;
       }
       const position = body.getPosition();
       const resolved = body.getLinearVelocity();
@@ -360,7 +374,7 @@ export class GameCollisions {
       entity.velocity.x += resolved.x - velocity.x;
       entity.velocity.y += resolved.y - velocity.y;
       entity.spin += body.getAngularVelocity() - spin;
-    });
+    }
 
     this.impacts.forEach(({ contact: { collider, other, point }, impact }) => {
       const inverseMass = 1 / collider.owner.mass + 1 / other.owner.mass;
@@ -420,7 +434,9 @@ export class GameCollisions {
     const reuse = order.length === count;
 
     if (!reuse) order.length = count;
-    motions.forEach(({ entity, radius, sweepStart: start }, index) => {
+
+    for (let index = 0; index < count; index++) {
+      const { entity, radius, sweepStart: start } = motions[index];
       const dx = entity.position.x - start.position.x;
       const dy = entity.position.y - start.position.y;
       const travel = Math.sqrt(dx * dx + dy * dy);
@@ -434,7 +450,7 @@ export class GameCollisions {
       free[index] = 1;
 
       if (!reuse) order[index] = index;
-    });
+    }
 
     if (reuse) {
       for (let i = 1; i < count; i++) {

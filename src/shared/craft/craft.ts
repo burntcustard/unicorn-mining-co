@@ -509,6 +509,7 @@ export class Craft extends GameObject {
   hitbox(collidingOnly = false) {
     if (this.dockedTo !== undefined && this.dockedTo !== 0) {
       collisionCaches.delete(this);
+
       return [];
     }
     let changed = false;
@@ -516,9 +517,12 @@ export class Craft extends GameObject {
     const sin = Math.sin(this.rotation);
     const cos = Math.cos(this.rotation);
     const colliders: Collider[] = [];
+    const segments = this.segments;
 
-    this.segments.forEach((segment) => {
-      if (!segment.radius || (segment.mount || segment).health < 1) return;
+    for (let index = 0; index < segments.length; index++) {
+      const segment = segments[index];
+
+      if (!segment.radius || (segment.mount || segment).health < 1) continue;
       const physics =
         this.physics &&
         !segment.module.disablePhysics &&
@@ -545,7 +549,7 @@ export class Craft extends GameObject {
           segment.active &&
           segment.activationProgress > cargoHatchOpen);
 
-      if (collidingOnly && !collides) return;
+      if (collidingOnly && !collides) continue;
 
       const { bounciness, friction } = segment.module;
       const points =
@@ -645,7 +649,8 @@ export class Craft extends GameObject {
 
       if (drillTip?.radius) {
         let tip = drillColliders.get(segment);
-        const local = Vec.add(segment.localPosition, drillTip.position);
+        const localX = segment.localPosition.x + drillTip.position.x;
+        const localY = segment.localPosition.y + drillTip.position.y;
 
         if (!tip) {
           tip = {
@@ -654,20 +659,25 @@ export class Craft extends GameObject {
             role: 'hornDrill',
             physics: false,
             friction: this.friction,
-            position: this.position,
+            position: Vec.create(),
             radius: 0,
             rotation: this.rotation,
           };
           drillColliders.set(segment, tip);
         }
         changed ||=
-          tip.localPosition?.x !== local.x ||
-          tip.localPosition?.y !== local.y ||
+          tip.localPosition?.x !== localX ||
+          tip.localPosition?.y !== localY ||
           tip.radius !== drillTip.radius;
-        tip.localPosition = local;
-        tip.position = Vec.add(
-          this.position,
-          rotatePoint(local, this.rotation),
+        tip.localPosition = Vec.setXY(
+          tip.localPosition || Vec.create(),
+          localX,
+          localY,
+        );
+        Vec.setXY(
+          tip.position,
+          this.position.x + (localX * cos - localY * sin),
+          this.position.y + (localX * sin + localY * cos),
         );
         tip.radius = drillTip.radius;
         tip.rotation = this.rotation;
@@ -675,11 +685,10 @@ export class Craft extends GameObject {
         tip.collides = Boolean(collides);
         colliders.push(tip);
       }
-    });
+    }
     const cover = colliders.find(
       ({ segment, radius }) => segment.covers && radius >= this.radius,
     );
-
     const result = cover ? [cover] : colliders;
     let cached = collisionCaches.get(this);
 
@@ -897,8 +906,7 @@ export class Craft extends GameObject {
       // Count first; most ticks nothing is broken and nothing is allocated.
       const segments = this.segments;
       let brokenMount = false;
-      let hullCount = 0;
-      let intact = 0;
+      let brokenHull = false;
       let cores = 0;
 
       for (let index = 0; index < segments.length; index++) {
@@ -909,17 +917,12 @@ export class Craft extends GameObject {
         }
 
         if (hull) {
-          hullCount++;
-
-          if (!(health < 1)) {
-            intact++;
-
-            if (core) cores++;
-          }
+          if (health < 1) brokenHull = true;
+          else if (core) cores++;
         }
       }
 
-      if (!brokenMount && cores >= 2 && intact === hullCount) return;
+      if (!brokenMount && cores >= 2 && !brokenHull) return;
       this.mounts
         .filter(({ health, module }) => module && health < 1)
         .forEach((mount) => this.detach(mount));

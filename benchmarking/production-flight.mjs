@@ -255,19 +255,19 @@ import {GameSession} from './server/game-session';
 ${
   options.profile
     ? `import {parseClientMessage} from './server/parse-client-message';
-import {packPlayerInput} from './shared/protocol/input';
+import {encodeClientMessage} from './shared/protocol/binary-control';
 import {measure} from 'flight-native';
 const receive = GameSession.prototype.receive;
 GameSession.prototype.receive = function(options) {
   if (options.message.type === 'input') {
-    const {tick, sequence, input} = options.message;
-    const wire = measure('Harness wire construction', () => Buffer.from(JSON.stringify([tick, sequence, packPlayerInput(input)])));
+    const wire = measure('Harness wire construction', () => encodeClientMessage(options.message));
     options = {...options, message: parseClientMessage(wire)};
   }
   return receive.call(this, options);
 };`
     : ''
 }
+${options['verify-binary'] ? `import {installBinaryFlightOracle} from './server/binary-flight-oracle'; installBinaryFlightOracle();` : ''}
 const api = { GameSession };
 const [ticks, playerCount, warm, scenario, jitter] = JSON.parse(process.argv[2]);
 const options = {ticks, warm, scenario, jitter};

@@ -1,5 +1,11 @@
 import * as Vec from '../shared/vector';
-import { packPlayerInput, type PlayerInput } from '../shared/protocol/input';
+import { type PlayerInput } from '../shared/protocol/input';
+import {
+  encodeClientMessage,
+  decodeServerControl,
+  isPlayerToken,
+} from '../shared/protocol/binary-control';
+import { decodeBinarySnapshot } from '../shared/protocol/binary-snapshot';
 import { type SimulationEvent } from '../shared/protocol/events';
 import {
   type ClientMessage,
@@ -217,17 +223,30 @@ export class NetworkClient {
 
     this.socket = socket;
     this.welcomed = false;
-    socket.onopen = () =>
-      this.send({
-        playerToken: localStorage.getItem('playerToken'),
-        snapshotAcknowledgements: true,
-        type: 'hello',
-      });
+    socket.binaryType = 'arraybuffer';
+    socket.onopen = () => {
+      const storedToken = localStorage.getItem('playerToken');
+      const playerToken = isPlayerToken(storedToken) ? storedToken : null;
+
+      if (storedToken !== null && playerToken === null) {
+        localStorage.removeItem('playerToken');
+      }
+      this.send({ playerToken, type: 'hello' });
+    };
     socket.onmessage = ({ data }) => {
       if (this.socket !== socket) return;
 
       try {
-        this.receive({ message: JSON.parse(String(data)) as ServerMessage });
+        if (!(data instanceof ArrayBuffer || data instanceof Uint8Array)) {
+          throw new Error('Invalid server message');
+        }
+        const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+        const message =
+          bytes[0] === 0x55 && bytes[1] === 0x4d
+            ? decodeBinarySnapshot(bytes)
+            : decodeServerControl(bytes);
+
+        this.receive({ message });
       } catch {
         socket.close(1007, 'Invalid server message');
       }
@@ -407,18 +426,7 @@ export class NetworkClient {
   private send(message: ClientMessage) {
     if (this.socket.readyState !== WebSocket.OPEN) return;
 
-    if (message.type === 'input') {
-      const packet = [
-        message.tick,
-        message.sequence,
-        packPlayerInput(message.input),
-      ];
-
-      if (message.offset) packet.push(message.offset);
-      this.socket.send(JSON.stringify(packet));
-      return;
-    }
-    this.socket.send(JSON.stringify(message));
+    this.socket.send(encodeClientMessage(message));
   }
 
   private receive({ message }: { message: ServerMessage }) {

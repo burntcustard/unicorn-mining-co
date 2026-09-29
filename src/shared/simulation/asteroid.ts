@@ -457,12 +457,10 @@ export class Asteroid extends GameObject {
   private segmentList?: AsteroidSegment[];
   // Procedural rock is cut into segments only when something needs them;
   // most drift past untouched. The cut uses its values from construction.
-  private uncut?: {
-    contents: number[];
-    health: number;
-    mass: number;
-    locked?: boolean;
-  };
+  private uncutContents?: number[];
+  private uncutHealth = 0;
+  private uncutMass = 0;
+  private uncutLocked = false;
 
   constructor({
     contents,
@@ -509,40 +507,48 @@ export class Asteroid extends GameObject {
     }));
 
     if (!shapeOutline && !validSegments) {
-      this.uncut = { contents: [...contents], health, mass: this.mass };
+      this.uncutContents = [...contents];
+      this.uncutHealth = health;
+      this.uncutMass = this.mass;
     }
   }
 
   get segments() {
-    const uncut = this.uncut;
+    const contents = this.uncutContents;
 
-    if (uncut) {
-      this.uncut = undefined;
+    if (contents) {
+      const locked = this.uncutLocked;
+
+      this.uncutContents = undefined;
+      this.uncutLocked = false;
       this.segmentList = segmentsOf({
-        ...uncut,
+        contents,
+        health: this.uncutHealth,
+        mass: this.uncutMass,
         shapeOutline: shapeOutlineOf(this),
         radiusEven: this.radiusEven,
         random: createRandom(this.id + 1).next,
       });
 
-      if (uncut.locked) {
+      if (locked) {
         this.lockGeometry();
-        // Cutting fixed geometry does not change it.
-        lockedSegments.get(this.segmentList)!.source = uncut;
+        // The private contents array keeps the cache identity across cutting.
+        lockedSegments.get(this.segmentList)!.source = contents;
       }
     }
     return this.segmentList;
   }
 
   set segments(segments: AsteroidSegment[] | undefined) {
-    this.uncut = undefined;
+    this.uncutContents = undefined;
+    this.uncutLocked = false;
     this.segmentList = segments;
   }
 
   // Whether any segment has been mined or struck, without cutting new rock.
   get damaged() {
     return (
-      !this.uncut &&
+      !this.uncutContents &&
       !!this.segmentList?.some(({ health, maxHealth }) => health !== maxHealth)
     );
   }
@@ -555,7 +561,7 @@ export class Asteroid extends GameObject {
     };
 
     // Segment vertices never reach past the outline they are cut from.
-    if (this.uncut) shapeOutlineOf(this).forEach(measure);
+    if (this.uncutContents) shapeOutlineOf(this).forEach(measure);
     else {
       this.hitbox().forEach(({ shapeOutline }) =>
         shapeOutline.forEach(measure),
@@ -576,8 +582,8 @@ export class Asteroid extends GameObject {
       lockedGeometry.add(outline);
     };
 
-    if (this.uncut) {
-      this.uncut.locked = true;
+    if (this.uncutContents) {
+      this.uncutLocked = true;
       return this;
     }
 
@@ -597,7 +603,9 @@ export class Asteroid extends GameObject {
 
   get geometrySource() {
     // Uncut rock is procedural: its eventual segments are already fixed.
-    if (this.uncut) return this.uncut.locked ? this.uncut : undefined;
+    if (this.uncutContents) {
+      return this.uncutLocked ? this.uncutContents : undefined;
+    }
     const segments = this.segmentList;
 
     if (segments?.length) {

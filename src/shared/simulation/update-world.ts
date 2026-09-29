@@ -77,16 +77,25 @@ export const updateWorld = ({
 
   const contactsByOwner = new Map<GameObject, Contact[]>();
 
-  contacts.forEach((contact) => {
-    const owners = [contact.collider.owner, contact.other.owner];
+  for (let index = 0; index < contacts.length; index++) {
+    const contact = contacts[index];
+    const colliderOwner = contact.collider.owner;
+    const otherOwner = contact.other.owner;
+    let ownContacts = contactsByOwner.get(colliderOwner);
 
-    owners.forEach((owner) => {
-      const ownContacts = contactsByOwner.get(owner) || [];
+    if (!ownContacts) {
+      ownContacts = [];
+      contactsByOwner.set(colliderOwner, ownContacts);
+    }
+    ownContacts.push(contact);
+    ownContacts = contactsByOwner.get(otherOwner);
 
-      ownContacts.push(contact);
-      contactsByOwner.set(owner, ownContacts);
-    });
-  });
+    if (!ownContacts) {
+      ownContacts = [];
+      contactsByOwner.set(otherOwner, ownContacts);
+    }
+    ownContacts.push(contact);
+  }
   contactsByOwner.forEach((ownContacts, entity) => {
     if (entity instanceof Station) {
       entity.handleContacts({ contacts: ownContacts, events });

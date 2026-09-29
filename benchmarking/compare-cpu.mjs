@@ -29,11 +29,14 @@ assert(options.baseline && options.output && variants.length >= 2);
 assert.equal(new Set(variants.map(({ name }) => name)).size, variants.length);
 const repeats = Number(options.repeats || 5);
 const ticks = Number(options.ticks || 1800);
+const semiSpaceMiB = Number(options['semi-space'] || 16);
 const players = (options.players || '4,8,16').split(',').map(Number);
 const scenarios = (options.scenarios || 'convoy,spread,contact,modules').split(
   ',',
 );
 const allowMangledWireKeys = args.includes('--allow-mangled-wire-keys');
+const allowProtocolChange = args.includes('--allow-protocol-change');
+const allowCadenceChange = args.includes('--allow-cadence-change');
 // Physics changes can alter chaotic flight paths. Each repeat then uses a
 // different small start offset, shared by every variant, and only workload
 // statistics (not exact state) are compared.
@@ -41,6 +44,7 @@ const diverge = args.includes('--diverge');
 
 assert(Number.isInteger(repeats) && repeats >= variants.length);
 assert(Number.isInteger(ticks) && ticks > 0);
+assert(Number.isInteger(semiSpaceMiB) && semiSpaceMiB > 0);
 assert(
   players.every(
     (count) => Number.isInteger(count) && count >= 1 && count <= 40,
@@ -65,9 +69,12 @@ const results = {
   variants,
   repeats,
   ticks,
+  semiSpaceMiB,
   players,
   scenarios,
-  wireHashCompared: !allowMangledWireKeys,
+  wireHashCompared: !allowMangledWireKeys && !allowProtocolChange,
+  protocolChanged: allowProtocolChange,
+  packetCountCompared: !allowCadenceChange,
   runs: [],
   comparisons: [],
   aggregates: [],
@@ -93,7 +100,7 @@ for (const count of players) {
           '--scenario=' + scenario,
           '--ticks=' + ticks,
           '--warm',
-          '--semi-space=16',
+          '--semi-space=' + semiSpaceMiB,
           ...(diverge ? ['--jitter=' + repeat] : []),
         ];
         // `--cpus=4,5` pins each replay, e.g. to two like cores for a 2-vCPU VM.
@@ -133,7 +140,13 @@ for (const count of players) {
         'entities',
         'maxEntities',
       ]) {
-        if (key === 'hash' && allowMangledWireKeys) continue;
+        if (
+          (key === 'hash' && allowMangledWireKeys) ||
+          (allowProtocolChange && (key === 'hash' || key === 'bytes')) ||
+          (allowCadenceChange && key === 'packets')
+        ) {
+          continue;
+        }
         assert.deepEqual(
           run[key],
           reference[key],

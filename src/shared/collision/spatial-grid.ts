@@ -28,6 +28,11 @@ export class SpatialGrid<T> {
   private bodyGroups = new Map<unknown, Group<T>>();
   private gridCells = new Map<number, Set<Group<T>>>();
   private dirty = new Set<Group<T>>();
+  private queryScratch: {
+    seen: Set<Group<T>>;
+    candidates: SpatialProxy<T>[];
+  }[] = [];
+  private queryDepth = 0;
   private nextId = 0;
 
   // Hash collisions only add candidates: exact bounds still reject them.
@@ -124,26 +129,48 @@ export class SpatialGrid<T> {
       });
     });
     this.dirty.clear();
-    const seen = new Set<Group<T>>();
-    const candidates: SpatialProxy<T>[] = [];
+    const depth = this.queryDepth++;
+    const scratch = (this.queryScratch[depth] ??= {
+      seen: new Set<Group<T>>(),
+      candidates: [],
+    });
+    const { seen, candidates } = scratch;
     const ownGroup =
       owner === undefined ? undefined : this.bodyGroups.get(owner);
 
-    for (const key of this.cellKeys(box)) {
-      for (const group of this.gridCells.get(key) || []) {
-        if (group === ownGroup || seen.has(group)) continue;
-        seen.add(group);
+    try {
+      for (
+        let x = Math.floor(box.lowerBound.x / cellSize);
+        x <= Math.floor(box.upperBound.x / cellSize);
+        x++
+      ) {
+        for (
+          let y = Math.floor(box.lowerBound.y / cellSize);
+          y <= Math.floor(box.upperBound.y / cellSize);
+          y++
+        ) {
+          const key = Math.imul(x, 0x9e3779b1) ^ y;
 
-        if (!AABB.testOverlap(group.bounds, box)) continue;
+          for (const group of this.gridCells.get(key) || []) {
+            if (group === ownGroup || seen.has(group)) continue;
+            seen.add(group);
 
-        for (const node of group.nodes) {
-          if (AABB.testOverlap(node.aabb, box)) candidates.push(node);
+            if (!AABB.testOverlap(group.bounds, box)) continue;
+
+            for (const node of group.nodes) {
+              if (AABB.testOverlap(node.aabb, box)) candidates.push(node);
+            }
+          }
         }
       }
-    }
-    // Collision order must not depend on cells being removed and reinserted.
-    candidates.sort((a, b) => a.id - b.id);
+      // Collision order must not depend on cells being removed and reinserted.
+      candidates.sort((a, b) => a.id - b.id);
 
-    for (const node of candidates) if (callback(node) === false) break;
+      for (const node of candidates) if (callback(node) === false) break;
+    } finally {
+      seen.clear();
+      candidates.length = 0;
+      this.queryDepth--;
+    }
   }
 }

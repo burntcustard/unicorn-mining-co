@@ -127,10 +127,11 @@ export class GameObject {
     this.rotation += this.spin * dt;
 
     const { position, velocity, drag = 0.15, maxSpeed = 272 } = this;
-    const speed = Vec.length(velocity);
+    const speedSquared = velocity.x * velocity.x + velocity.y * velocity.y;
 
-    if (speed < 1) velocity.x = velocity.y = 0;
+    if (speedSquared < 1) velocity.x = velocity.y = 0;
     else {
+      const speed = Math.sqrt(speedSquared);
       const kept =
         speed > maxSpeed
           ? Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed

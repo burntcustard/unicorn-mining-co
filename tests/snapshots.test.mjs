@@ -29,6 +29,7 @@ const bundle = await rolldown({
         id === '\0snapshots-test'
           ? `
       export { network, NetworkClient } from '${resolve('src/client/network.ts')}';
+      export { encodeServerControl } from '${resolve('src/shared/protocol/binary-control.ts')}';
       export { updateWorld } from '${resolve('src/shared/simulation/update-world.ts')}';
       export { emptyPlayerInput } from '${resolve('src/shared/protocol/input.ts')}';
       export { ReplicationManager } from '${resolve('src/server/replication.ts')}';
@@ -49,6 +50,7 @@ await bundle.close();
 const {
   network,
   NetworkClient,
+  encodeServerControl,
   updateWorld,
   emptyPlayerInput,
   addPlayer,
@@ -171,9 +173,9 @@ assert(
 addEntity(world, distantStation);
 world.tick = 0;
 socket.onmessage({
-  data: JSON.stringify({
+  data: encodeServerControl({
     type: 'welcome',
-    playerToken: 'snapshots',
+    playerToken: '00000000-0000-4000-8000-000000000001',
     playerId: 1,
     shipId: ship.id,
     serverTick: 0,
@@ -183,9 +185,7 @@ socket.onmessage({
 });
 let packetTick = 0;
 const deliver = (message) => {
-  socket.onmessage({
-    data: JSON.stringify({ ...message, serverTick: ++packetTick }),
-  });
+  network.receive({ message: { ...message, serverTick: ++packetTick } });
 
   if (message.type === 'snapshot') {
     network.update({ input: emptyPlayerInput() });
@@ -324,12 +324,13 @@ assert.deepEqual(
   ship.hullHealth,
   'repair restores authoritative health',
 );
-const wires = Array.from({ length: 2100 }, () =>
-  JSON.stringify({ ...snapshot, serverTick: ++packetTick }),
-);
+const wires = Array.from({ length: 2100 }, () => ({
+  ...snapshot,
+  serverTick: ++packetTick,
+}));
 let packet = 0;
 const applyNext = () => {
-  socket.onmessage({ data: wires[packet++] });
+  network.receive({ message: wires[packet++] });
   network.update({ input: emptyPlayerInput() });
 };
 
@@ -392,11 +393,13 @@ assert.equal(pristine.segments, undefined);
 const asteroidClient = new NetworkClient({ url: 'ws://asteroid-test' });
 const asteroidSocket = socket;
 const deliverAsteroid = (message) =>
-  asteroidSocket.onmessage({ data: JSON.stringify(message) });
+  message.type === 'welcome' || message.type === 'respawn'
+    ? asteroidSocket.onmessage({ data: encodeServerControl(message) })
+    : asteroidClient.receive({ message });
 
 deliverAsteroid({
   type: 'welcome',
-  playerToken: 'asteroid-test',
+  playerToken: '00000000-0000-4000-8000-000000000002',
   playerId: 1,
   shipId: asteroidObserver.id,
   serverTick: 0,
@@ -533,12 +536,14 @@ turningShip.spin = (turningShip.turnRate * turningShip.rotationalThrust) / 16;
 const client = new NetworkClient({ url: 'ws://test' });
 const clientSocket = socket;
 const sendState = (message) =>
-  clientSocket.onmessage({ data: JSON.stringify(message) });
+  message.type === 'welcome' || message.type === 'respawn'
+    ? clientSocket.onmessage({ data: encodeServerControl(message) })
+    : client.receive({ message });
 const turningReplication = new ReplicationManager();
 
 sendState({
   type: 'welcome',
-  playerToken: 'test',
+  playerToken: '00000000-0000-4000-8000-000000000003',
   playerId: 1,
   shipId: observer.id,
   serverTick: 0,

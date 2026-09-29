@@ -34,6 +34,7 @@ const schedules = new WeakMap<
   {
     observers: GameObject[];
     parents: GameObject[];
+    entities: GameObject[];
     entries: {
       entity: GameObject;
       tier: (typeof updateTiers)[keyof typeof updateTiers];
@@ -50,7 +51,7 @@ const schedules = new WeakMap<
  */
 export const updateEntities = ({
   world,
-  entities = [...world.entities.values()],
+  entities,
   tick = world.tick,
   inputs,
   events = [],
@@ -68,10 +69,16 @@ export const updateEntities = ({
   let schedule = schedules.get(world);
 
   if (!schedule) {
-    schedule = { observers: [], parents: [], entries: [] };
+    schedule = { observers: [], parents: [], entities: [], entries: [] };
     schedules.set(world, schedule);
   }
   const { observers, parents, entries: scheduled } = schedule;
+  const list = entities || schedule.entities;
+
+  if (!entities) {
+    list.length = 0;
+    world.entities.forEach((entity) => list.push(entity));
+  }
 
   observers.length = parents.length = 0;
   world.players.forEach((player) => {
@@ -79,17 +86,27 @@ export const updateEntities = ({
 
     if (entity) observers.push(entity);
   });
-  entities.forEach((entity, index) => {
-    // updateTier, without an options object and callback per entity.
+
+  for (let index = 0; index < list.length; index++) {
+    const entity = list[index];
+
+    // Determine the tier without allocating per-entity options or a callback.
     let tier: (typeof updateTiers)[keyof typeof updateTiers] =
       updateTiers.visible;
 
     if (observers.length) {
       tier = updateTiers.distant;
 
-      for (const observer of observers) {
+      for (
+        let observerIndex = 0;
+        observerIndex < observers.length;
+        observerIndex++
+      ) {
         if (
-          Vec.distanceSquared(entity.position, observer.position) <=
+          Vec.distanceSquared(
+            entity.position,
+            observers[observerIndex].position,
+          ) <=
           visibleRange * visibleRange
         ) {
           tier = updateTiers.visible;
@@ -114,8 +131,8 @@ export const updateEntities = ({
       entry.tier = tier;
       entry.step = step;
     } else scheduled.push({ entity, tier, step });
-  });
-  scheduled.length = entities.length;
+  }
+  scheduled.length = list.length;
   world.entities.forEach((entity) => {
     if (entity.holds) parents.push(entity);
   });

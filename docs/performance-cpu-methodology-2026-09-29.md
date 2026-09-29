@@ -224,3 +224,5 @@ The largest remaining measured costs are:
 - Region entity creation when new areas enter the active radius.
 
 The next replication attempt should use a fixed schema and write directly into a reusable byte buffer. It should not create JSON state first. Any such change needs an independent object-level oracle and a real client decode/reconciliation test before it is benchmarked.
+
+The follow-up fixed-schema binary implementation and its CPU result are documented in [CPU follow-up: binary-only networking and snapshot cadence](./performance-cpu-followup-2026-09-29.md).

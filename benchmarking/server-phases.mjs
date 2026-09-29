@@ -53,6 +53,12 @@ export function instrumentPhases(code, id, detail = false) {
       'Packet JSON encoding',
     ],
     [
+      'server/binary-replication.ts',
+      'BinaryReplicationManager',
+      'snapshot',
+      'Binary snapshot preparation and encoding',
+    ],
+    [
       'shared/collision/game-collisions.ts',
       'GameCollisions',
       'step',

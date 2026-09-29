@@ -8,6 +8,11 @@ import { once } from 'node:events';
 import WebSocket from 'ws';
 import { GameServer } from '../src/server/game-server';
 import { parseClientMessage } from '../src/server/parse-client-message';
+import {
+  encodeClientMessage,
+  decodeServerControl,
+} from '../src/shared/protocol/binary-control';
+import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
 import { createAsteroid } from '../src/shared/simulation/asteroid';
 import { Item } from '../src/shared/items/item';
 import {
@@ -36,43 +41,47 @@ const inputPacket = ({
   sequence: number;
   input: number;
   offset?: number;
-}) =>
-  JSON.stringify(
-    offset === undefined
-      ? [tick, sequence, input]
-      : [tick, sequence, input, offset],
-  );
+}) => {
+  const packet = encodeClientMessage({
+    type: 'input',
+    tick,
+    sequence,
+    input: unpackPlayerInput(input < 192 ? input : 0),
+    offset,
+  });
+
+  // Exercise the server parser with an invalid packed control byte.
+  if (input >= 192) {
+    packet[packet.length - (offset === undefined ? 2 : 10)] = 255;
+  }
+
+  return packet;
+};
 
 // Every valid control combination must survive its packed wire representation.
 for (let code = 0; code < 192; code++) {
   assert.equal(packPlayerInput(unpackPlayerInput(code)), code);
 }
 
-for (const code of [-1, 192, 256, 1.5, '1', null]) {
-  assert.equal(
-    parseClientMessage(Buffer.from(JSON.stringify([1, 1, code]))),
-    undefined,
-  );
+for (const code of [192, 255]) {
+  const packet = inputPacket({
+    type: 'input',
+    tick: 1,
+    sequence: 1,
+    input: code,
+  });
+
+  packet[packet.length - 2] = code;
+  assert.equal(parseClientMessage(Buffer.from(packet)), undefined);
 }
 
-for (const message of [
-  [-1, 1, 0],
-  [1, -1, 0],
-  [1, 1.5, 0],
-  [1, 1, 0, -0.1],
-  [1, 1, 0, simulationStep],
-  { type: 'hello', playerToken: 'not-a-token' },
-  { type: 'hello', playerToken: null, snapshotAcknowledgements: 1 },
-  { type: 'snapshotAck', sequence: -1 },
-  { type: 'snapshotAck', sequence: 1.5 },
-  { type: 'snapshotAck', sequence: '1' },
-  { type: 'dock', action: 'sell', objectIds: ['bad'] },
-  { type: 'dock', action: 'buy', module: 1, moduleId: null },
+for (const packet of [
+  Uint8Array.of(),
+  Uint8Array.of(0x55, 0x43, 2, 3),
+  Uint8Array.of(0x55, 0x43, 1, 4, 0x80),
+  Buffer.from('{"type":"hello","playerToken":null}'),
 ]) {
-  assert.equal(
-    parseClientMessage(Buffer.from(JSON.stringify(message))),
-    undefined,
-  );
+  assert.equal(parseClientMessage(Buffer.from(packet)), undefined);
 }
 
 // Integer-millisecond timer delays must not turn 30 Hz into 30.303 Hz.
@@ -192,12 +201,15 @@ const collect = ({
   const records = new Map<number, ReplicatedEntity>();
 
   return socket.on('message', (data) => {
-    const serialized = Array.isArray(data)
-      ? Buffer.concat(data).toString('utf8')
-      : Buffer.from(
-          data instanceof ArrayBuffer ? new Uint8Array(data) : data,
-        ).toString('utf8');
-    const message = JSON.parse(serialized) as ServerMessage;
+    const bytes = Array.isArray(data)
+      ? Buffer.concat(data)
+      : data instanceof ArrayBuffer
+        ? new Uint8Array(data)
+        : data;
+    const message =
+      bytes[1] === 0x4d
+        ? decodeBinarySnapshot(bytes)
+        : decodeServerControl(bytes);
 
     if (message.type === 'load') records.clear();
 
@@ -217,6 +229,18 @@ const collect = ({
       });
     }
     messages.push(message);
+
+    if (
+      (message.type === 'load' || message.type === 'snapshot') &&
+      message.snapshotSequence !== undefined
+    ) {
+      socket.send(
+        encodeClientMessage({
+          type: 'snapshotAck',
+          sequence: message.snapshotSequence,
+        }),
+      );
+    }
   });
 };
 
@@ -244,7 +268,7 @@ for (const payload of ['{', 'null']) {
     invalidSocket.once('close', (closeCode) => resolve(closeCode)),
   );
 
-  assert.equal(code, 1007);
+  assert.equal(code, 1008);
 }
 
 const wrongOrigin = new WebSocket(
@@ -261,7 +285,7 @@ const [limitCode] = await once(oversized, 'close');
 
 assert.equal(limitCode, 1009);
 
-socket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
+socket.send(encodeClientMessage({ playerToken: null, type: 'hello' }));
 
 const welcome = await waitFor({ messages, type: 'welcome' });
 const load = await waitFor({ messages, type: 'load' });
@@ -310,7 +334,9 @@ const invalidControlMessages: ServerMessage[] = [];
 
 collect({ messages: invalidControlMessages, socket: invalidControlSocket });
 await once(invalidControlSocket, 'open');
-invalidControlSocket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
+invalidControlSocket.send(
+  encodeClientMessage({ playerToken: null, type: 'hello' }),
+);
 const invalidControlWelcome = await waitFor({
   messages: invalidControlMessages,
   type: 'welcome',
@@ -587,14 +613,14 @@ assert(
   'mounted module IDs reach the client before they can be sold',
 );
 socket.send(
-  JSON.stringify({ type: 'dock', action: 'remove', mount: hatchMount }),
+  encodeClientMessage({ type: 'dock', action: 'remove', mount: hatchMount }),
 );
 await waitUntil({
   condition: () =>
     authoritativeShip.cargoContents.some(({ id }) => id === hatchId),
 });
 socket.send(
-  JSON.stringify({ type: 'dock', action: 'sell', objectIds: [hatchId] }),
+  encodeClientMessage({ type: 'dock', action: 'sell', objectIds: [hatchId] }),
 );
 await waitUntil({
   condition: () =>
@@ -602,7 +628,7 @@ await waitUntil({
 });
 assert(!authoritativeShip.cargoContents.some(({ id }) => id === hatchId));
 socket.send(
-  JSON.stringify({ type: 'dock', action: 'sell', objectIds: [hatchId] }),
+  encodeClientMessage({ type: 'dock', action: 'sell', objectIds: [hatchId] }),
 );
 await new Promise((resolve) => setTimeout(resolve, 70));
 assert.equal(
@@ -616,7 +642,7 @@ const soldItem = authoritativeShip.cargoContents.find(
 
 assert(soldItem);
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'sell',
     objectIds: [soldItem.id, 999999],
@@ -626,7 +652,11 @@ await new Promise((resolve) => setTimeout(resolve, 70));
 assert(authoritativeShip.cargoContents.includes(soldItem));
 assert.equal(authoritativeShip.credits, startingCredits + CargoHatch.price);
 socket.send(
-  JSON.stringify({ type: 'dock', action: 'sell', objectIds: [soldItem.id] }),
+  encodeClientMessage({
+    type: 'dock',
+    action: 'sell',
+    objectIds: [soldItem.id],
+  }),
 );
 await waitUntil({
   condition: () =>
@@ -652,7 +682,7 @@ const purchasedId = 999998;
 const creditsBeforePurchase = authoritativeShip.credits;
 
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'buy',
     module: moduleTypes.indexOf(CargoHatch),
@@ -668,7 +698,7 @@ assert.equal(
   creditsBeforePurchase - CargoHatch.price,
 );
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'equip',
     moduleId: purchasedId,
@@ -683,7 +713,7 @@ await waitUntil({
   },
 });
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'paint',
     moduleId: purchasedId,
@@ -699,7 +729,7 @@ await waitUntil({
   },
 });
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'paint',
     paint: paintColors.indexOf(colors.red),
@@ -725,7 +755,7 @@ const moduleRepairCost = repairModule.health - (repairMount.health | 0);
 const beforeModuleRepair = authoritativeShip.credits;
 
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'repair',
     moduleId: 999999,
@@ -736,7 +766,7 @@ await new Promise((resolve) => setTimeout(resolve, 70));
 assert.equal(repairMount.health, repairModule.health - 1.11111);
 assert.equal(authoritativeShip.credits, beforeModuleRepair);
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'repair',
     moduleId: repairModule.id,
@@ -765,7 +795,7 @@ await waitUntil({
     ),
 });
 socket.send(
-  JSON.stringify({
+  encodeClientMessage({
     type: 'dock',
     action: 'repair',
     moduleId: repairModule.id,
@@ -791,7 +821,7 @@ const hullMaxHealth = authoritativeShip.hullSegments.reduce(
 const hullRepairCost = hullMaxHealth - (hullHealth | 0);
 const beforeHullRepair = authoritativeShip.credits;
 
-socket.send(JSON.stringify({ type: 'dock', action: 'repair' }));
+socket.send(encodeClientMessage({ type: 'dock', action: 'repair' }));
 await waitUntil({
   condition: () =>
     damagedHull.health === damagedHull.module.health &&
@@ -812,7 +842,7 @@ await waitUntil({
         ),
     ),
 });
-socket.send(JSON.stringify({ type: 'dock', action: 'repair' }));
+socket.send(encodeClientMessage({ type: 'dock', action: 'repair' }));
 await new Promise((resolve) => setTimeout(resolve, 70));
 assert.equal(authoritativeShip.credits, beforeHullRepair - hullRepairCost);
 
@@ -848,7 +878,7 @@ const secondMessages: ServerMessage[] = [];
 
 collect({ messages: secondMessages, socket: secondSocket });
 await once(secondSocket, 'open');
-secondSocket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
+secondSocket.send(encodeClientMessage({ playerToken: null, type: 'hello' }));
 const secondWelcome = await waitFor({
   messages: secondMessages,
   type: 'welcome',
@@ -943,7 +973,10 @@ for (const disconnectFirst of [true, false]) {
   collect({ messages: reconnectMessages, socket: secondSocket });
   await once(secondSocket, 'open');
   secondSocket.send(
-    JSON.stringify({ playerToken: secondWelcome.playerToken, type: 'hello' }),
+    encodeClientMessage({
+      playerToken: secondWelcome.playerToken,
+      type: 'hello',
+    }),
   );
   const reconnectWelcome = await waitFor({
     messages: reconnectMessages,
@@ -1010,7 +1043,7 @@ const idleMessages: ServerMessage[] = [];
 
 collect({ messages: idleMessages, socket: idleSocket });
 await once(idleSocket, 'open');
-idleSocket.send(JSON.stringify({ playerToken: null, type: 'hello' }));
+idleSocket.send(encodeClientMessage({ playerToken: null, type: 'hello' }));
 const idleWelcome = await waitFor({ messages: idleMessages, type: 'welcome' });
 
 assert.equal(idleWelcome.type, 'welcome');
@@ -1086,7 +1119,7 @@ await waitUntil({
           message.serverTick > deathSnapshot.serverTick,
       ),
 });
-socket.send(JSON.stringify({ type: 'respawn' }));
+socket.send(encodeClientMessage({ type: 'respawn' }));
 await waitUntil({
   condition: () =>
     messages.slice(deathMessageStart).some(({ type }) => type === 'respawn'),

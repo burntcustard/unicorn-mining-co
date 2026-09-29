@@ -588,14 +588,8 @@ const fly = async ({ ticks }: { ticks: number }) =>
   new Promise((resolve) => setTimeout(resolve, ticks * step));
 
 await fly({ ticks: 60 });
-// Emulate a legacy server without receipt flow control. A new client must still
-// merge its backlog without replaying once per packet when flow control is absent.
-const legacyPlayer = [
-  ...Reflect.get(Reflect.get(server, 'session'), 'players').values(),
-].find((player) => player.playerId === network.playerId);
-
-legacyPlayer.snapshotAcknowledgements = false;
-// Hold one browser's socket callbacks during a stall, then deliver the backlog.
+// Hold one browser's socket callbacks during a stall. Mandatory receipts
+// bound the queue to two snapshots, then a fresh state follows its release.
 const socket = Reflect.get(network, 'socket') as WebSocket;
 const receive = socket.onmessage!;
 const backlog: MessageEvent[] = [];
@@ -612,8 +606,8 @@ socket.onmessage = receive;
 
 for (const message of backlog) receive.call(socket, message);
 assert(
-  backlog.length > 10,
-  'the stall must accumulate a real snapshot backlog',
+  backlog.length > 0 && backlog.length <= 2,
+  'the receipt window bounds queued snapshots during a stalled receiver',
 );
 assert.equal(
   predictionStats.steps,
@@ -625,17 +619,14 @@ assert(
   predictionStats.steps - stepsBeforeBacklog <= 6,
   'recovery must bound replay plus the current update',
 );
-assert(
-  Math.abs(network.world.tick - network.serverTick - 1) <= 1,
-  'the recovered clock returns to the one-tick lead with phase tolerance',
-);
 paused = false;
 await fly({ ticks: 30 });
-assert.equal(network.world.entities.get(network.shipId!)!.thrust, 0);
-legacyPlayer.snapshotAcknowledgements = true;
-console.log(
-  `Recovered ${backlog.length} legacy queued snapshots in one update`,
+assert(
+  Math.abs(network.world.tick - network.serverTick - 1) <= 1,
+  'fresh snapshots return the recovered clock to the one-tick lead',
 );
+assert.equal(network.world.entities.get(network.shipId!)!.thrust, 0);
+console.log(`Recovered from ${backlog.length} queued snapshots in one update`);
 Object.assign(predictionStats, { corrections: 0, steps: 0, worst: 0 });
 
 const shipId = network.shipId!;
@@ -1003,12 +994,14 @@ console.log(
 );
 
 const now = performance.now();
-const held = observer.remoteMotion.sample({ now: now + 1000 });
+
+observer.remoteMotion.sample({ now: now + 1000 });
+const held = observer.remoteMotion.sample({ now: now + 2000 });
 
 assert(held.has(shipId), 'the observer retains the remote ship');
 assert(!held.has(observer.shipId!), 'the local ship never gets a delayed pose');
 assert.deepEqual(
-  observer.remoteMotion.sample({ now: now + 2000 }),
+  observer.remoteMotion.sample({ now: now + 3000 }),
   held,
   'missing snapshots hold their endpoint instead of extrapolating indefinitely',
 );

@@ -35,21 +35,20 @@ Both production entry points use `plugins/build-plugins.js`; the server runner
 lives beside it in `plugins/build-server.js`. Production minification mangles
 object properties in each source module before Rolldown splits the code into
 chunks. The client and server builds seed Terser's
-property name cache from the same source files in the same order, so lazy chunks
-and JSON packets use matching short keys. The build prefixes audited app-owned
-properties from `plugins/property-names.js` with the small regex in
-`replace-pre-terser.js`, then lets Terser shorten them. The regex skips
-quoted paths, so `distance` can be mangled without changing imports of
-`shape-distance`. Exact message,
-entity, event and equipment tags in `plugins/protocol-tags.js` get shared
-one-byte values on both sides. Input transitions use positional JSON arrays
-`[tick, sequence, controlBits, offset?]`, with no field names or type tag.
-Clients opt into snapshot receipt acknowledgements in `hello`. The server assigns
+property name cache from the same source files in the same order. The build
+prefixes audited app-owned properties from `plugins/property-names.js` with the
+small regex in `replace-pre-terser.js`, then lets Terser shorten them. The regex
+skips quoted paths, so `distance` can be mangled without changing imports of
+`shape-distance`. WebSocket messages use only versioned binary frames: `UC` for
+client controls and server welcome/respawn, and `UM` for load/snapshot state.
+Input frames contain a packed control byte; snapshots use fixed numeric field
+identifiers, independent of JavaScript property names. The server assigns
 connection-local snapshot sequences and keeps at most two snapshots outstanding
-per player, including initial and respawn loads. The client acknowledges after
-decoding; skipped sends do not advance replication baselines, so the next send
-contains current changes. Peers without this capability keep the original send
-behavior. Client and server production assets must be built and released together.
+per player, including initial and respawn loads. The client acknowledges each
+snapshot after decoding; simulation and input run at 30 Hz while ordinary state
+snapshots run at 15 Hz. Skipped sends do not advance replication baselines, so
+the next send contains current changes. Client and server production assets must
+be built and released together.
 Untouched procedural asteroids recreate their segments from shared seeds instead
 of receiving them. Each player receives a full entity record on entry, then
 only fields that changed; `null` clears a field. Load records provide their

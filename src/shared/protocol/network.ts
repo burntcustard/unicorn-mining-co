@@ -66,7 +66,6 @@ export type ClientMessage =
   | {
       playerToken: string | null;
       type: 'hello';
-      snapshotAcknowledgements?: boolean;
     }
   | ({ type: 'dock' } & CraftAction)
   | { type: 'respawn' }

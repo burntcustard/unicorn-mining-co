@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
 import { GameSession } from '../src/server/game-session';
-import {
-  ReplicationManager,
-  ReplicationView,
-  SnapshotEncoder,
-} from '../src/server/replication';
+import { decodeServerControl } from '../src/shared/protocol/binary-control';
+import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
+import { ReplicationManager, SnapshotEncoder } from '../src/server/replication';
+import { ReplicationView } from '../src/server/replication-common';
 import { GameObject } from '../src/shared/game-object';
 import { createStation } from '../src/shared/craft/create-station';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
@@ -314,8 +313,12 @@ import { addEntity, createWorld } from '../src/shared/simulation/world';
     const socket = {
       readyState: 1,
       bufferedAmount: 0,
-      send(packet: string) {
-        messages.push(JSON.parse(packet));
+      send(packet: Uint8Array) {
+        messages.push(
+          packet[1] === 0x4d
+            ? decodeBinarySnapshot(packet)
+            : decodeServerControl(packet),
+        );
       },
       close() {},
       terminate() {},
@@ -359,7 +362,7 @@ import { addEntity, createWorld } from '../src/shared/simulation/world';
       input: { ...emptyPlayerInput(), turn: 1 },
     },
   });
-  session.tick();
+  session.tick({ ticks: 2 });
   const snapshot = second.messages.find(
     (message) => message.type === 'snapshot',
   )!;

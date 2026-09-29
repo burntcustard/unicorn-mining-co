@@ -1,5 +1,4 @@
 import * as Vec from '../vector';
-import { rotatePoint } from '../geometry';
 import { type GameObject } from '../game-object';
 
 /**
@@ -31,10 +30,21 @@ export const localMovement = (
   }
 
   if (!parent) {
-    for (const mover of movers) {
-      if (mover !== child && !mover.dead && mover.holds?.(child)) {
-        parent = mover;
-        break;
+    if (Array.isArray(movers)) {
+      for (let index = 0; index < movers.length; index++) {
+        const mover = movers[index];
+
+        if (mover !== child && !mover.dead && mover.holds?.(child)) {
+          parent = mover;
+          break;
+        }
+      }
+    } else {
+      for (const mover of movers) {
+        if (mover !== child && !mover.dead && mover.holds?.(child)) {
+          parent = mover;
+          break;
+        }
       }
     }
   }
@@ -48,12 +58,16 @@ export const localMovement = (
         1,
         (child.localMovementRate || 0) + dt,
       ));
-    const point = rotatePoint(
-      Vec.subtract(child.position, parent.position),
-      angle,
-    );
+    const x = child.position.x - parent.position.x;
+    const y = child.position.y - parent.position.y;
+    const sin = Math.sin(angle);
+    const cos = Math.cos(angle);
 
     child.rotation += angle;
-    Vec.add(parent.position, point, child.position);
+    Vec.setXY(
+      child.position,
+      parent.position.x + (x * cos - y * sin),
+      parent.position.y + (x * sin + y * cos),
+    );
   }
 };

@@ -77,7 +77,7 @@ export class GameServer {
           messages = 0;
         }
 
-        if (isBinary || ++messages > 120) {
+        if (!isBinary || ++messages > 120) {
           socket.close(1008, 'Message limit');
           return;
         }

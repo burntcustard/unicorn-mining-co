@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import WebSocket from 'ws';
 import { GameServer } from '../src/server/game-server';
+import { encodeClientMessage } from '../src/shared/protocol/binary-control';
 
 const waitUntil = async (condition: () => boolean) => {
   const started = Date.now();
@@ -57,7 +58,10 @@ const takeover = new WebSocket(`ws://127.0.0.1:${address.port}/game-socket`);
 
 await once(takeover, 'open');
 takeover.send(
-  JSON.stringify({ type: 'hello', playerToken: stored.get('playerToken') }),
+  encodeClientMessage({
+    type: 'hello',
+    playerToken: stored.get('playerToken')!,
+  }),
 );
 await waitUntil(() => !network.connected);
 const replacedSocket = Reflect.get(network, 'socket');

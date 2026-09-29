@@ -43,7 +43,7 @@ export const controlShip = (
   );
 
   // One pass finds which controlled modules are running, as moduleActive does.
-  const running = moduleControls.map(() => false);
+  let running = 0;
   const segments = ship.segments;
 
   for (let index = 0; index < segments.length; index++) {
@@ -53,14 +53,14 @@ export const controlShip = (
 
     for (let control = 0; control < moduleControls.length; control++) {
       if (segment.module instanceof moduleControls[control].Type) {
-        running[control] = true;
+        running |= 1 << control;
       }
     }
   }
   moduleControls.forEach(({ Type, input: command, readInput }, index) => {
     const enabled = readInput(input);
 
-    if (running[index] === enabled) return;
+    if (!!(running & (1 << index)) === enabled) return;
     ship.setModuleActive({ module: Type, active: enabled });
 
     if (ship.playerId !== undefined && command !== 'hornDrill') {

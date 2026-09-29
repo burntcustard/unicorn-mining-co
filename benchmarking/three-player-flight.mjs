@@ -187,8 +187,31 @@ try {
       send(packet) {
         if (recording) {
           hash.update(packet);
-          bytes += packet.length;
+          bytes +=
+            typeof packet === 'string'
+              ? Buffer.byteLength(packet)
+              : packet.byteLength;
           packets++;
+        }
+        // Model receipt of the current binary snapshot before the next tick.
+
+        if (
+          packet instanceof Uint8Array &&
+          packet[0] === 0x55 &&
+          packet[1] === 0x4d &&
+          (packet[3] & 16) !== 0
+        ) {
+          const player = session.playersBySocket.get(this);
+
+          if (player) {
+            session.receive({
+              socket: this,
+              message: {
+                type: 'snapshotAck',
+                sequence: player.snapshotSequence,
+              },
+            });
+          }
         }
       },
       close() {},

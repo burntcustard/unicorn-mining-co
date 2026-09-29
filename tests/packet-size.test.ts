@@ -9,16 +9,20 @@ import { rolldown } from 'rolldown';
 import WebSocket, { type RawData } from 'ws';
 import { GameServer } from '../src/server/game-server';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
+import {
+  encodeClientMessage,
+  decodeServerControl,
+} from '../src/shared/protocol/binary-control';
+import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
 import { buildPlugin } from '../plugins/build-plugins.js';
-import { encodeProtocolTags } from '../plugins/protocol-tags.js';
 
 const serverCode = readFileSync('dist/server.js', 'utf8');
 
 assert(
-  !/\b(lowerBound|upperBound|advance|resource|station|snapshot|respawn|cargoHatch|hornDrill|searchLight|shieldGenerator)\b/.test(
+  !/\b(lowerBound|upperBound|advance|resource|station|cargoHatch|hornDrill|searchLight|shieldGenerator)\b/.test(
     serverCode,
   ),
-  'audited properties and wire tags must be short in the built server',
+  'audited properties must be short in the built server',
 );
 
 assert(
@@ -32,27 +36,33 @@ assert(
 
 const entryId = resolve('src/__packet_client_test.ts');
 const entry = `
-import { emptyPlayerInput, packPlayerInput } from './shared/protocol/input';
-export const hello = () => JSON.stringify({ type: 'hello', playerToken: null, snapshotAcknowledgements: true });
+import { emptyPlayerInput } from './shared/protocol/input';
+import { encodeClientMessage, decodeServerControl, decodeClientMessage } from './shared/protocol/binary-control';
+import { decodeBinarySnapshot } from './shared/protocol/binary-snapshot';
+const decode = source => source[1] === 0x4d ? decodeBinarySnapshot(source) : decodeServerControl(source);
+export const hello = () => encodeClientMessage({ type: 'hello', playerToken: null });
 export const acknowledge = source => {
-  const message = JSON.parse(source);
-  return message.snapshotSequence === undefined ? undefined : JSON.stringify({ type: 'snapshotAck', sequence: message.snapshotSequence });
+  const message = decode(source);
+  return message.snapshotSequence === undefined ? undefined : encodeClientMessage({ type: 'snapshotAck', sequence: message.snapshotSequence });
 };
-export const makeInput = (tick, offset, active = false) => JSON.stringify([
-  tick,
-  active ? 2 : 1,
-  packPlayerInput(active
+export const makeInput = (tick, offset, active = false) => encodeClientMessage({
+  type: 'input', tick, sequence: active ? 2 : 1,
+  input: active
     ? { ...emptyPlayerInput(), hornDrill: true, thrust: 1, turn: -1 }
-    : emptyPlayerInput()),
-  ...(offset === undefined ? [] : [offset]),
-]);
+    : emptyPlayerInput(),
+  ...(offset === undefined ? {} : { offset }),
+});
 export const inspect = source => {
-  const message = JSON.parse(source);
+  const message = decode(source);
   return [message.type, message.shipId, message.serverTick, message.fullEntities?.length, message.acknowledgedSequence];
 };
 export const entityIds = source => {
-  const message = JSON.parse(source);
+  const message = decode(source);
   return [message.entityIds, message.fullEntities?.map(entity => entity.id)];
+};
+export const inspectInput = source => {
+  const message = decodeClientMessage(source);
+  return [message.type, message.tick, message.sequence, message.input.hornDrill, message.input.thrust, message.input.turn];
 };
 `;
 const bundle = await rolldown({
@@ -76,38 +86,44 @@ const client = await import(
   `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
 );
 
-const sourceOf = (data: RawData) =>
+const bytesOf = (data: RawData) =>
   Array.isArray(data)
-    ? Buffer.concat(data).toString('utf8')
-    : Buffer.from(
-        data instanceof ArrayBuffer ? new Uint8Array(data) : data,
-      ).toString('utf8');
+    ? Buffer.concat(data)
+    : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+const packetType = (data: Uint8Array) =>
+  data[1] === 0x4d
+    ? data[3] & 1
+      ? 'load'
+      : 'snapshot'
+    : data[1] === 0x43 && data[3] === 5
+      ? 'welcome'
+      : 'respawn';
+const decodePacket = (data: Uint8Array) =>
+  data[1] === 0x4d ? decodeBinarySnapshot(data) : decodeServerControl(data);
 
 const receive = (socket: WebSocket) => {
-  const packets: string[] = [];
+  const packets: Buffer[] = [];
 
   socket.on('message', (data) => {
-    const source = sourceOf(data);
+    const packet = bytesOf(data);
 
-    packets.push(source);
-    const acknowledgement = client.acknowledge(source);
+    packets.push(packet);
+    const acknowledgement = client.acknowledge(packet);
 
     if (acknowledgement) socket.send(acknowledgement);
   });
   return packets;
 };
 const waitFor = async (
-  packets: string[],
+  packets: Buffer[],
   type: string,
-  accept: (source: string) => boolean = () => true,
+  accept: (source: Buffer) => boolean = () => true,
 ) => {
   const started = Date.now();
 
   while (Date.now() - started < 3000) {
     const packet = packets.find(
-      (source) =>
-        client.inspect(source)[0] === encodeProtocolTags.get(type) &&
-        accept(source),
+      (source) => packetType(source) === type && accept(source),
     );
 
     if (packet) return packet;
@@ -127,9 +143,21 @@ assert(sourceAddress && typeof sourceAddress !== 'string');
 const sourceSocket = new WebSocket(
   `ws://127.0.0.1:${sourceAddress.port}/game-socket`,
 );
-const sourcePackets: string[] = [];
+const sourcePackets: Buffer[] = [];
 
-sourceSocket.on('message', (data) => sourcePackets.push(sourceOf(data)));
+sourceSocket.on('message', (data) => {
+  const packet = bytesOf(data);
+
+  sourcePackets.push(packet);
+
+  if (packetType(packet) === 'load' || packetType(packet) === 'snapshot') {
+    const sequence = decodeBinarySnapshot(packet).snapshotSequence;
+
+    if (sequence !== undefined) {
+      sourceSocket.send(encodeClientMessage({ type: 'snapshotAck', sequence }));
+    }
+  }
+});
 
 let plainLoad: string;
 let plainSnapshot: string;
@@ -137,27 +165,33 @@ let plainWelcome: string;
 
 try {
   await once(sourceSocket, 'open');
-  sourceSocket.send(JSON.stringify({ type: 'hello', playerToken: null }));
+  sourceSocket.send(encodeClientMessage({ type: 'hello', playerToken: null }));
   const started = Date.now();
 
   while (
-    !sourcePackets.some((source) => JSON.parse(source).type === 'welcome') ||
-    !sourcePackets.some((source) => JSON.parse(source).type === 'load') ||
-    !sourcePackets.some((source) => JSON.parse(source).type === 'snapshot')
+    !sourcePackets.some((source) => packetType(source) === 'welcome') ||
+    !sourcePackets.some((source) => packetType(source) === 'load') ||
+    !sourcePackets.some((source) => packetType(source) === 'snapshot')
   ) {
     assert(Date.now() - started < 3000, 'source server timed out');
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
-  plainWelcome = sourcePackets.find(
-    (source) => JSON.parse(source).type === 'welcome',
-  )!;
-  plainLoad = sourcePackets.find(
-    (source) => JSON.parse(source).type === 'load',
-  )!;
-  plainSnapshot = sourcePackets.find(
-    (source) => JSON.parse(source).type === 'snapshot',
-  )!;
+  plainWelcome = JSON.stringify(
+    decodePacket(
+      sourcePackets.find((source) => packetType(source) === 'welcome')!,
+    ),
+  );
+  plainLoad = JSON.stringify(
+    decodePacket(
+      sourcePackets.find((source) => packetType(source) === 'load')!,
+    ),
+  );
+  plainSnapshot = JSON.stringify(
+    decodePacket(
+      sourcePackets.find((source) => packetType(source) === 'snapshot')!,
+    ),
+  );
 } finally {
   sourceSocket.close();
   await sourceServer.stop();
@@ -182,13 +216,18 @@ const child = spawn(
 const childExit = once(child, 'exit');
 let serverError = '';
 
-child.stderr.on('data', (data) => (serverError += sourceOf(data)));
+child.stderr.on(
+  'data',
+  (data) => (serverError += bytesOf(data).toString('utf8')),
+);
 
 try {
   await Promise.race([
     new Promise<void>((done, reject) => {
       child.stdout.on('data', (data) => {
-        if (sourceOf(data).includes('Game server listening')) done();
+        if (bytesOf(data).toString('utf8').includes('Game server listening')) {
+          done();
+        }
       });
       child.once('exit', (code) =>
         reject(Error(`Built server exited ${code}: ${serverError}`)),
@@ -345,10 +384,7 @@ try {
         .map(([type, [compact, plain]]) => `${type}: ${compact}/${plain}B`)
         .join(', '),
     );
-    assert(
-      client.acknowledge(load),
-      'built server negotiates and sequences snapshots',
-    );
+    assert(client.acknowledge(load), 'built server sequences binary snapshots');
     assert(client.inspect(load)[3] > 0, 'mangled client reads server entities');
     const [loadIds, visibleIds] = client.entityIds(load);
     const [snapshotIds, recordIds] = client.entityIds(snapshot);
@@ -364,8 +400,11 @@ try {
     );
     assert(sizes.hello[0] < sizes.hello[1]);
     assert(sizes.input[0] < sizes.input[1] * 0.2);
-    assert(Array.isArray(JSON.parse(compactInput)));
-    assert(!activeInput.includes('false'), 'active controls use a bitmask');
+    assert.deepEqual(client.inspectInput(compactInput).slice(1, 3), [
+      inputTick,
+      1,
+    ]);
+    assert.deepEqual(client.inspectInput(activeInput).slice(3), [true, 1, -1]);
     assert(sizes.inputTimed[0] < sizes.inputTimed[1] * 0.25);
     assert(sizes.inputActive[0] < sizes.inputActive[1] * 0.25);
     assert(sizes.welcome[0] < sizes.welcome[1]);
