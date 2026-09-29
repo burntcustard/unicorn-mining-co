@@ -291,16 +291,16 @@ import { addEntity, createWorld } from '../src/shared/simulation/world';
   }
 }
 
-// Dense cells must not exceed the argument limit when gathering candidates.
+// A dense world must not exceed the argument limit when reading positions.
 {
   const world = createWorld();
 
   for (let id = 0; id < 150000; id++) {
-    // The index only reads identity, class and position; share a position here.
+    // The view only reads identity, class and position; share a position here.
     world.entities.set(id, { id, position: Vec.create() } as GameObject);
   }
   assert.equal(
-    [...new ReplicationView(world).query(Vec.create())].length,
+    new ReplicationView(world).entities().length,
     world.entities.size,
   );
 }

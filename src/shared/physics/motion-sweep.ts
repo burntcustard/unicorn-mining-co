@@ -30,6 +30,19 @@ export class Sweep {
 
   c0 = Vec.create();
   a0 = 0;
+  private trigAngle = NaN;
+  cosA0 = 1;
+  sinA0 = 0;
+
+  // Refresh cosA0/sinA0 for the rotation at alpha0 when a0 has changed.
+  rotation0(): this {
+    if (this.trigAngle !== this.a0) {
+      this.trigAngle = this.a0;
+      this.cosA0 = Math.cos(this.a0);
+      this.sinA0 = Math.sin(this.a0);
+    }
+    return this;
+  }
   setTransform(xf: TransformValue): void {
     Vec.set(this.c, xf.p);
     Vec.set(this.c0, xf.p);

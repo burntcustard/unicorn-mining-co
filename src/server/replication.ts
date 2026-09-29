@@ -16,7 +16,12 @@ import { Ship } from '../shared/craft/ship';
 import { Asteroid } from '../shared/simulation/asteroid';
 import { Item } from '../shared/items/item';
 import { Station } from '../shared/craft/station';
-import { updateTier } from '../shared/simulation/update-tier';
+import {
+  ballisticReplicateEvery,
+  updateTiers,
+  visibleRange,
+} from '../shared/settings';
+import { isBallistic } from '../shared/collision/game-collisions';
 
 const entityLoad = 2000;
 const entityUnload = 2500;
@@ -28,6 +33,38 @@ const moduleRecords = new WeakMap<
   Craft,
   { modules: Module[]; states: ModuleState[] }
 >();
+// Compare every module's segment activity with its last state in one pass.
+const sameModuleSegments = (
+  entity: Craft,
+  modules: Module[],
+  states: ModuleState[],
+) => {
+  const indexes = new Map(modules.map((module, index) => [module, index]));
+  const counts = modules.map(() => 0);
+
+  if (indexes.size !== modules.length) return false;
+
+  for (const segment of entity.segments) {
+    const index = indexes.get(segment.module);
+
+    if (index === undefined || segment.mount !== modules[index].mount) {
+      continue;
+    }
+    const before = states[index].segments[counts[index]++];
+
+    if (
+      !before ||
+      segment.active !== before.active ||
+      segment.activationProgress !== before.activationProgress
+    ) {
+      return false;
+    }
+  }
+  return counts.every(
+    (count, index) => count === states[index].segments.length,
+  );
+};
+
 const readModules = (entity: Craft) => {
   const modules = entity.modules;
 
@@ -41,36 +78,18 @@ const readModules = (entity: Craft) => {
     modules.every((module, index) => {
       const state = previous.states[index];
 
-      if (
-        module !== previous.modules[index] ||
-        module.id !== state.id ||
-        mounts.indexOf(module.mount) !== state.mount ||
-        (module.mount ? module.mount.health : module.health) !== state.health ||
-        module.shades?.length !== state.shades?.length ||
-        module.shades?.some(
+      return (
+        module === previous.modules[index] &&
+        module.id === state.id &&
+        mounts.indexOf(module.mount) === state.mount &&
+        (module.mount ? module.mount.health : module.health) === state.health &&
+        module.shades?.length === state.shades?.length &&
+        !module.shades?.some(
           (shade: string, i: number) => shade !== state.shades?.[i],
         )
-      ) {
-        return false;
-      }
-      let count = 0;
-
-      for (const segment of entity.segments) {
-        if (segment.mount !== module.mount || segment.module !== module) {
-          continue;
-        }
-        const before = state.segments[count++];
-
-        if (
-          !before ||
-          segment.active !== before.active ||
-          segment.activationProgress !== before.activationProgress
-        ) {
-          return false;
-        }
-      }
-      return count === state.segments.length;
-    })
+      );
+    }) &&
+    sameModuleSegments(entity, modules, previous.states)
   ) {
     return previous.states;
   }
@@ -97,6 +116,9 @@ const records = new WeakMap<GameObject, ReplicationRecord>();
 
 type ReplicationRecord = {
   entity: ReplicatedEntity;
+  // The simulated object, and the snapshot batch that last prepared it.
+  replicated: GameObject;
+  batch?: ReplicationRecords;
   revision: number;
   previousRevision: number;
   recentDelta: ReplicatedEntity | null | undefined;
@@ -161,6 +183,7 @@ const createRecord = (entity: GameObject): ReplicationRecord => {
 
   return {
     entity: {} as ReplicatedEntity,
+    replicated: entity,
     revision: 0,
     previousRevision: 0,
     recentDelta: undefined,
@@ -457,73 +480,37 @@ export class SnapshotEncoder {
   }
 }
 
-type ViewEntry = { entity: GameObject; index: number };
-
 /*
- * One snapshot batch owns this index, built after simulation and discarded
- * before the next mutation. Cells only select candidates: exact circular
- * ranges and each receiver's load/unload hysteresis remain in snapshot().
+ * One snapshot batch owns this list, read after simulation and discarded
+ * before the next mutation. A flat scan rejects distant objects without
+ * membership lookups; exact ranges and each receiver's hysteresis remain in
+ * snapshot(). World insertion order is preserved for identical wire order.
  */
 export class ReplicationView {
-  private viewCells?: Map<string, ViewEntry[]>;
-  private stations: ViewEntry[] = [];
   private world: SimulationWorld;
+  private snapshotList?: GameObject[];
+  // Per entity: 1 for a station, 2 for free motion; and a sampling phase.
+  kinds: number[] = [];
+  phases: number[] = [];
 
   constructor(world: SimulationWorld) {
     this.world = world;
   }
 
-  query(position: Vec.Value) {
-    const { world } = this;
+  entities() {
+    if (!this.snapshotList) {
+      this.snapshotList = [...this.world.entities.values()];
+      this.snapshotList.forEach((entity, index) => {
+        const station = entity instanceof Station;
 
-    if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
-      return world.entities.values();
+        this.kinds[index] =
+          +station |
+          (+((station || entity instanceof Asteroid) && isBallistic(entity)) <<
+            1);
+        this.phases[index] = entity.id % ballisticReplicateEvery;
+      });
     }
-
-    if (!this.viewCells) {
-      this.viewCells = new Map();
-      let order = 0;
-
-      for (const entity of world.entities.values()) {
-        const entry = { entity, index: order++ };
-
-        // Stations have a much larger marker range and are sparse.
-        if (entity instanceof Station) {
-          this.stations.push(entry);
-          continue;
-        }
-        const key = `${Math.floor(entity.position.x / entityUnload)}:${Math.floor(entity.position.y / entityUnload)}`;
-        const cell = this.viewCells.get(key);
-
-        if (cell) cell.push(entry);
-        else this.viewCells.set(key, [entry]);
-      }
-    }
-    const candidates = [...this.stations];
-    const minX = Math.floor((position.x - entityUnload) / entityUnload);
-    const maxX = Math.floor((position.x + entityUnload) / entityUnload);
-    const minY = Math.floor((position.y - entityUnload) / entityUnload);
-    const maxY = Math.floor((position.y + entityUnload) / entityUnload);
-
-    for (let x = 0; x <= maxX - minX; x++) {
-      for (let y = 0; y <= maxY - minY; y++) {
-        const cell = this.viewCells.get(`${minX + x}:${minY + y}`);
-
-        if (cell) {
-          for (const entry of cell) candidates.push(entry);
-        }
-      }
-    }
-
-    // A crowded view cannot profit from sorting most of the world.
-    if (candidates.length > world.entities.size / 2) {
-      return world.entities.values();
-    }
-    // Preserve world insertion order, including ID reuse, for identical wire
-    // ordering and client reconstruction behavior.
-    return candidates
-      .sort((a, b) => a.index - b.index)
-      .map(({ entity }) => entity);
+    return this.snapshotList;
   }
 }
 
@@ -540,15 +527,15 @@ type SnapshotOptions = {
 
 export class ReplicationManager {
   private snapshotTick = 0;
-  private entities = new Set<EntityId>();
-  private previousFields = new Map<
+  private stamp = 0;
+  // Loaded entities and each one's last sent record revision.
+  private members = new Map<
     EntityId,
-    { record: ReplicationRecord; revision: number }
+    { record: ReplicationRecord; revision: number; seen: number }
   >();
 
   initial(options: SnapshotOptions): ServerMessage {
-    this.entities.clear();
-    this.previousFields.clear();
+    this.members.clear();
     return { ...this.snapshot(options), entityIds: undefined, type: 'load' };
   }
 
@@ -564,60 +551,93 @@ export class ReplicationManager {
   }: SnapshotOptions) {
     const ship = world.entities.get(shipId) || { position: position! };
     const fullEntities: ReplicatedEntity[] = [];
-    const entities = new Set<EntityId>();
+    const entityIds: EntityId[] = [];
+    const members = this.members;
+    const stamp = ++this.stamp;
+    const previousSize = members.size;
+    let retained = 0;
     let membershipChanged = false;
+    const view = replicationView || new ReplicationView(world);
+    const list = view.entities();
+    const { kinds, phases } = view;
+    const shipX = ship.position.x;
+    const shipY = ship.position.y;
 
-    const candidates =
-      replicationView?.query(ship.position) || world.entities.values();
-
-    for (const entity of candidates) {
-      const loaded = this.entities.has(entity.id);
-      const range =
-        entity instanceof Station
-          ? loaded
-            ? markerUnload
-            : markerLoad
-          : loaded
-            ? entityUnload
-            : entityLoad;
+    for (let index = 0; index < list.length; index++) {
+      const entity = list[index];
+      const dx = entity.position.x - shipX;
+      const dy = entity.position.y - shipY;
+      const distanceSquared = dx * dx + dy * dy;
+      const station = (kinds[index] & 1) === 1;
 
       if (
+        distanceSquared > entityUnload * entityUnload &&
         entity.id !== shipId &&
-        !(Vec.distanceSquared(entity.position, ship.position) <= range * range)
+        (distanceSquared > markerUnload * markerUnload || !station)
       ) {
         continue;
       }
-      entities.add(entity.id);
+      const previous = members.get(entity.id);
+      const loaded = previous !== undefined;
+      const range = station
+        ? loaded
+          ? markerUnload
+          : markerLoad
+        : loaded
+          ? entityUnload
+          : entityLoad;
 
-      if (!loaded) membershipChanged = true;
+      if (entity.id !== shipId && !(distanceSquared <= range * range)) {
+        continue;
+      }
+      entityIds.push(entity.id);
 
-      const interval = updateTier({ entity, observers: [ship] }).replicateEvery;
+      if (loaded) {
+        previous.seen = stamp;
+        retained++;
+      } else membershipChanged = true;
+
+      const tierInterval =
+        distanceSquared <= visibleRange * visibleRange
+          ? updateTiers.visible.replicateEvery
+          : updateTiers.distant.replicateEvery;
+      const ballistic = kinds[index] > 1;
+      const interval = ballistic
+        ? Math.max(tierInterval, ballisticReplicateEvery)
+        : tierInterval;
+      // Spread ballistic samples across ticks rather than sending them together.
+      const phase = ballistic ? phases[index] : 0;
 
       if (
         loaded &&
-        world.tick % interval &&
-        Math.floor(world.tick / interval) ===
-          Math.floor(this.snapshotTick / interval)
+        (world.tick + phase) % interval &&
+        Math.floor((world.tick + phase) / interval) ===
+          Math.floor((this.snapshotTick + phase) / interval)
       ) {
         continue;
       }
-      const previous = this.previousFields.get(entity.id);
-      let prepared = replicationRecords.get(entity.id);
+      const previousRecord = previous?.record;
+      let prepared =
+        previousRecord?.replicated === entity &&
+        previousRecord.batch === replicationRecords
+          ? previousRecord
+          : replicationRecords.get(entity.id);
 
       if (!prepared) {
         prepared = replicateEntity({ entity });
+        prepared.batch = replicationRecords;
         replicationRecords.set(entity.id, prepared);
       }
-      const previousRecord = previous?.record;
       const revision = previousRecord === prepared ? previous!.revision : -1;
 
       if (previous) {
         previous.record = prepared;
         previous.revision = prepared.revision;
       } else {
-        this.previousFields.set(entity.id, {
+        members.set(entity.id, {
           record: prepared,
           revision: prepared.revision,
+          seen: stamp,
         });
       }
 
@@ -664,19 +684,18 @@ export class ReplicationManager {
 
       if (changed) fullEntities.push(changed);
     }
-    membershipChanged ||= entities.size !== this.entities.size;
-    this.entities = entities;
+    membershipChanged ||= retained !== previousSize;
     this.snapshotTick = world.tick;
 
     if (membershipChanged) {
-      this.previousFields.forEach((_, id) => {
-        if (!entities.has(id)) this.previousFields.delete(id);
+      members.forEach(({ seen }, id) => {
+        if (seen !== stamp) members.delete(id);
       });
     }
     return {
       acknowledgedSequence,
       inputLead,
-      entityIds: membershipChanged ? [...entities] : undefined,
+      entityIds: membershipChanged ? entityIds : undefined,
       fullEntities,
       nextEntityId: world.nextEntityId,
       serverTick: world.tick,

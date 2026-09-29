@@ -207,9 +207,12 @@ try {
       const origin = scenario.positions[i % 3];
       const group = Math.floor(i / 3);
       const spacing = scenario.name === 'spread' ? 14000 : 350;
+      // Optional small start offsets sample nearby chaotic trajectories.
+      const jitter = Number(options.jitter || 0) * (i + 1);
 
-      p.ship.position.x = origin[0] + (group % 4) * spacing;
-      p.ship.position.y = origin[1] + Math.floor(group / 4) * spacing;
+      p.ship.position.x = origin[0] + (group % 4) * spacing + (jitter % 7);
+      p.ship.position.y =
+        origin[1] + Math.floor(group / 4) * spacing + (jitter % 5);
       p.ship.rotation = scenario.rotations[i % 3];
     });
     const sequences = Array(playerCount).fill(0);
@@ -263,6 +266,7 @@ try {
       started = performance.now(),
       samples = [];
     let maxEntities = 0;
+    let entityTicks = 0;
 
     for (const key in costs) costs[key] = 0;
 
@@ -273,6 +277,7 @@ try {
       session.tick();
       samples.push(performance.now() - start);
       maxEntities = Math.max(maxEntities, session.world.entities.size);
+      entityTicks += session.world.entities.size;
     }
     const elapsed = performance.now() - started,
       used = process.cpuUsage(cpu);
@@ -302,6 +307,7 @@ try {
         costs: Object.fromEntries(
           Object.entries(costs).map(([k, v]) => [k, v / ticks]),
         ),
+        meanEntities: entityTicks / ticks,
       }),
     );
   }

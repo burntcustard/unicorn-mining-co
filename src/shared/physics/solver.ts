@@ -21,6 +21,7 @@ import {
 } from '../collision/time-of-impact';
 import { World } from './world';
 import { Sweep } from './motion-sweep';
+import { type Shape } from '../collision/shape/base';
 
 const maxTOISubsteps = 8;
 const toiEndTolerance = 1e-8;
@@ -52,6 +53,47 @@ const output: TOIOutput = { touching: false, t: -1 };
 const backup = new Sweep();
 const backup1 = new Sweep();
 const backup2 = new Sweep();
+
+/*
+ * Conservative TOI rejection: core bounding circles that stay farther apart
+ * than the TOI target throughout both sweeps cannot report an impact.
+ */
+const separatedThroughout = (
+  shapeA: Shape,
+  sweepA: Sweep,
+  shapeB: Shape,
+  sweepB: Sweep,
+) => {
+  const boundA = shapeA.getBound();
+  const boundB = shapeB.getBound();
+  const { cosA0: cosA, sinA0: sinA } = sweepA.rotation0();
+  const { cosA0: cosB, sinA0: sinB } = sweepB.rotation0();
+  const dx =
+    sweepB.c0.x +
+    cosB * boundB.x -
+    sinB * boundB.y -
+    (sweepA.c0.x + cosA * boundA.x - sinA * boundA.y);
+  const dy =
+    sweepB.c0.y +
+    sinB * boundB.x +
+    cosB * boundB.y -
+    (sweepA.c0.y + sinA * boundA.x + cosA * boundA.y);
+  const motion =
+    Math.hypot(sweepA.c.x - sweepA.c0.x, sweepA.c.y - sweepA.c0.y) +
+    Math.hypot(boundA.x, boundA.y) * Math.abs(sweepA.a - sweepA.a0) +
+    Math.hypot(sweepB.c.x - sweepB.c0.x, sweepB.c.y - sweepB.c0.y) +
+    Math.hypot(boundB.x, boundB.y) * Math.abs(sweepB.a - sweepB.a0);
+  const target = Math.max(
+    linearSlop,
+    shapeA.m_radius + shapeB.m_radius - 3 * linearSlop,
+  );
+
+  // A full slop of margin covers the distance query's own tolerance.
+  return (
+    Math.sqrt(dx * dx + dy * dy) - motion - boundA.radius - boundB.radius >
+    target + 1.25 * linearSlop
+  );
+};
 
 /**
  * Finds and solves islands. An island is a connected subset of the world.
@@ -100,7 +142,7 @@ export class Solver {
     const isolated: Body[] = [];
 
     for (let seed = world.m_bodyList; seed; seed = seed.m_next) {
-      if (seed.m_islandFlag) {
+      if (seed.m_islandFlag || seed.m_parked) {
         continue;
       }
 
@@ -290,7 +332,9 @@ export class Solver {
     for (let c = world.m_contactList; c; c = c.m_next) {
       c.m_toiFlag = false;
       c.m_islandFlag = false;
-      c.m_toiCount = 0;
+      // The discrete solver already handled pairs touching at the start;
+      // sweeping them again only repeats zero-time impacts.
+      c.m_toiCount = c.m_touchingFlag ? maxTOISubsteps + 1 : 0;
       c.m_toi = 1;
     }
 
@@ -336,21 +380,32 @@ export class Solver {
           }
 
           // Compute the time of impact in interval [0, minTOI]
-          input.proxyA = fA.getShape();
-          input.proxyB = fB.getShape();
-          input.sweepA.set(bA.m_sweep);
-          input.sweepB.set(bB.m_sweep);
-          input.tMax = 1;
-
-          findTimeOfImpact(output, input);
-
-          // Beta is the fraction of the remaining portion of the [time?].
-          const beta = output.t;
-
-          if (output.touching) {
-            alpha = Math.min(alpha0 + (1 - alpha0) * beta, 1);
-          } else {
+          if (
+            separatedThroughout(
+              fA.getShape(),
+              bA.m_sweep,
+              fB.getShape(),
+              bB.m_sweep,
+            )
+          ) {
             alpha = 1;
+          } else {
+            input.proxyA = fA.getShape();
+            input.proxyB = fB.getShape();
+            input.sweepA.set(bA.m_sweep);
+            input.sweepB.set(bB.m_sweep);
+            input.tMax = 1;
+
+            findTimeOfImpact(output, input);
+
+            // Beta is the fraction of the remaining portion of the [time?].
+            const beta = output.t;
+
+            if (output.touching) {
+              alpha = Math.min(alpha0 + (1 - alpha0) * beta, 1);
+            } else {
+              alpha = 1;
+            }
           }
 
           c.m_toi = alpha;

@@ -7,6 +7,7 @@ import { type InputFrame } from '../protocol/input-frame';
 import { type SimulationEvent } from '../protocol/events';
 import { controlShip } from '../craft/control-ship';
 import { Ship } from '../craft/ship';
+import { Craft } from '../craft/craft';
 import { simulationStep, updateTiers, visibleRange } from '../settings';
 
 /*
@@ -35,7 +36,7 @@ const schedules = new WeakMap<
     parents: GameObject[];
     entries: {
       entity: GameObject;
-      tier: typeof updateTiers.visible | typeof updateTiers.distant;
+      tier: (typeof updateTiers)[keyof typeof updateTiers];
       step: number;
     }[];
   }
@@ -79,9 +80,32 @@ export const updateEntities = ({
     if (entity) observers.push(entity);
   });
   entities.forEach((entity, index) => {
-    const tier = observers.length
-      ? updateTier({ entity, observers })
-      : updateTiers.visible;
+    // updateTier, without an options object and callback per entity.
+    let tier: (typeof updateTiers)[keyof typeof updateTiers] =
+      updateTiers.visible;
+
+    if (observers.length) {
+      tier = updateTiers.distant;
+
+      for (const observer of observers) {
+        if (
+          Vec.distanceSquared(entity.position, observer.position) <=
+          visibleRange * visibleRange
+        ) {
+          tier = updateTiers.visible;
+          break;
+        }
+      }
+    }
+
+    if (
+      tier === updateTiers.visible &&
+      !entity.velocity.x &&
+      !entity.velocity.y &&
+      !(entity instanceof Craft)
+    ) {
+      tier = updateTiers.drift;
+    }
     const step = (entity.pendingUpdateTime + simulationStep) / tier.substeps;
     const entry = scheduled[index];
 

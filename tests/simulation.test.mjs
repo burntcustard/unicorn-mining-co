@@ -1192,7 +1192,8 @@ const run = () => {
 const first = run();
 const second = run();
 
-// Shared 60/15 Hz tiers conserve elapsed time on both client and server.
+// Shared 60/30/15 Hz tiers conserve elapsed time on both client and server.
+// Visible stationary asteroids only spin, so they move once per tick.
 for (const multiplayer of [false, true]) {
   const world = createWorld();
   const pilot = addEntity(
@@ -1229,7 +1230,7 @@ for (const multiplayer of [false, true]) {
   }
   assert.deepEqual(
     calls.map((steps) => steps.length),
-    [60, 60, 15, multiplayer ? 60 : 15],
+    [30, 30, 15, multiplayer ? 30 : 15],
   );
   calls.forEach((steps) =>
     assert(Math.abs(steps.reduce((total, dt) => total + dt, 0) - 1) < 1e-12),
@@ -1241,7 +1242,7 @@ for (const multiplayer of [false, true]) {
   Vec.set(bodies[2].position, Vec.create(1000));
   updateWorld({ world: world, inputs: new Map() });
   assert(
-    Math.abs(calls[2].at(-1) - 2 / 60) < 1e-12,
+    Math.abs(calls[2].at(-1) - 4 / 60) < 1e-12,
     'tier promotion consumes accumulated time once',
   );
   assert.equal(bodies[2].pendingUpdateTime, 0);

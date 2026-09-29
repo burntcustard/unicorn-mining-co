@@ -20,12 +20,8 @@
   ],
   "repeats": 8,
   "ticks": 1800,
-  "players": [
-    16
-  ],
-  "scenarios": [
-    "contact"
-  ],
+  "players": [16],
+  "scenarios": ["contact"],
   "wireHashCompared": true,
   "runs": [
     {

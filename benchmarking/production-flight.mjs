@@ -68,6 +68,7 @@ const labels = [
   'bytes',
   'hash',
   'costs',
+  'meanEntities',
 ];
 
 try {
@@ -268,8 +269,8 @@ GameSession.prototype.receive = function(options) {
     : ''
 }
 const api = { GameSession };
-const [ticks, playerCount, warm, scenario] = JSON.parse(process.argv[2]);
-const options = {ticks, warm, scenario};
+const [ticks, playerCount, warm, scenario, jitter] = JSON.parse(process.argv[2]);
+const options = {ticks, warm, scenario, jitter};
 const costs = {};
 ${workload}`;
             }
@@ -311,6 +312,7 @@ ${workload}`;
         players,
         Boolean(options.warm),
         options.scenario || null,
+        Number(options.jitter || 0),
       ]),
     ],
     { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 290000 },

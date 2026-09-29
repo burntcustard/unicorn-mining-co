@@ -39,6 +39,33 @@ export abstract class Shape {
 
   declare m_count: number;
   declare m_vertices: Vec.Value[];
+  // Local circle around the core vertices, excluding m_radius.
+  protected m_bound?: { x: number; y: number; radius: number };
+
+  getBound() {
+    if (!this.m_bound) {
+      const vertices = this.m_vertices;
+      let x = 0;
+      let y = 0;
+
+      for (let i = 0; i < this.m_count; ++i) {
+        x += vertices[i].x;
+        y += vertices[i].y;
+      }
+      x /= this.m_count;
+      y /= this.m_count;
+      let radius = 0;
+
+      for (let i = 0; i < this.m_count; ++i) {
+        radius = Math.max(
+          radius,
+          Math.hypot(vertices[i].x - x, vertices[i].y - y),
+        );
+      }
+      this.m_bound = { x, y, radius };
+    }
+    return this.m_bound;
+  }
 
   /**
    * Get a vertex by index for the distance query.

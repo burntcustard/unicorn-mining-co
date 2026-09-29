@@ -764,12 +764,18 @@ export class Craft extends GameObject {
   }
 
   get hullHealth() {
+    // First hull segment per plan, found in one pass rather than per plan.
+    const hulls = new Map<unknown, Segment>();
+
+    for (const segment of this.segments) {
+      if (segment.hull && !hulls.has(segment.module)) {
+        hulls.set(segment.module, segment);
+      }
+    }
     return this.hullSegments.map((segmentPlan) =>
       segmentPlan.health === undefined
         ? -1
-        : this.segments.find(
-            (segment) => segment.hull && segment.module === segmentPlan,
-          )?.health || 0,
+        : hulls.get(segmentPlan)?.health || 0,
     );
   }
   set hullHealth(values: number[]) {

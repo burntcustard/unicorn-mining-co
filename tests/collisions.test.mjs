@@ -1768,9 +1768,16 @@ console.log('browser damage spark tests passed');
   assert.equal(colliders[0].position, asteroid.position);
   assert.equal(colliders[0].rotation, 0.8);
   const solver = new GameCollisions();
+  // A lone parked asteroid defers geometry work; a neighbour keeps it awake.
+  const neighbour = new GameObject({
+    id: asteroid.id + 1,
+    mass: 1,
+    radius: 5,
+    position: Vec.clone(asteroid.position),
+  });
   const step = () =>
     solver.step({
-      entities: entityMap([asteroid]),
+      entities: entityMap([asteroid, neighbour]),
       previous: new Map(),
       dt: 1 / 60,
     });
@@ -1807,9 +1814,16 @@ console.log('browser damage spark tests passed');
     pointCount: 7,
   }).lockGeometry();
   const collisions = new GameCollisions();
+  // A lone asteroid defers its fixtures; a neighbour keeps them built.
+  const neighbour = new GameObject({
+    id: asteroid.id + 1,
+    mass: 1,
+    radius: 5,
+    position: Vec.create(45),
+  });
   const step = () => {
     collisions.step({
-      entities: entityMap([asteroid]),
+      entities: entityMap([asteroid, neighbour]),
       previous: new Map(),
       dt: 0,
     });
@@ -1817,6 +1831,7 @@ console.log('browser damage spark tests passed');
   };
   const original = step();
 
+  assert.notEqual(original, undefined);
   assert.equal(step(), original);
   asteroid.mass++;
   const changedMass = step();
@@ -2102,4 +2117,39 @@ console.log('browser damage spark tests passed');
   assert.equal(sync().length, 0);
   ship.physics = true;
   assert(sync().length > 0);
+}
+
+// An isolated asteroid parks without fixtures, then builds them and stops an
+// object that sweeps into it, including across a single fast step.
+{
+  const world = createWorld();
+  const asteroid = addEntity(
+    world,
+    createAsteroid(world, {
+      radius: 60,
+      position: Vec.create(),
+    }).lockGeometry(),
+  );
+  const probe = addEntity(
+    world,
+    new GameObject({
+      position: Vec.create(-400, 0),
+      velocity: Vec.create(3000, 0),
+      radius: 5,
+      mass: 5,
+      drag: 0,
+    }),
+  );
+  const collisions = new GameCollisions();
+
+  collisions.step({ entities: world.entities, previous: new Map(), dt: 0 });
+  assert.equal(collisions.bodies.get(asteroid.id).fixtures.length, 0);
+
+  for (let tick = 0; tick < 10; tick++) {
+    collisions.capturePoses(world.entities.values());
+    world.entities.forEach((entity) => entity.update(1 / 30));
+    collisions.step({ entities: world.entities, dt: 1 / 30 });
+  }
+  assert(collisions.bodies.get(asteroid.id).fixtures.length > 0);
+  assert(probe.position.x < 0, 'the swept probe does not pass through');
 }

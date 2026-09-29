@@ -131,6 +131,36 @@ assert(
   Math.abs(motion.sample({ now: step * 2.5 }).get(2)!.position.x - 5) < 1e-8,
   'reconnect starts with only the one-tick buffer',
 );
+// Isolated asteroids are sampled sparsely. Between samples, their tracks
+// continue the last drift and spin on the ordinary one-tick buffer.
+motion.reset();
+const asteroid = (tick: number): ReplicatedEntity => ({
+  id: 3,
+  kind: 'asteroid',
+  position: Vec.create(tick * 2),
+  radius: 50,
+  rotation: tick * 0.01,
+  spin: 0.01 / simulationStep,
+  velocity: Vec.create(2 / simulationStep),
+});
+
+for (let tick = 0; tick <= 16; tick++) {
+  motion.receive({
+    tick,
+    now: tick * step,
+    entities: tick % 8 ? [] : [asteroid(tick)],
+    entityIds: [3],
+  });
+
+  if (tick < 4) continue;
+  const pose = motion.sample({ now: tick * step }).get(3)!;
+
+  assert(
+    Math.abs(pose.position.x - (tick - 2) * 2) < 1e-8 &&
+      Math.abs(pose.rotation - (tick - 2) * 0.01) < 1e-8,
+    'sparse asteroid samples keep moving on the usual buffer',
+  );
+}
 console.log(
   'Remote motion bounds extra buffering to one tick, catches up after stalls and resets cleanly',
 );

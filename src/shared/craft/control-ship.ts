@@ -42,10 +42,19 @@ export const controlShip = (
     Math.max(-1, Math.min(1, input.turn)),
   );
 
-  for (const { Type, input: command, readInput } of moduleControls) {
+  // One pass finds which controlled modules are running, as moduleActive does.
+  const running = moduleControls.map(() => false);
+
+  for (const segment of ship.segments) {
+    if (!segment.active || (segment.mount || segment).health < 1) continue;
+    moduleControls.forEach(({ Type }, index) => {
+      if (segment.module instanceof Type) running[index] = true;
+    });
+  }
+  moduleControls.forEach(({ Type, input: command, readInput }, index) => {
     const enabled = readInput(input);
 
-    if (ship.moduleActive({ module: Type }) === enabled) continue;
+    if (running[index] === enabled) return;
     ship.setModuleActive({ module: Type, active: enabled });
 
     if (ship.playerId !== undefined && command !== 'hornDrill') {
@@ -56,5 +65,5 @@ export const controlShip = (
         playerId: ship.playerId,
       });
     }
-  }
+  });
 };

@@ -193,6 +193,17 @@ includes the frozen-bundle hashes and raw results for standalone and combined
 changes. Its final comparisons use 1,800 measured ticks per route, with eight
 repeats at four players and five repeats at eight and sixteen players.
 
+`--cpus=2,3` runs every replay under `taskset` on those logical CPUs. Two like
+cores approximate a two-vCPU VM, where V8's helper threads share the same CPU
+quota as the main thread; pin to cores of one type on hybrid laptops.
+
+Changes to collision behavior can alter the chaotic flight paths, so exact
+hashes cannot match. `--diverge` skips the exact state and packet checks and
+gives every variant in repeat `n` the same small start offset (`--jitter=n` on
+`production-flight.mjs`), sampling a different nearby trajectory per repeat.
+Results then include median mean-entity counts and bytes so the workloads can
+be compared. Use more repeats: single routes vary by 10–30% between offsets.
+
 ### Server phase and memory investigation
 
 Use one route per invocation for independently interpretable resource totals:

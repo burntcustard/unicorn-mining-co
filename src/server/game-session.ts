@@ -35,6 +35,9 @@ const maxSocketBufferBytes = 1024 * 1024;
 // Two in flight maintain 30 Hz up to a 66 ms round trip; slower receivers
 // get fewer, current snapshots instead of a growing queue of stale ticks.
 const maxPendingSnapshots = 2;
+// Server regions reach 500 units past what receivers load; a ship at top
+// speed covers about a seventh of that between regional refreshes.
+const regionSyncEvery = 8;
 
 type PlayerRecord = {
   snapshotAcknowledgements: boolean;
@@ -82,6 +85,7 @@ export class GameSession {
   private players = new Map<string, PlayerRecord>();
   private playersBySocket = new Map<WebSocket, PlayerRecord>();
   private regions: RegionManager;
+  private regionsSyncedAt = -Infinity;
   private worldSeed: number;
 
   constructor({ worldSeed }: { worldSeed: number }) {
@@ -198,11 +202,15 @@ export class GameSession {
         this.world.entities.delete(player.shipId);
       });
     }
-    const positions = [...this.players.values()]
-      .filter(({ socket }) => socket)
-      .map(({ ship }) => ship.position);
 
-    this.regions.sync({ world: this.world, positions });
+    if (this.world.tick - this.regionsSyncedAt >= regionSyncEvery) {
+      const positions = [...this.players.values()]
+        .filter(({ socket }) => socket)
+        .map(({ ship }) => ship.position);
+
+      this.regions.sync({ world: this.world, positions });
+      this.regionsSyncedAt = this.world.tick;
+    }
     const tick = this.world.tick;
     const inputs = new Map<number, InputFrame>();
 
@@ -238,12 +246,9 @@ export class GameSession {
     });
     const replicationRecords: ReplicationRecords = new Map();
     const packetEncoder = new SnapshotEncoder();
-    // Amortize indexing across larger audiences. The view builds lazily so
-    // backpressure that skips every receiver does not index the world.
-    const replicationView =
-      this.playersBySocket.size >= 8 && this.world.entities.size >= 256
-        ? new ReplicationView(this.world)
-        : undefined;
+    // Positions are read lazily, so backpressure that skips every receiver
+    // does not copy the world.
+    const replicationView = new ReplicationView(this.world);
 
     this.players.forEach((player) =>
       this.sendSnapshot({

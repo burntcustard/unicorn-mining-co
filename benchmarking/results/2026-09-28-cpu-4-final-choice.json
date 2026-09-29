@@ -16,15 +16,8 @@
   ],
   "repeats": 8,
   "ticks": 1800,
-  "players": [
-    4
-  ],
-  "scenarios": [
-    "convoy",
-    "spread",
-    "contact",
-    "modules"
-  ],
+  "players": [4],
+  "scenarios": ["convoy", "spread", "contact", "modules"],
   "runs": [
     {
       "variant": "baseline",

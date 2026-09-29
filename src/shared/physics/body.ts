@@ -51,6 +51,8 @@ export class Body {
   m_prev: Body | null;
   m_next: Body | null;
   m_destroyed: boolean;
+  // Parked bodies have no proxies or contacts; their owner integrates them.
+  m_parked = false;
   private proxyRadius = Infinity;
   private proxyMotion = 0;
   private proxyMargin = 0;
@@ -117,7 +119,36 @@ export class Body {
     matrix.setTransform(this.m_xf, position, angle);
     this.m_sweep.setTransform(this.m_xf);
 
-    this.synchronizeProxies(this.m_xf, this.m_xf);
+    if (!this.m_parked) this.synchronizeProxies(this.m_xf, this.m_xf);
+  }
+
+  /**
+   * Remove a body without contacts from the broad-phase between steps.
+   */
+  park(): void {
+    this.m_parked = true;
+
+    for (let fixture = this.m_fixtureList; fixture; fixture = fixture.m_next) {
+      fixture.destroyProxies(this.m_world.m_broadPhase);
+    }
+  }
+
+  /**
+   * Restore broad-phase proxies at the current transform.
+   */
+  unpark(): void {
+    this.m_parked = false;
+    this.proxyMotion = 0;
+    this.proxyMargin = 0;
+    Vec.set(this.proxyTransform.p, this.m_xf.p);
+    this.proxyTransform.q.s = this.m_xf.q.s;
+    this.proxyTransform.q.c = this.m_xf.q.c;
+
+    for (let fixture = this.m_fixtureList; fixture; fixture = fixture.m_next) {
+      fixture.proxyMargin = 0;
+      fixture.createProxies(this.m_world.m_broadPhase, this.m_xf);
+    }
+    this.m_world.m_newFixture = true;
   }
 
   synchronizeTransform(): void {
@@ -287,7 +318,9 @@ export class Body {
       return null;
     }
 
-    fixture.createProxies(this.m_world.m_broadPhase, this.m_xf);
+    if (!this.m_parked) {
+      fixture.createProxies(this.m_world.m_broadPhase, this.m_xf);
+    }
 
     fixture.m_next = this.m_fixtureList;
     this.m_fixtureList = fixture;

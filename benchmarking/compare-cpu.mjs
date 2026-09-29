@@ -34,6 +34,10 @@ const scenarios = (options.scenarios || 'convoy,spread,contact,modules').split(
   ',',
 );
 const allowMangledWireKeys = args.includes('--allow-mangled-wire-keys');
+// Physics changes can alter chaotic flight paths. Each repeat then uses a
+// different small start offset, shared by every variant, and only workload
+// statistics (not exact state) are compared.
+const diverge = args.includes('--diverge');
 
 assert(Number.isInteger(repeats) && repeats >= variants.length);
 assert(Number.isInteger(ticks) && ticks > 0);
@@ -81,19 +85,29 @@ for (const count of players) {
         .concat(variants.slice(0, repeat % variants.length));
 
       for (const variant of ordered) {
-        const child = spawnSync(
+        const command = [
           process.execPath,
-          [
-            'benchmarking/production-flight.mjs',
-            '--bundle=' + variant.bundle,
-            '--players=' + count,
-            '--scenario=' + scenario,
-            '--ticks=' + ticks,
-            '--warm',
-            '--semi-space=16',
-          ],
-          { encoding: 'utf8', timeout: 300000, maxBuffer: 16 * 1024 * 1024 },
-        );
+          'benchmarking/production-flight.mjs',
+          '--bundle=' + variant.bundle,
+          '--players=' + count,
+          '--scenario=' + scenario,
+          '--ticks=' + ticks,
+          '--warm',
+          '--semi-space=16',
+          ...(diverge ? ['--jitter=' + repeat] : []),
+        ];
+        // `--cpus=4,5` pins each replay, e.g. to two like cores for a 2-vCPU VM.
+        const child = options.cpus
+          ? spawnSync('taskset', ['-c', options.cpus, ...command], {
+              encoding: 'utf8',
+              timeout: 300000,
+              maxBuffer: 16 * 1024 * 1024,
+            })
+          : spawnSync(command[0], command.slice(1), {
+              encoding: 'utf8',
+              timeout: 300000,
+              maxBuffer: 16 * 1024 * 1024,
+            });
 
         assert.equal(child.status, 0, child.stderr || String(child.error));
         const run = JSON.parse(child.stdout);
@@ -106,9 +120,11 @@ for (const count of players) {
     }
     const reference = samples.get('baseline')[0];
 
-    for (const run of results.runs.filter(
-      (run) => run.players === count && run.scenario === scenario,
-    )) {
+    for (const run of diverge
+      ? []
+      : results.runs.filter(
+          (run) => run.players === count && run.scenario === scenario,
+        )) {
       for (const key of [
         'hash',
         'bytes',
@@ -144,6 +160,10 @@ for (const count of players) {
         pairedMedianPercent: median(paired),
         pairedMinPercent: Math.min(...paired),
         pairedMaxPercent: Math.max(...paired),
+        baselineEntities: median(before.map((run) => run.meanEntities)),
+        entities: median(after.map((run) => run.meanEntities)),
+        baselineBytes: median(before.map((run) => run.bytes)),
+        bytes: median(after.map((run) => run.bytes)),
       };
 
       results.comparisons.push(comparison);

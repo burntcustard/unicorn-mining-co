@@ -35,6 +35,7 @@ export class RegionManager {
   private worldSeed: number;
   private removed = new Set<number>();
   private descriptionOwners = new Map<number, Set<RegionDescription>>();
+  private stationLists = new Map<string, StationDescription[]>();
   private queriedRegions?: {
     bounds: string;
     asteroids: RegionDescription['asteroids'][];
@@ -86,6 +87,7 @@ export class RegionManager {
       generateRegion({ worldSeed: this.worldSeed, region });
 
     if (!this.saved.has(key)) {
+      this.stationLists.clear();
       description.asteroids = description.asteroids.filter(
         ({ id }) => !this.removed.has(id),
       );
@@ -131,6 +133,7 @@ export class RegionManager {
   remove({ id }: { id: number }) {
     this.removed.add(id);
     this.queriedRegions = undefined;
+    this.stationLists.clear();
     const removeFrom = (description: RegionDescription) => {
       description.asteroids = description.asteroids.filter(
         (asteroid) => asteroid.id !== id,
@@ -208,6 +211,12 @@ export class RegionManager {
         }
       });
       const stations = stationBounds.map(({ from, to }) => {
+        // Station sources change only when a region is first generated or
+        // an object is removed, so other players' crossings reuse the list.
+        const listKey = `${from.x},${from.y},${to.x},${to.y}`;
+        const cached = this.stationLists.get(listKey);
+
+        if (cached) return cached;
         const found: StationDescription[] = [];
 
         for (let x = from.x; x <= to.x; x++) {
@@ -227,6 +236,9 @@ export class RegionManager {
             found.push(...candidates.filter(({ id }) => !this.removed.has(id)));
           }
         }
+
+        if (this.stationLists.size >= 64) this.stationLists.clear();
+        this.stationLists.set(listKey, found);
         return found;
       });
 

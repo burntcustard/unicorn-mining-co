@@ -20,6 +20,8 @@ type Track = {
   replicateEvery: number;
   receivedAt: number;
   renderTick: number;
+  // Last sampled free motion, extended when the server omits a sample.
+  drift?: Frame & { velocity: Vec.Value; spin: number };
 };
 
 // Blend over 25m, reaching the collision pose before the hulls can touch.
@@ -122,6 +124,16 @@ export class RemoteMotion {
       });
       track.frames = track.frames.slice(-4);
       track.receivedAt = now;
+      track.drift =
+        entity.kind === 'asteroid' || entity.kind === 'station'
+          ? {
+              tick,
+              position,
+              rotation: entity.rotation,
+              velocity: entity.velocity || Vec.create(),
+              spin: entity.spin || 0,
+            }
+          : undefined;
 
       if (observers.length) {
         track.replicateEvery = updateTier({
@@ -131,6 +143,32 @@ export class RemoteMotion {
       }
       track.interval = Math.max(snapshotInterval, track.replicateEvery);
       this.tracks.set(entity.id, track);
+    });
+    // Isolated asteroids and stations are sampled sparsely; continue their
+    // free motion.
+    const sampled = new Set(entities.map(({ id }) => id));
+
+    this.tracks.forEach((track, id) => {
+      const { drift } = track;
+
+      // Only fill gaps after a sample was due, not the usual tier spacing.
+      if (
+        !drift ||
+        sampled.has(id) ||
+        tick - drift.tick < track.interval ||
+        tick <= track.frames.at(-1)!.tick
+      ) {
+        return;
+      }
+      const elapsed = (tick - drift.tick) * simulationStep;
+
+      track.frames.push({
+        tick,
+        position: Vec.addScaled(drift.position, drift.velocity, elapsed),
+        rotation: drift.rotation + drift.spin * elapsed,
+      });
+      track.frames = track.frames.slice(-4);
+      track.receivedAt = now;
     });
   }
 

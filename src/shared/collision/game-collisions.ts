@@ -12,11 +12,12 @@ import './shape/polygon-polygon-contact';
 import './shape/circle-polygon-contact';
 import { type GameObject } from '../game-object';
 import { outlineColorOf, type Collider, type Contact } from './types';
-import { contactSpeedThreshold } from '../settings';
+import { contactSpeedThreshold, linearSlop } from '../settings';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../craft/damage';
 import { Craft } from '../craft/craft';
 import { Asteroid } from '../simulation/asteroid';
+import { Station } from '../craft/station';
 import { type Pose } from '../types';
 
 type BodyRecord = {
@@ -29,7 +30,25 @@ type BodyRecord = {
   velocity: Vec.Value;
   spin: number;
   previous: Pose;
+  sweepStart: Pose;
+  // Farthest fixture extent from the body origin.
+  radius: number;
+  // Locked asteroid geometry measured without fixtures until first needed.
+  deferred?: Asteroid;
+  // Geometry sync postponed while parked.
+  syncPending?: boolean;
 };
+
+// Match the solver's per-step motion limits for bodies integrated here.
+const maxTranslation = 200;
+const maxRotation = 0.5 * Math.PI;
+// Wake bodies before contact, like the broad-phase's fattened bounds.
+const wakeMargin = 10;
+// Objects that touched nothing in their last collision step move freely.
+const ballisticEntities = new WeakSet<GameObject>();
+
+export const isBallistic = (entity: GameObject) =>
+  ballisticEntities.has(entity);
 
 // Explicit object mass controls translation. Geometry only determines how
 // strongly an off-centre hit rotates it around the object's origin.
@@ -91,6 +110,9 @@ export class GameCollisions {
   private bodies = new Map<number, BodyRecord>();
   private contacts: Contact[] = [];
   private motions: BodyRecord[] = [];
+  private bounds = new Float64Array(0);
+  private sortOrder: number[] = [];
+  private free = new Uint8Array(0);
   private impacts = new Map<
     PhysicsContact,
     { contact: Contact; impact: number }
@@ -199,7 +221,18 @@ export class GameCollisions {
 
     motions.length = 0;
     visiting.forEach((entity) => {
-      const record = this.sync(entity);
+      let record = this.bodies.get(entity.id);
+
+      // Parked rocks and stations with locked geometry cannot grow, so their
+      // last bound holds until something wakes them.
+      if (
+        record?.entity === entity &&
+        record.body.m_parked &&
+        record.geometrySource &&
+        (entity instanceof Asteroid || entity instanceof Station)
+      ) {
+        record.syncPending = true;
+      } else record = this.sync(entity);
       const start =
         (previous ? previous.get(entity.id) : record.previous) || entity;
       const velocity = record.velocity;
@@ -209,16 +242,90 @@ export class GameCollisions {
         Vec.scale(velocity, 1 / dt, velocity);
       } else Vec.setXY(velocity, 0, 0);
       record.spin = dt ? (entity.rotation - start.rotation) / dt : 0;
-
-      record.body.setTransform(start.position, start.rotation);
-      record.body.setLinearVelocity(velocity);
-      record.body.setAngularVelocity(record.spin);
+      record.sweepStart = start;
       motions.push(record);
+    });
+    const free = this.findFree(motions);
+
+    motions.forEach((record, index) => {
+      const { body, entity, sweepStart: start } = record;
+
+      if (free[index] && !body.m_contactList) {
+        if (!body.m_parked) body.park();
+        ballisticEntities.add(entity);
+        return;
+      }
+
+      if (record.syncPending) {
+        record.syncPending = false;
+        this.sync(entity);
+      }
+
+      if (record.deferred) {
+        this.syncDetailed(record.deferred, record, record.geometrySource);
+        record.deferred = undefined;
+      }
+      body.setTransform(start.position, start.rotation);
+      body.setLinearVelocity(record.velocity);
+      body.setAngularVelocity(record.spin);
+
+      if (body.m_parked) body.unpark();
     });
 
     this.world.step(dt, 8, 3);
+    motions.forEach(({ body, entity }) => {
+      if (!body.m_parked) ballisticEntities.add(entity);
+    });
+    this.contacts.forEach(({ collider, other }) => {
+      ballisticEntities.delete(collider.owner);
+      ballisticEntities.delete(other.owner);
+    });
 
-    motions.forEach(({ body, entity, velocity, spin }) => {
+    motions.forEach(({ body, entity, velocity, spin, sweepStart: start }) => {
+      if (body.m_parked) {
+        // An isolated island: the solver's integration without its setup.
+        // Bodies report angles in [-pi, pi], as the sweep's atan2 would.
+        let angle = start.rotation;
+
+        if (angle > Math.PI) angle -= 2 * Math.PI;
+        else if (angle < -Math.PI) angle += 2 * Math.PI;
+
+        if (!(Math.abs(angle) <= Math.PI)) {
+          angle = Math.atan2(Math.sin(angle), Math.cos(angle));
+        }
+
+        if (dt > 0) {
+          let vx = velocity.x;
+          let vy = velocity.y;
+          let w = spin;
+          const tx = vx * dt;
+          const ty = vy * dt;
+          const translation = tx * tx + ty * ty;
+
+          if (translation > maxTranslation * maxTranslation) {
+            const ratio = maxTranslation / Math.sqrt(translation);
+
+            vx *= ratio;
+            vy *= ratio;
+          }
+          const rotation = dt * w;
+
+          if (rotation * rotation > maxRotation * maxRotation) {
+            w *= maxRotation / Math.abs(rotation);
+          }
+          Vec.setXY(
+            entity.position,
+            start.position.x + vx * dt,
+            start.position.y + vy * dt,
+          );
+          angle += dt * w;
+          entity.velocity.x += vx - velocity.x;
+          entity.velocity.y += vy - velocity.y;
+          entity.spin += w - spin;
+        } else Vec.set(entity.position, start.position);
+        entity.rotation = angle;
+        return;
+      }
       const position = body.getPosition();
       const resolved = body.getLinearVelocity();
 
@@ -271,6 +378,73 @@ export class GameCollisions {
     return this.contacts;
   }
 
+  /*
+   * Sweep and prune bounding circles around each body's whole swept motion.
+   * A body whose circle meets no other cannot touch anything this step.
+   */
+  private findFree(motions: BodyRecord[]) {
+    const count = motions.length;
+
+    if (this.free.length < count) {
+      this.free = new Uint8Array(count * 2);
+      this.bounds = new Float64Array(count * 8);
+    }
+    const { bounds, free, sortOrder: order } = this;
+    // Reuse last step's order when the population is unchanged: it is
+    // nearly sorted, so insertion sort finishes in about one pass.
+    const reuse = order.length === count;
+
+    if (!reuse) order.length = count;
+    motions.forEach(({ entity, radius, sweepStart: start }, index) => {
+      const dx = entity.position.x - start.position.x;
+      const dy = entity.position.y - start.position.y;
+      const travel = Math.sqrt(dx * dx + dy * dy);
+      const reach = radius + travel + wakeMargin;
+      const x = start.position.x + dx / 2;
+
+      bounds[index * 4] = x - reach;
+      bounds[index * 4 + 1] = x;
+      bounds[index * 4 + 2] = start.position.y + dy / 2;
+      bounds[index * 4 + 3] = reach;
+      free[index] = 1;
+
+      if (!reuse) order[index] = index;
+    });
+
+    if (reuse) {
+      for (let i = 1; i < count; i++) {
+        const item = order[i];
+        const key = bounds[item * 4];
+        let j = i - 1;
+
+        while (j >= 0 && bounds[order[j] * 4] > key) {
+          order[j + 1] = order[j];
+          j--;
+        }
+        order[j + 1] = item;
+      }
+    } else order.sort((a, b) => bounds[a * 4] - bounds[b * 4]);
+
+    for (let i = 0; i < count; i++) {
+      const a = order[i] * 4;
+      const right = bounds[a + 1] + bounds[a + 3];
+
+      for (let j = i + 1; j < count; j++) {
+        const b = order[j] * 4;
+
+        if (bounds[b] > right) break;
+        const dx = bounds[a + 1] - bounds[b + 1];
+        const dy = bounds[a + 2] - bounds[b + 2];
+        const reach = bounds[a + 3] + bounds[b + 3];
+
+        if (dx * dx + dy * dy <= reach * reach) {
+          free[order[i]] = free[order[j]] = 0;
+        }
+      }
+    }
+    return free;
+  }
+
   private recordFor(entity: GameObject) {
     let record = this.bodies.get(entity.id);
 
@@ -293,6 +467,8 @@ export class GameCollisions {
           position: Vec.clone(entity.position),
           rotation: entity.rotation,
         },
+        sweepStart: entity,
+        radius: 0,
       };
       this.bodies.set(entity.id, record);
     }
@@ -313,11 +489,28 @@ export class GameCollisions {
       if (
         geometrySource &&
         geometrySource === record.geometrySource &&
-        same(entity.mass, record.geometry[0]) &&
-        same(entity.angularInertiaScale, record.geometry[1])
+        (record.deferred ||
+          (same(entity.mass, record.geometry[0]) &&
+            same(entity.angularInertiaScale, record.geometry[1])))
       ) {
         return record;
       }
+
+      // Most asteroids never meet anything: measure them, build on contact.
+      if (geometrySource && !record.fixtures.length) {
+        let radius = 0;
+
+        entity.hitbox().forEach(({ shapeOutline }) =>
+          shapeOutline.forEach(([x, y]) => {
+            radius = Math.max(radius, Math.sqrt(x * x + y * y));
+          }),
+        );
+        record.radius = radius + 2 * linearSlop;
+        record.geometrySource = geometrySource;
+        record.deferred = entity;
+        return record;
+      }
+      record.deferred = undefined;
       return this.syncDetailed(entity, record, geometrySource);
     }
     return this.syncDetailed(entity, record);
@@ -434,11 +627,54 @@ export class GameCollisions {
       } else geometry.push(offset.x, offset.y, collider.radius);
     });
 
-    record.fixtures.forEach((fixture) => record!.body.destroyFixture(fixture));
-    cursor = 2;
+    // Keep fixtures whose own slice of geometry is unchanged, such as a hull
+    // beside an animating module, and replace only the others.
+    const slices = (values: number[]) => {
+      const starts: number[] = [];
 
-    record.fixtures = colliders.map((collider) => {
-      cursor += 2;
+      for (let at = 2; at < values.length;) {
+        starts.push(at);
+        at += 2 + ((values[at] >> 4) * 2 || 3);
+      }
+      return starts;
+    };
+    const oldStarts =
+      previous.length > 2 && matches(geometry[0], 0) && matches(geometry[1], 1)
+        ? slices(previous)
+        : ([] as number[]);
+    const newStarts = slices(geometry);
+    const kept = colliders.map((_, index) => {
+      const fixture = record.fixtures[index];
+      const from = oldStarts[index];
+      const to = newStarts[index];
+      const length = (newStarts[index + 1] ?? geometry.length) - to;
+
+      if (
+        !fixture ||
+        oldStarts.length !== record.fixtures.length ||
+        (oldStarts[index + 1] ?? previous.length) - from !== length
+      ) {
+        return undefined;
+      }
+
+      for (let offset = 0; offset < length; offset++) {
+        if (!matches(geometry[to + offset], from + offset)) return undefined;
+      }
+      return fixture;
+    });
+
+    record.fixtures.forEach((fixture, index) => {
+      if (kept[index] !== fixture) record.body.destroyFixture(fixture);
+    });
+
+    record.fixtures = colliders.map((collider, index) => {
+      const fixture = kept[index];
+
+      if (fixture) {
+        fixture.setUserData(collider);
+        return fixture;
+      }
+      cursor = newStarts[index] + 2;
       const point = () => Vec.create(geometry[cursor++], geometry[cursor++]);
       const shape = collider.shapeOutline
         ? new PolygonShape(
@@ -454,20 +690,19 @@ export class GameCollisions {
     });
     record.geometry = geometry;
     record.roundedGeometry = geometry.map((value) => Math.round(value * 1e6));
-    record.body.setProxyRadius(
-      Math.max(
-        0,
-        ...record.fixtures.map(
-          ({ m_shape }) =>
-            m_shape.m_radius +
-            (m_shape instanceof PolygonShape
-              ? Math.max(
-                  ...m_shape.m_vertices.map((vertex) => Vec.length(vertex)),
-                )
-              : Vec.length((m_shape as CircleShape).m_p)),
-        ),
+    record.radius = Math.max(
+      0,
+      ...record.fixtures.map(
+        ({ m_shape }) =>
+          m_shape.m_radius +
+          (m_shape instanceof PolygonShape
+            ? Math.max(
+                ...m_shape.m_vertices.map((vertex) => Vec.length(vertex)),
+              )
+            : Vec.length((m_shape as CircleShape).m_p)),
       ),
     );
+    record.body.setProxyRadius(record.radius);
 
     record.body.setMass(
       entity.mass,

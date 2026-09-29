@@ -29,6 +29,7 @@ export class CircleShape extends Shape {
   }
   set m_p(point: Vec.Value) {
     this.m_vertices[0] = point;
+    this.m_bound = undefined;
   }
   static TYPE = 'circle' as const;
 

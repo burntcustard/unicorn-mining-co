@@ -13,7 +13,12 @@ export const visibleRange = 2000; // Distance for the visible update tier
 export const updateTiers = {
   visible: { substeps: 2, updateEvery: 1, replicateEvery: 1 }, // 60 Hz movement, 30 Hz replication
   distant: { substeps: 1, updateEvery: 2, replicateEvery: 4 }, // 15 Hz movement, 7.5 Hz replication
+  // Visible stationary objects without controls only spin: once per tick.
+  drift: { substeps: 1, updateEvery: 1, replicateEvery: 1 }, // 30 Hz movement, 30 Hz replication
 } as const;
+// Asteroids and stations touching nothing only drift and spin, which
+// receivers extrapolate.
+export const ballisticReplicateEvery = 8;
 
 // Region Settings
 export const regionSize = 2000;

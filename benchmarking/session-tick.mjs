@@ -11,7 +11,8 @@ const bundle = await rolldown({
   plugins: [
     {
       name: 'session-entry',
-      resolveId: (id) => (id === 'session-entry' ? '\0session-entry' : undefined),
+      resolveId: (id) =>
+        id === 'session-entry' ? '\0session-entry' : undefined,
       load: (id) =>
         id === '\0session-entry'
           ? `
@@ -44,10 +45,18 @@ for (const playerCount of [1, 3]) {
     const sockets = [];
 
     for (let i = 0; i < playerCount; i++) {
-      const socket = { readyState: 1, bufferedAmount: 0, send() {}, close() {} };
+      const socket = {
+        readyState: 1,
+        bufferedAmount: 0,
+        send() {},
+        close() {},
+      };
 
       sockets.push(socket);
-      session.receive({ message: { type: 'hello', playerToken: null }, socket });
+      session.receive({
+        message: { type: 'hello', playerToken: null },
+        socket,
+      });
     }
     session.players ??= undefined;
     [...session['players'].values()].forEach((player, index) => {
