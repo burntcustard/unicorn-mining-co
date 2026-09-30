@@ -279,9 +279,25 @@ try {
         }
       });
 
+    const trace = [];
+
     for (let tick = 0; tick < 300; tick++) {
       steer(tick);
       session.tick();
+
+      if (tick < Number(options.trace || 0)) {
+        trace.push(
+          [...session.world.entities.values()].map((entity) => [
+            entity.id,
+            entity.position.x,
+            entity.position.y,
+            entity.velocity.x,
+            entity.velocity.y,
+            entity.rotation,
+            entity.spin,
+          ]),
+        );
+      }
     }
     recording = true;
     const ticks = Number(options.ticks || 9000),
@@ -324,6 +340,7 @@ try {
         entities: session.world.entities.size,
         maxEntities,
         positions: players.map((p) => ({ ...p.ship.position })),
+        trace,
         packets,
         bytes,
         hash: hash.digest('hex'),

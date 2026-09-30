@@ -12,6 +12,7 @@
 
 import * as Vec from '../vector';
 import { linearSlop } from '../settings';
+import { simulationSpecification } from '../specification/simulation';
 import { Body } from './body';
 import type { Contact } from './contact';
 import {
@@ -25,9 +26,8 @@ import { type Shape } from '../collision/shape/base';
 
 const maxTOISubsteps = 8;
 const toiEndTolerance = 1e-8;
-const maxTranslation = 200;
+const { maxTranslation, maxRotation } = simulationSpecification.physics;
 const maxTranslationSquared = maxTranslation * maxTranslation;
-const maxRotation = 0.5 * Math.PI;
 const maxRotationSquared = maxRotation * maxRotation;
 
 export class TimeStep {

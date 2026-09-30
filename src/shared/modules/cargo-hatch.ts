@@ -1,4 +1,4 @@
-import { colors } from '../colors';
+import { moduleSpecifications } from '../specification/modules';
 import { Module } from './module';
 import { type Collider, type Contact } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
@@ -7,9 +7,10 @@ import { type Ship } from '../craft/ship';
 import { Item } from '../items/item';
 import { type GameObject } from '../game-object';
 
-const cargoHatchLength = 16;
-const cargoHatchOpenAngle = 2.5;
-const cargoHatchDoorWidth = 1.5;
+const specification = moduleSpecifications.cargoHatch;
+const cargoHatchLength = specification.cargoGeometry.length;
+const cargoHatchOpenAngle = specification.cargoGeometry.openAngle;
+const cargoHatchDoorWidth = specification.cargoGeometry.doorWidth;
 
 export const cargoContactAllowed = (self: Collider, other: Collider) =>
   (self.pickupPoint === true && other.role === 'cargoHatch') ||
@@ -27,9 +28,9 @@ export const cargoPickupPoint = (item: GameObject): Collider => ({
 });
 
 export const cargoHatchGeometry = {
-  doorRadius: cargoHatchLength * 2,
-  openingThreshold: 0.5,
-  throatRadius: cargoHatchLength * 0.75,
+  doorRadius: specification.cargoGeometry.doorRadius,
+  openingThreshold: specification.cargoGeometry.openingThreshold,
+  throatRadius: specification.cargoGeometry.throatRadius,
   doorShapeOutline: ({
     progress,
     side,
@@ -66,10 +67,10 @@ import { type Mount, type ShapeOutline } from '../types';
 export const cargoHatchOpen = cargoHatchGeometry.openingThreshold;
 
 export class CargoHatch extends Module {
-  static shades = colors.violet;
-  static activationDuration = 0.7;
-  static label = 'CARGO HATCH';
-  static health = 4;
+  static shades = specification.shades;
+  static activationDuration = specification.activationDuration;
+  static label = specification.label;
+  static health = specification.health;
   static model: any[] = [
     {
       shapeOutline: [] as ShapeOutline,
@@ -101,10 +102,10 @@ export class CargoHatch extends Module {
       radius: () => cargoHatchGeometry.throatRadius,
     },
   ];
-  static price = 150;
-  static collectsCargo = true;
-  static unhurtWhen = 0;
-  static zIndex = -1;
+  static price = specification.price;
+  static collectsCargo = specification.collectsCargo;
+  static unhurtWhen = specification.unhurtWhen;
+  static zIndex = specification.zIndex;
 
   collect({
     ship,

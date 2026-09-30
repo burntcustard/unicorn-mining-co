@@ -1,3 +1,5 @@
+import { moduleIds, type ModuleId } from '../specification/modules';
+import { type Module } from './module';
 import { CargoHatch } from './cargo-hatch';
 import { SearchLight } from './search-light';
 import { HornDrill } from './horn-drill';
@@ -31,3 +33,6 @@ export const moduleTypes = [
   HornDrill,
   ShieldGenerator,
 ];
+export const moduleTypesById = new Map<ModuleId, typeof Module>(
+  moduleIds.map((id, index) => [id, moduleTypes[index]]),
+);

@@ -8,3 +8,5 @@ benchmarking
 docs
 tests
 *.svg
+
+bin

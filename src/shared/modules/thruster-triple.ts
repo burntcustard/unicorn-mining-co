@@ -1,19 +1,20 @@
 import { Module } from './module';
-import { colors } from '../colors';
+import { moduleSpecifications } from '../specification/modules';
+
+const specification = moduleSpecifications.thrusterTriple;
 
 export class ThrusterTriple extends Module {
-  static shades = colors.violet;
-  static disablePhysics = true;
-  static health = 30;
-  static label = 'THRUSTERS *3';
-  static offset = 14;
-  static model: any[] = [
-    { flareSize: 3, thrusterNozzleSide: -1 },
-    { flareSize: 5, thrusterNozzleSide: 0 },
-    { flareSize: 3, thrusterNozzleSide: 1 },
-  ];
-  static price = 1800;
-  static forwardThrust = 28;
-  static rotationalThrust = 24;
-  static zIndex = -1;
+  static shades = specification.shades;
+  static disablePhysics = specification.disablePhysics;
+  static health = specification.health;
+  static label = specification.label;
+  static offset = specification.offset;
+  static model: any[] = specification.flareSizes.map((flareSize, index) => ({
+    flareSize,
+    thrusterNozzleSide: specification.nozzleSides[index],
+  }));
+  static price = specification.price;
+  static forwardThrust = specification.forwardThrust;
+  static rotationalThrust = specification.rotationalThrust;
+  static zIndex = specification.zIndex;
 }

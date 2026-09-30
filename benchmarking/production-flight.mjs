@@ -64,6 +64,7 @@ const labels = [
   'entities',
   'maxEntities',
   'positions',
+  'trace',
   'packets',
   'bytes',
   'hash',
@@ -269,8 +270,8 @@ GameSession.prototype.receive = function(options) {
 }
 ${options['verify-binary'] ? `import {installBinaryFlightOracle} from './server/binary-flight-oracle'; installBinaryFlightOracle();` : ''}
 const api = { GameSession };
-const [ticks, playerCount, warm, scenario, jitter] = JSON.parse(process.argv[2]);
-const options = {ticks, warm, scenario, jitter};
+const [ticks, playerCount, warm, scenario, jitter, trace] = JSON.parse(process.argv[2]);
+const options = {ticks, warm, scenario, jitter, trace};
 const costs = {};
 ${workload}`;
             }
@@ -313,6 +314,7 @@ ${workload}`;
         Boolean(options.warm),
         options.scenario || null,
         Number(options.jitter || 0),
+        Number(options.trace || 0),
       ]),
     ],
     { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 290000 },

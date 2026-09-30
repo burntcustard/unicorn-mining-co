@@ -1,9 +1,10 @@
 import * as Vec from '../vector';
 import { AABB, type AABBValue } from './axis-aligned-bounds';
+import { simulationSpecification } from '../specification/simulation';
 
 const cellSize = 256;
-const aabbExtension = 10;
-const aabbMultiplier = 2;
+const aabbExtension = simulationSpecification.physics.aabbExtension;
+const aabbMultiplier = simulationSpecification.physics.aabbMultiplier;
 
 type Group<T> = {
   nodes: Set<SpatialProxy<T>>;

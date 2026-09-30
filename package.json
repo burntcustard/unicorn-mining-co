@@ -23,7 +23,7 @@
     "start:server": "node dist/server.js",
     "preview": "vite preview --host --port 3000",
     "world-preview": "node scripts/world-preview.js",
-    "build": "npm run typecheck && vite build && node plugins/build-server.js",
+    "build": "npm run build:client && node plugins/build-server.js",
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && npm run test:formatting && npm run test:shared && npm run test:simulation && npm run test:regions && npm run test:server && npm run test:reconnect && npm run test:packets && npm run test:prediction && npm run test:collisions && npm run test:docked && npm run test:prism && npm run test:sound && npm run test:input",
     "test:formatting": "node tests/formatting.test.mjs",
@@ -41,8 +41,18 @@
     "test:sound": "node tests/sound.test.mjs",
     "lint": "oxlint --type-aware --type-check .",
     "lint:fix": "oxlint --type-aware --type-check --fix .",
-    "format": "oxlint -c .oxlint-format.json --fix . && oxfmt .",
-    "format:check": "oxlint -c .oxlint-format.json . && oxfmt --check ."
+    "format": "npm run format:go && oxlint -c .oxlint-format.json --fix . && oxfmt .",
+    "format:check": "npm run format:go:check && oxlint -c .oxlint-format.json . && oxfmt --check .",
+    "format:go": "node scripts/format-go.mjs",
+    "format:go:check": "node scripts/format-go.mjs --check",
+    "catalog:go": "tsx scripts/generate-go-catalog.ts",
+    "build:client": "npm run typecheck && npm run catalog:go && vite build",
+    "test:go": "npm run catalog:go && tsx scripts/generate-go-wire-fixtures.ts && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-region-fixtures.ts && tsx scripts/generate-go-asteroid-fixtures.ts && tsx scripts/generate-go-movement-fixtures.ts && tsx scripts/generate-go-item-fixtures.ts && tsx scripts/generate-go-http-fixtures.ts && tsx scripts/generate-go-gameplay-fixtures.ts && go test ./cmd/... ./internal/... ./tests/go-fixtures/snapshot && tsx tests/go-snapshot.test.ts && tsx tests/go-session.test.ts",
+    "build:go": "npm run build:client && mkdir -p bin && go build -o bin/go-server ./cmd/go-server",
+    "start:go-server": "go run ./cmd/go-server",
+    "dev:go-server": "npm run build:client && npm run start:go-server",
+    "test:go:physics": "npm run catalog:go && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && go test ./internal/collision/... ./internal/physics/...",
+    "benchmark:go": "node benchmarking/go-server.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"

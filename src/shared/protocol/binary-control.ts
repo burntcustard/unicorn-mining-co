@@ -2,15 +2,11 @@ import * as Vec from '../vector';
 import { simulationStep } from '../settings';
 import { packPlayerInput, unpackPlayerInput } from './input';
 import type { ClientMessage, ServerMessage } from './network';
+import { controlMessageIds, dockActionIds } from '../specification/protocol';
 
 type ServerControl = Extract<ServerMessage, { type: 'welcome' | 'respawn' }>;
 
-const hello = 0;
-const input = 1;
-const dock = 2;
-const respawn = 3;
-const snapshotAck = 4;
-const welcome = 5;
+const { hello, input, dock, respawn, snapshotAck, welcome } = controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const hex = '0123456789abcdef';
@@ -231,7 +227,7 @@ export function encodeClientMessage(
 
       switch (message.action) {
         case 'buy':
-          writer.byte(0);
+          writer.byte(dockActionIds.buy);
           writer.unsigned(message.module);
           writer.signed(message.moduleId);
           break;
@@ -240,25 +236,29 @@ export function encodeClientMessage(
           if (message.objectIds.length < 1 || message.objectIds.length > 100) {
             throw new RangeError('Invalid binary sell count');
           }
-          writer.byte(1);
+          writer.byte(dockActionIds.sell);
           writer.byte(message.objectIds.length);
           message.objectIds.forEach((id) => writer.signed(id));
           break;
 
         case 'equip':
-          writer.byte(2);
+          writer.byte(dockActionIds.equip);
           writer.signed(message.moduleId);
           writer.unsigned(message.mount);
           break;
 
         case 'remove':
-          writer.byte(3);
+          writer.byte(dockActionIds.remove);
           writer.unsigned(message.mount);
           break;
         case 'paint':
 
         case 'repair': {
-          writer.byte(message.action === 'paint' ? 4 : 5);
+          writer.byte(
+            message.action === 'paint'
+              ? dockActionIds.paint
+              : dockActionIds.repair,
+          );
 
           if (message.action === 'paint') writer.unsigned(message.paint);
           const mask =
@@ -337,7 +337,7 @@ export function decodeClientMessage(
       const action = reader.byte();
 
       switch (action) {
-        case 0:
+        case dockActionIds.buy:
           message = {
             type: 'dock',
             action: 'buy',
@@ -346,7 +346,7 @@ export function decodeClientMessage(
           };
           break;
 
-        case 1: {
+        case dockActionIds.sell: {
           const count = reader.byte();
 
           if (count < 1 || count > 100) {
@@ -361,7 +361,7 @@ export function decodeClientMessage(
           break;
         }
 
-        case 2:
+        case dockActionIds.equip:
           message = {
             type: 'dock',
             action: 'equip',
@@ -370,17 +370,18 @@ export function decodeClientMessage(
           };
           break;
 
-        case 3:
+        case dockActionIds.remove:
           message = {
             type: 'dock',
             action: 'remove',
             mount: reader.unsigned(),
           };
           break;
-        case 4:
+        case dockActionIds.paint:
 
-        case 5: {
-          const paint = action === 4 ? reader.unsigned() : undefined;
+        case dockActionIds.repair: {
+          const paint =
+            action === dockActionIds.paint ? reader.unsigned() : undefined;
           const mask = reader.byte();
 
           if (mask & ~3) throw new Error('Invalid binary control');
@@ -388,7 +389,7 @@ export function decodeClientMessage(
           const mount = mask & 2 ? reader.signed() : undefined;
 
           message =
-            action === 4
+            action === dockActionIds.paint
               ? {
                   type: 'dock',
                   action: 'paint',

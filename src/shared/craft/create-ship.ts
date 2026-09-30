@@ -1,6 +1,7 @@
 import { Ship } from './ship';
 import { Mustang } from './ships/mustang';
-import { ThrusterDualMd, CargoHatch, HornDrill, SearchLight } from '../modules';
+import { moduleTypesById } from '../modules';
+import { shipSpecifications } from '../specification/ships';
 import { type SimulationWorld, entityId } from '../simulation/world';
 import * as Vec from '../vector';
 import { type PlayerId } from '../protocol/entities';
@@ -31,11 +32,11 @@ export const createShip = (
     rotation,
     velocity,
     ...(shades && { shades }),
-    credits: 500,
+    credits: shipSpecifications.mustang.startingCredits,
   });
 
-  [ThrusterDualMd, CargoHatch, CargoHatch, HornDrill, SearchLight].forEach(
-    (Type) => ship.fit(new Type()),
+  shipSpecifications.mustang.startingModules.forEach((id) =>
+    ship.fit(new (moduleTypesById.get(id)!)()),
   );
   return ship;
 };

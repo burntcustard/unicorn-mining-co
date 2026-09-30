@@ -15,6 +15,7 @@ import * as matrix from '../vector-math';
 import { ShapeType } from '../collision/shape/base';
 import { TransformValue } from '../vector-math';
 import { contactSpeedThreshold, linearSlop } from '../settings';
+import { simulationSpecification } from '../specification/simulation';
 import {
   Manifold,
   type ManifoldType,
@@ -476,8 +477,9 @@ export class Contact {
       // Track max constraint error.
       minSeparation = Math.min(minSeparation, separation);
 
-      const baumgarte = toi ? 0.75 : 0.2;
-      const maxLinearCorrection = 20;
+      const { positionBaumgarte, toiBaumgarte, maxLinearCorrection } =
+        simulationSpecification.physics;
+      const baumgarte = toi ? toiBaumgarte : positionBaumgarte;
 
       // Prevent large corrections and allow slop.
       const C = Math.max(

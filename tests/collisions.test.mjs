@@ -1127,7 +1127,9 @@ const bounce = (bounciness) => {
   closeTo(
     moving.mass * moving.velocity.x + heavy.mass * heavy.velocity.x,
     900,
-    1e-7,
+    // Six ticks, four motion substeps and final contact rounding per tick.
+    // Each eight-decimal velocity rounding contributes at most half a unit.
+    6 * 5 * (moving.mass + heavy.mass) * 0.5e-8,
   );
   assert(heavy.velocity.x > 0);
   return moving.velocity.x;

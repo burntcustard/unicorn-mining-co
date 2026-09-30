@@ -10,12 +10,12 @@ and ship prediction against a controlled clock. It presses ArrowLeft 0.167 ms
 before a 60 Hz frame and gives the update phase 8 ms of work. Both versions
 paint on the next frame. The measured pose at the start of rendering is:
 
-| Measure | Before | After |
-| --- | ---: | ---: |
-| Time from key event to render | 8.167 ms | 8.167 ms |
-| Pose age at render | 8 ms | 0 ms |
-| Steering simulated after key event | 0.167 ms | 8.167 ms |
-| First frame rotation | -0.00000044 rad | -0.00104577 rad |
+| Measure                            |          Before |           After |
+| ---------------------------------- | --------------: | --------------: |
+| Time from key event to render      |        8.167 ms |        8.167 ms |
+| Pose age at render                 |            8 ms |            0 ms |
+| Steering simulated after key event |        0.167 ms |        8.167 ms |
+| First frame rotation               | -0.00000044 rad | -0.00104577 rad |
 
 The render loop now samples the clock after update and canvas clearing, so the
 next painted frame reflects controls through that work. Simulation ticks and

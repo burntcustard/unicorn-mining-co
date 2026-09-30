@@ -2,6 +2,8 @@
  * Each set of shades contains damage, module fill, hull/line, shadow and highlight
  * colours. Shades are picked by eye to suit each hue.
  */
+type Shades = readonly [string, string, string, string, string];
+
 export const colors = {
   red: ['#c00', '#d10', '#f32', '#400', '#f20'],
   orange: ['#c61', '#e82', '#fa3', '#930', '#f80'],
@@ -14,7 +16,7 @@ export const colors = {
   white: ['#ddd', '#eee', '#fff', '#33c', '#f8d'],
   grey: ['#778', '#99a', '#bbc', '#334', '#eef'],
   black: ['#000', '#111', '#222', '#879', '#200'],
-} as const;
+} as const satisfies Record<string, Shades>;
 
 export const paintColors = [
   colors.red,

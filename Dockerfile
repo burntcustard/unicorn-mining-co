@@ -1,16 +1,22 @@
-FROM node:26-bookworm-slim AS build
+FROM node:26-bookworm-slim AS client-build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+RUN npm run build:client
 
-FROM node:26-bookworm-slim
-ENV NODE_ENV=production PORT=8080
+FROM golang:1.27-bookworm AS go-build
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-COPY --from=build --chown=node:node /app/dist ./dist
-USER node
+COPY --from=client-build /app/go.mod ./go.mod
+COPY --from=client-build /app/cmd ./cmd
+COPY --from=client-build /app/internal ./internal
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /app/go-server ./cmd/go-server
+
+FROM scratch
+ENV APP_ENV=production PORT=8080 WORLD_SEED=25
+WORKDIR /app
+COPY --from=go-build /app/go-server ./go-server
+COPY --from=client-build /app/dist ./dist
+USER 65532:65532
 EXPOSE 8080
-CMD ["node", "dist/server.js"]
+CMD ["/app/go-server"]

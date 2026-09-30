@@ -13,13 +13,13 @@ import { Module } from '../modules/module';
 import { Item } from '../items/item';
 import { paintColors } from '../colors';
 import { type CraftAction } from '../protocol/network';
+import { simulationSpecification } from '../specification/simulation';
 
 type DockActionRequest =
   | Exclude<CraftAction, { action: 'buy' }>
   | { action: 'buy'; module: number; moduleId?: number };
 
-const thrustScale = 220;
-const steeringEase = 0.5;
+const flight = simulationSpecification.flight;
 
 export class Ship extends Craft {
   handleContacts({
@@ -83,7 +83,7 @@ export class Ship extends Craft {
     });
   }
   // Resist collision torque without changing the pilot's steering response.
-  static angularInertiaScale = 1.5;
+  static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
 
   get hullHealthTotal() {
@@ -223,7 +223,10 @@ export class Ship extends Craft {
   }
   // Only a crewed ship flies: wreckage and stations have no cockpit to fly from
   get maxSpeed() {
-    return (this.cockpit && 17 * this.forwardThrust) || 180;
+    return (
+      (this.cockpit && flight.speedPerThrust * this.forwardThrust) ||
+      flight.uncrewedMaxSpeed
+    );
   }
 
   // This hull has one engine mount; each nozzle belongs to the same module.
@@ -269,7 +272,10 @@ export class Ship extends Craft {
   // Half-size nozzles retain the original quarter-thrust launch coast.
   // Return to full power for the last 0.05 seconds of launch.
   get launchThrottle() {
-    return this.launching > 0.05 && this.launching <= 2 ? 0.5 : 1;
+    return this.launching > flight.launchHalfThreshold &&
+      this.launching <= flight.launchHalfEnd
+      ? flight.launchThrottle
+      : 1;
   }
 
   fly(forward: number, turn: number) {
@@ -281,7 +287,7 @@ export class Ship extends Craft {
           turn && segment.thrusterNozzleSide
             ? turn === -segment.thrusterNozzleSide
               ? 1
-              : forward * steeringEase
+              : forward * flight.steeringEase
             : forward;
         segment.active *= this.launchThrottle;
       }
@@ -296,14 +302,16 @@ export class Ship extends Craft {
 
     if (this.cockpit && !this.dockedTo) {
       const push =
-        ((thrustScale * this.forwardThrust) / this.mass) * this.forward * dt;
+        ((flight.thrustScale * this.forwardThrust) / this.mass) *
+        this.forward *
+        dt;
       const rotationalThrust = this.rotationalThrust;
       const targetSpin =
         (this.turn *
           this.turnRate *
           rotationalThrust *
           this.launchThrottle ** 2) /
-        16;
+        flight.spinDivisor;
 
       this.spin = approach(this.spin, targetSpin, rotationalThrust * dt);
       Vec.set(

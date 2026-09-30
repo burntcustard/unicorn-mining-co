@@ -1,27 +1,19 @@
 import { Item } from './item';
-import { colors } from '../colors';
+import { itemDefaults, itemSpecifications } from '../specification/items';
 
 // Gold
 // The same ingot as the platinum, cut shorter and squarer, with a line along
 // the top face so the two are told apart at a glance as well as by colour
+const specification = itemSpecifications.gold;
+
 export class Gold extends Item {
-  static resource = 2;
-  static bounciness = 0.2;
-  static health = 100;
-  static lines = [
-    [
-      [-5, -1],
-      [5, -1],
-    ],
-  ];
-  static label = 'GOLD';
-  static points = [
-    [-7, -4],
-    [7, -4],
-    [5, 3],
-    [-5, 3],
-  ];
-  static price = 30;
-  static shades = colors.yellow;
-  static glint = true;
+  static resource = specification.resource;
+  static label = specification.label;
+  static price = specification.price;
+  static points = specification.points;
+  static lines = specification.lines;
+  static shades = specification.shades;
+  static glint = specification.glint;
+  static bounciness = itemDefaults.bounciness;
+  static health = itemDefaults.health;
 }

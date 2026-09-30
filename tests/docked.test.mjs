@@ -397,6 +397,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     expectedSpeed = expectedSpeed > cap ? Math.max(cap, expectedSpeed * 0.9) :
       expectedSpeed * Math.exp(-departing.drag * dt);
     expectedX = round(expectedX + expectedSpeed * dt);
+    expectedSpeed = round(expectedSpeed);
     departing.fly(departing.launching ? 1 : 0, 0);
     departing.update(dt);
     assert(Math.abs(Vec.length(departing.velocity) - expectedSpeed) < 1e-8,
