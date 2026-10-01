@@ -31,7 +31,7 @@ import {
 const maxBufferedSnapshotBytes = 128 * 1024;
 const maxSocketBufferBytes = 1024 * 1024;
 // Bound snapshots beyond Node's buffer too (kernel, proxy and browser).
-// Two in flight maintain 15 Hz up to a 133 ms round trip; slower receivers
+// Two in flight maintain 30 Hz up to a 67 ms round trip; slower receivers
 // get fewer, current snapshots instead of a growing queue of stale ticks.
 const maxPendingSnapshots = 2;
 // Server regions reach 500 units past what receivers load; a ship at top
@@ -245,10 +245,7 @@ export class GameSession {
       ticks,
     });
 
-    // Simulate at 30 Hz, but broadcast state every two ticks. A catch-up
-    // batch still sends once when it crosses a broadcast boundary.
-    if (Math.floor(this.world.tick / 2) === Math.floor(tick / 2)) return;
-
+    // Send the completed simulation state once, including after a catch-up batch.
     // Positions are read lazily, so backpressure that skips every receiver
     // does not copy the world.
     const replicationView = new ReplicationView(this.world);

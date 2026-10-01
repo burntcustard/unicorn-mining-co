@@ -11,6 +11,7 @@ Raw benchmark data and reproduction artifacts remain in [benchmarking](../../ben
 - [Precision and SIMD investigation — 2026-10-01](go-server-precision-simd-2026-10-01.md)
 - [Go server SIMD benchmark results — 2026-10-01](go-server-simd-results-2026-10-01.md)
 - [Solver, persistent caches and SIMD follow-up — 2026-10-01](go-server-solver-redesign-2026-10-01.md)
+- [Snapshots at the simulation rate — 2026-10-01](snapshot-cadence-2026-10-01.md)
 - [Client input latency](input-latency-2026-09-29.md)
 - [Live multiplayer freeze investigation — 27 September 2026](live-freeze-investigation-2026-09-27.md)
 - [Multiplayer freeze fixes — 27 September 2026](multiplayer-freeze-fixes-2026-09-27.md)

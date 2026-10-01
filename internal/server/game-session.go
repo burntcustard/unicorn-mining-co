@@ -252,9 +252,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	})
 	dt := float64(ticks) * step
 	simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
-	if world.Tick/2 == tick/2 {
-		return
-	}
+	// Send the completed simulation state once, including after a catch-up batch.
 	view := s.replicationView.Reset()
 	batch := s.binaryBatch.Begin(view)
 	s.players.ForEach(func(p *playerRecord, _ string) { s.sendSnapshot(p, view, batch) })

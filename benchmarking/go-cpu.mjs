@@ -11,9 +11,11 @@ if (!label || !executable) {
     'Usage: node benchmarking/go-cpu.mjs LABEL EXECUTABLE [PREVIOUS_JSON]',
   );
 }
-const cpu = readFileSync('/proc/self/status', 'utf8').match(
-  /Cpus_allowed_list:\s*(\d+)/,
-)[1];
+const cpu =
+  process.env.CPUSET ||
+  readFileSync('/proc/self/status', 'utf8').match(
+    /Cpus_allowed_list:\s*(\d+)/,
+  )[1];
 const ticks = Number(process.env.TICKS || 900);
 const repetitions = Number(process.env.REPETITIONS || 3);
 const counts = (process.env.PLAYERS || '4,8,16,32').split(',').map(Number);
@@ -41,13 +43,7 @@ for (const players of counts) {
 
       execFileSync(
         'taskset',
-        [
-          '-c',
-          process.env.CPUSET || cpu,
-          executable,
-          '-test.run',
-          '^TestSessionBenchmark$',
-        ],
+        ['-c', cpu, executable, '-test.run', '^TestSessionBenchmark$'],
         {
           env: {
             ...process.env,

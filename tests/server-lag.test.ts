@@ -481,8 +481,8 @@ try {
     }
     assert.equal(
       largestLag,
-      1,
-      '15 Hz snapshots keep clients within one simulation step',
+      0,
+      '30 Hz snapshots keep clients current after delivery at every arrival phase',
     );
     clients.forEach((client, index) => {
       const ship = client.world.entities.get(client.shipId!) as Ship;
@@ -497,7 +497,7 @@ try {
       );
     });
     console.log(
-      'Three arrival phases: all 150 snapshots applied, movement and lights progress',
+      '30 Hz snapshots across three arrival phases: movement and lights progress',
     );
   }
 
@@ -579,7 +579,7 @@ try {
     }
     assert.equal(
       healthyLag,
-      1,
+      0,
       'the slow receiver never adds lag for other players',
     );
 
@@ -798,12 +798,10 @@ try {
     socket.onmessage = receive;
     delayedMessages.forEach((message) => receive?.(message));
 
-    // One of the next two simulation ticks crosses a 15 Hz send boundary.
-    for (let tick = 0; tick < 2; tick++) {
-      now += 1000 / 30;
-      session.tick();
-      delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now });
-    }
+    // The next simulation tick sends current state after the window drains.
+    now += 1000 / 30;
+    session.tick();
+    delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now });
     assert(
       Math.abs(delayed.world.tick - clients[1].world.tick) <= 2,
       'delayed pilot catches up when snapshots resume',

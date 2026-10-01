@@ -94,10 +94,11 @@ ordered collision events, contacts, state, and decoded packets.
 
 One goroutine owns GameSession and all mutable world state. WebSocket readers
 validate and enqueue messages; the writer queue owns socket writes, including
-close frames. The owner performs 30 Hz simulation, catch-up batches, 15 Hz
-ordinary snapshots, timed-input acknowledgements, region lifecycle, and
-per-player delta replication. Snapshot windows and buffered-byte limits prevent
-slow receivers from advancing their baseline or accumulating unbounded state.
+close frames. The owner performs 30 Hz simulation and ordinary snapshots,
+catch-up batches, timed-input acknowledgements, region lifecycle, and per-player
+delta replication. Each catch-up batch sends one snapshot of its completed state.
+Snapshot windows and buffered-byte limits prevent slow receivers from advancing
+their baseline or accumulating unbounded state.
 Reconnect, duplicate-session replacement, idle expiry, respawn, docking actions,
 message limits, heartbeat, health checks, and static assets follow the Node paths.
 

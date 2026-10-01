@@ -32,13 +32,7 @@ for (let socket = 0; socket < 4; socket++) {
 
 for (let tick = 0; tick < 180; tick++) {
   for (let socket = 0; socket < 4; socket++) {
-    if (tick % 2 === 0) {
-      actions.push({
-        kind: 'receive',
-        socket,
-        message: { type: 'snapshotAck', sequence: tick / 2 + 1 },
-      });
-    }
+    actions.push({ kind: 'ackLatest', socket });
 
     if (tick % 15 === 0) {
       actions.push({
@@ -72,11 +66,7 @@ actions.push(
 );
 
 for (let socket = 0; socket < 5; socket++) {
-  actions.push({
-    kind: 'receive',
-    socket,
-    message: { type: 'snapshotAck', sequence: 91 },
-  });
+  actions.push({ kind: 'ackLatest', socket });
 }
 actions.push({ kind: 'tick', socket: 0, ticks: 4 });
 actions.push({ kind: 'dockSetup', socket: 4 });

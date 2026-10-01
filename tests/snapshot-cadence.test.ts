@@ -79,16 +79,19 @@ const snapshots = packets.filter(
 
 assert.deepEqual(
   snapshots.map((packet) => packet.serverTick),
-  [2, 4, 6, 8],
-  'ordinary snapshots run at 15 Hz',
+  [1, 2, 3, 4, 5, 6, 7, 8],
+  'ordinary snapshots run at 30 Hz, in sync with the simulation',
 );
 assert.deepEqual(
   snapshots.map((packet) => packet.acknowledgedSequence),
-  [2, 4, 6, 8],
+  [1, 2, 3, 4, 5, 6, 7, 8],
 );
 assert.equal(player.pendingSnapshots.length, 0);
 
+const beforeBatch = packets.length;
+
 session.tick({ ticks: 3 });
+assert.equal(packets.length, beforeBatch + 1, 'a catch-up batch sends once');
 assert.equal(packets.at(-1)?.type, 'snapshot');
 assert.equal((packets.at(-1) as SnapshotMessage).serverTick, 11);
 
