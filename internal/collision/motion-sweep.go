@@ -20,7 +20,7 @@ func NewSweep() Sweep { return Sweep{trigAngle: math.NaN(), transformAngle: math
 func (s *Sweep) Rotation0() Vec.RotValue {
 	if s.trigAngle != s.A0 || s.cosA0 == 0 && s.sinA0 == 0 {
 		s.trigAngle = s.A0
-		s.sinA0, s.cosA0 = math.Sincos(s.A0)
+		s.sinA0, s.cosA0 = Vec.SinCos(s.A0)
 	}
 	return Vec.RotValue{S: s.sinA0, C: s.cosA0}
 }
@@ -37,7 +37,7 @@ func (s *Sweep) GetTransform(xf *Vec.TransformValue, beta float64) {
 	} else {
 		if s.transformAngle != angle || s.transformCos == 0 && s.transformSin == 0 {
 			s.transformAngle = angle
-			s.transformSin, s.transformCos = math.Sincos(angle)
+			s.transformSin, s.transformCos = Vec.SinCos(angle)
 		}
 		xf.Q = Vec.RotValue{S: s.transformSin, C: s.transformCos}
 	}

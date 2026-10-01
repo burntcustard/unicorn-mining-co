@@ -28,7 +28,8 @@ func (p *PolygonShape) Set(vertices []Vec.Vector, linearSlop float64) {
 		p.SetAsBox(100, 100)
 		return
 	}
-	ps := []Vec.Vector{}
+	var points [16]Vec.Vector
+	ps := points[:0]
 	for _, v := range vertices {
 		unique := true
 		for _, previous := range ps {
@@ -53,7 +54,8 @@ func (p *PolygonShape) Set(vertices []Vec.Vector, linearSlop float64) {
 			i0, x0 = i, x
 		}
 	}
-	hull := []int{}
+	var indices [16]int
+	hull := indices[:0]
 	ih := i0
 	for {
 		hull = append(hull, ih)
@@ -85,8 +87,8 @@ func (p *PolygonShape) Set(vertices []Vec.Vector, linearSlop float64) {
 		return
 	}
 	p.Count = m
-	p.Vertices = make([]Vec.Vector, m)
-	p.Normals = make([]Vec.Vector, m)
+	data := make([]Vec.Vector, 2*m)
+	p.Vertices, p.Normals = data[:m:m], data[m:]
 	for i, index := range hull {
 		p.Vertices[i] = ps[index]
 	}

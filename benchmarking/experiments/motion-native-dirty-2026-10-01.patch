@@ -1,0 +1,37 @@
+diff --git a/internal/simulation/motion-rounding-simd.go b/internal/simulation/motion-rounding-simd.go
+new file mode 100644
+--- /dev/null
++++ b/internal/simulation/motion-rounding-simd.go
+@@ -0,0 +1,32 @@
++//go:build goexperiment.simd && amd64
++
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"simd/archsimd"
++	"unsafe"
++)
++
++var vectorMotionRounding = archsimd.X86.AVX2() && utilities.SIMDFeature("motion")
++
++func roundEntityMotion(world *World) {
++	if !vectorMotionRounding {
++		world.Entities.ForEach(func(e Entity, _ int64) { e.Base().RoundMotion() })
++		return
++	}
++	scale4, inverse4 := archsimd.BroadcastFloat64x4(0x1p24), archsimd.BroadcastFloat64x4(0x1p-24)
++	scale2, inverse2 := archsimd.BroadcastFloat64x2(0x1p24), archsimd.BroadcastFloat64x2(0x1p-24)
++	remaining := world.Entities.Len()
++	// Base and the ordered-map iterator only access pointers and integers. Keep
++	// the whole pass in AVX, then clear before ForEach's deferred compaction.
++	world.Entities.ForEach(func(e Entity, _ int64) {
++		object := e.Base()
++		motion := (*[4]float64)(unsafe.Pointer(&object.Position))
++		angles := (*[2]float64)(unsafe.Pointer(&object.Rotation))
++		archsimd.LoadFloat64x4Array(motion).Mul(scale4).Round().Mul(inverse4).StoreArray(motion)
++		archsimd.LoadFloat64x2Array(angles).Mul(scale2).Round().Mul(inverse2).StoreArray(angles)
++		remaining--
++		if remaining == 0 { archsimd.ClearAVXUpperBits() }
++	})
++}

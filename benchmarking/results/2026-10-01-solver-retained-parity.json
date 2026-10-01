@@ -1,0 +1,18 @@
+{
+  "retainedExecutableHash": "2097c41aabb35a07637415985bc9ded9b81660f01c7427a012f167cfd333952a",
+  "pgoSha256": "35a3d270804a4bf4a1a609d3bf11b4b1056a8fcdb419392df0d3b720d078eaa5",
+  "comparedFields": [
+    "contacts",
+    "events",
+    "packets",
+    "bytes",
+    "entities",
+    "states"
+  ],
+  "scenarios": 16,
+  "ticks": 3000,
+  "retainedRepetitions": 3,
+  "comparison": "exact equality against both Go and TypeScript records from solver-final-node-parity",
+  "shortAggregateCpuReductionPercent": 10.761793377538098,
+  "longAggregateCpuReductionPercent": 11.415743158677738
+}

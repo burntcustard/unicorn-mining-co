@@ -153,8 +153,8 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 	roundSpawn(ship)
 }
 func roundSpawn(ship *craft.Ship) {
-	ship.Position.X = utilities.RoundInteger(ship.Position.X)
-	ship.Position.Y = utilities.RoundInteger(ship.Position.Y)
+	ship.Position.X = utilities.RoundTiesUp(ship.Position.X)
+	ship.Position.Y = utilities.RoundTiesUp(ship.Position.Y)
 }
 func (s *GameSession) positions() []Vec.Vector {
 	positions := []Vec.Vector{}
@@ -276,7 +276,6 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	options := SnapshotOptions{World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: p.inputLead, SnapshotSequence: &sequence, ReplicationView: view, BinaryBatch: batch}
 	var packet []byte
 	if p.needsLoad {
-		clear(p.binaryReplication.members)
 		packet = p.binaryReplication.encode(options, true)
 	} else {
 		packet = p.binaryReplication.encode(options, false)
@@ -303,8 +302,8 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 		angle := float64(id) * 2.4
 		sin, cos := math.Sincos(angle)
 		spawn := Vec.AddScaled(station.Position, Vec.Vector{X: cos, Y: sin}, station.Radius+250)
-		spawn.X = utilities.RoundInteger(spawn.X)
-		spawn.Y = utilities.RoundInteger(spawn.Y)
+		spawn.X = utilities.RoundTiesUp(spawn.X)
+		spawn.Y = utilities.RoundTiesUp(spawn.Y)
 		ship := ships.CreateShip(s.World, craft.Properties{PlayerID: &id, Position: spawn})
 		simulation.AddEntity(s.World, ship)
 		simulation.AddPlayer(s.World, simulation.Player{ID: id, ShipID: ship.ID})

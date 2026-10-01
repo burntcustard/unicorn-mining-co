@@ -163,4 +163,4 @@ parent process's inherited pre-exec high-water mark. The default writes
 Fly throttling checks remain for the user's merge/deploy test.
 
 The measured results and limitations are in the
-[2026-09-30 benchmark report](go-server-benchmark-2026-09-30.md).
+[2026-09-30 benchmark report](experiments/go-server-benchmark-2026-09-30.md).

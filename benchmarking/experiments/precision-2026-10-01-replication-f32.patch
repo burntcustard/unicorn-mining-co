@@ -1,0 +1,94 @@
+--- a/internal/server/replication-common.go
++++ b/internal/server/replication-common.go
+@@ -131,9 +131,9 @@
+ 	objects       []*simulation.GameObject
+ 	records       []*binaryRecord
+ 	Kinds, Phases []int
+-	X, Y          []float64
++	X, Y          []float32
+ 	IDs           []int64
+-	distanceBlock [16]float64
++	distanceBlock [16]float32
+ }
+ 
+ func NewReplicationView(world *simulation.World) *ReplicationView {
+@@ -150,8 +150,8 @@
+ 			v.records = make([]*binaryRecord, count*2)
+ 			v.Kinds = make([]int, count*2)
+ 			v.Phases = make([]int, count*2)
+-			v.X = make([]float64, count*2)
+-			v.Y = make([]float64, count*2)
++			v.X = make([]float32, count*2)
++			v.Y = make([]float32, count*2)
+ 		}
+ 		v.objects = v.objects[:count]
+ 		v.records = v.records[:count]
+@@ -165,7 +165,7 @@
+ 			o := e.Base()
+ 			v.objects[i] = o
+ 			v.records[i], _ = o.ReplicationState.(*binaryRecord)
+-			v.X[i], v.Y[i] = o.Position.X, o.Position.Y
++			v.X[i], v.Y[i] = float32(o.Position.X), float32(o.Position.Y)
+ 			station := o.Kind == "station"
+ 			if station {
+ 				v.Kinds[i] = 1
+--- a/internal/server/replication-simd.go
++++ b/internal/server/replication-simd.go
+@@ -30,22 +30,27 @@
+ //
+ //go:noinline
+ func (v *ReplicationView) replicationBlock(index int, px, py, entitySquared, markerSquared float64, shipID int64) uint16 {
+-	x, y := archsimd.BroadcastFloat64x4(px), archsimd.BroadcastFloat64x4(py)
+-	entity, marker := archsimd.BroadcastFloat64x4(entitySquared), archsimd.BroadcastFloat64x4(markerSquared)
++	x, y := archsimd.BroadcastFloat32x8(float32(px)), archsimd.BroadcastFloat32x8(float32(py))
++	entity, marker := archsimd.BroadcastFloat32x8(float32(entitySquared)), archsimd.BroadcastFloat32x8(float32(markerSquared))
+ 	owned, one, zero := archsimd.BroadcastInt64x4(shipID), archsimd.BroadcastInt64x4(1), archsimd.BroadcastInt64x4(0)
+ 	var rejected uint16
+-	for offset := 0; offset < 16; offset += 4 {
++	for offset := 0; offset < 16; offset += 8 {
+ 		at := index + offset
+-		load := func(values []float64) archsimd.Float64x4 {
+-			return archsimd.LoadFloat64x4Array((*[4]float64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(values)), at*8)))
++		load := func(values []float32) archsimd.Float32x8 {
++			return archsimd.LoadFloat32x8Array((*[8]float32)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(values)), at*4)))
+ 		}
+ 		dx, dy := load(v.X).Sub(x), load(v.Y).Sub(y)
+ 		distance := dx.Mul(dx).Add(dy.Mul(dy))
+-		distance.StoreArray((*[4]float64)(unsafe.Pointer(&v.distanceBlock[offset])))
+-		kinds := archsimd.LoadInt64x4Array((*[4]int64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(v.Kinds)), at*8)))
+-		ids := archsimd.LoadInt64x4Array((*[4]int64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(v.IDs)), at*8)))
+-		far := distance.Greater(entity).And(distance.Greater(marker).Or(kinds.And(one).Equal(zero))).And(ids.NotEqual(owned))
+-		rejected |= uint16(far.ToBits()) << offset
++		distance.StoreArray((*[8]float32)(unsafe.Pointer(&v.distanceBlock[offset])))
++		far, farMarker := distance.Greater(entity).ToBits(), distance.Greater(marker).ToBits()
++		var station, sameID uint8
++		for half := 0; half < 8; half += 4 {
++			kinds := archsimd.LoadInt64x4Array((*[4]int64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(v.Kinds)), (at+half)*8)))
++			ids := archsimd.LoadInt64x4Array((*[4]int64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(v.IDs)), (at+half)*8)))
++			station |= uint8(kinds.And(one).NotEqual(zero).ToBits()) << half
++			sameID |= uint8(ids.Equal(owned).ToBits()) << half
++		}
++		rejected |= uint16(uint8(far) & (uint8(farMarker) | ^station) & ^sameID) << offset
+ 	}
+ 	archsimd.ClearAVXUpperBits()
+ 	return rejected
+--- a/internal/server/binary-replication.go
++++ b/internal/server/binary-replication.go
+@@ -646,14 +646,14 @@
+ 			for mask != 0 {
+ 				offset := bits.TrailingZeros16(mask)
+ 				mask &= mask - 1
+-				accept(base+offset, view.distanceBlock[offset])
++				accept(base+offset, float64(view.distanceBlock[offset]))
+ 			}
+ 		}
+ 	}
+ 	// Dense views and the incomplete SIMD tail use the original scalar checks.
+ 	for i := end; i < len(list); i++ {
+-		dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
+-		distance := dx*dx + dy*dy
++		dx, dy := view.X[i]-float32(position.X), view.Y[i]-float32(position.Y)
++		distance := float64(dx*dx + dy*dy)
+ 		object, station := view.objects[i], view.Kinds[i]&1 != 0
+ 		if distance > ranges.EntityUnload*ranges.EntityUnload && object.ID != options.ShipID && (distance > ranges.MarkerUnload*ranges.MarkerUnload || !station) {
+ 			continue

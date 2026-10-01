@@ -1,0 +1,2704 @@
+--- a/internal/collision/game/game-collisions.go
++++ b/internal/collision/game/game-collisions.go
+@@ -18,6 +18,8 @@
+ )
+ 
+ type BodyRecord struct {
++	Object                    *simulation.GameObject
++	visited                   uint64
+ 	Body                      *physics.Body
+ 	Entity                    simulation.Entity
+ 	Fixtures                  []*physics.Fixture
+@@ -38,6 +40,7 @@
+ var limitCollisionNeighbors = os.Getenv("GO_SERVER_COLLISION_NEIGHBORS") != "unlimited"
+ 
+ type GameCollisions struct {
++	visit          uint64
+ 	world          *physics.World
+ 	catalog        specification.Catalog
+ 	manifold       collision.WorldManifold
+@@ -100,7 +103,7 @@
+ 		return
+ 	}
+ 	record.Ballistic = true
+-	record.Entity.Base().Ballistic = true
++	record.Object.Ballistic = true
+ }
+ func inertiaPerMass(fixtures []*physics.Fixture) float64 {
+ 	area, moment := 0.0, 0.0
+@@ -149,12 +152,13 @@
+ }
+ func (g *GameCollisions) CapturePoses(entities *utilities.OrderedMap[int64, simulation.Entity]) {
+ 	entities.ForEach(func(e simulation.Entity, _ int64) {
+-		if e.Base().InactivePhysics {
+-			e.Base().Ballistic = true
++		object := e.Base()
++		if object.InactivePhysics {
++			object.Ballistic = true
+ 			return
+ 		}
+ 		record := g.recordFor(e)
+-		record.Previous = simulation.Pose{Position: e.Base().Position, Rotation: e.Base().Rotation}
++		record.Previous = simulation.Pose{Position: object.Position, Rotation: object.Rotation}
+ 	})
+ }
+ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.Entity], dt float64, events *[]protocol.SimulationEvent) []collision.Contact {
+@@ -165,18 +169,21 @@
+ 	g.visiting = g.visiting[:0]
+ 	clear(g.found)
+ 	g.found = g.found[:0]
++	g.visit++
+ 	live := 0
+ 	park := false
+ 	entities.ForEach(func(e simulation.Entity, _ int64) {
+-		record, _ := e.Base().CollisionState.(*BodyRecord)
++		object := e.Base()
++		record, _ := object.CollisionState.(*BodyRecord)
+ 		if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
+ 			record = nil
+ 		}
+ 		if record != nil && record.Entity == e && record.Body.World == g.world && !record.Body.Destroyed {
+ 			live++
+-			park = park || e.Base().InactivePhysics && !record.Body.Parked
+-		}
+-		if !e.Base().InactivePhysics {
++			record.visited = g.visit
++			park = park || object.InactivePhysics && !record.Body.Parked
++		}
++		if !object.InactivePhysics {
+ 			g.visiting = append(g.visiting, e)
+ 			g.found = append(g.found, record)
+ 		}
+@@ -184,11 +191,12 @@
+ 	visiting := g.visiting
+ 	if park || live != g.bodies.Len() {
+ 		g.bodies.ForEach(func(record *BodyRecord, id int64) {
+-			if entities.Has(id) && record.Entity.Base().InactivePhysics {
++			current := record.visited == g.visit || entities.Has(id)
++			if current && record.Object.InactivePhysics {
+ 				if !record.Body.Parked {
+ 					record.Body.Park()
+ 				}
+-			} else if !entities.Has(id) {
++			} else if !current {
+ 				g.world.DestroyBody(record.Body)
+ 				g.bodies.Delete(id)
+ 			}
+@@ -252,7 +260,7 @@
+ 		g.touched(contact.Other.Owner.(simulation.Entity))
+ 	}
+ 	for _, record := range g.motions {
+-		body, object, velocity, spin, start := record.Body, record.Entity.Base(), record.Velocity, record.Spin, record.SweepStart
++		body, object, velocity, spin, start := record.Body, record.Object, record.Velocity, record.Spin, record.SweepStart
+ 		if body.Parked {
+ 			angle := start.Rotation
+ 			if angle > math.Pi {
+@@ -339,7 +347,7 @@
+ 	}
+ 	bounds, free, order := g.bounds, g.free, g.sortOrder
+ 	for i, r := range motions {
+-		p, start := r.Entity.Base().Position, r.SweepStart.Position
++		p, start := r.Object.Position, r.SweepStart.Position
+ 		dx, dy := p.X-start.X, p.Y-start.Y
+ 		travel := math.Sqrt(dx*dx + dy*dy)
+ 		reach := r.Radius + travel + g.catalog.Simulation.Physics.WakeMargin
+@@ -362,7 +370,7 @@
+ 			order[j+1] = item
+ 		}
+ 	} else {
+-		slices.SortStableFunc(order, func(a, b int) int {
++		slices.SortFunc(order, func(a, b int) int {
+ 			if bounds[a*4] < bounds[b*4] {
+ 				return -1
+ 			}
+@@ -380,6 +388,9 @@
+ 			if bounds[b] > right {
+ 				break
+ 			}
++			if !free[order[i]] && !free[order[j]] {
++				continue
++			}
+ 			dx, dy := bounds[a+1]-bounds[b+1], bounds[a+2]-bounds[b+2]
+ 			reach := bounds[a+3] + bounds[b+3]
+ 			if dx*dx+dy*dy <= reach*reach {
+@@ -397,8 +408,9 @@
+ 	owner.Base().Ballistic = false
+ }
+ func (g *GameCollisions) recordFor(entity simulation.Entity) *BodyRecord {
+-	id := entity.Base().ID
+-	record, _ := entity.Base().CollisionState.(*BodyRecord)
++	object := entity.Base()
++	id := object.ID
++	record, _ := object.CollisionState.(*BodyRecord)
+ 	if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
+ 		record = nil
+ 	}
+@@ -408,9 +420,9 @@
+ 		record = nil
+ 	}
+ 	if record == nil {
+-		record = &BodyRecord{Entity: entity, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: entity.Base().Position, Rotation: entity.Base().Rotation}}
++		record = &BodyRecord{Entity: entity, Object: object, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: object.Position, Rotation: object.Rotation}}
+ 		g.bodies.Set(id, record)
+-		entity.Base().CollisionState = record
++		object.CollisionState = record
+ 	}
+ 	return record
+ }
+--- a/internal/collision/motion-sweep.go
++++ b/internal/collision/motion-sweep.go
+@@ -20,7 +20,7 @@
+ func (s *Sweep) Rotation0() Vec.RotValue {
+ 	if s.trigAngle != s.A0 || s.cosA0 == 0 && s.sinA0 == 0 {
+ 		s.trigAngle = s.A0
+-		s.sinA0, s.cosA0 = math.Sincos(s.A0)
++		s.sinA0, s.cosA0 = Vec.SinCos(s.A0)
+ 	}
+ 	return Vec.RotValue{S: s.sinA0, C: s.cosA0}
+ }
+@@ -37,7 +37,7 @@
+ 	} else {
+ 		if s.transformAngle != angle || s.transformCos == 0 && s.transformSin == 0 {
+ 			s.transformAngle = angle
+-			s.transformSin, s.transformCos = math.Sincos(angle)
++			s.transformSin, s.transformCos = Vec.SinCos(angle)
+ 		}
+ 		xf.Q = Vec.RotValue{S: s.transformSin, C: s.transformCos}
+ 	}
+--- a/internal/collision/shape/polygon-polygon-contact.go
++++ b/internal/collision/shape/polygon-polygon-contact.go
+@@ -8,13 +8,18 @@
+ 	"math"
+ )
+ 
+-func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
++func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64, start int) (int, float64) {
+ 	var xf Vec.TransformValue
+ 	var n, v1 Vec.Vector
+ 	Vec.DetransformTransform(&xf, xf2, xf1)
+ 	bestIndex, maxSeparation := 0, math.Inf(-1)
+ 	vertices1, vertices2 := poly1.Vertices[:poly1.Count], poly2.Vertices[:poly2.Count]
+-	for i, normal := range poly1.Normals[:poly1.Count] {
++	for index := range poly1.Count {
++		i := start + index
++		if i >= poly1.Count {
++			i -= poly1.Count
++		}
++		normal := poly1.Normals[i]
+ 		Vec.RotateInto(&n, xf.Q, normal)
+ 		Vec.TransformInto(&v1, xf, vertices1[i])
+ 		offset := Vec.Dot(n, v1)
+@@ -28,7 +33,7 @@
+ 		if si > limit {
+ 			return i, si
+ 		}
+-		if si > maxSeparation {
++		if si > maxSeparation || si == maxSeparation && i < bestIndex {
+ 			maxSeparation, bestIndex = si, i
+ 		}
+ 	}
+@@ -48,14 +53,22 @@
+ 	Vec.TransformInto(&clipVertex[1], xf2, poly2.Vertices[(index+1)%poly2.Count])
+ }
+ func CollidePolygons(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64) {
++	var cache [2]uint8
++	CollidePolygonsCached(m, a, xfA, b, xfB, linearSlop, &cache)
++}
++func CollidePolygonsCached(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64, cache *[2]uint8) (gap float64) {
+ 	m.PointCount = 0
+ 	totalRadius := a.Radius + b.Radius
+-	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB, totalRadius)
++	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB, totalRadius, int(cache[0]))
++	cache[0] = uint8(edgeA)
+ 	if separationA > totalRadius {
++		gap = separationA - totalRadius
+ 		return
+ 	}
+-	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA, totalRadius)
++	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA, totalRadius, int(cache[1]))
++	cache[1] = uint8(edgeB)
+ 	if separationB > totalRadius {
++		gap = separationB - totalRadius
+ 		return
+ 	}
+ 	poly1, poly2, xf1, xf2, edge1 := a, b, xfA, xfB, edgeA
+@@ -95,4 +108,5 @@
+ 		}
+ 	}
+ 	m.PointCount = pointCount
++	return
+ }
+--- a/internal/collision/shape/polygon-shape.go
++++ b/internal/collision/shape/polygon-shape.go
+@@ -28,7 +28,8 @@
+ 		p.SetAsBox(100, 100)
+ 		return
+ 	}
+-	ps := []Vec.Vector{}
++	var points [16]Vec.Vector
++	ps := points[:0]
+ 	for _, v := range vertices {
+ 		unique := true
+ 		for _, previous := range ps {
+@@ -53,7 +54,8 @@
+ 			i0, x0 = i, x
+ 		}
+ 	}
+-	hull := []int{}
++	var indices [16]int
++	hull := indices[:0]
+ 	ih := i0
+ 	for {
+ 		hull = append(hull, ih)
+@@ -85,8 +87,8 @@
+ 		return
+ 	}
+ 	p.Count = m
+-	p.Vertices = make([]Vec.Vector, m)
+-	p.Normals = make([]Vec.Vector, m)
++	data := make([]Vec.Vector, 2*m)
++	p.Vertices, p.Normals = data[:m:m], data[m:]
+ 	for i, index := range hull {
+ 		p.Vertices[i] = ps[index]
+ 	}
+--- /dev/null
++++ b/internal/physics/body-pair.go
+@@ -0,0 +1,152 @@
++package physics
++
++import (
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++)
++
++// One record per body pair avoids repeating neighbor and relative-motion work
++// for every fixture pair. Contact order follows the newest live fixture contact.
++type bodyPair struct {
++	motionA, motionB  uint64
++	motionBound       float64
++	relative, reverse Vec.TransformValue
++	motionReady       bool
++	sweepRevision     uint64
++	sweepBound        float64
++	neighborEpoch     uint64
++	allowed           bool
++	contacts          *Contact
++	a, b              bodyPairEdge
++}
++type bodyPairEdge struct {
++	other      *Body
++	pair       *bodyPair
++	prev, next *bodyPairEdge
++}
++
++func unlinkPairEdge(body *Body, edge *bodyPairEdge) {
++	if edge.prev != nil {
++		edge.prev.next = edge.next
++	} else {
++		body.pairs = edge.next
++	}
++	if edge.next != nil {
++		edge.next.prev = edge.prev
++	}
++	edge.prev, edge.next = nil, nil
++}
++func insertPairEdge(body *Body, edge *bodyPairEdge) {
++	var previous *bodyPairEdge
++	next := body.pairs
++	for next != nil && next.pair.contacts.toiOrder > edge.pair.contacts.toiOrder {
++		previous = next
++		next = next.next
++	}
++	edge.prev, edge.next = previous, next
++	if previous == nil {
++		body.pairs = edge
++	} else {
++		previous.next = edge
++	}
++	if next != nil {
++		next.prev = edge
++	}
++}
++func (w *World) linkPair(c *Contact, pair *bodyPair) {
++	a, b := c.FixtureA.Body, c.FixtureB.Body
++	if pair == nil {
++		pair = &bodyPair{}
++		pair.a = bodyPairEdge{other: b, pair: pair}
++		pair.b = bodyPairEdge{other: a, pair: pair}
++	} else {
++		a, b = pair.b.other, pair.a.other
++		unlinkPairEdge(a, &pair.a)
++		unlinkPairEdge(b, &pair.b)
++	}
++	c.pair = pair
++	c.pairPrev = nil
++	c.pairNext = pair.contacts
++	if pair.contacts != nil {
++		pair.contacts.pairPrev = c
++	}
++	pair.contacts = c
++	insertPairEdge(a, &pair.a)
++	insertPairEdge(b, &pair.b)
++}
++func (w *World) unlinkPair(c *Contact) {
++	pair := c.pair
++	a, b := pair.b.other, pair.a.other
++	if c.pairNext != nil {
++		c.pairNext.pairPrev = c.pairPrev
++	}
++	if c.pairPrev != nil {
++		c.pairPrev.pairNext = c.pairNext
++	} else {
++		unlinkPairEdge(a, &pair.a)
++		unlinkPairEdge(b, &pair.b)
++		pair.contacts = c.pairNext
++		if pair.contacts != nil {
++			insertPairEdge(a, &pair.a)
++			insertPairEdge(b, &pair.b)
++		}
++	}
++	c.pair, c.pairPrev, c.pairNext = nil, nil, nil
++}
++
++func (c *Contact) allowsCollision(w *World) bool {
++	if w.LimitCollisionNeighbors && c.pair != nil && c.pair.neighborEpoch == w.neighborEpoch && w.neighborEpoch != 0 {
++		return c.pair.allowed
++	}
++	return c.refreshAllowed(w)
++}
++func (c *Contact) refreshAllowed(w *World) bool {
++	pair := c.pair
++	if pair == nil || !w.LimitCollisionNeighbors {
++		return c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) && c.FixtureB.Body.AllowsCollision(c.FixtureA.Body)
++	}
++	if pair.neighborEpoch != w.neighborEpoch || w.neighborEpoch == 0 {
++		pair.neighborEpoch = w.neighborEpoch
++		pair.allowed = pair.a.other.AllowsCollision(pair.b.other) && pair.b.other.AllowsCollision(pair.a.other)
++	}
++	return pair.allowed
++}
++
++func (p *bodyPair) motion() float64 {
++	a, b := p.b.other, p.a.other
++	if !p.motionReady || p.motionA != a.poseVersion || p.motionB != b.poseVersion {
++		p.updateMotion(a, b)
++	}
++	return p.motionBound
++}
++
++// Bound translation and rotation in both reference frames: the last separating
++// axis can belong to either body. Common world translation consumes no budget.
++func (p *bodyPair) updateMotion(a, b *Body) {
++	var relative, reverse Vec.TransformValue
++	Vec.DetransformTransform(&relative, b.Xf, a.Xf)
++	Vec.DetransformTransform(&reverse, a.Xf, b.Xf)
++	if p.motionReady {
++		change := math.Abs(relative.P.X-p.relative.P.X) + math.Abs(relative.P.Y-p.relative.P.Y) + a.proxyRadius*(math.Abs(relative.Q.S-p.relative.Q.S)+math.Abs(relative.Q.C-p.relative.Q.C))
++		change = max(change, math.Abs(reverse.P.X-p.reverse.P.X)+math.Abs(reverse.P.Y-p.reverse.P.Y)+b.proxyRadius*(math.Abs(reverse.Q.S-p.reverse.Q.S)+math.Abs(reverse.Q.C-p.reverse.Q.C)))
++		if change > 0 {
++			p.motionBound = math.Nextafter(p.motionBound+change, math.Inf(1))
++		}
++	}
++	p.motionA, p.motionB, p.relative, p.reverse, p.motionReady = a.poseVersion, b.poseVersion, relative, reverse, true
++}
++
++// Sweep.Advance only shortens the remaining interval. Physical TOI resolution
++// increments the world revision because it can change the remaining trajectory.
++func (p *bodyPair) sweepMotion(revision uint64) float64 {
++	if p.sweepRevision != revision {
++		p.sweepRevision = revision
++		a, b := p.b.other, p.a.other
++		sa, sb := &a.Sweep, &b.Sweep
++		dx := (sa.C.X - sa.C0.X) - (sb.C.X - sb.C0.X)
++		dy := (sa.C.Y - sa.C0.Y) - (sb.C.Y - sb.C0.Y)
++		distance := math.Abs(sa.C.X-sb.C.X) + math.Abs(sa.C.Y-sb.C.Y)
++		p.sweepBound = math.Abs(dx) + math.Abs(dy) + max(a.proxyRadius*math.Abs(sa.A-sa.A0)+(a.proxyRadius+distance)*math.Abs(sb.A-sb.A0), b.proxyRadius*math.Abs(sb.A-sb.A0)+(b.proxyRadius+distance)*math.Abs(sa.A-sa.A0))
++	}
++	return p.sweepBound
++}
+--- a/internal/physics/body.go
++++ b/internal/physics/body.go
+@@ -18,6 +18,9 @@
+ 	A float64
+ }
+ type Body struct {
++	poseVersion                           uint64
++	pairs                                 *bodyPairEdge
++	solverContacts, solverTail            *ContactEdge
+ 	World                                 *World
+ 	IslandFlag, Destroyed, Parked         bool
+ 	InvMass, InvI                         float64
+@@ -83,6 +86,7 @@
+ 		return
+ 	}
+ 	Vec.SetTransform(&b.Xf, position, angle)
++	b.poseVersion++
+ 	if angle >= -math.Pi && angle <= math.Pi {
+ 		b.Sweep.C, b.Sweep.C0 = position, position
+ 		b.Sweep.A, b.Sweep.A0 = angle, angle
+@@ -113,13 +117,26 @@
+ 	}
+ 	b.World.NewFixture = true
+ }
+-func (b *Body) SynchronizeTransform() { b.Sweep.GetTransform(&b.Xf, 1) }
++func (b *Body) SynchronizeTransform() {
++	b.Sweep.GetTransform(&b.Xf, 1)
++	b.poseVersion++
++}
+ func (b *Body) SynchronizeFixtures() {
+ 	var xf Vec.TransformValue
+ 	b.Sweep.GetTransform(&xf, 0)
+ 	b.synchronizeProxies(xf, b.Xf)
+ }
+ func (b *Body) SetProxyRadius(radius float64) {
++	if radius != b.proxyRadius {
++		for edge := b.ContactList; edge != nil; edge = edge.Next {
++			edge.Contact.separationUntil = 0
++			if edge.Contact.pair != nil {
++				edge.Contact.pair.motionReady = false
++				edge.Contact.pair.sweepRevision = 0
++			}
++		}
++	}
++
+ 	b.proxyRadius = radius
+ 	b.proxyMotion = 0
+ 	b.proxyMargin = 0
+@@ -155,7 +172,7 @@
+ 	b.Sweep.Advance(alpha)
+ 	b.Sweep.C = b.Sweep.C0
+ 	b.Sweep.A = b.Sweep.A0
+-	b.Sweep.GetTransform(&b.Xf, 1)
++	b.SynchronizeTransform()
+ }
+ func (b *Body) GetPosition() Vec.Vector { return b.Xf.P }
+ func (b *Body) GetAngle() float64       { return b.Sweep.A }
+--- a/internal/physics/contact.go
++++ b/internal/physics/contact.go
+@@ -6,10 +6,16 @@
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
+ 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
+ )
++
++// Match src/shared/physics/contact.ts. This bounds impulse changes, not
++// accumulated trajectory error; difficult islands retain all eight iterations.
++const velocityImpulseTolerance = 1e-7
+ 
+ type Mat22 struct{ Ex, Ey Vec.Vector }
+ type ContactEdge struct {
++	solverNext *ContactEdge
+ 	Contact    *Contact
+ 	Prev, Next *ContactEdge
+ 	Other      *Body
+@@ -18,37 +24,50 @@
+ 	RA, RB                                                               Vec.Vector
+ 	NormalImpulse, TangentImpulse, NormalMass, TangentMass, VelocityBias float64
+ }
++type ContactConstraint struct {
++	VNormal                          Vec.Vector
++	VNormalMass, VK                  Mat22
++	PLocalPoints                     [2]Vec.Vector
++	PLocalNormal, PLocalPoint        Vec.Vector
++	VPointCount                      int
++	InvMassA, InvMassB, InvIA, InvIB float64
++	PType                            string
++	PRadiusA, PRadiusB               float64
++	VPoints                          [2]VelocityConstraintPoint
++	PPointCount                      int
++}
+ type Contact struct {
++	listIndex       int
++	separationUntil float64
++	physical        bool
++	*ContactConstraint
++	pair                                  *bodyPair
++	pairPrev, pairNext                    *Contact
++	separationCache                       [2]uint8
+ 	NodeA, NodeB                          ContactEdge
+ 	Manifold                              collision.Manifold
+-	VNormal                               Vec.Vector
+-	VNormalMass, VK                       Mat22
+-	PLocalPoints                          [2]Vec.Vector
+-	PLocalNormal, PLocalPoint             Vec.Vector
+ 	FixtureA, FixtureB                    *Fixture
+ 	Prev, Next                            *Contact
+-	TOIPrev, TOINext                      *Contact
++	toiIndex                              int
++	toiQueue                              uint8
+ 	toiOrder                              uint64
+-	toiListed                             bool
+ 	TOI                                   float64
+ 	TOIFlag                               bool
+ 	Friction, Restitution, SurfaceSpeed   float64
+-	VPointCount                           int
+-	InvMassA, InvMassB, InvIA, InvIB      float64
+-	PType                                 string
+-	PRadiusA, PRadiusB                    float64
+-	PPointCount, TOICount                 int
++	TOICount                              int
+ 	EnabledFlag, IslandFlag, TouchingFlag bool
+-	VPoints                               [2]VelocityConstraintPoint
+ }
+ 
+ func (c *Contact) InitConstraint() {
++	if c.ContactConstraint == nil {
++		c.ContactConstraint = new(ContactConstraint)
++	}
+ 	a, b := c.FixtureA, c.FixtureB
+ 	m := &c.Manifold
+-	c.InvMassA = a.Body.InvMass
+-	c.InvMassB = b.Body.InvMass
+-	c.InvIA = a.Body.InvI
+-	c.InvIB = b.Body.InvI
++	c.InvMassA = c.NodeB.Other.InvMass
++	c.InvMassB = c.NodeA.Other.InvMass
++	c.InvIA = c.NodeB.Other.InvI
++	c.InvIB = c.NodeA.Other.InvI
+ 	c.VPointCount = m.PointCount
+ 	c.PRadiusA = a.Geometry.Radius
+ 	c.PRadiusB = b.Geometry.Radius
+@@ -63,9 +82,9 @@
+ 	}
+ }
+ func (c *Contact) GetWorldManifold(wm *collision.WorldManifold) *collision.WorldManifold {
+-	return c.Manifold.GetWorldManifold(wm, c.FixtureA.Body.Xf, c.FixtureA.Geometry.Radius, c.FixtureB.Body.Xf, c.FixtureB.Geometry.Radius)
+-}
+-func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) {
++	return c.Manifold.GetWorldManifold(wm, c.NodeB.Other.Xf, c.FixtureA.Geometry.Radius, c.NodeA.Other.Xf, c.FixtureB.Geometry.Radius)
++}
++func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) float64 {
+ 	switch a := c.FixtureA.Shape.(type) {
+ 	case *shape.CircleShape:
+ 		shape.CollideCircles(manifold, a, xfA, c.FixtureB.Shape.(*shape.CircleShape), xfB)
+@@ -74,18 +93,30 @@
+ 		case *shape.CircleShape:
+ 			shape.CollidePolygonCircle(manifold, a, xfA, b, xfB)
+ 		case *shape.PolygonShape:
+-			shape.CollidePolygons(manifold, a, xfA, b, xfB, c.FixtureA.Body.World.Rules.LinearSlop)
+-		}
+-	}
++			return shape.CollidePolygonsCached(manifold, a, xfA, b, xfB, c.NodeB.Other.World.Rules.LinearSlop, &c.separationCache)
++		}
++	}
++	return 0
+ }
+ func (c *Contact) Update(listener *World) {
+-	if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
++	if !c.allowsCollision(c.NodeB.Other.World) {
+ 		c.EnabledFlag, c.TouchingFlag = false, false
+ 		c.Manifold.PointCount = 0
+ 		return
+ 	}
+ 	c.EnabledFlag = true
+-	c.Evaluate(&c.Manifold, c.FixtureA.Body.Xf, c.FixtureB.Body.Xf)
++	a, b := c.NodeB.Other, c.NodeA.Other
++	if c.separationUntil > 0 && c.separationUntil > c.pair.motion() {
++		c.Manifold.PointCount = 0
++		c.TouchingFlag = false
++		return
++	}
++	gap := c.Evaluate(&c.Manifold, a.Xf, b.Xf)
++	c.separationUntil = 0
++	if gap > 0 && a.proxyRadius < 1e100 && b.proxyRadius < 1e100 {
++		motion := c.pair.motion()
++		c.separationUntil = motion + gap*.9999999 - 1e-5 - 1e-12*motion
++	}
+ 	c.TouchingFlag = c.Manifold.PointCount > 0
+ 	if c.TouchingFlag && listener != nil {
+ 		listener.PreSolve(c)
+@@ -98,7 +129,7 @@
+ func (c *Contact) solvePositionConstraint(toiA, toiB *Body) float64 {
+ 	toi := toiA != nil && toiB != nil
+ 	minSeparation := 0.0
+-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
++	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
+ 	positionA, positionB := &bodyA.CPosition, &bodyB.CPosition
+ 	mA, iA, mB, iB := 0.0, 0.0, 0.0, 0.0
+ 	if !toi || bodyA == toiA || bodyA == toiB {
+@@ -164,7 +195,7 @@
+ 	return minSeparation
+ }
+ func (c *Contact) InitVelocityConstraint() {
+-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
++	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
+ 	cA, aA, vA, wA := bodyA.CPosition.C, bodyA.CPosition.A, bodyA.CVelocity.V, bodyA.CVelocity.W
+ 	cB, aB, vB, wB := bodyB.CPosition.C, bodyB.CPosition.A, bodyB.CVelocity.V, bodyB.CVelocity.W
+ 	mA, mB, iA, iB := c.InvMassA, c.InvMassB, c.InvIA, c.InvIB
+@@ -222,10 +253,11 @@
+ 	}
+ }
+ 
+-func (c *Contact) SolveVelocityConstraint() {
+-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
++func (c *Contact) SolveVelocityConstraint() bool {
++	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
+ 	vA, wA, vB, wB := bodyA.CVelocity.V, bodyA.CVelocity.W, bodyB.CVelocity.V, bodyB.CVelocity.W
+ 	mA, iA, mB, iB := c.InvMassA, c.InvIA, c.InvMassB, c.InvIB
++	converged := true
+ 	normal := c.VNormal
+ 	var tangent, temp Vec.Vector
+ 	Vec.CrossScalarInto(&tangent, normal, 1)
+@@ -247,6 +279,7 @@
+ 		maxFriction := c.Friction * vcp.NormalImpulse
+ 		newImpulse := max(-maxFriction, min(vcp.TangentImpulse+lambda, maxFriction))
+ 		lambda = newImpulse - vcp.TangentImpulse
++		converged = converged && math.Abs(lambda) <= velocityImpulseTolerance*(1+math.Abs(newImpulse))
+ 		vcp.TangentImpulse = newImpulse
+ 		p := Vec.Scale(tangent, lambda)
+ 		vA = Vec.AddScaled(vA, p, -mA)
+@@ -261,6 +294,7 @@
+ 		lambda := -vcp.NormalMass * (vn - vcp.VelocityBias)
+ 		newImpulse := max(vcp.NormalImpulse+lambda, 0)
+ 		lambda = newImpulse - vcp.NormalImpulse
++		converged = converged && math.Abs(lambda) <= velocityImpulseTolerance*(1+math.Abs(newImpulse))
+ 		vcp.NormalImpulse = newImpulse
+ 		p := Vec.Scale(normal, lambda)
+ 		vA = Vec.AddScaled(vA, p, -mA)
+@@ -277,6 +311,7 @@
+ 		b.Y -= c.VK.Ex.Y*a.X + c.VK.Ey.Y*a.Y
+ 		apply := func(x Vec.Vector) {
+ 			d := Vec.Subtract(x, a)
++			converged = converged && math.Abs(d.X) <= velocityImpulseTolerance*(1+math.Abs(x.X)) && math.Abs(d.Y) <= velocityImpulseTolerance*(1+math.Abs(x.Y))
+ 			p1, p2 := Vec.Scale(normal, d.X), Vec.Scale(normal, d.Y)
+ 			Vec.Combine3Into(&vA, -mA, p1, -mA, p2, 1, vA)
+ 			wA -= iA * (Vec.Cross(one.RA, p1) + Vec.Cross(two.RA, p2))
+@@ -317,6 +352,7 @@
+ 	}
+ 	bodyA.CVelocity = Velocity{vA, wA}
+ 	bodyB.CVelocity = Velocity{vB, wB}
++	return converged
+ }
+ func (w *World) createContact(a, b *Fixture) *Contact {
+ 	typeA, typeB := a.Geometry.Type, b.Geometry.Type
+@@ -336,6 +372,9 @@
+ 	} else {
+ 		c = &Contact{TOI: 1, EnabledFlag: true}
+ 	}
++	c.separationCache = [2]uint8{}
++	c.separationUntil = 0
++	c.physical = a.Physics && b.Physics
+ 	c.FixtureA = a
+ 	c.FixtureB = b
+ 	c.NodeA = ContactEdge{Contact: c, Other: b.Body, Next: a.Body.ContactList}
+@@ -351,7 +390,7 @@
+ 	return c
+ }
+ func (c *Contact) destroy() {
+-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
++	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
+ 	if c.NodeA.Prev != nil {
+ 		c.NodeA.Prev.Next = c.NodeA.Next
+ 	}
+--- /dev/null
++++ b/internal/physics/solver-cache_test.go
+@@ -0,0 +1,270 @@
++package physics
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/collision"
++	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
++	"github.com/burntcustard/unicorn-mining-co/internal/specification"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"math/rand/v2"
++	"testing"
++)
++
++func TestCachedSeparationAcrossMotion(t *testing.T) {
++	catalog, err := specification.Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	random := rand.New(rand.NewPCG(17, 91))
++	skipped := 0
++	for trial := 0; trial < 200; trial++ {
++		world := NewWorld(catalog.Simulation)
++		a, b := world.CreateBody(), world.CreateBody()
++		polygonA := shape.NewPolygon([]Vec.Vector{{X: -10, Y: -7}, {X: 13, Y: -5}, {X: 2, Y: 15}}, nil, .5)
++		polygonB := shape.NewPolygon([]Vec.Vector{{X: -8, Y: -11}, {X: 8, Y: -11}, {X: 8, Y: 11}, {X: -8, Y: 11}}, nil, .5)
++		fa, fb := a.CreateFixture(polygonA, FixtureOpt{}), b.CreateFixture(polygonB, FixtureOpt{})
++		a.SetProxyRadius(30)
++		b.SetProxyRadius(30)
++		world.CreateContact(fa, fb)
++		c := world.ContactList
++		origin := float64(trial%3) * 1e7
++		x, y, angle := 40+random.Float64()*60, random.Float64()*20, random.Float64()*6
++		angleA := random.Float64() * 6
++		a.SetTransform(Vec.Create(origin, origin), angleA)
++		for step := 0; step < 200; step++ {
++			x -= random.Float64()
++			y += random.Float64() - .5
++			angle += (random.Float64() - .5) * .03
++			angleA += (random.Float64() - .5) * .03
++			travel := float64(step) * 20
++			a.SetTransform(Vec.Create(origin+travel, origin), angleA)
++			b.SetTransform(Vec.Create(origin+travel+x, origin+y), angle)
++			if c.separationUntil > c.pair.motion() {
++				skipped++
++			}
++			c.Update(nil)
++			var expected collision.Manifold
++			shape.CollidePolygons(&expected, polygonA, a.Xf, polygonB, b.Xf, .5)
++			if c.Manifold.PointCount != expected.PointCount || expected.PointCount > 0 && (c.Manifold.Type != expected.Type || c.Manifold.LocalNormal != expected.LocalNormal || c.Manifold.LocalPoint != expected.LocalPoint || c.Manifold.Points[0] != expected.Points[0] || expected.PointCount == 2 && c.Manifold.Points[1] != expected.Points[1]) {
++				t.Fatalf("trial %d step %d: cached manifold %+v != %+v", trial, step, c.Manifold, expected)
++			}
++		}
++		c.separationUntil = c.pair.motion() + 100
++		a.SetProxyRadius(math.Inf(1))
++		if c.separationUntil != 0 {
++			t.Fatal("changing the motion radius retained a stale separation bound")
++		}
++	}
++	if skipped < 1000 {
++		t.Fatalf("only %d cached rejections exercised", skipped)
++	}
++}
++
++func TestCachedSeparationRejectsNoContinuousImpact(t *testing.T) {
++	catalog, err := specification.Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	random := rand.New(rand.NewPCG(31, 83))
++	cached, relative := 0, 0
++	for trial := 0; trial < 10000; trial++ {
++		world := NewWorld(catalog.Simulation)
++		a, b := world.CreateBody(), world.CreateBody()
++		polygon := shape.NewPolygon([]Vec.Vector{{X: -10, Y: -7}, {X: 13, Y: -5}, {X: 2, Y: 15}}, nil, .5)
++		fa, fb := a.CreateFixture(polygon, FixtureOpt{}), b.CreateFixture(polygon, FixtureOpt{})
++		a.SetProxyRadius(30)
++		b.SetProxyRadius(30)
++		origin := float64(trial%3) * 1e7
++		a.SetTransform(Vec.Create(origin, origin), random.Float64()*6)
++		b.SetTransform(Vec.Create(origin+random.Float64()*160-80, origin+random.Float64()*160-80), random.Float64()*6)
++		world.CreateContact(fa, fb)
++		c := world.ContactList
++		c.Update(nil)
++		for _, body := range []*Body{a, b} {
++			body.Sweep.C.X += random.Float64()*30 - 15
++			body.Sweep.C.Y += random.Float64()*30 - 15
++			body.Sweep.A += random.Float64() - .5
++			body.SynchronizeTransform()
++		}
++		cachedReject := c.separationUntil > 0 && c.separationUntil+fa.Geometry.Radius+fb.Geometry.Radius > c.pair.motion()+c.pair.sweepMotion(1)+max(.5, fa.Geometry.Radius+fb.Geometry.Radius-1.5)+1.25*.5
++		relativeReject := separatedThroughout(fa.Geometry, &a.Sweep, fb.Geometry, &b.Sweep, .5)
++		if cachedReject {
++			cached++
++		}
++		if relativeReject {
++			relative++
++		}
++		if !cachedReject && !relativeReject {
++			continue
++		}
++		sa, sb := a.Sweep, b.Sweep
++		var output collision.TOIOutput
++		collision.FindTimeOfImpact(&output, collision.TOIInput{ProxyA: fa.Geometry, ProxyB: fb.Geometry, SweepA: &sa, SweepB: &sb, TMax: 1}, .5)
++		if output.Touching {
++			t.Fatalf("trial %d rejected a continuous impact: cached=%v relative=%v", trial, cachedReject, relativeReject)
++		}
++	}
++	if cached < 100 || relative < 100 {
++		t.Fatalf("too few rejections: cached=%d relative=%d", cached, relative)
++	}
++}
++
++func TestBodyPairsFollowContactOrderThroughReuse(t *testing.T) {
++	catalog, err := specification.Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	world := NewWorld(catalog.Simulation)
++	random := rand.New(rand.NewPCG(5, 71))
++	var bodies []*Body
++	var fixtures []*Fixture
++	for range 12 {
++		b := world.CreateBody()
++		bodies = append(bodies, b)
++		for range 3 {
++			fixtures = append(fixtures, b.CreateFixture(shape.NewCircle(Vec.Create(0, 0), 10), FixtureOpt{}))
++		}
++	}
++	for step := 0; step < 3000; step++ {
++		if random.IntN(3) == 0 && world.ContactList != nil {
++			c := world.ContactList
++			for i := 0; i < random.IntN(12) && c.Next != nil; i++ {
++				c = c.Next
++			}
++			world.DestroyContact(c)
++		} else {
++			world.CreateContact(fixtures[random.IntN(len(fixtures))], fixtures[random.IntN(len(fixtures))])
++		}
++		for _, body := range bodies {
++			seen := map[*Body]bool{}
++			edge := body.pairs
++			for ce := body.ContactList; ce != nil; ce = ce.Next {
++				if seen[ce.Other] {
++					continue
++				}
++				seen[ce.Other] = true
++				if edge == nil || edge.other != ce.Other || edge.pair.contacts != ce.Contact {
++					t.Fatalf("step %d: body pair order differs from contact order", step)
++				}
++				for c := edge.pair.contacts; c != nil; c = c.pairNext {
++					if c.pair != edge.pair || c.pairNext != nil && c.pairNext.pairPrev != c {
++						t.Fatal("broken pair links")
++					}
++				}
++				edge = edge.next
++			}
++			if edge != nil {
++				t.Fatal("stale body pair")
++			}
++		}
++	}
++	for _, body := range bodies {
++		world.DestroyBody(body)
++		if body.pairs != nil {
++			t.Fatal("destroyed body retains pairs")
++		}
++	}
++}
++
++func TestTOIHeapInvalidationAndTies(t *testing.T) {
++	world := &World{}
++	random := rand.New(rand.NewPCG(8, 61))
++	contacts := make([]*Contact, 200)
++	for i := range contacts {
++		contacts[i] = &Contact{toiOrder: uint64(i + 1)}
++	}
++	for range 10000 {
++		c := contacts[random.IntN(len(contacts))]
++		world.removeTOICandidate(c)
++		if random.IntN(4) != 0 {
++			c.TOI = float64(random.IntN(16)) / 16
++			world.pushTOI(c)
++		}
++		var expected *Contact
++		for _, c := range contacts {
++			if c.toiQueue == 2 && (expected == nil || toiBefore(c, expected)) {
++				expected = c
++			}
++		}
++		if expected == nil {
++			if len(world.toiReady) != 0 {
++				t.Fatal("nonempty heap")
++			}
++		} else if world.toiReady[0] != expected {
++			t.Fatal("incorrect time/order priority")
++		}
++		for i, c := range world.toiReady {
++			if c.toiIndex != i {
++				t.Fatal("stale heap index")
++			}
++		}
++	}
++	for _, c := range contacts {
++		c.TOIFlag = false
++		world.addTOICandidate(c)
++		world.addTOICandidate(c)
++	}
++	if len(world.toiReady) != 0 || len(world.toiPending) != len(contacts) {
++		t.Fatal("invalidation duplicated or retained ready contacts")
++	}
++	for _, c := range contacts {
++		world.removeTOICandidate(c)
++	}
++	if len(world.toiPending) != 0 {
++		t.Fatal("pending removal retained contacts")
++	}
++}
++
++func TestAdvanceInvalidatesCachedSeparation(t *testing.T) {
++	catalog, err := specification.Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	world := NewWorld(catalog.Simulation)
++	a, b := world.CreateBody(), world.CreateBody()
++	polygon := shape.NewPolygon([]Vec.Vector{{X: -10, Y: -10}, {X: 10, Y: -10}, {X: 10, Y: 10}, {X: -10, Y: 10}}, nil, .5)
++	fa, fb := a.CreateFixture(polygon, FixtureOpt{}), b.CreateFixture(polygon, FixtureOpt{})
++	a.SetProxyRadius(20)
++	b.SetProxyRadius(20)
++	b.SetTransform(Vec.Create(60, 0), 0)
++	world.CreateContact(fa, fb)
++	c := world.ContactList
++	c.Update(nil)
++	if c.separationUntil <= c.pair.motion() {
++		t.Fatal("test did not establish a separation cache")
++	}
++	b.Sweep.C0 = Vec.Create(15, 0)
++	b.Advance(0)
++	c.Update(nil)
++	if !c.TouchingFlag {
++		t.Fatal("TOI advance reused separation from the end pose")
++	}
++}
++
++func TestDenseContactsCompactWithoutChangingOrder(t *testing.T) {
++	catalog, err := specification.Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	world := NewWorld(catalog.Simulation)
++	a, b := world.CreateBody(), world.CreateBody()
++	fa := a.CreateFixture(shape.NewCircle(Vec.Create(0, 0), 10), FixtureOpt{})
++	fb := b.CreateFixture(shape.NewCircle(Vec.Create(0, 0), 10), FixtureOpt{})
++	for range 200 {
++		world.CreateContact(fa, fb)
++		world.DestroyContact(world.ContactList)
++	}
++	world.CreateContact(fa, fb)
++	live := world.ContactList
++	if len(world.contacts) <= 128 {
++		t.Fatal("compaction was not exercised")
++	}
++	world.Step(0, 8, 3)
++	if len(world.contacts) != 1 || world.contacts[0] != live || live.listIndex != 0 || world.ContactList != live || world.contactCount != 1 {
++		t.Fatal("compaction changed live contact identity or indexing")
++	}
++	world.DestroyBody(a)
++	if world.contactCount != 0 || world.ContactList != nil || world.contacts[0] != nil {
++		t.Fatal("destroy after compaction retained contact")
++	}
++}
+--- a/internal/physics/solver.go
++++ b/internal/physics/solver.go
+@@ -6,6 +6,7 @@
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
+ 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+ 	"math"
++	"slices"
+ )
+ 
+ const maxTOISubsteps = 8
+@@ -37,23 +38,31 @@
+ 	rotA, rotB := sweepA.Rotation0(), sweepB.Rotation0()
+ 	dx := sweepB.C0.X + rotB.C*boundB.X - rotB.S*boundB.Y - (sweepA.C0.X + rotA.C*boundA.X - rotA.S*boundA.Y)
+ 	dy := sweepB.C0.Y + rotB.S*boundB.X + rotB.C*boundB.Y - (sweepA.C0.Y + rotA.S*boundA.X + rotA.C*boundA.Y)
+-	ax, ay, bx, by := sweepA.C.X-sweepA.C0.X, sweepA.C.Y-sweepA.C0.Y, sweepB.C.X-sweepB.C0.X, sweepB.C.Y-sweepB.C0.Y
+-	motion := math.Sqrt(ax*ax+ay*ay) + boundA.OffsetRadius*math.Abs(sweepA.A-sweepA.A0) + math.Sqrt(bx*bx+by*by) + boundB.OffsetRadius*math.Abs(sweepB.A-sweepB.A0)
++	vx := (sweepB.C.X - sweepB.C0.X) - (sweepA.C.X - sweepA.C0.X)
++	vy := (sweepB.C.Y - sweepB.C0.Y) - (sweepA.C.Y - sweepA.C0.Y)
++	length := vx*vx + vy*vy
++	fraction := 0.0
++	if length > 0 {
++		fraction = max(0, min(1, -(dx*vx+dy*vy)/length))
++	}
++	dx += fraction * vx
++	dy += fraction * vy
++	rotation := boundA.OffsetRadius*math.Abs(sweepA.A-sweepA.A0) + boundB.OffsetRadius*math.Abs(sweepB.A-sweepB.A0)
+ 	target := max(linearSlop, shapeA.Radius+shapeB.Radius-3*linearSlop)
+-	return math.Sqrt(dx*dx+dy*dy)-motion-boundA.Radius-boundB.Radius > target+1.25*linearSlop
++	radius := boundA.Radius + boundB.Radius + rotation + target + 1.25*linearSlop + 1e-7
++	return dx*dx+dy*dy > radius*radius
++
+ }
+ func (s *Solver) SolveWorld(step TimeStep) {
+ 	world := s.World
+-	for c := world.ContactList; c != nil; c = c.Next {
+-		c.IslandFlag = false
+-	}
++
+ 	clear(s.isolated)
+ 	isolated := s.isolated[:0]
+ 	for _, seed := range world.activeBodies {
+ 		if seed.IslandFlag || seed.Parked {
+ 			continue
+ 		}
+-		if seed.ContactList == nil {
++		if seed.solverContacts == nil {
+ 			seed.IslandFlag = true
+ 			isolated = append(isolated, seed)
+ 			continue
+@@ -67,12 +76,12 @@
+ 			s.Stack[last] = nil
+ 			s.Stack = s.Stack[:last]
+ 			s.AddBody(b)
+-			for ce := b.ContactList; ce != nil; ce = ce.Next {
++			for ce := b.solverContacts; ce != nil; ce = ce.solverNext {
+ 				c := ce.Contact
+ 				if c.IslandFlag || !c.EnabledFlag || !c.TouchingFlag {
+ 					continue
+ 				}
+-				if !c.FixtureA.Physics || !c.FixtureB.Physics {
++				if !c.physical {
+ 					continue
+ 				}
+ 				s.AddContact(c)
+@@ -111,11 +120,19 @@
+ 	for _, c := range s.Contacts {
+ 		c.InitVelocityConstraint()
+ 	}
+-	for i := 0; i < step.VelocityIterations; i++ {
+-		for _, c := range s.Contacts {
+-			c.SolveVelocityConstraint()
+-		}
+-	}
++
++	for range step.VelocityIterations {
++		converged := true
++		for _, contact := range s.Contacts {
++			if !contact.SolveVelocityConstraint() {
++				converged = false
++			}
++		}
++		if converged {
++			break
++		}
++	}
++
+ 	for _, b := range s.Bodies {
+ 		c, a, v, w := b.CPosition.C, b.CPosition.A, b.CVelocity.V, b.CVelocity.W
+ 		translation := Vec.Scale(v, h)
+@@ -155,15 +172,23 @@
+ func (s *Solver) SolveWorldTOI(step TimeStep) {
+ 	world := s.World
+ 	linearSlop := world.Rules.LinearSlop
+-	world.toiCandidates = nil
++	world.toiRevision++
++	world.toiUnsorted = false
++	clear(world.toiPending)
++	clear(world.toiReady)
++	world.toiPending = world.toiPending[:0]
++	world.toiReady = world.toiReady[:0]
+ 	world.collectingTOI = true
+ 	defer func() { world.collectingTOI = false }()
+-	var tail *Contact
+ 	for _, b := range world.activeBodies {
+ 		b.IslandFlag = false
+ 		b.Sweep.Alpha0 = 0
+ 	}
+-	for c := world.ContactList; c != nil; c = c.Next {
++	for i := len(world.contacts) - 1; i >= 0; i-- {
++		c := world.contacts[i]
++		if c == nil {
++			continue
++		}
+ 		c.TOIFlag = false
+ 		c.IslandFlag = false
+ 		c.TOICount = 0
+@@ -171,38 +196,40 @@
+ 			c.TOICount = maxTOISubsteps + 1
+ 		}
+ 		c.TOI = 1
+-		c.TOIPrev, c.TOINext = nil, nil
+-		c.toiListed = false
+-		if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
++		c.toiQueue = 0
++		if !c.allowsCollision(world) {
+ 			c.EnabledFlag, c.TouchingFlag = false, false
+ 			continue
+ 		}
+ 		if c.TOICount <= maxTOISubsteps {
+-			c.toiListed = true
+-			c.TOIPrev = tail
+-			if tail == nil {
+-				world.toiCandidates = c
+-			} else {
+-				tail.TOINext = c
+-			}
+-			tail = c
+-		}
+-	}
++			world.addTOICandidate(c)
++		}
++	}
++
+ 	for {
+-		var minContact *Contact
+-		minAlpha := 1.0
+-		for c := world.toiCandidates; c != nil; {
+-			next := c.TOINext
++		if world.toiUnsorted {
++			slices.SortFunc(world.toiPending, func(a, b *Contact) int {
++				if a.toiOrder > b.toiOrder {
++					return -1
++				}
++				if a.toiOrder < b.toiOrder {
++					return 1
++				}
++				return 0
++			})
++		}
++		for _, c := range world.toiPending {
++			c.toiQueue = 0
+ 			if !c.EnabledFlag || c.TOICount > maxTOISubsteps {
+-				c = next
+ 				continue
+ 			}
++
+ 			alpha := 1.0
+ 			if c.TOIFlag {
+ 				alpha = c.TOI
+ 			} else {
+ 				fA, fB := c.FixtureA, c.FixtureB
+-				bA, bB := fA.Body, fB.Body
++				bA, bB := c.NodeB.Other, c.NodeA.Other
+ 				alpha0 := bA.Sweep.Alpha0
+ 				if bA.Sweep.Alpha0 < bB.Sweep.Alpha0 {
+ 					alpha0 = bB.Sweep.Alpha0
+@@ -211,7 +238,9 @@
+ 					alpha0 = bA.Sweep.Alpha0
+ 					bB.Sweep.Advance(alpha0)
+ 				}
+-				if !separatedThroughout(fA.Geometry, &bA.Sweep, fB.Geometry, &bB.Sweep, linearSlop) {
++				radius := fA.Geometry.Radius + fB.Geometry.Radius
++				target := max(linearSlop, radius-3*linearSlop)
++				if !(c.separationUntil > 0 && c.separationUntil+radius > c.pair.motion()+c.pair.sweepMotion(world.toiRevision)+target+1.25*linearSlop) && !separatedThroughout(fA.Geometry, &bA.Sweep, fB.Geometry, &bB.Sweep, linearSlop) {
+ 					sweepA, sweepB := collision.NewSweep(), collision.NewSweep()
+ 					sweepA.Set(bA.Sweep)
+ 					sweepB.Set(bB.Sweep)
+@@ -224,20 +253,24 @@
+ 				c.TOI = alpha
+ 				c.TOIFlag = true
+ 			}
+-			if alpha < minAlpha {
+-				minContact = c
+-				minAlpha = alpha
+-			}
+-			if alpha >= 1 {
+-				world.removeTOICandidate(c)
+-			}
+-			c = next
+-		}
++			if alpha < 1 {
++				world.pushTOI(c)
++			}
++		}
++		world.toiUnsorted = false
++		clear(world.toiPending)
++		world.toiPending = world.toiPending[:0]
++		if len(world.toiReady) == 0 {
++			break
++		}
++		minContact := world.toiReady[0]
++		minAlpha := minContact.TOI
++		world.removeTOICandidate(minContact)
++
+ 		if minContact == nil || 1-toiEndTolerance < minAlpha {
+ 			break
+ 		}
+-		fA, fB := minContact.FixtureA, minContact.FixtureB
+-		bA, bB := fA.Body, fB.Body
++		bA, bB := minContact.NodeB.Other, minContact.NodeA.Other
+ 		backup1, backup2 := collision.NewSweep(), collision.NewSweep()
+ 		backup1.Set(bA.Sweep)
+ 		backup2.Set(bB.Sweep)
+@@ -257,7 +290,7 @@
+ 			bB.SynchronizeTransform()
+ 			continue
+ 		}
+-		if !fA.Physics || !fB.Physics {
++		if !minContact.physical {
+ 			minContact.TOI = 1
+ 			minContact.TOIFlag = true
+ 			world.removeTOICandidate(minContact)
+@@ -280,7 +313,7 @@
+ 				if contact.IslandFlag {
+ 					continue
+ 				}
+-				if !contact.FixtureA.Physics || !contact.FixtureB.Physics {
++				if !contact.physical {
+ 					continue
+ 				}
+ 				backup := collision.NewSweep()
+@@ -305,6 +338,7 @@
+ 		}
+ 		subStep := TimeStep{DT: (1 - minAlpha) * step.DT, PositionIterations: 20, VelocityIterations: step.VelocityIterations}
+ 		s.SolveIslandTOI(subStep, bA, bB)
++		world.toiRevision++
+ 		for _, body := range s.Bodies {
+ 			body.IslandFlag = false
+ 			body.SynchronizeFixtures()
+@@ -343,11 +377,19 @@
+ 	for _, contact := range s.Contacts {
+ 		contact.InitVelocityConstraint()
+ 	}
+-	for i := 0; i < subStep.VelocityIterations; i++ {
++
++	for range subStep.VelocityIterations {
++		converged := true
+ 		for _, contact := range s.Contacts {
+-			contact.SolveVelocityConstraint()
+-		}
+-	}
++			if !contact.SolveVelocityConstraint() {
++				converged = false
++			}
++		}
++		if converged {
++			break
++		}
++	}
++
+ 	h := subStep.DT
+ 	maxTranslation, maxRotation := rules.Physics.MaxTranslation, rules.Physics.MaxRotation
+ 	for _, body := range s.Bodies {
+--- a/internal/physics/world.go
++++ b/internal/physics/world.go
+@@ -8,10 +8,15 @@
+ )
+ 
+ type World struct {
++	toiRevision                      uint64
++	contacts                         []*Contact
++	contactCount                     int
++	toiUnsorted                      bool
++	neighborEpoch                    uint64
+ 	Solver                           *Solver
+ 	BroadPhase                       *collision.BroadPhase[*Fixture]
+ 	ContactList                      *Contact
+-	toiCandidates                    *Contact
++	toiPending, toiReady             []*Contact
+ 	collectingTOI                    bool
+ 	nextContactOrder                 uint64
+ 	BodyList                         *Body
+@@ -80,21 +85,31 @@
+ 	return true
+ }
+ func (w *World) Step(dt float64, velocityIterations, positionIterations int) {
++	if len(w.contacts) > 2*w.contactCount+128 {
++		count := 0
++		for _, c := range w.contacts {
++			if c != nil {
++				c.listIndex = count
++				w.contacts[count] = c
++				count++
++			}
++		}
++		clear(w.contacts[count:])
++		w.contacts = w.contacts[:count]
++	}
++
+ 	if w.NewFixture {
+ 		w.FindNewContacts()
+ 		w.NewFixture = false
+ 	}
+ 	w.Locked = true
++	w.prepareActiveBodies()
+ 	if w.LimitCollisionNeighbors {
+-		w.prepareActiveBodies()
+ 		w.prepareCollisionNeighbors()
+ 	}
+ 	w.step = TimeStep{DT: dt, VelocityIterations: velocityIterations, PositionIterations: positionIterations}
+ 	w.UpdateContacts()
+ 	if dt > 0 {
+-		if !w.LimitCollisionNeighbors {
+-			w.prepareActiveBodies()
+-		}
+ 		w.Solver.SolveWorld(w.step)
+ 		for _, b := range w.activeBodies {
+ 			if b.IslandFlag {
+@@ -116,6 +131,7 @@
+ 	w.activeBodies = w.activeBodies[:0]
+ 	for b := w.BodyList; b != nil; b = b.Next {
+ 		b.IslandFlag = false
++		b.solverContacts, b.solverTail = nil, nil
+ 		if b.Parked {
+ 			b.Sweep.Alpha0 = 0
+ 		} else {
+@@ -127,6 +143,7 @@
+ // Rank body neighbors once, sharing the result across all their fixtures.
+ // Contacts remain cached so a deferred neighbor is reconsidered next update.
+ func (w *World) prepareCollisionNeighbors() {
++	w.neighborEpoch++
+ 	for _, body := range w.activeBodies {
+ 		if body.neighborCount <= 8 {
+ 			continue
+@@ -137,29 +154,12 @@
+ 		if body.neighborDirty {
+ 			body.neighborDirty = false
+ 			body.Neighborhood = nil
+-			var unique [8]*Body
+ 			count := 0
+-			crowded := false
+-			for edge := body.ContactList; edge != nil; edge = edge.Next {
+-				seen := false
+-				for _, other := range unique[:count] {
+-					if edge.Other == other {
+-						seen = true
+-						break
+-					}
+-				}
+-				if seen {
+-					continue
+-				}
+-				if count == 8 {
+-					crowded = true
+-					break
+-				}
+-				unique[count] = edge.Other
++			for pair := body.pairs; pair != nil; pair = pair.next {
+ 				count++
+ 			}
+-			if !crowded {
+-				body.neighborCount = count
++			body.neighborCount = min(count, 9)
++			if count <= 8 {
+ 				continue
+ 			}
+ 			if body.neighborhoodCache == nil {
+@@ -167,17 +167,11 @@
+ 			}
+ 			body.Neighborhood = body.neighborhoodCache
+ 		}
++
+ 		*body.Neighborhood = CollisionNeighborhood{}
+-		var last *Body
+-		for edge := body.ContactList; edge != nil; edge = edge.Next {
+-			other := edge.Other
+-			if other == last {
+-				continue
+-			}
+-			last = other
+-			if body.AllowsCollision(other) {
+-				continue
+-			}
++		for pair := body.pairs; pair != nil; pair = pair.next {
++			other := pair.other
++
+ 			dx, dy := body.Xf.P.X-other.Xf.P.X, body.Xf.P.Y-other.Xf.P.Y
+ 			body.AddCollisionNeighbor(other, dx*dx+dy*dy)
+ 		}
+@@ -188,16 +182,21 @@
+ 	if bodyA == bodyB {
+ 		return
+ 	}
+-	pairExists := false
+-	for edge := bodyB.ContactList; edge != nil; edge = edge.Next {
+-		if edge.Other == bodyA {
+-			pairExists = true
+-			fa, fb := edge.Contact.FixtureA, edge.Contact.FixtureB
+-			if (fa == a && fb == b) || (fa == b && fb == a) {
++	var pair *bodyPair
++	for edge := bodyB.pairs; edge != nil; edge = edge.next {
++		if edge.other == bodyA {
++			pair = edge.pair
++			break
++		}
++	}
++	if pair != nil {
++		for c := pair.contacts; c != nil; c = c.pairNext {
++			if c.FixtureA == a && c.FixtureB == b || c.FixtureA == b && c.FixtureB == a {
+ 				return
+ 			}
+ 		}
+ 	}
++
+ 	if !b.ShouldCollide(a) {
+ 		return
+ 	}
+@@ -205,7 +204,7 @@
+ 	if contact == nil {
+ 		return
+ 	}
+-	if w.LimitCollisionNeighbors && !pairExists {
++	if w.LimitCollisionNeighbors && pair == nil {
+ 		for _, body := range [2]*Body{bodyA, bodyB} {
+ 			body.neighborCount = min(body.neighborCount+1, 9)
+ 			if body.neighborCount == 9 {
+@@ -215,6 +214,10 @@
+ 	}
+ 	w.nextContactOrder++
+ 	contact.toiOrder = w.nextContactOrder
++	contact.listIndex = len(w.contacts)
++	w.contacts = append(w.contacts, contact)
++	w.contactCount++
++	w.linkPair(contact, pair)
+ 	contact.Prev = nil
+ 	if w.ContactList != nil {
+ 		contact.Next = w.ContactList
+@@ -226,17 +229,40 @@
+ 	}
+ }
+ func (w *World) UpdateContacts() {
+-	for c := w.ContactList; c != nil; {
+-		next := c.Next
++	for i := len(w.contacts) - 1; i >= 0; i-- {
++		c := w.contacts[i]
++		if c == nil {
++			continue
++		}
+ 		if !w.BroadPhase.TestOverlap(c.FixtureA.Proxy, c.FixtureB.Proxy) {
+ 			w.DestroyContact(c)
+ 		} else {
+ 			c.Update(w)
+-		}
+-		c = next
++			c.IslandFlag = false
++			if c.EnabledFlag && c.TouchingFlag && c.physical {
++				for _, edge := range [2]*ContactEdge{&c.NodeA, &c.NodeB} {
++					body := edge.Other
++					// Node A is linked to A and names B as Other.
++					if edge == &c.NodeA {
++						body = c.FixtureA.Body
++					} else {
++						body = c.FixtureB.Body
++					}
++					edge.solverNext = nil
++					if body.solverTail == nil {
++						body.solverContacts = edge
++					} else {
++						body.solverTail.solverNext = edge
++					}
++					body.solverTail = edge
++				}
++			}
++		}
+ 	}
+ }
+ func (w *World) DestroyContact(c *Contact) {
++	w.contacts[c.listIndex] = nil
++	w.contactCount--
+ 	if w.LimitCollisionNeighbors {
+ 		for _, body := range [2]*Body{c.FixtureA.Body, c.FixtureB.Body} {
+ 			if body.neighborCount == 9 {
+@@ -245,6 +271,7 @@
+ 		}
+ 	}
+ 	w.removeTOICandidate(c)
++	w.unlinkPair(c)
+ 	if c.Prev != nil {
+ 		c.Prev.Next = c.Next
+ 	}
+@@ -269,41 +296,83 @@
+ 	}
+ }
+ 
+-// Keep the original contact order while excluding contacts whose continuous
+-// collision budget is exhausted. New contacts join at the same head position.
++// Pending contacts are evaluated in original contact order; ready contacts are
++// ordered by impact time, breaking ties by that same contact order.
+ func (w *World) addTOICandidate(c *Contact) {
+-	if c.toiListed || c.TOICount > maxTOISubsteps {
+-		return
+-	}
+-	c.toiListed = true
+-	var previous *Contact
+-	next := w.toiCandidates
+-	for next != nil && next.toiOrder > c.toiOrder {
+-		previous = next
+-		next = next.TOINext
+-	}
+-	c.TOIPrev, c.TOINext = previous, next
+-	if previous == nil {
+-		w.toiCandidates = c
+-	} else {
+-		previous.TOINext = c
+-	}
+-	if next != nil {
+-		next.TOIPrev = c
+-	}
++	if c.TOICount > maxTOISubsteps || c.toiQueue == 1 {
++		return
++	}
++	w.removeTOICandidate(c)
++	c.toiQueue = 1
++	c.toiIndex = len(w.toiPending)
++	if len(w.toiPending) > 0 && w.toiPending[len(w.toiPending)-1].toiOrder < c.toiOrder {
++		w.toiUnsorted = true
++	}
++	w.toiPending = append(w.toiPending, c)
++}
++func toiBefore(a, b *Contact) bool {
++	return a.TOI < b.TOI || (a.TOI == b.TOI && a.toiOrder > b.toiOrder)
++}
++func (w *World) toiUp(index int) int {
++	c := w.toiReady[index]
++	for index > 0 {
++		parent := (index - 1) / 2
++		if !toiBefore(c, w.toiReady[parent]) {
++			break
++		}
++		w.toiReady[index] = w.toiReady[parent]
++		w.toiReady[index].toiIndex = index
++		index = parent
++	}
++	w.toiReady[index] = c
++	c.toiIndex = index
++	return index
++}
++func (w *World) toiDown(index int) {
++	c := w.toiReady[index]
++	for {
++		child := 2*index + 1
++		if child >= len(w.toiReady) {
++			break
++		}
++		if child+1 < len(w.toiReady) && toiBefore(w.toiReady[child+1], w.toiReady[child]) {
++			child++
++		}
++		if !toiBefore(w.toiReady[child], c) {
++			break
++		}
++		w.toiReady[index] = w.toiReady[child]
++		w.toiReady[index].toiIndex = index
++		index = child
++	}
++	w.toiReady[index] = c
++	c.toiIndex = index
++}
++func (w *World) pushTOI(c *Contact) {
++	c.toiQueue = 2
++	c.toiIndex = len(w.toiReady)
++	w.toiReady = append(w.toiReady, c)
++	w.toiUp(c.toiIndex)
+ }
+ func (w *World) removeTOICandidate(c *Contact) {
+-	if !c.toiListed {
+-		return
+-	}
+-	if c.TOIPrev != nil {
+-		c.TOIPrev.TOINext = c.TOINext
+-	} else {
+-		w.toiCandidates = c.TOINext
+-	}
+-	if c.TOINext != nil {
+-		c.TOINext.TOIPrev = c.TOIPrev
+-	}
+-	c.TOIPrev, c.TOINext = nil, nil
+-	c.toiListed = false
+-}
++	index := c.toiIndex
++	switch c.toiQueue {
++	case 1:
++		w.toiUnsorted = true
++		last := len(w.toiPending) - 1
++		w.toiPending[index] = w.toiPending[last]
++		w.toiPending[index].toiIndex = index
++		w.toiPending[last] = nil
++		w.toiPending = w.toiPending[:last]
++	case 2:
++		last := len(w.toiReady) - 1
++		w.toiReady[index] = w.toiReady[last]
++		w.toiReady[index].toiIndex = index
++		w.toiReady[last] = nil
++		w.toiReady = w.toiReady[:last]
++		if index < last && w.toiUp(index) == index {
++			w.toiDown(index)
++		}
++	}
++	c.toiQueue = 0
++}
+--- a/internal/server/binary-replication.go
++++ b/internal/server/binary-replication.go
+@@ -17,11 +17,12 @@
+ 
+ type nullValue struct{}
+ type fieldState struct {
+-	id            int
+ 	compare, wire any
+ 	revision      int64
+ }
+ type binaryRecord struct {
++	numberValues                                     []float64
++	numberMask                                       uint64
+ 	source                                           simulation.Entity
+ 	batchGeneration                                  uint64
+ 	revision, previousRevision                       int64
+@@ -30,7 +31,6 @@
+ 	modules                                          *moduleRecord
+ 	moduleBuffer                                     []simulation.Module
+ 	mountBuffer                                      []*simulation.Mount
+-	observers                                        []*member
+ 	nested                                           []byte
+ 	values                                           []protocol.FieldValue
+ 	hullHealth                                       []float64
+@@ -42,21 +42,21 @@
+ 	if record, ok := source.Base().ReplicationState.(*binaryRecord); ok {
+ 		return record
+ 	}
+-	record := &binaryRecord{source: source, fields: make([]fieldState, fieldCount+1)}
+-	for id := range record.fields {
+-		record.fields[id].id = id
+-	}
++	record := &binaryRecord{source: source, fields: make([]fieldState, fieldCount+1), numberValues: make([]float64, fieldCount+1)}
+ 	source.Base().ReplicationState = record
+ 	return record
+ }
+-func markChanged(record *binaryRecord, field *fieldState) {
++func markChanged(record *binaryRecord, id int) {
++	field := &record.fields[id]
++	record.numberMask &^= uint64(1) << id
+ 	record.revision++
+ 	field.revision = record.revision
+-	record.recentChanges = append(record.recentChanges, field.id)
+-}
+-func changed(record *binaryRecord, field *fieldState, comparison, wire any) {
++	record.recentChanges = append(record.recentChanges, id)
++}
++func changed(record *binaryRecord, id int, comparison, wire any) {
++	field := &record.fields[id]
+ 	field.compare, field.wire = comparison, wire
+-	markChanged(record, field)
++	markChanged(record, id)
+ }
+ func canonical(value float64) any {
+ 	if math.IsNaN(value) || math.IsInf(value, 0) {
+@@ -83,13 +83,13 @@
+ 	if _, null := normalized.(nullValue); null {
+ 		wire = nil
+ 	}
+-	changed(record, field, normalized, wire)
++	changed(record, id, normalized, wire)
+ }
+ func vector(record *binaryRecord, id int, value *Vec.Vector) {
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, field, nil, nil)
++			changed(record, id, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -99,7 +99,7 @@
+ 	boxed := any(*value)
+ 	field.compare = boxed
+ 	field.wire = boxed
+-	markChanged(record, field)
++	markChanged(record, id)
+ }
+ func sameNumbers(a, b []float64) bool {
+ 	if b == nil || len(a) != len(b) {
+@@ -120,7 +120,7 @@
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, field, nil, nil)
++			changed(record, id, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -128,7 +128,7 @@
+ 	if sameNumbers(value, before) {
+ 		return
+ 	}
+-	changed(record, field, slices.Clone(value), value)
++	changed(record, id, slices.Clone(value), value)
+ }
+ func integerArray(record *binaryRecord, id int, value []int) {
+ 	if len(value) == 0 {
+@@ -153,13 +153,13 @@
+ 	for i, v := range value {
+ 		numbers[i] = float64(v)
+ 	}
+-	changed(record, field, numbers, numbers)
++	changed(record, id, numbers, numbers)
+ }
+ func stringArray(record *binaryRecord, id int, value []string) {
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, field, nil, nil)
++			changed(record, id, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -167,7 +167,7 @@
+ 	if ok && slices.Equal(value, before) {
+ 		return
+ 	}
+-	changed(record, field, slices.Clone(value), value)
++	changed(record, id, slices.Clone(value), value)
+ }
+ func wireOutline(value *simulation.ShapeOutline) [][]float64 {
+ 	if value == nil {
+@@ -183,7 +183,7 @@
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, field, nil, nil)
++			changed(record, id, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -201,13 +201,13 @@
+ 		return
+ 	}
+ 	copy := wireOutline(value)
+-	changed(record, field, copy, copy)
++	changed(record, id, copy, copy)
+ }
+ func asteroidSegments(record *binaryRecord, id int, value []*simulation.AsteroidSegment) {
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, field, nil, nil)
++			changed(record, id, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -216,12 +216,12 @@
+ 		return
+ 	}
+ 	copy := copySegments(value)
+-	changed(record, field, copy, copy)
++	changed(record, id, copy, copy)
+ }
+ func clearField(record *binaryRecord, id int) {
+ 	field := &record.fields[id]
+ 	if field.compare != nil {
+-		changed(record, field, nil, nil)
++		changed(record, id, nil, nil)
+ 	}
+ }
+ func captureBytes(record *binaryRecord, id int, value any, catalog *specification.Catalog) {
+@@ -236,7 +236,7 @@
+ 		return
+ 	}
+ 	copy := slices.Clone(data)
+-	changed(record, field, copy, copy)
++	changed(record, id, copy, copy)
+ }
+ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) protocol.EntityRecord {
+ 	if record.values == nil {
+@@ -331,10 +331,10 @@
+ 		f := &record.fields[field.Modules]
+ 		if states != nil {
+ 			if f.compare != states {
+-				changed(record, f, states, states.states)
++				changed(record, field.Modules, states, states.states)
+ 			}
+ 		} else if f.compare != nil {
+-			changed(record, f, nil, nil)
++			changed(record, field.Modules, nil, nil)
+ 		}
+ 		wreckage := entity.Wreckage()
+ 		if wreckage != nil {
+@@ -419,7 +419,6 @@
+ }
+ 
+ var nextBatchGeneration atomic.Uint64
+-var nextReplicationID atomic.Uint64
+ 
+ type fragment struct{ offset, length int }
+ type BinarySnapshotBatch struct {
+@@ -493,35 +492,37 @@
+ 	BinaryBatch                            *BinarySnapshotBatch
+ }
+ type member struct {
+-	record            *binaryRecord
+-	revision          int64
+-	seen              uint64
+-	owner, generation uint64
++	record   *binaryRecord
++	revision int64
++	seen     uint64
++	entityID int64
+ }
+ type BinaryReplicationManager struct {
+-	snapshotTick, stamp      uint64
+-	writer                   []byte
+-	entityIDs                []uint64
+-	fragments                []fragment
+-	wireFragments            [][]byte
+-	members                  map[int64]*member
+-	cacheID, cacheGeneration uint64
+-	catalog                  specification.Catalog
++	snapshotTick, stamp uint64
++	writer              []byte
++	entityIDs           []uint64
++	fragments           []fragment
++	wireFragments       [][]byte
++	members             map[int64]*member
++	memberCache         []*member
++	catalog             specification.Catalog
+ }
+ 
+ func NewBinaryReplicationManager(catalog specification.Catalog) *BinaryReplicationManager {
+-	return &BinaryReplicationManager{catalog: catalog, writer: make([]byte, 0, 4096), members: make(map[int64]*member), cacheID: nextReplicationID.Add(1)}
++	return &BinaryReplicationManager{catalog: catalog, writer: make([]byte, 0, 4096), members: make(map[int64]*member)}
+ }
+ func (m *BinaryReplicationManager) Initial(options SnapshotOptions) []byte {
+-	clear(m.members)
+ 	return slices.Clone(m.encode(options, true))
+ }
+ func (m *BinaryReplicationManager) Snapshot(options SnapshotOptions) []byte {
+ 	return slices.Clone(m.encode(options, false))
+ }
+ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []byte {
++	// The session calls encode directly to avoid cloning the packet. Invalidate
++	// both membership representations on every load, including respawn.
+ 	if load {
+-		m.cacheGeneration++
++		clear(m.members)
++		clear(m.memberCache)
+ 	}
+ 	world := options.World
+ 	view := options.ReplicationView
+@@ -533,6 +534,13 @@
+ 		batch = NewBinarySnapshotBatch(m.catalog).Begin(view)
+ 	}
+ 	list := view.Entities()
++	if cap(m.memberCache) < len(list) {
++		m.memberCache = append(m.memberCache, make([]*member, len(list)*2-len(m.memberCache))...)
++	}
++	if len(m.memberCache) > len(list) {
++		clear(m.memberCache[len(list):])
++	}
++	m.memberCache = m.memberCache[:len(list)]
+ 	position := options.Position
+ 	if ship, ok := world.Entities.Get(options.ShipID); ok {
+ 		position = ship.Base().Position
+@@ -549,9 +557,23 @@
+ 	distantInterval := rules.UpdateTiers["distant"].ReplicateEvery
+ 	visibleInterval := rules.UpdateTiers["visible"].ReplicateEvery
+ 	visibleSquared := rules.VisibleRange * rules.VisibleRange
+-	// Bound cached observer slots even when players come and go. Colliding
+-	// slots use the ordinary membership map, and epochs invalidate reloads.
+-	observerIndex := int(m.cacheID % 64)
++	visibleDue, distantDue := true, true
++	var ballisticVisible, ballisticDistant uint64
++	packedCadence := rules.BallisticReplicateEvery > 0 && rules.BallisticReplicateEvery <= 64 && rules.BallisticReplicateEvery == view.world.Specification.Simulation.BallisticReplicateEvery && visibleInterval > 0 && distantInterval > 0
++	if previousSize > 0 && packedCadence {
++		visibleDue = replicationDue(world.Tick, m.snapshotTick, visibleInterval)
++		distantDue = replicationDue(world.Tick, m.snapshotTick, distantInterval)
++		for phase := 0; phase < rules.BallisticReplicateEvery; phase++ {
++			tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
++			if replicationDue(tick, old, max(visibleInterval, rules.BallisticReplicateEvery)) {
++				ballisticVisible |= uint64(1) << phase
++			}
++			if replicationDue(tick, old, max(distantInterval, rules.BallisticReplicateEvery)) {
++				ballisticDistant |= uint64(1) << phase
++			}
++		}
++	}
++
+ 	useVectors := vectorReplication && previousSize*4 < len(list) && world.Players != nil && world.Players.Len() >= 8
+ 	// Views can be supplied independently of the manager's catalog. Fall back
+ 	// when their prepacked unload policy does not match this observer's policy.
+@@ -565,12 +587,10 @@
+ 		object := view.objects[i]
+ 		station := view.Kinds[i]&1 != 0
+ 		var previous *member
+-		if record := view.records[i]; record != nil && observerIndex < len(record.observers) {
+-			cached := record.observers[observerIndex]
+-			if cached != nil && cached.owner == m.cacheID && cached.generation == m.cacheGeneration && cached.seen == stamp-1 {
+-				previous = cached
+-			}
+-		}
++		if cached := m.memberCache[i]; cached != nil && cached.entityID == object.ID && cached.seen == stamp-1 {
++			previous = cached
++		}
++
+ 		if previous == nil {
+ 			previous = m.members[object.ID]
+ 		}
+@@ -591,23 +611,42 @@
+ 		m.entityIDs = append(m.entityIDs, uint64(object.ID))
+ 		if loaded {
+ 			previous.seen = stamp
++			m.memberCache[i] = previous
+ 			retained++
+ 		} else {
+ 			membershipChanged = true
+ 		}
+-		interval := distantInterval
+-		if distance <= visibleSquared {
+-			interval = visibleInterval
+-		}
+-		phase := 0
+-		if view.Kinds[i] > 1 {
+-			interval = max(interval, rules.BallisticReplicateEvery)
+-			phase = view.Phases[i]
+-		}
+-		tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
+-		if loaded && !replicationDue(tick, old, interval) {
+-			return
+-		}
++		if loaded {
++			if packedCadence {
++				due := distantDue
++				mask := ballisticDistant
++				if distance <= visibleSquared {
++					due = visibleDue
++					mask = ballisticVisible
++				}
++				if view.Kinds[i] > 1 {
++					due = mask&(uint64(1)<<view.Phases[i]) != 0
++				}
++				if !due {
++					return
++				}
++			} else {
++				interval := distantInterval
++				if distance <= visibleSquared {
++					interval = visibleInterval
++				}
++				phase := 0
++				if view.Kinds[i] > 1 {
++					interval = max(interval, rules.BallisticReplicateEvery)
++					phase = view.Phases[i]
++				}
++				tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
++				if loaded && !replicationDue(tick, old, interval) {
++					return
++				}
++			}
++		}
++
+ 		prepared := view.records[i]
+ 		if prepared == nil || prepared.batchGeneration != batch.Generation {
+ 			prepared = batch.prepared(e)
+@@ -623,13 +662,10 @@
+ 			previous.record = prepared
+ 			previous.revision = prepared.revision
+ 		} else {
+-			previous = &member{record: prepared, revision: prepared.revision, seen: stamp, owner: m.cacheID, generation: m.cacheGeneration}
++			previous = &member{record: prepared, revision: prepared.revision, seen: stamp, entityID: object.ID}
+ 			m.members[object.ID] = previous
+ 		}
+-		if len(prepared.observers) <= observerIndex {
+-			prepared.observers = append(prepared.observers, make([]*member, observerIndex+1-len(prepared.observers))...)
+-		}
+-		prepared.observers[observerIndex] = previous
++		m.memberCache[i] = previous
+ 		replaced := previousRecord
+ 		if replaced == prepared {
+ 			replaced = nil
+@@ -666,6 +702,7 @@
+ 		for id, member := range m.members {
+ 			if member.seen != stamp {
+ 				delete(m.members, id)
++				member.record = nil
+ 			}
+ 		}
+ 	}
+@@ -688,19 +725,23 @@
+ 
+ // Compare hot numeric fields before boxing a changed value for the wire writer.
+ func scalarNumber(record *binaryRecord, id int, value float64) {
+-	field := &record.fields[id]
+-	if before, ok := field.compare.(float64); ok && before == value {
+-		return
+-	}
++	bit := uint64(1) << id
++	if record.numberMask&bit != 0 && record.numberValues[id] == value {
++		return
++	}
++	field := &record.fields[id]
+ 	normalized := canonical(value)
+-	if field.compare == normalized {
+-		return
+-	}
+-	wire := normalized
+-	if _, null := normalized.(nullValue); null {
+-		wire = nil
+-	}
+-	changed(record, field, normalized, wire)
++	if field.compare != normalized {
++		wire := normalized
++		if _, null := normalized.(nullValue); null {
++			wire = nil
++		}
++		changed(record, id, normalized, wire)
++	}
++	if number, ok := normalized.(float64); ok {
++		record.numberMask |= bit
++		record.numberValues[id] = number
++	}
+ }
+ 
+ func optionalNumber(record *binaryRecord, id int, value float64, present bool) {
+--- a/internal/server/game-session.go
++++ b/internal/server/game-session.go
+@@ -276,7 +276,6 @@
+ 	options := SnapshotOptions{World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: p.inputLead, SnapshotSequence: &sequence, ReplicationView: view, BinaryBatch: batch}
+ 	var packet []byte
+ 	if p.needsLoad {
+-		clear(p.binaryReplication.members)
+ 		packet = p.binaryReplication.encode(options, true)
+ 	} else {
+ 		packet = p.binaryReplication.encode(options, false)
+--- /dev/null
++++ b/internal/server/replication-cache_test.go
+@@ -0,0 +1,113 @@
++package server
++
++import (
++	"bytes"
++	"github.com/burntcustard/unicorn-mining-co/internal/simulation"
++	"github.com/burntcustard/unicorn-mining-co/internal/specification"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"testing"
++)
++
++func TestNumericFieldCachePreservesCanonicalChanges(t *testing.T) {
++	for _, id := range []int{1, 34, 65} {
++		record := &binaryRecord{fields: make([]fieldState, 70), numberValues: make([]float64, 70)}
++		reference := &binaryRecord{fields: make([]fieldState, 70)}
++		for _, value := range []any{0., math.Copysign(0, -1), 2., 2., math.NaN(), math.Inf(1), 3., "changed", 3., nil, 3., math.Inf(-1), 0.} {
++			if number, ok := value.(float64); ok {
++				scalarNumber(record, id, number)
++			} else {
++				scalar(record, id, value)
++			}
++			scalar(reference, id, value)
++			if record.revision != reference.revision || record.fields[id] != reference.fields[id] {
++				t.Fatalf("field %d value %v: got %+v rev%d want %+v rev%d", id, value, record.fields[id], record.revision, reference.fields[id], reference.revision)
++			}
++		}
++	}
++}
++
++func TestMembershipCacheSurvivesReorderReplacementAndEviction(t *testing.T) {
++	catalog, err := specification.Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	world := simulation.CreateWorld(25, catalog)
++	objects := make([]*simulation.GameObject, 20)
++	for i := range objects {
++		id := int64(i + 1)
++		objects[i] = simulation.NewGameObject(simulation.ObjectProperties{ID: &id}, catalog.Simulation)
++		simulation.AddEntity(world, objects[i])
++	}
++	cached, reference := NewBinaryReplicationManager(catalog), NewBinaryReplicationManager(catalog)
++	compare := func(initial bool) {
++		world.Tick++
++		options := SnapshotOptions{World: world, ShipID: 1}
++		clear(reference.memberCache)
++		var a, b []byte
++		if initial {
++			a = cached.encode(options, true)
++			b = reference.Initial(options)
++		} else {
++			a = cached.Snapshot(options)
++			b = reference.Snapshot(options)
++		}
++		if !bytes.Equal(a, b) {
++			t.Fatalf("tick %d: ordinal cache changed packet", world.Tick)
++		}
++	}
++	compare(true)
++	compare(false)
++	world.Entities.Delete(2)
++	world.Entities.Set(2, objects[1])
++	compare(false)
++	replacement := simulation.NewGameObject(simulation.ObjectProperties{ID: &objects[3].ID, Position: Vec.Create(3, 4)}, catalog.Simulation)
++	world.Entities.Set(replacement.ID, replacement)
++	compare(false)
++	objects[8].Position.X = catalog.Simulation.Replication.EntityUnload + 1000
++	compare(false)
++	if _, exists := cached.members[objects[8].ID]; exists {
++		t.Fatal("far member retained")
++	}
++	objects[8].Position.X = 0
++	compare(false)
++	for i := 2; i < len(objects); i++ {
++		world.Entities.Delete(objects[i].ID)
++	}
++	compare(false)
++	compare(true)
++	compare(false)
++}
++
++func TestPackedCadenceRetainsFallbackForForeignViews(t *testing.T) {
++	for _, test := range []struct {
++		interval int
++		id       int64
++	}{{8, 13}, {16, 13}, {65, 63}} {
++		catalog, err := specification.Load()
++		if err != nil {
++			t.Fatal(err)
++		}
++		worldCatalog := catalog
++		worldCatalog.Simulation.BallisticReplicateEvery = test.interval
++		world := simulation.CreateWorld(25, worldCatalog)
++		object := simulation.NewGameObject(simulation.ObjectProperties{ID: &test.id}, catalog.Simulation)
++		object.Ballistic = true
++		object.Kind = "asteroid"
++		simulation.AddEntity(world, object)
++		manager := NewBinaryReplicationManager(catalog)
++		options := SnapshotOptions{World: world, ShipID: test.id}
++		manager.Initial(options)
++		for tick := uint64(1); tick <= 32; tick++ {
++			previous := manager.members[test.id].revision
++			object.Spin = float64(tick)
++			world.Tick = tick
++			phase := uint64(test.id % int64(test.interval))
++			due := replicationDue(tick+phase, tick-1+phase, max(catalog.Simulation.UpdateTiers["visible"].ReplicateEvery, catalog.Simulation.BallisticReplicateEvery))
++			manager.Snapshot(options)
++			if (manager.members[test.id].revision != previous) != due {
++				t.Fatalf("interval %d id %d tick %d: cadence differs", test.interval, test.id, tick)
++			}
++		}
++	}
++}
+--- /dev/null
++++ b/internal/simulation/observers-default.go
+@@ -0,0 +1,9 @@
++//go:build !goexperiment.simd || !amd64
++
++package simulation
++
++import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++
++func (s *movementSchedule) withinObservers(p Vec.Vector, radiusSquared float64) bool {
++	return s.withinObserversScalar(p, radiusSquared)
++}
+--- /dev/null
++++ b/internal/simulation/observers-simd.go
+@@ -0,0 +1,41 @@
++//go:build goexperiment.simd && amd64
++
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"simd/archsimd"
++)
++
++var vectorObservers = archsimd.X86.AVX2() && utilities.SIMDFeature("observers")
++
++func (s *movementSchedule) withinObservers(p Vec.Vector, radiusSquared float64) bool {
++	if !vectorObservers || len(s.positions) < 8 {
++		return s.withinObserversScalar(p, radiusSquared)
++	}
++	return s.withinObserversVector(p, radiusSquared)
++}
++
++//go:noinline
++func (s *movementSchedule) withinObserversVector(p Vec.Vector, radiusSquared float64) bool {
++	x, y, r := archsimd.BroadcastFloat64x4(p.X), archsimd.BroadcastFloat64x4(p.Y), archsimd.BroadcastFloat64x4(radiusSquared)
++	n := len(s.observerX)
++	i := 0
++	for ; i+4 <= n; i += 4 {
++		dx := x.Sub(archsimd.LoadFloat64x4Array((*[4]float64)(s.observerX[i : i+4])))
++		dy := y.Sub(archsimd.LoadFloat64x4Array((*[4]float64)(s.observerY[i : i+4])))
++		if dx.Mul(dx).Add(dy.Mul(dy)).LessEqual(r).ToBits() != 0 {
++			archsimd.ClearAVXUpperBits()
++			return true
++		}
++	}
++	archsimd.ClearAVXUpperBits()
++	for ; i < n; i++ {
++		dx, dy := p.X-s.observerX[i], p.Y-s.observerY[i]
++		if dx*dx+dy*dy <= radiusSquared {
++			return true
++		}
++	}
++	return false
++}
+--- /dev/null
++++ b/internal/simulation/observers.go
+@@ -0,0 +1,12 @@
++package simulation
++
++import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++
++func (s *movementSchedule) withinObserversScalar(p Vec.Vector, radiusSquared float64) bool {
++	for _, q := range s.positions {
++		if Vec.DistanceSquared(p, q) <= radiusSquared {
++			return true
++		}
++	}
++	return false
++}
+--- /dev/null
++++ b/internal/simulation/observers_test.go
+@@ -0,0 +1,36 @@
++package simulation
++
++import (
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"math/rand/v2"
++	"testing"
++)
++
++func TestPackedObserversMatchScalar(t *testing.T) {
++	random := rand.New(rand.NewPCG(13, 41))
++	for _, count := range []int{0, 1, 3, 4, 7, 8, 9, 16, 31, 32, 65} {
++		for _, origin := range []float64{0, 1e7, -2e7, 1e12} {
++			var schedule movementSchedule
++			for range count {
++				position := Vec.Create(origin+random.Float64()*4000, origin+random.Float64()*4000)
++				schedule.positions = append(schedule.positions, position)
++				schedule.observerX = append(schedule.observerX, position.X)
++				schedule.observerY = append(schedule.observerY, position.Y)
++			}
++			for trial := 0; trial < 1000; trial++ {
++				position := Vec.Create(origin+random.Float64()*5000, origin+random.Float64()*5000)
++				radius := random.Float64() * 2e6
++				if count > 0 && trial%3 == 0 {
++					radius = Vec.DistanceSquared(position, schedule.positions[trial%count])
++					if trial%2 == 0 {
++						radius = math.Nextafter(radius, 0)
++					}
++				}
++				if schedule.withinObservers(position, radius) != schedule.withinObserversScalar(position, radius) {
++					t.Fatalf("count=%d origin=%g trial=%d radius=%g", count, origin, trial, radius)
++				}
++			}
++		}
++	}
++}
+--- a/internal/simulation/update-tier.go
++++ b/internal/simulation/update-tier.go
+@@ -26,6 +26,7 @@
+ type movementSchedule struct {
+ 	observers, parents, entities []Entity
+ 	positions                    []Vec.Vector
++	observerX, observerY         []float64
+ 	entries                      []scheduledEntity
+ 	parentRecords                []movementParent
+ }
+@@ -77,8 +78,13 @@
+ 		}
+ 	})
+ 	schedule.positions = schedule.positions[:0]
++	schedule.observerX = schedule.observerX[:0]
++	schedule.observerY = schedule.observerY[:0]
+ 	for _, observer := range schedule.observers {
+-		schedule.positions = append(schedule.positions, observer.Base().Position)
++		position := observer.Base().Position
++		schedule.positions = append(schedule.positions, position)
++		schedule.observerX = append(schedule.observerX, position.X)
++		schedule.observerY = append(schedule.observerY, position.Y)
+ 	}
+ 	visible, distant, drift := rules.UpdateTiers["visible"], rules.UpdateTiers["distant"], rules.UpdateTiers["drift"]
+ 	radiusSquared := rules.VisibleRange * rules.VisibleRange
+@@ -89,11 +95,8 @@
+ 		tier := visible
+ 		if len(schedule.positions) > 0 {
+ 			tier = distant
+-			for _, position := range schedule.positions {
+-				if Vec.DistanceSquared(object.Position, position) <= radiusSquared {
+-					tier = visible
+-					break
+-				}
++			if schedule.withinObservers(object.Position, radiusSquared) {
++				tier = visible
+ 			}
+ 		}
+ 		_, craft := entity.(CraftEntity)
+--- /dev/null
++++ b/internal/vector/rotation-table.go
+@@ -0,0 +1,24 @@
++package vector
++
++import "math"
++
++// Shared coefficients with src/shared/vector-math.ts. Retain float64 here:
++// the 2 KB table avoids float32 scale error in collision rotations.
++var sineTable = [256]float64{0, 0.024541228522912288, 0.049067674327418015, 0.07356456359966743, 0.0980171403295606, 0.1224106751992162, 0.14673047445536175, 0.17096188876030122, 0.19509032201612825, 0.2191012401568698, 0.24298017990326387, 0.26671275747489837, 0.29028467725446233, 0.3136817403988915, 0.33688985339222005, 0.3598950365349881, 0.3826834323650898, 0.40524131400498986, 0.4275550934302821, 0.44961132965460654, 0.47139673682599764, 0.49289819222978404, 0.5141027441932217, 0.5349976198870972, 0.5555702330196022, 0.5758081914178453, 0.5956993044924334, 0.6152315905806268, 0.6343932841636455, 0.6531728429537768, 0.6715589548470183, 0.6895405447370668, 0.7071067811865475, 0.7242470829514669, 0.7409511253549591, 0.7572088465064845, 0.773010453362737, 0.7883464276266062, 0.8032075314806448, 0.8175848131515837, 0.8314696123025452, 0.844853565249707, 0.8577286100002721, 0.8700869911087113, 0.8819212643483549, 0.8932243011955153, 0.9039892931234433, 0.9142097557035307, 0.9238795325112867, 0.9329927988347388, 0.9415440651830208, 0.9495281805930367, 0.9569403357322089, 0.9637760657954398, 0.970031253194544, 0.9757021300385286, 0.9807852804032304, 0.9852776423889412, 0.989176509964781, 0.99247953459871, 0.9951847266721968, 0.9972904566786902, 0.9987954562051724, 0.9996988186962042, 1, 0.9996988186962042, 0.9987954562051724, 0.9972904566786902, 0.9951847266721969, 0.99247953459871, 0.989176509964781, 0.9852776423889412, 0.9807852804032304, 0.9757021300385286, 0.970031253194544, 0.9637760657954398, 0.9569403357322089, 0.9495281805930367, 0.9415440651830208, 0.9329927988347388, 0.9238795325112867, 0.9142097557035307, 0.9039892931234434, 0.8932243011955152, 0.881921264348355, 0.8700869911087115, 0.8577286100002721, 0.8448535652497072, 0.8314696123025455, 0.8175848131515837, 0.8032075314806449, 0.7883464276266063, 0.7730104533627371, 0.7572088465064847, 0.740951125354959, 0.7242470829514669, 0.7071067811865476, 0.689540544737067, 0.6715589548470186, 0.6531728429537766, 0.6343932841636455, 0.6152315905806269, 0.5956993044924335, 0.5758081914178454, 0.5555702330196022, 0.5349976198870972, 0.5141027441932218, 0.49289819222978415, 0.47139673682599786, 0.4496113296546069, 0.42755509343028203, 0.4052413140049899, 0.3826834323650899, 0.35989503653498833, 0.33688985339222033, 0.3136817403988914, 0.2902846772544624, 0.2667127574748985, 0.24298017990326407, 0.21910124015687005, 0.1950903220161286, 0.17096188876030122, 0.1467304744553618, 0.12241067519921635, 0.09801714032956083, 0.07356456359966773, 0.049067674327417966, 0.024541228522912326, 0, -0.02454122852291208, -0.049067674327417724, -0.0735645635996675, -0.09801714032956059, -0.1224106751992161, -0.14673047445536158, -0.17096188876030097, -0.19509032201612836, -0.2191012401568698, -0.24298017990326382, -0.26671275747489825, -0.2902846772544621, -0.3136817403988912, -0.3368898533922201, -0.3598950365349881, -0.38268343236508967, -0.4052413140049897, -0.4275550934302818, -0.44961132965460665, -0.47139673682599764, -0.4928981922297839, -0.5141027441932216, -0.5349976198870969, -0.555570233019602, -0.5758081914178453, -0.5956993044924332, -0.6152315905806267, -0.6343932841636453, -0.6531728429537765, -0.6715589548470184, -0.6895405447370668, -0.7071067811865475, -0.7242470829514668, -0.7409511253549589, -0.7572088465064842, -0.7730104533627367, -0.7883464276266059, -0.803207531480645, -0.8175848131515838, -0.8314696123025452, -0.844853565249707, -0.857728610000272, -0.8700869911087113, -0.8819212643483549, -0.8932243011955152, -0.9039892931234431, -0.9142097557035305, -0.9238795325112865, -0.932992798834739, -0.9415440651830208, -0.9495281805930367, -0.9569403357322088, -0.9637760657954398, -0.970031253194544, -0.9757021300385285, -0.9807852804032303, -0.9852776423889411, -0.9891765099647809, -0.9924795345987101, -0.9951847266721969, -0.9972904566786902, -0.9987954562051724, -0.9996988186962042, -1, -0.9996988186962042, -0.9987954562051724, -0.9972904566786902, -0.9951847266721969, -0.9924795345987101, -0.9891765099647809, -0.9852776423889412, -0.9807852804032304, -0.9757021300385286, -0.970031253194544, -0.96377606579544, -0.9569403357322089, -0.9495281805930368, -0.9415440651830209, -0.9329927988347391, -0.9238795325112866, -0.9142097557035306, -0.9039892931234433, -0.8932243011955153, -0.881921264348355, -0.8700869911087115, -0.8577286100002722, -0.8448535652497072, -0.8314696123025455, -0.817584813151584, -0.8032075314806453, -0.7883464276266061, -0.7730104533627369, -0.7572088465064846, -0.7409511253549591, -0.724247082951467, -0.7071067811865477, -0.6895405447370672, -0.6715589548470187, -0.6531728429537771, -0.6343932841636459, -0.6152315905806274, -0.5956993044924332, -0.5758081914178452, -0.5555702330196022, -0.5349976198870973, -0.5141027441932219, -0.49289819222978426, -0.4713967368259979, -0.449611329654607, -0.42755509343028253, -0.4052413140049904, -0.3826834323650904, -0.359895036534988, -0.33688985339222, -0.3136817403988915, -0.2902846772544625, -0.2667127574748986, -0.24298017990326418, -0.21910124015687016, -0.19509032201612872, -0.17096188876030177, -0.1467304744553624, -0.12241067519921603, -0.0980171403295605, -0.07356456359966741, -0.04906767432741809, -0.024541228522912448}
++
++// SinCos uses a short residual around a tabulated angle. For |a| <= 64,
++// |residual| < 2*pi/256 and the first omitted cosine term is below 3.1e-13.
++// Keep operation order and coefficients identical to TypeScript setRotAngle.
++func SinCos(a float64) (float64, float64) {
++	if !(a >= -64 && a <= 64) {
++		return math.Sincos(a)
++	}
++	phase := a * (256 / (2 * math.Pi))
++	index := int(phase)
++	r := a - float64(index)*(2*math.Pi/256)
++	s, c := float64(sineTable[index&255]), float64(sineTable[(index+64)&255])
++	r2 := r * r
++	sr := r * (1 - r2/6 + r2*r2/120)
++	cr := 1 - r2/2 + r2*r2/24
++	return s*cr + c*sr, c*cr - s*sr
++}
+--- /dev/null
++++ b/internal/vector/rotation-table_test.go
+@@ -0,0 +1,43 @@
++package vector
++
++import (
++	"encoding/json"
++	"math"
++	"os"
++	"testing"
++)
++
++func TestRotationTableAccuracy(t *testing.T) {
++	for i := 0; i <= 400000; i++ {
++		angle := -64 + 128*float64(i)/400000
++		s, c := SinCos(angle)
++		wantS, wantC := math.Sincos(angle)
++		if math.Abs(s-wantS) > 1e-12 || math.Abs(c-wantC) > 1e-12 || math.Abs(s*s+c*c-1) > 1e-12 {
++			t.Fatalf("angle %g: got %.17g %.17g, want %.17g %.17g", angle, s, c, wantS, wantC)
++		}
++	}
++	for _, angle := range []float64{-1e20, -65, 65, 1e20, math.Inf(1), math.NaN()} {
++		s, c := SinCos(angle)
++		wantS, wantC := math.Sincos(angle)
++		if !(s == wantS || math.IsNaN(s) && math.IsNaN(wantS)) || !(c == wantC || math.IsNaN(c) && math.IsNaN(wantC)) {
++			t.Fatalf("fallback differs at %g", angle)
++		}
++	}
++}
++
++func TestRotationTableMatchesTypeScript(t *testing.T) {
++	data, err := os.ReadFile("../../tests/go-fixtures/rotation.json")
++	if err != nil {
++		t.Fatal(err)
++	}
++	var cases []struct{ Angle, S, C float64 }
++	if err = json.Unmarshal(data, &cases); err != nil {
++		t.Fatal(err)
++	}
++	for _, test := range cases {
++		s, c := SinCos(test.Angle)
++		if s != test.S || c != test.C {
++			t.Fatalf("angle %.17g: Go %.17g %.17g != TypeScript %.17g %.17g", test.Angle, s, c, test.S, test.C)
++		}
++	}
++}
+--- a/internal/vector/vector-math.go
++++ b/internal/vector/vector-math.go
+@@ -1,8 +1,6 @@
+ // Port of src/shared/vector-math.ts.
+ // Copyright (c) Ali Shakiba (Planck.js), MIT. See LICENSE.
+ package vector
+-
+-import "math"
+ 
+ type RotValue struct{ S, C float64 }
+ type TransformValue struct {
+@@ -11,7 +9,7 @@
+ }
+ 
+ func SetRotAngle(out *RotValue, a float64) *RotValue {
+-	out.S, out.C = math.Sincos(a)
++	out.S, out.C = SinCos(a)
+ 	return out
+ }
+ func RotateInto(out *Vector, q RotValue, v Vector) *Vector {
+@@ -29,7 +27,7 @@
+ 	return out
+ }
+ func Transform(x, y, a float64) TransformValue {
+-	sin, cos := math.Sincos(a)
++	sin, cos := SinCos(a)
+ 	return TransformValue{Vector{x, y}, RotValue{sin, cos}}
+ }
+ func TransformInto(out *Vector, xf TransformValue, v Vector) *Vector {
+--- a/package.json
++++ b/package.json
+@@ -47,11 +47,11 @@
+     "format:go:check": "node scripts/format-go.mjs --check",
+     "catalog:go": "tsx scripts/generate-go-catalog.ts",
+     "build:client": "npm run typecheck && npm run catalog:go && vite build",
+-    "test:go": "npm run catalog:go && tsx scripts/generate-go-wire-fixtures.ts && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-region-fixtures.ts && tsx scripts/generate-go-asteroid-fixtures.ts && tsx scripts/generate-go-movement-fixtures.ts && tsx scripts/generate-go-item-fixtures.ts && tsx scripts/generate-go-http-fixtures.ts && tsx scripts/generate-go-gameplay-fixtures.ts && GOEXPERIMENT=simd go test ./cmd/... ./internal/... ./tests/go-fixtures/snapshot && tsx tests/go-snapshot.test.ts && tsx tests/go-session.test.ts",
++    "test:go": "npm run catalog:go && tsx scripts/generate-go-wire-fixtures.ts && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-rotation-fixtures.ts && tsx scripts/generate-go-region-fixtures.ts && tsx scripts/generate-go-asteroid-fixtures.ts && tsx scripts/generate-go-movement-fixtures.ts && tsx scripts/generate-go-item-fixtures.ts && tsx scripts/generate-go-http-fixtures.ts && tsx scripts/generate-go-gameplay-fixtures.ts && GOEXPERIMENT=simd go test ./cmd/... ./internal/... ./tests/go-fixtures/snapshot && tsx tests/go-snapshot.test.ts && tsx tests/go-session.test.ts",
+     "build:go": "npm run build:client && mkdir -p bin && GOEXPERIMENT=simd go build -o bin/go-server ./cmd/go-server",
+     "start:go-server": "GOEXPERIMENT=simd go run ./cmd/go-server",
+     "dev:go-server": "npm run build:client && npm run start:go-server",
+-    "test:go:physics": "npm run catalog:go && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && go test ./internal/collision/... ./internal/physics/...",
++    "test:go:physics": "npm run catalog:go && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-rotation-fixtures.ts && go test ./internal/collision/... ./internal/physics/...",
+     "benchmark:go": "GOEXPERIMENT=simd node benchmarking/go-server.mjs"
+   },
+   "dependencies": {
+--- /dev/null
++++ b/scripts/generate-go-rotation-fixtures.ts
+@@ -0,0 +1,18 @@
++import { writeFileSync } from 'node:fs';
++import { setRotAngle } from '../src/shared/vector-math';
++
++const angles = [0, -64, 64, -Math.PI, Math.PI, 2 * Math.PI];
++
++for (let i = -2600; i <= 2600; i += 13) {
++  const angle = i * ((2 * Math.PI) / 256);
++
++  angles.push(angle - 1e-11, angle, angle + 1e-11);
++}
++
++const values = angles.map((angle) => {
++  const { s, c } = setRotAngle({ s: 0, c: 1 }, angle);
++
++  return { angle, s, c };
++});
++
++writeFileSync('tests/go-fixtures/rotation.json', JSON.stringify(values) + '\n');
+--- a/src/shared/physics/contact.ts
++++ b/src/shared/physics/contact.ts
+@@ -25,14 +25,16 @@
+ import { Body } from './body';
+ import { Pool } from '../utilities/object-pool';
+ 
++// Keep this convergence threshold identical to internal/physics/contact.go.
++const velocityImpulseTolerance = 1e-7;
++
+ class Mat22 {
+   ex = Vec.create();
+   ey = Vec.create();
+ }
+ 
+ function getTransform(xf: TransformValue, c: Vec.Value, angle: number): void {
+-  xf.q.c = Math.cos(angle);
+-  xf.q.s = Math.sin(angle);
++  matrix.setRotAngle(xf.q, angle);
+   Vec.set(xf.p, c);
+ }
+ 
+@@ -650,7 +652,8 @@
+     velocityB.w = wB;
+   }
+ 
+-  solveVelocityConstraint(): void {
++  solveVelocityConstraint(): boolean {
++    let converged = true;
+     const fixtureA = this.m_fixtureA;
+     const fixtureB = this.m_fixtureB;
+ 
+@@ -700,6 +703,10 @@
+       );
+ 
+       lambda = newImpulse - vcp.tangentImpulse;
++      converged =
++        converged &&
++        Math.abs(lambda) <=
++          velocityImpulseTolerance * (1 + Math.abs(newImpulse));
+       vcp.tangentImpulse = newImpulse;
+ 
+       // Apply contact impulse
+@@ -732,6 +739,10 @@
+         const newImpulse = Math.max(vcp.normalImpulse + lambda, 0);
+ 
+         lambda = newImpulse - vcp.normalImpulse;
++        converged =
++          converged &&
++          Math.abs(lambda) <=
++            velocityImpulseTolerance * (1 + Math.abs(newImpulse));
+         vcp.normalImpulse = newImpulse;
+ 
+         // Apply contact impulse
+@@ -829,6 +840,10 @@
+         if (x.x >= 0 && x.y >= 0) {
+           // Get the incremental impulse
+           Vec.subtract(x, a, d);
++          converged =
++            converged &&
++            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
++            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
+ 
+           // Apply incremental impulse
+           Vec.scale(normal, d.x, P1);
+@@ -861,6 +876,10 @@
+         if (x.x >= 0 && vn2 >= 0) {
+           // Get the incremental impulse
+           Vec.subtract(x, a, d);
++          converged =
++            converged &&
++            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
++            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
+ 
+           // Apply incremental impulse
+           Vec.scale(normal, d.x, P1);
+@@ -893,6 +912,10 @@
+         if (x.y >= 0 && vn1 >= 0) {
+           // Resubstitute for the incremental impulse
+           Vec.subtract(x, a, d);
++          converged =
++            converged &&
++            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
++            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
+ 
+           // Apply incremental impulse
+           Vec.scale(normal, d.x, P1);
+@@ -925,6 +948,10 @@
+         if (vn1 >= 0 && vn2 >= 0) {
+           // Resubstitute for the incremental impulse
+           Vec.subtract(x, a, d);
++          converged =
++            converged &&
++            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
++            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
+ 
+           // Apply incremental impulse
+           Vec.scale(normal, d.x, P1);
+@@ -954,6 +981,7 @@
+ 
+     Vec.set(velocityB.v, vB);
+     velocityB.w = wB;
++    return converged;
+   }
+   static addType(
+     type1: ShapeType,
+--- a/src/shared/physics/motion-sweep.ts
++++ b/src/shared/physics/motion-sweep.ts
+@@ -31,6 +31,7 @@
+   c0 = Vec.create();
+   a0 = 0;
+   private trigAngle = NaN;
++  private rotation = { s: 0, c: 1 };
+   cosA0 = 1;
+   sinA0 = 0;
+ 
+@@ -38,8 +39,9 @@
+   rotation0(): this {
+     if (this.trigAngle !== this.a0) {
+       this.trigAngle = this.a0;
+-      this.cosA0 = Math.cos(this.a0);
+-      this.sinA0 = Math.sin(this.a0);
++      matrix.setRotAngle(this.rotation, this.a0);
++      this.cosA0 = this.rotation.c;
++      this.sinA0 = this.rotation.s;
+     }
+     return this;
+   }
+--- a/src/shared/physics/solver.ts
++++ b/src/shared/physics/solver.ts
+@@ -249,11 +249,13 @@
+ 
+     // Solve velocity constraints
+     for (let i = 0; i < step.velocityIterations; ++i) {
++      let converged = true;
++
+       for (let j = 0; j < this.m_contacts.length; ++j) {
+-        const contact = this.m_contacts[j];
+-
+-        contact.solveVelocityConstraint();
+-      }
++        if (!this.m_contacts[j].solveVelocityConstraint()) converged = false;
++      }
++
++      if (converged) break;
+     }
+ 
+     // Integrate positions
+@@ -624,11 +626,13 @@
+ 
+     // Solve velocity constraints.
+     for (let i = 0; i < subStep.velocityIterations; ++i) {
++      let converged = true;
++
+       for (let j = 0; j < this.m_contacts.length; ++j) {
+-        const contact = this.m_contacts[j];
+-
+-        contact.solveVelocityConstraint();
+-      }
++        if (!this.m_contacts[j].solveVelocityConstraint()) converged = false;
++      }
++
++      if (converged) break;
+     }
+ 
+     // Don't store the TOI contact forces for warm starting
+--- a/src/shared/vector-math.ts
++++ b/src/shared/vector-math.ts
+@@ -22,9 +22,106 @@
+   q: RotValue;
+ };
+ 
++const sineTable = new Float64Array([
++  0, 0.024541228522912288, 0.049067674327418015, 0.07356456359966743,
++  0.0980171403295606, 0.1224106751992162, 0.14673047445536175,
++  0.17096188876030122, 0.19509032201612825, 0.2191012401568698,
++  0.24298017990326387, 0.26671275747489837, 0.29028467725446233,
++  0.3136817403988915, 0.33688985339222005, 0.3598950365349881,
++  0.3826834323650898, 0.40524131400498986, 0.4275550934302821,
++  0.44961132965460654, 0.47139673682599764, 0.49289819222978404,
++  0.5141027441932217, 0.5349976198870972, 0.5555702330196022,
++  0.5758081914178453, 0.5956993044924334, 0.6152315905806268,
++  0.6343932841636455, 0.6531728429537768, 0.6715589548470183,
++  0.6895405447370668, 0.7071067811865475, 0.7242470829514669,
++  0.7409511253549591, 0.7572088465064845, 0.773010453362737, 0.7883464276266062,
++  0.8032075314806448, 0.8175848131515837, 0.8314696123025452, 0.844853565249707,
++  0.8577286100002721, 0.8700869911087113, 0.8819212643483549,
++  0.8932243011955153, 0.9039892931234433, 0.9142097557035307,
++  0.9238795325112867, 0.9329927988347388, 0.9415440651830208,
++  0.9495281805930367, 0.9569403357322089, 0.9637760657954398, 0.970031253194544,
++  0.9757021300385286, 0.9807852804032304, 0.9852776423889412, 0.989176509964781,
++  0.99247953459871, 0.9951847266721968, 0.9972904566786902, 0.9987954562051724,
++  0.9996988186962042, 1, 0.9996988186962042, 0.9987954562051724,
++  0.9972904566786902, 0.9951847266721969, 0.99247953459871, 0.989176509964781,
++  0.9852776423889412, 0.9807852804032304, 0.9757021300385286, 0.970031253194544,
++  0.9637760657954398, 0.9569403357322089, 0.9495281805930367,
++  0.9415440651830208, 0.9329927988347388, 0.9238795325112867,
++  0.9142097557035307, 0.9039892931234434, 0.8932243011955152, 0.881921264348355,
++  0.8700869911087115, 0.8577286100002721, 0.8448535652497072,
++  0.8314696123025455, 0.8175848131515837, 0.8032075314806449,
++  0.7883464276266063, 0.7730104533627371, 0.7572088465064847, 0.740951125354959,
++  0.7242470829514669, 0.7071067811865476, 0.689540544737067, 0.6715589548470186,
++  0.6531728429537766, 0.6343932841636455, 0.6152315905806269,
++  0.5956993044924335, 0.5758081914178454, 0.5555702330196022,
++  0.5349976198870972, 0.5141027441932218, 0.49289819222978415,
++  0.47139673682599786, 0.4496113296546069, 0.42755509343028203,
++  0.4052413140049899, 0.3826834323650899, 0.35989503653498833,
++  0.33688985339222033, 0.3136817403988914, 0.2902846772544624,
++  0.2667127574748985, 0.24298017990326407, 0.21910124015687005,
++  0.1950903220161286, 0.17096188876030122, 0.1467304744553618,
++  0.12241067519921635, 0.09801714032956083, 0.07356456359966773,
++  0.049067674327417966, 0.024541228522912326, 0, -0.02454122852291208,
++  -0.049067674327417724, -0.0735645635996675, -0.09801714032956059,
++  -0.1224106751992161, -0.14673047445536158, -0.17096188876030097,
++  -0.19509032201612836, -0.2191012401568698, -0.24298017990326382,
++  -0.26671275747489825, -0.2902846772544621, -0.3136817403988912,
++  -0.3368898533922201, -0.3598950365349881, -0.38268343236508967,
++  -0.4052413140049897, -0.4275550934302818, -0.44961132965460665,
++  -0.47139673682599764, -0.4928981922297839, -0.5141027441932216,
++  -0.5349976198870969, -0.555570233019602, -0.5758081914178453,
++  -0.5956993044924332, -0.6152315905806267, -0.6343932841636453,
++  -0.6531728429537765, -0.6715589548470184, -0.6895405447370668,
++  -0.7071067811865475, -0.7242470829514668, -0.7409511253549589,
++  -0.7572088465064842, -0.7730104533627367, -0.7883464276266059,
++  -0.803207531480645, -0.8175848131515838, -0.8314696123025452,
++  -0.844853565249707, -0.857728610000272, -0.8700869911087113,
++  -0.8819212643483549, -0.8932243011955152, -0.9039892931234431,
++  -0.9142097557035305, -0.9238795325112865, -0.932992798834739,
++  -0.9415440651830208, -0.9495281805930367, -0.9569403357322088,
++  -0.9637760657954398, -0.970031253194544, -0.9757021300385285,
++  -0.9807852804032303, -0.9852776423889411, -0.9891765099647809,
++  -0.9924795345987101, -0.9951847266721969, -0.9972904566786902,
++  -0.9987954562051724, -0.9996988186962042, -1, -0.9996988186962042,
++  -0.9987954562051724, -0.9972904566786902, -0.9951847266721969,
++  -0.9924795345987101, -0.9891765099647809, -0.9852776423889412,
++  -0.9807852804032304, -0.9757021300385286, -0.970031253194544,
++  -0.96377606579544, -0.9569403357322089, -0.9495281805930368,
++  -0.9415440651830209, -0.9329927988347391, -0.9238795325112866,
++  -0.9142097557035306, -0.9039892931234433, -0.8932243011955153,
++  -0.881921264348355, -0.8700869911087115, -0.8577286100002722,
++  -0.8448535652497072, -0.8314696123025455, -0.817584813151584,
++  -0.8032075314806453, -0.7883464276266061, -0.7730104533627369,
++  -0.7572088465064846, -0.7409511253549591, -0.724247082951467,
++  -0.7071067811865477, -0.6895405447370672, -0.6715589548470187,
++  -0.6531728429537771, -0.6343932841636459, -0.6152315905806274,
++  -0.5956993044924332, -0.5758081914178452, -0.5555702330196022,
++  -0.5349976198870973, -0.5141027441932219, -0.49289819222978426,
++  -0.4713967368259979, -0.449611329654607, -0.42755509343028253,
++  -0.4052413140049904, -0.3826834323650904, -0.359895036534988,
++  -0.33688985339222, -0.3136817403988915, -0.2902846772544625,
++  -0.2667127574748986, -0.24298017990326418, -0.21910124015687016,
++  -0.19509032201612872, -0.17096188876030177, -0.1467304744553624,
++  -0.12241067519921603, -0.0980171403295605, -0.07356456359966741,
++  -0.04906767432741809, -0.024541228522912448,
++]);
++
+ export function setRotAngle(out: RotValue, a: number): RotValue {
+-  out.c = Math.cos(a);
+-  out.s = Math.sin(a);
++  if (!(a >= -64 && a <= 64)) {
++    out.c = Math.cos(a);
++    out.s = Math.sin(a);
++    return out;
++  }
++  const index = Math.trunc(a * (256 / (2 * Math.PI)));
++  const r = a - index * ((2 * Math.PI) / 256);
++  const s = sineTable[index & 255],
++    c = sineTable[(index + 64) & 255];
++  const r2 = r * r;
++  const sr = r * (1 - r2 / 6 + (r2 * r2) / 120);
++  const cr = 1 - r2 / 2 + (r2 * r2) / 24;
++
++  out.s = s * cr + c * sr;
++  out.c = c * cr - s * sr;
+   return out;
+ }
+ 
+@@ -71,7 +168,7 @@
+ }
+ 
+ export function transform(x: number, y: number, a: number): TransformValue {
+-  return { p: Vec.create(x, y), q: { s: Math.sin(a), c: Math.cos(a) } };
++  return { p: Vec.create(x, y), q: setRotAngle({ s: 0, c: 1 }, a) };
+ }
+ 
+ export function transformInto(

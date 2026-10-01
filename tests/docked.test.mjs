@@ -12,7 +12,7 @@ import { rolldown } from 'rolldown';
 // The separate lazy-docked test checks the actual module boundary.
 const scenario = `
 import * as Vec from '${process.cwd()}/src/shared/vector.ts';
-import { round } from '${process.cwd()}/src/shared/utilities/round.ts';
+import { roundMotion } from '${process.cwd()}/src/shared/utilities/round.ts';
 import assert from 'node:assert/strict';
 import { damage } from '${process.cwd()}/src/shared/craft/damage.ts';
 import { createRenderedShip } from '${process.cwd()}/src/client/create-rendered-ship.ts';
@@ -396,8 +396,8 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     if (expectedSpeed < 1) expectedSpeed = 0;
     expectedSpeed = expectedSpeed > cap ? Math.max(cap, expectedSpeed * 0.9) :
       expectedSpeed * Math.exp(-departing.drag * dt);
-    expectedX = round(expectedX + expectedSpeed * dt);
-    expectedSpeed = round(expectedSpeed);
+    expectedX = roundMotion(expectedX + expectedSpeed * dt);
+    expectedSpeed = roundMotion(expectedSpeed);
     departing.fly(departing.launching ? 1 : 0, 0);
     departing.update(dt);
     assert(Math.abs(Vec.length(departing.velocity) - expectedSpeed) < 1e-8,
@@ -416,7 +416,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
     const thrust = type.rotationalThrust * fraction;
     const target = departing.turnRate * thrust * fraction / 16;
-    expectedSpin = round(expectedSpin + Math.max(-thrust * dt, Math.min(thrust * dt, target - expectedSpin)));
+    expectedSpin = roundMotion(expectedSpin + Math.max(-thrust * dt, Math.min(thrust * dt, target - expectedSpin)));
     departing.fly(departing.launching ? 1 : 0, 1);
     departing.update(dt);
     assert(Math.abs(departing.spin - expectedSpin) < 1e-8,

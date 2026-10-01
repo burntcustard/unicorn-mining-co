@@ -1,11 +1,19 @@
 /**
- * Share a compact numeric precision across simulation and generated geometry.
- * This significantly reduces packet sizes between server and clients.
+ * Keep procedural geometry on its existing seeded decimal grid.
  */
 export const round = (value: number) => Math.round(value * 1e8) / 1e8;
 
 /**
- * Motion uses the same half-up rule in Go and client prediction.
+ * Match Go's native ties-to-even rounding on an exact binary motion grid.
  */
-export const roundMotion = (value: number) =>
-  Math.floor(value * 1e8 + 0.5) / 1e8;
+export const roundMotion = (value: number) => {
+  const scaled = value * 16777216;
+  const lower = Math.floor(scaled);
+  const fraction = scaled - lower;
+  const rounded =
+    lower + +(fraction > 0.5 || (fraction === 0.5 && lower % 2 !== 0));
+
+  return rounded === 0 && (value < 0 || Object.is(value, -0))
+    ? -0
+    : rounded / 16777216;
+};

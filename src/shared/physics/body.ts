@@ -54,6 +54,11 @@ export class Body {
   m_destroyed: boolean;
   // Parked bodies have no proxies or contacts; their owner integrates them.
   m_parked = false;
+  collisionNeighbors?: Body[];
+  neighborCount = 0;
+  neighborDirty = false;
+  private neighborBuffer?: Body[];
+  private neighborDistances?: number[];
   private proxyRadius = Infinity;
   private proxyMotion = 0;
   private proxyMargin = 0;
@@ -88,6 +93,35 @@ export class Body {
     this.m_next = null;
 
     this.m_destroyed = false;
+  }
+
+  allowsCollision(other: Body) {
+    return !this.collisionNeighbors || this.collisionNeighbors.includes(other);
+  }
+
+  resetCollisionNeighbors() {
+    this.collisionNeighbors = this.neighborBuffer ||= [];
+    this.collisionNeighbors.length = 0;
+    (this.neighborDistances ||= []).length = 0;
+  }
+
+  addCollisionNeighbor(other: Body, distance: number) {
+    const neighbors = this.collisionNeighbors!;
+    const distances = this.neighborDistances!;
+    let at = neighbors.length;
+
+    if (at === 8) {
+      if (distance >= distances[7]) return;
+      at--;
+    }
+
+    while (at > 0 && distance < distances[at - 1]) {
+      neighbors[at] = neighbors[at - 1];
+      distances[at] = distances[at - 1];
+      at--;
+    }
+    neighbors[at] = other;
+    distances[at] = distance;
   }
 
   isWorldLocked(): boolean {

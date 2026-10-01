@@ -6,6 +6,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"math"
+	"slices"
 )
 
 const maxTOISubsteps = 8
@@ -37,23 +38,31 @@ func separatedThroughout(shapeA *collision.BaseShape, sweepA *collision.Sweep, s
 	rotA, rotB := sweepA.Rotation0(), sweepB.Rotation0()
 	dx := sweepB.C0.X + rotB.C*boundB.X - rotB.S*boundB.Y - (sweepA.C0.X + rotA.C*boundA.X - rotA.S*boundA.Y)
 	dy := sweepB.C0.Y + rotB.S*boundB.X + rotB.C*boundB.Y - (sweepA.C0.Y + rotA.S*boundA.X + rotA.C*boundA.Y)
-	ax, ay, bx, by := sweepA.C.X-sweepA.C0.X, sweepA.C.Y-sweepA.C0.Y, sweepB.C.X-sweepB.C0.X, sweepB.C.Y-sweepB.C0.Y
-	motion := math.Sqrt(ax*ax+ay*ay) + boundA.OffsetRadius*math.Abs(sweepA.A-sweepA.A0) + math.Sqrt(bx*bx+by*by) + boundB.OffsetRadius*math.Abs(sweepB.A-sweepB.A0)
+	vx := (sweepB.C.X - sweepB.C0.X) - (sweepA.C.X - sweepA.C0.X)
+	vy := (sweepB.C.Y - sweepB.C0.Y) - (sweepA.C.Y - sweepA.C0.Y)
+	length := vx*vx + vy*vy
+	fraction := 0.0
+	if length > 0 {
+		fraction = max(0, min(1, -(dx*vx+dy*vy)/length))
+	}
+	dx += fraction * vx
+	dy += fraction * vy
+	rotation := boundA.OffsetRadius*math.Abs(sweepA.A-sweepA.A0) + boundB.OffsetRadius*math.Abs(sweepB.A-sweepB.A0)
 	target := max(linearSlop, shapeA.Radius+shapeB.Radius-3*linearSlop)
-	return math.Sqrt(dx*dx+dy*dy)-motion-boundA.Radius-boundB.Radius > target+1.25*linearSlop
+	radius := boundA.Radius + boundB.Radius + rotation + target + 1.25*linearSlop + 1e-7
+	return dx*dx+dy*dy > radius*radius
+
 }
 func (s *Solver) SolveWorld(step TimeStep) {
 	world := s.World
-	for c := world.ContactList; c != nil; c = c.Next {
-		c.IslandFlag = false
-	}
+
 	clear(s.isolated)
 	isolated := s.isolated[:0]
 	for _, seed := range world.activeBodies {
 		if seed.IslandFlag || seed.Parked {
 			continue
 		}
-		if seed.ContactList == nil {
+		if seed.solverContacts == nil {
 			seed.IslandFlag = true
 			isolated = append(isolated, seed)
 			continue
@@ -67,12 +76,12 @@ func (s *Solver) SolveWorld(step TimeStep) {
 			s.Stack[last] = nil
 			s.Stack = s.Stack[:last]
 			s.AddBody(b)
-			for ce := b.ContactList; ce != nil; ce = ce.Next {
+			for ce := b.solverContacts; ce != nil; ce = ce.solverNext {
 				c := ce.Contact
 				if c.IslandFlag || !c.EnabledFlag || !c.TouchingFlag {
 					continue
 				}
-				if !c.FixtureA.Physics || !c.FixtureB.Physics {
+				if !c.physical {
 					continue
 				}
 				s.AddContact(c)
@@ -111,11 +120,19 @@ func (s *Solver) SolveIsland(step TimeStep) {
 	for _, c := range s.Contacts {
 		c.InitVelocityConstraint()
 	}
-	for i := 0; i < step.VelocityIterations; i++ {
-		for _, c := range s.Contacts {
-			c.SolveVelocityConstraint()
+
+	for range step.VelocityIterations {
+		converged := true
+		for _, contact := range s.Contacts {
+			if !contact.SolveVelocityConstraint() {
+				converged = false
+			}
+		}
+		if converged {
+			break
 		}
 	}
+
 	for _, b := range s.Bodies {
 		c, a, v, w := b.CPosition.C, b.CPosition.A, b.CVelocity.V, b.CVelocity.W
 		translation := Vec.Scale(v, h)
@@ -155,15 +172,23 @@ func (s *Solver) SolveIsland(step TimeStep) {
 func (s *Solver) SolveWorldTOI(step TimeStep) {
 	world := s.World
 	linearSlop := world.Rules.LinearSlop
-	world.toiCandidates = nil
+	world.toiRevision++
+	world.toiUnsorted = false
+	clear(world.toiPending)
+	clear(world.toiReady)
+	world.toiPending = world.toiPending[:0]
+	world.toiReady = world.toiReady[:0]
 	world.collectingTOI = true
 	defer func() { world.collectingTOI = false }()
-	var tail *Contact
 	for _, b := range world.activeBodies {
 		b.IslandFlag = false
 		b.Sweep.Alpha0 = 0
 	}
-	for c := world.ContactList; c != nil; c = c.Next {
+	for i := len(world.contacts) - 1; i >= 0; i-- {
+		c := world.contacts[i]
+		if c == nil {
+			continue
+		}
 		c.TOIFlag = false
 		c.IslandFlag = false
 		c.TOICount = 0
@@ -171,34 +196,40 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
 			c.TOICount = maxTOISubsteps + 1
 		}
 		c.TOI = 1
-		c.TOIPrev, c.TOINext = nil, nil
-		c.toiListed = false
+		c.toiQueue = 0
+		if !c.allowsCollision(world) {
+			c.EnabledFlag, c.TouchingFlag = false, false
+			continue
+		}
 		if c.TOICount <= maxTOISubsteps {
-			c.toiListed = true
-			c.TOIPrev = tail
-			if tail == nil {
-				world.toiCandidates = c
-			} else {
-				tail.TOINext = c
-			}
-			tail = c
+			world.addTOICandidate(c)
 		}
 	}
+
 	for {
-		var minContact *Contact
-		minAlpha := 1.0
-		for c := world.toiCandidates; c != nil; {
-			next := c.TOINext
+		if world.toiUnsorted {
+			slices.SortFunc(world.toiPending, func(a, b *Contact) int {
+				if a.toiOrder > b.toiOrder {
+					return -1
+				}
+				if a.toiOrder < b.toiOrder {
+					return 1
+				}
+				return 0
+			})
+		}
+		for _, c := range world.toiPending {
+			c.toiQueue = 0
 			if !c.EnabledFlag || c.TOICount > maxTOISubsteps {
-				c = next
 				continue
 			}
+
 			alpha := 1.0
 			if c.TOIFlag {
 				alpha = c.TOI
 			} else {
 				fA, fB := c.FixtureA, c.FixtureB
-				bA, bB := fA.Body, fB.Body
+				bA, bB := c.NodeB.Other, c.NodeA.Other
 				alpha0 := bA.Sweep.Alpha0
 				if bA.Sweep.Alpha0 < bB.Sweep.Alpha0 {
 					alpha0 = bB.Sweep.Alpha0
@@ -207,7 +238,9 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
 					alpha0 = bA.Sweep.Alpha0
 					bB.Sweep.Advance(alpha0)
 				}
-				if !separatedThroughout(fA.Geometry, &bA.Sweep, fB.Geometry, &bB.Sweep, linearSlop) {
+				radius := fA.Geometry.Radius + fB.Geometry.Radius
+				target := max(linearSlop, radius-3*linearSlop)
+				if !(c.separationUntil > 0 && c.separationUntil+radius > c.pair.motion()+c.pair.sweepMotion(world.toiRevision)+target+1.25*linearSlop) && !separatedThroughout(fA.Geometry, &bA.Sweep, fB.Geometry, &bB.Sweep, linearSlop) {
 					sweepA, sweepB := collision.NewSweep(), collision.NewSweep()
 					sweepA.Set(bA.Sweep)
 					sweepB.Set(bB.Sweep)
@@ -220,20 +253,24 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
 				c.TOI = alpha
 				c.TOIFlag = true
 			}
-			if alpha < minAlpha {
-				minContact = c
-				minAlpha = alpha
+			if alpha < 1 {
+				world.pushTOI(c)
 			}
-			if alpha >= 1 {
-				world.removeTOICandidate(c)
-			}
-			c = next
 		}
+		world.toiUnsorted = false
+		clear(world.toiPending)
+		world.toiPending = world.toiPending[:0]
+		if len(world.toiReady) == 0 {
+			break
+		}
+		minContact := world.toiReady[0]
+		minAlpha := minContact.TOI
+		world.removeTOICandidate(minContact)
+
 		if minContact == nil || 1-toiEndTolerance < minAlpha {
 			break
 		}
-		fA, fB := minContact.FixtureA, minContact.FixtureB
-		bA, bB := fA.Body, fB.Body
+		bA, bB := minContact.NodeB.Other, minContact.NodeA.Other
 		backup1, backup2 := collision.NewSweep(), collision.NewSweep()
 		backup1.Set(bA.Sweep)
 		backup2.Set(bB.Sweep)
@@ -253,7 +290,7 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
 			bB.SynchronizeTransform()
 			continue
 		}
-		if !fA.Physics || !fB.Physics {
+		if !minContact.physical {
 			minContact.TOI = 1
 			minContact.TOIFlag = true
 			world.removeTOICandidate(minContact)
@@ -276,7 +313,7 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
 				if contact.IslandFlag {
 					continue
 				}
-				if !contact.FixtureA.Physics || !contact.FixtureB.Physics {
+				if !contact.physical {
 					continue
 				}
 				backup := collision.NewSweep()
@@ -301,6 +338,7 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
 		}
 		subStep := TimeStep{DT: (1 - minAlpha) * step.DT, PositionIterations: 20, VelocityIterations: step.VelocityIterations}
 		s.SolveIslandTOI(subStep, bA, bB)
+		world.toiRevision++
 		for _, body := range s.Bodies {
 			body.IslandFlag = false
 			body.SynchronizeFixtures()
@@ -339,11 +377,19 @@ func (s *Solver) SolveIslandTOI(subStep TimeStep, toiA, toiB *Body) {
 	for _, contact := range s.Contacts {
 		contact.InitVelocityConstraint()
 	}
-	for i := 0; i < subStep.VelocityIterations; i++ {
+
+	for range subStep.VelocityIterations {
+		converged := true
 		for _, contact := range s.Contacts {
-			contact.SolveVelocityConstraint()
+			if !contact.SolveVelocityConstraint() {
+				converged = false
+			}
+		}
+		if converged {
+			break
 		}
 	}
+
 	h := subStep.DT
 	maxTranslation, maxRotation := rules.Physics.MaxTranslation, rules.Physics.MaxRotation
 	for _, body := range s.Bodies {

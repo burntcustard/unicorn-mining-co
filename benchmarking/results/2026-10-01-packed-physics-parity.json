@@ -1,0 +1,8 @@
+{
+  "cases": 1000,
+  "maxDifference": 0,
+  "casesSha256": "910f22d3926986d4e13df96e076264ed2c771af5dc8c4d8e2f71415baed0bac8",
+  "go": "go1.27.1",
+  "node": "v26.8.2",
+  "scope": "Float32 separation kernel; supplied transforms, not full simulation parity"
+}

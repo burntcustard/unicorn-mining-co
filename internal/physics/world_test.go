@@ -27,6 +27,51 @@ type recordedContact struct {
 	Separations [2]float64
 }
 
+func TestCollisionNeighborsCountBodiesAndKeepTies(t *testing.T) {
+	spec, err := specification.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	world := NewWorld(spec.Simulation)
+	world.LimitCollisionNeighbors = true
+	center := world.CreateBody()
+	center.CreateFixture(shape.NewCircle(Vec.Create(0, 0), 20), FixtureOpt{Physics: new(false)})
+	neighbors := make([]*Body, 9)
+	for i := range neighbors {
+		neighbors[i] = world.CreateBody()
+		neighbors[i].SetTransform(Vec.Create(float64(i+1), 0), 0)
+		if i == 8 {
+			break
+		}
+		for _, radius := range []float64{0.5, 0.6} {
+			neighbors[i].CreateFixture(shape.NewCircle(Vec.Create(0, 0), radius), FixtureOpt{Physics: new(false)})
+		}
+	}
+	world.Step(0, 8, 3)
+	if center.Neighborhood != nil {
+		t.Fatal("sixteen fixtures belonging to eight neighbors incorrectly triggered the cap")
+	}
+	neighbors[8].CreateFixture(shape.NewCircle(Vec.Create(0, 0), 0.5), FixtureOpt{Physics: new(false)})
+	world.Step(0, 8, 3)
+	if center.Neighborhood == nil || center.Neighborhood.Count != 8 || center.AllowsCollision(neighbors[8]) {
+		t.Fatal("ninth body was not deferred")
+	}
+	neighbors[0].SetTransform(Vec.Create(100, 0), 0)
+	world.Step(0, 8, 3)
+	if !center.AllowsCollision(neighbors[8]) {
+		t.Fatal("deferred body was not reconsidered after a closer body moved away")
+	}
+	center.Neighborhood = &CollisionNeighborhood{}
+	for _, body := range neighbors {
+		center.AddCollisionNeighbor(body, 1)
+	}
+	for i, body := range center.Neighborhood.Bodies {
+		if body != neighbors[i] {
+			t.Fatal("equal-distance neighbors changed their first-index order")
+		}
+	}
+}
+
 func TestTypeScriptPhysicsWorld(t *testing.T) {
 	data, err := os.ReadFile("../../tests/go-fixtures/physics-world.json")
 	if err != nil {

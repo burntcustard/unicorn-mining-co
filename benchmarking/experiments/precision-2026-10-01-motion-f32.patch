@@ -1,0 +1,9 @@
+--- a/internal/utilities/round.go
++++ b/internal/utilities/round.go
+@@ -25,5 +25,5 @@
+ // Motion uses a binary grid and Go's native ties-to-even rule. Power-of-two
+ // scaling is exact, and multiplication replaces the old decimal division.
+ func RoundMotion(value float64) float64 {
+-	return math.RoundToEven(value*0x1p24) * 0x1p-24
++	return float64(float32(value))
+ }

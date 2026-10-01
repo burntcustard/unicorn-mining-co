@@ -31,6 +31,7 @@ export class Sweep {
   c0 = Vec.create();
   a0 = 0;
   private trigAngle = NaN;
+  private rotation = { s: 0, c: 1 };
   cosA0 = 1;
   sinA0 = 0;
 
@@ -38,8 +39,9 @@ export class Sweep {
   rotation0(): this {
     if (this.trigAngle !== this.a0) {
       this.trigAngle = this.a0;
-      this.cosA0 = Math.cos(this.a0);
-      this.sinA0 = Math.sin(this.a0);
+      matrix.setRotAngle(this.rotation, this.a0);
+      this.cosA0 = this.rotation.c;
+      this.sinA0 = this.rotation.s;
     }
     return this;
   }

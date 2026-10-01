@@ -20,3 +20,23 @@ func TestRoundJavaScriptTies(t *testing.T) {
 		}
 	}
 }
+
+func TestMotionBinaryGrid(t *testing.T) {
+	const step = 0x1p-24
+	cases := []struct{ input, want float64 }{
+		{step / 2, 0}, {3 * step / 2, 2 * step}, {5 * step / 2, 2 * step},
+		{-step / 2, math.Copysign(0, -1)}, {-3 * step / 2, -2 * step},
+		{math.Nextafter(step/2, math.Inf(1)), step},
+		{math.Nextafter(step/2, math.Inf(-1)), 0},
+		{math.Copysign(0, -1), math.Copysign(0, -1)},
+		{math.Inf(1), math.Inf(1)}, {math.Inf(-1), math.Inf(-1)},
+	}
+	for _, c := range cases {
+		if got := RoundMotion(c.input); math.Float64bits(got) != math.Float64bits(c.want) {
+			t.Fatalf("RoundMotion(%g)=%g, want %g", c.input, got, c.want)
+		}
+	}
+	if !math.IsNaN(RoundMotion(math.NaN())) {
+		t.Fatal("NaN became a number")
+	}
+}

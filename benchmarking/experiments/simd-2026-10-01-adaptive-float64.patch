@@ -1,0 +1,251 @@
+diff --git a/internal/server/binary-replication.go b/internal/server/binary-replication.go
+index d67efa1..bb6f5e5 100644
+--- a/internal/server/binary-replication.go
++++ b/internal/server/binary-replication.go
+@@ -551,10 +551,37 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
+ 	// Bound cached observer slots even when players come and go. Colliding
+ 	// slots use the ordinary membership map, and epochs invalidate reloads.
+ 	observerIndex := int(m.cacheID % 64)
+-	for i, e := range list {
++	useVectors := vectorReplication && previousSize*4 < len(list) && world.Players != nil && world.Players.Len() >= 8
++	// Views can be supplied independently of the manager's catalog. Fall back
++	// when their prepacked unload policy does not match this observer's policy.
++	viewRanges := view.world.Specification.Simulation.Replication
++	useVectors = useVectors && ranges.EntityUnload == viewRanges.EntityUnload && ranges.MarkerUnload == viewRanges.MarkerUnload
++	if useVectors {
++		view.packReplicationPolicy()
++	}
++	blockEnd := len(list) &^ 3
++	var distances [4]float64
++	var skip uint8
++	for i := 0; i < len(list); i++ {
++		var distance float64
++		if useVectors && i < blockEnd {
++			if i&3 == 0 {
++				skip = view.replicationBlock(i, position, options.ShipID, &distances)
++				if skip == 15 {
++					i += 3
++					continue
++				}
++			}
++			if skip&(1<<uint(i&3)) != 0 {
++				continue
++			}
++			distance = distances[i&3]
++		} else {
++			dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
++			distance = dx*dx + dy*dy
++		}
++		e := list[i]
+ 		object := view.objects[i]
+-		dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
+-		distance := dx*dx + dy*dy
+ 		station := view.Kinds[i]&1 != 0
+ 		if distance > ranges.EntityUnload*ranges.EntityUnload && object.ID != options.ShipID && (distance > ranges.MarkerUnload*ranges.MarkerUnload || !station) {
+ 			continue
+diff --git a/internal/server/replication-common.go b/internal/server/replication-common.go
+index 465a98d..7898d8d 100644
+--- a/internal/server/replication-common.go
++++ b/internal/server/replication-common.go
+@@ -124,13 +124,16 @@ func copySegments(segments []*simulation.AsteroidSegment) []protocol.AsteroidSeg
+ }
+ 
+ type ReplicationView struct {
+-	prepared      bool
+-	world         *simulation.World
+-	snapshotList  []simulation.Entity
+-	objects       []*simulation.GameObject
+-	records       []*binaryRecord
+-	Kinds, Phases []int
+-	X, Y          []float64
++	prepared       bool
++	policyPrepared bool
++	world          *simulation.World
++	snapshotList   []simulation.Entity
++	objects        []*simulation.GameObject
++	records        []*binaryRecord
++	Kinds, Phases  []int
++	X, Y           []float64
++	IDs            []int64
++	unloadSquared  []float64
+ }
+ 
+ func NewReplicationView(world *simulation.World) *ReplicationView {
+@@ -180,5 +183,6 @@ func (v *ReplicationView) Reset() *ReplicationView {
+ 	clear(v.snapshotList)
+ 	v.snapshotList = v.snapshotList[:0]
+ 	v.prepared = false
++	v.policyPrepared = false
+ 	return v
+ }
+diff --git a/internal/server/replication-default.go b/internal/server/replication-default.go
+new file mode 100644
+index 0000000..b9b3d28
+--- /dev/null
++++ b/internal/server/replication-default.go
+@@ -0,0 +1,13 @@
++//go:build !goexperiment.simd || !amd64
++
++package server
++
++import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++
++const vectorReplication = false
++
++func (v *ReplicationView) packReplicationPolicy() {}
++
++func (v *ReplicationView) replicationBlock(index int, position Vec.Vector, shipID int64, distances *[4]float64) uint8 {
++	return 0
++}
+diff --git a/internal/server/replication-simd.go b/internal/server/replication-simd.go
+new file mode 100644
+index 0000000..777cf19
+--- /dev/null
++++ b/internal/server/replication-simd.go
+@@ -0,0 +1,57 @@
++//go:build goexperiment.simd && amd64
++
++package server
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"simd/archsimd"
++	"unsafe"
++)
++
++var vectorReplication = archsimd.X86.AVX2() && utilities.SIMDFeature("replication")
++
++func (v *ReplicationView) packReplicationPolicy() {
++	if v.policyPrepared {
++		return
++	}
++	v.policyPrepared = true
++	count := len(v.objects)
++	if cap(v.IDs) < count {
++		v.IDs = make([]int64, count*2)
++		v.unloadSquared = make([]float64, count*2)
++	}
++	v.IDs, v.unloadSquared = v.IDs[:count], v.unloadSquared[:count]
++	ranges := v.world.Specification.Simulation.Replication
++	entity, marker := ranges.EntityUnload*ranges.EntityUnload, ranges.MarkerUnload*ranges.MarkerUnload
++	for i, object := range v.objects {
++		v.IDs[i] = object.ID
++		v.unloadSquared[i] = entity
++		if v.Kinds[i]&1 != 0 {
++			v.unloadSquared[i] = max(entity, marker)
++		}
++	}
++}
++
++// Keep the AVX boundary here: inlining into encode would leave scalar floats
++// live across ClearAVXUpperBits and can introduce legacy SSE spills before it.
++//
++//go:noinline
++func (v *ReplicationView) replicationBlock(index int, position Vec.Vector, shipID int64, distances *[4]float64) uint8 {
++	// Entities prepares equally sized arrays, and the caller checks index+4.
++	load := func(values []float64) archsimd.Float64x4 {
++		return archsimd.LoadFloat64x4Array((*[4]float64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(values)), index*8)))
++	}
++	dx := load(v.X).Sub(archsimd.BroadcastFloat64x4(position.X))
++	dy := load(v.Y).Sub(archsimd.BroadcastFloat64x4(position.Y))
++	distance := dx.Mul(dx).Add(dy.Mul(dy))
++	far := distance.Greater(load(v.unloadSquared)).ToBits()
++	ids := archsimd.LoadInt64x4Array((*[4]int64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(v.IDs)), index*8)))
++	owned := ids.Equal(archsimd.BroadcastInt64x4(shipID)).ToBits()
++	far &^= owned
++	if far != 15 {
++		distance.StoreArray(distances)
++	}
++	archsimd.ClearAVXUpperBits()
++	return far
++}
+diff --git a/internal/server/replication-simd_test.go b/internal/server/replication-simd_test.go
+new file mode 100644
+index 0000000..8ef8e66
+--- /dev/null
++++ b/internal/server/replication-simd_test.go
+@@ -0,0 +1,62 @@
++//go:build goexperiment.simd && amd64
++
++package server
++
++import (
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"math/rand/v2"
++	"simd/archsimd"
++	"testing"
++)
++
++func TestReplicationBlock(t *testing.T) {
++	if !archsimd.X86.AVX2() {
++		t.Skip("AVX2 unavailable")
++	}
++	r := rand.New(rand.NewPCG(25, 31))
++	v := &ReplicationView{X: make([]float64, 12), Y: make([]float64, 12), IDs: make([]int64, 12), unloadSquared: make([]float64, 12)}
++	for trial := range 10000 {
++		position := Vec.Vector{r.Float64()*20000 - 10000, r.Float64()*20000 - 10000}
++		index := trial % 9
++		shipID := int64(trial % 13)
++		var wantDistances [4]float64
++		var want uint8
++		for i := range 4 {
++			at := index + i
++			v.IDs[at] = int64(at)
++			v.X[at], v.Y[at] = r.Float64()*20000-10000, r.Float64()*20000-10000
++			if trial%17 == 0 {
++				v.X[at] = math.NaN()
++			}
++			if trial%19 == 0 {
++				v.Y[at] = math.Inf(1)
++			}
++			dx, dy := v.X[at]-position.X, v.Y[at]-position.Y
++			d := dx*dx + dy*dy
++			wantDistances[i] = d
++			v.unloadSquared[at] = d
++			if i%3 == 1 {
++				v.unloadSquared[at] = math.Nextafter(d, math.Inf(-1))
++			}
++			if i%3 == 2 {
++				v.unloadSquared[at] = math.Nextafter(d, math.Inf(1))
++			}
++			if d > v.unloadSquared[at] && v.IDs[at] != shipID {
++				want |= 1 << i
++			}
++		}
++		var gotDistances [4]float64
++		got := v.replicationBlock(index, position, shipID, &gotDistances)
++		if got != want {
++			t.Fatalf("trial=%d mask=%x want %x", trial, got, want)
++		}
++		if got != 15 {
++			for i, got := range gotDistances {
++				if math.Float64bits(got) != math.Float64bits(wantDistances[i]) {
++					t.Fatalf("trial=%d lane=%d distance=%x want %x", trial, i, math.Float64bits(got), math.Float64bits(wantDistances[i]))
++				}
++			}
++		}
++	}
++}
+diff --git a/internal/utilities/simd.go b/internal/utilities/simd.go
+new file mode 100644
+index 0000000..b0406d6
+--- /dev/null
++++ b/internal/utilities/simd.go
+@@ -0,0 +1,15 @@
++package utilities
++
++import (
++	"os"
++	"strings"
++)
++
++/*
++ * Select independent SIMD pipelines at process startup for controlled benchmarks.
++ * An empty setting enables all available pipelines; "scalar" disables them.
++ */
++func SIMDFeature(feature string) bool {
++	setting := os.Getenv("GO_SERVER_SIMD")
++	return setting == "" || setting == "all" || strings.Contains(","+setting+",", ","+feature+",")
++}

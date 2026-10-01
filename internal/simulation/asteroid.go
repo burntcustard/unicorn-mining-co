@@ -54,7 +54,7 @@ type AsteroidProperties struct {
 }
 
 func PointCountFor(radius, scale float64) int {
-	return int(utilities.RoundInteger(math.Sqrt(radius)*scale))*2 - 1
+	return int(utilities.RoundTiesUp(math.Sqrt(radius)*scale))*2 - 1
 }
 func roundPoint(p Point) Point { return Point{utilities.Round(p[0]), utilities.Round(p[1])} }
 func withoutCollinearPoints(points []Point) []Point {

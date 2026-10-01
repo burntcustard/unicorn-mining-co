@@ -11,20 +11,40 @@ if (!label || !before || !after) {
     'Usage: node benchmarking/go-cpu-paired.mjs LABEL BEFORE AFTER',
   );
 }
-const cpu = readFileSync('/proc/self/status', 'utf8').match(
-  /Cpus_allowed_list:\s*(\d+)/,
-)[1];
+const cpu =
+  process.env.CPU_AFFINITY ||
+  readFileSync('/proc/self/status', 'utf8').match(
+    /Cpus_allowed_list:\s*(\d+)/,
+  )[1];
+const gomaxprocs = process.env.GOMAXPROCS || '1';
 const ticks = Number(process.env.TICKS || 900);
 const repetitions = Number(process.env.REPETITIONS || 5);
 const motionTolerance = Number(process.env.MOTION_TOLERANCE || 2e-8);
 const motionDifferences = {};
+const outcomeComparison = process.env.OUTCOME_COMPARISON || 'strict';
+
+assert(['strict', 'report'].includes(outcomeComparison));
 const players = (process.env.PLAYERS || '4,8,16,32').split(',').map(Number);
 const workloads = (
   process.env.WORKLOADS || 'convoy,spread,contact,module'
 ).split(',');
 const variants = {
-  before: { executable: before, GOGC: process.env.BEFORE_GOGC || '100' },
-  after: { executable: after, GOGC: process.env.AFTER_GOGC || '800' },
+  before: {
+    executable: before,
+    GOGC: process.env.BEFORE_GOGC || '100',
+    GOMAXPROCS: process.env.BEFORE_GOMAXPROCS || gomaxprocs,
+    SIMD: process.env.BEFORE_SIMD,
+    motionRounding: process.env.BEFORE_ROUNDING,
+    collisionNeighbors: process.env.BEFORE_NEIGHBORS,
+  },
+  after: {
+    executable: after,
+    GOGC: process.env.AFTER_GOGC || '800',
+    GOMAXPROCS: process.env.AFTER_GOMAXPROCS || gomaxprocs,
+    SIMD: process.env.AFTER_SIMD,
+    motionRounding: process.env.AFTER_ROUNDING,
+    collisionNeighbors: process.env.AFTER_NEIGHBORS,
+  },
 };
 const results = [];
 const median = (values) =>
@@ -65,10 +85,12 @@ function save() {
       {
         label,
         cpu,
+        gomaxprocs,
         ticks,
         repetitions,
         motionTolerance,
         motionDifferences,
+        outcomeComparison,
         variants: Object.fromEntries(
           Object.entries(variants).map(([name, value]) => [
             name,
@@ -105,8 +127,11 @@ for (const count of players) {
           {
             env: {
               ...process.env,
-              GOMAXPROCS: '1',
+              GOMAXPROCS: value.GOMAXPROCS,
               GOGC: value.GOGC,
+              GO_SERVER_SIMD: value.SIMD ?? process.env.GO_SERVER_SIMD ?? '',
+              GO_SERVER_MOTION_ROUNDING: value.motionRounding ?? '',
+              GO_SERVER_COLLISION_NEIGHBORS: value.collisionNeighbors ?? '',
               SESSION_PLAYERS: String(count),
               SESSION_WORKLOAD: workload,
               SESSION_TICKS: String(ticks),
@@ -125,14 +150,9 @@ for (const count of players) {
         save();
       }
 
-      for (const field of [
-        'contacts',
-        'events',
-        'packets',
-        'bytes',
-        'entities',
-        'states',
-      ]) {
+      for (const field of outcomeComparison === 'strict'
+        ? ['contacts', 'events', 'packets', 'bytes', 'entities', 'states']
+        : []) {
         compare(
           pair.before[field],
           pair.after[field],

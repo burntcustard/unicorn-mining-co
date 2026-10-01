@@ -10,17 +10,19 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/specification"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"math"
+	"math/bits"
 	"slices"
 	"sync/atomic"
 )
 
 type nullValue struct{}
 type fieldState struct {
-	id            int
 	compare, wire any
 	revision      int64
 }
 type binaryRecord struct {
+	numberValues                                     []float64
+	numberMask                                       uint64
 	source                                           simulation.Entity
 	batchGeneration                                  uint64
 	revision, previousRevision                       int64
@@ -29,7 +31,6 @@ type binaryRecord struct {
 	modules                                          *moduleRecord
 	moduleBuffer                                     []simulation.Module
 	mountBuffer                                      []*simulation.Mount
-	observers                                        []*member
 	nested                                           []byte
 	values                                           []protocol.FieldValue
 	hullHealth                                       []float64
@@ -41,21 +42,21 @@ func recordOf(source simulation.Entity, fieldCount int) *binaryRecord {
 	if record, ok := source.Base().ReplicationState.(*binaryRecord); ok {
 		return record
 	}
-	record := &binaryRecord{source: source, fields: make([]fieldState, fieldCount+1)}
-	for id := range record.fields {
-		record.fields[id].id = id
-	}
+	record := &binaryRecord{source: source, fields: make([]fieldState, fieldCount+1), numberValues: make([]float64, fieldCount+1)}
 	source.Base().ReplicationState = record
 	return record
 }
-func markChanged(record *binaryRecord, field *fieldState) {
+func markChanged(record *binaryRecord, id int) {
+	field := &record.fields[id]
+	record.numberMask &^= uint64(1) << id
 	record.revision++
 	field.revision = record.revision
-	record.recentChanges = append(record.recentChanges, field.id)
+	record.recentChanges = append(record.recentChanges, id)
 }
-func changed(record *binaryRecord, field *fieldState, comparison, wire any) {
+func changed(record *binaryRecord, id int, comparison, wire any) {
+	field := &record.fields[id]
 	field.compare, field.wire = comparison, wire
-	markChanged(record, field)
+	markChanged(record, id)
 }
 func canonical(value float64) any {
 	if math.IsNaN(value) || math.IsInf(value, 0) {
@@ -82,13 +83,13 @@ func scalar(record *binaryRecord, id int, value any) {
 	if _, null := normalized.(nullValue); null {
 		wire = nil
 	}
-	changed(record, field, normalized, wire)
+	changed(record, id, normalized, wire)
 }
 func vector(record *binaryRecord, id int, value *Vec.Vector) {
 	field := &record.fields[id]
 	if value == nil {
 		if field.compare != nil {
-			changed(record, field, nil, nil)
+			changed(record, id, nil, nil)
 		}
 		return
 	}
@@ -98,7 +99,7 @@ func vector(record *binaryRecord, id int, value *Vec.Vector) {
 	boxed := any(*value)
 	field.compare = boxed
 	field.wire = boxed
-	markChanged(record, field)
+	markChanged(record, id)
 }
 func sameNumbers(a, b []float64) bool {
 	if b == nil || len(a) != len(b) {
@@ -119,7 +120,7 @@ func numberArray(record *binaryRecord, id int, value []float64) {
 	field := &record.fields[id]
 	if value == nil {
 		if field.compare != nil {
-			changed(record, field, nil, nil)
+			changed(record, id, nil, nil)
 		}
 		return
 	}
@@ -127,7 +128,7 @@ func numberArray(record *binaryRecord, id int, value []float64) {
 	if sameNumbers(value, before) {
 		return
 	}
-	changed(record, field, slices.Clone(value), value)
+	changed(record, id, slices.Clone(value), value)
 }
 func integerArray(record *binaryRecord, id int, value []int) {
 	if len(value) == 0 {
@@ -152,13 +153,13 @@ func integerArray(record *binaryRecord, id int, value []int) {
 	for i, v := range value {
 		numbers[i] = float64(v)
 	}
-	changed(record, field, numbers, numbers)
+	changed(record, id, numbers, numbers)
 }
 func stringArray(record *binaryRecord, id int, value []string) {
 	field := &record.fields[id]
 	if value == nil {
 		if field.compare != nil {
-			changed(record, field, nil, nil)
+			changed(record, id, nil, nil)
 		}
 		return
 	}
@@ -166,7 +167,7 @@ func stringArray(record *binaryRecord, id int, value []string) {
 	if ok && slices.Equal(value, before) {
 		return
 	}
-	changed(record, field, slices.Clone(value), value)
+	changed(record, id, slices.Clone(value), value)
 }
 func wireOutline(value *simulation.ShapeOutline) [][]float64 {
 	if value == nil {
@@ -182,7 +183,7 @@ func outline(record *binaryRecord, id int, value *simulation.ShapeOutline) {
 	field := &record.fields[id]
 	if value == nil {
 		if field.compare != nil {
-			changed(record, field, nil, nil)
+			changed(record, id, nil, nil)
 		}
 		return
 	}
@@ -200,13 +201,13 @@ func outline(record *binaryRecord, id int, value *simulation.ShapeOutline) {
 		return
 	}
 	copy := wireOutline(value)
-	changed(record, field, copy, copy)
+	changed(record, id, copy, copy)
 }
 func asteroidSegments(record *binaryRecord, id int, value []*simulation.AsteroidSegment) {
 	field := &record.fields[id]
 	if value == nil {
 		if field.compare != nil {
-			changed(record, field, nil, nil)
+			changed(record, id, nil, nil)
 		}
 		return
 	}
@@ -215,12 +216,12 @@ func asteroidSegments(record *binaryRecord, id int, value []*simulation.Asteroid
 		return
 	}
 	copy := copySegments(value)
-	changed(record, field, copy, copy)
+	changed(record, id, copy, copy)
 }
 func clearField(record *binaryRecord, id int) {
 	field := &record.fields[id]
 	if field.compare != nil {
-		changed(record, field, nil, nil)
+		changed(record, id, nil, nil)
 	}
 }
 func captureBytes(record *binaryRecord, id int, value any, catalog *specification.Catalog) {
@@ -235,7 +236,7 @@ func captureBytes(record *binaryRecord, id int, value any, catalog *specificatio
 		return
 	}
 	copy := slices.Clone(data)
-	changed(record, field, copy, copy)
+	changed(record, id, copy, copy)
 }
 func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) protocol.EntityRecord {
 	if record.values == nil {
@@ -330,10 +331,10 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		f := &record.fields[field.Modules]
 		if states != nil {
 			if f.compare != states {
-				changed(record, f, states, states.states)
+				changed(record, field.Modules, states, states.states)
 			}
 		} else if f.compare != nil {
-			changed(record, f, nil, nil)
+			changed(record, field.Modules, nil, nil)
 		}
 		wreckage := entity.Wreckage()
 		if wreckage != nil {
@@ -418,7 +419,6 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 }
 
 var nextBatchGeneration atomic.Uint64
-var nextReplicationID atomic.Uint64
 
 type fragment struct{ offset, length int }
 type BinarySnapshotBatch struct {
@@ -492,35 +492,37 @@ type SnapshotOptions struct {
 	BinaryBatch                            *BinarySnapshotBatch
 }
 type member struct {
-	record            *binaryRecord
-	revision          int64
-	seen              uint64
-	owner, generation uint64
+	record   *binaryRecord
+	revision int64
+	seen     uint64
+	entityID int64
 }
 type BinaryReplicationManager struct {
-	snapshotTick, stamp      uint64
-	writer                   []byte
-	entityIDs                []uint64
-	fragments                []fragment
-	wireFragments            [][]byte
-	members                  map[int64]*member
-	cacheID, cacheGeneration uint64
-	catalog                  specification.Catalog
+	snapshotTick, stamp uint64
+	writer              []byte
+	entityIDs           []uint64
+	fragments           []fragment
+	wireFragments       [][]byte
+	members             map[int64]*member
+	memberCache         []*member
+	catalog             specification.Catalog
 }
 
 func NewBinaryReplicationManager(catalog specification.Catalog) *BinaryReplicationManager {
-	return &BinaryReplicationManager{catalog: catalog, writer: make([]byte, 0, 4096), members: make(map[int64]*member), cacheID: nextReplicationID.Add(1)}
+	return &BinaryReplicationManager{catalog: catalog, writer: make([]byte, 0, 4096), members: make(map[int64]*member)}
 }
 func (m *BinaryReplicationManager) Initial(options SnapshotOptions) []byte {
-	clear(m.members)
 	return slices.Clone(m.encode(options, true))
 }
 func (m *BinaryReplicationManager) Snapshot(options SnapshotOptions) []byte {
 	return slices.Clone(m.encode(options, false))
 }
 func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []byte {
+	// The session calls encode directly to avoid cloning the packet. Invalidate
+	// both membership representations on every load, including respawn.
 	if load {
-		m.cacheGeneration++
+		clear(m.members)
+		clear(m.memberCache)
 	}
 	world := options.World
 	view := options.ReplicationView
@@ -532,6 +534,13 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 		batch = NewBinarySnapshotBatch(m.catalog).Begin(view)
 	}
 	list := view.Entities()
+	if cap(m.memberCache) < len(list) {
+		m.memberCache = append(m.memberCache, make([]*member, len(list)*2-len(m.memberCache))...)
+	}
+	if len(m.memberCache) > len(list) {
+		clear(m.memberCache[len(list):])
+	}
+	m.memberCache = m.memberCache[:len(list)]
 	position := options.Position
 	if ship, ok := world.Entities.Get(options.ShipID); ok {
 		position = ship.Base().Position
@@ -548,24 +557,40 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 	distantInterval := rules.UpdateTiers["distant"].ReplicateEvery
 	visibleInterval := rules.UpdateTiers["visible"].ReplicateEvery
 	visibleSquared := rules.VisibleRange * rules.VisibleRange
-	// Bound cached observer slots even when players come and go. Colliding
-	// slots use the ordinary membership map, and epochs invalidate reloads.
-	observerIndex := int(m.cacheID % 64)
-	for i, e := range list {
-		object := view.objects[i]
-		dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
-		distance := dx*dx + dy*dy
-		station := view.Kinds[i]&1 != 0
-		if distance > ranges.EntityUnload*ranges.EntityUnload && object.ID != options.ShipID && (distance > ranges.MarkerUnload*ranges.MarkerUnload || !station) {
-			continue
-		}
-		var previous *member
-		if record := view.records[i]; record != nil && observerIndex < len(record.observers) {
-			cached := record.observers[observerIndex]
-			if cached != nil && cached.owner == m.cacheID && cached.generation == m.cacheGeneration && cached.seen == stamp-1 {
-				previous = cached
+	visibleDue, distantDue := true, true
+	var ballisticVisible, ballisticDistant uint64
+	packedCadence := rules.BallisticReplicateEvery > 0 && rules.BallisticReplicateEvery <= 64 && rules.BallisticReplicateEvery == view.world.Specification.Simulation.BallisticReplicateEvery && visibleInterval > 0 && distantInterval > 0
+	if previousSize > 0 && packedCadence {
+		visibleDue = replicationDue(world.Tick, m.snapshotTick, visibleInterval)
+		distantDue = replicationDue(world.Tick, m.snapshotTick, distantInterval)
+		for phase := 0; phase < rules.BallisticReplicateEvery; phase++ {
+			tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
+			if replicationDue(tick, old, max(visibleInterval, rules.BallisticReplicateEvery)) {
+				ballisticVisible |= uint64(1) << phase
+			}
+			if replicationDue(tick, old, max(distantInterval, rules.BallisticReplicateEvery)) {
+				ballisticDistant |= uint64(1) << phase
 			}
 		}
+	}
+
+	useVectors := vectorReplication && previousSize*4 < len(list) && world.Players != nil && world.Players.Len() >= 8
+	// Views can be supplied independently of the manager's catalog. Fall back
+	// when their prepacked unload policy does not match this observer's policy.
+	viewRanges := view.world.Specification.Simulation.Replication
+	useVectors = useVectors && ranges.EntityUnload == viewRanges.EntityUnload && ranges.MarkerUnload == viewRanges.MarkerUnload
+	if useVectors {
+		view.packReplicationIDs()
+	}
+	accept := func(i int, distance float64) {
+		e := list[i]
+		object := view.objects[i]
+		station := view.Kinds[i]&1 != 0
+		var previous *member
+		if cached := m.memberCache[i]; cached != nil && cached.entityID == object.ID && cached.seen == stamp-1 {
+			previous = cached
+		}
+
 		if previous == nil {
 			previous = m.members[object.ID]
 		}
@@ -581,28 +606,47 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 			}
 		}
 		if object.ID != options.ShipID && !(distance <= reach*reach) {
-			continue
+			return
 		}
 		m.entityIDs = append(m.entityIDs, uint64(object.ID))
 		if loaded {
 			previous.seen = stamp
+			m.memberCache[i] = previous
 			retained++
 		} else {
 			membershipChanged = true
 		}
-		interval := distantInterval
-		if distance <= visibleSquared {
-			interval = visibleInterval
+		if loaded {
+			if packedCadence {
+				due := distantDue
+				mask := ballisticDistant
+				if distance <= visibleSquared {
+					due = visibleDue
+					mask = ballisticVisible
+				}
+				if view.Kinds[i] > 1 {
+					due = mask&(uint64(1)<<view.Phases[i]) != 0
+				}
+				if !due {
+					return
+				}
+			} else {
+				interval := distantInterval
+				if distance <= visibleSquared {
+					interval = visibleInterval
+				}
+				phase := 0
+				if view.Kinds[i] > 1 {
+					interval = max(interval, rules.BallisticReplicateEvery)
+					phase = view.Phases[i]
+				}
+				tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
+				if loaded && !replicationDue(tick, old, interval) {
+					return
+				}
+			}
 		}
-		phase := 0
-		if view.Kinds[i] > 1 {
-			interval = max(interval, rules.BallisticReplicateEvery)
-			phase = view.Phases[i]
-		}
-		tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
-		if loaded && !replicationDue(tick, old, interval) {
-			continue
-		}
+
 		prepared := view.records[i]
 		if prepared == nil || prepared.batchGeneration != batch.Generation {
 			prepared = batch.prepared(e)
@@ -618,13 +662,10 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 			previous.record = prepared
 			previous.revision = prepared.revision
 		} else {
-			previous = &member{record: prepared, revision: prepared.revision, seen: stamp, owner: m.cacheID, generation: m.cacheGeneration}
+			previous = &member{record: prepared, revision: prepared.revision, seen: stamp, entityID: object.ID}
 			m.members[object.ID] = previous
 		}
-		if len(prepared.observers) <= observerIndex {
-			prepared.observers = append(prepared.observers, make([]*member, observerIndex+1-len(prepared.observers))...)
-		}
-		prepared.observers[observerIndex] = previous
+		m.memberCache[i] = previous
 		replaced := previousRecord
 		if replaced == prepared {
 			replaced = nil
@@ -633,12 +674,35 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 			m.fragments = append(m.fragments, f)
 		}
 	}
+	end := 0
+	if useVectors {
+		end = len(list) &^ 15
+		for base := 0; base < end; base += 16 {
+			mask := ^view.replicationBlock(base, position.X, position.Y, ranges.EntityUnload*ranges.EntityUnload, ranges.MarkerUnload*ranges.MarkerUnload, options.ShipID)
+			for mask != 0 {
+				offset := bits.TrailingZeros16(mask)
+				mask &= mask - 1
+				accept(base+offset, view.distanceBlock[offset])
+			}
+		}
+	}
+	// Dense views and the incomplete SIMD tail use the original scalar checks.
+	for i := end; i < len(list); i++ {
+		dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
+		distance := dx*dx + dy*dy
+		object, station := view.objects[i], view.Kinds[i]&1 != 0
+		if distance > ranges.EntityUnload*ranges.EntityUnload && object.ID != options.ShipID && (distance > ranges.MarkerUnload*ranges.MarkerUnload || !station) {
+			continue
+		}
+		accept(i, distance)
+	}
 	membershipChanged = membershipChanged || retained != previousSize
 	m.snapshotTick = world.Tick
 	if membershipChanged {
 		for id, member := range m.members {
 			if member.seen != stamp {
 				delete(m.members, id)
+				member.record = nil
 			}
 		}
 	}
@@ -661,19 +725,23 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 
 // Compare hot numeric fields before boxing a changed value for the wire writer.
 func scalarNumber(record *binaryRecord, id int, value float64) {
+	bit := uint64(1) << id
+	if record.numberMask&bit != 0 && record.numberValues[id] == value {
+		return
+	}
 	field := &record.fields[id]
-	if before, ok := field.compare.(float64); ok && before == value {
-		return
-	}
 	normalized := canonical(value)
-	if field.compare == normalized {
-		return
+	if field.compare != normalized {
+		wire := normalized
+		if _, null := normalized.(nullValue); null {
+			wire = nil
+		}
+		changed(record, id, normalized, wire)
 	}
-	wire := normalized
-	if _, null := normalized.(nullValue); null {
-		wire = nil
+	if number, ok := normalized.(float64); ok {
+		record.numberMask |= bit
+		record.numberValues[id] = number
 	}
-	changed(record, field, normalized, wire)
 }
 
 func optionalNumber(record *binaryRecord, id int, value float64, present bool) {

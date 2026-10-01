@@ -26,6 +26,7 @@ type scheduledEntity struct {
 type movementSchedule struct {
 	observers, parents, entities []Entity
 	positions                    []Vec.Vector
+	observerX, observerY         []float64
 	entries                      []scheduledEntity
 	parentRecords                []movementParent
 }
@@ -77,8 +78,13 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 		}
 	})
 	schedule.positions = schedule.positions[:0]
+	schedule.observerX = schedule.observerX[:0]
+	schedule.observerY = schedule.observerY[:0]
 	for _, observer := range schedule.observers {
-		schedule.positions = append(schedule.positions, observer.Base().Position)
+		position := observer.Base().Position
+		schedule.positions = append(schedule.positions, position)
+		schedule.observerX = append(schedule.observerX, position.X)
+		schedule.observerY = append(schedule.observerY, position.Y)
 	}
 	visible, distant, drift := rules.UpdateTiers["visible"], rules.UpdateTiers["distant"], rules.UpdateTiers["drift"]
 	radiusSquared := rules.VisibleRange * rules.VisibleRange
@@ -89,11 +95,8 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 		tier := visible
 		if len(schedule.positions) > 0 {
 			tier = distant
-			for _, position := range schedule.positions {
-				if Vec.DistanceSquared(object.Position, position) <= radiusSquared {
-					tier = visible
-					break
-				}
+			if schedule.withinObservers(object.Position, radiusSquared) {
+				tier = visible
 			}
 		}
 		_, craft := entity.(CraftEntity)

@@ -2,8 +2,6 @@
 // Copyright (c) Ali Shakiba (Planck.js), MIT. See LICENSE.
 package vector
 
-import "math"
-
 type RotValue struct{ S, C float64 }
 type TransformValue struct {
 	P Vector
@@ -11,7 +9,7 @@ type TransformValue struct {
 }
 
 func SetRotAngle(out *RotValue, a float64) *RotValue {
-	out.S, out.C = math.Sincos(a)
+	out.S, out.C = SinCos(a)
 	return out
 }
 func RotateInto(out *Vector, q RotValue, v Vector) *Vector {
@@ -29,7 +27,7 @@ func RerotateInto(out *Vector, before, after RotValue, v Vector) *Vector {
 	return out
 }
 func Transform(x, y, a float64) TransformValue {
-	sin, cos := math.Sincos(a)
+	sin, cos := SinCos(a)
 	return TransformValue{Vector{x, y}, RotValue{sin, cos}}
 }
 func TransformInto(out *Vector, xf TransformValue, v Vector) *Vector {

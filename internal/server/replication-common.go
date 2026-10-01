@@ -125,12 +125,15 @@ func copySegments(segments []*simulation.AsteroidSegment) []protocol.AsteroidSeg
 
 type ReplicationView struct {
 	prepared      bool
+	idsPrepared   bool
 	world         *simulation.World
 	snapshotList  []simulation.Entity
 	objects       []*simulation.GameObject
 	records       []*binaryRecord
 	Kinds, Phases []int
 	X, Y          []float64
+	IDs           []int64
+	distanceBlock [16]float64
 }
 
 func NewReplicationView(world *simulation.World) *ReplicationView {
@@ -180,5 +183,6 @@ func (v *ReplicationView) Reset() *ReplicationView {
 	clear(v.snapshotList)
 	v.snapshotList = v.snapshotList[:0]
 	v.prepared = false
+	v.idsPrepared = false
 	return v
 }

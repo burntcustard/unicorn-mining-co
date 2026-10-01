@@ -1,0 +1,170 @@
+diff --git a/internal/collision/game/game-collisions.go b/internal/collision/game/game-collisions.go
+index c172e82..44de720 100644
+--- a/internal/collision/game/game-collisions.go
++++ b/internal/collision/game/game-collisions.go
+@@ -13,6 +13,7 @@ import (
+ 	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
+ 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+ 	"math"
++	"os"
+ 	"slices"
+ )
+ 
+@@ -45,8 +46,12 @@ type GameCollisions struct {
+ 	sortOrder      []int
+ 	free           []bool
+ 	impacts        *utilities.OrderedMap[*physics.Contact, impactRecord]
++	neighborCounts []int
++	neighborPairs  [][2]int
+ }
+ 
++var limitCollisionNeighbors = os.Getenv("GO_SERVER_COLLISION_NEIGHBORS") == "8"
++
+ func NewGameCollisions(catalog specification.Catalog) *GameCollisions {
+ 	g := &GameCollisions{world: physics.NewWorld(catalog.Simulation), catalog: catalog, bodies: utilities.NewOrderedMap[int64, *BodyRecord](), impacts: utilities.NewOrderedMap[*physics.Contact, impactRecord]()}
+ 	g.world.OnPreSolve(func(contact *physics.Contact) {
+@@ -324,6 +329,14 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
+ }
+ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
+ 	count := len(motions)
++	if limitCollisionNeighbors {
++		if cap(g.neighborCounts) < count {
++			g.neighborCounts = make([]int, count*2)
++		}
++		g.neighborCounts = g.neighborCounts[:count]
++		clear(g.neighborCounts)
++		g.neighborPairs = g.neighborPairs[:0]
++	}
+ 	if len(g.free) < count {
+ 		g.free = make([]bool, count*2)
+ 		g.bounds = make([]float64, count*8)
+@@ -379,6 +392,36 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
+ 			reach := bounds[a+3] + bounds[b+3]
+ 			if dx*dx+dy*dy <= reach*reach {
+ 				free[order[i]], free[order[j]] = false, false
++				if limitCollisionNeighbors {
++					g.neighborCounts[order[i]]++
++					g.neighborCounts[order[j]]++
++					g.neighborPairs = append(g.neighborPairs, [2]int{order[i], order[j]})
++				}
++			}
++		}
++	}
++	if limitCollisionNeighbors {
++		for i, record := range motions {
++			if g.neighborCounts[i] > 8 {
++				if record.Body.Neighborhood == nil {
++					record.Body.Neighborhood = &physics.CollisionNeighborhood{}
++				}
++				*record.Body.Neighborhood = physics.CollisionNeighborhood{}
++			} else {
++				record.Body.Neighborhood = nil
++			}
++		}
++		for _, pair := range g.neighborPairs {
++			a, b := motions[pair[0]], motions[pair[1]]
++			if a.Body.Neighborhood == nil && b.Body.Neighborhood == nil {
++				continue
++			}
++			distance := Vec.DistanceSquared(a.Entity.Base().Position, b.Entity.Base().Position)
++			if a.Body.Neighborhood != nil {
++				a.Body.AddCollisionNeighbor(b.Body, distance)
++			}
++			if b.Body.Neighborhood != nil {
++				b.Body.AddCollisionNeighbor(a.Body, distance)
+ 			}
+ 		}
+ 	}
+diff --git a/internal/physics/body.go b/internal/physics/body.go
+index 8938a79..c8b86b2 100644
+--- a/internal/physics/body.go
++++ b/internal/physics/body.go
+@@ -32,6 +32,44 @@ type Body struct {
+ 	proxyTransform                        Vec.TransformValue
+ 	Xf                                    Vec.TransformValue
+ 	Sweep                                 collision.Sweep
++	Neighborhood                          *CollisionNeighborhood
++}
++
++// Allocated only for bodies with more than eight potential object neighbors.
++type CollisionNeighborhood struct {
++	Bodies    [8]*Body
++	Distances [8]float64
++	Count     int
++}
++
++func (b *Body) AllowsCollision(other *Body) bool {
++	if b.Neighborhood == nil {
++		return true
++	}
++	for _, candidate := range b.Neighborhood.Bodies[:b.Neighborhood.Count] {
++		if candidate == other {
++			return true
++		}
++	}
++	return false
++}
++
++func (b *Body) AddCollisionNeighbor(other *Body, distance float64) {
++	n := b.Neighborhood
++	at := n.Count
++	if at == len(n.Bodies) {
++		if distance >= n.Distances[at-1] {
++			return
++		}
++		at--
++	} else {
++		n.Count++
++	}
++	for at > 0 && distance < n.Distances[at-1] {
++		n.Bodies[at], n.Distances[at] = n.Bodies[at-1], n.Distances[at-1]
++		at--
++	}
++	n.Bodies[at], n.Distances[at] = other, distance
+ }
+ 
+ func newBody(world *World) *Body {
+diff --git a/internal/physics/contact.go b/internal/physics/contact.go
+index b21c6b3..8d1692e 100644
+--- a/internal/physics/contact.go
++++ b/internal/physics/contact.go
+@@ -79,6 +79,11 @@ func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformV
+ 	}
+ }
+ func (c *Contact) Update(listener *World) {
++	if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
++		c.EnabledFlag, c.TouchingFlag = false, false
++		c.Manifold.PointCount = 0
++		return
++	}
+ 	c.EnabledFlag = true
+ 	c.Evaluate(&c.Manifold, c.FixtureA.Body.Xf, c.FixtureB.Body.Xf)
+ 	c.TouchingFlag = c.Manifold.PointCount > 0
+diff --git a/internal/physics/solver.go b/internal/physics/solver.go
+index f6e89c3..6b942e4 100644
+--- a/internal/physics/solver.go
++++ b/internal/physics/solver.go
+@@ -173,6 +173,10 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
+ 		c.TOI = 1
+ 		c.TOIPrev, c.TOINext = nil, nil
+ 		c.toiListed = false
++		if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
++			c.EnabledFlag, c.TouchingFlag = false, false
++			continue
++		}
+ 		if c.TOICount <= maxTOISubsteps {
+ 			c.toiListed = true
+ 			c.TOIPrev = tail
+diff --git a/internal/physics/world.go b/internal/physics/world.go
+index 317b2eb..b75df0e 100644
+--- a/internal/physics/world.go
++++ b/internal/physics/world.go
+@@ -181,7 +181,7 @@ func (w *World) PreSolve(c *Contact) {
+ // Keep the original contact order while excluding contacts whose continuous
+ // collision budget is exhausted. New contacts join at the same head position.
+ func (w *World) addTOICandidate(c *Contact) {
+-	if c.toiListed || c.TOICount > maxTOISubsteps {
++	if c.toiListed || c.TOICount > maxTOISubsteps || !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
+ 		return
+ 	}
+ 	c.toiListed = true

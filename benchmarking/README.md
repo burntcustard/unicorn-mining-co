@@ -188,7 +188,7 @@ still checks packet and byte counts, positions and entity counts, and marks the
 saved result with `wireHashCompared: false`. Do not use the flag to excuse an
 unexplained packet difference.
 
-The [September 28 CPU report](../docs/performance-cpu-players-2026-09-28.md)
+The [September 28 CPU report](../docs/experiments/performance-cpu-players-2026-09-28.md)
 includes the frozen-bundle hashes and raw results for standalone and combined
 changes. Its final comparisons use 1,800 measured ticks per route, with eight
 repeats at four players and five repeats at eight and sixteen players.
@@ -237,7 +237,7 @@ and must not be added to them. The local host's old-space default is unchanged.
 Saved bundles retain their instrumentation; `--bundle` does not rebuild them.
 
 These replays omit actual socket transport/TLS. Results and the optimization
-assessment are in [the server phase report](../docs/performance-server-phases-2026-09-27.md).
+assessment are in [the server phase report](../docs/experiments/performance-server-phases-2026-09-27.md).
 
 ### Persistent-state comparison and receiver oracle
 
@@ -256,7 +256,7 @@ uninstrumented bundles for CPU comparisons.
 node benchmarking/production-flight.mjs --scenario=spread --ticks=3600 --warm --semi-space=16 --readable --sample=/tmp/flight.cpuprofile --save=/tmp/flight-readable.mjs
 ```
 
-The [server CPU follow-up](../docs/performance-server-cpu-2026-09-27.md) records
+The [server CPU follow-up](../docs/experiments/performance-server-cpu-2026-09-27.md) records
 incremental acceptance tests, rejected experiments and the complete-patch
 comparison against the deployed baseline.
 
@@ -275,10 +275,10 @@ The oracle permits redundant deltas and property-order changes, but requires
 identical reconstructed state. Entity lifecycle and simulation still run through
 the current source in both comparisons.
 
-See [persistent-state results](../docs/performance-persistent-state-2026-09-27.md)
+See [persistent-state results](../docs/experiments/performance-persistent-state-2026-09-27.md)
 for the retained implementation and the rejected region/GC experiments.
 
-The [collision cache follow-up](../docs/performance-collision-caches-2026-09-27.md)
+The [collision cache follow-up](../docs/experiments/performance-collision-caches-2026-09-27.md)
 records three-player production comparisons for persistent motion scratch data,
 cached geometry quantization, and a tighter conservative rotation bound.
 
@@ -315,7 +315,7 @@ activation. This prototype does not introduce persistent mutable state for
 unloaded asteroids. `--validate` checks prepared cache use, geometry invalidation,
 mining, cargo pickup and unload/reload behavior for geometry/body modes.
 
-See [the investigation](../docs/performance-region-prewarm-2026-09-27.md) for
+See [the investigation](../docs/experiments/performance-region-prewarm-2026-09-27.md) for
 memory tradeoffs, indexed removal, limitations and the repeated flight results.
 
 ### Production description cache
@@ -333,7 +333,7 @@ then alternate runs using `--bundle=/tmp/name.mjs`. A warmed invocation runs two
 3,900-tick sessions (260 simulated seconds total); the child timeout is 290
 seconds. Compare snapshot hashes, packet bytes and positions as well as CPU.
 
-See [the implementation measurements](../docs/performance-dormant-world-2026-09-27.md)
+See [the implementation measurements](../docs/experiments/performance-dormant-world-2026-09-27.md)
 for the description-only decision and rejected collision experiments.
 
 `--pre-generated-radius=0` overrides the setting in a newly compiled flight
@@ -342,7 +342,7 @@ startup pre-generation from the remaining implementation. It was used to test
 collision skipping alone before that feature was removed. The override is embedded by
 `--save`; it has no effect when running an existing `--bundle`.
 
-The [server Set-iteration follow-up](../docs/performance-set-iteration-2026-09-27.md)
+The [server Set-iteration follow-up](../docs/experiments/performance-set-iteration-2026-09-27.md)
 compares temporary spread-array conversions while preserving stored Sets,
 including independent candidates and the final incremental acceptance checks.
 
@@ -358,7 +358,7 @@ arithmetic in separate processes. `node benchmarking/numeric-accuracy.mjs`
 compares thin-wall, oblique, circular and sustained contacts at three world offsets.
 These probes do not constitute a complete integer physics implementation.
 
-See [the numeric representation investigation](../docs/performance-numeric-representations-2026-09-27.md)
+See [the numeric representation investigation](../docs/experiments/performance-numeric-representations-2026-09-27.md)
 for CPU measurements, accuracy limits and raw results.
 
 ## Elapsed-time catch-up
@@ -379,7 +379,7 @@ Compare equal simulated durations. Coarser collisions change trajectories, so
 also inspect positions/entity counts before treating CPU differences as the
 cost of the same workload.
 
-See [the elapsed-time report](../docs/performance-elapsed-time-2026-09-27.md) for
+See [the elapsed-time report](../docs/experiments/performance-elapsed-time-2026-09-27.md) for
 normal-rate comparisons, delayed-server/client tests, browser frame times and
 limits. `npm run test:server` includes the deterministic three-client lag tests.
 
@@ -410,7 +410,7 @@ node --trace-deopt --trace-file-names --max-semi-space-size=16 /tmp/shape-readab
 Diagnostic runs must not be compared with uninstrumented timings. Inline-cache
 logs record transitions, not how often a property was read. Startup map changes
 and cumulative map counts are not evidence of a continuously megamorphic site.
-See [the monomorphism follow-up](../docs/performance-monomorphism-2026-09-27.md).
+See [the monomorphism follow-up](../docs/experiments/performance-monomorphism-2026-09-27.md).
 
 ## Networking scalability comparison
 
@@ -435,7 +435,7 @@ repeats. It requires identical packets/state, and rejects median
 process CPU increases above 10%. The routing microbenchmark isolates incoming
 snapshot acknowledgement lookup with 40 active and up to 4,000 retained
 sessions. Neither workload measures real socket throughput or browser CPU.
-See the [nengi investigation](../docs/networking-nengi-2026-09-27.md) for exact
+See the [nengi investigation](../docs/experiments/networking-nengi-2026-09-27.md) for exact
 baseline setup, results, limits, and the techniques considered.
 
 ## Remote presentation buffering
@@ -457,8 +457,8 @@ rotate all three variants through each run position and enforce the CPU limit
 against both baselines. The current buffer uses one extra tick with a simple
 playback clock; it does not keep arrival statistics or adjust playback speed.
 
-See the [small-buffer results](../docs/networking-buffer-2026-09-27.md) for latency,
-CPU and reproduction, and the [alpha follow-up](../docs/networking-alpha-2026-09-27.md)
+See the [small-buffer results](../docs/experiments/networking-buffer-2026-09-27.md) for latency,
+CPU and reproduction, and the [alpha follow-up](../docs/experiments/networking-alpha-2026-09-27.md)
 for shared encoding and nearby-audio delivery constraints. Server routes and
 populations can be selected with `compare-networking.mjs --players=4,8,16
 --scenarios=convoy,spread,contact,modules`.

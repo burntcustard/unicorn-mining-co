@@ -55,8 +55,11 @@ only fields that changed; `null` clears a field. Load records provide their
 own IDs, and later interest sets are sent only when membership changes. Values
 the client can reconstruct are omitted. The client expands records
 before motion tracking and prediction. Shared simulation rounds positions,
-rotation and spin, and generated asteroid geometry to eight decimal places;
-velocity retains full precision for collision momentum. The `object` tag stays
+velocity, rotation and spin to a binary grid of 2^-24, using ties to even on
+both Go and JavaScript. This lets Go use its native rounding instruction and
+keeps prediction consistent. Generated asteroid geometry still uses eight
+decimal places. Snapshot motion fields use fixed-width float64 values, so
+their encoded width does not depend on the rounding rule. The `object` tag stays
 long because JavaScript's `typeof` uses that literal.
 The build also annotates computed checkpoint keys for Terser.
 Module export names and native browser/JavaScript properties remain protected.

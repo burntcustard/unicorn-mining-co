@@ -13,10 +13,13 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"math"
+	"os"
 	"slices"
 )
 
 type BodyRecord struct {
+	Object                    *simulation.GameObject
+	visited                   uint64
 	Body                      *physics.Body
 	Entity                    simulation.Entity
 	Fixtures                  []*physics.Fixture
@@ -33,7 +36,11 @@ type impactRecord struct {
 	contact collision.Contact
 	impact  float64
 }
+
+var limitCollisionNeighbors = os.Getenv("GO_SERVER_COLLISION_NEIGHBORS") != "unlimited"
+
 type GameCollisions struct {
+	visit          uint64
 	world          *physics.World
 	catalog        specification.Catalog
 	manifold       collision.WorldManifold
@@ -49,6 +56,7 @@ type GameCollisions struct {
 
 func NewGameCollisions(catalog specification.Catalog) *GameCollisions {
 	g := &GameCollisions{world: physics.NewWorld(catalog.Simulation), catalog: catalog, bodies: utilities.NewOrderedMap[int64, *BodyRecord](), impacts: utilities.NewOrderedMap[*physics.Contact, impactRecord]()}
+	g.world.LimitCollisionNeighbors = limitCollisionNeighbors
 	g.world.OnPreSolve(func(contact *physics.Contact) {
 		a, b := contact.FixtureA.UserData.(*collision.Collider), contact.FixtureB.UserData.(*collision.Collider)
 		manifold := contact.GetWorldManifold(&g.manifold)
@@ -95,7 +103,7 @@ func markBallistic(record *BodyRecord) {
 		return
 	}
 	record.Ballistic = true
-	record.Entity.Base().Ballistic = true
+	record.Object.Ballistic = true
 }
 func inertiaPerMass(fixtures []*physics.Fixture) float64 {
 	area, moment := 0.0, 0.0
@@ -124,7 +132,7 @@ func inertiaPerMass(fixtures []*physics.Fixture) float64 {
 	}
 	return 0
 }
-func rounded(value float64) float64 { return utilities.RoundInteger(value * 1e6) }
+func rounded(value float64) float64 { return utilities.RoundTiesUp(value * 1e6) }
 func same(a, b float64) bool        { return a == b || rounded(a) == rounded(b) }
 func geometryFlags(c *collision.Collider) int {
 	flags := len(c.ShapeOutline) << 4
@@ -144,12 +152,13 @@ func geometryFlags(c *collision.Collider) int {
 }
 func (g *GameCollisions) CapturePoses(entities *utilities.OrderedMap[int64, simulation.Entity]) {
 	entities.ForEach(func(e simulation.Entity, _ int64) {
-		if e.Base().InactivePhysics {
-			e.Base().Ballistic = true
+		object := e.Base()
+		if object.InactivePhysics {
+			object.Ballistic = true
 			return
 		}
 		record := g.recordFor(e)
-		record.Previous = simulation.Pose{Position: e.Base().Position, Rotation: e.Base().Rotation}
+		record.Previous = simulation.Pose{Position: object.Position, Rotation: object.Rotation}
 	})
 }
 func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.Entity], dt float64, events *[]protocol.SimulationEvent) []collision.Contact {
@@ -160,18 +169,21 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 	g.visiting = g.visiting[:0]
 	clear(g.found)
 	g.found = g.found[:0]
+	g.visit++
 	live := 0
 	park := false
 	entities.ForEach(func(e simulation.Entity, _ int64) {
-		record, _ := e.Base().CollisionState.(*BodyRecord)
+		object := e.Base()
+		record, _ := object.CollisionState.(*BodyRecord)
 		if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
 			record = nil
 		}
 		if record != nil && record.Entity == e && record.Body.World == g.world && !record.Body.Destroyed {
 			live++
-			park = park || e.Base().InactivePhysics && !record.Body.Parked
+			record.visited = g.visit
+			park = park || object.InactivePhysics && !record.Body.Parked
 		}
-		if !e.Base().InactivePhysics {
+		if !object.InactivePhysics {
 			g.visiting = append(g.visiting, e)
 			g.found = append(g.found, record)
 		}
@@ -179,11 +191,12 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 	visiting := g.visiting
 	if park || live != g.bodies.Len() {
 		g.bodies.ForEach(func(record *BodyRecord, id int64) {
-			if entities.Has(id) && record.Entity.Base().InactivePhysics {
+			current := record.visited == g.visit || entities.Has(id)
+			if current && record.Object.InactivePhysics {
 				if !record.Body.Parked {
 					record.Body.Park()
 				}
-			} else if !entities.Has(id) {
+			} else if !current {
 				g.world.DestroyBody(record.Body)
 				g.bodies.Delete(id)
 			}
@@ -247,7 +260,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		g.touched(contact.Other.Owner.(simulation.Entity))
 	}
 	for _, record := range g.motions {
-		body, object, velocity, spin, start := record.Body, record.Entity.Base(), record.Velocity, record.Spin, record.SweepStart
+		body, object, velocity, spin, start := record.Body, record.Object, record.Velocity, record.Spin, record.SweepStart
 		if body.Parked {
 			angle := start.Rotation
 			if angle > math.Pi {
@@ -292,7 +305,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		a, b, point, impact := value.contact.Collider, value.contact.Other, value.contact.Point, value.impact
 		ao, bo := a.Owner.(simulation.Entity).Base(), b.Owner.(simulation.Entity).Base()
 		inverseMass := 1/ao.Mass + 1/bo.Mass
-		amount := max(0, utilities.RoundInteger((impact/inverseMass-rules.Physics.DamageBase)/rules.Physics.DamageScale))
+		amount := max(0, utilities.RoundTiesUp((impact/inverseMass-rules.Physics.DamageBase)/rules.Physics.DamageScale))
 		if amount != 0 {
 			for _, pair := range [][2]*collision.Collider{{a, b}, {b, a}} {
 				hit, by := pair[0], pair[1]
@@ -334,7 +347,7 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 	}
 	bounds, free, order := g.bounds, g.free, g.sortOrder
 	for i, r := range motions {
-		p, start := r.Entity.Base().Position, r.SweepStart.Position
+		p, start := r.Object.Position, r.SweepStart.Position
 		dx, dy := p.X-start.X, p.Y-start.Y
 		travel := math.Sqrt(dx*dx + dy*dy)
 		reach := r.Radius + travel + g.catalog.Simulation.Physics.WakeMargin
@@ -357,7 +370,7 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 			order[j+1] = item
 		}
 	} else {
-		slices.SortStableFunc(order, func(a, b int) int {
+		slices.SortFunc(order, func(a, b int) int {
 			if bounds[a*4] < bounds[b*4] {
 				return -1
 			}
@@ -374,6 +387,9 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 			b := order[j] * 4
 			if bounds[b] > right {
 				break
+			}
+			if !free[order[i]] && !free[order[j]] {
+				continue
 			}
 			dx, dy := bounds[a+1]-bounds[b+1], bounds[a+2]-bounds[b+2]
 			reach := bounds[a+3] + bounds[b+3]
@@ -392,8 +408,9 @@ func (g *GameCollisions) touched(owner simulation.Entity) {
 	owner.Base().Ballistic = false
 }
 func (g *GameCollisions) recordFor(entity simulation.Entity) *BodyRecord {
-	id := entity.Base().ID
-	record, _ := entity.Base().CollisionState.(*BodyRecord)
+	object := entity.Base()
+	id := object.ID
+	record, _ := object.CollisionState.(*BodyRecord)
 	if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
 		record = nil
 	}
@@ -403,9 +420,9 @@ func (g *GameCollisions) recordFor(entity simulation.Entity) *BodyRecord {
 		record = nil
 	}
 	if record == nil {
-		record = &BodyRecord{Entity: entity, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: entity.Base().Position, Rotation: entity.Base().Rotation}}
+		record = &BodyRecord{Entity: entity, Object: object, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: object.Position, Rotation: object.Rotation}}
 		g.bodies.Set(id, record)
-		entity.Base().CollisionState = record
+		object.CollisionState = record
 	}
 	return record
 }

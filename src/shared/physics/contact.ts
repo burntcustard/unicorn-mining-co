@@ -25,14 +25,16 @@ import { Fixture } from './fixture';
 import { Body } from './body';
 import { Pool } from '../utilities/object-pool';
 
+// Keep this convergence threshold identical to internal/physics/contact.go.
+const velocityImpulseTolerance = 1e-7;
+
 class Mat22 {
   ex = Vec.create();
   ey = Vec.create();
 }
 
 function getTransform(xf: TransformValue, c: Vec.Value, angle: number): void {
-  xf.q.c = Math.cos(angle);
-  xf.q.s = Math.sin(angle);
+  matrix.setRotAngle(xf.q, angle);
   Vec.set(xf.p, c);
 }
 
@@ -353,6 +355,11 @@ export class Contact {
     const bodyB = fixtureB.m_body;
 
     // Re-enable this contact.
+    if (!bodyA.allowsCollision(bodyB) || !bodyB.allowsCollision(bodyA)) {
+      this.m_enabledFlag = this.m_touchingFlag = false;
+      this.m_manifold.pointCount = 0;
+      return;
+    }
     this.m_enabledFlag = true;
 
     const xfA = bodyA.m_xf;
@@ -645,7 +652,8 @@ export class Contact {
     velocityB.w = wB;
   }
 
-  solveVelocityConstraint(): void {
+  solveVelocityConstraint(): boolean {
+    let converged = true;
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
 
@@ -695,6 +703,10 @@ export class Contact {
       );
 
       lambda = newImpulse - vcp.tangentImpulse;
+      converged =
+        converged &&
+        Math.abs(lambda) <=
+          velocityImpulseTolerance * (1 + Math.abs(newImpulse));
       vcp.tangentImpulse = newImpulse;
 
       // Apply contact impulse
@@ -727,6 +739,10 @@ export class Contact {
         const newImpulse = Math.max(vcp.normalImpulse + lambda, 0);
 
         lambda = newImpulse - vcp.normalImpulse;
+        converged =
+          converged &&
+          Math.abs(lambda) <=
+            velocityImpulseTolerance * (1 + Math.abs(newImpulse));
         vcp.normalImpulse = newImpulse;
 
         // Apply contact impulse
@@ -824,6 +840,10 @@ export class Contact {
         if (x.x >= 0 && x.y >= 0) {
           // Get the incremental impulse
           Vec.subtract(x, a, d);
+          converged =
+            converged &&
+            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
+            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
 
           // Apply incremental impulse
           Vec.scale(normal, d.x, P1);
@@ -856,6 +876,10 @@ export class Contact {
         if (x.x >= 0 && vn2 >= 0) {
           // Get the incremental impulse
           Vec.subtract(x, a, d);
+          converged =
+            converged &&
+            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
+            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
 
           // Apply incremental impulse
           Vec.scale(normal, d.x, P1);
@@ -888,6 +912,10 @@ export class Contact {
         if (x.y >= 0 && vn1 >= 0) {
           // Resubstitute for the incremental impulse
           Vec.subtract(x, a, d);
+          converged =
+            converged &&
+            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
+            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
 
           // Apply incremental impulse
           Vec.scale(normal, d.x, P1);
@@ -920,6 +948,10 @@ export class Contact {
         if (vn1 >= 0 && vn2 >= 0) {
           // Resubstitute for the incremental impulse
           Vec.subtract(x, a, d);
+          converged =
+            converged &&
+            Math.abs(d.x) <= velocityImpulseTolerance * (1 + Math.abs(x.x)) &&
+            Math.abs(d.y) <= velocityImpulseTolerance * (1 + Math.abs(x.y));
 
           // Apply incremental impulse
           Vec.scale(normal, d.x, P1);
@@ -949,6 +981,7 @@ export class Contact {
 
     Vec.set(velocityB.v, vB);
     velocityB.w = wB;
+    return converged;
   }
   static addType(
     type1: ShapeType,

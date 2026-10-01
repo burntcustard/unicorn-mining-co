@@ -130,6 +130,7 @@ export class GameCollisions {
   >();
 
   constructor() {
+    this.world.limitCollisionNeighbors = true;
     this.world.onPreSolve((contact) => {
       const a = contact.getFixtureA().getUserData() as Collider;
       const b = contact.getFixtureB().getUserData() as Collider;

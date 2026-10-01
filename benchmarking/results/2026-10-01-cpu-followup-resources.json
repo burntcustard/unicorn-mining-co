@@ -1,0 +1,63 @@
+{
+  "productionGoSourceHash": "3da5048337814e30669663b165cb25ce86f80fd8a9d85cba41699431840b2c0c",
+  "resources": [
+    {
+      "name": "Client entry",
+      "before": {
+        "bytes": 114085,
+        "gzipBytes": 50369
+      },
+      "after": {
+        "path": "dist/index-imcEK0a_.js",
+        "bytes": 115157,
+        "gzipBytes": 50909
+      }
+    },
+    {
+      "name": "Docked chunk",
+      "before": {
+        "bytes": 4708,
+        "gzipBytes": 2432
+      },
+      "after": {
+        "path": "dist/docked-DtOg_AJg.js",
+        "bytes": 4708,
+        "gzipBytes": 2431
+      }
+    },
+    {
+      "name": "Sound chunk",
+      "before": {
+        "bytes": 1681,
+        "gzipBytes": 942
+      },
+      "after": {
+        "path": "dist/sound-D1cJ8HQs.js",
+        "bytes": 1681,
+        "gzipBytes": 942
+      }
+    },
+    {
+      "name": "Node server",
+      "before": {
+        "bytes": 99358,
+        "gzipBytes": 42958
+      },
+      "after": {
+        "path": "dist/server.js",
+        "bytes": 100475,
+        "gzipBytes": 43458
+      }
+    },
+    {
+      "name": "Stripped static Go server",
+      "before": {
+        "bytes": 7889056
+      },
+      "after": {
+        "path": "/tmp/unicorn-go-followup-server",
+        "bytes": 7938208
+      }
+    }
+  ]
+}

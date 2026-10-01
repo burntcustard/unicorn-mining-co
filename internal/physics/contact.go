@@ -6,10 +6,16 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
 	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+	"math"
 )
+
+// Match src/shared/physics/contact.ts. This bounds impulse changes, not
+// accumulated trajectory error; difficult islands retain all eight iterations.
+const velocityImpulseTolerance = 1e-7
 
 type Mat22 struct{ Ex, Ey Vec.Vector }
 type ContactEdge struct {
+	solverNext *ContactEdge
 	Contact    *Contact
 	Prev, Next *ContactEdge
 	Other      *Body
@@ -18,37 +24,50 @@ type VelocityConstraintPoint struct {
 	RA, RB                                                               Vec.Vector
 	NormalImpulse, TangentImpulse, NormalMass, TangentMass, VelocityBias float64
 }
+type ContactConstraint struct {
+	VNormal                          Vec.Vector
+	VNormalMass, VK                  Mat22
+	PLocalPoints                     [2]Vec.Vector
+	PLocalNormal, PLocalPoint        Vec.Vector
+	VPointCount                      int
+	InvMassA, InvMassB, InvIA, InvIB float64
+	PType                            string
+	PRadiusA, PRadiusB               float64
+	VPoints                          [2]VelocityConstraintPoint
+	PPointCount                      int
+}
 type Contact struct {
+	listIndex       int
+	separationUntil float64
+	physical        bool
+	*ContactConstraint
+	pair                                  *bodyPair
+	pairPrev, pairNext                    *Contact
+	separationCache                       [2]uint8
 	NodeA, NodeB                          ContactEdge
 	Manifold                              collision.Manifold
-	VNormal                               Vec.Vector
-	VNormalMass, VK                       Mat22
-	PLocalPoints                          [2]Vec.Vector
-	PLocalNormal, PLocalPoint             Vec.Vector
 	FixtureA, FixtureB                    *Fixture
 	Prev, Next                            *Contact
-	TOIPrev, TOINext                      *Contact
+	toiIndex                              int
+	toiQueue                              uint8
 	toiOrder                              uint64
-	toiListed                             bool
 	TOI                                   float64
 	TOIFlag                               bool
 	Friction, Restitution, SurfaceSpeed   float64
-	VPointCount                           int
-	InvMassA, InvMassB, InvIA, InvIB      float64
-	PType                                 string
-	PRadiusA, PRadiusB                    float64
-	PPointCount, TOICount                 int
+	TOICount                              int
 	EnabledFlag, IslandFlag, TouchingFlag bool
-	VPoints                               [2]VelocityConstraintPoint
 }
 
 func (c *Contact) InitConstraint() {
+	if c.ContactConstraint == nil {
+		c.ContactConstraint = new(ContactConstraint)
+	}
 	a, b := c.FixtureA, c.FixtureB
 	m := &c.Manifold
-	c.InvMassA = a.Body.InvMass
-	c.InvMassB = b.Body.InvMass
-	c.InvIA = a.Body.InvI
-	c.InvIB = b.Body.InvI
+	c.InvMassA = c.NodeB.Other.InvMass
+	c.InvMassB = c.NodeA.Other.InvMass
+	c.InvIA = c.NodeB.Other.InvI
+	c.InvIB = c.NodeA.Other.InvI
 	c.VPointCount = m.PointCount
 	c.PRadiusA = a.Geometry.Radius
 	c.PRadiusB = b.Geometry.Radius
@@ -63,9 +82,9 @@ func (c *Contact) InitConstraint() {
 	}
 }
 func (c *Contact) GetWorldManifold(wm *collision.WorldManifold) *collision.WorldManifold {
-	return c.Manifold.GetWorldManifold(wm, c.FixtureA.Body.Xf, c.FixtureA.Geometry.Radius, c.FixtureB.Body.Xf, c.FixtureB.Geometry.Radius)
+	return c.Manifold.GetWorldManifold(wm, c.NodeB.Other.Xf, c.FixtureA.Geometry.Radius, c.NodeA.Other.Xf, c.FixtureB.Geometry.Radius)
 }
-func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) {
+func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) float64 {
 	switch a := c.FixtureA.Shape.(type) {
 	case *shape.CircleShape:
 		shape.CollideCircles(manifold, a, xfA, c.FixtureB.Shape.(*shape.CircleShape), xfB)
@@ -74,13 +93,30 @@ func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformV
 		case *shape.CircleShape:
 			shape.CollidePolygonCircle(manifold, a, xfA, b, xfB)
 		case *shape.PolygonShape:
-			shape.CollidePolygons(manifold, a, xfA, b, xfB, c.FixtureA.Body.World.Rules.LinearSlop)
+			return shape.CollidePolygonsCached(manifold, a, xfA, b, xfB, c.NodeB.Other.World.Rules.LinearSlop, &c.separationCache)
 		}
 	}
+	return 0
 }
 func (c *Contact) Update(listener *World) {
+	if !c.allowsCollision(c.NodeB.Other.World) {
+		c.EnabledFlag, c.TouchingFlag = false, false
+		c.Manifold.PointCount = 0
+		return
+	}
 	c.EnabledFlag = true
-	c.Evaluate(&c.Manifold, c.FixtureA.Body.Xf, c.FixtureB.Body.Xf)
+	a, b := c.NodeB.Other, c.NodeA.Other
+	if c.separationUntil > 0 && c.separationUntil > c.pair.motion() {
+		c.Manifold.PointCount = 0
+		c.TouchingFlag = false
+		return
+	}
+	gap := c.Evaluate(&c.Manifold, a.Xf, b.Xf)
+	c.separationUntil = 0
+	if gap > 0 && a.proxyRadius < 1e100 && b.proxyRadius < 1e100 {
+		motion := c.pair.motion()
+		c.separationUntil = motion + gap*.9999999 - 1e-5 - 1e-12*motion
+	}
 	c.TouchingFlag = c.Manifold.PointCount > 0
 	if c.TouchingFlag && listener != nil {
 		listener.PreSolve(c)
@@ -93,7 +129,7 @@ func (c *Contact) SolvePositionConstraintTOI(toiA, toiB *Body) float64 {
 func (c *Contact) solvePositionConstraint(toiA, toiB *Body) float64 {
 	toi := toiA != nil && toiB != nil
 	minSeparation := 0.0
-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
+	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
 	positionA, positionB := &bodyA.CPosition, &bodyB.CPosition
 	mA, iA, mB, iB := 0.0, 0.0, 0.0, 0.0
 	if !toi || bodyA == toiA || bodyA == toiB {
@@ -159,7 +195,7 @@ func (c *Contact) solvePositionConstraint(toiA, toiB *Body) float64 {
 	return minSeparation
 }
 func (c *Contact) InitVelocityConstraint() {
-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
+	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
 	cA, aA, vA, wA := bodyA.CPosition.C, bodyA.CPosition.A, bodyA.CVelocity.V, bodyA.CVelocity.W
 	cB, aB, vB, wB := bodyB.CPosition.C, bodyB.CPosition.A, bodyB.CVelocity.V, bodyB.CVelocity.W
 	mA, mB, iA, iB := c.InvMassA, c.InvMassB, c.InvIA, c.InvIB
@@ -217,10 +253,11 @@ func (c *Contact) InitVelocityConstraint() {
 	}
 }
 
-func (c *Contact) SolveVelocityConstraint() {
-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
+func (c *Contact) SolveVelocityConstraint() bool {
+	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
 	vA, wA, vB, wB := bodyA.CVelocity.V, bodyA.CVelocity.W, bodyB.CVelocity.V, bodyB.CVelocity.W
 	mA, iA, mB, iB := c.InvMassA, c.InvIA, c.InvMassB, c.InvIB
+	converged := true
 	normal := c.VNormal
 	var tangent, temp Vec.Vector
 	Vec.CrossScalarInto(&tangent, normal, 1)
@@ -242,6 +279,7 @@ func (c *Contact) SolveVelocityConstraint() {
 		maxFriction := c.Friction * vcp.NormalImpulse
 		newImpulse := max(-maxFriction, min(vcp.TangentImpulse+lambda, maxFriction))
 		lambda = newImpulse - vcp.TangentImpulse
+		converged = converged && math.Abs(lambda) <= velocityImpulseTolerance*(1+math.Abs(newImpulse))
 		vcp.TangentImpulse = newImpulse
 		p := Vec.Scale(tangent, lambda)
 		vA = Vec.AddScaled(vA, p, -mA)
@@ -256,6 +294,7 @@ func (c *Contact) SolveVelocityConstraint() {
 		lambda := -vcp.NormalMass * (vn - vcp.VelocityBias)
 		newImpulse := max(vcp.NormalImpulse+lambda, 0)
 		lambda = newImpulse - vcp.NormalImpulse
+		converged = converged && math.Abs(lambda) <= velocityImpulseTolerance*(1+math.Abs(newImpulse))
 		vcp.NormalImpulse = newImpulse
 		p := Vec.Scale(normal, lambda)
 		vA = Vec.AddScaled(vA, p, -mA)
@@ -272,6 +311,7 @@ func (c *Contact) SolveVelocityConstraint() {
 		b.Y -= c.VK.Ex.Y*a.X + c.VK.Ey.Y*a.Y
 		apply := func(x Vec.Vector) {
 			d := Vec.Subtract(x, a)
+			converged = converged && math.Abs(d.X) <= velocityImpulseTolerance*(1+math.Abs(x.X)) && math.Abs(d.Y) <= velocityImpulseTolerance*(1+math.Abs(x.Y))
 			p1, p2 := Vec.Scale(normal, d.X), Vec.Scale(normal, d.Y)
 			Vec.Combine3Into(&vA, -mA, p1, -mA, p2, 1, vA)
 			wA -= iA * (Vec.Cross(one.RA, p1) + Vec.Cross(two.RA, p2))
@@ -312,6 +352,7 @@ func (c *Contact) SolveVelocityConstraint() {
 	}
 	bodyA.CVelocity = Velocity{vA, wA}
 	bodyB.CVelocity = Velocity{vB, wB}
+	return converged
 }
 func (w *World) createContact(a, b *Fixture) *Contact {
 	typeA, typeB := a.Geometry.Type, b.Geometry.Type
@@ -331,6 +372,9 @@ func (w *World) createContact(a, b *Fixture) *Contact {
 	} else {
 		c = &Contact{TOI: 1, EnabledFlag: true}
 	}
+	c.separationCache = [2]uint8{}
+	c.separationUntil = 0
+	c.physical = a.Physics && b.Physics
 	c.FixtureA = a
 	c.FixtureB = b
 	c.NodeA = ContactEdge{Contact: c, Other: b.Body, Next: a.Body.ContactList}
@@ -346,7 +390,7 @@ func (w *World) createContact(a, b *Fixture) *Contact {
 	return c
 }
 func (c *Contact) destroy() {
-	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
+	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
 	if c.NodeA.Prev != nil {
 		c.NodeA.Prev.Next = c.NodeA.Next
 	}

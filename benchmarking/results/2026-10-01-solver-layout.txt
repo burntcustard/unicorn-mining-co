@@ -1,0 +1,10 @@
+=== RUN   TestMemoryLayout
+    layout_test.go:3: Body=392 Contact=344 ContactConstraint=368 ContactEdge=40 bodyPair=200
+--- PASS: TestMemoryLayout (0.00s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/internal/physics	0.002s
+=== RUN   TestMemoryLayout
+    layout_test.go:3: Body=360 Contact=640 ContactEdge=32
+--- PASS: TestMemoryLayout (0.00s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/internal/physics	0.002s

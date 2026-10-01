@@ -578,8 +578,9 @@ const expectedRotation =
   turningShip.rotation +
   (turningShip.spin * (client.world.tick - turningWorld.tick)) / 30;
 
+// Extrapolated motion is quantized within half a binary motion-grid step.
 assert(
-  Math.abs(remote.rotation - expectedRotation) < 1e-9,
+  Math.abs(remote.rotation - expectedRotation) <= 2 ** -25,
   'turning remote ships must be extrapolated to the client tick, not left at the older snapshot tick',
 );
 

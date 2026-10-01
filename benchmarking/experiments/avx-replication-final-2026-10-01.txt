@@ -1,0 +1,77 @@
+
+/tmp/go-cpu-followup-final:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+00000000007946c0 <github.com/burntcustard/unicorn-mining-co/internal/server.(*ReplicationView).replicationBlock>:
+  7946c0:	90                   	nop
+  7946c1:	c5 83 11 c0          	vmovsd %xmm0,%xmm15,%xmm0
+  7946c5:	c5 83 11 c9          	vmovsd %xmm1,%xmm15,%xmm1
+  7946c9:	c5 83 11 d2          	vmovsd %xmm2,%xmm15,%xmm2
+  7946cd:	c5 83 11 db          	vmovsd %xmm3,%xmm15,%xmm3
+  7946d1:	c4 e1 f9 6e e1       	vmovq  %rcx,%xmm4
+  7946d6:	ba 01 00 00 00       	mov    $0x1,%edx
+  7946db:	c4 e1 f9 6e ea       	vmovq  %rdx,%xmm5
+  7946e0:	31 d2                	xor    %edx,%edx
+  7946e2:	c4 e1 f9 6e f2       	vmovq  %rdx,%xmm6
+  7946e7:	90                   	nop
+  7946e8:	90                   	nop
+  7946e9:	90                   	nop
+  7946ea:	90                   	nop
+  7946eb:	90                   	nop
+  7946ec:	90                   	nop
+  7946ed:	90                   	nop
+  7946ee:	c4 e2 7d 19 c0       	vbroadcastsd %xmm0,%ymm0
+  7946f3:	c4 e2 7d 19 c9       	vbroadcastsd %xmm1,%ymm1
+  7946f8:	c4 e2 7d 19 d2       	vbroadcastsd %xmm2,%ymm2
+  7946fd:	c4 e2 7d 19 db       	vbroadcastsd %xmm3,%ymm3
+  794702:	c4 e2 7d 59 e4       	vpbroadcastq %xmm4,%ymm4
+  794707:	c4 e2 7d 59 ed       	vpbroadcastq %xmm5,%ymm5
+  79470c:	c4 e2 7d 59 f6       	vpbroadcastq %xmm6,%ymm6
+  794711:	31 d2                	xor    %edx,%edx
+  794713:	31 f6                	xor    %esi,%esi
+  794715:	e9 a6 00 00 00       	jmp    7947c0 <github.com/burntcustard/unicorn-mining-co/internal/server.(*ReplicationView).replicationBlock+0x100>
+  79471a:	48 8d 3c 1e          	lea    (%rsi,%rbx,1),%rdi
+  79471e:	4c 8b 80 88 00 00 00 	mov    0x88(%rax),%r8
+  794725:	4c 8b 88 a0 00 00 00 	mov    0xa0(%rax),%r9
+  79472c:	4c 8d 14 f0          	lea    (%rax,%rsi,8),%r10
+  794730:	4d 8d 92 d0 00 00 00 	lea    0xd0(%r10),%r10
+  794737:	4d 8d 04 f8          	lea    (%r8,%rdi,8),%r8
+  79473b:	c4 c1 7e 6f 38       	vmovdqu (%r8),%ymm7
+  794740:	c5 c5 5c f8          	vsubpd %ymm0,%ymm7,%ymm7
+  794744:	c5 c5 59 ff          	vmulpd %ymm7,%ymm7,%ymm7
+  794748:	4d 8d 04 f9          	lea    (%r9,%rdi,8),%r8
+  79474c:	c4 41 7e 6f 00       	vmovdqu (%r8),%ymm8
+  794751:	c5 3d 5c c1          	vsubpd %ymm1,%ymm8,%ymm8
+  794755:	c4 41 3d 59 c0       	vmulpd %ymm8,%ymm8,%ymm8
+  79475a:	c4 c1 45 58 f8       	vaddpd %ymm8,%ymm7,%ymm7
+  79475f:	c5 45 c2 c2 0e       	vcmpgtpd %ymm2,%ymm7,%ymm8
+  794764:	c5 45 c2 cb 0e       	vcmpgtpd %ymm3,%ymm7,%ymm9
+  794769:	c4 c1 7e 7f 3a       	vmovdqu %ymm7,(%r10)
+  79476e:	4c 8b 40 58          	mov    0x58(%rax),%r8
+  794772:	4d 8d 04 f8          	lea    (%r8,%rdi,8),%r8
+  794776:	4c 8b 88 b8 00 00 00 	mov    0xb8(%rax),%r9
+  79477d:	49 8d 3c f9          	lea    (%r9,%rdi,8),%rdi
+  794781:	c5 fe 6f 3f          	vmovdqu (%rdi),%ymm7
+  794785:	c4 41 55 db 10       	vpand  (%r8),%ymm5,%ymm10
+  79478a:	c4 62 2d 29 d6       	vpcmpeqq %ymm6,%ymm10,%ymm10
+  79478f:	c4 41 35 eb ca       	vpor   %ymm10,%ymm9,%ymm9
+  794794:	c4 41 35 db c0       	vpand  %ymm8,%ymm9,%ymm8
+  794799:	c4 62 45 29 cf       	vpcmpeqq %ymm7,%ymm7,%ymm9
+  79479e:	c4 e2 45 29 fc       	vpcmpeqq %ymm4,%ymm7,%ymm7
+  7947a3:	c4 c1 45 ef f9       	vpxor  %ymm9,%ymm7,%ymm7
+  7947a8:	c4 c1 45 db f8       	vpand  %ymm8,%ymm7,%ymm7
+  7947ad:	c5 fd 50 ff          	vmovmskpd %ymm7,%edi
+  7947b1:	40 0f b6 ff          	movzbl %dil,%edi
+  7947b5:	48 89 f1             	mov    %rsi,%rcx
+  7947b8:	d3 e7                	shl    %cl,%edi
+  7947ba:	09 fa                	or     %edi,%edx
+  7947bc:	48 8d 71 04          	lea    0x4(%rcx),%rsi
+  7947c0:	48 83 fe 10          	cmp    $0x10,%rsi
+  7947c4:	0f 8c 50 ff ff ff    	jl     79471a <github.com/burntcustard/unicorn-mining-co/internal/server.(*ReplicationView).replicationBlock+0x5a>
+  7947ca:	c5 f8 77             	vzeroupper 
+  7947cd:	89 d0                	mov    %edx,%eax
+  7947cf:	c3                   	ret    
+
+Disassembly of section .plt:

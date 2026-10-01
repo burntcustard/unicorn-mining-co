@@ -1,0 +1,1001 @@
+--- a/internal/collision/shape/polygon-polygon-contact.go
++++ b/internal/collision/shape/polygon-polygon-contact.go
+@@ -8,13 +8,18 @@
+ 	"math"
+ )
+ 
+-func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
++func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64, start int) (int, float64) {
+ 	var xf Vec.TransformValue
+ 	var n, v1 Vec.Vector
+ 	Vec.DetransformTransform(&xf, xf2, xf1)
+ 	bestIndex, maxSeparation := 0, math.Inf(-1)
+ 	vertices1, vertices2 := poly1.Vertices[:poly1.Count], poly2.Vertices[:poly2.Count]
+-	for i, normal := range poly1.Normals[:poly1.Count] {
++	for index := range poly1.Count {
++		i := start + index
++		if i >= poly1.Count {
++			i -= poly1.Count
++		}
++		normal := poly1.Normals[i]
+ 		Vec.RotateInto(&n, xf.Q, normal)
+ 		Vec.TransformInto(&v1, xf, vertices1[i])
+ 		offset := Vec.Dot(n, v1)
+@@ -28,7 +33,7 @@
+ 		if si > limit {
+ 			return i, si
+ 		}
+-		if si > maxSeparation {
++		if si > maxSeparation || si == maxSeparation && i < bestIndex {
+ 			maxSeparation, bestIndex = si, i
+ 		}
+ 	}
+@@ -48,13 +53,19 @@
+ 	Vec.TransformInto(&clipVertex[1], xf2, poly2.Vertices[(index+1)%poly2.Count])
+ }
+ func CollidePolygons(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64) {
++	var cache [2]int
++	CollidePolygonsCached(m, a, xfA, b, xfB, linearSlop, &cache)
++}
++func CollidePolygonsCached(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64, cache *[2]int) {
+ 	m.PointCount = 0
+ 	totalRadius := a.Radius + b.Radius
+-	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB, totalRadius)
++	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB, totalRadius, cache[0])
++	cache[0] = edgeA
+ 	if separationA > totalRadius {
+ 		return
+ 	}
+-	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA, totalRadius)
++	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA, totalRadius, cache[1])
++	cache[1] = edgeB
+ 	if separationB > totalRadius {
+ 		return
+ 	}
+--- /dev/null
++++ b/internal/physics/batch_test.go
+@@ -0,0 +1,29 @@
++package physics
++import (
++ "testing"
++ "math/rand/v2"
++ "math"
++ Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++)
++func TestBatchKernel(t *testing.T) {
++ r:=rand.New(rand.NewPCG(1,2))
++ for trial:=0;trial<1000;trial++ {
++  cs:=make([]*Contact,4);refs:=make([]*Contact,4)
++  for lane:=range cs {
++   a,b:=&Body{},&Body{}
++   a.CVelocity=Velocity{Vec.Vector{X:r.Float64()*100,Y:r.Float64()*100},r.Float64()}
++   b.CVelocity=Velocity{Vec.Vector{X:r.Float64()*100,Y:r.Float64()*100},r.Float64()}
++   s,c:=math.Sincos(r.Float64()*6)
++   constraint:=&ContactConstraint{VNormal:Vec.Vector{X:c,Y:s},InvMassA:1,InvMassB:1,InvIA:.01,InvIB:.01,VPointCount:1}
++   constraint.VPoints[0]=VelocityConstraintPoint{RA:Vec.Vector{X:r.Float64()*10,Y:r.Float64()*10},RB:Vec.Vector{X:r.Float64()*10,Y:r.Float64()*10},NormalMass:.3,TangentMass:.2,VelocityBias:10}
++   cs[lane]=&Contact{ContactConstraint:constraint,FixtureA:&Fixture{Body:a},FixtureB:&Fixture{Body:b},Friction:.4}
++   aa,bb,cc,con:=*a,*b,*cs[lane],*constraint
++   cc.ContactConstraint=&con;cc.FixtureA=&Fixture{Body:&aa};cc.FixtureB=&Fixture{Body:&bb};refs[lane]=&cc
++  }
++  solveBatch64(cs,8)
++  for lane,c:=range refs {
++   for i:=0;i<8;i++{c.SolveVelocityConstraint()}
++   if cs[lane].FixtureA.Body.CVelocity!=c.FixtureA.Body.CVelocity || cs[lane].FixtureB.Body.CVelocity!=c.FixtureB.Body.CVelocity { t.Fatalf("trial %d lane %d got %+v %+v want %+v %+v",trial,lane,cs[lane].FixtureA.Body.CVelocity,cs[lane].FixtureB.Body.CVelocity,c.FixtureA.Body.CVelocity,c.FixtureB.Body.CVelocity) }
++  }
++ }
++}
+--- /dev/null
++++ b/internal/physics/body-pair.go
+@@ -0,0 +1,94 @@
++package physics
++
++type bodyPair struct {
++	neighborEpoch uint64
++	allowed       bool
++	contacts      *Contact
++	a, b          bodyPairEdge
++}
++type bodyPairEdge struct {
++	other      *Body
++	pair       *bodyPair
++	prev, next *bodyPairEdge
++}
++
++func unlinkPairEdge(body *Body, edge *bodyPairEdge) {
++	if edge.prev != nil {
++		edge.prev.next = edge.next
++	} else {
++		body.pairs = edge.next
++	}
++	if edge.next != nil {
++		edge.next.prev = edge.prev
++	}
++	edge.prev, edge.next = nil, nil
++}
++func insertPairEdge(body *Body, edge *bodyPairEdge) {
++	var previous *bodyPairEdge
++	next := body.pairs
++	for next != nil && next.pair.contacts.toiOrder > edge.pair.contacts.toiOrder {
++		previous = next
++		next = next.next
++	}
++	edge.prev, edge.next = previous, next
++	if previous == nil {
++		body.pairs = edge
++	} else {
++		previous.next = edge
++	}
++	if next != nil {
++		next.prev = edge
++	}
++}
++func (w *World) linkPair(c *Contact, pair *bodyPair) {
++	a, b := c.FixtureA.Body, c.FixtureB.Body
++	if pair == nil {
++		pair = &bodyPair{}
++		pair.a = bodyPairEdge{other: b, pair: pair}
++		pair.b = bodyPairEdge{other: a, pair: pair}
++	} else {
++		a, b = pair.b.other, pair.a.other
++		unlinkPairEdge(a, &pair.a)
++		unlinkPairEdge(b, &pair.b)
++	}
++	c.pair = pair
++	c.pairPrev = nil
++	c.pairNext = pair.contacts
++	if pair.contacts != nil {
++		pair.contacts.pairPrev = c
++	}
++	pair.contacts = c
++	insertPairEdge(a, &pair.a)
++	insertPairEdge(b, &pair.b)
++}
++func (w *World) unlinkPair(c *Contact) {
++	pair := c.pair
++	a, b := pair.b.other, pair.a.other
++	if c.pairNext != nil {
++		c.pairNext.pairPrev = c.pairPrev
++	}
++	if c.pairPrev != nil {
++		c.pairPrev.pairNext = c.pairNext
++	} else {
++		unlinkPairEdge(a, &pair.a)
++		unlinkPairEdge(b, &pair.b)
++		pair.contacts = c.pairNext
++		if pair.contacts != nil {
++			insertPairEdge(a, &pair.a)
++			insertPairEdge(b, &pair.b)
++		}
++	}
++	c.pair, c.pairPrev, c.pairNext = nil, nil, nil
++}
++
++func (c *Contact) allowsCollision(w *World) bool {
++	pair := c.pair
++	if pair == nil || !w.LimitCollisionNeighbors {
++		return c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) && c.FixtureB.Body.AllowsCollision(c.FixtureA.Body)
++	}
++	if pair.neighborEpoch != w.neighborEpoch || w.neighborEpoch == 0 {
++		pair.neighborEpoch = w.neighborEpoch
++		pair.allowed = pair.a.other.AllowsCollision(pair.b.other) && pair.b.other.AllowsCollision(pair.a.other)
++	}
++	return pair.allowed
++}
+--- a/internal/physics/body.go
++++ b/internal/physics/body.go
+@@ -18,6 +18,9 @@
+ 	A float64
+ }
+ type Body struct {
++	transformVersion                      uint64
++	pairs                                 *bodyPairEdge
++	solverContacts, solverTail            *ContactEdge
+ 	World                                 *World
+ 	IslandFlag, Destroyed, Parked         bool
+ 	InvMass, InvI                         float64
+@@ -82,7 +85,11 @@
+ 	if b.World.Locked {
+ 		return
+ 	}
++	previous := b.Xf
+ 	Vec.SetTransform(&b.Xf, position, angle)
++	if b.Xf != previous {
++		b.transformVersion++
++	}
+ 	if angle >= -math.Pi && angle <= math.Pi {
+ 		b.Sweep.C, b.Sweep.C0 = position, position
+ 		b.Sweep.A, b.Sweep.A0 = angle, angle
+@@ -113,7 +120,7 @@
+ 	}
+ 	b.World.NewFixture = true
+ }
+-func (b *Body) SynchronizeTransform() { b.Sweep.GetTransform(&b.Xf, 1) }
++func (b *Body) SynchronizeTransform() { b.transformVersion++; b.Sweep.GetTransform(&b.Xf, 1) }
+ func (b *Body) SynchronizeFixtures() {
+ 	var xf Vec.TransformValue
+ 	b.Sweep.GetTransform(&xf, 0)
+--- a/internal/physics/contact.go
++++ b/internal/physics/contact.go
+@@ -10,6 +10,7 @@
+ 
+ type Mat22 struct{ Ex, Ey Vec.Vector }
+ type ContactEdge struct {
++	solverNext *ContactEdge
+ 	Contact    *Contact
+ 	Prev, Next *ContactEdge
+ 	Other      *Body
+@@ -18,31 +19,44 @@
+ 	RA, RB                                                               Vec.Vector
+ 	NormalImpulse, TangentImpulse, NormalMass, TangentMass, VelocityBias float64
+ }
++type ContactConstraint struct {
++	VNormal                          Vec.Vector
++	VNormalMass, VK                  Mat22
++	PLocalPoints                     [2]Vec.Vector
++	PLocalNormal, PLocalPoint        Vec.Vector
++	VPointCount                      int
++	InvMassA, InvMassB, InvIA, InvIB float64
++	PType                            string
++	PRadiusA, PRadiusB               float64
++	VPoints                          [2]VelocityConstraintPoint
++	PPointCount                      int
++}
+ type Contact struct {
++	evaluated              bool
++	evaluatedA, evaluatedB uint64
++	*ContactConstraint
++	pair                                  *bodyPair
++	pairPrev, pairNext                    *Contact
++	separationCache                       [2]int
+ 	NodeA, NodeB                          ContactEdge
+ 	Manifold                              collision.Manifold
+-	VNormal                               Vec.Vector
+-	VNormalMass, VK                       Mat22
+-	PLocalPoints                          [2]Vec.Vector
+-	PLocalNormal, PLocalPoint             Vec.Vector
+ 	FixtureA, FixtureB                    *Fixture
+ 	Prev, Next                            *Contact
+-	TOIPrev, TOINext                      *Contact
++	toiIndex                              int
++	toiQueue                              uint8
+ 	toiOrder                              uint64
+ 	toiListed                             bool
+ 	TOI                                   float64
+ 	TOIFlag                               bool
+ 	Friction, Restitution, SurfaceSpeed   float64
+-	VPointCount                           int
+-	InvMassA, InvMassB, InvIA, InvIB      float64
+-	PType                                 string
+-	PRadiusA, PRadiusB                    float64
+-	PPointCount, TOICount                 int
++	TOICount                              int
+ 	EnabledFlag, IslandFlag, TouchingFlag bool
+-	VPoints                               [2]VelocityConstraintPoint
+ }
+ 
+ func (c *Contact) InitConstraint() {
++	if c.ContactConstraint == nil {
++		c.ContactConstraint = new(ContactConstraint)
++	}
+ 	a, b := c.FixtureA, c.FixtureB
+ 	m := &c.Manifold
+ 	c.InvMassA = a.Body.InvMass
+@@ -74,18 +88,24 @@
+ 		case *shape.CircleShape:
+ 			shape.CollidePolygonCircle(manifold, a, xfA, b, xfB)
+ 		case *shape.PolygonShape:
+-			shape.CollidePolygons(manifold, a, xfA, b, xfB, c.FixtureA.Body.World.Rules.LinearSlop)
++			shape.CollidePolygonsCached(manifold, a, xfA, b, xfB, c.FixtureA.Body.World.Rules.LinearSlop, &c.separationCache)
+ 		}
+ 	}
+ }
+ func (c *Contact) Update(listener *World) {
+-	if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
++	if !c.allowsCollision(c.FixtureA.Body.World) {
+ 		c.EnabledFlag, c.TouchingFlag = false, false
+ 		c.Manifold.PointCount = 0
++		c.evaluated = false
+ 		return
+ 	}
+ 	c.EnabledFlag = true
+-	c.Evaluate(&c.Manifold, c.FixtureA.Body.Xf, c.FixtureB.Body.Xf)
++	a, b := c.FixtureA.Body, c.FixtureB.Body
++	if !c.evaluated || c.evaluatedA != a.transformVersion || c.evaluatedB != b.transformVersion {
++		c.Evaluate(&c.Manifold, a.Xf, b.Xf)
++		c.evaluated = true
++		c.evaluatedA, c.evaluatedB = a.transformVersion, b.transformVersion
++	}
+ 	c.TouchingFlag = c.Manifold.PointCount > 0
+ 	if c.TouchingFlag && listener != nil {
+ 		listener.PreSolve(c)
+@@ -336,6 +356,8 @@
+ 	} else {
+ 		c = &Contact{TOI: 1, EnabledFlag: true}
+ 	}
++	c.evaluated = false
++	c.separationCache = [2]int{}
+ 	c.FixtureA = a
+ 	c.FixtureB = b
+ 	c.NodeA = ContactEdge{Contact: c, Other: b.Body, Next: a.Body.ContactList}
+--- a/internal/physics/fixture.go
++++ b/internal/physics/fixture.go
+@@ -14,15 +14,18 @@
+ 	Physics  *bool
+ }
+ type Fixture struct {
+-	Body        *Body
+-	Physics     bool
+-	Shape       shape.Shape
+-	Geometry    *collision.BaseShape
+-	Next        *Fixture
+-	Proxy       *collision.SpatialProxy[*Fixture]
+-	aabb        collision.AABB
+-	UserData    any
+-	ProxyMargin float64
++	boundPose    Vec.TransformValue
++	currentBound collision.AABB
++	boundValid   bool
++	Body         *Body
++	Physics      bool
++	Shape        shape.Shape
++	Geometry     *collision.BaseShape
++	Next         *Fixture
++	Proxy        *collision.SpatialProxy[*Fixture]
++	aabb         collision.AABB
++	UserData     any
++	ProxyMargin  float64
+ }
+ 
+ func newFixture(body *Body, s shape.Shape, definition FixtureOpt) *Fixture {
+@@ -67,3 +70,12 @@
+ 	b, _ := that.UserData.(*collision.Collider)
+ 	return a == nil || b == nil || collision.CollidersCanContact(a, b)
+ }
++
++func (f *Fixture) currentAABB() *collision.AABB {
++	if !f.boundValid || f.boundPose != f.Body.Xf {
++		f.boundPose = f.Body.Xf
++		f.Geometry.ComputeAABB(&f.currentBound, f.boundPose)
++		f.boundValid = true
++	}
++	return &f.currentBound
++}
+--- /dev/null
++++ b/internal/physics/solver-batch32.go
+@@ -0,0 +1,117 @@
++//go:build goexperiment.simd && amd64
++
++package physics
++
++import "simd/archsimd"
++
++func solveBatch64(contacts []*Contact, iterations int) {
++	var vax, vay, wa, vbx, vby, wb, nx, ny, rax, ray, rbx, rby, ma, mb, ia, ib, tm, nm, bias, friction, ti, ni [4]float64
++	for lane, c := range contacts {
++		a, b, p := c.FixtureA.Body, c.FixtureB.Body, &c.VPoints[0]
++		vax[lane] = float64(a.CVelocity.V.X)
++		vay[lane] = float64(a.CVelocity.V.Y)
++		wa[lane] = float64(a.CVelocity.W)
++		vbx[lane] = float64(b.CVelocity.V.X)
++		vby[lane] = float64(b.CVelocity.V.Y)
++		wb[lane] = float64(b.CVelocity.W)
++		nx[lane] = float64(c.VNormal.X)
++		ny[lane] = float64(c.VNormal.Y)
++		rax[lane] = float64(p.RA.X)
++		ray[lane] = float64(p.RA.Y)
++		rbx[lane] = float64(p.RB.X)
++		rby[lane] = float64(p.RB.Y)
++		ma[lane] = float64(c.InvMassA)
++		mb[lane] = float64(c.InvMassB)
++		ia[lane] = float64(c.InvIA)
++		ib[lane] = float64(c.InvIB)
++		tm[lane] = float64(p.TangentMass)
++		nm[lane] = float64(p.NormalMass)
++		bias[lane] = float64(p.VelocityBias)
++		friction[lane] = float64(c.Friction)
++		ti[lane] = float64(p.TangentImpulse)
++		ni[lane] = float64(p.NormalImpulse)
++	}
++	batchKernel64(&vax, &vay, &wa, &vbx, &vby, &wb, &nx, &ny, &rax, &ray, &rbx, &rby, &ma, &mb, &ia, &ib, &tm, &nm, &bias, &friction, &ti, &ni, iterations)
++	for lane, c := range contacts {
++		a, b, p := c.FixtureA.Body, c.FixtureB.Body, &c.VPoints[0]
++		a.CVelocity.V.X = float64(vax[lane])
++		a.CVelocity.V.Y = float64(vay[lane])
++		a.CVelocity.W = float64(wa[lane])
++		b.CVelocity.V.X = float64(vbx[lane])
++		b.CVelocity.V.Y = float64(vby[lane])
++		b.CVelocity.W = float64(wb[lane])
++		p.TangentImpulse = float64(ti[lane])
++		p.NormalImpulse = float64(ni[lane])
++	}
++}
++
++//go:noinline
++func batchKernel64(pvax, pvay, pwa, pvbx, pvby, pwb, pnx, pny, prax, pray, prbx, prby, pma, pmb, pia, pib, ptm, pnm, pbias, pfriction, pti, pni *[4]float64, iterations int) {
++	vax := archsimd.LoadFloat64x4Array(pvax)
++	vay := archsimd.LoadFloat64x4Array(pvay)
++	wa := archsimd.LoadFloat64x4Array(pwa)
++	vbx := archsimd.LoadFloat64x4Array(pvbx)
++	vby := archsimd.LoadFloat64x4Array(pvby)
++	wb := archsimd.LoadFloat64x4Array(pwb)
++	nx := archsimd.LoadFloat64x4Array(pnx)
++	ny := archsimd.LoadFloat64x4Array(pny)
++	rax := archsimd.LoadFloat64x4Array(prax)
++	ray := archsimd.LoadFloat64x4Array(pray)
++	rbx := archsimd.LoadFloat64x4Array(prbx)
++	rby := archsimd.LoadFloat64x4Array(prby)
++	ma := archsimd.LoadFloat64x4Array(pma)
++	mb := archsimd.LoadFloat64x4Array(pmb)
++	ia := archsimd.LoadFloat64x4Array(pia)
++	ib := archsimd.LoadFloat64x4Array(pib)
++	tm := archsimd.LoadFloat64x4Array(ptm)
++	nm := archsimd.LoadFloat64x4Array(pnm)
++	bias := archsimd.LoadFloat64x4Array(pbias)
++	friction := archsimd.LoadFloat64x4Array(pfriction)
++	ti := archsimd.LoadFloat64x4Array(pti)
++	ni := archsimd.LoadFloat64x4Array(pni)
++	zero := archsimd.BroadcastFloat64x4(0)
++	for i := 0; i < iterations; i++ {
++		tx := ny
++		ty := zero.Sub(nx)
++		dx := vbx.Add(zero.Sub(wb).Mul(rby)).Sub(vax).Sub(zero.Sub(wa).Mul(ray))
++		dy := vby.Add(wb.Mul(rbx)).Sub(vay).Sub(wa.Mul(rax))
++		vt := dx.Mul(tx).Add(dy.Mul(ty))
++		impulse := tm.Mul(zero.Sub(vt))
++		limit := friction.Mul(ni)
++		next := zero.Sub(limit).Max(ti.Add(impulse).Min(limit))
++		impulse = next.Sub(ti)
++		ti = next
++		px := tx.Mul(impulse)
++		py := ty.Mul(impulse)
++		vax = vax.Add(px.Mul(zero.Sub(ma)))
++		vay = vay.Add(py.Mul(zero.Sub(ma)))
++		wa = wa.Sub(ia.Mul(rax.Mul(py).Sub(ray.Mul(px))))
++		vbx = vbx.Add(px.Mul(mb))
++		vby = vby.Add(py.Mul(mb))
++		wb = wb.Add(ib.Mul(rbx.Mul(py).Sub(rby.Mul(px))))
++		dx = vbx.Add(zero.Sub(wb).Mul(rby)).Sub(vax).Sub(zero.Sub(wa).Mul(ray))
++		dy = vby.Add(wb.Mul(rbx)).Sub(vay).Sub(wa.Mul(rax))
++		vn := dx.Mul(nx).Add(dy.Mul(ny))
++		impulse = zero.Sub(nm).Mul(vn.Sub(bias))
++		next = ni.Add(impulse).Max(zero)
++		impulse = next.Sub(ni)
++		ni = next
++		px = nx.Mul(impulse)
++		py = ny.Mul(impulse)
++		vax = vax.Add(px.Mul(zero.Sub(ma)))
++		vay = vay.Add(py.Mul(zero.Sub(ma)))
++		wa = wa.Sub(ia.Mul(rax.Mul(py).Sub(ray.Mul(px))))
++		vbx = vbx.Add(px.Mul(mb))
++		vby = vby.Add(py.Mul(mb))
++		wb = wb.Add(ib.Mul(rbx.Mul(py).Sub(rby.Mul(px))))
++	}
++	vax.StoreArray(pvax)
++	vay.StoreArray(pvay)
++	wa.StoreArray(pwa)
++	vbx.StoreArray(pvbx)
++	vby.StoreArray(pvby)
++	wb.StoreArray(pwb)
++	ti.StoreArray(pti)
++	ni.StoreArray(pni)
++	archsimd.ClearAVXUpperBits()
++}
+--- a/internal/physics/solver.go
++++ b/internal/physics/solver.go
+@@ -6,6 +6,7 @@
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
+ 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+ 	"math"
++	"slices"
+ )
+ 
+ const maxTOISubsteps = 8
+@@ -16,6 +17,10 @@
+ 	VelocityIterations, PositionIterations int
+ }
+ type Solver struct {
++	batch         [4]*Contact
++	batchCount    int
++	batchBodies   [2]*Body
++	batchContact  [1]*Contact
+ 	World         *World
+ 	Stack, Bodies []*Body
+ 	Contacts      []*Contact
+@@ -44,16 +49,15 @@
+ }
+ func (s *Solver) SolveWorld(step TimeStep) {
+ 	world := s.World
+-	for c := world.ContactList; c != nil; c = c.Next {
+-		c.IslandFlag = false
+-	}
++	s.batchCount = 0
++
+ 	clear(s.isolated)
+ 	isolated := s.isolated[:0]
+ 	for _, seed := range world.activeBodies {
+ 		if seed.IslandFlag || seed.Parked {
+ 			continue
+ 		}
+-		if seed.ContactList == nil {
++		if seed.solverContacts == nil {
+ 			seed.IslandFlag = true
+ 			isolated = append(isolated, seed)
+ 			continue
+@@ -67,7 +71,7 @@
+ 			s.Stack[last] = nil
+ 			s.Stack = s.Stack[:last]
+ 			s.AddBody(b)
+-			for ce := b.ContactList; ce != nil; ce = ce.Next {
++			for ce := b.solverContacts; ce != nil; ce = ce.solverNext {
+ 				c := ce.Contact
+ 				if c.IslandFlag || !c.EnabledFlag || !c.TouchingFlag {
+ 					continue
+@@ -85,8 +89,18 @@
+ 				other.IslandFlag = true
+ 			}
+ 		}
+-		s.SolveIsland(step)
+-	}
++		if len(s.Contacts) == 1 && len(s.Bodies) == 2 && s.Contacts[0].Manifold.PointCount == 1 {
++			s.prepareIsland()
++			s.batch[s.batchCount] = s.Contacts[0]
++			s.batchCount++
++			if s.batchCount == 4 {
++				s.flushBatch(step)
++			}
++		} else {
++			s.SolveIsland(step)
++		}
++	}
++	s.flushBatch(step)
+ 	s.Clear()
+ 	bodies := s.Bodies
+ 	s.Bodies = isolated
+@@ -95,10 +109,7 @@
+ 	}
+ 	s.Bodies, s.isolated = bodies, isolated
+ }
+-func (s *Solver) SolveIsland(step TimeStep) {
+-	h := step.DT
+-	rules := &s.World.Rules
+-	maxTranslation, maxRotation := rules.Physics.MaxTranslation, rules.Physics.MaxRotation
++func (s *Solver) prepareIsland() {
+ 	for _, b := range s.Bodies {
+ 		b.Sweep.C0 = b.Sweep.C
+ 		b.Sweep.A0 = b.Sweep.A
+@@ -111,11 +122,20 @@
+ 	for _, c := range s.Contacts {
+ 		c.InitVelocityConstraint()
+ 	}
++}
++func (s *Solver) SolveIsland(step TimeStep) {
++	s.prepareIsland()
+ 	for i := 0; i < step.VelocityIterations; i++ {
+ 		for _, c := range s.Contacts {
+ 			c.SolveVelocityConstraint()
+ 		}
+ 	}
++	s.finishIsland(step)
++}
++func (s *Solver) finishIsland(step TimeStep) {
++	h := step.DT
++	rules := &s.World.Rules
++	maxTranslation, maxRotation := rules.Physics.MaxTranslation, rules.Physics.MaxRotation
+ 	for _, b := range s.Bodies {
+ 		c, a, v, w := b.CPosition.C, b.CPosition.A, b.CVelocity.V, b.CVelocity.W
+ 		translation := Vec.Scale(v, h)
+@@ -155,10 +175,12 @@
+ func (s *Solver) SolveWorldTOI(step TimeStep) {
+ 	world := s.World
+ 	linearSlop := world.Rules.LinearSlop
+-	world.toiCandidates = nil
++	clear(world.toiPending)
++	clear(world.toiReady)
++	world.toiPending = world.toiPending[:0]
++	world.toiReady = world.toiReady[:0]
+ 	world.collectingTOI = true
+ 	defer func() { world.collectingTOI = false }()
+-	var tail *Contact
+ 	for _, b := range world.activeBodies {
+ 		b.IslandFlag = false
+ 		b.Sweep.Alpha0 = 0
+@@ -171,32 +193,33 @@
+ 			c.TOICount = maxTOISubsteps + 1
+ 		}
+ 		c.TOI = 1
+-		c.TOIPrev, c.TOINext = nil, nil
++		c.toiQueue = 0
+ 		c.toiListed = false
+-		if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
++		if !c.allowsCollision(world) {
+ 			c.EnabledFlag, c.TouchingFlag = false, false
+ 			continue
+ 		}
+ 		if c.TOICount <= maxTOISubsteps {
+-			c.toiListed = true
+-			c.TOIPrev = tail
+-			if tail == nil {
+-				world.toiCandidates = c
+-			} else {
+-				tail.TOINext = c
+-			}
+-			tail = c
+-		}
+-	}
++			world.addTOICandidate(c)
++		}
++	}
++
+ 	for {
+-		var minContact *Contact
+-		minAlpha := 1.0
+-		for c := world.toiCandidates; c != nil; {
+-			next := c.TOINext
++		slices.SortFunc(world.toiPending, func(a, b *Contact) int {
++			if a.toiOrder > b.toiOrder {
++				return -1
++			}
++			if a.toiOrder < b.toiOrder {
++				return 1
++			}
++			return 0
++		})
++		for _, c := range world.toiPending {
++			c.toiQueue = 0
+ 			if !c.EnabledFlag || c.TOICount > maxTOISubsteps {
+-				c = next
+ 				continue
+ 			}
++
+ 			alpha := 1.0
+ 			if c.TOIFlag {
+ 				alpha = c.TOI
+@@ -224,15 +247,19 @@
+ 				c.TOI = alpha
+ 				c.TOIFlag = true
+ 			}
+-			if alpha < minAlpha {
+-				minContact = c
+-				minAlpha = alpha
+-			}
+-			if alpha >= 1 {
+-				world.removeTOICandidate(c)
+-			}
+-			c = next
+-		}
++			if alpha < 1 {
++				world.pushTOI(c)
++			}
++		}
++		clear(world.toiPending)
++		world.toiPending = world.toiPending[:0]
++		if len(world.toiReady) == 0 {
++			break
++		}
++		minContact := world.toiReady[0]
++		minAlpha := minContact.TOI
++		world.removeTOICandidate(minContact)
++
+ 		if minContact == nil || 1-toiEndTolerance < minAlpha {
+ 			break
+ 		}
+@@ -374,3 +401,21 @@
+ 		body.SynchronizeTransform()
+ 	}
+ }
++
++func (s *Solver) flushBatch(step TimeStep) {
++	if s.batchCount == 0 {
++		return
++	}
++	contacts := s.batch[:s.batchCount]
++	solveBatch64(contacts, step.VelocityIterations)
++	bodies, oldContacts := s.Bodies, s.Contacts
++	for _, c := range contacts {
++		s.batchBodies = [2]*Body{c.FixtureA.Body, c.FixtureB.Body}
++		s.batchContact = [1]*Contact{c}
++		s.Bodies, s.Contacts = s.batchBodies[:], s.batchContact[:]
++		s.finishIsland(step)
++	}
++	s.Bodies, s.Contacts = bodies, oldContacts
++	clear(s.batch[:])
++	s.batchCount = 0
++}
+--- a/internal/physics/world.go
++++ b/internal/physics/world.go
+@@ -8,10 +8,11 @@
+ )
+ 
+ type World struct {
++	neighborEpoch                    uint64
+ 	Solver                           *Solver
+ 	BroadPhase                       *collision.BroadPhase[*Fixture]
+ 	ContactList                      *Contact
+-	toiCandidates                    *Contact
++	toiPending, toiReady             []*Contact
+ 	collectingTOI                    bool
+ 	nextContactOrder                 uint64
+ 	BodyList                         *Body
+@@ -85,16 +86,13 @@
+ 		w.NewFixture = false
+ 	}
+ 	w.Locked = true
++	w.prepareActiveBodies()
+ 	if w.LimitCollisionNeighbors {
+-		w.prepareActiveBodies()
+ 		w.prepareCollisionNeighbors()
+ 	}
+ 	w.step = TimeStep{DT: dt, VelocityIterations: velocityIterations, PositionIterations: positionIterations}
+ 	w.UpdateContacts()
+ 	if dt > 0 {
+-		if !w.LimitCollisionNeighbors {
+-			w.prepareActiveBodies()
+-		}
+ 		w.Solver.SolveWorld(w.step)
+ 		for _, b := range w.activeBodies {
+ 			if b.IslandFlag {
+@@ -116,6 +114,7 @@
+ 	w.activeBodies = w.activeBodies[:0]
+ 	for b := w.BodyList; b != nil; b = b.Next {
+ 		b.IslandFlag = false
++		b.solverContacts, b.solverTail = nil, nil
+ 		if b.Parked {
+ 			b.Sweep.Alpha0 = 0
+ 		} else {
+@@ -127,6 +126,7 @@
+ // Rank body neighbors once, sharing the result across all their fixtures.
+ // Contacts remain cached so a deferred neighbor is reconsidered next update.
+ func (w *World) prepareCollisionNeighbors() {
++	w.neighborEpoch++
+ 	for _, body := range w.activeBodies {
+ 		if body.neighborCount <= 8 {
+ 			continue
+@@ -137,29 +137,12 @@
+ 		if body.neighborDirty {
+ 			body.neighborDirty = false
+ 			body.Neighborhood = nil
+-			var unique [8]*Body
+ 			count := 0
+-			crowded := false
+-			for edge := body.ContactList; edge != nil; edge = edge.Next {
+-				seen := false
+-				for _, other := range unique[:count] {
+-					if edge.Other == other {
+-						seen = true
+-						break
+-					}
+-				}
+-				if seen {
+-					continue
+-				}
+-				if count == 8 {
+-					crowded = true
+-					break
+-				}
+-				unique[count] = edge.Other
++			for pair := body.pairs; pair != nil; pair = pair.next {
+ 				count++
+ 			}
+-			if !crowded {
+-				body.neighborCount = count
++			body.neighborCount = min(count, 9)
++			if count <= 8 {
+ 				continue
+ 			}
+ 			if body.neighborhoodCache == nil {
+@@ -167,17 +150,11 @@
+ 			}
+ 			body.Neighborhood = body.neighborhoodCache
+ 		}
++
+ 		*body.Neighborhood = CollisionNeighborhood{}
+-		var last *Body
+-		for edge := body.ContactList; edge != nil; edge = edge.Next {
+-			other := edge.Other
+-			if other == last {
+-				continue
+-			}
+-			last = other
+-			if body.AllowsCollision(other) {
+-				continue
+-			}
++		for pair := body.pairs; pair != nil; pair = pair.next {
++			other := pair.other
++
+ 			dx, dy := body.Xf.P.X-other.Xf.P.X, body.Xf.P.Y-other.Xf.P.Y
+ 			body.AddCollisionNeighbor(other, dx*dx+dy*dy)
+ 		}
+@@ -188,16 +165,21 @@
+ 	if bodyA == bodyB {
+ 		return
+ 	}
+-	pairExists := false
+-	for edge := bodyB.ContactList; edge != nil; edge = edge.Next {
+-		if edge.Other == bodyA {
+-			pairExists = true
+-			fa, fb := edge.Contact.FixtureA, edge.Contact.FixtureB
+-			if (fa == a && fb == b) || (fa == b && fb == a) {
++	var pair *bodyPair
++	for edge := bodyB.pairs; edge != nil; edge = edge.next {
++		if edge.other == bodyA {
++			pair = edge.pair
++			break
++		}
++	}
++	if pair != nil {
++		for c := pair.contacts; c != nil; c = c.pairNext {
++			if c.FixtureA == a && c.FixtureB == b || c.FixtureA == b && c.FixtureB == a {
+ 				return
+ 			}
+ 		}
+ 	}
++
+ 	if !b.ShouldCollide(a) {
+ 		return
+ 	}
+@@ -205,7 +187,7 @@
+ 	if contact == nil {
+ 		return
+ 	}
+-	if w.LimitCollisionNeighbors && !pairExists {
++	if w.LimitCollisionNeighbors && pair == nil {
+ 		for _, body := range [2]*Body{bodyA, bodyB} {
+ 			body.neighborCount = min(body.neighborCount+1, 9)
+ 			if body.neighborCount == 9 {
+@@ -215,6 +197,7 @@
+ 	}
+ 	w.nextContactOrder++
+ 	contact.toiOrder = w.nextContactOrder
++	w.linkPair(contact, pair)
+ 	contact.Prev = nil
+ 	if w.ContactList != nil {
+ 		contact.Next = w.ContactList
+@@ -232,6 +215,25 @@
+ 			w.DestroyContact(c)
+ 		} else {
+ 			c.Update(w)
++			c.IslandFlag = false
++			if c.EnabledFlag && c.TouchingFlag && c.FixtureA.Physics && c.FixtureB.Physics {
++				for _, edge := range [2]*ContactEdge{&c.NodeA, &c.NodeB} {
++					body := edge.Other
++					// Node A is linked to A and names B as Other.
++					if edge == &c.NodeA {
++						body = c.FixtureA.Body
++					} else {
++						body = c.FixtureB.Body
++					}
++					edge.solverNext = nil
++					if body.solverTail == nil {
++						body.solverContacts = edge
++					} else {
++						body.solverTail.solverNext = edge
++					}
++					body.solverTail = edge
++				}
++			}
+ 		}
+ 		c = next
+ 	}
+@@ -245,6 +247,7 @@
+ 		}
+ 	}
+ 	w.removeTOICandidate(c)
++	w.unlinkPair(c)
+ 	if c.Prev != nil {
+ 		c.Prev.Next = c.Next
+ 	}
+@@ -269,41 +272,79 @@
+ 	}
+ }
+ 
+-// Keep the original contact order while excluding contacts whose continuous
+-// collision budget is exhausted. New contacts join at the same head position.
++// Pending contacts are evaluated in original contact order; ready contacts are
++// ordered by impact time, breaking ties by that same contact order.
+ func (w *World) addTOICandidate(c *Contact) {
+-	if c.toiListed || c.TOICount > maxTOISubsteps {
+-		return
+-	}
+-	c.toiListed = true
+-	var previous *Contact
+-	next := w.toiCandidates
+-	for next != nil && next.toiOrder > c.toiOrder {
+-		previous = next
+-		next = next.TOINext
+-	}
+-	c.TOIPrev, c.TOINext = previous, next
+-	if previous == nil {
+-		w.toiCandidates = c
+-	} else {
+-		previous.TOINext = c
+-	}
+-	if next != nil {
+-		next.TOIPrev = c
+-	}
++	if c.TOICount > maxTOISubsteps || c.toiQueue == 1 {
++		return
++	}
++	w.removeTOICandidate(c)
++	c.toiQueue = 1
++	c.toiIndex = len(w.toiPending)
++	w.toiPending = append(w.toiPending, c)
++}
++func toiBefore(a, b *Contact) bool {
++	return a.TOI < b.TOI || (a.TOI == b.TOI && a.toiOrder > b.toiOrder)
++}
++func (w *World) toiUp(index int) int {
++	c := w.toiReady[index]
++	for index > 0 {
++		parent := (index - 1) / 2
++		if !toiBefore(c, w.toiReady[parent]) {
++			break
++		}
++		w.toiReady[index] = w.toiReady[parent]
++		w.toiReady[index].toiIndex = index
++		index = parent
++	}
++	w.toiReady[index] = c
++	c.toiIndex = index
++	return index
++}
++func (w *World) toiDown(index int) {
++	c := w.toiReady[index]
++	for {
++		child := 2*index + 1
++		if child >= len(w.toiReady) {
++			break
++		}
++		if child+1 < len(w.toiReady) && toiBefore(w.toiReady[child+1], w.toiReady[child]) {
++			child++
++		}
++		if !toiBefore(w.toiReady[child], c) {
++			break
++		}
++		w.toiReady[index] = w.toiReady[child]
++		w.toiReady[index].toiIndex = index
++		index = child
++	}
++	w.toiReady[index] = c
++	c.toiIndex = index
++}
++func (w *World) pushTOI(c *Contact) {
++	c.toiQueue = 2
++	c.toiIndex = len(w.toiReady)
++	w.toiReady = append(w.toiReady, c)
++	w.toiUp(c.toiIndex)
+ }
+ func (w *World) removeTOICandidate(c *Contact) {
+-	if !c.toiListed {
+-		return
+-	}
+-	if c.TOIPrev != nil {
+-		c.TOIPrev.TOINext = c.TOINext
+-	} else {
+-		w.toiCandidates = c.TOINext
+-	}
+-	if c.TOINext != nil {
+-		c.TOINext.TOIPrev = c.TOIPrev
+-	}
+-	c.TOIPrev, c.TOINext = nil, nil
+-	c.toiListed = false
+-}
++	index := c.toiIndex
++	switch c.toiQueue {
++	case 1:
++		last := len(w.toiPending) - 1
++		w.toiPending[index] = w.toiPending[last]
++		w.toiPending[index].toiIndex = index
++		w.toiPending[last] = nil
++		w.toiPending = w.toiPending[:last]
++	case 2:
++		last := len(w.toiReady) - 1
++		w.toiReady[index] = w.toiReady[last]
++		w.toiReady[index].toiIndex = index
++		w.toiReady[last] = nil
++		w.toiReady = w.toiReady[:last]
++		if index < last && w.toiUp(index) == index {
++			w.toiDown(index)
++		}
++	}
++	c.toiQueue = 0
++}

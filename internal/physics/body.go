@@ -18,6 +18,9 @@ type Position struct {
 	A float64
 }
 type Body struct {
+	poseVersion                           uint64
+	pairs                                 *bodyPairEdge
+	solverContacts, solverTail            *ContactEdge
 	World                                 *World
 	IslandFlag, Destroyed, Parked         bool
 	InvMass, InvI                         float64
@@ -32,6 +35,47 @@ type Body struct {
 	proxyTransform                        Vec.TransformValue
 	Xf                                    Vec.TransformValue
 	Sweep                                 collision.Sweep
+	Neighborhood                          *CollisionNeighborhood
+	neighborhoodCache                     *CollisionNeighborhood
+	neighborDirty                         bool
+	neighborCount                         int
+}
+
+// Allocated only for bodies with more than eight potential object neighbors.
+type CollisionNeighborhood struct {
+	Bodies    [8]*Body
+	Distances [8]float64
+	Count     int
+}
+
+func (b *Body) AllowsCollision(other *Body) bool {
+	if b.Neighborhood == nil {
+		return true
+	}
+	for _, candidate := range b.Neighborhood.Bodies[:b.Neighborhood.Count] {
+		if candidate == other {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *Body) AddCollisionNeighbor(other *Body, distance float64) {
+	n := b.Neighborhood
+	at := n.Count
+	if at == len(n.Bodies) {
+		if distance >= n.Distances[at-1] {
+			return
+		}
+		at--
+	} else {
+		n.Count++
+	}
+	for at > 0 && distance < n.Distances[at-1] {
+		n.Bodies[at], n.Distances[at] = n.Bodies[at-1], n.Distances[at-1]
+		at--
+	}
+	n.Bodies[at], n.Distances[at] = other, distance
 }
 
 func newBody(world *World) *Body {
@@ -42,6 +86,7 @@ func (b *Body) SetTransform(position Vec.Vector, angle float64) {
 		return
 	}
 	Vec.SetTransform(&b.Xf, position, angle)
+	b.poseVersion++
 	if angle >= -math.Pi && angle <= math.Pi {
 		b.Sweep.C, b.Sweep.C0 = position, position
 		b.Sweep.A, b.Sweep.A0 = angle, angle
@@ -72,13 +117,26 @@ func (b *Body) Unpark() {
 	}
 	b.World.NewFixture = true
 }
-func (b *Body) SynchronizeTransform() { b.Sweep.GetTransform(&b.Xf, 1) }
+func (b *Body) SynchronizeTransform() {
+	b.Sweep.GetTransform(&b.Xf, 1)
+	b.poseVersion++
+}
 func (b *Body) SynchronizeFixtures() {
 	var xf Vec.TransformValue
 	b.Sweep.GetTransform(&xf, 0)
 	b.synchronizeProxies(xf, b.Xf)
 }
 func (b *Body) SetProxyRadius(radius float64) {
+	if radius != b.proxyRadius {
+		for edge := b.ContactList; edge != nil; edge = edge.Next {
+			edge.Contact.separationUntil = 0
+			if edge.Contact.pair != nil {
+				edge.Contact.pair.motionReady = false
+				edge.Contact.pair.sweepRevision = 0
+			}
+		}
+	}
+
 	b.proxyRadius = radius
 	b.proxyMotion = 0
 	b.proxyMargin = 0
@@ -114,7 +172,7 @@ func (b *Body) Advance(alpha float64) {
 	b.Sweep.Advance(alpha)
 	b.Sweep.C = b.Sweep.C0
 	b.Sweep.A = b.Sweep.A0
-	b.Sweep.GetTransform(&b.Xf, 1)
+	b.SynchronizeTransform()
 }
 func (b *Body) GetPosition() Vec.Vector { return b.Xf.P }
 func (b *Body) GetAngle() float64       { return b.Sweep.A }

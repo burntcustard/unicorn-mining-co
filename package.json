@@ -47,12 +47,12 @@
     "format:go:check": "node scripts/format-go.mjs --check",
     "catalog:go": "tsx scripts/generate-go-catalog.ts",
     "build:client": "npm run typecheck && npm run catalog:go && vite build",
-    "test:go": "npm run catalog:go && tsx scripts/generate-go-wire-fixtures.ts && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-region-fixtures.ts && tsx scripts/generate-go-asteroid-fixtures.ts && tsx scripts/generate-go-movement-fixtures.ts && tsx scripts/generate-go-item-fixtures.ts && tsx scripts/generate-go-http-fixtures.ts && tsx scripts/generate-go-gameplay-fixtures.ts && go test ./cmd/... ./internal/... ./tests/go-fixtures/snapshot && tsx tests/go-snapshot.test.ts && tsx tests/go-session.test.ts",
-    "build:go": "npm run build:client && mkdir -p bin && go build -o bin/go-server ./cmd/go-server",
-    "start:go-server": "go run ./cmd/go-server",
+    "test:go": "npm run catalog:go && tsx scripts/generate-go-wire-fixtures.ts && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-rotation-fixtures.ts && tsx scripts/generate-go-region-fixtures.ts && tsx scripts/generate-go-asteroid-fixtures.ts && tsx scripts/generate-go-movement-fixtures.ts && tsx scripts/generate-go-item-fixtures.ts && tsx scripts/generate-go-http-fixtures.ts && tsx scripts/generate-go-gameplay-fixtures.ts && GOEXPERIMENT=simd go test ./cmd/... ./internal/... ./tests/go-fixtures/snapshot && tsx tests/go-snapshot.test.ts && tsx tests/go-session.test.ts",
+    "build:go": "npm run build:client && mkdir -p bin && GOEXPERIMENT=simd go build -o bin/go-server ./cmd/go-server",
+    "start:go-server": "GOEXPERIMENT=simd go run ./cmd/go-server",
     "dev:go-server": "npm run build:client && npm run start:go-server",
-    "test:go:physics": "npm run catalog:go && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && go test ./internal/collision/... ./internal/physics/...",
-    "benchmark:go": "node benchmarking/go-server.mjs"
+    "test:go:physics": "npm run catalog:go && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-rotation-fixtures.ts && go test ./internal/collision/... ./internal/physics/...",
+    "benchmark:go": "GOEXPERIMENT=simd node benchmarking/go-server.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"

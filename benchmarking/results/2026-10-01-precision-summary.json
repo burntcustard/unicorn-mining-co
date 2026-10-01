@@ -1,0 +1,1082 @@
+[
+  {
+    "experiment": "v2",
+    "meanCpuChangePercent": -0.17532265047590714,
+    "aggregateCpuChangePercent": 0.025301497932073147,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.028485555555555556,
+        "after": 0.03224888888888889,
+        "cpuChangePercent": 13.211374185747161,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.022147777777777777,
+        "after": 0.018774444444444444,
+        "cpuChangePercent": -15.231023930166055,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.09047222222222222,
+        "after": 0.10001666666666667,
+        "cpuChangePercent": 10.549585508136339,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.05324444444444445,
+        "after": 0.05323888888888889,
+        "cpuChangePercent": -0.010434056761277066,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.057338888888888884,
+        "after": 0.056584444444444444,
+        "cpuChangePercent": -1.3157639763588747,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.04765,
+        "after": 0.045165555555555556,
+        "cpuChangePercent": -5.213944269558112,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.24434,
+        "after": 0.24827666666666667,
+        "cpuChangePercent": 1.611142942893773,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.11228,
+        "after": 0.09960555555555554,
+        "cpuChangePercent": -11.288247634881065,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.11418555555555555,
+        "after": 0.11472555555555555,
+        "cpuChangePercent": 0.47291445697548173,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12200555555555556,
+        "after": 0.12333777777777778,
+        "cpuChangePercent": 1.0919357042028954,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.45366,
+        "after": 0.4583011111111111,
+        "cpuChangePercent": 1.0230373211460364,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.23620777777777777,
+        "after": 0.2370511111111111,
+        "cpuChangePercent": 0.3570302981838136,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.2379822222222222,
+        "after": 0.23820555555555556,
+        "cpuChangePercent": 0.09384454487730842,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.3508266666666667,
+        "after": 0.36247,
+        "cpuChangePercent": 3.3188279112192243,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.157837777777778,
+        "after": 1.1429244444444444,
+        "cpuChangePercent": -1.2880330577878074,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.6675855555555555,
+        "after": 0.6663344444444445,
+        "cpuChangePercent": -0.18740835548335388,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "v3-nofma",
+    "meanCpuChangePercent": -0.8438492852430146,
+    "aggregateCpuChangePercent": 0.01628475114308081,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.028824444444444444,
+        "after": 0.028934444444444443,
+        "cpuChangePercent": 0.38162053812349495,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.018743333333333334,
+        "after": 0.018738888888888888,
+        "cpuChangePercent": -0.023712134684927832,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.0998588888888889,
+        "after": 0.10241444444444445,
+        "cpuChangePercent": 2.5591668242964882,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.05400666666666667,
+        "after": 0.05244666666666666,
+        "cpuChangePercent": -2.88853227996545,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.054033333333333336,
+        "after": 0.05420888888888888,
+        "cpuChangePercent": 0.3249023236685078,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.04414444444444444,
+        "after": 0.04065222222222223,
+        "cpuChangePercent": -7.910898565315849,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.2464011111111111,
+        "after": 0.2412388888888889,
+        "cpuChangePercent": -2.095048272689959,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.09745,
+        "after": 0.09590444444444443,
+        "cpuChangePercent": -1.5859985177584024,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.11534111111111112,
+        "after": 0.11402222222222223,
+        "cpuChangePercent": -1.1434681668866187,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12620777777777778,
+        "after": 0.11955,
+        "cpuChangePercent": -5.275251569281691,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.4595,
+        "after": 0.4547877777777778,
+        "cpuChangePercent": -1.0255108209406338,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.23673555555555556,
+        "after": 0.23848888888888886,
+        "cpuChangePercent": 0.7406294881302067,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.23695333333333335,
+        "after": 0.23906333333333335,
+        "cpuChangePercent": 0.89047069746504,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.35115111111111114,
+        "after": 0.35540333333333335,
+        "cpuChangePercent": 1.210937994405703,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.1642511111111111,
+        "after": 1.1617944444444444,
+        "cpuChangePercent": -0.21100831626625904,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.6510388888888888,
+        "after": 0.667641111111111,
+        "cpuChangePercent": 2.550112213812117,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "motion-f32",
+    "meanCpuChangePercent": 0.015368333027950681,
+    "aggregateCpuChangePercent": 0.19378691580391738,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.028673333333333335,
+        "after": 0.028656666666666667,
+        "cpuChangePercent": -0.058126017205306635,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.019352222222222226,
+        "after": 0.018975555555555555,
+        "cpuChangePercent": -1.9463742320721344,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.09243666666666667,
+        "after": 0.09938666666666666,
+        "cpuChangePercent": 7.518661425841122,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.05504888888888888,
+        "after": 0.05755222222222222,
+        "cpuChangePercent": 4.547472953334419,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.05473777777777778,
+        "after": 0.055216666666666664,
+        "cpuChangePercent": 0.874878207210128,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.04219111111111111,
+        "after": 0.04098444444444445,
+        "cpuChangePercent": -2.86000210681554,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.23929666666666666,
+        "after": 0.21280666666666667,
+        "cpuChangePercent": -11.069941077323818,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.09545888888888888,
+        "after": 0.10291222222222221,
+        "cpuChangePercent": 7.807898688207837,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.11661111111111111,
+        "after": 0.11686444444444444,
+        "cpuChangePercent": 0.21724630776560616,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12109777777777778,
+        "after": 0.12117555555555556,
+        "cpuChangePercent": 0.06422725437664756,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.45751888888888886,
+        "after": 0.4538566666666667,
+        "cpuChangePercent": -0.8004526831921877,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.23960444444444445,
+        "after": 0.2358611111111111,
+        "cpuChangePercent": -1.5622971193263058,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.23406555555555555,
+        "after": 0.2433877777777778,
+        "cpuChangePercent": 3.9827398781917767,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.3493177777777778,
+        "after": 0.3125644444444444,
+        "cpuChangePercent": -10.521460879301248,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.1498244444444445,
+        "after": 1.21127,
+        "cpuChangePercent": 5.343907572363693,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.66272,
+        "after": 0.6541544444444445,
+        "cpuChangePercent": -1.2924848436074776,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      }
+    ]
+  },
+  {
+    "experiment": "replication-f32",
+    "meanCpuChangePercent": -0.1459576303898938,
+    "aggregateCpuChangePercent": -0.015043667104563951,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.02833888888888889,
+        "after": 0.028795555555555557,
+        "cpuChangePercent": 1.6114487355420648,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.019332222222222223,
+        "after": 0.019197777777777775,
+        "cpuChangePercent": -0.6954422667969529,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.09256444444444445,
+        "after": 0.09101222222222223,
+        "cpuChangePercent": -1.676909780573288,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.053303333333333335,
+        "after": 0.05291,
+        "cpuChangePercent": -0.737915077230944,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.05429777777777778,
+        "after": 0.05467444444444444,
+        "cpuChangePercent": 0.6937054923467301,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.04635222222222222,
+        "after": 0.04317666666666667,
+        "cpuChangePercent": -6.850924083706866,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.24303888888888892,
+        "after": 0.24151666666666669,
+        "cpuChangePercent": -0.626328662536868,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.09661111111111112,
+        "after": 0.09546555555555555,
+        "cpuChangePercent": -1.1857389304197885,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.11392555555555556,
+        "after": 0.1221711111111111,
+        "cpuChangePercent": 7.237669823373927,
+        "changedFields": ["bytes"]
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12019222222222223,
+        "after": 0.12051333333333333,
+        "cpuChangePercent": 0.2671646344281742,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.4589533333333333,
+        "after": 0.4559377777777778,
+        "cpuChangePercent": -0.6570505836952623,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.23787555555555556,
+        "after": 0.23685555555555554,
+        "cpuChangePercent": -0.4287956354396383,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.23797333333333331,
+        "after": 0.23851222222222224,
+        "cpuChangePercent": 0.22644927536232817,
+        "changedFields": ["bytes"]
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.35091,
+        "after": 0.35479,
+        "cpuChangePercent": 1.1056966173662808,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.15671,
+        "after": 1.1607266666666667,
+        "cpuChangePercent": 0.3472492385011572,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.6706244444444445,
+        "after": 0.6641488888888889,
+        "cpuChangePercent": -0.9656008827593543,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "trig",
+    "meanCpuChangePercent": 0.2860978544141891,
+    "aggregateCpuChangePercent": 2.2725184069677606,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.028564444444444444,
+        "after": 0.02880333333333333,
+        "cpuChangePercent": 0.8363155437995928,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.019134444444444444,
+        "after": 0.019046666666666667,
+        "cpuChangePercent": -0.4587422333197755,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.09128777777777779,
+        "after": 0.10465777777777777,
+        "cpuChangePercent": 14.645991309533922,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.05330222222222222,
+        "after": 0.053810000000000004,
+        "cpuChangePercent": 0.9526390394396733,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.05406222222222222,
+        "after": 0.05420666666666667,
+        "cpuChangePercent": 0.2671818480763033,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.04197666666666667,
+        "after": 0.041544444444444446,
+        "cpuChangePercent": -1.029672569416873,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.2423811111111111,
+        "after": 0.19433555555555554,
+        "cpuChangePercent": -19.822318387479775,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.09552666666666668,
+        "after": 0.09758888888888889,
+        "cpuChangePercent": 2.158792192988579,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.1156488888888889,
+        "after": 0.11458888888888888,
+        "cpuChangePercent": -0.9165673878790415,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12135777777777777,
+        "after": 0.11982111111111111,
+        "cpuChangePercent": -1.266228415520676,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.4587755555555556,
+        "after": 0.45733333333333337,
+        "cpuChangePercent": -0.3143633536611956,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.23342222222222223,
+        "after": 0.2265411111111111,
+        "cpuChangePercent": -2.9479246001523296,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.23845,
+        "after": 0.23908333333333334,
+        "cpuChangePercent": 0.26560424966799445,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.3515688888888889,
+        "after": 0.35329,
+        "cpuChangePercent": 0.48955159728456543,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.1455344444444444,
+        "after": 1.2708566666666665,
+        "cpuChangePercent": 10.940065820805621,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.6504488888888889,
+        "after": 0.6555044444444444,
+        "cpuChangePercent": 0.7772410164604393,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      }
+    ]
+  },
+  {
+    "experiment": "trig-sse",
+    "meanCpuChangePercent": 2.6061942761577312,
+    "aggregateCpuChangePercent": 4.028425031685945,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.028574444444444444,
+        "after": 0.02894888888888889,
+        "cpuChangePercent": 1.3104172337364384,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.019114444444444444,
+        "after": 0.022186666666666667,
+        "cpuChangePercent": 16.072778003836554,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.09251777777777778,
+        "after": 0.09753666666666667,
+        "cpuChangePercent": 5.424783224845675,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.053790000000000004,
+        "after": 0.054308888888888886,
+        "cpuChangePercent": 0.9646567928776273,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.05526111111111111,
+        "after": 0.05747888888888889,
+        "cpuChangePercent": 4.013270332763663,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.0421,
+        "after": 0.04697111111111111,
+        "cpuChangePercent": 11.570335180786495,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.2525922222222222,
+        "after": 0.20384777777777777,
+        "cpuChangePercent": -19.29768225466607,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.10052888888888889,
+        "after": 0.09998777777777779,
+        "cpuChangePercent": -0.5382642910827129,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.11868,
+        "after": 0.11739999999999999,
+        "cpuChangePercent": -1.0785305021907665,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12087555555555556,
+        "after": 0.12314666666666665,
+        "cpuChangePercent": 1.8788837004081183,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.4572611111111111,
+        "after": 0.47019777777777777,
+        "cpuChangePercent": 2.829163983622296,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.24315444444444445,
+        "after": 0.23878666666666665,
+        "cpuChangePercent": -1.7962977348644493,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.24054333333333333,
+        "after": 0.24366444444444443,
+        "cpuChangePercent": 1.297525509379227,
+        "changedFields": ["events", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.34851444444444446,
+        "after": 0.3506233333333333,
+        "cpuChangePercent": 0.6051080299557032,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.1600133333333333,
+        "after": 1.293007777777778,
+        "cpuChangePercent": 11.464906533641383,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.6684288888888889,
+        "after": 0.7150722222222223,
+        "cpuChangePercent": 6.978054675474521,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      }
+    ]
+  },
+  {
+    "experiment": "trig-packed",
+    "meanCpuChangePercent": 1.2018947744173039,
+    "aggregateCpuChangePercent": -0.004397428603630793,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.028123333333333334,
+        "after": 0.032724444444444445,
+        "cpuChangePercent": 16.36047568250958,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.02198111111111111,
+        "after": 0.02206,
+        "cpuChangePercent": 0.3588939998989016,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.09617222222222223,
+        "after": 0.09708777777777779,
+        "cpuChangePercent": 0.9519958407948836,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.05719333333333333,
+        "after": 0.05988222222222222,
+        "cpuChangePercent": 4.701402649881481,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.05405111111111111,
+        "after": 0.0537,
+        "cpuChangePercent": -0.6495909221724383,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.04232888888888889,
+        "after": 0.04247444444444444,
+        "cpuChangePercent": 0.3438681226375362,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.19469555555555557,
+        "after": 0.1976988888888889,
+        "cpuChangePercent": 1.5425792975928276,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.09755666666666667,
+        "after": 0.09690777777777777,
+        "cpuChangePercent": -0.6651404881493406,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.11437000000000001,
+        "after": 0.11383777777777777,
+        "cpuChangePercent": -0.4653512478991373,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12035777777777779,
+        "after": 0.12008,
+        "cpuChangePercent": -0.2307933753069591,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.4587277777777778,
+        "after": 0.45842,
+        "cpuChangePercent": -0.06709377384311876,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.23625222222222222,
+        "after": 0.2345388888888889,
+        "cpuChangePercent": -0.725213637026334,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.23809444444444444,
+        "after": 0.23528333333333332,
+        "cpuChangePercent": -1.1806706022353453,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.3486711111111111,
+        "after": 0.34515222222222225,
+        "cpuChangePercent": -1.0092286905201808,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.2762255555555557,
+        "after": 1.2737188888888888,
+        "cpuChangePercent": -0.19641251154665085,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.6579655555555556,
+        "after": 0.6590222222222222,
+        "cpuChangePercent": 0.16059604606115663,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "two-cores",
+    "meanCpuChangePercent": 5.10663371923674,
+    "aggregateCpuChangePercent": -0.45693414521416065,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "before": 0.032592222222222224,
+        "after": 0.033354444444444444,
+        "cpuChangePercent": 2.3386629393515657,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "before": 0.019231111111111112,
+        "after": 0.02264,
+        "cpuChangePercent": 17.725907094984983,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "before": 0.09281555555555557,
+        "after": 0.10256,
+        "cpuChangePercent": 10.498719084444641,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "before": 0.05473666666666666,
+        "after": 0.0693,
+        "cpuChangePercent": 26.606175019791745,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "before": 0.054135555555555555,
+        "after": 0.06558555555555556,
+        "cpuChangePercent": 21.150609580887505,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "before": 0.04318888888888889,
+        "after": 0.051965555555555556,
+        "cpuChangePercent": 20.321584769745304,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "before": 0.24882444444444446,
+        "after": 0.2301511111111111,
+        "cpuChangePercent": -7.504621732412864,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "before": 0.09535777777777778,
+        "after": 0.10528333333333333,
+        "cpuChangePercent": 10.408753000396164,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "before": 0.10782111111111112,
+        "after": 0.11179444444444443,
+        "cpuChangePercent": 3.685116293449009,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "before": 0.12035222222222221,
+        "after": 0.11596111111111111,
+        "cpuChangePercent": -3.648550089090341,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "before": 0.4594122222222222,
+        "after": 0.4528888888888889,
+        "cpuChangePercent": -1.419930297409011,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "before": 0.23939333333333335,
+        "after": 0.21694666666666668,
+        "cpuChangePercent": -9.376479434125152,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "before": 0.24025333333333335,
+        "after": 0.22750444444444443,
+        "cpuChangePercent": -5.306435799248954,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "before": 0.3538644444444445,
+        "after": 0.3434477777777778,
+        "cpuChangePercent": -2.943688418038304,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "before": 1.158008888888889,
+        "after": 1.1577499999999998,
+        "cpuChangePercent": -0.022356381835519912,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "before": 0.6608922222222222,
+        "after": 0.6555566666666667,
+        "cpuChangePercent": -0.807326123102936,
+        "changedFields": []
+      }
+    ]
+  }
+]

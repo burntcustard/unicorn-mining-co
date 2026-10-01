@@ -5,11 +5,12 @@ import "math"
 
 // Round matches Math.round(value * 1e8) / 1e8: ties go toward +infinity.
 func Round(value float64) float64 {
-	return RoundInteger(value*1e8) / 1e8
+	return RoundTiesUp(value*1e8) / 1e8
 }
 
-// RoundInteger implements JavaScript Math.round, including negative zero.
-func RoundInteger(scaled float64) float64 {
+// RoundTiesUp rounds to the nearest whole number with ties toward +infinity.
+// Procedural geometry keeps this existing rule, including negative zero.
+func RoundTiesUp(scaled float64) float64 {
 	lower := math.Floor(scaled)
 	rounded := lower
 	if scaled-lower >= 0.5 {
@@ -21,8 +22,8 @@ func RoundInteger(scaled float64) float64 {
 	return rounded
 }
 
-// RoundMotion uses the same simple half-up rule as client prediction.
-// Motion is far below the float64 integer precision limit.
+// Motion uses a binary grid and Go's native ties-to-even rule. Power-of-two
+// scaling is exact, and multiplication replaces the old decimal division.
 func RoundMotion(value float64) float64 {
-	return math.Floor(value*1e8+0.5) / 1e8
+	return math.RoundToEven(value*0x1p24) * 0x1p-24
 }

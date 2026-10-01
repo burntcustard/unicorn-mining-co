@@ -1,0 +1,2212 @@
+--- a/internal/collision/game/game-collisions.go
++++ b/internal/collision/game/game-collisions.go
+@@ -18,8 +18,6 @@
+ )
+ 
+ type BodyRecord struct {
+-	Object                    *simulation.GameObject
+-	visited                   uint64
+ 	Body                      *physics.Body
+ 	Entity                    simulation.Entity
+ 	Fixtures                  []*physics.Fixture
+@@ -40,7 +38,6 @@
+ var limitCollisionNeighbors = os.Getenv("GO_SERVER_COLLISION_NEIGHBORS") != "unlimited"
+ 
+ type GameCollisions struct {
+-	visit          uint64
+ 	world          *physics.World
+ 	catalog        specification.Catalog
+ 	manifold       collision.WorldManifold
+@@ -103,7 +100,7 @@
+ 		return
+ 	}
+ 	record.Ballistic = true
+-	record.Object.Ballistic = true
++	record.Entity.Base().Ballistic = true
+ }
+ func inertiaPerMass(fixtures []*physics.Fixture) float64 {
+ 	area, moment := 0.0, 0.0
+@@ -152,13 +149,12 @@
+ }
+ func (g *GameCollisions) CapturePoses(entities *utilities.OrderedMap[int64, simulation.Entity]) {
+ 	entities.ForEach(func(e simulation.Entity, _ int64) {
+-		object := e.Base()
+-		if object.InactivePhysics {
+-			object.Ballistic = true
++		if e.Base().InactivePhysics {
++			e.Base().Ballistic = true
+ 			return
+ 		}
+ 		record := g.recordFor(e)
+-		record.Previous = simulation.Pose{Position: object.Position, Rotation: object.Rotation}
++		record.Previous = simulation.Pose{Position: e.Base().Position, Rotation: e.Base().Rotation}
+ 	})
+ }
+ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.Entity], dt float64, events *[]protocol.SimulationEvent) []collision.Contact {
+@@ -169,21 +165,18 @@
+ 	g.visiting = g.visiting[:0]
+ 	clear(g.found)
+ 	g.found = g.found[:0]
+-	g.visit++
+ 	live := 0
+ 	park := false
+ 	entities.ForEach(func(e simulation.Entity, _ int64) {
+-		object := e.Base()
+-		record, _ := object.CollisionState.(*BodyRecord)
++		record, _ := e.Base().CollisionState.(*BodyRecord)
+ 		if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
+ 			record = nil
+ 		}
+ 		if record != nil && record.Entity == e && record.Body.World == g.world && !record.Body.Destroyed {
+ 			live++
+-			record.visited = g.visit
+-			park = park || object.InactivePhysics && !record.Body.Parked
+-		}
+-		if !object.InactivePhysics {
++			park = park || e.Base().InactivePhysics && !record.Body.Parked
++		}
++		if !e.Base().InactivePhysics {
+ 			g.visiting = append(g.visiting, e)
+ 			g.found = append(g.found, record)
+ 		}
+@@ -191,12 +184,11 @@
+ 	visiting := g.visiting
+ 	if park || live != g.bodies.Len() {
+ 		g.bodies.ForEach(func(record *BodyRecord, id int64) {
+-			current := record.visited == g.visit || entities.Has(id)
+-			if current && record.Object.InactivePhysics {
++			if entities.Has(id) && record.Entity.Base().InactivePhysics {
+ 				if !record.Body.Parked {
+ 					record.Body.Park()
+ 				}
+-			} else if !current {
++			} else if !entities.Has(id) {
+ 				g.world.DestroyBody(record.Body)
+ 				g.bodies.Delete(id)
+ 			}
+@@ -260,7 +252,7 @@
+ 		g.touched(contact.Other.Owner.(simulation.Entity))
+ 	}
+ 	for _, record := range g.motions {
+-		body, object, velocity, spin, start := record.Body, record.Object, record.Velocity, record.Spin, record.SweepStart
++		body, object, velocity, spin, start := record.Body, record.Entity.Base(), record.Velocity, record.Spin, record.SweepStart
+ 		if body.Parked {
+ 			angle := start.Rotation
+ 			if angle > math.Pi {
+@@ -347,7 +339,7 @@
+ 	}
+ 	bounds, free, order := g.bounds, g.free, g.sortOrder
+ 	for i, r := range motions {
+-		p, start := r.Object.Position, r.SweepStart.Position
++		p, start := r.Entity.Base().Position, r.SweepStart.Position
+ 		dx, dy := p.X-start.X, p.Y-start.Y
+ 		travel := math.Sqrt(dx*dx + dy*dy)
+ 		reach := r.Radius + travel + g.catalog.Simulation.Physics.WakeMargin
+@@ -370,7 +362,7 @@
+ 			order[j+1] = item
+ 		}
+ 	} else {
+-		slices.SortFunc(order, func(a, b int) int {
++		slices.SortStableFunc(order, func(a, b int) int {
+ 			if bounds[a*4] < bounds[b*4] {
+ 				return -1
+ 			}
+@@ -388,9 +380,6 @@
+ 			if bounds[b] > right {
+ 				break
+ 			}
+-			if !free[order[i]] && !free[order[j]] {
+-				continue
+-			}
+ 			dx, dy := bounds[a+1]-bounds[b+1], bounds[a+2]-bounds[b+2]
+ 			reach := bounds[a+3] + bounds[b+3]
+ 			if dx*dx+dy*dy <= reach*reach {
+@@ -408,9 +397,8 @@
+ 	owner.Base().Ballistic = false
+ }
+ func (g *GameCollisions) recordFor(entity simulation.Entity) *BodyRecord {
+-	object := entity.Base()
+-	id := object.ID
+-	record, _ := object.CollisionState.(*BodyRecord)
++	id := entity.Base().ID
++	record, _ := entity.Base().CollisionState.(*BodyRecord)
+ 	if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
+ 		record = nil
+ 	}
+@@ -420,9 +408,9 @@
+ 		record = nil
+ 	}
+ 	if record == nil {
+-		record = &BodyRecord{Entity: entity, Object: object, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: object.Position, Rotation: object.Rotation}}
++		record = &BodyRecord{Entity: entity, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: entity.Base().Position, Rotation: entity.Base().Rotation}}
+ 		g.bodies.Set(id, record)
+-		object.CollisionState = record
++		entity.Base().CollisionState = record
+ 	}
+ 	return record
+ }
+--- a/internal/collision/shape/polygon-polygon-contact.go
++++ b/internal/collision/shape/polygon-polygon-contact.go
+@@ -8,18 +8,13 @@
+ 	"math"
+ )
+ 
+-func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64, start int) (int, float64) {
++func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
+ 	var xf Vec.TransformValue
+ 	var n, v1 Vec.Vector
+ 	Vec.DetransformTransform(&xf, xf2, xf1)
+ 	bestIndex, maxSeparation := 0, math.Inf(-1)
+ 	vertices1, vertices2 := poly1.Vertices[:poly1.Count], poly2.Vertices[:poly2.Count]
+-	for index := range poly1.Count {
+-		i := start + index
+-		if i >= poly1.Count {
+-			i -= poly1.Count
+-		}
+-		normal := poly1.Normals[i]
++	for i, normal := range poly1.Normals[:poly1.Count] {
+ 		Vec.RotateInto(&n, xf.Q, normal)
+ 		Vec.TransformInto(&v1, xf, vertices1[i])
+ 		offset := Vec.Dot(n, v1)
+@@ -33,7 +28,7 @@
+ 		if si > limit {
+ 			return i, si
+ 		}
+-		if si > maxSeparation || si == maxSeparation && i < bestIndex {
++		if si > maxSeparation {
+ 			maxSeparation, bestIndex = si, i
+ 		}
+ 	}
+@@ -53,22 +48,14 @@
+ 	Vec.TransformInto(&clipVertex[1], xf2, poly2.Vertices[(index+1)%poly2.Count])
+ }
+ func CollidePolygons(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64) {
+-	var cache [2]uint8
+-	CollidePolygonsCached(m, a, xfA, b, xfB, linearSlop, &cache)
+-}
+-func CollidePolygonsCached(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64, cache *[2]uint8) (gap float64) {
+ 	m.PointCount = 0
+ 	totalRadius := a.Radius + b.Radius
+-	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB, totalRadius, int(cache[0]))
+-	cache[0] = uint8(edgeA)
++	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB, totalRadius)
+ 	if separationA > totalRadius {
+-		gap = separationA - totalRadius
+ 		return
+ 	}
+-	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA, totalRadius, int(cache[1]))
+-	cache[1] = uint8(edgeB)
++	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA, totalRadius)
+ 	if separationB > totalRadius {
+-		gap = separationB - totalRadius
+ 		return
+ 	}
+ 	poly1, poly2, xf1, xf2, edge1 := a, b, xfA, xfB, edgeA
+@@ -108,5 +95,4 @@
+ 		}
+ 	}
+ 	m.PointCount = pointCount
+-	return
+ }
+--- a/internal/collision/shape/polygon-shape.go
++++ b/internal/collision/shape/polygon-shape.go
+@@ -28,8 +28,7 @@
+ 		p.SetAsBox(100, 100)
+ 		return
+ 	}
+-	var points [16]Vec.Vector
+-	ps := points[:0]
++	ps := []Vec.Vector{}
+ 	for _, v := range vertices {
+ 		unique := true
+ 		for _, previous := range ps {
+@@ -54,8 +53,7 @@
+ 			i0, x0 = i, x
+ 		}
+ 	}
+-	var indices [16]int
+-	hull := indices[:0]
++	hull := []int{}
+ 	ih := i0
+ 	for {
+ 		hull = append(hull, ih)
+@@ -87,8 +85,8 @@
+ 		return
+ 	}
+ 	p.Count = m
+-	data := make([]Vec.Vector, 2*m)
+-	p.Vertices, p.Normals = data[:m:m], data[m:]
++	p.Vertices = make([]Vec.Vector, m)
++	p.Normals = make([]Vec.Vector, m)
+ 	for i, index := range hull {
+ 		p.Vertices[i] = ps[index]
+ 	}
+--- a/internal/physics/body-pair.go
++++ /dev/null
+@@ -1,152 +0,0 @@
+-package physics
+-
+-import (
+-	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-	"math"
+-)
+-
+-// One record per body pair avoids repeating neighbor and relative-motion work
+-// for every fixture pair. Contact order follows the newest live fixture contact.
+-type bodyPair struct {
+-	motionA, motionB  uint64
+-	motionBound       float64
+-	relative, reverse Vec.TransformValue
+-	motionReady       bool
+-	sweepRevision     uint64
+-	sweepBound        float64
+-	neighborEpoch     uint64
+-	allowed           bool
+-	contacts          *Contact
+-	a, b              bodyPairEdge
+-}
+-type bodyPairEdge struct {
+-	other      *Body
+-	pair       *bodyPair
+-	prev, next *bodyPairEdge
+-}
+-
+-func unlinkPairEdge(body *Body, edge *bodyPairEdge) {
+-	if edge.prev != nil {
+-		edge.prev.next = edge.next
+-	} else {
+-		body.pairs = edge.next
+-	}
+-	if edge.next != nil {
+-		edge.next.prev = edge.prev
+-	}
+-	edge.prev, edge.next = nil, nil
+-}
+-func insertPairEdge(body *Body, edge *bodyPairEdge) {
+-	var previous *bodyPairEdge
+-	next := body.pairs
+-	for next != nil && next.pair.contacts.toiOrder > edge.pair.contacts.toiOrder {
+-		previous = next
+-		next = next.next
+-	}
+-	edge.prev, edge.next = previous, next
+-	if previous == nil {
+-		body.pairs = edge
+-	} else {
+-		previous.next = edge
+-	}
+-	if next != nil {
+-		next.prev = edge
+-	}
+-}
+-func (w *World) linkPair(c *Contact, pair *bodyPair) {
+-	a, b := c.FixtureA.Body, c.FixtureB.Body
+-	if pair == nil {
+-		pair = &bodyPair{}
+-		pair.a = bodyPairEdge{other: b, pair: pair}
+-		pair.b = bodyPairEdge{other: a, pair: pair}
+-	} else {
+-		a, b = pair.b.other, pair.a.other
+-		unlinkPairEdge(a, &pair.a)
+-		unlinkPairEdge(b, &pair.b)
+-	}
+-	c.pair = pair
+-	c.pairPrev = nil
+-	c.pairNext = pair.contacts
+-	if pair.contacts != nil {
+-		pair.contacts.pairPrev = c
+-	}
+-	pair.contacts = c
+-	insertPairEdge(a, &pair.a)
+-	insertPairEdge(b, &pair.b)
+-}
+-func (w *World) unlinkPair(c *Contact) {
+-	pair := c.pair
+-	a, b := pair.b.other, pair.a.other
+-	if c.pairNext != nil {
+-		c.pairNext.pairPrev = c.pairPrev
+-	}
+-	if c.pairPrev != nil {
+-		c.pairPrev.pairNext = c.pairNext
+-	} else {
+-		unlinkPairEdge(a, &pair.a)
+-		unlinkPairEdge(b, &pair.b)
+-		pair.contacts = c.pairNext
+-		if pair.contacts != nil {
+-			insertPairEdge(a, &pair.a)
+-			insertPairEdge(b, &pair.b)
+-		}
+-	}
+-	c.pair, c.pairPrev, c.pairNext = nil, nil, nil
+-}
+-
+-func (c *Contact) allowsCollision(w *World) bool {
+-	if w.LimitCollisionNeighbors && c.pair != nil && c.pair.neighborEpoch == w.neighborEpoch && w.neighborEpoch != 0 {
+-		return c.pair.allowed
+-	}
+-	return c.refreshAllowed(w)
+-}
+-func (c *Contact) refreshAllowed(w *World) bool {
+-	pair := c.pair
+-	if pair == nil || !w.LimitCollisionNeighbors {
+-		return c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) && c.FixtureB.Body.AllowsCollision(c.FixtureA.Body)
+-	}
+-	if pair.neighborEpoch != w.neighborEpoch || w.neighborEpoch == 0 {
+-		pair.neighborEpoch = w.neighborEpoch
+-		pair.allowed = pair.a.other.AllowsCollision(pair.b.other) && pair.b.other.AllowsCollision(pair.a.other)
+-	}
+-	return pair.allowed
+-}
+-
+-func (p *bodyPair) motion() float64 {
+-	a, b := p.b.other, p.a.other
+-	if !p.motionReady || p.motionA != a.poseVersion || p.motionB != b.poseVersion {
+-		p.updateMotion(a, b)
+-	}
+-	return p.motionBound
+-}
+-
+-// Bound translation and rotation in both reference frames: the last separating
+-// axis can belong to either body. Common world translation consumes no budget.
+-func (p *bodyPair) updateMotion(a, b *Body) {
+-	var relative, reverse Vec.TransformValue
+-	Vec.DetransformTransform(&relative, b.Xf, a.Xf)
+-	Vec.DetransformTransform(&reverse, a.Xf, b.Xf)
+-	if p.motionReady {
+-		change := math.Abs(relative.P.X-p.relative.P.X) + math.Abs(relative.P.Y-p.relative.P.Y) + a.proxyRadius*(math.Abs(relative.Q.S-p.relative.Q.S)+math.Abs(relative.Q.C-p.relative.Q.C))
+-		change = max(change, math.Abs(reverse.P.X-p.reverse.P.X)+math.Abs(reverse.P.Y-p.reverse.P.Y)+b.proxyRadius*(math.Abs(reverse.Q.S-p.reverse.Q.S)+math.Abs(reverse.Q.C-p.reverse.Q.C)))
+-		if change > 0 {
+-			p.motionBound = math.Nextafter(p.motionBound+change, math.Inf(1))
+-		}
+-	}
+-	p.motionA, p.motionB, p.relative, p.reverse, p.motionReady = a.poseVersion, b.poseVersion, relative, reverse, true
+-}
+-
+-// Sweep.Advance only shortens the remaining interval. Physical TOI resolution
+-// increments the world revision because it can change the remaining trajectory.
+-func (p *bodyPair) sweepMotion(revision uint64) float64 {
+-	if p.sweepRevision != revision {
+-		p.sweepRevision = revision
+-		a, b := p.b.other, p.a.other
+-		sa, sb := &a.Sweep, &b.Sweep
+-		dx := (sa.C.X - sa.C0.X) - (sb.C.X - sb.C0.X)
+-		dy := (sa.C.Y - sa.C0.Y) - (sb.C.Y - sb.C0.Y)
+-		distance := math.Abs(sa.C.X-sb.C.X) + math.Abs(sa.C.Y-sb.C.Y)
+-		p.sweepBound = math.Abs(dx) + math.Abs(dy) + max(a.proxyRadius*math.Abs(sa.A-sa.A0)+(a.proxyRadius+distance)*math.Abs(sb.A-sb.A0), b.proxyRadius*math.Abs(sb.A-sb.A0)+(b.proxyRadius+distance)*math.Abs(sa.A-sa.A0))
+-	}
+-	return p.sweepBound
+-}
+--- a/internal/physics/body.go
++++ b/internal/physics/body.go
+@@ -18,9 +18,6 @@
+ 	A float64
+ }
+ type Body struct {
+-	poseVersion                           uint64
+-	pairs                                 *bodyPairEdge
+-	solverContacts, solverTail            *ContactEdge
+ 	World                                 *World
+ 	IslandFlag, Destroyed, Parked         bool
+ 	InvMass, InvI                         float64
+@@ -86,7 +83,6 @@
+ 		return
+ 	}
+ 	Vec.SetTransform(&b.Xf, position, angle)
+-	b.poseVersion++
+ 	if angle >= -math.Pi && angle <= math.Pi {
+ 		b.Sweep.C, b.Sweep.C0 = position, position
+ 		b.Sweep.A, b.Sweep.A0 = angle, angle
+@@ -117,26 +113,13 @@
+ 	}
+ 	b.World.NewFixture = true
+ }
+-func (b *Body) SynchronizeTransform() {
+-	b.Sweep.GetTransform(&b.Xf, 1)
+-	b.poseVersion++
+-}
++func (b *Body) SynchronizeTransform() { b.Sweep.GetTransform(&b.Xf, 1) }
+ func (b *Body) SynchronizeFixtures() {
+ 	var xf Vec.TransformValue
+ 	b.Sweep.GetTransform(&xf, 0)
+ 	b.synchronizeProxies(xf, b.Xf)
+ }
+ func (b *Body) SetProxyRadius(radius float64) {
+-	if radius != b.proxyRadius {
+-		for edge := b.ContactList; edge != nil; edge = edge.Next {
+-			edge.Contact.separationUntil = 0
+-			if edge.Contact.pair != nil {
+-				edge.Contact.pair.motionReady = false
+-				edge.Contact.pair.sweepRevision = 0
+-			}
+-		}
+-	}
+-
+ 	b.proxyRadius = radius
+ 	b.proxyMotion = 0
+ 	b.proxyMargin = 0
+@@ -172,7 +155,7 @@
+ 	b.Sweep.Advance(alpha)
+ 	b.Sweep.C = b.Sweep.C0
+ 	b.Sweep.A = b.Sweep.A0
+-	b.SynchronizeTransform()
++	b.Sweep.GetTransform(&b.Xf, 1)
+ }
+ func (b *Body) GetPosition() Vec.Vector { return b.Xf.P }
+ func (b *Body) GetAngle() float64       { return b.Sweep.A }
+--- a/internal/physics/contact.go
++++ b/internal/physics/contact.go
+@@ -3,19 +3,16 @@
+ package physics
+ 
+ import (
++"math"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
+ 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-	"math"
+ )
+ 
+-// Match src/shared/physics/contact.ts. This bounds impulse changes, not
+-// accumulated trajectory error; difficult islands retain all eight iterations.
+-const velocityImpulseTolerance = 1e-7
++const velocityImpulseTolerance=1e-7
+ 
+ type Mat22 struct{ Ex, Ey Vec.Vector }
+ type ContactEdge struct {
+-	solverNext *ContactEdge
+ 	Contact    *Contact
+ 	Prev, Next *ContactEdge
+ 	Other      *Body
+@@ -24,50 +21,37 @@
+ 	RA, RB                                                               Vec.Vector
+ 	NormalImpulse, TangentImpulse, NormalMass, TangentMass, VelocityBias float64
+ }
+-type ContactConstraint struct {
+-	VNormal                          Vec.Vector
+-	VNormalMass, VK                  Mat22
+-	PLocalPoints                     [2]Vec.Vector
+-	PLocalNormal, PLocalPoint        Vec.Vector
+-	VPointCount                      int
+-	InvMassA, InvMassB, InvIA, InvIB float64
+-	PType                            string
+-	PRadiusA, PRadiusB               float64
+-	VPoints                          [2]VelocityConstraintPoint
+-	PPointCount                      int
+-}
+ type Contact struct {
+-	listIndex       int
+-	separationUntil float64
+-	physical        bool
+-	*ContactConstraint
+-	pair                                  *bodyPair
+-	pairPrev, pairNext                    *Contact
+-	separationCache                       [2]uint8
+ 	NodeA, NodeB                          ContactEdge
+ 	Manifold                              collision.Manifold
++	VNormal                               Vec.Vector
++	VNormalMass, VK                       Mat22
++	PLocalPoints                          [2]Vec.Vector
++	PLocalNormal, PLocalPoint             Vec.Vector
+ 	FixtureA, FixtureB                    *Fixture
+ 	Prev, Next                            *Contact
+-	toiIndex                              int
+-	toiQueue                              uint8
++	TOIPrev, TOINext                      *Contact
+ 	toiOrder                              uint64
++	toiListed                             bool
+ 	TOI                                   float64
+ 	TOIFlag                               bool
+ 	Friction, Restitution, SurfaceSpeed   float64
+-	TOICount                              int
++	VPointCount                           int
++	InvMassA, InvMassB, InvIA, InvIB      float64
++	PType                                 string
++	PRadiusA, PRadiusB                    float64
++	PPointCount, TOICount                 int
+ 	EnabledFlag, IslandFlag, TouchingFlag bool
++	VPoints                               [2]VelocityConstraintPoint
+ }
+ 
+ func (c *Contact) InitConstraint() {
+-	if c.ContactConstraint == nil {
+-		c.ContactConstraint = new(ContactConstraint)
+-	}
+ 	a, b := c.FixtureA, c.FixtureB
+ 	m := &c.Manifold
+-	c.InvMassA = c.NodeB.Other.InvMass
+-	c.InvMassB = c.NodeA.Other.InvMass
+-	c.InvIA = c.NodeB.Other.InvI
+-	c.InvIB = c.NodeA.Other.InvI
++	c.InvMassA = a.Body.InvMass
++	c.InvMassB = b.Body.InvMass
++	c.InvIA = a.Body.InvI
++	c.InvIB = b.Body.InvI
+ 	c.VPointCount = m.PointCount
+ 	c.PRadiusA = a.Geometry.Radius
+ 	c.PRadiusB = b.Geometry.Radius
+@@ -82,9 +66,9 @@
+ 	}
+ }
+ func (c *Contact) GetWorldManifold(wm *collision.WorldManifold) *collision.WorldManifold {
+-	return c.Manifold.GetWorldManifold(wm, c.NodeB.Other.Xf, c.FixtureA.Geometry.Radius, c.NodeA.Other.Xf, c.FixtureB.Geometry.Radius)
+-}
+-func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) float64 {
++	return c.Manifold.GetWorldManifold(wm, c.FixtureA.Body.Xf, c.FixtureA.Geometry.Radius, c.FixtureB.Body.Xf, c.FixtureB.Geometry.Radius)
++}
++func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) {
+ 	switch a := c.FixtureA.Shape.(type) {
+ 	case *shape.CircleShape:
+ 		shape.CollideCircles(manifold, a, xfA, c.FixtureB.Shape.(*shape.CircleShape), xfB)
+@@ -93,30 +77,18 @@
+ 		case *shape.CircleShape:
+ 			shape.CollidePolygonCircle(manifold, a, xfA, b, xfB)
+ 		case *shape.PolygonShape:
+-			return shape.CollidePolygonsCached(manifold, a, xfA, b, xfB, c.NodeB.Other.World.Rules.LinearSlop, &c.separationCache)
+-		}
+-	}
+-	return 0
++			shape.CollidePolygons(manifold, a, xfA, b, xfB, c.FixtureA.Body.World.Rules.LinearSlop)
++		}
++	}
+ }
+ func (c *Contact) Update(listener *World) {
+-	if !c.allowsCollision(c.NodeB.Other.World) {
++	if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
+ 		c.EnabledFlag, c.TouchingFlag = false, false
+ 		c.Manifold.PointCount = 0
+ 		return
+ 	}
+ 	c.EnabledFlag = true
+-	a, b := c.NodeB.Other, c.NodeA.Other
+-	if c.separationUntil > 0 && c.separationUntil > c.pair.motion() {
+-		c.Manifold.PointCount = 0
+-		c.TouchingFlag = false
+-		return
+-	}
+-	gap := c.Evaluate(&c.Manifold, a.Xf, b.Xf)
+-	c.separationUntil = 0
+-	if gap > 0 && a.proxyRadius < 1e100 && b.proxyRadius < 1e100 {
+-		motion := c.pair.motion()
+-		c.separationUntil = motion + gap*.9999999 - 1e-5 - 1e-12*motion
+-	}
++	c.Evaluate(&c.Manifold, c.FixtureA.Body.Xf, c.FixtureB.Body.Xf)
+ 	c.TouchingFlag = c.Manifold.PointCount > 0
+ 	if c.TouchingFlag && listener != nil {
+ 		listener.PreSolve(c)
+@@ -129,7 +101,7 @@
+ func (c *Contact) solvePositionConstraint(toiA, toiB *Body) float64 {
+ 	toi := toiA != nil && toiB != nil
+ 	minSeparation := 0.0
+-	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
++	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
+ 	positionA, positionB := &bodyA.CPosition, &bodyB.CPosition
+ 	mA, iA, mB, iB := 0.0, 0.0, 0.0, 0.0
+ 	if !toi || bodyA == toiA || bodyA == toiB {
+@@ -195,7 +167,7 @@
+ 	return minSeparation
+ }
+ func (c *Contact) InitVelocityConstraint() {
+-	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
++	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
+ 	cA, aA, vA, wA := bodyA.CPosition.C, bodyA.CPosition.A, bodyA.CVelocity.V, bodyA.CVelocity.W
+ 	cB, aB, vB, wB := bodyB.CPosition.C, bodyB.CPosition.A, bodyB.CVelocity.V, bodyB.CVelocity.W
+ 	mA, mB, iA, iB := c.InvMassA, c.InvMassB, c.InvIA, c.InvIB
+@@ -372,9 +344,6 @@
+ 	} else {
+ 		c = &Contact{TOI: 1, EnabledFlag: true}
+ 	}
+-	c.separationCache = [2]uint8{}
+-	c.separationUntil = 0
+-	c.physical = a.Physics && b.Physics
+ 	c.FixtureA = a
+ 	c.FixtureB = b
+ 	c.NodeA = ContactEdge{Contact: c, Other: b.Body, Next: a.Body.ContactList}
+@@ -390,7 +359,7 @@
+ 	return c
+ }
+ func (c *Contact) destroy() {
+-	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
++	bodyA, bodyB := c.FixtureA.Body, c.FixtureB.Body
+ 	if c.NodeA.Prev != nil {
+ 		c.NodeA.Prev.Next = c.NodeA.Next
+ 	}
+--- a/internal/physics/solver-cache_test.go
++++ /dev/null
+@@ -1,270 +0,0 @@
+-package physics
+-
+-import (
+-	"github.com/burntcustard/unicorn-mining-co/internal/collision"
+-	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
+-	"github.com/burntcustard/unicorn-mining-co/internal/specification"
+-	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-	"math"
+-	"math/rand/v2"
+-	"testing"
+-)
+-
+-func TestCachedSeparationAcrossMotion(t *testing.T) {
+-	catalog, err := specification.Load()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	random := rand.New(rand.NewPCG(17, 91))
+-	skipped := 0
+-	for trial := 0; trial < 200; trial++ {
+-		world := NewWorld(catalog.Simulation)
+-		a, b := world.CreateBody(), world.CreateBody()
+-		polygonA := shape.NewPolygon([]Vec.Vector{{X: -10, Y: -7}, {X: 13, Y: -5}, {X: 2, Y: 15}}, nil, .5)
+-		polygonB := shape.NewPolygon([]Vec.Vector{{X: -8, Y: -11}, {X: 8, Y: -11}, {X: 8, Y: 11}, {X: -8, Y: 11}}, nil, .5)
+-		fa, fb := a.CreateFixture(polygonA, FixtureOpt{}), b.CreateFixture(polygonB, FixtureOpt{})
+-		a.SetProxyRadius(30)
+-		b.SetProxyRadius(30)
+-		world.CreateContact(fa, fb)
+-		c := world.ContactList
+-		origin := float64(trial%3) * 1e7
+-		x, y, angle := 40+random.Float64()*60, random.Float64()*20, random.Float64()*6
+-		angleA := random.Float64() * 6
+-		a.SetTransform(Vec.Create(origin, origin), angleA)
+-		for step := 0; step < 200; step++ {
+-			x -= random.Float64()
+-			y += random.Float64() - .5
+-			angle += (random.Float64() - .5) * .03
+-			angleA += (random.Float64() - .5) * .03
+-			travel := float64(step) * 20
+-			a.SetTransform(Vec.Create(origin+travel, origin), angleA)
+-			b.SetTransform(Vec.Create(origin+travel+x, origin+y), angle)
+-			if c.separationUntil > c.pair.motion() {
+-				skipped++
+-			}
+-			c.Update(nil)
+-			var expected collision.Manifold
+-			shape.CollidePolygons(&expected, polygonA, a.Xf, polygonB, b.Xf, .5)
+-			if c.Manifold.PointCount != expected.PointCount || expected.PointCount > 0 && (c.Manifold.Type != expected.Type || c.Manifold.LocalNormal != expected.LocalNormal || c.Manifold.LocalPoint != expected.LocalPoint || c.Manifold.Points[0] != expected.Points[0] || expected.PointCount == 2 && c.Manifold.Points[1] != expected.Points[1]) {
+-				t.Fatalf("trial %d step %d: cached manifold %+v != %+v", trial, step, c.Manifold, expected)
+-			}
+-		}
+-		c.separationUntil = c.pair.motion() + 100
+-		a.SetProxyRadius(math.Inf(1))
+-		if c.separationUntil != 0 {
+-			t.Fatal("changing the motion radius retained a stale separation bound")
+-		}
+-	}
+-	if skipped < 1000 {
+-		t.Fatalf("only %d cached rejections exercised", skipped)
+-	}
+-}
+-
+-func TestCachedSeparationRejectsNoContinuousImpact(t *testing.T) {
+-	catalog, err := specification.Load()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	random := rand.New(rand.NewPCG(31, 83))
+-	cached, relative := 0, 0
+-	for trial := 0; trial < 10000; trial++ {
+-		world := NewWorld(catalog.Simulation)
+-		a, b := world.CreateBody(), world.CreateBody()
+-		polygon := shape.NewPolygon([]Vec.Vector{{X: -10, Y: -7}, {X: 13, Y: -5}, {X: 2, Y: 15}}, nil, .5)
+-		fa, fb := a.CreateFixture(polygon, FixtureOpt{}), b.CreateFixture(polygon, FixtureOpt{})
+-		a.SetProxyRadius(30)
+-		b.SetProxyRadius(30)
+-		origin := float64(trial%3) * 1e7
+-		a.SetTransform(Vec.Create(origin, origin), random.Float64()*6)
+-		b.SetTransform(Vec.Create(origin+random.Float64()*160-80, origin+random.Float64()*160-80), random.Float64()*6)
+-		world.CreateContact(fa, fb)
+-		c := world.ContactList
+-		c.Update(nil)
+-		for _, body := range []*Body{a, b} {
+-			body.Sweep.C.X += random.Float64()*30 - 15
+-			body.Sweep.C.Y += random.Float64()*30 - 15
+-			body.Sweep.A += random.Float64() - .5
+-			body.SynchronizeTransform()
+-		}
+-		cachedReject := c.separationUntil > 0 && c.separationUntil+fa.Geometry.Radius+fb.Geometry.Radius > c.pair.motion()+c.pair.sweepMotion(1)+max(.5, fa.Geometry.Radius+fb.Geometry.Radius-1.5)+1.25*.5
+-		relativeReject := separatedThroughout(fa.Geometry, &a.Sweep, fb.Geometry, &b.Sweep, .5)
+-		if cachedReject {
+-			cached++
+-		}
+-		if relativeReject {
+-			relative++
+-		}
+-		if !cachedReject && !relativeReject {
+-			continue
+-		}
+-		sa, sb := a.Sweep, b.Sweep
+-		var output collision.TOIOutput
+-		collision.FindTimeOfImpact(&output, collision.TOIInput{ProxyA: fa.Geometry, ProxyB: fb.Geometry, SweepA: &sa, SweepB: &sb, TMax: 1}, .5)
+-		if output.Touching {
+-			t.Fatalf("trial %d rejected a continuous impact: cached=%v relative=%v", trial, cachedReject, relativeReject)
+-		}
+-	}
+-	if cached < 100 || relative < 100 {
+-		t.Fatalf("too few rejections: cached=%d relative=%d", cached, relative)
+-	}
+-}
+-
+-func TestBodyPairsFollowContactOrderThroughReuse(t *testing.T) {
+-	catalog, err := specification.Load()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	world := NewWorld(catalog.Simulation)
+-	random := rand.New(rand.NewPCG(5, 71))
+-	var bodies []*Body
+-	var fixtures []*Fixture
+-	for range 12 {
+-		b := world.CreateBody()
+-		bodies = append(bodies, b)
+-		for range 3 {
+-			fixtures = append(fixtures, b.CreateFixture(shape.NewCircle(Vec.Create(0, 0), 10), FixtureOpt{}))
+-		}
+-	}
+-	for step := 0; step < 3000; step++ {
+-		if random.IntN(3) == 0 && world.ContactList != nil {
+-			c := world.ContactList
+-			for i := 0; i < random.IntN(12) && c.Next != nil; i++ {
+-				c = c.Next
+-			}
+-			world.DestroyContact(c)
+-		} else {
+-			world.CreateContact(fixtures[random.IntN(len(fixtures))], fixtures[random.IntN(len(fixtures))])
+-		}
+-		for _, body := range bodies {
+-			seen := map[*Body]bool{}
+-			edge := body.pairs
+-			for ce := body.ContactList; ce != nil; ce = ce.Next {
+-				if seen[ce.Other] {
+-					continue
+-				}
+-				seen[ce.Other] = true
+-				if edge == nil || edge.other != ce.Other || edge.pair.contacts != ce.Contact {
+-					t.Fatalf("step %d: body pair order differs from contact order", step)
+-				}
+-				for c := edge.pair.contacts; c != nil; c = c.pairNext {
+-					if c.pair != edge.pair || c.pairNext != nil && c.pairNext.pairPrev != c {
+-						t.Fatal("broken pair links")
+-					}
+-				}
+-				edge = edge.next
+-			}
+-			if edge != nil {
+-				t.Fatal("stale body pair")
+-			}
+-		}
+-	}
+-	for _, body := range bodies {
+-		world.DestroyBody(body)
+-		if body.pairs != nil {
+-			t.Fatal("destroyed body retains pairs")
+-		}
+-	}
+-}
+-
+-func TestTOIHeapInvalidationAndTies(t *testing.T) {
+-	world := &World{}
+-	random := rand.New(rand.NewPCG(8, 61))
+-	contacts := make([]*Contact, 200)
+-	for i := range contacts {
+-		contacts[i] = &Contact{toiOrder: uint64(i + 1)}
+-	}
+-	for range 10000 {
+-		c := contacts[random.IntN(len(contacts))]
+-		world.removeTOICandidate(c)
+-		if random.IntN(4) != 0 {
+-			c.TOI = float64(random.IntN(16)) / 16
+-			world.pushTOI(c)
+-		}
+-		var expected *Contact
+-		for _, c := range contacts {
+-			if c.toiQueue == 2 && (expected == nil || toiBefore(c, expected)) {
+-				expected = c
+-			}
+-		}
+-		if expected == nil {
+-			if len(world.toiReady) != 0 {
+-				t.Fatal("nonempty heap")
+-			}
+-		} else if world.toiReady[0] != expected {
+-			t.Fatal("incorrect time/order priority")
+-		}
+-		for i, c := range world.toiReady {
+-			if c.toiIndex != i {
+-				t.Fatal("stale heap index")
+-			}
+-		}
+-	}
+-	for _, c := range contacts {
+-		c.TOIFlag = false
+-		world.addTOICandidate(c)
+-		world.addTOICandidate(c)
+-	}
+-	if len(world.toiReady) != 0 || len(world.toiPending) != len(contacts) {
+-		t.Fatal("invalidation duplicated or retained ready contacts")
+-	}
+-	for _, c := range contacts {
+-		world.removeTOICandidate(c)
+-	}
+-	if len(world.toiPending) != 0 {
+-		t.Fatal("pending removal retained contacts")
+-	}
+-}
+-
+-func TestAdvanceInvalidatesCachedSeparation(t *testing.T) {
+-	catalog, err := specification.Load()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	world := NewWorld(catalog.Simulation)
+-	a, b := world.CreateBody(), world.CreateBody()
+-	polygon := shape.NewPolygon([]Vec.Vector{{X: -10, Y: -10}, {X: 10, Y: -10}, {X: 10, Y: 10}, {X: -10, Y: 10}}, nil, .5)
+-	fa, fb := a.CreateFixture(polygon, FixtureOpt{}), b.CreateFixture(polygon, FixtureOpt{})
+-	a.SetProxyRadius(20)
+-	b.SetProxyRadius(20)
+-	b.SetTransform(Vec.Create(60, 0), 0)
+-	world.CreateContact(fa, fb)
+-	c := world.ContactList
+-	c.Update(nil)
+-	if c.separationUntil <= c.pair.motion() {
+-		t.Fatal("test did not establish a separation cache")
+-	}
+-	b.Sweep.C0 = Vec.Create(15, 0)
+-	b.Advance(0)
+-	c.Update(nil)
+-	if !c.TouchingFlag {
+-		t.Fatal("TOI advance reused separation from the end pose")
+-	}
+-}
+-
+-func TestDenseContactsCompactWithoutChangingOrder(t *testing.T) {
+-	catalog, err := specification.Load()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	world := NewWorld(catalog.Simulation)
+-	a, b := world.CreateBody(), world.CreateBody()
+-	fa := a.CreateFixture(shape.NewCircle(Vec.Create(0, 0), 10), FixtureOpt{})
+-	fb := b.CreateFixture(shape.NewCircle(Vec.Create(0, 0), 10), FixtureOpt{})
+-	for range 200 {
+-		world.CreateContact(fa, fb)
+-		world.DestroyContact(world.ContactList)
+-	}
+-	world.CreateContact(fa, fb)
+-	live := world.ContactList
+-	if len(world.contacts) <= 128 {
+-		t.Fatal("compaction was not exercised")
+-	}
+-	world.Step(0, 8, 3)
+-	if len(world.contacts) != 1 || world.contacts[0] != live || live.listIndex != 0 || world.ContactList != live || world.contactCount != 1 {
+-		t.Fatal("compaction changed live contact identity or indexing")
+-	}
+-	world.DestroyBody(a)
+-	if world.contactCount != 0 || world.ContactList != nil || world.contacts[0] != nil {
+-		t.Fatal("destroy after compaction retained contact")
+-	}
+-}
+--- a/internal/physics/solver.go
++++ b/internal/physics/solver.go
+@@ -6,7 +6,6 @@
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
+ 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+ 	"math"
+-	"slices"
+ )
+ 
+ const maxTOISubsteps = 8
+@@ -38,31 +37,23 @@
+ 	rotA, rotB := sweepA.Rotation0(), sweepB.Rotation0()
+ 	dx := sweepB.C0.X + rotB.C*boundB.X - rotB.S*boundB.Y - (sweepA.C0.X + rotA.C*boundA.X - rotA.S*boundA.Y)
+ 	dy := sweepB.C0.Y + rotB.S*boundB.X + rotB.C*boundB.Y - (sweepA.C0.Y + rotA.S*boundA.X + rotA.C*boundA.Y)
+-	vx := (sweepB.C.X - sweepB.C0.X) - (sweepA.C.X - sweepA.C0.X)
+-	vy := (sweepB.C.Y - sweepB.C0.Y) - (sweepA.C.Y - sweepA.C0.Y)
+-	length := vx*vx + vy*vy
+-	fraction := 0.0
+-	if length > 0 {
+-		fraction = max(0, min(1, -(dx*vx+dy*vy)/length))
+-	}
+-	dx += fraction * vx
+-	dy += fraction * vy
+-	rotation := boundA.OffsetRadius*math.Abs(sweepA.A-sweepA.A0) + boundB.OffsetRadius*math.Abs(sweepB.A-sweepB.A0)
++	ax, ay, bx, by := sweepA.C.X-sweepA.C0.X, sweepA.C.Y-sweepA.C0.Y, sweepB.C.X-sweepB.C0.X, sweepB.C.Y-sweepB.C0.Y
++	motion := math.Sqrt(ax*ax+ay*ay) + boundA.OffsetRadius*math.Abs(sweepA.A-sweepA.A0) + math.Sqrt(bx*bx+by*by) + boundB.OffsetRadius*math.Abs(sweepB.A-sweepB.A0)
+ 	target := max(linearSlop, shapeA.Radius+shapeB.Radius-3*linearSlop)
+-	radius := boundA.Radius + boundB.Radius + rotation + target + 1.25*linearSlop + 1e-7
+-	return dx*dx+dy*dy > radius*radius
+-
++	return math.Sqrt(dx*dx+dy*dy)-motion-boundA.Radius-boundB.Radius > target+1.25*linearSlop
+ }
+ func (s *Solver) SolveWorld(step TimeStep) {
+ 	world := s.World
+-
++	for c := world.ContactList; c != nil; c = c.Next {
++		c.IslandFlag = false
++	}
+ 	clear(s.isolated)
+ 	isolated := s.isolated[:0]
+ 	for _, seed := range world.activeBodies {
+ 		if seed.IslandFlag || seed.Parked {
+ 			continue
+ 		}
+-		if seed.solverContacts == nil {
++		if seed.ContactList == nil {
+ 			seed.IslandFlag = true
+ 			isolated = append(isolated, seed)
+ 			continue
+@@ -76,12 +67,12 @@
+ 			s.Stack[last] = nil
+ 			s.Stack = s.Stack[:last]
+ 			s.AddBody(b)
+-			for ce := b.solverContacts; ce != nil; ce = ce.solverNext {
++			for ce := b.ContactList; ce != nil; ce = ce.Next {
+ 				c := ce.Contact
+ 				if c.IslandFlag || !c.EnabledFlag || !c.TouchingFlag {
+ 					continue
+ 				}
+-				if !c.physical {
++				if !c.FixtureA.Physics || !c.FixtureB.Physics {
+ 					continue
+ 				}
+ 				s.AddContact(c)
+@@ -120,19 +111,7 @@
+ 	for _, c := range s.Contacts {
+ 		c.InitVelocityConstraint()
+ 	}
+-
+-	for range step.VelocityIterations {
+-		converged := true
+-		for _, contact := range s.Contacts {
+-			if !contact.SolveVelocityConstraint() {
+-				converged = false
+-			}
+-		}
+-		if converged {
+-			break
+-		}
+-	}
+-
++	for range step.VelocityIterations {converged:=true;for _,c:=range s.Contacts{if !c.SolveVelocityConstraint(){converged=false}};if converged{break}}
+ 	for _, b := range s.Bodies {
+ 		c, a, v, w := b.CPosition.C, b.CPosition.A, b.CVelocity.V, b.CVelocity.W
+ 		translation := Vec.Scale(v, h)
+@@ -172,23 +151,15 @@
+ func (s *Solver) SolveWorldTOI(step TimeStep) {
+ 	world := s.World
+ 	linearSlop := world.Rules.LinearSlop
+-	world.toiRevision++
+-	world.toiUnsorted = false
+-	clear(world.toiPending)
+-	clear(world.toiReady)
+-	world.toiPending = world.toiPending[:0]
+-	world.toiReady = world.toiReady[:0]
++	world.toiCandidates = nil
+ 	world.collectingTOI = true
+ 	defer func() { world.collectingTOI = false }()
++	var tail *Contact
+ 	for _, b := range world.activeBodies {
+ 		b.IslandFlag = false
+ 		b.Sweep.Alpha0 = 0
+ 	}
+-	for i := len(world.contacts) - 1; i >= 0; i-- {
+-		c := world.contacts[i]
+-		if c == nil {
+-			continue
+-		}
++	for c := world.ContactList; c != nil; c = c.Next {
+ 		c.TOIFlag = false
+ 		c.IslandFlag = false
+ 		c.TOICount = 0
+@@ -196,40 +167,38 @@
+ 			c.TOICount = maxTOISubsteps + 1
+ 		}
+ 		c.TOI = 1
+-		c.toiQueue = 0
+-		if !c.allowsCollision(world) {
++		c.TOIPrev, c.TOINext = nil, nil
++		c.toiListed = false
++		if !c.FixtureA.Body.AllowsCollision(c.FixtureB.Body) || !c.FixtureB.Body.AllowsCollision(c.FixtureA.Body) {
+ 			c.EnabledFlag, c.TouchingFlag = false, false
+ 			continue
+ 		}
+ 		if c.TOICount <= maxTOISubsteps {
+-			world.addTOICandidate(c)
+-		}
+-	}
+-
++			c.toiListed = true
++			c.TOIPrev = tail
++			if tail == nil {
++				world.toiCandidates = c
++			} else {
++				tail.TOINext = c
++			}
++			tail = c
++		}
++	}
+ 	for {
+-		if world.toiUnsorted {
+-			slices.SortFunc(world.toiPending, func(a, b *Contact) int {
+-				if a.toiOrder > b.toiOrder {
+-					return -1
+-				}
+-				if a.toiOrder < b.toiOrder {
+-					return 1
+-				}
+-				return 0
+-			})
+-		}
+-		for _, c := range world.toiPending {
+-			c.toiQueue = 0
++		var minContact *Contact
++		minAlpha := 1.0
++		for c := world.toiCandidates; c != nil; {
++			next := c.TOINext
+ 			if !c.EnabledFlag || c.TOICount > maxTOISubsteps {
++				c = next
+ 				continue
+ 			}
+-
+ 			alpha := 1.0
+ 			if c.TOIFlag {
+ 				alpha = c.TOI
+ 			} else {
+ 				fA, fB := c.FixtureA, c.FixtureB
+-				bA, bB := c.NodeB.Other, c.NodeA.Other
++				bA, bB := fA.Body, fB.Body
+ 				alpha0 := bA.Sweep.Alpha0
+ 				if bA.Sweep.Alpha0 < bB.Sweep.Alpha0 {
+ 					alpha0 = bB.Sweep.Alpha0
+@@ -238,9 +207,7 @@
+ 					alpha0 = bA.Sweep.Alpha0
+ 					bB.Sweep.Advance(alpha0)
+ 				}
+-				radius := fA.Geometry.Radius + fB.Geometry.Radius
+-				target := max(linearSlop, radius-3*linearSlop)
+-				if !(c.separationUntil > 0 && c.separationUntil+radius > c.pair.motion()+c.pair.sweepMotion(world.toiRevision)+target+1.25*linearSlop) && !separatedThroughout(fA.Geometry, &bA.Sweep, fB.Geometry, &bB.Sweep, linearSlop) {
++				if !separatedThroughout(fA.Geometry, &bA.Sweep, fB.Geometry, &bB.Sweep, linearSlop) {
+ 					sweepA, sweepB := collision.NewSweep(), collision.NewSweep()
+ 					sweepA.Set(bA.Sweep)
+ 					sweepB.Set(bB.Sweep)
+@@ -253,24 +220,20 @@
+ 				c.TOI = alpha
+ 				c.TOIFlag = true
+ 			}
+-			if alpha < 1 {
+-				world.pushTOI(c)
+-			}
+-		}
+-		world.toiUnsorted = false
+-		clear(world.toiPending)
+-		world.toiPending = world.toiPending[:0]
+-		if len(world.toiReady) == 0 {
+-			break
+-		}
+-		minContact := world.toiReady[0]
+-		minAlpha := minContact.TOI
+-		world.removeTOICandidate(minContact)
+-
++			if alpha < minAlpha {
++				minContact = c
++				minAlpha = alpha
++			}
++			if alpha >= 1 {
++				world.removeTOICandidate(c)
++			}
++			c = next
++		}
+ 		if minContact == nil || 1-toiEndTolerance < minAlpha {
+ 			break
+ 		}
+-		bA, bB := minContact.NodeB.Other, minContact.NodeA.Other
++		fA, fB := minContact.FixtureA, minContact.FixtureB
++		bA, bB := fA.Body, fB.Body
+ 		backup1, backup2 := collision.NewSweep(), collision.NewSweep()
+ 		backup1.Set(bA.Sweep)
+ 		backup2.Set(bB.Sweep)
+@@ -290,7 +253,7 @@
+ 			bB.SynchronizeTransform()
+ 			continue
+ 		}
+-		if !minContact.physical {
++		if !fA.Physics || !fB.Physics {
+ 			minContact.TOI = 1
+ 			minContact.TOIFlag = true
+ 			world.removeTOICandidate(minContact)
+@@ -313,7 +276,7 @@
+ 				if contact.IslandFlag {
+ 					continue
+ 				}
+-				if !contact.physical {
++				if !contact.FixtureA.Physics || !contact.FixtureB.Physics {
+ 					continue
+ 				}
+ 				backup := collision.NewSweep()
+@@ -338,7 +301,6 @@
+ 		}
+ 		subStep := TimeStep{DT: (1 - minAlpha) * step.DT, PositionIterations: 20, VelocityIterations: step.VelocityIterations}
+ 		s.SolveIslandTOI(subStep, bA, bB)
+-		world.toiRevision++
+ 		for _, body := range s.Bodies {
+ 			body.IslandFlag = false
+ 			body.SynchronizeFixtures()
+@@ -377,19 +339,7 @@
+ 	for _, contact := range s.Contacts {
+ 		contact.InitVelocityConstraint()
+ 	}
+-
+-	for range subStep.VelocityIterations {
+-		converged := true
+-		for _, contact := range s.Contacts {
+-			if !contact.SolveVelocityConstraint() {
+-				converged = false
+-			}
+-		}
+-		if converged {
+-			break
+-		}
+-	}
+-
++	for range subStep.VelocityIterations {converged:=true;for _,c:=range s.Contacts{if !c.SolveVelocityConstraint(){converged=false}};if converged{break}}
+ 	h := subStep.DT
+ 	maxTranslation, maxRotation := rules.Physics.MaxTranslation, rules.Physics.MaxRotation
+ 	for _, body := range s.Bodies {
+--- a/internal/physics/world.go
++++ b/internal/physics/world.go
+@@ -8,15 +8,10 @@
+ )
+ 
+ type World struct {
+-	toiRevision                      uint64
+-	contacts                         []*Contact
+-	contactCount                     int
+-	toiUnsorted                      bool
+-	neighborEpoch                    uint64
+ 	Solver                           *Solver
+ 	BroadPhase                       *collision.BroadPhase[*Fixture]
+ 	ContactList                      *Contact
+-	toiPending, toiReady             []*Contact
++	toiCandidates                    *Contact
+ 	collectingTOI                    bool
+ 	nextContactOrder                 uint64
+ 	BodyList                         *Body
+@@ -85,31 +80,21 @@
+ 	return true
+ }
+ func (w *World) Step(dt float64, velocityIterations, positionIterations int) {
+-	if len(w.contacts) > 2*w.contactCount+128 {
+-		count := 0
+-		for _, c := range w.contacts {
+-			if c != nil {
+-				c.listIndex = count
+-				w.contacts[count] = c
+-				count++
+-			}
+-		}
+-		clear(w.contacts[count:])
+-		w.contacts = w.contacts[:count]
+-	}
+-
+ 	if w.NewFixture {
+ 		w.FindNewContacts()
+ 		w.NewFixture = false
+ 	}
+ 	w.Locked = true
+-	w.prepareActiveBodies()
+ 	if w.LimitCollisionNeighbors {
++		w.prepareActiveBodies()
+ 		w.prepareCollisionNeighbors()
+ 	}
+ 	w.step = TimeStep{DT: dt, VelocityIterations: velocityIterations, PositionIterations: positionIterations}
+ 	w.UpdateContacts()
+ 	if dt > 0 {
++		if !w.LimitCollisionNeighbors {
++			w.prepareActiveBodies()
++		}
+ 		w.Solver.SolveWorld(w.step)
+ 		for _, b := range w.activeBodies {
+ 			if b.IslandFlag {
+@@ -131,7 +116,6 @@
+ 	w.activeBodies = w.activeBodies[:0]
+ 	for b := w.BodyList; b != nil; b = b.Next {
+ 		b.IslandFlag = false
+-		b.solverContacts, b.solverTail = nil, nil
+ 		if b.Parked {
+ 			b.Sweep.Alpha0 = 0
+ 		} else {
+@@ -143,7 +127,6 @@
+ // Rank body neighbors once, sharing the result across all their fixtures.
+ // Contacts remain cached so a deferred neighbor is reconsidered next update.
+ func (w *World) prepareCollisionNeighbors() {
+-	w.neighborEpoch++
+ 	for _, body := range w.activeBodies {
+ 		if body.neighborCount <= 8 {
+ 			continue
+@@ -154,12 +137,29 @@
+ 		if body.neighborDirty {
+ 			body.neighborDirty = false
+ 			body.Neighborhood = nil
++			var unique [8]*Body
+ 			count := 0
+-			for pair := body.pairs; pair != nil; pair = pair.next {
++			crowded := false
++			for edge := body.ContactList; edge != nil; edge = edge.Next {
++				seen := false
++				for _, other := range unique[:count] {
++					if edge.Other == other {
++						seen = true
++						break
++					}
++				}
++				if seen {
++					continue
++				}
++				if count == 8 {
++					crowded = true
++					break
++				}
++				unique[count] = edge.Other
+ 				count++
+ 			}
+-			body.neighborCount = min(count, 9)
+-			if count <= 8 {
++			if !crowded {
++				body.neighborCount = count
+ 				continue
+ 			}
+ 			if body.neighborhoodCache == nil {
+@@ -167,11 +167,17 @@
+ 			}
+ 			body.Neighborhood = body.neighborhoodCache
+ 		}
+-
+ 		*body.Neighborhood = CollisionNeighborhood{}
+-		for pair := body.pairs; pair != nil; pair = pair.next {
+-			other := pair.other
+-
++		var last *Body
++		for edge := body.ContactList; edge != nil; edge = edge.Next {
++			other := edge.Other
++			if other == last {
++				continue
++			}
++			last = other
++			if body.AllowsCollision(other) {
++				continue
++			}
+ 			dx, dy := body.Xf.P.X-other.Xf.P.X, body.Xf.P.Y-other.Xf.P.Y
+ 			body.AddCollisionNeighbor(other, dx*dx+dy*dy)
+ 		}
+@@ -182,21 +188,16 @@
+ 	if bodyA == bodyB {
+ 		return
+ 	}
+-	var pair *bodyPair
+-	for edge := bodyB.pairs; edge != nil; edge = edge.next {
+-		if edge.other == bodyA {
+-			pair = edge.pair
+-			break
+-		}
+-	}
+-	if pair != nil {
+-		for c := pair.contacts; c != nil; c = c.pairNext {
+-			if c.FixtureA == a && c.FixtureB == b || c.FixtureA == b && c.FixtureB == a {
++	pairExists := false
++	for edge := bodyB.ContactList; edge != nil; edge = edge.Next {
++		if edge.Other == bodyA {
++			pairExists = true
++			fa, fb := edge.Contact.FixtureA, edge.Contact.FixtureB
++			if (fa == a && fb == b) || (fa == b && fb == a) {
+ 				return
+ 			}
+ 		}
+ 	}
+-
+ 	if !b.ShouldCollide(a) {
+ 		return
+ 	}
+@@ -204,7 +205,7 @@
+ 	if contact == nil {
+ 		return
+ 	}
+-	if w.LimitCollisionNeighbors && pair == nil {
++	if w.LimitCollisionNeighbors && !pairExists {
+ 		for _, body := range [2]*Body{bodyA, bodyB} {
+ 			body.neighborCount = min(body.neighborCount+1, 9)
+ 			if body.neighborCount == 9 {
+@@ -214,10 +215,6 @@
+ 	}
+ 	w.nextContactOrder++
+ 	contact.toiOrder = w.nextContactOrder
+-	contact.listIndex = len(w.contacts)
+-	w.contacts = append(w.contacts, contact)
+-	w.contactCount++
+-	w.linkPair(contact, pair)
+ 	contact.Prev = nil
+ 	if w.ContactList != nil {
+ 		contact.Next = w.ContactList
+@@ -229,40 +226,17 @@
+ 	}
+ }
+ func (w *World) UpdateContacts() {
+-	for i := len(w.contacts) - 1; i >= 0; i-- {
+-		c := w.contacts[i]
+-		if c == nil {
+-			continue
+-		}
++	for c := w.ContactList; c != nil; {
++		next := c.Next
+ 		if !w.BroadPhase.TestOverlap(c.FixtureA.Proxy, c.FixtureB.Proxy) {
+ 			w.DestroyContact(c)
+ 		} else {
+ 			c.Update(w)
+-			c.IslandFlag = false
+-			if c.EnabledFlag && c.TouchingFlag && c.physical {
+-				for _, edge := range [2]*ContactEdge{&c.NodeA, &c.NodeB} {
+-					body := edge.Other
+-					// Node A is linked to A and names B as Other.
+-					if edge == &c.NodeA {
+-						body = c.FixtureA.Body
+-					} else {
+-						body = c.FixtureB.Body
+-					}
+-					edge.solverNext = nil
+-					if body.solverTail == nil {
+-						body.solverContacts = edge
+-					} else {
+-						body.solverTail.solverNext = edge
+-					}
+-					body.solverTail = edge
+-				}
+-			}
+-		}
++		}
++		c = next
+ 	}
+ }
+ func (w *World) DestroyContact(c *Contact) {
+-	w.contacts[c.listIndex] = nil
+-	w.contactCount--
+ 	if w.LimitCollisionNeighbors {
+ 		for _, body := range [2]*Body{c.FixtureA.Body, c.FixtureB.Body} {
+ 			if body.neighborCount == 9 {
+@@ -271,7 +245,6 @@
+ 		}
+ 	}
+ 	w.removeTOICandidate(c)
+-	w.unlinkPair(c)
+ 	if c.Prev != nil {
+ 		c.Prev.Next = c.Next
+ 	}
+@@ -296,83 +269,41 @@
+ 	}
+ }
+ 
+-// Pending contacts are evaluated in original contact order; ready contacts are
+-// ordered by impact time, breaking ties by that same contact order.
++// Keep the original contact order while excluding contacts whose continuous
++// collision budget is exhausted. New contacts join at the same head position.
+ func (w *World) addTOICandidate(c *Contact) {
+-	if c.TOICount > maxTOISubsteps || c.toiQueue == 1 {
+-		return
+-	}
+-	w.removeTOICandidate(c)
+-	c.toiQueue = 1
+-	c.toiIndex = len(w.toiPending)
+-	if len(w.toiPending) > 0 && w.toiPending[len(w.toiPending)-1].toiOrder < c.toiOrder {
+-		w.toiUnsorted = true
+-	}
+-	w.toiPending = append(w.toiPending, c)
+-}
+-func toiBefore(a, b *Contact) bool {
+-	return a.TOI < b.TOI || (a.TOI == b.TOI && a.toiOrder > b.toiOrder)
+-}
+-func (w *World) toiUp(index int) int {
+-	c := w.toiReady[index]
+-	for index > 0 {
+-		parent := (index - 1) / 2
+-		if !toiBefore(c, w.toiReady[parent]) {
+-			break
+-		}
+-		w.toiReady[index] = w.toiReady[parent]
+-		w.toiReady[index].toiIndex = index
+-		index = parent
+-	}
+-	w.toiReady[index] = c
+-	c.toiIndex = index
+-	return index
+-}
+-func (w *World) toiDown(index int) {
+-	c := w.toiReady[index]
+-	for {
+-		child := 2*index + 1
+-		if child >= len(w.toiReady) {
+-			break
+-		}
+-		if child+1 < len(w.toiReady) && toiBefore(w.toiReady[child+1], w.toiReady[child]) {
+-			child++
+-		}
+-		if !toiBefore(w.toiReady[child], c) {
+-			break
+-		}
+-		w.toiReady[index] = w.toiReady[child]
+-		w.toiReady[index].toiIndex = index
+-		index = child
+-	}
+-	w.toiReady[index] = c
+-	c.toiIndex = index
+-}
+-func (w *World) pushTOI(c *Contact) {
+-	c.toiQueue = 2
+-	c.toiIndex = len(w.toiReady)
+-	w.toiReady = append(w.toiReady, c)
+-	w.toiUp(c.toiIndex)
++	if c.toiListed || c.TOICount > maxTOISubsteps {
++		return
++	}
++	c.toiListed = true
++	var previous *Contact
++	next := w.toiCandidates
++	for next != nil && next.toiOrder > c.toiOrder {
++		previous = next
++		next = next.TOINext
++	}
++	c.TOIPrev, c.TOINext = previous, next
++	if previous == nil {
++		w.toiCandidates = c
++	} else {
++		previous.TOINext = c
++	}
++	if next != nil {
++		next.TOIPrev = c
++	}
+ }
+ func (w *World) removeTOICandidate(c *Contact) {
+-	index := c.toiIndex
+-	switch c.toiQueue {
+-	case 1:
+-		w.toiUnsorted = true
+-		last := len(w.toiPending) - 1
+-		w.toiPending[index] = w.toiPending[last]
+-		w.toiPending[index].toiIndex = index
+-		w.toiPending[last] = nil
+-		w.toiPending = w.toiPending[:last]
+-	case 2:
+-		last := len(w.toiReady) - 1
+-		w.toiReady[index] = w.toiReady[last]
+-		w.toiReady[index].toiIndex = index
+-		w.toiReady[last] = nil
+-		w.toiReady = w.toiReady[:last]
+-		if index < last && w.toiUp(index) == index {
+-			w.toiDown(index)
+-		}
+-	}
+-	c.toiQueue = 0
+-}
++	if !c.toiListed {
++		return
++	}
++	if c.TOIPrev != nil {
++		c.TOIPrev.TOINext = c.TOINext
++	} else {
++		w.toiCandidates = c.TOINext
++	}
++	if c.TOINext != nil {
++		c.TOINext.TOIPrev = c.TOIPrev
++	}
++	c.TOIPrev, c.TOINext = nil, nil
++	c.toiListed = false
++}
+--- a/internal/server/binary-replication.go
++++ b/internal/server/binary-replication.go
+@@ -17,12 +17,11 @@
+ 
+ type nullValue struct{}
+ type fieldState struct {
++	id            int
+ 	compare, wire any
+ 	revision      int64
+ }
+ type binaryRecord struct {
+-	numberValues                                     []float64
+-	numberMask                                       uint64
+ 	source                                           simulation.Entity
+ 	batchGeneration                                  uint64
+ 	revision, previousRevision                       int64
+@@ -31,6 +30,7 @@
+ 	modules                                          *moduleRecord
+ 	moduleBuffer                                     []simulation.Module
+ 	mountBuffer                                      []*simulation.Mount
++	observers                                        []*member
+ 	nested                                           []byte
+ 	values                                           []protocol.FieldValue
+ 	hullHealth                                       []float64
+@@ -42,21 +42,21 @@
+ 	if record, ok := source.Base().ReplicationState.(*binaryRecord); ok {
+ 		return record
+ 	}
+-	record := &binaryRecord{source: source, fields: make([]fieldState, fieldCount+1), numberValues: make([]float64, fieldCount+1)}
++	record := &binaryRecord{source: source, fields: make([]fieldState, fieldCount+1)}
++	for id := range record.fields {
++		record.fields[id].id = id
++	}
+ 	source.Base().ReplicationState = record
+ 	return record
+ }
+-func markChanged(record *binaryRecord, id int) {
+-	field := &record.fields[id]
+-	record.numberMask &^= uint64(1) << id
++func markChanged(record *binaryRecord, field *fieldState) {
+ 	record.revision++
+ 	field.revision = record.revision
+-	record.recentChanges = append(record.recentChanges, id)
+-}
+-func changed(record *binaryRecord, id int, comparison, wire any) {
+-	field := &record.fields[id]
++	record.recentChanges = append(record.recentChanges, field.id)
++}
++func changed(record *binaryRecord, field *fieldState, comparison, wire any) {
+ 	field.compare, field.wire = comparison, wire
+-	markChanged(record, id)
++	markChanged(record, field)
+ }
+ func canonical(value float64) any {
+ 	if math.IsNaN(value) || math.IsInf(value, 0) {
+@@ -83,13 +83,13 @@
+ 	if _, null := normalized.(nullValue); null {
+ 		wire = nil
+ 	}
+-	changed(record, id, normalized, wire)
++	changed(record, field, normalized, wire)
+ }
+ func vector(record *binaryRecord, id int, value *Vec.Vector) {
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, id, nil, nil)
++			changed(record, field, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -99,7 +99,7 @@
+ 	boxed := any(*value)
+ 	field.compare = boxed
+ 	field.wire = boxed
+-	markChanged(record, id)
++	markChanged(record, field)
+ }
+ func sameNumbers(a, b []float64) bool {
+ 	if b == nil || len(a) != len(b) {
+@@ -120,7 +120,7 @@
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, id, nil, nil)
++			changed(record, field, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -128,7 +128,7 @@
+ 	if sameNumbers(value, before) {
+ 		return
+ 	}
+-	changed(record, id, slices.Clone(value), value)
++	changed(record, field, slices.Clone(value), value)
+ }
+ func integerArray(record *binaryRecord, id int, value []int) {
+ 	if len(value) == 0 {
+@@ -153,13 +153,13 @@
+ 	for i, v := range value {
+ 		numbers[i] = float64(v)
+ 	}
+-	changed(record, id, numbers, numbers)
++	changed(record, field, numbers, numbers)
+ }
+ func stringArray(record *binaryRecord, id int, value []string) {
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, id, nil, nil)
++			changed(record, field, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -167,7 +167,7 @@
+ 	if ok && slices.Equal(value, before) {
+ 		return
+ 	}
+-	changed(record, id, slices.Clone(value), value)
++	changed(record, field, slices.Clone(value), value)
+ }
+ func wireOutline(value *simulation.ShapeOutline) [][]float64 {
+ 	if value == nil {
+@@ -183,7 +183,7 @@
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, id, nil, nil)
++			changed(record, field, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -201,13 +201,13 @@
+ 		return
+ 	}
+ 	copy := wireOutline(value)
+-	changed(record, id, copy, copy)
++	changed(record, field, copy, copy)
+ }
+ func asteroidSegments(record *binaryRecord, id int, value []*simulation.AsteroidSegment) {
+ 	field := &record.fields[id]
+ 	if value == nil {
+ 		if field.compare != nil {
+-			changed(record, id, nil, nil)
++			changed(record, field, nil, nil)
+ 		}
+ 		return
+ 	}
+@@ -216,12 +216,12 @@
+ 		return
+ 	}
+ 	copy := copySegments(value)
+-	changed(record, id, copy, copy)
++	changed(record, field, copy, copy)
+ }
+ func clearField(record *binaryRecord, id int) {
+ 	field := &record.fields[id]
+ 	if field.compare != nil {
+-		changed(record, id, nil, nil)
++		changed(record, field, nil, nil)
+ 	}
+ }
+ func captureBytes(record *binaryRecord, id int, value any, catalog *specification.Catalog) {
+@@ -236,7 +236,7 @@
+ 		return
+ 	}
+ 	copy := slices.Clone(data)
+-	changed(record, id, copy, copy)
++	changed(record, field, copy, copy)
+ }
+ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) protocol.EntityRecord {
+ 	if record.values == nil {
+@@ -331,10 +331,10 @@
+ 		f := &record.fields[field.Modules]
+ 		if states != nil {
+ 			if f.compare != states {
+-				changed(record, field.Modules, states, states.states)
++				changed(record, f, states, states.states)
+ 			}
+ 		} else if f.compare != nil {
+-			changed(record, field.Modules, nil, nil)
++			changed(record, f, nil, nil)
+ 		}
+ 		wreckage := entity.Wreckage()
+ 		if wreckage != nil {
+@@ -419,6 +419,7 @@
+ }
+ 
+ var nextBatchGeneration atomic.Uint64
++var nextReplicationID atomic.Uint64
+ 
+ type fragment struct{ offset, length int }
+ type BinarySnapshotBatch struct {
+@@ -492,37 +493,35 @@
+ 	BinaryBatch                            *BinarySnapshotBatch
+ }
+ type member struct {
+-	record   *binaryRecord
+-	revision int64
+-	seen     uint64
+-	entityID int64
++	record            *binaryRecord
++	revision          int64
++	seen              uint64
++	owner, generation uint64
+ }
+ type BinaryReplicationManager struct {
+-	snapshotTick, stamp uint64
+-	writer              []byte
+-	entityIDs           []uint64
+-	fragments           []fragment
+-	wireFragments       [][]byte
+-	members             map[int64]*member
+-	memberCache         []*member
+-	catalog             specification.Catalog
++	snapshotTick, stamp      uint64
++	writer                   []byte
++	entityIDs                []uint64
++	fragments                []fragment
++	wireFragments            [][]byte
++	members                  map[int64]*member
++	cacheID, cacheGeneration uint64
++	catalog                  specification.Catalog
+ }
+ 
+ func NewBinaryReplicationManager(catalog specification.Catalog) *BinaryReplicationManager {
+-	return &BinaryReplicationManager{catalog: catalog, writer: make([]byte, 0, 4096), members: make(map[int64]*member)}
++	return &BinaryReplicationManager{catalog: catalog, writer: make([]byte, 0, 4096), members: make(map[int64]*member), cacheID: nextReplicationID.Add(1)}
+ }
+ func (m *BinaryReplicationManager) Initial(options SnapshotOptions) []byte {
++	clear(m.members)
+ 	return slices.Clone(m.encode(options, true))
+ }
+ func (m *BinaryReplicationManager) Snapshot(options SnapshotOptions) []byte {
+ 	return slices.Clone(m.encode(options, false))
+ }
+ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []byte {
+-	// The session calls encode directly to avoid cloning the packet. Invalidate
+-	// both membership representations on every load, including respawn.
+ 	if load {
+-		clear(m.members)
+-		clear(m.memberCache)
++		m.cacheGeneration++
+ 	}
+ 	world := options.World
+ 	view := options.ReplicationView
+@@ -534,13 +533,6 @@
+ 		batch = NewBinarySnapshotBatch(m.catalog).Begin(view)
+ 	}
+ 	list := view.Entities()
+-	if cap(m.memberCache) < len(list) {
+-		m.memberCache = append(m.memberCache, make([]*member, len(list)*2-len(m.memberCache))...)
+-	}
+-	if len(m.memberCache) > len(list) {
+-		clear(m.memberCache[len(list):])
+-	}
+-	m.memberCache = m.memberCache[:len(list)]
+ 	position := options.Position
+ 	if ship, ok := world.Entities.Get(options.ShipID); ok {
+ 		position = ship.Base().Position
+@@ -557,23 +549,9 @@
+ 	distantInterval := rules.UpdateTiers["distant"].ReplicateEvery
+ 	visibleInterval := rules.UpdateTiers["visible"].ReplicateEvery
+ 	visibleSquared := rules.VisibleRange * rules.VisibleRange
+-	visibleDue, distantDue := true, true
+-	var ballisticVisible, ballisticDistant uint64
+-	packedCadence := rules.BallisticReplicateEvery > 0 && rules.BallisticReplicateEvery <= 64 && rules.BallisticReplicateEvery == view.world.Specification.Simulation.BallisticReplicateEvery && visibleInterval > 0 && distantInterval > 0
+-	if previousSize > 0 && packedCadence {
+-		visibleDue = replicationDue(world.Tick, m.snapshotTick, visibleInterval)
+-		distantDue = replicationDue(world.Tick, m.snapshotTick, distantInterval)
+-		for phase := 0; phase < rules.BallisticReplicateEvery; phase++ {
+-			tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
+-			if replicationDue(tick, old, max(visibleInterval, rules.BallisticReplicateEvery)) {
+-				ballisticVisible |= uint64(1) << phase
+-			}
+-			if replicationDue(tick, old, max(distantInterval, rules.BallisticReplicateEvery)) {
+-				ballisticDistant |= uint64(1) << phase
+-			}
+-		}
+-	}
+-
++	// Bound cached observer slots even when players come and go. Colliding
++	// slots use the ordinary membership map, and epochs invalidate reloads.
++	observerIndex := int(m.cacheID % 64)
+ 	useVectors := vectorReplication && previousSize*4 < len(list) && world.Players != nil && world.Players.Len() >= 8
+ 	// Views can be supplied independently of the manager's catalog. Fall back
+ 	// when their prepacked unload policy does not match this observer's policy.
+@@ -587,10 +565,12 @@
+ 		object := view.objects[i]
+ 		station := view.Kinds[i]&1 != 0
+ 		var previous *member
+-		if cached := m.memberCache[i]; cached != nil && cached.entityID == object.ID && cached.seen == stamp-1 {
+-			previous = cached
+-		}
+-
++		if record := view.records[i]; record != nil && observerIndex < len(record.observers) {
++			cached := record.observers[observerIndex]
++			if cached != nil && cached.owner == m.cacheID && cached.generation == m.cacheGeneration && cached.seen == stamp-1 {
++				previous = cached
++			}
++		}
+ 		if previous == nil {
+ 			previous = m.members[object.ID]
+ 		}
+@@ -611,42 +591,23 @@
+ 		m.entityIDs = append(m.entityIDs, uint64(object.ID))
+ 		if loaded {
+ 			previous.seen = stamp
+-			m.memberCache[i] = previous
+ 			retained++
+ 		} else {
+ 			membershipChanged = true
+ 		}
+-		if loaded {
+-			if packedCadence {
+-				due := distantDue
+-				mask := ballisticDistant
+-				if distance <= visibleSquared {
+-					due = visibleDue
+-					mask = ballisticVisible
+-				}
+-				if view.Kinds[i] > 1 {
+-					due = mask&(uint64(1)<<view.Phases[i]) != 0
+-				}
+-				if !due {
+-					return
+-				}
+-			} else {
+-				interval := distantInterval
+-				if distance <= visibleSquared {
+-					interval = visibleInterval
+-				}
+-				phase := 0
+-				if view.Kinds[i] > 1 {
+-					interval = max(interval, rules.BallisticReplicateEvery)
+-					phase = view.Phases[i]
+-				}
+-				tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
+-				if loaded && !replicationDue(tick, old, interval) {
+-					return
+-				}
+-			}
+-		}
+-
++		interval := distantInterval
++		if distance <= visibleSquared {
++			interval = visibleInterval
++		}
++		phase := 0
++		if view.Kinds[i] > 1 {
++			interval = max(interval, rules.BallisticReplicateEvery)
++			phase = view.Phases[i]
++		}
++		tick, old := world.Tick+uint64(phase), m.snapshotTick+uint64(phase)
++		if loaded && !replicationDue(tick, old, interval) {
++			return
++		}
+ 		prepared := view.records[i]
+ 		if prepared == nil || prepared.batchGeneration != batch.Generation {
+ 			prepared = batch.prepared(e)
+@@ -662,10 +623,13 @@
+ 			previous.record = prepared
+ 			previous.revision = prepared.revision
+ 		} else {
+-			previous = &member{record: prepared, revision: prepared.revision, seen: stamp, entityID: object.ID}
++			previous = &member{record: prepared, revision: prepared.revision, seen: stamp, owner: m.cacheID, generation: m.cacheGeneration}
+ 			m.members[object.ID] = previous
+ 		}
+-		m.memberCache[i] = previous
++		if len(prepared.observers) <= observerIndex {
++			prepared.observers = append(prepared.observers, make([]*member, observerIndex+1-len(prepared.observers))...)
++		}
++		prepared.observers[observerIndex] = previous
+ 		replaced := previousRecord
+ 		if replaced == prepared {
+ 			replaced = nil
+@@ -702,7 +666,6 @@
+ 		for id, member := range m.members {
+ 			if member.seen != stamp {
+ 				delete(m.members, id)
+-				member.record = nil
+ 			}
+ 		}
+ 	}
+@@ -725,23 +688,19 @@
+ 
+ // Compare hot numeric fields before boxing a changed value for the wire writer.
+ func scalarNumber(record *binaryRecord, id int, value float64) {
+-	bit := uint64(1) << id
+-	if record.numberMask&bit != 0 && record.numberValues[id] == value {
+-		return
+-	}
+-	field := &record.fields[id]
++	field := &record.fields[id]
++	if before, ok := field.compare.(float64); ok && before == value {
++		return
++	}
+ 	normalized := canonical(value)
+-	if field.compare != normalized {
+-		wire := normalized
+-		if _, null := normalized.(nullValue); null {
+-			wire = nil
+-		}
+-		changed(record, id, normalized, wire)
+-	}
+-	if number, ok := normalized.(float64); ok {
+-		record.numberMask |= bit
+-		record.numberValues[id] = number
+-	}
++	if field.compare == normalized {
++		return
++	}
++	wire := normalized
++	if _, null := normalized.(nullValue); null {
++		wire = nil
++	}
++	changed(record, field, normalized, wire)
+ }
+ 
+ func optionalNumber(record *binaryRecord, id int, value float64, present bool) {
+--- a/internal/server/game-session.go
++++ b/internal/server/game-session.go
+@@ -276,6 +276,7 @@
+ 	options := SnapshotOptions{World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: p.inputLead, SnapshotSequence: &sequence, ReplicationView: view, BinaryBatch: batch}
+ 	var packet []byte
+ 	if p.needsLoad {
++		clear(p.binaryReplication.members)
+ 		packet = p.binaryReplication.encode(options, true)
+ 	} else {
+ 		packet = p.binaryReplication.encode(options, false)
+--- a/internal/server/replication-cache_test.go
++++ /dev/null
+@@ -1,113 +0,0 @@
+-package server
+-
+-import (
+-	"bytes"
+-	"github.com/burntcustard/unicorn-mining-co/internal/simulation"
+-	"github.com/burntcustard/unicorn-mining-co/internal/specification"
+-	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-	"math"
+-	"testing"
+-)
+-
+-func TestNumericFieldCachePreservesCanonicalChanges(t *testing.T) {
+-	for _, id := range []int{1, 34, 65} {
+-		record := &binaryRecord{fields: make([]fieldState, 70), numberValues: make([]float64, 70)}
+-		reference := &binaryRecord{fields: make([]fieldState, 70)}
+-		for _, value := range []any{0., math.Copysign(0, -1), 2., 2., math.NaN(), math.Inf(1), 3., "changed", 3., nil, 3., math.Inf(-1), 0.} {
+-			if number, ok := value.(float64); ok {
+-				scalarNumber(record, id, number)
+-			} else {
+-				scalar(record, id, value)
+-			}
+-			scalar(reference, id, value)
+-			if record.revision != reference.revision || record.fields[id] != reference.fields[id] {
+-				t.Fatalf("field %d value %v: got %+v rev%d want %+v rev%d", id, value, record.fields[id], record.revision, reference.fields[id], reference.revision)
+-			}
+-		}
+-	}
+-}
+-
+-func TestMembershipCacheSurvivesReorderReplacementAndEviction(t *testing.T) {
+-	catalog, err := specification.Load()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	world := simulation.CreateWorld(25, catalog)
+-	objects := make([]*simulation.GameObject, 20)
+-	for i := range objects {
+-		id := int64(i + 1)
+-		objects[i] = simulation.NewGameObject(simulation.ObjectProperties{ID: &id}, catalog.Simulation)
+-		simulation.AddEntity(world, objects[i])
+-	}
+-	cached, reference := NewBinaryReplicationManager(catalog), NewBinaryReplicationManager(catalog)
+-	compare := func(initial bool) {
+-		world.Tick++
+-		options := SnapshotOptions{World: world, ShipID: 1}
+-		clear(reference.memberCache)
+-		var a, b []byte
+-		if initial {
+-			a = cached.encode(options, true)
+-			b = reference.Initial(options)
+-		} else {
+-			a = cached.Snapshot(options)
+-			b = reference.Snapshot(options)
+-		}
+-		if !bytes.Equal(a, b) {
+-			t.Fatalf("tick %d: ordinal cache changed packet", world.Tick)
+-		}
+-	}
+-	compare(true)
+-	compare(false)
+-	world.Entities.Delete(2)
+-	world.Entities.Set(2, objects[1])
+-	compare(false)
+-	replacement := simulation.NewGameObject(simulation.ObjectProperties{ID: &objects[3].ID, Position: Vec.Create(3, 4)}, catalog.Simulation)
+-	world.Entities.Set(replacement.ID, replacement)
+-	compare(false)
+-	objects[8].Position.X = catalog.Simulation.Replication.EntityUnload + 1000
+-	compare(false)
+-	if _, exists := cached.members[objects[8].ID]; exists {
+-		t.Fatal("far member retained")
+-	}
+-	objects[8].Position.X = 0
+-	compare(false)
+-	for i := 2; i < len(objects); i++ {
+-		world.Entities.Delete(objects[i].ID)
+-	}
+-	compare(false)
+-	compare(true)
+-	compare(false)
+-}
+-
+-func TestPackedCadenceRetainsFallbackForForeignViews(t *testing.T) {
+-	for _, test := range []struct {
+-		interval int
+-		id       int64
+-	}{{8, 13}, {16, 13}, {65, 63}} {
+-		catalog, err := specification.Load()
+-		if err != nil {
+-			t.Fatal(err)
+-		}
+-		worldCatalog := catalog
+-		worldCatalog.Simulation.BallisticReplicateEvery = test.interval
+-		world := simulation.CreateWorld(25, worldCatalog)
+-		object := simulation.NewGameObject(simulation.ObjectProperties{ID: &test.id}, catalog.Simulation)
+-		object.Ballistic = true
+-		object.Kind = "asteroid"
+-		simulation.AddEntity(world, object)
+-		manager := NewBinaryReplicationManager(catalog)
+-		options := SnapshotOptions{World: world, ShipID: test.id}
+-		manager.Initial(options)
+-		for tick := uint64(1); tick <= 32; tick++ {
+-			previous := manager.members[test.id].revision
+-			object.Spin = float64(tick)
+-			world.Tick = tick
+-			phase := uint64(test.id % int64(test.interval))
+-			due := replicationDue(tick+phase, tick-1+phase, max(catalog.Simulation.UpdateTiers["visible"].ReplicateEvery, catalog.Simulation.BallisticReplicateEvery))
+-			manager.Snapshot(options)
+-			if (manager.members[test.id].revision != previous) != due {
+-				t.Fatalf("interval %d id %d tick %d: cadence differs", test.interval, test.id, tick)
+-			}
+-		}
+-	}
+-}
+--- a/internal/simulation/observers-default.go
++++ /dev/null
+@@ -1,9 +0,0 @@
+-//go:build !goexperiment.simd || !amd64
+-
+-package simulation
+-
+-import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-
+-func (s *movementSchedule) withinObservers(p Vec.Vector, radiusSquared float64) bool {
+-	return s.withinObserversScalar(p, radiusSquared)
+-}
+--- a/internal/simulation/observers-simd.go
++++ /dev/null
+@@ -1,41 +0,0 @@
+-//go:build goexperiment.simd && amd64
+-
+-package simulation
+-
+-import (
+-	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
+-	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-	"simd/archsimd"
+-)
+-
+-var vectorObservers = archsimd.X86.AVX2() && utilities.SIMDFeature("observers")
+-
+-func (s *movementSchedule) withinObservers(p Vec.Vector, radiusSquared float64) bool {
+-	if !vectorObservers || len(s.positions) < 8 {
+-		return s.withinObserversScalar(p, radiusSquared)
+-	}
+-	return s.withinObserversVector(p, radiusSquared)
+-}
+-
+-//go:noinline
+-func (s *movementSchedule) withinObserversVector(p Vec.Vector, radiusSquared float64) bool {
+-	x, y, r := archsimd.BroadcastFloat64x4(p.X), archsimd.BroadcastFloat64x4(p.Y), archsimd.BroadcastFloat64x4(radiusSquared)
+-	n := len(s.observerX)
+-	i := 0
+-	for ; i+4 <= n; i += 4 {
+-		dx := x.Sub(archsimd.LoadFloat64x4Array((*[4]float64)(s.observerX[i : i+4])))
+-		dy := y.Sub(archsimd.LoadFloat64x4Array((*[4]float64)(s.observerY[i : i+4])))
+-		if dx.Mul(dx).Add(dy.Mul(dy)).LessEqual(r).ToBits() != 0 {
+-			archsimd.ClearAVXUpperBits()
+-			return true
+-		}
+-	}
+-	archsimd.ClearAVXUpperBits()
+-	for ; i < n; i++ {
+-		dx, dy := p.X-s.observerX[i], p.Y-s.observerY[i]
+-		if dx*dx+dy*dy <= radiusSquared {
+-			return true
+-		}
+-	}
+-	return false
+-}
+--- a/internal/simulation/observers.go
++++ /dev/null
+@@ -1,12 +0,0 @@
+-package simulation
+-
+-import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-
+-func (s *movementSchedule) withinObserversScalar(p Vec.Vector, radiusSquared float64) bool {
+-	for _, q := range s.positions {
+-		if Vec.DistanceSquared(p, q) <= radiusSquared {
+-			return true
+-		}
+-	}
+-	return false
+-}
+--- a/internal/simulation/observers_test.go
++++ /dev/null
+@@ -1,36 +0,0 @@
+-package simulation
+-
+-import (
+-	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+-	"math"
+-	"math/rand/v2"
+-	"testing"
+-)
+-
+-func TestPackedObserversMatchScalar(t *testing.T) {
+-	random := rand.New(rand.NewPCG(13, 41))
+-	for _, count := range []int{0, 1, 3, 4, 7, 8, 9, 16, 31, 32, 65} {
+-		for _, origin := range []float64{0, 1e7, -2e7, 1e12} {
+-			var schedule movementSchedule
+-			for range count {
+-				position := Vec.Create(origin+random.Float64()*4000, origin+random.Float64()*4000)
+-				schedule.positions = append(schedule.positions, position)
+-				schedule.observerX = append(schedule.observerX, position.X)
+-				schedule.observerY = append(schedule.observerY, position.Y)
+-			}
+-			for trial := 0; trial < 1000; trial++ {
+-				position := Vec.Create(origin+random.Float64()*5000, origin+random.Float64()*5000)
+-				radius := random.Float64() * 2e6
+-				if count > 0 && trial%3 == 0 {
+-					radius = Vec.DistanceSquared(position, schedule.positions[trial%count])
+-					if trial%2 == 0 {
+-						radius = math.Nextafter(radius, 0)
+-					}
+-				}
+-				if schedule.withinObservers(position, radius) != schedule.withinObserversScalar(position, radius) {
+-					t.Fatalf("count=%d origin=%g trial=%d radius=%g", count, origin, trial, radius)
+-				}
+-			}
+-		}
+-	}
+-}
+--- a/internal/simulation/update-tier.go
++++ b/internal/simulation/update-tier.go
+@@ -26,7 +26,6 @@
+ type movementSchedule struct {
+ 	observers, parents, entities []Entity
+ 	positions                    []Vec.Vector
+-	observerX, observerY         []float64
+ 	entries                      []scheduledEntity
+ 	parentRecords                []movementParent
+ }
+@@ -78,13 +77,8 @@
+ 		}
+ 	})
+ 	schedule.positions = schedule.positions[:0]
+-	schedule.observerX = schedule.observerX[:0]
+-	schedule.observerY = schedule.observerY[:0]
+ 	for _, observer := range schedule.observers {
+-		position := observer.Base().Position
+-		schedule.positions = append(schedule.positions, position)
+-		schedule.observerX = append(schedule.observerX, position.X)
+-		schedule.observerY = append(schedule.observerY, position.Y)
++		schedule.positions = append(schedule.positions, observer.Base().Position)
+ 	}
+ 	visible, distant, drift := rules.UpdateTiers["visible"], rules.UpdateTiers["distant"], rules.UpdateTiers["drift"]
+ 	radiusSquared := rules.VisibleRange * rules.VisibleRange
+@@ -95,8 +89,11 @@
+ 		tier := visible
+ 		if len(schedule.positions) > 0 {
+ 			tier = distant
+-			if schedule.withinObservers(object.Position, radiusSquared) {
+-				tier = visible
++			for _, position := range schedule.positions {
++				if Vec.DistanceSquared(object.Position, position) <= radiusSquared {
++					tier = visible
++					break
++				}
+ 			}
+ 		}
+ 		_, craft := entity.(CraftEntity)
