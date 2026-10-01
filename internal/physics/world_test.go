@@ -123,7 +123,7 @@ func TestTypeScriptPhysicsWorld(t *testing.T) {
 					if e.A != w.A || e.B != w.B || e.Type != w.Type || e.Count != w.Count || !closeVector(e.Normal, w.Normal) {
 						t.Fatalf("tick %d event %d: %+v want %+v", tick, i, e, w)
 					}
-					for j := 0; j < 2; j++ {
+					for j := range 2 {
 						if !closeVector(e.Points[j], w.Points[j]) || !closeNumber(e.Separations[j], w.Separations[j]) {
 							t.Fatalf("tick %d event %d point %d: %+v want %+v", tick, i, j, e, w)
 						}

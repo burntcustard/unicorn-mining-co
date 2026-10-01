@@ -66,7 +66,7 @@ func TestTypeScriptMovement(t *testing.T) {
 	AddEntity(world, holder)
 	object := func(id int64) *GameObject { e, _ := world.Entities.Get(id); return e.Base() }
 	snapshot := 0
-	for tick := uint64(0); tick < 1800; tick++ {
+	for tick := range uint64(1800) {
 		world.Tick = tick
 		switch tick {
 		case 40:

@@ -339,7 +339,7 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 	} else {
 		sort.SliceStable(order, func(i, j int) bool { return bounds[order[i]*4] < bounds[order[j]*4] })
 	}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		a := order[i] * 4
 		right := bounds[a+1] + bounds[a+3]
 		for j := i + 1; j < count; j++ {
@@ -539,7 +539,7 @@ func (g *GameCollisions) syncDetailed(entity simulation.Entity, record *BodyReco
 			continue
 		}
 		equal := true
-		for offset := 0; offset < length; offset++ {
+		for offset := range length {
 			if !matches(geometry[to+offset], from+offset) {
 				equal = false
 				break

@@ -468,7 +468,7 @@ func (a *Asteroid) Detach(segment *AsteroidSegment, world *World) []*Asteroid {
 			mass += s.Mass
 		}
 		radius := RadiusOf(childOutline.Points, Point{})
-		props := AsteroidProperties{ObjectProperties: ObjectProperties{Health: &radius, Mass: &mass, ShapeOutline: childOutline, Position: Vec.Add(a.Position, offset), Radius: &radius, Rotation: a.Rotation, Spin: a.Spin, Velocity: Vec.AddScaled(a.Velocity, Vec.Create(-offset.Y, offset.X), a.Spin)}, Contents: contents, MaxHealth: &radius}
+		props := AsteroidProperties{Health: &radius, Mass: &mass, ShapeOutline: childOutline, Position: Vec.Add(a.Position, offset), Radius: &radius, Rotation: a.Rotation, Spin: a.Spin, Velocity: Vec.AddScaled(a.Velocity, Vec.Create(-offset.Y, offset.X), a.Spin), Contents: contents, MaxHealth: &radius}
 		if a.HasResource {
 			props.Resource = &a.Resource
 		}

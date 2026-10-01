@@ -15,7 +15,7 @@ type PolygonShape struct {
 }
 
 func NewPolygon(vertices []Vec.Vector, collisionMargin *float64, linearSlop float64) *PolygonShape {
-	p := &PolygonShape{BaseShape: BaseShape{Type: "polygon", Radius: 2 * linearSlop}}
+	p := &PolygonShape{Type: "polygon", Radius: 2 * linearSlop}
 	if collisionMargin != nil {
 		p.Radius = *collisionMargin
 	}
@@ -120,7 +120,7 @@ func computeCentroid(vs []Vec.Vector, count int) Vec.Vector {
 	var c, temp, pRef Vec.Vector
 	area := 0.0
 	inv3 := 1.0 / 3
-	for i := 0; i < count; i++ {
+	for i := range count {
 		p2, p3 := vs[i], vs[(i+1)%count]
 		d := Vec.Cross(p2, p3)
 		triangleArea := 0.5 * d

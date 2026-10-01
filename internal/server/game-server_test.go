@@ -85,7 +85,7 @@ func TestGameServerConcurrentConnections(t *testing.T) {
 	defer game.Stop(context.Background())
 	address := listener.Addr().String()
 	var wait sync.WaitGroup
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		wait.Go(func() {
 			conn, reader := connectGame(t, address)
 			defer conn.Close()
@@ -93,7 +93,7 @@ func TestGameServerConcurrentConnections(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			for index := 0; index < 2; index++ {
+			for range 2 {
 				kind, data, err := readServerFrame(reader)
 				if err != nil {
 					t.Error(err)

@@ -285,7 +285,7 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 		spawn := Vec.AddScaled(station.Position, Vec.Vector{X: math.Cos(angle), Y: math.Sin(angle)}, station.Radius+250)
 		spawn.X = utilities.RoundInteger(spawn.X)
 		spawn.Y = utilities.RoundInteger(spawn.Y)
-		ship := ships.CreateShip(s.World, craft.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &id, Position: spawn}})
+		ship := ships.CreateShip(s.World, craft.Properties{PlayerID: &id, Position: spawn})
 		simulation.AddEntity(s.World, ship)
 		simulation.AddPlayer(s.World, simulation.Player{ID: id, ShipID: ship.ID})
 		p = &playerRecord{needsLoad: true, inputs: utilities.NewOrderedMap[uint64, []protocol.Control](), lastInputAt: s.now(), playerID: id, binaryReplication: NewBinaryReplicationManager(s.World.Specification), ship: ship.Ship, shipID: ship.ID, token: token}
@@ -326,7 +326,7 @@ func (s *GameSession) respawn(p *playerRecord) {
 	if !ok || station.Base().Kind != "station" {
 		return
 	}
-	ship := ships.CreateShip(s.World, craft.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation}})
+	ship := ships.CreateShip(s.World, craft.Properties{PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
 	ship.Credits = p.ship.Credits
 	id := station.Base().ID
 	ship.DockedTo = &id

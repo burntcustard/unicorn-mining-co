@@ -14,7 +14,7 @@ type Module struct {
 func (m *Module) ModuleBase() *simulation.ModuleData { return &m.ModuleData }
 func NewModule(id string, props simulation.ObjectProperties, catalog specification.Catalog) *Module {
 	definition := catalog.ModuleSpecifications[id]
-	m := &Module{GameObject: simulation.NewGameObject(props, catalog.Simulation), ModuleData: simulation.ModuleData{Type: id, Definition: definition}}
+	m := &Module{GameObject: simulation.NewGameObject(props, catalog.Simulation), Type: id, Definition: definition}
 	m.Self = m
 	m.Health, m.Label, m.Price, m.Shades = definition.Health, definition.Label, definition.Price, definition.Shades
 	m.GameObject.Bounciness = definition.Bounciness

@@ -1,7 +1,10 @@
 // Port of src/shared/polygon.ts. Edges are mechanical fracture state.
 package simulation
 
-import "math"
+import (
+	"math"
+	"slices"
+)
 
 type Point [2]float64
 type ShapeOutline struct {
@@ -92,9 +95,9 @@ func OuterEdges(outlines []*ShapeOutline) [][]int {
 		group := []int{left[last]}
 		left = left[:last]
 		for at := 0; at < len(group); at++ {
-			for index := len(left) - 1; index >= 0; index-- {
-				if neighbours[group[at]][left[index]] {
-					group = append(group, left[index])
+			for index, other := range slices.Backward(left) {
+				if neighbours[group[at]][other] {
+					group = append(group, other)
 					left = append(left[:index], left[index+1:]...)
 				}
 			}

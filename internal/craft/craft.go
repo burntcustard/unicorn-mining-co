@@ -490,7 +490,7 @@ func (c *Craft) Spawn(origin Vec.Vector, segments []*simulation.Segment, own fun
 	if shades == nil {
 		shades = c.Shades
 	}
-	fragment := NewCraft(Properties{ObjectProperties: simulation.ObjectProperties{ID: id, World: c.World, Collections: c.Collections, Random: c.Random, Position: position, Velocity: velocity, Rotation: c.Rotation, Spin: c.Spin}, Shades: shades, Segments: copies}, nil, c.Catalog)
+	fragment := NewCraft(Properties{ID: id, World: c.World, Collections: c.Collections, Random: c.Random, Position: position, Velocity: velocity, Rotation: c.Rotation, Spin: c.Spin, Shades: shades, Segments: copies}, nil, c.Catalog)
 	physics.ApplyForce(fragment, Vec.Scale(Vec.Normalize(simulation.RotatePoint(away, c.Rotation)), 30), c.Random.Next()-0.5)
 	fragment.Add()
 	return fragment

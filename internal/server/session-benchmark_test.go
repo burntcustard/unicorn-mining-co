@@ -134,7 +134,7 @@ func TestSessionBenchmark(t *testing.T) {
 		if workload == "module" {
 			id := simulation.EntityID(session.World)
 			radius := 25.0
-			a := simulation.CreateAsteroid(session.World, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &id, Position: Vec.Vector{X: x + 85, Y: y}, Radius: &radius}, Contents: []int{0, 1}}).LockGeometry()
+			a := simulation.CreateAsteroid(session.World, simulation.AsteroidProperties{ID: &id, Position: Vec.Vector{X: x + 85, Y: y}, Radius: &radius, Contents: []int{0, 1}}).LockGeometry()
 			simulation.AddEntity(session.World, a)
 		}
 		sockets[i].packets = 0
@@ -156,7 +156,7 @@ func TestSessionBenchmark(t *testing.T) {
 				id := simulation.EntityID(session.World)
 				radius := 25.0
 				position := simulation.MovePoint(p.ship.Position, p.ship.Rotation, 85)
-				simulation.AddEntity(session.World, simulation.CreateAsteroid(session.World, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &id, Position: position, Radius: &radius}, Contents: []int{0, 1}}).LockGeometry())
+				simulation.AddEntity(session.World, simulation.CreateAsteroid(session.World, simulation.AsteroidProperties{ID: &id, Position: position, Radius: &radius, Contents: []int{0, 1}}).LockGeometry())
 			}
 		}
 
@@ -205,7 +205,7 @@ func TestSessionBenchmark(t *testing.T) {
 			}
 		}
 	}
-	for tick := 0; tick < 120; tick++ {
+	for tick := range 120 {
 		run(tick)
 	}
 	measured.contacts = 0
@@ -230,7 +230,7 @@ func TestSessionBenchmark(t *testing.T) {
 	runtime.ReadMemStats(&memory)
 	status, _ := os.ReadFile("/proc/self/status")
 	var rss int64
-	for _, line := range strings.Split(string(status), "\n") {
+	for line := range strings.SplitSeq(string(status), "\n") {
 		if strings.HasPrefix(line, "VmHWM:") {
 			rss, _ = strconv.ParseInt(strings.Fields(line)[1], 10, 64)
 			rss *= 1024

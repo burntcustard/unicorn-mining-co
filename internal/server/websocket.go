@@ -59,7 +59,7 @@ func acceptKey(key string) (string, bool) {
 	return base64.StdEncoding.EncodeToString(digest[:]), true
 }
 func headerHas(value, token string) bool {
-	for _, part := range strings.Split(value, ",") {
+	for part := range strings.SplitSeq(value, ",") {
 		if strings.EqualFold(strings.TrimSpace(part), token) {
 			return true
 		}

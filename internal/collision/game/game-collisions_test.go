@@ -124,7 +124,7 @@ func TestTypeScriptGameplay(t *testing.T) {
 					}
 				}
 				id := int64(i + 1)
-				ship := ships.CreateShip(world, craft.Properties{ObjectProperties: simulation.ObjectProperties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation}})
+				ship := ships.CreateShip(world, craft.Properties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation})
 				simulation.AddEntity(world, ship)
 				moduleID := int64(-2000)
 				if scenario.Name == "shield" {
@@ -142,13 +142,13 @@ func TestTypeScriptGameplay(t *testing.T) {
 			id := int64(100)
 			if scenario.Name == "drill" {
 				radius := 25.0
-				simulation.AddEntity(world, simulation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &id, Position: Vec.Create(85, 0), Radius: &radius}, Contents: []int{0, 1}}).LockGeometry())
+				simulation.AddEntity(world, simulation.CreateAsteroid(world, simulation.AsteroidProperties{ID: &id, Position: Vec.Create(85, 0), Radius: &radius, Contents: []int{0, 1}}).LockGeometry())
 			}
 			if scenario.Name == "shield" {
 				simulation.AddEntity(world, items.NewDiamond(simulation.ObjectProperties{ID: &id, World: world, Position: Vec.Create(54, 0)}, catalog))
 			}
 			if scenario.Name == "docking" {
-				simulation.AddEntity(world, stations.CreateStation(craft.Properties{ObjectProperties: simulation.ObjectProperties{ID: &id, World: world, Spin: 0.05}}, catalog))
+				simulation.AddEntity(world, stations.CreateStation(craft.Properties{ID: &id, World: world, Spin: 0.05}, catalog))
 			}
 			snapshot := 0
 			for tick := 0; tick < scenario.Ticks; tick++ {

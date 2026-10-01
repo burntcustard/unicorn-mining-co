@@ -123,7 +123,7 @@ func TestTypeScriptItemsAndRelease(t *testing.T) {
 	world.ItemTypes = types
 	id := int64(1)
 	health := 0.0
-	asteroid := simulation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &id, Health: &health, Position: Vec.Create(4, 5), Velocity: Vec.Create(-2, 9)}, Contents: []int{0, 1, 2, 3, 4}})
+	asteroid := simulation.CreateAsteroid(world, simulation.AsteroidProperties{ID: &id, Health: &health, Position: Vec.Create(4, 5), Velocity: Vec.Create(-2, 9), Contents: []int{0, 1, 2, 3, 4}})
 	simulation.AddEntity(world, asteroid)
 	events := []protocol.SimulationEvent{}
 	if asteroid.Fracture(nil, 7, &events, world) != fixture.Changed {

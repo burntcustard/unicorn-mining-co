@@ -84,3 +84,72 @@ npm run benchmark:go
 See [port layout and local running instructions](GO_PORT.md). The raw [main Node results](../benchmarking/main-node-server-results.json) record the source revision and unchanged harness hash. The original [per-run results](../benchmarking/go-server-results.json) include CPU, memory, latency tails, event counts, and encoded-byte totals. The runner and both harnesses are `benchmarking/go-server.mjs`, `benchmarking/session.ts`, and `internal/server/session-benchmark_test.go`.
 
 Fly memory, live play over WAN, and CPU-quota throttling still need checking after the user's merge/deployment. Keep the preceding Fly image available for rollback; deployment still resets the in-memory world.
+
+## `go fix` follow-up — 2026-10-01
+
+Running `go fix ./...` with Go 1.27.1 simplified integer loops, embedded-field
+struct literals, reverse slice iteration, and string splitting. A second pass
+inlined snapshot-fixture pointer helpers as `new(value)`; the unused wrappers
+were then removed. The reverse iterator's generated variable name and imports
+were tidied. A final `go fix -diff ./...` reports no further changes. These
+changes improve readability, with **no clear change in session performance**.
+The allocation-saving `strings.SplitSeq` in WebSocket header handling runs
+during connection setup, outside the measured simulation ticks.
+
+As requested, the comparison uses **one measured run per version, player count,
+and workload**, rather than the ten repetitions above. Original and fixed
+`internal/server` test executables were compiled separately, then run sequentially
+on logical CPU 0 with `GOMAXPROCS=1`. Execution order alternated by workload.
+Each process used seed 25, 120 warmup ticks, and 900 measured ticks, with tracing
+disabled. Builds and tests finished before measurement. The baseline is
+`9742a1074509db3b4e08e2f41b78296ed97b60fe`; the original historical samples above
+were not reused or overwritten.
+
+| Players | Workload | Before CPU ms/tick | After CPU ms/tick | CPU change |
+| ------- | -------- | -----------------: | ----------------: | ---------: |
+| 4       | convoy   |           0.050730 |          0.048690 |     -4.02% |
+| 4       | spread   |           0.119721 |          0.119274 |     -0.37% |
+| 4       | contact  |           0.065873 |          0.066090 |     +0.33% |
+| 4       | module   |           0.185983 |          0.189024 |     +1.64% |
+| 8       | convoy   |           0.101948 |          0.099494 |     -2.41% |
+| 8       | spread   |           0.213228 |          0.209732 |     -1.64% |
+| 8       | contact  |           0.118980 |          0.118451 |     -0.44% |
+| 8       | module   |           0.387954 |          0.388550 |     +0.15% |
+| 16      | convoy   |           0.237016 |          0.236790 |     -0.10% |
+| 16      | spread   |           0.464800 |          0.463877 |     -0.20% |
+| 16      | contact  |           0.237039 |          0.238719 |     +0.71% |
+| 16      | module   |           0.975167 |          0.974713 |     -0.05% |
+
+Summing CPU across the four equally long workloads gives **+0.18% at 4 players,
+-0.72% at 8 players, and +0.00% at 16 players**. Differences are small and mixed;
+one sample cannot distinguish these from process variation. All twelve pairs
+matched exactly on contacts, consequential and near-zero events, packet counts,
+encoded-byte totals, entity counts, and final ship states. This timed comparison
+does not trace individual packets; the Go/TypeScript parity suite separately
+checks decoded packets and complete sessions.
+
+The [raw before/after results](../benchmarking/results/2026-10-01-go-fix.json)
+retain CPU, RSS, heap, latency tails, outcome counts, final-state hashes,
+executable hashes, and execution order. To reproduce, compile the original
+and fixed source versions with `go test -c -o <executable> ./internal/server`,
+then invoke each executable once for every player count and workload:
+
+```sh
+GOMAXPROCS=1 SESSION_PLAYERS=4 SESSION_WORKLOAD=convoy SESSION_TICKS=900 \
+  SESSION_TRACE= CONTACT_TRACE= SESSION_RESULT=/tmp/session-result.json \
+  taskset -c 0 /tmp/session-benchmark -test.run '^TestSessionBenchmark$'
+```
+
+Repeat with 8 and 16 players and `spread`, `contact`, and `module`, alternating
+which version runs first. Choose the same allowed logical CPU for both versions.
+
+Validation passed: `npm run test:go`, production builds before and after,
+Go formatting, and `git diff --check`. The simulation and snapshot-decoding
+checks also passed after the manual cleanup. `npm run lint` completed with two
+existing `unicorn(no-new-array)` warnings in TypeScript replication code.
+Client resources are unchanged: entry 113,950 bytes / 50,317 gzip bytes,
+docked chunk 4,708 bytes, sound chunk 1,681 bytes, and Node server 99,220 bytes.
+The existing entry-size warning remains. Static Go builds also pass. With the
+Docker build flags (`CGO_ENABLED=0`, `-trimpath`, and `-ldflags='-s -w'`), the Go
+executable grows from 7,811,232 to 7,815,328 bytes: +4,096 bytes (+0.05%). The
+baseline build used an overlay restoring the original Go source files.

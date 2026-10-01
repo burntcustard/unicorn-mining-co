@@ -123,7 +123,7 @@ func main() {
 			old := sockets[a.Buffer]
 			data, _ := hex.DecodeString(old.packets[0])
 			offset := 4
-			for i := 0; i < 3; i++ {
+			for range 3 {
 				for data[offset]&128 != 0 {
 					offset++
 				}

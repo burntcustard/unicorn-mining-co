@@ -91,7 +91,7 @@ func (r *reader) byte() (byte, error) {
 func (r *reader) unsigned() (uint64, error) { return r.unsignedLimit((1 << 53) - 1) }
 func (r *reader) unsignedLimit(limit uint64) (uint64, error) {
 	var value uint64
-	for index := 0; index < 8; index++ {
+	for index := range 8 {
 		part, err := r.byte()
 		if err != nil {
 			return 0, err

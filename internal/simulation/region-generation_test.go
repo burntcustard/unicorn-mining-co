@@ -40,7 +40,7 @@ func TestTypeScriptRegions(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := NewRegionGenerator(spec)
-	for pass := 0; pass < 2; pass++ {
+	for pass := range 2 {
 		for i := range fixtures.Regions {
 			index := i
 			if pass == 1 {

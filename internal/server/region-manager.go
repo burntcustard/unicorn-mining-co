@@ -76,7 +76,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 				r.managed.Delete(id)
 				continue
 			}
-			props := simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &id, Position: d.Position, Radius: &d.Radius, Rotation: d.Rotation, Spin: d.Spin, Resource: &d.Resource}, Contents: d.Contents, PointCount: d.PointCount}
+			props := simulation.AsteroidProperties{ID: &id, Position: d.Position, Radius: &d.Radius, Rotation: d.Rotation, Spin: d.Spin, Resource: &d.Resource, Contents: d.Contents, PointCount: d.PointCount}
 			if d.RadiusEven != 0 {
 				props.RadiusEven = &d.RadiusEven
 			}
@@ -97,7 +97,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 				r.managed.Delete(id)
 				continue
 			}
-			station := stations.CreateStation(craft.Properties{ObjectProperties: simulation.ObjectProperties{ID: &id, Position: d.Position, Radius: &d.Radius, Spin: d.Spin}}, r.catalog)
+			station := stations.CreateStation(craft.Properties{ID: &id, Position: d.Position, Radius: &d.Radius, Spin: d.Spin}, r.catalog)
 			simulation.AddEntity(world, station)
 			r.managed.Set(id, true)
 		}
@@ -110,7 +110,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 			if world.Entities.Has(id) {
 				continue
 			}
-			wreck := ships.CreateShip(world, craft.Properties{ObjectProperties: simulation.ObjectProperties{ID: &id, Position: d.Position}})
+			wreck := ships.CreateShip(world, craft.Properties{ID: &id, Position: d.Position})
 			for _, resource := range d.CargoContents {
 				id := simulation.EntityID(world)
 				wreck.CargoContents = append(wreck.CargoContents, world.ItemTypes[resource](simulation.ObjectProperties{World: world, ID: &id}))

@@ -32,7 +32,7 @@ func ComputeDistance(output *DistanceOutput, cache *SimplexCache, input Distance
 	var temp Vec.Vector
 	for iter := 0; iter < 20; {
 		saveCount := simplex.count
-		for i := 0; i < saveCount; i++ {
+		for i := range saveCount {
 			saveA[i] = simplex.v[i].indexA
 			saveB[i] = simplex.v[i].indexB
 		}
@@ -54,7 +54,7 @@ func ComputeDistance(output *DistanceOutput, cache *SimplexCache, input Distance
 		vertex.w = Vec.Subtract(vertex.wB, vertex.wA)
 		iter++
 		duplicate := false
-		for i := 0; i < saveCount; i++ {
+		for i := range saveCount {
 			if vertex.indexA == saveA[i] && vertex.indexB == saveB[i] {
 				duplicate = true
 				break
