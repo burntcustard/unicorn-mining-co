@@ -28,7 +28,12 @@ func NewItem(props simulation.ObjectProperties, spec specification.Catalog) *Ite
 func (item *Item) Hitbox() []*collision.Collider {
 	body := item.GameObject.Hitbox()
 	if len(body) > 0 {
-		body = append(body, modules.CargoPickupPoint(item.Self))
+		body = body[:2]
+		if body[1] == nil {
+			body[1] = modules.CargoPickupPoint(item.Self)
+		} else {
+			modules.SetCargoPickupPoint(body[1], item.Self)
+		}
 	}
 	return body
 }

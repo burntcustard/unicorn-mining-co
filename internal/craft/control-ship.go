@@ -3,18 +3,17 @@ package craft
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/internal/protocol"
-	"math"
 )
 
 func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent) {
 	if input.Launch {
 		s.Launch()
 	}
-	forward := math.Max(0, math.Min(1, input.Thrust))
+	forward := max(0, min(1, input.Thrust))
 	if s.Launching != 0 || input.Launch {
 		forward = 1
 	}
-	s.Fly(forward, math.Max(-1, math.Min(1, input.Turn)))
+	s.Fly(forward, max(-1, min(1, input.Turn)))
 	controls := []struct {
 		id      string
 		enabled bool

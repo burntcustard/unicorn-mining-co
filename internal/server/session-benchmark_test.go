@@ -11,6 +11,7 @@ import (
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -105,7 +106,14 @@ func TestSessionBenchmark(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session := NewGameSession(25, catalog)
+	seed := 25.0
+	if value := os.Getenv("SESSION_SEED"); value != "" {
+		seed, err = strconv.ParseFloat(value, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	session := NewGameSession(seed, catalog)
 	sockets := make([]*benchmarkSocket, count)
 	players := make([]*playerRecord, count)
 	for i := range sockets {
@@ -216,6 +224,18 @@ func TestSessionBenchmark(t *testing.T) {
 		s.bytes = 0
 		s.trace = nil
 	}
+	var beforeMemory runtime.MemStats
+	runtime.ReadMemStats(&beforeMemory)
+	if profile := os.Getenv("SESSION_CPU_PROFILE"); profile != "" {
+		f, err := os.Create(profile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = pprof.StartCPUProfile(f); err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+	}
 	startCPU := cpuMicros()
 	start := time.Now()
 	for tick := 120; tick < 120+ticks; tick++ {
@@ -225,6 +245,9 @@ func TestSessionBenchmark(t *testing.T) {
 	}
 	elapsed := time.Since(start).Seconds() * 1000
 	cpu := float64(cpuMicros()-startCPU) / 1000
+	if os.Getenv("SESSION_CPU_PROFILE") != "" {
+		pprof.StopCPUProfile()
+	}
 	sort.Float64s(samples)
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
@@ -250,7 +273,7 @@ func TestSessionBenchmark(t *testing.T) {
 		ship := p.ship
 		states = append(states, map[string]any{"id": ship.ID, "position": ship.Position, "velocity": ship.Velocity, "rotation": ship.Rotation, "spin": ship.Spin, "hullHealth": ship.HullHealth(), "cargo": len(ship.CargoContents), "modules": ship.ModuleStates()})
 	}
-	result := map[string]any{"eventTrace": eventTrace, "contactTrace": measured.trace, "nearZeroCollisions": nearZeroCollisions, "runtime": "go", "players": count, "workload": workload, "ticks": ticks, "cpuMsPerTick": cpu / float64(ticks), "wallMsPerTick": elapsed / float64(ticks), "p95Ms": samples[int(float64(ticks)*.95)], "p99Ms": samples[int(float64(ticks)*.99)], "maxMs": samples[ticks-1], "rssBytes": rss, "heapBytes": memory.HeapAlloc, "contacts": measured.contacts, "events": events, "packets": packets, "bytes": bytes, "entities": session.World.Entities.Len(), "states": states, "traces": traces}
+	result := map[string]any{"eventTrace": eventTrace, "contactTrace": measured.trace, "nearZeroCollisions": nearZeroCollisions, "runtime": "go", "seed": seed, "players": count, "workload": workload, "ticks": ticks, "cpuMsPerTick": cpu / float64(ticks), "wallMsPerTick": elapsed / float64(ticks), "p95Ms": samples[int(float64(ticks)*.95)], "p99Ms": samples[int(float64(ticks)*.99)], "maxMs": samples[ticks-1], "rssBytes": rss, "heapBytes": memory.HeapAlloc, "allocatedBytesPerTick": float64(memory.TotalAlloc-beforeMemory.TotalAlloc) / float64(ticks), "allocationsPerTick": float64(memory.Mallocs-beforeMemory.Mallocs) / float64(ticks), "collections": memory.NumGC - beforeMemory.NumGC, "contacts": measured.contacts, "events": events, "packets": packets, "bytes": bytes, "entities": session.World.Entities.Len(), "states": states, "traces": traces}
 	data, err := json.Marshal(result)
 	if err != nil {
 		t.Fatal(err)

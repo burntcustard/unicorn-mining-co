@@ -23,6 +23,7 @@ func NewStation(props Properties, plans []*simulation.SegmentPlan, catalog speci
 func (s *Station) Holds(child simulation.Entity) bool {
 	return Vec.DistanceSquared(child.Base().Position, s.Position) <= s.LocalMovementRadius*s.LocalMovementRadius
 }
+func (s *Station) MovementRadius() float64 { return s.LocalMovementRadius }
 func (s *Station) HandleContacts(contacts []collision.Contact, events *[]protocol.SimulationEvent, _ *simulation.World, _ float64) {
 	for _, contact := range contacts {
 		var bay *collision.Collider

@@ -13,14 +13,23 @@ func CargoContactAllowed(self, other *collision.Collider) bool {
 	return self.PickupPoint && other.Role == "cargoHatch" || self.Role == "cargoHatch" && other.PickupPoint
 }
 func CargoPickupPoint(item simulation.Entity) *collision.Collider {
+	point := &collision.Collider{}
+	SetCargoPickupPoint(point, item)
+	return point
+}
+func SetCargoPickupPoint(point *collision.Collider, item simulation.Entity) {
 	object := item.Base()
-	physics := false
-	return &collision.Collider{Owner: item, Position: object.Position, Radius: 0, Rotation: object.Rotation, Physics: &physics, Friction: object.Friction, PickupPoint: true, ContactFilter: CargoContactAllowed}
+	physics := point.Physics
+	if physics == nil {
+		physics = new(false)
+	}
+	*physics = false
+	*point = collision.Collider{Owner: item, Position: object.Position, Radius: 0, Rotation: object.Rotation, Physics: physics, Friction: object.Friction, PickupPoint: true, ContactFilter: CargoContactAllowed}
 }
 func CargoHatchDoorShapeOutline(spec specification.Module, progress, side float64) *simulation.ShapeOutline {
 	geometry := spec.CargoGeometry
 	angle := progress * geometry.OpenAngle
-	sine, cosine := math.Sin(angle), math.Cos(angle)
+	sine, cosine := math.Sincos(angle)
 	fromY := side * geometry.Length
 	toX := geometry.Length * sine
 	toY := side * geometry.Length * (1 - cosine)
@@ -44,7 +53,7 @@ func NewCargoHatch(props simulation.ObjectProperties, catalog specification.Cata
 			} else if s.Mount.LocalPosition.Y > 0 {
 				side = 1
 			}
-			return CargoHatchDoorShapeOutline(d, s.ActivationProgress, side)
+			return s.CachedOutline([2]float64{s.ActivationProgress, side}, func() *simulation.ShapeOutline { return CargoHatchDoorShapeOutline(d, s.ActivationProgress, side) })
 		}, Radius: func(*simulation.Segment) float64 { return d.CargoGeometry.DoorRadius }, FillShade: &fill, Wreckage: &simulation.SegmentPlan{FillShade: &fill}, Stroke: [][][]float64{}},
 		{Catches: true, NoWreckage: true, Radius: func(*simulation.Segment) float64 { return d.CargoGeometry.ThroatRadius }},
 	}

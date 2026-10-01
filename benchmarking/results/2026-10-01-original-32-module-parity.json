@@ -1,0 +1,46 @@
+{
+  "directories": [
+    "/tmp/unicorn-server-benchmark-BLoVPq",
+    "/tmp/unicorn-server-benchmark-4imMF6"
+  ],
+  "summary": {
+    "Go/Node states": {
+      "max": 0,
+      "maxPath": "",
+      "structure": []
+    },
+    "Go/Node impactful events": {
+      "max": 3.5001335163542535e-11,
+      "maxPath": "events.13352.impact",
+      "structure": []
+    },
+    "original/optimized ordered events": {
+      "max": 0,
+      "maxPath": "",
+      "structure": []
+    },
+    "original/optimized states": {
+      "max": 0,
+      "maxPath": "",
+      "structure": []
+    },
+    "Go/Node packets": {
+      "max": 4.107825191113079e-14,
+      "maxPath": "player17/packet325.fullEntities.8.cargoContents.0.rotation",
+      "structure": []
+    },
+    "original/optimized packets": {
+      "max": 0,
+      "maxPath": "",
+      "structure": []
+    }
+  },
+  "originalModuleThresholdAudit": {
+    "threshold": 0.021,
+    "GoEvents": 60809,
+    "NodeEvents": 60809,
+    "orderedStructureDifferences": 0,
+    "maxNumericDifference": 1.1114753561969337e-10,
+    "chosenHarnessThreshold": 0.025
+  }
+}

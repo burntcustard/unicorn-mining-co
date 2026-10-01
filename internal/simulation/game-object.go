@@ -15,35 +15,41 @@ import (
 
 var nextObjectID atomic.Int64
 
+type ObjectRules struct {
+	Motion specification.Motion
+	Flight specification.Flight
+}
 type GameObject struct {
-	ReplicationState                                                         any
-	HasPaint                                                                 bool
-	HasResource                                                              bool
-	Ballistic                                                                bool
-	ID                                                                       int64
-	Position, Velocity                                                       Vec.Vector
-	Rotation, Spin, AngularDrag, AngularInertiaScale, Mass, Friction, Radius float64
-	Physics, Dead, Buried                                                    bool
-	PendingUpdateTime                                                        float64
-	LocalMovementParent                                                      Entity
-	LocalMovementRate                                                        float64
-	Drag, SpeedLimit, Decay, Health                                          float64
-	Label, Kind                                                              string
-	Message                                                                  *string
-	PlayerID                                                                 *int64
-	Paint, PointCount, Resource                                              int
-	RadiusEven                                                               *float64
-	World                                                                    *World
-	Collections                                                              []*[]Entity
-	Random                                                                   *random.Random
-	ShapeOutline                                                             *ShapeOutline
-	Bounciness                                                               *float64
-	Self                                                                     Entity
-	Rules                                                                    specification.Simulation
-	Shades                                                                   []string
-	Price                                                                    float64
-	Item                                                                     bool
-	Unlock                                                                   string
+	// Keep IDs, motion and per-tick state together ahead of cold metadata.
+	ID                                                                                            int64
+	Position, Velocity                                                                            Vec.Vector
+	Rotation, Spin, Radius                                                                        float64
+	World                                                                                         *World
+	CollisionState, ReplicationState                                                              any
+	Kind                                                                                          string
+	Physics, Dead, Buried, InactivePhysics, Ballistic, HasPaint, HasResource                      bool
+	Self                                                                                          Entity
+	AngularDrag, AngularInertiaScale, Mass, Friction, Drag, SpeedLimit, PendingUpdateTime, Health float64
+	LocalMovementParent                                                                           Entity
+	LocalMovementRate                                                                             float64
+	hitboxes                                                                                      [2][]*collision.Collider
+	hitboxIndex                                                                                   int
+	gameplayContacts                                                                              []collision.Contact
+	Decay                                                                                         float64
+	Label                                                                                         string
+	Message                                                                                       *string
+	PlayerID                                                                                      *int64
+	Paint, PointCount, Resource                                                                   int
+	RadiusEven                                                                                    *float64
+	Collections                                                                                   []*[]Entity
+	Random                                                                                        *random.Random
+	ShapeOutline                                                                                  *ShapeOutline
+	Bounciness                                                                                    *float64
+	Rules                                                                                         ObjectRules
+	Shades                                                                                        []string
+	Price                                                                                         float64
+	Item                                                                                          bool
+	Unlock                                                                                        string
 }
 type ObjectProperties struct {
 	Points                                                   *[]Point
@@ -78,7 +84,7 @@ func NewGameObject(props ObjectProperties, rules specification.Simulation) *Game
 	if r == nil {
 		r = random.CreateRandom(float64(uint32(id)))
 	}
-	o := &GameObject{ID: id, Position: props.Position, Velocity: props.Velocity, Rotation: props.Rotation, Spin: props.Spin, AngularInertiaScale: 1, Mass: 6, Physics: true, Friction: 0.01, Drag: math.NaN(), SpeedLimit: math.NaN(), Health: math.NaN(), Price: math.NaN(), World: props.World, Collections: props.Collections, Random: r, Rules: rules}
+	o := &GameObject{ID: id, Position: props.Position, Velocity: props.Velocity, Rotation: props.Rotation, Spin: props.Spin, AngularInertiaScale: 1, Mass: 6, Physics: true, Friction: 0.01, Drag: math.NaN(), SpeedLimit: math.NaN(), Health: math.NaN(), Price: math.NaN(), World: props.World, Collections: props.Collections, Random: r, Rules: ObjectRules{Motion: rules.Motion, Flight: rules.Flight}}
 	o.Self = o
 	o.ApplyProperties(props)
 	return o
@@ -119,22 +125,38 @@ func (o *GameObject) Hitbox() []*collision.Collider {
 	if o.Dead || o.Buried || (o.Radius == 0 && o.ShapeOutline == nil) {
 		return nil
 	}
-	var outline [][]float64
-	if o.ShapeOutline != nil {
-		outline = make([][]float64, len(o.ShapeOutline.Points))
+	o.hitboxIndex ^= 1
+	body := o.hitboxes[o.hitboxIndex]
+	if body == nil {
+		body = make([]*collision.Collider, 1, 2)
+		body[0] = &collision.Collider{}
+		o.hitboxes[o.hitboxIndex] = body
+	}
+	c := body[0]
+	outline := c.ShapeOutline
+	if o.ShapeOutline == nil {
+		outline = nil
+	} else {
+		if len(outline) != len(o.ShapeOutline.Points) {
+			outline = make([][]float64, len(o.ShapeOutline.Points))
+			for i := range outline {
+				outline[i] = make([]float64, 2)
+			}
+		}
 		for i, p := range o.ShapeOutline.Points {
-			outline[i] = []float64{p[0], p[1]}
+			outline[i][0], outline[i][1] = p[0], p[1]
 		}
 	}
-	return []*collision.Collider{{Owner: o.Self, Position: o.Position, Radius: o.Radius, Rotation: o.Rotation, ShapeOutline: outline, Bounciness: o.Bounciness, Friction: o.Friction, Physics: &o.Physics}}
+	*c = collision.Collider{Owner: o.Self, Position: o.Position, Radius: o.Radius, Rotation: o.Rotation, ShapeOutline: outline, Bounciness: o.Bounciness, Friction: o.Friction, Physics: &o.Physics}
+	return body
 }
 func (o *GameObject) RoundMotion() {
-	o.Position.X = utilities.Round(o.Position.X)
-	o.Position.Y = utilities.Round(o.Position.Y)
-	o.Velocity.X = utilities.Round(o.Velocity.X)
-	o.Velocity.Y = utilities.Round(o.Velocity.Y)
-	o.Rotation = utilities.Round(o.Rotation)
-	o.Spin = utilities.Round(o.Spin)
+	o.Position.X = utilities.RoundMotion(o.Position.X)
+	o.Position.Y = utilities.RoundMotion(o.Position.Y)
+	o.Velocity.X = utilities.RoundMotion(o.Velocity.X)
+	o.Velocity.Y = utilities.RoundMotion(o.Velocity.Y)
+	o.Rotation = utilities.RoundMotion(o.Rotation)
+	o.Spin = utilities.RoundMotion(o.Spin)
 }
 func (o *GameObject) Update(dt float64) {
 	if o.Dead || o.Buried {
@@ -160,10 +182,10 @@ func (o *GameObject) Update(dt float64) {
 	if speedSquared < o.Rules.Motion.MinimumSpeedSquared {
 		o.Velocity = Vec.Vector{}
 	} else {
-		speed := math.Sqrt(speedSquared)
 		var kept float64
-		if speed > maxSpeed {
-			kept = math.Max(maxSpeed, speed*math.Pow(o.Rules.Motion.MaxSpeedDrag, dt*60)) / speed
+		if maxSpeed < 0 || speedSquared > maxSpeed*maxSpeed {
+			speed := math.Sqrt(speedSquared)
+			kept = max(maxSpeed, speed*math.Pow(o.Rules.Motion.MaxSpeedDrag, dt*60)) / speed
 		} else {
 			kept = math.Exp(-drag * dt)
 		}
@@ -179,7 +201,11 @@ func (o *GameObject) Update(dt float64) {
 	} else if len(o.Collections) > 1 {
 		movers = *o.Collections[1]
 	}
-	LocalMovement(o.Self, movers, dt)
+	var parents []movementParent
+	if o.World != nil {
+		parents = o.World.movementParents
+	}
+	localMovement(o.Self, movers, parents, dt)
 	o.RoundMotion()
 }
 

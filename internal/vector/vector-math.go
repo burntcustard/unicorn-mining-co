@@ -11,8 +11,7 @@ type TransformValue struct {
 }
 
 func SetRotAngle(out *RotValue, a float64) *RotValue {
-	out.C = math.Cos(a)
-	out.S = math.Sin(a)
+	out.S, out.C = math.Sincos(a)
 	return out
 }
 func RotateInto(out *Vector, q RotValue, v Vector) *Vector {
@@ -30,7 +29,8 @@ func RerotateInto(out *Vector, before, after RotValue, v Vector) *Vector {
 	return out
 }
 func Transform(x, y, a float64) TransformValue {
-	return TransformValue{Vector{x, y}, RotValue{math.Sin(a), math.Cos(a)}}
+	sin, cos := math.Sincos(a)
+	return TransformValue{Vector{x, y}, RotValue{sin, cos}}
 }
 func TransformInto(out *Vector, xf TransformValue, v Vector) *Vector {
 	*out = Vector{xf.Q.C*v.X - xf.Q.S*v.Y + xf.P.X, xf.Q.S*v.X + xf.Q.C*v.Y + xf.P.Y}

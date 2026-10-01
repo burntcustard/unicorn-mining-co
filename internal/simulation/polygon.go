@@ -37,14 +37,15 @@ func CreatePolygon(options PolygonOptions) *ShapeOutline {
 			reach = options.Radius
 		}
 		reach *= wander
-		outline.Points[i] = Point{math.Cos(angle) * reach, math.Sin(angle) * reach}
+		sin, cos := math.Sincos(angle)
+		outline.Points[i] = Point{cos * reach, sin * reach}
 	}
 	return outline
 }
 func RadiusOf(points []Point, center Point) float64 {
 	radius := math.Inf(-1)
 	for _, p := range points {
-		radius = math.Max(radius, math.Hypot(p[0]-center[0], p[1]-center[1]))
+		radius = max(radius, math.Hypot(p[0]-center[0], p[1]-center[1]))
 	}
 	return radius
 }

@@ -3,6 +3,7 @@
 package physics
 
 import (
+	"github.com/burntcustard/unicorn-mining-co/internal/collision"
 	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"math"
@@ -18,7 +19,7 @@ type Position struct {
 }
 type Body struct {
 	World                                 *World
-	IslandFlag                            bool
+	IslandFlag, Destroyed, Parked         bool
 	InvMass, InvI                         float64
 	CVelocity                             Velocity
 	CPosition                             Position
@@ -27,27 +28,34 @@ type Body struct {
 	ContactList                           *ContactEdge
 	FixtureList                           *Fixture
 	Prev, Next                            *Body
-	Destroyed, Parked                     bool
 	proxyRadius, proxyMotion, proxyMargin float64
 	proxyTransform                        Vec.TransformValue
 	Xf                                    Vec.TransformValue
-	Sweep                                 Sweep
+	Sweep                                 collision.Sweep
 }
 
 func newBody(world *World) *Body {
-	return &Body{World: world, proxyRadius: math.Inf(1), proxyTransform: Vec.Transform(0, 0, 0), Xf: Vec.Transform(0, 0, 0), Sweep: NewSweep()}
+	return &Body{World: world, proxyRadius: math.Inf(1), proxyTransform: Vec.Transform(0, 0, 0), Xf: Vec.Transform(0, 0, 0), Sweep: collision.NewSweep()}
 }
 func (b *Body) SetTransform(position Vec.Vector, angle float64) {
 	if b.World.Locked {
 		return
 	}
 	Vec.SetTransform(&b.Xf, position, angle)
-	b.Sweep.SetTransform(b.Xf)
+	if angle >= -math.Pi && angle <= math.Pi {
+		b.Sweep.C, b.Sweep.C0 = position, position
+		b.Sweep.A, b.Sweep.A0 = angle, angle
+	} else {
+		b.Sweep.SetTransform(b.Xf)
+	}
 	if !b.Parked {
 		b.synchronizeProxies(b.Xf, b.Xf)
 	}
 }
 func (b *Body) Park() {
+	for b.ContactList != nil {
+		b.World.DestroyContact(b.ContactList.Contact)
+	}
 	b.Parked = true
 	for f := b.FixtureList; f != nil; f = f.Next {
 		f.DestroyProxies(b.World.BroadPhase)
@@ -82,10 +90,10 @@ func (b *Body) synchronizeProxies(from, to Vec.TransformValue) {
 	cached := b.proxyTransform
 	motion := func(pose Vec.TransformValue) float64 {
 		sin, cos := pose.Q.S-cached.Q.S, pose.Q.C-cached.Q.C
-		return math.Max(math.Abs(pose.P.X-cached.P.X), math.Abs(pose.P.Y-cached.P.Y)) + b.proxyRadius*math.Sqrt(sin*sin+cos*cos)
+		return max(math.Abs(pose.P.X-cached.P.X), math.Abs(pose.P.Y-cached.P.Y)) + b.proxyRadius*math.Sqrt(sin*sin+cos*cos)
 	}
 	if b.proxyRadius < math.Inf(1) {
-		b.proxyMotion += math.Max(motion(from), motion(to))
+		b.proxyMotion += max(motion(from), motion(to))
 	}
 	b.proxyTransform = to
 	if b.proxyRadius < math.Inf(1) && b.proxyMotion < b.proxyMargin {
@@ -98,7 +106,7 @@ func (b *Body) synchronizeProxies(from, to Vec.TransformValue) {
 			motion = b.proxyMotion
 		}
 		f.Synchronize(b.World.BroadPhase, from, to, motion)
-		margin = math.Min(margin, f.ProxyMargin)
+		margin = min(margin, f.ProxyMargin)
 	}
 	b.proxyMargin = margin
 }

@@ -4,13 +4,8 @@ package collision
 
 import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 
-// Shape's distance-query surface avoids importing the shape child package.
-type DistanceProxy interface {
-	GetVertex(int) Vec.Vector
-	GetSupport(Vec.Vector) int
-}
 type DistanceInput struct {
-	ProxyA, ProxyB         DistanceProxy
+	ProxyA, ProxyB         *BaseShape
 	TransformA, TransformB Vec.TransformValue
 }
 type DistanceOutput struct {
@@ -83,7 +78,7 @@ type simplex struct {
 	count int
 }
 
-func (s *simplex) readCache(cache *SimplexCache, proxyA DistanceProxy, xfA Vec.TransformValue, proxyB DistanceProxy, xfB Vec.TransformValue) {
+func (s *simplex) readCache(cache *SimplexCache, proxyA *BaseShape, xfA Vec.TransformValue, proxyB *BaseShape, xfB Vec.TransformValue) {
 	s.count = cache.Count
 	for i := 0; i < s.count; i++ {
 		v := &s.v[i]

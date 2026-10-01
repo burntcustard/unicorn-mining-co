@@ -36,7 +36,13 @@ type CargoEntry struct {
 	ModuleIndex *float64
 	Entity      *EntityRecord
 }
+type FieldValue struct {
+	ID    int
+	Value any
+}
+
 type EntityRecord struct {
+	Values     []FieldValue
 	FieldOrder []int
 	ID         uint64
 	// A nil value clears a previously replicated field.
@@ -172,60 +178,60 @@ func (w *writer) cargo(values []CargoEntry, protocol specification.Protocol, dep
 }
 func (w *writer) field(id int, value any, protocol specification.Protocol, depth int) error {
 	fields := protocol.BinaryFieldIDs
-	if raw, ok := value.([]byte); ok && (id == fields["cargoContents"] || id == fields["wreckage"]) {
+	if raw, ok := value.([]byte); ok && (id == fields.CargoContents || id == fields.Wreckage) {
 		w.data = append(w.data, raw...)
 		return nil
 	}
 	switch id {
-	case fields["cargoContents"]:
+	case fields.CargoContents:
 		entries, ok := value.([]CargoEntry)
 		if !ok {
 			return ErrSnapshot
 		}
 		return w.cargo(entries, protocol, depth)
-	case fields["wreckage"]:
+	case fields.Wreckage:
 		entries, ok := value.([]WreckageSegment)
 		if !ok {
 			return ErrSnapshot
 		}
 		w.wreckage(entries)
-	case fields["contents"], fields["hullHealth"]:
+	case fields.Contents, fields.HullHealth:
 		values, ok := value.([]float64)
 		if !ok {
 			return ErrSnapshot
 		}
 		w.numbers(values)
-	case fields["modules"]:
+	case fields.Modules:
 		values, ok := value.([]ModuleState)
 		if !ok {
 			return ErrSnapshot
 		}
 		w.modules(values)
-	case fields["shapeOutline"]:
+	case fields.ShapeOutline:
 		values, ok := value.([][]float64)
 		if !ok {
 			return ErrSnapshot
 		}
 		w.outline(values)
-	case fields["shades"]:
+	case fields.Shades:
 		values, ok := value.([]string)
 		if !ok {
 			return ErrSnapshot
 		}
 		w.strings(values)
-	case fields["segments"]:
+	case fields.Segments:
 		values, ok := value.([]AsteroidSegment)
 		if !ok {
 			return ErrSnapshot
 		}
 		w.segments(values)
-	case fields["position"], fields["velocity"]:
+	case fields.Position, fields.Velocity:
 		point, ok := value.(Vector)
 		if !ok {
 			return ErrSnapshot
 		}
 		w.vector(point)
-	case fields["kind"]:
+	case fields.Kind:
 		kind, ok := value.(string)
 		if !ok {
 			return ErrSnapshot
@@ -235,7 +241,7 @@ func (w *writer) field(id int, value any, protocol specification.Protocol, depth
 			return ErrSnapshot
 		}
 		w.byte(byte(tag))
-	case fields["label"], fields["message"]:
+	case fields.Label, fields.Message:
 		label, ok := value.(string)
 		if !ok {
 			return ErrSnapshot
@@ -257,6 +263,29 @@ func (w *writer) field(id int, value any, protocol specification.Protocol, depth
 func (w *writer) record(value EntityRecord, protocol specification.Protocol, depth int) error {
 	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > 33 {
 		return ErrSnapshot
+	}
+	if value.Values != nil {
+		if len(value.Values) > 33 {
+			return ErrSnapshot
+		}
+		w.unsigned(value.ID)
+		w.unsigned(uint64(len(value.Values)))
+		for _, field := range value.Values {
+			if field.ID < 1 || field.ID > 33 {
+				return ErrSnapshot
+			}
+			tag := uint64(field.ID << 1)
+			if field.Value == nil {
+				tag++
+			}
+			w.unsigned(tag)
+			if field.Value != nil {
+				if err := w.field(field.ID, field.Value, protocol, depth); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	}
 	w.unsigned(value.ID)
 	w.unsigned(uint64(len(value.Fields)))

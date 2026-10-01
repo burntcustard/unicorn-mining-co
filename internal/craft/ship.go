@@ -304,7 +304,7 @@ func (s *Ship) Fly(forward, turn float64) {
 }
 func (s *Ship) Update(dt float64) {
 	if s.Launching != 0 {
-		s.Launching = math.Max(0, s.Launching-dt)
+		s.Launching = max(0, s.Launching-dt)
 		s.Fly(s.Forward, s.Turn)
 	}
 	if s.Cockpit != nil && (s.DockedTo == nil || *s.DockedTo == 0) {

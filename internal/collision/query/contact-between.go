@@ -6,7 +6,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
 	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
-	"math"
 )
 
 type ShapeData struct {
@@ -65,5 +64,5 @@ func ContactBetween(a, b ShapeData, linearSlop float64) (Contact, bool) {
 	} else {
 		contact = manifold.GetWorldManifold(nil, xa, sa.Base().Radius, xb, sb.Base().Radius)
 	}
-	return Contact{Depth: -math.Min(contact.Separations[0], contact.Separations[1]), Normal: Vec.Scale(contact.Normal, direction), Point: contact.Points[0]}, true
+	return Contact{Depth: -min(contact.Separations[0], contact.Separations[1]), Normal: Vec.Scale(contact.Normal, direction), Point: contact.Points[0]}, true
 }

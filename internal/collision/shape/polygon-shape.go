@@ -5,11 +5,10 @@ package shape
 import (
 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
-	"math"
 )
 
 type PolygonShape struct {
-	BaseShape
+	collision.BaseShape
 	Centroid Vec.Vector
 	Normals  []Vec.Vector
 }
@@ -101,20 +100,6 @@ func (p *PolygonShape) SetAsBox(hx, hy float64) {
 	p.Vertices = []Vec.Vector{{X: hx, Y: -hy}, {X: hx, Y: hy}, {X: -hx, Y: hy}, {X: -hx, Y: -hy}}
 	p.Normals = []Vec.Vector{{X: 1}, {Y: 1}, {X: -1}, {Y: -1}}
 	p.Count = 4
-}
-func (p *PolygonShape) ComputeAABB(aabb *collision.AABB, xf Vec.TransformValue) {
-	minX, minY, maxX, maxY := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
-	for i := 0; i < p.Count; i++ {
-		v := p.Vertices[i]
-		x := xf.Q.C*v.X - xf.Q.S*v.Y + xf.P.X
-		y := xf.Q.S*v.X + xf.Q.C*v.Y + xf.P.Y
-		minX = math.Min(minX, x)
-		maxX = math.Max(maxX, x)
-		minY = math.Min(minY, y)
-		maxY = math.Max(maxY, y)
-	}
-	aabb.LowerBound = Vec.Vector{X: minX - p.Radius, Y: minY - p.Radius}
-	aabb.UpperBound = Vec.Vector{X: maxX + p.Radius, Y: maxY + p.Radius}
 }
 func computeCentroid(vs []Vec.Vector, count int) Vec.Vector {
 	var c, temp, pRef Vec.Vector

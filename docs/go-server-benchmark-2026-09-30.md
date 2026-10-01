@@ -1,5 +1,9 @@
 # Go / Node session benchmark — 2026-09-30
 
+For the latest **Go before/current optimization comparison**, including all 16
+scenarios through 32 players, see the
+[2026-10-01 CPU comparison](go-server-cpu-comparison-2026-10-01.md).
+
 ## Result
 
 On this host, Go used **2.30–4.94× less CPU per simulation tick** across the twelve workloads. This exceeds the initial 2× hypothesis for these complete-session workloads. It is not a measurement of production Fly CPU quota, network RTT, or WebSocket framing costs.

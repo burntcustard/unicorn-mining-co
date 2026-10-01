@@ -2,47 +2,46 @@
 package simulation
 
 import (
-	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/internal/protocol"
 	"github.com/burntcustard/unicorn-mining-co/internal/specification"
 	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"math"
 	"slices"
-	"strings"
 )
 
 type queriedRegions struct {
-	bounds    string
-	asteroids [][]protocol.AsteroidDescription
-	wrecks    [][]protocol.WreckDescription
-	stations  [][]protocol.StationDescription
+	bounds, stationBounds []regionBounds
+	asteroids             [][]protocol.AsteroidDescription
+	wrecks                [][]protocol.WreckDescription
+	stations              [][]protocol.StationDescription
 }
+type regionBounds struct{ from, to Vec.Vector }
 type RegionManager struct {
-	loaded            *utilities.OrderedMap[string, *protocol.LoadedRegion]
-	saved             map[string]*protocol.RegionDescription
-	worldSeed         uint32
-	removed           map[uint32]bool
-	descriptionOwners map[uint32][]*protocol.RegionDescription
-	stationLists      map[string][]protocol.StationDescription
-	queried           *queriedRegions
-	generator         *RegionGenerator
-	catalog           specification.Catalog
+	loaded                    *utilities.OrderedMap[Vec.Vector, *protocol.LoadedRegion]
+	saved                     map[Vec.Vector]*protocol.RegionDescription
+	worldSeed                 uint32
+	removed                   map[uint32]bool
+	descriptionOwners         map[uint32][]*protocol.RegionDescription
+	stationLists              map[regionBounds][]protocol.StationDescription
+	queryBounds, markerBounds []regionBounds
+	queried                   *queriedRegions
+	generator                 *RegionGenerator
+	catalog                   specification.Catalog
 }
 
 func NewRegionManager(seed uint32, catalog specification.Catalog) *RegionManager {
-	return &RegionManager{loaded: utilities.NewOrderedMap[string, *protocol.LoadedRegion](), saved: map[string]*protocol.RegionDescription{}, worldSeed: seed, removed: map[uint32]bool{}, descriptionOwners: map[uint32][]*protocol.RegionDescription{}, stationLists: map[string][]protocol.StationDescription{}, generator: NewRegionGenerator(catalog), catalog: catalog}
+	return &RegionManager{loaded: utilities.NewOrderedMap[Vec.Vector, *protocol.LoadedRegion](), saved: map[Vec.Vector]*protocol.RegionDescription{}, worldSeed: seed, removed: map[uint32]bool{}, descriptionOwners: map[uint32][]*protocol.RegionDescription{}, stationLists: map[regionBounds][]protocol.StationDescription{}, generator: NewRegionGenerator(catalog), catalog: catalog}
 }
-func keyOf(region Vec.Vector) string            { return fmt.Sprintf("%g,%g", region.X, region.Y) }
 func (r *RegionManager) LoadedRegionCount() int { return r.loaded.Len() }
 func (r *RegionManager) PreGenerate(radius float64) {
 	size := r.catalog.Simulation.RegionSize
 	reach := math.Ceil(radius / size)
 	for x := -reach; x < reach; x++ {
 		for y := -reach; y < reach; y++ {
-			nx, ny := math.Max(math.Max(x, 0), -x-1)*size, math.Max(math.Max(y, 0), -y-1)*size
+			nx, ny := max(max(x, 0), -x-1)*size, max(max(y, 0), -y-1)*size
 			region := Vec.Create(x, y)
-			key := keyOf(region)
+			key := region
 			if nx*nx+ny*ny >= radius*radius || r.loaded.Has(key) || r.saved[key] != nil {
 				continue
 			}
@@ -52,7 +51,7 @@ func (r *RegionManager) PreGenerate(radius float64) {
 	}
 }
 func (r *RegionManager) Load(region Vec.Vector) *protocol.LoadedRegion {
-	key := keyOf(region)
+	key := region
 	if existing, ok := r.loaded.Get(key); ok {
 		return existing
 	}
@@ -60,7 +59,6 @@ func (r *RegionManager) Load(region Vec.Vector) *protocol.LoadedRegion {
 	if description == nil {
 		d := r.generator.GenerateRegion(r.worldSeed, region)
 		description = &d
-		clear(r.stationLists)
 		description.Asteroids = slices.DeleteFunc(description.Asteroids, func(d protocol.AsteroidDescription) bool { return r.removed[d.ID] })
 		description.Stations = slices.DeleteFunc(description.Stations, func(d protocol.StationDescription) bool { return r.removed[d.ID] })
 		description.Wrecks = slices.DeleteFunc(description.Wrecks, func(d protocol.WreckDescription) bool { return r.removed[d.ID] })
@@ -87,7 +85,7 @@ func (r *RegionManager) Load(region Vec.Vector) *protocol.LoadedRegion {
 	return loaded
 }
 func (r *RegionManager) Unload(region Vec.Vector) {
-	key := keyOf(region)
+	key := region
 	loaded, ok := r.loaded.Get(key)
 	if !ok {
 		return
@@ -135,44 +133,39 @@ func (r *RegionManager) QueryMany(positions []Vec.Vector, supplied *protocol.Wor
 		ranges = *supplied
 	}
 	size := r.catalog.Simulation.RegionSize
-	type bounds struct{ from, to Vec.Vector }
-	boundsFor := func(reach float64) []bounds {
-		out := make([]bounds, len(positions))
+	boundsFor := func(out []regionBounds, reach float64) []regionBounds {
+		if cap(out) < len(positions) {
+			out = make([]regionBounds, len(positions))
+		}
+		out = out[:len(positions)]
 		for i, p := range positions {
-			out[i] = bounds{Vec.Create(math.Floor((p.X-reach)/size), math.Floor((p.Y-reach)/size)), Vec.Create(math.Floor((p.X+reach)/size), math.Floor((p.Y+reach)/size))}
+			out[i] = regionBounds{Vec.Create(math.Floor((p.X-reach)/size), math.Floor((p.Y-reach)/size)), Vec.Create(math.Floor((p.X+reach)/size), math.Floor((p.Y+reach)/size))}
 		}
 		return out
 	}
-	boundsKey := func(b bounds) string { return fmt.Sprintf("%g,%g,%g,%g", b.from.X, b.from.Y, b.to.X, b.to.Y) }
-	all, stationBounds := boundsFor(math.Max(ranges.Asteroid, ranges.Wreck)), boundsFor(math.Max(ranges.StationMarker, ranges.StationPhysics))
-	keys := []string{}
-	for _, b := range all {
-		keys = append(keys, boundsKey(b))
-	}
-	for _, b := range stationBounds {
-		keys = append(keys, boundsKey(b))
-	}
-	key := strings.Join(keys, ";")
-	if r.queried == nil || r.queried.bounds != key {
-		needed := map[string]bool{}
+	r.queryBounds = boundsFor(r.queryBounds, max(ranges.Asteroid, ranges.Wreck))
+	r.markerBounds = boundsFor(r.markerBounds, max(ranges.StationMarker, ranges.StationPhysics))
+	all, stationBounds := r.queryBounds, r.markerBounds
+	if r.queried == nil || !slices.Equal(r.queried.bounds, all) || !slices.Equal(r.queried.stationBounds, stationBounds) {
+		needed := map[Vec.Vector]bool{}
 		descriptions := make([][]*protocol.RegionDescription, len(all))
 		for i, b := range all {
 			for x := b.from.X; x <= b.to.X; x++ {
 				for y := b.from.Y; y <= b.to.Y; y++ {
 					region := Vec.Create(x, y)
-					needed[keyOf(region)] = true
+					needed[region] = true
 					descriptions[i] = append(descriptions[i], r.Load(region).Description)
 				}
 			}
 		}
 		for _, loaded := range r.loaded.Values() {
-			if !needed[keyOf(loaded.Description.Region)] {
+			if !needed[loaded.Description.Region] {
 				r.Unload(loaded.Description.Region)
 			}
 		}
 		stations := make([][]protocol.StationDescription, len(stationBounds))
 		for i, b := range stationBounds {
-			listKey := boundsKey(b)
+			listKey := b
 			if cached, ok := r.stationLists[listKey]; ok {
 				stations[i] = cached
 				continue
@@ -181,7 +174,7 @@ func (r *RegionManager) QueryMany(positions []Vec.Vector, supplied *protocol.Wor
 			for x := b.from.X; x <= b.to.X; x++ {
 				for y := b.from.Y; y <= b.to.Y; y++ {
 					region := Vec.Create(x, y)
-					key := keyOf(region)
+					key := region
 					description := r.saved[key]
 					if loaded, ok := r.loaded.Get(key); ok {
 						description = loaded.Description
@@ -205,7 +198,7 @@ func (r *RegionManager) QueryMany(positions []Vec.Vector, supplied *protocol.Wor
 			r.stationLists[listKey] = found
 			stations[i] = found
 		}
-		cached := &queriedRegions{bounds: key, asteroids: make([][]protocol.AsteroidDescription, len(all)), wrecks: make([][]protocol.WreckDescription, len(all)), stations: stations}
+		cached := &queriedRegions{bounds: slices.Clone(all), stationBounds: slices.Clone(stationBounds), asteroids: make([][]protocol.AsteroidDescription, len(all)), wrecks: make([][]protocol.WreckDescription, len(all)), stations: stations}
 		for i, regions := range descriptions {
 			for _, d := range regions {
 				cached.asteroids[i] = append(cached.asteroids[i], d.Asteroids...)

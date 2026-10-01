@@ -7,20 +7,9 @@ import (
 	"math"
 )
 
-// Interfaces retain the source dependency direction without importing the
-// shape or physics packages back into their collision dependency.
-type TOIProxy interface {
-	DistanceProxy
-	ShapeRadius() float64
-	VertexCount() int
-}
-type MotionSweep interface {
-	Normalize()
-	GetTransform(*Vec.TransformValue, float64)
-}
 type TOIInput struct {
-	ProxyA, ProxyB TOIProxy
-	SweepA, SweepB MotionSweep
+	ProxyA, ProxyB *BaseShape
+	SweepA, SweepB *Sweep
 	TMax           float64
 }
 type TOIOutput struct {
@@ -34,7 +23,7 @@ func FindTimeOfImpact(output *TOIOutput, input TOIInput, linearSlop float64) {
 	proxyA, proxyB, sweepA, sweepB := input.ProxyA, input.ProxyB, input.SweepA, input.SweepB
 	sweepA.Normalize()
 	sweepB.Normalize()
-	target := math.Max(linearSlop, proxyA.ShapeRadius()+proxyB.ShapeRadius()-3*linearSlop)
+	target := max(linearSlop, proxyA.Radius+proxyB.Radius-3*linearSlop)
 	tolerance := 0.25 * linearSlop
 	t1 := 0.0
 	iter := 0
@@ -59,7 +48,7 @@ func FindTimeOfImpact(output *TOIOutput, input TOIInput, linearSlop float64) {
 		done := false
 		t2 := input.TMax
 		pushBackIter := 0
-		maxPushBackIterations := max(12, proxyA.VertexCount(), proxyB.VertexCount())
+		maxPushBackIterations := max(12, proxyA.Count, proxyB.Count)
 		for {
 			s2 := separationFunction.findMinSeparation(t2)
 			if s2 > target+tolerance {
@@ -126,14 +115,14 @@ func FindTimeOfImpact(output *TOIOutput, input TOIInput, linearSlop float64) {
 }
 
 type separationFunction struct {
-	proxyA, proxyB   TOIProxy
-	sweepA, sweepB   MotionSweep
+	proxyA, proxyB   *BaseShape
+	sweepA, sweepB   *Sweep
 	kind             string
 	localPoint, axis Vec.Vector
 	indexA, indexB   int
 }
 
-func (f *separationFunction) initialize(cache SimplexCache, proxyA TOIProxy, sweepA MotionSweep, proxyB TOIProxy, sweepB MotionSweep, xfA, xfB Vec.TransformValue) float64 {
+func (f *separationFunction) initialize(cache SimplexCache, proxyA *BaseShape, sweepA *Sweep, proxyB *BaseShape, sweepB *Sweep, xfA, xfB Vec.TransformValue) float64 {
 	f.proxyA = proxyA
 	f.proxyB = proxyB
 	f.sweepA = sweepA

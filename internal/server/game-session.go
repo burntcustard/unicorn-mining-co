@@ -20,6 +20,7 @@ import (
 type SessionSocket interface {
 	IsOpen() bool
 	BufferedBytes() int
+	// SendBinary must consume or copy the packet before returning.
 	SendBinary([]byte) error
 	Terminate()
 	CloseWith(uint16, string)
@@ -50,6 +51,7 @@ type GameSession struct {
 	playersBySocket map[SessionSocket]*playerRecord
 	inputs          map[int64]protocol.InputFrame
 	binaryBatch     *BinarySnapshotBatch
+	replicationView *ReplicationView
 	regions         *RegionManager
 	regionsSyncedAt float64
 	worldSeed       float64
@@ -61,7 +63,7 @@ func NewGameSession(seed float64, catalog specification.Catalog) *GameSession {
 	world := simulation.CreateWorld(seed, catalog)
 	world.ItemTypes = items.Types(catalog)
 	world.Collisions = game.NewGameCollisions(catalog)
-	return &GameSession{World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, binaryBatch: NewBinarySnapshotBatch(catalog), regions: NewRegionManager(uint32(seed), catalog), regionsSyncedAt: math.Inf(-1), worldSeed: seed, now: time.Now, token: sessionToken}
+	return &GameSession{World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, replicationView: NewReplicationView(world), binaryBatch: NewBinarySnapshotBatch(catalog), regions: NewRegionManager(uint32(seed), catalog), regionsSyncedAt: math.Inf(-1), worldSeed: seed, now: time.Now, token: sessionToken}
 }
 func sessionToken() string {
 	var b [16]byte
@@ -200,6 +202,22 @@ func (s *GameSession) Tick(ticks uint64) {
 		s.regions.Sync(world, s.positions())
 		s.regionsSyncedAt = float64(world.Tick)
 	}
+	// Visibility and physics activation are independent. Marker entities remain
+	// available to replication while distant bodies have no collision proxies.
+	positions := s.positions()
+	world.Entities.ForEach(func(e simulation.Entity, _ int64) {
+		object := e.Base()
+		if object.Kind != "station" {
+			return
+		}
+		object.InactivePhysics = true
+		for _, position := range positions {
+			if Vec.DistanceSquared(object.Position, position) <= 2000*2000 {
+				object.InactivePhysics = false
+				break
+			}
+		}
+	})
 	tick := world.Tick
 	clear(s.inputs)
 	step := world.Specification.Simulation.SimulationStep
@@ -237,7 +255,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	if world.Tick/2 == tick/2 {
 		return
 	}
-	view := NewReplicationView(world)
+	view := s.replicationView.Reset()
 	batch := s.binaryBatch.Begin(view)
 	s.players.ForEach(func(p *playerRecord, _ string) { s.sendSnapshot(p, view, batch) })
 }
@@ -258,9 +276,10 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	options := SnapshotOptions{World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: p.inputLead, SnapshotSequence: &sequence, ReplicationView: view, BinaryBatch: batch}
 	var packet []byte
 	if p.needsLoad {
-		packet = p.binaryReplication.Initial(options)
+		clear(p.binaryReplication.members)
+		packet = p.binaryReplication.encode(options, true)
 	} else {
-		packet = p.binaryReplication.Snapshot(options)
+		packet = p.binaryReplication.encode(options, false)
 	}
 	p.needsLoad = false
 	p.inputLead = nil
@@ -282,7 +301,8 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 		s.nextPlayerID++
 		station := s.nearestStation(Vec.Vector{})
 		angle := float64(id) * 2.4
-		spawn := Vec.AddScaled(station.Position, Vec.Vector{X: math.Cos(angle), Y: math.Sin(angle)}, station.Radius+250)
+		sin, cos := math.Sincos(angle)
+		spawn := Vec.AddScaled(station.Position, Vec.Vector{X: cos, Y: sin}, station.Radius+250)
 		spawn.X = utilities.RoundInteger(spawn.X)
 		spawn.Y = utilities.RoundInteger(spawn.Y)
 		ship := ships.CreateShip(s.World, craft.Properties{PlayerID: &id, Position: spawn})

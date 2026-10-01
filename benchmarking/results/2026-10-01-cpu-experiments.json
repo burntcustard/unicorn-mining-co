@@ -1,0 +1,1666 @@
+[
+  {
+    "file": "2026-10-01-cpu-active-ablation.json.gz",
+    "label": "cpu-active-ablation",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-no-active",
+        "GOGC": "400",
+        "executableHash": "c4f02652e64770eef8629b495b6cd32717ae5adb8ad67f16b81c1c064389d42a"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-current",
+        "GOGC": "400",
+        "executableHash": "9e4bdaa89f13dc17223ee6269e6e11d798a84187dee02ac6e9d541cf44873928"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-active.json.gz",
+    "label": "cpu-active",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e7d0bb92f899955e4d19305b46f2c7c44e3e94cfd8061085615c1fe3ccca269f",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-amd64-v2.json.gz",
+    "label": "cpu-amd64-v2",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-object-rules",
+        "GOGC": "400",
+        "executableHash": "919dd4040ee7b67c69ffa40b6331b1acc37f36569a2121d206bae435ac684d4f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-amd64-v2",
+        "GOGC": "400",
+        "executableHash": "3b8436ab031aef0b9b7c13a8f5840c46d0681529b6a31da904e302d9c2643454"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-axis-prune-ablation.json.gz",
+    "label": "cpu-axis-prune-ablation",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-vector-keys",
+        "GOGC": "400",
+        "executableHash": "f622b00dab15377d5e4d3b990f72e48d2cd38284d6b375446567038b589a3b1a"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-no-axis-prune",
+        "GOGC": "400",
+        "executableHash": "3b58d66ebefbd8f706de15c57d62861212b0fdc5794c3df46d8bd866ef12232c"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-axis-prune.json.gz",
+    "label": "cpu-axis-prune",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "dae22d4144d92a3c1fb2d4373c78b0185f85ab17f1f67d9ddfae60debea8939f",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-ballistic.json.gz",
+    "label": "cpu-ballistic",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "dafaab677c7403cbfc5a3f15f390a9df20d30db23bf5b1d663db5194467182f0",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-baseline.json.gz",
+    "label": "cpu-baseline",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-borrow.json.gz",
+    "label": "cpu-borrow",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "f0671aaac658088cbb27adb14adabc6123bcad9543d4c9a6843e20517111e2fb",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-boxing.json.gz",
+    "label": "cpu-boxing",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "56c3f045370871479ecd0a7b487aaa6ec26cbc1f2855637e86794a54439862f9",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-builtin-minmax.json.gz",
+    "label": "cpu-builtin-minmax",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-no-iteration",
+        "GOGC": "400",
+        "executableHash": "ffffa396a97cdf8b25004058b18d323f107568d5b25d4eb6e29f240dbe864193"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-builtin-minmax",
+        "GOGC": "400",
+        "executableHash": "d137299e567ce5fe8f131c2ae127ae6d61804cf472064e07a957219ec0d84169"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-cadence.json.gz",
+    "label": "cpu-cadence",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "6f630d275abdc55d8b7c742c51382049ddece72cdedbe0b1aea99aa221ea2972",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-collider-reuse.json.gz",
+    "label": "cpu-collider-reuse",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "7eaeded4f013884043be169da950609c9f95e0671f9c12355cea03599f4693ec",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-collision-reuse.json.gz",
+    "label": "cpu-collision-reuse",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "d580807e4140c81a3888879fbf996a224234389fef033227b1f99dfa0e077b4b",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-concrete-aabb.json.gz",
+    "label": "cpu-concrete-aabb",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "0fc9bb3108f583191004679234c68fb1a797e92c7fdc10a7899a6d503e6a55a2",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-concrete-proxies.json.gz",
+    "label": "cpu-concrete-proxies",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "a197630c89e9089cf5e427a261884fc9308fb203cdd7d2803c210ac1868c2e49",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-concrete-sweep.json.gz",
+    "label": "cpu-concrete-sweep",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "44d725e857572466bc906b5733fc86e1cf745440e82b988916786e1a301c26c4",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-constraint-cache-ablation.json.gz",
+    "label": "cpu-constraint-cache-ablation",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-final-pgo",
+        "GOGC": "400",
+        "executableHash": "a2d51524663ce067546538378734e4430a196cfeeb86b8e7e387e3edab7cc445"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-no-constraint-cache",
+        "GOGC": "400",
+        "executableHash": "52d385cba5a932924d42fd60372b9d609031d4160878587708d96299cb86caad"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-constraint-trig.json.gz",
+    "label": "cpu-constraint-trig",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "643642d0daed4cb9638a8563d68b6cb5cbb55c91f32b8a492213c130bd5b7a50",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-contact-groups.json.gz",
+    "label": "cpu-contact-groups",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "59631a1fb59e70aeffd237e6bde943358ba6b087065ea32e755055fd1be0c7a3",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-contact-map-review.json.gz",
+    "label": "cpu-contact-map-review",
+    "ticks": 900,
+    "repetitions": 5,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-formatted",
+        "GOGC": "800",
+        "executableHash": "c3e6287721d04988eeae176681de3ec2bb0492360937a770926b773c058f8d67"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-contact-map",
+        "GOGC": "800",
+        "executableHash": "130694e5d85123ba8828681fe862eea280f7f1ab602582ea4d351b0e793f9997"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-contact-review-final.json",
+    "label": "cpu-contact-review-final",
+    "ticks": 900,
+    "repetitions": 7,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-contact-simplified",
+        "GOGC": "800",
+        "executableHash": "f5f64ee83551469cac6878ac99b1f4e0adaacf3176838f1e49da8401dc61b2d2"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-contact-simplification-review.json.gz",
+    "label": "cpu-contact-simplification-review",
+    "ticks": 900,
+    "repetitions": 5,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-formatted",
+        "GOGC": "800",
+        "executableHash": "c3e6287721d04988eeae176681de3ec2bb0492360937a770926b773c058f8d67"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-contact-simplified",
+        "GOGC": "800",
+        "executableHash": "f5f64ee83551469cac6878ac99b1f4e0adaacf3176838f1e49da8401dc61b2d2"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-converge.json.gz",
+    "label": "cpu-converge",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "8b810441b5160069ac4de30b5b5c4977b292f5f116782aa90a8ca4a4ce11d39a",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-direct-angle.json.gz",
+    "label": "cpu-direct-angle",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simple-distance",
+        "GOGC": "400",
+        "executableHash": "d0511958f0625a90cf68daa88d1bdd5de3da75e7f8a72b2cd39b5cf0aa4f6888"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-direct-angle",
+        "GOGC": "400",
+        "executableHash": "c98f40dff14640d630ea174738cb2c69468bd6229bde36b31aceebca9563171b"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-direct.json.gz",
+    "label": "cpu-direct",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "907c3bed3baa593cc035fe1e098562e2e6af4d15c07e4c804bc80db464e6bcdd",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-drag-cache.json.gz",
+    "label": "cpu-drag-cache",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "303e935fa14374679815e19f554c8e056f4075acb591842cd08b3692d1dd744a",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-edge-cache.json.gz",
+    "label": "cpu-edge-cache",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "400",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-edge-cache",
+        "GOGC": "400",
+        "executableHash": "c026bc950cf0627969c5194f4b11dfc4f006bf64b012175ab6fb62adb9bb00d7"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-feature-cache.json.gz",
+    "label": "cpu-feature-cache",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "62ae85a44df243541fc78702d491ad25bb61cca528d50c205de7d955b2094051",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-field-dispatch.json.gz",
+    "label": "cpu-field-dispatch",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "400",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-field-dispatch",
+        "GOGC": "400",
+        "executableHash": "6201eb3c91919781725612ff862be9101c8960fcd77d57a8fe08f6215a17afa5"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-fields.json.gz",
+    "label": "cpu-fields",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "318299334ca5a8acbeddd3d47594aacc52b41135a771a7afdf5f6d4bbf3ac7eb",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-final-candidate.json.gz",
+    "label": "cpu-final-candidate",
+    "ticks": 900,
+    "repetitions": 5,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-fragment-value",
+        "GOGC": "400",
+        "executableHash": "2d495797952a6d204a8686a3d486f601dbabcdac5bb589a6cfdce17a78af1e0e"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-final-gc-sustained.json.gz",
+    "label": "cpu-final-gc-sustained",
+    "ticks": 6000,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "100",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "800",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      }
+    },
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-final-gc800-baseline.json.gz",
+    "label": "cpu-final-gc800-baseline",
+    "ticks": 900,
+    "repetitions": 7,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "800",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-final-gc800-sustained.json.gz",
+    "label": "cpu-final-gc800-sustained",
+    "ticks": 6000,
+    "repetitions": 1,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "400",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "800",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-final-gc800.json.gz",
+    "label": "cpu-final-gc800",
+    "ticks": 900,
+    "repetitions": 5,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "400",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "800",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-final-pgo.json.gz",
+    "label": "cpu-final-pgo",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-training-final",
+        "GOGC": "400",
+        "executableHash": "b45e1827e65950b24fa0ec16eeca8e9fa2ab8c228f1325d41844938c566172fc"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-final-pgo",
+        "GOGC": "400",
+        "executableHash": "a2d51524663ce067546538378734e4430a196cfeeb86b8e7e387e3edab7cc445"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-final.json.gz",
+    "label": "cpu-final",
+    "ticks": 900,
+    "repetitions": 7,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-final",
+        "GOGC": "400",
+        "executableHash": "6a6e869e52c0d30c6d36f55e8671437633fa5d6008ccdebc8bf387ca34b90970"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-fragment-value.json.gz",
+    "label": "cpu-fragment-value",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-no-constraint-cache",
+        "GOGC": "400",
+        "executableHash": "52d385cba5a932924d42fd60372b9d609031d4160878587708d96299cb86caad"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-fragment-value",
+        "GOGC": "400",
+        "executableHash": "2d495797952a6d204a8686a3d486f601dbabcdac5bb589a6cfdce17a78af1e0e"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-fresh-pgo.json.gz",
+    "label": "cpu-fresh-pgo",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-outline-source",
+        "GOGC": "400",
+        "executableHash": "ecc0b53ea535947c0ead9a60a94750fddf0ec9e62d3b0efd89b2ce421754b301"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-fresh-pgo",
+        "GOGC": "400",
+        "executableHash": "4807b458256dd1d9c4a77ba10e07ddb5bad42d6f8e4882c6d2c0ae592b2d329e"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-full-ids.json.gz",
+    "label": "cpu-full-ids",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-object-schedule",
+        "GOGC": "400",
+        "executableHash": "cb97692f02d7d9b985e6952edacc70491145eaf9b348f4af47640023d2646235"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-full-ids",
+        "GOGC": "400",
+        "executableHash": "332445a123d5a5e362f99e77f6752867f49e818832b1836450adf36ddd7b08ae"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-gc1600-sustained.json.gz",
+    "label": "cpu-gc1600-sustained",
+    "ticks": 3000,
+    "repetitions": 2,
+    "executableHash": "e7d0bb92f899955e4d19305b46f2c7c44e3e94cfd8061085615c1fe3ccca269f",
+    "variants": null,
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-gc400-sustained.json.gz",
+    "label": "cpu-gc400-sustained",
+    "ticks": 3000,
+    "repetitions": 2,
+    "executableHash": "e7d0bb92f899955e4d19305b46f2c7c44e3e94cfd8061085615c1fe3ccca269f",
+    "variants": null,
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-gc800-sustained.json.gz",
+    "label": "cpu-gc800-sustained",
+    "ticks": 3000,
+    "repetitions": 2,
+    "executableHash": "e7d0bb92f899955e4d19305b46f2c7c44e3e94cfd8061085615c1fe3ccca269f",
+    "variants": null,
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-geometry-cache.json.gz",
+    "label": "cpu-geometry-cache",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "0dc5651d0f6c4cdf092d5f606bb85dad921ec71a8b6b0395699e09caffcfb9a0",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-geometry.json.gz",
+    "label": "cpu-geometry",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "488705b6e0d60aeee5a8b31c35aa83a5cd0fc194b405d99102c453603a57b7da",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-gogc400.json.gz",
+    "label": "cpu-gogc400",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "5a07a8761b00e6e6d4fa4920955f7854efb54867643c242b32aa59855d20f66a",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-grid.json.gz",
+    "label": "cpu-grid",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "88bb67ef94fdd990506b83bb3998e969411afbddca2eeebf17ce2dc32e995918",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-hull.json.gz",
+    "label": "cpu-hull",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "bd299a3e0d1234b3a3e4185f9ecba150be0d24315c054a7bfe2b0b5420749042",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-integer-array.json.gz",
+    "label": "cpu-integer-array",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "61f8f9d551639d7618e118912af98cd5436d01b15bc0e67f6acc2d6e6aa44329",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-integer-random.json.gz",
+    "label": "cpu-integer-random",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e0a07ac8abe60b501ee4f4845cdc887f40a877cb6219417a1e6716a15b25a284",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-interim.json.gz",
+    "label": "cpu-interim",
+    "ticks": 900,
+    "repetitions": 5,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-cadence",
+        "GOGC": "400",
+        "executableHash": "6f630d275abdc55d8b7c742c51382049ddece72cdedbe0b1aea99aa221ea2972"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-item-source-sustained.json.gz",
+    "label": "cpu-item-source-sustained",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": "c0a265f9f4425e9bcd83c0934ca523e52b47ef30ecd61d2b491b8e78a227a3c0",
+    "variants": null,
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-item-source.json.gz",
+    "label": "cpu-item-source",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "c0a265f9f4425e9bcd83c0934ca523e52b47ef30ecd61d2b491b8e78a227a3c0",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-iteration-sustained.json.gz",
+    "label": "cpu-iteration-sustained",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-checkpoint",
+        "GOGC": "400",
+        "executableHash": "7e5194a836fb37faf4b4ae574f64eab64ea0d62eae0d75df1d354db1e42d7060"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-no-iteration",
+        "GOGC": "400",
+        "executableHash": "ffffa396a97cdf8b25004058b18d323f107568d5b25d4eb6e29f240dbe864193"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-iteration.json.gz",
+    "label": "cpu-iteration",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-fresh-pgo",
+        "GOGC": "400",
+        "executableHash": "4807b458256dd1d9c4a77ba10e07ddb5bad42d6f8e4882c6d2c0ae592b2d329e"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-iteration-pgo",
+        "GOGC": "400",
+        "executableHash": "d0a27538ad45f9bdc15b59adf9f4a5edba80f01cb9907615a62e5060c606a0fc"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-last-sincos.json.gz",
+    "label": "cpu-last-sincos",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-typed-sort",
+        "GOGC": "400",
+        "executableHash": "6410404818175b206a9f422bafc1657894ff5ff4e50fbbc63142b42c6ccf6ce9"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-last-sincos",
+        "GOGC": "400",
+        "executableHash": "eef715e17d354476b1e7c384be2a0ac2692a7db9d42433eeb89f7c55e3cef34c"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-layout.json.gz",
+    "label": "cpu-layout",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "ad453c86437f4939a213b8d9ee7e9d26b7b47ac131c374b6306ffdccbe009937",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-live-count.json.gz",
+    "label": "cpu-live-count",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e6e7c1effc577334440dc04f459e46b9b838577d92f1c84bedb738f3e918733b",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-load-marker-cache.json.gz",
+    "label": "cpu-load-marker-cache",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-fragment-value",
+        "GOGC": "400",
+        "executableHash": "2d495797952a6d204a8686a3d486f601dbabcdac5bb589a6cfdce17a78af1e0e"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-load-marker-cache",
+        "GOGC": "400",
+        "executableHash": "4d90ba9cc447fb25a85368d42c28f60644fbb786f5bc00cced8e5640f408231f"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-maths.json.gz",
+    "label": "cpu-maths",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "b49c5e55dc66597d73778be9d3080ce85f17e5b856322990f1b016440869ab89",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-members.json.gz",
+    "label": "cpu-members",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "845aba661aa6ad766003e7a39f6e754210b718b2ff39c37e1c5215f761138aea",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-module-buffers.json.gz",
+    "label": "cpu-module-buffers",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "43b0408af38b8b06bc8c82c4fd95bd7ff34aed71d04e78a3586bece9f28c5486",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-module-reference.json.gz",
+    "label": "cpu-module-reference",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "691b1eafd061de5d2f6c76aac1883aaaab231193ff873ce2458ba5db65319eb8",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-more-trig.json.gz",
+    "label": "cpu-more-trig",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "19bb0808949313013f1955c8cd4520d95812ae879c51572b1d5104a5c2a8549c",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-motion-cache.json.gz",
+    "label": "cpu-motion-cache",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "2da381d0bd833b652e0a69445487e94707722412c13a2499126dc89162f451b0",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-object-hitbox-sustained.json.gz",
+    "label": "cpu-object-hitbox-sustained",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": "6e95b4bd0e26f910a6522a917fbe2936dbdab44c38c7ccdd47c3cf99ca8d63ca",
+    "variants": null,
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-object-hitbox.json.gz",
+    "label": "cpu-object-hitbox",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "6e95b4bd0e26f910a6522a917fbe2936dbdab44c38c7ccdd47c3cf99ca8d63ca",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-object-rules.json.gz",
+    "label": "cpu-object-rules",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-pool-queue",
+        "GOGC": "400",
+        "executableHash": "b4948f6487d72d3617c75772c0410c663f709668234b8c9a5c162a504bf1bc80"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-object-rules",
+        "GOGC": "400",
+        "executableHash": "919dd4040ee7b67c69ffa40b6331b1acc37f36569a2121d206bae435ac684d4f"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-object-schedule.json.gz",
+    "label": "cpu-object-schedule",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-clean-checkpoint",
+        "GOGC": "400",
+        "executableHash": "f63c8338b0c163df315def632cac982942b1cd036b8690409b922feb4e538215"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-object-schedule",
+        "GOGC": "400",
+        "executableHash": "cb97692f02d7d9b985e6952edacc70491145eaf9b348f4af47640023d2646235"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-observer-bounds-ablation.json.gz",
+    "label": "cpu-observer-bounds-ablation",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-vector-keys",
+        "GOGC": "400",
+        "executableHash": "f622b00dab15377d5e4d3b990f72e48d2cd38284d6b375446567038b589a3b1a"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-no-observer-bounds",
+        "GOGC": "400",
+        "executableHash": "9c0ca54942dc8d75a75878d5791a1b5bf242bb577e008b3c35de83f2da2c5b09"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-observer-bounds.json.gz",
+    "label": "cpu-observer-bounds",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "7d726ea6dfa3314f769242cc09af65d6cc78805d52fc400e503fed1e4584df83",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-observer-cache-ablation.json.gz",
+    "label": "cpu-observer-cache-ablation",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-module-buffers",
+        "GOGC": "400",
+        "executableHash": "43b0408af38b8b06bc8c82c4fd95bd7ff34aed71d04e78a3586bece9f28c5486"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-observer-cache",
+        "GOGC": "400",
+        "executableHash": "ca23e0760e78f9669e9833953b499577b306cda71584f5c1f3eda8e984cbe6ab"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-offset-radius.json.gz",
+    "label": "cpu-offset-radius",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-last-sincos",
+        "GOGC": "400",
+        "executableHash": "eef715e17d354476b1e7c384be2a0ac2692a7db9d42433eeb89f7c55e3cef34c"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-offset-radius",
+        "GOGC": "400",
+        "executableHash": "481d833a02960337666e8d8c78df7b8fcb4f81181f7784e59347354c0e188b18"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-optional.json.gz",
+    "label": "cpu-optional",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e9ac95acd3031a06ba669a61dbdbb6df07422f26bddec2e696ad3c93e9c82946",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-ordered-values.json.gz",
+    "label": "cpu-ordered-values",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "2171a9cda6d84cba37f4e54e4f5933382b5d0b80266d60dcd8264fc4535b062e",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-outline-source.json.gz",
+    "label": "cpu-outline-source",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "ecc0b53ea535947c0ead9a60a94750fddf0ec9e62d3b0efd89b2ce421754b301",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-outlines.json.gz",
+    "label": "cpu-outlines",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "d95f549c6e0f27240b1c7a68699838493b9cff2790acc7f4e28b60f249f3a240",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-packed-kernel.json.gz",
+    "label": "cpu-packed-kernel",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "ead28b42d15a89d5bcc833a79b50e16a6d09fa5f4453090cbe84d157ee6ff5da",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-packed-records.json.gz",
+    "label": "cpu-packed-records",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "151f0bd37763cf32417bf8ddbdbfb20c1ea2b6a820c42a0f17aa2ed33c10a109",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-packed.json.gz",
+    "label": "cpu-packed",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "41db443e81acf408e931d457caad37c9ca4c7bce628ef1f267a55946edad258f",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-pair-map.json.gz",
+    "label": "cpu-pair-map",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "dc77d2d019488687de032ffb59be32603397dccb5dca203e4b3a53f369ea4e53",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-parallel.json.gz",
+    "label": "cpu-parallel",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": "95391925442e9133116ec62e52875ef0e90b171b5ab5bc9b58e07cf26750fffb",
+    "variants": null,
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-parent-x-reject.json.gz",
+    "label": "cpu-parent-x-reject",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-load-marker-cache",
+        "GOGC": "400",
+        "executableHash": "4d90ba9cc447fb25a85368d42c28f60644fbb786f5bc00cced8e5640f408231f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-parent-x-reject",
+        "GOGC": "400",
+        "executableHash": "80a9ea6860a7e45a1b58d7c94ce6a76d638fc08e933c3dbada0ce3fa98dbdb67"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-parents.json.gz",
+    "label": "cpu-parents",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "765b868dbb7299ee90ee8c615b338f07797dc2627d3617516a082e7554a8c5be",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-pgo.json.gz",
+    "label": "cpu-pgo",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": "13496160f78c17d452398b4939ffc5216fdf2c07a5b5423716a0ec64d791d33a",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-pickup.json.gz",
+    "label": "cpu-pickup",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "ea77fc69097fb8ef3020c73475dd981dfdff5678f01e3e4c657ad0365d069bb5",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-player-guard.json.gz",
+    "label": "cpu-player-guard",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-clean-checkpoint",
+        "GOGC": "400",
+        "executableHash": "f63c8338b0c163df315def632cac982942b1cd036b8690409b922feb4e538215"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-player-guard",
+        "GOGC": "400",
+        "executableHash": "c383de803ab1537f9b2a5944807bad3bfb0e0d6fd2af4843fcca42c3cc6f1356"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-pool-queue.json.gz",
+    "label": "cpu-pool-queue",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-shape-cache",
+        "GOGC": "400",
+        "executableHash": "a393321bb744663365bb06b85df0bfbfcb502aba6b8bd8bae40870ed464a23c5"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-pool-queue",
+        "GOGC": "400",
+        "executableHash": "b4948f6487d72d3617c75772c0410c663f709668234b8c9a5c162a504bf1bc80"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-prepare-cache.json.gz",
+    "label": "cpu-prepare-cache",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "a8f288d896895e558ea18c904892a44018b23cecb954515e45534a07493ea8a6",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-production-final.json",
+    "label": "cpu-production-final",
+    "ticks": 900,
+    "repetitions": 7,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-formatted",
+        "GOGC": "800",
+        "executableHash": "c3e6287721d04988eeae176681de3ec2bb0492360937a770926b773c058f8d67"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-reciprocal.json.gz",
+    "label": "cpu-reciprocal",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-object-rules",
+        "GOGC": "400",
+        "executableHash": "919dd4040ee7b67c69ffa40b6331b1acc37f36569a2121d206bae435ac684d4f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-reciprocal",
+        "GOGC": "400",
+        "executableHash": "748142a12d5cadae40a0bb1bbbf421fcc8c1a4cb9a76d7bded207a7e98db04a1"
+      }
+    },
+    "completeCases": 4
+  },
+  {
+    "file": "2026-10-01-cpu-records.json.gz",
+    "label": "cpu-records",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "889bfb9ace948f6354eb2ef3393a841cca16d2d7a12df058180e22a18ecfbcd6",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-reduced-rounding.json.gz",
+    "label": "cpu-reduced-rounding",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "d52796a255ef939aacff2a6c5d03f189154f4697ecf42e659eef02eac931b853",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-references.json.gz",
+    "label": "cpu-references",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e7ac89537986012fbf12c07f0f48195839db844ddc8bd7ca118c8387b0379e63",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-region-bounds.json.gz",
+    "label": "cpu-region-bounds",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "afbf6e6291c9a59b3b0e73e78ee4c9c66797300d594d6505b99ec17b67352ddf",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-reuse.json.gz",
+    "label": "cpu-reuse",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "deac1d8dba24510dc301f788798ab8e10460b4ca859508fc385a80cb7b01ae83",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-round-cache-ablation.json.gz",
+    "label": "cpu-round-cache-ablation",
+    "ticks": 3000,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-no-round-cache",
+        "GOGC": "400",
+        "executableHash": "801374c1621a3c88197d534f6ae2d3ef75033a63ac9da1a106dbea3975bf76c5"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-current",
+        "GOGC": "400",
+        "executableHash": "9e4bdaa89f13dc17223ee6269e6e11d798a84187dee02ac6e9d541cf44873928"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-rounding.json.gz",
+    "label": "cpu-rounding",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "5a07a8761b00e6e6d4fa4920955f7854efb54867643c242b32aa59855d20f66a",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-schedule.json.gz",
+    "label": "cpu-schedule",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "cd5136eba277a2a0be367e435f8fd488576812e362eae37df1ed7ed48df9fcc6",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-scheduled-due.json.gz",
+    "label": "cpu-scheduled-due",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-object-rules",
+        "GOGC": "400",
+        "executableHash": "919dd4040ee7b67c69ffa40b6331b1acc37f36569a2121d206bae435ac684d4f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-scheduled-due",
+        "GOGC": "400",
+        "executableHash": "6ea72025b0867e1076f941aa2e7b86a965503fa0651342fd748dc42c5674995f"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-separation.json.gz",
+    "label": "cpu-separation",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "6c0ed0789cced4d3b71353177e3da57ad98e837a1d3aa82b7881dd3ea98509fa",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-shape-cache.json.gz",
+    "label": "cpu-shape-cache",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-direct-angle",
+        "GOGC": "400",
+        "executableHash": "c98f40dff14640d630ea174738cb2c69468bd6229bde36b31aceebca9563171b"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-shape-cache",
+        "GOGC": "400",
+        "executableHash": "a393321bb744663365bb06b85df0bfbfcb502aba6b8bd8bae40870ed464a23c5"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-simd-motion.json.gz",
+    "label": "cpu-simd-motion",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-scalar-motion",
+        "GOGC": "400",
+        "executableHash": "26b69a23e9fb9cfb00a92580d97376b89bbf73a161c8d0d1e257a8acea4c0a76"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-motion",
+        "GOGC": "400",
+        "executableHash": "3fbfe46d602322d402f793606d71fad53beec5707f299aabe24f7cda453923b1"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-simd.json.gz",
+    "label": "cpu-simd",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "28338f2ad734a7d15beea8325050ba4699a503d9faa1c6eeadb9aa5398ad6ef7",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-simple-distance.json.gz",
+    "label": "cpu-simple-distance",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-small-remainder",
+        "GOGC": "400",
+        "executableHash": "6651c130e47a966a54228521dc74861c22df1f02e07e876c61f51eabb5698658"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simple-distance",
+        "GOGC": "400",
+        "executableHash": "d0511958f0625a90cf68daa88d1bdd5de3da75e7f8a72b2cd39b5cf0aa4f6888"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-slots.json.gz",
+    "label": "cpu-slots",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "2d72e92a58ee67a59c0ed1ab03597878da86bbb9cff8eeb1d1a20595eebc00ad",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-small-remainder.json.gz",
+    "label": "cpu-small-remainder",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-vertex-ranges",
+        "GOGC": "400",
+        "executableHash": "2bb09042657d9f87d607e7446f2676b10d5496f815f6d09857260baaa42f2d3a"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-small-remainder",
+        "GOGC": "400",
+        "executableHash": "6651c130e47a966a54228521dc74861c22df1f02e07e876c61f51eabb5698658"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-spatial.json.gz",
+    "label": "cpu-spatial",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "65f32e8801390a342135548d16cbeebb6b3751d1ece7bb9a46ddab589cdab315",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-stations-reuse.json.gz",
+    "label": "cpu-stations-reuse",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e87ba283bbe8b48a9186864ad8986738bc60abc59eb8ddb9e81d19e4d1faa1fe",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-stations.json.gz",
+    "label": "cpu-stations",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": "75ef34a60bd6d814dc56489379d3892f33c949d409a99c65e0a6ec76d0c3d99b",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-support.json.gz",
+    "label": "cpu-support",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "ce5e21c86d70d879a20af9231808b7316245e45d3386f8fd53fdb57ed7c09167",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-sustained-checkpoint.json.gz",
+    "label": "cpu-sustained-checkpoint",
+    "ticks": 6000,
+    "repetitions": 1,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-checkpoint",
+        "GOGC": "400",
+        "executableHash": "7e5194a836fb37faf4b4ae574f64eab64ea0d62eae0d75df1d354db1e42d7060"
+      }
+    },
+    "completeCases": 8
+  },
+  {
+    "file": "2026-10-01-cpu-swept-bounds.json.gz",
+    "label": "cpu-swept-bounds",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "f8718a53c22f21e8b5f61306ec01f5df28e01bc7290044e9cff767555082b489",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-target-check.json.gz",
+    "label": "cpu-target-check",
+    "ticks": 900,
+    "repetitions": 5,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-baseline",
+        "GOGC": "100",
+        "executableHash": "f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-vector-keys",
+        "GOGC": "400",
+        "executableHash": "f622b00dab15377d5e4d3b990f72e48d2cd38284d6b375446567038b589a3b1a"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-tier.json.gz",
+    "label": "cpu-tier",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e8aca9287fc0406767d37c0b6918c7bec9c9f56d74e2fddfa729f6eb18e127ba",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-tight-bounds-screen.json.gz",
+    "label": "cpu-tight-bounds-screen",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "3e5f914370ebe44004ccb6f0c936796019c4b87102b77dd20bb8b9436e827dcf",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-tight-bounds.json.gz",
+    "label": "cpu-tight-bounds",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-axis-prune",
+        "GOGC": "400",
+        "executableHash": "dae22d4144d92a3c1fb2d4373c78b0185f85ab17f1f67d9ddfae60debea8939f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-tight-bounds",
+        "GOGC": "400",
+        "executableHash": "3e5f914370ebe44004ccb6f0c936796019c4b87102b77dd20bb8b9436e827dcf"
+      }
+    },
+    "completeCases": 5
+  },
+  {
+    "file": "2026-10-01-cpu-toi-prune.json.gz",
+    "label": "cpu-toi-prune",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "e73dbebf9ed005d7078acc31f7a5f3b7ee0bd981e828b283dc0b93cdf5868264",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-toi.json.gz",
+    "label": "cpu-toi",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "58e8e397c369b3d45112d369c73afd6102c2ca65bf55f2924d663681ccfd28f6",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-transform-cache.json.gz",
+    "label": "cpu-transform-cache",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "5e5f05a092c2cf7f8234a2d6750a7f300790c72298cf6f369c86564aa2080c03",
+    "variants": null,
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-typed-sort.json.gz",
+    "label": "cpu-typed-sort",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-load-marker-cache",
+        "GOGC": "400",
+        "executableHash": "4d90ba9cc447fb25a85368d42c28f60644fbb786f5bc00cced8e5640f408231f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-typed-sort",
+        "GOGC": "400",
+        "executableHash": "6410404818175b206a9f422bafc1657894ff5ff4e50fbbc63142b42c6ccf6ce9"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-vector-keys.json.gz",
+    "label": "cpu-vector-keys",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-builtin-minmax",
+        "GOGC": "400",
+        "executableHash": "d137299e567ce5fe8f131c2ae127ae6d61804cf472064e07a957219ec0d84169"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-vector-keys",
+        "GOGC": "400",
+        "executableHash": "f622b00dab15377d5e4d3b990f72e48d2cd38284d6b375446567038b589a3b1a"
+      }
+    },
+    "completeCases": 16
+  },
+  {
+    "file": "2026-10-01-cpu-vertex-ranges.json.gz",
+    "label": "cpu-vertex-ranges",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-iteration-pgo",
+        "GOGC": "400",
+        "executableHash": "d0a27538ad45f9bdc15b59adf9f4a5edba80f01cb9907615a62e5060c606a0fc"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-vertex-ranges",
+        "GOGC": "400",
+        "executableHash": "2bb09042657d9f87d607e7446f2676b10d5496f815f6d09857260baaa42f2d3a"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-zero-correction.json.gz",
+    "label": "cpu-zero-correction",
+    "ticks": 900,
+    "repetitions": 3,
+    "executableHash": null,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-vertex-ranges",
+        "GOGC": "400",
+        "executableHash": "2bb09042657d9f87d607e7446f2676b10d5496f815f6d09857260baaa42f2d3a"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-zero-correction",
+        "GOGC": "400",
+        "executableHash": "ac63b798990f1b04efc24a28299486a69501cd29a090c13e38a68a7e3cdf0128"
+      }
+    },
+    "completeCases": 12
+  },
+  {
+    "file": "2026-10-01-cpu-zero.json.gz",
+    "label": "cpu-zero",
+    "ticks": 900,
+    "repetitions": 1,
+    "executableHash": "a28f82f1a0ff6af477a88f8945c8ac1ed8e1be2cabf87ea04df90357b555abe2",
+    "variants": null,
+    "completeCases": 16
+  }
+]

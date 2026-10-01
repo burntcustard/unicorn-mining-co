@@ -20,3 +20,9 @@ func RoundInteger(scaled float64) float64 {
 	}
 	return rounded
 }
+
+// RoundMotion uses the same simple half-up rule as client prediction.
+// Motion is far below the float64 integer precision limit.
+func RoundMotion(value float64) float64 {
+	return math.Floor(value*1e8+0.5) / 1e8
+}

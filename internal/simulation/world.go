@@ -6,7 +6,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/random"
 	"github.com/burntcustard/unicorn-mining-co/internal/specification"
 	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
-	"math"
 )
 
 // Entity supplies Go's virtual dispatch for the TypeScript GameObject hierarchy.
@@ -24,6 +23,8 @@ type World struct {
 	schedule        movementSchedule
 	Entities        *utilities.OrderedMap[int64, Entity]
 	MovementParents []Entity
+	movementParents []movementParent
+	contactHandlers []ContactHandler
 	NextEntityID    int64
 	Players         *utilities.OrderedMap[int64, Player]
 	Random          *random.Random
@@ -37,7 +38,7 @@ func CreateWorld(seed float64, spec specification.Catalog) *World {
 func AddEntity(world *World, entity Entity) Entity {
 	entity.Base().World = world
 	world.Entities.Set(entity.Base().ID, entity)
-	world.NextEntityID = int64(math.Max(float64(world.NextEntityID), float64(entity.Base().ID+1)))
+	world.NextEntityID = int64(max(float64(world.NextEntityID), float64(entity.Base().ID+1)))
 	return entity
 }
 func AddPlayer(world *World, player Player) Player {

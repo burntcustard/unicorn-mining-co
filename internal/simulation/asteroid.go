@@ -314,7 +314,7 @@ func (a *Asteroid) Extent() float64 {
 	extent := 0.0
 	measure := func(points []Point) {
 		for _, p := range points {
-			extent = math.Max(extent, math.Sqrt(p[0]*p[0]+p[1]*p[1]))
+			extent = max(extent, math.Sqrt(p[0]*p[0]+p[1]*p[1]))
 		}
 	}
 	if a.uncutContents != nil {
@@ -322,7 +322,7 @@ func (a *Asteroid) Extent() float64 {
 	} else {
 		for _, c := range a.Hitbox() {
 			for _, p := range c.ShapeOutline {
-				extent = math.Max(extent, math.Sqrt(p[0]*p[0]+p[1]*p[1]))
+				extent = max(extent, math.Sqrt(p[0]*p[0]+p[1]*p[1]))
 			}
 		}
 	}
@@ -404,7 +404,7 @@ func (a *Asteroid) Hitbox() []*collision.Collider {
 			if length == 0 {
 				length = 1
 			}
-			point := Vec.AddScaled(center, offset, math.Max(0.5, 1-0.1/length))
+			point := Vec.AddScaled(center, offset, max(0.5, 1-0.1/length))
 			collisionOutline.Points[i] = Point{point.X, point.Y}
 		}
 		if outline == a.lockedOutline {
@@ -560,7 +560,7 @@ func insideShapeOutline(outline *ShapeOutline, local Vec.Vector) bool {
 func AsteroidContact(asteroid *Asteroid, position Vec.Vector, radius float64) (normal Vec.Vector, overlap float64, ok bool) {
 	outline := ShapeOutlineOf(asteroid)
 	offset := Vec.Subtract(position, asteroid.Position)
-	cosine, sine := math.Cos(asteroid.Rotation), math.Sin(asteroid.Rotation)
+	sine, cosine := math.Sincos(asteroid.Rotation)
 	local := Vec.Create(offset.X*cosine+offset.Y*sine, offset.Y*cosine-offset.X*sine)
 	closest, nearest := local, math.Inf(1)
 	for i, p := range outline.Points {
@@ -570,7 +570,7 @@ func AsteroidContact(asteroid *Asteroid, position Vec.Vector, radius float64) (n
 		if denominator == 0 {
 			denominator = 1
 		}
-		along := math.Min(1, math.Max(0, Vec.Dot(Vec.Create(local.X-p[0], local.Y-p[1]), edge)/denominator))
+		along := min(1, max(0, Vec.Dot(Vec.Create(local.X-p[0], local.Y-p[1]), edge)/denominator))
 		point := Vec.Create(p[0]+edge.X*along, p[1]+edge.Y*along)
 		distance := Vec.Distance(point, local)
 		if distance < nearest {

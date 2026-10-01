@@ -8,15 +8,19 @@ import (
 )
 
 type World struct {
-	Solver             *Solver
-	BroadPhase         *collision.BroadPhase[*Fixture]
-	ContactList        *Contact
-	BodyList           *Body
-	NewFixture, Locked bool
-	preSolveListener   func(*Contact)
-	step               TimeStep
-	Rules              specification.Simulation
-	contactPool        []*Contact
+	Solver                           *Solver
+	BroadPhase                       *collision.BroadPhase[*Fixture]
+	ContactList                      *Contact
+	toiCandidates                    *Contact
+	collectingTOI                    bool
+	nextContactOrder                 uint64
+	BodyList                         *Body
+	activeBodies                     []*Body
+	NewFixture, Locked               bool
+	preSolveListener                 func(*Contact)
+	step                             TimeStep
+	Rules                            specification.Simulation
+	contactPoolHead, contactPoolTail *Contact
 }
 
 func NewWorld(rules specification.Simulation) *World {
@@ -83,8 +87,18 @@ func (w *World) Step(dt float64, velocityIterations, positionIterations int) {
 	w.step = TimeStep{DT: dt, VelocityIterations: velocityIterations, PositionIterations: positionIterations}
 	w.UpdateContacts()
 	if dt > 0 {
-		w.Solver.SolveWorld(w.step)
+		clear(w.activeBodies)
+		w.activeBodies = w.activeBodies[:0]
 		for b := w.BodyList; b != nil; b = b.Next {
+			b.IslandFlag = false
+			if b.Parked {
+				b.Sweep.Alpha0 = 0
+			} else {
+				w.activeBodies = append(w.activeBodies, b)
+			}
+		}
+		w.Solver.SolveWorld(w.step)
+		for _, b := range w.activeBodies {
 			if b.IslandFlag {
 				b.SynchronizeFixtures()
 			}
@@ -115,12 +129,17 @@ func (w *World) CreateContact(a, b *Fixture) {
 	if contact == nil {
 		return
 	}
+	w.nextContactOrder++
+	contact.toiOrder = w.nextContactOrder
 	contact.Prev = nil
 	if w.ContactList != nil {
 		contact.Next = w.ContactList
 		w.ContactList.Prev = contact
 	}
 	w.ContactList = contact
+	if w.collectingTOI {
+		w.addTOICandidate(contact)
+	}
 }
 func (w *World) UpdateContacts() {
 	for c := w.ContactList; c != nil; {
@@ -134,6 +153,7 @@ func (w *World) UpdateContacts() {
 	}
 }
 func (w *World) DestroyContact(c *Contact) {
+	w.removeTOICandidate(c)
 	if c.Prev != nil {
 		c.Prev.Next = c.Next
 	}
@@ -144,11 +164,55 @@ func (w *World) DestroyContact(c *Contact) {
 		w.ContactList = c.Next
 	}
 	c.destroy()
-	w.contactPool = append(w.contactPool, c)
+	if w.contactPoolTail == nil {
+		w.contactPoolHead = c
+	} else {
+		w.contactPoolTail.Next = c
+	}
+	w.contactPoolTail = c
 }
 func (w *World) OnPreSolve(listener func(*Contact)) { w.preSolveListener = listener }
 func (w *World) PreSolve(c *Contact) {
 	if w.preSolveListener != nil {
 		w.preSolveListener(c)
 	}
+}
+
+// Keep the original contact order while excluding contacts whose continuous
+// collision budget is exhausted. New contacts join at the same head position.
+func (w *World) addTOICandidate(c *Contact) {
+	if c.toiListed || c.TOICount > maxTOISubsteps {
+		return
+	}
+	c.toiListed = true
+	var previous *Contact
+	next := w.toiCandidates
+	for next != nil && next.toiOrder > c.toiOrder {
+		previous = next
+		next = next.TOINext
+	}
+	c.TOIPrev, c.TOINext = previous, next
+	if previous == nil {
+		w.toiCandidates = c
+	} else {
+		previous.TOINext = c
+	}
+	if next != nil {
+		next.TOIPrev = c
+	}
+}
+func (w *World) removeTOICandidate(c *Contact) {
+	if !c.toiListed {
+		return
+	}
+	if c.TOIPrev != nil {
+		c.TOIPrev.TOINext = c.TOINext
+	} else {
+		w.toiCandidates = c.TOINext
+	}
+	if c.TOINext != nil {
+		c.TOINext.TOIPrev = c.TOIPrev
+	}
+	c.TOIPrev, c.TOINext = nil, nil
+	c.toiListed = false
 }

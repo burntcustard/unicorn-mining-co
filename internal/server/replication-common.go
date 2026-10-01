@@ -42,13 +42,17 @@ func sameModuleSegments(entity *craft.Craft, record *moduleRecord) bool {
 	}
 	return true
 }
-func readModules(entity *craft.Craft, previous **moduleRecord) *moduleRecord {
-	modules := entity.Modules()
+func readModules(entity *craft.Craft, binary *binaryRecord) *moduleRecord {
+	clear(binary.moduleBuffer)
+	binary.moduleBuffer = entity.AppendModules(binary.moduleBuffer[:0])
+	modules := binary.moduleBuffer
 	if len(modules) == 0 {
 		return nil
 	}
-	mounts := entity.Mounts()
-	p := *previous
+	clear(binary.mountBuffer)
+	binary.mountBuffer = entity.AppendMounts(binary.mountBuffer[:0])
+	mounts := binary.mountBuffer
+	p := binary.modules
 	same := p != nil && len(modules) == len(p.modules)
 	if same {
 		for i, module := range modules {
@@ -67,17 +71,23 @@ func readModules(entity *craft.Craft, previous **moduleRecord) *moduleRecord {
 	if same && sameModuleSegments(entity, p) {
 		return p
 	}
-	record := &moduleRecord{modules: modules, indexes: map[simulation.Module]int{}, counts: make([]int, len(modules))}
-	for i, state := range entity.ModuleStates() {
-		id := float64(modules[i].Base().ID)
-		value := protocol.ModuleState{ID: &id, Type: float64(state.Type), Mount: float64(state.Mount), Health: state.Health, Shades: slices.Clone(state.Shades), Segments: make([]protocol.ModuleSegment, len(state.Segments))}
-		for at, s := range state.Segments {
-			value.Segments[at] = protocol.ModuleSegment{Active: s.Active, ActivationProgress: s.ActivationProgress}
+	record := &moduleRecord{modules: slices.Clone(modules), indexes: map[simulation.Module]int{}, counts: make([]int, len(modules))}
+	for i, module := range modules {
+		o, d := module.Base(), module.ModuleBase()
+		id, health := float64(o.ID), o.Health
+		if d.Mount != nil {
+			health = d.Mount.Health
+		}
+		value := protocol.ModuleState{ID: &id, Type: float64(slices.Index(entity.Catalog.ModuleIDs, d.Type)), Mount: float64(slices.Index(mounts, d.Mount)), Health: &health, Shades: slices.Clone(o.Shades), Segments: []protocol.ModuleSegment{}}
+		for _, s := range entity.Segments {
+			if s.Mount == d.Mount && s.Module == module {
+				value.Segments = append(value.Segments, protocol.ModuleSegment{Active: s.Active, ActivationProgress: s.ActivationProgress})
+			}
 		}
 		record.states = append(record.states, value)
 		record.indexes[modules[i]] = i
 	}
-	*previous = record
+	binary.modules = record
 	return record
 }
 func sameSegments(a []*simulation.AsteroidSegment, b []protocol.AsteroidSegment) bool {
@@ -114,21 +124,45 @@ func copySegments(segments []*simulation.AsteroidSegment) []protocol.AsteroidSeg
 }
 
 type ReplicationView struct {
+	prepared      bool
 	world         *simulation.World
 	snapshotList  []simulation.Entity
+	objects       []*simulation.GameObject
+	records       []*binaryRecord
 	Kinds, Phases []int
+	X, Y          []float64
 }
 
 func NewReplicationView(world *simulation.World) *ReplicationView {
 	return &ReplicationView{world: world}
 }
 func (v *ReplicationView) Entities() []simulation.Entity {
-	if v.snapshotList == nil {
-		v.snapshotList = v.world.Entities.Values()
-		v.Kinds = make([]int, len(v.snapshotList))
-		v.Phases = make([]int, len(v.snapshotList))
+	if !v.prepared {
+		v.prepared = true
+		v.snapshotList = v.snapshotList[:0]
+		v.world.Entities.ForEach(func(e simulation.Entity, _ int64) { v.snapshotList = append(v.snapshotList, e) })
+		count := len(v.snapshotList)
+		if cap(v.X) < count {
+			v.objects = make([]*simulation.GameObject, count*2)
+			v.records = make([]*binaryRecord, count*2)
+			v.Kinds = make([]int, count*2)
+			v.Phases = make([]int, count*2)
+			v.X = make([]float64, count*2)
+			v.Y = make([]float64, count*2)
+		}
+		v.objects = v.objects[:count]
+		v.records = v.records[:count]
+		clear(v.records)
+		v.Kinds = v.Kinds[:count]
+		clear(v.Kinds)
+		v.Phases = v.Phases[:count]
+		v.X = v.X[:count]
+		v.Y = v.Y[:count]
 		for i, e := range v.snapshotList {
 			o := e.Base()
+			v.objects[i] = o
+			v.records[i], _ = o.ReplicationState.(*binaryRecord)
+			v.X[i], v.Y[i] = o.Position.X, o.Position.Y
 			station := o.Kind == "station"
 			if station {
 				v.Kinds[i] = 1
@@ -140,4 +174,11 @@ func (v *ReplicationView) Entities() []simulation.Entity {
 		}
 	}
 	return v.snapshotList
+}
+
+func (v *ReplicationView) Reset() *ReplicationView {
+	clear(v.snapshotList)
+	v.snapshotList = v.snapshotList[:0]
+	v.prepared = false
+	return v
 }

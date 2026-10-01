@@ -43,6 +43,8 @@ type SegmentPlan struct {
 	Stroke                                             [][][]float64
 }
 type Segment struct {
+	outlineKey    [2]float64
+	cachedOutline *ShapeOutline
 	SegmentPlan
 	Hull                                     bool
 	HullPlan                                 *SegmentPlan
@@ -55,6 +57,8 @@ type Segment struct {
 	Biting                                   bool
 	ExpandingTick                            *uint64
 	Collider, DrillCollider                  *collision.Collider
+	ColliderOutline                          *ShapeOutline
+	ColliderMiddle                           Point
 }
 
 func (s *Segment) TargetHealth() *float64 {
@@ -69,11 +73,18 @@ func (s *Segment) Outline() *ShapeOutline {
 	}
 	return s.Points
 }
-func (s *Segment) ModuleDefinition() specification.Module {
+
+var physicalHullDefinition = specification.Module{}
+var nonphysicalHullDefinition = specification.Module{DisablePhysics: true}
+
+func (s *Segment) ModuleDefinition() *specification.Module {
 	if s.Module != nil {
-		return s.Module.ModuleBase().Definition
+		return &s.Module.ModuleBase().Definition
 	}
-	return specification.Module{DisablePhysics: s.HullPlan != nil && s.HullPlan.DisablePhysics}
+	if s.HullPlan != nil && s.HullPlan.DisablePhysics {
+		return &nonphysicalHullDefinition
+	}
+	return &physicalHullDefinition
 }
 func NewMount(position Vec.Vector, fits []string) *Mount {
 	return &Mount{LocalPosition: position, Fits: fits, Health: math.NaN()}
@@ -89,4 +100,14 @@ func (s *Segment) OutlineShades() []string {
 type Pose struct {
 	Position Vec.Vector
 	Rotation float64
+}
+
+// Dynamic module geometry depends on a small immutable key. Reuse it until
+// activation or mount placement changes; callers only read the returned points.
+func (s *Segment) CachedOutline(key [2]float64, build func() *ShapeOutline) *ShapeOutline {
+	if s.cachedOutline == nil || s.outlineKey != key {
+		s.outlineKey = key
+		s.cachedOutline = build()
+	}
+	return s.cachedOutline
 }

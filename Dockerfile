@@ -13,7 +13,7 @@ COPY --from=client-build /app/internal ./internal
 RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /app/go-server ./cmd/go-server
 
 FROM scratch
-ENV APP_ENV=production PORT=8080 WORLD_SEED=25
+ENV APP_ENV=production PORT=8080 WORLD_SEED=25 GOGC=800
 WORKDIR /app
 COPY --from=go-build /app/go-server ./go-server
 COPY --from=client-build /app/dist ./dist

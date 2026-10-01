@@ -5,7 +5,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/protocol"
 	"github.com/burntcustard/unicorn-mining-co/internal/specification"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
-	"math"
 )
 
 // These interfaces replace instanceof without circular imports from simulation
@@ -19,13 +18,16 @@ type ControlledShip interface {
 	Control(protocol.Input, *[]protocol.SimulationEvent)
 }
 type scheduledEntity struct {
-	entity Entity
-	tier   specification.UpdateTier
-	step   float64
+	entity                Entity
+	object                *GameObject
+	substeps, updateEvery int
+	step                  float64
 }
 type movementSchedule struct {
 	observers, parents, entities []Entity
+	positions                    []Vec.Vector
 	entries                      []scheduledEntity
+	parentRecords                []movementParent
 }
 type UpdateEntitiesOptions struct {
 	Entities    []Entity
@@ -45,7 +47,7 @@ func UpdateTier(entity Entity, observers []Entity, rules specification.Simulatio
 	return rules.UpdateTiers["distant"]
 }
 func UpdateEntities(world *World, options UpdateEntitiesOptions) {
-	rules := world.Specification.Simulation
+	rules := &world.Specification.Simulation
 	tick, dt := world.Tick, rules.SimulationStep
 	if options.Tick != nil {
 		tick = *options.Tick
@@ -74,20 +76,32 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 			schedule.observers = append(schedule.observers, entity)
 		}
 	})
+	schedule.positions = schedule.positions[:0]
+	for _, observer := range schedule.observers {
+		schedule.positions = append(schedule.positions, observer.Base().Position)
+	}
+	visible, distant, drift := rules.UpdateTiers["visible"], rules.UpdateTiers["distant"], rules.UpdateTiers["drift"]
+	radiusSquared := rules.VisibleRange * rules.VisibleRange
 	clear(schedule.entries)
 	schedule.entries = schedule.entries[:0]
 	for _, entity := range list {
-		tier := rules.UpdateTiers["visible"]
-		if len(schedule.observers) > 0 {
-			tier = UpdateTier(entity, schedule.observers, rules)
+		object := entity.Base()
+		tier := visible
+		if len(schedule.positions) > 0 {
+			tier = distant
+			for _, position := range schedule.positions {
+				if Vec.DistanceSquared(object.Position, position) <= radiusSquared {
+					tier = visible
+					break
+				}
+			}
 		}
 		_, craft := entity.(CraftEntity)
-		object := entity.Base()
-		if tier == rules.UpdateTiers["visible"] && object.Velocity.X == 0 && object.Velocity.Y == 0 && !craft {
-			tier = rules.UpdateTiers["drift"]
+		if tier == visible && object.Velocity.X == 0 && object.Velocity.Y == 0 && !craft {
+			tier = drift
 		}
 		step := (object.PendingUpdateTime + rules.SimulationStep) / float64(tier.Substeps)
-		schedule.entries = append(schedule.entries, scheduledEntity{entity, tier, step})
+		schedule.entries = append(schedule.entries, scheduledEntity{entity, object, tier.Substeps, tier.UpdateEvery, step})
 	}
 	world.Entities.ForEach(func(entity Entity, _ int64) {
 		if _, ok := entity.(MovementParent); ok {
@@ -99,23 +113,36 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 		schedule.parents = []Entity{}
 	}
 	world.MovementParents = schedule.parents
-	for substep := 0; substep < rules.UpdateTiers["visible"].Substeps; substep++ {
+	clear(schedule.parentRecords)
+	schedule.parentRecords = schedule.parentRecords[:0]
+	for _, entity := range schedule.parents {
+		p := movementParent{entity: entity, object: entity.Base(), holder: entity.(MovementParent)}
+		if radial, ok := entity.(interface{ MovementRadius() float64 }); ok {
+			radius := radial.MovementRadius()
+			p.radiusSquared, p.radial = radius*radius, true
+		}
+		schedule.parentRecords = append(schedule.parentRecords, p)
+	}
+	if schedule.parentRecords == nil {
+		schedule.parentRecords = []movementParent{}
+	}
+	world.movementParents = schedule.parentRecords
+	for substep := 0; substep < visible.Substeps; substep++ {
 		for _, entry := range schedule.entries {
-			entity, tier := entry.entity, entry.tier
-			object := entity.Base()
+			entity, object := entry.entity, entry.object
 			if object.Dead {
 				continue
 			}
 			if substep == 0 {
 				object.PendingUpdateTime += dt
 			}
-			if (tick+1)%uint64(tier.UpdateEvery) != 0 || substep >= tier.Substeps {
+			if (tick+1)%uint64(entry.updateEvery) != 0 || substep >= entry.substeps {
 				continue
 			}
 			if object.PendingUpdateTime <= 0 {
 				continue
 			}
-			duration := math.Min(object.PendingUpdateTime, entry.step)
+			duration := min(object.PendingUpdateTime, entry.step)
 			elapsed := dt - object.PendingUpdateTime
 			object.PendingUpdateTime -= duration
 			end := elapsed + duration
@@ -141,4 +168,5 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 		}
 	}
 	world.MovementParents = nil
+	world.movementParents = nil
 }

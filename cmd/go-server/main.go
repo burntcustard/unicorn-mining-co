@@ -7,12 +7,16 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"syscall"
 	"time"
 )
 
 func main() {
+	if _, configured := os.LookupEnv("GOGC"); !configured {
+		debug.SetGCPercent(800)
+	}
 	catalog, err := specification.Load()
 	if err != nil {
 		log.Fatal(err)

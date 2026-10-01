@@ -9,35 +9,32 @@ type orderedEntry[K comparable, V any] struct {
 }
 type OrderedMap[K comparable, V any] struct {
 	iterationDepth int
-	entries        []*orderedEntry[K, V]
-	lookup         map[K]*orderedEntry[K, V]
+	entries        []orderedEntry[K, V]
+	lookup         map[K]int
 }
 
 func NewOrderedMap[K comparable, V any]() *OrderedMap[K, V] {
-	return &OrderedMap[K, V]{lookup: make(map[K]*orderedEntry[K, V])}
+	return &OrderedMap[K, V]{lookup: make(map[K]int)}
 }
 func (m *OrderedMap[K, V]) Set(key K, value V) {
-	if e := m.lookup[key]; e != nil {
-		e.value = value
+	if index := m.lookup[key]; index != 0 {
+		m.entries[index-1].value = value
 		return
 	}
-	e := &orderedEntry[K, V]{key: key, value: value, live: true}
-	m.lookup[key] = e
-	m.entries = append(m.entries, e)
+	m.entries = append(m.entries, orderedEntry[K, V]{key: key, value: value, live: true})
+	m.lookup[key] = len(m.entries)
 }
 func (m *OrderedMap[K, V]) Get(key K) (V, bool) {
-	if e := m.lookup[key]; e != nil {
-		return e.value, true
+	if index := m.lookup[key]; index != 0 {
+		return m.entries[index-1].value, true
 	}
 	var zero V
 	return zero, false
 }
-func (m *OrderedMap[K, V]) Has(key K) bool { return m.lookup[key] != nil }
+func (m *OrderedMap[K, V]) Has(key K) bool { return m.lookup[key] != 0 }
 func (m *OrderedMap[K, V]) Delete(key K) {
-	if e := m.lookup[key]; e != nil {
-		e.live = false
-		var zero V
-		e.value = zero
+	if index := m.lookup[key]; index != 0 {
+		m.entries[index-1] = orderedEntry[K, V]{}
 		delete(m.lookup, key)
 		m.compact()
 	}
@@ -47,7 +44,7 @@ func (m *OrderedMap[K, V]) ForEach(f func(V, K)) {
 	m.iterationDepth++
 	defer func() { m.iterationDepth--; m.compact() }()
 	for i := 0; i < len(m.entries); i++ {
-		e := m.entries[i]
+		e := &m.entries[i]
 		if e.live {
 			f(e.value, e.key)
 		}
@@ -64,23 +61,22 @@ func (m *OrderedMap[K, V]) compact() {
 	if m.iterationDepth > 0 || len(m.entries) <= 2*m.Len()+128 {
 		return
 	}
-	entries := make([]*orderedEntry[K, V], 0, m.Len())
-	for _, e := range m.entries {
-		if e.live {
-			entries = append(entries, e)
+	count := 0
+	for _, entry := range m.entries {
+		if entry.live {
+			m.entries[count] = entry
+			m.lookup[entry.key] = count + 1
+			count++
 		}
 	}
-	m.entries = entries
+	clear(m.entries[count:])
+	m.entries = m.entries[:count]
 }
 
 func (m *OrderedMap[K, V]) Clear() {
-	for _, e := range m.entries {
-		e.live = false
-		var zero V
-		e.value = zero
-	}
+	clear(m.entries)
 	clear(m.lookup)
 	if m.iterationDepth == 0 {
-		m.entries = nil
+		m.entries = m.entries[:0]
 	}
 }

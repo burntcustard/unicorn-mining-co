@@ -17,12 +17,12 @@ type SpatialProxy[T any] struct {
 	AABB     AABB
 }
 type spatialGroup[T any] struct {
-	nodes   []*SpatialProxy[T]
-	cellIDs []int32
-	bounds  AABB
+	nodes      []*SpatialProxy[T]
+	cellIDs    []int32
+	bounds     AABB
+	queryStamp uint64
 }
 type queryScratch[T any] struct {
-	seen       map[*spatialGroup[T]]bool
 	candidates []*SpatialProxy[T]
 }
 
@@ -36,6 +36,7 @@ type SpatialGrid[T any] struct {
 	dirtySet                      map[*spatialGroup[T]]bool
 	queryScratch                  []*queryScratch[T]
 	queryDepth                    int
+	queryStamp                    uint64
 	nextID                        uint64
 	aabbExtension, aabbMultiplier float64
 }
@@ -85,10 +86,10 @@ func (g *SpatialGrid[T]) MoveProxy(node *SpatialProxy[T], box AABB, displacement
 	}
 	node.AABB = box
 	Extend(&node.AABB, g.aabbExtension)
-	node.AABB.LowerBound.X += math.Min(0, displacement.X*g.aabbMultiplier)
-	node.AABB.LowerBound.Y += math.Min(0, displacement.Y*g.aabbMultiplier)
-	node.AABB.UpperBound.X += math.Max(0, displacement.X*g.aabbMultiplier)
-	node.AABB.UpperBound.Y += math.Max(0, displacement.Y*g.aabbMultiplier)
+	node.AABB.LowerBound.X += min(0, displacement.X*g.aabbMultiplier)
+	node.AABB.LowerBound.Y += min(0, displacement.Y*g.aabbMultiplier)
+	node.AABB.UpperBound.X += max(0, displacement.X*g.aabbMultiplier)
+	node.AABB.UpperBound.Y += max(0, displacement.Y*g.aabbMultiplier)
 	g.markDirty(g.bodyGroups[node.Owner])
 	return true
 }
@@ -128,11 +129,10 @@ func (g *SpatialGrid[T]) Query(box AABB, callback func(*SpatialProxy[T]) bool, o
 	depth := g.queryDepth
 	g.queryDepth++
 	if depth == len(g.queryScratch) {
-		g.queryScratch = append(g.queryScratch, &queryScratch[T]{seen: make(map[*spatialGroup[T]]bool)})
+		g.queryScratch = append(g.queryScratch, &queryScratch[T]{})
 	}
 	scratch := g.queryScratch[depth]
 	defer func() {
-		clear(scratch.seen)
 		clear(scratch.candidates)
 		scratch.candidates = scratch.candidates[:0]
 		g.queryDepth--
@@ -141,18 +141,25 @@ func (g *SpatialGrid[T]) Query(box AABB, callback func(*SpatialProxy[T]) bool, o
 	if owner != nil {
 		ownGroup = g.bodyGroups[owner]
 	}
-	for _, key := range cellKeys(box) {
-		for _, group := range g.gridCells[key] {
-			if group == ownGroup || scratch.seen[group] {
-				continue
-			}
-			scratch.seen[group] = true
-			if !TestOverlap(group.bounds, box) {
-				continue
-			}
-			for _, node := range group.nodes {
-				if TestOverlap(node.AABB, box) {
-					scratch.candidates = append(scratch.candidates, node)
+	g.queryStamp++
+	stamp := g.queryStamp
+	fromX, toX := int64(math.Floor(box.LowerBound.X/cellSize)), int64(math.Floor(box.UpperBound.X/cellSize))
+	fromY, toY := int64(math.Floor(box.LowerBound.Y/cellSize)), int64(math.Floor(box.UpperBound.Y/cellSize))
+	for x := fromX; x <= toX; x++ {
+		for y := fromY; y <= toY; y++ {
+			key := int32(uint32(x)*uint32(0x9e3779b1)) ^ int32(y)
+			for _, group := range g.gridCells[key] {
+				if group == ownGroup || group.queryStamp == stamp {
+					continue
+				}
+				group.queryStamp = stamp
+				if !TestOverlap(group.bounds, box) {
+					continue
+				}
+				for _, node := range group.nodes {
+					if TestOverlap(node.AABB, box) {
+						scratch.candidates = append(scratch.candidates, node)
+					}
 				}
 			}
 		}

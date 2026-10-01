@@ -13,7 +13,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"math"
-	"sort"
+	"slices"
 )
 
 type BodyRecord struct {
@@ -39,6 +39,7 @@ type GameCollisions struct {
 	manifold       collision.WorldManifold
 	bodies         *utilities.OrderedMap[int64, *BodyRecord]
 	contacts       []collision.Contact
+	visiting       []simulation.Entity
 	motions, found []*BodyRecord
 	bounds         []float64
 	sortOrder      []int
@@ -72,12 +73,12 @@ func NewGameCollisions(catalog specification.Catalog) *GameCollisions {
 				if b.Bounciness != nil {
 					bb = *b.Bounciness
 				}
-				contact.Restitution = math.Max(0, (ba+bb)/2)
+				contact.Restitution = max(0, (ba+bb)/2)
 			}
 		}
-		depth := math.Max(0, -manifold.Separations[0])
+		depth := max(0, -manifold.Separations[0])
 		if manifold.PointCount > 1 {
-			depth = math.Max(depth, -manifold.Separations[1])
+			depth = max(depth, -manifold.Separations[1])
 		}
 		found := collision.Contact{Collider: a, Other: b, Depth: depth, Normal: manifold.Normal, Point: point}
 		g.contacts = append(g.contacts, found)
@@ -143,27 +144,46 @@ func geometryFlags(c *collision.Collider) int {
 }
 func (g *GameCollisions) CapturePoses(entities *utilities.OrderedMap[int64, simulation.Entity]) {
 	entities.ForEach(func(e simulation.Entity, _ int64) {
+		if e.Base().InactivePhysics {
+			e.Base().Ballistic = true
+			return
+		}
 		record := g.recordFor(e)
 		record.Previous = simulation.Pose{Position: e.Base().Position, Rotation: e.Base().Rotation}
 	})
 }
 func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.Entity], dt float64, events *[]protocol.SimulationEvent) []collision.Contact {
-	g.contacts = nil
+	clear(g.contacts)
+	g.contacts = g.contacts[:0]
 	g.impacts.Clear()
-	visiting := entities.Values()
+	clear(g.visiting)
+	g.visiting = g.visiting[:0]
 	clear(g.found)
 	g.found = g.found[:0]
 	live := 0
-	for _, e := range visiting {
-		record, _ := g.bodies.Get(e.Base().ID)
-		g.found = append(g.found, record)
-		if record != nil && record.Entity == e {
-			live++
+	park := false
+	entities.ForEach(func(e simulation.Entity, _ int64) {
+		record, _ := e.Base().CollisionState.(*BodyRecord)
+		if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
+			record = nil
 		}
-	}
-	if live != g.bodies.Len() {
+		if record != nil && record.Entity == e && record.Body.World == g.world && !record.Body.Destroyed {
+			live++
+			park = park || e.Base().InactivePhysics && !record.Body.Parked
+		}
+		if !e.Base().InactivePhysics {
+			g.visiting = append(g.visiting, e)
+			g.found = append(g.found, record)
+		}
+	})
+	visiting := g.visiting
+	if park || live != g.bodies.Len() {
 		g.bodies.ForEach(func(record *BodyRecord, id int64) {
-			if !entities.Has(id) {
+			if entities.Has(id) && record.Entity.Base().InactivePhysics {
+				if !record.Body.Parked {
+					record.Body.Park()
+				}
+			} else if !entities.Has(id) {
 				g.world.DestroyBody(record.Body)
 				g.bodies.Delete(id)
 			}
@@ -215,7 +235,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 			body.Unpark()
 		}
 	}
-	rules := g.catalog.Simulation
+	rules := &g.catalog.Simulation
 	g.world.Step(dt, rules.Physics.VelocityIterations, rules.Physics.PositionIterations)
 	for _, record := range g.motions {
 		if !record.Body.Parked {
@@ -236,7 +256,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 				angle += 2 * math.Pi
 			}
 			if !(math.Abs(angle) <= math.Pi) {
-				angle = math.Atan2(math.Sin(angle), math.Cos(angle))
+				angle = math.Atan2(math.Sincos(angle))
 			}
 			if dt > 0 {
 				vx, vy, w := velocity.X, velocity.Y, spin
@@ -272,7 +292,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		a, b, point, impact := value.contact.Collider, value.contact.Other, value.contact.Point, value.impact
 		ao, bo := a.Owner.(simulation.Entity).Base(), b.Owner.(simulation.Entity).Base()
 		inverseMass := 1/ao.Mass + 1/bo.Mass
-		amount := math.Max(0, utilities.RoundInteger((impact/inverseMass-rules.Physics.DamageBase)/rules.Physics.DamageScale))
+		amount := max(0, utilities.RoundInteger((impact/inverseMass-rules.Physics.DamageBase)/rules.Physics.DamageScale))
 		if amount != 0 {
 			for _, pair := range [][2]*collision.Collider{{a, b}, {b, a}} {
 				hit, by := pair[0], pair[1]
@@ -337,7 +357,15 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 			order[j+1] = item
 		}
 	} else {
-		sort.SliceStable(order, func(i, j int) bool { return bounds[order[i]*4] < bounds[order[j]*4] })
+		slices.SortStableFunc(order, func(a, b int) int {
+			if bounds[a*4] < bounds[b*4] {
+				return -1
+			}
+			if bounds[a*4] > bounds[b*4] {
+				return 1
+			}
+			return 0
+		})
 	}
 	for i := range count {
 		a := order[i] * 4
@@ -357,7 +385,7 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 	return free
 }
 func (g *GameCollisions) touched(owner simulation.Entity) {
-	record, _ := g.bodies.Get(owner.Base().ID)
+	record, _ := owner.Base().CollisionState.(*BodyRecord)
 	if record != nil && record.Entity == owner {
 		record.Ballistic = false
 	}
@@ -365,7 +393,10 @@ func (g *GameCollisions) touched(owner simulation.Entity) {
 }
 func (g *GameCollisions) recordFor(entity simulation.Entity) *BodyRecord {
 	id := entity.Base().ID
-	record, _ := g.bodies.Get(id)
+	record, _ := entity.Base().CollisionState.(*BodyRecord)
+	if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
+		record = nil
+	}
 	if record != nil && record.Entity != entity {
 		g.world.DestroyBody(record.Body)
 		g.bodies.Delete(id)
@@ -374,6 +405,7 @@ func (g *GameCollisions) recordFor(entity simulation.Entity) *BodyRecord {
 	if record == nil {
 		record = &BodyRecord{Entity: entity, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: entity.Base().Position, Rotation: entity.Base().Rotation}}
 		g.bodies.Set(id, record)
+		entity.Base().CollisionState = record
 	}
 	return record
 }
@@ -448,7 +480,7 @@ func (g *GameCollisions) syncDetailed(entity simulation.Entity, record *BodyReco
 		return value == geometryAt(previous, index) || rounded(value) == geometryAt(quantized, index)
 	}
 	cursor := 2
-	inverseSin, inverseCos := math.Sin(-object.Rotation), math.Cos(-object.Rotation)
+	inverseSin, inverseCos := math.Sincos(-object.Rotation)
 	unchanged := matches(object.Mass, 0) && matches(object.AngularInertiaScale, 1)
 	if unchanged {
 		for _, c := range colliders {
@@ -456,7 +488,7 @@ func (g *GameCollisions) syncDetailed(entity simulation.Entity, record *BodyReco
 			dx, dy := position.X-object.Position.X, position.Y-object.Position.Y
 			x, y := dx*inverseCos-dy*inverseSin, dx*inverseSin+dy*inverseCos
 			angle := c.GetRotation() - object.Rotation
-			sin, cos := math.Sin(angle), math.Cos(angle)
+			sin, cos := math.Sincos(angle)
 			start := cursor
 			outline := c.ShapeOutline
 			if outline != nil {
@@ -501,7 +533,7 @@ func (g *GameCollisions) syncDetailed(entity simulation.Entity, record *BodyReco
 	for _, c := range colliders {
 		offset := simulation.RotatePoint(Vec.Subtract(c.GetPosition(), object.Position), -object.Rotation)
 		angle := c.GetRotation() - object.Rotation
-		sin, cos := math.Sin(angle), math.Cos(angle)
+		sin, cos := math.Sincos(angle)
 		margin := 0.0
 		if c.CollisionMargin != nil {
 			margin = *c.CollisionMargin
@@ -590,12 +622,12 @@ func (g *GameCollisions) syncDetailed(entity simulation.Entity, record *BodyReco
 		case *shape.PolygonShape:
 			extent = math.Inf(-1)
 			for _, v := range s.Vertices {
-				extent = math.Max(extent, Vec.Length(v))
+				extent = max(extent, Vec.Length(v))
 			}
 		case *shape.CircleShape:
 			extent = Vec.Length(s.Vertices[0])
 		}
-		record.Radius = math.Max(record.Radius, f.Shape.Base().Radius+extent)
+		record.Radius = max(record.Radius, f.Shape.Base().Radius+extent)
 	}
 	record.Body.SetProxyRadius(record.Radius)
 	record.Body.SetMass(object.Mass, object.Mass*object.AngularInertiaScale*inertiaPerMass(fixtures))

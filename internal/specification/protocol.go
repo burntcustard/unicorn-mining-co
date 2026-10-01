@@ -2,8 +2,44 @@
 package specification
 
 type Protocol struct {
-	BinaryFieldIDs    map[string]int `json:"binaryFieldIds"`
+	BinaryFieldIDs    *BinaryFields  `json:"binaryFieldIds"`
 	ControlMessageIDs map[string]int `json:"controlMessageIds"`
 	DockActionIDs     map[string]int `json:"dockActionIds"`
 	EntityKindIDs     map[string]int `json:"entityKindIds"`
+}
+
+type BinaryFields struct {
+	CargoContents     int `json:"cargoContents"`
+	Credits           int `json:"credits"`
+	Contents          int `json:"contents"`
+	Decay             int `json:"decay"`
+	Friction          int `json:"friction"`
+	DockedTo          int `json:"dockedTo"`
+	Health            int `json:"health"`
+	HullHealth        int `json:"hullHealth"`
+	Kind              int `json:"kind"`
+	Label             int `json:"label"`
+	Launching         int `json:"launching"`
+	Mass              int `json:"mass"`
+	Message           int `json:"message"`
+	PendingUpdateTime int `json:"pendingUpdateTime"`
+	MaxSpeed          int `json:"maxSpeed"`
+	MaxHealth         int `json:"maxHealth"`
+	Modules           int `json:"modules"`
+	Wreckage          int `json:"wreckage"`
+	ShapeOutline      int `json:"shapeOutline"`
+	Paint             int `json:"paint"`
+	Shades            int `json:"shades"`
+	PlayerId          int `json:"playerId"`
+	PointCount        int `json:"pointCount"`
+	Position          int `json:"position"`
+	Radius            int `json:"radius"`
+	RadiusEven        int `json:"radiusEven"`
+	Resource          int `json:"resource"`
+	Rotation          int `json:"rotation"`
+	Spin              int `json:"spin"`
+	Segments          int `json:"segments"`
+	Thrust            int `json:"thrust"`
+	Turn              int `json:"turn"`
+	Velocity          int `json:"velocity"`
 }

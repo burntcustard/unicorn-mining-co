@@ -7,10 +7,13 @@ import (
 )
 
 func RotatePoint(point Vec.Vector, angle float64) Vec.Vector {
-	sin, cos := math.Sin(angle), math.Cos(angle)
+	sin, cos := math.Sincos(angle)
 	return Vec.Create(point.X*cos-point.Y*sin, point.X*sin+point.Y*cos)
 }
-func DirectionOf(angle float64) Vec.Vector { return Vec.Create(math.Cos(angle), math.Sin(angle)) }
+func DirectionOf(angle float64) Vec.Vector {
+	sin, cos := math.Sincos(angle)
+	return Vec.Create(cos, sin)
+}
 func MovePoint(point Vec.Vector, angle, distance float64) Vec.Vector {
 	return Vec.AddScaled(point, DirectionOf(angle), distance)
 }

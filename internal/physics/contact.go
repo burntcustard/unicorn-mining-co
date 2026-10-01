@@ -6,7 +6,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
 	"github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
-	"math"
 )
 
 type Mat22 struct{ Ex, Ey Vec.Vector }
@@ -28,6 +27,9 @@ type Contact struct {
 	PLocalNormal, PLocalPoint             Vec.Vector
 	FixtureA, FixtureB                    *Fixture
 	Prev, Next                            *Contact
+	TOIPrev, TOINext                      *Contact
+	toiOrder                              uint64
+	toiListed                             bool
 	TOI                                   float64
 	TOIFlag                               bool
 	Friction, Restitution, SurfaceSpeed   float64
@@ -48,8 +50,8 @@ func (c *Contact) InitConstraint() {
 	c.InvIA = a.Body.InvI
 	c.InvIB = b.Body.InvI
 	c.VPointCount = m.PointCount
-	c.PRadiusA = a.Shape.Base().Radius
-	c.PRadiusB = b.Shape.Base().Radius
+	c.PRadiusA = a.Geometry.Radius
+	c.PRadiusB = b.Geometry.Radius
 	c.PType = m.Type
 	c.PLocalNormal = m.LocalNormal
 	c.PLocalPoint = m.LocalPoint
@@ -61,7 +63,7 @@ func (c *Contact) InitConstraint() {
 	}
 }
 func (c *Contact) GetWorldManifold(wm *collision.WorldManifold) *collision.WorldManifold {
-	return c.Manifold.GetWorldManifold(wm, c.FixtureA.Body.Xf, c.FixtureA.Shape.Base().Radius, c.FixtureB.Body.Xf, c.FixtureB.Shape.Base().Radius)
+	return c.Manifold.GetWorldManifold(wm, c.FixtureA.Body.Xf, c.FixtureA.Geometry.Radius, c.FixtureB.Body.Xf, c.FixtureB.Geometry.Radius)
 }
 func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) {
 	switch a := c.FixtureA.Shape.(type) {
@@ -131,13 +133,13 @@ func (c *Contact) solvePositionConstraint(toiA, toiB *Body) float64 {
 			return minSeparation
 		}
 		rA, rB := Vec.Subtract(point, cA), Vec.Subtract(point, cB)
-		minSeparation = math.Min(minSeparation, separation)
-		rules := bodyA.World.Rules
+		minSeparation = min(minSeparation, separation)
+		rules := &bodyA.World.Rules
 		baumgarte := rules.Physics.PositionBaumgarte
 		if toi {
 			baumgarte = rules.Physics.TOIBaumgarte
 		}
-		correction := math.Max(-rules.Physics.MaxLinearCorrection, math.Min(baumgarte*(separation+rules.LinearSlop), 0))
+		correction := max(-rules.Physics.MaxLinearCorrection, min(baumgarte*(separation+rules.LinearSlop), 0))
 		rnA, rnB := Vec.Cross(rA, normal), Vec.Cross(rB, normal)
 		k := mA + mB + iA*rnA*rnA + iB*rnB*rnB
 		impulse := 0.0
@@ -238,7 +240,7 @@ func (c *Contact) SolveVelocityConstraint() {
 		vt := Vec.Dot(dv, tangent)
 		lambda := vcp.TangentMass * -vt
 		maxFriction := c.Friction * vcp.NormalImpulse
-		newImpulse := math.Max(-maxFriction, math.Min(vcp.TangentImpulse+lambda, maxFriction))
+		newImpulse := max(-maxFriction, min(vcp.TangentImpulse+lambda, maxFriction))
 		lambda = newImpulse - vcp.TangentImpulse
 		vcp.TangentImpulse = newImpulse
 		p := Vec.Scale(tangent, lambda)
@@ -252,7 +254,7 @@ func (c *Contact) SolveVelocityConstraint() {
 		dv := relative(vcp)
 		vn := Vec.Dot(dv, normal)
 		lambda := -vcp.NormalMass * (vn - vcp.VelocityBias)
-		newImpulse := math.Max(vcp.NormalImpulse+lambda, 0)
+		newImpulse := max(vcp.NormalImpulse+lambda, 0)
 		lambda = newImpulse - vcp.NormalImpulse
 		vcp.NormalImpulse = newImpulse
 		p := Vec.Scale(normal, lambda)
@@ -312,18 +314,20 @@ func (c *Contact) SolveVelocityConstraint() {
 	bodyB.CVelocity = Velocity{vB, wB}
 }
 func (w *World) createContact(a, b *Fixture) *Contact {
-	typeA, typeB := a.Shape.Base().Type, b.Shape.Base().Type
+	typeA, typeB := a.Geometry.Type, b.Geometry.Type
 	if typeA == "circle" && typeB == "polygon" {
 		a, b = b, a
 	} else if !((typeA == "circle" && typeB == "circle") || (typeA == "polygon" && (typeB == "polygon" || typeB == "circle"))) {
 		return nil
 	}
 	var c *Contact
-	if len(w.contactPool) > 0 {
-		c = w.contactPool[0]
-		copy(w.contactPool, w.contactPool[1:])
-		w.contactPool[len(w.contactPool)-1] = nil
-		w.contactPool = w.contactPool[:len(w.contactPool)-1]
+	if w.contactPoolHead != nil {
+		c = w.contactPoolHead
+		w.contactPoolHead = c.Next
+		if w.contactPoolHead == nil {
+			w.contactPoolTail = nil
+		}
+		c.Next = nil
 	} else {
 		c = &Contact{TOI: 1, EnabledFlag: true}
 	}

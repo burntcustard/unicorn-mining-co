@@ -1,7 +1,7 @@
 import * as Vec from './vector';
 import { createRandom, type Random } from './seeded-random';
 import { localMovement } from './simulation/local-movement';
-import { round } from './utilities/round';
+import { roundMotion } from './utilities/round';
 import { simulationSpecification } from './specification/simulation';
 import { type Collider } from './collision/types';
 import { type SimulationWorld } from './simulation/world';
@@ -112,11 +112,19 @@ export class GameObject {
    * Keep predicted and authoritative motion on the same numeric grid.
    */
   roundMotion() {
-    Vec.setXY(this.position, round(this.position.x), round(this.position.y));
+    Vec.setXY(
+      this.position,
+      roundMotion(this.position.x),
+      roundMotion(this.position.y),
+    );
     // Keep substep speed-limit branches consistent across the Go and JS runtimes.
-    Vec.setXY(this.velocity, round(this.velocity.x), round(this.velocity.y));
-    this.rotation = round(this.rotation);
-    this.spin = round(this.spin);
+    Vec.setXY(
+      this.velocity,
+      roundMotion(this.velocity.x),
+      roundMotion(this.velocity.y),
+    );
+    this.rotation = roundMotion(this.rotation);
+    this.spin = roundMotion(this.spin);
   }
   update(dt: number) {
     if (this.dead || this.buried) return;

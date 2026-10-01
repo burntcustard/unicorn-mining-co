@@ -114,7 +114,14 @@ export class Body {
     if (this.isWorldLocked()) return;
 
     matrix.setTransform(this.m_xf, position, angle);
-    this.m_sweep.setTransform(this.m_xf);
+
+    if (angle >= -Math.PI && angle <= Math.PI) {
+      Vec.set(this.m_sweep.c, position);
+      Vec.set(this.m_sweep.c0, position);
+      this.m_sweep.a = this.m_sweep.a0 = angle;
+    } else {
+      this.m_sweep.setTransform(this.m_xf);
+    }
 
     if (!this.m_parked) this.synchronizeProxies(this.m_xf, this.m_xf);
   }

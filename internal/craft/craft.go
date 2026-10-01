@@ -11,7 +11,6 @@ import (
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
 	"math"
 	"slices"
-	"sort"
 )
 
 type Properties struct {
@@ -38,6 +37,7 @@ type Craft struct {
 	CargoSpace                                          int
 	source                                              *geometrySource
 	colliders                                           []*collision.Collider
+	spareColliders                                      []*collision.Collider
 }
 
 func (*Craft) IsCraft() {}
@@ -136,10 +136,20 @@ func makeSegment(c *Craft, module simulation.Module, plan *simulation.SegmentPla
 	return s
 }
 func (c *Craft) sortSegments() {
-	sort.SliceStable(c.Segments, func(i, j int) bool { return c.Segments[i].ZIndex < c.Segments[j].ZIndex })
+	slices.SortStableFunc(c.Segments, func(a, b *simulation.Segment) int {
+		if a.ZIndex < b.ZIndex {
+			return -1
+		}
+		if a.ZIndex > b.ZIndex {
+			return 1
+		}
+		return 0
+	})
 }
 func (c *Craft) Mounts() []*simulation.Mount {
-	mounts := []*simulation.Mount{}
+	return c.AppendMounts([]*simulation.Mount{})
+}
+func (c *Craft) AppendMounts(mounts []*simulation.Mount) []*simulation.Mount {
 	for _, s := range c.Segments {
 		mounts = append(mounts, s.Mounts...)
 	}
@@ -155,7 +165,9 @@ func (c *Craft) SegmentsAtMount(mount *simulation.Mount) []*simulation.Segment {
 	return out
 }
 func (c *Craft) Modules() []simulation.Module {
-	out := []simulation.Module{}
+	return c.AppendModules([]simulation.Module{})
+}
+func (c *Craft) AppendModules(out []simulation.Module) []simulation.Module {
 	for _, s := range c.Segments {
 		for _, mount := range s.Mounts {
 			if mount.Module != nil {
@@ -252,20 +264,28 @@ func (c *Craft) Launch() {
 	c.Launching = c.Rules.Flight.LaunchDuration
 	c.HasLaunching = true
 }
-func (c *Craft) HullHealth() []float64 {
-	hulls := map[*simulation.SegmentPlan]*simulation.Segment{}
-	for _, s := range c.Segments {
-		if s.Hull && hulls[s.HullPlan] == nil {
-			hulls[s.HullPlan] = s
-		}
+func (c *Craft) HullHealth() []float64 { return c.AppendHullHealth(nil) }
+func (c *Craft) AppendHullHealth(values []float64) []float64 {
+	if values == nil {
+		values = make([]float64, 0, len(c.HullSegments))
+	} else {
+		values = values[:0]
 	}
-	values := make([]float64, len(c.HullSegments))
-	for i, plan := range c.HullSegments {
+	for _, plan := range c.HullSegments {
+		health := 0.0
 		if plan.Health == nil {
-			values[i] = -1
-		} else if s := hulls[plan]; s != nil && !math.IsNaN(s.Health) {
-			values[i] = s.Health
+			health = -1
+		} else {
+			for _, segment := range c.Segments {
+				if segment.Hull && segment.HullPlan == plan {
+					if !math.IsNaN(segment.Health) {
+						health = segment.Health
+					}
+					break
+				}
+			}
 		}
+		values = append(values, health)
 	}
 	return values
 }
@@ -717,8 +737,8 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		return nil
 	}
 	changed := false
-	sin, cos := math.Sin(c.Rotation), math.Cos(c.Rotation)
-	colliders := []*collision.Collider{}
+	sin, cos := math.Sincos(c.Rotation)
+	colliders := c.spareColliders[:0]
 	hatchOpen := c.Catalog.ModuleSpecifications["cargoHatch"].CargoGeometry.OpeningThreshold
 	for _, s := range c.Segments {
 		if s.Radius == nil || *s.TargetHealth() < 1 {
@@ -751,6 +771,7 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		if collider == nil {
 			collider = &collision.Collider{Owner: c.Self, Segment: s}
 			s.Collider = collider
+			s.ColliderOutline = nil
 		}
 		position := Vec.Create(c.Position.X+(x*cos-y*sin), c.Position.Y+(x*sin+y*cos))
 		radius := s.Radius(s)
@@ -766,24 +787,27 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		var outline [][]float64
 		if points != nil {
 			outline = collider.ShapeOutline
-			if len(outline) != len(points.Points) {
-				changed = true
-				outline = make([][]float64, len(points.Points))
-			}
-			if outline == nil {
-				outline = [][]float64{}
-				changed = true
-			}
-			for i, p := range points.Points {
-				localX, localY := p[0]-mx, p[1]-my
-				if len(outline[i]) != 2 {
-					outline[i] = make([]float64, 2)
+			if s.ColliderOutline != points || s.ColliderMiddle != (simulation.Point{mx, my}) {
+				if len(outline) != len(points.Points) {
+					changed = true
+					outline = make([][]float64, len(points.Points))
+				}
+				if outline == nil {
+					outline = [][]float64{}
 					changed = true
 				}
-				changed = changed || outline[i][0] != localX || outline[i][1] != localY
-				outline[i][0], outline[i][1] = localX, localY
+				for i, p := range points.Points {
+					localX, localY := p[0]-mx, p[1]-my
+					if len(outline[i]) != 2 {
+						outline[i] = make([]float64, 2)
+						changed = true
+					}
+					changed = changed || outline[i][0] != localX || outline[i][1] != localY
+					outline[i][0], outline[i][1] = localX, localY
+				}
 			}
 		}
+		s.ColliderOutline, s.ColliderMiddle = points, simulation.Point{mx, my}
 		bounce := d.Bounciness
 		if s.Module != nil && s.Module.ModuleBase().Bounciness != nil {
 			bounce = s.Module.ModuleBase().Bounciness(s)
@@ -792,7 +816,10 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		if bounce != nil {
 			value = *bounce
 		}
-		collider.Bounciness = &value
+		if collider.Bounciness == nil {
+			collider.Bounciness = new(float64)
+		}
+		*collider.Bounciness = value
 		collider.Friction = c.Friction
 		if s.Module != nil {
 			collider.Friction = s.Module.Base().Friction
@@ -802,12 +829,18 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		collider.DockSegment = s.DockSegment
 		collider.Role = role
 		collider.ShapeOutline = outline
-		collider.Collides = &collides
+		if collider.Collides == nil {
+			collider.Collides = new(bool)
+		}
+		*collider.Collides = collides
 		collider.ContactFilter = nil
 		if s.Catches {
 			collider.ContactFilter = modules.CargoContactAllowed
 		}
-		collider.Physics = &physical
+		if collider.Physics == nil {
+			collider.Physics = new(bool)
+		}
+		*collider.Physics = physical
 		collider.Radius = radius
 		collider.Rotation = c.Rotation
 		collider.Speed = 0
@@ -835,7 +868,10 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 			tip.Radius = d.DrillTip.Radius
 			tip.Rotation = c.Rotation
 			tip.Friction = c.Friction
-			tip.Collides = &collides
+			if tip.Collides == nil {
+				tip.Collides = new(bool)
+			}
+			*tip.Collides = collides
 			colliders = append(colliders, tip)
 		}
 	}
@@ -852,6 +888,7 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 	if changed || !slices.Equal(result, c.colliders) {
 		c.source = &geometrySource{}
 	}
+	c.spareColliders = c.colliders
 	c.colliders = result
 	return result
 }

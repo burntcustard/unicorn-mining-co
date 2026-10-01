@@ -8,20 +8,25 @@ import (
 	"math"
 )
 
-func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue) (int, float64) {
+func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
 	var xf Vec.TransformValue
 	var n, v1 Vec.Vector
 	Vec.DetransformTransform(&xf, xf2, xf1)
 	bestIndex, maxSeparation := 0, math.Inf(-1)
-	for i := 0; i < poly1.Count; i++ {
-		Vec.RotateInto(&n, xf.Q, poly1.Normals[i])
-		Vec.TransformInto(&v1, xf, poly1.Vertices[i])
+	vertices1, vertices2 := poly1.Vertices[:poly1.Count], poly2.Vertices[:poly2.Count]
+	for i, normal := range poly1.Normals[:poly1.Count] {
+		Vec.RotateInto(&n, xf.Q, normal)
+		Vec.TransformInto(&v1, xf, vertices1[i])
+		offset := Vec.Dot(n, v1)
 		si := math.Inf(1)
-		for j := 0; j < poly2.Count; j++ {
-			sij := Vec.Dot(n, poly2.Vertices[j]) - Vec.Dot(n, v1)
+		for _, vertex := range vertices2 {
+			sij := Vec.Dot(n, vertex) - offset
 			if sij < si {
 				si = sij
 			}
+		}
+		if si > limit {
+			return i, si
 		}
 		if si > maxSeparation {
 			maxSeparation, bestIndex = si, i
@@ -33,8 +38,8 @@ func findIncidentEdge(clipVertex *[2]Vec.Vector, poly1 *PolygonShape, xf1 Vec.Tr
 	var normal1 Vec.Vector
 	Vec.RerotateInto(&normal1, xf2.Q, xf1.Q, poly1.Normals[edge1])
 	index, minDot := 0, math.Inf(1)
-	for i := 0; i < poly2.Count; i++ {
-		dot := Vec.Dot(normal1, poly2.Normals[i])
+	for i, normal := range poly2.Normals[:poly2.Count] {
+		dot := Vec.Dot(normal1, normal)
 		if dot < minDot {
 			minDot, index = dot, i
 		}
@@ -45,11 +50,11 @@ func findIncidentEdge(clipVertex *[2]Vec.Vector, poly1 *PolygonShape, xf1 Vec.Tr
 func CollidePolygons(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64) {
 	m.PointCount = 0
 	totalRadius := a.Radius + b.Radius
-	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB)
+	edgeA, separationA := findMaxSeparation(a, xfA, b, xfB, totalRadius)
 	if separationA > totalRadius {
 		return
 	}
-	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA)
+	edgeB, separationB := findMaxSeparation(b, xfB, a, xfA, totalRadius)
 	if separationB > totalRadius {
 		return
 	}

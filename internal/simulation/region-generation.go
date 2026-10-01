@@ -40,6 +40,11 @@ type candidateKey struct {
 	WorldSeed uint32
 	Region    Vec.Vector
 }
+type featureKey struct {
+	worldSeed uint32
+	cell      Vec.Vector
+	kind      int
+}
 
 // The TS module's bounded candidate cache is owned by its simulation in Go.
 // Entries stay immutable and generated region descriptions are detached copies.
@@ -48,10 +53,11 @@ type RegionGenerator struct {
 	regionSize       float64
 	candidateRegions map[candidateKey]*regionCandidates
 	candidateOrder   []candidateKey
+	features         map[featureKey]*feature
 }
 
 func NewRegionGenerator(spec specification.Catalog) *RegionGenerator {
-	return &RegionGenerator{spec: spec.RegionGeneration, regionSize: spec.Simulation.RegionSize, candidateRegions: make(map[candidateKey]*regionCandidates)}
+	return &RegionGenerator{spec: spec.RegionGeneration, regionSize: spec.Simulation.RegionSize, candidateRegions: make(map[candidateKey]*regionCandidates), features: make(map[featureKey]*feature)}
 }
 func mix(value uint32) uint32 {
 	value = (value ^ (value >> 16)) * 0x7feb352d
@@ -136,6 +142,18 @@ func spacingRadius(f *feature, kind int) float64 {
 	return f.Radius
 }
 func (g *RegionGenerator) acceptedFeature(worldSeed uint32, cell Vec.Vector, kind int) *feature {
+	key := featureKey{worldSeed, cell, kind}
+	if cached, ok := g.features[key]; ok {
+		return cached
+	}
+	if len(g.features) >= 8192 {
+		clear(g.features)
+	}
+	accepted := g.acceptFeature(worldSeed, cell, kind)
+	g.features[key] = accepted
+	return accepted
+}
+func (g *RegionGenerator) acceptFeature(worldSeed uint32, cell Vec.Vector, kind int) *feature {
 	candidate := g.featureCandidate(worldSeed, cell, kind)
 	if candidate == nil {
 		return nil
@@ -330,7 +348,7 @@ func (g *RegionGenerator) GenerateRegion(worldSeed uint32, region Vec.Vector) pr
 			if !blocked {
 				candidates = append(candidates, a)
 				candidateSet[a] = true
-				maxRadius = math.Max(maxRadius, a.Radius)
+				maxRadius = max(maxRadius, a.Radius)
 			}
 		}
 	}
