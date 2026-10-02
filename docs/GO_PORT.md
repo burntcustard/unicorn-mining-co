@@ -109,6 +109,7 @@ npm run test:go
 npm test
 npm run lint
 npm run format:check
+npm run format:go:check
 go test -race ./internal/server
 ```
 

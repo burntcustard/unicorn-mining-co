@@ -69,6 +69,13 @@ waiting for a welcome packet.
 
 7. See [package.json](package.json) for other scripts
 
+`npm run format` formats JavaScript, TypeScript, and other files supported by
+Oxfmt. `npm run format:check` checks them without writing changes. These commands
+use the npm dependencies and do not require Go.
+
+Format Go source separately with `npm run format:go`, or check it with
+`npm run format:go:check`. Both Go commands require `gofmt` on PATH.
+
 ## Build
 
 `npm run build` type-checks and builds the client and server with the same
