@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { replayTrajectory } from '../benchmarking/remote-trajectory-workload';
+import { replayTrajectory } from '../benchmarking/tools/remote-trajectory-workload';
 import { interpolatePose } from '../src/shared/utilities/interpolate-pose';
 import { simulationStep } from '../src/shared/settings';
 import * as Vec from '../src/shared/vector';

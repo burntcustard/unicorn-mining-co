@@ -96,7 +96,7 @@ func cpuMicros() int64 {
 func TestSessionBenchmark(t *testing.T) {
 	path := os.Getenv("SESSION_RESULT")
 	if path == "" {
-		t.Skip("invoked by benchmarking/go-server.mjs")
+		t.Skip("invoked by benchmarking/tools/go-server.mjs")
 	}
 	count, _ := strconv.Atoi(os.Getenv("SESSION_PLAYERS"))
 	ticks, _ := strconv.Atoi(os.Getenv("SESSION_TICKS"))

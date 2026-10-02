@@ -143,7 +143,7 @@ latency or Fly measurements.
 ## Benchmark
 
 ```sh
-node benchmarking/go-server.mjs
+node benchmarking/tools/go-server.mjs
 ```
 
 Run with Go on PATH. The runner pins both implementations to the same permitted
@@ -160,8 +160,8 @@ not network RTT, WebSocket framing cost, or Fly CPU-quota measurements.
 The default measures 900 ticks per repetition, after a separate traced parity
 run for each workload. Peak RSS uses `/proc/self/status` (VmHWM), excluding a
 parent process's inherited pre-exec high-water mark. The default writes
-`benchmarking/go-server-results.json`. Live deployment and
+`benchmarking/local/go-server.json`. Live deployment and
 Fly throttling checks remain for the user's merge/deploy test.
 
 The measured results and limitations are in the
-[2026-09-30 benchmark report](experiments/go-server-benchmark-2026-09-30.md).
+[2026-09-30 benchmark report](../benchmarking/archive/README.md#september-2026).

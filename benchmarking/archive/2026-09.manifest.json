@@ -1,0 +1,357 @@
+{
+  "cutoff": "2026-10-01",
+  "sourceRevision": "8b48c7917fb81d79af72f2807c5024ff3e22cbf8",
+  "files": [
+    {
+      "path": "benchmarking/go-server-results.json",
+      "bytes": 137977,
+      "sha256": "5be5356bbad79ac72c88ce55e0342632bdbf76ff9a82f38fab7deb8c895a9432"
+    },
+    {
+      "path": "benchmarking/main-node-server-results.json",
+      "bytes": 72069,
+      "sha256": "9e99266548e3c614a795473142749fc7227a3f6d449c2ebaba8f2c3fa2432a2f"
+    },
+    {
+      "path": "benchmarking/results/2026-09-26-performance-simplification.json",
+      "bytes": 103106,
+      "sha256": "01dfc451a81e611c72bc29e12243042df4756b71ba8f42834fbc6109457af97c"
+    },
+    {
+      "path": "benchmarking/results/2026-09-26-server-performance.json",
+      "bytes": 92648,
+      "sha256": "d8a64a2ae98be361f68042c74e4828f7cdd9d1f9dd05ea2a6091fba51bcc65c7"
+    },
+    {
+      "path": "benchmarking/results/2026-09-26-three-player-performance.json",
+      "bytes": 143434,
+      "sha256": "949b4d6f41d964ef74d084e3bcd9e33434c4fa6b852ebca771816fa286b96c80"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-alpha-networking.json",
+      "bytes": 364540,
+      "sha256": "352bc0adc3a077a455d37b5faf899818261ecd567b1e00b007a213c0042621bc"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-collision-caches.json",
+      "bytes": 27854,
+      "sha256": "a1b8d0ca097c92ca2f448a2510f73fc9aaaeebc81b18435bf705c4ca8f062ff0"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-dormant-world.json",
+      "bytes": 174089,
+      "sha256": "7c7a79094beafda3d6a3c719c88e63120b76b632aca766eaa541a16781a6f5c2"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-elapsed-time.json",
+      "bytes": 40451,
+      "sha256": "e10c729e4088b194d0c693a4dbd96242a78d24d463a4f5c478f13387de375dda"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-freeze-fixes-browser.json",
+      "bytes": 1192,
+      "sha256": "d06cdbb853bc96633555c0177e7f68be23a256c6a5b1f270acd5839012dbfd1f"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-live-freeze-investigation.json",
+      "bytes": 220831,
+      "sha256": "685303ed3eddbdc94d1f7d39dd80c8246624ed850660bfaa32981e9fcacdcf78"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-monomorphism.json",
+      "bytes": 78453,
+      "sha256": "363c4738bbd7b1643de85423b2c56d7a199db076c00bc4e81dd306998aebcdd2"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-motion-buffer.json",
+      "bytes": 252120,
+      "sha256": "5dbae61497622f72b8a162850cec4a1bf90397bb2a0dc2ed2b3ac1efa8e8463e"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-nengi-networking.json",
+      "bytes": 166544,
+      "sha256": "391ccac1fe367cea8b96b15c72d546d56660edb0b0c21028cb2884b1d876bbd6"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-numeric-representations.json",
+      "bytes": 119917,
+      "sha256": "424a833ea65e9ad4d1bc5591b4d2c25ae94a3c56405a3b458e5240d1a1400b12"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-persistent-state.json",
+      "bytes": 72463,
+      "sha256": "d2fa9990e8b2c57e478b68f184bfceae9cece886baf9ac11a1d7163a0c000ecc"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-physics.json",
+      "bytes": 208473,
+      "sha256": "8439dfa872258fd9666322522288662f3c83518213752260a9520eca531de838"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-region-prewarm.json",
+      "bytes": 283001,
+      "sha256": "f6c916c290e06aea56a2fe6e8a1a5dc0f8b32177996df19de6170cba2ed9490c"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-server-cpu.json",
+      "bytes": 897669,
+      "sha256": "98519df25dc48412ad6eb3e2e9ea25bdfb8dd5a31b5490a82dba5cd5b01beec4"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-server-phases.json",
+      "bytes": 46179,
+      "sha256": "9464ea0b6b2a8eabe5c6d7ffb98e2f5bb308c150544179b95797170b67566c16"
+    },
+    {
+      "path": "benchmarking/results/2026-09-27-set-iteration.json",
+      "bytes": 143638,
+      "sha256": "0e31c0ae42041fa07b89388fe5e417815bdd9a403b9a933fb8a9f6efe0d13f8e"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-collision-one-input-16-contact-confirm.json",
+      "bytes": 69405,
+      "sha256": "1a4a3d5c66f61c44d82cf6cd7f5814e7b508fbbb2608a5f2cfd0619425c12c5e"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-collision-one-input-4-confirm.json",
+      "bytes": 84041,
+      "sha256": "7ef6ba869cdb5b0b1113c69f7eb29bf48bd2e64e6a07feeeb929eb7d51fd997d"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-collision-one-input-4.json",
+      "bytes": 94781,
+      "sha256": "37bf69b7e39106a7e536628160566b7ef0153ab7e4deaf92f9be5e8e5ff9e8f0"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-collision-one-input-8-16.json",
+      "bytes": 220410,
+      "sha256": "4aeb4477be01cf65704fa0704f9aeccb7c5be03e468307cf327d00187b72ee92"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-16.json",
+      "bytes": 217594,
+      "sha256": "d8703fca627b60c6652763bf74554a6a51e4a3c376aaa61d107420dc976d1edb"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-4-ablation.json",
+      "bytes": 120175,
+      "sha256": "f66218388e87b4a0f39f92dcb1fe4f23f5a17cd12b9b87f3a05821639d094907"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-4-combinations.json",
+      "bytes": 111363,
+      "sha256": "da0f853774f968cfc740674d036668bf437a26110c87fec2202854564b925aaf"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-4-combined.json",
+      "bytes": 111239,
+      "sha256": "994242da073c1020c6925bd4a798c9264af3c8b73a1d3b9830b6483d54c58d18"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-4-final-choice.json",
+      "bytes": 111923,
+      "sha256": "a258616a3bf98ae8fb0b0c34623298f9094e26688c680eec187b55da7f08f00b"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-4-individual.json",
+      "bytes": 149227,
+      "sha256": "a68c50ffff698e4dceeab3d02ef513918d2649894724613fe1b1646192198909"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-4-new-validations.json",
+      "bytes": 149142,
+      "sha256": "1d87d5098929deee9cd709e1219c8dc8a6cf953eaf287516736ddce4608e59fb"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-8-16-final.json",
+      "bytes": 369989,
+      "sha256": "5a18bdd8c1437723ec404e9afa7b83aefbdb42cb730d57d73280f5886619edaf"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-8.json",
+      "bytes": 152900,
+      "sha256": "14d11b3c8c981826318a032d48bfcb197896fe8364de7c6c2388b35a509da58a"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-cpu-screen-alternatives.json",
+      "bytes": 119848,
+      "sha256": "d197bd38d9d79e5e5048d42440e6030b194f47f8e6d35908d12886138090a385"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-followup-combined-4-screen.json",
+      "bytes": 187447,
+      "sha256": "71021f06dc6e5dec6476b46862fcc0e13e4396f5a87e744913960bd85ff2b46b"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-followup-cpu-4-convoy.json",
+      "bytes": 54601,
+      "sha256": "7ab1f33d8de6d1f7ab4a130a0283de2e362463a49045c5118ef24e051668d2ea"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-followup-cpu-4-rest.json",
+      "bytes": 169709,
+      "sha256": "dc3a30269a55ae4fb0d5f1c3e3cddee102c306d83e0eaa1ac819e5d75105e8a8"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-followup-cpu-8-16.json",
+      "bytes": 531078,
+      "sha256": "7bbde68856bedf94e194b9551fae8f724a058db27ffc6404736ca2807a763c27"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-followup-lighting-4-confirm.json",
+      "bytes": 74036,
+      "sha256": "5df80caf685de286f47e9be76292afacef2737bd43c607946e37c8373a98d916"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-followup-long-4.json",
+      "bytes": 119170,
+      "sha256": "395fef3436f180fc202a7fff175cf84ba84e662605cd238a032d16f61f699296"
+    },
+    {
+      "path": "benchmarking/results/2026-09-28-followup-owned-static-8-16.json",
+      "bytes": 145928,
+      "sha256": "e79ce791f5bac7b732b62281e399f40814d20ff9c9891e1b0cbf739dbe9004e2"
+    },
+    {
+      "path": "benchmarking/results/2026-09-29-cpu-final.json",
+      "bytes": 198887,
+      "sha256": "61c21f6121f732fb5590d8a00c1ecff895dd8d196614a9425a006b585523928b"
+    },
+    {
+      "path": "docs/experiments/go-server-benchmark-2026-09-30.md",
+      "bytes": 17182,
+      "sha256": "09e2dfc14f6a4c0bc9385864b962d4a488f7c93dc4be6895c08d5b5fd53aba16"
+    },
+    {
+      "path": "docs/experiments/input-latency-2026-09-29.md",
+      "bytes": 1468,
+      "sha256": "96192ff18b49201f56c7966c6262cf33267c14ff97ab96ba0c404ed6940f6535"
+    },
+    {
+      "path": "docs/experiments/live-freeze-investigation-2026-09-27.md",
+      "bytes": 11512,
+      "sha256": "1a2fdc121fa26285f8c0373a0333311d4cee6f65f6e4d2add8f65c1b2e4d3329"
+    },
+    {
+      "path": "docs/experiments/multiplayer-freeze-fixes-2026-09-27.md",
+      "bytes": 6726,
+      "sha256": "6fbc005c00b96af71a5dbf6b8ad723548f3d70e66ca1ee126b2926b05899aaac"
+    },
+    {
+      "path": "docs/experiments/networking-alpha-2026-09-27.md",
+      "bytes": 17159,
+      "sha256": "61c2fa4140cc59ecf34b483af179f03ef754992496493a3ca33911d06f2ad654"
+    },
+    {
+      "path": "docs/experiments/networking-buffer-2026-09-27.md",
+      "bytes": 8766,
+      "sha256": "1c573ca6553560dffe8fbc8e71a91833d560f3be69fedcdd6569047b260ab345"
+    },
+    {
+      "path": "docs/experiments/networking-nengi-2026-09-27.md",
+      "bytes": 20610,
+      "sha256": "b7623f74ae15da44a383841d3fe743aec4f98410d7a137cf3220ec9b60ee6dd2"
+    },
+    {
+      "path": "docs/experiments/performance-collision-caches-2026-09-27.md",
+      "bytes": 6217,
+      "sha256": "d89dc24f43c21b05ac9c17428f3644719c21c92853af4b0f6b780d5eede83d08"
+    },
+    {
+      "path": "docs/experiments/performance-collision-one-input-2026-09-28.md",
+      "bytes": 6122,
+      "sha256": "9ea5110ee2745af6bb178ec026fd5c2e1cb0f8f4bbc76abc7434668a29306ac7"
+    },
+    {
+      "path": "docs/experiments/performance-cpu-followup-2026-09-28.md",
+      "bytes": 9071,
+      "sha256": "03d2e057adc0a9ace4a9f212574de35a16e2111fa03294265ba6fc622a787f07"
+    },
+    {
+      "path": "docs/experiments/performance-cpu-followup-2026-09-29.md",
+      "bytes": 10175,
+      "sha256": "1614ab8690a49df0f85908f2ef74afee8904e5745d687456dbd3800dab255018"
+    },
+    {
+      "path": "docs/experiments/performance-cpu-methodology-2026-09-29.md",
+      "bytes": 13286,
+      "sha256": "d1b8041fe116a99c42501099fff9a347d5d99b14b722416f4044ec567208e91b"
+    },
+    {
+      "path": "docs/experiments/performance-cpu-players-2026-09-28.md",
+      "bytes": 12407,
+      "sha256": "41373b2c0c728a7af8009ef496683a5c44188a0e672a7ca41dccc4892d7f3fad"
+    },
+    {
+      "path": "docs/experiments/performance-dormant-world-2026-09-27.md",
+      "bytes": 10536,
+      "sha256": "d8d1bbb057eb8dfe35dc8585fb10ea9150613f02aab157a7ba55d849d4460deb"
+    },
+    {
+      "path": "docs/experiments/performance-elapsed-time-2026-09-27.md",
+      "bytes": 8980,
+      "sha256": "42db6ba9db51eaa72cbaa622a468c945b6b11630b1aa0c5751bfab98befaa975"
+    },
+    {
+      "path": "docs/experiments/performance-investigation-2026-09-26-three-player.md",
+      "bytes": 8510,
+      "sha256": "412d54bff25c5ef391f9eaa8c657c6bde7950eac116c6c8361d66e1b37cb2f56"
+    },
+    {
+      "path": "docs/experiments/performance-investigation-2026-09-26.md",
+      "bytes": 12366,
+      "sha256": "ed84622e1448f53bc6eee4a49ae18e860cc717c7b99e5bad898a64c62b987d5e"
+    },
+    {
+      "path": "docs/experiments/performance-investigation-2026-09-27.md",
+      "bytes": 14136,
+      "sha256": "4114d111da26aab11ade6075adb2079b1df1665ed5ba4f874560b6ec7160468b"
+    },
+    {
+      "path": "docs/experiments/performance-monomorphism-2026-09-27.md",
+      "bytes": 8524,
+      "sha256": "588bb86bc50f57710ebbcf9af1020dbd2aaef64831a3e949110c7d37bf6361b9"
+    },
+    {
+      "path": "docs/experiments/performance-numeric-representations-2026-09-27.md",
+      "bytes": 17362,
+      "sha256": "91a16c0f027304a499957ce69522c60445ade731f0ea8790b1905388635203ab"
+    },
+    {
+      "path": "docs/experiments/performance-persistent-state-2026-09-27.md",
+      "bytes": 9936,
+      "sha256": "24cd0cd5b66112abe5223ad7a9a8fc9288318c988531d7ad5c4a78264798a3e0"
+    },
+    {
+      "path": "docs/experiments/performance-region-prewarm-2026-09-27.md",
+      "bytes": 13940,
+      "sha256": "c96cfcb63693804f4779f3d514aaa2176cd30bc220e82f61c1c123046655f254"
+    },
+    {
+      "path": "docs/experiments/performance-server-cpu-2026-09-27.md",
+      "bytes": 12776,
+      "sha256": "d6aeae5d5a36e50037e632d38766a15884d1928877dfe0a2f4dc8d498c267077"
+    },
+    {
+      "path": "docs/experiments/performance-server-phases-2026-09-27.md",
+      "bytes": 12464,
+      "sha256": "2f462fe15dc1b94e93bd6438df19ed2413096a812606baa28cde48068d5ee9d6"
+    },
+    {
+      "path": "docs/experiments/performance-set-iteration-2026-09-27.md",
+      "bytes": 6103,
+      "sha256": "7dc661749cd3650e21a368e82ca3e191ad3f874765f53dfc6515dbf815f0aa1c"
+    },
+    {
+      "path": "docs/experiments/performance-simplification-2026-09-26.md",
+      "bytes": 9938,
+      "sha256": "4f870f19e1f5ac723ad3a1abc59ed5e7fcad2cd5749c8975113d64eac31407ad"
+    },
+    {
+      "path": "docs/experiments/physics-consolidation.md",
+      "bytes": 213078,
+      "sha256": "3e2d2a16f24d5b95f583edd35fcb4dbd47989ec861af538675d77b31f43aa4ae"
+    }
+  ],
+  "archiveSha256": "9961ae8f11810b57979398d2dc90c57e19ef57f9e735f94e4108e27032e20a18"
+}

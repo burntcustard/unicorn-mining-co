@@ -2,3 +2,6 @@
 /dist
 
 bin
+
+# Scratch benchmark runs; curate useful captures under benchmarking/experiments.
+/benchmarking/local/

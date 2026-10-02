@@ -14,9 +14,9 @@
   },
   "type": "module",
   "scripts": {
-    "benchmark": "node benchmarking/run.mjs",
-    "benchmark:simulation": "node benchmarking/simulation.mjs",
-    "benchmark:headless": "BENCH_HEADLESS=1 node benchmarking/run.mjs",
+    "benchmark": "node benchmarking/tools/run.mjs",
+    "benchmark:simulation": "node benchmarking/tools/simulation.mjs",
+    "benchmark:headless": "BENCH_HEADLESS=1 node benchmarking/tools/run.mjs",
     "dev": "vite",
     "dev:host": "vite --host",
     "dev:server": "tsx watch src/server/index.ts",
@@ -52,7 +52,7 @@
     "start:go-server": "GOEXPERIMENT=simd go run ./cmd/go-server",
     "dev:go-server": "npm run build:client && npm run start:go-server",
     "test:go:physics": "npm run catalog:go && tsx scripts/generate-go-broad-phase-fixtures.ts && tsx scripts/generate-go-physics-world-fixtures.ts && tsx scripts/generate-go-rotation-fixtures.ts && go test ./internal/collision/... ./internal/physics/...",
-    "benchmark:go": "GOEXPERIMENT=simd node benchmarking/go-server.mjs"
+    "benchmark:go": "GOEXPERIMENT=simd node benchmarking/tools/go-server.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"

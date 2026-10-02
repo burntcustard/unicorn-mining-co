@@ -79,6 +79,27 @@ exceeds 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading
 tiers and their triggers. `npm run test:packets` reports client/server packet
 sizes before and after production mangling.
 
+## Documentation
+
+### Current references
+
+- [Go server port and local running](docs/GO_PORT.md)
+- [Client chunk loading and protocol delivery](docs/CHUNK_LOADING.md)
+- [Code terminology](docs/terminology.md)
+- [Todo](docs/todo.md)
+- [Ideas](docs/ideas.md)
+
+### Measurements and history
+
+- [Experiment reports](docs/experiments/README.md): dated investigations and decisions.
+- [Benchmark tools and artifacts](benchmarking/README.md): runners, captured results, and reproduction instructions.
+- [Older reports and results](benchmarking/archive/README.md): compressed history and extraction instructions.
+
+Current references stay directly under `docs/`. Put new investigation reports in
+`docs/experiments/YYYY-MM-DD/` and their evidence in the matching date/topic under
+`benchmarking/experiments/`. Historical reports describe the measured checkout;
+they are not current configuration instructions.
+
 ## Deploy on Fly.io
 
 The public game runs at [unicorn-mining.co](https://unicorn-mining.co/) on one

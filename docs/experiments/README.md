@@ -1,45 +1,25 @@
-# Experiments
+# Experiment reports
 
-Performance, Go server, networking and physics investigations, proposals and results.
+Recent investigations are grouped by measurement date. Use [benchmarking](../../benchmarking/README.md) for runners and saved evidence, or the [documentation index](../../README.md#documentation) for current reference material.
 
-Raw benchmark data and reproduction artifacts remain in [benchmarking](../../benchmarking/README.md).
+## 2026-10-02
 
-- [Go / Node session benchmark — 2026-09-30](go-server-benchmark-2026-09-30.md)
-- [Go server CPU comparison after SIMD and collision experiments — 2026-10-01](go-server-cpu-comparison-2026-10-01-followup.md)
-- [Go server CPU comparison — 2026-10-01](go-server-cpu-comparison-2026-10-01.md)
-- [Persistent packed physics investigation — 2026-10-01](go-server-packed-physics-2026-10-01.md)
-- [Precision and SIMD investigation — 2026-10-01](go-server-precision-simd-2026-10-01.md)
-- [Go server SIMD benchmark results — 2026-10-01](go-server-simd-results-2026-10-01.md)
-- [Solver, persistent caches and SIMD follow-up — 2026-10-01](go-server-solver-redesign-2026-10-01.md)
-- [Snapshots at the simulation rate — 2026-10-01](snapshot-cadence-2026-10-01.md)
-- [Low-latency movement and stall recovery — 2 October 2026](low-latency-recovery-2026-10-02.md)
-- [Remote collision presentation — 2026-10-02](remote-collision-presentation-2026-10-02.md)
-- [Remote movement smoothness follow-up — 2026-10-02](remote-motion-smoothness-2026-10-02.md)
-- [Remote motion and collision consistency — 2026-10-02](remote-motion-consistency-2026-10-02.md)
-- [Ship input response and prediction simplification — 2026-10-02](ship-input-response-2026-10-02.md)
-- [Client input latency](input-latency-2026-09-29.md)
-- [Live multiplayer freeze investigation — 27 September 2026](live-freeze-investigation-2026-09-27.md)
-- [Multiplayer freeze fixes — 27 September 2026](multiplayer-freeze-fixes-2026-09-27.md)
-- [Networking follow-ups for the public alpha](networking-alpha-2026-09-27.md)
-- [One-tick remote motion buffer](networking-buffer-2026-09-27.md)
-- [Networking lessons from nengi RC.127](networking-nengi-2026-09-27.md)
-- [Collision cache follow-up — 27 September 2026](performance-collision-caches-2026-09-27.md)
-- [One-input collision step — 2026-09-28](performance-collision-one-input-2026-09-28.md)
-- [Server CPU follow-up: five proposed changes](performance-cpu-followup-2026-09-28.md)
-- [CPU follow-up: binary-only networking and snapshot cadence](performance-cpu-followup-2026-09-29.md)
-- [CPU Performance Investigation: Method and Successful Changes](performance-cpu-methodology-2026-09-29.md)
-- [Server CPU at 4, 8 and 16 players — 2026-09-28](performance-cpu-players-2026-09-28.md)
-- [Description pre-generation and collision experiments — 27 September 2026](performance-dormant-world-2026-09-27.md)
-- [Elapsed-time server updates — 2026-09-27](performance-elapsed-time-2026-09-27.md)
-- [Three-player CPU investigation — 26 September 2026](performance-investigation-2026-09-26-three-player.md)
-- [Server slowdown investigation — 26 September 2026](performance-investigation-2026-09-26.md)
-- [Collision and physics investigation, 27 September 2026](performance-investigation-2026-09-27.md)
-- [Monomorphism follow-up — 2026-09-27](performance-monomorphism-2026-09-27.md)
-- [Integer and fixed-point investigation — 27 September 2026](performance-numeric-representations-2026-09-27.md)
-- [Persistent replication and movement storage, 27 September 2026](performance-persistent-state-2026-09-27.md)
-- [Pre-generating a 50,000-unit world area — 27 September 2026](performance-region-prewarm-2026-09-27.md)
-- [Server CPU follow-up — 2026-09-27](performance-server-cpu-2026-09-27.md)
-- [Server CPU categories, 27 September 2026](performance-server-phases-2026-09-27.md)
-- [Server Set iteration experiments — 2026-09-27](performance-set-iteration-2026-09-27.md)
-- [Performance and simplification follow-up — 26–27 September 2026](performance-simplification-2026-09-26.md)
-- [Collision and physics consolidation](physics-consolidation.md)
+- [Low-latency movement and stall recovery — 2 October 2026](2026-10-02/low-latency-recovery-2026-10-02.md)
+- [Remote collision presentation — 2026-10-02](2026-10-02/remote-collision-presentation-2026-10-02.md)
+- [Remote motion and collision consistency — 2026-10-02](2026-10-02/remote-motion-consistency-2026-10-02.md)
+- [Remote movement smoothness follow-up — 2026-10-02](2026-10-02/remote-motion-smoothness-2026-10-02.md)
+- [Ship input response — 2026-10-02](2026-10-02/ship-input-response-2026-10-02.md)
+
+## 2026-10-01
+
+- [Go server CPU comparison after SIMD and collision experiments — 2026-10-01](2026-10-01/go-server-cpu-comparison-2026-10-01-followup.md)
+- [Go server CPU comparison — 2026-10-01](2026-10-01/go-server-cpu-comparison-2026-10-01.md)
+- [Persistent packed physics investigation — 2026-10-01](2026-10-01/go-server-packed-physics-2026-10-01.md)
+- [Precision and SIMD investigation — 2026-10-01](2026-10-01/go-server-precision-simd-2026-10-01.md)
+- [Go server SIMD benchmark results — 2026-10-01](2026-10-01/go-server-simd-results-2026-10-01.md)
+- [Solver, persistent caches and SIMD follow-up — 2026-10-01](2026-10-01/go-server-solver-redesign-2026-10-01.md)
+- [Snapshots at the simulation rate — 2026-10-01](2026-10-01/snapshot-cadence-2026-10-01.md)
+
+## Earlier work
+
+Reports and results before 1 October 2026 are in the [September archive](../../benchmarking/archive/README.md#september-2026). Its catalogue lists the reports without requiring extraction.

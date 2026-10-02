@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { replayHandoff } from '../benchmarking/remote-handoff-workload';
+import { replayHandoff } from '../benchmarking/tools/remote-handoff-workload';
 
 let worstSpeedRatio = 0;
 let worstSpeedChange = 0;
