@@ -313,16 +313,21 @@ const gameLoop = GameLoop({
         );
       }
 
-      activeSprites.forEach(
-        (craft) =>
-          craft instanceof Craft &&
-          !craft.dead &&
-          craft.render.call(predicted.entities.get(craft.id) || craft, {
-            scenery: activeSprites,
-            zIndex,
-            pose: remotePoses.get(craft.id),
-          }),
-      );
+      activeSprites.forEach((craft) => {
+        if (!(craft instanceof Craft) || craft.dead) return;
+        const prediction = predicted.entities.get(craft.id);
+        const renderedCraft =
+          prediction instanceof Craft &&
+          prediction.constructor === craft.constructor
+            ? prediction
+            : craft;
+
+        renderedCraft.render({
+          scenery: activeSprites,
+          zIndex,
+          pose: remotePoses.get(craft.id),
+        });
+      });
     }
 
     // Sparks off the HornDrill sit over the asteroids and ships they come off

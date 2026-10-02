@@ -1,10 +1,6 @@
 /* global Buffer, process */
 import { rolldown } from 'rolldown';
-import { minify } from 'terser';
-import {
-  terserMangleOptions,
-  buildPrePlugin,
-} from '../plugins/build-plugins.js';
+import { buildPlugin } from '../plugins/build-plugins.js';
 import { stripIfdef } from '../plugins/replace-pre-terser.js';
 
 const root = process.cwd();
@@ -50,7 +46,7 @@ Vec.set(loose.velocity, Vec.create(5,2));
 loose.health=.5;
 hit(loose);
 if(Vec.distance(ship.velocity, Vec.create(5,2))>1e-9)throw Error('breaking loose must release the drilling grip');
-export default JSON.stringify({...packet,drillingStages:[split,checkpoint()]});
+export default JSON.stringify({...packet,['drilling'+'Stages']:[split,checkpoint()]});
 `;
 const scenario = `
 import assert from 'node:assert/strict';
@@ -61,8 +57,9 @@ import '${root}/src/client/craft/ship.ts';
 import '${root}/src/client/craft/station.ts';
 import '${root}/src/client/items/item.ts';
 import {createWorld,addEntity} from '${root}/src/shared/simulation/world.ts';
-import {cloneEntity} from '${root}/src/shared/simulation/world-state.ts';
+import {captureWorld,cloneEntity,restoreWorld} from '${root}/src/shared/simulation/world-state.ts';
 import {Mustang} from '${root}/src/shared/craft/ships/mustang.ts';
+import {createShip} from '${root}/src/shared/craft/create-ship.ts';
 import {Corral} from '${root}/src/shared/craft/stations/corral.ts';
 import {SearchLight,CargoHatch,HornDrill,ShieldGenerator,thrusters} from '${root}/src/shared/modules/index.ts';
 import {Diamond} from '${root}/src/shared/items/diamond.ts';
@@ -76,18 +73,18 @@ import {revealBuriedItems,tint} from '${root}/src/client/lighting.ts';
 import {colors} from '${root}/src/shared/colors.ts';
 import {renderControls} from '${root}/src/client/ui/controls.ts';
 import {presentEvents} from '${root}/src/client/present-events.ts';
-const soundCount = globalThis['sounds'].length;
+const soundCount = globalThis['sou'+'nds'].length;
 presentEvents({playerId:1,events:[{type:'itemCollected',by:1,itemId:888,resource:0}]});
-assert.equal(globalThis['sounds'].length,soundCount+1,'collecting cargo plays a sound');
-assert.equal(globalThis['sounds'].at(-1),2,'pickup uses the original pickup effect');
+assert.equal(globalThis['sou'+'nds'].length,soundCount+1,'collecting cargo plays a sound');
+assert.equal(globalThis['sou'+'nds'].at(-1),2,'pickup uses the original pickup effect');
 presentEvents({playerId:1,events:[{type:'itemCollected',by:2,itemId:889,resource:0}]});
-assert.equal(globalThis['sounds'].length,soundCount+1,'other pilots do not play our cargo notification');
-const packet=JSON.parse(globalThis['packet']);
+assert.equal(globalThis['sou'+'nds'].length,soundCount+1,'other pilots do not play our cargo notification');
+const packet=JSON.parse(globalThis['pack'+'et']);
 const world=createWorld();
 const hydratedSlate=makeEntity({entity:{id:9999,kind:'item',resource:4,message:'GOLD ORE 100/200',position:Vec.create(),radius:8,rotation:0,spin:0},world});
 assert.equal(hydratedSlate.message,'GOLD ORE 100/200','the replicated slate keeps its field coordinates');
 const objects=packet['fullEntities'].map(entity=>makeEntity({entity,world}));
-assert.throws(()=>makeEntity({entity:{...packet['fullEntities'][0],['kind']:'unknown'},world}),/Unknown replicated entity kind/,'unknown wire kinds must not turn into ships');
+assert.throws(()=>makeEntity({entity:{...packet['fullEntities'][0],kind:'unknown'},world}),/Unknown replicated entity kind/,'unknown wire kinds must not turn into ships');
 const remote=objects.find(entity=>entity instanceof Mustang);
 const station=objects.find(entity=>entity instanceof Corral);
 assert(remote && station,'wire descriptions restore concrete classes');
@@ -139,7 +136,7 @@ for(const ship of [local,remote]){
   draws.length=0;
   for(const segment of nozzles)segment.module.render({segment:segment});
   assert.equal(draws.length,nozzles.length,'each active local/remote nozzle renders a flare');
-  assert(draws.every(({path})=>path['vertices'].some(([x])=>x<0)),'flares extend behind the nozzle');
+  assert(draws.every(({path})=>path['ver'+'tices'].some(([x])=>x<0)),'flares extend behind the nozzle');
   const searchLightSegment=ship.segments.find(segment=>segment.module instanceof SearchLight);
   const before=gradients;
   searchLightSegment.module.render({segment:searchLightSegment,craft:ship,scenery:[]});
@@ -163,7 +160,7 @@ for(const ship of [local,remote]){
   draws.length=0;
   hatchDoor.module.render({segment:hatchDoor});
   assert(draws.some(draw=>draw.style===colors.violet[2]),'attached cargo hatch uses its light shade');
-  const sounds=globalThis['sounds'];
+  const sounds=globalThis['sou'+'nds'];
   const beforeSound=sounds.length;
   ship.updateVisual(1/60);
   assert(sounds.slice(beforeSound).includes(0),'opening a replicated cargo hatch plays its sound');
@@ -214,8 +211,8 @@ assert(hornDrillSegment.zIndex<hullSegment.zIndex,'the horn drill belongs below 
 for(const craftOrder of [[drilling,receiving],[receiving,drilling]]){
   draws.length=0;
   for(const zIndex of [-1,0,1])for(const craft of craftOrder)craft.render({zIndex});
-  const hornDrillIndex=draws.findIndex(draw=>JSON.stringify(draw.path['vertices'])===JSON.stringify(hornDrillSegment.points));
-  const hullIndex=draws.findIndex(draw=>JSON.stringify(draw.path['vertices'])===JSON.stringify(hullSegment.points));
+  const hornDrillIndex=draws.findIndex(draw=>JSON.stringify(draw.path['ver'+'tices'])===JSON.stringify(hornDrillSegment.points));
+  const hullIndex=draws.findIndex(draw=>JSON.stringify(draw.path['ver'+'tices'])===JSON.stringify(hullSegment.points));
   assert(hornDrillIndex>=0 && hullIndex>hornDrillIndex,'overlapping hulls cover the horn drill in either craft order');
 }
 station.render({zIndex:2});
@@ -238,11 +235,32 @@ assert(draws.length>0,'bare Craft wreckage retains its own hull rendering');
 assert(draws.some(draw=>draw.style===colors.cyan[2]),'detached wreckage keeps its light fill shade');
 assert.equal(gradients,beforeWreck,'wreckage does not inherit station gradients');
 const diamond=new Diamond();
+const lightWorld=createWorld();
+const lightShip=addEntity(lightWorld,createShip(lightWorld,{shades:colors.cyan}));
+lightShip.setModuleActive({module:SearchLight,active:true});
+lightShip.updateModules(1);
+const detachedLight=lightShip.modules.find(module=>module instanceof SearchLight);
+const lightCheckpoint=captureWorld({world:lightWorld});
+lightShip.detach(detachedLight.mount);
+const lightDebris=[...lightWorld.entities.values()].find(entity=>entity!==lightShip && entity.decay);
+for(const fragment of [lightDebris,cloneEntity({entity:lightDebris})]){
+  const beforeBeam=gradients;
+  draws.length=0;
+  for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])fragment.render({zIndex,scenery:[]});
+  assert.equal(gradients,beforeBeam,'detached modules do not project active beams');
+  assert(draws.length>0,'detached modules still draw their fixed debris geometry');
+  const beforeReveal=revealed;
+  revealBuriedItems({sprites:[fragment,litRock],predicted:new Map(),poses:new Map()});
+  assert.equal(revealed,beforeReveal,'detached lights do not reveal buried cargo');
+}
+restoreWorld({world:lightWorld,state:lightCheckpoint});
+assert(lightShip.segments.every(segment=>segment.module),'rollback restores every segment module');
+for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])lightShip.render({zIndex,scenery:[]});
 draws.length=0;
 diamond.render();
 assert(draws.length>0,'concrete items inherit the Item renderer');
 assert.equal(saves,0,'parent renderers balance all canvas state');
-for(const [index,stage] of packet['drillingStages'].entries()){
+for(const [index,stage] of packet['drilling'+'Stages'].entries()){
   const entities=stage.map(entity=>makeEntity({entity,world}));
   assert(!entities.some(entity=>entity instanceof Craft),'drilled loot must never hydrate as a ship or wreck');
   const rocks=entities.filter(entity=>entity instanceof Asteroid);
@@ -292,7 +310,7 @@ const area=shapeOutline=>Math.abs(shapeOutline.reduce((sum,[x,y],index)=>{
   const [nextX,nextY]=shapeOutline[(index+1)%shapeOutline.length];
   return sum+x*nextY-nextX*y;
 },0))/2;
-const ringAreas=painted.path.contours.map(area).sort((a,b)=>b-a);
+const ringAreas=painted.path['con'+'tours'].map(area).sort((a,b)=>b-a);
 assert.equal(painted.rule,'evenodd','asteroid fill handles interior holes');
 assert.equal(ringAreas.length,2,'the renderer draws the outer edge and the drilled hole');
 assert(Math.abs(ringAreas[0]-ringAreas[1]-remainder.segments.reduce((sum,segment)=>sum+area(segment.shapeOutline),0))<1e-8,'rendered rock area equals the remaining segments');
@@ -354,24 +372,32 @@ globalThis.Path2D = class {
   }
 };
 
-for (const mode of ['fixture', 'source', 'production']) {
-  const production = mode === 'production';
-  const source = mode === 'fixture' ? fixture : scenario;
+for (const mode of ['fixture', 'source', 'fixture-production', 'production']) {
+  const production = mode.endsWith('production');
+  const entry = production ? `${root}/src/__render-test.ts` : 'render-test';
+  const isFixture = mode.startsWith('fixture');
+  const source = isFixture ? fixture : scenario;
   const bundle = await rolldown({
-    input: 'render-test',
+    input: entry,
     external: ['node:assert/strict'],
     plugins: [
       {
         name: 'render-test',
-        resolveId: (id) => (id === 'render-test' ? '\0render-test' : undefined),
+        resolveId: (id) => (id === entry ? entry : undefined),
         load(id) {
           if (id.endsWith('/src/client/sound-loader.ts')) {
-            return "export const playSound=value=>globalThis['sounds'].push(value);export const continuousSound=()=>undefined;";
+            return "export const playSound=value=>globalThis['sou'+'nds'].push(value);export const continuousSound=()=>undefined;";
           }
 
-          if (id === '\0render-test') {
+          if (id === entry) {
             return production
-              ? stripIfdef(source.replace(/assert\.(\w+)/g, "assert['$1']"))
+              ? stripIfdef(
+                  source.replace(
+                    /assert\.(\w+)/g,
+                    (_, method) =>
+                      `assert['${method.slice(0, 1)}'+'${method.slice(1)}']`,
+                  ),
+                )
               : source;
           }
         },
@@ -385,18 +411,16 @@ for (const mode of ['fixture', 'source', 'production']) {
           }
         },
       },
-      ...(production ? [buildPrePlugin()] : []),
+      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
     ],
   });
   const { output } = await bundle.generate({ format: 'esm' });
 
   await bundle.close();
-  const code = production
-    ? (await minify(output[0].code, terserMangleOptions())).code
-    : output[0].code;
+  const code = output[0].code;
   const result = await import(
     'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
   );
 
-  if (mode === 'fixture') globalThis.packet = result.default;
+  if (isFixture) globalThis.packet = result.default;
 }

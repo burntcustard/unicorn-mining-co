@@ -292,7 +292,7 @@ export const revealBuriedItems = ({
   const { ctx, scale } = game;
 
   sprites.forEach((sprite) => {
-    if (!(sprite instanceof Craft) || sprite.dead) return;
+    if (!(sprite instanceof Craft) || sprite.dead || sprite.decay) return;
     const prediction = predicted.get(sprite.id);
     const craft = prediction instanceof Craft ? prediction : sprite;
     const pose = poses.get(sprite.id) || craft;

@@ -28,6 +28,35 @@ import {
   updateTiers,
 } from '../src/shared/settings';
 
+// Restoring an older checkpoint must not release IDs reserved by the server.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const authoritative = cloneEntity({ entity: ship });
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new PredictionManager({ world });
+
+  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.step({ input: emptyPlayerInput(), send: () => {} });
+  authoritative.position.x = 100;
+  prediction.reconcile({
+    entities: [authoritative],
+    nextEntityId: 1000,
+    tick: 0,
+  });
+  assert.equal(
+    world.nextEntityId,
+    1000,
+    'rollback preserves server ID reservations',
+  );
+  assert.equal(
+    prediction.predictFrame({ elapsed: simulationStep }).nextEntityId,
+    1000,
+    'frame prediction uses the corrected allocator',
+  );
+}
+
 // All visible bodies receive fractional prediction, even far from the pilot.
 {
   const world = createWorld();

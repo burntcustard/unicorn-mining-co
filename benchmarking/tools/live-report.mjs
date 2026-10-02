@@ -122,9 +122,6 @@ const rows = run.counts
           quantile(result.summaries.map((sample) => sample.downloadKiBs)),
         ),
       ),
-      cases
-        .flatMap((result) => result.summaries)
-        .reduce((total, sample) => total + sample.closes, 0),
     ];
   });
 
@@ -137,8 +134,8 @@ const measuredAt = new Intl.DateTimeFormat('en-GB', {
 }).format(new Date(run.date));
 const heading = `## ${measuredAt}`;
 const table = [
-  '| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client | Disconnects |',
-  '| --- | --- | --- | --- | --- | --- |',
+  '| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |',
+  '| --- | --- | --- | --- | --- |',
   ...rows.map((row) => '| ' + row.join(' | ') + ' |'),
 ].join('\n');
 const text = `${heading}

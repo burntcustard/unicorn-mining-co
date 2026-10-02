@@ -45,7 +45,7 @@ giveRender({
         // @ifdef DEBUG
         if (lights || glow) {
           // @endif
-          if (zIndex === -3 || zIndex === -1 || glow) {
+          if (!this.decay && (zIndex === -3 || zIndex === -1 || glow)) {
             this.segments.forEach((segment: Segment) => {
               if (
                 !(glow ? segment.module.forwardThrust : segment.module.beam) ||
@@ -87,7 +87,7 @@ giveRender({
 
           segment.shades ||= segment.module.shades || this.shades;
 
-          if (segment.module instanceof Module) {
+          if (!this.decay && segment.module instanceof Module) {
             segment.module.render({ segment, craft: this, scenery, pose });
           } else drawHull({ segment, health, pose });
 

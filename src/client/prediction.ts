@@ -264,6 +264,8 @@ export class PredictionManager {
     if (nextEntityId !== undefined) {
       this.world.nextEntityId = Math.max(this.world.nextEntityId, nextEntityId);
     }
+    const reservedNextEntityId = this.world.nextEntityId;
+
     this.frame.reset();
 
     if (Math.abs(targetTick - tick) > maxPredictionTicks) {
@@ -343,6 +345,11 @@ export class PredictionManager {
     }
 
     restoreWorld({ world: this.world, state });
+    // The checkpoint predates newer authoritative and speculative allocations.
+    this.world.nextEntityId = Math.max(
+      this.world.nextEntityId,
+      reservedNextEntityId,
+    );
     this.applyServerState({ entities, entityIds, entityTicks });
     // @ifdef DEBUG
     predictionStats.corrections++;

@@ -148,7 +148,9 @@ export function installLiveProbe(clockFields) {
       return super.send(data);
     }
   };
-  addEventListener('error', (event) => errors.push(event.message));
+  addEventListener('error', (event) =>
+    errors.push(event.error?.stack || event.message),
+  );
   const frame = (at) => {
     if (measuring && lastFrame !== undefined) frames.push(at - lastFrame);
     lastFrame = at;
