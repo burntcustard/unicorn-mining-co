@@ -1,0 +1,395 @@
+--- a/internal/collision/base-shape.go
++++ b/internal/collision/base-shape.go
+@@ -12,7 +12,8 @@
+ 	Type     string
+ 	Radius   float64
+ 	Count    int
+-	Vertices []Vec.Vector
++	Coordinates []float64
++ Stride int
+ 	bound    *Bound
+ }
+ 
+@@ -22,26 +23,27 @@
+ 	if s.bound == nil {
+ 		x, y := 0.0, 0.0
+ 		for i := 0; i < s.Count; i++ {
+-			x += s.Vertices[i].X
+-			y += s.Vertices[i].Y
++			x += float64(s.Coordinates[i])
++			y += float64(s.Coordinates[1*s.Stride+i])
+ 		}
+ 		x /= float64(s.Count)
+ 		y /= float64(s.Count)
+ 		radius := 0.0
+ 		for i := 0; i < s.Count; i++ {
+-			radius = max(radius, math.Hypot(s.Vertices[i].X-x, s.Vertices[i].Y-y))
++			radius = max(radius, math.Hypot(float64(s.Coordinates[i])-x, float64(s.Coordinates[1*s.Stride+i])-y))
+ 		}
+ 		s.bound = &Bound{x, y, radius, math.Sqrt(x*x + y*y)}
+ 	}
+ 	return s.bound
+ }
+-func (s *BaseShape) GetVertex(index int) Vec.Vector { return s.Vertices[index] }
+-func (s *BaseShape) GetSupport(d Vec.Vector) int {
++func (s *BaseShape) GetVertex(index int) Vec.Vector { return Vec.Vector{X:float64(s.Coordinates[index]),Y:float64(s.Coordinates[1*s.Stride+index])} }
++func (s *BaseShape) getSupportScalar(d Vec.Vector) int {
+ 	bestIndex, bestValue := -1, math.Inf(-1)
+ 	if s.Count <= 0 {
+ 		return bestIndex
+ 	}
+-	for i, vertex := range s.Vertices[:s.Count] {
++	for i := 0; i<s.Count; i++ {
++ vertex:=s.GetVertex(i)
+ 		value := Vec.Dot(vertex, d)
+ 		if value > bestValue {
+ 			bestIndex, bestValue = i, value
+@@ -53,14 +55,14 @@
+ func (s *BaseShape) ComputeAABB(aabb *AABB, xf Vec.TransformValue) {
+ 	if s.Type == "circle" {
+ 		var point Vec.Vector
+-		Vec.TransformInto(&point, xf, s.Vertices[0])
++		Vec.TransformInto(&point, xf, s.GetVertex(0))
+ 		aabb.LowerBound = Vec.Vector{X: point.X - s.Radius, Y: point.Y - s.Radius}
+ 		aabb.UpperBound = Vec.Vector{X: point.X + s.Radius, Y: point.Y + s.Radius}
+ 		return
+ 	}
+ 	minX, minY, maxX, maxY := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
+ 	for i := 0; i < s.Count; i++ {
+-		v := s.Vertices[i]
++		v := s.GetVertex(i)
+ 		x := xf.Q.C*v.X - xf.Q.S*v.Y + xf.P.X
+ 		y := xf.Q.S*v.X + xf.Q.C*v.Y + xf.P.Y
+ 		minX = min(minX, x)
+--- a/internal/collision/game/game-collisions.go
++++ b/internal/collision/game/game-collisions.go
+@@ -112,12 +112,13 @@
+ 		case *shape.CircleShape:
+ 			r2 := s.Radius * s.Radius
+ 			circleArea := math.Pi * r2
+-			p := s.Vertices[0]
++			p := s.GetVertex(0)
+ 			area += circleArea
+ 			moment += circleArea * (r2/2 + p.X*p.X + p.Y*p.Y)
+ 		case *shape.PolygonShape:
+-			for i, p := range s.Vertices {
+-				next := s.Vertices[(i+1)%len(s.Vertices)]
++			for i:=0;i<s.Count;i++ {
++ p:=s.GetVertex(i)
++				next := s.GetVertex((i+1)%s.Count)
+ 				cross := p.X*next.Y - next.X*p.Y
+ 				area += cross / 2
+ 				moment += (cross * (p.X*p.X + p.X*next.X + next.X*next.X + p.Y*p.Y + p.Y*next.Y + next.Y*next.Y)) / 12
+@@ -626,11 +627,12 @@
+ 		switch s := f.Shape.(type) {
+ 		case *shape.PolygonShape:
+ 			extent = math.Inf(-1)
+-			for _, v := range s.Vertices {
++			for i:=0;i<s.Count;i++ {
++ v:=s.GetVertex(i)
+ 				extent = max(extent, Vec.Length(v))
+ 			}
+ 		case *shape.CircleShape:
+-			extent = Vec.Length(s.Vertices[0])
++			extent = Vec.Length(s.GetVertex(0))
+ 		}
+ 		record.Radius = max(record.Radius, f.Shape.Base().Radius+extent)
+ 	}
+--- /dev/null
++++ b/internal/collision/packed-support.go
+@@ -0,0 +1,18 @@
++package collision
++import ("math";"simd/archsimd";"unsafe"; Vec "github.com/burntcustard/unicorn-mining-co/internal/vector")
++func (s *BaseShape) GetSupport(d Vec.Vector) int {
++ if s.Count<3||s.Count>4||!archsimd.X86.AVX2(){return s.getSupportScalar(d)}
++ var out [4]float64
++ s.packedSupport(d,&out)
++ best,value:=-1,math.Inf(-1)
++ for i:=0;i<s.Count;i++{if float64(out[i])>value{best,value=i,float64(out[i])}}
++ return best
++}
++//go:noinline
++func (s *BaseShape) packedSupport(d Vec.Vector,out *[4]float64) {
++ x:=archsimd.LoadFloat64x4Array((*[4]float64)(unsafe.Pointer(unsafe.SliceData(s.Coordinates))))
++ y:=archsimd.LoadFloat64x4Array((*[4]float64)(unsafe.Pointer(&s.Coordinates[s.Stride])))
++ value:=x.Mul(archsimd.BroadcastFloat64x4(float64(d.X))).Add(y.Mul(archsimd.BroadcastFloat64x4(float64(d.Y))))
++ value.StoreArray(out)
++ archsimd.ClearAVXUpperBits()
++}
+--- a/internal/collision/shape/circle-polygon-contact.go
++++ b/internal/collision/shape/circle-polygon-contact.go
+@@ -15,7 +15,7 @@
+ 	normalIndex, separation := 0, math.Inf(-1)
+ 	radius := a.Radius + b.Radius
+ 	for i := 0; i < a.Count; i++ {
+-		s := Vec.Dot(a.Normals[i], cLocal) - Vec.Dot(a.Normals[i], a.Vertices[i])
++		s := Vec.Dot(a.GetNormal(i), cLocal) - Vec.Dot(a.GetNormal(i), a.GetVertex(i))
+ 		if s > radius {
+ 			return
+ 		}
+@@ -23,11 +23,11 @@
+ 			separation, normalIndex = s, i
+ 		}
+ 	}
+-	v1, v2 := a.Vertices[normalIndex], a.Vertices[(normalIndex+1)%a.Count]
++	v1, v2 := a.GetVertex(normalIndex), a.GetVertex((normalIndex+1)%a.Count)
+ 	if separation <= 0 {
+ 		m.PointCount = 1
+ 		m.Type = "faceA"
+-		m.LocalNormal = a.Normals[normalIndex]
++		m.LocalNormal = a.GetNormal(normalIndex)
+ 		Vec.Combine2Into(&m.LocalPoint, 0.5, v1, 0.5, v2)
+ 		m.Points[0] = b.Position()
+ 		return
+@@ -48,11 +48,11 @@
+ 		m.LocalPoint = v2
+ 	} else {
+ 		Vec.Combine2Into(&faceCenter, 0.5, v1, 0.5, v2)
+-		separation := Vec.Dot(cLocal, a.Normals[normalIndex]) - Vec.Dot(faceCenter, a.Normals[normalIndex])
++		separation := Vec.Dot(cLocal, a.GetNormal(normalIndex)) - Vec.Dot(faceCenter, a.GetNormal(normalIndex))
+ 		if separation > radius {
+ 			return
+ 		}
+-		m.LocalNormal = a.Normals[normalIndex]
++		m.LocalNormal = a.GetNormal(normalIndex)
+ 		m.LocalPoint = faceCenter
+ 	}
+ 	m.PointCount = 1
+--- a/internal/collision/shape/circle-shape.go
++++ b/internal/collision/shape/circle-shape.go
+@@ -10,7 +10,7 @@
+ type CircleShape struct{ collision.BaseShape }
+ 
+ func NewCircle(position Vec.Vector, radius float64) *CircleShape {
+-	return &CircleShape{collision.BaseShape{Type: "circle", Count: 1, Vertices: []Vec.Vector{position}, Radius: radius}}
++	return &CircleShape{collision.BaseShape{Type: "circle", Count: 1, Coordinates: []float64{float64(position.X),float64(position.Y)}, Stride:1, Radius: radius}}
+ }
+-func (s *CircleShape) Position() Vec.Vector     { return s.Vertices[0] }
+-func (s *CircleShape) SetPosition(p Vec.Vector) { s.Vertices[0] = p; s.ClearBound() }
++func (s *CircleShape) Position() Vec.Vector     { return s.GetVertex(0) }
++func (s *CircleShape) SetPosition(p Vec.Vector) { s.Coordinates[0],s.Coordinates[1*s.Stride+0] = float64(p.X),float64(p.Y); s.ClearBound() }
+--- /dev/null
++++ b/internal/collision/shape/packed-separation.go
+@@ -0,0 +1,34 @@
++package shape
++import (
++ Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++ "math"
++ "simd/archsimd"
++ "unsafe"
++)
++func findMaxSeparation(a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, limit float64) (int,float64) {
++ if !archsimd.X86.AVX2() || a.Count>4 || b.Count>4 {return findMaxSeparationScalar(a,xfA,b,xfB,limit)}
++ var xf Vec.TransformValue
++ Vec.DetransformTransform(&xf,xfB,xfA)
++ var out [4]float64
++ packedSeparation(a,b,&xf,&out)
++ index,best:=0,math.Inf(-1)
++ for i:=0;i<a.Count;i++ {v:=float64(out[i]);if v>limit{return i,v};if v>best {index,best=i,v}}
++ return index,best
++}
++//go:noinline
++func packedSeparation(a,b *PolygonShape, xf *Vec.TransformValue, out *[4]float64) {
++ load:=func(s []float64) archsimd.Float64x4 {return archsimd.LoadFloat64x4Array((*[4]float64)(unsafe.Pointer(unsafe.SliceData(s))))}
++ c,s:=archsimd.BroadcastFloat64x4(float64(xf.Q.C)),archsimd.BroadcastFloat64x4(float64(xf.Q.S))
++ px,py:=archsimd.BroadcastFloat64x4(float64(xf.P.X)),archsimd.BroadcastFloat64x4(float64(xf.P.Y))
++ nx,ny,x,y:=load(a.Coordinates[2*a.Stride:]),load(a.Coordinates[3*a.Stride:]),load(a.Coordinates[0*a.Stride:]),load(a.Coordinates[1*a.Stride:])
++ rx,ry:=c.Mul(nx).Sub(s.Mul(ny)),s.Mul(nx).Add(c.Mul(ny))
++ vx,vy:=c.Mul(x).Sub(s.Mul(y)).Add(px),s.Mul(x).Add(c.Mul(y)).Add(py)
++ offset:=rx.Mul(vx).Add(ry.Mul(vy))
++ project:=func(i int) archsimd.Float64x4 {return rx.Mul(archsimd.BroadcastFloat64x4(b.Coordinates[i])).Add(ry.Mul(archsimd.BroadcastFloat64x4(b.Coordinates[1*b.Stride+i]))).Sub(offset)}
++ minimum:=func(a,b archsimd.Float64x4) archsimd.Float64x4 {return b.IfElse(b.Less(a),a)}
++ result:=minimum(archsimd.BroadcastFloat64x4(float64(math.Inf(1))),project(0))
++ result=minimum(result,project(1));result=minimum(result,project(2))
++ if b.Count==4 {result=minimum(result,project(3))}
++ result.StoreArray(out)
++ archsimd.ClearAVXUpperBits()
++}
+--- /dev/null
++++ b/internal/collision/shape/packed-separation_test.go
+@@ -0,0 +1,56 @@
++package shape
++
++import (
++ "math"
++ "encoding/json"
++ "os"
++ "math/rand/v2"
++ "testing"
++ Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++)
++
++func referencePacked(a *PolygonShape, xfA Vec.TransformValue,b *PolygonShape,xfB Vec.TransformValue,limit float64)(int,float64){
++ var xf Vec.TransformValue; Vec.DetransformTransform(&xf,xfB,xfA)
++ c,s,x,y:=float64(xf.Q.C),float64(xf.Q.S),float64(xf.P.X),float64(xf.P.Y)
++ index,best:=0,float64(math.Inf(-1))
++ for i:=0;i<a.Count;i++ {
++  nx,ny:=c*a.Coordinates[2*a.Stride+i]-s*a.Coordinates[3*a.Stride+i],s*a.Coordinates[2*a.Stride+i]+c*a.Coordinates[3*a.Stride+i]
++  vx,vy:=(c*a.Coordinates[i]-s*a.Coordinates[1*a.Stride+i])+x,(s*a.Coordinates[i]+c*a.Coordinates[1*a.Stride+i])+y
++  offset:=nx*vx+ny*vy
++  separation:=float64(math.Inf(1))
++  for j:=0;j<b.Count;j++ {d:=(nx*b.Coordinates[j]+ny*b.Coordinates[1*b.Stride+j])-offset;if d<separation{separation=d}}
++  if float64(separation)>limit{return i,float64(separation)};if separation>best{index,best=i,separation}
++ }
++ return index,float64(best)
++}
++func TestPackedSeparation(t *testing.T){
++ cases:=[]any{}
++ random:=rand.New(rand.NewPCG(42,17))
++ for trial:=0;trial<50000;trial++ {
++  makeShape:=func(n int)*PolygonShape{vs:=make([]Vec.Vector,n);for i:=range vs{angle:=float64(i)*2*math.Pi/float64(n);vs[i]=Vec.Create(100*math.Cos(angle),80*math.Sin(angle))};return NewPolygon(vs,nil,.5)}
++  a,b:=makeShape(3+trial%2),makeShape(3+(trial/2)%2)
++  origin:=float64(trial%3)*1e7
++  xfA,xfB:=Vec.Transform(origin,origin,random.Float64()*6),Vec.Transform(origin+random.Float64()*400-200,origin+random.Float64()*400-200,random.Float64()*6)
++  limit:=random.Float64()*10
++  i,v:=findMaxSeparation(a,xfA,b,xfB,limit);j,w:=referencePacked(a,xfA,b,xfB,limit)
++  if i!=j||math.Float64bits(v)!=math.Float64bits(w){t.Fatalf("trial %d got %d/%g want %d/%g",trial,i,v,j,w)}
++ if trial<1000{cases=append(cases,map[string]any{"a":a.Coordinates,"b":b.Coordinates,"ac":a.Count,"bc":b.Count,"xfA":xfA,"xfB":xfB,"limit":limit,"index":i,"separation":v})}
++ }
++ if path:=os.Getenv("PACKED_CASES");path!=""{data,_:=json.Marshal(cases);if err:=os.WriteFile(path,data,0600);err!=nil{t.Fatal(err)}}
++}
++var benchmarkIndex int
++var benchmarkSeparation float64
++func BenchmarkPackedSeparation(b *testing.B){
++ a:=NewPolygon([]Vec.Vector{{X:0,Y:50},{X:-40,Y:-20},{X:40,Y:-20}},nil,.5)
++ other:=NewPolygon([]Vec.Vector{{X:0,Y:50},{X:-40,Y:-20},{X:40,Y:-20}},nil,.5)
++ for _,distance:=range []float64{10,200}{
++  label:="overlap";if distance==200{label="separated"}
++  xfA,xfB:=Vec.Transform(0,0,.1),Vec.Transform(distance,0,.3)
++  b.Run(label+"/scalar",func(b *testing.B){for b.Loop(){benchmarkIndex,benchmarkSeparation=referencePacked(a,xfA,other,xfB,1)}})
++  b.Run(label+"/simd",func(b *testing.B){for b.Loop(){benchmarkIndex,benchmarkSeparation=findMaxSeparation(a,xfA,other,xfB,1)}})
++ }
++}
++func TestPackedSupport(t *testing.T){
++ r:=rand.New(rand.NewPCG(101,213));a:=NewPolygon([]Vec.Vector{{X:0,Y:50},{X:-40,Y:-20},{X:40,Y:-20}},nil,.5)
++ for trial:=0;trial<50000;trial++{d:=Vec.Create(r.Float64()*400-200,r.Float64()*400-200);want:=-1;best:=float64(math.Inf(-1));for i:=0;i<a.Count;i++{v:=a.Coordinates[i]*float64(d.X)+a.Coordinates[a.Stride+i]*float64(d.Y);if v>best{want,best=i,v}};if got:=a.GetSupport(d);got!=want{t.Fatalf("support got %d want %d",got,want)}}
++}
+--- a/internal/collision/shape/polygon-polygon-contact.go
++++ b/internal/collision/shape/polygon-polygon-contact.go
+@@ -8,18 +8,19 @@
+ 	"math"
+ )
+ 
+-func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
++func findMaxSeparationScalar(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
+ 	var xf Vec.TransformValue
+ 	var n, v1 Vec.Vector
+ 	Vec.DetransformTransform(&xf, xf2, xf1)
+ 	bestIndex, maxSeparation := 0, math.Inf(-1)
+-	vertices1, vertices2 := poly1.Vertices[:poly1.Count], poly2.Vertices[:poly2.Count]
+-	for i, normal := range poly1.Normals[:poly1.Count] {
++	for i:=0;i<poly1.Count;i++ {
++ normal:=poly1.GetNormal(i)
+ 		Vec.RotateInto(&n, xf.Q, normal)
+-		Vec.TransformInto(&v1, xf, vertices1[i])
++		Vec.TransformInto(&v1, xf, poly1.GetVertex(i))
+ 		offset := Vec.Dot(n, v1)
+ 		si := math.Inf(1)
+-		for _, vertex := range vertices2 {
++		for j:=0;j<poly2.Count;j++ {
++ vertex:=poly2.GetVertex(j)
+ 			sij := Vec.Dot(n, vertex) - offset
+ 			if sij < si {
+ 				si = sij
+@@ -36,16 +37,17 @@
+ }
+ func findIncidentEdge(clipVertex *[2]Vec.Vector, poly1 *PolygonShape, xf1 Vec.TransformValue, edge1 int, poly2 *PolygonShape, xf2 Vec.TransformValue) {
+ 	var normal1 Vec.Vector
+-	Vec.RerotateInto(&normal1, xf2.Q, xf1.Q, poly1.Normals[edge1])
++	Vec.RerotateInto(&normal1, xf2.Q, xf1.Q, poly1.GetNormal(edge1))
+ 	index, minDot := 0, math.Inf(1)
+-	for i, normal := range poly2.Normals[:poly2.Count] {
++	for i:=0;i<poly2.Count;i++ {
++ normal:=poly2.GetNormal(i)
+ 		dot := Vec.Dot(normal1, normal)
+ 		if dot < minDot {
+ 			minDot, index = dot, i
+ 		}
+ 	}
+-	Vec.TransformInto(&clipVertex[0], xf2, poly2.Vertices[index])
+-	Vec.TransformInto(&clipVertex[1], xf2, poly2.Vertices[(index+1)%poly2.Count])
++	Vec.TransformInto(&clipVertex[0], xf2, poly2.GetVertex(index))
++	Vec.TransformInto(&clipVertex[1], xf2, poly2.GetVertex((index+1)%poly2.Count))
+ }
+ func CollidePolygons(m *collision.Manifold, a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, linearSlop float64) {
+ 	m.PointCount = 0
+@@ -66,7 +68,7 @@
+ 	}
+ 	var incidentEdge, clipPoints1, clipPoints2 [2]Vec.Vector
+ 	findIncidentEdge(&incidentEdge, poly1, xf1, edge1, poly2, xf2)
+-	v11, v12 := poly1.Vertices[edge1], poly1.Vertices[(edge1+1)%poly1.Count]
++	v11, v12 := poly1.GetVertex(edge1), poly1.GetVertex((edge1+1)%poly1.Count)
+ 	localTangent := Vec.Normalize(Vec.Subtract(v12, v11))
+ 	var localNormal, planePoint, tangent, normal Vec.Vector
+ 	Vec.CrossScalarInto(&localNormal, localTangent, 1)
+--- a/internal/collision/shape/polygon-shape.go
++++ b/internal/collision/shape/polygon-shape.go
+@@ -10,7 +10,7 @@
+ type PolygonShape struct {
+ 	collision.BaseShape
+ 	Centroid Vec.Vector
+-	Normals  []Vec.Vector
++	
+ }
+ 
+ func NewPolygon(vertices []Vec.Vector, collisionMargin *float64, linearSlop float64) *PolygonShape {
+@@ -85,22 +85,25 @@
+ 		return
+ 	}
+ 	p.Count = m
+-	p.Vertices = make([]Vec.Vector, m)
+-	p.Normals = make([]Vec.Vector, m)
+-	for i, index := range hull {
+-		p.Vertices[i] = ps[index]
+-	}
+-	for i, vertex := range p.Vertices {
+-		next := p.Vertices[(i+1)%m]
+-		p.Normals[i] = Vec.Normalize(Vec.Vector{X: next.Y - vertex.Y, Y: vertex.X - next.X})
+-	}
+-	p.Centroid = computeCentroid(p.Vertices, m)
++	p.setPackedHull(ps,hull)
++}
++func (p *PolygonShape) GetNormal(i int) Vec.Vector { return Vec.Vector{X:float64(p.Coordinates[2*p.Stride+i]),Y:float64(p.Coordinates[3*p.Stride+i])} }
++func (p *PolygonShape) setPacked(vertices, normals []Vec.Vector) {
++ n:=(len(vertices)+3)&^3
++ values:=make([]float64,n*4)
++ p.Coordinates=values; p.Stride=n
++ for i,v:=range vertices {
++  next:=vertices[(i+1)%len(vertices)]
++  normal:=Vec.Normalize(Vec.Vector{X:next.Y-v.Y,Y:v.X-next.X})
++  if normals!=nil {normal=normals[i]}
++  p.Coordinates[i],p.Coordinates[1*p.Stride+i],p.Coordinates[2*p.Stride+i],p.Coordinates[3*p.Stride+i]=float64(v.X),float64(v.Y),float64(normal.X),float64(normal.Y)
++ }
+ }
+ func (p *PolygonShape) SetAsBox(hx, hy float64) {
+-	p.Vertices = []Vec.Vector{{X: hx, Y: -hy}, {X: hx, Y: hy}, {X: -hx, Y: hy}, {X: -hx, Y: -hy}}
+-	p.Normals = []Vec.Vector{{X: 1}, {Y: 1}, {X: -1}, {Y: -1}}
+-	p.Count = 4
++ p.Count=4
++ p.setPacked([]Vec.Vector{{X:hx,Y:-hy},{X:hx,Y:hy},{X:-hx,Y:hy},{X:-hx,Y:-hy}}, []Vec.Vector{{X:1},{Y:1},{X:-1},{Y:-1}})
+ }
++
+ func computeCentroid(vs []Vec.Vector, count int) Vec.Vector {
+ 	var c, temp, pRef Vec.Vector
+ 	area := 0.0
+@@ -115,3 +118,20 @@
+ 	}
+ 	return Vec.Scale(c, 1/area)
+ }
++
++func (p *PolygonShape) setPackedHull(vertices []Vec.Vector,hull []int) {
++ n:=(len(hull)+3)&^3
++ p.Coordinates=make([]float64,n*4);p.Stride=n
++ var c,temp,pRef Vec.Vector
++ area:=0.0
++ for i,index:=range hull {
++  v,next:=vertices[index],vertices[hull[(i+1)%len(hull)]]
++  normal:=Vec.Normalize(Vec.Vector{X:next.Y-v.Y,Y:v.X-next.X})
++  p.Coordinates[i],p.Coordinates[n+i]=float64(v.X),float64(v.Y)
++  p.Coordinates[2*n+i],p.Coordinates[3*n+i]=float64(normal.X),float64(normal.Y)
++  d:=Vec.Cross(v,next);triangleArea:=.5*d;area+=triangleArea
++  Vec.Combine3Into(&temp,1,pRef,1,v,1,next)
++  c=Vec.AddScaled(c,temp,triangleArea*(1.0/3))
++ }
++ p.Centroid=Vec.Scale(c,1/area)
++}

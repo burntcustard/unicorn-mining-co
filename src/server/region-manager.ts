@@ -4,7 +4,8 @@ import { createShip } from '../shared/craft/create-ship';
 import { itemTypes, Message } from '../shared/items';
 import { fieldMessage } from '../shared/simulation/region-generation';
 import { createStation } from '../shared/craft/create-station';
-import { preGeneratedRadius, worldRanges } from '../shared/settings';
+import { preGeneratedRadius } from '../shared/settings';
+import { simulationSpecification } from '../shared/specification/simulation';
 import { RegionManager as ProceduralRegionManager } from '../shared/simulation/region-manager';
 import {
   addEntity,
@@ -18,12 +19,7 @@ import {
 import { type GameObject } from '../shared/game-object';
 import { Station } from '../shared/craft/station';
 
-const serverRanges: WorldRanges = {
-  ...worldRanges,
-  asteroid: 2500,
-  stationPhysics: 11000,
-  wreck: 2500,
-};
+const serverRanges: WorldRanges = simulationSpecification.serverRegionRanges;
 
 export class RegionManager {
   private managed = new Set<number>();

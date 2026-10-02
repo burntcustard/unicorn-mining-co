@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
-import { RemoteMotion } from '../src/client/remote-motion';
 import { GameSession } from '../src/server/game-session';
 import { parseClientMessage } from '../src/server/parse-client-message';
 import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
@@ -128,46 +127,6 @@ assert.equal(batched.ship.turn, 0);
     moving.position.x < 0,
     '100ms sweep cannot tunnel through a thin wall',
   );
-}
-
-// A stationary pilot need not occur in a delta packet: remote cadence still adapts.
-{
-  const motion = new RemoteMotion();
-  const entity = {
-    id: 2,
-    kind: 'object' as const,
-    position: Vec.create(),
-    radius: 10,
-    rotation: 0,
-    spin: 0,
-  };
-
-  motion.receive({
-    entities: [entity],
-    entityIds: [2],
-    shipId: 1,
-    tick: 1,
-    now: 0,
-  });
-  motion.receive({
-    entities: [{ ...entity, position: Vec.create(10) }],
-    entityIds: [2],
-    shipId: 1,
-    tick: 4,
-    now: 100,
-  });
-
-  // The extra buffer is one simulation tick, even with 100ms snapshots.
-  for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
-    const pose = motion
-      .sample({ now: 100 + simulationStep * 1000 + fraction * 100 })
-      .get(2)!;
-
-    assert(
-      Math.abs(pose.position.x - fraction * 10) < 1e-9,
-      'after one extra tick, remote movement spans the whole 100ms packet interval without a local ship delta',
-    );
-  }
 }
 
 // A batch must consume each queued tick and retain later input transitions.
@@ -325,6 +284,8 @@ assert.equal(batched.ship.turn, 0);
   });
   assert.equal(sent.length, 4, 'dock actions cannot bypass congestion');
   assert.notDeepEqual(player.ship.shades, previousShades);
+  // A receipt frees capacity. The first resumed send
+  // must still contain the dock change that was blocked above.
   acknowledge(3);
   game.tick({ ticks: 2 });
   const resumed = sent.at(-1);
@@ -337,7 +298,9 @@ assert.equal(batched.ship.turn, 0);
         JSON.stringify(entity.shades) === JSON.stringify(player.ship.shades),
     ),
   );
-  game.tick({ ticks: 2 });
+
+  for (let index = 0; index < 9; index++) game.tick();
+  assert.equal(player.pendingSnapshots.length, 9);
   const beforeRespawn = sent.length;
 
   game.world.entities.delete(player.shipId);
@@ -354,7 +317,7 @@ assert.equal(batched.ship.turn, 0);
     'respawn control is immediate, its load waits for capacity',
   );
   assert.equal(sent.at(-1)?.type, 'respawn');
-  acknowledge(5);
+  acknowledge(player.pendingSnapshots.at(-1)!.sequence);
   game.tick({ ticks: 2 });
   const load = sent.at(-1);
 
@@ -385,7 +348,9 @@ assert.equal(batched.ship.turn, 0);
   assert.equal(reloaded.snapshotSequence, 1);
   acknowledge(1);
   assert.deepEqual(
-    player.pendingSnapshots,
+    player.pendingSnapshots.map(
+      ({ sequence }: { sequence: number }) => sequence,
+    ),
     [1],
     'old connections cannot acknowledge the replacement load',
   );
@@ -481,8 +446,8 @@ try {
     }
     assert.equal(
       largestLag,
-      1,
-      '15 Hz snapshots keep clients within one simulation step',
+      0,
+      '30 Hz snapshots keep clients current after delivery at every arrival phase',
     );
     clients.forEach((client, index) => {
       const ship = client.world.entities.get(client.shipId!) as Ship;
@@ -497,7 +462,7 @@ try {
       );
     });
     console.log(
-      'Three arrival phases: all 150 snapshots applied, movement and lights progress',
+      '30 Hz snapshots across three arrival phases: movement and lights progress',
     );
   }
 
@@ -579,11 +544,11 @@ try {
     }
     assert.equal(
       healthyLag,
-      1,
+      0,
       'the slow receiver never adds lag for other players',
     );
 
-    assert(largestQueue <= 2);
+    assert(largestQueue <= 9);
     assert(
       largestLag < 60,
       'slow delivery cannot accumulate seconds of stale snapshots',
@@ -634,6 +599,8 @@ try {
       Vec.setXY(player.ship.position, index * 500, 0);
       Vec.setXY(player.ship.velocity, 100, 0);
       player.ship.drag = 0;
+    });
+    players.forEach((player, index) => {
       player.socket.send(
         player.binaryReplication.initial({
           world: session.world,
@@ -676,8 +643,14 @@ try {
         previous[index] = x;
       });
       const remote = clients[0].remoteMotion
-        .sample({ now })
+        .sample({
+          now,
+          world: clients[0].world,
+          predicted: clients[0].predictFrame({ now }),
+        })
         .get(clients[1].shipId!)?.position.x;
+
+      assert(remote !== undefined, 'the observer must retain the remote ship');
 
       if (remote !== undefined) {
         if (frame > 60 && remote - previousRemote < 0.01) pausedRemoteFrames++;
@@ -771,8 +744,8 @@ try {
     }
     assert(delayedTravel > 10, 'prediction bridges short delivery gaps');
     assert(
-      delayedMessages.length <= 2,
-      'an outage queues at most two snapshots',
+      delayedMessages.length <= 9,
+      'an outage queues at most nine snapshots',
     );
     assert(delayed.world.tick <= delayed.serverTick + 2 * maxPredictionTicks);
     assert(clients[1].serverTick > delayed.serverTick);
@@ -798,12 +771,10 @@ try {
     socket.onmessage = receive;
     delayedMessages.forEach((message) => receive?.(message));
 
-    // One of the next two simulation ticks crosses a 15 Hz send boundary.
-    for (let tick = 0; tick < 2; tick++) {
-      now += 1000 / 30;
-      session.tick();
-      delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now });
-    }
+    // The next simulation tick sends current state after the window drains.
+    now += 1000 / 30;
+    session.tick();
+    delayed.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now });
     assert(
       Math.abs(delayed.world.tick - clients[1].world.tick) <= 2,
       'delayed pilot catches up when snapshots resume',

@@ -1,0 +1,100 @@
+diff --git a/internal/simulation/motion-rounding-default.go b/internal/simulation/motion-rounding-default.go
+new file mode 100644
+--- /dev/null
++++ b/internal/simulation/motion-rounding-default.go
+@@ -0,0 +1,7 @@
++//go:build !goexperiment.simd || !amd64
++
++package simulation
++
++func roundEntityMotion(world *World) {
++	world.Entities.ForEach(func(e Entity, _ int64) { e.Base().RoundMotion() })
++}
+diff --git a/internal/simulation/motion-rounding-simd.go b/internal/simulation/motion-rounding-simd.go
+new file mode 100644
+--- /dev/null
++++ b/internal/simulation/motion-rounding-simd.go
+@@ -0,0 +1,36 @@
++//go:build goexperiment.simd && amd64
++
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"simd/archsimd"
++	"unsafe"
++)
++
++var vectorMotionRounding = archsimd.X86.AVX2() && utilities.SIMDFeature("motion")
++
++func roundEntityMotion(world *World) {
++	if !vectorMotionRounding {
++		world.Entities.ForEach(func(e Entity, _ int64) { e.Base().RoundMotion() })
++		return
++	}
++	remaining := world.Entities.Len()
++	if remaining == 0 { return }
++	scale4, inverse4 := archsimd.BroadcastFloat64x4(0x1p24), archsimd.BroadcastFloat64x4(0x1p-24)
++	// Base and the ordered-map iterator only access pointers and integers. Keep
++	// the whole pass in AVX, then clear before ForEach's deferred compaction.
++	world.Entities.ForEach(func(e Entity, _ int64) {
++		object := e.Base()
++		motion := (*[4]float64)(unsafe.Pointer(&object.Position))
++		rotating := (*[4]float64)(unsafe.Pointer(&object.Velocity))
++		// Using two overlapping AVX vectors avoids legacy SSE spills that the
++		// compiler emits for captured 128-bit vectors. Both read original values.
++		first := archsimd.LoadFloat64x4Array(motion).Mul(scale4).Round().Mul(inverse4)
++		last := archsimd.LoadFloat64x4Array(rotating).Mul(scale4).Round().Mul(inverse4)
++		first.StoreArray(motion)
++		last.StoreArray(rotating)
++		remaining--
++		if remaining == 0 { archsimd.ClearAVXUpperBits() }
++	})
++}
+diff --git a/internal/simulation/motion-rounding-simd_test.go b/internal/simulation/motion-rounding-simd_test.go
+new file mode 100644
+--- /dev/null
++++ b/internal/simulation/motion-rounding-simd_test.go
+@@ -0,0 +1,42 @@
++//go:build goexperiment.simd && amd64
++
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"math"
++	"math/rand/v2"
++	"simd/archsimd"
++	"testing"
++	"unsafe"
++)
++
++func TestVectorMotionMatchesScalar(t *testing.T) {
++	if !archsimd.X86.AVX2() { t.Skip("AVX2 unavailable") }
++	var layout GameObject
++	if unsafe.Offsetof(layout.Velocity) != unsafe.Offsetof(layout.Position)+unsafe.Sizeof(layout.Position) || unsafe.Offsetof(layout.Rotation) != unsafe.Offsetof(layout.Velocity)+unsafe.Sizeof(layout.Velocity) || unsafe.Offsetof(layout.Spin) != unsafe.Offsetof(layout.Rotation)+8 { t.Fatal("motion fields are no longer contiguous") }
++	old := vectorMotionRounding
++	vectorMotionRounding = true
++	t.Cleanup(func() { vectorMotionRounding = old })
++	r := rand.New(rand.NewPCG(23, 41))
++	for trial := range 10000 {
++		world := &World{Entities: utilities.NewOrderedMap[int64, Entity]()}
++		inputs := make([][6]float64, trial%17)
++		for i := range inputs {
++			for j := range inputs[i] { inputs[i][j] = (r.Float64()-0.5)*1e6 }
++			if i == 0 { inputs[i][0], inputs[i][1] = math.Copysign(0,-1), math.NaN() }
++			x := inputs[i]
++			o := &GameObject{Rotation:x[4], Spin:x[5]}
++			o.Position.X, o.Position.Y, o.Velocity.X, o.Velocity.Y = x[0], x[1], x[2], x[3]
++			world.Entities.Set(int64(i), o)
++		}
++		roundEntityMotion(world)
++		world.Entities.ForEach(func(e Entity, id int64) {
++			o := e.Base()
++			got := []float64{o.Position.X,o.Position.Y,o.Velocity.X,o.Velocity.Y,o.Rotation,o.Spin}
++			for j, value := range got {
++				if math.Float64bits(value) != math.Float64bits(utilities.RoundMotion(inputs[id][j])) { t.Fatalf("trial %d object %d field %d differs",trial,id,j) }
++			}
++		})
++	}
++}

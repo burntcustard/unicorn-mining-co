@@ -54,6 +54,11 @@ export class Body {
   m_destroyed: boolean;
   // Parked bodies have no proxies or contacts; their owner integrates them.
   m_parked = false;
+  collisionNeighbors?: Body[];
+  neighborCount = 0;
+  neighborDirty = false;
+  private neighborBuffer?: Body[];
+  private neighborDistances?: number[];
   private proxyRadius = Infinity;
   private proxyMotion = 0;
   private proxyMargin = 0;
@@ -90,6 +95,35 @@ export class Body {
     this.m_destroyed = false;
   }
 
+  allowsCollision(other: Body) {
+    return !this.collisionNeighbors || this.collisionNeighbors.includes(other);
+  }
+
+  resetCollisionNeighbors() {
+    this.collisionNeighbors = this.neighborBuffer ||= [];
+    this.collisionNeighbors.length = 0;
+    (this.neighborDistances ||= []).length = 0;
+  }
+
+  addCollisionNeighbor(other: Body, distance: number) {
+    const neighbors = this.collisionNeighbors!;
+    const distances = this.neighborDistances!;
+    let at = neighbors.length;
+
+    if (at === 8) {
+      if (distance >= distances[7]) return;
+      at--;
+    }
+
+    while (at > 0 && distance < distances[at - 1]) {
+      neighbors[at] = neighbors[at - 1];
+      distances[at] = distances[at - 1];
+      at--;
+    }
+    neighbors[at] = other;
+    distances[at] = distance;
+  }
+
   isWorldLocked(): boolean {
     return this.m_world.isLocked();
   }
@@ -114,7 +148,14 @@ export class Body {
     if (this.isWorldLocked()) return;
 
     matrix.setTransform(this.m_xf, position, angle);
-    this.m_sweep.setTransform(this.m_xf);
+
+    if (angle >= -Math.PI && angle <= Math.PI) {
+      Vec.set(this.m_sweep.c, position);
+      Vec.set(this.m_sweep.c0, position);
+      this.m_sweep.a = this.m_sweep.a0 = angle;
+    } else {
+      this.m_sweep.setTransform(this.m_xf);
+    }
 
     if (!this.m_parked) this.synchronizeProxies(this.m_xf, this.m_xf);
   }

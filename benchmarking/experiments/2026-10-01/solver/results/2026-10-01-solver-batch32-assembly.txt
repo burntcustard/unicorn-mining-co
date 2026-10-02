@@ -1,0 +1,292 @@
+
+/tmp/go-solver-batch32-fixed:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+00000000006055e0 <github.com/burntcustard/unicorn-mining-co/internal/physics.batchKernel32>:
+  6055e0:	4c 8d a4 24 f8 fd ff 	lea    -0x208(%rsp),%r12
+  6055e7:	ff 
+  6055e8:	4d 3b 66 10          	cmp    0x10(%r14),%r12
+  6055ec:	0f 86 25 04 00 00    	jbe    605a17 <github.com/burntcustard/unicorn-mining-co/internal/physics.batchKernel32+0x437>
+  6055f2:	55                   	push   %rbp
+  6055f3:	48 89 e5             	mov    %rsp,%rbp
+  6055f6:	48 81 ec 80 02 00 00 	sub    $0x280,%rsp
+  6055fd:	c5 fe 6f 00          	vmovdqu (%rax),%ymm0
+  605601:	c5 fe 6f 0b          	vmovdqu (%rbx),%ymm1
+  605605:	c5 fe 6f 11          	vmovdqu (%rcx),%ymm2
+  605609:	c5 fe 6f 1f          	vmovdqu (%rdi),%ymm3
+  60560d:	c5 fe 6f 26          	vmovdqu (%rsi),%ymm4
+  605611:	c4 c1 7e 6f 28       	vmovdqu (%r8),%ymm5
+  605616:	c4 c1 7e 6f 31       	vmovdqu (%r9),%ymm6
+  60561b:	c5 fe 7f b4 24 e0 00 	vmovdqu %ymm6,0xe0(%rsp)
+  605622:	00 00 
+  605624:	c4 c1 7e 6f 3a       	vmovdqu (%r10),%ymm7
+  605629:	c5 fe 7f bc 24 c0 00 	vmovdqu %ymm7,0xc0(%rsp)
+  605630:	00 00 
+  605632:	c4 41 7e 6f 03       	vmovdqu (%r11),%ymm8
+  605637:	c5 7e 7f 84 24 a0 00 	vmovdqu %ymm8,0xa0(%rsp)
+  60563e:	00 00 
+  605640:	48 8b 94 24 90 02 00 	mov    0x290(%rsp),%rdx
+  605647:	00 
+  605648:	c5 7e 6f 0a          	vmovdqu (%rdx),%ymm9
+  60564c:	c5 7e 7f 8c 24 80 00 	vmovdqu %ymm9,0x80(%rsp)
+  605653:	00 00 
+  605655:	48 8b 94 24 98 02 00 	mov    0x298(%rsp),%rdx
+  60565c:	00 
+  60565d:	c5 7e 6f 12          	vmovdqu (%rdx),%ymm10
+  605661:	48 8b 94 24 a0 02 00 	mov    0x2a0(%rsp),%rdx
+  605668:	00 
+  605669:	c5 7e 6f 1a          	vmovdqu (%rdx),%ymm11
+  60566d:	c5 7e 7f 5c 24 60    	vmovdqu %ymm11,0x60(%rsp)
+  605673:	48 8b 94 24 a8 02 00 	mov    0x2a8(%rsp),%rdx
+  60567a:	00 
+  60567b:	c5 7e 6f 22          	vmovdqu (%rdx),%ymm12
+  60567f:	c5 7e 7f a4 24 60 01 	vmovdqu %ymm12,0x160(%rsp)
+  605686:	00 00 
+  605688:	48 8b 94 24 b0 02 00 	mov    0x2b0(%rsp),%rdx
+  60568f:	00 
+  605690:	c5 7e 6f 2a          	vmovdqu (%rdx),%ymm13
+  605694:	c5 7e 7f ac 24 40 01 	vmovdqu %ymm13,0x140(%rsp)
+  60569b:	00 00 
+  60569d:	48 8b 94 24 b8 02 00 	mov    0x2b8(%rsp),%rdx
+  6056a4:	00 
+  6056a5:	c5 7e 6f 32          	vmovdqu (%rdx),%ymm14
+  6056a9:	c5 7e 7f b4 24 a0 01 	vmovdqu %ymm14,0x1a0(%rsp)
+  6056b0:	00 00 
+  6056b2:	48 8b 94 24 c0 02 00 	mov    0x2c0(%rsp),%rdx
+  6056b9:	00 
+  6056ba:	c5 7e 6f 2a          	vmovdqu (%rdx),%ymm13
+  6056be:	c5 7e 7f ac 24 80 01 	vmovdqu %ymm13,0x180(%rsp)
+  6056c5:	00 00 
+  6056c7:	48 8b 94 24 c8 02 00 	mov    0x2c8(%rsp),%rdx
+  6056ce:	00 
+  6056cf:	c5 7e 6f 2a          	vmovdqu (%rdx),%ymm13
+  6056d3:	c5 7e 7f 6c 24 20    	vmovdqu %ymm13,0x20(%rsp)
+  6056d9:	48 8b 94 24 d0 02 00 	mov    0x2d0(%rsp),%rdx
+  6056e0:	00 
+  6056e1:	c5 7e 6f 32          	vmovdqu (%rdx),%ymm14
+  6056e5:	c5 7e 7f b4 24 00 01 	vmovdqu %ymm14,0x100(%rsp)
+  6056ec:	00 00 
+  6056ee:	48 8b 94 24 d8 02 00 	mov    0x2d8(%rsp),%rdx
+  6056f5:	00 
+  6056f6:	c5 7e 6f 32          	vmovdqu (%rdx),%ymm14
+  6056fa:	c5 7e 7f b4 24 e0 01 	vmovdqu %ymm14,0x1e0(%rsp)
+  605701:	00 00 
+  605703:	48 8b 94 24 e0 02 00 	mov    0x2e0(%rsp),%rdx
+  60570a:	00 
+  60570b:	c5 7e 6f 32          	vmovdqu (%rdx),%ymm14
+  60570f:	c5 7e 7f b4 24 c0 01 	vmovdqu %ymm14,0x1c0(%rsp)
+  605716:	00 00 
+  605718:	48 8b 94 24 e8 02 00 	mov    0x2e8(%rsp),%rdx
+  60571f:	00 
+  605720:	c5 7e 6f 22          	vmovdqu (%rdx),%ymm12
+  605724:	4c 8b 8c 24 f0 02 00 	mov    0x2f0(%rsp),%r9
+  60572b:	00 
+  60572c:	c4 41 7e 6f 31       	vmovdqu (%r9),%ymm14
+  605731:	90                   	nop
+  605732:	45 0f 57 ed          	xorps  %xmm13,%xmm13
+  605736:	c4 42 7d 18 ed       	vbroadcastss %xmm13,%ymm13
+  60573b:	4c 8b 94 24 f8 02 00 	mov    0x2f8(%rsp),%r10
+  605742:	00 
+  605743:	e9 98 02 00 00       	jmp    6059e0 <github.com/burntcustard/unicorn-mining-co/internal/physics.batchKernel32+0x400>
+  605748:	c5 7e 7f b4 24 20 01 	vmovdqu %ymm14,0x120(%rsp)
+  60574f:	00 00 
+  605751:	c5 7e 7f 64 24 40    	vmovdqu %ymm12,0x40(%rsp)
+  605757:	c5 fe 7f 2c 24       	vmovdqu %ymm5,(%rsp)
+  60575c:	c5 94 5c f6          	vsubps %ymm6,%ymm13,%ymm6
+  605760:	c5 14 5c e5          	vsubps %ymm5,%ymm13,%ymm12
+  605764:	c4 41 1c 59 e3       	vmulps %ymm11,%ymm12,%ymm12
+  605769:	c4 41 64 58 e4       	vaddps %ymm12,%ymm3,%ymm12
+  60576e:	c5 1c 5c e0          	vsubps %ymm0,%ymm12,%ymm12
+  605772:	c5 14 5c da          	vsubps %ymm2,%ymm13,%ymm11
+  605776:	c4 41 24 59 d9       	vmulps %ymm9,%ymm11,%ymm11
+  60577b:	c4 41 1c 5c db       	vsubps %ymm11,%ymm12,%ymm11
+  605780:	c4 41 54 59 e2       	vmulps %ymm10,%ymm5,%ymm12
+  605785:	c4 41 5c 58 e4       	vaddps %ymm12,%ymm4,%ymm12
+  60578a:	c5 1c 5c e1          	vsubps %ymm1,%ymm12,%ymm12
+  60578e:	c4 c1 6c 59 e8       	vmulps %ymm8,%ymm2,%ymm5
+  605793:	c5 9c 5c ed          	vsubps %ymm5,%ymm12,%ymm5
+  605797:	c5 24 59 df          	vmulps %ymm7,%ymm11,%ymm11
+  60579b:	c5 cc 59 ed          	vmulps %ymm5,%ymm6,%ymm5
+  60579f:	c4 c1 54 58 eb       	vaddps %ymm11,%ymm5,%ymm5
+  6057a4:	c5 94 5c ed          	vsubps %ymm5,%ymm13,%ymm5
+  6057a8:	c5 7e 6f 5c 24 20    	vmovdqu 0x20(%rsp),%ymm11
+  6057ae:	c5 a4 59 ed          	vmulps %ymm5,%ymm11,%ymm5
+  6057b2:	c5 7e 6f a4 24 c0 01 	vmovdqu 0x1c0(%rsp),%ymm12
+  6057b9:	00 00 
+  6057bb:	c4 41 0c 59 e4       	vmulps %ymm12,%ymm14,%ymm12
+  6057c0:	c4 41 14 5c dc       	vsubps %ymm12,%ymm13,%ymm11
+  6057c5:	c5 7e 6f 74 24 40    	vmovdqu 0x40(%rsp),%ymm14
+  6057cb:	c5 8c 58 ed          	vaddps %ymm5,%ymm14,%ymm5
+  6057cf:	c4 c1 54 5d ec       	vminps %ymm12,%ymm5,%ymm5
+  6057d4:	c4 41 54 5f e3       	vmaxps %ymm11,%ymm5,%ymm12
+  6057d9:	c5 7e 7f a4 24 60 02 	vmovdqu %ymm12,0x260(%rsp)
+  6057e0:	00 00 
+  6057e2:	c4 c1 1c 5c ee       	vsubps %ymm14,%ymm12,%ymm5
+  6057e7:	c5 54 59 df          	vmulps %ymm7,%ymm5,%ymm11
+  6057eb:	c5 d4 59 ee          	vmulps %ymm6,%ymm5,%ymm5
+  6057ef:	c5 fe 6f b4 24 60 01 	vmovdqu 0x160(%rsp),%ymm6
+  6057f6:	00 00 
+  6057f8:	c5 14 5c f6          	vsubps %ymm6,%ymm13,%ymm14
+  6057fc:	c4 c1 0c 59 f3       	vmulps %ymm11,%ymm14,%ymm6
+  605801:	c5 fc 58 c6          	vaddps %ymm6,%ymm0,%ymm0
+  605805:	c5 8c 59 f5          	vmulps %ymm5,%ymm14,%ymm6
+  605809:	c5 f4 58 ce          	vaddps %ymm6,%ymm1,%ymm1
+  60580d:	c4 c1 54 59 f0       	vmulps %ymm8,%ymm5,%ymm6
+  605812:	c4 41 24 59 e1       	vmulps %ymm9,%ymm11,%ymm12
+  605817:	c4 c1 4c 5c f4       	vsubps %ymm12,%ymm6,%ymm6
+  60581c:	c5 7e 6f a4 24 a0 01 	vmovdqu 0x1a0(%rsp),%ymm12
+  605823:	00 00 
+  605825:	c4 c1 4c 59 f4       	vmulps %ymm12,%ymm6,%ymm6
+  60582a:	c5 ec 5c d6          	vsubps %ymm6,%ymm2,%ymm2
+  60582e:	c5 fe 6f b4 24 40 01 	vmovdqu 0x140(%rsp),%ymm6
+  605835:	00 00 
+  605837:	c5 24 59 e6          	vmulps %ymm6,%ymm11,%ymm12
+  60583b:	c4 c1 64 58 dc       	vaddps %ymm12,%ymm3,%ymm3
+  605840:	c5 fe 7f 9c 24 40 02 	vmovdqu %ymm3,0x240(%rsp)
+  605847:	00 00 
+  605849:	c5 54 59 e6          	vmulps %ymm6,%ymm5,%ymm12
+  60584d:	c4 c1 5c 58 e4       	vaddps %ymm12,%ymm4,%ymm4
+  605852:	c5 fe 7f a4 24 20 02 	vmovdqu %ymm4,0x220(%rsp)
+  605859:	00 00 
+  60585b:	c4 c1 54 59 ea       	vmulps %ymm10,%ymm5,%ymm5
+  605860:	c5 7e 6f 64 24 60    	vmovdqu 0x60(%rsp),%ymm12
+  605866:	c4 41 24 59 dc       	vmulps %ymm12,%ymm11,%ymm11
+  60586b:	c4 c1 54 5c eb       	vsubps %ymm11,%ymm5,%ymm5
+  605870:	c5 7e 6f 9c 24 80 01 	vmovdqu 0x180(%rsp),%ymm11
+  605877:	00 00 
+  605879:	c4 c1 54 59 eb       	vmulps %ymm11,%ymm5,%ymm5
+  60587e:	c5 7e 6f 1c 24       	vmovdqu (%rsp),%ymm11
+  605883:	c5 a4 58 ed          	vaddps %ymm5,%ymm11,%ymm5
+  605887:	c5 fe 7f ac 24 00 02 	vmovdqu %ymm5,0x200(%rsp)
+  60588e:	00 00 
+  605890:	c5 14 5c dd          	vsubps %ymm5,%ymm13,%ymm11
+  605894:	c4 41 1c 59 db       	vmulps %ymm11,%ymm12,%ymm11
+  605899:	c5 24 58 db          	vaddps %ymm3,%ymm11,%ymm11
+  60589d:	c5 24 5c d8          	vsubps %ymm0,%ymm11,%ymm11
+  6058a1:	c5 94 5c da          	vsubps %ymm2,%ymm13,%ymm3
+  6058a5:	c4 c1 64 59 d9       	vmulps %ymm9,%ymm3,%ymm3
+  6058aa:	c5 a4 5c db          	vsubps %ymm3,%ymm11,%ymm3
+  6058ae:	c5 2c 59 dd          	vmulps %ymm5,%ymm10,%ymm11
+  6058b2:	c5 24 58 dc          	vaddps %ymm4,%ymm11,%ymm11
+  6058b6:	c5 24 5c d9          	vsubps %ymm1,%ymm11,%ymm11
+  6058ba:	c4 c1 6c 59 e8       	vmulps %ymm8,%ymm2,%ymm5
+  6058bf:	c5 a4 5c ed          	vsubps %ymm5,%ymm11,%ymm5
+  6058c3:	c5 7e 6f 9c 24 e0 00 	vmovdqu 0xe0(%rsp),%ymm11
+  6058ca:	00 00 
+  6058cc:	c5 a4 59 db          	vmulps %ymm3,%ymm11,%ymm3
+  6058d0:	c5 d4 59 ef          	vmulps %ymm7,%ymm5,%ymm5
+  6058d4:	c5 d4 58 db          	vaddps %ymm3,%ymm5,%ymm3
+  6058d8:	c5 fe 6f ac 24 00 01 	vmovdqu 0x100(%rsp),%ymm5
+  6058df:	00 00 
+  6058e1:	c5 94 5c ed          	vsubps %ymm5,%ymm13,%ymm5
+  6058e5:	c5 fe 6f a4 24 e0 01 	vmovdqu 0x1e0(%rsp),%ymm4
+  6058ec:	00 00 
+  6058ee:	c5 e4 5c dc          	vsubps %ymm4,%ymm3,%ymm3
+  6058f2:	c5 e4 59 dd          	vmulps %ymm5,%ymm3,%ymm3
+  6058f6:	c5 fe 6f ac 24 20 01 	vmovdqu 0x120(%rsp),%ymm5
+  6058fd:	00 00 
+  6058ff:	c5 d4 58 db          	vaddps %ymm3,%ymm5,%ymm3
+  605903:	c4 c1 64 5f dd       	vmaxps %ymm13,%ymm3,%ymm3
+  605908:	c5 e4 5c ed          	vsubps %ymm5,%ymm3,%ymm5
+  60590c:	c4 c1 54 59 e3       	vmulps %ymm11,%ymm5,%ymm4
+  605911:	c5 d4 59 ef          	vmulps %ymm7,%ymm5,%ymm5
+  605915:	c4 c1 5c 59 fe       	vmulps %ymm14,%ymm4,%ymm7
+  60591a:	c4 41 54 59 f6       	vmulps %ymm14,%ymm5,%ymm14
+  60591f:	c4 41 54 59 c0       	vmulps %ymm8,%ymm5,%ymm8
+  605924:	c4 41 5c 59 c9       	vmulps %ymm9,%ymm4,%ymm9
+  605929:	c4 41 3c 5c c1       	vsubps %ymm9,%ymm8,%ymm8
+  60592e:	c5 7e 6f 8c 24 a0 01 	vmovdqu 0x1a0(%rsp),%ymm9
+  605935:	00 00 
+  605937:	c4 41 3c 59 c1       	vmulps %ymm9,%ymm8,%ymm8
+  60593c:	c5 5c 59 ce          	vmulps %ymm6,%ymm4,%ymm9
+  605940:	c5 d4 59 f6          	vmulps %ymm6,%ymm5,%ymm6
+  605944:	c4 c1 54 59 ea       	vmulps %ymm10,%ymm5,%ymm5
+  605949:	c4 c1 5c 59 e4       	vmulps %ymm12,%ymm4,%ymm4
+  60594e:	c5 d4 5c e4          	vsubps %ymm4,%ymm5,%ymm4
+  605952:	c5 fe 6f ac 24 80 01 	vmovdqu 0x180(%rsp),%ymm5
+  605959:	00 00 
+  60595b:	c5 dc 59 e5          	vmulps %ymm5,%ymm4,%ymm4
+  60595f:	c5 fc 58 c7          	vaddps %ymm7,%ymm0,%ymm0
+  605963:	c4 c1 74 58 ce       	vaddps %ymm14,%ymm1,%ymm1
+  605968:	c4 c1 6c 5c d0       	vsubps %ymm8,%ymm2,%ymm2
+  60596d:	c5 fe 6f bc 24 40 02 	vmovdqu 0x240(%rsp),%ymm7
+  605974:	00 00 
+  605976:	c5 b4 58 ff          	vaddps %ymm7,%ymm9,%ymm7
+  60597a:	c5 7e 6f 84 24 20 02 	vmovdqu 0x220(%rsp),%ymm8
+  605981:	00 00 
+  605983:	c4 c1 4c 58 f0       	vaddps %ymm8,%ymm6,%ymm6
+  605988:	c5 7e 6f 84 24 00 02 	vmovdqu 0x200(%rsp),%ymm8
+  60598f:	00 00 
+  605991:	c5 bc 58 e4          	vaddps %ymm4,%ymm8,%ymm4
+  605995:	49 ff ca             	dec    %r10
+  605998:	c5 7e 6f 84 24 a0 00 	vmovdqu 0xa0(%rsp),%ymm8
+  60599f:	00 00 
+  6059a1:	c5 7e 6f 8c 24 80 00 	vmovdqu 0x80(%rsp),%ymm9
+  6059a8:	00 00 
+  6059aa:	c4 41 7e 7f e3       	vmovdqu %ymm12,%ymm11
+  6059af:	c4 c1 7e 7f de       	vmovdqu %ymm3,%ymm14
+  6059b4:	c5 fe 7f e5          	vmovdqu %ymm4,%ymm5
+  6059b8:	c5 7e 6f a4 24 60 02 	vmovdqu 0x260(%rsp),%ymm12
+  6059bf:	00 00 
+  6059c1:	c5 fe 7f f4          	vmovdqu %ymm6,%ymm4
+  6059c5:	c5 fe 7f fb          	vmovdqu %ymm7,%ymm3
+  6059c9:	c5 fe 6f b4 24 e0 00 	vmovdqu 0xe0(%rsp),%ymm6
+  6059d0:	00 00 
+  6059d2:	c5 fe 6f bc 24 c0 00 	vmovdqu 0xc0(%rsp),%ymm7
+  6059d9:	00 00 
+  6059db:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+  6059e0:	4d 85 d2             	test   %r10,%r10
+  6059e3:	0f 8f 5f fd ff ff    	jg     605748 <github.com/burntcustard/unicorn-mining-co/internal/physics.batchKernel32+0x168>
+  6059e9:	c5 fe 7f 00          	vmovdqu %ymm0,(%rax)
+  6059ed:	c5 fe 7f 0b          	vmovdqu %ymm1,(%rbx)
+  6059f1:	c5 fe 7f 11          	vmovdqu %ymm2,(%rcx)
+  6059f5:	c5 fe 7f 1f          	vmovdqu %ymm3,(%rdi)
+  6059f9:	c5 fe 7f 26          	vmovdqu %ymm4,(%rsi)
+  6059fd:	c4 c1 7e 7f 28       	vmovdqu %ymm5,(%r8)
+  605a02:	c5 7e 7f 22          	vmovdqu %ymm12,(%rdx)
+  605a06:	c4 41 7e 7f 31       	vmovdqu %ymm14,(%r9)
+  605a0b:	c5 f8 77             	vzeroupper 
+  605a0e:	48 81 c4 80 02 00 00 	add    $0x280,%rsp
+  605a15:	5d                   	pop    %rbp
+  605a16:	c3                   	ret    
+  605a17:	48 89 44 24 78       	mov    %rax,0x78(%rsp)
+  605a1c:	48 89 9c 24 80 00 00 	mov    %rbx,0x80(%rsp)
+  605a23:	00 
+  605a24:	48 89 8c 24 88 00 00 	mov    %rcx,0x88(%rsp)
+  605a2b:	00 
+  605a2c:	48 89 bc 24 90 00 00 	mov    %rdi,0x90(%rsp)
+  605a33:	00 
+  605a34:	48 89 b4 24 98 00 00 	mov    %rsi,0x98(%rsp)
+  605a3b:	00 
+  605a3c:	4c 89 84 24 a0 00 00 	mov    %r8,0xa0(%rsp)
+  605a43:	00 
+  605a44:	4c 89 8c 24 a8 00 00 	mov    %r9,0xa8(%rsp)
+  605a4b:	00 
+  605a4c:	4c 89 94 24 b0 00 00 	mov    %r10,0xb0(%rsp)
+  605a53:	00 
+  605a54:	4c 89 9c 24 b8 00 00 	mov    %r11,0xb8(%rsp)
+  605a5b:	00 
+  605a5c:	0f 1f 40 00          	nopl   0x0(%rax)
+  605a60:	e8 db 26 e9 ff       	call   498140 <runtime.morestack_noctxt.abi0>
+  605a65:	48 8b 44 24 78       	mov    0x78(%rsp),%rax
+  605a6a:	48 8b 9c 24 80 00 00 	mov    0x80(%rsp),%rbx
+  605a71:	00 
+  605a72:	48 8b 8c 24 88 00 00 	mov    0x88(%rsp),%rcx
+  605a79:	00 
+  605a7a:	48 8b bc 24 90 00 00 	mov    0x90(%rsp),%rdi
+  605a81:	00 
+  605a82:	48 8b b4 24 98 00 00 	mov    0x98(%rsp),%rsi
+  605a89:	00 
+  605a8a:	4c 8b 84 24 a0 00 00 	mov    0xa0(%rsp),%r8
+  605a91:	00 
+  605a92:	4c 8b 8c 24 a8 00 00 	mov    0xa8(%rsp),%r9
+  605a99:	00 
+  605a9a:	4c 8b 94 24 b0 00 00 	mov    0xb0(%rsp),%r10
+  605aa1:	00 
+  605aa2:	4c 8b 9c 24 b8 00 00 	mov    0xb8(%rsp),%r11
+  605aa9:	00 
+  605aaa:	e9 31 fb ff ff       	jmp    6055e0 <github.com/burntcustard/unicorn-mining-co/internal/physics.batchKernel32>
+
+Disassembly of section .plt:

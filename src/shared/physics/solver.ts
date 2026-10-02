@@ -12,6 +12,7 @@
 
 import * as Vec from '../vector';
 import { linearSlop } from '../settings';
+import { simulationSpecification } from '../specification/simulation';
 import { Body } from './body';
 import type { Contact } from './contact';
 import {
@@ -25,9 +26,8 @@ import { type Shape } from '../collision/shape/base';
 
 const maxTOISubsteps = 8;
 const toiEndTolerance = 1e-8;
-const maxTranslation = 200;
+const { maxTranslation, maxRotation } = simulationSpecification.physics;
 const maxTranslationSquared = maxTranslation * maxTranslation;
-const maxRotation = 0.5 * Math.PI;
 const maxRotationSquared = maxRotation * maxRotation;
 
 export class TimeStep {
@@ -249,11 +249,13 @@ export class Solver {
 
     // Solve velocity constraints
     for (let i = 0; i < step.velocityIterations; ++i) {
-      for (let j = 0; j < this.m_contacts.length; ++j) {
-        const contact = this.m_contacts[j];
+      let converged = true;
 
-        contact.solveVelocityConstraint();
+      for (let j = 0; j < this.m_contacts.length; ++j) {
+        if (!this.m_contacts[j].solveVelocityConstraint()) converged = false;
       }
+
+      if (converged) break;
     }
 
     // Integrate positions
@@ -343,6 +345,12 @@ export class Solver {
       // sweeping them again only repeats zero-time impacts.
       c.m_toiCount = c.m_touchingFlag ? maxTOISubsteps + 1 : 0;
       c.m_toi = 1;
+      const bodyA = c.m_fixtureA.m_body;
+      const bodyB = c.m_fixtureB.m_body;
+
+      if (!bodyA.allowsCollision(bodyB) || !bodyB.allowsCollision(bodyA)) {
+        c.m_enabledFlag = c.m_touchingFlag = false;
+      }
     }
 
     // Find TOI events and solve them.
@@ -618,11 +626,13 @@ export class Solver {
 
     // Solve velocity constraints.
     for (let i = 0; i < subStep.velocityIterations; ++i) {
-      for (let j = 0; j < this.m_contacts.length; ++j) {
-        const contact = this.m_contacts[j];
+      let converged = true;
 
-        contact.solveVelocityConstraint();
+      for (let j = 0; j < this.m_contacts.length; ++j) {
+        if (!this.m_contacts[j].solveVelocityConstraint()) converged = false;
       }
+
+      if (converged) break;
     }
 
     // Don't store the TOI contact forces for warm starting

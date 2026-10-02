@@ -1,0 +1,1676 @@
+[
+  {
+    "experiment": "f64-scalar",
+    "meanCpuChangePercent": -0.06185639971093282,
+    "aggregateCpuChangePercent": 0.8576956996017238,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.030395555555555558,
+        "afterCpu": 0.029365555555555554,
+        "cpuChangePercent": -3.3886533118877127,
+        "beforeAllocatedBytesPerTick": 9449.92888888889,
+        "afterAllocatedBytesPerTick": 9449.982222222223,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.019006666666666668,
+        "afterCpu": 0.019278888888888887,
+        "cpuChangePercent": 1.432245995557091,
+        "beforeAllocatedBytesPerTick": 10537.244444444445,
+        "afterAllocatedBytesPerTick": 10541.386666666667,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.1015088888888889,
+        "afterCpu": 0.09987,
+        "cpuChangePercent": -1.6145274633858064,
+        "beforeAllocatedBytesPerTick": 28311.022222222222,
+        "afterAllocatedBytesPerTick": 28844.426666666666,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.053525555555555555,
+        "afterCpu": 0.05318222222222222,
+        "cpuChangePercent": -0.6414381500010391,
+        "beforeAllocatedBytesPerTick": 17726.81777777778,
+        "afterAllocatedBytesPerTick": 17742.995555555557,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.05372,
+        "afterCpu": 0.05440333333333333,
+        "cpuChangePercent": 1.2720277984611617,
+        "beforeAllocatedBytesPerTick": 19120.48888888889,
+        "afterAllocatedBytesPerTick": 19120.4,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.043178888888888885,
+        "afterCpu": 0.041653333333333334,
+        "cpuChangePercent": -3.5331051697074067,
+        "beforeAllocatedBytesPerTick": 29599.137777777778,
+        "afterAllocatedBytesPerTick": 29603.902222222223,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.24706333333333333,
+        "afterCpu": 0.25204333333333334,
+        "cpuChangePercent": 2.015677491601342,
+        "beforeAllocatedBytesPerTick": 63916.11555555555,
+        "afterAllocatedBytesPerTick": 64974.16,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.09552333333333334,
+        "afterCpu": 0.09462333333333334,
+        "cpuChangePercent": -0.9421781763617965,
+        "beforeAllocatedBytesPerTick": 30717.617777777778,
+        "afterAllocatedBytesPerTick": 30753.653333333332,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.12033777777777778,
+        "afterCpu": 0.11957333333333334,
+        "cpuChangePercent": -0.635248928940757,
+        "beforeAllocatedBytesPerTick": 38795.58222222222,
+        "afterAllocatedBytesPerTick": 38795.44,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12080666666666666,
+        "afterCpu": 0.12006777777777779,
+        "cpuChangePercent": -0.611629233118105,
+        "beforeAllocatedBytesPerTick": 81326.74666666667,
+        "afterAllocatedBytesPerTick": 81339.76,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.45610222222222224,
+        "afterCpu": 0.4674055555555556,
+        "cpuChangePercent": 2.478245617454178,
+        "beforeAllocatedBytesPerTick": 126177.14666666667,
+        "afterAllocatedBytesPerTick": 128294.96,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.23543111111111112,
+        "afterCpu": 0.23581333333333332,
+        "cpuChangePercent": 0.16234992071282317,
+        "beforeAllocatedBytesPerTick": 65615.84888888888,
+        "afterAllocatedBytesPerTick": 65684.04444444444,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.23878444444444444,
+        "afterCpu": 0.2409988888888889,
+        "cpuChangePercent": 0.9273822043125879,
+        "beforeAllocatedBytesPerTick": 65654.29333333333,
+        "afterAllocatedBytesPerTick": 65653.93777777778,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.3569611111111111,
+        "afterCpu": 0.35768222222222223,
+        "cpuChangePercent": 0.20201391374721211,
+        "beforeAllocatedBytesPerTick": 204716.36444444445,
+        "afterAllocatedBytesPerTick": 204776.70222222223,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1607322222222223,
+        "afterCpu": 1.1797722222222222,
+        "cpuChangePercent": 1.6403438825492334,
+        "beforeAllocatedBytesPerTick": 334859.3511111111,
+        "afterAllocatedBytesPerTick": 339119.49333333335,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.66588,
+        "afterCpu": 0.6675233333333332,
+        "cpuChangePercent": 0.24679121363206935,
+        "beforeAllocatedBytesPerTick": 168101.55555555556,
+        "afterAllocatedBytesPerTick": 168147.07555555555,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "f64-simd",
+    "meanCpuChangePercent": 0.870394940991455,
+    "aggregateCpuChangePercent": 0.19505112902662436,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.028357777777777777,
+        "afterCpu": 0.02881777777777778,
+        "cpuChangePercent": 1.622129927121696,
+        "beforeAllocatedBytesPerTick": 9450.017777777777,
+        "afterAllocatedBytesPerTick": 9450.302222222223,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.018822222222222223,
+        "afterCpu": 0.018906666666666665,
+        "cpuChangePercent": 0.44864226682408415,
+        "beforeAllocatedBytesPerTick": 10536.942222222222,
+        "afterAllocatedBytesPerTick": 10541.457777777778,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09313777777777778,
+        "afterCpu": 0.09433777777777777,
+        "cpuChangePercent": 1.288413819431189,
+        "beforeAllocatedBytesPerTick": 28309.404444444444,
+        "afterAllocatedBytesPerTick": 28843.50222222222,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.05284888888888889,
+        "afterCpu": 0.05292888888888889,
+        "cpuChangePercent": 0.15137498948785133,
+        "beforeAllocatedBytesPerTick": 17727.226666666666,
+        "afterAllocatedBytesPerTick": 17743.137777777778,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.05475555555555556,
+        "afterCpu": 0.06122,
+        "cpuChangePercent": 11.806006493506494,
+        "beforeAllocatedBytesPerTick": 19120.595555555556,
+        "afterAllocatedBytesPerTick": 19120.506666666668,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.043387777777777775,
+        "afterCpu": 0.042687777777777776,
+        "cpuChangePercent": -1.6133575763783936,
+        "beforeAllocatedBytesPerTick": 29598.906666666666,
+        "afterAllocatedBytesPerTick": 29603.99111111111,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.24009,
+        "afterCpu": 0.24739444444444444,
+        "cpuChangePercent": 3.0423776269084213,
+        "beforeAllocatedBytesPerTick": 63917.182222222225,
+        "afterAllocatedBytesPerTick": 64974.462222222224,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.09769444444444444,
+        "afterCpu": 0.09590111111111112,
+        "cpuChangePercent": -1.8356553881148652,
+        "beforeAllocatedBytesPerTick": 30717.564444444444,
+        "afterAllocatedBytesPerTick": 30753.68888888889,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.12005111111111112,
+        "afterCpu": 0.11572555555555557,
+        "cpuChangePercent": -3.6030949780649024,
+        "beforeAllocatedBytesPerTick": 38795.61777777778,
+        "afterAllocatedBytesPerTick": 38795.333333333336,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12164444444444444,
+        "afterCpu": 0.12267777777777777,
+        "cpuChangePercent": 0.8494702228717621,
+        "beforeAllocatedBytesPerTick": 81325.60888888889,
+        "afterAllocatedBytesPerTick": 81339.95555555556,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.45736777777777776,
+        "afterCpu": 0.4571788888888889,
+        "cpuChangePercent": -0.04129912470148822,
+        "beforeAllocatedBytesPerTick": 126171.92,
+        "afterAllocatedBytesPerTick": 128298.21333333333,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.2381288888888889,
+        "afterCpu": 0.24381555555555556,
+        "cpuChangePercent": 2.388062487168474,
+        "beforeAllocatedBytesPerTick": 65618.60444444444,
+        "afterAllocatedBytesPerTick": 65684.16888888889,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.2376388888888889,
+        "afterCpu": 0.2389577777777778,
+        "cpuChangePercent": 0.5549970777323221,
+        "beforeAllocatedBytesPerTick": 65653.76,
+        "afterAllocatedBytesPerTick": 65654.13333333333,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.3499044444444444,
+        "afterCpu": 0.34702555555555553,
+        "cpuChangePercent": -0.82276431025613,
+        "beforeAllocatedBytesPerTick": 204716.17777777778,
+        "afterAllocatedBytesPerTick": 204776.66666666666,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1612366666666667,
+        "afterCpu": 1.152048888888889,
+        "cpuChangePercent": -0.7912063097483268,
+        "beforeAllocatedBytesPerTick": 334858.2311111111,
+        "afterAllocatedBytesPerTick": 339119.15555555554,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6645166666666668,
+        "afterCpu": 0.6677211111111111,
+        "cpuChangePercent": 0.4822218320750915,
+        "beforeAllocatedBytesPerTick": 168101.33333333334,
+        "afterAllocatedBytesPerTick": 168237.3688888889,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "f32-scalar",
+    "meanCpuChangePercent": -0.9519814725395288,
+    "aggregateCpuChangePercent": 1.0378333850505905,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.03233777777777778,
+        "afterCpu": 0.030366666666666663,
+        "cpuChangePercent": -6.0953820780648815,
+        "beforeAllocatedBytesPerTick": 9450,
+        "afterAllocatedBytesPerTick": 9450.177777777777,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.022314444444444442,
+        "afterCpu": 0.02099111111111111,
+        "cpuChangePercent": -5.930388886122584,
+        "beforeAllocatedBytesPerTick": 10537.262222222222,
+        "afterAllocatedBytesPerTick": 10539.004444444445,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09307777777777777,
+        "afterCpu": 0.09135,
+        "cpuChangePercent": -1.8562731288050527,
+        "beforeAllocatedBytesPerTick": 28308.8,
+        "afterAllocatedBytesPerTick": 28705.608888888888,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.05350666666666667,
+        "afterCpu": 0.05462111111111111,
+        "cpuChangePercent": 2.0828141872248462,
+        "beforeAllocatedBytesPerTick": 17727.262222222223,
+        "afterAllocatedBytesPerTick": 17735.28,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.05552666666666666,
+        "afterCpu": 0.05554222222222222,
+        "cpuChangePercent": 0.028014567575151972,
+        "beforeAllocatedBytesPerTick": 19120.4,
+        "afterAllocatedBytesPerTick": 19119.546666666665,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.04216888888888889,
+        "afterCpu": 0.042804444444444444,
+        "cpuChangePercent": 1.5071669477234373,
+        "beforeAllocatedBytesPerTick": 29598.88888888889,
+        "afterAllocatedBytesPerTick": 29601.235555555555,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.24430444444444444,
+        "afterCpu": 0.22147888888888886,
+        "cpuChangePercent": -9.343078308485776,
+        "beforeAllocatedBytesPerTick": 63916.94222222222,
+        "afterAllocatedBytesPerTick": 59733.49333333333,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.09849444444444444,
+        "afterCpu": 0.09542444444444445,
+        "cpuChangePercent": -3.1169270686445816,
+        "beforeAllocatedBytesPerTick": 30717.84888888889,
+        "afterAllocatedBytesPerTick": 30735.964444444446,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11424444444444444,
+        "afterCpu": 0.11715111111111112,
+        "cpuChangePercent": 2.5442520910328836,
+        "beforeAllocatedBytesPerTick": 38795.20888888889,
+        "afterAllocatedBytesPerTick": 38794.462222222224,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12211444444444446,
+        "afterCpu": 0.12114666666666667,
+        "cpuChangePercent": -0.7925170377514834,
+        "beforeAllocatedBytesPerTick": 81325.37777777777,
+        "afterAllocatedBytesPerTick": 81333.25333333333,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.4580855555555555,
+        "afterCpu": 0.46601,
+        "cpuChangePercent": 1.72990489403968,
+        "beforeAllocatedBytesPerTick": 126176.79111111112,
+        "afterAllocatedBytesPerTick": 124830.44444444444,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.2343477777777778,
+        "afterCpu": 0.23789555555555555,
+        "cpuChangePercent": 1.5138943545442762,
+        "beforeAllocatedBytesPerTick": 65618.32,
+        "afterAllocatedBytesPerTick": 65687.90222222223,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.23818111111111112,
+        "afterCpu": 0.24457111111111113,
+        "cpuChangePercent": 2.68283239178404,
+        "beforeAllocatedBytesPerTick": 65654.02666666667,
+        "afterAllocatedBytesPerTick": 65653.38666666667,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.3699677777777778,
+        "afterCpu": 0.3437,
+        "cpuChangePercent": -7.100017719260832,
+        "beforeAllocatedBytesPerTick": 204716.38222222222,
+        "afterAllocatedBytesPerTick": 204943.3688888889,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1467144444444444,
+        "afterCpu": 1.220667777777778,
+        "cpuChangePercent": 6.449149890072436,
+        "beforeAllocatedBytesPerTick": 334861.87555555557,
+        "afterAllocatedBytesPerTick": 349701.1822222222,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6671188888888889,
+        "afterCpu": 0.6702199999999999,
+        "cpuChangePercent": 0.4648513425059786,
+        "beforeAllocatedBytesPerTick": 168101.89333333334,
+        "afterAllocatedBytesPerTick": 168116.18666666668,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      }
+    ]
+  },
+  {
+    "experiment": "f32-simd",
+    "meanCpuChangePercent": -0.25303911387576306,
+    "aggregateCpuChangePercent": 0.30143702304954445,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.03235111111111111,
+        "afterCpu": 0.029197777777777777,
+        "cpuChangePercent": -9.747218024453897,
+        "beforeAllocatedBytesPerTick": 9449.946666666667,
+        "afterAllocatedBytesPerTick": 10435.44,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.01917,
+        "afterCpu": 0.019151111111111112,
+        "cpuChangePercent": -0.098533588361438,
+        "beforeAllocatedBytesPerTick": 10537.102222222222,
+        "afterAllocatedBytesPerTick": 10539.306666666667,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09099,
+        "afterCpu": 0.09665222222222222,
+        "cpuChangePercent": 6.2229060580527795,
+        "beforeAllocatedBytesPerTick": 28310.773333333334,
+        "afterAllocatedBytesPerTick": 28702.977777777778,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.05303666666666666,
+        "afterCpu": 0.05313555555555556,
+        "cpuChangePercent": 0.18645381601829492,
+        "beforeAllocatedBytesPerTick": 17726.977777777778,
+        "afterAllocatedBytesPerTick": 17735.315555555557,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.05402333333333333,
+        "afterCpu": 0.05573111111111111,
+        "cpuChangePercent": 3.161185495979102,
+        "beforeAllocatedBytesPerTick": 19120.257777777777,
+        "afterAllocatedBytesPerTick": 21154.56,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.042723333333333335,
+        "afterCpu": 0.04541666666666667,
+        "cpuChangePercent": 6.304127330888654,
+        "beforeAllocatedBytesPerTick": 29599.04888888889,
+        "afterAllocatedBytesPerTick": 29601.626666666667,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.24631,
+        "afterCpu": 0.21727111111111114,
+        "cpuChangePercent": -11.789569602894268,
+        "beforeAllocatedBytesPerTick": 63916.595555555556,
+        "afterAllocatedBytesPerTick": 59729.71555555556,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.09447333333333333,
+        "afterCpu": 0.09413333333333333,
+        "cpuChangePercent": -0.35988991602567966,
+        "beforeAllocatedBytesPerTick": 30717.81333333333,
+        "afterAllocatedBytesPerTick": 30732.977777777778,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11555222222222222,
+        "afterCpu": 0.1171,
+        "cpuChangePercent": 1.3394617152417743,
+        "beforeAllocatedBytesPerTick": 38795.47555555555,
+        "afterAllocatedBytesPerTick": 41123.73333333333,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.11958333333333333,
+        "afterCpu": 0.12071111111111112,
+        "cpuChangePercent": 0.9430894308943172,
+        "beforeAllocatedBytesPerTick": 81326.51555555555,
+        "afterAllocatedBytesPerTick": 81332.47111111111,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.4585177777777778,
+        "afterCpu": 0.45638222222222224,
+        "cpuChangePercent": -0.46575196405810315,
+        "beforeAllocatedBytesPerTick": 126171.90222222223,
+        "afterAllocatedBytesPerTick": 124834.12444444445,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.23727777777777778,
+        "afterCpu": 0.23771444444444445,
+        "cpuChangePercent": 0.1840318426598042,
+        "beforeAllocatedBytesPerTick": 65615.65333333334,
+        "afterAllocatedBytesPerTick": 65688.3288888889,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.2386822222222222,
+        "afterCpu": 0.23788555555555557,
+        "cpuChangePercent": -0.3337771281201274,
+        "beforeAllocatedBytesPerTick": 65654.04444444444,
+        "afterAllocatedBytesPerTick": 67973.78666666667,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.3581266666666667,
+        "afterCpu": 0.3443744444444445,
+        "cpuChangePercent": -3.8400441805196195,
+        "beforeAllocatedBytesPerTick": 204716.7111111111,
+        "afterAllocatedBytesPerTick": 204943.1911111111,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.151421111111111,
+        "afterCpu": 1.1981022222222222,
+        "cpuChangePercent": 4.054217059305465,
+        "beforeAllocatedBytesPerTick": 334859.08444444445,
+        "afterAllocatedBytesPerTick": 348827.0488888889,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6642688888888889,
+        "afterCpu": 0.6655355555555555,
+        "cpuChangePercent": 0.19068583338073264,
+        "beforeAllocatedBytesPerTick": 168101.5288888889,
+        "afterAllocatedBytesPerTick": 168116.0977777778,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      }
+    ]
+  },
+  {
+    "experiment": "flat-f64-simd",
+    "meanCpuChangePercent": 0.8734477387891466,
+    "aggregateCpuChangePercent": 0.3342862065331964,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.02877888888888889,
+        "afterCpu": 0.028995555555555556,
+        "cpuChangePercent": 0.7528666846839949,
+        "beforeAllocatedBytesPerTick": 9450,
+        "afterAllocatedBytesPerTick": 9450.355555555556,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.020399999999999998,
+        "afterCpu": 0.020037777777777776,
+        "cpuChangePercent": -1.775599128540306,
+        "beforeAllocatedBytesPerTick": 10537.28,
+        "afterAllocatedBytesPerTick": 10536.613333333333,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09558666666666667,
+        "afterCpu": 0.10574888888888889,
+        "cpuChangePercent": 10.63142232761427,
+        "beforeAllocatedBytesPerTick": 28308.764444444445,
+        "afterAllocatedBytesPerTick": 28165.137777777778,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.054671111111111115,
+        "afterCpu": 0.05472888888888889,
+        "cpuChangePercent": 0.10568246484026211,
+        "beforeAllocatedBytesPerTick": 17727.315555555557,
+        "afterAllocatedBytesPerTick": 17725.893333333333,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.05594,
+        "afterCpu": 0.055711111111111114,
+        "cpuChangePercent": -0.4091685536090184,
+        "beforeAllocatedBytesPerTick": 19120.382222222222,
+        "afterAllocatedBytesPerTick": 19120.32888888889,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.04307222222222222,
+        "afterCpu": 0.044066666666666664,
+        "cpuChangePercent": 2.308783696633565,
+        "beforeAllocatedBytesPerTick": 29599.12,
+        "afterAllocatedBytesPerTick": 29598.79111111111,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.2462888888888889,
+        "afterCpu": 0.2463311111111111,
+        "cpuChangePercent": 0.01714337273301947,
+        "beforeAllocatedBytesPerTick": 63916.83555555555,
+        "afterAllocatedBytesPerTick": 63629.34222222222,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.10020333333333334,
+        "afterCpu": 0.10068666666666666,
+        "cpuChangePercent": 0.482352549815368,
+        "beforeAllocatedBytesPerTick": 30717.706666666665,
+        "afterAllocatedBytesPerTick": 30715.448888888888,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11843000000000001,
+        "afterCpu": 0.11809666666666667,
+        "cpuChangePercent": -0.28146021559852796,
+        "beforeAllocatedBytesPerTick": 38795.31555555556,
+        "afterAllocatedBytesPerTick": 38795.386666666665,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12037,
+        "afterCpu": 0.12369,
+        "cpuChangePercent": 2.758162332807168,
+        "beforeAllocatedBytesPerTick": 81325.84,
+        "afterAllocatedBytesPerTick": 81325.37777777777,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.4576533333333333,
+        "afterCpu": 0.45709666666666665,
+        "cpuChangePercent": -0.12163500757487178,
+        "beforeAllocatedBytesPerTick": 126169.1288888889,
+        "afterAllocatedBytesPerTick": 125593.35111111111,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.24319333333333332,
+        "afterCpu": 0.24160555555555555,
+        "cpuChangePercent": -0.6528870491698369,
+        "beforeAllocatedBytesPerTick": 65618.17777777778,
+        "afterAllocatedBytesPerTick": 65611.44,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.23891777777777778,
+        "afterCpu": 0.23912111111111112,
+        "cpuChangePercent": 0.08510598718294293,
+        "beforeAllocatedBytesPerTick": 65654.04444444444,
+        "afterAllocatedBytesPerTick": 65654.02666666667,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.3511,
+        "afterCpu": 0.34834,
+        "cpuChangePercent": -0.786100825975522,
+        "beforeAllocatedBytesPerTick": 204716.52444444445,
+        "afterAllocatedBytesPerTick": 204712.96,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1565433333333333,
+        "afterCpu": 1.1520299999999999,
+        "cpuChangePercent": -0.3902433400679639,
+        "beforeAllocatedBytesPerTick": 334859.5466666667,
+        "afterAllocatedBytesPerTick": 333730.9866666667,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6544577777777777,
+        "afterCpu": 0.6626433333333334,
+        "cpuChangePercent": 1.2507385248518021,
+        "beforeAllocatedBytesPerTick": 168101.72444444444,
+        "afterAllocatedBytesPerTick": 168092.56,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "flat-f32-simd",
+    "meanCpuChangePercent": -0.6579170017733387,
+    "aggregateCpuChangePercent": -0.0665550901103984,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.028617777777777777,
+        "afterCpu": 0.02912333333333333,
+        "cpuChangePercent": 1.7665786612828027,
+        "beforeAllocatedBytesPerTick": 9449.822222222223,
+        "afterAllocatedBytesPerTick": 10435.528888888888,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.01877111111111111,
+        "afterCpu": 0.01879111111111111,
+        "cpuChangePercent": 0.10654670297145508,
+        "beforeAllocatedBytesPerTick": 10536.177777777777,
+        "afterAllocatedBytesPerTick": 10533.786666666667,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09042888888888888,
+        "afterCpu": 0.09022111111111111,
+        "cpuChangePercent": -0.22976924778216334,
+        "beforeAllocatedBytesPerTick": 28308.72888888889,
+        "afterAllocatedBytesPerTick": 28031.36888888889,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.05329333333333333,
+        "afterCpu": 0.05330777777777777,
+        "cpuChangePercent": 0.027103661079141972,
+        "beforeAllocatedBytesPerTick": 17727.244444444445,
+        "afterAllocatedBytesPerTick": 17718.32,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.05853,
+        "afterCpu": 0.05642888888888889,
+        "cpuChangePercent": -3.5898020008732434,
+        "beforeAllocatedBytesPerTick": 19120.506666666668,
+        "afterAllocatedBytesPerTick": 21154.275555555556,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.04287,
+        "afterCpu": 0.04326222222222222,
+        "cpuChangePercent": 0.914910711971606,
+        "beforeAllocatedBytesPerTick": 29599.04888888889,
+        "afterAllocatedBytesPerTick": 29597.92,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.2472022222222222,
+        "afterCpu": 0.21778555555555557,
+        "cpuChangePercent": -11.899839088106,
+        "beforeAllocatedBytesPerTick": 63921.64444444444,
+        "afterAllocatedBytesPerTick": 58378.07111111111,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.09915333333333333,
+        "afterCpu": 0.09941666666666667,
+        "cpuChangePercent": 0.26558192698178384,
+        "beforeAllocatedBytesPerTick": 30717.635555555556,
+        "afterAllocatedBytesPerTick": 30698.257777777777,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11433555555555555,
+        "afterCpu": 0.11707666666666666,
+        "cpuChangePercent": 2.397426677809955,
+        "beforeAllocatedBytesPerTick": 38795.6,
+        "afterAllocatedBytesPerTick": 41123.52,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12385,
+        "afterCpu": 0.12225777777777777,
+        "cpuChangePercent": -1.2856053469699091,
+        "beforeAllocatedBytesPerTick": 81326.99555555555,
+        "afterAllocatedBytesPerTick": 81319.6711111111,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.4596611111111111,
+        "afterCpu": 0.4527688888888889,
+        "cpuChangePercent": -1.499413819359663,
+        "beforeAllocatedBytesPerTick": 126179.79555555555,
+        "afterAllocatedBytesPerTick": 122156.17777777778,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.24,
+        "afterCpu": 0.23432999999999998,
+        "cpuChangePercent": -2.3625000000000007,
+        "beforeAllocatedBytesPerTick": 65615.45777777777,
+        "afterAllocatedBytesPerTick": 65616.24,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.2358688888888889,
+        "afterCpu": 0.2440211111111111,
+        "cpuChangePercent": 3.4562515898663104,
+        "beforeAllocatedBytesPerTick": 65654.08,
+        "afterAllocatedBytesPerTick": 67973.53777777778,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.35729555555555553,
+        "afterCpu": 0.34939000000000003,
+        "cpuChangePercent": -2.2126095420535563,
+        "beforeAllocatedBytesPerTick": 204716.61333333334,
+        "afterAllocatedBytesPerTick": 204879.69777777776,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1524488888888889,
+        "afterCpu": 1.18797,
+        "cpuChangePercent": 3.0822287611694588,
+        "beforeAllocatedBytesPerTick": 334864.29333333333,
+        "afterAllocatedBytesPerTick": 343396.6844444444,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6576677777777777,
+        "afterCpu": 0.6611944444444445,
+        "cpuChangePercent": 0.5362383236386048,
+        "beforeAllocatedBytesPerTick": 168010.05333333334,
+        "afterAllocatedBytesPerTick": 167879.65333333332,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      }
+    ]
+  },
+  {
+    "experiment": "flat-f64-pipeline",
+    "meanCpuChangePercent": -0.21536678363454287,
+    "aggregateCpuChangePercent": -0.6450001501940972,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.029142222222222226,
+        "afterCpu": 0.02895222222222222,
+        "cpuChangePercent": -0.6519749885618653,
+        "beforeAllocatedBytesPerTick": 9449.76888888889,
+        "afterAllocatedBytesPerTick": 9450.23111111111,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.01934888888888889,
+        "afterCpu": 0.021966666666666666,
+        "cpuChangePercent": 13.5293442058114,
+        "beforeAllocatedBytesPerTick": 10537.226666666667,
+        "afterAllocatedBytesPerTick": 10536.026666666667,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09666777777777778,
+        "afterCpu": 0.09978666666666668,
+        "cpuChangePercent": 3.2263996965552266,
+        "beforeAllocatedBytesPerTick": 28308.995555555557,
+        "afterAllocatedBytesPerTick": 28161.635555555556,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.05332666666666667,
+        "afterCpu": 0.053476666666666665,
+        "cpuChangePercent": 0.2812851606450728,
+        "beforeAllocatedBytesPerTick": 17726.96,
+        "afterAllocatedBytesPerTick": 17725.911111111112,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.056384444444444445,
+        "afterCpu": 0.05533777777777778,
+        "cpuChangePercent": -1.8563039451385377,
+        "beforeAllocatedBytesPerTick": 19120.453333333335,
+        "afterAllocatedBytesPerTick": 19120.31111111111,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.04626333333333334,
+        "afterCpu": 0.04494,
+        "cpuChangePercent": -2.8604366308811913,
+        "beforeAllocatedBytesPerTick": 29598.924444444445,
+        "afterAllocatedBytesPerTick": 29598.933333333334,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.24926,
+        "afterCpu": 0.24881999999999999,
+        "cpuChangePercent": -0.176522506619603,
+        "beforeAllocatedBytesPerTick": 63919.20888888889,
+        "afterAllocatedBytesPerTick": 63622.124444444446,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.1002988888888889,
+        "afterCpu": 0.09791555555555555,
+        "cpuChangePercent": -2.37623104277217,
+        "beforeAllocatedBytesPerTick": 30717.81333333333,
+        "afterAllocatedBytesPerTick": 30705.35111111111,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11637444444444443,
+        "afterCpu": 0.11860888888888889,
+        "cpuChangePercent": 1.9200473567125398,
+        "beforeAllocatedBytesPerTick": 38795.51111111111,
+        "afterAllocatedBytesPerTick": 38795.49333333333,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12361333333333333,
+        "afterCpu": 0.12075666666666666,
+        "cpuChangePercent": -2.3109696904325294,
+        "beforeAllocatedBytesPerTick": 81325.71555555555,
+        "afterAllocatedBytesPerTick": 81325.80444444444,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.45744666666666667,
+        "afterCpu": 0.4597733333333333,
+        "cpuChangePercent": 0.508620312750474,
+        "beforeAllocatedBytesPerTick": 126171.10222222222,
+        "afterAllocatedBytesPerTick": 125595.52,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.24585888888888888,
+        "afterCpu": 0.24280222222222222,
+        "cpuChangePercent": -1.2432605875999259,
+        "beforeAllocatedBytesPerTick": 65616.04444444444,
+        "afterAllocatedBytesPerTick": 65611.56444444445,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.23913555555555557,
+        "afterCpu": 0.2153411111111111,
+        "cpuChangePercent": -9.95019096560762,
+        "beforeAllocatedBytesPerTick": 65654.16888888889,
+        "afterAllocatedBytesPerTick": 65654.06222222222,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.36293,
+        "afterCpu": 0.35433,
+        "cpuChangePercent": -2.3696029537376373,
+        "beforeAllocatedBytesPerTick": 204716.77333333335,
+        "afterAllocatedBytesPerTick": 204712.95111111112,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1461844444444445,
+        "afterCpu": 1.1501511111111111,
+        "cpuChangePercent": 0.34607577217551366,
+        "beforeAllocatedBytesPerTick": 334861.5733333333,
+        "afterAllocatedBytesPerTick": 333728.8,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6525955555555556,
+        "afterCpu": 0.6561055555555556,
+        "cpuChangePercent": 0.5378522685481668,
+        "beforeAllocatedBytesPerTick": 168101.69777777776,
+        "afterAllocatedBytesPerTick": 168004.13333333333,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "flat-f32-pipeline",
+    "meanCpuChangePercent": -2.101724381526749,
+    "aggregateCpuChangePercent": -0.17765428370528635,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.028675555555555555,
+        "afterCpu": 0.029403333333333333,
+        "cpuChangePercent": 2.5379727216366943,
+        "beforeAllocatedBytesPerTick": 9450.124444444444,
+        "afterAllocatedBytesPerTick": 10435.582222222221,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.019085555555555554,
+        "afterCpu": 0.01925,
+        "cpuChangePercent": 0.8616172789194909,
+        "beforeAllocatedBytesPerTick": 10537.333333333334,
+        "afterAllocatedBytesPerTick": 10533.946666666667,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09245888888888888,
+        "afterCpu": 0.08885888888888889,
+        "cpuChangePercent": -3.89362239073221,
+        "beforeAllocatedBytesPerTick": 28308.65777777778,
+        "afterAllocatedBytesPerTick": 28028.524444444443,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.059666666666666666,
+        "afterCpu": 0.05354222222222223,
+        "cpuChangePercent": -10.264432029795145,
+        "beforeAllocatedBytesPerTick": 17727.297777777778,
+        "afterAllocatedBytesPerTick": 17718.373333333333,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.054122222222222224,
+        "afterCpu": 0.05547222222222222,
+        "cpuChangePercent": 2.49435434202423,
+        "beforeAllocatedBytesPerTick": 19120.382222222222,
+        "afterAllocatedBytesPerTick": 21154.275555555556,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.04903444444444444,
+        "afterCpu": 0.041244444444444445,
+        "cpuChangePercent": -15.886791597743077,
+        "beforeAllocatedBytesPerTick": 29598.96,
+        "afterAllocatedBytesPerTick": 29596.373333333333,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.2475211111111111,
+        "afterCpu": 0.21402666666666667,
+        "cpuChangePercent": -13.531954625643605,
+        "beforeAllocatedBytesPerTick": 63918.90666666667,
+        "afterAllocatedBytesPerTick": 58377.78666666667,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.09446666666666666,
+        "afterCpu": 0.09408333333333332,
+        "cpuChangePercent": -0.40578687367678334,
+        "beforeAllocatedBytesPerTick": 30707.466666666667,
+        "afterAllocatedBytesPerTick": 30698.15111111111,
+        "changedFields": ["bytes", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11486111111111111,
+        "afterCpu": 0.11824,
+        "cpuChangePercent": 2.9417170495767753,
+        "beforeAllocatedBytesPerTick": 38795.44,
+        "afterAllocatedBytesPerTick": 41123.46666666667,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12019222222222223,
+        "afterCpu": 0.11919222222222221,
+        "cpuChangePercent": -0.8320005916448769,
+        "beforeAllocatedBytesPerTick": 81326.81777777777,
+        "afterAllocatedBytesPerTick": 81317.96444444444,
+        "changedFields": ["states"]
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.4577877777777778,
+        "afterCpu": 0.4558655555555555,
+        "cpuChangePercent": -0.41989374018529535,
+        "beforeAllocatedBytesPerTick": 126173.85777777778,
+        "afterAllocatedBytesPerTick": 122153.26222222223,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.2359811111111111,
+        "afterCpu": 0.23870444444444444,
+        "cpuChangePercent": 1.1540471695003829,
+        "beforeAllocatedBytesPerTick": 65615.72444444445,
+        "afterAllocatedBytesPerTick": 65615.72444444445,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.24301666666666666,
+        "afterCpu": 0.24198666666666668,
+        "cpuChangePercent": -0.42383924285027685,
+        "beforeAllocatedBytesPerTick": 65653.95555555556,
+        "afterAllocatedBytesPerTick": 67973.57333333333,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.3505033333333333,
+        "afterCpu": 0.3427955555555556,
+        "cpuChangePercent": -2.1990597648460897,
+        "beforeAllocatedBytesPerTick": 204716.36444444445,
+        "afterAllocatedBytesPerTick": 204879.66222222222,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1568744444444443,
+        "afterCpu": 1.2025688888888888,
+        "cpuChangePercent": 3.9498188125668188,
+        "beforeAllocatedBytesPerTick": 334861.6088888889,
+        "afterAllocatedBytesPerTick": 343391.7422222222,
+        "changedFields": ["contacts", "events", "bytes", "entities", "states"]
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6641477777777777,
+        "afterCpu": 0.6660755555555555,
+        "cpuChangePercent": 0.2902633784649833,
+        "beforeAllocatedBytesPerTick": 168192.57777777777,
+        "afterAllocatedBytesPerTick": 168152.95111111112,
+        "changedFields": ["contacts", "events", "bytes", "states"]
+      }
+    ]
+  },
+  {
+    "experiment": "bodies",
+    "meanCpuChangePercent": -0.33523855152191095,
+    "aggregateCpuChangePercent": -0.07573203685440344,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.028565555555555556,
+        "afterCpu": 0.02917,
+        "cpuChangePercent": 2.115990509160226,
+        "beforeAllocatedBytesPerTick": 9450.106666666667,
+        "afterAllocatedBytesPerTick": 9449.91111111111,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.022527777777777775,
+        "afterCpu": 0.018786666666666667,
+        "cpuChangePercent": -16.60665844636251,
+        "beforeAllocatedBytesPerTick": 10536.977777777778,
+        "afterAllocatedBytesPerTick": 10532.337777777779,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.09008222222222222,
+        "afterCpu": 0.09043888888888889,
+        "cpuChangePercent": 0.39593457828650536,
+        "beforeAllocatedBytesPerTick": 28311.093333333334,
+        "afterAllocatedBytesPerTick": 28300.48,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.059678888888888885,
+        "afterCpu": 0.05344666666666666,
+        "cpuChangePercent": -10.442926030049716,
+        "beforeAllocatedBytesPerTick": 17726.96,
+        "afterAllocatedBytesPerTick": 17713.928888888888,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.05401666666666667,
+        "afterCpu": 0.05466111111111111,
+        "cpuChangePercent": 1.1930474133497793,
+        "beforeAllocatedBytesPerTick": 19120.222222222223,
+        "afterAllocatedBytesPerTick": 19120.417777777777,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.041063333333333334,
+        "afterCpu": 0.047831111111111116,
+        "cpuChangePercent": 16.481316124144296,
+        "beforeAllocatedBytesPerTick": 29599.20888888889,
+        "afterAllocatedBytesPerTick": 29597.37777777778,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.2472188888888889,
+        "afterCpu": 0.24583000000000002,
+        "cpuChangePercent": -0.5618053277122836,
+        "beforeAllocatedBytesPerTick": 63921.14666666667,
+        "afterAllocatedBytesPerTick": 63906.177777777775,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.09695111111111111,
+        "afterCpu": 0.09506555555555556,
+        "cpuChangePercent": -1.9448519299532396,
+        "beforeAllocatedBytesPerTick": 30717.795555555556,
+        "afterAllocatedBytesPerTick": 30693.457777777778,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11474000000000001,
+        "afterCpu": 0.11592666666666666,
+        "cpuChangePercent": 1.0342222996920558,
+        "beforeAllocatedBytesPerTick": 38795.6,
+        "afterAllocatedBytesPerTick": 38795.351111111115,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.12079777777777778,
+        "afterCpu": 0.12182000000000001,
+        "cpuChangePercent": 0.8462260159311397,
+        "beforeAllocatedBytesPerTick": 81325.68,
+        "afterAllocatedBytesPerTick": 81323.08444444444,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.45455333333333336,
+        "afterCpu": 0.45559555555555553,
+        "cpuChangePercent": 0.22928491461702283,
+        "beforeAllocatedBytesPerTick": 126169.30666666667,
+        "afterAllocatedBytesPerTick": 126147.15555555555,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.2365488888888889,
+        "afterCpu": 0.2379411111111111,
+        "cpuChangePercent": 0.5885558071152763,
+        "beforeAllocatedBytesPerTick": 65615.76,
+        "afterAllocatedBytesPerTick": 65583.99111111111,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.2392922222222222,
+        "afterCpu": 0.24012333333333333,
+        "cpuChangePercent": 0.34732057038582287,
+        "beforeAllocatedBytesPerTick": 65654.06222222222,
+        "afterAllocatedBytesPerTick": 65655.23555555556,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.3494722222222222,
+        "afterCpu": 0.35623777777777776,
+        "cpuChangePercent": 1.935935140290912,
+        "beforeAllocatedBytesPerTick": 204716.04444444444,
+        "afterAllocatedBytesPerTick": 204713.76,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 1.1664744444444444,
+        "afterCpu": 1.1574,
+        "cpuChangePercent": -0.7779376983064745,
+        "beforeAllocatedBytesPerTick": 334861.96444444446,
+        "afterAllocatedBytesPerTick": 334790.46222222224,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6628266666666667,
+        "afterCpu": 0.6615177777777778,
+        "cpuChangePercent": -0.1974707649393892,
+        "beforeAllocatedBytesPerTick": 168009.98222222223,
+        "afterAllocatedBytesPerTick": 167869.12,
+        "changedFields": []
+      }
+    ]
+  },
+  {
+    "experiment": "confirm-two-cores",
+    "meanCpuChangePercent": 0.39476802838344716,
+    "aggregateCpuChangePercent": -0.027118096604517028,
+    "scenarios": [
+      {
+        "players": 4,
+        "workload": "contact",
+        "beforeCpu": 0.03244933333333333,
+        "afterCpu": 0.03212266666666667,
+        "cpuChangePercent": -1.0066976209064271,
+        "beforeAllocatedBytesPerTick": 9615.453333333333,
+        "afterAllocatedBytesPerTick": 9615.362666666666,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "convoy",
+        "beforeCpu": 0.044449999999999996,
+        "afterCpu": 0.04462833333333333,
+        "cpuChangePercent": 0.401199850018763,
+        "beforeAllocatedBytesPerTick": 14433.493333333334,
+        "afterAllocatedBytesPerTick": 14432.325333333334,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "module",
+        "beforeCpu": 0.12197100000000001,
+        "afterCpu": 0.12279300000000001,
+        "cpuChangePercent": 0.6739306884423479,
+        "beforeAllocatedBytesPerTick": 27467.536,
+        "afterAllocatedBytesPerTick": 27334.466666666667,
+        "changedFields": []
+      },
+      {
+        "players": 4,
+        "workload": "spread",
+        "beforeCpu": 0.05225066666666667,
+        "afterCpu": 0.05253766666666666,
+        "cpuChangePercent": 0.549275288353579,
+        "beforeAllocatedBytesPerTick": 15815.730666666666,
+        "afterAllocatedBytesPerTick": 15814.573333333334,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "contact",
+        "beforeCpu": 0.056672,
+        "afterCpu": 0.05753866666666667,
+        "cpuChangePercent": 1.5292678336156662,
+        "beforeAllocatedBytesPerTick": 19631.013333333332,
+        "afterAllocatedBytesPerTick": 19630.928,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "convoy",
+        "beforeCpu": 0.10150366666666667,
+        "afterCpu": 0.10150533333333334,
+        "cpuChangePercent": 0.0016419768087194697,
+        "beforeAllocatedBytesPerTick": 45839.992,
+        "afterAllocatedBytesPerTick": 45837.352,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "module",
+        "beforeCpu": 0.2764836666666667,
+        "afterCpu": 0.2764126666666667,
+        "cpuChangePercent": -0.02567963628954395,
+        "beforeAllocatedBytesPerTick": 58564.72,
+        "afterAllocatedBytesPerTick": 58280.717333333334,
+        "changedFields": []
+      },
+      {
+        "players": 8,
+        "workload": "spread",
+        "beforeCpu": 0.10658333333333334,
+        "afterCpu": 0.10692833333333335,
+        "cpuChangePercent": 0.32369038311181875,
+        "beforeAllocatedBytesPerTick": 31201.005333333334,
+        "afterAllocatedBytesPerTick": 31201.232,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "contact",
+        "beforeCpu": 0.11398966666666667,
+        "afterCpu": 0.11559466666666667,
+        "cpuChangePercent": 1.408022364600292,
+        "beforeAllocatedBytesPerTick": 39433.616,
+        "afterAllocatedBytesPerTick": 39433.594666666664,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "convoy",
+        "beforeCpu": 0.195928,
+        "afterCpu": 0.1962816666666667,
+        "cpuChangePercent": 0.18050848611055326,
+        "beforeAllocatedBytesPerTick": 94900.74933333334,
+        "afterAllocatedBytesPerTick": 94895.41866666666,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "module",
+        "beforeCpu": 0.7098813333333333,
+        "afterCpu": 0.7132146666666666,
+        "cpuChangePercent": 0.46956204886825503,
+        "beforeAllocatedBytesPerTick": 140954.22666666665,
+        "afterAllocatedBytesPerTick": 140369.136,
+        "changedFields": []
+      },
+      {
+        "players": 16,
+        "workload": "spread",
+        "beforeCpu": 0.23009333333333332,
+        "afterCpu": 0.23066233333333333,
+        "cpuChangePercent": 0.24729095439532944,
+        "beforeAllocatedBytesPerTick": 67592.26666666666,
+        "afterAllocatedBytesPerTick": 67600.04266666666,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "contact",
+        "beforeCpu": 0.226062,
+        "afterCpu": 0.23179933333333333,
+        "cpuChangePercent": 2.537946816949921,
+        "beforeAllocatedBytesPerTick": 66401.65333333334,
+        "afterAllocatedBytesPerTick": 66401.70133333333,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "convoy",
+        "beforeCpu": 0.35730466666666666,
+        "afterCpu": 0.35891533333333336,
+        "cpuChangePercent": 0.45078243217273606,
+        "beforeAllocatedBytesPerTick": 184974.24,
+        "afterAllocatedBytesPerTick": 184964.26133333333,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "module",
+        "beforeCpu": 2.0526613333333334,
+        "afterCpu": 2.0420726666666664,
+        "cpuChangePercent": -0.5158506420283149,
+        "beforeAllocatedBytesPerTick": 403790.16,
+        "afterAllocatedBytesPerTick": 402725.15733333334,
+        "changedFields": []
+      },
+      {
+        "players": 32,
+        "workload": "spread",
+        "beforeCpu": 0.6797616666666667,
+        "afterCpu": 0.6735853333333334,
+        "cpuChangePercent": -0.9086027700885402,
+        "beforeAllocatedBytesPerTick": 184767.432,
+        "afterAllocatedBytesPerTick": 184761.23466666666,
+        "changedFields": []
+      }
+    ],
+    "pairedBootstrapAggregate95Percent": [
+      -0.426160986925217, 0.42204386965754015
+    ],
+    "bootstrapResamples": 10000
+  }
+]

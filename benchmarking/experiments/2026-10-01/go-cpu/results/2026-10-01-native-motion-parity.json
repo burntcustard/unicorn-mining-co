@@ -1,0 +1,19 @@
+{
+  "cpu": "0",
+  "processor": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "node": "v26.8.2",
+  "go": "go version go1.27.1 linux/amd64",
+  "ticks": 900,
+  "repetitions": 0,
+  "maxDifference": 5.960464477539063e-8,
+  "numericTolerances": {
+    "upTo16Players": 2e-8,
+    "from32Players": 0.000001
+  },
+  "eventImpactThresholds": {
+    "default": 2e-8,
+    "moduleFrom32Players": 0.025
+  },
+  "date": "2026-10-01T17:56:50.353Z",
+  "results": []
+}

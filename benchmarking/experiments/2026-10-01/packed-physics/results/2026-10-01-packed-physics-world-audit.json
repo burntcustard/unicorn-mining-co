@@ -1,0 +1,98 @@
+[
+  {
+    "players": 4,
+    "workload": "convoy",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 0,
+      "SequentialSlots4": 0,
+      "SequentialSlots8": 0,
+      "ColoredSlots4": 0,
+      "ColoredSlots8": 0
+    }
+  },
+  {
+    "players": 4,
+    "workload": "spread",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 247,
+      "SequentialSlots4": 988,
+      "SequentialSlots8": 1976,
+      "ColoredSlots4": 988,
+      "ColoredSlots8": 1976
+    }
+  },
+  {
+    "players": 4,
+    "workload": "contact",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 3864,
+      "SequentialSlots4": 12144,
+      "SequentialSlots8": 24288,
+      "ColoredSlots4": 7728,
+      "ColoredSlots8": 15456
+    }
+  },
+  {
+    "players": 4,
+    "workload": "module",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 6441,
+      "SequentialSlots4": 17968,
+      "SequentialSlots8": 35896,
+      "ColoredSlots4": 11576,
+      "ColoredSlots8": 22112
+    }
+  },
+  {
+    "players": 32,
+    "workload": "convoy",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 4992,
+      "SequentialSlots4": 16380,
+      "SequentialSlots8": 32736,
+      "ColoredSlots4": 8860,
+      "ColoredSlots8": 15192
+    }
+  },
+  {
+    "players": 32,
+    "workload": "spread",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 68864,
+      "SequentialSlots4": 264044,
+      "SequentialSlots8": 528088,
+      "ColoredSlots4": 135756,
+      "ColoredSlots8": 268984
+    }
+  },
+  {
+    "players": 32,
+    "workload": "contact",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 30912,
+      "SequentialSlots4": 75780,
+      "SequentialSlots8": 149144,
+      "ColoredSlots4": 30912,
+      "ColoredSlots8": 30912
+    }
+  },
+  {
+    "players": 32,
+    "workload": "module",
+    "worldSolverAudit": {
+      "Calls": 1020,
+      "Contacts": 92784,
+      "SequentialSlots4": 268728,
+      "SequentialSlots8": 532600,
+      "ColoredSlots4": 134424,
+      "ColoredSlots8": 196336
+    }
+  }
+]

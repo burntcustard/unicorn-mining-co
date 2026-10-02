@@ -8,6 +8,7 @@ import {
 import { createRandom, type Random } from '../seeded-random';
 import { regionSize } from '../settings';
 import { round } from '../utilities/round';
+import { regionGenerationSpecification as specification } from '../specification/regions';
 
 const mix = (value: number) => {
   value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
@@ -80,11 +81,7 @@ type FeatureKind =
 
 // The old world used 8000 m station, 5500 m wreck, and 350 m field clearance.
 // Spatial cells make those distances work without a finite world boundary.
-const featureSettings = [
-  { size: 6000, chance: 0.72, clearance: 350, kind: 4 },
-  { size: 10000, chance: 0.32, clearance: 8000, kind: 2 },
-  { size: 10000, chance: 0.5, clearance: 5500, kind: 3 },
-];
+const featureSettings = specification.features;
 
 const featureCandidate = ({
   worldSeed,
@@ -98,7 +95,7 @@ const featureCandidate = ({
   const settings = featureSettings[kind];
   const seed = regionSeed({ worldSeed, region: cell });
   // Separate station samples keep seed 25 near its historical starting station.
-  const stream = kind === stationFeature ? 9 : 0;
+  const stream = kind === stationFeature ? specification.stationStream : 0;
   const random = createRandom(
     descriptionId({ seed, kind: settings.kind, index: stream }),
   );
@@ -110,8 +107,16 @@ const featureCandidate = ({
 
   if (kind === fieldFeature) {
     const roll = random.next();
-    const resource = roll < 0.06 ? 1 : roll < 0.18 ? 2 : 4;
-    const radius = (2000 + random.next() * 2000) / (resource === 1 ? 2 : 1);
+    const resource =
+      roll < specification.richFieldAmethystChance
+        ? 1
+        : roll < specification.richFieldGoldChance
+          ? 2
+          : 4;
+    const radius =
+      (specification.fieldRadius +
+        random.next() * specification.fieldRadiusRange) /
+      (resource === 1 ? 2 : 1);
 
     return { id, position, radius, resource };
   }
@@ -120,7 +125,7 @@ const featureCandidate = ({
     return {
       id,
       position,
-      radius: 400,
+      radius: specification.stationRadius,
       spin: randomSpin({ random }),
       type: 'station',
     };
@@ -135,7 +140,7 @@ const featureCandidate = ({
     paint:
       random.next() < 2 / 3 ? 1 : [0, 2, 3, 4][Math.floor(random.next() * 4)],
     position,
-    radius: 100,
+    radius: specification.wreckRadius,
     spin: randomSpin({ random }),
     type: 'wreck',
   };
@@ -257,7 +262,7 @@ const nearestRichField = ({
   worldSeed: number;
   position: Vec.Value;
 }): Field => {
-  let range = 20000;
+  let range = specification.nearestFieldInitialRange;
 
   for (;;) {
     const richFields = generateFields({
@@ -298,16 +303,20 @@ const makeAsteroid = ({
   const spikes = resource === 1;
   const gold = resource === 2;
   const radius = round(
-    50 +
+    specification.asteroidBaseRadius +
       (spikes
-        ? 50 + random.next() * 2
+        ? specification.asteroidAmethystRadius +
+          random.next() * specification.asteroidAmethystRange
         : gold
-          ? 110 + random.next() * 60
-          : 1.25 + random.next() * 120),
+          ? specification.asteroidGoldRadius +
+            random.next() * specification.asteroidGoldRange
+          : specification.asteroidMixedRadius +
+            random.next() * specification.asteroidMixedRange),
   );
   const capacity = Math.round((radius / 50) ** 2);
   const itemCount =
-    random.next() < (resource > 3 ? 0.3 : capacity / (capacity + 1))
+    random.next() <
+    (resource > 3 ? specification.mixedItemChance : capacity / (capacity + 1))
       ? spikes
         ? 1
         : 1 + Math.floor(random.next() * capacity)
@@ -318,7 +327,9 @@ const makeAsteroid = ({
   );
 
   // Keep the rich fields full, but avoid overcrowding mixed rocks.
-  if (resource > 3) contents.length = Math.min(contents.length, 6);
+  if (resource > 3) {
+    contents.length = Math.min(contents.length, specification.mixedItemLimit);
+  }
 
   const position = randomPosition({ random, cell: region, size: regionSize });
 
@@ -366,14 +377,31 @@ const generateCandidates = ({
   }) as WreckCandidate[];
   const fields = generateFields({
     worldSeed,
-    from: Vec.add(from, Vec.create(-4000, -4000)),
-    to: Vec.add(to, Vec.create(4000, 4000)),
+    from: Vec.add(
+      from,
+      Vec.create(
+        -specification.fieldSearchMargin,
+        -specification.fieldSearchMargin,
+      ),
+    ),
+    to: Vec.add(
+      to,
+      Vec.create(
+        specification.fieldSearchMargin,
+        specification.fieldSearchMargin,
+      ),
+    ),
   });
   const asteroids = fields.flatMap((field) => {
     const seed = mix(regionSeed({ worldSeed, region }) ^ field.id);
     const random = createRandom(seed);
     // Rich gold fields stay sparser; small amethyst pockets hold short spikes.
-    const count = field.resource === 1 ? 45 : field.resource === 2 ? 65 : 75;
+    const count =
+      field.resource === 1
+        ? specification.asteroidCounts.amethyst
+        : field.resource === 2
+          ? specification.asteroidCounts.gold
+          : specification.asteroidCounts.mixed;
 
     return Array.from({ length: count }, (_, index) =>
       makeAsteroid({ seed, index, random, region, resource: field.resource }),
@@ -399,7 +427,7 @@ const generateCandidates = ({
 
 // Polygon variance is inward-only; this clearance beyond both full radii
 // also covers coordinate rounding, so rotation cannot close the gap.
-export const asteroidSpacing = 30;
+export const asteroidSpacing = specification.asteroidSpacing;
 
 // Reject crowded candidates in a stable order, independent of region load order.
 export const generateRegion = ({

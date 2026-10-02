@@ -1,0 +1,48 @@
+=== RUN   TestVelocityReplay
+convoy tol=1e-07 kind=0 sampled=512 total=6926 iterationFraction=0.7051 maxLinear=5.795135523445769e-08 maxAngular=3.607492540802504e-09 relativeP99=1.1799614949159924e-09 relativeMax=3.607492540802504e-09
+convoy tol=1e-07 kind=1 sampled=110 total=110 iterationFraction=0.7398 maxLinear=7.792898155639414e-11 maxAngular=4.6624926142158074e-12 relativeP99=3.2585878440016813e-12 relativeMax=4.6624926142158074e-12
+convoy tol=1e-07 kind=2 sampled=512 total=11616 iterationFraction=0.6267 maxLinear=5.002731350152768e-09 maxAngular=2.8860269729591437e-10 relativeP99=1.6058445946579938e-11 relativeMax=1.7407771024043368e-10
+spread tol=1e-07 kind=0 sampled=512 total=2687 iterationFraction=0.6968 maxLinear=6.326574290864577e-09 maxAngular=3.9240175171706415e-10 relativeP99=2.7677572727791063e-10 relativeMax=1.5986183270656696e-09
+spread tol=1e-07 kind=2 sampled=512 total=15815 iterationFraction=0.8081 maxLinear=4.061072429989866e-11 maxAngular=3.12194714524594e-13 relativeP99=1.4587581190883045e-16 relativeMax=1.382333525392862e-12
+contact tol=1e-07 kind=0 sampled=512 total=7008 iterationFraction=0.7520 maxLinear=3.4369880353775644e-11 maxAngular=2.379853258904774e-12 relativeP99=2.946410908653457e-11 relativeMax=3.4369880353775644e-11
+contact tol=1e-07 kind=1 sampled=64 total=64 iterationFraction=1.0000 maxLinear=0 maxAngular=0 relativeP99=0 relativeMax=0
+contact tol=1e-07 kind=2 sampled=512 total=33216 iterationFraction=0.9961 maxLinear=3.327497678441353e-10 maxAngular=2.30526674138698e-11 relativeP99=2.8954833886211173e-11 relativeMax=3.327497678441353e-10
+module tol=1e-07 kind=0 sampled=512 total=36939 iterationFraction=0.5957 maxLinear=8.46189796521791e-09 maxAngular=5.771134681253898e-10 relativeP99=1.519232928070502e-10 relativeMax=6.8269306146524e-10
+module tol=1e-07 kind=1 sampled=512 total=5111 iterationFraction=0.6311 maxLinear=9.917899959453728e-10 maxAngular=1.861084619747544e-10 relativeP99=3.6120131164163264e-11 relativeMax=2.4256421818012424e-10
+module tol=1e-07 kind=2 sampled=512 total=115264 iterationFraction=0.6548 maxLinear=6.582225207466106e-09 maxAngular=2.745019767047552e-10 relativeP99=1.699517229278408e-11 relativeMax=2.1432544380910373e-10
+convoy tol=1e-05 kind=0 sampled=512 total=6926 iterationFraction=0.6301 maxLinear=5.545849723234374e-06 maxAngular=2.836343061946023e-07 relativeP99=4.6697664321112255e-07 relativeMax=8.347520106824394e-07
+convoy tol=1e-05 kind=1 sampled=110 total=110 iterationFraction=0.6284 maxLinear=5.762212391389652e-07 maxAngular=2.4034394252581137e-08 relativeP99=1.16445810866991e-08 relativeMax=2.4034394252581137e-08
+convoy tol=1e-05 kind=2 sampled=512 total=11616 iterationFraction=0.6108 maxLinear=1.7984126053276493e-05 maxAngular=5.654328895099425e-07 relativeP99=1.4975508777492763e-08 relativeMax=5.654328895099425e-07
+spread tol=1e-05 kind=0 sampled=512 total=2687 iterationFraction=0.6516 maxLinear=1.534420206586206e-05 maxAngular=8.294705056283158e-07 relativeP99=8.294705056283158e-07 relativeMax=3.8524335513609224e-06
+spread tol=1e-05 kind=2 sampled=512 total=15815 iterationFraction=0.8047 maxLinear=9.20725347175028e-06 maxAngular=2.830214751448068e-07 relativeP99=4.0635897214448335e-09 relativeMax=8.84821647153025e-08
+contact tol=1e-05 kind=0 sampled=512 total=7008 iterationFraction=0.6260 maxLinear=6.964170988934687e-08 maxAngular=8.094632906671673e-10 relativeP99=3.5810407909565635e-09 relativeMax=6.179234107205517e-09
+contact tol=1e-05 kind=1 sampled=64 total=64 iterationFraction=0.7500 maxLinear=1.583879618287074e-07 maxAngular=1.0825015276522132e-09 relativeP99=1.4372854163889674e-08 relativeMax=1.4372854163889674e-08
+contact tol=1e-05 kind=2 sampled=512 total=33216 iterationFraction=0.9927 maxLinear=3.581136033712095e-08 maxAngular=2.480986253244888e-09 relativeP99=2.8436884911769777e-09 relativeMax=3.581136000405821e-08
+module tol=1e-05 kind=0 sampled=512 total=36939 iterationFraction=0.5120 maxLinear=2.5542277435590286e-06 maxAngular=1.1056921411789489e-07 relativeP99=3.028182904429855e-08 relativeMax=1.509848258869459e-07
+module tol=1e-05 kind=1 sampled=512 total=5111 iterationFraction=0.5298 maxLinear=2.614539620482003e-05 maxAngular=1.2076882682787726e-06 relativeP99=1.4256905711551582e-08 relativeMax=7.293545082559637e-07
+module tol=1e-05 kind=2 sampled=512 total=115264 iterationFraction=0.6228 maxLinear=7.34250828563529e-07 maxAngular=1.1514374589904897e-07 relativeP99=1.2023562969509688e-08 relativeMax=1.1514374589904897e-07
+convoy tol=0.0001 kind=0 sampled=512 total=6926 iterationFraction=0.5745 maxLinear=0.00042718512599720644 maxAngular=7.190016070079963e-06 relativeP99=6.347805575690412e-06 relativeMax=2.6124490816658918e-05
+convoy tol=0.0001 kind=1 sampled=110 total=110 iterationFraction=0.6068 maxLinear=7.490073998987101e-06 maxAngular=3.150998844902997e-07 relativeP99=2.3845332841609945e-07 relativeMax=3.150998844902997e-07
+convoy tol=0.0001 kind=2 sampled=512 total=11616 iterationFraction=0.5955 maxLinear=0.00010192295875246174 maxAngular=6.185495106558747e-06 relativeP99=3.009282871447405e-07 relativeMax=6.870970632380967e-06
+spread tol=0.0001 kind=0 sampled=512 total=2687 iterationFraction=0.6116 maxLinear=0.0002098025080268021 maxAngular=1.1341416893399792e-05 relativeP99=2.0431623780009814e-05 relativeMax=4.242795173810598e-05
+spread tol=0.0001 kind=2 sampled=512 total=15815 iterationFraction=0.8008 maxLinear=7.208965260937208e-05 maxAngular=1.7328374815051006e-06 relativeP99=8.84821647153025e-08 relativeMax=4.895685147966813e-07
+contact tol=0.0001 kind=0 sampled=512 total=7008 iterationFraction=0.5010 maxLinear=1.0848195647919726e-06 maxAngular=2.5833206192260594e-08 relativeP99=3.2587223391533164e-07 relativeMax=3.7308076458587604e-07
+contact tol=0.0001 kind=1 sampled=64 total=64 iterationFraction=0.6250 maxLinear=2.3226711372903566e-06 maxAngular=1.5874280785699302e-08 relativeP99=2.1076989148363048e-07 relativeMax=2.1076989148363048e-07
+contact tol=0.0001 kind=2 sampled=512 total=33216 iterationFraction=0.9910 maxLinear=1.5942165917492897e-07 maxAngular=1.1018620536817902e-08 relativeP99=1.8775161597156768e-08 relativeMax=1.5351877605589853e-07
+module tol=0.0001 kind=0 sampled=512 total=36939 iterationFraction=0.4507 maxLinear=0.00029083111473467843 maxAngular=1.0451500097929944e-05 relativeP99=1.3104073965266719e-06 relativeMax=1.0451500097929944e-05
+module tol=0.0001 kind=1 sampled=512 total=5111 iterationFraction=0.4841 maxLinear=0.00024931745343412064 maxAngular=1.151628230156021e-05 relativeP99=1.4437000726738298e-07 relativeMax=6.954983860994538e-06
+module tol=0.0001 kind=2 sampled=512 total=115264 iterationFraction=0.6035 maxLinear=0.00036524394509998933 maxAngular=3.36951899737592e-06 relativeP99=1.7704398373036279e-07 relativeMax=8.829011358528335e-06
+convoy tol=0.001 kind=0 sampled=512 total=6926 iterationFraction=0.5015 maxLinear=0.005071873199041461 maxAngular=9.39563090343043e-05 relativeP99=9.687859879213286e-05 relativeMax=0.0001866536437510727
+convoy tol=0.001 kind=1 sampled=110 total=110 iterationFraction=0.5159 maxLinear=6.556687724653459e-05 maxAngular=2.739626049963473e-06 relativeP99=2.3915046417910535e-06 relativeMax=2.739626049963473e-06
+convoy tol=0.001 kind=2 sampled=512 total=11616 iterationFraction=0.5735 maxLinear=0.003756066477342442 maxAngular=9.190406937653606e-05 relativeP99=1.908546049846498e-05 relativeMax=0.00023577767211301526
+spread tol=0.001 kind=0 sampled=512 total=2687 iterationFraction=0.5146 maxLinear=0.003299945899387566 maxAngular=0.00014456015827695248 relativeP99=0.0002797558784691213 relativeMax=0.001085247212019419
+spread tol=0.001 kind=2 sampled=512 total=15815 iterationFraction=0.7957 maxLinear=0.0005183648665125397 maxAngular=1.2460069329645052e-05 relativeP99=1.5120125632784157e-06 relativeMax=2.141977580450748e-05
+contact tol=0.001 kind=0 sampled=512 total=7008 iterationFraction=0.5010 maxLinear=1.0848195647919726e-06 maxAngular=2.5833206192260594e-08 relativeP99=3.2587223391533164e-07 relativeMax=3.7308076458587604e-07
+contact tol=0.001 kind=1 sampled=64 total=64 iterationFraction=0.5312 maxLinear=1.740027429099123e-05 maxAngular=1.199689189240738e-07 relativeP99=1.554163914401802e-06 relativeMax=1.554163914401802e-06
+contact tol=0.001 kind=2 sampled=512 total=33216 iterationFraction=0.9893 maxLinear=3.5249584661879477e-06 maxAngular=2.4422049202735274e-07 relativeP99=1.5351877605589853e-07 relativeMax=3.5249584661879477e-06
+module tol=0.001 kind=0 sampled=512 total=36939 iterationFraction=0.3914 maxLinear=0.0021470618071900674 maxAngular=9.361014380193655e-05 relativeP99=2.2609041542900874e-05 relativeMax=9.361014380193655e-05
+module tol=0.001 kind=1 sampled=512 total=5111 iterationFraction=0.4250 maxLinear=0.002652905979995301 maxAngular=0.0001225410165452967 relativeP99=1.4985713998050265e-06 relativeMax=7.400572251228495e-05
+module tol=0.001 kind=2 sampled=512 total=115264 iterationFraction=0.5745 maxLinear=0.0015170312344917173 maxAngular=0.00021290859152767183 relativeP99=9.829232112281911e-06 relativeMax=0.00010159865551498294
+--- PASS: TestVelocityReplay (0.92s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/internal/physics	0.921s

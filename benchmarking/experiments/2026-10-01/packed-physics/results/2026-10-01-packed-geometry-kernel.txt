@@ -1,0 +1,25 @@
+goos: linux
+goarch: amd64
+pkg: github.com/burntcustard/unicorn-mining-co/internal/collision/shape
+cpu: AMD Ryzen 7 5800X3D 8-Core Processor           
+BenchmarkPackedSeparation/overlap/scalar         	11787397	        20.46 ns/op
+BenchmarkPackedSeparation/overlap/scalar         	11667464	        21.93 ns/op
+BenchmarkPackedSeparation/overlap/scalar         	11756154	        20.55 ns/op
+BenchmarkPackedSeparation/overlap/scalar         	11777204	        20.41 ns/op
+BenchmarkPackedSeparation/overlap/scalar         	11736732	        20.36 ns/op
+BenchmarkPackedSeparation/overlap/simd           	17217230	        13.92 ns/op
+BenchmarkPackedSeparation/overlap/simd           	17186656	        13.96 ns/op
+BenchmarkPackedSeparation/overlap/simd           	17139424	        13.96 ns/op
+BenchmarkPackedSeparation/overlap/simd           	17046608	        13.96 ns/op
+BenchmarkPackedSeparation/overlap/simd           	17084162	        13.98 ns/op
+BenchmarkPackedSeparation/separated/scalar       	26215342	         9.218 ns/op
+BenchmarkPackedSeparation/separated/scalar       	26019297	         9.184 ns/op
+BenchmarkPackedSeparation/separated/scalar       	26063289	         9.216 ns/op
+BenchmarkPackedSeparation/separated/scalar       	26047106	         9.211 ns/op
+BenchmarkPackedSeparation/separated/scalar       	26068424	         9.208 ns/op
+BenchmarkPackedSeparation/separated/simd         	21839492	        10.97 ns/op
+BenchmarkPackedSeparation/separated/simd         	21857226	        10.95 ns/op
+BenchmarkPackedSeparation/separated/simd         	21923299	        10.96 ns/op
+BenchmarkPackedSeparation/separated/simd         	21996555	        10.95 ns/op
+BenchmarkPackedSeparation/separated/simd         	21833420	        10.96 ns/op
+PASS

@@ -10,8 +10,7 @@ kill_timeout = '10s'
 
 [build]
 [env]
-NODE_ENV = 'production'
-NODE_OPTIONS = '--max-semi-space-size=16'
+APP_ENV = 'production'
 PORT = '8080'
 WORLD_SEED = '25'
 
@@ -32,7 +31,7 @@ path = '/healthz'
 [[vm]]
 # Shared CPU quota is pooled: two vCPUs provide a 12.5% sustained allowance;
 # four vCPUs provide 25% if this tier proves insufficient after deployment.
-# Measurements: docs/performance-investigation-2026-09-26-three-player.md
+# Measurements: docs/experiments/performance-investigation-2026-09-26-three-player.md
 memory = '512mb'
 cpu_kind = 'shared'
 cpus = 2

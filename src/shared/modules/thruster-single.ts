@@ -1,14 +1,19 @@
 import { Module } from './module';
-import { colors } from '../colors';
+import { moduleSpecifications } from '../specification/modules';
+
+const specification = moduleSpecifications.thrusterSingle;
 
 export class ThrusterSingle extends Module {
-  static shades = colors.violet;
-  static disablePhysics = true;
-  static health = 15;
-  static label = 'THRUSTERS *1 XL';
-  static model: any[] = [{ flareSize: 7, thrusterNozzleSide: 0 }];
-  static price = 200;
-  static forwardThrust = 22;
-  static rotationalThrust = 14;
-  static zIndex = -1;
+  static shades = specification.shades;
+  static disablePhysics = specification.disablePhysics;
+  static health = specification.health;
+  static label = specification.label;
+  static model: any[] = specification.flareSizes.map((flareSize, index) => ({
+    flareSize,
+    thrusterNozzleSide: specification.nozzleSides[index],
+  }));
+  static price = specification.price;
+  static forwardThrust = specification.forwardThrust;
+  static rotationalThrust = specification.rotationalThrust;
+  static zIndex = specification.zIndex;
 }

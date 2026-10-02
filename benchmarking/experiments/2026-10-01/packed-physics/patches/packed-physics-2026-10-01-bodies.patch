@@ -1,0 +1,70 @@
+--- a/internal/physics/body.go
++++ b/internal/physics/body.go
+@@ -17,12 +17,16 @@
+ 	C Vec.Vector
+ 	A float64
+ }
++type SolverState struct {
++ CPosition Position
++ CVelocity Velocity
++}
++
+ type Body struct {
++ *SolverState
+ 	World                                 *World
+ 	IslandFlag, Destroyed, Parked         bool
+ 	InvMass, InvI                         float64
+-	CVelocity                             Velocity
+-	CPosition                             Position
+ 	LinearVelocity                        Vec.Vector
+ 	AngularVelocity                       float64
+ 	ContactList                           *ContactEdge
+@@ -76,7 +80,7 @@
+ }
+ 
+ func newBody(world *World) *Body {
+-	return &Body{World: world, proxyRadius: math.Inf(1), proxyTransform: Vec.Transform(0, 0, 0), Xf: Vec.Transform(0, 0, 0), Sweep: collision.NewSweep()}
++	return &Body{SolverState: world.allocateSolverState(), World: world, proxyRadius: math.Inf(1), proxyTransform: Vec.Transform(0, 0, 0), Xf: Vec.Transform(0, 0, 0), Sweep: collision.NewSweep()}
+ }
+ func (b *Body) SetTransform(position Vec.Vector, angle float64) {
+ 	if b.World.Locked {
+--- /dev/null
++++ b/internal/physics/packed-state_test.go
+@@ -0,0 +1,8 @@
++package physics
++import("testing";"github.com/burntcustard/unicorn-mining-co/internal/specification")
++func TestPackedStateLifecycle(t *testing.T){
++ spec,err:=specification.Load();if err!=nil{t.Fatal(err)};w:=NewWorld(spec.Simulation)
++ live:=w.CreateBody();live.CVelocity.W=17
++ for i:=0;i<1000;i++{b:=w.CreateBody();if b.SolverState==live.SolverState||b.CVelocity.W!=0{t.Fatal("state alias or stale reuse")};b.CVelocity.W=19;if !w.DestroyBody(b)||w.DestroyBody(b)||b.SolverState!=nil{t.Fatal("invalid release")}}
++ if live.CVelocity.W!=17||len(w.solverPages)!=1{t.Fatal("pool leak or corrupted live state")}
++}
+--- a/internal/physics/world.go
++++ b/internal/physics/world.go
+@@ -8,6 +8,8 @@
+ )
+ 
+ type World struct {
++ solverPages []*[64]SolverState
++ solverFree []*SolverState
+ 	Solver                           *Solver
+ 	BroadPhase                       *collision.BroadPhase[*Fixture]
+ 	ContactList                      *Contact
+@@ -76,6 +78,8 @@
+ 	if b == w.BodyList {
+ 		w.BodyList = b.Next
+ 	}
++	w.solverFree=append(w.solverFree,b.SolverState)
++ b.SolverState=nil
+ 	b.Destroyed = true
+ 	return true
+ }
+@@ -307,3 +311,8 @@
+ 	c.TOIPrev, c.TOINext = nil, nil
+ 	c.toiListed = false
+ }
++
++func (w *World) allocateSolverState() *SolverState {
++ if len(w.solverFree)==0 {page:=new([64]SolverState);w.solverPages=append(w.solverPages,page);for i:=63;i>=0;i--{w.solverFree=append(w.solverFree,&page[i])}}
++ last:=len(w.solverFree)-1;state:=w.solverFree[last];w.solverFree[last]=nil;w.solverFree=w.solverFree[:last];*state=SolverState{};return state
++}

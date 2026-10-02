@@ -76,4 +76,15 @@ export const stationGeometry = {
   core,
   panels: stationPanels,
   sides: stationSides,
+} satisfies {
+  bay: {
+    back: number;
+    corner: number;
+    lip: number;
+    nose: number;
+    seam: number;
+  };
+  core: ShapeOutline;
+  panels: ShapeOutline[];
+  sides: { opening: boolean; shapeOutline: ShapeOutline }[];
 };

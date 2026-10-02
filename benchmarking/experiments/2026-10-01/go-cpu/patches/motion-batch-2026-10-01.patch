@@ -1,0 +1,131 @@
+diff --git a/internal/simulation/update-world.go b/internal/simulation/update-world.go
+index e83c118..cb27174 100644
+--- a/internal/simulation/update-world.go
++++ b/internal/simulation/update-world.go
+@@ -83,7 +83,7 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
+ 	}
+ 	clear(world.contactHandlers)
+ 	world.contactHandlers = world.contactHandlers[:0]
+-	world.Entities.ForEach(func(e Entity, _ int64) { e.Base().RoundMotion() })
++	roundEntityMotion(world)
+ 	world.Tick += uint64(ticks)
+ 	return events
+ }
+diff --git a/internal/simulation/world.go b/internal/simulation/world.go
+index 48f2ee7..ac2460c 100644
+--- a/internal/simulation/world.go
++++ b/internal/simulation/world.go
+@@ -25,6 +25,7 @@ type World struct {
+ 	MovementParents []Entity
+ 	movementParents []movementParent
+ 	contactHandlers []ContactHandler
++	motionObjects   []*GameObject
+ 	NextEntityID    int64
+ 	Players         *utilities.OrderedMap[int64, Player]
+ 	Random          *random.Random
+diff --git a/internal/simulation/motion-rounding-default.go b/internal/simulation/motion-rounding-default.go
+new file mode 100644
+--- /dev/null
++++ b/internal/simulation/motion-rounding-default.go
+@@ -0,0 +1,10 @@
++//go:build !goexperiment.simd || !amd64
++
++package simulation
++
++func roundEntityMotion(world *World) {
++	world.Entities.ForEach(func(e Entity, _ int64) {
++		object := e.Base()
++		if !skipInactiveRounding || !object.InactivePhysics { object.RoundMotion() }
++	})
++}
+diff --git a/internal/simulation/motion-rounding-simd.go b/internal/simulation/motion-rounding-simd.go
+new file mode 100644
+--- /dev/null
++++ b/internal/simulation/motion-rounding-simd.go
+@@ -0,0 +1,45 @@
++//go:build goexperiment.simd && amd64
++
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"simd/archsimd"
++	"unsafe"
++)
++
++var batchMotionRounding = archsimd.X86.AVX2() && utilities.SIMDFeature("motion-batch")
++
++func roundEntityMotion(world *World) {
++	if !batchMotionRounding {
++		world.Entities.ForEach(func(e Entity, _ int64) {
++			object := e.Base()
++			if !skipInactiveRounding || !object.InactivePhysics { object.RoundMotion() }
++		})
++		return
++	}
++	clear(world.motionObjects)
++	world.motionObjects = world.motionObjects[:0]
++	world.Entities.ForEach(func(e Entity, _ int64) {
++		object := e.Base()
++		if !skipInactiveRounding || !object.InactivePhysics { world.motionObjects = append(world.motionObjects, object) }
++	})
++	roundMotionBatch(world.motionObjects)
++}
++
++// This region contains no Go calls or scalar floating-point work. Cleanup occurs
++// once after the whole batch, with no scalar floats live across the boundary.
++//
++//go:noinline
++func roundMotionBatch(objects []*GameObject) {
++	scale4, half4 := archsimd.BroadcastFloat64x4(1e8), archsimd.BroadcastFloat64x4(0.5)
++	scale2, half2 := archsimd.BroadcastFloat64x2(1e8), archsimd.BroadcastFloat64x2(0.5)
++	for _, object := range objects {
++		// Position/velocity and rotation/spin are consecutive float64 fields.
++		motion := (*[4]float64)(unsafe.Pointer(&object.Position))
++		angles := (*[2]float64)(unsafe.Pointer(&object.Rotation))
++		archsimd.LoadFloat64x4Array(motion).Mul(scale4).Add(half4).Floor().Div(scale4).StoreArray(motion)
++		archsimd.LoadFloat64x2Array(angles).Mul(scale2).Add(half2).Floor().Div(scale2).StoreArray(angles)
++	}
++	archsimd.ClearAVXUpperBits()
++}
+diff --git a/internal/simulation/motion-rounding-simd_test.go b/internal/simulation/motion-rounding-simd_test.go
+new file mode 100644
+--- /dev/null
++++ b/internal/simulation/motion-rounding-simd_test.go
+@@ -0,0 +1,36 @@
++//go:build goexperiment.simd && amd64
++
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"math"
++	"math/rand/v2"
++	"simd/archsimd"
++	"testing"
++)
++
++func TestMotionBatchMatchesScalar(t *testing.T) {
++	if !archsimd.X86.AVX2() { t.Skip("AVX2 unavailable") }
++	r := rand.New(rand.NewPCG(23, 41))
++	for trial := range 10000 {
++		objects := make([]*GameObject, trial%17)
++		for i := range objects {
++			o := &GameObject{}
++			values := []*float64{&o.Position.X, &o.Position.Y, &o.Velocity.X, &o.Velocity.Y, &o.Rotation, &o.Spin}
++			for _, value := range values { *value = (r.Float64()-0.5)*1e6 }
++			objects[i] = o
++		}
++		before := make([]GameObject, len(objects))
++		for i, object := range objects { before[i] = *object }
++		roundMotionBatch(objects)
++		for i, object := range objects {
++			a, b := object, &before[i]
++			got := []float64{a.Position.X, a.Position.Y, a.Velocity.X, a.Velocity.Y, a.Rotation, a.Spin}
++			input := []float64{b.Position.X, b.Position.Y, b.Velocity.X, b.Velocity.Y, b.Rotation, b.Spin}
++			for j := range got {
++				if math.Float64bits(got[j]) != math.Float64bits(utilities.RoundMotion(input[j])) { t.Fatalf("trial %d object %d field %d differs", trial, i, j) }
++			}
++		}
++	}
++}

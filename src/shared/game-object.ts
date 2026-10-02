@@ -1,11 +1,12 @@
 import * as Vec from './vector';
 import { createRandom, type Random } from './seeded-random';
 import { localMovement } from './simulation/local-movement';
-import { round } from './utilities/round';
+import { roundMotion } from './utilities/round';
+import { simulationSpecification } from './specification/simulation';
 import { type Collider } from './collision/types';
 import { type SimulationWorld } from './simulation/world';
 
-const maxSpeedDrag = 0.9;
+const motion = simulationSpecification.motion;
 let nextId = -1;
 
 export class GameObject {
@@ -111,9 +112,19 @@ export class GameObject {
    * Keep predicted and authoritative motion on the same numeric grid.
    */
   roundMotion() {
-    Vec.setXY(this.position, round(this.position.x), round(this.position.y));
-    this.rotation = round(this.rotation);
-    this.spin = round(this.spin);
+    Vec.setXY(
+      this.position,
+      roundMotion(this.position.x),
+      roundMotion(this.position.y),
+    );
+    // Keep substep speed-limit branches consistent across the Go and JS runtimes.
+    Vec.setXY(
+      this.velocity,
+      roundMotion(this.velocity.x),
+      roundMotion(this.velocity.y),
+    );
+    this.rotation = roundMotion(this.rotation);
+    this.spin = roundMotion(this.spin);
   }
   update(dt: number) {
     if (this.dead || this.buried) return;
@@ -126,15 +137,20 @@ export class GameObject {
     if (this.angularDrag) this.spin *= Math.exp(-this.angularDrag * dt);
     this.rotation += this.spin * dt;
 
-    const { position, velocity, drag = 0.15, maxSpeed = 272 } = this;
+    const {
+      position,
+      velocity,
+      drag = motion.defaultDrag,
+      maxSpeed = motion.defaultMaxSpeed,
+    } = this;
     const speedSquared = velocity.x * velocity.x + velocity.y * velocity.y;
 
-    if (speedSquared < 1) velocity.x = velocity.y = 0;
+    if (speedSquared < motion.minimumSpeedSquared) velocity.x = velocity.y = 0;
     else {
       const speed = Math.sqrt(speedSquared);
       const kept =
         speed > maxSpeed
-          ? Math.max(maxSpeed, speed * maxSpeedDrag ** (dt * 60)) / speed
+          ? Math.max(maxSpeed, speed * motion.maxSpeedDrag ** (dt * 60)) / speed
           : Math.exp(-drag * dt);
 
       Vec.scale(velocity, kept, velocity);

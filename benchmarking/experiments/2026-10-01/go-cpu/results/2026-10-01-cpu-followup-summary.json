@@ -1,0 +1,33 @@
+{
+  "referenceSummaries": {
+    "original": {
+      "mean": 2.130139318783022,
+      "geo": 2.1177034915056514,
+      "aggregate": 2.0759041445935416,
+      "min": 1.5865548946839165,
+      "max": 2.624977793569018,
+      "meanCpuChange": -52.48709088932435,
+      "aggregateCpuChange": -51.828218918277734
+    },
+    "checkpoint": {
+      "mean": 1.0346896910348093,
+      "geo": 1.0327993216060736,
+      "aggregate": 1.0431756789748603,
+      "min": 0.8223447765837998,
+      "max": 1.0976735360160368,
+      "meanCpuChange": -2.9754100472193747,
+      "aggregateCpuChange": -4.138869400913325
+    },
+    "node": {
+      "mean": 7.360067397125056,
+      "geo": 6.837938557695674,
+      "aggregate": 5.110260769225157,
+      "min": 3.962798624537554,
+      "max": 12.208740451234679,
+      "meanCpuChange": -84.2769682527044,
+      "aggregateCpuChange": -80.43152697760226
+    }
+  },
+  "maxPacketByteIncreasePercent": 4.246459983232631,
+  "measuredProcesses": 448
+}

@@ -1,0 +1,1394 @@
+diff --git a/benchmarking/go-cpu-paired.mjs b/benchmarking/go-cpu-paired.mjs
+index 996fce5..441d0b9 100644
+--- a/benchmarking/go-cpu-paired.mjs
++++ b/benchmarking/go-cpu-paired.mjs
+@@ -23,8 +23,16 @@ const workloads = (
+   process.env.WORKLOADS || 'convoy,spread,contact,module'
+ ).split(',');
+ const variants = {
+-  before: { executable: before, GOGC: process.env.BEFORE_GOGC || '100' },
+-  after: { executable: after, GOGC: process.env.AFTER_GOGC || '800' },
++  before: {
++    executable: before,
++    GOGC: process.env.BEFORE_GOGC || '100',
++    SIMD: process.env.BEFORE_SIMD,
++  },
++  after: {
++    executable: after,
++    GOGC: process.env.AFTER_GOGC || '800',
++    SIMD: process.env.AFTER_SIMD,
++  },
+ };
+ const results = [];
+ const median = (values) =>
+@@ -107,6 +115,7 @@ for (const count of players) {
+               ...process.env,
+               GOMAXPROCS: '1',
+               GOGC: value.GOGC,
++              GO_SERVER_SIMD: value.SIMD ?? process.env.GO_SERVER_SIMD ?? '',
+               SESSION_PLAYERS: String(count),
+               SESSION_WORKLOAD: workload,
+               SESSION_TICKS: String(ticks),
+diff --git a/internal/collision/game/game-collisions.go b/internal/collision/game/game-collisions.go
+index c172e82..4f824cf 100644
+--- a/internal/collision/game/game-collisions.go
++++ b/internal/collision/game/game-collisions.go
+@@ -34,6 +34,7 @@ type impactRecord struct {
+ 	impact  float64
+ }
+ type GameCollisions struct {
++	geometry       broadGeometry
+ 	world          *physics.World
+ 	catalog        specification.Catalog
+ 	manifold       collision.WorldManifold
+@@ -323,6 +324,9 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
+ 	return g.contacts
+ }
+ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
++	if free, ok := g.findFreePacked(motions); ok {
++		return free
++	}
+ 	count := len(motions)
+ 	if len(g.free) < count {
+ 		g.free = make([]bool, count*2)
+diff --git a/internal/collision/shape-distance.go b/internal/collision/shape-distance.go
+index 558bb71..57f9bcb 100644
+--- a/internal/collision/shape-distance.go
++++ b/internal/collision/shape-distance.go
+@@ -40,12 +40,14 @@ func ComputeDistance(output *DistanceOutput, cache *SimplexCache, input Distance
+ 			break
+ 		}
+ 		vertex := &simplex.v[simplex.count]
+-		Vec.UnrotateInto(&temp, xfA.Q, Vec.Scale(d, -1))
+-		vertex.indexA = proxyA.GetSupport(temp)
+-		Vec.TransformInto(&vertex.wA, xfA, proxyA.GetVertex(vertex.indexA))
+-		Vec.UnrotateInto(&temp, xfB.Q, d)
+-		vertex.indexB = proxyB.GetSupport(temp)
+-		Vec.TransformInto(&vertex.wB, xfB, proxyB.GetVertex(vertex.indexB))
++		if !supportVertex(vertex, proxyA, xfA, proxyB, xfB, d) {
++			Vec.UnrotateInto(&temp, xfA.Q, Vec.Scale(d, -1))
++			vertex.indexA = proxyA.GetSupport(temp)
++			Vec.TransformInto(&vertex.wA, xfA, proxyA.GetVertex(vertex.indexA))
++			Vec.UnrotateInto(&temp, xfB.Q, d)
++			vertex.indexB = proxyB.GetSupport(temp)
++			Vec.TransformInto(&vertex.wB, xfB, proxyB.GetVertex(vertex.indexB))
++		}
+ 		vertex.w = Vec.Subtract(vertex.wB, vertex.wA)
+ 		iter++
+ 		duplicate := false
+diff --git a/internal/collision/shape/polygon-polygon-contact.go b/internal/collision/shape/polygon-polygon-contact.go
+index 8753771..033ba89 100644
+--- a/internal/collision/shape/polygon-polygon-contact.go
++++ b/internal/collision/shape/polygon-polygon-contact.go
+@@ -8,7 +8,7 @@ import (
+ 	"math"
+ )
+ 
+-func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
++func findMaxSeparationScalar(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
+ 	var xf Vec.TransformValue
+ 	var n, v1 Vec.Vector
+ 	Vec.DetransformTransform(&xf, xf2, xf1)
+diff --git a/internal/collision/shape/polygon-shape.go b/internal/collision/shape/polygon-shape.go
+index 5a7801b..af103ec 100644
+--- a/internal/collision/shape/polygon-shape.go
++++ b/internal/collision/shape/polygon-shape.go
+@@ -8,6 +8,7 @@ import (
+ )
+ 
+ type PolygonShape struct {
++	geometry polygonGeometry
+ 	collision.BaseShape
+ 	Centroid Vec.Vector
+ 	Normals  []Vec.Vector
+@@ -95,11 +96,13 @@ func (p *PolygonShape) Set(vertices []Vec.Vector, linearSlop float64) {
+ 		p.Normals[i] = Vec.Normalize(Vec.Vector{X: next.Y - vertex.Y, Y: vertex.X - next.X})
+ 	}
+ 	p.Centroid = computeCentroid(p.Vertices, m)
++	p.packGeometry()
+ }
+ func (p *PolygonShape) SetAsBox(hx, hy float64) {
+ 	p.Vertices = []Vec.Vector{{X: hx, Y: -hy}, {X: hx, Y: hy}, {X: -hx, Y: hy}, {X: -hx, Y: -hy}}
+ 	p.Normals = []Vec.Vector{{X: 1}, {Y: 1}, {X: -1}, {Y: -1}}
+ 	p.Count = 4
++	p.packGeometry()
+ }
+ func computeCentroid(vs []Vec.Vector, count int) Vec.Vector {
+ 	var c, temp, pRef Vec.Vector
+diff --git a/internal/physics/contact.go b/internal/physics/contact.go
+index b21c6b3..cfdc384 100644
+--- a/internal/physics/contact.go
++++ b/internal/physics/contact.go
+@@ -106,7 +106,7 @@ func (c *Contact) solvePositionConstraint(toiA, toiB *Body) float64 {
+ 	}
+ 	cA, aA, cB, aB := positionA.C, positionA.A, positionB.C, positionB.A
+ 	for j := 0; j < c.PPointCount; j++ {
+-		xfA, xfB := Vec.Transform(cA.X, cA.Y, aA), Vec.Transform(cB.X, cB.Y, aB)
++		xfA, xfB := Vec.TransformPair(cA, aA, cB, aB)
+ 		var normal, point, pointA, pointB, planePoint, clipPoint Vec.Vector
+ 		var separation float64
+ 		switch c.PType {
+@@ -163,7 +163,7 @@ func (c *Contact) InitVelocityConstraint() {
+ 	cA, aA, vA, wA := bodyA.CPosition.C, bodyA.CPosition.A, bodyA.CVelocity.V, bodyA.CVelocity.W
+ 	cB, aB, vB, wB := bodyB.CPosition.C, bodyB.CPosition.A, bodyB.CVelocity.V, bodyB.CVelocity.W
+ 	mA, mB, iA, iB := c.InvMassA, c.InvMassB, c.InvIA, c.InvIB
+-	xfA, xfB := Vec.Transform(cA.X, cA.Y, aA), Vec.Transform(cB.X, cB.Y, aB)
++	xfA, xfB := Vec.TransformPair(cA, aA, cB, aB)
+ 	var wm collision.WorldManifold
+ 	c.Manifold.GetWorldManifold(&wm, xfA, c.PRadiusA, xfB, c.PRadiusB)
+ 	c.VNormal = wm.Normal
+diff --git a/internal/server/binary-replication.go b/internal/server/binary-replication.go
+index d67efa1..60c54d4 100644
+--- a/internal/server/binary-replication.go
++++ b/internal/server/binary-replication.go
+@@ -551,12 +551,27 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
+ 	// Bound cached observer slots even when players come and go. Colliding
+ 	// slots use the ordinary membership map, and epochs invalidate reloads.
+ 	observerIndex := int(m.cacheID % 64)
++	thresholds := [5]float64{ranges.EntityLoad * ranges.EntityLoad, ranges.EntityUnload * ranges.EntityUnload, ranges.MarkerLoad * ranges.MarkerLoad, ranges.MarkerUnload * ranges.MarkerUnload, visibleSquared}
++	var masks uint32
+ 	for i, e := range list {
+ 		object := view.objects[i]
+-		dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
+-		distance := dx*dx + dy*dy
++		var distance float64
++		var flags uint32
++		if vectorReplication {
++			if i&3 == 0 {
++				masks = replicationMasks(view.X[i:], view.Y[i:], position.X, position.Y, thresholds)
++			}
++			flags = masks >> (i & 3)
++		} else {
++			dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
++			distance = dx*dx + dy*dy
++		}
+ 		station := view.Kinds[i]&1 != 0
+-		if distance > ranges.EntityUnload*ranges.EntityUnload && object.ID != options.ShipID && (distance > ranges.MarkerUnload*ranges.MarkerUnload || !station) {
++		far := distance > thresholds[1] && (distance > thresholds[3] || !station)
++		if vectorReplication {
++			far = flags&(1<<20) != 0 && (flags&(1<<24) != 0 || !station)
++		}
++		if far && object.ID != options.ShipID {
+ 			continue
+ 		}
+ 		var previous *member
+@@ -580,7 +595,18 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
+ 				reach = ranges.MarkerUnload
+ 			}
+ 		}
+-		if object.ID != options.ShipID && !(distance <= reach*reach) {
++		within := distance <= reach*reach
++		if vectorReplication {
++			bit := 0
++			if station {
++				bit = 8
++			}
++			if loaded {
++				bit += 4
++			}
++			within = flags&(1<<bit) != 0
++		}
++		if object.ID != options.ShipID && !within {
+ 			continue
+ 		}
+ 		m.entityIDs = append(m.entityIDs, uint64(object.ID))
+@@ -591,7 +617,11 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
+ 			membershipChanged = true
+ 		}
+ 		interval := distantInterval
+-		if distance <= visibleSquared {
++		visible := distance <= visibleSquared
++		if vectorReplication {
++			visible = flags&(1<<16) != 0
++		}
++		if visible {
+ 			interval = visibleInterval
+ 		}
+ 		phase := 0
+diff --git a/internal/server/game-session.go b/internal/server/game-session.go
+index f0cbc3f..a13d908 100644
+--- a/internal/server/game-session.go
++++ b/internal/server/game-session.go
+@@ -52,6 +52,7 @@ type GameSession struct {
+ 	inputs          map[int64]protocol.InputFrame
+ 	binaryBatch     *BinarySnapshotBatch
+ 	replicationView *ReplicationView
++	playerPositions Vec.PositionSet
+ 	regions         *RegionManager
+ 	regionsSyncedAt float64
+ 	worldSeed       float64
+@@ -205,18 +206,13 @@ func (s *GameSession) Tick(ticks uint64) {
+ 	// Visibility and physics activation are independent. Marker entities remain
+ 	// available to replication while distant bodies have no collision proxies.
+ 	positions := s.positions()
++	s.playerPositions.Set(positions)
+ 	world.Entities.ForEach(func(e simulation.Entity, _ int64) {
+ 		object := e.Base()
+ 		if object.Kind != "station" {
+ 			return
+ 		}
+-		object.InactivePhysics = true
+-		for _, position := range positions {
+-			if Vec.DistanceSquared(object.Position, position) <= 2000*2000 {
+-				object.InactivePhysics = false
+-				break
+-			}
+-		}
++		object.InactivePhysics = !s.playerPositions.AnyWithin(object.Position, 2000*2000)
+ 	})
+ 	tick := world.Tick
+ 	clear(s.inputs)
+diff --git a/internal/simulation/game-object.go b/internal/simulation/game-object.go
+index 2dc6df4..d980e3f 100644
+--- a/internal/simulation/game-object.go
++++ b/internal/simulation/game-object.go
+@@ -151,6 +151,9 @@ func (o *GameObject) Hitbox() []*collision.Collider {
+ 	return body
+ }
+ func (o *GameObject) RoundMotion() {
++	if roundMotionSIMD(o) {
++		return
++	}
+ 	o.Position.X = utilities.RoundMotion(o.Position.X)
+ 	o.Position.Y = utilities.RoundMotion(o.Position.Y)
+ 	o.Velocity.X = utilities.RoundMotion(o.Velocity.X)
+diff --git a/internal/simulation/update-tier.go b/internal/simulation/update-tier.go
+index b572d6f..2cc945c 100644
+--- a/internal/simulation/update-tier.go
++++ b/internal/simulation/update-tier.go
+@@ -26,6 +26,7 @@ type scheduledEntity struct {
+ type movementSchedule struct {
+ 	observers, parents, entities []Entity
+ 	positions                    []Vec.Vector
++	observerPositions            Vec.PositionSet
+ 	entries                      []scheduledEntity
+ 	parentRecords                []movementParent
+ }
+@@ -80,6 +81,7 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
+ 	for _, observer := range schedule.observers {
+ 		schedule.positions = append(schedule.positions, observer.Base().Position)
+ 	}
++	schedule.observerPositions.Set(schedule.positions)
+ 	visible, distant, drift := rules.UpdateTiers["visible"], rules.UpdateTiers["distant"], rules.UpdateTiers["drift"]
+ 	radiusSquared := rules.VisibleRange * rules.VisibleRange
+ 	clear(schedule.entries)
+@@ -89,11 +91,8 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
+ 		tier := visible
+ 		if len(schedule.positions) > 0 {
+ 			tier = distant
+-			for _, position := range schedule.positions {
+-				if Vec.DistanceSquared(object.Position, position) <= radiusSquared {
+-					tier = visible
+-					break
+-				}
++			if schedule.observerPositions.AnyWithin(object.Position, radiusSquared) {
++				tier = visible
+ 			}
+ 		}
+ 		_, craft := entity.(CraftEntity)
+diff --git a/docs/licenses/go-math.txt b/docs/licenses/go-math.txt
+new file mode 100644
+index 0000000..2a7cf70
+--- /dev/null
++++ b/docs/licenses/go-math.txt
+@@ -0,0 +1,27 @@
++Copyright 2009 The Go Authors.
++
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions are
++met:
++
++   * Redistributions of source code must retain the above copyright
++notice, this list of conditions and the following disclaimer.
++   * Redistributions in binary form must reproduce the above
++copyright notice, this list of conditions and the following disclaimer
++in the documentation and/or other materials provided with the
++distribution.
++   * Neither the name of Google LLC nor the names of its
++contributors may be used to endorse or promote products derived from
++this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/internal/collision/game/bounds-default.go b/internal/collision/game/bounds-default.go
+new file mode 100644
+index 0000000..d9a75d2
+--- /dev/null
++++ b/internal/collision/game/bounds-default.go
+@@ -0,0 +1,7 @@
++//go:build !goexperiment.simd || !amd64
++
++package game
++
++type broadGeometry struct{}
++
++func (*GameCollisions) findFreePacked([]*BodyRecord) ([]bool, bool) { return nil, false }
+diff --git a/internal/collision/game/bounds-simd.go b/internal/collision/game/bounds-simd.go
+new file mode 100644
+index 0000000..75bad74
+--- /dev/null
++++ b/internal/collision/game/bounds-simd.go
+@@ -0,0 +1,135 @@
++//go:build goexperiment.simd && amd64
++
++package game
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"math"
++	"math/bits"
++	"simd/archsimd"
++	"slices"
++)
++
++type broadGeometry struct{ values, sorted []float64 }
++
++var packedBounds = archsimd.X86.AVX2() && (utilities.SIMDFeature("bounds") || utilities.SIMDFeature("bounds-scalar"))
++var vectorBounds = archsimd.X86.AVX2() && utilities.SIMDFeature("bounds")
++
++func (g *GameCollisions) findFreePacked(motions []*BodyRecord) ([]bool, bool) {
++	if !packedBounds {
++		return nil, false
++	}
++	n := len(motions)
++	stride := (n + 3) &^ 3
++	if len(g.geometry.values) < stride*6 {
++		g.geometry.values = make([]float64, stride*12)
++		g.geometry.sorted = make([]float64, stride*8)
++	}
++	if len(g.free) < n {
++		g.free = make([]bool, n*2)
++	}
++	values := g.geometry.values
++	x, y, dx, dy, radius, lower := values[:stride], values[stride:stride*2], values[stride*2:stride*3], values[stride*3:stride*4], values[stride*4:stride*5], values[stride*5:stride*6]
++	for i, r := range motions {
++		p, start := r.Entity.Base().Position, r.SweepStart.Position
++		x[i], y[i] = start.X, start.Y
++		dx[i], dy[i] = p.X-start.X, p.Y-start.Y
++		radius[i] = r.Radius
++		g.free[i] = true
++	}
++	margin := g.catalog.Simulation.Physics.WakeMargin
++	i := 0
++	if vectorBounds {
++		half, wake := archsimd.BroadcastFloat64x4(0.5), archsimd.BroadcastFloat64x4(margin)
++		for ; i+4 <= n; i += 4 {
++			vx, vy := archsimd.LoadFloat64x4(dx[i:]), archsimd.LoadFloat64x4(dy[i:])
++			travel := vx.Mul(vx).Add(vy.Mul(vy)).Sqrt()
++			reach := archsimd.LoadFloat64x4(radius[i:]).Add(travel).Add(wake)
++			cx := archsimd.LoadFloat64x4(x[i:]).Add(vx.Mul(half))
++			cy := archsimd.LoadFloat64x4(y[i:]).Add(vy.Mul(half))
++			reach.Store(radius[i:])
++			cx.Store(x[i:])
++			cy.Store(y[i:])
++			cx.Sub(reach).Store(lower[i:])
++		}
++		archsimd.ClearAVXUpperBits()
++	}
++	for ; i < n; i++ {
++		travel := math.Sqrt(dx[i]*dx[i] + dy[i]*dy[i])
++		radius[i] += travel
++		radius[i] += margin
++		x[i] += dx[i] / 2
++		y[i] += dy[i] / 2
++		lower[i] = x[i] - radius[i]
++	}
++	reuse := len(g.sortOrder) == n
++	if !reuse {
++		g.sortOrder = make([]int, n)
++		for i := range n {
++			g.sortOrder[i] = i
++		}
++	}
++	order := g.sortOrder
++	if reuse {
++		for i := 1; i < n; i++ {
++			item, j := order[i], i-1
++			for j >= 0 && lower[order[j]] > lower[item] {
++				order[j+1] = order[j]
++				j--
++			}
++			order[j+1] = item
++		}
++	} else {
++		slices.SortStableFunc(order, func(a, b int) int {
++			if lower[a] < lower[b] {
++				return -1
++			}
++			if lower[a] > lower[b] {
++				return 1
++			}
++			return 0
++		})
++	}
++	data := g.geometry.sorted
++	lx, cx, cy, reach := data[:stride], data[stride:stride*2], data[stride*2:stride*3], data[stride*3:stride*4]
++	for i, index := range order {
++		lx[i], cx[i], cy[i], reach[i] = lower[index], x[index], y[index], radius[index]
++	}
++	for i := range n {
++		right := cx[i] + reach[i]
++		j := i + 1
++		if vectorBounds && j+4 <= n && lx[j+3] <= right {
++			ax, ay, ar := archsimd.BroadcastFloat64x4(cx[i]), archsimd.BroadcastFloat64x4(cy[i]), archsimd.BroadcastFloat64x4(reach[i])
++			vr := archsimd.BroadcastFloat64x4(right)
++			for ; j+4 <= n; j += 4 {
++				dx, dy := ax.Sub(archsimd.LoadFloat64x4(cx[j:])), ay.Sub(archsimd.LoadFloat64x4(cy[j:]))
++				r := ar.Add(archsimd.LoadFloat64x4(reach[j:]))
++				mask := dx.Mul(dx).Add(dy.Mul(dy)).LessEqual(r.Mul(r)).ToBits()
++				stop := archsimd.LoadFloat64x4(lx[j:]).Greater(vr).ToBits()
++				if stop != 0 {
++					mask &= uint8(1<<bits.TrailingZeros8(stop)) - 1
++				}
++				for mask != 0 {
++					lane := bits.TrailingZeros8(mask)
++					g.free[order[i]], g.free[order[j+lane]] = false, false
++					mask &= mask - 1
++				}
++				if stop != 0 {
++					j = n
++					break
++				}
++			}
++			archsimd.ClearAVXUpperBits()
++		}
++		for ; j < n; j++ {
++			if lx[j] > right {
++				break
++			}
++			dx, dy, r := cx[i]-cx[j], cy[i]-cy[j], reach[i]+reach[j]
++			if dx*dx+dy*dy <= r*r {
++				g.free[order[i]], g.free[order[j]] = false, false
++			}
++		}
++	}
++	return g.free, true
++}
+diff --git a/internal/collision/game/bounds-simd_test.go b/internal/collision/game/bounds-simd_test.go
+new file mode 100644
+index 0000000..1b01332
+--- /dev/null
++++ b/internal/collision/game/bounds-simd_test.go
+@@ -0,0 +1,53 @@
++//go:build goexperiment.simd && amd64
++
++package game
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/simulation"
++	"github.com/burntcustard/unicorn-mining-co/internal/specification"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math/rand/v2"
++	"reflect"
++	"slices"
++	"testing"
++)
++
++func TestPackedSweptBounds(t *testing.T) {
++	if !packedBounds {
++		t.Skip("AVX2 unavailable or packed bounds disabled")
++	}
++	catalog, err := specification.Load()
++	if err != nil {
++		t.Fatal(err)
++	}
++	r := rand.New(rand.NewPCG(25, 31))
++	oldPacked, oldVector := packedBounds, vectorBounds
++	defer func() { packedBounds, vectorBounds = oldPacked, oldVector }()
++	scalar, packed, vector := NewGameCollisions(catalog), NewGameCollisions(catalog), NewGameCollisions(catalog)
++	for repeat := range 3 {
++		for count := range 129 {
++			motions := make([]*BodyRecord, count)
++			for i := range motions {
++				start := Vec.Create(r.Float64()*1000, r.Float64()*1000)
++				position := Vec.Add(start, Vec.Create(r.Float64()*100-50, r.Float64()*100-50))
++				if repeat == 1 {
++					position, start = Vec.Create(float64(i%5), 0), Vec.Vector{}
++				}
++				e := simulation.NewGameObject(simulation.ObjectProperties{Position: position}, catalog.Simulation)
++				motions[i] = &BodyRecord{Entity: e, SweepStart: simulation.Pose{Position: start}, Radius: r.Float64() * 40}
++			}
++			packedBounds = false
++			want := append([]bool{}, scalar.findFree(motions)[:count]...)
++			packedBounds, vectorBounds = true, false
++			gotPacked := packed.findFree(motions)[:count]
++			vectorBounds = true
++			gotVector := vector.findFree(motions)[:count]
++			if !slices.Equal(want, gotPacked) || !slices.Equal(want, gotVector) {
++				t.Fatalf("free motion differs for repeat=%d count=%d", repeat, count)
++			}
++			if !reflect.DeepEqual(scalar.sortOrder, vector.sortOrder) {
++				t.Fatal("changed stable swept-bound ordering")
++			}
++		}
++	}
++}
+diff --git a/internal/collision/shape/polygon-default.go b/internal/collision/shape/polygon-default.go
+new file mode 100644
+index 0000000..d52e2f9
+--- /dev/null
++++ b/internal/collision/shape/polygon-default.go
+@@ -0,0 +1,13 @@
++//go:build !goexperiment.simd || !amd64
++
++package shape
++
++import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++
++type polygonGeometry struct{}
++
++func (*PolygonShape) packGeometry() {}
++
++func findMaxSeparation(a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, limit float64) (int, float64) {
++	return findMaxSeparationScalar(a, xfA, b, xfB, limit)
++}
+diff --git a/internal/collision/shape/polygon-separation_test.go b/internal/collision/shape/polygon-separation_test.go
+new file mode 100644
+index 0000000..013b325
+--- /dev/null
++++ b/internal/collision/shape/polygon-separation_test.go
+@@ -0,0 +1,76 @@
++package shape
++
++import (
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"math/rand/v2"
++	"testing"
++)
++
++func TestPolygonSeparationThresholds(t *testing.T) {
++	r := rand.New(rand.NewPCG(25, 31))
++	makePolygon := func(count int) *PolygonShape {
++		vertices := make([]Vec.Vector, count)
++		for i := range vertices {
++			angle := float64(i) * 2 * math.Pi / float64(count)
++			vertices[i] = Vec.Create(20*math.Cos(angle), 13*math.Sin(angle))
++		}
++		return NewPolygon(vertices, nil, 0.1)
++	}
++	for _, countA := range []int{3, 4, 5, 8, 9, 16} {
++		for _, countB := range []int{3, 4, 5, 8, 9, 16} {
++			a, b := makePolygon(countA), makePolygon(countB)
++			for range 300 {
++				xfA := Vec.Transform(r.Float64()*100-50, r.Float64()*100-50, r.Float64()*6-3)
++				xfB := Vec.Transform(r.Float64()*100-50, r.Float64()*100-50, r.Float64()*6-3)
++				_, separation := findMaxSeparationScalar(a, xfA, b, xfB, math.Inf(1))
++				for _, limit := range []float64{0, 0.4, separation, math.Nextafter(separation, math.Inf(-1)), math.Nextafter(separation, math.Inf(1))} {
++					wantIndex, want := findMaxSeparationScalar(a, xfA, b, xfB, limit)
++					gotIndex, got := findMaxSeparation(a, xfA, b, xfB, limit)
++					if gotIndex != wantIndex || math.Float64bits(got) != math.Float64bits(want) {
++						t.Fatalf("counts %d/%d limit %.17g: got %d/%.17g want %d/%.17g", countA, countB, limit, gotIndex, got, wantIndex, want)
++					}
++				}
++			}
++		}
++	}
++}
++
++func TestPolygonSeparationTiesAndNonfinite(t *testing.T) {
++	a, b := NewPolygon(nil, nil, 0.1), NewPolygon(nil, nil, 0.1)
++	a.SetAsBox(10, 10)
++	b.SetAsBox(10, 10)
++	xf := Vec.Transform(0, 0, 0)
++	for _, value := range []float64{0, math.Copysign(0, -1), math.NaN(), math.Inf(1), math.Inf(-1)} {
++		for i := range a.Vertices {
++			original := a.Vertices[i]
++			a.Vertices[i].X = value
++			a.packGeometry()
++			for _, limit := range []float64{0, 0.4, math.Inf(1)} {
++				wantIndex, want := findMaxSeparationScalar(a, xf, b, xf, limit)
++				gotIndex, got := findMaxSeparation(a, xf, b, xf, limit)
++				if gotIndex != wantIndex || math.Float64bits(got) != math.Float64bits(want) {
++					t.Fatalf("value=%v index=%d: got %d/%v want %d/%v", value, i, gotIndex, got, wantIndex, want)
++				}
++			}
++			a.Vertices[i] = original
++		}
++	}
++}
++
++func BenchmarkPolygonSeparation(b *testing.B) {
++	a, target := NewPolygon(nil, nil, 0.1), NewPolygon(nil, nil, 0.1)
++	a.SetAsBox(10, 8)
++	target.SetAsBox(9, 6)
++	xfA, xfB := Vec.Transform(0, 0, 0.2), Vec.Transform(10, 3, -0.3)
++	b.Run("scalar", func(b *testing.B) {
++		for b.Loop() {
++			findMaxSeparationScalar(a, xfA, target, xfB, 0.4)
++		}
++	})
++	b.Run("selected", func(b *testing.B) {
++		for b.Loop() {
++			findMaxSeparation(a, xfA, target, xfB, 0.4)
++		}
++	})
++}
+diff --git a/internal/collision/shape/polygon-simd.go b/internal/collision/shape/polygon-simd.go
+new file mode 100644
+index 0000000..80a5da4
+--- /dev/null
++++ b/internal/collision/shape/polygon-simd.go
+@@ -0,0 +1,119 @@
++//go:build goexperiment.simd && amd64
++
++package shape
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"simd/archsimd"
++	"unsafe"
++)
++
++type polygonGeometry struct {
++	values []float64
++}
++
++var polygonSIMD = archsimd.X86.AVX2() && utilities.SIMDFeature("separation")
++var triangleSIMD = archsimd.X86.AVX2() && utilities.SIMDFeature("triangles")
++
++func (p *PolygonShape) packGeometry() {
++	stride := (p.Count + 3) &^ 3
++	values := make([]float64, stride*4)
++	for i, v := range p.Vertices[:p.Count] {
++		values[i], values[stride+i] = v.X, v.Y
++		values[stride*2+i], values[stride*3+i] = p.Normals[i].X, p.Normals[i].Y
++	}
++	p.geometry.values = values
++}
++
++func findMaxSeparation(a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, limit float64) (int, float64) {
++	if triangleSIMD && a.Count == 3 && b.Count == 3 {
++		return findTriangleSeparation(a, xfA, b, xfB, limit)
++	}
++	if !polygonSIMD {
++		return findMaxSeparationScalar(a, xfA, b, xfB, limit)
++	}
++	var xf Vec.TransformValue
++	Vec.DetransformTransform(&xf, xfB, xfA)
++	stride := (a.Count + 3) &^ 3
++	values := a.geometry.values
++	bestIndex, maxSeparation := 0, math.Inf(-1)
++	for i := 0; i < a.Count; i += 4 {
++		c, s := archsimd.BroadcastFloat64x4(xf.Q.C), archsimd.BroadcastFloat64x4(xf.Q.S)
++		x, y := archsimd.LoadFloat64x4(values[i:]), archsimd.LoadFloat64x4(values[stride+i:])
++		nx, ny := archsimd.LoadFloat64x4(values[stride*2+i:]), archsimd.LoadFloat64x4(values[stride*3+i:])
++		// Preserve the scalar evaluation order, including the separate dot offset.
++		rx, ry := c.Mul(nx).Sub(s.Mul(ny)), s.Mul(nx).Add(c.Mul(ny))
++		vx := c.Mul(x).Sub(s.Mul(y)).Add(archsimd.BroadcastFloat64x4(xf.P.X))
++		vy := s.Mul(x).Add(c.Mul(y)).Add(archsimd.BroadcastFloat64x4(xf.P.Y))
++		offset := rx.Mul(vx).Add(ry.Mul(vy))
++		separation := archsimd.BroadcastFloat64x4(math.Inf(1))
++		for _, vertex := range b.Vertices[:b.Count] {
++			dot := rx.Mul(archsimd.BroadcastFloat64x4(vertex.X)).Add(ry.Mul(archsimd.BroadcastFloat64x4(vertex.Y))).Sub(offset)
++			// VMINPD selects its second operand for equal values and NaNs,
++			// matching "if dot < separation", including signed-zero ties.
++			separation = dot.Min(separation)
++		}
++		var lanes [4]float64
++		separation.StoreArray(&lanes)
++		archsimd.ClearAVXUpperBits()
++		for lane := 0; lane < min(4, a.Count-i); lane++ {
++			value := lanes[lane]
++			if value > limit {
++				return i + lane, value
++			}
++			if value > maxSeparation {
++				bestIndex, maxSeparation = i+lane, value
++			}
++		}
++	}
++	return bestIndex, maxSeparation
++}
++
++func findTriangleSeparation(a *PolygonShape, xfA Vec.TransformValue, b *PolygonShape, xfB Vec.TransformValue, limit float64) (int, float64) {
++	var xf Vec.TransformValue
++	var normal, vertex Vec.Vector
++	Vec.DetransformTransform(&xf, xfB, xfA)
++	Vec.RotateInto(&normal, xf.Q, a.Normals[0])
++	Vec.TransformInto(&vertex, xf, a.Vertices[0])
++	offset := Vec.Dot(normal, vertex)
++	best := math.Inf(1)
++	for _, v := range b.Vertices[:3] {
++		value := Vec.Dot(normal, v) - offset
++		if value < best {
++			best = value
++		}
++	}
++	if best > limit {
++		return 0, best
++	}
++	c, s := archsimd.BroadcastFloat64x2(xf.Q.C), archsimd.BroadcastFloat64x2(xf.Q.S)
++	loadPair := func(points []Vec.Vector) (archsimd.Float64x2, archsimd.Float64x2) {
++		a := archsimd.LoadFloat64x2Array((*[2]float64)(unsafe.Pointer(&points[1])))
++		b := archsimd.LoadFloat64x2Array((*[2]float64)(unsafe.Pointer(&points[2])))
++		return a.ConcatPermuteScalars(0, 2, b), a.ConcatPermuteScalars(1, 3, b)
++	}
++	x, y := loadPair(a.Vertices)
++	nx, ny := loadPair(a.Normals)
++	rx, ry := c.Mul(nx).Sub(s.Mul(ny)), s.Mul(nx).Add(c.Mul(ny))
++	vx := c.Mul(x).Sub(s.Mul(y)).Add(archsimd.BroadcastFloat64x2(xf.P.X))
++	vy := s.Mul(x).Add(c.Mul(y)).Add(archsimd.BroadcastFloat64x2(xf.P.Y))
++	voffset := rx.Mul(vx).Add(ry.Mul(vy))
++	project := func(v Vec.Vector) archsimd.Float64x2 {
++		return rx.Mul(archsimd.BroadcastFloat64x2(v.X)).Add(ry.Mul(archsimd.BroadcastFloat64x2(v.Y))).Sub(voffset)
++	}
++	separation := project(b.Vertices[0]).Min(archsimd.BroadcastFloat64x2(math.Inf(1)))
++	separation = project(b.Vertices[1]).Min(separation)
++	separation = project(b.Vertices[2]).Min(separation)
++	index := 0
++	for lane, value := range [2]float64{separation.GetElem(0), separation.GetElem(1)} {
++		if value > limit {
++			return lane + 1, value
++		}
++		if value > best {
++			index, best = lane+1, value
++		}
++	}
++	return index, best
++}
+diff --git a/internal/collision/support-default.go b/internal/collision/support-default.go
+new file mode 100644
+index 0000000..678cbb7
+--- /dev/null
++++ b/internal/collision/support-default.go
+@@ -0,0 +1,9 @@
++//go:build !goexperiment.simd || !amd64
++
++package collision
++
++import Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++
++func supportVertex(v *simplexVertex, a *BaseShape, xfA Vec.TransformValue, b *BaseShape, xfB Vec.TransformValue, direction Vec.Vector) bool {
++	return false
++}
+diff --git a/internal/collision/support-simd.go b/internal/collision/support-simd.go
+new file mode 100644
+index 0000000..a4b66bd
+--- /dev/null
++++ b/internal/collision/support-simd.go
+@@ -0,0 +1,41 @@
++//go:build goexperiment.simd && amd64
++
++package collision
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"simd/archsimd"
++)
++
++var vectorSupport = archsimd.X86.AVX2() && utilities.SIMDFeature("support")
++
++func supportVertex(v *simplexVertex, a *BaseShape, xfA Vec.TransformValue, b *BaseShape, xfB Vec.TransformValue, direction Vec.Vector) bool {
++	if !vectorSupport || a.Count != 3 || b.Count != 3 {
++		return false
++	}
++	pair := func(a, b float64) archsimd.Float64x2 {
++		return archsimd.BroadcastFloat64x2(a).SetElem(1, b)
++	}
++	c, s := pair(xfA.Q.C, xfB.Q.C), pair(xfA.Q.S, xfB.Q.S)
++	dx, dy := pair(direction.X*-1, direction.X), pair(direction.Y*-1, direction.Y)
++	ax := c.Mul(dx).Add(s.Mul(dy))
++	ay := pair(-xfA.Q.S, -xfB.Q.S).Mul(dx).Add(c.Mul(dy))
++	best := archsimd.BroadcastFloat64x2(math.Inf(-1))
++	index := archsimd.BroadcastInt64x2(-1)
++	for i := range 3 {
++		x, y := pair(a.Vertices[i].X, b.Vertices[i].X), pair(a.Vertices[i].Y, b.Vertices[i].Y)
++		value := x.Mul(ax).Add(y.Mul(ay))
++		better := value.Greater(best)
++		best = value.IfElse(better, best)
++		index = archsimd.BroadcastInt64x2(int64(i)).IfElse(better, index)
++	}
++	v.indexA, v.indexB = int(index.GetElem(0)), int(index.GetElem(1))
++	aPoint, bPoint := a.Vertices[v.indexA], b.Vertices[v.indexB]
++	x, y := pair(aPoint.X, bPoint.X), pair(aPoint.Y, bPoint.Y)
++	wx := c.Mul(x).Sub(s.Mul(y)).Add(pair(xfA.P.X, xfB.P.X))
++	wy := s.Mul(x).Add(c.Mul(y)).Add(pair(xfA.P.Y, xfB.P.Y))
++	v.wA, v.wB = Vec.Vector{wx.GetElem(0), wy.GetElem(0)}, Vec.Vector{wx.GetElem(1), wy.GetElem(1)}
++	return true
++}
+diff --git a/internal/collision/support-simd_test.go b/internal/collision/support-simd_test.go
+new file mode 100644
+index 0000000..4da0284
+--- /dev/null
++++ b/internal/collision/support-simd_test.go
+@@ -0,0 +1,52 @@
++//go:build goexperiment.simd && amd64
++
++package collision
++
++import (
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"math/rand/v2"
++	"simd/archsimd"
++	"testing"
++)
++
++func TestSupportVertex(t *testing.T) {
++	if !archsimd.X86.AVX2() {
++		t.Skip("AVX2 unavailable")
++	}
++	before := vectorSupport
++	vectorSupport = true
++	defer func() { vectorSupport = before }()
++	r := rand.New(rand.NewPCG(17, 31))
++	a, b := &BaseShape{Count: 3, Vertices: make([]Vec.Vector, 3)}, &BaseShape{Count: 3, Vertices: make([]Vec.Vector, 3)}
++	for trial := range 100000 {
++		for i := range 3 {
++			a.Vertices[i], b.Vertices[i] = Vec.Vector{r.Float64()*100 - 50, r.Float64()*100 - 50}, Vec.Vector{r.Float64()*100 - 50, r.Float64()*100 - 50}
++		}
++		if trial%19 == 0 {
++			a.Vertices[1] = a.Vertices[0]
++			b.Vertices[2] = b.Vertices[0]
++		}
++		xfA, xfB := Vec.Transform(r.Float64()*100, r.Float64()*100, r.Float64()*6-3), Vec.Transform(r.Float64()*100, r.Float64()*100, r.Float64()*6-3)
++		d := Vec.Vector{r.Float64()*100 - 50, r.Float64()*100 - 50}
++		if trial%17 == 0 {
++			d = Vec.Vector{math.Copysign(0, -1), 0}
++		}
++		var axisA, axisB Vec.Vector
++		Vec.UnrotateInto(&axisA, xfA.Q, Vec.Scale(d, -1))
++		Vec.UnrotateInto(&axisB, xfB.Q, d)
++		wantA, wantB := a.GetSupport(axisA), b.GetSupport(axisB)
++		var pointA, pointB Vec.Vector
++		Vec.TransformInto(&pointA, xfA, a.Vertices[wantA])
++		Vec.TransformInto(&pointB, xfB, b.Vertices[wantB])
++		var got simplexVertex
++		if !supportVertex(&got, a, xfA, b, xfB, d) || got.indexA != wantA || got.indexB != wantB {
++			t.Fatalf("trial=%d indices %d/%d want %d/%d", trial, got.indexA, got.indexB, wantA, wantB)
++		}
++		for _, pair := range [][2]float64{{got.wA.X, pointA.X}, {got.wA.Y, pointA.Y}, {got.wB.X, pointB.X}, {got.wB.Y, pointB.Y}} {
++			if math.Float64bits(pair[0]) != math.Float64bits(pair[1]) {
++				t.Fatalf("trial=%d point %g want %g", trial, pair[0], pair[1])
++			}
++		}
++	}
++}
+diff --git a/internal/server/replication-default.go b/internal/server/replication-default.go
+new file mode 100644
+index 0000000..7fec5bc
+--- /dev/null
++++ b/internal/server/replication-default.go
+@@ -0,0 +1,9 @@
++//go:build !goexperiment.simd || !amd64
++
++package server
++
++const vectorReplication = false
++
++func replicationMasks(x, y []float64, px, py float64, thresholds [5]float64) uint32 {
++	return 0
++}
+diff --git a/internal/server/replication-simd.go b/internal/server/replication-simd.go
+new file mode 100644
+index 0000000..5a76d2e
+--- /dev/null
++++ b/internal/server/replication-simd.go
+@@ -0,0 +1,44 @@
++//go:build goexperiment.simd && amd64
++
++package server
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"simd/archsimd"
++)
++
++var vectorReplication = archsimd.X86.AVX2() && utilities.SIMDFeature("replication")
++
++func replicationMasks(x, y []float64, px, py float64, thresholds [5]float64) uint32 {
++	if len(x) < 4 {
++		var flags uint32
++		for i := range x {
++			dx, dy := x[i]-px, y[i]-py
++			d := dx*dx + dy*dy
++			for j, threshold := range thresholds {
++				if d <= threshold {
++					flags |= 1 << (j*4 + i)
++				}
++			}
++			if d > thresholds[1] {
++				flags |= 1 << (20 + i)
++			}
++			if d > thresholds[3] {
++				flags |= 1 << (24 + i)
++			}
++		}
++		return flags
++	}
++	dx := archsimd.LoadFloat64x4(x).Sub(archsimd.BroadcastFloat64x4(px))
++	dy := archsimd.LoadFloat64x4(y).Sub(archsimd.BroadcastFloat64x4(py))
++	d := dx.Mul(dx).Add(dy.Mul(dy))
++	flags := uint32(d.LessEqual(archsimd.BroadcastFloat64x4(thresholds[0])).ToBits())
++	flags |= uint32(d.LessEqual(archsimd.BroadcastFloat64x4(thresholds[1])).ToBits()) << 4
++	flags |= uint32(d.LessEqual(archsimd.BroadcastFloat64x4(thresholds[2])).ToBits()) << 8
++	flags |= uint32(d.LessEqual(archsimd.BroadcastFloat64x4(thresholds[3])).ToBits()) << 12
++	flags |= uint32(d.LessEqual(archsimd.BroadcastFloat64x4(thresholds[4])).ToBits()) << 16
++	flags |= uint32(d.Greater(archsimd.BroadcastFloat64x4(thresholds[1])).ToBits()) << 20
++	flags |= uint32(d.Greater(archsimd.BroadcastFloat64x4(thresholds[3])).ToBits()) << 24
++	archsimd.ClearAVXUpperBits()
++	return flags
++}
+diff --git a/internal/server/replication-simd_test.go b/internal/server/replication-simd_test.go
+new file mode 100644
+index 0000000..98633fa
+--- /dev/null
++++ b/internal/server/replication-simd_test.go
+@@ -0,0 +1,57 @@
++//go:build goexperiment.simd && amd64
++
++package server
++
++import (
++	"math"
++	"math/rand/v2"
++	"simd/archsimd"
++	"testing"
++)
++
++func TestReplicationMasks(t *testing.T) {
++	if !archsimd.X86.AVX2() {
++		t.Skip("AVX2 unavailable")
++	}
++	r := rand.New(rand.NewPCG(7, 29))
++	for n := 0; n <= 4; n++ {
++		for trial := 0; trial < 10000; trial++ {
++			x, y := make([]float64, n), make([]float64, n)
++			px, py := r.Float64()*100, r.Float64()*100
++			for i := range x {
++				x[i], y[i] = r.Float64()*100, r.Float64()*100
++			}
++			thresholds := [5]float64{100, 1000, 10000, 20000, 2000}
++			if n > 0 {
++				dx, dy := x[0]-px, y[0]-py
++				d := dx*dx + dy*dy
++				thresholds = [5]float64{d, math.Nextafter(d, math.Inf(-1)), math.Nextafter(d, math.Inf(1)), d, d}
++				if trial%17 == 0 {
++					x[0] = math.NaN()
++				}
++				if trial%19 == 0 {
++					y[0] = math.Inf(1)
++				}
++			}
++			var want uint32
++			for i := range x {
++				dx, dy := x[i]-px, y[i]-py
++				d := dx*dx + dy*dy
++				for j, threshold := range thresholds {
++					if d <= threshold {
++						want |= 1 << (j*4 + i)
++					}
++				}
++				if d > thresholds[1] {
++					want |= 1 << (20 + i)
++				}
++				if d > thresholds[3] {
++					want |= 1 << (24 + i)
++				}
++			}
++			if got := replicationMasks(x, y, px, py, thresholds); got != want {
++				t.Fatalf("n=%d trial=%d got %x want %x", n, trial, got, want)
++			}
++		}
++	}
++}
+diff --git a/internal/simulation/motion-default.go b/internal/simulation/motion-default.go
+new file mode 100644
+index 0000000..2ab453d
+--- /dev/null
++++ b/internal/simulation/motion-default.go
+@@ -0,0 +1,5 @@
++//go:build !goexperiment.simd || !amd64
++
++package simulation
++
++func roundMotionSIMD(*GameObject) bool { return false }
+diff --git a/internal/simulation/motion-simd.go b/internal/simulation/motion-simd.go
+new file mode 100644
+index 0000000..158c8bf
+--- /dev/null
++++ b/internal/simulation/motion-simd.go
+@@ -0,0 +1,25 @@
++//go:build goexperiment.simd && amd64
++
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"simd/archsimd"
++	"unsafe"
++)
++
++var motionSIMD = archsimd.X86.AVX2() && utilities.SIMDFeature("motion")
++
++func roundMotionSIMD(o *GameObject) bool {
++	if !motionSIMD {
++		return false
++	}
++	scale, half := archsimd.BroadcastFloat64x4(1e8), archsimd.BroadcastFloat64x4(0.5)
++	// The motion fields are consecutive float64s; the layout is verified in tests.
++	values := (*[4]float64)(unsafe.Pointer(&o.Position))
++	angles := (*[2]float64)(unsafe.Pointer(&o.Rotation))
++	archsimd.LoadFloat64x4Array(values).Mul(scale).Add(half).Floor().Div(scale).StoreArray(values)
++	archsimd.LoadFloat64x2Array(angles).Mul(scale.GetLo()).Add(half.GetLo()).Floor().Div(scale.GetLo()).StoreArray(angles)
++	archsimd.ClearAVXUpperBits()
++	return true
++}
+diff --git a/internal/simulation/motion_test.go b/internal/simulation/motion_test.go
+new file mode 100644
+index 0000000..bb56f18
+--- /dev/null
++++ b/internal/simulation/motion_test.go
+@@ -0,0 +1,36 @@
++package simulation
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"math/rand/v2"
++	"testing"
++	"unsafe"
++)
++
++func TestMotionFieldLayout(t *testing.T) {
++	var o GameObject
++	start := unsafe.Offsetof(o.Position)
++	if unsafe.Sizeof(o.Position) != 16 || unsafe.Offsetof(o.Velocity) != start+16 || unsafe.Offsetof(o.Rotation) != start+32 || unsafe.Offsetof(o.Spin) != start+40 {
++		t.Fatal("motion fields are not contiguous")
++	}
++}
++
++func TestMotionRoundingBits(t *testing.T) {
++	values := []float64{0, math.Copysign(0, -1), 0.5e-8, -0.5e-8, math.NaN(), math.Inf(1), math.Inf(-1), math.SmallestNonzeroFloat64, math.MaxFloat64}
++	r := rand.New(rand.NewPCG(25, 31))
++	for range 10000 {
++		values = append(values, r.Float64()*22000-11000)
++	}
++	for _, value := range values {
++		o := GameObject{Position: Vec.Create(value, value), Velocity: Vec.Create(value, value), Rotation: value, Spin: value}
++		want := utilities.RoundMotion(value)
++		o.RoundMotion()
++		for _, got := range []float64{o.Position.X, o.Position.Y, o.Velocity.X, o.Velocity.Y, o.Rotation, o.Spin} {
++			if math.Float64bits(got) != math.Float64bits(want) {
++				t.Fatalf("rounding %.17g: got %x want %x", value, math.Float64bits(got), math.Float64bits(want))
++			}
++		}
++	}
++}
+diff --git a/internal/utilities/simd.go b/internal/utilities/simd.go
+new file mode 100644
+index 0000000..b0406d6
+--- /dev/null
++++ b/internal/utilities/simd.go
+@@ -0,0 +1,15 @@
++package utilities
++
++import (
++	"os"
++	"strings"
++)
++
++/*
++ * Select independent SIMD pipelines at process startup for controlled benchmarks.
++ * An empty setting enables all available pipelines; "scalar" disables them.
++ */
++func SIMDFeature(feature string) bool {
++	setting := os.Getenv("GO_SERVER_SIMD")
++	return setting == "" || setting == "all" || strings.Contains(","+setting+",", ","+feature+",")
++}
+diff --git a/internal/vector/position-set.go b/internal/vector/position-set.go
+new file mode 100644
+index 0000000..90e9f21
+--- /dev/null
++++ b/internal/vector/position-set.go
+@@ -0,0 +1,12 @@
++package vector
++
++type PositionSet struct {
++	Points []Vector
++	packed packedPositions
++}
++
++// Set borrows points until the next call. Call it again after moving a point.
++func (p *PositionSet) Set(points []Vector) {
++	p.Points = points
++	p.pack()
++}
+diff --git a/internal/vector/positions-default.go b/internal/vector/positions-default.go
+new file mode 100644
+index 0000000..74d7ee4
+--- /dev/null
++++ b/internal/vector/positions-default.go
+@@ -0,0 +1,16 @@
++//go:build !goexperiment.simd || !amd64
++
++package vector
++
++type packedPositions struct{}
++
++func (p *PositionSet) pack() {}
++
++func (p *PositionSet) AnyWithin(position Vector, radiusSquared float64) bool {
++	for _, point := range p.Points {
++		if DistanceSquared(position, point) <= radiusSquared {
++			return true
++		}
++	}
++	return false
++}
+diff --git a/internal/vector/positions-simd.go b/internal/vector/positions-simd.go
+new file mode 100644
+index 0000000..24fe154
+--- /dev/null
++++ b/internal/vector/positions-simd.go
+@@ -0,0 +1,54 @@
++//go:build goexperiment.simd && amd64
++
++package vector
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"simd/archsimd"
++)
++
++type packedPositions struct{ x, y []float64 }
++
++var vectorObservers = archsimd.X86.AVX2() && utilities.SIMDFeature("observers")
++
++func (p *PositionSet) pack() {
++	if !vectorObservers || len(p.Points) < 5 {
++		return
++	}
++	if len(p.packed.x) < len(p.Points) {
++		p.packed.x = make([]float64, len(p.Points)*2)
++		p.packed.y = make([]float64, len(p.Points)*2)
++	}
++	for i, point := range p.Points {
++		p.packed.x[i], p.packed.y[i] = point.X, point.Y
++	}
++}
++
++func (p *PositionSet) AnyWithin(position Vector, radiusSquared float64) bool {
++	points := p.Points
++	// Convoys usually match their first observer, so retain that cheap exit.
++	if len(points) == 0 {
++		return false
++	}
++	if DistanceSquared(position, points[0]) <= radiusSquared {
++		return true
++	}
++	i := 1
++	if vectorObservers && len(points) >= 5 {
++		x, y, radius := archsimd.BroadcastFloat64x4(position.X), archsimd.BroadcastFloat64x4(position.Y), archsimd.BroadcastFloat64x4(radiusSquared)
++		for ; i+4 <= len(points); i += 4 {
++			dx, dy := x.Sub(archsimd.LoadFloat64x4(p.packed.x[i:])), y.Sub(archsimd.LoadFloat64x4(p.packed.y[i:]))
++			if dx.Mul(dx).Add(dy.Mul(dy)).LessEqual(radius).ToBits() != 0 {
++				archsimd.ClearAVXUpperBits()
++				return true
++			}
++		}
++		archsimd.ClearAVXUpperBits()
++	}
++	for ; i < len(points); i++ {
++		if DistanceSquared(position, points[i]) <= radiusSquared {
++			return true
++		}
++	}
++	return false
++}
+diff --git a/internal/vector/positions_test.go b/internal/vector/positions_test.go
+new file mode 100644
+index 0000000..e061885
+--- /dev/null
++++ b/internal/vector/positions_test.go
+@@ -0,0 +1,44 @@
++package vector
++
++import (
++	"math"
++	"math/rand/v2"
++	"testing"
++)
++
++func TestPositionSet(t *testing.T) {
++	r := rand.New(rand.NewPCG(19, 31))
++	var set PositionSet
++	for repeat := range 3 {
++		for n := 128; n >= 0; n-- {
++			points := make([]Vector, n)
++			for i := range points {
++				points[i] = Vector{r.Float64()*1000 - 500, r.Float64()*1000 - 500}
++			}
++			if n > 0 && repeat == 1 {
++				points[0].X = math.NaN()
++			}
++			set.Set(points)
++			for trial := range 30 {
++				p := Vector{r.Float64()*1000 - 500, r.Float64()*1000 - 500}
++				radius := r.Float64() * 100000
++				if n > 0 {
++					radius = DistanceSquared(p, points[trial%n])
++					if trial%3 == 1 {
++						radius = math.Nextafter(radius, math.Inf(-1))
++					}
++					if trial%3 == 2 {
++						radius = math.Nextafter(radius, math.Inf(1))
++					}
++				}
++				want := false
++				for _, point := range points {
++					want = want || DistanceSquared(p, point) <= radius
++				}
++				if got := set.AnyWithin(p, radius); got != want {
++					t.Fatalf("repeat=%d n=%d trial=%d got=%v want=%v", repeat, n, trial, got, want)
++				}
++			}
++		}
++	}
++}
+diff --git a/internal/vector/transforms-default.go b/internal/vector/transforms-default.go
+new file mode 100644
+index 0000000..989f97d
+--- /dev/null
++++ b/internal/vector/transforms-default.go
+@@ -0,0 +1,7 @@
++//go:build !goexperiment.simd || !amd64
++
++package vector
++
++func TransformPair(a Vector, angleA float64, b Vector, angleB float64) (TransformValue, TransformValue) {
++	return Transform(a.X, a.Y, angleA), Transform(b.X, b.Y, angleB)
++}
+diff --git a/internal/vector/transforms-simd.go b/internal/vector/transforms-simd.go
+new file mode 100644
+index 0000000..0600029
+--- /dev/null
++++ b/internal/vector/transforms-simd.go
+@@ -0,0 +1,63 @@
++//go:build goexperiment.simd && amd64
++
++// Adapted from math/sincos.go: Copyright 2010 The Go Authors. All rights reserved.
++// BSD license: docs/licenses/go-math.txt. Polynomial coefficients originate
++// in Stephen L. Moshier's Cephes library, as documented in Go's math/sin.go.
++
++package vector
++
++import (
++	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
++	"math"
++	"simd/archsimd"
++)
++
++var pairedTransforms = archsimd.X86.AVX2() && utilities.SIMDFeature("transforms")
++
++func TransformPair(a Vector, angleA float64, b Vector, angleB float64) (TransformValue, TransformValue) {
++	if !pairedTransforms || !(math.Abs(angleA) < 1<<29 && math.Abs(angleB) < 1<<29) || (angleA == 0 && angleB == 0) {
++		return Transform(a.X, a.Y, angleA), Transform(b.X, b.Y, angleB)
++	}
++	s, c := sincosPair(angleA, angleB)
++	return TransformValue{a, RotValue{s.GetElem(0), c.GetElem(0)}}, TransformValue{b, RotValue{s.GetElem(1), c.GetElem(1)}}
++}
++
++// The Go math.Sincos range reduction and polynomials, evaluated for two bodies
++// together without fused multiply/add. See docs/licenses/go-math.txt.
++func sincosPair(a, b float64) (archsimd.Float64x2, archsimd.Float64x2) {
++	input := archsimd.LoadFloat64x2([]float64{a, b})
++	x := input.Abs()
++	one, half := archsimd.BroadcastFloat64x2(1), archsimd.BroadcastFloat64x2(0.5)
++	j := x.Mul(archsimd.BroadcastFloat64x2(4 / math.Pi)).Floor()
++	j = j.Add(j.Sub(j.Mul(half).Floor().Mul(archsimd.BroadcastFloat64x2(2))))
++	z := x.Sub(j.Mul(archsimd.BroadcastFloat64x2(7.85398125648498535156e-1)))
++	z = z.Sub(j.Mul(archsimd.BroadcastFloat64x2(3.77489470793079817668e-8)))
++	z = z.Sub(j.Mul(archsimd.BroadcastFloat64x2(2.69515142907905952645e-15)))
++	phase := j.Sub(j.Mul(archsimd.BroadcastFloat64x2(0.125)).Floor().Mul(archsimd.BroadcastFloat64x2(8)))
++	reflected := phase.Greater(archsimd.BroadcastFloat64x2(3))
++	phase = phase.Sub(archsimd.BroadcastFloat64x2(4)).IfElse(reflected, phase)
++	swap := phase.Greater(one)
++	zz := z.Mul(z)
++	sp := archsimd.BroadcastFloat64x2(1.58962301576546568060e-10)
++	cp := archsimd.BroadcastFloat64x2(-1.13585365213876817300e-11)
++	sp = sp.Mul(zz).Add(archsimd.BroadcastFloat64x2(-2.50507477628578072866e-8))
++	cp = cp.Mul(zz).Add(archsimd.BroadcastFloat64x2(2.08757008419747316778e-9))
++	sp = sp.Mul(zz).Add(archsimd.BroadcastFloat64x2(2.75573136213857245213e-6))
++	cp = cp.Mul(zz).Add(archsimd.BroadcastFloat64x2(-2.75573141792967388112e-7))
++	sp = sp.Mul(zz).Add(archsimd.BroadcastFloat64x2(-1.98412698295895385996e-4))
++	cp = cp.Mul(zz).Add(archsimd.BroadcastFloat64x2(2.48015872888517045348e-5))
++	sp = sp.Mul(zz).Add(archsimd.BroadcastFloat64x2(8.33333333332211858878e-3))
++	cp = cp.Mul(zz).Add(archsimd.BroadcastFloat64x2(-1.38888888888730564116e-3))
++	sp = sp.Mul(zz).Add(archsimd.BroadcastFloat64x2(-1.66666666666666307295e-1))
++	cp = cp.Mul(zz).Add(archsimd.BroadcastFloat64x2(4.16666666666665929218e-2))
++	s := z.Add(z.Mul(zz).Mul(sp))
++	c := one.Sub(half.Mul(zz)).Add(zz.Mul(zz).Mul(cp))
++	s, c = c.IfElse(swap, s), s.IfElse(swap, c)
++	negative := input.Less(archsimd.BroadcastFloat64x2(0))
++	signS := negative.ToInt64x2().Xor(reflected.ToInt64x2()).ShiftAllLeft(63)
++	signC := reflected.ToInt64x2().Xor(swap.ToInt64x2()).ShiftAllLeft(63)
++	s = s.AsInt64x2().Xor(signS).AsFloat64x2()
++	c = c.AsInt64x2().Xor(signC).AsFloat64x2()
++	s = input.IfElse(input.Equal(archsimd.BroadcastFloat64x2(0)), s)
++	return s, c
++}
+diff --git a/internal/vector/transforms_test.go b/internal/vector/transforms_test.go
+new file mode 100644
+index 0000000..261ce50
+--- /dev/null
++++ b/internal/vector/transforms_test.go
+@@ -0,0 +1,43 @@
++package vector
++
++import (
++	"math"
++	"math/rand/v2"
++	"testing"
++)
++
++func TestTransformPair(t *testing.T) {
++	angles := []float64{0, math.Copysign(0, -1), math.Inf(1), math.Inf(-1), math.NaN(), math.SmallestNonzeroFloat64, math.MaxFloat64, 1 << 29}
++	for i := -32; i <= 32; i++ {
++		a := float64(i) * math.Pi / 4
++		angles = append(angles, math.Nextafter(a, math.Inf(-1)), a, math.Nextafter(a, math.Inf(1)))
++	}
++	r := rand.New(rand.NewPCG(7, 23))
++	for range 100000 {
++		angles = append(angles, (r.Float64()-0.5)*2*(1<<29), (r.Float64()-0.5)*2*math.Pi)
++	}
++	a, b := Vector{3, -4}, Vector{-8, 6}
++	for i, angle := range angles {
++		other := angles[len(angles)-i-1]
++		x, y := TransformPair(a, angle, b, other)
++		wantX, wantY := Transform(a.X, a.Y, angle), Transform(b.X, b.Y, other)
++		for _, pair := range [][2]float64{{x.Q.S, wantX.Q.S}, {x.Q.C, wantX.Q.C}, {y.Q.S, wantY.Q.S}, {y.Q.C, wantY.Q.C}} {
++			if math.Float64bits(pair[0]) != math.Float64bits(pair[1]) {
++				t.Fatalf("angles %.17g / %.17g: got %.17g (%x), want %.17g (%x)", angle, other, pair[0], math.Float64bits(pair[0]), pair[1], math.Float64bits(pair[1]))
++			}
++		}
++		if x.P != a || y.P != b {
++			t.Fatal("positions changed")
++		}
++	}
++}
++
++var transformResult [2]TransformValue
++
++func BenchmarkTransformPair(b *testing.B) {
++	p, q := Vector{3, -4}, Vector{-8, 6}
++	for i := 0; i < b.N; i++ {
++		a := float64(i&1023) * (math.Pi / 512)
++		transformResult[0], transformResult[1] = TransformPair(p, a, q, -a/3)
++	}
++}

@@ -1,41 +1,11 @@
 import * as Vec from '../vector';
 import type { ReplicatedEntity, ServerMessage } from './network';
+import {
+  binaryFieldIds as BinaryField,
+  entityKindIds,
+} from '../specification/protocol';
 
-export const BinaryField = {
-  cargoContents: 1,
-  credits: 2,
-  contents: 3,
-  decay: 4,
-  friction: 5,
-  dockedTo: 6,
-  health: 7,
-  hullHealth: 8,
-  kind: 9,
-  label: 10,
-  launching: 11,
-  mass: 12,
-  message: 13,
-  pendingUpdateTime: 14,
-  maxSpeed: 15,
-  maxHealth: 16,
-  modules: 17,
-  wreckage: 18,
-  shapeOutline: 19,
-  paint: 20,
-  shades: 21,
-  playerId: 22,
-  pointCount: 23,
-  position: 24,
-  radius: 25,
-  radiusEven: 26,
-  resource: 27,
-  rotation: 28,
-  spin: 29,
-  segments: 30,
-  thrust: 31,
-  turn: 32,
-  velocity: 33,
-} as const;
+export { binaryFieldIds as BinaryField } from '../specification/protocol';
 
 type SnapshotMessage = Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
 type WireEntity = { id: number } & {
@@ -241,19 +211,19 @@ export function decodeBinarySnapshot(
   };
   const kind = (): ReplicatedEntity['kind'] => {
     switch (byte()) {
-      case 0:
+      case entityKindIds.asteroid:
         return 'asteroid';
 
-      case 1:
+      case entityKindIds.item:
         return 'item';
 
-      case 2:
+      case entityKindIds.ship:
         return 'ship';
 
-      case 3:
+      case entityKindIds.station:
         return 'station';
 
-      case 4:
+      case entityKindIds.object:
         return 'object';
 
       default:

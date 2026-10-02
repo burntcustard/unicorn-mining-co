@@ -27,6 +27,7 @@ export class World {
   m_bodyList: Body | null;
   m_newFixture: boolean;
   m_locked: boolean;
+  limitCollisionNeighbors = false;
 
   private preSolveListener?: (contact: Contact) => void;
 
@@ -160,6 +161,8 @@ export class World {
 
     this.m_locked = true;
 
+    if (this.limitCollisionNeighbors) this.prepareCollisionNeighbors();
+
     this.s_step.dt = timeStep;
     this.s_step.velocityIterations = velocityIterations;
     this.s_step.positionIterations = positionIterations;
@@ -183,6 +186,8 @@ export class World {
       }
       // Look for new contacts, then handle time-of-impact events.
       this.findNewContacts();
+
+      if (this.limitCollisionNeighbors) this.prepareCollisionNeighbors();
       this.m_solver.solveWorldTOI(this.s_step);
     }
 
@@ -196,6 +201,51 @@ export class World {
     this.m_broadPhase.updatePairs((proxyA: Fixture, proxyB: Fixture) =>
       this.createContact(proxyA, proxyB),
     );
+  }
+
+  private prepareCollisionNeighbors() {
+    for (let body = this.m_bodyList; body; body = body.m_next) {
+      if (body.m_parked || body.neighborCount <= 8) continue;
+
+      if (!body.neighborDirty && !body.collisionNeighbors) continue;
+
+      if (body.neighborDirty) {
+        body.neighborDirty = false;
+        body.collisionNeighbors = undefined;
+        const unique: Body[] = [];
+        let crowded = false;
+
+        for (let edge = body.m_contactList; edge; edge = edge.next) {
+          if (unique.includes(edge.other)) continue;
+
+          if (unique.length === 8) {
+            crowded = true;
+            break;
+          }
+          unique.push(edge.other);
+        }
+
+        if (!crowded) {
+          body.neighborCount = unique.length;
+          continue;
+        }
+      }
+      body.resetCollisionNeighbors();
+      let last: Body | undefined;
+
+      for (let edge = body.m_contactList; edge; edge = edge.next) {
+        const other = edge.other;
+
+        if (other === last) continue;
+        last = other;
+
+        if (body.allowsCollision(other)) continue;
+        const dx = body.m_xf.p.x - other.m_xf.p.x;
+        const dy = body.m_xf.p.y - other.m_xf.p.y;
+
+        body.addCollisionNeighbor(other, dx * dx + dy * dy);
+      }
+    }
   }
 
   /**
@@ -214,8 +264,11 @@ export class World {
     let edge = bodyB.getContactList();
 
     // ContactEdge
+    let pairExists = false;
+
     while (edge) {
       if (edge.other === bodyA) {
+        pairExists = true;
         const fA = edge.contact.getFixtureA();
         const fB = edge.contact.getFixtureB();
 
@@ -239,6 +292,14 @@ export class World {
 
     if (contact == null) {
       return;
+    }
+
+    if (this.limitCollisionNeighbors && !pairExists) {
+      for (const body of [bodyA, bodyB]) {
+        body.neighborCount = Math.min(body.neighborCount + 1, 9);
+
+        if (body.neighborCount === 9) body.neighborDirty = true;
+      }
     }
 
     // Insert into the world.
@@ -278,7 +339,16 @@ export class World {
     }
   }
   destroyContact(contact: Contact): void {
+    if (this.limitCollisionNeighbors) {
+      for (const body of [
+        contact.m_fixtureA.m_body,
+        contact.m_fixtureB.m_body,
+      ]) {
+        if (body.neighborCount === 9) body.neighborDirty = true;
+      }
+    }
     // Remove from the world.
+
     if (contact.m_prev) {
       contact.m_prev.m_next = contact.m_next;
     }

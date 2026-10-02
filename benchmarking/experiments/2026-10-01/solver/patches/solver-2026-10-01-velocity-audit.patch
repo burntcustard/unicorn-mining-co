@@ -1,0 +1,306 @@
+--- a/internal/physics/solver.go
++++ b/internal/physics/solver.go
+@@ -121,6 +121,7 @@
+ 		c.InitVelocityConstraint()
+ 	}
+ 
++	s.auditVelocity(step.VelocityIterations)
+ 	for range step.VelocityIterations {
+ 		converged := true
+ 		for _, contact := range s.Contacts {
+@@ -128,9 +129,7 @@
+ 				converged = false
+ 			}
+ 		}
+-		if converged {
+-			break
+-		}
++		_ = converged
+ 	}
+ 
+ 	for _, b := range s.Bodies {
+@@ -378,6 +377,7 @@
+ 		contact.InitVelocityConstraint()
+ 	}
+ 
++	s.auditVelocity(subStep.VelocityIterations)
+ 	for range subStep.VelocityIterations {
+ 		converged := true
+ 		for _, contact := range s.Contacts {
+@@ -385,9 +385,7 @@
+ 				converged = false
+ 			}
+ 		}
+-		if converged {
+-			break
+-		}
++		_ = converged
+ 	}
+ 
+ 	h := subStep.DT
+--- /dev/null
++++ b/internal/physics/velocity-audit.go
+@@ -0,0 +1,56 @@
++package physics
++
++import "math/rand/v2"
++
++type VelocityAuditContact struct {
++	A, B       int
++	Constraint ContactConstraint
++	Friction   float64
++}
++type VelocityAuditSample struct {
++	Bodies     []Velocity
++	Contacts   []VelocityAuditContact
++	Iterations int
++}
++
++var auditSamples [3][]VelocityAuditSample
++var auditCounts [3]int
++var auditRandom = rand.New(rand.NewPCG(71, 23))
++
++func VelocityAuditSamples() any {
++	return struct {
++		Samples [3][]VelocityAuditSample
++		Counts  [3]int
++	}{auditSamples, auditCounts}
++}
++func (s *Solver) auditVelocity(iterations int) {
++	if len(s.Contacts) == 0 {
++		return
++	}
++	kind := 2
++	if len(s.Contacts) == 1 {
++		kind = s.Contacts[0].VPointCount - 1
++	}
++	auditCounts[kind]++
++	index := auditCounts[kind] - 1
++	if index >= 512 {
++		index = auditRandom.IntN(auditCounts[kind])
++		if index >= 512 {
++			return
++		}
++	}
++	sample := VelocityAuditSample{Iterations: iterations}
++	indexes := map[*Body]int{}
++	for i, b := range s.Bodies {
++		indexes[b] = i
++		sample.Bodies = append(sample.Bodies, b.CVelocity)
++	}
++	for _, c := range s.Contacts {
++		sample.Contacts = append(sample.Contacts, VelocityAuditContact{indexes[c.NodeB.Other], indexes[c.NodeA.Other], *c.ContactConstraint, c.Friction})
++	}
++	if index == len(auditSamples[kind]) {
++		auditSamples[kind] = append(auditSamples[kind], sample)
++	} else {
++		auditSamples[kind][index] = sample
++	}
++}
+--- /dev/null
++++ b/internal/physics/velocity-replay_test.go
+@@ -0,0 +1,186 @@
++package physics
++
++import (
++	"encoding/json"
++	"fmt"
++	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
++	"math"
++	"os"
++	"sort"
++	"testing"
++)
++
++func (c *Contact) auditSolveVelocity(tolerance float64) bool {
++	bodyA, bodyB := c.NodeB.Other, c.NodeA.Other
++	vA, wA, vB, wB := bodyA.CVelocity.V, bodyA.CVelocity.W, bodyB.CVelocity.V, bodyB.CVelocity.W
++	mA, iA, mB, iB := c.InvMassA, c.InvIA, c.InvMassB, c.InvIB
++	converged := true
++	normal := c.VNormal
++	var tangent, temp Vec.Vector
++	Vec.CrossScalarInto(&tangent, normal, 1)
++	relative := func(vcp *VelocityConstraintPoint) Vec.Vector {
++		dv := Vec.Vector{}
++		dv = Vec.Add(dv, vB)
++		Vec.CrossScalarInto(&temp, vcp.RB, -wB)
++		dv = Vec.Add(dv, temp)
++		dv = Vec.Subtract(dv, vA)
++		Vec.CrossScalarInto(&temp, vcp.RA, -wA)
++		dv = Vec.Subtract(dv, temp)
++		return dv
++	}
++	for j := 0; j < c.VPointCount; j++ {
++		vcp := &c.VPoints[j]
++		dv := relative(vcp)
++		vt := Vec.Dot(dv, tangent)
++		lambda := vcp.TangentMass * -vt
++		maxFriction := c.Friction * vcp.NormalImpulse
++		newImpulse := max(-maxFriction, min(vcp.TangentImpulse+lambda, maxFriction))
++		lambda = newImpulse - vcp.TangentImpulse
++		converged = converged && math.Abs(lambda) <= tolerance*(1+math.Abs(newImpulse))
++		vcp.TangentImpulse = newImpulse
++		p := Vec.Scale(tangent, lambda)
++		vA = Vec.AddScaled(vA, p, -mA)
++		wA -= iA * Vec.Cross(vcp.RA, p)
++		vB = Vec.AddScaled(vB, p, mB)
++		wB += iB * Vec.Cross(vcp.RB, p)
++	}
++	if c.VPointCount == 1 {
++		vcp := &c.VPoints[0]
++		dv := relative(vcp)
++		vn := Vec.Dot(dv, normal)
++		lambda := -vcp.NormalMass * (vn - vcp.VelocityBias)
++		newImpulse := max(vcp.NormalImpulse+lambda, 0)
++		lambda = newImpulse - vcp.NormalImpulse
++		converged = converged && math.Abs(lambda) <= tolerance*(1+math.Abs(newImpulse))
++		vcp.NormalImpulse = newImpulse
++		p := Vec.Scale(normal, lambda)
++		vA = Vec.AddScaled(vA, p, -mA)
++		wA -= iA * Vec.Cross(vcp.RA, p)
++		vB = Vec.AddScaled(vB, p, mB)
++		wB += iB * Vec.Cross(vcp.RB, p)
++	} else {
++		one, two := &c.VPoints[0], &c.VPoints[1]
++		a := Vec.Create(one.NormalImpulse, two.NormalImpulse)
++		dv1, dv2 := relative(one), relative(two)
++		vn1, vn2 := Vec.Dot(dv1, normal), Vec.Dot(dv2, normal)
++		b := Vec.Create(vn1-one.VelocityBias, vn2-two.VelocityBias)
++		b.X -= c.VK.Ex.X*a.X + c.VK.Ey.X*a.Y
++		b.Y -= c.VK.Ex.Y*a.X + c.VK.Ey.Y*a.Y
++		apply := func(x Vec.Vector) {
++			d := Vec.Subtract(x, a)
++			converged = converged && math.Abs(d.X) <= tolerance*(1+math.Abs(x.X)) && math.Abs(d.Y) <= tolerance*(1+math.Abs(x.Y))
++			p1, p2 := Vec.Scale(normal, d.X), Vec.Scale(normal, d.Y)
++			Vec.Combine3Into(&vA, -mA, p1, -mA, p2, 1, vA)
++			wA -= iA * (Vec.Cross(one.RA, p1) + Vec.Cross(two.RA, p2))
++			Vec.Combine3Into(&vB, mB, p1, mB, p2, 1, vB)
++			wB += iB * (Vec.Cross(one.RB, p1) + Vec.Cross(two.RB, p2))
++			one.NormalImpulse = x.X
++			two.NormalImpulse = x.Y
++		}
++		for {
++			x := Vec.Create(-(c.VNormalMass.Ex.X*b.X + c.VNormalMass.Ey.X*b.Y), -(c.VNormalMass.Ex.Y*b.X + c.VNormalMass.Ey.Y*b.Y))
++			if x.X >= 0 && x.Y >= 0 {
++				apply(x)
++				break
++			}
++			x.X = -one.NormalMass * b.X
++			x.Y = 0
++			vn2 = c.VK.Ex.Y*x.X + b.Y
++			if x.X >= 0 && vn2 >= 0 {
++				apply(x)
++				break
++			}
++			x.X = 0
++			x.Y = -two.NormalMass * b.Y
++			vn1 = c.VK.Ey.X*x.Y + b.X
++			if x.Y >= 0 && vn1 >= 0 {
++				apply(x)
++				break
++			}
++			x = Vec.Vector{}
++			vn1 = b.X
++			vn2 = b.Y
++			if vn1 >= 0 && vn2 >= 0 {
++				apply(x)
++				break
++			}
++			break
++		}
++	}
++	bodyA.CVelocity = Velocity{vA, wA}
++	bodyB.CVelocity = Velocity{vB, wB}
++	return converged
++}
++func replayVelocity(sample VelocityAuditSample, tolerance float64) ([]Velocity, int) {
++	bodies := make([]Body, len(sample.Bodies))
++	for i, v := range sample.Bodies {
++		bodies[i].CVelocity = v
++	}
++	contacts := make([]Contact, len(sample.Contacts))
++	for i, c := range sample.Contacts {
++		constraint := c.Constraint
++		contacts[i] = Contact{ContactConstraint: &constraint, Friction: c.Friction}
++		contacts[i].NodeB.Other = &bodies[c.A]
++		contacts[i].NodeA.Other = &bodies[c.B]
++	}
++	iterations := 0
++	for iterations < sample.Iterations {
++		iterations++
++		converged := true
++		for i := range contacts {
++			if !contacts[i].auditSolveVelocity(tolerance) {
++				converged = false
++			}
++		}
++		if converged {
++			break
++		}
++	}
++	result := make([]Velocity, len(bodies))
++	for i := range bodies {
++		result[i] = bodies[i].CVelocity
++	}
++	return result, iterations
++}
++func TestVelocityReplay(t *testing.T) {
++	for _, tolerance := range []float64{1e-7, 1e-5, 1e-4, 1e-3} {
++		for _, workload := range []string{"convoy", "spread", "contact", "module"} {
++			data, err := os.ReadFile("/tmp/velocity-audit-" + workload + ".json")
++			if err != nil {
++				t.Fatal(err)
++			}
++			var result struct {
++				VelocitySamples struct {
++					Samples [3][]VelocityAuditSample
++					Counts  [3]int
++				}
++			}
++			if err = json.Unmarshal(data, &result); err != nil {
++				t.Fatal(err)
++			}
++			for kind, samples := range result.VelocitySamples.Samples {
++				errors := []float64{}
++				maxLinear, maxAngular := 0., 0.
++				totalIterations, fullIterations := 0, 0
++				for _, sample := range samples {
++					ref, _ := replayVelocity(sample, -1)
++					got, iterations := replayVelocity(sample, tolerance)
++					totalIterations += iterations
++					fullIterations += sample.Iterations
++					for i, v := range got {
++						linear := math.Hypot(v.V.X-ref[i].V.X, v.V.Y-ref[i].V.Y)
++						angular := math.Abs(v.W - ref[i].W)
++						maxLinear = max(maxLinear, linear)
++						maxAngular = max(maxAngular, angular)
++						errors = append(errors, max(linear/max(1, math.Hypot(ref[i].V.X, ref[i].V.Y)), angular/max(1, math.Abs(ref[i].W))))
++					}
++				}
++				if len(errors) == 0 {
++					continue
++				}
++				sort.Float64s(errors)
++				fmt.Printf("%s tol=%g kind=%d sampled=%d total=%d iterationFraction=%.4f maxLinear=%g maxAngular=%g relativeP99=%g relativeMax=%g\n", workload, tolerance, kind, len(samples), result.VelocitySamples.Counts[kind], float64(totalIterations)/float64(fullIterations), maxLinear, maxAngular, errors[int(.99*float64(len(errors)))], errors[len(errors)-1])
++			}
++		}
++	}
++}
+--- a/internal/server/session-benchmark_test.go
++++ b/internal/server/session-benchmark_test.go
+@@ -4,6 +4,7 @@
+ 	"encoding/hex"
+ 	"encoding/json"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
++	"github.com/burntcustard/unicorn-mining-co/internal/physics"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/protocol"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/simulation"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/specification"
+@@ -274,6 +275,7 @@
+ 		states = append(states, map[string]any{"id": ship.ID, "position": ship.Position, "velocity": ship.Velocity, "rotation": ship.Rotation, "spin": ship.Spin, "hullHealth": ship.HullHealth(), "cargo": len(ship.CargoContents), "modules": ship.ModuleStates()})
+ 	}
+ 	result := map[string]any{"eventTrace": eventTrace, "contactTrace": measured.trace, "nearZeroCollisions": nearZeroCollisions, "runtime": "go", "seed": seed, "players": count, "workload": workload, "ticks": ticks, "cpuMsPerTick": cpu / float64(ticks), "wallMsPerTick": elapsed / float64(ticks), "p95Ms": samples[int(float64(ticks)*.95)], "p99Ms": samples[int(float64(ticks)*.99)], "maxMs": samples[ticks-1], "rssBytes": rss, "heapBytes": memory.HeapAlloc, "allocatedBytesPerTick": float64(memory.TotalAlloc-beforeMemory.TotalAlloc) / float64(ticks), "allocationsPerTick": float64(memory.Mallocs-beforeMemory.Mallocs) / float64(ticks), "collections": memory.NumGC - beforeMemory.NumGC, "contacts": measured.contacts, "events": events, "packets": packets, "bytes": bytes, "entities": session.World.Entities.Len(), "states": states, "traces": traces}
++	result["velocitySamples"] = physics.VelocityAuditSamples()
+ 	data, err := json.Marshal(result)
+ 	if err != nil {
+ 		t.Fatal(err)

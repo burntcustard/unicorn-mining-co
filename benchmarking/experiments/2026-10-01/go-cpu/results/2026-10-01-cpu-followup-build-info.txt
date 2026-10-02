@@ -1,0 +1,30 @@
+/tmp/go-cpu-followup-final: go1.27.1-X:simd
+	path	github.com/burntcustard/unicorn-mining-co/internal/server.test
+	mod	github.com/burntcustard/unicorn-mining-co	(devel)	
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=amd64
+	build	GOEXPERIMENT=simd
+	build	GOOS=linux
+	build	GOAMD64=v1
+/tmp/unicorn-go-followup-server: go1.27.1-X:simd
+	path	github.com/burntcustard/unicorn-mining-co/cmd/go-server
+	mod	github.com/burntcustard/unicorn-mining-co	v0.0.0-20261001154610-a7506041d77d+dirty	
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	-pgo=default.pgo
+	build	-trimpath=true
+	build	CGO_ENABLED=0
+	build	GOAMD64=v1
+	build	GOARCH=amd64
+	build	GOEXPERIMENT=simd
+	build	GOOS=linux
+	build	vcs=git
+	build	vcs.modified=true
+	build	vcs.revision=a7506041d77db619392ca32535e807938f3aea35
+	build	vcs.time=2026-10-01T15:46:10Z

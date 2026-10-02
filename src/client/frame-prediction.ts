@@ -1,4 +1,5 @@
 import * as Vec from '../shared/vector';
+import { interpolatePose } from '../shared/utilities/interpolate-pose';
 import { type GameObject } from '../shared/game-object';
 import { type PlayerId } from '../shared/protocol/entities';
 import { type InputFrame } from '../shared/protocol/input-frame';
@@ -18,16 +19,20 @@ import {
 
 /*
  * Predict the unfinished tick at display rate using the same gameplay/CCD as
- * the server. Only the pilot's contact neighbourhood is copied, once per tick.
+ * the server. Every visible body shares the same endpoints, copied once per tick.
  * Resampling from that checkpoint makes results independent of display rate;
  * speculative damage, cargo transfers and events never escape into history.
  */
 export class FramePrediction {
   private world = createWorld();
   private state?: SimulationWorldState;
+  private endpoint?: SimulationWorldState;
+  private endpointInput?: InputFrame['input'];
+  private endpointChange?: InputFrame['changes'][number];
 
   reset() {
     this.state = undefined;
+    this.endpoint = undefined;
   }
 
   sample({
@@ -47,43 +52,19 @@ export class FramePrediction {
     if (!ship) return world;
 
     if (!this.state || this.state.tick !== world.tick) {
-      const nearby = new Set([ship]);
-      const candidates = [...world.entities.values()];
-
-      // Include contact chains and moving bodies that can reach us this tick,
-      // rather than predicting the pilot through a stationary neighbour.
-      for (const member of nearby) {
-        candidates.forEach((entity) => {
-          if (
-            !entity.dead &&
-            !nearby.has(entity) &&
-            Vec.distance(member.position, entity.position) <=
-              member.radius +
-                entity.radius +
-                100 +
-                (Vec.length(member.velocity) + Vec.length(entity.velocity)) *
-                  simulationStep
-          ) {
-            nearby.add(entity);
-          }
-        });
-      }
-
       this.world.entities.clear();
       this.world.players = new Map([[playerId, { ...player! }]]);
       this.world.tick = world.tick;
       this.world.nextEntityId = world.nextEntityId;
       this.world.random.state = world.random.state;
       // Preserve authoritative iteration order for the contact solver.
-      candidates
-        .filter((entity) => nearby.has(entity))
-        .forEach((entity) => {
-          const copy = cloneEntity({ entity });
+      [...world.entities.values()].forEach((entity) => {
+        const copy = cloneEntity({ entity });
 
-          copy.random = this.world.random;
-          addEntity(this.world, copy);
-        });
-      [...nearby]
+        copy.random = this.world.random;
+        addEntity(this.world, copy);
+      });
+      [...world.entities.values()]
         .filter((entity) => entity.localMovementParent)
         .forEach((entity) => {
           this.world.entities.get(entity.id)!.localMovementParent =
@@ -92,18 +73,48 @@ export class FramePrediction {
             );
         });
       this.state = captureWorld({ world: this.world });
+      this.endpoint = undefined;
     }
 
-    restoreWorld({ world: this.world, state: this.state });
     const dt = Math.max(0, Math.min(simulationStep, elapsed));
 
     if (dt > 0) {
-      updateWorld({
-        world: this.world,
-        inputs: new Map([[playerId, input]]),
-        dt,
+      // A partial contact solve can switch projections between display frames.
+      // Draw between fixed endpoints of the same full tick for every body.
+      const change = input.changes.at(-1);
+
+      if (
+        !this.endpoint ||
+        this.endpointInput !== input.input ||
+        this.endpointChange !== change
+      ) {
+        restoreWorld({ world: this.world, state: this.state });
+        updateWorld({
+          world: this.world,
+          inputs: new Map([[playerId, input]]),
+          dt: simulationStep,
+        });
+        this.endpoint = captureWorld({ world: this.world });
+        this.endpointInput = input.input;
+        this.endpointChange = change;
+      } else restoreWorld({ world: this.world, state: this.endpoint });
+
+      if (dt === simulationStep) return this.world;
+      this.world.entities.forEach((entity) => {
+        const from = this.state!.entities.get(entity.id);
+
+        if (!from) return;
+        const pose = interpolatePose({
+          from,
+          to: entity,
+          fraction: dt / simulationStep,
+          dt: simulationStep,
+        });
+
+        Vec.set(entity.position, pose.position);
+        entity.rotation = pose.rotation;
       });
-    }
+    } else restoreWorld({ world: this.world, state: this.state });
     return this.world;
   }
 }

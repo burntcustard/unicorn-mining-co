@@ -86,6 +86,49 @@ const {
 const entityMap = (entities) =>
   new Map(entities.map((entity) => [entity.id, entity]));
 
+// Multiple fixtures count as one neighbor. Deferred bodies return next step.
+{
+  const world = new physics.PhysicsWorld();
+
+  world.limitCollisionNeighbors = true;
+  const center = world.createBody();
+
+  center.createFixture(new physics.CircleShape(Vec.create(), 20), {
+    physics: false,
+  });
+  const neighbors = Array.from({ length: 9 }, (_, i) => {
+    const body = world.createBody();
+
+    body.setTransform(Vec.create(i + 1), 0);
+
+    if (i < 8) {
+      for (const radius of [0.5, 0.6]) {
+        body.createFixture(new physics.CircleShape(Vec.create(), radius), {
+          physics: false,
+        });
+      }
+    }
+    return body;
+  });
+
+  world.step(0, 8, 3);
+  assert.equal(center.collisionNeighbors, undefined);
+  neighbors[8].createFixture(new physics.CircleShape(Vec.create(), 0.5), {
+    physics: false,
+  });
+  world.step(0, 8, 3);
+  assert.equal(center.collisionNeighbors.length, 8);
+  assert.equal(center.allowsCollision(neighbors[8]), false);
+  neighbors[0].setTransform(Vec.create(100), 0);
+  world.step(0, 8, 3);
+  assert.equal(center.allowsCollision(neighbors[8]), true);
+  center.resetCollisionNeighbors();
+
+  for (const body of neighbors) center.addCollisionNeighbor(body, 1);
+
+  assert.deepEqual(center.collisionNeighbors, neighbors.slice(0, 8));
+}
+
 const closeTo = (actual, expected, tolerance = 1e-9) =>
   assert.ok(
     Math.abs(actual - expected) < tolerance,
@@ -1127,7 +1170,9 @@ const bounce = (bounciness) => {
   closeTo(
     moving.mass * moving.velocity.x + heavy.mass * heavy.velocity.x,
     900,
-    1e-7,
+    // Six ticks, four motion substeps and final contact rounding per tick.
+    // Each eight-decimal velocity rounding contributes at most half a unit.
+    6 * 5 * (moving.mass + heavy.mass) * 0.5e-8,
   );
   assert(heavy.velocity.x > 0);
   return moving.velocity.x;
@@ -1307,7 +1352,12 @@ for (const radiusEven of [undefined, 25]) {
     updateWorld({ world: world, inputs: new Map() });
   }
   children.forEach((child, index) => {
-    closeTo(Vec.distance(child.position, positions[index]), 0, 1e-8);
+    // Initial geometry coordinates settle onto the motion grid on first update.
+    closeTo(
+      Vec.distance(child.position, positions[index]),
+      0,
+      Math.SQRT2 * 2 ** -25,
+    );
     closeTo(child.spin, 0, 1e-8);
   });
   assert.equal(

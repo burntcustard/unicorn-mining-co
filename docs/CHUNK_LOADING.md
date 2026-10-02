@@ -43,20 +43,30 @@ skips quoted paths, so `distance` can be mangled without changing imports of
 client controls and server welcome/respawn, and `UM` for load/snapshot state.
 Input frames contain a packed control byte; snapshots use fixed numeric field
 identifiers, independent of JavaScript property names. The server assigns
-connection-local snapshot sequences and keeps at most two snapshots outstanding
-per player, including initial and respawn loads. The client acknowledges each
-snapshot after decoding; simulation and input run at 30 Hz while ordinary state
-snapshots run at 15 Hz. Skipped sends do not advance replication baselines, so
+connection-local snapshot sequences and starts with two snapshots outstanding
+per player, including initial and respawn loads. Prompt ordinary receipts expand
+the bounded window to nine, sustaining 30 Hz through a 267 ms round trip plus
+tick phasing; slower receipts reduce it to two again. The client acknowledges each
+snapshot after decoding; simulation and input run at 30 Hz and ordinary state
+snapshots also run at 30 Hz. Skipped sends do not advance replication baselines, so
 the next send contains current changes. Client and server production assets must
 be built and released together.
 Untouched procedural asteroids recreate their segments from shared seeds instead
 of receiving them. Each player receives a full entity record on entry, then
-only fields that changed; `null` clears a field. Load records provide their
-own IDs, and later interest sets are sent only when membership changes. Values
+only fields that changed; `null` clears a field. Unchanged player ships use
+ordinary delta omission; render prediction does not require heartbeat records.
+All visible bodies use unfinished-tick prediction with a statically imported,
+bounded Hermite pose helper. Frame prediction draws between a common checkpoint
+and full physics endpoint; remote ships have no separate playback buffer.
+Load records provide their own IDs, and later interest sets are sent only when
+membership changes. Values
 the client can reconstruct are omitted. The client expands records
-before motion tracking and prediction. Shared simulation rounds positions,
-rotation and spin, and generated asteroid geometry to eight decimal places;
-velocity retains full precision for collision momentum. The `object` tag stays
+before prediction. Shared simulation rounds positions,
+velocity, rotation and spin to a binary grid of 2^-24, using ties to even on
+both Go and JavaScript. This lets Go use its native rounding instruction and
+keeps prediction consistent. Generated asteroid geometry still uses eight
+decimal places. Snapshot motion fields use fixed-width float64 values, so
+their encoded width does not depend on the rounding rule. The `object` tag stays
 long because JavaScript's `typeof` uses that literal.
 The build also annotates computed checkpoint keys for Terser.
 Module export names and native browser/JavaScript properties remain protected.

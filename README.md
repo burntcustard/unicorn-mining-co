@@ -69,6 +69,13 @@ waiting for a welcome packet.
 
 7. See [package.json](package.json) for other scripts
 
+`npm run format` formats JavaScript, TypeScript, and other files supported by
+Oxfmt. `npm run format:check` checks them without writing changes. These commands
+use the npm dependencies and do not require Go.
+
+Format Go source separately with `npm run format:go`, or check it with
+`npm run format:go:check`. Both Go commands require `gofmt` on PATH.
+
 ## Build
 
 `npm run build` type-checks and builds the client and server with the same
@@ -78,6 +85,27 @@ production server as `dist/server.js`, and warns if a browser JavaScript chunk
 exceeds 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading
 tiers and their triggers. `npm run test:packets` reports client/server packet
 sizes before and after production mangling.
+
+## Documentation
+
+### Current references
+
+- [Go server port and local running](docs/GO_PORT.md)
+- [Client chunk loading and protocol delivery](docs/CHUNK_LOADING.md)
+- [Code terminology](docs/terminology.md)
+- [Todo](docs/todo.md)
+- [Ideas](docs/ideas.md)
+
+### Measurements and history
+
+- [Experiment reports](docs/experiments/README.md): dated investigations and decisions.
+- [Benchmark tools and artifacts](benchmarking/README.md): runners, captured results, and reproduction instructions.
+- [Older reports and results](benchmarking/archive/README.md): compressed history and extraction instructions.
+
+Current references stay directly under `docs/`. Put new investigation reports in
+`docs/experiments/YYYY-MM-DD/` and their evidence in the matching date/topic under
+`benchmarking/experiments/`. Historical reports describe the measured checkout;
+they are not current configuration instructions.
 
 ## Deploy on Fly.io
 

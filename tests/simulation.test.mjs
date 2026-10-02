@@ -25,6 +25,7 @@ const bundle = await rolldown({
       export { detectCollisions } from '${process.cwd()}/src/shared/collision/detect-collisions.ts';
       export * as Vec from '${process.cwd()}/src/shared/vector.ts';
       export { PredictionManager } from '${process.cwd()}/src/client/prediction.ts';
+      export { roundMotion } from '${process.cwd()}/src/shared/utilities/round.ts';
     `
           : undefined,
       resolveId: (id) => (id === 'simulation' ? '\0simulation' : undefined),
@@ -49,9 +50,26 @@ const {
   detectCollisions,
   shapeOutlinesFrom,
   PredictionManager,
+  roundMotion,
   updateWorld,
   Vec,
 } = simulation;
+
+const motionStep = 2 ** -24;
+
+for (const [value, expected] of [
+  [motionStep / 2, 0],
+  [(3 * motionStep) / 2, 2 * motionStep],
+  [(5 * motionStep) / 2, 2 * motionStep],
+  [-motionStep / 2, -0],
+  [(-3 * motionStep) / 2, -2 * motionStep],
+  [-0, -0],
+  [Infinity, Infinity],
+  [-Infinity, -Infinity],
+  [NaN, NaN],
+]) {
+  assert(Object.is(roundMotion(value), expected), `motion rounding ${value}`);
+}
 
 const spinWorld = createWorld({ seed: 25 });
 const spinningAsteroid = addEntity(
@@ -60,8 +78,8 @@ const spinningAsteroid = addEntity(
 );
 
 spinningAsteroid.update(60);
-assert.equal(spinningAsteroid.spin, 0.04);
-assert.equal(spinningAsteroid.rotation, 2.4);
+assert.equal(spinningAsteroid.spin, 671089 / 16777216);
+assert.equal(spinningAsteroid.rotation, 40265318 / 16777216);
 
 const splitWorld = createWorld({ seed: 25 });
 const stillAsteroid = addEntity(

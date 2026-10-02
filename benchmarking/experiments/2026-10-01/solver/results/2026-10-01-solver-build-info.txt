@@ -1,0 +1,17 @@
+/tmp/go-solver-retained: go1.27.1-X:simd
+	path	github.com/burntcustard/unicorn-mining-co/internal/server.test
+	mod	github.com/burntcustard/unicorn-mining-co	(devel)	
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=amd64
+	build	GOEXPERIMENT=simd
+	build	GOOS=linux
+	build	GOAMD64=v1
+1a4505e42327f79aca23ee48578e892fcc8df3e6b8371f586f5a23ac1554beb3  /tmp/go-precision-before
+2097c41aabb35a07637415985bc9ded9b81660f01c7427a012f167cfd333952a  /tmp/go-solver-retained
+35a3d270804a4bf4a1a609d3bf11b4b1056a8fcdb419392df0d3b720d078eaa5  cmd/go-server/default.pgo

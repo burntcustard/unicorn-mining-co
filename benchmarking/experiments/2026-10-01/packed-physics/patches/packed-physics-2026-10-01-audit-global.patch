@@ -1,0 +1,124 @@
+--- /dev/null
++++ b/internal/collision/shape/packed-audit.go
+@@ -0,0 +1,4 @@
++package shape
++import "math"
++var Audit = struct { Shapes, Vertices, Calls, Axes, Pairs int; Counts map[int]int; Queries map[int]int; MaxLocal, MaxError float64 }{Counts:map[int]int{},Queries:map[int]int{}}
++func (p *PolygonShape) auditGeometry() { Audit.Shapes++; p.AuditID=Audit.Shapes; Audit.Counts[p.Count]++; Audit.Vertices+=p.Count; for _, v:=range p.Vertices { Audit.MaxLocal=max(Audit.MaxLocal,math.Abs(v.X),math.Abs(v.Y)); Audit.MaxError=max(Audit.MaxError, math.Abs(v.X-float64(float32(v.X))),math.Abs(v.Y-float64(float32(v.Y)))) } }
+--- a/internal/collision/shape/polygon-polygon-contact.go
++++ b/internal/collision/shape/polygon-polygon-contact.go
+@@ -9,17 +9,20 @@
+ )
+ 
+ func findMaxSeparation(poly1 *PolygonShape, xf1 Vec.TransformValue, poly2 *PolygonShape, xf2 Vec.TransformValue, limit float64) (int, float64) {
++	Audit.Calls++; Audit.Queries[poly1.AuditID]++
+ 	var xf Vec.TransformValue
+ 	var n, v1 Vec.Vector
+ 	Vec.DetransformTransform(&xf, xf2, xf1)
+ 	bestIndex, maxSeparation := 0, math.Inf(-1)
+ 	vertices1, vertices2 := poly1.Vertices[:poly1.Count], poly2.Vertices[:poly2.Count]
+ 	for i, normal := range poly1.Normals[:poly1.Count] {
++		Audit.Axes++
+ 		Vec.RotateInto(&n, xf.Q, normal)
+ 		Vec.TransformInto(&v1, xf, vertices1[i])
+ 		offset := Vec.Dot(n, v1)
+ 		si := math.Inf(1)
+ 		for _, vertex := range vertices2 {
++			Audit.Pairs++
+ 			sij := Vec.Dot(n, vertex) - offset
+ 			if sij < si {
+ 				si = sij
+--- a/internal/collision/shape/polygon-shape.go
++++ b/internal/collision/shape/polygon-shape.go
+@@ -11,6 +11,7 @@
+ 	collision.BaseShape
+ 	Centroid Vec.Vector
+ 	Normals  []Vec.Vector
++	AuditID int
+ }
+ 
+ func NewPolygon(vertices []Vec.Vector, collisionMargin *float64, linearSlop float64) *PolygonShape {
+@@ -95,11 +96,13 @@
+ 		p.Normals[i] = Vec.Normalize(Vec.Vector{X: next.Y - vertex.Y, Y: vertex.X - next.X})
+ 	}
+ 	p.Centroid = computeCentroid(p.Vertices, m)
++	p.auditGeometry()
+ }
+ func (p *PolygonShape) SetAsBox(hx, hy float64) {
+ 	p.Vertices = []Vec.Vector{{X: hx, Y: -hy}, {X: hx, Y: hy}, {X: -hx, Y: hy}, {X: -hx, Y: -hy}}
+ 	p.Normals = []Vec.Vector{{X: 1}, {Y: 1}, {X: -1}, {Y: -1}}
+ 	p.Count = 4
++	p.auditGeometry()
+ }
+ func computeCentroid(vs []Vec.Vector, count int) Vec.Vector {
+ 	var c, temp, pRef Vec.Vector
+--- /dev/null
++++ b/internal/physics/packed-audit.go
+@@ -0,0 +1,26 @@
++package physics
++import "unsafe"
++var Audit = struct { Islands, Contacts, SinglePoint, TwoPoint, SequentialBatches, SequentialSlots4, SequentialSlots8, ColoredBatches, ColoredSlots4, ColoredSlots8 int; IslandSizes map[int]int; BodyBytes, ContactBytes uintptr }{IslandSizes:map[int]int{},BodyBytes:unsafe.Sizeof(Body{}),ContactBytes:unsafe.Sizeof(Contact{})}
++func (s *Solver) auditIsland() {
++ auditContacts=append(auditContacts,s.Contacts...)
++ Audit.Islands++; Audit.Contacts+=len(s.Contacts); Audit.IslandSizes[len(s.Contacts)]++
++ // Measure conflict-free consecutive batches without changing current dependency order.
++ used:=map[*Body]bool{}; count:=0
++ flush:=func(){if count>0 {Audit.SequentialBatches++;Audit.SequentialSlots4+=(count+3)/4*4;Audit.SequentialSlots8+=(count+7)/8*8};clear(used);count=0}
++ colors:=[]map[*Body]bool{}; sizes:=[]int{}
++ for _,c:=range s.Contacts { a,b:=c.FixtureA.Body,c.FixtureB.Body; if c.Manifold.PointCount==1 {Audit.SinglePoint++} else {Audit.TwoPoint++}; if used[a]||used[b] {flush()};used[a]=true;used[b]=true;count++
++  color:=0;for color<len(colors)&&(colors[color][a]||colors[color][b]) {color++};if color==len(colors){colors=append(colors,map[*Body]bool{});sizes=append(sizes,0)};colors[color][a]=true;colors[color][b]=true;sizes[color]++
++ };flush();for _,n:=range sizes {Audit.ColoredBatches++;Audit.ColoredSlots4+=(n+3)/4*4;Audit.ColoredSlots8+=(n+7)/8*8}
++}
++
++var auditContacts []*Contact
++var WorldAudit = struct {Calls, Contacts, SequentialSlots4, SequentialSlots8, ColoredSlots4, ColoredSlots8 int}{}
++func auditWorld() {
++ WorldAudit.Calls++;WorldAudit.Contacts+=len(auditContacts)
++ used:=map[*Body]bool{};n:=0
++ flush:=func(){WorldAudit.SequentialSlots4+=(n+3)/4*4;WorldAudit.SequentialSlots8+=(n+7)/8*8;clear(used);n=0}
++ colors:=[]map[*Body]bool{};sizes:=[]int{}
++ for _,c:=range auditContacts {a,b:=c.FixtureA.Body,c.FixtureB.Body;if used[a]||used[b]{flush()};used[a]=true;used[b]=true;n++
++  k:=0;for k<len(colors)&&(colors[k][a]||colors[k][b]){k++};if k==len(colors){colors=append(colors,map[*Body]bool{});sizes=append(sizes,0)};colors[k][a]=true;colors[k][b]=true;sizes[k]++
++ };flush();for _,v:=range sizes{WorldAudit.ColoredSlots4+=(v+3)/4*4;WorldAudit.ColoredSlots8+=(v+7)/8*8}
++}
+--- a/internal/physics/solver.go
++++ b/internal/physics/solver.go
+@@ -43,6 +43,7 @@
+ 	return math.Sqrt(dx*dx+dy*dy)-motion-boundA.Radius-boundB.Radius > target+1.25*linearSlop
+ }
+ func (s *Solver) SolveWorld(step TimeStep) {
++ auditContacts=auditContacts[:0];defer auditWorld()
+ 	world := s.World
+ 	for c := world.ContactList; c != nil; c = c.Next {
+ 		c.IslandFlag = false
+@@ -96,6 +97,7 @@
+ 	s.Bodies, s.isolated = bodies, isolated
+ }
+ func (s *Solver) SolveIsland(step TimeStep) {
++	s.auditIsland()
+ 	h := step.DT
+ 	rules := &s.World.Rules
+ 	maxTranslation, maxRotation := rules.Physics.MaxTranslation, rules.Physics.MaxRotation
+--- a/internal/server/session-benchmark_test.go
++++ b/internal/server/session-benchmark_test.go
+@@ -2,6 +2,8 @@
+ 
+ import (
+ 	"encoding/hex"
++ "github.com/burntcustard/unicorn-mining-co/internal/collision/shape"
++ "github.com/burntcustard/unicorn-mining-co/internal/physics"
+ 	"encoding/json"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/collision"
+ 	"github.com/burntcustard/unicorn-mining-co/internal/protocol"
+@@ -274,7 +276,10 @@
+ 		states = append(states, map[string]any{"id": ship.ID, "position": ship.Position, "velocity": ship.Velocity, "rotation": ship.Rotation, "spin": ship.Spin, "hullHealth": ship.HullHealth(), "cargo": len(ship.CargoContents), "modules": ship.ModuleStates()})
+ 	}
+ 	result := map[string]any{"eventTrace": eventTrace, "contactTrace": measured.trace, "nearZeroCollisions": nearZeroCollisions, "runtime": "go", "seed": seed, "players": count, "workload": workload, "ticks": ticks, "cpuMsPerTick": cpu / float64(ticks), "wallMsPerTick": elapsed / float64(ticks), "p95Ms": samples[int(float64(ticks)*.95)], "p99Ms": samples[int(float64(ticks)*.99)], "maxMs": samples[ticks-1], "rssBytes": rss, "heapBytes": memory.HeapAlloc, "allocatedBytesPerTick": float64(memory.TotalAlloc-beforeMemory.TotalAlloc) / float64(ticks), "allocationsPerTick": float64(memory.Mallocs-beforeMemory.Mallocs) / float64(ticks), "collections": memory.NumGC - beforeMemory.NumGC, "contacts": measured.contacts, "events": events, "packets": packets, "bytes": bytes, "entities": session.World.Entities.Len(), "states": states, "traces": traces}
+-	data, err := json.Marshal(result)
++	result["geometryAudit"] = shape.Audit
++ result["solverAudit"] = physics.Audit
++ result["worldSolverAudit"] = physics.WorldAudit
++ data, err := json.Marshal(result)
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}

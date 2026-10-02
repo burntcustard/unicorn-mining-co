@@ -1,0 +1,923 @@
+[
+  {
+    "file": "2026-10-01-cpu-avx-ablation.json.gz",
+    "label": "cpu-avx-ablation",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.8282693388807556,
+    "aggregateCpuChangePercent": -1.6148493318878243
+  },
+  {
+    "file": "2026-10-01-cpu-avx-pgo.json.gz",
+    "label": "cpu-avx-pgo",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-pass2",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "fa9684b1b00445e2524604295c297dec24723f32d753238a3629122495fcc117"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -3.6877759294166825,
+    "aggregateCpuChangePercent": -1.8260764014951247
+  },
+  {
+    "file": "2026-10-01-cpu-avx-sixteen.json.gz",
+    "label": "cpu-avx-sixteen",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-avx16-nearest4",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "70552e84723347fa39fa8d855162a06adb7e0b1be8f1e927f74b36506899040f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-avx16-nearest4",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "executableHash": "70552e84723347fa39fa8d855162a06adb7e0b1be8f1e927f74b36506899040f"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.5604084122605608,
+    "aggregateCpuChangePercent": 0.012954750441784846
+  },
+  {
+    "file": "2026-10-01-cpu-motion-batch.json.gz",
+    "label": "cpu-motion-batch",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-motion-batch",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "541ec3ec6ffdb9cb75324a1a827528403773d2a451347619fa33d4423c7fe6a9"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-motion-batch",
+        "GOGC": "800",
+        "SIMD": "replication,motion-batch",
+        "executableHash": "541ec3ec6ffdb9cb75324a1a827528403773d2a451347619fa33d4423c7fe6a9"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.43194584354733156,
+    "aggregateCpuChangePercent": -0.175040565065665
+  },
+  {
+    "file": "2026-10-01-cpu-motion-inactive-corrected.json.gz",
+    "label": "cpu-motion-inactive-corrected",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-avx16-nearest4",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "executableHash": "70552e84723347fa39fa8d855162a06adb7e0b1be8f1e927f74b36506899040f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-avx16-nearest4",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "motionRounding": "inactive",
+        "executableHash": "70552e84723347fa39fa8d855162a06adb7e0b1be8f1e927f74b36506899040f"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.7663542803629769,
+    "aggregateCpuChangePercent": 0.7829458701015035
+  },
+  {
+    "file": "2026-10-01-cpu-motion-inactive.json.gz",
+    "label": "cpu-motion-inactive",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-nearest-contact",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "859fa3177e52dd4a4cc92be23ac7a7c1132ca1c504203e1a5fc418a8e083f593"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-nearest-contact",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "motionRounding": "inactive",
+        "executableHash": "859fa3177e52dd4a4cc92be23ac7a7c1132ca1c504203e1a5fc418a8e083f593"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.9545370573994245,
+    "aggregateCpuChangePercent": 0.4917255631374351
+  },
+  {
+    "file": "2026-10-01-cpu-motion-none.json.gz",
+    "label": "cpu-motion-none",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-rounding-trial",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "motionRounding": "none",
+        "executableHash": "3290b7fa5b63a04fdedd4177dd15ceed5923ce5c1faef18beb6ce9afb649f3bc"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": 2.244219740810708,
+    "aggregateCpuChangePercent": 3.0318497880419626
+  },
+  {
+    "file": "2026-10-01-cpu-motion-once.json.gz",
+    "label": "cpu-motion-once",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-rounding-trial",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "motionRounding": "once",
+        "executableHash": "3290b7fa5b63a04fdedd4177dd15ceed5923ce5c1faef18beb6ce9afb649f3bc"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.29754464408054127,
+    "aggregateCpuChangePercent": -2.7365826509962776
+  },
+  {
+    "file": "2026-10-01-cpu-motion-pose.json.gz",
+    "label": "cpu-motion-pose",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-rounding-trial",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "motionRounding": "pose",
+        "executableHash": "3290b7fa5b63a04fdedd4177dd15ceed5923ce5c1faef18beb6ce9afb649f3bc"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": 2.2253621259438714,
+    "aggregateCpuChangePercent": 1.7321239672529964
+  },
+  {
+    "file": "2026-10-01-cpu-native-motion-grid.json.gz",
+    "label": "cpu-native-motion-grid",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-avx16-nearest4",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "executableHash": "70552e84723347fa39fa8d855162a06adb7e0b1be8f1e927f74b36506899040f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-binary-round",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "executableHash": "10a0f9b0ccddc3ee4822002c89d19412dedc409fd3da81e61a4279a218286f85"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.30043161913078864,
+    "aggregateCpuChangePercent": 0.55099640329348
+  },
+  {
+    "file": "2026-10-01-cpu-native-vector-motion-clean.json.gz",
+    "label": "cpu-native-vector-motion-clean",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-native-motion-clean",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "executableHash": "5b5f3b803515540e6d5ca98524114bd9d65feffe1193d4839b8658886148f08b"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-native-motion-clean",
+        "GOGC": "800",
+        "SIMD": "replication16,motion",
+        "executableHash": "5b5f3b803515540e6d5ca98524114bd9d65feffe1193d4839b8658886148f08b"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.27942111487323645,
+    "aggregateCpuChangePercent": -0.416326979891557
+  },
+  {
+    "file": "2026-10-01-cpu-native-vector-motion.json.gz",
+    "label": "cpu-native-vector-motion",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-native-avx-nearest5",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "executableHash": "ea319caa63911dbea4ce15f060206603876865e243ba4d340338e25bd3a16b8e"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-native-avx-nearest5",
+        "GOGC": "800",
+        "SIMD": "replication16,motion",
+        "executableHash": "ea319caa63911dbea4ce15f060206603876865e243ba4d340338e25bd3a16b8e"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": 11.950353425932441,
+    "aggregateCpuChangePercent": 9.487156081240977
+  },
+  {
+    "file": "2026-10-01-cpu-nearest-eight-v1.json.gz",
+    "label": "cpu-nearest-eight-v1",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-nearest-trial",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "collisionNeighbors": "8",
+        "executableHash": "5f6fb62a052f64d43aa1ba0277b1841cb8f786c95f5affe555298c2272b24ac5"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": 4.575145354480018,
+    "aggregateCpuChangePercent": 1.9871072809934054
+  },
+  {
+    "file": "2026-10-01-cpu-nearest-eight-v2.json.gz",
+    "label": "cpu-nearest-eight-v2",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-pass2-pgo",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "a0c6d63491f7c7bbb465f103cc588ab5e8e0798b5dff459b5409176c1d4e4f89"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-nearest-early",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "collisionNeighbors": "8-early",
+        "executableHash": "e47691caacf0a8ce02844cf9b8d0a734072916f2d4040c943b3427421e59e16b"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.5637467341796252,
+    "aggregateCpuChangePercent": 0.22204849484970257
+  },
+  {
+    "file": "2026-10-01-cpu-nearest-eight-v3.json.gz",
+    "label": "cpu-nearest-eight-v3",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-nearest-contact",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "859fa3177e52dd4a4cc92be23ac7a7c1132ca1c504203e1a5fc418a8e083f593"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-nearest-contact",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "collisionNeighbors": "8-contact",
+        "executableHash": "859fa3177e52dd4a4cc92be23ac7a7c1132ca1c504203e1a5fc418a8e083f593"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": 3.151281732186874,
+    "aggregateCpuChangePercent": 2.465974424427686
+  },
+  {
+    "file": "2026-10-01-cpu-nearest-eight-v4.json.gz",
+    "label": "cpu-nearest-eight-v4",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-avx16-nearest4",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "70552e84723347fa39fa8d855162a06adb7e0b1be8f1e927f74b36506899040f"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-avx16-nearest4",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "collisionNeighbors": "8-contact",
+        "executableHash": "70552e84723347fa39fa8d855162a06adb7e0b1be8f1e927f74b36506899040f"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.9301319726376024,
+    "aggregateCpuChangePercent": -0.8114877861842174
+  },
+  {
+    "file": "2026-10-01-cpu-nearest-eight-v5.json.gz",
+    "label": "cpu-nearest-eight-v5",
+    "ticks": 3000,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-native-avx-nearest5",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "executableHash": "ea319caa63911dbea4ce15f060206603876865e243ba4d340338e25bd3a16b8e"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-native-avx-nearest5",
+        "GOGC": "800",
+        "SIMD": "replication16",
+        "collisionNeighbors": "8-contact",
+        "executableHash": "ea319caa63911dbea4ce15f060206603876865e243ba4d340338e25bd3a16b8e"
+      }
+    },
+    "outcomeComparison": "report",
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.6491221029554393,
+    "aggregateCpuChangePercent": -2.1097841966839725
+  },
+  {
+    "file": "2026-10-01-cpu-simd-adaptive-replication.json.gz",
+    "label": "cpu-simd-adaptive-replication",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-adaptive-replication",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "3cf717881889708499a8f97eed698c9d354494be1e2382a70af09a4a2371d679"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.5407726747680607,
+    "aggregateCpuChangePercent": -1.3016576364246468
+  },
+  {
+    "file": "2026-10-01-cpu-simd-avx-boundary.json.gz",
+    "label": "cpu-simd-avx-boundary",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-motion-dirty",
+        "GOGC": "800",
+        "SIMD": "motion",
+        "executableHash": "9a3d6f945c58323bde410af7a35002f3c327811a5b8b28d9e24803209315b6e5"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-motion-clean",
+        "GOGC": "800",
+        "SIMD": "motion",
+        "executableHash": "7ddd9318ef9ec681c62b1f30b82ce32b9fb31e7482535b8f54659ff7f039862a"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -17.81607767635848,
+    "aggregateCpuChangePercent": -20.064457244087354
+  },
+  {
+    "file": "2026-10-01-cpu-simd-batch-loop.json.gz",
+    "label": "cpu-simd-batch-loop",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-batch-loop",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "5fe72fc59c7ab9dd00b3aeba5235452a54c994bf89eed3fbe4725626f6bd3d24"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.8032509402028085,
+    "aggregateCpuChangePercent": -0.4364518908666182
+  },
+  {
+    "file": "2026-10-01-cpu-simd-bounds-v1.json.gz",
+    "label": "cpu-simd-bounds-v1",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-bounds",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "e32d53ff72328056497ec712adb852a0784d1d1eaa62a60fae01a599e4970d6b"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-bounds",
+        "GOGC": "800",
+        "SIMD": "bounds",
+        "executableHash": "e32d53ff72328056497ec712adb852a0784d1d1eaa62a60fae01a599e4970d6b"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.31548987140056006,
+    "aggregateCpuChangePercent": 0.27415749855392857
+  },
+  {
+    "file": "2026-10-01-cpu-simd-clean-geometry.json.gz",
+    "label": "cpu-simd-clean-geometry",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-contact-simplified",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "f5f64ee83551469cac6878ac99b1f4e0adaacf3176838f1e49da8401dc61b2d2"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-clean-geometry",
+        "GOGC": "800",
+        "SIMD": "triangles",
+        "executableHash": "3f0f490331a702d391a0667216a03bce0402c07b9e16b372b9bd8c7efbdf8a98"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.7943639673758884,
+    "aggregateCpuChangePercent": -1.030213147269421
+  },
+  {
+    "file": "2026-10-01-cpu-simd-direct-motion.json.gz",
+    "label": "cpu-simd-direct-motion",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-direct-motion",
+        "GOGC": "800",
+        "SIMD": "motion",
+        "executableHash": "004183cfcfe7839712fa50313f96563fb7f45fc4b4d03433d4011d8746a109ff"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.6110903873293355,
+    "aggregateCpuChangePercent": -0.26250405272230104
+  },
+  {
+    "file": "2026-10-01-cpu-simd-lazy-policy.json.gz",
+    "label": "cpu-simd-lazy-policy",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-lazy-policy",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "4ddf831edd62500ca387c8edfee94f8f46ff786d8850d719262de0c77d415050"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.07759161754121863,
+    "aggregateCpuChangePercent": -0.5857573906045244
+  },
+  {
+    "file": "2026-10-01-cpu-simd-motion-clean.json.gz",
+    "label": "cpu-simd-motion-clean",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-motion-clean",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "7ddd9318ef9ec681c62b1f30b82ce32b9fb31e7482535b8f54659ff7f039862a"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-motion-clean",
+        "GOGC": "800",
+        "SIMD": "motion",
+        "executableHash": "7ddd9318ef9ec681c62b1f30b82ce32b9fb31e7482535b8f54659ff7f039862a"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.6020564328912064,
+    "aggregateCpuChangePercent": -0.31212271174001494
+  },
+  {
+    "file": "2026-10-01-cpu-simd-observers-array.json.gz",
+    "label": "cpu-simd-observers-array",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-observers-array",
+        "GOGC": "800",
+        "SIMD": "observers",
+        "executableHash": "9734748d07265797368b244dcc60a2f8a0ea7c9944c30358a107e9367d670983"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.29590151654157876,
+    "aggregateCpuChangePercent": -0.47429705930948085
+  },
+  {
+    "file": "2026-10-01-cpu-simd-observers-tail.json.gz",
+    "label": "cpu-simd-observers-tail",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-observers-tail",
+        "GOGC": "800",
+        "SIMD": "observers",
+        "executableHash": "a234ffa2d6f19e57e7ecae9f01c3371bf1aa33c309004015a2907fe293e4d741"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.41832366624108897,
+    "aggregateCpuChangePercent": -0.05260756353412388
+  },
+  {
+    "file": "2026-10-01-cpu-simd-observers-v1.json.gz",
+    "label": "cpu-simd-observers-v1",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-observers",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "f74fa4d90e5580e1094e5d253db1e0317a8857a222f66a5e38f7cf74a0c3f3dc"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-observers",
+        "GOGC": "800",
+        "SIMD": "observers",
+        "executableHash": "f74fa4d90e5580e1094e5d253db1e0317a8857a222f66a5e38f7cf74a0c3f3dc"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.1790685856946514,
+    "aggregateCpuChangePercent": -0.10955810072227345
+  },
+  {
+    "file": "2026-10-01-cpu-simd-replication-block.json.gz",
+    "label": "cpu-simd-replication-block",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-replication-block",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "165a6cf61e664ed189006a9ea55490dafb00e1d44a1fd9afe58ec5da7ac96259"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.4796568793741948,
+    "aggregateCpuChangePercent": -1.181848196886326
+  },
+  {
+    "file": "2026-10-01-cpu-simd-replication-float32.json.gz",
+    "label": "cpu-simd-replication-float32",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-replication-float32",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "5cbe99fdaf12747601cf83380bfab1381fd5dbfa16a9ac548e06dddc7446018f"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.024790782300629366,
+    "aggregateCpuChangePercent": -1.1027470694363162
+  },
+  {
+    "file": "2026-10-01-cpu-simd-replication-v1.json.gz",
+    "label": "cpu-simd-replication-v1",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-replication",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "399e3b6c2ba5331d620bfa9d8681909e49ef781b59b4142fa86b34f42efa454a"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-replication",
+        "GOGC": "800",
+        "SIMD": "replication",
+        "executableHash": "399e3b6c2ba5331d620bfa9d8681909e49ef781b59b4142fa86b34f42efa454a"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.520879916710628,
+    "aggregateCpuChangePercent": 0.9256467275614355
+  },
+  {
+    "file": "2026-10-01-cpu-simd-separation-v1.json.gz",
+    "label": "cpu-simd-separation-v1",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-sat",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "2b37145798e5e8cb2d8d3067fa71692e2b2afc13fc8a5faac7b2a88cfa1593ee"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-sat",
+        "GOGC": "800",
+        "SIMD": "separation",
+        "executableHash": "2b37145798e5e8cb2d8d3067fa71692e2b2afc13fc8a5faac7b2a88cfa1593ee"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.28625305533136053,
+    "aggregateCpuChangePercent": -1.0742429914567753
+  },
+  {
+    "file": "2026-10-01-cpu-simd-support-pipeline.json.gz",
+    "label": "cpu-simd-support-pipeline",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-support-pipeline",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "ec7370f09f2d960a6231b7f4e7d197e72b898b9cd79e8f23ac79a047c8297675"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-support-pipeline",
+        "GOGC": "800",
+        "SIMD": "support",
+        "executableHash": "ec7370f09f2d960a6231b7f4e7d197e72b898b9cd79e8f23ac79a047c8297675"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.06449381661265546,
+    "aggregateCpuChangePercent": 0.21406743190202082
+  },
+  {
+    "file": "2026-10-01-cpu-simd-transforms-v1.json.gz",
+    "label": "cpu-simd-transforms-v1",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-transforms",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "c824cf56ece3461035797c6c069cda43c858bc4ac04e2d8894dd6ef5c62dcc55"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-transforms",
+        "GOGC": "800",
+        "SIMD": "transforms",
+        "executableHash": "c824cf56ece3461035797c6c069cda43c858bc4ac04e2d8894dd6ef5c62dcc55"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": 0.3218395585481301,
+    "aggregateCpuChangePercent": 0.1748189242019249
+  },
+  {
+    "file": "2026-10-01-cpu-simd-triangles-aos.json.gz",
+    "label": "cpu-simd-triangles-aos",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-triangles-aos",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "b59ab3cfcb9f1548a59b419de3a6eac5d7454076627ecdf23b9a78ffcc1730a6"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-triangles-aos",
+        "GOGC": "800",
+        "SIMD": "triangles",
+        "executableHash": "b59ab3cfcb9f1548a59b419de3a6eac5d7454076627ecdf23b9a78ffcc1730a6"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -1.1390577814080463,
+    "aggregateCpuChangePercent": -1.5128649778175185
+  },
+  {
+    "file": "2026-10-01-cpu-simd-triangles-v1.json.gz",
+    "label": "cpu-simd-triangles-v1",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-triangles",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "f3ba6658ef984219a4eaa8153037e96218f87353357c42d0ddd17553e310d0c0"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-triangles",
+        "GOGC": "800",
+        "SIMD": "triangles",
+        "executableHash": "f3ba6658ef984219a4eaa8153037e96218f87353357c42d0ddd17553e310d0c0"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.6678251067754243,
+    "aggregateCpuChangePercent": -0.6866992422483453
+  },
+  {
+    "file": "2026-10-01-cpu-simd-unroll.json.gz",
+    "label": "cpu-simd-unroll",
+    "ticks": 900,
+    "repetitions": 7,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-simd-before",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "3fad1f8c1e963fd8f58e09b2a7c2dca5b79e465d23b7de7849524b02b0cdb535"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-simd-unroll",
+        "GOGC": "800",
+        "SIMD": "triangles",
+        "executableHash": "83343d93d0374ed1a68e4c3907a6b9e86b142cbdd949822176c3d5f981e7736a"
+      }
+    },
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.35409178229900207,
+    "aggregateCpuChangePercent": -0.6944822047050714
+  },
+  {
+    "file": "2026-10-01-cpu-followup-pgo.json.gz",
+    "label": "cpu-followup-pgo",
+    "ticks": 900,
+    "repetitions": 3,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-followup-old-pgo",
+        "GOGC": "800",
+        "executableHash": "2ceb28cba48d4b7f7196ceae8939e96b1796ec3b71ca8dddcab6dd7f6d08fe97"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-followup-final",
+        "GOGC": "800",
+        "executableHash": "1a4505e42327f79aca23ee48578e892fcc8df3e6b8371f586f5a23ac1554beb3"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": -2.2541135523078006,
+    "aggregateCpuChangePercent": -1.141564530678174
+  },
+  {
+    "file": "2026-10-01-cpu-followup-simd.json.gz",
+    "label": "cpu-followup-simd",
+    "ticks": 900,
+    "repetitions": 5,
+    "variants": {
+      "before": {
+        "executable": "/tmp/go-cpu-followup-final",
+        "GOGC": "800",
+        "SIMD": "scalar",
+        "executableHash": "1a4505e42327f79aca23ee48578e892fcc8df3e6b8371f586f5a23ac1554beb3"
+      },
+      "after": {
+        "executable": "/tmp/go-cpu-followup-final",
+        "GOGC": "800",
+        "executableHash": "1a4505e42327f79aca23ee48578e892fcc8df3e6b8371f586f5a23ac1554beb3"
+      }
+    },
+    "outcomeComparison": "strict",
+    "completeCases": 16,
+    "meanCpuChangePercent": -0.7394585975272226,
+    "aggregateCpuChangePercent": -1.6555592759819104
+  }
+]

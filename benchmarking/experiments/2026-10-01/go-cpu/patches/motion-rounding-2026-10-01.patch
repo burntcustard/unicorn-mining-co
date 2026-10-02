@@ -1,0 +1,45 @@
+diff --git a/internal/simulation/game-object.go b/internal/simulation/game-object.go
+index 2dc6df4..af5c78e 100644
+--- a/internal/simulation/game-object.go
++++ b/internal/simulation/game-object.go
+@@ -9,6 +9,7 @@ import (
+ 	"github.com/burntcustard/unicorn-mining-co/internal/utilities"
+ 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
+ 	"math"
++	"os"
+ 	"slices"
+ 	"sync/atomic"
+ )
+@@ -150,11 +151,19 @@ func (o *GameObject) Hitbox() []*collision.Collider {
+ 	*c = collision.Collider{Owner: o.Self, Position: o.Position, Radius: o.Radius, Rotation: o.Rotation, ShapeOutline: outline, Bounciness: o.Bounciness, Friction: o.Friction, Physics: &o.Physics}
+ 	return body
+ }
++// Temporary benchmark selection; remove once the shared motion rule is chosen.
++var motionRounding = os.Getenv("GO_SERVER_MOTION_ROUNDING")
++
+ func (o *GameObject) RoundMotion() {
++	if motionRounding == "none" {
++		return
++	}
+ 	o.Position.X = utilities.RoundMotion(o.Position.X)
+ 	o.Position.Y = utilities.RoundMotion(o.Position.Y)
+-	o.Velocity.X = utilities.RoundMotion(o.Velocity.X)
+-	o.Velocity.Y = utilities.RoundMotion(o.Velocity.Y)
++	if motionRounding != "pose" {
++		o.Velocity.X = utilities.RoundMotion(o.Velocity.X)
++		o.Velocity.Y = utilities.RoundMotion(o.Velocity.Y)
++	}
+ 	o.Rotation = utilities.RoundMotion(o.Rotation)
+ 	o.Spin = utilities.RoundMotion(o.Spin)
+ }
+@@ -206,7 +215,9 @@ func (o *GameObject) Update(dt float64) {
+ 		parents = o.World.movementParents
+ 	}
+ 	localMovement(o.Self, movers, parents, dt)
+-	o.RoundMotion()
++	if motionRounding != "once" {
++		o.RoundMotion()
++	}
+ }
+ 
+ func (o *GameObject) ForceVelocity() *Vec.Vector { return &o.Velocity }

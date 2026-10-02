@@ -1,22 +1,20 @@
 import { Module } from './module';
-import { colors } from '../colors';
+import { moduleSpecifications } from '../specification/modules';
 
-// Half height of each flare, and how far off the middle each nozzle sits
-const size = 6;
-const offset = 11;
+const specification = moduleSpecifications.thrusterDualXl;
 
 export class ThrusterDualXl extends Module {
-  static shades = colors.violet;
-  static disablePhysics = true;
-  static health = 25;
-  static label = 'THRUSTERS *2 XL';
-  static offset = offset;
-  static model: any[] = [
-    { flareSize: size, thrusterNozzleSide: -1 },
-    { flareSize: size, thrusterNozzleSide: 1 },
-  ];
-  static price = 800;
-  static forwardThrust = 22;
-  static rotationalThrust = 24;
-  static zIndex = -1;
+  static shades = specification.shades;
+  static disablePhysics = specification.disablePhysics;
+  static health = specification.health;
+  static label = specification.label;
+  static offset = specification.offset;
+  static model: any[] = specification.flareSizes.map((flareSize, index) => ({
+    flareSize,
+    thrusterNozzleSide: specification.nozzleSides[index],
+  }));
+  static price = specification.price;
+  static forwardThrust = specification.forwardThrust;
+  static rotationalThrust = specification.rotationalThrust;
+  static zIndex = specification.zIndex;
 }

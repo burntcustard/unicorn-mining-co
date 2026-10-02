@@ -1,0 +1,60 @@
+
+/tmp/go-cpu-native-avx-nearest5:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+00000000005f1940 <github.com/burntcustard/unicorn-mining-co/internal/simulation.roundEntityMotion.func2>:
+  5f1940:	49 3b 66 10          	cmp    0x10(%r14),%rsp
+  5f1944:	0f 86 ab 00 00 00    	jbe    5f19f5 <github.com/burntcustard/unicorn-mining-co/internal/simulation.roundEntityMotion.func2+0xb5>
+  5f194a:	55                   	push   %rbp
+  5f194b:	48 89 e5             	mov    %rsp,%rbp
+  5f194e:	48 83 ec 70          	sub    $0x70,%rsp
+  5f1952:	48 89 84 24 80 00 00 	mov    %rax,0x80(%rsp)
+  5f1959:	00 
+  5f195a:	48 89 9c 24 88 00 00 	mov    %rbx,0x88(%rsp)
+  5f1961:	00 
+  5f1962:	48 8b 4a 68          	mov    0x68(%rdx),%rcx
+  5f1966:	48 89 4c 24 68       	mov    %rcx,0x68(%rsp)
+  5f196b:	c5 fe 6f 42 28       	vmovdqu 0x28(%rdx),%ymm0
+  5f1970:	c5 fe 7f 44 24 38    	vmovdqu %ymm0,0x38(%rsp)
+  5f1976:	c5 fa 6f 42 48       	vmovdqu 0x48(%rdx),%xmm0
+  5f197b:	0f 11 44 24 28       	movups %xmm0,0x28(%rsp)
+  5f1980:	c5 fa 6f 42 58       	vmovdqu 0x58(%rdx),%xmm0
+  5f1985:	0f 11 44 24 58       	movups %xmm0,0x58(%rsp)
+  5f198a:	c5 fe 6f 42 08       	vmovdqu 0x8(%rdx),%ymm0
+  5f198f:	c5 fe 7f 44 24 08    	vmovdqu %ymm0,0x8(%rsp)
+  5f1995:	48 8b 48 18          	mov    0x18(%rax),%rcx
+  5f1999:	48 89 d8             	mov    %rbx,%rax
+  5f199c:	ff d1                	call   *%rcx
+  5f199e:	c5 fe 6f 44 24 08    	vmovdqu 0x8(%rsp),%ymm0
+  5f19a4:	c5 fd 59 40 08       	vmulpd 0x8(%rax),%ymm0,%ymm0
+  5f19a9:	c4 e3 7d 09 c0 00    	vroundpd $0x0,%ymm0,%ymm0
+  5f19af:	c5 fe 6f 4c 24 38    	vmovdqu 0x38(%rsp),%ymm1
+  5f19b5:	c5 fd 59 c1          	vmulpd %ymm1,%ymm0,%ymm0
+  5f19b9:	c5 fe 7f 40 08       	vmovdqu %ymm0,0x8(%rax)
+  5f19be:	0f 10 44 24 28       	movups 0x28(%rsp),%xmm0
+  5f19c3:	c5 f9 59 40 28       	vmulpd 0x28(%rax),%xmm0,%xmm0
+  5f19c8:	c4 e3 79 09 c0 00    	vroundpd $0x0,%xmm0,%xmm0
+  5f19ce:	0f 10 4c 24 58       	movups 0x58(%rsp),%xmm1
+  5f19d3:	c5 f9 59 c1          	vmulpd %xmm1,%xmm0,%xmm0
+  5f19d7:	c5 fa 7f 40 28       	vmovdqu %xmm0,0x28(%rax)
+  5f19dc:	48 8b 4c 24 68       	mov    0x68(%rsp),%rcx
+  5f19e1:	48 8b 11             	mov    (%rcx),%rdx
+  5f19e4:	48 ff ca             	dec    %rdx
+  5f19e7:	48 89 11             	mov    %rdx,(%rcx)
+  5f19ea:	75 03                	jne    5f19ef <github.com/burntcustard/unicorn-mining-co/internal/simulation.roundEntityMotion.func2+0xaf>
+  5f19ec:	c5 f8 77             	vzeroupper 
+  5f19ef:	48 83 c4 70          	add    $0x70,%rsp
+  5f19f3:	5d                   	pop    %rbp
+  5f19f4:	c3                   	ret    
+  5f19f5:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+  5f19fa:	48 89 5c 24 10       	mov    %rbx,0x10(%rsp)
+  5f19ff:	48 89 4c 24 18       	mov    %rcx,0x18(%rsp)
+  5f1a04:	e8 d7 47 ea ff       	call   4961e0 <runtime.morestack.abi0>
+  5f1a09:	48 8b 44 24 08       	mov    0x8(%rsp),%rax
+  5f1a0e:	48 8b 5c 24 10       	mov    0x10(%rsp),%rbx
+  5f1a13:	48 8b 4c 24 18       	mov    0x18(%rsp),%rcx
+  5f1a18:	e9 23 ff ff ff       	jmp    5f1940 <github.com/burntcustard/unicorn-mining-co/internal/simulation.roundEntityMotion.func2>
+
+Disassembly of section .plt:

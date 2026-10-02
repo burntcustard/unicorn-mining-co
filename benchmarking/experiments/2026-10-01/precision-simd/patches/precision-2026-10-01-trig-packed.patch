@@ -1,0 +1,76 @@
+--- a/internal/vector/vector-math.go
++++ b/internal/vector/vector-math.go
+@@ -2,7 +2,6 @@
+ // Copyright (c) Ali Shakiba (Planck.js), MIT. See LICENSE.
+ package vector
+ 
+-import "math"
+ 
+ type RotValue struct{ S, C float64 }
+ type TransformValue struct {
+@@ -11,7 +10,7 @@
+ }
+ 
+ func SetRotAngle(out *RotValue, a float64) *RotValue {
+-	out.S, out.C = math.Sincos(a)
++	out.S, out.C = Sincos(a)
+ 	return out
+ }
+ func RotateInto(out *Vector, q RotValue, v Vector) *Vector {
+@@ -29,7 +28,7 @@
+ 	return out
+ }
+ func Transform(x, y, a float64) TransformValue {
+-	sin, cos := math.Sincos(a)
++	sin, cos := Sincos(a)
+ 	return TransformValue{Vector{x, y}, RotValue{sin, cos}}
+ }
+ func TransformInto(out *Vector, xf TransformValue, v Vector) *Vector {
+--- a/internal/collision/motion-sweep.go
++++ b/internal/collision/motion-sweep.go
+@@ -20,7 +20,7 @@
+ func (s *Sweep) Rotation0() Vec.RotValue {
+ 	if s.trigAngle != s.A0 || s.cosA0 == 0 && s.sinA0 == 0 {
+ 		s.trigAngle = s.A0
+-		s.sinA0, s.cosA0 = math.Sincos(s.A0)
++		s.sinA0, s.cosA0 = Vec.Sincos(s.A0)
+ 	}
+ 	return Vec.RotValue{S: s.sinA0, C: s.cosA0}
+ }
+@@ -37,7 +37,7 @@
+ 	} else {
+ 		if s.transformAngle != angle || s.transformCos == 0 && s.transformSin == 0 {
+ 			s.transformAngle = angle
+-			s.transformSin, s.transformCos = math.Sincos(angle)
++			s.transformSin, s.transformCos = Vec.Sincos(angle)
+ 		}
+ 		xf.Q = Vec.RotValue{S: s.transformSin, C: s.transformCos}
+ 	}
+--- /dev/null
++++ b/internal/vector/sincos.go
+@@ -0,0 +1,25 @@
++package vector
++
++import ("math"; "simd/archsimd")
++
++var sincosCoefficients = [4][2]float64{{0, 1.0/40320}, {-1.0/5040, -1.0/720}, {1.0/120, 1.0/24}, {-1.0/6, -1.0/2}}
++
++// Experimental bounded polynomial; maximum scalar absolute error measured separately.
++func Sincos(angle float64) (float64, float64) {
++ if !(angle >= -32 && angle <= 32) { return math.Sincos(angle) }
++ quadrant := math.RoundToEven(angle * (2 / math.Pi))
++ x := angle - quadrant * (math.Pi / 2)
++ z := x*x
++ powers := archsimd.BroadcastFloat64x2(z)
++ pair := archsimd.LoadFloat64x2Array(&sincosCoefficients[0]).Mul(powers).Add(archsimd.LoadFloat64x2Array(&sincosCoefficients[1]))
++ pair = pair.Mul(powers).Add(archsimd.LoadFloat64x2Array(&sincosCoefficients[2]))
++ pair = pair.Mul(powers).Add(archsimd.LoadFloat64x2Array(&sincosCoefficients[3]))
++ pair = pair.Mul(powers).Add(archsimd.BroadcastFloat64x2(1))
++ sin, cos := x * pair.GetElem(0), pair.GetElem(1)
++ switch int(quadrant) & 3 {
++ case 1: return cos, -sin
++ case 2: return -sin, -cos
++ case 3: return -cos, sin
++ }
++ return sin, cos
++}

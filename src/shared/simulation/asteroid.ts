@@ -10,13 +10,18 @@ import { type ShapeOutline } from '../types';
 import { itemTypes } from '../items';
 import { type SimulationEvent } from '../protocol/events';
 import { round } from '../utilities/round';
+import { regionGenerationSpecification } from '../specification/regions';
 
 // Enough of a wander that no two asteroids come out the same shape
-export const asteroidVariance = 0.2;
+export const asteroidVariance = regionGenerationSpecification.asteroidVariance;
 
 // Bigger asteroids need more points to be lumpy with
 export const pointCountFor = (radius: number) =>
-  Math.round(Math.sqrt(radius) * 0.3) * 2 - 1;
+  Math.round(
+    Math.sqrt(radius) * regionGenerationSpecification.asteroidPointCountScale,
+  ) *
+    2 -
+  1;
 
 const shapeOutlines = new Map<string, number[][]>();
 const roundPoint = ([x, y]: number[]) => [round(x), round(y)];

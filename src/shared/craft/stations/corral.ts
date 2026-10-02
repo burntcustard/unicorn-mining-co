@@ -1,7 +1,8 @@
 import { Station } from '../station';
-import { colors } from '../../colors';
-import { stationGeometry } from './corral-geometry';
+import { stationSpecifications } from '../../specification/stations';
 
+const specification = stationSpecifications.corral;
+const stationGeometry = specification.geometry;
 const { back: bay, corner: bayCorner, lip, nose, seam } = stationGeometry.bay;
 
 // Both halves as one shape outline, so the light pools along the whole bay rather
@@ -21,18 +22,18 @@ const glow = [
 // Both halves share the one glow, but their shape outlines stop at the seam
 const halfBay = (points: number[][], zIndex: number) => ({
   disablePhysics: true,
-  fillAlpha: 4,
+  fillAlpha: specification.bayFillAlpha,
   glow,
   points,
-  shades: colors.green,
+  shades: specification.bayGlowShades,
   unclosed: true,
   zIndex,
 });
 
 export class Corral extends Station {
-  static localMovementRadius = 600;
-  static mass = 1e9;
-  static zIndex = 2;
+  static localMovementRadius = specification.localMovementRadius;
+  static mass = specification.mass;
+  static zIndex = specification.zIndex;
   static hullSegments = [
     ...stationGeometry.sides.map(({ opening, shapeOutline }) => ({
       // Only the socket with the bay in it can be flown through. The other
@@ -58,7 +59,7 @@ export class Corral extends Station {
         [nose - bayCorner, lip],
         [seam, lip],
       ],
-      -3,
+      specification.bayFloorZIndex,
     ),
     // The half nearer the station, drawn over the top of ships, so one that
     // flies all the way in disappears inside it
@@ -71,7 +72,7 @@ export class Corral extends Station {
         [bay + bayCorner, -lip],
         [seam, -lip],
       ],
-      3,
+      specification.bayCeilingZIndex,
     ),
   ];
 }

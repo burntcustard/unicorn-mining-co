@@ -1,0 +1,23 @@
+goos: linux
+goarch: amd64
+pkg: github.com/burntcustard/unicorn-mining-co/internal/collision/game
+cpu: AMD Ryzen 7 5800X3D 8-Core Processor           
+BenchmarkNearestObjectCollisions/16/limit=false         	    7143	     46034 ns/op
+BenchmarkNearestObjectCollisions/16/limit=false         	    7990	     44948 ns/op
+BenchmarkNearestObjectCollisions/16/limit=false         	    8101	     44732 ns/op
+BenchmarkNearestObjectCollisions/16/limit=true          	    8858	     39486 ns/op
+BenchmarkNearestObjectCollisions/16/limit=true          	    8948	     39376 ns/op
+BenchmarkNearestObjectCollisions/16/limit=true          	    9001	     39510 ns/op
+BenchmarkNearestObjectCollisions/32/limit=false         	    2019	    170793 ns/op
+BenchmarkNearestObjectCollisions/32/limit=false         	    2036	    168570 ns/op
+BenchmarkNearestObjectCollisions/32/limit=false         	    2172	    169504 ns/op
+BenchmarkNearestObjectCollisions/32/limit=true          	    3614	     98574 ns/op
+BenchmarkNearestObjectCollisions/32/limit=true          	    3598	     98605 ns/op
+BenchmarkNearestObjectCollisions/32/limit=true          	    3604	     97844 ns/op
+BenchmarkNearestObjectCollisions/64/limit=false         	     716	    483443 ns/op
+BenchmarkNearestObjectCollisions/64/limit=false         	     736	    484215 ns/op
+BenchmarkNearestObjectCollisions/64/limit=false         	     751	    477385 ns/op
+BenchmarkNearestObjectCollisions/64/limit=true          	    1165	    291038 ns/op
+BenchmarkNearestObjectCollisions/64/limit=true          	    1191	    289371 ns/op
+BenchmarkNearestObjectCollisions/64/limit=true          	    1212	    289304 ns/op
+PASS

@@ -1,17 +1,19 @@
 import { Item } from './item';
-import { colors } from '../colors';
+import { itemDefaults, itemSpecifications } from '../specification/items';
 
 // Opal
 // Round rather than cut, so it brings a radius instead of a shape outline and is
 // collided with as the circle it is
+const specification = itemSpecifications.opal;
+
 export class Opal extends Item {
-  static resource = 3;
-  static bounciness = 0.2;
-  static health = 100;
-  static label = 'OPAL';
-  static price = 45;
-  static radius = 6;
-  static rainbow = true;
-  static shades = colors.white;
-  static glint = true;
+  static resource = specification.resource;
+  static label = specification.label;
+  static price = specification.price;
+  static radius = specification.radius;
+  static shades = specification.shades;
+  static glint = specification.glint;
+  static rainbow = specification.rainbow;
+  static bounciness = itemDefaults.bounciness;
+  static health = itemDefaults.health;
 }

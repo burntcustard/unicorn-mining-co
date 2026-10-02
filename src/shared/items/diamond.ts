@@ -1,24 +1,20 @@
 import { Item } from './item';
-import { colors } from '../colors';
+import { itemDefaults, itemSpecifications } from '../specification/items';
 
 // Diamond
 // A brilliant cut seen face on: the flat table across the top, shoulders out
 // to the widest point at the girdle, and the pavilion tapering to a point
 // below. Nothing but the shape outline, which at this size is all that reads anyway
+const specification = itemSpecifications.diamond;
+
 export class Diamond extends Item {
-  static resource = 0;
-  static bounciness = 0.2;
-  static fillAlpha = 6;
-  static health = 100;
-  static label = 'DIAMOND';
-  static points = [
-    [-3, -4],
-    [3, -4],
-    [6, -2],
-    [0, 6],
-    [-6, -2],
-  ];
-  static price = 80;
-  static shades = colors.cyan;
-  static glint = true;
+  static resource = specification.resource;
+  static label = specification.label;
+  static price = specification.price;
+  static points = specification.points;
+  static fillAlpha = specification.fillAlpha;
+  static shades = specification.shades;
+  static glint = specification.glint;
+  static bounciness = itemDefaults.bounciness;
+  static health = itemDefaults.health;
 }

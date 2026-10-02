@@ -1,4 +1,8 @@
 import * as Vec from '../shared/vector';
+import {
+  binaryFieldIds as Field,
+  entityKindIds,
+} from '../shared/specification/protocol';
 import { Craft } from '../shared/craft/craft';
 import { Ship } from '../shared/craft/ship';
 import { Station } from '../shared/craft/station';
@@ -18,6 +22,7 @@ import {
   updateTiers,
   visibleRange,
 } from '../shared/settings';
+import { simulationSpecification } from '../shared/specification/simulation';
 import {
   readModules,
   sameSegments,
@@ -27,46 +32,9 @@ import {
 
 // The numbers are shared with the client decoder. An entity ID is the record
 // prefix, so the field catalog has no ID entry.
-const Field = {
-  cargoContents: 1,
-  credits: 2,
-  contents: 3,
-  decay: 4,
-  friction: 5,
-  dockedTo: 6,
-  health: 7,
-  hullHealth: 8,
-  kind: 9,
-  label: 10,
-  launching: 11,
-  mass: 12,
-  message: 13,
-  pendingUpdateTime: 14,
-  maxSpeed: 15,
-  maxHealth: 16,
-  modules: 17,
-  wreckage: 18,
-  shapeOutline: 19,
-  paint: 20,
-  shades: 21,
-  playerId: 22,
-  pointCount: 23,
-  position: 24,
-  radius: 25,
-  radiusEven: 26,
-  resource: 27,
-  rotation: 28,
-  spin: 29,
-  segments: 30,
-  thrust: 31,
-  turn: 32,
-  velocity: 33,
-} as const;
-const fieldCount = 33;
-const entityLoad = 2000;
-const entityUnload = 2500;
-const markerLoad = 10000;
-const markerUnload = 11000;
+const fieldCount = Object.keys(Field).length;
+const { entityLoad, entityUnload, markerLoad, markerUnload } =
+  simulationSpecification.replication;
 
 class ByteWriter {
   data: Uint8Array;
@@ -666,14 +634,14 @@ const prepare = (
 const writeKind = (writer: ByteWriter, kind: string) => {
   writer.byte(
     kind === 'asteroid'
-      ? 0
+      ? entityKindIds.asteroid
       : kind === 'item'
-        ? 1
+        ? entityKindIds.item
         : kind === 'ship'
-          ? 2
+          ? entityKindIds.ship
           : kind === 'station'
-            ? 3
-            : 4,
+            ? entityKindIds.station
+            : entityKindIds.object,
   );
 };
 

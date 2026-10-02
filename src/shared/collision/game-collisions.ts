@@ -13,6 +13,7 @@ import './shape/circle-polygon-contact';
 import { type GameObject } from '../game-object';
 import { outlineColorOf, type Collider, type Contact } from './types';
 import { contactSpeedThreshold, linearSlop } from '../settings';
+import { simulationSpecification } from '../specification/simulation';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../craft/damage';
 import { Craft } from '../craft/craft';
@@ -42,10 +43,9 @@ type BodyRecord = {
 };
 
 // Match the solver's per-step motion limits for bodies integrated here.
-const maxTranslation = 200;
-const maxRotation = 0.5 * Math.PI;
+const { maxTranslation, maxRotation } = simulationSpecification.physics;
 // Wake bodies before contact, like the broad-phase's fattened bounds.
-const wakeMargin = 10;
+const { wakeMargin } = simulationSpecification.physics;
 // Objects that touched nothing in their last collision step move freely.
 const ballisticEntities = new WeakSet<GameObject>();
 
@@ -130,6 +130,7 @@ export class GameCollisions {
   >();
 
   constructor() {
+    this.world.limitCollisionNeighbors = true;
     this.world.onPreSolve((contact) => {
       const a = contact.getFixtureA().getUserData() as Collider;
       const b = contact.getFixtureB().getUserData() as Collider;
@@ -300,7 +301,11 @@ export class GameCollisions {
       if (body.m_parked) body.unpark();
     }
 
-    this.world.step(dt, 8, 3);
+    this.world.step(
+      dt,
+      simulationSpecification.physics.velocityIterations,
+      simulationSpecification.physics.positionIterations,
+    );
 
     for (let index = 0; index < motions.length; index++) {
       const record = motions[index];
@@ -380,9 +385,10 @@ export class GameCollisions {
       const inverseMass = 1 / collider.owner.mass + 1 / other.owner.mass;
       // Keep the first-damage threshold near 1000 while making harder hits
       // climb roughly twice as fast.
+      const { damageBase, damageScale } = simulationSpecification.physics;
       const amount = Math.max(
         0,
-        Math.round((impact / inverseMass - 700) / 600),
+        Math.round((impact / inverseMass - damageBase) / damageScale),
       );
 
       if (amount) {

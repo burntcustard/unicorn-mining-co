@@ -22,6 +22,7 @@ import {
   type Segment,
 } from '../types';
 import { entityId } from '../simulation/world';
+import { simulationSpecification } from '../specification/simulation';
 
 type ModuleRecord = Module;
 type HullSegmentPlan = Partial<Segment> & {
@@ -199,7 +200,7 @@ export class Craft extends GameObject {
 
   launch() {
     this.dockedTo = undefined;
-    this.launching = 3;
+    this.launching = simulationSpecification.flight.launchDuration;
   }
 
   get moduleStates(): ModuleState[] {

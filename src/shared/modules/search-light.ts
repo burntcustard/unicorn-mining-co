@@ -1,4 +1,5 @@
 import { Module } from './module';
+import { moduleSpecifications } from '../specification/modules';
 
 // SearchLight
 // A lamp slung under the nose that throws a cone of light out ahead of the
@@ -6,28 +7,21 @@ import { Module } from './module';
 // is flying over, with the hull itself sat dark on top of it.
 
 // Where the lens sits ahead of its mount, and how far the cone carries
-const lens = 2;
-const reach = 400;
+const specification = moduleSpecifications.searchLight;
+const lens = specification.lens;
+const reach = specification.reach;
 const far = lens + reach;
-
-// Half width of the cone at the lens and at the far end of its reach, the
-// second of which works out at five degrees off the middle either way
-const mouth = 5;
-const spread = 35;
-
-// Just enough off the two far corners to knock the squareness out of them.
-// Worth keeping in proportion to the spread, because it is taken off both the
-// length and the width and a cone narrower than about three of these ends up
-// tapering to a point rather than being eased at the corners
-const corner = 10;
+const mouth = specification.mouth;
+const spread = specification.spread;
+const corner = specification.corner;
 
 export class SearchLight extends Module {
-  static beam = true;
-  static disablePhysics = true;
-  static health = 10;
+  static beam = specification.beam;
+  static disablePhysics = specification.disablePhysics;
+  static health = specification.health;
   static lens = lens;
   static mouth = mouth;
-  static label = 'SEARCH LIGHT';
+  static label = specification.label;
   static model: any[] = [
     {
       wreckage: {
@@ -53,8 +47,8 @@ export class SearchLight extends Module {
           : [],
     },
   ];
-  static price = 450;
+  static price = specification.price;
   static reach = reach;
   static spread = spread;
-  static zIndex = -2;
+  static zIndex = specification.zIndex;
 }

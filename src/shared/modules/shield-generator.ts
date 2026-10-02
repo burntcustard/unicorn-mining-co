@@ -1,22 +1,24 @@
-import { colors } from '../colors';
+import { moduleSpecifications } from '../specification/modules';
 import { Module } from './module';
 
+const specification = moduleSpecifications.shieldGenerator;
+
 export class ShieldGenerator extends Module {
-  static shades = colors.violet;
-  static bounciness = 0.8;
-  static health = 40;
-  static label = 'SHIELD GENERATOR';
+  static shades = specification.shades;
+  static bounciness = specification.bounciness;
+  static health = specification.health;
+  static label = specification.label;
   static model: any[] = [
-    { radius: () => 7 },
+    { radius: () => specification.generatorRadius },
     {
-      activationDuration: 0.2,
+      activationDuration: specification.coverDuration,
       covers: true,
       radius: ({ activationProgress }: { activationProgress: number }) =>
-        50 * activationProgress,
+        specification.shieldRadius * activationProgress,
       fillAlpha: 2,
     },
   ];
-  static price = 900;
-  static unhurtWhen = 1;
-  static zIndex = 1;
+  static price = specification.price;
+  static unhurtWhen = specification.unhurtWhen;
+  static zIndex = specification.zIndex;
 }

@@ -208,3 +208,37 @@ compare();
 world.tick += 4;
 ships[0].cargoContents.length = 0;
 compare();
+
+// Stationary players need no repeated records: prediction advances their
+// existing state until a real change arrives.
+const idleWorld = createWorld();
+const idleShips = [1, 2].map((playerId) =>
+  addEntity(idleWorld, createShip(idleWorld, { playerId })),
+);
+const idleReplication = new BinaryReplicationManager();
+
+idleReplication.initial({ world: idleWorld, shipId: idleShips[0].id });
+
+for (let tick = 1; tick <= 90; tick++) {
+  idleWorld.tick = tick;
+  const packet = decodeBinarySnapshot(
+    idleReplication.snapshot({ world: idleWorld, shipId: idleShips[0].id }),
+  );
+
+  assert.deepEqual(
+    packet.fullEntities,
+    [],
+    'unchanged free players do not need heartbeat records',
+  );
+}
+idleShips[1].dockedTo = 999;
+idleWorld.tick++;
+idleReplication.snapshot({ world: idleWorld, shipId: idleShips[0].id });
+idleWorld.tick++;
+assert.deepEqual(
+  decodeBinarySnapshot(
+    idleReplication.snapshot({ world: idleWorld, shipId: idleShips[0].id }),
+  ).fullEntities,
+  [],
+  'unchanged docked ships do not require heartbeats',
+);
