@@ -40,7 +40,7 @@ func (s *GameServer) Start(port int, assets string, production bool) (net.Listen
 		return nil, err
 	}
 	ordinary := HandleHTTP(assets)
-	s.http = &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s.http = &http.Server{ReadHeaderTimeout: 5 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 			ordinary.ServeHTTP(w, r)
 			return

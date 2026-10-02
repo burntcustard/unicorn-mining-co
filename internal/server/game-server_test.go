@@ -72,6 +72,38 @@ func readServerFrame(reader *bufio.Reader) (byte, []byte, error) {
 	_, err := io.ReadFull(reader, data)
 	return header[0] & 15, data, err
 }
+func TestGameServerReadHeaderTimeout(t *testing.T) {
+	catalog, err := specification.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	game := NewGameServer(25, catalog)
+	listener, err := game.Start(0, t.TempDir(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer game.Stop(context.Background())
+	if game.http.ReadHeaderTimeout != 5*time.Second {
+		t.Fatalf("header timeout: %s", game.http.ReadHeaderTimeout)
+	}
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.SetDeadline(time.Now().Add(7 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(conn, "GET /game-socket HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nX-Slow: "); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadAll(conn); err != nil {
+		t.Fatalf("incomplete headers were not closed by the server: %v", err)
+	}
+	if clients := game.clients.Load(); clients != 0 {
+		t.Fatalf("incomplete headers reached the WebSocket handler: %d clients", clients)
+	}
+}
 func TestGameServerConcurrentConnections(t *testing.T) {
 	catalog, err := specification.Load()
 	if err != nil {
