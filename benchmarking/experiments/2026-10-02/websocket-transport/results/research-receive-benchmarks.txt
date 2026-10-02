@@ -1,0 +1,24 @@
+goos: linux
+goarch: amd64
+pkg: github.com/burntcustard/unicorn-mining-co/internal/server
+cpu: Intel(R) Core(TM) Ultra X7 358H
+BenchmarkWebSocketReadMessage/32  	13277341	        43.83 ns/op	 730.01 MB/s	      32 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/32  	13864725	        41.87 ns/op	 764.31 MB/s	      32 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/32  	14610709	        42.49 ns/op	 753.17 MB/s	      32 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/1024         	 1000000	       544.1 ns/op	1882.11 MB/s	    1024 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/1024         	 1000000	       544.0 ns/op	1882.29 MB/s	    1024 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/1024         	 1000000	       546.1 ns/op	1875.11 MB/s	    1024 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/32768        	   33612	     17266 ns/op	1897.88 MB/s	   32768 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/32768        	   32830	     17534 ns/op	1868.85 MB/s	   32768 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessage/32768        	   32080	     18917 ns/op	1732.21 MB/s	   32768 B/op	       1 allocs/op
+BenchmarkWebSocketReadMessageInto/32       	18394837	        31.75 ns/op	1007.99 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/32       	18395090	        31.74 ns/op	1008.28 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/32       	18659335	        31.76 ns/op	1007.66 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/1024     	 1345262	       445.9 ns/op	2296.50 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/1024     	 1346716	       445.4 ns/op	2299.24 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/1024     	 1345842	       445.8 ns/op	2297.09 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/32768    	   44473	     13445 ns/op	2437.15 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/32768    	   44618	     13443 ns/op	2437.63 MB/s	       0 B/op	       0 allocs/op
+BenchmarkWebSocketReadMessageInto/32768    	   44632	     13454 ns/op	2435.49 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/internal/server	10.564s

@@ -1,4 +1,4 @@
-// Compare separately compiled Go session executables. Run sequentially on one CPU.
+// Compare separately compiled Go sessions sequentially with the same CPU affinity.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -15,7 +15,7 @@ if (!label || !executable) {
 const cpu =
   process.env.CPUSET ||
   readFileSync('/proc/self/status', 'utf8').match(
-    /Cpus_allowed_list:\s*(\d+)/,
+    /Cpus_allowed_list:\s*([\d,-]+)/,
   )[1];
 const ticks = Number(process.env.TICKS || 900);
 const repetitions = Number(process.env.REPETITIONS || 3);
@@ -47,7 +47,6 @@ for (const players of counts) {
         {
           env: {
             ...process.env,
-            GOMAXPROCS: process.env.GOMAXPROCS || '1',
             SESSION_PLAYERS: String(players),
             SESSION_WORKLOAD: workload,
             SESSION_TICKS: String(ticks),
@@ -101,7 +100,6 @@ writeFileSync(
       go: process.env.GO_VERSION || 'go1.27.1',
       environment: {
         GOGC: process.env.GOGC || '100',
-        GOMAXPROCS: process.env.GOMAXPROCS || '1',
         GOEXPERIMENT: process.env.GOEXPERIMENT || '',
       },
       results,

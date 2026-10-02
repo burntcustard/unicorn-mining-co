@@ -1,0 +1,58 @@
+/tmp/unicorn-go-server-research-before: go1.27.1-X:simd
+	path	github.com/burntcustard/unicorn-mining-co/cmd/go-server
+	mod	github.com/burntcustard/unicorn-mining-co	v0.0.0-20261002144750-bc0237f3cb19+dirty	
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	-pgo=default.pgo
+	build	-trimpath=true
+	build	CGO_ENABLED=0
+	build	GOAMD64=v1
+	build	GOARCH=amd64
+	build	GOEXPERIMENT=simd
+	build	GOOS=linux
+	build	vcs=git
+	build	vcs.modified=true
+	build	vcs.revision=bc0237f3cb19a8e5d8fda7006c13bfb228efc114
+	build	vcs.time=2026-10-02T14:47:50Z
+/tmp/unicorn-go-server-research-after: go1.27.1-X:simd
+	path	github.com/burntcustard/unicorn-mining-co/cmd/go-server
+	mod	github.com/burntcustard/unicorn-mining-co	v0.0.0-20261002144750-bc0237f3cb19+dirty	
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	-pgo=default.pgo
+	build	-trimpath=true
+	build	CGO_ENABLED=0
+	build	GOAMD64=v1
+	build	GOARCH=amd64
+	build	GOEXPERIMENT=simd
+	build	GOOS=linux
+	build	vcs=git
+	build	vcs.modified=true
+	build	vcs.revision=bc0237f3cb19a8e5d8fda7006c13bfb228efc114
+	build	vcs.time=2026-10-02T14:47:50Z
+/tmp/unicorn-transport-research-baseline: go1.27.1-X:simd
+	path	github.com/burntcustard/unicorn-mining-co/benchmarking/tools/websocket-transport
+	mod	github.com/burntcustard/unicorn-mining-co	(devel)	
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	-pgo=/tmp/unicorn-research-baseline.R5b4Y2/cmd/go-server/default.pgo
+	build	CGO_ENABLED=0
+	build	GOAMD64=v1
+	build	GOARCH=amd64
+	build	GOEXPERIMENT=simd
+	build	GOOS=linux
+/tmp/unicorn-transport-recycled: go1.27.1-X:simd
+	path	github.com/burntcustard/unicorn-mining-co/benchmarking/tools/websocket-transport
+	mod	github.com/burntcustard/unicorn-mining-co	v0.0.0-20261002144750-bc0237f3cb19+dirty	
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	-pgo=/home/burntcustard/Dev/unicorn-mining-co/cmd/go-server/default.pgo
+	build	CGO_ENABLED=0
+	build	GOAMD64=v1
+	build	GOARCH=amd64
+	build	GOEXPERIMENT=simd
+	build	GOOS=linux
+	build	vcs=git
+	build	vcs.modified=true
+	build	vcs.revision=bc0237f3cb19a8e5d8fda7006c13bfb228efc114
+	build	vcs.time=2026-10-02T14:47:50Z

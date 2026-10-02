@@ -148,7 +148,8 @@ node benchmarking/tools/go-server.mjs
 ```
 
 Run with Go on PATH. The runner pins both implementations to the same permitted
-CPU, uses `GOMAXPROCS=1`, and alternates execution order. Workloads exercise 4, 8,
+CPU affinity mask, leaves Go's CPU scheduling automatic, and alternates execution
+order. Workloads exercise 4, 8,
 and 16 players in convoy, spread, contact, and module scenarios with procedural
 regions and full per-player binary packet construction. The module workload
 replenishes drilling targets every 120 measured ticks. Outputs include CPU per

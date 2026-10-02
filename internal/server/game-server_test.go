@@ -2,11 +2,13 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/internal/specification"
 	"io"
+	"math"
 	"net"
 	"strings"
 	"sync"
@@ -104,6 +106,97 @@ func TestGameServerReadHeaderTimeout(t *testing.T) {
 		t.Fatalf("incomplete headers reached the WebSocket handler: %d clients", clients)
 	}
 }
+
+func TestGameServerJoinBetweenTicks(t *testing.T) {
+	catalog, err := specification.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A deliberately long tick period makes waiting for a tick observable.
+	catalog.Simulation.SimulationStep = 1
+	game := NewGameServer(25, catalog)
+	listener, err := game.Start(0, t.TempDir(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer game.Stop(context.Background())
+	conn, reader := connectGame(t, listener.Addr().String())
+	defer conn.Close()
+	if err := conn.SetDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	if err := clientFrame(conn, OpBinary, []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["hello"]), 0}); err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []byte{0x43, 0x4d} {
+		kind, data, err := readServerFrame(reader)
+		if err != nil || kind != OpBinary || len(data) < 4 || data[1] != marker {
+			t.Fatalf("join waited for a simulation tick: kind %d, data %x, error %v", kind, data, err)
+		}
+	}
+}
+
+func TestGameServerInputEdgesBetweenTicks(t *testing.T) {
+	catalog, err := specification.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog.Simulation.SimulationStep = .25
+	game := NewGameServer(25, catalog)
+	listener, err := game.Start(0, t.TempDir(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer game.Stop(context.Background())
+	conn, reader := connectGame(t, listener.Addr().String())
+	defer conn.Close()
+	if err := clientFrame(conn, OpBinary, []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["hello"]), 0}); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, _, err := readServerFrame(reader); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var frames []byte
+	for _, change := range []struct {
+		sequence byte
+		code     byte
+		offset   float64
+	}{{1, 128, 0}, {2, 64, .125}, {2, 128, .2}} {
+		packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, change.sequence, change.code, 1}
+		packet = binary.LittleEndian.AppendUint64(packet, math.Float64bits(change.offset))
+		frames = append(frames, maskedFrame(OpBinary, true, packet)...)
+	}
+	if _, err := conn.Write(frames); err != nil {
+		t.Fatal(err)
+	}
+	_, data, err := readServerFrame(reader)
+	if err != nil || len(data) < 4 || data[1] != 0x4d || data[3]&4 == 0 {
+		t.Fatalf("snapshot after input edges: %x %v", data, err)
+	}
+	header := bytes.NewReader(data[4:])
+	for range 2 {
+		if _, err := binary.ReadUvarint(header); err != nil {
+			t.Fatal(err)
+		}
+	}
+	acknowledged, err := binary.ReadUvarint(header)
+	if err != nil || acknowledged != 2 {
+		t.Fatalf("queued input acknowledgement: %d %v", acknowledged, err)
+	}
+	if err := game.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// The stopped owner makes inspection safe; both edges must survive the inbox.
+	game.session.players.ForEach(func(player *playerRecord, _ string) {
+		changes := player.frame.Changes
+		if len(changes) != 2 || changes[0].Input.Turn != 1 || changes[1].Input.Turn != -1 || changes[1].Offset != .125 {
+			t.Fatalf("ordered input edges changed: %+v", changes)
+		}
+	})
+}
+
 func TestGameServerConcurrentConnections(t *testing.T) {
 	catalog, err := specification.Load()
 	if err != nil {

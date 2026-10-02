@@ -2,6 +2,77 @@
 
 See the [benchmarking index](../README.md) for the common commands and [saved experiments](../experiments/README.md) for evidence. Run these tools from the repository root.
 
+## Local WebSocket transport
+
+`websocket-transport/main.go` runs the production Go WebSocket transport over
+loopback TCP. A separate Node process verifies every outgoing frame and sends
+two masked 32-byte input/acknowledgement frames per response. The measurement
+includes server socket I/O, framing, allocation and goroutine scheduling; it
+excludes game simulation, replication, decoding and client CPU.
+
+```sh
+CGO_ENABLED=0 GOEXPERIMENT=simd go build -pgo=cmd/go-server/default.pgo \
+  -o /tmp/transport-after ./benchmarking/tools/websocket-transport
+GOGC=800 node benchmarking/tools/websocket-transport.mjs \
+  /tmp/transport-after -players 16 -size 2048 -ticks 300 -hz 30
+node benchmarking/tools/websocket-transport-compare.mjs \
+  /tmp/transport-before /tmp/transport-after /tmp/transport-results.json.gz
+```
+
+The comparison alternates before/after order, with five repetitions across
+4/8/16/32 clients. Each count runs 128/2,048/8,192-byte payloads as fast as
+possible for 3,000 measured exchanges, plus 150 exchanges of 2,048 bytes at
+30 Hz. All cases first complete 120 warmup exchanges. Results checkpoint to
+gzip JSON with executable and harness hashes. Compare medians within each case,
+then give each player count equal weight when summarizing CPU reductions.
+
+The driver defaults to `GOGC=800` and leaves CPU scheduling automatic. Optional `PLAYERS`, `SIZES`,
+`REPETITIONS`, `TICKS`, and `PACED_TICKS` select benchmark cases; `PACED_TICKS=0`
+skips paced runs. `BENCH_CPU_AFFINITY=0,1` pins only the Go child on Linux; run the Node
+driver under `taskset` on different available CPUs to keep generator work away
+from the server. Use like cores and serialize benchmarks, builds and tests.
+
+Pass `-profile /tmp/transport.pprof` to the single-run tool for a CPU profile.
+Profiling and `strace` are diagnostic runs and must not supply comparison timings.
+This synthetic workload waits for every connection each exchange, so its
+latencies and CPU ratios do not predict complete game-server or Fly VM usage.
+See the [transport investigation](../../docs/experiments/2026-10-02/websocket-transport-2026-10-02.md)
+for results, limitations and baseline build instructions.
+
+### Complete game server at 30 Hz
+
+The same executable accepts `-game` to start the production `GameServer` on an
+ephemeral port. The client uses the real TypeScript control encoder and snapshot
+decoder, validates every sequence, acknowledges each snapshot and sends inputs
+on independent 30 Hz timers. Inputs are staggered across a tick period; the
+server keeps its normal timer. The driver checks every client's input and
+snapshot rate and reports snapshot gaps and input acknowledgement delays.
+Protocol bundling and connection startup precede measurement.
+
+```sh
+GOGC=800 node benchmarking/tools/websocket-transport.mjs \
+  /tmp/transport-after -game -players 16 -ticks 180
+GAME=1 REPETITIONS=3 PACED_TICKS=180 \
+  node benchmarking/tools/websocket-transport-compare.mjs \
+  /tmp/transport-before /tmp/transport-after /tmp/game-results.json.gz
+```
+
+`GAME=1` compares 4/8/16/32 players in both idle and held-thrust flight, with
+four seconds of warmup and `PACED_TICKS` measured tick periods. Optional
+`ACTIVITIES=idle,flight` selects activities; `ACTIVITY=idle` selects an individual
+run. Game mode always uses the catalog's 30 Hz rate. Each count/activity has
+equal weight in the [multicore networking report](../../docs/experiments/2026-10-02/go-network-multicore-2026-10-02.md).
+
+`ACK_DELAY_MS=250` delays snapshot receipts at the client to check the server's
+snapshot window at 30 Hz. This models delayed receipts, not a complete network
+round trip. Input acknowledgements must advance monotonically and cannot
+acknowledge unsent inputs. Treat these runs as validation, separate from CPU
+timing comparisons.
+
+The Go session comparison tools also leave CPU scheduling automatic and default
+to the full available CPU affinity mask. Give before/after runs the same CPU
+allocation; older captures that forced a single CPU are historical results.
+
 ## Live deployment
 
 Use this suite to profile the deployed game with real browser players. Run from

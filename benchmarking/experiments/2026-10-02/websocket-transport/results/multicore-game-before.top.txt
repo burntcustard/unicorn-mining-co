@@ -1,0 +1,39 @@
+File: unicorn-network-multicpu-baseline
+Build ID: d888936333a962ed8449ceaee564387cfef446f8
+Type: cpu
+Time: 2026-10-02 21:35:15 BST
+Duration: 20s, Total samples = 2.73s (13.65%)
+Showing nodes accounting for 1.93s, 70.70% of 2.73s total
+Dropped 87 nodes (cum <= 0.01s)
+Showing top 30 nodes out of 155
+      flat  flat%   sum%        cum   cum%
+     0.78s 28.57% 28.57%      0.78s 28.57%  internal/runtime/syscall/linux.Syscall6
+     0.36s 13.19% 41.76%      0.36s 13.19%  runtime.futex
+     0.08s  2.93% 44.69%      0.08s  2.93%  runtime.lock2
+     0.06s  2.20% 46.89%      0.22s  8.06%  github.com/burntcustard/unicorn-mining-co/internal/server.(*BinaryReplicationManager).encode.func1 (inline)
+     0.05s  1.83% 48.72%      0.05s  1.83%  github.com/burntcustard/unicorn-mining-co/internal/craft.(*Craft).hitbox
+     0.04s  1.47% 50.18%      0.30s 10.99%  github.com/burntcustard/unicorn-mining-co/internal/server.(*BinaryReplicationManager).encode
+     0.04s  1.47% 51.65%      0.04s  1.47%  runtime.memclrNoHeapPointers
+     0.04s  1.47% 53.11%      0.05s  1.83%  runtime.unlock2
+     0.03s  1.10% 54.21%      0.03s  1.10%  runtime.casgstatus
+     0.03s  1.10% 55.31%      0.80s 29.30%  runtime.findRunnable
+     0.03s  1.10% 56.41%      0.03s  1.10%  runtime.nextFreeFast (inline)
+     0.03s  1.10% 57.51%      0.04s  1.47%  time.Now
+     0.02s  0.73% 58.24%      0.34s 12.45%  bufio.(*Reader).Read
+     0.02s  0.73% 58.97%      0.02s  0.73%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*BroadPhase[go.shape.*uint8]).queryCallback
+     0.02s  0.73% 59.71%      0.04s  1.47%  github.com/burntcustard/unicorn-mining-co/internal/craft.(*Craft).UpdateModules (inline)
+     0.02s  0.73% 60.44%      0.02s  0.73%  github.com/burntcustard/unicorn-mining-co/internal/physics.separatedThroughout
+     0.02s  0.73% 61.17%      0.02s  0.73%  github.com/burntcustard/unicorn-mining-co/internal/server.fullRecord
+     0.02s  0.73% 61.90%      0.03s  1.10%  github.com/burntcustard/unicorn-mining-co/internal/simulation.(*GameObject).Update
+     0.02s  0.73% 62.64%      0.10s  3.66%  github.com/burntcustard/unicorn-mining-co/internal/simulation.UpdateEntities
+     0.02s  0.73% 63.37%      0.03s  1.10%  internal/runtime/maps.(*Map).getWithKeySmall
+     0.02s  0.73% 64.10%      0.02s  0.73%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     0.02s  0.73% 64.84%      0.02s  0.73%  math.archMin
+     0.02s  0.73% 65.57%      0.03s  1.10%  runtime.(*limiterEvent).stop
+     0.02s  0.73% 66.30%      0.03s  1.10%  runtime.(*timer).unlock
+     0.02s  0.73% 67.03%      0.02s  0.73%  runtime.(*timers).wakeTime (inline)
+     0.02s  0.73% 67.77%      0.02s  0.73%  runtime.cheaprand (inline)
+     0.02s  0.73% 68.50%      0.02s  0.73%  runtime.heapSetTypeSmallHeader (inline)
+     0.02s  0.73% 69.23%      0.15s  5.49%  runtime.mallocgc
+     0.02s  0.73% 69.96%      0.08s  2.93%  runtime.mapaccess2_fast64
+     0.02s  0.73% 70.70%      0.02s  0.73%  runtime.memmove

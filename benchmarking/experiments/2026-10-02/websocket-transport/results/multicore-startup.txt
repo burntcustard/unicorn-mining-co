@@ -1,0 +1,5 @@
+SCHED 0ms: gomaxprocs=16 idleprocs=14 threads=5 spinningthreads=1 needspinning=0 idlethreads=2 runqueue=0 [ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ] schedticks=[ 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 ]
+SCHED 106ms: gomaxprocs=16 idleprocs=15 threads=5 spinningthreads=0 needspinning=0 idlethreads=3 runqueue=0 [ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ] schedticks=[ 6 0 0 0 0 0 0 0 0 0 0 0 0 0 2 4 ]
+SCHED 207ms: gomaxprocs=16 idleprocs=14 threads=12 spinningthreads=0 needspinning=1 idlethreads=9 runqueue=0 [ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ] schedticks=[ 10 8 7 5 1 0 0 0 0 0 1 1 4 6 10 21 ]
+2026/10/02 21:42:14 Go server listening on [::]:40281
+Exit status: 0

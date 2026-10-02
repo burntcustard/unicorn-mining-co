@@ -1,0 +1,51 @@
+{
+  "description": "Identical stripped Go 1.27.1 SIMD/PGO builds: baseline retained vector framing versus current unrestricted packet handling.",
+  "goServer": {
+    "before": {
+      "bytes": 7970976,
+      "gzipLevel1": 3615523,
+      "sha256": "e3650f4d6ce228725bfbaf9b6c8ea404e41e630559e6d5149e843e22e02cbfa7"
+    },
+    "after": {
+      "bytes": 7950496,
+      "gzipLevel1": 3609178,
+      "sha256": "d35a01c037f71cb68577d450e04dd2746892ce2c16ea034795d18552e3d7abec"
+    },
+    "delta": {
+      "bytes": -20480,
+      "gzipLevel1": -6345
+    }
+  },
+  "assets": {
+    "dist/LICENSE.txt": {
+      "bytes": 2317,
+      "gzipLevel1": 822,
+      "sha256": "760f0c5abdbd9dfbfc423a03408aa16a8aa2a4a63c644211098fafe2d75fdd7a"
+    },
+    "dist/docked-CawIr9Fw.js": {
+      "bytes": 4708,
+      "gzipLevel1": 2451,
+      "sha256": "9f7c4d302510bd1a910984398648f0d28c5777cbffc25f099b1b55e7d9ee373b"
+    },
+    "dist/index-RaZVaM7F.js": {
+      "bytes": 119645,
+      "gzipLevel1": 53386,
+      "sha256": "69dccb303c69628c4b53e19418c94d953d5aef34f0b13be51435386da84d57c3"
+    },
+    "dist/index.html": {
+      "bytes": 3986,
+      "gzipLevel1": 1953,
+      "sha256": "680aec9df03cc8481b30dac7584615d0f58712478bf648f1f555905c215f5573"
+    },
+    "dist/server.js": {
+      "bytes": 105936,
+      "gzipLevel1": 46229,
+      "sha256": "3a6f4560dd808aabca8ab56dc300fcb6b8db9e865181f5f39a058295d2d4ea94"
+    },
+    "dist/sound-DWx2poUn.js": {
+      "bytes": 1681,
+      "gzipLevel1": 948,
+      "sha256": "11dadbe7907e4b770e57da1d8af34899bf8207769535676e1ccd294827a2d232"
+    }
+  }
+}

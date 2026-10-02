@@ -100,6 +100,14 @@ func TestSessionBenchmark(t *testing.T) {
 	}
 	count, _ := strconv.Atoi(os.Getenv("SESSION_PLAYERS"))
 	ticks, _ := strconv.Atoi(os.Getenv("SESSION_TICKS"))
+	inputEvery := 15
+	if value := os.Getenv("SESSION_INPUT_EVERY"); value != "" {
+		var err error
+		inputEvery, err = strconv.Atoi(value)
+		if err != nil || inputEvery < 1 {
+			t.Fatal("invalid SESSION_INPUT_EVERY")
+		}
+	}
 	workload := os.Getenv("SESSION_WORKLOAD")
 	trace := os.Getenv("SESSION_TRACE") != ""
 	catalog, err := specification.Load()
@@ -170,7 +178,7 @@ func TestSessionBenchmark(t *testing.T) {
 
 		for i := range players {
 			session.Receive(protocol.Control{Type: "snapshotAck", Sequence: sockets[i].sequence}, sockets[i])
-			if tick%15 == 0 && workload != "idle" {
+			if tick%inputEvery == 0 && workload != "idle" {
 				input := protocol.Input{Thrust: 1}
 				if workload == "spread" {
 					input.Turn = float64(i%3 - 1)
@@ -274,6 +282,8 @@ func TestSessionBenchmark(t *testing.T) {
 		states = append(states, map[string]any{"id": ship.ID, "position": ship.Position, "velocity": ship.Velocity, "rotation": ship.Rotation, "spin": ship.Spin, "hullHealth": ship.HullHealth(), "cargo": len(ship.CargoContents), "modules": ship.ModuleStates()})
 	}
 	result := map[string]any{"eventTrace": eventTrace, "contactTrace": measured.trace, "nearZeroCollisions": nearZeroCollisions, "runtime": "go", "seed": seed, "players": count, "workload": workload, "ticks": ticks, "cpuMsPerTick": cpu / float64(ticks), "wallMsPerTick": elapsed / float64(ticks), "p95Ms": samples[int(float64(ticks)*.95)], "p99Ms": samples[int(float64(ticks)*.99)], "maxMs": samples[ticks-1], "rssBytes": rss, "heapBytes": memory.HeapAlloc, "allocatedBytesPerTick": float64(memory.TotalAlloc-beforeMemory.TotalAlloc) / float64(ticks), "allocationsPerTick": float64(memory.Mallocs-beforeMemory.Mallocs) / float64(ticks), "collections": memory.NumGC - beforeMemory.NumGC, "contacts": measured.contacts, "events": events, "packets": packets, "bytes": bytes, "entities": session.World.Entities.Len(), "states": states, "traces": traces}
+	result["inputEvery"] = inputEvery
+	result["gomaxprocs"] = runtime.GOMAXPROCS(0)
 	data, err := json.Marshal(result)
 	if err != nil {
 		t.Fatal(err)

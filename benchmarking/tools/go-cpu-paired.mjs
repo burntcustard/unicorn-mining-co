@@ -15,9 +15,8 @@ if (!label || !before || !after) {
 const cpu =
   process.env.CPU_AFFINITY ||
   readFileSync('/proc/self/status', 'utf8').match(
-    /Cpus_allowed_list:\s*(\d+)/,
+    /Cpus_allowed_list:\s*([\d,-]+)/,
   )[1];
-const gomaxprocs = process.env.GOMAXPROCS || '1';
 const ticks = Number(process.env.TICKS || 900);
 const repetitions = Number(process.env.REPETITIONS || 5);
 const motionTolerance = Number(process.env.MOTION_TOLERANCE || 2e-8);
@@ -33,7 +32,6 @@ const variants = {
   before: {
     executable: before,
     GOGC: process.env.BEFORE_GOGC || '100',
-    GOMAXPROCS: process.env.BEFORE_GOMAXPROCS || gomaxprocs,
     SIMD: process.env.BEFORE_SIMD,
     motionRounding: process.env.BEFORE_ROUNDING,
     collisionNeighbors: process.env.BEFORE_NEIGHBORS,
@@ -41,7 +39,6 @@ const variants = {
   after: {
     executable: after,
     GOGC: process.env.AFTER_GOGC || '800',
-    GOMAXPROCS: process.env.AFTER_GOMAXPROCS || gomaxprocs,
     SIMD: process.env.AFTER_SIMD,
     motionRounding: process.env.AFTER_ROUNDING,
     collisionNeighbors: process.env.AFTER_NEIGHBORS,
@@ -88,7 +85,6 @@ function save() {
       {
         label,
         cpu,
-        gomaxprocs,
         ticks,
         repetitions,
         motionTolerance,
@@ -130,7 +126,6 @@ for (const count of players) {
           {
             env: {
               ...process.env,
-              GOMAXPROCS: value.GOMAXPROCS,
               GOGC: value.GOGC,
               GO_SERVER_SIMD: value.SIMD ?? process.env.GO_SERVER_SIMD ?? '',
               GO_SERVER_MOTION_ROUNDING: value.motionRounding ?? '',

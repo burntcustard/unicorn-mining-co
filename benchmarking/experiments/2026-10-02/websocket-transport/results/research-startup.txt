@@ -1,0 +1,10 @@
+GOMAXPROCS=unset: expected 1, startup and SIGTERM passed
+SCHED 0ms: gomaxprocs=16 idleprocs=13 threads=5 spinningthreads=1 needspinning=0 idlethreads=0 runqueue=0 [ 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ] schedticks=[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+SCHED 105ms: gomaxprocs=1 idleprocs=0 threads=5 spinningthreads=0 needspinning=1 idlethreads=3 runqueue=0 [ 0 ] schedticks=[ 8 ]
+SCHED 206ms: gomaxprocs=1 idleprocs=0 threads=5 spinningthreads=0 needspinning=1 idlethreads=3 runqueue=0 [ 1 ] schedticks=[ 18 ]
+2026/10/02 20:32:13 Go server listening on [::]:41407
+
+GOMAXPROCS=2: expected 2, startup and SIGTERM passed
+SCHED 0ms: gomaxprocs=2 idleprocs=0 threads=3 spinningthreads=0 needspinning=1 idlethreads=0 runqueue=0 [ 0 0 ] schedticks=[ 0 2 ]
+SCHED 105ms: gomaxprocs=2 idleprocs=0 threads=4 spinningthreads=1 needspinning=0 idlethreads=1 runqueue=0 [ 0 0 ] schedticks=[ 272 15 ]
+2026/10/02 20:32:13 Go server listening on [::]:33131

@@ -17,7 +17,7 @@ mkdirSync(dirname(resultPath), { recursive: true });
 const repetitions = Number(process.env.REPETITIONS || 10);
 const ticks = Number(process.env.TICKS || 900);
 const cpu = readFileSync('/proc/self/status', 'utf8').match(
-  /Cpus_allowed_list:\s*(\d+)/,
+  /Cpus_allowed_list:\s*([\d,-]+)/,
 )[1];
 const directory = mkdtempSync(join(tmpdir(), 'unicorn-server-benchmark-'));
 const entry = `bin/session-benchmark-${process.pid}.mjs`;
@@ -106,7 +106,6 @@ for (const players of process.env.PLAYERS
         execFileSync('taskset', ['-c', cpu, ...command], {
           env: {
             ...process.env,
-            GOMAXPROCS: '1',
             GOGC: process.env.GOGC || '800',
             SESSION_PLAYERS: String(players),
             SESSION_WORKLOAD: workload,

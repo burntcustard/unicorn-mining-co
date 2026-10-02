@@ -1,0 +1,38 @@
+File: unicorn-network-inbox
+Build ID: 15d937b06cd758c1685d1ea4d54c3a2c74ee8a2a
+Type: cpu
+Time: 2026-10-02 21:35:40 BST
+Duration: 20s, Total samples = 1.94s ( 9.70%)
+Showing nodes accounting for 1.36s, 70.10% of 1.94s total
+Showing top 30 nodes out of 235
+      flat  flat%   sum%        cum   cum%
+     0.62s 31.96% 31.96%      0.62s 31.96%  internal/runtime/syscall/linux.Syscall6
+     0.06s  3.09% 35.05%      0.14s  7.22%  github.com/burntcustard/unicorn-mining-co/internal/server.(*BinaryReplicationManager).encode.func1 (inline)
+     0.06s  3.09% 38.14%      0.35s 18.04%  runtime.netpoll
+     0.05s  2.58% 40.72%      0.05s  2.58%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     0.04s  2.06% 42.78%      0.21s 10.82%  github.com/burntcustard/unicorn-mining-co/internal/server.(*BinaryReplicationManager).encode
+     0.04s  2.06% 44.85%      0.06s  3.09%  github.com/burntcustard/unicorn-mining-co/internal/simulation.(*Segment).ModuleDefinition
+     0.04s  2.06% 46.91%      0.04s  2.06%  runtime.futex
+     0.03s  1.55% 48.45%      0.03s  1.55%  github.com/burntcustard/unicorn-mining-co/internal/modules.(*Module).ModuleBase
+     0.03s  1.55% 50.00%      0.03s  1.55%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*World).CreateContact
+     0.03s  1.55% 51.55%      0.03s  1.55%  runtime.(*randomEnum).next
+     0.02s  1.03% 52.58%      0.07s  3.61%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*SpatialGrid[go.shape.*uint8]).Query
+     0.02s  1.03% 53.61%      0.38s 19.59%  github.com/burntcustard/unicorn-mining-co/internal/collision/game.(*GameCollisions).Step
+     0.02s  1.03% 54.64%      0.02s  1.03%  github.com/burntcustard/unicorn-mining-co/internal/collision/shape.findMaxSeparation (inline)
+     0.02s  1.03% 55.67%      0.08s  4.12%  github.com/burntcustard/unicorn-mining-co/internal/craft.(*Ship).Control
+     0.02s  1.03% 56.70%      0.04s  2.06%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*Contact).Evaluate (inline)
+     0.02s  1.03% 57.73%      0.02s  1.03%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*Contact).SolveVelocityConstraint
+     0.02s  1.03% 58.76%      0.18s  9.28%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*Solver).SolveWorldTOI
+     0.02s  1.03% 59.79%      0.04s  2.06%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*World).UpdateContacts (inline)
+     0.02s  1.03% 60.82%      0.02s  1.03%  github.com/burntcustard/unicorn-mining-co/internal/simulation.(*movementSchedule).withinObserversVector
+     0.02s  1.03% 61.86%      0.03s  1.55%  github.com/burntcustard/unicorn-mining-co/internal/simulation.localMovement
+     0.02s  1.03% 62.89%      0.02s  1.03%  runtime.exitsyscall
+     0.02s  1.03% 63.92%      0.02s  1.03%  runtime.lock2
+     0.02s  1.03% 64.95%      0.06s  3.09%  runtime.mapaccess1_fast64
+     0.02s  1.03% 65.98%      0.02s  1.03%  runtime.memclrNoHeapPointers
+     0.02s  1.03% 67.01%      0.04s  2.06%  runtime.selectgo
+     0.02s  1.03% 68.04%      0.02s  1.03%  time.runtimeNow
+     0.01s  0.52% 68.56%      0.01s  0.52%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*AABB).Combine (inline)
+     0.01s  0.52% 69.07%      0.04s  2.06%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*BroadPhase[go.shape.*uint8]).queryCallback
+     0.01s  0.52% 69.59%      0.01s  0.52%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*Sweep).GetTransform (inline)
+     0.01s  0.52% 70.10%      0.01s  0.52%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*Sweep).Set (inline)

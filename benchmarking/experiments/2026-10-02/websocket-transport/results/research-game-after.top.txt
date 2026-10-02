@@ -1,0 +1,43 @@
+File: unicorn-transport-recycled
+Build ID: ff6e330267d21065157d4725a3bf030c5472e36a
+Type: cpu
+Time: 2026-10-02 20:27:28 BST
+Duration: 20s, Total samples = 1.96s ( 9.80%)
+Showing nodes accounting for 1.47s, 75.00% of 1.96s total
+Showing top 35 nodes out of 247
+      flat  flat%   sum%        cum   cum%
+     0.60s 30.61% 30.61%      0.60s 30.61%  internal/runtime/syscall/linux.Syscall6
+     0.07s  3.57% 34.18%      0.07s  3.57%  runtime.memmove
+     0.06s  3.06% 37.24%      0.06s  3.06%  runtime.futex
+     0.06s  3.06% 40.31%      0.06s  3.06%  runtime.lock2
+     0.06s  3.06% 43.37%      0.06s  3.06%  runtime.unlock2
+     0.04s  2.04% 45.41%      0.10s  5.10%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*Solver).SolveWorldTOI
+     0.04s  2.04% 47.45%      0.05s  2.55%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*World).CreateContact
+     0.04s  2.04% 49.49%      0.15s  7.65%  github.com/burntcustard/unicorn-mining-co/internal/server.(*BinaryReplicationManager).encode.func1 (inline)
+     0.04s  2.04% 51.53%      0.04s  2.04%  runtime.memclrNoHeapPointers
+     0.03s  1.53% 53.06%      0.04s  2.04%  github.com/burntcustard/unicorn-mining-co/internal/collision/game.(*GameCollisions).findFree
+     0.03s  1.53% 54.59%      0.03s  1.53%  github.com/burntcustard/unicorn-mining-co/internal/physics.(*Body).synchronizeProxies
+     0.03s  1.53% 56.12%      0.19s  9.69%  github.com/burntcustard/unicorn-mining-co/internal/server.(*BinaryReplicationManager).encode
+     0.03s  1.53% 57.65%      0.04s  2.04%  github.com/burntcustard/unicorn-mining-co/internal/server.fullRecord
+     0.03s  1.53% 59.18%      0.17s  8.67%  runtime.selectgo
+     0.02s  1.02% 60.20%      0.08s  4.08%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*SpatialGrid[go.shape.*uint8]).Query
+     0.02s  1.02% 61.22%      0.02s  1.02%  github.com/burntcustard/unicorn-mining-co/internal/collision/game.(*GameCollisions).Step.func1
+     0.02s  1.02% 62.24%      0.02s  1.02%  github.com/burntcustard/unicorn-mining-co/internal/craft.(*Ship).Engine
+     0.02s  1.02% 63.27%      0.02s  1.02%  github.com/burntcustard/unicorn-mining-co/internal/craft.(*Ship).ResetBiting
+     0.02s  1.02% 64.29%      0.02s  1.02%  github.com/burntcustard/unicorn-mining-co/internal/modules.(*Module).ModuleBase
+     0.02s  1.02% 65.31%      0.03s  1.53%  internal/poll.runtime_pollWait
+     0.02s  1.02% 66.33%      0.02s  1.02%  internal/runtime/maps.memHashAES
+     0.02s  1.02% 67.35%      0.02s  1.02%  runtime.heapArenaOf
+     0.02s  1.02% 68.37%      0.02s  1.02%  slices.Equal[go.shape.[]*github.com/burntcustard/unicorn-mining-co/internal/collision.Collider,go.shape.*github.com/burntcustard/unicorn-mining-co/internal/collision.Collider] (inline)
+     0.02s  1.02% 69.39%      0.02s  1.02%  time.runtimeNow
+     0.01s  0.51% 69.90%      0.01s  0.51%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*BaseShape).GetSupport (inline)
+     0.01s  0.51% 70.41%      0.01s  0.51%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*BaseShape).GetVertex (inline)
+     0.01s  0.51% 70.92%      0.06s  3.06%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*BroadPhase[go.shape.*uint8]).queryCallback
+     0.01s  0.51% 71.43%      0.01s  0.51%  github.com/burntcustard/unicorn-mining-co/internal/collision.(*Sweep).Set (inline)
+     0.01s  0.51% 71.94%      0.04s  2.04%  github.com/burntcustard/unicorn-mining-co/internal/collision.FindTimeOfImpact
+     0.01s  0.51% 72.45%      0.02s  1.02%  github.com/burntcustard/unicorn-mining-co/internal/collision/game.(*GameCollisions).Step.func3
+     0.01s  0.51% 72.96%      0.01s  0.51%  github.com/burntcustard/unicorn-mining-co/internal/collision/shape.(*CircleShape).Position
+     0.01s  0.51% 73.47%      0.01s  0.51%  github.com/burntcustard/unicorn-mining-co/internal/collision/shape.(*PolygonShape).Set
+     0.01s  0.51% 73.98%      0.02s  1.02%  github.com/burntcustard/unicorn-mining-co/internal/collision/shape.CollidePolygonsCached
+     0.01s  0.51% 74.49%      0.05s  2.55%  github.com/burntcustard/unicorn-mining-co/internal/craft.(*Craft).hitbox
+     0.01s  0.51% 75.00%      0.07s  3.57%  github.com/burntcustard/unicorn-mining-co/internal/craft.(*Ship).Update

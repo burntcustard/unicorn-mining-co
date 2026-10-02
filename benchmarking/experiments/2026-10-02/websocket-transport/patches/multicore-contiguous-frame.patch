@@ -1,0 +1,132 @@
+--- a/internal/server/websocket.go
++++ b/internal/server/websocket.go
+@@ -16,6 +16,7 @@
+ )
+ 
+ const (
++	frameHeaderSize        = 10
+ 	MaxPayload             = 32 * 1024
+ 	MaxSocketBuffer        = 1024 * 1024
+ 	MaxSnapshotBuffer      = 128 * 1024
+@@ -37,20 +38,17 @@
+ 	data   []byte
+ }
+ type WebSocket struct {
+-	closing      atomic.Bool
+-	conn         net.Conn
+-	reader       *bufio.Reader
+-	readHeader   [14]byte
+-	writeHeader  [10]byte
+-	writeParts   [2][]byte
+-	writeBuffers net.Buffers
+-	queue        chan outbound
+-	spare        chan []byte
+-	done         chan struct{}
+-	once         sync.Once
+-	buffered     atomic.Int64
+-	pongMu       sync.Mutex
+-	lastPong     time.Time
++	closing    atomic.Bool
++	conn       net.Conn
++	reader     *bufio.Reader
++	readHeader [14]byte
++	queue      chan outbound
++	spare      chan []byte
++	done       chan struct{}
++	once       sync.Once
++	buffered   atomic.Int64
++	pongMu     sync.Mutex
++	lastPong   time.Time
+ }
+ 
+ func acceptKey(key string) (string, bool) {
+@@ -130,16 +128,22 @@
+ 	case data = <-s.spare:
+ 	default:
+ 	}
+-	data = append(data[:0], payload...)
++	length := frameHeaderSize + len(payload)
++	if cap(data) < length {
++		data = make([]byte, length)
++	} else {
++		data = data[:length]
++	}
++	copy(data[frameHeaderSize:], payload)
+ 	select {
+ 	case s.queue <- outbound{opcode: opcode, data: data}:
+ 		return nil
+ 	case <-s.done:
+-		s.buffered.Add(-int64(len(data)))
++		s.buffered.Add(-int64(len(payload)))
+ 		s.recycle(data)
+ 		return ErrClosed
+ 	default:
+-		s.buffered.Add(-int64(len(data)))
++		s.buffered.Add(-int64(len(payload)))
+ 		s.recycle(data)
+ 		return ErrQueueFull
+ 	}
+@@ -164,7 +168,7 @@
+ 			return
+ 		case frame := <-s.queue:
+ 			err := s.writeFrame(frame.opcode, frame.data)
+-			s.buffered.Add(-int64(len(frame.data)))
++			s.buffered.Add(-int64(len(frame.data) - frameHeaderSize))
+ 			s.recycle(frame.data)
+ 			if err != nil || frame.opcode == OpClose {
+ 				s.closeTransport()
+@@ -175,33 +179,35 @@
+ }
+ 
+ /*
+- * The write pump is the sole writer, including control frames. Reuse headers
+- * and vector descriptors to send both parts together without another allocation.
++ * Queue buffers reserve space for the largest header. Fill the end of that
++ * prefix and send the header and payload together with one ordinary write.
+  */
+ func (s *WebSocket) writeFrame(opcode byte, data []byte) error {
+ 	if err := s.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+ 		return err
+ 	}
+-	header := s.writeHeader[:]
++	size := len(data) - frameHeaderSize
++	count := 2
++	if size >= 126 {
++		count = 4
++	}
++	if size > 65535 {
++		count = 10
++	}
++	header := data[frameHeaderSize-count : frameHeaderSize]
+ 	header[0] = 0x80 | opcode
+-	count := 2
+-	if len(data) < 126 {
+-		header[1] = byte(len(data))
+-	} else if len(data) <= 65535 {
++	switch count {
++	case 2:
++		header[1] = byte(size)
++	case 4:
+ 		header[1] = 126
+-		binary.BigEndian.PutUint16(header[2:], uint16(len(data)))
+-		count = 4
+-	} else {
++		binary.BigEndian.PutUint16(header[2:], uint16(size))
++	case 10:
+ 		header[1] = 127
+-		binary.BigEndian.PutUint64(header[2:], uint64(len(data)))
+-		count = 10
+-	}
+-	s.writeParts[0], s.writeParts[1] = header[:count], data
+-	s.writeBuffers = s.writeParts[:]
+-	n, err := s.writeBuffers.WriteTo(s.conn)
+-	clear(s.writeParts[:])
+-	s.writeBuffers = nil
+-	if err == nil && n != int64(count+len(data)) {
++		binary.BigEndian.PutUint64(header[2:], uint64(size))
++	}
++	n, err := s.conn.Write(data[frameHeaderSize-count:])
++	if err == nil && n != count+size {
+ 		return io.ErrShortWrite
+ 	}
+ 	return err

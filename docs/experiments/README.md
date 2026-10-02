@@ -4,6 +4,9 @@ Recent investigations are grouped by measurement date. Use [benchmarking](../../
 
 ## 2026-10-02
 
+- [Go networking with normal CPU scheduling — 2026-10-02](2026-10-02/go-network-multicore-2026-10-02.md)
+- [Go networking and runtime follow-up — 2026-10-02](2026-10-02/go-network-runtime-2026-10-02.md)
+- [Go WebSocket transport — 2026-10-02](2026-10-02/websocket-transport-2026-10-02.md)
 - [Low-latency movement and stall recovery — 2 October 2026](2026-10-02/low-latency-recovery-2026-10-02.md)
 - [Remote collision presentation — 2026-10-02](2026-10-02/remote-collision-presentation-2026-10-02.md)
 - [Remote motion and collision consistency — 2026-10-02](2026-10-02/remote-motion-consistency-2026-10-02.md)

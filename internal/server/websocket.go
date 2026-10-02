@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	frameHeaderSize        = 10
 	MaxPayload             = 32 * 1024
 	MaxSocketBuffer        = 1024 * 1024
 	MaxSnapshotBuffer      = 128 * 1024
@@ -37,17 +38,17 @@ type outbound struct {
 	data   []byte
 }
 type WebSocket struct {
-	closing  atomic.Bool
-	conn     net.Conn
-	reader   *bufio.Reader
-	queue    chan outbound
-	done     chan struct{}
-	once     sync.Once
-	writeMu  sync.Mutex
-	queueMu  sync.Mutex
-	buffered int
-	pongMu   sync.Mutex
-	lastPong time.Time
+	closing    atomic.Bool
+	conn       net.Conn
+	reader     *bufio.Reader
+	readHeader [14]byte
+	queue      chan outbound
+	spare      chan []byte
+	done       chan struct{}
+	once       sync.Once
+	buffered   atomic.Int64
+	pongMu     sync.Mutex
+	lastPong   time.Time
 }
 
 func acceptKey(key string) (string, bool) {
@@ -98,7 +99,7 @@ func Upgrade(w http.ResponseWriter, r *http.Request, production bool) (*WebSocke
 		return nil, err
 	}
 	socket := &WebSocket{
-		conn: conn, reader: buffer.Reader, queue: make(chan outbound, 64),
+		conn: conn, reader: buffer.Reader, queue: make(chan outbound, 64), spare: make(chan []byte, 1),
 		done: make(chan struct{}), lastPong: time.Now(),
 	}
 	go socket.writePump()
@@ -107,9 +108,7 @@ func Upgrade(w http.ResponseWriter, r *http.Request, production bool) (*WebSocke
 func (s *WebSocket) closeTransport()       { s.once.Do(func() { close(s.done); _ = s.conn.Close() }) }
 func (s *WebSocket) Done() <-chan struct{} { return s.done }
 func (s *WebSocket) BufferedBytes() int {
-	s.queueMu.Lock()
-	defer s.queueMu.Unlock()
-	return s.buffered
+	return int(s.buffered.Load())
 }
 func (s *WebSocket) LastPong() time.Time { s.pongMu.Lock(); defer s.pongMu.Unlock(); return s.lastPong }
 func (s *WebSocket) markPong()           { s.pongMu.Lock(); s.lastPong = time.Now(); s.pongMu.Unlock() }
@@ -119,28 +118,45 @@ func (s *WebSocket) enqueue(opcode byte, payload []byte) error {
 		return ErrClosed
 	default:
 	}
-	data := append([]byte(nil), payload...)
-	s.queueMu.Lock()
-	if s.buffered+len(data) > MaxSocketBuffer {
-		s.queueMu.Unlock()
+	if s.buffered.Add(int64(len(payload))) > MaxSocketBuffer {
+		s.buffered.Add(-int64(len(payload)))
 		s.closeTransport()
 		return ErrSlowClient
 	}
-	s.buffered += len(data)
-	s.queueMu.Unlock()
+	var data []byte
+	select {
+	case data = <-s.spare:
+	default:
+	}
+	length := frameHeaderSize + len(payload)
+	if cap(data) < length {
+		data = make([]byte, length)
+	} else {
+		data = data[:length]
+	}
+	copy(data[frameHeaderSize:], payload)
 	select {
 	case s.queue <- outbound{opcode: opcode, data: data}:
 		return nil
 	case <-s.done:
-		s.queueMu.Lock()
-		s.buffered -= len(data)
-		s.queueMu.Unlock()
+		s.buffered.Add(-int64(len(payload)))
+		s.recycle(data)
 		return ErrClosed
 	default:
-		s.queueMu.Lock()
-		s.buffered -= len(data)
-		s.queueMu.Unlock()
+		s.buffered.Add(-int64(len(payload)))
+		s.recycle(data)
 		return ErrQueueFull
+	}
+}
+
+/*
+ * Retain one completed payload buffer for the next send. The queue owns each
+ * buffer until its write finishes, so callers can still immediately reuse packets.
+ */
+func (s *WebSocket) recycle(data []byte) {
+	select {
+	case s.spare <- data:
+	default:
 	}
 }
 func (s *WebSocket) SendBinary(packet []byte) error { return s.enqueue(OpBinary, packet) }
@@ -152,9 +168,8 @@ func (s *WebSocket) writePump() {
 			return
 		case frame := <-s.queue:
 			err := s.writeFrame(frame.opcode, frame.data)
-			s.queueMu.Lock()
-			s.buffered -= len(frame.data)
-			s.queueMu.Unlock()
+			s.buffered.Add(-int64(len(frame.data) - frameHeaderSize))
+			s.recycle(frame.data)
 			if err != nil || frame.opcode == OpClose {
 				s.closeTransport()
 				return
@@ -162,34 +177,40 @@ func (s *WebSocket) writePump() {
 		}
 	}
 }
+
+/*
+ * Queue buffers reserve space for the largest header. Fill the end of that
+ * prefix and send the header and payload together with one ordinary write.
+ */
 func (s *WebSocket) writeFrame(opcode byte, data []byte) error {
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
 	if err := s.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		return err
 	}
-	var header [10]byte
-	header[0] = 0x80 | opcode
+	size := len(data) - frameHeaderSize
 	count := 2
-	if len(data) < 126 {
-		header[1] = byte(len(data))
-	} else if len(data) <= 65535 {
-		header[1] = 126
-		binary.BigEndian.PutUint16(header[2:], uint16(len(data)))
+	if size >= 126 {
 		count = 4
-	} else {
-		header[1] = 127
-		binary.BigEndian.PutUint64(header[2:], uint64(len(data)))
+	}
+	if size > 65535 {
 		count = 10
 	}
-	if _, err := s.conn.Write(header[:count]); err != nil {
-		return err
+	header := data[frameHeaderSize-count : frameHeaderSize]
+	header[0] = 0x80 | opcode
+	switch count {
+	case 2:
+		header[1] = byte(size)
+	case 4:
+		header[1] = 126
+		binary.BigEndian.PutUint16(header[2:], uint16(size))
+	case 10:
+		header[1] = 127
+		binary.BigEndian.PutUint64(header[2:], uint64(size))
 	}
-	if len(data) > 0 {
-		_, err := s.conn.Write(data)
-		return err
+	n, err := s.conn.Write(data[frameHeaderSize-count:])
+	if err == nil && n != count+size {
+		return io.ErrShortWrite
 	}
-	return nil
+	return err
 }
 func (s *WebSocket) CloseWith(code uint16, reason string) {
 	if !s.closing.CompareAndSwap(false, true) {
@@ -213,9 +234,9 @@ type inbound struct {
 	data   []byte
 }
 
-func (s *WebSocket) readFrame() (inbound, error) {
-	var header [2]byte
-	if _, err := io.ReadFull(s.reader, header[:]); err != nil {
+func (s *WebSocket) readFrame(buffer []byte) (inbound, error) {
+	header := s.readHeader[:2]
+	if _, err := io.ReadFull(s.reader, header); err != nil {
 		return inbound{}, err
 	}
 	fin := header[0]&0x80 != 0
@@ -225,20 +246,20 @@ func (s *WebSocket) readFrame() (inbound, error) {
 	}
 	length := uint64(header[1] & 0x7f)
 	if length == 126 {
-		var extended [2]byte
-		if _, err := io.ReadFull(s.reader, extended[:]); err != nil {
+		extended := s.readHeader[2:4]
+		if _, err := io.ReadFull(s.reader, extended); err != nil {
 			return inbound{}, err
 		}
-		length = uint64(binary.BigEndian.Uint16(extended[:]))
+		length = uint64(binary.BigEndian.Uint16(extended))
 		if length < 126 {
 			return inbound{}, ErrWebSocket
 		}
 	} else if length == 127 {
-		var extended [8]byte
-		if _, err := io.ReadFull(s.reader, extended[:]); err != nil {
+		extended := s.readHeader[2:10]
+		if _, err := io.ReadFull(s.reader, extended); err != nil {
 			return inbound{}, err
 		}
-		length = binary.BigEndian.Uint64(extended[:])
+		length = binary.BigEndian.Uint64(extended)
 		if length <= 65535 || length>>63 != 0 {
 			return inbound{}, ErrWebSocket
 		}
@@ -246,11 +267,16 @@ func (s *WebSocket) readFrame() (inbound, error) {
 	if length > MaxPayload || (opcode >= 8 && (!fin || length > 125)) {
 		return inbound{}, ErrWebSocket
 	}
-	var mask [4]byte
-	if _, err := io.ReadFull(s.reader, mask[:]); err != nil {
+	mask := s.readHeader[10:14]
+	if _, err := io.ReadFull(s.reader, mask); err != nil {
 		return inbound{}, err
 	}
-	data := make([]byte, int(length))
+	data := buffer
+	if cap(data) < int(length) {
+		data = make([]byte, int(length))
+	} else {
+		data = data[:int(length)]
+	}
 	if _, err := io.ReadFull(s.reader, data); err != nil {
 		return inbound{}, err
 	}
@@ -263,10 +289,18 @@ func (s *WebSocket) readFrame() (inbound, error) {
 // ReadMessage handles fragmentation and control frames, returning text frames
 // so the session can close them with the existing message-limit policy.
 func (s *WebSocket) ReadMessage() (byte, []byte, error) {
+	return s.ReadMessageInto(nil)
+}
+
+/*
+ * Read into caller-owned storage. The returned payload can reuse buffer and
+ * remains valid until the caller passes that storage to another read.
+ */
+func (s *WebSocket) ReadMessageInto(buffer []byte) (byte, []byte, error) {
 	var message []byte
 	var kind byte
 	for {
-		frame, err := s.readFrame()
+		frame, err := s.readFrame(buffer)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -287,6 +321,10 @@ func (s *WebSocket) ReadMessage() (byte, []byte, error) {
 				return 0, nil, ErrWebSocket
 			}
 			kind = frame.opcode
+			if frame.fin {
+				// Only fragmented messages need assembly.
+				return kind, frame.data, nil
+			}
 		case OpContinuation:
 			if kind == 0 {
 				return 0, nil, ErrWebSocket

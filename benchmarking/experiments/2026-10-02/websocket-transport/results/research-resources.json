@@ -1,0 +1,44 @@
+[
+  {
+    "label": "go before",
+    "path": "/tmp/unicorn-go-server-research-before",
+    "bytes": 7970976,
+    "gzip1Bytes": 3615723,
+    "sha256": "1f5f67dc2ce6e4e904ec46cf9a8d5436e5472281b533745458e06b0d702c197e"
+  },
+  {
+    "label": "go after",
+    "path": "/tmp/unicorn-go-server-research-after",
+    "bytes": 7958688,
+    "gzip1Bytes": 3613201,
+    "sha256": "764720be1e5746d08218b36ad28a90695bbd366ea6b437b25e42b7318b6b1524"
+  },
+  {
+    "label": "unchanged JS",
+    "path": "dist/docked-CawIr9Fw.js",
+    "bytes": 4708,
+    "gzip1Bytes": 2451,
+    "sha256": "9f7c4d302510bd1a910984398648f0d28c5777cbffc25f099b1b55e7d9ee373b"
+  },
+  {
+    "label": "unchanged JS",
+    "path": "dist/index-RaZVaM7F.js",
+    "bytes": 119645,
+    "gzip1Bytes": 53386,
+    "sha256": "69dccb303c69628c4b53e19418c94d953d5aef34f0b13be51435386da84d57c3"
+  },
+  {
+    "label": "unchanged JS",
+    "path": "dist/server.js",
+    "bytes": 105936,
+    "gzip1Bytes": 46229,
+    "sha256": "3a6f4560dd808aabca8ab56dc300fcb6b8db9e865181f5f39a058295d2d4ea94"
+  },
+  {
+    "label": "unchanged JS",
+    "path": "dist/sound-DWx2poUn.js",
+    "bytes": 1681,
+    "gzip1Bytes": 948,
+    "sha256": "11dadbe7907e4b770e57da1d8af34899bf8207769535676e1ccd294827a2d232"
+  }
+]

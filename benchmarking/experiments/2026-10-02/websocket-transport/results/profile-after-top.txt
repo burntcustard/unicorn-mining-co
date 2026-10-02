@@ -1,0 +1,97 @@
+File: unicorn-transport-final
+Build ID: b46513deb10c17c727933e9b03288616c5cb534c
+Type: cpu
+Time: 2026-10-02 19:20:25 BST
+Duration: 2.50s, Total samples = 2.31s (92.47%)
+Showing nodes accounting for 2.12s, 91.77% of 2.31s total
+Dropped 40 nodes (cum <= 0.01s)
+      flat  flat%   sum%        cum   cum%
+     1.32s 57.14% 57.14%      1.32s 57.14%  internal/runtime/syscall/linux.Syscall6
+     0.22s  9.52% 66.67%      0.22s  9.52%  runtime.futex
+     0.07s  3.03% 69.70%      0.40s 17.32%  runtime.netpoll
+     0.07s  3.03% 72.73%      0.07s  3.03%  runtime.write1
+     0.05s  2.16% 74.89%      0.05s  2.16%  internal/sync.(*Mutex).Lock (inline)
+     0.04s  1.73% 76.62%      0.06s  2.60%  runtime.pidleget
+     0.03s  1.30% 77.92%      0.03s  1.30%  runtime.lock2
+     0.03s  1.30% 79.22%      0.03s  1.30%  runtime.read
+     0.02s  0.87% 80.09%      0.02s  0.87%  internal/poll.(*fdMutex).rwunlock
+     0.02s  0.87% 80.95%      0.02s  0.87%  runtime.(*guintptr).cas (inline)
+     0.02s  0.87% 81.82%      0.02s  0.87%  runtime.(*sweepLocker).tryAcquire
+     0.02s  0.87% 82.68%      0.02s  0.87%  runtime.(*timer).unlock (inline)
+     0.02s  0.87% 83.55%      0.02s  0.87%  runtime.(*waitq).dequeue (inline)
+     0.02s  0.87% 84.42%      0.02s  0.87%  runtime.memmove
+     0.02s  0.87% 85.28%      0.02s  0.87%  runtime.nanotime (inline)
+     0.02s  0.87% 86.15%      0.02s  0.87%  runtime.nextFreeFast (inline)
+     0.02s  0.87% 87.01%      0.03s  1.30%  runtime.sellock
+     0.02s  0.87% 87.88%      0.02s  0.87%  runtime.unlock2
+     0.02s  0.87% 88.74%      0.56s 24.24%  syscall.read
+     0.01s  0.43% 89.18%      0.52s 22.51%  github.com/burntcustard/unicorn-mining-co/internal/server.(*WebSocket).writeFrame
+     0.01s  0.43% 89.61%      0.02s  0.87%  runtime.(*timers).check
+     0.01s  0.43% 90.04%      0.76s 32.90%  runtime.findRunnable
+     0.01s  0.43% 90.48%      0.02s  0.87%  runtime.netpollblock
+     0.01s  0.43% 90.91%      0.10s  4.33%  runtime.selectgo
+     0.01s  0.43% 91.34%      0.03s  1.30%  runtime.stealWork
+     0.01s  0.43% 91.77%      0.08s  3.46%  runtime.write
+         0     0% 91.77%      0.13s  5.63%  _.goready.func1
+         0     0% 91.77%      0.62s 26.84%  bufio.(*Reader).Read
+         0     0% 91.77%      0.63s 27.27%  github.com/burntcustard/unicorn-mining-co/internal/server.(*WebSocket).ReadMessage
+         0     0% 91.77%      0.09s  3.90%  github.com/burntcustard/unicorn-mining-co/internal/server.(*WebSocket).SendBinary (inline)
+         0     0% 91.77%      0.09s  3.90%  github.com/burntcustard/unicorn-mining-co/internal/server.(*WebSocket).enqueue
+         0     0% 91.77%      0.63s 27.27%  github.com/burntcustard/unicorn-mining-co/internal/server.(*WebSocket).readFrame
+         0     0% 91.77%      0.56s 24.24%  github.com/burntcustard/unicorn-mining-co/internal/server.(*WebSocket).writePump
+         0     0% 91.77%      0.61s 26.41%  internal/poll.(*FD).Read
+         0     0% 91.77%      0.50s 21.65%  internal/poll.(*FD).Writev
+         0     0% 91.77%      0.02s  0.87%  internal/poll.(*FD).readUnlock
+         0     0% 91.77%      0.03s  1.30%  internal/poll.(*pollDesc).wait
+         0     0% 91.77%      0.03s  1.30%  internal/poll.(*pollDesc).waitRead (inline)
+         0     0% 91.77%      0.56s 24.24%  internal/poll.ignoringEINTRIO (inline)
+         0     0% 91.77%      0.03s  1.30%  internal/poll.runtime_pollWait
+         0     0% 91.77%      0.50s 21.65%  internal/poll.writev
+         0     0% 91.77%      0.29s 12.55%  internal/runtime/syscall/linux.EpollWait
+         0     0% 91.77%      0.62s 26.84%  io.ReadAtLeast
+         0     0% 91.77%      0.62s 26.84%  io.ReadFull (inline)
+         0     0% 91.77%      0.15s  6.49%  main.main
+         0     0% 91.77%      0.78s 33.77%  main.main.func1.1
+         0     0% 91.77%      0.15s  6.49%  main.main.func4
+         0     0% 91.77%      0.50s 21.65%  net.(*Buffers).WriteTo
+         0     0% 91.77%      0.61s 26.41%  net.(*conn).Read
+         0     0% 91.77%      0.50s 21.65%  net.(*conn).writeBuffers
+         0     0% 91.77%      0.61s 26.41%  net.(*netFD).Read
+         0     0% 91.77%      0.50s 21.65%  net.(*netFD).writeBuffers
+         0     0% 91.77%      0.62s 26.84%  net/http.(*connReader).Read
+         0     0% 91.77%      0.03s  1.30%  runtime.bgsweep
+         0     0% 91.77%      0.15s  6.49%  runtime.chansend
+         0     0% 91.77%      0.15s  6.49%  runtime.chansend1
+         0     0% 91.77%      0.14s  6.06%  runtime.futexsleep
+         0     0% 91.77%      0.08s  3.46%  runtime.futexwakeup
+         0     0% 91.77%      0.13s  5.63%  runtime.goready (inline)
+         0     0% 91.77%      0.02s  0.87%  runtime.growslice
+         0     0% 91.77%      0.03s  1.30%  runtime.lock (inline)
+         0     0% 91.77%      0.03s  1.30%  runtime.lockWithRank (inline)
+         0     0% 91.77%      0.14s  6.06%  runtime.mPark (inline)
+         0     0% 91.77%      0.15s  6.49%  runtime.main
+         0     0% 91.77%      0.03s  1.30%  runtime.mallocgc
+         0     0% 91.77%      0.02s  0.87%  runtime.mallocgcSmallNoscan (inline)
+         0     0% 91.77%      0.79s 34.20%  runtime.mcall
+         0     0% 91.77%      0.08s  3.46%  runtime.netpollBreak
+         0     0% 91.77%      0.14s  6.06%  runtime.notesleep
+         0     0% 91.77%      0.08s  3.46%  runtime.notewakeup
+         0     0% 91.77%      0.79s 34.20%  runtime.park_m
+         0     0% 91.77%      0.03s  1.30%  runtime.pidlegetSpinning
+         0     0% 91.77%      0.13s  5.63%  runtime.ready
+         0     0% 91.77%      0.02s  0.87%  runtime.runqput
+         0     0% 91.77%      0.77s 33.33%  runtime.schedule
+         0     0% 91.77%      0.13s  5.63%  runtime.send
+         0     0% 91.77%      0.08s  3.46%  runtime.startm
+         0     0% 91.77%      0.16s  6.93%  runtime.stopm
+         0     0% 91.77%      0.03s  1.30%  runtime.sweepone (inline)
+         0     0% 91.77%      0.14s  6.06%  runtime.systemstack
+         0     0% 91.77%      0.02s  0.87%  runtime.unblockTimerChan
+         0     0% 91.77%      0.02s  0.87%  runtime.unlock (inline)
+         0     0% 91.77%      0.02s  0.87%  runtime.unlockWithRank (inline)
+         0     0% 91.77%      0.12s  5.19%  runtime.wakep
+         0     0% 91.77%      0.05s  2.16%  sync.(*Mutex).Lock (inline)
+         0     0% 91.77%      0.78s 33.77%  sync.(*WaitGroup).Go.func1
+         0     0% 91.77%      1.03s 44.59%  syscall.RawSyscall6
+         0     0% 91.77%      0.56s 24.24%  syscall.Read (inline)
+         0     0% 91.77%      1.04s 45.02%  syscall.Syscall

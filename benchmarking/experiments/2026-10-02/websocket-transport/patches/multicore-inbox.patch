@@ -1,0 +1,92 @@
+--- a/internal/server/game-server.go
++++ b/internal/server/game-server.go
+@@ -24,6 +24,7 @@
+ 	session *GameSession
+ 	http    *http.Server
+ 	events  chan socketEvent
++	wake    chan struct{}
+ 	done    chan struct{}
+ 	stopped chan struct{}
+ 	once    sync.Once
+@@ -32,7 +33,7 @@
+ }
+ 
+ func NewGameServer(seed float64, catalog specification.Catalog) *GameServer {
+-	return &GameServer{session: NewGameSession(seed, catalog), events: make(chan socketEvent, 256), done: make(chan struct{}), stopped: make(chan struct{}), catalog: catalog}
++	return &GameServer{session: NewGameSession(seed, catalog), events: make(chan socketEvent, 256), wake: make(chan struct{}, 1), done: make(chan struct{}), stopped: make(chan struct{}), catalog: catalog}
+ }
+ func (s *GameServer) Start(port int, assets string, production bool) (net.Listener, error) {
+ 	listener, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
+@@ -69,10 +70,16 @@
+ func (s *GameServer) enqueue(event socketEvent) bool {
+ 	select {
+ 	case s.events <- event:
+-		return true
+ 	case <-s.done:
+ 		return false
+ 	}
++	if event.message.Type != "input" && event.message.Type != "snapshotAck" {
++		select {
++		case s.wake <- struct{}{}:
++		default:
++		}
++	}
++	return true
+ }
+ func (s *GameServer) read(socket *WebSocket) {
+ 	defer func() {
+@@ -132,6 +139,28 @@
+ 	defer timer.Stop()
+ 	heartbeat := time.NewTicker(30 * time.Second)
+ 	defer heartbeat.Stop()
++	/*
++	 * Inputs and receipts affect the next tick. Drain the same ordered inbox
++	 * before that tick, or immediately when a connection/control event wakes us.
++	 * The queue capacity bounds each drain so a busy reader cannot starve ticks.
++	 */
++	drain := func() {
++		for range cap(s.events) {
++			select {
++			case event := <-s.events:
++				if event.connected {
++					sockets[event.socket] = time.Time{}
++				} else if event.message.Type != "" {
++					s.session.Receive(event.message, event.socket)
++				} else {
++					delete(sockets, event.socket)
++					s.session.Disconnect(event.socket)
++				}
++			default:
++				return
++			}
++		}
++	}
+ 	for {
+ 		select {
+ 		case <-s.done:
+@@ -139,15 +168,8 @@
+ 				socket.Terminate()
+ 			}
+ 			return
+-		case event := <-s.events:
+-			if event.connected {
+-				sockets[event.socket] = time.Time{}
+-			} else if event.message.Type != "" {
+-				s.session.Receive(event.message, event.socket)
+-			} else {
+-				delete(sockets, event.socket)
+-				s.session.Disconnect(event.socket)
+-			}
++		case <-s.wake:
++			drain()
+ 		case now := <-heartbeat.C:
+ 			for socket, last := range sockets {
+ 				if !last.IsZero() && socket.LastPong().Before(last) {
+@@ -160,6 +182,7 @@
+ 				}
+ 			}
+ 		case <-timer.C:
++			drain()
+ 			ticks := min(s.catalog.Simulation.MaxCatchUpTicks, max(1, int(time.Since(next)/period)+1))
+ 			s.session.Tick(uint64(ticks))
+ 			next = next.Add(time.Duration(ticks) * period)

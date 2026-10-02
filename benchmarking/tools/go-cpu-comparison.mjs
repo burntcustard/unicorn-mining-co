@@ -22,7 +22,7 @@ assert(
 const directory = mkdtempSync(join(tmpdir(), 'unicorn-cpu-comparison-'));
 const entry = `bin/session-comparison-${process.pid}.mjs`;
 const cpu = readFileSync('/proc/self/status', 'utf8').match(
-  /Cpus_allowed_list:\s*(\d+)/,
+  /Cpus_allowed_list:\s*([\d,-]+)/,
 )[1];
 const ticks = Number(process.env.TICKS || 900);
 const repetitions = Number(process.env.REPETITIONS || 7);
@@ -131,7 +131,6 @@ try {
           execFileSync('taskset', ['-c', cpu, ...command], {
             env: {
               ...process.env,
-              GOMAXPROCS: '1',
               GOGC: value.GOGC || '100',
               GO_SERVER_SIMD: '',
               GO_SERVER_COLLISION_NEIGHBORS: '',

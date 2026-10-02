@@ -124,3 +124,43 @@ func TestInputsAcrossServerStall(t *testing.T) {
 		t.Fatal("catch-up must consume both control edges")
 	}
 }
+
+func TestInputsWindowWrapAndCatchUp(t *testing.T) {
+	catalog, err := specification.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog.Simulation.MaxPredictionTicks = 4
+	session := NewGameSession(25, catalog)
+	socket := &benchmarkSocket{}
+	session.Receive(protocol.Control{Type: "hello"}, socket)
+	player := session.playersBySocket[socket]
+	sequence := uint64(0)
+	for range 6 {
+		first := session.World.Tick
+		for offset := uint64(0); offset <= 4; offset++ {
+			sequence++
+			session.Receive(protocol.Control{Type: "input", Tick: first + offset, Sequence: sequence, Input: protocol.Input{Turn: float64(int(sequence%3) - 1)}}, socket)
+			// A duplicate must not replace the accepted control edge.
+			session.Receive(protocol.Control{Type: "input", Tick: first + offset, Sequence: sequence, Input: protocol.Input{Turn: 5}}, socket)
+		}
+		session.Tick(3)
+		if player.lastSequence != sequence-2 || player.ship.Turn != float64(int((sequence-2)%3)-1) {
+			t.Fatal("catch-up changed input order inside the prediction window")
+		}
+		session.Tick(2)
+		if player.lastSequence != sequence || player.ship.Turn != float64(int(sequence%3)-1) {
+			t.Fatal("reusing the prediction window lost a future control edge")
+		}
+		session.Receive(protocol.Control{Type: "snapshotAck", Sequence: socket.sequence}, socket)
+	}
+	sequence++
+	session.Receive(protocol.Control{Type: "input", Tick: session.World.Tick + 4, Sequence: sequence, Input: protocol.Input{Turn: 1}}, socket)
+	token := player.token
+	session.Disconnect(socket)
+	session.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
+	session.Tick(5)
+	if player.lastSequence != 0 || player.ship.Turn != 0 {
+		t.Fatal("reconnect retained queued input from the previous connection")
+	}
+}
