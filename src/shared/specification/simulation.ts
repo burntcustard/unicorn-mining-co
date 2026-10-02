@@ -20,7 +20,8 @@ export const simulationSpecification = {
   },
   simulationStep: 1 / 30,
   maxCatchUpTicks: 6,
-  maxPredictionTicks: 15,
+  // Two seconds of outage recovery, not a presentation delay.
+  maxPredictionTicks: 60,
   visibleRange: 2000,
   ballisticReplicateEvery: 8,
   motion: {

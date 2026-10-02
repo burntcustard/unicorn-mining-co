@@ -31,14 +31,6 @@ import { setCraftActionDispatcher } from './craft-actions';
 import { type CraftAction } from '../shared/protocol/network';
 import { shadesOf } from '../shared/colors';
 
-// Use the same prediction horizon on every client. Input arrival timing also
-// includes missed frames: using it to change this lead puts peers on different
-// timelines throughout a turn or thrust, even after their clocks catch up.
-const predictionTickLead = 1;
-// How far the clock may wander before it is worth nudging, since the tick a
-// snapshot was sent on is only ever a latency-blurred reading of it.
-const driftSlack = 1;
-
 const makeEntity = ({
   entity,
   world,
@@ -195,9 +187,6 @@ export class NetworkClient {
     number,
     { entity: ReplicatedEntity; tick: number }
   >();
-  // Ticks still owed to (or borrowed from) the clock, paid off one per update.
-  private tickAdjust = 0;
-  private readonly tickLead = predictionTickLead;
   private welcomed = false;
   private inputTickStartedAt = performance.now();
   private pendingTime = 0;
@@ -310,40 +299,35 @@ export class NetworkClient {
   }) {
     if (!this.connected) return false;
     this.pendingTime += dt;
-    const updated = this.pendingTime >= simulationStep;
+    let updated = this.pendingTime >= simulationStep;
 
     while (this.pendingTime >= simulationStep) {
       this.pendingTime -= simulationStep;
-      this.update({
+      this.step({
         input,
         now: now - this.pendingTime * 1000,
-        // The last step can consume everything received before this frame.
-        // Its fractional movement still starts at the whole-tick boundary.
-        snapshotNow:
-          this.pendingTime < simulationStep
-            ? now
-            : now - this.pendingTime * 1000,
       });
     }
-    return updated;
-  }
+    // Catch up elapsed movement before preserving the current pose. A delayed
+    // browser frame must not smooth away the distance it legitimately travelled.
+    const before =
+      this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt
+        ? this.remoteMotion.sample({
+            now,
+            world: this.world,
+            predicted: this.predictFrame({ now }),
+            shipId: this.shipId,
+          })
+        : undefined;
 
-  update({
-    input,
-    now = performance.now(),
-    snapshotNow = now,
-  }: {
-    input: PlayerInput;
-    now?: number;
-    snapshotNow?: number;
-  }) {
-    if (!this.connected || this.playerId === undefined) return;
-    const previousTick = this.world.tick;
+    before?.forEach((pose, id) =>
+      Object.assign(pose, { dockedTo: this.world.entities.get(id)?.dockedTo }),
+    );
 
-    // A missed browser frame can replay several earlier clock boundaries.
-    // Do not apply a newer snapshot to one of those earlier boundaries and
-    // then simulate its elapsed time a second time.
-    if (this.pendingSnapshot && snapshotNow + 1e-6 >= this.snapshotReceivedAt) {
+    // Reconcile after clock catch-up, including frames shorter than a tick.
+    // Never apply a fresh snapshot to an earlier catch-up boundary.
+
+    if (this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt) {
       const message = {
         ...this.pendingSnapshot,
         fullEntities: [...this.pendingEntities.values()].map(
@@ -357,70 +341,57 @@ export class NetworkClient {
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
       this.applySnapshot({ message, entityTicks });
+      updated = true;
     }
-    let steps = 1;
 
-    if (this.tickAdjust > 0) {
-      steps = 2;
-      this.tickAdjust--;
-    } else if (this.tickAdjust < 0) {
-      steps = 0;
-      this.tickAdjust++;
+    if (before) {
+      this.remoteMotion.correct({
+        before,
+        now,
+        world: this.world,
+        predicted: this.predictFrame({ now }),
+        shipId: this.shipId,
+      });
     }
-    // Continue at wall-clock speed during short server/network stalls. The
-    // horizon bounds speculation if the connection stops making progress.
-    steps = Math.min(
-      steps,
-      Math.max(
-        0,
-        this.estimatedServerTick() + maxPredictionTicks - this.world.tick,
-      ),
-    );
-    // A launch is said once, so a skipped tick must not swallow it.
+    return updated;
+  }
 
-    if (input.launch) steps ||= 1;
+  update({
+    input,
+    now = performance.now(),
+  }: {
+    input: PlayerInput;
+    now?: number;
+  }) {
+    return this.updateFrame({ input, now, dt: simulationStep });
+  }
 
+  private step({
+    input,
+    now = performance.now(),
+  }: {
+    input: PlayerInput;
+    now?: number;
+  }) {
+    if (!this.connected || this.playerId === undefined) return;
     const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
       input,
       send: (message) => this.send({ ...message, type: 'input' }),
     };
 
-    // Releases must still reach the server while we wait for the next snapshot.
+    // A missing packet never changes the speed of the local clock. Keep
+    // responding through brief stalls, bounded by retained rollback history.
     this.prediction.recordInput(predictionInput);
 
-    while (steps--) {
+    if (this.world.tick < this.serverTick + maxPredictionTicks) {
       this.events.push(...this.prediction.step(predictionInput));
-      input.launch = false;
+      this.inputTickStartedAt = now;
     }
     input.launch = false;
-    // Keyboard edges and fractional prediction share the same tick boundary,
-    // including the frame's remainder rather than rounding it away.
-
-    if (this.world.tick !== previousTick) this.inputTickStartedAt = now;
   }
 
   takeEvents() {
     return this.events.splice(0);
-  }
-
-  /**
-   * Keep the client's clock at the common prediction horizon. Missed frames
-   * need clock catch-up, not a permanently larger prediction lead.
-   */
-  private retune() {
-    const drift = this.estimatedServerTick() + this.tickLead - this.world.tick;
-
-    // Reconciliation handles large discontinuities using actual server state,
-    // not by relabelling the tick of a still-predicted world.
-    this.tickAdjust = Math.abs(drift) > driftSlack ? Math.sign(drift) : 0;
-  }
-
-  private estimatedServerTick() {
-    const elapsed =
-      Math.max(0, performance.now() - this.snapshotReceivedAt) /
-      (simulationStep * 1000);
-
-    return this.serverTick + Math.min(Math.floor(elapsed), maxPredictionTicks);
   }
 
   private send(message: ClientMessage) {
@@ -448,7 +419,7 @@ export class NetworkClient {
       this.shipDestroyed = false;
       this.worldSeed = message.worldSeed;
       this.serverTick = message.serverTick;
-      this.world.tick = message.serverTick + this.tickLead;
+      this.world.tick = message.serverTick;
       this.world.random = createRandom(message.worldSeed);
       addPlayer(this.world, {
         id: message.playerId,
@@ -477,7 +448,10 @@ export class NetworkClient {
 
     this.snapshotReceivedAt = performance.now();
 
-    if (message.type === 'load') this.entityRecords.clear();
+    if (message.type === 'load') {
+      this.entityRecords.clear();
+      this.remoteMotion.reset();
+    }
     message.fullEntities = message.fullEntities.map((record) => {
       const previous = this.entityRecords.get(record.id);
       const full = { ...previous, ...record } as ReplicatedEntity;
@@ -497,15 +471,9 @@ export class NetworkClient {
       if (!visible.has(id)) this.entityRecords.delete(id);
     });
     this.shipDestroyed = !message.entityIds.includes(this.shipId!);
-    this.remoteMotion.receive({
-      entities: message.fullEntities,
-      entityIds: message.entityIds,
-      shipId: this.shipId,
-      tick: message.serverTick,
-    });
-
     // Receipt acknowledges decoded deltas, independent of render cadence.
     // The server can now replace skipped ticks with its latest state.
+
     if (message.snapshotSequence !== undefined) {
       this.send({ type: 'snapshotAck', sequence: message.snapshotSequence });
     }
@@ -572,19 +540,16 @@ export class NetworkClient {
     });
 
     if (message.type === 'load') {
-      this.prediction.replayTo({ targetTick: this.serverTick + this.tickLead });
-      this.tickAdjust = 0;
       this.pendingTime = 0;
       this.inputTickStartedAt = performance.now();
 
       if (this.welcomed) {
         this.connected = true;
         this.retryDelay = 500;
-        this.pendingTime = simulationStep;
         this.showConnectionStatus();
         this.resolveReady();
       }
-    } else this.retune();
+    }
   }
 }
 

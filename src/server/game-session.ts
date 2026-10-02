@@ -11,7 +11,7 @@ import {
 import { createShip } from '../shared/craft/create-ship';
 import { updateWorld } from '../shared/simulation/update-world';
 import {
-  maxCatchUpTicks,
+  maxPredictionTicks,
   simulationStep,
   worldRanges,
 } from '../shared/settings';
@@ -31,16 +31,19 @@ import {
 const maxBufferedSnapshotBytes = 128 * 1024;
 const maxSocketBufferBytes = 1024 * 1024;
 // Bound snapshots beyond Node's buffer too (kernel, proxy and browser).
-// Two in flight maintain 30 Hz up to a 67 ms round trip; slower receivers
-// get fewer, current snapshots instead of a growing queue of stale ticks.
-const maxPendingSnapshots = 2;
+// Nine in flight maintain 30 Hz through a 267 ms round trip plus tick phasing;
+// slower receivers get fewer, current snapshots instead of a growing queue of stale ticks.
+// Start with two; ordinary receipts must demonstrate a short enough round trip
+// before expanding. Large initial loads do not measure the ongoing link.
+const maxPendingSnapshots = 9;
 // Server regions reach 500 units past what receivers load; a ship at top
 // speed covers about a seventh of that between regional refreshes.
 const regionSyncEvery = 8;
 
 type PlayerRecord = {
   snapshotSequence: number;
-  pendingSnapshots: number[];
+  pendingSnapshots: { sequence: number; tick?: number }[];
+  snapshotWindow: number;
   needsLoad: boolean;
   inputLead?: number;
   inputs: Map<number, PlayerInputMessage[]>;
@@ -125,11 +128,23 @@ export class GameSession {
     if (!player) return;
 
     if (message.type === 'snapshotAck') {
-      const index = player.pendingSnapshots.indexOf(message.sequence);
+      const index = player.pendingSnapshots.findIndex(
+        (snapshot) => snapshot.sequence === message.sequence,
+      );
 
       // Only a sequence actually sent on this connection can free its window.
       // Acknowledgements are transport activity, not player input/idle activity.
-      if (index >= 0) player.pendingSnapshots.splice(0, index + 1);
+      if (index >= 0) {
+        const sentTick = player.pendingSnapshots[index].tick;
+
+        if (sentTick !== undefined) {
+          player.snapshotWindow =
+            this.world.tick - sentTick < maxPendingSnapshots
+              ? maxPendingSnapshots
+              : 2;
+        }
+        player.pendingSnapshots.splice(0, index + 1);
+      }
       return;
     }
     player.lastInputAt = Date.now();
@@ -276,7 +291,7 @@ export class GameSession {
 
     if (
       socket.bufferedAmount > maxBufferedSnapshotBytes ||
-      player.pendingSnapshots.length >= maxPendingSnapshots
+      player.pendingSnapshots.length >= player.snapshotWindow
     ) {
       return;
     }
@@ -297,10 +312,13 @@ export class GameSession {
       ? player.binaryReplication.initial(options)
       : player.binaryReplication.snapshot(options);
 
+    player.pendingSnapshots.push({
+      sequence,
+      tick: player.needsLoad ? undefined : this.world.tick,
+    });
     player.needsLoad = false;
     player.inputLead = undefined;
 
-    player.pendingSnapshots.push(sequence);
     send({ socket, packet });
   }
 
@@ -335,6 +353,7 @@ export class GameSession {
       player = {
         snapshotSequence: 0,
         pendingSnapshots: [],
+        snapshotWindow: 2,
         needsLoad: true,
         inputs: new Map(),
         frame: { input: emptyPlayerInput(), changes: [] },
@@ -366,6 +385,7 @@ export class GameSession {
     this.playersBySocket.set(socket, player);
     player.snapshotSequence = 0;
     player.pendingSnapshots = [];
+    player.snapshotWindow = 2;
     player.needsLoad = true;
     player.lastInputAt = Date.now();
     player.disconnectedAt = undefined;
@@ -459,9 +479,9 @@ export class GameSession {
 
     player.inputLead = lead;
 
-    // A pilot may keep predicting while snapshots are delayed. Do not park
-    // their newer controls several seconds in the future (or discard them).
-    if (lead < 0 || lead > maxCatchUpTicks) {
+    // Preserve timed edges while the server catches up after a stall. Only
+    // stale or implausibly distant controls take effect on the next tick.
+    if (lead < 0 || lead > maxPredictionTicks) {
       if (message.sequence > player.lastSequence) {
         player.lastInput = message.input;
         player.lastSequence = message.sequence;

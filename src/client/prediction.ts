@@ -25,10 +25,6 @@ import {
   type SimulationWorldState,
 } from '../shared/simulation/world-state';
 
-const historyLength = 60;
-// Replay short gaps on the real-time prediction clock; resync longer outages.
-const maxReplayTicks = maxPredictionTicks;
-
 // @ifdef DEBUG
 /**
  * How hard the server has had to argue with the prediction lately.
@@ -270,7 +266,7 @@ export class PredictionManager {
     }
     this.frame.reset();
 
-    if (Math.abs(targetTick - tick) > maxReplayTicks) {
+    if (Math.abs(targetTick - tick) > maxPredictionTicks) {
       this.reset();
       this.world.tick = tick;
       this.applyServerState({ entities, entityIds, entityTicks });
@@ -464,7 +460,8 @@ export class PredictionManager {
   }
 
   private trim() {
-    const oldest = this.world.tick - historyLength;
+    // Keep enough history to replay controls across a brief network outage.
+    const oldest = this.world.tick - maxPredictionTicks;
 
     this.discardBefore({ tick: oldest });
     // The newest input at or before a tick still speaks for every tick after

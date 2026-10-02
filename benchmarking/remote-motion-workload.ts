@@ -70,8 +70,7 @@ export const replayMotion = (
   const moving = [...fixture.world.entities.values()].filter(
     (entity) => entity.velocity.x,
   );
-  let next = 0,
-    last = NaN,
+  let last = NaN,
     stalls = 0,
     backwards = 0,
     samples = 0,
@@ -84,23 +83,12 @@ export const replayMotion = (
   for (let frame = 0; frame < fixture.seconds * 60; frame++) {
     const now = (frame * 1000) / 60;
 
-    // Predicted local/remote poses keep the observers flying together. Network
-    // interpolation still uses only the delayed authoritative packet positions.
+    // This microbenchmark measures sampling already-predicted poses.
+    // Network delay and packet bursts are covered by remote-perspectives.
     moving.forEach((entity, index) => {
       entity.position.x = (index ? 1000 + index * 10 : 0) + now * 0.12;
     });
 
-    while (next < fixture.packets.length && fixture.packets[next].at <= now) {
-      const packet = fixture.packets[next++];
-
-      motion.receive({
-        entities: packet.entities,
-        entityIds: fixture.entityIds,
-        shipId: 1,
-        tick: packet.tick,
-        now: packet.at,
-      });
-    }
     const pose = motion.sample({ now, world: fixture.world, shipId: 1 }).get(2);
 
     if (!pose) continue;

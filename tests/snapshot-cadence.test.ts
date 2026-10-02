@@ -46,7 +46,7 @@ const player = [
     Reflect.get(session, 'players') as Map<
       string,
       {
-        pendingSnapshots: number[];
+        pendingSnapshots: { sequence: number; tick?: number }[];
         lastSequence: number;
         ship: { dockedTo?: number; credits: number };
         shipId: number;
@@ -124,3 +124,56 @@ assert.deepEqual(
 );
 assert.equal((packets.at(-1) as SnapshotMessage).serverTick, 11);
 assert.equal(player.pendingSnapshots.length, 0);
+
+// Ordinary round trips sustain 30 Hz; slow receivers keep a bounded window.
+for (const roundTripTicks of [2, 6, 8, 18]) {
+  const game = new GameSession({ worldSeed: 25 });
+  const receipts: { at: number; sequence: number }[] = [];
+  const ticks: number[] = [];
+  const peer = {
+    readyState: 1,
+    bufferedAmount: 0,
+    close() {},
+    terminate() {},
+    send(data: Uint8Array) {
+      if (data[1] !== 0x4d) return;
+      const packet = decodeBinarySnapshot(data);
+
+      receipts.push({
+        at: game.world.tick + roundTripTicks,
+        sequence: packet.snapshotSequence!,
+      });
+      ticks.push(packet.serverTick);
+    },
+  } as unknown as WebSocket;
+
+  Reflect.get(game, 'regions').sync = () => {};
+  game.receive({ socket: peer, message: { type: 'hello', playerToken: null } });
+
+  for (let tick = 0; tick < 90; tick++) {
+    while (receipts[0]?.at <= game.world.tick) {
+      const receipt = receipts.shift()!;
+
+      game.receive({
+        socket: peer,
+        message: { type: 'snapshotAck', sequence: receipt.sequence },
+      });
+    }
+    game.tick();
+  }
+  const record = [...Reflect.get(game, 'players').values()][0];
+
+  assert(record.pendingSnapshots.length <= record.snapshotWindow);
+
+  if (roundTripTicks <= 8) {
+    assert.deepEqual(
+      ticks.filter((tick) => tick > 60),
+      Array.from({ length: 30 }, (_, i) => i + 61),
+    );
+  } else {
+    assert.equal(record.snapshotWindow, 2);
+  }
+}
+console.log(
+  '30 Hz snapshots survive 67–267 ms round trips; slower receivers keep bounded backpressure',
+);

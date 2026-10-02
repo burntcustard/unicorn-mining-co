@@ -47,6 +47,13 @@ if (options['network-baseline']) {
     );
   }
 }
+
+if (options['binary-baseline']) {
+  networkingBaseline.set(
+    resolve('src/server/binary-replication.ts'),
+    await readFile(options['binary-baseline'], 'utf8'),
+  );
+}
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-production-flight-'));
 const entry = options.bundle || options.save || join(directory, 'flight.mjs');
 const labels = [
@@ -109,6 +116,15 @@ try {
         '(used.user + used.system) / 1000 / ticks',
         'used / 1000 / ticks',
       );
+
+    if (options.idle) {
+      workload = workload
+        .replace('thrust: 1,', 'thrust: 0,')
+        .replace(
+          'turn: phase < 20 ? (Math.floor(tick / 600) % 2 ? 1 : -1) : 0,',
+          'turn: 0,',
+        );
+    }
 
     if (options['batch-ticks']) {
       const batch = Number(options['batch-ticks']);

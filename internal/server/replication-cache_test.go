@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"github.com/burntcustard/unicorn-mining-co/internal/craft"
+	"github.com/burntcustard/unicorn-mining-co/internal/craft/ships"
 	"github.com/burntcustard/unicorn-mining-co/internal/simulation"
 	"github.com/burntcustard/unicorn-mining-co/internal/specification"
 	Vec "github.com/burntcustard/unicorn-mining-co/internal/vector"
@@ -109,5 +111,33 @@ func TestPackedCadenceRetainsFallbackForForeignViews(t *testing.T) {
 				t.Fatalf("interval %d id %d tick %d: cadence differs", test.interval, test.id, tick)
 			}
 		}
+	}
+}
+
+func TestStationaryPlayerOmitsUnchangedFragments(t *testing.T) {
+	catalog, err := specification.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	world := simulation.CreateWorld(25, catalog)
+	id := int64(1)
+	ship := ships.CreateShip(world, craft.Properties{PlayerID: &id})
+	batch := NewBinarySnapshotBatch(catalog)
+	batch.Begin(NewReplicationView(world))
+	record := batch.prepared(ship)
+	revision := record.revision
+	for tick := 1; tick <= 90; tick++ {
+		batch.Begin(NewReplicationView(world))
+		record = batch.prepared(ship)
+		if _, ok := batch.fragment(record, revision, nil); ok || len(batch.arena) != 0 {
+			t.Fatalf("tick %d: unchanged player state must be omitted", tick)
+		}
+	}
+	ship.DockedTo = &id
+	batch.Begin(NewReplicationView(world))
+	record = batch.prepared(ship)
+	revision = record.revision
+	if _, ok := batch.fragment(record, revision, nil); ok {
+		t.Fatal("unchanged docked ships need no heartbeat")
 	}
 }

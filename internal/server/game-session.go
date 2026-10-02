@@ -25,9 +25,15 @@ type SessionSocket interface {
 	Terminate()
 	CloseWith(uint16, string)
 }
+type pendingSnapshot struct {
+	sequence uint64
+	tick     int64
+}
+
 type playerRecord struct {
 	snapshotSequence  uint64
-	pendingSnapshots  []uint64
+	pendingSnapshots  []pendingSnapshot
+	snapshotWindow    int
 	needsLoad         bool
 	inputLead         *int64
 	inputs            *utilities.OrderedMap[uint64, []protocol.Control]
@@ -111,8 +117,14 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 		return
 	}
 	if message.Type == "snapshotAck" {
-		for i, sequence := range player.pendingSnapshots {
-			if sequence == message.Sequence {
+		for i, snapshot := range player.pendingSnapshots {
+			if snapshot.sequence == message.Sequence {
+				if snapshot.tick >= 0 {
+					player.snapshotWindow = 2
+					if int64(s.World.Tick)-snapshot.tick <= 8 {
+						player.snapshotWindow = 9
+					}
+				}
 				player.pendingSnapshots = player.pendingSnapshots[i+1:]
 				break
 			}
@@ -266,21 +278,21 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 		socket.Terminate()
 		return
 	}
-	if socket.BufferedBytes() > MaxSnapshotBuffer || len(p.pendingSnapshots) >= 2 {
+	// Match the adaptive TypeScript window, including slow-link backpressure.
+	if socket.BufferedBytes() > MaxSnapshotBuffer || len(p.pendingSnapshots) >= p.snapshotWindow {
 		return
 	}
 	p.snapshotSequence++
 	sequence := p.snapshotSequence
 	options := SnapshotOptions{World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: p.inputLead, SnapshotSequence: &sequence, ReplicationView: view, BinaryBatch: batch}
-	var packet []byte
+	packet := p.binaryReplication.encode(options, p.needsLoad)
+	tick := int64(s.World.Tick)
 	if p.needsLoad {
-		packet = p.binaryReplication.encode(options, true)
-	} else {
-		packet = p.binaryReplication.encode(options, false)
+		tick = -1
 	}
 	p.needsLoad = false
 	p.inputLead = nil
-	p.pendingSnapshots = append(p.pendingSnapshots, sequence)
+	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick})
 	send(socket, packet)
 }
 func (s *GameSession) sendControl(socket SessionSocket, message protocol.ServerControl) {
@@ -321,6 +333,7 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 	s.playersBySocket[socket] = p
 	p.snapshotSequence = 0
 	p.pendingSnapshots = nil
+	p.snapshotWindow = 2
 	p.needsLoad = true
 	p.lastInputAt = s.now()
 	p.disconnectedAt = nil
@@ -364,7 +377,7 @@ func (s *GameSession) respawn(p *playerRecord) {
 func (s *GameSession) input(message protocol.Control, p *playerRecord) {
 	lead := int64(message.Tick) - int64(s.World.Tick)
 	p.inputLead = &lead
-	if lead < 0 || lead > int64(s.World.Specification.Simulation.MaxCatchUpTicks) {
+	if lead < 0 || lead > int64(s.World.Specification.Simulation.MaxPredictionTicks) {
 		if message.Sequence > p.lastSequence {
 			p.lastInput = message.Input
 			p.lastSequence = message.Sequence

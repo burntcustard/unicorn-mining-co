@@ -170,7 +170,7 @@ func TestSessionBenchmark(t *testing.T) {
 
 		for i := range players {
 			session.Receive(protocol.Control{Type: "snapshotAck", Sequence: sockets[i].sequence}, sockets[i])
-			if tick%15 == 0 {
+			if tick%15 == 0 && workload != "idle" {
 				input := protocol.Input{Thrust: 1}
 				if workload == "spread" {
 					input.Turn = float64(i%3 - 1)

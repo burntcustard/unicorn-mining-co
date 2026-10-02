@@ -442,6 +442,7 @@ func (b *BinarySnapshotBatch) prepared(source simulation.Entity) *binaryRecord {
 }
 func (b *BinarySnapshotBatch) fragment(record *binaryRecord, baseline int64, replaced *binaryRecord) (fragment, bool) {
 	full := baseline < 0
+
 	if full && replaced == nil && record.fullGeneration == b.Generation {
 		return fragment{record.fullOffset, record.fullLength}, true
 	}

@@ -23,7 +23,7 @@ const motionTolerance = Number(process.env.MOTION_TOLERANCE || 2e-8);
 const motionDifferences = {};
 const outcomeComparison = process.env.OUTCOME_COMPARISON || 'strict';
 
-assert(['strict', 'report'].includes(outcomeComparison));
+assert(['strict', 'replication', 'report'].includes(outcomeComparison));
 const players = (process.env.PLAYERS || '4,8,16,32').split(',').map(Number);
 const workloads = (
   process.env.WORKLOADS || 'convoy,spread,contact,module'
@@ -150,8 +150,15 @@ for (const count of players) {
         save();
       }
 
-      for (const field of outcomeComparison === 'strict'
-        ? ['contacts', 'events', 'packets', 'bytes', 'entities', 'states']
+      for (const field of outcomeComparison !== 'report'
+        ? [
+            'contacts',
+            'events',
+            'packets',
+            'entities',
+            'states',
+            ...(outcomeComparison === 'strict' ? ['bytes'] : []),
+          ]
         : []) {
         compare(
           pair.before[field],
