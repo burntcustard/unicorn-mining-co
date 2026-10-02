@@ -2,7 +2,90 @@
 
 See the [benchmarking index](../README.md) for the common commands and [saved experiments](../experiments/README.md) for evidence. Run these tools from the repository root.
 
+## Live deployment
+
+Use this suite to profile the deployed game with real browser players. Run from
+the repository root with an installed Chrome/Chromium:
+
+```sh
+CHROME_BIN=/path/to/chrome \
+  node benchmarking/tools/live.mjs
+
+node benchmarking/tools/live-report.mjs \
+  benchmarking/local/START-TIME.json.gz
+```
+
+Every run uses **4, 8, 16, then 32 players**, all **headless at 320 × 200** pixels.
+For each count it runs **convoy, spread, contact, then module**, in that order.
+Each activity uses fresh isolated browser contexts, 15 seconds of warmup and
+60 seconds of measurement by default. After the fourth activity, all players
+are disconnected and the runner waits **120 seconds before starting the next
+player count**. There is no cooldown between activities or after 32 players.
+That gives 16 measured cases and three cooldowns: 4 → 8, 8 → 16 and 16 → 32.
+Allow roughly 30 minutes, including 20 minutes of activity, six minutes of
+cooldown, and browser joining/cleanup time.
+
+| Variable        | Default                      | Meaning                       |
+| --------------- | ---------------------------- | ----------------------------- |
+| `CHROME_BIN`    | `google-chrome`              | Browser executable            |
+| `BENCH_URL`     | `https://unicorn-mining.co/` | Deployment to visit           |
+| `BENCH_WARMUP`  | `15`                         | Warmup seconds per activity   |
+| `BENCH_SECONDS` | `60`                         | Measured seconds per activity |
+
+Player counts, activity order, viewport and cooldown are fixed in
+[live-suite.mjs](live-suite.mjs); Chrome always launches headlessly.
+These settings have no environment overrides.
+`PLAYERS`, `WORKLOADS`, `BENCH_WIDTH`, `BENCH_HEIGHT` and `BENCH_COOLDOWN`
+from older commands are no longer used.
+
+The suite controls the deployed client's normal keyboard handlers, verifies
+unique ship identities, and presses the normal respawn key after destruction.
+Convoy follows a shared heading; spread fans out; contact pursues paired ships;
+module pursues visible asteroids with drilling and periodic hatch/light toggles.
+These approximate the [local session workloads](session.ts); positions,
+asteroids and outside visitors are determined by the live world.
+
+Raw captures are checkpointed in ignored `benchmarking/local/`, using the UTC
+start time. An optional output path overrides that scratch destination. After
+all cases finish and Chrome stops, the runner automatically appends dated tables
+to [live/results.md](../live/results.md). The report command above can recover
+results from an interrupted run; it rejects already-reported captures. Each run
+has a Europe/London date and time heading and one compact server/network table.
+An optional second report argument writes a standalone scratch report.
+Live benchmark reports stay out of `docs/experiments`.
+
+The gzip JSON is checkpointed after each case and cooldown, with failures saved.
+It records frame times, snapshots, CDP transport timing, input acknowledgement
+delays, positions and simulation clocks, errors/disconnects, activity checks,
+local CPU/task cost, observer decode overhead, deployment hashes and settings.
+UTC measurement and cooldown start/end times are printed for concurrent server
+profiling; report timelines use Europe/London. Reconnect tokens are not saved.
+Server CPU must come from a separate server profile: tick progress, transport
+gaps and acknowledgements provide indirect evidence of service pressure.
+Local CPU percentages describe the load generator.
+
+The three runtime parts are [live.mjs](live.mjs) for Chrome/CDP and recording,
+[live-browser-probe.mjs](live-browser-probe.mjs) for browser observation, and
+[live-suite.mjs](live-suite.mjs) for fixed settings and scheduling.
+[live-report.mjs](live-report.mjs) reads saved data without launching players.
+A startup breakpoint exposes the client's network instance; the debugger is
+disabled before warmup. Shared protocol decoders observe normal binary traffic;
+served application bytes are unchanged. Observer cost is recorded.
+
+Before capturing, stop competing benchmarks, builds and tests, and inspect
+local processes/ports. The runner starts no local game server. It owns one
+Chromium with a temporary profile and dynamically allocated debugging port,
+and disposes every case's contexts before proceeding. It stops its browser in
+`finally`; avoid SIGKILL, which bypasses cleanup.
+
+For deployment comparisons, save each run to a new file and compare all 16
+rows with matching host, browser and timing settings. Shared-world contents
+and CPU burst budgets can vary, so repeat full runs if findings are ambiguous.
+Changed snapshot cadence affects acknowledgement delays and bandwidth.
+
 ## Browser rendering
+
+The following rendering suite tests local visual features.
 
 Run the repeatable browser benchmark with:
 

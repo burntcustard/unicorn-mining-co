@@ -8,6 +8,10 @@ date in [docs/experiments](../../docs/experiments/README.md). Within a topic:
 - `profiles/` holds CPU profiles and saved PGO inputs.
 - An optional `README.md` or small reproduction script provides topic-specific context.
 
+Live benchmark results live separately in
+[benchmarking/live/results.md](../live/results.md). Raw captures are ignored
+scratch output under `benchmarking/local/`.
+
 ## Retained investigations
 
 | Date       | Topic                                                   | Report                                                                                                   |

@@ -6,6 +6,7 @@ and disposable local output separate:
 | Location                                            | Contents                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------- |
 | [tools/](tools/README.md)                           | Benchmark runners, workloads, and detailed usage                                 |
+| [live/](live/README.md)                             | Live deployment instructions, results.md, and historical harnesses               |
 | [experiments/](experiments/README.md)               | Retained captures, patches, and profiles, grouped by date and topic              |
 | [archive/](archive/README.md)                       | Compressed older reports and results, with checksums and extraction instructions |
 | `local/`                                            | Ignored scratch output from new runs                                             |
@@ -13,15 +14,16 @@ and disposable local output separate:
 
 ## Common checks
 
-| Check                     | Command                                                                      |
-| ------------------------- | ---------------------------------------------------------------------------- |
-| Browser rendering         | `npm run benchmark` or `npm run benchmark:headless`                          |
-| Shared simulation         | `npm run benchmark:simulation`                                               |
-| Go / Node sessions        | `npm run benchmark:go`                                                       |
-| Production flight CPU     | `node benchmarking/tools/production-flight.mjs --warm`                       |
-| Two-client input response | `node benchmarking/tools/input-response-browser.mjs /tmp/response.json.gz 5` |
-| Four-client presentation  | `node benchmarking/tools/remote-browser.mjs /tmp/remote.json.gz`             |
-| Brief network outage      | `node benchmarking/tools/stall-browser.mjs /tmp/stall.json.gz 5 network`     |
+| Check                               | Command                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| Browser rendering                   | `npm run benchmark` or `npm run benchmark:headless`                          |
+| Shared simulation                   | `npm run benchmark:simulation`                                               |
+| Go / Node sessions                  | `npm run benchmark:go`                                                       |
+| Live deployment (4/8/16/32 players) | `node benchmarking/tools/live.mjs`                                           |
+| Production flight CPU               | `node benchmarking/tools/production-flight.mjs --warm`                       |
+| Two-client input response           | `node benchmarking/tools/input-response-browser.mjs /tmp/response.json.gz 5` |
+| Four-client presentation            | `node benchmarking/tools/remote-browser.mjs /tmp/remote.json.gz`             |
+| Brief network outage                | `node benchmarking/tools/stall-browser.mjs /tmp/stall.json.gz 5 network`     |
 
 The client response, presentation, and outage checks require a fresh game server
 on 3001 and Vite on 3000, using the normal proxy. Follow the repository's
@@ -36,3 +38,9 @@ their documented output argument or stdout. See the [tool reference](tools/READM
 for options and the [artifact conventions](experiments/README.md) before saving
 results in the repository. Old result metadata and embedded source snapshots
 retain their original paths; current report links point to their new locations.
+
+The [live deployment benchmark](live/README.md) visits the
+production site with real headless browser players at 320 × 200. Every run covers
+4/8/16/32 players and four activities per count, with a two-minute cooldown only
+between player counts. It records client frame times, snapshot cadence and input
+acknowledgements, uses an installed Chrome/Chromium, and starts no local server.

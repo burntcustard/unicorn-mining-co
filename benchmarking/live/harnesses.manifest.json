@@ -1,0 +1,12 @@
+{
+  "archive": "harnesses.zip",
+  "sha256": "94f7ecbf07e96749343f7f8e5e3128df3d7af27149829e69266419893fa3cc7a",
+  "files": {
+    "harnesses/initial/live-browser-probe.mjs": "551241f6bf7e6ddd107c9c195a2578e1219da47f2d664facdb6771d2b86b820e",
+    "harnesses/initial/live.mjs": "55368f10df05485a16c343390786376fa34a0687c6418897f843671bc3958579",
+    "harnesses/respawn/live-browser-probe.mjs": "670ec629b66e7eeceb695c784cae0aeb228e801a5c03754d3803c788597fa04d",
+    "harnesses/respawn/live.mjs": "b959c9e15eca6c3a63f1513e0bd5a6a57dc1a415fcd53eaffa6c19a43bbe1652",
+    "harnesses/small-viewport/live-browser-probe.mjs": "670ec629b66e7eeceb695c784cae0aeb228e801a5c03754d3803c788597fa04d",
+    "harnesses/small-viewport/live.mjs": "344e2179469de508f12d1377a53da0eb4007856b030019bea077798332ace835"
+  }
+}
