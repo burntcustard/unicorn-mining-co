@@ -52,10 +52,17 @@ Object.assign(globalThis, {
 
 try {
   const { NetworkClient } = await import('../src/client/network');
+  const scenarios = [0, 8, 20].flatMap((phase) => [
+    { phase, tapTicks: 0, separation: 600 },
+    ...[18, 30].flatMap((tapTicks) =>
+      [160, 1000].map((separation) => ({ phase, tapTicks, separation })),
+    ),
+  ]);
 
   for (const fps of [60, 144]) {
     for (const latency of [0, 10, 40]) {
-      for (const phase of [0, 8, 20]) {
+      for (const { phase, tapTicks, separation } of scenarios) {
+        if (latency && tapTicks) continue;
         now = delay = 0;
         packets.length = 0;
         session = new GameSession({ worldSeed: 25 });
@@ -75,14 +82,18 @@ try {
 
         session.world.entities.clear();
         ships.forEach((ship, index) => {
-          Vec.set(ship.position, Vec.create(index * 600));
+          Vec.set(ship.position, Vec.create(index * separation));
           Vec.set(ship.velocity, Vec.create());
           ship.rotation = ship.spin = 0;
           addEntity(session.world, ship);
         });
         session.tick();
         clients.forEach((client) =>
-          client.updateFrame({ input: emptyPlayerInput(), dt: 1 / 30, now }),
+          client.updateFrame({
+            input: emptyPlayerInput(),
+            dt: 1 / 30,
+            now,
+          }),
         );
         delay = latency;
         const samples: { at: number; rotation: number }[][] = [[], []];
@@ -92,7 +103,15 @@ try {
           now = (frame * 1000) / fps;
           const input = {
             ...emptyPlayerInput(),
-            turn: now < 1000 ? 0 : Math.floor((now - 1000) / 500) % 2 ? -1 : 1,
+            turn: tapTicks
+              ? now >= 1000 && now < 1000 + (tapTicks * 1000) / 30
+                ? 1
+                : 0
+              : now < 1000
+                ? 0
+                : Math.floor((now - 1000) / 500) % 2
+                  ? -1
+                  : 1,
           };
 
           clients[0].recordInput({ input });
@@ -135,10 +154,57 @@ try {
             samples[index].push({ at: now, rotation: pose.rotation });
           });
         }
-        // Compare the rendered path of the very same ship on both clients.
-        // The original buffered renderer adds about 100 ms even with no latency.
         const angle = (value: number) =>
           Math.atan2(Math.sin(value), Math.cos(value));
+
+        // Exercise short releases at fixed server/frame phases so timer
+        // scheduling cannot hide a reversal in either displayed ship.
+        if (tapTicks) {
+          const worstBacksteps = samples.map((frames, client) => {
+            const worst = frames.reduce(
+              (worst, pose, index) =>
+                Math.max(
+                  worst,
+                  index
+                    ? -angle(pose.rotation - frames[index - 1].rotation)
+                    : 0,
+                ),
+              0,
+            );
+
+            assert(
+              worst < 0.002,
+              JSON.stringify({
+                fps,
+                phase,
+                tapTicks,
+                separation,
+                client,
+                worst,
+              }),
+            );
+            assert(
+              Math.abs(angle(frames.at(-1)!.rotation - ships[0].rotation)) <
+                0.01,
+              'a released turn settles at the authoritative stop',
+            );
+            return worst;
+          });
+
+          console.log(
+            JSON.stringify({
+              fps,
+              phase,
+              tapTicks,
+              separation,
+              worstBacksteps,
+            }),
+          );
+          continue;
+        }
+
+        // Compare the rendered path of the very same ship on both clients.
+        // The original buffered renderer adds about 100 ms even with no latency.
         const errors = Array.from({ length: 241 }, (_, index) => {
           const lag = index - 40;
           let squared = 0,

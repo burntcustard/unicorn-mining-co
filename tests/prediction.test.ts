@@ -720,72 +720,8 @@ input.turn = 0;
 await fly({ ticks: 60 });
 input.thrust = 0;
 await fly({ ticks: 30 });
-// Short taps used to extrapolate past the stop, then jump backwards when the
-// release reached the observer. Check the presentation path, not just physics.
-
-for (const separation of [160, 1000]) {
-  const authority = server.world.entities.get(shipId)!;
-  const other = server.world.entities.get(observer.shipId!)!;
-  const worstBeforeTeleport = predictionStats.worst;
-
-  Vec.set(
-    other.position,
-    Vec.add(authority.position, Vec.create(0, separation)),
-  );
-  Vec.set(other.velocity, Vec.create());
-  await fly({ ticks: 30 });
-  // The observer's deliberate teleport is not a prediction error from flight.
-  predictionStats.worst = worstBeforeTeleport;
-
-  for (const ticks of [18, 30]) {
-    let previous = observer.remoteMotion
-      .sample({
-        world: observer.world,
-        predicted: observer.predictFrame(),
-        shipId: observer.shipId,
-      })
-      .get(shipId)!.rotation;
-    let worstBackstep = 0;
-    const sampling = setInterval(() => {
-      const pose = observer.remoteMotion
-        .sample({
-          world: observer.world,
-          predicted: observer.predictFrame(),
-          shipId: observer.shipId,
-        })
-        .get(shipId)!;
-      const change = Math.atan2(
-        Math.sin(pose.rotation - previous),
-        Math.cos(pose.rotation - previous),
-      );
-
-      worstBackstep = Math.max(worstBackstep, -change);
-      previous = pose.rotation;
-    }, 8);
-
-    input.turn = 1;
-    await fly({ ticks });
-    input.turn = 0;
-    await fly({ ticks: 40 });
-    clearInterval(sampling);
-    assert(
-      worstBackstep < 0.002,
-      `${separation}m/${ticks}tick tap reversed by ${worstBackstep} radians`,
-    );
-    const pose = observer.remoteMotion
-      .sample({
-        world: observer.world,
-        predicted: observer.predictFrame(),
-        shipId: observer.shipId,
-      })
-      .get(shipId)!;
-
-    assert(
-      Math.abs(pose.rotation - authority.rotation) < 0.01,
-      'the predicted ship settles at the authoritative stop',
-    );
-  }
-}
+// Short-tap presentation is checked with controlled timing and clear space in
+// remote-input-response.test.ts; procedural contacts can legitimately reverse spin.
 clearInterval(pilot);
 clearInterval(observing);
 const stoppedRemote = observer.world.entities.get(shipId)!;
