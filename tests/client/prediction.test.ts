@@ -29,13 +29,17 @@ import { simulationStep } from '../../src/definitions/simulation';
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
+
   prediction.step({ input: emptyPlayerInput(), send: () => {} });
+
   authoritative.position.x = 100;
+
   prediction.reconcile({
     entities: [authoritative],
     nextEntityId: 1000,
     tick: 0,
   });
+
   assert.equal(
     world.nextEntityId,
     1000,
@@ -54,6 +58,7 @@ import { simulationStep } from '../../src/definitions/simulation';
   const ship = addEntity(world, createShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
+
   const rock = addEntity(
     world,
     createAsteroid(world, {
@@ -63,6 +68,7 @@ import { simulationStep } from '../../src/definitions/simulation';
       radius: 30,
     }),
   );
+
   const item = addEntity(
     world,
     new Item(diamondDefinition, {
@@ -72,6 +78,7 @@ import { simulationStep } from '../../src/definitions/simulation';
       velocity: Vec.create(120),
     }),
   );
+
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
@@ -83,6 +90,7 @@ import { simulationStep } from '../../src/definitions/simulation';
     const predicted = prediction.predictFrame({
       elapsed: fraction * simulationStep,
     });
+
     const poses = motion.sample({
       now: fraction * simulationStep * 1000,
       world,
@@ -95,12 +103,14 @@ import { simulationStep } from '../../src/definitions/simulation';
         predicted.entities.get(entity.id)!.position,
       );
     }
+
     assert(
       poses.get(rock.id)!.position.x > last,
       'scenery advances on intermediate frames',
     );
     last = poses.get(rock.id)!.position.x;
   }
+
   assert.deepEqual(
     [rock.position.x, item.position.x],
     starts,
@@ -126,6 +136,7 @@ for (const fps of [60, 120, 144]) {
   prediction.setLocalPlayer({ playerId: 1 });
   const input = { ...emptyPlayerInput(), thrust: 1, turn: -1 };
   let messages = 0;
+
   const send = () => {
     messages++;
   };
@@ -206,6 +217,7 @@ for (const fps of [60, 120, 144]) {
   const ship = addEntity(world, createShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
+
   addEntity(
     world,
     new GameObject({
@@ -215,6 +227,7 @@ for (const fps of [60, 120, 144]) {
       position: Vec.create(10),
     }),
   );
+
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
@@ -235,7 +248,9 @@ for (const fps of [60, 120, 144]) {
     Vec.distance(first.position, ship.position) < 0.01,
     'contact presentation is continuous at the tick boundary',
   );
+
   prediction.step({ input: emptyPlayerInput(), send() {} });
+
   assert(
     Vec.distance(ship.position, endpoint) < 1e-9,
     'drawing a contact does not change its eventual solve',
@@ -251,8 +266,10 @@ for (const fps of [60, 120, 144]) {
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
+
   const sent: { offset: number; input: ReturnType<typeof emptyPlayerInput> }[] =
     [];
+
   const send = (message: (typeof sent)[number]) => {
     sent.push(message);
   };
@@ -262,6 +279,7 @@ for (const fps of [60, 120, 144]) {
     offset: 0.005,
     send,
   });
+
   prediction.recordInput({ input: emptyPlayerInput(), offset: 0.015, send });
   assert.equal(
     sent.length,
@@ -281,10 +299,12 @@ for (const fps of [60, 120, 144]) {
   );
 
   addPlayer(expected, { id: 1, shipId: authoritative.id });
+
   updateWorld({
     world: expected,
     inputs: new Map([[1, { input: emptyPlayerInput(), changes: sent }]]),
   });
+
   assert(Vec.distance(ship.position, authoritative.position) < 1e-9);
   assert(Vec.distance(ship.velocity, authoritative.velocity) < 1e-9);
 }
@@ -307,6 +327,7 @@ for (const { active, progress } of [
   for (let tick = 0; tick < 8; tick++) {
     prediction.step({ input: open, send() {} });
   }
+
   const authoritative = cloneEntity({ entity: ship }) as typeof ship;
 
   authoritative.segments
@@ -315,7 +336,9 @@ for (const { active, progress } of [
       segment.active = active;
       segment.activationProgress = progress;
     });
+
   prediction.step({ input: emptyPlayerInput(), send() {} });
+
   prediction.reconcile({ tick: 8, entities: [authoritative] });
 
   const hatches = ship.segments.filter(
@@ -324,6 +347,7 @@ for (const { active, progress } of [
   const expected = Math.max(0, progress - simulationStep / 0.7);
 
   assert(hatches.length > 0);
+
   hatches.forEach((segment) => {
     assert.equal(segment.active, 0);
     assert(
@@ -342,8 +366,11 @@ for (const correction of ['credits', 'cargo'] as const) {
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
+
   prediction.step({ input: emptyPlayerInput(), send() {} });
+
   prediction.step({ input: emptyPlayerInput(), send() {} });
+
   const authoritative = cloneEntity({ entity: ship }) as typeof ship;
 
   if (correction === 'credits') {
@@ -353,7 +380,9 @@ for (const correction of ['credits', 'cargo'] as const) {
       new Item(diamondDefinition, { world, id: 1000 }),
     );
   }
+
   prediction.step({ input: emptyPlayerInput(), send() {} });
+
   prediction.reconcile({ tick: 2, entities: [authoritative] });
 
   assert.equal(ship.credits, authoritative.credits);
@@ -374,13 +403,16 @@ for (const correction of ['credits', 'cargo'] as const) {
 
   prediction.setLocalPlayer({ playerId: 1 });
   world.tick = 10;
+
   prediction.step({ input: { ...emptyPlayerInput(), thrust: 1 }, send() {} });
+
   world.tick = 0;
   prediction.reset();
 
   for (let tick = 0; tick < 12; tick++) {
     prediction.step({ input: emptyPlayerInput(), send() {} });
   }
+
   assert.equal(
     ship.thrust,
     0,
@@ -401,6 +433,7 @@ for (const correction of ['credits', 'cargo'] as const) {
 
   prediction.setLocalPlayer({ playerId: 1 });
   world.tick = 6;
+
   prediction.reconcile({
     tick: 6,
     entities: [
@@ -412,6 +445,7 @@ for (const correction of ['credits', 'cargo'] as const) {
       [drifting.id, 2],
     ]),
   });
+
   assert(
     Math.abs(drifting.rotation - 4 / 30) < 1e-4,
     'batched slow-tier state retains its own original tick',
@@ -423,6 +457,7 @@ for (const correction of ['credits', 'cargo'] as const) {
   for (let tick = 0; tick <= maxPredictionTicks; tick++) {
     prediction.step({ input: emptyPlayerInput(), send() {} });
   }
+
   prediction.reconcile({ tick: 6, entities: checkpoint });
   assert.equal(
     world.tick,
@@ -445,6 +480,7 @@ for (const localId of [1, 2]) {
       velocity: Vec.create(300),
     }),
   );
+
   addEntity(
     world,
     createShip(world, {
@@ -454,6 +490,7 @@ for (const localId of [1, 2]) {
       rotation: Math.PI,
     }),
   );
+
   addPlayer(world, { id: localId, shipId: localId });
   const checkpoint = [...world.entities.values()].map((entity) =>
     cloneEntity({ entity }),
@@ -471,8 +508,10 @@ for (const localId of [1, 2]) {
 
   for (let tick = 0; tick < 2; tick++) {
     prediction.step({ input: emptyPlayerInput(), send() {} });
+
     updateWorld({ world: expected, inputs: new Map() });
   }
+
   prediction.reconcile({ entities: checkpoint, tick: 0 });
 
   for (const id of [1, 2]) {
@@ -485,6 +524,7 @@ for (const localId of [1, 2]) {
     );
     assert(Vec.distance(actual.velocity, correct.velocity) < 1e-8);
   }
+
   // Both pilots must see the same geometry that their own solver just used.
   const motion = new RemoteMotion();
   const local = world.entities.get(localId)!;
@@ -514,6 +554,7 @@ for (const localId of [1, 2]) {
       );
     }
   }
+
   assert.deepEqual(
     [local.position.x, other.position.x],
     physicsPositions,
@@ -536,6 +577,7 @@ for (const localId of [1, 2]) {
       'fractional contact prediction ends at the same solved tick',
     );
   }
+
   const beforeDock = local.position.x;
 
   local.dockedTo = 123;
@@ -546,6 +588,7 @@ for (const localId of [1, 2]) {
     'docking resets presentation instead of interpolating through the station',
   );
 }
+
 console.log(
   'Both collision perspectives replay shared physics and render matching contact poses',
 );

@@ -84,6 +84,7 @@ const catalog = {
   simulation,
   regionGeneration,
 };
+
 const unique = (values: readonly (number | string)[]) =>
   new Set(values).size === values.length;
 
@@ -133,6 +134,7 @@ const numericConstants = {
   PositionBaumgarte: physics.positionBaumgarte,
   ToiBaumgarte: physics.toiBaumgarte,
 };
+
 const constants = Object.entries(numericConstants)
   .map(([name, value]) => `const ${name} = ${value}`)
   .join('\n');

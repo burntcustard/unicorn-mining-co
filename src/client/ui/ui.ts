@@ -31,6 +31,7 @@ export const renderUI = (
       size: Math.min(1, (game.uiWidth - 24) / (message.length * 13)),
       align: 0,
     });
+
     game.ctx.restore();
     return;
   }
@@ -73,6 +74,7 @@ export const renderUI = (
     size: 1,
     align: 1,
   });
+
   game.ctx.globalAlpha = game.uiAlpha;
 
   renderText({
@@ -83,6 +85,7 @@ export const renderUI = (
     size: 1,
     align: 0,
   });
+
   game.ctx.restore();
 };
 

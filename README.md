@@ -38,7 +38,8 @@ WHITE - Unlocked by default from the start of the game.
 ## Tech used
 
 - Game engine heavily inspired by [Kontra.js](https://straker.github.io/kontra/) by [Steven Lambert](https://stevenklambert.com/), rendering to an HTML canvas.
-- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/build-plugins.js) for chunking, minification, and size warnings.
+- Collision and physics code is inspired by [Planck.js](https://github.com/piqnt/planck.js) and [Box2D](https://box2d.org/).
+- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/build-plugins.ts) for chunking, minification, and size warnings.
 - [TypeScript 7](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) for fast type checking as source files are gradually converted to TypeScript.
 
 ## Run locally
@@ -70,15 +71,19 @@ Node is used only for frontend builds, generators, and development/test tooling.
 7. See [package.json](package.json) for other scripts
 
 `npm run format` formats JavaScript, TypeScript, and other files supported by
-Oxfmt. `npm run format:check` checks them without writing changes. These commands
-use the npm dependencies and do not require Go.
+Oxfmt. `npm run format:check` checks them without writing changes. Oxfmt reads
+`.oxfmtrc.json`; Oxlint reads `.oxlintrc.json` for the layout rules used by
+formatting and the broader checks used by `npm run lint`. These commands use the
+npm dependencies and do not require Go.
 
 Format Go source separately with `npm run format:go`, or check it with
-`npm run format:go:check`. Both Go commands require `gofmt` on PATH.
+`npm run format:go:check`. Both Go commands require `go` on PATH. They apply
+standard Go formatting plus blank lines around functions, brace-delimited type
+declarations, and control-flow blocks, including inside function bodies.
 
 ## Build
 
-`npm run build` type-checks the client, generates the Go catalog from
+`npm run build` type-checks the client, tests, scripts and benchmark tools, generates the Go catalog from
 `src/definitions`, builds browser ES modules, and compiles `bin/server` with
 `GOEXPERIMENT=simd`. `npm run build:client` type-checks and builds browser assets;
 `npm run build:server` generates the catalog and compiles Go.
@@ -88,13 +93,22 @@ The browser build warns when a chunk exceeds 14 KB gzipped; see
 
 `npm test` builds once, regenerates mechanics fixtures, and runs all discovered
 Node test files and Go tests. Run a single Node test with `npm run test objects`,
-`npm run test objects.test.mjs`, or `npm run test tests/client/objects.test.mjs`.
-Multiple filenames are supported, and paths disambiguate duplicate filenames.
+`npm run test objects.test.ts`, or `npm run test tests/client/objects.test.ts`.
+Go filenames work too: `npm run test round_test.go` runs the tests declared in
+that file with their containing package compiled normally.
+Multiple filenames and project-relative directories are supported, and paths
+disambiguate duplicate filenames. For example, `npm run test src/server/network`
+checks the Go network package; `npm run test src/server/physics src/server/collision`
+checks Go physics and collisions; `npm run test src/server tests/parity` runs all
+Go and parity checks.
 Selected integration and parity tests prepare their server/catalog and fixtures
 automatically; client-only selections skip the full build.
-Set `TEST_CONCURRENCY=1` to run the Node tests sequentially. `npm run test:go`
-runs Go and parity checks separately; `npm run test:server` checks the Go server
-package. `npm run test:packets` checks Go output using both source and
+Set `TEST_CONCURRENCY=1` to run the Node tests sequentially.
+`npm run typecheck` and `npm run lint` check the TypeScript source, tests, helpers,
+scripts and benchmark tools. Selected Node tests also run the compiler check before
+execution. Scripts run with the existing Node 26 setup; no additional TypeScript
+loader flags are needed.
+`npm run test snapshot server-integration` checks Go output using both source and
 production-mangled client codecs, reporting real WebSocket packet sizes.
 
 ## Source layout
@@ -103,7 +117,7 @@ production-mangled client codecs, reporting real WebSocket packet sizes.
 - `src/client`: browser mechanics, prediction, networking, rendering, audio, UI.
 - `src/server`: Go entry point, objects/modules, simulation, networking, physics.
 - `src/server/definitions`: generated catalog and Go decoding types.
-- `tests/client`, `tests/integration`, `tests/parity`: retained regression suites.
+- `tests/client`, `tests/linting`, `tests/integration`, `tests/parity`: retained regression suites.
 
 Each item/ship/station type has one definition file. Generic runtime classes
 construct them; thruster variants share one implementation per language.

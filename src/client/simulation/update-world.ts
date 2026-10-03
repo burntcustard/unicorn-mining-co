@@ -55,6 +55,7 @@ export const updateWorld = ({
     collisions = new GameCollisions();
     collisionWorlds.set(world, collisions);
   }
+
   collisions.capturePoses(world.entities);
 
   // Integrate movement and timed input edges at the usual cadence, while an
@@ -69,6 +70,7 @@ export const updateWorld = ({
       inputOffset: (index * dt) / ticks,
     });
   }
+
   const contacts = collisions.step({
     entities: world.entities,
     dt,
@@ -87,6 +89,7 @@ export const updateWorld = ({
       ownContacts = [];
       contactsByOwner.set(colliderOwner, ownContacts);
     }
+
     ownContacts.push(contact);
     ownContacts = contactsByOwner.get(otherOwner);
 
@@ -94,18 +97,22 @@ export const updateWorld = ({
       ownContacts = [];
       contactsByOwner.set(otherOwner, ownContacts);
     }
+
     ownContacts.push(contact);
   }
+
   contactsByOwner.forEach((ownContacts, entity) => {
     if (entity instanceof Station) {
       entity.handleContacts({ contacts: ownContacts, events });
     }
   });
+
   contactsByOwner.forEach((ownContacts, entity) => {
     if (entity instanceof Ship) {
       entity.handleContacts({ contacts: ownContacts, events, world, dt });
     }
   });
+
   // Contacts and docking can move entities after their own update.
   world.entities.forEach((entity) => entity.roundMotion());
   world.tick += ticks;

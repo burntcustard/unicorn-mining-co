@@ -2,12 +2,14 @@
 package definitions
 
 type UpdateTier struct{ Substeps, UpdateEvery, ReplicateEvery int }
+
 type Motion struct {
 	DefaultDrag         float64 `json:"defaultDrag"`
 	DefaultMaxSpeed     float64 `json:"defaultMaxSpeed"`
 	MaxSpeedDrag        float64 `json:"maxSpeedDrag"`
 	MinimumSpeedSquared float64 `json:"minimumSpeedSquared"`
 }
+
 type Flight struct {
 	ThrustScale         float64 `json:"thrustScale"`
 	SteeringEase        float64 `json:"steeringEase"`
@@ -20,12 +22,14 @@ type Flight struct {
 	UncrewedMaxSpeed    float64 `json:"uncrewedMaxSpeed"`
 	AngularInertiaScale float64 `json:"angularInertiaScale"`
 }
+
 type Replication struct {
 	EntityLoad   float64 `json:"entityLoad"`
 	EntityUnload float64 `json:"entityUnload"`
 	MarkerLoad   float64 `json:"markerLoad"`
 	MarkerUnload float64 `json:"markerUnload"`
 }
+
 type Physics struct {
 	MaxTranslation      float64 `json:"maxTranslation"`
 	MaxRotation         float64 `json:"maxRotation"`
@@ -40,6 +44,7 @@ type Physics struct {
 	DamageBase          float64 `json:"damageBase"`
 	DamageScale         float64 `json:"damageScale"`
 }
+
 type Simulation struct {
 	LinearSlop              float64               `json:"linearSlop"`
 	ContactSpeedThreshold   float64               `json:"contactSpeedThreshold"`

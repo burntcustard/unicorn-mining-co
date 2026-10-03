@@ -58,12 +58,14 @@ const panel = [
   [notch, edge],
   [back, cut],
 ];
+
 const stationSides = angles.flatMap((angle, sideIndex) =>
   side.map((shapeOutline, piece) => ({
     opening: sideIndex === 0 && piece === 2,
     shapeOutline: rotatePoints(shapeOutline, angle) as ShapeOutline,
   })),
 );
+
 const stationPanels = angles
   .slice(1)
   .map((angle) => rotatePoints(panel, angle) as ShapeOutline);

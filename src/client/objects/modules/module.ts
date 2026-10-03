@@ -29,6 +29,7 @@ export class Module extends GameObject {
           draw();
           return;
         }
+
         const { ctx } = game;
         const shapeOutline =
           points ??

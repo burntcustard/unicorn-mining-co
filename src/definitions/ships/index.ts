@@ -3,6 +3,7 @@ import { mustang } from './mustang';
 
 export { mustang };
 export const shipIds = ['mustang'] as const;
+
 export type ShipId = (typeof shipIds)[number];
 export const shipDefinitions = { mustang };
 

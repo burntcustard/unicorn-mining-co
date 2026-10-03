@@ -7,6 +7,7 @@ type FeatureSpecification struct {
 	Clearance float64 `json:"clearance"`
 	Kind      uint32  `json:"kind"`
 }
+
 type RegionGeneration struct {
 	Features                 []FeatureSpecification `json:"features"`
 	StationStream            uint32                 `json:"stationStream"`

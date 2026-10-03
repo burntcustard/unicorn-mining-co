@@ -128,10 +128,12 @@ export class EntityState {
       entity.cargoContents = this.cargoContents!.map((state) =>
         state.restore(),
       );
+
       entity.segments.forEach((segment) => {
         segment.collider = undefined;
       });
     }
+
     return entity;
   }
 }

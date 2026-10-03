@@ -1,15 +1,3 @@
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/dynamics/Body.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import * as Vec from '../utilities/vector';
 import * as matrix from '../utilities/vector-math';
 
@@ -105,6 +93,7 @@ export class Body {
       distances[at] = distances[at - 1];
       at--;
     }
+
     neighbors[at] = other;
     distances[at] = distance;
   }
@@ -195,6 +184,7 @@ export class Body {
           node.m_next = fixture.m_next;
           break;
         }
+
         node = node.m_next;
       }
     }
@@ -379,13 +369,14 @@ export class Body {
 
   private synchronizeProxies(from: TransformValue, to: TransformValue): void {
     const cached = this.proxyTransform;
+
     // Accumulate a conservative bound on coordinate motion once per body.
     // Each fixture spends its own tree margin against this shared distance.
     // The rotation difference maps every point within the radius by at most
     // radius * hypot(deltaSin, deltaCos), regardless of its direction.
     const motion = (pose: TransformValue) => {
-      const sin = pose.q.s - cached.q.s;
-      const cos = pose.q.c - cached.q.c;
+      const sin = pose.q.sin - cached.q.sin;
+      const cos = pose.q.cos - cached.q.cos;
 
       return (
         Math.max(
@@ -399,13 +390,15 @@ export class Body {
     if (this.proxyRadius < Infinity) {
       this.proxyMotion += Math.max(motion(from), motion(to));
     }
+
     Vec.set(cached.p, to.p);
-    cached.q.s = to.q.s;
-    cached.q.c = to.q.c;
+    cached.q.sin = to.q.sin;
+    cached.q.cos = to.q.cos;
 
     if (this.proxyRadius < Infinity && this.proxyMotion < this.proxyMargin) {
       return;
     }
+
     let margin = Infinity;
 
     for (let fixture = this.m_fixtureList; fixture; fixture = fixture.m_next) {
@@ -417,6 +410,7 @@ export class Body {
       );
       margin = Math.min(margin, fixture.proxyMargin);
     }
+
     this.proxyMargin = margin;
   }
 
@@ -432,13 +426,14 @@ export class Body {
     this.proxyMotion = 0;
     this.proxyMargin = 0;
     Vec.set(this.proxyTransform.p, this.m_xf.p);
-    this.proxyTransform.q.s = this.m_xf.q.s;
-    this.proxyTransform.q.c = this.m_xf.q.c;
+    this.proxyTransform.q.sin = this.m_xf.q.sin;
+    this.proxyTransform.q.cos = this.m_xf.q.cos;
 
     for (let fixture = this.m_fixtureList; fixture; fixture = fixture.m_next) {
       fixture.proxyMargin = 0;
       fixture.createProxies(this.m_world.m_broadPhase, this.m_xf);
     }
+
     this.m_world.m_newFixture = true;
   }
 }

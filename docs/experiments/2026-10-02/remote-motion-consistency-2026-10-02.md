@@ -234,7 +234,7 @@ the current checkout, both with `-pgo=cmd/go-server/default.pgo`. Then run:
 ```sh
 BEFORE_GOGC=800 AFTER_GOGC=800 GOMAXPROCS=2 CPU_AFFINITY=0,1 \
   REPETITIONS=3 TICKS=3000 WORKLOADS=convoy,spread,contact,module,idle \
-  OUTCOME_COMPARISON=replication node benchmarking/tools/go-cpu-paired.mjs \
+  OUTCOME_COMPARISON=replication node benchmarking/tools/go-cpu-paired.ts \
   remote-consistency /tmp/unicorn-consistency-before /tmp/unicorn-consistency-after
 ```
 

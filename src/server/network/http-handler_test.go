@@ -11,6 +11,7 @@ import (
 
 func TestHTTPHandler(t *testing.T) {
 	root := t.TempDir()
+
 	files := map[string]string{
 		"index.html":           "<html>game</html>",
 		"assets/app-abc123.js": "const game=1;",
@@ -22,15 +23,19 @@ func TestHTTPHandler(t *testing.T) {
 		"data.bin":             "binary",
 		"space name.txt":       "space",
 	}
+
 	for name, contents := range files {
 		path := filepath.Join(root, name)
+
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			t.Fatal(err)
 		}
+
 		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
+
 	cases := []struct {
 		path, method, host      string
 		status                  int
@@ -64,36 +69,50 @@ func TestHTTPHandler(t *testing.T) {
 		{path: "/a?b=1", status: 308, method: "POST", host: "www.unicorn-mining.co", headers: map[string]string{"Location": "https://unicorn-mining.co/a?b=1"}},
 		{path: "/index.html", status: 200, headers: map[string]string{"Cache-Control": "no-cache", "Content-Length": "17", "Content-Type": "text/html; charset=utf-8"}, body: "<html>game</html>", requestHeaders: map[string]string{"range": "bytes=0-2", "if-modified-since": "Wed, 01 Jan 2100 00:00:00 GMT"}},
 	}
+
 	handler := HandleHTTP(root)
+
 	for _, test := range cases {
 		method := test.method
+
 		if method == "" {
 			method = "GET"
 		}
+
 		t.Run(method+test.path, func(t *testing.T) {
 			// Preserve malformed paths to exercise the handler's validation.
 			request := httptest.NewRequest(method, "/", nil)
 			request.RequestURI = test.path
+
 			if parsed, err := url.Parse(test.path); err == nil {
 				request.URL = parsed
 			}
+
 			request.Host = test.host
+
 			for key, value := range test.requestHeaders {
 				request.Header.Set(key, value)
 			}
+
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
+
 			if response.Code != test.status || response.Body.String() != test.body {
 				t.Fatalf("got %d %q, want %d %q", response.Code, response.Body.String(), test.status, test.body)
 			}
+
 			headers := map[string]string{}
+
 			for key := range response.Header() {
 				headers[key] = response.Header().Get(key)
 			}
+
 			want := test.headers
+
 			if want == nil {
 				want = map[string]string{}
 			}
+
 			if !reflect.DeepEqual(headers, want) {
 				t.Fatalf("got headers %v, want %v", headers, want)
 			}

@@ -6,6 +6,7 @@ import { type WreckageSegment } from '../objects/wreckage-segment';
 
 export type NetworkVector = Vec.Value;
 export type ReplicatedModule = ModuleState;
+
 export type CraftAction =
   | { action: 'buy'; module: number; moduleId: number }
   | { action: 'sell'; objectIds: number[] }

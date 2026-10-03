@@ -10,6 +10,7 @@ export const createPolygon = ({
 
     return [Math.cos(angle) * radius, Math.sin(angle) * radius];
   });
+
 export const rotatePoints = (points: number[][], angle: number) =>
   points.map(([x, y]) => [
     x * Math.cos(angle) - y * Math.sin(angle),

@@ -21,6 +21,7 @@ import { pointBetween as mix } from './geometry';
 import { type Pose, type Segment, type Shades } from '../types';
 
 type GlowCache = { image?: HTMLCanvasElement; scale?: number };
+
 interface LitShape {
   // Facing angle and centre in the craft's local frame.
   facing?: number;

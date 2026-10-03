@@ -25,6 +25,7 @@ export class RemoteMotion {
     shipId?: number;
   }) {
     this.corrections.clear();
+
     before.forEach((pose, id) => {
       const entity = world.entities.get(id);
       const current = predicted.entities.get(id) || entity;
@@ -66,10 +67,12 @@ export class RemoteMotion {
 
     world?.entities.forEach((entity, id) => {
       const current = predicted?.entities.get(id) || entity;
+
       const pose = {
         position: Vec.clone(current.position),
         rotation: current.rotation,
       };
+
       const correction = this.corrections.get(id);
 
       if (correction) {
@@ -92,8 +95,10 @@ export class RemoteMotion {
         Vec.addScaled(pose.position, correction.position, decay, pose.position);
         pose.rotation += correction.rotation * decay;
       }
+
       poses.set(id, pose);
     });
+
     return poses;
   }
 }

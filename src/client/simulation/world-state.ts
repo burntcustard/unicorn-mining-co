@@ -34,6 +34,7 @@ const omitted: Record<string, boolean> = {
   docked: true,
   note: true,
 };
+
 const definitions: Record<string, boolean> = {
   hullSegments: true,
   // Shared glow geometry carries browser-only path/canvas caches.
@@ -51,11 +52,13 @@ const definitions: Record<string, boolean> = {
  */
 export const cloneEntity = ({ entity }: { entity: GameObject }): GameObject => {
   const copies = new Map<object, any>();
+
   const special: Record<string, (value: any) => any> = {
     random: (value) => createRandom(value.state),
     dockedTo: (value) => (typeof value === 'object' ? value.id : value),
     module: (value) => (value instanceof Module ? clone(value) : value),
   };
+
   const clone = (value: any): any => {
     if (!value || typeof value !== 'object') return value;
 
@@ -69,15 +72,19 @@ export const cloneEntity = ({ entity }: { entity: GameObject }): GameObject => {
       const copy: any = new Array(value.length);
 
       copies.set(value, copy);
+
       // Copy own enumerable metadata as well as elements, preserving sparse holes.
       Object.entries(value).forEach(([key, member]) => {
         copy[key] = clone(member);
       });
+
       return copy;
     }
+
     const copy = Object.create(Object.getPrototypeOf(value));
 
     copies.set(value, copy);
+
     Object.keys(value).forEach((name) => {
       if (omitted[name]) return;
       const member = value[name];
@@ -128,6 +135,7 @@ export const restoreWorld = ({
       return [id, restored];
     }),
   );
+
   world.nextEntityId = state.nextEntityId;
   world.players = new Map(
     [...state.players].map(([id, player]) => [id, { ...player }]),

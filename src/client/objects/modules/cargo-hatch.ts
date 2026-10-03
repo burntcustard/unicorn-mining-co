@@ -147,6 +147,7 @@ export class CargoHatch extends Module {
     if (item.message === undefined) ship.cargoContents.push(item);
 
     item.remove();
+
     events.push({
       by: ship.playerId,
       itemId: item.id,

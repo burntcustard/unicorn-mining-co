@@ -49,6 +49,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
       !modules.includes(module.constructor as typeof Module) &&
       modules.push(module.constructor as typeof Module),
   );
+
   const widest = Math.max(...modules.map(({ label }) => label.length)) * glyph;
   const boxX = game.uiWidth - inset - widest - gap - box;
   const textX = boxX + box + gap;
@@ -83,6 +84,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
       path.moveTo(textX + keyIndex * glyph, y + underDrop);
       path.lineTo(textX + (keyIndex + 1) * glyph - 1, y + underDrop);
     }
+
     textOutline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   });

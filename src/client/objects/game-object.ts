@@ -60,6 +60,7 @@ export class GameObject {
   add() {
     this.dead = false;
     this.world?.entities.set(this.id, this as any);
+
     this.collections.forEach((list) => {
       if (!list.includes(this)) list.push(this);
     });
@@ -97,6 +98,7 @@ export class GameObject {
     ) {
       definitions.unshift(type);
     }
+
     Object.assign(this, ...definitions, properties);
   }
 
@@ -123,6 +125,7 @@ export class GameObject {
     const resident: GameObject | undefined = this.world?.entities.get(this.id);
 
     if (resident === this) this.world?.entities.delete(this.id);
+
     // Registries are shared by their members, so preserve the array identity.
     this.collections.forEach((list) => {
       const index = list.indexOf(this);
@@ -189,6 +192,7 @@ export class GameObject {
 
       Vec.scale(velocity, kept, velocity);
     }
+
     Vec.addScaled(position, velocity, dt, position);
 
     localMovement(

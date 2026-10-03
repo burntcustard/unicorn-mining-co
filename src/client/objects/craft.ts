@@ -60,16 +60,19 @@ export interface CraftRenderOptions extends RenderOptions {
 }
 
 type ModuleRecord = Module;
+
 type HullSegmentPlan = Partial<Segment> & {
   [key: string]: any;
   health?: number;
   mounts?: Mount[];
   points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
 };
+
 type CraftData = {
   [key: string]: any;
   hullSegments: HullSegmentPlan[];
 };
+
 type CraftProperties = {
   [key: string]: any;
   cargoContents?: GameObject[];
@@ -82,8 +85,10 @@ const collisionCaches = new WeakMap<
   Craft,
   { colliders: Collider[]; source: object }
 >();
+
 const drillColliders = new WeakMap<Segment, Collider>();
 const lockedOutlines = new WeakSet<ShapeOutline>();
+
 const collisionOutlines = new WeakMap<
   ShapeOutline,
   { x: number; y: number; shapeOutline: ShapeOutline }
@@ -234,6 +239,7 @@ export class Craft extends GameObject {
       segments: [],
       turn: 0,
     });
+
     // Building a hull from nothing is the same job as putting a broken one
     // back together
     this.fixHull();
@@ -247,6 +253,7 @@ export class Craft extends GameObject {
       (segment) => segment.wreckage !== false,
     );
     let wreckageMiddle: Vec.Value | undefined;
+
     const segments = wreckageSegments.map((segment) => {
       const wreckage = segment.wreckage;
       const shape: Segment['points'] =
@@ -262,6 +269,7 @@ export class Craft extends GameObject {
         if (wreckageSegments.length === 1) {
           wreckageMiddle = Vec.create(middle[0], middle[1]);
         }
+
         return Object.assign(Object.create(segment), wreckage, {
           points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
           fillShade:
@@ -272,8 +280,10 @@ export class Craft extends GameObject {
           radius: () => radius,
         });
       }
+
       return segment;
     });
+
     const origin = Vec.add(mount.localPosition, wreckageMiddle || Vec.create());
 
     // Destroyed instances are removed rather than entering cargo contents.
@@ -287,6 +297,7 @@ export class Craft extends GameObject {
         (object) => object !== destroyed,
       );
     }
+
     this.spawn(
       origin,
       segments,
@@ -316,12 +327,14 @@ export class Craft extends GameObject {
     if (craftModule && craftModule.mount && craftModule.mount !== mount) {
       this.fit(0, craftModule.mount);
     }
+
     this.segments = this.segments.filter((segment) => segment.mount !== mount);
 
     if (mount.module) {
       mount.module.mount = 0;
       this.cargoContents.push(mount.module);
     }
+
     mount.module = craftModule;
     mount.health = craftModule && craftModule.health;
 
@@ -360,10 +373,12 @@ export class Craft extends GameObject {
           ...mount,
           hull: rebuilt,
         }));
+
         hulls.push(rebuilt);
         this.segments.push(rebuilt);
       }
     });
+
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
     outerEdges(outlinesOf(hulls));
     // Either core anchors flight and the hull kept attached to it; losing one
@@ -379,6 +394,7 @@ export class Craft extends GameObject {
     const core =
       !destroyed &&
       groups.find((group) => group.includes(hulls.indexOf(this.cockpit)));
+
     const fragments = groups
       .filter((group) => group !== core)
       .map((group) => {
@@ -432,6 +448,7 @@ export class Craft extends GameObject {
         );
         object.add();
       });
+
       this.remove();
     }
 
@@ -450,6 +467,7 @@ export class Craft extends GameObject {
 
       return [];
     }
+
     let changed = false;
 
     const sin = Math.sin(this.rotation);
@@ -539,6 +557,7 @@ export class Craft extends GameObject {
           cached = { x: middleX, y: middleY, shapeOutline: outline };
           collisionOutlines.set(points, cached);
         }
+
         changed ||= shapeOutline !== cached.shapeOutline;
         shapeOutline = cached.shapeOutline;
       } else if (points) {
@@ -546,8 +565,10 @@ export class Craft extends GameObject {
           changed = true;
           shapeOutline = [] as ShapeOutline;
         }
+
         changed ||= shapeOutline.length !== points.length;
         shapeOutline.length = points.length;
+
         points.forEach(([x, y], index) => {
           const point = (shapeOutline[index] ||= [0, 0]);
 
@@ -558,6 +579,7 @@ export class Craft extends GameObject {
           point[0] = localX;
           point[1] = localY;
         });
+
         shapeOutline.edges = points.edges;
       }
 
@@ -601,8 +623,10 @@ export class Craft extends GameObject {
             radius: 0,
             rotation: this.rotation,
           };
+
           drillColliders.set(segment, tip);
         }
+
         changed ||=
           tip.localPosition?.x !== localX ||
           tip.localPosition?.y !== localY ||
@@ -624,6 +648,7 @@ export class Craft extends GameObject {
         colliders.push(tip);
       }
     }
+
     const cover = colliders.find(
       ({ segment, radius }) => segment.covers && radius >= this.radius,
     );
@@ -642,6 +667,7 @@ export class Craft extends GameObject {
     ) {
       cached.source = {};
     }
+
     cached.colliders = result;
     return result;
   }
@@ -655,6 +681,7 @@ export class Craft extends GameObject {
         hulls.set(segment.module, segment);
       }
     }
+
     return this.hullSegments.map((segmentPlan) =>
       segmentPlan.health === undefined
         ? -1
@@ -675,9 +702,11 @@ export class Craft extends GameObject {
     ) {
       return;
     }
+
     // Restoring a checkpoint changes geometry without spawning another copy
     // of the wreckage already present in the authoritative entity list.
     this.fixHull();
+
     this.hullSegments.forEach((segmentPlan, index) => {
       const segment = this.segments.find(
         (segment) => segment.hull && segment.module === segmentPlan,
@@ -687,6 +716,7 @@ export class Craft extends GameObject {
         segment.health = values[index];
       }
     });
+
     this.segments = this.segments.filter(
       (segment) =>
         !((segment.hull ? segment : segment.mount?.hull || segment).health < 1),
@@ -724,6 +754,7 @@ export class Craft extends GameObject {
     for (const object of this.cargoContents) {
       if (object instanceof Module) modules.push(object);
     }
+
     return modules;
   }
 
@@ -748,6 +779,7 @@ export class Craft extends GameObject {
   set moduleStates(states: ModuleState[]) {
     const previous = this.modules;
     const mounts = this.mounts;
+
     const unchanged =
       previous.length === states.length &&
       states.every((state, index) => {
@@ -767,6 +799,7 @@ export class Craft extends GameObject {
         (object) => !(object instanceof Module),
       );
     }
+
     states.forEach((state, index) => {
       const definition = moduleTypes[state.type];
 
@@ -784,6 +817,7 @@ export class Craft extends GameObject {
         if (mount) {
           if (!unchanged) this.fit(module, mount);
           mount.health = state.health;
+
           this.segmentsAtMount(mount).forEach((segment, index) =>
             Object.assign(segment, state.segments[index], {
               shades: module.shades || this.shades,
@@ -811,6 +845,7 @@ export class Craft extends GameObject {
         mounts.push(segmentMounts[at]);
       }
     }
+
     return mounts;
   }
 
@@ -946,6 +981,7 @@ export class Craft extends GameObject {
   ) {
     const position = Vec.add(this.position, rotatePoint(origin, this.rotation));
     const velocity = Vec.add(this.velocity, this.momentum(position));
+
     const fragment = new Craft({
       id: this.world ? entityId(this.world) : undefined,
       world: this.world,
@@ -1002,6 +1038,7 @@ export class Craft extends GameObject {
         Vec.set(this.position, station.position);
         this.rotation = station.rotation;
       }
+
       Vec.set(this.velocity, Vec.create());
       this.spin = 0;
     }

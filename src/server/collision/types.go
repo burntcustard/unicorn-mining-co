@@ -28,6 +28,7 @@ func CollidersCanContact(a, b *Collider) bool {
 	if a.ContactFilter == nil && b.ContactFilter == nil {
 		return true
 	}
+
 	return (a.ContactFilter == nil || a.ContactFilter(a, b)) && (b.ContactFilter == nil || b.ContactFilter(b, a))
 }
 
@@ -38,27 +39,34 @@ func (c *Collider) GetPosition() Vec.Vector {
 		position, _, _, _ := c.ReadPose()
 		return position
 	}
+
 	return c.Position
 }
+
 func (c *Collider) GetRotation() float64 {
 	if c.ReadPose != nil {
 		_, rotation, _, _ := c.ReadPose()
 		return rotation
 	}
+
 	return c.Rotation
 }
+
 func (c *Collider) GetFriction() float64 {
 	if c.ReadPose != nil {
 		_, _, friction, _ := c.ReadPose()
 		return friction
 	}
+
 	return c.Friction
 }
+
 func (c *Collider) GetRadius() float64 {
 	if c.ReadPose != nil {
 		_, _, _, radius := c.ReadPose()
 		return radius
 	}
+
 	return c.Radius
 }
 
@@ -74,27 +82,37 @@ type outlineOwner interface {
 	ObjectKind() string
 	ResourceID() int
 }
+
 type outlineSegment interface{ OutlineShades() []string }
 
 func OutlineColorOf(collider *Collider, colors map[string][]string) string {
 	fallback := colors["white"][2]
+
 	if segment, ok := collider.Segment.(outlineSegment); ok {
 		shades := segment.OutlineShades()
+
 		if len(shades) > 2 && shades[2] != "" {
 			return shades[2]
 		}
+
 		return fallback
 	}
+
 	owner := collider.Owner.(outlineOwner)
+
 	if owner.ObjectKind() == "asteroid" {
 		if owner.ResourceID() == 1 {
 			return colors["violet"][2]
 		}
+
 		return fallback
 	}
+
 	shades := owner.OutlineShades()
+
 	if len(shades) > 2 && shades[2] != "" {
 		return shades[2]
 	}
+
 	return fallback
 }

@@ -65,6 +65,7 @@ export class HornDrill extends Module {
     ) {
       return;
     }
+
     const drillSteps = dt * specification.damageStepsPerSecond;
     const drillDamage = this.damage * drillSteps;
 
@@ -87,6 +88,7 @@ export class HornDrill extends Module {
 
       Vec.set(ship.velocity, Vec.add(ship.velocity, grip));
     }
+
     events.push({
       targetId: target.owner.id,
       by: ship.playerId,
@@ -122,6 +124,7 @@ export class HornDrill extends Module {
           : segment.points,
       ),
     );
+
     ctx.stroke(
       linesPath(
         Array.from({ length: 6 }, (_, index) => {
@@ -134,6 +137,7 @@ export class HornDrill extends Module {
         }),
       ),
     );
+
     ctx.restore();
   }
 

@@ -28,7 +28,7 @@ Keep the baseline at a different output path, then run from the retained checkou
 ```sh
 BEFORE_GOGC=800 AFTER_GOGC=800 GOMAXPROCS=2 CPU_AFFINITY=0,1 \
   REPETITIONS=5 TICKS=900 OUTCOME_COMPARISON=report \
-  node benchmarking/tools/go-cpu-paired.mjs solver-repeat /tmp/go-server-baseline /tmp/go-server-candidate
+  node benchmarking/tools/go-cpu-paired.ts solver-repeat /tmp/go-server-baseline /tmp/go-server-candidate
 ```
 
 Use `REPETITIONS=3 TICKS=3000` for the longer suite. Adapt affinity to the CPUs actually available. `report` is necessary for old versus new numerical rules; it does not validate client/server parity. Use the default strict mode for the same-rules control and PGO-only comparisons. Do not run builds, tests, profiling or other CPU-heavy work concurrently with timing.

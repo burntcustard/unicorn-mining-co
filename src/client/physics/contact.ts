@@ -1,19 +1,8 @@
 import { physics } from '../../definitions/physics';
 
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/dynamics/Contact.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import * as Vec from '../utilities/vector';
 import * as matrix from '../utilities/vector-math';
+import { sinCos } from '../utilities/sin-cos';
 import { ShapeType } from '../collision/shape/base';
 import { TransformValue } from '../utilities/vector-math';
 import { contactSpeedThreshold } from '../../definitions/physics';
@@ -36,7 +25,7 @@ class Mat22 {
 }
 
 function getTransform(xf: TransformValue, c: Vec.Value, angle: number): void {
-  matrix.setRotAngle(xf.q, angle);
+  sinCos(xf.q, angle);
   Vec.set(xf.p, c);
 }
 
@@ -346,6 +335,7 @@ export class Contact {
     if (bodyA.m_contactList != null) {
       bodyA.m_contactList.prev = contact.m_nodeA;
     }
+
     bodyA.m_contactList = contact.m_nodeA;
 
     // Connect to body B
@@ -358,6 +348,7 @@ export class Contact {
     if (bodyB.m_contactList != null) {
       bodyB.m_contactList.prev = contact.m_nodeB;
     }
+
     bodyB.m_contactList = contact.m_nodeB;
 
     return contact;
@@ -819,8 +810,7 @@ export class Contact {
         wB += iB * Vec.cross(vcp.rB, P);
       }
     } else {
-      // Block solver developed in collaboration with Dirk Gregorius (back in
-      // 01/07 on Box2D_Lite).
+      // Block solver developed in collaboration with Dirk Gregorius.
       // Build the mini LCP for this contact patch
       //
       // vn = A * x + b, vn >= 0, x >= 0 and vn_i * x_i = 0 with i = 1..2
@@ -1068,6 +1058,7 @@ export class Contact {
       this.m_manifold.pointCount = 0;
       return;
     }
+
     this.m_enabledFlag = true;
 
     const xfA = bodyA.m_xf;

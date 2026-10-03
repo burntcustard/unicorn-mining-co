@@ -40,10 +40,10 @@ that can introduce a cyclic chunk dependency during class initialization.
 
 ## Production contracts
 
-The browser production build uses `plugins/build-plugins.js`. Source rewrites
-strip development flags, shorten internal client tags from `plugins/protocol-tags.js`,
-and mark app-owned properties from `plugins/property-names.js`. The rewrite in
-`plugins/replace-pre-terser.js` skips quoted paths.
+The browser production build uses `plugins/build-plugins.ts`. Source rewrites
+strip development flags, shorten internal client tags from `plugins/protocol-tags.ts`,
+and mark app-owned properties from `plugins/property-names.ts`. The rewrite in
+`plugins/replace-pre-terser.ts` skips quoted paths.
 
 The build scans client and definition TypeScript exports and reserves their
 names, including the
@@ -91,7 +91,7 @@ Both lazy facades load a typed default API object. `npm run test lazy-docked`
 exercises the real docked loader against separately emitted production chunks,
 including shared mangled state in the ship chunk.
 `npm run test property-mangling` checks that a private property is mangled
-consistently across two chunks. `npm run test:packets`
+consistently across two chunks. `npm run test snapshot server-integration`
 measures real Go WebSocket packet sizes and checks that both source and
 production-mangled client codecs acknowledge snapshots and receive input receipts. Keep the lazy boundary
 intact in tests: bundling everything into one file masked the original

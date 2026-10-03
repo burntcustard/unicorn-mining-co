@@ -11,6 +11,7 @@ import { updateEntities } from '../../../src/client/simulation/update-tier';
 import { emptyPlayerInput } from '../../../src/client/protocol/input';
 
 const world = createWorld();
+
 const objects = [
   {
     id: 1,
@@ -49,11 +50,13 @@ const holder = addEntity(world, new GameObject({ id: 20, spin: 0.7 }));
 
 holder.holds = (child: GameObject) =>
   Vec.distanceSquared(child.position, holder.position) <= 400;
+
 holder.momentum = (position: Vec.Value) => {
   const offset = Vec.subtract(position, holder.position);
 
   return Vec.create(-offset.y * holder.spin, offset.x * holder.spin);
 };
+
 const snapshots = [];
 
 for (let tick = 0; tick < 1800; tick++) {
@@ -109,11 +112,13 @@ class ProbeShip extends Ship {
     calls.push({ type: 'update', value: dt });
   }
 }
+
 const timedWorld = createWorld();
 
 addEntity(timedWorld, new ProbeShip({ id: 1, playerId: 1, segments: [] }));
 const step = simulationStep;
 const input = emptyPlayerInput();
+
 const frame = {
   input,
   changes: [-0.01, 0, step / 8, step / 4, step / 2, step - 1e-10, step].map(

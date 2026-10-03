@@ -10,6 +10,7 @@ type StationDescription struct {
 	Spin     float64    `json:"spin"`
 	Type     string     `json:"type"`
 }
+
 type AsteroidDescription struct {
 	Contents   []int      `json:"contents"`
 	ID         uint32     `json:"id"`
@@ -32,6 +33,7 @@ type FieldDescription struct {
 	Radius   float64    `json:"radius,omitempty"`
 	Resource int        `json:"resource"`
 }
+
 type WreckDescription struct {
 	CargoContents []int            `json:"cargoContents"`
 	ClueField     FieldDescription `json:"clueField"`
@@ -42,16 +44,19 @@ type WreckDescription struct {
 	Spin          float64          `json:"spin"`
 	Type          string           `json:"type"`
 }
+
 type RegionDescription struct {
 	Asteroids []AsteroidDescription `json:"asteroids"`
 	Region    Vec.Vector            `json:"region"`
 	Stations  []StationDescription  `json:"stations"`
 	Wrecks    []WreckDescription    `json:"wrecks"`
 }
+
 type LoadedRegion struct {
 	Description *RegionDescription
 	Seed        uint32
 }
+
 type WorldRanges struct {
 	Asteroid       float64 `json:"asteroid"`
 	Item           float64 `json:"item"`

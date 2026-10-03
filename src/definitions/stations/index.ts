@@ -3,6 +3,7 @@ import { corral } from './corral';
 
 export { corral };
 export const stationDefinitions = { corral };
+
 export type StationId = keyof typeof stationDefinitions;
 
 export const stationDefinitionList = Object.values(stationDefinitions);

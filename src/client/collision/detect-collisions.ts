@@ -19,6 +19,7 @@ export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
       ) {
         return;
       }
+
       const contact = contactBetween(a, b);
 
       if (contact) {
@@ -30,5 +31,6 @@ export const detectCollisions = ({ entities }: { entities: GameObject[] }) => {
       }
     }),
   );
+
   return contacts;
 };

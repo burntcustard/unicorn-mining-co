@@ -24,6 +24,7 @@ const socket = new WebSocket(
     origin: `https://${new URL(address).host}`,
   },
 );
+
 const timeout = setTimeout(() => socket.terminate(), 5000);
 let welcomed = false;
 let load = false;
@@ -35,10 +36,13 @@ try {
     socket.on('open', () => {
       socket.send(encodeClientMessage({ type: 'hello', playerToken: null }));
     });
+
     socket.on('error', reject);
+
     socket.on('close', (code) => {
       if (!acknowledged) reject(new Error(`WebSocket closed: ${code}`));
     });
+
     socket.on('message', (data, binary) => {
       assert(binary);
       const packet = new Uint8Array(data as Buffer);
@@ -48,6 +52,7 @@ try {
 
         assert.equal(welcome.type, 'welcome');
         welcomed = true;
+
         socket.send(
           encodeClientMessage({
             type: 'input',
@@ -56,8 +61,10 @@ try {
             input: { ...emptyPlayerInput(), thrust: 1 },
           }),
         );
+
         return;
       }
+
       const snapshot = decodeBinarySnapshot(packet);
 
       snapshots++;
@@ -71,11 +78,13 @@ try {
           }),
         );
       }
+
       acknowledged ||= snapshot.acknowledgedSequence === 1;
 
       if (welcomed && load && acknowledged && snapshots >= 2) resolve();
     });
   });
+
   console.log(
     `Go health, static client, WebSocket welcome, ${snapshots} UM snapshots, and input acknowledgement passed`,
   );

@@ -69,6 +69,7 @@ export class RegionManager {
       description.wrecks = description.wrecks.filter(
         ({ id }) => !this.removed.has(id),
       );
+
       [
         ...description.asteroids,
         ...description.stations,
@@ -81,6 +82,7 @@ export class RegionManager {
         this.descriptionOwners.set(id, owners);
       });
     }
+
     const loaded = {
       description,
       seed: regionSeed({ worldSeed: this.worldSeed, region }),
@@ -115,6 +117,7 @@ export class RegionManager {
         ) {
           continue;
         }
+
         this.load({ region });
         this.unload({ region });
       }
@@ -150,6 +153,7 @@ export class RegionManager {
           Math.floor((position.y + reach) / regionSize),
         ),
       }));
+
     const bounds = boundsFor(Math.max(ranges.asteroid, ranges.wreck));
     const stationBounds = boundsFor(
       Math.max(ranges.stationMarker, ranges.stationPhysics),
@@ -162,6 +166,7 @@ export class RegionManager {
     // not the loaded region union. Reuse that union until a boundary is crossed.
     if (this.queriedRegions?.bounds !== key) {
       const needed = new Set<string>();
+
       const descriptions = bounds.map(({ from, to }) => {
         const found: RegionDescription[] = [];
 
@@ -173,6 +178,7 @@ export class RegionManager {
             found.push(this.load({ region }).description);
           }
         }
+
         return found;
       });
 
@@ -181,6 +187,7 @@ export class RegionManager {
           this.unload({ region: description.region });
         }
       });
+
       const stations = stationBounds.map(({ from, to }) => {
         // Station sources change only when a region is first generated or
         // an object is removed, so other players' crossings reuse the list.
@@ -196,6 +203,7 @@ export class RegionManager {
             const key = keyOf({ region });
             const description =
               this.loaded.get(key)?.description || this.saved.get(key);
+
             const candidates =
               description?.stations ||
               generateStations({
@@ -257,6 +265,7 @@ export class RegionManager {
     this.removed.add(id);
     this.queriedRegions = undefined;
     this.stationLists.clear();
+
     const removeFrom = (description: RegionDescription) => {
       description.asteroids = description.asteroids.filter(
         (asteroid) => asteroid.id !== id,

@@ -35,9 +35,11 @@ const record = (asteroid: Asteroid) =>
       outline: collider.shapeOutline,
     })),
   });
+
 const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
   [25, 57, 150].map((radius, index) => {
     const world = createWorld();
+
     const properties = {
       id,
       radius,
@@ -48,11 +50,13 @@ const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
       rotation: 0.7125,
       spin: -0.125,
     };
+
     const asteroid = addEntity(
       world,
       createAsteroid(world, properties).lockGeometry(),
     );
     const initial = record(asteroid);
+
     const contacts = [
       Vec.create(),
       Vec.create(radius, 0),
@@ -67,6 +71,7 @@ const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
         contact: asteroidContact({ asteroid, position, radius: 3 }) || null,
       };
     });
+
     const steps = [];
 
     for (let step = 0; step < 12; step++) {
@@ -81,6 +86,7 @@ const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
 
       segment.health = 0;
       const events: SimulationEvent[] = [];
+
       const changed = target.fracture({
         asteroidSegment: segment,
         by: 1,
@@ -98,6 +104,7 @@ const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
         ),
       });
     }
+
     return { properties, initial, contacts, steps };
   }),
 );

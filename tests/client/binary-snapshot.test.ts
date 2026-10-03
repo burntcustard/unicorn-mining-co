@@ -37,6 +37,7 @@ class Writer {
   record(id: number, fields: [number, (() => void) | null][]) {
     this.unsigned(id);
     this.unsigned(fields.length);
+
     fields.forEach(([field, write]) => {
       this.unsigned(field * 2 + (write ? 0 : 1));
       write?.();
@@ -85,6 +86,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
   writer.unsigned(1);
   writer.unsigned(7); // entityIds
   writer.unsigned(1); // record count
+
   writer.record(7, [
     [
       1,
@@ -93,6 +95,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
         writer.byte(0);
         writer.number(4);
         writer.byte(1);
+
         writer.record(8, [
           [9, () => writer.byte(1)],
           [
@@ -160,6 +163,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
       },
     ],
   ]);
+
   const decoded = decodeBinarySnapshot(writer.packet());
 
   assert.deepEqual(decoded, {
@@ -215,6 +219,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
       },
     ],
   });
+
   assert.deepEqual(
     decodeBinarySnapshot(writer.packet().buffer),
     decoded,
@@ -293,18 +298,22 @@ Object.assign(globalThis, {
   },
   location: { protocol: 'http:', host: 'localhost' },
 });
+
 const { NetworkClient } = await import('../../src/client/network/network');
 const client = new NetworkClient({ url: 'ws://test' });
 const socket = Socket.sockets.at(-1)!;
 
 assert.equal(socket.binaryType, 'arraybuffer');
 socket.onopen?.();
+
 assert.deepEqual(decodeClientMessage(socket.sent[0]), {
   type: 'hello',
   playerToken: null,
 });
+
 assert.equal(tokenCleared, true, 'malformed stored tokens are cleared');
 assert.equal(storedToken, null);
+
 socket.onmessage?.({
   data: encodeServerControl({
     type: 'welcome',
@@ -316,6 +325,7 @@ socket.onmessage?.({
     spawn: { x: 0, y: 0 },
   }),
 });
+
 const load = new Writer();
 
 start(load, 19, 0, 3); // load, entityIds, snapshotSequence
@@ -324,6 +334,7 @@ load.unsigned(2);
 load.unsigned(1);
 load.unsigned(2);
 load.unsigned(2); // full entity count
+
 const position = (x: number, y: number) => {
   load.number(x);
   load.number(y);
@@ -354,16 +365,19 @@ const reconnectSocket = Socket.sockets.at(-1)!;
 
 void reconnectClient;
 reconnectSocket.onopen?.();
+
 assert.deepEqual(decodeClientMessage(reconnectSocket.sent[0]), {
   type: 'hello',
   playerToken,
 });
+
 const authoritative = Reflect.get(client, 'authoritativeEntities') as Map<
   number,
   { label?: string; position: { x: number; y: number } }
 >;
 
 assert.equal(authoritative.get(2)?.label, 'before');
+
 assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
   type: 'snapshotAck',
   sequence: 1,
@@ -374,6 +388,7 @@ const delta = new Writer();
 start(delta, 16, 1, 3); // snapshotSequence, unchanged interest set
 delta.unsigned(2);
 delta.unsigned(1);
+
 delta.record(2, [
   [10, null],
   [
@@ -384,11 +399,14 @@ delta.record(2, [
     },
   ],
 ]);
+
 socket.onmessage?.({ data: delta.packet() });
+
 assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
   type: 'snapshotAck',
   sequence: 2,
 });
+
 client.update({ input: emptyPlayerInput() });
 assert.equal(authoritative.get(2)?.position.x, 20);
 assert.equal(authoritative.get(2)?.label, undefined);
@@ -402,6 +420,7 @@ socket.onmessage?.({
     fullEntities: [{ id: 2, label: 'JSON is invalid' }],
   }),
 });
+
 assert.deepEqual(socket.closed, [1007], 'JSON snapshots are rejected');
 assert.equal(authoritative.get(2)?.label, undefined);
 

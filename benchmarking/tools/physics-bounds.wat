@@ -1,4 +1,4 @@
-;; Float64 SIMD bound reduction used only by physics-bounds-kernels.mjs.
+;; Float64 SIMD bound reduction used only by physics-bounds-kernels.ts.
 ;; Inputs are finite, prepacked x/y pairs. The return value is a checksum.
 (module
 (memory (export "memory") 1)

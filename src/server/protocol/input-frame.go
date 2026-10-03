@@ -5,6 +5,7 @@ type InputChange struct {
 	Input  Input
 	Offset float64
 }
+
 type InputFrame struct {
 	Input   Input
 	Changes []InputChange

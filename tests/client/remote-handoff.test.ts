@@ -29,4 +29,5 @@ for (const speed of [120, 272]) {
     }
   }
 }
+
 console.log(JSON.stringify({ cases, worstSpeedRatio, worstSpeedChange }));

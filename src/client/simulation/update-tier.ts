@@ -74,6 +74,7 @@ export const updateEntities = ({
     schedule = { observers: [], parents: [], entities: [], entries: [] };
     schedules.set(world, schedule);
   }
+
   const { observers, parents, entries: scheduled } = schedule;
   const list = entities || schedule.entities;
 
@@ -83,6 +84,7 @@ export const updateEntities = ({
   }
 
   observers.length = parents.length = 0;
+
   world.players.forEach((player) => {
     const entity = world.entities.get(player.shipId);
 
@@ -125,6 +127,7 @@ export const updateEntities = ({
     ) {
       tier = updateTiers.drift;
     }
+
     const step = (entity.pendingUpdateTime + simulationStep) / tier.substeps;
     const entry = scheduled[index];
 
@@ -134,10 +137,13 @@ export const updateEntities = ({
       entry.step = step;
     } else scheduled.push({ entity, tier, step });
   }
+
   scheduled.length = list.length;
+
   world.entities.forEach((entity) => {
     if (entity.holds) parents.push(entity);
   });
+
   world.movementParents = parents;
 
   // Plain loops: a callback capturing the reassigned elapsed time would box
@@ -176,10 +182,12 @@ export const updateEntities = ({
           elapsed = offset;
         }
       }
+
       entity.update(end - elapsed);
 
       if (entity.dead) world.entities.delete(entity.id);
     }
   }
+
   world.movementParents = undefined;
 };

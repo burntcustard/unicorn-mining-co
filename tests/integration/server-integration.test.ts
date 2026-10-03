@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import { resolve } from 'node:path';
 import WebSocket from 'ws';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.js';
+import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
 import {
   decodeServerControl,
   encodeClientMessage,
@@ -14,6 +14,7 @@ import { emptyPlayerInput } from '../../src/client/protocol/input';
 
 // Exercise production-mangled field access and tags against the actual Go wire.
 const entry = resolve('src/__wire_integration.ts');
+
 const bundle = await rolldown({
   input: entry,
   plugins: [
@@ -39,6 +40,7 @@ const bundle = await rolldown({
     { ...buildPlugin(), generateBundle: undefined },
   ],
 });
+
 const { output } = await bundle.generate({ format: 'esm' });
 
 await bundle.close();
@@ -47,6 +49,7 @@ const production = (
     `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
   )
 ).default;
+
 const source = [
   (playerToken: string | null) =>
     encodeClientMessage({ type: 'hello', playerToken }),
@@ -84,6 +87,7 @@ const source = [
 ];
 
 const sockets: WebSocket[] = [];
+
 const server = spawn(resolve('bin/server'), [], {
   env: {
     ...process.env,
@@ -93,6 +97,7 @@ const server = spawn(resolve('bin/server'), [], {
   },
   stdio: ['ignore', 'ignore', 'pipe'],
 });
+
 const timeout = setTimeout(() => {
   sockets.forEach((socket) => socket.terminate());
   server.kill('SIGTERM');
@@ -106,6 +111,7 @@ try {
     server.once('exit', (code) =>
       reject(new Error(`Server exited before startup: ${code}\n${log}`)),
     );
+
     server.stderr.on('data', (data) => {
       log += data;
       const match = log.match(/listening on .*:(\d+)/);
@@ -113,6 +119,7 @@ try {
       if (match) resolveAddress(`http://127.0.0.1:${match[1]}`);
     });
   });
+
   const health = await fetch(`${address}/healthz`);
 
   assert.equal(health.status, 200);
@@ -137,6 +144,7 @@ try {
     );
 
     sockets.push(socket);
+
     return new Promise<{ token: string; playerId: number; shipId: number }>(
       (resolveClient, reject) => {
         let welcome: any[];
@@ -146,12 +154,15 @@ try {
         let snapshotBytes = 0;
 
         socket.on('error', reject);
+
         socket.on('close', (code) => {
           if (received < 3 || !acknowledged) {
             reject(new Error(`Socket closed before snapshots: ${code}`));
           }
         });
+
         socket.on('open', () => socket.send(codec[0](token)));
+
         socket.on('message', (data, binary) => {
           try {
             assert(binary);
@@ -163,6 +174,7 @@ try {
               socket.send(codec[1](welcome[4]));
               return;
             }
+
             const snapshot = codec[4](packet);
 
             received++;
@@ -179,6 +191,7 @@ try {
               );
               socket.removeAllListeners('message');
               socket.close();
+
               resolveClient({
                 token: welcome[1],
                 playerId: welcome[2],
@@ -192,6 +205,7 @@ try {
       },
     );
   };
+
   const first = await connect(source);
 
   await once(sockets.at(-1)!, 'close');

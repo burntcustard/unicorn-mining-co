@@ -8,5 +8,6 @@ func (s *movementSchedule) withinObserversScalar(p Vec.Vector, radiusSquared flo
 			return true
 		}
 	}
+
 	return false
 }

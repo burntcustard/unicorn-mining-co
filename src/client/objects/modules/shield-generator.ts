@@ -31,6 +31,7 @@ export class ShieldGenerator extends Module {
     if (segment.covers) return;
     game.ctx.save();
     game.ctx.strokeStyle = this.shades[2];
+
     game.ctx.stroke(
       linesPath(
         [segment.phase || 0, (segment.phase || 0) + Math.PI / 2].map(
@@ -46,6 +47,7 @@ export class ShieldGenerator extends Module {
         ),
       ),
     );
+
     game.ctx.restore();
   }
 

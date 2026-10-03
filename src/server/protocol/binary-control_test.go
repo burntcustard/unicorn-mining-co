@@ -36,29 +36,40 @@ type controlFixture struct {
 
 func TestControlMatchesTypeScript(t *testing.T) {
 	data, err := os.ReadFile("../../../tests/fixtures/controls.json")
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var fixtures controlFixture
+
 	if err := json.Unmarshal(data, &fixtures); err != nil {
 		t.Fatal(err)
 	}
+
 	spec, err := definitions.Load()
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, fixture := range fixtures.Client {
 		bytes, err := hex.DecodeString(fixture.Hex)
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		got, err := DecodeClientControl(bytes, spec.Protocol, spec.Simulation.SimulationStep)
+
 		if err != nil {
 			t.Fatalf("%s: %v", fixture.Message.Type, err)
 		}
+
 		if got.Type != fixture.Message.Type {
 			t.Errorf("type: %q vs %q", got.Type, fixture.Message.Type)
 		}
+
 		switch got.Type {
 		case "hello":
 			if got.PlayerToken != fixture.Message.PlayerToken {
@@ -78,16 +89,20 @@ func TestControlMatchesTypeScript(t *testing.T) {
 			}
 		}
 	}
+
 	for _, fixture := range fixtures.Server {
 		message := fixture.Message
+
 		got, err := EncodeServerControl(ServerControl{
 			Type: message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
 			ServerTick: message.ServerTick, PlayerToken: message.PlayerToken,
 			WorldSeed: message.WorldSeed, Spawn: message.Spawn,
 		}, spec.Protocol)
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if hex.EncodeToString(got) != fixture.Hex {
 			t.Errorf("%s: %x vs %s", message.Type, got, fixture.Hex)
 		}

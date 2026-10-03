@@ -11,10 +11,13 @@ import (
 
 func main() {
 	spec, err := definitions.Load()
+
 	if err != nil {
 		panic(err)
 	}
+
 	field := spec.Protocol.BinaryFieldIDs
+
 	packet, err := protocol.EncodeSnapshot(protocol.Snapshot{
 		Tick: 42, NextEntityID: 100, Ack: new(uint64(9)), InputLead: new(int64(-2)),
 		Sequence: new(uint64(10)), MembershipChanged: true,
@@ -42,8 +45,10 @@ func main() {
 			}},
 		},
 	}, spec.Protocol)
+
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Fprintln(os.Stdout, hex.EncodeToString(packet))
 }

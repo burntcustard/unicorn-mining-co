@@ -57,6 +57,7 @@ export class FramePrediction {
       this.world.tick = world.tick;
       this.world.nextEntityId = world.nextEntityId;
       this.world.random.state = world.random.state;
+
       // Preserve authoritative iteration order for the contact solver.
       [...world.entities.values()].forEach((entity) => {
         const copy = cloneEntity({ entity });
@@ -64,6 +65,7 @@ export class FramePrediction {
         copy.random = this.world.random;
         addEntity(this.world, copy);
       });
+
       [...world.entities.values()]
         .filter((entity) => entity.localMovementParent)
         .forEach((entity) => {
@@ -72,6 +74,7 @@ export class FramePrediction {
               (entity.localMovementParent as GameObject).id,
             );
         });
+
       this.state = captureWorld({ world: this.world });
       this.endpoint = undefined;
     }
@@ -89,21 +92,25 @@ export class FramePrediction {
         this.endpointChange !== change
       ) {
         restoreWorld({ world: this.world, state: this.state });
+
         updateWorld({
           world: this.world,
           inputs: new Map([[playerId, input]]),
           dt: simulationStep,
         });
+
         this.endpoint = captureWorld({ world: this.world });
         this.endpointInput = input.input;
         this.endpointChange = change;
       } else restoreWorld({ world: this.world, state: this.endpoint });
 
       if (dt === simulationStep) return this.world;
+
       this.world.entities.forEach((entity) => {
         const from = this.state!.entities.get(entity.id);
 
         if (!from) return;
+
         const pose = interpolatePose({
           from,
           to: entity,
@@ -115,6 +122,7 @@ export class FramePrediction {
         entity.rotation = pose.rotation;
       });
     } else restoreWorld({ world: this.world, state: this.state });
+
     return this.world;
   }
 }

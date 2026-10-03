@@ -1,0 +1,205 @@
+// Measure before/after executables sequentially, alternating process order.
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { createHash } from 'node:crypto';
+
+const [label, before, after] = process.argv.slice(2);
+
+if (!label || !before || !after) {
+  throw new Error(
+    'Usage: node benchmarking/tools/go-cpu-paired.ts LABEL BEFORE AFTER',
+  );
+}
+
+const cpu =
+  process.env.CPU_AFFINITY ||
+  readFileSync('/proc/self/status', 'utf8').match(
+    /Cpus_allowed_list:\s*([\d,-]+)/,
+  )[1];
+const ticks = Number(process.env.TICKS || 900);
+const repetitions = Number(process.env.REPETITIONS || 5);
+const motionTolerance = Number(process.env.MOTION_TOLERANCE || 2e-8);
+const motionDifferences: Record<string, number> = {};
+const outcomeComparison = process.env.OUTCOME_COMPARISON || 'strict';
+
+assert(['strict', 'replication', 'report'].includes(outcomeComparison));
+const players = (process.env.PLAYERS || '4,8,16,32').split(',').map(Number);
+const workloads = (
+  process.env.WORKLOADS || 'convoy,spread,contact,module'
+).split(',');
+
+const variants = {
+  before: {
+    executable: before,
+    GOGC: process.env.BEFORE_GOGC || '100',
+    SIMD: process.env.BEFORE_SIMD,
+    motionRounding: process.env.BEFORE_ROUNDING,
+    collisionNeighbors: process.env.BEFORE_NEIGHBORS,
+  },
+  after: {
+    executable: after,
+    GOGC: process.env.AFTER_GOGC || '800',
+    SIMD: process.env.AFTER_SIMD,
+    motionRounding: process.env.AFTER_ROUNDING,
+    collisionNeighbors: process.env.AFTER_NEIGHBORS,
+  },
+};
+
+type SessionResult = {
+  players: number;
+  workload: string;
+  cpuMsPerTick: number;
+  traces?: unknown;
+  contactTrace?: unknown;
+  eventTrace?: unknown;
+  [key: string]: unknown;
+};
+
+const results: (SessionResult & { variant: string; repetition: number })[] = [];
+
+const median = (values: number[]) =>
+  values.toSorted((a, b) => a - b)[Math.floor(values.length / 2)];
+const path = process.env.RESULT || `benchmarking/local/${label}.json`;
+
+mkdirSync(dirname(path), { recursive: true });
+
+function compare(a: unknown, b: unknown, path: string) {
+  if (typeof a === 'number' && typeof b === 'number') {
+    const motion = path.match(
+      /states\.\d+\.(position\.[xy]|velocity\.[xy]|rotation|spin)$/,
+    )?.[1];
+    const difference = Math.abs(a - b);
+
+    if (motion) {
+      motionDifferences[motion] = Math.max(
+        motionDifferences[motion] || 0,
+        difference,
+      );
+    }
+
+    assert(
+      difference <= (motion ? motionTolerance : 2e-8),
+      `${path}: ${a} != ${b}`,
+    );
+  } else if (a && b && typeof a === 'object' && typeof b === 'object') {
+    assert.deepEqual(
+      Object.keys(a).sort(),
+      Object.keys(b).sort(),
+      `${path} keys`,
+    );
+
+    for (const key of Object.keys(a)) {
+      compare(Reflect.get(a, key), Reflect.get(b, key), `${path}.${key}`);
+    }
+  } else assert.deepEqual(a, b, path);
+}
+
+function save() {
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        label,
+        cpu,
+        ticks,
+        repetitions,
+        motionTolerance,
+        motionDifferences,
+        outcomeComparison,
+        variants: Object.fromEntries(
+          Object.entries(variants).map(([name, value]) => [
+            name,
+            {
+              ...value,
+              executableHash: createHash('sha256')
+                .update(readFileSync(value.executable))
+                .digest('hex'),
+            },
+          ]),
+        ),
+        results,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+}
+
+for (const count of players) {
+  for (const workload of workloads) {
+    for (let repetition = 0; repetition < repetitions; repetition++) {
+      const pair: Partial<Record<keyof typeof variants, SessionResult>> = {};
+
+      for (const variant of repetition % 2
+        ? (['after', 'before'] as const)
+        : (['before', 'after'] as const)) {
+        const value = variants[variant];
+        const output = `/tmp/unicorn-cpu-paired-${process.pid}.json`;
+
+        execFileSync(
+          'taskset',
+          ['-c', cpu, value.executable, '-test.run', '^TestSessionBenchmark$'],
+          {
+            env: {
+              ...process.env,
+              GOGC: value.GOGC,
+              GO_SERVER_SIMD: value.SIMD ?? process.env.GO_SERVER_SIMD ?? '',
+              GO_SERVER_MOTION_ROUNDING: value.motionRounding ?? '',
+              GO_SERVER_COLLISION_NEIGHBORS: value.collisionNeighbors ?? '',
+              SESSION_PLAYERS: String(count),
+              SESSION_WORKLOAD: workload,
+              SESSION_TICKS: String(ticks),
+              SESSION_TRACE: '',
+              CONTACT_TRACE: '',
+              SESSION_RESULT: output,
+            },
+            stdio: ['ignore', 'pipe', 'inherit'],
+          },
+        );
+
+        pair[variant] = JSON.parse(readFileSync(output, 'utf8'));
+        delete pair[variant].traces;
+        delete pair[variant].contactTrace;
+        delete pair[variant].eventTrace;
+        results.push({ ...pair[variant], variant, repetition });
+        save();
+      }
+
+      for (const field of outcomeComparison !== 'report'
+        ? [
+            'contacts',
+            'events',
+            'packets',
+            'entities',
+            'states',
+            ...(outcomeComparison === 'strict' ? ['bytes'] : []),
+          ]
+        : []) {
+        compare(
+          pair.before[field],
+          pair.after[field],
+          `${count}/${workload}/${field}`,
+        );
+      }
+    }
+
+    const samples = results.filter(
+      (r) => r.players === count && r.workload === workload,
+    );
+    const old = median(
+      samples.filter((r) => r.variant === 'before').map((r) => r.cpuMsPerTick),
+    );
+    const current = median(
+      samples.filter((r) => r.variant === 'after').map((r) => r.cpuMsPerTick),
+    );
+
+    console.log(
+      `${count}/${workload}: ${old.toFixed(6)} -> ${current.toFixed(6)} ms CPU/tick (${(old / current).toFixed(2)}x)`,
+    );
+    save();
+  }
+}
+
+console.log(path);

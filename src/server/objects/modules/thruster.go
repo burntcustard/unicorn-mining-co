@@ -11,8 +11,10 @@ type Thruster struct{ *Module }
 func NewThruster(id string, props simulation.ObjectProperties, catalog definitions.Catalog) *Thruster {
 	m := &Thruster{NewModule(id, props, catalog)}
 	m.Self = m
+
 	for i := range m.Definition.FlareSizes {
 		m.Model = append(m.Model, &simulation.SegmentPlan{ThrusterNozzleSide: m.Definition.NozzleSides[i]})
 	}
+
 	return m
 }

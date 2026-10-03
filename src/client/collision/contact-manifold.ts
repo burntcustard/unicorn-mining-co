@@ -1,15 +1,3 @@
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/collision/Manifold.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import * as matrix from '../utilities/vector-math';
 import * as Vec from '../utilities/vector';
 import { TransformValue } from '../utilities/vector-math';
@@ -98,6 +86,7 @@ export class Manifold {
 
           Vec.scale(dist, 1 / length, normal);
         }
+
         Vec.addScaled(pointA, normal, radiusA, cA);
         Vec.addScaled(pointB, normal, -radiusB, cB);
         Vec.combine2Into(points[0], 0.5, cA, 0.5, cB);
@@ -124,6 +113,7 @@ export class Manifold {
           Vec.combine2Into(points[i], 0.5, cA, 0.5, cB);
           separations[i] = Vec.dot(Vec.subtract(cB, cA, temp), normal);
         }
+
         break;
       }
 
@@ -146,6 +136,7 @@ export class Manifold {
           Vec.combine2Into(points[i], 0.5, cA, 0.5, cB);
           separations[i] = Vec.dot(Vec.subtract(cA, cB, temp), normal);
         }
+
         // Ensure normal points from A to B.
         Vec.scale(normal, -1, normal);
         break;

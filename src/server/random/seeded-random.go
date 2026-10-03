@@ -6,6 +6,7 @@ import "math"
 type Random struct{ State float64 }
 
 func CreateRandom(seed float64) *Random { return &Random{State: seed} }
+
 func (r *Random) Next() float64 {
 	// Integer seeds and subsequent states have exact float64 products. The
 	// constant integer remainder avoids math.Mod's general exponent reduction.
@@ -14,5 +15,6 @@ func (r *Random) Next() float64 {
 	} else {
 		r.State = math.Mod((r.State+1)*48271, 2147483647)
 	}
+
 	return r.State / 2147483647
 }

@@ -17,6 +17,7 @@ export const interpolatePose = ({
   dt: number;
 }) => {
   const t = fraction;
+
   const coordinate = (
     start: number,
     end: number,
@@ -28,6 +29,7 @@ export const interpolatePose = ({
     if (!delta || (!before && !after)) {
       return start + delta * t;
     }
+
     const tangent = (velocity = 0) =>
       delta * Math.max(0, Math.min(3, (velocity * dt) / delta));
 
@@ -37,6 +39,7 @@ export const interpolatePose = ({
       t * (1 - t) * ((1 - t) * tangent(before) - t * tangent(after))
     );
   };
+
   const turn = Math.atan2(
     Math.sin(to.rotation - from.rotation),
     Math.cos(to.rotation - from.rotation),

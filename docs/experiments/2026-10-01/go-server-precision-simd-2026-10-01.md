@@ -65,7 +65,7 @@ Client/server agreement needs two separate checks: error against the old numeric
 
 ## Artifacts and reproduction
 
-The [paired driver](../../../benchmarking/tools/go-cpu-paired.mjs) now accepts `CPU_AFFINITY`, `GOMAXPROCS`, `BEFORE_GOMAXPROCS` and `AFTER_GOMAXPROCS`, and records the selected values. Existing defaults remain one CPU and GOMAXPROCS=1. Raw results record executable hashes and outcomes.
+The [paired driver](../../../benchmarking/tools/go-cpu-paired.ts) now accepts `CPU_AFFINITY`, `GOMAXPROCS`, `BEFORE_GOMAXPROCS` and `AFTER_GOMAXPROCS`, and records the selected values. Existing defaults remain one CPU and GOMAXPROCS=1. Raw results record executable hashes and outcomes.
 
 The patches named `precision-2026-10-01-*.patch` in [experiments](../../../benchmarking/experiments) apply independently to the starting working-tree implementation, not to HEAD. For replication, the existing exact-float64 kernel test must be excluded when compiling the prototype because its data representation and contract have changed; that exclusion is not a correctness validation. Production tests are preserved.
 
@@ -74,11 +74,11 @@ GOCACHE=/tmp/unicorn-precision-go-cache GOEXPERIMENT=simd \
   go test -pgo=cmd/go-server/default.pgo -c -o /tmp/go-precision-before ./internal/server
 # Repeat with GOAMD64=v2 or v3 for architecture experiments.
 BEFORE_GOGC=800 AFTER_GOGC=800 REPETITIONS=3 TICKS=900 \
-  node benchmarking/tools/go-cpu-paired.mjs cpu-precision-recheck /tmp/go-precision-before /tmp/go-precision-candidate
+  node benchmarking/tools/go-cpu-paired.ts cpu-precision-recheck /tmp/go-precision-before /tmp/go-precision-candidate
 # Use OUTCOME_COMPARISON=report for intentionally changed numerical rules.
 CPU_AFFINITY=0,1 BEFORE_GOMAXPROCS=1 AFTER_GOMAXPROCS=2 \
   BEFORE_GOGC=800 AFTER_GOGC=800 REPETITIONS=3 TICKS=900 \
-  node benchmarking/tools/go-cpu-paired.mjs cpu-precision-two-core-recheck /tmp/go-precision-before /tmp/go-precision-before
+  node benchmarking/tools/go-cpu-paired.ts cpu-precision-two-core-recheck /tmp/go-precision-before /tmp/go-precision-before
 ```
 
 Validation: production builds before and after passed and emitted identical client chunk names and sizes; lint passed with the same two existing `unicorn(no-new-array)` warnings; the paired driver passed JavaScript syntax checking; the production AVX2 exactness test passed. Strict full-session comparisons passed for both architecture controls, the scalar/packed polynomial comparison, and the two-core run. Experimental changed-rule variants have not been ported to TypeScript or passed cross-language parity; no such variant is being promoted.

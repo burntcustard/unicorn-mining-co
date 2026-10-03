@@ -47,6 +47,7 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
   // Number vertices by exact coordinates; an undirected edge is its pair.
   const vertexIds = new Map<number, Map<number, number>>();
   let vertices = 0;
+
   const vertex = ([x, y]: number[]) => {
     let column = vertexIds.get(x);
 
@@ -56,12 +57,14 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
     if (id === undefined) column.set(y, (id = vertices++));
     return id;
   };
+
   const edge = (from: number[], to: number[]) => {
     const a = vertex(from);
     const b = vertex(to);
 
     return a < b ? a * 0x100000000 + b : b * 0x100000000 + a;
   };
+
   const sides = shapeOutlines.map((points) =>
     points.map((from, index) =>
       edge(from, points[(index + 1) % points.length]),
@@ -77,6 +80,7 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
       else outlinesBySide.set(side, [index]);
     }),
   );
+
   const neighbours = sides.map(
     (outlineSides, index) =>
       new Set(
@@ -92,6 +96,7 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
     const edges = (points.edges ||= []);
 
     edges.length = points.length;
+
     sides[index].forEach((side, i) => {
       edges[i] = outlinesBySide.get(side)!.length === 1;
     });
@@ -107,7 +112,9 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
         }
       }
     }
+
     groups.push(group);
   }
+
   return groups;
 };

@@ -27,6 +27,7 @@ export class Station extends Craft {
     if (!definition) {
       throw new Error(`Unknown station definition: ${stationType}`);
     }
+
     super({ ...definition, ...properties });
     this.definitionId = stationType === 'corral' ? undefined : stationType;
   }
@@ -57,6 +58,7 @@ export class Station extends Craft {
       ) {
         return;
       }
+
       ship.dockedTo = this.id;
       Vec.set(ship.position, this.position);
       ship.rotation = this.rotation;
@@ -123,6 +125,7 @@ export class Station extends Craft {
           worn,
           rotation: pose.rotation,
         });
+
         ctx.strokeStyle = segment.shades[2];
         drawSegment({ ctx, segment });
 

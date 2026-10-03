@@ -70,6 +70,7 @@ for (let now = 5; now <= 200; now += 5) {
     world: releaseWorld,
     predicted: releaseWorld,
   });
+
   assert(
     Vec.distance(
       repeated.sample({ now, world: releaseWorld }).get(1)!.position,
@@ -82,12 +83,14 @@ for (let now = 5; now <= 200; now += 5) {
 const reversed = repeated.sample({ now: 200, world: releaseWorld });
 
 releaseShip.position.x = -20;
+
 repeated.correct({
   before: reversed,
   now: 200,
   world: releaseWorld,
   predicted: releaseWorld,
 });
+
 let releasePosition = reversed.get(1)!.position.x;
 
 for (let now = 200; now <= 500; now++) {
@@ -104,6 +107,7 @@ for (let now = 200; now <= 500; now++) {
 const beforeDock = motion.sample({ now: 100, world, shipId: 1 });
 
 remote.dockedTo = 9;
+
 motion.correct({
   before: beforeDock,
   now: 100,
@@ -111,6 +115,7 @@ motion.correct({
   predicted: world,
   shipId: 1,
 });
+
 assert.equal(
   motion.sample({ now: 100, world, shipId: 1 }).get(2)!.position.x,
   65,
@@ -127,6 +132,7 @@ motion.correct({
   predicted: world,
   shipId: 1,
 });
+
 assert.equal(
   motion.sample({ now: 100, world, shipId: 1 }).get(2)!.position.x,
   5000,

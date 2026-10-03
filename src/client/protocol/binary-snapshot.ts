@@ -8,6 +8,7 @@ import {
 export { binaryFieldIds as BinaryField } from '../../definitions/protocol';
 
 type SnapshotMessage = Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
+
 type WireEntity = { id: number } & {
   [Key in Exclude<keyof ReplicatedEntity, 'id'>]?: ReplicatedEntity[Key] | null;
 };
@@ -26,10 +27,12 @@ export function decodeBinarySnapshot(
   const fail = (): never => {
     throw new Error('Invalid binary snapshot');
   };
+
   const byte = () => {
     if (offset >= bytes.length) return fail();
     return bytes[offset++];
   };
+
   const unsigned = () => {
     let value = 0;
     let place = 1;
@@ -41,16 +44,20 @@ export function decodeBinarySnapshot(
       if (digit > Math.floor((Number.MAX_SAFE_INTEGER - value) / place)) {
         return fail();
       }
+
       value += digit * place;
 
       if (!(part & 128)) {
         if (index && !digit) return fail();
         return value;
       }
+
       place *= 128;
     }
+
     return fail();
   };
+
   const signed = () => {
     let value = 0n;
     let place = 1n;
@@ -71,20 +78,26 @@ export function decodeBinarySnapshot(
         ) {
           return fail();
         }
+
         return Number(decoded);
       }
+
       place *= 128n;
     }
+
     return fail();
   };
+
   const count = (minimumBytes: number) => {
     const value = unsigned();
 
     if (value > Math.floor((bytes.length - offset) / minimumBytes)) {
       return fail();
     }
+
     return value;
   };
+
   const number = () => {
     if (bytes.length - offset < 8) return fail();
     const value = view.getFloat64(offset, true);
@@ -92,6 +105,7 @@ export function decodeBinarySnapshot(
     offset += 8;
     return Number.isFinite(value) ? value || 0 : null;
   };
+
   const string = () => {
     const length = count(2);
     let value = '';
@@ -100,9 +114,12 @@ export function decodeBinarySnapshot(
       value += String.fromCharCode(view.getUint16(offset, true));
       offset += 2;
     }
+
     return value;
   };
+
   const vector = () => Vec.create(number() as number, number() as number);
+
   const numbers = () => {
     const length = count(8);
     const values: number[] = [];
@@ -110,8 +127,10 @@ export function decodeBinarySnapshot(
     for (let index = 0; index < length; index++) {
       values.push(number() as number);
     }
+
     return values;
   };
+
   const outline = () => {
     const length = count(1);
     const outlines: number[][] = [];
@@ -119,6 +138,7 @@ export function decodeBinarySnapshot(
     for (let index = 0; index < length; index++) outlines.push(numbers());
     return outlines;
   };
+
   const shades = () => {
     const length = count(1);
     const values: string[] = [];
@@ -126,6 +146,7 @@ export function decodeBinarySnapshot(
     for (let index = 0; index < length; index++) values.push(string());
     return values;
   };
+
   const modules = () => {
     const length = count(18);
     const values: NonNullable<ReplicatedEntity['modules']> = [];
@@ -148,6 +169,7 @@ export function decodeBinarySnapshot(
           activationProgress: number() as number,
         });
       }
+
       values.push({
         type,
         mount,
@@ -157,8 +179,10 @@ export function decodeBinarySnapshot(
         segments,
       });
     }
+
     return values;
   };
+
   const wreckage = () => {
     const length = count(33);
     const values: NonNullable<ReplicatedEntity['wreckage']> = [];
@@ -183,6 +207,7 @@ export function decodeBinarySnapshot(
           stroke.push(outline());
         }
       }
+
       values.push({
         radius,
         offset: segmentOffset,
@@ -192,8 +217,10 @@ export function decodeBinarySnapshot(
         ...(mask & 4 && { stroke }),
       });
     }
+
     return values;
   };
+
   const segments = () => {
     const length = count(26);
     const values: NonNullable<ReplicatedEntity['segments']> = [];
@@ -207,8 +234,10 @@ export function decodeBinarySnapshot(
         shapeOutline: outline(),
       });
     }
+
     return values;
   };
+
   const kind = (): ReplicatedEntity['kind'] => {
     switch (byte()) {
       case entityKindIds.asteroid:
@@ -230,6 +259,7 @@ export function decodeBinarySnapshot(
         return fail();
     }
   };
+
   const record = (depth: number): ReplicatedEntity => {
     if (depth > 32) return fail();
     const entity: WireEntity = { id: unsigned() };
@@ -244,6 +274,7 @@ export function decodeBinarySnapshot(
       if (field < 1 || field > BinaryField.definitionId || seen.has(field)) {
         return fail();
       }
+
       seen.add(field);
 
       switch (field) {
@@ -252,6 +283,7 @@ export function decodeBinarySnapshot(
             entity.cargoContents = null;
             break;
           }
+
           const length = count(3);
           const contents: NonNullable<ReplicatedEntity['cargoContents']> = [];
 
@@ -269,6 +301,7 @@ export function decodeBinarySnapshot(
                 return fail();
             }
           }
+
           entity.cargoContents = contents;
           break;
         }
@@ -406,6 +439,7 @@ export function decodeBinarySnapshot(
           break;
       }
     }
+
     return entity as ReplicatedEntity;
   };
 
@@ -429,12 +463,14 @@ export function decodeBinarySnapshot(
 
     for (let index = 0; index < length; index++) entityIds.push(unsigned());
   }
+
   const length = count(2);
   const fullEntities: ReplicatedEntity[] = [];
 
   for (let index = 0; index < length; index++) fullEntities.push(record(0));
 
   if (offset !== bytes.length) return fail();
+
   return {
     type: flags & 1 ? 'load' : 'snapshot',
     serverTick,

@@ -1,8 +1,15 @@
 {
-  "extends": ["./.oxlint-format.json"],
   "plugins": ["import", "typescript", "unicorn", "oxc"],
+  "jsPlugins": ["./scripts/oxlint-layout.ts"],
   "categories": { "correctness": "warn" },
   "rules": {
+    "curly": ["error", "multi-line"],
+    "import/newline-after-import": [
+      "error",
+      { "count": 1, "considerComments": true }
+    ],
+    "local/statement-spacing": "error",
+    "local/multiline-doc-comments": "error",
     "eslint/no-unused-expressions": "off",
     "unicorn/no-empty-file": "off",
     "typescript/no-floating-promises": "off",

@@ -1,15 +1,3 @@
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/dynamics/Fixture.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import * as Vec from '../utilities/vector';
 
 import { AABB } from '../collision/axis-aligned-bounds';
@@ -151,8 +139,8 @@ export class Fixture {
       xf1 === xf2 ||
       (xf1.p.x === xf2.p.x &&
         xf1.p.y === xf2.p.y &&
-        xf1.q.s === xf2.q.s &&
-        xf1.q.c === xf2.q.c)
+        xf1.q.sin === xf2.q.sin &&
+        xf1.q.cos === xf2.q.cos)
     ) {
       this.m_shape.computeAABB(this.m_aabb, xf1);
     } else {

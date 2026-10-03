@@ -16,8 +16,10 @@ export const updateHornDrillSounds = ({
 
   for (const craft of crafts) {
     if (craft.dead) continue;
+
     craft.mounts.forEach((mount, mountIndex) => {
       if (!(mount.module instanceof HornDrill) || mount.health <= 0) return;
+
       craft.segmentsAtMount(mount).forEach((segment, segmentIndex) => {
         if (!segment.active) return;
         const key = `${craft.id}:${mountIndex}:${segmentIndex}`;

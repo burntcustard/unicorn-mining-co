@@ -2,8 +2,11 @@ import * as Vec from './utilities/vector';
 import { type Module } from './objects/modules/module';
 
 export type Point = number[];
+
 export type ShapeOutline = Point[] & { edges?: boolean[] };
+
 export type Shades = readonly string[];
+
 export type Pose = { position: Vec.Value; rotation: number };
 
 export type ModuleSegmentPlan = {

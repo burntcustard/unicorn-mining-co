@@ -1,5 +1,4 @@
 // Port of src/client/collision/shape/circle-circle-contact.ts.
-// Copyright (c) Erin Catto, Ali Shakiba (Planck.js), MIT. See LICENSE.
 package shape
 
 import (
@@ -14,9 +13,11 @@ func CollideCircles(manifold *collision.Manifold, a *CircleShape, xfA Vec.Transf
 	Vec.TransformInto(&pB, xfB, b.Position())
 	distSqr := Vec.DistanceSquared(pB, pA)
 	radius := a.Radius + b.Radius
+
 	if distSqr > radius*radius {
 		return
 	}
+
 	manifold.Type = "circles"
 	manifold.LocalPoint = a.Position()
 	manifold.LocalNormal = Vec.Vector{}

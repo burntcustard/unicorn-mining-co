@@ -26,6 +26,7 @@ export const replayTrajectory = ([
 
     const time = now / 1000;
     const tick = Math.floor(time / simulationStep);
+
     const endpoint = (time: number) => ({
       position: position(time),
       rotation: rotation(time),
@@ -35,12 +36,14 @@ export const replayTrajectory = ([
       ),
       spin: angularAcceleration * time,
     });
+
     const pose = interpolatePose({
       from: endpoint(tick * simulationStep),
       to: endpoint((tick + 1) * simulationStep),
       fraction: time / simulationStep - tick,
       dt: simulationStep,
     });
+
     const reference = position(time);
 
     if (frame > fps && previous && previousReference) {
@@ -60,9 +63,11 @@ export const replayTrajectory = ([
         ),
       );
     }
+
     previous = pose.position;
     previousReference = reference;
   }
+
   return {
     fps,
     acceleration,

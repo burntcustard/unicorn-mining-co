@@ -4,6 +4,7 @@ package protocol
 import Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 
 type SimulationEvent interface{ simulationEvent() }
+
 type AsteroidSplit struct {
 	AsteroidID int64
 	ChildIDs   []int64

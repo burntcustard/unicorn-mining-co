@@ -5,6 +5,7 @@ type ModuleSegmentState struct {
 	Active             float64 `json:"active"`
 	ActivationProgress float64 `json:"activationProgress"`
 }
+
 type ModuleState struct {
 	ID       *int64               `json:"id,omitempty"`
 	Type     int                  `json:"type"`

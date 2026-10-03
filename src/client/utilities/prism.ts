@@ -17,22 +17,27 @@ type Crossing = {
   length?: number;
   normal: Vec.Value;
 };
+
 type Ray = {
   at: Vec.Value;
   distance?: number;
   hit?: ShapeOutline;
   out?: Crossing;
 };
+
 type CompleteRay = Ray & {
   hit: ShapeOutline;
   out: Crossing & { away: Vec.Value; length: number };
 };
+
 export interface Beam {
   mask: Path2D;
   shapeOutlines: ShapeOutline[];
   rays: Ray[];
 }
+
 type Lamp = Segment;
+
 type Scenery = GameObject & { shapeOutline?: ShapeOutline; scenery?: boolean };
 
 const fillOf = (

@@ -9,16 +9,16 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - Use static imports for first-frame code and `import()` only for a concrete
   later trigger. Document loading-trigger changes in `docs/CHUNK_LOADING.md`.
 - Before adding or renaming serialized fields or app-owned properties, review
-  `plugins/property-names.js`. Add names Terser leaves long, one per line;
+  `plugins/property-names.ts`. Add names Terser leaves long, one per line;
   avoid native APIs; quoted import paths are protected by the source rewrite regex.
-- Before changing gameplay tag literals, review `plugins/protocol-tags.js` for
+- Before changing gameplay tag literals, review `plugins/protocol-tags.ts` for
   short client replacements. They do not encode Go protocol strings. Stable
-  wire IDs live in `src/definitions/protocol.ts`; run `npm run test:packets`
+  wire IDs live in `src/definitions/protocol.ts`; run `npm run test snapshot server-integration`
   when changing the wire contract.
 - Lazy modules expose a typed `default` API object, loaded as in `sound-loader`.
 - Test lazy features with separately emitted production chunks and exercise
   their real loader. A test that bundles both sides into one file does not
-  validate the boundary; see `tests/client/lazy-docked.test.mjs`.
+  validate the boundary; see `tests/client/lazy-docked.test.ts`.
 - After changing a lazy module boundary, inspect the production importer and
   imported chunk to confirm the API names agree, then exercise the
   loading trigger.

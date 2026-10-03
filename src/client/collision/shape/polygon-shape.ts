@@ -1,15 +1,3 @@
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/collision/shape/PolygonShape.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import * as Vec from '../../utilities/vector';
 import { AABBValue } from '../axis-aligned-bounds';
 import { TransformValue } from '../../utilities/vector-math';
@@ -184,8 +172,8 @@ export class PolygonShape extends Shape {
 
     for (let i = 0; i < this.m_count; ++i) {
       const v = this.m_vertices[i];
-      const x = xf.q.c * v.x - xf.q.s * v.y + xf.p.x;
-      const y = xf.q.s * v.x + xf.q.c * v.y + xf.p.y;
+      const x = xf.q.cos * v.x - xf.q.sin * v.y + xf.p.x;
+      const y = xf.q.sin * v.x + xf.q.cos * v.y + xf.p.y;
 
       minX = Math.min(minX, x);
       maxX = Math.max(maxX, x);

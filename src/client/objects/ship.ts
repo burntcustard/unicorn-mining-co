@@ -51,6 +51,7 @@ export class Ship extends Craft {
       ) {
         return;
       }
+
       const objects = ids.map((id) =>
         this.cargoContents.find((object) => object.id === id),
       );
@@ -77,6 +78,7 @@ export class Ship extends Craft {
       ) {
         return;
       }
+
       const module = new Type(
         action.moduleId === undefined ? {} : { id: action.moduleId },
       );
@@ -165,6 +167,7 @@ export class Ship extends Craft {
       })),
       ...properties,
     });
+
     this.definitionId = shipType === 'mustang' ? undefined : shipType;
   }
 
@@ -197,12 +200,14 @@ export class Ship extends Craft {
         return object;
       }
     }
+
     return {};
   }
 
   fly(forward: number, turn: number) {
     this.forward = forward;
     this.turn = turn;
+
     this.segments.forEach((segment) => {
       if (segment.module.forwardThrust) {
         segment.active =
@@ -252,6 +257,7 @@ export class Ship extends Craft {
       if (own?.segment?.module instanceof CargoHatch) {
         own.segment.module.collect({ ship: this, contact, events, world });
       }
+
       const hornDrill = own;
 
       if (
@@ -261,6 +267,7 @@ export class Ship extends Craft {
       ) {
         return;
       }
+
       const target = hornDrill === collider ? other : collider;
       const current = hornDrills.get(hornDrill.segment);
 
@@ -268,6 +275,7 @@ export class Ship extends Craft {
         hornDrills.set(hornDrill.segment, { contact, hornDrill, target });
       }
     });
+
     hornDrills.forEach(({ contact, hornDrill, target }) => {
       (hornDrill.segment!.module as HornDrill).drill({
         ship: this,
@@ -332,6 +340,7 @@ export class Ship extends Craft {
           worn,
           rotation: pose.rotation,
         });
+
         ctx.strokeStyle = segment.shades[2];
         drawSegment({ ctx, segment });
       },

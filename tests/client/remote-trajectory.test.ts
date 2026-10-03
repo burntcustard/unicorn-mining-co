@@ -46,6 +46,7 @@ for (const direction of [-1, 1]) {
     previous = position;
   }
 }
+
 console.log(
   'Accelerating remote flight follows its analytic path; collision reversals never overshoot',
 );

@@ -5,6 +5,7 @@ type Mount struct {
 	Fits          []string `json:"fits"`
 	LocalPosition Vector   `json:"localPosition"`
 }
+
 type HullSegment struct {
 	DisablePhysics bool     `json:"disablePhysics"`
 	DockSegment    bool     `json:"dockSegment"`
@@ -15,6 +16,7 @@ type HullSegment struct {
 	Core           bool     `json:"core"`
 	Mounts         []Mount  `json:"mounts"`
 }
+
 type Ship struct {
 	CargoSpace      int           `json:"cargoSpace"`
 	Drag            float64       `json:"drag"`

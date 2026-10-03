@@ -7,6 +7,7 @@ import type { ClientMessage } from '../../../src/client/protocol/network';
 
 const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
 const token = '01234567-89ab-cdef-0123-456789abcdef';
+
 const client: ClientMessage[] = [
   { type: 'hello', playerToken: null },
   { type: 'hello', playerToken: token },
@@ -40,6 +41,7 @@ const client: ClientMessage[] = [
   { type: 'respawn' },
   { type: 'snapshotAck', sequence: 16384 },
 ];
+
 const server = [
   {
     type: 'welcome' as const,

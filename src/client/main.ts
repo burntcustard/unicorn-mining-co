@@ -61,9 +61,11 @@ type Background = {
 };
 
 let gameStarted = false;
+
 const background = (
   globalThis as typeof globalThis & { background: Background }
 ).background;
+
 const renderSky = () =>
   background.renderBackground(
     game.canvas,
@@ -85,6 +87,7 @@ window.onresize = () => {
 };
 
 const regionalObjects = new Map<number, SimulationObject>();
+
 let stationMarkers: { position: Vec.Value; radius: number }[] = [];
 
 const materialize = ({ entity }: { entity: SimulationObject }) => {
@@ -110,6 +113,7 @@ const refreshReplication = () => {
       materialize({ entity });
     }
   });
+
   [...regionalObjects].forEach(([id, object]) => {
     if (!wanted.has(id)) {
       object.remove();
@@ -142,6 +146,7 @@ const debugWreck = new Ship({
   shades: colors.orange,
   position: Vec.add(playerShip.position, Vec.create(500)),
 }).addToScene();
+
 const debugNote = new Item(messageDefinition).addToScene();
 
 debugNote.message = 'REGION 0/0';
@@ -200,6 +205,7 @@ moduleControls.forEach(({ Type, input: action }) =>
     if (Type === SearchLight) playSound(9);
   }),
 );
+
 bindAction(
   defaultKeybindings.menuLeft,
   () => playerShip.dockedTo && moveSubSelection(-1, playerShip),
@@ -232,12 +238,14 @@ bindDebug(game);
 const gameLoop = GameLoop({
   render: ({ dt, now }) => {
     const predicted = network.predictFrame({ now });
+
     const remotePoses = network.remoteMotion.sample({
       now,
       world: network.world,
       predicted,
       shipId: network.shipId,
     });
+
     const predictedPlayerShip = predicted.entities.get(playerShip.id);
     const renderedShip =
       predictedPlayerShip instanceof Ship ? predictedPlayerShip : playerShip;
@@ -333,6 +341,7 @@ const gameLoop = GameLoop({
       sprites: activeSprites,
       ship: renderedShip,
     });
+
     renderDebugDemos(game);
     // @endif
 
@@ -350,12 +359,14 @@ const gameLoop = GameLoop({
     if (network.updateFrame({ input: playerInput, dt, now })) {
       refreshReplication();
       syncPlayerShip();
+
       presentEvents({
         events: network.takeEvents(),
         onMessage: readSlate,
         playerId: network.playerId,
       });
     }
+
     syncSimulationObjects(dt);
 
     // Things that happen at 15 Hz, or as soon as sprites
@@ -401,6 +412,7 @@ setTimeout(() => {
       // Keep the camera transition clear before bringing the HUD into view.
       setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
     }
+
     gameStarted = true;
     gameLoop.start();
   });

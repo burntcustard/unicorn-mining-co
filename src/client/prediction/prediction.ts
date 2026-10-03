@@ -112,6 +112,7 @@ const applyEntity = ({
     entity.pointCount = server.pointCount;
     entity.radiusEven = server.radiusEven;
     entity.shapeOutline = server.shapeOutline?.map(([x, y]) => [x, y]);
+
     entity.segments = server.segments?.map((asteroidSegment) => ({
       ...asteroidSegment,
       contents: [...asteroidSegment.contents],
@@ -139,6 +140,7 @@ const applyEntity = ({
       entity.segments = copied.segments;
       entity.cockpit = undefined;
     } else entity.hullHealth = [...server.hullHealth];
+
     entity.moduleStates = server.moduleStates;
     const modules = entity.modules;
 
@@ -150,9 +152,11 @@ const applyEntity = ({
     entity.launching = server.launching;
     entity.paint = server.paint;
     entity.shades = server.shades;
+
     entity.segments.forEach((segment) => {
       if (segment.hull) segment.shades = segment.module.shades || server.shades;
     });
+
     entity.playerId = server.playerId;
 
     if (entity instanceof Ship && server instanceof Ship) {
@@ -193,6 +197,7 @@ export class PredictionManager {
       [...this.world.entities.keys()].forEach((id) => {
         if (!replicated.has(id)) this.world.entities.delete(id);
       });
+
       entities.forEach((server) => {
         const entity = this.world.entities.get(server.id);
 
@@ -207,12 +212,14 @@ export class PredictionManager {
           restored.random = this.world.random;
           this.world.entities.set(server.id, restored);
         }
+
         this.world.nextEntityId = Math.max(
           this.world.nextEntityId,
           server.id + 1,
         );
       });
     }
+
     const updated = (entities || [])
       .filter((entity) => entity.id !== exclude)
       .map((entity) => this.world.entities.get(entity.id))
@@ -254,6 +261,7 @@ export class PredictionManager {
         valueTick = inputTick;
       }
     });
+
     return { input: value, changes: this.localInputs.get(tick) || [] };
   }
 
@@ -291,6 +299,7 @@ export class PredictionManager {
     if (nextEntityId !== undefined) {
       this.world.nextEntityId = Math.max(this.world.nextEntityId, nextEntityId);
     }
+
     const reservedNextEntityId = this.world.nextEntityId;
 
     this.frame.reset();
@@ -301,6 +310,7 @@ export class PredictionManager {
       this.applyServerState({ entities, entityIds, entityTicks });
       return;
     }
+
     const state = tick <= targetTick ? this.history.get(tick) : undefined;
 
     if (!state) {
@@ -308,6 +318,7 @@ export class PredictionManager {
         this.world.tick = tick;
         this.reset();
       }
+
       // An old snapshot must still reach our current tick. Keep newer history:
       // clearing it here can prevent every subsequent snapshot from matching.
       this.applyServerState({
@@ -316,6 +327,7 @@ export class PredictionManager {
         entityTicks,
         catchUp: Math.max(0, targetTick - tick),
       });
+
       return;
     }
 
@@ -326,6 +338,7 @@ export class PredictionManager {
         entity.playerId === this.localPlayerId,
     );
     const predicted = own && state.entities.get(own.id);
+
     // A corrected neighbour can change our next contact even if our own
     // checkpoint matches. Replay that interaction through shared physics.
     const neighbourChanged =
@@ -343,6 +356,7 @@ export class PredictionManager {
         ) {
           return false;
         }
+
         const before = state.entities.get(entity.id);
 
         return (
@@ -367,6 +381,7 @@ export class PredictionManager {
         exclude: own?.id,
         catchUp: targetTick - tick,
       });
+
       this.discardBefore({ tick });
       return;
     }
@@ -428,6 +443,7 @@ export class PredictionManager {
     while (this.world.tick < targetTick) {
       this.simulate({ tick: this.world.tick });
     }
+
     this.trim();
   }
 

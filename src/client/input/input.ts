@@ -67,6 +67,7 @@ export const initKeys = ({
     if (matchesBinding(defaultKeybindings.shieldGenerator, key)) {
       playerInput.shieldGenerator = !playerInput.shieldGenerator;
     }
+
     notify(previous);
     callbacks.get(key)?.(event);
   };

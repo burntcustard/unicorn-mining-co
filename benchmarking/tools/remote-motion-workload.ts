@@ -11,6 +11,7 @@ export const motionFixture = ([players, scenario, seconds = 30]: [
   number?,
 ]) => {
   const world = createWorld();
+
   const entities = Array.from({ length: players + 32 }, (_, index) =>
     addEntity(
       world,
@@ -22,9 +23,12 @@ export const motionFixture = ([players, scenario, seconds = 30]: [
       }),
     ),
   );
+
   const entityIds = entities.map((entity) => entity.id);
+
   const packets: { at: number; tick: number; entities: ReplicatedEntity[] }[] =
     [];
+
   let previous = -Infinity;
   let seed = 25;
   const interval = scenario === 'slow' ? 3 : 1;
@@ -41,9 +45,11 @@ export const motionFixture = ([players, scenario, seconds = 30]: [
     if (scenario === 'outage' && tick >= 300 && tick < 330) {
       delay += ((330 - tick) * 1000) / 30;
     }
+
     const at = Math.max(previous + 0.001, (tick * 1000) / 30 + delay);
 
     previous = at;
+
     packets.push({
       at,
       tick,
@@ -59,6 +65,7 @@ export const motionFixture = ([players, scenario, seconds = 30]: [
         })),
     });
   }
+
   return { world, entityIds, packets, seconds };
 };
 
@@ -109,8 +116,10 @@ export const replayMotion = (
       previousSpeed = speed;
       samples++;
     }
+
     last = pose.position.x;
   }
+
   return {
     checksum,
     stalls,

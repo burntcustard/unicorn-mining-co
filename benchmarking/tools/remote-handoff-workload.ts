@@ -69,9 +69,11 @@ export const replayHandoff = ([
 
       if (movement < -1e-8) backwards++;
     }
+
     last = position;
     lastAdvance = movement;
   }
+
   return {
     speed,
     separation,

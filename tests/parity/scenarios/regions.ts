@@ -18,14 +18,17 @@ const regions = [0, 25, 4294967295].flatMap((worldSeed) =>
     }),
   ),
 );
+
 const from = Vec.create(-50000, -50000);
 const to = Vec.create(50000, 50000);
+
 const stations = [0, 25, 4294967295].map((worldSeed) => ({
   worldSeed,
   from,
   to,
   stations: generateStations({ worldSeed, from, to }),
 }));
+
 const messages = [Vec.create(1000000, -2000000), Vec.create(-0, 3)].map(
   (position) => ({
     position,

@@ -66,6 +66,7 @@ type Field = {
 
 type WreckCandidate = Omit<WreckDescription, 'clueField'>;
 type Feature = Field | StationDescription | WreckCandidate;
+
 type RegionCandidates = Omit<RegionDescription, 'wrecks'> & {
   wrecks: WreckCandidate[];
 };
@@ -270,6 +271,7 @@ const nearestRichField = ({
       from: Vec.add(position, Vec.create(-range, -range)),
       to: Vec.add(position, Vec.create(range, range)),
     }).filter(({ resource }) => resource < 3);
+
     const nearest = richFields.reduce<Field | undefined>(
       (closest, field) =>
         !closest ||
@@ -283,6 +285,7 @@ const nearestRichField = ({
     if (nearest && Vec.distance(nearest.position, position) <= range) {
       return nearest;
     }
+
     range *= 2;
   }
 };
@@ -363,18 +366,21 @@ const generateCandidates = ({
   if (cached) return cached;
   const from = Vec.scale(region, regionSize);
   const to = Vec.add(from, Vec.create(regionSize, regionSize));
+
   const stations = featuresWithin({
     worldSeed,
     from,
     to,
     kind: stationFeature,
   }) as StationDescription[];
+
   const wrecks = featuresWithin({
     worldSeed,
     from,
     to,
     kind: wreckFeature,
   }) as WreckCandidate[];
+
   const fields = generateFields({
     worldSeed,
     from: Vec.add(
@@ -392,6 +398,7 @@ const generateCandidates = ({
       ),
     ),
   });
+
   const asteroids = fields.flatMap((field) => {
     const seed = mix(regionSeed({ worldSeed, region }) ^ field.id);
     const random = createRandom(seed);
@@ -422,6 +429,7 @@ const generateCandidates = ({
       break;
     }
   }
+
   return candidates;
 };
 
@@ -438,6 +446,7 @@ export const generateRegion = ({
   region: Vec.Value;
 }): RegionDescription => {
   const current = generateCandidates({ worldSeed, region });
+
   const nearby = [-1, 0, 1].flatMap((y) =>
     [-1, 0, 1].map((x) =>
       x || y
@@ -448,16 +457,19 @@ export const generateRegion = ({
         : current,
     ),
   );
+
   const obstacles = nearby.flatMap(({ stations, wrecks }) => [
     ...stations,
     ...wrecks,
   ]);
+
   const overlaps = (
     asteroid: AsteroidDescription,
     other: { position: Vec.Value; radius: number },
   ) =>
     Vec.distance(asteroid.position, other.position) <
     asteroid.radius + other.radius + asteroidSpacing;
+
   const candidates = nearby
     .flatMap(({ asteroids }) => asteroids)
     .filter(

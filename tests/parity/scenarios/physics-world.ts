@@ -9,12 +9,14 @@ import '../../../src/client/collision/shape/polygon-polygon-contact';
 
 const scenarios = [4, 8, 16].map((count) => {
   const world = new World();
+
   const bodies = Array.from({ length: count }, (_, index) => {
     const body = world.createBody();
 
     body.setMass(10 + index, 300 + index * 30);
     return body;
   });
+
   const makeShape = (index: number) =>
     index % 3 === 0
       ? new CircleShape(Vec.create(1, -1), 8)
@@ -24,12 +26,14 @@ const scenarios = [4, 8, 16].map((count) => {
           Vec.create(8, 6),
           Vec.create(-8, 6),
         ]);
+
   const fixtures = bodies.map((body, index) =>
     body.createFixture(makeShape(index), {
       userData: index + 1,
       physics: index % 7 !== 6,
     }),
   );
+
   const poses: object[] = [];
   let events: object[] = [];
 
@@ -87,6 +91,7 @@ const scenarios = [4, 8, 16].map((count) => {
         c.getFixtureB().getUserData() as number,
       ]);
     }
+
     poses.push({
       bodies: bodies.map((body) => ({
         position: Vec.clone(body.getPosition()),
@@ -98,6 +103,7 @@ const scenarios = [4, 8, 16].map((count) => {
       events,
     });
   }
+
   return { count, poses };
 });
 

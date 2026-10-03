@@ -1,5 +1,4 @@
 // Port of src/client/physics/fixture.ts.
-// Copyright (c) Erin Catto, Ali Shakiba (Planck.js), MIT. See LICENSE.
 package physics
 
 import (
@@ -13,6 +12,7 @@ type FixtureOpt struct {
 	UserData any
 	Physics  *bool
 }
+
 type Fixture struct {
 	Body        *Body
 	Physics     bool
@@ -27,26 +27,33 @@ type Fixture struct {
 
 func newFixture(body *Body, s shape.Shape, definition FixtureOpt) *Fixture {
 	physics := true
+
 	if definition.Physics != nil {
 		physics = *definition.Physics
 	}
+
 	return &Fixture{Body: body, Physics: physics, Shape: s, Geometry: s.Base(), UserData: definition.UserData}
 }
+
 func (f *Fixture) CreateProxies(broad *collision.BroadPhase[*Fixture], xf Vec.TransformValue) {
 	f.Geometry.ComputeAABB(&f.aabb, xf)
 	f.Proxy = broad.CreateProxy(f.aabb, f)
 }
+
 func (f *Fixture) DestroyProxies(broad *collision.BroadPhase[*Fixture]) {
 	if f.Proxy == nil {
 		return
 	}
+
 	broad.DestroyProxy(f.Proxy)
 	f.Proxy = nil
 }
+
 func (f *Fixture) Synchronize(broad *collision.BroadPhase[*Fixture], from, to Vec.TransformValue, motion float64) {
 	if f.Proxy == nil || motion < f.ProxyMargin {
 		return
 	}
+
 	if from == to {
 		f.Geometry.ComputeAABB(&f.aabb, from)
 	} else {
@@ -55,13 +62,16 @@ func (f *Fixture) Synchronize(broad *collision.BroadPhase[*Fixture], from, to Ve
 		f.Geometry.ComputeAABB(&b, to)
 		f.aabb.Combine(a, b)
 	}
+
 	displacement := Vec.Subtract(to.P, from.P)
 	broad.MoveProxy(f.Proxy, f.aabb, displacement)
+
 	if motion < math.Inf(1) {
 		fat, box := f.Proxy.AABB, f.aabb
 		f.ProxyMargin = motion + 0.9*min(min(box.LowerBound.X-fat.LowerBound.X, box.LowerBound.Y-fat.LowerBound.Y), min(fat.UpperBound.X-box.UpperBound.X, fat.UpperBound.Y-box.UpperBound.Y))
 	}
 }
+
 func (f *Fixture) ShouldCollide(that *Fixture) bool {
 	a, _ := f.UserData.(*collision.Collider)
 	b, _ := that.UserData.(*collision.Collider)

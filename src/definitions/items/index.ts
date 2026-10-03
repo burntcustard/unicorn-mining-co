@@ -12,6 +12,7 @@ export const itemIds = [
   'opal',
   'message',
 ] as const;
+
 export type ItemId = (typeof itemIds)[number];
 export const itemDefinitions = { diamond, amethyst, gold, opal, message };
 

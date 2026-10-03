@@ -144,6 +144,7 @@ export class GameCollisions {
 
   constructor() {
     this.world.limitCollisionNeighbors = true;
+
     this.world.onPreSolve((contact) => {
       const a = contact.getFixtureA().getUserData() as Collider;
       const b = contact.getFixtureB().getUserData() as Collider;
@@ -211,6 +212,7 @@ export class GameCollisions {
       this.free = new Uint8Array(count * 2);
       this.bounds = new Float64Array(count * 8);
     }
+
     const { bounds, free, sortOrder: order } = this;
     // Reuse last step's order when the population is unchanged: it is
     // nearly sorted, so insertion sort finishes in about one pass.
@@ -245,6 +247,7 @@ export class GameCollisions {
           order[j + 1] = order[j];
           j--;
         }
+
         order[j + 1] = item;
       }
     } else order.sort((a, b) => bounds[a * 4] - bounds[b * 4]);
@@ -266,6 +269,7 @@ export class GameCollisions {
         }
       }
     }
+
     return free;
   }
 
@@ -294,6 +298,7 @@ export class GameCollisions {
         sweepStart: entity,
         radius: 0,
       };
+
       this.bodies.set(entity.id, record);
     }
 
@@ -362,6 +367,7 @@ export class GameCollisions {
       ) {
         record.syncPending = true;
       } else record = this.sync(entity);
+
       const start =
         (previous ? previous.get(entity.id) : record.previous) || entity;
       const velocity = record.velocity;
@@ -370,10 +376,12 @@ export class GameCollisions {
         Vec.subtract(entity.position, start.position, velocity);
         Vec.scale(velocity, 1 / dt, velocity);
       } else Vec.setXY(velocity, 0, 0);
+
       record.spin = dt ? (entity.rotation - start.rotation) / dt : 0;
       record.sweepStart = start;
       motions.push(record);
     }
+
     const free = this.findFree(motions);
 
     for (let index = 0; index < motions.length; index++) {
@@ -395,6 +403,7 @@ export class GameCollisions {
         this.syncDetailed(record.deferred, record, record.geometrySource);
         record.deferred = undefined;
       }
+
       body.setTransform(start.position, start.rotation);
       body.setLinearVelocity(record.velocity);
       body.setAngularVelocity(record.spin);
@@ -409,6 +418,7 @@ export class GameCollisions {
 
       if (!record.body.m_parked) markBallistic(record);
     }
+
     this.contacts.forEach(({ collider, other }) => {
       this.touched(collider.owner);
       this.touched(other.owner);
@@ -449,11 +459,13 @@ export class GameCollisions {
             vx *= ratio;
             vy *= ratio;
           }
+
           const rotation = dt * w;
 
           if (rotation * rotation > maxRotation * maxRotation) {
             w *= maxRotation / Math.abs(rotation);
           }
+
           Vec.setXY(
             entity.position,
             start.position.x + vx * dt,
@@ -464,9 +476,11 @@ export class GameCollisions {
           entity.velocity.y += vy - velocity.y;
           entity.spin += w - spin;
         } else Vec.set(entity.position, start.position);
+
         entity.rotation = angle;
         continue;
       }
+
       const position = body.getPosition();
       const resolved = body.getLinearVelocity();
 
@@ -547,9 +561,11 @@ export class GameCollisions {
         record.deferred = entity;
         return record;
       }
+
       record.deferred = undefined;
       return this.syncDetailed(entity, record, geometrySource);
     }
+
     return this.syncDetailed(entity, record);
   }
 
@@ -596,6 +612,7 @@ export class GameCollisions {
       value === previous[index] || Math.round(value * 1e6) === rounded[index];
     const inverseSin = Math.sin(-entity.rotation);
     const inverseCos = Math.cos(-entity.rotation);
+
     const unchanged =
       matches(entity.mass, 0) &&
       matches(entity.angularInertiaScale, 1) &&
@@ -673,13 +690,16 @@ export class GameCollisions {
         starts.push(at);
         at += 2 + ((values[at] >> 4) * 2 || 3);
       }
+
       return starts;
     };
+
     const oldStarts =
       previous.length > 2 && matches(geometry[0], 0) && matches(geometry[1], 1)
         ? slices(previous)
         : ([] as number[]);
     const newStarts = slices(geometry);
+
     const kept = colliders.map((_, index) => {
       const fixture = record.fixtures[index];
       const from = oldStarts[index];
@@ -697,6 +717,7 @@ export class GameCollisions {
       for (let offset = 0; offset < length; offset++) {
         if (!matches(geometry[to + offset], from + offset)) return undefined;
       }
+
       return fixture;
     });
 
@@ -711,6 +732,7 @@ export class GameCollisions {
         fixture.setUserData(collider);
         return fixture;
       }
+
       cursor = newStarts[index] + 2;
       const point = () => Vec.create(geometry[cursor++], geometry[cursor++]);
       const shape = collider.shapeOutline
@@ -725,6 +747,7 @@ export class GameCollisions {
         userData: collider,
       });
     });
+
     record.geometry = geometry;
     record.roundedGeometry = geometry.map((value) => Math.round(value * 1e6));
     record.radius = Math.max(

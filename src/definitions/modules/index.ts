@@ -27,7 +27,9 @@ export const moduleIds = [
   'hornDrill',
   'shieldGenerator',
 ] as const;
+
 export type ModuleId = (typeof moduleIds)[number];
+
 export const moduleDefinitions = {
   thrusterSingle,
   thrusterDualMd,

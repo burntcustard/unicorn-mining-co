@@ -1,17 +1,5 @@
 import { physics } from '../../definitions/physics';
 
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/dynamics/Solver.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import * as Vec from '../utilities/vector';
 import { linearSlop } from '../../definitions/physics';
 import { Body } from './body';
@@ -43,6 +31,7 @@ const s_subStep = new TimeStep();
 const c = Vec.create();
 const v = Vec.create();
 const translation = Vec.create();
+
 const input: TOIInput = {
   proxyA: undefined!,
   proxyB: undefined!,
@@ -50,6 +39,7 @@ const input: TOIInput = {
   sweepB: new Sweep(),
   tMax: 1,
 };
+
 const output: TOIOutput = { touching: false, t: -1 };
 const backup = new Sweep();
 const backup1 = new Sweep();
@@ -221,6 +211,7 @@ export class Solver {
 
         minSeparation = Math.min(minSeparation, separation);
       }
+
       // We can't expect minSpeparation >= -linearSlop because we don't
       // push the separation above -linearSlop.
       const contactsOkay = minSeparation >= -3 * linearSlop;
@@ -270,6 +261,7 @@ export class Solver {
 
         minSeparation = Math.min(minSeparation, separation);
       }
+
       // We can't expect minSpeparation >= -linearSlop because we don't
       // push the separation above -linearSlop.
       const contactsOkay = minSeparation >= -1.5 * linearSlop;
@@ -427,6 +419,7 @@ export class Solver {
           if (other.m_islandFlag) {
             continue;
           }
+
           stack.push(other);
           other.m_islandFlag = true;
         }
@@ -434,6 +427,7 @@ export class Solver {
 
       this.solveIsland(step);
     }
+
     this.clear();
     this.m_bodies = isolated;
 

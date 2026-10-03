@@ -11,6 +11,7 @@ const broad = new BroadPhase();
 const world = new World();
 const owners = Array.from({ length: 8 }, () => world.createBody());
 const proxies = new Map<number, ReturnType<BroadPhase['createProxy']>>();
+
 const box = (x: number, y: number, radius: number) => {
   const bounds = new AABB();
 
@@ -28,7 +29,9 @@ type Operation = {
   nested?: AABB;
   limit?: number;
 };
+
 const records: object[] = [];
+
 const run = (op: Operation) => {
   const pairs: unknown[] = [];
   const hits: number[] = [];
@@ -75,12 +78,15 @@ const run = (op: Operation) => {
               return true;
             });
           }
+
           return !op.limit || hits.length < op.limit;
         },
         op.owner === undefined ? undefined : owners[op.owner],
       );
+
       break;
   }
+
   records.push({
     ...op,
     pairs,
@@ -104,16 +110,19 @@ for (let id = 1; id <= 12; id++) {
     bounds: box(id, 0, 20),
   });
 }
+
 run({ kind: 'buffer', id: 3 });
 run({ kind: 'buffer', id: 3 });
 run({ kind: 'destroy', id: 3 });
 run({ kind: 'pairs' });
+
 run({
   kind: 'query',
   bounds: box(0, 0, 100),
   nested: box(0, 0, 100),
   limit: 3,
 });
+
 let nextId = 13;
 
 for (let tick = 0; tick < 400; tick++) {
@@ -142,5 +151,6 @@ for (let tick = 0; tick < 400; tick++) {
     });
   }
 }
+
 run({ kind: 'pairs' });
 export default records;

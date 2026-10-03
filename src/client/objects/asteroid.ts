@@ -68,6 +68,7 @@ export const shapeOutlineOf = (asteroid: Asteroid) => {
     if (shapeOutlines.size > 5000) shapeOutlines.clear();
     shapeOutlines.set(key, shapeOutline);
   }
+
   return withoutCollinearPoints(shapeOutline);
 };
 
@@ -132,6 +133,7 @@ const segmentsOf = ({
   const shapeOutlines = Array.from({ length: segmentsPerFace }, (_, corner) =>
     leaves.map((leaf) => leaf[corner]),
   ).flat();
+
   const segments: AsteroidSegment[] = shapeOutlines.map((asteroidSegment) => ({
     contents: [] as number[],
     health: asteroidSegmentHealth,
@@ -139,6 +141,7 @@ const segmentsOf = ({
     maxHealth: asteroidSegmentHealth,
     shapeOutline: asteroidSegment.map(roundPoint),
   }));
+
   const empty = [...segments];
 
   contents.forEach((resource) => {
@@ -146,6 +149,7 @@ const segmentsOf = ({
 
     (empty.splice(index, 1)[0] || segments[0]).contents.push(resource);
   });
+
   return segments;
 };
 
@@ -167,6 +171,7 @@ const shapeOutlinesFromMarked = (segments: AsteroidSegment[]) => {
         : [],
     );
   });
+
   const shapeOutlines: number[][][] = [];
 
   while (outer.length) {
@@ -200,8 +205,10 @@ const shapeOutlinesFromMarked = (segments: AsteroidSegment[]) => {
       shapeOutline.push(at);
       edge = outer.splice(nextIndex, 1)[0];
     }
+
     shapeOutlines.push(withoutCollinearPoints(shapeOutline));
   }
+
   return shapeOutlines;
 };
 
@@ -223,6 +230,7 @@ export const centerOf = (shapeOutline: number[][]) => {
     x += (atX + nextX) * cross;
     y += (atY + nextY) * cross;
   });
+
   return Vec.create(x / (area * 3), y / (area * 3));
 };
 
@@ -241,6 +249,7 @@ const detachSegment = ({
   const groups = [[asteroidSegment], ...groupsOf(remaining)];
 
   asteroid.remove();
+
   const children = groups.map((group) => {
     const shapeOutline =
       group.length === 1
@@ -253,11 +262,13 @@ const detachSegment = ({
     const local = ([x, y]: number[]) =>
       roundPoint([x - center.x, y - center.y]);
     const childShapeOutline = shapeOutline.map(local);
+
     const childSegments = group.map((asteroidSegment) => ({
       ...asteroidSegment,
       contents: [...asteroidSegment.contents],
       shapeOutline: asteroidSegment.shapeOutline.map(local),
     }));
+
     const contents = group.flatMap(
       (asteroidSegment) => asteroidSegment.contents,
     );
@@ -266,6 +277,7 @@ const detachSegment = ({
       0,
     );
     const radius = radiusOf(childShapeOutline);
+
     const child = createAsteroid(world, {
       contents,
       decay: group.length === 1 && !contents.length ? 6 : undefined,
@@ -288,6 +300,7 @@ const detachSegment = ({
 
     return addEntity(world, child.lockGeometry());
   });
+
   const force = 3 / children.reduce((sum, child) => sum + 1 / child.mass, 0);
   const spin = ((createRandom(asteroid.id).next() - 0.5) * force) / 3;
 
@@ -306,6 +319,7 @@ const detachSegment = ({
     // Only loose chips tumble. The connected remainder keeps its parent's spin.
     if (groups[index].length === 1) child.spin += spin / child.mass;
   });
+
   return children;
 };
 
@@ -444,11 +458,14 @@ const segmentColliders = new WeakMap<
   Asteroid,
   { geometrySource?: object; colliders: AsteroidCollider[] }
 >();
+
 const lockedGeometry = new WeakSet<object>();
+
 const lockedSegments = new WeakMap<
   AsteroidSegment[],
   { segments: AsteroidSegment[]; source: object }
 >();
+
 const collisionOutlines = new WeakMap<number[][], number[][]>();
 const fixedProperty = { writable: false, configurable: false };
 
@@ -567,6 +584,7 @@ export class Asteroid extends GameObject {
   // Farthest collision vertex from the origin, without cutting new rock.
   get extent() {
     let extent = 0;
+
     const measure = ([x, y]: number[]) => {
       extent = Math.max(extent, Math.sqrt(x * x + y * y));
     };
@@ -578,6 +596,7 @@ export class Asteroid extends GameObject {
         shapeOutline.forEach(measure),
       );
     }
+
     return extent;
   }
 
@@ -596,6 +615,7 @@ export class Asteroid extends GameObject {
 
     if (this.health < 1) {
       this.remove();
+
       this.contents.forEach((resource) =>
         addEntity(
           world,
@@ -607,6 +627,7 @@ export class Asteroid extends GameObject {
           }),
         ),
       );
+
       events.push({
         type: 'asteroidDestroyed',
         asteroidId: this.id,
@@ -622,6 +643,7 @@ export class Asteroid extends GameObject {
         childIds: children.map((child) => child.id),
       });
     } else return false;
+
     return true;
   }
 
@@ -630,6 +652,7 @@ export class Asteroid extends GameObject {
     if (this.uncutContents) {
       return this.uncutLocked ? this.uncutContents : undefined;
     }
+
     const segments = this.segmentList;
 
     if (segments?.length) {
@@ -640,6 +663,7 @@ export class Asteroid extends GameObject {
         ? locked.source
         : undefined;
     }
+
     return this.shapeOutline && lockedGeometry.has(this.shapeOutline)
       ? this.shapeOutline
       : undefined;
@@ -663,6 +687,7 @@ export class Asteroid extends GameObject {
         colliders.forEach(Object.freeze);
         Object.freeze(colliders);
       }
+
       segmentColliders.set(this, { geometrySource: source, colliders });
       return colliders;
     }
@@ -691,6 +716,7 @@ export class Asteroid extends GameObject {
         collisionOutlines.set(shapeOutline, collisionShapeOutline);
       }
     }
+
     const colliders = [
       new AsteroidCollider({
         owner: this,
@@ -703,6 +729,7 @@ export class Asteroid extends GameObject {
       Object.freeze(colliders);
       segmentColliders.set(this, { geometrySource: source, colliders });
     }
+
     return colliders;
   }
 
@@ -724,6 +751,7 @@ export class Asteroid extends GameObject {
     }
 
     if (this.shapeOutline) lock(this.shapeOutline);
+
     this.segments?.forEach((segment) => {
       lock(segment.shapeOutline);
       Object.defineProperty(segment, 'shapeOutline', fixedProperty);
@@ -734,6 +762,7 @@ export class Asteroid extends GameObject {
 
       lockedSegments.set(this.segments, { segments, source: segments });
     }
+
     return this;
   }
 
@@ -741,6 +770,7 @@ export class Asteroid extends GameObject {
     const segments = this.segments || [
       { shapeOutline: shapeOutlineOf(this), contents: this.contents },
     ];
+
     const key = JSON.stringify([
       shapeOutlineOf(this),
       segments.map(({ shapeOutline, contents }) => ({
@@ -748,6 +778,7 @@ export class Asteroid extends GameObject {
         contents,
       })),
     ]);
+
     let state = presentationCache.get(this);
 
     if (!state || state.key !== key) {
@@ -759,6 +790,7 @@ export class Asteroid extends GameObject {
       shapeOutlines.forEach((shapeOutline) =>
         path.addPath(shapePath(shapeOutline)),
       );
+
       state = {
         key,
         path,
@@ -772,8 +804,10 @@ export class Asteroid extends GameObject {
             })),
           ) || [],
       };
+
       presentationCache.set(this, state);
     }
+
     this.renderContents = state.buried.map(
       ({ item, localPosition, rotation }) => {
         Vec.set(
@@ -784,6 +818,7 @@ export class Asteroid extends GameObject {
         return item;
       },
     );
+
     return state;
   }
 
@@ -814,6 +849,7 @@ export class Asteroid extends GameObject {
 
       this.uncutContents = undefined;
       this.uncutLocked = false;
+
       this.segmentList = segmentsOf({
         contents,
         health: this.uncutHealth,
@@ -829,6 +865,7 @@ export class Asteroid extends GameObject {
         lockedSegments.get(this.segmentList)!.source = contents;
       }
     }
+
     return this.segmentList;
   }
 

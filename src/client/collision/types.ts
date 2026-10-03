@@ -54,5 +54,6 @@ export const outlineColorOf = (collider: Collider): string => {
   if (owner.kind === 'asteroid') {
     return owner.resource === 1 ? colors.violet[2] : colors.white[2];
   }
+
   return owner.shades?.[2] || colors.white[2];
 };

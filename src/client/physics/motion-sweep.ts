@@ -1,16 +1,4 @@
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/common/Sweep.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
-import * as matrix from '../utilities/vector-math';
+import { sinCos } from '../utilities/sin-cos';
 import * as Vec from '../utilities/vector';
 import { TransformValue } from '../utilities/vector-math';
 
@@ -28,7 +16,7 @@ export class Sweep {
   c = Vec.create();
   c0 = Vec.create();
   cosA0 = 1;
-  private rotation = { s: 0, c: 1 };
+  private rotation = { sin: 0, cos: 1 };
   sinA0 = 0;
   private trigAngle = NaN;
 
@@ -52,7 +40,7 @@ export class Sweep {
    * @param beta A factor in [0,1], where 0 indicates alpha0
    */
   getTransform(xf: TransformValue, beta: number): void {
-    matrix.setRotAngle(xf.q, (1 - beta) * this.a0 + beta * this.a);
+    sinCos(xf.q, (1 - beta) * this.a0 + beta * this.a);
     Vec.combine2Into(xf.p, 1 - beta, this.c0, beta, this.c);
   }
 
@@ -71,10 +59,11 @@ export class Sweep {
   rotation0(): this {
     if (this.trigAngle !== this.a0) {
       this.trigAngle = this.a0;
-      matrix.setRotAngle(this.rotation, this.a0);
-      this.cosA0 = this.rotation.c;
-      this.sinA0 = this.rotation.s;
+      sinCos(this.rotation, this.a0);
+      this.cosA0 = this.rotation.cos;
+      this.sinA0 = this.rotation.sin;
     }
+
     return this;
   }
 
@@ -90,6 +79,6 @@ export class Sweep {
     Vec.set(this.c, xf.p);
     Vec.set(this.c0, xf.p);
 
-    this.a = this.a0 = Math.atan2(xf.q.s, xf.q.c);
+    this.a = this.a0 = Math.atan2(xf.q.sin, xf.q.cos);
   }
 }

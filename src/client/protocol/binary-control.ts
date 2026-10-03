@@ -36,6 +36,7 @@ class ControlWriter {
     if (!Number.isFinite(value)) {
       throw new RangeError('Invalid binary control number');
     }
+
     this.numberView.setFloat64(0, value || 0, true);
     this.bytes.push(...this.numberBytes);
   }
@@ -44,6 +45,7 @@ class ControlWriter {
     if (!Number.isSafeInteger(value)) {
       throw new RangeError('Invalid binary control integer');
     }
+
     let encoded = value < 0 ? -BigInt(value) * 2n - 1n : BigInt(value) * 2n;
 
     do {
@@ -71,6 +73,7 @@ class ControlWriter {
     if (!isPlayerToken(value)) {
       throw new RangeError('Invalid binary control token');
     }
+
     const digits = value.replaceAll('-', '');
 
     for (let index = 0; index < 32; index += 2) {
@@ -89,6 +92,7 @@ class ControlReader {
     if (this.offset >= this.bytes.length) {
       throw new Error('Invalid binary control');
     }
+
     return this.bytes[this.offset++];
   }
 
@@ -103,6 +107,7 @@ class ControlReader {
     if (this.byte() !== 0x55 || this.byte() !== 0x43 || this.byte() !== 1) {
       throw new Error('Invalid binary control');
     }
+
     this.type = this.byte();
   }
 
@@ -116,6 +121,7 @@ class ControlReader {
     if (this.bytes.length - this.offset < 8) {
       throw new Error('Invalid binary control');
     }
+
     const value = this.view.getFloat64(this.offset, true);
 
     this.offset += 8;
@@ -144,10 +150,13 @@ class ControlReader {
         ) {
           throw new Error('Invalid binary control');
         }
+
         return Number(decoded);
       }
+
       place *= 128n;
     }
+
     throw new Error('Invalid binary control');
   }
 
@@ -162,14 +171,17 @@ class ControlReader {
       if (digit > Math.floor((Number.MAX_SAFE_INTEGER - value) / place)) {
         throw new Error('Invalid binary control');
       }
+
       value += digit * place;
 
       if (!(part & 128)) {
         if (index && !digit) throw new Error('Invalid binary control');
         return value;
       }
+
       place *= 128;
     }
+
     throw new Error('Invalid binary control');
   }
 
@@ -177,6 +189,7 @@ class ControlReader {
     if (this.bytes.length - this.offset < 16) {
       throw new Error('Invalid binary control');
     }
+
     let digits = '';
 
     for (let index = 0; index < 16; index++) {
@@ -184,6 +197,7 @@ class ControlReader {
 
       digits += hex[value >> 4] + hex[value & 15];
     }
+
     return `${digits.slice(0, 8)}-${digits.slice(8, 12)}-${digits.slice(12, 16)}-${digits.slice(16, 20)}-${digits.slice(20)}`;
   }
 }
@@ -217,8 +231,10 @@ export function encodeClientMessage(
         if (message.offset < 0 || message.offset >= simulationStep) {
           throw new RangeError('Invalid binary input offset');
         }
+
         writer.number(message.offset);
       }
+
       return writer.finish();
     }
 
@@ -236,6 +252,7 @@ export function encodeClientMessage(
           if (message.objectIds.length < 1 || message.objectIds.length > 100) {
             throw new RangeError('Invalid binary sell count');
           }
+
           writer.byte(dockActionIds.sell);
           writer.byte(message.objectIds.length);
           message.objectIds.forEach((id) => writer.signed(id));
@@ -273,6 +290,7 @@ export function encodeClientMessage(
           break;
         }
       }
+
       return writer.finish();
     }
 
@@ -302,10 +320,12 @@ export function decodeClientMessage(
       const token = reader.byte();
 
       if (token > 1) throw new Error('Invalid binary control');
+
       message = {
         type: 'hello',
         playerToken: token ? reader.uuid() : null,
       };
+
       break;
     }
 
@@ -318,11 +338,13 @@ export function decodeClientMessage(
       if (code >= 192 || hasOffset > 1) {
         throw new Error('Invalid binary control');
       }
+
       const offset = hasOffset ? reader.number() : undefined;
 
       if (offset !== undefined && (offset < 0 || offset >= simulationStep)) {
         throw new Error('Invalid binary control');
       }
+
       message = {
         type: 'input',
         tick,
@@ -330,6 +352,7 @@ export function decodeClientMessage(
         input: unpackPlayerInput(code),
         ...(offset !== undefined && { offset }),
       };
+
       break;
     }
 
@@ -344,6 +367,7 @@ export function decodeClientMessage(
             module: reader.unsigned(),
             moduleId: reader.signed(),
           };
+
           break;
 
         case dockActionIds.sell: {
@@ -352,11 +376,13 @@ export function decodeClientMessage(
           if (count < 1 || count > 100) {
             throw new Error('Invalid binary control');
           }
+
           const objectIds: number[] = [];
 
           for (let index = 0; index < count; index++) {
             objectIds.push(reader.signed());
           }
+
           message = { type: 'dock', action: 'sell', objectIds };
           break;
         }
@@ -368,6 +394,7 @@ export function decodeClientMessage(
             moduleId: reader.signed(),
             mount: reader.unsigned(),
           };
+
           break;
 
         case dockActionIds.remove:
@@ -376,6 +403,7 @@ export function decodeClientMessage(
             action: 'remove',
             mount: reader.unsigned(),
           };
+
           break;
         case dockActionIds.paint:
 
@@ -403,12 +431,14 @@ export function decodeClientMessage(
                   ...(moduleId !== undefined && { moduleId }),
                   ...(mount !== undefined && { mount }),
                 };
+
           break;
         }
 
         default:
           throw new Error('Invalid binary control');
       }
+
       break;
     }
 
@@ -423,6 +453,7 @@ export function decodeClientMessage(
     default:
       throw new Error('Invalid binary control');
   }
+
   reader.finish();
   return message;
 }
@@ -439,6 +470,7 @@ export function encodeServerControl(
     writer.unsigned(message.shipId);
     return writer.finish();
   }
+
   const writer = new ControlWriter(welcome);
 
   writer.unsigned(message.playerId);
@@ -482,12 +514,14 @@ export function decodeServerControl(
         worldSeed,
         spawn,
       };
+
       break;
     }
 
     default:
       throw new Error('Invalid binary control');
   }
+
   reader.finish();
   return message;
 }

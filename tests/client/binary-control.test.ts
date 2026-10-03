@@ -9,6 +9,7 @@ import { emptyPlayerInput } from '../../src/client/protocol/input';
 import type { ClientMessage } from '../../src/client/protocol/network';
 
 const token = '12345678-9abc-4def-8012-3456789abcde';
+
 const controls: ClientMessage[] = [
   { type: 'hello', playerToken: null },
   { type: 'hello', playerToken: token },
@@ -71,18 +72,21 @@ for (const message of [
 }
 
 const hello = encodeClientMessage({ type: 'hello', playerToken: null });
+
 const input = encodeClientMessage({
   type: 'input',
   tick: 1,
   sequence: 1,
   input: emptyPlayerInput(),
 });
+
 const paint = encodeClientMessage({
   type: 'dock',
   action: 'paint',
   paint: 1,
   moduleId: 2,
 });
+
 const changed = (packet: Uint8Array, index: number, value: number) => {
   const copy = packet.slice();
 
@@ -114,6 +118,7 @@ assert.throws(
   () => encodeClientMessage({ type: 'dock', action: 'sell', objectIds: [] }),
   /Invalid binary sell count/,
 );
+
 assert.throws(
   () =>
     encodeClientMessage({
@@ -125,6 +130,7 @@ assert.throws(
     }),
   /Invalid binary input offset/,
 );
+
 assert.throws(() => decodeServerControl(hello), /Invalid binary control/);
 
 console.log(

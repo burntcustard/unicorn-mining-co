@@ -1,15 +1,3 @@
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/dynamics/World.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import { BroadPhase } from '../collision/broad-phase';
 import { Solver, TimeStep } from './solver';
 import { Body } from './body';
@@ -46,6 +34,7 @@ export class World {
     if (this.m_bodyList) {
       this.m_bodyList.m_prev = body;
     }
+
     this.m_bodyList = body;
   }
 
@@ -131,6 +120,7 @@ export class World {
       contact.m_next = this.m_contactList;
       this.m_contactList.m_prev = contact;
     }
+
     this.m_contactList = contact;
   }
 
@@ -162,6 +152,7 @@ export class World {
 
       b.m_contactList = ce;
     }
+
     b.m_contactList = null;
 
     // Delete the attached fixtures. This destroys broad-phase proxies.
@@ -176,6 +167,7 @@ export class World {
 
       b.m_fixtureList = f;
     }
+
     b.m_fixtureList = null;
 
     // Remove world body list.
@@ -264,6 +256,7 @@ export class World {
             crowded = true;
             break;
           }
+
           unique.push(edge.other);
         }
 
@@ -272,6 +265,7 @@ export class World {
           continue;
         }
       }
+
       body.resetCollisionNeighbors();
       let last: Body | undefined;
 
@@ -338,6 +332,7 @@ export class World {
         // Update fixtures (for broad-phase).
         b.synchronizeFixtures();
       }
+
       // Look for new contacts, then handle time-of-impact events.
       this.findNewContacts();
 

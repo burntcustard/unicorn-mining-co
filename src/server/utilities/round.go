@@ -13,12 +13,15 @@ func Round(value float64) float64 {
 func RoundTiesUp(scaled float64) float64 {
 	lower := math.Floor(scaled)
 	rounded := lower
+
 	if scaled-lower >= 0.5 {
 		rounded++
 	}
+
 	if rounded == 0 && math.Signbit(scaled) {
 		return math.Copysign(0, -1)
 	}
+
 	return rounded
 }
 

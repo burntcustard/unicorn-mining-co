@@ -11,7 +11,7 @@ Build a session test executable, including the generated catalog:
 ```sh
 npm run catalog:go
 GOEXPERIMENT=simd go test -c -o /tmp/unicorn-session.test ./src/server/network
-node benchmarking/tools/go-cpu.mjs current /tmp/unicorn-session.test
+node benchmarking/tools/go-cpu.ts current /tmp/unicorn-session.test
 ```
 
 The runner measures convoy, spread, contact and module workloads at 4/8/16/32
@@ -23,7 +23,7 @@ packet construction with in-memory socket sinks, excluding real network latency.
 For sequential alternating before/after executables:
 
 ```sh
-node benchmarking/tools/go-cpu-paired.mjs change BEFORE_EXECUTABLE AFTER_EXECUTABLE
+node benchmarking/tools/go-cpu-paired.ts change BEFORE_EXECUTABLE AFTER_EXECUTABLE
 ```
 
 Use `CPU_AFFINITY`, `PLAYERS`, `WORKLOADS`, `TICKS`, and `REPETITIONS` to configure
@@ -44,7 +44,7 @@ cp /tmp/server.pgo src/server/default.pgo
 ```sh
 CGO_ENABLED=0 GOEXPERIMENT=simd go build -pgo=./src/server/default.pgo \
   -o /tmp/unicorn-transport ./benchmarking/tools/websocket-transport
-node benchmarking/tools/websocket-transport.mjs /tmp/unicorn-transport -game
+node benchmarking/tools/websocket-transport.ts /tmp/unicorn-transport -game
 ```
 
 The Go harness and Node client measure real framing/socket writes with the
@@ -55,11 +55,11 @@ before/after transport executables; check its usage message for arguments.
 ## Browser and live checks
 
 - `npm run benchmark` / `benchmark:headless`: Vite benchmark mode and Chrome.
-- `live.mjs`, `live-suite.mjs`, `live-browser-probe.mjs`, `live-report.mjs`: deployed
+- `live.ts`, `live-suite.ts`, `live-browser-probe.ts`, `live-report.ts`: deployed
   game measurements; see [live instructions](../live/README.md).
-- `input-response-browser.mjs`, `remote-browser.mjs`, `stall-browser.mjs`: client
+- `input-response-browser.ts`, `remote-browser.ts`, `stall-browser.ts`: client
   input, presentation and outage checks with local Go on 3001 and Vite on 3000.
-- `flight-resources.mjs`: network resource observations.
+- `flight-resources.ts`: network resource observations.
 
 Follow [the local browser workflow](../../.agents/skills/codebase-workflow/SKILL.md)
 and stop owned processes when finished. Remaining numeric, polygon, physics and

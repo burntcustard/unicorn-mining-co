@@ -26,6 +26,7 @@ let span: number | undefined;
 const dotCounts = [550, 380, 230];
 
 type Tile = HTMLCanvasElement | ImageBitmap;
+
 type Sky = { label: string; parts: string[]; cycle?: () => void };
 
 const dotTints = [

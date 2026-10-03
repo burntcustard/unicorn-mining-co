@@ -121,7 +121,7 @@ Reproduce with:
 ```sh
 SESSION_SEED=26 PLAYERS=4 BEFORE_GOGC=800 AFTER_GOGC=800 \
   GOMAXPROCS=2 CPU_AFFINITY=0,1 REPETITIONS=5 TICKS=3000 \
-  OUTCOME_COMPARISON=report node benchmarking/tools/go-cpu-paired.mjs \
+  OUTCOME_COMPARISON=report node benchmarking/tools/go-cpu-paired.ts \
   solver-seed26-four-player /tmp/go-precision-before /tmp/go-solver-retained
 ```
 

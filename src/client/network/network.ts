@@ -43,6 +43,7 @@ const makeEntity = ({
 }): GameObject => {
   const wirePosition = entity.position;
   const wireVelocity = entity.velocity || Vec.create();
+
   const common = {
     world,
     ...(entity.friction !== undefined && { friction: entity.friction }),
@@ -95,11 +96,13 @@ const makeEntity = ({
       ),
     );
   }
+
   const wreckage = entity.wreckage;
 
   if (entity.kind !== 'ship' && entity.kind !== 'station') {
     throw new Error('Unknown replicated entity kind');
   }
+
   const ship = Object.assign(
     wreckage
       ? createWreckage({
@@ -150,9 +153,11 @@ const makeEntity = ({
   ship.shades = entity.shades
     ? shadesOf(entity.shades)
     : (ship.constructor as typeof Craft).shades;
+
   ship.segments.forEach((segment) => {
     if (segment.hull) segment.shades = segment.module.shades || ship.shades;
   });
+
   ship.moduleStates = entity.modules || [];
   const modules = ship.modules;
 
@@ -222,15 +227,18 @@ export class NetworkClient {
         previous: this.authoritativeEntities.get(entity.id),
       }),
     );
+
     const entityIds = message.entityIds;
     const retained = new Set(entityIds);
 
     this.authoritativeEntities.forEach((_, id) => {
       if (!retained.has(id)) this.authoritativeEntities.delete(id);
     });
+
     entities.forEach((entity) =>
       this.authoritativeEntities.set(entity.id, entity),
     );
+
     this.prediction.reconcile({
       entities,
       entityIds,
@@ -259,6 +267,7 @@ export class NetworkClient {
     this.socket = socket;
     this.welcomed = false;
     socket.binaryType = 'arraybuffer';
+
     socket.onopen = () => {
       const storedToken = localStorage.getItem('playerToken');
       const playerToken = isPlayerToken(storedToken) ? storedToken : null;
@@ -266,8 +275,10 @@ export class NetworkClient {
       if (storedToken !== null && playerToken === null) {
         localStorage.removeItem('playerToken');
       }
+
       this.send({ playerToken, type: 'hello' });
     };
+
     socket.onmessage = ({ data }) => {
       if (this.socket !== socket) return;
 
@@ -275,6 +286,7 @@ export class NetworkClient {
         if (!(data instanceof ArrayBuffer || data instanceof Uint8Array)) {
           throw new Error('Invalid server message');
         }
+
         const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
         const message =
           bytes[0] === 0x55 && bytes[1] === 0x4d
@@ -286,6 +298,7 @@ export class NetworkClient {
         socket.close(1007, 'Invalid server message');
       }
     };
+
     socket.onclose = ({ code }) => {
       if (this.socket !== socket) return;
       this.connected = false;
@@ -301,6 +314,7 @@ export class NetworkClient {
         this.showConnectionStatus('AWAY TOO LONG - RELOAD TO PLAY');
         return;
       }
+
       this.showConnectionStatus('CONNECTION LOST - RETRYING...');
       const delay = this.retryDelay * (0.8 + Math.random() * 0.4);
 
@@ -318,6 +332,7 @@ export class NetworkClient {
 
   predictFrame({ now = performance.now() }: { now?: number } = {}) {
     if (!this.connected) return this.world;
+
     return this.prediction.predictFrame({
       elapsed: (now - this.inputTickStartedAt) / 1000,
     });
@@ -344,10 +359,12 @@ export class NetworkClient {
       this.serverTick = message.serverTick;
       this.world.tick = message.serverTick;
       this.world.random = createRandom(message.worldSeed);
+
       addPlayer(this.world, {
         id: message.playerId,
         shipId: message.shipId,
       });
+
       this.prediction.setLocalPlayer({ playerId: message.playerId });
       this.welcomed = true;
       return;
@@ -375,6 +392,7 @@ export class NetworkClient {
       this.entityRecords.clear();
       this.remoteMotion.reset();
     }
+
     message.fullEntities = message.fullEntities.map((record) => {
       const previous = this.entityRecords.get(record.id);
       const full = { ...previous, ...record } as ReplicatedEntity;
@@ -384,15 +402,18 @@ export class NetworkClient {
           delete (full as unknown as Record<string, unknown>)[key];
         }
       });
+
       this.entityRecords.set(record.id, full);
       return full;
     });
+
     message.entityIds ??= [...this.entityRecords.keys()];
     const visible = new Set(message.entityIds);
 
     this.entityRecords.forEach((_, id) => {
       if (!visible.has(id)) this.entityRecords.delete(id);
     });
+
     this.shipDestroyed = !message.entityIds.includes(this.shipId!);
     // Receipt acknowledges decoded deltas, independent of render cadence.
     // The server can now replace skipped ticks with its latest state.
@@ -405,24 +426,29 @@ export class NetworkClient {
       // Keep the latest update for each retained entity, not a queue of full
       // worlds to reconcile individually when the browser resumes.
       this.pendingSnapshot = message;
+
       message.fullEntities.forEach((entity) =>
         this.pendingEntities.set(entity.id, {
           entity,
           tick: message.serverTick,
         }),
       );
+
       const retained = new Set(message.entityIds);
 
       this.pendingEntities.forEach((_, id) => {
         if (!retained.has(id)) this.pendingEntities.delete(id);
       });
+
       return;
     }
+
     this.applySnapshot({ message });
   }
 
   recordInput({ input }: { input: PlayerInput }) {
     if (!this.connected) return;
+
     this.prediction.recordInput({
       input,
       offset: (performance.now() - this.inputTickStartedAt) / 1000,
@@ -462,6 +488,7 @@ export class NetworkClient {
     now?: number;
   }) {
     if (!this.connected || this.playerId === undefined) return;
+
     const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
       input,
       send: (message) => this.send({ ...message, type: 'input' }),
@@ -475,6 +502,7 @@ export class NetworkClient {
       this.events.push(...this.prediction.step(predictionInput));
       this.inputTickStartedAt = now;
     }
+
     input.launch = false;
   }
 
@@ -507,11 +535,13 @@ export class NetworkClient {
 
     while (this.pendingTime >= simulationStep) {
       this.pendingTime -= simulationStep;
+
       this.step({
         input,
         now: now - this.pendingTime * 1000,
       });
     }
+
     // Catch up elapsed movement before preserving the current pose. A delayed
     // browser frame must not smooth away the distance it legitimately travelled.
     const before =
@@ -538,6 +568,7 @@ export class NetworkClient {
           ({ entity }) => entity,
         ),
       };
+
       const entityTicks = new Map(
         [...this.pendingEntities].map(([id, { tick }]) => [id, tick]),
       );
@@ -557,6 +588,7 @@ export class NetworkClient {
         shipId: this.shipId,
       });
     }
+
     return updated;
   }
 }

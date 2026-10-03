@@ -33,7 +33,9 @@ assert.equal(ship.modules?.[0].segments[0].activationProgress, 0.5);
 assert.equal(ship.cargoContents?.length, 2);
 assert.deepEqual(ship.cargoContents?.[0], { moduleIndex: 2 });
 assert(ship.cargoContents);
+
 assert.equal((ship.cargoContents[1] as { id: number }).id, 25);
+
 assert.equal(ship.wreckage?.[0].fillShade, 2);
 assert.equal(asteroid.kind, 'asteroid');
 assert.deepEqual(asteroid.contents, [0, 2]);

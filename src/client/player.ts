@@ -138,6 +138,7 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
   const previous = playerShip;
 
   if (previous !== ship) previous.remove();
+
   Object.assign(ship, {
     credits: previous.id < 0 ? previous.credits : ship.credits,
     note: previous.note,
@@ -147,6 +148,7 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
     destroyed: previous.destroyed,
     docked: previous.docked,
   });
+
   ship.networked = 1;
   playerShip = ship;
 

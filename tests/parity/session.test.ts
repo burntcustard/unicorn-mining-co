@@ -8,6 +8,7 @@ import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot'
 const fixture = JSON.parse(
   gunzipSync(readFileSync('tests/fixtures/session.json.gz')).toString(),
 );
+
 const go = JSON.parse(
   execFileSync('go', ['run', './src/server/testtools/session'], {
     input: JSON.stringify(fixture.actions),
@@ -25,8 +26,10 @@ function decoded(packet: string) {
     if (message.type === 'welcome') message.playerToken = 'token';
     return message;
   }
+
   return decodeBinarySnapshot(data);
 }
+
 function compare(a: unknown, b: unknown, path: string) {
   if (typeof a === 'number' && typeof b === 'number') {
     assert(Math.abs(a - b) <= 2e-8, `${path}: ${a} != ${b}`);
@@ -54,6 +57,7 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
 ][]) {
   assert.equal(go[id].code, socket.code);
   assert.equal(go[id].packets.length, socket.packets.length);
+
   socket.packets.forEach((packet, index) => {
     compare(
       decoded(go[id].packets[index]),
@@ -63,6 +67,7 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
     packets++;
   });
 }
+
 console.log(
   `Go session matches ${packets} recorded packets: input, reconnect, catch-up, backpressure, docking and respawn`,
 );

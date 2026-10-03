@@ -57,6 +57,7 @@ export const controlShip = (
       }
     }
   }
+
   moduleControls.forEach(({ Type, input: command, readInput }, index) => {
     const enabled = readInput(input);
 

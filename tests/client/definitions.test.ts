@@ -33,6 +33,7 @@ for (const definition of itemTypes as readonly ItemDefinition[]) {
   for (const [name, value] of Object.entries(itemDefaults)) {
     if (name !== 'radius') assert.equal(item[name], value);
   }
+
   assert.equal(item.friction, defaultFriction);
   assert.equal(item.resource, definition.resource);
   assert.equal(item.label, definition.label);
@@ -44,6 +45,7 @@ for (const definition of itemTypes as readonly ItemDefinition[]) {
     : (definition.radius ?? itemDefaults.radius);
 
   assert(Math.abs(item.radius - radius) <= 2e-8);
+
   const properties = {
     id: 100 + definition.resource,
     position: Vec.create(-2, 9),
@@ -53,11 +55,13 @@ for (const definition of itemTypes as readonly ItemDefinition[]) {
     angularDrag: 0.25,
     radius: 8,
   };
+
   const overridden = new Item(definition, properties);
 
   for (const [name, value] of Object.entries(properties)) {
     if (name !== 'radius') assert.deepEqual(overridden[name], value);
   }
+
   assert(
     Math.abs(
       overridden.radius - (definition.points ? radius : properties.radius),
@@ -78,7 +82,9 @@ for (const definition of itemTypes as readonly ItemDefinition[]) {
     true,
   );
 }
+
 assert.equal(moduleTypes.length, moduleIds.length);
+
 moduleDefinitionList.forEach((definition, index) => {
   const module = new moduleTypes[index]();
 
@@ -86,6 +92,7 @@ moduleDefinitionList.forEach((definition, index) => {
   assert.equal(module.health, definition.health);
   assert.equal(module.price, definition.price);
 });
+
 assert.equal(thrusters.length, 4);
 const item = new Item(diamond, { health: 10 });
 const copy = cloneEntity({ entity: item });
@@ -130,6 +137,7 @@ try {
   shipDefinitionsById.delete(shipId);
   stationDefinitionsById.delete(stationId);
 }
+
 console.log(
   'Definition registries, generic content construction and independent instance state passed',
 );

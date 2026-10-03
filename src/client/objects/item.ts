@@ -69,6 +69,7 @@ export class Item extends GameObject {
           rainbow.addColorStop(1, colors.cyan[2]);
           ctx.fillStyle = rainbow;
         }
+
         ctx.fill(path);
         ctx.stroke(path);
 

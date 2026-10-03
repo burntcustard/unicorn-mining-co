@@ -54,7 +54,9 @@ export const bindDebug = (game: GameState) => {
   bindKeys('3', () => (showTextDemo = !showTextDemo));
   bindKeys('4', () => (showDeadzone = !showDeadzone));
   bindKeys('5', () => (showMass = !showMass));
+
   bindKeys('6', (sky as typeof sky & { cycle: () => void }).cycle);
+
   bindKeys('7', toggleLights);
   bindKeys('8', toggleGlows);
   bindKeys('9', () => (game.physicsOn = !game.physicsOn));
@@ -95,42 +97,51 @@ export const renderDebug = ({
       game.ctx.stroke();
       game.ctx.restore();
     }
+
     renderDeadzone(game);
   }
 
   renderFps(game);
+
   renderText({
     game,
     text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`,
     x: 20,
     y: 90,
   });
+
   renderText({
     game,
     text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`,
     x: 20,
     y: 110,
   });
+
   renderText({
     game,
     text: `4 ZONE-BORDERS:${showDeadzone ? 'ON' : 'OFF'}`,
     x: 20,
     y: 130,
   });
+
   renderText({
     game,
     text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`,
     x: 20,
     y: 150,
   });
+
   renderText({ game, text: `6 SKY:${sky.label}`, x: 20, y: 170 });
+
   renderText({
     game,
     text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`,
     x: 20,
     y: 190,
   });
+
   renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 20, y: 210 });
+
   renderText({
     game,
     text: `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`,
@@ -146,11 +157,13 @@ export const renderDebug = ({
     game.ctx.font = '12px monospace';
     game.ctx.textAlign = 'center';
     game.ctx.textBaseline = 'middle';
+
     sprites.forEach(({ mass, position }) => {
       if (mass) {
         game.ctx.fillText(`${Math.round(mass)}`, position.x, position.y);
       }
     });
+
     game.ctx.restore();
   }
 };

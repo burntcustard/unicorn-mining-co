@@ -1,15 +1,3 @@
-/* Vendored from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/collision/Shape.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import { AABBValue } from '../axis-aligned-bounds';
 import * as Vec from '../../utilities/vector';
 import { TransformValue } from '../../utilities/vector-math';
@@ -50,6 +38,7 @@ export abstract class Shape {
         x += vertices[i].x;
         y += vertices[i].y;
       }
+
       x /= this.m_count;
       y /= this.m_count;
       let radius = 0;
@@ -60,8 +49,10 @@ export abstract class Shape {
           Math.hypot(vertices[i].x - x, vertices[i].y - y),
         );
       }
+
       this.m_bound = { x, y, radius };
     }
+
     return this.m_bound;
   }
 
@@ -80,6 +71,7 @@ export abstract class Shape {
         bestValue = value;
       }
     }
+
     return bestIndex;
   }
 

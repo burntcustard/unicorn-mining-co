@@ -14,13 +14,13 @@ and disposable local output separate:
 
 ## Common checks
 
-| Check                               | Command                                                                      |
-| ----------------------------------- | ---------------------------------------------------------------------------- |
-| Browser rendering                   | `npm run benchmark` or `npm run benchmark:headless`                          |
-| Live deployment (4/8/16/32 players) | `node benchmarking/tools/live.mjs`                                           |
-| Two-client input response           | `node benchmarking/tools/input-response-browser.mjs /tmp/response.json.gz 5` |
-| Four-client presentation            | `node benchmarking/tools/remote-browser.mjs /tmp/remote.json.gz`             |
-| Brief network outage                | `node benchmarking/tools/stall-browser.mjs /tmp/stall.json.gz 5 network`     |
+| Check                               | Command                                                                     |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| Browser rendering                   | `npm run benchmark` or `npm run benchmark:headless`                         |
+| Live deployment (4/8/16/32 players) | `node benchmarking/tools/live.ts`                                           |
+| Two-client input response           | `node benchmarking/tools/input-response-browser.ts /tmp/response.json.gz 5` |
+| Four-client presentation            | `node benchmarking/tools/remote-browser.ts /tmp/remote.json.gz`             |
+| Brief network outage                | `node benchmarking/tools/stall-browser.ts /tmp/stall.json.gz 5 network`     |
 
 The client response, presentation, and outage checks require a fresh game server
 on 3001 and Vite on 3000, using the normal proxy. Follow the repository's

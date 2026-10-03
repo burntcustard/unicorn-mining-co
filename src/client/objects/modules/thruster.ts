@@ -63,6 +63,7 @@ const defineThruster = (
       ctx.restore();
     }
   }
+
   return Object.assign(Thruster, definition, {
     model: definition.flareSizes.map((flareSize, index) => ({
       flareSize,
@@ -80,6 +81,7 @@ export const thrusterTypesById = new Map<ModuleId, typeof Module>(
       : [];
   }),
 );
+
 export const ThrusterSingle = thrusterTypesById.get('thrusterSingle')!;
 export const ThrusterDualMd = thrusterTypesById.get('thrusterDualMd')!;
 export const ThrusterDualXl = thrusterTypesById.get('thrusterDualXl')!;

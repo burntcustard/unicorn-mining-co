@@ -1,14 +1,3 @@
-/* Vendored vector formulas from https://github.com/piqnt/planck.js/blob/93dd64df0fd2e5388551b159bebc6306e7af580a/src/common/Vec2.ts
- * MIT licensed; see LICENSE in the repository root.
- */
-/*
- * Planck.js
- *
- * Copyright (c) Erin Catto, Ali Shakiba
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
 /*
  * The game vector operations are based on Kontra vector.js, available under
  * the MIT licence: https://github.com/straker/kontra/blob/main/src/vector.js

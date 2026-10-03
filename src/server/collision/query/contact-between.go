@@ -15,6 +15,7 @@ type ShapeData struct {
 	Outline         [][]float64 `json:"shapeOutline,omitempty"`
 	CollisionMargin *float64    `json:"collisionMargin,omitempty"`
 }
+
 type Contact struct {
 	Depth  float64    `json:"depth"`
 	Normal Vec.Vector `json:"normal"`
@@ -24,18 +25,23 @@ type Contact struct {
 func shapeOf(collider ShapeData, linearSlop float64) shape.Shape {
 	if collider.Outline != nil {
 		vertices := make([]Vec.Vector, len(collider.Outline))
+
 		for i, p := range collider.Outline {
 			vertices[i] = Vec.Create(p[0], p[1])
 		}
+
 		return shape.NewPolygon(vertices, collider.CollisionMargin, linearSlop)
 	}
+
 	return shape.NewCircle(Vec.Vector{}, collider.Radius)
 }
+
 func ContactBetween(a, b ShapeData, linearSlop float64) (Contact, bool) {
 	sa, sb := shapeOf(a, linearSlop), shapeOf(b, linearSlop)
 	xa, xb := Vec.Transform(a.Position.X, a.Position.Y, a.Rotation), Vec.Transform(b.Position.X, b.Position.Y, b.Rotation)
 	var manifold collision.Manifold
 	reversed := false
+
 	switch sa := sa.(type) {
 	case *shape.PolygonShape:
 		switch sb := sb.(type) {
@@ -53,16 +59,20 @@ func ContactBetween(a, b ShapeData, linearSlop float64) (Contact, bool) {
 			shape.CollideCircles(&manifold, sa, xa, sb, xb)
 		}
 	}
+
 	if manifold.PointCount == 0 {
 		return Contact{}, false
 	}
+
 	var contact *collision.WorldManifold
 	direction := 1.0
+
 	if reversed {
 		contact = manifold.GetWorldManifold(nil, xb, sb.Base().Radius, xa, sa.Base().Radius)
 		direction = -1
 	} else {
 		contact = manifold.GetWorldManifold(nil, xa, sa.Base().Radius, xb, sb.Base().Radius)
 	}
+
 	return Contact{Depth: -min(contact.Separations[0], contact.Separations[1]), Normal: Vec.Scale(contact.Normal, direction), Point: contact.Points[0]}, true
 }

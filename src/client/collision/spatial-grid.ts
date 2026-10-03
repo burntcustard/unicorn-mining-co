@@ -57,6 +57,7 @@ export class SpatialGrid<T> {
         keys.push(Math.imul(x, 0x9e3779b1) ^ y);
       }
     }
+
     return keys;
   }
 
@@ -68,6 +69,7 @@ export class SpatialGrid<T> {
       group = { nodes: new Set(), cellIds: [], bounds: new AABB() };
       this.bodyGroups.set(owner, group);
     }
+
     node.aabb.set(box);
     AABB.extend(node.aabb, aabbExtension);
     group.nodes.add(node);
@@ -116,6 +118,7 @@ export class SpatialGrid<T> {
       ) {
         return;
       }
+
       group.cellIds.forEach((key) => {
         const cell = this.gridCells.get(key);
 
@@ -125,7 +128,9 @@ export class SpatialGrid<T> {
 
         if (!cell.size) this.gridCells.delete(key);
       });
+
       group.cellIds = keys;
+
       keys.forEach((key) => {
         let cell = this.gridCells.get(key);
 
@@ -133,12 +138,15 @@ export class SpatialGrid<T> {
         cell.add(group);
       });
     });
+
     this.dirty.clear();
     const depth = this.queryDepth++;
+
     const scratch = (this.queryScratch[depth] ??= {
       seen: new Set<Group<T>>(),
       candidates: [],
     });
+
     const { seen, candidates } = scratch;
     const ownGroup =
       owner === undefined ? undefined : this.bodyGroups.get(owner);
@@ -168,6 +176,7 @@ export class SpatialGrid<T> {
           }
         }
       }
+
       // Collision order must not depend on cells being removed and reinserted.
       candidates.sort((a, b) => a.id - b.id);
 

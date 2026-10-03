@@ -13,6 +13,7 @@ type Module interface {
 	Entity
 	ModuleBase() *ModuleData
 }
+
 type ModuleData struct {
 	Type       string
 	Definition definitions.Module
@@ -20,6 +21,7 @@ type ModuleData struct {
 	Mount      *Mount
 	Bounciness func(*Segment) *float64
 }
+
 type Mount struct {
 	LocalPosition Vec.Vector
 	Health        float64
@@ -27,6 +29,7 @@ type Mount struct {
 	Fits          []string
 	Hull          *Segment
 }
+
 type SegmentPlan struct {
 	Health                                             *float64
 	Points                                             *ShapeOutline
@@ -42,6 +45,7 @@ type SegmentPlan struct {
 	FillShade                                          *float64
 	Stroke                                             [][][]float64
 }
+
 type Segment struct {
 	outlineKey    [2]float64
 	cachedOutline *ShapeOutline
@@ -65,12 +69,15 @@ func (s *Segment) TargetHealth() *float64 {
 	if s.Mount != nil {
 		return &s.Mount.Health
 	}
+
 	return &s.Health
 }
+
 func (s *Segment) Outline() *ShapeOutline {
 	if s.DynamicPoints != nil {
 		return s.DynamicPoints(s)
 	}
+
 	return s.Points
 }
 
@@ -81,11 +88,14 @@ func (s *Segment) ModuleDefinition() *definitions.Module {
 	if s.Module != nil {
 		return &s.Module.ModuleBase().Definition
 	}
+
 	if s.HullPlan != nil && s.HullPlan.DisablePhysics {
 		return &nonphysicalHullDefinition
 	}
+
 	return &physicalHullDefinition
 }
+
 func NewMount(position Vec.Vector, fits []string) *Mount {
 	return &Mount{LocalPosition: position, Fits: fits, Health: math.NaN()}
 }
@@ -94,6 +104,7 @@ func (s *Segment) OutlineShades() []string {
 	if !s.Hull && s.Module != nil && s.Module.Base().Shades != nil {
 		return s.Module.Base().Shades
 	}
+
 	return s.Shades
 }
 
@@ -109,5 +120,6 @@ func (s *Segment) CachedOutline(key [2]float64, build func() *ShapeOutline) *Sha
 		s.outlineKey = key
 		s.cachedOutline = build()
 	}
+
 	return s.cachedOutline
 }

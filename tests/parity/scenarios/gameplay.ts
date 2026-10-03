@@ -39,8 +39,10 @@ GameCollisions.prototype.step = function (options) {
     point: c.point,
     normal: c.normal,
   }));
+
   return found;
 };
+
 const record = (entity: GameObject) => ({
   id: entity.id,
   kind: entity.kind,
@@ -71,6 +73,7 @@ const record = (entity: GameObject) => ({
     turn: entity.turn,
   }),
 });
+
 const cases = [
   { name: 'flight', count: 4, ticks: 900 },
   { name: 'convoy', count: 8, ticks: 180 },
@@ -98,6 +101,7 @@ const cases = [
           : scenario.name === 'contact'
             ? Vec.create(i * 65, 0)
             : Vec.create();
+
     const ship = addEntity(
       world,
       createShip(world, {
@@ -118,9 +122,11 @@ const cases = [
       ship.fit(new Type({ id: -2000 }));
       ship.launch();
     }
+
     ship.modules.forEach((module, index) => {
       module.id = -1000 - i * 100 - index;
     });
+
     addPlayer(world, { id: i + 1, shipId: ship.id });
   }
 
@@ -153,6 +159,7 @@ const cases = [
       new Station({ id: 100, world, position: Vec.create(), spin: 0.05 }),
     );
   }
+
   const snapshots = [];
 
   for (let tick = 0; tick < scenario.ticks; tick++) {
@@ -181,6 +188,7 @@ const cases = [
         },
       ]),
     );
+
     const events = updateWorld({ world, inputs });
 
     if (
@@ -200,6 +208,7 @@ const cases = [
       );
     }
   }
+
   return { ...scenario, snapshots };
 });
 

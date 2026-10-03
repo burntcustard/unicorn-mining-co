@@ -12,9 +12,11 @@ func NewShieldGenerator(props simulation.ObjectProperties, catalog definitions.C
 	m := &ShieldGenerator{NewModule("shieldGenerator", props, catalog)}
 	m.Self = m
 	definition := m.Definition
+
 	m.Model = []*simulation.SegmentPlan{
 		{Radius: func(*simulation.Segment) float64 { return definition.GeneratorRadius }},
 		{ActivationDuration: definition.CoverDuration, Covers: true, Radius: func(s *simulation.Segment) float64 { return definition.ShieldRadius * s.ActivationProgress }},
 	}
+
 	return m
 }

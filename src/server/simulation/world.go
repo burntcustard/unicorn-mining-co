@@ -15,7 +15,9 @@ type Entity interface {
 	Hitbox() []*collision.Collider
 	MaxSpeed() float64
 }
+
 type Player struct{ ID, ShipID int64 }
+
 type World struct {
 	Collisions      CollisionWorld
 	shapeOutlines   map[asteroidShapeKey]*ShapeOutline
@@ -35,14 +37,17 @@ type World struct {
 func CreateWorld(seed float64, spec definitions.Catalog) *World {
 	return &World{Entities: utilities.NewOrderedMap[int64, Entity](), NextEntityID: 1, Players: utilities.NewOrderedMap[int64, Player](), Random: random.CreateRandom(seed), Specification: spec}
 }
+
 func AddEntity(world *World, entity Entity) Entity {
 	entity.Base().World = world
 	world.Entities.Set(entity.Base().ID, entity)
 	world.NextEntityID = int64(max(float64(world.NextEntityID), float64(entity.Base().ID+1)))
 	return entity
 }
+
 func AddPlayer(world *World, player Player) Player {
 	world.Players.Set(player.ID, player)
 	return player
 }
+
 func EntityID(world *World) int64 { id := world.NextEntityID; world.NextEntityID++; return id }

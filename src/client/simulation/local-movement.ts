@@ -48,6 +48,7 @@ export const localMovement = (
       }
     }
   }
+
   child.localMovementParent = parent;
 
   if (parent) {
