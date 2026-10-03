@@ -33,6 +33,7 @@ type CollisionEvent struct {
 	A, B     int64
 	Impact   float64
 	Colors   [2]string
+	Damage   [2]float64
 	Position Vec.Vector
 }
 

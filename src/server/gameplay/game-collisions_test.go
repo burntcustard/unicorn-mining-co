@@ -67,7 +67,7 @@ func recordEvent(e protocol.SimulationEvent) map[string]any {
 	case protocol.ModuleChanged:
 		return map[string]any{"type": "moduleChanged", "module": e.Module, "playerId": e.PlayerID, "active": e.Active}
 	case protocol.CollisionEvent:
-		return map[string]any{"type": "collision", "a": e.A, "b": e.B, "impact": e.Impact, "colors": e.Colors, "position": e.Position}
+		return map[string]any{"type": "collision", "a": e.A, "b": e.B, "impact": e.Impact, "colors": e.Colors, "damage": e.Damage, "position": e.Position}
 	case protocol.DrillDamage:
 		r := map[string]any{"type": "drillDamage", "targetId": e.TargetID, "by": e.By, "damage": e.Damage, "color": e.Color, "position": e.Position}
 

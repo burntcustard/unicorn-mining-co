@@ -39,7 +39,7 @@ export class GameObject {
   // Initialize hot optional fields before subclasses add their own properties.
   localMovementParent: GameObject | 0 | undefined = undefined;
   localMovementRate: number | undefined = undefined;
-  // Loose modules use the same small default mass as items.
+  // Loose modules use the base object mass; items are lighter.
   mass = defaultMass;
   message?: string = undefined;
   paint?: number = undefined;

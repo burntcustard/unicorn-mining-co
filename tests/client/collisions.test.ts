@@ -343,7 +343,7 @@ assert(
 }
 
 // Object mass is independent of geometry; only physical shapes set spin resistance.
-assert.equal(new GameObject().mass, 6);
+assert.equal(new GameObject().mass, 3);
 
 {
   const object = new GameObject({ id: 90, mass: 10, radius: 0 });
@@ -600,7 +600,7 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
 
 // Light items cannot chip a ship at ordinary closing speed, but an unusually
 // fast item can still cause damage.
-const itemShipDamage = (speed: number) => {
+const itemShipImpact = (speed: number, mass?: number) => {
   const world = createWorld();
   const ship = addEntity(world, createShip(world));
 
@@ -613,6 +613,7 @@ const itemShipDamage = (speed: number) => {
       velocity: Vec.create(speed),
       maxSpeed: 10000,
       drag: 0,
+      ...(mass === undefined ? {} : { mass }),
     }),
   );
 
@@ -621,15 +622,19 @@ const itemShipDamage = (speed: number) => {
   for (let tick = 0; tick < 15; tick++) {
     const events = updateWorld({ world, inputs: new Map() });
 
-    if (
-      events.some(
-        (event) =>
-          event.type === 'collision' &&
-          ((event.a === ship.id && event.b === item.id) ||
-            (event.a === item.id && event.b === ship.id)),
-      )
-    ) {
-      return before - ship.hullHealthTotal;
+    const collision = events.find(
+      (event) =>
+        event.type === 'collision' &&
+        ((event.a === ship.id && event.b === item.id) ||
+          (event.a === item.id && event.b === ship.id)),
+    );
+
+    if (collision?.type === 'collision') {
+      return {
+        damage: before - ship.hullHealthTotal,
+        collision,
+        velocity: Vec.clone(ship.velocity),
+      };
     }
   }
 
@@ -637,11 +642,35 @@ const itemShipDamage = (speed: number) => {
 };
 
 assert.equal(
-  itemShipDamage(200),
+  itemShipImpact(200).damage,
   0,
   'ordinary item-to-ship contact does no hull damage',
 );
-assert(itemShipDamage(600) > 0, 'an unusually fast item can damage a ship');
+const lightImpact = itemShipImpact(400);
+const oldImpact = itemShipImpact(400, 6);
+
+assert.equal(
+  lightImpact.damage,
+  0,
+  'lighter items do not chip the hull at cruising speed',
+);
+assert.deepEqual(
+  lightImpact.collision.damage,
+  [0, 0],
+  'harmless contact reports no damage for either surface',
+);
+assert(
+  oldImpact.damage > 0,
+  'the old item mass would damage the ship at this speed',
+);
+assert(
+  Vec.length(lightImpact.velocity) < Vec.length(oldImpact.velocity) * 0.75,
+  'lighter items deflect the ship substantially less',
+);
+assert(
+  itemShipImpact(600).damage > 0,
+  'an unusually fast item can damage a ship',
+);
 
 // A fast ship damages the contacted asteroid segment, not the whole body's health.
 {
@@ -1376,7 +1405,7 @@ const playerCollision = (shielded: boolean) => {
     createShip(world, {
       playerId: 1,
       position: Vec.create(-120),
-      velocity: Vec.create(100),
+      velocity: Vec.create(200),
     }),
   );
 
@@ -1385,7 +1414,7 @@ const playerCollision = (shielded: boolean) => {
     createShip(world, {
       playerId: 2,
       position: Vec.create(120),
-      velocity: Vec.create(-100),
+      velocity: Vec.create(-200),
     }),
   );
 
@@ -1410,9 +1439,23 @@ const playerCollision = (shielded: boolean) => {
   );
 
   for (let tick = 0; tick < 60; tick++) {
-    if (
-      updateWorld({ world, inputs }).some(({ type }) => type === 'collision')
-    ) {
+    const collision = updateWorld({ world, inputs }).find(
+      ({ type }) => type === 'collision',
+    );
+
+    if (collision?.type === 'collision') {
+      const leftIndex = collision.a === left.id ? 0 : 1;
+
+      assert.equal(
+        collision.damage[leftIndex] === 0,
+        shielded,
+        'raised shields report no damage',
+      );
+      assert(
+        collision.damage[1 - leftIndex] > 0,
+        'the unshielded hull takes damage',
+      );
+
       return {
         tick,
         leftVelocity: left.velocity.x,

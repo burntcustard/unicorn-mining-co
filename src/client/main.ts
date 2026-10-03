@@ -364,6 +364,7 @@ const gameLoop = GameLoop({
         events: network.takeEvents(),
         onMessage: readSlate,
         playerId: network.playerId,
+        shipId: network.shipId,
       });
     }
 

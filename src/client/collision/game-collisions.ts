@@ -501,14 +501,18 @@ export class GameCollisions {
         0,
         Math.round((impact / inverseMass - damageBase) / damageScale),
       );
+      const applied: [number, number] = [0, 0];
 
       if (amount) {
-        for (const [hit, struckBy] of [
+        for (const [index, [hit, struckBy]] of [
           [collider, other],
           [other, collider],
-        ]) {
+        ].entries()) {
           if (hit.owner.dead) continue;
-          damage(hit.segment || hit.asteroidSegment || hit.owner, amount);
+          applied[index] = damage(
+            hit.segment || hit.asteroidSegment || hit.owner,
+            amount,
+          );
 
           if (hit.owner instanceof Asteroid && hit.owner.world) {
             hit.owner.fracture({
@@ -527,6 +531,7 @@ export class GameCollisions {
         b: other.owner.id,
         impact,
         colors: [outlineColorOf(collider), outlineColorOf(other)],
+        damage: applied,
         position: point,
       });
     });

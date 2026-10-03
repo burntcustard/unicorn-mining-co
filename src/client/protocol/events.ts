@@ -23,6 +23,8 @@ export type SimulationEvent =
       b: EntityId;
       impact: number;
       colors: [string, string];
+      // Damage applied to a and b, after checking module immunity.
+      damage: [number, number];
       position: Vec.Value;
       type: 'collision';
     }

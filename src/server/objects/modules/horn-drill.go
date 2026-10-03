@@ -31,7 +31,7 @@ func NewHornDrill(props simulation.ObjectProperties, catalog definitions.Catalog
 
 // Damage and color are the craft/collision operations supplied by the caller,
 // breaking their circular TypeScript imports without changing rule ownership.
-func (m *HornDrill) Drill(ship simulation.Entity, segment *simulation.Segment, target *collision.Collider, position Vec.Vector, events *[]protocol.SimulationEvent, world *simulation.World, dt float64, damage func(any, float64), color func(*collision.Collider) string) {
+func (m *HornDrill) Drill(ship simulation.Entity, segment *simulation.Segment, target *collision.Collider, position Vec.Vector, events *[]protocol.SimulationEvent, world *simulation.World, dt float64, damage func(any, float64) float64, color func(*collision.Collider) string) {
 	owner := target.Owner.(simulation.Entity)
 	var part any = owner
 	health := &owner.Base().Health

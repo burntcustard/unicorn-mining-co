@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-func Damage(object any, amount float64) {
+func Damage(object any, amount float64) float64 {
 	var health *float64
 	var mounts []*simulation.Mount
 	var segmentHealth float64
@@ -16,7 +16,7 @@ func Damage(object any, amount float64) {
 		d := target.ModuleDefinition()
 
 		if d.UnhurtWhen != nil && *d.UnhurtWhen == target.Active {
-			return
+			return 0
 		}
 
 		health = target.TargetHealth()
@@ -30,7 +30,10 @@ func Damage(object any, amount float64) {
 		panic("unsupported damage target")
 	}
 
+	applied := 0.0
+
 	if *health > 0 {
+		applied = amount
 		*health -= amount
 
 		if entity, ok := object.(simulation.Entity); ok && *health < 1 && entity.Base().Item {
@@ -53,4 +56,6 @@ func Damage(object any, amount float64) {
 			mount.Health -= amount
 		}
 	}
+
+	return applied
 }

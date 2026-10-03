@@ -376,9 +376,10 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		ao, bo := a.Owner.(simulation.Entity).Base(), b.Owner.(simulation.Entity).Base()
 		inverseMass := 1/ao.Mass + 1/bo.Mass
 		amount := max(0, utilities.RoundTiesUp((impact/inverseMass-rules.Physics.DamageBase)/rules.Physics.DamageScale))
+		applied := [2]float64{}
 
 		if amount != 0 {
-			for _, pair := range [][2]*collision.Collider{{a, b}, {b, a}} {
+			for index, pair := range [][2]*collision.Collider{{a, b}, {b, a}} {
 				hit, by := pair[0], pair[1]
 				owner := hit.Owner.(simulation.Entity)
 
@@ -396,7 +397,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 					part = s
 				}
 
-				objects.Damage(part, amount)
+				applied[index] = objects.Damage(part, amount)
 
 				if asteroid, ok := owner.(*simulation.Asteroid); ok && asteroid.World != nil {
 					segment, _ := hit.AsteroidSegment.(*simulation.AsteroidSegment)
@@ -411,7 +412,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 			}
 		}
 
-		*events = append(*events, protocol.CollisionEvent{A: ao.ID, B: bo.ID, Impact: impact, Colors: [2]string{collision.OutlineColorOf(a, g.catalog.Colors), collision.OutlineColorOf(b, g.catalog.Colors)}, Position: point})
+		*events = append(*events, protocol.CollisionEvent{A: ao.ID, B: bo.ID, Impact: impact, Colors: [2]string{collision.OutlineColorOf(a, g.catalog.Colors), collision.OutlineColorOf(b, g.catalog.Colors)}, Damage: applied, Position: point})
 	})
 
 	return g.contacts

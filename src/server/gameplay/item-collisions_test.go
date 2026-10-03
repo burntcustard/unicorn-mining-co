@@ -22,7 +22,7 @@ func TestItemCollisionsWithoutContactHandlers(t *testing.T) {
 				world := simulation.CreateWorld(25, catalog)
 				collisions := NewGameCollisions(catalog)
 				world.Collisions = collisions
-				props := simulation.ObjectProperties{ID: new(int64(1)), Velocity: Vec.Create(400, 0), Drag: new(0.0), Health: new(10000.0)}
+				props := simulation.ObjectProperties{ID: new(int64(1)), Velocity: Vec.Create(400, 0), Drag: new(0.0), SpeedLimit: new(10000.0), Health: new(10000.0)}
 				var item simulation.Entity
 
 				if kind == "gold" {

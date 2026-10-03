@@ -15,7 +15,9 @@ export const damage = (
 
   // A module that says so is untouchable in one of its two states: a closed
   // cargo hatch lies flat in the hull, and a raised shield is all energy
-  if (module && module.unhurtWhen === segment.active) return;
+  if (module && module.unhurtWhen === segment.active) return 0;
+
+  const applied = target.health > 0 ? amount : 0;
 
   if (target.health > 0) {
     target.health -= amount;
@@ -33,4 +35,6 @@ export const damage = (
             : 0;
     }
   });
+
+  return applied;
 };
