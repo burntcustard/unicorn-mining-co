@@ -32,6 +32,10 @@ inputs. Huge angles intentionally use the float64 remainder as their direction.
 tolerance 2e-8; random welcome tokens are normalized. This is independent fixed
 regression evidence, not generated from the implementation under test.
 
+After halving item mass from 6 to 3, socket 4 packet 4 was updated only for
+the mass of cargo item 123456. Its encoded float64 changes by one byte;
+all other recorded packet bytes and actions remain unchanged.
+
 `rendering.json` captures representative replicated ship, station, mixed cargo,
 and drilling stages. Browser tests hydrate it under source and production
 transforms and check rendering, reconciliation and object identity.

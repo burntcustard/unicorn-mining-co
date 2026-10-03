@@ -41,7 +41,7 @@ presentEvents({ events: [
   { type: 'drillDamage', targetId: 1, by: 1, damage: 1,
     color: '#f0a', position: Vec.create() },
   { type: 'collision', a: 1, b: 2, impact: 80,
-    colors: ['#f00', '#0af'], position: Vec.create() },
+    colors: ['#f00', '#0af'], damage: [1, 1], position: Vec.create() },
 ] });
 assert.deepEqual(new Set(sparks.map(({ color }) => color)),
   new Set(['#f0a', '#f00', '#0af']),
