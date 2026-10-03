@@ -124,6 +124,7 @@ assert.equal(input.playerInput.thrust, 0, 'respawn key does not fly the ship');
 stopDeadKeys();
 
 const clock = globalThis.performance;
+const interval = globalThis.setInterval;
 let now = 0;
 let updates = 0;
 let renders = 0;
@@ -135,6 +136,8 @@ const maxFrameTime = input.maxPredictionTicks * input.simulationStep;
 
 Object.assign(globalThis, { performance: { now: () => now } });
 Object.assign(globalThis, { canvas: { width: 1, height: 1 } });
+Object.assign(globalThis, { document: { hidden: false } });
+Object.assign(globalThis, { setInterval: () => 0 });
 globalThis.requestAnimationFrame = (frame) => frames.push(frame);
 
 try {
@@ -266,8 +269,10 @@ try {
   }
 } finally {
   globalThis.performance = clock;
+  globalThis.setInterval = interval;
   delete globalThis.requestAnimationFrame;
   Reflect.deleteProperty(globalThis, 'canvas');
+  Reflect.deleteProperty(globalThis, 'document');
 }
 
 console.log('Frame catch-up is bounded after short and long stalls');

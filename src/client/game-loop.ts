@@ -18,7 +18,6 @@ export const GameLoop = ({
   let last = 0;
 
   const frame = (now: number) => {
-    requestAnimationFrame(frame);
     // Catch up ordinary missed frames; a longer outage recovers from snapshots.
     const dt = Math.min(
       Math.max(0, (now - last) / 1000),
@@ -29,15 +28,26 @@ export const GameLoop = ({
 
     update({ dt, now });
     context.clearRect(0, 0, canvas.width, canvas.height);
-    // Use the display timestamp for both phases. Sampling CPU completion time
+    // Use the frame timestamp for both phases. Sampling CPU completion time
     // turns variable tick/reconciliation cost into visible speed changes.
     render({ dt, now });
+  };
+
+  const animate = (now: number) => {
+    requestAnimationFrame(animate);
+
+    if (!document.hidden) frame(now);
   };
 
   return {
     start() {
       last = performance.now();
-      requestAnimationFrame(frame);
+      requestAnimationFrame(animate);
+
+      // Keep updating and rendering when the browser tab is hidden, but limit to 30 FPS
+      setInterval(() => {
+        if (document.hidden) frame(performance.now());
+      }, 1000 / 30);
     },
   };
 };
