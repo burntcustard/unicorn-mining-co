@@ -84,8 +84,8 @@ wreck.update(0);
 assert(wreck.dead, 'destroyed ship is removed');
 for (const item of contents) {
   assert(!item.dead && game.sprites.includes(item), 'cargo and every message are released');
-  assert(Math.abs(Vec.length(Vec.subtract(item.velocity, wreck.velocity)) - 5) < 1e-9,
-    'released contents receive an outward impulse');
+  assert(Math.abs(Vec.length(Vec.subtract(item.velocity, wreck.velocity)) * item.mass - 30) < 1e-9,
+    'released contents receive an outward impulse scaled by their mass');
   assert(Math.abs(item.spin) <= 0.5 / item.mass,
     'released contents receive a small random impulse without inheriting ship spin');
 }
