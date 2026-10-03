@@ -530,6 +530,15 @@ export class NetworkClient {
     now?: number;
   }) {
     if (!this.connected) return false;
+
+    // Adopt snapshots beyond the prediction horizon without smoothing stale poses.
+    const recovering =
+      this.pendingSnapshot &&
+      Math.abs(this.pendingSnapshot.serverTick - this.world.tick) >
+        maxPredictionTicks;
+
+    if (recovering) this.remoteMotion.reset();
+
     this.pendingTime += dt;
     let updated = this.pendingTime >= simulationStep;
 
@@ -545,7 +554,9 @@ export class NetworkClient {
     // Catch up elapsed movement before preserving the current pose. A delayed
     // browser frame must not smooth away the distance it legitimately travelled.
     const before =
-      this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt
+      !recovering &&
+      this.pendingSnapshot &&
+      now + 1e-6 >= this.snapshotReceivedAt
         ? this.remoteMotion.sample({
             now,
             world: this.world,
