@@ -433,7 +433,7 @@ const hullHealth = (entity: Craft, record: BinaryRecord) => {
   let values =
     previous?.length === plans.length
       ? previous
-      : new Array<number>(plans.length);
+      : Array.from({ length: plans.length }, () => 0);
 
   for (let index = 0; index < plans.length; index++) {
     const plan = plans[index];

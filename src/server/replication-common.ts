@@ -96,7 +96,7 @@ export const readModules = (entity: Craft) => {
     modules,
     states,
     indexes,
-    counts: new Array<number>(modules.length).fill(0),
+    counts: Array.from({ length: modules.length }, () => 0),
   });
   return states;
 };
