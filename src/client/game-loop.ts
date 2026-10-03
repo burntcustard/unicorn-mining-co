@@ -1,7 +1,8 @@
 /* global canvas */
 
 import { context } from './core';
-import { maxPredictionTicks, simulationStep } from '../shared/settings';
+import { maxPredictionTicks } from '../definitions/prediction';
+import { simulationStep } from '../definitions/simulation';
 
 /**
  * Based on Kontra gameLoop.js, available under the MIT licence:
@@ -16,12 +17,11 @@ export const GameLoop = ({
 }) => {
   let last = 0;
 
-  const frame = () => {
+  const frame = (now: number) => {
     requestAnimationFrame(frame);
-    const now = performance.now();
     // Catch up ordinary missed frames; a longer outage recovers from snapshots.
     const dt = Math.min(
-      (now - last) / 1000,
+      Math.max(0, (now - last) / 1000),
       maxPredictionTicks * simulationStep,
     );
 
@@ -29,9 +29,9 @@ export const GameLoop = ({
 
     update({ dt, now });
     context.clearRect(0, 0, canvas.width, canvas.height);
-    // A network tick can take much longer than an in-between frame. Predict
-    // the displayed pose from the latest clock, after that work is finished.
-    render({ dt, now: performance.now() });
+    // Use the display timestamp for both phases. Sampling CPU completion time
+    // turns variable tick/reconciliation cost into visible speed changes.
+    render({ dt, now });
   };
 
   return {

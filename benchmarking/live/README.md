@@ -7,7 +7,7 @@ Run the reusable [live benchmark tools](../tools/README.md#live-deployment) from
 the repository root:
 
 ```sh
-CHROME_BIN=/path/to/chrome node benchmarking/tools/live.mjs
+CHROME_BIN=/path/to/chrome node benchmarking/tools/live.ts
 ```
 
 The runner automatically appends results after completing all 16 cases and
@@ -18,7 +18,7 @@ elsewhere. No raw result files or results directory are retained under `live/`.
 To report a scratch capture after an interrupted run, use:
 
 ```sh
-node benchmarking/tools/live-report.mjs benchmarking/local/START-TIME.json.gz
+node benchmarking/tools/live-report.ts benchmarking/local/START-TIME.json.gz
 ```
 
 The report generator appends one compact server/network table per run, with a

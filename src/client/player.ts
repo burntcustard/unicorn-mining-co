@@ -1,18 +1,17 @@
-import * as Vec from '../shared/vector';
-import { Ship } from '../shared/craft/ship';
+import * as Vec from './utilities/vector';
+import { Ship } from './objects/ship';
 import {
   ThrusterDualMd,
   CargoHatch,
   HornDrill,
   SearchLight,
-} from '../shared/modules';
+} from './objects/modules/index';
 import { game } from './game';
-import { createRenderedShip } from './create-rendered-ship';
-import { colors } from '../shared/colors';
-import { updateThrusterSound } from './sound-loader';
-import { type Shades, type Segment } from '../shared/types';
+import { colors } from '../definitions/colors';
+import { updateThrusterSound } from './audio/sound-loader';
+import { type Shades, type Segment } from './types';
 
-export let playerShip = createRenderedShip({
+export let playerShip = new Ship({
   shades: colors.white,
   position: Vec.create(),
   credits: 500,
@@ -22,7 +21,7 @@ export let playerShip = createRenderedShip({
   noteFor: 0,
   hudAlpha: 0,
   networked: 1,
-});
+}).addToScene();
 
 // @ifdef DEBUG
 playerShip.credits = 10000;
@@ -139,6 +138,7 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
   const previous = playerShip;
 
   if (previous !== ship) previous.remove();
+
   Object.assign(ship, {
     credits: previous.id < 0 ? previous.credits : ship.credits,
     note: previous.note,
@@ -148,6 +148,7 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
     destroyed: previous.destroyed,
     docked: previous.docked,
   });
+
   ship.networked = 1;
   playerShip = ship;
 

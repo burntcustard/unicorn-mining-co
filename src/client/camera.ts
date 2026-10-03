@@ -1,6 +1,7 @@
-import * as Vec from '../shared/vector';
-import { ease } from '../shared/utilities/ease';
-import { type GameObject } from '../shared/game-object';
+import { deadzone, lag, dockDuration } from '../definitions/camera';
+import * as Vec from './utilities/vector';
+import { ease } from './utilities/ease';
+import { type GameObject } from './objects/game-object';
 
 /**
  * The camera is the top left corner of the viewport in world coordinates.
@@ -9,13 +10,10 @@ import { type GameObject } from '../shared/game-object';
 export const camera = Vec.create();
 
 // How much of the viewport the oval the target is kept inside of spans
-const deadzone = 0.3;
 
 // How much of the ground it has left to make up the camera still has a second
 // from now. Lower catches up harder, and 0 would snap straight to it
-const lag = 0.0001;
 
-export const dockDuration = 4;
 let dockedTo: GameObject | number | undefined;
 let dockEase: ReturnType<typeof ease>;
 let dockTo = Vec.create();

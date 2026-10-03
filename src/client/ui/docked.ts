@@ -1,13 +1,13 @@
-import { Module } from '../../shared/modules/module';
-import { type Ship } from '../../shared/craft/ship';
+import { Module } from '../objects/modules/module';
+import { type Ship } from '../objects/ship';
 import { type GameState } from '../game';
 import { paintUnlocked, say, unlockPaint } from '../player';
-import { colors, paintColors } from '../../shared/colors';
-import { textOutline } from '../text-outline';
-import { playSound } from '../sound-loader';
-import { renderText } from '../text';
-import { moduleTypes } from '../../shared/modules';
-import { sendCraftAction } from '../craft-actions';
+import { colors, paintColors } from '../../definitions/colors';
+import { textOutline } from './text/text-outline';
+import { playSound } from '../audio/sound-loader';
+import { renderText } from './text/text';
+import { moduleTypes } from '../objects/modules/index';
+import { sendCraftAction } from '../network/craft-actions';
 
 /**
  * The panel shown over everything while a ship sits in a bay: a plain
@@ -81,6 +81,7 @@ const sendAppliedAction = (
 // sold and painted; its constructor in the catalogue can only be bought.
 // Filtering the owned modules preserves acquisition order across fitting changes.
 const moduleRows = new WeakMap<object, Module[]>();
+
 const fitsOf = (ship: any, mount: any) => {
   const modules = ship.modules;
   const rows = (moduleRows.get(ship) || []).filter((module) =>
@@ -90,7 +91,9 @@ const fitsOf = (ship: any, mount: any) => {
   modules.forEach((module: Module) => {
     if (!rows.includes(module)) rows.push(module);
   });
+
   moduleRows.set(ship, rows);
+
   return mount.fits.flatMap((type: any) => {
     const owned = rows.filter(
       (module: any) =>
@@ -292,6 +295,7 @@ export const confirmSelection = (ship: Ship) => {
 
   if (shades) {
     if (!paintUnlocked(shades)) return;
+
     sendAppliedAction(ship, {
       action: 'paint',
       ...(hullMenu
@@ -318,6 +322,7 @@ export const confirmSelection = (ship: Ship) => {
         mount: ship.mounts.indexOf(mount),
       }),
     });
+
     return;
   }
 
@@ -459,6 +464,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
     actionButtons.push({ item, width, x: col0[0] + actionX, y: actionY });
     actionX += width + rowPad;
   });
+
   // Square buttons of their own on the row below, carrying on the same focus
   swatches.forEach((shades, i) =>
     actionButtons.push({

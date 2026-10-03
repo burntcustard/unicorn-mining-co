@@ -93,8 +93,8 @@ Run the browser response check with one server on port 3001 and Vite on port
 3000, using the normal WebSocket proxy:
 
 ```sh
-node benchmarking/tools/input-response-browser.mjs /tmp/response.json.gz
-node benchmarking/tools/remote-browser.mjs /tmp/four-clients.json.gz
+node benchmarking/tools/input-response-browser.ts /tmp/response.json.gz
+node benchmarking/tools/remote-browser.ts /tmp/four-clients.json.gz
 ```
 
 The response harness accepts an optional third argument for delay in each

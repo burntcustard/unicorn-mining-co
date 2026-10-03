@@ -226,7 +226,7 @@ Then run from the current checkout:
 
 ```sh
 REPETITIONS=7 BEFORE_GOGC=100 AFTER_GOGC=800 \
-  node benchmarking/tools/go-cpu-paired.mjs \
+  node benchmarking/tools/go-cpu-paired.ts \
   cpu-comparison-recheck /tmp/go-cpu-before /tmp/go-cpu-current
 ```
 

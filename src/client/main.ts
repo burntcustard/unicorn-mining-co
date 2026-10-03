@@ -1,6 +1,8 @@
-import * as Vec from '../shared/vector';
-import { Craft } from '../shared/craft/craft';
-import { Station } from '../shared/craft/station';
+import { init } from './core';
+import { dockDuration } from '../definitions/camera';
+import * as Vec from './utilities/vector';
+import { Craft } from './objects/craft';
+import { Station } from './objects/station';
 import {
   back,
   confirmSelection,
@@ -15,45 +17,38 @@ import {
   lights,
   renderDebug,
   renderDebugDemos,
-} from './debug';
+} from './debug/debug';
 
 // @endif
-import { bindAction, initKeys, playerInput } from './input';
-import { defaultKeybindings, moduleBinding } from './keybindings';
-import { network } from './network';
-import { camera, centerCamera, dockDuration, followTarget } from './camera';
+import { bindAction, initKeys, playerInput } from './input/input';
+import { defaultKeybindings, moduleBinding } from './input/keybindings';
+import { network } from './network/network';
+import { camera, centerCamera, followTarget } from './camera';
 
-import { revealBuriedItems } from './lighting';
-import { itemTypes, Message } from '../shared/items';
+import { revealBuriedItems } from './utilities/lighting';
+import { message as messageDefinition } from '../definitions/items';
 import { adoptPlayerShip, playerShip, readSlate, updatePlayer } from './player';
-import { renderSparks, updateSparks } from './shrapnel';
-import { presentEvents } from './present-events';
+import { renderSparks, updateSparks } from './effects/shrapnel';
+import { presentEvents } from './effects/present-events';
 import { GameLoop } from './game-loop';
-import { Ship } from '../shared/craft/ship';
-import { ShieldGenerator, SearchLight } from '../shared/modules';
-import { moduleControls } from '../shared/craft/control-ship';
-import { createRenderedShip } from './create-rendered-ship';
-import { decorateGameObject } from './game-object';
-import './craft/station';
+import { Ship } from './objects/ship';
+import { ShieldGenerator, SearchLight } from './objects/modules/index';
+import { moduleControls } from './objects/control-ship';
 
 // @ifdef BENCHMARK
-import { benchmarkFlag } from './benchmark';
+import { benchmarkFlag } from './debug/benchmark';
 
 // @endif
-import { colors } from '../shared/colors';
+import { colors } from '../definitions/colors';
 import { game } from './game';
 
-import { Asteroid } from '../shared/simulation/asteroid';
+import { Item } from './objects/item';
 
-import { renderAsteroid } from './render-asteroid';
-import { createRenderedItem } from './create-rendered-item';
-import { renderItem } from './render-item';
-import { Item } from '../shared/items/item';
-import { playSound } from './sound-loader';
-import { updateHornDrillSounds } from './update-horn-drill-sounds';
-import { renderUI } from './ui';
-import { setSizing } from './set-sizing';
-import { type GameObject as SimulationObject } from '../shared/game-object';
+import { playSound } from './audio/sound-loader';
+import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
+import { renderUI } from './ui/ui';
+import { setSizing } from './ui/set-sizing';
+import { type GameObject as SimulationObject } from './objects/game-object';
 
 type Background = {
   renderBackground: (
@@ -66,9 +61,11 @@ type Background = {
 };
 
 let gameStarted = false;
+
 const background = (
   globalThis as typeof globalThis & { background: Background }
 ).background;
+
 const renderSky = () =>
   background.renderBackground(
     game.canvas,
@@ -78,6 +75,9 @@ const renderSky = () =>
     camera.y,
   );
 
+const { canvas, context } = init();
+
+Object.assign(game, { canvas, ctx: context });
 setSizing(game);
 renderSky();
 
@@ -87,17 +87,12 @@ window.onresize = () => {
 };
 
 const regionalObjects = new Map<number, SimulationObject>();
+
 let stationMarkers: { position: Vec.Value; radius: number }[] = [];
 
 const materialize = ({ entity }: { entity: SimulationObject }) => {
-  let object: SimulationObject;
+  const object = entity.addToScene();
 
-  if (entity instanceof Craft) {
-    object = decorateGameObject({ sprite: entity });
-  } else if (entity instanceof Item) object = renderItem({ item: entity });
-  else if (entity instanceof Asteroid) {
-    object = renderAsteroid({ asteroid: entity });
-  } else object = decorateGameObject({ sprite: entity });
   object.networked = 1;
   regionalObjects.set(entity.id, object);
   return object;
@@ -118,6 +113,7 @@ const refreshReplication = () => {
       materialize({ entity });
     }
   });
+
   [...regionalObjects].forEach(([id, object]) => {
     if (!wanted.has(id)) {
       object.remove();
@@ -146,11 +142,12 @@ const syncSimulationObjects = (dt: number) => {
 };
 
 // @ifdef DEBUG
-const debugWreck = createRenderedShip({
+const debugWreck = new Ship({
   shades: colors.orange,
   position: Vec.add(playerShip.position, Vec.create(500)),
-});
-const debugNote = createRenderedItem({ resource: itemTypes.indexOf(Message) });
+}).addToScene();
+
+const debugNote = new Item(messageDefinition).addToScene();
 
 debugNote.message = 'REGION 0/0';
 
@@ -208,6 +205,7 @@ moduleControls.forEach(({ Type, input: action }) =>
     if (Type === SearchLight) playSound(9);
   }),
 );
+
 bindAction(
   defaultKeybindings.menuLeft,
   () => playerShip.dockedTo && moveSubSelection(-1, playerShip),
@@ -240,12 +238,14 @@ bindDebug(game);
 const gameLoop = GameLoop({
   render: ({ dt, now }) => {
     const predicted = network.predictFrame({ now });
+
     const remotePoses = network.remoteMotion.sample({
       now,
       world: network.world,
       predicted,
       shipId: network.shipId,
     });
+
     const predictedPlayerShip = predicted.entities.get(playerShip.id);
     const renderedShip =
       predictedPlayerShip instanceof Ship ? predictedPlayerShip : playerShip;
@@ -341,6 +341,7 @@ const gameLoop = GameLoop({
       sprites: activeSprites,
       ship: renderedShip,
     });
+
     renderDebugDemos(game);
     // @endif
 
@@ -358,12 +359,14 @@ const gameLoop = GameLoop({
     if (network.updateFrame({ input: playerInput, dt, now })) {
       refreshReplication();
       syncPlayerShip();
+
       presentEvents({
         events: network.takeEvents(),
         onMessage: readSlate,
         playerId: network.playerId,
       });
     }
+
     syncSimulationObjects(dt);
 
     // Things that happen at 15 Hz, or as soon as sprites
@@ -385,9 +388,6 @@ const gameLoop = GameLoop({
     updatePlayer(dt);
     playerShip.updateVisual(dt);
     updateHornDrillSounds({ crafts: game.crafts });
-    game.crafts.forEach((craft) => {
-      if (!craft.render) decorateGameObject({ sprite: craft as Craft });
-    });
 
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
 
@@ -412,6 +412,7 @@ setTimeout(() => {
       // Keep the camera transition clear before bringing the HUD into view.
       setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
     }
+
     gameStarted = true;
     gameLoop.start();
   });

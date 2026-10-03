@@ -1,7 +1,7 @@
-import { RemoteMotion } from '../../src/client/remote-motion';
-import { GameObject } from '../../src/shared/game-object';
-import { addEntity, createWorld } from '../../src/shared/simulation/world';
-import * as Vec from '../../src/shared/vector';
+import { RemoteMotion } from '../../src/client/prediction/remote-motion';
+import { GameObject } from '../../src/client/objects/game-object';
+import { addEntity, createWorld } from '../../src/client/simulation/world';
+import * as Vec from '../../src/client/utilities/vector';
 
 // Keep the comparison labels outside production property rewriting.
 export const replayHandoff = ([
@@ -69,9 +69,11 @@ export const replayHandoff = ([
 
       if (movement < -1e-8) backwards++;
     }
+
     last = position;
     lastAdvance = movement;
   }
+
   return {
     speed,
     separation,

@@ -188,7 +188,7 @@ CGO_ENABLED=0 GOEXPERIMENT=simd go -C "$transport_baseline" build \
   -pgo=cmd/go-server/default.pgo -o /tmp/transport-before ./benchmarking/tools/websocket-transport
 CGO_ENABLED=0 GOEXPERIMENT=simd go build -pgo=cmd/go-server/default.pgo \
   -o /tmp/transport-after ./benchmarking/tools/websocket-transport
-BENCH_CPU_AFFINITY=0,1 taskset -c 2-15 node benchmarking/tools/websocket-transport-compare.mjs \
+BENCH_CPU_AFFINITY=0,1 taskset -c 2-15 node benchmarking/tools/websocket-transport-compare.ts \
   /tmp/transport-before /tmp/transport-after /tmp/transport-results.json.gz
 ```
 

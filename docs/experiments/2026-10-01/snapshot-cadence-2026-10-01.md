@@ -89,7 +89,7 @@ Compile each source version with
 GOEXPERIMENT=simd GOGC=800 GOMAXPROCS=2 CPUSET=0,1 \
   REPETITIONS=3 TICKS=3000 SESSION_SEED=25 \
   GO_SERVER_SIMD= GO_SERVER_MOTION_ROUNDING= GO_SERVER_COLLISION_NEIGHBORS= \
-  node benchmarking/tools/go-cpu.mjs snapshots-VERSION /tmp/snapshots-VERSION
+  node benchmarking/tools/go-cpu.ts snapshots-VERSION /tmp/snapshots-VERSION
 ```
 
 Use `VERSION=15hz` for the baseline source and `VERSION=30hz` for the changed

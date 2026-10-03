@@ -1,10 +1,10 @@
-import { colors } from '../../shared/colors';
-import { textOutline } from '../text-outline';
-import { renderText } from '../text';
-import { type Module } from '../../shared/modules/module';
-import { type Ship } from '../../shared/craft/ship';
-import { moduleControls } from '../../shared/craft/control-ship';
-import { moduleBinding } from '../keybindings';
+import { colors } from '../../definitions/colors';
+import { textOutline } from './text/text-outline';
+import { renderText } from './text/text';
+import { type Module } from '../objects/modules/module';
+import { type Ship } from '../objects/ship';
+import { moduleControls } from '../objects/control-ship';
+import { moduleBinding } from '../input/keybindings';
 
 /**
  * The bottom-right readout of the ship's modules, after the fashion of an Elite
@@ -49,6 +49,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
       !modules.includes(module.constructor as typeof Module) &&
       modules.push(module.constructor as typeof Module),
   );
+
   const widest = Math.max(...modules.map(({ label }) => label.length)) * glyph;
   const boxX = game.uiWidth - inset - widest - gap - box;
   const textX = boxX + box + gap;
@@ -83,6 +84,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
       path.moveTo(textX + keyIndex * glyph, y + underDrop);
       path.lineTo(textX + (keyIndex + 1) * glyph - 1, y + underDrop);
     }
+
     textOutline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   });

@@ -1,73 +1,131 @@
+import {
+  defaultMass,
+  defaultFriction as gameObjectFriction,
+  defaultAngularInertiaScale,
+} from '../src/definitions/game-object';
+import {
+  defaultFriction as craftFriction,
+  defaultHealth,
+  hullBounciness,
+  defaultActivationDuration,
+  wreckageDecay,
+  wreckageHealth,
+} from '../src/definitions/craft';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { colors, paintColors } from '../src/shared/colors';
-import {
-  itemDefaults,
-  itemIds,
-  itemSpecifications,
-} from '../src/shared/specification/items';
-import {
-  moduleIds,
-  moduleSpecifications,
-} from '../src/shared/specification/modules';
-import { shipSpecifications } from '../src/shared/specification/ships';
-import { stationSpecifications } from '../src/shared/specification/stations';
+import { colors, paintColors } from '../src/definitions/colors';
+import { itemIds, itemDefinitions } from '../src/definitions/items/index';
+import { moduleIds, moduleDefinitions } from '../src/definitions/modules/index';
+import { shipDefinitions } from '../src/definitions/ships/index';
+import { stationDefinitions } from '../src/definitions/stations/index';
 import {
   binaryFieldIds,
   controlMessageIds,
   dockActionIds,
   entityKindIds,
-} from '../src/shared/specification/protocol';
-import { simulationSpecification } from '../src/shared/specification/simulation';
-import { regionGenerationSpecification } from '../src/shared/specification/regions';
+} from '../src/definitions/protocol';
+import { itemDefaults } from '../src/definitions/items/defaults';
+import {
+  physics,
+  linearSlop,
+  contactSpeedThreshold,
+} from '../src/definitions/physics';
+import { motion } from '../src/definitions/local-movement';
+import { flight } from '../src/definitions/control-ship';
+import { simulationStep } from '../src/definitions/simulation';
+import { updateTiers } from '../src/definitions/update-tier';
+import { maxCatchUpTicks } from '../src/definitions/game-session';
+import { maxPredictionTicks } from '../src/definitions/prediction';
+import {
+  visibleRange,
+  ballisticReplicateEvery,
+  replication,
+} from '../src/definitions/replication';
+import {
+  regionSize,
+  worldRanges,
+  serverRegionRanges,
+} from '../src/definitions/region-manager';
+import {
+  preGeneratedRadius,
+  regionGeneration,
+} from '../src/definitions/region-generation';
+
+const simulation = {
+  physics,
+  linearSlop,
+  contactSpeedThreshold,
+  motion,
+  flight,
+  simulationStep,
+  updateTiers,
+  maxCatchUpTicks,
+  maxPredictionTicks,
+  visibleRange,
+  ballisticReplicateEvery,
+  replication,
+  regionSize,
+  worldRanges,
+  serverRegionRanges,
+  preGeneratedRadius,
+};
 
 const catalog = {
   colors,
   paintColors,
   itemDefaults,
   itemIds,
-  itemSpecifications,
+  itemDefinitions,
   moduleIds,
-  moduleSpecifications,
-  shipSpecifications,
-  stationSpecifications,
+  moduleDefinitions,
+  shipDefinitions,
+  stationDefinitions,
   protocol: { binaryFieldIds, controlMessageIds, dockActionIds, entityKindIds },
-  simulation: simulationSpecification,
-  regionGeneration: regionGenerationSpecification,
+  simulation,
+  regionGeneration,
 };
+
 const unique = (values: readonly (number | string)[]) =>
   new Set(values).size === values.length;
 
 if (
   !unique(moduleIds) ||
   !unique(itemIds) ||
-  !itemIds.every((id, index) => itemSpecifications[id].resource === index) ||
-  !moduleIds.every((id) => id in moduleSpecifications) ||
-  !shipSpecifications.mustang.startingModules.every(
-    (id) => id in moduleSpecifications,
-  ) ||
-  !shipSpecifications.mustang.hullSegments.every(
-    (segment) =>
-      !('mounts' in segment) ||
-      segment.mounts?.every((mount) =>
-        mount.fits.every((id) => id in moduleSpecifications),
+  !itemIds.every((id, index) => itemDefinitions[id].resource === index) ||
+  !moduleIds.every((id) => id in moduleDefinitions) ||
+  !Object.values(shipDefinitions).every(
+    (ship) =>
+      ship.startingModules.every((id) => id in moduleDefinitions) &&
+      ship.hullSegments.every(
+        (segment) =>
+          !('mounts' in segment) ||
+          segment.mounts?.every((mount) =>
+            mount.fits.every((id) => id in moduleDefinitions),
+          ),
       ),
   ) ||
-  !unique(Object.values(binaryFieldIds)) ||
   Object.values(binaryFieldIds).some((value, index) => value !== index + 1) ||
-  !unique(Object.values(controlMessageIds)) ||
-  !unique(Object.values(dockActionIds)) ||
-  !unique(Object.values(entityKindIds))
+  ![controlMessageIds, dockActionIds, entityKindIds].every((ids) =>
+    unique(Object.values(ids)),
+  )
 ) {
-  throw new Error('Invalid shared specification IDs');
+  throw new Error('Invalid definition IDs or mount references');
 }
 
 const json = JSON.stringify(catalog);
-const digest = createHash('sha256').update(json).digest('hex');
-const physics = simulationSpecification.physics;
+
 const numericConstants = {
-  LinearSlop: simulationSpecification.linearSlop,
-  ContactSpeedThreshold: simulationSpecification.contactSpeedThreshold,
+  GameObjectMass: defaultMass,
+  GameObjectFriction: gameObjectFriction,
+  GameObjectAngularInertiaScale: defaultAngularInertiaScale,
+  CraftFriction: craftFriction,
+  CraftHealth: defaultHealth,
+  HullBounciness: hullBounciness,
+  DefaultActivationDuration: defaultActivationDuration,
+  WreckageDecay: wreckageDecay,
+  WreckageHealth: wreckageHealth,
+  LinearSlop: linearSlop,
+  ContactSpeedThreshold: contactSpeedThreshold,
   AabbExtension: physics.aabbExtension,
   AabbMultiplier: physics.aabbMultiplier,
   MaxTranslation: physics.maxTranslation,
@@ -76,9 +134,14 @@ const numericConstants = {
   PositionBaumgarte: physics.positionBaumgarte,
   ToiBaumgarte: physics.toiBaumgarte,
 };
+
 const constants = Object.entries(numericConstants)
   .map(([name, value]) => `const ${name} = ${value}`)
   .join('\n');
-const source = `// Code generated by scripts/generate-go-catalog.ts; DO NOT EDIT.\n// SHA-256: ${digest}\npackage specification\n\nconst catalogJSON = ${JSON.stringify(json)}\n\n${constants}\n`;
+const digest = createHash('sha256')
+  .update(json)
+  .update(constants)
+  .digest('hex');
+const source = `// Code generated by scripts/generate-go-catalog.ts; DO NOT EDIT.\n// SHA-256: ${digest}\npackage definitions\n\nconst catalogJSON = ${JSON.stringify(json)}\n\n${constants}\n`;
 
-writeFileSync('internal/specification/catalog_gen.go', source);
+writeFileSync('src/server/definitions/catalog_gen.go', source);

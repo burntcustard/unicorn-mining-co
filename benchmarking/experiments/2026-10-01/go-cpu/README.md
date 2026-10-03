@@ -49,7 +49,7 @@ To isolate the retained SIMD feature on the final executable:
 
 ```sh
 BEFORE_GOGC=800 AFTER_GOGC=800 BEFORE_SIMD=scalar REPETITIONS=5 \
-  node benchmarking/tools/go-cpu-paired.mjs cpu-followup-simd /tmp/go-cpu-latest /tmp/go-cpu-latest
+  node benchmarking/tools/go-cpu-paired.ts cpu-followup-simd /tmp/go-cpu-latest /tmp/go-cpu-latest
 ```
 
 For a collision-limit ablation, set `BEFORE_NEIGHBORS=unlimited`, keep both
@@ -72,7 +72,7 @@ To reproduce the saved Go/JavaScript float32 separation comparison:
 
 ```sh
 gzip -dc benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-parity-cases.json.gz > /tmp/packed-physics-cases.json
-node benchmarking/experiments/2026-10-01/packed-physics/packed-physics-parity.mjs /tmp/packed-physics-cases.json
+node benchmarking/experiments/2026-10-01/packed-physics/packed-physics-parity.ts /tmp/packed-physics-cases.json
 ```
 
 To regenerate the cases, apply `packed-physics-2026-10-01-flat-f32-pipeline-tested.patch` in a separate copy of the starting source and run:

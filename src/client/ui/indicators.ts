@@ -1,7 +1,7 @@
-import * as Vec from '../../shared/vector';
+import * as Vec from '../utilities/vector';
 import { camera } from '../camera';
-import { textOutline } from '../text-outline';
-import { renderText } from '../text';
+import { textOutline } from './text/text-outline';
+import { renderText } from './text/text';
 
 interface IndicatorTarget {
   position: Vec.Value;

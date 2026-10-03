@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "lib": ["DOM", "ES2024"],
     "module": "preserve",
     "moduleResolution": "bundler",
@@ -9,5 +10,13 @@
     "strictNullChecks": false,
     "target": "ES2024"
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "plugins/**/*.ts",
+    "scripts/**/*.ts",
+    "vite.config.ts",
+    "benchmarking/tools/**/*.ts",
+    "benchmarking/experiments/**/*.ts"
+  ]
 }

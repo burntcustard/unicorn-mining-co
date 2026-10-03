@@ -38,7 +38,8 @@ WHITE - Unlocked by default from the start of the game.
 ## Tech used
 
 - Game engine heavily inspired by [Kontra.js](https://straker.github.io/kontra/) by [Steven Lambert](https://stevenklambert.com/), rendering to an HTML canvas.
-- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/build-plugins.js) for chunking, minification, and size warnings.
+- Collision and physics code is inspired by [Planck.js](https://github.com/piqnt/planck.js) and [Box2D](https://box2d.org/).
+- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/build-plugins.ts) for chunking, minification, and size warnings.
 - [TypeScript 7](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) for fast type checking as source files are gradually converted to TypeScript.
 
 ## Run locally
@@ -46,17 +47,17 @@ WHITE - Unlocked by default from the start of the game.
 1. Clone this repository
    `git clone git@github.com:burntcustard/unicorn-mining-co.git`
 
-2. Install dependencies
+2. Install Node 26 and Go 1.27 (with `go` and `gofmt` on PATH), then dependencies
    `npm install`
 
-3. Start the authoritative game server
+3. Start the authoritative Go server (rebuilds on Go or definition changes)
    `npm run dev:server`
 
 4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
    [localhost:3000](http://localhost:3000/)
    `npm run dev`
 
-5. Compile [index.html](dist/index.html) and its JavaScript chunks
+5. Build the browser assets in `dist/` and Go executable in `bin/server`
    `npm run build`
 
 6. To run the production build locally, start `npm run start:server` and open
@@ -64,41 +65,82 @@ WHITE - Unlocked by default from the start of the game.
    on the same port. `npm run preview` also works with `start:server` running.
 
 Use `dev` with `dev:server`, or the production build with `start:server`.
-Production builds mangle packet fields, so mixing the modes leaves the client
-waiting for a welcome packet.
+The same Go server supports source and production clients through binary packets.
+Node is used only for frontend builds, generators, and development/test tooling.
 
 7. See [package.json](package.json) for other scripts
 
 `npm run format` formats JavaScript, TypeScript, and other files supported by
-Oxfmt. `npm run format:check` checks them without writing changes. These commands
-use the npm dependencies and do not require Go.
+Oxfmt. `npm run format:check` checks them without writing changes. Oxfmt reads
+`.oxfmtrc.json`; Oxlint reads `.oxlintrc.json` for the layout rules used by
+formatting and the broader checks used by `npm run lint`. These commands use the
+npm dependencies and do not require Go.
 
 Format Go source separately with `npm run format:go`, or check it with
-`npm run format:go:check`. Both Go commands require `gofmt` on PATH.
+`npm run format:go:check`. Both Go commands require `go` on PATH. They apply
+standard Go formatting plus blank lines around functions, brace-delimited type
+declarations, and control-flow blocks, including inside function bodies.
 
 ## Build
 
-`npm run build` type-checks and builds the client and server with the same
-Terser property names. Both entry points use the shared plugins in
-`plugins/build-plugins.js`; `plugins/build-server.js` runs the server bundle. It emits browser-cacheable ES modules, bundles the
-production server as `dist/server.js`, and warns if a browser JavaScript chunk
-exceeds 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading
-tiers and their triggers. `npm run test:packets` reports client/server packet
-sizes before and after production mangling.
+`npm run build` type-checks the client, tests, scripts and benchmark tools, generates the Go catalog from
+`src/definitions`, builds browser ES modules, and compiles `bin/server` with
+`GOEXPERIMENT=simd`. `npm run build:client` type-checks and builds browser assets;
+`npm run build:server` generates the catalog and compiles Go.
+The full build generates the catalog once, during the server build.
+The browser build warns when a chunk exceeds 14 KB gzipped; see
+[CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading tiers.
 
-`npm test` builds once, including type-checking, then runs test files in isolated
-processes with up to four workers (limited by available CPUs). Node's test
-reporter prints each file's duration and any failures. Set `TEST_CONCURRENCY=1`
-to run sequentially, or choose another positive worker count. Individual suites,
-such as `npm run test:prediction` and `npm run test:server`, use the same runner.
-`npm run test:packets` builds before checking the production packets. Go parity
-tests remain a separate `npm run test:go` command.
+`npm test` builds once, regenerates mechanics fixtures, and runs all discovered
+Node test files and Go tests. Run a single Node test with `npm run test objects`,
+`npm run test objects.test.ts`, or `npm run test tests/client/objects.test.ts`.
+Go filenames work too: `npm run test round_test.go` runs the tests declared in
+that file with their containing package compiled normally.
+Multiple filenames and project-relative directories are supported, and paths
+disambiguate duplicate filenames. For example, `npm run test src/server/network`
+checks the Go network package; `npm run test src/server/physics src/server/collision`
+checks Go physics and collisions; `npm run test src/server tests/parity` runs all
+Go and parity checks.
+Selected integration and parity tests prepare their server/catalog and fixtures
+automatically; client-only selections skip the full build.
+Set `TEST_CONCURRENCY=1` to run the Node tests sequentially.
+`npm run typecheck` and `npm run lint` check the TypeScript source, tests, helpers,
+scripts and benchmark tools. Selected Node tests also run the compiler check before
+execution. Scripts run with the existing Node 26 setup; no additional TypeScript
+loader flags are needed.
+`npm run test snapshot server-integration` checks Go output using both source and
+production-mangled client codecs, reporting real WebSocket packet sizes.
+
+## Source layout
+
+- `src/definitions`: typed authored items, modules, ships, stations, and tuning.
+- `src/client`: browser mechanics, prediction, networking, rendering, audio, UI.
+- `src/server`: Go entry point, objects/modules, simulation, networking, physics.
+- `src/server/definitions`: generated catalog and Go decoding types.
+- `tests/client`, `tests/linting`, `tests/integration`, `tests/parity`: retained regression suites.
+
+Each item/ship/station type has one definition file. Generic runtime classes
+construct them; thruster variants share one implementation per language.
+
+Gameplay values belong in `src/definitions`: item fallbacks in
+`items/defaults.ts`, base-object defaults in `game-object.ts`, shared craft
+fallbacks in `craft.ts`, and type-specific values in each content definition.
+Client code imports those values; `catalog:go` emits them as Go data or constants.
+Edit the TypeScript definitions rather than `catalog_gen.go`.
+
+`scripts/generate-go-catalog.ts` is the build bridge from authored TypeScript
+definitions to Go. Test scenarios live in `tests/parity/scenarios`; one runner,
+`tests/parity/generate-fixtures.ts`, writes their computed results to
+`tests/fixtures` for client/server simulation and protocol comparisons. Scenario
+masses, health values, coordinates, seeds, and tick counts are test inputs,
+not runtime defaults. Item construction and HTTP handling use direct tests.
+Historical reports under `docs/experiments` record the values used by the
+measured checkout.
 
 ## Documentation
 
 ### Current references
 
-- [Go server port and local running](docs/GO_PORT.md)
 - [Client chunk loading and protocol delivery](docs/CHUNK_LOADING.md)
 - [Code terminology](docs/terminology.md)
 - [Todo](docs/todo.md)
@@ -152,8 +194,8 @@ volume. Fly's trial stops Machines after five minutes even with `auto_stop_machi
    GitHub Pages publication once the Fly site is working. Inspect Fly logs
    and CPU/memory graphs during the first player session.
 
-The production Dockerfile builds both client and server, then copies only the
-built files and the `ws` runtime dependency into the final image. The HTTP
-listener binds to `0.0.0.0:$PORT`; `fly.toml` supplies port 8080, HTTPS, and
-an HTTP health check. Its in-memory single-world design requires one Machine;
-adding another Machine would create a separate world.
+The production Dockerfile uses Node to build browser assets and generate the
+catalog, then compiles Go. The final scratch image contains only `server` and
+`dist/`; it has no Node runtime or npm dependencies. The listener binds to
+`0.0.0.0:$PORT`; `fly.toml` supplies port 8080, HTTPS, and an HTTP health check.
+Its in-memory single-world design requires one Machine.

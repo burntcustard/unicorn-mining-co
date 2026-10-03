@@ -121,11 +121,11 @@ from 105,907 / 45,455 to 105,936 / 45,451. The entry remains above the existing
 With the Go server on 3001 and Vite on 3000:
 
 ```sh
-node benchmarking/tools/input-response-browser.mjs /tmp/response.json.gz 5
-node benchmarking/tools/input-response-browser.mjs /tmp/response-50ms.json.gz 25
-node benchmarking/tools/stall-browser.mjs /tmp/network-stall.json.gz 5 network
-node benchmarking/tools/stall-browser.mjs /tmp/browser-stall.json.gz 5 client
-node benchmarking/tools/stall-browser.mjs /tmp/server-stall.json.gz 5 server SERVER_PID
+node benchmarking/tools/input-response-browser.ts /tmp/response.json.gz 5
+node benchmarking/tools/input-response-browser.ts /tmp/response-50ms.json.gz 25
+node benchmarking/tools/stall-browser.ts /tmp/network-stall.json.gz 5 network
+node benchmarking/tools/stall-browser.ts /tmp/browser-stall.json.gz 5 client
+node benchmarking/tools/stall-browser.ts /tmp/server-stall.json.gz 5 server SERVER_PID
 ```
 
 Only pass the PID of the local test server to the last command. Its `finally`

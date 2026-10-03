@@ -201,7 +201,7 @@ from this checkout with installed dependencies and built `dist` assets:
 
 ```sh
 GAME=1 REPETITIONS=3 PACED_TICKS=180 BENCH_CPU_AFFINITY=0,1 \
-  taskset -c 2-15 node benchmarking/tools/websocket-transport-compare.mjs \
+  taskset -c 2-15 node benchmarking/tools/websocket-transport-compare.ts \
   /tmp/transport-before /tmp/transport-after /tmp/game-multicore.json.gz
 ```
 

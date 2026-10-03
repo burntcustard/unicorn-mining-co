@@ -1,0 +1,302 @@
+{
+  "fullEntities": [
+    {
+      "cargoContents": [
+        {
+          "health": 42,
+          "label": "DIAMOND",
+          "resource": 0,
+          "id": 321,
+          "kind": "item",
+          "mass": 6,
+          "position": { "x": 0, "y": 0 },
+          "radius": 6.324555320336759,
+          "rotation": 0,
+          "spin": 0
+        },
+        { "moduleIndex": 5 },
+        {
+          "health": 19,
+          "label": "CRATE",
+          "id": 323,
+          "kind": "object",
+          "mass": 6,
+          "position": { "x": 0, "y": 0 },
+          "radius": 0,
+          "rotation": 0,
+          "spin": 0
+        }
+      ],
+      "credits": 500,
+      "hullHealth": [8, 20, 20, 50, 40, 20, 20, 8],
+      "maxSpeed": 272,
+      "modules": [
+        {
+          "id": -2,
+          "type": 4,
+          "mount": 0,
+          "health": 4,
+          "shades": ["#c2c", "#d3d", "#e6f", "#427", "#e6f"],
+          "segments": [
+            { "active": 1, "activationProgress": 0.14285714285714288 },
+            { "active": 1, "activationProgress": 0.14285714285714288 }
+          ]
+        },
+        {
+          "id": -1,
+          "type": 1,
+          "mount": 1,
+          "health": 20,
+          "shades": ["#c2c", "#d3d", "#e6f", "#427", "#e6f"],
+          "segments": [
+            { "active": 1, "activationProgress": 1 },
+            { "active": 1, "activationProgress": 1 }
+          ]
+        },
+        {
+          "id": -4,
+          "type": 6,
+          "mount": 3,
+          "health": 2,
+          "shades": ["#ca1", "#ec3", "#fe4", "#c50", "#f95"],
+          "segments": [{ "active": 0, "activationProgress": 0 }]
+        },
+        {
+          "id": -5,
+          "type": 5,
+          "mount": 4,
+          "health": 10,
+          "shades": ["#0ac", "#1bd", "#4df", "#148", "#cff"],
+          "segments": [{ "active": 1, "activationProgress": 1 }]
+        },
+        {
+          "id": -3,
+          "type": 4,
+          "mount": 5,
+          "health": 4,
+          "shades": ["#c2c", "#d3d", "#e6f", "#427", "#e6f"],
+          "segments": [
+            { "active": 1, "activationProgress": 0.14285714285714288 },
+            { "active": 1, "activationProgress": 0.14285714285714288 }
+          ]
+        },
+        {
+          "id": 322,
+          "type": 6,
+          "mount": -1,
+          "health": 100,
+          "shades": ["#ca1", "#ec3", "#fe4", "#c50", "#f95"],
+          "segments": []
+        }
+      ],
+      "shades": ["#0ac", "#1bd", "#4df", "#148", "#cff"],
+      "thrust": 1,
+      "turn": 0,
+      "playerId": 1,
+      "id": 1,
+      "kind": "ship",
+      "mass": 9,
+      "position": { "x": 3.6997525691986084, "y": 0 },
+      "radius": 40,
+      "rotation": 0,
+      "spin": 0,
+      "velocity": { "x": 36.99752587080002, "y": 0 }
+    },
+    {
+      "cargoContents": [
+        {
+          "health": 100,
+          "label": "DIAMOND",
+          "resource": 0,
+          "id": 421,
+          "kind": "item",
+          "mass": 6,
+          "position": { "x": 0, "y": 0 },
+          "radius": 6.324555320336759,
+          "rotation": 0,
+          "spin": 0
+        },
+        { "moduleIndex": 0 },
+        {
+          "id": 423,
+          "kind": "object",
+          "mass": 6,
+          "position": { "x": 0, "y": 0 },
+          "radius": 0,
+          "rotation": 0,
+          "spin": 0
+        }
+      ],
+      "modules": [
+        {
+          "id": 422,
+          "type": 6,
+          "mount": -1,
+          "health": 100,
+          "shades": ["#ca1", "#ec3", "#fe4", "#c50", "#f95"],
+          "segments": []
+        }
+      ],
+      "id": 99,
+      "kind": "station",
+      "mass": 1000000000,
+      "position": { "x": 0, "y": 0 },
+      "radius": 0,
+      "rotation": 0,
+      "spin": 0
+    }
+  ],
+  "nextEntityId": 100,
+  "serverTick": 0,
+  "type": "load",
+  "drillingStages": [
+    [
+      {
+        "contents": [1],
+        "maxHealth": 11.380387123712648,
+        "shapeOutline": [
+          [6.17129719, -9.56181479],
+          [5.19512591, 9.4852037],
+          [-11.36642311, 0.07661108]
+        ],
+        "health": 11.380387123712648,
+        "resource": 1,
+        "id": 501,
+        "kind": "asteroid",
+        "mass": 62.5,
+        "position": { "x": 155.80167533666668, "y": 9.561814786666666 },
+        "radius": 11.380387123712648,
+        "rotation": 0,
+        "spin": -0.36655391554420524,
+        "velocity": { "x": 1.167155092302819, "y": 1.9236031270799072 }
+      },
+      {
+        "contents": [1, 1, 1],
+        "maxHealth": 21.50623134327563,
+        "shapeOutline": [
+          [-3.58150114, -6.27419327],
+          [12.83853277, -16.10741827],
+          [13.76288079, 3.02936073],
+          [-3.77483951, 12.6677866],
+          [-21.291805, 3.02936073]
+        ],
+        "segments": [
+          {
+            "contents": [1],
+            "health": 12.5,
+            "mass": 62.5,
+            "maxHealth": 12.5,
+            "shapeOutline": [
+              [-3.58150114, -6.27419327],
+              [12.83853277, -16.10741827],
+              [13.76288079, 3.02936073]
+            ]
+          },
+          {
+            "contents": [1],
+            "health": 12.5,
+            "mass": 62.5,
+            "maxHealth": 12.5,
+            "shapeOutline": [
+              [13.76288079, 3.02936073],
+              [-3.77483951, 12.6677866],
+              [-3.58150114, -6.27419327]
+            ]
+          },
+          {
+            "contents": [1],
+            "health": 12.5,
+            "mass": 62.5,
+            "maxHealth": 12.5,
+            "shapeOutline": [
+              [-3.77483951, 12.6677866],
+              [-21.291805, 3.02936073],
+              [-3.58150114, -6.27419327]
+            ]
+          }
+        ],
+        "health": 21.50623134327563,
+        "resource": 1,
+        "id": 502,
+        "kind": "asteroid",
+        "mass": 187.5,
+        "position": { "x": 148.21009173723175, "y": -3.029360728027883 },
+        "radius": 21.50623134327563,
+        "rotation": 0,
+        "spin": 0,
+        "velocity": { "x": -0.38152035818958485, "y": -0.6457106289096464 }
+      }
+    ],
+    [
+      {
+        "contents": [1, 1, 1],
+        "maxHealth": 21.50623134327563,
+        "shapeOutline": [
+          [-3.58150114, -6.27419327],
+          [12.83853277, -16.10741827],
+          [13.76288079, 3.02936073],
+          [-3.77483951, 12.6677866],
+          [-21.291805, 3.02936073]
+        ],
+        "segments": [
+          {
+            "contents": [1],
+            "health": 12.5,
+            "mass": 62.5,
+            "maxHealth": 12.5,
+            "shapeOutline": [
+              [-3.58150114, -6.27419327],
+              [12.83853277, -16.10741827],
+              [13.76288079, 3.02936073]
+            ]
+          },
+          {
+            "contents": [1],
+            "health": 12.5,
+            "mass": 62.5,
+            "maxHealth": 12.5,
+            "shapeOutline": [
+              [13.76288079, 3.02936073],
+              [-3.77483951, 12.6677866],
+              [-3.58150114, -6.27419327]
+            ]
+          },
+          {
+            "contents": [1],
+            "health": 12.5,
+            "mass": 62.5,
+            "maxHealth": 12.5,
+            "shapeOutline": [
+              [-3.77483951, 12.6677866],
+              [-21.291805, 3.02936073],
+              [-3.58150114, -6.27419327]
+            ]
+          }
+        ],
+        "health": 21.50623134327563,
+        "resource": 1,
+        "id": 502,
+        "kind": "asteroid",
+        "mass": 187.5,
+        "position": { "x": 148.21009173723175, "y": -3.029360728027883 },
+        "radius": 21.50623134327563,
+        "rotation": 0,
+        "spin": 0,
+        "velocity": { "x": -0.38152035818958485, "y": -0.6457106289096464 }
+      },
+      {
+        "health": 100,
+        "label": "AMETHYST",
+        "resource": 1,
+        "id": 503,
+        "kind": "item",
+        "mass": 6,
+        "position": { "x": 155.80167533666668, "y": 9.561814786666666 },
+        "radius": 7.000000000000001,
+        "rotation": 0,
+        "spin": 0,
+        "velocity": { "x": 5, "y": 2 }
+      }
+    ]
+  ]
+}

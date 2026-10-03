@@ -144,7 +144,7 @@ Validation performed:
 - Four-array float32 separation passed 50,000 randomized scalar/SIMD comparisons. The flat float32 pipeline passed 50,000 separation and 50,000 support-index comparisons. Separation cases include world offsets of 0, 10 million and 20 million, with the same local-size shapes.
 - The flat float64 pipeline passed the collision and physics suites, including the corresponding randomized tests and existing shared fixtures.
 - The body-state prototype passed the physics suite and a repeated allocate/release test checking that reused slots are cleared, live state is not aliased, and a small fixed live population does not grow the pool.
-- The [JavaScript kernel reference](../../../benchmarking/experiments/2026-10-01/packed-physics/packed-physics-parity.mjs) reproduced all 1,000 supplied-transform Go cases with zero numeric or selected-axis differences. Input float32 arrays must also be rounded after decoding their JSON decimal representations. This is kernel parity, **not full changed-simulation parity**; it does not cover TypeScript's own transform generation, every boundary case, or browser engines.
+- The [JavaScript kernel reference](../../../benchmarking/experiments/2026-10-01/packed-physics/packed-physics-parity.ts) reproduced all 1,000 supplied-transform Go cases with zero numeric or selected-axis differences. Input float32 arrays must also be rounded after decoding their JSON decimal representations. This is kernel parity, **not full changed-simulation parity**; it does not cover TypeScript's own transform generation, every boundary case, or browser engines.
 - Production builds before/after passed. Lint passed with the same two existing `unicorn(no-new-array)` warnings. Production source, PGO and bundles are unchanged: entry 115,157 B / 50,909 B gzip, docked 4,708 / 2,431, sound 1,681 / 942, Node server 100,475 / 43,458.
 
 See the [kernel timings](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-geometry-kernel.txt), [geometry/island audit](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-audit.json), [whole-world batch audit](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-world-audit.json), and [kernel parity summary](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-parity.json). The source patches are linked below; no approximate prototype has been promoted to production.
@@ -159,7 +159,7 @@ GOCACHE=/tmp/unicorn-precision-go-cache GOEXPERIMENT=simd \
   go test -pgo=cmd/go-server/default.pgo -c -o /tmp/go-packed-candidate ./internal/server
 # Run the paired driver from the main checkout:
 BEFORE_GOGC=800 AFTER_GOGC=800 REPETITIONS=3 TICKS=900 \
-  node benchmarking/tools/go-cpu-paired.mjs cpu-packed-recheck /tmp/go-precision-before /tmp/go-packed-candidate
+  node benchmarking/tools/go-cpu-paired.ts cpu-packed-recheck /tmp/go-precision-before /tmp/go-packed-candidate
 # Add OUTCOME_COMPARISON=report for intentionally changed float32 rules.
 ```
 
