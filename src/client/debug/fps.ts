@@ -1,4 +1,4 @@
-import { renderText } from '../rendering/text/text';
+import { renderText } from '../ui/text/text';
 import { type GameState } from '../game';
 
 // How long a reading stands before it is worked out again. Any faster and it

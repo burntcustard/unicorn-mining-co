@@ -10,7 +10,6 @@ import assert from 'node:assert/strict';
 import { TestAudioContext } from '${process.cwd()}/tests/support/audio-context.mjs';
 import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/client/audio/sound.ts';
 import { HornDrill } from '${process.cwd()}/src/client/objects/modules/horn-drill.ts';
-import '${process.cwd()}/src/client/rendering/modules/horn-drill.ts';
 import { updateHornDrillSounds } from '${process.cwd()}/src/client/audio/update-horn-drill-sounds.ts';
 const hornDrill = new HornDrill();
 const mount = { health: 100, module: hornDrill };

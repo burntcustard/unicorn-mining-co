@@ -1,3 +1,11 @@
+import { drawInside, drawSpectrum, traceBeam } from '../utilities/prism';
+import { drawSegment, objectLineWidth } from '../utilities/drawing';
+import { game } from '../game';
+
+// @ifdef DEBUG
+import { lights } from '../utilities/lighting';
+
+// @endif
 import {
   defaultFriction,
   defaultHealth,
@@ -8,7 +16,6 @@ import {
 } from '../../definitions/craft';
 import { flight } from '../../definitions/control-ship';
 import * as Vec from '../utilities/vector';
-import { type ModuleState } from './module-state';
 import { type WreckageSegment } from './wreckage-segment';
 import { cargoHatchOpen, moduleTypes } from './modules/index';
 import {
@@ -17,7 +24,7 @@ import {
   rotatePoint,
   shapeOf,
 } from '../utilities/geometry';
-import { GameObject } from './game-object';
+import { GameObject, type RenderOptions } from './game-object';
 import { colors, shadesOf } from '../../definitions/colors';
 import { applyForce } from '../physics/apply-force';
 import { outerEdges } from '../utilities/polygon';
@@ -25,12 +32,32 @@ import { type Collider } from '../collision/types';
 import { cargoContactAllowed } from './modules/cargo-hatch';
 import { Module } from './modules/module';
 import {
+  type Pose,
   type Mount,
   type ShapeOutline,
   type Shades,
   type Segment,
 } from '../types';
 import { entityId } from '../simulation/world';
+
+export type ModuleState = {
+  id?: number;
+  type: number;
+  mount: number;
+  health?: number;
+  shades?: readonly string[];
+  segments: { active: number; activationProgress: number }[];
+};
+
+export interface CraftRenderOptions extends RenderOptions {
+  scenery?: GameObject[];
+  zIndex?: number;
+  drawHull?: (options: {
+    segment: Segment;
+    health: number;
+    pose: Pose;
+  }) => void;
+}
 
 type ModuleRecord = Module;
 type HullSegmentPlan = Partial<Segment> & {
@@ -166,18 +193,24 @@ const makeSegment = (
 };
 
 export class Craft extends GameObject {
-  static friction = defaultFriction;
-  static hullSegments: HullSegmentPlan[] = [];
-  static shades = colors.white;
-  kind = 'craft';
   declare cargoContents: GameObject[];
-  declare playerId?: number;
-  health = defaultHealth;
   declare cockpit?: Segment;
+  static friction = defaultFriction;
+  health = defaultHealth;
+  static hullSegments: HullSegmentPlan[] = [];
   declare hullSegments: HullSegmentPlan[];
+  kind = 'craft';
   declare mass: number;
+  declare playerId?: number;
   declare segments: Segment[];
+  static shades = colors.white;
   declare shades: Shades;
+
+  addToScene() {
+    this.collections = [game.sprites, game.crafts];
+    this.add();
+    return this;
+  }
 
   constructor(props: CraftProperties = {}, data?: CraftData) {
     super(props);
@@ -206,127 +239,65 @@ export class Craft extends GameObject {
     this.fixHull();
   }
 
-  launch() {
-    this.dockedTo = undefined;
-    this.launching = flight.launchDuration;
-  }
+  // A broken module keeps its shape long enough to tumble away as wreckage,
+  // while the original mount is immediately free again for the dock menu.
+  detach(mount: Mount) {
+    const mountedSegments = this.segmentsAtMount(mount);
+    const wreckageSegments = mountedSegments.filter(
+      (segment) => segment.wreckage !== false,
+    );
+    let wreckageMiddle: Vec.Value | undefined;
+    const segments = wreckageSegments.map((segment) => {
+      const wreckage = segment.wreckage;
+      const shape: Segment['points'] =
+        wreckage && typeof wreckage === 'object'
+          ? (wreckage.points ?? segment.points)
+          : segment.points;
+      const points = typeof shape === 'function' ? shape(segment) : shape;
+      const { middle, reach: radius } = points?.length
+        ? shapeOutlineExtent(points)
+        : { middle: [0, 0], reach: points ? -Infinity : 0 };
 
-  get moduleStates(): ModuleState[] {
-    const mounts = this.mounts;
+      if (wreckage && typeof wreckage === 'object') {
+        if (wreckageSegments.length === 1) {
+          wreckageMiddle = Vec.create(middle[0], middle[1]);
+        }
+        return Object.assign(Object.create(segment), wreckage, {
+          points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
+          fillShade:
+            wreckage.fillShade ??
+            ((segment.mount || segment).health < segment.module.health / 2
+              ? 0
+              : 1),
+          radius: () => radius,
+        });
+      }
+      return segment;
+    });
+    const origin = Vec.add(mount.localPosition, wreckageMiddle || Vec.create());
 
-    return this.modules.map((module) => ({
-      id: module.id,
-      type: moduleTypes.findIndex((Type) => module instanceof Type),
-      mount: mounts.indexOf(module.mount),
-      health: module.mount ? module.mount.health : module.health,
-      shades: module.shades,
-      segments: this.segmentsAtMount(module.mount)
-        .filter((segment) => segment.module === module)
-        .map((segment) => ({
-          active: segment.active,
-          activationProgress: segment.activationProgress,
-        })),
-    }));
-  }
+    // Destroyed instances are removed rather than entering cargo contents.
+    this.destroyed?.(mount.module);
+    const destroyed = mount.module;
 
-  set moduleStates(states: ModuleState[]) {
-    const previous = this.modules;
-    const mounts = this.mounts;
-    const unchanged =
-      previous.length === states.length &&
-      states.every((state, index) => {
-        const module = previous[index];
+    this.fit(0, mount);
 
-        return (
-          (state.id === undefined || module.id === state.id) &&
-          moduleTypes.findIndex((Type) => module instanceof Type) ===
-            state.type &&
-          mounts.indexOf(module.mount) === state.mount
-        );
-      });
-
-    if (!unchanged) {
-      mounts.forEach((mount) => this.fit(0, mount));
+    if (destroyed) {
       this.cargoContents = this.cargoContents.filter(
-        (object) => !(object instanceof Module),
+        (object) => object !== destroyed,
       );
     }
-    states.forEach((state, index) => {
-      const definition = moduleTypes[state.type];
-
-      if (!definition) throw new Error('Unknown ship module');
-      const module: Module = unchanged ? previous[index] : new definition();
-
-      if (state.id !== undefined) module.id = state.id;
-      module.health = state.mount >= 0 ? definition.health : state.health;
-
-      if (state.shades) module.shades = shadesOf(state.shades);
-
-      if (state.mount >= 0) {
-        const mount = mounts[state.mount];
-
-        if (mount) {
-          if (!unchanged) this.fit(module, mount);
-          mount.health = state.health;
-          this.segmentsAtMount(mount).forEach((segment, index) =>
-            Object.assign(segment, state.segments[index], {
-              shades: module.shades || this.shades,
-            }),
-          );
-        }
-      } else if (!unchanged) this.cargoContents.push(module);
-    });
-  }
-
-  get wreckage(): WreckageSegment[] | undefined {
-    return this.decay
-      ? this.segments.map((segment) => ({
-          shapeOutline:
-            typeof segment.points === 'function'
-              ? segment.points(segment)
-              : segment.points,
-          radius: segment.radius?.(segment) || 0,
-          offset: segment.localPosition,
-          health: (segment.mount || segment).health,
-          fillShade: segment.fillShade,
-          stroke: segment.shapeOutline,
-        }))
-      : undefined;
-  }
-
-  get mounts() {
-    const mounts: Mount[] = [];
-    const segments = this.segments;
-
-    for (let index = 0; index < segments.length; index++) {
-      const segmentMounts = segments[index].mounts;
-
-      for (let at = 0; segmentMounts && at < segmentMounts.length; at++) {
-        mounts.push(segmentMounts[at]);
-      }
-    }
-    return mounts;
-  }
-
-  segmentsAtMount(mount: Mount) {
-    return this.segments.filter((segment) => segment.mount === mount);
-  }
-
-  get modules(): Module[] {
-    const modules: Module[] = [];
-
-    for (const segment of this.segments) {
-      if (!segment.mounts) continue;
-
-      for (const mount of segment.mounts) {
-        if (mount.module) modules.push(mount.module);
-      }
-    }
-
-    for (const object of this.cargoContents) {
-      if (object instanceof Module) modules.push(object);
-    }
-    return modules;
+    this.spawn(
+      origin,
+      segments,
+      {
+        health: 1,
+        mount: { health: 1, localPosition: mount.localPosition },
+        shades: (destroyed && destroyed.shades) || this.shades,
+        ...(wreckageMiddle && { localPosition: Vec.create() }),
+      },
+      origin,
+    );
   }
 
   // Fit an owned instance, or pass a falsy module to empty the mount. Replaced
@@ -400,113 +371,71 @@ export class Craft extends GameObject {
     this.cockpit = hulls.find(({ core }) => core);
   }
 
-  /**
-   * Throw a group of this ship's segments off as a loose body of its own:
-   * rebased around `origin`, carrying the motion it had while attached, and
-   * shoved clear along `away`.
-   *
-   * origin: The fragment's own centre, in this ship's frame.
-   * segments: The segments it takes with it.
-   * own: What each copied segment overrides of its original.
-   * away: Which way it is pushed, in this ship's frame.
-   */
-  spawn(
-    origin: Vec.Value,
-    segments: Segment[],
-    own: Partial<Segment>,
-    away = origin,
-  ) {
-    const position = Vec.add(this.position, rotatePoint(origin, this.rotation));
-    const velocity = Vec.add(this.velocity, this.momentum(position));
-    const fragment = new Craft({
-      id: this.world ? entityId(this.world) : undefined,
-      world: this.world,
-      collections: this.collections,
-      random: this.random,
-      shades: own.shades || this.shades,
-      velocity,
-      rotation: this.rotation,
-      segments: segments.map((segment) =>
-        Object.assign(Object.create(segment), {
-          ...own,
-          collider: 0,
-          localPosition:
-            own.localPosition || Vec.subtract(segment.localPosition, origin),
-        }),
-      ),
-      spin: this.spin,
-      position,
-    });
+  fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
+    const center = hulls.length && centerOf(hulls);
+    const groups = destroyed
+      ? hulls.map((_, i) => [i])
+      : outerEdges(outlinesOf(hulls));
+    const core =
+      !destroyed &&
+      groups.find((group) => group.includes(hulls.indexOf(this.cockpit)));
+    const fragments = groups
+      .filter((group) => group !== core)
+      .map((group) => {
+        const segments = group.map((i) => hulls[i]);
+        const middle = centerOf(segments);
 
-    applyForce(
-      fragment,
-      Vec.scale(Vec.normalize(rotatePoint(away, this.rotation)), 30),
-      this.random.next() - 0.5,
-    );
+        outerEdges(outlinesOf(segments));
 
-    fragment.add();
-    return fragment;
-  }
+        return this.spawn(
+          middle,
+          segments,
+          wreckage ? { health: 1 } : {},
+          Vec.subtract(middle, center),
+        );
+      });
 
-  // A broken module keeps its shape long enough to tumble away as wreckage,
-  // while the original mount is immediately free again for the dock menu.
-  detach(mount: Mount) {
-    const mountedSegments = this.segmentsAtMount(mount);
-    const wreckageSegments = mountedSegments.filter(
-      (segment) => segment.wreckage !== false,
-    );
-    let wreckageMiddle: Vec.Value | undefined;
-    const segments = wreckageSegments.map((segment) => {
-      const wreckage = segment.wreckage;
-      const shape: Segment['points'] =
-        wreckage && typeof wreckage === 'object'
-          ? (wreckage.points ?? segment.points)
-          : segment.points;
-      const points = typeof shape === 'function' ? shape(segment) : shape;
-      const { middle, reach: radius } = points?.length
-        ? shapeOutlineExtent(points)
-        : { middle: [0, 0], reach: points ? -Infinity : 0 };
+    // Broken pieces are made into temporary wreckage before the intact hull
+    // is fractured, so do not let this pass alter the parent ship.
+    if (wreckage) return fragments;
+    const kept = (core || []).map((i) => hulls[i]);
 
-      if (wreckage && typeof wreckage === 'object') {
-        if (wreckageSegments.length === 1) {
-          wreckageMiddle = Vec.create(middle[0], middle[1]);
-        }
-        return Object.assign(Object.create(segment), wreckage, {
-          points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
-          fillShade:
-            wreckage.fillShade ??
-            ((segment.mount || segment).health < segment.module.health / 2
-              ? 0
-              : 1),
-          radius: () => radius,
-        });
-      }
-      return segment;
-    });
-    const origin = Vec.add(mount.localPosition, wreckageMiddle || Vec.create());
+    if (core && fragments.length) {
+      const away = rotatePoint(
+        Vec.subtract(centerOf(kept), center),
+        this.rotation,
+      );
 
-    // Destroyed instances are removed rather than entering cargo contents.
-    this.destroyed?.(mount.module);
-    const destroyed = mount.module;
-
-    this.fit(0, mount);
-
-    if (destroyed) {
-      this.cargoContents = this.cargoContents.filter(
-        (object) => object !== destroyed,
+      applyForce(
+        this,
+        Vec.scale(Vec.normalize(away), 30),
+        this.random.next() - 0.5,
       );
     }
-    this.spawn(
-      origin,
-      segments,
-      {
-        health: 1,
-        mount: { health: 1, localPosition: mount.localPosition },
-        shades: (destroyed && destroyed.shades) || this.shades,
-        ...(wreckageMiddle && { localPosition: Vec.create() }),
-      },
-      origin,
+
+    this.segments = this.segments.filter(
+      (segment) => kept.includes(segment) || kept.includes(segment.mount?.hull),
     );
+
+    if (kept.length) {
+      outerEdges(outlinesOf(kept));
+    } else {
+      this.cargoContents.splice(0).forEach((object) => {
+        object.world = this.world;
+        Vec.set(object.position, this.position);
+        Vec.set(object.velocity, this.velocity);
+
+        applyForce(
+          object,
+          movePoint(Vec.create(), this.random.next() * Math.PI * 2, 30),
+          this.random.next() - 0.5,
+        );
+        object.add();
+      });
+      this.remove();
+    }
+
+    return fragments;
   }
 
   // The hitbox pass already visits every changing point. Its token lets physics
@@ -717,79 +646,6 @@ export class Craft extends GameObject {
     return result;
   }
 
-  momentum(position: Vec.Value) {
-    const offset = Vec.subtract(position, this.position);
-
-    return Vec.create(-offset.y * this.spin, offset.x * this.spin);
-  }
-
-  fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
-    const center = hulls.length && centerOf(hulls);
-    const groups = destroyed
-      ? hulls.map((_, i) => [i])
-      : outerEdges(outlinesOf(hulls));
-    const core =
-      !destroyed &&
-      groups.find((group) => group.includes(hulls.indexOf(this.cockpit)));
-    const fragments = groups
-      .filter((group) => group !== core)
-      .map((group) => {
-        const segments = group.map((i) => hulls[i]);
-        const middle = centerOf(segments);
-
-        outerEdges(outlinesOf(segments));
-
-        return this.spawn(
-          middle,
-          segments,
-          wreckage ? { health: 1 } : {},
-          Vec.subtract(middle, center),
-        );
-      });
-
-    // Broken pieces are made into temporary wreckage before the intact hull
-    // is fractured, so do not let this pass alter the parent ship.
-    if (wreckage) return fragments;
-    const kept = (core || []).map((i) => hulls[i]);
-
-    if (core && fragments.length) {
-      const away = rotatePoint(
-        Vec.subtract(centerOf(kept), center),
-        this.rotation,
-      );
-
-      applyForce(
-        this,
-        Vec.scale(Vec.normalize(away), 30),
-        this.random.next() - 0.5,
-      );
-    }
-
-    this.segments = this.segments.filter(
-      (segment) => kept.includes(segment) || kept.includes(segment.mount?.hull),
-    );
-
-    if (kept.length) {
-      outerEdges(outlinesOf(kept));
-    } else {
-      this.cargoContents.splice(0).forEach((object) => {
-        object.world = this.world;
-        Vec.set(object.position, this.position);
-        Vec.set(object.velocity, this.velocity);
-
-        applyForce(
-          object,
-          movePoint(Vec.create(), this.random.next() * Math.PI * 2, 30),
-          this.random.next() - 0.5,
-        );
-        object.add();
-      });
-      this.remove();
-    }
-
-    return fragments;
-  }
-
   get hullHealth() {
     // First hull segment per plan, found in one pass rather than per plan.
     const hulls = new Map<unknown, Segment>();
@@ -805,6 +661,7 @@ export class Craft extends GameObject {
         : hulls.get(segmentPlan)?.health || 0,
     );
   }
+
   set hullHealth(values: number[]) {
     const current = this.hullHealth;
 
@@ -839,6 +696,11 @@ export class Craft extends GameObject {
     );
   }
 
+  launch() {
+    this.dockedTo = undefined;
+    this.launching = flight.launchDuration;
+  }
+
   moduleActive({ module }: { module: typeof Module }) {
     return this.segments.some(
       (segment) =>
@@ -846,6 +708,212 @@ export class Craft extends GameObject {
         !((segment.mount || segment).health < 1) &&
         Boolean(segment.active),
     );
+  }
+
+  get modules(): Module[] {
+    const modules: Module[] = [];
+
+    for (const segment of this.segments) {
+      if (!segment.mounts) continue;
+
+      for (const mount of segment.mounts) {
+        if (mount.module) modules.push(mount.module);
+      }
+    }
+
+    for (const object of this.cargoContents) {
+      if (object instanceof Module) modules.push(object);
+    }
+    return modules;
+  }
+
+  get moduleStates(): ModuleState[] {
+    const mounts = this.mounts;
+
+    return this.modules.map((module) => ({
+      id: module.id,
+      type: moduleTypes.findIndex((Type) => module instanceof Type),
+      mount: mounts.indexOf(module.mount),
+      health: module.mount ? module.mount.health : module.health,
+      shades: module.shades,
+      segments: this.segmentsAtMount(module.mount)
+        .filter((segment) => segment.module === module)
+        .map((segment) => ({
+          active: segment.active,
+          activationProgress: segment.activationProgress,
+        })),
+    }));
+  }
+
+  set moduleStates(states: ModuleState[]) {
+    const previous = this.modules;
+    const mounts = this.mounts;
+    const unchanged =
+      previous.length === states.length &&
+      states.every((state, index) => {
+        const module = previous[index];
+
+        return (
+          (state.id === undefined || module.id === state.id) &&
+          moduleTypes.findIndex((Type) => module instanceof Type) ===
+            state.type &&
+          mounts.indexOf(module.mount) === state.mount
+        );
+      });
+
+    if (!unchanged) {
+      mounts.forEach((mount) => this.fit(0, mount));
+      this.cargoContents = this.cargoContents.filter(
+        (object) => !(object instanceof Module),
+      );
+    }
+    states.forEach((state, index) => {
+      const definition = moduleTypes[state.type];
+
+      if (!definition) throw new Error('Unknown ship module');
+      const module: Module = unchanged ? previous[index] : new definition();
+
+      if (state.id !== undefined) module.id = state.id;
+      module.health = state.mount >= 0 ? definition.health : state.health;
+
+      if (state.shades) module.shades = shadesOf(state.shades);
+
+      if (state.mount >= 0) {
+        const mount = mounts[state.mount];
+
+        if (mount) {
+          if (!unchanged) this.fit(module, mount);
+          mount.health = state.health;
+          this.segmentsAtMount(mount).forEach((segment, index) =>
+            Object.assign(segment, state.segments[index], {
+              shades: module.shades || this.shades,
+            }),
+          );
+        }
+      } else if (!unchanged) this.cargoContents.push(module);
+    });
+  }
+
+  momentum(position: Vec.Value) {
+    const offset = Vec.subtract(position, this.position);
+
+    return Vec.create(-offset.y * this.spin, offset.x * this.spin);
+  }
+
+  get mounts() {
+    const mounts: Mount[] = [];
+    const segments = this.segments;
+
+    for (let index = 0; index < segments.length; index++) {
+      const segmentMounts = segments[index].mounts;
+
+      for (let at = 0; segmentMounts && at < segmentMounts.length; at++) {
+        mounts.push(segmentMounts[at]);
+      }
+    }
+    return mounts;
+  }
+
+  render({
+    scenery = [],
+    zIndex = 0,
+    draw,
+    drawHull,
+    pose = this,
+  }: CraftRenderOptions = {}) {
+    const { ctx } = game;
+    // Only the shared thruster-glow layer has a fractional z-index.
+    const glow = zIndex % 1;
+
+    super.render({
+      pose,
+      draw: () => {
+        ctx.lineJoin = 'bevel';
+        ctx.lineWidth = objectLineWidth;
+
+        // @ifdef DEBUG
+        if (lights || glow) {
+          // @endif
+          if (!this.decay && (zIndex === -3 || zIndex === -1 || glow)) {
+            this.segments.forEach((segment: Segment) => {
+              if (
+                !(glow ? segment.module.forwardThrust : segment.module.beam) ||
+                !segment.activationProgress ||
+                (segment.mount || segment).health < 1
+              ) {
+                return;
+              }
+
+              ctx.save();
+              ctx.translate(segment.localPosition.x, segment.localPosition.y);
+
+              if (zIndex === -3) {
+                segment.prism = traceBeam(pose, segment, scenery);
+              }
+
+              if (glow) segment.module.renderGlow({ segment });
+              else {
+                (zIndex === -3 ? drawSpectrum : drawInside)(
+                  ctx,
+                  segment,
+                  segment.prism,
+                );
+              }
+
+              ctx.restore();
+            });
+          }
+          // @ifdef DEBUG
+        }
+        // @endif
+
+        draw?.();
+
+        this.segments.forEach((segment: Segment) => {
+          const health = (segment.mount || segment).health;
+
+          if (segment.zIndex !== zIndex || health < 1) return;
+
+          ctx.save();
+          ctx.translate(segment.localPosition.x, segment.localPosition.y);
+
+          segment.shades ||= segment.module.shades || this.shades;
+
+          if (!this.decay && segment.module instanceof Module) {
+            segment.module.render({ segment, craft: this, scenery, pose });
+          } else if (drawHull) drawHull({ segment, health, pose });
+          else this.renderHull({ segment, health });
+
+          ctx.restore();
+        });
+      },
+    });
+  }
+
+  /*
+   * Detached hulls use the bare Craft presentation.
+   */
+  private renderHull({
+    segment,
+    health,
+  }: {
+    segment: Segment;
+    health: number;
+  }) {
+    const { ctx } = game;
+    const worn =
+      segment.fillShade ??
+      (health < segment.module.health / 2 ? 0 : +!!segment.hull);
+
+    ctx.fillStyle = segment.fillAlpha
+      ? segment.shades[2] + segment.fillAlpha
+      : segment.shades[worn];
+    ctx.strokeStyle = segment.shades[2];
+    drawSegment({ ctx, segment });
+  }
+
+  segmentsAtMount(mount: Mount) {
+    return this.segments.filter((segment) => segment.mount === mount);
   }
 
   setModuleActive({
@@ -860,31 +928,58 @@ export class Craft extends GameObject {
     });
   }
 
+  /**
+   * Throw a group of this ship's segments off as a loose body of its own:
+   * rebased around `origin`, carrying the motion it had while attached, and
+   * shoved clear along `away`.
+   *
+   * origin: The fragment's own centre, in this ship's frame.
+   * segments: The segments it takes with it.
+   * own: What each copied segment overrides of its original.
+   * away: Which way it is pushed, in this ship's frame.
+   */
+  spawn(
+    origin: Vec.Value,
+    segments: Segment[],
+    own: Partial<Segment>,
+    away = origin,
+  ) {
+    const position = Vec.add(this.position, rotatePoint(origin, this.rotation));
+    const velocity = Vec.add(this.velocity, this.momentum(position));
+    const fragment = new Craft({
+      id: this.world ? entityId(this.world) : undefined,
+      world: this.world,
+      collections: this.collections,
+      random: this.random,
+      shades: own.shades || this.shades,
+      velocity,
+      rotation: this.rotation,
+      segments: segments.map((segment) =>
+        Object.assign(Object.create(segment), {
+          ...own,
+          collider: 0,
+          localPosition:
+            own.localPosition || Vec.subtract(segment.localPosition, origin),
+        }),
+      ),
+      spin: this.spin,
+      position,
+    });
+
+    applyForce(
+      fragment,
+      Vec.scale(Vec.normalize(rotatePoint(away, this.rotation)), 30),
+      this.random.next() - 0.5,
+    );
+
+    fragment.add();
+    return fragment;
+  }
+
   toggle(craftModule: typeof Module) {
     this.segments.forEach((segment) => {
       if (segment.module instanceof craftModule) {
         segment.active = 1 - segment.active;
-      }
-    });
-  }
-
-  updateModules(dt: number) {
-    this.segments.forEach((segment) => {
-      if (this.dockedTo) segment.active = 0;
-      const target = !((segment.mount || segment).health < 1)
-        ? segment.active
-        : 0;
-
-      const previousProgress = segment.activationProgress;
-
-      segment.activationProgress = approach(
-        previousProgress,
-        target,
-        segment.rate * dt,
-      );
-
-      if (segment.covers && segment.activationProgress > previousProgress) {
-        segment.expandingTick = this.world?.tick;
       }
     });
   }
@@ -948,5 +1043,51 @@ export class Craft extends GameObject {
         this.fracture(hulls, lost);
       }
     }
+  }
+
+  updateModules(dt: number) {
+    this.segments.forEach((segment) => {
+      if (this.dockedTo) segment.active = 0;
+      const target = !((segment.mount || segment).health < 1)
+        ? segment.active
+        : 0;
+
+      const previousProgress = segment.activationProgress;
+
+      segment.activationProgress = approach(
+        previousProgress,
+        target,
+        segment.rate * dt,
+      );
+
+      if (segment.covers && segment.activationProgress > previousProgress) {
+        segment.expandingTick = this.world?.tick;
+      }
+    });
+  }
+
+  updateVisual(dt: number) {
+    this.modules.forEach((module: Module) =>
+      module.updateVisual?.({
+        dt,
+        segments: this.segmentsAtMount(module.mount),
+      }),
+    );
+  }
+
+  get wreckage(): WreckageSegment[] | undefined {
+    return this.decay
+      ? this.segments.map((segment) => ({
+          shapeOutline:
+            typeof segment.points === 'function'
+              ? segment.points(segment)
+              : segment.points,
+          radius: segment.radius?.(segment) || 0,
+          offset: segment.localPosition,
+          health: (segment.mount || segment).health,
+          fillShade: segment.fillShade,
+          stroke: segment.shapeOutline,
+        }))
+      : undefined;
   }
 }

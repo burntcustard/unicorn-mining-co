@@ -14,7 +14,7 @@ import { maxPredictionTicks } from '../../definitions/prediction';
 import { simulationStep } from '../../definitions/simulation';
 import { updateEntities } from '../simulation/update-tier';
 import { type SimulationEvent } from '../protocol/events';
-import { Asteroid } from '../simulation/asteroid';
+import { Asteroid } from '../objects/asteroid';
 import { type SimulationWorld } from '../simulation/world';
 import { type GameObject } from '../objects/game-object';
 import { Ship } from '../objects/ship';
@@ -170,19 +170,91 @@ export class PredictionManager {
   private sequence = 0;
   private world: SimulationWorld;
 
+  /**
+   * Membership is complete, but entity state is only included when due.
+   * Remove missing IDs without removing or advancing unchanged tier members.
+   */
+  private applyServerState({
+    entities,
+    entityIds,
+    entityTicks,
+    exclude,
+    catchUp = 0,
+  }: {
+    entities?: GameObject[];
+    entityIds?: number[];
+    entityTicks?: Map<number, number>;
+    exclude?: number;
+    catchUp?: number;
+  }) {
+    if (entities) {
+      const replicated = new Set(entityIds);
+
+      [...this.world.entities.keys()].forEach((id) => {
+        if (!replicated.has(id)) this.world.entities.delete(id);
+      });
+      entities.forEach((server) => {
+        const entity = this.world.entities.get(server.id);
+
+        if (server.id === exclude) return;
+
+        if (entity && entity.constructor === server.constructor) {
+          applyEntity({ entity, server });
+        } else {
+          const restored = cloneEntity({ entity: server });
+
+          restored.world = this.world;
+          restored.random = this.world.random;
+          this.world.entities.set(server.id, restored);
+        }
+        this.world.nextEntityId = Math.max(
+          this.world.nextEntityId,
+          server.id + 1,
+        );
+      });
+    }
+    const updated = (entities || [])
+      .filter((entity) => entity.id !== exclude)
+      .map((entity) => this.world.entities.get(entity.id))
+      .filter((entity) => entity !== undefined);
+    // A packet batch can contain older slow-tier state. Preserve each sample's
+    // tick rather than pretending all merged entities came from the last packet.
+    const fromTick = (entity: GameObject) =>
+      entityTicks?.get(entity.id) ?? this.world.tick - catchUp;
+    const oldest = Math.min(this.world.tick, ...updated.map(fromTick));
+
+    for (let tick = oldest; tick < this.world.tick; tick++) {
+      updateEntities({
+        world: this.world,
+        entities: updated.filter((entity) => fromTick(entity) <= tick),
+        tick,
+      });
+    }
+  }
+
   constructor({ world }: { world: SimulationWorld }) {
     this.world = world;
   }
 
-  setLocalPlayer({ playerId }: { playerId: PlayerId }) {
-    this.localPlayerId = playerId;
+  private discardBefore({ tick }: { tick: number }) {
+    [...this.history.keys()].forEach((historyTick) => {
+      if (historyTick < tick) {
+        this.history.delete(historyTick);
+      }
+    });
   }
 
-  reset() {
-    this.frame.reset();
-    this.history.clear();
-    this.localInputs.clear();
-    this.lastSent = undefined;
+  private inputAt({ tick }: { tick: number }) {
+    let value = emptyPlayerInput();
+    let valueTick = -Infinity;
+
+    this.localInputs.forEach((changes, inputTick) => {
+      if (inputTick < tick && inputTick > valueTick) {
+        value = changes.at(-1)!.input;
+        valueTick = inputTick;
+      }
+    });
+    return { input: value, changes: this.localInputs.get(tick) || [] };
   }
 
   predictFrame({ elapsed }: { elapsed: number }) {
@@ -194,52 +266,6 @@ export class PredictionManager {
           input: this.inputAt({ tick: this.world.tick }),
           elapsed,
         });
-  }
-
-  recordInput({
-    input,
-    send,
-    offset = 0,
-  }: {
-    input: PlayerInput;
-    offset?: number;
-    send: (message: {
-      input: PlayerInput;
-      sequence: number;
-      tick: number;
-      offset: number;
-    }) => void;
-  }) {
-    if (this.localPlayerId === undefined) return;
-    const tick = this.world.tick;
-
-    // Preserve every edge, including multiple changes within the same tick.
-    // Held controls need no repeated messages.
-    if (!this.lastSent || !sameInput(this.lastSent, input)) {
-      const savedInput = { ...input };
-
-      this.lastSent = savedInput;
-      const changes = this.localInputs.get(tick) || [];
-
-      offset = Math.max(
-        changes.at(-1)?.offset || 0,
-        Math.min(simulationStep - 1e-9, Math.max(0, offset)),
-      );
-      changes.push({ input: savedInput, offset });
-      this.localInputs.set(tick, changes);
-      send({ input: savedInput, sequence: ++this.sequence, tick, offset });
-    }
-  }
-
-  step(
-    options: Parameters<PredictionManager['recordInput']>[0],
-  ): SimulationEvent[] {
-    if (this.localPlayerId === undefined) return [];
-    this.recordInput(options);
-    const events = this.simulate({ tick: this.world.tick });
-
-    this.trim();
-    return events;
   }
 
   /**
@@ -363,65 +389,38 @@ export class PredictionManager {
     this.discardBefore({ tick });
   }
 
-  /**
-   * Membership is complete, but entity state is only included when due.
-   * Remove missing IDs without removing or advancing unchanged tier members.
-   */
-  private applyServerState({
-    entities,
-    entityIds,
-    entityTicks,
-    exclude,
-    catchUp = 0,
+  recordInput({
+    input,
+    send,
+    offset = 0,
   }: {
-    entities?: GameObject[];
-    entityIds?: number[];
-    entityTicks?: Map<number, number>;
-    exclude?: number;
-    catchUp?: number;
+    input: PlayerInput;
+    offset?: number;
+    send: (message: {
+      input: PlayerInput;
+      sequence: number;
+      tick: number;
+      offset: number;
+    }) => void;
   }) {
-    if (entities) {
-      const replicated = new Set(entityIds);
+    if (this.localPlayerId === undefined) return;
+    const tick = this.world.tick;
 
-      [...this.world.entities.keys()].forEach((id) => {
-        if (!replicated.has(id)) this.world.entities.delete(id);
-      });
-      entities.forEach((server) => {
-        const entity = this.world.entities.get(server.id);
+    // Preserve every edge, including multiple changes within the same tick.
+    // Held controls need no repeated messages.
+    if (!this.lastSent || !sameInput(this.lastSent, input)) {
+      const savedInput = { ...input };
 
-        if (server.id === exclude) return;
+      this.lastSent = savedInput;
+      const changes = this.localInputs.get(tick) || [];
 
-        if (entity && entity.constructor === server.constructor) {
-          applyEntity({ entity, server });
-        } else {
-          const restored = cloneEntity({ entity: server });
-
-          restored.world = this.world;
-          restored.random = this.world.random;
-          this.world.entities.set(server.id, restored);
-        }
-        this.world.nextEntityId = Math.max(
-          this.world.nextEntityId,
-          server.id + 1,
-        );
-      });
-    }
-    const updated = (entities || [])
-      .filter((entity) => entity.id !== exclude)
-      .map((entity) => this.world.entities.get(entity.id))
-      .filter((entity) => entity !== undefined);
-    // A packet batch can contain older slow-tier state. Preserve each sample's
-    // tick rather than pretending all merged entities came from the last packet.
-    const fromTick = (entity: GameObject) =>
-      entityTicks?.get(entity.id) ?? this.world.tick - catchUp;
-    const oldest = Math.min(this.world.tick, ...updated.map(fromTick));
-
-    for (let tick = oldest; tick < this.world.tick; tick++) {
-      updateEntities({
-        world: this.world,
-        entities: updated.filter((entity) => fromTick(entity) <= tick),
-        tick,
-      });
+      offset = Math.max(
+        changes.at(-1)?.offset || 0,
+        Math.min(simulationStep - 1e-9, Math.max(0, offset)),
+      );
+      changes.push({ input: savedInput, offset });
+      this.localInputs.set(tick, changes);
+      send({ input: savedInput, sequence: ++this.sequence, tick, offset });
     }
   }
 
@@ -430,6 +429,17 @@ export class PredictionManager {
       this.simulate({ tick: this.world.tick });
     }
     this.trim();
+  }
+
+  reset() {
+    this.frame.reset();
+    this.history.clear();
+    this.localInputs.clear();
+    this.lastSent = undefined;
+  }
+
+  setLocalPlayer({ playerId }: { playerId: PlayerId }) {
+    this.localPlayerId = playerId;
   }
 
   private simulate({ tick }: { tick: number }) {
@@ -446,25 +456,15 @@ export class PredictionManager {
     return updateWorld({ world: this.world, inputs: inputs });
   }
 
-  private inputAt({ tick }: { tick: number }) {
-    let value = emptyPlayerInput();
-    let valueTick = -Infinity;
+  step(
+    options: Parameters<PredictionManager['recordInput']>[0],
+  ): SimulationEvent[] {
+    if (this.localPlayerId === undefined) return [];
+    this.recordInput(options);
+    const events = this.simulate({ tick: this.world.tick });
 
-    this.localInputs.forEach((changes, inputTick) => {
-      if (inputTick < tick && inputTick > valueTick) {
-        value = changes.at(-1)!.input;
-        valueTick = inputTick;
-      }
-    });
-    return { input: value, changes: this.localInputs.get(tick) || [] };
-  }
-
-  private discardBefore({ tick }: { tick: number }) {
-    [...this.history.keys()].forEach((historyTick) => {
-      if (historyTick < tick) {
-        this.history.delete(historyTick);
-      }
-    });
+    this.trim();
+    return events;
   }
 
   private trim() {

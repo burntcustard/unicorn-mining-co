@@ -1,7 +1,7 @@
-import { deadzone, lag, dockDuration } from '../../definitions/camera';
-import * as Vec from '../utilities/vector';
-import { ease } from '../utilities/ease';
-import { type GameObject } from '../objects/game-object';
+import { deadzone, lag, dockDuration } from '../definitions/camera';
+import * as Vec from './utilities/vector';
+import { ease } from './utilities/ease';
+import { type GameObject } from './objects/game-object';
 
 /**
  * The camera is the top left corner of the viewport in world coordinates.
@@ -99,4 +99,4 @@ export const renderDeadzone = (game: GameState) => {
   ctx.restore();
 };
 
-import { type GameState } from '../game';
+import { type GameState } from './game';

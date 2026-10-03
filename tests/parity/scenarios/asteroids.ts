@@ -6,7 +6,7 @@ import {
   shapeOutlineOf,
   shapeOutlinesFrom,
   asteroidContact,
-} from '../../../src/client/simulation/asteroid';
+} from '../../../src/client/objects/asteroid';
 import { type SimulationEvent } from '../../../src/client/protocol/events';
 
 const record = (asteroid: Asteroid) =>

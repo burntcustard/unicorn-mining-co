@@ -3,9 +3,9 @@ import { type Ship } from '../objects/ship';
 import { type GameState } from '../game';
 import { paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../definitions/colors';
-import { textOutline } from '../rendering/text/text-outline';
+import { textOutline } from './text/text-outline';
 import { playSound } from '../audio/sound-loader';
-import { renderText } from '../rendering/text/text';
+import { renderText } from './text/text';
 import { moduleTypes } from '../objects/modules/index';
 import { sendCraftAction } from '../network/craft-actions';
 

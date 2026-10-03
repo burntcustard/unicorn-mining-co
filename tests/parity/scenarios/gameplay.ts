@@ -6,7 +6,7 @@ import {
 } from '../../../src/client/simulation/world';
 import { createShip } from '../../../src/client/objects/create-ship';
 import { Station } from '../../../src/client/objects/station';
-import { createAsteroid } from '../../../src/client/simulation/asteroid';
+import { createAsteroid } from '../../../src/client/objects/asteroid';
 import {
   ShieldGenerator,
   moduleTypesById,

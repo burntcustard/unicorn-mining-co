@@ -1,26 +1,25 @@
+import { game } from '../../game';
+import { linesPath, shapePath } from '../../utilities/drawing';
 import * as Vec from '../../utilities/vector';
 import { moduleDefinitions } from '../../../definitions/modules/index';
-import { Module } from './module';
+import { Module, type ModuleRenderOptions } from './module';
 import { outlineColorOf, type Collider } from '../../collision/types';
 import { damage } from '../damage';
 import { type SimulationEvent } from '../../protocol/events';
 import { type Segment } from '../../types';
-import { Asteroid } from '../../simulation/asteroid';
+import { Asteroid } from '../asteroid';
 import { type Ship } from '../ship';
 import { type SimulationWorld } from '../../simulation/world';
 
 const specification = moduleDefinitions.hornDrill;
 
 export class HornDrill extends Module {
-  static shades = specification.shades;
   static activationDuration = specification.activationDuration;
-  static bounciness = (segment: any) =>
+  static bounciness = (segment: Segment) =>
     segment.activationProgress > specification.activationThreshold
       ? -0.4
       : undefined;
-  static friction = specification.friction;
   static damage = specification.damage;
-  static grinds = specification.grinds;
   static drillTip = {
     position: Vec.create(
       specification.drillTip.position.x,
@@ -28,10 +27,13 @@ export class HornDrill extends Module {
     ),
     radius: specification.drillTip.radius,
   };
+  static friction = specification.friction;
+  static grinds = specification.grinds;
   static health = specification.health;
-  static model: any[] = [{ points: specification.points }];
   static label = specification.label;
+  static model: any[] = [{ points: specification.points }];
   static price = specification.price;
+  static shades = specification.shades;
   static zIndex = specification.zIndex;
 
   drill({
@@ -105,5 +107,40 @@ export class HornDrill extends Module {
     ) {
       Vec.set(ship.velocity, asteroid.velocity);
     }
+  }
+
+  render({ segment }: ModuleRenderOptions) {
+    super.render({ segment });
+    const { ctx } = game;
+
+    ctx.save();
+    ctx.strokeStyle = (this.shades || segment.shades)[2];
+    ctx.clip(
+      shapePath(
+        typeof segment.points === 'function'
+          ? segment.points(segment)
+          : segment.points,
+      ),
+    );
+    ctx.stroke(
+      linesPath(
+        Array.from({ length: 6 }, (_, index) => {
+          const middle = 3 + (index - 1 + (segment.phase || 0)) * 6;
+
+          return [
+            [middle - 3, -6],
+            [middle + 3, 6],
+          ];
+        }),
+      ),
+    );
+    ctx.restore();
+  }
+
+  updateVisual({ dt, segments }: { dt: number; segments: Segment[] }) {
+    segments.forEach((segment) => {
+      segment.phase =
+        ((segment.phase || 0) + dt * 1.5 * segment.activationProgress) % 1;
+    });
   }
 }

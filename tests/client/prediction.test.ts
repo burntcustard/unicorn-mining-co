@@ -1,6 +1,6 @@
 import * as Vec from '../../src/client/utilities/vector';
 import assert from 'node:assert/strict';
-import { createAsteroid } from '../../src/client/simulation/asteroid';
+import { createAsteroid } from '../../src/client/objects/asteroid';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
 import {
   addEntity,

@@ -101,11 +101,12 @@ for (let tick = 0; tick < 1800; tick++) {
 const calls: { type: string; value: number }[] = [];
 
 class ProbeShip extends Ship {
-  update(dt: number) {
-    calls.push({ type: 'update', value: dt });
-  }
   fly(forward: number) {
     calls.push({ type: 'control', value: forward });
+  }
+
+  update(dt: number) {
+    calls.push({ type: 'update', value: dt });
   }
 }
 const timedWorld = createWorld();

@@ -20,6 +20,7 @@ const entryId = resolve('src/__lazy_docked_test.ts');
 const entry = `
 import { playerShip } from '${resolve('src/client/player.ts')}';
 import { game } from '${resolve('src/client/game.ts')}';
+import { init } from '${resolve('src/client/core.ts')}';
 import { Item } from '${resolve('src/client/objects/item.ts')}';
 import { diamond as diamondDefinition } from '${resolve('src/definitions/items/index.ts')}';
 import { setCraftActionDispatcher } from '${resolve('src/client/network/craft-actions.ts')}';
@@ -31,7 +32,8 @@ const sales = [];
 setCraftActionDispatcher(action => {
   if (action.action === 'sell') sales.push(action);
 });
-Object.assign(game, {uiScale:1, uiWidth:1200, uiHeight:800});
+const { canvas, context } = init();
+Object.assign(game, {canvas, ctx:context, uiScale:1, uiWidth:1200, uiHeight:800});
 export const run = async () => {
   renderDocked(game, playerShip);
   await confirmSelection(playerShip);
@@ -55,12 +57,17 @@ const context = new Proxy(
 
 globalThis.canvas = { getContext: () => context };
 globalThis.Path2D = class {
-  rect() {}
-  arc() {}
-  lineTo() {}
-  moveTo() {}
-  closePath() {}
   addPath() {}
+
+  arc() {}
+
+  closePath() {}
+
+  lineTo() {}
+
+  moveTo() {}
+
+  rect() {}
 };
 
 try {

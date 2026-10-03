@@ -18,7 +18,7 @@ import { linearSlop } from '../../definitions/physics';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../objects/damage';
 import { Craft } from '../objects/craft';
-import { Asteroid } from '../simulation/asteroid';
+import { Asteroid } from '../objects/asteroid';
 import { Station } from '../objects/station';
 import { type Pose } from '../types';
 
@@ -113,22 +113,34 @@ const geometryFlags = (collider: Collider) =>
   (+(collider.role === 'cargoHatch') << 3);
 
 export class GameCollisions {
-  // Replays must not reuse bodies or contacts from an old timeline.
-  private world = new World();
-  private manifold = new WorldManifold();
-  private velocityA = Vec.create();
-  private velocityB = Vec.create();
   private bodies = new Map<number, BodyRecord>();
-  private contacts: Contact[] = [];
-  private motions: BodyRecord[] = [];
-  private found: (BodyRecord | undefined)[] = [];
   private bounds = new Float64Array(0);
-  private sortOrder: number[] = [];
+  private contacts: Contact[] = [];
+  private found: (BodyRecord | undefined)[] = [];
   private free = new Uint8Array(0);
   private impacts = new Map<
     PhysicsContact,
     { contact: Contact; impact: number }
   >();
+  private manifold = new WorldManifold();
+  private motions: BodyRecord[] = [];
+  private sortOrder: number[] = [];
+  private velocityA = Vec.create();
+  private velocityB = Vec.create();
+  // Replays must not reuse bodies or contacts from an old timeline.
+  private world = new World();
+
+  /*
+   * Capture starting poses beside their bodies before gameplay advances them.
+   */
+  capturePoses(entities: ReadonlyMap<number, GameObject>) {
+    entities.forEach((entity) => {
+      const { previous } = this.recordFor(entity);
+
+      Vec.set(previous.position, entity.position);
+      previous.rotation = entity.rotation;
+    });
+  }
 
   constructor() {
     this.world.limitCollisionNeighbors = true;
@@ -189,15 +201,103 @@ export class GameCollisions {
   }
 
   /*
-   * Capture starting poses beside their bodies before gameplay advances them.
+   * Sweep and prune bounding circles around each body's whole swept motion.
+   * A body whose circle meets no other cannot touch anything this step.
    */
-  capturePoses(entities: ReadonlyMap<number, GameObject>) {
-    entities.forEach((entity) => {
-      const { previous } = this.recordFor(entity);
+  private findFree(motions: BodyRecord[]) {
+    const count = motions.length;
 
-      Vec.set(previous.position, entity.position);
-      previous.rotation = entity.rotation;
-    });
+    if (this.free.length < count) {
+      this.free = new Uint8Array(count * 2);
+      this.bounds = new Float64Array(count * 8);
+    }
+    const { bounds, free, sortOrder: order } = this;
+    // Reuse last step's order when the population is unchanged: it is
+    // nearly sorted, so insertion sort finishes in about one pass.
+    const reuse = order.length === count;
+
+    if (!reuse) order.length = count;
+
+    for (let index = 0; index < count; index++) {
+      const { entity, radius, sweepStart: start } = motions[index];
+      const dx = entity.position.x - start.position.x;
+      const dy = entity.position.y - start.position.y;
+      const travel = Math.sqrt(dx * dx + dy * dy);
+      const reach = radius + travel + wakeMargin;
+      const x = start.position.x + dx / 2;
+
+      bounds[index * 4] = x - reach;
+      bounds[index * 4 + 1] = x;
+      bounds[index * 4 + 2] = start.position.y + dy / 2;
+      bounds[index * 4 + 3] = reach;
+      free[index] = 1;
+
+      if (!reuse) order[index] = index;
+    }
+
+    if (reuse) {
+      for (let i = 1; i < count; i++) {
+        const item = order[i];
+        const key = bounds[item * 4];
+        let j = i - 1;
+
+        while (j >= 0 && bounds[order[j] * 4] > key) {
+          order[j + 1] = order[j];
+          j--;
+        }
+        order[j + 1] = item;
+      }
+    } else order.sort((a, b) => bounds[a * 4] - bounds[b * 4]);
+
+    for (let i = 0; i < count; i++) {
+      const a = order[i] * 4;
+      const right = bounds[a + 1] + bounds[a + 3];
+
+      for (let j = i + 1; j < count; j++) {
+        const b = order[j] * 4;
+
+        if (bounds[b] > right) break;
+        const dx = bounds[a + 1] - bounds[b + 1];
+        const dy = bounds[a + 2] - bounds[b + 2];
+        const reach = bounds[a + 3] + bounds[b + 3];
+
+        if (dx * dx + dy * dy <= reach * reach) {
+          free[order[i]] = free[order[j]] = 0;
+        }
+      }
+    }
+    return free;
+  }
+
+  private recordFor(entity: GameObject) {
+    let record = this.bodies.get(entity.id);
+
+    if (record && record.entity !== entity) {
+      this.world.destroyBody(record.body);
+      this.bodies.delete(entity.id);
+      record = undefined;
+    }
+
+    if (!record) {
+      record = {
+        entity,
+        body: this.world.createBody(),
+        fixtures: [],
+        geometry: [],
+        roundedGeometry: [],
+        velocity: Vec.create(),
+        spin: 0,
+        previous: {
+          position: Vec.clone(entity.position),
+          rotation: entity.rotation,
+        },
+        sweepStart: entity,
+        radius: 0,
+      };
+      this.bodies.set(entity.id, record);
+    }
+
+    return record;
   }
 
   /*
@@ -418,113 +518,6 @@ export class GameCollisions {
     });
 
     return this.contacts;
-  }
-
-  /*
-   * Sweep and prune bounding circles around each body's whole swept motion.
-   * A body whose circle meets no other cannot touch anything this step.
-   */
-  private findFree(motions: BodyRecord[]) {
-    const count = motions.length;
-
-    if (this.free.length < count) {
-      this.free = new Uint8Array(count * 2);
-      this.bounds = new Float64Array(count * 8);
-    }
-    const { bounds, free, sortOrder: order } = this;
-    // Reuse last step's order when the population is unchanged: it is
-    // nearly sorted, so insertion sort finishes in about one pass.
-    const reuse = order.length === count;
-
-    if (!reuse) order.length = count;
-
-    for (let index = 0; index < count; index++) {
-      const { entity, radius, sweepStart: start } = motions[index];
-      const dx = entity.position.x - start.position.x;
-      const dy = entity.position.y - start.position.y;
-      const travel = Math.sqrt(dx * dx + dy * dy);
-      const reach = radius + travel + wakeMargin;
-      const x = start.position.x + dx / 2;
-
-      bounds[index * 4] = x - reach;
-      bounds[index * 4 + 1] = x;
-      bounds[index * 4 + 2] = start.position.y + dy / 2;
-      bounds[index * 4 + 3] = reach;
-      free[index] = 1;
-
-      if (!reuse) order[index] = index;
-    }
-
-    if (reuse) {
-      for (let i = 1; i < count; i++) {
-        const item = order[i];
-        const key = bounds[item * 4];
-        let j = i - 1;
-
-        while (j >= 0 && bounds[order[j] * 4] > key) {
-          order[j + 1] = order[j];
-          j--;
-        }
-        order[j + 1] = item;
-      }
-    } else order.sort((a, b) => bounds[a * 4] - bounds[b * 4]);
-
-    for (let i = 0; i < count; i++) {
-      const a = order[i] * 4;
-      const right = bounds[a + 1] + bounds[a + 3];
-
-      for (let j = i + 1; j < count; j++) {
-        const b = order[j] * 4;
-
-        if (bounds[b] > right) break;
-        const dx = bounds[a + 1] - bounds[b + 1];
-        const dy = bounds[a + 2] - bounds[b + 2];
-        const reach = bounds[a + 3] + bounds[b + 3];
-
-        if (dx * dx + dy * dy <= reach * reach) {
-          free[order[i]] = free[order[j]] = 0;
-        }
-      }
-    }
-    return free;
-  }
-
-  private touched(owner: GameObject) {
-    const record = this.bodies.get(owner.id);
-
-    if (record?.entity === owner) record.ballistic = false;
-    ballisticEntities.delete(owner);
-  }
-
-  private recordFor(entity: GameObject) {
-    let record = this.bodies.get(entity.id);
-
-    if (record && record.entity !== entity) {
-      this.world.destroyBody(record.body);
-      this.bodies.delete(entity.id);
-      record = undefined;
-    }
-
-    if (!record) {
-      record = {
-        entity,
-        body: this.world.createBody(),
-        fixtures: [],
-        geometry: [],
-        roundedGeometry: [],
-        velocity: Vec.create(),
-        spin: 0,
-        previous: {
-          position: Vec.clone(entity.position),
-          rotation: entity.rotation,
-        },
-        sweepStart: entity,
-        radius: 0,
-      };
-      this.bodies.set(entity.id, record);
-    }
-
-    return record;
   }
 
   private sync(entity: GameObject) {
@@ -758,5 +751,12 @@ export class GameCollisions {
     record.geometrySource =
       hitbox.length === record.fixtures.length ? geometrySource : undefined;
     return record;
+  }
+
+  private touched(owner: GameObject) {
+    const record = this.bodies.get(owner.id);
+
+    if (record?.entity === owner) record.ballistic = false;
+    ballisticEntities.delete(owner);
   }
 }

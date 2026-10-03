@@ -17,11 +17,14 @@ interface PoolOptions<T> {
 // Reuses contact and tree objects without changing their allocation order.
 export class Pool<T> {
   private readonly items: T[] = [];
-
-  constructor(private readonly options: PoolOptions<T>) {}
+  private readonly options: PoolOptions<T>;
 
   allocate(): T {
     return this.items.length > 0 ? this.items.shift()! : this.options.create();
+  }
+
+  constructor(options: PoolOptions<T>) {
+    this.options = options;
   }
 
   release(item: T): void {

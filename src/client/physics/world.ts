@@ -21,32 +21,15 @@ import { Fixture } from './fixture';
  * Owns rigid bodies, contacts and the continuous collision solver.
  */
 export class World {
-  m_solver: Solver;
+  limitCollisionNeighbors = false;
+  m_bodyList: Body | null;
   m_broadPhase: BroadPhase;
   m_contactList: Contact | null;
-  m_bodyList: Body | null;
-  m_newFixture: boolean;
   m_locked: boolean;
-  limitCollisionNeighbors = false;
-
+  m_newFixture: boolean;
+  m_solver: Solver;
   private preSolveListener?: (contact: Contact) => void;
-
-  constructor() {
-    this.s_step = new TimeStep();
-    this.m_solver = new Solver(this);
-    this.m_broadPhase = new BroadPhase();
-    this.m_contactList = null;
-    this.m_bodyList = null;
-    this.m_newFixture = false;
-    this.m_locked = false;
-  }
-
-  /**
-   * Is the world locked (in the middle of a time step).
-   */
-  isLocked(): boolean {
-    return this.m_locked;
-  }
+  s_step: TimeStep; // reuse
 
   /**
    * Add a body to the world's linked list.
@@ -66,6 +49,16 @@ export class World {
     this.m_bodyList = body;
   }
 
+  constructor() {
+    this.s_step = new TimeStep();
+    this.m_solver = new Solver(this);
+    this.m_broadPhase = new BroadPhase();
+    this.m_contactList = null;
+    this.m_bodyList = null;
+    this.m_newFixture = false;
+    this.m_locked = false;
+  }
+
   /**
    * Bodies and fixtures are changed between physics steps.
    */
@@ -75,177 +68,6 @@ export class World {
 
     this._addBody(body);
     return body;
-  }
-
-  /**
-   * Destroy a body from the world.
-   *
-   * Warning: This automatically deletes all associated shapes and contacts.
-   *
-   * Bodies and fixtures are changed between physics steps.
-   */
-  destroyBody(b: Body): boolean {
-    if (this.isLocked()) {
-      return;
-    }
-
-    if (b.m_destroyed) {
-      return false;
-    }
-
-    // Delete the attached contacts.
-    let ce = b.m_contactList;
-
-    while (ce) {
-      const ce0 = ce;
-
-      ce = ce.next;
-
-      this.destroyContact(ce0.contact);
-
-      b.m_contactList = ce;
-    }
-    b.m_contactList = null;
-
-    // Delete the attached fixtures. This destroys broad-phase proxies.
-    let f = b.m_fixtureList;
-
-    while (f) {
-      const f0 = f;
-
-      f = f.m_next;
-
-      f0.destroyProxies(this.m_broadPhase);
-
-      b.m_fixtureList = f;
-    }
-    b.m_fixtureList = null;
-
-    // Remove world body list.
-    if (b.m_prev) {
-      b.m_prev.m_next = b.m_next;
-    }
-
-    if (b.m_next) {
-      b.m_next.m_prev = b.m_prev;
-    }
-
-    if (b === this.m_bodyList) {
-      this.m_bodyList = b.m_next;
-    }
-
-    b.m_destroyed = true;
-
-    return true;
-  }
-  s_step: TimeStep; // reuse
-
-  /**
-   * Take a time step. This performs collision detection, integration, and
-   * constraint solution.
-   *
-   * Broad-phase, narrow-phase, solve and solve time of impacts.
-   *
-   * @param timeStep Time step, this should not vary.
-   */
-  step(
-    timeStep: number,
-    velocityIterations: number,
-    positionIterations: number,
-  ): void {
-    // If new fixtures were added, we need to find the new contacts.
-    if (this.m_newFixture) {
-      this.findNewContacts();
-      this.m_newFixture = false;
-    }
-
-    this.m_locked = true;
-
-    if (this.limitCollisionNeighbors) this.prepareCollisionNeighbors();
-
-    this.s_step.dt = timeStep;
-    this.s_step.velocityIterations = velocityIterations;
-    this.s_step.positionIterations = positionIterations;
-
-    // Update contacts. This is where some contacts are destroyed.
-    this.updateContacts();
-
-    // Integrate velocities, solve velocity constraints, and integrate positions.
-    if (timeStep > 0) {
-      this.m_solver.solveWorld(this.s_step);
-
-      // Synchronize fixtures, check for out of range bodies.
-      for (let b = this.m_bodyList; b; b = b.m_next) {
-        // If a body was not in an island then it did not move.
-        if (!b.m_islandFlag) {
-          continue;
-        }
-
-        // Update fixtures (for broad-phase).
-        b.synchronizeFixtures();
-      }
-      // Look for new contacts, then handle time-of-impact events.
-      this.findNewContacts();
-
-      if (this.limitCollisionNeighbors) this.prepareCollisionNeighbors();
-      this.m_solver.solveWorldTOI(this.s_step);
-    }
-
-    this.m_locked = false;
-  }
-
-  /**
-   * Call this method to find new contacts.
-   */
-  findNewContacts(): void {
-    this.m_broadPhase.updatePairs((proxyA: Fixture, proxyB: Fixture) =>
-      this.createContact(proxyA, proxyB),
-    );
-  }
-
-  private prepareCollisionNeighbors() {
-    for (let body = this.m_bodyList; body; body = body.m_next) {
-      if (body.m_parked || body.neighborCount <= 8) continue;
-
-      if (!body.neighborDirty && !body.collisionNeighbors) continue;
-
-      if (body.neighborDirty) {
-        body.neighborDirty = false;
-        body.collisionNeighbors = undefined;
-        const unique: Body[] = [];
-        let crowded = false;
-
-        for (let edge = body.m_contactList; edge; edge = edge.next) {
-          if (unique.includes(edge.other)) continue;
-
-          if (unique.length === 8) {
-            crowded = true;
-            break;
-          }
-          unique.push(edge.other);
-        }
-
-        if (!crowded) {
-          body.neighborCount = unique.length;
-          continue;
-        }
-      }
-      body.resetCollisionNeighbors();
-      let last: Body | undefined;
-
-      for (let edge = body.m_contactList; edge; edge = edge.next) {
-        const other = edge.other;
-
-        if (other === last) continue;
-        last = other;
-
-        if (body.allowsCollision(other)) continue;
-        const dx = body.m_xf.p.x - other.m_xf.p.x;
-        const dy = body.m_xf.p.y - other.m_xf.p.y;
-
-        body.addCollisionNeighbor(other, dx * dx + dy * dy);
-      }
-    }
   }
 
   /**
@@ -313,31 +135,67 @@ export class World {
   }
 
   /**
-   * Removes old non-overlapping contacts, applies filters and updates contacts.
+   * Destroy a body from the world.
+   *
+   * Warning: This automatically deletes all associated shapes and contacts.
+   *
+   * Bodies and fixtures are changed between physics steps.
    */
-  updateContacts(): void {
-    // Update all contacts.
-    let c: Contact;
-    let next_c = this.m_contactList;
-
-    while ((c = next_c)) {
-      next_c = c.getNext();
-      const fixtureA = c.getFixtureA();
-      const fixtureB = c.getFixtureB();
-      const proxyIdA = fixtureA.m_proxy;
-      const proxyIdB = fixtureB.m_proxy;
-      const overlap = this.m_broadPhase.testOverlap(proxyIdA, proxyIdB);
-
-      // Here we destroy contacts that cease to overlap in the broad-phase.
-      if (!overlap) {
-        this.destroyContact(c);
-        continue;
-      }
-
-      // The contact persists.
-      c.update(this);
+  destroyBody(b: Body): boolean {
+    if (this.isLocked()) {
+      return;
     }
+
+    if (b.m_destroyed) {
+      return false;
+    }
+
+    // Delete the attached contacts.
+    let ce = b.m_contactList;
+
+    while (ce) {
+      const ce0 = ce;
+
+      ce = ce.next;
+
+      this.destroyContact(ce0.contact);
+
+      b.m_contactList = ce;
+    }
+    b.m_contactList = null;
+
+    // Delete the attached fixtures. This destroys broad-phase proxies.
+    let f = b.m_fixtureList;
+
+    while (f) {
+      const f0 = f;
+
+      f = f.m_next;
+
+      f0.destroyProxies(this.m_broadPhase);
+
+      b.m_fixtureList = f;
+    }
+    b.m_fixtureList = null;
+
+    // Remove world body list.
+    if (b.m_prev) {
+      b.m_prev.m_next = b.m_next;
+    }
+
+    if (b.m_next) {
+      b.m_next.m_prev = b.m_prev;
+    }
+
+    if (b === this.m_bodyList) {
+      this.m_bodyList = b.m_next;
+    }
+
+    b.m_destroyed = true;
+
+    return true;
   }
+
   destroyContact(contact: Contact): void {
     if (this.limitCollisionNeighbors) {
       for (const body of [
@@ -365,12 +223,155 @@ export class World {
   }
 
   /**
+   * Call this method to find new contacts.
+   */
+  findNewContacts(): void {
+    this.m_broadPhase.updatePairs((proxyA: Fixture, proxyB: Fixture) =>
+      this.createContact(proxyA, proxyB),
+    );
+  }
+
+  /**
+   * Is the world locked (in the middle of a time step).
+   */
+  isLocked(): boolean {
+    return this.m_locked;
+  }
+
+  /**
    * Register the game's contact callback. Swept and ordinary contacts use it.
    */
   onPreSolve(listener: (contact: Contact) => void): void {
     this.preSolveListener = listener;
   }
+
+  private prepareCollisionNeighbors() {
+    for (let body = this.m_bodyList; body; body = body.m_next) {
+      if (body.m_parked || body.neighborCount <= 8) continue;
+
+      if (!body.neighborDirty && !body.collisionNeighbors) continue;
+
+      if (body.neighborDirty) {
+        body.neighborDirty = false;
+        body.collisionNeighbors = undefined;
+        const unique: Body[] = [];
+        let crowded = false;
+
+        for (let edge = body.m_contactList; edge; edge = edge.next) {
+          if (unique.includes(edge.other)) continue;
+
+          if (unique.length === 8) {
+            crowded = true;
+            break;
+          }
+          unique.push(edge.other);
+        }
+
+        if (!crowded) {
+          body.neighborCount = unique.length;
+          continue;
+        }
+      }
+      body.resetCollisionNeighbors();
+      let last: Body | undefined;
+
+      for (let edge = body.m_contactList; edge; edge = edge.next) {
+        const other = edge.other;
+
+        if (other === last) continue;
+        last = other;
+
+        if (body.allowsCollision(other)) continue;
+        const dx = body.m_xf.p.x - other.m_xf.p.x;
+        const dy = body.m_xf.p.y - other.m_xf.p.y;
+
+        body.addCollisionNeighbor(other, dx * dx + dy * dy);
+      }
+    }
+  }
+
   preSolve(contact: Contact): void {
     this.preSolveListener?.(contact);
+  }
+
+  /**
+   * Take a time step. This performs collision detection, integration, and
+   * constraint solution.
+   *
+   * Broad-phase, narrow-phase, solve and solve time of impacts.
+   *
+   * @param timeStep Time step, this should not vary.
+   */
+  step(
+    timeStep: number,
+    velocityIterations: number,
+    positionIterations: number,
+  ): void {
+    // If new fixtures were added, we need to find the new contacts.
+    if (this.m_newFixture) {
+      this.findNewContacts();
+      this.m_newFixture = false;
+    }
+
+    this.m_locked = true;
+
+    if (this.limitCollisionNeighbors) this.prepareCollisionNeighbors();
+
+    this.s_step.dt = timeStep;
+    this.s_step.velocityIterations = velocityIterations;
+    this.s_step.positionIterations = positionIterations;
+
+    // Update contacts. This is where some contacts are destroyed.
+    this.updateContacts();
+
+    // Integrate velocities, solve velocity constraints, and integrate positions.
+    if (timeStep > 0) {
+      this.m_solver.solveWorld(this.s_step);
+
+      // Synchronize fixtures, check for out of range bodies.
+      for (let b = this.m_bodyList; b; b = b.m_next) {
+        // If a body was not in an island then it did not move.
+        if (!b.m_islandFlag) {
+          continue;
+        }
+
+        // Update fixtures (for broad-phase).
+        b.synchronizeFixtures();
+      }
+      // Look for new contacts, then handle time-of-impact events.
+      this.findNewContacts();
+
+      if (this.limitCollisionNeighbors) this.prepareCollisionNeighbors();
+      this.m_solver.solveWorldTOI(this.s_step);
+    }
+
+    this.m_locked = false;
+  }
+
+  /**
+   * Removes old non-overlapping contacts, applies filters and updates contacts.
+   */
+  updateContacts(): void {
+    // Update all contacts.
+    let c: Contact;
+    let next_c = this.m_contactList;
+
+    while ((c = next_c)) {
+      next_c = c.getNext();
+      const fixtureA = c.getFixtureA();
+      const fixtureB = c.getFixtureB();
+      const proxyIdA = fixtureA.m_proxy;
+      const proxyIdB = fixtureB.m_proxy;
+      const overlap = this.m_broadPhase.testOverlap(proxyIdA, proxyIdB);
+
+      // Here we destroy contacts that cease to overlap in the broad-phase.
+      if (!overlap) {
+        this.destroyContact(c);
+        continue;
+      }
+
+      // The contact persists.
+      c.update(this);
+    }
   }
 }

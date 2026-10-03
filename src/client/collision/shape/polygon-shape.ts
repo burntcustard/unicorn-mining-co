@@ -23,27 +23,11 @@ const temp = Vec.create();
  * left of each edge.
  */
 export class PolygonShape extends Shape {
-  declare m_type: 'polygon';
   m_centroid: Vec.Value;
   m_normals: Vec.Value[];
-  static TYPE = 'polygon' as const;
-
   declare m_radius: number;
-
-  constructor(vertices: Vec.Value[], collisionMargin?: number) {
-    super();
-
-    this.m_type = PolygonShape.TYPE;
-    this.m_radius = collisionMargin ?? 2 * linearSlop;
-    this.m_centroid = Vec.create();
-    this.m_vertices = [];
-    this.m_normals = [];
-    this.m_count = 0;
-
-    if (vertices.length) {
-      this._set(vertices);
-    }
-  }
+  declare m_type: 'polygon';
+  static TYPE = 'polygon' as const;
 
   /**
    * Create a convex hull from at least three local points.
@@ -211,6 +195,21 @@ export class PolygonShape extends Shape {
 
     Vec.setXY(aabb.lowerBound, minX - this.m_radius, minY - this.m_radius);
     Vec.setXY(aabb.upperBound, maxX + this.m_radius, maxY + this.m_radius);
+  }
+
+  constructor(vertices: Vec.Value[], collisionMargin?: number) {
+    super();
+
+    this.m_type = PolygonShape.TYPE;
+    this.m_radius = collisionMargin ?? 2 * linearSlop;
+    this.m_centroid = Vec.create();
+    this.m_vertices = [];
+    this.m_normals = [];
+    this.m_count = 0;
+
+    if (vertices.length) {
+      this._set(vertices);
+    }
   }
 }
 

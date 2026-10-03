@@ -183,7 +183,7 @@ export function pressModuleKeys() {
         }
 
         if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-          return 'export const unlockAudio = () => {};';
+          return 'export const unlockAudio = () => {}; export const playSound = () => {};';
         }
       },
     },
@@ -275,11 +275,15 @@ const browser = createContext({
   innerHeight: 600,
   document: { createElement: () => ({ getContext: () => context }) },
   Path2D: class {
-    arc() {}
-    moveTo() {}
-    lineTo() {}
-    closePath() {}
     addPath() {}
+
+    arc() {}
+
+    closePath() {}
+
+    lineTo() {}
+
+    moveTo() {}
   },
   createImageBitmap: async (tile) => tile,
   requestAnimationFrame: () => 0,

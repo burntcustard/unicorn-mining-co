@@ -24,11 +24,11 @@ import {
  * speculative damage, cargo transfers and events never escape into history.
  */
 export class FramePrediction {
-  private world = createWorld();
-  private state?: SimulationWorldState;
   private endpoint?: SimulationWorldState;
-  private endpointInput?: InputFrame['input'];
   private endpointChange?: InputFrame['changes'][number];
+  private endpointInput?: InputFrame['input'];
+  private state?: SimulationWorldState;
+  private world = createWorld();
 
   reset() {
     this.state = undefined;

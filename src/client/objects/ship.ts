@@ -1,14 +1,17 @@
+import { drawSegment } from '../utilities/drawing';
+import { game } from '../game';
+import { hullSegmentFill } from '../utilities/lighting';
 import { shipDefinitionsById, type ShipId } from '../../definitions/ships';
 import { moduleTypesById } from './modules';
 import { flight } from '../../definitions/control-ship';
 import * as Vec from '../utilities/vector';
-import { Craft } from './craft';
+import { Craft, type CraftRenderOptions } from './craft';
 import { movePoint } from '../utilities/geometry';
 import { approach } from '../utilities/approach';
 import { type Contact } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
 import { type SimulationWorld } from '../simulation/world';
-import { type Mount, type Segment } from '../types';
+import { type Pose, type Mount, type Segment } from '../types';
 import { HornDrill } from './modules/horn-drill';
 import { CargoHatch } from './modules/cargo-hatch';
 import { moduleTypes } from './modules/index';
@@ -22,115 +25,9 @@ type DockActionRequest =
   | { action: 'buy'; module: number; moduleId?: number };
 
 export class Ship extends Craft {
-  constructor({
-    shipType = 'mustang',
-    ...properties
-  }: ConstructorParameters<typeof Craft>[0] & { shipType?: ShipId } = {}) {
-    const definition = shipDefinitionsById.get(shipType);
-
-    if (!definition) throw new Error(`Unknown ship definition: ${shipType}`);
-
-    super({
-      ...definition,
-      hullSegments: definition.hullSegments.map((segment) => ({
-        ...segment,
-        ...('mounts' in segment && {
-          mounts: segment.mounts.map((mount) => ({
-            ...mount,
-            fits: mount.fits.map((id) => moduleTypesById.get(id)!),
-            localPosition: Vec.create(
-              mount.localPosition.x,
-              mount.localPosition.y,
-            ),
-          })),
-        }),
-      })),
-      ...properties,
-    });
-    this.definitionId = shipType === 'mustang' ? undefined : shipType;
-  }
-
-  handleContacts({
-    contacts,
-    events,
-    world,
-    dt,
-  }: {
-    contacts: Contact[];
-    events: SimulationEvent[];
-    world: SimulationWorld;
-    dt: number;
-  }) {
-    const hornDrills = new Map<
-      Segment,
-      {
-        contact: Contact;
-        hornDrill: Contact['collider'];
-        target: Contact['collider'];
-      }
-    >();
-
-    contacts.forEach((contact) => {
-      const { collider, other } = contact;
-      const own =
-        collider.owner === this
-          ? collider
-          : other.owner === this
-            ? other
-            : undefined;
-
-      if (own?.segment?.module instanceof CargoHatch) {
-        own.segment.module.collect({ ship: this, contact, events, world });
-      }
-      const hornDrill = own;
-
-      if (
-        !hornDrill?.segment ||
-        !(hornDrill.segment.module instanceof HornDrill) ||
-        hornDrill.role !== 'hornDrill'
-      ) {
-        return;
-      }
-      const target = hornDrill === collider ? other : collider;
-      const current = hornDrills.get(hornDrill.segment);
-
-      if (!current || contact.depth > current.contact.depth) {
-        hornDrills.set(hornDrill.segment, { contact, hornDrill, target });
-      }
-    });
-    hornDrills.forEach(({ contact, hornDrill, target }) => {
-      (hornDrill.segment!.module as HornDrill).drill({
-        ship: this,
-        segment: hornDrill.segment!,
-        target,
-        position: contact.point,
-        events,
-        world,
-        dt,
-      });
-    });
-  }
   // Resist collision torque without changing the pilot's steering response.
   static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
-
-  get hullHealthTotal() {
-    return this.segments
-      .filter(({ hull }) => hull)
-      .reduce((total, segment) => total + segment.health, 0);
-  }
-
-  get hullMaxHealth() {
-    return this.hullSegments.reduce(
-      (total, segment) => total + (segment.health ?? 0),
-      0,
-    );
-  }
-
-  repairCost(mount?: Mount) {
-    if (!mount) return this.hullMaxHealth - (this.hullHealthTotal | 0);
-    return mount.module ? mount.module.health - ((mount.health ?? 0) | 0) : 0;
-  }
 
   /**
    * Apply one dock action to this ship. A local buy action gets its module ID
@@ -243,18 +140,32 @@ export class Ship extends Craft {
     return action;
   }
 
-  get thrust() {
-    return this.forward || 0;
-  }
-  set thrust(value: number) {
-    this.fly(value, this.turn || 0);
-  }
-  // Only a crewed ship flies: wreckage and stations have no cockpit to fly from
-  get maxSpeed() {
-    return (
-      (this.cockpit && flight.speedPerThrust * this.forwardThrust) ||
-      flight.uncrewedMaxSpeed
-    );
+  constructor({
+    shipType = 'mustang',
+    ...properties
+  }: ConstructorParameters<typeof Craft>[0] & { shipType?: ShipId } = {}) {
+    const definition = shipDefinitionsById.get(shipType);
+
+    if (!definition) throw new Error(`Unknown ship definition: ${shipType}`);
+
+    super({
+      ...definition,
+      hullSegments: definition.hullSegments.map((segment) => ({
+        ...segment,
+        ...('mounts' in segment && {
+          mounts: segment.mounts.map((mount) => ({
+            ...mount,
+            fits: mount.fits.map((id) => moduleTypesById.get(id)!),
+            localPosition: Vec.create(
+              mount.localPosition.x,
+              mount.localPosition.y,
+            ),
+          })),
+        }),
+      })),
+      ...properties,
+    });
+    this.definitionId = shipType === 'mustang' ? undefined : shipType;
   }
 
   // This hull has one engine mount; each nozzle belongs to the same module.
@@ -289,23 +200,6 @@ export class Ship extends Craft {
     return {};
   }
 
-  get forwardThrust() {
-    return (this.engine.forwardThrust || 0) * this.launchThrottle ** 2;
-  }
-
-  get rotationalThrust() {
-    return (this.engine.rotationalThrust || 0) * this.launchThrottle ** 2;
-  }
-
-  // Half-size nozzles retain the original quarter-thrust launch coast.
-  // Return to full power for the last 0.05 seconds of launch.
-  get launchThrottle() {
-    return this.launching > flight.launchHalfThreshold &&
-      this.launching <= flight.launchHalfEnd
-      ? flight.launchThrottle
-      : 1;
-  }
-
   fly(forward: number, turn: number) {
     this.forward = forward;
     this.turn = turn;
@@ -320,6 +214,145 @@ export class Ship extends Craft {
         segment.active *= this.launchThrottle;
       }
     });
+  }
+
+  get forwardThrust() {
+    return (this.engine.forwardThrust || 0) * this.launchThrottle ** 2;
+  }
+
+  handleContacts({
+    contacts,
+    events,
+    world,
+    dt,
+  }: {
+    contacts: Contact[];
+    events: SimulationEvent[];
+    world: SimulationWorld;
+    dt: number;
+  }) {
+    const hornDrills = new Map<
+      Segment,
+      {
+        contact: Contact;
+        hornDrill: Contact['collider'];
+        target: Contact['collider'];
+      }
+    >();
+
+    contacts.forEach((contact) => {
+      const { collider, other } = contact;
+      const own =
+        collider.owner === this
+          ? collider
+          : other.owner === this
+            ? other
+            : undefined;
+
+      if (own?.segment?.module instanceof CargoHatch) {
+        own.segment.module.collect({ ship: this, contact, events, world });
+      }
+      const hornDrill = own;
+
+      if (
+        !hornDrill?.segment ||
+        !(hornDrill.segment.module instanceof HornDrill) ||
+        hornDrill.role !== 'hornDrill'
+      ) {
+        return;
+      }
+      const target = hornDrill === collider ? other : collider;
+      const current = hornDrills.get(hornDrill.segment);
+
+      if (!current || contact.depth > current.contact.depth) {
+        hornDrills.set(hornDrill.segment, { contact, hornDrill, target });
+      }
+    });
+    hornDrills.forEach(({ contact, hornDrill, target }) => {
+      (hornDrill.segment!.module as HornDrill).drill({
+        ship: this,
+        segment: hornDrill.segment!,
+        target,
+        position: contact.point,
+        events,
+        world,
+        dt,
+      });
+    });
+  }
+
+  get hullHealthTotal() {
+    return this.segments
+      .filter(({ hull }) => hull)
+      .reduce((total, segment) => total + segment.health, 0);
+  }
+
+  get hullMaxHealth() {
+    return this.hullSegments.reduce(
+      (total, segment) => total + (segment.health ?? 0),
+      0,
+    );
+  }
+
+  // Half-size nozzles retain the original quarter-thrust launch coast.
+  // Return to full power for the last 0.05 seconds of launch.
+  get launchThrottle() {
+    return this.launching > flight.launchHalfThreshold &&
+      this.launching <= flight.launchHalfEnd
+      ? flight.launchThrottle
+      : 1;
+  }
+
+  // Only a crewed ship flies: wreckage and stations have no cockpit to fly from
+  get maxSpeed() {
+    return (
+      (this.cockpit && flight.speedPerThrust * this.forwardThrust) ||
+      flight.uncrewedMaxSpeed
+    );
+  }
+
+  render(options: CraftRenderOptions = {}) {
+    super.render({
+      ...options,
+      drawHull: ({
+        segment,
+        health,
+        pose,
+      }: {
+        segment: Segment;
+        health: number;
+        pose: Pose;
+      }) => {
+        const { ctx } = game;
+        const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
+
+        ctx.fillStyle = hullSegmentFill({
+          ctx,
+          segment,
+          worn,
+          rotation: pose.rotation,
+        });
+        ctx.strokeStyle = segment.shades[2];
+        drawSegment({ ctx, segment });
+      },
+    });
+  }
+
+  repairCost(mount?: Mount) {
+    if (!mount) return this.hullMaxHealth - (this.hullHealthTotal | 0);
+    return mount.module ? mount.module.health - ((mount.health ?? 0) | 0) : 0;
+  }
+
+  get rotationalThrust() {
+    return (this.engine.rotationalThrust || 0) * this.launchThrottle ** 2;
+  }
+
+  get thrust() {
+    return this.forward || 0;
+  }
+
+  set thrust(value: number) {
+    this.fly(value, this.turn || 0);
   }
 
   update(dt: number) {

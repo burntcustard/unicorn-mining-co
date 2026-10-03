@@ -8,8 +8,11 @@ globalThis.canvas = { getContext: () => ({}) };
 globalThis.location = { search: '' };
 globalThis.Path2D = class {
   arc() {}
+
   closePath() {}
+
   lineTo() {}
+
   moveTo() {}
 };
 
@@ -31,12 +34,12 @@ const bundle = await rolldown({
       export { createShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
       export { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';
-      export { createAsteroid } from '${process.cwd()}/src/client/simulation/asteroid.ts';
+      export { createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
       export { updateWorld } from '${process.cwd()}/src/client/simulation/update-world.ts';
       export { captureWorld, restoreWorld } from '${process.cwd()}/src/client/simulation/world-state.ts';
       export { controlShip } from '${process.cwd()}/src/client/objects/control-ship.ts';
       export { simulationStep } from '${process.cwd()}/src/definitions/simulation.ts';
-      export { sparks, sprayDamage } from '${process.cwd()}/src/client/rendering/shrapnel.ts';
+      export { sparks, sprayDamage } from '${process.cwd()}/src/client/effects/shrapnel.ts';
       export { damage } from '${process.cwd()}/src/client/objects/damage.ts';
       export * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
       export { computeDistance, DistanceInput, DistanceOutput, SimplexCache } from '${process.cwd()}/src/client/collision/shape-distance.ts';

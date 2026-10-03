@@ -1,3 +1,4 @@
+import { init } from './core';
 import { dockDuration } from '../definitions/camera';
 import * as Vec from './utilities/vector';
 import { Craft } from './objects/craft';
@@ -22,20 +23,17 @@ import {
 import { bindAction, initKeys, playerInput } from './input/input';
 import { defaultKeybindings, moduleBinding } from './input/keybindings';
 import { network } from './network/network';
-import { camera, centerCamera, followTarget } from './rendering/camera';
+import { camera, centerCamera, followTarget } from './camera';
 
-import { revealBuriedItems } from './rendering/lighting';
-import { itemTypes, message as messageDefinition } from '../definitions/items';
+import { revealBuriedItems } from './utilities/lighting';
+import { message as messageDefinition } from '../definitions/items';
 import { adoptPlayerShip, playerShip, readSlate, updatePlayer } from './player';
-import { renderSparks, updateSparks } from './rendering/shrapnel';
-import { presentEvents } from './rendering/present-events';
+import { renderSparks, updateSparks } from './effects/shrapnel';
+import { presentEvents } from './effects/present-events';
 import { GameLoop } from './game-loop';
 import { Ship } from './objects/ship';
 import { ShieldGenerator, SearchLight } from './objects/modules/index';
 import { moduleControls } from './objects/control-ship';
-import { createRenderedShip } from './rendering/create-rendered-ship';
-import { decorateGameObject } from './rendering/game-object';
-import './rendering/craft/station';
 
 // @ifdef BENCHMARK
 import { benchmarkFlag } from './debug/benchmark';
@@ -44,17 +42,12 @@ import { benchmarkFlag } from './debug/benchmark';
 import { colors } from '../definitions/colors';
 import { game } from './game';
 
-import { Asteroid } from './simulation/asteroid';
-
-import { renderAsteroid } from './rendering/render-asteroid';
-import { createRenderedItem } from './rendering/create-rendered-item';
-import { renderItem } from './rendering/render-item';
 import { Item } from './objects/item';
 
 import { playSound } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
 import { renderUI } from './ui/ui';
-import { setSizing } from './rendering/set-sizing';
+import { setSizing } from './ui/set-sizing';
 import { type GameObject as SimulationObject } from './objects/game-object';
 
 type Background = {
@@ -80,6 +73,9 @@ const renderSky = () =>
     camera.y,
   );
 
+const { canvas, context } = init();
+
+Object.assign(game, { canvas, ctx: context });
 setSizing(game);
 renderSky();
 
@@ -92,14 +88,8 @@ const regionalObjects = new Map<number, SimulationObject>();
 let stationMarkers: { position: Vec.Value; radius: number }[] = [];
 
 const materialize = ({ entity }: { entity: SimulationObject }) => {
-  let object: SimulationObject;
+  const object = entity.addToScene();
 
-  if (entity instanceof Craft) {
-    object = decorateGameObject({ sprite: entity });
-  } else if (entity instanceof Item) object = renderItem({ item: entity });
-  else if (entity instanceof Asteroid) {
-    object = renderAsteroid({ asteroid: entity });
-  } else object = decorateGameObject({ sprite: entity });
   object.networked = 1;
   regionalObjects.set(entity.id, object);
   return object;
@@ -148,13 +138,11 @@ const syncSimulationObjects = (dt: number) => {
 };
 
 // @ifdef DEBUG
-const debugWreck = createRenderedShip({
+const debugWreck = new Ship({
   shades: colors.orange,
   position: Vec.add(playerShip.position, Vec.create(500)),
-});
-const debugNote = createRenderedItem({
-  resource: itemTypes.indexOf(messageDefinition),
-});
+}).addToScene();
+const debugNote = new Item(messageDefinition).addToScene();
 
 debugNote.message = 'REGION 0/0';
 
@@ -389,9 +377,6 @@ const gameLoop = GameLoop({
     updatePlayer(dt);
     playerShip.updateVisual(dt);
     updateHornDrillSounds({ crafts: game.crafts });
-    game.crafts.forEach((craft) => {
-      if (!craft.render) decorateGameObject({ sprite: craft as Craft });
-    });
 
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
 

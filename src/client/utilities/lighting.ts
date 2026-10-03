@@ -14,10 +14,10 @@ import { benchmarkFlag } from '../debug/benchmark';
 import { colors } from '../../definitions/colors';
 import { Craft } from '../objects/craft';
 import { type GameObject } from '../objects/game-object';
-import { camera } from './camera';
+import { camera } from '../camera';
 import { insidePath, traceBeam } from './prism';
 import { game } from '../game';
-import { pointBetween as mix } from '../utilities/geometry';
+import { pointBetween as mix } from './geometry';
 import { type Pose, type Segment, type Shades } from '../types';
 
 type GlowCache = { image?: HTMLCanvasElement; scale?: number };

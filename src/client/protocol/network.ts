@@ -1,7 +1,7 @@
 import * as Vec from '../utilities/vector';
 import { type PlayerInput } from './input';
 import { type AsteroidSegment } from './entities';
-import { type ModuleState } from '../objects/module-state';
+import { type ModuleState } from '../objects/craft';
 import { type WreckageSegment } from '../objects/wreckage-segment';
 
 export type NetworkVector = Vec.Value;

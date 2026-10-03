@@ -1,13 +1,16 @@
+import { colors } from '../../definitions/colors';
+import { game } from '../game';
+import { objectLineWidth, shapePath } from '../utilities/drawing';
 import * as Vec from '../utilities/vector';
 import { rotatePoint } from '../utilities/geometry';
 import { createPolygon, outerEdges, radiusOf } from '../utilities/polygon';
 import { createRandom } from '../utilities/seeded-random';
 import { type AsteroidSegment } from '../protocol/entities';
-import { addEntity, type SimulationWorld, entityId } from './world';
-import { GameObject } from '../objects/game-object';
+import { addEntity, type SimulationWorld, entityId } from '../simulation/world';
+import { GameObject, type RenderOptions } from './game-object';
 import { type Collider } from '../collision/types';
-import { type ShapeOutline } from '../types';
-import { Item } from '../objects/item';
+import { type Pose, type ShapeOutline } from '../types';
+import { Item } from './item';
 import { itemTypes } from '../../definitions/items';
 import { type SimulationEvent } from '../protocol/events';
 import { round } from '../utilities/round';
@@ -395,11 +398,11 @@ export const asteroidContact = ({
 
 // Derived caches stay outside cloned/checkpointed entity state.
 class AsteroidCollider implements Collider {
+  asteroidSegment?: AsteroidSegment;
   bounciness = 0.2;
   collisionMargin = 0;
-  owner: Asteroid;
-  asteroidSegment?: AsteroidSegment;
   private collisionOutline?: ShapeOutline;
+  owner: Asteroid;
 
   constructor({
     owner,
@@ -415,18 +418,22 @@ class AsteroidCollider implements Collider {
     this.collisionOutline = shapeOutline;
   }
 
-  get position() {
-    return this.owner.position;
-  }
-  get rotation() {
-    return this.owner.rotation;
-  }
   get friction() {
     return this.owner.friction;
   }
+
+  get position() {
+    return this.owner.position;
+  }
+
   get radius() {
     return this.owner.radius;
   }
+
+  get rotation() {
+    return this.owner.rotation;
+  }
+
   get shapeOutline() {
     return (this.asteroidSegment?.shapeOutline ||
       this.collisionOutline) as ShapeOutline;
@@ -445,25 +452,48 @@ const lockedSegments = new WeakMap<
 const collisionOutlines = new WeakMap<number[][], number[][]>();
 const fixedProperty = { writable: false, configurable: false };
 
+const presentationCache = new WeakMap<
+  Asteroid,
+  {
+    key: string;
+    path: Path2D;
+    buried: {
+      item: Item;
+      localPosition: Vec.Value;
+      rotation: number;
+    }[];
+  }
+>();
+
 export class Asteroid extends GameObject {
-  static friction = 0.2;
   static angularDrag = 0;
   contents: number[];
   declare decay?: number;
+  static friction = 0.2;
   declare health: number;
   kind = 'asteroid' as const;
   maxHealth: number;
-  shapeOutline?: number[][];
   declare pointCount?: number;
   declare radiusEven?: number;
   declare resource?: number;
   private segmentList?: AsteroidSegment[];
+  shapeOutline?: number[][];
   // Procedural rock is cut into segments only when something needs them;
   // most drift past untouched. The cut uses its values from construction.
   private uncutContents?: number[];
   private uncutHealth = 0;
-  private uncutMass = 0;
   private uncutLocked = false;
+  private uncutMass = 0;
+
+  addToScene() {
+    this.fill = this.resource === 1 ? `${colors.purple[1]}9` : '#222';
+    this.stroke = this.resource === 1 ? colors.violet[2] : colors.white[2];
+    this.networked = 1;
+    this.scenery = 1;
+    this.zIndex = -2;
+    this.presentation();
+    return super.addToScene();
+  }
 
   constructor({
     contents,
@@ -516,44 +546,22 @@ export class Asteroid extends GameObject {
     }
   }
 
-  get segments() {
-    const contents = this.uncutContents;
-
-    if (contents) {
-      const locked = this.uncutLocked;
-
-      this.uncutContents = undefined;
-      this.uncutLocked = false;
-      this.segmentList = segmentsOf({
-        contents,
-        health: this.uncutHealth,
-        mass: this.uncutMass,
-        shapeOutline: shapeOutlineOf(this),
-        radiusEven: this.radiusEven,
-        random: createRandom(this.id + 1).next,
-      });
-
-      if (locked) {
-        this.lockGeometry();
-        // The private contents array keeps the cache identity across cutting.
-        lockedSegments.get(this.segmentList)!.source = contents;
-      }
-    }
-    return this.segmentList;
-  }
-
-  set segments(segments: AsteroidSegment[] | undefined) {
-    this.uncutContents = undefined;
-    this.uncutLocked = false;
-    this.segmentList = segments;
-  }
-
   // Whether any segment has been mined or struck, without cutting new rock.
   get damaged() {
     return (
       !this.uncutContents &&
       !!this.segmentList?.some(({ health, maxHealth }) => health !== maxHealth)
     );
+  }
+
+  detach({
+    asteroidSegment,
+    world,
+  }: {
+    asteroidSegment: AsteroidSegment;
+    world: SimulationWorld;
+  }) {
+    return detachSegment({ asteroid: this, asteroidSegment, world });
   }
 
   // Farthest collision vertex from the origin, without cutting new rock.
@@ -573,35 +581,48 @@ export class Asteroid extends GameObject {
     return extent;
   }
 
-  // Procedural and fractured geometry is replaced as a whole. Health and
-  // outside-edge markings remain mutable; numeric vertices cannot drift.
-  lockGeometry() {
-    const lock = (outline: number[][]) => {
-      const polygon = outline as ShapeOutline;
+  fracture({
+    asteroidSegment,
+    by,
+    events,
+    world,
+  }: {
+    asteroidSegment?: AsteroidSegment;
+    by: number;
+    events: SimulationEvent[];
+    world: SimulationWorld;
+  }) {
+    if (this.dead) return false;
 
-      polygon.edges ||= polygon.map(() => true);
-      outline.forEach(Object.freeze);
-      Object.freeze(outline);
-      lockedGeometry.add(outline);
-    };
+    if (this.health < 1) {
+      this.remove();
+      this.contents.forEach((resource) =>
+        addEntity(
+          world,
+          new Item(itemTypes[resource], {
+            world,
+            id: entityId(world),
+            position: Vec.clone(this.position),
+            velocity: Vec.clone(this.velocity),
+          }),
+        ),
+      );
+      events.push({
+        type: 'asteroidDestroyed',
+        asteroidId: this.id,
+        by,
+        contents: this.contents,
+      });
+    } else if (asteroidSegment && asteroidSegment.health < 1) {
+      const children = this.detach({ asteroidSegment, world });
 
-    if (this.uncutContents) {
-      this.uncutLocked = true;
-      return this;
-    }
-
-    if (this.shapeOutline) lock(this.shapeOutline);
-    this.segments?.forEach((segment) => {
-      lock(segment.shapeOutline);
-      Object.defineProperty(segment, 'shapeOutline', fixedProperty);
-    });
-
-    if (this.segments) {
-      const segments = this.segments.slice();
-
-      lockedSegments.set(this.segments, { segments, source: segments });
-    }
-    return this;
+      events.push({
+        type: 'asteroidSplit',
+        asteroidId: this.id,
+        childIds: children.map((child) => child.id),
+      });
+    } else return false;
+    return true;
   }
 
   get geometrySource() {
@@ -685,58 +706,136 @@ export class Asteroid extends GameObject {
     return colliders;
   }
 
-  fracture({
-    asteroidSegment,
-    by,
-    events,
-    world,
-  }: {
-    asteroidSegment?: AsteroidSegment;
-    by: number;
-    events: SimulationEvent[];
-    world: SimulationWorld;
-  }) {
-    if (this.dead) return false;
+  // Procedural and fractured geometry is replaced as a whole. Health and
+  // outside-edge markings remain mutable; numeric vertices cannot drift.
+  lockGeometry() {
+    const lock = (outline: number[][]) => {
+      const polygon = outline as ShapeOutline;
 
-    if (this.health < 1) {
-      this.remove();
-      this.contents.forEach((resource) =>
-        addEntity(
-          world,
-          new Item(itemTypes[resource], {
-            world,
-            id: entityId(world),
-            position: Vec.clone(this.position),
-            velocity: Vec.clone(this.velocity),
-          }),
-        ),
-      );
-      events.push({
-        type: 'asteroidDestroyed',
-        asteroidId: this.id,
-        by,
-        contents: this.contents,
-      });
-    } else if (asteroidSegment && asteroidSegment.health < 1) {
-      const children = this.detach({ asteroidSegment, world });
+      polygon.edges ||= polygon.map(() => true);
+      outline.forEach(Object.freeze);
+      Object.freeze(outline);
+      lockedGeometry.add(outline);
+    };
 
-      events.push({
-        type: 'asteroidSplit',
-        asteroidId: this.id,
-        childIds: children.map((child) => child.id),
-      });
-    } else return false;
-    return true;
+    if (this.uncutContents) {
+      this.uncutLocked = true;
+      return this;
+    }
+
+    if (this.shapeOutline) lock(this.shapeOutline);
+    this.segments?.forEach((segment) => {
+      lock(segment.shapeOutline);
+      Object.defineProperty(segment, 'shapeOutline', fixedProperty);
+    });
+
+    if (this.segments) {
+      const segments = this.segments.slice();
+
+      lockedSegments.set(this.segments, { segments, source: segments });
+    }
+    return this;
   }
 
-  detach({
-    asteroidSegment,
-    world,
-  }: {
-    asteroidSegment: AsteroidSegment;
-    world: SimulationWorld;
-  }) {
-    return detachSegment({ asteroid: this, asteroidSegment, world });
+  private presentation(pose: Pose = this) {
+    const segments = this.segments || [
+      { shapeOutline: shapeOutlineOf(this), contents: this.contents },
+    ];
+    const key = JSON.stringify([
+      shapeOutlineOf(this),
+      segments.map(({ shapeOutline, contents }) => ({
+        shapeOutline,
+        contents,
+      })),
+    ]);
+    let state = presentationCache.get(this);
+
+    if (!state || state.key !== key) {
+      const path = new Path2D();
+      const shapeOutlines = this.segments?.length
+        ? shapeOutlinesFrom(this.segments)
+        : [shapeOutlineOf(this)];
+
+      shapeOutlines.forEach((shapeOutline) =>
+        path.addPath(shapePath(shapeOutline)),
+      );
+      state = {
+        key,
+        path,
+        buried:
+          segments.flatMap((asteroidSegment) =>
+            asteroidSegment.contents.map((resource, index) => ({
+              item: new Item(itemTypes[resource]),
+              localPosition: centerOf(asteroidSegment.shapeOutline),
+              rotation:
+                (this.id + asteroidSegment.shapeOutline.length + index) % 6,
+            })),
+          ) || [],
+      };
+      presentationCache.set(this, state);
+    }
+    this.renderContents = state.buried.map(
+      ({ item, localPosition, rotation }) => {
+        Vec.set(
+          item.position,
+          Vec.add(pose.position, rotatePoint(localPosition, pose.rotation)),
+        );
+        item.rotation = rotation + pose.rotation;
+        return item;
+      },
+    );
+    return state;
+  }
+
+  render({ pose }: RenderOptions = {}) {
+    const { path } = this.presentation(pose);
+
+    super.render({
+      pose,
+      draw: () => {
+        const { ctx } = game;
+
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = objectLineWidth;
+        ctx.strokeStyle =
+          this.resource === 1 ? colors.violet[2] : colors.white[2];
+        ctx.fillStyle = this.resource === 1 ? `${colors.purple[1]}9` : '#222';
+        ctx.fill(path, 'evenodd');
+        ctx.stroke(path);
+      },
+    });
+  }
+
+  get segments() {
+    const contents = this.uncutContents;
+
+    if (contents) {
+      const locked = this.uncutLocked;
+
+      this.uncutContents = undefined;
+      this.uncutLocked = false;
+      this.segmentList = segmentsOf({
+        contents,
+        health: this.uncutHealth,
+        mass: this.uncutMass,
+        shapeOutline: shapeOutlineOf(this),
+        radiusEven: this.radiusEven,
+        random: createRandom(this.id + 1).next,
+      });
+
+      if (locked) {
+        this.lockGeometry();
+        // The private contents array keeps the cache identity across cutting.
+        lockedSegments.get(this.segmentList)!.source = contents;
+      }
+    }
+    return this.segmentList;
+  }
+
+  set segments(segments: AsteroidSegment[] | undefined) {
+    this.uncutContents = undefined;
+    this.uncutLocked = false;
+    this.segmentList = segments;
   }
 }
 

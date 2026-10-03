@@ -7,12 +7,11 @@ import {
   SearchLight,
 } from './objects/modules/index';
 import { game } from './game';
-import { createRenderedShip } from './rendering/create-rendered-ship';
 import { colors } from '../definitions/colors';
 import { updateThrusterSound } from './audio/sound-loader';
 import { type Shades, type Segment } from './types';
 
-export let playerShip = createRenderedShip({
+export let playerShip = new Ship({
   shades: colors.white,
   position: Vec.create(),
   credits: 500,
@@ -22,7 +21,7 @@ export let playerShip = createRenderedShip({
   noteFor: 0,
   hudAlpha: 0,
   networked: 1,
-});
+}).addToScene();
 
 // @ifdef DEBUG
 playerShip.credits = 10000;

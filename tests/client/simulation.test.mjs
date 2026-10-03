@@ -15,7 +15,7 @@ const bundle = await rolldown({
         id === '\0simulation'
           ? `
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/client/simulation/world.ts';
-      export { createAsteroid, shapeOutlinesFrom } from '${process.cwd()}/src/client/simulation/asteroid.ts';
+      export { createAsteroid, shapeOutlinesFrom } from '${process.cwd()}/src/client/objects/asteroid.ts';
       export { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';
       export { message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';

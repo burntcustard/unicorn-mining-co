@@ -1,4 +1,4 @@
-// Port of src/client/objects/module-state.ts.
+// Port of ModuleState in src/client/objects/craft.ts.
 package objects
 
 type ModuleSegmentState struct {

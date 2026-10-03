@@ -1,5 +1,7 @@
+import { type Segment } from '../../types';
+import { playSound } from '../../audio/sound-loader';
 import { moduleDefinitions } from '../../../definitions/modules/index';
-import { Module } from './module';
+import { Module, type ModuleRenderOptions } from './module';
 import { type Collider, type Contact } from '../../collision/types';
 import { type SimulationEvent } from '../../protocol/events';
 import { type SimulationWorld } from '../../simulation/world';
@@ -67,10 +69,10 @@ import { type Mount, type ShapeOutline } from '../../types';
 export const cargoHatchOpen = cargoHatchGeometry.openingThreshold;
 
 export class CargoHatch extends Module {
-  static shades = specification.shades;
   static activationDuration = specification.activationDuration;
-  static label = specification.label;
+  static collectsCargo = specification.collectsCargo;
   static health = specification.health;
+  static label = specification.label;
   static model: any[] = [
     {
       shapeOutline: [] as ShapeOutline,
@@ -103,7 +105,7 @@ export class CargoHatch extends Module {
     },
   ];
   static price = specification.price;
-  static collectsCargo = specification.collectsCargo;
+  static shades = specification.shades;
   static unhurtWhen = specification.unhurtWhen;
   static zIndex = specification.zIndex;
 
@@ -155,5 +157,16 @@ export class CargoHatch extends Module {
       resource: item.resource,
       type: 'itemCollected',
     });
+  }
+
+  render({ segment }: ModuleRenderOptions) {
+    if (!segment.catches) super.render({ segment });
+  }
+
+  updateVisual({ segments }: { dt: number; segments: Segment[] }) {
+    const active = Boolean(segments.some((segment) => segment.active));
+
+    if (active !== Boolean(this.lastActive)) playSound(active ? 0 : 1);
+    this.lastActive = active;
   }
 }

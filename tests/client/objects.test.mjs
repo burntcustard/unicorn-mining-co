@@ -23,7 +23,7 @@ import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 import { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
 
 
-import { Asteroid } from '${process.cwd()}/src/client/simulation/asteroid.ts';
+import { Asteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
 import { moduleTypes, HornDrill, SearchLight } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { colors } from '${process.cwd()}/src/definitions/colors.ts';
 import { createWreckage } from '${process.cwd()}/src/client/objects/create-wreckage.ts';

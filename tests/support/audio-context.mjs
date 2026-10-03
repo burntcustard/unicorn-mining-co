@@ -19,26 +19,15 @@ const audioParam = () => ({
 });
 
 export class TestAudioContext {
+  currentTime = 0;
+  destination = {};
   static instances = [];
   sampleRate = 44100;
-  currentTime = 0;
-  state = 'running';
-  destination = {};
   sources = [];
+  state = 'running';
 
   constructor() {
     TestAudioContext.instances.push(this);
-  }
-
-  resume() {}
-
-  createGain() {
-    return {
-      gain: audioParam(),
-      connect(destination) {
-        this.destination = destination;
-      },
-    };
   }
 
   createBuffer(channels, length, sampleRate) {
@@ -79,6 +68,17 @@ export class TestAudioContext {
     this.sources.push(source);
     return source;
   }
+
+  createGain() {
+    return {
+      gain: audioParam(),
+      connect(destination) {
+        this.destination = destination;
+      },
+    };
+  }
+
+  resume() {}
 }
 
 globalThis.AudioContext = TestAudioContext;

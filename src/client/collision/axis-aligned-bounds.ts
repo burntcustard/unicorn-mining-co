@@ -23,24 +23,6 @@ export class AABB {
   lowerBound: Vec.Value;
   upperBound: Vec.Value;
 
-  constructor() {
-    this.lowerBound = Vec.create();
-    this.upperBound = Vec.create();
-  }
-
-  /**
-   * Get the perimeter length.
-   */
-  getPerimeter(): number {
-    return (
-      2 *
-      (this.upperBound.x -
-        this.lowerBound.x +
-        this.upperBound.y -
-        this.lowerBound.y)
-    );
-  }
-
   /**
    * Combine one or two AABB into this one.
    */
@@ -59,9 +41,18 @@ export class AABB {
     Vec.setXY(this.upperBound, upperX, upperY);
   }
 
-  set(aabb: AABBValue): void {
-    Vec.setXY(this.lowerBound, aabb.lowerBound.x, aabb.lowerBound.y);
-    Vec.setXY(this.upperBound, aabb.upperBound.x, aabb.upperBound.y);
+  static combinedPerimeter(a: AABBValue, b: AABBValue) {
+    const lx = Math.min(a.lowerBound.x, b.lowerBound.x);
+    const ly = Math.min(a.lowerBound.y, b.lowerBound.y);
+    const ux = Math.max(a.upperBound.x, b.upperBound.x);
+    const uy = Math.max(a.upperBound.y, b.upperBound.y);
+
+    return 2 * (ux - lx + uy - ly);
+  }
+
+  constructor() {
+    this.lowerBound = Vec.create();
+    this.upperBound = Vec.create();
   }
 
   contains(aabb: AABBValue): boolean {
@@ -81,6 +72,24 @@ export class AABB {
     return out;
   }
 
+  /**
+   * Get the perimeter length.
+   */
+  getPerimeter(): number {
+    return (
+      2 *
+      (this.upperBound.x -
+        this.lowerBound.x +
+        this.upperBound.y -
+        this.lowerBound.y)
+    );
+  }
+
+  set(aabb: AABBValue): void {
+    Vec.setXY(this.lowerBound, aabb.lowerBound.x, aabb.lowerBound.y);
+    Vec.setXY(this.upperBound, aabb.upperBound.x, aabb.upperBound.y);
+  }
+
   static testOverlap(a: AABBValue, b: AABBValue): boolean {
     return !(
       b.lowerBound.x > a.upperBound.x ||
@@ -88,14 +97,5 @@ export class AABB {
       a.lowerBound.x > b.upperBound.x ||
       a.lowerBound.y > b.upperBound.y
     );
-  }
-
-  static combinedPerimeter(a: AABBValue, b: AABBValue) {
-    const lx = Math.min(a.lowerBound.x, b.lowerBound.x);
-    const ly = Math.min(a.lowerBound.y, b.lowerBound.y);
-    const ux = Math.max(a.upperBound.x, b.upperBound.x);
-    const uy = Math.max(a.upperBound.y, b.upperBound.y);
-
-    return 2 * (ux - lx + uy - ly);
   }
 }

@@ -5,7 +5,7 @@ import { renderDocked } from './docked-loader';
 import { renderIndicators } from './indicators';
 import * as Vec from '../utilities/vector';
 import { type Ship } from '../objects/ship';
-import { renderText } from '../rendering/text/text';
+import { renderText } from './text/text';
 
 export const renderUI = (
   game: GameState,

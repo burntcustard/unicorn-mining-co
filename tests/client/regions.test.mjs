@@ -17,7 +17,7 @@ const bundle = await rolldown({
       export { generateRegion, generateFields, fieldMessage, asteroidSpacing } from '${process.cwd()}/src/client/simulation/region-generation.ts';
       export { RegionManager } from '${process.cwd()}/src/client/simulation/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/client/simulation/world.ts';
-      export { shapeOutlineOf, createAsteroid } from '${process.cwd()}/src/client/simulation/asteroid.ts';
+      export { shapeOutlineOf, createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
       export { preGeneratedRadius } from '${process.cwd()}/src/definitions/region-generation.ts';
       export { message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';

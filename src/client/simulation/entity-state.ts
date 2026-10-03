@@ -1,7 +1,6 @@
 import * as Vec from '../utilities/vector';
 import { type GameObject } from '../objects/game-object';
-import { Craft } from '../objects/craft';
-import { type ModuleState } from '../objects/module-state';
+import { Craft, type ModuleState } from '../objects/craft';
 
 /*
  * Checkpoints retain model geometry and identities, not cloned class graphs.
@@ -35,27 +34,27 @@ const fields = [
 ] as const;
 
 export class EntityState {
-  readonly entity: GameObject;
-  readonly position: Vec.Value;
-  readonly velocity: Vec.Value;
-  readonly rotation: number;
-  readonly spin: number;
-  readonly health: number;
-  readonly launching: number;
-  readonly dockedTo: number;
-  readonly hullHealth?: number[];
-  readonly moduleStates?: ModuleState[];
-  readonly credits?: number;
-  readonly cargoIds?: number[];
-  private readonly values: Record<string, any>;
   private readonly capturedStates: {
     target: any;
     values: Record<string, any>;
   }[] = [];
   private readonly cargoContents?: EntityState[];
-  private readonly segments?: Craft['segments'];
+  readonly cargoIds?: number[];
   private readonly cockpit?: Craft['cockpit'];
+  readonly credits?: number;
+  readonly dockedTo: number;
+  readonly entity: GameObject;
+  readonly health: number;
+  readonly hullHealth?: number[];
+  readonly launching: number;
+  readonly moduleStates?: ModuleState[];
+  readonly position: Vec.Value;
   private readonly randomState: number;
+  readonly rotation: number;
+  private readonly segments?: Craft['segments'];
+  readonly spin: number;
+  private readonly values: Record<string, any>;
+  readonly velocity: Vec.Value;
 
   constructor(entity: GameObject) {
     this.entity = entity;

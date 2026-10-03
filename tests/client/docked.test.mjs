@@ -11,18 +11,16 @@ import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { roundMotion } from '${process.cwd()}/src/client/utilities/round.ts';
 import assert from 'node:assert/strict';
 import { damage } from '${process.cwd()}/src/client/objects/damage.ts';
-import { createRenderedShip } from '${process.cwd()}/src/client/rendering/create-rendered-ship.ts';
-function Ship(properties, data) { return createRenderedShip(properties, data); }
+import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { diamond as diamondDefinition, itemTypes, message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
-import { createRenderedItem } from '${process.cwd()}/src/client/rendering/create-rendered-item.ts';
 import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple, thrusters } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
 import { adoptPlayerShip, paintUnlocked, playerShip, readSlate, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
-import { presentEvents } from '${process.cwd()}/src/client/rendering/present-events.ts';
-import { sparks } from '${process.cwd()}/src/client/rendering/shrapnel.ts';
+import { presentEvents } from '${process.cwd()}/src/client/effects/present-events.ts';
+import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
 import { colors } from '${process.cwd()}/src/definitions/colors.ts';
 import { back, confirmSelection, moveSelection, moveSubSelection, fitsOf, selectionSnapshot } from '${process.cwd()}/src/client/ui/docked.ts';
 
@@ -52,7 +50,7 @@ sparks.length = 0;
 
 // A hull segment destroyed by an impact also breaks off as short-lived,
 // physical wreckage instead of disappearing with the surviving hull's split.
-const battered = new Ship({shades: colors.white});
+const battered = new Ship({shades: colors.white}).addToScene();
 const corner = battered.segments.find(({ hull, health }) => hull && health === 8);
 corner.health = 0;
 battered.update(0);
@@ -60,7 +58,7 @@ const hullWreckage = game.crafts.at(-1);
 assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().length,
   'destroyed hull remains as physical wreckage');
 
-const ship = new Ship({ shades: colors.white, credits: 10000 });
+const ship = new Ship({ shades: colors.white, credits: 10000 }).addToScene();
 assert.equal(ship.hullMaxHealth, 186, 'Ship hull has twice its original 93 HP');
 const pendingSales = [];
 const pendingRepairs = [];
@@ -76,9 +74,9 @@ const settleSale = () => {
   ship.cargoContents = ship.cargoContents.filter(object => !request.objectIds.includes(object.id));
   ship.credits += sold.reduce((total, object) => total + object.price, 0);
 };
-const wreck = new Ship({ shades: colors.white, velocity: Vec.create(12, -7), spin: 0.2 });
+const wreck = new Ship({ shades: colors.white, velocity: Vec.create(12, -7), spin: 0.2 }).addToScene();
 const contents = [diamondDefinition, messageDefinition, messageDefinition].map(itemData =>
-  createRenderedItem({resource: itemTypes.indexOf(itemData)}));
+  new Item(itemData).addToScene());
 contents.forEach(item => item.remove());
 wreck.cargoContents.push(...contents);
 wreck.cockpit.health = 0;
@@ -285,7 +283,7 @@ assert(ship.credits === hullRepairCredits - hullMaxHealth + (hullHealth | 0),
   'hull repair charges for displayed missing HP');
 assert.deepEqual(pendingRepairs.shift(), {action: 'repair'},
   'hull repair sends its own dock action');
-const damaged = new Ship({shades: colors.white});
+const damaged = new Ship({shades: colors.white}).addToScene();
 const spare = new CargoHatch();
 const lost = new CargoHatch();
 damaged.cargoContents.push(spare, lost);
@@ -327,7 +325,7 @@ assert(Math.hypot(wreckage.segments[0].localPosition.x+hatchMiddle[0],wreckage.s
 assert(wreckage.hitbox()[0].radius < 9, 'detached cargo hatch collision fits the narrow strip');
 
 // Scoop doors still suppress their hull collision only while sufficiently open.
-const hatchShip = new Ship({shades: colors.white});
+const hatchShip = new Ship({shades: colors.white}).addToScene();
 const hatchModule = new CargoHatch();
 hatchShip.cargoContents.push(hatchModule); hatchShip.fit(hatchModule);
 const hatchMount = hatchModule.mount;
@@ -350,7 +348,7 @@ assert(new CargoHatch().shades === colors.violet && new ShieldGenerator().shades
   thrusters.every((thruster) => new thruster().shades === colors.violet), 'purchased modules are pink');
 assert(new HornDrill().shades === colors.yellow, 'purchased horns are yellow');
 assert(ThrusterSingle.label === 'THRUSTERS *1 XL' && ThrusterSingle.forwardThrust === 22, 'single thruster');
-const flyer = new Ship({shades: colors.white});
+const flyer = new Ship({shades: colors.white}).addToScene();
 const engine = new ThrusterDualMd();
 flyer.cargoContents.push(engine); flyer.fit(engine);
 for (const forward of [0, 1]) {
@@ -370,7 +368,7 @@ assert(flyer.forwardThrust === 0 && flyer.cargoContents[0] === engine, 'removing
 // Check actual launch motion, including the final 0.05-second full-power pulse:
 // coast uses quarter thrust and speed cap, with half-size flames.
 for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple]) {
-  const departing = new Ship({shades: colors.white, position: Vec.create(100000, 100000)});
+  const departing = new Ship({shades: colors.white, position: Vec.create(100000, 100000)}).addToScene();
   const engine = new type();
   departing.cargoContents.push(engine); departing.fit(engine);
   departing.launch();
@@ -432,7 +430,7 @@ for (const type of thrusters) {
     fill(path) { draws.push(path ? path.kind : 'glow'); },
   };
   const crafts = [0, 1].map(() => {
-    const craft = new Ship({ shades: colors.white });
+    const craft = new Ship({ shades: colors.white }).addToScene();
     const engine = new type();
     craft.cargoContents.push(engine);
     craft.fit(engine);
@@ -478,7 +476,7 @@ for (const [name, shades] of [['GREEN', colors.green]]) {
   unlockPaint(name);
   assert(playerShip.note === 'UNCHANGED', name + ' only announces once');
 }
-const replacement = createRenderedShip({shades:colors.white});
+const replacement = new Ship({shades:colors.white}).addToScene();
 const creditsBefore = playerShip.credits;
 const updateBefore = replacement.update;
 adoptPlayerShip({ship:replacement});
@@ -533,8 +531,11 @@ for (const production of [false, true]) {
   globalThis.location = { search: '' };
   globalThis.Path2D = class {
     arc() {}
+
     closePath() {}
+
     lineTo() {}
+
     moveTo() {}
   };
 

@@ -10,9 +10,6 @@ import assert from 'node:assert/strict';
 import { makeEntity } from '${root}/src/client/network/network.ts';
 import { applyEntity } from '${root}/src/client/prediction/prediction.ts';
 import { game } from '${root}/src/client/game.ts';
-import '${root}/src/client/rendering/craft/ship.ts';
-import '${root}/src/client/rendering/craft/station.ts';
-import '${root}/src/client/rendering/item.ts';
 import { createWorld, addEntity } from '${root}/src/client/simulation/world.ts';
 import { captureWorld, cloneEntity, restoreWorld } from '${root}/src/client/simulation/world-state.ts';
 import { Ship } from '${root}/src/client/objects/ship.ts';
@@ -23,15 +20,14 @@ import { Item } from '${root}/src/client/objects/item.ts';
 import { diamond as diamondDefinition } from '${root}/src/definitions/items/index.ts';
 
 import { amethyst as amethystDefinition } from '${root}/src/definitions/items/index.ts';
-import { Asteroid, createAsteroid } from '${root}/src/client/simulation/asteroid.ts';
+import { Asteroid, createAsteroid } from '${root}/src/client/objects/asteroid.ts';
 import { Craft } from '${root}/src/client/objects/craft.ts';
 import { createWreckage } from '${root}/src/client/objects/create-wreckage.ts';
 import * as Vec from '${root}/src/client/utilities/vector.ts';
-import { renderAsteroid } from '${root}/src/client/rendering/render-asteroid.ts';
-import { revealBuriedItems, tint } from '${root}/src/client/rendering/lighting.ts';
+import { revealBuriedItems, tint } from '${root}/src/client/utilities/lighting.ts';
 import { colors } from '${root}/src/definitions/colors.ts';
 import { renderControls } from '${root}/src/client/ui/controls.ts';
-import { presentEvents } from '${root}/src/client/rendering/present-events.ts';
+import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 const soundCount = Reflect.get(globalThis, 'sounds').length;
 presentEvents({playerId:1,events:[{type:'itemCollected',by:1,itemId:888,resource:0}]});
 assert.equal(Reflect.get(globalThis, 'sounds').length,soundCount+1,'collecting cargo plays a sound');
@@ -194,27 +190,48 @@ assert(draws.length>0,'bare Craft wreckage retains its own hull rendering');
 assert(draws.some(draw=>draw.style===colors.cyan[2]),'detached wreckage keeps its light fill shade');
 assert.equal(gradients,beforeWreck,'wreckage does not inherit station gradients');
 const diamond=new Item(diamondDefinition, );
-const lightWorld=createWorld();
-const lightShip=addEntity(lightWorld,createShip(lightWorld,{shades:colors.cyan}));
-lightShip.setModuleActive({module:SearchLight,active:true});
-lightShip.updateModules(1);
-const detachedLight=lightShip.modules.find(module=>module instanceof SearchLight);
-const lightCheckpoint=captureWorld({world:lightWorld});
-lightShip.detach(detachedLight.mount);
-const lightDebris=[...lightWorld.entities.values()].find(entity=>entity!==lightShip && entity.decay);
-for(const fragment of [lightDebris,cloneEntity({entity:lightDebris})]){
-  const beforeBeam=gradients;
-  draws.length=0;
-  for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])fragment.render({zIndex,scenery:[]});
-  assert.equal(gradients,beforeBeam,'detached modules do not project active beams');
-  assert(draws.length>0,'detached modules still draw their fixed debris geometry');
-  const beforeReveal=revealed;
-  revealBuriedItems({sprites:[fragment,litRock],predicted:new Map(),poses:new Map()});
-  assert.equal(revealed,beforeReveal,'detached lights do not reveal buried cargo');
+// A destroyed lamp retains its module definition and warmed beam cache in the
+// local fragment. Render that fragment as fixed wreckage through every path.
+for(const active of [false,true])for(const destruction of ['detach','health']){
+  const lightWorld=createWorld();
+  const lightShip=addEntity(lightWorld,createShip(lightWorld,{shades:colors.cyan}));
+  lightShip.setModuleActive({module:SearchLight,active});
+  lightShip.updateModules(1);
+  const detachedLight=lightShip.modules.find(module=>module instanceof SearchLight);
+  const lamp=lightShip.segments.find(segment=>segment.module===detachedLight);
+  for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])lightShip.render({zIndex,scenery:[litRock]});
+  assert.equal(Boolean(lamp.prism),active,'active lights warm their beam cache before destruction');
+  const lightCheckpoint=captureWorld({world:lightWorld});
+  if(destruction==='health'){
+    detachedLight.mount.health=0;
+    lightShip.update(0);
+  }else lightShip.detach(detachedLight.mount);
+  assert(!lightShip.modules.includes(detachedLight),'destroyed lights leave the surviving ship');
+  const lightDebris=[...lightWorld.entities.values()].find(entity=>entity!==lightShip && entity.decay);
+  assert(lightDebris instanceof Craft && !(lightDebris instanceof Ship),'a detached light is bare Craft wreckage');
+  assert(lightDebris.segments.some(segment=>segment.module===detachedLight),'local wreckage retains the former light definition');
+  const replicatedDebris=createWreckage({
+    properties:{id:lightDebris.id,decay:lightDebris.decay,shades:lightDebris.shades,position:Vec.clone(lightDebris.position)},
+    segments:lightDebris.wreckage,
+  });
+  for(const fragment of [lightDebris,cloneEntity({entity:lightDebris}),replicatedDebris,cloneEntity({entity:replicatedDebris})]){
+    const beforeBeam=gradients;
+    draws.length=0;
+    for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])fragment.render({zIndex,scenery:[litRock]});
+    assert.equal(gradients,beforeBeam,'destroyed lights never project beams, including after replication and prediction cloning');
+    assert(draws.length>0,'destroyed lights still draw their fixed debris geometry');
+    const beforeReveal=revealed;
+    revealBuriedItems({sprites:[fragment,litRock],predicted:new Map([[fragment.id,cloneEntity({entity:fragment})]]),poses:new Map()});
+    assert.equal(revealed,beforeReveal,'destroyed lights do not reveal buried cargo');
+  }
+  restoreWorld({world:lightWorld,state:lightCheckpoint});
+  assert(!lightWorld.entities.has(lightDebris.id),'rollback removes speculative light wreckage');
+  assert(lightShip.modules.includes(detachedLight),'rollback restores the original light instance');
+  assert(lightShip.segments.every(segment=>segment.module),'rollback restores every segment module');
+  for(const restored of [lightShip,cloneEntity({entity:lightShip})]){
+    for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])restored.render({zIndex,scenery:[litRock]});
+  }
 }
-restoreWorld({world:lightWorld,state:lightCheckpoint});
-assert(lightShip.segments.every(segment=>segment.module),'rollback restores every segment module');
-for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])lightShip.render({zIndex,scenery:[]});
 draws.length=0;
 diamond.render();
 assert(draws.length>0,'concrete items inherit the Item renderer');
@@ -230,7 +247,7 @@ for(const [index,stage] of packet.drillingStages.entries()){
     predicted.resource=undefined;
     applyEntity({entity:predicted,server:asteroid});
     assert.equal(predicted.resource,1,'reconciliation restores asteroid material');
-    renderAsteroid({asteroid:predicted});
+    predicted.addToScene();
     draws.length=0;strokes.length=0;
     predicted.render();
     assert.equal(draws[0].style,colors.purple[1]+'9');
@@ -261,7 +278,7 @@ const remainder=pieces.find(piece=>piece.segments?.length);
 const predictedRemainder=cloneEntity({entity:remainder});
 applyEntity({entity:predictedRemainder,server:remainder});
 assert.equal(predictedRemainder.segments[0].shapeOutline.edges,undefined,'prediction copies polygon points without cached edge marks');
-renderAsteroid({asteroid:predictedRemainder});
+predictedRemainder.addToScene();
 draws.length=0;
 predictedRemainder.render();
 const painted=draws[0];
@@ -278,14 +295,17 @@ console.log('Replicated flares, light beams, module checkboxes, palettes, render
 // Private fields enforce canvas receiver identity, like the browser's DOM getters.
 class TestCanvas {
   #width = 0;
+
+  getContext() {
+    return { translate() {}, scale() {}, fill() {} };
+  }
+
   get width() {
     return this.#width;
   }
+
   set width(value) {
     this.#width = value;
-  }
-  getContext() {
-    return { translate() {}, scale() {}, fill() {} };
   }
 }
 globalThis.document = {
@@ -298,16 +318,26 @@ globalThis.WebSocket = class {};
 globalThis.localStorage = { getItem: () => null };
 globalThis.sounds = [];
 globalThis.Path2D = class {
+  addPath(other) {
+    this.contours.push(
+      ...other.contours.map((contour) => contour.map((point) => [...point])),
+    );
+    this.vertices.push(...other.vertices.map((point) => [...point]));
+    this.current = undefined;
+  }
+
+  arc() {}
+
+  closePath() {
+    this.current = undefined;
+  }
+
   constructor() {
     this.vertices = [];
     this.contours = [];
     this.current = undefined;
   }
-  moveTo(x, y) {
-    this.current = [];
-    this.contours.push(this.current);
-    this.lineTo(x, y);
-  }
+
   lineTo(x, y) {
     if (!this.current) {
       this.current = [];
@@ -316,18 +346,14 @@ globalThis.Path2D = class {
     this.current.push([x, y]);
     this.vertices.push([x, y]);
   }
-  arc() {}
-  closePath() {
-    this.current = undefined;
+
+  moveTo(x, y) {
+    this.current = [];
+    this.contours.push(this.current);
+    this.lineTo(x, y);
   }
+
   rect() {}
-  addPath(other) {
-    this.contours.push(
-      ...other.contours.map((contour) => contour.map((point) => [...point])),
-    );
-    this.vertices.push(...other.vertices.map((point) => [...point]));
-    this.current = undefined;
-  }
 };
 
 const fixture = readFileSync('tests/fixtures/rendering.json', 'utf8');

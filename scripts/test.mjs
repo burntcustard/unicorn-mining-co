@@ -1,31 +1,17 @@
 import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { readdirSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
+import { basename, join, relative, resolve } from 'node:path';
 
-const suites = {
-  formatting: ['client/formatting.test.mjs'],
-  objects: [
-    'client/objects.test.mjs',
-    'client/rendering.test.mjs',
-    'client/definitions.test.ts',
-  ],
-  simulation: ['client/simulation.test.mjs'],
-  regions: ['client/regions.test.mjs'],
-  protocol: ['client/binary-control.test.ts', 'client/binary-snapshot.test.ts'],
-  prediction: ['client/remote-motion.test.ts', 'client/prediction.test.ts'],
-  collisions: ['client/collisions.test.mjs'],
-  docked: [
-    'client/docked.test.mjs',
-    'client/lazy-docked.test.mjs',
-    'client/property-mangling.test.mjs',
-  ],
-  input: ['client/input.test.mjs', 'client/module-input.test.mjs'],
-  prism: ['client/prism.test.mjs'],
-  sound: ['client/sound.test.mjs'],
-  integration: ['integration/server-integration.test.ts'],
-};
-
+const testFiles = readdirSync('tests', { recursive: true })
+  .filter((file) => /\.test\.(?:mjs|js|ts)$/.test(file))
+  .map((file) => join('tests', file))
+  .sort();
 const requested = process.argv.slice(2);
-const selected = requested.length ? requested : Object.keys(suites);
+const files = requested.length
+  ? [...new Set(requested.map(selectFile))]
+  : testFiles;
 const concurrency = Number(
   process.env.TEST_CONCURRENCY || Math.min(4, availableParallelism()),
 );
@@ -34,32 +20,64 @@ if (!Number.isInteger(concurrency) || concurrency < 1) {
   throw new Error('TEST_CONCURRENCY must be a positive integer');
 }
 
-for (const suite of selected) {
-  if (!Object.hasOwn(suites, suite)) {
-    throw new Error(`Unknown test suite: ${suite}`);
+function selectFile(name) {
+  const normalized = name
+    .replace(/^\.\//, '')
+    .replace(/\.test\.(?:mjs|js|ts)$/, '');
+  const matches = testFiles.filter(
+    (file) =>
+      [file, relative('tests', file), basename(file)]
+        .map((path) => path.replace(/\.test\.(?:mjs|js|ts)$/, ''))
+        .includes(normalized) || resolve(file) === resolve(name),
+  );
+
+  if (matches.length !== 1) {
+    throw new Error(
+      matches.length
+        ? `Ambiguous test file: ${name}. Use a path: ${matches.join(', ')}`
+        : `Unknown test file: ${name}`,
+    );
   }
+
+  return matches[0];
 }
 
-const files = [...new Set(selected.flatMap((suite) => suites[suite]))];
-const child = spawn(
-  process.execPath,
-  [
+async function run(command, args, env = process.env) {
+  const child = spawn(command, args, { stdio: 'inherit', env });
+  const [code, signal] = await once(child, 'exit');
+
+  if (signal) console.error(`Tests terminated by ${signal}`);
+
+  if (code !== 0) process.exit(code ?? 1);
+}
+
+if (!requested.length) {
+  await run('npm', ['run', 'build']);
+} else if (files.some((file) => file.startsWith('tests/integration/'))) {
+  await run('npm', ['run', 'build:server']);
+}
+
+if (files.some((file) => file.startsWith('tests/parity/'))) {
+  if (requested.length) await run('npm', ['run', 'catalog:go']);
+  await run(process.execPath, [
     '--import',
     'tsx',
-    '--test',
-    '--test-reporter=spec',
-    `--test-concurrency=${concurrency}`,
-    ...files.map((file) => `tests/${file}`),
-  ],
-  { stdio: 'inherit' },
-);
+    'tests/parity/generate-fixtures.ts',
+  ]);
+}
 
-child.on('error', (error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+await run(process.execPath, [
+  '--import',
+  'tsx',
+  '--test',
+  '--test-reporter=spec',
+  `--test-concurrency=${concurrency}`,
+  ...files,
+]);
 
-child.on('exit', (code, signal) => {
-  if (signal) console.error(`Tests terminated by ${signal}`);
-  process.exitCode = code ?? 1;
-});
+if (!requested.length) {
+  await run('go', ['test', './src/server/...'], {
+    ...process.env,
+    GOEXPERIMENT: 'simd',
+  });
+}

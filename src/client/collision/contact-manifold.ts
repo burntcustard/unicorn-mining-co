@@ -39,8 +39,6 @@ export type ManifoldType = 'circles' | 'faceA' | 'faceB' | undefined;
  * steps, so we keep it small.
  */
 export class Manifold {
-  type: ManifoldType;
-
   /**
    * Usage depends on manifold type:
    * - circles: not used
@@ -48,7 +46,6 @@ export class Manifold {
    * - faceB: the normal on polygonB
    */
   localNormal = Vec.create();
-
   /**
    * Usage depends on manifold type:
    * - circles: the local center of circleA
@@ -56,21 +53,11 @@ export class Manifold {
    * - faceB: the center of faceB
    */
   localPoint = Vec.create();
-
-  // The points of contact
-  points = [Vec.create(), Vec.create()];
-
   // The number of manifold points
   pointCount = 0;
-
-  recycle(): void {
-    this.type = undefined;
-    Vec.setXY(this.localNormal, 0, 0);
-    Vec.setXY(this.localPoint, 0, 0);
-    this.pointCount = 0;
-    Vec.setXY(this.points[0], 0, 0);
-    Vec.setXY(this.points[1], 0, 0);
-  }
+  // The points of contact
+  points = [Vec.create(), Vec.create()];
+  type: ManifoldType;
 
   /**
    * Evaluate the manifold with supplied transforms. This assumes modest motion
@@ -167,6 +154,15 @@ export class Manifold {
 
     return wm;
   }
+
+  recycle(): void {
+    this.type = undefined;
+    Vec.setXY(this.localNormal, 0, 0);
+    Vec.setXY(this.localPoint, 0, 0);
+    this.pointCount = 0;
+    Vec.setXY(this.points[0], 0, 0);
+    Vec.setXY(this.points[1], 0, 0);
+  }
 }
 
 /**
@@ -175,15 +171,12 @@ export class Manifold {
 export class WorldManifold {
   // World vector pointing from A to B
   normal = Vec.create();
-
-  // World contact point (point of intersection)
-  points = [Vec.create(), Vec.create()]; // [maxManifoldPoints]
-
-  // A negative value indicates overlap, in meters
-  separations = [0, 0]; // [maxManifoldPoints]
-
   // The number of manifold points
   pointCount = 0;
+  // World contact point (point of intersection)
+  points = [Vec.create(), Vec.create()]; // [maxManifoldPoints]
+  // A negative value indicates overlap, in meters
+  separations = [0, 0]; // [maxManifoldPoints]
 
   recycle() {
     Vec.setXY(this.normal, 0, 0);

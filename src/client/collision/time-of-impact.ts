@@ -238,20 +238,99 @@ export function findTimeOfImpact(output: TOIOutput, input: TOIInput): void {
 type SeparationFunctionType = 'points' | 'faceA' | 'faceB' | undefined;
 
 class SeparationFunction {
+  // compute output
+  indexA = -1;
+  indexB = -1;
+  m_axis = Vec.create();
+  m_localPoint = Vec.create();
   // input cache
   m_proxyA: Shape = null;
   m_proxyB: Shape = null;
   m_sweepA: Sweep = null;
   m_sweepB: Sweep = null;
-
   // initialize cache
   m_type: SeparationFunctionType = undefined;
-  m_localPoint = Vec.create();
-  m_axis = Vec.create();
 
-  // compute output
-  indexA = -1;
-  indexB = -1;
+  compute(find: boolean, t: number): number {
+    // It was findMinSeparation and evaluate
+    this.m_sweepA.getTransform(xfA, t);
+    this.m_sweepB.getTransform(xfB, t);
+
+    switch (this.m_type) {
+      case 'points': {
+        if (find) {
+          matrix.unrotateInto(axisA, xfA.q, this.m_axis);
+          matrix.unrotateInto(axisB, xfB.q, Vec.scale(this.m_axis, -1, temp));
+
+          this.indexA = this.m_proxyA.getSupport(axisA);
+          this.indexB = this.m_proxyB.getSupport(axisB);
+        }
+
+        Vec.set(localPointA, this.m_proxyA.getVertex(this.indexA));
+        Vec.set(localPointB, this.m_proxyB.getVertex(this.indexB));
+
+        matrix.transformInto(pointA, xfA, localPointA);
+        matrix.transformInto(pointB, xfB, localPointB);
+
+        const sep = Vec.dot(pointB, this.m_axis) - Vec.dot(pointA, this.m_axis);
+
+        return sep;
+      }
+
+      case 'faceA': {
+        matrix.rotateInto(normal, xfA.q, this.m_axis);
+        matrix.transformInto(pointA, xfA, this.m_localPoint);
+
+        if (find) {
+          matrix.unrotateInto(axisB, xfB.q, Vec.scale(normal, -1, temp));
+
+          this.indexA = -1;
+          this.indexB = this.m_proxyB.getSupport(axisB);
+        }
+
+        Vec.set(localPointB, this.m_proxyB.getVertex(this.indexB));
+        matrix.transformInto(pointB, xfB, localPointB);
+
+        const sep = Vec.dot(pointB, normal) - Vec.dot(pointA, normal);
+
+        return sep;
+      }
+
+      case 'faceB': {
+        matrix.rotateInto(normal, xfB.q, this.m_axis);
+        matrix.transformInto(pointB, xfB, this.m_localPoint);
+
+        if (find) {
+          matrix.unrotateInto(axisA, xfA.q, Vec.scale(normal, -1, temp));
+
+          this.indexB = -1;
+          this.indexA = this.m_proxyA.getSupport(axisA);
+        }
+
+        Vec.set(localPointA, this.m_proxyA.getVertex(this.indexA));
+        matrix.transformInto(pointA, xfA, localPointA);
+
+        const sep = Vec.dot(pointA, normal) - Vec.dot(pointB, normal);
+
+        return sep;
+      }
+
+      default:
+        if (find) {
+          this.indexA = -1;
+          this.indexB = -1;
+        }
+        return 0;
+    }
+  }
+
+  evaluate(t: number): number {
+    return this.compute(false, t);
+  }
+
+  findMinSeparation(t: number): number {
+    return this.compute(true, t);
+  }
 
   initialize(
     cache: SimplexCache,
@@ -339,87 +418,6 @@ class SeparationFunction {
       }
       return s;
     }
-  }
-
-  compute(find: boolean, t: number): number {
-    // It was findMinSeparation and evaluate
-    this.m_sweepA.getTransform(xfA, t);
-    this.m_sweepB.getTransform(xfB, t);
-
-    switch (this.m_type) {
-      case 'points': {
-        if (find) {
-          matrix.unrotateInto(axisA, xfA.q, this.m_axis);
-          matrix.unrotateInto(axisB, xfB.q, Vec.scale(this.m_axis, -1, temp));
-
-          this.indexA = this.m_proxyA.getSupport(axisA);
-          this.indexB = this.m_proxyB.getSupport(axisB);
-        }
-
-        Vec.set(localPointA, this.m_proxyA.getVertex(this.indexA));
-        Vec.set(localPointB, this.m_proxyB.getVertex(this.indexB));
-
-        matrix.transformInto(pointA, xfA, localPointA);
-        matrix.transformInto(pointB, xfB, localPointB);
-
-        const sep = Vec.dot(pointB, this.m_axis) - Vec.dot(pointA, this.m_axis);
-
-        return sep;
-      }
-
-      case 'faceA': {
-        matrix.rotateInto(normal, xfA.q, this.m_axis);
-        matrix.transformInto(pointA, xfA, this.m_localPoint);
-
-        if (find) {
-          matrix.unrotateInto(axisB, xfB.q, Vec.scale(normal, -1, temp));
-
-          this.indexA = -1;
-          this.indexB = this.m_proxyB.getSupport(axisB);
-        }
-
-        Vec.set(localPointB, this.m_proxyB.getVertex(this.indexB));
-        matrix.transformInto(pointB, xfB, localPointB);
-
-        const sep = Vec.dot(pointB, normal) - Vec.dot(pointA, normal);
-
-        return sep;
-      }
-
-      case 'faceB': {
-        matrix.rotateInto(normal, xfB.q, this.m_axis);
-        matrix.transformInto(pointB, xfB, this.m_localPoint);
-
-        if (find) {
-          matrix.unrotateInto(axisA, xfA.q, Vec.scale(normal, -1, temp));
-
-          this.indexB = -1;
-          this.indexA = this.m_proxyA.getSupport(axisA);
-        }
-
-        Vec.set(localPointA, this.m_proxyA.getVertex(this.indexA));
-        matrix.transformInto(pointA, xfA, localPointA);
-
-        const sep = Vec.dot(pointA, normal) - Vec.dot(pointB, normal);
-
-        return sep;
-      }
-
-      default:
-        if (find) {
-          this.indexA = -1;
-          this.indexB = -1;
-        }
-        return 0;
-    }
-  }
-
-  findMinSeparation(t: number): number {
-    return this.compute(true, t);
-  }
-
-  evaluate(t: number): number {
-    return this.compute(false, t);
   }
 }
 

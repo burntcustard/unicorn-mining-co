@@ -1,4 +1,4 @@
-// Port of src/client/simulation/asteroid.ts.
+// Port of src/client/objects/asteroid.ts.
 package simulation
 
 import (

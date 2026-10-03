@@ -1,6 +1,6 @@
 import { colors } from '../../definitions/colors';
-import { textOutline } from '../rendering/text/text-outline';
-import { renderText } from '../rendering/text/text';
+import { textOutline } from './text/text-outline';
+import { renderText } from './text/text';
 import { type Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { moduleControls } from '../objects/control-ship';

@@ -31,50 +31,21 @@ const descriptionsWithin = <Description extends { position: Vec.Value }>({
   );
 
 export class RegionManager {
-  private loaded = new Map<string, LoadedRegion>();
-  private saved = new Map<string, RegionDescription>();
-  private worldSeed: number;
-  private removed = new Set<number>();
   private descriptionOwners = new Map<number, Set<RegionDescription>>();
-  private stationLists = new Map<string, StationDescription[]>();
+  private loaded = new Map<string, LoadedRegion>();
   private queriedRegions?: {
     bounds: string;
     asteroids: RegionDescription['asteroids'][];
     wrecks: RegionDescription['wrecks'][];
     stations: StationDescription[][];
   };
+  private removed = new Set<number>();
+  private saved = new Map<string, RegionDescription>();
+  private stationLists = new Map<string, StationDescription[]>();
+  private worldSeed: number;
 
   constructor({ worldSeed }: { worldSeed: number }) {
     this.worldSeed = worldSeed;
-  }
-
-  get loadedRegionCount() {
-    return this.loaded.size;
-  }
-
-  /**
-   * Retain descriptions intersecting the central circle without activating them.
-   */
-  preGenerate({ radius }: { radius: number }) {
-    const reach = Math.ceil(radius / regionSize);
-
-    for (let x = -reach; x < reach; x++) {
-      for (let y = -reach; y < reach; y++) {
-        const nearestX = Math.max(x, 0, -x - 1) * regionSize;
-        const nearestY = Math.max(y, 0, -y - 1) * regionSize;
-        const region = Vec.create(x, y);
-
-        if (
-          nearestX * nearestX + nearestY * nearestY >= radius * radius ||
-          this.loaded.has(keyOf({ region })) ||
-          this.saved.has(keyOf({ region }))
-        ) {
-          continue;
-        }
-        this.load({ region });
-        this.unload({ region });
-      }
-    }
   }
 
   load({ region }: { region: Vec.Value }): LoadedRegion {
@@ -121,34 +92,33 @@ export class RegionManager {
     return loaded;
   }
 
-  unload({ region }: { region: Vec.Value }) {
-    const key = keyOf({ region });
-    const loaded = this.loaded.get(key);
-
-    if (!loaded) return;
-    this.queriedRegions = undefined;
-    this.saved.set(key, loaded.description);
-    this.loaded.delete(key);
+  get loadedRegionCount() {
+    return this.loaded.size;
   }
 
-  remove({ id }: { id: number }) {
-    this.removed.add(id);
-    this.queriedRegions = undefined;
-    this.stationLists.clear();
-    const removeFrom = (description: RegionDescription) => {
-      description.asteroids = description.asteroids.filter(
-        (asteroid) => asteroid.id !== id,
-      );
-      description.stations = description.stations.filter(
-        (station) => station.id !== id,
-      );
-      description.wrecks = description.wrecks.filter(
-        (wreck) => wreck.id !== id,
-      );
-    };
+  /**
+   * Retain descriptions intersecting the central circle without activating them.
+   */
+  preGenerate({ radius }: { radius: number }) {
+    const reach = Math.ceil(radius / regionSize);
 
-    this.descriptionOwners.get(id)?.forEach(removeFrom);
-    this.descriptionOwners.delete(id);
+    for (let x = -reach; x < reach; x++) {
+      for (let y = -reach; y < reach; y++) {
+        const nearestX = Math.max(x, 0, -x - 1) * regionSize;
+        const nearestY = Math.max(y, 0, -y - 1) * regionSize;
+        const region = Vec.create(x, y);
+
+        if (
+          nearestX * nearestX + nearestY * nearestY >= radius * radius ||
+          this.loaded.has(keyOf({ region })) ||
+          this.saved.has(keyOf({ region }))
+        ) {
+          continue;
+        }
+        this.load({ region });
+        this.unload({ region });
+      }
+    }
   }
 
   query({
@@ -281,5 +251,35 @@ export class RegionManager {
         }),
       };
     });
+  }
+
+  remove({ id }: { id: number }) {
+    this.removed.add(id);
+    this.queriedRegions = undefined;
+    this.stationLists.clear();
+    const removeFrom = (description: RegionDescription) => {
+      description.asteroids = description.asteroids.filter(
+        (asteroid) => asteroid.id !== id,
+      );
+      description.stations = description.stations.filter(
+        (station) => station.id !== id,
+      );
+      description.wrecks = description.wrecks.filter(
+        (wreck) => wreck.id !== id,
+      );
+    };
+
+    this.descriptionOwners.get(id)?.forEach(removeFrom);
+    this.descriptionOwners.delete(id);
+  }
+
+  unload({ region }: { region: Vec.Value }) {
+    const key = keyOf({ region });
+    const loaded = this.loaded.get(key);
+
+    if (!loaded) return;
+    this.queriedRegions = undefined;
+    this.saved.set(key, loaded.description);
+    this.loaded.delete(key);
   }
 }

@@ -12,10 +12,6 @@ type Correction = Pose & { correctedAt: number };
 export class RemoteMotion {
   private corrections = new Map<number, Correction>();
 
-  reset() {
-    this.corrections.clear();
-  }
-
   correct({
     before,
     now,
@@ -50,6 +46,10 @@ export class RemoteMotion {
         correctedAt: now,
       });
     });
+  }
+
+  reset() {
+    this.corrections.clear();
   }
 
   sample({

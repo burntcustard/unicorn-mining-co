@@ -1,3 +1,4 @@
+import { game } from '../game';
 import {
   defaultMass,
   defaultFriction,
@@ -11,43 +12,65 @@ import { roundMotion } from '../utilities/round';
 import { type Collider } from '../collision/types';
 import { type SimulationWorld } from '../simulation/world';
 
+import { type Pose } from '../types';
+
+export interface RenderOptions {
+  draw?: () => void;
+  pose?: Pose;
+}
+
 let nextId = -1;
 
 export class GameObject {
-  static friction = defaultFriction;
   [key: string]: any;
-  id: number;
-  position: Vec.Value;
-  velocity: Vec.Value;
-  rotation = 0;
-  spin = 0;
   angularDrag = 0;
   angularInertiaScale = defaultAngularInertiaScale;
-  // Loose modules use the same small default mass as items.
-  mass = defaultMass;
-  physics = true;
-  friction = (this.constructor as typeof GameObject).friction;
-  radius = 0;
+  buried: boolean | undefined = undefined;
+  collections: any[][] = [];
   dead = false;
-  pendingUpdateTime = 0;
+  decay?: number = undefined;
+  drag: number | undefined = undefined;
+  static friction = defaultFriction;
+  friction = (this.constructor as typeof GameObject).friction;
+  health: number | undefined = undefined;
+  id: number;
+  kind?: string = undefined;
+  label?: string = undefined;
   // Initialize hot optional fields before subclasses add their own properties.
   localMovementParent: GameObject | 0 | undefined = undefined;
   localMovementRate: number | undefined = undefined;
-  drag: number | undefined = undefined;
-  decay?: number = undefined;
-  health: number | undefined = undefined;
-  buried: boolean | undefined = undefined;
-  label?: string = undefined;
+  // Loose modules use the same small default mass as items.
+  mass = defaultMass;
   message?: string = undefined;
   paint?: number = undefined;
+  pendingUpdateTime = 0;
+  physics = true;
   playerId?: number = undefined;
   pointCount?: number = undefined;
+  position: Vec.Value;
+  radius = 0;
   radiusEven?: number = undefined;
-  resource?: number = undefined;
-  kind?: string = undefined;
-  world?: SimulationWorld;
-  collections: any[][] = [];
   random: Random;
+  resource?: number = undefined;
+  rotation = 0;
+  spin = 0;
+  velocity: Vec.Value;
+  world?: SimulationWorld;
+
+  add() {
+    this.dead = false;
+    this.world?.entities.set(this.id, this as any);
+    this.collections.forEach((list) => {
+      if (!list.includes(this)) list.push(this);
+    });
+  }
+
+  addToScene() {
+    this.collections = [game.sprites];
+    this.add();
+    return this;
+  }
+
   constructor(
     properties: {
       [key: string]: any;
@@ -76,25 +99,7 @@ export class GameObject {
     }
     Object.assign(this, ...definitions, properties);
   }
-  add() {
-    this.dead = false;
-    this.world?.entities.set(this.id, this as any);
-    this.collections.forEach((list) => {
-      if (!list.includes(this)) list.push(this);
-    });
-  }
-  remove() {
-    this.dead = true;
-    const resident: GameObject | undefined = this.world?.entities.get(this.id);
 
-    if (resident === this) this.world?.entities.delete(this.id);
-    // Registries are shared by their members, so preserve the array identity.
-    this.collections.forEach((list) => {
-      const index = list.indexOf(this);
-
-      if (index >= 0) list.splice(index, 1);
-    });
-  }
   hitbox(): Collider[] {
     // Loose modules and other objects without geometry need no contact fixture.
     return this.dead || this.buried || (!this.radius && !this.shapeOutline)
@@ -112,6 +117,30 @@ export class GameObject {
           },
         ];
   }
+
+  remove() {
+    this.dead = true;
+    const resident: GameObject | undefined = this.world?.entities.get(this.id);
+
+    if (resident === this) this.world?.entities.delete(this.id);
+    // Registries are shared by their members, so preserve the array identity.
+    this.collections.forEach((list) => {
+      const index = list.indexOf(this);
+
+      if (index >= 0) list.splice(index, 1);
+    });
+  }
+
+  render({ draw, pose = this }: RenderOptions = {}) {
+    const { ctx } = game;
+
+    ctx.save();
+    ctx.translate(pose.position.x, pose.position.y);
+    ctx.rotate(pose.rotation);
+    draw?.();
+    ctx.restore();
+  }
+
   /**
    * Keep predicted and authoritative motion on the same numeric grid.
    */
@@ -130,6 +159,7 @@ export class GameObject {
     this.rotation = roundMotion(this.rotation);
     this.spin = roundMotion(this.spin);
   }
+
   update(dt: number) {
     if (this.dead || this.buried) return;
 

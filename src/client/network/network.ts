@@ -14,7 +14,7 @@ import {
 } from '../protocol/network';
 import { createRandom } from '../utilities/seeded-random';
 import { addPlayer, createWorld } from '../simulation/world';
-import { createAsteroid } from '../simulation/asteroid';
+import { createAsteroid } from '../objects/asteroid';
 import { Item } from '../objects/item';
 import { itemTypes } from '../../definitions/items';
 import { GameObject } from '../objects/game-object';
@@ -166,50 +166,90 @@ const makeEntity = ({
 };
 
 export class NetworkClient {
-  readonly remoteMotion = new RemoteMotion();
-  readonly events: SimulationEvent[] = [];
-  readonly ready: Promise<void>;
-  readonly world = createWorld();
-  connected = false;
-  playerId?: number;
-  serverTick = 0;
-  spawnPosition = Vec.create();
-  shipId?: number;
-  shipDestroyed = false;
-  worldSeed?: number;
-  private resolveReady!: () => void;
-  private prediction = new PredictionManager({ world: this.world });
   // Separate from predicted objects: decoding must never mutate live state or
   // rollback history. Retain only the current interest set between packets.
   private authoritativeEntities = new Map<number, GameObject>();
+  connected = false;
   private entityRecords = new Map<number, ReplicatedEntity>();
-  private socket!: WebSocket;
-  private retryDelay = 500;
-  private pendingSnapshot?: Extract<
-    ServerMessage,
-    { type: 'load' | 'snapshot' }
-  >;
+  readonly events: SimulationEvent[] = [];
+  private inputTickStartedAt = performance.now();
   private pendingEntities = new Map<
     number,
     { entity: ReplicatedEntity; tick: number }
   >();
-  private welcomed = false;
-  private inputTickStartedAt = performance.now();
+  private pendingSnapshot?: Extract<
+    ServerMessage,
+    { type: 'load' | 'snapshot' }
+  >;
   private pendingTime = 0;
+  playerId?: number;
+  private prediction: PredictionManager;
+  readonly ready: Promise<void>;
+  readonly remoteMotion = new RemoteMotion();
+  private resolveReady!: () => void;
+  private retryDelay = 500;
+  serverTick = 0;
+  shipDestroyed = false;
+  shipId?: number;
   private snapshotReceivedAt = performance.now();
+  private socket!: WebSocket;
+  spawnPosition = Vec.create();
+  private welcomed = false;
+  readonly world = createWorld();
+  worldSeed?: number;
 
-  constructor({ url }: { url: string }) {
-    this.ready = new Promise((resolve) => (this.resolveReady = resolve));
-    this.connect(url);
-  }
+  private applySnapshot({
+    message,
+    entityTicks,
+  }: {
+    message: Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
+    entityTicks?: Map<number, number>;
+  }) {
+    this.serverTick = message.serverTick;
 
-  private showConnectionStatus(message?: string) {
-    if (typeof document === 'undefined') return;
-    const status = document.getElementById('connection-status');
+    if (message.type === 'load') {
+      this.pendingSnapshot = undefined;
+      this.pendingEntities.clear();
+      this.authoritativeEntities.clear();
+      this.prediction.reset();
+      this.world.tick = this.serverTick;
+    }
 
-    if (!status) return;
-    status.hidden = !message;
-    status.textContent = message || '';
+    const entities = message.fullEntities.map((entity) =>
+      makeEntity({
+        entity,
+        world: this.world,
+        previous: this.authoritativeEntities.get(entity.id),
+      }),
+    );
+    const entityIds = message.entityIds;
+    const retained = new Set(entityIds);
+
+    this.authoritativeEntities.forEach((_, id) => {
+      if (!retained.has(id)) this.authoritativeEntities.delete(id);
+    });
+    entities.forEach((entity) =>
+      this.authoritativeEntities.set(entity.id, entity),
+    );
+    this.prediction.reconcile({
+      entities,
+      entityIds,
+      entityTicks,
+      nextEntityId: message.nextEntityId,
+      tick: this.serverTick,
+    });
+
+    if (message.type === 'load') {
+      this.pendingTime = 0;
+      this.inputTickStartedAt = performance.now();
+
+      if (this.welcomed) {
+        this.connected = true;
+        this.retryDelay = 500;
+        this.showConnectionStatus();
+        this.resolveReady();
+      }
+    }
   }
 
   private connect(url: string) {
@@ -269,22 +309,11 @@ export class NetworkClient {
     };
   }
 
-  recordInput({ input }: { input: PlayerInput }) {
-    if (!this.connected) return;
-    this.prediction.recordInput({
-      input,
-      offset: (performance.now() - this.inputTickStartedAt) / 1000,
-      send: (message) => this.send({ ...message, type: 'input' }),
-    });
-  }
+  constructor({ url }: { url: string }) {
+    this.prediction = new PredictionManager({ world: this.world });
 
-  requestRespawn() {
-    if (this.connected && this.shipDestroyed) this.send({ type: 'respawn' });
-  }
-
-  sendCraftAction(action: CraftAction) {
-    if (!this.connected) return;
-    this.send({ ...action, type: 'dock' });
+    this.ready = new Promise((resolve) => (this.resolveReady = resolve));
+    this.connect(url);
   }
 
   predictFrame({ now = performance.now() }: { now?: number } = {}) {
@@ -292,118 +321,6 @@ export class NetworkClient {
     return this.prediction.predictFrame({
       elapsed: (now - this.inputTickStartedAt) / 1000,
     });
-  }
-
-  updateFrame({
-    input,
-    dt,
-    now = performance.now(),
-  }: {
-    input: PlayerInput;
-    dt: number;
-    now?: number;
-  }) {
-    if (!this.connected) return false;
-    this.pendingTime += dt;
-    let updated = this.pendingTime >= simulationStep;
-
-    while (this.pendingTime >= simulationStep) {
-      this.pendingTime -= simulationStep;
-      this.step({
-        input,
-        now: now - this.pendingTime * 1000,
-      });
-    }
-    // Catch up elapsed movement before preserving the current pose. A delayed
-    // browser frame must not smooth away the distance it legitimately travelled.
-    const before =
-      this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt
-        ? this.remoteMotion.sample({
-            now,
-            world: this.world,
-            predicted: this.predictFrame({ now }),
-            shipId: this.shipId,
-          })
-        : undefined;
-
-    before?.forEach((pose, id) =>
-      Object.assign(pose, { dockedTo: this.world.entities.get(id)?.dockedTo }),
-    );
-
-    // Reconcile after clock catch-up, including frames shorter than a tick.
-    // Never apply a fresh snapshot to an earlier catch-up boundary.
-
-    if (this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt) {
-      const message = {
-        ...this.pendingSnapshot,
-        fullEntities: [...this.pendingEntities.values()].map(
-          ({ entity }) => entity,
-        ),
-      };
-      const entityTicks = new Map(
-        [...this.pendingEntities].map(([id, { tick }]) => [id, tick]),
-      );
-
-      this.pendingSnapshot = undefined;
-      this.pendingEntities.clear();
-      this.applySnapshot({ message, entityTicks });
-      updated = true;
-    }
-
-    if (before) {
-      this.remoteMotion.correct({
-        before,
-        now,
-        world: this.world,
-        predicted: this.predictFrame({ now }),
-        shipId: this.shipId,
-      });
-    }
-    return updated;
-  }
-
-  update({
-    input,
-    now = performance.now(),
-  }: {
-    input: PlayerInput;
-    now?: number;
-  }) {
-    return this.updateFrame({ input, now, dt: simulationStep });
-  }
-
-  private step({
-    input,
-    now = performance.now(),
-  }: {
-    input: PlayerInput;
-    now?: number;
-  }) {
-    if (!this.connected || this.playerId === undefined) return;
-    const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
-      input,
-      send: (message) => this.send({ ...message, type: 'input' }),
-    };
-
-    // A missing packet never changes the speed of the local clock. Keep
-    // responding through brief stalls, bounded by retained rollback history.
-    this.prediction.recordInput(predictionInput);
-
-    if (this.world.tick < this.serverTick + maxPredictionTicks) {
-      this.events.push(...this.prediction.step(predictionInput));
-      this.inputTickStartedAt = now;
-    }
-    input.launch = false;
-  }
-
-  takeEvents() {
-    return this.events.splice(0);
-  }
-
-  private send(message: ClientMessage) {
-    if (this.socket.readyState !== WebSocket.OPEN) return;
-
-    this.socket.send(encodeClientMessage(message));
   }
 
   private receive({ message }: { message: ServerMessage }) {
@@ -504,58 +421,143 @@ export class NetworkClient {
     this.applySnapshot({ message });
   }
 
-  private applySnapshot({
-    message,
-    entityTicks,
-  }: {
-    message: Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
-    entityTicks?: Map<number, number>;
-  }) {
-    this.serverTick = message.serverTick;
+  recordInput({ input }: { input: PlayerInput }) {
+    if (!this.connected) return;
+    this.prediction.recordInput({
+      input,
+      offset: (performance.now() - this.inputTickStartedAt) / 1000,
+      send: (message) => this.send({ ...message, type: 'input' }),
+    });
+  }
 
-    if (message.type === 'load') {
+  requestRespawn() {
+    if (this.connected && this.shipDestroyed) this.send({ type: 'respawn' });
+  }
+
+  private send(message: ClientMessage) {
+    if (this.socket.readyState !== WebSocket.OPEN) return;
+
+    this.socket.send(encodeClientMessage(message));
+  }
+
+  sendCraftAction(action: CraftAction) {
+    if (!this.connected) return;
+    this.send({ ...action, type: 'dock' });
+  }
+
+  private showConnectionStatus(message?: string) {
+    if (typeof document === 'undefined') return;
+    const status = document.getElementById('connection-status');
+
+    if (!status) return;
+    status.hidden = !message;
+    status.textContent = message || '';
+  }
+
+  private step({
+    input,
+    now = performance.now(),
+  }: {
+    input: PlayerInput;
+    now?: number;
+  }) {
+    if (!this.connected || this.playerId === undefined) return;
+    const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
+      input,
+      send: (message) => this.send({ ...message, type: 'input' }),
+    };
+
+    // A missing packet never changes the speed of the local clock. Keep
+    // responding through brief stalls, bounded by retained rollback history.
+    this.prediction.recordInput(predictionInput);
+
+    if (this.world.tick < this.serverTick + maxPredictionTicks) {
+      this.events.push(...this.prediction.step(predictionInput));
+      this.inputTickStartedAt = now;
+    }
+    input.launch = false;
+  }
+
+  takeEvents() {
+    return this.events.splice(0);
+  }
+
+  update({
+    input,
+    now = performance.now(),
+  }: {
+    input: PlayerInput;
+    now?: number;
+  }) {
+    return this.updateFrame({ input, now, dt: simulationStep });
+  }
+
+  updateFrame({
+    input,
+    dt,
+    now = performance.now(),
+  }: {
+    input: PlayerInput;
+    dt: number;
+    now?: number;
+  }) {
+    if (!this.connected) return false;
+    this.pendingTime += dt;
+    let updated = this.pendingTime >= simulationStep;
+
+    while (this.pendingTime >= simulationStep) {
+      this.pendingTime -= simulationStep;
+      this.step({
+        input,
+        now: now - this.pendingTime * 1000,
+      });
+    }
+    // Catch up elapsed movement before preserving the current pose. A delayed
+    // browser frame must not smooth away the distance it legitimately travelled.
+    const before =
+      this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt
+        ? this.remoteMotion.sample({
+            now,
+            world: this.world,
+            predicted: this.predictFrame({ now }),
+            shipId: this.shipId,
+          })
+        : undefined;
+
+    before?.forEach((pose, id) =>
+      Object.assign(pose, { dockedTo: this.world.entities.get(id)?.dockedTo }),
+    );
+
+    // Reconcile after clock catch-up, including frames shorter than a tick.
+    // Never apply a fresh snapshot to an earlier catch-up boundary.
+
+    if (this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt) {
+      const message = {
+        ...this.pendingSnapshot,
+        fullEntities: [...this.pendingEntities.values()].map(
+          ({ entity }) => entity,
+        ),
+      };
+      const entityTicks = new Map(
+        [...this.pendingEntities].map(([id, { tick }]) => [id, tick]),
+      );
+
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
-      this.authoritativeEntities.clear();
-      this.prediction.reset();
-      this.world.tick = this.serverTick;
+      this.applySnapshot({ message, entityTicks });
+      updated = true;
     }
 
-    const entities = message.fullEntities.map((entity) =>
-      makeEntity({
-        entity,
+    if (before) {
+      this.remoteMotion.correct({
+        before,
+        now,
         world: this.world,
-        previous: this.authoritativeEntities.get(entity.id),
-      }),
-    );
-    const entityIds = message.entityIds;
-    const retained = new Set(entityIds);
-
-    this.authoritativeEntities.forEach((_, id) => {
-      if (!retained.has(id)) this.authoritativeEntities.delete(id);
-    });
-    entities.forEach((entity) =>
-      this.authoritativeEntities.set(entity.id, entity),
-    );
-    this.prediction.reconcile({
-      entities,
-      entityIds,
-      entityTicks,
-      nextEntityId: message.nextEntityId,
-      tick: this.serverTick,
-    });
-
-    if (message.type === 'load') {
-      this.pendingTime = 0;
-      this.inputTickStartedAt = performance.now();
-
-      if (this.welcomed) {
-        this.connected = true;
-        this.retryDelay = 500;
-        this.showConnectionStatus();
-        this.resolveReady();
-      }
+        predicted: this.predictFrame({ now }),
+        shipId: this.shipId,
+      });
     }
+    return updated;
   }
 }
 

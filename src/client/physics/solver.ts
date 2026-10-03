@@ -34,8 +34,8 @@ const maxRotationSquared = maxRotation * maxRotation;
 export class TimeStep {
   // time step
   dt = 0;
-  velocityIterations = 0;
   positionIterations = 0;
+  velocityIterations = 0;
 }
 
 // reuse
@@ -107,23 +107,10 @@ const separatedThroughout = (
  * Finds and solves islands. An island is a connected subset of the world.
  */
 export class Solver {
-  m_world: World;
-  m_stack: Body[];
   m_bodies: Body[];
   m_contacts: Contact[];
-
-  constructor(world: World) {
-    this.m_world = world;
-    this.m_stack = [];
-    this.m_bodies = [];
-    this.m_contacts = [];
-  }
-
-  clear(): void {
-    this.m_stack.length = 0;
-    this.m_bodies.length = 0;
-    this.m_contacts.length = 0;
-  }
+  m_stack: Body[];
+  m_world: World;
 
   addBody(body: Body): void {
     this.m_bodies.push(body);
@@ -133,89 +120,17 @@ export class Solver {
     this.m_contacts.push(contact);
   }
 
-  solveWorld(step: TimeStep): void {
-    const world = this.m_world;
+  clear(): void {
+    this.m_stack.length = 0;
+    this.m_bodies.length = 0;
+    this.m_contacts.length = 0;
+  }
 
-    // Clear all the island flags.
-    for (let b = world.m_bodyList; b; b = b.m_next) {
-      b.m_islandFlag = false;
-    }
-
-    for (let c = world.m_contactList; c; c = c.m_next) {
-      c.m_islandFlag = false;
-    }
-
-    // Build and simulate all islands.
-    const stack = this.m_stack;
-    const isolated: Body[] = [];
-
-    for (let seed = world.m_bodyList; seed; seed = seed.m_next) {
-      if (seed.m_islandFlag || seed.m_parked) {
-        continue;
-      }
-
-      if (!seed.m_contactList) {
-        seed.m_islandFlag = true;
-        isolated.push(seed);
-        continue;
-      }
-
-      // Reset island and stack.
-      this.clear();
-
-      stack.push(seed);
-
-      seed.m_islandFlag = true;
-
-      // Perform a depth first search (DFS) on the constraint graph.
-      while (stack.length > 0) {
-        // Grab the next body off the stack and add it to the island.
-        const b = stack.pop();
-
-        this.addBody(b);
-
-        // Search all contacts connected to this body.
-        for (let ce = b.m_contactList; ce; ce = ce.next) {
-          const contact = ce.contact;
-
-          // Has this contact already been added to an island?
-          if (contact.m_islandFlag) {
-            continue;
-          }
-
-          // Is this contact solid and touching?
-          if (!contact.isEnabled() || !contact.isTouching()) {
-            continue;
-          }
-
-          // Detection runs for every contact; only physical pairs enter the solver.
-          if (
-            !contact.m_fixtureA.hasPhysics() ||
-            !contact.m_fixtureB.hasPhysics()
-          ) {
-            continue;
-          }
-
-          this.addContact(contact);
-          contact.m_islandFlag = true;
-
-          const other = ce.other;
-
-          // Was the other body already added to this island?
-          if (other.m_islandFlag) {
-            continue;
-          }
-          stack.push(other);
-          other.m_islandFlag = true;
-        }
-      }
-
-      this.solveIsland(step);
-    }
-    this.clear();
-    this.m_bodies = isolated;
-
-    if (isolated.length) this.solveIsland(step);
+  constructor(world: World) {
+    this.m_world = world;
+    this.m_stack = [];
+    this.m_bodies = [];
+    this.m_contacts = [];
   }
 
   solveIsland(step: TimeStep): void {
@@ -326,6 +241,203 @@ export class Solver {
       body.m_angularVelocity = body.c_velocity.w;
       body.synchronizeTransform();
     }
+  }
+
+  solveIslandTOI(subStep: TimeStep, toiA: Body, toiB: Body): void {
+    // Initialize the body state.
+    for (let i = 0; i < this.m_bodies.length; ++i) {
+      const body = this.m_bodies[i];
+
+      Vec.set(body.c_position.c, body.m_sweep.c);
+      body.c_position.a = body.m_sweep.a;
+      Vec.set(body.c_velocity.v, body.m_linearVelocity);
+      body.c_velocity.w = body.m_angularVelocity;
+    }
+
+    for (let i = 0; i < this.m_contacts.length; ++i) {
+      const contact = this.m_contacts[i];
+
+      contact.initConstraint();
+    }
+
+    // Solve position constraints.
+    for (let i = 0; i < subStep.positionIterations; ++i) {
+      let minSeparation = 0;
+
+      for (let j = 0; j < this.m_contacts.length; ++j) {
+        const contact = this.m_contacts[j];
+        const separation = contact.solvePositionConstraintTOI(toiA, toiB);
+
+        minSeparation = Math.min(minSeparation, separation);
+      }
+      // We can't expect minSpeparation >= -linearSlop because we don't
+      // push the separation above -linearSlop.
+      const contactsOkay = minSeparation >= -1.5 * linearSlop;
+
+      if (contactsOkay) {
+        break;
+      }
+    }
+
+    // Leap of faith to new safe state.
+    Vec.set(toiA.m_sweep.c0, toiA.c_position.c);
+    toiA.m_sweep.a0 = toiA.c_position.a;
+    Vec.set(toiB.m_sweep.c0, toiB.c_position.c);
+    toiB.m_sweep.a0 = toiB.c_position.a;
+
+    // No warm starting is needed for TOI events because warm
+    // starting impulses were applied in the discrete solver.
+    for (let i = 0; i < this.m_contacts.length; ++i) {
+      const contact = this.m_contacts[i];
+
+      contact.initVelocityConstraint();
+    }
+
+    // Solve velocity constraints.
+    for (let i = 0; i < subStep.velocityIterations; ++i) {
+      let converged = true;
+
+      for (let j = 0; j < this.m_contacts.length; ++j) {
+        if (!this.m_contacts[j].solveVelocityConstraint()) converged = false;
+      }
+
+      if (converged) break;
+    }
+
+    // Don't store the TOI contact forces for warm starting
+    // because they can be quite large.
+
+    const h = subStep.dt;
+
+    // Integrate positions
+    for (let i = 0; i < this.m_bodies.length; ++i) {
+      const body = this.m_bodies[i];
+
+      Vec.set(c, body.c_position.c);
+      let a = body.c_position.a;
+
+      Vec.set(v, body.c_velocity.v);
+      let w = body.c_velocity.w;
+
+      // Check for large velocities
+      Vec.scale(v, h, translation);
+      const translationLengthSqr = Vec.lengthSquared(translation);
+
+      if (translationLengthSqr > maxTranslationSquared) {
+        const ratio = maxTranslation / Math.sqrt(translationLengthSqr);
+
+        Vec.scale(v, ratio, v);
+      }
+
+      const rotation = h * w;
+
+      if (rotation * rotation > maxRotationSquared) {
+        const ratio = maxRotation / Math.abs(rotation);
+
+        w *= ratio;
+      }
+
+      // Integrate
+      Vec.addScaled(c, v, h, c);
+      a += h * w;
+
+      Vec.set(body.c_position.c, c);
+      body.c_position.a = a;
+      Vec.set(body.c_velocity.v, v);
+      body.c_velocity.w = w;
+
+      // Sync bodies
+      Vec.set(body.m_sweep.c, c);
+      body.m_sweep.a = a;
+      Vec.set(body.m_linearVelocity, v);
+      body.m_angularVelocity = w;
+      body.synchronizeTransform();
+    }
+  }
+
+  solveWorld(step: TimeStep): void {
+    const world = this.m_world;
+
+    // Clear all the island flags.
+    for (let b = world.m_bodyList; b; b = b.m_next) {
+      b.m_islandFlag = false;
+    }
+
+    for (let c = world.m_contactList; c; c = c.m_next) {
+      c.m_islandFlag = false;
+    }
+
+    // Build and simulate all islands.
+    const stack = this.m_stack;
+    const isolated: Body[] = [];
+
+    for (let seed = world.m_bodyList; seed; seed = seed.m_next) {
+      if (seed.m_islandFlag || seed.m_parked) {
+        continue;
+      }
+
+      if (!seed.m_contactList) {
+        seed.m_islandFlag = true;
+        isolated.push(seed);
+        continue;
+      }
+
+      // Reset island and stack.
+      this.clear();
+
+      stack.push(seed);
+
+      seed.m_islandFlag = true;
+
+      // Perform a depth first search (DFS) on the constraint graph.
+      while (stack.length > 0) {
+        // Grab the next body off the stack and add it to the island.
+        const b = stack.pop();
+
+        this.addBody(b);
+
+        // Search all contacts connected to this body.
+        for (let ce = b.m_contactList; ce; ce = ce.next) {
+          const contact = ce.contact;
+
+          // Has this contact already been added to an island?
+          if (contact.m_islandFlag) {
+            continue;
+          }
+
+          // Is this contact solid and touching?
+          if (!contact.isEnabled() || !contact.isTouching()) {
+            continue;
+          }
+
+          // Detection runs for every contact; only physical pairs enter the solver.
+          if (
+            !contact.m_fixtureA.hasPhysics() ||
+            !contact.m_fixtureB.hasPhysics()
+          ) {
+            continue;
+          }
+
+          this.addContact(contact);
+          contact.m_islandFlag = true;
+
+          const other = ce.other;
+
+          // Was the other body already added to this island?
+          if (other.m_islandFlag) {
+            continue;
+          }
+          stack.push(other);
+          other.m_islandFlag = true;
+        }
+      }
+
+      this.solveIsland(step);
+    }
+    this.clear();
+    this.m_bodies = isolated;
+
+    if (isolated.length) this.solveIsland(step);
   }
 
   /**
@@ -572,118 +684,6 @@ export class Solver {
       // are created.
       // Also, some contacts can be destroyed.
       world.findNewContacts();
-    }
-  }
-
-  solveIslandTOI(subStep: TimeStep, toiA: Body, toiB: Body): void {
-    // Initialize the body state.
-    for (let i = 0; i < this.m_bodies.length; ++i) {
-      const body = this.m_bodies[i];
-
-      Vec.set(body.c_position.c, body.m_sweep.c);
-      body.c_position.a = body.m_sweep.a;
-      Vec.set(body.c_velocity.v, body.m_linearVelocity);
-      body.c_velocity.w = body.m_angularVelocity;
-    }
-
-    for (let i = 0; i < this.m_contacts.length; ++i) {
-      const contact = this.m_contacts[i];
-
-      contact.initConstraint();
-    }
-
-    // Solve position constraints.
-    for (let i = 0; i < subStep.positionIterations; ++i) {
-      let minSeparation = 0;
-
-      for (let j = 0; j < this.m_contacts.length; ++j) {
-        const contact = this.m_contacts[j];
-        const separation = contact.solvePositionConstraintTOI(toiA, toiB);
-
-        minSeparation = Math.min(minSeparation, separation);
-      }
-      // We can't expect minSpeparation >= -linearSlop because we don't
-      // push the separation above -linearSlop.
-      const contactsOkay = minSeparation >= -1.5 * linearSlop;
-
-      if (contactsOkay) {
-        break;
-      }
-    }
-
-    // Leap of faith to new safe state.
-    Vec.set(toiA.m_sweep.c0, toiA.c_position.c);
-    toiA.m_sweep.a0 = toiA.c_position.a;
-    Vec.set(toiB.m_sweep.c0, toiB.c_position.c);
-    toiB.m_sweep.a0 = toiB.c_position.a;
-
-    // No warm starting is needed for TOI events because warm
-    // starting impulses were applied in the discrete solver.
-    for (let i = 0; i < this.m_contacts.length; ++i) {
-      const contact = this.m_contacts[i];
-
-      contact.initVelocityConstraint();
-    }
-
-    // Solve velocity constraints.
-    for (let i = 0; i < subStep.velocityIterations; ++i) {
-      let converged = true;
-
-      for (let j = 0; j < this.m_contacts.length; ++j) {
-        if (!this.m_contacts[j].solveVelocityConstraint()) converged = false;
-      }
-
-      if (converged) break;
-    }
-
-    // Don't store the TOI contact forces for warm starting
-    // because they can be quite large.
-
-    const h = subStep.dt;
-
-    // Integrate positions
-    for (let i = 0; i < this.m_bodies.length; ++i) {
-      const body = this.m_bodies[i];
-
-      Vec.set(c, body.c_position.c);
-      let a = body.c_position.a;
-
-      Vec.set(v, body.c_velocity.v);
-      let w = body.c_velocity.w;
-
-      // Check for large velocities
-      Vec.scale(v, h, translation);
-      const translationLengthSqr = Vec.lengthSquared(translation);
-
-      if (translationLengthSqr > maxTranslationSquared) {
-        const ratio = maxTranslation / Math.sqrt(translationLengthSqr);
-
-        Vec.scale(v, ratio, v);
-      }
-
-      const rotation = h * w;
-
-      if (rotation * rotation > maxRotationSquared) {
-        const ratio = maxRotation / Math.abs(rotation);
-
-        w *= ratio;
-      }
-
-      // Integrate
-      Vec.addScaled(c, v, h, c);
-      a += h * w;
-
-      Vec.set(body.c_position.c, c);
-      body.c_position.a = a;
-      Vec.set(body.c_velocity.v, v);
-      body.c_velocity.w = w;
-
-      // Sync bodies
-      Vec.set(body.m_sweep.c, c);
-      body.m_sweep.a = a;
-      Vec.set(body.m_linearVelocity, v);
-      body.m_angularVelocity = w;
-      body.synchronizeTransform();
     }
   }
 }

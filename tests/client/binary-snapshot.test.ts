@@ -13,20 +13,34 @@ class Writer {
     this.bytes.push(value);
   }
 
-  unsigned(value: number) {
-    do {
-      const digit = value % 128;
-
-      value = Math.floor(value / 128);
-      this.byte(digit | (value ? 128 : 0));
-    } while (value);
-  }
-
   number(value: number) {
     const bytes = new Uint8Array(8);
 
     new DataView(bytes.buffer).setFloat64(0, value, true);
     this.bytes.push(...bytes);
+  }
+
+  numbers(values: number[]) {
+    this.unsigned(values.length);
+    values.forEach((value) => this.number(value));
+  }
+
+  outline(shapes: number[][]) {
+    this.unsigned(shapes.length);
+    shapes.forEach((shape) => this.numbers(shape));
+  }
+
+  packet() {
+    return Uint8Array.from(this.bytes);
+  }
+
+  record(id: number, fields: [number, (() => void) | null][]) {
+    this.unsigned(id);
+    this.unsigned(fields.length);
+    fields.forEach(([field, write]) => {
+      this.unsigned(field * 2 + (write ? 0 : 1));
+      write?.();
+    });
   }
 
   string(value: string) {
@@ -40,27 +54,13 @@ class Writer {
     }
   }
 
-  numbers(values: number[]) {
-    this.unsigned(values.length);
-    values.forEach((value) => this.number(value));
-  }
+  unsigned(value: number) {
+    do {
+      const digit = value % 128;
 
-  outline(shapes: number[][]) {
-    this.unsigned(shapes.length);
-    shapes.forEach((shape) => this.numbers(shape));
-  }
-
-  record(id: number, fields: [number, (() => void) | null][]) {
-    this.unsigned(id);
-    this.unsigned(fields.length);
-    fields.forEach(([field, write]) => {
-      this.unsigned(field * 2 + (write ? 0 : 1));
-      write?.();
-    });
-  }
-
-  packet() {
-    return Uint8Array.from(this.bytes);
+      value = Math.floor(value / 128);
+      this.byte(digit | (value ? 128 : 0));
+    } while (value);
   }
 }
 
@@ -255,14 +255,18 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 }
 
 class Socket {
-  static OPEN = 1;
-  static sockets: Socket[] = [];
   binaryType = 'blob';
+  closed: number[] = [];
+  onmessage?: ({ data }: { data: string | ArrayBuffer | Uint8Array }) => void;
+  onopen?: () => void;
+  static OPEN = 1;
   readyState = Socket.OPEN;
   sent: Uint8Array[] = [];
-  closed: number[] = [];
-  onopen?: () => void;
-  onmessage?: ({ data }: { data: string | ArrayBuffer | Uint8Array }) => void;
+  static sockets: Socket[] = [];
+
+  close(code: number) {
+    this.closed.push(code);
+  }
 
   constructor() {
     Socket.sockets.push(this);
@@ -270,10 +274,6 @@ class Socket {
 
   send(value: Uint8Array) {
     this.sent.push(value);
-  }
-
-  close(code: number) {
-    this.closed.push(code);
   }
 }
 

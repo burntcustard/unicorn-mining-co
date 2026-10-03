@@ -59,12 +59,14 @@ const worldManifold = new WorldManifold();
  */
 export class ContactEdge {
   contact: Contact;
-  prev: ContactEdge | null = null;
   next: ContactEdge | null = null;
   other: Body | null = null;
+  prev: ContactEdge | null = null;
+
   constructor(contact: Contact) {
     this.contact = contact;
   }
+
   recycle() {
     this.prev = null;
     this.next = null;
@@ -83,11 +85,11 @@ export type EvaluateFunction = (
 const s_registers: Record<string, Record<string, EvaluateFunction>> = {};
 
 export class VelocityConstraintPoint {
+  normalImpulse = 0;
+  normalMass = 0;
   rA = Vec.create();
   rB = Vec.create();
-  normalImpulse = 0;
   tangentImpulse = 0;
-  normalMass = 0;
   tangentMass = 0;
   velocityBias = 0;
 }
@@ -125,264 +127,45 @@ const temp = Vec.create();
  * object may exist that has no contact points.
  */
 export class Contact {
-  m_nodeA = new ContactEdge(this);
-  m_nodeB = new ContactEdge(this);
-  m_manifold: Manifold = new Manifold();
-  v_normal = Vec.create();
-  v_normalMass: Mat22 = new Mat22();
-  v_K: Mat22 = new Mat22();
-  p_localPoints = [Vec.create(), Vec.create()]; // [maxManifoldPoints];
-  p_localNormal = Vec.create();
-  p_localPoint = Vec.create();
-  m_fixtureA: Fixture | null = null;
-  m_fixtureB: Fixture | null = null;
-  m_evaluateFcn: EvaluateFunction | null = null;
-  m_prev: Contact | null = null;
-  m_next: Contact | null = null;
-  m_toi = 1;
-  m_toiFlag = false;
-  m_friction = 0;
-  m_restitution = 0;
-  m_surfaceSpeed = 0;
-  v_pointCount = 0;
+  invIA = 0;
+  invIB = 0;
   invMassA = 0;
   invMassB = 0;
-  invIA = 0;
-  p_type: ManifoldType = undefined;
-  p_radiusA = 0;
-  p_radiusB = 0;
-  p_pointCount = 0;
-  // Nodes for connecting bodies.
-  m_toiCount = 0;
   // This contact has a valid TOI in m_toi
   // This contact can be disabled (by user)
   m_enabledFlag = true;
+  m_evaluateFcn: EvaluateFunction | null = null;
+  m_fixtureA: Fixture | null = null;
+  m_fixtureB: Fixture | null = null;
+  m_friction = 0;
   // Used when crawling contact graph when forming islands.
   m_islandFlag = false;
+  m_manifold: Manifold = new Manifold();
+  m_next: Contact | null = null;
+  m_nodeA = new ContactEdge(this);
+  m_nodeB = new ContactEdge(this);
+  m_prev: Contact | null = null;
+  m_restitution = 0;
+  m_surfaceSpeed = 0;
+  m_toi = 1;
+  // Nodes for connecting bodies.
+  m_toiCount = 0;
+  m_toiFlag = false;
   // Set when the shapes are touching.
   m_touchingFlag = false;
-
+  p_localNormal = Vec.create();
+  p_localPoint = Vec.create();
+  p_localPoints = [Vec.create(), Vec.create()]; // [maxManifoldPoints];
+  p_pointCount = 0;
+  p_radiusA = 0;
+  p_radiusB = 0;
+  p_type: ManifoldType = undefined;
+  v_K: Mat22 = new Mat22();
+  v_normal = Vec.create();
+  v_normalMass: Mat22 = new Mat22();
+  v_pointCount = 0;
   // VelocityConstraint
   v_points = [new VelocityConstraintPoint(), new VelocityConstraintPoint()]; // [maxManifoldPoints];
-  invIB = 0;
-
-  // PositionConstraint
-  initialize(fA: Fixture, fB: Fixture, evaluateFcn: EvaluateFunction) {
-    this.m_fixtureA = fA;
-    this.m_fixtureB = fB;
-
-    this.m_evaluateFcn = evaluateFcn;
-  }
-  recycle() {
-    this.m_nodeA.recycle();
-    this.m_nodeB.recycle();
-    this.m_fixtureA = null;
-    this.m_fixtureB = null;
-    this.m_evaluateFcn = null;
-    this.m_manifold.recycle();
-    this.m_prev = null;
-    this.m_next = null;
-    this.m_toi = 1;
-    this.m_toiCount = 0;
-    this.m_toiFlag = false;
-    this.m_friction = 0;
-    this.m_restitution = 0;
-    this.m_surfaceSpeed = 0;
-    this.m_enabledFlag = true;
-    this.m_islandFlag = false;
-    this.m_touchingFlag = false;
-    // Solver fields are refreshed by initConstraint before this contact is solved.
-  }
-
-  initConstraint(): void {
-    const fixtureA = this.m_fixtureA;
-    const fixtureB = this.m_fixtureB;
-
-    const bodyA = fixtureA.m_body;
-    const bodyB = fixtureB.m_body;
-
-    const shapeA = fixtureA.m_shape;
-    const shapeB = fixtureB.m_shape;
-
-    const manifold = this.m_manifold;
-
-    const pointCount = manifold.pointCount;
-
-    this.invMassA = bodyA.m_invMass;
-    this.invMassB = bodyB.m_invMass;
-    this.invIA = bodyA.m_invI;
-    this.invIB = bodyB.m_invI;
-
-    this.v_pointCount = pointCount;
-
-    this.p_radiusA = shapeA.m_radius;
-    this.p_radiusB = shapeB.m_radius;
-
-    this.p_type = manifold.type;
-    Vec.set(this.p_localNormal, manifold.localNormal);
-    Vec.set(this.p_localPoint, manifold.localPoint);
-    this.p_pointCount = pointCount;
-
-    for (let j = 0; j < pointCount; ++j) {
-      const point = this.v_points[j];
-
-      point.normalImpulse = 0;
-      point.tangentImpulse = 0;
-      Vec.set(this.p_localPoints[j], manifold.points[j]);
-    }
-  }
-
-  /**
-   * Get the world manifold.
-   */
-  getWorldManifold(
-    worldManifold: WorldManifold | null,
-  ): WorldManifold | undefined {
-    const fixtureA = this.m_fixtureA;
-    const fixtureB = this.m_fixtureB;
-
-    const bodyA = fixtureA.m_body;
-    const bodyB = fixtureB.m_body;
-
-    const shapeA = fixtureA.m_shape;
-    const shapeB = fixtureB.m_shape;
-
-    return this.m_manifold.getWorldManifold(
-      worldManifold,
-      bodyA.getTransform(),
-      shapeA.m_radius,
-      bodyB.getTransform(),
-      shapeB.m_radius,
-    );
-  }
-
-  /**
-   * Enable/disable this contact. This can be used inside the pre-solve contact
-   * listener. The contact is only disabled for the current time step (or sub-step
-   * in continuous collisions).
-   */
-  setEnabled(flag: boolean): void {
-    this.m_enabledFlag = !!flag;
-  }
-
-  /**
-   * Has this contact been disabled?
-   */
-  isEnabled(): boolean {
-    return this.m_enabledFlag;
-  }
-
-  /**
-   * Is this contact touching?
-   */
-  isTouching(): boolean {
-    return this.m_touchingFlag;
-  }
-
-  /**
-   * Get the next contact in the world's contact list.
-   */
-  getNext(): Contact | null {
-    return this.m_next;
-  }
-
-  /**
-   * Get fixture A in this contact.
-   */
-  getFixtureA(): Fixture {
-    return this.m_fixtureA;
-  }
-
-  /**
-   * Get fixture B in this contact.
-   */
-  getFixtureB(): Fixture {
-    return this.m_fixtureB;
-  }
-
-  /**
-   * Set contact friction before the solver builds velocity constraints.
-   */
-  setFriction(friction: number): void {
-    this.m_friction = friction;
-  }
-
-  /**
-   * Get the friction.
-   */
-  getFriction(): number {
-    return this.m_friction;
-  }
-
-  /**
-   * Set contact restitution before the solver builds velocity constraints.
-   */
-  setRestitution(restitution: number): void {
-    this.m_restitution = restitution;
-  }
-
-  setSurfaceSpeed(speed: number): void {
-    this.m_surfaceSpeed = speed;
-  }
-
-  /**
-   * Get the restitution.
-   */
-  getRestitution(): number {
-    return this.m_restitution;
-  }
-
-  /**
-   * Called by Update method, and implemented by subclasses.
-   */
-  evaluate(manifold: Manifold, xfA: TransformValue, xfB: TransformValue): void {
-    const fixtureA = this.m_fixtureA;
-    const fixtureB = this.m_fixtureB;
-
-    this.m_evaluateFcn(manifold, xfA, fixtureA, xfB, fixtureB);
-  }
-
-  /**
-   * Updates the contact manifold and touching status.
-   *
-   * Note: do not assume the fixture AABBs are overlapping or are valid.
-   *
-   * @param listener.preSolve
-   */
-  update(listener?: { preSolve(contact: Contact): void }): void {
-    const fixtureA = this.m_fixtureA;
-    const fixtureB = this.m_fixtureB;
-
-    const bodyA = fixtureA.m_body;
-    const bodyB = fixtureB.m_body;
-
-    // Re-enable this contact.
-    if (!bodyA.allowsCollision(bodyB) || !bodyB.allowsCollision(bodyA)) {
-      this.m_enabledFlag = this.m_touchingFlag = false;
-      this.m_manifold.pointCount = 0;
-      return;
-    }
-    this.m_enabledFlag = true;
-
-    const xfA = bodyA.m_xf;
-    const xfB = bodyB.m_xf;
-
-    // Each evaluator writes every active point and resets pointCount.
-    this.evaluate(this.m_manifold, xfA, xfB);
-    const touching = this.m_manifold.pointCount > 0;
-
-    this.m_touchingFlag = touching;
-
-    if (touching) listener?.preSolve(this);
-  }
-
-  solvePositionConstraint(): number {
-    return this._solvePositionConstraint(null, null);
-  }
-
-  solvePositionConstraintTOI(toiA: Body, toiB: Body): number {
-    return this._solvePositionConstraint(toiA, toiB);
-  }
 
   private _solvePositionConstraint(
     toiA: Body | null,
@@ -521,6 +304,216 @@ export class Contact {
     return minSeparation;
   }
 
+  static addType(
+    type1: ShapeType,
+    type2: ShapeType,
+    callback: EvaluateFunction,
+  ): void {
+    s_registers[type1] = s_registers[type1] || {};
+    s_registers[type1][type2] = callback;
+  }
+
+  static create(fixtureA: Fixture, fixtureB: Fixture): Contact | null {
+    const typeA = fixtureA.m_shape.m_type;
+    const typeB = fixtureB.m_shape.m_type;
+
+    const contact = contactPool.allocate();
+    let evaluateFcn;
+
+    if ((evaluateFcn = s_registers[typeA] && s_registers[typeA][typeB])) {
+      contact.initialize(fixtureA, fixtureB, evaluateFcn);
+    } else if (
+      (evaluateFcn = s_registers[typeB] && s_registers[typeB][typeA])
+    ) {
+      contact.initialize(fixtureB, fixtureA, evaluateFcn);
+    } else {
+      return null;
+    }
+
+    // Contact creation may swap fixtures.
+    fixtureA = contact.m_fixtureA;
+    fixtureB = contact.m_fixtureB;
+    const bodyA = fixtureA.m_body;
+    const bodyB = fixtureB.m_body;
+
+    // Connect to body A
+    contact.m_nodeA.contact = contact;
+    contact.m_nodeA.other = bodyB;
+
+    contact.m_nodeA.prev = null;
+    contact.m_nodeA.next = bodyA.m_contactList;
+
+    if (bodyA.m_contactList != null) {
+      bodyA.m_contactList.prev = contact.m_nodeA;
+    }
+    bodyA.m_contactList = contact.m_nodeA;
+
+    // Connect to body B
+    contact.m_nodeB.contact = contact;
+    contact.m_nodeB.other = bodyA;
+
+    contact.m_nodeB.prev = null;
+    contact.m_nodeB.next = bodyB.m_contactList;
+
+    if (bodyB.m_contactList != null) {
+      bodyB.m_contactList.prev = contact.m_nodeB;
+    }
+    bodyB.m_contactList = contact.m_nodeB;
+
+    return contact;
+  }
+
+  static destroy(contact: Contact): void {
+    const fixtureA = contact.m_fixtureA;
+    const fixtureB = contact.m_fixtureB;
+
+    const bodyA = fixtureA.m_body;
+    const bodyB = fixtureB.m_body;
+
+    // Remove from body 1
+    if (contact.m_nodeA.prev) {
+      contact.m_nodeA.prev.next = contact.m_nodeA.next;
+    }
+
+    if (contact.m_nodeA.next) {
+      contact.m_nodeA.next.prev = contact.m_nodeA.prev;
+    }
+
+    if (contact.m_nodeA === bodyA.m_contactList) {
+      bodyA.m_contactList = contact.m_nodeA.next;
+    }
+
+    // Remove from body 2
+    if (contact.m_nodeB.prev) {
+      contact.m_nodeB.prev.next = contact.m_nodeB.next;
+    }
+
+    if (contact.m_nodeB.next) {
+      contact.m_nodeB.next.prev = contact.m_nodeB.prev;
+    }
+
+    if (contact.m_nodeB === bodyB.m_contactList) {
+      bodyB.m_contactList = contact.m_nodeB.next;
+    }
+
+    contactPool.release(contact);
+  }
+
+  /**
+   * Called by Update method, and implemented by subclasses.
+   */
+  evaluate(manifold: Manifold, xfA: TransformValue, xfB: TransformValue): void {
+    const fixtureA = this.m_fixtureA;
+    const fixtureB = this.m_fixtureB;
+
+    this.m_evaluateFcn(manifold, xfA, fixtureA, xfB, fixtureB);
+  }
+
+  /**
+   * Get fixture A in this contact.
+   */
+  getFixtureA(): Fixture {
+    return this.m_fixtureA;
+  }
+
+  /**
+   * Get fixture B in this contact.
+   */
+  getFixtureB(): Fixture {
+    return this.m_fixtureB;
+  }
+
+  /**
+   * Get the friction.
+   */
+  getFriction(): number {
+    return this.m_friction;
+  }
+
+  /**
+   * Get the next contact in the world's contact list.
+   */
+  getNext(): Contact | null {
+    return this.m_next;
+  }
+
+  /**
+   * Get the restitution.
+   */
+  getRestitution(): number {
+    return this.m_restitution;
+  }
+
+  /**
+   * Get the world manifold.
+   */
+  getWorldManifold(
+    worldManifold: WorldManifold | null,
+  ): WorldManifold | undefined {
+    const fixtureA = this.m_fixtureA;
+    const fixtureB = this.m_fixtureB;
+
+    const bodyA = fixtureA.m_body;
+    const bodyB = fixtureB.m_body;
+
+    const shapeA = fixtureA.m_shape;
+    const shapeB = fixtureB.m_shape;
+
+    return this.m_manifold.getWorldManifold(
+      worldManifold,
+      bodyA.getTransform(),
+      shapeA.m_radius,
+      bodyB.getTransform(),
+      shapeB.m_radius,
+    );
+  }
+
+  initConstraint(): void {
+    const fixtureA = this.m_fixtureA;
+    const fixtureB = this.m_fixtureB;
+
+    const bodyA = fixtureA.m_body;
+    const bodyB = fixtureB.m_body;
+
+    const shapeA = fixtureA.m_shape;
+    const shapeB = fixtureB.m_shape;
+
+    const manifold = this.m_manifold;
+
+    const pointCount = manifold.pointCount;
+
+    this.invMassA = bodyA.m_invMass;
+    this.invMassB = bodyB.m_invMass;
+    this.invIA = bodyA.m_invI;
+    this.invIB = bodyB.m_invI;
+
+    this.v_pointCount = pointCount;
+
+    this.p_radiusA = shapeA.m_radius;
+    this.p_radiusB = shapeB.m_radius;
+
+    this.p_type = manifold.type;
+    Vec.set(this.p_localNormal, manifold.localNormal);
+    Vec.set(this.p_localPoint, manifold.localPoint);
+    this.p_pointCount = pointCount;
+
+    for (let j = 0; j < pointCount; ++j) {
+      const point = this.v_points[j];
+
+      point.normalImpulse = 0;
+      point.tangentImpulse = 0;
+      Vec.set(this.p_localPoints[j], manifold.points[j]);
+    }
+  }
+
+  // PositionConstraint
+  initialize(fA: Fixture, fB: Fixture, evaluateFcn: EvaluateFunction) {
+    this.m_fixtureA = fA;
+    this.m_fixtureB = fB;
+
+    this.m_evaluateFcn = evaluateFcn;
+  }
+
   initVelocityConstraint(): void {
     const fixtureA = this.m_fixtureA;
     const fixtureB = this.m_fixtureB;
@@ -651,6 +644,76 @@ export class Contact {
     positionB.a = aB;
     Vec.set(velocityB.v, vB);
     velocityB.w = wB;
+  }
+
+  /**
+   * Has this contact been disabled?
+   */
+  isEnabled(): boolean {
+    return this.m_enabledFlag;
+  }
+
+  /**
+   * Is this contact touching?
+   */
+  isTouching(): boolean {
+    return this.m_touchingFlag;
+  }
+
+  recycle() {
+    this.m_nodeA.recycle();
+    this.m_nodeB.recycle();
+    this.m_fixtureA = null;
+    this.m_fixtureB = null;
+    this.m_evaluateFcn = null;
+    this.m_manifold.recycle();
+    this.m_prev = null;
+    this.m_next = null;
+    this.m_toi = 1;
+    this.m_toiCount = 0;
+    this.m_toiFlag = false;
+    this.m_friction = 0;
+    this.m_restitution = 0;
+    this.m_surfaceSpeed = 0;
+    this.m_enabledFlag = true;
+    this.m_islandFlag = false;
+    this.m_touchingFlag = false;
+    // Solver fields are refreshed by initConstraint before this contact is solved.
+  }
+
+  /**
+   * Enable/disable this contact. This can be used inside the pre-solve contact
+   * listener. The contact is only disabled for the current time step (or sub-step
+   * in continuous collisions).
+   */
+  setEnabled(flag: boolean): void {
+    this.m_enabledFlag = !!flag;
+  }
+
+  /**
+   * Set contact friction before the solver builds velocity constraints.
+   */
+  setFriction(friction: number): void {
+    this.m_friction = friction;
+  }
+
+  /**
+   * Set contact restitution before the solver builds velocity constraints.
+   */
+  setRestitution(restitution: number): void {
+    this.m_restitution = restitution;
+  }
+
+  setSurfaceSpeed(speed: number): void {
+    this.m_surfaceSpeed = speed;
+  }
+
+  solvePositionConstraint(): number {
+    return this._solvePositionConstraint(null, null);
+  }
+
+  solvePositionConstraintTOI(toiA: Body, toiB: Body): number {
+    return this._solvePositionConstraint(toiA, toiB);
   }
 
   solveVelocityConstraint(): boolean {
@@ -984,96 +1047,38 @@ export class Contact {
     velocityB.w = wB;
     return converged;
   }
-  static addType(
-    type1: ShapeType,
-    type2: ShapeType,
-    callback: EvaluateFunction,
-  ): void {
-    s_registers[type1] = s_registers[type1] || {};
-    s_registers[type1][type2] = callback;
-  }
-  static create(fixtureA: Fixture, fixtureB: Fixture): Contact | null {
-    const typeA = fixtureA.m_shape.m_type;
-    const typeB = fixtureB.m_shape.m_type;
 
-    const contact = contactPool.allocate();
-    let evaluateFcn;
-
-    if ((evaluateFcn = s_registers[typeA] && s_registers[typeA][typeB])) {
-      contact.initialize(fixtureA, fixtureB, evaluateFcn);
-    } else if (
-      (evaluateFcn = s_registers[typeB] && s_registers[typeB][typeA])
-    ) {
-      contact.initialize(fixtureB, fixtureA, evaluateFcn);
-    } else {
-      return null;
-    }
-
-    // Contact creation may swap fixtures.
-    fixtureA = contact.m_fixtureA;
-    fixtureB = contact.m_fixtureB;
-    const bodyA = fixtureA.m_body;
-    const bodyB = fixtureB.m_body;
-
-    // Connect to body A
-    contact.m_nodeA.contact = contact;
-    contact.m_nodeA.other = bodyB;
-
-    contact.m_nodeA.prev = null;
-    contact.m_nodeA.next = bodyA.m_contactList;
-
-    if (bodyA.m_contactList != null) {
-      bodyA.m_contactList.prev = contact.m_nodeA;
-    }
-    bodyA.m_contactList = contact.m_nodeA;
-
-    // Connect to body B
-    contact.m_nodeB.contact = contact;
-    contact.m_nodeB.other = bodyA;
-
-    contact.m_nodeB.prev = null;
-    contact.m_nodeB.next = bodyB.m_contactList;
-
-    if (bodyB.m_contactList != null) {
-      bodyB.m_contactList.prev = contact.m_nodeB;
-    }
-    bodyB.m_contactList = contact.m_nodeB;
-
-    return contact;
-  }
-  static destroy(contact: Contact): void {
-    const fixtureA = contact.m_fixtureA;
-    const fixtureB = contact.m_fixtureB;
+  /**
+   * Updates the contact manifold and touching status.
+   *
+   * Note: do not assume the fixture AABBs are overlapping or are valid.
+   *
+   * @param listener.preSolve
+   */
+  update(listener?: { preSolve(contact: Contact): void }): void {
+    const fixtureA = this.m_fixtureA;
+    const fixtureB = this.m_fixtureB;
 
     const bodyA = fixtureA.m_body;
     const bodyB = fixtureB.m_body;
 
-    // Remove from body 1
-    if (contact.m_nodeA.prev) {
-      contact.m_nodeA.prev.next = contact.m_nodeA.next;
+    // Re-enable this contact.
+    if (!bodyA.allowsCollision(bodyB) || !bodyB.allowsCollision(bodyA)) {
+      this.m_enabledFlag = this.m_touchingFlag = false;
+      this.m_manifold.pointCount = 0;
+      return;
     }
+    this.m_enabledFlag = true;
 
-    if (contact.m_nodeA.next) {
-      contact.m_nodeA.next.prev = contact.m_nodeA.prev;
-    }
+    const xfA = bodyA.m_xf;
+    const xfB = bodyB.m_xf;
 
-    if (contact.m_nodeA === bodyA.m_contactList) {
-      bodyA.m_contactList = contact.m_nodeA.next;
-    }
+    // Each evaluator writes every active point and resets pointCount.
+    this.evaluate(this.m_manifold, xfA, xfB);
+    const touching = this.m_manifold.pointCount > 0;
 
-    // Remove from body 2
-    if (contact.m_nodeB.prev) {
-      contact.m_nodeB.prev.next = contact.m_nodeB.next;
-    }
+    this.m_touchingFlag = touching;
 
-    if (contact.m_nodeB.next) {
-      contact.m_nodeB.next.prev = contact.m_nodeB.prev;
-    }
-
-    if (contact.m_nodeB === bodyB.m_contactList) {
-      bodyB.m_contactList = contact.m_nodeB.next;
-    }
-
-    contactPool.release(contact);
+    if (touching) listener?.preSolve(this);
   }
 }

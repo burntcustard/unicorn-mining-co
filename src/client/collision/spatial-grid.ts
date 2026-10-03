@@ -14,11 +14,15 @@ type Group<T> = {
 
 export class SpatialProxy<T> {
   aabb = new AABB();
-  constructor(
-    public id: number,
-    public userData: T,
-    public owner?: unknown,
-  ) {}
+  id: number;
+  owner?: unknown;
+  userData: T;
+
+  constructor(id: number, userData: T, owner?: unknown) {
+    this.id = id;
+    this.userData = userData;
+    this.owner = owner;
+  }
 }
 
 /*
@@ -27,14 +31,14 @@ export class SpatialProxy<T> {
  */
 export class SpatialGrid<T> {
   private bodyGroups = new Map<unknown, Group<T>>();
-  private gridCells = new Map<number, Set<Group<T>>>();
   private dirty = new Set<Group<T>>();
+  private gridCells = new Map<number, Set<Group<T>>>();
+  private nextId = 0;
+  private queryDepth = 0;
   private queryScratch: {
     seen: Set<Group<T>>;
     candidates: SpatialProxy<T>[];
   }[] = [];
-  private queryDepth = 0;
-  private nextId = 0;
 
   // Hash collisions only add candidates: exact bounds still reject them.
   private cellKeys(box: AABBValue) {

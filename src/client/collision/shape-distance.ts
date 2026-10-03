@@ -32,35 +32,38 @@ const minimumSimplexMetric = 1e-9;
 export class DistanceInput {
   proxyA!: Shape;
   proxyB!: Shape;
+  readonly transformA: TransformValue;
+  readonly transformB: TransformValue;
 
-  constructor(
-    readonly transformA: TransformValue,
-    readonly transformB: TransformValue,
-  ) {}
+  constructor(transformA: TransformValue, transformB: TransformValue) {
+    this.transformA = transformA;
+    this.transformB = transformB;
+  }
 }
 
 /**
  * Output for the distance query.
  */
 export class DistanceOutput {
+  distance = 0;
   // closest point on shapeA
   pointA = Vec.create();
   // closest point on shapeB
   pointB = Vec.create();
-  distance = 0;
 }
 
 /**
  * Warm-starts the distance query. Set count to zero on the first call.
  */
 export class SimplexCache {
-  // length or area
-  metric = 0;
+  count = 0;
   // vertices on shape A
   indexA: number[] = [];
   // vertices on shape B
   indexB: number[] = [];
-  count = 0;
+  // length or area
+  metric = 0;
+
   recycle() {
     this.count = 0;
   }
@@ -169,20 +172,18 @@ export function computeDistance(
 }
 
 class SimplexVertex {
-  // support point in proxyA
-  wA = Vec.create();
-  // wA index
-  indexA = 0;
-
-  // support point in proxyB
-  wB = Vec.create();
-  // wB index
-  indexB = 0;
-
-  // wB - wA;
-  w = Vec.create();
   // barycentric coordinate for closest point
   a = 0;
+  // wA index
+  indexA = 0;
+  // wB index
+  indexB = 0;
+  // wB - wA;
+  w = Vec.create();
+  // support point in proxyA
+  wA = Vec.create();
+  // support point in proxyB
+  wB = Vec.create();
 
   set(v: SimplexVertex): void {
     this.indexA = v.indexA;
@@ -197,75 +198,35 @@ class SimplexVertex {
 const searchDirection_reuse = Vec.create();
 
 class Simplex {
+  m_count: number;
+  m_v: SimplexVertex[];
   m_v1 = new SimplexVertex();
   m_v2 = new SimplexVertex();
   m_v3 = new SimplexVertex();
-  m_v = [this.m_v1, this.m_v2, this.m_v3];
-  m_count: number;
-  readCache(
-    cache: SimplexCache,
-    proxyA: Shape,
-    transformA: TransformValue,
-    proxyB: Shape,
-    transformB: TransformValue,
-  ): void {
-    // Copy data from cache.
-    this.m_count = cache.count;
 
-    for (let i = 0; i < this.m_count; ++i) {
-      const v = this.m_v[i];
-
-      v.indexA = cache.indexA[i];
-      v.indexB = cache.indexB[i];
-      const wALocal = proxyA.getVertex(v.indexA);
-      const wBLocal = proxyB.getVertex(v.indexB);
-
-      matrix.transformInto(v.wA, transformA, wALocal);
-      matrix.transformInto(v.wB, transformB, wBLocal);
-      Vec.subtract(v.wB, v.wA, v.w);
-      v.a = 0;
-    }
-
-    // Compute the new simplex metric, if it is substantially different than
-    // old metric then flush the simplex.
-    if (this.m_count > 1) {
-      const metric1 = cache.metric;
-      const metric2 = this.getMetric();
-
-      if (
-        metric2 < 0.5 * metric1 ||
-        2 * metric1 < metric2 ||
-        metric2 < minimumSimplexMetric
-      ) {
-        // Reset the simplex.
-        this.m_count = 0;
-      }
-    }
-
-    // If the cache is empty or invalid...
-    if (this.m_count === 0) {
-      const v = this.m_v[0];
-
-      v.indexA = 0;
-      v.indexB = 0;
-      const wALocal = proxyA.getVertex(0);
-      const wBLocal = proxyB.getVertex(0);
-
-      matrix.transformInto(v.wA, transformA, wALocal);
-      matrix.transformInto(v.wB, transformB, wBLocal);
-      Vec.subtract(v.wB, v.wA, v.w);
-      v.a = 1;
-      this.m_count = 1;
-    }
+  constructor() {
+    this.m_v = [this.m_v1, this.m_v2, this.m_v3];
   }
 
-  writeCache(cache: SimplexCache): void {
-    cache.metric = this.getMetric();
-    cache.count = this.m_count;
+  getMetric(): number {
+    switch (this.m_count) {
+      case 0:
+        return 0;
 
-    for (let i = 0; i < this.m_count; ++i) {
-      cache.indexA[i] = this.m_v[i].indexA;
-      cache.indexB[i] = this.m_v[i].indexB;
+      case 1:
+        return 0;
+
+      case 2:
+        return Vec.distance(this.m_v1.w, this.m_v2.w);
+
+      case 3:
+        return Vec.cross(
+          Vec.subtract(this.m_v2.w, this.m_v1.w, temp1),
+          Vec.subtract(this.m_v3.w, this.m_v1.w, temp2),
+        );
+
+      default:
+        return 0;
     }
   }
 
@@ -324,25 +285,60 @@ class Simplex {
     }
   }
 
-  getMetric(): number {
-    switch (this.m_count) {
-      case 0:
-        return 0;
+  readCache(
+    cache: SimplexCache,
+    proxyA: Shape,
+    transformA: TransformValue,
+    proxyB: Shape,
+    transformB: TransformValue,
+  ): void {
+    // Copy data from cache.
+    this.m_count = cache.count;
 
-      case 1:
-        return 0;
+    for (let i = 0; i < this.m_count; ++i) {
+      const v = this.m_v[i];
 
-      case 2:
-        return Vec.distance(this.m_v1.w, this.m_v2.w);
+      v.indexA = cache.indexA[i];
+      v.indexB = cache.indexB[i];
+      const wALocal = proxyA.getVertex(v.indexA);
+      const wBLocal = proxyB.getVertex(v.indexB);
 
-      case 3:
-        return Vec.cross(
-          Vec.subtract(this.m_v2.w, this.m_v1.w, temp1),
-          Vec.subtract(this.m_v3.w, this.m_v1.w, temp2),
-        );
+      matrix.transformInto(v.wA, transformA, wALocal);
+      matrix.transformInto(v.wB, transformB, wBLocal);
+      Vec.subtract(v.wB, v.wA, v.w);
+      v.a = 0;
+    }
 
-      default:
-        return 0;
+    // Compute the new simplex metric, if it is substantially different than
+    // old metric then flush the simplex.
+    if (this.m_count > 1) {
+      const metric1 = cache.metric;
+      const metric2 = this.getMetric();
+
+      if (
+        metric2 < 0.5 * metric1 ||
+        2 * metric1 < metric2 ||
+        metric2 < minimumSimplexMetric
+      ) {
+        // Reset the simplex.
+        this.m_count = 0;
+      }
+    }
+
+    // If the cache is empty or invalid...
+    if (this.m_count === 0) {
+      const v = this.m_v[0];
+
+      v.indexA = 0;
+      v.indexB = 0;
+      const wALocal = proxyA.getVertex(0);
+      const wBLocal = proxyB.getVertex(0);
+
+      matrix.transformInto(v.wA, transformA, wALocal);
+      matrix.transformInto(v.wB, transformB, wBLocal);
+      Vec.subtract(v.wB, v.wA, v.w);
+      v.a = 1;
+      this.m_count = 1;
     }
   }
 
@@ -530,6 +526,16 @@ class Simplex {
     this.m_v2.a = d123_2 * inv_d123;
     this.m_v3.a = d123_3 * inv_d123;
     this.m_count = 3;
+  }
+
+  writeCache(cache: SimplexCache): void {
+    cache.metric = this.getMetric();
+    cache.count = this.m_count;
+
+    for (let i = 0; i < this.m_count; ++i) {
+      cache.indexA[i] = this.m_v[i].indexA;
+      cache.indexB[i] = this.m_v[i].indexB;
+    }
   }
 }
 

@@ -20,13 +20,16 @@ import { TransformValue } from '../../utilities/vector-math';
  * Fixture is created.
  */
 export abstract class Shape {
-  declare m_type: ShapeType;
-
+  // Local circle around the core vertices, excluding m_radius.
+  protected m_bound?: { x: number; y: number; radius: number };
+  declare m_count: number;
   /**
    * Radius of a shape. For polygonal shapes this must be b2_polygonRadius.
    * There is no support for making rounded polygons.
    */
   m_radius: number;
+  declare m_type: ShapeType;
+  declare m_vertices: Vec.Value[];
 
   /**
    * Given a transform, compute the associated axis aligned bounding box for a
@@ -36,11 +39,6 @@ export abstract class Shape {
    * @param xf The world transform of the shape.
    */
   abstract computeAABB(aabb: AABBValue, xf: TransformValue): void;
-
-  declare m_count: number;
-  declare m_vertices: Vec.Value[];
-  // Local circle around the core vertices, excluding m_radius.
-  protected m_bound?: { x: number; y: number; radius: number };
 
   getBound() {
     if (!this.m_bound) {
@@ -68,13 +66,6 @@ export abstract class Shape {
   }
 
   /**
-   * Get a vertex by index for the distance query.
-   */
-  getVertex(index: number): Vec.Value {
-    return this.m_vertices[index];
-  }
-
-  /**
    * Get the supporting vertex index in the given direction.
    */
   getSupport(d: Vec.Value): number {
@@ -90,6 +81,13 @@ export abstract class Shape {
       }
     }
     return bestIndex;
+  }
+
+  /**
+   * Get a vertex by index for the distance query.
+   */
+  getVertex(index: number): Vec.Value {
+    return this.m_vertices[index];
   }
 }
 

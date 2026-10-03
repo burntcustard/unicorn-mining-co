@@ -67,7 +67,7 @@ for (const production of [false, true]) {
           }
 
           if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const unlockAudio=()=>{};';
+            return 'export const unlockAudio=()=>{};export const playSound=()=>{};';
           }
         },
       },

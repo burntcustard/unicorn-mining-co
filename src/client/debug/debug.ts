@@ -1,22 +1,21 @@
-import { camera, renderDeadzone } from '../rendering/camera';
+import { camera, renderDeadzone } from '../camera';
 import {
   glows,
   lights,
   toggleGlows,
   toggleLights,
-} from '../rendering/lighting';
+} from '../utilities/lighting';
 import { playSound, testTone } from '../audio/sound-loader';
-import { createRenderedShip } from '../rendering/create-rendered-ship';
 import { bindKeys } from '../input/input';
 import { colors } from '../../definitions/colors';
 import { colorsDemo } from './colors-demo';
 import { renderFps } from './fps';
-import { renderText } from '../rendering/text/text';
-import { sky } from '../rendering/background/background';
-import { textDemo } from '../rendering/text/text-demo';
+import { renderText } from '../ui/text/text';
+import { sky } from '../background/background';
+import { textDemo } from './text-demo';
 import * as Vec from '../utilities/vector';
 import { type GameObject } from '../objects/game-object';
-import { type Ship } from '../objects/ship';
+import { Ship } from '../objects/ship';
 
 export let showDeadzone = false;
 let showMass = false;
@@ -44,10 +43,10 @@ export const debugCrafts = (game: GameState) =>
     ['#000', '#111', '#222', '#879', '#200'],
     colors.white,
   ].map((shades, i) =>
-    createRenderedShip({
+    new Ship({
       shades,
       position: Vec.create(120 + i * 120, game.height - 100),
-    }),
+    }).addToScene(),
   );
 
 export const bindDebug = (game: GameState) => {

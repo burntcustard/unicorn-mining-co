@@ -1,5 +1,5 @@
-import { circlePath, sparklePath } from '../drawing';
-import { colors } from '../../../definitions/colors';
+import { circlePath, sparklePath } from '../utilities/drawing';
+import { colors } from '../../definitions/colors';
 
 /**
  * The sky behind everything: sparks of starlight and soft clouds of colour,

@@ -5,7 +5,9 @@
 export let benchmarkFlag = (_name: string) => false;
 
 // @ifdef BENCHMARK
-const benchmarkParams = new URLSearchParams(location.search);
+const benchmarkParams = new URLSearchParams(
+  typeof location === 'undefined' ? '' : location.search,
+);
 
 benchmarkFlag = (name: string) => benchmarkParams.has(name);
 // @endif

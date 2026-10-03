@@ -116,7 +116,7 @@ export function viteBackground(flags = {}) {
         const bundle = await rolldown({
           input: resolve(
             process.cwd(),
-            'src/client/rendering/background/background-boot.ts',
+            'src/client/background/background-boot.ts',
           ),
           plugins: [
             {
@@ -136,7 +136,7 @@ export function viteBackground(flags = {}) {
 
         await bundle.close();
         return html.replace(
-          /<script\s+type="module"\s+src="src\/client\/rendering\/background\/background-boot\.ts"\s*>\s*<\/script>/,
+          /<script\s+type="module"\s+src="src\/client\/background\/background-boot\.ts"\s*>\s*<\/script>/,
           `<script>${output[0].code}</script>`,
         );
       },

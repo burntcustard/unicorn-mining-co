@@ -1,4 +1,4 @@
-import { createPolygon } from '../utilities/polygon';
+import { createPolygon } from './polygon';
 import { type Segment } from '../types';
 
 // Stroke width in game units, shared by every drawn object's shape outline

@@ -1,4 +1,8 @@
-import { Module } from './module';
+import { game } from '../../game';
+import { shapePath } from '../../utilities/drawing';
+import { drawBeam } from '../../utilities/lighting';
+import { traceBeam, litPath } from '../../utilities/prism';
+import { Module, type ModuleRenderOptions } from './module';
 import { moduleDefinitions } from '../../../definitions/modules/index';
 
 // SearchLight
@@ -19,9 +23,8 @@ export class SearchLight extends Module {
   static beam = specification.beam;
   static disablePhysics = specification.disablePhysics;
   static health = specification.health;
-  static lens = lens;
-  static mouth = mouth;
   static label = specification.label;
+  static lens = lens;
   static model: any[] = [
     {
       wreckage: {
@@ -47,8 +50,31 @@ export class SearchLight extends Module {
           : [],
     },
   ];
+  static mouth = mouth;
   static price = specification.price;
   static reach = reach;
   static spread = spread;
   static zIndex = specification.zIndex;
+
+  render({ segment, craft, scenery, pose = craft }: ModuleRenderOptions) {
+    if (!segment.activationProgress) return;
+    const beam = segment.prism || traceBeam(pose, segment, scenery);
+
+    super.render({
+      segment,
+      draw: () =>
+        drawBeam(
+          game.ctx,
+          shapePath(
+            typeof segment.points === 'function'
+              ? segment.points(segment)
+              : segment.points,
+          ),
+          segment.shades[2],
+          this.reach,
+          segment.activationProgress,
+          litPath(beam),
+        ),
+    });
+  }
 }

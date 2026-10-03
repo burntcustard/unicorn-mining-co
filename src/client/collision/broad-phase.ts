@@ -19,23 +19,37 @@ import { Fixture } from '../physics/fixture';
  * The broad-phase tracks moved fixtures and queries their spatial grid.
  */
 export class BroadPhase {
+  m_callback: (userDataA: any, userDataB: any) => void;
   m_grid: SpatialGrid<Fixture> = new SpatialGrid<Fixture>();
   m_moveBuffer: SpatialProxy<Fixture>[] = [];
-
-  m_callback: (userDataA: any, userDataB: any) => void;
   m_queryProxy: SpatialProxy<Fixture>;
+  queryCallback = (proxyId: SpatialProxy<Fixture>): boolean => {
+    // A proxy cannot form a pair with itself.
+    if (proxyId === this.m_queryProxy) {
+      return true;
+    }
+
+    const proxyIdA =
+      proxyId.id < this.m_queryProxy.id ? proxyId : this.m_queryProxy;
+    const proxyIdB =
+      proxyId.id < this.m_queryProxy.id ? this.m_queryProxy : proxyId;
+
+    const userDataA = proxyIdA.userData;
+    const userDataB = proxyIdB.userData;
+
+    // Send the pairs back to the client.
+    this.m_callback(userDataA, userDataB);
+
+    return true;
+  };
 
   /**
-   * Test overlap of fat AABBs.
+   * Call to trigger a re-processing of it's pairs on the next call to
+   * UpdatePairs.
    */
-  testOverlap(
-    proxyIdA: SpatialProxy<Fixture>,
-    proxyIdB: SpatialProxy<Fixture>,
-  ): boolean {
-    const aabbA = proxyIdA.aabb;
-    const aabbB = proxyIdB.aabb;
 
-    return AABB.testOverlap(aabbA, aabbB);
+  bufferMove(proxyId: SpatialProxy<Fixture>): void {
+    this.m_moveBuffer.push(proxyId);
   }
 
   /**
@@ -74,12 +88,16 @@ export class BroadPhase {
   }
 
   /**
-   * Call to trigger a re-processing of it's pairs on the next call to
-   * UpdatePairs.
+   * Test overlap of fat AABBs.
    */
+  testOverlap(
+    proxyIdA: SpatialProxy<Fixture>,
+    proxyIdB: SpatialProxy<Fixture>,
+  ): boolean {
+    const aabbA = proxyIdA.aabb;
+    const aabbB = proxyIdB.aabb;
 
-  bufferMove(proxyId: SpatialProxy<Fixture>): void {
-    this.m_moveBuffer.push(proxyId);
+    return AABB.testOverlap(aabbA, aabbB);
   }
 
   unbufferMove(proxyId: SpatialProxy<Fixture>): void {
@@ -114,24 +132,4 @@ export class BroadPhase {
       this.m_grid.query(fatAABB, this.queryCallback, this.m_queryProxy.owner);
     }
   }
-
-  queryCallback = (proxyId: SpatialProxy<Fixture>): boolean => {
-    // A proxy cannot form a pair with itself.
-    if (proxyId === this.m_queryProxy) {
-      return true;
-    }
-
-    const proxyIdA =
-      proxyId.id < this.m_queryProxy.id ? proxyId : this.m_queryProxy;
-    const proxyIdB =
-      proxyId.id < this.m_queryProxy.id ? this.m_queryProxy : proxyId;
-
-    const userDataA = proxyIdA.userData;
-    const userDataB = proxyIdB.userData;
-
-    // Send the pairs back to the client.
-    this.m_callback(userDataA, userDataB);
-
-    return true;
-  };
 }

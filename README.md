@@ -86,8 +86,12 @@ The full build generates the catalog once, during the server build.
 The browser build warns when a chunk exceeds 14 KB gzipped; see
 [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading tiers.
 
-`npm test` builds once, runs browser and real-server integration tests in isolated
-Node processes, then regenerates mechanics fixtures and runs Go/parity tests.
+`npm test` builds once, regenerates mechanics fixtures, and runs all discovered
+Node test files and Go tests. Run a single Node test with `npm run test objects`,
+`npm run test objects.test.mjs`, or `npm run test tests/client/objects.test.mjs`.
+Multiple filenames are supported, and paths disambiguate duplicate filenames.
+Selected integration and parity tests prepare their server/catalog and fixtures
+automatically; client-only selections skip the full build.
 Set `TEST_CONCURRENCY=1` to run the Node tests sequentially. `npm run test:go`
 runs Go and parity checks separately; `npm run test:server` checks the Go server
 package. `npm run test:packets` checks Go output using both source and

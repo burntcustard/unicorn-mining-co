@@ -42,12 +42,12 @@ export interface FixtureOpt {
  * To create a new Fixture use {@link Body.createFixture}.
  */
 export class Fixture {
-  m_body: Body;
-  m_physics: boolean;
-  m_shape: Shape;
-  m_next: Fixture | null;
-  m_proxy: SpatialProxy<Fixture> | null = null;
   private m_aabb = new AABB();
+  m_body: Body;
+  m_next: Fixture | null;
+  m_physics: boolean;
+  m_proxy: SpatialProxy<Fixture> | null = null;
+  m_shape: Shape;
   m_userData: unknown;
   proxyMargin = 0;
 
@@ -57,45 +57,6 @@ export class Fixture {
     this.m_shape = shape;
     this.m_next = null;
     this.m_userData = definition.userData;
-  }
-
-  /**
-   * Get the child shape. You can modify the child shape, however you should not
-   * change the number of vertices because this will crash some collision caching
-   * mechanisms. Manipulating the shape may lead to non-physical behavior.
-   */
-  getShape(): Shape {
-    return this.m_shape;
-  }
-
-  /**
-   * Whether this fixture participates in physical response.
-   */
-  hasPhysics(): boolean {
-    return this.m_physics;
-  }
-
-  /**
-   * Get the user data that was assigned in the fixture definition. Use this to
-   * store your application specific data.
-   */
-  getUserData(): unknown {
-    return this.m_userData;
-  }
-
-  /**
-   * Set the user data. Use this to store your application specific data.
-   */
-  setUserData(data: unknown): void {
-    this.m_userData = data;
-  }
-
-  /**
-   * Get the parent body of this fixture. This is null if the fixture is not
-   * attached.
-   */
-  getBody(): Body {
-    return this.m_body;
   }
 
   /**
@@ -112,6 +73,62 @@ export class Fixture {
     if (!proxy) return;
     broadPhase.destroyProxy(proxy);
     this.m_proxy = null;
+  }
+
+  /**
+   * Get the parent body of this fixture. This is null if the fixture is not
+   * attached.
+   */
+  getBody(): Body {
+    return this.m_body;
+  }
+
+  /**
+   * Get the child shape. You can modify the child shape, however you should not
+   * change the number of vertices because this will crash some collision caching
+   * mechanisms. Manipulating the shape may lead to non-physical behavior.
+   */
+  getShape(): Shape {
+    return this.m_shape;
+  }
+
+  /**
+   * Get the user data that was assigned in the fixture definition. Use this to
+   * store your application specific data.
+   */
+  getUserData(): unknown {
+    return this.m_userData;
+  }
+
+  /**
+   * Whether this fixture participates in physical response.
+   */
+  hasPhysics(): boolean {
+    return this.m_physics;
+  }
+
+  /**
+   * Set the user data. Use this to store your application specific data.
+   */
+  setUserData(data: unknown): void {
+    this.m_userData = data;
+  }
+
+  /**
+   * Implement this method to provide collision filtering, if you want finer
+   * control over contact creation.
+   *
+   * Return true if contact calculations should be performed between these two
+   * fixtures.
+   *
+   * Warning: for performance reasons this is only called when the AABBs begin to
+   * overlap.
+   */
+  shouldCollide(that: Fixture): boolean {
+    const a = this.m_userData as Collider | undefined;
+    const b = that.m_userData as Collider | undefined;
+
+    return !a || !b || collidersCanContact(a, b);
   }
 
   /**
@@ -161,22 +178,5 @@ export class Fixture {
             fat.upperBound.y - box.upperBound.y,
           );
     }
-  }
-
-  /**
-   * Implement this method to provide collision filtering, if you want finer
-   * control over contact creation.
-   *
-   * Return true if contact calculations should be performed between these two
-   * fixtures.
-   *
-   * Warning: for performance reasons this is only called when the AABBs begin to
-   * overlap.
-   */
-  shouldCollide(that: Fixture): boolean {
-    const a = this.m_userData as Collider | undefined;
-    const b = that.m_userData as Collider | undefined;
-
-    return !a || !b || collidersCanContact(a, b);
   }
 }

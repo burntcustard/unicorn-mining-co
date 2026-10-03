@@ -1,5 +1,5 @@
 import * as Vec from '../utilities/vector';
-import { objectLineWidth } from './drawing';
+import { objectLineWidth } from '../utilities/drawing';
 
 /**
  * Short streaks thrown from damage contacts in the damaged object's colour.

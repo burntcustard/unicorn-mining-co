@@ -19,7 +19,16 @@ easing then pans the same sky from the intro origin to the starting station;
 the HUD starts fading in when that four-second pan ends. Sound and docked
 facades queue input made while loading.
 
-The browser object hierarchy and its renderers load together in the entry.
+The inline boot entry lives in `src/client/background/background-boot.ts`.
+Background tiles live alongside it; camera code lives in `src/client/camera.ts`,
+UI text in `src/client/ui/text`, event effects in `src/client/effects`, and
+shared drawing and lighting helpers in `src/client/utilities`. These moves
+preserve the fetch and execution triggers above.
+
+The browser object hierarchy and its render methods load together in the entry.
+Render and visual-update methods belong to their classes and use normal
+inheritance; no side-effect imports install them. Canvas setup happens in
+`main` before the first frame, so importing objects for prediction needs no DOM.
 Keep runtime objects and their GameObject base in the same initial hierarchy:
 that can introduce a cyclic chunk dependency during class initialization.
 
@@ -78,10 +87,11 @@ their encoded width does not depend on the rounding rule. The `object` tag stays
 long because JavaScript's `typeof` uses that literal.
 `npm run start:server` runs `bin/server`, which serves those assets.
 
-Both lazy facades load a typed default API object. `npm run test:docked` exercises
-the real docked loader against separately emitted production chunks, including
-shared mangled state in the ship chunk. It also checks that a private
-property is mangled consistently across two chunks. `npm run test:packets`
+Both lazy facades load a typed default API object. `npm run test lazy-docked`
+exercises the real docked loader against separately emitted production chunks,
+including shared mangled state in the ship chunk.
+`npm run test property-mangling` checks that a private property is mangled
+consistently across two chunks. `npm run test:packets`
 measures real Go WebSocket packet sizes and checks that both source and
 production-mangled client codecs acknowledge snapshots and receive input receipts. Keep the lazy boundary
 intact in tests: bundling everything into one file masked the original

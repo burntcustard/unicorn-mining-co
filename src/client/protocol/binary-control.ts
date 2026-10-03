@@ -17,28 +17,27 @@ export const isPlayerToken = (value: string | null): value is string =>
 class ControlWriter {
   private bytes: number[];
   private numberBuffer = new ArrayBuffer(8);
-  private numberView = new DataView(this.numberBuffer);
   private numberBytes = new Uint8Array(this.numberBuffer);
-
-  constructor(type: number) {
-    this.bytes = [0x55, 0x43, 1, type];
-  }
+  private numberView = new DataView(this.numberBuffer);
 
   byte(value: number) {
     this.bytes.push(value);
   }
 
-  unsigned(value: number) {
-    if (!Number.isSafeInteger(value) || value < 0) {
-      throw new RangeError('Invalid binary control integer');
+  constructor(type: number) {
+    this.bytes = [0x55, 0x43, 1, type];
+  }
+
+  finish(): Uint8Array<ArrayBuffer> {
+    return Uint8Array.from(this.bytes);
+  }
+
+  number(value: number) {
+    if (!Number.isFinite(value)) {
+      throw new RangeError('Invalid binary control number');
     }
-
-    do {
-      const digit = value % 128;
-
-      value = Math.floor(value / 128);
-      this.byte(digit | (value ? 128 : 0));
-    } while (value);
+    this.numberView.setFloat64(0, value || 0, true);
+    this.bytes.push(...this.numberBytes);
   }
 
   signed(value: number) {
@@ -55,12 +54,17 @@ class ControlWriter {
     } while (encoded);
   }
 
-  number(value: number) {
-    if (!Number.isFinite(value)) {
-      throw new RangeError('Invalid binary control number');
+  unsigned(value: number) {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new RangeError('Invalid binary control integer');
     }
-    this.numberView.setFloat64(0, value || 0, true);
-    this.bytes.push(...this.numberBytes);
+
+    do {
+      const digit = value % 128;
+
+      value = Math.floor(value / 128);
+      this.byte(digit | (value ? 128 : 0));
+    } while (value);
   }
 
   uuid(value: string) {
@@ -73,17 +77,20 @@ class ControlWriter {
       this.byte(Number.parseInt(digits.slice(index, index + 2), 16));
     }
   }
-
-  finish(): Uint8Array<ArrayBuffer> {
-    return Uint8Array.from(this.bytes);
-  }
 }
 
 class ControlReader {
   private bytes: Uint8Array;
-  private view: DataView;
   private offset = 0;
   readonly type: number;
+  private view: DataView;
+
+  byte() {
+    if (this.offset >= this.bytes.length) {
+      throw new Error('Invalid binary control');
+    }
+    return this.bytes[this.offset++];
+  }
 
   constructor(data: ArrayBuffer | Uint8Array) {
     this.bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
@@ -99,33 +106,22 @@ class ControlReader {
     this.type = this.byte();
   }
 
-  byte() {
-    if (this.offset >= this.bytes.length) {
+  finish() {
+    if (this.offset !== this.bytes.length) {
       throw new Error('Invalid binary control');
     }
-    return this.bytes[this.offset++];
   }
 
-  unsigned() {
-    let value = 0;
-    let place = 1;
-
-    for (let index = 0; index < 8; index++) {
-      const part = this.byte();
-      const digit = part & 127;
-
-      if (digit > Math.floor((Number.MAX_SAFE_INTEGER - value) / place)) {
-        throw new Error('Invalid binary control');
-      }
-      value += digit * place;
-
-      if (!(part & 128)) {
-        if (index && !digit) throw new Error('Invalid binary control');
-        return value;
-      }
-      place *= 128;
+  number() {
+    if (this.bytes.length - this.offset < 8) {
+      throw new Error('Invalid binary control');
     }
-    throw new Error('Invalid binary control');
+    const value = this.view.getFloat64(this.offset, true);
+
+    this.offset += 8;
+
+    if (!Number.isFinite(value)) throw new Error('Invalid binary control');
+    return value || 0;
   }
 
   signed() {
@@ -155,16 +151,26 @@ class ControlReader {
     throw new Error('Invalid binary control');
   }
 
-  number() {
-    if (this.bytes.length - this.offset < 8) {
-      throw new Error('Invalid binary control');
+  unsigned() {
+    let value = 0;
+    let place = 1;
+
+    for (let index = 0; index < 8; index++) {
+      const part = this.byte();
+      const digit = part & 127;
+
+      if (digit > Math.floor((Number.MAX_SAFE_INTEGER - value) / place)) {
+        throw new Error('Invalid binary control');
+      }
+      value += digit * place;
+
+      if (!(part & 128)) {
+        if (index && !digit) throw new Error('Invalid binary control');
+        return value;
+      }
+      place *= 128;
     }
-    const value = this.view.getFloat64(this.offset, true);
-
-    this.offset += 8;
-
-    if (!Number.isFinite(value)) throw new Error('Invalid binary control');
-    return value || 0;
+    throw new Error('Invalid binary control');
   }
 
   uuid() {
@@ -179,12 +185,6 @@ class ControlReader {
       digits += hex[value >> 4] + hex[value & 15];
     }
     return `${digits.slice(0, 8)}-${digits.slice(8, 12)}-${digits.slice(12, 16)}-${digits.slice(16, 20)}-${digits.slice(20)}`;
-  }
-
-  finish() {
-    if (this.offset !== this.bytes.length) {
-      throw new Error('Invalid binary control');
-    }
   }
 }
 

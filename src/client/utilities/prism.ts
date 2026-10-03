@@ -1,11 +1,11 @@
-import * as Vec from '../utilities/vector';
-import { directionOf, rotatePoint, rotatePoints } from '../utilities/geometry';
+import * as Vec from './vector';
+import { directionOf, rotatePoint, rotatePoints } from './geometry';
 import { shapePath, strip } from './drawing';
 import { colors } from '../../definitions/colors';
 import {
   Asteroid,
   shapeOutlineOf as asteroidShapeOutlineOf,
-} from '../simulation/asteroid';
+} from '../objects/asteroid';
 import { type Pose, type ShapeOutline, type Segment } from '../types';
 import { type GameObject } from '../objects/game-object';
 

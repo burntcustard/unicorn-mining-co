@@ -4,19 +4,22 @@ import { rolldown } from 'rolldown';
 
 globalThis.Path2D = class {
   addPath() {}
+
   closePath() {}
+
   lineTo() {}
+
   moveTo() {}
 };
 
 const bundle = await rolldown({
-  input: `${process.cwd()}/src/client/rendering/prism.ts`,
+  input: `${process.cwd()}/src/client/utilities/prism.ts`,
   plugins: [
     {
       name: 'prism-test-exports',
       transform: (code, id) =>
-        id.endsWith('/src/client/rendering/prism.ts')
-          ? `${code}\nexport { joins, runsOf }; export * as Vec from '../utilities/vector'; export { createAsteroid } from '../simulation/asteroid';`
+        id.endsWith('/src/client/utilities/prism.ts')
+          ? `${code}\nexport { joins, runsOf }; export * as Vec from './vector'; export { createAsteroid } from '../objects/asteroid';`
           : undefined,
     },
   ],

@@ -21,26 +21,10 @@ const temp = Vec.create();
 
 // Circle shape.
 export class CircleShape extends Shape {
-  declare m_type: 'circle';
   m_count = 1;
-
-  get m_p() {
-    return this.m_vertices[0];
-  }
-  set m_p(point: Vec.Value) {
-    this.m_vertices[0] = point;
-    this.m_bound = undefined;
-  }
-  static TYPE = 'circle' as const;
-
   declare m_radius: number;
-
-  constructor(position: Vec.Value, radius: number) {
-    super();
-    this.m_type = CircleShape.TYPE;
-    this.m_vertices = [Vec.clone(position)];
-    this.m_radius = radius;
-  }
+  declare m_type: 'circle';
+  static TYPE = 'circle' as const;
 
   /**
    * Given a transform, compute the associated axis aligned bounding box for a
@@ -54,6 +38,22 @@ export class CircleShape extends Shape {
 
     Vec.setXY(aabb.lowerBound, p.x - this.m_radius, p.y - this.m_radius);
     Vec.setXY(aabb.upperBound, p.x + this.m_radius, p.y + this.m_radius);
+  }
+
+  constructor(position: Vec.Value, radius: number) {
+    super();
+    this.m_type = CircleShape.TYPE;
+    this.m_vertices = [Vec.clone(position)];
+    this.m_radius = radius;
+  }
+
+  get m_p() {
+    return this.m_vertices[0];
+  }
+
+  set m_p(point: Vec.Value) {
+    this.m_vertices[0] = point;
+    this.m_bound = undefined;
   }
 }
 

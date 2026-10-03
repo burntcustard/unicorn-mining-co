@@ -118,6 +118,7 @@ export function installLiveProbe(clockFields) {
         closes.push({ at: performance.now(), code, reason }),
       );
     }
+
     send(data) {
       const at = performance.now();
 
