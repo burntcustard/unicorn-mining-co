@@ -2,6 +2,14 @@
 
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
+import { PredictionManager } from '../../src/client/prediction/prediction.ts';
+import {
+  createWorld,
+  addEntity,
+  addPlayer,
+} from '../../src/client/simulation/world.ts';
+import { createShip } from '../../src/client/objects/create-ship.ts';
+import { emptyPlayerInput } from '../../src/client/protocol/input.ts';
 
 globalThis.window = new EventTarget();
 globalThis.KeyboardEvent = class extends Event {
@@ -122,8 +130,8 @@ try {
         assert.equal(dt, frameTime.dt, 'rendering uses the frame interval');
         assert.equal(
           timing.now,
-          now,
-          'prediction uses the current clock after update work',
+          frameTime.now,
+          'prediction uses the same display time as simulation',
         );
         renders++;
         assert(
@@ -149,7 +157,7 @@ try {
     now = (frameTime?.now || 0) + elapsedMs;
     const frameStartedAt = now;
 
-    frames.shift()();
+    frames.shift()(frameStartedAt);
     assert.equal(updates, index + 1, 'each frame invokes update once');
     assert.equal(renders, updates, 'each update is followed by rendering');
     assert.equal(frameTime.now, frameStartedAt);
@@ -159,6 +167,75 @@ try {
     );
     assert.equal(frames.length, 1, 'only the next animation frame is queued');
   });
+
+  // Follow a real predicted ship through tick boundaries at several display
+  // rates. CPU work and callback scheduling must not change its visible speed.
+  for (const hz of [60, 120, 144]) {
+    for (const speed of [272, 1200]) {
+      frames.length = 0;
+      now = 0;
+      const world = createWorld();
+      const ship = addEntity(world, createShip(world, { playerId: 1 }));
+
+      ship.drag = 0;
+      ship.engine.forwardThrust = speed / 17;
+      ship.velocity.x = speed;
+      addPlayer(world, { id: 1, shipId: ship.id });
+      const prediction = new PredictionManager({ world });
+
+      prediction.setLocalPlayer({ playerId: 1 });
+      let pending = 0;
+      let tickStartedAt = 0;
+      let previous = 0;
+      const distances = [];
+
+      input
+        .GameLoop({
+          update({ dt, now: displayTime }) {
+            pending += dt;
+
+            while (pending + 1e-12 >= input.simulationStep) {
+              pending = Math.max(0, pending - input.simulationStep);
+              prediction.step({ input: emptyPlayerInput(), send() {} });
+              tickStartedAt = displayTime - pending * 1000;
+            }
+            // Expensive tick frames alternate with cheap in-between frames.
+            now += world.tick % 2 ? 8 : 1;
+          },
+          render({ now: displayTime }) {
+            const predicted = prediction
+              .predictFrame({
+                elapsed: (displayTime - tickStartedAt) / 1000,
+              })
+              .entities.get(ship.id);
+
+            distances.push(predicted.position.x - previous);
+            previous = predicted.position.x;
+          },
+        })
+        .start();
+
+      for (let index = 1; index <= hz * 2; index++) {
+        const displayTime = (index * 1000) / hz;
+
+        now = displayTime + (index % 3 ? 0.2 : 2);
+        frames.shift()(displayTime);
+      }
+      const spread = Math.max(...distances) - Math.min(...distances);
+
+      console.log(
+        `${hz} Hz, ${speed} units/s: frame-distance spread ${spread}`,
+      );
+      assert(
+        spread < 1e-5,
+        'steady flight stays smooth despite variable CPU time',
+      );
+      assert(
+        Math.abs(previous - speed * 2) < 1e-5,
+        'flight preserves elapsed distance',
+      );
+    }
+  }
 } finally {
   globalThis.performance = clock;
   delete globalThis.requestAnimationFrame;

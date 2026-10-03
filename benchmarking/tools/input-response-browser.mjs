@@ -130,7 +130,7 @@ try {
     clients.map((send) =>
       evaluate(
         send,
-        "(async()=>{window.loadedGameModule=name=>import(performance.getEntriesByType('resource').find(entry=>new URL(entry.name).pathname.endsWith('/src/client/'+name)).name);const{network}=await window.loadedGameModule('network.ts');await network.ready;return network.shipId})()",
+        "(async()=>{window.loadedGameModule=name=>import(performance.getEntriesByType('resource').find(entry=>new URL(entry.name).pathname.endsWith('/src/client/'+name)).name);const{network}=await window.loadedGameModule('network/network.ts');await network.ready;return network.shipId})()",
       ),
     ),
   );
@@ -140,10 +140,10 @@ try {
       evaluate(
         send,
         `(async()=>{
-    const {network}=await window.loadedGameModule('network.ts');
+    const {network}=await window.loadedGameModule('network/network.ts');
     const {playerShip}=await window.loadedGameModule('player.ts');
     if(playerShip.id!==network.shipId) throw Error('wrong game instance');
-    const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('set-sizing.ts'); game.size=5; setSizing(game);
+    const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('rendering/set-sizing.ts'); game.size=5; setSizing(game);
     const socket=Reflect.get(network,'socket');
     if(${delay}) {const deliver=socket.onmessage, send=socket.send.bind(socket); socket.onmessage=event=>setTimeout(()=>deliver.call(socket,event),${delay}); socket.send=data=>setTimeout(()=>send(data),${delay});}
     const capture={shipId:network.shipId,frames:[]}; window.motionCapture=capture;
