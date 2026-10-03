@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
-import { GameSession } from '../src/server/game-session';
+import { createTestSession } from './helpers/create-session';
+import type { GameSession } from '../src/server/game-session';
 import { parseClientMessage } from '../src/server/parse-client-message';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
 import { addEntity } from '../src/shared/simulation/world';
@@ -65,7 +66,7 @@ try {
         if (latency && tapTicks) continue;
         now = delay = 0;
         packets.length = 0;
-        session = new GameSession({ worldSeed: 25 });
+        session = createTestSession({ worldSeed: 25 });
         Reflect.get(session, 'regions').sync = () => {};
         const clients = Array.from(
           { length: 2 },
@@ -99,7 +100,11 @@ try {
         const samples: { at: number; rotation: number }[][] = [[], []];
         let nextTick = phase + 1000 / 30;
 
-        for (let frame = 1; frame <= fps * 8; frame++) {
+        // The longest tap ends at two seconds; one more second verifies
+        // settling. Keep the full fitting window for continuous steering.
+        const seconds = tapTicks ? 3 : 8;
+
+        for (let frame = 1; frame <= fps * seconds; frame++) {
           now = (frame * 1000) / fps;
           const input = {
             ...emptyPlayerInput(),

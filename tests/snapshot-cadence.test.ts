@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
-import { GameSession } from '../src/server/game-session';
+import { createTestSession } from './helpers/create-session';
 import { decodeServerControl } from '../src/shared/protocol/binary-control';
 import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
@@ -11,7 +11,7 @@ type SnapshotMessage = Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
 import { createStation } from '../src/shared/craft/create-station';
 import { addEntity } from '../src/shared/simulation/world';
 
-const session = new GameSession({ worldSeed: 25 });
+const session = createTestSession({ worldSeed: 25 });
 
 Reflect.get(session, 'regions').sync = () => {};
 const packets: ServerMessage[] = [];
@@ -127,7 +127,7 @@ assert.equal(player.pendingSnapshots.length, 0);
 
 // Ordinary round trips sustain 30 Hz; slow receivers keep a bounded window.
 for (const roundTripTicks of [2, 6, 8, 18]) {
-  const game = new GameSession({ worldSeed: 25 });
+  const game = createTestSession({ worldSeed: 25 });
   const receipts: { at: number; sequence: number }[] = [];
   const ticks: number[] = [];
   const peer = {

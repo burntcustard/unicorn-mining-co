@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
-import { GameSession } from '../src/server/game-session';
+import { createTestSession } from './helpers/create-session';
+import type { GameSession } from '../src/server/game-session';
 import { parseClientMessage } from '../src/server/parse-client-message';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
 import { addEntity } from '../src/shared/simulation/world';
@@ -78,7 +79,7 @@ try {
           now = delay = index = 0;
           mode = '';
           packets.length = 0;
-          session = new GameSession({ worldSeed: 25 });
+          session = createTestSession({ worldSeed: 25 });
           Reflect.get(session, 'regions').sync = () => {};
           const clients = Array.from(
             { length: 2 },

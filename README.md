@@ -86,6 +86,14 @@ exceeds 14 KB gzipped. See [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading
 tiers and their triggers. `npm run test:packets` reports client/server packet
 sizes before and after production mangling.
 
+`npm test` builds once, including type-checking, then runs test files in isolated
+processes with up to four workers (limited by available CPUs). Node's test
+reporter prints each file's duration and any failures. Set `TEST_CONCURRENCY=1`
+to run sequentially, or choose another positive worker count. Individual suites,
+such as `npm run test:prediction` and `npm run test:server`, use the same runner.
+`npm run test:packets` builds before checking the production packets. Go parity
+tests remain a separate `npm run test:go` command.
+
 ## Documentation
 
 ### Current references

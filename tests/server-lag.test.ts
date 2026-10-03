@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
-import { GameSession } from '../src/server/game-session';
+import { createTestSession } from './helpers/create-session';
+import type { GameSession } from '../src/server/game-session';
 import { parseClientMessage } from '../src/server/parse-client-message';
 import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
 import { decodeServerControl } from '../src/shared/protocol/binary-control';
@@ -131,7 +132,7 @@ assert.equal(batched.ship.turn, 0);
 
 // A batch must consume each queued tick and retain later input transitions.
 {
-  const queued = new GameSession({ worldSeed: 25 });
+  const queued = createTestSession({ worldSeed: 25 });
 
   Reflect.get(queued, 'regions').sync = () => {};
   const sent: ServerMessage[] = [];
@@ -223,7 +224,7 @@ assert.equal(batched.ship.turn, 0);
 
 // Every snapshot path shares one receipt window, including dock and respawn.
 {
-  const game = new GameSession({ worldSeed: 25 });
+  const game = createTestSession({ worldSeed: 25 });
 
   Reflect.get(game, 'regions').sync = () => {};
   const sent: ServerMessage[] = [];
@@ -396,7 +397,7 @@ try {
   // boundary but before RAF. Continuous traffic must never starve application.
   {
     now = 0;
-    session = new GameSession({ worldSeed: 25 });
+    session = createTestSession({ worldSeed: 25 });
     Reflect.get(session, 'regions').sync = () => {};
     const clients = Array.from(
       { length: 3 },
@@ -472,7 +473,7 @@ try {
   // delivering the current binary payload unchanged.
   {
     now = 0;
-    session = new GameSession({ worldSeed: 25 });
+    session = createTestSession({ worldSeed: 25 });
     Reflect.get(session, 'regions').sync = () => {};
     const clients = Array.from(
       { length: 3 },
@@ -581,7 +582,7 @@ try {
     [6, 6],
   ]) {
     now = 0;
-    session = new GameSession({ worldSeed: 25 });
+    session = createTestSession({ worldSeed: 25 });
     // Isolate the real session/protocol/prediction clocks from random contacts.
     Reflect.get(session, 'regions').sync = () => {};
     const clients = Array.from(
@@ -622,7 +623,12 @@ try {
       pausedRemoteFrames = 0;
     let previousRemote = 0;
 
-    for (let frame = frameStep; frame <= 1800; frame += frameStep) {
+    // Six seconds covers 30 snapshots even at the slowest cadence. The
+    // separate ten-second outage below still tests long prediction gaps.
+    const steadyTicks = 180;
+    const steadyTravel = steadyTicks * simulationStep * 100;
+
+    for (let frame = frameStep; frame <= steadyTicks * 2; frame += frameStep) {
       now = (frame * 1000) / 60;
 
       if (frame % interval === 0) session.tick({ ticks: interval / 2 });
@@ -659,19 +665,20 @@ try {
     }
     assert.equal(
       session.world.tick,
-      900,
+      steadyTicks,
       'server accounts for all elapsed time',
     );
     players.forEach((player) =>
       assert(
         Math.abs(
-          player.ship.position.x - (players.indexOf(player) * 500 + 3000),
+          player.ship.position.x -
+            (players.indexOf(player) * 500 + steadyTravel),
         ) < 0.01,
       ),
     );
     clients.forEach((client, index) =>
       assert(
-        Math.abs(previous[index] - start[index] - 3000) < 10,
+        Math.abs(previous[index] - start[index] - steadyTravel) < 10,
         'prediction advances at real-time speed',
       ),
     );

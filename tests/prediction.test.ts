@@ -2,6 +2,7 @@ import * as Vec from '../src/shared/vector';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { GameServer } from '../src/server/game-server';
+import { createTestClock } from './helpers/clock';
 import {
   asteroidContact,
   createAsteroid,
@@ -557,436 +558,447 @@ console.log(
   'Both collision perspectives replay shared physics and render matching contact poses',
 );
 
+const clock = createTestClock();
 const server = new GameServer({ port: 0, worldSeed: 4242 });
-const listener = server.start();
 
-await once(listener, 'listening');
-const address = listener.address();
+try {
+  const listener = server.start();
 
-assert(address && typeof address !== 'string');
+  await once(listener, 'listening');
+  const address = listener.address();
 
-// The client module reaches for the browser as it loads, so stand in for the
-// parts of it the network client actually touches.
-const stored = new Map<string, string>();
+  assert(address && typeof address !== 'string');
 
-Object.assign(globalThis, {
-  localStorage: {
-    getItem: (key: string) => stored.get(key) ?? null,
-    setItem: (key: string, value: string) => stored.set(key, value),
-  },
-  location: {
-    host: `127.0.0.1:${address.port}`,
-    protocol: 'http:',
-  },
-});
+  // The client module reaches for the browser as it loads, so stand in for the
+  // parts of it the network client actually touches.
+  const stored = new Map<string, string>();
 
-const { network, NetworkClient } = await import('../src/client/network');
-const { predictionStats } = await import('../src/client/prediction');
+  Object.assign(globalThis, {
+    localStorage: {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    },
+    location: {
+      host: `127.0.0.1:${address.port}`,
+      protocol: 'http:',
+    },
+  });
 
-await network.ready;
-stored.delete('playerToken');
-const observer = new NetworkClient({
-  url: `ws://127.0.0.1:${address.port}/game-socket`,
-});
+  const { network, NetworkClient } = await import('../src/client/network');
+  const { predictionStats } = await import('../src/client/prediction');
 
-await observer.ready;
+  await network.ready;
+  stored.delete('playerToken');
+  const observer = new NetworkClient({
+    url: `ws://127.0.0.1:${address.port}/game-socket`,
+  });
 
-const input = emptyPlayerInput();
-const step = simulationStep * 1000;
-// The prediction only earns its keep against the clock the server keeps, so
-// this runs in real time rather than as fast as it can.
-let paused = false;
-const pilot = setInterval(() => {
-  if (!paused) network.update({ input });
-}, step);
-const observing = setInterval(
-  () => observer.update({ input: emptyPlayerInput() }),
-  step,
-);
+  await observer.ready;
 
-const fly = async ({ ticks }: { ticks: number }) =>
-  new Promise((resolve) => setTimeout(resolve, ticks * step));
+  const input = emptyPlayerInput();
+  const step = simulationStep * 1000;
+  // Keep the real server, client timers and sockets, but advance their shared
+  // clock without waiting for each simulated second of flight.
+  let paused = false;
+  const pilot = setInterval(() => {
+    if (!paused) network.update({ input });
+  }, step);
+  const observing = setInterval(
+    () => observer.update({ input: emptyPlayerInput() }),
+    step,
+  );
 
-await fly({ ticks: 60 });
-// Hold one browser's socket callbacks during a stall. Mandatory receipts
-// bound the queue to nine snapshots, then a fresh state follows its release.
-const socket = Reflect.get(network, 'socket') as WebSocket;
-const receive = socket.onmessage!;
-const backlog: MessageEvent[] = [];
+  const fly = ({ ticks }: { ticks: number }) =>
+    clock.advance({ milliseconds: ticks * step });
 
-socket.onmessage = (event) => backlog.push(event);
-paused = true;
-await fly({ ticks: 45 });
-// Also reproduce frame catch-up running before the queued socket callbacks.
+  await fly({ ticks: 60 });
+  // Hold one browser's socket callbacks during a stall. Mandatory receipts
+  // bound the queue to nine snapshots, then a fresh state follows its release.
+  const socket = Reflect.get(network, 'socket') as WebSocket;
+  const receive = socket.onmessage!;
+  const backlog: MessageEvent[] = [];
 
-for (let tick = 0; tick < 40; tick++) network.update({ input });
-const stepsBeforeBacklog = predictionStats.steps;
+  socket.onmessage = (event) => backlog.push(event);
+  paused = true;
+  await fly({ ticks: 45 });
+  // Also reproduce frame catch-up running before the queued socket callbacks.
 
-socket.onmessage = receive;
+  for (let tick = 0; tick < 40; tick++) network.update({ input });
+  const stepsBeforeBacklog = predictionStats.steps;
 
-for (const message of backlog) receive.call(socket, message);
-assert(
-  backlog.length > 0 && backlog.length <= 9,
-  'the receipt window bounds queued snapshots during a stalled receiver',
-);
-assert.equal(
-  predictionStats.steps,
-  stepsBeforeBacklog,
-  'queued socket callbacks must not replay worlds',
-);
-network.update({ input });
-assert(
-  predictionStats.steps - stepsBeforeBacklog <= maxPredictionTicks + 1,
-  'recovery must bound replay plus the current update',
-);
-paused = false;
-await fly({ ticks: 30 });
-assert(
-  Math.abs(network.world.tick - network.serverTick) <= 1,
-  'fresh snapshots return the recovered clock to server time',
-);
-assert.equal(network.world.entities.get(network.shipId!)!.thrust, 0);
-console.log(`Recovered from ${backlog.length} queued snapshots in one update`);
-Object.assign(predictionStats, { corrections: 0, steps: 0, worst: 0 });
+  socket.onmessage = receive;
 
-const shipId = network.shipId!;
-// A correction rebuilds the world's entities, so the ship is looked up afresh
-// rather than held on to.
-const predicted = () => {
-  const ship = network.world.entities.get(shipId);
+  for (const message of backlog) receive.call(socket, message);
+  assert(
+    backlog.length > 0 && backlog.length <= 9,
+    'the receipt window bounds queued snapshots during a stalled receiver',
+  );
+  assert.equal(
+    predictionStats.steps,
+    stepsBeforeBacklog,
+    'queued socket callbacks must not replay worlds',
+  );
+  network.update({ input });
+  assert(
+    predictionStats.steps - stepsBeforeBacklog <= maxPredictionTicks + 1,
+    'recovery must bound replay plus the current update',
+  );
+  paused = false;
+  await fly({ ticks: 30 });
+  assert(
+    Math.abs(network.world.tick - network.serverTick) <= 1,
+    'fresh snapshots return the recovered clock to server time',
+  );
+  assert.equal(network.world.entities.get(network.shipId!)!.thrust, 0);
+  console.log(
+    `Recovered from ${backlog.length} queued snapshots in one update`,
+  );
+  Object.assign(predictionStats, { corrections: 0, steps: 0, worst: 0 });
 
-  assert(ship?.kind === 'ship');
-  return ship;
-};
-const from = Vec.add(predicted().position, Vec.create());
+  const shipId = network.shipId!;
+  // A correction rebuilds the world's entities, so the ship is looked up afresh
+  // rather than held on to.
+  const predicted = () => {
+    const ship = network.world.entities.get(shipId);
 
-input.thrust = 1;
-await fly({ ticks: 120 });
-input.turn = 1;
-// Exercise the existing flight with a missed run of owner frames while the
-// server and observer keep running, then change input on resumption.
-paused = true;
-await fly({ ticks: 12 });
-network.update({ input });
-paused = false;
-await fly({ ticks: 30 });
-let worstRotationError = 0;
-let worstPositionError = 0;
+    assert(ship?.kind === 'ship');
+    return ship;
+  };
+  const from = Vec.add(predicted().position, Vec.create());
 
-for (let sample = 0; sample < 10; sample++) {
-  await fly({ ticks: 3 });
-  const remote = observer.world.entities.get(shipId);
+  input.thrust = 1;
+  await fly({ ticks: 120 });
+  input.turn = 1;
+  // Exercise the existing flight with a missed run of owner frames while the
+  // server and observer keep running, then change input on resumption.
+  paused = true;
+  await fly({ ticks: 12 });
+  network.update({ input });
+  paused = false;
+  await fly({ ticks: 30 });
+  let worstRotationError = 0;
+  let worstPositionError = 0;
 
-  assert(remote, 'the second client must see the turning ship');
-  const own = cloneEntity({ entity: predicted() });
-  const seen = cloneEntity({ entity: remote });
-  const tickDifference = network.world.tick - observer.world.tick;
+  for (let sample = 0; sample < 10; sample++) {
+    await fly({ ticks: 3 });
+    const remote = observer.world.entities.get(shipId);
+
+    assert(remote, 'the second client must see the turning ship');
+    const own = cloneEntity({ entity: predicted() });
+    const seen = cloneEntity({ entity: remote });
+    const tickDifference = network.world.tick - observer.world.tick;
+
+    assert(
+      Math.abs(tickDifference) <= 2,
+      'independent client clocks stay bounded',
+    );
+    // Independent timers can straddle a server tick. Compare the same simulation
+    // time rather than treating two ticks of correct turning as a rotation error.
+    const earlier = tickDifference > 0 ? seen : own;
+
+    for (let tick = 0; tick < Math.abs(tickDifference); tick++) {
+      for (let part = 0; part < updateTiers.visible.substeps; part++) {
+        earlier.update(simulationStep / updateTiers.visible.substeps);
+      }
+    }
+    const error = Math.abs(
+      Math.atan2(
+        Math.sin(seen.rotation - own.rotation),
+        Math.cos(seen.rotation - own.rotation),
+      ),
+    );
+
+    worstRotationError = Math.max(worstRotationError, error);
+    worstPositionError = Math.max(
+      worstPositionError,
+      Vec.distance(seen.position, own.position),
+    );
+  }
+  assert(
+    worstRotationError < 0.12,
+    `same-tick rotation error ${worstRotationError}; client ticks ${network.world.tick}/${observer.world.tick}`,
+  );
+  assert(
+    worstPositionError < predicted().maxSpeed / 30,
+    `same-tick position error ${worstPositionError} exceeds one tick of travel`,
+  );
+  input.turn = 0;
+  await fly({ ticks: 60 });
+  input.thrust = 0;
+  await fly({ ticks: 30 });
+  // Short-tap presentation is checked with controlled timing and clear space in
+  // remote-input-response.test.ts; procedural contacts can legitimately reverse spin.
+  clearInterval(pilot);
+  clearInterval(observing);
+  const stoppedRemote = observer.world.entities.get(shipId)!;
 
   assert(
-    Math.abs(tickDifference) <= 2,
-    'independent client clocks stay bounded',
+    Math.abs(stoppedRemote.rotation - predicted().rotation) < 0.01,
+    'both clients agree after steering stops too',
   );
-  // Independent timers can straddle a server tick. Compare the same simulation
-  // time rather than treating two ticks of correct turning as a rotation error.
-  const earlier = tickDifference > 0 ? seen : own;
+  console.log(
+    `Two-client turning: worst same-tick rotation error ${worstRotationError.toFixed(4)} radians, position error ${worstPositionError.toFixed(3)} units`,
+  );
 
-  for (let tick = 0; tick < Math.abs(tickDifference); tick++) {
-    for (let part = 0; part < updateTiers.visible.substeps; part++) {
-      earlier.update(simulationStep / updateTiers.visible.substeps);
+  const authority = server.world.entities.get(shipId);
+  const client = predicted();
+
+  assert(authority?.kind === 'ship');
+  assert(
+    Vec.distance(client.position, from) > 100,
+    'the ship should have flown somewhere',
+  );
+  assert(
+    predictionStats.steps > 180,
+    `the client should have simulated in step with the server, got ${predictionStats.steps}`,
+  );
+
+  // Fractional prediction responds immediately without deliberately scheduling
+  // controls into a future server tick.
+  assert(
+    Math.abs(network.world.tick - network.serverTick) <= 1,
+    `the client should stay at server time, got ${
+      network.world.tick - network.serverTick
+    } ticks`,
+  );
+  assert(
+    predictionStats.worst < 1,
+    `the server corrected the predicted ship by ${predictionStats.worst} units`,
+  );
+
+  // The authoritative ship is only as far behind as the ticks the client is
+  // predicting ahead of it can carry a ship.
+  const leading = network.world.tick - network.serverTick;
+
+  assert(
+    Vec.distance(authority.position, client.position) <
+      ((leading + 6) * client.maxSpeed) / 30,
+    `the authoritative ship trailed the predicted one by ${Vec.distance(authority.position, client.position)} units over ${leading} ticks`,
+  );
+
+  // Flying into a rock: both sides have to agree on the shape of it, not just
+  // on the circle that bounds it, or the ship stops short of what is drawn.
+  const settling = setInterval(() => network.update({ input }), step);
+
+  input.thrust = 0;
+  input.turn = 0;
+  Vec.set(authority.velocity, Vec.create());
+  authority.spin = 0;
+  await fly({ ticks: 30 });
+
+  // Keep the shape-contact fixture clear of procedural scenery. Field density
+  // varies by seed, and this test needs the inserted rock to be the first hit.
+  server.world.entities.forEach((entity, id) => {
+    if (
+      entity.kind !== 'ship' &&
+      Vec.distance(entity.position, authority.position) < 1500
+    ) {
+      server.world.entities.delete(id);
     }
-  }
-  const error = Math.abs(
-    Math.atan2(
-      Math.sin(seen.rotation - own.rotation),
-      Math.cos(seen.rotation - own.rotation),
-    ),
-  );
+  });
 
-  worstRotationError = Math.max(worstRotationError, error);
-  worstPositionError = Math.max(
-    worstPositionError,
-    Vec.distance(seen.position, own.position),
-  );
-}
-assert(
-  worstRotationError < 0.12,
-  `same-tick rotation error ${worstRotationError}; client ticks ${network.world.tick}/${observer.world.tick}`,
-);
-assert(
-  worstPositionError < predicted().maxSpeed / 30,
-  `same-tick position error ${worstPositionError} exceeds one tick of travel`,
-);
-input.turn = 0;
-await fly({ ticks: 60 });
-input.thrust = 0;
-await fly({ ticks: 30 });
-// Short-tap presentation is checked with controlled timing and clear space in
-// remote-input-response.test.ts; procedural contacts can legitimately reverse spin.
-clearInterval(pilot);
-clearInterval(observing);
-const stoppedRemote = observer.world.entities.get(shipId)!;
-
-assert(
-  Math.abs(stoppedRemote.rotation - predicted().rotation) < 0.01,
-  'both clients agree after steering stops too',
-);
-console.log(
-  `Two-client turning: worst same-tick rotation error ${worstRotationError.toFixed(4)} radians, position error ${worstPositionError.toFixed(3)} units`,
-);
-
-const authority = server.world.entities.get(shipId);
-const client = predicted();
-
-assert(authority?.kind === 'ship');
-assert(
-  Vec.distance(client.position, from) > 100,
-  'the ship should have flown somewhere',
-);
-assert(
-  predictionStats.steps > 180,
-  `the client should have simulated in step with the server, got ${predictionStats.steps}`,
-);
-
-// Fractional prediction responds immediately without deliberately scheduling
-// controls into a future server tick.
-assert(
-  Math.abs(network.world.tick - network.serverTick) <= 1,
-  `the client should stay at server time, got ${
-    network.world.tick - network.serverTick
-  } ticks`,
-);
-assert(
-  predictionStats.worst < 1,
-  `the server corrected the predicted ship by ${predictionStats.worst} units`,
-);
-
-// The authoritative ship is only as far behind as the ticks the client is
-// predicting ahead of it can carry a ship.
-const leading = network.world.tick - network.serverTick;
-
-assert(
-  Vec.distance(authority.position, client.position) <
-    ((leading + 6) * client.maxSpeed) / 30,
-  `the authoritative ship trailed the predicted one by ${Vec.distance(authority.position, client.position)} units over ${leading} ticks`,
-);
-
-// Flying into a rock: both sides have to agree on the shape of it, not just
-// on the circle that bounds it, or the ship stops short of what is drawn.
-const settling = setInterval(() => network.update({ input }), step);
-
-input.thrust = 0;
-input.turn = 0;
-Vec.set(authority.velocity, Vec.create());
-authority.spin = 0;
-await fly({ ticks: 30 });
-
-// Keep the shape-contact fixture clear of procedural scenery. Field density
-// varies by seed, and this test needs the inserted rock to be the first hit.
-server.world.entities.forEach((entity, id) => {
-  if (
-    entity.kind !== 'ship' &&
-    Vec.distance(entity.position, authority.position) < 1500
-  ) {
-    server.world.entities.delete(id);
-  }
-});
-
-const rock = addEntity(
-  server.world,
-  createAsteroid(server.world, {
-    position: Vec.add(
-      authority.position,
-      Vec.scale(
-        Vec.create(Math.cos(authority.rotation), Math.sin(authority.rotation)),
-        700,
-      ),
-    ),
-    radius: 150,
-  }),
-);
-// Turn its deepest face towards the ship, so where it comes to rest tells the
-// rock's own shape apart from the circle that merely bounds it.
-const shapeOutline = shapeOutlineOf(rock);
-const faces = shapeOutline.map(([x, y], i) => {
-  const [toX, toY] = shapeOutline[(i + 1) % shapeOutline.length];
-
-  return Vec.create((x + toX) / 2, (y + toY) / 2);
-});
-const deepest = faces.reduce((best, face) =>
-  Vec.length(face) < Vec.length(best) ? face : best,
-);
-const towards = Vec.subtract(authority.position, rock.position);
-
-rock.rotation =
-  Math.atan2(towards.y, towards.x) - Math.atan2(deepest.y, deepest.x);
-rock.spin = 0;
-
-Object.assign(predictionStats, { corrections: 0, steps: 0, worst: 0 });
-input.thrust = 1;
-await fly({ ticks: 240 });
-clearInterval(settling);
-
-const resting = server.world.entities.get(shipId);
-
-assert(resting?.kind === 'ship');
-const gap = Vec.distance(resting.position, rock.position);
-
-assert(
-  gap < rock.radius + resting.radius - 15,
-  `the ship stopped ${gap} units out, no nearer than the ${
-    rock.radius + resting.radius
-  } unit circle bounding a rock it should have come right up against`,
-);
-assert(
-  asteroidContact({
-    asteroid: rock,
-    position: resting.position,
-    // The Mustang's horn drill reaches seven units beyond its nominal hull radius.
-    radius: resting.radius + 10,
-  }),
-  'the ship should be resting against the rock it is drawn against',
-);
-assert(
-  !asteroidContact({
-    asteroid: rock,
-    position: resting.position,
-    radius: resting.radius - 3,
-  }),
-  'the ship should be resting against the rock, not sunk into it',
-);
-assert(
-  predictionStats.worst < 6,
-  `the collision was predicted ${predictionStats.worst} units out`,
-);
-
-// Drive a real authoritative ship-to-ship bump over both socket connections.
-// Clear a small test arena and reset damaged hulls from the drilling approach.
-const centre = Vec.add(resting.position, Vec.create(0, 400));
-const worstBeforeArenaReset = predictionStats.worst;
-
-server.world.entities.forEach((entity, id) => {
-  if (
-    entity.playerId === undefined &&
-    Vec.distance(entity.position, centre) < 600
-  ) {
-    server.world.entities.delete(id);
-  }
-});
-const attacker = addEntity(
-  server.world,
-  createShip(server.world, {
-    id: shipId,
-    playerId: network.playerId,
-    position: Vec.add(centre, Vec.create(-220)),
-    rotation: 0,
-  }),
-);
-const target = addEntity(
-  server.world,
-  createShip(server.world, {
-    id: observer.shipId,
-    playerId: observer.playerId,
-    position: Vec.add(centre, Vec.create()),
-    rotation: Math.PI,
-  }),
-);
-
-input.thrust = 0;
-const bumping = setInterval(() => {
-  network.update({ input });
-  observer.update({ input: emptyPlayerInput() });
-}, step);
-
-await fly({ ticks: 30 });
-// Moving both ships into the arena is test setup, not flight misprediction.
-predictionStats.worst = worstBeforeArenaReset;
-const contactsSeen = new Map([
-  [network, 0],
-  [observer, 0],
-]);
-let worstContactOffset = 0;
-const watching = setInterval(() => {
-  for (const client of [network, observer]) {
-    const own = client.world.entities.get(client.shipId!)!;
-    const other = client.world.entities.get(
-      client === network ? target.id : attacker.id,
-    )!;
-
-    if (!other) continue;
-    const contacts = detectCollisions({ entities: [own, other] }).filter(
-      (contact) =>
-        contact.collider.physics !== false && contact.other.physics !== false,
-    );
-
-    if (!contacts.length) continue;
-    contactsSeen.set(client, contactsSeen.get(client)! + 1);
-    const now = performance.now();
-    const pose = client.remoteMotion
-      .sample({ now, world: client.world, shipId: client.shipId })
-      .get(other.id)!;
-    // An explicit correction may remain, but sampling must follow new
-    // geometry immediately rather than interpolating buffered world poses.
-    const position = Vec.clone(other.position);
-    const rotation = other.rotation;
-    const shift = Vec.create(1, 2);
-
-    Vec.add(other.position, shift, other.position);
-    other.rotation += 0.01;
-    const shifted = client.remoteMotion
-      .sample({ now, world: client.world })
-      .get(other.id)!;
-
-    Vec.set(other.position, position);
-    other.rotation = rotation;
-    const expectedPosition = Vec.add(pose.position, shift);
-    const expectedRotation = pose.rotation + 0.01;
-
-    worstContactOffset = Math.max(
-      worstContactOffset,
-      Vec.distance(shifted.position, expectedPosition),
-      // Interpolation can represent the identical heading one full turn apart.
-      Math.abs(
-        Math.atan2(
-          Math.sin(shifted.rotation - expectedRotation),
-          Math.cos(shifted.rotation - expectedRotation),
+  const rock = addEntity(
+    server.world,
+    createAsteroid(server.world, {
+      position: Vec.add(
+        authority.position,
+        Vec.scale(
+          Vec.create(
+            Math.cos(authority.rotation),
+            Math.sin(authority.rotation),
+          ),
+          700,
         ),
       ),
-    );
-  }
-}, 8);
+      radius: 150,
+    }),
+  );
+  // Turn its deepest face towards the ship, so where it comes to rest tells the
+  // rock's own shape apart from the circle that merely bounds it.
+  const shapeOutline = shapeOutlineOf(rock);
+  const faces = shapeOutline.map(([x, y], i) => {
+    const [toX, toY] = shapeOutline[(i + 1) % shapeOutline.length];
 
-input.thrust = 1;
-await fly({ ticks: 120 });
-input.thrust = 0;
-await fly({ ticks: 30 });
-clearInterval(watching);
-clearInterval(bumping);
-assert(
-  [...contactsSeen.values()].every((count) => count > 0),
-  'both clients must actually simulate physical contact',
-);
-assert(
-  Vec.distance(target.position, centre) > 1,
-  'the authoritative target must receive the bump',
-);
-assert(
-  worstContactOffset < 1e-8,
-  `contact interpolation adds ${worstContactOffset} beyond its visual correction`,
-);
-console.log(
-  `Ship bump: ${[...contactsSeen.values()].join('/')} contact samples by client, ${worstContactOffset.toFixed(6)} extra interpolation offset`,
-);
+    return Vec.create((x + toX) / 2, (y + toY) / 2);
+  });
+  const deepest = faces.reduce((best, face) =>
+    Vec.length(face) < Vec.length(best) ? face : best,
+  );
+  const towards = Vec.subtract(authority.position, rock.position);
 
-await server.stop();
-observer.world.entities.clear();
-assert.equal(
-  observer.remoteMotion.sample({ world: observer.world }).size,
-  0,
-  'unloaded ships leave no presentation history',
-);
-console.log(
-  `prediction test passed: ${predictionStats.steps} predicted ticks, ` +
-    `${predictionStats.corrections} corrections, ` +
-    `${predictionStats.worst.toFixed(3)} units of worst ship correction`,
-);
-process.exit(0);
+  rock.rotation =
+    Math.atan2(towards.y, towards.x) - Math.atan2(deepest.y, deepest.x);
+  rock.spin = 0;
+
+  Object.assign(predictionStats, { corrections: 0, steps: 0, worst: 0 });
+  input.thrust = 1;
+  await fly({ ticks: 240 });
+  clearInterval(settling);
+
+  const resting = server.world.entities.get(shipId);
+
+  assert(resting?.kind === 'ship');
+  const gap = Vec.distance(resting.position, rock.position);
+
+  assert(
+    gap < rock.radius + resting.radius - 15,
+    `the ship stopped ${gap} units out, no nearer than the ${
+      rock.radius + resting.radius
+    } unit circle bounding a rock it should have come right up against`,
+  );
+  assert(
+    asteroidContact({
+      asteroid: rock,
+      position: resting.position,
+      // The Mustang's horn drill reaches seven units beyond its nominal hull radius.
+      radius: resting.radius + 10,
+    }),
+    'the ship should be resting against the rock it is drawn against',
+  );
+  assert(
+    !asteroidContact({
+      asteroid: rock,
+      position: resting.position,
+      radius: resting.radius - 3,
+    }),
+    'the ship should be resting against the rock, not sunk into it',
+  );
+  assert(
+    predictionStats.worst < 6,
+    `the collision was predicted ${predictionStats.worst} units out`,
+  );
+
+  // Drive a real authoritative ship-to-ship bump over both socket connections.
+  // Clear a small test arena and reset damaged hulls from the drilling approach.
+  const centre = Vec.add(resting.position, Vec.create(0, 400));
+  const worstBeforeArenaReset = predictionStats.worst;
+
+  server.world.entities.forEach((entity, id) => {
+    if (
+      entity.playerId === undefined &&
+      Vec.distance(entity.position, centre) < 600
+    ) {
+      server.world.entities.delete(id);
+    }
+  });
+  const attacker = addEntity(
+    server.world,
+    createShip(server.world, {
+      id: shipId,
+      playerId: network.playerId,
+      position: Vec.add(centre, Vec.create(-220)),
+      rotation: 0,
+    }),
+  );
+  const target = addEntity(
+    server.world,
+    createShip(server.world, {
+      id: observer.shipId,
+      playerId: observer.playerId,
+      position: Vec.add(centre, Vec.create()),
+      rotation: Math.PI,
+    }),
+  );
+
+  input.thrust = 0;
+  const bumping = setInterval(() => {
+    network.update({ input });
+    observer.update({ input: emptyPlayerInput() });
+  }, step);
+
+  await fly({ ticks: 30 });
+  // Moving both ships into the arena is test setup, not flight misprediction.
+  predictionStats.worst = worstBeforeArenaReset;
+  const contactsSeen = new Map([
+    [network, 0],
+    [observer, 0],
+  ]);
+  let worstContactOffset = 0;
+  const watching = setInterval(() => {
+    for (const client of [network, observer]) {
+      const own = client.world.entities.get(client.shipId!)!;
+      const other = client.world.entities.get(
+        client === network ? target.id : attacker.id,
+      )!;
+
+      if (!other) continue;
+      const contacts = detectCollisions({ entities: [own, other] }).filter(
+        (contact) =>
+          contact.collider.physics !== false && contact.other.physics !== false,
+      );
+
+      if (!contacts.length) continue;
+      contactsSeen.set(client, contactsSeen.get(client)! + 1);
+      const now = performance.now();
+      const pose = client.remoteMotion
+        .sample({ now, world: client.world, shipId: client.shipId })
+        .get(other.id)!;
+      // An explicit correction may remain, but sampling must follow new
+      // geometry immediately rather than interpolating buffered world poses.
+      const position = Vec.clone(other.position);
+      const rotation = other.rotation;
+      const shift = Vec.create(1, 2);
+
+      Vec.add(other.position, shift, other.position);
+      other.rotation += 0.01;
+      const shifted = client.remoteMotion
+        .sample({ now, world: client.world })
+        .get(other.id)!;
+
+      Vec.set(other.position, position);
+      other.rotation = rotation;
+      const expectedPosition = Vec.add(pose.position, shift);
+      const expectedRotation = pose.rotation + 0.01;
+
+      worstContactOffset = Math.max(
+        worstContactOffset,
+        Vec.distance(shifted.position, expectedPosition),
+        // Interpolation can represent the identical heading one full turn apart.
+        Math.abs(
+          Math.atan2(
+            Math.sin(shifted.rotation - expectedRotation),
+            Math.cos(shifted.rotation - expectedRotation),
+          ),
+        ),
+      );
+    }
+  }, 8);
+
+  input.thrust = 1;
+  await fly({ ticks: 120 });
+  input.thrust = 0;
+  await fly({ ticks: 30 });
+  clearInterval(watching);
+  clearInterval(bumping);
+  assert(
+    [...contactsSeen.values()].every((count) => count > 0),
+    'both clients must actually simulate physical contact',
+  );
+  assert(
+    Vec.distance(target.position, centre) > 1,
+    'the authoritative target must receive the bump',
+  );
+  assert(
+    worstContactOffset < 1e-8,
+    `contact interpolation adds ${worstContactOffset} beyond its visual correction`,
+  );
+  console.log(
+    `Ship bump: ${[...contactsSeen.values()].join('/')} contact samples by client, ${worstContactOffset.toFixed(6)} extra interpolation offset`,
+  );
+
+  await server.stop();
+  observer.world.entities.clear();
+  assert.equal(
+    observer.remoteMotion.sample({ world: observer.world }).size,
+    0,
+    'unloaded ships leave no presentation history',
+  );
+  console.log(
+    `prediction test passed: ${predictionStats.steps} predicted ticks, ` +
+      `${predictionStats.corrections} corrections, ` +
+      `${predictionStats.worst.toFixed(3)} units of worst ship correction`,
+  );
+} finally {
+  await server.stop();
+  clock.restore();
+}

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
-import { GameSession } from '../src/server/game-session';
+import { createTestSession } from './helpers/create-session';
+import type { GameSession } from '../src/server/game-session';
 import { parseClientMessage } from '../src/server/parse-client-message';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
 import { createAsteroid } from '../src/shared/simulation/asteroid';
@@ -56,7 +57,7 @@ try {
       now = 0;
       delay = 0;
       packets.length = 0;
-      session = new GameSession({ worldSeed: 25 });
+      session = createTestSession({ worldSeed: 25 });
       Reflect.get(session, 'regions').sync = () => {};
       const clients = Array.from(
         { length: 2 },
@@ -119,7 +120,9 @@ try {
           })
           .get(pilot.id)?.position;
 
-      for (let frame = 1; frame <= 600; frame++) {
+      // The steering release is at five seconds; two more seconds cover
+      // subsequent contacts and delayed reconciliation.
+      for (let frame = 1; frame <= 420; frame++) {
         now = (frame * 1000) / 60;
         delay = frame > 10 ? latency + (frame % 12 === 0 ? 20 : 0) : 0;
 

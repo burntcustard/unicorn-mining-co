@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import type WebSocket from 'ws';
 import * as Vec from '../src/shared/vector';
-import { GameSession } from '../src/server/game-session';
+import { createTestSession } from './helpers/create-session';
+import type { GameSession } from '../src/server/game-session';
 import { parseClientMessage } from '../src/server/parse-client-message';
 import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
 import { emptyPlayerInput } from '../src/shared/protocol/input';
@@ -101,7 +102,7 @@ try {
         index = 0;
         profile = 'setup';
         packets.length = 0;
-        session = new GameSession({ worldSeed: 25 });
+        session = createTestSession({ worldSeed: 25 });
         Reflect.get(session, 'regions').sync = () => {};
         const clients = Array.from(
           { length: players },
@@ -191,7 +192,9 @@ try {
             }),
           );
         let nextTick = 1000 / 30;
-        const seconds = 6;
+        // Steering ends at three seconds. Retain a second of recovery and
+        // all delivery/player/frame-rate combinations.
+        const seconds = 4;
 
         for (let frame = 1; frame <= seconds * fps; frame++) {
           now = (frame * 1000) / fps;
