@@ -293,6 +293,61 @@ const dockingShape = () => {
 dockingShape();
 dockedMovement();
 
+const stationExitSlowdown = () => {
+  for (const rotation of [0, 0.5, 1, 1.3]) {
+    const world = createWorld();
+    const station = addEntity(world, new Station({ id: 100, spin: 0.1 }));
+
+    const ship = addEntity(
+      world,
+      createShip(world, {
+        playerId: 7,
+        position: Vec.create(station.localMovementRadius - 1),
+        rotation,
+      }),
+    );
+
+    addPlayer(world, { id: 7, shipId: ship.id });
+    ship.localMovementParent = station;
+    ship.localMovementRate = 1;
+    Vec.setXY(
+      ship.velocity,
+      ship.maxSpeed * Math.cos(rotation),
+      ship.maxSpeed * Math.sin(rotation),
+    );
+
+    const input = {
+      hornDrill: false,
+      cargoHatch: false,
+      launch: false,
+      searchLight: false,
+      shieldGenerator: false,
+      thrust: 1,
+      turn: 0,
+    };
+
+    const inputs = new Map([[7, input]]);
+
+    updateWorld({ world, inputs });
+    assert(!ship.localMovementParent, 'the ship leaves the station area');
+    assert.equal(ship.localMovementRate, 0);
+
+    const exitSpeed = Vec.length(ship.velocity);
+
+    input.thrust = 0;
+
+    for (let tick = 0; tick < 90; tick++) updateWorld({ world, inputs });
+
+    assert.equal(ship.thrust, 0);
+    assert(
+      Vec.length(ship.velocity) < exitSpeed / 2,
+      `the ship slows after releasing thrust outside the station at ${rotation}`,
+    );
+  }
+};
+
+stationExitSlowdown();
+
 const compoundShipGeometry = () => {
   const world = createWorld();
   const first = createShip(world, { position: Vec.create() });

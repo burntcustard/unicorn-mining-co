@@ -217,13 +217,12 @@ func (o *GameObject) Update(dt float64) {
 	if speedSquared < o.Rules.Motion.MinimumSpeedSquared {
 		o.Velocity = Vec.Vector{}
 	} else {
-		var kept float64
+		kept := math.Exp(-drag * dt)
 
+		// The speed limit must not bypass drag when rounded motion sits above it.
 		if maxSpeed < 0 || speedSquared > maxSpeed*maxSpeed {
 			speed := math.Sqrt(speedSquared)
-			kept = max(maxSpeed, speed*math.Pow(o.Rules.Motion.MaxSpeedDrag, dt*60)) / speed
-		} else {
-			kept = math.Exp(-drag * dt)
+			kept = min(kept, max(maxSpeed, speed*math.Pow(o.Rules.Motion.MaxSpeedDrag, dt*60))/speed)
 		}
 
 		o.Velocity = Vec.Scale(o.Velocity, kept)

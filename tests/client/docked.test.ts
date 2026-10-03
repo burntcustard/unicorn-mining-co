@@ -384,8 +384,10 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     const cap = 17 * type.forwardThrust * fraction;
     expectedSpeed += 220 * type.forwardThrust * fraction / departing.mass * forward * dt;
     if (expectedSpeed < 1) expectedSpeed = 0;
-    expectedSpeed = expectedSpeed > cap ? Math.max(cap, expectedSpeed * 0.9) :
-      expectedSpeed * Math.exp(-departing.drag * dt);
+    // Normal drag still slows a ship when the launch speed cap changes.
+    const draggedSpeed = expectedSpeed * Math.exp(-departing.drag * dt);
+    expectedSpeed = expectedSpeed > cap ? Math.min(draggedSpeed, Math.max(cap, expectedSpeed * 0.9)) :
+      draggedSpeed;
     expectedX = roundMotion(expectedX + expectedSpeed * dt);
     expectedSpeed = roundMotion(expectedSpeed);
     departing.fly(departing.launching ? 1 : 0, 0);

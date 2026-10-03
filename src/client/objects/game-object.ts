@@ -185,10 +185,15 @@ export class GameObject {
     if (speedSquared < motion.minimumSpeedSquared) velocity.x = velocity.y = 0;
     else {
       const speed = Math.sqrt(speedSquared);
-      const kept =
-        speed > maxSpeed
-          ? Math.max(maxSpeed, speed * motion.maxSpeedDrag ** (dt * 60)) / speed
-          : Math.exp(-drag * dt);
+      let kept = Math.exp(-drag * dt);
+
+      // The speed limit must not bypass drag when rounded motion sits above it.
+      if (speed > maxSpeed) {
+        kept = Math.min(
+          kept,
+          Math.max(maxSpeed, speed * motion.maxSpeedDrag ** (dt * 60)) / speed,
+        );
+      }
 
       Vec.scale(velocity, kept, velocity);
     }
