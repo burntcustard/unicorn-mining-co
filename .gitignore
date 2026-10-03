@@ -1,7 +1,4 @@
-/node_modules
+/benchmarking/local
+/bin
 /dist
-
-bin
-
-# Scratch benchmark runs; curate useful captures under benchmarking/experiments.
-/benchmarking/local/
+/node_modules
