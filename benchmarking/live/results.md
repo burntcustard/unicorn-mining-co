@@ -46,3 +46,18 @@ Rates are ranges of client medians across workloads; delays are the worst worklo
 Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
 
 Module cases recorded 253, 1,634, 3,639 and 142 client exceptions at 4, 8, 16 and 32 players respectively. The 32-player contact case also recorded 192 client exceptions. Errors involved undefined `forEach`/`X` properties and `e.nt` not being a function, limiting comparisons for these cases. The remaining cases recorded no client exceptions.
+
+## 3 October 2026 at 13:38:08 BST
+
+Run against deployed entry asset `index-DHaB6QQo.js`, using Chrome 153.0.8010.12, a 320 × 200 viewport, 15 seconds of warmup and 60 seconds of measurement per case, and 120-second cooldowns between player counts. All 16 cases completed with no client exceptions.
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| ------- | ---------------- | --------------------- | ------------------ | --------------------- |
+| 4       | 30.00            | 36.1                  | 63.4               | 8.5–49.0              |
+| 8       | 30.00–30.04      | 43.5                  | 77.2               | 9.6–66.0              |
+| 16      | 29.98–30.00      | 105.1                 | 207.1              | 10.8–156.9            |
+| 32      | 30.09–30.11      | 323.5                 | 1142.8             | 34.8–99.9             |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.

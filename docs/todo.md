@@ -2,8 +2,6 @@
 
 ## Ongoing
 
-[-] Further improve server CPU performance, limits still hit with 2 players
-
 ## High Priority
 
 [x] Fix drilling particles coming from center of drill not contact point
@@ -22,6 +20,8 @@
 [x] Fix getting all your credits back (500) on respawn. Should have old credits.
 [x] Fix sparks not being the color of the outline of object being damaged
 [x] Fix horizontal menu selecting BACK instead of colors when down pressed
+[x] Further improve server CPU performance, limits still hit with 2 players
+[ ] Fix crash sound not playing
 
 ## MVP
 
