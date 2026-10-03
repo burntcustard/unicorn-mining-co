@@ -23,6 +23,11 @@ jobs:
           node-version: 26
           cache: npm
 
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
       - run: npm ci
       - run: npm run lint
       - run: npm test

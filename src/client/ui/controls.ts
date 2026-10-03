@@ -1,10 +1,10 @@
-import { colors } from '../../shared/colors';
-import { textOutline } from '../text-outline';
-import { renderText } from '../text';
-import { type Module } from '../../shared/modules/module';
-import { type Ship } from '../../shared/craft/ship';
-import { moduleControls } from '../../shared/craft/control-ship';
-import { moduleBinding } from '../keybindings';
+import { colors } from '../../definitions/colors';
+import { textOutline } from '../rendering/text/text-outline';
+import { renderText } from '../rendering/text/text';
+import { type Module } from '../objects/modules/module';
+import { type Ship } from '../objects/ship';
+import { moduleControls } from '../objects/control-ship';
+import { moduleBinding } from '../input/keybindings';
 
 /**
  * The bottom-right readout of the ship's modules, after the fashion of an Elite

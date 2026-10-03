@@ -22,10 +22,10 @@ const bundle = await rolldown({
         if (id === '\0input-latency') {
           return `
             export { GameLoop } from '${process.cwd()}/src/client/game-loop.ts';
-            export { initKeys } from '${process.cwd()}/src/client/input.ts';
-            export { PredictionManager } from '${process.cwd()}/src/client/prediction.ts';
-            export { addEntity, addPlayer, createWorld } from '${process.cwd()}/src/shared/simulation/world.ts';
-            export { createShip } from '${process.cwd()}/src/shared/craft/create-ship.ts';
+            export { initKeys } from '${process.cwd()}/src/client/input/input.ts';
+            export { PredictionManager } from '${process.cwd()}/src/client/prediction/prediction.ts';
+            export { addEntity, addPlayer, createWorld } from '${process.cwd()}/src/client/simulation/world.ts';
+            export { createShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
           `;
         }
 
@@ -33,7 +33,7 @@ const bundle = await rolldown({
           return 'export const context={clearRect(){}};';
         }
 
-        if (id.endsWith('/src/client/sound-loader.ts')) {
+        if (id.endsWith('/src/client/audio/sound-loader.ts')) {
           return 'export const unlockAudio=()=>{};';
         }
       },

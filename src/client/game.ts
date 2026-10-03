@@ -1,6 +1,6 @@
 import { init } from './core';
-import { type Craft } from '../shared/craft/craft';
-import { type GameObject } from '../shared/game-object';
+import { type Craft } from './objects/craft';
+import { type GameObject } from './objects/game-object';
 
 export type GameState = {
   canvas: HTMLCanvasElement;

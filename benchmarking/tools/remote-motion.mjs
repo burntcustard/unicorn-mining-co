@@ -5,12 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { rolldown } from 'rolldown';
-import { minify } from 'terser';
-import {
-  buildPlugin,
-  buildPrePlugin,
-  terserMangleOptions,
-} from '../../plugins/build-plugins.js';
+import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.js';
 
 const options = Object.fromEntries(
   process.argv.slice(2).map((arg) => arg.slice(2).split(/=(.*)/s, 2)),
@@ -36,7 +31,8 @@ try {
           resolveId: (id) => (id === entryId ? entryId : undefined),
           load: (id) => (id === entryId ? workload : undefined),
           transform: (code, id) =>
-            id.endsWith('/client/remote-motion.ts') && baseline !== undefined
+            id.endsWith('/client/prediction/remote-motion.ts') &&
+            baseline !== undefined
               ? baseline
               : code,
         },
@@ -44,13 +40,9 @@ try {
         { ...buildPlugin(), generateBundle: undefined },
       ],
     });
-    const { output } = await bundle.generate({ format: 'esm' });
-    const compressed = await minify(output[0].code, {
-      ...terserMangleOptions(),
-      compress: { passes: 2 },
-    });
+    const { output } = await bundle.generate({ format: 'esm', minify: true });
 
-    await writeFile(entry, compressed.code);
+    await writeFile(entry, output[0].code);
     await bundle.close();
   }
   // Keep native timing and output labels outside production property rewriting.

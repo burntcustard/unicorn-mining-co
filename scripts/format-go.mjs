@@ -12,7 +12,7 @@ const visit = (directory) => {
   }
 };
 
-['cmd', 'internal', 'tests/go-fixtures', 'benchmarking'].forEach(visit);
+['src/server', 'benchmarking'].forEach(visit);
 files.sort((a, b) => a.localeCompare(b));
 
 const check = process.argv.includes('--check');

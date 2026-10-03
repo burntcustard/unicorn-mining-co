@@ -9,7 +9,7 @@ description: Apply Unicorn Mining Co.'s local source-style conventions when writ
   `includes` over one-off collection helpers. Use `filter` for removals when
   replacing the array is safe; preserve shared array identity with native
   mutation methods when other objects retain references to that array.
-- Keep general-purpose helpers in `src/shared/utilities`; put object-specific
+- Keep general-purpose helpers in `src/client/utilities` or `src/server/utilities`; put object-specific
   behaviour on its owning class rather than in standalone helper files.
 - Represent positions, offsets, velocities, and other `{ x, y }` values with
   `import * as Vec from '.../vector'`, using `Vec.create` and its operations.

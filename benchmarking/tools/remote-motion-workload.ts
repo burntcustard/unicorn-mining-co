@@ -1,8 +1,8 @@
-import { RemoteMotion } from '../../src/client/remote-motion';
-import { GameObject } from '../../src/shared/game-object';
-import { addEntity, createWorld } from '../../src/shared/simulation/world';
-import type { ReplicatedEntity } from '../../src/shared/protocol/network';
-import * as Vec from '../../src/shared/vector';
+import { RemoteMotion } from '../../src/client/prediction/remote-motion';
+import { GameObject } from '../../src/client/objects/game-object';
+import { addEntity, createWorld } from '../../src/client/simulation/world';
+import type { ReplicatedEntity } from '../../src/client/protocol/network';
+import * as Vec from '../../src/client/utilities/vector';
 
 // Positional settings cross the unmangled Node driver/production bundle boundary.
 export const motionFixture = ([players, scenario, seconds = 30]: [

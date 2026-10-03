@@ -1,5 +1,5 @@
 import { type GameState } from '../game';
-import { type Ship } from '../../shared/craft/ship';
+import { type Ship } from '../objects/ship';
 
 type DockedUi = (typeof import('./docked'))['default'];
 let dockedUi: DockedUi | undefined;

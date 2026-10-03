@@ -1,624 +1,68 @@
-# Benchmark tool reference
+# Benchmark tools
 
-See the [benchmarking index](../README.md) for the common commands and [saved experiments](../experiments/README.md) for evidence. Run these tools from the repository root.
+Run from the repository root. Node-server comparisons and runners depending on
+its removed implementation have been retired. Historical reports and captures
+remain under `benchmarking/experiments` and `benchmarking/archive`.
 
-## Local WebSocket transport
+## Go session CPU
 
-`websocket-transport/main.go` runs the production Go WebSocket transport over
-loopback TCP. A separate Node process verifies every outgoing frame and sends
-two masked 32-byte input/acknowledgement frames per response. The measurement
-includes server socket I/O, framing, allocation and goroutine scheduling; it
-excludes game simulation, replication, decoding and client CPU.
+Build a session test executable, including the generated catalog:
 
 ```sh
-CGO_ENABLED=0 GOEXPERIMENT=simd go build -pgo=cmd/go-server/default.pgo \
-  -o /tmp/transport-after ./benchmarking/tools/websocket-transport
-GOGC=800 node benchmarking/tools/websocket-transport.mjs \
-  /tmp/transport-after -players 16 -size 2048 -ticks 300 -hz 30
-node benchmarking/tools/websocket-transport-compare.mjs \
-  /tmp/transport-before /tmp/transport-after /tmp/transport-results.json.gz
+npm run catalog:go
+GOEXPERIMENT=simd go test -c -o /tmp/unicorn-session.test ./src/server/network
+node benchmarking/tools/go-cpu.mjs current /tmp/unicorn-session.test
 ```
 
-The comparison alternates before/after order, with five repetitions across
-4/8/16/32 clients. Each count runs 128/2,048/8,192-byte payloads as fast as
-possible for 3,000 measured exchanges, plus 150 exchanges of 2,048 bytes at
-30 Hz. All cases first complete 120 warmup exchanges. Results checkpoint to
-gzip JSON with executable and harness hashes. Compare medians within each case,
-then give each player count equal weight when summarizing CPU reductions.
+The runner measures convoy, spread, contact and module workloads at 4/8/16/32
+players, using a shared CPU affinity. `PLAYERS`, `WORKLOADS`, `TICKS`,
+`REPETITIONS`, and `CPUSET` configure it. Its optional third argument is a previous
+JSON or gzipped JSON result. Measurements include full session simulation and
+packet construction with in-memory socket sinks, excluding real network latency.
 
-The driver defaults to `GOGC=800` and leaves CPU scheduling automatic. Optional `PLAYERS`, `SIZES`,
-`REPETITIONS`, `TICKS`, and `PACED_TICKS` select benchmark cases; `PACED_TICKS=0`
-skips paced runs. `BENCH_CPU_AFFINITY=0,1` pins only the Go child on Linux; run the Node
-driver under `taskset` on different available CPUs to keep generator work away
-from the server. Use like cores and serialize benchmarks, builds and tests.
-
-Pass `-profile /tmp/transport.pprof` to the single-run tool for a CPU profile.
-Profiling and `strace` are diagnostic runs and must not supply comparison timings.
-This synthetic workload waits for every connection each exchange, so its
-latencies and CPU ratios do not predict complete game-server or Fly VM usage.
-See the [transport investigation](../../docs/experiments/2026-10-02/websocket-transport-2026-10-02.md)
-for results, limitations and baseline build instructions.
-
-### Complete game server at 30 Hz
-
-The same executable accepts `-game` to start the production `GameServer` on an
-ephemeral port. The client uses the real TypeScript control encoder and snapshot
-decoder, validates every sequence, acknowledges each snapshot and sends inputs
-on independent 30 Hz timers. Inputs are staggered across a tick period; the
-server keeps its normal timer. The driver checks every client's input and
-snapshot rate and reports snapshot gaps and input acknowledgement delays.
-Protocol bundling and connection startup precede measurement.
+For sequential alternating before/after executables:
 
 ```sh
-GOGC=800 node benchmarking/tools/websocket-transport.mjs \
-  /tmp/transport-after -game -players 16 -ticks 180
-GAME=1 REPETITIONS=3 PACED_TICKS=180 \
-  node benchmarking/tools/websocket-transport-compare.mjs \
-  /tmp/transport-before /tmp/transport-after /tmp/game-results.json.gz
+node benchmarking/tools/go-cpu-paired.mjs change BEFORE_EXECUTABLE AFTER_EXECUTABLE
 ```
 
-`GAME=1` compares 4/8/16/32 players in both idle and held-thrust flight, with
-four seconds of warmup and `PACED_TICKS` measured tick periods. Optional
-`ACTIVITIES=idle,flight` selects activities; `ACTIVITY=idle` selects an individual
-run. Game mode always uses the catalog's 30 Hz rate. Each count/activity has
-equal weight in the [multicore networking report](../../docs/experiments/2026-10-02/go-network-multicore-2026-10-02.md).
+Use `CPU_AFFINITY`, `PLAYERS`, `WORKLOADS`, `TICKS`, and `REPETITIONS` to configure
+paired runs. Avoid concurrent builds or browser captures during CPU measurement.
 
-`ACK_DELAY_MS=250` delays snapshot receipts at the client to check the server's
-snapshot window at 30 Hz. This models delayed receipts, not a complete network
-round trip. Input acknowledgements must advance monotonically and cannot
-acknowledge unsent inputs. Treat these runs as validation, separate from CPU
-timing comparisons.
-
-The Go session comparison tools also leave CPU scheduling automatic and default
-to the full available CPU affinity mask. Give before/after runs the same CPU
-allocation; older captures that forced a single CPU are historical results.
-
-## Live deployment
-
-Use this suite to profile the deployed game with real browser players. Run from
-the repository root with an installed Chrome/Chromium:
+Refresh the executable's PGO profile after package/function changes:
 
 ```sh
-CHROME_BIN=/path/to/chrome \
-  node benchmarking/tools/live.mjs
-
-node benchmarking/tools/live-report.mjs \
-  benchmarking/local/START-TIME.json.gz
+SESSION_RESULT=/tmp/session.json SESSION_PLAYERS=8 SESSION_TICKS=900 \
+SESSION_WORKLOAD=module GOEXPERIMENT=simd go test \
+  -run '^TestSessionBenchmark$' -cpuprofile=/tmp/server.pgo \
+  -o /tmp/unicorn-profile.test ./src/server/network
+cp /tmp/server.pgo src/server/default.pgo
 ```
 
-Every run uses **4, 8, 16, then 32 players**, all **headless at 320 × 200** pixels.
-For each count it runs **convoy, spread, contact, then module**, in that order.
-Each activity uses fresh isolated browser contexts, 15 seconds of warmup and
-60 seconds of measurement by default. After the fourth activity, all players
-are disconnected and the runner waits **120 seconds before starting the next
-player count**. There is no cooldown between activities or after 32 players.
-That gives 16 measured cases and three cooldowns: 4 → 8, 8 → 16 and 16 → 32.
-Allow roughly 30 minutes, including 20 minutes of activity, six minutes of
-cooldown, and browser joining/cleanup time.
-
-| Variable        | Default                      | Meaning                       |
-| --------------- | ---------------------------- | ----------------------------- |
-| `CHROME_BIN`    | `google-chrome`              | Browser executable            |
-| `BENCH_URL`     | `https://unicorn-mining.co/` | Deployment to visit           |
-| `BENCH_WARMUP`  | `15`                         | Warmup seconds per activity   |
-| `BENCH_SECONDS` | `60`                         | Measured seconds per activity |
-
-Player counts, activity order, viewport and cooldown are fixed in
-[live-suite.mjs](live-suite.mjs); Chrome always launches headlessly.
-These settings have no environment overrides.
-`PLAYERS`, `WORKLOADS`, `BENCH_WIDTH`, `BENCH_HEIGHT` and `BENCH_COOLDOWN`
-from older commands are no longer used.
-
-The suite controls the deployed client's normal keyboard handlers, verifies
-unique ship identities, and presses the normal respawn key after destruction.
-Convoy follows a shared heading; spread fans out; contact pursues paired ships;
-module pursues visible asteroids with drilling and periodic hatch/light toggles.
-These approximate the [local session workloads](session.ts); positions,
-asteroids and outside visitors are determined by the live world.
-
-Raw captures are checkpointed in ignored `benchmarking/local/`, using the UTC
-start time. An optional output path overrides that scratch destination. After
-all cases finish and Chrome stops, the runner automatically appends dated tables
-to [live/results.md](../live/results.md). The report command above can recover
-results from an interrupted run; it rejects already-reported captures. Each run
-has a Europe/London date and time heading and one compact server/network table.
-An optional second report argument writes a standalone scratch report.
-Live benchmark reports stay out of `docs/experiments`.
-
-The gzip JSON is checkpointed after each case and cooldown, with failures saved.
-It records frame times, snapshots, CDP transport timing, input acknowledgement
-delays, positions and simulation clocks, errors/disconnects, activity checks,
-local CPU/task cost, observer decode overhead, deployment hashes and settings.
-UTC measurement and cooldown start/end times are printed for concurrent server
-profiling; report timelines use Europe/London. Reconnect tokens are not saved.
-Server CPU must come from a separate server profile: tick progress, transport
-gaps and acknowledgements provide indirect evidence of service pressure.
-Local CPU percentages describe the load generator.
-
-The three runtime parts are [live.mjs](live.mjs) for Chrome/CDP and recording,
-[live-browser-probe.mjs](live-browser-probe.mjs) for browser observation, and
-[live-suite.mjs](live-suite.mjs) for fixed settings and scheduling.
-[live-report.mjs](live-report.mjs) reads saved data without launching players.
-A startup breakpoint exposes the client's network instance; the debugger is
-disabled before warmup. Shared protocol decoders observe normal binary traffic;
-served application bytes are unchanged. Observer cost is recorded.
-
-Before capturing, stop competing benchmarks, builds and tests, and inspect
-local processes/ports. The runner starts no local game server. It owns one
-Chromium with a temporary profile and dynamically allocated debugging port,
-and disposes every case's contexts before proceeding. It stops its browser in
-`finally`; avoid SIGKILL, which bypasses cleanup.
-
-For deployment comparisons, save each run to a new file and compare all 16
-rows with matching host, browser and timing settings. Shared-world contents
-and CPU burst budgets can vary, so repeat full runs if findings are ambiguous.
-Changed snapshot cadence affects acknowledgement delays and bandwidth.
-
-## Browser rendering
-
-The following rendering suite tests local visual features.
-
-Run the repeatable browser benchmark with:
+## WebSocket transport
 
 ```sh
-npm run benchmark
+CGO_ENABLED=0 GOEXPERIMENT=simd go build -pgo=./src/server/default.pgo \
+  -o /tmp/unicorn-transport ./benchmarking/tools/websocket-transport
+node benchmarking/tools/websocket-transport.mjs /tmp/unicorn-transport -game
 ```
 
-It starts Vite in the dedicated `benchmark` mode, opens a clean Chrome window,
-and tests at a 2880 x 1800 viewport matching a high-resolution MacBook Pro.
-The suite isolates the sky modes, background, lighting effects,
-movement, collision detection, and all physics. It prints each result as it
-completes and finishes with machine-readable JSON.
-
-The benchmark-only query switches in `src/client/main.ts` and `src/client/lighting.ts` are
-removed from normal builds by Vite. They are not available in the development
-or release modes.
-
-Environment variables:
-
-- `BENCH_SECONDS`: measurement time per test; default `5`.
-- `BENCH_WARMUP`: page warm-up time per test; default `2`.
-- `BENCH_FILTER`: run only tests whose names contain this text.
-- `BENCH_HEADLESS=1`: run Chrome headlessly (useful in CI). By default the
-  benchmark is visible in a normal Chrome window while it runs.
-- `BENCH_GAME_PORT`: local Vite port; default `4273`.
-- `BENCH_DEBUG_PORT`: Chrome debugging port; default `9333`.
-- `CHROME_BIN`: Chrome or Chromium executable; default `google-chrome`.
-
-The absolute result depends heavily on whether Chrome uses hardware or software
-rasterization. Comparisons between variants from the same run are the useful
-part.
-
-## Server tick profiling
-
-```sh
-node --import tsx benchmarking/tools/server-performance.mjs
-node --import tsx benchmarking/tools/server-performance.mjs --flight
-```
-
-The first command measures empty, one-player and three-player sessions at spawn
-and in the northern asteroid field. The second moves one player through ten
-minutes of simulation at 300 world units per simulated second, without sending
-mining inputs. It sets the position directly to keep the route repeatable; it is
-not a browser flight or a real-time networking test.
-
-Each JSON line covers 1,000 ticks and includes wall time, process CPU time,
-active entities, loaded/saved regions, sleeping entities, and nested phase costs.
-`geometry` is part of `collisions`, as is `solver`: do not add those columns.
-Phase costs are total milliseconds across the block; `wallPerTick` and
-`cpuPerTick` are milliseconds per tick. Socket stubs still serialize outgoing
-packets, but exclude actual transport. Run on the same machine before and after
-changes; these source-server measurements do not predict production capacity.
-
-## Three-player flight CPU comparison
-
-```sh
-node benchmarking/tools/three-player-flight.mjs --save=/tmp/before.mjs > /tmp/before.jsonl
-# After changing the source:
-node benchmarking/tools/three-player-flight.mjs --save=/tmp/after.mjs > /tmp/after.jsonl
-node benchmarking/tools/three-player-flight.mjs --bundle=/tmp/before.mjs
-node benchmarking/tools/three-player-flight.mjs --bundle=/tmp/after.mjs
-```
-
-Run these sequentially, with browser captures and other CPU-heavy tests stopped.
-The saved bundle freezes the simulation code; the same harness can replay it
-later. Keep the workspace dependencies installed because `ws` is external.
-
-Each run uses three players holding thrust with occasional steering, no mining,
-and three routes: a convoy, separated players, and an asteroid contact area.
-Only the initial placement is assigned directly. The next 300 ticks warm up the
-session; the following 9,000 ticks represent five minutes at 30 Hz. Stub sockets
-retain real snapshot serialization and hash every outgoing packet. Identical
-hashes, byte counts and final positions provide a deterministic behavior check.
-The run excludes browser rendering and real network transport.
-
-`cpuMs` is process user + system CPU milliseconds per tick, including background
-V8 work; `wallMs` is elapsed time per tick. `p50`, `p95` and `max` cover tick wall
-time. Compare repeat runs on the same machine, not these values against a Fly
-CPU capacity estimate. `--ticks=3000` shortens the measurement;
-`--scenario=convoy` selects one route. `--profile` adds inclusive phase timers
-that have their own overhead; use uninstrumented runs for final comparisons.
-A V8 sampling profile can be collected with `node --cpu-prof`.
-
-### Comparing broad-phase implementations
-
-Use `--ordered-pairs` on **both** bundles when comparing different collision
-indexes. It orders candidate fixture pairs consistently so collision ordering
-does not change the flight path, fractures, entity density or outgoing traffic.
-The production grid already uses stable fixture ordering; the flag also applies
-that order to the former tree. Check all packet hashes, byte counts, positions
-and entity counts before comparing CPU results. This normalization adds a small
-amount of benchmark-only query work.
-
-Keep the ordinary fresh-process results. Also use `--warm` to measure a running
-server after V8 compilation and procedural caches have warmed up: it runs one
-complete untimed cycle of the selected routes, creates new sessions, then
-measures the same routes. Each measured session still has its usual 300-tick
-warm-up and 9,000 measured ticks. Run identical options on both bundles; warmed
-and ordinary packet hashes differ because process-wide generated IDs advance.
-
-```sh
-node benchmarking/tools/three-player-flight.mjs --bundle=/tmp/before.mjs --ordered-pairs --warm
-node benchmarking/tools/three-player-flight.mjs --bundle=/tmp/after.mjs --ordered-pairs --warm
-```
-
-### Single-player and physics experiments
-
-`--players=1` (or `2`) selects the first players from the same routes. For a
-20-minute single-player simulation, run:
-
-```sh
-node benchmarking/tools/three-player-flight.mjs --bundle=/tmp/before.mjs --players=1 --ticks=36000 --scenario=convoy
-```
-
-The following isolated experiments compare polygon bounds using ordinary
-objects, Float64/Float32/Float16 arrays, Float64 SIMD WebAssembly, and a persistent
-two-worker pool:
-
-```sh
-node benchmarking/tools/physics-bounds-kernels.mjs
-node benchmarking/tools/physics-workers.mjs
-```
-
-They are microbenchmarks, **not full-game CPU estimates**. Kernel representations
-run in separate processes; geometry is already packed, and the Wasm kernel
-returns a checksum rather than copying four bounds back. Its readable source is
-`physics-bounds.wat`. Worker geometry is preloaded and messages contain only a
-batch size. Neither experiment includes the cost of moving live game state to
-another representation or thread. Compare total process CPU as well as elapsed
-time; Fly's shared CPU allowance applies across all threads.
-
-### Production flight replay
-
-Use this for server CPU comparisons: it applies the real property rewriting,
-shared name cache and final two Terser compression passes to the game and the
-same flight workload. Source-only timing can miss optimizations that are broken
-by minification. Native crypto and CPU-accounting accesses stay outside the game
-property rewrite. Reports use fixed positional values across that boundary.
-
-```sh
-node benchmarking/tools/production-flight.mjs --save=/tmp/production-before.mjs --warm
-# After a change:
-node benchmarking/tools/production-flight.mjs --save=/tmp/production-after.mjs --warm
-node benchmarking/tools/production-flight.mjs --bundle=/tmp/production-before.mjs --warm
-node benchmarking/tools/production-flight.mjs --bundle=/tmp/production-after.mjs --warm
-```
-
-`--players`, `--ticks` and `--scenario` work as in the source harness. Saved
-bundles freeze the game and workload; arguments still select the duration and
-route. Run comparisons serially. Production packets have mangled names, so
-compare hashes between builds with the same field-name mapping; source and
-production hashes naturally differ. Also compare positions and entity counts.
-
-`--broken-cache` is a deliberate benchmark-only fault injection reproducing the
-September 27 segment-cache bug. It restores the old key-literal comparison in
-the build without editing application files. Use it when compiling a saved
-baseline to isolate that fix; it has no effect on an already saved bundle.
-
-### Comparing CPU changes at 4, 8 and 16 players
-
-Compile one frozen production bundle per variant with
-`node benchmarking/tools/production-flight.mjs --save=/tmp/name.mjs`, then compare
-them with:
-
-```sh
-node benchmarking/tools/compare-cpu.mjs \
-  --baseline=/tmp/baseline.mjs \
-  --variant=change-one:/tmp/change-one.mjs \
-  --variant=combined:/tmp/combined.mjs \
-  --players=4 --ticks=1800 --repeats=8 \
-  --output=/tmp/cpu-comparison.json
-```
-
-The script alternates variant order, runs each replay in a separate process,
-and checks packet hashes, bytes, final positions and entity counts against the
-baseline. It uses warmed production bundles and a 16 MiB V8 semi-space. It
-reports CPU milliseconds per tick for each route, the reduction from route
-medians, and the median of repeat-paired savings across all routes. Use the
-paired aggregate when a few GC or JIT runs shift scenario medians. A local
-replay does not include live socket transport or VM contention.
-
-Source edits can shift Terser's short packet-key names even when packet values
-are identical. After a separate structural packet comparison confirms a
-consistent one-to-one key rename and identical values, add
-`--allow-mangled-wire-keys` to skip only the exact hash assertion. The runner
-still checks packet and byte counts, positions and entity counts, and marks the
-saved result with `wireHashCompared: false`. Do not use the flag to excuse an
-unexplained packet difference.
-
-The [September 28 CPU report](../archive/README.md#september-2026)
-includes the frozen-bundle hashes and raw results for standalone and combined
-changes. Its final comparisons use 1,800 measured ticks per route, with eight
-repeats at four players and five repeats at eight and sixteen players.
-
-`--cpus=2,3` runs every replay under `taskset` on those logical CPUs. Two like
-cores approximate a two-vCPU VM, where V8's helper threads share the same CPU
-quota as the main thread; pin to cores of one type on hybrid laptops.
-
-Changes to collision behavior can alter the chaotic flight paths, so exact
-hashes cannot match. `--diverge` skips the exact state and packet checks and
-gives every variant in repeat `n` the same small start offset (`--jitter=n` on
-`production-flight.mjs`), sampling a different nearby trajectory per repeat.
-Results then include median mean-entity counts and bytes so the workloads can
-be compared. Use more repeats: single routes vary by 10–30% between offsets.
-
-### Server phase and memory investigation
-
-Use one route per invocation for independently interpretable resource totals:
-
-```sh
-node benchmarking/tools/production-flight.mjs --profile --scenario=convoy --ticks=3600 --warm --semi-space=4
-node benchmarking/tools/production-flight.mjs --profile=detail --scenario=convoy --ticks=3600 --warm --semi-space=4
-node benchmarking/tools/production-flight.mjs --scenario=spread --ticks=3600 --warm --semi-space=16
-```
-
-Repeat `convoy`, `spread` and `contact`. Each command above covers 260 simulated
-seconds including warm-up. Children have a 290-second wall timeout. Serialize
-comparisons, alternate variant order and pin the same available physical CPUs
-if using `taskset`; do not run builds or other benchmarks concurrently.
-
-`--profile` injects exclusive elapsed timers through the production build and
-passes input transitions through the real wire parser. Nested phases are
-subtracted from their callers. Hashing and client wire construction are reported
-as harness costs. `--profile=detail` adds per-entity wrappers for snapshot
-extraction, base movement, carrier motion and module activation, plus fixture
-synchronization, broad-phase searches, contact updates and discrete/continuous
-solvers. It adds overhead, especially for methods called per entity. Timings are foreground hotspot estimates, not per-phase process CPU.
-Use unprofiled runs for total CPU comparisons. Profiling cannot be combined with
-`--broken-cache`.
-
-`--semi-space=N` passes `--max-semi-space-size=N` to the benchmark child only.
-`resources` reports process peak RSS, heap limit, GC count and elapsed GC duration.
-Those values include the entire child, including warm-up and all selected routes;
-`cpuMs` and `costs` cover the measured route. GC time overlaps foreground timings
-and must not be added to them. The local host's old-space default is unchanged.
-Saved bundles retain their instrumentation; `--bundle` does not rebuild them.
-
-These replays omit actual socket transport/TLS. Results and the optimization
-assessment are in [the server phase report](../archive/README.md#september-2026).
-
-### Persistent-state comparison and receiver oracle
-
-`--node-flag=--single-threaded-gc` passes an additional Node/V8 flag to a
-production-flight child for experiments. Repeat `--node-flag=...` to pass several.
-It does not change deployment flags.
-Use the same saved bundle and semi-space size for both variants.
-
-`--readable` beautifies the final production-compressed bundle for inspection.
-`--sample=/tmp/flight.cpuprofile` collects a V8 sampling profile during the
-measured route only, after warm-up; it requires one explicit `--scenario` and
-must be used when compiling the bundle. Sampling has overhead: use separate
-uninstrumented bundles for CPU comparisons.
-
-```sh
-node benchmarking/tools/production-flight.mjs --scenario=spread --ticks=3600 --warm --semi-space=16 --readable --sample=/tmp/flight.cpuprofile --save=/tmp/flight-readable.mjs
-```
-
-The [server CPU follow-up](../archive/README.md#september-2026) records
-incremental acceptance tests, rejected experiments and the complete-patch
-comparison against the deployed baseline.
-
-The replication oracle compares the new implementation with a saved previous
-`replication.ts`, reconstructing receiver state with the real client's merge and
-null-clear rules after every snapshot:
-
-```sh
-git show 442548e:src/server/replication.ts > /tmp/replication-before.ts
-node benchmarking/tools/replication-oracle.mjs --reference=/tmp/replication-before.ts --scenario=convoy --ticks=3600
-```
-
-Repeat for `spread` and `contact`. These are correctness runs, not performance
-measurements: the extra reference implementation and state assertions add work.
-The oracle permits redundant deltas and property-order changes, but requires
-identical reconstructed state. Entity lifecycle and simulation still run through
-the current source in both comparisons.
-
-See [persistent-state results](../archive/README.md#september-2026)
-for the retained implementation and the rejected region/GC experiments.
-
-The [collision cache follow-up](../archive/README.md#september-2026)
-records three-player production comparisons for persistent motion scratch data,
-cached geometry quantization, and a tighter conservative rotation bound.
-
-## Region pre-generation experiments
-
-`region-prewarm.mjs` builds a source-only experimental server bundle; it does not
-change production code or deployment configuration. The default radius is 50,000
-and seed is 25. Examples:
-
-```sh
-node benchmarking/tools/region-prewarm.mjs --mode=descriptions
-node benchmarking/tools/region-prewarm.mjs --mode=asteroids --flight --scenario=spread
-node benchmarking/tools/region-prewarm.mjs --mode=geometry --compact-geometry --indexed-removal --flight --scenario=spread
-node benchmarking/tools/region-prewarm.mjs --mode=bodies --compact-geometry --indexed-removal --validate
-node benchmarking/tools/region-prewarm.mjs --mode=bodies --compact-geometry --indexed-removal --flight --old-space=512
-```
-
-Compare `cold`, `descriptions`, `geometry` and `bodies` across `spread`, `convoy`
-and `contact`, sequentially in alternating order. `--flight` runs three players
-for 3,600 measured ticks after 300 warm-up ticks. `--activation` instead measures
-151 three-observer placements and cannot be combined with `--flight`. Other
-memory diagnostic modes are `objects`, `hitboxes` and `fixtures`. Geometry and
-body modes prepare asteroids only, preserving on-demand wreck cargo ID allocation.
-
-Each child has a 290-second wall timeout and uses a 16 MiB semi-space.
-`--cooldown=1000` settles startup work before flight setup and after warm-up.
-`--old-space=512` sets the child's V8 old-space limit, not its total RSS; the
-reported heap limit verifies flag forwarding. `--memory-limit=2048` is an RSS
-stop guard checked between regions during object preparation. Forced GC reports
-retained memory between diagnostic stages, outside flight measurements.
-
-Prepared objects stay outside active simulation and are consumed on first
-activation. This prototype does not introduce persistent mutable state for
-unloaded asteroids. `--validate` checks prepared cache use, geometry invalidation,
-mining, cargo pickup and unload/reload behavior for geometry/body modes.
-
-See [the investigation](../archive/README.md#september-2026) for
-memory tradeoffs, indexed removal, limitations and the repeated flight results.
-
-### Production description cache
-
-The server now pre-generates central descriptions using `preGeneratedRadius` in
-`src/shared/settings.ts`. The archived `region-prewarm.mjs` experiment disables
-that automatic startup step so its explicit preparation stages and `cold` mode
-still work. Indexed removal is now normal behavior in every mode;
-`--indexed-removal` remains accepted for older commands.
-
-Use `production-flight.mjs --ticks=3600 --warm --players=3 --semi-space=16`
-with one `--scenario=spread`, `convoy` or `contact` per invocation for current
-production comparisons. Save each implementation with `--save=/tmp/name.mjs`,
-then alternate runs using `--bundle=/tmp/name.mjs`. A warmed invocation runs two
-3,900-tick sessions (260 simulated seconds total); the child timeout is 290
-seconds. Compare snapshot hashes, packet bytes and positions as well as CPU.
-
-See [the implementation measurements](../archive/README.md#september-2026)
-for the description-only decision and rejected collision experiments.
-
-`--pre-generated-radius=0` overrides the setting in a newly compiled flight
-bundle, leaving the workspace's production setting unchanged. This isolates
-startup pre-generation from the remaining implementation. It was used to test
-collision skipping alone before that feature was removed. The override is embedded by
-`--save`; it has no effect when running an existing `--bundle`.
-
-The [server Set-iteration follow-up](../archive/README.md#september-2026)
-compares temporary spread-array conversions while preserving stored Sets,
-including independent candidates and the final incremental acceptance checks.
-
-## Integer and fixed-point experiments
-
-`production-flight.mjs --numeric-experiment=NAME` applies a benchmark-only
-transformation. Values are `baseline`, `grid1000`, `grid1024`, `grid1000-smi`,
-`position1000` and `vector-double`. Use the usual saved-bundle, three-player,
-three-route comparison described above; no arithmetic changes enter release builds.
-
-`node benchmarking/tools/numeric-kernels.mjs` compares prepacked object/typed-array
-arithmetic in separate processes. `node benchmarking/tools/numeric-accuracy.mjs`
-compares thin-wall, oblique, circular and sustained contacts at three world offsets.
-These probes do not constitute a complete integer physics implementation.
-
-See [the numeric representation investigation](../archive/README.md#september-2026)
-for CPU measurements, accuracy limits and raw results.
-
-## Elapsed-time catch-up
-
-`production-flight.mjs --batch-ticks=1|2|3|6` runs that many logical 30 Hz ticks
-per server callback. Keep `--ticks` divisible by the batch size. Queued inputs
-retain their logical tick offsets. The saved bundle embeds the batch size;
-passing a new size with `--bundle` does not modify an existing bundle.
-
-```sh
-node benchmarking/tools/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=spread --batch-ticks=3 --save=/tmp/flight-batch3.mjs
-node benchmarking/tools/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=convoy --bundle=/tmp/flight-batch3.mjs
-```
-
-`cpuMs` and `wallMs` remain normalized per **logical tick**; multiply by the batch
-size for cost per callback. `p50`, `p95` and `max` are wall time **per callback**.
-Compare equal simulated durations. Coarser collisions change trajectories, so
-also inspect positions/entity counts before treating CPU differences as the
-cost of the same workload.
-
-See [the elapsed-time report](../archive/README.md#september-2026) for
-normal-rate comparisons, delayed-server/client tests, browser frame times and
-limits. `npm run test:server` includes the deterministic three-client lag tests.
-
-## Object-shape and optional-argument experiments
-
-`production-flight.mjs --shape-experiment=NAME` applies one isolated build-time
-variant: `required-dt`, `tier-position`, or `world-shape`. Release builds do not
-import the experiment module. The variants respectively require an explicit
-movement delta, pass a position directly to the tier lookup, or initialize the
-world's optional movement-parent cache at creation.
-
-```sh
-node benchmarking/tools/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=spread --shape-experiment=world-shape --save=/tmp/world-shape.mjs
-node benchmarking/tools/production-flight.mjs --ticks=1800 --warm --players=3 --semi-space=16 --scenario=convoy --bundle=/tmp/world-shape.mjs
-```
-
-Save the unchanged baseline without `--shape-experiment`. Alternate saved-bundle
-runs sequentially; compare packet hashes, byte counts, entity counts and positions.
-The experiment is embedded in saved bundles, so new flags do not change a bundle.
-
-For separate V8 diagnostics, use a readable bundle and forward the logging flags:
-
-```sh
-node benchmarking/tools/production-flight.mjs --ticks=1800 --warm --scenario=spread --semi-space=16 --readable --save=/tmp/shape-readable.mjs --node-flag=--log-ic --node-flag=--no-logfile-per-isolate --node-flag=--logfile=/tmp/shape-ic.log
-node --trace-deopt --trace-file-names --max-semi-space-size=16 /tmp/shape-readable.mjs '[1800,3,true,"spread"]'
-```
-
-Diagnostic runs must not be compared with uninstrumented timings. Inline-cache
-logs record transitions, not how often a property was read. Startup map changes
-and cumulative map counts are not evidence of a continuously megamorphic site.
-See [the monomorphism follow-up](../archive/README.md#september-2026).
-
-## Networking scalability comparison
-
-The flight harness accepts `--players=1` through `--players=40`. Existing
-one-to-three-player routes are unchanged; additional players form groups around
-the same anchors, with 14,000-unit spacing for `spread` and 350 for crowded routes.
-
-`production-flight.mjs --network-baseline=DIR` overlays saved `game-session.ts`
-and `replication.ts` files during compilation. Use it to freeze the previous
-networking implementation with the same workload and production name mapping.
-It does not edit source files and does not apply to an existing `--bundle`.
-
-```sh
-node benchmarking/tools/compare-networking.mjs --before=/tmp/network-before.mjs --after=/tmp/network-after.mjs --output=/tmp/networking-results.json
-node benchmarking/tools/network-routing.mjs
-node benchmarking/tools/network-routing.mjs --network-baseline=/tmp/unicorn-network-baseline
-```
-
-The comparison defaults to 4, 8, and 16 players across convoy, spread, contact,
-and module-action routes (12 combinations), with three sequential alternating
-repeats. It requires identical packets/state, and rejects median
-process CPU increases above 10%. The routing microbenchmark isolates incoming
-snapshot acknowledgement lookup with 40 active and up to 4,000 retained
-sessions. Neither workload measures real socket throughput or browser CPU.
-See the [nengi investigation](../archive/README.md#september-2026) for exact
-baseline setup, results, limits, and the techniques considered.
-
-## Remote presentation microbenchmarks
-
-`remote-motion.mjs` builds the presentation workload through the production name
-mapping. `--baseline=FILE` substitutes a saved `remote-motion.ts`; `--save=FILE`
-freezes a bundle, and `--bundle=FILE` runs one without rebuilding. The current workload samples already-predicted poses; its historical buffering
-metrics do not measure network latency. Use `input-response-browser.mjs`,
-`remote-browser.mjs`, and `stall-browser.mjs` for actual client presentation.
-See the [current movement report](../../docs/experiments/2026-10-02/low-latency-recovery-2026-10-02.md).
-
-```sh
-node benchmarking/tools/compare-remote-motion.mjs --before=/tmp/motion-before.mjs --after=/tmp/motion-after.mjs --output=/tmp/motion-results.json
-```
-
-The comparison runs sequentially and checks forward playback, no more stalls,
-lower jitter/burst speed variation, at most 33.33ms additional mean/maximum lag,
-and the same 10% median CPU limit against the original interpolator. An optional
-`--previous=FILE` also measures the superseded adaptive buffer: three repetitions
-rotate all three variants through each run position and enforce the CPU limit
-against both baselines. The current buffer uses one extra tick with a simple
-playback clock; it does not keep arrival statistics or adjust playback speed.
-
-See the [small-buffer results](../archive/README.md#september-2026) for latency,
-CPU and reproduction, and the [alpha follow-up](../archive/README.md#september-2026)
-for shared encoding and nearby-audio delivery constraints. Server routes and
-populations can be selected with `compare-networking.mjs --players=4,8,16
---scenarios=convoy,spread,contact,modules`.
+The Go harness and Node client measure real framing/socket writes with the
+browser binary codec. `ACK_DELAY_MS` adds acknowledgement delay;
+`BENCH_CPU_AFFINITY` optionally pins the Go child. The comparison runner accepts
+before/after transport executables; check its usage message for arguments.
+
+## Browser and live checks
+
+- `npm run benchmark` / `benchmark:headless`: Vite benchmark mode and Chrome.
+- `live.mjs`, `live-suite.mjs`, `live-browser-probe.mjs`, `live-report.mjs`: deployed
+  game measurements; see [live instructions](../live/README.md).
+- `input-response-browser.mjs`, `remote-browser.mjs`, `stall-browser.mjs`: client
+  input, presentation and outage checks with local Go on 3001 and Vite on 3000.
+- `flight-resources.mjs`: network resource observations.
+
+Follow [the local browser workflow](../../.agents/skills/codebase-workflow/SKILL.md)
+and stop owned processes when finished. Remaining numeric, polygon, physics and
+remote-motion tools are offline diagnostics or comparisons of supplied artifacts.
+Outputs from new investigations belong under ignored `benchmarking/local` until
+curated; retained historical captures keep their original metadata and paths.

@@ -10,19 +10,23 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
   later trigger. Document loading-trigger changes in `docs/CHUNK_LOADING.md`.
 - Before adding or renaming serialized fields or app-owned properties, review
   `plugins/property-names.js`. Add names Terser leaves long, one per line;
-  avoid native APIs; quoted import paths are protected by the rewrite regex.
-- Before adding or changing protocol message, entity, event, or equipment
-  string values, review `plugins/protocol-tags.js`. Add eligible exact tags
-  there so client and server use the same one-byte value. List order assigns
-  each value; run `npm run test:packets` after changing either list.
+  avoid native APIs; quoted import paths are protected by the source rewrite regex.
+- Before changing gameplay tag literals, review `plugins/protocol-tags.js` for
+  short client replacements. They do not encode Go protocol strings. Stable
+  wire IDs live in `src/definitions/protocol.ts`; run `npm run test:packets`
+  when changing the wire contract.
 - Lazy modules expose a typed `default` API object, loaded as in `sound-loader`.
 - Test lazy features with separately emitted production chunks and exercise
   their real loader. A test that bundles both sides into one file does not
-  validate the boundary; see `tests/lazy-docked.test.mjs`.
+  validate the boundary; see `tests/client/lazy-docked.test.mjs`.
 - After changing a lazy module boundary, inspect the production importer and
   imported chunk to confirm the API names agree, then exercise the
   loading trigger.
 - Prefer named options objects to multiple positional helper arguments.
+
+Definitions live under `src/definitions`. Keep their imports independent of client
+and server implementations. Regenerate the Go catalog after definition changes.
+The Go server is the only authoritative server; preserve the normal Vite proxy.
 
 For functional source or configuration changes, run `npm run build` before and
 after, plus relevant tests and `npm run lint` afterward. Report changed resource

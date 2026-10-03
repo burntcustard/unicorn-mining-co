@@ -1,5 +1,5 @@
 /**
- * Exact protocol and equipment tags shared by client and server builds.
+ * Exact client gameplay tags replaced with short strings in production.
  * List order determines the one-byte value assigned to each tag.
  */
 export const protocolTags = [
@@ -33,7 +33,7 @@ export const protocolTags = [
 
 /**
  * Map each tag to a lowercase ASCII byte in list order.
- * Both builds use these values when encoding protocol strings.
+ * These are internal client literals; Go uses numeric binary wire IDs.
  */
 export const encodeProtocolTags = new Map(
   protocolTags.map((tag, index) => [tag, String.fromCharCode(97 + index)]),

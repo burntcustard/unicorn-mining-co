@@ -2,40 +2,26 @@ import { spawn } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 
 const suites = {
-  formatting: ['formatting.test.mjs'],
-  shared: ['shared-objects.test.mjs', 'rendering.test.mjs'],
-  simulation: ['simulation.test.mjs', 'snapshots.test.mjs'],
-  regions: ['regions.test.mjs'],
-  server: [
-    'server.test.ts',
-    'server-lag.test.ts',
-    'networking.test.ts',
-    'binary-replication.test.ts',
-    'binary-control.test.ts',
-    'binary-snapshot.test.ts',
-    'snapshot-cadence.test.ts',
+  formatting: ['client/formatting.test.mjs'],
+  objects: [
+    'client/objects.test.mjs',
+    'client/rendering.test.mjs',
+    'client/definitions.test.ts',
   ],
-  reconnect: ['reconnect.test.ts'],
-  packets: ['packet-size.test.ts'],
-  prediction: [
-    'remote-motion.test.ts',
-    'remote-trajectory.test.ts',
-    'remote-handoff.test.ts',
-    'remote-contact.test.ts',
-    'remote-perspectives.test.ts',
-    'remote-input-response.test.ts',
-    'network-stalls.test.ts',
-    'prediction.test.ts',
-  ],
-  collisions: ['collisions.test.mjs'],
+  simulation: ['client/simulation.test.mjs'],
+  regions: ['client/regions.test.mjs'],
+  protocol: ['client/binary-control.test.ts', 'client/binary-snapshot.test.ts'],
+  prediction: ['client/remote-motion.test.ts', 'client/prediction.test.ts'],
+  collisions: ['client/collisions.test.mjs'],
   docked: [
-    'docked.test.mjs',
-    'lazy-docked.test.mjs',
-    'property-mangling.test.mjs',
+    'client/docked.test.mjs',
+    'client/lazy-docked.test.mjs',
+    'client/property-mangling.test.mjs',
   ],
-  input: ['input.test.mjs', 'module-input.test.mjs'],
-  prism: ['prism.test.mjs'],
-  sound: ['sound.test.mjs'],
+  input: ['client/input.test.mjs', 'client/module-input.test.mjs'],
+  prism: ['client/prism.test.mjs'],
+  sound: ['client/sound.test.mjs'],
+  integration: ['integration/server-integration.test.ts'],
 };
 
 const requested = process.argv.slice(2);

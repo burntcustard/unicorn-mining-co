@@ -36,7 +36,6 @@ export const propertyNames = [
   'contains',
   'count',
   'description',
-  // 'destroy', // Node socket.destroy must keep its native name.
   'detach',
   'disconnect',
   'distance', // Vec.distance stays exported; state fields can mangle.

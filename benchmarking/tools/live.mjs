@@ -198,8 +198,8 @@ try {
         },
         load(id) {
           if (id !== 'live-protocol') return;
-          return `import {decodeBinarySnapshot} from ${JSON.stringify(resolve('src/shared/protocol/binary-snapshot.ts'))};
-        import {decodeServerControl,decodeClientMessage} from ${JSON.stringify(resolve('src/shared/protocol/binary-control.ts'))};
+          return `import {decodeBinarySnapshot} from ${JSON.stringify(resolve('src/client/protocol/binary-snapshot.ts'))};
+        import {decodeServerControl,decodeClientMessage} from ${JSON.stringify(resolve('src/client/protocol/binary-control.ts'))};
         globalThis.liveBenchmarkProtocol={decodeBinarySnapshot,decodeServerControl,decodeClientMessage};`;
         },
       },

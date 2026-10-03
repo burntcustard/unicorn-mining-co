@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/internal/server"
-	"github.com/burntcustard/unicorn-mining-co/internal/specification"
+	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/network"
 	"net"
 	"net/http"
 	"os"
@@ -44,7 +44,7 @@ func main() {
 		runGame(*players, *warmup, *ticks, *profile)
 		return
 	}
-	joined := make(chan *server.WebSocket, *players)
+	joined := make(chan *network.WebSocket, *players)
 	acknowledged := make(chan uint64, *players)
 	failures := make(chan error, *players+1)
 	var readers sync.WaitGroup
@@ -53,7 +53,7 @@ func main() {
 		panic(err)
 	}
 	httpServer := &http.Server{ReadHeaderTimeout: 5 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		socket, err := server.Upgrade(w, r, true)
+		socket, err := network.Upgrade(w, r, true)
 		if err != nil {
 			failures <- err
 			return
@@ -79,7 +79,7 @@ func main() {
 					}
 					return
 				}
-				if kind != server.OpBinary || len(data) != 32 || data[0] > 1 {
+				if kind != network.OpBinary || len(data) != 32 || data[0] > 1 {
 					failures <- fmt.Errorf("invalid input frame: kind %d, length %d", kind, len(data))
 					return
 				}
@@ -97,7 +97,7 @@ func main() {
 	}()
 	encoder := json.NewEncoder(os.Stdout)
 	_ = encoder.Encode(map[string]any{"address": "ws://" + listener.Addr().String() + "/game-socket"})
-	sockets := make([]*server.WebSocket, *players)
+	sockets := make([]*network.WebSocket, *players)
 	for i := range sockets {
 		select {
 		case sockets[i] = <-joined:
@@ -189,11 +189,11 @@ func main() {
 }
 
 func runGame(players, warmup, ticks int, profile string) {
-	catalog, err := specification.Load()
+	catalog, err := definitions.Load()
 	if err != nil {
 		panic(err)
 	}
-	game := server.NewGameServer(25, catalog)
+	game := network.NewGameServer(25, catalog)
 	listener, err := game.Start(0, "dist", true)
 	if err != nil {
 		panic(err)

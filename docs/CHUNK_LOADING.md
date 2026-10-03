@@ -11,7 +11,7 @@ warns when a chunk exceeds the target. See [Critical Resources and the First
 | ----------- | ------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Boot        | Inline canvas and background renderer | HTML parsing                                          | Paints the intro sky and fades in                                                                                    |
 | Initial     | `index`                               | Vite's module-script link during HTML parsing         | Builds the game, starts its camera after a 0.2-second intro hold, then fades in its UI when the four-second pan ends |
-| Interaction | `src/client/sound`                    | First keyboard input after the playable game is ready | The same input calls `unlockAudio()`                                                                                 |
+| Interaction | `src/client/audio/sound`              | First keyboard input after the playable game is ready | The same input calls `unlockAudio()`                                                                                 |
 | Docked      | `src/client/ui/docked`                | The first docked render or docked-menu key press      | Once the module finishes loading                                                                                     |
 
 The boot renderer stays active during the 0.2-second hold. The docked-camera
@@ -19,8 +19,8 @@ easing then pans the same sky from the intro origin to the starting station;
 the HUD starts fading in when that four-second pan ends. Sound and docked
 facades queue input made while loading.
 
-The shared class hierarchy and its client renderers load together in the entry.
-Do not force item subclasses into a separate chunk from their GameObject base:
+The browser object hierarchy and its renderers load together in the entry.
+Keep runtime objects and their GameObject base in the same initial hierarchy:
 that can introduce a cyclic chunk dependency during class initialization.
 
 ## Adding a loading boundary
@@ -31,15 +31,23 @@ that can introduce a cyclic chunk dependency during class initialization.
 
 ## Production contracts
 
-Both production entry points use `plugins/build-plugins.js`; the server runner
-lives beside it in `plugins/build-server.js`. Production minification mangles
-object properties in each source module before Rolldown splits the code into
-chunks. The client and server builds seed Terser's
-property name cache from the same source files in the same order. The build
-prefixes audited app-owned properties from `plugins/property-names.js` with the
-small regex in `replace-pre-terser.js`, then lets Terser shorten them. The regex
-skips quoted paths, so `distance` can be mangled without changing imports of
-`shape-distance`. WebSocket messages use only versioned binary frames: `UC` for
+The browser production build uses `plugins/build-plugins.js`. Source rewrites
+strip development flags, shorten internal client tags from `plugins/protocol-tags.js`,
+and mark app-owned properties from `plugins/property-names.js`. The rewrite in
+`plugins/replace-pre-terser.js` skips quoted paths.
+
+The build scans client and definition TypeScript exports and reserves their
+names, including the
+`renderBackground` API exposed by the separately built inline boot script.
+It seeds one shared property cache in source-path order, then mangles each
+source module before Rolldown assigns it to a chunk. This keeps lazy imports
+consistent and builds deterministic. Oxc compresses the chunks and a final
+Terser pass shortens lexical names. The build annotates computed checkpoint
+keys so they follow the same property map; native browser properties stay
+protected. Go's catalog and numeric binary wire IDs are independent of these
+JavaScript names.
+
+WebSocket messages use only versioned binary frames: `UC` for
 client controls and server welcome/respawn, and `UM` for load/snapshot state.
 Input frames contain a packed control byte; snapshots use fixed numeric field
 identifiers, independent of JavaScript property names. The server assigns
@@ -61,23 +69,24 @@ and full physics endpoint; remote ships have no separate playback buffer.
 Load records provide their own IDs, and later interest sets are sent only when
 membership changes. Values
 the client can reconstruct are omitted. The client expands records
-before prediction. Shared simulation rounds positions,
+before prediction. Browser and Go simulation round positions,
 velocity, rotation and spin to a binary grid of 2^-24, using ties to even on
 both Go and JavaScript. This lets Go use its native rounding instruction and
 keeps prediction consistent. Generated asteroid geometry still uses eight
 decimal places. Snapshot motion fields use fixed-width float64 values, so
 their encoded width does not depend on the rounding rule. The `object` tag stays
 long because JavaScript's `typeof` uses that literal.
-The build also annotates computed checkpoint keys for Terser.
-Module export names and native browser/JavaScript properties remain protected.
-Later Terser passes shorten lexical names and compress the bundled server.
-`npm run start:server` runs that bundle from `dist/server.js`.
+`npm run start:server` runs `bin/server`, which serves those assets.
 
 Both lazy facades load a typed default API object. `npm run test:docked` exercises
 the real docked loader against separately emitted production chunks, including
 shared mangled state in the ship chunk. It also checks that a private
 property is mangled consistently across two chunks. `npm run test:packets`
-measures real WebSocket packet sizes against the source server and checks that
-the built server acknowledges mangled client input. Keep the lazy boundary
+measures real Go WebSocket packet sizes and checks that both source and
+production-mangled client codecs acknowledge snapshots and receive input receipts. Keep the lazy boundary
 intact in tests: bundling everything into one file masked the original
 cargo-menu crash.
+
+Ship/station binary field 34 optionally identifies a nondefault content definition.
+Existing fields and resource/module IDs retain their values. Registry lookups
+use maps or ordered arrays rather than dynamic property names.

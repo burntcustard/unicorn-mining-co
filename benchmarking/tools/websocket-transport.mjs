@@ -28,8 +28,8 @@ if (game) {
     );
   };
 
-  controls = await load('src/shared/protocol/binary-control.ts');
-  snapshots = await load('src/shared/protocol/binary-snapshot.ts');
+  controls = await load('src/client/protocol/binary-control.ts');
+  snapshots = await load('src/client/protocol/binary-snapshot.ts');
 }
 const child = spawn(
   affinity ? 'taskset' : executable,

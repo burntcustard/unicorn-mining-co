@@ -1,6 +1,7 @@
-import * as Vec from '../shared/vector';
-import { Craft } from '../shared/craft/craft';
-import { Station } from '../shared/craft/station';
+import { dockDuration } from '../definitions/camera';
+import * as Vec from './utilities/vector';
+import { Craft } from './objects/craft';
+import { Station } from './objects/station';
 import {
   back,
   confirmSelection,
@@ -15,45 +16,46 @@ import {
   lights,
   renderDebug,
   renderDebugDemos,
-} from './debug';
+} from './debug/debug';
 
 // @endif
-import { bindAction, initKeys, playerInput } from './input';
-import { defaultKeybindings, moduleBinding } from './keybindings';
-import { network } from './network';
-import { camera, centerCamera, dockDuration, followTarget } from './camera';
+import { bindAction, initKeys, playerInput } from './input/input';
+import { defaultKeybindings, moduleBinding } from './input/keybindings';
+import { network } from './network/network';
+import { camera, centerCamera, followTarget } from './rendering/camera';
 
-import { revealBuriedItems } from './lighting';
-import { itemTypes, Message } from '../shared/items';
+import { revealBuriedItems } from './rendering/lighting';
+import { itemTypes, message as messageDefinition } from '../definitions/items';
 import { adoptPlayerShip, playerShip, readSlate, updatePlayer } from './player';
-import { renderSparks, updateSparks } from './shrapnel';
-import { presentEvents } from './present-events';
+import { renderSparks, updateSparks } from './rendering/shrapnel';
+import { presentEvents } from './rendering/present-events';
 import { GameLoop } from './game-loop';
-import { Ship } from '../shared/craft/ship';
-import { ShieldGenerator, SearchLight } from '../shared/modules';
-import { moduleControls } from '../shared/craft/control-ship';
-import { createRenderedShip } from './create-rendered-ship';
-import { decorateGameObject } from './game-object';
-import './craft/station';
+import { Ship } from './objects/ship';
+import { ShieldGenerator, SearchLight } from './objects/modules/index';
+import { moduleControls } from './objects/control-ship';
+import { createRenderedShip } from './rendering/create-rendered-ship';
+import { decorateGameObject } from './rendering/game-object';
+import './rendering/craft/station';
 
 // @ifdef BENCHMARK
-import { benchmarkFlag } from './benchmark';
+import { benchmarkFlag } from './debug/benchmark';
 
 // @endif
-import { colors } from '../shared/colors';
+import { colors } from '../definitions/colors';
 import { game } from './game';
 
-import { Asteroid } from '../shared/simulation/asteroid';
+import { Asteroid } from './simulation/asteroid';
 
-import { renderAsteroid } from './render-asteroid';
-import { createRenderedItem } from './create-rendered-item';
-import { renderItem } from './render-item';
-import { Item } from '../shared/items/item';
-import { playSound } from './sound-loader';
-import { updateHornDrillSounds } from './update-horn-drill-sounds';
-import { renderUI } from './ui';
-import { setSizing } from './set-sizing';
-import { type GameObject as SimulationObject } from '../shared/game-object';
+import { renderAsteroid } from './rendering/render-asteroid';
+import { createRenderedItem } from './rendering/create-rendered-item';
+import { renderItem } from './rendering/render-item';
+import { Item } from './objects/item';
+
+import { playSound } from './audio/sound-loader';
+import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
+import { renderUI } from './ui/ui';
+import { setSizing } from './rendering/set-sizing';
+import { type GameObject as SimulationObject } from './objects/game-object';
 
 type Background = {
   renderBackground: (
@@ -150,7 +152,9 @@ const debugWreck = createRenderedShip({
   shades: colors.orange,
   position: Vec.add(playerShip.position, Vec.create(500)),
 });
-const debugNote = createRenderedItem({ resource: itemTypes.indexOf(Message) });
+const debugNote = createRenderedItem({
+  resource: itemTypes.indexOf(messageDefinition),
+});
 
 debugNote.message = 'REGION 0/0';
 

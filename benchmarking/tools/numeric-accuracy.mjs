@@ -30,11 +30,11 @@ try {
           load: (id) =>
             id === '\0numeric-api'
               ? `
-export {GameObject} from '${resolve('src/shared/game-object.ts')}';
-export {createWorld,addEntity} from '${resolve('src/shared/simulation/world.ts')}';
-export {updateWorld} from '${resolve('src/shared/simulation/update-world.ts')}';
-export {contactBetween} from '${resolve('src/shared/collision/contact-between.ts')}';
-export * as Vec from '${resolve('src/shared/vector.ts')}';`
+export {GameObject} from '${resolve('src/client/objects/game-object.ts')}';
+export {createWorld,addEntity} from '${resolve('src/client/simulation/world.ts')}';
+export {updateWorld} from '${resolve('src/client/simulation/update-world.ts')}';
+export {contactBetween} from '${resolve('src/client/collision/contact-between.ts')}';
+export * as Vec from '${resolve('src/client/utilities/vector.ts')}';`
               : undefined,
           transform: (code, id) => numericExperiment(code, id, variant),
         },

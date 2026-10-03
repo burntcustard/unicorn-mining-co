@@ -1,6 +1,6 @@
-import { interpolatePose } from '../../src/shared/utilities/interpolate-pose';
-import { simulationStep } from '../../src/shared/settings';
-import * as Vec from '../../src/shared/vector';
+import { interpolatePose } from '../../src/client/utilities/interpolate-pose';
+import { simulationStep } from '../../src/definitions/simulation';
+import * as Vec from '../../src/client/utilities/vector';
 
 // Known accelerating motion isolates interpolation from contacts and network
 // corrections. Both linear and angular motion have exact analytic references.

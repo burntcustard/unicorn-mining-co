@@ -1,13 +1,13 @@
-import { Module } from '../../shared/modules/module';
-import { type Ship } from '../../shared/craft/ship';
+import { Module } from '../objects/modules/module';
+import { type Ship } from '../objects/ship';
 import { type GameState } from '../game';
 import { paintUnlocked, say, unlockPaint } from '../player';
-import { colors, paintColors } from '../../shared/colors';
-import { textOutline } from '../text-outline';
-import { playSound } from '../sound-loader';
-import { renderText } from '../text';
-import { moduleTypes } from '../../shared/modules';
-import { sendCraftAction } from '../craft-actions';
+import { colors, paintColors } from '../../definitions/colors';
+import { textOutline } from '../rendering/text/text-outline';
+import { playSound } from '../audio/sound-loader';
+import { renderText } from '../rendering/text/text';
+import { moduleTypes } from '../objects/modules/index';
+import { sendCraftAction } from '../network/craft-actions';
 
 /**
  * The panel shown over everything while a ship sits in a bay: a plain

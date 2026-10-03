@@ -12,12 +12,6 @@ const gzipOptions = { level: 1 };
 // ten 1,500B packets minus 40B of TCP/IP headers each.
 const gzipBudget = 14_000;
 
-export const terserMangleOptions = () => ({
-  compress: false,
-  mangle: true,
-  module: true,
-});
-
 const propertyMangleOptions = (nameCache, reserved) => ({
   compress: false,
   mangle: { properties: { reserved } },
@@ -38,26 +32,16 @@ const sourceFiles = (directory) =>
         : [];
   });
 
-const reservedProperties = () => {
-  const reserved = new Set([
-    'background',
-    'bufferedAmount',
-    'clients',
-    'destroy',
-    'handleUpgrade',
-    'listen',
-    'maxPayload',
-    'noServer',
-  ]);
+const reservedProperties = (files) => {
+  const reserved = new Set(['background', 'bufferedAmount']);
   const reserve = (name) => {
     reserved.add(name);
     // Keep the Vec.distance export literal; its unrelated _distance field may mangle.
 
     if (name !== 'distance') reserved.add(replacePreTerser(name));
   };
-  const sourceRoot = new URL('../src/', import.meta.url);
 
-  for (const url of sourceFiles(sourceRoot)) {
+  for (const url of files) {
     const source = parseAst(
       readFileSync(url, 'utf8'),
       { lang: 'ts' },
@@ -130,7 +114,10 @@ export function viteBackground(flags = {}) {
         if (context.server) return;
 
         const bundle = await rolldown({
-          input: resolve(process.cwd(), 'src/client/background-boot.ts'),
+          input: resolve(
+            process.cwd(),
+            'src/client/rendering/background/background-boot.ts',
+          ),
           plugins: [
             {
               name: 'background-flags',
@@ -149,7 +136,7 @@ export function viteBackground(flags = {}) {
 
         await bundle.close();
         return html.replace(
-          '<script type="module" src="src/client/background-boot.ts"></script>',
+          /<script\s+type="module"\s+src="src\/client\/rendering\/background\/background-boot\.ts"\s*>\s*<\/script>/,
           `<script>${output[0].code}</script>`,
         );
       },
@@ -193,13 +180,15 @@ export function buildPlugin(flags = {}) {
     apply: 'build',
     enforce: 'post',
     async buildStart() {
-      reserved = reservedProperties();
-
       // Seed the cache in source-path order. Rolldown's parallel transform
       // order otherwise changes the chosen short names between builds.
-      const files = sourceFiles(new URL('../src/', import.meta.url)).sort(
-        (a, b) => a.pathname.localeCompare(b.pathname),
-      );
+      const files = ['client', 'definitions']
+        .flatMap((directory) =>
+          sourceFiles(new URL(`../src/${directory}/`, import.meta.url)),
+        )
+        .sort((a, b) => a.pathname.localeCompare(b.pathname));
+
+      reserved = reservedProperties(files);
 
       for (const url of files) {
         const code = stripIfdef(readFileSync(url, 'utf8'), flags);
@@ -213,11 +202,6 @@ export function buildPlugin(flags = {}) {
     },
     async transform(code, id) {
       if (!id.includes('/src/') || !/\.ts(?:\?|$)/.test(id)) return;
-
-      // HTTP headers, MIME strings, and Node response methods are external APIs.
-      if (id.endsWith('/server/http-handler.ts')) {
-        return { code: (await transformWithOxc(code, id)).code, map: null };
-      }
 
       // Direct Rolldown consumers can reach this hook with TypeScript intact.
       const javascript = annotateStateKeys(
@@ -237,7 +221,11 @@ export function buildPlugin(flags = {}) {
     renderChunk: {
       order: 'post',
       handler(code) {
-        return minify(code, terserMangleOptions());
+        return minify(code, {
+          compress: false,
+          mangle: true,
+          module: true,
+        });
       },
     },
     generateBundle: {

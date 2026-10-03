@@ -3,9 +3,9 @@ import WebSocket from 'ws';
 import {
   decodeServerControl,
   encodeClientMessage,
-} from '../src/shared/protocol/binary-control';
-import { decodeBinarySnapshot } from '../src/shared/protocol/binary-snapshot';
-import { emptyPlayerInput } from '../src/shared/protocol/input';
+} from '../src/client/protocol/binary-control';
+import { decodeBinarySnapshot } from '../src/client/protocol/binary-snapshot';
+import { emptyPlayerInput } from '../src/client/protocol/input';
 
 const address = process.argv[2] || 'http://127.0.0.1:3001';
 const health = await fetch(new URL('/healthz', address));

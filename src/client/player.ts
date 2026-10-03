@@ -1,16 +1,16 @@
-import * as Vec from '../shared/vector';
-import { Ship } from '../shared/craft/ship';
+import * as Vec from './utilities/vector';
+import { Ship } from './objects/ship';
 import {
   ThrusterDualMd,
   CargoHatch,
   HornDrill,
   SearchLight,
-} from '../shared/modules';
+} from './objects/modules/index';
 import { game } from './game';
-import { createRenderedShip } from './create-rendered-ship';
-import { colors } from '../shared/colors';
-import { updateThrusterSound } from './sound-loader';
-import { type Shades, type Segment } from '../shared/types';
+import { createRenderedShip } from './rendering/create-rendered-ship';
+import { colors } from '../definitions/colors';
+import { updateThrusterSound } from './audio/sound-loader';
+import { type Shades, type Segment } from './types';
 
 export let playerShip = createRenderedShip({
   shades: colors.white,

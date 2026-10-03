@@ -12,6 +12,8 @@ with `npm run build`; size policy and loading tiers live there.
   saving in one resource can merely move cost elsewhere.
 - Keep dynamic imports only for real later triggers. Sound and docked UI have
   established lazy-loading behavior.
-- Property mangling cannot safely follow computed keys. Quote properties used
-  as computed or external names so Terser's `keep_quoted` protection applies.
+- Property mangling cannot safely follow names constructed at runtime. The build annotates
+  constant checkpoint keys in `entity-state.ts` with `@__KEY__`; protect reflected/external names
+  explicitly. Quoting or concatenating strings does not reserve a name, since
+  the bundler can fold those expressions before mangling.
 - Run strictly-relevant tests and lint after a change.

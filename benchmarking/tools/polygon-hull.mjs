@@ -14,7 +14,7 @@ const bundle = await rolldown({
           : undefined,
       load: (id) =>
         id === '\0polygon-hull-benchmark'
-          ? `export { PolygonShape } from '${resolve('src/shared/collision/shape/polygon-shape.ts')}';`
+          ? `export { PolygonShape } from '${resolve('src/client/collision/shape/polygon-shape.ts')}';`
           : undefined,
     },
   ],

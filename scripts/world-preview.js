@@ -9,8 +9,8 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0world-entry'
           ? `
-            export { generateRegion, generateFields, fieldMessage } from '${process.cwd()}/src/shared/simulation/region-generation.ts';
-            export * as Vec from '${process.cwd()}/src/shared/vector.ts';
+            export { generateRegion, generateFields, fieldMessage } from '${process.cwd()}/src/client/simulation/region-generation.ts';
+            export * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
           `
           : undefined,
       resolveId: (id) => (id === 'world-entry' ? '\0world-entry' : undefined),
@@ -131,10 +131,10 @@ const key = [
   ['white', 'Space station'],
   ['#fa3', 'Wreck (paint colour)'],
   [fieldColors[4], 'Mixed asteroid field'],
-  [fieldColors[2], 'Gold field'],
-  [fieldColors[1], 'Amethyst field'],
-  [fieldColors[2], 'Gold clue line'],
-  [fieldColors[1], 'Amethyst clue line'],
+  [fieldColors[2], 'gold field'],
+  [fieldColors[1], 'amethyst field'],
+  [fieldColors[2], 'gold clue line'],
+  [fieldColors[1], 'amethyst clue line'],
   ['#45d6c5', 'Nearest starting stations'],
 ]
   .map(

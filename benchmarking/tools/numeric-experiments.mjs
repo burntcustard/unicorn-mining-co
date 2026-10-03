@@ -19,14 +19,20 @@ export function numericExperiment(code, id, variant) {
     code = code.replace(before, after);
   };
 
-  if (variant === 'position1000' && id.endsWith('/src/shared/game-object.ts')) {
+  if (
+    variant === 'position1000' &&
+    id.endsWith('/src/client/objects/game-object.ts')
+  ) {
     replace(
       'round(this.position.x), round(this.position.y)',
       'Math.round(this.position.x * 1000) / 1000, Math.round(this.position.y * 1000) / 1000',
     );
   }
 
-  if (variant === 'vector-double' && id.endsWith('/src/shared/vector.ts')) {
+  if (
+    variant === 'vector-double' &&
+    id.endsWith('/src/client/utilities/vector.ts')
+  ) {
     replace(
       '({ x, y })',
       '{ const value = { x: NaN, y: NaN }; value.x = x; value.y = y; return value; }',
@@ -36,7 +42,7 @@ export function numericExperiment(code, id, variant) {
   if (variant.startsWith('grid')) {
     const scale = parseInt(variant.slice(4), 10);
 
-    if (id.endsWith('/src/shared/collision/spatial-grid.ts')) {
+    if (id.endsWith('/src/client/collision/spatial-grid.ts')) {
       replace('const cellSize = 256;', `const cellSize = ${256 * scale};`);
       replace(
         'const aabbExtension = 10;',
@@ -103,7 +109,7 @@ const cellSize`,
       }
     }
 
-    if (id.endsWith('/src/shared/physics/fixture.ts')) {
+    if (id.endsWith('/src/client/physics/fixture.ts')) {
       for (const bound of ['lowerBound', 'upperBound']) {
         for (const axis of ['x', 'y']) {
           replace(`fat.${bound}.${axis}`, `(fat.${bound}.${axis} / ${scale})`);
