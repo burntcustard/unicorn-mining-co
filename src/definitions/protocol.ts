@@ -6,6 +6,7 @@ export const controlMessageIds = {
   respawn: 3,
   snapshotAck: 4,
   welcome: 5,
+  progress: 6,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {

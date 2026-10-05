@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { resolve } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import WebSocket from 'ws';
 import { rolldown } from 'rolldown';
 import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
@@ -31,7 +33,7 @@ const bundle = await rolldown({
           token=>encodeClientMessage({type:'hello',playerToken:token}),
           tick=>encodeClientMessage({type:'input',tick,sequence:1,input:{...emptyPlayerInput(),thrust:1}}),
           sequence=>encodeClientMessage({type:'snapshotAck',sequence}),
-          packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerToken,message.playerId,message.shipId,message.serverTick];},
+          packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerToken,message.playerId,message.shipId,message.serverTick,message.unlockedPaints];},
           packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
         ];`
           : undefined,
@@ -71,6 +73,7 @@ const source = [
       message.playerId,
       message.shipId,
       message.serverTick,
+      message.unlockedPaints,
     ];
   },
   (packet: Uint8Array) => {
@@ -88,12 +91,17 @@ const source = [
 
 const sockets: WebSocket[] = [];
 
+const databaseDirectory = mkdtempSync(
+  resolve(tmpdir(), 'unicorn-integration-'),
+);
+
 const server = spawn(resolve('bin/server'), [], {
   env: {
     ...process.env,
     PORT: '0',
     ASSET_DIR: resolve('dist'),
     APP_ENV: 'production',
+    DATABASE_PATH: resolve(databaseDirectory, 'world.sqlite'),
   },
   stdio: ['ignore', 'ignore', 'pipe'],
 });
@@ -171,6 +179,7 @@ try {
             if (packet[1] === 0x43) {
               welcome = codec[3](packet);
               assert(welcome[0]);
+              assert.equal(welcome[5], 100);
               socket.send(codec[1](welcome[4]));
               return;
             }
@@ -227,4 +236,6 @@ try {
     server.kill('SIGTERM');
     await stopped;
   }
+
+  rmSync(databaseDirectory, { recursive: true, force: true });
 }

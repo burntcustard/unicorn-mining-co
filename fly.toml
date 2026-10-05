@@ -9,10 +9,20 @@ kill_signal = 'SIGTERM'
 kill_timeout = '10s'
 
 [build]
+[deploy]
+strategy = 'immediate'
+
 [env]
 APP_ENV = 'production'
 PORT = '8080'
 WORLD_SEED = '25'
+DATABASE_PATH = '/data/world.sqlite'
+BACKUP_DIRECTORY = '/data/backups'
+
+[[mounts]]
+source = 'game_data'
+destination = '/data'
+initial_size = '1gb'
 
 [http_service]
 internal_port = 8080

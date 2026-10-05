@@ -28,7 +28,13 @@ import { camera, centerCamera, followTarget } from './camera';
 
 import { revealBuriedItems } from './utilities/lighting';
 import { message as messageDefinition } from '../definitions/items';
-import { adoptPlayerShip, playerShip, readSlate, updatePlayer } from './player';
+import {
+  adoptPlayerShip,
+  playerShip,
+  readSlate,
+  updatePlayer,
+  syncPaintUnlocks,
+} from './player';
 import { renderSparks, updateSparks } from './effects/shrapnel';
 import { presentEvents } from './effects/present-events';
 import { GameLoop } from './game-loop';
@@ -351,6 +357,8 @@ const gameLoop = GameLoop({
     });
   },
   update: ({ dt, now }) => {
+    syncPaintUnlocks(network.unlockedPaints);
+
     if (playerShip.launchRequested) {
       playerInput.launch = true;
       playerShip.launchRequested = 0;

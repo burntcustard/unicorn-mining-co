@@ -17,6 +17,11 @@ type ContactHandler interface {
 	HandleContacts([]collision.Contact, *[]protocol.SimulationEvent, *World, float64)
 }
 
+type DockingHandler interface {
+	Entity
+	HandleDockingContacts([]collision.Contact, *[]protocol.SimulationEvent, *World, float64)
+}
+
 type UpdateWorldOptions struct {
 	Inputs map[int64]protocol.InputFrame
 	DT     *float64
@@ -74,9 +79,16 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
 	// reusable lists only feed docking, scooping and drilling callbacks.
 	for _, contact := range contacts {
 		for _, owner := range [2]any{contact.Collider.Owner, contact.Other.Owner} {
-			handler, ok := owner.(ContactHandler)
+			handler, ok := owner.(Entity)
 
 			if !ok {
+				continue
+			}
+
+			_, handlesContacts := handler.(ContactHandler)
+			_, handlesDocking := handler.(DockingHandler)
+
+			if !handlesContacts && !handlesDocking {
 				continue
 			}
 
@@ -90,11 +102,16 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
 		}
 	}
 
-	for _, kind := range []string{"station", "ship"} {
-		for _, e := range world.contactHandlers {
-			if e.Base().Kind == kind {
-				e.HandleContacts(e.Base().gameplayContacts, &events, world, dt)
-			}
+	// Docking settles ships before their cargo and drill contacts are handled.
+	for _, e := range world.contactHandlers {
+		if handler, ok := e.(DockingHandler); ok {
+			handler.HandleDockingContacts(e.Base().gameplayContacts, &events, world, dt)
+		}
+	}
+
+	for _, e := range world.contactHandlers {
+		if handler, ok := e.(ContactHandler); ok {
+			handler.HandleContacts(e.Base().gameplayContacts, &events, world, dt)
 		}
 	}
 

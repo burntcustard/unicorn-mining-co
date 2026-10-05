@@ -198,4 +198,7 @@ The production Dockerfile uses Node to build browser assets and generate the
 catalog, then compiles Go. The final scratch image contains only `server` and
 `dist/`; it has no Node runtime or npm dependencies. The listener binds to
 `0.0.0.0:$PORT`; `fly.toml` supplies port 8080, HTTPS, and an HTTP health check.
-Its in-memory single-world design requires one Machine.
+Its single-world simulation requires one Machine. Player progress and world
+changes persist in SQLite on the `game_data` Fly Volume. Before the first
+persistence deployment, create that volume; see [persistence and maintenance](docs/PERSISTENCE.md)
+for setup, save guarantees, backups and direct database editing.

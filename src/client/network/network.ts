@@ -202,6 +202,7 @@ export class NetworkClient {
   private welcomed = false;
   readonly world = createWorld();
   worldSeed?: number;
+  unlockedPaints?: number;
 
   private applySnapshot({
     message,
@@ -339,7 +340,13 @@ export class NetworkClient {
   }
 
   private receive({ message }: { message: ServerMessage }) {
+    if (message.type === 'progress') {
+      this.unlockedPaints = message.unlockedPaints;
+      return;
+    }
+
     if (message.type === 'welcome') {
+      this.unlockedPaints = message.unlockedPaints;
       this.world.entities.clear();
       this.world.players.clear();
       this.world.nextEntityId = 1;

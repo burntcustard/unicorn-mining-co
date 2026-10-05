@@ -4,9 +4,13 @@ import { packPlayerInput, unpackPlayerInput } from './input';
 import type { ClientMessage, ServerMessage } from './network';
 import { controlMessageIds, dockActionIds } from '../../definitions/protocol';
 
-type ServerControl = Extract<ServerMessage, { type: 'welcome' | 'respawn' }>;
+type ServerControl = Extract<
+  ServerMessage,
+  { type: 'welcome' | 'respawn' | 'progress' }
+>;
 
-const { hello, input, dock, respawn, snapshotAck, welcome } = controlMessageIds;
+const { hello, input, dock, respawn, snapshotAck, welcome, progress } =
+  controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const hex = '0123456789abcdef';
@@ -86,6 +90,9 @@ class ControlReader {
   private bytes: Uint8Array;
   private offset = 0;
   readonly type: number;
+  get remaining() {
+    return this.bytes.length - this.offset;
+  }
   private view: DataView;
 
   byte() {
@@ -459,11 +466,18 @@ export function decodeClientMessage(
 }
 
 /**
- * Encode the two server controls; snapshots use the separate binary schema.
+ * Encode server controls; snapshots use the separate binary schema.
  */
 export function encodeServerControl(
   message: ServerControl,
 ): Uint8Array<ArrayBuffer> {
+  if (message.type === 'progress') {
+    const writer = new ControlWriter(progress);
+
+    writer.byte(message.unlockedPaints);
+    return writer.finish();
+  }
+
   if (message.type === 'respawn') {
     const writer = new ControlWriter(respawn);
 
@@ -480,6 +494,8 @@ export function encodeServerControl(
   writer.number(message.worldSeed);
   writer.number(message.spawn.x);
   writer.number(message.spawn.y);
+
+  if (message.unlockedPaints !== undefined) writer.byte(message.unlockedPaints);
   return writer.finish();
 }
 
@@ -493,6 +509,14 @@ export function decodeServerControl(
   let message: ServerControl;
 
   switch (reader.type) {
+    case progress: {
+      const unlockedPaints = reader.byte();
+
+      if (unlockedPaints > 127) throw new Error('Invalid binary control');
+      message = { type: 'progress', unlockedPaints };
+      break;
+    }
+
     case respawn:
       message = { type: 'respawn', shipId: reader.unsigned() };
       break;
@@ -514,6 +538,13 @@ export function decodeServerControl(
         worldSeed,
         spawn,
       };
+
+      if (reader.remaining) {
+        const unlockedPaints = reader.byte();
+
+        if (unlockedPaints > 127) throw new Error('Invalid binary control');
+        message.unlockedPaints = unlockedPaints;
+      }
 
       break;
     }

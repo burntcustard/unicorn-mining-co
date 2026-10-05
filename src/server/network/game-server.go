@@ -4,7 +4,9 @@ package network
 
 import (
 	"context"
+	"errors"
 	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"net"
 	"net/http"
@@ -22,19 +24,25 @@ type socketEvent struct {
 }
 
 type GameServer struct {
-	session *GameSession
-	http    *http.Server
-	events  chan socketEvent
-	wake    chan struct{}
-	done    chan struct{}
-	stopped chan struct{}
-	once    sync.Once
-	clients atomic.Int32
-	catalog definitions.Catalog
+	stopContext context.Context
+	shutdownErr error
+	session     *GameSession
+	http        *http.Server
+	events      chan socketEvent
+	wake        chan struct{}
+	done        chan struct{}
+	stopped     chan struct{}
+	once        sync.Once
+	clients     atomic.Int32
+	catalog     definitions.Catalog
 }
 
 func NewGameServer(seed float64, catalog definitions.Catalog) *GameServer {
 	return &GameServer{session: NewGameSession(seed, catalog), events: make(chan socketEvent, 256), wake: make(chan struct{}, 1), done: make(chan struct{}), stopped: make(chan struct{}), catalog: catalog}
+}
+
+func (s *GameServer) EnablePersistence(store *persistence.Store) error {
+	return s.session.EnablePersistence(store)
 }
 
 func (s *GameServer) Start(port int, assets string, production bool) (net.Listener, error) {
@@ -47,6 +55,11 @@ func (s *GameServer) Start(port int, assets string, production bool) (net.Listen
 	ordinary := HandleHTTP(assets)
 
 	s.http = &http.Server{ReadHeaderTimeout: 5 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/healthz" && s.session.persistence != nil && s.session.persistence.store.Err() != nil {
+			http.Error(w, "Storage unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
 		if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 			ordinary.ServeHTTP(w, r)
 			return
@@ -199,7 +212,12 @@ func (s *GameServer) run() {
 		select {
 		case <-s.done:
 			for socket := range sockets {
+				s.session.Disconnect(socket)
 				socket.Terminate()
+			}
+
+			if s.session.persistence != nil {
+				s.shutdownErr = errors.Join(s.session.shutdownPersistence(s.stopContext), s.session.persistence.store.Close(s.stopContext))
 			}
 
 			return
@@ -228,7 +246,7 @@ func (s *GameServer) run() {
 }
 
 func (s *GameServer) Stop(ctx context.Context) error {
-	s.once.Do(func() { close(s.done) })
+	s.once.Do(func() { s.stopContext = ctx; close(s.done) })
 
 	if s.http == nil {
 		return nil
@@ -236,5 +254,5 @@ func (s *GameServer) Stop(ctx context.Context) error {
 
 	err := s.http.Shutdown(ctx)
 	<-s.stopped
-	return err
+	return errors.Join(err, s.shutdownErr)
 }

@@ -35,6 +35,7 @@ type Control struct {
 }
 
 type ServerControl struct {
+	UnlockedPaints               *uint8
 	Type                         string
 	PlayerID, ShipID, ServerTick uint64
 	PlayerToken                  string
@@ -373,6 +374,12 @@ func DecodeClientControl(data []byte, ids definitions.Protocol, step float64) (C
 }
 
 func EncodeServerControl(message ServerControl, ids definitions.Protocol) ([]byte, error) {
+	if message.Type == "progress" && message.UnlockedPaints != nil {
+		w := controlWriter(ids.ControlMessageIDs["progress"])
+		w.byte(*message.UnlockedPaints)
+		return w.data, nil
+	}
+
 	if message.Type == "respawn" {
 		w := controlWriter(ids.ControlMessageIDs["respawn"])
 		w.unsigned(message.ShipID)
@@ -395,5 +402,10 @@ func EncodeServerControl(message ServerControl, ids definitions.Protocol) ([]byt
 	w.number(message.WorldSeed)
 	w.number(message.Spawn.X)
 	w.number(message.Spawn.Y)
+
+	if message.UnlockedPaints != nil {
+		w.byte(*message.UnlockedPaints)
+	}
+
 	return w.data, nil
 }

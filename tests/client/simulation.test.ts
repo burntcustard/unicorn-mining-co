@@ -21,6 +21,7 @@ export { Item } from '${process.cwd()}/src/client/objects/item.ts';
       export { message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
       export { createShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
       export { Station } from '${process.cwd()}/src/client/objects/station.ts';
+      export { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
       export { cloneEntity } from '${process.cwd()}/src/client/simulation/world-state.ts';
       export { updateWorld } from '${process.cwd()}/src/client/simulation/update-world.ts';
       export { detectCollisions } from '${process.cwd()}/src/client/collision/detect-collisions.ts';
@@ -48,6 +49,7 @@ const simulation: {
   messageDefinition: typeof import('../../src/definitions/items/index.ts').message;
   createShip: typeof import('../../src/client/objects/create-ship.ts').createShip;
   Station: typeof import('../../src/client/objects/station.ts').Station;
+  Craft: typeof import('../../src/client/objects/craft.ts').Craft;
   cloneEntity: typeof import('../../src/client/simulation/world-state.ts').cloneEntity;
   updateWorld: typeof import('../../src/client/simulation/update-world.ts').updateWorld;
   detectCollisions: typeof import('../../src/client/collision/detect-collisions.ts').detectCollisions;
@@ -67,6 +69,7 @@ const {
   messageDefinition,
   createShip,
   Station,
+  Craft,
   createWorld,
   entityId,
   cloneEntity,
@@ -411,6 +414,26 @@ const stationGeometry = () => {
   addPlayer(dockingWorld, { id: 8, shipId: dockingShip.id });
   updateWorld({ world: dockingWorld, inputs: new Map() });
   assert.equal(dockingShip.dockedTo, dockingStation.id);
+
+  const craftWorld = createWorld();
+  const dock = addEntity(
+    craftWorld,
+    new Craft({ id: 300, hullSegments: dockingStation.hullSegments }),
+  );
+  const visitor = addEntity(
+    craftWorld,
+    createShip(craftWorld, { playerId: 9, position: Vec.create(150) }),
+  );
+
+  addPlayer(craftWorld, { id: 9, shipId: visitor.id });
+  const events = updateWorld({ world: craftWorld, inputs: new Map() });
+
+  assert.equal(visitor.dockedTo, dock.id);
+  assert(
+    events.some(
+      (event) => event.type === 'docked' && event.dockedTo === dock.id,
+    ),
+  );
 };
 
 compoundShipGeometry();

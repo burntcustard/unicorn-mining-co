@@ -38,7 +38,7 @@ export type SimulationEvent =
     }
   | {
       playerId: PlayerId;
-      stationId: EntityId;
+      dockedTo: EntityId;
       type: 'docked';
     }
   | {

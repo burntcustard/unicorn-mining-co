@@ -48,7 +48,7 @@ type ItemCollected struct {
 
 func (ItemCollected) simulationEvent() {}
 
-type Docked struct{ PlayerID, StationID int64 }
+type Docked struct{ PlayerID, DockedTo int64 }
 
 func (Docked) simulationEvent() {}
 

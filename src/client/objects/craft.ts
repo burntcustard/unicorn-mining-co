@@ -1,3 +1,5 @@
+import { type Ship } from './ship';
+import { type SimulationEvent } from '../protocol/events';
 import {
   renderingLayers,
   type RenderingLayer,
@@ -32,7 +34,7 @@ import { GameObject, type RenderOptions } from './game-object';
 import { colors, shadesOf } from '../../definitions/colors';
 import { applyForce } from '../physics/apply-force';
 import { outerEdges } from '../utilities/polygon';
-import { type Collider } from '../collision/types';
+import { type Contact, type Collider } from '../collision/types';
 import { cargoContactAllowed } from './modules/cargo-hatch';
 import { Module } from './modules/module';
 import {
@@ -223,6 +225,49 @@ export class Craft extends GameObject {
     this.collections = [game.sprites, game.crafts];
     this.add();
     return this;
+  }
+
+  handleDockingContacts({
+    contacts,
+    events,
+  }: {
+    contacts: Contact[];
+    events: SimulationEvent[];
+  }) {
+    contacts.forEach(({ collider, other }) => {
+      const bay =
+        collider.owner === this
+          ? collider
+          : other.owner === this
+            ? other
+            : undefined;
+
+      if (!bay?.dockSegment) return;
+      const ship = (bay === collider ? other : collider).owner as Ship;
+
+      if (
+        ship.kind !== 'ship' ||
+        !ship.cockpit ||
+        ship.dockedTo ||
+        ship.launching
+      ) {
+        return;
+      }
+
+      ship.dockedTo = this.id;
+      Vec.set(ship.position, this.position);
+      ship.rotation = this.rotation;
+      Vec.set(ship.velocity, Vec.create());
+      ship.spin = 0;
+
+      if (ship.playerId !== undefined) {
+        events.push({
+          playerId: ship.playerId,
+          dockedTo: this.id,
+          type: 'docked',
+        });
+      }
+    });
   }
 
   constructor(props: CraftProperties = {}, data?: CraftData) {

@@ -21,7 +21,7 @@ func TestItems(t *testing.T) {
 	for _, id := range catalog.ItemIDs {
 		t.Run(id, func(t *testing.T) {
 			definition := catalog.ItemDefinitions[id]
-			item := NewItem(id, simulation.ObjectProperties{}, catalog)
+			item := NewItem(id, simulation.ObjectProperties{ID: new(int64(1))}, catalog)
 
 			if item.Kind != "item" || !item.Item || !item.HasResource || item.Resource != definition.Resource || item.Label != definition.Label || item.Unlock != definition.Unlock || !reflect.DeepEqual(item.Shades, definition.Shades) {
 				t.Fatal("item did not consume its definition")

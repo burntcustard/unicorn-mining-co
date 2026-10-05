@@ -81,7 +81,7 @@ func recordEvent(e protocol.SimulationEvent) map[string]any {
 	case protocol.AsteroidDestroyed:
 		return map[string]any{"type": "asteroidDestroyed", "asteroidId": e.AsteroidID, "by": e.By, "contents": e.Contents}
 	case protocol.Docked:
-		return map[string]any{"type": "docked", "playerId": e.PlayerID, "stationId": e.StationID}
+		return map[string]any{"type": "docked", "playerId": e.PlayerID, "dockedTo": e.DockedTo}
 	case protocol.ItemCollected:
 		r := map[string]any{"type": "itemCollected", "by": e.By, "itemId": e.ItemID, "resource": e.Resource}
 

@@ -75,6 +75,7 @@ export type ClientMessage =
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | { type: 'progress'; unlockedPaints: number }
   | {
       shipId: number;
       type: 'respawn';
@@ -87,6 +88,7 @@ export type ServerMessage =
       spawn: NetworkVector;
       type: 'welcome';
       worldSeed: number;
+      unlockedPaints?: number;
     }
   | {
       snapshotSequence?: number;

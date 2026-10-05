@@ -7,7 +7,7 @@ import {
   SearchLight,
 } from './objects/modules/index';
 import { game } from './game';
-import { colors } from '../definitions/colors';
+import { colors, paintColors } from '../definitions/colors';
 import { updateThrusterSound } from './audio/sound-loader';
 import { type Shades, type Segment } from './types';
 
@@ -29,6 +29,21 @@ playerShip.credits = 10000;
 
 // Violet is the pink paint in the paint selection.
 const unlockedPaints: Shades[] = [colors.violet, colors.white, colors.yellow];
+let savedPaintMask: number | undefined;
+
+/**
+ * Restore the server's paint choices after joining or receiving progress.
+ */
+export const syncPaintUnlocks = (mask: number | undefined) => {
+  if (mask === undefined || mask === savedPaintMask) return;
+  savedPaintMask = mask;
+  unlockedPaints.splice(
+    0,
+    unlockedPaints.length,
+    ...paintColors.filter((_, i) => mask & (1 << i)),
+  );
+};
+
 const paintUnlocks = new Map<string, Shades>([
   ['RED', colors.red],
   ['ORANGE', colors.orange],
@@ -47,6 +62,7 @@ export const unlockPaint = (color: string, reason: string) => {
 
   if (shades && !paintUnlocked(shades)) {
     unlockedPaints.push(shades);
+    savedPaintMask = undefined;
     say(`${reason} - ${color} UNLOCKED`);
     return true;
   }
