@@ -10,6 +10,7 @@ const scenario = `
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { roundMotion } from '${process.cwd()}/src/client/utilities/round.ts';
 import assert from 'node:assert/strict';
+import { renderingLayers } from '${process.cwd()}/src/definitions/rendering-layers.ts';
 import { damage } from '${process.cwd()}/src/client/objects/damage.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { diamond as diamondDefinition, itemTypes, message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
@@ -453,7 +454,7 @@ for (const type of thrusters) {
   });
   const render = () => {
     draws.length = 0;
-    for (const layer of [-1, -0.5, 0]) crafts.forEach(craft => craft.render({zIndex:layer}));
+    for (const layer of Object.values(renderingLayers)) crafts.forEach(craft => craft.render({zIndex:layer}));
     assert(saves === 0, 'renderer balances canvas state');
   };
   for (let order = 0; order < 2; order++) {

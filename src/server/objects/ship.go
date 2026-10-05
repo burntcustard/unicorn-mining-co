@@ -448,7 +448,7 @@ func NewShip(id string, props Properties, catalog definitions.Catalog) *Ship {
 			p[j] = simulation.Point(point)
 		}
 
-		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core}
+		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex}
 
 		for _, mount := range segment.Mounts {
 			plan.Mounts = append(plan.Mounts, simulation.NewMount(mount.LocalPosition, mount.Fits))

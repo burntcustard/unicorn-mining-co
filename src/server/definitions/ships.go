@@ -10,7 +10,7 @@ type HullSegment struct {
 	DisablePhysics bool     `json:"disablePhysics"`
 	DockSegment    bool     `json:"dockSegment"`
 	Shades         []string `json:"shades"`
-	ZIndex         float64  `json:"zIndex"`
+	ZIndex         *int     `json:"zIndex"`
 	Health         *float64 `json:"health"`
 	Points         []Point  `json:"points"`
 	Core           bool     `json:"core"`

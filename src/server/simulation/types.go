@@ -37,7 +37,8 @@ type SegmentPlan struct {
 	Radius                                             func(*Segment) float64
 	Mounts                                             []*Mount
 	Core, DisablePhysics, DockSegment, Covers, Catches bool
-	ActivationDuration, ZIndex, ThrusterNozzleSide     float64
+	ActivationDuration, ThrusterNozzleSide             float64
+	ZIndex                                             *int
 	LocalPosition                                      Vec.Vector
 	Shades                                             []string
 	Wreckage                                           *SegmentPlan
@@ -50,6 +51,7 @@ type Segment struct {
 	outlineKey    [2]float64
 	cachedOutline *ShapeOutline
 	SegmentPlan
+	ZIndex                                   int
 	Hull                                     bool
 	HullPlan                                 *SegmentPlan
 	Module                                   Module

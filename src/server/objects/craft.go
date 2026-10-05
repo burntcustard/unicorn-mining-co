@@ -31,17 +31,18 @@ type geometrySource struct{ identity byte }
 type Craft struct {
 	HasCredits, HasLaunching bool
 	*simulation.GameObject
-	Catalog                                             definitions.Catalog
-	Segments                                            []*simulation.Segment
-	HullSegments                                        []*simulation.SegmentPlan
-	CargoContents                                       []simulation.Entity
-	Cockpit                                             *simulation.Segment
-	DockedTo                                            *int64
-	Launching, Forward, Turn, TurnRate, Credits, ZIndex float64
-	CargoSpace                                          int
-	source                                              *geometrySource
-	colliders                                           []*collision.Collider
-	spareColliders                                      []*collision.Collider
+	Catalog                                     definitions.Catalog
+	Segments                                    []*simulation.Segment
+	HullSegments                                []*simulation.SegmentPlan
+	CargoContents                               []simulation.Entity
+	Cockpit                                     *simulation.Segment
+	DockedTo                                    *int64
+	Launching, Forward, Turn, TurnRate, Credits float64
+	ZIndex                                      int
+	CargoSpace                                  int
+	source                                      *geometrySource
+	colliders                                   []*collision.Collider
+	spareColliders                              []*collision.Collider
 }
 
 func (*Craft) IsCraft() {}
@@ -95,6 +96,7 @@ func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog definit
 	c := &Craft{GameObject: simulation.NewGameObject(props.ObjectProperties, catalog.Simulation), Catalog: catalog, CargoContents: props.CargoContents, HullSegments: plans, DockedTo: props.DockedTo, Launching: props.Launching, Credits: props.Credits}
 	c.Self = c
 	c.Kind = "craft"
+	c.ZIndex = definitions.HullZIndex
 	c.Friction = definitions.CraftFriction
 	c.Health = definitions.CraftHealth
 	c.Shades = catalog.Colors["white"]
@@ -202,14 +204,14 @@ func makeSegment(c *Craft, module simulation.Module, plan *simulation.SegmentPla
 	}
 
 	s.LocalPosition = Vec.Add(s.LocalPosition, Vec.Create(0, plan.ThrusterNozzleSide*definition.Offset))
-	s.ZIndex = plan.ZIndex
+	s.ZIndex = c.ZIndex
 
-	if s.ZIndex == 0 {
+	if module != nil {
 		s.ZIndex = definition.ZIndex
 	}
 
-	if s.ZIndex == 0 {
-		s.ZIndex = c.ZIndex
+	if plan.ZIndex != nil {
+		s.ZIndex = *plan.ZIndex
 	}
 
 	return s

@@ -1,8 +1,10 @@
+import type { RenderingLayer } from '../rendering-layers';
+
 type ModuleValues = {
   label: string;
   health: number;
   price: number;
-  zIndex: number;
+  zIndex: RenderingLayer;
   shades?: readonly string[];
   activationDuration?: number;
   bounciness?: number;

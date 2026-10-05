@@ -1,3 +1,4 @@
+import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import type { ModuleDefinition } from './types';
 
@@ -6,7 +7,7 @@ export const shieldGenerator = {
   label: 'SHIELD GENERATOR',
   health: 40,
   price: 900,
-  zIndex: 1,
+  zIndex: renderingLayers.modulesAboveShipHull,
   shades: colors.violet,
   bounciness: 0.8,
   generatorRadius: 7,

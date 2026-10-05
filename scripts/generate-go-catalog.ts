@@ -1,3 +1,4 @@
+import { renderingLayers } from '../src/definitions/rendering-layers';
 import {
   defaultMass,
   defaultFriction as gameObjectFriction,
@@ -120,6 +121,7 @@ const numericConstants = {
   GameObjectAngularInertiaScale: defaultAngularInertiaScale,
   CraftFriction: craftFriction,
   CraftHealth: defaultHealth,
+  HullZIndex: renderingLayers.shipHull,
   HullBounciness: hullBounciness,
   DefaultActivationDuration: defaultActivationDuration,
   WreckageDecay: wreckageDecay,

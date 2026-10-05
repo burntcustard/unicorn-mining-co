@@ -1,3 +1,4 @@
+import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import type { ModuleDefinition } from './types';
 
@@ -6,7 +7,7 @@ export const thrusterDualXl = {
   label: 'THRUSTERS *2 XL',
   health: 25,
   price: 800,
-  zIndex: -1,
+  zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   disablePhysics: true,
   forwardThrust: 22,

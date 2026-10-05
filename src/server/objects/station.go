@@ -50,8 +50,8 @@ func NewStation(id string, props Properties, catalog definitions.Catalog) *Stati
 
 	// The inherited zIndex is available while makeSegment builds the hull.
 	for _, plan := range plans {
-		if plan.ZIndex == 0 {
-			plan.ZIndex = d.ZIndex
+		if plan.ZIndex == nil {
+			plan.ZIndex = &d.ZIndex
 		}
 	}
 

@@ -1,3 +1,4 @@
+import { renderingLayers } from '../definitions/rendering-layers';
 import { init } from './core';
 import { dockDuration } from '../definitions/camera';
 import * as Vec from './utilities/vector';
@@ -281,9 +282,8 @@ const gameLoop = GameLoop({
     ctx.translate(-camera.x, -camera.y);
 
     // Craft layers are global: a station floor can sit under every ship while
-    // its hull and roof sit over them, using the same z-index as ship modules
-    // The half layer puts every thruster glow above every flare, below hulls.
-    for (const zIndex of [-3, -2, -1, -0.5, 0, 1, 2, 3]) {
+    // its hull and roof sit over them. Thruster glows sit above flares, below hulls.
+    for (const zIndex of Object.values(renderingLayers)) {
       activeSprites
         .filter((object) => object.scenery && object.zIndex === zIndex)
         .forEach((object) => {
@@ -295,7 +295,7 @@ const gameLoop = GameLoop({
             );
         });
 
-      if (zIndex === -2) {
+      if (zIndex === renderingLayers.scenery) {
         // Cargo still inside asteroids with contents shows only through the slice
         // the SearchLight is crossing, as if the lamp lets a pilot peer inside
         // @ifdef DEBUG

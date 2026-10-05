@@ -147,3 +147,22 @@
 **wreck** - An abandoned ship found in a region, potentially with cargo. The wreck is the whole ship.
 
 **wreckage** - Loose pieces broken off a craft after damage, rather than a whole wreck.
+
+**zIndex** - A global rendering layer, using nonnegative whole numbers starting at 0. Lower layers draw first; higher layers draw over them. Every craft completes a layer before any craft starts the next one. Use the named values in `src/definitions/rendering-layers.ts`; 0 is a valid layer, so only an absent value inherits the module or craft layer. Hull segments default to `shipHull` (4). Glow layers above ships or stations draw after their hulls and both associated module layers; glow layers below them draw after their lower modules and before their hulls. Reserved layers are part of the rendering order even when unused. The station floor stays at 0 so ships draw over it.
+
+| zIndex | Name                      | Draws                                                                                          |
+| ------ | ------------------------- | ---------------------------------------------------------------------------------------------- |
+| 0      | `stationFloor`            | Docking bay floor, station movement boundary, search light spectrum behind asteroids           |
+| 1      | `scenery`                 | Asteroids, buried and loose items, search light beams                                          |
+| 2      | `modulesBelowShipHull`    | Modules below ship hulls: thruster flares, cargo hatches, horn drills; asteroid interior light |
+| 3      | `glowBelowShips`          | Thruster glows, above lower modules and below every ship hull                                  |
+| 4      | `shipHull`                | Ship hulls and detached hull wreckage                                                          |
+| 5      | `modulesAboveShipHull`    | Modules above ship hulls: shield generators and their shields                                  |
+| 6      | `glowAboveShips`          | Reserved for glow above ship hulls and both ship module layers                                 |
+| 7      | `modulesBelowStationHull` | Reserved for modules below station hulls                                                       |
+| 8      | `glowBelowStations`       | Docking bay floor glow, above lower station modules and below station hulls                    |
+| 9      | `stationHull`             | Station hulls                                                                                  |
+| 10     | `modulesAboveStationHull` | Docking bay ceiling; available for modules above station hulls                                 |
+| 11     | `glowAboveStations`       | Docking bay ceiling glow, above station hulls and both station module layers                   |
+
+The sky draws before these layers. Sparks, debug overlays, and UI draw afterward, outside the `zIndex` passes.

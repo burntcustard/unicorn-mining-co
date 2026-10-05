@@ -1,3 +1,4 @@
+import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import type { ModuleDefinition } from './types';
 
@@ -6,7 +7,7 @@ export const thrusterTriple = {
   label: 'THRUSTERS *3',
   health: 30,
   price: 1800,
-  zIndex: -1,
+  zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   disablePhysics: true,
   forwardThrust: 28,
