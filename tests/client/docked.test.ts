@@ -17,7 +17,7 @@ import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl,
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
-import { adoptPlayerShip, paintUnlocked, playerShip, readSlate, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
+import { adoptPlayerShip, paintUnlocked, playerShip, readSlate, syncPaintUnlocks, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { presentEvents } from '${process.cwd()}/src/client/effects/present-events.ts';
 import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
@@ -262,6 +262,7 @@ confirm(); confirm();
 confirm(); confirm(); settleSale();
 assert(ship.cargoContents.length === 1 && ship.cargoContents[0].item === gem, 'ore stack sale');
 assert(selectionSnapshot()[1] === 1, 'stack sale closes submenu');
+syncPaintUnlocks(100);
 assert(!paintUnlocked(colors.cyan), 'cyan is locked before selling a diamond');
 confirm(); confirm(); settleSale();
 assert(!ship.cargoContents.length && ship.credits === beforeSale + CargoHatch.price + 25, 'last cargo sale');
@@ -270,6 +271,13 @@ assert(paintUnlocked(colors.cyan) && playerShip.note === 'DIAMOND SOLD - CYAN UN
 playerShip.note = 'UNCHANGED';
 unlockPaint('CYAN');
 assert(playerShip.note === 'UNCHANGED', 'cyan only announces once');
+syncPaintUnlocks(undefined);
+assert(paintUnlocked(colors.cyan), 'no authoritative mask preserves the optimistic unlock');
+syncPaintUnlocks(100);
+assert(!paintUnlocked(colors.cyan), 'unchanged authoritative mask rolls back a rejected diamond-sale unlock');
+unlockPaint('CYAN', 'DIAMOND SOLD');
+syncPaintUnlocks(116);
+assert(paintUnlocked(colors.cyan), 'updated authoritative mask preserves an accepted unlock');
 
 // Rebuild hulls without duplicating mounts or resurrecting destroyed cargo contents.
 confirm(); move(1); confirm();

@@ -62,6 +62,7 @@ export const unlockPaint = (color: string, reason: string) => {
 
   if (shades && !paintUnlocked(shades)) {
     unlockedPaints.push(shades);
+    savedPaintMask = undefined;
     say(`${reason} - ${color} UNLOCKED`);
     return true;
   }
