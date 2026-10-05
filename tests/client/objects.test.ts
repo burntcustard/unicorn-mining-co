@@ -18,7 +18,7 @@ import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
 import { Station } from '${process.cwd()}/src/client/objects/station.ts';
 import { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
-import { createShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
+import { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 import { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
 
@@ -101,7 +101,7 @@ for (const Type of [Craft,Station,Station,Ship]) {
     assert.equal(craft.modules.filter(module=>module===hornDrill).length,1);
   }
 }
-const ship = addEntity(world, createShip(world, {playerId:1}));
+const ship = addEntity(world, createPlayerShip(world, {playerId:1}));
 ship.setModuleActive({module:HornDrill,active:true});
 ship.update(0.1);
 const moduleStates = ship.moduleStates;
@@ -154,12 +154,12 @@ const station = new Station({});
 const stationParts = station.hitbox().length;
 station.hullHealth = [...station.hullHealth];
 assert.equal(station.hitbox().length,stationParts,'station walls survive snapshot restoration');
-const damaged = addEntity(world,createShip(world));
+const damaged = addEntity(world,createPlayerShip(world));
 damaged.segments.find(segment => segment.hull && segment.health === 8).health = 0;
 damaged.update(0);
 const fragment = [...world.entities.values()].find(entity => entity.decay);
 assert(fragment instanceof Craft);
-const replica = addEntity(world,createShip(world));
+const replica = addEntity(world,createPlayerShip(world));
 replica.hullHealth = damaged.hullHealth;
 replica.moduleStates = damaged.moduleStates;
 const count = world.entities.size;
@@ -171,7 +171,7 @@ assert.deepEqual(wreckage.hitbox().map(segment=>segment.shapeOutline),fragment.h
 assert.equal(wreckage.cockpit,undefined,'wreckage must not materialise as a complete Ship');
 for (const activationProgress of [0, 1]) {
   const lightWorld = createWorld({seed:25});
-  const lightShip = addEntity(lightWorld,createShip(lightWorld,{shades:colors.cyan}));
+  const lightShip = addEntity(lightWorld,createPlayerShip(lightWorld,{shades:colors.cyan}));
   const light = lightShip.modules.find(module=>module instanceof SearchLight);
   const lightSegment = lightShip.segments.find(segment=>segment.module===light);
 

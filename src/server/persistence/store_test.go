@@ -27,7 +27,7 @@ func fixtureBatch(t testing.TB) Batch {
 
 	w := simulation.CreateWorld(25, catalog)
 	id := int64(1)
-	ship := objects.CreateShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &id}})
+	ship := objects.CreatePlayerShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &id}})
 	return Batch{Sequence: 1, World: World{Seed: 25, GenerationDigest: GenerationDigest(catalog), RandomState: w.Random.State, NextEntityID: 1 << 32}, Players: []Player{{ID: fixtureID, FirstJoinedAt: time.Now().UTC(), LastSeenAt: time.Now().UTC(), Credits: 500, UnlockedPaints: DefaultPaints, Ship: objects.CaptureShip(ship)}}}
 }
 

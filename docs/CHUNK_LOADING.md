@@ -106,3 +106,16 @@ Persisted-session welcome frames append the same mask after the spawn position;
 the decoder also accepts legacy welcome frames without that byte. These additions
 do not change chunk loading triggers. Player tokens remain in localStorage, while
 player profiles and world mechanics are stored by the Go server in SQLite.
+
+Player balances append an optional float64 after the paint mask in UC welcome
+and progress frames. The server sends the player account balance on joining
+and after dock actions; the HUD and docked UI share the player object from
+`src/client/player.ts`. That object owns a ships array, credits,
+paint unlocks, visited station IDs, messages and HUD state. Its `ship` getter
+returns the active ship in the first array entry; adopting a replicated or
+respawned ship replaces that entry and retains other owned ships. UC messages apply
+paint unlocks directly when received. Replacing the ship retains player state
+without copying it onto the new ship. Balances are independent of ship prediction,
+replacement and entity snapshots. UM field 2 remains reserved for legacy ship
+credits; new snapshots omit it and the decoder consumes and discards it.
+The existing chunk loading triggers are unchanged.

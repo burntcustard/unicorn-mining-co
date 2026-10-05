@@ -112,13 +112,14 @@ async function join(address: string, token: string | null) {
           (entity) => entity.id === loadedWelcome.shipId,
         );
 
-        if (ship?.credits === undefined) return;
+        if (!ship || welcome.credits === undefined) return;
+        assert(!Object.hasOwn(ship, 'credits'));
 
         resolvePlayer({
           token: welcome.playerToken,
           playerId: welcome.playerId,
           shipId: welcome.shipId,
-          credits: ship.credits,
+          credits: welcome.credits,
           paints: welcome.unlockedPaints!,
         });
       } catch (error) {

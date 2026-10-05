@@ -20,6 +20,7 @@ export const dockActionIds = {
 
 export const binaryFieldIds = {
   cargoContents: 1,
+  // Reserved legacy ship balance; decoders discard it.
   credits: 2,
   contents: 3,
   decay: 4,

@@ -54,7 +54,6 @@ const matches = ({
     Math.abs(ship.spin - checkpoint.spin) < 0.002 &&
     (ship.launching || 0) === (checkpoint.launching || 0) &&
     ship.health === checkpoint.health &&
-    ship.credits === checkpoint.credits &&
     checkpoint.cargoContents.length === cargoIds?.length &&
     checkpoint.cargoContents.every(
       (object, index) => object.id === cargoIds[index],
@@ -129,7 +128,6 @@ const applyEntity = ({
       .filter((object) => !(object instanceof Module))
       .map((object) => cargoCopies.get(object)!);
     entity.dockedTo = server.dockedTo;
-    entity.credits = server.credits;
     entity.health = server.health;
     entity.decay = server.decay;
 

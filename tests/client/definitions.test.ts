@@ -15,7 +15,11 @@ import {
   type StationId,
 } from '../../src/definitions/stations';
 import { Item } from '../../src/client/objects/item';
-import { createShip } from '../../src/client/objects/create-ship';
+import {
+  createShip,
+  createPlayerShip,
+} from '../../src/client/objects/create-ship';
+import { startingModules } from '../../src/definitions/player';
 import { Station } from '../../src/client/objects/station';
 import { moduleTypes, thrusters } from '../../src/client/objects/modules';
 import { createWorld } from '../../src/client/simulation/world';
@@ -113,12 +117,20 @@ stationDefinitionsById.set(stationId, { ...corral, localMovementRadius: 900 });
 
 try {
   const world = createWorld();
-  const first = createShip(world, { shipType: shipId });
-  const second = createShip(world, { shipType: shipId });
 
+  assert.equal(createShip(world, { shipType: shipId }).modules.length, 0);
+  assert.equal(
+    createShip(world, { shipType: shipId, playerId: 1 }).modules.length,
+    0,
+  );
+  const first = createPlayerShip(world, { shipType: shipId });
+  const second = createPlayerShip(world, { shipType: shipId });
+
+  assert(!Object.hasOwn(first, 'credits'));
+  assert(!Object.hasOwn(first, 'startingCredits'));
   assert.equal(first.definitionId, shipId);
   assert.equal(first.cargoSpace, 20);
-  assert.equal(first.modules.length, mustang.startingModules.length);
+  assert.equal(first.modules.length, startingModules.length);
   first.mounts[0].health = 0;
   first.cargoContents.push(item);
   assert((second.mounts[0].health ?? 0) > 0, 'ships own their mount health');

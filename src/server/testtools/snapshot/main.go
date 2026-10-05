@@ -27,7 +27,7 @@ func main() {
 				field.Kind: "ship", field.Position: protocol.Vector{X: -1.25, Y: 20.5},
 				field.Radius: float64(40), field.Rotation: float64(0.25),
 				field.Spin: float64(-0.5), field.Velocity: protocol.Vector{X: 3, Y: -4},
-				field.Credits: float64(500), field.DefinitionID: "testScout",
+				field.DefinitionID:  "testScout",
 				field.Label:         "MUSTANG",
 				field.Shades:        []string{"#fff", "#000"},
 				field.HullHealth:    []float64{8, 20, 40},

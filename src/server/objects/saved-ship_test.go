@@ -17,8 +17,7 @@ import (
 func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 	catalog, _ := definitions.Load()
 	w := simulation.CreateWorld(25, catalog)
-	ship := objects.CreateShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{Position: Vec.Create(12.7, -34.2), Velocity: Vec.Create(1.2, 3.4), Rotation: 0.123, Spin: 0.456}})
-	ship.Credits = 9876
+	ship := objects.CreatePlayerShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{Position: Vec.Create(12.7, -34.2), Velocity: Vec.Create(1.2, 3.4), Rotation: 0.123, Spin: 0.456}})
 	ship.Shades = catalog.PaintColors[1]
 	ship.Mounts()[0].Health -= 0.125
 	hull := ship.HullHealth()
@@ -51,7 +50,7 @@ func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if restored.Position != Vec.Create(13, -34) || restored.Velocity != (Vec.Vector{}) || restored.Spin != 0 || restored.Rotation != 0.123 || restored.Credits != 0 || *restored.PlayerID != 7 || *restored.DockedTo != dock || !slices.Equal(restored.HullHealth(), hull) || !slices.Equal(restored.Shades, ship.Shades) {
+	if restored.Position != Vec.Create(13, -34) || restored.Velocity != (Vec.Vector{}) || restored.Spin != 0 || restored.Rotation != 0.123 || *restored.PlayerID != 7 || *restored.DockedTo != dock || !slices.Equal(restored.HullHealth(), hull) || !slices.Equal(restored.Shades, ship.Shades) {
 		t.Fatal("minimal ship did not restore its saved condition")
 	}
 
@@ -79,7 +78,7 @@ func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 
 func TestCompactShipSize(t *testing.T) {
 	catalog, _ := definitions.Load()
-	ship := objects.CreateShip(simulation.CreateWorld(25, catalog), objects.Properties{})
+	ship := objects.CreatePlayerShip(simulation.CreateWorld(25, catalog), objects.Properties{})
 	old, _ := persistence.Encode(objects.CaptureEntity(ship))
 	data, err := json.Marshal(objects.CaptureShip(ship))
 
@@ -96,7 +95,7 @@ func TestCompactShipSize(t *testing.T) {
 
 func BenchmarkCaptureShip(b *testing.B) {
 	catalog, _ := definitions.Load()
-	ship := objects.CreateShip(simulation.CreateWorld(25, catalog), objects.Properties{})
+	ship := objects.CreatePlayerShip(simulation.CreateWorld(25, catalog), objects.Properties{})
 	b.ReportAllocs()
 	b.ResetTimer()
 

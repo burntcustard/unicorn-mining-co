@@ -195,8 +195,8 @@ try {
         send,
         `(async()=>{
     const {network}=await window.loadedGameModule('network.ts');
-    const {playerShip}=await window.loadedGameModule('player.ts');
-    if(playerShip.id!==network.shipId) throw Error('wrong game instance');
+    const {player}=await window.loadedGameModule('player.ts');
+    if(player.ship.id!==network.shipId) throw Error('wrong game instance');
     const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('set-sizing.ts'); game.size=5; setSizing(game);
     const socket=Reflect.get(network,'socket');
     if(${delay}) {const deliver=socket.onmessage, send=socket.send.bind(socket); socket.onmessage=event=>setTimeout(()=>deliver.call(socket,event),${delay}); socket.send=data=>setTimeout(()=>send(data),${delay});}

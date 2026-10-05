@@ -41,7 +41,6 @@ export class EntityState {
   private readonly cargoContents?: EntityState[];
   readonly cargoIds?: number[];
   private readonly cockpit?: Craft['cockpit'];
-  readonly credits?: number;
   readonly dockedTo: number;
   readonly entity: GameObject;
   readonly health: number;
@@ -80,7 +79,6 @@ export class EntityState {
     if (entity instanceof Craft) {
       this.hullHealth = entity.hullHealth;
       this.moduleStates = entity.moduleStates;
-      this.credits = entity.credits;
       this.cargoIds = entity.cargoContents.map((object) => object.id);
       this.segments = [...entity.segments];
       this.cockpit = entity.cockpit;

@@ -1,9 +1,9 @@
 import { Ship } from './ship';
 import { moduleTypesById } from './modules/index';
-import { shipDefinitionsById } from '../../definitions/ships/index';
 import { type SimulationWorld, entityId } from '../simulation/world';
 import * as Vec from '../utilities/vector';
 import { type PlayerId } from '../protocol/entities';
+import { startingModules } from '../../definitions/player';
 
 export const createShip = (
   world: SimulationWorld,
@@ -25,7 +25,7 @@ export const createShip = (
     shipType?: import('../../definitions/ships').ShipId;
   } = {},
 ): Ship => {
-  const ship = new Ship({
+  return new Ship({
     world,
     shipType,
     id,
@@ -34,13 +34,15 @@ export const createShip = (
     rotation,
     velocity,
     ...(shades && { shades }),
-    credits: shipDefinitionsById.get(shipType)!.startingCredits,
   });
+};
 
-  shipDefinitionsById
-    .get(shipType)!
-    .startingModules.forEach((id) =>
-      ship.fit(new (moduleTypesById.get(id)!)()),
-    );
+export const createPlayerShip = (
+  world: SimulationWorld,
+  properties: Parameters<typeof createShip>[1] = {},
+): Ship => {
+  const ship = createShip(world, properties);
+
+  startingModules.forEach((id) => ship.fit(new (moduleTypesById.get(id)!)()));
   return ship;
 };

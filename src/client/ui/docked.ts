@@ -1,7 +1,7 @@
 import { Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { type GameState } from '../game';
-import { paintUnlocked, say, unlockPaint } from '../player';
+import { player, paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../definitions/colors';
 import { textOutline } from './text/text-outline';
 import { playSound } from '../audio/sound-loader';
@@ -69,7 +69,7 @@ const sendAppliedAction = (
   ship: Ship,
   action: Parameters<Ship['applyDockAction']>[0],
 ) => {
-  const applied = ship.applyDockAction(action);
+  const applied = ship.applyDockAction(action, player);
 
   if (applied) sendCraftAction(applied);
   return applied;
@@ -160,7 +160,8 @@ const selectionOf = (ship: any) => {
     stage > 1 && (hullMenu || currentModule instanceof Module) ? paints : [];
   const disabledAction = Number(
     !!actions[0] &&
-      ship.credits < (actions[0] === 'BUY' ? currentModule.price : repairCost),
+      player.credits <
+        (actions[0] === 'BUY' ? currentModule.price : repairCost),
   );
 
   return {
@@ -260,7 +261,7 @@ export const back = (ship: Ship): void => {
   } else {
     ship.launch();
     ship.launchRequested = 1;
-    ship.started = 1;
+    player.started = true;
   }
 };
 

@@ -20,8 +20,8 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 
 	w := simulation.CreateWorld(25, catalog)
 	id := int64(7)
-	ship := objects.CreateShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &id, Position: Vec.Create(12, 34), Velocity: Vec.Create(5, -6)}})
-	ship.Credits, ship.Launching, ship.HasLaunching = 321, 1.5, true
+	ship := objects.CreatePlayerShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &id, Position: Vec.Create(12, 34), Velocity: Vec.Create(5, -6)}})
+	ship.Launching, ship.HasLaunching = 1.5, true
 	ship.Fly(1, -1)
 	ship.SetModuleActive("cargoHatch", true)
 	ship.Mounts()[0].Health -= 5
@@ -77,13 +77,12 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 func TestSavedStateOwnsItsMemory(t *testing.T) {
 	catalog, _ := definitions.Load()
 	w := simulation.CreateWorld(25, catalog)
-	ship := objects.CreateShip(w, objects.Properties{})
+	ship := objects.CreatePlayerShip(w, objects.Properties{})
 	ship.CargoContents = append(ship.CargoContents, objects.NewItem("diamond", simulation.ObjectProperties{World: w}, catalog))
 	saved := objects.CaptureEntity(ship)
 	before, _ := persistence.Encode(saved)
 	ship.Modules()[0].Base().Shades[0] = "modified"
 	ship.CargoContents[0].Base().Label = "changed"
-	ship.Credits = 0
 	after, _ := persistence.Encode(saved)
 
 	if !bytes.Equal(before, after) {
@@ -94,7 +93,7 @@ func TestSavedStateOwnsItsMemory(t *testing.T) {
 func TestSavedPositionsRoundWithoutChangingMechanics(t *testing.T) {
 	catalog, _ := definitions.Load()
 	w := simulation.CreateWorld(25, catalog)
-	ship := objects.CreateShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{World: w, Position: Vec.Create(12.7, -34.2), Velocity: Vec.Create(0.25, -0.125), Rotation: 0.123}})
+	ship := objects.CreatePlayerShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{World: w, Position: Vec.Create(12.7, -34.2), Velocity: Vec.Create(0.25, -0.125), Rotation: 0.123}})
 	ship.Mounts()[0].Health -= 0.125
 	cargo := objects.NewItem("diamond", simulation.ObjectProperties{World: w, Position: Vec.Create(2.2, -3.7)}, catalog)
 	ship.CargoContents = append(ship.CargoContents, cargo)
@@ -118,7 +117,7 @@ func TestSavedPositionsRoundWithoutChangingMechanics(t *testing.T) {
 func BenchmarkCaptureMovementBatch(b *testing.B) {
 	catalog, _ := definitions.Load()
 	w := simulation.CreateWorld(25, catalog)
-	entities := []simulation.Entity{objects.CreateShip(w, objects.Properties{})}
+	entities := []simulation.Entity{objects.CreatePlayerShip(w, objects.Properties{})}
 
 	for i := 0; i < 8; i++ {
 		a := simulation.CreateAsteroid(w, simulation.AsteroidProperties{Contents: []int{1, 2}}).LockGeometry()

@@ -18,7 +18,7 @@ import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl,
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
-import { adoptPlayerShip, paintUnlocked, playerShip, readSlate, syncPaintUnlocks, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
+import { player, adoptPlayerShip, paintUnlocked, readSlate, syncPaintUnlocks, unlockPaint, updatePlayer } from '${process.cwd()}/src/client/player.ts';
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { presentEvents } from '${process.cwd()}/src/client/effects/present-events.ts';
 import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
@@ -33,9 +33,9 @@ assert(colors.purple.join() === '#102,#213,#325,#001,#647');
 const redShades = colors.red;
 delete colors.red;
 colors.red = redShades;
-const noteBeforeUnknownReward = playerShip.note;
+const noteBeforeUnknownReward = player.note;
 assert(unlockPaint('UNKNOWN', 'TEST') === undefined);
-assert(playerShip.note === noteBeforeUnknownReward);
+assert(player.note === noteBeforeUnknownReward);
 
 sparks.length = 0;
 presentEvents({ events: [
@@ -59,7 +59,8 @@ const hullWreckage = game.crafts.at(-1);
 assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().length,
   'destroyed hull remains as physical wreckage');
 
-const ship = new Ship({ shades: colors.white, credits: 10000 }).addToScene();
+player.credits = 10000;
+const ship = new Ship({ shades: colors.white }).addToScene();
 assert.equal(ship.hullMaxHealth, 186, 'Ship hull has twice its original 93 HP');
 const pendingSales = [];
 const pendingRepairs = [];
@@ -73,7 +74,7 @@ const settleSale = () => {
   const sold = ship.cargoContents.filter(object => request.objectIds.includes(object.id));
   assert.equal(sold.length, request.objectIds.length);
   ship.cargoContents = ship.cargoContents.filter(object => !request.objectIds.includes(object.id));
-  ship.credits += sold.reduce((total, object) => total + object.price, 0);
+  player.credits += sold.reduce((total, object) => total + object.price, 0);
 };
 const wreck = new Ship({ shades: colors.white, velocity: Vec.create(12, -7), spin: 0.2 }).addToScene();
 const contents = [diamondDefinition, messageDefinition, messageDefinition].map(itemData =>
@@ -155,14 +156,14 @@ assert(!ship.cargoContents.length && ship.modules[0] === first, 'fitting preserv
 
 // Buy through the menu, paint, repair, and remove the exact purchased instance.
 back(ship); move(-100); move(2); confirm(); confirm();
-const beforeBuy = ship.credits;
+const beforeBuy = player.credits;
 move(1);
 assert(selectionSnapshot(ship)[3] === 1, 'down from BUY reaches BACK');
 move(-1);
 confirm();
 const bought = ship.modules[1];
 assert(bought.constructor === CargoHatch && bought !== first, 'purchase appends a fresh instance');
-assert(ship.credits === beforeBuy - CargoHatch.price, 'purchase debits once');
+assert(player.credits === beforeBuy - CargoHatch.price, 'purchase debits once');
 move(1);
 assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
   'down from EQUIP after buying reaches the paint row');
@@ -190,32 +191,32 @@ assert(bought.shades === colors.violet && first.shades === colors.red, 'next unl
 
 // The ownership checks below need these paints earned before selecting them.
 unlockPaint('RED', 'DAMAGED');
-assert(playerShip.note === 'DAMAGED - RED UNLOCKED', 'red reward message');
+assert(player.note === 'DAMAGED - RED UNLOCKED', 'red reward message');
 const slatePickup = {type:'itemCollected',itemId:999,resource:4,unlock:'ORANGE',message:'GOLD ORE 100/200'};
-const noteBeforeOtherPickup = playerShip.note;
+const noteBeforeOtherPickup = player.note;
 presentEvents({playerId:1,events:[{...slatePickup,by:2}],onMessage:readSlate});
-assert(!paintUnlocked(colors.orange) && playerShip.note === noteBeforeOtherPickup,
+assert(!paintUnlocked(colors.orange) && player.note === noteBeforeOtherPickup,
   'another player reading a slate does not show our message or unlock');
 presentEvents({playerId:1,events:[{...slatePickup,by:1}],onMessage:readSlate});
 assert(paintUnlocked(colors.red) && paintUnlocked(colors.orange), 'earned paints become available');
-assert(playerShip.note === 'CARGO FOUND - ORANGE UNLOCKED', 'orange unlock appears first');
+assert(player.note === 'CARGO FOUND - ORANGE UNLOCKED', 'orange unlock appears first');
 updatePlayer(10);
-assert(playerShip.note === 'GOLD ORE 100/200', 'field coordinates follow the unlock');
-playerShip.noteFor = 0;
+assert(player.note === 'GOLD ORE 100/200', 'field coordinates follow the unlock');
+player.noteFor = 0;
 presentEvents({playerId:1,events:[{...slatePickup,by:1,message:'AMETHYST CLUSTER 300/400'}],onMessage:readSlate});
-assert(playerShip.note === 'AMETHYST CLUSTER 300/400', 'already unlocked orange shows coordinates only');
+assert(player.note === 'AMETHYST CLUSTER 300/400', 'already unlocked orange shows coordinates only');
 moveSubSelection(-100, ship); confirm();
 assert(bought.shades === colors.red && first.shades === colors.red, 'paint purchased instance');
 moveSubSelection(1, ship); confirm();
 assert(bought.shades === colors.orange && first.shades === colors.red, 'independent paint');
 back(ship); mount.health = 3.11111;
-const repairCredits = ship.credits;
-ship.credits = 0; confirm();
+const repairCredits = player.credits;
+player.credits = 0; confirm();
 assert(selectionSnapshot(ship)[2][0] === 'FIX' && selectionSnapshot(ship)[3] === 2,
   'unaffordable module repair is visible but cannot be focused');
 move(1); move(-1);
 assert(selectionSnapshot(ship)[3] === 2, 'up from paints skips disabled repair for BACK');
-ship.credits = repairCredits; back(ship); confirm();
+player.credits = repairCredits; back(ship); confirm();
 move(1);
 assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
   'down from FIX on a horizontal action row reaches paint, not BACK');
@@ -223,7 +224,7 @@ move(-1);
 assert(selectionSnapshot(ship)[3] === 0,
   'up from paint returns to FIX on a horizontal action row');
 confirm();
-assert(mount.health === CargoHatch.health && ship.credits === repairCredits - 1,
+assert(mount.health === CargoHatch.health && player.credits === repairCredits - 1,
   'module repair charges for displayed missing HP');
 assert.deepEqual(pendingRepairs.shift(),
   {action: 'repair', moduleId: bought.id, mount: ship.mounts.indexOf(mount)},
@@ -243,17 +244,17 @@ assert(ship.cargoContents.length >= ship.cargoSpace, 'removing consumes cargo sp
 
 // Full cargo blocks a purchase without altering cargo contents or credits.
 back(ship); back(ship); move(-100); move(3); confirm();
-const buyCredits = ship.credits;
-ship.credits = 0; confirm();
+const buyCredits = player.credits;
+player.credits = 0; confirm();
 assert(selectionSnapshot(ship)[2][0] === 'BUY' && selectionSnapshot(ship)[3] === 1,
   'unaffordable purchase is visible but cannot be focused');
-ship.credits = buyCredits; back(ship); confirm();
-const fullCredits = ship.credits;
+player.credits = buyCredits; back(ship); confirm();
+const fullCredits = player.credits;
 confirm();
-assert(ship.credits === fullCredits && ship.modules.length === 2, 'full cargo blocks buy');
+assert(player.credits === fullCredits && ship.modules.length === 2, 'full cargo blocks buy');
 back(ship); back(ship); move(-100);
 ship.cargoContents = [bought, new Item(ore), new Item(gem), new Item(ore)];
-const beforeSale = ship.credits;
+const beforeSale = player.credits;
 confirm(); confirm(); confirm(); settleSale();
 assert(ship.modules.length === 1 && ship.modules[0] === first, 'cargo sale preserves equipped module');
 assert(selectionSnapshot()[1] === 1, 'cargo sale closes submenu');
@@ -266,12 +267,12 @@ assert(selectionSnapshot()[1] === 1, 'stack sale closes submenu');
 syncPaintUnlocks(100);
 assert(!paintUnlocked(colors.cyan), 'cyan is locked before selling a diamond');
 confirm(); confirm(); settleSale();
-assert(!ship.cargoContents.length && ship.credits === beforeSale + CargoHatch.price + 25, 'last cargo sale');
+assert(!ship.cargoContents.length && player.credits === beforeSale + CargoHatch.price + 25, 'last cargo sale');
 assert(selectionSnapshot()[1] === 1, 'empty cargo returns to list');
-assert(paintUnlocked(colors.cyan) && playerShip.note === 'DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
-playerShip.note = 'UNCHANGED';
+assert(paintUnlocked(colors.cyan) && player.note === 'DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
+player.note = 'UNCHANGED';
 unlockPaint('CYAN');
-assert(playerShip.note === 'UNCHANGED', 'cyan only announces once');
+assert(player.note === 'UNCHANGED', 'cyan only announces once');
 syncPaintUnlocks(undefined);
 assert(paintUnlocked(colors.cyan), 'no authoritative mask preserves the optimistic unlock');
 syncPaintUnlocks(100);
@@ -285,10 +286,10 @@ confirm(); move(1); confirm();
 lowerMount.hull.health = 1.11111;
 const hullHealth = ship.segments.filter(({hull}) => hull).reduce((total, segment) => total + segment.health, 0);
 const hullMaxHealth = ship.hullSegments.reduce((total, segment) => total + segment.health, 0);
-const hullRepairCredits = ship.credits;
+const hullRepairCredits = player.credits;
 confirm();
 assert(lowerMount.hull.health === lowerMount.hull.module.health, 'hull repair');
-assert(ship.credits === hullRepairCredits - hullMaxHealth + (hullHealth | 0),
+assert(player.credits === hullRepairCredits - hullMaxHealth + (hullHealth | 0),
   'hull repair charges for displayed missing HP');
 assert.deepEqual(pendingRepairs.shift(), {action: 'repair'},
   'hull repair sends its own dock action');
@@ -350,9 +351,9 @@ hatchShip.segmentsAtMount(hatchMount).forEach(segment => { segment.active = 0; s
 assert.equal(hatchShip.hitbox().find(box => box.segment === hatchDoor).collides, false,
   'closing the cargo hatch removes door contacts again');
 // The starter loadout is owned once and completely fitted by player setup.
-assert(playerShip.modules.length === 5 && !playerShip.cargoContents.length, 'starter cargo contents');
-assert(new Set(playerShip.modules).size === 5, 'starter modules are distinct instances');
-assert(playerShip.modules.every(module => module.mount.module === module), 'starter mount links');
+assert(player.ship.modules.length === 5 && !player.ship.cargoContents.length, 'starter cargo contents');
+assert(new Set(player.ship.modules).size === 5, 'starter modules are distinct instances');
+assert(player.ship.modules.every(module => module.mount.module === module), 'starter mount links');
 assert(new CargoHatch().shades === colors.violet && new ShieldGenerator().shades === colors.violet &&
   thrusters.every((thruster) => new thruster().shades === colors.violet), 'purchased modules are pink');
 assert(new HornDrill().shades === colors.yellow, 'purchased horns are yellow');
@@ -482,20 +483,46 @@ for (const [name, shades] of [['GREEN', colors.green]]) {
   assert(!paintUnlocked(shades), name + ' starts locked');
   unlockPaint(name, '3 STATION VISITS');
   assert(paintUnlocked(shades), name + ' unlocks its paint');
-  assert(playerShip.note === '3 STATION VISITS - GREEN UNLOCKED', name + ' reward message');
-  playerShip.note = 'UNCHANGED';
+  assert(player.note === '3 STATION VISITS - GREEN UNLOCKED', name + ' reward message');
+  player.note = 'UNCHANGED';
   unlockPaint(name);
-  assert(playerShip.note === 'UNCHANGED', name + ' only announces once');
+  assert(player.note === 'UNCHANGED', name + ' only announces once');
 }
 const replacement = new Ship({shades:colors.white}).addToScene();
-const creditsBefore = playerShip.credits;
+const spareShip = new Ship({shades:colors.yellow});
+const ownedShips = player.ships;
+player.ships.push(spareShip);
+player.ship.docked(new Ship({id:700}));
+player.ship.docked(new Ship({id:700}));
+assert(player.visitedStations.size === 1, 'recreated station objects count as the same visit');
+player.note = 'SHIP REPLACED';
+player.noteFor = 7;
+player.queuedNotes.push('NEXT MESSAGE');
+player.hudAlpha = 0.5;
+player.started = true;
+const creditsBefore = player.credits;
+const paintsBefore = [...player.unlockedPaints];
+const notesBefore = [...player.queuedNotes];
 const updateBefore = replacement.update;
 adoptPlayerShip({ship:replacement});
-assert(playerShip === replacement, 'presentation adopts the canonical simulation object');
-assert(playerShip.credits === creditsBefore, 'presentation survives snapshot object replacement');
-assert(playerShip.update === updateBefore, 'decoration does not replace shared physics');
+assert(player.ship === replacement, 'presentation adopts the canonical simulation object');
+assert(player.ships === ownedShips, 'ship adoption preserves the owned-ships array');
+assert.deepEqual(player.ships, [replacement, spareShip], 'replacing the active ship retains other owned ships');
+assert(player.credits === creditsBefore, 'credits survive ship replacement');
+assert.deepEqual(player.unlockedPaints, paintsBefore, 'paint unlocks survive ship replacement');
+assert.deepEqual(player.queuedNotes, notesBefore, 'queued notes survive ship replacement');
+assert(player.note === 'SHIP REPLACED' && player.noteFor === 7,
+  'current note survives ship replacement');
+assert(player.hudAlpha === 0.5 && player.started, 'HUD state survives ship replacement');
+assert(!Object.hasOwn(replacement, 'note') && !Object.hasOwn(replacement, 'credits'),
+  'player state is not copied onto the replacement ship');
+replacement.docked(new Ship({id:701}));
+assert(player.visitedStations.size === 2, 'new ship retains the docking reward callback and visit history');
+assert(player.ship.update === updateBefore, 'decoration does not replace shared physics');
 adoptPlayerShip({ship:replacement});
 assert(!replacement.dead && game.sprites.includes(replacement), 'adopting the current ship does not remove it');
+assert(player.ships.length === 2 && player.ships[1] === spareShip,
+  'adopting the current ship does not duplicate it or remove other owned ships');
 console.log('Cargo contents, menu, damage, repairs, cargo hatch physics and flight tests passed');
 `;
 

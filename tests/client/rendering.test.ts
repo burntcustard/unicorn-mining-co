@@ -14,7 +14,7 @@ import { game } from '${root}/src/client/game.ts';
 import { createWorld, addEntity } from '${root}/src/client/simulation/world.ts';
 import { captureWorld, cloneEntity, restoreWorld } from '${root}/src/client/simulation/world-state.ts';
 import { Ship } from '${root}/src/client/objects/ship.ts';
-import { createShip } from '${root}/src/client/objects/create-ship.ts';
+import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
 import { SearchLight, CargoHatch, HornDrill, ShieldGenerator, thrusters } from '${root}/src/client/objects/modules/index.ts';
 import { Item } from '${root}/src/client/objects/item.ts';
@@ -246,7 +246,7 @@ const diamond=new Item(diamondDefinition, );
 // local fragment. Render that fragment as fixed wreckage through every path.
 for(const active of [false,true])for(const destruction of ['detach','health']){
   const lightWorld=createWorld();
-  const lightShip=addEntity(lightWorld,createShip(lightWorld,{shades:colors.cyan}));
+  const lightShip=addEntity(lightWorld,createPlayerShip(lightWorld,{shades:colors.cyan}));
   lightShip.setModuleActive({module:SearchLight,active});
   lightShip.updateModules(1);
   const detachedLight=lightShip.modules.find(module=>module instanceof SearchLight);
@@ -450,7 +450,7 @@ for (const production of [false, true]) {
         resolveId: (id) => (id === entry ? entry : undefined),
         load(id: string) {
           if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return "export const playSound=value=>Reflect.get(globalThis, 'sounds').push(value);export const continuousSound=()=>undefined;";
+            return "export const playSound=value=>Reflect.get(globalThis, 'sounds').push(value);export const continuousSound=()=>undefined;export const unlockAudio=()=>{};export const updateThrusterSound=()=>{};";
           }
 
           if (id === entry) {

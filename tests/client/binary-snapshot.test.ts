@@ -4,6 +4,7 @@ import {
   decodeClientMessage,
   encodeServerControl,
 } from '../../src/client/protocol/binary-control';
+import { colors } from '../../src/definitions/colors';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
 
 class Writer {
@@ -300,6 +301,11 @@ Object.assign(globalThis, {
 });
 
 const { NetworkClient } = await import('../../src/client/network/network');
+const { playerInput } = await import('../../src/client/input/input');
+const { createPlayerShip } =
+  await import('../../src/client/objects/create-ship');
+const { SearchLight, CargoHatch } =
+  await import('../../src/client/objects/modules/index');
 const client = new NetworkClient({ url: 'ws://test' });
 const socket = Socket.sockets.at(-1)!;
 
@@ -323,6 +329,8 @@ socket.onmessage?.({
     serverTick: 0,
     worldSeed: 2,
     spawn: { x: 0, y: 0 },
+    unlockedPaints: 100,
+    credits: 500,
   }),
 });
 
@@ -359,6 +367,35 @@ load.record(2, [
 socket.onmessage?.({ data: load.packet().buffer });
 await client.ready;
 assert.equal(client.connected, true);
+assert.equal(client.player.credits, 500);
+assert.deepEqual(
+  [...client.player.unlockedPaints],
+  [colors.yellow, colors.violet, colors.white],
+);
+assert(!Object.hasOwn(client.world.entities.get(1)!, 'credits'));
+
+socket.onmessage?.({
+  data: encodeServerControl({
+    type: 'progress',
+    unlockedPaints: 116,
+    credits: 380,
+  }),
+});
+
+assert.equal(client.player.credits, 380);
+assert(client.player.unlockedPaints.includes(colors.cyan));
+const unlockedPaints = client.player.unlockedPaints;
+
+// A repeated authoritative mask must undo optimistic paint rewards too.
+client.player.unlockedPaints.push(colors.red);
+
+socket.onmessage?.({
+  data: encodeServerControl({ type: 'progress', unlockedPaints: 116 }),
+});
+
+assert.equal(client.player.unlockedPaints, unlockedPaints);
+assert(!client.player.unlockedPaints.includes(colors.red));
+assert.equal(client.player.credits, 380);
 assert.equal(storedToken, playerToken);
 const reconnectClient = new NetworkClient({ url: 'ws://reconnect-test' });
 const reconnectSocket = Socket.sockets.at(-1)!;
@@ -410,6 +447,11 @@ assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
 client.update({ input: emptyPlayerInput() });
 assert.equal(authoritative.get(2)?.position.x, 20);
 assert.equal(authoritative.get(2)?.label, undefined);
+assert.equal(
+  client.player.credits,
+  380,
+  'ship reconciliation does not overwrite the account',
+);
 
 socket.onmessage?.({
   data: JSON.stringify({
@@ -423,6 +465,68 @@ socket.onmessage?.({
 
 assert.deepEqual(socket.closed, [1007], 'JSON snapshots are rejected');
 assert.equal(authoritative.get(2)?.label, undefined);
+
+// A restored load must seed keyboard toggles before the first predicted input.
+const restoredClient = new NetworkClient({ url: 'ws://restored-test' });
+const receiveRestored = Reflect.get(restoredClient, 'receive').bind(
+  restoredClient,
+);
+
+receiveRestored({
+  message: {
+    type: 'welcome',
+    playerToken,
+    playerId: 1,
+    shipId: 1,
+    serverTick: 0,
+    worldSeed: 2,
+    spawn: { x: 0, y: 0 },
+  },
+});
+
+const savedShip = createPlayerShip(restoredClient.world, {
+  id: 1,
+  playerId: 1,
+});
+
+for (const active of [true, false]) {
+  savedShip.setModuleActive({ module: SearchLight, active });
+  savedShip.setModuleActive({ module: CargoHatch, active });
+  playerInput.searchLight = !active;
+  playerInput.cargoHatch = !active;
+
+  receiveRestored({
+    message: {
+      type: 'load',
+      serverTick: 0,
+      nextEntityId: 10,
+      entityIds: [1],
+      fullEntities: [
+        {
+          id: 1,
+          kind: 'ship',
+          playerId: 1,
+          position: { x: 0, y: 0 },
+          radius: savedShip.radius,
+          rotation: 0,
+          spin: 0,
+          hullHealth: savedShip.hullHealth,
+          modules: savedShip.moduleStates,
+        },
+      ],
+    },
+  });
+
+  assert.equal(playerInput.searchLight, active, 'load restores light toggle');
+  assert.equal(playerInput.cargoHatch, active, 'load restores hatch toggle');
+  restoredClient.update({ input: playerInput });
+  const predictedShip = restoredClient.world.entities.get(
+    1,
+  ) as typeof savedShip;
+
+  assert.equal(predictedShip.moduleActive({ module: SearchLight }), active);
+  assert.equal(predictedShip.moduleActive({ module: CargoHatch }), active);
+}
 
 const malformedClient = new NetworkClient({ url: 'ws://malformed-test' });
 const malformedSocket = Socket.sockets.at(-1)!;

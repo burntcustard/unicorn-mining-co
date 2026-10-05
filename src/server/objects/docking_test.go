@@ -25,7 +25,7 @@ func TestDockingBayOnGenericCraft(t *testing.T) {
 	craft.Self, craft.Kind = craft, "craft"
 	simulation.AddEntity(world, craft)
 	playerID := int64(7)
-	ship := objects.CreateShip(world, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &playerID, Position: Vec.Create(150, 0)}})
+	ship := objects.CreatePlayerShip(world, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &playerID, Position: Vec.Create(150, 0)}})
 	simulation.AddEntity(world, ship)
 	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Ticks: 1})
 

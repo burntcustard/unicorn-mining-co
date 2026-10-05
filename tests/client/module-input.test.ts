@@ -7,13 +7,13 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { initKeys, playerInput } from '${process.cwd()}/src/client/input/input.ts';
 import { moduleBinding } from '${process.cwd()}/src/client/input/keybindings.ts';
-import { createShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
+import { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
 import { createWorld } from '${process.cwd()}/src/client/simulation/world.ts';
 import { controlShip } from '${process.cwd()}/src/client/objects/control-ship.ts';
 import { HornDrill, SearchLight, CargoHatch, ShieldGenerator } from '${process.cwd()}/src/client/objects/modules/index.ts';
 globalThis.window=new EventTarget();
 initKeys();
-const ship=createShip(createWorld());
+const ship=createPlayerShip(createWorld());
 const shieldGenerator=new ShieldGenerator();
 ship.cargoContents.push(shieldGenerator);
 ship.fit(shieldGenerator,ship.mounts.find(mount=>mount.fits.includes(ShieldGenerator)));

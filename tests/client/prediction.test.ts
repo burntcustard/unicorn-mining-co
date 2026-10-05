@@ -7,7 +7,7 @@ import {
   addPlayer,
   createWorld,
 } from '../../src/client/simulation/world';
-import { createShip } from '../../src/client/objects/create-ship';
+import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { Item } from '../../src/client/objects/item';
 import { diamond as diamondDefinition } from '../../src/definitions/items/index';
 import { cloneEntity } from '../../src/client/simulation/world-state';
@@ -22,7 +22,7 @@ import { simulationStep } from '../../src/definitions/simulation';
 // Restoring an older checkpoint must not release IDs reserved by the server.
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
   const authoritative = cloneEntity({ entity: ship });
 
   addPlayer(world, { id: 1, shipId: ship.id });
@@ -55,7 +55,7 @@ import { simulationStep } from '../../src/definitions/simulation';
 // All visible bodies receive fractional prediction, even far from the pilot.
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
 
@@ -127,7 +127,7 @@ import { simulationStep } from '../../src/definitions/simulation';
 // Sampling more frames must not advance history or change the eventual solve.
 for (const fps of [60, 120, 144]) {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
   addEntity(world, new GameObject({ id: 100, position: Vec.create(8000) }));
@@ -214,7 +214,7 @@ for (const fps of [60, 120, 144]) {
 // tiny display fraction. The full endpoint still equals committed physics.
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
 
@@ -260,7 +260,7 @@ for (const fps of [60, 120, 144]) {
 // Two immediate transitions in one tick must retain the duration of a short tap.
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
@@ -295,7 +295,7 @@ for (const fps of [60, 120, 144]) {
   const expected = createWorld();
   const authoritative = addEntity(
     expected,
-    createShip(expected, { playerId: 1 }),
+    createPlayerShip(expected, { playerId: 1 }),
   );
 
   addPlayer(expected, { id: 1, shipId: authoritative.id });
@@ -316,7 +316,7 @@ for (const { active, progress } of [
   { active: 1, progress: 0.15 },
 ]) {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
@@ -357,10 +357,10 @@ for (const { active, progress } of [
   });
 }
 
-// Station snapshots can change credits or cargo without changing ship motion.
-for (const correction of ['credits', 'cargo'] as const) {
+// Station snapshots can change cargo without changing ship motion.
+for (const correction of ['cargo'] as const) {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
@@ -373,9 +373,7 @@ for (const correction of ['credits', 'cargo'] as const) {
 
   const authoritative = cloneEntity({ entity: ship }) as typeof ship;
 
-  if (correction === 'credits') {
-    authoritative.credits += CargoHatch.price;
-  } else {
+  {
     authoritative.cargoContents.push(
       new Item(diamondDefinition, { world, id: 1000 }),
     );
@@ -385,7 +383,6 @@ for (const correction of ['credits', 'cargo'] as const) {
 
   prediction.reconcile({ tick: 2, entities: [authoritative] });
 
-  assert.equal(ship.credits, authoritative.credits);
   assert.deepEqual(
     ship.cargoContents.map(({ id }) => id),
     authoritative.cargoContents.map(({ id }) => id),
@@ -396,7 +393,7 @@ for (const correction of ['credits', 'cargo'] as const) {
 // A clock reset must not leave a future input waiting to reactivate thrust.
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
@@ -422,7 +419,7 @@ for (const correction of ['credits', 'cargo'] as const) {
 
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
   const drifting = addEntity(
@@ -473,7 +470,7 @@ for (const localId of [1, 2]) {
 
   addEntity(
     world,
-    createShip(world, {
+    createPlayerShip(world, {
       id: 1,
       playerId: 1,
       position: Vec.create(-85),
@@ -483,7 +480,7 @@ for (const localId of [1, 2]) {
 
   addEntity(
     world,
-    createShip(world, {
+    createPlayerShip(world, {
       id: 2,
       playerId: 2,
       position: Vec.create(),

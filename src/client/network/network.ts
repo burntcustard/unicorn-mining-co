@@ -1,5 +1,8 @@
 import * as Vec from '../utilities/vector';
 import { type PlayerInput } from '../protocol/input';
+import { playerInput } from '../input/input';
+import { moduleControls } from '../objects/control-ship';
+import { player, syncPaintUnlocks } from '../player';
 import {
   encodeClientMessage,
   decodeServerControl,
@@ -137,7 +140,6 @@ const makeEntity = ({
     common,
     {
       dockedTo: entity.dockedTo,
-      credits: entity.credits,
       health: entity.health ?? 100,
       ...(!wreckage && {
         ...(entity.hullHealth && { hullHealth: entity.hullHealth }),
@@ -171,6 +173,7 @@ const makeEntity = ({
 };
 
 export class NetworkClient {
+  readonly player: Pick<typeof player, 'credits' | 'unlockedPaints'>;
   // Separate from predicted objects: decoding must never mutate live state or
   // rollback history. Retain only the current interest set between packets.
   private authoritativeEntities = new Map<number, GameObject>();
@@ -202,7 +205,6 @@ export class NetworkClient {
   private welcomed = false;
   readonly world = createWorld();
   worldSeed?: number;
-  unlockedPaints?: number;
 
   private applySnapshot({
     message,
@@ -251,6 +253,13 @@ export class NetworkClient {
     if (message.type === 'load') {
       this.pendingTime = 0;
       this.inputTickStartedAt = performance.now();
+      const ship = this.world.entities.get(this.shipId!);
+
+      if (ship instanceof Ship) {
+        moduleControls.forEach(({ Type, input }) => {
+          playerInput[input] = ship.moduleActive({ module: Type });
+        });
+      }
 
       if (this.welcomed) {
         this.connected = true;
@@ -324,7 +333,14 @@ export class NetworkClient {
     };
   }
 
-  constructor({ url }: { url: string }) {
+  constructor({
+    url,
+    player: state = { credits: 0, unlockedPaints: [] },
+  }: {
+    url: string;
+    player?: Pick<typeof player, 'credits' | 'unlockedPaints'>;
+  }) {
+    this.player = state;
     this.prediction = new PredictionManager({ world: this.world });
 
     this.ready = new Promise((resolve) => (this.resolveReady = resolve));
@@ -341,12 +357,16 @@ export class NetworkClient {
 
   private receive({ message }: { message: ServerMessage }) {
     if (message.type === 'progress') {
-      this.unlockedPaints = message.unlockedPaints;
+      syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);
+
+      if (message.credits !== undefined) this.player.credits = message.credits;
       return;
     }
 
     if (message.type === 'welcome') {
-      this.unlockedPaints = message.unlockedPaints;
+      syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);
+
+      if (message.credits !== undefined) this.player.credits = message.credits;
       this.world.entities.clear();
       this.world.players.clear();
       this.world.nextEntityId = 1;
@@ -614,6 +634,7 @@ export class NetworkClient {
 const socketProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
 
 export const network = new NetworkClient({
+  player,
   url: `${socketProtocol}//${location.host}/game-socket`,
 });
 

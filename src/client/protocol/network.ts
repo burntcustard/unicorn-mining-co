@@ -17,7 +17,6 @@ export type CraftAction =
 
 export type ReplicatedEntity = {
   cargoContents?: (ReplicatedEntity | { moduleIndex: number })[];
-  credits?: number;
   definitionId?: string;
   contents?: number[];
   decay?: number;
@@ -75,7 +74,7 @@ export type ClientMessage =
   | PlayerInputMessage;
 
 export type ServerMessage =
-  | { type: 'progress'; unlockedPaints: number }
+  | { type: 'progress'; unlockedPaints: number; credits?: number }
   | {
       shipId: number;
       type: 'respawn';
@@ -89,6 +88,7 @@ export type ServerMessage =
       type: 'welcome';
       worldSeed: number;
       unlockedPaints?: number;
+      credits?: number;
     }
   | {
       snapshotSequence?: number;

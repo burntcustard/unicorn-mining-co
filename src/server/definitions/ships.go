@@ -18,12 +18,10 @@ type HullSegment struct {
 }
 
 type Ship struct {
-	CargoSpace      int           `json:"cargoSpace"`
-	Drag            float64       `json:"drag"`
-	Mass            float64       `json:"mass"`
-	Radius          float64       `json:"radius"`
-	TurnRate        float64       `json:"turnRate"`
-	HullSegments    []HullSegment `json:"hullSegments"`
-	StartingModules []string      `json:"startingModules"`
-	StartingCredits float64       `json:"startingCredits"`
+	CargoSpace   int           `json:"cargoSpace"`
+	Drag         float64       `json:"drag"`
+	Mass         float64       `json:"mass"`
+	Radius       float64       `json:"radius"`
+	TurnRate     float64       `json:"turnRate"`
+	HullSegments []HullSegment `json:"hullSegments"`
 }

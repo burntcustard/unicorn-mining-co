@@ -148,7 +148,7 @@ func TestTypeScriptGameplay(t *testing.T) {
 				}
 
 				id := int64(i + 1)
-				ship := objects.CreateShip(world, objects.Properties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation})
+				ship := objects.CreatePlayerShip(world, objects.Properties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation})
 				simulation.AddEntity(world, ship)
 				moduleID := int64(-2000)
 

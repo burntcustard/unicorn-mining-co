@@ -128,7 +128,7 @@ func (s *Ship) RepairCost(mount *simulation.Mount) float64 {
 	return 0
 }
 
-func (s *Ship) ApplyDockAction(action protocol.DockAction) (protocol.DockAction, bool) {
+func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (protocol.DockAction, bool) {
 	mounts := s.Mounts()
 	var mount *simulation.Mount
 
@@ -187,7 +187,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction) (protocol.DockAction,
 			}
 		}
 
-		s.Credits += sum
+		*credits += sum
 	case "buy":
 		if action.Module < 0 || action.Module >= int64(len(s.Catalog.ModuleIDs)) {
 			return action, false
@@ -196,7 +196,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction) (protocol.DockAction,
 		id := s.Catalog.ModuleIDs[action.Module]
 		d := s.Catalog.ModuleDefinitions[id]
 
-		if s.Credits < d.Price || len(s.CargoContents) >= s.CargoSpace {
+		if *credits < d.Price || len(s.CargoContents) >= s.CargoSpace {
 			return action, false
 		}
 
@@ -207,7 +207,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction) (protocol.DockAction,
 		}
 
 		module := modules.Create(id, props, s.Catalog)
-		s.Credits -= d.Price
+		*credits -= d.Price
 		s.CargoContents = append(s.CargoContents, module)
 		action.ModuleID = module.Base().ID
 		action.HasModuleID = true
@@ -234,11 +234,11 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction) (protocol.DockAction,
 
 			cost := s.RepairCost(nil)
 
-			if !(cost > 0) || s.Credits < cost {
+			if !(cost > 0) || *credits < cost {
 				return action, false
 			}
 
-			s.Credits -= cost
+			*credits -= cost
 			s.FixHull()
 		} else {
 			if mount == nil || mount.Module == nil || mount.Module.Base().ID != action.ModuleID {
@@ -247,11 +247,11 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction) (protocol.DockAction,
 
 			cost := s.RepairCost(mount)
 
-			if !(cost > 0) || s.Credits < cost {
+			if !(cost > 0) || *credits < cost {
 				return action, false
 			}
 
-			s.Credits -= cost
+			*credits -= cost
 			mount.Health = mount.Module.Base().Health
 		}
 	case "paint":
@@ -481,11 +481,14 @@ func CreateShip(world *simulation.World, props Properties) *Ship {
 		props.DefinitionID = "mustang"
 	}
 
-	props.Credits = world.Specification.ShipDefinitions[props.DefinitionID].StartingCredits
 	ship := NewShip(props.DefinitionID, props, world.Specification)
-	ship.HasCredits = true
+	return ship
+}
 
-	for _, id := range world.Specification.ShipDefinitions[props.DefinitionID].StartingModules {
+func CreatePlayerShip(world *simulation.World, props Properties) *Ship {
+	ship := CreateShip(world, props)
+
+	for _, id := range world.Specification.StartingModules {
 		ship.Fit(modules.Create(id, simulation.ObjectProperties{World: world}, world.Specification), nil)
 	}
 

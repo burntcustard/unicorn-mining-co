@@ -141,7 +141,7 @@ func TestStationaryPlayerOmitsUnchangedFragments(t *testing.T) {
 
 	world := simulation.CreateWorld(25, catalog)
 	id := int64(1)
-	ship := objects.CreateShip(world, objects.Properties{PlayerID: &id})
+	ship := objects.CreatePlayerShip(world, objects.Properties{PlayerID: &id})
 	batch := NewBinarySnapshotBatch(catalog)
 	batch.Begin(NewReplicationView(world))
 	record := batch.prepared(ship)

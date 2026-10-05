@@ -8,7 +8,7 @@ import {
   addEntity,
   addPlayer,
 } from '../../src/client/simulation/world.ts';
-import { createShip } from '../../src/client/objects/create-ship.ts';
+import { createPlayerShip } from '../../src/client/objects/create-ship.ts';
 import { emptyPlayerInput } from '../../src/client/protocol/input.ts';
 
 Object.assign(globalThis, { window: new EventTarget() });
@@ -201,7 +201,7 @@ try {
       frames.length = 0;
       now = 0;
       const world = createWorld();
-      const ship = addEntity(world, createShip(world, { playerId: 1 }));
+      const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
       ship.drag = 0;
       ship.engine.forwardThrust = speed / 17;

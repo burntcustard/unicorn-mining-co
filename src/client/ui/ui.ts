@@ -1,4 +1,4 @@
-import { playerShip } from '../player';
+import { player } from '../player';
 import { colors } from '../../definitions/colors';
 import { renderControls } from './controls';
 import { renderDocked } from './docked-loader';
@@ -38,20 +38,20 @@ export const renderUI = (
 
   renderIndicators(game, stations, colors.green[2], 10000);
 
-  game.ctx.globalAlpha = game.uiAlpha * playerShip.hudAlpha;
+  game.ctx.globalAlpha = game.uiAlpha * player.hudAlpha;
 
   renderControls(game, controlsShip);
 
   game.ctx.globalAlpha = game.uiAlpha;
 
-  if (playerShip.dockedTo && playerShip.started) renderDocked(game, playerShip);
+  if (player.ship.dockedTo && player.started) renderDocked(game, player.ship);
 
   // Messages keep their own visibility and sit over the docked panel, so a
   // reward announced by a sale is still read
-  if (playerShip.noteFor) {
+  if (player.noteFor) {
     renderText({
       game,
-      text: playerShip.note,
+      text: player.note,
       x: game.uiWidth / 2,
       y: game.uiHeight - 40,
       size: 1,
@@ -59,16 +59,16 @@ export const renderUI = (
     });
   }
 
-  renderText({ game, text: `$${playerShip.credits}`, x: 20, y: 20, size: 1 });
+  renderText({ game, text: `$${player.credits}`, x: 20, y: 20, size: 1 });
 
-  if (playerShip.cargoContents.length >= playerShip.cargoSpace) {
+  if (player.ship.cargoContents.length >= player.ship.cargoSpace) {
     game.ctx.globalAlpha =
       game.uiAlpha * (0.5 + Math.sin(Date.now() / 300) / 2);
   }
 
   renderText({
     game,
-    text: `${playerShip.cargoContents.length}/${playerShip.cargoSpace}`,
+    text: `${player.ship.cargoContents.length}/${player.ship.cargoSpace}`,
     x: game.uiWidth - 20,
     y: 20,
     size: 1,
@@ -79,7 +79,7 @@ export const renderUI = (
 
   renderText({
     game,
-    text: `${`${Math.round(playerShip.position.x)}`.padStart(8)}/${`${Math.round(playerShip.position.y)}`.padEnd(8)}`,
+    text: `${`${Math.round(player.ship.position.x)}`.padStart(8)}/${`${Math.round(player.ship.position.y)}`.padEnd(8)}`,
     x: game.uiWidth / 2,
     y: 20,
     size: 1,

@@ -14,6 +14,4 @@ export type ShipDefinition = {
   radius: number;
   turnRate: number;
   hullSegments: HullSegmentSpecification[];
-  startingModules: ModuleId[];
-  startingCredits: number;
 };

@@ -28,13 +28,7 @@ import { camera, centerCamera, followTarget } from './camera';
 
 import { revealBuriedItems } from './utilities/lighting';
 import { message as messageDefinition } from '../definitions/items';
-import {
-  adoptPlayerShip,
-  playerShip,
-  readSlate,
-  updatePlayer,
-  syncPaintUnlocks,
-} from './player';
+import { adoptPlayerShip, player, readSlate, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './effects/shrapnel';
 import { presentEvents } from './effects/present-events';
 import { GameLoop } from './game-loop';
@@ -134,7 +128,7 @@ const syncPlayerShip = () => {
 
   if (!(ship instanceof Ship)) return;
 
-  if (playerShip !== ship) {
+  if (player.ship !== ship) {
     refreshReplication();
     adoptPlayerShip({ ship });
   }
@@ -142,7 +136,7 @@ const syncPlayerShip = () => {
 
 const syncSimulationObjects = (dt: number) => {
   regionalObjects.forEach((object) => {
-    if (object instanceof Craft && object !== playerShip) {
+    if (object instanceof Craft && object !== player.ship) {
       object.updateVisual(dt);
     }
   });
@@ -151,7 +145,7 @@ const syncSimulationObjects = (dt: number) => {
 // @ifdef DEBUG
 const debugWreck = new Ship({
   shades: colors.orange,
-  position: Vec.add(playerShip.position, Vec.create(500)),
+  position: Vec.add(player.ship.position, Vec.create(500)),
 }).addToScene();
 
 const debugNote = new Item(messageDefinition).addToScene();
@@ -168,10 +162,11 @@ debugCrafts(game);
 
 // @ifdef BENCHMARK
 if (benchmarkFlag('field')) {
-  Object.assign(playerShip, {
+  player.started = true;
+
+  Object.assign(player.ship, {
     dockedTo: 0,
     launching: 0,
-    started: 1,
     position: Vec.create(),
   });
 }
@@ -180,7 +175,7 @@ if (benchmarkFlag('field')) {
 // @ifdef DEBUG
 // Lets the console (and automated checks) watch the clock the client is
 // predicting on against the last tick the server reported.
-Object.assign(window, { game, network, playerShip });
+Object.assign(window, { game, network, player });
 // @endif
 
 const activeRadius = 2000;
@@ -199,13 +194,13 @@ initKeys({
 
 moduleControls.forEach(({ Type, input: action }) =>
   bindAction(moduleBinding(action), () => {
-    if (playerShip.launching || playerShip.dockedTo) return;
-    const segment = playerShip.segments.find(
+    if (player.ship.launching || player.ship.dockedTo) return;
+    const segment = player.ship.segments.find(
       (segment) =>
         segment.module.constructor === Type && segment.mount.health > 0,
     );
 
-    if (!segment || playerShip.dead) return;
+    if (!segment || player.ship.dead) return;
 
     if (Type === ShieldGenerator) playSound(segment.active ? 6 : 7);
 
@@ -215,27 +210,27 @@ moduleControls.forEach(({ Type, input: action }) =>
 
 bindAction(
   defaultKeybindings.menuLeft,
-  () => playerShip.dockedTo && moveSubSelection(-1, playerShip),
+  () => player.ship.dockedTo && moveSubSelection(-1, player.ship),
 );
 bindAction(
   defaultKeybindings.menuBack,
-  () => playerShip.dockedTo && back(playerShip),
+  () => player.ship.dockedTo && back(player.ship),
 );
 bindAction(
   defaultKeybindings.menuSelect,
-  () => playerShip.dockedTo && confirmSelection(playerShip),
+  () => player.ship.dockedTo && confirmSelection(player.ship),
 );
 bindAction(
   defaultKeybindings.menuRight,
-  () => playerShip.dockedTo && moveSubSelection(1, playerShip),
+  () => player.ship.dockedTo && moveSubSelection(1, player.ship),
 );
 bindAction(
   defaultKeybindings.menuUp,
-  () => playerShip.dockedTo && moveSelection(-1, playerShip),
+  () => player.ship.dockedTo && moveSelection(-1, player.ship),
 );
 bindAction(
   defaultKeybindings.menuDown,
-  () => playerShip.dockedTo && moveSelection(1, playerShip),
+  () => player.ship.dockedTo && moveSelection(1, player.ship),
 );
 
 // @ifdef DEBUG
@@ -253,15 +248,15 @@ const gameLoop = GameLoop({
       shipId: network.shipId,
     });
 
-    const predictedPlayerShip = predicted.entities.get(playerShip.id);
+    const predictedPlayerShip = predicted.entities.get(player.ship.id);
     const renderedShip =
-      predictedPlayerShip instanceof Ship ? predictedPlayerShip : playerShip;
-    const playerPose = remotePoses.get(playerShip.id) || renderedShip;
+      predictedPlayerShip instanceof Ship ? predictedPlayerShip : player.ship;
+    const playerPose = remotePoses.get(player.ship.id) || renderedShip;
 
     if (!network.shipDestroyed) {
       followTarget(
         game,
-        { position: playerPose.position, dockedTo: playerShip.dockedTo },
+        { position: playerPose.position, dockedTo: player.ship.dockedTo },
         dt,
       );
     }
@@ -357,11 +352,9 @@ const gameLoop = GameLoop({
     });
   },
   update: ({ dt, now }) => {
-    syncPaintUnlocks(network.unlockedPaints);
-
-    if (playerShip.launchRequested) {
+    if (player.ship.launchRequested) {
       playerInput.launch = true;
-      playerShip.launchRequested = 0;
+      player.ship.launchRequested = 0;
     }
 
     if (network.updateFrame({ input: playerInput, dt, now })) {
@@ -388,14 +381,14 @@ const gameLoop = GameLoop({
       activeSprites = game.sprites.filter(
         (sprite) =>
           !sprite.dead &&
-          Vec.distance(sprite.position, playerShip.position) <= activeRadius,
+          Vec.distance(sprite.position, player.ship.position) <= activeRadius,
       );
     }
 
     // Presentation follows the display rate, not the network tick rate.
     updateSparks(dt);
     updatePlayer(dt);
-    playerShip.updateVisual(dt);
+    player.ship.updateVisual(dt);
     updateHornDrillSounds({ crafts: game.crafts });
 
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
@@ -411,7 +404,7 @@ setTimeout(() => {
   void network.ready.then(() => {
     refreshReplication();
     syncPlayerShip();
-    playerShip.started = 1;
+    player.started = true;
 
     if (network.shipDestroyed) {
       centerCamera(game, { position: network.spawnPosition });

@@ -21,7 +21,6 @@ type Properties struct {
 	HullSegments  []*simulation.SegmentPlan
 	CargoContents []simulation.Entity
 	Shades        []string
-	Credits       float64
 	DockedTo      *int64
 	Launching     float64
 }
@@ -29,20 +28,20 @@ type Properties struct {
 type geometrySource struct{ identity byte }
 
 type Craft struct {
-	HasCredits, HasLaunching bool
+	HasLaunching bool
 	*simulation.GameObject
-	Catalog                                     definitions.Catalog
-	Segments                                    []*simulation.Segment
-	HullSegments                                []*simulation.SegmentPlan
-	CargoContents                               []simulation.Entity
-	Cockpit                                     *simulation.Segment
-	DockedTo                                    *int64
-	Launching, Forward, Turn, TurnRate, Credits float64
-	ZIndex                                      int
-	CargoSpace                                  int
-	source                                      *geometrySource
-	colliders                                   []*collision.Collider
-	spareColliders                              []*collision.Collider
+	Catalog                            definitions.Catalog
+	Segments                           []*simulation.Segment
+	HullSegments                       []*simulation.SegmentPlan
+	CargoContents                      []simulation.Entity
+	Cockpit                            *simulation.Segment
+	DockedTo                           *int64
+	Launching, Forward, Turn, TurnRate float64
+	ZIndex                             int
+	CargoSpace                         int
+	source                             *geometrySource
+	colliders                          []*collision.Collider
+	spareColliders                     []*collision.Collider
 }
 
 func (*Craft) IsCraft() {}
@@ -93,7 +92,7 @@ func (c *Craft) HandleDockingContacts(contacts []collision.Contact, events *[]pr
 }
 
 func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog definitions.Catalog) *Craft {
-	c := &Craft{GameObject: simulation.NewGameObject(props.ObjectProperties, catalog.Simulation), Catalog: catalog, CargoContents: props.CargoContents, HullSegments: plans, DockedTo: props.DockedTo, Launching: props.Launching, Credits: props.Credits}
+	c := &Craft{GameObject: simulation.NewGameObject(props.ObjectProperties, catalog.Simulation), Catalog: catalog, CargoContents: props.CargoContents, HullSegments: plans, DockedTo: props.DockedTo, Launching: props.Launching}
 	c.Self = c
 	c.Kind = "craft"
 	c.ZIndex = definitions.HullZIndex

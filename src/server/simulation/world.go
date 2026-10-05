@@ -16,7 +16,10 @@ type Entity interface {
 	MaxSpeed() float64
 }
 
-type Player struct{ ID, ShipID int64 }
+type Player struct {
+	ID, ShipID int64
+	Credits    *float64
+}
 
 type World struct {
 	// Called only by the world owner for gameplay creation/removal, not loading.

@@ -187,7 +187,7 @@ try {
       evaluate(
         send,
         `(async()=>{
-    const {network}=await window.loadedGameModule('network.ts'); await network.ready; const {playerShip}=await window.loadedGameModule('player.ts'); if(playerShip.id!==network.shipId) throw Error('capture must instrument the rendered client');
+    const {network}=await window.loadedGameModule('network.ts'); await network.ready; const {player}=await window.loadedGameModule('player.ts'); if(player.ship.id!==network.shipId) throw Error('capture must instrument the rendered client');
     const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('set-sizing.ts');
     game.size=5; setSizing(game);
     const capture={shipId:network.shipId,frames:[],maxReceiveJump:0,maxSnapshotJump:0,snapshots:0,events:[],docking:[]}; window.motionCapture=capture;

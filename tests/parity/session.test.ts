@@ -50,47 +50,133 @@ function compare(a: unknown, b: unknown, path: string) {
 }
 
 let packets = 0;
-let progressPackets = 0;
+
+const progress: { unlockedPaints: number; credits?: number }[] = [];
+
+function snapshots() {
+  const entities = new Map<number, Record<string, unknown>>();
+  let sequence = 0;
+
+  return (message: ReturnType<typeof decoded>, refresh = true) => {
+    if (message.type !== 'load' && message.type !== 'snapshot') return message;
+
+    assert.equal(message.snapshotSequence, ++sequence);
+
+    if (!refresh) return message;
+
+    if (message.type === 'load') entities.clear();
+
+    if (message.entityIds) {
+      for (const id of entities.keys()) {
+        if (!message.entityIds.includes(id)) entities.delete(id);
+      }
+    }
+
+    for (const entity of message.fullEntities) {
+      const state: Record<string, unknown> = {
+        ...entities.get(entity.id),
+        ...entity,
+      };
+
+      for (const key of Object.keys(state)) {
+        if (state[key] === null) delete state[key];
+      }
+
+      entities.set(entity.id, state);
+    }
+
+    const { snapshotSequence: _, entityIds: __, ...metadata } = message;
+
+    return {
+      ...metadata,
+      fullEntities: [...entities.values()].sort(
+        (a, b) => (a.id as number) - (b.id as number),
+      ),
+    };
+  };
+}
 
 for (const [id, socket] of Object.entries(fixture.sockets) as [
   string,
   { code: number; packets: string[] },
 ][]) {
   assert.equal(go[id].code, socket.code);
+  const actualState = snapshots();
+  const archivedState = snapshots();
+  let previous: ReturnType<typeof actualState>;
+  let rejectedActions = 0;
 
-  // The archived session predates authoritative paint notifications. Check
-  // that addition separately and retain every recorded mechanics comparison.
-  const actualPackets = go[id].packets.filter((packet: string) => {
-    const data = Buffer.from(packet, 'hex');
+  const actualPackets = go[id].packets.flatMap((packet: string) => {
+    const message = decoded(packet);
 
-    if (data[1] === 0x43) {
-      const message = decodeServerControl(data);
+    if (message.type === 'welcome') {
+      assert.equal(message.credits, 500);
+      assert.equal(message.unlockedPaints, 100);
+      const { credits: _, unlockedPaints: __, ...welcome } = message;
 
-      if (message.type === 'progress') {
-        assert.equal(id, '4');
-        assert.equal(message.unlockedPaints, 116);
-        progressPackets++;
-        return false;
-      }
+      return [welcome];
     }
 
-    return true;
+    if (message.type === 'progress') {
+      assert.equal(id, '4');
+
+      progress.push({
+        unlockedPaints: message.unlockedPaints,
+        credits: message.credits,
+      });
+
+      return [];
+    }
+
+    // The occupied-mount equip and locked module paint now explicitly reject
+    // optimistic changes with a full load of the unchanged authoritative state.
+    if (
+      id === '4' &&
+      message.type === 'load' &&
+      (message.snapshotSequence === 8 || message.snapshotSequence === 9)
+    ) {
+      actualState(message, false);
+      assert(previous.type === 'snapshot');
+      compare(
+        message.fullEntities.find((entity) => entity.id === 1),
+        previous.fullEntities.find((entity) => entity.id === 1),
+        `rejected action ${id} ship`,
+      );
+      rejectedActions++;
+      return [];
+    }
+
+    const state = actualState(message);
+
+    previous = state;
+    return [state];
   });
 
+  assert.equal(rejectedActions, id === '4' ? 2 : 0);
   assert.equal(actualPackets.length, socket.packets.length);
 
   socket.packets.forEach((packet, index) => {
     compare(
-      decoded(actualPackets[index]),
-      decoded(packet),
+      actualPackets[index],
+      archivedState(decoded(packet)),
       `socket ${id} packet ${index}`,
     );
     packets++;
   });
 }
 
-assert.equal(progressPackets, 1);
+// Repair costs 7, selling the diamond earns 80, and buying the shield costs
+// 900. Rejected actions and equipment changes leave the player balance intact.
+assert.deepEqual(progress, [
+  { unlockedPaints: 100, credits: 9993 },
+  { unlockedPaints: 100, credits: 9993 },
+  { unlockedPaints: 116, credits: 10073 },
+  { unlockedPaints: 116, credits: 9173 },
+  { unlockedPaints: 116, credits: 9173 },
+  { unlockedPaints: 116, credits: 9173 },
+  { unlockedPaints: 116, credits: 9173 },
+]);
 
 console.log(
-  `Go session matches ${packets} recorded packets: input, reconnect, catch-up, backpressure, docking and respawn`,
+  `Go session matches ${packets} recorded states: input, reconnect, catch-up, backpressure, docking and respawn; player account updates and rejected actions verified`,
 );

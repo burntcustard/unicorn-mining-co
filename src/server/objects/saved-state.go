@@ -32,20 +32,20 @@ type SavedObject struct {
 }
 
 type SavedEntity struct {
-	Object                            SavedObject
-	ModuleType                        string
-	Contents                          []int
-	MaxHealth                         float64
-	AsteroidSegments                  []*simulation.AsteroidSegment
-	HullHealth                        []float64
-	HullEdges                         [][]bool
-	Modules                           []ModuleState
-	ModuleTypes                       []string
-	CargoContents                     []SavedEntity
-	Wreckage                          []WreckageSegment
-	DockedTo                          *int64
-	Credits, Launching, Forward, Turn float64
-	HasCredits, HasLaunching          bool
+	Object                   SavedObject
+	ModuleType               string
+	Contents                 []int
+	MaxHealth                float64
+	AsteroidSegments         []*simulation.AsteroidSegment
+	HullHealth               []float64
+	HullEdges                [][]bool
+	Modules                  []ModuleState
+	ModuleTypes              []string
+	CargoContents            []SavedEntity
+	Wreckage                 []WreckageSegment
+	DockedTo                 *int64
+	Launching, Forward, Turn float64
+	HasLaunching             bool
 }
 
 func savedPointer[T any](p *T) *T {
@@ -152,8 +152,8 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 		}
 
 		s.DockedTo = savedPointer(c.DockedTo)
-		s.Credits, s.Launching, s.Forward, s.Turn = c.Credits, c.Launching, c.Forward, c.Turn
-		s.HasCredits, s.HasLaunching = c.HasCredits, c.HasLaunching
+		s.Launching, s.Forward, s.Turn = c.Launching, c.Forward, c.Turn
+		s.HasLaunching = c.HasLaunching
 	}
 
 	return s
@@ -264,8 +264,8 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 			c.CargoContents = append(c.CargoContents, item)
 		}
 
-		c.DockedTo, c.Credits, c.Launching, c.Forward, c.Turn = s.DockedTo, s.Credits, s.Launching, s.Forward, s.Turn
-		c.HasCredits, c.HasLaunching = s.HasCredits, s.HasLaunching
+		c.DockedTo, c.Launching, c.Forward, c.Turn = s.DockedTo, s.Launching, s.Forward, s.Turn
+		c.HasLaunching = s.HasLaunching
 	}
 
 	b := entity.Base()

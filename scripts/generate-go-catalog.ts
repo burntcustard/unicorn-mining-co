@@ -34,6 +34,7 @@ import {
 import { motion } from '../src/definitions/local-movement';
 import { flight } from '../src/definitions/control-ship';
 import { simulationStep } from '../src/definitions/simulation';
+import { startingModules, startingCredits } from '../src/definitions/player';
 import { updateTiers } from '../src/definitions/update-tier';
 import { maxCatchUpTicks } from '../src/definitions/game-session';
 import { maxPredictionTicks } from '../src/definitions/prediction';
@@ -72,6 +73,8 @@ const simulation = {
 };
 
 const catalog = {
+  startingCredits,
+  startingModules,
   colors,
   paintColors,
   itemDefaults,
@@ -94,16 +97,15 @@ if (
   !unique(itemIds) ||
   !itemIds.every((id, index) => itemDefinitions[id].resource === index) ||
   !moduleIds.every((id) => id in moduleDefinitions) ||
-  !Object.values(shipDefinitions).every(
-    (ship) =>
-      ship.startingModules.every((id) => id in moduleDefinitions) &&
-      ship.hullSegments.every(
-        (segment) =>
-          !('mounts' in segment) ||
-          segment.mounts?.every((mount) =>
-            mount.fits.every((id) => id in moduleDefinitions),
-          ),
-      ),
+  !startingModules.every((id) => id in moduleDefinitions) ||
+  !Object.values(shipDefinitions).every((ship) =>
+    ship.hullSegments.every(
+      (segment) =>
+        !('mounts' in segment) ||
+        segment.mounts?.every((mount) =>
+          mount.fits.every((id) => id in moduleDefinitions),
+        ),
+    ),
   ) ||
   Object.values(binaryFieldIds).some((value, index) => value !== index + 1) ||
   ![controlMessageIds, dockActionIds, entityKindIds].every((ids) =>

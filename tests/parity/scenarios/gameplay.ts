@@ -4,7 +4,7 @@ import {
   addEntity,
   addPlayer,
 } from '../../../src/client/simulation/world';
-import { createShip } from '../../../src/client/objects/create-ship';
+import { createPlayerShip } from '../../../src/client/objects/create-ship';
 import { Station } from '../../../src/client/objects/station';
 import { createAsteroid } from '../../../src/client/objects/asteroid';
 import {
@@ -104,7 +104,7 @@ const cases = [
 
     const ship = addEntity(
       world,
-      createShip(world, {
+      createPlayerShip(world, {
         id: i + 1,
         playerId: i + 1,
         position,

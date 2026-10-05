@@ -88,7 +88,7 @@ func main() {
 
 			id := int64(999)
 			ship.DockedTo = &id
-			ship.Credits = 10000
+			*player.Credits = 10000
 			health := ship.HullHealth()
 			health[0] = 1
 			ship.SetHullHealth(health)

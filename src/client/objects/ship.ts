@@ -18,6 +18,7 @@ import { moduleTypes } from './modules/index';
 import { Module } from './modules/module';
 import { Item } from './item';
 import { paintColors } from '../../definitions/colors';
+import { type player as localPlayer } from '../player';
 import { type CraftAction } from '../protocol/network';
 
 type DockActionRequest =
@@ -33,7 +34,10 @@ export class Ship extends Craft {
    * Apply one dock action to this ship. A local buy action gets its module ID
    * here; the server receives that ID and runs the same rules.
    */
-  applyDockAction(action: DockActionRequest): CraftAction | undefined {
+  applyDockAction(
+    action: DockActionRequest,
+    player: Pick<typeof localPlayer, 'credits'>,
+  ): CraftAction | undefined {
     const mount =
       'mount' in action && action.mount !== undefined
         ? this.mounts[action.mount]
@@ -64,7 +68,7 @@ export class Ship extends Craft {
       this.cargoContents = this.cargoContents.filter(
         (object) => !ids.includes(object.id),
       );
-      this.credits += objectsToSell.reduce(
+      player.credits += objectsToSell.reduce(
         (total, object) => total + (object.price || 0),
         0,
       );
@@ -73,7 +77,7 @@ export class Ship extends Craft {
 
       if (
         !Type ||
-        this.credits < Type.price ||
+        player.credits < Type.price ||
         this.cargoContents.length >= this.cargoSpace
       ) {
         return;
@@ -83,7 +87,7 @@ export class Ship extends Craft {
         action.moduleId === undefined ? {} : { id: action.moduleId },
       );
 
-      this.credits -= Type.price;
+      player.credits -= Type.price;
       this.cargoContents.push(module);
       return { ...action, moduleId: module.id };
     } else if (action.action === 'equip') {
@@ -96,15 +100,15 @@ export class Ship extends Craft {
         if (action.moduleId !== undefined) return;
         const cost = this.repairCost();
 
-        if (!(cost > 0) || this.credits < cost) return;
-        this.credits -= cost;
+        if (!(cost > 0) || player.credits < cost) return;
+        player.credits -= cost;
         this.fixHull();
       } else {
         if (!mount?.module || mount.module.id !== action.moduleId) return;
         const cost = this.repairCost(mount);
 
-        if (!(cost > 0) || this.credits < cost) return;
-        this.credits -= cost;
+        if (!(cost > 0) || player.credits < cost) return;
+        player.credits -= cost;
         mount.health = mount.module.health;
       }
     } else if (action.action === 'paint') {

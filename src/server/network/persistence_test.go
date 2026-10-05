@@ -71,7 +71,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 
 	token, id, shipID := p.profile.ID, p.playerID, p.shipID
 	p.ship.Position = Vec.Create(1234, 2345)
-	p.ship.Credits = 9876
+	p.profile.Credits = 9876
 	p.ship.Mounts()[0].Health -= 7
 	p.ship.CargoContents = append(p.ship.CargoContents, objects.NewItem("diamond", simulation.ObjectProperties{World: s.World}, s.World.Specification))
 	visits := []int64{10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
@@ -137,7 +137,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
 	p = s.playersBySocket[socket]
 
-	if p.playerID != id || p.shipID != shipID || p.ship.Credits != 9876 || p.ship.Position != Vec.Create(1234, 2345) {
+	if p.playerID != id || p.shipID != shipID || p.profile.Credits != 9876 || p.ship.Position != Vec.Create(1234, 2345) {
 		t.Fatalf("lost identity/progress: %+v", p)
 	}
 
@@ -300,7 +300,7 @@ func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
 	asteroid.Segments()[0].Health -= 0.5
 	health := asteroid.Segments()[0].Health
 	asteroidID := asteroid.ID
-	p.ship.Credits = 1234
+	p.profile.Credits = 1234
 	p.ship.Remove()
 	s.progress(nil)
 	s.regions.Sync(s.World, nil)
@@ -333,7 +333,7 @@ func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
 	oldShip := p.shipID
 	s.Receive(protocol.Control{Type: "respawn"}, socket)
 
-	if p.shipID == oldShip || p.ship.Dead || p.ship.Credits != 1234 || p.ship.DockedTo == nil {
+	if p.shipID == oldShip || p.ship.Dead || p.profile.Credits != 1234 || p.ship.DockedTo == nil {
 		t.Fatal("saved dead player cannot respawn")
 	}
 
@@ -396,6 +396,74 @@ func TestWorldChangesSaveOnlyAffectedPlayers(t *testing.T) {
 	for _, p := range saved.Players {
 		if p.ID == a.profile.ID && len(p.Ship.Modules) != before-1 {
 			t.Fatal("detached module restored in its owner")
+		}
+	}
+}
+
+func TestModuleStateSurvivesReconnectAndRestart(t *testing.T) {
+	for _, active := range []bool{false, true} {
+		for _, restart := range []string{"reconnect", "disconnect-restart", "shutdown"} {
+			t.Run(restart+"/"+map[bool]string{false: "closed", true: "open"}[active], func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "world.sqlite")
+				s, store := persistedSession(t, path)
+				socket := &benchmarkSocket{}
+				s.Receive(protocol.Control{Type: "hello"}, socket)
+				p := s.playersBySocket[socket]
+				token := p.profile.ID
+				committedSession(t, s)
+				// Save an animation in progress, including a hatch closing.
+				p.ship.SetModuleActive("searchLight", true)
+				p.ship.SetModuleActive("cargoHatch", true)
+				p.ship.UpdateModules(0.1)
+				p.ship.SetModuleActive("searchLight", active)
+				p.ship.SetModuleActive("cargoHatch", active)
+				expected := p.ship.ModuleStates()
+
+				if restart == "shutdown" {
+					if err := s.shutdownPersistence(context.Background()); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					s.Disconnect(socket)
+				}
+
+				committedSession(t, s)
+
+				if restart != "reconnect" {
+					if err := store.Close(context.Background()); err != nil {
+						t.Fatal(err)
+					}
+
+					s, store = persistedSession(t, path)
+				}
+
+				defer store.Close(context.Background())
+				socket = &benchmarkSocket{}
+				s.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
+				p = s.playersBySocket[socket]
+				actual := p.ship.ModuleStates()
+
+				for i, state := range expected {
+					kind := s.World.Specification.ModuleIDs[state.Type]
+
+					if kind != "searchLight" && kind != "cargoHatch" {
+						continue
+					}
+
+					if len(state.Segments) == 0 || !slices.Equal(state.Segments, actual[i].Segments) {
+						t.Fatalf("%s activation/progress lost: %v -> %v", kind, state.Segments, actual[i].Segments)
+					}
+				}
+
+				// The first simulation tick must not overwrite the saved toggles.
+				s.Tick(1)
+
+				for _, kind := range []string{"searchLight", "cargoHatch"} {
+					if p.ship.ModuleActive(kind) != active {
+						t.Fatalf("%s reset on first tick", kind)
+					}
+				}
+			})
 		}
 	}
 }

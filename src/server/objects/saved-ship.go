@@ -224,6 +224,6 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		ship.CargoContents = append(ship.CargoContents, entity)
 	}
 
-	ship.Dead, ship.DockedTo, ship.HasCredits = s.Dead, savedPointer(s.DockedTo), true
+	ship.Dead, ship.DockedTo = s.Dead, savedPointer(s.DockedTo)
 	return ship, nil
 }

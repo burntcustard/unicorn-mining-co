@@ -21,10 +21,18 @@ func TestDefinitionDrivenCraft(t *testing.T) {
 	depot.LocalMovementRadius = 900
 	catalog.StationDefinitions["testDepot"] = depot
 	world := simulation.CreateWorld(25, catalog)
-	first := CreateShip(world, Properties{DefinitionID: "testScout"})
-	second := CreateShip(world, Properties{DefinitionID: "testScout"})
+	id := int64(1)
 
-	if first.DefinitionID != "testScout" || first.CargoSpace != 20 || len(first.Modules()) != len(scout.StartingModules) {
+	for _, props := range []Properties{{DefinitionID: "testScout"}, {DefinitionID: "testScout", PlayerID: &id}} {
+		if len(CreateShip(world, props).Modules()) != 0 {
+			t.Fatal("generic ships must start without modules, including player-owned ships")
+		}
+	}
+
+	first := CreatePlayerShip(world, Properties{DefinitionID: "testScout"})
+	second := CreatePlayerShip(world, Properties{DefinitionID: "testScout"})
+
+	if first.DefinitionID != "testScout" || first.CargoSpace != 20 || len(first.Modules()) != len(catalog.StartingModules) {
 		t.Fatal("ship did not consume selected definition")
 	}
 

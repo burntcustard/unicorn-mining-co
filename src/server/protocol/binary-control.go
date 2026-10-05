@@ -35,6 +35,7 @@ type Control struct {
 }
 
 type ServerControl struct {
+	Credits                      *float64
 	UnlockedPaints               *uint8
 	Type                         string
 	PlayerID, ShipID, ServerTick uint64
@@ -374,9 +375,18 @@ func DecodeClientControl(data []byte, ids definitions.Protocol, step float64) (C
 }
 
 func EncodeServerControl(message ServerControl, ids definitions.Protocol) ([]byte, error) {
+	if message.Credits != nil && (message.UnlockedPaints == nil || *message.Credits < 0 || math.IsNaN(*message.Credits) || math.IsInf(*message.Credits, 0)) {
+		return nil, ErrControl
+	}
+
 	if message.Type == "progress" && message.UnlockedPaints != nil {
 		w := controlWriter(ids.ControlMessageIDs["progress"])
 		w.byte(*message.UnlockedPaints)
+
+		if message.Credits != nil {
+			w.number(*message.Credits)
+		}
+
 		return w.data, nil
 	}
 
@@ -405,6 +415,10 @@ func EncodeServerControl(message ServerControl, ids definitions.Protocol) ([]byt
 
 	if message.UnlockedPaints != nil {
 		w.byte(*message.UnlockedPaints)
+
+		if message.Credits != nil {
+			w.number(*message.Credits)
+		}
 	}
 
 	return w.data, nil

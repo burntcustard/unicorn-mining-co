@@ -11,6 +11,8 @@ type Point [2]float64
 type Vector = vector.Vector
 
 type Catalog struct {
+	StartingCredits    float64             `json:"startingCredits"`
+	StartingModules    []string            `json:"startingModules"`
 	Colors             map[string][]string `json:"colors"`
 	PaintColors        [][]string          `json:"paintColors"`
 	ItemDefaults       map[string]float64  `json:"itemDefaults"`

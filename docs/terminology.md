@@ -26,6 +26,8 @@
 
 **craft** - An object built from hull and module segments, such as a ship or station. Broken-off craft fragments use the same structure.
 
+**credits** - The game's currency, also called **unicredits**. Players have credits, stored in their player accounts and retained when their ships are replaced. The `$` character selects the custom credits symbol in the game's text renderer and prefixes balances and prices.
+
 **docking** - A ship entering a station's docking bay and becoming attached to that station.
 
 **drill tip** - A small nonphysical collider at the horn drill's point. Only its contacts can cause drilling damage.
@@ -76,7 +78,7 @@
 
 **physics substep** - A shorter interval that the continuous collision solver advances after a time-of-impact contact within a simulation tick. It is separate from the game’s movement subdivision.
 
-**player** - A participant in the game, associated with a ship. The player and ship are separate things.
+**player** - A participant in the game who owns credits, ships, and unlocked paints, and pilots one active ship at a time. Player state also tracks visited stations, current and queued messages, HUD visibility, and whether play has started. Players fly and dock their ships, operate modules, collect cargo, buy and sell items or modules, repair and equip their ships, apply unlocked paints, and earn rewards. Cargo contents and fitted modules belong to the individual ship; credits, paint unlocks, and player progress remain with the player when the active ship is replaced.
 
 **player input** - The controls a player uses to fly a ship or operate its modules.
 

@@ -77,7 +77,6 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				return fmt.Errorf("restore player %s: %w", profile.ID, err)
 			}
 
-			ship.Credits = profile.Credits
 			now := s.now()
 
 			p := &playerRecord{profile: profile, playerID: id, ship: ship, shipID: ship.ID, hiddenShip: !ship.Dead, disconnectedAt: &now,
@@ -167,7 +166,6 @@ func (s *GameSession) capturePlayer(p *playerRecord) persistence.Player {
 	s.accountTime(p)
 
 	profile := p.profile
-	profile.Credits = p.ship.Credits
 	profile.Visited = slices.Clone(profile.Visited)
 	profile.Ship = objects.CaptureShip(p.ship)
 	return profile
@@ -295,7 +293,7 @@ func (s *GameSession) unlockPaint(p *playerRecord, index uint8) {
 	}
 
 	p.profile.UnlockedPaints |= mask
-	p.paintPending = true
+	p.progressPending = true
 	s.savePlayer(p)
 }
 

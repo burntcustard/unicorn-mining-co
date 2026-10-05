@@ -26,7 +26,7 @@ func TestStationExitSlowdown(t *testing.T) {
 			stationID, playerID := int64(100), int64(7)
 			station := objects.CreateStation(objects.Properties{ObjectProperties: simulation.ObjectProperties{ID: &stationID, Spin: 0.1}}, catalog)
 			simulation.AddEntity(world, station)
-			ship := objects.CreateShip(world, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &playerID, Position: Vec.Create(station.LocalMovementRadius-1, 0), Rotation: rotation}})
+			ship := objects.CreatePlayerShip(world, objects.Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &playerID, Position: Vec.Create(station.LocalMovementRadius-1, 0), Rotation: rotation}})
 			simulation.AddEntity(world, ship)
 			simulation.AddPlayer(world, simulation.Player{ID: playerID, ShipID: ship.ID})
 			ship.LocalMovementParent = station

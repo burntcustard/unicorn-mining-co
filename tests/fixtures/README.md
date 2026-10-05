@@ -32,6 +32,14 @@ inputs. Huge angles intentionally use the float64 remainder as their direction.
 tolerance 2e-8; random welcome tokens are normalized. This is independent fixed
 regression evidence, not generated from the implementation under test.
 
+The session test reconstructs entity states to compare interest sets independently
+of record ordering after reconnect. Welcome and progress messages separately
+verify player-owned balances and paint unlocks. Two rejected dock actions now
+send corrective loads; these must retain the player's ship state and advance the
+snapshot sequence. Those added loads can refresh otherwise stale distant entity
+fields, so they do not replace the reconstructed state used for the historical
+packet comparisons. The archived packets remain unchanged.
+
 After halving item mass from 6 to 3, socket 4 packet 4 was updated only for
 the mass of cargo item 123456. Its encoded float64 changes by one byte;
 all other recorded packet bytes and actions remain unchanged.

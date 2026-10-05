@@ -471,10 +471,20 @@ export function decodeClientMessage(
 export function encodeServerControl(
   message: ServerControl,
 ): Uint8Array<ArrayBuffer> {
+  if (
+    message.type !== 'respawn' &&
+    message.credits !== undefined &&
+    message.credits < 0
+  ) {
+    throw new RangeError('Invalid player balance');
+  }
+
   if (message.type === 'progress') {
     const writer = new ControlWriter(progress);
 
     writer.byte(message.unlockedPaints);
+
+    if (message.credits !== undefined) writer.number(message.credits);
     return writer.finish();
   }
 
@@ -496,6 +506,15 @@ export function encodeServerControl(
   writer.number(message.spawn.y);
 
   if (message.unlockedPaints !== undefined) writer.byte(message.unlockedPaints);
+
+  if (message.credits !== undefined) {
+    if (message.unlockedPaints === undefined) {
+      throw new Error('Player balance requires paint state');
+    }
+
+    writer.number(message.credits);
+  }
+
   return writer.finish();
 }
 
@@ -514,6 +533,8 @@ export function decodeServerControl(
 
       if (unlockedPaints > 127) throw new Error('Invalid binary control');
       message = { type: 'progress', unlockedPaints };
+
+      if (reader.remaining) message.credits = reader.number();
       break;
     }
 
@@ -544,6 +565,8 @@ export function decodeServerControl(
 
         if (unlockedPaints > 127) throw new Error('Invalid binary control');
         message.unlockedPaints = unlockedPaints;
+
+        if (reader.remaining) message.credits = reader.number();
       }
 
       break;
@@ -554,5 +577,14 @@ export function decodeServerControl(
   }
 
   reader.finish();
+
+  if (
+    message.type !== 'respawn' &&
+    message.credits !== undefined &&
+    message.credits < 0
+  ) {
+    throw new Error('Invalid player balance');
+  }
+
   return message;
 }

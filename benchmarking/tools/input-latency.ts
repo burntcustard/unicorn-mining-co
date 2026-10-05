@@ -30,7 +30,7 @@ const bundle = await rolldown({
             export { initKeys } from '${process.cwd()}/src/client/input/input.ts';
             export { PredictionManager } from '${process.cwd()}/src/client/prediction/prediction.ts';
             export { addEntity, addPlayer, createWorld } from '${process.cwd()}/src/client/simulation/world.ts';
-            export { createShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
+            export { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
           `;
         }
 
@@ -57,7 +57,7 @@ const game: {
   addEntity: typeof import('../../src/client/simulation/world').addEntity;
   addPlayer: typeof import('../../src/client/simulation/world').addPlayer;
   createWorld: typeof import('../../src/client/simulation/world').createWorld;
-  createShip: typeof import('../../src/client/objects/create-ship').createShip;
+  createPlayerShip: typeof import('../../src/client/objects/create-ship').createPlayerShip;
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
@@ -75,7 +75,7 @@ Object.assign(globalThis, {
 
 try {
   const world = game.createWorld();
-  const ship = game.addEntity(world, game.createShip(world, { playerId: 1 }));
+  const ship = game.addEntity(world, game.createPlayerShip(world, { playerId: 1 }));
 
   game.addPlayer(world, { id: 1, shipId: ship.id });
   const prediction = new game.PredictionManager({ world });

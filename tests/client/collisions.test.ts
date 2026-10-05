@@ -34,7 +34,7 @@ const bundle = await rolldown({
       export { GameObject } from '${process.cwd()}/src/client/objects/game-object.ts';
       export { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/client/simulation/world.ts';
-      export { createShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
+      export { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
       export { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';
       export { createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
@@ -74,7 +74,7 @@ const physics: {
   addPlayer: typeof import('../../src/client/simulation/world.ts').addPlayer;
   createWorld: typeof import('../../src/client/simulation/world.ts').createWorld;
   entityId: typeof import('../../src/client/simulation/world.ts').entityId;
-  createShip: typeof import('../../src/client/objects/create-ship.ts').createShip;
+  createPlayerShip: typeof import('../../src/client/objects/create-ship.ts').createPlayerShip;
   diamondDefinition: typeof import('../../src/definitions/items/index.ts').diamond;
   Item: typeof import('../../src/client/objects/item.ts').Item;
   createAsteroid: typeof import('../../src/client/objects/asteroid.ts').createAsteroid;
@@ -116,7 +116,7 @@ const {
   entityId,
   addEntity,
   addPlayer,
-  createShip,
+  createPlayerShip,
   diamondDefinition,
   Item,
   createAsteroid,
@@ -602,7 +602,7 @@ closeTo(triangle.spin, impactResult.spin, 1e-7);
 // fast item can still cause damage.
 const itemShipImpact = (speed: number, mass?: number) => {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world));
+  const ship = addEntity(world, createPlayerShip(world));
 
   const item = addEntity(
     world,
@@ -678,7 +678,7 @@ assert(
 
   const ship = addEntity(
     world,
-    createShip(world, {
+    createPlayerShip(world, {
       playerId: 1,
       position: Vec.create(-85, 22.5),
       velocity: Vec.create(400),
@@ -1091,7 +1091,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
 // The item's physical body remains separate from its nonphysical centre point.
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 7 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 7 }));
   const mouthPart = ship.segments.find((segment) => segment.catches);
 
   ship.segments
@@ -1368,7 +1368,7 @@ assert(
 // It must launch a nearby item, then stop supplying that velocity once open.
 {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world));
+  const ship = addEntity(world, createPlayerShip(world));
   const shield = new ShieldGenerator();
 
   ship.cargoContents.push(shield);
@@ -1402,7 +1402,7 @@ const playerCollision = (shielded: boolean) => {
 
   const left = addEntity(
     world,
-    createShip(world, {
+    createPlayerShip(world, {
       playerId: 1,
       position: Vec.create(-120),
       velocity: Vec.create(200),
@@ -1411,7 +1411,7 @@ const playerCollision = (shielded: boolean) => {
 
   const right = addEntity(
     world,
-    createShip(world, {
+    createPlayerShip(world, {
       playerId: 2,
       position: Vec.create(120),
       velocity: Vec.create(-200),
@@ -1586,11 +1586,11 @@ for (const radiusEven of [undefined, 25]) {
 
 // In unobstructed flight the solver must not replace steering or drag.
 const flightWorld = createWorld();
-const flying = addEntity(flightWorld, createShip(flightWorld, { playerId: 1 }));
+const flying = addEntity(flightWorld, createPlayerShip(flightWorld, { playerId: 1 }));
 
 addPlayer(flightWorld, { id: 1, shipId: flying.id });
 const referenceWorld = createWorld();
-const reference = createShip(referenceWorld, { playerId: 1 });
+const reference = createPlayerShip(referenceWorld, { playerId: 1 });
 
 for (let tick = 0; tick < 240; tick++) {
   const input = {
@@ -1617,7 +1617,7 @@ for (let tick = 0; tick < 240; tick++) {
 // allow half of the old/new step difference in integrated angle, not slower steering.
 for (const direction of [-1, 1]) {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
   let angle = 0;
@@ -1684,7 +1684,7 @@ const offCentreStrike = ({
   angularInertiaScale?: number;
 }) => {
   const world = createWorld();
-  const ship = addEntity(world, createShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   if (angularInertiaScale !== undefined) {
     ship.angularInertiaScale = angularInertiaScale;
@@ -2443,7 +2443,7 @@ console.log('browser damage spark tests passed');
 // docking and explicit collision-margin changes.
 {
   const world = createWorld();
-  const ship = createShip(world, { position: Vec.create() });
+  const ship = createPlayerShip(world, { position: Vec.create() });
   const collisions = new GameCollisions();
 
   const sync = () => {

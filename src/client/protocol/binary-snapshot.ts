@@ -306,8 +306,9 @@ export function decodeBinarySnapshot(
           break;
         }
 
+        // Retired ship balance: consume legacy records without attaching it.
         case BinaryField.credits:
-          entity.credits = clear ? null : number();
+          if (!clear) number();
           break;
 
         case BinaryField.contents:

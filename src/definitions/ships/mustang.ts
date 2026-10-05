@@ -6,14 +6,6 @@ export const mustang = {
   mass: 9,
   radius: 40,
   turnRate: 3,
-  startingModules: [
-    'thrusterDualMd',
-    'cargoHatch',
-    'cargoHatch',
-    'hornDrill',
-    'searchLight',
-  ],
-  startingCredits: 500,
   hullSegments: [
     {
       health: 8,

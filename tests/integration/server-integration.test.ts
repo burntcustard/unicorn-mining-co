@@ -33,7 +33,7 @@ const bundle = await rolldown({
           token=>encodeClientMessage({type:'hello',playerToken:token}),
           tick=>encodeClientMessage({type:'input',tick,sequence:1,input:{...emptyPlayerInput(),thrust:1}}),
           sequence=>encodeClientMessage({type:'snapshotAck',sequence}),
-          packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerToken,message.playerId,message.shipId,message.serverTick,message.unlockedPaints];},
+          packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerToken,message.playerId,message.shipId,message.serverTick,message.unlockedPaints,message.credits];},
           packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
         ];`
           : undefined,
@@ -66,7 +66,20 @@ const source = [
   (packet: Uint8Array) => {
     const message = decodeServerControl(packet);
 
-    assert.equal(message.type, 'welcome');
+    assert(message.type === 'welcome' || message.type === 'progress');
+
+    if (message.type === 'progress') {
+      return [
+        false,
+        null,
+        null,
+        null,
+        null,
+        message.unlockedPaints,
+        message.credits,
+      ];
+    }
+
     return [
       true,
       message.playerToken,
@@ -74,6 +87,7 @@ const source = [
       message.shipId,
       message.serverTick,
       message.unlockedPaints,
+      message.credits,
     ];
   },
   (packet: Uint8Array) => {
@@ -158,6 +172,7 @@ try {
         let welcome: any[];
         let received = 0;
         let acknowledged = false;
+        let accountReceived = false;
         let loadBytes = 0;
         let snapshotBytes = 0;
 
@@ -177,10 +192,31 @@ try {
             const packet = new Uint8Array(data as Buffer);
 
             if (packet[1] === 0x43) {
-              welcome = codec[3](packet);
+              const control = codec[3](packet);
+
+              if (!control[0]) {
+                assert.equal(control[5], 100);
+                assert.equal(control[6], 500);
+                accountReceived = true;
+                return;
+              }
+
+              welcome = control;
               assert(welcome[0]);
               assert.equal(welcome[5], 100);
+              assert.equal(welcome[6], 500);
               socket.send(codec[1](welcome[4]));
+
+              // A purchase outside a station is rejected and returns account state.
+              socket.send(
+                encodeClientMessage({
+                  type: 'dock',
+                  action: 'buy',
+                  module: 4,
+                  moduleId: -999,
+                }),
+              );
+
               return;
             }
 
@@ -194,7 +230,7 @@ try {
             if (snapshot[1] !== undefined) socket.send(codec[2](snapshot[1]));
             acknowledged ||= snapshot[2] === 1;
 
-            if (welcome && received >= 3 && acknowledged) {
+            if (welcome && received >= 3 && acknowledged && accountReceived) {
               console.log(
                 `Go ${codec === source ? 'source' : 'production'} codec: load ${loadBytes} B, snapshot ${snapshotBytes} B`,
               );

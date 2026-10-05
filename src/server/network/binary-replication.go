@@ -401,7 +401,6 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 			clearField(record, field.CargoContents)
 		}
 
-		optionalNumber(record, field.Credits, entity.Credits, entity.HasCredits)
 
 		if entity.DockedTo != nil {
 			scalarNumber(record, field.DockedTo, float64(*entity.DockedTo))

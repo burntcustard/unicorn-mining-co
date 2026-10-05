@@ -18,7 +18,7 @@ assert.equal(
 const directory = await mkdtemp(join(tmpdir(), 'lazy-docked-'));
 const entryId = resolve('src/__lazy_docked_test.ts');
 const entry = `
-import { playerShip } from '${resolve('src/client/player.ts')}';
+import { player } from '${resolve('src/client/player.ts')}';
 import { game } from '${resolve('src/client/game.ts')}';
 import { init } from '${resolve('src/client/core.ts')}';
 import { Item } from '${resolve('src/client/objects/item.ts')}';
@@ -26,8 +26,8 @@ import { diamond as diamondDefinition } from '${resolve('src/definitions/items/i
 import { setCraftActionDispatcher } from '${resolve('src/client/network/craft-actions.ts')}';
 import { renderDocked, confirmSelection, back, moveSelection } from '${resolve('src/client/ui/docked-loader.ts')}';
 // The entry and independently loaded UI both access the same mangled state.
-playerShip.cargoContents ||= [];
-playerShip.cargoContents.push(new Item(diamondDefinition, ));
+player.ship.cargoContents ||= [];
+player.ship.cargoContents.push(new Item(diamondDefinition, ));
 const sales = [];
 setCraftActionDispatcher(action => {
   if (action.action === 'sell') sales.push(action);
@@ -35,18 +35,18 @@ setCraftActionDispatcher(action => {
 const { canvas, context } = init();
 Object.assign(game, {canvas, ctx:context, uiScale:1, uiWidth:1200, uiHeight:800});
 export const run = async () => {
-  renderDocked(game, playerShip);
-  await confirmSelection(playerShip);
-  renderDocked(game, playerShip);
-  await confirmSelection(playerShip);
-  await confirmSelection(playerShip);
-  await back(playerShip);
-  await moveSelection(1, playerShip);
-  await confirmSelection(playerShip);
-  renderDocked(game, playerShip);
+  renderDocked(game, player.ship);
+  await confirmSelection(player.ship);
+  renderDocked(game, player.ship);
+  await confirmSelection(player.ship);
+  await confirmSelection(player.ship);
+  await back(player.ship);
+  await moveSelection(1, player.ship);
+  await confirmSelection(player.ship);
+  renderDocked(game, player.ship);
   return [
-    playerShip.cargoContents.length,
-    sales[0]?.objectIds?.[0] === playerShip.cargoContents[0].id,
+    player.ship.cargoContents.length,
+    sales[0]?.objectIds?.[0] === player.ship.cargoContents[0].id,
   ];
 };`;
 
@@ -83,7 +83,7 @@ try {
         load: (id) => (id === entryId ? entry : undefined),
         transform: (code, id) =>
           id.endsWith('/src/client/player.ts')
-            ? code + '\nplayerShip["cargoContents"] ||= [];'
+            ? code + '\nplayer.ship["cargoContents"] ||= [];'
             : undefined,
       },
       buildPrePlugin(),
