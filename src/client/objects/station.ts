@@ -1,3 +1,4 @@
+import { renderingLayers } from '../../definitions/rendering-layers';
 import { drawSegment, shapePath } from '../utilities/drawing';
 import { game } from '../game';
 import { colors } from '../../definitions/colors';
@@ -82,14 +83,53 @@ export class Station extends Craft {
     );
   }
 
-  render({ zIndex = 0, ...options }: CraftRenderOptions = {}) {
+  render({
+    zIndex = renderingLayers.shipHull,
+    ...options
+  }: CraftRenderOptions = {}) {
     const { ctx } = game;
 
     super.render({
       ...options,
       zIndex,
       draw: () => {
-        if (zIndex !== -3 || !this.localMovementRadius) return;
+        const glowLayer =
+          zIndex === renderingLayers.glowBelowStations
+            ? renderingLayers.stationFloor
+            : zIndex === renderingLayers.glowAboveStations
+              ? renderingLayers.modulesAboveStationHull
+              : undefined;
+
+        if (glowLayer !== undefined) {
+          this.segments.forEach((segment) => {
+            if (
+              !segment.glow ||
+              segment.zIndex !== glowLayer ||
+              (segment.mount || segment).health < 1
+            ) {
+              return;
+            }
+
+            segment.glow.path ||= shapePath(segment.glow);
+            ctx.save();
+            ctx.translate(segment.localPosition.x, segment.localPosition.y);
+            drawDockingBayGlow(
+              ctx,
+              segment.glow.path,
+              segment.shades[2],
+              segment.glow,
+            );
+            ctx.restore();
+          });
+        }
+
+        if (
+          zIndex !== renderingLayers.stationFloor ||
+          !this.localMovementRadius
+        ) {
+          return;
+        }
+
         ctx.strokeStyle = `${colors.cyan[2]}6`;
         ctx.setLineDash([12, 12]);
         ctx.beginPath();
@@ -106,17 +146,6 @@ export class Station extends Craft {
         health: number;
         pose: Pose;
       }) => {
-        if (segment.glow) segment.glow.path ||= shapePath(segment.glow);
-
-        if (segment.glow && zIndex < 0) {
-          drawDockingBayGlow(
-            ctx,
-            segment.glow.path,
-            segment.shades[2],
-            segment.glow,
-          );
-        }
-
         const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
 
         ctx.fillStyle = hullSegmentFill({
@@ -128,15 +157,6 @@ export class Station extends Craft {
 
         ctx.strokeStyle = segment.shades[2];
         drawSegment({ ctx, segment });
-
-        if (segment.glow && zIndex > 0) {
-          drawDockingBayGlow(
-            ctx,
-            segment.glow.path,
-            segment.shades[2],
-            segment.glow,
-          );
-        }
       },
     });
   }

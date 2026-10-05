@@ -4,7 +4,8 @@ package definitions
 type Module struct {
 	Behavior                           string `json:"behavior"`
 	Label                              string `json:"label"`
-	Health, Price, ZIndex              float64
+	Health, Price                      float64
+	ZIndex                             int       `json:"zIndex"`
 	Shades                             []string  `json:"shades"`
 	ActivationDuration                 float64   `json:"activationDuration"`
 	ActivationThreshold                float64   `json:"activationThreshold"`

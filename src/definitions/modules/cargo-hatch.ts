@@ -1,3 +1,4 @@
+import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import type { ModuleDefinition } from './types';
 
@@ -6,7 +7,7 @@ export const cargoHatch = {
   label: 'CARGO HATCH',
   health: 4,
   price: 150,
-  zIndex: -1,
+  zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   activationDuration: 0.7,
   collectsCargo: true,

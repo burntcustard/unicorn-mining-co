@@ -1,3 +1,4 @@
+import { renderingLayers } from '../rendering-layers';
 import type { ModuleDefinition } from './types';
 
 export const searchLight = {
@@ -5,7 +6,7 @@ export const searchLight = {
   label: 'SEARCH LIGHT',
   health: 10,
   price: 450,
-  zIndex: -2,
+  zIndex: renderingLayers.scenery,
   beam: true,
   disablePhysics: true,
   lens: 2,

@@ -1,3 +1,7 @@
+import {
+  renderingLayers,
+  type RenderingLayer,
+} from '../../definitions/rendering-layers';
 import { drawInside, drawSpectrum, traceBeam } from '../utilities/prism';
 import { drawSegment, objectLineWidth } from '../utilities/drawing';
 import { game } from '../game';
@@ -51,7 +55,7 @@ export type ModuleState = {
 
 export interface CraftRenderOptions extends RenderOptions {
   scenery?: GameObject[];
-  zIndex?: number;
+  zIndex?: RenderingLayer;
   drawHull?: (options: {
     segment: Segment;
     health: number;
@@ -171,7 +175,7 @@ const makeSegment = (
       rate: 0,
       shades: undefined,
       localPosition: undefined,
-      zIndex: 0,
+      zIndex: renderingLayers.shipHull,
     },
     segmentPlan,
     {
@@ -192,7 +196,11 @@ const makeSegment = (
           (segmentPlan.thrusterNozzleSide || 0) * (craftModule.offset || 0),
         ),
       ),
-      zIndex: segmentPlan.zIndex || craftModule.zIndex || craft.zIndex || 0,
+      zIndex:
+        segmentPlan.zIndex ??
+        craftModule.zIndex ??
+        craft.zIndex ??
+        renderingLayers.shipHull,
     },
   ) as Segment;
 };
@@ -851,14 +859,13 @@ export class Craft extends GameObject {
 
   render({
     scenery = [],
-    zIndex = 0,
+    zIndex = renderingLayers.shipHull,
     draw,
     drawHull,
     pose = this,
   }: CraftRenderOptions = {}) {
     const { ctx } = game;
-    // Only the shared thruster-glow layer has a fractional z-index.
-    const glow = zIndex % 1;
+    const glow = zIndex === renderingLayers.glowBelowShips;
 
     super.render({
       pose,
@@ -869,7 +876,12 @@ export class Craft extends GameObject {
         // @ifdef DEBUG
         if (lights || glow) {
           // @endif
-          if (!this.decay && (zIndex === -3 || zIndex === -1 || glow)) {
+          if (
+            !this.decay &&
+            (zIndex === renderingLayers.stationFloor ||
+              zIndex === renderingLayers.modulesBelowShipHull ||
+              glow)
+          ) {
             this.segments.forEach((segment: Segment) => {
               if (
                 !(glow ? segment.module.forwardThrust : segment.module.beam) ||
@@ -882,17 +894,15 @@ export class Craft extends GameObject {
               ctx.save();
               ctx.translate(segment.localPosition.x, segment.localPosition.y);
 
-              if (zIndex === -3) {
+              if (zIndex === renderingLayers.stationFloor) {
                 segment.prism = traceBeam(pose, segment, scenery);
               }
 
               if (glow) segment.module.renderGlow({ segment });
               else {
-                (zIndex === -3 ? drawSpectrum : drawInside)(
-                  ctx,
-                  segment,
-                  segment.prism,
-                );
+                (zIndex === renderingLayers.stationFloor
+                  ? drawSpectrum
+                  : drawInside)(ctx, segment, segment.prism);
               }
 
               ctx.restore();

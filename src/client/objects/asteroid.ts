@@ -1,3 +1,4 @@
+import { renderingLayers } from '../../definitions/rendering-layers';
 import { colors } from '../../definitions/colors';
 import { game } from '../game';
 import { objectLineWidth, shapePath } from '../utilities/drawing';
@@ -507,7 +508,7 @@ export class Asteroid extends GameObject {
     this.stroke = this.resource === 1 ? colors.violet[2] : colors.white[2];
     this.networked = 1;
     this.scenery = 1;
-    this.zIndex = -2;
+    this.zIndex = renderingLayers.scenery;
     this.presentation();
     return super.addToScene();
   }

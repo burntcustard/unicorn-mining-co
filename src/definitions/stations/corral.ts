@@ -1,3 +1,4 @@
+import { renderingLayers, type RenderingLayer } from '../rendering-layers';
 import { rotatePoints } from '../geometry';
 import { colors } from '../colors';
 import type { StationDefinition } from './types';
@@ -97,10 +98,10 @@ const geometry = {
 const specification = {
   localMovementRadius: 600,
   mass: 1e9,
-  zIndex: 2,
+  zIndex: renderingLayers.stationHull,
   bayFillAlpha: 4,
-  bayFloorZIndex: -3,
-  bayCeilingZIndex: 3,
+  bayFloorZIndex: renderingLayers.stationFloor,
+  bayCeilingZIndex: renderingLayers.modulesAboveStationHull,
   bayGlowShades: colors.green,
   geometry,
 };
@@ -114,9 +115,8 @@ const {
   seam,
 } = stationGeometry.bay;
 
-// Both halves as one shape outline, so the light pools along the whole bayBack rather
-// than in either end of it. It goes down on both layers, so a ship sat in the
-// bayBack has it under and over at once and reads as being inside the light
+// Both halves share one glow outline, so light pools across the whole bay.
+// Their glows draw on the layers below and above the station hull and modules.
 const glow = [
   [bayBack, bayBevel - bayLip],
   [bayBack + bayBevel, -bayLip],
@@ -129,7 +129,7 @@ const glow = [
 ];
 
 // Both halves share the one glow, but their shape outlines stop at the seam
-const halfBay = (points: number[][], zIndex: number) => ({
+const halfBay = (points: number[][], zIndex: RenderingLayer) => ({
   disablePhysics: true,
   fillAlpha: specification.bayFillAlpha,
   glow,

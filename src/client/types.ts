@@ -1,3 +1,4 @@
+import type { RenderingLayer } from '../definitions/rendering-layers';
 import * as Vec from './utilities/vector';
 import { type Module } from './objects/modules/module';
 
@@ -34,5 +35,5 @@ export type Segment = {
   middle?: Point;
   points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
   shades: Shades;
-  zIndex: number;
+  zIndex: RenderingLayer;
 };

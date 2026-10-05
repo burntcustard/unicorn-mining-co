@@ -7,6 +7,7 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 const root = process.cwd();
 const scenario = `
 import assert from 'node:assert/strict';
+import { renderingLayers } from '${root}/src/definitions/rendering-layers.ts';
 import { makeEntity } from '${root}/src/client/network/network.ts';
 import { applyEntity } from '${root}/src/client/prediction/prediction.ts';
 import { game } from '${root}/src/client/game.ts';
@@ -72,6 +73,15 @@ assert.throws(()=>makeEntity({entity:{...packet['fullEntities'][0],kind:'unknown
 const remote=objects.find(entity=>entity instanceof Ship);
 const station=objects.find(entity=>entity instanceof Station);
 assert(remote && station,'wire descriptions restore concrete classes');
+assert.equal(station.segments.filter(segment=>segment.zIndex===renderingLayers.stationFloor).length,1,'the explicit floor layer 0 survives station hull inheritance');
+assert(station.segments.every(segment=>Number.isInteger(segment.zIndex) && segment.zIndex>=0),'station layers are nonnegative integers');
+assert(remote.segments.filter(segment=>segment.hull).every(segment=>segment.zIndex===renderingLayers.shipHull),'ship hulls inherit the default hull layer');
+const floorModule=new HornDrill();
+floorModule.zIndex=renderingLayers.stationFloor;
+const floorShip=new Ship({shades:colors.white});
+floorShip.cargoContents.push(floorModule);
+floorShip.fit(floorModule);
+assert(floorShip.segments.filter(segment=>segment.module===floorModule).every(segment=>segment.zIndex===renderingLayers.stationFloor),'a module layer 0 survives hull inheritance');
 assert(remote.moduleActive({module:SearchLight}) && remote.moduleActive({module:CargoHatch}),'wire activation restores module instances');
 assert.deepEqual(remote.shades,colors.cyan,'authoritative ship palette survives the wire');
 assert.deepEqual(station.shades,colors.white,'station retains its own palette');
@@ -94,7 +104,7 @@ const draws=[];
 const strokes=[];
 const styles=[];
 const transforms=[];
-let saves=0,gradients=0,boxes=0,clips=0;
+let saves=0,gradients=0,boxes=0,clips=0,glowImages=0;
 game.ctx={
   strokeStyle:'#000',fillStyle:'#000',
   save(){saves++;styles.push({strokeStyle:this.strokeStyle,fillStyle:this.fillStyle});},restore(){saves--;Object.assign(this,styles.pop());},translate(x,y){transforms.push([x,y]);},rotate(angle){transforms.push(angle);},scale(){},
@@ -103,13 +113,13 @@ game.ctx={
   createRadialGradient(){return {addColorStop(){}};},
   fill(path,rule){draws.push({path,rule,style:this.fillStyle});},
   fillRect(){boxes++;},
-  drawImage(image){assert(image.width>0,'glows use a real canvas after prediction cloning');}
+  drawImage(image){glowImages++;assert(image.width>0,'glows use a real canvas after prediction cloning');}
 };
 Object.assign(game,{scale:1,uiScale:1,uiWidth:640,uiHeight:480});
 const local=cloneEntity({entity:remote});
 const physicsPosition=Vec.add(remote.position, Vec.create());
 const physicsRotation=remote.rotation;
-remote.render({zIndex:0,pose:{position:Vec.create(123,456),rotation:.75}});
+remote.render({zIndex:renderingLayers.shipHull,pose:{position:Vec.create(123,456),rotation:.75}});
 assert.deepEqual(transforms[0],[123,456],'remote hull renders at the buffered position');
 assert.equal(transforms[1],.75,'remote hull renders at the buffered rotation');
 assert.deepEqual(remote.position,physicsPosition,'presentation never changes collision position');
@@ -130,7 +140,7 @@ for(const ship of [local,remote]){
   assert.equal(boxes-beforeBoxes,2,'cargo hatch and search light checkboxes reflect replicated activation');
   draws.length=0;
   const beforeHull=gradients;
-  ship.render({zIndex:0});
+  ship.render({zIndex:renderingLayers.shipHull});
   assert(gradients>beforeHull,'ship hulls retain gradient shading');
   const cyanTints=Array.from({length:64},(_,i)=>tint(colors.cyan,1,i/63));
   assert(draws.some(draw=>draw.style.stops?.every(stop=>cyanTints.includes(stop))),'remote hull is lit from the authoritative colour');
@@ -194,22 +204,35 @@ const hullSegment=receiving.segments.find(segment=>segment.hull && Array.isArray
 assert(hornDrillSegment.zIndex<hullSegment.zIndex,'the horn drill belongs below the hull layer');
 for(const craftOrder of [[drilling,receiving],[receiving,drilling]]){
   draws.length=0;
-  for(const zIndex of [-1,0,1])for(const craft of craftOrder)craft.render({zIndex});
+  for(const zIndex of [renderingLayers.modulesBelowShipHull,renderingLayers.shipHull,renderingLayers.modulesAboveShipHull])for(const craft of craftOrder)craft.render({zIndex});
   const hornDrillIndex=draws.findIndex(draw=>JSON.stringify(Reflect.get(draw.path, 'vertices'))===JSON.stringify(hornDrillSegment.points));
   const hullIndex=draws.findIndex(draw=>JSON.stringify(Reflect.get(draw.path, 'vertices'))===JSON.stringify(hullSegment.points));
   assert(hornDrillIndex>=0 && hullIndex>hornDrillIndex,'overlapping hulls cover the horn drill in either craft order');
 }
-station.render({zIndex:2});
+station.render({zIndex:renderingLayers.stationHull});
 assert(gradients>before,'station hulls retain gradient shading');
 // Warm the docking glow before cloning, as rendering does between network ticks.
-for(const zIndex of [-3,3])station.render({zIndex});
+for(const zIndex of Object.values(renderingLayers)){
+  const beforeGlow=glowImages;
+  station.render({zIndex});
+  const expected=Number(zIndex===renderingLayers.glowBelowStations || zIndex===renderingLayers.glowAboveStations);
+  assert.equal(glowImages-beforeGlow,expected,'station bay glows draw once each on their dedicated layers');
+}
 const predictedStation=cloneEntity({entity:station});
-for(const zIndex of [-3,3])predictedStation.render({zIndex});
+for(const zIndex of [renderingLayers.glowBelowStations,renderingLayers.glowAboveStations])predictedStation.render({zIndex});
 const stationGlow=station.segments.find(segment=>segment.glow).glow;
 assert.equal(predictedStation.segments.find(segment=>segment.glow).glow,stationGlow,'prediction shares the immutable glow definition and its render cache');
 game.scale=2;
-for(const craft of [predictedStation,station])for(const zIndex of [-3,3])craft.render({zIndex});
+for(const craft of [predictedStation,station])for(const zIndex of [renderingLayers.glowBelowStations,renderingLayers.glowAboveStations])craft.render({zIndex});
 game.scale=1;
+for(const segment of station.segments.filter(segment=>segment.glow)){
+  const health=segment.health;
+  segment.health=0;
+  const beforeGlow=glowImages;
+  for(const zIndex of [renderingLayers.glowBelowStations,renderingLayers.glowAboveStations])station.render({zIndex});
+  assert.equal(glowImages-beforeGlow,1,'destroyed bay segments stop drawing their glow');
+  segment.health=health;
+}
 
 const wreckage=createWreckage({properties:{shades:colors.cyan,decay:1},segments:[{shapeOutline:[[0,0],[20,0],[0,20]],radius:20,offset:Vec.create(),health:2,fillShade:2}]});
 draws.length=0;
@@ -228,7 +251,7 @@ for(const active of [false,true])for(const destruction of ['detach','health']){
   lightShip.updateModules(1);
   const detachedLight=lightShip.modules.find(module=>module instanceof SearchLight);
   const lamp=lightShip.segments.find(segment=>segment.module===detachedLight);
-  for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])lightShip.render({zIndex,scenery:[litRock]});
+  for(const zIndex of Object.values(renderingLayers))lightShip.render({zIndex,scenery:[litRock]});
   assert.equal(Boolean(lamp.prism),active,'active lights warm their beam cache before destruction');
   const lightCheckpoint=captureWorld({world:lightWorld});
   if(destruction==='health'){
@@ -246,7 +269,7 @@ for(const active of [false,true])for(const destruction of ['detach','health']){
   for(const fragment of [lightDebris,cloneEntity({entity:lightDebris}),replicatedDebris,cloneEntity({entity:replicatedDebris})]){
     const beforeBeam=gradients;
     draws.length=0;
-    for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])fragment.render({zIndex,scenery:[litRock]});
+    for(const zIndex of Object.values(renderingLayers))fragment.render({zIndex,scenery:[litRock]});
     assert.equal(gradients,beforeBeam,'destroyed lights never project beams, including after replication and prediction cloning');
     assert(draws.length>0,'destroyed lights still draw their fixed debris geometry');
     const beforeReveal=revealed;
@@ -258,7 +281,7 @@ for(const active of [false,true])for(const destruction of ['detach','health']){
   assert(lightShip.modules.includes(detachedLight),'rollback restores the original light instance');
   assert(lightShip.segments.every(segment=>segment.module),'rollback restores every segment module');
   for(const restored of [lightShip,cloneEntity({entity:lightShip})]){
-    for(const zIndex of [-3,-2,-1,-.5,0,1,2,3])restored.render({zIndex,scenery:[litRock]});
+    for(const zIndex of Object.values(renderingLayers))restored.render({zIndex,scenery:[litRock]});
   }
 }
 draws.length=0;
