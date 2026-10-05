@@ -10,18 +10,19 @@ import {
 } from '../../definitions/stations';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
+import { type StationDefinition } from '../../definitions/stations/types';
 
 export class Station extends Craft {
   kind = 'station';
 
   constructor({
     stationType = 'corral',
+    definition = stationDefinitionsById.get(stationType),
     ...properties
   }: ConstructorParameters<typeof Craft>[0] & {
     stationType?: StationId;
+    definition?: StationDefinition;
   } = {}) {
-    const definition = stationDefinitionsById.get(stationType);
-
     if (!definition) {
       throw new Error(`Unknown station definition: ${stationType}`);
     }

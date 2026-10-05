@@ -68,6 +68,19 @@ Use `dev` with `dev:server`, or the production build with `start:server`.
 The same Go server supports source and production clients through binary packets.
 Node is used only for frontend builds, generators, and development/test tooling.
 
+To preview object definitions independently, run `npm run viewer` and open
+[localhost:3000](http://localhost:3000/). Stop the regular frontend first because
+both use port 3000. The development-only GameObject Viewer needs no Go server.
+It uses the actual client renderers for ships, stations, items and procedural
+asteroids, including spiky amethyst. Each mount lists its position and a dropdown
+of compatible modules; its checkbox activates all segments of the fitted instance.
+The grid and mouse coordinates use the object's local definition coordinates,
+including while spinning. Definition and renderer edits hot-reload, and adding
+or removing definition files updates the selections without editing game indexes.
+Selection, rotation, zoom, viewing aids, fitted modules and module activation
+survive updates and page refreshes. Viewer source lives under `src/tools/game-object-viewer` and is
+excluded from the game production entry.
+
 7. See [package.json](package.json) for other scripts
 
 `npm run format` formats JavaScript, TypeScript, and other files supported by

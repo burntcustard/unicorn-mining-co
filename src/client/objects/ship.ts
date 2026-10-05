@@ -2,6 +2,7 @@ import { drawSegment } from '../utilities/drawing';
 import { game } from '../game';
 import { hullSegmentFill } from '../utilities/lighting';
 import { shipDefinitionsById, type ShipId } from '../../definitions/ships';
+import { type ShipDefinition } from '../../definitions/ships/types';
 import { moduleTypesById } from './modules';
 import { flight } from '../../definitions/control-ship';
 import * as Vec from '../utilities/vector';
@@ -148,10 +149,12 @@ export class Ship extends Craft {
 
   constructor({
     shipType = 'mustang',
+    definition = shipDefinitionsById.get(shipType),
     ...properties
-  }: ConstructorParameters<typeof Craft>[0] & { shipType?: ShipId } = {}) {
-    const definition = shipDefinitionsById.get(shipType);
-
+  }: ConstructorParameters<typeof Craft>[0] & {
+    shipType?: ShipId;
+    definition?: ShipDefinition;
+  } = {}) {
     if (!definition) throw new Error(`Unknown ship definition: ${shipType}`);
 
     super({

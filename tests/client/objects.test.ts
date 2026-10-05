@@ -9,6 +9,7 @@ assert.deepEqual(readdirSync('src').sort(), [
   'client',
   'definitions',
   'server',
+  'tools',
 ]);
 const scenario = `
 import assert from 'node:assert/strict';
@@ -17,6 +18,8 @@ import { GameObject } from '${process.cwd()}/src/client/objects/game-object.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
 import { Station } from '${process.cwd()}/src/client/objects/station.ts';
+import { mustang } from '${process.cwd()}/src/definitions/ships/mustang.ts';
+import { corral } from '${process.cwd()}/src/definitions/stations/corral.ts';
 import { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
 import { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
@@ -40,6 +43,8 @@ assert.equal(Object.getPrototypeOf(Asteroid.prototype), GameObject.prototype);
 assert.equal(Object.getPrototypeOf(Item.prototype), GameObject.prototype);
 assert.equal(Object.getPrototypeOf(Station.prototype), Craft.prototype);
 const bare = new Ship({});
+assert.equal(new Ship({shipType:'viewerOnly',definition:{...mustang,cargoSpace:25}}).cargoSpace,25,'unregistered ship definitions work in source and production');
+assert.equal(new Station({stationType:'viewerOnly',definition:{...corral,localMovementRadius:750}}).localMovementRadius,750,'unregistered station definitions work in source and production');
 const intactSegments = bare.segments;
 bare.hullHealth = bare.hullHealth;
 assert.equal(bare.segments, intactSegments, 'unchanged hull checkpoints preserve geometry');
@@ -227,6 +232,15 @@ for (const production of [false, true]) {
     format: 'esm',
     minify: production,
   });
+
+  for (const chunk of output) {
+    if (chunk.type === 'chunk') {
+      assert(
+        Object.keys(chunk.modules).every((id) => !id.includes('/src/tools/')),
+        'client objects never depend on development tools',
+      );
+    }
+  }
 
   await bundle.close();
   const code = output[0].code;

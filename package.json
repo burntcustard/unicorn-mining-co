@@ -33,6 +33,7 @@
     "start:server": "./bin/server",
     "test": "node scripts/test.ts",
     "typecheck": "tsc --noEmit",
+    "viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
     "world-preview": "node scripts/world-preview.ts"
   },
   "devDependencies": {

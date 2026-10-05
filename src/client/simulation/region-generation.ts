@@ -290,7 +290,7 @@ const nearestRichField = ({
   }
 };
 
-const makeAsteroid = ({
+export const makeAsteroid = ({
   seed,
   index,
   random,

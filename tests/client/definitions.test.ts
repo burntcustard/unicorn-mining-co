@@ -21,6 +21,7 @@ import {
 } from '../../src/client/objects/create-ship';
 import { startingModules } from '../../src/definitions/player';
 import { Station } from '../../src/client/objects/station';
+import { Ship } from '../../src/client/objects/ship';
 import { moduleTypes, thrusters } from '../../src/client/objects/modules';
 import { createWorld } from '../../src/client/simulation/world';
 import { cloneEntity } from '../../src/client/simulation/world-state';
@@ -111,6 +112,36 @@ assert.equal(item.health, 10, 'cloned mechanics remain independent');
 
 const shipId = 'testScout' as ShipId;
 const stationId = 'testDepot' as StationId;
+
+const previewShip = new Ship({
+  shipType: shipId,
+  definition: { ...mustang, cargoSpace: 25 },
+});
+
+const previewStation = new Station({
+  stationType: stationId,
+  definition: { ...corral, localMovementRadius: 750 },
+});
+
+assert.equal(previewShip.cargoSpace, 25);
+assert.equal(previewStation.localMovementRadius, 750);
+assert.equal(
+  shipDefinitionsById.has(shipId),
+  false,
+  'direct definitions need no game registration',
+);
+assert.equal(stationDefinitionsById.has(stationId), false);
+const engineMount = previewShip.mounts.find((mount) =>
+  mount.fits.includes(thrusters[0]),
+);
+
+assert(
+  engineMount,
+  'direct ship definitions convert module IDs to real classes',
+);
+previewShip.fit(new thrusters[0](), engineMount);
+assert.equal(previewShip.modules.length, 1);
+assert.notEqual(previewShip.mounts[0], mustang.hullSegments[1].mounts[0]);
 
 shipDefinitionsById.set(shipId, { ...mustang, cargoSpace: 20 });
 stationDefinitionsById.set(stationId, { ...corral, localMovementRadius: 900 });

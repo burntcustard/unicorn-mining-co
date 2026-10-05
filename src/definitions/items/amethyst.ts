@@ -6,7 +6,7 @@ export const amethyst = {
   resource: 1,
   label: 'AMETHYST',
   price: 45,
-  points: createPolygon({ pointCount: 6, radius: 7 }),
+  points: createPolygon({ pointCount: 6, radius: 6.5 }),
   fillAlpha: 6,
   shades: colors.violet,
   glint: true,

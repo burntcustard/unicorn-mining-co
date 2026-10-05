@@ -34,6 +34,13 @@ that can introduce a cyclic chunk dependency during class initialization.
 
 ## Adding a loading boundary
 
+The standalone `npm run viewer` development entry lives under
+`src/tools/game-object-viewer`. Its first frame statically loads the existing
+object hierarchy and eagerly discovers ship, station and item definitions with
+Vite globs. It never loads the game entry, networking, prediction or audio
+implementation, and does not run simulation. This separate Vite configuration
+does not add a production entry or change the game's loading triggers.
+
 - Use a static import for code required before the first frame.
 - Use `import()` only for a concrete later trigger.
 - Add any new trigger to the table and verify a production build.

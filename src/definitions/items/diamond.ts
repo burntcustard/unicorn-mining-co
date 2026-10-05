@@ -8,9 +8,9 @@ export const diamond = {
   points: [
     [-3, -4],
     [3, -4],
-    [6, -2],
+    [5.5, -1],
     [0, 6],
-    [-6, -2],
+    [-5.5, -1],
   ],
   fillAlpha: 6,
   shades: colors.cyan,
