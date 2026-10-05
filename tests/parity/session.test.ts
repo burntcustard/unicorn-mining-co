@@ -50,23 +50,46 @@ function compare(a: unknown, b: unknown, path: string) {
 }
 
 let packets = 0;
+let progressPackets = 0;
 
 for (const [id, socket] of Object.entries(fixture.sockets) as [
   string,
   { code: number; packets: string[] },
 ][]) {
   assert.equal(go[id].code, socket.code);
-  assert.equal(go[id].packets.length, socket.packets.length);
+
+  // The archived session predates authoritative paint notifications. Check
+  // that addition separately and retain every recorded mechanics comparison.
+  const actualPackets = go[id].packets.filter((packet: string) => {
+    const data = Buffer.from(packet, 'hex');
+
+    if (data[1] === 0x43) {
+      const message = decodeServerControl(data);
+
+      if (message.type === 'progress') {
+        assert.equal(id, '4');
+        assert.equal(message.unlockedPaints, 116);
+        progressPackets++;
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  assert.equal(actualPackets.length, socket.packets.length);
 
   socket.packets.forEach((packet, index) => {
     compare(
-      decoded(go[id].packets[index]),
+      decoded(actualPackets[index]),
       decoded(packet),
       `socket ${id} packet ${index}`,
     );
     packets++;
   });
 }
+
+assert.equal(progressPackets, 1);
 
 console.log(
   `Go session matches ${packets} recorded packets: input, reconnect, catch-up, backpressure, docking and respawn`,

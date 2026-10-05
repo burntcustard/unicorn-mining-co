@@ -63,6 +63,17 @@ for (const message of [
     spawn: { x: -1.25, y: 2.5 },
   },
   { type: 'respawn' as const, shipId: 8 },
+  { type: 'progress' as const, unlockedPaints: 127 },
+  {
+    type: 'welcome' as const,
+    playerId: 2,
+    playerToken: token,
+    shipId: 7,
+    serverTick: 500,
+    worldSeed: 25,
+    spawn: { x: 1, y: 2 },
+    unlockedPaints: 100,
+  },
 ]) {
   const encoded = encodeServerControl(message);
 

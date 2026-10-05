@@ -199,7 +199,7 @@ func TestInputsWindowWrapAndCatchUp(t *testing.T) {
 
 	sequence++
 	session.Receive(protocol.Control{Type: "input", Tick: session.World.Tick + 4, Sequence: sequence, Input: protocol.Input{Turn: 1}}, socket)
-	token := player.token
+	token := player.profile.ID
 	session.Disconnect(socket)
 	session.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
 	session.Tick(5)

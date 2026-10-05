@@ -6,7 +6,7 @@ import { GameCollisions } from '../collision/game-collisions';
 import { controlShip } from '../objects/control-ship';
 import { type SimulationWorld } from './world';
 import { Ship } from '../objects/ship';
-import { Station } from '../objects/station';
+import { Craft } from '../objects/craft';
 import { type GameObject } from '../objects/game-object';
 import { type Contact } from '../collision/types';
 import { simulationStep } from '../../definitions/simulation';
@@ -102,8 +102,8 @@ export const updateWorld = ({
   }
 
   contactsByOwner.forEach((ownContacts, entity) => {
-    if (entity instanceof Station) {
-      entity.handleContacts({ contacts: ownContacts, events });
+    if (entity instanceof Craft) {
+      entity.handleDockingContacts({ contacts: ownContacts, events });
     }
   });
 

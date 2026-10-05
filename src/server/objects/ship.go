@@ -200,7 +200,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction) (protocol.DockAction,
 			return action, false
 		}
 
-		props := simulation.ObjectProperties{}
+		props := simulation.ObjectProperties{World: s.World}
 
 		if action.HasModuleID {
 			props.ID = &action.ModuleID
@@ -486,7 +486,7 @@ func CreateShip(world *simulation.World, props Properties) *Ship {
 	ship.HasCredits = true
 
 	for _, id := range world.Specification.ShipDefinitions[props.DefinitionID].StartingModules {
-		ship.Fit(modules.Create(id, simulation.ObjectProperties{}, world.Specification), nil)
+		ship.Fit(modules.Create(id, simulation.ObjectProperties{World: world}, world.Specification), nil)
 	}
 
 	return ship

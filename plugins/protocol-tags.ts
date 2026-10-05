@@ -4,6 +4,7 @@
  */
 export const protocolTags = [
   'hello',
+  'progress',
   'input',
   'dock',
   'respawn',

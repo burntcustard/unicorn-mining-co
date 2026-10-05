@@ -10,10 +10,7 @@ import (
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
-	"sync/atomic"
 )
-
-var nextObjectID atomic.Int64
 
 type ObjectRules struct {
 	Motion definitions.Motion
@@ -79,7 +76,11 @@ func NewGameObject(props ObjectProperties, rules definitions.Simulation) *GameOb
 	if props.ID != nil {
 		id = *props.ID
 	} else {
-		id = nextObjectID.Add(-1)
+		if props.World == nil {
+			panic("game objects require a world or an explicit ID")
+		}
+
+		id = ObjectID(props.World)
 	}
 
 	r := props.Random
@@ -113,6 +114,10 @@ func (o *GameObject) Add() {
 
 	if o.World != nil {
 		o.World.Entities.Set(o.ID, o.Self)
+
+		if o.World.EntityChanged != nil {
+			o.World.EntityChanged(o.Self, false)
+		}
 	}
 
 	for _, list := range o.Collections {
@@ -130,6 +135,10 @@ func (o *GameObject) Remove() {
 
 		if resident == o.Self {
 			o.World.Entities.Delete(o.ID)
+
+			if o.World.EntityChanged != nil {
+				o.World.EntityChanged(o.Self, true)
+			}
 		}
 	}
 

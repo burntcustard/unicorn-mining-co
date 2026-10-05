@@ -6,6 +6,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/physics"
+	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -44,6 +45,51 @@ type Craft struct {
 }
 
 func (*Craft) IsCraft() {}
+
+func (c *Craft) HandleDockingContacts(contacts []collision.Contact, events *[]protocol.SimulationEvent, _ *simulation.World, _ float64) {
+	for _, contact := range contacts {
+		var bay *collision.Collider
+
+		if contact.Collider.Owner == c.Self {
+			bay = contact.Collider
+		} else if contact.Other.Owner == c.Self {
+			bay = contact.Other
+		}
+
+		if bay == nil || !bay.DockSegment {
+			continue
+		}
+
+		other := contact.Collider
+
+		if other == bay {
+			other = contact.Other
+		}
+
+		owner, ok := other.Owner.(interface{ ShipBase() *Ship })
+
+		if !ok {
+			continue
+		}
+
+		ship := owner.ShipBase()
+
+		if ship.Cockpit == nil || ship.DockedTo != nil && *ship.DockedTo != 0 || ship.Launching != 0 {
+			continue
+		}
+
+		id := c.ID
+		ship.DockedTo = &id
+		ship.Position = c.Position
+		ship.Rotation = c.Rotation
+		ship.Velocity = Vec.Vector{}
+		ship.Spin = 0
+
+		if ship.PlayerID != nil {
+			*events = append(*events, protocol.Docked{PlayerID: *ship.PlayerID, DockedTo: c.ID})
+		}
+	}
+}
 
 func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog definitions.Catalog) *Craft {
 	c := &Craft{GameObject: simulation.NewGameObject(props.ObjectProperties, catalog.Simulation), Catalog: catalog, CargoContents: props.CargoContents, HullSegments: plans, DockedTo: props.DockedTo, Launching: props.Launching, Credits: props.Credits}
@@ -482,7 +528,7 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 		if unchanged {
 			module = previous[i]
 		} else {
-			module = modules.Create(c.Catalog.ModuleIDs[state.Type], simulation.ObjectProperties{}, c.Catalog)
+			module = modules.Create(c.Catalog.ModuleIDs[state.Type], simulation.ObjectProperties{World: c.World, ID: state.ID}, c.Catalog)
 		}
 
 		object := module.Base()
@@ -926,6 +972,11 @@ func (c *Craft) Update(dt float64) {
 	if lost || len(hulls) < len(all) {
 		c.Fracture(broken, true, true)
 		c.Fracture(hulls, lost, false)
+	}
+
+	// Persist this owner together with its detached modules and fragments.
+	if !c.Dead && c.World != nil && c.World.EntityChanged != nil {
+		c.World.EntityChanged(c.Self, false)
 	}
 }
 

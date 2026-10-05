@@ -20,6 +20,17 @@ func (e *contactHandlerRecorder) HandleContacts(contacts []collision.Contact, _ 
 	e.seen = append(e.seen, append([]collision.Contact{}, contacts...))
 }
 
+type dockingHandlerRecorder struct {
+	*GameObject
+	order *[]string
+	seen  [][]collision.Contact
+}
+
+func (e *dockingHandlerRecorder) HandleDockingContacts(contacts []collision.Contact, _ *[]protocol.SimulationEvent, _ *World, _ float64) {
+	*e.order = append(*e.order, e.Kind)
+	e.seen = append(e.seen, append([]collision.Contact{}, contacts...))
+}
+
 type contactWorldRecorder struct{ contacts []collision.Contact }
 
 func (*contactWorldRecorder) CapturePoses(*utilities.OrderedMap[int64, Entity]) {}
@@ -37,11 +48,11 @@ func TestGameplayContactDispatch(t *testing.T) {
 
 	world := CreateWorld(25, catalog)
 	order := []string{}
-	ship := &contactHandlerRecorder{GameObject: NewGameObject(ObjectProperties{}, catalog.Simulation), order: &order}
+	ship := &contactHandlerRecorder{GameObject: NewGameObject(ObjectProperties{World: world}, catalog.Simulation), order: &order}
 	ship.Kind = "ship"
-	station := &contactHandlerRecorder{GameObject: NewGameObject(ObjectProperties{}, catalog.Simulation), order: &order}
-	station.Kind = "station"
-	asteroid := NewGameObject(ObjectProperties{}, catalog.Simulation)
+	craft := &dockingHandlerRecorder{GameObject: NewGameObject(ObjectProperties{World: world}, catalog.Simulation), order: &order}
+	craft.Kind = "craft"
+	asteroid := NewGameObject(ObjectProperties{World: world}, catalog.Simulation)
 	asteroid.Kind = "asteroid"
 
 	contact := func(a, b Entity, depth float64) collision.Contact {
@@ -49,8 +60,8 @@ func TestGameplayContactDispatch(t *testing.T) {
 	}
 
 	first := contact(ship, asteroid, 1)
-	second := contact(station, asteroid, 2)
-	third := contact(ship, station, 3)
+	second := contact(craft, asteroid, 2)
+	third := contact(ship, craft, 3)
 	collisions := &contactWorldRecorder{contacts: []collision.Contact{first, second, third}}
 	world.Collisions = collisions
 
@@ -58,11 +69,11 @@ func TestGameplayContactDispatch(t *testing.T) {
 		UpdateWorld(world, UpdateWorldOptions{DT: new(0.0)})
 	}
 
-	if !reflect.DeepEqual(order, []string{"station", "ship", "station", "ship"}) {
+	if !reflect.DeepEqual(order, []string{"craft", "ship", "craft", "ship"}) {
 		t.Fatalf("changed callback ordering: %v", order)
 	}
 
-	if !reflect.DeepEqual(ship.seen, [][]collision.Contact{{first, third}, {first, third}}) || !reflect.DeepEqual(station.seen, [][]collision.Contact{{second, third}, {second, third}}) {
+	if !reflect.DeepEqual(ship.seen, [][]collision.Contact{{first, third}, {first, third}}) || !reflect.DeepEqual(craft.seen, [][]collision.Contact{{second, third}, {second, third}}) {
 		t.Fatal("contact ordering changed or contacts leaked across ticks")
 	}
 

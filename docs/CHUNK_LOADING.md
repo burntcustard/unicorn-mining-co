@@ -100,3 +100,9 @@ cargo-menu crash.
 Ship/station binary field 34 optionally identifies a nondefault content definition.
 Existing fields and resource/module IDs retain their values. Registry lookups
 use maps or ordered arrays rather than dynamic property names.
+
+Server UC control 6 carries the authoritative seven-bit paint unlock mask.
+Persisted-session welcome frames append the same mask after the spawn position;
+the decoder also accepts legacy welcome frames without that byte. These additions
+do not change chunk loading triggers. Player tokens remain in localStorage, while
+player profiles and world mechanics are stored by the Go server in SQLite.

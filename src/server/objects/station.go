@@ -2,9 +2,7 @@
 package objects
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
-	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
@@ -26,51 +24,6 @@ func (s *Station) Holds(child simulation.Entity) bool {
 }
 
 func (s *Station) MovementRadius() float64 { return s.LocalMovementRadius }
-
-func (s *Station) HandleContacts(contacts []collision.Contact, events *[]protocol.SimulationEvent, _ *simulation.World, _ float64) {
-	for _, contact := range contacts {
-		var bay *collision.Collider
-
-		if contact.Collider.Owner == s.Self {
-			bay = contact.Collider
-		} else if contact.Other.Owner == s.Self {
-			bay = contact.Other
-		}
-
-		if bay == nil || !bay.DockSegment {
-			continue
-		}
-
-		other := contact.Collider
-
-		if other == bay {
-			other = contact.Other
-		}
-
-		owner, ok := other.Owner.(interface{ ShipBase() *Ship })
-
-		if !ok {
-			continue
-		}
-
-		ship := owner.ShipBase()
-
-		if ship.Cockpit == nil || ship.DockedTo != nil && *ship.DockedTo != 0 || ship.Launching != 0 {
-			continue
-		}
-
-		id := s.ID
-		ship.DockedTo = &id
-		ship.Position = s.Position
-		ship.Rotation = s.Rotation
-		ship.Velocity = Vec.Vector{}
-		ship.Spin = 0
-
-		if ship.PlayerID != nil {
-			*events = append(*events, protocol.Docked{PlayerID: *ship.PlayerID, StationID: s.ID})
-		}
-	}
-}
 
 func NewStation(id string, props Properties, catalog definitions.Catalog) *Station {
 	d, ok := catalog.StationDefinitions[id]

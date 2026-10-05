@@ -11,6 +11,7 @@ import (
 )
 
 type RegionManager struct {
+	onSleep  func(simulation.Entity)
 	managed  *utilities.OrderedMap[int64, bool]
 	sleeping *utilities.OrderedMap[int64, simulation.Entity]
 	regions  *simulation.RegionManager
@@ -28,6 +29,10 @@ func (r *RegionManager) View(position Vec.Vector, ranges *protocol.WorldRanges) 
 }
 
 func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []protocol.RegionalView {
+	world.Loading = true
+
+	defer func() { world.Loading = false }()
+
 	ranges := protocol.Ranges(r.catalog.Simulation.ServerRegionRanges)
 
 	nearby := func(e simulation.Entity) bool {
@@ -53,10 +58,6 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 
 		simulation.AddEntity(world, e)
 
-		if e.Base().Kind == "station" {
-			r.managed.Set(id, true)
-		}
-
 		r.sleeping.Delete(id)
 	})
 
@@ -66,6 +67,11 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 		}
 
 		r.sleeping.Set(id, e)
+
+		if r.onSleep != nil {
+			r.onSleep(e)
+		}
+
 		world.Entities.Delete(id)
 	})
 
@@ -82,7 +88,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 
 			wanted[id] = true
 
-			if world.Entities.Has(id) {
+			if world.Entities.Has(id) || r.sleeping.Has(id) {
 				continue
 			}
 
@@ -111,7 +117,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 
 			wanted[id] = true
 
-			if world.Entities.Has(id) {
+			if world.Entities.Has(id) || r.sleeping.Has(id) {
 				continue
 			}
 
@@ -121,7 +127,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 				continue
 			}
 
-			station := objects.CreateStation(objects.Properties{ID: &id, Position: d.Position, Radius: &d.Radius, Spin: d.Spin}, r.catalog)
+			station := objects.CreateStation(objects.Properties{World: world, ID: &id, Position: d.Position, Radius: &d.Radius, Spin: d.Spin}, r.catalog)
 			simulation.AddEntity(world, station)
 			r.managed.Set(id, true)
 		}
@@ -135,7 +141,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 
 			wanted[id] = true
 
-			if world.Entities.Has(id) {
+			if world.Entities.Has(id) || r.sleeping.Has(id) {
 				continue
 			}
 
@@ -161,12 +167,15 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 			return
 		}
 
-		if e, ok := world.Entities.Get(id); ok && e.Base().Kind == "station" {
+		if e, ok := world.Entities.Get(id); ok {
 			r.sleeping.Set(id, e)
+
+			if r.onSleep != nil {
+				r.onSleep(e)
+			}
 		}
 
 		world.Entities.Delete(id)
-		r.managed.Delete(id)
 	})
 
 	return views

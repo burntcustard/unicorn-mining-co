@@ -37,14 +37,14 @@
 [ ] Rethink update area ratios and timings
 [ ] Better benchmarking FPS test suite
 [ ] Rethink sound, perhaps more ZzFX-ey
-[ ] Remove auto-approve things in .vscode/settings.json
+[x] Remove auto-approve things in .vscode/settings.json
 [ ] Figure out if there's anything else we can remove
 [x] Re-split ship and stations
 [ ] New items, unique values and health
-[-] Collisions with rotation physics
+[x] Collisions with rotation physics
 [ ] Figure out new hull/mounting-points relationship
 [ ] New UI v1
-[ ] Rewrite keyboard handler with full key strings
+[x] Rewrite keyboard handler with full key strings
 [ ] Better text demo
 [ ] Create lower case versions of A-Z
 [ ] Create more symbols
@@ -54,7 +54,7 @@
 [ ] Refine module (mount?) categories like thrusters
 [ ] More modules.
 [?] Fix floodlight not revealing along its edge pixels
-[ ] Smoothly move camera to center of station again
+[?] Smoothly move camera to center of station again
 [ ] Ensure tests aren't overlapping with each other
 [ ] Swap 'FIX' with 'REPAIR' or 'Repair'
 [ ] Fix colors unlocked not saving on reconnect
