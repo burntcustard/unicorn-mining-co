@@ -39,7 +39,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 	if saved.World != nil {
 		w := saved.World
 
-		if w.GenerationDigest != persistence.GenerationDigest(s.World.Specification) {
+		if !persistence.CompatibleGenerationDigest(s.World.Specification, w.GenerationDigest) {
 			return fmt.Errorf("world generation rules changed; use a fresh world database before starting")
 		}
 

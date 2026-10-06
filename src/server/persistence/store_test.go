@@ -17,6 +17,45 @@ import (
 
 const fixtureID = "12345678-9abc-4def-8012-3456789abcde"
 
+func TestGenerationDigestCompatibility(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	previous := catalog
+	previous.ItemIDs = previous.ItemIDs[:5]
+	previousDigest := GenerationDigest(previous)
+
+	if !CompatibleGenerationDigest(catalog, previousDigest) || !CompatibleGenerationDigest(catalog, GenerationDigest(catalog)) {
+		t.Fatal("unchanged generation rejected after ammunition addition")
+	}
+
+	for _, name := range []string{"rules", "region size", "item order", "unknown digest"} {
+		t.Run(name, func(t *testing.T) {
+			changed := catalog
+			saved := previousDigest
+
+			switch name {
+			case "rules":
+				changed.RegionGeneration.MixedItemChance += 0.1
+			case "region size":
+				changed.Simulation.RegionSize++
+			case "item order":
+				changed.ItemIDs = append([]string{}, catalog.ItemIDs...)
+				changed.ItemIDs[0], changed.ItemIDs[1] = changed.ItemIDs[1], changed.ItemIDs[0]
+			case "unknown digest":
+				saved = "unknown"
+			}
+
+			if CompatibleGenerationDigest(changed, saved) {
+				t.Fatal("incompatible world accepted")
+			}
+		})
+	}
+}
+
 func fixtureBatch(t testing.TB) Batch {
 	t.Helper()
 	catalog, err := specs.Load()

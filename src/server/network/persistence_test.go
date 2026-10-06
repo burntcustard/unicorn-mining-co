@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
@@ -120,6 +121,22 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Reproduce a database saved before ammunition was appended to ItemIDs.
+	previousCatalog := s.World.Specification
+	previousCatalog.ItemIDs = previousCatalog.ItemIDs[:5]
+	db, err := sql.Open("sqlite", path)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = db.Exec("UPDATE world SET generation_digest = ?", persistence.GenerationDigest(previousCatalog))
+	closeErr := db.Close()
+
+	if err != nil || closeErr != nil {
+		t.Fatal(err, closeErr)
+	}
+
 	s, store = persistedSession(t, path)
 	defer store.Close(context.Background())
 
@@ -164,6 +181,16 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	}
 
 	committedSession(t, s)
+	saved, err := store.Load(25)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if saved.World.GenerationDigest != persistence.GenerationDigest(s.World.Specification) {
+		t.Fatal("compatible world digest was not upgraded")
+	}
+
 	// More than 30 minutes offline no longer expires durable player records.
 	s.Disconnect(socket)
 	clock := s.now().Add(time.Hour)
