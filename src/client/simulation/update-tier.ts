@@ -8,9 +8,9 @@ import { type SimulationEvent } from '../protocol/events';
 import { controlShip } from '../objects/control-ship';
 import { Ship } from '../objects/ship';
 import { Craft } from '../objects/craft';
-import { simulationStep } from '../../definitions/simulation';
-import { updateTiers } from '../../definitions/update-tier';
-import { visibleRange } from '../../definitions/replication';
+import { simulationStep } from '../../specs/simulation';
+import { updateTiers } from '../../specs/update-tier';
+import { visibleRange } from '../../specs/replication';
 
 /*
  * Nearby and on-screen objects share the same movement schedule.
@@ -185,7 +185,13 @@ export const updateEntities = ({
 
       entity.update(end - elapsed);
 
-      if (entity.dead) world.entities.delete(entity.id);
+      if (entity.dead) {
+        entity.onDeath?.(events);
+        const event = entity.deathEvent;
+
+        if (event) events.push(event);
+        world.entities.delete(entity.id);
+      }
     }
   }
 

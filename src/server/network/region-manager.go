@@ -2,10 +2,10 @@
 package network
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
@@ -15,10 +15,10 @@ type RegionManager struct {
 	managed  *utilities.OrderedMap[int64, bool]
 	sleeping *utilities.OrderedMap[int64, simulation.Entity]
 	regions  *simulation.RegionManager
-	catalog  definitions.Catalog
+	catalog  specs.Catalog
 }
 
-func NewRegionManager(seed uint32, catalog definitions.Catalog) *RegionManager {
+func NewRegionManager(seed uint32, catalog specs.Catalog) *RegionManager {
 	r := &RegionManager{managed: utilities.NewOrderedMap[int64, bool](), sleeping: utilities.NewOrderedMap[int64, simulation.Entity](), regions: simulation.NewRegionManager(seed, catalog), catalog: catalog}
 	r.regions.PreGenerate(catalog.Simulation.PreGeneratedRadius)
 	return r

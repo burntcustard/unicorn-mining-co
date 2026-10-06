@@ -7,7 +7,7 @@ import {
 } from '../utilities/lighting';
 import { playSound, testTone } from '../audio/sound-loader';
 import { bindKeys } from '../input/input';
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 import { colorsDemo } from './colors-demo';
 import { renderFps } from './fps';
 import { renderText } from '../ui/text/text';

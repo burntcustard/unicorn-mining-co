@@ -2,7 +2,7 @@ import * as Vec from '../utilities/vector';
 import { type GameObject } from '../objects/game-object';
 import { type ShapeOutline, type Segment } from '../types';
 import { type AsteroidSegment } from '../protocol/entities';
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 
 export type Collider = {
   bounciness?: number;

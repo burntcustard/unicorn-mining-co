@@ -2,7 +2,7 @@
 package collision
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
 
@@ -16,7 +16,7 @@ type BroadPhase[T any] struct {
 	queryProxy *SpatialProxy[T]
 }
 
-func NewBroadPhase[T any](rules definitions.Physics, getOwner func(T) any) *BroadPhase[T] {
+func NewBroadPhase[T any](rules specs.Physics, getOwner func(T) any) *BroadPhase[T] {
 	return &BroadPhase[T]{Grid: NewSpatialGrid[T](rules), GetOwner: getOwner}
 }
 

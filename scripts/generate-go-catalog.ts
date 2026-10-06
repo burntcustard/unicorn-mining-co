@@ -1,9 +1,9 @@
-import { renderingLayers } from '../src/definitions/rendering-layers';
+import { renderingLayers } from '../src/specs/rendering-layers';
 import {
   defaultMass,
   defaultFriction as gameObjectFriction,
   defaultAngularInertiaScale,
-} from '../src/definitions/game-object';
+} from '../src/specs/game-object';
 import {
   defaultFriction as craftFriction,
   defaultHealth,
@@ -11,47 +11,49 @@ import {
   defaultActivationDuration,
   wreckageDecay,
   wreckageHealth,
-} from '../src/definitions/craft';
+} from '../src/specs/craft';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { colors, paintColors } from '../src/definitions/colors';
-import { itemIds, itemDefinitions } from '../src/definitions/items/index';
-import { moduleIds, moduleDefinitions } from '../src/definitions/modules/index';
-import { shipDefinitions } from '../src/definitions/ships/index';
-import { stationDefinitions } from '../src/definitions/stations/index';
+import { colors, paintColors } from '../src/specs/colors';
+import { itemIds, itemSpecs } from '../src/specs/items/index';
+import { moduleIds, moduleSpecs } from '../src/specs/modules/index';
+import { shipSpecs } from '../src/specs/ships/index';
+import type { ShipSpec } from '../src/specs/ships/types';
+import type { StationSpec } from '../src/specs/stations/types';
+import { stationSpecs } from '../src/specs/stations/index';
 import {
   binaryFieldIds,
   controlMessageIds,
   dockActionIds,
   entityKindIds,
-} from '../src/definitions/protocol';
-import { itemDefaults } from '../src/definitions/items/defaults';
+} from '../src/specs/protocol';
+import { itemDefaults } from '../src/specs/items/defaults';
 import {
   physics,
   linearSlop,
   contactSpeedThreshold,
-} from '../src/definitions/physics';
-import { motion } from '../src/definitions/local-movement';
-import { flight } from '../src/definitions/control-ship';
-import { simulationStep } from '../src/definitions/simulation';
-import { startingModules, startingCredits } from '../src/definitions/player';
-import { updateTiers } from '../src/definitions/update-tier';
-import { maxCatchUpTicks } from '../src/definitions/game-session';
-import { maxPredictionTicks } from '../src/definitions/prediction';
+} from '../src/specs/physics';
+import { motion } from '../src/specs/local-movement';
+import { flight } from '../src/specs/control-ship';
+import { simulationStep } from '../src/specs/simulation';
+import { startingCredits } from '../src/specs/player';
+import { updateTiers } from '../src/specs/update-tier';
+import { maxCatchUpTicks } from '../src/specs/game-session';
+import { maxPredictionTicks } from '../src/specs/prediction';
 import {
   visibleRange,
   ballisticReplicateEvery,
   replication,
-} from '../src/definitions/replication';
+} from '../src/specs/replication';
 import {
   regionSize,
   worldRanges,
   serverRegionRanges,
-} from '../src/definitions/region-manager';
+} from '../src/specs/region-manager';
 import {
   preGeneratedRadius,
   regionGeneration,
-} from '../src/definitions/region-generation';
+} from '../src/specs/region-generation';
 
 const simulation = {
   physics,
@@ -74,16 +76,15 @@ const simulation = {
 
 const catalog = {
   startingCredits,
-  startingModules,
   colors,
   paintColors,
   itemDefaults,
   itemIds,
-  itemDefinitions,
+  itemSpecs,
   moduleIds,
-  moduleDefinitions,
-  shipDefinitions,
-  stationDefinitions,
+  moduleSpecs,
+  shipSpecs,
+  stationSpecs,
   protocol: { binaryFieldIds, controlMessageIds, dockActionIds, entityKindIds },
   simulation,
   regionGeneration,
@@ -95,24 +96,36 @@ const unique = (values: readonly (number | string)[]) =>
 if (
   !unique(moduleIds) ||
   !unique(itemIds) ||
-  !itemIds.every((id, index) => itemDefinitions[id].resource === index) ||
-  !moduleIds.every((id) => id in moduleDefinitions) ||
-  !startingModules.every((id) => id in moduleDefinitions) ||
-  !Object.values(shipDefinitions).every((ship) =>
-    ship.hullSegments.every(
-      (segment) =>
-        !('mounts' in segment) ||
-        segment.mounts?.every((mount) =>
-          mount.fits.every((id) => id in moduleDefinitions),
-        ),
-    ),
+  !itemIds.every((id, index) => itemSpecs[id].resource === index) ||
+  !moduleIds.every((id) => id in moduleSpecs) ||
+  !Object.values(shipSpecs).every((ship: ShipSpec) => {
+    const mounts = ship.hullSegments.flatMap((segment) => segment.mounts ?? []);
+
+    return (
+      unique(ship.initialLoadout.map((entry) => entry.mount)) &&
+      ship.initialLoadout.every(
+        ({ mount, module }) =>
+          Number.isInteger(mount) &&
+          mounts[mount]?.some((point) => point.fits.includes(module)),
+      )
+    );
+  }) ||
+  ![...Object.values(shipSpecs), ...Object.values(stationSpecs)].every(
+    (craft: ShipSpec | StationSpec) =>
+      craft.hullSegments.every(
+        (segment) =>
+          !('mounts' in segment) ||
+          segment.mounts?.every((mount) =>
+            mount.every((point) => point.fits.every((id) => id in moduleSpecs)),
+          ),
+      ),
   ) ||
   Object.values(binaryFieldIds).some((value, index) => value !== index + 1) ||
   ![controlMessageIds, dockActionIds, entityKindIds].every((ids) =>
     unique(Object.values(ids)),
   )
 ) {
-  throw new Error('Invalid definition IDs or mount references');
+  throw new Error('Invalid spec IDs or mount references');
 }
 
 const json = JSON.stringify(catalog);
@@ -146,6 +159,6 @@ const digest = createHash('sha256')
   .update(json)
   .update(constants)
   .digest('hex');
-const source = `// Code generated by scripts/generate-go-catalog.ts; DO NOT EDIT.\n// SHA-256: ${digest}\npackage definitions\n\nconst catalogJSON = ${JSON.stringify(json)}\n\n${constants}\n`;
+const source = `// Code generated by scripts/generate-go-catalog.ts; DO NOT EDIT.\n// SHA-256: ${digest}\npackage specs\n\nconst catalogJSON = ${JSON.stringify(json)}\n\n${constants}\n`;
 
-writeFileSync('src/server/definitions/catalog_gen.go', source);
+writeFileSync('src/server/specs/catalog_gen.go', source);

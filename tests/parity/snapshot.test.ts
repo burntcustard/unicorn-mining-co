@@ -19,9 +19,15 @@ assert.equal(snapshot.nextEntityId, 100);
 assert.equal(snapshot.acknowledgedSequence, 9);
 assert.equal(snapshot.inputLead, -2);
 assert.equal(snapshot.snapshotSequence, 10);
-assert.deepEqual(snapshot.entityIds, [7, 9]);
-assert.equal(snapshot.fullEntities.length, 2);
-const [ship, asteroid] = snapshot.fullEntities;
+assert.deepEqual(snapshot.entityIds, [7, 9, 11]);
+assert.equal(snapshot.fullEntities.length, 3);
+const [ship, asteroid, projectile] = snapshot.fullEntities;
+
+assert.equal(projectile.kind, 'projectile');
+assert.equal(projectile.definitionId, 'autocannon');
+assert.equal(projectile.health, 1.25);
+assert.equal(ship.modules?.[0].type, 12);
+assert.equal(ship.modules?.[0].fireCooldown, 0.375);
 
 assert.equal(ship.id, 7);
 assert.equal(ship.definitionId, 'testScout');
@@ -36,6 +42,8 @@ assert.deepEqual(ship.cargoContents?.[0], { moduleIndex: 2 });
 assert(ship.cargoContents);
 
 assert.equal((ship.cargoContents[1] as { id: number }).id, 25);
+
+assert.equal((ship.cargoContents[1] as { rounds: number }).rounds, 137);
 
 assert.equal(ship.wreckage?.[0].fillShade, 2);
 assert.equal(asteroid.kind, 'asteroid');

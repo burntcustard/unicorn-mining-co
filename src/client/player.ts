@@ -1,9 +1,10 @@
 import * as Vec from './utilities/vector';
 import { Ship } from './objects/ship';
 import { moduleTypesById } from './objects/modules/index';
-import { startingCredits, startingModules } from '../definitions/player';
+import { startingCredits } from '../specs/player';
+import { mustang } from '../specs/ships';
 import { game } from './game';
-import { colors, paintColors } from '../definitions/colors';
+import { colors, paintColors } from '../specs/colors';
 import { updateThrusterSound } from './audio/sound-loader';
 import { type Shades, type Segment } from './types';
 
@@ -77,8 +78,11 @@ player.ship.docked = (station: Ship) => {
   if (player.visitedStations.size > 2) unlockPaint('GREEN', '3 STATION VISITS');
 };
 
-startingModules.forEach((id) =>
-  player.ship.fit(new (moduleTypesById.get(id)!)()),
+mustang.initialLoadout.forEach(({ mount, module }) =>
+  player.ship.fit(
+    new (moduleTypesById.get(module)!)(),
+    player.ship.mounts[mount],
+  ),
 );
 
 /**

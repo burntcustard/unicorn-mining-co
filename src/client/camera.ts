@@ -1,4 +1,4 @@
-import { deadzone, lag, dockDuration } from '../definitions/camera';
+import { deadzone, lag, dockDuration } from '../specs/camera';
 import * as Vec from './utilities/vector';
 import { ease } from './utilities/ease';
 import { type GameObject } from './objects/game-object';

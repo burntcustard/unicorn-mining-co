@@ -2,17 +2,17 @@ package objects_test
 
 import (
 	"bytes"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"testing"
 )
 
 func TestSavedEntityRoundTrip(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -61,6 +61,17 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			switch restored := restored.(type) {
+			case *objects.Ship:
+				if restored.Name != "Mustang" || restored.CargoContents[0].(*objects.Item).Name != "Diamond" {
+					t.Fatal("ship and cargo display names must be reconstructed from specs")
+				}
+			case *objects.Item:
+				if restored.Name != "Message" {
+					t.Fatal("item display name must be reconstructed from its spec")
+				}
+			}
+
 			after, err := persistence.Encode(objects.CaptureEntity(restored))
 
 			if err != nil {
@@ -75,7 +86,7 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 }
 
 func TestSavedStateOwnsItsMemory(t *testing.T) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(w, objects.Properties{})
 	ship.CargoContents = append(ship.CargoContents, objects.NewItem("diamond", simulation.ObjectProperties{World: w}, catalog))
@@ -91,7 +102,7 @@ func TestSavedStateOwnsItsMemory(t *testing.T) {
 }
 
 func TestSavedPositionsRoundWithoutChangingMechanics(t *testing.T) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{World: w, Position: Vec.Create(12.7, -34.2), Velocity: Vec.Create(0.25, -0.125), Rotation: 0.123}})
 	ship.Mounts()[0].Health -= 0.125
@@ -115,7 +126,7 @@ func TestSavedPositionsRoundWithoutChangingMechanics(t *testing.T) {
 }
 
 func BenchmarkCaptureMovementBatch(b *testing.B) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)
 	entities := []simulation.Entity{objects.CreatePlayerShip(w, objects.Properties{})}
 

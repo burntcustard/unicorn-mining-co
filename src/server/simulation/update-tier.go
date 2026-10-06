@@ -2,8 +2,8 @@
 package simulation
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
 
@@ -43,7 +43,7 @@ type UpdateEntitiesOptions struct {
 	InputOffset float64
 }
 
-func UpdateTier(entity Entity, observers []Entity, rules definitions.Simulation) definitions.UpdateTier {
+func UpdateTier(entity Entity, observers []Entity, rules specs.Simulation) specs.UpdateTier {
 	for _, observer := range observers {
 		if Vec.DistanceSquared(entity.Base().Position, observer.Base().Position) <= rules.VisibleRange*rules.VisibleRange {
 			return rules.UpdateTiers["visible"]
@@ -211,6 +211,18 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 			entity.Update(end - elapsed)
 
 			if object.Dead {
+				if source, ok := entity.(interface {
+					OnDeath(*[]protocol.SimulationEvent)
+				}); ok {
+					source.OnDeath(events)
+				}
+
+				if source, ok := entity.(interface {
+					DeathEvent() protocol.SimulationEvent
+				}); ok {
+					*events = append(*events, source.DeathEvent())
+				}
+
 				world.Entities.Delete(object.ID)
 			}
 		}

@@ -1,10 +1,15 @@
+import { autocannonAmmunition } from '../../specs/items';
+import { Weapon } from './modules/weapon';
+import { Projectile } from './projectile';
+import { addEntity, entityId } from '../simulation/world';
+import { applyForce } from '../physics/apply-force';
+import { rotatePoint } from '../utilities/geometry';
 import { drawSegment } from '../utilities/drawing';
 import { game } from '../game';
 import { hullSegmentFill } from '../utilities/lighting';
-import { shipDefinitionsById, type ShipId } from '../../definitions/ships';
-import { type ShipDefinition } from '../../definitions/ships/types';
-import { moduleTypesById } from './modules';
-import { flight } from '../../definitions/control-ship';
+import { shipSpecsById, type ShipId } from '../../specs/ships';
+import { type ShipSpec } from '../../specs/ships/types';
+import { flight } from '../../specs/control-ship';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
 import { movePoint } from '../utilities/geometry';
@@ -18,7 +23,7 @@ import { CargoHatch } from './modules/cargo-hatch';
 import { moduleTypes } from './modules/index';
 import { Module } from './modules/module';
 import { Item } from './item';
-import { paintColors } from '../../definitions/colors';
+import { paintColors } from '../../specs/colors';
 import { type player as localPlayer } from '../player';
 import { type CraftAction } from '../protocol/network';
 
@@ -27,6 +32,7 @@ type DockActionRequest =
   | { action: 'buy'; module: number; moduleId?: number };
 
 export class Ship extends Craft {
+  declare name: string;
   // Resist collision torque without changing the pilot's steering response.
   static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
@@ -73,6 +79,22 @@ export class Ship extends Craft {
         (total, object) => total + (object.price || 0),
         0,
       );
+    } else if (action.action === 'buyAmmo') {
+      if (
+        player.credits < autocannonAmmunition.price ||
+        this.cargoContents.length >= this.cargoSpace
+      ) {
+        return;
+      }
+
+      const item = new Item(autocannonAmmunition, {
+        world: this.world,
+        id: entityId(this.world!),
+      });
+
+      this.cargoContents.push(item);
+      player.credits -= autocannonAmmunition.price;
+      return action;
     } else if (action.action === 'buy') {
       const Type = moduleTypes[action.module];
 
@@ -149,29 +171,16 @@ export class Ship extends Craft {
 
   constructor({
     shipType = 'mustang',
-    definition = shipDefinitionsById.get(shipType),
+    spec = shipSpecsById.get(shipType),
     ...properties
   }: ConstructorParameters<typeof Craft>[0] & {
     shipType?: ShipId;
-    definition?: ShipDefinition;
+    spec?: ShipSpec;
   } = {}) {
-    if (!definition) throw new Error(`Unknown ship definition: ${shipType}`);
+    if (!spec) throw new Error(`Unknown ship spec: ${shipType}`);
 
     super({
-      ...definition,
-      hullSegments: definition.hullSegments.map((segment) => ({
-        ...segment,
-        ...('mounts' in segment && {
-          mounts: segment.mounts.map((mount) => ({
-            ...mount,
-            fits: mount.fits.map((id) => moduleTypesById.get(id)!),
-            localPosition: Vec.create(
-              mount.localPosition.x,
-              mount.localPosition.y,
-            ),
-          })),
-        }),
-      })),
+      ...spec,
       ...properties,
     });
 
@@ -371,6 +380,87 @@ export class Ship extends Craft {
     this.fly(value, this.turn || 0);
   }
 
+  fireWeapons(dt: number) {
+    if (
+      !this.world ||
+      this.playerId === undefined ||
+      !this.world.players.has(this.playerId) ||
+      this.dead ||
+      this.dockedTo ||
+      this.launching
+    ) {
+      return;
+    }
+
+    for (const module of this.modules) {
+      if (!(module instanceof Weapon) || !module.mount) continue;
+      module.fireCooldown -= dt;
+      const active = this.segments.some(
+        (segment) =>
+          segment.module === module &&
+          segment.active &&
+          segment.mount.health > 0,
+      );
+
+      if (!active) {
+        module.fireCooldown = Math.max(0, module.fireCooldown);
+        continue;
+      }
+
+      while (module.fireCooldown <= 1e-9) {
+        if (module.ammunition !== undefined) {
+          const index = this.cargoContents.findIndex(
+            (item) => item.resource === module.ammunition && item.rounds > 0,
+          );
+
+          if (index < 0) {
+            module.fireCooldown = 0;
+            break;
+          }
+
+          if (!--this.cargoContents[index].rounds) {
+            this.cargoContents.splice(index, 1);
+          }
+        }
+
+        const position = Vec.add(
+          this.position,
+          rotatePoint(
+            Vec.add(
+              module.mount.localPosition,
+              Vec.create(module.barrelLength + module.projectile.radius + 1, 0),
+            ),
+            this.rotation,
+          ),
+        );
+        const velocity = Vec.add(
+          this.velocity,
+          rotatePoint(Vec.create(module.projectile.speed, 0), this.rotation),
+        );
+
+        addEntity(
+          this.world,
+          new Projectile(module.definitionId, {
+            id: entityId(this.world),
+            world: this.world,
+            position,
+            velocity,
+            playerId: this.playerId,
+          }),
+        );
+
+        if (module.recoil) {
+          applyForce(
+            this,
+            rotatePoint(Vec.create(-module.recoil, 0), this.rotation),
+          );
+        }
+
+        module.fireCooldown += module.fireInterval;
+      }
+    }
+  }
+
   update(dt: number) {
     if (this.launching) {
       this.launching = Math.max(0, this.launching - dt);
@@ -398,5 +488,6 @@ export class Ship extends Craft {
     }
 
     super.update(dt);
+    this.fireWeapons(dt);
   }
 }

@@ -55,7 +55,11 @@ const rebuild = async () => {
     await run('go', ['build', '-o', 'bin/server', './src/server']);
 
     if (!stopping) {
-      server = spawn('./bin/server', [], { stdio: 'inherit' });
+      server = spawn('./bin/server', [], {
+        stdio: 'inherit',
+        env: { ...process.env, APP_ENV: 'development' },
+      });
+
       server.on('error', (error) => console.error(error.message));
     }
   } catch (error) {
@@ -72,7 +76,7 @@ const rebuild = async () => {
   }
 };
 
-const watchers = ['src/server', 'src/definitions'].map((directory) =>
+const watchers = ['src/server', 'src/specs'].map((directory) =>
   watch(directory, { recursive: true }, (_, filename) => {
     if (
       !filename ||

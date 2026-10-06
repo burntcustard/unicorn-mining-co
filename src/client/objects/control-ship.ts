@@ -1,14 +1,16 @@
-import {
-  CargoHatch,
-  SearchLight,
-  ShieldGenerator,
-  HornDrill,
-} from './modules/index';
+import { CargoHatch, SearchLight, HornDrill } from './modules/index';
+import { ShieldGeneratorModule } from './modules/shield-generator';
+import { Weapon } from './modules/weapon';
 import { Ship } from './ship';
 import { type PlayerInput } from '../protocol/input';
 import { type SimulationEvent } from '../protocol/events';
 
 export const moduleControls = [
+  {
+    Type: Weapon,
+    input: 'fire',
+    readInput: (input: PlayerInput) => !!input.fire,
+  },
   {
     Type: CargoHatch,
     input: 'cargoHatch',
@@ -20,7 +22,7 @@ export const moduleControls = [
     readInput: (input: PlayerInput) => input.searchLight,
   },
   {
-    Type: ShieldGenerator,
+    Type: ShieldGeneratorModule,
     input: 'shieldGenerator',
     readInput: (input: PlayerInput) => input.shieldGenerator,
   },
@@ -42,29 +44,27 @@ export const controlShip = (
     Math.max(-1, Math.min(1, input.turn)),
   );
 
-  // One pass finds which controlled modules are running, as moduleActive does.
-  let running = 0;
-  const segments = ship.segments;
-
-  for (let index = 0; index < segments.length; index++) {
-    const segment = segments[index];
-
-    if (!segment.active || (segment.mount || segment).health < 1) continue;
-
-    for (let control = 0; control < moduleControls.length; control++) {
-      if (segment.module instanceof moduleControls[control].Type) {
-        running |= 1 << control;
-      }
-    }
-  }
-
-  moduleControls.forEach(({ Type, input: command, readInput }, index) => {
+  moduleControls.forEach(({ Type, input: command, readInput }) => {
     const enabled = readInput(input);
 
-    if (!!(running & (1 << index)) === enabled) return;
+    if (
+      !ship.segments.some(
+        (segment) =>
+          segment.module instanceof Type &&
+          !((segment.mount || segment).health < 1) &&
+          Boolean(segment.active) !== enabled,
+      )
+    ) {
+      return;
+    }
+
     ship.setModuleActive({ module: Type, active: enabled });
 
-    if (ship.playerId !== undefined && command !== 'hornDrill') {
+    if (
+      ship.playerId !== undefined &&
+      command !== 'hornDrill' &&
+      command !== 'fire'
+    ) {
       events.push({
         type: 'moduleChanged',
         module: command,

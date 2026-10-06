@@ -2,7 +2,7 @@ package collision
 
 import (
 	"encoding/json"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"os"
 	"reflect"
@@ -41,7 +41,7 @@ func TestTypeScriptBroadPhaseLifecycle(t *testing.T) {
 		t.Fatal("incomplete TypeScript lifecycle fixture")
 	}
 
-	spec, err := definitions.Load()
+	spec, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

@@ -1,6 +1,13 @@
+import { withAlpha } from '../../utilities/color';
 import { game } from '../../game';
 import { circlePath, shapePath, linesPath } from '../../utilities/drawing';
 import { GameObject } from '../game-object';
+import {
+  moduleSpecList,
+  moduleIds,
+  type ModuleId,
+} from '../../../specs/modules';
+import { type ModuleSpec } from '../../../specs/modules/types';
 
 import { type Craft } from '../craft';
 import { type Pose, type Segment, type ShapeOutline } from '../../types';
@@ -16,11 +23,30 @@ export interface ModuleRenderOptions {
 
 export class Module extends GameObject {
   static [key: string]: any;
+  static definitionId: ModuleId;
   declare health: number;
-  declare label: string;
+  declare name: string;
   static model: any[] = [];
   declare model: any[];
   declare mount: any;
+
+  static define<T extends typeof Module>(this: T, id: ModuleId): T {
+    // Use the wire-ordered catalog; spec object keys are mangled separately.
+    const spec = moduleSpecList[moduleIds.indexOf(id)];
+
+    class DefinedModule extends (this as typeof Module) {
+      static definitionId = id;
+      static name = spec.name;
+    }
+
+    return Object.assign(DefinedModule, spec, {
+      model: this.createModel(spec),
+    }) as unknown as T;
+  }
+
+  static createModel(_spec: ModuleSpec): any[] {
+    return [];
+  }
 
   render({ segment, points, draw }: ModuleRenderOptions) {
     super.render({
@@ -46,9 +72,10 @@ export class Module extends GameObject {
         const shades = this.shades || segment.shades;
 
         // Modules default to their darkest shade, a step below the hull's.
-        ctx.fillStyle = segment.fillAlpha
-          ? shades[2] + segment.fillAlpha
-          : shades[segment.fillShade ?? 0];
+        ctx.fillStyle =
+          segment.fillAlpha !== undefined
+            ? withAlpha({ color: shades[2], alpha: segment.fillAlpha })
+            : shades[segment.fillShade ?? 0];
         ctx.strokeStyle = shades[2];
         ctx.fill(shape);
         ctx.stroke(

@@ -3,19 +3,24 @@ package objects
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
+	"github.com/burntcustard/unicorn-mining-co/src/server/physics"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
 )
 
-type Ship struct{ *Craft }
+type Ship struct {
+	*Craft
+	Name string
+}
 
-func newShip(props Properties, plans []*simulation.SegmentPlan, catalog definitions.Catalog) *Ship {
-	s := &Ship{NewCraft(props, plans, catalog)}
+func newShip(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Ship {
+	s := &Ship{Craft: NewCraft(props, plans, catalog)}
 	s.Self = s
 	s.Kind = "ship"
 	s.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale
@@ -188,13 +193,24 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 		}
 
 		*credits += sum
+	case "buyAmmo":
+		spec := s.Catalog.ItemSpecs["autocannonAmmunition"]
+
+		if *credits < *spec.Price || len(s.CargoContents) >= s.CargoSpace {
+			return action, false
+		}
+
+		id := simulation.EntityID(s.World)
+		item := NewItem("autocannonAmmunition", simulation.ObjectProperties{World: s.World, ID: &id}, s.Catalog)
+		s.CargoContents = append(s.CargoContents, item)
+		*credits -= *spec.Price
 	case "buy":
 		if action.Module < 0 || action.Module >= int64(len(s.Catalog.ModuleIDs)) {
 			return action, false
 		}
 
 		id := s.Catalog.ModuleIDs[action.Module]
-		d := s.Catalog.ModuleDefinitions[id]
+		d := s.Catalog.ModuleSpecs[id]
 
 		if *credits < d.Price || len(s.CargoContents) >= s.CargoSpace {
 			return action, false
@@ -311,14 +327,14 @@ func (s *Ship) Engine() simulation.Module {
 		for _, m := range segment.Mounts {
 			module := m.Module
 
-			if module != nil && module.ModuleBase().Definition.ForwardThrust != 0 && module.ModuleBase().Mount != nil && !(module.ModuleBase().Mount.Health < 1) {
+			if module != nil && module.ModuleBase().Spec.ForwardThrust != 0 && module.ModuleBase().Mount != nil && !(module.ModuleBase().Mount.Health < 1) {
 				return module
 			}
 		}
 	}
 
 	for _, e := range s.CargoContents {
-		if m, ok := e.(simulation.Module); ok && m.ModuleBase().Definition.ForwardThrust != 0 && m.ModuleBase().Mount != nil && !(m.ModuleBase().Mount.Health < 1) {
+		if m, ok := e.(simulation.Module); ok && m.ModuleBase().Spec.ForwardThrust != 0 && m.ModuleBase().Mount != nil && !(m.ModuleBase().Mount.Health < 1) {
 			return m
 		}
 	}
@@ -344,7 +360,7 @@ func (s *Ship) ForwardThrust() float64 {
 	}
 
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Definition.ForwardThrust * (throttle * throttle)
+	return engine.ModuleBase().Spec.ForwardThrust * (throttle * throttle)
 }
 
 func (s *Ship) RotationalThrust() float64 {
@@ -355,7 +371,7 @@ func (s *Ship) RotationalThrust() float64 {
 	}
 
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Definition.RotationalThrust * (throttle * throttle)
+	return engine.ModuleBase().Spec.RotationalThrust * (throttle * throttle)
 }
 
 func (s *Ship) MaxSpeed() float64 {
@@ -374,7 +390,7 @@ func (s *Ship) Fly(forward, turn float64) {
 	s.Forward, s.Turn = forward, turn
 
 	for _, segment := range s.Segments {
-		if segment.ModuleDefinition().ForwardThrust == 0 {
+		if segment.ModuleSpec().ForwardThrust == 0 {
 			continue
 		}
 
@@ -389,6 +405,69 @@ func (s *Ship) Fly(forward, turn float64) {
 		}
 
 		segment.Active *= s.LaunchThrottle()
+	}
+}
+
+func (s *Ship) fireWeapons(dt float64) {
+	if s.World == nil || s.PlayerID == nil || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
+		return
+	}
+
+	for _, module := range s.Modules() {
+		m := module.ModuleBase()
+
+		if m.Spec.Behavior != "weapon" || m.Mount == nil {
+			continue
+		}
+
+		m.FireCooldown -= dt
+		active := false
+
+		for _, segment := range s.Segments {
+			if segment.Module == module && segment.Active != 0 && *segment.TargetHealth() > 0 {
+				active = true
+				break
+			}
+		}
+
+		if !active {
+			m.FireCooldown = math.Max(0, m.FireCooldown)
+			continue
+		}
+
+		for m.FireCooldown <= 1e-9 {
+			if m.Spec.Ammunition != nil {
+				index := slices.IndexFunc(s.CargoContents, func(item simulation.Entity) bool {
+					ammo, ok := item.(*Item)
+					return ok && ammo.Resource == *m.Spec.Ammunition && ammo.Rounds != nil && *ammo.Rounds > 0
+				})
+
+				if index < 0 {
+					m.FireCooldown = 0
+					break
+				}
+
+				ammo := s.CargoContents[index].(*Item)
+				*ammo.Rounds--
+
+				if *ammo.Rounds == 0 {
+					s.CargoContents = slices.Delete(s.CargoContents, index, index+1)
+				}
+			}
+
+			spec := m.Spec
+			position := Vec.Add(s.Position, simulation.RotatePoint(Vec.Add(m.Mount.LocalPosition, Vec.Create(spec.BarrelLength+spec.Projectile.Radius+1, 0)), s.Rotation))
+			velocity := Vec.Add(s.Velocity, simulation.RotatePoint(Vec.Create(spec.Projectile.Speed, 0), s.Rotation))
+			id := simulation.EntityID(s.World)
+			projectile := NewProjectile(m.Type, simulation.ObjectProperties{World: s.World, ID: &id, Position: position, Velocity: velocity, PlayerID: s.PlayerID}, s.Catalog)
+			simulation.AddEntity(s.World, projectile)
+
+			if spec.Recoil != 0 {
+				physics.ApplyForce(s, simulation.RotatePoint(Vec.Create(-spec.Recoil, 0), s.Rotation), 0)
+			}
+
+			m.FireCooldown += spec.FireInterval
+		}
 	}
 }
 
@@ -409,6 +488,7 @@ func (s *Ship) Update(dt float64) {
 	}
 
 	s.Craft.Update(dt)
+	s.fireWeapons(dt)
 }
 
 func (s *Ship) ShipBase() *Ship { return s }
@@ -419,11 +499,11 @@ func (s *Ship) ResetBiting() {
 	}
 }
 
-func NewShip(id string, props Properties, catalog definitions.Catalog) *Ship {
-	d, ok := catalog.ShipDefinitions[id]
+func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
+	d, ok := catalog.ShipSpecs[id]
 
 	if !ok {
-		panic("Unknown ship definition: " + id)
+		panic("Unknown ship spec: " + id)
 	}
 
 	if props.Drag == nil {
@@ -451,7 +531,7 @@ func NewShip(id string, props Properties, catalog definitions.Catalog) *Ship {
 		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex}
 
 		for _, mount := range segment.Mounts {
-			plan.Mounts = append(plan.Mounts, simulation.NewMount(mount.LocalPosition, mount.Fits))
+			plan.Mounts = append(plan.Mounts, simulation.NewMount(mount))
 		}
 
 		plans[i] = plan
@@ -459,6 +539,7 @@ func NewShip(id string, props Properties, catalog definitions.Catalog) *Ship {
 
 	ship := newShip(props, plans, catalog)
 	ship.Self = ship
+	ship.Name = d.Name
 
 	if id != "mustang" {
 		ship.DefinitionID = id
@@ -488,8 +569,12 @@ func CreateShip(world *simulation.World, props Properties) *Ship {
 func CreatePlayerShip(world *simulation.World, props Properties) *Ship {
 	ship := CreateShip(world, props)
 
-	for _, id := range world.Specification.StartingModules {
-		ship.Fit(modules.Create(id, simulation.ObjectProperties{World: world}, world.Specification), nil)
+	id := ship.DefinitionID
+	if id == "" {
+		id = "mustang"
+	}
+	for _, entry := range world.Specification.ShipSpecs[id].InitialLoadout {
+		ship.Fit(modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification), ship.Mounts()[entry.Mount])
 	}
 
 	return ship

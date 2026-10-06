@@ -3,8 +3,8 @@ package simulation
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/random"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 )
 
@@ -38,10 +38,10 @@ type World struct {
 	Players         *utilities.OrderedMap[int64, Player]
 	Random          *random.Random
 	Tick            uint64
-	Specification   definitions.Catalog
+	Specification   specs.Catalog
 }
 
-func CreateWorld(seed float64, spec definitions.Catalog) *World {
+func CreateWorld(seed float64, spec specs.Catalog) *World {
 	return &World{Entities: utilities.NewOrderedMap[int64, Entity](), NextEntityID: 1, Players: utilities.NewOrderedMap[int64, Player](), Random: random.CreateRandom(seed), Specification: spec}
 }
 

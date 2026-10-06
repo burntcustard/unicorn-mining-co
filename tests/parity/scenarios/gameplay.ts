@@ -11,9 +11,9 @@ import {
   ShieldGenerator,
   moduleTypesById,
 } from '../../../src/client/objects/modules/index';
-import type { ModuleId } from '../../../src/definitions/modules/index';
+import type { ModuleId } from '../../../src/specs/modules/index';
 import { Item } from '../../../src/client/objects/item';
-import { diamond as diamondDefinition } from '../../../src/definitions/items/index';
+import { diamond as diamondSpec } from '../../../src/specs/items/index';
 import { Craft } from '../../../src/client/objects/craft';
 import { Ship } from '../../../src/client/objects/ship';
 import { GameObject } from '../../../src/client/objects/game-object';
@@ -83,7 +83,7 @@ const cases = [
   { name: 'shield', count: 1, ticks: 180 },
   ...(
     [
-      'thrusterSingle',
+      'thrusterSingleMd',
       'thrusterDualMd',
       'thrusterDualXl',
       'thrusterTriple',
@@ -145,7 +145,7 @@ const cases = [
   if (scenario.name === 'shield') {
     addEntity(
       world,
-      new Item(diamondDefinition, {
+      new Item(diamondSpec, {
         world,
         id: 100,
         position: Vec.create(54, 0),

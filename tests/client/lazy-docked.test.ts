@@ -22,12 +22,12 @@ import { player } from '${resolve('src/client/player.ts')}';
 import { game } from '${resolve('src/client/game.ts')}';
 import { init } from '${resolve('src/client/core.ts')}';
 import { Item } from '${resolve('src/client/objects/item.ts')}';
-import { diamond as diamondDefinition } from '${resolve('src/definitions/items/index.ts')}';
+import { diamond as diamondSpec } from '${resolve('src/specs/items/index.ts')}';
 import { setCraftActionDispatcher } from '${resolve('src/client/network/craft-actions.ts')}';
 import { renderDocked, confirmSelection, back, moveSelection } from '${resolve('src/client/ui/docked-loader.ts')}';
 // The entry and independently loaded UI both access the same mangled state.
 player.ship.cargoContents ||= [];
-player.ship.cargoContents.push(new Item(diamondDefinition, ));
+player.ship.cargoContents.push(new Item(diamondSpec, ));
 const sales = [];
 setCraftActionDispatcher(action => {
   if (action.action === 'sell') sales.push(action);
@@ -35,6 +35,10 @@ setCraftActionDispatcher(action => {
 const { canvas, context } = init();
 Object.assign(game, {canvas, ctx:context, uiScale:1, uiWidth:1200, uiHeight:800});
 export const run = async () => {
+  player.ship.mounts.filter(mount=>!mount.module).forEach(mount=>mount.module=0);
+  renderDocked(game, player.ship);
+  await confirmSelection(player.ship);
+  await back(player.ship);
   renderDocked(game, player.ship);
   await confirmSelection(player.ship);
   renderDocked(game, player.ship);

@@ -1,16 +1,31 @@
 import './style.css';
 import { game } from '../../client/game';
 import { Craft } from '../../client/objects/craft';
+import { Ship } from '../../client/objects/ship';
+import { Item } from '../../client/objects/item';
+import { moduleControls as gameModuleControls } from '../../client/objects/control-ship';
+import { moduleBinding } from '../../client/input/keybindings';
+import { createWorld } from '../../client/simulation/world';
+import { autocannonAmmunition } from '../../specs/items';
+import { Weapon } from '../../client/objects/modules/weapon';
 import { type GameObject } from '../../client/objects/game-object';
-import { renderingLayers } from '../../definitions/rendering-layers';
+import { renderingLayers } from '../../specs/rendering-layers';
 import * as Vec from '../../client/utilities/vector';
 import { catalog, previewMounts, type ObjectType } from './catalog';
 import { drawGrid } from './grid';
+import {
+  addEffect,
+  effects,
+  renderEffects,
+  updateEffects,
+} from '../../client/effects/effect';
+import { plasmaExplosion } from '../../specs/effects/plasma-explosion';
 
 type ViewerState = {
   type: ObjectType;
   selected: Partial<Record<ObjectType, string>>;
   grid: boolean;
+  mountPoints: boolean;
   spin: boolean;
   rotation: number;
   zoom: number;
@@ -27,6 +42,7 @@ export const state: ViewerState = {
   type: 'ship',
   selected: {},
   grid: true,
+  mountPoints: true,
   spin: false,
   rotation: 0,
   zoom: 2,
@@ -39,9 +55,10 @@ const controls = document.querySelector('aside')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
 const ctx = canvas.getContext('2d')!;
 const typeSelect = document.querySelector<HTMLSelectElement>('#object-type')!;
-const definitionSelect =
-  document.querySelector<HTMLSelectElement>('#definition')!;
+const specSelect = document.querySelector<HTMLSelectElement>('#spec')!;
 const gridInput = document.querySelector<HTMLInputElement>('#grid')!;
+const mountPointsInput =
+  document.querySelector<HTMLInputElement>('#mount-points')!;
 const spinInput = document.querySelector<HTMLInputElement>('#spin')!;
 const zoomInput = document.querySelector<HTMLInputElement>('#zoom')!;
 const zoomValue = document.querySelector<HTMLOutputElement>('#zoom-value')!;
@@ -50,6 +67,7 @@ const moduleControls =
 const modules = document.querySelector<HTMLDivElement>('#modules')!;
 const source = document.querySelector<HTMLParagraphElement>('#source')!;
 const coordinates = document.querySelector<HTMLOutputElement>('#coordinates')!;
+const slowEffect = document.querySelector<HTMLInputElement>('#slow-effect')!;
 let pointer: Vec.Value | undefined;
 let frame: number;
 let previousTime = performance.now();
@@ -58,67 +76,185 @@ export let previewObject: GameObject | undefined;
 Object.assign(game, { canvas, ctx, physicsOn: false });
 
 const persist = () => localStorage.setItem(storageKey, JSON.stringify(state));
+const world = createWorld();
+const releases = new Set<() => void>();
+const stopFiring = () => releases.forEach((release) => release());
+
+const createMountControls = ({
+  craft,
+  mount,
+  key,
+  label: text,
+  options,
+  defaultOption,
+}: ReturnType<typeof previewMounts>[number] & { craft: Craft }) => {
+  const activation = state.modules[specSelect.value];
+  const attachments = state.attachments[specSelect.value];
+  const attached =
+    attachments[key] === ''
+      ? undefined
+      : options.find(({ type }) => type === attachments[key]) || defaultOption;
+  const module = attached ? new attached.Type() : 0;
+  const control = gameModuleControls.find(({ Type }) => module instanceof Type);
+  const mode = control ? moduleBinding(control.input).mode : 'toggle';
+  const firing = mode !== 'toggle';
+  const row = document.createElement('div');
+  const label = document.createElement('label');
+  const checkbox = document.createElement('input');
+  const select = document.createElement('select');
+  const button = document.createElement('button');
+
+  const setActive = (active: boolean) =>
+    craft.segmentsAtMount(mount).forEach((segment) => {
+      segment.active = Number(active);
+    });
+
+  const release = () => {
+    setActive(false);
+    releases.delete(release);
+  };
+
+  const fire = () => {
+    setActive(true);
+    Ship.prototype.fireWeapons.call(craft, 0);
+
+    if (mode === 'hold') releases.add(release);
+    else release();
+  };
+
+  attachments[key] = attached?.type ?? '';
+  craft.fit(module, mount);
+
+  // A stationary preview must not accumulate recoil between shots.
+  if (module instanceof Weapon) module.recoil = 0;
+
+  checkbox.type = 'checkbox';
+  checkbox.hidden = firing;
+  checkbox.checked = !!module && !firing && (activation[key] ?? false);
+  checkbox.disabled = !module;
+  checkbox.dataset.module = key;
+  setActive(checkbox.checked);
+  const { x, y } = mount.localPosition;
+  const mountLabel = `${text} (${x}, ${y})`;
+
+  label.append(checkbox, mountLabel);
+  select.replaceChildren(
+    new Option('Empty', ''),
+    ...options.map(({ type, label }) => new Option(label, type)),
+  );
+  select.value = attached?.type ?? '';
+  select.dataset.module = key;
+  select.setAttribute('aria-label', `Module for ${mountLabel}`);
+  button.type = 'button';
+  button.textContent = 'Fire';
+  button.hidden = !firing;
+  button.setAttribute('aria-label', `Fire ${attached?.label} at ${mountLabel}`);
+
+  checkbox.onchange = () => {
+    activation[key] = checkbox.checked;
+    setActive(checkbox.checked);
+    persist();
+  };
+
+  select.onchange = () => {
+    release();
+    attachments[key] = select.value;
+
+    row.replaceWith(
+      createMountControls({
+        craft,
+        mount,
+        key,
+        label: text,
+        options,
+        defaultOption,
+      }),
+    );
+
+    craft.cargoContents = craft.cargoContents.filter(
+      (item) => item instanceof Item,
+    );
+    persist();
+  };
+
+  button.onpointerdown = (event) => {
+    if (event.button !== 0) return;
+    button.setPointerCapture(event.pointerId);
+    fire();
+  };
+
+  button.onpointerup = release;
+  button.onpointercancel = release;
+  button.onlostpointercapture = release;
+  button.onblur = release;
+
+  button.onkeydown = (event) => {
+    if (event.key !== ' ' && event.key !== 'Enter') return;
+    event.preventDefault();
+
+    if (!event.repeat) fire();
+  };
+
+  button.onkeyup = (event) => {
+    if (event.key !== ' ' && event.key !== 'Enter') return;
+    event.preventDefault();
+    release();
+  };
+
+  button.onclick = (event) => {
+    if (event.detail) return;
+    fire();
+    release();
+  };
+
+  row.append(label, select, button);
+  return row;
+};
 
 const rebuild = () => {
-  const definitions = catalog[state.type];
-  const definition =
-    definitions.find(({ key }) => key === state.selected[state.type]) ||
-    definitions[0];
+  stopFiring();
+  effects.length = 0;
+  world.entities.clear();
+  world.players.clear();
+  const specs = catalog[state.type];
+  const spec =
+    specs.find(({ key }) => key === state.selected[state.type]) || specs[0];
 
-  definitionSelect.replaceChildren(
-    ...definitions.map(({ key, label }) => new Option(label, key)),
+  specSelect.replaceChildren(
+    ...specs.map(({ key, label }) => new Option(label, key)),
   );
-  definitionSelect.disabled = !definition;
+  specSelect.disabled = !spec;
   modules.replaceChildren();
   moduleControls.hidden = true;
-  source.textContent = definition?.source || '';
+  source.textContent = spec?.source || '';
   previewObject = undefined;
 
-  if (!definition) return;
+  if (!spec) return;
 
-  state.selected[state.type] = definition.key;
-  definitionSelect.value = definition.key;
+  state.selected[state.type] = spec.key;
+  specSelect.value = spec.key;
 
-  previewObject = definition.create();
+  previewObject = spec.create();
   previewObject.physics = false;
   previewObject.rotation = state.rotation;
 
   if (previewObject instanceof Craft) {
     const craft = previewObject;
-    const activation = (state.modules[definition.key] ||= {});
-    const attachments = (state.attachments[definition.key] ||= {});
+
+    craft.world = world;
+    craft.playerId = 1;
+    world.players.set(1, { id: 1, shipId: craft.id });
+    craft.cargoContents.push(
+      new Item(autocannonAmmunition, { rounds: Infinity }),
+    );
+    state.modules[spec.key] ||= {};
+    state.attachments[spec.key] ||= {};
     const mounts = previewMounts(craft);
 
     moduleControls.hidden = !mounts.length;
-
-    mounts.forEach(({ mount, key, label: text, options, defaultOption }) => {
-      const attached =
-        options.find(({ type }) => type === attachments[key]) || defaultOption;
-      const module = new attached.Type();
-      const row = document.createElement('div');
-      const label = document.createElement('label');
-      const checkbox = document.createElement('input');
-      const select = document.createElement('select');
-
-      attachments[key] = attached.type;
-      craft.fit(module, mount);
-
-      checkbox.type = 'checkbox';
-      checkbox.checked = activation[key] ?? false;
-      checkbox.dataset.module = key;
-      craft.segments
-        .filter((segment) => segment.module === module)
-        .forEach((segment) => (segment.active = Number(checkbox.checked)));
-      label.append(checkbox, text);
-      select.replaceChildren(
-        ...options.map(({ type, label }) => new Option(label, type)),
-      );
-      select.value = attached.type;
-      select.dataset.module = key;
-      select.setAttribute('aria-label', `Module for ${text}`);
-      row.append(label, select);
-      modules.append(row);
-    });
+    modules.append(
+      ...mounts.map((mount) => createMountControls({ craft, ...mount })),
+    );
   }
 };
 
@@ -140,8 +276,12 @@ const render = (now: number) => {
     if (previewObject instanceof Craft) {
       previewObject.updateModules(dt);
       previewObject.updateVisual(dt);
+      Ship.prototype.fireWeapons.call(previewObject, dt);
     }
   }
+
+  world.entities.forEach((projectile) => projectile.update(dt));
+  updateEffects(dt * (slowEffect.checked ? 250 : 1000));
 
   game.scale = state.zoom * devicePixelRatio;
   game.width = canvas.width / game.scale;
@@ -182,13 +322,38 @@ const render = (now: number) => {
     for (const zIndex of Object.values(renderingLayers)) {
       previewObject.render({ zIndex });
     }
+
+    world.entities.forEach((projectile) => projectile.render());
+
+    if (state.mountPoints) {
+      ctx.save();
+      ctx.translate(previewObject.position.x, previewObject.position.y);
+      ctx.rotate(previewObject.rotation);
+      ctx.fillStyle = '#f00';
+
+      previewObject.mounts
+        .filter(
+          ({ module }) =>
+            module && (module.collectsCargo || module instanceof Weapon),
+        )
+        .forEach(({ localPosition: { x, y } }) => {
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+      ctx.restore();
+    }
   } else previewObject?.render();
+
+  renderEffects(ctx);
 
   frame = requestAnimationFrame(render);
 };
 
 typeSelect.value = state.type;
 gridInput.checked = state.grid;
+mountPointsInput.checked = state.mountPoints;
 spinInput.checked = state.spin;
 zoomInput.value = String(state.zoom);
 state.zoom = zoomInput.valueAsNumber;
@@ -198,39 +363,13 @@ controls.onchange = ({ target }) => {
   if (target === typeSelect) {
     state.type = typeSelect.value as ObjectType;
     rebuild();
-  } else if (target === definitionSelect) {
-    state.selected[state.type] = definitionSelect.value;
+  } else if (target === specSelect) {
+    state.selected[state.type] = specSelect.value;
     rebuild();
   } else if (target === gridInput) state.grid = gridInput.checked;
-  else if (target === spinInput) state.spin = spinInput.checked;
-  else if (
-    (target instanceof HTMLInputElement ||
-      target instanceof HTMLSelectElement) &&
-    target.dataset.module &&
-    previewObject instanceof Craft
-  ) {
-    const { module: key } = target.dataset;
-    const { mount, options } = previewMounts(previewObject).find(
-      (mount) => mount.key === key,
-    )!;
-
-    if (target instanceof HTMLSelectElement) {
-      const { Type } = options.find(({ type }) => type === target.value)!;
-
-      state.attachments[definitionSelect.value][key] = target.value;
-      previewObject.fit(new Type(), mount);
-      previewObject.cargoContents.length = 0;
-    } else state.modules[definitionSelect.value][key] = target.checked;
-
-    previewObject.segments
-      .filter((segment) => segment.mount === mount)
-      .forEach(
-        (segment) =>
-          (segment.active = Number(
-            state.modules[definitionSelect.value][key] ?? false,
-          )),
-      );
-  }
+  else if (target === mountPointsInput) {
+    state.mountPoints = mountPointsInput.checked;
+  } else if (target === spinInput) state.spin = spinInput.checked;
 
   persist();
 };
@@ -246,6 +385,11 @@ document.querySelector<HTMLButtonElement>('#reset-rotation')!.onclick = () => {
   persist();
 };
 
+document.querySelector<HTMLButtonElement>('#replay-effect')!.onclick = () => {
+  effects.length = 0;
+  addEffect({ position: Vec.create(), effect: plasmaExplosion });
+};
+
 canvas.onpointermove = (event) => {
   pointer = Vec.create(event.offsetX, event.offsetY);
 };
@@ -255,7 +399,13 @@ canvas.onpointerleave = () => {
   coordinates.value = 'Move the pointer over the preview';
 };
 
-window.onpagehide = persist;
+window.onblur = stopFiring;
+
+window.onpagehide = () => {
+  stopFiring();
+  persist();
+};
+
 window.onresize = resize;
 resize();
 rebuild();
@@ -264,6 +414,8 @@ frame = requestAnimationFrame(render);
 import.meta.hot.accept();
 
 import.meta.hot.dispose((data) => {
+  stopFiring();
+  effects.length = 0;
   data.state = state;
   persist();
   cancelAnimationFrame(frame);

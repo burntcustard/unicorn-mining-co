@@ -12,8 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"log"
 	"math"
 	"modernc.org/sqlite"
@@ -36,9 +36,9 @@ type World struct {
 	NextObjectID     int64
 }
 
-func GenerationDigest(catalog definitions.Catalog) string {
+func GenerationDigest(catalog specs.Catalog) string {
 	data, _ := json.Marshal(struct {
-		Rules      definitions.RegionGeneration
+		Rules      specs.RegionGeneration
 		RegionSize float64
 		ItemIDs    []string
 	}{catalog.RegionGeneration, catalog.Simulation.RegionSize, catalog.ItemIDs})

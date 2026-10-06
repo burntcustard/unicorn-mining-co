@@ -4,7 +4,7 @@ package simulation
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 )
@@ -15,14 +15,16 @@ type Module interface {
 }
 
 type ModuleData struct {
-	Type       string
-	Definition definitions.Module
-	Model      []*SegmentPlan
-	Mount      *Mount
-	Bounciness func(*Segment) *float64
+	FireCooldown float64
+	Type         string
+	Spec         specs.Module
+	Model        []*SegmentPlan
+	Mount        *Mount
+	Bounciness   func(*Segment) *float64
 }
 
 type Mount struct {
+	MountPoints   []specs.MountPoint
 	LocalPosition Vec.Vector
 	Health        float64
 	Module        Module
@@ -83,23 +85,29 @@ func (s *Segment) Outline() *ShapeOutline {
 	return s.Points
 }
 
-var physicalHullDefinition = definitions.Module{}
-var nonphysicalHullDefinition = definitions.Module{DisablePhysics: true}
+var physicalHullSpec = specs.Module{}
+var nonphysicalHullSpec = specs.Module{DisablePhysics: true}
 
-func (s *Segment) ModuleDefinition() *definitions.Module {
+func (s *Segment) ModuleSpec() *specs.Module {
 	if s.Module != nil {
-		return &s.Module.ModuleBase().Definition
+		return &s.Module.ModuleBase().Spec
 	}
 
 	if s.HullPlan != nil && s.HullPlan.DisablePhysics {
-		return &nonphysicalHullDefinition
+		return &nonphysicalHullSpec
 	}
 
-	return &physicalHullDefinition
+	return &physicalHullSpec
 }
 
-func NewMount(position Vec.Vector, fits []string) *Mount {
-	return &Mount{LocalPosition: position, Fits: fits, Health: math.NaN()}
+func NewMount(points []specs.MountPoint) *Mount {
+	mount := &Mount{MountPoints: points, LocalPosition: Vec.Create(points[0].X, points[0].Y), Health: math.NaN()}
+
+	for _, point := range points {
+		mount.Fits = append(mount.Fits, point.Fits...)
+	}
+
+	return mount
 }
 
 func (s *Segment) OutlineShades() []string {

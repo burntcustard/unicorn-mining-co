@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { RemoteMotion } from '../../src/client/prediction/remote-motion';
 import * as Vec from '../../src/client/utilities/vector';
-import { simulationStep } from '../../src/definitions/simulation';
+import { simulationStep } from '../../src/specs/simulation';
 import { GameObject } from '../../src/client/objects/game-object';
 import { addEntity, createWorld } from '../../src/client/simulation/world';
 
@@ -140,6 +140,95 @@ assert.equal(
 );
 motion.reset();
 assert.equal(motion.sample({ now: 100 }).size, 0);
+
+// A speculative projectile ID can become an authoritative fragment ID.
+// Its old pose belongs to another body and must not offset the new fragment.
+const replacementWorld = createWorld();
+const projectile = addEntity(
+  replacementWorld,
+  new GameObject({ id: 1, position: Vec.create(64, -25) }),
+);
+
+projectile.kind = 'projectile';
+const replacementBefore = motion.sample({ now: 0, world: replacementWorld });
+
+Object.assign(replacementBefore.get(1)!, { kind: projectile.kind });
+const fragment = new GameObject({ id: 1, position: Vec.create(140, -43) });
+
+fragment.kind = 'asteroid';
+replacementWorld.entities.set(1, fragment);
+
+motion.correct({
+  before: replacementBefore,
+  now: 0,
+  world: replacementWorld,
+  predicted: replacementWorld,
+});
+
+assert.deepEqual(
+  motion.sample({ now: 0, world: replacementWorld }).get(1)!.position,
+  fragment.position,
+  'an authoritative fragment must not ease from the position of a speculative projectile with the same ID',
+);
+
+// Equal-radius fragments can reuse speculative IDs despite different geometry.
+fragment.radius = 24;
+fragment.shapeOutline = [
+  [12, 18],
+  [-24, 0],
+  [12, -18],
+];
+const fragmentBefore = motion.sample({ now: 0, world: replacementWorld });
+
+Object.assign(fragmentBefore.get(1)!, {
+  kind: fragment.kind,
+  shapeOutline: fragment.shapeOutline,
+});
+
+fragment.shapeOutline = [
+  [24, 0],
+  [-12, 18],
+  [-12, -18],
+];
+Vec.set(fragment.position, Vec.create(184, -24));
+
+motion.correct({
+  before: fragmentBefore,
+  now: 0,
+  world: replacementWorld,
+  predicted: replacementWorld,
+});
+
+assert.deepEqual(
+  motion.sample({ now: 0, world: replacementWorld }).get(1)!.position,
+  fragment.position,
+  'different asteroid fragments sharing an ID and radius do not inherit each other’s pose',
+);
+
+const unchangedBefore = motion.sample({ now: 0, world: replacementWorld });
+
+Object.assign(unchangedBefore.get(1)!, {
+  kind: fragment.kind,
+  shapeOutline: fragment.shapeOutline,
+});
+
+fragment.shapeOutline = fragment.shapeOutline.map((point: number[]) =>
+  point.map((value) => value + 1e-8),
+);
+fragment.position.x += 1;
+
+motion.correct({
+  before: unchangedBefore,
+  now: 0,
+  world: replacementWorld,
+  predicted: replacementWorld,
+});
+
+assert.equal(
+  motion.sample({ now: 0, world: replacementWorld }).get(1)!.position.x,
+  unchangedBefore.get(1)!.position.x,
+  'wire rounding of unchanged asteroid geometry retains ordinary motion smoothing',
+);
 console.log(
   'Prediction poses, continuous corrections, docking and teleport resets passed',
 );

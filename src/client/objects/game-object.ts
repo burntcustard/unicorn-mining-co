@@ -3,8 +3,8 @@ import {
   defaultMass,
   defaultFriction,
   defaultAngularInertiaScale,
-} from '../../definitions/game-object';
-import { motion } from '../../definitions/local-movement';
+} from '../../specs/game-object';
+import { motion } from '../../specs/local-movement';
 import * as Vec from '../utilities/vector';
 import { createRandom, type Random } from '../utilities/seeded-random';
 import { localMovement } from '../simulation/local-movement';
@@ -87,7 +87,7 @@ export class GameObject {
       properties.random ||
       properties.world?.random ||
       createRandom(this.id >>> 0);
-    const definitions: Function[] = [];
+    const specs: Function[] = [];
 
     // Inherited class defaults are available before a craft builds its hull.
     // Per-instance properties, including restored state, always take priority.
@@ -96,10 +96,10 @@ export class GameObject {
       type && type !== GameObject;
       type = Object.getPrototypeOf(type)
     ) {
-      definitions.unshift(type);
+      specs.unshift(type);
     }
 
-    Object.assign(this, ...definitions, properties);
+    Object.assign(this, ...specs, properties);
   }
 
   hitbox(): Collider[] {

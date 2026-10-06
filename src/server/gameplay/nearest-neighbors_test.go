@@ -3,9 +3,9 @@ package gameplay
 import (
 	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"testing"
@@ -17,7 +17,7 @@ func TestNearestObjectLimitAndRecovery(t *testing.T) {
 
 	t.Cleanup(func() { limitCollisionNeighbors = old })
 
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestNearestObjectLimitAndRecovery(t *testing.T) {
 }
 
 func BenchmarkNearestObjectCollisions(b *testing.B) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		b.Fatal(err)

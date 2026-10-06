@@ -7,14 +7,14 @@ import (
 	"math"
 	"strings"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 var ErrControl = errors.New("invalid binary control")
 
 type Input struct {
-	HornDrill, CargoHatch, SearchLight, ShieldGenerator, Launch bool
-	Thrust, Turn                                                float64
+	HornDrill, CargoHatch, SearchLight, ShieldGenerator, Launch, Fire bool
+	Thrust, Turn                                                      float64
 }
 
 type DockAction struct {
@@ -41,7 +41,7 @@ type ServerControl struct {
 	PlayerID, ShipID, ServerTick uint64
 	PlayerToken                  string
 	WorldSeed                    float64
-	Spawn                        definitions.Vector
+	Spawn                        specs.Vector
 }
 
 type writer struct{ data []byte }
@@ -175,7 +175,7 @@ func (r *reader) uuid() (string, error) {
 	return digits[:8] + "-" + digits[8:12] + "-" + digits[12:16] + "-" + digits[16:20] + "-" + digits[20:], nil
 }
 
-func DecodeClientControl(data []byte, ids definitions.Protocol, step float64) (Control, error) {
+func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control, error) {
 	var message Control
 
 	if len(data) < 4 || len(data) > 32*1024 || data[0] != 0x55 || data[1] != 0x43 || data[2] != 1 {
@@ -223,18 +223,18 @@ func DecodeClientControl(data []byte, ids definitions.Protocol, step float64) (C
 
 		hasOffset, err := r.byte()
 
-		if err != nil || hasOffset > 1 {
+		if err != nil || hasOffset > 3 {
 			return Control{}, ErrControl
 		}
 
 		message.Input = Input{
-			HornDrill: code&1 != 0, CargoHatch: code&2 != 0,
+			Fire: hasOffset&2 != 0, HornDrill: code&1 != 0, CargoHatch: code&2 != 0,
 			SearchLight: code&4 != 0, ShieldGenerator: code&8 != 0,
 			Launch: code&16 != 0, Thrust: float64((code >> 5) & 1),
 			Turn: float64((code>>7)&1) - float64((code>>6)&1),
 		}
 
-		if hasOffset == 1 {
+		if hasOffset&1 != 0 {
 			message.Offset, err = r.number()
 
 			if err != nil || message.Offset < 0 || message.Offset >= step {
@@ -252,6 +252,8 @@ func DecodeClientControl(data []byte, ids definitions.Protocol, step float64) (C
 		}
 
 		switch int(action) {
+		case ids.DockActionIDs["buyAmmo"]:
+			message.Dock.Action = "buyAmmo"
 		case ids.DockActionIDs["buy"]:
 			message.Dock.Action = "buy"
 			message.Dock.HasModuleID = true
@@ -374,7 +376,7 @@ func DecodeClientControl(data []byte, ids definitions.Protocol, step float64) (C
 	return message, nil
 }
 
-func EncodeServerControl(message ServerControl, ids definitions.Protocol) ([]byte, error) {
+func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, error) {
 	if message.Credits != nil && (message.UnlockedPaints == nil || *message.Credits < 0 || math.IsNaN(*message.Credits) || math.IsInf(*message.Credits, 0)) {
 		return nil, ErrControl
 	}

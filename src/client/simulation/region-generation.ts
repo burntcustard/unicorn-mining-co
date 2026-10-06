@@ -6,9 +6,9 @@ import {
   type WreckDescription,
 } from '../protocol/regions';
 import { createRandom, type Random } from '../utilities/seeded-random';
-import { regionSize } from '../../definitions/region-manager';
+import { regionSize } from '../../specs/region-manager';
 import { round } from '../utilities/round';
-import { regionGeneration as specification } from '../../definitions/region-generation';
+import { regionGeneration as specification } from '../../specs/region-generation';
 
 const mix = (value: number) => {
   value = Math.imul(value ^ (value >>> 16), 0x7feb352d);

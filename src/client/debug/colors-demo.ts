@@ -1,4 +1,4 @@
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 import { type GameState } from '../game';
 
 /**

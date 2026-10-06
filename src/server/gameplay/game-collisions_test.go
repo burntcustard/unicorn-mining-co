@@ -3,11 +3,11 @@ package gameplay
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/testtools/compare"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -118,7 +118,7 @@ func TestTypeScriptGameplay(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

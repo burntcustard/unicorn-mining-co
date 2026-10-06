@@ -1,3 +1,4 @@
+import { withAlpha } from './color';
 import {
   lightAngle,
   spread,
@@ -5,13 +6,13 @@ import {
   warmTint,
   shadeTint,
   glowBlur,
-} from '../../definitions/lighting';
+} from '../../specs/lighting';
 
 // @ifdef BENCHMARK
 import { benchmarkFlag } from '../debug/benchmark';
 
 // @endif
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 import { Craft } from '../objects/craft';
 import { type GameObject } from '../objects/game-object';
 import { camera } from '../camera';
@@ -162,7 +163,9 @@ export const hullSegmentFill = ({
   worn: number;
   rotation: number;
 }) => {
-  if (segment.fillAlpha) return segment.shades[2] + segment.fillAlpha;
+  if (segment.fillAlpha !== undefined) {
+    return withAlpha({ color: segment.shades[2], alpha: segment.fillAlpha });
+  }
 
   if (!segment.middle) return segment.shades[worn];
   // @ifdef DEBUG
@@ -251,8 +254,8 @@ export const drawBeam = (
   const gradient = ctx.createLinearGradient(0, 0, reach, 0);
 
   gradient.addColorStop(0, color);
-  gradient.addColorStop(0.15, `${color}c`);
-  gradient.addColorStop(1, '#0000');
+  gradient.addColorStop(0.15, withAlpha({ color, alpha: 0.8 }));
+  gradient.addColorStop(1, withAlpha({ color: '#000', alpha: 0 }));
 
   ctx.save();
   // The cone says how wide the beam is and the trace says how far it got, so

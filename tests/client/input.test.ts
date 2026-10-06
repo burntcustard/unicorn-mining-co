@@ -36,7 +36,7 @@ const bundle = await rolldown({
       name: 'input-test-entry',
       load: (id) => {
         if (id === '\0input') {
-          return `export * from '${process.cwd()}/src/client/input/input.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';export {maxPredictionTicks} from '${process.cwd()}/src/definitions/prediction.ts';export {simulationStep} from '${process.cwd()}/src/definitions/simulation.ts';`;
+          return `export * from '${process.cwd()}/src/client/input/input.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';export {maxPredictionTicks} from '${process.cwd()}/src/specs/prediction.ts';export {simulationStep} from '${process.cwd()}/src/specs/simulation.ts';`;
         }
 
         if (id.endsWith('/src/client/core.ts')) {
@@ -59,8 +59,8 @@ const input: {
   initKeys: typeof import('../../src/client/input/input').initKeys;
   playerInput: typeof import('../../src/client/input/input').playerInput;
   GameLoop: typeof import('../../src/client/game-loop.ts').GameLoop;
-  maxPredictionTicks: typeof import('../../src/definitions/prediction.ts').maxPredictionTicks;
-  simulationStep: typeof import('../../src/definitions/simulation.ts').simulationStep;
+  maxPredictionTicks: typeof import('../../src/specs/prediction.ts').maxPredictionTicks;
+  simulationStep: typeof import('../../src/specs/simulation.ts').simulationStep;
 } = await import(
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );

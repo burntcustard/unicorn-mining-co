@@ -13,7 +13,7 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
   avoid native APIs; quoted import paths are protected by the source rewrite regex.
 - Before changing gameplay tag literals, review `plugins/protocol-tags.ts` for
   short client replacements. They do not encode Go protocol strings. Stable
-  wire IDs live in `src/definitions/protocol.ts`; run `npm run test snapshot server-integration`
+  wire IDs live in `src/specs/protocol.ts`; run `npm run test snapshot server-integration`
   when changing the wire contract.
 - Lazy modules expose a typed `default` API object, loaded as in `sound-loader`.
 - Test lazy features with separately emitted production chunks and exercise
@@ -24,8 +24,13 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
   loading trigger.
 - Prefer named options objects to multiple positional helper arguments.
 
-Definitions live under `src/definitions`. Keep their imports independent of client
-and server implementations. Regenerate the Go catalog after definition changes.
+`src/specs` holds concrete game data and tuning shared by the client and the
+Go server catalog, plus the schemas for that data. It is not a general home for
+type or interface declarations. Put runtime types beside the implementation that
+owns them; client-only visual effect options belong under `src/client/effects`,
+even when a spec configures that effect. Spec files may reference these types
+through type-only imports, but must not import client or server runtime code.
+Regenerate `src/server/specs/catalog_gen.go` after spec data changes.
 The Go server is the only authoritative server; preserve the normal Vite proxy.
 
 For functional source or configuration changes, run `npm run build` before and
@@ -34,6 +39,10 @@ sizes. Skip the build for comment or whitespace-only changes.
 
 TypeScript runs through `npm run typecheck` before production builds. Prefer
 inference unless an annotation is required to clarify an exported API.
+
+Test visual effect rendering with synthetic specs covering each part type
+and its supported properties. Do not assert the colours, sizes or timing of
+individual effect specs; those are visual design choices edited in data.
 
 ## Local browser testing
 

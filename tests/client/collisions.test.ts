@@ -35,13 +35,13 @@ const bundle = await rolldown({
       export { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/client/simulation/world.ts';
       export { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
-      export { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
+      export { diamond as diamondSpec } from '${process.cwd()}/src/specs/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';
       export { createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
       export { updateWorld } from '${process.cwd()}/src/client/simulation/update-world.ts';
       export { captureWorld, restoreWorld } from '${process.cwd()}/src/client/simulation/world-state.ts';
       export { controlShip } from '${process.cwd()}/src/client/objects/control-ship.ts';
-      export { simulationStep } from '${process.cwd()}/src/definitions/simulation.ts';
+      export { simulationStep } from '${process.cwd()}/src/specs/simulation.ts';
       export { sparks, sprayDamage } from '${process.cwd()}/src/client/effects/shrapnel.ts';
       export { damage } from '${process.cwd()}/src/client/objects/damage.ts';
       export * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
@@ -75,14 +75,14 @@ const physics: {
   createWorld: typeof import('../../src/client/simulation/world.ts').createWorld;
   entityId: typeof import('../../src/client/simulation/world.ts').entityId;
   createPlayerShip: typeof import('../../src/client/objects/create-ship.ts').createPlayerShip;
-  diamondDefinition: typeof import('../../src/definitions/items/index.ts').diamond;
+  diamondSpec: typeof import('../../src/specs/items/index.ts').diamond;
   Item: typeof import('../../src/client/objects/item.ts').Item;
   createAsteroid: typeof import('../../src/client/objects/asteroid.ts').createAsteroid;
   updateWorld: typeof import('../../src/client/simulation/update-world.ts').updateWorld;
   captureWorld: typeof import('../../src/client/simulation/world-state.ts').captureWorld;
   restoreWorld: typeof import('../../src/client/simulation/world-state.ts').restoreWorld;
   controlShip: typeof import('../../src/client/objects/control-ship.ts').controlShip;
-  simulationStep: typeof import('../../src/definitions/simulation.ts').simulationStep;
+  simulationStep: typeof import('../../src/specs/simulation.ts').simulationStep;
   sparks: typeof import('../../src/client/effects/shrapnel.ts').sparks;
   sprayDamage: typeof import('../../src/client/effects/shrapnel.ts').sprayDamage;
   damage: typeof import('../../src/client/objects/damage.ts').damage;
@@ -117,7 +117,7 @@ const {
   addEntity,
   addPlayer,
   createPlayerShip,
-  diamondDefinition,
+  diamondSpec,
   Item,
   createAsteroid,
   updateWorld,
@@ -606,7 +606,7 @@ const itemShipImpact = (speed: number, mass?: number) => {
 
   const item = addEntity(
     world,
-    new Item(diamondDefinition, {
+    new Item(diamondSpec, {
       world,
       id: entityId(world),
       position: Vec.create(-50),
@@ -1106,7 +1106,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
 
   const item = addEntity(
     world,
-    new Item(diamondDefinition, {
+    new Item(diamondSpec, {
       world,
       id: entityId(world),
       position: Vec.create(mouth.position.x - 25, crossingY),
@@ -1377,7 +1377,7 @@ assert(
 
   const item = addEntity(
     world,
-    new Item(diamondDefinition, {
+    new Item(diamondSpec, {
       world,
       id: entityId(world),
       position: Vec.create(54),
@@ -1586,7 +1586,10 @@ for (const radiusEven of [undefined, 25]) {
 
 // In unobstructed flight the solver must not replace steering or drag.
 const flightWorld = createWorld();
-const flying = addEntity(flightWorld, createPlayerShip(flightWorld, { playerId: 1 }));
+const flying = addEntity(
+  flightWorld,
+  createPlayerShip(flightWorld, { playerId: 1 }),
+);
 
 addPlayer(flightWorld, { id: 1, shipId: flying.id });
 const referenceWorld = createWorld();
@@ -1730,7 +1733,7 @@ const driftWorld = createWorld();
 
 const drifting = addEntity(
   driftWorld,
-  new Item(diamondDefinition, {
+  new Item(diamondSpec, {
     world: driftWorld,
     id: entityId(driftWorld),
     velocity: Vec.create(150),
@@ -1739,7 +1742,7 @@ const drifting = addEntity(
 
 const driftReferenceWorld = createWorld();
 
-const referenceItem = new Item(diamondDefinition, {
+const referenceItem = new Item(diamondSpec, {
   world: driftReferenceWorld,
   id: entityId(driftReferenceWorld),
   velocity: Vec.create(150),

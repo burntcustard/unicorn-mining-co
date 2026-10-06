@@ -1,29 +1,24 @@
 import { type Segment } from '../../types';
 import { game } from '../../game';
 import { linesPath } from '../../utilities/drawing';
-import { moduleDefinitions } from '../../../definitions/modules/index';
+import { type ModuleSpec } from '../../../specs/modules/types';
 import { Module, type ModuleRenderOptions } from './module';
 
-const specification = moduleDefinitions.shieldGenerator;
-
-export class ShieldGenerator extends Module {
-  static bounciness = specification.bounciness;
-  static health = specification.health;
-  static label = specification.label;
-  static model: any[] = [
-    { radius: () => specification.generatorRadius },
-    {
-      activationDuration: specification.coverDuration,
-      covers: true,
-      radius: ({ activationProgress }: { activationProgress: number }) =>
-        specification.shieldRadius * activationProgress,
-      fillAlpha: 2,
-    },
-  ];
-  static price = specification.price;
-  static shades = specification.shades;
-  static unhurtWhen = specification.unhurtWhen;
-  static zIndex = specification.zIndex;
+export class ShieldGeneratorModule extends Module {
+  static createModel(
+    spec: Extract<ModuleSpec, { behavior: 'shieldGenerator' }>,
+  ) {
+    return [
+      { radius: () => spec.generatorRadius },
+      {
+        activationDuration: spec.coverDuration,
+        covers: true,
+        radius: ({ activationProgress }: { activationProgress: number }) =>
+          spec.shieldRadius * activationProgress,
+        fillAlpha: 2 / 15,
+      },
+    ];
+  }
 
   render({ segment }: ModuleRenderOptions) {
     super.render({ segment });
@@ -60,3 +55,8 @@ export class ShieldGenerator extends Module {
     );
   }
 }
+
+export const ShieldGenerator =
+  ShieldGeneratorModule.define('shieldGeneratorSm');
+export const ShieldGeneratorMd =
+  ShieldGeneratorModule.define('shieldGeneratorMd');

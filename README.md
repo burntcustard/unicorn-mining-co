@@ -7,6 +7,8 @@
 
 Leave the station by pressing any key, fly around, shine the <ins>L</ins>IGHT into asteroids to search for valuable resources, turn on the <ins>D</INS>RILL to mine those resources out, open the cargo <ins>H</ins>ATCH to scoop them up, and then dock at one of the many stations to sell items, repair your ship, and buy upgrades like thrusters or a <ins>S</ins>HIELD.
 
+Hold **Space** to fire fitted weapons. The Plasma Accelerator fires once every 1.5 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autocannon fires four times per second and consumes one round per shot. Each Autocannon ammunition pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autocannon hits split a fresh asteroid chunk.
+
 There are six rainbow-inspired colors, plus white, that you can color your ship parts with for free. You start with white and violet, but the others you unlock through exploration in the game. There is no death screen (you just have to refresh) or saving (no space, no pun intended, sorry), but if you manage to unlock all 5 of the non-starting colors, then you can consider yourself having complicated the game!
 
 The world is large, and it's seeded-random, so it's the same for everyone, but the space station you start at is chosen somewhat randomly.
@@ -50,7 +52,7 @@ WHITE - Unlocked by default from the start of the game.
 2. Install Node 26 and Go 1.27 (with `go` and `gofmt` on PATH), then dependencies
    `npm install`
 
-3. Start the authoritative Go server (rebuilds on Go or definition changes)
+3. Start the authoritative Go server (rebuilds on Go or spec changes)
    `npm run dev:server`
 
 4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
@@ -65,18 +67,24 @@ WHITE - Unlocked by default from the start of the game.
    on the same port. `npm run preview` also works with `start:server` running.
 
 Use `dev` with `dev:server`, or the production build with `start:server`.
+New players start with 10,000 credits under `dev:server`, or 500 under
+`start:server`. Existing players keep their saved balance.
 The same Go server supports source and production clients through binary packets.
 Node is used only for frontend builds, generators, and development/test tooling.
 
-To preview object definitions independently, run `npm run viewer` and open
+To preview object specs independently, run `npm run viewer` and open
 [localhost:3000](http://localhost:3000/). Stop the regular frontend first because
 both use port 3000. The development-only GameObject Viewer needs no Go server.
 It uses the actual client renderers for ships, stations, items and procedural
 asteroids, including spiky amethyst. Each mount lists its position and a dropdown
 of compatible modules; its checkbox activates all segments of the fitted instance.
-The grid and mouse coordinates use the object's local definition coordinates,
-including while spinning. Definition and renderer edits hot-reload, and adding
-or removing definition files updates the selections without editing game indexes.
+Choose Empty to leave a mount unfitted.
+Ship and station hull specs use `mounts: [[{ x, y, fits: [moduleId] }, ...], ...]`.
+Each inner array is one mount; its entries specify coordinates for different
+groups of compatible modules. The fitted module selects its matching entry.
+The grid and mouse coordinates use the object's local spec coordinates,
+including while spinning. Spec and renderer edits hot-reload, and adding
+or removing spec files updates the selections without editing game indexes.
 Selection, rotation, zoom, viewing aids, fitted modules and module activation
 survive updates and page refreshes. Viewer source lives under `src/tools/game-object-viewer` and is
 excluded from the game production entry.
@@ -97,7 +105,7 @@ declarations, and control-flow blocks, including inside function bodies.
 ## Build
 
 `npm run build` type-checks the client, tests, scripts and benchmark tools, generates the Go catalog from
-`src/definitions`, builds browser ES modules, and compiles `bin/server` with
+`src/specs`, builds browser ES modules, and compiles `bin/server` with
 `GOEXPERIMENT=simd`. `npm run build:client` type-checks and builds browser assets;
 `npm run build:server` generates the catalog and compiles Go.
 The full build generates the catalog once, during the server build.
@@ -126,23 +134,27 @@ production-mangled client codecs, reporting real WebSocket packet sizes.
 
 ## Source layout
 
-- `src/definitions`: typed authored items, modules, ships, stations, and tuning.
+- `src/specs`: typed authored items, modules, ships, stations, and tuning.
 - `src/client`: browser mechanics, prediction, networking, rendering, audio, UI.
 - `src/server`: Go entry point, objects/modules, simulation, networking, physics.
-- `src/server/definitions`: generated catalog and Go decoding types.
+- `src/server/specs`: generated catalog and Go decoding types.
 - `tests/client`, `tests/linting`, `tests/integration`, `tests/parity`: retained regression suites.
 
-Each item/ship/station type has one definition file. Generic runtime classes
+Each item/ship/station type has one spec file. Generic runtime classes
 construct them; thruster variants share one implementation per language.
+Schemas for authored data live beside those specs. Runtime types and interfaces
+live beside their owning implementations, including visual effect types in
+`src/client/effects`. Specs use type-only imports for those types, keeping their
+runtime dependencies independent of the client and server.
 
-Gameplay values belong in `src/definitions`: item fallbacks in
+Gameplay values belong in `src/specs`: item fallbacks in
 `items/defaults.ts`, base-object defaults in `game-object.ts`, shared craft
-fallbacks in `craft.ts`, and type-specific values in each content definition.
+fallbacks in `craft.ts`, and type-specific values in each content spec.
 Client code imports those values; `catalog:go` emits them as Go data or constants.
-Edit the TypeScript definitions rather than `catalog_gen.go`.
+Edit the TypeScript specs rather than `catalog_gen.go`.
 
 `scripts/generate-go-catalog.ts` is the build bridge from authored TypeScript
-definitions to Go. Test scenarios live in `tests/parity/scenarios`; one runner,
+specs to Go. Test scenarios live in `tests/parity/scenarios`; one runner,
 `tests/parity/generate-fixtures.ts`, writes their computed results to
 `tests/fixtures` for client/server simulation and protocol comparisons. Scenario
 masses, health values, coordinates, seeds, and tick counts are test inputs,

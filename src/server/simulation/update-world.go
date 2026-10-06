@@ -12,6 +12,12 @@ type CollisionWorld interface {
 	Step(*utilities.OrderedMap[int64, Entity], float64, *[]protocol.SimulationEvent) []collision.Contact
 }
 
+type ProjectileEntity interface {
+	Entity
+	CaptureSweep()
+	ResolveHits(*[]protocol.SimulationEvent, *World, float64)
+}
+
 type ContactHandler interface {
 	Entity
 	HandleContacts([]collision.Contact, *[]protocol.SimulationEvent, *World, float64)
@@ -65,6 +71,12 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
 		panic("simulation world has no collision system")
 	}
 
+	world.Entities.ForEach(func(e Entity, _ int64) {
+		if p, ok := e.(ProjectileEntity); ok {
+			p.CaptureSweep()
+		}
+	})
+
 	world.Collisions.CapturePoses(world.Entities)
 
 	for i := 0; i < ticks; i++ {
@@ -74,6 +86,12 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
 	}
 
 	contacts := world.Collisions.Step(world.Entities, dt, &events)
+
+	world.Entities.ForEach(func(e Entity, _ int64) {
+		if p, ok := e.(ProjectileEntity); ok {
+			p.ResolveHits(&events, world, dt)
+		}
+	})
 
 	// Physics and collision damage have already run for every object. These
 	// reusable lists only feed docking, scooping and drilling callbacks.

@@ -1,0 +1,164 @@
+/* global Buffer, process */
+import { execFileSync } from 'node:child_process';
+import { rolldown } from 'rolldown';
+import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
+
+const root = process.cwd();
+const fixtures = execFileSync(
+  'go',
+  ['run', 'src/server/testtools/projectile-prediction/main.go'],
+  { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
+);
+
+// NetworkClient also exports the normal singleton; supply browser APIs before
+// evaluating either bundle, and drive packet receipt independently of rendering.
+Object.assign(globalThis, {
+  location: { protocol: 'http:', host: 'localhost' },
+  localStorage: {
+    setItem() {},
+    getItem(): null {
+      return null;
+    },
+  },
+  WebSocket: class {
+    static OPEN = 1;
+    readyState = 1;
+    send() {}
+  },
+});
+
+const scenario = `
+import assert from 'node:assert/strict';
+import { NetworkClient } from '${root}/src/client/network/network.ts';
+import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
+import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
+import { simulationStep } from '${root}/src/specs/simulation.ts';
+import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
+const fixtures = ${fixtures};
+const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
+for (const renderEvery of [1, 8]) for (const delay of [0, 1, 3, 8]) for (const fixture of fixtures) {
+  // Replaying rotating contacts from binary checkpoints can accumulate tiny
+  // rounding differences. These remain far below a visible displacement.
+  const tolerance = .01;
+  const network = new NetworkClient({ url: 'test' });
+  network.receive({ message: {
+    type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
+    worldSeed: 25, serverTick: 0, spawn: { x: 0, y: 0 }, unlockedPaints: [],
+  }});
+  network.receive({ message: decode(fixture.initial) });
+  let replacements=0;
+  const geometry=points=>JSON.stringify(points?.map(point=>point.map(value=>Math.round(value*1e5))));
+  const correct=network.remoteMotion.correct.bind(network.remoteMotion);
+  network.remoteMotion.correct=options=>{
+    const replaced=[...options.before].filter(([id,pose])=>{
+      const body=options.predicted.entities.get(id)||options.world.entities.get(id);
+      return pose.kind==='asteroid' && body?.kind==='asteroid' && geometry(pose.shapeOutline)!==geometry(body.shapeOutline);
+    });
+    correct(options);
+    const displayed=network.remoteMotion.sample({now:options.now,world:options.world,predicted:options.predicted});
+    for(const [id]of replaced){
+      const body=options.predicted.entities.get(id)||options.world.entities.get(id);
+      assert(Math.hypot(displayed.get(id).position.x-body.position.x,displayed.get(id).position.y-body.position.y)<1e-8,'a replacement fragment renders at its own pose immediately, without an inherited correction');
+      assert(Math.abs(displayed.get(id).rotation-body.rotation)<1e-8,'a replacement fragment does not inherit rotation from the previous fragment');
+      replacements++;
+    }
+  };
+  let now = performance.now() + 1;
+  const splits = [];
+  const hits = [];
+  const explosions = [];
+  for (let tick = 0; tick < fixture.frames.length; tick++) {
+    const packet = fixture.frames[tick - delay]?.packet;
+    if (packet) network.receive({ message: decode(packet) });
+    now += simulationStep * 1000;
+    if ((tick + 1) % renderEvery) continue;
+    network.updateFrame({ input: { ...emptyPlayerInput(), fire: tick < 300 }, now, dt: simulationStep * renderEvery });
+    if(!fixture.reservesIDs) assert.deepEqual(
+      [...network.world.entities.values()].filter(entity => entity instanceof Asteroid).map(entity => entity.id),
+      fixture.frames[tick].asteroids,
+      fixture.weapon + ': delayed Go deltas must preserve predicted fractures and fragment IDs at tick ' + (tick + 1),
+    );
+    const rendered = network.remoteMotion.sample({ now, world: network.world, predicted: network.predictFrame({ now }) });
+    if(!fixture.reservesIDs) for (const [id, pose] of Object.entries(fixture.frames[tick].poses)) {
+      const asteroid = network.world.entities.get(Number(id));
+      assert(Math.hypot(asteroid.position.x - pose.Position.x, asteroid.position.y - pose.Position.y) < tolerance, fixture.weapon + ': fragment ' + id + ' has the server position at tick ' + (tick + 1) + ' renderEvery=' + renderEvery + ' delay=' + delay + ' moving=' + fixture.moving + ' actual=' + JSON.stringify(asteroid.position) + ' expected=' + JSON.stringify(pose.Position));
+      assert(Math.abs(asteroid.rotation - pose.Rotation) < tolerance, fixture.weapon + ': fragment ' + id + ' has the server rotation at tick ' + (tick + 1));
+      const displayed = rendered.get(Number(id));
+      assert(Math.hypot(displayed.position.x - pose.Position.x, displayed.position.y - pose.Position.y) < tolerance, fixture.weapon + ': fragment ' + id + ' renders at the server position without a correction offset at tick ' + (tick + 1));
+    }
+    const events = network.takeEvents();
+    explosions.push(...events.filter(event=>event.type==='explosion'));
+    splits.push(...events.filter(event => event.type === 'asteroidSplit'));
+    hits.push(...events.filter(event => event.type === 'collision' && event.damage[1] > 0));
+    if(!fixture.reservesIDs) for (const hit of events.filter(event => event.type === 'collision' && event.damage[1] > 0)) {
+      const expected = fixture.frames.flatMap(frame => frame.hits).filter(reported => reported.a === hit.a && reported.b === hit.b && reported.damage[0] === hit.damage[0] && reported.colors[1] === hit.colors[1]).sort((a,b) => Math.hypot(a.position.x-hit.position.x,a.position.y-hit.position.y)-Math.hypot(b.position.x-hit.position.x,b.position.y-hit.position.y))[0];
+      assert(expected, 'asteroid and moving fragment hits match the authoritative Go event');
+      assert.deepEqual(hit.colors, expected.colors);
+      assert(hit.damage.every((amount, index) => Math.abs(amount - expected.damage[index]) < 1e-8));
+      assert(Math.hypot(hit.position.x - expected.position.x, hit.position.y - expected.position.y) < tolerance, 'client and server agree on the asteroid contact point');
+    }
+    network.predictFrame({ now: now + simulationStep * 500 });
+  }
+  if(fixture.reservesIDs){if(delay===8 && renderEvery===1) assert(replacements>0,'delayed unseen server allocations exercise fragment ID reuse');continue;}
+  assert.equal(new Set(explosions.map(event=>event.objectId)).size,explosions.length,'reconciliation never duplicates explosion visuals');
+  assert.equal(explosions.length>0,fixture.weapon==='plasmaAccelerator','only plasma presents an explosion effect');
+  const directHits=hits.filter(hit=>hit.damage[0]>0);
+  assert.equal(new Set(directHits.map(hit => hit.a)).size, directHits.length, 'reconciliation never presents the same direct projectile impact twice');
+  const hitKey=hit=>[hit.a,hit.b,hit.damage[0],...hit.colors].join(':');
+  const authoritativeHits=fixture.frames.flatMap(frame=>frame.hits).filter(hit=>hit.damage[1]>0);
+  for(const key of new Set(hits.map(hitKey))) assert(hits.filter(hit=>hitKey(hit)===key).length<=authoritativeHits.filter(hit=>hitKey(hit)===key).length,'reconciliation does not repeat splash effects');
+  const originalSplits = splits.filter(event => event.asteroidId === 100).length;
+  if (renderEvery === 1) assert.equal(originalSplits, 1, 'the predicted split is presented once');
+  assert(originalSplits <= 1, 'batched authoritative splits must not repeat the predicted effect');
+  const authoritativeSplits = fixture.frames.flatMap(frame => frame.splits);
+  assert(authoritativeSplits.includes(100), 'the fixed-damage firing sequence actually splits the original asteroid');
+  assert.equal(new Set(splits.map(event => event.asteroidId)).size, splits.length, 'subsequent chunk hits do not repeat a split');
+  assert(splits.every(event => authoritativeSplits.includes(event.asteroidId)), 'presented splits match authoritative damage and fractures');
+}
+console.log('Go projectile hits and staggered snapshots preserve predicted asteroid fractures');
+`;
+
+const entryId = `${root}/src/__projectile_prediction_test.ts`;
+
+for (const production of [false, true]) {
+  const bundle = await rolldown({
+    input: entryId,
+    external: ['node:assert/strict'],
+    plugins: [
+      {
+        name: 'projectile-prediction-test',
+        resolveId: (id) => (id === entryId ? entryId : undefined),
+        load(id: string) {
+          if (id === entryId) {
+            return production
+              ? stripIfdef(
+                  scenario.replace(
+                    /assert\.(\w+)/g,
+                    (_, method) => `Reflect.get(assert, '${method}')`,
+                  ),
+                )
+              : scenario;
+          }
+
+          if (id.endsWith('/src/client/audio/sound-loader.ts')) {
+            return 'export const unlockAudio=()=>{};export const playSound=()=>{};export const updateThrusterSound=()=>{};';
+          }
+        },
+      },
+      buildPrePlugin(),
+      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+    ],
+  });
+
+  const { output } = await bundle.generate({
+    format: 'esm',
+    minify: production,
+  });
+
+  await bundle.close();
+  await import(
+    'data:text/javascript;base64,' +
+      Buffer.from(output[0].code).toString('base64')
+  );
+}

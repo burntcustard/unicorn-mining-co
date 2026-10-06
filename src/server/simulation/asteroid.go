@@ -21,7 +21,7 @@ type AsteroidSegment struct {
 }
 
 type Asteroid struct {
-	definitionWorld *World
+	specWorld *World
 	*GameObject
 	Contents               []int
 	MaxHealth              float64
@@ -89,17 +89,17 @@ func ShapeOutlineOf(asteroid *Asteroid) *ShapeOutline {
 		key.hasEven = true
 	}
 
-	cache := asteroid.definitionWorld.shapeOutlines
+	cache := asteroid.specWorld.shapeOutlines
 
 	if cache == nil {
 		cache = make(map[asteroidShapeKey]*ShapeOutline)
-		asteroid.definitionWorld.shapeOutlines = cache
+		asteroid.specWorld.shapeOutlines = cache
 	}
 
 	outline := cache[key]
 
 	if outline == nil {
-		rules := asteroid.definitionWorld.Specification.RegionGeneration
+		rules := asteroid.specWorld.Specification.RegionGeneration
 		count := asteroid.PointCount
 
 		if count == 0 {
@@ -173,7 +173,7 @@ func segmentsOf(contents []int, health, mass float64, outline *ShapeOutline, rad
 		}
 	}
 
-	segmentHealth := health / float64(len(triangles)*segmentsPerFace)
+	segmentHealth := health * 2 / float64(len(triangles)*segmentsPerFace)
 	segmentMass := mass / float64(len(triangles)*segmentsPerFace)
 	segments := make([]*AsteroidSegment, 0, len(triangles)*segmentsPerFace)
 
@@ -324,9 +324,9 @@ func NewAsteroid(props AsteroidProperties, world *World) *Asteroid {
 	object.ApplyProperties(props.ObjectProperties)
 	object.Kind = "asteroid"
 	// createAsteroid's factory does not attach its world until addEntity. Keep
-	// the definition context separately from gameplay membership.
+	// the spec context separately from gameplay membership.
 	asteroid := &Asteroid{GameObject: object, Contents: append([]int{}, props.Contents...), MaxHealth: object.Health}
-	asteroid.definitionWorld = world
+	asteroid.specWorld = world
 	object.Self = asteroid
 
 	if props.MaxHealth != nil {
@@ -550,14 +550,19 @@ func (a *Asteroid) collider(outline *ShapeOutline, segment *AsteroidSegment) *co
 
 func (a *Asteroid) Detach(segment *AsteroidSegment, world *World) []*Asteroid {
 	remaining := []*AsteroidSegment{}
+	groups := [][]*AsteroidSegment{{segment}}
 
 	for _, candidate := range a.Segments() {
 		if candidate != segment {
-			remaining = append(remaining, candidate)
+			if candidate.Health < 1 {
+				groups = append(groups, []*AsteroidSegment{candidate})
+			} else {
+				remaining = append(remaining, candidate)
+			}
 		}
 	}
 
-	groups := append([][]*AsteroidSegment{{segment}}, groupsOf(remaining)...)
+	groups = append(groups, groupsOf(remaining)...)
 	a.Remove()
 	children := make([]*Asteroid, len(groups))
 

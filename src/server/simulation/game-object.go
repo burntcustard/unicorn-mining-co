@@ -4,8 +4,8 @@ package simulation
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/random"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -13,8 +13,8 @@ import (
 )
 
 type ObjectRules struct {
-	Motion definitions.Motion
-	Flight definitions.Flight
+	Motion specs.Motion
+	Flight specs.Flight
 }
 
 type GameObject struct {
@@ -70,7 +70,7 @@ type ObjectProperties struct {
 	Collections        []*[]Entity
 }
 
-func NewGameObject(props ObjectProperties, rules definitions.Simulation) *GameObject {
+func NewGameObject(props ObjectProperties, rules specs.Simulation) *GameObject {
 	id := int64(0)
 
 	if props.ID != nil {
@@ -93,7 +93,7 @@ func NewGameObject(props ObjectProperties, rules definitions.Simulation) *GameOb
 		r = random.CreateRandom(float64(uint32(id)))
 	}
 
-	o := &GameObject{ID: id, Position: props.Position, Velocity: props.Velocity, Rotation: props.Rotation, Spin: props.Spin, AngularInertiaScale: definitions.GameObjectAngularInertiaScale, Mass: definitions.GameObjectMass, Physics: true, Friction: definitions.GameObjectFriction, Drag: math.NaN(), SpeedLimit: math.NaN(), Health: math.NaN(), Price: math.NaN(), World: props.World, Collections: props.Collections, Random: r, Rules: ObjectRules{Motion: rules.Motion, Flight: rules.Flight}}
+	o := &GameObject{ID: id, Position: props.Position, Velocity: props.Velocity, Rotation: props.Rotation, Spin: props.Spin, AngularInertiaScale: specs.GameObjectAngularInertiaScale, Mass: specs.GameObjectMass, Physics: true, Friction: specs.GameObjectFriction, Drag: math.NaN(), SpeedLimit: math.NaN(), Health: math.NaN(), Price: math.NaN(), World: props.World, Collections: props.Collections, Random: r, Rules: ObjectRules{Motion: rules.Motion, Flight: rules.Flight}}
 	o.Self = o
 	o.ApplyProperties(props)
 	return o

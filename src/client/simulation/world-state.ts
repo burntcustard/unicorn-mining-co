@@ -35,17 +35,18 @@ const omitted: Record<string, boolean> = {
   note: true,
 };
 
-const definitions: Record<string, boolean> = {
+const specs: Record<string, boolean> = {
   hullSegments: true,
   // Shared glow geometry carries browser-only path/canvas caches.
   glow: true,
   item: true,
   fits: true,
+  mountPoints: true,
   shades: true,
 };
 
 /*
- * Copy mutable mechanics, preserving prototype-based hull/module definitions
+ * Copy mutable mechanics, preserving prototype-based hull/module specs
  * and the links between a ship's segments, mounts and cargo contents.
  * This is for materialising independent authoritative objects, not tick
  * history. History below stores compact EntityState records instead.
@@ -89,7 +90,7 @@ export const cloneEntity = ({ entity }: { entity: GameObject }): GameObject => {
       if (omitted[name]) return;
       const member = value[name];
 
-      copy[name] = definitions[name]
+      copy[name] = specs[name]
         ? member
         : member && special[name]
           ? special[name](member)

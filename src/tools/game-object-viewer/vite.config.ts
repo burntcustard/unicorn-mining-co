@@ -17,9 +17,9 @@ export default defineConfig(({ command }) => {
         enforce: 'post',
         configureServer(server) {
           // Shared sources are outside this standalone Vite root. Watch their
-          // directories too so renderer edits and new definitions reach HMR.
+          // directories too so renderer edits and new specs reach HMR.
           server.watcher.add(
-            ['definitions', 'client'].map((directory) =>
+            ['specs', 'client'].map((directory) =>
               fileURLToPath(new URL(`../../${directory}`, import.meta.url)),
             ),
           );

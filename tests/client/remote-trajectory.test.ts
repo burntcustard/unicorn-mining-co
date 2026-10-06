@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { replayTrajectory } from '../../benchmarking/tools/remote-trajectory-workload';
 import { interpolatePose } from '../../src/client/utilities/interpolate-pose';
-import { simulationStep } from '../../src/definitions/simulation';
+import { simulationStep } from '../../src/specs/simulation';
 import * as Vec from '../../src/client/utilities/vector';
 
 for (const fps of [30, 60, 144]) {

@@ -32,13 +32,16 @@ contact handling belongs to `Craft`, so the history is not restricted to station
 
 The players table uses `WITHOUT ROWID`, so its UUID key is also its storage key.
 Dates, playtime and credits are integers. The ship record contains its object ID,
-definition type, integer `[x,y]` position, heading, optional paint/docking/death
+spec ID, integer `[x,y]` position, heading, optional paint/docking/death
 state, hull health values, fitted modules, and cargo. Modules contain an ID, type,
-mount, health, optional paint, and active/activation-progress pairs. Cargo contains
-only its identity, type and condition, plus message contents where needed.
+mount, health, optional paint and firing cooldown, and active/activation-progress
+pairs. Cargo contains its identity, type and condition, plus message contents or
+remaining ammunition rounds where needed. Both ship and world saves restore
+legacy `shieldGenerator` and `thrusterSingle` IDs as the small shield generator
+and medium single thruster specs.
 Credits are stored only in their SQL column. Shapes, physics constants, velocity,
 spin, movement parents, flight inputs and RNG state are not saved for player
-ships. Definitions rebuild those defaults, and ships resume stationary. Partial
+ships. Specs rebuild those defaults, and ships resume stationary. Partial
 health and module activation retain their precision. Rounding affects saved
 copies, never the running physics. A default ship occupies 403 bytes of JSON,
 compared with 2,142 bytes in the original general world-object Gob format.

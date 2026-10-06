@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"os"
@@ -135,7 +135,7 @@ func TestSessionBenchmark(t *testing.T) {
 
 	workload := os.Getenv("SESSION_WORKLOAD")
 	trace := os.Getenv("SESSION_TRACE") != ""
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

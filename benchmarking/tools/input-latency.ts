@@ -75,7 +75,10 @@ Object.assign(globalThis, {
 
 try {
   const world = game.createWorld();
-  const ship = game.addEntity(world, game.createPlayerShip(world, { playerId: 1 }));
+  const ship = game.addEntity(
+    world,
+    game.createPlayerShip(world, { playerId: 1 }),
+  );
 
   game.addPlayer(world, { id: 1, shipId: ship.id });
   const prediction = new game.PredictionManager({ world });

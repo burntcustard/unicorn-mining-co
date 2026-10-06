@@ -5,6 +5,13 @@ description: Apply Unicorn Mining Co.'s local source-style conventions when writ
 
 # Code style
 
+- Specify visual alpha as a number from 0 to 1, including glow stops and
+  `fillAlpha`. Use `withAlpha` from `src/client/utilities/color` when a canvas
+  colour needs opacity; do not append hex alpha digits to colour strings.
+  CSS colour alpha also uses a number from 0 to 1.
+- Specify visual effect durations, delays and fade durations in milliseconds.
+  Convert frame seconds to milliseconds at the effect update boundary.
+
 - Prefer native array methods such as `filter`, `map`, `find`, `some`, and
   `includes` over one-off collection helpers. Use `filter` for removals when
   replacing the array is safe; preserve shared array identity with native

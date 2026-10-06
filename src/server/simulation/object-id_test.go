@@ -3,11 +3,11 @@ package simulation
 import (
 	"testing"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 func TestObjectIDsBelongToWorld(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
@@ -38,6 +38,69 @@ func (p *scheduleProbe) Control(input protocol.Input, _ *[]protocol.SimulationEv
 	p.calls = append(p.calls, map[string]any{"type": "control", "value": input.Thrust})
 }
 
+type expiryProbe struct {
+	*GameObject
+	remaining float64
+	deaths    int
+}
+
+func (p *expiryProbe) Update(dt float64) {
+	p.remaining -= dt
+
+	if p.remaining <= 0 {
+		p.Remove()
+	}
+}
+
+func (p *expiryProbe) OnDeath(_ *[]protocol.SimulationEvent) {
+	p.deaths++
+}
+
+func (p *expiryProbe) DeathEvent() protocol.SimulationEvent {
+	return protocol.ObjectDestroyed{ObjectID: p.ID}
+}
+
+func TestExpiryAtEachSubstep(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, substeps := range []int{1, 2, 3} {
+		catalog.Simulation.UpdateTiers["visible"] = specs.UpdateTier{Substeps: substeps, UpdateEvery: 1}
+
+		for expiresAt := range substeps {
+			world := CreateWorld(1, catalog)
+
+			probe := &expiryProbe{
+				GameObject: NewGameObject(ObjectProperties{World: world, Velocity: Vec.Create(1, 0)}, catalog.Simulation),
+				remaining:  catalog.Simulation.SimulationStep * (float64(expiresAt) + 0.5) / float64(substeps),
+			}
+
+			probe.Self = probe
+			AddEntity(world, probe)
+			events := []protocol.SimulationEvent{}
+			UpdateEntities(world, UpdateEntitiesOptions{Events: &events})
+
+			if probe.deaths != 1 || len(events) != 1 {
+				t.Fatalf("expiry in substep %d of %d: got %d death callbacks and %d events", expiresAt+1, substeps, probe.deaths, len(events))
+			}
+
+			if _, exists := world.Entities.Get(probe.ID); exists {
+				t.Fatal("expired objects must leave the world")
+			}
+
+			// Even a retained scheduling list must not repeat death side effects.
+			UpdateEntities(world, UpdateEntitiesOptions{Entities: []Entity{probe}, Events: &events})
+
+			if probe.deaths != 1 || len(events) != 1 {
+				t.Fatal("already dead objects must not repeat death side effects")
+			}
+		}
+	}
+}
+
 func TestTypeScriptMovement(t *testing.T) {
 	data, err := os.ReadFile("../../../tests/fixtures/movement.json")
 
@@ -59,7 +122,7 @@ func TestTypeScriptMovement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	spec, err := definitions.Load()
+	spec, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

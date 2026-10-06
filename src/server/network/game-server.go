@@ -5,9 +5,9 @@ package network
 import (
 	"context"
 	"errors"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"net"
 	"net/http"
 	"strconv"
@@ -34,10 +34,10 @@ type GameServer struct {
 	stopped     chan struct{}
 	once        sync.Once
 	clients     atomic.Int32
-	catalog     definitions.Catalog
+	catalog     specs.Catalog
 }
 
-func NewGameServer(seed float64, catalog definitions.Catalog) *GameServer {
+func NewGameServer(seed float64, catalog specs.Catalog) *GameServer {
 	return &GameServer{session: NewGameSession(seed, catalog), events: make(chan socketEvent, 256), wake: make(chan struct{}, 1), done: make(chan struct{}), stopped: make(chan struct{}), catalog: catalog}
 }
 

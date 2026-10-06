@@ -1,4 +1,4 @@
-import { simulationStep } from '../../../src/definitions/simulation';
+import { simulationStep } from '../../../src/specs/simulation';
 import * as Vec from '../../../src/client/utilities/vector';
 import { World } from '../../../src/client/physics/world';
 import { CircleShape } from '../../../src/client/collision/shape/circle-shape';

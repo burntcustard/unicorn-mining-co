@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
 
@@ -125,7 +125,7 @@ func TestTypeScriptAsteroidFractures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	spec, err := definitions.Load()
+	spec, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

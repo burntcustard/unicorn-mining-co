@@ -206,7 +206,7 @@ export function buildPlugin(flags: Record<string, boolean> = {}) {
     async buildStart() {
       // Seed the cache in source-path order. Rolldown's parallel transform
       // order otherwise changes the chosen short names between builds.
-      const files = ['client', 'definitions']
+      const files = ['client', 'specs']
         .flatMap((directory) =>
           sourceFiles(new URL(`../src/${directory}/`, import.meta.url)),
         )

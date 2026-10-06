@@ -1,8 +1,8 @@
 /* global canvas */
 
 import { context } from './core';
-import { maxPredictionTicks } from '../definitions/prediction';
-import { simulationStep } from '../definitions/simulation';
+import { maxPredictionTicks } from '../specs/prediction';
+import { simulationStep } from '../specs/simulation';
 
 /**
  * Based on Kontra gameLoop.js, available under the MIT licence:

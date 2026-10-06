@@ -1,31 +1,59 @@
-import { moduleIds, type ModuleId } from '../../../definitions/modules/index';
+import { PlasmaAccelerator, Autocannon } from './weapon';
+import { moduleIds, type ModuleId } from '../../../specs/modules/index';
 import { type Module } from './module';
 import { CargoHatch } from './cargo-hatch';
 import { SearchLight } from './search-light';
 import { HornDrill } from './horn-drill';
-import { ShieldGenerator } from './shield-generator';
-import { ThrusterSingle, thrusterTypesById } from './thruster';
+import { ShieldGenerator, ShieldGeneratorMd } from './shield-generator';
+import {
+  ThrusterSingleMd,
+  ThrusterSingleSm,
+  ThrusterSingleLg,
+  ThrusterSingleXl,
+} from './thruster';
+import { ThrusterDualLg } from './thruster';
 import { ThrusterDualMd } from './thruster';
 import { ThrusterDualXl } from './thruster';
 import { ThrusterTriple } from './thruster';
 
 export {
+  PlasmaAccelerator,
+  Autocannon,
   CargoHatch,
   SearchLight,
   HornDrill,
   ShieldGenerator,
-  ThrusterSingle,
+  ShieldGeneratorMd,
+  ThrusterSingleMd,
+  ThrusterSingleSm,
+  ThrusterSingleLg,
+  ThrusterSingleXl,
   ThrusterDualMd,
+  ThrusterDualLg,
   ThrusterDualXl,
   ThrusterTriple,
 };
 export { cargoHatchOpen } from './cargo-hatch';
-export const thrusters = [...thrusterTypesById.values()];
-export const moduleTypesById = new Map<ModuleId, typeof Module>([
-  ...thrusterTypesById,
-  ['cargoHatch', CargoHatch],
-  ['searchLight', SearchLight],
-  ['hornDrill', HornDrill],
-  ['shieldGenerator', ShieldGenerator],
-]);
+export const thrusters = [
+  ThrusterSingleSm,
+  ThrusterSingleMd,
+  ThrusterSingleLg,
+  ThrusterSingleXl,
+  ThrusterDualMd,
+  ThrusterDualLg,
+  ThrusterDualXl,
+  ThrusterTriple,
+];
+export const moduleTypesById = new Map<ModuleId, typeof Module>(
+  [
+    ...thrusters,
+    CargoHatch,
+    SearchLight,
+    HornDrill,
+    ShieldGenerator,
+    ShieldGeneratorMd,
+    PlasmaAccelerator,
+    Autocannon,
+  ].map((Type) => [Type.definitionId, Type]),
+);
 export const moduleTypes = moduleIds.map((id) => moduleTypesById.get(id)!);

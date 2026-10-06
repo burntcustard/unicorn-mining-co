@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/network"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"log"
 	"os"
 	"os/signal"
@@ -20,7 +20,7 @@ func main() {
 		debug.SetGCPercent(800)
 	}
 
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		log.Fatal(err)
@@ -28,6 +28,11 @@ func main() {
 
 	port := 3001
 	production := os.Getenv("APP_ENV") == "production" || os.Getenv("NODE_ENV") == "production"
+
+	if !production && os.Getenv("APP_ENV") == "development" {
+		catalog.StartingCredits = 10000
+	}
+
 	databasePath := os.Getenv("DATABASE_PATH")
 
 	if databasePath == "" {

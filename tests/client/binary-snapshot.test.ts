@@ -4,7 +4,7 @@ import {
   decodeClientMessage,
   encodeServerControl,
 } from '../../src/client/protocol/binary-control';
-import { colors } from '../../src/definitions/colors';
+import { colors } from '../../src/specs/colors';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
 
 class Writer {
@@ -233,7 +233,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 
   start(unknownField, 0, 0, 1);
   unknownField.unsigned(1);
-  unknownField.record(1, [[35, null]]);
+  unknownField.record(1, [[36, null]]);
   const duplicateField = new Writer();
 
   start(duplicateField, 0, 0, 1);

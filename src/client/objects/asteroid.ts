@@ -1,5 +1,6 @@
-import { renderingLayers } from '../../definitions/rendering-layers';
-import { colors } from '../../definitions/colors';
+import { withAlpha } from '../utilities/color';
+import { renderingLayers } from '../../specs/rendering-layers';
+import { colors } from '../../specs/colors';
 import { game } from '../game';
 import { objectLineWidth, shapePath } from '../utilities/drawing';
 import * as Vec from '../utilities/vector';
@@ -12,10 +13,10 @@ import { GameObject, type RenderOptions } from './game-object';
 import { type Collider } from '../collision/types';
 import { type Pose, type ShapeOutline } from '../types';
 import { Item } from './item';
-import { itemTypes } from '../../definitions/items';
+import { itemTypes } from '../../specs/items';
 import { type SimulationEvent } from '../protocol/events';
 import { round } from '../utilities/round';
-import { regionGeneration } from '../../definitions/region-generation';
+import { regionGeneration } from '../../specs/region-generation';
 
 // Enough of a wander that no two asteroids come out the same shape
 export const asteroidVariance = regionGeneration.asteroidVariance;
@@ -127,7 +128,8 @@ const segmentsOf = ({
   const leaves = triangles.map(
     inset ? (triangle) => [triangle] : splitTriangle,
   );
-  const asteroidSegmentHealth = health / (triangles.length * segmentsPerFace);
+  const asteroidSegmentHealth =
+    (health * 2) / (triangles.length * segmentsPerFace);
   const asteroidSegmentMass = mass / (triangles.length * segmentsPerFace);
   // Match the original topology order: all centre leaves first, then the next
   // corner from every face. Cargo placement depends on that centre-first bias.
@@ -244,10 +246,19 @@ const detachSegment = ({
   asteroidSegment: AsteroidSegment;
   world: SimulationWorld;
 }) => {
+  const detached = [
+    asteroidSegment,
+    ...asteroid.segments!.filter(
+      (candidate) => candidate !== asteroidSegment && candidate.health < 1,
+    ),
+  ];
   const remaining = asteroid.segments!.filter(
-    (candidate) => candidate !== asteroidSegment,
+    (candidate) => !detached.includes(candidate),
   );
-  const groups = [[asteroidSegment], ...groupsOf(remaining)];
+  const groups = [
+    ...detached.map((segment) => [segment]),
+    ...groupsOf(remaining),
+  ];
 
   asteroid.remove();
 
@@ -504,7 +515,10 @@ export class Asteroid extends GameObject {
   private uncutMass = 0;
 
   addToScene() {
-    this.fill = this.resource === 1 ? `${colors.purple[1]}9` : '#222';
+    this.fill =
+      this.resource === 1
+        ? withAlpha({ color: colors.purple[1], alpha: 0.6 })
+        : '#222';
     this.stroke = this.resource === 1 ? colors.violet[2] : colors.white[2];
     this.networked = 1;
     this.scenery = 1;
@@ -835,7 +849,10 @@ export class Asteroid extends GameObject {
         ctx.lineWidth = objectLineWidth;
         ctx.strokeStyle =
           this.resource === 1 ? colors.violet[2] : colors.white[2];
-        ctx.fillStyle = this.resource === 1 ? `${colors.purple[1]}9` : '#222';
+        ctx.fillStyle =
+          this.resource === 1
+            ? withAlpha({ color: colors.purple[1], alpha: 0.6 })
+            : '#222';
         ctx.fill(path, 'evenodd');
         ctx.stroke(path);
       },

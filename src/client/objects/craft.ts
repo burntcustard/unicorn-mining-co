@@ -1,15 +1,16 @@
+import { withAlpha } from '../utilities/color';
 import { type Ship } from './ship';
 import { type SimulationEvent } from '../protocol/events';
 import {
   renderingLayers,
   type RenderingLayer,
-} from '../../definitions/rendering-layers';
+} from '../../specs/rendering-layers';
 import { drawInside, drawSpectrum, traceBeam } from '../utilities/prism';
 import { drawSegment, objectLineWidth } from '../utilities/drawing';
 import { game } from '../game';
 
 // @ifdef DEBUG
-import { lights } from '../utilities/lighting';
+import { glows, lights } from '../utilities/lighting';
 
 // @endif
 import {
@@ -19,11 +20,12 @@ import {
   defaultActivationDuration,
   wreckageDecay,
   wreckageHealth,
-} from '../../definitions/craft';
-import { flight } from '../../definitions/control-ship';
+} from '../../specs/craft';
+import { flight } from '../../specs/control-ship';
 import * as Vec from '../utilities/vector';
 import { type WreckageSegment } from './wreckage-segment';
-import { cargoHatchOpen, moduleTypes } from './modules/index';
+import { type MountPointSpec } from '../../specs/mounts';
+import { cargoHatchOpen, moduleTypes, moduleTypesById } from './modules/index';
 import {
   movePoint,
   shapeOutlineExtent,
@@ -31,7 +33,7 @@ import {
   shapeOf,
 } from '../utilities/geometry';
 import { GameObject, type RenderOptions } from './game-object';
-import { colors, shadesOf } from '../../definitions/colors';
+import { colors, shadesOf } from '../../specs/colors';
 import { applyForce } from '../physics/apply-force';
 import { outerEdges } from '../utilities/polygon';
 import { type Contact, type Collider } from '../collision/types';
@@ -51,6 +53,7 @@ export type ModuleState = {
   type: number;
   mount: number;
   health?: number;
+  fireCooldown?: number;
   shades?: readonly string[];
   segments: { active: number; activationProgress: number }[];
 };
@@ -67,10 +70,10 @@ export interface CraftRenderOptions extends RenderOptions {
 
 type ModuleRecord = Module;
 
-type HullSegmentPlan = Partial<Segment> & {
+type HullSegmentPlan = Omit<Partial<Segment>, 'mounts'> & {
   [key: string]: any;
   health?: number;
-  mounts?: Mount[];
+  mounts?: MountPointSpec[][];
   points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
 };
 
@@ -124,8 +127,13 @@ const makeSegment = (
   const { points } = segmentPlan;
   const fixedPoints = Array.isArray(points) ? points : undefined;
   const shape = fixedPoints?.[0] && shapeOf(fixedPoints, mount);
+  const thrusterOffset = segmentPlan.thrusterNozzleSide
+    ? (mount?.mountPoints?.find(({ fits }) =>
+        fits.includes(craftModule.constructor as typeof Module),
+      )?.thrusterOffset ?? 0)
+    : 0;
 
-  // Model vertices are shared definitions. Edge markings remain mutable;
+  // Model vertices are shared specs. Edge markings remain mutable;
   // changed geometry supplies another outline, including animated models.
   if (fixedPoints && !lockedOutlines.has(fixedPoints)) {
     fixedPoints.edges ||= fixedPoints.map(() => true);
@@ -195,7 +203,11 @@ const makeSegment = (
         mount?.localPosition || segmentPlan.localPosition || Vec.create(),
         Vec.create(
           0,
-          (segmentPlan.thrusterNozzleSide || 0) * (craftModule.offset || 0),
+          (segmentPlan.thrusterNozzleSide ||
+            (craftModule.collectsCargo && mount
+              ? -Math.sign(mount.localPosition.y)
+              : 0)) *
+            ((craftModule.offset || 0) + thrusterOffset),
         ),
       ),
       zIndex:
@@ -337,7 +349,10 @@ export class Craft extends GameObject {
       return segment;
     });
 
-    const origin = Vec.add(mount.localPosition, wreckageMiddle || Vec.create());
+    const origin = Vec.add(
+      wreckageMiddle ? wreckageSegments[0].localPosition : mount.localPosition,
+      wreckageMiddle || Vec.create(),
+    );
 
     // Destroyed instances are removed rather than entering cargo contents.
     this.destroyed?.(mount.module);
@@ -392,6 +407,11 @@ export class Craft extends GameObject {
     mount.health = craftModule && craftModule.health;
 
     if (craftModule) {
+      const point = mount.mountPoints!.find(({ fits }) =>
+        fits.includes(craftModule.constructor as typeof Module),
+      )!;
+
+      mount.localPosition = Vec.create(point.x, point.y);
       this.cargoContents = this.cargoContents.filter(
         (object) => object !== craftModule,
       );
@@ -422,10 +442,19 @@ export class Craft extends GameObject {
       } else {
         const rebuilt = makeSegment(this, segmentPlan, segmentPlan);
 
-        rebuilt.mounts = (segmentPlan.mounts || []).map((mount) => ({
-          ...mount,
-          hull: rebuilt,
-        }));
+        rebuilt.mounts = (segmentPlan.mounts || []).map((points) => {
+          const mountPoints = points.map((point) => ({
+            ...point,
+            fits: point.fits.map((id) => moduleTypesById.get(id)!),
+          }));
+
+          return {
+            mountPoints,
+            fits: mountPoints.flatMap(({ fits }) => fits),
+            localPosition: Vec.create(points[0].x, points[0].y),
+            hull: rebuilt,
+          };
+        });
 
         hulls.push(rebuilt);
         this.segments.push(rebuilt);
@@ -816,7 +845,8 @@ export class Craft extends GameObject {
 
     return this.modules.map((module) => ({
       id: module.id,
-      type: moduleTypes.findIndex((Type) => module instanceof Type),
+      type: moduleTypes.indexOf(module.constructor as typeof Module),
+      ...(module.fireCooldown > 0 && { fireCooldown: module.fireCooldown }),
       mount: mounts.indexOf(module.mount),
       health: module.mount ? module.mount.health : module.health,
       shades: module.shades,
@@ -840,7 +870,7 @@ export class Craft extends GameObject {
 
         return (
           (state.id === undefined || module.id === state.id) &&
-          moduleTypes.findIndex((Type) => module instanceof Type) ===
+          moduleTypes.indexOf(module.constructor as typeof Module) ===
             state.type &&
           mounts.indexOf(module.mount) === state.mount
         );
@@ -854,13 +884,14 @@ export class Craft extends GameObject {
     }
 
     states.forEach((state, index) => {
-      const definition = moduleTypes[state.type];
+      const Type = moduleTypes[state.type];
 
-      if (!definition) throw new Error('Unknown ship module');
-      const module: Module = unchanged ? previous[index] : new definition();
+      if (!Type) throw new Error('Unknown ship module');
+      const module: Module = unchanged ? previous[index] : new Type();
 
       if (state.id !== undefined) module.id = state.id;
-      module.health = state.mount >= 0 ? definition.health : state.health;
+      module.health = state.mount >= 0 ? Type.health : state.health;
+      module.fireCooldown = state.fireCooldown ?? 0;
 
       if (state.shades) module.shades = shadesOf(state.shades);
 
@@ -919,7 +950,7 @@ export class Craft extends GameObject {
         ctx.lineWidth = objectLineWidth;
 
         // @ifdef DEBUG
-        if (lights || glow) {
+        if (glow ? glows : lights) {
           // @endif
           if (
             !this.decay &&
@@ -929,8 +960,9 @@ export class Craft extends GameObject {
           ) {
             this.segments.forEach((segment: Segment) => {
               if (
-                !(glow ? segment.module.forwardThrust : segment.module.beam) ||
-                !segment.activationProgress ||
+                !(glow ? segment.module.renderGlow : segment.module.beam) ||
+                (!segment.activationProgress &&
+                  (!glow || segment.module.forwardThrust)) ||
                 (segment.mount || segment).health < 1
               ) {
                 return;
@@ -995,9 +1027,10 @@ export class Craft extends GameObject {
       segment.fillShade ??
       (health < segment.module.health / 2 ? 0 : +!!segment.hull);
 
-    ctx.fillStyle = segment.fillAlpha
-      ? segment.shades[2] + segment.fillAlpha
-      : segment.shades[worn];
+    ctx.fillStyle =
+      segment.fillAlpha !== undefined
+        ? withAlpha({ color: segment.shades[2], alpha: segment.fillAlpha })
+        : segment.shades[worn];
     ctx.strokeStyle = segment.shades[2];
     drawSegment({ ctx, segment });
   }

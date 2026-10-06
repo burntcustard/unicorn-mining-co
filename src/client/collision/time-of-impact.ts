@@ -1,7 +1,7 @@
 import { type Shape } from './shape/base';
 import * as Vec from '../utilities/vector';
 import * as matrix from '../utilities/vector-math';
-import { linearSlop } from '../../definitions/physics';
+import { linearSlop } from '../../specs/physics';
 import { Sweep } from '../physics/motion-sweep';
 import {
   computeDistance,

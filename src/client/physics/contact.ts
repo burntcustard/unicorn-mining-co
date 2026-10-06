@@ -1,12 +1,12 @@
-import { physics } from '../../definitions/physics';
+import { physics } from '../../specs/physics';
 
 import * as Vec from '../utilities/vector';
 import * as matrix from '../utilities/vector-math';
 import { sinCos } from '../utilities/sin-cos';
 import { ShapeType } from '../collision/shape/base';
 import { TransformValue } from '../utilities/vector-math';
-import { contactSpeedThreshold } from '../../definitions/physics';
-import { linearSlop } from '../../definitions/physics';
+import { contactSpeedThreshold } from '../../specs/physics';
+import { linearSlop } from '../../specs/physics';
 import {
   Manifold,
   type ManifoldType,

@@ -1,5 +1,6 @@
+import { withAlpha } from '../utilities/color';
 import { circlePath, sparklePath } from '../utilities/drawing';
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 
 /**
  * The sky behind everything: sparks of starlight and soft clouds of colour,
@@ -110,8 +111,8 @@ const makeTile = (
         // stars clear. Wrapped copies keep the edges seamless.
         const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
 
-        fade.addColorStop(0, `${color}1`);
-        fade.addColorStop(1, `${color}0`);
+        fade.addColorStop(0, withAlpha({ color, alpha: 1 / 15 }));
+        fade.addColorStop(1, withAlpha({ color, alpha: 0 }));
         ctx.fillStyle = fade;
         ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
       });
@@ -124,7 +125,11 @@ const makeTile = (
   if (parts.includes('dots')) {
     // @endif
     while (dots--) {
-      const color = dotTints[Math.floor(Math.random() * 5)] + '8';
+      const color = withAlpha({
+        color: dotTints[Math.floor(Math.random() * 5)],
+        alpha: 8 / 15,
+      });
+
       const path = circlePath(size * Math.random());
 
       // Small radii and a shared low opacity keep the pinpricks behind
@@ -169,10 +174,10 @@ const makeTile = (
         // it ran out
         const bloom = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 10);
 
-        bloom.addColorStop(0, `${color}a`);
-        bloom.addColorStop(0.1, `${color}3`);
-        bloom.addColorStop(0.4, `${color}1`);
-        bloom.addColorStop(1, `${color}0`);
+        bloom.addColorStop(0, withAlpha({ color, alpha: 2 / 3 }));
+        bloom.addColorStop(0.1, withAlpha({ color, alpha: 0.2 }));
+        bloom.addColorStop(0.4, withAlpha({ color, alpha: 1 / 15 }));
+        bloom.addColorStop(1, withAlpha({ color, alpha: 0 }));
         ctx.fillStyle = bloom;
         ctx.fill(halo);
 
@@ -180,7 +185,7 @@ const makeTile = (
 
         rays.addColorStop(0, colors.white[2]);
         rays.addColorStop(0.1, color);
-        rays.addColorStop(1, `${color}0`);
+        rays.addColorStop(1, withAlpha({ color, alpha: 0 }));
         ctx.fillStyle = rays;
         ctx.fill(path);
         // A smaller white copy brightens the middle using the same shape.

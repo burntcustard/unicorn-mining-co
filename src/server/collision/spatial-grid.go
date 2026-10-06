@@ -2,7 +2,7 @@
 package collision
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
@@ -43,7 +43,7 @@ type SpatialGrid[T any] struct {
 	aabbExtension, aabbMultiplier float64
 }
 
-func NewSpatialGrid[T any](rules definitions.Physics) *SpatialGrid[T] {
+func NewSpatialGrid[T any](rules specs.Physics) *SpatialGrid[T] {
 	return &SpatialGrid[T]{bodyGroups: make(map[any]*spatialGroup[T]), gridCells: make(map[int32][]*spatialGroup[T]), dirtySet: make(map[*spatialGroup[T]]bool), aabbExtension: rules.AabbExtension, aabbMultiplier: rules.AabbMultiplier}
 }
 

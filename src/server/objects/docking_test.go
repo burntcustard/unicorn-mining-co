@@ -4,15 +4,15 @@ import (
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"testing"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 func TestDockingBayOnGenericCraft(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -20,7 +20,7 @@ func TestDockingBayOnGenericCraft(t *testing.T) {
 
 	world := simulation.CreateWorld(25, catalog)
 	world.Collisions = gameplay.NewGameCollisions(catalog)
-	// Reuse the station's hull definition, but expose only a generic Craft.
+	// Reuse the station's hull spec, but expose only a generic Craft.
 	craft := objects.CreateStation(objects.Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, catalog).Craft
 	craft.Self, craft.Kind = craft, "craft"
 	simulation.AddEntity(world, craft)

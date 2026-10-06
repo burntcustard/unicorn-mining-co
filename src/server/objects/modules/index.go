@@ -2,12 +2,12 @@
 package modules
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
-func Create(id string, props simulation.ObjectProperties, catalog definitions.Catalog) simulation.Module {
-	switch catalog.ModuleDefinitions[id].Behavior {
+func Create(id string, props simulation.ObjectProperties, catalog specs.Catalog) simulation.Module {
+	switch catalog.ModuleSpecs[id].Behavior {
 	case "thruster":
 		return NewThruster(id, props, catalog)
 	case "cargoHatch":
@@ -16,8 +16,10 @@ func Create(id string, props simulation.ObjectProperties, catalog definitions.Ca
 		return NewSearchLight(props, catalog)
 	case "hornDrill":
 		return NewHornDrill(props, catalog)
+	case "weapon":
+		return NewModule(id, props, catalog)
 	case "shieldGenerator":
-		return NewShieldGenerator(props, catalog)
+		return newShieldGenerator(id, props, catalog)
 	default:
 		panic("Unknown ship module: " + id)
 	}

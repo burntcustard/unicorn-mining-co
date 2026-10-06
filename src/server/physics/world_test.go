@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"os"
@@ -29,7 +29,7 @@ type recordedContact struct {
 }
 
 func TestCollisionNeighborsCountBodiesAndKeepTies(t *testing.T) {
-	spec, err := definitions.Load()
+	spec, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func TestTypeScriptPhysicsWorld(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	spec, err := definitions.Load()
+	spec, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

@@ -5,11 +5,11 @@ package gameplay
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/physics"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -43,7 +43,7 @@ var limitCollisionNeighbors = os.Getenv("GO_SERVER_COLLISION_NEIGHBORS") != "unl
 type GameCollisions struct {
 	visit          uint64
 	world          *physics.World
-	catalog        definitions.Catalog
+	catalog        specs.Catalog
 	manifold       collision.WorldManifold
 	bodies         *utilities.OrderedMap[int64, *BodyRecord]
 	contacts       []collision.Contact
@@ -55,7 +55,7 @@ type GameCollisions struct {
 	impacts        *utilities.OrderedMap[*physics.Contact, impactRecord]
 }
 
-func NewGameCollisions(catalog definitions.Catalog) *GameCollisions {
+func NewGameCollisions(catalog specs.Catalog) *GameCollisions {
 	g := &GameCollisions{world: physics.NewWorld(catalog.Simulation), catalog: catalog, bodies: utilities.NewOrderedMap[int64, *BodyRecord](), impacts: utilities.NewOrderedMap[*physics.Contact, impactRecord]()}
 	g.world.LimitCollisionNeighbors = limitCollisionNeighbors
 

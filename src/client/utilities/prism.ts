@@ -1,7 +1,8 @@
+import { withAlpha } from './color';
 import * as Vec from './vector';
 import { directionOf, rotatePoint, rotatePoints } from './geometry';
 import { shapePath, strip } from './drawing';
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 import {
   Asteroid,
   shapeOutlineOf as asteroidShapeOutlineOf,
@@ -51,7 +52,7 @@ const fillOf = (
 
   gradient.addColorStop(0, color);
   gradient.addColorStop(fade, color);
-  gradient.addColorStop(1, '#0000');
+  gradient.addColorStop(1, withAlpha({ color: '#000', alpha: 0 }));
 
   return gradient;
 };

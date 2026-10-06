@@ -1,8 +1,8 @@
 import * as Vec from '../utilities/vector';
-import { simulationStep } from '../../definitions/simulation';
+import { simulationStep } from '../../specs/simulation';
 import { packPlayerInput, unpackPlayerInput } from './input';
 import type { ClientMessage, ServerMessage } from './network';
-import { controlMessageIds, dockActionIds } from '../../definitions/protocol';
+import { controlMessageIds, dockActionIds } from '../../specs/protocol';
 
 type ServerControl = Extract<
   ServerMessage,
@@ -231,8 +231,10 @@ export function encodeClientMessage(
 
       writer.unsigned(message.tick);
       writer.unsigned(message.sequence);
-      writer.byte(code);
-      writer.byte(+(message.offset !== undefined));
+      writer.byte(code & 255);
+      writer.byte(
+        +(message.offset !== undefined) | (Number(!!message.input.fire) << 1),
+      );
 
       if (message.offset !== undefined) {
         if (message.offset < 0 || message.offset >= simulationStep) {
@@ -249,6 +251,10 @@ export function encodeClientMessage(
       const writer = new ControlWriter(dock);
 
       switch (message.action) {
+        case 'buyAmmo':
+          writer.byte(dockActionIds.buyAmmo);
+          break;
+
         case 'buy':
           writer.byte(dockActionIds.buy);
           writer.unsigned(message.module);
@@ -342,11 +348,11 @@ export function decodeClientMessage(
       const code = reader.byte();
       const hasOffset = reader.byte();
 
-      if (code >= 192 || hasOffset > 1) {
+      if (code >= 192 || hasOffset > 3) {
         throw new Error('Invalid binary control');
       }
 
-      const offset = hasOffset ? reader.number() : undefined;
+      const offset = hasOffset & 1 ? reader.number() : undefined;
 
       if (offset !== undefined && (offset < 0 || offset >= simulationStep)) {
         throw new Error('Invalid binary control');
@@ -356,7 +362,7 @@ export function decodeClientMessage(
         type: 'input',
         tick,
         sequence,
-        input: unpackPlayerInput(code),
+        input: unpackPlayerInput(code | ((hasOffset & 2) << 7)),
         ...(offset !== undefined && { offset }),
       };
 
@@ -367,6 +373,14 @@ export function decodeClientMessage(
       const action = reader.byte();
 
       switch (action) {
+        case dockActionIds.buyAmmo:
+          message = {
+            type: 'dock',
+            action: 'buyAmmo',
+          };
+
+          break;
+
         case dockActionIds.buy:
           message = {
             type: 'dock',

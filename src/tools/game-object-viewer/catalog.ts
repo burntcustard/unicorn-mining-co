@@ -1,6 +1,6 @@
-import { type ShipDefinition } from '../../definitions/ships/types';
-import { type StationDefinition } from '../../definitions/stations/types';
-import { type ItemDefinition } from '../../definitions/items/types';
+import { type ShipSpec } from '../../specs/ships/types';
+import { type StationSpec } from '../../specs/stations/types';
+import { type ItemSpec } from '../../specs/items/types';
 import { Ship } from '../../client/objects/ship';
 import { Station } from '../../client/objects/station';
 import { Item } from '../../client/objects/item';
@@ -12,15 +12,15 @@ import { createRandom } from '../../client/utilities/seeded-random';
 import * as Vec from '../../client/utilities/vector';
 import { type GameObject } from '../../client/objects/game-object';
 
-const definitions = import.meta.glob<Record<string, unknown>>(
+const specs = import.meta.glob<Record<string, unknown>>(
   [
-    '../../definitions/{ships,stations,items}/*.ts',
-    '!../../definitions/**/{index,types,defaults}.ts',
+    '../../specs/{ships,stations,items}/*.ts',
+    '!../../specs/**/{index,types,defaults}.ts',
   ],
   { eager: true },
 );
 
-export type PreviewDefinition = {
+export type PreviewSpec = {
   key: string;
   label: string;
   source: string;
@@ -32,24 +32,25 @@ const discover = <T>({
   create,
 }: {
   folder: string;
-  create: (definition: T) => GameObject;
-}): PreviewDefinition[] =>
-  Object.entries(definitions)
+  create: (spec: T) => GameObject;
+}): PreviewSpec[] =>
+  Object.entries(specs)
     .filter(([path]) => path.includes(`/${folder}/`))
     .flatMap(([path, exports]) =>
       Object.entries(exports)
         .filter(
-          ([, definition]) =>
-            definition &&
-            typeof definition === 'object' &&
-            ('hullSegments' in definition || 'resource' in definition),
+          ([, spec]) =>
+            spec &&
+            typeof spec === 'object' &&
+            ('hullSegments' in spec || 'resource' in spec),
         )
-        .map(([name, definition]) => ({
+        .map(([name, spec]) => ({
           key: `${path}#${name}`,
           label:
-            name === 'default' ? path.split('/').at(-1)!.slice(0, -3) : name,
+            (spec as { name?: string }).name ||
+            (name === 'default' ? path.split('/').at(-1)!.slice(0, -3) : name),
           source: path.replace('../../', 'src/'),
-          create: () => create(definition as T),
+          create: () => create(spec as T),
         })),
     )
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -57,25 +58,25 @@ const discover = <T>({
 export const catalog = {
   ship: discover({
     folder: 'ships',
-    create: (definition: ShipDefinition) => new Ship({ definition }),
+    create: (spec: ShipSpec) => new Ship({ spec }),
   }),
   station: discover({
     folder: 'stations',
-    create: (definition: StationDefinition) => new Station({ definition }),
+    create: (spec: StationSpec) => new Station({ spec }),
   }),
   item: discover({
     folder: 'items',
-    create: (definition: ItemDefinition) => new Item(definition),
+    create: (spec: ItemSpec) => new Item(spec),
   }),
-  // Asteroids have procedural variants rather than individual definition files.
+  // Asteroids have procedural variants rather than individual spec files.
   asteroid: [
     { label: 'Mixed rock', resource: 4 },
     { label: 'Spiky amethyst', resource: 1 },
     { label: 'Gold-rich rock', resource: 2 },
-  ].map(({ label, resource }): PreviewDefinition => ({
+  ].map(({ label, resource }): PreviewSpec => ({
     key: `asteroid:${resource}`,
     label,
-    source: 'src/definitions/region-generation.ts',
+    source: 'src/specs/region-generation.ts',
     create: () => {
       const description = makeAsteroid({
         seed: 1,
@@ -107,11 +108,10 @@ export const previewMounts = (craft: Craft) =>
   craft.mounts.flatMap((mount, index) => {
     const options = [...moduleTypesById]
       .filter(([, Type]) => mount.fits.includes(Type))
-      .map(([type, Type]) => ({ type, Type, label: Type.label as string }));
+      .map(([type, Type]) => ({ type, Type, label: Type.name }));
 
     if (!options.length) return [];
     const defaultOption = options.find(({ Type }) => Type === mount.fits[0])!;
-    const { x, y } = mount.localPosition;
     const hull = craft.hullSegments.indexOf(mount.hull.module);
     const slot = mount.hull.mounts.indexOf(mount);
 
@@ -121,7 +121,7 @@ export const previewMounts = (craft: Craft) =>
         options,
         defaultOption,
         key: `${defaultOption.type}:${hull}:${slot}`,
-        label: `Mount ${index + 1} (${x}, ${y})`,
+        label: `Mount ${index + 1}`,
       },
     ];
   });

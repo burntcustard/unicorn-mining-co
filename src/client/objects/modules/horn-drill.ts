@@ -1,7 +1,7 @@
 import { game } from '../../game';
 import { linesPath, shapePath } from '../../utilities/drawing';
 import * as Vec from '../../utilities/vector';
-import { moduleDefinitions } from '../../../definitions/modules/index';
+import { type ModuleSpec } from '../../../specs/modules/types';
 import { Module, type ModuleRenderOptions } from './module';
 import { outlineColorOf, type Collider } from '../../collision/types';
 import { damage } from '../damage';
@@ -11,30 +11,15 @@ import { Asteroid } from '../asteroid';
 import { type Ship } from '../ship';
 import { type SimulationWorld } from '../../simulation/world';
 
-const specification = moduleDefinitions.hornDrill;
-
-export class HornDrill extends Module {
-  static activationDuration = specification.activationDuration;
+class HornDrillModule extends Module {
   static bounciness = (segment: Segment) =>
-    segment.activationProgress > specification.activationThreshold
+    segment.activationProgress > segment.module.activationThreshold
       ? -0.4
       : undefined;
-  static damage = specification.damage;
-  static drillTip = {
-    position: Vec.create(
-      specification.drillTip.position.x,
-      specification.drillTip.position.y,
-    ),
-    radius: specification.drillTip.radius,
-  };
-  static friction = specification.friction;
-  static grinds = specification.grinds;
-  static health = specification.health;
-  static label = specification.label;
-  static model: any[] = [{ points: specification.points }];
-  static price = specification.price;
-  static shades = specification.shades;
-  static zIndex = specification.zIndex;
+
+  static createModel(spec: Extract<ModuleSpec, { behavior: 'hornDrill' }>) {
+    return [{ points: spec.points }];
+  }
 
   drill({
     ship,
@@ -58,7 +43,7 @@ export class HornDrill extends Module {
     const before = healthTarget.health;
 
     if (
-      segment.activationProgress <= specification.activationThreshold ||
+      segment.activationProgress <= this.activationThreshold ||
       ship.playerId === undefined ||
       !world.entities.has(target.owner.id) ||
       !(before > 0)
@@ -66,7 +51,7 @@ export class HornDrill extends Module {
       return;
     }
 
-    const drillSteps = dt * specification.damageStepsPerSecond;
+    const drillSteps = dt * this.damageStepsPerSecond;
     const drillDamage = this.damage * drillSteps;
 
     damage(targetPart, drillDamage);
@@ -80,10 +65,10 @@ export class HornDrill extends Module {
       const pull = Vec.normalize(
         Vec.subtract(asteroid.position, ship.position),
       );
-      const gripFactor = 1 - specification.gripDecay ** drillSteps;
+      const gripFactor = 1 - this.gripDecay ** drillSteps;
       const grip = Vec.add(
         Vec.scale(Vec.subtract(asteroid.velocity, ship.velocity), gripFactor),
-        Vec.scale(pull, gripFactor / specification.gripScale),
+        Vec.scale(pull, gripFactor / this.gripScale),
       );
 
       Vec.set(ship.velocity, Vec.add(ship.velocity, grip));
@@ -148,3 +133,7 @@ export class HornDrill extends Module {
     });
   }
 }
+
+export const HornDrill = HornDrillModule.define('hornDrill');
+
+export type HornDrill = InstanceType<typeof HornDrill>;

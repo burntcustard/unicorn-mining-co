@@ -1,13 +1,13 @@
 package network
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"testing"
 )
 
 func TestSnapshotCadence(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestSnapshotCadence(t *testing.T) {
 }
 
 func TestSnapshotRoundTrips(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestSnapshotRoundTrips(t *testing.T) {
 }
 
 func TestInputsAcrossServerStall(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestInputsAcrossServerStall(t *testing.T) {
 }
 
 func TestInputsWindowWrapAndCatchUp(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

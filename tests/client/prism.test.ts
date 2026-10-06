@@ -14,14 +14,25 @@ Object.assign(globalThis, {
   },
 });
 
+const entry = `${process.cwd()}/src/__prism_test.ts`;
+
 const bundle = await rolldown({
-  input: `${process.cwd()}/src/client/utilities/prism.ts`,
+  input: entry,
   plugins: [
     {
       name: 'prism-test-exports',
+      resolveId: (id) => (id === entry ? entry : undefined),
+      load: (id) =>
+        id === entry
+          ? `export {SearchLight} from './client/objects/modules/index';
+export * from './client/utilities/prism';
+export * as Vec from './client/utilities/vector';
+export {createAsteroid} from './client/objects/asteroid';
+export {createWorld} from './client/simulation/world';`
+          : undefined,
       transform: (code, id) =>
         id.endsWith('/src/client/utilities/prism.ts')
-          ? `${code}\nexport { joins, runsOf }; export * as Vec from './vector'; export { createAsteroid } from '../objects/asteroid'; export {createWorld} from '../simulation/world'; export {SearchLight} from '../objects/modules/search-light';`
+          ? `${code}\nexport { joins, runsOf };`
           : undefined,
     },
   ],

@@ -2,6 +2,7 @@ import { type PlayerInput } from '../protocol/input';
 import { type moduleControls } from '../objects/control-ship';
 
 export type KeyAction =
+  | 'fire'
   | 'forwardThrust'
   | 'turnLeft'
   | 'turnRight'
@@ -26,6 +27,7 @@ export type Keybindings = Record<KeyAction, KeyBinding>;
 // Keys use KeyboardEvent.key names, compared without case. Each action keeps
 // an array so a later player profile can assign several keys to one action.
 export const defaultKeybindings = {
+  fire: { keys: [' '], mode: 'hold' },
   forwardThrust: { keys: ['ArrowUp'], mode: 'hold' },
   turnLeft: { keys: ['ArrowLeft'], mode: 'hold' },
   turnRight: { keys: ['ArrowRight'], mode: 'hold' },
@@ -56,6 +58,9 @@ export const moduleBinding = (
     case 'shieldGenerator':
       return defaultKeybindings.shieldGenerator;
 
+    case 'fire':
+      return defaultKeybindings.fire;
+
     case 'hornDrill':
       return defaultKeybindings.hornDrill;
   }
@@ -71,6 +76,7 @@ export const updateMovement = (
   const held = (binding: KeyBinding) =>
     binding.keys.some((key) => pressed.has(key.toLowerCase()));
 
+  input.fire = held(defaultKeybindings.fire);
   input.thrust = Number(held(defaultKeybindings.forwardThrust));
   input.turn =
     Number(held(defaultKeybindings.turnRight)) -

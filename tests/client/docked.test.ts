@@ -10,11 +10,11 @@ const scenario = `
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { roundMotion } from '${process.cwd()}/src/client/utilities/round.ts';
 import assert from 'node:assert/strict';
-import { renderingLayers } from '${process.cwd()}/src/definitions/rendering-layers.ts';
+import { renderingLayers } from '${process.cwd()}/src/specs/rendering-layers.ts';
 import { damage } from '${process.cwd()}/src/client/objects/damage.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
-import { diamond as diamondDefinition, itemTypes, message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
-import { CargoHatch, HornDrill, ShieldGenerator, ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple, thrusters } from '${process.cwd()}/src/client/objects/modules/index.ts';
+import { diamond as diamondSpec, itemTypes, message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
+import { CargoHatch, HornDrill, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
@@ -22,8 +22,8 @@ import { player, adoptPlayerShip, paintUnlocked, readSlate, syncPaintUnlocks, un
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { presentEvents } from '${process.cwd()}/src/client/effects/present-events.ts';
 import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
-import { colors } from '${process.cwd()}/src/definitions/colors.ts';
-import { back, confirmSelection, moveSelection, moveSubSelection, fitsOf, selectionSnapshot } from '${process.cwd()}/src/client/ui/docked.ts';
+import { colors } from '${process.cwd()}/src/specs/colors.ts';
+import { back, confirmSelection, moveSelection, moveSubSelection, fitsOf, cargoMenuEntryName, selectionSnapshot } from '${process.cwd()}/src/client/ui/docked.ts';
 
 assert(colors.grey.join() === '#778,#99a,#bbc,#334,#eef');
 assert(colors.black.join() === '#000,#111,#222,#879,#200');
@@ -61,6 +61,9 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().
 
 player.credits = 10000;
 const ship = new Ship({ shades: colors.white }).addToScene();
+const engineMount=ship.mounts.find(mount=>mount.fits.includes(ThrusterSingleMd));
+assert.equal(fitsOf(ship,engineMount)[0],ThrusterSingleSm,'small single thruster precedes medium in the dock list');
+assert.equal(ship.name,'Mustang','ship instances keep their display names under production transforms');
 assert.equal(ship.hullMaxHealth, 186, 'Ship hull has twice its original 93 HP');
 const pendingSales = [];
 const pendingRepairs = [];
@@ -77,7 +80,7 @@ const settleSale = () => {
   player.credits += sold.reduce((total, object) => total + object.price, 0);
 };
 const wreck = new Ship({ shades: colors.white, velocity: Vec.create(12, -7), spin: 0.2 }).addToScene();
-const contents = [diamondDefinition, messageDefinition, messageDefinition].map(itemData =>
+const contents = [diamondSpec, messageSpec, messageSpec].map(itemData =>
   new Item(itemData).addToScene());
 contents.forEach(item => item.remove());
 wreck.cargoContents.push(...contents);
@@ -143,7 +146,7 @@ assert(ship.cargoContents.includes(second), 'sale waits for the server snapshot'
 settleSale();
 assert(!ship.cargoContents.includes(second) && ship.cargoContents.includes(first), 'sell selected instance');
 assert(fitsOf(ship, mount)[0] === first && selectionSnapshot()[0] === 0 && selectionSnapshot()[1] === 1, 'sale closes on replacement');
-move(1);
+move(fitsOf(ship, mount).length);
 assert(selectionSnapshot()[0] === fitsOf(ship, mount).length, 'down reaches BACK after module sale');
 confirm();
 assert(selectionSnapshot()[1] === 0, 'BACK leaves module list');
@@ -233,8 +236,16 @@ confirm();
 assert(!bought.mount && ship.cargoContents[0] === bought, 'removed instance becomes cargo');
 
 // Capacity counts loose modules and physical cargo, excluding fitted modules.
-const ore = {...diamondDefinition,label:'ORE',price:7};
-const gem = {...diamondDefinition,label:'DIAMOND',price:11};
+const ore = {...diamondSpec,name:'Ore',resource:2,price:7};
+const gem = {...diamondSpec,name:'Diamond',price:11};
+assert.equal(cargoMenuEntryName([gem,2]),'DIAMOND *2','cargo uppercases display names without changing their stored case');
+assert.equal(gem.name,'Diamond');
+assert.equal(cargoMenuEntryName([bought,1]),CargoHatch.name.toUpperCase(),'loose modules uppercase their names for the current glyphs');
+for(const [Type,name] of [[ShieldGenerator,'Shield Generator sm'],[ShieldGeneratorMd,'Shield Generator md']]){
+  const shield=new Type();
+  assert.equal(shield.name,name,'shield names preserve their stored case');
+  assert.equal(cargoMenuEntryName([shield,1]),name.toUpperCase(),'shield cargo names use uppercase glyphs');
+}
 ship.cargoContents.push(...Array.from({length: 11}, () => new Item(ore)));
 assert(ship.cargoContents.length >= ship.cargoSpace, 'loose module fills twelfth cargo space');
 ship.fit(bought, mount);
@@ -258,8 +269,8 @@ const beforeSale = player.credits;
 confirm(); confirm(); confirm(); settleSale();
 assert(ship.modules.length === 1 && ship.modules[0] === first, 'cargo sale preserves equipped module');
 assert(selectionSnapshot()[1] === 1, 'cargo sale closes submenu');
-move(1); move(1);
-assert(selectionSnapshot()[0] === 2, 'down reaches BACK after cargo sale');
+move(3);
+assert(selectionSnapshot()[0] === 3, 'down reaches BACK past the ammunition offer after cargo sale');
 confirm(); confirm();
 confirm(); confirm(); settleSale();
 assert(ship.cargoContents.length === 1 && ship.cargoContents[0].item === gem, 'ore stack sale');
@@ -282,7 +293,7 @@ syncPaintUnlocks(116);
 assert(paintUnlocked(colors.cyan), 'updated authoritative mask preserves an accepted unlock');
 
 // Rebuild hulls without duplicating mounts or resurrecting destroyed cargo contents.
-confirm(); move(1); confirm();
+back(ship); move(1); confirm();
 lowerMount.hull.health = 1.11111;
 const hullHealth = ship.segments.filter(({hull}) => hull).reduce((total, segment) => total + segment.health, 0);
 const hullMaxHealth = ship.hullSegments.reduce((total, segment) => total + segment.health, 0);
@@ -357,7 +368,7 @@ assert(player.ship.modules.every(module => module.mount.module === module), 'sta
 assert(new CargoHatch().shades === colors.violet && new ShieldGenerator().shades === colors.violet &&
   thrusters.every((thruster) => new thruster().shades === colors.violet), 'purchased modules are pink');
 assert(new HornDrill().shades === colors.yellow, 'purchased horns are yellow');
-assert(ThrusterSingle.label === 'THRUSTERS *1 XL' && ThrusterSingle.forwardThrust === 22, 'single thruster');
+assert(ThrusterSingleMd.name === 'Thruster md' && ThrusterSingleMd.forwardThrust === 22, 'single thruster');
 const flyer = new Ship({shades: colors.white}).addToScene();
 const engine = new ThrusterDualMd();
 flyer.cargoContents.push(engine); flyer.fit(engine);
@@ -377,7 +388,7 @@ flyer.fit(0, engine.mount);
 assert(flyer.forwardThrust === 0 && flyer.cargoContents[0] === engine, 'removing engine removes thrust');
 // Check actual launch motion, including the final 0.05-second full-power pulse:
 // coast uses quarter thrust and speed cap, with half-size flames.
-for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTriple]) {
+for (const type of thrusters) {
   const departing = new Ship({shades: colors.white, position: Vec.create(100000, 100000)}).addToScene();
   const engine = new type();
   departing.cargoContents.push(engine); departing.fit(engine);
@@ -403,12 +414,12 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     departing.fly(departing.launching ? 1 : 0, 0);
     departing.update(dt);
     assert(Math.abs(Vec.length(departing.velocity) - expectedSpeed) < 1e-8,
-      type.label + ': launch speed matches expected each frame');
+      type.name + ': launch speed matches expected each frame');
     assert(Math.abs(departing.position.x - expectedX) < 1e-7,
-      type.label + ': launch distance matches expected each frame');
-    assert(departing.maxSpeed === cap, type.label + ': coast lowers actual speed cap');
+      type.name + ': launch distance matches expected each frame');
+    assert(departing.maxSpeed === cap, type.name + ': coast lowers actual speed cap');
     assert(departing.segmentsAtMount(engine.mount).every(segment => segment.active === forward * Math.sqrt(fraction)),
-      type.label + ': launch nozzle activation');
+      type.name + ': launch nozzle activation');
   }
   departing.launch();
   timer = 3;
@@ -422,7 +433,7 @@ for (const type of [ThrusterDualMd, ThrusterDualXl, ThrusterSingle, ThrusterTrip
     departing.fly(departing.launching ? 1 : 0, 1);
     departing.update(dt);
     assert(Math.abs(departing.spin - expectedSpin) < 1e-8,
-      type.label + ': launch steering matches expected each frame');
+      type.name + ': launch steering matches expected each frame');
   }
   engine.mount.health = 0;
   assert(departing.forwardThrust === 0 && departing.rotationalThrust === 0,
@@ -462,9 +473,9 @@ for (const type of thrusters) {
     render();
     const count = type.model.length * 2;
     assert(draws.slice(0, count).length === count && draws.slice(0, count).every(kind => kind !== 'glow'),
-      type.label + ': every flare precedes all glows');
+      type.name + ': every flare precedes all glows');
     assert(draws.slice(count, count * 2).length === count && draws.slice(count, count * 2).every(kind => kind === 'glow'),
-      type.label + ': glows share one layer across craft');
+      type.name + ': glows share one layer across craft');
     assert(draws.slice(count * 2).every(kind => kind !== 'glow'),
       'hulls remain above the glow layer');
     crafts.reverse();
@@ -552,7 +563,7 @@ for (const production of [false, true]) {
         },
         transform: (code, id) =>
           id.endsWith('/src/client/ui/docked.ts')
-            ? `${code}\nexport { fitsOf };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];`
+            ? `${code}\nexport { fitsOf, cargoMenuEntryName };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];`
             : undefined,
       },
       buildPrePlugin(),

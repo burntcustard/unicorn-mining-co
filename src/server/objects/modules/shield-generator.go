@@ -2,20 +2,24 @@
 package modules
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 type ShieldGenerator struct{ *Module }
 
-func NewShieldGenerator(props simulation.ObjectProperties, catalog definitions.Catalog) *ShieldGenerator {
-	m := &ShieldGenerator{NewModule("shieldGenerator", props, catalog)}
+func NewShieldGenerator(props simulation.ObjectProperties, catalog specs.Catalog) *ShieldGenerator {
+	return newShieldGenerator("shieldGeneratorSm", props, catalog)
+}
+
+func newShieldGenerator(id string, props simulation.ObjectProperties, catalog specs.Catalog) *ShieldGenerator {
+	m := &ShieldGenerator{NewModule(id, props, catalog)}
 	m.Self = m
-	definition := m.Definition
+	spec := m.Spec
 
 	m.Model = []*simulation.SegmentPlan{
-		{Radius: func(*simulation.Segment) float64 { return definition.GeneratorRadius }},
-		{ActivationDuration: definition.CoverDuration, Covers: true, Radius: func(s *simulation.Segment) float64 { return definition.ShieldRadius * s.ActivationProgress }},
+		{Radius: func(*simulation.Segment) float64 { return spec.GeneratorRadius }},
+		{ActivationDuration: spec.CoverDuration, Covers: true, Radius: func(s *simulation.Segment) float64 { return spec.ShieldRadius * s.ActivationProgress }},
 	}
 
 	return m

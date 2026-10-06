@@ -12,7 +12,7 @@ const length = 8;
 interface Spark {
   color: string;
   velocity: Vec.Value;
-  // Remaining lifetime in seconds.
+  // Remaining lifetime in milliseconds.
   health: number;
   position: Vec.Value;
 }
@@ -38,21 +38,26 @@ export const sprayDamage = ({
     sparks.push({
       color,
       velocity: Vec.create(Math.cos(angle) * pace, Math.sin(angle) * pace),
-      health: 0.2 + Math.random() * 0.2,
+      health: 200 + Math.random() * 200,
       position: Vec.clone(position),
     });
   }
 };
 
 /**
- * dt: Seconds since the last update.
+ * Advance lifetime by elapsed milliseconds; velocity is in units per second.
  */
-export const updateSparks = (dt: number) => {
+export const updateSparks = (elapsed: number) => {
   for (let i = sparks.length; i--;) {
     const spark = sparks[i];
 
-    if ((spark.health -= dt) > 0) {
-      Vec.addScaled(spark.position, spark.velocity, dt, spark.position);
+    if ((spark.health -= elapsed) > 0) {
+      Vec.addScaled(
+        spark.position,
+        spark.velocity,
+        elapsed / 1000,
+        spark.position,
+      );
     } else {
       sparks.splice(i, 1);
     }

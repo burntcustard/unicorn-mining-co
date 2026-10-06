@@ -2,11 +2,11 @@
 package objects
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
-func CreateWreckage(props Properties, segments []WreckageSegment, catalog definitions.Catalog) *Craft {
+func CreateWreckage(props Properties, segments []WreckageSegment, catalog specs.Catalog) *Craft {
 	plans := make([]*simulation.SegmentPlan, len(segments))
 
 	for i, s := range segments {

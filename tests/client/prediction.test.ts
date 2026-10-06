@@ -9,15 +9,18 @@ import {
 } from '../../src/client/simulation/world';
 import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { Item } from '../../src/client/objects/item';
-import { diamond as diamondDefinition } from '../../src/definitions/items/index';
+import {
+  diamond as diamondSpec,
+  autocannonAmmunition,
+} from '../../src/specs/items/index';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import { updateWorld } from '../../src/client/simulation/update-world';
 import { PredictionManager } from '../../src/client/prediction/prediction';
 import { RemoteMotion } from '../../src/client/prediction/remote-motion';
 import { GameObject } from '../../src/client/objects/game-object';
 import { CargoHatch } from '../../src/client/objects/modules/cargo-hatch';
-import { maxPredictionTicks } from '../../src/definitions/prediction';
-import { simulationStep } from '../../src/definitions/simulation';
+import { maxPredictionTicks } from '../../src/specs/prediction';
+import { simulationStep } from '../../src/specs/simulation';
 
 // Restoring an older checkpoint must not release IDs reserved by the server.
 {
@@ -71,7 +74,7 @@ import { simulationStep } from '../../src/definitions/simulation';
 
   const item = addEntity(
     world,
-    new Item(diamondDefinition, {
+    new Item(diamondSpec, {
       world,
       id: 3,
       position: Vec.create(800),
@@ -357,12 +360,13 @@ for (const { active, progress } of [
   });
 }
 
-// Station snapshots can change cargo without changing ship motion.
-for (const correction of ['cargo'] as const) {
+// Cargo and ammunition corrections apply even when ship motion matches.
+for (const correction of ['cargo', 'rounds'] as const) {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
+  ship.cargoContents.push(new Item(autocannonAmmunition, { world, id: 999 }));
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
@@ -373,11 +377,11 @@ for (const correction of ['cargo'] as const) {
 
   const authoritative = cloneEntity({ entity: ship }) as typeof ship;
 
-  {
+  if (correction === 'cargo') {
     authoritative.cargoContents.push(
-      new Item(diamondDefinition, { world, id: 1000 }),
+      new Item(diamondSpec, { world, id: 1000 }),
     );
-  }
+  } else authoritative.cargoContents[0].rounds = 37;
 
   prediction.step({ input: emptyPlayerInput(), send() {} });
 
@@ -387,6 +391,10 @@ for (const correction of ['cargo'] as const) {
     ship.cargoContents.map(({ id }) => id),
     authoritative.cargoContents.map(({ id }) => id),
     `${correction} from the server reaches the predicted ship`,
+  );
+  assert.equal(
+    ship.cargoContents[0].rounds,
+    authoritative.cargoContents[0].rounds,
   );
 }
 

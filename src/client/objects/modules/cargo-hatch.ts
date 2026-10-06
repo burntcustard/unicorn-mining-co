@@ -1,6 +1,6 @@
 import { type Segment } from '../../types';
 import { playSound } from '../../audio/sound-loader';
-import { moduleDefinitions } from '../../../definitions/modules/index';
+import { moduleSpecs } from '../../../specs/modules/index';
 import { Module, type ModuleRenderOptions } from './module';
 import { type Collider, type Contact } from '../../collision/types';
 import { type SimulationEvent } from '../../protocol/events';
@@ -9,7 +9,7 @@ import { type Ship } from '../ship';
 import { Item } from '../item';
 import { type GameObject } from '../game-object';
 
-const specification = moduleDefinitions.cargoHatch;
+const specification = moduleSpecs.cargoHatch;
 const cargoHatchLength = specification.cargoGeometry.length;
 const cargoHatchOpenAngle = specification.cargoGeometry.openAngle;
 const cargoHatchDoorWidth = specification.cargoGeometry.doorWidth;
@@ -68,46 +68,40 @@ import { type Mount, type ShapeOutline } from '../../types';
 // Far enough out that the doors are no longer a wall across the way in
 export const cargoHatchOpen = cargoHatchGeometry.openingThreshold;
 
-export class CargoHatch extends Module {
-  static activationDuration = specification.activationDuration;
-  static collectsCargo = specification.collectsCargo;
-  static health = specification.health;
-  static label = specification.label;
-  static model: any[] = [
-    {
-      shapeOutline: [] as ShapeOutline,
-      // A door, hinged at its outer end and swinging forward as the hatch
-      // opens. A long thin rectangle, which is why it can be collided with
-      points: ({
-        activationProgress,
-        mount,
-      }: {
-        activationProgress: number;
-        mount: Mount;
-      }) => {
-        const side = Math.sign(mount.localPosition.y);
+class CargoHatchModule extends Module {
+  static createModel() {
+    return [
+      {
+        shapeOutline: [] as ShapeOutline,
+        // A door, hinged at its outer end and swinging forward as the hatch
+        // opens. A long thin rectangle, which is why it can be collided with
+        points: ({
+          activationProgress,
+          mount,
+        }: {
+          activationProgress: number;
+          mount: Mount;
+        }) => {
+          const side = Math.sign(mount.localPosition.y);
 
-        return cargoHatchGeometry.doorShapeOutline({
-          progress: activationProgress,
-          side,
-        });
+          return cargoHatchGeometry.doorShapeOutline({
+            progress: activationProgress,
+            side,
+          });
+        },
+        radius: () => cargoHatchGeometry.doorRadius,
+        fillShade: 2,
+        // A loose door keeps this same solid presentation without a shape outline.
+        wreckage: { fillShade: 2 },
       },
-      radius: () => cargoHatchGeometry.doorRadius,
-      fillShade: 2,
-      // A loose door keeps this same solid presentation without a shape outline.
-      wreckage: { fillShade: 2 },
-    },
-    {
-      // A nonphysical contact at the mouth, checked against the item's centre.
-      catches: true,
-      wreckage: false,
-      radius: () => cargoHatchGeometry.throatRadius,
-    },
-  ];
-  static price = specification.price;
-  static shades = specification.shades;
-  static unhurtWhen = specification.unhurtWhen;
-  static zIndex = specification.zIndex;
+      {
+        // A nonphysical contact at the mouth, checked against the item's centre.
+        catches: true,
+        wreckage: false,
+        radius: () => cargoHatchGeometry.throatRadius,
+      },
+    ];
+  }
 
   collect({
     ship,
@@ -171,3 +165,5 @@ export class CargoHatch extends Module {
     this.lastActive = active;
   }
 }
+
+export const CargoHatch = CargoHatchModule.define('cargoHatch');

@@ -1,4 +1,4 @@
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 import { textOutline } from './text/text-outline';
 import { renderText } from './text/text';
 import { type Module } from '../objects/modules/module';
@@ -8,8 +8,8 @@ import { moduleBinding } from '../input/keybindings';
 
 /**
  * The bottom-right readout of the ship's modules, after the fashion of an Elite
- * cockpit panel: every module the ship carries, listed by name, with a box
- * beside each one the pilot can switch that fills in blue while it runs. The
+ * cockpit panel: toggle-controlled modules listed by name, with a box
+ * beside each one that fills in blue while it runs. The
  * key that works a module is underlined in its name. It only shows state and is
  * never read from: the keyboard still does the toggling.
  */
@@ -33,7 +33,7 @@ const underDrop = 10;
 
 // Every module on the ship the pilot can switch, each type the once, in the
 // order their mounts sit in. A pair of cargo hatches is one row worked by one key. Modules
-// worked through the separate flight controls are left off the panel. The
+// worked through held keys, including flight and weapons, are left off the panel. The
 // underline follows the configured key instead of the module name.
 /**
  * ship: The ship whose modules are shown.
@@ -45,12 +45,15 @@ export const renderControls = (game: GameState, ship: Ship) => {
   ship.mounts.forEach(
     ({ module }: { module?: Module | 0 }) =>
       module &&
-      !module.forwardThrust &&
+      moduleControls.some(
+        ({ Type, input }) =>
+          module instanceof Type && moduleBinding(input).mode === 'toggle',
+      ) &&
       !modules.includes(module.constructor as typeof Module) &&
       modules.push(module.constructor as typeof Module),
   );
 
-  const widest = Math.max(...modules.map(({ label }) => label.length)) * glyph;
+  const widest = Math.max(...modules.map(({ name }) => name.length)) * glyph;
   const boxX = game.uiWidth - inset - widest - gap - box;
   const textX = boxX + box + gap;
   const top =
@@ -75,10 +78,12 @@ export const renderControls = (game: GameState, ship: Ship) => {
     const path = new Path2D();
 
     path.rect(boxX, y, box, box);
-    // Underline the first bound key that occurs in this module's label.
-    const action = moduleControls.find(({ Type }) => Type === module)?.input;
+    // Underline the first bound key that occurs in this module's name.
+    const action = moduleControls.find(
+      ({ Type }) => Type === module || module.prototype instanceof Type,
+    )?.input;
     const key = action && moduleBinding(action).keys[0]?.toLowerCase();
-    const keyIndex = key ? module.label.toLowerCase().indexOf(key) : -1;
+    const keyIndex = key ? module.name.toLowerCase().indexOf(key) : -1;
 
     if (keyIndex >= 0) {
       path.moveTo(textX + keyIndex * glyph, y + underDrop);
@@ -94,7 +99,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
   modules.forEach((module, i) => {
     renderText({
       game,
-      text: module.label,
+      text: module.name.toUpperCase(),
       x: textX,
       y: top + i * rowGap,
       size: textSize,

@@ -10,16 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 const fixtureID = "12345678-9abc-4def-8012-3456789abcde"
 
 func fixtureBatch(t testing.TB) Batch {
 	t.Helper()
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func BenchmarkSQLiteMovementBatch(b *testing.B) {
 
 	defer s.Close(context.Background())
 	batch := fixtureBatch(b)
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)
 
 	for i := 0; i < 8; i++ {

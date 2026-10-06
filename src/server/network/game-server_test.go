@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"io"
 	"math"
 	"net"
@@ -97,7 +97,7 @@ func readServerFrame(reader *bufio.Reader) (byte, []byte, error) {
 }
 
 func TestGameServerReadHeaderTimeout(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestGameServerReadHeaderTimeout(t *testing.T) {
 }
 
 func TestGameServerJoinBetweenTicks(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestGameServerJoinBetweenTicks(t *testing.T) {
 }
 
 func TestGameServerInputEdgesBetweenTicks(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -258,7 +258,7 @@ func TestGameServerInputEdgesBetweenTicks(t *testing.T) {
 }
 
 func TestGameServerConcurrentConnections(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

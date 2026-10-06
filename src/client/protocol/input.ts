@@ -2,6 +2,7 @@
  * Commands for one player during a single simulation tick.
  */
 export type PlayerInput = {
+  fire?: boolean;
   hornDrill: boolean;
   cargoHatch: boolean;
   searchLight: boolean;
@@ -12,7 +13,7 @@ export type PlayerInput = {
 };
 
 /**
- * Bit order: drill, hatch, light, shield, launch, thrust, left, right.
+ * Bit order: drill, hatch, light, shield, launch, thrust, left, right, fire.
  * Keyboard thrust is 0 or 1; turn is -1, 0, or 1.
  */
 export const packPlayerInput = (input: PlayerInput) =>
@@ -25,6 +26,7 @@ export const packPlayerInput = (input: PlayerInput) =>
     input.thrust === 1,
     input.turn === -1,
     input.turn === 1,
+    input.fire,
   ].reduce((code, active, bit) => code | (Number(active) << bit), 0);
 
 /**
@@ -34,6 +36,7 @@ export const unpackPlayerInput = (code: number): PlayerInput => {
   const bit = (index: number) => (code >> index) & 1;
 
   return {
+    ...(bit(8) && { fire: true }),
     hornDrill: !!bit(0),
     cargoHatch: !!bit(1),
     searchLight: !!bit(2),
@@ -58,6 +61,7 @@ export const emptyPlayerInput = (): PlayerInput => ({
  * Only changed controls need a new transition; held keys need no repeat packets.
  */
 export const sameInput = (a: PlayerInput, b: PlayerInput) =>
+  !!a.fire === !!b.fire &&
   a.hornDrill === b.hornDrill &&
   a.cargoHatch === b.cargoHatch &&
   a.searchLight === b.searchLight &&

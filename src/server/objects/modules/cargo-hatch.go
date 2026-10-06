@@ -3,9 +3,9 @@ package modules
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"math"
 )
 
@@ -31,7 +31,7 @@ func SetCargoPickupPoint(point *collision.Collider, item simulation.Entity) {
 	*point = collision.Collider{Owner: item, Position: object.Position, Radius: 0, Rotation: object.Rotation, Physics: physics, Friction: object.Friction, PickupPoint: true, ContactFilter: CargoContactAllowed}
 }
 
-func CargoHatchDoorShapeOutline(spec definitions.Module, progress, side float64) *simulation.ShapeOutline {
+func CargoHatchDoorShapeOutline(spec specs.Module, progress, side float64) *simulation.ShapeOutline {
 	geometry := spec.CargoGeometry
 	angle := progress * geometry.OpenAngle
 	sine, cosine := math.Sincos(angle)
@@ -45,10 +45,10 @@ func CargoHatchDoorShapeOutline(spec definitions.Module, progress, side float64)
 
 type CargoHatch struct{ *Module }
 
-func NewCargoHatch(props simulation.ObjectProperties, catalog definitions.Catalog) *CargoHatch {
+func NewCargoHatch(props simulation.ObjectProperties, catalog specs.Catalog) *CargoHatch {
 	m := &CargoHatch{NewModule("cargoHatch", props, catalog)}
 	m.Self = m
-	d := m.Definition
+	d := m.Spec
 	fill := 2.0
 
 	m.Model = []*simulation.SegmentPlan{

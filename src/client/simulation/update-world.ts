@@ -1,3 +1,4 @@
+import { Projectile } from '../objects/projectile';
 import { type PlayerId } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
 import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
@@ -9,7 +10,7 @@ import { Ship } from '../objects/ship';
 import { Craft } from '../objects/craft';
 import { type GameObject } from '../objects/game-object';
 import { type Contact } from '../collision/types';
-import { simulationStep } from '../../definitions/simulation';
+import { simulationStep } from '../../specs/simulation';
 import { updateEntities } from './update-tier';
 
 const collisionWorlds = new WeakMap<SimulationWorld, GameCollisions>();
@@ -32,6 +33,8 @@ export const updateWorld = ({
   const events: SimulationEvent[] = [];
 
   world.entities.forEach((entity) => {
+    if (entity instanceof Projectile) entity.captureSweep();
+
     if (entity instanceof Ship) {
       entity.segments.forEach((segment) => {
         segment.biting = false;
@@ -75,6 +78,10 @@ export const updateWorld = ({
     entities: world.entities,
     dt,
     events,
+  });
+
+  world.entities.forEach((entity) => {
+    if (entity instanceof Projectile) entity.resolveHits(events, world, dt);
   });
 
   const contactsByOwner = new Map<GameObject, Contact[]>();

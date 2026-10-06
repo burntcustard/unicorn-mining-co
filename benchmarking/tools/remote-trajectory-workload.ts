@@ -1,5 +1,5 @@
 import { interpolatePose } from '../../src/client/utilities/interpolate-pose';
-import { simulationStep } from '../../src/definitions/simulation';
+import { simulationStep } from '../../src/specs/simulation';
 import * as Vec from '../../src/client/utilities/vector';
 
 // Known accelerating motion isolates interpolation from contacts and network

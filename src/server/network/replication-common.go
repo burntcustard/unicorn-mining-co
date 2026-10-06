@@ -77,6 +77,17 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 				health = data.Mount.Health
 			}
 
+			cooldown := 0.0
+
+			if state.FireCooldown != nil {
+				cooldown = *state.FireCooldown
+			}
+
+			if data.FireCooldown != cooldown {
+				same = false
+				break
+			}
+
 			if module != p.modules[i] || state.ID == nil || float64(object.ID) != *state.ID || float64(slices.Index(mounts, data.Mount)) != state.Mount || state.Health == nil || health != *state.Health || !slices.Equal(object.Shades, state.Shades) {
 				same = false
 				break
@@ -99,6 +110,10 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 		}
 
 		value := protocol.ModuleState{ID: &id, Type: float64(slices.Index(entity.Catalog.ModuleIDs, d.Type)), Mount: float64(slices.Index(mounts, d.Mount)), Health: &health, Shades: slices.Clone(o.Shades), Segments: []protocol.ModuleSegment{}}
+
+		if d.FireCooldown > 0 {
+			value.FireCooldown = new(d.FireCooldown)
+		}
 
 		for _, s := range entity.Segments {
 			if s.Mount == d.Mount && s.Module == module {

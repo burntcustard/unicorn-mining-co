@@ -5,6 +5,15 @@ import Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 
 type SimulationEvent interface{ simulationEvent() }
 
+type ObjectDestroyed struct {
+	ObjectID int64
+	Color    string
+	Damage   float64
+	Position Vec.Vector
+}
+
+func (ObjectDestroyed) simulationEvent() {}
+
 type AsteroidSplit struct {
 	AsteroidID int64
 	ChildIDs   []int64

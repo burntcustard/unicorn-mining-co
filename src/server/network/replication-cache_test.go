@@ -2,9 +2,9 @@ package network
 
 import (
 	"bytes"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"testing"
@@ -32,7 +32,7 @@ func TestNumericFieldCachePreservesCanonicalChanges(t *testing.T) {
 }
 
 func TestMembershipCacheSurvivesReorderReplacementAndEviction(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +100,7 @@ func TestPackedCadenceRetainsFallbackForForeignViews(t *testing.T) {
 		interval int
 		id       int64
 	}{{8, 13}, {16, 13}, {65, 63}} {
-		catalog, err := definitions.Load()
+		catalog, err := specs.Load()
 
 		if err != nil {
 			t.Fatal(err)
@@ -133,7 +133,7 @@ func TestPackedCadenceRetainsFallbackForForeignViews(t *testing.T) {
 }
 
 func TestStationaryPlayerOmitsUnchangedFragments(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

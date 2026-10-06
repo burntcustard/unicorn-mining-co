@@ -1,7 +1,7 @@
-import { physics } from '../../definitions/physics';
+import { physics } from '../../specs/physics';
 
 import * as Vec from '../utilities/vector';
-import { linearSlop } from '../../definitions/physics';
+import { linearSlop } from '../../specs/physics';
 import { Body } from './body';
 import type { Contact } from './contact';
 import {

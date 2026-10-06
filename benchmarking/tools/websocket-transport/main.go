@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/network"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"net"
 	"net/http"
 	"os"
@@ -229,7 +229,7 @@ func main() {
 }
 
 func runGame(players, warmup, ticks int, profile string) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		panic(err)

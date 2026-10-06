@@ -113,5 +113,5 @@ canvas {
   pointer-events: none;
   padding-block: 0.5rem;
   padding-inline: 0.75rem;
-  background: #102c;
+  background: rgb(17 0 34 / 0.8);
 }

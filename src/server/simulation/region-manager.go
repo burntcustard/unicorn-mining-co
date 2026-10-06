@@ -2,8 +2,8 @@
 package simulation
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -29,10 +29,10 @@ type RegionManager struct {
 	queryBounds, markerBounds []regionBounds
 	queried                   *queriedRegions
 	generator                 *RegionGenerator
-	catalog                   definitions.Catalog
+	catalog                   specs.Catalog
 }
 
-func NewRegionManager(seed uint32, catalog definitions.Catalog) *RegionManager {
+func NewRegionManager(seed uint32, catalog specs.Catalog) *RegionManager {
 	return &RegionManager{loaded: utilities.NewOrderedMap[Vec.Vector, *protocol.LoadedRegion](), saved: map[Vec.Vector]*protocol.RegionDescription{}, worldSeed: seed, removed: map[uint32]bool{}, descriptionOwners: map[uint32][]*protocol.RegionDescription{}, stationLists: map[regionBounds][]protocol.StationDescription{}, generator: NewRegionGenerator(catalog), catalog: catalog}
 }
 

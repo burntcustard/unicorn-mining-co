@@ -1,12 +1,14 @@
+import { withAlpha } from '../utilities/color';
+import { autocannonAmmunition } from '../../specs/items';
 import { Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { type GameState } from '../game';
 import { player, paintUnlocked, say, unlockPaint } from '../player';
-import { colors, paintColors } from '../../definitions/colors';
+import { colors, paintColors } from '../../specs/colors';
 import { textOutline } from './text/text-outline';
 import { playSound } from '../audio/sound-loader';
 import { renderText } from './text/text';
-import { moduleTypes } from '../objects/modules/index';
+import { moduleTypes, moduleTypesById } from '../objects/modules/index';
 import { sendCraftAction } from '../network/craft-actions';
 
 /**
@@ -58,12 +60,18 @@ const cargoMenuEntriesOf = (ship: any) => [
         types.set(item, (types.get(item) || 0) + 1),
       new Map(),
     ),
+  [autocannonAmmunition, 0],
 ];
 
 // Ore of a kind stacks into one row, but two module instances never do, so a
 // count is only worth showing when there is more than one
-const cargoMenuEntryName = ([item, count]: any[]) =>
-  count > 1 ? `${item.label} *${count}` : item.label;
+const cargoMenuEntryName = ([item, count]: any[]) => {
+  const name = item.name?.toUpperCase() ?? item.label;
+
+  if (count === 0) return `BUY ${name} $${item.price}`;
+
+  return count > 1 ? `${name} *${count}` : name;
+};
 
 const sendAppliedAction = (
   ship: Ship,
@@ -94,15 +102,17 @@ const fitsOf = (ship: any, mount: any) => {
 
   moduleRows.set(ship, rows);
 
-  return mount.fits.flatMap((type: any) => {
-    const owned = rows.filter(
-      (module: any) =>
-        module.constructor === type &&
-        (!module.mount || module.mount === mount),
-    );
+  return [...moduleTypesById.values()]
+    .filter((type) => mount.fits.includes(type))
+    .flatMap<Module | typeof Module>((type) => {
+      const owned = rows.filter(
+        (module: any) =>
+          module.constructor === type &&
+          (!module.mount || module.mount === mount),
+      );
 
-    return owned.length ? owned : [type];
-  });
+      return owned.length ? owned : [type];
+    });
 };
 
 // Equip and remove move a module between cargo and a mount; buy and sell
@@ -153,7 +163,9 @@ const selectionOf = (ship: any) => {
           ? ['FIX']
           : []
         : cargoMenu
-          ? ['SELL']
+          ? item?.[1] === 0
+            ? ['BUY']
+            : ['SELL']
           : moduleActionsOf(mount, currentModule)
       : [];
   const swatches =
@@ -335,8 +347,22 @@ export const confirmSelection = (ship: Ship) => {
 
     sendCraftAction({ action: 'sell', objectIds });
 
-    if (item.label === 'DIAMOND') unlockPaint('CYAN', 'DIAMOND SOLD');
-    moduleOption = Math.min(moduleOption, Math.max(0, menu.length - 2));
+    if (item.resource === 0) unlockPaint('CYAN', 'DIAMOND SOLD');
+
+    if (cargoMenu) {
+      moduleOption = Math.min(moduleOption, Math.max(0, menu.length - 2));
+    } else {
+      const rows = fitsOf(ship, mount);
+      const replacement = rows.findIndex(
+        (row) =>
+          row === item.constructor || row.constructor === item.constructor,
+      );
+
+      moduleOption =
+        replacement >= 0
+          ? replacement
+          : Math.min(moduleOption, rows.length - 1);
+    }
 
     // A sale returns to the list, leaving its replacement row focused rather
     // than treating it as though the pilot had picked it.
@@ -349,10 +375,15 @@ export const confirmSelection = (ship: Ship) => {
     if (ship.cargoContents.length >= ship.cargoSpace) {
       say('CARGO FULL');
     } else {
-      sendAppliedAction(ship, {
-        action: 'buy',
-        module: moduleTypes.indexOf(currentModule),
-      });
+      sendAppliedAction(
+        ship,
+        cargoMenu
+          ? { action: 'buyAmmo' }
+          : {
+              action: 'buy',
+              module: moduleTypes.indexOf(currentModule),
+            },
+      );
     }
   } else if (picked === 'EQUIP') {
     sendAppliedAction(ship, {
@@ -380,8 +411,16 @@ const renderButton = (
 ) => {
   ctx.globalAlpha = disabled ? 0.3 : 1;
 
-  ctx.fillStyle = `${colors.purple[2]}${focused ? '' : '9'}`;
-  ctx.strokeStyle = `${colors.violet[2]}${focused ? '' : '0'}`;
+  ctx.fillStyle = withAlpha({
+    color: colors.purple[2],
+    alpha: focused ? 1 : 0.6,
+  });
+
+  ctx.strokeStyle = withAlpha({
+    color: colors.violet[2],
+    alpha: focused ? 1 : 0,
+  });
+
   ctx.fillRect(x0, y - rowPad, x1 - x0, rowGap - rowPad);
   ctx.strokeRect(x0, y - rowPad, x1 - x0, rowGap - rowPad);
   ctx.globalAlpha = 1;
@@ -452,7 +491,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
     const path = new Path2D();
 
     path.rect(x, y - rowPad + swatchInset, swatchSize, swatchSize);
-    ctx.fillStyle = `${shades[2]}${worn ? '' : '3'}`;
+    ctx.fillStyle = withAlpha({ color: shades[2], alpha: worn ? 1 : 0.2 });
     ctx.strokeStyle = shades[2];
     ctx.fill(path);
     textOutline({ ctx, path, radius: textSize });
@@ -478,8 +517,8 @@ export const renderDocked = (game: GameState, ship: Ship) => {
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
-  // Appended digit is the fill's opacity, so the world still shows through
-  ctx.fillStyle = `${colors.purple[0]}c`;
+  // The translucent fill lets the world show through.
+  ctx.fillStyle = withAlpha({ color: colors.purple[0], alpha: 0.8 });
   ctx.fillRect(
     outerPadding,
     top - listInset,
@@ -546,9 +585,9 @@ export const renderDocked = (game: GameState, ship: Ship) => {
   }
 
   if (info) {
-    ctx.fillStyle = `${colors.purple[2]}8`;
+    ctx.fillStyle = withAlpha({ color: colors.purple[2], alpha: 8 / 15 });
     ctx.fillRect(col1[0], top - rowPad, colWidth, rowGap * 8 - rowPad);
-    ctx.strokeStyle = `${colors.violet[2]}c`;
+    ctx.strokeStyle = withAlpha({ color: colors.violet[2], alpha: 0.8 });
     ctx.beginPath();
     ctx.moveTo(col1[0], top + (rowGap - rowPad) * 1.5);
     ctx.lineTo(col1[1], top + (rowGap - rowPad) * 1.5);
@@ -558,13 +597,13 @@ export const renderDocked = (game: GameState, ship: Ship) => {
   ctx.restore();
 
   menu.forEach((item: any, i: number) => {
-    let text = item.label;
+    let text = item.name?.toUpperCase() ?? item.label;
 
     if (!stage || hullMenu) {
       if (i < 2) {
         text = item;
       } else {
-        text = item.module?.label || '-EMPTY-';
+        text = item.module ? item.module.name.toUpperCase() : '-EMPTY-';
       }
     } else if (cargoMenu) {
       text = cargoMenuEntryName(item);
@@ -579,7 +618,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
       align: -1,
       color:
         actionMenu && i !== currentItem
-          ? `${colors.violet[2]}6`
+          ? withAlpha({ color: colors.violet[2], alpha: 0.4 })
           : colors.violet[2],
     });
   });
@@ -595,7 +634,10 @@ export const renderDocked = (game: GameState, ship: Ship) => {
           y: y + 2,
           size: textSize,
           align: -1,
-          color: i < disabledAction ? `${colors.violet[2]}6` : colors.violet[2],
+          color:
+            i < disabledAction
+              ? withAlpha({ color: colors.violet[2], alpha: 0.4 })
+              : colors.violet[2],
         }),
     );
   }
@@ -608,7 +650,9 @@ export const renderDocked = (game: GameState, ship: Ship) => {
       y: top + rowGap * 10 + 2,
       size: textSize,
       align: -1,
-      color: hullMenu ? `${colors.violet[2]}6` : colors.violet[2],
+      color: hullMenu
+        ? withAlpha({ color: colors.violet[2], alpha: 0.4 })
+        : colors.violet[2],
     });
   }
 
@@ -617,7 +661,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
       ? ['HULL', 'HP']
       : cargoMenuEntries
         ? ['CARGO', ...cargoMenuEntries.map(cargoMenuEntryName)]
-        : [info.label, 'HP', 'VALUE'];
+        : [info.name?.toUpperCase() ?? info.label, 'HP', 'VALUE'];
     const values = currentHull
       ? [`${health | 0}/${maxHealth}`]
       : cargoMenuEntries

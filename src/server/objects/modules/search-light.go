@@ -2,16 +2,16 @@
 package modules
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 type SearchLight struct{ *Module }
 
-func NewSearchLight(props simulation.ObjectProperties, catalog definitions.Catalog) *SearchLight {
+func NewSearchLight(props simulation.ObjectProperties, catalog specs.Catalog) *SearchLight {
 	m := &SearchLight{NewModule("searchLight", props, catalog)}
 	m.Self = m
-	d := m.Definition
+	d := m.Spec
 	lens, far, mouth, spread, corner := d.Lens, d.Lens+d.Reach, d.Mouth, d.Spread, d.Corner
 	fill := 2.0
 

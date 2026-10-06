@@ -7,26 +7,29 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 const root = process.cwd();
 const scenario = `
 import assert from 'node:assert/strict';
-import { renderingLayers } from '${root}/src/definitions/rendering-layers.ts';
+import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
 import { makeEntity } from '${root}/src/client/network/network.ts';
 import { applyEntity } from '${root}/src/client/prediction/prediction.ts';
 import { game } from '${root}/src/client/game.ts';
 import { createWorld, addEntity } from '${root}/src/client/simulation/world.ts';
 import { captureWorld, cloneEntity, restoreWorld } from '${root}/src/client/simulation/world-state.ts';
+import { Projectile } from '${root}/src/client/objects/projectile.ts';
+import { crotus } from '${root}/src/specs/ships/crotus.ts';
 import { Ship } from '${root}/src/client/objects/ship.ts';
 import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
-import { SearchLight, CargoHatch, HornDrill, ShieldGenerator, thrusters } from '${root}/src/client/objects/modules/index.ts';
+import { SearchLight, CargoHatch, HornDrill, ShieldGenerator, ShieldGeneratorMd, ThrusterSingleSm, ThrusterSingleMd, ThrusterSingleLg, ThrusterSingleXl, thrusters, PlasmaAccelerator, Autocannon } from '${root}/src/client/objects/modules/index.ts';
+import { cargoHatchGeometry } from '${root}/src/client/objects/modules/cargo-hatch.ts';
 import { Item } from '${root}/src/client/objects/item.ts';
-import { diamond as diamondDefinition } from '${root}/src/definitions/items/index.ts';
+import { diamond as diamondSpec } from '${root}/src/specs/items/index.ts';
 
-import { amethyst as amethystDefinition } from '${root}/src/definitions/items/index.ts';
+import { amethyst as amethystSpec } from '${root}/src/specs/items/index.ts';
 import { Asteroid, createAsteroid } from '${root}/src/client/objects/asteroid.ts';
 import { Craft } from '${root}/src/client/objects/craft.ts';
 import { createWreckage } from '${root}/src/client/objects/create-wreckage.ts';
 import * as Vec from '${root}/src/client/utilities/vector.ts';
 import { revealBuriedItems, tint } from '${root}/src/client/utilities/lighting.ts';
-import { colors } from '${root}/src/definitions/colors.ts';
+import { colors } from '${root}/src/specs/colors.ts';
 import { renderControls } from '${root}/src/client/ui/controls.ts';
 import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
@@ -64,10 +67,19 @@ sparks.length=0;
 const slowCrashCount = Reflect.get(globalThis, 'sounds').length;
 presentEvents({shipId:10,events:[{...collision,impact:1}]});
 assert.equal(Reflect.get(globalThis, 'sounds').length,slowCrashCount,'resting contact does not play a crash');
+presentEvents({shipId:10,events:[{...collision,impact:1,damage:[0,2]}]});
+assert.equal(sparks.length,4,'damaging contacts produce sparks even below the crash-sound speed threshold');
+assert.equal(Reflect.get(globalThis, 'sounds').length,slowCrashCount,'slow damage still does not play the crash sound');
+sparks.length=0;
 const packet=JSON.parse(Reflect.get(globalThis, 'packet'));
 const world=createWorld();
+const hydratedProjectile=makeEntity({world,entity:{id:9998,kind:'projectile',definitionId:'autocannon',radius:1,health:1.25,position:Vec.create(),velocity:Vec.create(600,0),rotation:0,spin:0,playerId:1}});
+assert(hydratedProjectile instanceof Projectile);
+assert.equal(hydratedProjectile.health,1.25);
 const hydratedSlate=makeEntity({entity:{id:9999,kind:'item',resource:4,message:'GOLD ORE 100/200',position:Vec.create(),radius:8,rotation:0,spin:0},world});
 assert.equal(hydratedSlate.message,'GOLD ORE 100/200','the replicated slate keeps its field coordinates');
+const hydratedAmmo=makeEntity({world,entity:{kind:'item',id:9997,resource:5,rounds:137,position:Vec.create(),radius:6,rotation:0,spin:0}});
+assert.equal(hydratedAmmo.rounds,137,'replicated packs retain their remaining rounds instead of refilling');
 const objects=packet['fullEntities'].map(entity=>makeEntity({entity,world}));
 assert.throws(()=>makeEntity({entity:{...packet['fullEntities'][0],kind:'unknown'},world}),/Unknown replicated entity kind/,'unknown wire kinds must not turn into ships');
 const remote=objects.find(entity=>entity instanceof Ship);
@@ -88,6 +100,7 @@ assert.deepEqual(station.shades,colors.white,'station retains its own palette');
 for(const craft of [remote,station]){
   assert.equal(craft.cargoContents.length,3,'mixed cargo replicates without double-counting loose modules');
   assert(craft.cargoContents[0] instanceof Item && craft.cargoContents[0].resource === 0);
+  assert.equal(craft.cargoContents[0].name,'Diamond','item names come from the shared spec');
   assert(craft.cargoContents[1] instanceof HornDrill);
   assert(craft.modules.includes(craft.cargoContents[1]),'replicated modules and cargo contents reference the same module');
 }
@@ -111,11 +124,16 @@ game.ctx={
   beginPath(){},arc(){},stroke(){strokes.push(this.strokeStyle);},clip(){clips++;},resetTransform(){},setLineDash(){},
   createLinearGradient(){gradients++;return {stops:[],addColorStop(offset,color){this.stops.push(color);}};},
   createRadialGradient(){return {addColorStop(){}};},
-  fill(path,rule){draws.push({path,rule,style:this.fillStyle});},
+  fill(path,rule){draws.push({path,rule,style:this.fillStyle,glowImages});},
   fillRect(){boxes++;},
   drawImage(image){glowImages++;assert(image.width>0,'glows use a real canvas after prediction cloning');}
 };
 Object.assign(game,{scale:1,uiScale:1,uiWidth:640,uiHeight:480});
+const transparentItem=new Item(amethystSpec,{fillAlpha:0});
+transparentItem.render();
+assert.equal(draws[0].style,'#dd33dd00','zero item alpha is transparent rather than falling back to an opaque fill');
+assert.equal(strokes.at(-1),colors.violet[2],'item alpha does not fade the opaque outline');
+draws.length=strokes.length=transforms.length=0;
 const local=cloneEntity({entity:remote});
 const physicsPosition=Vec.add(remote.position, Vec.create());
 const physicsRotation=remote.rotation;
@@ -162,13 +180,55 @@ for(const ship of [local,remote]){
   ship.updateVisual(1/60);
   assert(sounds.slice(beforeSound).includes(1),'closing a replicated cargo hatch plays its sound');
 }
-const shieldCraft=new Ship({shades:colors.cyan});
-const shield=new ShieldGenerator();
-shieldCraft.fit(shield);
-const shieldSegment=shieldCraft.segments.find(segment=>segment.module===shield && !segment.covers);
-strokes.length=0;
-shield.render({segment:shieldSegment});
-assert.equal(strokes.at(-1),colors.violet[2],'the shield generator plus uses its violet shapeOutline colour');
+for(const y of [-29,29]){
+  const craft=new Ship({shades:colors.cyan});
+  const mount=craft.mounts.find(mount=>mount.fits.includes(CargoHatch) && mount.localPosition.y===y);
+  const hatch=new CargoHatch();
+  craft.fit(hatch,mount);
+  const segments=craft.segments.filter(segment=>segment.module===hatch);
+  const door=segments.find(segment=>!segment.catches);
+  assert(segments.every(segment=>segment.localPosition.y===Math.sign(y)*13),'door and pickup geometry stay 16 units inward from the mount');
+  for(const progress of [0,.5,1]){
+    door.activationProgress=progress;
+    const expected=cargoHatchGeometry.doorShapeOutline({progress,side:Math.sign(y)});
+    draws.length=0;
+    hatch.render({segment:door});
+    assert.deepEqual(Reflect.get(draws[0].path,'vertices'),expected,'offset hatches retain their rendered door shape');
+  }
+}
+for(const [Type,size] of [[ThrusterSingleSm,5],[ThrusterSingleMd,7],[ThrusterSingleLg,9],[ThrusterSingleXl,11]]){
+  const craft=new Ship({shades:colors.cyan});
+  const engine=new Type();
+  craft.fit(engine);
+  craft.fly(1,0);
+  craft.updateModules(1);
+  const segment=craft.segments.find(segment=>segment.module===engine);
+  draws.length=0;
+  engine.render({segment});
+  assert.deepEqual(Reflect.get(draws[0].path,'vertices'),[[0,-size],[-size*2.5,0],[0,size]],'single thruster size controls its rendered flare');
+  assert.equal(craft.forwardThrust,22,'all single sizes retain the existing forward thrust');
+}
+for(const [Type,radius] of [[ShieldGenerator,50],[ShieldGeneratorMd,60]]){
+  const shieldCraft=new Ship({spec:crotus,shades:colors.cyan});
+  const shield=new Type();
+  shieldCraft.fit(shield);
+  const body=shieldCraft.segments.find(segment=>segment.module===shield && !segment.covers);
+  const bubble=shieldCraft.segments.find(segment=>segment.module===shield && segment.covers);
+  assert.equal(body.radius(body),7,'both generator bodies retain their original size');
+  bubble.active=1;
+  bubble.activationProgress=.5;
+  assert.equal(bubble.radius(bubble),radius/2,'bubble growth uses the variant radius');
+  bubble.activationProgress=1;
+  assert.equal(shieldCraft.hitbox()[0].radius,radius,'the fully active collision bubble uses the variant radius');
+  strokes.length=0;
+  shield.render({segment:body});
+  assert.equal(strokes.at(-1),colors.violet[2],'both generators retain their violet plus');
+  shield.render({segment:bubble});
+  assert.equal(draws.at(-1).style,'#ee66ff22','shield bubble opacity keeps its previous appearance with numeric alpha');
+  bubble.fillAlpha=0;
+  shield.render({segment:bubble});
+  assert.equal(draws.at(-1).style,'#ee66ff00','zero module alpha remains transparent');
+}
 let revealed=0;
 const litRock={
   scenery:true,segments:[{}],position:Vec.add(remote.position, Vec.create(60)),rotation:0,radius:20,
@@ -211,25 +271,32 @@ for(const craftOrder of [[drilling,receiving],[receiving,drilling]]){
 }
 station.render({zIndex:renderingLayers.stationHull});
 assert(gradients>before,'station hulls retain gradient shading');
+// Both translucent bay halves must cover the lower glow and sit below the upper
+// glow. Drawing a glow between their fills makes a brightness seam.
+draws.length=0;
+const beforeBayGlows=glowImages;
 // Warm the docking glow before cloning, as rendering does between network ticks.
 for(const zIndex of Object.values(renderingLayers)){
   const beforeGlow=glowImages;
   station.render({zIndex});
-  const expected=Number(zIndex===renderingLayers.glowBelowStations || zIndex===renderingLayers.glowAboveStations);
-  assert.equal(glowImages-beforeGlow,expected,'station bay glows draw once each on their dedicated layers');
+  const expected=Number(zIndex===renderingLayers.stationFloor || zIndex===renderingLayers.glowAboveStations);
+  assert.equal(glowImages-beforeGlow,expected,'station bay glows draw once below the floor and above the ceiling');
 }
+const bayFills=draws.filter(draw=>station.segments.some(segment=>segment.glow && JSON.stringify(segment.points)===JSON.stringify(Reflect.get(draw.path, 'vertices'))));
+assert.equal(bayFills.length,2,'both bay halves render');
+assert(bayFills.every(draw=>draw.glowImages===beforeBayGlows+1),'both bay fills must render between the same two glows to avoid a brightness seam');
 const predictedStation=cloneEntity({entity:station});
-for(const zIndex of [renderingLayers.glowBelowStations,renderingLayers.glowAboveStations])predictedStation.render({zIndex});
+for(const zIndex of [renderingLayers.stationFloor,renderingLayers.glowAboveStations])predictedStation.render({zIndex});
 const stationGlow=station.segments.find(segment=>segment.glow).glow;
-assert.equal(predictedStation.segments.find(segment=>segment.glow).glow,stationGlow,'prediction shares the immutable glow definition and its render cache');
+assert.equal(predictedStation.segments.find(segment=>segment.glow).glow,stationGlow,'prediction shares the immutable glow spec and its render cache');
 game.scale=2;
-for(const craft of [predictedStation,station])for(const zIndex of [renderingLayers.glowBelowStations,renderingLayers.glowAboveStations])craft.render({zIndex});
+for(const craft of [predictedStation,station])for(const zIndex of [renderingLayers.stationFloor,renderingLayers.glowAboveStations])craft.render({zIndex});
 game.scale=1;
 for(const segment of station.segments.filter(segment=>segment.glow)){
   const health=segment.health;
   segment.health=0;
   const beforeGlow=glowImages;
-  for(const zIndex of [renderingLayers.glowBelowStations,renderingLayers.glowAboveStations])station.render({zIndex});
+  for(const zIndex of [renderingLayers.stationFloor,renderingLayers.glowAboveStations])station.render({zIndex});
   assert.equal(glowImages-beforeGlow,1,'destroyed bay segments stop drawing their glow');
   segment.health=health;
 }
@@ -241,8 +308,8 @@ for(const zIndex of new Set(wreckage.segments.map(segment=>segment.zIndex)))wrec
 assert(draws.length>0,'bare Craft wreckage retains its own hull rendering');
 assert(draws.some(draw=>draw.style===colors.cyan[2]),'detached wreckage keeps its light fill shade');
 assert.equal(gradients,beforeWreck,'wreckage does not inherit station gradients');
-const diamond=new Item(diamondDefinition, );
-// A destroyed lamp retains its module definition and warmed beam cache in the
+const diamond=new Item(diamondSpec, );
+// A destroyed lamp retains its module spec and warmed beam cache in the
 // local fragment. Render that fragment as fixed wreckage through every path.
 for(const active of [false,true])for(const destruction of ['detach','health']){
   const lightWorld=createWorld();
@@ -261,7 +328,7 @@ for(const active of [false,true])for(const destruction of ['detach','health']){
   assert(!lightShip.modules.includes(detachedLight),'destroyed lights leave the surviving ship');
   const lightDebris=[...lightWorld.entities.values()].find(entity=>entity!==lightShip && entity.decay);
   assert(lightDebris instanceof Craft && !(lightDebris instanceof Ship),'a detached light is bare Craft wreckage');
-  assert(lightDebris.segments.some(segment=>segment.module===detachedLight),'local wreckage retains the former light definition');
+  assert(lightDebris.segments.some(segment=>segment.module===detachedLight),'local wreckage retains the former light spec');
   const replicatedDebris=createWreckage({
     properties:{id:lightDebris.id,decay:lightDebris.decay,shades:lightDebris.shades,position:Vec.clone(lightDebris.position)},
     segments:lightDebris.wreckage,
@@ -302,7 +369,7 @@ for(const [index,stage] of packet.drillingStages.entries()){
     predicted.addToScene();
     draws.length=0;strokes.length=0;
     predicted.render();
-    assert.equal(draws[0].style,colors.purple[1]+'9');
+    assert.equal(draws[0].style,'#22113399');
     assert.equal(strokes[0],colors.violet[2]);
     assert.equal(predicted.renderContents.length,predicted.contents.length,'cargo stays visible in a detached leaf');
     const origin=Vec.add(predicted.position, Vec.create());
@@ -323,6 +390,17 @@ for(const [index,stage] of packet.drillingStages.entries()){
     assert.equal(loot[0].velocity.y,2);
   }
 }
+const panelShip=cloneEntity({entity:remote});
+transforms.length=0;
+strokes.length=0;
+renderControls(game,panelShip);
+const panelPositions=structuredClone(transforms), panelStrokes=[...strokes];
+panelShip.mounts.push({module:new PlasmaAccelerator()},{module:new Autocannon()});
+transforms.length=0;
+strokes.length=0;
+renderControls(game,panelShip);
+assert.deepEqual(strokes,panelStrokes,'fitted weapons add no controls panel labels or checkboxes');
+assert.deepEqual(transforms,panelPositions,'weapons do not change the controls panel layout');
 const holeWorld=createWorld();
 const solid=addEntity(holeWorld,createAsteroid(holeWorld,{radius:150,pointCount:7}));
 const pieces=solid.detach({asteroidSegment:solid.segments[0],world:holeWorld});

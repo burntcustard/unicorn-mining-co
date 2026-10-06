@@ -2,12 +2,12 @@
 package network
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"github.com/google/uuid"
@@ -81,7 +81,7 @@ type GameSession struct {
 	now             func() time.Time
 }
 
-func NewGameSession(seed float64, catalog definitions.Catalog) *GameSession {
+func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
 	world := simulation.CreateWorld(seed, catalog)
 	world.ItemTypes = objects.ItemTypes(catalog)
 	world.Collisions = gameplay.NewGameCollisions(catalog)
@@ -476,7 +476,7 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 
 	p.lastInput = protocol.Input{
 		HornDrill: p.ship.ModuleActive("hornDrill"), CargoHatch: p.ship.ModuleActive("cargoHatch"),
-		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"),
+		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"), Fire: p.ship.ModuleActive("weapon"),
 	}
 
 	p.lastSequence = 0
@@ -490,7 +490,7 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 }
 
 func (s *GameSession) sendWelcome(p *playerRecord) {
-	message := protocol.ServerControl{Type: "welcome", PlayerID: uint64(p.playerID), ShipID: uint64(p.shipID), ServerTick: s.World.Tick, PlayerToken: p.profile.ID, WorldSeed: s.worldSeed, Spawn: definitions.Vector{X: p.ship.Position.X, Y: p.ship.Position.Y}}
+	message := protocol.ServerControl{Type: "welcome", PlayerID: uint64(p.playerID), ShipID: uint64(p.shipID), ServerTick: s.World.Tick, PlayerToken: p.profile.ID, WorldSeed: s.worldSeed, Spawn: specs.Vector{X: p.ship.Position.X, Y: p.ship.Position.Y}}
 
 	mask := p.profile.UnlockedPaints
 	message.UnlockedPaints = &mask
@@ -512,7 +512,7 @@ func (s *GameSession) respawn(p *playerRecord) {
 		return
 	}
 
-	ship := objects.CreatePlayerShip(s.World, objects.Properties{PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
+	ship := objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: p.ship.DefinitionID, PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
 	id := station.Base().ID
 	ship.DockedTo = &id
 	simulation.AddEntity(s.World, ship)
@@ -598,7 +598,7 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 
 	if message.Dock.Action == "sell" {
 		for _, item := range ship.ShipBase().CargoContents {
-			if item.Base().Label == "DIAMOND" && slices.Contains(message.Dock.ObjectIDs, item.Base().ID) {
+			if item.Base().Item && item.Base().Resource == 0 && slices.Contains(message.Dock.ObjectIDs, item.Base().ID) {
 				soldDiamond = true
 			}
 		}

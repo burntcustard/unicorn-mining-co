@@ -16,7 +16,7 @@ writing in one process. Go tests compare those results with the server.
 | `regions`       | Seeded asteroids, wrecks, stations, and field messages                    |
 | `rotation`      | Exact wrapped-polynomial results, from subnormal to maximum finite angles |
 
-These are computed parity cases, not gameplay definitions. Fixed numbers select
+These are computed parity cases, not gameplay specs. Fixed numbers select
 test conditions. Items and HTTP handling use direct tests rather than generated
 snapshots. Gameplay instrumentation restores the collision method before the
 runner loads another scenario.
@@ -51,3 +51,8 @@ transforms and check rendering, reconciliation and object identity.
 Changing game rules or protocol contracts may require deliberate reviewed
 updates to fixed fixtures. Do not regenerate expected session packets from Go
 merely to make a failed comparison pass.
+
+The session comparison reconstructs historical item names from their resource
+specs after the `label` to `name` migration. It also adapts the radius of
+recorded diamond 123456 to the current diamond points. Generic labels and the
+archived packet bytes are preserved.

@@ -3,13 +3,13 @@ package objects
 import (
 	"testing"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 func TestRenderingLayerInheritance(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -20,10 +20,10 @@ func TestRenderingLayerInheritance(t *testing.T) {
 	zero := 0
 	plan := &simulation.SegmentPlan{}
 	module := modules.NewHornDrill(simulation.ObjectProperties{ID: &moduleID}, catalog)
-	module.Definition.ZIndex = zero
+	module.Spec.ZIndex = zero
 
-	if got := makeSegment(craft, nil, plan, nil).ZIndex; got != definitions.HullZIndex {
-		t.Fatalf("default hull layer = %d, want %d", got, definitions.HullZIndex)
+	if got := makeSegment(craft, nil, plan, nil).ZIndex; got != specs.HullZIndex {
+		t.Fatalf("default hull layer = %d, want %d", got, specs.HullZIndex)
 	}
 
 	if got := makeSegment(craft, module, plan, nil).ZIndex; got != zero {
@@ -31,7 +31,7 @@ func TestRenderingLayerInheritance(t *testing.T) {
 	}
 
 	plan.ZIndex = &zero
-	module.Definition.ZIndex = definitions.HullZIndex
+	module.Spec.ZIndex = specs.HullZIndex
 
 	if got := makeSegment(craft, module, plan, nil).ZIndex; got != zero {
 		t.Fatalf("explicit segment layer = %d, want 0", got)

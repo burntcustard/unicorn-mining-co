@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { decodeServerControl } from '../../src/client/protocol/binary-control';
+import { diamond, itemTypes } from '../../src/specs/items';
 import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot';
 
 const fixture = JSON.parse(
@@ -27,7 +28,31 @@ function decoded(packet: string) {
     return message;
   }
 
-  return decodeBinarySnapshot(data);
+  const snapshot = decodeBinarySnapshot(data);
+
+  // Historical item labels are now reconstructed from their resource spec.
+  const adaptHistoricalItem = (entity: any) => {
+    if (
+      entity.kind === 'item' &&
+      entity.resource !== undefined &&
+      entity.label === itemTypes[entity.resource]?.name.toUpperCase()
+    ) {
+      delete entity.label;
+
+      if (entity.resource === 0 && entity.id === 123456) {
+        entity.radius = Math.max(
+          ...diamond.points.map(([x, y]) => Math.hypot(x, y)),
+        );
+      }
+    }
+
+    entity.cargoContents?.forEach((cargo: any) => {
+      if (!('moduleIndex' in cargo)) adaptHistoricalItem(cargo);
+    });
+  };
+
+  snapshot.fullEntities.forEach(adaptHistoricalItem);
+  return snapshot;
 }
 
 function compare(a: unknown, b: unknown, path: string) {

@@ -1,5 +1,5 @@
 import * as Vec from '../utilities/vector';
-import { simulationStep } from '../../definitions/simulation';
+import { simulationStep } from '../../specs/simulation';
 import { type SimulationWorld } from '../simulation/world';
 import { type Pose } from '../types';
 
@@ -18,7 +18,14 @@ export class RemoteMotion {
     world,
     predicted,
   }: {
-    before: Map<number, Pose & { dockedTo?: number }>;
+    before: Map<
+      number,
+      Pose & {
+        dockedTo?: number;
+        kind?: string;
+        shapeOutline?: number[][];
+      }
+    >;
     now: number;
     world: SimulationWorld;
     predicted: SimulationWorld;
@@ -33,6 +40,15 @@ export class RemoteMotion {
       if (
         !current ||
         !entity ||
+        (pose.kind !== undefined && pose.kind !== entity.kind) ||
+        (pose.kind === 'asteroid' &&
+          (pose.shapeOutline?.length !== current.shapeOutline?.length ||
+            pose.shapeOutline?.some((point, index) =>
+              point.some(
+                (value, axis) =>
+                  Math.abs(value - current.shapeOutline[index][axis]) > 1e-6,
+              ),
+            ))) ||
         pose.dockedTo !== entity.dockedTo ||
         Vec.distance(pose.position, current.position) > 1000
       ) {

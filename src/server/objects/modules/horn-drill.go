@@ -3,21 +3,21 @@ package modules
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 )
 
 type HornDrill struct{ *Module }
 
-func NewHornDrill(props simulation.ObjectProperties, catalog definitions.Catalog) *HornDrill {
+func NewHornDrill(props simulation.ObjectProperties, catalog specs.Catalog) *HornDrill {
 	m := &HornDrill{NewModule("hornDrill", props, catalog)}
 	m.Self = m
 
 	m.ModuleData.Bounciness = func(s *simulation.Segment) *float64 {
-		if s.ActivationProgress > m.Definition.ActivationThreshold {
+		if s.ActivationProgress > m.Spec.ActivationThreshold {
 			v := -0.4
 			return &v
 		}
@@ -25,7 +25,7 @@ func NewHornDrill(props simulation.ObjectProperties, catalog definitions.Catalog
 		return nil
 	}
 
-	m.Model = []*simulation.SegmentPlan{{Points: points(m.Definition.Points)}}
+	m.Model = []*simulation.SegmentPlan{{Points: points(m.Spec.Points)}}
 	return m
 }
 
@@ -48,7 +48,7 @@ func (m *HornDrill) Drill(ship simulation.Entity, segment *simulation.Segment, t
 
 	before := *health
 	object := ship.Base()
-	d := m.Definition
+	d := m.Spec
 
 	if segment.ActivationProgress <= d.ActivationThreshold || object.PlayerID == nil || !world.Entities.Has(owner.Base().ID) || !(before > 0) {
 		return

@@ -9,6 +9,7 @@ export type ReplicatedModule = ModuleState;
 
 export type CraftAction =
   | { action: 'buy'; module: number; moduleId: number }
+  | { action: 'buyAmmo' }
   | { action: 'sell'; objectIds: number[] }
   | { action: 'equip'; moduleId: number; mount: number }
   | { action: 'remove'; mount: number }
@@ -25,7 +26,7 @@ export type ReplicatedEntity = {
   health?: number;
   hullHealth?: number[];
   id: number;
-  kind: 'asteroid' | 'item' | 'ship' | 'station' | 'object';
+  kind: 'asteroid' | 'item' | 'ship' | 'station' | 'object' | 'projectile';
   label?: string;
   launching?: number;
   mass?: number;
@@ -44,6 +45,7 @@ export type ReplicatedEntity = {
   radius: number;
   radiusEven?: number;
   resource?: number;
+  rounds?: number;
   rotation: number;
   spin: number;
   segments?: AsteroidSegment[];

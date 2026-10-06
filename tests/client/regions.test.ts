@@ -18,8 +18,8 @@ const bundle = await rolldown({
       export { RegionManager } from '${process.cwd()}/src/client/simulation/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/client/simulation/world.ts';
       export { shapeOutlineOf, createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
-      export { preGeneratedRadius } from '${process.cwd()}/src/definitions/region-generation.ts';
-      export { message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
+      export { preGeneratedRadius } from '${process.cwd()}/src/specs/region-generation.ts';
+      export { message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';
       export * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
     `
@@ -47,8 +47,8 @@ const {
   createWorld: typeof import('../../src/client/simulation/world.ts').createWorld;
   shapeOutlineOf: typeof import('../../src/client/objects/asteroid.ts').shapeOutlineOf;
   createAsteroid: typeof import('../../src/client/objects/asteroid.ts').createAsteroid;
-  preGeneratedRadius: typeof import('../../src/definitions/region-generation.ts').preGeneratedRadius;
-  messageDefinition: typeof import('../../src/definitions/items/index.ts').message;
+  preGeneratedRadius: typeof import('../../src/specs/region-generation.ts').preGeneratedRadius;
+  messageSpec: typeof import('../../src/specs/items/index.ts').message;
   Item: typeof import('../../src/client/objects/item.ts').Item;
   Vec: typeof import('../../src/client/utilities/vector.ts');
 } = await import(

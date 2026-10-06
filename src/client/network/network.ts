@@ -1,3 +1,5 @@
+import { Projectile } from '../objects/projectile';
+import { type WeaponId } from '../../specs/modules';
 import * as Vec from '../utilities/vector';
 import { type PlayerInput } from '../protocol/input';
 import { playerInput } from '../input/input';
@@ -19,7 +21,7 @@ import { createRandom } from '../utilities/seeded-random';
 import { addPlayer, createWorld } from '../simulation/world';
 import { createAsteroid } from '../objects/asteroid';
 import { Item } from '../objects/item';
-import { itemTypes } from '../../definitions/items';
+import { itemTypes } from '../../specs/items';
 import { GameObject } from '../objects/game-object';
 import { Craft } from '../objects/craft';
 import { Ship } from '../objects/ship';
@@ -29,11 +31,11 @@ import { createWreckage } from '../objects/create-wreckage';
 import { type SimulationWorld } from '../simulation/world';
 import { PredictionManager } from '../prediction/prediction';
 import { RemoteMotion } from '../prediction/remote-motion';
-import { maxPredictionTicks } from '../../definitions/prediction';
-import { simulationStep } from '../../definitions/simulation';
+import { maxPredictionTicks } from '../../specs/prediction';
+import { simulationStep } from '../../specs/simulation';
 import { setCraftActionDispatcher } from './craft-actions';
 import { type CraftAction } from '../protocol/network';
-import { shadesOf } from '../../definitions/colors';
+import { shadesOf } from '../../specs/colors';
 
 const makeEntity = ({
   entity,
@@ -53,6 +55,7 @@ const makeEntity = ({
     ...(entity.health !== undefined && { health: entity.health }),
     ...(entity.label !== undefined && { label: entity.label }),
     ...(entity.message !== undefined && { message: entity.message }),
+    ...(entity.rounds !== undefined && { rounds: entity.rounds }),
     id: entity.id,
     ...(entity.mass !== undefined && { mass: entity.mass }),
     pendingUpdateTime: entity.pendingUpdateTime ?? 0,
@@ -68,6 +71,13 @@ const makeEntity = ({
       entity.friction ?? (object.constructor as typeof GameObject).friction;
     return object;
   };
+
+  if (entity.kind === 'projectile') {
+    return new Projectile(entity.definitionId as WeaponId, {
+      ...common,
+      playerId: entity.playerId,
+    });
+  }
 
   if (entity.kind === 'object') return withFriction(new GameObject(common));
 
@@ -127,14 +137,14 @@ const makeEntity = ({
           ? new Station({
               ...common,
               stationType:
-                entity.definitionId as import('../../definitions/stations').StationId,
+                entity.definitionId as import('../../specs/stations').StationId,
               world,
               ...(entity.shades && { shades: shadesOf(entity.shades) }),
             })
           : createShip(world, {
               ...common,
               shipType:
-                entity.definitionId as import('../../definitions/ships').ShipId,
+                entity.definitionId as import('../../specs/ships').ShipId,
               ...(entity.shades && { shades: shadesOf(entity.shades) }),
             }),
     common,
@@ -256,9 +266,11 @@ export class NetworkClient {
       const ship = this.world.entities.get(this.shipId!);
 
       if (ship instanceof Ship) {
-        moduleControls.forEach(({ Type, input }) => {
-          playerInput[input] = ship.moduleActive({ module: Type });
-        });
+        moduleControls
+          .filter(({ input }) => input !== 'fire')
+          .forEach(({ Type, input }) => {
+            playerInput[input] = ship.moduleActive({ module: Type });
+          });
       }
 
       if (this.welcomed) {
@@ -580,21 +592,32 @@ export class NetworkClient {
 
     // Catch up elapsed movement before preserving the current pose. A delayed
     // browser frame must not smooth away the distance it legitimately travelled.
-    const before =
+    const predictedBefore =
       !recovering &&
       this.pendingSnapshot &&
       now + 1e-6 >= this.snapshotReceivedAt
-        ? this.remoteMotion.sample({
-            now,
-            world: this.world,
-            predicted: this.predictFrame({ now }),
-            shipId: this.shipId,
-          })
+        ? this.predictFrame({ now })
         : undefined;
 
-    before?.forEach((pose, id) =>
-      Object.assign(pose, { dockedTo: this.world.entities.get(id)?.dockedTo }),
-    );
+    const before =
+      predictedBefore &&
+      this.remoteMotion.sample({
+        now,
+        world: this.world,
+        predicted: predictedBefore,
+        shipId: this.shipId,
+      });
+
+    before?.forEach((pose, id) => {
+      const entity =
+        predictedBefore?.entities.get(id) || this.world.entities.get(id);
+
+      Object.assign(pose, {
+        dockedTo: entity?.dockedTo,
+        kind: entity?.kind,
+        shapeOutline: entity?.shapeOutline,
+      });
+    });
 
     // Reconcile after clock catch-up, including frames shorter than a tick.
     // Never apply a fresh snapshot to an earlier catch-up boundary.

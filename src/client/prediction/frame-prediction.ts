@@ -8,7 +8,7 @@ import {
   createWorld,
   type SimulationWorld,
 } from '../simulation/world';
-import { simulationStep } from '../../definitions/simulation';
+import { simulationStep } from '../../specs/simulation';
 import { updateWorld } from '../simulation/update-world';
 import {
   captureWorld,

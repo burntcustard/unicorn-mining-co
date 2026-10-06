@@ -2,8 +2,8 @@
 package objects
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
 
@@ -12,7 +12,7 @@ type Station struct {
 	LocalMovementRadius float64
 }
 
-func newStation(props Properties, plans []*simulation.SegmentPlan, catalog definitions.Catalog) *Station {
+func newStation(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Station {
 	s := &Station{Craft: NewCraft(props, plans, catalog)}
 	s.Self = s
 	s.Kind = "station"
@@ -25,11 +25,11 @@ func (s *Station) Holds(child simulation.Entity) bool {
 
 func (s *Station) MovementRadius() float64 { return s.LocalMovementRadius }
 
-func NewStation(id string, props Properties, catalog definitions.Catalog) *Station {
-	d, ok := catalog.StationDefinitions[id]
+func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
+	d, ok := catalog.StationSpecs[id]
 
 	if !ok {
-		panic("Unknown station definition: " + id)
+		panic("Unknown station spec: " + id)
 	}
 
 	plans := make([]*simulation.SegmentPlan, len(d.HullSegments))
@@ -42,6 +42,10 @@ func NewStation(id string, props Properties, catalog definitions.Catalog) *Stati
 		}
 
 		plans[i] = &simulation.SegmentPlan{Health: segment.Health, Points: outline, DisablePhysics: segment.DisablePhysics, DockSegment: segment.DockSegment, Shades: segment.Shades, ZIndex: segment.ZIndex}
+
+		for _, mount := range segment.Mounts {
+			plans[i].Mounts = append(plans[i].Mounts, simulation.NewMount(mount))
+		}
 	}
 
 	if props.Mass == nil {
@@ -67,7 +71,7 @@ func NewStation(id string, props Properties, catalog definitions.Catalog) *Stati
 	return station
 }
 
-func CreateStation(props Properties, catalog definitions.Catalog) *Station {
+func CreateStation(props Properties, catalog specs.Catalog) *Station {
 	if props.DefinitionID == "" {
 		props.DefinitionID = "corral"
 	}

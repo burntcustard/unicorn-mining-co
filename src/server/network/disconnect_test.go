@@ -1,8 +1,8 @@
 package network
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"slices"
 	"testing"
@@ -12,7 +12,7 @@ import (
 func TestDisconnectedShipCooldown(t *testing.T) {
 	for _, reconnectEarly := range []bool{false, true} {
 		t.Run(map[bool]string{false: "expires", true: "reconnect-cancels"}[reconnectEarly], func(t *testing.T) {
-			catalog, err := definitions.Load()
+			catalog, err := specs.Load()
 
 			if err != nil {
 				t.Fatal(err)
@@ -82,7 +82,7 @@ func TestDisconnectedShipCooldown(t *testing.T) {
 }
 
 func TestDisconnectedDeadShipDoesNotReappear(t *testing.T) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	clock := time.Unix(100000, 0)
 

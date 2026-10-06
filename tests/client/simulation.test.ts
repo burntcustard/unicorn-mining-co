@@ -16,9 +16,9 @@ const bundle = await rolldown({
           ? `
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/client/simulation/world.ts';
       export { createAsteroid, shapeOutlinesFrom } from '${process.cwd()}/src/client/objects/asteroid.ts';
-      export { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
+      export { diamond as diamondSpec } from '${process.cwd()}/src/specs/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';
-      export { message as messageDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
+      export { message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
       export { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
       export { Station } from '${process.cwd()}/src/client/objects/station.ts';
       export { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
@@ -44,9 +44,9 @@ const simulation: {
   entityId: typeof import('../../src/client/simulation/world.ts').entityId;
   createAsteroid: typeof import('../../src/client/objects/asteroid.ts').createAsteroid;
   shapeOutlinesFrom: typeof import('../../src/client/objects/asteroid.ts').shapeOutlinesFrom;
-  diamondDefinition: typeof import('../../src/definitions/items/index.ts').diamond;
+  diamondSpec: typeof import('../../src/specs/items/index.ts').diamond;
   Item: typeof import('../../src/client/objects/item.ts').Item;
-  messageDefinition: typeof import('../../src/definitions/items/index.ts').message;
+  messageSpec: typeof import('../../src/specs/items/index.ts').message;
   createPlayerShip: typeof import('../../src/client/objects/create-ship.ts').createPlayerShip;
   Station: typeof import('../../src/client/objects/station.ts').Station;
   Craft: typeof import('../../src/client/objects/craft.ts').Craft;
@@ -64,9 +64,9 @@ const {
   addEntity,
   addPlayer,
   createAsteroid,
-  diamondDefinition,
+  diamondSpec,
   Item,
-  messageDefinition,
+  messageSpec,
   createPlayerShip,
   Station,
   Craft,
@@ -918,7 +918,6 @@ const diamondPickup = () => {
   // Collect clear of the asteroid fragments left by the drilling stage.
   Vec.set(ship.position, Vec.create(-200));
   Vec.set(ship.velocity, Vec.create());
-  Vec.set(item.position, Vec.add(ship.position, Vec.create(3, -13)));
   Vec.set(item.velocity, Vec.create());
 
   const pickupInput = {
@@ -929,6 +928,17 @@ const diamondPickup = () => {
   };
 
   const pickupEvents = [];
+
+  // Open the hatch before bringing the item inside the hull.
+  for (let i = 0; i < 60; i++) {
+    pickupEvents.push(
+      ...updateWorld({ world, inputs: new Map([[7, pickupInput]]) }),
+    );
+  }
+
+  const throat = ship.hitbox().find(({ role }) => role === 'cargoHatch');
+
+  Vec.set(item.position, throat.position);
 
   for (let i = 0; i < 120 && !ship.cargoContents?.length; i++) {
     pickupEvents.push(
@@ -966,7 +976,7 @@ diamondPickup();
 
   const item = addEntity(
     world,
-    new Item(diamondDefinition, {
+    new Item(diamondSpec, {
       world,
       id: entityId(world),
       position: Vec.add(throat.position, Vec.create(throat.radius + 2)),
@@ -1027,13 +1037,13 @@ diamondPickup();
   ship.cargoContents.push(
     ...Array.from(
       { length: ship.cargoSpace },
-      () => new Item(diamondDefinition, { world }),
+      () => new Item(diamondSpec, { world }),
     ),
   );
 
   const slate = addEntity(
     world,
-    new Item(messageDefinition, {
+    new Item(messageSpec, {
       world,
       id: entityId(world),
       message: 'GOLD ORE 100/200',

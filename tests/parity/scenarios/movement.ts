@@ -1,4 +1,4 @@
-import { simulationStep } from '../../../src/definitions/simulation';
+import { simulationStep } from '../../../src/specs/simulation';
 import * as Vec from '../../../src/client/utilities/vector';
 import { GameObject } from '../../../src/client/objects/game-object';
 import { Ship } from '../../../src/client/objects/ship';

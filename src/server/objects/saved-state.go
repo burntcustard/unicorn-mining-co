@@ -32,6 +32,7 @@ type SavedObject struct {
 }
 
 type SavedEntity struct {
+	Rounds                   *int
 	Object                   SavedObject
 	ModuleType               string
 	Contents                 []int
@@ -65,6 +66,17 @@ func savedOutline(p *simulation.ShapeOutline) *simulation.ShapeOutline {
 	return &simulation.ShapeOutline{Points: slices.Clone(p.Points), Edges: slices.Clone(p.Edges)}
 }
 
+func restoreModuleID(id string) string {
+	switch id {
+	case "shieldGenerator":
+		return "shieldGeneratorSm"
+	case "thrusterSingle":
+		return "thrusterSingleMd"
+	default:
+		return id
+	}
+}
+
 func CaptureEntity(entity simulation.Entity) SavedEntity {
 	o := entity.Base()
 
@@ -94,6 +106,10 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 
 	if m, ok := entity.(simulation.Module); ok {
 		s.ModuleType = m.ModuleBase().Type
+	}
+
+	if item, ok := entity.(*Item); ok {
+		s.Rounds = savedPointer(item.Rounds)
 	}
 
 	if a, ok := entity.(*simulation.Asteroid); ok {
@@ -173,23 +189,39 @@ func craftOf(entity simulation.Entity) *Craft {
 }
 
 func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, error) {
+	s.ModuleType = restoreModuleID(s.ModuleType)
+
 	o := s.Object
 	props := simulation.ObjectProperties{ID: &o.ID, World: world, Random: random.CreateRandom(float64(o.ID))}
 	var entity simulation.Entity
 
 	if s.ModuleType != "" {
-		if _, ok := world.Specification.ModuleDefinitions[s.ModuleType]; !ok {
+		if _, ok := world.Specification.ModuleSpecs[s.ModuleType]; !ok {
 			return nil, fmt.Errorf("unknown saved module %q", s.ModuleType)
 		}
 
 		entity = modules.Create(s.ModuleType, props, world.Specification)
 	} else {
 		switch o.Kind {
+		case "projectile":
+			entity = NewProjectile(o.DefinitionID, props, world.Specification)
 		case "asteroid":
 			props.Radius, props.Health, props.Mass, props.Resource, props.ShapeOutline = &o.Radius, &o.Health, &o.Mass, &o.Resource, o.ShapeOutline
 			entity = simulation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectProperties: props, Contents: s.Contents, MaxHealth: &s.MaxHealth, PointCount: o.PointCount, RadiusEven: o.RadiusEven, Segments: s.AsteroidSegments}).LockGeometry()
 		case "item":
-			entity = NewItem("", props, world.Specification)
+			id := ""
+
+			if o.HasResource && o.Resource >= 0 && o.Resource < len(world.Specification.ItemIDs) {
+				id = world.Specification.ItemIDs[o.Resource]
+			}
+
+			item := NewItem(id, props, world.Specification)
+
+			if s.Rounds != nil {
+				item.Rounds = savedPointer(s.Rounds)
+			}
+
+			entity = item
 		case "ship", "station", "craft":
 			p := Properties{ObjectProperties: props, DefinitionID: o.DefinitionID, Shades: o.Shades}
 
@@ -202,7 +234,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 					id = "corral"
 				}
 
-				if _, ok := world.Specification.StationDefinitions[id]; !ok {
+				if _, ok := world.Specification.StationSpecs[id]; !ok {
 					return nil, fmt.Errorf("unknown saved station %q", id)
 				}
 
@@ -214,7 +246,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 					id = "mustang"
 				}
 
-				if _, ok := world.Specification.ShipDefinitions[id]; !ok {
+				if _, ok := world.Specification.ShipSpecs[id]; !ok {
 					return nil, fmt.Errorf("unknown saved ship %q", id)
 				}
 
@@ -234,7 +266,8 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 					return nil, fmt.Errorf("missing saved module type")
 				}
 
-				s.Modules[i].Type = slices.Index(c.Catalog.ModuleIDs, s.ModuleTypes[i])
+				id := restoreModuleID(s.ModuleTypes[i])
+				s.Modules[i].Type = slices.Index(c.Catalog.ModuleIDs, id)
 				m := s.Modules[i]
 
 				if m.Type < 0 || m.Type >= len(c.Catalog.ModuleIDs) {

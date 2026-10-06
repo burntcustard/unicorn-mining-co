@@ -3,11 +3,11 @@ package objects
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/physics"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -30,7 +30,7 @@ type geometrySource struct{ identity byte }
 type Craft struct {
 	HasLaunching bool
 	*simulation.GameObject
-	Catalog                            definitions.Catalog
+	Catalog                            specs.Catalog
 	Segments                           []*simulation.Segment
 	HullSegments                       []*simulation.SegmentPlan
 	CargoContents                      []simulation.Entity
@@ -91,13 +91,13 @@ func (c *Craft) HandleDockingContacts(contacts []collision.Contact, events *[]pr
 	}
 }
 
-func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog definitions.Catalog) *Craft {
+func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Craft {
 	c := &Craft{GameObject: simulation.NewGameObject(props.ObjectProperties, catalog.Simulation), Catalog: catalog, CargoContents: props.CargoContents, HullSegments: plans, DockedTo: props.DockedTo, Launching: props.Launching}
 	c.Self = c
 	c.Kind = "craft"
-	c.ZIndex = definitions.HullZIndex
-	c.Friction = definitions.CraftFriction
-	c.Health = definitions.CraftHealth
+	c.ZIndex = specs.HullZIndex
+	c.Friction = specs.CraftFriction
+	c.Health = specs.CraftHealth
 	c.Shades = catalog.Colors["white"]
 	c.ApplyProperties(props.ObjectProperties)
 
@@ -108,8 +108,8 @@ func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog definit
 	if props.Segments != nil {
 		c.Segments = props.Segments
 		c.HullSegments = props.HullSegments
-		c.Decay = definitions.WreckageDecay
-		c.Health = definitions.WreckageHealth + c.Random.Next()
+		c.Decay = specs.WreckageDecay
+		c.Health = specs.WreckageHealth + c.Random.Next()
 		c.Mass = float64(len(c.Segments))
 		return c
 	}
@@ -157,14 +157,14 @@ func makeSegment(c *Craft, module simulation.Module, plan *simulation.SegmentPla
 	}
 
 	duration := plan.ActivationDuration
-	definition := s.ModuleDefinition()
+	spec := s.ModuleSpec()
 
 	if duration == 0 {
-		duration = definition.ActivationDuration
+		duration = spec.ActivationDuration
 	}
 
 	if duration == 0 {
-		duration = definitions.DefaultActivationDuration
+		duration = specs.DefaultActivationDuration
 	}
 
 	s.Rate = 1 / duration
@@ -202,11 +202,30 @@ func makeSegment(c *Craft, module simulation.Module, plan *simulation.SegmentPla
 		s.LocalPosition = mount.LocalPosition
 	}
 
-	s.LocalPosition = Vec.Add(s.LocalPosition, Vec.Create(0, plan.ThrusterNozzleSide*definition.Offset))
+	side := plan.ThrusterNozzleSide
+
+	if spec.CollectsCargo && mount != nil {
+		if mount.LocalPosition.Y < 0 {
+			side = 1
+		} else if mount.LocalPosition.Y > 0 {
+			side = -1
+		}
+	}
+
+	offset := spec.Offset
+	if plan.ThrusterNozzleSide != 0 && mount != nil && module != nil {
+		for _, point := range mount.MountPoints {
+			if slices.Contains(point.Fits, module.ModuleBase().Type) {
+				offset += point.ThrusterOffset
+				break
+			}
+		}
+	}
+	s.LocalPosition = Vec.Add(s.LocalPosition, Vec.Create(0, side*offset))
 	s.ZIndex = c.ZIndex
 
 	if module != nil {
-		s.ZIndex = definition.ZIndex
+		s.ZIndex = spec.ZIndex
 	}
 
 	if plan.ZIndex != nil {
@@ -305,6 +324,13 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 	mount.Health = 0
 
 	if module != nil {
+		for _, point := range mount.MountPoints {
+			if slices.Contains(point.Fits, module.ModuleBase().Type) {
+				mount.LocalPosition = Vec.Create(point.X, point.Y)
+				break
+			}
+		}
+
 		mount.Health = module.Base().Health
 
 		c.CargoContents = slices.DeleteFunc(c.CargoContents, func(e simulation.Entity) bool { return e == module })
@@ -484,6 +510,10 @@ func (c *Craft) ModuleStates() []ModuleState {
 
 		state := ModuleState{ID: &id, Type: slices.Index(c.Catalog.ModuleIDs, d.Type), Mount: slices.Index(mounts, d.Mount), Health: &health, Shades: module.Base().Shades, Segments: []ModuleSegmentState{}}
 
+		if d.FireCooldown > 0 {
+			state.FireCooldown = new(d.FireCooldown)
+		}
+
 		for _, s := range c.SegmentsAtMount(d.Mount) {
 			if s.Module == module {
 				state.Segments = append(state.Segments, ModuleSegmentState{s.Active, s.ActivationProgress})
@@ -533,13 +563,18 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 		}
 
 		object := module.Base()
+		module.ModuleBase().FireCooldown = 0
+
+		if state.FireCooldown != nil {
+			module.ModuleBase().FireCooldown = *state.FireCooldown
+		}
 
 		if state.ID != nil {
 			object.ID = *state.ID
 		}
 
 		if state.Mount >= 0 {
-			object.Health = module.ModuleBase().Definition.Health
+			object.Health = module.ModuleBase().Spec.Health
 		} else {
 			object.Health = math.NaN()
 
@@ -611,7 +646,7 @@ func (c *Craft) Wreckage() []WreckageSegment {
 
 func (c *Craft) ModuleActive(id string) bool {
 	for _, s := range c.Segments {
-		if s.Module != nil && s.Module.ModuleBase().Type == id && !(*s.TargetHealth() < 1) && s.Active != 0 {
+		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) && !(*s.TargetHealth() < 1) && s.Active != 0 {
 			return true
 		}
 	}
@@ -627,7 +662,7 @@ func (c *Craft) SetModuleActive(id string, enabled bool) {
 	}
 
 	for _, s := range c.Segments {
-		if s.Module != nil && s.Module.ModuleBase().Type == id {
+		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) {
 			s.Active = value
 		}
 	}
@@ -635,7 +670,7 @@ func (c *Craft) SetModuleActive(id string, enabled bool) {
 
 func (c *Craft) Toggle(id string) {
 	for _, s := range c.Segments {
-		if s.Module != nil && s.Module.ModuleBase().Type == id {
+		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) {
 			s.Active = 1 - s.Active
 		}
 	}
@@ -781,7 +816,7 @@ func (c *Craft) Detach(mount *simulation.Mount) {
 	origin := mount.LocalPosition
 
 	if wreckageMiddle != nil {
-		origin = Vec.Add(origin, *wreckageMiddle)
+		origin = Vec.Add(segments[0].LocalPosition, *wreckageMiddle)
 	}
 
 	destroyed := mount.Module
@@ -1001,18 +1036,18 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 	changed := false
 	sin, cos := math.Sincos(c.Rotation)
 	colliders := c.spareColliders[:0]
-	hatchOpen := c.Catalog.ModuleDefinitions["cargoHatch"].CargoGeometry.OpeningThreshold
+	hatchOpen := c.Catalog.ModuleSpecs["cargoHatch"].CargoGeometry.OpeningThreshold
 
 	for _, s := range c.Segments {
 		if s.Radius == nil || *s.TargetHealth() < 1 {
 			continue
 		}
 
-		d := s.ModuleDefinition()
+		d := s.ModuleSpec()
 		physical := c.Physics && !d.DisablePhysics && !s.Catches && !(d.CollectsCargo && s.Active == 0 && s.ActivationProgress == 0)
 
 		for _, m := range s.Mounts {
-			if m.Module == nil || !m.Module.ModuleBase().Definition.CollectsCargo {
+			if m.Module == nil || !m.Module.ModuleBase().Spec.CollectsCargo {
 				continue
 			}
 
@@ -1098,7 +1133,7 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 			bounce = s.Module.ModuleBase().Bounciness(s)
 		}
 
-		value := definitions.HullBounciness
+		value := specs.HullBounciness
 
 		if bounce != nil {
 			value = *bounce

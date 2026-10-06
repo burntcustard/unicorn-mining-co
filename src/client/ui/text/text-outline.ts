@@ -1,3 +1,5 @@
+import { withAlpha } from '../../utilities/color';
+
 export interface TextOutlineOptions {
   ctx: CanvasRenderingContext2D;
   path: Path2D;
@@ -9,7 +11,7 @@ export const textOutline = ({
   ctx,
   path,
   radius = 1,
-  strokeStyle = '#0007',
+  strokeStyle = withAlpha({ color: '#000', alpha: 7 / 15 }),
 }: TextOutlineOptions) => {
   const textOutlinePath = new Path2D();
 

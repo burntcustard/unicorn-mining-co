@@ -27,9 +27,9 @@ const executable = resolve('bin/server');
 let server: ReturnType<typeof spawn> | undefined;
 const sockets: WebSocket[] = [];
 
-async function start() {
+async function start(appEnv = 'production') {
   const child = spawn(executable, [], {
-    env,
+    env: { ...env, APP_ENV: appEnv, NODE_ENV: appEnv },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
 
@@ -139,6 +139,7 @@ try {
   const first = await join(address, null);
 
   assert.equal(first.paints, 100);
+  assert.equal(first.credits, 500);
   const firstClosed = once(sockets[0], 'close');
 
   sockets[0].terminate();
@@ -162,7 +163,25 @@ try {
 
   assert.deepEqual(recovered, resumed);
   await stop('SIGTERM');
-  console.log('SQLite refresh, graceful restart, abrupt process kill passed');
+  address = await start('development');
+  const developer = await join(address, null);
+
+  assert.equal(developer.credits, 10000);
+  const existing = await join(address, first.token);
+
+  assert.equal(existing.credits, first.credits);
+  await stop('SIGTERM');
+  address = await start();
+  const savedDeveloper = await join(address, developer.token);
+
+  assert.equal(savedDeveloper.credits, developer.credits);
+  const newProductionPlayer = await join(address, null);
+
+  assert.equal(newProductionPlayer.credits, 500);
+  await stop('SIGTERM');
+  console.log(
+    'SQLite refresh, graceful restart, abrupt process kill and development starting credits passed',
+  );
 } finally {
   clearTimeout(timeout);
   sockets.forEach((socket) => socket.terminate());

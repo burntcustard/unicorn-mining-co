@@ -18,11 +18,14 @@
         <option value="item">Item</option>
         <option value="asteroid">Asteroid</option>
       </select>
-      <label for="definition">Definition</label>
-      <select id="definition"></select>
+      <label for="spec">Spec</label>
+      <select id="spec"></select>
       <fieldset>
         <legend>View</legend>
         <label><input id="grid" type="checkbox" /> Coordinate grid</label>
+        <label
+          ><input id="mount-points" type="checkbox" /> Mounting points</label
+        >
         <label><input id="spin" type="checkbox" /> Spin</label>
         <button id="reset-rotation" type="button">Reset rotation</button>
         <label for="zoom">Zoom <output id="zoom-value"></output></label>
@@ -31,6 +34,16 @@
       <fieldset id="module-controls">
         <legend>Fitted modules</legend>
         <div id="modules"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Effects</legend>
+        <button id="replay-effect" type="button">
+          Replay plasma explosion
+        </button>
+        <label
+          ><input id="slow-effect" type="checkbox" /> Slow motion (¼
+          speed)</label
+        >
       </fieldset>
       <p id="source"></p>
     </aside>

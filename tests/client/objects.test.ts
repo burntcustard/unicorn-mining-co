@@ -7,8 +7,8 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 assert.deepEqual(readdirSync('src').sort(), [
   'client',
-  'definitions',
   'server',
+  'specs',
   'tools',
 ]);
 const scenario = `
@@ -18,17 +18,17 @@ import { GameObject } from '${process.cwd()}/src/client/objects/game-object.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
 import { Station } from '${process.cwd()}/src/client/objects/station.ts';
-import { mustang } from '${process.cwd()}/src/definitions/ships/mustang.ts';
-import { corral } from '${process.cwd()}/src/definitions/stations/corral.ts';
+import { mustang } from '${process.cwd()}/src/specs/ships/mustang.ts';
+import { corral } from '${process.cwd()}/src/specs/stations/corral.ts';
 import { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
 import { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
-import { diamond as diamondDefinition } from '${process.cwd()}/src/definitions/items/index.ts';
+import { diamond as diamondSpec } from '${process.cwd()}/src/specs/items/index.ts';
 
 
 import { Asteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
 import { moduleTypes, HornDrill, SearchLight } from '${process.cwd()}/src/client/objects/modules/index.ts';
-import { colors } from '${process.cwd()}/src/definitions/colors.ts';
+import { colors } from '${process.cwd()}/src/specs/colors.ts';
 import { createWreckage } from '${process.cwd()}/src/client/objects/create-wreckage.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/client/simulation/world.ts';
 import { captureWorld, restoreWorld, cloneEntity } from '${process.cwd()}/src/client/simulation/world-state.ts';
@@ -38,13 +38,13 @@ assert.equal(typeof window, 'undefined');
 assert.equal(Object.getPrototypeOf(Craft.prototype), GameObject.prototype);
 assert.equal(Object.getPrototypeOf(Ship.prototype), Craft.prototype);
 assert.equal(Object.getPrototypeOf(Module.prototype), GameObject.prototype);
-assert.equal(Object.getPrototypeOf(HornDrill.prototype), Module.prototype);
+assert(Module.prototype.isPrototypeOf(HornDrill.prototype));
 assert.equal(Object.getPrototypeOf(Asteroid.prototype), GameObject.prototype);
 assert.equal(Object.getPrototypeOf(Item.prototype), GameObject.prototype);
 assert.equal(Object.getPrototypeOf(Station.prototype), Craft.prototype);
 const bare = new Ship({});
-assert.equal(new Ship({shipType:'viewerOnly',definition:{...mustang,cargoSpace:25}}).cargoSpace,25,'unregistered ship definitions work in source and production');
-assert.equal(new Station({stationType:'viewerOnly',definition:{...corral,localMovementRadius:750}}).localMovementRadius,750,'unregistered station definitions work in source and production');
+assert.equal(new Ship({shipType:'viewerOnly',spec:{...mustang,cargoSpace:25}}).cargoSpace,25,'unregistered ship specs work in source and production');
+assert.equal(new Station({stationType:'viewerOnly',spec:{...corral,localMovementRadius:750}}).localMovementRadius,750,'unregistered station specs work in source and production');
 const intactSegments = bare.segments;
 bare.hullHealth = bare.hullHealth;
 assert.equal(bare.segments, intactSegments, 'unchanged hull checkpoints preserve geometry');
@@ -85,7 +85,7 @@ const world = createWorld({seed:25});
   assert.equal(registry.length,0,'other members still remove themselves from the live registry');
 }
 for (const Type of [Craft,Station,Station,Ship]) {
-  const diamond = new Item(diamondDefinition, );
+  const diamond = new Item(diamondSpec, );
   const hornDrill = new HornDrill();
   const object = new GameObject();
   const craft = new Type({cargoContents:[diamond,hornDrill,object]});
@@ -116,7 +116,7 @@ assert(segments[0].activationProgress > 0 && segments[0].activationProgress < 1)
 ship.moduleStates = moduleStates;
 assert.equal(ship.modules.find(module => module.constructor === HornDrill), fitted, 'snapshot preserves unchanged module instances');
 assert.equal(ship.segmentsAtMount(fitted.mount)[0], segments[0]);
-ship.cargoContents.push(new Item(diamondDefinition, {resource:0,world}));
+ship.cargoContents.push(new Item(diamondSpec, {resource:0,world}));
 const state = captureWorld({world});
 const expectedRandom = world.random.next();
 ship.position.x=200;

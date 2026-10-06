@@ -8,6 +8,9 @@ import { Craft, type ModuleState } from '../objects/craft';
  * until that history expires, allowing drilling and cargo transfers to rewind.
  */
 const fields = [
+  'sweepStart',
+  'definitionId',
+  'playerId',
   'rotation',
   'spin',
   'mass',
@@ -29,6 +32,7 @@ const fields = [
   'segments',
   'contents',
   'resource',
+  'rounds',
   'pointCount',
   'radiusEven',
 ] as const;
@@ -40,6 +44,7 @@ export class EntityState {
   }[] = [];
   private readonly cargoContents?: EntityState[];
   readonly cargoIds?: number[];
+  readonly cargoRounds?: (number | undefined)[];
   private readonly cockpit?: Craft['cockpit'];
   readonly dockedTo: number;
   readonly entity: GameObject;
@@ -80,6 +85,7 @@ export class EntityState {
       this.hullHealth = entity.hullHealth;
       this.moduleStates = entity.moduleStates;
       this.cargoIds = entity.cargoContents.map((object) => object.id);
+      this.cargoRounds = entity.cargoContents.map((object) => object.rounds);
       this.segments = [...entity.segments];
       this.cockpit = entity.cockpit;
       this.cargoContents = entity.cargoContents.map(
@@ -97,8 +103,10 @@ export class EntityState {
           values: Object.fromEntries(
             [
               'health',
+              'localPosition',
               'active',
               'activationProgress',
+              'fireCooldown',
               'biting',
               'mount',
               'module',

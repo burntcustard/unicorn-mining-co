@@ -1,7 +1,7 @@
 import * as Vec from '../../utilities/vector';
 import { AABBValue } from '../axis-aligned-bounds';
 import { TransformValue } from '../../utilities/vector-math';
-import { linearSlop } from '../../../definitions/physics';
+import { linearSlop } from '../../../specs/physics';
 import { Shape } from './base';
 
 const temp = Vec.create();

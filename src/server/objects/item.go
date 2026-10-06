@@ -3,29 +3,33 @@ package objects
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
-type Item struct{ *simulation.GameObject }
+type Item struct {
+	*simulation.GameObject
+	Name   string
+	Rounds *int
+}
 
-func NewItem(id string, props simulation.ObjectProperties, spec definitions.Catalog) *Item {
-	item := &Item{simulation.NewGameObject(props, spec.Simulation)}
+func NewItem(id string, props simulation.ObjectProperties, catalog specs.Catalog) *Item {
+	item := &Item{GameObject: simulation.NewGameObject(props, catalog.Simulation)}
 	item.Self = item
 	item.Kind, item.Item = "item", true
-	item.Mass = spec.ItemDefaults["mass"]
-	item.AngularDrag = spec.ItemDefaults["angularDrag"]
-	item.Radius = spec.ItemDefaults["radius"]
+	item.Mass = catalog.ItemDefaults["mass"]
+	item.AngularDrag = catalog.ItemDefaults["angularDrag"]
+	item.Radius = catalog.ItemDefaults["radius"]
 
 	if id != "" {
-		definition, ok := spec.ItemDefinitions[id]
+		spec, ok := catalog.ItemSpecs[id]
 
 		if !ok {
-			panic("Unknown item definition: " + id)
+			panic("Unknown item spec: " + id)
 		}
 
-		item.define(definition, spec)
+		item.define(spec, catalog)
 	}
 
 	outline := item.ShapeOutline
@@ -60,28 +64,32 @@ func (item *Item) Hitbox() []*collision.Collider {
 	return body
 }
 
-func (item *Item) define(definition definitions.Item, spec definitions.Catalog) {
-	item.Resource, item.Label = definition.Resource, definition.Label
+func (item *Item) define(spec specs.Item, catalog specs.Catalog) {
+	item.Resource, item.Name = spec.Resource, spec.Name
 
-	if definition.Radius != 0 {
-		item.Radius = definition.Radius
+	if spec.Rounds > 0 {
+		item.Rounds = new(spec.Rounds)
+	}
+
+	if spec.Radius != 0 {
+		item.Radius = spec.Radius
 	}
 
 	item.HasResource = true
 
-	if definition.Price != nil {
-		item.Price = *definition.Price
+	if spec.Price != nil {
+		item.Price = *spec.Price
 	}
 
-	item.Shades, item.Unlock = definition.Shades, definition.Unlock
-	item.Health = spec.ItemDefaults["health"]
-	bounciness := spec.ItemDefaults["bounciness"]
+	item.Shades, item.Unlock = spec.Shades, spec.Unlock
+	item.Health = catalog.ItemDefaults["health"]
+	bounciness := catalog.ItemDefaults["bounciness"]
 	item.Bounciness = &bounciness
 
-	if definition.Points != nil {
-		outline := &simulation.ShapeOutline{Points: make([]simulation.Point, len(definition.Points))}
+	if spec.Points != nil {
+		outline := &simulation.ShapeOutline{Points: make([]simulation.Point, len(spec.Points))}
 
-		for i, point := range definition.Points {
+		for i, point := range spec.Points {
 			outline.Points[i] = simulation.Point(point)
 		}
 
@@ -90,11 +98,11 @@ func (item *Item) define(definition definitions.Item, spec definitions.Catalog) 
 	}
 }
 
-func ItemTypes(spec definitions.Catalog) []func(simulation.ObjectProperties) simulation.Entity {
-	types := make([]func(simulation.ObjectProperties) simulation.Entity, len(spec.ItemIDs))
+func ItemTypes(catalog specs.Catalog) []func(simulation.ObjectProperties) simulation.Entity {
+	types := make([]func(simulation.ObjectProperties) simulation.Entity, len(catalog.ItemIDs))
 
-	for i, id := range spec.ItemIDs {
-		types[i] = func(props simulation.ObjectProperties) simulation.Entity { return NewItem(id, props, spec) }
+	for i, id := range catalog.ItemIDs {
+		types[i] = func(props simulation.ObjectProperties) simulation.Entity { return NewItem(id, props, catalog) }
 	}
 
 	return types

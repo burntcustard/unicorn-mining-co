@@ -1,4 +1,4 @@
-import type { RenderingLayer } from '../definitions/rendering-layers';
+import type { RenderingLayer } from '../specs/rendering-layers';
 import * as Vec from './utilities/vector';
 import { type Module } from './objects/modules/module';
 
@@ -18,6 +18,12 @@ export type ModuleSegmentPlan = {
 export type Mount = {
   [key: string]: any;
   localPosition: Vec.Value;
+  mountPoints?: {
+    x: number;
+    y: number;
+    thrusterOffset?: number;
+    fits: (typeof Module)[];
+  }[];
   health?: number;
   module?: Module | 0;
 };

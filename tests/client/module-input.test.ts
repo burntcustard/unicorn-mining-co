@@ -9,8 +9,10 @@ import { initKeys, playerInput } from '${process.cwd()}/src/client/input/input.t
 import { moduleBinding } from '${process.cwd()}/src/client/input/keybindings.ts';
 import { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
 import { createWorld } from '${process.cwd()}/src/client/simulation/world.ts';
+import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
+import { crotus } from '${process.cwd()}/src/specs/ships/crotus.ts';
 import { controlShip } from '${process.cwd()}/src/client/objects/control-ship.ts';
-import { HornDrill, SearchLight, CargoHatch, ShieldGenerator } from '${process.cwd()}/src/client/objects/modules/index.ts';
+import { HornDrill, SearchLight, CargoHatch, ShieldGenerator, ShieldGeneratorMd } from '${process.cwd()}/src/client/objects/modules/index.ts';
 globalThis.window=new EventTarget();
 initKeys();
 const ship=createPlayerShip(createWorld());
@@ -20,8 +22,8 @@ ship.fit(shieldGenerator,ship.mounts.find(mount=>mount.fits.includes(ShieldGener
 const keyEvent=(type,key,repeat=false)=>window.dispatchEvent(Object.assign(new Event(type),{key,repeat}));
 const press=key=>keyEvent('keydown',key);
 const release=key=>keyEvent('keyup',key);
-for(const [Type,action,label] of [[HornDrill,'hornDrill','HORN DRILL'],[SearchLight,'searchLight','SEARCH LIGHT'],[CargoHatch,'cargoHatch','CARGO HATCH'],[ShieldGenerator,'shieldGenerator','SHIELD GENERATOR']]){
-  assert.equal(Type.label,label,'module label uses terminology');
+for(const [Type,action,label] of [[HornDrill,'hornDrill','Horn Drill'],[SearchLight,'searchLight','Search Light'],[CargoHatch,'cargoHatch','Cargo Hatch'],[ShieldGenerator,'shieldGenerator','Shield Generator sm']]){
+  assert.equal(Type.name,label,'module name uses terminology');
   const binding=moduleBinding(action);
   assert(Array.isArray(binding.keys) && binding.mode==='toggle');
   const key=binding.keys[0].toUpperCase();
@@ -39,6 +41,19 @@ for(const [Type,action,label] of [[HornDrill,'hornDrill','HORN DRILL'],[SearchLi
   assert(!ship.moduleActive({module:Type}),key+' toggles off');
   release(key.toLowerCase());
 }
+const mediumShip=new Ship({spec:crotus});
+const medium=new ShieldGeneratorMd();
+mediumShip.fit(medium,mediumShip.mounts.find(mount=>mount.fits.includes(ShieldGeneratorMd)));
+press('s');
+controlShip(mediumShip,playerInput,[]);
+assert(mediumShip.moduleActive({module:ShieldGeneratorMd}),'the shared shield key activates medium');
+release('s');
+controlShip(mediumShip,playerInput,[]);
+assert(mediumShip.moduleActive({module:ShieldGeneratorMd}),'medium stays active after release');
+press('s');
+controlShip(mediumShip,playerInput,[]);
+assert(!mediumShip.moduleActive({module:ShieldGeneratorMd}),'the shared shield key deactivates medium');
+release('s');
 press('f');
 controlShip(ship,playerInput,[]);
 assert(!ship.moduleActive({module:SearchLight}),'there are no hidden module key aliases');

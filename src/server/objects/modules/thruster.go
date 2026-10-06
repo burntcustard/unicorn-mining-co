@@ -2,18 +2,18 @@
 package modules
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 type Thruster struct{ *Module }
 
-func NewThruster(id string, props simulation.ObjectProperties, catalog definitions.Catalog) *Thruster {
+func NewThruster(id string, props simulation.ObjectProperties, catalog specs.Catalog) *Thruster {
 	m := &Thruster{NewModule(id, props, catalog)}
 	m.Self = m
 
-	for i := range m.Definition.FlareSizes {
-		m.Model = append(m.Model, &simulation.SegmentPlan{ThrusterNozzleSide: m.Definition.NozzleSides[i]})
+	for i := range m.Spec.FlareSizes {
+		m.Model = append(m.Model, &simulation.SegmentPlan{ThrusterNozzleSide: m.Spec.NozzleSides[i]})
 	}
 
 	return m

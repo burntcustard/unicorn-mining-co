@@ -30,10 +30,14 @@ export const protocolTags = [
   'searchLight',
   'shieldGenerator',
   'snapshotAck',
+  'projectile',
+  'buyAmmo',
+  'objectDestroyed',
+  'explosion',
 ];
 
 /**
- * Map each tag to a lowercase ASCII byte in list order.
+ * Map each tag to a single ASCII byte in list order.
  * These are internal client literals; Go uses numeric binary wire IDs.
  */
 export const encodeProtocolTags = new Map(

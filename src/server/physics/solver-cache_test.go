@@ -3,7 +3,7 @@ package physics
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"math/rand/v2"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestCachedSeparationAcrossMotion(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestCachedSeparationAcrossMotion(t *testing.T) {
 }
 
 func TestCachedSeparationRejectsNoContinuousImpact(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +131,7 @@ func TestCachedSeparationRejectsNoContinuousImpact(t *testing.T) {
 }
 
 func TestBodyPairsFollowContactOrderThroughReuse(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -264,7 +264,7 @@ func TestTOIHeapInvalidationAndTies(t *testing.T) {
 }
 
 func TestAdvanceInvalidatesCachedSeparation(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -295,7 +295,7 @@ func TestAdvanceInvalidatesCachedSeparation(t *testing.T) {
 }
 
 func TestDenseContactsCompactWithoutChangingOrder(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

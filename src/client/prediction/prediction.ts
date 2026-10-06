@@ -10,8 +10,8 @@ import {
   type PlayerInput,
 } from '../protocol/input';
 import { updateWorld } from '../simulation/update-world';
-import { maxPredictionTicks } from '../../definitions/prediction';
-import { simulationStep } from '../../definitions/simulation';
+import { maxPredictionTicks } from '../../specs/prediction';
+import { simulationStep } from '../../specs/simulation';
 import { updateEntities } from '../simulation/update-tier';
 import { type SimulationEvent } from '../protocol/events';
 import { Asteroid } from '../objects/asteroid';
@@ -56,7 +56,9 @@ const matches = ({
     ship.health === checkpoint.health &&
     checkpoint.cargoContents.length === cargoIds?.length &&
     checkpoint.cargoContents.every(
-      (object, index) => object.id === cargoIds[index],
+      (object, index) =>
+        object.id === cargoIds[index] &&
+        object.rounds === ship.cargoRounds[index],
     ) &&
     ship.hullHealth.every((health, index) => health === hullHealth[index]) &&
     modules?.length === reportedModules.length &&
@@ -68,6 +70,8 @@ const matches = ({
         predicted.type === module.type &&
         predicted.mount === module.mount &&
         predicted.health === module.health &&
+        Math.abs((predicted.fireCooldown || 0) - (module.fireCooldown || 0)) <
+          1e-8 &&
         predicted.segments.length === module.segments.length &&
         module.segments.every(
           (segment, segmentIndex) =>
@@ -100,12 +104,16 @@ const applyEntity = ({
   entity.mass = server.mass;
   entity.friction = server.friction;
   entity.radius = server.radius;
+  entity.health = server.health;
+  entity.dead = server.dead;
+  entity.definitionId = server.definitionId;
+  entity.playerId = server.playerId;
   entity.pendingUpdateTime = server.pendingUpdateTime;
+  entity.rounds = server.rounds;
 
   if (entity instanceof Asteroid && server instanceof Asteroid) {
     entity.contents = [...server.contents];
     entity.decay = server.decay;
-    entity.health = server.health;
     entity.maxHealth = server.maxHealth;
     entity.resource = server.resource;
     entity.pointCount = server.pointCount;
@@ -128,7 +136,6 @@ const applyEntity = ({
       .filter((object) => !(object instanceof Module))
       .map((object) => cargoCopies.get(object)!);
     entity.dockedTo = server.dockedTo;
-    entity.health = server.health;
     entity.decay = server.decay;
 
     if (server.decay) {
@@ -155,8 +162,6 @@ const applyEntity = ({
       if (segment.hull) segment.shades = segment.module.shades || server.shades;
     });
 
-    entity.playerId = server.playerId;
-
     if (entity instanceof Ship && server instanceof Ship) {
       entity.fly(server.thrust, server.turn);
     }
@@ -170,6 +175,7 @@ export class PredictionManager {
   private localInputs = new Map<number, InputFrame['changes']>();
   private localPlayerId?: PlayerId;
   private sequence = 0;
+  private serverNextEntityId = 0;
   private world: SimulationWorld;
 
   /**
@@ -189,13 +195,15 @@ export class PredictionManager {
     exclude?: number;
     catchUp?: number;
   }) {
-    if (entities) {
+    if (entityIds) {
       const replicated = new Set(entityIds);
 
       [...this.world.entities.keys()].forEach((id) => {
         if (!replicated.has(id)) this.world.entities.delete(id);
       });
+    }
 
+    if (entities) {
       entities.forEach((server) => {
         const entity = this.world.entities.get(server.id);
 
@@ -293,12 +301,14 @@ export class PredictionManager {
   }) {
     const targetTick = this.world.tick;
 
-    // Prediction may already have taken the next id or two of its own.
     if (nextEntityId !== undefined) {
-      this.world.nextEntityId = Math.max(this.world.nextEntityId, nextEntityId);
+      this.serverNextEntityId = Math.max(this.serverNextEntityId, nextEntityId);
     }
 
-    const reservedNextEntityId = this.world.nextEntityId;
+    this.world.nextEntityId = Math.max(
+      this.world.nextEntityId,
+      this.serverNextEntityId,
+    );
 
     this.frame.reset();
 
@@ -309,7 +319,15 @@ export class PredictionManager {
       return;
     }
 
-    const state = tick <= targetTick ? this.history.get(tick) : undefined;
+    const sampleTick = (entity: GameObject) =>
+      entityTicks?.get(entity.id) ?? tick;
+    const oldest = Math.min(tick, ...(entities || []).map(sampleTick));
+    // A batched packet may end beyond the last checkpoint but still contain
+    // older samples. Replay those from their retained checkpoint so hits and
+    // impulses survive the correction.
+    const state =
+      (tick <= targetTick && this.history.get(tick)) ||
+      this.history.get(oldest);
 
     if (!state) {
       if (tick > targetTick) {
@@ -336,6 +354,61 @@ export class PredictionManager {
         entity.playerId === this.localPlayerId,
     );
     const predicted = own && state.entities.get(own.id);
+    // Damage and entity membership cannot be carried forward by movement
+    // alone. Replay hits after an older snapshot instead of restoring a rock
+    // whose predicted fracture has already removed it.
+    const replicated = new Set(entityIds);
+
+    const interactionChanged =
+      (oldest < tick &&
+        entities?.some(
+          (entity) =>
+            entity instanceof Asteroid || entity.kind === 'projectile',
+        )) ||
+      entities?.some((server) => {
+        const entity = this.world.entities.get(server.id);
+
+        if (server instanceof Asteroid) {
+          if (
+            !(entity instanceof Asteroid) ||
+            entity.health !== server.health
+          ) {
+            return true;
+          }
+
+          const segments = entity.segments;
+          const reported = server.segments;
+
+          return (
+            segments?.length !== reported?.length ||
+            reported?.some(
+              (segment, index) =>
+                segment.health !== segments[index].health ||
+                segment.maxHealth !== segments[index].maxHealth,
+            )
+          );
+        }
+
+        if (server.kind !== 'projectile') return false;
+        const before = state.entities.get(server.id);
+
+        return (
+          !entity ||
+          entity.kind !== server.kind ||
+          entity.definitionId !== server.definitionId ||
+          entity.playerId !== server.playerId ||
+          !before ||
+          Math.abs(before.health - server.health) > 1e-8 ||
+          Vec.distance(before.position, server.position) > 1e-8 ||
+          Vec.distance(before.velocity, server.velocity) > 1e-8
+        );
+      }) ||
+      (entityIds &&
+        [...this.world.entities.values()].some(
+          (entity) =>
+            (entity instanceof Asteroid || entity.kind === 'projectile') &&
+            !replicated.has(entity.id),
+        ));
 
     // A corrected neighbour can change our next contact even if our own
     // checkpoint matches. Replay that interaction through shared physics.
@@ -364,10 +437,11 @@ export class PredictionManager {
       });
 
     if (
-      !own ||
-      (predicted?.entity instanceof Ship &&
-        matches({ ship: predicted, checkpoint: own }) &&
-        !neighbourChanged)
+      !interactionChanged &&
+      (!own ||
+        (predicted?.entity instanceof Ship &&
+          matches({ ship: predicted, checkpoint: own }) &&
+          !neighbourChanged))
     ) {
       // The pilot's own prediction held. Everything else is only as old as the
       // message, so it is set right and carried forward on its own rather than
@@ -384,19 +458,49 @@ export class PredictionManager {
       return;
     }
 
-    restoreWorld({ world: this.world, state });
-    // The checkpoint predates newer authoritative and speculative allocations.
+    const start = this.history.get(oldest) || state;
+
+    restoreWorld({ world: this.world, state: start });
+
+    // Merged packets can contain different sample ticks. Apply each correction
+    // at its own boundary and replay hits between them, then adopt membership
+    // from the newest packet. Movement-only catch-up would lose that damage.
+    while (this.world.tick < tick) {
+      this.applyServerState({
+        entities: entities?.filter(
+          (entity) => sampleTick(entity) === this.world.tick,
+        ),
+      });
+
+      this.simulate({ tick: this.world.tick });
+    }
+
+    // Preserve reservations at the newest packet's boundary, after replaying
+    // earlier allocations. Discarded speculative IDs can be reused on replay.
     this.world.nextEntityId = Math.max(
       this.world.nextEntityId,
-      reservedNextEntityId,
+      this.serverNextEntityId,
     );
-    this.applyServerState({ entities, entityIds, entityTicks });
+
+    this.applyServerState({
+      entities: entities?.filter(
+        (entity) =>
+          sampleTick(entity) < start.tick || sampleTick(entity) >= tick,
+      ),
+      entityIds,
+      entityTicks,
+    });
+
     // @ifdef DEBUG
     predictionStats.corrections++;
-    predictionStats.worst = Math.max(
-      predictionStats.worst,
-      Vec.distance(predicted!.position, own.position),
-    );
+
+    if (own && predicted) {
+      predictionStats.worst = Math.max(
+        predictionStats.worst,
+        Vec.distance(predicted.position, own.position),
+      );
+    }
+
     // @endif
     this.replayTo({ targetTick });
     this.discardBefore({ tick });
@@ -447,6 +551,7 @@ export class PredictionManager {
 
   reset() {
     this.frame.reset();
+    this.serverNextEntityId = 0;
     this.history.clear();
     this.localInputs.clear();
     this.lastSent = undefined;

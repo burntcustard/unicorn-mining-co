@@ -1,4 +1,4 @@
-import { physics } from '../../definitions/physics';
+import { physics } from '../../specs/physics';
 import * as Vec from '../utilities/vector';
 import { rotatePoint } from '../utilities/geometry';
 import { World } from '../physics/world';
@@ -13,8 +13,8 @@ import './shape/polygon-polygon-contact';
 import './shape/circle-polygon-contact';
 import { type GameObject } from '../objects/game-object';
 import { outlineColorOf, type Collider, type Contact } from './types';
-import { contactSpeedThreshold } from '../../definitions/physics';
-import { linearSlop } from '../../definitions/physics';
+import { contactSpeedThreshold } from '../../specs/physics';
+import { linearSlop } from '../../specs/physics';
 import { type SimulationEvent } from '../protocol/events';
 import { damage } from '../objects/damage';
 import { Craft } from '../objects/craft';

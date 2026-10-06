@@ -1,7 +1,21 @@
 import { type EntityId, type PlayerId } from './entities';
 import * as Vec from '../utilities/vector';
+import { type EffectSpec } from '../effects/effect';
 
 export type SimulationEvent =
+  | {
+      effect: EffectSpec;
+      objectId: EntityId;
+      position: Vec.Value;
+      type: 'explosion';
+    }
+  | {
+      type: 'objectDestroyed';
+      objectId: EntityId;
+      color: string;
+      damage: number;
+      position: Vec.Value;
+    }
   | { asteroidId: EntityId; childIds: EntityId[]; type: 'asteroidSplit' }
   | {
       asteroidId: EntityId;

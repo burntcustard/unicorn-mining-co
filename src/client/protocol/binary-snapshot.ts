@@ -3,9 +3,9 @@ import type { ReplicatedEntity, ServerMessage } from './network';
 import {
   binaryFieldIds as BinaryField,
   entityKindIds,
-} from '../../definitions/protocol';
+} from '../../specs/protocol';
 
-export { binaryFieldIds as BinaryField } from '../../definitions/protocol';
+export { binaryFieldIds as BinaryField } from '../../specs/protocol';
 
 type SnapshotMessage = Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
 
@@ -154,12 +154,13 @@ export function decodeBinarySnapshot(
     for (let index = 0; index < length; index++) {
       const mask = byte();
 
-      if (mask & ~7) return fail();
+      if (mask & ~15) return fail();
       const type = number() as number;
       const mount = number() as number;
       const id = mask & 1 ? (number() as number) : undefined;
       const health = mask & 2 ? (number() as number) : undefined;
       const moduleShades = mask & 4 ? shades() : undefined;
+      const fireCooldown = mask & 8 ? (number() as number) : undefined;
       const segmentCount = count(16);
       const segments: (typeof values)[number]['segments'] = [];
 
@@ -176,6 +177,7 @@ export function decodeBinarySnapshot(
         ...(mask & 1 && { id }),
         ...(mask & 2 && { health }),
         ...(mask & 4 && { shades: moduleShades }),
+        ...(mask & 8 && { fireCooldown }),
         segments,
       });
     }
@@ -252,6 +254,9 @@ export function decodeBinarySnapshot(
       case entityKindIds.station:
         return 'station';
 
+      case entityKindIds.projectile:
+        return 'projectile';
+
       case entityKindIds.object:
         return 'object';
 
@@ -271,7 +276,7 @@ export function decodeBinarySnapshot(
       const field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
 
-      if (field < 1 || field > BinaryField.definitionId || seen.has(field)) {
+      if (field < 1 || field > BinaryField.rounds || seen.has(field)) {
         return fail();
       }
 
@@ -437,6 +442,10 @@ export function decodeBinarySnapshot(
 
         case BinaryField.velocity:
           entity.velocity = clear ? null : vector();
+          break;
+
+        case BinaryField.rounds:
+          entity.rounds = clear ? null : number();
           break;
       }
     }

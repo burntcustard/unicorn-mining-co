@@ -6,8 +6,8 @@ import {
   type WorldRanges,
   type StationDescription,
 } from '../protocol/regions';
-import { regionSize } from '../../definitions/region-manager';
-import { worldRanges } from '../../definitions/region-manager';
+import { regionSize } from '../../specs/region-manager';
+import { worldRanges } from '../../specs/region-manager';
 import {
   generateRegion,
   generateStations,

@@ -3,7 +3,7 @@ package physics
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 type World struct {
@@ -23,12 +23,12 @@ type World struct {
 	NewFixture, Locked               bool
 	preSolveListener                 func(*Contact)
 	step                             TimeStep
-	Rules                            definitions.Simulation
+	Rules                            specs.Simulation
 	contactPoolHead, contactPoolTail *Contact
 	LimitCollisionNeighbors          bool
 }
 
-func NewWorld(rules definitions.Simulation) *World {
+func NewWorld(rules specs.Simulation) *World {
 	w := &World{Rules: rules}
 	w.Solver = &Solver{World: w}
 

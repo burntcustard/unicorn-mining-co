@@ -1,4 +1,4 @@
-import { physics } from '../../definitions/physics';
+import { physics } from '../../specs/physics';
 import * as Vec from '../utilities/vector';
 import { AABB, type AABBValue } from './axis-aligned-bounds';
 

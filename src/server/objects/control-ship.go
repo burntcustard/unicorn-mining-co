@@ -3,6 +3,8 @@ package objects
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"slices"
 )
 
 func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent) {
@@ -21,30 +23,20 @@ func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent)
 	controls := []struct {
 		id      string
 		enabled bool
-	}{{"cargoHatch", input.CargoHatch}, {"searchLight", input.SearchLight}, {"shieldGenerator", input.ShieldGenerator}, {"hornDrill", input.HornDrill}}
+	}{{"cargoHatch", input.CargoHatch}, {"searchLight", input.SearchLight}, {"shieldGenerator", input.ShieldGenerator}, {"hornDrill", input.HornDrill}, {"weapon", input.Fire}}
 
-	running := 0
+	for _, control := range controls {
+		changed := slices.ContainsFunc(s.Segments, func(segment *simulation.Segment) bool {
+			return segment.Module != nil && segment.Module.ModuleBase().Spec.Behavior == control.id && !(*segment.TargetHealth() < 1) && (segment.Active != 0) != control.enabled
+		})
 
-	for _, segment := range s.Segments {
-		if segment.Active == 0 || *segment.TargetHealth() < 1 || segment.Module == nil {
-			continue
-		}
-
-		for i, control := range controls {
-			if segment.Module.ModuleBase().Type == control.id {
-				running |= 1 << i
-			}
-		}
-	}
-
-	for i, control := range controls {
-		if (running&(1<<i) != 0) == control.enabled {
+		if !changed {
 			continue
 		}
 
 		s.SetModuleActive(control.id, control.enabled)
 
-		if s.PlayerID != nil && control.id != "hornDrill" {
+		if s.PlayerID != nil && control.id != "hornDrill" && control.id != "weapon" {
 			*events = append(*events, protocol.ModuleChanged{Module: control.id, PlayerID: *s.PlayerID, Active: control.enabled})
 		}
 	}

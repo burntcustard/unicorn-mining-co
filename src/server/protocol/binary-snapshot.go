@@ -6,18 +6,18 @@ import (
 	"sort"
 	"unicode/utf16"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 var ErrSnapshot = errors.New("invalid binary snapshot")
 
-type Vector = definitions.Vector
+type Vector = specs.Vector
 
 type ModuleState struct {
-	Type, Mount float64
-	ID, Health  *float64
-	Shades      []string
-	Segments    []ModuleSegment
+	Type, Mount              float64
+	ID, Health, FireCooldown *float64
+	Shades                   []string
+	Segments                 []ModuleSegment
 }
 
 type ModuleSegment struct{ Active, ActivationProgress float64 }
@@ -120,6 +120,10 @@ func (w *writer) modules(values []ModuleState) {
 			mask |= 4
 		}
 
+		if value.FireCooldown != nil {
+			mask |= 8
+		}
+
 		w.byte(mask)
 		w.number(value.Type)
 		w.number(value.Mount)
@@ -134,6 +138,10 @@ func (w *writer) modules(values []ModuleState) {
 
 		if value.Shades != nil {
 			w.strings(value.Shades)
+		}
+
+		if value.FireCooldown != nil {
+			w.number(*value.FireCooldown)
 		}
 
 		w.unsigned(uint64(len(value.Segments)))
@@ -198,7 +206,7 @@ func (w *writer) segments(values []AsteroidSegment) {
 	}
 }
 
-func (w *writer) cargo(values []CargoEntry, protocol definitions.Protocol, depth int) error {
+func (w *writer) cargo(values []CargoEntry, protocol specs.Protocol, depth int) error {
 	w.unsigned(uint64(len(values)))
 
 	for _, value := range values {
@@ -219,7 +227,7 @@ func (w *writer) cargo(values []CargoEntry, protocol definitions.Protocol, depth
 	return nil
 }
 
-func (w *writer) field(id int, value any, protocol definitions.Protocol, depth int) error {
+func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) error {
 	fields := protocol.BinaryFieldIDs
 
 	if raw, ok := value.([]byte); ok && (id == fields.CargoContents || id == fields.Wreckage) {
@@ -331,13 +339,13 @@ func (w *writer) field(id int, value any, protocol definitions.Protocol, depth i
 	return nil
 }
 
-func (w *writer) record(value EntityRecord, protocol definitions.Protocol, depth int) error {
-	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.DefinitionID {
+func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) error {
+	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.Rounds {
 		return ErrSnapshot
 	}
 
 	if value.Values != nil {
-		if len(value.Values) > protocol.BinaryFieldIDs.DefinitionID {
+		if len(value.Values) > protocol.BinaryFieldIDs.Rounds {
 			return ErrSnapshot
 		}
 
@@ -345,7 +353,7 @@ func (w *writer) record(value EntityRecord, protocol definitions.Protocol, depth
 		w.unsigned(uint64(len(value.Values)))
 
 		for _, field := range value.Values {
-			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.DefinitionID {
+			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.Rounds {
 				return ErrSnapshot
 			}
 
@@ -382,7 +390,7 @@ func (w *writer) record(value EntityRecord, protocol definitions.Protocol, depth
 	}
 
 	for _, id := range ids {
-		if id < 1 || id > protocol.BinaryFieldIDs.DefinitionID {
+		if id < 1 || id > protocol.BinaryFieldIDs.Rounds {
 			return ErrSnapshot
 		}
 
@@ -405,11 +413,11 @@ func (w *writer) record(value EntityRecord, protocol definitions.Protocol, depth
 	return nil
 }
 
-func EncodeSnapshot(value Snapshot, protocol definitions.Protocol) ([]byte, error) {
+func EncodeSnapshot(value Snapshot, protocol specs.Protocol) ([]byte, error) {
 	return AppendSnapshot(make([]byte, 0, 4096), value, protocol)
 }
 
-func AppendSnapshot(destination []byte, value Snapshot, protocol definitions.Protocol) ([]byte, error) {
+func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol) ([]byte, error) {
 	if value.Tick > (1<<53)-1 || value.NextEntityID > (1<<53)-1 {
 		return nil, ErrSnapshot
 	}
@@ -484,13 +492,13 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol definitions.Pro
 
 // Append helpers share the wire primitives with the authoritative replication
 // writer while allowing its reusable arena to own the backing storage.
-func AppendEntityRecord(destination []byte, value EntityRecord, ids definitions.Protocol) ([]byte, error) {
+func AppendEntityRecord(destination []byte, value EntityRecord, ids specs.Protocol) ([]byte, error) {
 	w := writer{data: destination}
 	err := w.record(value, ids, 0)
 	return w.data, err
 }
 
-func AppendField(destination []byte, id int, value any, ids definitions.Protocol) ([]byte, error) {
+func AppendField(destination []byte, id int, value any, ids specs.Protocol) ([]byte, error) {
 	w := writer{data: destination}
 	err := w.field(id, value, ids, 0)
 	return w.data, err

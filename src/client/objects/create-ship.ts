@@ -3,7 +3,7 @@ import { moduleTypesById } from './modules/index';
 import { type SimulationWorld, entityId } from '../simulation/world';
 import * as Vec from '../utilities/vector';
 import { type PlayerId } from '../protocol/entities';
-import { startingModules } from '../../definitions/player';
+import { shipSpecsById } from '../../specs/ships';
 
 export const createShip = (
   world: SimulationWorld,
@@ -22,7 +22,7 @@ export const createShip = (
     rotation?: number;
     velocity?: Vec.Value;
     shades?: readonly string[];
-    shipType?: import('../../definitions/ships').ShipId;
+    shipType?: import('../../specs/ships').ShipId;
   } = {},
 ): Ship => {
   return new Ship({
@@ -43,6 +43,10 @@ export const createPlayerShip = (
 ): Ship => {
   const ship = createShip(world, properties);
 
-  startingModules.forEach((id) => ship.fit(new (moduleTypesById.get(id)!)()));
+  shipSpecsById
+    .get(properties.shipType ?? 'mustang')!
+    .initialLoadout.forEach(({ mount, module }) =>
+      ship.fit(new (moduleTypesById.get(module)!)(), ship.mounts[mount]),
+    );
   return ship;
 };

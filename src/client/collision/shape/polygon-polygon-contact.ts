@@ -1,7 +1,7 @@
 import * as Vec from '../../utilities/vector';
 import { TransformValue } from '../../utilities/vector-math';
 import * as matrix from '../../utilities/vector-math';
-import { linearSlop } from '../../../definitions/physics';
+import { linearSlop } from '../../../specs/physics';
 import { Manifold, clipSegmentToLine } from '../contact-manifold';
 import { Contact } from '../../physics/contact';
 import { PolygonShape } from './polygon-shape';

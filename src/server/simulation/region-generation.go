@@ -3,9 +3,9 @@ package simulation
 
 import (
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/random"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -52,14 +52,14 @@ type featureKey struct {
 // The TS module's bounded candidate cache is owned by its simulation in Go.
 // Entries stay immutable and generated region descriptions are detached copies.
 type RegionGenerator struct {
-	spec             definitions.RegionGeneration
+	spec             specs.RegionGeneration
 	regionSize       float64
 	candidateRegions map[candidateKey]*regionCandidates
 	candidateOrder   []candidateKey
 	features         map[featureKey]*feature
 }
 
-func NewRegionGenerator(spec definitions.Catalog) *RegionGenerator {
+func NewRegionGenerator(spec specs.Catalog) *RegionGenerator {
 	return &RegionGenerator{spec: spec.RegionGeneration, regionSize: spec.Simulation.RegionSize, candidateRegions: make(map[candidateKey]*regionCandidates), features: make(map[featureKey]*feature)}
 }
 

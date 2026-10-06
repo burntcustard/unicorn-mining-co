@@ -1,5 +1,5 @@
 import { player } from '../player';
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 import { renderControls } from './controls';
 import { renderDocked } from './docked-loader';
 import { renderIndicators } from './indicators';

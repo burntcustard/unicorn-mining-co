@@ -2,8 +2,8 @@ package simulation
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	"reflect"
 	"testing"
@@ -40,7 +40,7 @@ func (c *contactWorldRecorder) Step(*utilities.OrderedMap[int64, Entity], float6
 }
 
 func TestGameplayContactDispatch(t *testing.T) {
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)

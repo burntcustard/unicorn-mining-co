@@ -3,11 +3,11 @@ package network
 import (
 	"bytes"
 	"context"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"path/filepath"
 	"slices"
@@ -17,7 +17,7 @@ import (
 
 func persistedSession(t *testing.T, path string) (*GameSession, *persistence.Store) {
 	t.Helper()
-	catalog, err := definitions.Load()
+	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -252,7 +252,7 @@ func TestCheckpointBudgetAndPlayedTime(t *testing.T) {
 }
 
 func TestLockedPaintRejected(t *testing.T) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}
 	s.Receive(protocol.Control{Type: "hello"}, socket)

@@ -124,6 +124,8 @@
 
 **spectrum** - The rainbow of coloured light projected from the far side of an asteroid when a search light beam passes through it.
 
+**spec** - Authored game data or tuning in `src/specs`, such as a ship, module, item or visual effect. A spec describes an instance; it is not the instance’s mutable state. Shared data schemas may live beside their specs. Runtime types and interfaces belong beside the implementation that owns them. The generated Go catalog and its schemas live in `src/server/specs`. Existing serialized `definitionId`/`DefinitionID` names continue to identify specs.
+
 **station** - A craft with docking bays that can receive ships.
 
 **sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.
@@ -150,7 +152,7 @@
 
 **wreckage** - Loose pieces broken off a craft after damage, rather than a whole wreck.
 
-**zIndex** - A global rendering layer, using nonnegative whole numbers starting at 0. Lower layers draw first; higher layers draw over them. Every craft completes a layer before any craft starts the next one. Use the named values in `src/definitions/rendering-layers.ts`; 0 is a valid layer, so only an absent value inherits the module or craft layer. Hull segments default to `shipHull` (4). Glow layers above ships or stations draw after their hulls and both associated module layers; glow layers below them draw after their lower modules and before their hulls. Reserved layers are part of the rendering order even when unused. The station floor stays at 0 so ships draw over it.
+**zIndex** - A global rendering layer, using nonnegative whole numbers starting at 0. Lower layers draw first; higher layers draw over them. Every craft completes a layer before any craft starts the next one. Use the named values in `src/specs/rendering-layers.ts`; 0 is a valid layer, so only an absent value inherits the module or craft layer. Hull segments default to `shipHull` (4). Glow layers above ships or stations draw after their hulls and both associated module layers; glow layers below them draw after their lower modules and before their hulls. Reserved layers are part of the rendering order even when unused. The station floor stays at 0 so ships draw over it.
 
 | zIndex | Name                      | Draws                                                                                          |
 | ------ | ------------------------- | ---------------------------------------------------------------------------------------------- |

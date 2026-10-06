@@ -181,10 +181,17 @@ export function pressModuleKeys() {
     window.dispatchEvent(Object.assign(new Event('keydown'), { key, repeat: false }));
     window.dispatchEvent(Object.assign(new Event('keyup'), { key }));
   }
-  const bits = packPlayerInput(playerInput);
-  const active = moduleControls.map(({ readInput }) => readInput(unpackPlayerInput(bits)));
+  const inspect = () => {
+    const bits = packPlayerInput(playerInput);
+    return [bits, moduleControls.map(({ readInput }) => readInput(unpackPlayerInput(bits)))];
+  };
+  const toggled = inspect();
+  window.dispatchEvent(Object.assign(new Event('keydown'), { key: ' ', repeat: false }));
+  const firing = inspect();
+  window.dispatchEvent(Object.assign(new Event('keyup'), { key: ' ' }));
+  const released = inspect();
   stop();
-  return [bits, active];
+  return [toggled, firing, released];
 }`;
         }
 
@@ -210,7 +217,11 @@ try {
     `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
   );
 
-  assert.deepEqual(built.pressModuleKeys(), [15, [true, true, true, true]]);
+  assert.deepEqual(built.pressModuleKeys(), [
+    [15, [false, true, true, true, true]],
+    [271, [true, true, true, true, true]],
+    [15, [false, true, true, true, true]],
+  ]);
 } finally {
   await inputBundle.close();
 }
@@ -227,7 +238,7 @@ const regionBundle = await rolldown({
         id === regionEntry
           ? `
         import { RegionManager } from './client/simulation/region-manager';
-        import { preGeneratedRadius } from './definitions/region-generation';
+        import { preGeneratedRadius } from './specs/region-generation';
         export function inspectRegions() {
           const regions = new RegionManager({ worldSeed: 25 });
           regions.preGenerate({ radius: preGeneratedRadius });

@@ -1,4 +1,5 @@
-import { colors } from '../../definitions/colors';
+import { withAlpha } from '../utilities/color';
+import { colors } from '../../specs/colors';
 import { game } from '../game';
 import {
   circlePath,
@@ -11,12 +12,14 @@ import { GameObject, type RenderOptions } from './game-object';
 import { radiusOf } from '../utilities/polygon';
 import { type Collider } from '../collision/types';
 import { cargoPickupPoint } from './modules/cargo-hatch';
-import { itemDefaults } from '../../definitions/items/defaults';
-import type { ItemDefinition } from '../../definitions/items/types';
+import { itemDefaults } from '../../specs/items/defaults';
+import type { ItemSpec } from '../../specs/items/types';
 
 export class Item extends GameObject {
+  declare name: string;
   kind = 'item' as const;
   declare resource: number;
+  declare rounds?: number;
 
   addToScene() {
     this.networked = 1;
@@ -26,11 +29,11 @@ export class Item extends GameObject {
   }
 
   constructor(
-    definition: ItemDefinition,
+    spec: ItemSpec,
     properties: ConstructorParameters<typeof GameObject>[0] = {},
   ) {
-    super({ ...itemDefaults, ...definition, ...properties });
-    this.item = definition;
+    super({ ...itemDefaults, ...spec, ...properties });
+    this.item = spec;
     this.shapeOutline = this.points;
 
     if (this.shapeOutline) this.radius = radiusOf(this.shapeOutline);
@@ -54,7 +57,11 @@ export class Item extends GameObject {
         ctx.lineJoin = 'bevel';
         ctx.lineWidth = itemLineWidth;
         ctx.strokeStyle = this.shades[2];
-        ctx.fillStyle = this.shades[1] + (this.fillAlpha || '');
+
+        ctx.fillStyle = withAlpha({
+          color: this.shades[1],
+          alpha: this.fillAlpha,
+        });
 
         if (this.rainbow) {
           const rainbow = ctx.createLinearGradient(

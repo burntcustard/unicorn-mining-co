@@ -2,15 +2,15 @@ package objects
 
 import (
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
 )
 
-// Player ships resume stationary. Definitions provide geometry and physics;
+// Player ships resume stationary. Specs provide geometry and physics;
 // this record contains only identity, condition, equipment and possessions.
 type SavedShip struct {
 	ID       int64             `json:"id"`
@@ -26,16 +26,18 @@ type SavedShip struct {
 }
 
 type SavedShipModule struct {
-	ID     int64    `json:"id"`
-	Type   string   `json:"type"`
-	Mount  int      `json:"mount"`
-	Health *float64 `json:"health,omitempty"`
-	Paint  *int     `json:"paint,omitempty"`
+	FireCooldown float64  `json:"fireCooldown,omitempty"`
+	ID           int64    `json:"id"`
+	Type         string   `json:"type"`
+	Mount        int      `json:"mount"`
+	Health       *float64 `json:"health,omitempty"`
+	Paint        *int     `json:"paint,omitempty"`
 	// Each pair is [active, activation progress]; trailing inactive parts are omitted.
 	Active [][2]float64 `json:"active,omitempty"`
 }
 
 type SavedCargo struct {
+	Rounds  *int     `json:"rounds,omitempty"`
 	ID      int64    `json:"id"`
 	Type    string   `json:"type"`
 	Module  bool     `json:"module,omitempty"`
@@ -53,7 +55,7 @@ func finiteHealth(value float64) *float64 {
 	return &value
 }
 
-func savedPaint(shades []string, catalog definitions.Catalog) *int {
+func savedPaint(shades []string, catalog specs.Catalog) *int {
 	for i, color := range catalog.PaintColors {
 		if slices.Equal(shades, color) {
 			return &i
@@ -80,6 +82,11 @@ func CaptureShip(ship *Ship) SavedShip {
 		}
 
 		m := SavedShipModule{ID: *state.ID, Type: ship.Catalog.ModuleIDs[state.Type], Mount: state.Mount, Health: finiteHealth(*state.Health), Paint: savedPaint(state.Shades, ship.Catalog)}
+
+		if state.FireCooldown != nil {
+			m.FireCooldown = *state.FireCooldown
+		}
+
 		last := -1
 
 		for i, segment := range state.Segments {
@@ -103,6 +110,10 @@ func CaptureShip(ship *Ship) SavedShip {
 			cargo.Module, cargo.Type, cargo.Paint = true, m.ModuleBase().Type, savedPaint(o.Shades, ship.Catalog)
 		} else if o.Resource >= 0 && o.Resource < len(ship.Catalog.ItemIDs) {
 			cargo.Type = ship.Catalog.ItemIDs[o.Resource]
+
+			if item, ok := entity.(*Item); ok {
+				cargo.Rounds = savedPointer(item.Rounds)
+			}
 		}
 
 		s.Cargo = append(s.Cargo, cargo)
@@ -111,7 +122,7 @@ func CaptureShip(ship *Ship) SavedShip {
 	return s
 }
 
-func restorePaint(paint *int, catalog definitions.Catalog) ([]string, error) {
+func restorePaint(paint *int, catalog specs.Catalog) ([]string, error) {
 	if paint == nil {
 		return nil, nil
 	}
@@ -126,7 +137,7 @@ func restorePaint(paint *int, catalog definitions.Catalog) ([]string, error) {
 func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, error) {
 	catalog := world.Specification
 
-	if _, ok := catalog.ShipDefinitions[s.Type]; !ok || s.ID == 0 {
+	if _, ok := catalog.ShipSpecs[s.Type]; !ok || s.ID == 0 {
 		return nil, fmt.Errorf("invalid saved ship %q/%d", s.Type, s.ID)
 	}
 
@@ -158,6 +169,7 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 	states := []ModuleState{}
 
 	for _, m := range s.Modules {
+		m.Type = restoreModuleID(m.Type)
 		kind := slices.Index(catalog.ModuleIDs, m.Type)
 
 		if kind < 0 || m.Mount < 0 || m.Mount >= len(ship.Mounts()) {
@@ -173,11 +185,15 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		health := m.Health
 
 		if health == nil {
-			value := catalog.ModuleDefinitions[m.Type].Health
+			value := catalog.ModuleSpecs[m.Type].Health
 			health = &value
 		}
 
 		state := ModuleState{ID: savedPointer(&m.ID), Type: kind, Mount: m.Mount, Health: health, Shades: shades}
+
+		if m.FireCooldown > 0 {
+			state.FireCooldown = savedPointer(&m.FireCooldown)
+		}
 
 		for _, active := range m.Active {
 			state.Segments = append(state.Segments, ModuleSegmentState{Active: active[0], ActivationProgress: active[1]})
@@ -193,7 +209,9 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		var entity simulation.Entity
 
 		if cargo.Module {
-			if _, ok := catalog.ModuleDefinitions[cargo.Type]; !ok {
+			cargo.Type = restoreModuleID(cargo.Type)
+
+			if _, ok := catalog.ModuleSpecs[cargo.Type]; !ok {
 				return nil, fmt.Errorf("unknown cargo module %q", cargo.Type)
 			}
 
@@ -212,11 +230,16 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 				entity.Base().Health = math.NaN()
 			}
 		} else {
-			if _, ok := catalog.ItemDefinitions[cargo.Type]; !ok {
+			if _, ok := catalog.ItemSpecs[cargo.Type]; !ok {
 				return nil, fmt.Errorf("unknown cargo item %q", cargo.Type)
 			}
 
 			entity = NewItem(cargo.Type, props, catalog)
+
+			if cargo.Rounds != nil {
+				entity.(*Item).Rounds = savedPointer(cargo.Rounds)
+			}
+
 			entity.Base().Unlock = cargo.Unlock
 		}
 

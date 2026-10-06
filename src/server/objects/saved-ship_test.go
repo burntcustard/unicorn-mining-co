@@ -3,11 +3,11 @@ package objects_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
@@ -15,7 +15,7 @@ import (
 )
 
 func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{Position: Vec.Create(12.7, -34.2), Velocity: Vec.Create(1.2, 3.4), Rotation: 0.123, Spin: 0.456}})
 	ship.Shades = catalog.PaintColors[1]
@@ -77,7 +77,7 @@ func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 }
 
 func TestCompactShipSize(t *testing.T) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	ship := objects.CreatePlayerShip(simulation.CreateWorld(25, catalog), objects.Properties{})
 	old, _ := persistence.Encode(objects.CaptureEntity(ship))
 	data, err := json.Marshal(objects.CaptureShip(ship))
@@ -93,8 +93,56 @@ func TestCompactShipSize(t *testing.T) {
 	}
 }
 
+func TestCompactShipRestoresLegacyModuleIDs(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for oldID, newID := range map[string]string{"shieldGenerator": "shieldGeneratorSm", "thrusterSingle": "thrusterSingleMd"} {
+		t.Run(oldID, func(t *testing.T) {
+			world := simulation.CreateWorld(25, catalog)
+			ship := objects.CreatePlayerShip(world, objects.Properties{})
+			module := modules.Create(newID, simulation.ObjectProperties{World: world}, catalog)
+			ship.Fit(module, nil)
+			ship.CargoContents = append(ship.CargoContents, modules.Create(newID, simulation.ObjectProperties{World: world}, catalog))
+			saved := objects.CaptureShip(ship)
+
+			for i := range saved.Modules {
+				if saved.Modules[i].Type == newID {
+					saved.Modules[i].Type = oldID
+				}
+			}
+
+			for i := range saved.Cargo {
+				if saved.Cargo[i].Type == newID {
+					saved.Cargo[i].Type = oldID
+				}
+			}
+
+			restored, err := objects.RestoreShip(saved, world, 7)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !slices.ContainsFunc(restored.Modules(), func(m simulation.Module) bool { return m.ModuleBase().Type == newID }) {
+				t.Fatal("legacy fitted module did not restore")
+			}
+
+			if !slices.ContainsFunc(restored.CargoContents, func(e simulation.Entity) bool {
+				m, ok := e.(simulation.Module)
+				return ok && m.ModuleBase().Type == newID
+			}) {
+				t.Fatal("legacy cargo module did not restore")
+			}
+		})
+	}
+}
+
 func BenchmarkCaptureShip(b *testing.B) {
-	catalog, _ := definitions.Load()
+	catalog, _ := specs.Load()
 	ship := objects.CreatePlayerShip(simulation.CreateWorld(25, catalog), objects.Properties{})
 	b.ReportAllocs()
 	b.ResetTimer()

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 type controlFixture struct {
@@ -28,7 +28,7 @@ type controlFixture struct {
 			Type, PlayerToken            string
 			PlayerID, ShipID, ServerTick uint64
 			WorldSeed                    float64
-			Spawn                        definitions.Vector
+			Spawn                        specs.Vector
 		}
 		Hex string
 	}
@@ -47,7 +47,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	spec, err := definitions.Load()
+	spec, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -106,5 +106,34 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		if hex.EncodeToString(got) != fixture.Hex {
 			t.Errorf("%s: %x vs %s", message.Type, got, fixture.Hex)
 		}
+	}
+}
+
+func TestWeaponControls(t *testing.T) {
+	spec, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, offset := range []bool{false, true} {
+		packet := writer{data: []byte{0x55, 0x43, 1, 1, 0, 1, 0, 2}}
+
+		if offset {
+			packet.data[7] = 3
+			packet.number(.01)
+		}
+
+		control, err := DecodeClientControl(packet.data, spec.Protocol, spec.Simulation.SimulationStep)
+
+		if err != nil || !control.Input.Fire || control.HasOffset != offset {
+			t.Fatalf("fire flag lost with offset=%v: %+v %v", offset, control, err)
+		}
+	}
+
+	control, err := DecodeClientControl([]byte{0x55, 0x43, 1, 2, 6}, spec.Protocol, spec.Simulation.SimulationStep)
+
+	if err != nil || control.Dock.Action != "buyAmmo" {
+		t.Fatalf("ammo action lost: %+v %v", control, err)
 	}
 }

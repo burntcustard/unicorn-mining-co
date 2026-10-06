@@ -1,33 +1,31 @@
-import { renderingLayers } from '../../definitions/rendering-layers';
+import { withAlpha } from '../utilities/color';
+import { renderingLayers } from '../../specs/rendering-layers';
 import { drawSegment, shapePath } from '../utilities/drawing';
 import { game } from '../game';
-import { colors } from '../../definitions/colors';
+import { colors } from '../../specs/colors';
 import { type Pose, type Segment } from '../types';
 import { drawDockingBayGlow, hullSegmentFill } from '../utilities/lighting';
-import {
-  stationDefinitionsById,
-  type StationId,
-} from '../../definitions/stations';
+import { stationSpecsById, type StationId } from '../../specs/stations';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
-import { type StationDefinition } from '../../definitions/stations/types';
+import { type StationSpec } from '../../specs/stations/types';
 
 export class Station extends Craft {
   kind = 'station';
 
   constructor({
     stationType = 'corral',
-    definition = stationDefinitionsById.get(stationType),
+    spec = stationSpecsById.get(stationType),
     ...properties
   }: ConstructorParameters<typeof Craft>[0] & {
     stationType?: StationId;
-    definition?: StationDefinition;
+    spec?: StationSpec;
   } = {}) {
-    if (!definition) {
-      throw new Error(`Unknown station definition: ${stationType}`);
+    if (!spec) {
+      throw new Error(`Unknown station spec: ${stationType}`);
     }
 
-    super({ ...definition, ...properties });
+    super({ ...spec, ...properties });
     this.definitionId = stationType === 'corral' ? undefined : stationType;
   }
 
@@ -48,8 +46,10 @@ export class Station extends Craft {
       ...options,
       zIndex,
       draw: () => {
+        // Keep the lower glow beneath both translucent bay halves so their
+        // compositing matches at the seam.
         const glowLayer =
-          zIndex === renderingLayers.glowBelowStations
+          zIndex === renderingLayers.stationFloor
             ? renderingLayers.stationFloor
             : zIndex === renderingLayers.glowAboveStations
               ? renderingLayers.modulesAboveStationHull
@@ -85,7 +85,7 @@ export class Station extends Craft {
           return;
         }
 
-        ctx.strokeStyle = `${colors.cyan[2]}6`;
+        ctx.strokeStyle = withAlpha({ color: colors.cyan[2], alpha: 0.4 });
         ctx.setLineDash([12, 12]);
         ctx.beginPath();
         ctx.arc(0, 0, this.localMovementRadius, 0, Math.PI * 2);

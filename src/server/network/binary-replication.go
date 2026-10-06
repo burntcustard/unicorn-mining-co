@@ -4,10 +4,10 @@ package network
 
 import (
 	"bytes"
-	"github.com/burntcustard/unicorn-mining-co/src/server/definitions"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"math/bits"
@@ -289,7 +289,7 @@ func clearField(record *binaryRecord, id int) {
 	}
 }
 
-func captureBytes(record *binaryRecord, id int, value any, catalog *definitions.Catalog) {
+func captureBytes(record *binaryRecord, id int, value any, catalog *specs.Catalog) {
 	data, err := protocol.AppendField(record.nested[:0], id, value, catalog.Protocol)
 
 	if err != nil {
@@ -310,7 +310,7 @@ func captureBytes(record *binaryRecord, id int, value any, catalog *definitions.
 
 func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) protocol.EntityRecord {
 	if record.values == nil {
-		record.values = make([]protocol.FieldValue, 0, 34)
+		record.values = make([]protocol.FieldValue, 0, len(record.fields)-1)
 	}
 
 	clear(record.values)
@@ -351,7 +351,7 @@ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) pr
 func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord {
 	catalog := &batch.catalog
 	field := catalog.Protocol.BinaryFieldIDs
-	record := recordOf(source, 34)
+	record := recordOf(source, field.Rounds)
 
 	if record.batchGeneration == batch.Generation {
 		return record
@@ -361,6 +361,10 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 	record.previousRevision = record.revision
 	record.recentChanges = record.recentChanges[:0]
 	o := source.Base()
+
+	if item, ok := source.(*objects.Item); ok && item.Rounds != nil {
+		scalarNumber(record, field.Rounds, float64(*item.Rounds))
+	}
 
 	if a, ok := source.(*simulation.Asteroid); ok {
 		integerArray(record, field.Contents, a.Contents)
@@ -400,7 +404,6 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		} else {
 			clearField(record, field.CargoContents)
 		}
-
 
 		if entity.DockedTo != nil {
 			scalarNumber(record, field.DockedTo, float64(*entity.DockedTo))
@@ -475,8 +478,8 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		defaultFriction = 0.2
 	}
 
-	if module, ok := source.(simulation.Module); ok && module.ModuleBase().Definition.Friction != nil {
-		defaultFriction = *module.ModuleBase().Definition.Friction
+	if module, ok := source.(simulation.Module); ok && module.ModuleBase().Spec.Friction != nil {
+		defaultFriction = *module.ModuleBase().Spec.Friction
 	}
 
 	optionalNumber(record, field.Friction, o.Friction, o.Friction != defaultFriction)
@@ -515,6 +518,8 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 
 	if o.Kind == "asteroid" {
 		kind = "asteroid"
+	} else if o.Kind == "projectile" {
+		kind = "projectile"
 	} else if o.Item {
 		kind = "item"
 	} else if o.Kind == "station" {
@@ -555,10 +560,10 @@ type BinarySnapshotBatch struct {
 	arena      []byte
 	Generation uint64
 	View       *ReplicationView
-	catalog    definitions.Catalog
+	catalog    specs.Catalog
 }
 
-func NewBinarySnapshotBatch(catalog definitions.Catalog) *BinarySnapshotBatch {
+func NewBinarySnapshotBatch(catalog specs.Catalog) *BinarySnapshotBatch {
 	return &BinarySnapshotBatch{arena: make([]byte, 0, 4096), catalog: catalog}
 }
 
@@ -652,10 +657,10 @@ type BinaryReplicationManager struct {
 	wireFragments       [][]byte
 	members             map[int64]*member
 	memberCache         []*member
-	catalog             definitions.Catalog
+	catalog             specs.Catalog
 }
 
-func NewBinaryReplicationManager(catalog definitions.Catalog) *BinaryReplicationManager {
+func NewBinaryReplicationManager(catalog specs.Catalog) *BinaryReplicationManager {
 	return &BinaryReplicationManager{catalog: catalog, writer: make([]byte, 0, 4096), members: make(map[int64]*member)}
 }
 

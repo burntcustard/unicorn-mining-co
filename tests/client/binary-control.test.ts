@@ -27,6 +27,14 @@ const controls: ClientMessage[] = [
     input: { ...emptyPlayerInput(), searchLight: true, turn: 1 },
   },
   { type: 'dock', action: 'buy', module: 2, moduleId: -1 },
+  {
+    type: 'input',
+    tick: 5,
+    sequence: 6,
+    input: { ...emptyPlayerInput(), fire: true },
+    offset: 0.01,
+  },
+  { type: 'dock', action: 'buyAmmo' },
   { type: 'dock', action: 'sell', objectIds: [-1, 2] },
   { type: 'dock', action: 'equip', moduleId: 4, mount: 3 },
   { type: 'dock', action: 'remove', mount: 2 },
@@ -116,7 +124,7 @@ for (const invalid of [
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
-  changed(input, 7, 2), // invalid offset marker
+  changed(input, 7, 4), // invalid input flags
   changed(paint, 6, 4), // unknown optional field bit
   Uint8Array.from([0x55, 0x43, 1, 2, 1, 0]), // empty sell list
 ]) {
