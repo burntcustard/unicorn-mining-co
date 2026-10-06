@@ -1,6 +1,8 @@
 package objects
 
 import (
+	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
@@ -8,6 +10,51 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
+
+func TestReconciledMountOrder(t *testing.T) {
+	catalog, _ := specs.Load()
+
+	for id := range catalog.ShipSpecs {
+		t.Run(id, func(t *testing.T) {
+			world := simulation.CreateWorld(25, catalog)
+			authority := NewShip(id, Properties{World: world}, catalog)
+			predicted := NewShip(id, Properties{World: world}, catalog)
+			full := authority.HullHealth()
+			indexes := []int{}
+
+			for i, plan := range authority.HullSegments {
+				if len(plan.Mounts) > 0 {
+					indexes = append(indexes, i)
+				}
+			}
+
+			if len(indexes) < 2 {
+				return
+			}
+
+			damaged, other := slices.Clone(full), slices.Clone(full)
+			damaged[indexes[0]], other[indexes[1]] = 0, 0
+			authority.SetHullHealth(damaged)
+			predicted.SetHullHealth(other)
+			predicted.SetHullHealth(damaged)
+
+			for i, mount := range authority.Mounts() {
+				if !reflect.DeepEqual(mount.Fits, predicted.Mounts()[i].Fits) {
+					t.Fatal("different damage histories changed serialized mount indexes")
+				}
+			}
+
+			authority.SetHullHealth(full)
+			fresh := NewShip(id, Properties{World: world}, catalog)
+
+			for i, mount := range fresh.Mounts() {
+				if !reflect.DeepEqual(mount.Fits, authority.Mounts()[i].Fits) {
+					t.Fatal("repair did not restore canonical mount indexes")
+				}
+			}
+		})
+	}
+}
 
 func TestModuleMountCoordinates(t *testing.T) {
 	catalog, err := specs.Load()
@@ -112,27 +159,33 @@ func TestModuleMountCoordinates(t *testing.T) {
 func TestThrusterMountSpacing(t *testing.T) {
 	catalog, _ := specs.Load()
 	world := simulation.CreateWorld(25, catalog)
+
 	for _, id := range []string{"thrusterDualMd", "thrusterDualLg"} {
 		t.Run(id, func(t *testing.T) {
 			wide := CreatePlayerShip(world, Properties{DefinitionID: "crotus"})
 			standard := CreateShip(world, Properties{})
 			thruster := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
 			offset := catalog.ModuleSpecs[id].Offset
+
 			for _, target := range []struct {
 				ship  *Ship
 				extra float64
 			}{{wide, 8}, {standard, 0}, {wide, 8}} {
 				mountIndex := 1
+
 				if target.ship == wide {
 					mountIndex = 2
 				}
+
 				mount := target.ship.Mounts()[mountIndex]
 				target.ship.Fit(thruster, mount)
 				segments := target.ship.SegmentsAtMount(mount)
+
 				if len(segments) != 2 || segments[0].LocalPosition.Y != -offset-target.extra || segments[1].LocalPosition.Y != offset+target.extra {
 					t.Fatal("thruster spacing must follow the current ship mount")
 				}
 			}
+
 			if thruster.ModuleBase().Spec.Offset != offset {
 				t.Fatal("fitting must not change the module offset")
 			}

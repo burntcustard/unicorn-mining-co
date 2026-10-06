@@ -115,13 +115,14 @@ for(const craft of [remote,station]){
 }
 const draws=[];
 const strokes=[];
+const strokePaths=[];
 const styles=[];
 const transforms=[];
 let saves=0,gradients=0,boxes=0,clips=0,glowImages=0;
 game.ctx={
   strokeStyle:'#000',fillStyle:'#000',
   save(){saves++;styles.push({strokeStyle:this.strokeStyle,fillStyle:this.fillStyle});},restore(){saves--;Object.assign(this,styles.pop());},translate(x,y){transforms.push([x,y]);},rotate(angle){transforms.push(angle);},scale(){},
-  beginPath(){},arc(){},stroke(){strokes.push(this.strokeStyle);},clip(){clips++;},resetTransform(){},setLineDash(){},
+  beginPath(){},arc(){},stroke(path){strokes.push(this.strokeStyle);strokePaths.push(path);},clip(){clips++;},resetTransform(){},setLineDash(){},
   createLinearGradient(){gradients++;return {stops:[],addColorStop(offset,color){this.stops.push(color);}};},
   createRadialGradient(){return {addColorStop(){}};},
   fill(path,rule){draws.push({path,rule,style:this.fillStyle,glowImages});},
@@ -308,6 +309,26 @@ for(const zIndex of new Set(wreckage.segments.map(segment=>segment.zIndex)))wrec
 assert(draws.length>0,'bare Craft wreckage retains its own hull rendering');
 assert(draws.some(draw=>draw.style===colors.cyan[2]),'detached wreckage keeps its light fill shade');
 assert.equal(gradients,beforeWreck,'wreckage does not inherit station gradients');
+
+for(const Weapon of [PlasmaAccelerator,Autocannon])for(const side of [-1,1]){
+  const weaponWorld=createWorld();
+  const weaponShip=addEntity(weaponWorld,createPlayerShip(weaponWorld));
+  const mount=weaponShip.mounts.find(mount=>mount.fits.includes(Weapon) && mount.localPosition.y*side>0);
+  const gun=new Weapon();
+  weaponShip.fit(gun,mount);
+  weaponShip.detach(mount);
+  const debris=[...weaponWorld.entities.values()].find(entity=>entity!==weaponShip && entity.decay);
+  const replicated=createWreckage({properties:{decay:debris.decay,shades:debris.shades},segments:debris.wreckage});
+  for(const fragment of [debris,cloneEntity({entity:debris}),replicated,cloneEntity({entity:replicated})]){
+    assert(fragment.wreckage.every(segment=>Array.isArray(segment.stroke) && segment.stroke.length===0),'weapon wreckage preserves its empty stroke');
+    draws.length=0;
+    const beforeStroke=strokePaths.length;
+    for(const zIndex of Object.values(renderingLayers))fragment.render({zIndex});
+    assert.equal(draws.length,gun.model.length,'all detached weapon parts render');
+    assert(fragment.segments.every(segment=>segment.fillShade!==undefined),'weapon wreckage retains its fill shades');
+    assert(strokePaths.slice(beforeStroke).every(path=>Reflect.get(path,'vertices').length===0),'detached weapon strokes contain no visible outline');
+  }
+}
 const diamond=new Item(diamondSpec, );
 // A destroyed lamp retains its module spec and warmed beam cache in the
 // local fragment. Render that fragment as fixed wreckage through every path.

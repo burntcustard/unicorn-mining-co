@@ -213,6 +213,7 @@ func makeSegment(c *Craft, module simulation.Module, plan *simulation.SegmentPla
 	}
 
 	offset := spec.Offset
+
 	if plan.ThrusterNozzleSide != 0 && mount != nil && module != nil {
 		for _, point := range mount.MountPoints {
 			if slices.Contains(point.Fits, module.ModuleBase().Type) {
@@ -221,6 +222,7 @@ func makeSegment(c *Craft, module simulation.Module, plan *simulation.SegmentPla
 			}
 		}
 	}
+
 	s.LocalPosition = Vec.Add(s.LocalPosition, Vec.Create(0, side*offset))
 	s.ZIndex = c.ZIndex
 
@@ -358,6 +360,8 @@ func (c *Craft) FixHull() {
 		}
 	}
 
+	orderedHulls := make([]*simulation.Segment, 0, len(c.HullSegments))
+
 	for _, plan := range c.HullSegments {
 		var found *simulation.Segment
 
@@ -385,10 +389,20 @@ func (c *Craft) FixHull() {
 			}
 
 			hulls = append(hulls, s)
-			c.Segments = append(c.Segments, s)
+			found = s
+		}
+
+		orderedHulls = append(orderedHulls, found)
+	}
+
+	// Mount indexes are serialized; repairs must restore the spec's hull order.
+	for _, segment := range c.Segments {
+		if !segment.Hull {
+			orderedHulls = append(orderedHulls, segment)
 		}
 	}
 
+	c.Segments = orderedHulls
 	c.sortSegments()
 	simulation.OuterEdges(outlinesOf(hulls))
 	c.Cockpit = nil

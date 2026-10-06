@@ -17,10 +17,11 @@ type TimeStep struct {
 }
 
 type Solver struct {
-	World         *World
-	Stack, Bodies []*Body
-	Contacts      []*Contact
-	isolated      []*Body
+	World                *World
+	Stack, Bodies        []*Body
+	Contacts             []*Contact
+	isolated             []*Body
+	toiSweepA, toiSweepB collision.Sweep
 }
 
 func (s *Solver) Clear() {
@@ -293,11 +294,11 @@ func (s *Solver) SolveWorldTOI(step TimeStep) {
 				target := max(linearSlop, radius-3*linearSlop)
 
 				if !(c.separationUntil > 0 && c.separationUntil+radius > c.pair.motion()+c.pair.sweepMotion(world.toiRevision)+target+1.25*linearSlop) && !separatedThroughout(fA.Geometry, &bA.Sweep, fB.Geometry, &bB.Sweep, linearSlop) {
-					sweepA, sweepB := collision.NewSweep(), collision.NewSweep()
+					sweepA, sweepB := &s.toiSweepA, &s.toiSweepB
 					sweepA.Set(bA.Sweep)
 					sweepB.Set(bB.Sweep)
 					var output collision.TOIOutput
-					collision.FindTimeOfImpact(&output, collision.TOIInput{ProxyA: fA.Geometry, ProxyB: fB.Geometry, SweepA: &sweepA, SweepB: &sweepB, TMax: 1}, linearSlop)
+					collision.FindTimeOfImpact(&output, collision.TOIInput{ProxyA: fA.Geometry, ProxyB: fB.Geometry, SweepA: sweepA, SweepB: sweepB, TMax: 1}, linearSlop)
 
 					if output.Touching {
 						alpha = min(alpha0+(1-alpha0)*output.T, 1)

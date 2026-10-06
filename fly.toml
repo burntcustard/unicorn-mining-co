@@ -18,6 +18,9 @@ PORT = '8080'
 WORLD_SEED = '25'
 DATABASE_PATH = '/data/world.sqlite'
 BACKUP_DIRECTORY = '/data/backups'
+# Collect sooner on the 512 MiB Machine; long 32-player captures at GOGC=800
+# exceed its RAM even before SQLite and the OS are included.
+GOGC = '200'
 
 [[mounts]]
 source = 'game_data'

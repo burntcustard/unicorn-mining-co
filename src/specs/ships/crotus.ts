@@ -22,25 +22,19 @@ export const crotus = {
           {
             x: 30,
             y: 0,
-            fits: [
-              'hornDrill',
-            ],
+            fits: ['hornDrill'],
           },
           {
             x: 24,
             y: 0,
-            fits: [
-              'autocannon',
-            ],
-          }
+            fits: ['autocannon'],
+          },
         ],
         [
           {
             x: 34,
             y: 0,
-            fits: [
-              'searchLight',
-            ],
+            fits: ['searchLight'],
           },
         ],
       ],
@@ -64,10 +58,7 @@ export const crotus = {
             x: -26,
             y: 0,
             thrusterOffset: 8,
-            fits: [
-              'thrusterDualMd',
-              'thrusterDualLg',
-            ],
+            fits: ['thrusterDualMd', 'thrusterDualLg'],
           },
         ],
       ],
@@ -90,23 +81,17 @@ export const crotus = {
           {
             x: -7,
             y: -22,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: -7,
             y: -19,
-            fits: [
-              'plasmaAccelerator',
-            ],
+            fits: ['plasmaAccelerator'],
           },
           {
             x: -13,
             y: -19,
-            fits: [
-              'autocannon',
-            ],
+            fits: ['autocannon'],
           },
         ],
       ],
@@ -144,24 +129,18 @@ export const crotus = {
           {
             x: -7,
             y: 22,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: -7,
             y: 19,
-            fits: [
-              'plasmaAccelerator',
-            ],
+            fits: ['plasmaAccelerator'],
           },
           {
             x: -13,
             y: 19,
-            fits: [
-              'autocannon',
-            ],
-          }
+            fits: ['autocannon'],
+          },
         ],
       ],
       points: [
@@ -200,10 +179,7 @@ export const crotus = {
           {
             x: 0,
             y: 0,
-            fits: [
-              'shieldGeneratorSm',
-              'shieldGeneratorMd',
-            ],
+            fits: ['shieldGeneratorSm', 'shieldGeneratorMd'],
           },
         ],
       ],

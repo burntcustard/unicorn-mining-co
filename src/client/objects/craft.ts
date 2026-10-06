@@ -434,11 +434,12 @@ export class Craft extends GameObject {
   fixHull() {
     const hulls = this.segments.filter(({ hull }) => hull);
 
-    this.hullSegments.forEach((segmentPlan) => {
+    const orderedHulls = this.hullSegments.map((segmentPlan) => {
       const segment = hulls.find(({ module }) => module === segmentPlan);
 
       if (segment) {
         segment.health = segmentPlan.health;
+        return segment;
       } else {
         const rebuilt = makeSegment(this, segmentPlan, segmentPlan);
 
@@ -457,10 +458,16 @@ export class Craft extends GameObject {
         });
 
         hulls.push(rebuilt);
-        this.segments.push(rebuilt);
+        return rebuilt;
       }
     });
 
+    // Mount indexes travel over the wire. Rebuilt hulls must return to spec
+    // order even when prediction and the server lost different segments.
+    this.segments = [
+      ...orderedHulls,
+      ...this.segments.filter((segment) => !segment.hull),
+    ];
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
     outerEdges(outlinesOf(hulls));
     // Either core anchors flight and the hull kept attached to it; losing one

@@ -29,9 +29,11 @@ func TestPlayerSpawnAndRespawnReceiveStarterModules(t *testing.T) {
 		}
 
 		expected := []string{}
+
 		for _, entry := range catalog.ShipSpecs["mustang"].InitialLoadout {
 			expected = append(expected, entry.Module)
 		}
+
 		slices.Sort(expected)
 		slices.Sort(actual)
 
@@ -99,15 +101,20 @@ func TestArrowRespawnPreservesShipAndLoadout(t *testing.T) {
 	p.ship = objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: "arrow", PlayerID: &p.playerID})
 	p.shipID = p.ship.ID
 	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
 	if p.ship.DefinitionID != "arrow" || len(p.ship.Modules()) != 3 {
 		t.Fatal("respawn must preserve Arrow and restore its cargo hatches and medium thruster")
 	}
+
 	thruster := p.ship.Mounts()[2].Module
+
 	if thruster == nil || thruster.ModuleBase().Type != "thrusterSingleMd" {
 		t.Fatal("Arrow must start with its medium thruster")
 	}
+
 	for _, index := range []int{0, 4} {
 		module := p.ship.Mounts()[index].Module
+
 		if module == nil || module.ModuleBase().Type != "cargoHatch" {
 			t.Fatal("respawn must equip both rear cargo hatches")
 		}

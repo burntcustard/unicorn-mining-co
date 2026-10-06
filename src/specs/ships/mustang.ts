@@ -30,23 +30,17 @@ export const mustang = {
           {
             x: 3,
             y: -29,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: -2,
             y: -25,
-            fits: [
-              'autocannon',
-            ],
+            fits: ['autocannon'],
           },
           {
             x: 5,
             y: -25,
-            fits: [
-              'plasmaAccelerator',
-            ],
+            fits: ['plasmaAccelerator'],
           },
         ],
       ],
@@ -88,9 +82,7 @@ export const mustang = {
           {
             x: 0,
             y: 0,
-            fits: [
-              'shieldGeneratorSm',
-            ],
+            fits: ['shieldGeneratorSm'],
           },
         ],
       ],
@@ -108,18 +100,14 @@ export const mustang = {
           {
             x: 20,
             y: 0,
-            fits: [
-              'hornDrill',
-            ],
+            fits: ['hornDrill'],
           },
         ],
         [
           {
             x: 28,
             y: 0,
-            fits: [
-              'searchLight',
-            ],
+            fits: ['searchLight'],
           },
         ],
       ],
@@ -144,23 +132,17 @@ export const mustang = {
           {
             x: 3,
             y: 29,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: -2,
             y: 25,
-            fits: [
-              'autocannon',
-            ],
+            fits: ['autocannon'],
           },
           {
             x: 5,
             y: 25,
-            fits: [
-              'plasmaAccelerator',
-            ],
+            fits: ['plasmaAccelerator'],
           },
         ],
       ],

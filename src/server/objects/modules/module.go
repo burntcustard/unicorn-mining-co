@@ -30,7 +30,13 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 	for _, part := range spec.Model {
 		radius := simulation.RadiusOf(points(part.Points).Points, simulation.Point{})
 
-		plan := &simulation.SegmentPlan{FillShade: part.Color, Radius: func(*simulation.Segment) float64 { return radius }}
+		fill := 2.0
+
+		if part.Color != nil {
+			fill = *part.Color
+		}
+
+		plan := &simulation.SegmentPlan{FillShade: &fill, Stroke: [][][]float64{}, Radius: func(*simulation.Segment) float64 { return radius }}
 
 		plan.DynamicPoints = func(segment *simulation.Segment) *simulation.ShapeOutline {
 			side := 1.0

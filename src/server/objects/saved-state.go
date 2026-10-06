@@ -44,6 +44,8 @@ type SavedEntity struct {
 	ModuleTypes              []string
 	CargoContents            []SavedEntity
 	Wreckage                 []WreckageSegment
+	UnstrokedWreckage        []int
+	ZeroFillWreckage         []int
 	DockedTo                 *int64
 	Launching, Forward, Turn float64
 	HasLaunching             bool
@@ -155,6 +157,19 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 
 		for i := range s.Wreckage {
 			w := &s.Wreckage[i]
+
+			// Gob collapses an empty slice to nil. Retain the distinction between
+			// an empty stroke and the default stroke around the whole shape.
+			if w.Stroke != nil && len(w.Stroke) == 0 {
+				s.UnstrokedWreckage = append(s.UnstrokedWreckage, i)
+			}
+
+			// A pointer to zero is also omitted by Gob, but shade zero is the
+			// explicit dark fill rather than the hull renderer's default shade.
+			if w.FillShade != nil && *w.FillShade == 0 {
+				s.ZeroFillWreckage = append(s.ZeroFillWreckage, i)
+			}
+
 			w.ShapeOutline, w.FillShade = slices.Clone(w.ShapeOutline), savedPointer(w.FillShade)
 			w.Stroke = slices.Clone(w.Stroke)
 
@@ -192,6 +207,24 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 	s.ModuleType = restoreModuleID(s.ModuleType)
 
 	o := s.Object
+
+	for _, index := range s.UnstrokedWreckage {
+		if index < 0 || index >= len(s.Wreckage) {
+			return nil, fmt.Errorf("invalid saved wreckage stroke index %d", index)
+		}
+
+		s.Wreckage[index].Stroke = [][][]float64{}
+	}
+
+	for _, index := range s.ZeroFillWreckage {
+		if index < 0 || index >= len(s.Wreckage) {
+			return nil, fmt.Errorf("invalid saved wreckage fill index %d", index)
+		}
+
+		fill := 0.0
+		s.Wreckage[index].FillShade = &fill
+	}
+
 	props := simulation.ObjectProperties{ID: &o.ID, World: world, Random: random.CreateRandom(float64(o.ID))}
 	var entity simulation.Entity
 

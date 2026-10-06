@@ -117,6 +117,48 @@ moduleSpecList.forEach((spec, index) => {
 });
 
 assert.equal(thrusters.length, 8);
+
+// Prediction may have destroyed a different mounting hull before reconciliation.
+// Both histories must hydrate the same mount indexes from authoritative state.
+for (const shipType of shipSpecsById.keys()) {
+  const world = createWorld();
+  const authority = createShip(world, { shipType });
+  const predicted = createShip(world, { shipType });
+  const fullHealth = authority.hullHealth;
+  const mounted = authority.segments.filter(
+    (segment) => segment.hull && segment.mounts?.length,
+  );
+
+  if (mounted.length < 2) continue;
+  const planIndexes = mounted
+    .slice(0, 2)
+    .map((segment) => authority.hullSegments.indexOf(segment.module));
+
+  authority.hullHealth = fullHealth.map((health, index) =>
+    index === planIndexes[0] ? 0 : health,
+  );
+
+  predicted.hullHealth = fullHealth.map((health, index) =>
+    index === planIndexes[1] ? 0 : health,
+  );
+  predicted.hullHealth = authority.hullHealth;
+
+  assert.doesNotThrow(() => {
+    predicted.moduleStates = authority.moduleStates;
+  }, 'reconciliation preserves compatible mounts');
+
+  assert.deepEqual(predicted.moduleStates, authority.moduleStates);
+  authority.hullHealth = fullHealth;
+
+  const repaired = createShip(world, { shipType });
+
+  assert.deepEqual(
+    authority.mounts.map((mount) => mount.fits),
+    repaired.mounts.map((mount) => mount.fits),
+    'repairs restore canonical mount order',
+  );
+}
+
 const item = new Item(diamond, { health: 10 });
 const copy = cloneEntity({ entity: item });
 

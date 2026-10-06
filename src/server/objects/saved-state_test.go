@@ -85,6 +85,71 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 	}
 }
 
+func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
+	catalog, _ := specs.Load()
+
+	for _, id := range []string{"cargoHatch", "plasmaAccelerator", "autocannon"} {
+		for _, side := range []float64{-1, 1} {
+			world := simulation.CreateWorld(25, catalog)
+			ship := objects.CreatePlayerShip(world, objects.Properties{})
+			var mounted *simulation.Mount
+
+			for _, mount := range ship.Mounts() {
+				for _, fit := range mount.Fits {
+					if fit == id && mount.LocalPosition.Y*side > 0 {
+						mounted = mount
+					}
+				}
+			}
+
+			module := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
+			ship.Fit(module, mounted)
+			simulation.AddEntity(world, ship)
+			ship.Detach(mounted)
+			var debris *objects.Craft
+
+			world.Entities.ForEach(func(entity simulation.Entity, _ int64) {
+				if craft, ok := entity.(*objects.Craft); ok && craft.Decay != 0 {
+					debris = craft
+				}
+			})
+
+			if debris == nil {
+				t.Fatal("destroyed module did not leave wreckage")
+			}
+
+			check := func(craft *objects.Craft) {
+				for _, segment := range craft.Wreckage() {
+					if segment.Stroke == nil || len(segment.Stroke) != 0 || segment.FillShade == nil {
+						t.Fatalf("%s wreckage lost its fill or gained an outline: stroke=%#v fill=%v", id, segment.Stroke, segment.FillShade)
+					}
+				}
+			}
+
+			check(debris)
+			encoded, err := persistence.Encode(objects.CaptureEntity(debris))
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var saved objects.SavedEntity
+
+			if err := persistence.Decode(encoded, &saved); err != nil {
+				t.Fatal(err)
+			}
+
+			restored, err := objects.RestoreEntity(saved, world)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			check(restored.(*objects.Craft))
+		}
+	}
+}
+
 func TestSavedStateOwnsItsMemory(t *testing.T) {
 	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)

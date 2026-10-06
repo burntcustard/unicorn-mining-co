@@ -29,34 +29,24 @@ export const arrow = {
           {
             x: -9,
             y: -24,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: -12,
             y: -24,
-            fits: [
-              'plasmaAccelerator',
-              'autocannon',
-            ],
+            fits: ['plasmaAccelerator', 'autocannon'],
           },
         ],
         [
           {
             x: 13,
             y: -14,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: 8.5,
             y: -15,
-            fits: [
-              'plasmaAccelerator',
-              'autocannon',
-            ],
+            fits: ['plasmaAccelerator', 'autocannon'],
           },
         ],
       ],
@@ -76,19 +66,14 @@ export const arrow = {
           {
             x: -32,
             y: 0,
-            fits: [
-              'thrusterSingleSm',
-              'thrusterSingleMd',
-            ],
+            fits: ['thrusterSingleSm', 'thrusterSingleMd'],
           },
         ],
         [
           {
             x: 0,
             y: 0,
-            fits: [
-              'shieldGeneratorMd',
-            ],
+            fits: ['shieldGeneratorMd'],
           },
         ],
       ],
@@ -107,34 +92,24 @@ export const arrow = {
           {
             x: -9,
             y: 24,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: -12,
             y: 24,
-            fits: [
-              'plasmaAccelerator',
-              'autocannon',
-            ],
+            fits: ['plasmaAccelerator', 'autocannon'],
           },
         ],
         [
           {
             x: 13,
             y: 14,
-            fits: [
-              'cargoHatch',
-            ],
+            fits: ['cargoHatch'],
           },
           {
             x: 8.5,
             y: 15,
-            fits: [
-              'plasmaAccelerator',
-              'autocannon',
-            ],
+            fits: ['plasmaAccelerator', 'autocannon'],
           },
         ],
       ],
@@ -163,33 +138,24 @@ export const arrow = {
           {
             x: 30,
             y: 0,
-            fits: [
-              'hornDrill',
-            ],
+            fits: ['hornDrill'],
           },
           {
             x: 24,
             y: 0,
-            fits: [
-              'autocannon',
-            ],
+            fits: ['autocannon'],
           },
         ],
         [
           {
             x: 38,
             y: 0,
-            fits: [
-              'searchLight',
-            ],
+            fits: ['searchLight'],
           },
           {
             x: 38,
             y: 0,
-            fits: [
-              'plasmaAccelerator',
-              'autocannon',
-            ],
+            fits: ['plasmaAccelerator', 'autocannon'],
           },
         ],
       ],

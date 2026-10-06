@@ -413,7 +413,9 @@ func (s *Ship) fireWeapons(dt float64) {
 		return
 	}
 
-	for _, module := range s.Modules() {
+	var modules [16]simulation.Module
+
+	for _, module := range s.AppendModules(modules[:0]) {
 		m := module.ModuleBase()
 
 		if m.Spec.Behavior != "weapon" || m.Mount == nil {
@@ -570,9 +572,11 @@ func CreatePlayerShip(world *simulation.World, props Properties) *Ship {
 	ship := CreateShip(world, props)
 
 	id := ship.DefinitionID
+
 	if id == "" {
 		id = "mustang"
 	}
+
 	for _, entry := range world.Specification.ShipSpecs[id].InitialLoadout {
 		ship.Fit(modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification), ship.Mounts()[entry.Mount])
 	}
