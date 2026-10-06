@@ -1138,7 +1138,8 @@ export class Craft extends GameObject {
       this.spin = 0;
     }
 
-    if (this.cockpit) {
+    // Hydrated player ships can have lost both cores already.
+    if (this.cockpit || this.playerId !== undefined) {
       // Count first; most ticks nothing is broken and nothing is allocated.
       const segments = this.segments;
       let brokenMount = false;

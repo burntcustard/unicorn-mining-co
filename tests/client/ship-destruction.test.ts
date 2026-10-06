@@ -23,15 +23,19 @@ const fixtures = JSON.parse(
 Object.assign(globalThis, {
   destructionPackets: fixtures,
   location: { protocol: 'http:', host: 'localhost' },
-  WebSocket: class {},
-  localStorage: { getItem: () => null as null },
+  WebSocket: class {
+    static OPEN = 1;
+    readyState = 1;
+    send() {}
+  },
+  localStorage: { getItem: () => null as null, setItem() {} },
 });
 
 const root = process.cwd();
 const scenario = `
 import assert from 'node:assert/strict';
 import {decodeBinarySnapshot} from '${root}/src/client/protocol/binary-snapshot.ts';
-import {makeEntity} from '${root}/src/client/network/network.ts';
+import {makeEntity, NetworkClient} from '${root}/src/client/network/network.ts';
 import {createWorld} from '${root}/src/client/simulation/world.ts';
 import {Ship} from '${root}/src/client/objects/ship.ts';
 import {cloneEntity} from '${root}/src/client/simulation/world-state.ts';
@@ -39,8 +43,13 @@ import {cloneEntity} from '${root}/src/client/simulation/world-state.ts';
 for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPackets')){
   const world=createWorld();
   const previous=new Map();
+  const client=new NetworkClient({url:'test'});
+  client.receive({message:{type:'welcome',playerToken:'test',playerId:1,shipId:1,
+    worldSeed:25,serverTick:0,spawn:{x:0,y:0}}});
   for(const [stage,hex] of packets.entries()){
     const packet=decodeBinarySnapshot(Uint8Array.from(hex.match(/../g),byte=>parseInt(byte,16)));
+    client.receive({message:packet});
+    assert.equal(client.shipDestroyed,!packet.entityIds.includes(1),'death state matches authoritative membership');
     for(const record of packet.fullEntities){
       let entity;
       assert.doesNotThrow(()=>{
@@ -64,6 +73,16 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
       assert.deepEqual(entity.cargoContents.map(object=>object.id),
         (record.cargoContents||[]).map(object=>states[object.moduleIndex].id),
         'loose modules keep valid cargo indexes when mounted modules disappear');
+      if(stage===0){
+        const damaged=cloneEntity({entity});
+        const health=damaged.hullHealth;
+        damaged.hullSegments.forEach((plan,index)=>{if(plan.core)health[index]=0;});
+        damaged.playerId=1;
+        damaged.hullHealth=health;
+        assert(!damaged.cockpit,'hydration has already removed both cores');
+        damaged.update(0);
+        assert(damaged.dead,'hydrated fatal damage still ends a player ship');
+      }
     }
   }
 }

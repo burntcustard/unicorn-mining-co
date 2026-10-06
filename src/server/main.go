@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"github.com/burntcustard/unicorn-mining-co/src/server/network"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
@@ -16,6 +17,9 @@ import (
 )
 
 func main() {
+	resetWorld := flag.Bool("reset-world", false, "archive the saved world and player progress, then exit; requires a stopped server")
+	flag.Parse()
+
 	if _, configured := os.LookupEnv("GOGC"); !configured {
 		debug.SetGCPercent(800)
 	}
@@ -71,6 +75,17 @@ func main() {
 		if err := syscall.Setuid(65532); err != nil {
 			log.Fatal(err)
 		}
+	}
+
+	if *resetWorld {
+		archive, err := persistence.Reset(databasePath)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("World reset; previous database archived in %s", archive)
+		return
 	}
 
 	store, err := persistence.Open(databasePath, backupDirectory)

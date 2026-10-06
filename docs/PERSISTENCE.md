@@ -131,6 +131,45 @@ source control; pushes to `main` deploy code, not player balances.
 
 ## Maintenance
 
+### Reset a world
+
+Resetting clears all world changes **and player progress**. Stop the local game
+server, then run:
+
+```sh
+npm run reset-world:local
+```
+
+This always targets this checkout's `.data/world.sqlite`. It takes the server's
+exclusive lock and refuses to run if the database is in use. The database and
+its `-wal`/`-shm` sidecars are moved together into a `world.sqlite.reset-*`
+directory beside the database. Periodic backups and unrelated `.data` files are
+retained. Start the server normally to generate a fresh world. Browser player
+tokens can remain; players receive fresh profiles when they reconnect.
+
+After deploying a version with the `--reset-world` command, reset Fly with:
+
+```sh
+npm run reset-world:live
+# Or select another Fly app explicitly:
+npm run reset-world:live -- my-app
+```
+
+The script uses `FLY_API_TOKEN` or the current `fly auth token`. It requires
+exactly one Machine mounting `/data`, saves its original config locally, disables
+traffic during maintenance, stops the game cleanly, and runs
+`/app/server --reset-world` on the existing volume. After a successful exit it
+restores the original config and starts the game. Archives stay on `/data`.
+On failure it retains the maintenance configuration and prints recovery commands
+with the saved config path; it does not report success or automatically restart
+a failed reset. Do not deploy concurrently with this maintenance operation.
+
+The offline reset command is also available directly as
+`DATABASE_PATH=/path/to/world.sqlite ./bin/server --reset-world`.
+To undo a reset, stop the server, preserve the new database and its sidecars,
+then move all archived database files back together to their original paths.
+Keep the archived WAL with its database, and restore uid/gid 65532 ownership on Fly.
+
 For occasional player-data edits, stop the game server cleanly, back up the database, and open `DATABASE_PATH` with
 SQLite tools. Credits, display names and playtime are ordinary table columns.
 Restart the game after editing; its in-memory records would otherwise overwrite

@@ -6,6 +6,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"slices"
+	"strconv"
 	"testing"
 )
 
@@ -118,5 +119,77 @@ func TestArrowRespawnPreservesShipAndLoadout(t *testing.T) {
 		if module == nil || module.ModuleBase().Type != "cargoHatch" {
 			t.Fatal("respawn must equip both rear cargo hatches")
 		}
+	}
+}
+
+func TestCoreDestructionAllowsRespawn(t *testing.T) {
+	catalog, _ := specs.Load()
+
+	for _, shipType := range []string{"mustang", "arrow"} {
+		for index, plan := range catalog.ShipSpecs[shipType].HullSegments {
+			if !plan.Core {
+				continue
+			}
+
+			t.Run(shipType+"/"+strconv.Itoa(index), func(t *testing.T) {
+				s := NewGameSession(25, catalog)
+				socket := &benchmarkSocket{}
+				s.Receive(protocol.Control{Type: "hello"}, socket)
+				p := s.playersBySocket[socket]
+				p.ship.Remove()
+				p.ship = objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: shipType, PlayerID: &p.playerID})
+				p.ship.Add()
+				p.shipID = p.ship.ID
+				previousID := p.shipID
+
+				for _, segment := range p.ship.Segments {
+					if segment.HullPlan == p.ship.HullSegments[index] {
+						objects.Damage(segment, 10000)
+						break
+					}
+				}
+
+				s.Tick(1)
+
+				if s.World.Entities.Has(previousID) || !p.ship.Dead {
+					t.Fatal("fatal core damage must remove the ship")
+				}
+
+				s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+				if p.shipID == previousID || !s.World.Entities.Has(p.shipID) {
+					t.Fatal("fatal core damage must allow respawn")
+				}
+			})
+		}
+	}
+}
+
+func TestHydratedFatalHullAllowsRespawn(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+	health := p.ship.HullHealth()
+
+	for index, plan := range p.ship.HullSegments {
+		if plan.Core {
+			health[index] = 0
+		}
+	}
+
+	p.ship.SetHullHealth(health)
+	previousID := p.shipID
+	s.Tick(1)
+
+	if s.World.Entities.Has(previousID) || !p.ship.Dead {
+		t.Fatal("a player ship hydrated without cores must die")
+	}
+
+	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+	if p.shipID == previousID || !s.World.Entities.Has(p.shipID) {
+		t.Fatal("a player ship hydrated without cores must allow respawn")
 	}
 }

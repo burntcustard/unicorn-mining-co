@@ -968,7 +968,9 @@ func (c *Craft) Update(dt float64) {
 		c.Spin = 0
 	}
 
-	if c.Cockpit == nil {
+	// Hydration removes broken cores before updating; owned ships must still
+	// resolve fatal damage even when neither core leaves a cockpit behind.
+	if c.Cockpit == nil && c.PlayerID == nil {
 		return
 	}
 
