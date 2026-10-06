@@ -384,15 +384,15 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 
 	if crafted {
 		entity := c.CraftBase()
+		states := readModules(entity, record)
 		cargo := entity.CargoContents
 
 		if len(cargo) > 0 {
 			entries := make([]protocol.CargoEntry, len(cargo))
-			sourceModules := entity.Modules()
 
 			for i, object := range cargo {
 				if module, ok := object.(simulation.Module); ok {
-					index := float64(slices.Index(sourceModules, module))
+					index := float64(states.indexes[module])
 					entries[i].ModuleIndex = &index
 				} else {
 					nested := fullRecord(prepare(object, batch), -1, nil)
@@ -427,7 +427,6 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		}
 
 		optionalNumber(record, field.Launching, entity.Launching, entity.HasLaunching)
-		states := readModules(entity, record)
 		f := &record.fields[field.Modules]
 
 		if states != nil {

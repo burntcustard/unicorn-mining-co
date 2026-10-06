@@ -55,6 +55,15 @@ func sameModuleSegments(entity *objects.Craft, record *moduleRecord) bool {
 func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 	clear(binary.moduleBuffer)
 	binary.moduleBuffer = entity.AppendModules(binary.moduleBuffer[:0])
+
+	// Impacts precede snapshots, while detachment waits until the next update.
+	// The client removes broken hulls when applying health, so omit their modules
+	// and mounts together before assigning the replicated indexes.
+	binary.moduleBuffer = slices.DeleteFunc(binary.moduleBuffer, func(module simulation.Module) bool {
+		mount := module.ModuleBase().Mount
+		return mount != nil && mount.Hull != nil && mount.Hull.Health < 1
+	})
+
 	modules := binary.moduleBuffer
 
 	if len(modules) == 0 {
@@ -63,6 +72,11 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 
 	clear(binary.mountBuffer)
 	binary.mountBuffer = entity.AppendMounts(binary.mountBuffer[:0])
+
+	binary.mountBuffer = slices.DeleteFunc(binary.mountBuffer, func(mount *simulation.Mount) bool {
+		return mount.Hull != nil && mount.Hull.Health < 1
+	})
+
 	mounts := binary.mountBuffer
 	p := binary.modules
 	same := p != nil && len(modules) == len(p.modules)
