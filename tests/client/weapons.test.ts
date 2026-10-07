@@ -490,35 +490,28 @@ for(const Type of [PlasmaAccelerator,Autocannon])for(const side of [-1,1]){
   projectile.resolveHits([],collisionWorld,.1);
   assert(projectile.dead && gun.mount.health<health,'projectiles strike the weapon barrel rather than passing through it');
 }
+// Synthetic visuals test both projectile types without fixing their production colours.
 for(const id of ['plasmaAccelerator','autocannon']){
-  const spec=moduleSpecs[id].projectile;
-  const previous=gradients;
-  new Projectile(id).render();
-  assert.equal(fills.at(-1),spec.color,'projectile colour is independent of its glow');
-  assert.equal(gradients-previous,Number(!!spec.glow),'glow is optional for either projectile');
-  if(spec.glow){
-    const halo=fills.at(-2);
-    assert.equal(halo.stops[0][1],id==='plasmaAccelerator'?'#ee66ff44':'#ffee4433','the halo combines its opaque colour with numeric alpha');
-    assert.equal(halos.at(-1).coordinates[5],spec.glow.radius,'the halo uses its configured radius');
-    assert.deepEqual(halo.stops[1],[1,'#00000000'],'the halo fades to transparent');
-  }
+  const custom=moduleSpecs[id].projectile;
+  const original={...custom};
+  Object.assign(custom,{radius:3,lifetime:4,color:colors.yellow[2],glow:{color:colors.green[2],alpha:4/15,radius:30}});
+  const customShot=new Projectile(id);
+  assert.equal(customShot.radius,3);
+  assert.equal(customShot.health,moduleSpecs[id].damage);
+  const beforeGlow=gradients;
+  customShot.render();
+  assert.equal(gradients,beforeGlow+1,'either projectile type renders its configured glow');
+  assert.equal(fills.at(-1),colors.yellow[2],'the solid circle keeps its own colour');
+  assert.deepEqual(fills.at(-2).stops,[[0,'#33ff7744'],[1,'#00000000']],
+    'the glow combines its own colour and numeric opacity before fading to transparent');
+  assert.equal(halos.at(-1).coordinates[5],30,'glow size is independent of projectile radius');
+  delete custom.glow;
+  const beforeNoGlow=gradients;
+  customShot.render();
+  assert.equal(gradients,beforeNoGlow,'omitting glow disables it');
+  assert.equal(fills.at(-1),colors.yellow[2],'unglowing projectiles retain their configured colour');
+  Object.assign(custom,original);
 }
-const custom=moduleSpecs.autocannon.projectile;
-const original={...custom};
-Object.assign(custom,{radius:3,lifetime:4,color:colors.yellow[2],glow:{color:colors.green[2],alpha:4/15,radius:30}});
-const customShot=new Projectile('autocannon');
-assert.equal(customShot.radius,3);
-assert.equal(customShot.health,4);
-customShot.render();
-assert.equal(fills.at(-1),colors.yellow[2],'the solid circle keeps its own colour');
-assert.equal(fills.at(-2).stops[0][1],'#33ff7744','the glow can have a different colour and numeric opacity');
-assert.equal(halos.at(-1).coordinates[5],30,'glow size is independent of projectile radius');
-delete custom.glow;
-const beforeNoGlow=gradients;
-customShot.render();
-assert.equal(gradients,beforeNoGlow,'omitting glow disables it');
-assert.equal(fills.at(-1),colors.yellow[2],'unglowing projectiles retain their configured colour');
-Object.assign(custom,original);
 for(const delay of [1,3,8]){
   const server=createWorld();
   const serverShip=addEntity(server,createPlayerShip(server,{id:1,playerId:1}));

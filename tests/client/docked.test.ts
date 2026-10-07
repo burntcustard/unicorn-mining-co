@@ -62,7 +62,14 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().
 player.credits = 10000;
 const ship = new Ship({ shades: colors.white }).addToScene();
 const engineMount=ship.mounts.find(mount=>mount.fits.includes(ThrusterSingleMd));
-assert.equal(fitsOf(ship,engineMount)[0],ThrusterSingleSm,'small single thruster precedes medium in the dock list');
+assert.deepEqual(fitsOf(ship,engineMount),thrusters.filter(type=>engineMount.fits.includes(type)),
+  'the dock list preserves thruster display order and only offers compatible types');
+// Exercise every thruster independently of the production ships' loadouts.
+const thrusterHull=[
+  {health:100,core:true,points:[[-16,-20],[8,0],[-16,20]],
+    mounts:[[{x:-16,y:0,fits:thrusters.map(type=>type.definitionId)}]]},
+  {health:100,core:true,points:[[8,0],[20,0],[-16,20]]}
+];
 assert.equal(ship.name,'Mustang','ship instances keep their display names under production transforms');
 assert.equal(ship.hullMaxHealth, 186, 'Ship hull has twice its original 93 HP');
 const pendingSales = [];
@@ -389,7 +396,7 @@ assert(flyer.forwardThrust === 0 && flyer.cargoContents[0] === engine, 'removing
 // Check actual launch motion, including the final 0.05-second full-power pulse:
 // coast uses quarter thrust and speed cap, with half-size flames.
 for (const type of thrusters) {
-  const departing = new Ship({shades: colors.white, position: Vec.create(100000, 100000)}).addToScene();
+  const departing = new Ship({hullSegments:thrusterHull,shades: colors.white, position: Vec.create(100000, 100000)}).addToScene();
   const engine = new type();
   departing.cargoContents.push(engine); departing.fit(engine);
   departing.launch();
@@ -417,7 +424,7 @@ for (const type of thrusters) {
       type.name + ': launch speed matches expected each frame');
     assert(Math.abs(departing.position.x - expectedX) < 1e-7,
       type.name + ': launch distance matches expected each frame');
-    assert(departing.maxSpeed === cap, type.name + ': coast lowers actual speed cap');
+    assert.equal(departing.maxSpeed, cap, type.name + ': coast lowers actual speed cap at frame ' + frame);
     assert(departing.segmentsAtMount(engine.mount).every(segment => segment.active === forward * Math.sqrt(fraction)),
       type.name + ': launch nozzle activation');
   }
@@ -453,7 +460,7 @@ for (const type of thrusters) {
     fill(path) { draws.push(path ? path.kind : 'glow'); },
   };
   const crafts = [0, 1].map(() => {
-    const craft = new Ship({ shades: colors.white }).addToScene();
+    const craft = new Ship({ hullSegments:thrusterHull, shades: colors.white }).addToScene();
     const engine = new type();
     craft.cargoContents.push(engine);
     craft.fit(engine);

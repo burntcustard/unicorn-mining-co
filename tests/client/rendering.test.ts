@@ -198,7 +198,10 @@ for(const y of [-29,29]){
   }
 }
 for(const [Type,size] of [[ThrusterSingleSm,5],[ThrusterSingleMd,7],[ThrusterSingleLg,9],[ThrusterSingleXl,11]]){
-  const craft=new Ship({shades:colors.cyan});
+  const craft=new Ship({shades:colors.cyan,hullSegments:[
+    {health:100,core:true,points:[[-16,-20],[8,0],[-16,20]],
+      mounts:[[{x:-16,y:0,fits:[Type.definitionId]}]]}
+  ]});
   const engine=new Type();
   craft.fit(engine);
   craft.fly(1,0);

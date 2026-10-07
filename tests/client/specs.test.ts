@@ -193,12 +193,13 @@ assert.equal(
   'direct specs need no game registration',
 );
 assert.equal(stationSpecsById.has(stationId), false);
+const Engine = moduleTypesById.get('thrusterSingleMd')!;
 const engineMount = previewShip.mounts.find((mount) =>
-  mount.fits.includes(thrusters[0]),
+  mount.fits.includes(Engine),
 );
 
 assert(engineMount, 'direct ship specs convert module IDs to real classes');
-previewShip.fit(new thrusters[0](), engineMount);
+previewShip.fit(new Engine(), engineMount);
 assert.equal(previewShip.modules.length, 1);
 assert.notEqual(previewShip.mounts[0], mustang.hullSegments[1].mounts[0]);
 
