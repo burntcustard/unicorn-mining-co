@@ -221,7 +221,7 @@ class AutogunModule extends Weapon {
     barrels.slice(pair * 2, pair * 2 + 2).forEach(([offset, depth]) => {
       super.render({
         ...options,
-        segment: { ...segment, fillShade: depth > 0 ? 2 : 1 },
+        segment: { ...segment, fillShade: depth > 0 ? 2 : 0 },
         points: points.map(([x, y]) => [x, y - middle[1] + offset]),
       });
     });
