@@ -70,7 +70,7 @@ func TestModuleMountCoordinates(t *testing.T) {
 		Points: []specs.Point{{-30, -30}, {30, -30}, {30, 30}, {-30, 30}},
 		Mounts: [][]specs.MountPoint{{
 			{X: 3, Y: -29, Fits: []string{"cargoHatch"}},
-			{X: 9, Y: -6, Fits: []string{"autocannon"}},
+			{X: 9, Y: -6, Fits: []string{"autogun"}},
 			{X: 21, Y: -8, Fits: []string{"plasmaAccelerator"}},
 		}},
 	}}
@@ -78,7 +78,7 @@ func TestModuleMountCoordinates(t *testing.T) {
 	shipSpec := catalog.ShipSpecs["mustang"]
 	shipSpec.HullSegments = hulls
 	catalog.ShipSpecs["test"] = shipSpec
-	stationSpec := catalog.StationSpecs["corral"]
+	stationSpec := catalog.StationSpecs["corral-5"]
 	stationSpec.HullSegments = hulls
 	catalog.StationSpecs["test"] = stationSpec
 	world := simulation.CreateWorld(25, catalog)
@@ -108,11 +108,11 @@ func TestModuleMountCoordinates(t *testing.T) {
 			}
 		}
 
-		cannon := modules.Create("autocannon", simulation.ObjectProperties{World: world}, catalog)
+		cannon := modules.Create("autogun", simulation.ObjectProperties{World: world}, catalog)
 		craft.Fit(cannon, mount)
 
 		if mount.LocalPosition != Vec.Create(9, -6) {
-			t.Fatal("autocannon must use its own mount coordinates")
+			t.Fatal("autogun must use its own mount coordinates")
 		}
 
 		for _, segment := range craft.SegmentsAtMount(mount) {
@@ -138,6 +138,8 @@ func TestModuleMountCoordinates(t *testing.T) {
 	}
 
 	ship.SetModuleActive("plasmaAccelerator", true)
+	ship.UpdateModules(3)
+	ship.Firing = true
 	ship.fireWeapons(0)
 
 	for _, entity := range world.Entities.Values() {

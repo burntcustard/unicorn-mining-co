@@ -16,11 +16,14 @@ func (m *Module) ModuleBase() *simulation.ModuleData { return &m.ModuleData }
 
 func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catalog) *Module {
 	spec := catalog.ModuleSpecs[id]
+
 	m := &Module{
 		GameObject: simulation.NewGameObject(props, catalog.Simulation),
 		Type:       id,
 		Spec:       spec,
 	}
+
+	m.ChargeCooldown = spec.ChargeDuration
 	m.Self = m
 	m.Health, m.Name, m.Price, m.Shades = spec.Health, spec.Name, spec.Price, spec.Shades
 	m.GameObject.Bounciness = spec.Bounciness
@@ -52,7 +55,10 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 		}
 
 		if spec.Behavior == "weapon" {
-			radius := simulation.RadiusOf(plan.Points.Points, simulation.Point{})
+			radius := max(
+				simulation.RadiusOf(plan.Points.Points, simulation.Point{}),
+				simulation.RadiusOf(plan.Points.Points, simulation.Point{spec.RetractionDistance, 0}),
+			)
 			plan.Points = nil
 
 			plan.Radius = func(*simulation.Segment) float64 { return radius }
@@ -67,6 +73,7 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 				outline := points(part.Points)
 
 				for i := range outline.Points {
+					outline.Points[i][0] -= spec.RetractionDistance * (1 - segment.ActivationProgress)
 					outline.Points[i][1] *= side
 				}
 

@@ -97,7 +97,13 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 				cooldown = *state.FireCooldown
 			}
 
-			if data.FireCooldown != cooldown {
+			charge := 0.0
+
+			if state.ChargeCooldown != nil {
+				charge = *state.ChargeCooldown
+			}
+
+			if data.FireCooldown != cooldown || data.ChargeCooldown != charge {
 				same = false
 				break
 			}
@@ -124,6 +130,10 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 		}
 
 		value := protocol.ModuleState{ID: &id, Type: float64(slices.Index(entity.Catalog.ModuleIDs, d.Type)), Mount: float64(slices.Index(mounts, d.Mount)), Health: &health, Shades: slices.Clone(o.Shades), Segments: []protocol.ModuleSegment{}}
+
+		if d.ChargeCooldown > 0 {
+			value.ChargeCooldown = new(d.ChargeCooldown)
+		}
 
 		if d.FireCooldown > 0 {
 			value.FireCooldown = new(d.FireCooldown)

@@ -128,6 +128,7 @@ const featureCandidate = ({
       position,
       radius: specification.stationRadius,
       spin: randomSpin({ random }),
+      definitionId: random.next() < 0.5 ? 'corral-5' : 'corral-6',
       type: 'station',
     };
   }

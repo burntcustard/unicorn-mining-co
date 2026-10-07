@@ -206,22 +206,20 @@ initKeys({
   },
 });
 
-moduleControls
-  .filter(({ input }) => input !== 'fire')
-  .forEach(({ Type, input: action }) =>
-    bindAction(moduleBinding(action), () => {
-      if (player.ship.launching || player.ship.dockedTo) return;
-      const segment = player.ship.segments.find(
-        (segment) => segment.module instanceof Type && segment.mount.health > 0,
-      );
+moduleControls.forEach(({ Type, input: action }) =>
+  bindAction(moduleBinding(action), () => {
+    if (player.ship.launching || player.ship.dockedTo) return;
+    const segment = player.ship.segments.find(
+      (segment) => segment.module instanceof Type && segment.mount.health > 0,
+    );
 
-      if (!segment || player.ship.dead) return;
+    if (!segment || player.ship.dead) return;
 
-      if (action === 'shieldGenerator') playSound(segment.active ? 6 : 7);
+    if (action === 'shieldGenerator') playSound(segment.active ? 6 : 7);
 
-      if (Type === SearchLight) playSound(9);
-    }),
-  );
+    if (Type === SearchLight) playSound(9);
+  }),
+);
 
 bindAction(
   defaultKeybindings.menuLeft,
@@ -353,7 +351,7 @@ const gameLoop = GameLoop({
         object.render({ pose: remotePoses.get(object.id) }),
     );
 
-    renderEffects(ctx);
+    renderEffects({ ctx, poses: remotePoses });
     // Sparks off the HornDrill sit over the asteroids and ships they come off
     renderSparks(ctx);
 
@@ -381,14 +379,28 @@ const gameLoop = GameLoop({
     if (player.ship.launchRequested) {
       playerInput.launch = true;
       player.ship.launchRequested = 0;
+      network.recordInput({ input: playerInput });
     }
 
     if (network.updateFrame({ input: playerInput, dt, now })) {
       refreshReplication();
       syncPlayerShip();
 
+      const events = network.takeEvents();
+
+      if (
+        events.some(
+          (event) =>
+            event.type === 'docked' && event.playerId === network.playerId,
+        )
+      ) {
+        moduleControls.forEach(({ writeInput }) =>
+          writeInput({ input: playerInput, active: false }),
+        );
+      }
+
       presentEvents({
-        events: network.takeEvents(),
+        events,
         onMessage: readSlate,
         playerId: network.playerId,
         shipId: network.shipId,

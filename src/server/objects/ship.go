@@ -16,7 +16,8 @@ import (
 
 type Ship struct {
 	*Craft
-	Name string
+	Name   string
+	Firing bool
 }
 
 func newShip(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Ship {
@@ -194,14 +195,14 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 
 		*credits += sum
 	case "buyAmmo":
-		spec := s.Catalog.ItemSpecs["autocannonAmmunition"]
+		spec := s.Catalog.ItemSpecs["autogunAmmunition"]
 
 		if *credits < *spec.Price || len(s.CargoContents) >= s.CargoSpace {
 			return action, false
 		}
 
 		id := simulation.EntityID(s.World)
-		item := NewItem("autocannonAmmunition", simulation.ObjectProperties{World: s.World, ID: &id}, s.Catalog)
+		item := NewItem("autogunAmmunition", simulation.ObjectProperties{World: s.World, ID: &id}, s.Catalog)
 		s.CargoContents = append(s.CargoContents, item)
 		*credits -= *spec.Price
 	case "buy":
@@ -426,13 +427,13 @@ func (s *Ship) fireWeapons(dt float64) {
 		active := false
 
 		for _, segment := range s.Segments {
-			if segment.Module == module && segment.Active != 0 && *segment.TargetHealth() > 0 {
+			if segment.Module == module && segment.Active != 0 && segment.ActivationProgress == 1 && *segment.TargetHealth() > 0 {
 				active = true
 				break
 			}
 		}
 
-		if !active {
+		if !s.Firing || !active || m.ChargeCooldown > 1e-9 {
 			m.FireCooldown = math.Max(0, m.FireCooldown)
 			continue
 		}

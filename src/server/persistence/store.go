@@ -56,7 +56,7 @@ func CompatibleGenerationDigest(catalog specs.Catalog, saved string) bool {
 		return true
 	}
 
-	if !slices.Equal(catalog.ItemIDs, []string{"diamond", "amethyst", "gold", "opal", "message", "autocannonAmmunition"}) {
+	if !slices.Equal(catalog.ItemIDs, []string{"diamond", "amethyst", "gold", "opal", "message", "autogunAmmunition"}) {
 		return false
 	}
 

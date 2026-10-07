@@ -154,13 +154,14 @@ export function decodeBinarySnapshot(
     for (let index = 0; index < length; index++) {
       const mask = byte();
 
-      if (mask & ~15) return fail();
+      if (mask & ~31) return fail();
       const type = number() as number;
       const mount = number() as number;
       const id = mask & 1 ? (number() as number) : undefined;
       const health = mask & 2 ? (number() as number) : undefined;
       const moduleShades = mask & 4 ? shades() : undefined;
       const fireCooldown = mask & 8 ? (number() as number) : undefined;
+      const chargeCooldown = mask & 16 ? (number() as number) : undefined;
       const segmentCount = count(16);
       const segments: (typeof values)[number]['segments'] = [];
 
@@ -178,6 +179,7 @@ export function decodeBinarySnapshot(
         ...(mask & 2 && { health }),
         ...(mask & 4 && { shades: moduleShades }),
         ...(mask & 8 && { fireCooldown }),
+        ...(mask & 16 && { chargeCooldown }),
         segments,
       });
     }

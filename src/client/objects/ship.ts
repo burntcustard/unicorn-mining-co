@@ -1,4 +1,4 @@
-import { autocannonAmmunition } from '../../specs/items';
+import { autogunAmmunition } from '../../specs/items';
 import { Weapon } from './modules/weapon';
 import { Projectile } from './projectile';
 import { addEntity, entityId } from '../simulation/world';
@@ -36,6 +36,7 @@ export class Ship extends Craft {
   // Resist collision torque without changing the pilot's steering response.
   static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
+  firing = false;
 
   /**
    * Apply one dock action to this ship. A local buy action gets its module ID
@@ -81,19 +82,19 @@ export class Ship extends Craft {
       );
     } else if (action.action === 'buyAmmo') {
       if (
-        player.credits < autocannonAmmunition.price ||
+        player.credits < autogunAmmunition.price ||
         this.cargoContents.length >= this.cargoSpace
       ) {
         return;
       }
 
-      const item = new Item(autocannonAmmunition, {
+      const item = new Item(autogunAmmunition, {
         world: this.world,
         id: entityId(this.world!),
       });
 
       this.cargoContents.push(item);
-      player.credits -= autocannonAmmunition.price;
+      player.credits -= autogunAmmunition.price;
       return action;
     } else if (action.action === 'buy') {
       const Type = moduleTypes[action.module];
@@ -399,10 +400,11 @@ export class Ship extends Craft {
         (segment) =>
           segment.module === module &&
           segment.active &&
+          segment.activationProgress === 1 &&
           segment.mount.health > 0,
       );
 
-      if (!active) {
+      if (!this.firing || !active || module.chargeCooldown > 1e-9) {
         module.fireCooldown = Math.max(0, module.fireCooldown);
         continue;
       }

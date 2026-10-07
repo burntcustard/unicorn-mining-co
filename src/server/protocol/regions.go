@@ -4,11 +4,12 @@ package protocol
 import Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 
 type StationDescription struct {
-	ID       uint32     `json:"id"`
-	Position Vec.Vector `json:"position"`
-	Radius   float64    `json:"radius"`
-	Spin     float64    `json:"spin"`
-	Type     string     `json:"type"`
+	DefinitionID string     `json:"definitionId"`
+	ID           uint32     `json:"id"`
+	Position     Vec.Vector `json:"position"`
+	Radius       float64    `json:"radius"`
+	Spin         float64    `json:"spin"`
+	Type         string     `json:"type"`
 }
 
 type AsteroidDescription struct {

@@ -31,8 +31,31 @@ const controls: ClientMessage[] = [
     type: 'input',
     tick: 5,
     sequence: 6,
-    input: { ...emptyPlayerInput(), fire: true },
+    input: {
+      ...emptyPlayerInput(),
+      fire: true,
+      plasmaActive: true,
+      autogunActive: true,
+    },
     offset: 0.01,
+  },
+  {
+    type: 'input',
+    tick: 6,
+    sequence: 7,
+    input: { ...emptyPlayerInput(), plasmaActive: true },
+  },
+  {
+    type: 'input',
+    tick: 7,
+    sequence: 8,
+    input: { ...emptyPlayerInput(), autogunActive: true },
+  },
+  {
+    type: 'input',
+    tick: 8,
+    sequence: 9,
+    input: { ...emptyPlayerInput(), fire: true },
   },
   { type: 'dock', action: 'buyAmmo' },
   { type: 'dock', action: 'sell', objectIds: [-1, 2] },
@@ -124,7 +147,7 @@ for (const invalid of [
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
-  changed(input, 7, 4), // invalid input flags
+  changed(input, 7, 16), // invalid input flags
   changed(paint, 6, 4), // unknown optional field bit
   Uint8Array.from([0x55, 0x43, 1, 2, 1, 0]), // empty sell list
 ]) {

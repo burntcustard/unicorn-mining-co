@@ -22,7 +22,7 @@ type GameObject struct {
 	// Keep IDs, motion and per-tick state together ahead of cold metadata.
 	ID                                                                                            int64
 	Position, Velocity                                                                            Vec.Vector
-	Rotation, Spin, Radius                                                                        float64
+	Rotation, Spin, Radius, RotationJump                                                          float64
 	World                                                                                         *World
 	CollisionState, ReplicationState                                                              any
 	Kind                                                                                          string
@@ -193,6 +193,12 @@ func (o *GameObject) RoundMotion() {
 	o.Velocity.Y = utilities.RoundMotion(o.Velocity.Y)
 	o.Rotation = utilities.RoundMotion(o.Rotation)
 	o.Spin = utilities.RoundMotion(o.Spin)
+}
+
+// Face changes direction instantly without adding angular motion to the sweep.
+func (o *GameObject) Face(rotation float64) {
+	o.RotationJump += rotation - o.Rotation
+	o.Rotation = rotation
 }
 
 func (o *GameObject) Update(dt float64) {

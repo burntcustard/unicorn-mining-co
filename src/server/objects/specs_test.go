@@ -17,7 +17,7 @@ func TestSpecDrivenCraft(t *testing.T) {
 	scout := catalog.ShipSpecs["mustang"]
 	scout.CargoSpace = 20
 	catalog.ShipSpecs["testScout"] = scout
-	depot := catalog.StationSpecs["corral"]
+	depot := catalog.StationSpecs["corral-5"]
 	depot.LocalMovementRadius = 900
 	catalog.StationSpecs["testDepot"] = depot
 	world := simulation.CreateWorld(25, catalog)

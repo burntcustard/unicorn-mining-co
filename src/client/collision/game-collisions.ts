@@ -139,6 +139,7 @@ export class GameCollisions {
 
       Vec.set(previous.position, entity.position);
       previous.rotation = entity.rotation;
+      entity.rotationJump = 0;
     });
   }
 
@@ -368,8 +369,19 @@ export class GameCollisions {
         record.syncPending = true;
       } else record = this.sync(entity);
 
-      const start =
+      let start =
         (previous ? previous.get(entity.id) : record.previous) || entity;
+
+      // Instant turns during timed input changes are pose changes, not spin.
+      if (entity.rotationJump) {
+        start = {
+          position: start.position,
+          rotation: start.rotation + entity.rotationJump,
+        };
+
+        entity.rotationJump = 0;
+      }
+
       const velocity = record.velocity;
 
       if (dt) {

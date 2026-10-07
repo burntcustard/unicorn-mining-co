@@ -37,7 +37,7 @@ func TestRenderingLayerInheritance(t *testing.T) {
 		t.Fatalf("explicit segment layer = %d, want 0", got)
 	}
 
-	station := NewStation("corral", Properties{ObjectProperties: simulation.ObjectProperties{ID: &stationID}}, catalog)
+	station := NewStation("corral-5", Properties{ObjectProperties: simulation.ObjectProperties{ID: &stationID}}, catalog)
 	floors := 0
 
 	for _, segment := range station.Segments {

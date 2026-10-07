@@ -127,7 +127,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 				continue
 			}
 
-			station := objects.CreateStation(objects.Properties{World: world, ID: &id, Position: d.Position, Radius: &d.Radius, Spin: d.Spin}, r.catalog)
+			station := objects.CreateStation(objects.Properties{DefinitionID: d.DefinitionID, World: world, ID: &id, Position: d.Position, Radius: &d.Radius, Spin: d.Spin}, r.catalog)
 			simulation.AddEntity(world, station)
 			r.managed.Set(id, true)
 		}

@@ -1,9 +1,9 @@
 import { colors } from '../colors';
 import type { ItemSpec } from './types';
 
-export const autocannonAmmunition = {
+export const autogunAmmunition = {
   resource: 5,
-  name: 'Autocannon Ammunition',
+  name: 'Autogun Ammunition',
   price: 2,
   rounds: 200,
   points: [

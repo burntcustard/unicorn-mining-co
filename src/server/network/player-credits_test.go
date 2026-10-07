@@ -20,7 +20,7 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	p, other := s.playersBySocket[socket], s.playersBySocket[otherSocket]
 	committedSession(t, s)
 
-	if p.profile.Credits != 500 || other.profile.Credits != 500 {
+	if p.profile.Credits != 2000 || other.profile.Credits != 2000 {
 		t.Fatal("new players did not receive starting credits")
 	}
 
@@ -33,11 +33,12 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "sell", ObjectIDs: []int64{gold.ID}}}, socket)
 	committedSession(t, s)
 
-	if p.profile.Credits != 530 || len(p.ship.CargoContents) != 0 {
+	if p.profile.Credits != 2030 || len(p.ship.CargoContents) != 0 {
 		t.Fatal("sale did not credit the player")
 	}
 
 	// Insufficient funds leave both the player account and ship cargo intact.
+	p.profile.Credits = 530
 	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buy", Module: 7}}, socket)
 
 	if p.profile.Credits != 530 || len(p.ship.CargoContents) != 0 {
@@ -47,7 +48,7 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buy", Module: 4}}, socket)
 	committedSession(t, s)
 
-	if p.profile.Credits != 380 || len(p.ship.CargoContents) != 1 || other.profile.Credits != 500 {
+	if p.profile.Credits != 380 || len(p.ship.CargoContents) != 1 || other.profile.Credits != 2000 {
 		t.Fatal("purchase did not debit only the owning player")
 	}
 

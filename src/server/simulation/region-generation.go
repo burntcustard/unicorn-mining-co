@@ -21,6 +21,7 @@ const (
 )
 
 type feature struct {
+	DefinitionID  string
 	ID            uint32
 	Position      Vec.Vector
 	Radius        float64
@@ -151,7 +152,14 @@ func (g *RegionGenerator) featureCandidate(worldSeed uint32, cell Vec.Vector, ki
 	}
 
 	if kind == stationFeature {
-		return &feature{ID: id, Position: position, Radius: g.spec.StationRadius, Spin: randomSpin(r), Type: "station"}
+		spin := randomSpin(r)
+		definitionID := "corral-5"
+
+		if r.Next() >= 0.5 {
+			definitionID = "corral-6"
+		}
+
+		return &feature{ID: id, Position: position, Radius: g.spec.StationRadius, Spin: spin, Type: "station", DefinitionID: definitionID}
 	}
 
 	contents := make([]int, 2+int(math.Floor(r.Next()*3)))
@@ -238,7 +246,7 @@ func (g *RegionGenerator) GenerateStations(worldSeed uint32, from, to Vec.Vector
 	stations := []protocol.StationDescription{}
 
 	for _, f := range g.featuresWithin(worldSeed, from, to, stationFeature) {
-		stations = append(stations, protocol.StationDescription{ID: f.ID, Position: f.Position, Radius: f.Radius, Spin: f.Spin, Type: f.Type})
+		stations = append(stations, protocol.StationDescription{DefinitionID: f.DefinitionID, ID: f.ID, Position: f.Position, Radius: f.Radius, Spin: f.Spin, Type: f.Type})
 	}
 
 	return stations

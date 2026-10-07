@@ -1,7 +1,10 @@
 import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import { plasmaExplosion } from '../effects/plasma-explosion';
+import { plasmaMuzzleFlash } from '../effects/plasma-muzzle-flash';
 import type { ModuleSpec } from './types';
+
+const fireInterval = 2;
 
 export const plasmaAccelerator = {
   behavior: 'weapon',
@@ -10,12 +13,17 @@ export const plasmaAccelerator = {
   price: 800,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
+  activationDuration: 0.7,
+  chargeDuration: fireInterval,
+  retractionDistance: 12,
+  unhurtWhen: 1,
   damage: 10,
-  fireInterval: 2,
+  fireInterval,
+  muzzleFlash: plasmaMuzzleFlash,
   recoil: 30,
   projectile: {
-    speed: 500,
-    lifetime: 2.5,
+    speed: 600,
+    lifetime: 2,
     radius: 2.5,
     color: colors.violet[2],
     explosion: {
@@ -31,15 +39,27 @@ export const plasmaAccelerator = {
       radius: 20,
     },
   },
-  barrelLength: 16,
+  barrelLength: 18,
   model: [
     {
       outline: false,
       color: 0,
+      rechargeDelay: fireInterval,
+      rechargeColor: 0,
+      glow: {
+        offset: [9, 0],
+        radius: 10,
+        alpha: 0.5,
+        stops: [
+          [0, 2],
+          [0.2, 2, 0.6],
+          [1, '#000', 0],
+        ],
+      },
       points: [
         [0, -3],
-        [20, -3],
-        [20, 3],
+        [18, -3],
+        [18, 3],
         [0, 3],
       ],
     },
@@ -48,8 +68,8 @@ export const plasmaAccelerator = {
       color: 2,
       points: [
         [0, -3],
-        [20, -3],
-        [20, 3],
+        [18, -3],
+        [18, 3],
         [12, 3],
         [10.5, 0.5],
         [1, 0.5],

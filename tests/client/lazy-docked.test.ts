@@ -48,9 +48,16 @@ export const run = async () => {
   await moveSelection(1, player.ship);
   await confirmSelection(player.ship);
   renderDocked(game, player.ship);
+  player.ship.dockedTo = 100;
+  player.ship.launching = 0;
+  await back(player.ship);
+  await back(player.ship);
+  await back(player.ship);
+  const requested = player.ship.launchRequested === 1 && player.ship.dockedTo === 100 && !player.ship.launching;
   return [
     player.ship.cargoContents.length,
     sales[0]?.objectIds?.[0] === player.ship.cargoContents[0].id,
+    requested,
   ];
 };`;
 
@@ -119,7 +126,7 @@ try {
 
   assert.deepEqual(
     await run(),
-    [1, true],
+    [1, true, true],
     'cargo sale and hull menu work across the lazy boundary',
   );
   console.log('Production lazy docked chunk renders cargo and hull menus');

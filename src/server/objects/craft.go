@@ -81,9 +81,12 @@ func (c *Craft) HandleDockingContacts(contacts []collision.Contact, events *[]pr
 		id := c.ID
 		ship.DockedTo = &id
 		ship.Position = c.Position
-		ship.Rotation = c.Rotation
 		ship.Velocity = Vec.Vector{}
 		ship.Spin = 0
+
+		for _, segment := range ship.Segments {
+			segment.Active = 0
+		}
 
 		if ship.PlayerID != nil {
 			*events = append(*events, protocol.Docked{PlayerID: *ship.PlayerID, DockedTo: c.ID})
@@ -416,6 +419,21 @@ func (c *Craft) FixHull() {
 }
 
 func (c *Craft) Launch() {
+	if c.DockedTo != nil && c.World != nil {
+		if entity, ok := c.World.Entities.Get(*c.DockedTo); ok {
+			if station, ok := entity.(*Station); ok && len(station.DockingBays) > 0 {
+				index := 0
+
+				if len(station.DockingBays) > 1 {
+					index = int(c.Random.Next() * float64(len(station.DockingBays)))
+				}
+
+				c.Face(station.Rotation + station.DockingBays[index])
+				c.Spin = 0
+			}
+		}
+	}
+
 	c.DockedTo = nil
 	c.Launching = c.Rules.Flight.LaunchDuration
 	c.HasLaunching = true
@@ -524,6 +542,10 @@ func (c *Craft) ModuleStates() []ModuleState {
 
 		state := ModuleState{ID: &id, Type: slices.Index(c.Catalog.ModuleIDs, d.Type), Mount: slices.Index(mounts, d.Mount), Health: &health, Shades: module.Base().Shades, Segments: []ModuleSegmentState{}}
 
+		if d.ChargeCooldown > 0 {
+			state.ChargeCooldown = new(d.ChargeCooldown)
+		}
+
 		if d.FireCooldown > 0 {
 			state.FireCooldown = new(d.FireCooldown)
 		}
@@ -577,6 +599,12 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 		}
 
 		object := module.Base()
+		module.ModuleBase().ChargeCooldown = 0
+
+		if state.ChargeCooldown != nil {
+			module.ModuleBase().ChargeCooldown = *state.ChargeCooldown
+		}
+
 		module.ModuleBase().FireCooldown = 0
 
 		if state.FireCooldown != nil {
@@ -691,7 +719,7 @@ func (c *Craft) Toggle(id string) {
 }
 
 func (c *Craft) UpdateModules(dt float64) {
-	for _, s := range c.Segments {
+	for index, s := range c.Segments {
 		if c.DockedTo != nil && *c.DockedTo != 0 {
 			s.Active = 0
 		}
@@ -704,6 +732,22 @@ func (c *Craft) UpdateModules(dt float64) {
 
 		previous := s.ActivationProgress
 		s.ActivationProgress = utilities.Approach(previous, target, s.Rate*dt)
+
+		if s.Module != nil {
+			module := s.Module.ModuleBase()
+
+			if module.Spec.ChargeDuration > 0 && slices.IndexFunc(c.Segments, func(candidate *simulation.Segment) bool {
+				return candidate.Mount == s.Mount
+			}) == index {
+				readyTime := math.Max(0, dt-(1-previous)/s.Rate)
+
+				if target == 1 && s.ActivationProgress == 1 {
+					module.ChargeCooldown = math.Max(0, module.ChargeCooldown-readyTime)
+				} else {
+					module.ChargeCooldown = module.Spec.ChargeDuration
+				}
+			}
+		}
 
 		if s.Covers && s.ActivationProgress > previous {
 			if c.World != nil {
@@ -960,7 +1004,6 @@ func (c *Craft) Update(dt float64) {
 		if c.World != nil {
 			if station, ok := c.World.Entities.Get(*c.DockedTo); ok {
 				c.Position = station.Base().Position
-				c.Rotation = station.Base().Rotation
 			}
 		}
 

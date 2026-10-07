@@ -28,11 +28,11 @@ func TestWeaponsAndPurchasedAmmoReplicate(t *testing.T) {
 		}
 	}
 
-	gun := modules.Create("autocannon", simulation.ObjectProperties{World: world}, catalog)
+	gun := modules.Create("autogun", simulation.ObjectProperties{World: world}, catalog)
 
 	for _, mount := range ship.Mounts() {
 		for _, id := range mount.Fits {
-			if id == "autocannon" {
+			if id == "autogun" {
 				ship.Fit(gun, mount)
 				break
 			}
@@ -68,7 +68,7 @@ func TestWeaponsAndPurchasedAmmoReplicate(t *testing.T) {
 		t.Fatal("remaining rounds must replicate even when cargo item identities stay the same")
 	}
 
-	projectile := objects.NewProjectile("autocannon", simulation.ObjectProperties{World: world, ID: new(simulation.EntityID(world))}, catalog)
+	projectile := objects.NewProjectile("autogun", simulation.ObjectProperties{World: world, ID: new(simulation.EntityID(world))}, catalog)
 	simulation.AddEntity(world, projectile)
 	world.Tick++
 

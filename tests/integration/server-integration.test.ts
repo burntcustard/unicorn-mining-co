@@ -196,7 +196,7 @@ try {
 
               if (!control[0]) {
                 assert.equal(control[5], 100);
-                assert.equal(control[6], 500);
+                assert.equal(control[6], 2000);
                 accountReceived = true;
                 return;
               }
@@ -204,7 +204,7 @@ try {
               welcome = control;
               assert(welcome[0]);
               assert.equal(welcome[5], 100);
-              assert.equal(welcome[6], 500);
+              assert.equal(welcome[6], 2000);
               socket.send(codec[1](welcome[4]));
 
               // A purchase outside a station is rejected and returns account state.

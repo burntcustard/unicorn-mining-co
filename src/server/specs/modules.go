@@ -30,6 +30,8 @@ type Projectile struct {
 }
 
 type Module struct {
+	ChargeDuration        float64     `json:"chargeDuration"`
+	RetractionDistance    float64     `json:"retractionDistance"`
 	FireInterval          float64     `json:"fireInterval"`
 	Recoil                float64     `json:"recoil"`
 	Projectile            Projectile  `json:"projectile"`

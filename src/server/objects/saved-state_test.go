@@ -88,7 +88,7 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
 	catalog, _ := specs.Load()
 
-	for _, id := range []string{"cargoHatch", "plasmaAccelerator", "autocannon"} {
+	for _, id := range []string{"cargoHatch", "plasmaAccelerator", "autogun"} {
 		for _, side := range []float64{-1, 1} {
 			world := simulation.CreateWorld(25, catalog)
 			ship := objects.CreatePlayerShip(world, objects.Properties{})
@@ -207,6 +207,42 @@ func BenchmarkCaptureMovementBatch(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range entities {
 			objects.CaptureEntity(e)
+		}
+	}
+}
+
+func TestSavedCorralVariants(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+
+	for _, id := range []string{"", "corral", "corral-5", "corral-6"} {
+		station := objects.CreateStation(objects.Properties{DefinitionID: id, ObjectProperties: simulation.ObjectProperties{World: world}}, catalog)
+		saved := objects.CaptureEntity(station)
+		saved.Object.DefinitionID = id
+		entity, err := objects.RestoreEntity(saved, world)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		restored := entity.(*objects.Station)
+		bays := 1
+
+		if id == "corral-6" {
+			bays = 2
+		}
+
+		if len(restored.DockingBays) != bays {
+			t.Fatalf("%q restored wrong bay count", id)
+		}
+
+		if restored.DefinitionID == "corral" {
+			t.Fatal("legacy station ID leaked into replication")
 		}
 	}
 }

@@ -35,7 +35,7 @@ import {
   ThrusterSingleXl,
   thrusters,
   PlasmaAccelerator,
-  Autocannon,
+  Autogun,
 } from '${root}/src/client/objects/modules/index.ts';
 import {
   moduleSpecs,
@@ -189,7 +189,7 @@ const hydratedProjectile = makeEntity({
   entity: {
     id: 9998,
     kind: 'projectile',
-    definitionId: 'autocannon',
+    definitionId: 'autogun',
     radius: 1,
     health: 1.25,
     position: Vec.create(),
@@ -830,7 +830,7 @@ for (const [id, Type] of moduleTypesById) {
         points: Reflect.get(fill.path, 'vertices'),
         radius: segment.radius?.(segment),
         markings: strokePaths
-          .slice(beforeStroke + 1)
+          .slice(beforeStroke + draws.length - beforeDraw)
           .map((path) => Reflect.get(path, 'vertices')),
       };
       if (mode === 'current') fillsByPart.set(index, appearance);
@@ -847,17 +847,55 @@ for (const [id, Type] of moduleTypesById) {
 const mixedWorld = createWorld();
 const mixedShip = addEntity(mixedWorld, createPlayerShip(mixedWorld));
 const mixedSpec = {
-  ...moduleSpecs.autocannon,
-  model: moduleSpecs.autocannon.model.map((part, index) => ({
+  ...moduleSpecs.autogun,
+  model: moduleSpecs.autogun.model.map((part, index) => ({
     ...part,
     outline: index % 2 === 0,
   })),
 };
-const mixedGun = new Autocannon({ model: Autocannon.createModel(mixedSpec) });
+const mixedGun = new Autogun({ model: Autogun.createModel(mixedSpec) });
 mixedShip.fit(
   mixedGun,
-  mixedShip.mounts.find((mount) => mount.fits.includes(Autocannon)),
+  mixedShip.mounts.find((mount) => mount.fits.includes(Autogun)),
 );
+{
+  const parts = mixedShip.segmentsAtMount(mixedGun.mount);
+  const barrels = () => {
+    const before = draws.length;
+    parts.slice(0, 2).forEach((segment) => mixedGun.render({ segment }));
+    return draws.slice(before).map(({ path }) => Reflect.get(path, 'vertices'));
+  };
+  const centers = (shapes) => shapes.map(
+    (points) => points.reduce((sum, [, y]) => sum + y, 0) / points.length,
+  );
+  const initial = centers(barrels());
+  assert.equal(initial.length, 4, 'the bundle renders four barrels');
+  assert.equal(
+    new Set(initial.map((y) => y.toFixed(6))).size,
+    2,
+    'the initial view stacks the lower pair underneath the upper pair',
+  );
+  mixedShip.updateVisual(mixedGun.fireInterval / 4);
+  assert.deepEqual(centers(barrels()), initial, 'retracted barrels stay still');
+  mixedShip.setModuleActive({ module: Autogun, active: true });
+  mixedShip.updateModules(mixedGun.activationDuration + mixedGun.chargeDuration);
+  mixedShip.updateVisual(mixedGun.fireInterval / 4);
+  assert.notDeepEqual(centers(barrels()), initial, 'deployed idle barrels keep spinning');
+  mixedShip.updateVisual(mixedGun.fireInterval * 4 - mixedGun.fireInterval / 4);
+  centers(barrels()).forEach((y, index) => assert(Math.abs(y - initial[index]) < 1e-9));
+  for (const cooldown of [mixedGun.fireInterval, mixedGun.fireInterval / 2, 1e-10]) {
+    mixedGun.fireCooldown = cooldown;
+    const shapes = centers(barrels());
+    if (cooldown === mixedGun.fireInterval || cooldown === 1e-10)
+      assert(
+        Math.abs(shapes.at(-1)) < 1e-8,
+        'the upper firing barrel is centered at each end of the shot interval',
+      );
+    else
+      assert(Math.abs(shapes.at(-1)) > 1e-8, 'the bundle rotates between shots');
+  }
+  mixedGun.fireCooldown = 0;
+}
 mixedShip.detach(mixedGun.mount);
 const mixedDebris = [...mixedWorld.entities.values()].find(
   (entity) => entity !== mixedShip && entity.decay,
@@ -1099,7 +1137,7 @@ assert.equal(
   'wreckage does not inherit station gradients',
 );
 
-for (const Weapon of [PlasmaAccelerator, Autocannon])
+for (const Weapon of [PlasmaAccelerator, Autogun])
   for (const side of [-1, 1]) {
     const weaponWorld = createWorld();
     const weaponShip = addEntity(weaponWorld, createPlayerShip(weaponWorld));
@@ -1343,7 +1381,7 @@ const panelPositions = structuredClone(transforms),
   panelStrokes = [...strokes];
 panelShip.mounts.push(
   { module: new PlasmaAccelerator() },
-  { module: new Autocannon() },
+  { module: new Autogun() },
 );
 transforms.length = 0;
 strokes.length = 0;

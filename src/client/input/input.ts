@@ -53,6 +53,14 @@ export const initKeys = ({
 
     pressed.add(key);
 
+    if (matchesBinding(defaultKeybindings.plasmaActive, key)) {
+      playerInput.plasmaActive = !playerInput.plasmaActive;
+    }
+
+    if (matchesBinding(defaultKeybindings.autogunActive, key)) {
+      playerInput.autogunActive = !playerInput.autogunActive;
+    }
+
     if (matchesBinding(defaultKeybindings.hornDrill, key)) {
       playerInput.hornDrill = !playerInput.hornDrill;
     }

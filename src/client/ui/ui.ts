@@ -50,7 +50,7 @@ export const renderUI = (
 
   game.ctx.globalAlpha = game.uiAlpha;
 
-  if (player.ship.dockedTo && player.started) renderDocked(game, player.ship);
+  if (controlsShip.dockedTo && player.started) renderDocked(game, player.ship);
 
   // Messages keep their own visibility and sit over the docked panel, so a
   // reward announced by a sale is still read

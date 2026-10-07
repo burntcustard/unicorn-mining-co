@@ -2,6 +2,7 @@ import { withAlpha } from '../utilities/color';
 import { createPolygon } from '../utilities/polygon';
 import { shapePath, objectLineWidth } from '../utilities/drawing';
 import * as Vec from '../utilities/vector';
+import { type Pose } from '../types';
 
 // All timing is in milliseconds. Scale interpolates over the whole layer.
 export type EffectLayer = {
@@ -19,6 +20,8 @@ export type EffectLayer = {
       dissolveDuration?: number;
       pointCount: number;
       radiusEven?: number | readonly [number, number];
+      // Optional fan angle in radians, opening along local +x from the origin.
+      spread?: number;
       type: 'polygon';
     }
   | { endLineWidth?: number; lineWidth?: number; type: 'ring' }
@@ -35,6 +38,7 @@ type PolygonGeometry = {
 type Effect = {
   age: number;
   duration: number;
+  parent?: Pose & { id: number };
   parts: (
     | Exclude<EffectLayer, { type: 'polygon' }>
     | (Extract<EffectLayer, { type: 'polygon' }> & PolygonGeometry)
@@ -64,10 +68,13 @@ const polygonPath = ({
 export const addEffect = ({
   effect,
   position,
+  parent,
   rotation = Math.random() * Math.PI * 2,
   scale = 1,
 }: {
   effect: EffectSpec;
+  // With a parent, position and rotation are local to its displayed pose.
+  parent?: Effect['parent'];
   position: Vec.Value;
   rotation?: number;
   scale?: number;
@@ -76,6 +83,7 @@ export const addEffect = ({
 
   effects.push({
     age: 0,
+    parent,
     duration: Math.max(
       0,
       ...effect.map((part) => (part.delay ?? 0) + part.duration),
@@ -86,16 +94,34 @@ export const addEffect = ({
       const radiusEven =
         (typeof corners === 'number' ? corners : corners[0]) /
         (part.radius || 1);
-      const key = `${part.pointCount}:${radiusEven}`;
+      const key = `${part.pointCount}:${radiusEven}:${part.spread}`;
       let geometry = shapes.get(key);
 
       if (!geometry) {
-        const points = createPolygon({
-          pointCount: part.pointCount * 2,
-          radius: 1,
-          random: Math.random,
-          variance: 0.2,
-        });
+        const last = part.pointCount * 2;
+
+        // Fans need an inward corner at both edges, enclosing every tip.
+        const points =
+          part.spread === undefined
+            ? createPolygon({
+                pointCount: last,
+                radius: 1,
+                random: Math.random,
+                variance: 0.2,
+              })
+            : Array.from({ length: last + 1 }, (_, index) => {
+                const radius = 1 - Math.random() * 0.3;
+                // Jitter inside each slot, preserving order and spread edges.
+                const offset =
+                  index === 0 || index === last
+                    ? 0
+                    : (Math.random() - 0.5) * 0.95;
+                const angle = ((index + offset) / last - 0.5) * part.spread;
+
+                return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+              });
+
+        if (part.spread !== undefined) points.push([0, 0]);
 
         geometry = { path: polygonPath({ points, radiusEven }), points };
         shapes.set(key, geometry);
@@ -122,9 +148,23 @@ export const updateEffects = (elapsed: number) => {
   }
 };
 
-export const renderEffects = (ctx: CanvasRenderingContext2D) => {
+export const renderEffects = ({
+  ctx,
+  poses,
+}: {
+  ctx: CanvasRenderingContext2D;
+  poses?: Map<number, Pose>;
+}) => {
   for (const effect of effects) {
     ctx.save();
+
+    if (effect.parent) {
+      const pose = poses?.get(effect.parent.id) ?? effect.parent;
+
+      ctx.translate(pose.position.x, pose.position.y);
+      ctx.rotate(pose.rotation);
+    }
+
     ctx.translate(effect.position.x, effect.position.y);
     ctx.rotate(effect.rotation);
     ctx.scale(effect.scale, effect.scale);
@@ -152,7 +192,7 @@ export const renderEffects = (ctx: CanvasRenderingContext2D) => {
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
 
         gradient.addColorStop(0, part.color);
-        gradient.addColorStop(1, withAlpha({ color: '#000', alpha: 0 }));
+        gradient.addColorStop(1, withAlpha({ color: part.color, alpha: 0 }));
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);

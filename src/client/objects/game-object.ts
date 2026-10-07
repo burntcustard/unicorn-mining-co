@@ -53,6 +53,7 @@ export class GameObject {
   random: Random;
   resource?: number = undefined;
   rotation = 0;
+  rotationJump = 0;
   spin = 0;
   velocity: Vec.Value;
   world?: SimulationWorld;
@@ -161,6 +162,14 @@ export class GameObject {
     );
     this.rotation = roundMotion(this.rotation);
     this.spin = roundMotion(this.spin);
+  }
+
+  /**
+   * Face a direction instantly, excluding the turn from angular motion.
+   */
+  face(rotation: number) {
+    this.rotationJump += rotation - this.rotation;
+    this.rotation = rotation;
   }
 
   update(dt: number) {

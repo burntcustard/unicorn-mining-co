@@ -2,6 +2,7 @@ import * as Vec from '../../src/client/utilities/vector';
 import assert from 'node:assert/strict';
 import { createAsteroid } from '../../src/client/objects/asteroid';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
+import { type InputFrame } from '../../src/client/protocol/input-frame';
 import {
   addEntity,
   addPlayer,
@@ -11,16 +12,196 @@ import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { Item } from '../../src/client/objects/item';
 import {
   diamond as diamondSpec,
-  autocannonAmmunition,
+  autogunAmmunition,
 } from '../../src/specs/items/index';
-import { cloneEntity } from '../../src/client/simulation/world-state';
+import {
+  captureWorld,
+  cloneEntity,
+  restoreWorld,
+} from '../../src/client/simulation/world-state';
 import { updateWorld } from '../../src/client/simulation/update-world';
 import { PredictionManager } from '../../src/client/prediction/prediction';
 import { RemoteMotion } from '../../src/client/prediction/remote-motion';
+import { Station } from '../../src/client/objects/station';
+import { FramePrediction } from '../../src/client/prediction/frame-prediction';
 import { GameObject } from '../../src/client/objects/game-object';
 import { CargoHatch } from '../../src/client/objects/modules/cargo-hatch';
+import { HornDrill } from '../../src/client/objects/modules/horn-drill';
 import { maxPredictionTicks } from '../../src/specs/prediction';
 import { simulationStep } from '../../src/specs/simulation';
+
+// Cached display prediction must follow the live horn's animation phase.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const horn = ship.segments.find(
+    (segment) => segment.module instanceof HornDrill,
+  )!;
+
+  horn.active = 1;
+  horn.activationProgress = 1;
+
+  const frames = new FramePrediction();
+
+  const input: InputFrame = {
+    input: { ...emptyPlayerInput(), hornDrill: true },
+    changes: [],
+  };
+
+  let previousPhase = horn.phase;
+
+  for (const elapsed of [
+    0,
+    simulationStep / 2,
+    simulationStep / 2,
+    simulationStep,
+    0,
+  ]) {
+    ship.updateVisual(1 / 60);
+    assert(
+      horn.phase > previousPhase,
+      'the active horn advances each display frame',
+    );
+    previousPhase = horn.phase;
+    const predicted = frames.sample({ world, playerId: 1, input, elapsed });
+    const drawn = predicted.entities
+      .get(ship.id)!
+      .segments.find(
+        (segment: typeof horn) => segment.module instanceof HornDrill,
+      );
+
+    assert.notEqual(drawn, horn, 'rendering still uses isolated mechanics');
+    assert.equal(
+      drawn.phase,
+      horn.phase,
+      'the rendered horn uses the current visual phase',
+    );
+    assert.equal(
+      horn.activationProgress,
+      1,
+      'sampling leaves live activation untouched',
+    );
+  }
+}
+
+// Snapshot refits and rollbacks must not restart the horn's visual rotation.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new PredictionManager({ world });
+
+  prediction.setLocalPlayer({ playerId: 1 });
+  const horn = ship.segments.find(
+    (segment) => segment.module instanceof HornDrill,
+  )!;
+  const moduleId = horn.module.id;
+
+  horn.activationProgress = 1;
+  horn.phase = 0.4;
+  ship.updateVisual(1 / 60);
+  const phase = horn.phase;
+  const checkpoint = captureWorld({ world });
+  const server = cloneEntity({ entity: ship }) as typeof ship;
+
+  // A newly collected spare changes the module list and rebuilds fitted parts.
+  server.cargoContents.push(new HornDrill({ id: 1000 }));
+  prediction.reconcile({ tick: 0, entities: [server] });
+  ship.updateVisual(1 / 60);
+  const rebuilt = ship.segments.find(
+    (segment) => segment.module.id === moduleId,
+  )!;
+
+  assert.notEqual(
+    rebuilt,
+    horn,
+    'the snapshot actually rebuilt the horn segment',
+  );
+  assert(
+    Math.abs(rebuilt.phase - phase - 1.5 / 60) < 1e-9,
+    'a rebuilt horn continues from the last displayed phase',
+  );
+
+  const displayedPhase = rebuilt.phase;
+
+  restoreWorld({ world, state: checkpoint });
+  ship.updateVisual(1 / 60);
+  assert(
+    Math.abs(horn.phase - displayedPhase - 1.5 / 60) < 1e-9,
+    'rollback to an older segment continues from the last displayed phase',
+  );
+}
+
+// Match the original activation-driven speed through wraps, snapshots and release.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new PredictionManager({ world });
+
+  prediction.setLocalPlayer({ playerId: 1 });
+  const moduleId = ship.modules.find(
+    (module) => module instanceof HornDrill,
+  )!.id;
+  const dt = 1 / 120;
+  let phase = 0;
+  let wraps = 0;
+  let previousSpeed = 0;
+
+  for (const active of [true, false]) {
+    ship.setModuleActive({ module: HornDrill, active });
+
+    for (let frame = 0; frame < 360; frame++) {
+      if (frame % 8 === 0) {
+        const server = cloneEntity({ entity: ship }) as typeof ship;
+
+        server.cargoContents.push(new HornDrill({ id: 1000 + frame }));
+        prediction.reconcile({ tick: world.tick, entities: [server] });
+      }
+
+      ship.updateModules(dt);
+      ship.updateVisual(dt);
+      const horn = ship.segments.find(
+        (segment) => segment.module.id === moduleId,
+      )!;
+      const speed = horn.activationProgress * 1.5;
+      const expected = (phase + dt * speed) % 1;
+
+      assert(
+        Math.abs(horn.phase - expected) < 1e-9,
+        'rotation keeps the original activation-based speed without resetting',
+      );
+      assert(
+        active ? speed >= previousSpeed : speed <= previousSpeed,
+        'the horn speeds up on activation and slows down on release',
+      );
+
+      if (expected < phase) wraps++;
+      phase = horn.phase;
+      previousSpeed = speed;
+      const rendered = prediction
+        .predictFrame({ elapsed: simulationStep / 2 })
+        .entities.get(ship.id)!
+        .segments.find(
+          (segment: typeof horn) => segment.module.id === moduleId,
+        );
+
+      assert.equal(
+        rendered.phase,
+        phase,
+        'the displayed phase stays continuous',
+      );
+    }
+  }
+
+  assert(wraps > 1, 'the test covers multiple complete rotations');
+  assert.equal(previousSpeed, 0, 'the horn finishes slowing down');
+  assert(phase > 0, 'the stopped horn retains its final phase');
+}
 
 // Restoring an older checkpoint must not release IDs reserved by the server.
 {
@@ -366,7 +547,7 @@ for (const correction of ['cargo', 'rounds'] as const) {
   const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
-  ship.cargoContents.push(new Item(autocannonAmmunition, { world, id: 999 }));
+  ship.cargoContents.push(new Item(autogunAmmunition, { world, id: 999 }));
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });
@@ -601,3 +782,98 @@ console.log(
 console.log(
   'Prediction checkpoints, fractional frames, rollback and recovery passed',
 );
+
+// An opposite-bay launch snaps the displayed angle at the timed input edge.
+{
+  const world = createWorld();
+  const station = addEntity(
+    world,
+    new Station({ world, stationType: 'corral-6' }),
+  );
+
+  station.dockingBays = [Math.PI];
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+  ship.dockedTo = station.id;
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new FramePrediction();
+
+  const input = {
+    input: emptyPlayerInput(),
+    changes: [
+      {
+        offset: simulationStep / 2,
+        input: { ...emptyPlayerInput(), launch: true },
+      },
+    ],
+  };
+
+  const before = prediction
+    .sample({ world, playerId: 1, input, elapsed: simulationStep / 4 })
+    .entities.get(ship.id)!;
+
+  assert(Math.abs(before.rotation) < 1e-6);
+  const after = prediction
+    .sample({ world, playerId: 1, input, elapsed: simulationStep * 0.75 })
+    .entities.get(ship.id)!;
+
+  assert(
+    Math.cos(after.rotation) < -0.999,
+    'the displayed ship instantly faces the opposite bay',
+  );
+  assert(Math.abs(after.spin) < 0.1);
+}
+
+// Escape is recorded before a fixed tick. An older docked snapshot must not
+// bring back the menu while frame prediction is already launching.
+{
+  const world = createWorld();
+  const station = addEntity(
+    world,
+    new Station({ world, stationType: 'corral-6' }),
+  );
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+  ship.dockedTo = station.id;
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const prediction = new PredictionManager({ world });
+
+  prediction.setLocalPlayer({ playerId: 1 });
+
+  const send = () => {};
+
+  prediction.step({ input: emptyPlayerInput(), send });
+  const authoritative = cloneEntity({ entity: ship });
+
+  assert(
+    prediction
+      .predictFrame({ elapsed: simulationStep / 4 })
+      .entities.get(ship.id)!.dockedTo,
+  );
+  const launch = { ...emptyPlayerInput(), launch: true };
+
+  prediction.recordInput({ input: launch, offset: simulationStep / 4, send });
+  assert(
+    !prediction
+      .predictFrame({ elapsed: simulationStep / 2 })
+      .entities.get(ship.id)!.dockedTo,
+  );
+
+  prediction.reconcile({
+    entities: [authoritative],
+    entityIds: [...world.entities.keys()],
+    tick: world.tick,
+  });
+
+  assert(
+    !prediction
+      .predictFrame({ elapsed: simulationStep * 0.75 })
+      .entities.get(ship.id)!.dockedTo,
+    'pending launch survives an older docked snapshot',
+  );
+  prediction.step({ input: launch, send });
+  assert(
+    !world.entities.get(ship.id)!.dockedTo,
+    'the fixed tick adopts the same predicted launch',
+  );
+}

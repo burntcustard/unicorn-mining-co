@@ -19,7 +19,7 @@ import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
 import { Station } from '${process.cwd()}/src/client/objects/station.ts';
 import { mustang } from '${process.cwd()}/src/specs/ships/mustang.ts';
-import { corral } from '${process.cwd()}/src/specs/stations/corral.ts';
+import { corral5 } from '${process.cwd()}/src/specs/stations/corral-5.ts';
 import { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
 import { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
@@ -62,7 +62,7 @@ assert.equal(
 assert.equal(
   new Station({
     stationType: 'viewerOnly',
-    spec: { ...corral, localMovementRadius: 750 },
+    spec: { ...corral5, localMovementRadius: 750 },
   }).localMovementRadius,
   750,
   'unregistered station specs work in source and production',

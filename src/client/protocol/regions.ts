@@ -1,6 +1,8 @@
+import type { StationId } from '../../specs/stations';
 import * as Vec from '../utilities/vector';
 
 export type StationDescription = {
+  definitionId: StationId;
   id: number;
   position: Vec.Value;
   radius: number;

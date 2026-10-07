@@ -139,7 +139,7 @@ try {
   const first = await join(address, null);
 
   assert.equal(first.paints, 100);
-  assert.equal(first.credits, 500);
+  assert.equal(first.credits, 2000);
   const firstClosed = once(sockets[0], 'close');
 
   sockets[0].terminate();
@@ -166,7 +166,7 @@ try {
   address = await start('development');
   const developer = await join(address, null);
 
-  assert.equal(developer.credits, 10000);
+  assert.equal(developer.credits, 2000);
   const existing = await join(address, first.token);
 
   assert.equal(existing.credits, first.credits);
@@ -177,7 +177,7 @@ try {
   assert.equal(savedDeveloper.credits, developer.credits);
   const newProductionPlayer = await join(address, null);
 
-  assert.equal(newProductionPlayer.credits, 500);
+  assert.equal(newProductionPlayer.credits, 2000);
   await stop('SIGTERM');
   console.log(
     'SQLite refresh, graceful restart, abrupt process kill and development starting credits passed',

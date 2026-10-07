@@ -3,6 +3,8 @@ import { type moduleControls } from '../objects/control-ship';
 
 export type KeyAction =
   | 'fire'
+  | 'plasmaActive'
+  | 'autogunActive'
   | 'forwardThrust'
   | 'turnLeft'
   | 'turnRight'
@@ -28,6 +30,8 @@ export type Keybindings = Record<KeyAction, KeyBinding>;
 // an array so a later player profile can assign several keys to one action.
 export const defaultKeybindings = {
   fire: { keys: [' '], mode: 'hold' },
+  plasmaActive: { keys: ['p'], mode: 'toggle' },
+  autogunActive: { keys: ['a'], mode: 'toggle' },
   forwardThrust: { keys: ['ArrowUp'], mode: 'hold' },
   turnLeft: { keys: ['ArrowLeft'], mode: 'hold' },
   turnRight: { keys: ['ArrowRight'], mode: 'hold' },
@@ -58,8 +62,11 @@ export const moduleBinding = (
     case 'shieldGenerator':
       return defaultKeybindings.shieldGenerator;
 
-    case 'fire':
-      return defaultKeybindings.fire;
+    case 'plasmaActive':
+      return defaultKeybindings.plasmaActive;
+
+    case 'autogunActive':
+      return defaultKeybindings.autogunActive;
 
     case 'hornDrill':
       return defaultKeybindings.hornDrill;

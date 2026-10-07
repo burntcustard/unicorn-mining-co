@@ -6,7 +6,8 @@ import { defaultFriction } from '../../src/specs/game-object';
 import { moduleIds, moduleSpecList } from '../../src/specs/modules';
 import { mustang, shipSpecsById, type ShipId } from '../../src/specs/ships';
 import {
-  corral,
+  corral5,
+  corral6,
   stationSpecsById,
   type StationId,
 } from '../../src/specs/stations';
@@ -19,7 +20,7 @@ import { Station } from '../../src/client/objects/station';
 import { Ship } from '../../src/client/objects/ship';
 import { CargoHatch } from '../../src/client/objects/modules/cargo-hatch';
 import {
-  Autocannon,
+  Autogun,
   PlasmaAccelerator,
 } from '../../src/client/objects/modules/weapon';
 import { EntityState } from '../../src/client/simulation/entity-state';
@@ -181,7 +182,7 @@ const previewShip = new Ship({
 
 const previewStation = new Station({
   stationType: stationId,
-  spec: { ...corral, localMovementRadius: 750 },
+  spec: { ...corral5, localMovementRadius: 750 },
 });
 
 assert.equal(previewShip.cargoSpace, 25);
@@ -205,7 +206,7 @@ assert.notEqual(previewShip.mounts[0], mustang.hullSegments[1].mounts[0]);
 
 const mountPoints: MountPointSpec[] = [
   { x: 3, y: -29, fits: ['cargoHatch'] },
-  { x: 9, y: -6, fits: ['autocannon'] },
+  { x: 9, y: -6, fits: ['autogun'] },
   { x: 21, y: -8, fits: ['plasmaAccelerator'] },
 ];
 
@@ -224,7 +225,7 @@ const hullSegments = [
 
 for (const craft of [
   new Ship({ spec: { ...mustang, hullSegments } }),
-  new Station({ spec: { ...corral, hullSegments } }),
+  new Station({ spec: { ...corral5, hullSegments } }),
 ]) {
   const mount = craft.mounts[0];
   const hatch = new CargoHatch();
@@ -243,7 +244,7 @@ for (const craft of [
       .every((segment) => segment.localPosition.y === -13),
   );
   const checkpoint = new EntityState(craft);
-  const cannon = new Autocannon();
+  const cannon = new Autogun();
 
   craft.fit(cannon, mount);
   assert.deepEqual(mount.localPosition, Vec.create(9, -6));
@@ -293,13 +294,13 @@ for (const craft of [
   );
   assert.deepEqual(
     mountPoints[1],
-    { x: 9, y: -6, fits: ['autocannon'] },
+    { x: 9, y: -6, fits: ['autogun'] },
     'fitting leaves specs unchanged',
   );
 }
 
 shipSpecsById.set(shipId, { ...mustang, cargoSpace: 20 });
-stationSpecsById.set(stationId, { ...corral, localMovementRadius: 900 });
+stationSpecsById.set(stationId, { ...corral5, localMovementRadius: 900 });
 
 try {
   const world = createWorld();
@@ -394,7 +395,7 @@ assert.deepEqual(
   crotusShip.mounts.map((mount) =>
     mount.module ? mount.module.definitionId : null,
   ),
-  ['autocannon', null, 'thrusterDualMd', 'cargoHatch', 'cargoHatch', null],
+  ['autogun', null, 'thrusterDualMd', 'cargoHatch', 'cargoHatch', null],
 );
 
 assert.deepEqual(
@@ -408,3 +409,56 @@ assert.deepEqual(
     Vec.create(-7, 22),
   ],
 );
+
+// Both variants retain center docking and share the bay presentation.
+for (const [spec, sides, bays] of [
+  [corral5, 5, 1],
+  [corral6, 6, 2],
+] as const) {
+  assert.equal(spec.geometry.core.length, sides);
+  assert.equal(spec.dockingBays.length, bays);
+  assert.equal(spec.geometry.sides.filter((side) => side.opening).length, bays);
+  assert.equal(spec.geometry.panels.length, sides - bays);
+  assert.equal(
+    spec.hullSegments.filter((segment) => 'dockSegment' in segment).length,
+    1,
+  );
+  assert.equal(
+    spec.hullSegments.filter((segment) => 'glow' in segment).length,
+    bays * 2,
+  );
+}
+
+assert.deepEqual(corral6.dockingBays, [0, Math.PI]);
+
+// Launch selection works for any number of authored bays and replays after rollback.
+const launchWorld = createWorld({ seed: 25 });
+
+const launchStation = new Station({
+  world: launchWorld,
+  rotation: 0.7,
+  spec: { ...corral6, dockingBays: [0, Math.PI / 2, Math.PI] },
+});
+
+launchWorld.entities.set(launchStation.id, launchStation);
+const launchingShip = createPlayerShip(launchWorld);
+const chosenBays = new Set<number>();
+
+for (let attempt = 0; attempt < 100; attempt++) {
+  launchingShip.dockedTo = launchStation.id;
+  const checkpoint = new EntityState(launchingShip);
+
+  launchingShip.launch();
+  const rotation = launchingShip.rotation;
+  const index = launchStation.dockingBays.findIndex(
+    (bay) => rotation === launchStation.rotation + bay,
+  );
+
+  assert(index >= 0);
+  chosenBays.add(index);
+  checkpoint.restore();
+  launchingShip.launch();
+  assert.equal(launchingShip.rotation, rotation);
+}
+
+assert.equal(chosenBays.size, 3);

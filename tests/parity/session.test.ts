@@ -81,6 +81,20 @@ function compare(a: unknown, b: unknown, path: string) {
     assert.deepEqual(Object.keys(a).sort(), Object.keys(b).sort(), path);
 
     for (const key of Object.keys(a)) {
+      const actual = a as Record<string, unknown>;
+      const archived = b as Record<string, unknown>;
+
+      // The archive snapped docked ships to the station angle. Arrival-angle
+      // preservation is covered by the client and Go docking regressions.
+      if (
+        key === 'rotation' &&
+        actual.kind === 'ship' &&
+        actual.dockedTo &&
+        archived.dockedTo
+      ) {
+        continue;
+      }
+
       compare(
         (a as Record<string, unknown>)[key],
         (b as Record<string, unknown>)[key],
@@ -151,7 +165,7 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
     const message = decoded(packet);
 
     if (message.type === 'welcome') {
-      assert.equal(message.credits, 500);
+      assert.equal(message.credits, 2000);
       assert.equal(message.unlockedPaints, 100);
       const { credits: _, unlockedPaints: __, ...welcome } = message;
 

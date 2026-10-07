@@ -38,14 +38,14 @@ for(const [index,point] of path.points.entries()){
   assert(radius<=1 && radius>=(index%2?.8:.2));
   assert.equal(radius>.25,index%2===1,'normalized geometry preserves inner and outer corners');
 }
-const record=()=>{
+const record=(rotation=0)=>{
   const arcs=[],clips=[],rects=[],fills=[],strokes=[],gradients=[],stack=[];
   const ctx={
     globalAlpha:.75,fillStyle:'#fff',strokeStyle:'#abc',lineWidth:3,size:1,
     save(){stack.push([this.globalAlpha,this.fillStyle,this.strokeStyle,this.lineWidth,this.size]);},
     restore(){[this.globalAlpha,this.fillStyle,this.strokeStyle,this.lineWidth,this.size]=stack.pop();},
     translate(x,y){assert.equal(x,10);assert.equal(y,20);},
-    rotate(angle){assert.equal(angle,0);},
+    rotate(angle){assert.equal(angle,rotation);},
     scale(x,y){assert.equal(x,y);this.size*=x;},beginPath(){},
     arc(x,y,radius){arcs.push(radius*this.size);},
     clip(path){clips.push(path);},
@@ -58,7 +58,7 @@ const record=()=>{
       gradients.push(gradient);return gradient;
     }
   };
-  renderEffects(ctx);
+  renderEffects({ctx});
   assert.equal(ctx.globalAlpha,.75,'rendering restores canvas state');
   assert.equal(ctx.fillStyle,'#fff');assert.equal(ctx.strokeStyle,'#abc');assert.equal(ctx.lineWidth,3);assert.equal(ctx.size,1);
   assert.equal(stack.length,0,'each layer restores its transform');
@@ -83,7 +83,7 @@ assert.equal(frame.strokes[0].radius,35,'ease-out expansion is faster at the sta
 assert.equal(frame.strokes[0].width,6,'ring width thins independently of radius easing');
 assert.equal(frame.strokes[0].alpha,.8,'thinning does not require fading');
 assert.equal(frame.gradients[0].radius,10,'glows use the same scale interpolation as other layers');
-assert.deepEqual(frame.gradients[0].stops,[[0,'#f80'],[1,'#00000000']]);
+assert.deepEqual(frame.gradients[0].stops,[[0,'#f80'],[1,'#ff880000']], 'glows fade to transparent without changing their colour');
 assert.equal(frame.fills[1].size,25,'polygon scale combines radius, layer animation and instance scale');
 frame=advanceTo(170);
 assert.equal(frame.fills[0].alpha,.6);
@@ -101,6 +101,45 @@ assert.equal(frame.fills.length,1);
 assert.equal(frame.gradients[0].radius,16,'default glow size stays constant');
 assert.equal(frame.fills[0].alpha,.25);
 updateEffects(75);assert.equal(effects.length,0);
+
+// Attached bursts follow the displayed ship pose; impact effects stay in place.
+const parent={id:7,position:{x:100,y:200},rotation:0};
+const offset={x:12,y:-4};
+const attachedSpec=[{type:'glow',color:'#fff',radius:5,duration:100}];
+addEffect({parent,position:offset,rotation:.25,effect:attachedSpec});
+addEffect({position:{x:10,y:20},rotation:0,effect:attachedSpec});
+offset.x=90;
+const attached=effects[0];
+const drawAttached=(poses)=>{
+  const draws=[],stack=[];
+  let x=0,y=0,angle=0;
+  renderEffects({poses,ctx:{
+    save(){stack.push([x,y,angle]);},
+    restore(){[x,y,angle]=stack.pop();},
+    translate(dx,dy){
+      x+=dx*Math.cos(angle)-dy*Math.sin(angle);
+      y+=dx*Math.sin(angle)+dy*Math.cos(angle);
+    },
+    rotate(turn){angle+=turn;},
+    scale(){},beginPath(){},fill(){},
+    arc(){draws.push([x,y,angle]);},
+    createRadialGradient(){return {addColorStop(){}};},
+  }});
+  assert.equal(stack.length,0);
+  assert.deepEqual(draws[1],[10,20,0],'unattached impacts retain their world transform');
+  return draws[0];
+};
+const atMuzzle=(actual,expected)=>assert(actual.every((value,index)=>Math.abs(value-expected[index])<1e-9));
+atMuzzle(drawAttached(),[112,196,.25]);
+parent.position={x:200,y:300};parent.rotation=Math.PI/2;
+updateEffects(25);
+atMuzzle(drawAttached(),[204,312,Math.PI/2+.25]);
+const poses=new Map([[parent.id,{position:{x:500,y:600},rotation:Math.PI}]]);
+atMuzzle(drawAttached(poses),[488,604,Math.PI+.25]);
+atMuzzle(drawAttached(new Map()),[204,312,Math.PI/2+.25]);
+assert.equal(attached.age,25,'rendering attached effects does not advance or restart them');
+assert.deepEqual(attached.position,{x:12,y:-4},'the local muzzle offset is copied once');
+updateEffects(75);assert.equal(effects.length,0,'attachment does not extend effect lifetime');
 
 // All shapes accept eased shrinking, and zero-width rings stay invisible.
 for(const type of ['polygon','ring','glow']){
@@ -122,6 +161,32 @@ updateEffects(10);
 addEffect({position:{x:10,y:20},effect:[]});
 assert(effects[0].rotation>=0 && effects[0].rotation<Math.PI*2,'omitted rotation is randomized');
 updateEffects(0);assert.equal(effects.length,0,'empty effects expire immediately');
+
+// Each burst varies angular spacing without crossing tips or narrowing its fan.
+const fanSamples=[], fanRandom=Math.random;
+for(const value of [.25,.75]){
+  Math.random=()=>value;
+  addEffect({position:{x:10,y:20},rotation:0,effect:[{type:'polygon',color:'#fff',radius:10,radiusEven:7.5,pointCount:4,duration:100,spread:Math.PI}]});
+  const points=effects[0].parts[0].points;
+  assert.equal(points.length,10,'four complete tips have inward corners at both edges and close at the muzzle');
+  assert.deepEqual(points.at(-1),[0,0]);
+  const angles=points.slice(0,-1).map(([x,y])=>Math.atan2(y,x));
+  assert.equal(angles[0],-Math.PI/2);
+  assert.equal(angles.at(-1),Math.PI/2);
+  const tips=angles.filter((_,index)=>index%2===1);
+  assert.equal(tips.length,4);
+  assert(tips.every(angle=>angle>-Math.PI/2 && angle<Math.PI/2),'neither fan boundary cuts an outer tip in half');
+  const path=effects[0].parts[0].path.points;
+  for(const index of [0,points.length-2])
+    assert(Math.abs(Math.hypot(...path[index])/Math.hypot(...points[index])-.75)<1e-10,'both fan boundaries end at inward corners');
+  assert(angles.every((angle,index)=>index===0 || angle>angles[index-1]),'random angular spacing preserves polygon vertex order');
+  fanSamples.push(angles);
+  Math.random=()=>{throw new Error('Rendering must not reroll the fan');};
+  record();updateEffects(50);record();
+  updateEffects(50);
+}
+Math.random=fanRandom;
+assert.notDeepEqual(fanSamples[0],fanSamples[1],'different shots vary their tip angles as well as their lengths');
 
 // Dissolving polygons reveal their centre while keeping their stable outline.
 addEffect({position:{x:10,y:20},rotation:0,effect:[{type:'polygon',color:'#fff',radius:10,pointCount:5,duration:200,delay:20,dissolveDuration:100}]});
@@ -155,6 +220,27 @@ assert.equal(frame.fills[0].alpha,.5,'a morphing shell can fade while it dissolv
 assert.deepEqual(effects[0].parts[0].points,basePoints,'morphing never mutates the shared base geometry');
 updateEffects(25);assert.equal(effects.length,0);
 Math.random=geometryRandom;
+
+// Fan polygons share the normal animation but stay forward of their origin.
+const fanSpread=Math.PI/3;
+addEffect({position:{x:10,y:20},rotation:Math.PI/2,effect:[
+  {type:'polygon',color:'#fff',radius:10,pointCount:3,radiusEven:[2,6],duration:100,spread:fanSpread,scale:[.5,1],fadeDuration:100},
+  {type:'polygon',color:'#fff',radius:10,pointCount:3,radiusEven:2,duration:100},
+]});
+const fan=effects[0].parts[0], circle=effects[0].parts[1];
+assert.notEqual(fan.path,circle.path,'fans do not reuse circular geometry with the same tip count');
+assert.equal(fan.path.points.length,8,'fan geometry includes both inward edge corners and closes back to its origin');
+assert.deepEqual(fan.path.points.at(-1),[0,0]);
+assert(fan.path.points.every(([x,y])=>x>=0 && Math.abs(y)<=x*Math.tan(fanSpread/2)+1e-10),'all fan tips stay within the forward spread');
+const fanPoints=fan.points.map(point=>[...point]);
+frame=record(Math.PI/2);
+assert.equal(frame.fills[0].size,5,'a fan uses the existing radius and scale animation');
+updateEffects(50);frame=record(Math.PI/2);
+assert.equal(frame.fills[0].size,7.5);
+assert.equal(frame.fills[0].alpha,.5,'fans use the normal fade timing');
+assert(frame.fills[0].path.points.every(([x,y])=>x>=0 && Math.abs(y)<=x*Math.tan(fanSpread/2)+1e-10),'animated inward corners preserve the forward spread');
+assert.deepEqual(fan.points,fanPoints,'fan animation keeps its original geometry');
+updateEffects(50);assert.equal(effects.length,0);
 
 // Numeric easing controls deceleration without changing the scale endpoints.
 addEffect({position:{x:10,y:20},rotation:0,effect:[{type:'ring',color:'#fff',radius:40,duration:250,scale:[0,1],easeOut:2.5}]});

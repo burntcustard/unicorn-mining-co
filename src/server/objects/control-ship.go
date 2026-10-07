@@ -8,6 +8,8 @@ import (
 )
 
 func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent) {
+	s.Firing = input.Fire
+
 	if input.Launch {
 		s.Launch()
 	}
@@ -23,11 +25,11 @@ func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent)
 	controls := []struct {
 		id      string
 		enabled bool
-	}{{"cargoHatch", input.CargoHatch}, {"searchLight", input.SearchLight}, {"shieldGenerator", input.ShieldGenerator}, {"hornDrill", input.HornDrill}, {"weapon", input.Fire}}
+	}{{"cargoHatch", input.CargoHatch}, {"searchLight", input.SearchLight}, {"shieldGenerator", input.ShieldGenerator}, {"hornDrill", input.HornDrill}, {"plasmaAccelerator", input.PlasmaActive}, {"autogun", input.AutogunActive}}
 
 	for _, control := range controls {
 		changed := slices.ContainsFunc(s.Segments, func(segment *simulation.Segment) bool {
-			return segment.Module != nil && segment.Module.ModuleBase().Spec.Behavior == control.id && !(*segment.TargetHealth() < 1) && (segment.Active != 0) != control.enabled
+			return segment.Module != nil && (segment.Module.ModuleBase().Spec.Behavior == control.id || segment.Module.ModuleBase().Type == control.id) && !(*segment.TargetHealth() < 1) && (segment.Active != 0) != control.enabled
 		})
 
 		if !changed {
@@ -36,7 +38,7 @@ func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent)
 
 		s.SetModuleActive(control.id, control.enabled)
 
-		if s.PlayerID != nil && control.id != "hornDrill" && control.id != "weapon" {
+		if s.PlayerID != nil && control.id != "hornDrill" && control.id != "plasmaAccelerator" && control.id != "autogun" {
 			*events = append(*events, protocol.ModuleChanged{Module: control.id, PlayerID: *s.PlayerID, Active: control.enabled})
 		}
 	}

@@ -6,10 +6,11 @@ import { Item } from '../../client/objects/item';
 import { moduleControls as gameModuleControls } from '../../client/objects/control-ship';
 import { moduleBinding } from '../../client/input/keybindings';
 import { createWorld } from '../../client/simulation/world';
-import { autocannonAmmunition } from '../../specs/items';
+import { autogunAmmunition } from '../../specs/items';
 import { Weapon } from '../../client/objects/modules/weapon';
 import { type GameObject } from '../../client/objects/game-object';
 import { renderingLayers } from '../../specs/rendering-layers';
+import { simulationStep } from '../../specs/simulation';
 import * as Vec from '../../client/utilities/vector';
 import { catalog, previewMounts, type ObjectType } from './catalog';
 import { drawGrid } from './grid';
@@ -20,6 +21,7 @@ import {
   updateEffects,
 } from '../../client/effects/effect';
 import { plasmaExplosion } from '../../specs/effects/plasma-explosion';
+import { autogunExplosion } from '../../specs/effects/autogun-explosion';
 
 type ViewerState = {
   type: ObjectType;
@@ -96,7 +98,12 @@ const createMountControls = ({
       : options.find(({ type }) => type === attachments[key]) || defaultOption;
   const module = attached ? new attached.Type() : 0;
   const control = gameModuleControls.find(({ Type }) => module instanceof Type);
-  const mode = control ? moduleBinding(control.input).mode : 'toggle';
+  const mode =
+    module instanceof Weapon
+      ? 'hold'
+      : control
+        ? moduleBinding(control.input).mode
+        : 'toggle';
   const firing = mode !== 'toggle';
   const row = document.createElement('div');
   const label = document.createElement('label');
@@ -110,13 +117,15 @@ const createMountControls = ({
     });
 
   const release = () => {
-    setActive(false);
+    if (module instanceof Weapon) craft.firing = false;
+    else setActive(false);
     releases.delete(release);
   };
 
   const fire = () => {
-    setActive(true);
+    craft.firing = true;
     Ship.prototype.fireWeapons.call(craft, 0);
+    craft.updateVisual(0);
 
     if (mode === 'hold') releases.add(release);
     else release();
@@ -129,8 +138,8 @@ const createMountControls = ({
   if (module instanceof Weapon) module.recoil = 0;
 
   checkbox.type = 'checkbox';
-  checkbox.hidden = firing;
-  checkbox.checked = !!module && !firing && (activation[key] ?? false);
+  checkbox.hidden = firing && !(module instanceof Weapon);
+  checkbox.checked = !!module && (activation[key] ?? false);
   checkbox.disabled = !module;
   checkbox.dataset.module = key;
   setActive(checkbox.checked);
@@ -245,7 +254,7 @@ const rebuild = () => {
     craft.playerId = 1;
     world.players.set(1, { id: 1, shipId: craft.id });
     craft.cargoContents.push(
-      new Item(autocannonAmmunition, { rounds: Infinity }),
+      new Item(autogunAmmunition, { rounds: Infinity }),
     );
     state.modules[spec.key] ||= {};
     state.attachments[spec.key] ||= {};
@@ -267,6 +276,7 @@ const render = (now: number) => {
   const dt = Math.min(0.05, Math.max(0, (now - previousTime) / 1000));
 
   previousTime = now;
+  world.tick += dt / simulationStep;
 
   if (state.spin) state.rotation = (state.rotation + dt * 0.4) % (Math.PI * 2);
 
@@ -275,8 +285,8 @@ const render = (now: number) => {
 
     if (previewObject instanceof Craft) {
       previewObject.updateModules(dt);
-      previewObject.updateVisual(dt);
       Ship.prototype.fireWeapons.call(previewObject, dt);
+      previewObject.updateVisual(dt);
     }
   }
 
@@ -337,7 +347,7 @@ const render = (now: number) => {
     }
   } else previewObject?.render();
 
-  renderEffects(ctx);
+  renderEffects({ ctx });
 
   if (pointer) {
     ctx.save();
@@ -424,6 +434,13 @@ document.querySelector<HTMLButtonElement>('#reset-rotation')!.onclick = () => {
 document.querySelector<HTMLButtonElement>('#replay-effect')!.onclick = () => {
   effects.length = 0;
   addEffect({ position: Vec.create(), effect: plasmaExplosion });
+};
+
+document.querySelector<HTMLButtonElement>(
+  '#replay-autogun-effect',
+)!.onclick = () => {
+  effects.length = 0;
+  addEffect({ position: Vec.create(), effect: autogunExplosion });
 };
 
 canvas.onpointermove = (event) => {

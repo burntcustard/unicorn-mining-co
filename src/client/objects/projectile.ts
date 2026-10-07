@@ -56,10 +56,18 @@ export class Projectile extends GameObject {
   }
 
   onDeath(events: SimulationEvent[], exclude?: Collider) {
-    const { explosion }: NonNullable<ModuleSpec['projectile']> =
+    const { effect, explosion }: NonNullable<ModuleSpec['projectile']> =
       moduleSpecs[this.definitionId].projectile;
 
     if (explosion) explode({ object: this, events, exclude, ...explosion });
+    else if (effect) {
+      events.push({
+        effect,
+        objectId: this.id,
+        position: Vec.clone(this.position),
+        type: 'explosion',
+      });
+    }
   }
 
   get deathEvent(): SimulationEvent {

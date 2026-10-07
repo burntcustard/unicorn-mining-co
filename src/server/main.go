@@ -33,10 +33,6 @@ func main() {
 	port := 3001
 	production := os.Getenv("APP_ENV") == "production" || os.Getenv("NODE_ENV") == "production"
 
-	if !production && os.Getenv("APP_ENV") == "development" {
-		catalog.StartingCredits = 10000
-	}
-
 	databasePath := os.Getenv("DATABASE_PATH")
 
 	if databasePath == "" {

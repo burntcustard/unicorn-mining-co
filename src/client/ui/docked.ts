@@ -1,5 +1,5 @@
 import { withAlpha } from '../utilities/color';
-import { autocannonAmmunition } from '../../specs/items';
+import { autogunAmmunition } from '../../specs/items';
 import { Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { type GameState } from '../game';
@@ -60,7 +60,7 @@ const cargoMenuEntriesOf = (ship: any) => [
         types.set(item, (types.get(item) || 0) + 1),
       new Map(),
     ),
-  [autocannonAmmunition, 0],
+  [autogunAmmunition, 0],
 ];
 
 // Ore of a kind stacks into one row, but two module instances never do, so a
@@ -271,7 +271,6 @@ export const back = (ship: Ship): void => {
     // The hull has nothing to pick out, so its actions are the whole submenu
     stage = mountOption === 1 ? 0 : stage - 1;
   } else {
-    ship.launch();
     ship.launchRequested = 1;
     player.started = true;
   }

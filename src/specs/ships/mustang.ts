@@ -35,7 +35,7 @@ export const mustang = {
           {
             x: -2,
             y: -25,
-            fits: ['autocannon'],
+            fits: ['autogun'],
           },
           {
             x: 5,
@@ -134,7 +134,7 @@ export const mustang = {
           {
             x: -2,
             y: 25,
-            fits: ['autocannon'],
+            fits: ['autogun'],
           },
           {
             x: 5,

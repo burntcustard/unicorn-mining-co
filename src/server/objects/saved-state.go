@@ -263,8 +263,8 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 			} else if o.Kind == "station" {
 				id := o.DefinitionID
 
-				if id == "" {
-					id = "corral"
+				if id == "" || id == "corral" {
+					id = "corral-5"
 				}
 
 				if _, ok := world.Specification.StationSpecs[id]; !ok {
@@ -332,6 +332,10 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 
 		c.DockedTo, c.Launching, c.Forward, c.Turn = s.DockedTo, s.Launching, s.Forward, s.Turn
 		c.HasLaunching = s.HasLaunching
+	}
+
+	if o.Kind == "station" && o.DefinitionID == "corral" {
+		o.DefinitionID = ""
 	}
 
 	b := entity.Base()

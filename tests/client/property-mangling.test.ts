@@ -172,12 +172,12 @@ const inputBundle = await rolldown({
       load: (id) => {
         if (id === inputEntry) {
           return `import { initKeys, playerInput } from './client/input/input';
-import { packPlayerInput, unpackPlayerInput } from './client/protocol/input';
+import { emptyPlayerInput, packPlayerInput, unpackPlayerInput } from './client/protocol/input';
 import { moduleControls } from './client/objects/control-ship';
 export function pressModuleKeys() {
   globalThis.window = new EventTarget();
   const stop = initKeys();
-  for (const key of ['d', 'h', 'l', 's']) {
+  for (const key of ['d', 'h', 'l', 's', 'p', 'a']) {
     window.dispatchEvent(Object.assign(new Event('keydown'), { key, repeat: false }));
     window.dispatchEvent(Object.assign(new Event('keyup'), { key }));
   }
@@ -192,6 +192,16 @@ export function pressModuleKeys() {
   const released = inspect();
   stop();
   return [toggled, firing, released];
+}
+export function writeModuleInputs() {
+  const input = emptyPlayerInput();
+  const restored = moduleControls.map((control) => {
+    moduleControls.forEach(({ writeInput }) => writeInput({ input, active: false }));
+    control.writeInput({ input, active: true });
+    return packPlayerInput(input);
+  });
+  moduleControls.forEach(({ writeInput }) => writeInput({ input, active: false }));
+  return [restored, packPlayerInput(input)];
 }`;
         }
 
@@ -218,10 +228,15 @@ try {
   );
 
   assert.deepEqual(built.pressModuleKeys(), [
-    [15, [false, true, true, true, true]],
-    [271, [true, true, true, true, true]],
-    [15, [false, true, true, true, true]],
+    [1551, [true, true, true, true, true, true]],
+    [1807, [true, true, true, true, true, true]],
+    [1551, [true, true, true, true, true, true]],
   ]);
+  assert.deepEqual(
+    built.writeModuleInputs(),
+    [[512, 1024, 2, 4, 8, 1], 0],
+    'restoring and clearing each module input survives production property mangling',
+  );
 } finally {
   await inputBundle.close();
 }

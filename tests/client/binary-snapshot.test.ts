@@ -118,13 +118,14 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
       17,
       () => {
         writer.unsigned(1);
-        writer.byte(7); // id, health, shades
+        writer.byte(23); // id, health, shades, startup charge
         writer.number(3);
         writer.number(4);
         writer.number(5);
         writer.number(6);
         writer.unsigned(1);
         writer.string('blue');
+        writer.number(0.7);
         writer.unsigned(1);
         writer.number(1);
         writer.number(0.5);
@@ -194,6 +195,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
             id: 5,
             health: 6,
             shades: ['blue'],
+            chargeCooldown: 0.7,
             segments: [{ active: 1, activationProgress: 0.5 }],
           },
         ],

@@ -72,6 +72,9 @@ const matches = ({
         predicted.health === module.health &&
         Math.abs((predicted.fireCooldown || 0) - (module.fireCooldown || 0)) <
           1e-8 &&
+        Math.abs(
+          (predicted.chargeCooldown || 0) - (module.chargeCooldown || 0),
+        ) < 1e-8 &&
         predicted.segments.length === module.segments.length &&
         module.segments.every(
           (segment, segmentIndex) =>

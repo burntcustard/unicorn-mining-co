@@ -192,6 +192,7 @@ func (g *GameCollisions) CapturePoses(entities *utilities.OrderedMap[int64, simu
 
 		record := g.recordFor(e)
 		record.Previous = simulation.Pose{Position: object.Position, Rotation: object.Rotation}
+		object.RotationJump = 0
 	})
 }
 
@@ -258,6 +259,9 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		}
 
 		start := record.Previous
+		// Instant turns during timed input changes are pose changes, not spin.
+		start.Rotation += object.RotationJump
+		object.RotationJump = 0
 
 		if dt != 0 {
 			record.Velocity = Vec.Scale(Vec.Subtract(object.Position, start.Position), 1/dt)

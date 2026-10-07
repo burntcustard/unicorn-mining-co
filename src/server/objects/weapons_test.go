@@ -20,7 +20,7 @@ func TestWeaponRecoil(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, weapon := range []string{"plasmaAccelerator", "autocannon"} {
+	for _, weapon := range []string{"plasmaAccelerator", "autogun"} {
 		for _, rotation := range []float64{0, math.Pi / 2, math.Pi} {
 			for _, moving := range []bool{false, true} {
 				world := simulation.CreateWorld(25, catalog)
@@ -42,8 +42,10 @@ func TestWeaponRecoil(t *testing.T) {
 					}
 				}
 
-				ship.CargoContents = append(ship.CargoContents, NewItem("autocannonAmmunition", simulation.ObjectProperties{World: world}, catalog))
+				ship.CargoContents = append(ship.CargoContents, NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog))
 				ship.SetModuleActive(weapon, true)
+				ship.UpdateModules(3)
+				ship.Firing = true
 				velocity, start := ship.Velocity, ship.Position
 				ship.fireWeapons(0)
 				impulse := Vec.Subtract(ship.Velocity, velocity)
@@ -93,7 +95,7 @@ func TestWeaponBarrelCollisions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, weapon := range []string{"plasmaAccelerator", "autocannon"} {
+	for _, weapon := range []string{"plasmaAccelerator", "autogun"} {
 		for _, side := range []float64{-1, 1} {
 			world := simulation.CreateWorld(25, catalog)
 			mount := simulation.NewMount([]specs.MountPoint{{X: 20, Y: side * 20, Fits: []string{weapon}}})
@@ -102,6 +104,11 @@ func TestWeaponBarrelCollisions(t *testing.T) {
 			simulation.AddEntity(world, craft)
 			gun := modules.Create(weapon, simulation.ObjectProperties{World: world}, catalog)
 			craft.Fit(gun, mount)
+
+			for _, segment := range craft.SegmentsAtMount(mount) {
+				segment.ActivationProgress = 1
+			}
+
 			first := craft.SegmentsAtMount(mount)[0].Outline().Points[0]
 
 			if first[1] != catalog.ModuleSpecs[weapon].Model[0].Points[0][1]*side {
@@ -130,7 +137,7 @@ func TestWeaponBarrelCollisions(t *testing.T) {
 				t.Fatalf("%s barrel must collide with an object on side %v", weapon, side)
 			}
 
-			shot := NewProjectile("autocannon", simulation.ObjectProperties{World: world, ID: new(int64(2)), PlayerID: new(int64(2)), Position: Vec.Add(mount.LocalPosition, Vec.Create(60, -1)), Velocity: Vec.Create(-600, 0)}, catalog)
+			shot := NewProjectile("autogun", simulation.ObjectProperties{World: world, ID: new(int64(2)), PlayerID: new(int64(2)), Position: Vec.Add(mount.LocalPosition, Vec.Create(60, -1)), Velocity: Vec.Create(-600, 0)}, catalog)
 			simulation.AddEntity(world, shot)
 			health := mount.Health
 			shot.CaptureSweep()
@@ -157,7 +164,7 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 	ship := CreatePlayerShip(world, Properties{ObjectProperties: simulation.ObjectProperties{PlayerID: &playerID}})
 	simulation.AddEntity(world, ship)
 	plasma := modules.Create("plasmaAccelerator", simulation.ObjectProperties{World: world}, catalog)
-	auto := modules.Create("autocannon", simulation.ObjectProperties{World: world}, catalog)
+	auto := modules.Create("autogun", simulation.ObjectProperties{World: world}, catalog)
 
 	for _, mount := range ship.Mounts() {
 		for _, id := range mount.Fits {
@@ -166,7 +173,7 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 				break
 			}
 
-			if id == "autocannon" && auto.ModuleBase().Mount == nil && mount.Module != plasma {
+			if id == "autogun" && auto.ModuleBase().Mount == nil && mount.Module != plasma {
 				ship.Fit(auto, mount)
 				break
 			}
@@ -179,7 +186,7 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 
 	ship.CargoContents = append(ship.CargoContents, NewItem("gold", simulation.ObjectProperties{World: world}, catalog))
 
-	pack := NewItem("autocannonAmmunition", simulation.ObjectProperties{World: world}, catalog)
+	pack := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
 	ship.CargoContents = append(ship.CargoContents, pack)
 	cargoCount := len(ship.CargoContents)
 	ammoIndex := cargoCount - 1
@@ -189,14 +196,15 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 	}
 
 	events := []protocol.SimulationEvent{}
-	ship.Control(protocol.Input{Fire: true}, &events)
-	ship.SetModuleActive("autocannon", false)
-	ship.Control(protocol.Input{Fire: true}, &events)
+	ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
+	ship.SetModuleActive("autogun", false)
+	ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
 
-	if !ship.ModuleActive("plasmaAccelerator") || !ship.ModuleActive("autocannon") {
-		t.Fatal("holding Space must synchronize weapons with different activation states")
+	if !ship.ModuleActive("plasmaAccelerator") || !ship.ModuleActive("autogun") {
+		t.Fatal("the weapon toggle must synchronize weapons with different activation states")
 	}
 
+	ship.UpdateModules(3)
 	ship.fireWeapons(0)
 
 	for range 119 {
@@ -219,8 +227,8 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 		}
 	})
 
-	if counts["plasmaAccelerator"] != 1 || counts["autocannon"] != 4 {
-		t.Fatalf("want 1 plasma and 4 autocannon shots, got %v", counts)
+	if counts["plasmaAccelerator"] != 1 || counts["autogun"] != 4 {
+		t.Fatalf("want 1 plasma and 4 autogun shots, got %v", counts)
 	}
 
 	ammo, gold := 0, 0
@@ -284,7 +292,7 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 	autoCount := 0
 
 	world.Entities.ForEach(func(entity simulation.Entity, _ int64) {
-		if entity.Base().DefinitionID == "autocannon" {
+		if entity.Base().DefinitionID == "autogun" {
 			autoCount++
 		}
 	})
@@ -297,10 +305,11 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 		t.Fatal("restored and saved packs must own their round counters")
 	}
 
-	lastRound := NewItem("autocannonAmmunition", simulation.ObjectProperties{World: world}, catalog)
+	lastRound := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
 	*lastRound.Rounds = 1
-	nextPack := NewItem("autocannonAmmunition", simulation.ObjectProperties{World: world}, catalog)
+	nextPack := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
 	ship.CargoContents = append(ship.CargoContents, lastRound, nextPack)
+	ship.UpdateModules(3)
 	ship.fireWeapons(0)
 	ship.fireWeapons(.25)
 
@@ -316,7 +325,7 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 		t.Fatal("releasing Space must stop firing")
 	}
 
-	ship.Control(protocol.Input{Fire: true}, &events)
+	ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
 	stationID := int64(99)
 	ship.DockedTo = &stationID
 	ship.fireWeapons(1)
@@ -351,6 +360,9 @@ func TestPlasmaRecharge(t *testing.T) {
 		}
 	}
 
+	ship.SetModuleActive("plasmaAccelerator", true)
+	ship.UpdateModules(3)
+
 	for _, side := range []float64{-1, 1} {
 		gun.ModuleBase().Mount.LocalPosition.Y = side * 29
 
@@ -358,7 +370,7 @@ func TestPlasmaRecharge(t *testing.T) {
 			outline := segment.Outline().Points
 
 			if segment.FillShade != nil && *segment.FillShade == 0 {
-				if len(outline) != 4 || outline[0][0] != 0 || outline[2][0] != 20 {
+				if len(outline) != 4 || outline[0][0] != 0 || outline[2][0] != gun.ModuleBase().Spec.BarrelLength {
 					t.Fatal("the dark backing must span the entire weapon")
 				}
 			} else if len(outline) == 8 {
@@ -376,7 +388,8 @@ func TestPlasmaRecharge(t *testing.T) {
 	}
 
 	events := []protocol.SimulationEvent{}
-	ship.Control(protocol.Input{Fire: true}, &events)
+	ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
+	ship.UpdateModules(3)
 	ship.fireWeapons(0)
 	initial := world.Entities.Len()
 
@@ -401,7 +414,7 @@ func TestProjectileChunkDamage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, id := range []string{"plasmaAccelerator", "autocannon"} {
+	for _, id := range []string{"plasmaAccelerator", "autogun"} {
 		for _, maxHealth := range []float64{31, 71} {
 			for _, previousDamage := range []float64{0, 10.5} {
 				t.Run(id, func(t *testing.T) {
@@ -459,7 +472,7 @@ func TestProjectileChunkDamage(t *testing.T) {
 	}
 }
 
-func TestBuyAutocannonAmmo(t *testing.T) {
+func TestBuyAutogunAmmo(t *testing.T) {
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -507,7 +520,7 @@ func TestProjectileHitsNearestCircleAndIgnoresOwner(t *testing.T) {
 	simulation.AddEntity(world, friendly)
 	simulation.AddEntity(world, far)
 	simulation.AddEntity(world, near)
-	shot := NewProjectile("autocannon", simulation.ObjectProperties{World: world, ID: new(int64(4)), PlayerID: &player, Position: Vec.Create(-80, 0), Velocity: Vec.Create(600, 0)}, catalog)
+	shot := NewProjectile("autogun", simulation.ObjectProperties{World: world, ID: new(int64(4)), PlayerID: &player, Position: Vec.Create(-80, 0), Velocity: Vec.Create(600, 0)}, catalog)
 	simulation.AddEntity(world, shot)
 	shot.Update(.3)
 	events := []protocol.SimulationEvent{}
@@ -583,7 +596,7 @@ func TestProjectileExpirySparks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, id := range []string{"autocannon", "plasmaAccelerator"} {
+	for _, id := range []string{"autogun", "plasmaAccelerator"} {
 		world := simulation.CreateWorld(25, catalog)
 		shot := NewProjectile(id, simulation.ObjectProperties{World: world, ID: new(int64(1)), Health: new(.001), Position: Vec.Create(5, 6)}, catalog)
 		simulation.AddEntity(world, shot)
@@ -602,7 +615,7 @@ func TestProjectileExpirySparks(t *testing.T) {
 			t.Fatal("expiry sparks must retain the projectile's colour and location")
 		}
 
-		if id == "autocannon" && Vec.Length(neighbour.Velocity) != 0 || id == "plasmaAccelerator" && neighbour.Velocity.X <= 0 {
+		if id == "autogun" && Vec.Length(neighbour.Velocity) != 0 || id == "plasmaAccelerator" && neighbour.Velocity.X <= 0 {
 			t.Fatal("only plasma expiry must push nearby objects")
 		}
 
@@ -684,7 +697,7 @@ func TestProjectileExplosion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, id := range []string{"plasmaAccelerator", "autocannon"} {
+	for _, id := range []string{"plasmaAccelerator", "autogun"} {
 		for _, trigger := range []string{"hit", "expiry", "cleanup"} {
 			t.Run(id+"/"+trigger, func(t *testing.T) {
 				world := simulation.CreateWorld(25, catalog)
@@ -760,7 +773,7 @@ func TestProjectileExplosion(t *testing.T) {
 					}
 
 					if light.Health != 100 {
-						t.Fatal("autocannon and cleanup must not deal splash damage")
+						t.Fatal("autogun and cleanup must not deal splash damage")
 					}
 
 					return
@@ -898,7 +911,7 @@ func TestPlasmaPushSurvivesMovement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, id := range []string{"plasmaAccelerator", "autocannon"} {
+	for _, id := range []string{"plasmaAccelerator", "autogun"} {
 		world := simulation.CreateWorld(25, catalog)
 		item := NewItem("gold", simulation.ObjectProperties{World: world, ID: new(int64(1)), Position: Vec.Create(15, 18)}, catalog)
 		simulation.AddEntity(world, item)
@@ -946,7 +959,7 @@ func TestPlasmaPushSurvivesMovement(t *testing.T) {
 					t.Fatal("items and small asteroid chunks must keep moving away from the plasma blast")
 				}
 			} else if Vec.Length(offset) != 0 {
-				t.Fatal("autocannon expiry must not push nearby objects")
+				t.Fatal("autogun expiry must not push nearby objects")
 			}
 		}
 	}
@@ -993,5 +1006,157 @@ func TestExplosionDamagesModuleOnce(t *testing.T) {
 
 	if !shot.Dead || mount.Health != health-shot.Spec.Damage {
 		t.Fatal("the direct plasma hit must exclude the whole fitted module from repeated splash damage")
+	}
+}
+
+func TestWeaponDeployment(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, id := range []string{"plasmaAccelerator", "autogun"} {
+		t.Run(id, func(t *testing.T) {
+			world := simulation.CreateWorld(25, catalog)
+			ship := CreatePlayerShip(world, Properties{PlayerID: new(int64(1))})
+			simulation.AddEntity(world, ship)
+			gun := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
+
+			for _, mount := range ship.Mounts() {
+				if slices.Contains(mount.Fits, id) {
+					ship.Fit(gun, mount)
+					break
+				}
+			}
+
+			pack := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
+			ship.CargoContents = append(ship.CargoContents, pack)
+			part := ship.SegmentsAtMount(gun.ModuleBase().Mount)[0]
+			spec := gun.ModuleBase().Spec
+			x := spec.Model[0].Points[0][0]
+
+			if part.Outline().Points[0][0] != x-spec.RetractionDistance {
+				t.Fatal("inactive weapon must use the shorter retraction distance")
+			}
+
+			events := []protocol.SimulationEvent{}
+			ship.Control(protocol.Input{Fire: true}, &events)
+			ship.fireWeapons(0)
+
+			if world.Entities.Len() != 1 || part.Active != 0 {
+				t.Fatal("Space must not deploy or fire an inactive weapon")
+			}
+
+			ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
+			ship.UpdateModules(spec.ActivationDuration / 2)
+
+			if part.ActivationProgress != .5 || part.Outline().Points[0][0] != x-spec.RetractionDistance/2 {
+				t.Fatal("weapon must slide smoothly during activation")
+			}
+
+			ship.fireWeapons(1)
+
+			if world.Entities.Len() != 1 || *pack.Rounds != 200 {
+				t.Fatal("activation must not fire or consume ammunition")
+			}
+
+			health := gun.ModuleBase().Mount.Health
+
+			if Damage(part, 1) != 0 || gun.ModuleBase().Mount.Health != health {
+				t.Fatal("active weapons must be immune to damage")
+			}
+
+			ship.Control(protocol.Input{Fire: true}, &events)
+			ship.UpdateModules(spec.ActivationDuration / 4)
+
+			if part.ActivationProgress != .25 {
+				t.Fatal("reversal must continue from current deployment progress")
+			}
+
+			ship.fireWeapons(0)
+
+			if world.Entities.Len() != 1 {
+				t.Fatal("retraction must block firing")
+			}
+
+			if Damage(part, 1) != 1 {
+				t.Fatal("inactive weapons must remain vulnerable")
+			}
+
+			ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
+			ship.UpdateModules(spec.ActivationDuration*.75 + 1e-9)
+
+			if part.ActivationProgress != 1 || part.Outline().Points[0][0] != x {
+				t.Fatal("complete activation must restore authored geometry")
+			}
+
+			ship.fireWeapons(0)
+
+			if world.Entities.Len() != 1 || math.Abs(gun.ModuleBase().ChargeCooldown-spec.ChargeDuration) > 1e-8 {
+				t.Fatal("deployment must finish before charging begins")
+			}
+
+			ship.UpdateModules(spec.ChargeDuration / 2)
+			ship.fireWeapons(0)
+
+			if world.Entities.Len() != 1 {
+				t.Fatal("charging must block firing")
+			}
+
+			saved := ship.ModuleStates()
+			ship.Control(protocol.Input{Fire: true}, &events)
+			ship.UpdateModules(.01)
+
+			if gun.ModuleBase().ChargeCooldown != spec.ChargeDuration {
+				t.Fatal("retraction must reset charging")
+			}
+
+			ship.SetModuleStates(saved)
+			gun = ship.Modules()[0]
+
+			for _, fitted := range ship.Modules() {
+				if fitted.ModuleBase().Type == id {
+					gun = fitted
+					break
+				}
+			}
+
+			part = ship.SegmentsAtMount(gun.ModuleBase().Mount)[0]
+			ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
+			ship.UpdateModules(spec.ChargeDuration/2 - .001)
+			ship.fireWeapons(0)
+
+			if world.Entities.Len() != 1 {
+				t.Fatal("charge boundary must block early fire")
+			}
+
+			ship.UpdateModules(.001)
+			ship.fireWeapons(0)
+
+			if world.Entities.Len() != 2 {
+				t.Fatal("full deployment and charge must allow firing")
+			}
+
+			ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true}, &events)
+			ship.fireWeapons(spec.FireInterval)
+
+			if world.Entities.Len() != 2 || part.Active != 1 {
+				t.Fatal("releasing Space must stop firing and retain deployment")
+			}
+
+			ship.Control(protocol.Input{Fire: true}, &events)
+			ship.fireWeapons(0)
+
+			if world.Entities.Len() != 2 {
+				t.Fatal("deactivation must block firing immediately")
+			}
+
+			ship.UpdateModules(spec.ActivationDuration)
+
+			if part.ActivationProgress != 0 {
+				t.Fatal("deactivation must fully retract")
+			}
+		})
 	}
 }

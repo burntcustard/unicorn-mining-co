@@ -1,5 +1,5 @@
 import { plasmaAccelerator } from './plasma-accelerator';
-import { autocannon } from './autocannon';
+import { autogun } from './autogun';
 import { thrusterSingleMd } from './thruster-x1-md';
 import { thrusterSingleSm } from './thruster-x1-sm';
 import { thrusterSingleLg } from './thruster-x1-lg';
@@ -28,7 +28,7 @@ export {
   thrusterSingleLg,
   thrusterSingleXl,
   plasmaAccelerator,
-  autocannon,
+  autogun,
   thrusterDualLg,
 };
 export const moduleIds = [
@@ -45,7 +45,7 @@ export const moduleIds = [
   'thrusterSingleLg',
   'thrusterSingleXl',
   'plasmaAccelerator',
-  'autocannon',
+  'autogun',
   'thrusterDualLg',
 ] as const;
 
@@ -65,7 +65,7 @@ export const moduleSpecs = {
   thrusterSingleLg,
   thrusterSingleXl,
   plasmaAccelerator,
-  autocannon,
+  autogun,
   thrusterDualLg,
 };
 

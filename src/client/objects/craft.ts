@@ -1,5 +1,6 @@
 import { withAlpha } from '../utilities/color';
 import { type Ship } from './ship';
+import { type Station } from './station';
 import { type SimulationEvent } from '../protocol/events';
 import {
   renderingLayers,
@@ -54,6 +55,7 @@ export type ModuleState = {
   mount: number;
   health?: number;
   fireCooldown?: number;
+  chargeCooldown?: number;
   shades?: readonly string[];
   segments: { active: number; activationProgress: number }[];
 };
@@ -89,6 +91,9 @@ type CraftProperties = {
   segments?: Segment[];
   velocity?: Vec.Value;
 };
+
+// Presentation survives mechanics rewinds and segment rebuilds by module ID.
+const visualPhases = new WeakMap<Craft, Map<number | Module, number[]>>();
 
 const collisionCaches = new WeakMap<
   Craft,
@@ -268,9 +273,12 @@ export class Craft extends GameObject {
 
       ship.dockedTo = this.id;
       Vec.set(ship.position, this.position);
-      ship.rotation = this.rotation;
       Vec.set(ship.velocity, Vec.create());
       ship.spin = 0;
+
+      ship.segments.forEach((segment) => {
+        segment.active = 0;
+      });
 
       if (ship.playerId !== undefined) {
         events.push({
@@ -816,6 +824,21 @@ export class Craft extends GameObject {
   }
 
   launch() {
+    const station = (
+      typeof this.dockedTo === 'number'
+        ? this.world?.entities.get(this.dockedTo)
+        : this.dockedTo
+    ) as Station | undefined;
+
+    if (station?.dockingBays?.length) {
+      const bays = station.dockingBays;
+      const index =
+        bays.length === 1 ? 0 : Math.floor(this.random.next() * bays.length);
+
+      this.face(station.rotation + bays[index]);
+      this.spin = 0;
+    }
+
     this.dockedTo = undefined;
     this.launching = flight.launchDuration;
   }
@@ -853,6 +876,9 @@ export class Craft extends GameObject {
     return this.modules.map((module) => ({
       id: module.id,
       type: moduleTypes.indexOf(module.constructor as typeof Module),
+      ...(module.chargeCooldown > 0 && {
+        chargeCooldown: module.chargeCooldown,
+      }),
       ...(module.fireCooldown > 0 && { fireCooldown: module.fireCooldown }),
       mount: mounts.indexOf(module.mount),
       health: module.mount ? module.mount.health : module.health,
@@ -899,6 +925,7 @@ export class Craft extends GameObject {
       if (state.id !== undefined) module.id = state.id;
       module.health = state.mount >= 0 ? Type.health : state.health;
       module.fireCooldown = state.fireCooldown ?? 0;
+      module.chargeCooldown = state.chargeCooldown ?? 0;
 
       if (state.shades) module.shades = shadesOf(state.shades);
 
@@ -1123,8 +1150,7 @@ export class Craft extends GameObject {
     super.update(dt);
 
     // A stale contact can still nudge a ship the same update it docks; keep
-    // it pinned in its bay regardless. Rotation and spin need no help: they
-    // already track the station exactly via localMovement.
+    // it pinned in the center while local movement carries its arrival angle.
     if (this.dockedTo) {
       const station =
         typeof this.dockedTo === 'number'
@@ -1133,7 +1159,6 @@ export class Craft extends GameObject {
 
       if (station) {
         Vec.set(this.position, station.position);
-        this.rotation = station.rotation;
       }
 
       Vec.set(this.velocity, Vec.create());
@@ -1195,6 +1220,24 @@ export class Craft extends GameObject {
         segment.rate * dt,
       );
 
+      const module = segment.module;
+
+      if (
+        module?.chargeDuration &&
+        this.segments.find((candidate) => candidate.mount === segment.mount) ===
+          segment
+      ) {
+        const readyTime = Math.max(
+          0,
+          dt - (1 - previousProgress) / segment.rate,
+        );
+
+        module.chargeCooldown =
+          target === 1 && segment.activationProgress === 1
+            ? Math.max(0, module.chargeCooldown - readyTime)
+            : module.chargeDuration;
+      }
+
       if (segment.covers && segment.activationProgress > previousProgress) {
         segment.expandingTick = this.world?.tick;
       }
@@ -1202,12 +1245,27 @@ export class Craft extends GameObject {
   }
 
   updateVisual(dt: number) {
-    this.modules.forEach((module: Module) =>
-      module.updateVisual?.({
-        dt,
-        segments: this.segmentsAtMount(module.mount),
-      }),
-    );
+    const previous = visualPhases.get(this);
+    const phases = new Map<number | Module, number[]>();
+
+    this.modules.forEach((module: Module) => {
+      if (!module.updateVisual) return;
+      const segments = this.segmentsAtMount(module.mount);
+      const key = module.id ?? module;
+      const stored = previous?.get(key);
+
+      segments.forEach((segment, index) => {
+        if (stored?.[index] !== undefined) segment.phase = stored[index];
+      });
+
+      module.updateVisual({ dt, segments, craft: this });
+      phases.set(
+        key,
+        segments.map((segment) => segment.phase),
+      );
+    });
+
+    visualPhases.set(this, phases);
   }
 
   get wreckage(): WreckageSegment[] | undefined {

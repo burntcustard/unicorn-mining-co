@@ -76,6 +76,46 @@ assert.equal(input.playerInput.hornDrill, true);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
 assert.equal(input.playerInput.hornDrill, false);
 
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'P' }));
+assert.equal(input.playerInput.plasmaActive, true, 'P deploys plasma');
+assert(
+  !input.playerInput.autogunActive,
+  'P does not deploy autogunActive',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'A' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
+assert.equal(
+  input.playerInput.autogunActive,
+  true,
+  'A independently deploys autogunActive',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.equal(
+  input.playerInput.plasmaActive,
+  true,
+  'release and repeat preserve deployment',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+assert.equal(input.playerInput.fire, true);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+assert.equal(input.playerInput.fire, false);
+assert.equal(
+  input.playerInput.plasmaActive,
+  true,
+  'Space is independent of deployment',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.equal(input.playerInput.plasmaActive, false, 'next P retracts plasma');
+assert.equal(
+  input.playerInput.autogunActive,
+  true,
+  'P does not retract autogunActive',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
+assert.equal(input.playerInput.autogunActive, false);
 console.log('toggle input test passed');
 
 const beforeTap = changes.length;

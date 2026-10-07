@@ -101,7 +101,7 @@ The database has one owner: another game server using the same
 file fails with a lock error rather than overwriting live state.
 
 The seed and a digest of generation rules are checked on startup. The catalog
-upgrade that appended autocannon ammunition accepts the previous five-item
+upgrade that appended autogun ammunition accepts the previous five-item
 digest because procedural resource indices did not change. The next world save
 records the current digest while preserving player and entity records. Changing
 `WORLD_SEED` or generation rules requires a fresh world database; an incompatible

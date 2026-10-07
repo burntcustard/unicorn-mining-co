@@ -1,1 +1,1 @@
-export const startingCredits = 500;
+export const startingCredits = 2000;

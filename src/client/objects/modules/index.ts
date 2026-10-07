@@ -1,4 +1,4 @@
-import { PlasmaAccelerator, Autocannon } from './weapon';
+import { PlasmaAccelerator, Autogun } from './weapon';
 import { moduleIds, type ModuleId } from '../../../specs/modules/index';
 import { type Module } from './module';
 import { CargoHatch } from './cargo-hatch';
@@ -18,7 +18,7 @@ import { ThrusterTriple } from './thruster';
 
 export {
   PlasmaAccelerator,
-  Autocannon,
+  Autogun,
   CargoHatch,
   SearchLight,
   HornDrill,
@@ -53,7 +53,7 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
     ShieldGenerator,
     ShieldGeneratorMd,
     PlasmaAccelerator,
-    Autocannon,
+    Autogun,
   ].map((Type) => [Type.definitionId, Type]),
 );
 export const moduleTypes = moduleIds.map((id) => moduleTypesById.get(id)!);

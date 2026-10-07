@@ -1,6 +1,7 @@
 /* global Buffer, process */
 
 import assert from 'node:assert/strict';
+import { emptyPlayerInput } from '../../src/client/protocol/input';
 import { rolldown } from 'rolldown';
 
 assert.equal('window' in globalThis, false);
@@ -1567,4 +1568,93 @@ assert.deepEqual(
       modules: second.ship.moduleStates.map((state) => ({ ...state, id: 0 })),
     },
   },
+);
+
+// A timed launch must snap to either bay without turning that pose change into spin.
+for (const rotation of [-2, 0, 0.7]) {
+  for (const angle of [0, Math.PI]) {
+    const launchWorld = createWorld({ seed: 25 });
+
+    const station = addEntity(
+      launchWorld,
+      new Station({
+        world: launchWorld,
+        stationType: 'corral-6',
+        rotation,
+        spin: 0.05,
+      }),
+    );
+
+    station.dockingBays = [angle];
+    const ship = addEntity(
+      launchWorld,
+      createPlayerShip(launchWorld, { playerId: 7 }),
+    );
+
+    addPlayer(launchWorld, { id: 7, shipId: ship.id });
+    ship.dockedTo = station.id;
+
+    updateWorld({
+      world: launchWorld,
+      inputs: new Map([
+        [
+          7,
+          {
+            input: emptyPlayerInput(),
+            changes: [
+              {
+                offset: 1 / 60,
+                input: { ...emptyPlayerInput(), launch: true },
+              },
+            ],
+          },
+        ],
+      ]),
+    });
+
+    assert(Math.abs(ship.spin) < 0.1, 'instant facing must not become spin');
+    const direction = station.rotation + angle;
+
+    assert(Math.abs(Math.sin(ship.rotation - direction)) < 0.001);
+    assert(Math.cos(ship.rotation - direction) > 0.99);
+
+    for (let tick = 0; tick < 150; tick++) {
+      updateWorld({
+        world: launchWorld,
+        inputs: new Map([[7, { ...emptyPlayerInput(), thrust: 1 }]]),
+      });
+    }
+
+    assert(
+      Vec.distance(ship.position, station.position) >
+        station.localMovementRadius,
+      'ship leaves through the selected bay',
+    );
+    assert(Math.abs(ship.spin) < 0.1);
+  }
+}
+
+// Docking preserves the arrival angle and turns off every fitted module immediately.
+const arrivalWorld = createWorld();
+const arrivalStation = addEntity(
+  arrivalWorld,
+  new Station({ world: arrivalWorld }),
+);
+const arrivalShip = addEntity(
+  arrivalWorld,
+  createPlayerShip(arrivalWorld, { position: Vec.create(150), rotation: 0.4 }),
+);
+
+arrivalShip.segments.forEach((segment) => {
+  segment.active = 1;
+});
+
+updateWorld({ world: arrivalWorld, inputs: new Map() });
+assert.equal(arrivalShip.dockedTo, arrivalStation.id);
+assert(Math.abs(arrivalShip.rotation - 0.4) < 1e-6);
+assert(arrivalShip.segments.every((segment) => segment.active === 0));
+updateWorld({ world: arrivalWorld, inputs: new Map() });
+assert(
+  Math.abs(arrivalShip.rotation - 0.4) < 1e-6,
+  'docked updates must not reset the arrival angle',
 );

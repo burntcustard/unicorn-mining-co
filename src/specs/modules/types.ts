@@ -16,6 +16,7 @@ type ModuleModelPart = {
   rechargeDelay?: number;
   rechargeColor?: number;
   glow?: {
+    offset?: [number, number];
     radius: number;
     alpha: number;
     stops: [number, number | string, number?][];
@@ -33,10 +34,14 @@ type ModuleValues = {
   friction?: number;
   damage?: number;
   fireInterval?: number;
+  chargeDuration?: number;
+  retractionDistance?: number;
+  muzzleFlash?: EffectSpec;
   // Backwards impulse per shot, scaled by the firing ship's mass.
   recoil?: number;
   projectile?: {
     color: string;
+    effect?: EffectSpec;
     explosion?: {
       damage?: number;
       effect?: EffectSpec;

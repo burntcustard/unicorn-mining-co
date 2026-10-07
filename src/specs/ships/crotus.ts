@@ -11,7 +11,7 @@ export const crotus = {
     { mount: 2, module: 'thrusterDualMd' },
     { mount: 4, module: 'cargoHatch' },
     { mount: 3, module: 'cargoHatch' },
-    { mount: 0, module: 'autocannon' },
+    { mount: 0, module: 'autogun' },
   ],
   hullSegments: [
     {
@@ -27,7 +27,7 @@ export const crotus = {
           {
             x: 24,
             y: 0,
-            fits: ['autocannon'],
+            fits: ['autogun'],
           },
         ],
         [
@@ -91,7 +91,7 @@ export const crotus = {
           {
             x: -13,
             y: -19,
-            fits: ['autocannon'],
+            fits: ['autogun'],
           },
         ],
       ],
@@ -139,7 +139,7 @@ export const crotus = {
           {
             x: -13,
             y: 19,
-            fits: ['autocannon'],
+            fits: ['autogun'],
           },
         ],
       ],

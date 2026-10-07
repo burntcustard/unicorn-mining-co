@@ -2,6 +2,7 @@ import type { MountPointSpec } from '../mounts';
 import type { RenderingLayer } from '../rendering-layers';
 
 export type StationSpec = {
+  dockingBays: number[];
   hullSegments: {
     points: number[][];
     mounts?: MountPointSpec[][];

@@ -12,9 +12,10 @@ import { type StationSpec } from '../../specs/stations/types';
 
 export class Station extends Craft {
   kind = 'station';
+  dockingBays: number[];
 
   constructor({
-    stationType = 'corral',
+    stationType = 'corral-5',
     spec = stationSpecsById.get(stationType),
     ...properties
   }: ConstructorParameters<typeof Craft>[0] & {
@@ -26,7 +27,8 @@ export class Station extends Craft {
     }
 
     super({ ...spec, ...properties });
-    this.definitionId = stationType === 'corral' ? undefined : stationType;
+    this.dockingBays = spec.dockingBays;
+    this.definitionId = stationType === 'corral-5' ? undefined : stationType;
   }
 
   holds(child: { position: Vec.Value }) {

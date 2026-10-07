@@ -250,3 +250,29 @@ distribution.wrecks.forEach(({ cargoContents, clueField }) => {
     /^(AMETHYST CLUSTER|GOLD ORE) -?\d+\/-?\d+$/,
   );
 });
+
+const { generateStations } =
+  await import('../../src/client/simulation/region-generation.ts');
+
+const stationOptions = {
+  worldSeed: 25,
+  from: Vec.create(-1000000, -1000000),
+  to: Vec.create(1000000, 1000000),
+};
+
+const stations = generateStations(stationOptions);
+
+assert.deepEqual(generateStations(stationOptions), stations);
+const pentagons = stations.filter(
+  (station) => station.definitionId === 'corral-5',
+).length;
+
+assert(
+  stations.every((station) =>
+    ['corral-5', 'corral-6'].includes(station.definitionId),
+  ),
+);
+assert(
+  Math.abs(pentagons / stations.length - 0.5) < 0.03,
+  'station types use an even seeded distribution',
+);

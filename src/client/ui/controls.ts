@@ -33,7 +33,7 @@ const underDrop = 10;
 
 // Every module on the ship the pilot can switch, each type the once, in the
 // order their mounts sit in. A pair of cargo hatches is one row worked by one key. Modules
-// worked through held keys, including flight and weapons, are left off the panel. The
+// worked through held keys, including flight and firing, are left off the panel. The
 // underline follows the configured key instead of the module name.
 /**
  * ship: The ship whose modules are shown.
@@ -53,7 +53,20 @@ export const renderControls = (game: GameState, ship: Ship) => {
       modules.push(module.constructor as typeof Module),
   );
 
-  const widest = Math.max(...modules.map(({ name }) => name.length)) * glyph;
+  const labels = modules.map((module) => {
+    const action = moduleControls.find(
+      ({ Type }) => Type === module || module.prototype instanceof Type,
+    )!.input;
+    const key = moduleBinding(action).keys[0]?.toLowerCase();
+    const name =
+      key && !module.name.toLowerCase().includes(key)
+        ? `${key.toUpperCase()} ${module.name}`
+        : module.name;
+
+    return { name, index: key ? name.toLowerCase().indexOf(key) : -1 };
+  });
+
+  const widest = Math.max(...labels.map(({ name }) => name.length)) * glyph;
   const boxX = game.uiWidth - inset - widest - gap - box;
   const textX = boxX + box + gap;
   const top =
@@ -78,12 +91,8 @@ export const renderControls = (game: GameState, ship: Ship) => {
     const path = new Path2D();
 
     path.rect(boxX, y, box, box);
-    // Underline the first bound key that occurs in this module's name.
-    const action = moduleControls.find(
-      ({ Type }) => Type === module || module.prototype instanceof Type,
-    )?.input;
-    const key = action && moduleBinding(action).keys[0]?.toLowerCase();
-    const keyIndex = key ? module.name.toLowerCase().indexOf(key) : -1;
+    // Underline the bound key, prefixing it when absent from the module name.
+    const keyIndex = labels[i].index;
 
     if (keyIndex >= 0) {
       path.moveTo(textX + keyIndex * glyph, y + underDrop);
@@ -96,10 +105,10 @@ export const renderControls = (game: GameState, ship: Ship) => {
 
   ctx.restore();
 
-  modules.forEach((module, i) => {
+  labels.forEach(({ name }, i) => {
     renderText({
       game,
-      text: module.name.toUpperCase(),
+      text: name.toUpperCase(),
       x: textX,
       y: top + i * rowGap,
       size: textSize,

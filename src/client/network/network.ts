@@ -282,11 +282,12 @@ export class NetworkClient {
       const ship = this.world.entities.get(this.shipId!);
 
       if (ship instanceof Ship) {
-        moduleControls
-          .filter(({ input }) => input !== 'fire')
-          .forEach(({ Type, input }) => {
-            playerInput[input] = ship.moduleActive({ module: Type });
-          });
+        moduleControls.forEach(({ Type, writeInput }) =>
+          writeInput({
+            input: playerInput,
+            active: ship.moduleActive({ module: Type }),
+          }),
+        );
       }
 
       if (this.welcomed) {

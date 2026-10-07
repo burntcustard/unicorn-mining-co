@@ -10,6 +10,7 @@ import (
 type Station struct {
 	*Craft
 	LocalMovementRadius float64
+	DockingBays         []float64
 }
 
 func newStation(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Station {
@@ -62,18 +63,19 @@ func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
 	station := newStation(props, plans, catalog)
 	station.Self = station
 
-	if id != "corral" {
+	if id != "corral-5" {
 		station.DefinitionID = id
 	}
 
+	station.DockingBays = d.DockingBays
 	station.ZIndex = d.ZIndex
 	station.LocalMovementRadius = d.LocalMovementRadius
 	return station
 }
 
 func CreateStation(props Properties, catalog specs.Catalog) *Station {
-	if props.DefinitionID == "" {
-		props.DefinitionID = "corral"
+	if props.DefinitionID == "" || props.DefinitionID == "corral" {
+		props.DefinitionID = "corral-5"
 	}
 
 	return NewStation(props.DefinitionID, props, catalog)

@@ -153,7 +153,7 @@ Weapons use statically imported models, projectile rendering, and swept collisio
 checks in both client prediction and authoritative Go simulation. The client
 predicts firing for its local player; remote shots arrive through replication.
 Projectiles render above the scene's craft layers, using the sampled motion pose.
-Plasma Accelerator and Autocannon append module indices 12 and 13. Autocannon ammunition appends
+Plasma Accelerator and Autogun append module indices 12 and 13. Autogun ammunition appends
 resource 5; each pack contains 200 rounds, and each shot consumes one round. Empty
 packs are removed from cargo contents. Remaining rounds use optional UM field 35
 and are preserved through prediction rollback and saved ships. The existing docked
@@ -172,7 +172,7 @@ values. Client and server must be rebuilt together for these wire additions.
 The Plasma Accelerator fires once every 2 seconds. Its optional module `recoil`
 setting applies a backwards impulse per successful shot in both client
 prediction and Go simulation. Recoil uses the normal mass-scaled force application;
-the projectile inherits the ship's velocity before that impulse. Autocannon has
+the projectile inherits the ship's velocity before that impulse. Autogun has
 no recoil setting. This adds no snapshot fields or loading triggers.
 Its three rectangular indicators in an outward-facing side recess
 use the existing firing cooldown to return from shade 0 to shade 2 at 0.5,
@@ -209,7 +209,7 @@ reads only their geometry and colour; recharge effects are client presentation.
 Projectile impacts damage both the projectile and the contacted surface, so the
 existing collision event records damage in both colours. On death, an optional
 `projectile.explosion` supplies a radius, radial impulse and optional damage. Only Plasma Accelerator
-opts in; Autocannon deals direct damage and emits its own impact sparks without
+opts in; Autogun deals direct damage and presents its visual effect without
 scanning or pushing nearby objects. The reusable `objects/explosion` implementation
 in both clients and Go takes any source game object and blast settings, fading the
 impulse with distance from each object's bounding surface and scaling it by mass.
@@ -221,7 +221,7 @@ Blast damage uses actual collider shapes and damages each hull segment, asteroid
 or fitted module once. The directly contacted surface is excluded from splash damage
 because it already received the hit. Asteroid segments broken by the same blast detach
 together; their new fragments and items receive force without a second damage pass.
-Autocannon emits own-colour sparks on impact and gameplay expiry. Plasma uses
+Autogun emits a dedicated yellow animation on impact and gameplay expiry. Plasma uses
 its dedicated explosion instead: presentation suppresses generic sparks for the
 explosion source in the same event batch, preserving target sparks. Timed
 expiry uses the optional death event supplied by an object to the movement
@@ -260,7 +260,11 @@ Omitting them uses a constant object outline width. Zero-width rings do not draw
 
 `addEffect` snapshots the position and accepts optional rotation and overall
 scale; rotation defaults to random and scale to one. Total lifetime is calculated
-at spawn, including delayed layers. `src/specs/effects/plasma-explosion.ts`
+at spawn, including delayed layers. An optional parent makes position and rotation
+local to that object's pose. Muzzle flashes use the same predicted and corrected
+pose as their ship on every rendered frame; the viewer uses its live craft pose.
+Unattached impact effects retain their original world position.
+`src/specs/effects/plasma-explosion.ts`
 uses five layers: a short black contrast flash, a shrinking pale core, an
 expanding violet shell that dissolves from the centre, a glow, and a ring that
 starts near the impact point and expands while fading and thinning to zero. The bright
@@ -283,3 +287,48 @@ use numbers from 0 to 1. The shared client `utilities/color` helper `withAlpha`
 converts an opaque hex colour and numeric alpha to a canvas colour. It is also
 statically included in the inline background renderer and docked chunk;
 their loading triggers are unchanged.
+
+Station specs use `corral-5` as the default and `corral-6` as the six-sided
+variant, identified through existing binary field 34. Procedural generation
+chooses each with a seeded 50% probability without changing station locations.
+Bay angles live in each spec; launch chooses one uniformly and rotates the
+ship toward it. Both variants retain the center docking trigger. Saved legacy
+`corral` IDs restore as `corral-5`. Loading triggers and wire field IDs are unchanged.
+
+Instant launch facing changes are excluded from collision sweeps in both client
+and Go simulation, including input transitions partway through a tick. Docking
+preserves the arrival angle and immediately deactivates fitted modules; the
+client clears its module toggle inputs when it receives the docking event.
+This changes no loading triggers or wire fields.
+
+The docked menu requests launch through the normal input history instead of
+mutating ship mechanics directly. The main loop records that request before
+snapshot reconciliation, and the menu follows the frame-predicted docking state.
+This keeps Escape responsive between simulation ticks and prevents older docked
+snapshots from briefly reopening the menu. Loading triggers are unchanged.
+
+Autogun's optional `projectile.effect` uses the existing local explosion
+presentation event on impacts and gameplay expiry, replacing source sparks while
+retaining target sparks. It has three layers: a glow, expanding spiky polygon,
+and shrinking core, each half the corresponding plasma layer's size. This
+presentation-only setting applies no splash damage or impulse and performs no
+blast scan. The spec also loads statically in the object viewer, which can replay
+both projectile animations. Binary fields and loading triggers are unchanged.
+
+Weapon deployment uses input bits 9 and 10 for Plasma Accelerator (P) and
+Autogun (A), carried in bits 2 and 3 of the existing UC input flags byte.
+Space (bit 8) remains the independent fire control. The existing module segment
+states preserve deployment through snapshots and saves. Both weapons extend or
+retract over 0.7 seconds, sliding 12 units along local x. Their configurable
+`chargeDuration` begins only after full deployment: plasma charges over its
+2-second reload interval, and autogun spins up over 0.7 seconds. Retraction
+resets this timer; firing requires full deployment and completed charging.
+Module mask bit 4 optionally adds `chargeCooldown` after firing cooldown and
+before segment states, preserving startup through replication, saves, and
+prediction rollback. This countdown uses simulation seconds, like firing and
+activation. Startup never changes the shot cooldown and produces no muzzle flash.
+Plasma indicators follow the greater of its startup and shot cooldowns; autogun
+spin speed follows startup progress. Active weapons retain the existing damage
+immunity setting. Firing input is checkpointed locally and reapplied by controls,
+never restored from deployment on reconnect. Build client and server together
+for these input and module state additions. Loading triggers are unchanged.

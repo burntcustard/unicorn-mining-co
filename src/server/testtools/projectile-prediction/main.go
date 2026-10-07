@@ -32,8 +32,8 @@ func main() {
 		weapon                        string
 		moving, reservesIDs, repeated bool
 	}{
-		{"autocannon", false, false, false},
-		{"autocannon", true, false, false},
+		{"autogun", false, false, false},
+		{"autogun", true, false, false},
 		{"plasmaAccelerator", false, false, false},
 		{"plasmaAccelerator", false, true, false},
 		{"plasmaAccelerator", true, false, false},
@@ -57,8 +57,12 @@ func main() {
 			}
 		}
 
+		// These scenarios exercise impacts and fracture prediction after deployment.
+		ship.SetModuleActive("weapon", true)
+		ship.UpdateModules(gun.ModuleBase().Spec.ActivationDuration + gun.ModuleBase().Spec.ChargeDuration)
+
 		ammoID := simulation.EntityID(world)
-		ship.CargoContents = append(ship.CargoContents, objects.NewItem("autocannonAmmunition", simulation.ObjectProperties{ID: &ammoID, World: world}, catalog))
+		ship.CargoContents = append(ship.CargoContents, objects.NewItem("autogunAmmunition", simulation.ObjectProperties{ID: &ammoID, World: world}, catalog))
 		rockID := int64(100)
 		radius := 50.0
 		position := Vec.Create(150, -25)
@@ -94,7 +98,7 @@ func main() {
 			}
 
 			// Match the input boundary used by eight-tick client frames.
-			input := protocol.Input{Fire: tick < 304}
+			input := protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: tick < 304}
 
 			if scenario.repeated {
 				// Keep mining the connected remainder after each split.
@@ -160,7 +164,7 @@ func main() {
 				reload = hex.EncodeToString(network.NewBinaryReplicationManager(catalog).Initial(options))
 			}
 
-			frames = append(frames, map[string]any{"input": map[string]any{"fire": input.Fire, "turn": input.Turn}, "reload": reload, "packet": packet, "asteroids": asteroids, "poses": poses, "hits": hits, "splits": splits})
+			frames = append(frames, map[string]any{"input": map[string]any{"fire": input.Fire, "plasmaActive": input.PlasmaActive, "autogunActive": input.AutogunActive, "turn": input.Turn}, "reload": reload, "packet": packet, "asteroids": asteroids, "poses": poses, "hits": hits, "splits": splits})
 		}
 
 		cases = append(cases, map[string]any{"repeated": scenario.repeated, "reservesIDs": reservesIDs, "weapon": weapon, "moving": moving, "initial": initial, "frames": frames})

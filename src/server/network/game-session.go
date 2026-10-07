@@ -476,7 +476,7 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 
 	p.lastInput = protocol.Input{
 		HornDrill: p.ship.ModuleActive("hornDrill"), CargoHatch: p.ship.ModuleActive("cargoHatch"),
-		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"), Fire: p.ship.ModuleActive("weapon"),
+		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"), PlasmaActive: p.ship.ModuleActive("plasmaAccelerator"), AutogunActive: p.ship.ModuleActive("autogun"),
 	}
 
 	p.lastSequence = 0

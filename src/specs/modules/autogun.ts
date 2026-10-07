@@ -1,19 +1,29 @@
 import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
+import { autogunExplosion } from '../effects/autogun-explosion';
+import { autogunMuzzleFlash } from '../effects/autogun-muzzle-flash';
 import type { ModuleSpec } from './types';
 
-export const autocannon = {
+const activationDuration = 0.7;
+
+export const autogun = {
   behavior: 'weapon',
-  name: 'Autocannon',
+  name: 'Autogun',
   health: 20,
   price: 600,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
+  activationDuration,
+  chargeDuration: activationDuration,
+  retractionDistance: 12,
+  unhurtWhen: 1,
   damage: 4,
   fireInterval: 0.25,
+  muzzleFlash: autogunMuzzleFlash,
   projectile: {
-    speed: 600,
-    lifetime: 3,
+    effect: autogunExplosion,
+    speed: 1000,
+    lifetime: 1,
     radius: 2,
     color: colors.yellow[2],
     glow: {
@@ -23,7 +33,7 @@ export const autocannon = {
     },
   },
   ammunition: 5,
-  barrelLength: 16,
+  barrelLength: 22,
   model: [
     {
       outline: false,

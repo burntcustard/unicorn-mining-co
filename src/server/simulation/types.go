@@ -15,12 +15,13 @@ type Module interface {
 }
 
 type ModuleData struct {
-	FireCooldown float64
-	Type         string
-	Spec         specs.Module
-	Model        []*SegmentPlan
-	Mount        *Mount
-	Bounciness   func(*Segment) *float64
+	FireCooldown   float64
+	ChargeCooldown float64
+	Type           string
+	Spec           specs.Module
+	Model          []*SegmentPlan
+	Mount          *Mount
+	Bounciness     func(*Segment) *float64
 }
 
 type Mount struct {

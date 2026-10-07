@@ -74,7 +74,7 @@ for (const renderEvery of [1, 8]) for (const delay of [0, 1, 3, 8]) for (const f
     now += simulationStep * 1000;
     if ((tick + 1) % renderEvery) continue;
     // Release on an eight-tick boundary so batched frames send the same inputs as Go.
-    network.updateFrame({ input: { ...emptyPlayerInput(), fire: tick < 304 }, now, dt: simulationStep * renderEvery });
+    network.updateFrame({ input: { ...emptyPlayerInput(), plasmaActive: true, autogunActive: true, fire: tick < 304 }, now, dt: simulationStep * renderEvery });
     if(!fixture.reservesIDs) assert.deepEqual(
       [...network.world.entities.values()].filter(entity => entity instanceof Asteroid).map(entity => entity.id),
       fixture.frames[tick].asteroids,
@@ -103,7 +103,7 @@ for (const renderEvery of [1, 8]) for (const delay of [0, 1, 3, 8]) for (const f
   }
   if(fixture.reservesIDs){if(delay===8 && renderEvery===1) assert(replacements>0,'delayed unseen server allocations exercise fragment ID reuse');continue;}
   assert.equal(new Set(explosions.map(event=>event.objectId)).size,explosions.length,'reconciliation never duplicates explosion visuals');
-  assert.equal(explosions.length>0,fixture.weapon==='plasmaAccelerator','only plasma presents an explosion effect');
+  assert(explosions.length>0,'both weapons present their configured impact effect');
   const directHits=hits.filter(hit=>hit.damage[0]>0);
   assert.equal(new Set(directHits.map(hit => hit.a)).size, directHits.length, 'reconciliation never presents the same direct projectile impact twice');
   const hitKey=hit=>[hit.a,hit.b,hit.damage[0],...hit.colors].join(':');
