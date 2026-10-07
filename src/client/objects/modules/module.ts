@@ -44,8 +44,12 @@ export class Module extends GameObject {
     }) as unknown as T;
   }
 
-  static createModel(_spec: ModuleSpec): any[] {
-    return [];
+  static createModel(spec: ModuleSpec): any[] {
+    return spec.model.map((part) => ({
+      ...part,
+      fillShade: part.color,
+      shapeOutline: part.outline === false ? ([] as ShapeOutline) : undefined,
+    }));
   }
 
   render({ segment, points, draw }: ModuleRenderOptions) {

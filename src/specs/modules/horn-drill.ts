@@ -18,9 +18,14 @@ export const hornDrill = {
   gripDecay: 0.9,
   gripScale: 0.1,
   drillTip: { position: { x: 26, y: 0 }, radius: 3 },
-  points: [
-    [3, -6],
-    [27, 0],
-    [3, 6],
+  model: [
+    {
+      outline: true,
+      points: [
+        [3, -6],
+        [27, 0],
+        [3, 6],
+      ],
+    },
   ],
 } satisfies ModuleSpec;

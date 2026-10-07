@@ -8,41 +8,22 @@ export class ShieldGeneratorModule extends Module {
   static createModel(
     spec: Extract<ModuleSpec, { behavior: 'shieldGenerator' }>,
   ) {
-    return [
-      { radius: () => spec.generatorRadius },
-      {
-        activationDuration: spec.coverDuration,
-        covers: true,
-        radius: ({ activationProgress }: { activationProgress: number }) =>
-          spec.shieldRadius * activationProgress,
-        fillAlpha: 2 / 15,
-      },
-    ];
+    return super.createModel(spec).map((part) => ({
+      ...part,
+      activationDuration: part.covers ? spec.coverDuration : undefined,
+      radius: ({ activationProgress }: { activationProgress: number }) =>
+        part.covers ? spec.shieldRadius * activationProgress : part.radius,
+    }));
   }
 
   render({ segment }: ModuleRenderOptions) {
     super.render({ segment });
 
-    if (segment.covers) return;
+    if (!segment.lines) return;
     game.ctx.save();
     game.ctx.strokeStyle = this.shades[2];
-
-    game.ctx.stroke(
-      linesPath(
-        [segment.phase || 0, (segment.phase || 0) + Math.PI / 2].map(
-          (angle) => {
-            const x = Math.cos(angle) * 7,
-              y = Math.sin(angle) * 7;
-
-            return [
-              [-x, -y],
-              [x, y],
-            ];
-          },
-        ),
-      ),
-    );
-
+    game.ctx.rotate(segment.phase || 0);
+    game.ctx.stroke(linesPath(segment.lines));
     game.ctx.restore();
   }
 

@@ -13,6 +13,16 @@ export const cargoHatch = {
   collectsCargo: true,
   offset: 16,
   unhurtWhen: 0,
+  model: [
+    {
+      outline: false,
+      color: 2,
+    },
+    {
+      outline: false,
+      catches: true,
+    },
+  ],
   cargoGeometry: {
     length: 16,
     openAngle: 2.5,

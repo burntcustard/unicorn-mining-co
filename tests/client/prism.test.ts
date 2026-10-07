@@ -97,7 +97,7 @@ const joins = (
   const lamp = {
     localPosition: Vec.create(),
     activationProgress: 1,
-    module: new SearchLight({ lens: 0, reach: 100, spread: 30 }),
+    module: new SearchLight({ reach: 100, spread: 30 }),
   } as import('../../src/client/types').Segment;
 
   const beam = traceBeam({ position: Vec.create(), rotation: 0 }, lamp, [
@@ -139,7 +139,7 @@ for (const size of [10, 100, 1000]) {
     const lamp = {
       localPosition: Vec.create(),
       activationProgress: 1,
-      module: new SearchLight({ lens: 0, reach: size * 20, spread: size * 2 }),
+      module: new SearchLight({ reach: size * 20, spread: size * 2 }),
     } as import('../../src/client/types').Segment;
 
     const ship = { rotation, position: Vec.create() };

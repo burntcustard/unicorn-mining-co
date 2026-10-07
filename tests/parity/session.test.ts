@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { decodeServerControl } from '../../src/client/protocol/binary-control';
 import { diamond, itemTypes } from '../../src/specs/items';
+import { moduleIds, searchLight } from '../../src/specs/modules';
 import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot';
 
 const fixture = JSON.parse(
@@ -18,7 +19,7 @@ const go = JSON.parse(
   }),
 );
 
-function decoded(packet: string) {
+function decoded(packet: string, historical = false) {
   const data = Buffer.from(packet, 'hex');
 
   if (data[1] === 0x43) {
@@ -31,7 +32,22 @@ function decoded(packet: string) {
   const snapshot = decodeBinarySnapshot(data);
 
   // Historical item labels are now reconstructed from their resource spec.
-  const adaptHistoricalItem = (entity: any) => {
+  const adaptHistoricalEntity = (entity: any) => {
+    // Housing parts share the beam's activation state. The archive predates
+    // the visible model, so expand only its old one-segment records.
+    if (historical) {
+      entity.modules?.forEach((module: any) => {
+        if (
+          module.type === moduleIds.indexOf('searchLight') &&
+          module.segments.length === 1
+        ) {
+          module.segments.push(
+            ...searchLight.model.map(() => ({ ...module.segments[0] })),
+          );
+        }
+      });
+    }
+
     if (
       entity.kind === 'item' &&
       entity.resource !== undefined &&
@@ -47,11 +63,11 @@ function decoded(packet: string) {
     }
 
     entity.cargoContents?.forEach((cargo: any) => {
-      if (!('moduleIndex' in cargo)) adaptHistoricalItem(cargo);
+      if (!('moduleIndex' in cargo)) adaptHistoricalEntity(cargo);
     });
   };
 
-  snapshot.fullEntities.forEach(adaptHistoricalItem);
+  snapshot.fullEntities.forEach(adaptHistoricalEntity);
   return snapshot;
 }
 
@@ -183,7 +199,7 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
   socket.packets.forEach((packet, index) => {
     compare(
       actualPackets[index],
-      archivedState(decoded(packet)),
+      archivedState(decoded(packet, true)),
       `socket ${id} packet ${index}`,
     );
     packets++;

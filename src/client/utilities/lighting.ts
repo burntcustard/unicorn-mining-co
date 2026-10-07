@@ -306,7 +306,7 @@ export const revealBuriedItems = ({
 
     craft.segments.forEach((lamp) => {
       if (
-        !lamp.module.beam ||
+        !(lamp.beam ?? lamp.module.beam) ||
         lamp.activationProgress <= 0.5 ||
         (lamp.mount || lamp).health < 1
       ) {

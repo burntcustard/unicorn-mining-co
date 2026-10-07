@@ -57,7 +57,7 @@
 [?] Smoothly move camera to center of station again
 [ ] Ensure tests aren't overlapping with each other
 [ ] Swap 'FIX' with 'REPAIR' or 'Repair'
-[ ] Fix colors unlocked not saving on reconnect
+[x] Fix colors unlocked not saving on reconnect
 [ ] Remove or refactor updateHornDrillSounds because its weird
 [ ] Adjust sound volumes depending on distance to camera
 [ ] Adjust sound location (left/right) depending on position

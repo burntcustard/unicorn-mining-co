@@ -16,7 +16,11 @@ func (m *Module) ModuleBase() *simulation.ModuleData { return &m.ModuleData }
 
 func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catalog) *Module {
 	spec := catalog.ModuleSpecs[id]
-	m := &Module{GameObject: simulation.NewGameObject(props, catalog.Simulation), Type: id, Spec: spec}
+	m := &Module{
+		GameObject: simulation.NewGameObject(props, catalog.Simulation),
+		Type:       id,
+		Spec:       spec,
+	}
 	m.Self = m
 	m.Health, m.Name, m.Price, m.Shades = spec.Health, spec.Name, spec.Price, spec.Shades
 	m.GameObject.Bounciness = spec.Bounciness
@@ -28,30 +32,46 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 	m.ApplyProperties(props)
 
 	for _, part := range spec.Model {
-		radius := simulation.RadiusOf(points(part.Points).Points, simulation.Point{})
-
-		fill := 2.0
-
-		if part.Color != nil {
-			fill = *part.Color
+		plan := &simulation.SegmentPlan{
+			FillShade:          part.Color,
+			Covers:             part.Covers,
+			Catches:            part.Catches,
+			ThrusterNozzleSide: part.ThrusterNozzleSide,
 		}
 
-		plan := &simulation.SegmentPlan{FillShade: &fill, Stroke: [][][]float64{}, Radius: func(*simulation.Segment) float64 { return radius }}
+		if part.Outline != nil && !*part.Outline {
+			plan.Stroke = [][][]float64{}
+		}
 
-		plan.DynamicPoints = func(segment *simulation.Segment) *simulation.ShapeOutline {
-			side := 1.0
+		if part.Radius != 0 {
+			plan.Radius = func(*simulation.Segment) float64 { return part.Radius }
+		}
 
-			if segment.Mount.LocalPosition.Y < 0 {
-				side = -1
+		if len(part.Points) > 0 {
+			plan.Points = points(part.Points)
+		}
+
+		if spec.Behavior == "weapon" {
+			radius := simulation.RadiusOf(plan.Points.Points, simulation.Point{})
+			plan.Points = nil
+
+			plan.Radius = func(*simulation.Segment) float64 { return radius }
+
+			plan.DynamicPoints = func(segment *simulation.Segment) *simulation.ShapeOutline {
+				side := 1.0
+
+				if segment.Mount.LocalPosition.Y < 0 {
+					side = -1
+				}
+
+				outline := points(part.Points)
+
+				for i := range outline.Points {
+					outline.Points[i][1] *= side
+				}
+
+				return outline
 			}
-
-			outline := points(part.Points)
-
-			for i := range outline.Points {
-				outline.Points[i][1] *= side
-			}
-
-			return outline
 		}
 
 		m.Model = append(m.Model, plan)

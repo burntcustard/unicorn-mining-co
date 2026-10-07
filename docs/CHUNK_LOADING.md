@@ -188,7 +188,16 @@ specs to a behavior class and build its model. Weapons, thrusters, shield genera
 and other modules use the same path and the existing shared constructor registry.
 Wire indices, display order and loading triggers are unchanged.
 
-Every model part is mirrored by its mount's side. Its optional `rechargeDelay`
+Every module spec defines a `model` array. Each part chooses `outline: true`
+for the normal edge stroke or `outline: false` for fill-only geometry; parts
+can mix the two styles within one module. `color` selects the fill shade,
+defaulting to shade 0. Decorative markings are independent of the edge stroke.
+The shared client and Go model builders preserve the choice in detached and
+replicated wreckage. Animated doors, flares, and shield covers keep their
+behavior-specific geometry while taking their presentation from the model.
+This adds no wire fields or loading triggers.
+
+Every weapon model part is mirrored by its mount's side. Its optional `rechargeDelay`
 and `rechargeColor` control recharge shading; `color` sets the charged shade.
 Optional part `glow` settings specify radius, alpha and gradient stops as
 `[offset, color, optionalAlpha]`; alpha is a number from 0 to 1, defaulting to 1.

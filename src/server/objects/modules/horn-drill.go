@@ -25,7 +25,6 @@ func NewHornDrill(props simulation.ObjectProperties, catalog specs.Catalog) *Hor
 		return nil
 	}
 
-	m.Model = []*simulation.SegmentPlan{{Points: points(m.Spec.Points)}}
 	return m
 }
 
@@ -50,7 +49,10 @@ func (m *HornDrill) Drill(ship simulation.Entity, segment *simulation.Segment, t
 	object := ship.Base()
 	d := m.Spec
 
-	if segment.ActivationProgress <= d.ActivationThreshold || object.PlayerID == nil || !world.Entities.Has(owner.Base().ID) || !(before > 0) {
+	if segment.ActivationProgress <= d.ActivationThreshold ||
+		object.PlayerID == nil ||
+		!world.Entities.Has(owner.Base().ID) ||
+		!(before > 0) {
 		return
 	}
 
@@ -68,11 +70,20 @@ func (m *HornDrill) Drill(ship simulation.Entity, segment *simulation.Segment, t
 	if asteroid != nil {
 		pull := Vec.Normalize(Vec.Subtract(asteroid.Position, object.Position))
 		factor := 1 - math.Pow(d.GripDecay, steps)
-		grip := Vec.Add(Vec.Scale(Vec.Subtract(asteroid.Velocity, object.Velocity), factor), Vec.Scale(pull, factor/d.GripScale))
+		grip := Vec.Add(
+			Vec.Scale(Vec.Subtract(asteroid.Velocity, object.Velocity), factor),
+			Vec.Scale(pull, factor/d.GripScale),
+		)
 		object.Velocity = Vec.Add(object.Velocity, grip)
 	}
 
-	event := protocol.DrillDamage{TargetID: owner.Base().ID, By: *object.PlayerID, Damage: amount, Color: color(target), Position: position}
+	event := protocol.DrillDamage{
+		TargetID: owner.Base().ID,
+		By:       *object.PlayerID,
+		Damage:   amount,
+		Color:    color(target),
+		Position: position,
+	}
 
 	if asteroid != nil && asteroid.HasResource {
 		resource := asteroid.Resource

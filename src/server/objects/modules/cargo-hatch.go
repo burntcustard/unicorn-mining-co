@@ -28,7 +28,16 @@ func SetCargoPickupPoint(point *collision.Collider, item simulation.Entity) {
 	}
 
 	*physics = false
-	*point = collision.Collider{Owner: item, Position: object.Position, Radius: 0, Rotation: object.Rotation, Physics: physics, Friction: object.Friction, PickupPoint: true, ContactFilter: CargoContactAllowed}
+	*point = collision.Collider{
+		Owner:         item,
+		Position:      object.Position,
+		Radius:        0,
+		Rotation:      object.Rotation,
+		Physics:       physics,
+		Friction:      object.Friction,
+		PickupPoint:   true,
+		ContactFilter: CargoContactAllowed,
+	}
 }
 
 func CargoHatchDoorShapeOutline(spec specs.Module, progress, side float64) *simulation.ShapeOutline {
@@ -40,7 +49,14 @@ func CargoHatchDoorShapeOutline(spec specs.Module, progress, side float64) *simu
 	toY := side * geometry.Length * (1 - cosine)
 	outX := -side * cosine * geometry.DoorWidth
 	outY := -sine * geometry.DoorWidth
-	return &simulation.ShapeOutline{Points: []simulation.Point{{outX, fromY + outY}, {toX + outX, toY + outY}, {toX - outX, toY - outY}, {-outX, fromY - outY}}}
+	return &simulation.ShapeOutline{
+		Points: []simulation.Point{
+			{outX, fromY + outY},
+			{toX + outX, toY + outY},
+			{toX - outX, toY - outY},
+			{-outX, fromY - outY},
+		},
+	}
 }
 
 type CargoHatch struct{ *Module }
@@ -49,10 +65,17 @@ func NewCargoHatch(props simulation.ObjectProperties, catalog specs.Catalog) *Ca
 	m := &CargoHatch{NewModule("cargoHatch", props, catalog)}
 	m.Self = m
 	d := m.Spec
-	fill := 2.0
 
-	m.Model = []*simulation.SegmentPlan{
-		{DynamicPoints: func(s *simulation.Segment) *simulation.ShapeOutline {
+	for _, plan := range m.Model {
+		if plan.Catches {
+			plan.NoWreckage = true
+
+			plan.Radius = func(*simulation.Segment) float64 { return d.CargoGeometry.ThroatRadius }
+
+			continue
+		}
+
+		plan.DynamicPoints = func(s *simulation.Segment) *simulation.ShapeOutline {
 			side := 0.0
 
 			if s.Mount.LocalPosition.Y < 0 {
@@ -61,9 +84,14 @@ func NewCargoHatch(props simulation.ObjectProperties, catalog specs.Catalog) *Ca
 				side = 1
 			}
 
-			return s.CachedOutline([2]float64{s.ActivationProgress, side}, func() *simulation.ShapeOutline { return CargoHatchDoorShapeOutline(d, s.ActivationProgress, side) })
-		}, Radius: func(*simulation.Segment) float64 { return d.CargoGeometry.DoorRadius }, FillShade: &fill, Wreckage: &simulation.SegmentPlan{FillShade: &fill}, Stroke: [][][]float64{}},
-		{Catches: true, NoWreckage: true, Radius: func(*simulation.Segment) float64 { return d.CargoGeometry.ThroatRadius }},
+			return s.CachedOutline([2]float64{s.ActivationProgress, side}, func() *simulation.ShapeOutline {
+				return CargoHatchDoorShapeOutline(d, s.ActivationProgress, side)
+			})
+		}
+
+		plan.Radius = func(*simulation.Segment) float64 { return d.CargoGeometry.DoorRadius }
+
+		plan.Wreckage = &simulation.SegmentPlan{FillShade: plan.FillShade}
 	}
 
 	return m
@@ -102,7 +130,12 @@ func (m *CargoHatch) Collect(ship CargoShip, contact collision.Contact, events *
 	object := ship.Base()
 	contents := ship.Cargo()
 
-	if !item.Item || !CargoContactAllowed(throat, pickup) || object.PlayerID == nil || !ship.ModuleActive("cargoHatch") || !world.Entities.Has(item.ID) || item.Message == nil && len(*contents) >= ship.CargoCapacity() {
+	if !item.Item ||
+		!CargoContactAllowed(throat, pickup) ||
+		object.PlayerID == nil ||
+		!ship.ModuleActive("cargoHatch") ||
+		!world.Entities.Has(item.ID) ||
+		item.Message == nil && len(*contents) >= ship.CargoCapacity() {
 		return
 	}
 
@@ -111,7 +144,12 @@ func (m *CargoHatch) Collect(ship CargoShip, contact collision.Contact, events *
 	}
 
 	item.Remove()
-	event := protocol.ItemCollected{By: *object.PlayerID, ItemID: item.ID, Resource: item.Resource, Message: item.Message}
+	event := protocol.ItemCollected{
+		By:       *object.PlayerID,
+		ItemID:   item.ID,
+		Resource: item.Resource,
+		Message:  item.Message,
+	}
 
 	if item.Message != nil {
 		unlock := item.Unlock

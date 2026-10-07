@@ -148,14 +148,9 @@ export const arrow = {
         ],
         [
           {
-            x: 38,
+            x: 34,
             y: 0,
             fits: ['searchLight'],
-          },
-          {
-            x: 38,
-            y: 0,
-            fits: ['plasmaAccelerator', 'autocannon'],
           },
         ],
       ],

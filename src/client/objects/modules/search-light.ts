@@ -6,43 +6,40 @@ import { Module, type ModuleRenderOptions } from './module';
 import { type ModuleSpec } from '../../../specs/modules/types';
 
 // SearchLight
-// A lamp slung under the nose that throws a cone of light out ahead of the
-// ship. It sits below the hull so that what it falls on is whatever the ship
-// is flying over, with the hull itself sat dark on top of it.
+// A lamp on the nose, with its housing and beam below the hull and horn drill.
 
 class SearchLightModule extends Module {
   static createModel(spec: Extract<ModuleSpec, { behavior: 'searchLight' }>) {
-    const { lens, reach, mouth, spread, corner } = spec;
-    const far = lens + reach;
+    const { reach, spread, corner } = spec;
 
     return [
       {
-        wreckage: {
-          // The lamp housing is half the length of a cargo-hatch door.
-          points: [
-            [lens, -1.5],
-            [lens + 8, -1.5],
-            [lens + 8, 1.5],
-            [lens, 1.5],
-          ],
-          fillShade: 2,
-        },
+        wreckage: false,
         points: ({ activationProgress }: { activationProgress: number }) =>
           activationProgress
             ? [
-                [lens, -mouth],
-                [far - corner, -spread],
-                [far, corner - spread],
-                [far, spread - corner],
-                [far - corner, spread],
-                [lens, mouth],
+                [0, 0],
+                [reach - corner, -spread],
+                [reach, corner - spread],
+                [reach, spread - corner],
+                [reach - corner, spread],
               ]
             : [],
       },
+      ...super.createModel(spec).map((part) => ({
+        ...part,
+        beam: false,
+        wreckage: { fillShade: part.fillShade },
+      })),
     ];
   }
 
   render({ segment, craft, scenery, pose = craft }: ModuleRenderOptions) {
+    if (segment.beam === false) {
+      super.render({ segment });
+      return;
+    }
+
     if (!segment.activationProgress) return;
     const beam = segment.prism || traceBeam(pose, segment, scenery);
 

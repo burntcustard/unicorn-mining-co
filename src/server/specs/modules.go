@@ -2,8 +2,13 @@
 package specs
 
 type ModelPart struct {
-	Color  *float64 `json:"color"`
-	Points []Point  `json:"points"`
+	Outline            *bool    `json:"outline"`
+	Catches            bool     `json:"catches"`
+	ThrusterNozzleSide float64  `json:"thrusterNozzleSide"`
+	Color              *float64 `json:"color"`
+	Points             []Point  `json:"points"`
+	Radius             float64  `json:"radius"`
+	Covers             bool     `json:"covers"`
 }
 
 type Projectile struct {
@@ -25,44 +30,40 @@ type Projectile struct {
 }
 
 type Module struct {
-	FireInterval                       float64     `json:"fireInterval"`
-	Recoil                             float64     `json:"recoil"`
-	Projectile                         Projectile  `json:"projectile"`
-	Ammunition                         *int        `json:"ammunition"`
-	BarrelLength                       float64     `json:"barrelLength"`
-	Model                              []ModelPart `json:"model"`
-	Behavior                           string      `json:"behavior"`
-	Name                               string      `json:"name"`
-	Health, Price                      float64
-	ZIndex                             int       `json:"zIndex"`
-	Shades                             []string  `json:"shades"`
-	ActivationDuration                 float64   `json:"activationDuration"`
-	ActivationThreshold                float64   `json:"activationThreshold"`
-	Bounciness                         *float64  `json:"bounciness"`
-	Friction                           *float64  `json:"friction"`
-	Damage                             float64   `json:"damage"`
-	DamageStepsPerSecond               float64   `json:"damageStepsPerSecond"`
-	GripDecay                          float64   `json:"gripDecay"`
-	GripScale                          float64   `json:"gripScale"`
-	DisablePhysics                     bool      `json:"disablePhysics"`
-	ForwardThrust                      float64   `json:"forwardThrust"`
-	RotationalThrust                   float64   `json:"rotationalThrust"`
-	Offset                             float64   `json:"offset"`
-	FlareSizes                         []float64 `json:"flareSizes"`
-	NozzleSides                        []float64 `json:"nozzleSides"`
-	CollectsCargo                      bool      `json:"collectsCargo"`
-	Grinds                             bool      `json:"grinds"`
-	Beam                               bool      `json:"beam"`
-	Lens, Mouth, Reach, Spread, Corner float64
-	ShieldRadius                       float64  `json:"shieldRadius"`
-	CoverDuration                      float64  `json:"coverDuration"`
-	GeneratorRadius                    float64  `json:"generatorRadius"`
-	UnhurtWhen                         *float64 `json:"unhurtWhen"`
-	DrillTip                           struct {
+	FireInterval          float64     `json:"fireInterval"`
+	Recoil                float64     `json:"recoil"`
+	Projectile            Projectile  `json:"projectile"`
+	Ammunition            *int        `json:"ammunition"`
+	BarrelLength          float64     `json:"barrelLength"`
+	Model                 []ModelPart `json:"model"`
+	Behavior              string      `json:"behavior"`
+	Name                  string      `json:"name"`
+	Health, Price         float64
+	ZIndex                int      `json:"zIndex"`
+	Shades                []string `json:"shades"`
+	ActivationDuration    float64  `json:"activationDuration"`
+	ActivationThreshold   float64  `json:"activationThreshold"`
+	Bounciness            *float64 `json:"bounciness"`
+	Friction              *float64 `json:"friction"`
+	Damage                float64  `json:"damage"`
+	DamageStepsPerSecond  float64  `json:"damageStepsPerSecond"`
+	GripDecay             float64  `json:"gripDecay"`
+	GripScale             float64  `json:"gripScale"`
+	DisablePhysics        bool     `json:"disablePhysics"`
+	ForwardThrust         float64  `json:"forwardThrust"`
+	RotationalThrust      float64  `json:"rotationalThrust"`
+	Offset                float64  `json:"offset"`
+	CollectsCargo         bool     `json:"collectsCargo"`
+	Grinds                bool     `json:"grinds"`
+	Beam                  bool     `json:"beam"`
+	Reach, Spread, Corner float64
+	ShieldRadius          float64  `json:"shieldRadius"`
+	CoverDuration         float64  `json:"coverDuration"`
+	UnhurtWhen            *float64 `json:"unhurtWhen"`
+	DrillTip              struct {
 		Position Vector  `json:"position"`
 		Radius   float64 `json:"radius"`
 	} `json:"drillTip"`
-	Points        []Point `json:"points"`
 	CargoGeometry struct {
 		Length           float64 `json:"length"`
 		OpenAngle        float64 `json:"openAngle"`

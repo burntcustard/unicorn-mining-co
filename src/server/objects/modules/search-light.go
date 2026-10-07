@@ -12,26 +12,43 @@ func NewSearchLight(props simulation.ObjectProperties, catalog specs.Catalog) *S
 	m := &SearchLight{NewModule("searchLight", props, catalog)}
 	m.Self = m
 	d := m.Spec
-	lens, far, mouth, spread, corner := d.Lens, d.Lens+d.Reach, d.Mouth, d.Spread, d.Corner
-	fill := 2.0
+	reach, spread, corner := d.Reach, d.Spread, d.Corner
 
-	m.Model = []*simulation.SegmentPlan{{Wreckage: &simulation.SegmentPlan{Points: &simulation.ShapeOutline{Points: []simulation.Point{{lens, -1.5}, {lens + 8, -1.5}, {lens + 8, 1.5}, {lens, 1.5}}}, FillShade: &fill}, DynamicPoints: func(s *simulation.Segment) *simulation.ShapeOutline {
-		active := 0.0
+	housing := m.Model
 
-		if s.ActivationProgress != 0 {
-			active = 1
-		}
+	m.Model = []*simulation.SegmentPlan{
+		{
+			NoWreckage: true,
+			DynamicPoints: func(s *simulation.Segment) *simulation.ShapeOutline {
+				active := 0.0
 
-		return s.CachedOutline([2]float64{active}, func() *simulation.ShapeOutline {
-			p := []simulation.Point{}
+				if s.ActivationProgress != 0 {
+					active = 1
+				}
 
-			if s.ActivationProgress != 0 {
-				p = []simulation.Point{{lens, -mouth}, {far - corner, -spread}, {far, corner - spread}, {far, spread - corner}, {far - corner, spread}, {lens, mouth}}
-			}
+				return s.CachedOutline([2]float64{active}, func() *simulation.ShapeOutline {
+					p := []simulation.Point{}
 
-			return &simulation.ShapeOutline{Points: p}
-		})
-	}}}
+					if s.ActivationProgress != 0 {
+						p = []simulation.Point{
+							{0, 0},
+							{reach - corner, -spread},
+							{reach, corner - spread},
+							{reach, spread - corner},
+							{reach - corner, spread},
+						}
+					}
+
+					return &simulation.ShapeOutline{Points: p}
+				})
+			},
+		},
+	}
+
+	for _, plan := range housing {
+		plan.Wreckage = &simulation.SegmentPlan{FillShade: plan.FillShade}
+		m.Model = append(m.Model, plan)
+	}
 
 	return m
 }

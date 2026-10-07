@@ -17,18 +17,16 @@ export class Weapon extends Module {
   fireCooldown = 0;
 
   static createModel(spec: Extract<ModuleSpec, { behavior: 'weapon' }>) {
-    return spec.model.map((part) => {
+    return super.createModel(spec).map((part) => {
       const radius = radiusOf(part.points);
 
       return {
         ...part,
-        fillShade: part.color ?? 2,
-        shapeOutline: [] as ShapeOutline,
         // Function-based points have no automatic bounds. Mirroring preserves
         // their distance from the mount, so one precomputed radius covers both sides.
         radius: () => radius,
         points: (segment: Segment) =>
-          part.points.map(([x, y]) => [
+          (part.points as ShapeOutline).map(([x, y]) => [
             x,
             y * (segment.mount.localPosition.y < 0 ? -1 : 1),
           ]),

@@ -1,5 +1,6 @@
 import { type Segment } from '../../types';
 import { playSound } from '../../audio/sound-loader';
+import { type ModuleSpec } from '../../../specs/modules/types';
 import { moduleSpecs } from '../../../specs/modules/index';
 import { Module, type ModuleRenderOptions } from './module';
 import { type Collider, type Contact } from '../../collision/types';
@@ -69,38 +70,32 @@ import { type Mount, type ShapeOutline } from '../../types';
 export const cargoHatchOpen = cargoHatchGeometry.openingThreshold;
 
 class CargoHatchModule extends Module {
-  static createModel() {
-    return [
-      {
-        shapeOutline: [] as ShapeOutline,
-        // A door, hinged at its outer end and swinging forward as the hatch
-        // opens. A long thin rectangle, which is why it can be collided with
-        points: ({
-          activationProgress,
-          mount,
-        }: {
-          activationProgress: number;
-          mount: Mount;
-        }) => {
-          const side = Math.sign(mount.localPosition.y);
-
-          return cargoHatchGeometry.doorShapeOutline({
-            progress: activationProgress,
-            side,
-          });
-        },
-        radius: () => cargoHatchGeometry.doorRadius,
-        fillShade: 2,
-        // A loose door keeps this same solid presentation without a shape outline.
-        wreckage: { fillShade: 2 },
-      },
-      {
-        // A nonphysical contact at the mouth, checked against the item's centre.
-        catches: true,
-        wreckage: false,
-        radius: () => cargoHatchGeometry.throatRadius,
-      },
-    ];
+  static createModel(spec: Extract<ModuleSpec, { behavior: 'cargoHatch' }>) {
+    return super.createModel(spec).map((part) =>
+      part.catches
+        ? {
+            ...part,
+            wreckage: false,
+            radius: () => cargoHatchGeometry.throatRadius,
+          }
+        : {
+            ...part,
+            // The door swings forward around its outer hinge.
+            points: ({
+              activationProgress,
+              mount,
+            }: {
+              activationProgress: number;
+              mount: Mount;
+            }) =>
+              cargoHatchGeometry.doorShapeOutline({
+                progress: activationProgress,
+                side: Math.sign(mount.localPosition.y),
+              }),
+            radius: () => cargoHatchGeometry.doorRadius,
+            wreckage: { fillShade: part.fillShade },
+          },
+    );
   }
 
   collect({

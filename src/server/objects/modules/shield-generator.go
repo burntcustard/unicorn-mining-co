@@ -17,9 +17,14 @@ func newShieldGenerator(id string, props simulation.ObjectProperties, catalog sp
 	m.Self = m
 	spec := m.Spec
 
-	m.Model = []*simulation.SegmentPlan{
-		{Radius: func(*simulation.Segment) float64 { return spec.GeneratorRadius }},
-		{ActivationDuration: spec.CoverDuration, Covers: true, Radius: func(s *simulation.Segment) float64 { return spec.ShieldRadius * s.ActivationProgress }},
+	for _, plan := range m.Model {
+		if plan.Covers {
+			plan.ActivationDuration = spec.CoverDuration
+
+			plan.Radius = func(s *simulation.Segment) float64 {
+				return spec.ShieldRadius * s.ActivationProgress
+			}
+		}
 	}
 
 	return m

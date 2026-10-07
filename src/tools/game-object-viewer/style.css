@@ -24,8 +24,7 @@ aside {
   border-right: 1px solid #435;
 }
 
-header p,
-.coordinates span {
+header p {
   font-size: 0.75rem;
   color: #bac;
 }
@@ -104,14 +103,12 @@ canvas {
   height: 100%;
 }
 
-.coordinates {
+#coordinates {
   position: absolute;
-  bottom: 1.25rem;
-  left: 1.5rem;
-  display: grid;
-  gap: 0.25rem;
   pointer-events: none;
-  padding-block: 0.5rem;
-  padding-inline: 0.75rem;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
   background: rgb(17 0 34 / 0.8);
 }

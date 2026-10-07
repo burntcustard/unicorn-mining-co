@@ -9,6 +9,21 @@ export const thrusterTriple = {
   forwardThrust: 28,
   rotationalThrust: 24,
   offset: 14,
-  flareSizes: [3, 5, 3],
-  nozzleSides: [-1, 0, 1],
+  model: [
+    {
+      outline: true,
+      flareSize: 3,
+      thrusterNozzleSide: -1,
+    },
+    {
+      outline: true,
+      flareSize: 5,
+      thrusterNozzleSide: 0,
+    },
+    {
+      outline: true,
+      flareSize: 3,
+      thrusterNozzleSide: 1,
+    },
+  ],
 } satisfies ModuleSpec;

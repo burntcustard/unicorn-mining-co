@@ -12,9 +12,5 @@ func NewThruster(id string, props simulation.ObjectProperties, catalog specs.Cat
 	m := &Thruster{NewModule(id, props, catalog)}
 	m.Self = m
 
-	for i := range m.Spec.FlareSizes {
-		m.Model = append(m.Model, &simulation.SegmentPlan{ThrusterNozzleSide: m.Spec.NozzleSides[i]})
-	}
-
 	return m
 }

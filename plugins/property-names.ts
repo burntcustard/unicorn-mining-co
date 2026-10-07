@@ -5,6 +5,7 @@
  * skips quoted paths, so a name can also occur inside shape-distance.
  */
 export const propertyNames = [
+  'outline',
   'rounds',
   'cargoRounds',
   'ammunition',

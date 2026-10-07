@@ -34,6 +34,7 @@ export const plasmaAccelerator = {
   barrelLength: 16,
   model: [
     {
+      outline: false,
       color: 0,
       points: [
         [0, -3],
@@ -43,6 +44,8 @@ export const plasmaAccelerator = {
       ],
     },
     {
+      outline: false,
+      color: 2,
       points: [
         [0, -3],
         [20, -3],
@@ -58,6 +61,7 @@ export const plasmaAccelerator = {
       const x = 1 + index * 3.5;
 
       return {
+        outline: false,
         color: 2,
         rechargeDelay: (index + 1) * 0.5,
         rechargeColor: 0,

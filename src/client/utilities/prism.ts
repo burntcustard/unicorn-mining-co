@@ -306,9 +306,9 @@ export const traceBeam = (
   lamp: Lamp,
   scenery: GameObject[],
 ): Beam => {
-  const { lens, reach, spread } = lamp.module;
-  const range = Math.hypot(lens + reach, spread);
-  const edge = Math.atan2(spread, lens + reach);
+  const { reach, spread } = lamp.module;
+  const range = Math.hypot(reach, spread);
+  const edge = Math.atan2(spread, reach);
   const mask = new Path2D();
   const shapeOutlines = scenery
     .filter(

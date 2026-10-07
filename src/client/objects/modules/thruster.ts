@@ -10,16 +10,8 @@ import { glows } from '../../utilities/lighting';
 // @endif
 import { game } from '../../game';
 import { Module, type ModuleRenderOptions } from './module';
-import type { ModuleSpec } from '../../../specs/modules/types';
 
 class Thruster extends Module {
-  static createModel(spec: Extract<ModuleSpec, { behavior: 'thruster' }>) {
-    return spec.flareSizes.map((flareSize, index) => ({
-      flareSize,
-      thrusterNozzleSide: spec.nozzleSides[index],
-    }));
-  }
-
   render({ segment }: ModuleRenderOptions) {
     if (segment.activationProgress > 0) {
       const { flareSize, activationProgress } = segment;

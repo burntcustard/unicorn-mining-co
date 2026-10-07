@@ -307,15 +307,6 @@ const render = (now: number) => {
     });
   }
 
-  if (pointer) {
-    const point = ctx
-      .getTransform()
-      .inverse()
-      .transformPoint(Vec.scale(pointer, devicePixelRatio));
-
-    coordinates.value = `X ${Math.round(point.x)} · Y ${Math.round(point.y)}`;
-  }
-
   ctx.restore();
 
   if (previewObject instanceof Craft) {
@@ -347,6 +338,51 @@ const render = (now: number) => {
   } else previewObject?.render();
 
   renderEffects(ctx);
+
+  if (pointer) {
+    ctx.save();
+    ctx.rotate(state.rotation);
+    const point = ctx
+      .getTransform()
+      .inverse()
+      .transformPoint(Vec.scale(pointer, devicePixelRatio));
+
+    coordinates.value = `x: ${Math.round(point.x)} / y: ${Math.round(point.y)}`;
+    coordinates.hidden = false;
+
+    const { offsetWidth: width, offsetHeight: height } = coordinates;
+    const right = pointer.x >= canvas.clientWidth / 2;
+    const bottom = pointer.y >= canvas.clientHeight / 2;
+
+    coordinates.style.left = `${Math.max(
+      0,
+      Math.min(
+        canvas.clientWidth - width,
+        pointer.x + (right ? 12 : -12 - width),
+      ),
+    )}px`;
+
+    coordinates.style.top = `${Math.max(
+      0,
+      Math.min(
+        canvas.clientHeight - height,
+        pointer.y + (bottom ? 12 : -12 - height),
+      ),
+    )}px`;
+
+    ctx.fillStyle = '#1b4';
+    ctx.beginPath();
+    ctx.arc(
+      Math.round(point.x),
+      Math.round(point.y),
+      4 / state.zoom,
+      0,
+      Math.PI * 2,
+    );
+
+    ctx.fill();
+    ctx.restore();
+  }
 
   frame = requestAnimationFrame(render);
 };
@@ -396,7 +432,7 @@ canvas.onpointermove = (event) => {
 
 canvas.onpointerleave = () => {
   pointer = undefined;
-  coordinates.value = 'Move the pointer over the preview';
+  coordinates.hidden = true;
 };
 
 window.onblur = stopFiring;

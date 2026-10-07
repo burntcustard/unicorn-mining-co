@@ -8,6 +8,11 @@ export const thrusterSingleMd = {
   price: 200,
   forwardThrust: 22,
   rotationalThrust: 14,
-  flareSizes: [7],
-  nozzleSides: [0],
+  model: [
+    {
+      outline: true,
+      flareSize: 7,
+      thrusterNozzleSide: 0,
+    },
+  ],
 } satisfies ModuleSpec;

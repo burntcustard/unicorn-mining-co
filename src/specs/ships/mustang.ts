@@ -102,7 +102,7 @@ export const mustang = {
         ],
         [
           {
-            x: 28,
+            x: 25,
             y: 0,
             fits: ['searchLight'],
           },

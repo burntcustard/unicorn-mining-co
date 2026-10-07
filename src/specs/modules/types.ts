@@ -1,6 +1,27 @@
 import type { EffectSpec } from '../../client/effects/effect';
 import type { RenderingLayer } from '../rendering-layers';
 
+type ModuleModelPart = {
+  // Draw the normal edge outline; false draws only the fill and any markings.
+  outline: boolean;
+  catches?: boolean;
+  flareSize?: number;
+  thrusterNozzleSide?: number;
+  points?: number[][];
+  radius?: number;
+  lines?: number[][][];
+  covers?: boolean;
+  fillAlpha?: number;
+  color?: number;
+  rechargeDelay?: number;
+  rechargeColor?: number;
+  glow?: {
+    radius: number;
+    alpha: number;
+    stops: [number, number | string, number?][];
+  };
+};
+
 type ModuleValues = {
   name: string;
   health: number;
@@ -36,17 +57,7 @@ type ModuleValues = {
 
   ammunition?: number;
   barrelLength?: number;
-  model?: {
-    points: number[][];
-    color?: number;
-    rechargeDelay?: number;
-    rechargeColor?: number;
-    glow?: {
-      radius: number;
-      alpha: number;
-      stops: [number, number | string, number?][];
-    };
-  }[];
+  model: ModuleModelPart[];
   activationThreshold?: number;
   damageStepsPerSecond?: number;
   gripDecay?: number;
@@ -55,22 +66,16 @@ type ModuleValues = {
   forwardThrust?: number;
   rotationalThrust?: number;
   offset?: number;
-  flareSizes?: readonly number[];
-  nozzleSides?: readonly number[];
   collectsCargo?: boolean;
   grinds?: boolean;
   beam?: boolean;
-  lens?: number;
-  mouth?: number;
   reach?: number;
   spread?: number;
   corner?: number;
   shieldRadius?: number;
   coverDuration?: number;
-  generatorRadius?: number;
   unhurtWhen?: number;
   drillTip?: { position: { x: number; y: number }; radius: number };
-  points?: readonly (readonly number[])[];
   cargoGeometry?: {
     length: number;
     openAngle: number;
@@ -87,8 +92,10 @@ export type ModuleSpec = ModuleValues &
         behavior: 'thruster';
         forwardThrust: number;
         rotationalThrust: number;
-        flareSizes: readonly number[];
-        nozzleSides: readonly number[];
+        model: (ModuleModelPart & {
+          flareSize: number;
+          thrusterNozzleSide: number;
+        })[];
       }
     | {
         behavior: 'cargoHatch';
@@ -96,8 +103,7 @@ export type ModuleSpec = ModuleValues &
       }
     | {
         behavior: 'searchLight';
-        lens: number;
-        mouth: number;
+        model: (ModuleModelPart & { points: number[][] })[];
         reach: number;
         spread: number;
         corner: number;
@@ -106,7 +112,7 @@ export type ModuleSpec = ModuleValues &
         behavior: 'hornDrill';
         damage: number;
         drillTip: NonNullable<ModuleValues['drillTip']>;
-        points: readonly (readonly number[])[];
+        model: (ModuleModelPart & { points: number[][] })[];
       }
     | {
         behavior: 'weapon';
@@ -114,11 +120,12 @@ export type ModuleSpec = ModuleValues &
         fireInterval: number;
         projectile: NonNullable<ModuleValues['projectile']>;
         barrelLength: number;
-        model: NonNullable<ModuleValues['model']>;
+        model: (ModuleModelPart & { points: number[][] })[];
       }
     | {
         behavior: 'shieldGenerator';
-        generatorRadius: number;
+        model: (ModuleModelPart &
+          ({ radius: number; covers?: false } | { covers: true }))[];
         shieldRadius: number;
         coverDuration: number;
       }

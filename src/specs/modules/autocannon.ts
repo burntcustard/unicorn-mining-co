@@ -26,6 +26,8 @@ export const autocannon = {
   barrelLength: 16,
   model: [
     {
+      outline: false,
+      color: 2,
       points: [
         [0, -0.5],
         [22, -0.5],
@@ -34,6 +36,8 @@ export const autocannon = {
       ],
     },
     {
+      outline: false,
+      color: 2,
       points: [
         [0, 0.5],
         [22, 0.5],
@@ -42,6 +46,8 @@ export const autocannon = {
       ],
     },
     {
+      outline: false,
+      color: 2,
       points: [
         [17, -4],
         [21, -4],

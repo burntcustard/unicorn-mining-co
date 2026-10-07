@@ -9,6 +9,16 @@ export const thrusterDualXl = {
   forwardThrust: 22,
   rotationalThrust: 24,
   offset: 11,
-  flareSizes: [6, 6],
-  nozzleSides: [-1, 1],
+  model: [
+    {
+      outline: true,
+      flareSize: 6,
+      thrusterNozzleSide: -1,
+    },
+    {
+      outline: true,
+      flareSize: 6,
+      thrusterNozzleSide: 1,
+    },
+  ],
 } satisfies ModuleSpec;

@@ -1,7 +1,6 @@
 import { game } from '../../game';
 import { linesPath, shapePath } from '../../utilities/drawing';
 import * as Vec from '../../utilities/vector';
-import { type ModuleSpec } from '../../../specs/modules/types';
 import { Module, type ModuleRenderOptions } from './module';
 import { outlineColorOf, type Collider } from '../../collision/types';
 import { damage } from '../damage';
@@ -16,10 +15,6 @@ class HornDrillModule extends Module {
     segment.activationProgress > segment.module.activationThreshold
       ? -0.4
       : undefined;
-
-  static createModel(spec: Extract<ModuleSpec, { behavior: 'hornDrill' }>) {
-    return [{ points: spec.points }];
-  }
 
   drill({
     ship,

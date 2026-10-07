@@ -967,7 +967,9 @@ export class Craft extends GameObject {
           ) {
             this.segments.forEach((segment: Segment) => {
               if (
-                !(glow ? segment.module.renderGlow : segment.module.beam) ||
+                !(glow
+                  ? segment.module.renderGlow
+                  : (segment.beam ?? segment.module.beam)) ||
                 (!segment.activationProgress &&
                   (!glow || segment.module.forwardThrust)) ||
                 (segment.mount || segment).health < 1

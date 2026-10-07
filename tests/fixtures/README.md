@@ -56,3 +56,9 @@ The session comparison reconstructs historical item names from their resource
 specs after the `label` to `name` migration. It also adapts the radius of
 recorded diamond 123456 to the current diamond points. Generic labels and the
 archived packet bytes are preserved.
+
+The historical search light had one beam segment. Its visible housing parts
+share the beam's activation state, so the session comparison duplicates that
+state for each current model part only in archived one-segment search lights.
+Actual packets still have every segment checked; the archived bytes remain
+unchanged.
