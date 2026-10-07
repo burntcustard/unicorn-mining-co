@@ -158,6 +158,13 @@ const segmentsOf = ({
 
 const samePoint = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1];
 
+// Segment edges retain their direction when a fragment is recentered.
+const buriedItemRotation = (shapeOutline: number[][], index: number) =>
+  Math.atan2(
+    shapeOutline[1][1] - shapeOutline[0][1],
+    shapeOutline[1][0] - shapeOutline[0][0],
+  ) + index;
+
 const groupsOf = (segments: AsteroidSegment[]) =>
   outerEdges(
     segments.map(({ shapeOutline }) => shapeOutline as ShapeOutline),
@@ -630,18 +637,27 @@ export class Asteroid extends GameObject {
 
     if (this.health < 1) {
       this.remove();
+      const random = createRandom(this.id);
 
-      this.contents.forEach((resource) =>
+      this.buriedContents.forEach(({ resource, localPosition, rotation }) => {
+        const offset = rotatePoint(localPosition, this.rotation);
+
         addEntity(
           world,
           new Item(itemTypes[resource], {
             world,
             id: entityId(world),
-            position: Vec.clone(this.position),
-            velocity: Vec.clone(this.velocity),
+            position: Vec.add(this.position, offset),
+            rotation: this.rotation + rotation,
+            spin: this.spin + (random.next() - 0.5) * 0.5,
+            velocity: Vec.addScaled(
+              this.velocity,
+              Vec.create(-offset.y, offset.x),
+              this.spin,
+            ),
           }),
-        ),
-      );
+        );
+      });
 
       events.push({
         type: 'asteroidDestroyed',
@@ -781,17 +797,28 @@ export class Asteroid extends GameObject {
     return this;
   }
 
-  private presentation(pose: Pose = this) {
+  get buriedContents() {
     const segments = this.segments || [
       { shapeOutline: shapeOutlineOf(this), contents: this.contents },
     ];
 
+    return segments.flatMap(({ shapeOutline, contents }) =>
+      contents.map((resource, index) => ({
+        resource,
+        localPosition: centerOf(shapeOutline),
+        rotation: buriedItemRotation(shapeOutline, index),
+      })),
+    );
+  }
+
+  private presentation(pose: Pose = this) {
     const key = JSON.stringify([
       shapeOutlineOf(this),
-      segments.map(({ shapeOutline, contents }) => ({
+      this.segments?.map(({ shapeOutline, contents }) => ({
         shapeOutline,
         contents,
       })),
+      this.contents,
     ]);
 
     let state = presentationCache.get(this);
@@ -809,15 +836,10 @@ export class Asteroid extends GameObject {
       state = {
         key,
         path,
-        buried:
-          segments.flatMap((asteroidSegment) =>
-            asteroidSegment.contents.map((resource, index) => ({
-              item: new Item(itemTypes[resource]),
-              localPosition: centerOf(asteroidSegment.shapeOutline),
-              rotation:
-                (this.id + asteroidSegment.shapeOutline.length + index) % 6,
-            })),
-          ) || [],
+        buried: this.buriedContents.map(({ resource, ...pose }) => ({
+          item: new Item(itemTypes[resource]),
+          ...pose,
+        })),
       };
 
       presentationCache.set(this, state);

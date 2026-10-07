@@ -655,11 +655,24 @@ func (a *Asteroid) Fracture(segment *AsteroidSegment, by int64, events *[]protoc
 
 	if a.Health < 1 {
 		a.Remove()
+		random := random.CreateRandom(float64(a.ID))
+		segments := a.Segments()
 
-		for _, resource := range a.Contents {
-			id := EntityID(world)
-			item := world.ItemTypes[resource](ObjectProperties{World: world, ID: &id, Position: a.Position, Velocity: a.Velocity})
-			AddEntity(world, item)
+		if segments == nil {
+			segments = []*AsteroidSegment{{Contents: a.Contents, ShapeOutline: ShapeOutlineOf(a)}}
+		}
+
+		for _, segment := range segments {
+			offset := RotatePoint(CenterOf(segment.ShapeOutline), a.Rotation)
+			points := segment.ShapeOutline.Points
+			// Segment edges retain their direction when a fragment is recentered.
+			rotation := math.Atan2(points[1][1]-points[0][1], points[1][0]-points[0][0])
+
+			for index, resource := range segment.Contents {
+				id := EntityID(world)
+				item := world.ItemTypes[resource](ObjectProperties{World: world, ID: &id, Position: Vec.Add(a.Position, offset), Rotation: a.Rotation + rotation + float64(index), Spin: a.Spin + (random.Next()-0.5)*0.5, Velocity: Vec.AddScaled(a.Velocity, Vec.Create(-offset.Y, offset.X), a.Spin)})
+				AddEntity(world, item)
+			}
 		}
 
 		*events = append(*events, protocol.AsteroidDestroyed{AsteroidID: a.ID, By: by, Contents: a.Contents})

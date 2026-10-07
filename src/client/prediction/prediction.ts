@@ -369,9 +369,13 @@ export class PredictionManager {
         const entity = this.world.entities.get(server.id);
 
         if (server instanceof Asteroid) {
+          // Blasts and contacts can change motion without changing health.
+          // Movement-only catch-up would discard those intervening impulses.
           if (
             !(entity instanceof Asteroid) ||
-            entity.health !== server.health
+            entity.health !== server.health ||
+            Vec.distance(entity.velocity, server.velocity) > 1e-8 ||
+            Math.abs(entity.spin - server.spin) > 1e-8
           ) {
             return true;
           }

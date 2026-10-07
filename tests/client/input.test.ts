@@ -118,6 +118,12 @@ const stopDeadKeys = input.initKeys({
   },
 });
 
+const zoomEvent = new KeyboardEvent('keydown', { key: '+' });
+
+zoomEvent.preventDefault();
+window.dispatchEvent(zoomEvent);
+assert.equal(respawnKeys, 0, 'handled camera shortcuts do not request respawn');
+
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
 assert.equal(respawnKeys, 1, 'any new key can request a respawn');
 assert.equal(input.playerInput.thrust, 0, 'respawn key does not fly the ship');

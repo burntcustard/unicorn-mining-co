@@ -500,7 +500,7 @@ func (s *GameSession) sendWelcome(p *playerRecord) {
 }
 
 func (s *GameSession) respawn(p *playerRecord) {
-	if s.World.Entities.Has(p.shipID) {
+	if s.World.Entities.Has(p.shipID) && (p.ship.Engine() != nil || p.ship.DockedTo != nil && *p.ship.DockedTo != 0 || p.ship.Launching != 0) {
 		return
 	}
 
@@ -512,6 +512,7 @@ func (s *GameSession) respawn(p *playerRecord) {
 		return
 	}
 
+	p.ship.Remove()
 	ship := objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: p.ship.DefinitionID, PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
 	id := station.Base().ID
 	ship.DockedTo = &id

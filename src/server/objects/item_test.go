@@ -112,7 +112,8 @@ func TestAsteroidDropsItems(t *testing.T) {
 	world := simulation.CreateWorld(1, catalog)
 	world.ItemTypes = ItemTypes(catalog)
 	contents := []int{0, 1, 2, 3, 4}
-	asteroid := simulation.CreateAsteroid(world, simulation.AsteroidProperties{ID: new(int64(1)), Health: new(0.0), Position: Vec.Create(4, 5), Velocity: Vec.Create(-2, 9), Contents: contents})
+	outline := &simulation.ShapeOutline{Points: []simulation.Point{{-3, -1}, {3, -1}, {0, 2}}}
+	asteroid := simulation.CreateAsteroid(world, simulation.AsteroidProperties{ID: new(int64(1)), Health: new(0.0), Position: Vec.Create(4, 5), Velocity: Vec.Create(-2, 9), Rotation: 0.7, Spin: 0.2, ShapeOutline: outline, Contents: contents})
 	simulation.AddEntity(world, asteroid)
 	events := []protocol.SimulationEvent{}
 
@@ -131,6 +132,10 @@ func TestAsteroidDropsItems(t *testing.T) {
 
 		if !ok || item.ID != int64(i+2) || item.Resource != contents[i] || item.Position != asteroid.Position || item.Velocity != asteroid.Velocity || item.Mass != catalog.ItemDefaults["mass"] || item.Health != catalog.ItemDefaults["health"] {
 			t.Fatalf("drop %d did not inherit its resource, motion, and defaults", i)
+		}
+
+		if item.Rotation != asteroid.Rotation+float64(i) || item.Spin == asteroid.Spin || math.Abs(item.Spin-asteroid.Spin) > 0.25 {
+			t.Fatal("released items must keep their buried angle and gain a small spin")
 		}
 	}
 

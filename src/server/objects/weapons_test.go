@@ -418,6 +418,7 @@ func TestProjectileChunkDamage(t *testing.T) {
 
 					for n := 1; n <= count; n++ {
 						asteroid.Velocity = Vec.Vector{}
+						asteroid.Spin = 0
 						beforeEvents := len(events)
 						shotID := int64(300 + n)
 						shot := NewProjectile(id, simulation.ObjectProperties{World: world, ID: &shotID, PlayerID: &playerID, Position: Vec.Create(-80, 0), Velocity: Vec.Create(600, 0)}, catalog)
@@ -635,6 +636,45 @@ func TestExplosionFromGameObject(t *testing.T) {
 	if Vec.Length(source.Velocity) != 0 || source.Dead {
 		t.Fatal("the shared explosion must not push or destroy its own source")
 	}
+
+	spin := neighbour.Spin
+
+	if spin == 0 || math.Abs(spin) > 3 || neighbour.Rotation != 0 || source.Spin != 0 {
+		t.Fatal("blast must add bounded spin without snapping rotation or spinning its source")
+	}
+
+	neighbour.Spin = 0.7
+	Explode(ExplosionOptions{Object: source, Radius: 20, Impulse: 8})
+
+	if math.Abs(neighbour.Spin-0.7-spin) > 1e-12 {
+		t.Fatal("blast spin must be seeded and additive")
+	}
+
+	neighbour.Spin = 0
+	neighbour.Position.X = 15
+	Explode(ExplosionOptions{Object: source, Radius: 20, Impulse: 8})
+
+	if neighbour.Spin != spin/2 {
+		t.Fatal("blast spin must fade with distance")
+	}
+
+	for _, maxSpeed := range []float64{0.1, 24} {
+		var spins [3]float64
+
+		for i, mass := range []float64{3, 30, 300} {
+			neighbour.Mass, neighbour.Radius, neighbour.Spin = mass, 8, 0
+			Explode(ExplosionOptions{Object: source, Radius: 20, Impulse: 2400, MaxSpeed: maxSpeed})
+			spins[i] = neighbour.Spin
+		}
+
+		if math.Abs(spins[0]) <= 0.65 || math.Abs(spins[0]) > 1.3 {
+			t.Fatal("light items should spin more than the old one-radian cap at this falloff")
+		}
+
+		if math.Abs(spins[1]*10-spins[0]) > 1e-12 || math.Abs(spins[2]*100-spins[0]) > 1e-12 {
+			t.Fatal("spin must scale inversely with mass even when linear speed is capped")
+		}
+	}
 }
 
 func TestProjectileExplosion(t *testing.T) {
@@ -730,8 +770,8 @@ func TestProjectileExplosion(t *testing.T) {
 					t.Fatal("the explosion must push unhit objects radially, including other projectiles")
 				}
 
-				if light.Velocity.Y <= heavy.Velocity.Y || heavy.Velocity.Y <= 1 || Vec.Length(light.Velocity) > spec.Projectile.Explosion.MaxSpeed {
-					t.Fatal("massive fragments must keep moving, while light objects respect the speed cap")
+				if light.Velocity.Y <= heavy.Velocity.Y || heavy.Velocity.Y <= 0 || Vec.Length(light.Velocity) > spec.Projectile.Explosion.MaxSpeed {
+					t.Fatal("massive fragments must receive a smaller push, while light objects respect the speed cap")
 				}
 
 				if light.Health != 100-spec.Projectile.Explosion.Damage || heavy.Health != light.Health || below.Health != light.Health || far.Health != 100 || buried.Health != 100 || Vec.Length(far.Velocity) != 0 || Vec.Length(buried.Velocity) != 0 {
@@ -864,7 +904,7 @@ func TestPlasmaPushSurvivesMovement(t *testing.T) {
 		simulation.AddEntity(world, item)
 		targets := []simulation.Entity{item}
 
-		for index, mass := range []float64{62.5, 1000} {
+		for index, mass := range []float64{62.5, 300} {
 			y := 15.0
 
 			if index == 1 {
@@ -891,7 +931,7 @@ func TestPlasmaPushSurvivesMovement(t *testing.T) {
 		}
 
 		for index, target := range targets {
-			if Vec.Length(target.Base().Velocity) > 24 {
+			if explosion := catalog.ModuleSpecs[id].Projectile.Explosion; explosion != nil && Vec.Length(target.Base().Velocity) > explosion.MaxSpeed {
 				t.Fatal("blast must cap the added speed of light objects")
 			}
 
@@ -903,7 +943,7 @@ func TestPlasmaPushSurvivesMovement(t *testing.T) {
 
 			if id == "plasmaAccelerator" {
 				if Vec.Length(offset) <= 1 || Vec.Dot(offset, starts[index]) <= 0 {
-					t.Fatal("real items, ordinary rock chunks and massive amethyst chunks must keep moving away from the plasma blast")
+					t.Fatal("items and small asteroid chunks must keep moving away from the plasma blast")
 				}
 			} else if Vec.Length(offset) != 0 {
 				t.Fatal("autocannon expiry must not push nearby objects")

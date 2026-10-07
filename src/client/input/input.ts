@@ -40,6 +40,7 @@ export const initKeys = ({
   };
 
   const keyDown = (event: KeyboardEvent) => {
+    if (event.defaultPrevented) return;
     const key = event.key.toLowerCase();
 
     if (key.startsWith('arrow') || key === ' ') event.preventDefault();

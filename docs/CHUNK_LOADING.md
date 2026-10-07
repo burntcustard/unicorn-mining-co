@@ -205,9 +205,9 @@ scanning or pushing nearby objects. The reusable `objects/explosion` implementat
 in both clients and Go takes any source game object and blast settings, fading the
 impulse with distance from each object's bounding surface and scaling it by mass.
 An optional explosion `maxSpeed` caps the velocity increase before distance falloff.
-Plasma uses a 2,400-unit impulse capped at 24 units/second, so massive amethyst
-fragments retain movement above the 1-unit/second stopping threshold while light
-items receive a controlled kick.
+Plasma uses a 1,200-unit impulse capped at 32 units/second. Before distance
+falloff, a mass-300 chunk gains 4 units/second and light items gain 32 units/second.
+Very heavy fragments can fall below the existing 1-unit/second stopping threshold.
 Blast damage uses actual collider shapes and damages each hull segment, asteroid segment
 or fitted module once. The directly contacted surface is excluded from splash damage
 because it already received the hit. Asteroid segments broken by the same blast detach

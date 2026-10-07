@@ -212,6 +212,18 @@ export class NetworkClient {
 
     return this.connected && (!ship || ship.dead);
   }
+  get shipStranded() {
+    const ship = this.world.entities.get(this.shipId!);
+
+    return (
+      this.connected &&
+      ship instanceof Ship &&
+      !ship.dead &&
+      !ship.engine.mount &&
+      !ship.dockedTo &&
+      !ship.launching
+    );
+  }
   shipId?: number;
   private snapshotReceivedAt = performance.now();
   private socket!: WebSocket;
@@ -498,7 +510,7 @@ export class NetworkClient {
   }
 
   requestRespawn() {
-    if (this.connected && this.shipDestroyed) this.send({ type: 'respawn' });
+    if (this.shipDestroyed || this.shipStranded) this.send({ type: 'respawn' });
   }
 
   private send(message: ClientMessage) {

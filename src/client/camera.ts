@@ -2,12 +2,29 @@ import { deadzone, lag, dockDuration } from '../specs/camera';
 import * as Vec from './utilities/vector';
 import { ease } from './utilities/ease';
 import { type GameObject } from './objects/game-object';
+import { setSizing } from './ui/set-sizing';
 
 /**
  * The camera is the top left corner of the viewport in world coordinates.
  * Everything in the world is drawn shifted by it, and the HUD is not.
  */
 export const camera = Vec.create();
+
+export const zoomCamera = (game: GameState, event: KeyboardEvent) => {
+  if (!event.ctrlKey || !['-', '+', '='].includes(event.key)) return;
+  event.preventDefault();
+
+  const width = game.width;
+  const height = game.height;
+
+  game.size = Math.max(
+    0.25,
+    Math.min(6, game.size * (event.key === '-' ? 1.1 : 1 / 1.1)),
+  );
+  setSizing(game);
+  camera.x += (width - game.width) / 2;
+  camera.y += (height - game.height) / 2;
+};
 
 // How much of the viewport the oval the target is kept inside of spans
 

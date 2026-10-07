@@ -1,6 +1,7 @@
 import { withAlpha } from '../utilities/color';
 import { circlePath, sparklePath } from '../utilities/drawing';
 import { colors } from '../../specs/colors';
+import { seededRandom } from '../utilities/seeded-random';
 
 /**
  * The sky behind everything: sparks of starlight and soft clouds of colour,
@@ -67,23 +68,36 @@ export const sky: Sky = {
 };
 // @endif
 
-const makeTile = (
-  clouds: number,
-  dots: number,
-  size: number,
-  sparkles: number,
+const makeTile = ({
+  clouds,
+  dots,
+  size,
+  sparkles,
+  seed,
   // @ifdef DEBUG
-  parts: string[],
+  parts,
   // @endif
-) => {
+}: {
+  clouds: number;
+  dots: number;
+  size: number;
+  sparkles: number;
+  seed: number;
+  // @ifdef DEBUG
+  parts: string[];
+  // @endif
+}) => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
+  // A visual seed is available before the world loads. Replaying it keeps
+  // the sky identical when tiles are redrawn at a different pixel scale.
+  const random = seededRandom(seed);
 
   // Every mark fits within half a tile (clouds reach at most 440 units).
   // Centred positions need only the original and its positive-axis copies.
   const wrappedPaint = (paint: () => void) => {
-    const x = (Math.random() - 0.5) * tile;
-    const y = (Math.random() - 0.5) * tile;
+    const x = (random() - 0.5) * tile;
+    const y = (random() - 0.5) * tile;
 
     for (let wrapped = 4; wrapped--;) {
       ctx.save();
@@ -103,8 +117,8 @@ const makeTile = (
   if (parts.includes('clouds')) {
     // @endif
     while (clouds--) {
-      const color = cloudColors[Math.floor(Math.random() * 4)];
-      const radius = 120 + Math.random() ** 2 * 320;
+      const color = cloudColors[Math.floor(random() * 4)];
+      const radius = 120 + random() ** 2 * 320;
 
       wrappedPaint(() => {
         // Broad washes overlap medium patches at low opacity, leaving the
@@ -126,11 +140,11 @@ const makeTile = (
     // @endif
     while (dots--) {
       const color = withAlpha({
-        color: dotTints[Math.floor(Math.random() * 5)],
+        color: dotTints[Math.floor(random() * 5)],
         alpha: 8 / 15,
       });
 
-      const path = circlePath(size * Math.random());
+      const path = circlePath(size * random());
 
       // Small radii and a shared low opacity keep the pinpricks behind
       // the larger sparkles.
@@ -153,8 +167,8 @@ const makeTile = (
   if (parts.includes('sparkles')) {
     // @endif
     while (sparkles--) {
-      const color = sparkleTints[Math.floor(Math.random() * 8)];
-      const radius = size * (1 + Math.random() * 2);
+      const color = sparkleTints[Math.floor(random() * 8)];
+      const radius = size * (1 + random() * 2);
       const path = sparklePath(radius * 1.4, 0.4);
       const halo = circlePath(radius * 10);
 
@@ -208,21 +222,27 @@ let tiles: Tile[];
 // replayed on every blit, which makes a tile cost whatever it took to draw
 // rather than what it looks like. A bitmap is pixels and nothing else
 const build = () => {
+  tiles?.forEach((image) => {
+    if ('close' in image) image.close();
+  });
+
   tiles = dotCounts.map((dots, i) =>
-    makeTile(
-      16 + i * 4,
+    makeTile({
+      clouds: 16 + i * 4,
       dots,
-      1 + i / 5,
-      16 - i * 4,
+      size: 1 + i / 5,
+      sparkles: 16 - i * 4,
+      seed: i + 1,
       // @ifdef DEBUG
-      sky.parts,
+      parts: sky.parts,
       // @endif
-    ),
+    }),
   );
 
   tiles.forEach((canvas, i) =>
     createImageBitmap(canvas).then((bitmap) => {
       if (tiles[i] === canvas) tiles[i] = bitmap;
+      else bitmap.close();
     }),
   );
 };
@@ -275,12 +295,21 @@ export const renderBackground = (
   // @endif
 
   tiles.forEach((image, i) => {
-    // Each layer shifts by (i + 1) / 50 of the camera, so distant sky lags.
+    // Centre the tile in the viewport and follow the camera's world centre,
+    // so zooming around that centre does not shift the sky. Each layer moves
+    // by (i + 1) / 50 of the camera, so distant sky lags.
+    const offsetX =
+      ((cameraX * scale + canvas.width / 2) * (i + 1)) / 50 -
+      (canvas.width - span) / 2;
+    const offsetY =
+      ((cameraY * scale + canvas.height / 2) * (i + 1)) / 50 -
+      (canvas.height - span) / 2;
+
     // `-(offset % span + span) % span` wraps it into [-span, 0], equivalent to
     // `-(offset - Math.floor(offset / span) * span)` for either sign, but leaves
     // it unsnapped; stamping every `span` pixels then covers the viewport.
-    const left = -((((cameraX * (i + 1) * scale) / 50) % span) + span) % span;
-    const top = -((((cameraY * (i + 1) * scale) / 50) % span) + span) % span;
+    const left = -((offsetX % span) + span) % span;
+    const top = -((offsetY % span) + span) % span;
 
     for (let atX = left; atX < canvas.width; atX += span) {
       for (let atY = top; atY < canvas.height; atY += span) {

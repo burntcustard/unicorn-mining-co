@@ -25,7 +25,7 @@ import {
 import { bindAction, initKeys, playerInput } from './input/input';
 import { defaultKeybindings, moduleBinding } from './input/keybindings';
 import { network } from './network/network';
-import { camera, centerCamera, followTarget } from './camera';
+import { camera, centerCamera, followTarget, zoomCamera } from './camera';
 
 import { revealBuriedItems } from './utilities/lighting';
 import { message as messageSpec } from '../specs/items';
@@ -88,6 +88,12 @@ window.onresize = () => {
   setSizing(game);
   gameStarted || renderSky();
 };
+
+window.addEventListener('keydown', (event) => {
+  zoomCamera(game, event);
+
+  if (event.defaultPrevented && !gameStarted) renderSky();
+});
 
 const regionalObjects = new Map<number, SimulationObject>();
 
@@ -187,8 +193,14 @@ let spriteCount = 0;
 
 initKeys({
   onChange: (input) => network.recordInput({ input }),
-  onKeyDown: () => {
-    if (!network.shipDestroyed) return false;
+  onKeyDown: ({ key }) => {
+    if (
+      !network.shipDestroyed &&
+      !(network.shipStranded && key.toLowerCase() === 'r')
+    ) {
+      return false;
+    }
+
     network.requestRespawn();
     return true;
   },
@@ -360,6 +372,7 @@ const gameLoop = GameLoop({
     renderUI(game, stationMarkers, {
       controlsShip: renderedShip,
       shipDestroyed: network.shipDestroyed,
+      shipStranded: network.shipStranded,
     });
   },
   update: ({ dt, now }) => {

@@ -5,7 +5,7 @@ import { renderBackground } from './background';
 Object.assign(globalThis, { background: { renderBackground } });
 
 const ctx = canvas.getContext('2d');
-const scale = innerWidth / (720 * 1.5);
+const scale = Math.min(innerWidth, innerHeight) / (720 * 1.5);
 
 canvas.width = innerWidth;
 canvas.height = innerHeight;

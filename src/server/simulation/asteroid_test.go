@@ -107,6 +107,7 @@ func TestTypeScriptAsteroidFractures(t *testing.T) {
 	var samples []struct {
 		Properties AsteroidProperties
 		Initial    json.RawMessage
+		Drops      json.RawMessage
 		Contacts   []struct {
 			Position Vec.Vector
 			Radius   float64
@@ -198,6 +199,29 @@ func TestTypeScriptAsteroidFractures(t *testing.T) {
 
 				compareRecordedJSON(t, fmt.Sprintf("step%d.entities", j), entities, step.Entities)
 			}
+
+			for resource := range 4 {
+				world.ItemTypes = append(world.ItemTypes, func(props ObjectProperties) Entity {
+					props.Resource = &resource
+					return NewGameObject(props, spec.Simulation)
+				})
+			}
+
+			for _, entity := range world.Entities.Values() {
+				asteroid := entity.(*Asteroid)
+				asteroid.Health = 0
+				events := []protocol.SimulationEvent{}
+				asteroid.Fracture(nil, 1, &events, world)
+			}
+
+			drops := []any{}
+
+			for _, entity := range world.Entities.Values() {
+				item := entity.Base()
+				drops = append(drops, map[string]any{"id": item.ID, "position": item.Position, "velocity": item.Velocity, "rotation": item.Rotation, "spin": item.Spin, "resource": item.Resource})
+			}
+
+			compareRecordedJSON(t, "drops", drops, sample.Drops)
 		})
 	}
 }

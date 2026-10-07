@@ -422,6 +422,46 @@ strokes.length=0;
 renderControls(game,panelShip);
 assert.deepEqual(strokes,panelStrokes,'fitted weapons add no controls panel labels or checkboxes');
 assert.deepEqual(transforms,panelPositions,'weapons do not change the controls panel layout');
+for(const direct of [false,true]){
+  const miningWorld=createWorld();
+  const rock=addEntity(miningWorld,createAsteroid(miningWorld,{id:73,radius:57,contents:[0,1,2,3,4,5],rotation:.71,spin:.18,position:Vec.create(17,-23)}));
+  rock.render();
+  const buried=rock.renderContents.map(item=>({resource:item.resource,position:Vec.clone(item.position),rotation:item.rotation}));
+  let rocks=[rock];
+  if(!direct){
+    for(let split=0;split<3;split++){
+      const parent=rocks.find(rock=>rock.segments?.length>1);
+      const children=parent.detach({asteroidSegment:parent.segments.find(segment=>segment.contents.length)||parent.segments[0],world:miningWorld});
+      rocks=rocks.filter(rock=>rock!==parent).concat(children);
+      for(const child of children){
+        child.render();
+        for(const item of child.renderContents){
+          const original=buried.find(candidate=>candidate.resource===item.resource && Vec.distance(candidate.position,item.position)<1e-6);
+          assert(original,'split items retain their world position');
+          assert(Math.abs(Math.sin((item.rotation-original.rotation)/2))<1e-7,'split items retain their world angle across repeated splits');
+        }
+      }
+    }
+  }
+  for(const chunk of rocks){
+    chunk.rotation+=.43;
+    chunk.render();
+    const before=chunk.renderContents.map(item=>({resource:item.resource,position:Vec.clone(item.position),rotation:item.rotation}));
+    const checkpoint=captureWorld({world:miningWorld});
+    const release=()=>{chunk.health=0;chunk.fracture({by:1,events:[],world:miningWorld});return [...miningWorld.entities.values()].filter(entity=>entity instanceof Item && before.some(item=>Vec.distance(item.position,entity.position)<1e-6));};
+    const drops=release();
+    assert.equal(drops.length,before.length);
+    drops.forEach((item,index)=>{
+      assert.equal(item.resource,before[index].resource);
+      assert(Vec.distance(item.position,before[index].position)<1e-7,'released items keep the rendered position');
+      assert.equal(item.rotation,before[index].rotation,'released items keep the rendered rotation');
+      assert(item.spin!==chunk.spin && Math.abs(item.spin-chunk.spin)<=.25,'release adds a small spin to inherited motion');
+    });
+    const spins=drops.map(item=>item.spin);
+    restoreWorld({world:miningWorld,state:checkpoint});
+    assert.deepEqual(release().map(item=>item.spin),spins,'rollback reproduces release spin');
+  }
+}
 const holeWorld=createWorld();
 const solid=addEntity(holeWorld,createAsteroid(holeWorld,{radius:150,pointCount:7}));
 const pieces=solid.detach({asteroidSegment:solid.segments[0],world:holeWorld});

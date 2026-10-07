@@ -5,6 +5,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
 	"github.com/burntcustard/unicorn-mining-co/src/server/physics"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/random"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -136,6 +137,10 @@ func Explode(options ExplosionOptions) {
 			impulse = min(impulse, options.MaxSpeed*o.Mass)
 		}
 
-		physics.ApplyForce(o, Vec.Scale(Vec.Normalize(offset), impulse*falloff), 0)
+		force := impulse * falloff
+		// Cap angular impulse independently of mass and the linear speed limit;
+		// ApplyForce then gives heavier bodies proportionally less spin.
+		spin := (random.CreateRandom(float64(object.ID)+float64(o.ID)*48271).Next()*2 - 1) * min(options.Impulse/max(1, o.Radius), 6) * falloff
+		physics.ApplyForce(o, Vec.Scale(Vec.Normalize(offset), force), spin)
 	})
 }

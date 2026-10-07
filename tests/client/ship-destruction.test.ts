@@ -63,6 +63,21 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
     assert.equal(client.shipDestroyed,!packet.entityIds.includes(1),'death state matches authoritative membership');
     if(stage===0){
       const ship=client.world.entities.get(1);
+      assert(!client.shipStranded,'a fitted thruster prevents manual respawn');
+      ship.fit(null,ship.engine.mount);
+      assert(client.shipStranded&&!client.shipDestroyed,'losing the thruster leaves a living stranded ship');
+      let manualRespawns=0;
+      client.send=message=>{if(message.type==='respawn')manualRespawns++;};
+      client.requestRespawn();
+      assert.equal(manualRespawns,1,'a stranded ship can request respawn');
+      ship.dockedTo=2;
+      assert(!client.shipStranded,'an empty engine mount in a docking bay is not stranded');
+      client.requestRespawn();
+      assert.equal(manualRespawns,1,'refitting a docked ship cannot trigger respawn');
+      ship.dockedTo=undefined;
+      ship.launching=1;
+      assert(!client.shipStranded,'launching does not enable manual respawn');
+      ship.launching=0;
       ship.remove();
       client.update({input:emptyPlayerInput()});
       assert(client.shipDestroyed,'an update detects an already dead ship without a death packet');
@@ -122,6 +137,12 @@ for(const uiAlpha of [0,0.25,1]){
   renderUI({ctx,uiAlpha,uiWidth:800,uiHeight:600,uiScale:1},[],{shipDestroyed:true});
   assert(strokes.length>0,'death prompt renders even when the HUD is hidden');
   assert(strokes.every(alpha=>alpha===1),'death prompt remains fully visible through the HUD fade');
+}
+{
+  const strokes=[];
+  const ctx={globalAlpha:0,save(){},restore(){},scale(){},translate(){},stroke(){strokes.push(this.globalAlpha);}};
+  renderUI({ctx,uiAlpha:0,uiWidth:800,uiHeight:600,uiScale:1},[],{shipDestroyed:false,shipStranded:true});
+  assert(strokes.length>0&&strokes.every(alpha=>alpha===1),'a stranded ship gets a visible respawn hint even with a hidden HUD');
 }
 console.log('Go ship destruction snapshots hydrate in source and production');`;
 

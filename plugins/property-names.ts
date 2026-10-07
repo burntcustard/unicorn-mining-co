@@ -52,6 +52,7 @@ export const propertyNames = [
   'disconnect',
   'distance', // Vec.distance stays exported; state fields can mangle.
   'draw',
+  'dt',
   'duration',
   'dissolveDuration',
   'effect',

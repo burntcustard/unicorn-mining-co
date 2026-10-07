@@ -15,19 +15,19 @@ export const plasmaAccelerator = {
   recoil: 30,
   projectile: {
     speed: 500,
-    lifetime: 3,
+    lifetime: 2.5,
     radius: 2.5,
     color: colors.violet[2],
     explosion: {
       radius: 24,
-      impulse: 2400,
-      maxSpeed: 24,
+      impulse: 1200,
+      maxSpeed: 32,
       damage: 10,
       effect: plasmaExplosion,
     },
     glow: {
       color: colors.violet[2],
-      alpha: 4 / 15,
+      alpha: 0.3,
       radius: 20,
     },
   },

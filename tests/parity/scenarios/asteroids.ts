@@ -105,7 +105,25 @@ const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
       });
     }
 
-    return { properties, initial, contacts, steps };
+    const remaining = [...world.entities.values()];
+
+    for (const entity of remaining) {
+      const asteroid = entity as Asteroid;
+
+      asteroid.health = 0;
+      asteroid.fracture({ by: 1, events: [], world });
+    }
+
+    const drops = [...world.entities.values()].map((item) => ({
+      id: item.id,
+      position: item.position,
+      velocity: item.velocity,
+      rotation: item.rotation,
+      spin: item.spin,
+      resource: item.resource,
+    }));
+
+    return { properties, initial, contacts, steps, drops };
   }),
 );
 

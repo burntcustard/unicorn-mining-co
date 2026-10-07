@@ -7,6 +7,7 @@ import { type SimulationEvent } from '../protocol/events';
 import { type EffectSpec } from '../effects/effect';
 import { applyForce } from '../physics/apply-force';
 import * as Vec from '../utilities/vector';
+import { createRandom } from '../utilities/seeded-random';
 
 export const explode = ({
   damage = 0,
@@ -109,12 +110,18 @@ export const explode = ({
     const falloff = 1 - Math.max(0, distance - entity.radius) / radius;
 
     if (falloff <= 0) continue;
+    const force = Math.min(impulse, maxSpeed * entity.mass) * falloff;
+    // Cap angular impulse independently of mass and the linear speed limit;
+    // applyForce then gives heavier bodies proportionally less spin.
+    const spin =
+      (createRandom(object.id + entity.id * 48271).next() * 2 - 1) *
+      Math.min(impulse / Math.max(1, entity.radius), 6) *
+      falloff;
+
     applyForce(
       entity,
-      Vec.scale(
-        Vec.normalize(distance ? offset : object.velocity),
-        Math.min(impulse, maxSpeed * entity.mass) * falloff,
-      ),
+      Vec.scale(Vec.normalize(distance ? offset : object.velocity), force),
+      spin,
     );
   }
 };

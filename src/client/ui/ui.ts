@@ -13,29 +13,35 @@ export const renderUI = (
   {
     controlsShip,
     shipDestroyed,
-  }: { controlsShip: Ship; shipDestroyed: boolean },
+    shipStranded,
+  }: { controlsShip: Ship; shipDestroyed: boolean; shipStranded: boolean },
 ) => {
-  if (!shipDestroyed && !game.uiAlpha) return;
+  if (!shipDestroyed && !shipStranded && !game.uiAlpha) return;
 
   game.ctx.save();
-  game.ctx.globalAlpha = shipDestroyed ? 1 : game.uiAlpha;
+  game.ctx.globalAlpha = shipDestroyed || shipStranded ? 1 : game.uiAlpha;
 
-  if (shipDestroyed) {
-    const message = 'YOU DIED - PRESS ANY KEY TO RESPAWN';
+  if (shipDestroyed || shipStranded) {
+    const message = shipDestroyed
+      ? 'YOU DIED - PRESS ANY KEY TO RESPAWN'
+      : 'NO THRUSTER - PRESS R TO RESPAWN';
 
     renderText({
       game,
       text: message,
       x: game.uiWidth / 2,
-      y: game.uiHeight / 2,
+      y: game.uiHeight / 2 + (shipDestroyed ? 0 : 40),
       size: Math.min(1, (game.uiWidth - 24) / (message.length * 13)),
       align: 0,
     });
 
-    game.ctx.restore();
-    return;
+    if (shipDestroyed || !game.uiAlpha) {
+      game.ctx.restore();
+      return;
+    }
   }
 
+  game.ctx.globalAlpha = game.uiAlpha;
   renderIndicators(game, stations, colors.green[2], 10000);
 
   game.ctx.globalAlpha = game.uiAlpha * player.hudAlpha;

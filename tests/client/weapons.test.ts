@@ -147,6 +147,7 @@ for(const id of ['plasmaAccelerator','autocannon']){
     const events=[];
     for(let n=1;n<=count;n++){
       Vec.set(asteroid.velocity,Vec.create());
+      asteroid.spin=0;
       const projectile=addEntity(targetWorld,new Projectile(id,{world:targetWorld,id:300+n,playerId:1,position:Vec.create(-80,0),velocity:Vec.create(600,0)}));
       projectile.captureSweep();
       projectile.update(.3);
@@ -212,6 +213,31 @@ assert(hydration.dead,'projectiles expire');
   assert.equal(neighbour.health,100,'the shared impulse does not add splash damage');
   assert.equal(Vec.length(source.velocity),0,'the source does not push itself');
   assert(!source.dead,'the shared explosion does not own the source lifecycle');
+  const spin=neighbour.spin;
+  assert(spin!==0 && Math.abs(spin)<=3,'blast gives nearby objects a bounded spin');
+  assert.equal(neighbour.rotation,0,'blast changes spin without snapping the angle');
+  assert.equal(source.spin,0);
+  neighbour.spin=.7;
+  explode({object:source,radius:20,impulse:8});
+  assert(Math.abs(neighbour.spin-.7-spin)<1e-12,'blast spin is seeded and additive');
+  neighbour.spin=0;neighbour.position.x=15;
+  explode({object:source,radius:20,impulse:8});
+  assert.equal(neighbour.spin,spin/2,'spin fades with distance');
+  for(const maxSpeed of [0.1,24]){
+    const spins=[3,30,300].map(mass=>{
+      neighbour.mass=mass;neighbour.radius=8;neighbour.spin=0;
+      explode({object:source,radius:20,impulse:2400,maxSpeed});
+      return neighbour.spin;
+    });
+    assert(Math.abs(spins[0])>0.65 && Math.abs(spins[0])<=1.3,'light items get a stronger spin than the old one-radian cap at this falloff');
+    assert(Math.abs(spins[1]*10-spins[0])<1e-12,'ten times the mass receives one tenth the spin');
+    assert(Math.abs(spins[2]*100-spins[0])<1e-12,'heavy chunks receive much less spin even when linear speed is capped');
+  }
+  for(const properties of [{position:Vec.create(30,0)},{buried:true},{dead:true}]){
+    const excluded=addEntity(blastWorld,new GameObject({id:3,...properties}));
+    explode({object:source,radius:20,impulse:8});
+    assert.equal(excluded.spin,0,'distant, buried and dead objects do not spin');
+  }
 }
 
 // Gameplay expiry uses a dedicated effect when configured, otherwise own-colour sparks.
@@ -271,7 +297,7 @@ for(const id of ['plasmaAccelerator','autocannon']) for(const trigger of ['hit',
     continue;
   }
   assert(light.velocity.y>0 && below.velocity.y<0,'unhit objects are pushed radially away from the projectile');
-  assert(light.velocity.y>heavy.velocity.y && heavy.velocity.y>1,'massive fragments still move, while lighter objects respect the configured speed cap');
+  assert(light.velocity.y>heavy.velocity.y && heavy.velocity.y>0,'massive fragments receive a smaller push, while lighter objects respect the configured speed cap');
   assert(Vec.length(light.velocity)<=spec.projectile.explosion.maxSpeed,'the blast caps the added speed for light objects');
   assert(otherShot.velocity.y>0,'nearby projectiles can also be pushed');
   assert.equal(light.health,100-spec.projectile.explosion.damage,'plasma damages nearby objects it did not hit');
@@ -303,20 +329,20 @@ for(const id of ['plasmaAccelerator','autocannon']) for(const trigger of ['hit',
 for(const id of ['plasmaAccelerator','autocannon']){
   const blastWorld=createWorld();
   const item=addEntity(blastWorld,new Item(gold,{id:1,position:Vec.create(15,18)}));
-  const rocks=[62.5,1000].map((mass,index)=>addEntity(blastWorld,new Asteroid({id:index+2,contents:[],health:100,maxHealth:100,radius:10,mass,position:Vec.create(15,index?-15:15),shapeOutline:[[-8,-8],[8,-8],[8,8],[-8,8]]})));
+  const rocks=[62.5,300].map((mass,index)=>addEntity(blastWorld,new Asteroid({id:index+2,contents:[],health:100,maxHealth:100,radius:10,mass,position:Vec.create(15,index?-15:15),shapeOutline:[[-8,-8],[8,-8],[8,8],[-8,8]]})));
   const targets=[item,...rocks];
   const starts=targets.map(target=>Vec.clone(target.position));
   const shot=addEntity(blastWorld,new Projectile(id,{id:4,health:.001,position:Vec.create()}));
   updateEntities({world:blastWorld,entities:[shot],tick:7,events:[]});
   assert(shot.dead);
   for(const target of targets){
-    assert(Vec.length(target.velocity)<=24,'a blast never adds excessive speed to light items');
+    assert(Vec.length(target.velocity)<=(moduleSpecs[id].projectile.explosion?.maxSpeed||0),'a blast respects its speed cap');
     for(let tick=0;tick<30;tick++) target.update(1/30);
   }
   targets.forEach((target,index)=>{
     const distance=Vec.distance(target.position,starts[index]);
     if(id==='plasmaAccelerator'){
-      assert(distance>1,'realistic item, ordinary chunk and amethyst chunk masses keep moving after a plasma blast');
+      assert(distance>1,'items and small asteroid chunks keep moving after a plasma blast');
       assert(Vec.dot(Vec.subtract(target.position,starts[index]),starts[index])>0,'movement is away from the explosion');
     } else assert.equal(distance,0,'autocannon expiry leaves nearby items and chunks stationary');
   });

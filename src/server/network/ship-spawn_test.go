@@ -193,3 +193,59 @@ func TestHydratedFatalHullAllowsRespawn(t *testing.T) {
 		t.Fatal("a player ship hydrated without cores must allow respawn")
 	}
 }
+
+func TestStrandedShipManualRespawn(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+	old := p.ship
+	credits := p.profile.Credits
+
+	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+	if p.ship != old {
+		t.Fatal("a working ship must not be replaced")
+	}
+
+	old.SetHullHealth([]float64{0, 0, 7, 30, 34, 0, 0, 0})
+
+	for _, segment := range old.Segments {
+		if segment.ModuleSpec().ForwardThrust != 0 {
+			objects.Damage(segment, 10000)
+			break
+		}
+	}
+
+	s.Tick(1)
+	s.Receive(protocol.Control{Type: "input", Sequence: 1, Tick: s.World.Tick, Input: protocol.Input{HornDrill: true, SearchLight: true}}, socket)
+	s.Tick(1)
+
+	if old.Dead || old.Engine() != nil || !old.ModuleActive("hornDrill") || !old.ModuleActive("searchLight") {
+		t.Fatal("the stranded ship must stay alive with working surviving modules")
+	}
+
+	station := int64(s.nearestStation(old.Position).ID)
+	old.DockedTo = &station
+	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+	if p.ship != old {
+		t.Fatal("refitting an engine in a docking bay must not allow respawn")
+	}
+
+	old.DockedTo = nil
+	old.Launching = 1
+	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+	if p.ship != old {
+		t.Fatal("a launching ship must not allow respawn")
+	}
+
+	old.Launching = 0
+	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+	if p.ship == old || !old.Dead || s.World.Entities.Has(old.ID) || p.ship.Dead || p.ship.Engine() == nil || p.ship.DockedTo == nil || p.profile.Credits != credits {
+		t.Fatal("manual respawn must replace the stranded ship at a station and retain player progress")
+	}
+}
