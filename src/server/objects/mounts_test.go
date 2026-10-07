@@ -6,10 +6,54 @@ import (
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
+	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
+
+func TestDockedAutogunPurchaseAndReplacement(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := CreatePlayerShip(world, Properties{})
+	mount := ship.Mounts()[0]
+	hatch := mount.Module
+	credits := 2000.0
+	buy := protocol.DockAction{Action: "buy", Module: int64(slices.Index(catalog.ModuleIDs, "autogun")), HasModuleID: true, ModuleID: hatch.Base().ID}
+
+	if _, ok := ship.ApplyDockAction(buy, &credits); ok || credits != 2000 || len(ship.CargoContents) != 0 {
+		t.Fatal("duplicate equipment ID was accepted or charged")
+	}
+
+	buy.ModuleID = -1000
+
+	if _, ok := ship.ApplyDockAction(buy, &credits); !ok || mount.Module != hatch || len(ship.CargoContents) != 1 {
+		t.Fatal("purchase must put the autogun in cargo and keep the hatch fitted")
+	}
+
+	gun := ship.CargoContents[0].(simulation.Module)
+
+	for i := 0; i < 3; i++ {
+		for _, module := range []simulation.Module{gun, hatch} {
+			if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "equip", HasMount: true, Mount: 0, HasModuleID: true, ModuleID: module.Base().ID}, &credits); !ok {
+				t.Fatal("owned module could not replace the fitted module")
+			}
+
+			if mount.Module != module || module.ModuleBase().Mount != mount || len(ship.CargoContents) != 1 || ship.CargoContents[0] == module {
+				t.Fatal("replacement did not preserve mount and cargo ownership")
+			}
+
+			if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "remove", HasMount: true, Mount: 0}, &credits); !ok || mount.Module != nil || module.ModuleBase().Mount != nil || len(ship.CargoContents) != 2 {
+				t.Fatal("remove did not clear the mount and stow the module")
+			}
+		}
+	}
+}
 
 func TestReconciledMountOrder(t *testing.T) {
 	catalog, _ := specs.Load()

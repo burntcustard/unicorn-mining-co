@@ -217,6 +217,14 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 			return action, false
 		}
 
+		if action.HasModuleID && (slices.ContainsFunc(s.Modules(), func(module simulation.Module) bool {
+			return module.Base().ID == action.ModuleID
+		}) || slices.ContainsFunc(s.CargoContents, func(object simulation.Entity) bool {
+			return object.Base().ID == action.ModuleID
+		})) {
+			return action, false
+		}
+
 		props := simulation.ObjectProperties{World: s.World}
 
 		if action.HasModuleID {

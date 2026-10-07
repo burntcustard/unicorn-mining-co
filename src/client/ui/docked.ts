@@ -2,6 +2,7 @@ import { withAlpha } from '../utilities/color';
 import { autogunAmmunition } from '../../specs/items';
 import { Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
+import { type Mount } from '../types';
 import { type GameState } from '../game';
 import { player, paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../specs/colors';
@@ -88,25 +89,26 @@ const sendAppliedAction = (
 // place by the ones they do own once they do. A Module instance can be equipped,
 // sold and painted; its constructor in the catalogue can only be bought.
 // Filtering the owned modules preserves acquisition order across fitting changes.
-const moduleRows = new WeakMap<object, Module[]>();
+const moduleRows = new WeakMap<Ship, number[]>();
 
-const fitsOf = (ship: any, mount: any) => {
-  const modules = ship.modules;
-  const rows = (moduleRows.get(ship) || []).filter((module) =>
-    modules.includes(module),
+const fitsOf = (ship: Ship, mount: Mount) => {
+  const modulesById = new Map(
+    ship.modules.map((module) => [module.id, module]),
   );
+  const ids = (moduleRows.get(ship) || []).filter((id) => modulesById.has(id));
 
-  modules.forEach((module: Module) => {
-    if (!rows.includes(module)) rows.push(module);
+  modulesById.forEach((module, id) => {
+    if (!ids.includes(id)) ids.push(id);
   });
 
-  moduleRows.set(ship, rows);
+  moduleRows.set(ship, ids);
+  const rows = ids.map((id) => modulesById.get(id)!);
 
   return [...moduleTypesById.values()]
     .filter((type) => mount.fits.includes(type))
     .flatMap<Module | typeof Module>((type) => {
       const owned = rows.filter(
-        (module: any) =>
+        (module) =>
           module.constructor === type &&
           (!module.mount || module.mount === mount),
       );
@@ -544,7 +546,12 @@ export const renderDocked = (game: GameState, ship: Ship) => {
     )?.shades;
 
     if (shades) {
-      renderSwatch(swatchX, y, shades);
+      renderSwatch(
+        swatchX,
+        y,
+        shades,
+        Number(!(item instanceof Module) || mount?.module === item),
+      );
     }
   });
 

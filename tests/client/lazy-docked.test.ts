@@ -24,6 +24,8 @@ import { init } from '${resolve('src/client/core.ts')}';
 import { Item } from '${resolve('src/client/objects/item.ts')}';
 import { diamond as diamondSpec } from '${resolve('src/specs/items/index.ts')}';
 import { setCraftActionDispatcher } from '${resolve('src/client/network/craft-actions.ts')}';
+import { Autogun } from '${resolve('src/client/objects/modules/index.ts')}';
+import { withAlpha } from '${resolve('src/client/utilities/color.ts')}';
 import { renderDocked, confirmSelection, back, moveSelection } from '${resolve('src/client/ui/docked-loader.ts')}';
 // The entry and independently loaded UI both access the same mangled state.
 player.ship.cargoContents ||= [];
@@ -54,15 +56,37 @@ export const run = async () => {
   await back(player.ship);
   await back(player.ship);
   const requested = player.ship.launchRequested === 1 && player.ship.dockedTo === 100 && !player.ship.launching;
+  await moveSelection(-100, player.ship);
+  await moveSelection(2, player.ship);
+  await confirmSelection(player.ship);
+  await moveSelection(2, player.ship);
+  await confirmSelection(player.ship);
+  await confirmSelection(player.ship);
+  const gun = player.ship.modules.find(module => module instanceof Autogun);
+  const mount = player.ship.mounts[0];
+  const hatch = mount.module;
+  const boughtInCargo = player.ship.cargoContents.includes(gun) && mount.module === hatch;
+  renderDocked(game, player.ship);
+  await confirmSelection(player.ship);
+  const equipped = mount.module === gun && player.ship.cargoContents.includes(hatch);
+  await confirmSelection(player.ship);
+  const removed = !mount.module && player.ship.cargoContents.includes(gun);
   return [
-    player.ship.cargoContents.length,
     sales[0]?.objectIds?.[0] === player.ship.cargoContents[0].id,
     requested,
+    boughtInCargo, equipped, removed,
+    hatch.shades[2], withAlpha({ color: gun.shades[2], alpha: .2 }),
   ];
 };`;
 
+const swatchFills: string[] = [];
+
 const context = new Proxy(
-  {},
+  {
+    fill(path?: { rectangle?: boolean; x?: number }) {
+      if (path?.rectangle && path.x! > 400) swatchFills.push(context.fillStyle);
+    },
+  } as Record<string, any>,
   { get: (object, key) => Reflect.get(object, key) ?? (() => {}) },
 );
 
@@ -80,7 +104,13 @@ Object.assign(globalThis, {
 
     moveTo() {}
 
-    rect() {}
+    rectangle = false;
+    x = 0;
+
+    rect(x: number) {
+      this.rectangle = true;
+      this.x = x;
+    }
   },
 });
 
@@ -124,10 +154,18 @@ try {
     pathToFileURL(join(directory, 'entry.mjs')).href
   );
 
+  const [sale, launch, bought, equipped, removed, fittedColor, spareColor] =
+    await run();
+
   assert.deepEqual(
-    await run(),
-    [1, true, true],
-    'cargo sale and hull menu work across the lazy boundary',
+    [sale, launch, bought, equipped, removed],
+    [true, true, true, true, true],
+    'cargo sale, hull menu, and autogun buy/equip/remove work across the lazy boundary',
+  );
+  assert.deepEqual(
+    swatchFills.slice(-2),
+    [fittedColor, spareColor],
+    'the fitted hatch row has a solid swatch and the stowed autogun row has a dim one',
   );
   console.log('Production lazy docked chunk renders cargo and hull menus');
 } finally {

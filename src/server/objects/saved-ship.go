@@ -247,6 +247,32 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		ship.CargoContents = append(ship.CargoContents, entity)
 	}
 
+	// Older purchases could reuse an owned ID. Preserve the possessions and
+	// their condition while making each one independently addressable again.
+	owned := []simulation.Entity{}
+
+	for _, mount := range ship.Mounts() {
+		if mount.Module != nil {
+			owned = append(owned, mount.Module)
+		}
+	}
+
+	owned = append(owned, ship.CargoContents...)
+
+	for _, object := range owned {
+		world.NextObjectID = min(world.NextObjectID, object.Base().ID)
+	}
+
+	seen := map[int64]bool{}
+
+	for _, object := range owned {
+		if seen[object.Base().ID] {
+			object.Base().ID = simulation.ObjectID(world)
+		}
+
+		seen[object.Base().ID] = true
+	}
+
 	ship.Dead, ship.DockedTo = s.Dead, savedPointer(s.DockedTo)
 	return ship, nil
 }

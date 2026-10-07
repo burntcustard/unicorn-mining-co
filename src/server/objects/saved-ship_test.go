@@ -6,6 +6,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
+	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -13,6 +14,57 @@ import (
 	"slices"
 	"testing"
 )
+
+func TestRestoreShipRepairsDuplicateOwnedIDs(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(world, objects.Properties{})
+	hatch := ship.Mounts()[0].Module
+	gun := modules.Create("autogun", simulation.ObjectProperties{World: world, ID: &hatch.Base().ID}, catalog)
+	ship.CargoContents = append(ship.CargoContents, gun)
+	saved := objects.CaptureShip(ship)
+	restored, err := objects.RestoreShip(saved, world, 1)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ids := map[int64]bool{}
+
+	for _, module := range restored.Modules() {
+		if ids[module.Base().ID] {
+			t.Fatal("restoring the saved collision left ambiguous module IDs")
+		}
+
+		ids[module.Base().ID] = true
+	}
+
+	gunID := restored.CargoContents[0].Base().ID
+	credits := 2000.0
+
+	if _, ok := restored.ApplyDockAction(protocol.DockAction{Action: "equip", HasModuleID: true, ModuleID: gunID, HasMount: true, Mount: 0}, &credits); !ok || restored.Mounts()[0].Module.ModuleBase().Type != "autogun" {
+		t.Fatal("repaired autogun is not independently equippable")
+	}
+
+	after := objects.CaptureShip(restored)
+	again, err := objects.RestoreShip(after, world, 1)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	beforeJSON, _ := json.Marshal(after)
+	afterJSON, _ := json.Marshal(objects.CaptureShip(again))
+
+	if !bytes.Equal(beforeJSON, afterJSON) {
+		t.Fatal("repaired equipment did not retain its identity and condition")
+	}
+}
 
 func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 	catalog, _ := specs.Load()

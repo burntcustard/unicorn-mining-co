@@ -31,13 +31,21 @@ func main() {
 	for _, scenario := range []struct {
 		weapon                        string
 		moving, reservesIDs, repeated bool
+		triangle                      bool
+		drifting                      bool
 	}{
-		{"autogun", false, false, false},
-		{"autogun", true, false, false},
-		{"plasmaAccelerator", false, false, false},
-		{"plasmaAccelerator", false, true, false},
-		{"plasmaAccelerator", true, false, false},
-		{"plasmaAccelerator", true, true, true},
+		{weapon: "autogun"},
+		{weapon: "autogun", moving: true},
+		{weapon: "plasmaAccelerator"},
+		{weapon: "plasmaAccelerator", reservesIDs: true},
+		{weapon: "plasmaAccelerator", moving: true},
+		{weapon: "plasmaAccelerator", moving: true, reservesIDs: true, repeated: true},
+		{weapon: "autogun", triangle: true},
+		{weapon: "autogun", moving: true, triangle: true},
+		{weapon: "autogun", drifting: true, triangle: true},
+		{weapon: "autogun", drifting: true, triangle: true, reservesIDs: true},
+		{weapon: "plasmaAccelerator", triangle: true},
+		{weapon: "plasmaAccelerator", moving: true, triangle: true},
 	} {
 		weapon, moving, reservesIDs := scenario.weapon, scenario.moving, scenario.reservesIDs
 
@@ -72,17 +80,34 @@ func main() {
 			rockID, radius, position, ticks = 3324057349, 70, Vec.Create(160, -25), 800
 		}
 
+		if scenario.triangle {
+			radius = 51.25
+		}
+
+		if scenario.drifting {
+			position.X = 650
+		}
+
 		contents := []int{}
 
 		if scenario.repeated {
 			contents = []int{1, 1, 1}
 		}
 
-		rock := simulation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &rockID, Position: position, Radius: &radius}, Contents: contents})
+		rock := simulation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &rockID, Position: position, Radius: &radius}, Contents: contents}).LockGeometry()
+
+		if scenario.triangle {
+			rock.Rotation = .71
+		}
 
 		if moving {
 			rock.Velocity = Vec.Create(0, 1)
 			rock.Spin = .01
+		}
+
+		if scenario.drifting {
+			rock.Spin = .04132459
+			rock.Rotation = 2.87398488
 		}
 
 		simulation.AddEntity(world, rock)
@@ -167,7 +192,7 @@ func main() {
 			frames = append(frames, map[string]any{"input": map[string]any{"fire": input.Fire, "plasmaActive": input.PlasmaActive, "autogunActive": input.AutogunActive, "turn": input.Turn}, "reload": reload, "packet": packet, "asteroids": asteroids, "poses": poses, "hits": hits, "splits": splits})
 		}
 
-		cases = append(cases, map[string]any{"repeated": scenario.repeated, "reservesIDs": reservesIDs, "weapon": weapon, "moving": moving, "initial": initial, "frames": frames})
+		cases = append(cases, map[string]any{"drifting": scenario.drifting, "triangle": scenario.triangle, "repeated": scenario.repeated, "reservesIDs": reservesIDs, "weapon": weapon, "moving": moving, "initial": initial, "frames": frames})
 	}
 
 	if err := json.NewEncoder(os.Stdout).Encode(cases); err != nil {

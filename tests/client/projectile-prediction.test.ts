@@ -10,6 +10,9 @@ const fixtures = execFileSync(
   ['run', 'src/server/testtools/projectile-prediction/main.go'],
   { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
 );
+// Fixture keys are properties, while quoted gameplay strings are tags. Keep
+// keys unquoted so the production tag rewrite cannot turn "input" into a tag.
+const fixtureSource = fixtures.replace(/"([A-Za-z_]\w*)":/g, '$1:');
 
 // NetworkClient also exports the normal singleton; supply browser APIs before
 // evaluating either bundle, and drive packet receipt independently of rendering.
@@ -35,7 +38,7 @@ import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapsho
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
-const fixtures = ${fixtures};
+const fixtures = ${fixtureSource};
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
 for (const renderEvery of [1, 8]) for (const delay of [0, 1, 3, 8]) for (const fixture of fixtures.filter(fixture => !fixture.repeated)) {
   // Replaying rotating contacts from binary checkpoints can accumulate tiny
@@ -157,6 +160,41 @@ for (const start of [0, 241]) for (const framesPerTick of [2, 4]) {
   assert(maxDisplacement < .05, 'repeated plasma hits must not judder the remainder: reload=' + start + ' displacement=' + maxDisplacement);
   assert(maxRotation < .05, 'repeated plasma hits must not judder the remainder rotation: reload=' + start + ' edge displacement=' + maxRotation);
   assert(samples > 100, 'the moving remainder is checked across repeated hits');
+}
+// Shoot untouched, rotated triangles from a distance, including rocks that only
+// spin and fragments whose IDs compete with unseen server allocations.
+for (const fixture of fixtures.filter(fixture => fixture.triangle && fixture.weapon === 'autogun')) for (const delay of [0, 3, 8]) for (const framesPerTick of [2, 4]) {
+  assert(fixture.frames.some(frame => frame.splits.includes(100)), 'autogun splits the untouched triangle');
+  const network = new NetworkClient({ url: 'test' });
+  network.receive({ message: {
+    type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
+    worldSeed: 25, serverTick: 0, spawn: { x: 0, y: 0 }, unlockedPaints: [],
+  }});
+  network.receive({ message: decode(fixture.initial) });
+  let now = performance.now() + 1;
+  let displacement = 0, edgeDisplacement = 0;
+  const pauseAt = fixture.frames.findIndex(frame => frame.splits.includes(100)) + 12;
+  for (let frame = 0; frame < fixture.frames.length * framesPerTick; frame++) {
+    const tick = Math.floor(frame / framesPerTick);
+    const packet = fixture.frames[tick - delay]?.packet;
+    if (packet && !(frame % framesPerTick)) network.receive({ message: decode(packet) });
+    now += simulationStep * 1000 / framesPerTick;
+    // Let a later snapshot advance the clock after fragments already exist.
+    const dt = tick === pauseAt ? 0 : simulationStep / framesPerTick;
+    network.updateFrame({ input: { ...emptyPlayerInput(), ...fixture.frames[tick].input }, now, dt });
+    network.takeEvents();
+    const predicted = network.predictFrame({ now });
+    const rendered = network.remoteMotion.sample({ now, world: network.world, predicted });
+    for (const [id, pose] of rendered) {
+      const entity = predicted.entities.get(id) || network.world.entities.get(id);
+      if (!(entity instanceof Asteroid)) continue;
+      displacement = Math.max(displacement, Math.hypot(pose.position.x-entity.position.x, pose.position.y-entity.position.y));
+      const turn = pose.rotation-entity.rotation;
+      edgeDisplacement = Math.max(edgeDisplacement, Math.abs(Math.atan2(Math.sin(turn),Math.cos(turn))) * entity.radius);
+    }
+  }
+  assert(displacement < .05, 'autogun triangle position correction: delay=' + delay + ' drifting=' + fixture.drifting + ' displacement=' + displacement);
+  assert(edgeDisplacement < .05, 'autogun triangle rotation correction: delay=' + delay + ' drifting=' + fixture.drifting + ' displacement=' + edgeDisplacement);
 }
 console.log('Go projectile hits and staggered snapshots preserve predicted asteroid fractures');
 `;

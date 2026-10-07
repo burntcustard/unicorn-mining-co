@@ -13,8 +13,11 @@ import assert from 'node:assert/strict';
 import { renderingLayers } from '${process.cwd()}/src/specs/rendering-layers.ts';
 import { damage } from '${process.cwd()}/src/client/objects/damage.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
+import { PredictionManager } from '${process.cwd()}/src/client/prediction/prediction.ts';
+import { cloneEntity } from '${process.cwd()}/src/client/simulation/world-state.ts';
+import { createWorld, addEntity } from '${process.cwd()}/src/client/simulation/world.ts';
 import { diamond as diamondSpec, itemTypes, message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
-import { CargoHatch, HornDrill, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters } from '${process.cwd()}/src/client/objects/modules/index.ts';
+import { Autogun, CargoHatch, HornDrill, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters, moduleTypes } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
@@ -60,6 +63,22 @@ assert(hullWreckage !== battered && hullWreckage.decay && hullWreckage.hitbox().
   'destroyed hull remains as physical wreckage');
 
 player.credits = 10000;
+// A server-restored negative ID can coincide with the next local allocation.
+const purchaseShip = new Ship();
+const restoredHatch = new CargoHatch();
+restoredHatch.id--;
+purchaseShip.fit(restoredHatch, purchaseShip.mounts[0]);
+const purchase = purchaseShip.applyDockAction({ action: 'buy', module: moduleTypes.indexOf(Autogun) }, player);
+assert(purchase && purchase.moduleId !== restoredHatch.id,
+  'buy allocates an ID distinct from restored equipment');
+assert.equal(new Set(purchaseShip.modules.map(module => module.id)).size, 2,
+  'purchase keeps module identities unique');
+assert(purchaseShip.applyDockAction({ action: 'equip', moduleId: purchase.moduleId, mount: 0 }, player),
+  'purchased autogun replaces the starter hatch');
+assert(purchaseShip.mounts[0].module instanceof Autogun && purchaseShip.cargoContents[0] === restoredHatch,
+  'equip addresses the purchased instance and stows the hatch');
+assert.equal(purchaseShip.applyDockAction({ action: 'buy', module: moduleTypes.indexOf(Autogun), moduleId: purchase.moduleId }, player), undefined,
+  'duplicate purchase IDs are rejected');
 const ship = new Ship({ shades: colors.white }).addToScene();
 const engineMount=ship.mounts.find(mount=>mount.fits.includes(ThrusterSingleMd));
 assert.deepEqual(fitsOf(ship,engineMount),thrusters.filter(type=>engineMount.fits.includes(type)),
@@ -102,8 +121,8 @@ for (const item of contents) {
     'released contents receive a small random impulse without inheriting ship spin');
 }
 assert(new Set(contents.map(item => item.spin)).size > 1, 'contents tumble independently');
-const second = new CargoHatch();
-const first = new CargoHatch();
+let second = new CargoHatch();
+let first = new CargoHatch();
 first.shades = colors.red;
 second.shades = colors.orange;
 ship.cargoContents.push(first, second);
@@ -143,6 +162,22 @@ check(first, 'first equipped');
 back(ship); move(1); confirm(); confirm();
 assert(mount.module === second && ship.cargoContents.includes(first), 'swap fitted instances');
 check(second, 'after swap');
+// Live snapshots replace module objects and list fitted modules before cargo.
+// Acquisition order and the selected instance must survive that replacement.
+const dockWorld = createWorld();
+addEntity(dockWorld, ship);
+new PredictionManager({ world: dockWorld }).reconcile({
+  tick: 0, entities: [cloneEntity({ entity: ship })],
+});
+const reconciledFirst = ship.modules.find(module => module.id === first.id);
+const reconciledSecond = ship.modules.find(module => module.id === second.id);
+assert.deepEqual(fitsOf(ship, mount).slice(0, 2).map(module => module.id),
+  [first.id, second.id], 'snapshot preserves acquisition order');
+assert.equal(fitsOf(ship, mount)[selectionSnapshot()[0]].id, second.id,
+  'snapshot keeps REMOVE focused on the fitted instance');
+// Continue the existing checks against the reconciled instances.
+first = reconciledFirst;
+second = reconciledSecond;
 assert(first.shades === colors.red && second.shades === colors.orange, 'paint identity');
 assert(ship.segments.filter(segment => segment.mount === mount).every(segment => segment.shades === colors.orange), 'equipped paint');
 

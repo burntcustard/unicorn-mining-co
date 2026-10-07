@@ -98,18 +98,21 @@ export class Ship extends Craft {
       return action;
     } else if (action.action === 'buy') {
       const Type = moduleTypes[action.module];
+      const objects = [...this.modules, ...this.cargoContents];
 
       if (
         !Type ||
         player.credits < Type.price ||
-        this.cargoContents.length >= this.cargoSpace
+        this.cargoContents.length >= this.cargoSpace ||
+        objects.some((object) => object.id === action.moduleId)
       ) {
         return;
       }
 
-      const module = new Type(
-        action.moduleId === undefined ? {} : { id: action.moduleId },
-      );
+      // Restored server IDs share the negative range with local allocations.
+      const module = new Type({
+        id: action.moduleId ?? Math.min(0, ...objects.map(({ id }) => id)) - 1,
+      });
 
       player.credits -= Type.price;
       this.cargoContents.push(module);

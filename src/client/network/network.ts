@@ -605,14 +605,19 @@ export class NetworkClient {
       });
     }
 
-    // Catch up elapsed movement before preserving the current pose. A delayed
-    // browser frame must not smooth away the distance it legitimately travelled.
+    const snapshotDue =
+      this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt;
+
+    // Compare poses at the same tick, including a snapshot ahead of our clock.
+    // Otherwise smoothing treats legitimate movement as a prediction error.
+    if (!recovering && snapshotDue) {
+      while (this.world.tick < this.pendingSnapshot.serverTick) {
+        this.step({ input, now: now - this.pendingTime * 1000 });
+      }
+    }
+
     const predictedBefore =
-      !recovering &&
-      this.pendingSnapshot &&
-      now + 1e-6 >= this.snapshotReceivedAt
-        ? this.predictFrame({ now })
-        : undefined;
+      !recovering && snapshotDue ? this.predictFrame({ now }) : undefined;
 
     const before =
       predictedBefore &&
@@ -637,7 +642,7 @@ export class NetworkClient {
     // Reconcile after clock catch-up, including frames shorter than a tick.
     // Never apply a fresh snapshot to an earlier catch-up boundary.
 
-    if (this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt) {
+    if (snapshotDue) {
       const message = {
         ...this.pendingSnapshot,
         fullEntities: [...this.pendingEntities.values()].map(
