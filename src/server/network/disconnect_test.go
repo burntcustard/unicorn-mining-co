@@ -1,6 +1,7 @@
 package network
 
 import (
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -100,5 +101,48 @@ func TestDisconnectedDeadShipDoesNotReappear(t *testing.T) {
 
 	if s.World.Entities.Has(p.shipID) || p.hiddenShip || !p.ship.Dead {
 		t.Fatal("disconnect cooldown resurrected a destroyed ship")
+	}
+}
+
+func TestFatalDamageDisconnectStillAllowsRespawn(t *testing.T) {
+	for _, disconnectBeforeUpdate := range []bool{false, true} {
+		t.Run(map[bool]string{false: "after-update", true: "before-update"}[disconnectBeforeUpdate], func(t *testing.T) {
+			catalog, _ := specs.Load()
+			s := NewGameSession(25, catalog)
+			socket := &benchmarkSocket{}
+			s.Receive(protocol.Control{Type: "hello"}, socket)
+			p := s.playersBySocket[socket]
+			previousID := p.shipID
+
+			for _, segment := range p.ship.Segments {
+				if segment.Core {
+					objects.Damage(segment, 10000)
+					break
+				}
+			}
+
+			if disconnectBeforeUpdate {
+				s.Disconnect(socket)
+			}
+
+			s.Tick(1)
+
+			if !disconnectBeforeUpdate {
+				s.Disconnect(socket)
+			}
+
+			socket = &benchmarkSocket{}
+			s.Receive(protocol.Control{Type: "hello", PlayerToken: p.profile.ID}, socket)
+
+			if s.World.Entities.Has(previousID) || !p.ship.Dead || slices.Contains(p.binaryReplication.entityIDs, uint64(previousID)) {
+				t.Fatal("reconnect must load the dead state without waiting for another death")
+			}
+
+			s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+			if p.shipID == previousID || p.ship.Dead || !s.World.Entities.Has(p.shipID) || !slices.Contains(p.binaryReplication.entityIDs, uint64(p.shipID)) {
+				t.Fatal("reconnected dead player cannot respawn")
+			}
+		})
 	}
 }

@@ -15,10 +15,10 @@ export const renderUI = (
     shipDestroyed,
   }: { controlsShip: Ship; shipDestroyed: boolean },
 ) => {
-  if (!game.uiAlpha) return;
+  if (!shipDestroyed && !game.uiAlpha) return;
 
   game.ctx.save();
-  game.ctx.globalAlpha = game.uiAlpha;
+  game.ctx.globalAlpha = shipDestroyed ? 1 : game.uiAlpha;
 
   if (shipDestroyed) {
     const message = 'YOU DIED - PRESS ANY KEY TO RESPAWN';

@@ -155,14 +155,27 @@ npm run reset-world:live
 npm run reset-world:live -- my-app
 ```
 
-The script uses `FLY_API_TOKEN` or the current `fly auth token`. It requires
-exactly one Machine mounting `/data`, saves its original config locally, disables
+The script uses `FLY_API_TOKEN` or creates an app-scoped deploy token through
+`fly tokens create deploy --app <app> --expiry 15m`. It requires
+exactly one Machine mounting `/data`, holds a Machine lease during maintenance
+to prevent proxy autostarts, saves its original config locally, disables
 traffic during maintenance, stops the game cleanly, and runs
-`/app/server --reset-world` on the existing volume. After a successful exit it
-restores the original config and starts the game. Archives stay on `/data`.
+`/app/server --reset-world` on the existing volume. It waits for each replacement
+Machine version to finish preparing before starting it. After a successful exit it
+restores the original config and starts the game, waiting for configured health
+checks to pass. Archives stay on `/data`.
 On failure it retains the maintenance configuration and prints recovery commands
 with the saved config path; it does not report success or automatically restart
 a failed reset. Do not deploy concurrently with this maintenance operation.
+
+Recover with the command printed by the script, for example:
+
+```sh
+npm run reset-world:live -- unicorn-mining-co --restore <machine-id> /tmp/unicorn-world-reset-<id>/machine.json
+```
+
+This restores the exact saved config through the API, clears the temporary
+maintenance command, and starts the game without resetting its database.
 
 The offline reset command is also available directly as
 `DATABASE_PATH=/path/to/world.sqlite ./bin/server --reset-world`.

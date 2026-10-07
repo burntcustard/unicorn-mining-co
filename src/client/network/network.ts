@@ -207,7 +207,11 @@ export class NetworkClient {
   private resolveReady!: () => void;
   private retryDelay = 500;
   serverTick = 0;
-  shipDestroyed = false;
+  get shipDestroyed() {
+    const ship = this.world.entities.get(this.shipId!);
+
+    return this.connected && (!ship || ship.dead);
+  }
   shipId?: number;
   private snapshotReceivedAt = performance.now();
   private socket!: WebSocket;
@@ -376,6 +380,7 @@ export class NetworkClient {
     }
 
     if (message.type === 'welcome') {
+      this.connected = false;
       syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);
 
       if (message.credits !== undefined) this.player.credits = message.credits;
@@ -393,7 +398,6 @@ export class NetworkClient {
       this.playerId = message.playerId;
       this.shipId = message.shipId;
       Vec.set(this.spawnPosition, message.spawn);
-      this.shipDestroyed = false;
       this.worldSeed = message.worldSeed;
       this.serverTick = message.serverTick;
       this.world.tick = message.serverTick;
@@ -411,7 +415,6 @@ export class NetworkClient {
 
     if (message.type === 'respawn') {
       this.shipId = message.shipId;
-      this.shipDestroyed = false;
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
       this.world.players.get(this.playerId!)!.shipId = message.shipId;
@@ -453,7 +456,6 @@ export class NetworkClient {
       if (!visible.has(id)) this.entityRecords.delete(id);
     });
 
-    this.shipDestroyed = !message.entityIds.includes(this.shipId!);
     // Receipt acknowledges decoded deltas, independent of render cadence.
     // The server can now replace skipped ticks with its latest state.
 
