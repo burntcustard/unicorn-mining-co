@@ -9,7 +9,7 @@ import { CircleShape } from '../../collision/shape/circle-shape';
 import { PolygonShape } from '../../collision/shape/polygon-shape';
 import { Sweep } from '../../physics/motion-sweep';
 import { findTimeOfImpact } from '../../collision/time-of-impact';
-import { type Collider } from '../../collision/types';
+import { outlineColorOf, type Collider } from '../../collision/types';
 import { type Ship } from '../ship';
 import { Asteroid } from '../asteroid';
 import { damage } from '../damage';
@@ -125,13 +125,33 @@ class LaserModule extends Module {
       return;
     }
 
-    const { first } = this.trace(craft);
+    const { first, length } = this.trace(craft);
 
     if (!first || first.physics === false) return;
-    damage(
+    const applied = damage(
       first.asteroidSegment || first.segment || first.owner,
-      this.damage * this.damageStepsPerSecond * dt,
+      this.damage * 30 * dt,
     );
+
+    if (applied <= 0) return;
+
+    events.push({
+      type: 'laserDamage',
+      targetId: first.owner.id,
+      by: craft.playerId,
+      damage: applied,
+      color: outlineColorOf(first),
+      position: Vec.add(
+        craft.position,
+        rotatePoint(
+          Vec.add(
+            this.mount.localPosition,
+            Vec.create(this.barrelLength + length, 0),
+          ),
+          craft.rotation,
+        ),
+      ),
+    });
 
     if (first.owner instanceof Asteroid) {
       first.owner.fracture({

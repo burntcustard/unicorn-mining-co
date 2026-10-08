@@ -23,7 +23,7 @@ type scheduledEntity struct {
 	entity                Entity
 	object                *GameObject
 	substeps, updateEvery int
-	step                  float64
+	step, laserDuration   float64
 }
 
 type movementSchedule struct {
@@ -129,7 +129,7 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 		}
 
 		step := (object.PendingUpdateTime + rules.SimulationStep) / float64(tier.Substeps)
-		schedule.entries = append(schedule.entries, scheduledEntity{entity, object, tier.Substeps, tier.UpdateEvery, step})
+		schedule.entries = append(schedule.entries, scheduledEntity{entity: entity, object: object, substeps: tier.Substeps, updateEvery: tier.UpdateEvery, step: step})
 	}
 
 	world.Entities.ForEach(func(entity Entity, _ int64) {
@@ -165,7 +165,8 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 	world.movementParents = schedule.parentRecords
 
 	for substep := 0; substep < visible.Substeps; substep++ {
-		for _, entry := range schedule.entries {
+		for index := range schedule.entries {
+			entry := &schedule.entries[index]
 			entity, object := entry.entity, entry.object
 
 			if object.Dead {
@@ -200,13 +201,16 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 
 						if offset > elapsed {
 							entity.Update(offset - elapsed)
-							if laser, ok := entity.(interface {
-								ResolveLasers(float64, *[]protocol.SimulationEvent)
-							}); ok {
-								laser.ResolveLasers(offset-elapsed, events)
-							}
+							entry.laserDuration += offset - elapsed
 						}
 
+						if laser, ok := entity.(interface {
+							ResolveLasers(float64, *[]protocol.SimulationEvent)
+						}); ok {
+							laser.ResolveLasers(entry.laserDuration, events)
+						}
+
+						entry.laserDuration = 0
 						ship.Control(change.Input, events)
 						elapsed = offset
 					}
@@ -214,10 +218,18 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 			}
 
 			entity.Update(end - elapsed)
-			if laser, ok := entity.(interface {
-				ResolveLasers(float64, *[]protocol.SimulationEvent)
-			}); ok {
-				laser.ResolveLasers(end-elapsed, events)
+			// Accumulate movement substeps into one damage tick; control edges
+			// above flush early to preserve short taps.
+			entry.laserDuration += end - elapsed
+
+			if substep == entry.substeps-1 || object.PendingUpdateTime <= 0 {
+				if laser, ok := entity.(interface {
+					ResolveLasers(float64, *[]protocol.SimulationEvent)
+				}); ok {
+					laser.ResolveLasers(entry.laserDuration, events)
+				}
+
+				entry.laserDuration = 0
 			}
 
 			if object.Dead {

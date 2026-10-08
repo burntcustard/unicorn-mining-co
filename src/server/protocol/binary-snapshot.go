@@ -23,6 +23,7 @@ type ModuleState struct {
 type ModuleSegment struct{ Active, ActivationProgress float64 }
 
 type WreckageSegment struct {
+	Color        string
 	Radius       float64
 	Offset       Vector
 	Health       float64
@@ -187,6 +188,10 @@ func (w *writer) wreckage(values []WreckageSegment) {
 			mask |= 4
 		}
 
+		if value.Color != "" {
+			mask |= 8
+		}
+
 		w.byte(mask)
 		w.number(value.Radius)
 		w.vector(value.Offset)
@@ -198,6 +203,10 @@ func (w *writer) wreckage(values []WreckageSegment) {
 
 		if value.FillShade != nil {
 			w.number(*value.FillShade)
+		}
+
+		if value.Color != "" {
+			w.string(value.Color)
 		}
 
 		if value.Stroke != nil {

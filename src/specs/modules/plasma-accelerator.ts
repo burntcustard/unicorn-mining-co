@@ -44,17 +44,17 @@ export const plasmaAccelerator = {
   model: [
     {
       outline: false,
-      color: 0,
+      color: colors.violet[0],
       rechargeDelay: fireInterval,
-      rechargeColor: 0,
+      rechargeColor: colors.violet[0],
       glow: {
         offset: [9, 0],
         radius: 10,
         alpha: 0.5,
         stops: [
-          [0, 2],
-          [0.2, 2, 0.6],
-          [1, '#000', 0],
+          [0, colors.violet[2]],
+          [0.2, colors.violet[2], 0.6],
+          [1, colors.black[0], 0],
         ],
       },
       points: [
@@ -66,7 +66,7 @@ export const plasmaAccelerator = {
     },
     {
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [0, -3],
         [18, -3],
@@ -83,17 +83,17 @@ export const plasmaAccelerator = {
 
       return {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         rechargeDelay: (index + 1) * 500,
-        rechargeColor: 0,
+        rechargeColor: colors.violet[0],
         glow: {
           radius: 5,
           alpha: 0.3,
           stops: [
-            [0, 2],
-            [0.3, 2, 0.4],
-            [1, '#000', 0],
-          ] as [number, number | string, number?][],
+            [0, colors.violet[2]],
+            [0.3, colors.violet[2], 0.4],
+            [1, colors.black[0], 0],
+          ] as [number, string, number?][],
         },
         points: [
           [x, 1.5],

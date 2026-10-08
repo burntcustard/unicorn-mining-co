@@ -33,7 +33,7 @@ func main() {
 				field.HullHealth:    []float64{8, 20, 40},
 				field.Modules:       []protocol.ModuleState{{Type: 12, Mount: 2, FireCooldown: new(float64(.375)), ChargeCooldown: new(float64(1.125)), ID: new(float64(-10)), Health: new(float64(20)), Shades: []string{"#a", "#b"}, Segments: []protocol.ModuleSegment{{Active: 1, ActivationProgress: 0.5}}}},
 				field.CargoContents: []protocol.CargoEntry{{ModuleIndex: new(float64(2))}, {Entity: &protocol.EntityRecord{ID: 25, Fields: map[int]any{field.Kind: "item", field.Resource: float64(5), field.Rounds: float64(137), field.Position: protocol.Vector{X: 1, Y: 2}, field.Radius: float64(6)}}}},
-				field.Wreckage:      []protocol.WreckageSegment{{Radius: 8, Offset: protocol.Vector{X: 2, Y: 3}, Health: 4, ShapeOutline: [][]float64{{0, 0}, {1, 1}}, FillShade: new(float64(2)), Stroke: [][][]float64{{{0, 0}, {2, 2}}}}},
+				field.Wreckage:      []protocol.WreckageSegment{{Radius: 8, Offset: protocol.Vector{X: 2, Y: 3}, Health: 4, ShapeOutline: [][]float64{{0, 0}, {1, 1}}, FillShade: new(float64(2)), Color: "#fa3", Stroke: [][][]float64{{{0, 0}, {2, 2}}}}},
 			}},
 			{ID: 9, Fields: map[int]any{
 				field.Kind: "asteroid", field.Position: protocol.Vector{X: 300, Y: 400},

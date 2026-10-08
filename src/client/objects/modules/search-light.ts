@@ -29,7 +29,7 @@ class SearchLightModule extends Module {
       ...super.createModel(spec).map((part) => ({
         ...part,
         beam: false,
-        wreckage: { fillShade: part.fillShade },
+        wreckage: { color: part.color, fillShade: part.fillShade },
       })),
     ];
   }

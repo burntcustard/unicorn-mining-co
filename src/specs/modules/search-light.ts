@@ -1,3 +1,4 @@
+import { colors } from '../colors';
 import { renderingLayers } from '../rendering-layers';
 import type { ModuleSpec } from './types';
 
@@ -16,7 +17,7 @@ export const searchLight = {
     {
       // Upper swept arm.
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [-2.4, -1.8],
         [4.5, 1],
@@ -27,7 +28,7 @@ export const searchLight = {
     {
       // Lower swept arm.
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [-1.6, 3.8],
         [5.3, 1],
@@ -38,7 +39,7 @@ export const searchLight = {
     {
       // Upper sensor head.
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [-3.6, -4],
         [-0.4, -4],
@@ -49,7 +50,7 @@ export const searchLight = {
     {
       // Lower sensor head.
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [-3.6, 1.6],
         [-0.4, 1.6],
@@ -60,7 +61,7 @@ export const searchLight = {
     {
       // Integrated lamp head.
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [3.4, -1.3],
         [8.4, -1.3],

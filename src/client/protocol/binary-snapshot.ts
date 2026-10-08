@@ -196,12 +196,13 @@ export function decodeBinarySnapshot(
     for (let index = 0; index < length; index++) {
       const mask = byte();
 
-      if (mask & ~7) return fail();
+      if (mask & ~15) return fail();
       const radius = number() as number;
       const segmentOffset = vector();
       const health = number() as number;
       const shapeOutline = mask & 1 ? outline() : undefined;
       const fillShade = mask & 2 ? (number() as number) : undefined;
+      const color = mask & 8 ? string() : undefined;
       let stroke: number[][][] | undefined;
 
       if (mask & 4) {
@@ -220,6 +221,7 @@ export function decodeBinarySnapshot(
         health,
         ...(mask & 1 && { shapeOutline }),
         ...(mask & 2 && { fillShade }),
+        ...(mask & 8 && { color }),
         ...(mask & 4 && { stroke }),
       });
     }

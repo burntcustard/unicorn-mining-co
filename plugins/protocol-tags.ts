@@ -34,6 +34,7 @@ export const protocolTags = [
   'buyAmmo',
   'objectDestroyed',
   'explosion',
+  'laserDamage',
 ];
 
 /**

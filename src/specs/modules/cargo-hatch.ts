@@ -16,7 +16,7 @@ export const cargoHatch = {
   model: [
     {
       outline: false,
-      color: 2,
+      color: colors.violet[2],
     },
     {
       outline: false,

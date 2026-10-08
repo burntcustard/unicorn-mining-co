@@ -30,7 +30,7 @@ export type SimulationEvent =
       color: string;
       resource?: number;
       position: Vec.Value;
-      type: 'drillDamage';
+      type: 'drillDamage' | 'laserDamage';
     }
   | {
       a: EntityId;

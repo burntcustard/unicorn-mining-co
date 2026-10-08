@@ -46,7 +46,7 @@ func TestModelPartOutlines(t *testing.T) {
 						t.Fatalf("part %d did not retain its outline setting for wreckage", i)
 					}
 
-					if (plan.FillShade == nil) != (part.Color == nil) || part.Color != nil && *plan.FillShade != *part.Color {
+					if plan.Color != part.Color {
 						t.Fatalf("part %d changed fill color", i)
 					}
 				}

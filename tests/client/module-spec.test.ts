@@ -16,7 +16,6 @@ const spec: ModuleSpec = {
   coverDuration: 200,
   fireInterval: 1000 * (1 / 30),
   damage: 4,
-  damageStepsPerSecond: 60,
   barrelLength: 10,
   muzzleFlash: [
     { type: 'glow', color: '#fff', radius: 3, duration: 120, delay: 40 },
@@ -54,7 +53,6 @@ assert.equal(runtime.projectile?.lifetime, 1.5);
 assert.equal(runtime.model[0].rechargeDelay, 0.00075);
 assert.equal(runtime.projectile?.fadeOut, 200);
 assert.equal(runtime.projectile?.speed, 400);
-assert.equal(runtime.damageStepsPerSecond, 60);
 assert.equal(runtime.muzzleFlash, spec.muzzleFlash);
 assert.deepEqual(
   spec,

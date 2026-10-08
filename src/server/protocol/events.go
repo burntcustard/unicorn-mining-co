@@ -38,6 +38,15 @@ type DrillDamage struct {
 
 func (DrillDamage) simulationEvent() {}
 
+type LaserDamage struct {
+	TargetID, By int64
+	Damage       float64
+	Color        string
+	Position     Vec.Vector
+}
+
+func (LaserDamage) simulationEvent() {}
+
 type CollisionEvent struct {
 	A, B     int64
 	Impact   float64

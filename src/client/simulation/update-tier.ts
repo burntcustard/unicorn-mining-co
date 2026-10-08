@@ -41,6 +41,7 @@ const schedules = new WeakMap<
       entity: GameObject;
       tier: (typeof updateTiers)[keyof typeof updateTiers];
       step: number;
+      laserDuration: number;
     }[];
   }
 >();
@@ -135,7 +136,8 @@ export const updateEntities = ({
       entry.entity = entity;
       entry.tier = tier;
       entry.step = step;
-    } else scheduled.push({ entity, tier, step });
+      entry.laserDuration = 0;
+    } else scheduled.push({ entity, tier, step, laserDuration: 0 });
   }
 
   scheduled.length = list.length;
@@ -150,7 +152,8 @@ export const updateEntities = ({
   // it, and allocate a context, for every entity.
   for (let substep = 0; substep < updateTiers.visible.substeps; substep++) {
     for (let index = 0; index < scheduled.length; index++) {
-      const { entity, tier, step } = scheduled[index];
+      const entry = scheduled[index];
+      const { entity, tier, step } = entry;
 
       if (entity.dead) continue;
 
@@ -179,9 +182,11 @@ export const updateEntities = ({
 
           if (offset > elapsed) {
             entity.update(offset - elapsed);
-            entity.resolveLasers(offset - elapsed, events);
+            entry.laserDuration += offset - elapsed;
           }
 
+          entity.resolveLasers(entry.laserDuration, events);
+          entry.laserDuration = 0;
           controlShip(entity, change.input, events);
           elapsed = offset;
         }
@@ -189,7 +194,17 @@ export const updateEntities = ({
 
       entity.update(end - elapsed);
 
-      if (entity instanceof Ship) entity.resolveLasers(end - elapsed, events);
+      // Accumulate both movement substeps into one damage tick. Control
+      // transitions above flush early to preserve the duration of short taps.
+      entry.laserDuration += end - elapsed;
+
+      if (
+        entity instanceof Ship &&
+        (substep === tier.substeps - 1 || entity.pendingUpdateTime <= 0)
+      ) {
+        entity.resolveLasers(entry.laserDuration, events);
+        entry.laserDuration = 0;
+      }
 
       if (entity.dead) {
         entity.onDeath?.(events);

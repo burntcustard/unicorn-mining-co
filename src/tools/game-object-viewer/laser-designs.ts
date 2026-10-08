@@ -1,12 +1,5 @@
+import { colors } from '../../specs/colors';
 import { laser } from '../../specs/modules/laser';
-
-const scytheShades = [
-  '#343b42',
-  '#cebb26',
-  '#ffeb42',
-  '#a9b2ba',
-  '#d85837',
-] as const;
 
 // Review alternatives rendered with the production module geometry and beam.
 export const laserDesigns = [
@@ -16,7 +9,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [14, -3],
           [18, -3],
@@ -26,7 +19,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [14, -1],
           [17, -5],
@@ -35,7 +28,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [14, 1],
           [27, 1],
@@ -44,7 +37,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [17, -2],
           [18, -4],
@@ -53,7 +46,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [17, 2],
           [25, 2],
@@ -68,7 +61,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [14, -4],
           [18, -4],
@@ -78,7 +71,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [16, -1],
           [16, -5],
@@ -88,7 +81,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [16, 1],
           [27, 1],
@@ -98,7 +91,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [18, -2],
           [18, -4],
@@ -108,7 +101,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [18, 2],
           [24, 2],
@@ -125,7 +118,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [14, -2.5],
           [19, -2.5],
@@ -135,7 +128,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [14, -1],
           [17, -4],
@@ -146,7 +139,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [14, 1],
           [27, 1],
@@ -157,7 +150,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [19, -1],
           [20, -2.5],
@@ -167,7 +160,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [19, 1],
           [26, 1],
@@ -185,7 +178,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [0, -1],
           [20, -5],
@@ -194,7 +187,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [0, 1],
           [34, 1],
@@ -211,7 +204,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [0, -2],
           [22, -2],
@@ -221,7 +214,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [12, -1],
           [22, -5],
@@ -230,7 +223,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [12, 1],
           [34, 1],
@@ -247,7 +240,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [0, -1],
           [0, -3],
@@ -257,7 +250,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [0, 1],
           [34, 1],
@@ -275,7 +268,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [0, -1.5],
           [24, -1.5],
@@ -285,7 +278,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [20, -6],
           [24, -6],
@@ -295,7 +288,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [24, -6],
           [34, -6],
@@ -305,7 +298,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [24, 3],
           [34, 3],
@@ -323,7 +316,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [0, -1.5],
           [25, -1.5],
@@ -333,7 +326,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [21, -1.5],
           [24, -6],
@@ -347,7 +340,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [21, 1.5],
           [24, 1.5],
@@ -369,7 +362,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [0, -1.5],
           [31, -1.5],
@@ -379,7 +372,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [18, -5],
           [24, -5],
@@ -389,7 +382,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [18, 1.5],
           [24, 1.5],
@@ -399,7 +392,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [30, -3.5],
           [34, -3.5],
@@ -409,7 +402,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [30, 1.5],
           [34, 1.5],
@@ -427,7 +420,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [0, -3],
           [27, -3],
@@ -437,7 +430,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [7, -1],
           [7, -4],
@@ -447,7 +440,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [7, 1],
           [34, 1],
@@ -465,7 +458,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.yellow[2],
         points: [
           [0, -3],
           [26, -3],
@@ -475,7 +468,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [7, -1],
           [11, -5],
@@ -485,7 +478,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.grey[1],
         points: [
           [7, 1],
           [34, 1],
@@ -495,7 +488,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [13, -3],
           [24, -3],
@@ -511,11 +504,10 @@ export const laserDesigns = [
     description:
       'Long yellow casing, silver rear coupling, and a thin metal muzzle frame.',
     barrelLength: 34,
-    shades: scytheShades,
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.scythe[0],
         points: [
           [0, -3],
           [33, -3],
@@ -525,7 +517,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.scythe[3],
         points: [
           [9, -4],
           [12, -4],
@@ -535,7 +527,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.scythe[2],
         points: [
           [12, -4],
           [30, -4],
@@ -545,7 +537,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.scythe[3],
         points: [
           [31, -4],
           [34, -4],
@@ -555,7 +547,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.scythe[3],
         points: [
           [31, 1],
           [34, 1],
@@ -570,11 +562,10 @@ export const laserDesigns = [
     description:
       "A longer yellow housing with the reference weapon's single dark cooling stripe.",
     barrelLength: 34,
-    shades: scytheShades,
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.scythe[0],
         points: [
           [0, -3],
           [33, -3],
@@ -584,7 +575,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.scythe[2],
         points: [
           [8, -3],
           [10, -4],
@@ -596,7 +587,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.scythe[3],
         points: [
           [32, -4],
           [34, -4],
@@ -606,7 +597,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.scythe[3],
         points: [
           [32, 1],
           [34, 1],
@@ -616,7 +607,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 0,
+        color: colors.scythe[0],
         points: [
           [15, -3],
           [27, -3],
@@ -631,11 +622,10 @@ export const laserDesigns = [
     description:
       'An exposed rear power feed, a plain yellow box, and a compact silver emitter.',
     barrelLength: 34,
-    shades: scytheShades,
     model: [
       {
         outline: false,
-        color: 0,
+        color: colors.scythe[0],
         points: [
           [0, -3],
           [33, -3],
@@ -645,7 +635,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.scythe[2],
         points: [
           [14, -4],
           [31, -4],
@@ -655,7 +645,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.scythe[3],
         points: [
           [32, -4],
           [34, -4],
@@ -665,7 +655,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.scythe[3],
         points: [
           [32, 1],
           [34, 1],
@@ -675,7 +665,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 4,
+        color: colors.scythe[4],
         points: [
           [7, -2],
           [16, -4],
@@ -693,7 +683,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [0, -0.5],
           [0, -1.5],
@@ -703,7 +693,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [0, 0.5],
           [28, 0.5],
@@ -713,7 +703,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [25, -0.5],
           [25, -1.5],
@@ -723,7 +713,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [25, 0.5],
           [27, 0.5],
@@ -741,7 +731,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [0, -0.5],
           [0, -1.5],
@@ -751,7 +741,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [0, 0.5],
           [28, 0.5],
@@ -761,7 +751,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [23, -0.5],
           [23, -1.5],
@@ -771,7 +761,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [23, 0.5],
           [25, 0.5],
@@ -789,7 +779,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [0, -0.5],
           [2, -1.5],
@@ -799,7 +789,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [0, 0.5],
           [24, 0.5],
@@ -809,7 +799,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [22, -0.5],
           [22, -1.5],
@@ -819,7 +809,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [22, 0.5],
           [24, 0.5],
@@ -844,7 +834,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [23, -3],
           [26, -3],
@@ -854,7 +844,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [0, -2],
           [1, -3],
@@ -870,7 +860,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [21, -3],
           [23, -3],
@@ -880,7 +870,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [26, -3],
           [27, -3],
@@ -900,7 +890,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [23, -3],
           [26, -3],
@@ -910,7 +900,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [0, -3],
           [24, -3],
@@ -924,7 +914,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [21, -3],
           [24, -3],
@@ -934,7 +924,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [26, -3],
           [28, -3],
@@ -952,7 +942,7 @@ export const laserDesigns = [
     model: [
       {
         outline: false,
-        color: 3,
+        color: colors.grey[1],
         points: [
           [23, -3],
           [26, -3],
@@ -962,7 +952,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [0, -2],
           [8, -2],
@@ -980,7 +970,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [21, -3],
           [23, -3],
@@ -990,7 +980,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.yellow[2],
         points: [
           [26, -3],
           [28, -3],
@@ -1005,17 +995,10 @@ export const laserDesigns = [
     description:
       'Two separate yellow rails, a grey rear block, and a long exposed beam channel.',
     barrelLength: 28,
-    shades: [
-      laser.shades[0],
-      laser.shades[1],
-      laser.shades[2],
-      laser.shades[3],
-      '#99a',
-    ],
     model: [
       {
         outline: false,
-        color: 4,
+        color: colors.grey[1],
         points: [
           [0, -3],
           [8, -3],
@@ -1025,7 +1008,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [8, -3],
           [23, -3],
@@ -1035,7 +1018,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [8, 0.5],
           [23, 0.5],
@@ -1045,7 +1028,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.violet[1],
         points: [
           [21, -3],
           [23, -3],
@@ -1055,7 +1038,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.violet[3],
         points: [
           [23, -3],
           [26, -3],
@@ -1065,7 +1048,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [26, -3],
           [28, -3],
@@ -1080,17 +1063,10 @@ export const laserDesigns = [
     description:
       'A full yellow receiver stepping into a narrow yellow neck before the wide grey muzzle section.',
     barrelLength: 28,
-    shades: [
-      laser.shades[0],
-      laser.shades[1],
-      laser.shades[2],
-      laser.shades[3],
-      '#99a',
-    ],
     model: [
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [0, -3],
           [21, -3],
@@ -1104,7 +1080,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.violet[1],
         points: [
           [0, -3],
           [6, -3],
@@ -1114,7 +1090,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [21, -1.5],
           [23, -1.5],
@@ -1124,7 +1100,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.violet[3],
         points: [
           [23, -3],
           [26, -3],
@@ -1134,7 +1110,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [26, -3],
           [28, -3],
@@ -1149,17 +1125,10 @@ export const laserDesigns = [
     description:
       'A heavy upper yellow housing, slim lower rail, and square full-width muzzle block.',
     barrelLength: 28,
-    shades: [
-      laser.shades[0],
-      laser.shades[1],
-      laser.shades[2],
-      laser.shades[3],
-      '#99a',
-    ],
     model: [
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [0, -3],
           [23, -3],
@@ -1173,7 +1142,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 1,
+        color: colors.violet[1],
         points: [
           [9, -3],
           [12, -3],
@@ -1183,7 +1152,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [21, -3],
           [23, -3],
@@ -1193,7 +1162,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 3,
+        color: colors.violet[3],
         points: [
           [23, -3],
           [26, -3],
@@ -1203,7 +1172,7 @@ export const laserDesigns = [
       },
       {
         outline: false,
-        color: 2,
+        color: colors.violet[2],
         points: [
           [26, -3],
           [28, -3],
@@ -1225,7 +1194,6 @@ export const laserDesigns = [
   spec: {
     ...laser,
     shades: laser.shades,
-    modelShades: design.shades ?? laser.modelShades,
     barrelLength: design.barrelLength ?? laser.barrelLength,
     model: design.model,
   },

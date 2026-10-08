@@ -9,6 +9,7 @@ import {
   type ModuleId,
 } from '../../../specs/modules';
 import { type ModuleSpec } from '../../../specs/modules/types';
+import { colors } from '../../../specs/colors';
 
 import { type Craft } from '../craft';
 import { type Pose, type Segment, type ShapeOutline } from '../../types';
@@ -46,11 +47,27 @@ export class Module extends GameObject {
   }
 
   static createModel(spec: ModuleSpec): any[] {
-    return spec.model.map((part) => ({
-      ...part,
-      fillShade: part.color,
-      shapeOutline: part.outline === false ? ([] as ShapeOutline) : undefined,
-    }));
+    return spec.model.map((part) => {
+      const shade = (spec.shades ?? colors.violet).indexOf(part.color);
+
+      return {
+        ...part,
+        fillShade: shade < 0 ? undefined : shade,
+        shapeOutline: part.outline === false ? ([] as ShapeOutline) : undefined,
+      };
+    });
+  }
+
+  paintShade(color: string) {
+    const palette = (this.constructor as typeof Module).shades ?? colors.violet;
+
+    return palette.indexOf(color);
+  }
+
+  paintedColor(color: string, shades: readonly string[]) {
+    const shade = this.paintShade(color);
+
+    return shade < 0 ? color : shades[shade];
   }
 
   render({ segment, points, draw }: ModuleRenderOptions) {
@@ -74,13 +91,21 @@ export class Module extends GameObject {
             : undefined;
 
         if (!shape) return;
-        const shades = this.modelShades || this.shades || segment.shades;
+        const shades = this.shades || segment.shades;
+        const color =
+          segment.fillShade === undefined
+            ? segment.color
+            : shades[segment.fillShade];
 
         // Modules default to their darkest shade, a step below the hull's.
         ctx.fillStyle =
           segment.fillAlpha !== undefined
-            ? withAlpha({ color: shades[2], alpha: segment.fillAlpha })
-            : shades[segment.fillShade ?? 0];
+            ? withAlpha({
+                color: color ?? shades[2],
+                alpha: segment.fillAlpha,
+              })
+            : (color ?? shades[0]);
+
         ctx.strokeStyle = shades[2];
         ctx.fill(shape);
         ctx.stroke(

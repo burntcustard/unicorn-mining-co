@@ -16,6 +16,7 @@ export const createWreckage = ({
       localPosition: Vec.clone(segment.offset),
       health: segment.health,
       fillShade: segment.fillShade,
+      color: segment.color,
       shapeOutline: segment.stroke,
     })),
   });

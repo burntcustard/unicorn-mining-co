@@ -88,7 +88,7 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
 	catalog, _ := specs.Load()
 
-	for _, id := range []string{"cargoHatch", "plasmaAccelerator", "autogun"} {
+	for _, id := range []string{"cargoHatch", "plasmaAccelerator", "autogun", "laser"} {
 		for _, side := range []float64{-1, 1} {
 			world := simulation.CreateWorld(25, catalog)
 			ship := objects.CreatePlayerShip(world, objects.Properties{})
@@ -119,8 +119,18 @@ func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
 			}
 
 			check := func(craft *objects.Craft) {
-				for _, segment := range craft.Wreckage() {
-					if segment.Stroke == nil || len(segment.Stroke) != 0 || segment.FillShade == nil {
+				for i, segment := range craft.Wreckage() {
+					original := debris.Wreckage()[i]
+
+					if (segment.FillShade == nil) != (original.FillShade == nil) || segment.FillShade != nil && *segment.FillShade != *original.FillShade {
+						t.Fatalf("%s wreckage lost its paint shade", id)
+					}
+
+					if segment.Color != original.Color {
+						t.Fatalf("%s wreckage lost its explicit color", id)
+					}
+
+					if segment.Stroke == nil || len(segment.Stroke) != 0 || segment.FillShade == nil && segment.Color == "" {
 						t.Fatalf("%s wreckage lost its fill or gained an outline: stroke=%#v fill=%v", id, segment.Stroke, segment.FillShade)
 					}
 				}

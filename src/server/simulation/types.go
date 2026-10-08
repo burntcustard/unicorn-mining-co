@@ -35,6 +35,8 @@ type Mount struct {
 }
 
 type SegmentPlan struct {
+	WreckageColor                                      string
+	Color                                              string
 	Health                                             *float64
 	Points                                             *ShapeOutline
 	DynamicPoints                                      func(*Segment) *ShapeOutline

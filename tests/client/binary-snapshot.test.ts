@@ -136,13 +136,14 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
       18,
       () => {
         writer.unsigned(1);
-        writer.byte(7); // outline, fillShade, stroke
+        writer.byte(15); // outline, fillShade, stroke, color
         writer.number(9);
         writer.number(2);
         writer.number(3);
         writer.number(8);
         writer.outline([[0, 1]]);
         writer.number(6);
+        writer.string('#fa3');
         writer.unsigned(1);
         writer.outline([[2, 3]]);
       },
@@ -208,6 +209,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
             health: 8,
             shapeOutline: [[0, 1]],
             fillShade: 6,
+            color: '#fa3',
             stroke: [[[2, 3]]],
           },
         ],

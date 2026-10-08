@@ -2,13 +2,14 @@
 package specs
 
 type ModelPart struct {
-	Outline            *bool    `json:"outline"`
-	Catches            bool     `json:"catches"`
-	ThrusterNozzleSide float64  `json:"thrusterNozzleSide"`
-	Color              *float64 `json:"color"`
-	Points             []Point  `json:"points"`
-	Radius             float64  `json:"radius"`
-	Covers             bool     `json:"covers"`
+	WreckageColor      string  `json:"wreckageColor"`
+	Outline            *bool   `json:"outline"`
+	Catches            bool    `json:"catches"`
+	ThrusterNozzleSide float64 `json:"thrusterNozzleSide"`
+	Color              string  `json:"color"`
+	Points             []Point `json:"points"`
+	Radius             float64 `json:"radius"`
+	Covers             bool    `json:"covers"`
 }
 
 type Projectile struct {

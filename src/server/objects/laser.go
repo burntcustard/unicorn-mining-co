@@ -12,22 +12,29 @@ func (s *Ship) ResolveLasers(dt float64, events *[]protocol.SimulationEvent) {
 	if s.World == nil || s.PlayerID == nil || !s.Firing || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
 		return
 	}
+
 	var modules [16]simulation.Module
+
 	for _, module := range s.AppendModules(modules[:0]) {
 		m := module.ModuleBase()
+
 		if m.Spec.Behavior != "beam" || m.Mount == nil || m.Mount.Health <= 0 {
 			continue
 		}
+
 		active := false
+
 		for _, segment := range s.Segments {
 			if segment.Module == module && segment.Active == 1 && segment.ActivationProgress == 1 {
 				active = true
 				break
 			}
 		}
+
 		if !active {
 			continue
 		}
+
 		s.resolveLaser(module, dt, events)
 	}
 }
@@ -93,14 +100,30 @@ func (s *Ship) resolveLaser(module simulation.Module, dt float64, events *[]prot
 	if first == nil || first.Physics != nil && !*first.Physics {
 		return
 	}
+
 	var target any = first.Owner
 	segment, _ := first.AsteroidSegment.(*simulation.AsteroidSegment)
+
 	if segment != nil {
 		target = segment
 	} else if first.Segment != nil {
 		target = first.Segment
 	}
-	Damage(target, spec.Damage*spec.DamageStepsPerSecond*dt)
+
+	applied := Damage(target, spec.Damage*30*dt)
+
+	if applied <= 0 {
+		return
+	}
+
+	*events = append(*events, protocol.LaserDamage{
+		TargetID: first.Owner.(simulation.Entity).Base().ID,
+		By:       *s.PlayerID,
+		Damage:   applied,
+		Color:    collision.OutlineColorOf(first, s.Catalog.Colors),
+		Position: Vec.Add(start, Vec.Scale(Vec.Subtract(end, start), fraction)),
+	})
+
 	if asteroid, ok := first.Owner.(*simulation.Asteroid); ok {
 		asteroid.Fracture(segment, *s.PlayerID, events, world)
 	}

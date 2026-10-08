@@ -134,6 +134,7 @@ func (p *Projectile) ResolveHits(events *[]protocol.SimulationEvent, world *simu
 	if first == nil {
 		return
 	}
+
 	if first.Physics != nil && !*first.Physics {
 		p.Remove()
 		return

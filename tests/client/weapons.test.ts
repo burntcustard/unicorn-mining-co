@@ -74,32 +74,57 @@ initKeys();
   ship.resolveLasers(1, []);
   assert.equal(near.health, 100, 'deployment cannot damage a target');
   ship.updateModules(laser.activationDuration);
-  for (let tick = 0; tick < 30; tick++) ship.resolveLasers(1 / 30, []);
-  assert.equal(near.health, 92.5, 'one second deals a quarter of horn damage');
+  const laserEvents = [];
+  for (let tick = 0; tick < 30; tick++) {
+    updateEntities({ world, events: laserEvents });
+  }
+  const hits = laserEvents.filter((event) => event.type === 'laserDamage');
+  assert.equal(hits.length, 30, 'steady beams damage once per tick, across two movement substeps');
+  assert(hits.every((event) => Math.abs(event.damage - 0.1) < 1e-8 && event.targetId === near.id));
+  assert(hits.every((event) => Math.abs(event.position.x - 140) < 2 && event.position.y === y), 'sparks originate at the first contacted surface');
+  sparks.length = 0;
+  presentEvents({ events: laserEvents });
+  assert.equal(sparks.length, 30, 'each beam damage event presents a contact spark');
+  assert.deepEqual(sparks[0].position, hits[0].position);
+  assert.equal(sparks[0].color, hits[0].color);
+  sparks.length = 0;
+  assert(Math.abs(near.health - 97) < 1e-8, 'one second deals 3 damage');
   assert.equal(far.health, 100, 'the first surface blocks the beam');
   assert.equal([...world.entities.values()].filter((entity) => entity instanceof Projectile).length, 0);
   const checkpoint = captureWorld({ world });
   ship.resolveLasers(0.5, []);
   restoreWorld({ world, state: checkpoint });
-  assert.equal(near.health, 92.5, 'rollback restores laser damage');
+  assert(Math.abs(near.health - 97) < 1e-8, 'rollback restores laser damage');
+  const tapEvents = [];
+  updateEntities({
+    world,
+    events: tapEvents,
+    inputs: new Map([[1, {
+      input: { ...playerInput, laserActive: true, fire: true },
+      changes: [{ offset: 0.01, input: { ...playerInput, laserActive: true, fire: false } }],
+    }]]),
+  });
+  assert(Math.abs(near.health - (97 - 3 * 0.01)) < 1e-8, 'short fire taps retain their damage duration');
+  assert.equal(tapEvents.filter((event) => event.type === 'laserDamage').length, 1);
+  restoreWorld({ world, state: checkpoint });
   ship.firing = false;
   ship.resolveLasers(1, []);
-  assert.equal(near.health, 92.5, 'releasing Space stops damage immediately');
+  assert(Math.abs(near.health - 97) < 1e-8, 'releasing Space stops damage immediately');
   ship.firing = true;
   ship.setModuleActive({ module: Laser, active: false });
   ship.resolveLasers(1, []);
-  assert.equal(near.health, 92.5, 'retraction stops damage immediately');
+  assert(Math.abs(near.health - 97) < 1e-8, 'retraction stops damage immediately');
   ship.setModuleActive({ module: Laser, active: true });
   ship.updateModules(1);
   near.position.x = 1000;
   far.position.x = 1200;
   ship.resolveLasers(1, []);
-  assert.equal(near.health, 92.5, 'targets outside beam range are untouched');
+  assert(Math.abs(near.health - 97) < 1e-8, 'targets outside beam range are untouched');
   near.position = Vec.create(-y, 150);
   far.position = Vec.create(-y, 250);
   ship.rotation = Math.PI / 2;
   ship.resolveLasers(0.2, []);
-  assert.equal(near.health, 91, 'the beam follows ship rotation');
+  assert(Math.abs(near.health - 96.4) < 1e-8, 'the beam follows ship rotation');
   assert.equal(far.health, 100);
 }
 // Deployment and firing are independent, including reversals partway through.
@@ -1406,7 +1431,7 @@ game.scale = 1;
       { type: 'glow', radius: 10, alpha: 0.6 },
     ],
   };
-  const laser = new Laser({ beamEffect, shades: ['#111111', '#222222', '#123456', '#444444', '#555555'], modelShades: ['#010101', '#020202', '#030303', '#040404', '#050505'], reach: 321 });
+  const laser = new Laser({ beamEffect, shades: ['#111111', '#222222', '#123456', '#444444', '#555555'], reach: 321 });
   ship.fit(laser, ship.mounts.find((mount) => mount.fits.includes(Laser)));
   ship.setModuleActive({ module: Laser, active: true });
   ship.updateModules(1);
@@ -1468,7 +1493,7 @@ game.scale = 1;
     ship.moduleStates = ship.moduleStates.map((state) => ({ ...state, shades: state.shades?.slice() }));
     const beforePaintFills = fills.length;
     ship.segmentsAtMount(laser.mount).forEach((segment) => laser.render({ segment, craft: ship }));
-    assert.deepEqual(fills.slice(beforePaintFills).filter((color) => typeof color === 'string'), originalModelFills, 'painting and restoring a laser preserves its fixed model palette');
+    assert.deepEqual(fills.slice(beforePaintFills).filter((color) => typeof color === 'string'), originalModelFills, 'painting and restoring a laser preserves its explicit model colours');
     const expectedGlow = withAlpha({ color: shades[2], alpha: 0.6 });
     assert.equal(halos.at(-2).gradient.stops[0][1], expectedGlow, 'muzzle glow follows the laser paint');
     assert.equal(halos.at(-1).gradient.stops[0][1], expectedGlow, 'impact glow follows the laser paint');
@@ -1591,11 +1616,11 @@ chargingShip.fit(
 );
 const indicators = chargingShip.segments.filter(
   (segment) =>
-    segment.module === chargingGun && segment.rechargeDelay !== undefined && segment.color === 2,
+    segment.module === chargingGun && segment.rechargeDelay !== undefined && segment.color === colors.violet[2],
 );
 assert.equal(indicators.length, 3);
 const backing = chargingShip.segments.find(
-  (segment) => segment.module === chargingGun && segment.color === 0,
+  (segment) => segment.module === chargingGun && segment.color === colors.violet[0],
 );
 chargingGun.render({ segment: backing, craft: chargingShip });
 assert.equal(
@@ -1721,15 +1746,15 @@ const genericGun = new Autogun({
   model: [
     {
       ...Autogun.model[0],
-      color: 1,
+      color: colors.green[1],
       rechargeDelay: 0.1,
-      rechargeColor: 0,
+      rechargeColor: colors.green[0],
       glow: {
         offset: [3, 2],
         radius: 7,
         alpha: 0.4,
         stops: [
-          [0, 1],
+          [0, colors.green[1]],
           [1, '#000', 0],
         ],
       },
@@ -1814,7 +1839,7 @@ for (const y of [-29, 29]) {
     (segment) =>
       segment.module === chargingGun &&
       segment.rechargeDelay === undefined &&
-      segment.color === 2,
+      segment.color === colors.violet[2],
   );
   assert.deepEqual(
     barrel.points(barrel).slice(3, 7),

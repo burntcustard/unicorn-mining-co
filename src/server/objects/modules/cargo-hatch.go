@@ -28,6 +28,7 @@ func SetCargoPickupPoint(point *collision.Collider, item simulation.Entity) {
 	}
 
 	*physics = false
+
 	*point = collision.Collider{
 		Owner:         item,
 		Position:      object.Position,
@@ -49,6 +50,7 @@ func CargoHatchDoorShapeOutline(spec specs.Module, progress, side float64) *simu
 	toY := side * geometry.Length * (1 - cosine)
 	outX := -side * cosine * geometry.DoorWidth
 	outY := -sine * geometry.DoorWidth
+
 	return &simulation.ShapeOutline{
 		Points: []simulation.Point{
 			{outX, fromY + outY},
@@ -91,7 +93,7 @@ func NewCargoHatch(props simulation.ObjectProperties, catalog specs.Catalog) *Ca
 
 		plan.Radius = func(*simulation.Segment) float64 { return d.CargoGeometry.DoorRadius }
 
-		plan.Wreckage = &simulation.SegmentPlan{FillShade: plan.FillShade}
+		plan.Wreckage = &simulation.SegmentPlan{Color: plan.Color, FillShade: plan.FillShade}
 	}
 
 	return m
@@ -144,6 +146,7 @@ func (m *CargoHatch) Collect(ship CargoShip, contact collision.Contact, events *
 	}
 
 	item.Remove()
+
 	event := protocol.ItemCollected{
 		By:       *object.PlayerID,
 		ItemID:   item.ID,

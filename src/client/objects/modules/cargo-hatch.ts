@@ -93,7 +93,7 @@ class CargoHatchModule extends Module {
                 side: Math.sign(mount.localPosition.y),
               }),
             radius: () => cargoHatchGeometry.doorRadius,
-            wreckage: { fillShade: part.fillShade },
+            wreckage: { color: part.color, fillShade: part.fillShade },
           },
     );
   }

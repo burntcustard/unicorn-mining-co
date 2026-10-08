@@ -59,6 +59,7 @@ import {
   tint,
 } from '${root}/src/client/utilities/lighting.ts';
 import { colors } from '${root}/src/specs/colors.ts';
+import { withAlpha } from '${root}/src/client/utilities/color.ts';
 import { renderControls } from '${root}/src/client/ui/controls.ts';
 import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
@@ -696,7 +697,7 @@ const customShieldSpec = {
   model: [
     {
       radius: 11,
-      color: 1,
+      color: colors.orange[1],
       lines: [
         [
           [-3, 2],
@@ -731,8 +732,15 @@ customBody.phase = 0.3;
 customShield.render({ segment: customBody });
 assert.equal(
   draws.at(-1).style,
-  colors.violet[1],
-  'model color controls the generator fill',
+  colors.orange[1],
+  'model color controls the generator fill independently of its paint',
+);
+customBody.fillAlpha = 0.5;
+customShield.render({ segment: customBody });
+assert.equal(
+  draws.at(-1).style,
+  withAlpha({ color: colors.orange[1], alpha: 0.5 }),
+  'model opacity applies to its explicit colour',
 );
 assert.deepEqual(
   Reflect.get(strokePaths.at(-1), 'vertices'),
@@ -1178,8 +1186,8 @@ for (const Weapon of [PlasmaAccelerator, Autogun])
         'all detached weapon parts render',
       );
       assert(
-        fragment.segments.every((segment) => segment.fillShade !== undefined),
-        'weapon wreckage retains its fill shades',
+        fragment.segments.every((segment, index) => segment.fillShade === gun.model[index].fillShade),
+        'weapon wreckage retains its painted fill colours',
       );
       assert(
         strokePaths

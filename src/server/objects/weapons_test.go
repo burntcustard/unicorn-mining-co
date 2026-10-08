@@ -370,7 +370,7 @@ func TestPlasmaRecharge(t *testing.T) {
 		for _, segment := range ship.SegmentsAtMount(gun.ModuleBase().Mount) {
 			outline := segment.Outline().Points
 
-			if segment.FillShade != nil && *segment.FillShade == 0 {
+			if segment.Color == catalog.Colors["violet"][0] {
 				if len(outline) != 4 || outline[0][0] != 0 || outline[2][0] != gun.ModuleBase().Spec.BarrelLength {
 					t.Fatal("the dark backing must span the entire weapon")
 				}
@@ -607,6 +607,7 @@ func TestProjectileExpirySparks(t *testing.T) {
 		simulation.UpdateEntities(world, simulation.UpdateEntitiesOptions{Events: &events, Tick: new(uint64(7))})
 
 		expectedEvents := 1
+
 		if shot.Spec.Projectile.FadeOut > 0 {
 			expectedEvents = 0
 		}

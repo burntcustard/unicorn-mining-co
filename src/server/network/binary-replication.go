@@ -443,7 +443,7 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 			values := make([]protocol.WreckageSegment, len(wreckage))
 
 			for i, w := range wreckage {
-				values[i] = protocol.WreckageSegment{Radius: w.Radius, Offset: w.Offset, Health: w.Health, FillShade: w.FillShade, Stroke: w.Stroke}
+				values[i] = protocol.WreckageSegment{Radius: w.Radius, Offset: w.Offset, Health: w.Health, FillShade: w.FillShade, Color: w.Color, Stroke: w.Stroke}
 
 				if w.ShapeOutline != nil {
 					values[i].ShapeOutline = wireOutline(&simulation.ShapeOutline{Points: w.ShapeOutline})

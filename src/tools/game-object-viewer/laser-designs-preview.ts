@@ -58,7 +58,6 @@ try {
 
       const module = new Laser({
         shades: design.spec.shades,
-        modelShades: design.spec.modelShades,
         model: Laser.createModel(design.spec),
         barrelLength: design.spec.barrelLength,
       });
@@ -72,7 +71,6 @@ try {
         ship.fit(
           new Laser({
             shades: design.spec.shades,
-            modelShades: design.spec.modelShades,
             model: Laser.createModel(design.spec),
             barrelLength: design.spec.barrelLength,
           }),

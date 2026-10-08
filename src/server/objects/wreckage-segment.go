@@ -7,6 +7,7 @@ import (
 )
 
 type WreckageSegment struct {
+	Color        string             `json:"color,omitempty"`
 	ShapeOutline []simulation.Point `json:"shapeOutline,omitempty"`
 	Radius       float64            `json:"radius"`
 	Offset       Vec.Vector         `json:"offset"`

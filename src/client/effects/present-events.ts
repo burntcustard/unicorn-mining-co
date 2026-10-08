@@ -41,6 +41,7 @@ export const presentEvents = ({
       }
     } else if (
       event.type === 'drillDamage' ||
+      event.type === 'laserDamage' ||
       event.type === 'objectDestroyed'
     ) {
       if (event.type === 'objectDestroyed' && sources.has(event.objectId)) {

@@ -13,15 +13,17 @@ type ModuleModelPart = {
   lines?: number[][][];
   covers?: boolean;
   fillAlpha?: number;
-  color?: number;
+  color?: string;
+  // Detached paint tones use the neutral white palette.
+  wreckageColor?: string;
   // Milliseconds after a shot before this part lights again.
   rechargeDelay?: number;
-  rechargeColor?: number;
+  rechargeColor?: string;
   glow?: {
     offset?: [number, number];
     radius: number;
     alpha: number;
-    stops: [number, number | string, number?][];
+    stops: [number, string, number?][];
   };
 };
 
@@ -35,8 +37,6 @@ type ModuleValues = {
   price: number;
   zIndex: RenderingLayer;
   shades?: readonly string[];
-  // Fixed model palette for modules whose paint colours their output.
-  modelShades?: readonly string[];
   // Milliseconds spent moving between retracted and extended positions.
   activationDuration?: number;
   bounciness?: number;
@@ -80,7 +80,6 @@ type ModuleValues = {
   barrelLength?: number;
   model: ModuleModelPart[];
   activationThreshold?: number;
-  damageStepsPerSecond?: number;
   gripDecay?: number;
   gripScale?: number;
   disablePhysics?: boolean;
@@ -131,6 +130,7 @@ export type ModuleSpec = ModuleValues &
       }
     | {
         behavior: 'hornDrill';
+        damageStepsPerSecond?: number;
         damage: number;
         drillTip: NonNullable<ModuleValues['drillTip']>;
         model: (ModuleModelPart & { points: number[][] })[];
@@ -139,7 +139,6 @@ export type ModuleSpec = ModuleValues &
         behavior: 'beam';
         beamEffect: BeamEffectSpec;
         damage: number;
-        damageStepsPerSecond: number;
         barrelLength: number;
         reach: number;
         model: (ModuleModelPart & { points: number[][] })[];

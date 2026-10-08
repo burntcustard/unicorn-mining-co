@@ -46,7 +46,7 @@ func NewSearchLight(props simulation.ObjectProperties, catalog specs.Catalog) *S
 	}
 
 	for _, plan := range housing {
-		plan.Wreckage = &simulation.SegmentPlan{FillShade: plan.FillShade}
+		plan.Wreckage = &simulation.SegmentPlan{Color: plan.Color, FillShade: plan.FillShade}
 		m.Model = append(m.Model, plan)
 	}
 

@@ -690,7 +690,11 @@ func (c *Craft) Wreckage() []WreckageSegment {
 	out := []WreckageSegment{}
 
 	for _, s := range c.Segments {
-		record := WreckageSegment{Offset: s.LocalPosition, Health: *s.TargetHealth(), FillShade: s.FillShade, Stroke: s.Stroke}
+		record := WreckageSegment{Offset: s.LocalPosition, Health: *s.TargetHealth(), FillShade: s.FillShade, Color: s.Color, Stroke: s.Stroke}
+
+		if record.FillShade != nil {
+			record.Color = ""
+		}
 
 		if p := s.Outline(); p != nil {
 			record.ShapeOutline = p.Points
@@ -887,6 +891,19 @@ func (c *Craft) Detach(mount *simulation.Mount) {
 
 	for _, s := range eligible {
 		if s.Wreckage == nil {
+			if s.WreckageColor != "" {
+				copy := *s
+				copy.Color = s.WreckageColor
+				copy.FillShade = nil
+
+				if shade := slices.Index(c.Catalog.Colors["white"], s.WreckageColor); shade >= 0 {
+					fill := float64(shade)
+					copy.FillShade = &fill
+				}
+
+				s = &copy
+			}
+
 			segments = append(segments, s)
 			continue
 		}
@@ -928,8 +945,9 @@ func (c *Craft) Detach(mount *simulation.Mount) {
 		}
 
 		copy.FillShade = plan.FillShade
+		copy.Color = plan.Color
 
-		if copy.FillShade == nil {
+		if copy.FillShade == nil && copy.Color == "" {
 			fill := 1.0
 
 			maximum := s.Module.Base().Health

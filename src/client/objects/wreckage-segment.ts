@@ -4,5 +4,6 @@ export type WreckageSegment = {
   offset: { x: number; y: number };
   health: number;
   fillShade?: number;
+  color?: string;
   stroke?: number[][][];
 };

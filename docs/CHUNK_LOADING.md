@@ -349,3 +349,10 @@ configure widths, pulse timing in milliseconds, offsets, rays and glows. Paint
 colours all three effects; the model keeps its fixed palette. The renderer and
 these specs load statically with the weapon. The cap draws above the beam,
 and the flares draw above the model. No wire fields or loading triggers change.
+
+Beam damage resolves once per 30 Hz simulation tick across the two movement
+substeps; timed control transitions flush the elapsed beam duration to preserve
+short taps. Horn drilling already resolves once per collision tick. Both specs
+use 30 damage steps per second with unchanged damage per second and drill grip.
+Local `laserDamage` events present target-coloured sparks at the traced contact,
+only when damage is applied. They add no wire fields or loading triggers.

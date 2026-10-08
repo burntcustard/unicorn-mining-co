@@ -47,6 +47,7 @@ assert.equal((ship.cargoContents[1] as { id: number }).id, 25);
 assert.equal((ship.cargoContents[1] as { rounds: number }).rounds, 137);
 
 assert.equal(ship.wreckage?.[0].fillShade, 2);
+assert.equal(ship.wreckage?.[0].color, '#fa3');
 assert.equal(asteroid.kind, 'asteroid');
 assert.deepEqual(asteroid.contents, [0, 2]);
 assert.equal(asteroid.segments?.[0].health, 10);

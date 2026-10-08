@@ -37,7 +37,7 @@ export const autogun = {
   model: [
     {
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [0, -0.5],
         [22, -0.5],
@@ -47,7 +47,7 @@ export const autogun = {
     },
     {
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [0, 0.5],
         [22, 0.5],
@@ -57,7 +57,7 @@ export const autogun = {
     },
     {
       outline: false,
-      color: 2,
+      color: colors.violet[2],
       points: [
         [17, -4],
         [21, -4],

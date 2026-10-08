@@ -5,6 +5,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"math"
+	"slices"
 )
 
 type Module struct {
@@ -35,12 +36,24 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 
 	m.ApplyProperties(props)
 
+	palette := spec.Shades
+
+	if len(palette) == 0 {
+		palette = catalog.Colors["violet"]
+	}
+
 	for _, part := range spec.Model {
 		plan := &simulation.SegmentPlan{
-			FillShade:          part.Color,
+			Color:              part.Color,
+			WreckageColor:      part.WreckageColor,
 			Covers:             part.Covers,
 			Catches:            part.Catches,
 			ThrusterNozzleSide: part.ThrusterNozzleSide,
+		}
+
+		if shade := slices.Index(palette, part.Color); shade >= 0 {
+			fill := float64(shade)
+			plan.FillShade = &fill
 		}
 
 		if part.Outline != nil && !*part.Outline {

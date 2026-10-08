@@ -116,9 +116,23 @@ export class Weapon extends Module {
     const { segment } = options;
 
     if (segment.rechargeDelay !== undefined) {
-      segment.fillShade = this.charged(segment)
-        ? (segment.color ?? 2)
+      const color = this.charged(segment)
+        ? segment.color
         : segment.rechargeColor;
+      const shade = this.paintShade(color);
+
+      segment.fillShade = shade < 0 ? undefined : shade;
+
+      super.render({
+        ...options,
+        segment: {
+          ...segment,
+          color: this.paintedColor(color, segment.shades),
+          fillShade: undefined,
+        },
+      });
+
+      return;
     }
 
     super.render(options);
@@ -147,11 +161,11 @@ export class Weapon extends Module {
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, glow.radius);
 
     glow.stops.forEach(
-      ([offset, color, alpha = 1]: [number, number | string, number?]) =>
+      ([offset, color, alpha = 1]: [number, string, number?]) =>
         gradient.addColorStop(
           offset,
           withAlpha({
-            color: typeof color === 'number' ? segment.shades[color] : color,
+            color: this.paintedColor(color, segment.shades),
             alpha,
           }),
         ),
@@ -248,7 +262,10 @@ class AutogunModule extends Weapon {
     barrels.slice(pair * 2, pair * 2 + 2).forEach(([offset, depth]) => {
       super.render({
         ...options,
-        segment: { ...segment, fillShade: depth > 0 ? 2 : 0 },
+        segment: {
+          ...segment,
+          fillShade: depth > 0 ? 2 : 0,
+        },
         points: points.map(([x, y]) => [x, y - middle[1] + offset]),
       });
     });

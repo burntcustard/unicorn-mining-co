@@ -170,6 +170,8 @@ const makeSegment = (
       covers: undefined,
       fillAlpha: undefined,
       fillShade: undefined,
+      color: undefined,
+      wreckageColor: undefined,
       shapeOutline: undefined,
       wreckage: undefined,
       catches: undefined,
@@ -348,11 +350,22 @@ export class Craft extends GameObject {
           points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
           fillShade:
             wreckage.fillShade ??
-            ((segment.mount || segment).health <
-            (segment.module.health || segment.module.healthActivated) / 2
-              ? 0
-              : 1),
+            (wreckage.color
+              ? undefined
+              : (segment.mount || segment).health <
+                  (segment.module.health || segment.module.healthActivated) / 2
+                ? 0
+                : 1),
           radius: () => radius,
+        });
+      }
+
+      if (segment.wreckageColor) {
+        const shade = colors.white.indexOf(segment.wreckageColor);
+
+        return Object.assign(Object.create(segment), {
+          color: segment.wreckageColor,
+          fillShade: shade < 0 ? undefined : shade,
         });
       }
 
@@ -1078,10 +1091,16 @@ export class Craft extends GameObject {
         ? 0
         : +!!segment.hull);
 
+    const color = segment.fillShade === undefined ? segment.color : undefined;
+
     ctx.fillStyle =
       segment.fillAlpha !== undefined
-        ? withAlpha({ color: segment.shades[2], alpha: segment.fillAlpha })
-        : segment.shades[worn];
+        ? withAlpha({
+            color: color ?? segment.shades[2],
+            alpha: segment.fillAlpha,
+          })
+        : (color ?? segment.shades[worn]);
+
     ctx.strokeStyle = segment.shades[2];
     drawSegment({ ctx, segment });
   }
@@ -1355,6 +1374,7 @@ export class Craft extends GameObject {
           offset: segment.localPosition,
           health: (segment.mount || segment).health,
           fillShade: segment.fillShade,
+          color: segment.fillShade === undefined ? segment.color : undefined,
           stroke: segment.shapeOutline,
         }))
       : undefined;
