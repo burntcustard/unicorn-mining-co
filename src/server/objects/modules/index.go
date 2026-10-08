@@ -16,7 +16,7 @@ func Create(id string, props simulation.ObjectProperties, catalog specs.Catalog)
 		return NewSearchLight(props, catalog)
 	case "hornDrill":
 		return NewHornDrill(props, catalog)
-	case "weapon":
+	case "weapon", "beam":
 		return NewModule(id, props, catalog)
 	case "shieldGenerator":
 		return newShieldGenerator(id, props, catalog)

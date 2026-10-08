@@ -7,6 +7,7 @@ import { moduleControls as gameModuleControls } from '../../client/objects/contr
 import { moduleBinding } from '../../client/input/keybindings';
 import { createWorld } from '../../client/simulation/world';
 import { autogunAmmunition } from '../../specs/items';
+import { Laser } from '../../client/objects/modules/laser';
 import { Weapon } from '../../client/objects/modules/weapon';
 import { type GameObject } from '../../client/objects/game-object';
 import { renderingLayers } from '../../specs/rendering-layers';
@@ -99,7 +100,7 @@ const createMountControls = ({
   const module = attached ? new attached.Type() : 0;
   const control = gameModuleControls.find(({ Type }) => module instanceof Type);
   const mode =
-    module instanceof Weapon
+    module instanceof Weapon || module instanceof Laser
       ? 'hold'
       : control
         ? moduleBinding(control.input).mode
@@ -117,8 +118,10 @@ const createMountControls = ({
     });
 
   const release = () => {
-    if (module instanceof Weapon) craft.firing = false;
-    else setActive(false);
+    if (module instanceof Weapon || module instanceof Laser) {
+      craft.firing = false;
+    } else setActive(false);
+
     releases.delete(release);
   };
 
@@ -135,10 +138,11 @@ const createMountControls = ({
   craft.fit(module, mount);
 
   // A stationary preview must not accumulate recoil between shots.
-  if (module instanceof Weapon) module.recoil = 0;
+  if (module instanceof Weapon || module instanceof Laser) module.recoil = 0;
 
   checkbox.type = 'checkbox';
-  checkbox.hidden = firing && !(module instanceof Weapon);
+  checkbox.hidden =
+    firing && !(module instanceof Weapon || module instanceof Laser);
   checkbox.checked = !!module && (activation[key] ?? false);
   checkbox.disabled = !module;
   checkbox.dataset.module = key;
@@ -253,9 +257,7 @@ const rebuild = () => {
     craft.world = world;
     craft.playerId = 1;
     world.players.set(1, { id: 1, shipId: craft.id });
-    craft.cargoContents.push(
-      new Item(autogunAmmunition, { rounds: Infinity }),
-    );
+    craft.cargoContents.push(new Item(autogunAmmunition, { rounds: Infinity }));
     state.modules[spec.key] ||= {};
     state.attachments[spec.key] ||= {};
     const mounts = previewMounts(craft);
@@ -335,7 +337,10 @@ const render = (now: number) => {
       previewObject.mounts
         .filter(
           ({ module }) =>
-            module && (module.collectsCargo || module instanceof Weapon),
+            module &&
+            (module.collectsCargo ||
+              module instanceof Weapon ||
+              module instanceof Laser),
         )
         .forEach(({ localPosition: { x, y } }) => {
           ctx.beginPath();
@@ -436,12 +441,11 @@ document.querySelector<HTMLButtonElement>('#replay-effect')!.onclick = () => {
   addEffect({ position: Vec.create(), effect: plasmaExplosion });
 };
 
-document.querySelector<HTMLButtonElement>(
-  '#replay-autogun-effect',
-)!.onclick = () => {
-  effects.length = 0;
-  addEffect({ position: Vec.create(), effect: autogunExplosion });
-};
+document.querySelector<HTMLButtonElement>('#replay-autogun-effect')!.onclick =
+  () => {
+    effects.length = 0;
+    addEffect({ position: Vec.create(), effect: autogunExplosion });
+  };
 
 canvas.onpointermove = (event) => {
   pointer = Vec.create(event.offsetX, event.offsetY);

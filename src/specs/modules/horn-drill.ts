@@ -9,7 +9,7 @@ export const hornDrill = {
   price: 350,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.yellow,
-  activationDuration: 0.5,
+  activationDuration: 500,
   friction: 0.3,
   damage: 0.5,
   grinds: true,

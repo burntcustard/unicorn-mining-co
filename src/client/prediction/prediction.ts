@@ -70,6 +70,9 @@ const matches = ({
         predicted.type === module.type &&
         predicted.mount === module.mount &&
         predicted.health === module.health &&
+        Math.abs(
+          (predicted.healthActivated ?? 0) - (module.healthActivated ?? 0),
+        ) < 1e-8 &&
         Math.abs((predicted.fireCooldown || 0) - (module.fireCooldown || 0)) <
           1e-8 &&
         Math.abs(

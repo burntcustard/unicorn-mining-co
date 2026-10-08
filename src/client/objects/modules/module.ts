@@ -1,3 +1,4 @@
+import { moduleSpecForSimulation } from '../../utilities/module-spec';
 import { withAlpha } from '../../utilities/color';
 import { game } from '../../game';
 import { circlePath, shapePath, linesPath } from '../../utilities/drawing';
@@ -32,7 +33,7 @@ export class Module extends GameObject {
 
   static define<T extends typeof Module>(this: T, id: ModuleId): T {
     // Use the wire-ordered catalog; spec object keys are mangled separately.
-    const spec = moduleSpecList[moduleIds.indexOf(id)];
+    const spec = moduleSpecForSimulation(moduleSpecList[moduleIds.indexOf(id)]);
 
     class DefinedModule extends (this as typeof Module) {
       static definitionId = id;
@@ -73,7 +74,7 @@ export class Module extends GameObject {
             : undefined;
 
         if (!shape) return;
-        const shades = this.shades || segment.shades;
+        const shades = this.modelShades || this.shades || segment.shades;
 
         // Modules default to their darkest shade, a step below the hull's.
         ctx.fillStyle =

@@ -5,11 +5,12 @@ import type { ModuleSpec } from './types';
 export const shield = {
   behavior: 'shieldGenerator',
   health: 40,
+  healthActivated: 100,
+  rechargeDuration: 10000,
   zIndex: renderingLayers.modulesAboveShipHull,
   shades: colors.violet,
   bounciness: 0.8,
-  coverDuration: 0.2,
-  unhurtWhen: 1,
+  coverDuration: 200,
   model: [
     {
       outline: true,

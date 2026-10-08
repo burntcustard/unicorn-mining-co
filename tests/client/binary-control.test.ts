@@ -11,6 +11,12 @@ import type { ClientMessage } from '../../src/client/protocol/network';
 const token = '12345678-9abc-4def-8012-3456789abcde';
 
 const controls: ClientMessage[] = [
+  {
+    type: 'input',
+    tick: 1,
+    sequence: 1,
+    input: { ...emptyPlayerInput(), laserActive: true, fire: true },
+  },
   { type: 'hello', playerToken: null },
   { type: 'hello', playerToken: token },
   {
@@ -147,7 +153,7 @@ for (const invalid of [
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
-  changed(input, 7, 16), // invalid input flags
+  changed(input, 7, 32), // invalid input flags
   changed(paint, 6, 4), // unknown optional field bit
   Uint8Array.from([0x55, 0x43, 1, 2, 1, 0]), // empty sell list
 ]) {

@@ -269,7 +269,7 @@ move(-1);
 assert(selectionSnapshot(ship)[3] === 0,
   'up from paint returns to FIX on a horizontal action row');
 confirm();
-assert(mount.health === CargoHatch.health && player.credits === repairCredits - 1,
+assert(mount.health === CargoHatch.healthActivated && player.credits === repairCredits - 1,
   'module repair charges for displayed missing HP');
 assert.deepEqual(pendingRepairs.shift(),
   {action: 'repair', moduleId: bought.id, mount: ship.mounts.indexOf(mount)},
@@ -367,7 +367,7 @@ damaged.fit(spare, brokenMount);
 const segment = damaged.segmentsAtMount(brokenMount)[0];
 segment.active = 1;
 const attachedDoor = segment.points(segment).map(([x,y]) => Vec.add(segment.localPosition, Vec.create(x,y)));
-damage(segment, CargoHatch.health);
+damage(segment, CargoHatch.healthActivated);
 damaged.update(0);
 assert(!damaged.modules.length && !damaged.cargoContents.length && !brokenMount.module, 'destroyed module removed');
 assert(!damaged.segmentsAtMount(brokenMount).length, 'destroyed geometry detached');

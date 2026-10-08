@@ -200,6 +200,11 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 
 						if offset > elapsed {
 							entity.Update(offset - elapsed)
+							if laser, ok := entity.(interface {
+								ResolveLasers(float64, *[]protocol.SimulationEvent)
+							}); ok {
+								laser.ResolveLasers(offset-elapsed, events)
+							}
 						}
 
 						ship.Control(change.Input, events)
@@ -209,6 +214,11 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 			}
 
 			entity.Update(end - elapsed)
+			if laser, ok := entity.(interface {
+				ResolveLasers(float64, *[]protocol.SimulationEvent)
+			}); ok {
+				laser.ResolveLasers(end-elapsed, events)
+			}
 
 			if object.Dead {
 				if source, ok := entity.(interface {
@@ -220,7 +230,9 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 				if source, ok := entity.(interface {
 					DeathEvent() protocol.SimulationEvent
 				}); ok {
-					*events = append(*events, source.DeathEvent())
+					if event := source.DeathEvent(); event != nil {
+						*events = append(*events, event)
+					}
 				}
 
 				world.Entities.Delete(object.ID)

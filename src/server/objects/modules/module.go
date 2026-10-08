@@ -4,6 +4,7 @@ package modules
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	"math"
 )
 
 type Module struct {
@@ -54,7 +55,7 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 			plan.Points = points(part.Points)
 		}
 
-		if spec.Behavior == "weapon" {
+		if spec.Behavior == "weapon" || spec.Behavior == "beam" {
 			radius := max(
 				simulation.RadiusOf(plan.Points.Points, simulation.Point{}),
 				simulation.RadiusOf(plan.Points.Points, simulation.Point{spec.RetractionDistance, 0}),
@@ -72,8 +73,14 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 
 				outline := points(part.Points)
 
+				progress := segment.ActivationProgress
+
+				if segment.Active != 1 && spec.DischargeDuration > 0 {
+					progress = math.Min(1, progress*(1+spec.DischargeDuration/spec.ActivationDuration))
+				}
+
 				for i := range outline.Points {
-					outline.Points[i][0] -= spec.RetractionDistance * (1 - segment.ActivationProgress)
+					outline.Points[i][0] -= spec.RetractionDistance * (1 - progress)
 					outline.Points[i][1] *= side
 				}
 

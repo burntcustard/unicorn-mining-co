@@ -128,7 +128,13 @@ func (s *Ship) RepairCost(mount *simulation.Mount) float64 {
 	}
 
 	if mount.Module != nil {
-		return mount.Module.Base().Health - integer32(mount.Health)
+		maximum := mount.Module.Base().Health
+
+		if maximum == 0 && mount.Module.ModuleBase().Spec.HealthActivated != nil {
+			maximum = *mount.Module.ModuleBase().Spec.HealthActivated
+		}
+
+		return maximum - integer32(mount.Health)
 	}
 
 	return 0
@@ -278,6 +284,11 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 
 			*credits -= cost
 			mount.Health = mount.Module.Base().Health
+
+			if mount.Health == 0 && mount.Module.ModuleBase().Spec.HealthActivated != nil {
+				mount.Health = *mount.Module.ModuleBase().Spec.HealthActivated
+				mount.HealthActivated = new(mount.Health)
+			}
 		}
 	case "paint":
 		if action.Paint < 0 || action.Paint >= int64(len(s.Catalog.PaintColors)) {

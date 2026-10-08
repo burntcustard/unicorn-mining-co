@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Laser design comparison</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0b1017;
+        color: #ecf0f4;
+        font-family: system-ui, sans-serif;
+      }
+      main {
+        width: 1256px;
+        margin: 28px auto;
+      }
+      header {
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+      p {
+        margin: 0;
+        color: #a7b4c5;
+        font-size: 15px;
+      }
+      article {
+        background: #141c27;
+        border: 1px solid #2b394a;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 20px;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        color: #ffe466;
+      }
+      .panels {
+        display: flex;
+        margin-top: 24px;
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-bottom: 12px;
+        font-size: 12px;
+        letter-spacing: 1px;
+        color: #a7b4c5;
+      }
+      canvas {
+        background: #0b1017;
+        border: 1px solid #273343;
+        border-radius: 8px;
+        display: block;
+      }
+      footer {
+        color: #8c9caf;
+        font-size: 12px;
+        margin-top: 16px;
+      }
+      #error {
+        color: #ff7777;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Beam Laser / Grey emitter</h1>
+        <p>
+          Four shapes · one yellow frame · dark grey emitter with light grey
+          edges
+        </p>
+      </header>
+      <div id="designs"></div>
+      <pre id="error"></pre>
+    </main>
+    <script type="module" src="./laser-designs-preview.ts"></script>
+  </body>
+</html>

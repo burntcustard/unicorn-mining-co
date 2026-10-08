@@ -338,6 +338,16 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 
 		mount.Health = module.Base().Health
 
+		if module.ModuleBase().Spec.HealthActivated != nil {
+			mount.HealthActivated = new(*module.ModuleBase().Spec.HealthActivated)
+
+			if mount.Health == 0 {
+				mount.Health = *mount.HealthActivated
+			}
+		} else {
+			mount.HealthActivated = nil
+		}
+
 		c.CargoContents = slices.DeleteFunc(c.CargoContents, func(e simulation.Entity) bool { return e == module })
 
 		module.ModuleBase().Mount = mount
@@ -542,6 +552,10 @@ func (c *Craft) ModuleStates() []ModuleState {
 
 		state := ModuleState{ID: &id, Type: slices.Index(c.Catalog.ModuleIDs, d.Type), Mount: slices.Index(mounts, d.Mount), Health: &health, Shades: module.Base().Shades, Segments: []ModuleSegmentState{}}
 
+		if d.Mount != nil && d.Mount.HealthActivated != nil {
+			state.HealthActivated = new(*d.Mount.HealthActivated)
+		}
+
 		if d.ChargeCooldown > 0 {
 			state.ChargeCooldown = new(d.ChargeCooldown)
 		}
@@ -643,6 +657,12 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 					mount.Health = *state.Health
 				}
 
+				if state.HealthActivated != nil {
+					mount.HealthActivated = new(*state.HealthActivated)
+				} else if module.ModuleBase().Spec.Health == 0 && module.ModuleBase().Spec.HealthActivated != nil {
+					mount.HealthActivated = new(mount.Health)
+				}
+
 				for at, s := range c.SegmentsAtMount(mount) {
 					if at < len(state.Segments) {
 						s.Active = state.Segments[at].Active
@@ -688,7 +708,7 @@ func (c *Craft) Wreckage() []WreckageSegment {
 
 func (c *Craft) ModuleActive(id string) bool {
 	for _, s := range c.Segments {
-		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) && !(*s.TargetHealth() < 1) && s.Active != 0 {
+		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) && !(*s.TargetHealth() < 1) && s.Active != 0 && (s.Module.ModuleBase().Spec.RechargeDuration == 0 || s.Mount.HealthActivated != nil && *s.Mount.HealthActivated > 0) {
 			return true
 		}
 	}
@@ -705,7 +725,7 @@ func (c *Craft) SetModuleActive(id string, enabled bool) {
 
 	for _, s := range c.Segments {
 		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) {
-			s.Active = value
+			c.setSegmentActive(s, value)
 		}
 	}
 }
@@ -713,15 +733,62 @@ func (c *Craft) SetModuleActive(id string, enabled bool) {
 func (c *Craft) Toggle(id string) {
 	for _, s := range c.Segments {
 		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) {
-			s.Active = 1 - s.Active
+			c.setSegmentActive(s, 1-s.Active)
 		}
 	}
 }
 
+func (c *Craft) setSegmentActive(s *simulation.Segment, active float64) {
+	spec := s.ModuleSpec()
+
+	if active != 0 && spec.RechargeDuration > 0 && s.Mount != nil && s.Mount.HealthActivated != nil && (*s.Mount.HealthActivated <= 0 || s.Active == 0 && *s.Mount.HealthActivated < *spec.HealthActivated-1e-9) {
+		active = 0
+	}
+
+	duration := spec.DischargeDuration
+
+	if duration > 0 && s.Active != active {
+		ratio := 1 + duration*s.Rate
+
+		if active == 1 {
+			s.ActivationProgress = math.Min(1, s.ActivationProgress*ratio)
+		} else if s.ActivationProgress != 1 {
+			s.ActivationProgress /= ratio
+		}
+	}
+
+	s.Active = active
+}
+
 func (c *Craft) UpdateModules(dt float64) {
+	for _, module := range c.Modules() {
+		data := module.ModuleBase()
+		mount := data.Mount
+
+		if data.Spec.RechargeDuration <= 0 || mount == nil || mount.Health < 1 || mount.HealthActivated == nil {
+			continue
+		}
+
+		segments := c.SegmentsAtMount(mount)
+
+		if *mount.HealthActivated <= 0 {
+			for _, s := range segments {
+				s.Active = 0
+
+				if s.Covers {
+					s.ActivationProgress = 0
+				}
+			}
+		}
+
+		if !slices.ContainsFunc(segments, func(s *simulation.Segment) bool { return s.Active != 0 }) {
+			*mount.HealthActivated = math.Min(*data.Spec.HealthActivated, *mount.HealthActivated+*data.Spec.HealthActivated*dt/data.Spec.RechargeDuration)
+		}
+	}
+
 	for index, s := range c.Segments {
 		if c.DockedTo != nil && *c.DockedTo != 0 {
-			s.Active = 0
+			c.setSegmentActive(s, 0)
 		}
 
 		target := s.Active
@@ -731,7 +798,13 @@ func (c *Craft) UpdateModules(dt float64) {
 		}
 
 		previous := s.ActivationProgress
-		s.ActivationProgress = utilities.Approach(previous, target, s.Rate*dt)
+		rate := s.Rate
+
+		if target == 0 && s.ModuleSpec().DischargeDuration > 0 {
+			rate = 1 / (1/s.Rate + s.ModuleSpec().DischargeDuration)
+		}
+
+		s.ActivationProgress = utilities.Approach(previous, target, rate*dt)
 
 		if s.Module != nil {
 			module := s.Module.ModuleBase()
@@ -859,7 +932,13 @@ func (c *Craft) Detach(mount *simulation.Mount) {
 		if copy.FillShade == nil {
 			fill := 1.0
 
-			if *s.TargetHealth() < s.Module.Base().Health/2 {
+			maximum := s.Module.Base().Health
+
+			if maximum == 0 && s.Module.ModuleBase().Spec.HealthActivated != nil {
+				maximum = *s.Module.ModuleBase().Spec.HealthActivated
+			}
+
+			if *s.TargetHealth() < maximum/2 {
 				fill = 0
 			}
 

@@ -177,13 +177,19 @@ export const updateEntities = ({
 
           if (offset < elapsed || offset >= end) continue;
 
-          if (offset > elapsed) entity.update(offset - elapsed);
+          if (offset > elapsed) {
+            entity.update(offset - elapsed);
+            entity.resolveLasers(offset - elapsed, events);
+          }
+
           controlShip(entity, change.input, events);
           elapsed = offset;
         }
       }
 
       entity.update(end - elapsed);
+
+      if (entity instanceof Ship) entity.resolveLasers(end - elapsed, events);
 
       if (entity.dead) {
         entity.onDeath?.(events);

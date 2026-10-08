@@ -104,6 +104,7 @@ func TestWeaponBarrelCollisions(t *testing.T) {
 			simulation.AddEntity(world, craft)
 			gun := modules.Create(weapon, simulation.ObjectProperties{World: world}, catalog)
 			craft.Fit(gun, mount)
+			craft.SetModuleActive(weapon, true)
 
 			for _, segment := range craft.SegmentsAtMount(mount) {
 				segment.ActivationProgress = 1
@@ -605,14 +606,21 @@ func TestProjectileExpirySparks(t *testing.T) {
 		events := []protocol.SimulationEvent{}
 		simulation.UpdateEntities(world, simulation.UpdateEntitiesOptions{Events: &events, Tick: new(uint64(7))})
 
-		if !shot.Dead || len(events) != 1 {
-			t.Fatal("timed-out projectiles must emit one gameplay death event")
+		expectedEvents := 1
+		if shot.Spec.Projectile.FadeOut > 0 {
+			expectedEvents = 0
 		}
 
-		event, ok := events[0].(protocol.ObjectDestroyed)
+		if !shot.Dead || len(events) != expectedEvents {
+			t.Fatal("fading expiry must be silent; other projectiles emit one death event")
+		}
 
-		if !ok || event.ObjectID != shot.ID || event.Color != catalog.ModuleSpecs[id].Projectile.Color || event.Damage != catalog.ModuleSpecs[id].Damage || event.Position != shot.Position {
-			t.Fatal("expiry sparks must retain the projectile's colour and location")
+		if expectedEvents > 0 {
+			event, ok := events[0].(protocol.ObjectDestroyed)
+
+			if !ok || event.ObjectID != shot.ID || event.Color != catalog.ModuleSpecs[id].Projectile.Color || event.Damage != catalog.ModuleSpecs[id].Damage || event.Position != shot.Position {
+				t.Fatal("expiry sparks must retain the projectile's colour and location")
+			}
 		}
 
 		if id == "autogun" && Vec.Length(neighbour.Velocity) != 0 || id == "plasmaAccelerator" && neighbour.Velocity.X <= 0 {
@@ -981,10 +989,11 @@ func TestExplosionDamagesModuleOnce(t *testing.T) {
 	simulation.AddEntity(world, craft)
 	gun := modules.Create("plasmaAccelerator", simulation.ObjectProperties{World: world}, catalog)
 	craft.Fit(gun, mount)
+	craft.SetModuleActive("plasmaAccelerator", true)
 	events := []protocol.SimulationEvent{}
 	Explode(ExplosionOptions{Object: source, Radius: 24, Damage: 3, Events: &events})
 
-	if mount.Health != gun.ModuleBase().Spec.Health-3 {
+	if mount.Health != *gun.ModuleBase().Spec.HealthActivated-3 {
 		t.Fatal("overlapping parts must damage the module mount only once")
 	}
 
@@ -1063,14 +1072,20 @@ func TestWeaponDeployment(t *testing.T) {
 
 			health := gun.ModuleBase().Mount.Health
 
-			if Damage(part, 1) != 0 || gun.ModuleBase().Mount.Health != health {
-				t.Fatal("active weapons must be immune to damage")
+			if Damage(part, 1) != 1 || gun.ModuleBase().Mount.Health != health-1 {
+				t.Fatal("active weapons must take damage")
 			}
 
 			ship.Control(protocol.Input{Fire: true}, &events)
 			ship.UpdateModules(spec.ActivationDuration / 4)
 
-			if part.ActivationProgress != .25 {
+			ratio := 1.0
+
+			if spec.DischargeDuration > 0 {
+				ratio += spec.DischargeDuration / spec.ActivationDuration
+			}
+
+			if math.Abs(part.ActivationProgress-.25/ratio) > 1e-9 {
 				t.Fatal("reversal must continue from current deployment progress")
 			}
 
@@ -1080,8 +1095,8 @@ func TestWeaponDeployment(t *testing.T) {
 				t.Fatal("retraction must block firing")
 			}
 
-			if Damage(part, 1) != 1 {
-				t.Fatal("inactive weapons must remain vulnerable")
+			if Damage(part, 1) != 0 {
+				t.Fatal("inactive weapons must be invulnerable")
 			}
 
 			ship.Control(protocol.Input{PlasmaActive: true, AutogunActive: true, Fire: true}, &events)
@@ -1152,10 +1167,155 @@ func TestWeaponDeployment(t *testing.T) {
 				t.Fatal("deactivation must block firing immediately")
 			}
 
-			ship.UpdateModules(spec.ActivationDuration)
+			shutdown := spec.ActivationDuration
 
-			if part.ActivationProgress != 0 {
+			if spec.DischargeDuration > 0 {
+				shutdown += spec.DischargeDuration
+			}
+
+			if spec.DischargeDuration > 0 {
+				ship.UpdateModules(shutdown - spec.ActivationDuration)
+
+				if part.Outline().Points[0][0] != x {
+					t.Fatal("barrels must remain extended throughout spin-down")
+				}
+
+				ship.UpdateModules(spec.ActivationDuration / 2)
+
+				if math.Abs(part.Outline().Points[0][0]-(x-spec.RetractionDistance/2)) > 1e-9 {
+					t.Fatal("retraction must use the same slide duration as extension")
+				}
+
+				ship.UpdateModules(spec.ActivationDuration / 2)
+			} else {
+				ship.UpdateModules(shutdown)
+			}
+
+			if math.Abs(part.ActivationProgress) > 1e-9 {
 				t.Fatal("deactivation must fully retract")
+			}
+		})
+	}
+}
+
+func TestModuleHealthPools(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, activated := range []*float64{nil, new(6.0)} {
+		spec := catalog.ModuleSpecs["autogun"]
+		spec.Health = 10
+		spec.HealthActivated = activated
+		catalog.ModuleSpecs["autogun"] = spec
+		gun := modules.Create("autogun", simulation.ObjectProperties{ID: new(int64(1))}, catalog)
+
+		for _, active := range []float64{0, 1} {
+			mount := &simulation.Mount{Health: 10}
+
+			if activated != nil {
+				mount.HealthActivated = new(*activated)
+			}
+
+			part := &simulation.Segment{Module: gun, Mount: mount, Active: active}
+
+			if Damage(part, 1) != 1 {
+				t.Fatal("healthy module should take damage")
+			}
+
+			if activated != nil && active == 1 {
+				if mount.Health != 10 || *mount.HealthActivated != 5 {
+					t.Fatal("active health must be independent")
+				}
+			} else if mount.Health != 9 {
+				t.Fatal("shared or inactive health must take damage")
+			}
+		}
+	}
+}
+
+func TestShieldHealthAndRecharge(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, id := range []string{"shieldGeneratorSm", "shieldGeneratorMd"} {
+		t.Run(id, func(t *testing.T) {
+			spec := catalog.ModuleSpecs[id]
+			spec.Health = 13
+			spec.HealthActivated = new(31.0)
+			spec.RechargeDuration = 2
+			catalog.ModuleSpecs[id] = spec
+			world := simulation.CreateWorld(25, catalog)
+			mountPlan := simulation.NewMount([]specs.MountPoint{{X: 20, Y: 20, Fits: []string{id}}})
+			plan := &simulation.SegmentPlan{Health: new(100.0), Points: &simulation.ShapeOutline{Points: []simulation.Point{{-2, -2}, {2, -2}, {2, 2}, {-2, 2}}}, Mounts: []*simulation.Mount{mountPlan}}
+			ship := NewCraft(Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, []*simulation.SegmentPlan{plan}, catalog)
+			gun := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
+
+			for _, mount := range ship.Mounts() {
+				if slices.Contains(mount.Fits, id) {
+					ship.Fit(gun, mount)
+					break
+				}
+			}
+
+			parts := ship.SegmentsAtMount(gun.ModuleBase().Mount)
+			var body, bubble *simulation.Segment
+
+			for _, part := range parts {
+				if part.Covers {
+					bubble = part
+				} else {
+					body = part
+				}
+			}
+
+			mount := gun.ModuleBase().Mount
+			Damage(body, 5)
+			ship.SetModuleActive(id, true)
+			ship.UpdateModules(spec.CoverDuration)
+			Damage(bubble, 17)
+
+			if mount.Health != 8 || *mount.HealthActivated != 14 {
+				t.Fatal("shield health must be separate from generator health")
+			}
+
+			saved := ship.ModuleStates()
+			Damage(bubble, 100)
+
+			if bubble.ActivationProgress != 0 {
+				t.Fatal("depletion must pop the bubble immediately")
+			}
+
+			ship.UpdateModules(0)
+			ship.SetModuleActive(id, true)
+
+			if ship.ModuleActive(id) {
+				t.Fatal("depleted shield must not activate")
+			}
+
+			ship.UpdateModules(spec.RechargeDuration / 2)
+			ship.SetModuleActive(id, true)
+
+			if ship.ModuleActive(id) || *mount.HealthActivated != 15.5 {
+				t.Fatal("partial recharge must block activation")
+			}
+
+			ship.UpdateModules(spec.RechargeDuration / 2)
+			ship.SetModuleActive(id, true)
+
+			if !ship.ModuleActive(id) || *mount.HealthActivated != 31 {
+				t.Fatal("full recharge must enable activation")
+			}
+
+			ship.SetModuleStates(saved)
+
+			if mount.Health != 8 || *mount.HealthActivated != 14 || !ship.ModuleActive(id) {
+				t.Fatal("snapshots must restore both health pools")
 			}
 		})
 	}

@@ -7,12 +7,13 @@ type ModuleSegmentState struct {
 }
 
 type ModuleState struct {
-	ChargeCooldown *float64             `json:"chargeCooldown,omitempty"`
-	FireCooldown   *float64             `json:"fireCooldown,omitempty"`
-	ID             *int64               `json:"id,omitempty"`
-	Type           int                  `json:"type"`
-	Mount          int                  `json:"mount"`
-	Health         *float64             `json:"health,omitempty"`
-	Shades         []string             `json:"shades,omitempty"`
-	Segments       []ModuleSegmentState `json:"segments"`
+	HealthActivated *float64             `json:"healthActivated,omitempty"`
+	ChargeCooldown  *float64             `json:"chargeCooldown,omitempty"`
+	FireCooldown    *float64             `json:"fireCooldown,omitempty"`
+	ID              *int64               `json:"id,omitempty"`
+	Type            int                  `json:"type"`
+	Mount           int                  `json:"mount"`
+	Health          *float64             `json:"health,omitempty"`
+	Shades          []string             `json:"shades,omitempty"`
+	Segments        []ModuleSegmentState `json:"segments"`
 }

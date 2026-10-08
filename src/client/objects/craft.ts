@@ -54,6 +54,7 @@ export type ModuleState = {
   type: number;
   mount: number;
   health?: number;
+  healthActivated?: number;
   fireCooldown?: number;
   chargeCooldown?: number;
   shades?: readonly string[];
@@ -347,7 +348,8 @@ export class Craft extends GameObject {
           points: points?.map(([x, y]) => [x - middle[0], y - middle[1]]),
           fillShade:
             wreckage.fillShade ??
-            ((segment.mount || segment).health < segment.module.health / 2
+            ((segment.mount || segment).health <
+            (segment.module.health || segment.module.healthActivated) / 2
               ? 0
               : 1),
           radius: () => radius,
@@ -412,7 +414,12 @@ export class Craft extends GameObject {
     }
 
     mount.module = craftModule;
-    mount.health = craftModule && craftModule.health;
+    // With no exposed inactive body, structural health tracks active integrity.
+    mount.health =
+      craftModule && (craftModule.health || craftModule.healthActivated);
+    mount.healthActivated = craftModule
+      ? craftModule.healthActivated
+      : undefined;
 
     if (craftModule) {
       const point = mount.mountPoints!.find(({ fits }) =>
@@ -848,7 +855,8 @@ export class Craft extends GameObject {
       (segment) =>
         segment.module instanceof module &&
         !((segment.mount || segment).health < 1) &&
-        Boolean(segment.active),
+        Boolean(segment.active) &&
+        (!segment.module.rechargeDuration || segment.mount.healthActivated > 0),
     );
   }
 
@@ -882,6 +890,9 @@ export class Craft extends GameObject {
       ...(module.fireCooldown > 0 && { fireCooldown: module.fireCooldown }),
       mount: mounts.indexOf(module.mount),
       health: module.mount ? module.mount.health : module.health,
+      ...(module.mount?.healthActivated !== undefined && {
+        healthActivated: module.mount.healthActivated,
+      }),
       shades: module.shades,
       segments: this.segmentsAtMount(module.mount)
         .filter((segment) => segment.module === module)
@@ -935,6 +946,8 @@ export class Craft extends GameObject {
         if (mount) {
           if (!unchanged) this.fit(module, mount);
           mount.health = state.health;
+          mount.healthActivated =
+            state.healthActivated ?? module.healthActivated;
 
           this.segmentsAtMount(mount).forEach((segment, index) =>
             Object.assign(segment, state.segments[index], {
@@ -1061,7 +1074,9 @@ export class Craft extends GameObject {
     const { ctx } = game;
     const worn =
       segment.fillShade ??
-      (health < segment.module.health / 2 ? 0 : +!!segment.hull);
+      (health < (segment.module.health || segment.module.healthActivated) / 2
+        ? 0
+        : +!!segment.hull);
 
     ctx.fillStyle =
       segment.fillAlpha !== undefined
@@ -1083,7 +1098,9 @@ export class Craft extends GameObject {
     active: boolean;
   }) {
     this.segments.forEach((segment) => {
-      if (segment.module instanceof module) segment.active = Number(enabled);
+      if (segment.module instanceof module) {
+        this.setSegmentActive(segment, Number(enabled));
+      }
     });
   }
 
@@ -1139,7 +1156,7 @@ export class Craft extends GameObject {
   toggle(craftModule: typeof Module) {
     this.segments.forEach((segment) => {
       if (segment.module instanceof craftModule) {
-        segment.active = 1 - segment.active;
+        this.setSegmentActive(segment, 1 - segment.active);
       }
     });
   }
@@ -1205,9 +1222,65 @@ export class Craft extends GameObject {
     }
   }
 
+  private setSegmentActive(segment: Segment, active: number) {
+    const module = segment.module;
+
+    if (
+      active &&
+      module?.rechargeDuration &&
+      (segment.mount.healthActivated <= 0 ||
+        (!segment.active &&
+          segment.mount.healthActivated < module.healthActivated - 1e-9))
+    ) {
+      active = 0;
+    }
+
+    const duration = module?.dischargeDuration;
+
+    if (duration && segment.active !== active) {
+      const ratio = 1 + duration * segment.rate;
+
+      segment.activationProgress = active
+        ? Math.min(1, segment.activationProgress * ratio)
+        : segment.activationProgress === 1
+          ? 1
+          : segment.activationProgress / ratio;
+    }
+
+    segment.active = active;
+  }
+
   updateModules(dt: number) {
+    this.modules.forEach((module) => {
+      if (
+        !module.rechargeDuration ||
+        !module.mount ||
+        module.mount.health < 1
+      ) {
+        return;
+      }
+
+      const segments = this.segmentsAtMount(module.mount);
+
+      if (module.mount.healthActivated <= 0) {
+        segments.forEach((segment) => {
+          segment.active = 0;
+
+          if (segment.covers) segment.activationProgress = 0;
+        });
+      }
+
+      if (segments.every((segment) => !segment.active)) {
+        module.mount.healthActivated = Math.min(
+          module.healthActivated,
+          module.mount.healthActivated +
+            (module.healthActivated * dt) / module.rechargeDuration,
+        );
+      }
+    });
+
     this.segments.forEach((segment) => {
-      if (this.dockedTo) segment.active = 0;
+      if (this.dockedTo) this.setSegmentActive(segment, 0);
       const target = !((segment.mount || segment).health < 1)
         ? segment.active
         : 0;
@@ -1217,7 +1290,10 @@ export class Craft extends GameObject {
       segment.activationProgress = approach(
         previousProgress,
         target,
-        segment.rate * dt,
+        dt *
+          (target === 0 && segment.module?.dischargeDuration
+            ? 1 / (1 / segment.rate + segment.module.dischargeDuration)
+            : segment.rate),
       );
 
       const module = segment.module;

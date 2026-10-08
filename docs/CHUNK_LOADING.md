@@ -332,3 +332,20 @@ spin speed follows startup progress. Active weapons retain the existing damage
 immunity setting. Firing input is checkpointed locally and reapplied by controls,
 never restored from deployment on reconnect. Build client and server together
 for these input and module state additions. Loading triggers are unchanged.
+
+Laser appends module index 15 and shares the existing weapon mounts, static
+module loading, and docked purchasing menu. B toggles deployment; holding Space
+fires a continuous violet beam. It traces the nearest collider in both client
+prediction and Go simulation and deals 7.5 damage per second, one quarter of
+the horn drill. No projectile entity or beam snapshot field is added: clients
+reconstruct presentation from the ship's existing firing and module states.
+Input mask bit 11 uses bit 4 of the existing UC flags byte for laser activation;
+existing input bits retain their values. Client and server must be rebuilt
+together. Loading triggers are unchanged.
+
+Beam Laser uses the `beam` behavior while retaining module ID `laser` at index 15. Its continuous beam renderer lives in `client/effects/beam-effect.ts`;
+`specs/effects/laser-beam.ts`, `laser-muzzle-flash.ts` and `laser-hit-marker.ts`
+configure widths, pulse timing in milliseconds, offsets, rays and glows. Paint
+colours all three effects; the model keeps its fixed palette. The renderer and
+these specs load statically with the weapon. The cap draws above the beam,
+and the flares draw above the model. No wire fields or loading triggers change.

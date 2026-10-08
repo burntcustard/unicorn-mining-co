@@ -1,4 +1,5 @@
 import type { EffectSpec } from '../../client/effects/effect';
+import type { BeamEffectSpec } from '../../client/effects/beam-effect';
 import type { RenderingLayer } from '../rendering-layers';
 
 type ModuleModelPart = {
@@ -13,6 +14,7 @@ type ModuleModelPart = {
   covers?: boolean;
   fillAlpha?: number;
   color?: number;
+  // Milliseconds after a shot before this part lights again.
   rechargeDelay?: number;
   rechargeColor?: number;
   glow?: {
@@ -26,15 +28,26 @@ type ModuleModelPart = {
 type ModuleValues = {
   name: string;
   health: number;
+  // Optional separate health pool for the exposed active module or shield bubble.
+  healthActivated?: number;
+  // Milliseconds to restore the active pool while inactive; blocks activation until full.
+  rechargeDuration?: number;
   price: number;
   zIndex: RenderingLayer;
   shades?: readonly string[];
+  // Fixed model palette for modules whose paint colours their output.
+  modelShades?: readonly string[];
+  // Milliseconds spent moving between retracted and extended positions.
   activationDuration?: number;
   bounciness?: number;
   friction?: number;
   damage?: number;
+  // Milliseconds between shots.
   fireInterval?: number;
+  // Milliseconds spent becoming ready after extension.
   chargeDuration?: number;
+  // Milliseconds spent shutting down before retraction begins.
+  dischargeDuration?: number;
   retractionDistance?: number;
   muzzleFlash?: EffectSpec;
   // Backwards impulse per shot, scaled by the firing ship's mass.
@@ -55,6 +68,9 @@ type ModuleValues = {
       color: string;
       radius: number;
     };
+    // Milliseconds to fade before expiry, replacing expiry explosions and sparks.
+    fadeOut?: number;
+    // Milliseconds before expiry.
     lifetime: number;
     radius: number;
     speed: number;
@@ -78,8 +94,8 @@ type ModuleValues = {
   spread?: number;
   corner?: number;
   shieldRadius?: number;
+  // Milliseconds to expand the shield cover.
   coverDuration?: number;
-  unhurtWhen?: number;
   drillTip?: { position: { x: number; y: number }; radius: number };
   cargoGeometry?: {
     length: number;
@@ -117,6 +133,15 @@ export type ModuleSpec = ModuleValues &
         behavior: 'hornDrill';
         damage: number;
         drillTip: NonNullable<ModuleValues['drillTip']>;
+        model: (ModuleModelPart & { points: number[][] })[];
+      }
+    | {
+        behavior: 'beam';
+        beamEffect: BeamEffectSpec;
+        damage: number;
+        damageStepsPerSecond: number;
+        barrelLength: number;
+        reach: number;
         model: (ModuleModelPart & { points: number[][] })[];
       }
     | {

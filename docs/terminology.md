@@ -126,6 +126,8 @@
 
 **spec** - Authored game data or tuning in `src/specs`, such as a ship, module, item or visual effect. A spec describes an instance; it is not the instance’s mutable state. Shared data schemas may live beside their specs. Runtime types and interfaces belong beside the implementation that owns them. The generated Go catalog and its schemas live in `src/server/specs`. Existing serialized `definitionId`/`DefinitionID` names continue to identify specs.
 
+Module and effect specs author durations and delays in milliseconds. Module construction and Go catalog generation convert mechanics timing to seconds; effect timing stays in milliseconds. Simulation steps, time tolerances, per-second rates, network packets, and saved data keep their existing units.
+
 **station** - A craft with docking bays that can receive ships.
 
 **sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.

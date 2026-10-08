@@ -1,4 +1,5 @@
 import { plasmaAccelerator } from './plasma-accelerator';
+import { laser } from './laser';
 import { autogun } from './autogun';
 import { thrusterSingleMd } from './thruster-x1-md';
 import { thrusterSingleSm } from './thruster-x1-sm';
@@ -30,6 +31,7 @@ export {
   plasmaAccelerator,
   autogun,
   thrusterDualLg,
+  laser,
 };
 export const moduleIds = [
   'thrusterSingleMd',
@@ -47,6 +49,7 @@ export const moduleIds = [
   'plasmaAccelerator',
   'autogun',
   'thrusterDualLg',
+  'laser',
 ] as const;
 
 export type ModuleId = (typeof moduleIds)[number];
@@ -67,6 +70,7 @@ export const moduleSpecs = {
   plasmaAccelerator,
   autogun,
   thrusterDualLg,
+  laser,
 };
 
 export const moduleSpecList = Object.values(moduleSpecs);

@@ -24,13 +24,18 @@ import {
 import { controlShip } from '${root}/src/client/objects/control-ship.ts';
 import {
   Autogun,
+  Laser,
   PlasmaAccelerator,
+  ShieldGenerator,
+  ShieldGeneratorMd,
   moduleTypes,
 } from '${root}/src/client/objects/modules/index.ts';
 import { Craft } from '${root}/src/client/objects/craft.ts';
+import { Weapon } from '${root}/src/client/objects/modules/weapon.ts';
 import { contactBetween } from '${root}/src/client/collision/contact-between.ts';
 import { GameObject } from '${root}/src/client/objects/game-object.ts';
 import { Projectile } from '${root}/src/client/objects/projectile.ts';
+import { Station } from '${root}/src/client/objects/station.ts';
 import { explode } from '${root}/src/client/objects/explosion.ts';
 import { updateEntities } from '${root}/src/client/simulation/update-tier.ts';
 import { damage } from '${root}/src/client/objects/damage.ts';
@@ -39,12 +44,14 @@ import { Item } from '${root}/src/client/objects/item.ts';
 import { autogunAmmunition, gold } from '${root}/src/specs/items/index.ts';
 import { moduleSpecs } from '${root}/src/specs/modules/index.ts';
 import { game } from '${root}/src/client/game.ts';
-import { colors } from '${root}/src/specs/colors.ts';
+import { colors, paintColors } from '${root}/src/specs/colors.ts';
+import { withAlpha } from '${root}/src/client/utilities/color.ts';
 import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 import { effects } from '${root}/src/client/effects/effect.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
 import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
+import { moduleSpecForSimulation } from '${root}/src/client/utilities/module-spec.ts';
 import * as Vec from '${root}/src/client/utilities/vector.ts';
 globalThis.Path2D = class {
   moveTo() {}
@@ -53,12 +60,56 @@ globalThis.Path2D = class {
 };
 globalThis.window = new EventTarget();
 initKeys();
+// A laser damages the nearest surface continuously without spawning projectiles.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const laser = new Laser();
+  ship.fit(laser, ship.mounts.find((mount) => mount.fits.includes(Laser)));
+  const y = laser.mount.localPosition.y;
+  const near = addEntity(world, new GameObject({ world, position: Vec.create(150, y), radius: 10, health: 100 }));
+  const far = addEntity(world, new GameObject({ world, position: Vec.create(250, y), radius: 10, health: 100 }));
+  controlShip(ship, { ...playerInput, laserActive: true, fire: true }, []);
+  ship.resolveLasers(1, []);
+  assert.equal(near.health, 100, 'deployment cannot damage a target');
+  ship.updateModules(laser.activationDuration);
+  for (let tick = 0; tick < 30; tick++) ship.resolveLasers(1 / 30, []);
+  assert.equal(near.health, 92.5, 'one second deals a quarter of horn damage');
+  assert.equal(far.health, 100, 'the first surface blocks the beam');
+  assert.equal([...world.entities.values()].filter((entity) => entity instanceof Projectile).length, 0);
+  const checkpoint = captureWorld({ world });
+  ship.resolveLasers(0.5, []);
+  restoreWorld({ world, state: checkpoint });
+  assert.equal(near.health, 92.5, 'rollback restores laser damage');
+  ship.firing = false;
+  ship.resolveLasers(1, []);
+  assert.equal(near.health, 92.5, 'releasing Space stops damage immediately');
+  ship.firing = true;
+  ship.setModuleActive({ module: Laser, active: false });
+  ship.resolveLasers(1, []);
+  assert.equal(near.health, 92.5, 'retraction stops damage immediately');
+  ship.setModuleActive({ module: Laser, active: true });
+  ship.updateModules(1);
+  near.position.x = 1000;
+  far.position.x = 1200;
+  ship.resolveLasers(1, []);
+  assert.equal(near.health, 92.5, 'targets outside beam range are untouched');
+  near.position = Vec.create(-y, 150);
+  far.position = Vec.create(-y, 250);
+  ship.rotation = Math.PI / 2;
+  ship.resolveLasers(0.2, []);
+  assert.equal(near.health, 91, 'the beam follows ship rotation');
+  assert.equal(far.health, 100);
+}
 // Deployment and firing are independent, including reversals partway through.
 for (const Type of [PlasmaAccelerator, Autogun]) {
   const deploymentWorld = createWorld();
   const deployedShip = addEntity(deploymentWorld, createPlayerShip(deploymentWorld, { playerId: 1 }));
   addPlayer(deploymentWorld, { id: 1, shipId: deployedShip.id });
   const gun = new Type();
+  const shutdown = gun.activationDuration + (gun.dischargeDuration ?? 0);
+  const ratio = shutdown / gun.activationDuration;
   deployedShip.fit(gun, deployedShip.mounts.find((mount) => mount.fits.includes(Type)));
   const pack = new Item(autogunAmmunition);
   deployedShip.cargoContents.push(pack);
@@ -83,14 +134,14 @@ for (const Type of [PlasmaAccelerator, Autogun]) {
   assert.equal(shots(), 0, 'activation cannot fire or catch up missed shots');
   assert.equal(pack.rounds, 200, 'deployment consumes no ammunition');
   const health = gun.mount.health;
-  assert.equal(damage(part, 1), 0, 'active weapons use module damage immunity');
-  assert.equal(gun.mount.health, health);
+  assert.equal(damage(part, 1), 1, 'active weapons can take damage');
+  assert.equal(gun.mount.health, health - 1);
   controls(false);
   deployedShip.updateModules(gun.activationDuration / 4);
-  assert.equal(part.activationProgress, 0.25, 'reversing smoothly retracts from current progress');
+  assert(Math.abs(part.activationProgress - 0.25 / ratio) < 1e-9, 'reversing smoothly retracts from current progress');
   deployedShip.fireWeapons(0);
   assert.equal(shots(), 0, 'retraction cannot fire');
-  assert.equal(damage(part, 1), 1, 'deactivated weapons are vulnerable');
+  assert.equal(damage(part, 1), 0, 'deactivated weapons are invulnerable');
   restoreWorld({ world: deploymentWorld, state: checkpoint });
   assert.equal(deployedShip.firing, true, 'rollback restores held fire');
   assert.equal(part.activationProgress, 0.5, 'rollback restores deployment progress');
@@ -122,13 +173,13 @@ for (const Type of [PlasmaAccelerator, Autogun]) {
   controls(false);
   deployedShip.fireWeapons(0);
   assert.equal(shots(), 1, 'retraction blocks fire immediately even at progress one');
-  deployedShip.updateModules(gun.activationDuration);
+  deployedShip.updateModules(shutdown);
   assert.equal(part.activationProgress, 0);
   controls(true);
   deployedShip.updateModules(gun.activationDuration + gun.chargeDuration / 2);
   assert(Math.abs(gun.chargeCooldown - gun.chargeDuration / 2) < 1e-9, 'a long update charges only its time after full deployment');
   controls(false);
-  deployedShip.updateModules(gun.activationDuration);
+  deployedShip.updateModules(shutdown);
   if (Type === Autogun) {
     const spin = (activation, charge) => {
       part.activationProgress = activation;
@@ -148,8 +199,114 @@ for (const Type of [PlasmaAccelerator, Autogun]) {
     gun.fireCooldown = gun.fireInterval;
     const stopped = part.phase;
     gun.updateVisual({ craft: deployedShip, segments: [part], dt: 0.1 });
-    assert.equal(part.phase, stopped, 'remaining firing cooldown cannot spin an inactive autogun');
+    assert.equal(part.phase, Math.ceil(stopped), 'inactive autogun finishes at a stacked position');
+    const render = Weapon.prototype.render;
+    const drawn = [];
+    Weapon.prototype.render = ({ segment, points }) => drawn.push(points ?? segment.points(segment));
+    for (const start of [-0.5, 0.1, 1.4, 3.9]) {
+      for (const frames of [1, 7, 21]) {
+        part.phase = start;
+        part.activationProgress = 1;
+        const step = gun.dischargeDuration / frames;
+        for (let frame = 1; frame <= frames; frame++) {
+          part.activationProgress = 1 - frame / frames * gun.dischargeDuration / shutdown;
+          gun.updateVisual({ craft: deployedShip, segments: [part], dt: step });
+          const expected = Math.ceil(start) - (Math.ceil(start) - start) * (1 - frame / frames) ** 2;
+          assert(Math.abs(part.phase - expected) < 1e-9, 'spin-down has the same easing and duration at every starting angle and frame rate');
+          drawn.length = 0;
+          gun.render({ segment: part });
+          assert.equal(drawn[0][0][0], authored[0][0], 'barrels remain deployed throughout spin-down');
+        }
+        assert(part.phase === Math.ceil(start), 'spin-down finishes exactly stacked before retraction');
+      }
+    }
+    part.activationProgress = 0.5 / ratio;
+    drawn.length = 0;
+    gun.render({ segment: part });
+    assert.equal(drawn[0][0][0], authored[0][0] - gun.retractionDistance / 2, 'retraction follows spin-down and slides from the stacked position');
+    Weapon.prototype.render = render;
+    controls(true, false);
+    segments.forEach((segment) => { segment.activationProgress = 1; });
+    controls(false, false);
+    deployedShip.updateModules(gun.dischargeDuration);
+    assert.equal(points()[0][0], authored[0][0], 'simulation holds the barrels extended for the complete spin-down');
+    deployedShip.updateModules(gun.activationDuration / 2);
+    assert(Math.abs(points()[0][0] - (authored[0][0] - gun.retractionDistance / 2)) < 1e-9, 'retraction uses the same slide duration as extension');
+    const beforeReversal = points()[0][0];
+    controls(true, false);
+    assert.equal(points()[0][0], beforeReversal, 'reactivating during retraction preserves the barrel position');
+    deployedShip.updateModules(gun.activationDuration / 2);
+    assert.equal(part.activationProgress, 1, 'reversed extension completes from its current position');
   }
+}
+// Both weapons read independent movement, charge and discharge durations.
+for (const Type of [PlasmaAccelerator, Autogun]) {
+  const timingWorld = createWorld();
+  const craft = addEntity(timingWorld, createPlayerShip(timingWorld, { playerId: 1 }));
+  const spec = { ...moduleSpecs[Type.definitionId], activationDuration: 400, chargeDuration: 900, dischargeDuration: 600 };
+  const runtimeSpec = moduleSpecForSimulation(spec);
+  const gun = new Type({ ...runtimeSpec, model: Type.createModel(runtimeSpec) });
+  craft.fit(gun, craft.mounts.find((mount) => mount.fits.includes(Type)));
+  const part = craft.segmentsAtMount(gun.mount)[0];
+  const barrelX = () => part.points(part)[0][0];
+  const extendedX = spec.model[0].points[0][0];
+  craft.setModuleActive({ module: Type, active: true });
+  craft.updateModules(spec.activationDuration / 1000);
+  assert.equal(barrelX(), extendedX, 'movement completes independently of charge duration');
+  assert.equal(gun.chargeCooldown, spec.chargeDuration / 1000, 'charge starts after extension');
+  craft.updateModules(spec.chargeDuration / 1000);
+  assert.equal(gun.chargeCooldown, 0, 'configured charge duration controls readiness');
+  craft.setModuleActive({ module: Type, active: false });
+  craft.updateModules(spec.dischargeDuration / 1000);
+  assert.equal(barrelX(), extendedX, 'configured discharge duration delays retraction for either weapon');
+  craft.updateModules(spec.activationDuration / 2000);
+  assert(Math.abs(barrelX() - (extendedX - spec.retractionDistance / 2)) < 1e-9, 'retraction uses the configured movement duration');
+  const before = barrelX();
+  craft.setModuleActive({ module: Type, active: true });
+  assert(Math.abs(barrelX() - before) < 1e-9, 'reversal keeps the barrel position with independent timings');
+}
+// A shield bubble has a separate pool, collapses, and recharges while inactive.
+for (const Type of [ShieldGenerator, ShieldGeneratorMd]) {
+  const world = createWorld();
+  const craft = addEntity(world, new Craft({ world, hullSegments: [{ health: 100, points: [[-2, -2], [2, -2], [2, 2], [-2, 2]], mounts: [[{ x: 20, y: 20, fits: [Type.definitionId] }]] }] }));
+  const gun = new Type({ health: 13, healthActivated: 31, rechargeDuration: 2 });
+  craft.fit(gun, craft.mounts.find((mount) => mount.fits.includes(Type)));
+  const parts = craft.segmentsAtMount(gun.mount);
+  const body = parts.find((part) => !part.covers);
+  const bubble = parts.find((part) => part.covers);
+  assert.equal(damage(body, 5), 5);
+  assert.equal(gun.mount.health, 8, 'inactive damage reaches the physical generator');
+  craft.setModuleActive({ module: Type, active: true });
+  craft.updateModules(gun.coverDuration);
+  damage(bubble, 17);
+  assert.equal(gun.mount.healthActivated, 14);
+  assert.equal(gun.mount.health, 8, 'bubble damage preserves the generator pool');
+  const checkpoint = captureWorld({ world });
+  damage(bubble, 100);
+  assert.equal(bubble.activationProgress, 0, 'depleting the bubble pops it immediately');
+  assert(!craft.moduleActive({ module: Type }), 'bubble depletion disables the shield immediately');
+  craft.updateModules(0);
+  assert(!craft.moduleActive({ module: Type }), 'a popped bubble deactivates its generator');
+  craft.setModuleActive({ module: Type, active: true });
+  assert(!craft.moduleActive({ module: Type }), 'a depleted shield cannot reactivate');
+  craft.updateModules(gun.rechargeDuration / 2);
+  assert.equal(gun.mount.healthActivated, gun.healthActivated / 2);
+  craft.setModuleActive({ module: Type, active: true });
+  assert(!craft.moduleActive({ module: Type }), 'partial recharge cannot activate the shield');
+  const charging = captureWorld({ world });
+  craft.updateModules(gun.rechargeDuration / 2);
+  craft.setModuleActive({ module: Type, active: true });
+  assert(craft.moduleActive({ module: Type }), 'a completely recharged shield can activate');
+  restoreWorld({ world, state: charging });
+  assert.equal(gun.mount.healthActivated, gun.healthActivated / 2, 'rollback preserves recharge progress');
+  restoreWorld({ world, state: checkpoint });
+  assert.equal(gun.mount.healthActivated, 14, 'rollback restores both pools and activation');
+  assert.equal(gun.mount.health, 8);
+  assert(craft.moduleActive({ module: Type }));
+  const states = craft.moduleStates;
+  const clone = cloneEntity({ entity: craft });
+  clone.moduleStates = states;
+  assert.equal(clone.modules.find((module) => module.id === gun.id).mount.healthActivated, 14, 'snapshots preserve bubble health');
 }
 // Recoil is an impulse per successful shot, opposite the ship's facing.
 for (const weapon of [PlasmaAccelerator, Autogun])
@@ -607,6 +764,49 @@ assert.equal(
 hydration.update(2);
 assert(hydration.dead, 'projectiles expire');
 
+// Station interiors absorb swept projectiles silently, including explosive rounds.
+for (const id of ['autogun', 'plasmaAccelerator']) {
+  for (const mode of ['hull', 'module', 'ship', 'nearerImpact']) {
+    const world = createWorld();
+    const station = addEntity(world, new Station({
+      hullSegments: [{
+        disablePhysics: true,
+        health: 100,
+        points: [[40, -20], [60, -20], [60, 20], [40, 20]],
+      }],
+    }));
+    if (mode === 'module') station.segments[0].hull = false;
+    if (mode === 'ship') station.kind = 'ship';
+    const target = addEntity(world, new GameObject({
+      position: Vec.create(mode === 'nearerImpact' ? 20 : 80, 0),
+      radius: 5,
+      health: 100,
+    }));
+    const health = station.segments[0].health;
+    const shot = addEntity(world, new Projectile(id, {
+      position: Vec.create(),
+      velocity: Vec.create(1000, 0),
+    }));
+    shot.captureSweep();
+    shot.update(0.1);
+    const events = [];
+    shot.resolveHits(events, world, 0.1);
+    assert(shot.dead && !world.entities.has(shot.id), 'hits remove the projectile');
+    if (mode === 'hull') {
+      assert.equal(events.length, 0, 'station interiors emit no impact, death, or explosion effects');
+      assert.equal(station.segments[0].health, health, 'the nonphysical hull takes no damage');
+      assert.equal(target.health, 100, 'the projectile cannot hit a target behind the hull');
+      assert.equal(Vec.length(target.velocity), 0, 'absorbed explosive projectiles exert no impulse');
+      updateWorld({ world, inputs: new Map(), dt: 2 }).forEach(event => {
+        assert.notEqual(event.objectId, shot.id, 'removed projectiles cannot later emit expiry effects');
+      });
+    } else {
+      assert(events.some(event => event.type === 'collision' && event.b === target.id),
+        'other nonphysical segments are ignored and earlier physical impacts still resolve');
+    }
+  }
+}
+
 {
   const blastWorld = createWorld();
   const source = addEntity(blastWorld, new GameObject({ id: 1 }));
@@ -699,7 +899,7 @@ assert(hydration.dead, 'projectiles expire');
   }
 }
 
-// Gameplay expiry uses a dedicated effect when configured, otherwise own-colour sparks.
+// Fading projectiles expire silently; other projectiles keep their expiry effects.
 for (const id of ['autogun', 'plasmaAccelerator']) {
   const expiryWorld = createWorld();
   const shot = addEntity(
@@ -716,39 +916,20 @@ for (const id of ['autogun', 'plasmaAccelerator']) {
   const deathEvents = events.filter(
     (event) => event.type === 'objectDestroyed',
   );
-  assert.equal(
-    deathEvents.length,
-    1,
-    'timed-out projectiles emit one gameplay death event',
-  );
-  assert.equal(deathEvents[0].objectId, shot.id);
-  assert.equal(
-    events.filter((event) => event.type === 'explosion').length,
-    1,
-  );
+  const fading = !!moduleSpecs[id].projectile.fadeOut;
+  assert.equal(deathEvents.length, fading ? 0 : 1);
+  if (!fading) assert.equal(deathEvents[0].objectId, shot.id);
+  assert.equal(events.filter((event) => event.type === 'explosion').length, fading ? 0 : 1);
   sparks.length = effects.length = 0;
   presentEvents({ events });
-  assert.equal(
-    effects.length,
-    1,
-    'expiry also presents configured effects',
-  );
-  assert.equal(
-    sparks.length,
-    0,
-    'expiry replaces source sparks only when a dedicated effect exists',
-  );
-  assert.equal(
+  assert.equal(effects.length, fading ? 0 : 1, 'only non-fading expiry presents effects');
+  assert.equal(sparks.length, 0, 'expiry never adds sparks to fading or dedicated effects');
+  if (!fading) assert.equal(
     events.find((event) => event.type === 'explosion').effect,
     moduleSpecs[id].projectile.effect || moduleSpecs[id].projectile.explosion.effect,
     'expiry uses the configured visual effect',
   );
-  if (id === 'autogun')
-    assert.equal(
-      Vec.length(neighbour.velocity),
-      0,
-      'autogun expiry presents its effect without applying a blast',
-    );
+  if (id === 'autogun') assert.equal(Vec.length(neighbour.velocity), 0);
   else assert(neighbour.velocity.x > 0, 'plasma expiry retains its blast');
   events.length = 0;
   updateEntities({ world: expiryWorld, events, tick: 8 });
@@ -843,7 +1024,7 @@ for (const id of ['plasmaAccelerator', 'autogun'])
       shot.resolveHits(blastEvents, blastWorld, 0.3);
       assert.equal(target.health, 100 - spec.damage);
     } else if (trigger === 'expiry') {
-      shot.update(spec.projectile.lifetime - 0.001);
+      shot.update(spec.projectile.lifetime / 1000 - 0.001);
       assert(!shot.dead, 'projectiles retain their configured lifespan');
       updateEntities({
         world: blastWorld,
@@ -1139,11 +1320,12 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
   );
   const gun = new PlasmaAccelerator();
   craft.fit(gun);
+  craft.setModuleActive({ module: PlasmaAccelerator, active: true });
   const events = [];
   explode({ object: source, radius: 24, impulse: 0, damage: 3, events });
   assert.equal(
     gun.mount.health,
-    gun.health - 3,
+    gun.healthActivated - 3,
     'overlapping model parts share one damage application to the module mount',
   );
   assert.equal(
@@ -1174,15 +1356,22 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
 const fills = [];
 const halos = [];
 let gradients = 0;
+const beamLines = [];
+const beamStarts = [];
+const beamWidths = [];
+const beamDrawOrder = [];
 game.ctx = {
   save() {},
   restore() {},
   translate() {},
   rotate() {},
   beginPath() {},
+  moveTo(x, y) { beamStarts.push([x, y]); },
+  lineTo(x, y) { beamLines.push([x, y]); },
   arc() {},
-  stroke() {},
-  fill() {
+  stroke(path) { if (!path) { beamDrawOrder.push('beam'); beamWidths.push(this.lineWidth); } },
+  fill(path) {
+    beamDrawOrder.push(path ? 'model' : 'glow');
     fills.push(this.fillStyle);
   },
   createRadialGradient(...coordinates) {
@@ -1198,6 +1387,103 @@ game.ctx = {
   },
 };
 game.scale = 1;
+// Synthetic beam presentation follows spec colour, range and first impact.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 9 }));
+  const beamEffect = {
+    startFraction: 0.25,
+    muzzleOffset: 2,
+    pulseDuration: 80,
+    pulseScale: 0.2,
+    layers: [{ lineWidth: 5, alpha: 0.2 }, { lineWidth: 1, alpha: 1 }],
+    muzzleFlash: [
+      { type: 'rays', radius: 3, radiusEven: 1, pointCount: 6, lineWidth: 2 },
+      { type: 'glow', radius: 7, alpha: 0.6 },
+    ],
+    hitMarker: [
+      { type: 'rays', radius: 5, radiusEven: 2, pointCount: 4, lineWidth: 1 },
+      { type: 'glow', radius: 10, alpha: 0.6 },
+    ],
+  };
+  const laser = new Laser({ beamEffect, shades: ['#111111', '#222222', '#123456', '#444444', '#555555'], modelShades: ['#010101', '#020202', '#030303', '#040404', '#050505'], reach: 321 });
+  ship.fit(laser, ship.mounts.find((mount) => mount.fits.includes(Laser)));
+  ship.setModuleActive({ module: Laser, active: true });
+  ship.updateModules(1);
+  ship.firing = true;
+  const parts = ship.segmentsAtMount(laser.mount);
+  const before = gradients;
+  const beforeModelFills = fills.length;
+  const beforeBeamStarts = beamStarts.length;
+  const beforeBeamWidths = beamWidths.length;
+  const beforeBeamLines = beamLines.length;
+  parts.forEach((segment) => laser.render({ segment, craft: ship }));
+  const originalModelFills = fills.slice(beforeModelFills).filter((color) => typeof color === 'string');
+  assert.equal(gradients - before, 1, 'one muzzle glow per fitted laser');
+  assert.deepEqual(beamStarts[beforeBeamStarts], [laser.barrelLength * beamEffect.startFraction, 0], 'beam origin follows the effect spec');
+  assert.deepEqual(beamWidths.slice(beforeBeamWidths), [5, 1, 2], 'beam and flare widths follow their effect layers');
+  assert.equal(beamLines.length - beforeBeamLines, 2 + 6, 'the effect chooses its beam layers and muzzle ray count');
+  assert.equal(halos.at(-1).coordinates[5], 7, 'muzzle glow uses its configured radius');
+  assert.equal(beamLines[beforeBeamLines + 2][0], laser.barrelLength + beamEffect.muzzleOffset + 3, 'muzzle rays use their configured radius');
+  assert(Math.abs(beamLines[beforeBeamLines + 3][1] - Math.sin(Math.PI / 3)) < 1e-8, 'alternating rays use their configured inner radius');
+  assert.equal(beamDrawOrder.at(-1), 'glow', 'the muzzle glow renders above the entire model');
+  assert(beamDrawOrder.indexOf('beam') < beamDrawOrder.lastIndexOf('model'), 'the cap covers the beam');
+  assert(beamDrawOrder.lastIndexOf('model') < beamDrawOrder.lastIndexOf('beam'), 'the muzzle flare strokes render above the cap');
+  assert.equal(halos.at(-1).coordinates[0], laser.barrelLength + beamEffect.muzzleOffset, 'the muzzle flare uses its configured offset');
+  assert.equal(halos.at(-1).gradient.stops[0][1], '#12345699', 'beam effects use the configured colour');
+  assert(beamLines.some(([x, y]) => x === laser.barrelLength + 321 && y === 0), 'unobstructed beams end at their configured range');
+  const target = addEntity(world, new GameObject({ world, position: Vec.create(150, laser.mount.localPosition.y), radius: 10, health: 100 }));
+  const beforeHit = gradients;
+  const length = laser.trace(ship).length;
+  parts.forEach((segment) => laser.render({ segment, craft: ship }));
+  assert.equal(gradients - beforeHit, 2, 'a hit adds a glow at the contact');
+  assert.equal(halos.at(-1).coordinates[5], 10, 'hit glow uses its configured radius');
+  assert.equal(halos.at(-1).coordinates[0], laser.barrelLength + length, 'hit marker follows the traced endpoint');
+  world.tick = 1;
+  const beforePulseWidths = beamWidths.length;
+  parts.forEach((segment) => laser.render({ segment, craft: ship }));
+  const expectedPulse = 1 + beamEffect.pulseScale * Math.sin(simulationStep * 1000 * Math.PI * 2 / beamEffect.pulseDuration);
+  assert(Math.abs(beamWidths[beforePulseWidths] - 5 * expectedPulse) < 1e-8, 'beam pulse uses the configured duration and scale');
+  world.tick = 0;
+  const afterHit = gradients;
+  ship.firing = false;
+  const beforeIdle = beamLines.length;
+  parts.forEach((segment) => laser.render({ segment, craft: ship }));
+  assert.equal(beamLines.length, beforeIdle, 'release removes the beam from both model openings and the world');
+  assert.equal(gradients, afterHit, 'release removes muzzle and impact effects immediately');
+  laser.resolveHits(ship, 1, []);
+  assert.equal(target.health, 100, 'released lasers do not damage targets');
+  ship.setModuleActive({ module: Laser, active: false });
+  const beforeInactive = beamLines.length;
+  parts.forEach((segment) => laser.render({ segment, craft: ship }));
+  assert.equal(beamLines.length, beforeInactive, 'inactive lasers do not show a beam');
+  assert.equal(target.health, 100, 'rendering does not apply damage');
+  ship.setModuleActive({ module: Laser, active: true });
+  ship.updateModules(laser.activationDuration);
+  ship.firing = true;
+
+  for (const shades of [colors.red, colors.yellow, colors.cyan]) {
+    assert(ship.applyDockAction({ action: 'paint', moduleId: laser.id, paint: paintColors.indexOf(shades) }, { credits: 1000 }), 'laser paint actions succeed');
+    // Replication and save restoration use the same module palette state.
+    ship.moduleStates = ship.moduleStates.map((state) => ({ ...state, shades: state.shades?.slice() }));
+    const beforePaintFills = fills.length;
+    ship.segmentsAtMount(laser.mount).forEach((segment) => laser.render({ segment, craft: ship }));
+    assert.deepEqual(fills.slice(beforePaintFills).filter((color) => typeof color === 'string'), originalModelFills, 'painting and restoring a laser preserves its fixed model palette');
+    const expectedGlow = withAlpha({ color: shades[2], alpha: 0.6 });
+    assert.equal(halos.at(-2).gradient.stops[0][1], expectedGlow, 'muzzle glow follows the laser paint');
+    assert.equal(halos.at(-1).gradient.stops[0][1], expectedGlow, 'impact glow follows the laser paint');
+    assert.equal(laser.shades, shades, 'restored laser paint uses the canonical palette');
+  }
+
+  const binding = moduleBinding('laserActive');
+  const press = (type) => window.dispatchEvent(Object.assign(new Event(type), { key: binding.keys[0], repeat: false }));
+  press('keydown');
+  press('keyup');
+  assert.equal(playerInput.laserActive, true, 'laser key toggles activation');
+  press('keydown');
+  press('keyup');
+  assert.equal(playerInput.laserActive, false, 'laser key toggles back off');
+}
 // Muzzle flashes observe successful shots outside replayable mechanics.
 for (const Type of [Autogun, PlasmaAccelerator]) {
   effects.length = 0;
@@ -1577,6 +1863,7 @@ for (const Type of [PlasmaAccelerator, Autogun])
     );
     const gun = new Type();
     craft.fit(gun);
+    craft.setModuleActive({ module: Type, active: true });
     craft.segmentsAtMount(gun.mount).forEach((segment) => { segment.activationProgress = 1; });
     const first = craft.segmentsAtMount(gun.mount)[0];
     const firstPoints =
@@ -1629,7 +1916,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
   const original = { ...custom };
   Object.assign(custom, {
     radius: 3,
-    lifetime: 4,
+    lifetime: 4000,
     color: colors.yellow[2],
     glow: { color: colors.green[2], alpha: 4 / 15, radius: 30 },
   });
@@ -1670,6 +1957,19 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
     colors.yellow[2],
     'unglowing projectiles retain their configured colour',
   );
+  custom.fadeOut = 400;
+  for (const [remaining, alpha] of [[0.8, 1], [0.4, 1], [0.2, 0.5], [0, 0]]) {
+    customShot.health = moduleSpecs[id].damage * remaining / (custom.lifetime / 1000);
+    custom.glow = original.glow;
+    game.ctx.globalAlpha = 0.6;
+    const drawAlphas = [];
+    const fill = game.ctx.fill;
+    game.ctx.fill = function() { drawAlphas.push(this.globalAlpha); };
+    customShot.render();
+    game.ctx.fill = fill;
+    assert.deepEqual(drawAlphas, [0.6 * alpha, 0.6 * alpha], 'round and glow fade together over the configured duration');
+  }
+  delete custom.fadeOut;
   Object.assign(custom, original);
 }
 for (const delay of [1, 3, 8]) {
@@ -1803,7 +2103,7 @@ for (const delay of [1, 3, 8]) {
       shot.health -
         (0.75 -
           moduleSpecs.plasmaAccelerator.damage /
-            moduleSpecs.plasmaAccelerator.projectile.lifetime /
+            (moduleSpecs.plasmaAccelerator.projectile.lifetime / 1000) /
             30),
     ) < 1e-8,
     'remaining projectile health is corrected before replay',

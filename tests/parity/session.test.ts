@@ -4,7 +4,11 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { decodeServerControl } from '../../src/client/protocol/binary-control';
 import { diamond, itemTypes } from '../../src/specs/items';
-import { moduleIds, searchLight } from '../../src/specs/modules';
+import {
+  moduleIds,
+  moduleSpecList,
+  searchLight,
+} from '../../src/specs/modules';
 import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot';
 
 const fixture = JSON.parse(
@@ -37,6 +41,21 @@ function decoded(packet: string, historical = false) {
     // the visible model, so expand only its old one-segment records.
     if (historical) {
       entity.modules?.forEach((module: any) => {
+        const spec = moduleSpecList[module.type];
+
+        if (
+          module.mount >= 0 &&
+          'healthActivated' in spec &&
+          spec.healthActivated !== undefined
+        ) {
+          module.healthActivated =
+            spec.health === 0
+              ? (module.health ?? spec.healthActivated)
+              : spec.healthActivated;
+        }
+
+        if (module.mount < 0 && spec.health === 0) module.health = 0;
+
         if (
           module.type === moduleIds.indexOf('searchLight') &&
           module.segments.length === 1

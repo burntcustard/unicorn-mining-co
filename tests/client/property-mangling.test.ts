@@ -177,7 +177,7 @@ import { moduleControls } from './client/objects/control-ship';
 export function pressModuleKeys() {
   globalThis.window = new EventTarget();
   const stop = initKeys();
-  for (const key of ['d', 'h', 'l', 's', 'p', 'a']) {
+  for (const key of ['d', 'h', 'l', 's', 'p', 'a', 'b']) {
     window.dispatchEvent(Object.assign(new Event('keydown'), { key, repeat: false }));
     window.dispatchEvent(Object.assign(new Event('keyup'), { key }));
   }
@@ -228,13 +228,13 @@ try {
   );
 
   assert.deepEqual(built.pressModuleKeys(), [
-    [1551, [true, true, true, true, true, true]],
-    [1807, [true, true, true, true, true, true]],
-    [1551, [true, true, true, true, true, true]],
+    [3599, [true, true, true, true, true, true, true]],
+    [3855, [true, true, true, true, true, true, true]],
+    [3599, [true, true, true, true, true, true, true]],
   ]);
   assert.deepEqual(
     built.writeModuleInputs(),
-    [[512, 1024, 2, 4, 8, 1], 0],
+    [[2048, 512, 1024, 2, 4, 8, 1], 0],
     'restoring and clearing each module input survives production property mangling',
   );
 } finally {

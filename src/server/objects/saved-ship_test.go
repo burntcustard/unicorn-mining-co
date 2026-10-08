@@ -75,6 +75,9 @@ func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 	hull := ship.HullHealth()
 	hull[0] -= 0.25
 	ship.SetHullHealth(hull)
+	shield := modules.Create("shieldGeneratorSm", simulation.ObjectProperties{World: w}, catalog)
+	ship.Fit(shield, nil)
+	shield.ModuleBase().Mount.HealthActivated = new(23.5)
 	ship.SetModuleActive("searchLight", true)
 	ship.UpdateModules(0.1)
 	ship.Modules()[0].Base().Shades = catalog.PaintColors[4]

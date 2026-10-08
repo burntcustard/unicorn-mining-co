@@ -13,8 +13,8 @@ import (
 var ErrControl = errors.New("invalid binary control")
 
 type Input struct {
-	HornDrill, CargoHatch, SearchLight, ShieldGenerator, Launch, Fire, PlasmaActive, AutogunActive bool
-	Thrust, Turn                                                                                      float64
+	HornDrill, CargoHatch, SearchLight, ShieldGenerator, Launch, Fire, PlasmaActive, AutogunActive, LaserActive bool
+	Thrust, Turn                                                                                                float64
 }
 
 type DockAction struct {
@@ -223,12 +223,12 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 
 		hasOffset, err := r.byte()
 
-		if err != nil || hasOffset > 15 {
+		if err != nil || hasOffset > 31 {
 			return Control{}, ErrControl
 		}
 
 		message.Input = Input{
-			Fire: hasOffset&2 != 0, PlasmaActive: hasOffset&4 != 0, AutogunActive: hasOffset&8 != 0, HornDrill: code&1 != 0, CargoHatch: code&2 != 0,
+			Fire: hasOffset&2 != 0, PlasmaActive: hasOffset&4 != 0, AutogunActive: hasOffset&8 != 0, LaserActive: hasOffset&16 != 0, HornDrill: code&1 != 0, CargoHatch: code&2 != 0,
 			SearchLight: code&4 != 0, ShieldGenerator: code&8 != 0,
 			Launch: code&16 != 0, Thrust: float64((code >> 5) & 1),
 			Turn: float64((code>>7)&1) - float64((code>>6)&1),

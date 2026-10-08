@@ -116,8 +116,19 @@ const glyphs: Path2D[] = (
 
 const supportedText = (text: string) => text.replace(/[^\0-\x7f]+/g, 'X');
 
+const textPaths = new Map<string, Path2D>();
+
 const textPath = (text: string) => {
-  const path = new Path2D();
+  let path = textPaths.get(text);
+
+  if (path) {
+    // Keep frequently displayed labels while coordinates and counters change.
+    textPaths.delete(text);
+    textPaths.set(text, path);
+    return path;
+  }
+
+  path = new Path2D();
 
   // oxlint-disable-next-line typescript/no-misused-spread -- text has been reduced to ASCII, so code-point iteration is safe.
   [...text].forEach((c, i) => {
@@ -128,6 +139,8 @@ const textPath = (text: string) => {
     }
   });
 
+  if (textPaths.size >= 64) textPaths.delete([...textPaths.keys()][0]);
+  textPaths.set(text, path);
   return path;
 };
 

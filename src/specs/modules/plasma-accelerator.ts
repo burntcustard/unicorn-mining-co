@@ -4,26 +4,27 @@ import { plasmaExplosion } from '../effects/plasma-explosion';
 import { plasmaMuzzleFlash } from '../effects/plasma-muzzle-flash';
 import type { ModuleSpec } from './types';
 
-const fireInterval = 2;
+const fireInterval = 2000;
 
 export const plasmaAccelerator = {
   behavior: 'weapon',
   name: 'Plasma Accelerator',
-  health: 20,
+  health: 0,
+  healthActivated: 20,
   price: 800,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
-  activationDuration: 0.7,
+  activationDuration: 700,
   chargeDuration: fireInterval,
-  retractionDistance: 12,
-  unhurtWhen: 1,
+  dischargeDuration: 0,
+  retractionDistance: 17,
   damage: 10,
   fireInterval,
   muzzleFlash: plasmaMuzzleFlash,
   recoil: 30,
   projectile: {
     speed: 600,
-    lifetime: 2,
+    lifetime: 1800,
     radius: 2.5,
     color: colors.violet[2],
     explosion: {
@@ -83,7 +84,7 @@ export const plasmaAccelerator = {
       return {
         outline: false,
         color: 2,
-        rechargeDelay: (index + 1) * 0.5,
+        rechargeDelay: (index + 1) * 500,
         rechargeColor: 0,
         glow: {
           radius: 5,

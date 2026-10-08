@@ -5,14 +5,14 @@ import type { ModuleSpec } from './types';
 export const cargoHatch = {
   behavior: 'cargoHatch',
   name: 'Cargo Hatch',
-  health: 4,
+  health: 0,
+  healthActivated: 4,
   price: 150,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
-  activationDuration: 0.7,
+  activationDuration: 700,
   collectsCargo: true,
   offset: 16,
-  unhurtWhen: 0,
   model: [
     {
       outline: false,

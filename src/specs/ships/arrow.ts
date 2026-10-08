@@ -34,7 +34,7 @@ export const arrow = {
           {
             x: -12,
             y: -24,
-            fits: ['plasmaAccelerator', 'autogun'],
+            fits: ['plasmaAccelerator', 'autogun', 'laser'],
           },
         ],
         [
@@ -46,7 +46,7 @@ export const arrow = {
           {
             x: 8.5,
             y: -15,
-            fits: ['plasmaAccelerator', 'autogun'],
+            fits: ['plasmaAccelerator', 'autogun', 'laser'],
           },
         ],
       ],
@@ -97,7 +97,7 @@ export const arrow = {
           {
             x: -12,
             y: 24,
-            fits: ['plasmaAccelerator', 'autogun'],
+            fits: ['plasmaAccelerator', 'autogun', 'laser'],
           },
         ],
         [
@@ -109,7 +109,7 @@ export const arrow = {
           {
             x: 8.5,
             y: 15,
-            fits: ['plasmaAccelerator', 'autogun'],
+            fits: ['plasmaAccelerator', 'autogun', 'laser'],
           },
         ],
       ],
@@ -143,7 +143,7 @@ export const arrow = {
           {
             x: 24,
             y: 0,
-            fits: ['autogun'],
+            fits: ['autogun', 'laser'],
           },
         ],
         [

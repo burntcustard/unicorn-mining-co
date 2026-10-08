@@ -57,6 +57,10 @@ export const initKeys = ({
       playerInput.plasmaActive = !playerInput.plasmaActive;
     }
 
+    if (matchesBinding(defaultKeybindings.laserActive, key)) {
+      playerInput.laserActive = !playerInput.laserActive;
+    }
+
     if (matchesBinding(defaultKeybindings.autogunActive, key)) {
       playerInput.autogunActive = !playerInput.autogunActive;
     }

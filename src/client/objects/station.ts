@@ -103,7 +103,10 @@ export class Station extends Craft {
         health: number;
         pose: Pose;
       }) => {
-        const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
+        const worn =
+          health < (segment.module.health || segment.module.healthActivated) / 2
+            ? 0
+            : +!!segment.hull;
 
         ctx.fillStyle = hullSegmentFill({
           ctx,

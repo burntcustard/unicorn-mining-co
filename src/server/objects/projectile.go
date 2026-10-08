@@ -50,6 +50,10 @@ func (p *Projectile) Update(dt float64) {
 }
 
 func (p *Projectile) OnDeath(events *[]protocol.SimulationEvent) {
+	if p.Spec.Projectile.FadeOut > 0 {
+		return
+	}
+
 	p.explode(events, nil)
 }
 
@@ -62,6 +66,10 @@ func (p *Projectile) explode(events *[]protocol.SimulationEvent, exclude *collis
 }
 
 func (p *Projectile) DeathEvent() protocol.SimulationEvent {
+	if p.Spec.Projectile.FadeOut > 0 {
+		return nil
+	}
+
 	return protocol.ObjectDestroyed{ObjectID: p.ID, Color: p.Spec.Projectile.Color, Damage: p.Spec.Damage, Position: p.Position}
 }
 
@@ -91,7 +99,9 @@ func (p *Projectile) ResolveHits(events *[]protocol.SimulationEvent, world *simu
 		}
 
 		for _, c := range entity.Hitbox() {
-			if c.Physics != nil && !*c.Physics || c.PickupPoint {
+			segment, _ := c.Segment.(*simulation.Segment)
+
+			if c.Physics != nil && !*c.Physics && !(o.Kind == "station" && segment != nil && segment.Hull) || c.PickupPoint {
 				continue
 			}
 
@@ -122,6 +132,10 @@ func (p *Projectile) ResolveHits(events *[]protocol.SimulationEvent, world *simu
 	})
 
 	if first == nil {
+		return
+	}
+	if first.Physics != nil && !*first.Physics {
+		p.Remove()
 		return
 	}
 

@@ -48,7 +48,7 @@ export class Projectile extends GameObject {
   update(dt: number) {
     const spec = moduleSpecs[this.definitionId];
 
-    this.health -= (spec.damage / spec.projectile.lifetime) * dt;
+    this.health -= (spec.damage / (spec.projectile.lifetime / 1000)) * dt;
 
     if (this.health <= 0) return this.remove();
     Vec.addScaled(this.position, this.velocity, dt, this.position);
@@ -56,8 +56,14 @@ export class Projectile extends GameObject {
   }
 
   onDeath(events: SimulationEvent[], exclude?: Collider) {
-    const { effect, explosion }: NonNullable<ModuleSpec['projectile']> =
+    const {
+      effect,
+      explosion,
+      fadeOut,
+    }: NonNullable<ModuleSpec['projectile']> =
       moduleSpecs[this.definitionId].projectile;
+
+    if (fadeOut && !exclude) return;
 
     if (explosion) explode({ object: this, events, exclude, ...explosion });
     else if (effect) {
@@ -70,8 +76,12 @@ export class Projectile extends GameObject {
     }
   }
 
-  get deathEvent(): SimulationEvent {
+  get deathEvent(): SimulationEvent | undefined {
     const spec = moduleSpecs[this.definitionId];
+
+    const { fadeOut }: NonNullable<ModuleSpec['projectile']> = spec.projectile;
+
+    if (fadeOut) return;
 
     return {
       type: 'objectDestroyed',
@@ -112,7 +122,14 @@ export class Projectile extends GameObject {
       }
 
       for (const collider of entity.hitbox()) {
-        if (collider.physics === false || collider.pickupPoint) continue;
+        if (
+          (collider.physics === false &&
+            !(entity.kind === 'station' && collider.segment?.hull)) ||
+          collider.pickupPoint
+        ) {
+          continue;
+        }
+
         const shape = collider.shapeOutline?.length
           ? new PolygonShape(
               collider.shapeOutline.map(([x, y]) => Vec.create(x, y)),
@@ -146,6 +163,9 @@ export class Projectile extends GameObject {
     }
 
     if (!first) return;
+
+    if (first.physics === false) return this.remove();
+
     const spec = moduleSpecs[this.definitionId];
     const target = first.asteroidSegment || first.segment || first.owner;
     const applied = damage(target, spec.damage);
@@ -184,13 +204,21 @@ export class Projectile extends GameObject {
   }
 
   render({ pose = this }: RenderOptions = {}) {
-    const { color, glow }: NonNullable<ModuleSpec['projectile']> =
-      moduleSpecs[this.definitionId].projectile;
+    const spec = moduleSpecs[this.definitionId];
+    const { color, glow, fadeOut }: NonNullable<ModuleSpec['projectile']> =
+      spec.projectile;
 
     super.render({
       pose,
       draw: () => {
         const { ctx } = game;
+
+        if (fadeOut) {
+          const remaining =
+            (this.health / spec.damage) * spec.projectile.lifetime;
+
+          ctx.globalAlpha *= Math.max(0, Math.min(1, remaining / fadeOut));
+        }
 
         if (glow) {
           const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glow.radius);

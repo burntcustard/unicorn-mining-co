@@ -1446,10 +1446,9 @@ const playerCollision = (shielded: boolean) => {
     if (collision?.type === 'collision') {
       const leftIndex = collision.a === left.id ? 0 : 1;
 
-      assert.equal(
-        collision.damage[leftIndex] === 0,
-        shielded,
-        'raised shields report no damage',
+      assert(
+        collision.damage[leftIndex] > 0,
+        'active shields and unshielded hulls take collision damage',
       );
       assert(
         collision.damage[1 - leftIndex] > 0,
@@ -1809,12 +1808,31 @@ physics.damage(
 physics.damage(
   {
     health: 10,
-    module: { unhurtWhen: 1 },
-    active: 1,
+    module: { health: 0, healthActivated: 10 },
+    active: 0,
   } as import('../../src/client/types').Segment,
   1,
   [0, 0],
 );
+
+for (const healthActivated of [undefined, 6]) {
+  for (const active of [0, 1]) {
+    const segment = {
+      mount: { health: 10, healthActivated },
+      module: { health: 10, healthActivated },
+      active,
+    } as unknown as import('../../src/client/types').Segment;
+
+    const activated = active && healthActivated !== undefined;
+
+    assert.equal(physics.damage(segment, 1), 1);
+    assert.equal(segment.mount.health, activated ? 10 : 9);
+    assert.equal(
+      segment.mount.healthActivated,
+      activated ? 5 : healthActivated,
+    );
+  }
+}
 
 assert.equal(physics.sparks.length, 8);
 console.log('browser damage spark tests passed');

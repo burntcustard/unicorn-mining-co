@@ -27,7 +27,7 @@ export const crotus = {
           {
             x: 24,
             y: 0,
-            fits: ['autogun'],
+            fits: ['autogun', 'laser'],
           },
         ],
         [
@@ -86,12 +86,12 @@ export const crotus = {
           {
             x: -7,
             y: -19,
-            fits: ['plasmaAccelerator'],
+            fits: ['plasmaAccelerator', 'laser'],
           },
           {
             x: -13,
             y: -19,
-            fits: ['autogun'],
+            fits: ['autogun', 'laser'],
           },
         ],
       ],
@@ -134,12 +134,12 @@ export const crotus = {
           {
             x: -7,
             y: 19,
-            fits: ['plasmaAccelerator'],
+            fits: ['plasmaAccelerator', 'laser'],
           },
           {
             x: -13,
             y: 19,
-            fits: ['autogun'],
+            fits: ['autogun', 'laser'],
           },
         ],
       ],

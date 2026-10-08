@@ -116,7 +116,7 @@ func TestWeaponControls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, flags := range []byte{0, 2, 4, 8, 6, 10, 12, 14} {
+	for _, flags := range []byte{0, 2, 4, 8, 6, 10, 12, 14, 16, 18, 30} {
 		for _, offset := range []bool{false, true} {
 			packet := writer{data: []byte{0x55, 0x43, 1, 1, 0, 1, 0, flags}}
 
@@ -127,7 +127,7 @@ func TestWeaponControls(t *testing.T) {
 
 			control, err := DecodeClientControl(packet.data, spec.Protocol, spec.Simulation.SimulationStep)
 
-			if err != nil || control.Input.Fire != (flags&2 != 0) || control.Input.PlasmaActive != (flags&4 != 0) || control.Input.AutogunActive != (flags&8 != 0) || control.HasOffset != offset {
+			if err != nil || control.Input.Fire != (flags&2 != 0) || control.Input.PlasmaActive != (flags&4 != 0) || control.Input.AutogunActive != (flags&8 != 0) || control.Input.LaserActive != (flags&16 != 0) || control.HasOffset != offset {
 				t.Fatalf("independent weapon flags lost: flags=%d offset=%v: %+v %v", flags, offset, control, err)
 			}
 		}

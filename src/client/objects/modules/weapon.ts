@@ -65,7 +65,9 @@ export class Weapon extends Module {
     shots.set(this.id, previous);
   }
 
-  static createModel(spec: Extract<ModuleSpec, { behavior: 'weapon' }>) {
+  static createModel(
+    spec: Extract<ModuleSpec, { behavior: 'weapon' | 'beam' }>,
+  ) {
     return super.createModel(spec).map((part) => {
       const radius = Math.max(
         radiusOf(part.points),
@@ -82,12 +84,20 @@ export class Weapon extends Module {
         // Function-based points have no automatic bounds. Cover both ends of
         // the deployment slide; mirroring preserves distance from the mount.
         radius: () => radius,
-        points: (segment: Segment) =>
-          (part.points as ShapeOutline).map(([x, y]) => [
-            x -
-              (spec.retractionDistance ?? 0) * (1 - segment.activationProgress),
+        points: (segment: Segment) => {
+          const progress = Math.min(
+            1,
+            segment.activationProgress *
+              (segment.active !== 1 && spec.dischargeDuration
+                ? 1 + spec.dischargeDuration / spec.activationDuration
+                : 1),
+          );
+
+          return (part.points as ShapeOutline).map(([x, y]) => [
+            x - (spec.retractionDistance ?? 0) * (1 - progress),
             y * (segment.mount.localPosition.y < 0 ? -1 : 1),
-          ]),
+          ]);
+        },
       };
     });
   }
@@ -175,6 +185,23 @@ class AutogunModule extends Weapon {
     const { dt, segments } = options;
 
     segments.forEach((segment) => {
+      if (segment.active !== 1) {
+        const phase = segment.phase || 0;
+        const remaining = Math.max(
+          0,
+          segment.activationProgress *
+            (this.activationDuration + (this.dischargeDuration ?? 0)) -
+            this.activationDuration,
+        );
+
+        // Finish at the next stacked position before the deployment slide.
+        segment.phase =
+          phase +
+          (Math.ceil(phase) - phase) *
+            (1 - (remaining / (remaining + dt || 1)) ** 2);
+        return;
+      }
+
       segment.phase =
         this.firingPhase(segment) ??
         ((segment.phase || 0) +

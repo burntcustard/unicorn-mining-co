@@ -1,6 +1,7 @@
 import { CargoHatch, SearchLight, HornDrill } from './modules/index';
 import { ShieldGeneratorModule } from './modules/shield-generator';
 import { PlasmaAccelerator, Autogun } from './modules/weapon';
+import { Laser } from './modules/laser';
 import { Ship } from './ship';
 import { type PlayerInput } from '../protocol/input';
 import { type SimulationEvent } from '../protocol/events';
@@ -8,6 +9,14 @@ import { type SimulationEvent } from '../protocol/events';
 type ModuleInputOptions = { input: PlayerInput; active: boolean };
 
 export const moduleControls = [
+  {
+    Type: Laser,
+    input: 'laserActive',
+    readInput: (input: PlayerInput) => !!input.laserActive,
+    writeInput: ({ input, active }: ModuleInputOptions) => {
+      input.laserActive = active;
+    },
+  },
   {
     Type: PlasmaAccelerator,
     input: 'plasmaActive',
@@ -87,11 +96,14 @@ export const controlShip = (
 
     ship.setModuleActive({ module: Type, active: enabled });
 
+    if (enabled && !ship.moduleActive({ module: Type })) return;
+
     if (
       ship.playerId !== undefined &&
       command !== 'hornDrill' &&
       command !== 'plasmaActive' &&
-      command !== 'autogunActive'
+      command !== 'autogunActive' &&
+      command !== 'laserActive'
     ) {
       events.push({
         type: 'moduleChanged',

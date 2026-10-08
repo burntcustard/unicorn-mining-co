@@ -1,3 +1,4 @@
+import { moduleSpecForSimulation } from '../../src/client/utilities/module-spec';
 import assert from 'node:assert/strict';
 import { itemTypes, diamond } from '../../src/specs/items';
 import { itemDefaults } from '../../src/specs/items/defaults';
@@ -106,7 +107,7 @@ moduleSpecList.forEach((spec, index) => {
   assert.equal(module.health, spec.health);
   assert.equal(module.price, spec.price);
 
-  for (const [name, value] of Object.entries(spec)) {
+  for (const [name, value] of Object.entries(moduleSpecForSimulation(spec))) {
     if (name !== 'model') assert.deepEqual(module[name], value);
   }
 

@@ -5,6 +5,7 @@ export type KeyAction =
   | 'fire'
   | 'plasmaActive'
   | 'autogunActive'
+  | 'laserActive'
   | 'forwardThrust'
   | 'turnLeft'
   | 'turnRight'
@@ -32,6 +33,7 @@ export const defaultKeybindings = {
   fire: { keys: [' '], mode: 'hold' },
   plasmaActive: { keys: ['p'], mode: 'toggle' },
   autogunActive: { keys: ['a'], mode: 'toggle' },
+  laserActive: { keys: ['b'], mode: 'toggle' },
   forwardThrust: { keys: ['ArrowUp'], mode: 'hold' },
   turnLeft: { keys: ['ArrowLeft'], mode: 'hold' },
   turnRight: { keys: ['ArrowRight'], mode: 'hold' },
@@ -64,6 +66,9 @@ export const moduleBinding = (
 
     case 'plasmaActive':
       return defaultKeybindings.plasmaActive;
+
+    case 'laserActive':
+      return defaultKeybindings.laserActive;
 
     case 'autogunActive':
       return defaultKeybindings.autogunActive;

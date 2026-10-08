@@ -8,20 +8,26 @@ import (
 
 func Damage(object any, amount float64) float64 {
 	var health *float64
-	var mounts []*simulation.Mount
-	var segmentHealth float64
+	var segment *simulation.Segment
+	usesActivatedHealth := false
 
 	switch target := object.(type) {
 	case *simulation.Segment:
-		d := target.ModuleSpec()
+		segment = target
+		spec := segment.ModuleSpec()
 
-		if d.UnhurtWhen != nil && *d.UnhurtWhen == target.Active {
+		if target.Module != nil && spec.Health == 0 && target.Active == 0 {
 			return 0
 		}
 
 		health = target.TargetHealth()
-		mounts = target.Mounts
-		segmentHealth = target.Health
+
+		// Shield bubbles use activated health; their generator bodies use normal health.
+		usesActivatedHealth = spec.HealthActivated != nil && target.Active != 0 && (spec.RechargeDuration == 0 || target.Covers) && target.Mount != nil && target.Mount.HealthActivated != nil
+
+		if usesActivatedHealth {
+			health = target.Mount.HealthActivated
+		}
 	case *simulation.AsteroidSegment:
 		health = &target.Health
 	case simulation.Entity:
@@ -41,19 +47,32 @@ func Damage(object any, amount float64) float64 {
 		}
 	}
 
-	if segment, ok := object.(*simulation.Segment); ok {
-		segmentHealth = segment.Health
-	}
+	if segment != nil {
+		spec := segment.ModuleSpec()
 
-	for _, mount := range mounts {
-		if mount.Health == 0 || math.IsNaN(mount.Health) {
-			continue
+		if usesActivatedHealth {
+			*health = math.Max(0, *health)
+
+			if spec.Health == 0 {
+				segment.Mount.Health = *health
+			}
+
+			if spec.RechargeDuration > 0 && *health == 0 {
+				segment.Active = 0
+				segment.ActivationProgress = 0
+			}
 		}
 
-		if segmentHealth < 1 {
-			mount.Health -= mount.Health
-		} else if mount.Module != nil && mount.Module.ModuleBase().Spec.DisablePhysics {
-			mount.Health -= amount
+		for _, mount := range segment.Mounts {
+			if mount.Health == 0 || math.IsNaN(mount.Health) {
+				continue
+			}
+
+			if segment.Health < 1 {
+				mount.Health -= mount.Health
+			} else if mount.Module != nil && mount.Module.ModuleBase().Spec.DisablePhysics {
+				mount.Health -= amount
+			}
 		}
 	}
 

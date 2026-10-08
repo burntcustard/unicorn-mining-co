@@ -105,6 +105,7 @@ export class EntityState {
           values: Object.fromEntries(
             [
               'health',
+              'healthActivated',
               'localPosition',
               'active',
               'activationProgress',

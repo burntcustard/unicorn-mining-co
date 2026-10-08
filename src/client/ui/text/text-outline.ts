@@ -7,22 +7,37 @@ export interface TextOutlineOptions {
   strokeStyle?: string;
 }
 
+const outlines = new WeakMap<Path2D, Map<number, Path2D>>();
+
 export const textOutline = ({
   ctx,
   path,
   radius = 1,
   strokeStyle = withAlpha({ color: '#000', alpha: 7 / 15 }),
 }: TextOutlineOptions) => {
-  const textOutlinePath = new Path2D();
+  let radii = outlines.get(path);
 
-  Array.from({ length: 16 }, (_, i) => {
-    const angle = (i * Math.PI) / 8;
+  if (!radii) {
+    radii = new Map();
+    outlines.set(path, radii);
+  }
 
-    textOutlinePath.addPath(path, {
-      e: radius * Math.cos(angle),
-      f: radius * Math.sin(angle),
-    });
-  });
+  let textOutlinePath = radii.get(radius);
+
+  if (!textOutlinePath) {
+    textOutlinePath = new Path2D();
+
+    for (let i = 0; i < 16; i++) {
+      const angle = (i * Math.PI) / 8;
+
+      textOutlinePath.addPath(path, {
+        e: radius * Math.cos(angle),
+        f: radius * Math.sin(angle),
+      });
+    }
+
+    radii.set(radius, textOutlinePath);
+  }
 
   ctx.save();
   ctx.strokeStyle = strokeStyle;

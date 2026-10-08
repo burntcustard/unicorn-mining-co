@@ -4,26 +4,26 @@ import { autogunExplosion } from '../effects/autogun-explosion';
 import { autogunMuzzleFlash } from '../effects/autogun-muzzle-flash';
 import type { ModuleSpec } from './types';
 
-const activationDuration = 0.7;
-
 export const autogun = {
   behavior: 'weapon',
   name: 'Autogun',
-  health: 20,
+  health: 0,
+  healthActivated: 20,
   price: 600,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
-  activationDuration,
-  chargeDuration: activationDuration,
-  retractionDistance: 12,
-  unhurtWhen: 1,
+  activationDuration: 500,
+  chargeDuration: 1000,
+  dischargeDuration: 1000,
+  retractionDistance: 15,
   damage: 4,
-  fireInterval: 0.25,
+  fireInterval: 250,
   muzzleFlash: autogunMuzzleFlash,
   projectile: {
     effect: autogunExplosion,
     speed: 1000,
-    lifetime: 1,
+    lifetime: 1000,
+    fadeOut: 200,
     radius: 2,
     color: colors.yellow[2],
     glow: {

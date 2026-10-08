@@ -14,10 +14,10 @@ var ErrSnapshot = errors.New("invalid binary snapshot")
 type Vector = specs.Vector
 
 type ModuleState struct {
-	Type, Mount                              float64
-	ID, Health, FireCooldown, ChargeCooldown *float64
-	Shades                                   []string
-	Segments                                 []ModuleSegment
+	Type, Mount                                               float64
+	ID, Health, HealthActivated, FireCooldown, ChargeCooldown *float64
+	Shades                                                    []string
+	Segments                                                  []ModuleSegment
 }
 
 type ModuleSegment struct{ Active, ActivationProgress float64 }
@@ -128,6 +128,10 @@ func (w *writer) modules(values []ModuleState) {
 			mask |= 16
 		}
 
+		if value.HealthActivated != nil {
+			mask |= 32
+		}
+
 		w.byte(mask)
 		w.number(value.Type)
 		w.number(value.Mount)
@@ -150,6 +154,10 @@ func (w *writer) modules(values []ModuleState) {
 
 		if value.ChargeCooldown != nil {
 			w.number(*value.ChargeCooldown)
+		}
+
+		if value.HealthActivated != nil {
+			w.number(*value.HealthActivated)
 		}
 
 		w.unsigned(uint64(len(value.Segments)))

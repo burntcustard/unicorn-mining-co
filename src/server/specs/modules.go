@@ -14,6 +14,7 @@ type ModelPart struct {
 type Projectile struct {
 	Speed     float64 `json:"speed"`
 	Lifetime  float64 `json:"lifetime"`
+	FadeOut   float64 `json:"fadeOut"`
 	Radius    float64 `json:"radius"`
 	Color     string  `json:"color"`
 	Explosion *struct {
@@ -30,6 +31,7 @@ type Projectile struct {
 }
 
 type Module struct {
+	DischargeDuration     float64     `json:"dischargeDuration"`
 	ChargeDuration        float64     `json:"chargeDuration"`
 	RetractionDistance    float64     `json:"retractionDistance"`
 	FireInterval          float64     `json:"fireInterval"`
@@ -61,7 +63,8 @@ type Module struct {
 	Reach, Spread, Corner float64
 	ShieldRadius          float64  `json:"shieldRadius"`
 	CoverDuration         float64  `json:"coverDuration"`
-	UnhurtWhen            *float64 `json:"unhurtWhen"`
+	HealthActivated       *float64 `json:"healthActivated"`
+	RechargeDuration      float64  `json:"rechargeDuration"`
 	DrillTip              struct {
 		Position Vector  `json:"position"`
 		Radius   float64 `json:"radius"`

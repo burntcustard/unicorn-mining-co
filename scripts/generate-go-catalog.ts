@@ -1,3 +1,4 @@
+import { moduleSpecForSimulation } from '../src/client/utilities/module-spec';
 import { renderingLayers } from '../src/specs/rendering-layers';
 import {
   defaultMass,
@@ -82,7 +83,12 @@ const catalog = {
   itemIds,
   itemSpecs,
   moduleIds,
-  moduleSpecs,
+  moduleSpecs: Object.fromEntries(
+    Object.entries(moduleSpecs).map(([id, spec]) => [
+      id,
+      moduleSpecForSimulation(spec),
+    ]),
+  ),
   shipSpecs,
   stationSpecs,
   protocol: { binaryFieldIds, controlMessageIds, dockActionIds, entityKindIds },

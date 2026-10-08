@@ -35,12 +35,12 @@ export const mustang = {
           {
             x: -2,
             y: -25,
-            fits: ['autogun'],
+            fits: ['autogun', 'laser'],
           },
           {
             x: 5,
             y: -25,
-            fits: ['plasmaAccelerator'],
+            fits: ['plasmaAccelerator', 'laser'],
           },
         ],
       ],
@@ -134,12 +134,12 @@ export const mustang = {
           {
             x: -2,
             y: 25,
-            fits: ['autogun'],
+            fits: ['autogun', 'laser'],
           },
           {
             x: 5,
             y: 25,
-            fits: ['plasmaAccelerator'],
+            fits: ['plasmaAccelerator', 'laser'],
           },
         ],
       ],

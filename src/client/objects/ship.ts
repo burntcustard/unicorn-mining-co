@@ -1,4 +1,5 @@
 import { autogunAmmunition } from '../../specs/items';
+import { Laser } from './modules/laser';
 import { Weapon } from './modules/weapon';
 import { Projectile } from './projectile';
 import { addEntity, entityId } from '../simulation/world';
@@ -136,7 +137,9 @@ export class Ship extends Craft {
 
         if (!(cost > 0) || player.credits < cost) return;
         player.credits -= cost;
-        mount.health = mount.module.health;
+        mount.health = mount.module.health || mount.module.healthActivated;
+
+        if (mount.module.health === 0) mount.healthActivated = mount.health;
       }
     } else if (action.action === 'paint') {
       const shades = paintColors[action.paint];
@@ -352,7 +355,10 @@ export class Ship extends Craft {
         pose: Pose;
       }) => {
         const { ctx } = game;
-        const worn = health < segment.module.health / 2 ? 0 : +!!segment.hull;
+        const worn =
+          health < (segment.module.health || segment.module.healthActivated) / 2
+            ? 0
+            : +!!segment.hull;
 
         ctx.fillStyle = hullSegmentFill({
           ctx,
@@ -369,7 +375,10 @@ export class Ship extends Craft {
 
   repairCost(mount?: Mount) {
     if (!mount) return this.hullMaxHealth - (this.hullHealthTotal | 0);
-    return mount.module ? mount.module.health - ((mount.health ?? 0) | 0) : 0;
+    return mount.module
+      ? (mount.module.health || mount.module.healthActivated) -
+          ((mount.health ?? 0) | 0)
+      : 0;
   }
 
   get rotationalThrust() {
@@ -382,6 +391,12 @@ export class Ship extends Craft {
 
   set thrust(value: number) {
     this.fly(value, this.turn || 0);
+  }
+
+  resolveLasers(dt: number, events: SimulationEvent[]) {
+    for (const module of this.modules) {
+      if (module instanceof Laser) module.resolveHits(this, dt, events);
+    }
   }
 
   fireWeapons(dt: number) {

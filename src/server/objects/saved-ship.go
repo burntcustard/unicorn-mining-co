@@ -26,12 +26,13 @@ type SavedShip struct {
 }
 
 type SavedShipModule struct {
-	FireCooldown float64  `json:"fireCooldown,omitempty"`
-	ID           int64    `json:"id"`
-	Type         string   `json:"type"`
-	Mount        int      `json:"mount"`
-	Health       *float64 `json:"health,omitempty"`
-	Paint        *int     `json:"paint,omitempty"`
+	HealthActivated *float64 `json:"healthActivated,omitempty"`
+	FireCooldown    float64  `json:"fireCooldown,omitempty"`
+	ID              int64    `json:"id"`
+	Type            string   `json:"type"`
+	Mount           int      `json:"mount"`
+	Health          *float64 `json:"health,omitempty"`
+	Paint           *int     `json:"paint,omitempty"`
 	// Each pair is [active, activation progress]; trailing inactive parts are omitted.
 	Active [][2]float64 `json:"active,omitempty"`
 }
@@ -81,7 +82,7 @@ func CaptureShip(ship *Ship) SavedShip {
 			continue
 		}
 
-		m := SavedShipModule{ID: *state.ID, Type: ship.Catalog.ModuleIDs[state.Type], Mount: state.Mount, Health: finiteHealth(*state.Health), Paint: savedPaint(state.Shades, ship.Catalog)}
+		m := SavedShipModule{ID: *state.ID, Type: ship.Catalog.ModuleIDs[state.Type], Mount: state.Mount, Health: finiteHealth(*state.Health), HealthActivated: savedPointer(state.HealthActivated), Paint: savedPaint(state.Shades, ship.Catalog)}
 
 		if state.FireCooldown != nil {
 			m.FireCooldown = *state.FireCooldown
@@ -185,11 +186,17 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		health := m.Health
 
 		if health == nil {
-			value := catalog.ModuleSpecs[m.Type].Health
+			spec := catalog.ModuleSpecs[m.Type]
+			value := spec.Health
+
+			if value == 0 && spec.HealthActivated != nil {
+				value = *spec.HealthActivated
+			}
+
 			health = &value
 		}
 
-		state := ModuleState{ID: savedPointer(&m.ID), Type: kind, Mount: m.Mount, Health: health, Shades: shades}
+		state := ModuleState{ID: savedPointer(&m.ID), Type: kind, Mount: m.Mount, Health: health, HealthActivated: savedPointer(m.HealthActivated), Shades: shades}
 
 		if m.FireCooldown > 0 {
 			state.FireCooldown = savedPointer(&m.FireCooldown)

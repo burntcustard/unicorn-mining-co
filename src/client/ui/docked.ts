@@ -124,7 +124,7 @@ const moduleActionsOf = (mount: any, module: any) => {
   const owned = module instanceof Module;
 
   return equipped
-    ? mount.health < module.health
+    ? mount.health < (module.health || module.healthActivated)
       ? ['FIX', 'REMOVE']
       : ['REMOVE']
     : owned
@@ -475,8 +475,10 @@ export const renderDocked = (game: GameState, ship: Ship) => {
     ? ship.hullHealthTotal
     : mount?.module === info
       ? mount?.health
-      : info?.health;
-  const maxHealth = currentHull ? ship.hullMaxHealth : info?.health;
+      : info?.health || info?.healthActivated;
+  const maxHealth = currentHull
+    ? ship.hullMaxHealth
+    : info?.health || info?.healthActivated;
   let actionX = 0;
   const actionButtons: any[] = [];
   // The action row, and the swatch row under it when there is paint to pick
