@@ -21,7 +21,7 @@
 [x] Fix sparks not being the color of the outline of object being damaged
 [x] Fix horizontal menu selecting BACK instead of colors when down pressed
 [x] Further improve server CPU performance, limits still hit with 2 players
-[ ] Fix crash sound not playing
+[x] Fix crash sound not playing
 
 ## MVP
 
@@ -63,6 +63,7 @@
 [ ] Adjust sound location (left/right) depending on position
 [ ] Adjust sounds v1 (less bassy, less annoying?)
 [ ] Adjust sounds v2 (custom with more levers & layers)
+[ ] Convert font to WOFF2
 
 ## Big future things
 
@@ -70,7 +71,7 @@
 [ ] Roads
 [ ] Map
 [ ] New ships
-[ ] New space stations, with more than 1 docking bay
+[x] New space stations, with more than 1 docking bay
 [ ] Flashy dots near docking bays
 [ ] Explosives
 [ ] New particle engine with batches
