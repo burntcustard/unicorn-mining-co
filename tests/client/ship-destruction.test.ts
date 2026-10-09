@@ -132,17 +132,17 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
   }
 }
 for(const uiAlpha of [0,0.25,1]){
-  const strokes=[];
-  const ctx={globalAlpha:0,save(){},restore(){},scale(){},translate(){},stroke(){strokes.push(this.globalAlpha);}};
+  const textAlphas=[];
+  const ctx={globalAlpha:0,save(){},restore(){},scale(){},translate(){},strokeText(){textAlphas.push(this.globalAlpha);},fillText(){textAlphas.push(this.globalAlpha);}};
   renderUI({ctx,uiAlpha,uiWidth:800,uiHeight:600,uiScale:1},[],{shipDestroyed:true});
-  assert(strokes.length>0,'death prompt renders even when the HUD is hidden');
-  assert(strokes.every(alpha=>alpha===1),'death prompt remains fully visible through the HUD fade');
+  assert(textAlphas.length>0,'death prompt renders even when the HUD is hidden');
+  assert(textAlphas.every(alpha=>alpha===1),'death prompt remains fully visible through the HUD fade');
 }
 {
-  const strokes=[];
-  const ctx={globalAlpha:0,save(){},restore(){},scale(){},translate(){},stroke(){strokes.push(this.globalAlpha);}};
+  const textAlphas=[];
+  const ctx={globalAlpha:0,save(){},restore(){},scale(){},translate(){},strokeText(){textAlphas.push(this.globalAlpha);},fillText(){textAlphas.push(this.globalAlpha);}};
   renderUI({ctx,uiAlpha:0,uiWidth:800,uiHeight:600,uiScale:1},[],{shipDestroyed:false,shipStranded:true});
-  assert(strokes.length>0&&strokes.every(alpha=>alpha===1),'a stranded ship gets a visible respawn hint even with a hidden HUD');
+  assert(textAlphas.length>0&&textAlphas.every(alpha=>alpha===1),'a stranded ship gets a visible respawn hint even with a hidden HUD');
 }
 console.log('Go ship destruction snapshots hydrate in source and production');`;
 

@@ -7,6 +7,7 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 assert.deepEqual(readdirSync('src').sort(), [
   'client',
+  'font.d.ts',
   'server',
   'specs',
   'tools',
