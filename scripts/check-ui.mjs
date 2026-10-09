@@ -570,17 +570,6 @@ try {
 
   assert(savedToken);
 
-  assert(await check(`!!document.querySelector('[data-launch]')`));
-  await check(`document.activeElement.blur()`);
-  await pressKey('Escape');
-  await pause(500);
-  assert(
-    await check(
-      `!document.querySelector('[data-launch]') && !document.querySelector('.ui-main')`,
-    ),
-    'Escape launches from an unfocused station menu without opening the main menu',
-  );
-
   await c.send('Network.setBlockedURLs', { urls: ['*/api/identity'] });
 
   await c.send('Input.dispatchKeyEvent', {
@@ -832,6 +821,20 @@ try {
   await capture('docked-desktop');
   await pressKey('Escape');
   assert.equal((await check(`fixture.inspect()`))[3], true);
+  assert(!(await check(`!!document.querySelector('[data-sections]')`)));
+  await c.send('Page.reload');
+  await pause(250);
+  await check(
+    `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
+  );
+  await pause(250);
+  await check(`document.activeElement.blur()`);
+  await pressKey('Escape');
+  assert.equal(
+    (await check(`fixture.inspect()`))[3],
+    true,
+    'Escape requests launch even without a focused station control',
+  );
   assert(!(await check(`!!document.querySelector('[data-sections]')`)));
   console.log(
     'Production UI: deferred startup, navigation, preferences, identity verification, preview, desktop layout, trading, repairs, paint, focus and launch passed.',
