@@ -1,0 +1,190 @@
+:root {
+  font-family: system-ui;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  color: #eef;
+  color-scheme: dark;
+  background: #102;
+  accent-color: #c2c;
+  --metric-top: #9810e8;
+  --metric-ascent: #20df10;
+  --metric-baseline: #f00;
+  --metric-descent: #245dff;
+  --metric-bottom: #ff8900;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  height: 100dvh;
+}
+
+aside,
+.content {
+  padding: 1.5rem;
+}
+
+aside,
+main {
+  overflow: auto;
+}
+
+aside {
+  background: #213;
+  border-right: 1px solid #435;
+}
+
+header p,
+h2,
+.help {
+  color: #bac;
+  font-size: 0.75rem;
+}
+
+h1 {
+  margin-block: 1rem;
+  font-size: 1.5rem;
+}
+
+label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block-start: 1rem;
+  margin-block-end: 0.375rem;
+}
+
+select,
+button,
+input[type='range'],
+input[type='color'] {
+  width: 100%;
+}
+
+select,
+button {
+  padding: 0.5rem;
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+button {
+  margin-block: 0.75rem;
+}
+
+input[type='color'] {
+  height: 2.5rem;
+  cursor: pointer;
+}
+
+label output {
+  margin-inline-start: auto;
+}
+
+output {
+  font-family: ui-monospace, monospace;
+}
+
+fieldset {
+  margin-block: 1rem;
+  margin-inline: 0;
+  padding: 0.75rem;
+}
+
+aside > p {
+  margin-block-start: 1.5rem;
+}
+
+main {
+  position: relative;
+  background: var(--background);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#coordinates {
+  position: absolute;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
+  background: rgb(17 0 34 / 0.8);
+}
+
+section + section {
+  margin-block-start: 2rem;
+}
+
+h2 {
+  width: fit-content;
+  margin-block: 0.75rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
+  font-weight: 400;
+  background: #213;
+}
+
+.specimen {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--size);
+  font-synthesis: none;
+  -webkit-text-stroke-width: 0.125em;
+  -webkit-text-stroke-color: rgb(
+    from var(--outline) r g b / var(--outline-opacity)
+  );
+  paint-order: stroke fill;
+}
+
+.metrics-key {
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.metrics-key li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.metrics-key li::before {
+  content: '';
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--metric-color);
+}
+
+body:has(#font-metrics:not(:checked)) .metrics-key {
+  display: none;
+}
+
+body:has(#font-metrics:checked) .specimen {
+  /* Gemetric's ascent/descent are 14/2 in a 16-unit em. */
+  --ascent: calc(0.5lh - 0.5em);
+  --baseline: calc(0.5lh + 0.375em);
+  --descent: calc(0.5lh + 0.5em);
+  background: linear-gradient(
+    to bottom,
+    var(--metric-top) 1px,
+    transparent 1px var(--ascent),
+    var(--metric-ascent) var(--ascent) calc(var(--ascent) + 1px),
+    transparent calc(var(--ascent) + 1px) var(--baseline),
+    var(--metric-baseline) var(--baseline) calc(var(--baseline) + 1px),
+    transparent calc(var(--baseline) + 1px) var(--descent),
+    var(--metric-descent) var(--descent) calc(var(--descent) + 1px),
+    transparent calc(var(--descent) + 1px) calc(1lh - 1px),
+    var(--metric-bottom) calc(1lh - 1px)
+  );
+  background-size: 100% 1lh;
+}

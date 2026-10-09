@@ -88,6 +88,10 @@ Selection, rotation, zoom, viewing aids, fitted modules and module activation
 survive updates and page refreshes. Viewer source lives under `src/tools/game-object-viewer` and is
 excluded from the game production entry.
 
+To preview Gemetric, run `npm run font-viewer` and open
+[localhost:3000](http://localhost:3000/) with the other frontend stopped.
+See [font/README.md](font/README.md) for glyph editing, generation, and reuse.
+
 7. See [package.json](package.json) for other scripts
 
 `npm run format` formats JavaScript, TypeScript, and other files supported by

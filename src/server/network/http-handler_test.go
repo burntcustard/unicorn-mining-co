@@ -13,15 +13,17 @@ func TestHTTPHandler(t *testing.T) {
 	root := t.TempDir()
 
 	files := map[string]string{
-		"index.html":           "<html>game</html>",
-		"assets/app-abc123.js": "const game=1;",
-		"assets/site-123.css":  "body{}",
-		"nested/index.html":    "nested",
-		"data.json":            "{}",
-		"image.svg":            "<svg/>",
-		"plain.txt":            "text",
-		"data.bin":             "binary",
-		"space name.txt":       "space",
+		"index.html":                "<html>game</html>",
+		"assets/app-abc123.js":      "const game=1;",
+		"assets/site-123.css":       "body{}",
+		"assets/gemetric-123.woff2": "wOF2",
+		"gemetric.woff2":            "wOF2",
+		"nested/index.html":         "nested",
+		"data.json":                 "{}",
+		"image.svg":                 "<svg/>",
+		"plain.txt":                 "text",
+		"data.bin":                  "binary",
+		"space name.txt":            "space",
 	}
 
 	for name, contents := range files {
@@ -48,6 +50,8 @@ func TestHTTPHandler(t *testing.T) {
 		{path: "/index.html?x=1", status: 200, headers: map[string]string{"Cache-Control": "no-cache", "Content-Length": "17", "Content-Type": "text/html; charset=utf-8"}, body: "<html>game</html>"},
 		{path: "/assets/app-abc123.js", status: 200, headers: map[string]string{"Cache-Control": "public, max-age=31536000, immutable", "Content-Length": "13", "Content-Type": "text/javascript; charset=utf-8"}, body: "const game=1;"},
 		{path: "/assets/site-123.css", status: 200, headers: map[string]string{"Cache-Control": "public, max-age=31536000, immutable", "Content-Length": "6", "Content-Type": "text/css; charset=utf-8"}, body: "body{}"},
+		{path: "/assets/gemetric-123.woff2", status: 200, headers: map[string]string{"Cache-Control": "public, max-age=31536000, immutable", "Content-Length": "4", "Content-Type": "font/woff2"}, body: "wOF2"},
+		{path: "/gemetric.woff2", status: 200, headers: map[string]string{"Cache-Control": "public, max-age=3600", "Content-Length": "4", "Content-Type": "font/woff2"}, body: "wOF2"},
 		{path: "/nested/index.html", status: 200, headers: map[string]string{"Cache-Control": "no-cache", "Content-Length": "6", "Content-Type": "text/html; charset=utf-8"}, body: "nested"},
 		{path: "/data.json", status: 200, headers: map[string]string{"Cache-Control": "public, max-age=3600", "Content-Length": "2", "Content-Type": "application/json; charset=utf-8"}, body: "{}"},
 		{path: "/image.svg", status: 200, headers: map[string]string{"Cache-Control": "public, max-age=3600", "Content-Length": "6", "Content-Type": "image/svg+xml"}, body: "<svg/>"},

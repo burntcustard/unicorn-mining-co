@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gemetric Font Viewer</title>
+  </head>
+  <body>
+    <aside>
+      <header>
+        <p>UNICORN MINING CO.</p>
+        <h1>Font Viewer</h1>
+      </header>
+      <label for="background">Background colour</label>
+      <input id="background" type="color" value="#332255" />
+      <label for="outline">Outline colour</label>
+      <input id="outline" type="color" value="#000000" />
+      <label for="outline-opacity"
+        >Outline opacity
+        <output id="outline-opacity-value" for="outline-opacity"
+          >46.7% [7]</output
+        ></label
+      >
+      <input
+        id="outline-opacity"
+        type="range"
+        min="0"
+        max="15"
+        step="1"
+        value="7"
+      />
+      <label for="text">Text colour</label>
+      <input id="text" type="color" value="#ffffff" />
+      <label for="size"
+        >Font size <output id="size-value" for="size">48px</output></label
+      >
+      <input id="size" type="range" min="14" max="128" step="2" value="48" />
+      <label>
+        <input id="font-metrics" type="checkbox" checked /> Font metrics
+      </label>
+      <ul class="metrics-key" aria-label="Font metrics key">
+        <li style="--metric-color: var(--metric-top)">Top</li>
+        <li style="--metric-color: var(--metric-ascent)">Ascent</li>
+        <li style="--metric-color: var(--metric-baseline)">Baseline</li>
+        <li style="--metric-color: var(--metric-descent)">Descent</li>
+        <li style="--metric-color: var(--metric-bottom)">Bottom</li>
+      </ul>
+      <p id="status" class="help" role="status">Generating Gemetric…</p>
+    </aside>
+    <main aria-label="Font preview">
+      <div class="content">
+        <section aria-labelledby="uppercase-label">
+          <h2 id="uppercase-label">Uppercase</h2>
+          <p id="uppercase" class="specimen"></p>
+        </section>
+        <section aria-labelledby="lowercase-label">
+          <h2 id="lowercase-label">Lowercase</h2>
+          <p id="lowercase" class="specimen"></p>
+        </section>
+        <section aria-labelledby="symbols-label">
+          <h2 id="symbols-label">Other glyphs</h2>
+          <p id="symbols" class="specimen"></p>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

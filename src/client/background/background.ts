@@ -125,7 +125,7 @@ const makeTile = ({
         // stars clear. Wrapped copies keep the edges seamless.
         const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
 
-        fade.addColorStop(0, withAlpha({ color, alpha: 1 / 15 }));
+        fade.addColorStop(0, withAlpha({ color, alpha: 0.1 }));
         fade.addColorStop(1, withAlpha({ color, alpha: 0 }));
         ctx.fillStyle = fade;
         ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
@@ -141,7 +141,7 @@ const makeTile = ({
     while (dots--) {
       const color = withAlpha({
         color: dotTints[Math.floor(random() * 5)],
-        alpha: 8 / 15,
+        alpha: 0.5,
       });
 
       const path = circlePath(size * random());
@@ -188,9 +188,9 @@ const makeTile = ({
         // it ran out
         const bloom = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 10);
 
-        bloom.addColorStop(0, withAlpha({ color, alpha: 2 / 3 }));
+        bloom.addColorStop(0, withAlpha({ color, alpha: 0.7 }));
         bloom.addColorStop(0.1, withAlpha({ color, alpha: 0.2 }));
-        bloom.addColorStop(0.4, withAlpha({ color, alpha: 1 / 15 }));
+        bloom.addColorStop(0.4, withAlpha({ color, alpha: 0.1 }));
         bloom.addColorStop(1, withAlpha({ color, alpha: 0 }));
         ctx.fillStyle = bloom;
         ctx.fill(halo);

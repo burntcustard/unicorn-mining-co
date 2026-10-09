@@ -10,7 +10,7 @@ import { bindKeys } from '../input/input';
 import { colors } from '../../specs/colors';
 import { colorsDemo } from './colors-demo';
 import { renderFps } from './fps';
-import { renderText } from '../ui/text/text';
+import { renderText } from '../ui/text';
 import { sky } from '../background/background';
 import { textDemo } from './text-demo';
 import * as Vec from '../utilities/vector';

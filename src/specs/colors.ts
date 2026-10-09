@@ -16,7 +16,6 @@ export const colors = {
   white: ['#ddd', '#eee', '#fff', '#33c', '#f8d'],
   grey: ['#778', '#99a', '#bbc', '#334', '#eef'],
   black: ['#000', '#111', '#222', '#879', '#200'],
-  scythe: ['#343b42', '#cebb26', '#ffeb42', '#a9b2ba', '#d85837'],
 } as const satisfies Record<string, Shades>;
 
 export const paintColors = [

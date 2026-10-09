@@ -109,7 +109,7 @@ export const createCorral = ({
     localMovementRadius: 600,
     mass: 1e9,
     zIndex: renderingLayers.stationHull,
-    bayFillAlpha: 4 / 15,
+    bayFillAlpha: 0.3,
     bayFloorZIndex: renderingLayers.stationFloor,
     bayCeilingZIndex: renderingLayers.modulesAboveStationHull,
     bayGlowShades: colors.green,

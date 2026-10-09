@@ -1,4 +1,4 @@
-import { renderText } from '../ui/text/text';
+import { renderText } from '../ui/text';
 
 const charset = [
   'ABCDEFGHIJKLM',

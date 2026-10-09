@@ -29,7 +29,7 @@ export const shield = {
     {
       outline: true,
       covers: true,
-      fillAlpha: 2 / 15,
+      fillAlpha: 0.1,
     },
   ],
 } satisfies Partial<ModuleSpec>;

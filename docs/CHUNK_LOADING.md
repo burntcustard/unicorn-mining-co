@@ -21,7 +21,7 @@ facades queue input made while loading.
 
 The inline boot entry lives in `src/client/background/background-boot.ts`.
 Background tiles live alongside it; camera code lives in `src/client/camera.ts`,
-UI text in `src/client/ui/text`, event effects in `src/client/effects`, and
+UI text in `src/client/ui/text.ts`, event effects in `src/client/effects`, and
 shared drawing and lighting helpers in `src/client/utilities`. These moves
 preserve the fetch and execution triggers above.
 
@@ -114,9 +114,8 @@ use maps or ordered arrays rather than dynamic property names.
 
 Ship and item display names use the shared specs' `name` property. Clients
 and restored server objects reconstruct these names from their content spec;
-they need no additional snapshot field. The docked menu uppercases item names for
-the current glyph set. Module display names also use `name`; the generic binary `label` field retains
-its existing meaning.
+they need no additional snapshot field. Module display names also use `name`;
+the generic binary `label` field retains its existing meaning.
 
 Server UC control 6 carries the authoritative seven-bit paint unlock mask.
 Persisted-session welcome frames append the same mask after the spawn position;

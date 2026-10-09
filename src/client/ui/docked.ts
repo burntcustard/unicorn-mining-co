@@ -6,9 +6,9 @@ import { type Mount } from '../types';
 import { type GameState } from '../game';
 import { player, paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../specs/colors';
-import { textOutline } from './text/text-outline';
+import { pathOutline } from './path-outline';
 import { playSound } from '../audio/sound-loader';
-import { renderText } from './text/text';
+import { renderText } from './text';
 import { moduleTypes, moduleTypesById } from '../objects/modules/index';
 import { sendCraftAction } from '../network/craft-actions';
 
@@ -497,7 +497,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
     ctx.fillStyle = withAlpha({ color: shades[2], alpha: worn ? 1 : 0.2 });
     ctx.strokeStyle = shades[2];
     ctx.fill(path);
-    textOutline({ ctx, path, radius: textSize });
+    pathOutline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   };
 
@@ -593,7 +593,7 @@ export const renderDocked = (game: GameState, ship: Ship) => {
   }
 
   if (info) {
-    ctx.fillStyle = withAlpha({ color: colors.purple[2], alpha: 8 / 15 });
+    ctx.fillStyle = withAlpha({ color: colors.purple[2], alpha: 0.5 });
     ctx.fillRect(col1[0], top - rowPad, colWidth, rowGap * 8 - rowPad);
     ctx.strokeStyle = withAlpha({ color: colors.violet[2], alpha: 0.8 });
     ctx.beginPath();

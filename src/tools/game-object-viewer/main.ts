@@ -1,4 +1,4 @@
-import './style.css';
+import '../style.css';
 import { game } from '../../client/game';
 import { Craft } from '../../client/objects/craft';
 import { Ship } from '../../client/objects/ship';

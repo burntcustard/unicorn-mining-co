@@ -108,7 +108,7 @@ export const propertyNames = [
   'label',
   'level',
   'lines',
-  'load',
+  // 'load', // Must preserve the native FontFaceSet.load method.
   'loaded',
   'lowerBound',
   'managed',
@@ -151,7 +151,7 @@ export const propertyNames = [
   'segments',
   'setEnabled',
   'setTransform',
-  'shapeOutline', // Shared geometry; textOutline is client-only.
+  'shapeOutline', // Shared geometry; pathOutline is client-only.
   'span',
   'speed',
   'step',

@@ -1,6 +1,6 @@
 import { colors } from '../../specs/colors';
-import { textOutline } from './text/text-outline';
-import { renderText } from './text/text';
+import { pathOutline } from './path-outline';
+import { renderText } from './text';
 import { type Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { moduleControls } from '../objects/control-ship';
@@ -99,7 +99,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
       path.lineTo(textX + (keyIndex + 1) * glyph - 1, y + underDrop);
     }
 
-    textOutline({ ctx, path, radius: textSize });
+    pathOutline({ ctx, path, radius: textSize });
     ctx.stroke(path);
   });
 

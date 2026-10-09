@@ -45,7 +45,7 @@
 [ ] Figure out new hull/mounting-points relationship
 [ ] New UI v1
 [x] Rewrite keyboard handler with full key strings
-[ ] Better text demo
+[x] Better text demo
 [ ] Create lower case versions of A-Z
 [ ] Create more symbols
 [ ] Add characters for lowercase and special chars
@@ -63,7 +63,7 @@
 [ ] Adjust sound location (left/right) depending on position
 [ ] Adjust sounds v1 (less bassy, less annoying?)
 [ ] Adjust sounds v2 (custom with more levers & layers)
-[ ] Convert font to WOFF2
+[x] Convert font to WOFF2
 
 ## Big future things
 
@@ -78,7 +78,7 @@
 [ ] New achievement system
 [ ] Ship decals
 [ ] New graphics like concept art
-[ ] Redo text-outline.ts with different colors and stuff
+[ ] Redo path-outline.ts with different colors and stuff
 [ ] Make stars consistent with world location
 [ ] Shield generator should have health and UI so can be disrupted
 [ ] "Random" spaceship name generator

@@ -1,7 +1,7 @@
 /* global Buffer, process */
 import { readFileSync } from 'node:fs';
 import { rolldown } from 'rolldown';
-import { buildPlugin } from '../../plugins/build-plugins.ts';
+import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 const root = process.cwd();
@@ -359,6 +359,8 @@ let saves = 0,
   clips = 0,
   glowImages = 0;
 game.ctx = {
+  strokeText() {},
+  fillText() {},
   strokeStyle: '#000',
   fillStyle: '#000',
   save() {
@@ -679,8 +681,8 @@ for (const [Type, radius] of [
   shield.render({ segment: bubble });
   assert.equal(
     draws.at(-1).style,
-    '#ee66ff22',
-    'shield bubble opacity keeps its previous appearance with numeric alpha',
+    withAlpha({ color: colors.violet[2], alpha: bubble.fillAlpha }),
+    'shield bubbles use their configured opacity',
   );
   bubble.fillAlpha = 0;
   shield.render({ segment: bubble });
@@ -1681,6 +1683,7 @@ for (const production of [false, true]) {
           }
         },
       },
+      buildPrePlugin({ DEBUG: !production }),
       ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
     ],
   });

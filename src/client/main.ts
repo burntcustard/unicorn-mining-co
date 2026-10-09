@@ -439,7 +439,12 @@ const gameLoop = GameLoop({
 
 // Let the inline sky settle before the game reveals its real starting place.
 setTimeout(() => {
-  void network.ready.then(() => {
+  void Promise.all([
+    network.ready,
+    // The HTML preloads the font. Wait before the first HUD frame so canvas
+    // doesn't briefly draw fallback glyphs; a failed asset mustn't stop play.
+    document.fonts.load('16px Gemetric').catch(() => {}),
+  ]).then(() => {
     refreshReplication();
     syncPlayerShip();
     player.started = true;

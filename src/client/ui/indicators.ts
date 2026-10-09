@@ -1,7 +1,7 @@
 import * as Vec from '../utilities/vector';
 import { camera } from '../camera';
-import { textOutline } from './text/text-outline';
-import { renderText } from './text/text';
+import { pathOutline } from './path-outline';
+import { renderText } from './text';
 
 interface IndicatorTarget {
   position: Vec.Value;
@@ -55,13 +55,13 @@ export const renderIndicators = (
     path.lineTo(0, -indicatorsize);
     path.lineTo(0, indicatorsize);
     path.closePath();
-    textOutline({ ctx, path });
+    pathOutline({ ctx, path });
     ctx.stroke(path);
     ctx.restore();
 
     renderText({
       game,
-      text: `${Math.round(dist)}J`,
+      text: `${Math.round(dist)}m`,
       x: uiWidth / 2 + edge.x,
       y:
         uiHeight / 2 +

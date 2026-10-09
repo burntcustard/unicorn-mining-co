@@ -1,4 +1,10 @@
 {
   "printWidth": 80,
-  "singleQuote": true
+  "singleQuote": true,
+  "overrides": [
+    {
+      "files": ["font/glyph-paths.ts"],
+      "options": { "quoteProps": "preserve" }
+    }
+  ]
 }

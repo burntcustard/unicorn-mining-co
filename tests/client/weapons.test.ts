@@ -1943,7 +1943,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
     radius: 3,
     lifetime: 4000,
     color: colors.yellow[2],
-    glow: { color: colors.green[2], alpha: 4 / 15, radius: 30 },
+    glow: { color: colors.green[2], alpha: 0.3, radius: 30 },
   });
   const customShot = new Projectile(id);
   assert.equal(customShot.radius, 3);
@@ -1963,7 +1963,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
   assert.deepEqual(
     fills.at(-2).stops,
     [
-      [0, '#33ff7744'],
+      [0, '#33ff774d'],
       [1, '#00000000'],
     ],
     'the glow combines its own colour and numeric opacity before fading to transparent',

@@ -12,6 +12,7 @@ import {
 } from 'vite';
 import type { Node } from '@oxc-project/types';
 import type { MinifyOptions } from 'terser';
+import { glyphPaths } from '../font/glyph-paths.ts';
 
 const gzipOptions = { level: 1 };
 // Leave 600B for response overhead inside the 14,600B initial TCP window:
@@ -179,6 +180,20 @@ export function buildPrePlugin(flags: Record<string, boolean> = {}) {
   return {
     name: 'vite-build-pre',
     enforce: 'pre',
+    resolveId(id) {
+      if (id === 'virtual:font-characters') return '\0' + id;
+    },
+    load(id) {
+      if (id !== '\0virtual:font-characters') return;
+
+      const characters = Object.entries(glyphPaths)
+        .filter(([, path]) => path)
+        .map(([character]) => character)
+        .sort((a, b) => a.codePointAt(0)! - b.codePointAt(0)!)
+        .join('');
+
+      return `export default ${JSON.stringify(characters)};`;
+    },
     transform(source, id) {
       if (id.includes('/src/') && /\.ts(?:\?|$)/.test(id)) {
         return {
