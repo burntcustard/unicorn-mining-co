@@ -1,9 +1,4 @@
 import { withAlpha } from '../../utilities/color';
-
-// @ifdef BENCHMARK
-import { benchmarkFlag } from '../../debug/benchmark';
-
-// @endif
 import { game } from '../../game';
 import { shapeOutlineExtent } from '../../utilities/geometry';
 import * as Vec from '../../utilities/vector';
@@ -142,11 +137,6 @@ export class Weapon extends Module {
     const { glow } = segment;
 
     if (!glow || !this.charged(segment)) return;
-
-    // @ifdef BENCHMARK
-
-    if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
-    // @endif
 
     const { ctx } = game;
     const points =

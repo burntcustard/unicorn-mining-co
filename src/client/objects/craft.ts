@@ -11,7 +11,7 @@ import { drawSegment, objectLineWidth } from '../utilities/drawing';
 import { game } from '../game';
 
 // @ifdef DEBUG
-import { glows, lights } from '../utilities/lighting';
+import { lights } from '../utilities/lighting';
 
 // @endif
 import {
@@ -1010,7 +1010,7 @@ export class Craft extends GameObject {
         ctx.lineWidth = objectLineWidth;
 
         // @ifdef DEBUG
-        if (glow ? glows : lights) {
+        if (glow || lights) {
           // @endif
           if (
             !this.decay &&

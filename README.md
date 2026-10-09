@@ -100,6 +100,18 @@ Oxfmt. `npm run format:check` checks them without writing changes. Oxfmt reads
 formatting and the broader checks used by `npm run lint`. These commands use the
 npm dependencies and do not require Go.
 
+CSS in `src` and `font` is checked by Stylelint using `.stylelintrc.json`.
+Leave blank lines between CSS rules and at-rule blocks, including nested rules;
+keep comments with the block they describe. `npm run lint` and
+`npm run format:check` enforce this, while `npm run format` and
+`npm run lint:fix` fix it automatically. Use `npm run lint:css` to check CSS alone.
+Use `rem` for font sizes, including the `font` shorthand; responsive `clamp()`
+values may use `vw` between their `rem` limits. Stylelint rejects pixel font sizes.
+Leave cursors to the browser; Stylelint rejects all `cursor` declarations.
+The current UI targets desktop and uses no media queries.
+Shared browser resets belong in `src/reset.css`, imported before the game and tool
+styles. Keep colours, typography choices, and layout in their own stylesheets.
+
 Format Go source separately with `npm run format:go`, or check it with
 `npm run format:go:check`. Both Go commands require `go` on PATH. They apply
 standard Go formatting plus blank lines around functions, brace-delimited type

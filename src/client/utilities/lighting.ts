@@ -30,12 +30,9 @@ interface LitShape {
   reach?: number;
 }
 
-// Profiling switches kept separate from module state, so lamps and engines
-// carry on running while either kind of light is hidden.
+// The lighting debug switch is separate from module state.
 // @ifdef DEBUG
-export let glows = true;
 export let lights = true;
-export const toggleGlows = () => (glows = !glows);
 export const toggleLights = () => (lights = !lights);
 // @endif
 
@@ -190,14 +187,6 @@ export const drawDockingBayGlow = (
   color: string,
   cache: GlowCache,
 ) => {
-  // @ifdef DEBUG
-  if (!glows) return;
-  // @endif
-  // @ifdef BENCHMARK
-
-  if (benchmarkFlag('noLighting') || benchmarkFlag('noGlows')) return;
-  // @endif
-
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = 0.2;

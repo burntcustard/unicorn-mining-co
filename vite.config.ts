@@ -15,6 +15,7 @@ export default defineConfig(({ mode, command }) => {
   };
 
   const proxy = {
+    '/api': { target: 'http://127.0.0.1:3001' },
     '/game-socket': {
       target: process.env.GAME_SERVER_URL || 'ws://127.0.0.1:3001',
       ws: true,

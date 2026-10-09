@@ -1,10 +1,11 @@
+import { searchLightName } from './names';
 import { colors } from '../colors';
 import { renderingLayers } from '../rendering-layers';
 import type { ModuleSpec } from './types';
 
 export const searchLight = {
   behavior: 'searchLight',
-  name: 'Search Light',
+  name: searchLightName,
   health: 10,
   price: 450,
   zIndex: renderingLayers.scenery,

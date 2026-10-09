@@ -7,30 +7,89 @@ warns when a chunk exceeds the target. See [Critical Resources and the First
 
 ## Current loading triggers
 
-| Tier        | Resource                              | Fetch trigger                                         | Execution trigger                                                                                                    |
-| ----------- | ------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Boot        | Inline canvas and background renderer | HTML parsing                                          | Paints the intro sky and fades in                                                                                    |
-| Initial     | `index`                               | Vite's module-script link during HTML parsing         | Builds the game, starts its camera after a 0.2-second intro hold, then fades in its UI when the four-second pan ends |
-| Interaction | `src/client/audio/sound`              | First keyboard input after the playable game is ready | The same input calls `unlockAudio()`                                                                                 |
-| Docked      | `src/client/ui/docked`                | The first docked render or docked-menu key press      | Once the module finishes loading                                                                                     |
+| Tier         | Resource                                   | Fetch and execution trigger                                                                                                                                            |
+| ------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boot         | Inline canvas and background renderer      | HTML parsing paints the existing starfield with saved graphics preferences.                                                                                            |
+| Initial      | `index` and shared CSS                     | HTML parsing mounts the HTML main menu, settings, saves and credits screens. No game connection or simulation starts.                                                  |
+| Menu preview | `ship-preview` and shared `ship` hierarchy | No saved private ID loads the starting ship. Otherwise a matching cached identity, current gameplay snapshot, or successful `POST /api/identity` loads the saved ship. |
+| Play         | `gameplay` and shared `ship` hierarchy     | PLAY imports the gameplay entry, connects to the server, then starts the simulation and camera. RESUME reuses the running session.                                     |
+| Interaction  | `src/client/audio/sound`                   | First gameplay keyboard input unlocks audio.                                                                                                                           |
+| Docked       | `src/client/ui/dom/docked`                 | The predicted ship becomes docked and no other HTML screen is open.                                                                                                    |
 
-The boot renderer stays active during the 0.2-second hold. The docked-camera
-easing then pans the same sky from the intro origin to the starting station;
-the HUD starts fading in when that four-second pan ends. Sound and docked
-facades queue input made while loading.
+The menu entry is statically imported first-frame code. The HTML-linked
+`src/client/style.css` imports the shared
+`src/reset.css` before the font stylesheet. The tool viewers import the same reset
+before their own styles. The reset stays in the existing CSS bundle and adds no
+JavaScript loading trigger. The inline boot entry remains
+`src/client/background/background-boot.ts`; its sky bridge is shared with
+the menu and gameplay entries. With no saved pilot, the preview constructs the
+default Mustang and fits the shared spec's `initialLoadout`, without creating a
+pilot, writing a save, or requesting an identity. Saved previews instead use the
+actual hull condition, paint and fitted modules. Both call the existing render
+methods without stepping physics or connecting to multiplayer. The runtime object
+hierarchy stays together to avoid class-initialization cycles.
 
-The inline boot entry lives in `src/client/background/background-boot.ts`.
-Background tiles live alongside it; camera code lives in `src/client/camera.ts`,
-UI text in `src/client/ui/text.ts`, event effects in `src/client/effects`, and
-shared drawing and lighting helpers in `src/client/utilities`. These moves
-preserve the fetch and execution triggers above.
+The HTML overlay owns a navigation stack and aborts listeners when a screen is
+removed. Gameplay and networking continue under menus; entering a menu clears
+held and toggled inputs and records their release. Docking updates follow game
+state changes, then compare a presentation snapshot before touching DOM nodes.
+Rows retain their identities, focus and scroll position.
 
-The browser object hierarchy and its render methods load together in the entry.
-Render and visual-update methods belong to their classes and use normal
-inheritance; no side-effect imports install them. Canvas setup happens in
-`main` before the first frame, so importing objects for prediction needs no DOM.
-Keep runtime objects and their GameObject base in the same initial hierarchy:
-that can introduce a cyclic chunk dependency during class initialization.
+During a game, the main menu replaces Saves with Disconnect. Disconnect reloads
+the page, closing the connection and stopping gameplay while keeping the saved
+identity and preferences. The initial menu returns with Play and Saves; gameplay
+does not load or reconnect until Play is selected again.
+
+`POST /api/identity` accepts a UUID in the request body and never creates or
+joins a session. The session owner captures the preview on its own goroutine.
+The non-cacheable response is a tuple of pilot label, credits and ship preview;
+the preview holds spec ID, paint index, hull health and fitted module tuples
+(module wire index, mount index, paint index, nullable health). It returns no
+private ID. Import verifies first, asks for native dialog confirmation, and only
+then replaces the local token and reloads. There is currently no username field;
+the menu displays the server's pilot label.
+
+Graphics and keybindings persist as arrays, keeping their storage contract stable
+across production mangling. The inline sky reloads graphics preferences on the
+shared `ui-graphics` event. DOM modules preserve string literals (native attribute
+names, element names and input types); app-owned property accesses still use the
+shared mangling cache. Native `String.trim` remains untouched.
+
+Graphics preferences contain starfield, clouds, sparkles and resolution. Older
+five-value preferences still restore resolution from the last position, discarding
+the removed glow toggle. Glows render without graphics, debug or benchmark switches.
+
+Browser entry points register graphics preference listeners directly on `window`.
+The shared preference module does not register browser listeners when imported by
+simulation code; headless simulation tests can therefore keep running without a
+DOM. The background renderer assumes a browser, including in its test fixture.
+These listener registrations do not change resource loading triggers.
+
+The older canvas docking adapter is retained for its existing regression tests;
+it is no longer imported by the game entry or emitted in the production bundle.
+The shared model and action modules serve the HTML interface and that adapter.
+
+Production size comparison for this change: the old initial JavaScript was
+138.65 kB uncompressed (60.04 kB gzip level 1). The new menu entry is about
+18.5 kB uncompressed (about 6.8 kB gzip level 1). Gameplay remains deferred until
+PLAY; the shared object hierarchy now loads for the menu's ship preview even on
+first visits without a save.
+The hierarchy and gameplay chunks still exceed the existing 14 kB gzip target;
+separating the menu does not resolve that pre-existing game-code budget overrun.
+Measured resources after implementation (decimal kB; gzip level 1):
+
+| Resource                | Before, raw | After, raw | After, gzip |
+| ----------------------- | ----------: | ---------: | ----------: |
+| HTML including boot sky |        4.66 |       5.08 |        2.50 |
+| Initial JavaScript      |      138.65 |      18.43 |        6.81 |
+| CSS                     |        0.17 |       5.89 |        2.20 |
+| Docking JavaScript      |        5.22 |       7.21 |        2.97 |
+| Deferred gameplay       |           — |      58.85 |       25.83 |
+| Shared ship hierarchy   |           — |      79.09 |       34.49 |
+| Ship preview            |           — |       0.75 |        0.50 |
+
+The 1.41 kB WOFF2 font and 1.68 kB audio chunk are unchanged. The old
+initial chunk contained the now-deferred gameplay and ship code.
 
 ## Adding a loading boundary
 
@@ -355,3 +414,23 @@ short taps. Horn drilling already resolves once per collision tick. Both specs
 use 30 damage steps per second with unchanged damage per second and drill grip.
 Local `laserDamage` events present target-coloured sparks at the traced contact,
 only when damage is applied. They add no wire fields or loading triggers.
+
+## HTML UI browser checks
+
+Opening the main menu during gameplay uses a snapshot of the current player's
+ship from the already-loaded gameplay API, without another identity request.
+On initial page load, a locally cached preview for the same private ID displays
+while the server refreshes it. Without a matching cache, the server must verify
+the identity before rendering a ship. Cache data is presentation only; importing
+an identity still requires server verification. Both paths use the same inactive
+ship rendering.
+
+After `npm run build`, start one `npm run dev:server` and one
+`npm run preview -- --strictPort` using the normal ports and proxy. Run
+`CHROME_BIN=/path/to/chrome npm run test:ui` (defaults to `chromium`). The check
+creates a fresh local test pilot, verifies first-visit and returning-player
+loading, settings, import cancellation, desktop layout and browser focus.
+It builds the real DOM docking loader and its shared state into separate
+production-transformed chunks, then exercises trading, repairs, painting and
+launch in an isolated fixture. Temporary chunks, browser profiles and browser
+processes are removed on completion. Stop both servers after testing.

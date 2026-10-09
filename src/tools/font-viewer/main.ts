@@ -22,11 +22,11 @@ const updateControls = () => {
       `--${input.id}`,
       input === outlineOpacity
         ? String(input.valueAsNumber / 15)
-        : input.value + (input.id === 'size' ? 'px' : ''),
+        : input.value + (input.id === 'size' ? 'rem' : ''),
     );
   }
 
-  sizeValue.textContent = `${inputs.find((input) => input.id === 'size')!.value}px`;
+  sizeValue.textContent = `${inputs.find((input) => input.id === 'size')!.value}rem`;
   const opacity = outlineOpacity.valueAsNumber;
 
   outlineOpacityValue.textContent = `${Math.round((opacity / 15) * 1000) / 10}% [${opacity.toString(16)}]`;

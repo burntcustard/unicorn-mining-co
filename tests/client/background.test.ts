@@ -10,6 +10,7 @@ for (const production of [false, true]) {
   const bitmaps: { closed: boolean; close: () => void }[] = [];
 
   const browser = createContext({
+    window: new EventTarget(),
     document: {
       createElement: () => {
         const commands: unknown[] = [];

@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "property-disallowed-list": ["cursor"],
+    "declaration-property-unit-allowed-list": {
+      "font-size": ["rem", "vw"],
+      "font": ["rem"]
+    },
+    "rule-empty-line-before": [
+      "always",
+      { "except": ["first-nested"], "ignore": ["after-comment"] }
+    ],
+    "at-rule-empty-line-before": [
+      "always",
+      {
+        "except": ["first-nested", "blockless-after-blockless"],
+        "ignore": ["after-comment"]
+      }
+    ],
+    "comment-empty-line-before": [
+      "always",
+      {
+        "except": ["first-nested"],
+        "ignore": ["after-comment", "stylelint-commands"]
+      }
+    ]
+  }
+}

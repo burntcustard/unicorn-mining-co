@@ -1,7 +1,2 @@
+@import '../reset.css';
 @import '../../font/font.css';
-
-body {
-  font-family: Gemetric, sans-serif;
-  -webkit-text-stroke: 0.125em #0007;
-  /* paint-order: stroke; */
-}

@@ -1,3 +1,4 @@
+import { graphics } from '../ui/dom/graphics';
 import { withAlpha } from '../utilities/color';
 import { circlePath, sparklePath } from '../utilities/drawing';
 import { colors } from '../../specs/colors';
@@ -116,7 +117,7 @@ const makeTile = ({
   // @ifdef DEBUG
   if (parts.includes('clouds')) {
     // @endif
-    while (clouds--) {
+    while (graphics[1] && clouds--) {
       const color = cloudColors[Math.floor(random() * 4)];
       const radius = 120 + random() ** 2 * 320;
 
@@ -138,7 +139,7 @@ const makeTile = ({
   // @ifdef DEBUG
   if (parts.includes('dots')) {
     // @endif
-    while (dots--) {
+    while (graphics[0] && dots--) {
       const color = withAlpha({
         color: dotTints[Math.floor(random() * 5)],
         alpha: 0.5,
@@ -166,7 +167,7 @@ const makeTile = ({
   // @ifdef DEBUG
   if (parts.includes('sparkles')) {
     // @endif
-    while (sparkles--) {
+    while (graphics[2] && sparkles--) {
       const color = sparkleTints[Math.floor(random() * 8)];
       const radius = size * (1 + random() * 2);
       const path = sparklePath(radius * 1.4, 0.4);
@@ -193,6 +194,7 @@ const makeTile = ({
         bloom.addColorStop(0.4, withAlpha({ color, alpha: 0.1 }));
         bloom.addColorStop(1, withAlpha({ color, alpha: 0 }));
         ctx.fillStyle = bloom;
+
         ctx.fill(halo);
 
         const rays = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 5);
@@ -217,6 +219,10 @@ const makeTile = ({
 };
 
 let tiles: Tile[];
+
+window.addEventListener('ui-graphics', () => {
+  span = undefined;
+});
 
 // A canvas can be held as the list of drawing commands that filled it and
 // replayed on every blit, which makes a tile cost whatever it took to draw

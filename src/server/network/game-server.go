@@ -29,6 +29,7 @@ type GameServer struct {
 	session     *GameSession
 	http        *http.Server
 	events      chan socketEvent
+	identities  chan identityRequest
 	wake        chan struct{}
 	done        chan struct{}
 	stopped     chan struct{}
@@ -38,7 +39,7 @@ type GameServer struct {
 }
 
 func NewGameServer(seed float64, catalog specs.Catalog) *GameServer {
-	return &GameServer{session: NewGameSession(seed, catalog), events: make(chan socketEvent, 256), wake: make(chan struct{}, 1), done: make(chan struct{}), stopped: make(chan struct{}), catalog: catalog}
+	return &GameServer{session: NewGameSession(seed, catalog), events: make(chan socketEvent, 256), identities: make(chan identityRequest, 16), wake: make(chan struct{}, 1), done: make(chan struct{}), stopped: make(chan struct{}), catalog: catalog}
 }
 
 func (s *GameServer) EnablePersistence(store *persistence.Store) error {
@@ -55,6 +56,11 @@ func (s *GameServer) Start(port int, assets string, production bool) (net.Listen
 	ordinary := HandleHTTP(assets)
 
 	s.http = &http.Server{ReadHeaderTimeout: 5 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/identity" {
+			s.handleIdentity(w, r)
+			return
+		}
+
 		if r.URL.Path == "/healthz" && s.session.persistence != nil && s.session.persistence.store.Err() != nil {
 			http.Error(w, "Storage unavailable", http.StatusServiceUnavailable)
 			return
@@ -221,6 +227,8 @@ func (s *GameServer) run() {
 			}
 
 			return
+		case request := <-s.identities:
+			request.result <- s.session.identityPreview(request.privateID)
 		case <-s.wake:
 			drain()
 		case now := <-heartbeat.C:

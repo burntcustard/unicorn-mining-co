@@ -13,6 +13,15 @@ import { unlockAudio } from '../audio/sound-loader';
 
 const callbacks = new Map<string, (event: KeyboardEvent) => void>();
 const pressed = new Set<string>();
+const actionCallbacks = new Map<KeyBinding, (event: KeyboardEvent) => void>();
+let menuInput = false;
+
+let releaseInput = () => {};
+
+export const setMenuInput = (visible: boolean) => {
+  if (visible && !menuInput) releaseInput();
+  menuInput = visible;
+};
 
 export const playerInput = emptyPlayerInput();
 
@@ -24,7 +33,7 @@ export const bindKeys = (
 export const bindAction = (
   binding: KeyBinding,
   callback: (event: KeyboardEvent) => void,
-) => binding.keys.forEach((key) => bindKeys(key, callback));
+) => actionCallbacks.set(binding, callback);
 
 export const initKeys = ({
   onChange = () => {},
@@ -40,7 +49,16 @@ export const initKeys = ({
   };
 
   const keyDown = (event: KeyboardEvent) => {
-    if (event.defaultPrevented) return;
+    if (
+      menuInput ||
+      event.defaultPrevented ||
+      (event.composedPath()[0] as HTMLElement)?.closest?.(
+        ':is(input, select, textarea, button, dialog, [contenteditable])',
+      )
+    ) {
+      return;
+    }
+
     const key = event.key.toLowerCase();
 
     if (key.startsWith('arrow') || key === ' ') event.preventDefault();
@@ -83,9 +101,14 @@ export const initKeys = ({
 
     notify(previous);
     callbacks.get(key)?.(event);
+
+    actionCallbacks.forEach((callback, binding) => {
+      if (matchesBinding(binding, key)) callback(event);
+    });
   };
 
   const keyUp = (event: KeyboardEvent) => {
+    if (menuInput) return;
     const previous = { ...playerInput };
 
     pressed.delete(event.key.toLowerCase());
@@ -97,6 +120,19 @@ export const initKeys = ({
 
     pressed.clear();
     notify(previous);
+  };
+
+  releaseInput = () => {
+    pressed.clear();
+
+    Object.assign(playerInput, emptyPlayerInput(), {
+      fire: false,
+      plasmaActive: false,
+      autogunActive: false,
+      laserActive: false,
+    });
+
+    onChange({ ...playerInput });
   };
 
   window.addEventListener('keydown', keyDown);

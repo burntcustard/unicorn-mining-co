@@ -1,3 +1,4 @@
+import { laserName } from './names';
 import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import { laserBeam } from '../effects/laser-beam';
@@ -5,7 +6,7 @@ import type { ModuleSpec } from './types';
 
 export const laser = {
   behavior: 'beam',
-  name: 'Beam Laser',
+  name: laserName,
   health: 0,
   healthActivated: 40,
   price: 700,

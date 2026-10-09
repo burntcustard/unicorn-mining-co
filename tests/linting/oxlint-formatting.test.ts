@@ -11,6 +11,7 @@ const inlineFile = join(directory, 'inline.ts');
 const commentFile = join(directory, 'comments.ts');
 const blockFile = join(directory, 'blocks.ts');
 const correctnessFile = join(directory, 'correctness.ts');
+const browserFile = join(directory, 'browser.ts');
 const source =
   "import '../dependency';\n// Following code must be separated too.\nexport const value = 1;\n";
 
@@ -37,6 +38,21 @@ const lint = ({
   );
 
 try {
+  const browserSource = "window.addEventListener('resize', () => {});\n";
+
+  writeFileSync(browserFile, browserSource);
+
+  for (const format of [false, true]) {
+    const result = lint({ format, fix: true, target: browserFile });
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(
+      readFileSync(browserFile, 'utf8'),
+      browserSource,
+      'browser globals need no existence guards in lint or format mode',
+    );
+  }
+
   writeFileSync(correctnessFile, 'const unused = 1;\n');
   assert.match(lint({ target: correctnessFile }).stdout, /no-unused-vars/);
   assert.doesNotMatch(

@@ -13,7 +13,7 @@
     />
     <link rel="stylesheet" href="/src/client/style.css" />
   </head>
-  <body style="margin: 0; background: #102">
+  <body style="background: #102">
     <canvas
       id="canvas"
       style="
@@ -27,6 +27,7 @@
     ></canvas>
     <div
       id="connection-status"
+      hidden
       role="status"
       aria-live="polite"
       style="
@@ -37,7 +38,7 @@
         color: white;
         background: #213;
         padding: 14px;
-        font-size: 16px;
+        font-size: 1rem;
         text-align: center;
         z-index: 10;
       "

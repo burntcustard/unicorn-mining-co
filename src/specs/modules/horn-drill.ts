@@ -1,10 +1,11 @@
+import { hornDrillName } from './names';
 import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import type { ModuleSpec } from './types';
 
 export const hornDrill = {
   behavior: 'hornDrill',
-  name: 'Horn Drill',
+  name: hornDrillName,
   health: 100,
   price: 350,
   zIndex: renderingLayers.modulesBelowShipHull,

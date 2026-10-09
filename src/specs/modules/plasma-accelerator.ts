@@ -1,3 +1,4 @@
+import { plasmaAcceleratorName } from './names';
 import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import { plasmaExplosion } from '../effects/plasma-explosion';
@@ -8,7 +9,7 @@ const fireInterval = 2000;
 
 export const plasmaAccelerator = {
   behavior: 'weapon',
-  name: 'Plasma Accelerator',
+  name: plasmaAcceleratorName,
   health: 0,
   healthActivated: 20,
   price: 800,

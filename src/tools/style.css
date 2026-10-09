@@ -1,3 +1,5 @@
+@import '../reset.css';
+
 :root {
   font-family: system-ui;
   line-height: 1.6;
@@ -13,12 +15,7 @@
   --metric-bottom: #ff8900;
 }
 
-* {
-  box-sizing: border-box;
-}
-
 body {
-  margin: 0;
   display: grid;
   grid-template-columns: 18rem minmax(0, 1fr);
   height: 100dvh;
@@ -69,7 +66,6 @@ input[type='color'] {
 select,
 button {
   padding: 0.5rem;
-  font: inherit;
   font-size: 0.75rem;
 }
 
@@ -79,7 +75,6 @@ button {
 
 input[type='color'] {
   height: 2.5rem;
-  cursor: pointer;
 }
 
 label output {
@@ -135,7 +130,6 @@ h2 {
 }
 
 .specimen {
-  margin: 0;
   color: var(--text);
   font-size: var(--size);
   font-synthesis: none;

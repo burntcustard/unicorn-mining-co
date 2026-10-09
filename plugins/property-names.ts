@@ -95,6 +95,8 @@ export const propertyNames = [
   'history',
   'handleDockingContacts',
   'id',
+  'identity',
+  'identityPreview',
   'image',
   'index',
   'initialize',
@@ -162,7 +164,7 @@ export const propertyNames = [
   'token',
   'tracks',
   'transform',
-  'trim',
+  // 'trim', // Preserve String.prototype.trim in native form controls.
   'turn',
   'type',
   'unlock',

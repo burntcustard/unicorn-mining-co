@@ -56,6 +56,7 @@ const { output } = await bundle.generate({ format: 'esm' });
 
 const input: {
   bindKeys: typeof import('../../src/client/input/input').bindKeys;
+  setMenuInput: typeof import('../../src/client/input/input').setMenuInput;
   initKeys: typeof import('../../src/client/input/input').initKeys;
   playerInput: typeof import('../../src/client/input/input').playerInput;
   GameLoop: typeof import('../../src/client/game-loop.ts').GameLoop;
@@ -69,6 +70,36 @@ const changes: import('../../src/client/protocol/input').PlayerInput[] = [];
 
 const stopKeys = input.initKeys({ onChange: (state) => changes.push(state) });
 
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+input.setMenuInput(true);
+assert.equal(input.playerInput.thrust, 0);
+assert.equal(input.playerInput.fire, false);
+assert.equal(
+  changes.at(-1).thrust,
+  0,
+  'opening a menu sends the release to networking',
+);
+const tab = new KeyboardEvent('keydown', { key: 'Tab' });
+const space = new KeyboardEvent('keydown', { key: ' ' });
+
+window.dispatchEvent(tab);
+window.dispatchEvent(space);
+assert(
+  !tab.defaultPrevented && !space.defaultPrevented,
+  'native navigation remains available',
+);
+assert.equal(input.playerInput.fire, false, 'menu keys cannot fire weapons');
+input.setMenuInput(false);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.equal(
+  input.playerInput.thrust,
+  1,
+  'gameplay resumes with a fresh key press',
+);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' }));
+changes.length = 0;
+
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
 assert.equal(input.playerInput.hornDrill, true);
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
@@ -78,10 +109,7 @@ assert.equal(input.playerInput.hornDrill, false);
 
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'P' }));
 assert.equal(input.playerInput.plasmaActive, true, 'P deploys plasma');
-assert(
-  !input.playerInput.autogunActive,
-  'P does not deploy autogunActive',
-);
+assert(!input.playerInput.autogunActive, 'P does not deploy autogunActive');
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'A' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
 assert.equal(

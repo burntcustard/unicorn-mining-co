@@ -1,10 +1,5 @@
 import { camera, renderDeadzone } from '../camera';
-import {
-  glows,
-  lights,
-  toggleGlows,
-  toggleLights,
-} from '../utilities/lighting';
+import { lights, toggleLights } from '../utilities/lighting';
 import { playSound, testTone } from '../audio/sound-loader';
 import { bindKeys } from '../input/input';
 import { colors } from '../../specs/colors';
@@ -58,7 +53,6 @@ export const bindDebug = (game: GameState) => {
   bindKeys('6', (sky as typeof sky & { cycle: () => void }).cycle);
 
   bindKeys('7', toggleLights);
-  bindKeys('8', toggleGlows);
   bindKeys('9', () => (game.physicsOn = !game.physicsOn));
   bindKeys('0', testTone);
   bindKeys('c', () => playSound(9));
@@ -140,13 +134,11 @@ export const renderDebug = ({
     y: 190,
   });
 
-  renderText({ game, text: `8 GLOWS:${glows ? 'ON' : 'OFF'}`, x: 20, y: 210 });
-
   renderText({
     game,
     text: `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`,
     x: 20,
-    y: 230,
+    y: 210,
   });
 
   if (showMass) {
@@ -154,7 +146,7 @@ export const renderDebug = ({
     game.ctx.scale(game.scale, game.scale);
     game.ctx.translate(-camera.x, -camera.y);
     game.ctx.fillStyle = colors.white[2];
-    game.ctx.font = '12px monospace';
+    game.ctx.font = '14px monospace';
     game.ctx.textAlign = 'center';
     game.ctx.textBaseline = 'middle';
 

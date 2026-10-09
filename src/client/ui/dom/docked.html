@@ -1,0 +1,45 @@
+<section class="ui-screen" aria-labelledby="docked-heading">
+  <div class="ui-panel">
+    <header>
+      <h2 id="docked-heading">DOCKED</h2>
+      <span class="ui-value" data-balance></span
+      ><button class="ui-choice" data-main-menu>MENU</button>
+    </header>
+    <div class="ui-dock-grid">
+      <div class="ui-dock-list">
+        <nav data-sections aria-label="Ship and cargo"></nav>
+        <h3 data-list-heading>AVAILABLE CARGO</h3>
+        <nav data-items aria-label="Available items"></nav>
+      </div>
+      <section class="ui-dock-info" aria-labelledby="item-heading">
+        <h3 id="item-heading">CARGO</h3>
+        <dl class="ui-value">
+          <dt>HEALTH</dt>
+          <dd data-health></dd>
+          <dt>PRICE</dt>
+          <dd data-price></dd>
+          <dt>REPAIR</dt>
+          <dd data-repair></dd>
+          <dt>CARGO</dt>
+          <dd data-cargo></dd>
+        </dl>
+        <div class="ui-actions" data-actions>
+          <button class="ui-choice" data-command="BUY">BUY</button
+          ><button class="ui-choice" data-command="SELL">SELL</button
+          ><button class="ui-choice" data-command="EQUIP">EQUIP</button
+          ><button class="ui-choice" data-command="REMOVE">REMOVE</button
+          ><button class="ui-choice" data-command="FIX">FIX</button>
+        </div>
+        <section data-paint-panel>
+          <h3>PAINT</h3>
+          <div class="ui-paints" data-paints></div>
+        </section>
+        <p class="ui-status" role="status"></p>
+      </section>
+    </div>
+    <div class="ui-actions">
+      <button class="ui-choice" data-back>BACK</button
+      ><button class="ui-choice" data-launch>LAUNCH</button>
+    </div>
+  </div>
+</section>

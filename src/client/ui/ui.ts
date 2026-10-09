@@ -1,7 +1,6 @@
 import { player } from '../player';
 import { colors } from '../../specs/colors';
 import { renderControls } from './controls';
-import { renderDocked } from './docked-loader';
 import { renderIndicators } from './indicators';
 import * as Vec from '../utilities/vector';
 import { type Ship } from '../objects/ship';
@@ -49,8 +48,6 @@ export const renderUI = (
   renderControls(game, controlsShip);
 
   game.ctx.globalAlpha = game.uiAlpha;
-
-  if (controlsShip.dockedTo && player.started) renderDocked(game, player.ship);
 
   // Messages keep their own visibility and sit over the docked panel, so a
   // reward announced by a sale is still read

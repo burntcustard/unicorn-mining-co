@@ -1,10 +1,11 @@
+import { cargoHatchName } from './names';
 import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import type { ModuleSpec } from './types';
 
 export const cargoHatch = {
   behavior: 'cargoHatch',
-  name: 'Cargo Hatch',
+  name: cargoHatchName,
   health: 0,
   healthActivated: 4,
   price: 150,

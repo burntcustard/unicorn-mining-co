@@ -1,15 +1,20 @@
+import {
+  cargoMenuEntriesOf,
+  cargoMenuEntryName,
+  fitsOf,
+  moduleActionsOf,
+} from './docked-model';
+import { sendAppliedAction } from './docked-actions';
 import { withAlpha } from '../utilities/color';
-import { autogunAmmunition } from '../../specs/items';
 import { Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
-import { type Mount } from '../types';
 import { type GameState } from '../game';
 import { player, paintUnlocked, say, unlockPaint } from '../player';
 import { colors, paintColors } from '../../specs/colors';
 import { pathOutline } from './path-outline';
 import { playSound } from '../audio/sound-loader';
 import { renderText } from './text';
-import { moduleTypes, moduleTypesById } from '../objects/modules/index';
+import { moduleTypes } from '../objects/modules/index';
 import { sendCraftAction } from '../network/craft-actions';
 
 /**
@@ -50,87 +55,6 @@ let moduleOption = 0;
 let focused = 0;
 let paintReturnFocus = 0;
 let stage = 0;
-
-// Cargo instances carry their item data directly, and a stowed module is its
-// own data, so collect like things into one menu entry with how many are aboard.
-const cargoMenuEntriesOf = (ship: any) => [
-  ...ship.cargoContents
-    .map((object: any) => object.item || object)
-    .reduce(
-      (types: Map<any, number>, item: any) =>
-        types.set(item, (types.get(item) || 0) + 1),
-      new Map(),
-    ),
-  [autogunAmmunition, 0],
-];
-
-// Ore of a kind stacks into one row, but two module instances never do, so a
-// count is only worth showing when there is more than one
-const cargoMenuEntryName = ([item, count]: any[]) => {
-  const name = item.name?.toUpperCase() ?? item.label;
-
-  if (count === 0) return `BUY ${name} $${item.price}`;
-
-  return count > 1 ? `${name} *${count}` : name;
-};
-
-const sendAppliedAction = (
-  ship: Ship,
-  action: Parameters<Ship['applyDockAction']>[0],
-) => {
-  const applied = ship.applyDockAction(action, player);
-
-  if (applied) sendCraftAction(applied);
-  return applied;
-};
-
-// What a mount can be given, in the order its `fits` lists them: each module
-// type stands in for itself while the pilot owns none of it, and is replaced in
-// place by the ones they do own once they do. A Module instance can be equipped,
-// sold and painted; its constructor in the catalogue can only be bought.
-// Filtering the owned modules preserves acquisition order across fitting changes.
-const moduleRows = new WeakMap<Ship, number[]>();
-
-const fitsOf = (ship: Ship, mount: Mount) => {
-  const modulesById = new Map(
-    ship.modules.map((module) => [module.id, module]),
-  );
-  const ids = (moduleRows.get(ship) || []).filter((id) => modulesById.has(id));
-
-  modulesById.forEach((module, id) => {
-    if (!ids.includes(id)) ids.push(id);
-  });
-
-  moduleRows.set(ship, ids);
-  const rows = ids.map((id) => modulesById.get(id)!);
-
-  return [...moduleTypesById.values()]
-    .filter((type) => mount.fits.includes(type))
-    .flatMap<Module | typeof Module>((type) => {
-      const owned = rows.filter(
-        (module) =>
-          module.constructor === type &&
-          (!module.mount || module.mount === mount),
-      );
-
-      return owned.length ? owned : [type];
-    });
-};
-
-// Equip and remove move a module between cargo and a mount; buy and sell
-// change ownership.
-const moduleActionsOf = (mount: any, module: any) => {
-  const equipped = mount.module === module;
-  const owned = module instanceof Module;
-
-  return equipped
-    ? mount.health < (module.health || module.healthActivated)
-      ? ['FIX', 'REMOVE']
-      : ['REMOVE']
-    : owned
-      ? ['EQUIP', 'SELL']
-      : ['BUY'];
-};
 
 // One snapshot supplies navigation, actions and drawing with the same rows.
 const selectionOf = (ship: any) => {

@@ -62,3 +62,8 @@ share the beam's activation state, so the session comparison duplicates that
 state for each current model part only in archived one-segment search lights.
 Actual packets still have every segment checked; the archived bytes remain
 unchanged.
+
+`dom-ui.ts` is the isolated docking scene used by `npm run test:ui`. It loads
+through the real DOM docking facade and production property transforms. Purchases,
+fitting, repairs and paint use the normal ship actions; the fixture settles sales
+locally instead of sending commands for its synthetic ship to the game server.

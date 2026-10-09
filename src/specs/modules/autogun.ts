@@ -1,3 +1,4 @@
+import { autogunName } from './names';
 import { renderingLayers } from '../rendering-layers';
 import { colors } from '../colors';
 import { autogunExplosion } from '../effects/autogun-explosion';
@@ -6,7 +7,7 @@ import type { ModuleSpec } from './types';
 
 export const autogun = {
   behavior: 'weapon',
-  name: 'Autogun',
+  name: autogunName,
   health: 0,
   healthActivated: 20,
   price: 600,

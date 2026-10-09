@@ -1,0 +1,58 @@
+<section class="ui-screen" aria-labelledby="settings-heading">
+  <div class="ui-panel">
+    <header>
+      <h2 id="settings-heading">SETTINGS</h2>
+      <button class="ui-choice" data-back>BACK</button>
+    </header>
+    <nav class="ui-tabs" aria-label="Settings sections">
+      <button class="ui-choice" aria-pressed="true" data-controls>
+        CONTROLS</button
+      ><button class="ui-choice" aria-pressed="false" data-graphics>
+        GRAPHICS
+      </button>
+    </nav>
+    <section data-control-panel aria-label="Controls">
+      <p>
+        Select a binding and press a key. Escape cancels. Tab, Enter and Escape
+        remain available for menus.
+      </p>
+      <div data-bindings></div>
+      <button class="ui-choice" data-reset>RESET TO DEFAULTS</button>
+    </section>
+    <section data-graphics-panel aria-label="Graphics" hidden>
+      <label class="ui-setting"
+        >Starfield <input type="checkbox" data-graphic="0"
+      /></label>
+      <label class="ui-setting"
+        >Clouds <input type="checkbox" data-graphic="1"
+      /></label>
+      <label class="ui-setting"
+        >Sparkles <input type="checkbox" data-graphic="2"
+      /></label>
+      <label class="ui-setting"
+        >Rendering resolution
+        <select data-resolution>
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+          <option value="1.5">150%</option>
+          <option value="2">200%</option>
+        </select></label
+      >
+      <p>Changes apply immediately. Lower resolution reduces rendering work.</p>
+    </section>
+    <p class="ui-status" role="status"></p>
+    <dialog
+      data-binding-dialog
+      aria-labelledby="binding-heading"
+      aria-describedby="binding-prompt"
+    >
+      <h3 id="binding-heading">CHANGE KEY</h3>
+      <p id="binding-prompt"></p>
+      <p class="ui-status" role="status"></p>
+      <form method="dialog" class="ui-actions">
+        <button class="ui-choice">CANCEL</button>
+      </form>
+    </dialog>
+  </div>
+</section>

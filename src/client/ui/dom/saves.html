@@ -1,0 +1,59 @@
+<section class="ui-screen" aria-labelledby="saves-heading">
+  <div class="ui-panel">
+    <header>
+      <h2 id="saves-heading">SAVES</h2>
+      <button class="ui-choice" data-back>BACK</button>
+    </header>
+    <section class="ui-form" aria-labelledby="export-heading">
+      <h3 id="export-heading">YOUR PRIVATE ID</h3>
+      <p>
+        This ID grants access to your pilot and ship. Keep a copy somewhere
+        private.
+      </p>
+      <label class="ui-field"
+        >Private ID<input
+          data-private-id
+          type="password"
+          readonly
+          autocomplete="off"
+          aria-label="Your private ID"
+      /></label>
+      <div class="ui-actions">
+        <button class="ui-choice" data-reveal aria-pressed="false">
+          REVEAL</button
+        ><button class="ui-choice" data-copy>COPY</button
+        ><button class="ui-choice" data-clear>CLEAR SAVE</button>
+      </div>
+      <p>
+        Clear Save removes this browser's save and reloads the game. Your pilot
+        stays on the server; keep your private ID to return to it. Keybindings
+        and settings are kept.
+      </p>
+    </section>
+    <form class="ui-form" data-import>
+      <h3>IMPORT A PILOT</h3>
+      <label class="ui-field"
+        >Private ID<input
+          data-import-id
+          type="password"
+          required
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></label
+      ><button class="ui-choice" type="submit" data-verify>VERIFY ID</button>
+    </form>
+    <p class="ui-status" role="status"></p>
+    <dialog aria-labelledby="confirm-heading">
+      <h3 id="confirm-heading">SWITCH PILOT?</h3>
+      <p data-preview></p>
+      <p>
+        Your current pilot will remain on the server. Save their private ID
+        before switching. The game will reload with the imported identity.
+      </p>
+      <form method="dialog" class="ui-actions">
+        <button class="ui-choice" value="cancel">CANCEL</button
+        ><button class="ui-choice" value="confirm">SWITCH PILOT</button>
+      </form>
+    </dialog>
+  </div>
+</section>

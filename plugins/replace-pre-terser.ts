@@ -38,15 +38,19 @@ const propertyPattern = new RegExp(
 /**
  * Source-level rewrites that help Terser compress the production JavaScript.
  */
-export const replacePreTerser = (src: string) =>
+export const replacePreTerser = (
+  src: string,
+  { preserveStrings = false }: { preserveStrings?: boolean } = {},
+) =>
   src
     .replace(
       tagPattern,
-      (_, quote, tag) => quote + encodeProtocolTags.get(tag) + quote,
+      (_, quote, tag) =>
+        quote + (preserveStrings ? tag : encodeProtocolTags.get(tag)) + quote,
     )
     .replace(propertyPattern, (match, quote, name) => {
       if (quote) {
-        return match.includes('/') || /[:-]/.test(match)
+        return preserveStrings || match.includes('/') || /[:-]/.test(match)
           ? match
           : match.replace(propertyNamePattern, (property) => `_${property}`);
       }

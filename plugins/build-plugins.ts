@@ -231,8 +231,11 @@ export function buildPlugin(flags: Record<string, boolean> = {}) {
 
       for (const url of files) {
         const code = stripIfdef(readFileSync(url, 'utf8'), flags);
+
         const javascript = annotateStateKeys(
-          replacePreTerser((await transformWithOxc(code, url.pathname)).code),
+          replacePreTerser((await transformWithOxc(code, url.pathname)).code, {
+            preserveStrings: url.pathname.includes('/ui/dom/'),
+          }),
           url.pathname,
         );
 
@@ -244,7 +247,9 @@ export function buildPlugin(flags: Record<string, boolean> = {}) {
 
       // Direct Rolldown consumers can reach this hook with TypeScript intact.
       const javascript = annotateStateKeys(
-        replacePreTerser((await transformWithOxc(code, id)).code),
+        replacePreTerser((await transformWithOxc(code, id)).code, {
+          preserveStrings: id.includes('/ui/dom/'),
+        }),
         id,
       );
 

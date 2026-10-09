@@ -26,6 +26,18 @@ assert.equal(
   'a ternary between quoted tags must mangle the entity kind access',
 );
 
+assert.equal(
+  replacePreTerser(
+    `element.setAttribute('id', 'ui-root'); input.setAttribute('type', 'text'); document.createElement('input'); value.trim(); model.update();`,
+    { preserveStrings: true },
+  ),
+  `element.setAttribute('id', 'ui-root'); _input.setAttribute('type', 'text'); document.createElement('input'); value.trim(); model._update();`.replace(
+    'model.',
+    '_model.',
+  ),
+  'DOM literals and native String.trim survive production while app state still mangles',
+);
+
 const entryId = resolve('src/__mangle_entry.ts');
 const lazyId = resolve('src/__mangle_lazy.ts');
 const property = 'crossChunkCounterForMangleTest';
@@ -108,7 +120,7 @@ const keybindingBundle = await rolldown({
         id === keybindingEntry
           ? `import { defaultKeybindings, moduleBinding, updateMovement } from './client/input/keybindings';
 export function inspectBindings() {
-  const bindings = [defaultKeybindings.forwardThrust, defaultKeybindings.turnLeft, defaultKeybindings.turnRight, moduleBinding('hornDrill'), moduleBinding('cargoHatch'), moduleBinding('searchLight'), moduleBinding('shieldGenerator'), defaultKeybindings.menuLeft, defaultKeybindings.menuRight, defaultKeybindings.menuUp, defaultKeybindings.menuDown, defaultKeybindings.menuBack, defaultKeybindings.menuSelect];
+  const bindings = [defaultKeybindings.forwardThrust, defaultKeybindings.turnLeft, defaultKeybindings.turnRight, moduleBinding('hornDrill'), moduleBinding('cargoHatch'), moduleBinding('searchLight'), moduleBinding('shieldGenerator')];
   return bindings.map(binding => binding.keys[0]);
 }
 export function inspectMovement() {
@@ -132,9 +144,7 @@ try {
 
   assert(chunk);
   assert(
-    !/\b(?:forwardThrust|turnLeft|turnRight|menuLeft|menuRight|menuUp|menuDown|menuBack|menuSelect)\b/.test(
-      chunk.code,
-    ),
+    !/\b(?:forwardThrust|turnLeft|turnRight)\b/.test(chunk.code),
     'action properties must be short in the built client',
   );
   const built = await import(
@@ -149,12 +159,6 @@ try {
     'h',
     'l',
     's',
-    'ArrowLeft',
-    'ArrowRight',
-    'ArrowUp',
-    'ArrowDown',
-    'Escape',
-    ' ',
   ]);
   assert.deepEqual(built.inspectMovement(), [1, -1]);
 } finally {
@@ -294,11 +298,16 @@ const boot = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 
 assert(boot, 'the background must be inlined into the HTML');
 let painted = 0;
+let marks = 0;
+let preferences: string | null = null;
 
 const context = new Proxy(
   {
     drawImage() {
       painted++;
+    },
+    fill() {
+      marks++;
     },
     createRadialGradient: () => ({ addColorStop() {} }),
   },
@@ -308,6 +317,8 @@ const context = new Proxy(
 const canvas = { style: {}, getContext: () => context };
 
 const browser = createContext({
+  window: new EventTarget(),
+  localStorage: { getItem: () => preferences },
   canvas,
   innerWidth: 800,
   innerHeight: 600,
@@ -323,7 +334,7 @@ const browser = createContext({
 
     moveTo() {}
   },
-  createImageBitmap: async (tile: unknown) => tile,
+  createImageBitmap: async () => ({ close() {} }),
   requestAnimationFrame: () => 0,
 });
 
@@ -336,6 +347,16 @@ assert.equal(
 const bootPaints = painted;
 
 assert(bootPaints > 0, 'the boot renderer paints immediately');
+assert(marks > 0, 'the default sky paints stars');
+preferences = JSON.stringify([false, false, false, false, 1]);
+browser.window.dispatchEvent(new Event('ui-graphics'));
+marks = 0;
+browser.background.renderBackground(canvas, context, 600 / 1080);
+assert.equal(
+  marks,
+  0,
+  'the browser entry reloads preferences and rebuilds the sky',
+);
 const backgroundEntry = resolve('src/__background_bridge.ts');
 
 const backgroundBundle = await rolldown({

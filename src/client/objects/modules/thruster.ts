@@ -1,13 +1,4 @@
 import { withAlpha } from '../../utilities/color';
-
-// @ifdef BENCHMARK
-import { benchmarkFlag } from '../../debug/benchmark';
-
-// @endif
-// @ifdef DEBUG
-import { glows } from '../../utilities/lighting';
-
-// @endif
 import { game } from '../../game';
 import { Module, type ModuleRenderOptions } from './module';
 
@@ -28,14 +19,6 @@ class Thruster extends Module {
   }
 
   renderGlow({ segment }: ModuleRenderOptions) {
-    // @ifdef DEBUG
-    if (!glows) return;
-    // @endif
-    // @ifdef BENCHMARK
-
-    if (benchmarkFlag('noLighting') || benchmarkFlag('noHalos')) return;
-    // @endif
-
     const { ctx } = game;
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
 
