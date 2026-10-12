@@ -22,21 +22,25 @@
       <select class="text-xs" id="spec"></select>
       <fieldset class="my-4">
         <legend>View</legend>
-        <label class="mt-4 mb-2"
-          ><input id="grid" type="checkbox" /> Coordinate grid</label
-        >
-        <label class="mt-4 mb-2"
-          ><input id="mount-points" type="checkbox" /> Mounting points</label
-        >
-        <label class="mt-4 mb-2"
-          ><input id="spin" type="checkbox" /> Spin</label
-        >
+        <label class="mt-4 mb-2">
+          <input id="grid" type="checkbox" />
+          Coordinate grid
+        </label>
+        <label class="mt-4 mb-2">
+          <input id="mount-points" type="checkbox" />
+          Mounting points
+        </label>
+        <label class="mt-4 mb-2">
+          <input id="spin" type="checkbox" />
+          Spin
+        </label>
         <button class="text-xs mt-4" id="reset-rotation" type="button">
           Reset rotation
         </button>
-        <label class="mt-4 mb-2" for="zoom"
-          >Zoom <output class="ml-auto" id="zoom-value" for="zoom"></output
-        ></label>
+        <label class="mt-4 mb-2" for="zoom">
+          Zoom
+          <output class="ml-auto" id="zoom-value" for="zoom"></output>
+        </label>
         <input id="zoom" type="range" min="1" max="8" step="0.25" />
       </fieldset>
       <fieldset class="my-4" id="module-controls">
@@ -51,10 +55,10 @@
         <button class="text-xs mt-4" id="replay-autogun-effect" type="button">
           Replay autogun explosion
         </button>
-        <label class="mt-4 mb-2"
-          ><input id="slow-effect" type="checkbox" /> Slow motion (¼
-          speed)</label
-        >
+        <label class="mt-4 mb-2">
+          <input id="slow-effect" type="checkbox" />
+          Slow motion (¼ speed)
+        </label>
       </fieldset>
       <p id="source" class="text-muted text-xs mt-6"></p>
     </aside>

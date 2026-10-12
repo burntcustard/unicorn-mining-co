@@ -47,9 +47,11 @@
   "devDependencies": {
     "@fullhuman/postcss-purgecss": "^8.0.0",
     "@types/clipper-lib": "6.4.0",
+    "@types/html-minifier-terser": "^7.0.2",
     "@types/ws": "^8.18.1",
     "clipper-lib": "6.4.2",
     "fonteditor-core": "2.6.3",
+    "html-minifier-terser": "^7.2.0",
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0",
     "oxlint-tsgolint": "^7.0.2002",

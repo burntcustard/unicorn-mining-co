@@ -13,19 +13,22 @@
         This ID grants access to your pilot and ship. Keep a copy somewhere
         private.
       </p>
-      <label class="uppercase grid gap-2"
-        >Private ID<input
+      <label class="uppercase grid gap-2">
+        Private ID
+        <input
           class="ui-input"
           data-private-id
           type="password"
           readonly
           autocomplete="off"
-      /></label>
+        />
+      </label>
       <div class="ui-actions gap-2">
         <button class="uppercase button" data-reveal aria-pressed="false">
-          Reveal</button
-        ><button class="uppercase button" data-copy>Copy</button
-        ><button class="uppercase button" data-clear>Clear save</button>
+          Reveal
+        </button>
+        <button class="uppercase button" data-copy>Copy</button>
+        <button class="uppercase button" data-clear>Clear save</button>
       </div>
       <p>
         Clear Save removes this browser's save and reloads the game. Your pilot
@@ -35,16 +38,19 @@
     </section>
     <form class="grid gap-4" data-import>
       <h3 class="uppercase text-lg">Import a pilot</h3>
-      <label class="uppercase grid gap-2"
-        >Private ID<input
+      <label class="uppercase grid gap-2">
+        Private ID
+        <input
           class="ui-input"
           data-import-id
           type="password"
           required
           autocomplete="off"
           spellcheck="false"
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></label
-      ><button class="uppercase button" type="submit" data-verify>
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        />
+      </label>
+      <button class="uppercase button" type="submit" data-verify>
         Verify ID
       </button>
     </form>
@@ -57,8 +63,8 @@
         before switching. The game will reload with the imported identity.
       </p>
       <form method="dialog" class="ui-actions gap-2 mt-4">
-        <button class="uppercase button" value="cancel">Cancel</button
-        ><button class="uppercase button" value="confirm">Switch pilot</button>
+        <button class="uppercase button" value="cancel">Cancel</button>
+        <button class="uppercase button" value="confirm">Switch pilot</button>
       </form>
     </dialog>
   </div>

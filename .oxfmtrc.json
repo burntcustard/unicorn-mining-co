@@ -1,6 +1,7 @@
 {
   "printWidth": 80,
   "singleQuote": true,
+  "htmlWhitespaceSensitivity": "ignore",
   "overrides": [
     {
       "files": ["font/glyph-paths.ts"],

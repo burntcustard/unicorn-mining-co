@@ -1,5 +1,6 @@
 import { gzipSync } from 'node:zlib';
 import { minify } from 'terser';
+import { minify as minifyHtml } from 'html-minifier-terser';
 import { replacePreTerser, stripIfdef } from './replace-pre-terser.ts';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
@@ -178,6 +179,32 @@ export function viteBackground(flags: Record<string, boolean> = {}) {
           `<script>${output[0].code}</script>`,
         );
       },
+    },
+  } satisfies Plugin;
+}
+
+export function buildHtmlPlugin() {
+  const compact = (html: string) =>
+    minifyHtml(html, {
+      collapseWhitespace: true,
+      collapseInlineTagWhitespace: true,
+      removeComments: true,
+    });
+
+  return {
+    name: 'vite-build-html',
+    apply: 'build',
+    enforce: 'pre',
+    async load(id: string) {
+      if (!id.endsWith('.html?raw')) return;
+
+      const html = await compact(readFileSync(id.slice(0, -4), 'utf8'));
+
+      return `export default ${JSON.stringify(html)};`;
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler: compact,
     },
   } satisfies Plugin;
 }

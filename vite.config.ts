@@ -1,5 +1,6 @@
 import {
   viteBackground,
+  buildHtmlPlugin,
   buildPlugin,
   buildPrePlugin,
 } from './plugins/build-plugins.ts';
@@ -50,7 +51,12 @@ export default defineConfig(({ mode, command }) => {
       port: 3000,
       proxy,
     },
-    plugins: [buildPrePlugin(flags), viteBackground(flags), buildPlugin(flags)],
+    plugins: [
+      buildHtmlPlugin(),
+      buildPrePlugin(flags),
+      viteBackground(flags),
+      buildPlugin(flags),
+    ],
     build: {
       minify: 'oxc',
       assetsInlineLimit: 0,

@@ -6,7 +6,11 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import { rolldown } from 'rolldown';
-import { buildPlugin, viteBackground } from '../../plugins/build-plugins.ts';
+import {
+  buildHtmlPlugin,
+  buildPlugin,
+  viteBackground,
+} from '../../plugins/build-plugins.ts';
 import { replacePreTerser } from '../../plugins/replace-pre-terser.ts';
 
 const pathSource = `import '../shape-distance'; export * from "../../distance-shape"; export function distance() {} const value = Vec.distance(a, b); const state = { distance: 1 }; state.distance = -distance;`;
@@ -424,12 +428,53 @@ try {
   await regionBundle.close();
 }
 
+const htmlPlugin = buildHtmlPlugin();
+
+assert.equal(
+  await htmlPlugin.transformIndexHtml.handler(`
+    <!-- removed -->
+    <div> <span>First</span> <span>Second</span> </div>
+    <p>Words stay separated.</p>
+    <pre>  preserved\n  spacing</pre>
+    <textarea>  preserved\n  input</textarea>
+  `),
+  '<div><span>First</span><span>Second</span></div><p>Words stay separated.</p><pre>  preserved\n  spacing</pre><textarea>  preserved\n  input</textarea>',
+  'HTML minification removes layout whitespace but preserves prose and preformatted text',
+);
+
+for (const file of readdirSync('src/client/ui/dom').filter((file) =>
+  file.endsWith('.html'),
+)) {
+  const code = await htmlPlugin.load(
+    resolve('src/client/ui/dom', file) + '?raw',
+  );
+
+  assert(code, `${file} is minified as a raw HTML module`);
+
+  const { default: fragment } = await import(
+    `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
+  );
+
+  assert.doesNotMatch(
+    fragment,
+    />\s+</,
+    `${file} has no inter-element whitespace`,
+  );
+}
+
 // The inline boot renderer is built independently of the mangled main chunk.
 const html = await viteBackground().transformIndexHtml.handler(
   await readFile('index.html', 'utf8'),
   {},
 );
-const boot = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+const compactHtml = await htmlPlugin.transformIndexHtml.handler(html);
+const boot = compactHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+
+assert.doesNotMatch(
+  compactHtml,
+  />\s+</,
+  'the built page has no layout whitespace',
+);
 
 assert(boot, 'the background must be inlined into the HTML');
 let painted = 0;

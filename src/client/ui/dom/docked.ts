@@ -476,7 +476,7 @@ const createDocked = () => {
               <div class="dock-trade-heading uppercase text-muted text-sm">
                 <h3 class="px-3">${name}</h3><span class="px-3 text-right">Supply</span><span class="px-3 text-right">${kind === 'cargo' ? 'Sell' : 'Buy'}</span>
               </div>
-              <nav class="dock-group uppercase text-sm" aria-label="${name} ${kind === 'cargo' ? 'in cargo' : 'in station stock'}">${tradeRows(entries, kind)}</nav>
+              <div class="dock-group uppercase text-sm">${tradeRows(entries, kind)}</div>
             </section>`,
         )
         .join('');
