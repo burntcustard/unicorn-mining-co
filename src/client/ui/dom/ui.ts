@@ -3,6 +3,7 @@ import './ui.css';
 export type Screen = {
   element: HTMLElement;
   update(): void;
+  escape(): void;
   destroy(): void;
 };
 
@@ -17,6 +18,7 @@ export const createScreen = (html: string) => {
     element,
     signal: controller.signal,
     update() {},
+    escape: () => ui.back(),
     destroy: () => controller.abort(),
   };
 };
@@ -28,7 +30,7 @@ export const query = <T extends Element = HTMLElement>(
 
 const notification = document.createElement('div');
 
-notification.className = 'ui-notification text-center uppercase';
+notification.className = 'ui-notification py-2 px-4 text-center uppercase';
 notification.setAttribute('role', 'status');
 notification.hidden = true;
 document.body.append(notification);
@@ -123,22 +125,6 @@ export const ui = (() => {
         : (index + direction) % buttons.length;
 
     buttons.at(next)?.focus();
-  });
-
-  window.addEventListener('keydown', (event) => {
-    if (
-      event.key !== 'Escape' ||
-      event.repeat ||
-      event.defaultPrevented ||
-      document.querySelector('dialog[open]')
-    ) {
-      return;
-    }
-
-    if (stack.length > 1) {
-      event.preventDefault();
-      back();
-    }
   });
 
   return {

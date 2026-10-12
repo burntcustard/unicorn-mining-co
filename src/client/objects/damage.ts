@@ -32,7 +32,9 @@ export const damage = (
         segment.active = 0;
         segment.activationProgress = 0;
       }
-    } else target.health = health - amount;
+    } else {
+      target.health = health - amount;
+    }
 
     if (target.health < 1 && target.item) target.remove();
   }

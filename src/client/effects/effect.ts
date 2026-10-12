@@ -242,7 +242,9 @@ export const renderEffects = ({
           );
           ctx.rect(-1, -1, 2, 2);
           ctx.fill('evenodd');
-        } else ctx.fill(path);
+        } else {
+          ctx.fill(path);
+        }
 
         ctx.restore();
       }

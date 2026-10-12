@@ -42,7 +42,7 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { NetworkClient } from '${root}/src/client/network/network.ts';
 import { setCraftActionDispatcher } from '${root}/src/client/network/craft-actions.ts';
-import { sendAppliedAction } from '${root}/src/client/ui/docked-actions.ts';
+import { applyCraftAction } from '${root}/src/client/network/craft-actions.ts';
 import { decodeServerControl } from '${root}/src/client/protocol/binary-control.ts';
 import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
@@ -69,7 +69,7 @@ await flush();
 const ship = () => client.world.entities.get(client.shipId);
 const station = () => client.world.entities.get(ship().dockedTo);
 const state = () => [client.player.credits, ship().cargoContents.map(object => object.id), station().cargoContents.map(object => object.id), client.world.nextEntityId];
-const act = action => sendAppliedAction(ship(), action);
+const act = action => applyCraftAction(ship(), action);
 const initial = state();
 assert.equal(initial[1].length, 2);
 assert.equal(initial[2].length, 300);

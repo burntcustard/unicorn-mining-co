@@ -87,8 +87,11 @@ const reservedProperties = (files: URL[]) => {
       }
 
       Object.values(node).forEach((value) => {
-        if (Array.isArray(value)) value.forEach(visit);
-        else if (value && typeof value === 'object') visit(value);
+        if (Array.isArray(value)) {
+          value.forEach(visit);
+        } else if (value && typeof value === 'object') {
+          visit(value);
+        }
       });
     };
 
@@ -116,8 +119,11 @@ const annotateStateKeys = (code: string, id: string) => {
     }
 
     Object.values(node).forEach((value) => {
-      if (Array.isArray(value)) value.forEach(visit);
-      else if (value && typeof value === 'object') visit(value);
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+      } else if (value && typeof value === 'object') {
+        visit(value);
+      }
     });
   };
 

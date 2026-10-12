@@ -6,7 +6,7 @@ export type ShipPreview = [
   [number, number, number, number | null][],
 ];
 export type Identity = [string, number, ShipPreview];
-export const validPrivateId = (value: string) =>
+const validPrivateId = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 export const verifyIdentity = async (

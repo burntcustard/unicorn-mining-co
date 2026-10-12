@@ -55,7 +55,9 @@ export const reconcileRows = (element: HTMLElement, html: string) => {
       if (node !== cursor) {
         if (node.parentNode && node.isConnected === target.isConnected) {
           target.moveBefore(node, cursor);
-        } else target.insertBefore(node, cursor);
+        } else {
+          target.insertBefore(node, cursor);
+        }
       }
 
       if (node instanceof Element && child instanceof Element) {

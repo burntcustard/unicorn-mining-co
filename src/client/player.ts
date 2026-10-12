@@ -93,11 +93,6 @@ export const say = (text: string) => {
   player.noteFor = 10;
 };
 
-export const queueNote = (text: string) => {
-  if (player.noteFor > 0) player.queuedNotes.push(text);
-  else say(text);
-};
-
 export const readSlate = ({
   message,
   unlock,
@@ -107,7 +102,11 @@ export const readSlate = ({
 }) => {
   if (unlock) unlockPaint(unlock, 'CARGO FOUND');
 
-  queueNote(message);
+  if (player.noteFor > 0) {
+    player.queuedNotes.push(message);
+  } else {
+    say(message);
+  }
 };
 
 /**

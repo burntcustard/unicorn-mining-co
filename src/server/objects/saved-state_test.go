@@ -230,7 +230,7 @@ func TestSavedCorralVariants(t *testing.T) {
 
 	world := simulation.CreateWorld(25, catalog)
 
-	for _, id := range []string{"", "corral", "corral-5", "corral-6"} {
+	for _, id := range []string{"", "corral-5", "corral-6"} {
 		station := objects.CreateStation(objects.Properties{DefinitionID: id, ObjectProperties: simulation.ObjectProperties{World: world}}, catalog)
 		saved := objects.CaptureEntity(station)
 		saved.Object.DefinitionID = id
@@ -251,8 +251,5 @@ func TestSavedCorralVariants(t *testing.T) {
 			t.Fatalf("%q restored wrong bay count", id)
 		}
 
-		if restored.DefinitionID == "corral" {
-			t.Fatal("legacy station ID leaked into replication")
-		}
 	}
 }

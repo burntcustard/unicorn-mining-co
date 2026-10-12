@@ -48,7 +48,9 @@ const completion = new Promise<void>((resolve, reject) => {
   child.once('exit', (code, signal) => {
     if (code !== 0 || signal) {
       reject(new Error(`Server exited: ${code}, ${signal}`));
-    } else resolve();
+    } else {
+      resolve();
+    }
   });
 });
 
@@ -240,8 +242,11 @@ try {
               );
             };
 
-            if (ackDelayMs) setTimeout(acknowledge, ackDelayMs).unref();
-            else acknowledge();
+            if (ackDelayMs) {
+              setTimeout(acknowledge, ackDelayMs).unref();
+            } else {
+              acknowledge();
+            }
 
             if (!state.timer) {
               state.nextAt = now + (i * 1000) / (30 * players);

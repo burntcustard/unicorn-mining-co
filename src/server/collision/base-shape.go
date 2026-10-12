@@ -18,8 +18,6 @@ type BaseShape struct {
 
 func (s *BaseShape) Base() *BaseShape { return s }
 
-func (s *BaseShape) ClearBound() { s.bound = nil }
-
 func (s *BaseShape) GetBound() *Bound {
 	if s.bound == nil {
 		x, y := 0.0, 0.0

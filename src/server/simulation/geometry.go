@@ -20,21 +20,6 @@ func MovePoint(point Vec.Vector, angle, distance float64) Vec.Vector {
 	return Vec.AddScaled(point, DirectionOf(angle), distance)
 }
 
-func PointBetween(from, to Point, at float64) Point {
-	return Point{from[0] + (to[0]-from[0])*at, from[1] + (to[1]-from[1])*at}
-}
-
-func RotatePoints(points []Point, angle float64, position Vec.Vector) *ShapeOutline {
-	out := &ShapeOutline{Points: make([]Point, len(points))}
-
-	for i, p := range points {
-		point := RotatePoint(Vec.Create(p[0], p[1]), angle)
-		out.Points[i] = Point{position.X + point.X, position.Y + point.Y}
-	}
-
-	return out
-}
-
 func ShapeOutlineExtent(points []Point) (Point, float64) {
 	middle := Point{}
 

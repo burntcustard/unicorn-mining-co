@@ -1,7 +1,6 @@
 package objects_test
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
@@ -9,6 +8,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	"slices"
 )
 
 func TestShieldSizes(t *testing.T) {
@@ -74,63 +74,6 @@ func TestShieldSizes(t *testing.T) {
 			if ship.ModuleActive(id) {
 				t.Fatal("shared shield control must deactivate either size")
 			}
-		})
-	}
-}
-
-func TestLegacyModuleIDs(t *testing.T) {
-	catalog, err := specs.Load()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for oldID, newID := range map[string]string{"shieldGenerator": "shieldGeneratorSm", "thrusterSingle": "thrusterSingleMd"} {
-		t.Run(oldID, func(t *testing.T) {
-			world := simulation.CreateWorld(25, catalog)
-			module := modules.Create(newID, simulation.ObjectProperties{World: world}, catalog)
-			saved := objects.CaptureEntity(module)
-			saved.ModuleType = oldID
-			restored, err := objects.RestoreEntity(saved, world)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if restored.(simulation.Module).ModuleBase().Type != newID {
-				t.Fatal("legacy loose module must restore with its current ID")
-			}
-
-			ship := objects.CreatePlayerShip(world, objects.Properties{})
-
-			for _, mount := range ship.Mounts() {
-				if slices.Contains(mount.Fits, newID) {
-					ship.Fit(module, mount)
-					break
-				}
-			}
-
-			savedShip := objects.CaptureEntity(ship)
-
-			for i, id := range savedShip.ModuleTypes {
-				if id == newID {
-					savedShip.ModuleTypes[i] = oldID
-				}
-			}
-
-			restoredShip, err := objects.RestoreEntity(savedShip, world)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			for _, id := range objects.CaptureEntity(restoredShip).ModuleTypes {
-				if id == newID {
-					return
-				}
-			}
-
-			t.Fatal("legacy fitted module must restore with its current ID")
 		})
 	}
 }

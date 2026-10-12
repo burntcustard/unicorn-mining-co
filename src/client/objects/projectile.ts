@@ -65,8 +65,9 @@ export class Projectile extends GameObject {
 
     if (fadeOut && !exclude) return;
 
-    if (explosion) explode({ object: this, events, exclude, ...explosion });
-    else if (effect) {
+    if (explosion) {
+      explode({ object: this, events, exclude, ...explosion });
+    } else if (effect) {
       events.push({
         effect,
         objectId: this.id,

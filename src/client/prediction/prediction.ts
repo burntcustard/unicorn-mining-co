@@ -150,7 +150,9 @@ const applyEntity = ({
       entity.hullSegments = copied.hullSegments;
       entity.segments = copied.segments;
       entity.cockpit = undefined;
-    } else entity.hullHealth = [...server.hullHealth];
+    } else {
+      entity.hullHealth = [...server.hullHealth];
+    }
 
     entity.moduleStates = server.moduleStates;
     const modules = entity.modules;

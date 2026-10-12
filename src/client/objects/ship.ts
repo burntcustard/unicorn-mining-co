@@ -244,8 +244,12 @@ export class Ship extends Craft {
         return;
       }
 
-      if (module) module.shades = shades;
-      else this.shades = shades;
+      if (module) {
+        module.shades = shades;
+      } else {
+        this.shades = shades;
+      }
+
       this.segments
         .filter((segment) =>
           module ? segment.module === module : segment.hull,

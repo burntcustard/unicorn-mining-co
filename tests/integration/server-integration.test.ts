@@ -229,8 +229,11 @@ try {
 
             received++;
 
-            if (snapshot[0]) loadBytes = packet.length;
-            else snapshotBytes = packet.length;
+            if (snapshot[0]) {
+              loadBytes = packet.length;
+            } else {
+              snapshotBytes = packet.length;
+            }
 
             if (snapshot[1] !== undefined) socket.send(codec[2](snapshot[1]));
             acknowledged ||= snapshot[2] === 1;

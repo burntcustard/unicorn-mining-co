@@ -113,6 +113,41 @@ const checkStatements = (context: Context, statements: SpacingNode[]) => {
 export default {
   meta: { name: 'local' },
   rules: {
+    'braced-else': {
+      meta: { type: 'layout', fixable: 'code' },
+      create(context) {
+        return {
+          IfStatement(node) {
+            const parent = node.parent;
+            const chained =
+              node.alternate ||
+              (parent.type === 'IfStatement' && parent.alternate === node);
+
+            if (!chained) return;
+
+            for (const branch of [node.consequent, node.alternate]) {
+              if (
+                !branch ||
+                branch.type === 'BlockStatement' ||
+                branch.type === 'IfStatement'
+              ) {
+                continue;
+              }
+
+              context.report({
+                node: branch,
+                message: 'Use braces on every branch of an if with an else.',
+                fix: (fixer) =>
+                  fixer.replaceText(
+                    branch,
+                    `{ ${context.sourceCode.getText(branch)} }`,
+                  ),
+              });
+            }
+          },
+        };
+      },
+    },
     'multiline-doc-comments': {
       meta: { type: 'layout', fixable: 'whitespace' },
       create(context) {

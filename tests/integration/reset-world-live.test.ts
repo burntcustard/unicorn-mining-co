@@ -1,120 +1,105 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { readFile, rm } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import {
-  createFlyRequest,
   parseResetArgs,
   resetWorldLive,
-  restoreVolumeConfig,
 } from '../../scripts/reset-world-live.ts';
+import { getFlyApp } from '../../scripts/fly-maintenance.ts';
 
-const original = {
-  image: 'deployed-image',
-  mounts: [{ path: '/data', volume: 'old-volume' }],
-  services: [{ port: 8080, checks: [{ type: 'http' }] }],
-  restart: { policy: 'on-failure' },
-  init: { cmd: ['/app/server'] },
-  env: { DATABASE_PATH: '/data/world.sqlite', WORLD_SEED: '25' },
+const machine = {
+  id: 'game',
+  state: 'started',
+  instance_id: 'same-vm',
+  config: {
+    mounts: [{ path: '/data' }],
+    services: [{ checks: [{ type: 'http' }] }],
+  },
+  checks: [{ status: 'passing' }],
 };
 
 assert.deepEqual(parseResetArgs([]), {
   app: undefined,
   resume: false,
-  restore: undefined,
+  help: false,
 });
 
 assert.equal(parseResetArgs(['--resume']).resume, true);
 assert.equal(parseResetArgs(['my-app', '--resume']).app, 'my-app');
-assert.deepEqual(
-  parseResetArgs(['--restore', 'machine', '/tmp/config.json']).restore,
-  { machineId: 'machine', configPath: '/tmp/config.json' },
-);
+assert.equal(await getFlyApp('other-app'), 'other-app');
+assert.equal(await getFlyApp(), 'unicorn-mining-co');
 
 for (const args of [
   ['--restore'],
   ['app', 'restore'],
-  ['app', '--restore'],
+  ['app', '--restore', 'machine', '/tmp/config.json'],
   ['--resume', '--all'],
   ['--unknown'],
+  [''],
 ]) {
-  assert.throws(() => parseResetArgs(args), /Usage/);
+  assert.throws(() => parseResetArgs(args));
 }
 
-await assert.rejects(
-  promisify(execFile)(
-    process.execPath,
-    [
-      fileURLToPath(
-        new URL('../../scripts/reset-world-live.ts', import.meta.url),
-      ),
-    ],
-    {
-      env: { ...process.env, npm_config_restore: 'true' },
-      timeout: 2000,
-    },
-  ),
-  /Put a standalone -- before script flags/,
-  'an npm-consumed restore flag must never become another reset',
+const script = fileURLToPath(
+  new URL('../../scripts/reset-world-live.ts', import.meta.url),
 );
+const exec = promisify(execFile);
+
+for (const flag of ['restore', 'resume']) {
+  await assert.rejects(
+    exec(process.execPath, [script], {
+      env: { ...process.env, [`npm_config_${flag}`]: 'true' },
+      timeout: 2000,
+    }),
+    /Put a standalone -- before script flags/,
+    'npm-consumed flags must never become another reset',
+  );
+}
+
+const { stdout: help } = await exec(process.execPath, [script, '--help']);
+
+assert.match(help, /Resume after failed maintenance/);
 
 for (const resume of [false, true]) {
-  let leased = false;
+  const commands: string[] = [];
   let reads = 0;
-  let executions = 0;
-  const paths: string[] = [];
-
-  const machine = () => ({
-    id: 'game',
-    state: 'started',
-    instance_id: 'same-vm',
-    config: original,
-    checks: [{ status: reads++ < 3 ? 'warning' : 'passing' }],
-  });
 
   await resetWorldLive({
     app: 'test-app',
     resume,
     pause: async () => {},
-    request: async (path, body, options) => {
-      paths.push(path);
+    run: async (args) => {
+      commands.push(args[1]);
 
-      if (path === '') return [machine()];
+      if (args[1] === 'list') {
+        assert.deepEqual(args, [
+          'machine',
+          'list',
+          '--app',
+          'test-app',
+          '--json',
+        ]);
 
-      if (path === '/game/lease') {
-        if (options?.method === 'DELETE') {
-          assert(leased);
-          assert.equal(options.leaseNonce, 'lease');
-          leased = false;
-          return {};
-        }
-
-        leased = true;
-        return { data: { nonce: 'lease' } };
+        return [
+          {
+            ...machine,
+            checks: [{ status: reads++ < 2 ? 'warning' : 'passing' }],
+          },
+        ];
       }
 
-      assert(
-        !leased,
-        'Fly exec is blocked by an externally acquired Machine lease',
-      );
-      assert.equal(options?.leaseNonce, undefined);
-
-      if (path === '/game' && body === undefined) return machine();
-
-      assert.equal(
-        path,
-        '/game/exec',
-        'reset cannot stop, start or reconfigure the Machine',
-      );
-
-      assert.deepEqual(body, {
-        cmd: `/app/server --${resume ? 'resume' : 'reset'}-world-live`,
-        timeout: 25,
-      });
-
-      executions++;
+      assert.deepEqual(args, [
+        'machine',
+        'exec',
+        'game',
+        `'/app/server' '--${resume ? 'resume' : 'reset'}-world-live'`,
+        '--app',
+        'test-app',
+        '--json',
+        '--timeout',
+        '25',
+      ]);
 
       return {
         stdout: resume
@@ -124,14 +109,12 @@ for (const resume of [false, true]) {
     },
   });
 
-  assert.equal(executions, 1);
-  assert(!leased);
-  assert(reads >= 4, 'maintenance waits for health checks');
-  assert(!paths.includes('/game/start'));
+  assert.equal(commands.filter((command) => command === 'exec').length, 1);
   assert(
-    !paths.includes('/game/lease'),
-    'live maintenance uses the private socket lock',
+    commands.every((command) => command === 'list' || command === 'exec'),
+    'maintenance cannot stop, start, lease, or reconfigure a Machine',
   );
+  assert.equal(reads, 3, 'maintenance waits for passing health checks');
 }
 
 for (const result of [
@@ -140,279 +123,83 @@ for (const result of [
   { stdout: 'unfinished output' },
   { exit_code: 2, stderr: 'flag provided but not defined: -reset-world-live' },
 ]) {
-  let released = false;
   let executions = 0;
-
-  const machine = {
-    id: 'game',
-    state: 'started',
-    instance_id: 'vm',
-    config: original,
-  };
 
   await assert.rejects(
     resetWorldLive({
       app: 'test-app',
       pause: async () => {},
-      request: async (path, body, options) => {
-        if (path === '') return [machine];
-
-        if (path === '/game/lease') {
-          if (options?.method === 'DELETE') {
-            released = true;
-            return {};
-          }
-
-          return { data: { nonce: 'lease' } };
-        }
-
-        if (path === '/game' && body === undefined) return machine;
-
-        assert.equal(path, '/game/exec');
+      run: async (args) => {
+        if (args[1] === 'list') return [machine];
         executions++;
         return result;
       },
     }),
-    /did not complete successfully|Deploy the server version/,
+    /Maintenance command failed/,
   );
 
   assert.equal(executions, 1, 'failed reset is never replayed automatically');
-  assert(!released, 'normal reset never acquires a Machine lease');
 }
 
-for (const [stopped, legacyReset] of [
-  [false, false],
-  [true, false],
-  [true, true],
-]) {
-  let state = stopped ? 'stopped' : 'started';
-
-  let config: Omit<typeof original, 'init'> & {
-    init: { cmd?: string[]; exec?: string[] };
-  } = {
-    ...original,
-    services: [],
-    restart: { policy: 'no' },
-    init: legacyReset
-      ? { exec: ['/app/server', '--reset-world'] }
-      : original.init,
-  };
-
-  let instanceId = 'initial';
-  let currentVolume = 'already-migrated-volume';
-  let startCalls = 0;
-  let updates = 0;
-  let readsAfterUpdate = 0;
-  let released = false;
-
-  const machine = () => ({
-    id: 'game',
-    state,
-    instance_id: instanceId,
-    config: { ...config, mounts: [{ path: '/data', volume: currentVolume }] },
-    checks: [{ status: readsAfterUpdate >= 3 ? 'passing' : 'warning' }],
-  });
-
-  await resetWorldLive({
-    app: 'test-app',
-    pause: async () => {},
-    restore: { machineId: 'game', config: original },
-    request: async (path, body, options) => {
-      if (path === '') return [machine()];
-
-      if (path === '/game/lease') {
-        if (options?.method === 'DELETE') {
-          released = true;
-          return {};
-        }
-
-        return { data: { nonce: 'lease' } };
-      }
-
-      assert.equal(options?.leaseNonce, 'lease');
-
-      if (path === '/game/start') {
-        assert(
-          !legacyReset,
-          'recovery must never boot the old offline reset command',
+for (const [machines, expected] of [
+  [[], /found 0/],
+  [[machine, machine], /found 2/],
+  [[{ ...machine, state: 'stopped' }], /requires a running Machine/],
+] as const) {
+  await assert.rejects(
+    resetWorldLive({
+      app: 'test-app',
+      run: async (args) => {
+        assert.equal(
+          args[1],
+          'list',
+          'invalid Machine selection cannot execute a reset',
         );
-        startCalls++;
-        currentVolume = 'new-volume-after-start-migration';
-        instanceId = 'migrated';
-        state = 'started';
-        return machine();
-      }
-
-      if (path === '/game' && body === undefined) {
-        if (updates) {
-          readsAfterUpdate++;
-
-          // Do not accept old-version health before the replacement starts.
-          if (readsAfterUpdate >= 2) {
-            instanceId = 'restored';
-            state = 'started';
-          }
-        }
-
-        return machine();
-      }
-
-      assert.equal(
-        path,
-        '/game',
-        'configuration recovery cannot execute a reset',
-      );
-
-      assert.deepEqual(body, {
-        config: {
-          ...original,
-          mounts: [{ path: '/data', volume: currentVolume }],
-        },
-        skip_launch: false,
-      });
-
-      updates++;
-
-      config = (body as { config: typeof config }).config;
-
-      return { ...machine(), instance_id: 'restored' };
-    },
-  });
-
-  assert.equal(startCalls, stopped && !legacyReset ? 1 : 0);
-  assert.equal(updates, 1);
-  assert(readsAfterUpdate >= 3);
-  assert(released);
-  assert.equal(
-    original.mounts[0].volume,
-    'old-volume',
-    'saved config is not mutated',
+        return machines;
+      },
+    }),
+    expected,
   );
 }
 
-assert.throws(
-  () =>
-    restoreVolumeConfig({
-      saved: original,
-      current: { mounts: [{ path: '/other', volume: 'volume' }] },
-    }),
-  /mount paths differ/,
-);
-
-assert.throws(
-  () =>
-    restoreVolumeConfig({
-      saved: original,
-      current: { mounts: [{ path: '/data' }] },
-    }),
-  /no volume ID/,
-);
-
-await assert.rejects(
-  resetWorldLive({
-    app: 'test-app',
-    restore: {
-      machineId: 'game',
-      config: {
-        ...original,
-        init: { exec: ['/app/server', '--reset-world=true'] },
-      },
-    },
-    request: async (path, body, options) => {
-      if (path === '') {
-        return [
-          { id: 'game', state: 'stopped', instance_id: 'vm', config: original },
-        ];
-      }
-
-      if (path === '/game/lease') {
-        return options?.method === 'DELETE' ? {} : { data: { nonce: 'lease' } };
-      }
-
-      assert.equal(path, '/game');
-      assert.equal(
-        body,
-        undefined,
-        'unsafe saved startup cannot cause any Machine mutation',
-      );
-
-      return {
-        id: 'game',
-        state: 'stopped',
-        instance_id: 'vm',
-        config: original,
-      };
-    },
-  }),
-  /saved configuration contains a reset command/,
-);
-
-// A failed restore must save the migrated ID in its next recovery file.
-let recovery = '';
-const report = console.error;
-
-console.error = (...args: unknown[]) => {
-  const match = (typeof args[0] === 'string' ? args[0] : '').match(
-    /Recovery config saved at (.+)\. Restore/,
-  );
-
-  if (match) recovery = match[1];
-};
-
-try {
-  const machine = {
-    id: 'game',
-    state: 'started',
-    instance_id: 'vm',
-    config: { ...original, mounts: [{ path: '/data', volume: 'new-volume' }] },
-  };
+for (const failure of ['timeout', 'changed instance', 'unhealthy']) {
+  let reads = 0;
+  let executions = 0;
 
   await assert.rejects(
     resetWorldLive({
       app: 'test-app',
-      restore: { machineId: 'game', config: original },
-      request: async (path, body, options) => {
-        if (path === '') return [machine];
-
-        if (path === '/game/lease') {
-          return options?.method === 'DELETE'
-            ? {}
-            : { data: { nonce: 'lease' } };
+      pause: async () => {},
+      run: async (args) => {
+        if (args[1] === 'list') {
+          return [
+            {
+              ...machine,
+              instance_id:
+                failure === 'changed instance' && reads++
+                  ? 'replacement-vm'
+                  : machine.instance_id,
+              checks: [
+                { status: failure === 'unhealthy' ? 'critical' : 'passing' },
+              ],
+            },
+          ];
         }
 
-        if (body === undefined) return machine;
+        executions++;
 
-        throw new Error('HTTP 409: insufficient memory on host');
+        if (failure === 'timeout') throw new Error('Fly command timed out');
+        return { stdout: 'World reset complete;' };
       },
     }),
-    /insufficient memory/,
+    /timed out|Machine changed|did not become healthy/,
   );
 
   assert.equal(
-    JSON.parse(await readFile(recovery, 'utf8')).mounts[0].volume,
-    'new-volume',
+    executions,
+    1,
+    'uncertain results and failed health checks cannot repeat a reset',
   );
-} finally {
-  console.error = report;
-
-  if (recovery) await rm(dirname(recovery), { recursive: true });
 }
 
-const failedRequest = createFlyRequest({
-  app: 'test-app',
-  token: 'test-token',
-  fetchRequest: async () =>
-    new Response('{"error":"machine is still updating"}', { status: 412 }),
-});
-
-await assert.rejects(
-  failedRequest('/game/start', {}),
-  /HTTP 412:.*machine is still updating/,
-);
-await assert.rejects(
-  resetWorldLive({ app: 'test-app', request: async () => [] }),
-  /Expected one game Machine/,
-);
-console.log(
-  'Live resets keep the Machine running; recovery preserves migrated volumes',
-);
+console.log('Live reset uses the Fly CLI and keeps the Machine running');

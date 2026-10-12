@@ -11,7 +11,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"os"
-	"slices"
 )
 
 type socket struct {
@@ -53,35 +52,6 @@ func main() {
 
 	if err != nil {
 		panic(err)
-	}
-
-	// Replay the archived starting loadout and mount indices; power plants were added later.
-	ship := catalog.ShipSpecs["mustang"]
-
-	powerPlantIndex := slices.IndexFunc(ship.InitialLoadout, func(entry specs.InitialModule) bool { return entry.Module == "powerPlant" })
-
-	powerMount := ship.InitialLoadout[powerPlantIndex].Mount
-
-	ship.InitialLoadout = slices.Delete(ship.InitialLoadout, powerPlantIndex, powerPlantIndex+1)
-
-	for i := range ship.InitialLoadout {
-		if ship.InitialLoadout[i].Mount > powerMount {
-			ship.InitialLoadout[i].Mount--
-		}
-	}
-
-	for i := range ship.HullSegments {
-		ship.HullSegments[i].Mounts = slices.DeleteFunc(ship.HullSegments[i].Mounts, func(options []specs.MountPoint) bool {
-			return slices.ContainsFunc(options, func(point specs.MountPoint) bool { return slices.Contains(point.Fits, "powerPlant") })
-		})
-	}
-
-	catalog.ShipSpecs["mustang"] = ship
-
-	// The archived world predates finite station ammunition supplies.
-	for id, station := range catalog.StationSpecs {
-		station.InitialCargoContents = nil
-		catalog.StationSpecs[id] = station
 	}
 
 	session := network.NewGameSession(25, catalog)

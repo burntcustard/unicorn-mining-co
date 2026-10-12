@@ -562,7 +562,9 @@ for (const correction of ['cargo', 'rounds'] as const) {
     authoritative.cargoContents.push(
       new Item(diamondSpec, { world, id: 1000 }),
     );
-  } else authoritative.cargoContents[0].rounds = 37;
+  } else {
+    authoritative.cargoContents[0].rounds = 37;
+  }
 
   prediction.step({ input: emptyPlayerInput(), send() {} });
 

@@ -13,5 +13,3 @@ func NewCircle(position Vec.Vector, radius float64) *CircleShape {
 }
 
 func (s *CircleShape) Position() Vec.Vector { return s.Vertices[0] }
-
-func (s *CircleShape) SetPosition(p Vec.Vector) { s.Vertices[0] = p; s.ClearBound() }

@@ -76,8 +76,11 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
     outlineSides.forEach((side) => {
       const outlines = outlinesBySide.get(side);
 
-      if (outlines) outlines.push(index);
-      else outlinesBySide.set(side, [index]);
+      if (outlines) {
+        outlines.push(index);
+      } else {
+        outlinesBySide.set(side, [index]);
+      }
     }),
   );
 

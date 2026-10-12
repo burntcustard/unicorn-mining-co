@@ -138,8 +138,11 @@ const connect = async (
     pending.delete(message.id);
     clearTimeout(request.timer);
 
-    if (message.error) request.reject(new Error(JSON.stringify(message.error)));
-    else request.resolve(message.result);
+    if (message.error) {
+      request.reject(new Error(JSON.stringify(message.error)));
+    } else {
+      request.resolve(message.result);
+    }
   });
 
   connections.push(socket);

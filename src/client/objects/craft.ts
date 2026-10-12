@@ -968,7 +968,9 @@ export class Craft extends GameObject {
             }),
           );
         }
-      } else if (!unchanged) this.cargoContents.push(module);
+      } else if (!unchanged) {
+        this.cargoContents.push(module);
+      }
     });
   }
 
@@ -1037,8 +1039,9 @@ export class Craft extends GameObject {
                 segment.prism = traceBeam(pose, segment, scenery);
               }
 
-              if (glow) segment.module.renderGlow({ segment });
-              else {
+              if (glow) {
+                segment.module.renderGlow({ segment });
+              } else {
                 (zIndex === renderingLayers.stationFloor
                   ? drawSpectrum
                   : drawInside)(ctx, segment, segment.prism);
@@ -1065,8 +1068,11 @@ export class Craft extends GameObject {
 
           if (!this.decay && segment.module instanceof Module) {
             segment.module.render({ segment, craft: this, scenery, pose });
-          } else if (drawHull) drawHull({ segment, health, pose });
-          else this.renderHull({ segment, health });
+          } else if (drawHull) {
+            drawHull({ segment, health, pose });
+          } else {
+            this.renderHull({ segment, health });
+          }
 
           ctx.restore();
         });
@@ -1217,8 +1223,11 @@ export class Craft extends GameObject {
         }
 
         if (hull) {
-          if (health < 1) brokenHull = true;
-          else if (core) cores++;
+          if (health < 1) {
+            brokenHull = true;
+          } else if (core) {
+            cores++;
+          }
         }
       }
 

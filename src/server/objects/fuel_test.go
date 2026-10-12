@@ -3,6 +3,7 @@ package objects_test
 import (
 	"encoding/json"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"math"
@@ -80,7 +81,7 @@ func TestFuelConsumptionAndReserve(t *testing.T) {
 	}
 }
 
-func TestFuelSaveCompatibility(t *testing.T) {
+func TestFuelSaveRoundTrip(t *testing.T) {
 	catalog, _ := specs.Load()
 	world := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(world, objects.Properties{})
@@ -105,14 +106,19 @@ func TestFuelSaveCompatibility(t *testing.T) {
 			t.Fatal("saved fuel changed", err)
 		}
 
-		saved.Fuel = nil
-		restored, err = objects.RestoreShip(saved, world, 1)
+		encoded, err := persistence.Encode(objects.CaptureEntity(ship))
 
-		if err != nil || restored.Fuel != restored.FuelCapacity {
-			t.Fatal("legacy ship must start full", err)
+		if err != nil {
+			t.Fatal(err)
 		}
 
-		entity, err := objects.RestoreEntity(objects.CaptureEntity(ship), world)
+		var savedEntity objects.SavedEntity
+
+		if err := persistence.Decode(encoded, &savedEntity); err != nil {
+			t.Fatal(err)
+		}
+
+		entity, err := objects.RestoreEntity(savedEntity, world)
 
 		if err != nil || entity.(*objects.Ship).Fuel != fuel {
 			t.Fatal("world ship fuel changed", err)

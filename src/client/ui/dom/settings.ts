@@ -18,6 +18,7 @@ export const createSettings = () => {
   const feedback = query(dialog, '.ui-status');
   let capture = -1;
   const bindings = query(screen.element, '[data-bindings]');
+  const moduleBindings = query(screen.element, '[data-module-bindings]');
 
   const buttons = bindingEntries.map(([label], i) => {
     const row = document.createElement('div');
@@ -43,19 +44,23 @@ export const createSettings = () => {
     );
 
     row.append(text, button);
-    bindings.append(row);
+    // The first four bindings fly the ship; the rest toggle modules.
+    (i < 4 ? bindings : moduleBindings).append(row);
     return button;
   });
 
+  const symbols: Record<string, string> = {
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+  };
+
   const update = () =>
     buttons.forEach((button, i) => {
-      const [label, binding] = bindingEntries[i];
-      const keys = binding.keys
-        .map((key) => (key === ' ' ? 'Space' : key))
+      button.textContent = bindingEntries[i][1].keys
+        .map((key) => (key === ' ' ? 'Space' : symbols[key] || key))
         .join(' / ');
-
-      button.textContent = keys;
-      button.setAttribute('aria-label', `${label}: ${keys}. Change binding`);
     });
 
   dialog.addEventListener(
@@ -134,7 +139,7 @@ export const createSettings = () => {
   const tabs = [
     {
       button: query(screen.element, '[data-controls]'),
-      panel: query(screen.element, '.ui-control-panel'),
+      panel: query(screen.element, '[data-controls-panel]'),
     },
     {
       button: query(screen.element, '[data-graphics]'),
@@ -151,8 +156,11 @@ export const createSettings = () => {
         tabs.forEach(({ button, panel }, at) => {
           panel.hidden = at !== index;
 
-          if (at === index) button.setAttribute('aria-current', 'page');
-          else button.removeAttribute('aria-current');
+          if (at === index) {
+            button.setAttribute('aria-current', 'page');
+          } else {
+            button.removeAttribute('aria-current');
+          }
         });
       },
       { signal: screen.signal },

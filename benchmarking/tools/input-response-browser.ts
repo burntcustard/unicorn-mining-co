@@ -90,8 +90,11 @@ const connect = async (url: string) => {
     if (!request) return;
     pending.delete(message.id);
 
-    if (message.error) request.reject(new Error(JSON.stringify(message.error)));
-    else request.resolve(message.result);
+    if (message.error) {
+      request.reject(new Error(JSON.stringify(message.error)));
+    } else {
+      request.resolve(message.result);
+    }
   });
 
   const send: Send = (method, params = {}) =>

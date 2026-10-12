@@ -12,6 +12,7 @@ const commentFile = join(directory, 'comments.ts');
 const blockFile = join(directory, 'blocks.ts');
 const correctnessFile = join(directory, 'correctness.ts');
 const browserFile = join(directory, 'browser.ts');
+const elseFile = join(directory, 'else.ts');
 const source =
   "import '../dependency';\n// Following code must be separated too.\nexport const value = 1;\n";
 
@@ -203,6 +204,26 @@ example(1);
     'export const example = "/** text in a string */";\n',
   );
   assert.equal(lint({ format: true, target: commentFile }).status, 0);
+  const allowedIf =
+    'export const check = (a: number) => {\n  if (a) a++;\n};\n';
+
+  writeFileSync(elseFile, allowedIf);
+  assert.equal(
+    lint({ target: elseFile }).status,
+    0,
+    'single-line if statements without else may omit braces',
+  );
+  writeFileSync(
+    elseFile,
+    'export const check = (a: number) => {\n  if (a > 1) a++;\n  else if (a) a--;\n  else a = 0;\n};\n',
+  );
+  assert.match(lint({ target: elseFile }).stdout, /braced-else/);
+  assert.equal(lint({ format: true, fix: true, target: elseFile }).status, 0);
+  assert.equal(
+    readFileSync(elseFile, 'utf8'),
+    'export const check = (a: number) => {\n  if (a > 1) { a++; }\n  else if (a) { a--; }\n  else { a = 0; }\n};\n',
+    'every branch of an if with an else gets braces',
+  );
   console.log(
     'Import spacing, braces, statement spacing, and documentation comments are enforced',
   );

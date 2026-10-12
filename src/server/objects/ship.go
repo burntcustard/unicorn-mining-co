@@ -21,19 +21,6 @@ type Ship struct {
 	Fuel, FuelCapacity float64
 }
 
-func newShip(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Ship {
-	s := &Ship{Craft: NewCraft(props, plans, catalog)}
-	s.Self = s
-	s.Kind = "ship"
-	s.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale
-
-	if props.AngularInertiaScale != nil {
-		s.AngularInertiaScale = *props.AngularInertiaScale
-	}
-
-	return s
-}
-
 func (s *Ship) Cargo() *[]simulation.Entity { return &s.CargoContents }
 
 func (s *Ship) CargoCapacity() int { return s.CargoSpace }
@@ -695,8 +682,15 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 		plans[i] = plan
 	}
 
-	ship := newShip(props, plans, catalog)
+	ship := &Ship{Craft: NewCraft(props, plans, catalog)}
 	ship.Self = ship
+	ship.Kind = "ship"
+	ship.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale
+
+	if props.AngularInertiaScale != nil {
+		ship.AngularInertiaScale = *props.AngularInertiaScale
+	}
+
 	ship.Name = d.Name
 
 	if id != "mustang" {
@@ -721,8 +715,7 @@ func CreateShip(world *simulation.World, props Properties) *Ship {
 		props.DefinitionID = "mustang"
 	}
 
-	ship := NewShip(props.DefinitionID, props, world.Specification)
-	return ship
+	return NewShip(props.DefinitionID, props, world.Specification)
 }
 
 func CreatePlayerShip(world *simulation.World, props Properties) *Ship {

@@ -191,8 +191,9 @@ export class GameObject {
     } = this;
     const speedSquared = velocity.x * velocity.x + velocity.y * velocity.y;
 
-    if (speedSquared < motion.minimumSpeedSquared) velocity.x = velocity.y = 0;
-    else {
+    if (speedSquared < motion.minimumSpeedSquared) {
+      velocity.x = velocity.y = 0;
+    } else {
       const speed = Math.sqrt(speedSquared);
       let kept = Math.exp(-drag * dt);
 

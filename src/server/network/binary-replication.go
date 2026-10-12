@@ -1,5 +1,4 @@
-// Port of src/server/binary-replication.ts. The protocol package supplies the
-// same wire primitives; revision tracking and shared fragments live here.
+// Per-entity revisions and shared snapshot fragments using protocol wire primitives.
 package network
 
 import (

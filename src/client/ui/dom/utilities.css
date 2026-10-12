@@ -55,12 +55,40 @@ kbd {
   height: 100%;
 }
 
+.p-16 {
+  padding: 64px;
+}
+
 .px-3 {
   padding-inline: 12px;
 }
 
+.px-4 {
+  padding-inline: 16px;
+}
+
+.px-10 {
+  padding-inline: 40px;
+}
+
 .py-2 {
   padding-block: 8px;
+}
+
+.py-4 {
+  padding-block: 16px;
+}
+
+.pt-7 {
+  padding-top: 28px;
+}
+
+.pb-4 {
+  padding-bottom: 16px;
+}
+
+.pb-8 {
+  padding-bottom: 32px;
 }
 
 .gap-1 {

@@ -6,7 +6,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
-	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -15,7 +14,7 @@ import (
 	"testing"
 )
 
-func TestRestoreShipRenamesLegacyAmmo(t *testing.T) {
+func TestCompactShipRestoresAmmo(t *testing.T) {
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -26,7 +25,7 @@ func TestRestoreShipRenamesLegacyAmmo(t *testing.T) {
 	ship := objects.CreatePlayerShip(world, objects.Properties{})
 	rounds := 73
 	saved := objects.CaptureShip(ship)
-	saved.Cargo = []objects.SavedCargo{{ID: 987, Type: "autogunAmmunition", Rounds: &rounds}}
+	saved.Cargo = []objects.SavedCargo{{ID: 987, Type: "autogunAmmo", Rounds: &rounds}}
 	restored, err := objects.RestoreShip(saved, world, 1)
 
 	if err != nil {
@@ -36,11 +35,11 @@ func TestRestoreShipRenamesLegacyAmmo(t *testing.T) {
 	after := objects.CaptureShip(restored)
 
 	if len(after.Cargo) != 1 || after.Cargo[0].Type != "autogunAmmo" || after.Cargo[0].ID != 987 || after.Cargo[0].Rounds == nil || *after.Cargo[0].Rounds != rounds {
-		t.Fatal("legacy ammo lost its identity or remaining rounds", after.Cargo)
+		t.Fatal("ammo lost its identity or remaining rounds", after.Cargo)
 	}
 }
 
-func TestRestoreShipRepairsDuplicateOwnedIDs(t *testing.T) {
+func TestRestoreShipRejectsDuplicateOwnedIDs(t *testing.T) {
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -53,41 +52,9 @@ func TestRestoreShipRepairsDuplicateOwnedIDs(t *testing.T) {
 	gun := modules.Create("autogun", simulation.ObjectProperties{World: world, ID: &hatch.Base().ID}, catalog)
 	ship.CargoContents = append(ship.CargoContents, gun)
 	saved := objects.CaptureShip(ship)
-	restored, err := objects.RestoreShip(saved, world, 1)
 
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ids := map[int64]bool{}
-
-	for _, module := range restored.Modules() {
-		if ids[module.Base().ID] {
-			t.Fatal("restoring the saved collision left ambiguous module IDs")
-		}
-
-		ids[module.Base().ID] = true
-	}
-
-	gunID := restored.CargoContents[0].Base().ID
-	credits := 2000.0
-
-	if _, ok := restored.ApplyDockAction(protocol.DockAction{Action: "equip", HasModuleID: true, ModuleID: gunID, HasMount: true, Mount: 0}, &credits); !ok || restored.Mounts()[0].Module.ModuleBase().Type != "autogun" {
-		t.Fatal("repaired autogun is not independently equippable")
-	}
-
-	after := objects.CaptureShip(restored)
-	again, err := objects.RestoreShip(after, world, 1)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	beforeJSON, _ := json.Marshal(after)
-	afterJSON, _ := json.Marshal(objects.CaptureShip(again))
-
-	if !bytes.Equal(beforeJSON, afterJSON) {
-		t.Fatal("repaired equipment did not retain its identity and condition")
+	if _, err := objects.RestoreShip(saved, world, 1); err == nil {
+		t.Fatal("duplicate saved object IDs must be rejected")
 	}
 }
 
@@ -167,54 +134,6 @@ func TestCompactShipSize(t *testing.T) {
 	}
 }
 
-func TestCompactShipRestoresLegacyModuleIDs(t *testing.T) {
-	catalog, err := specs.Load()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for oldID, newID := range map[string]string{"shieldGenerator": "shieldGeneratorSm", "thrusterSingle": "thrusterSingleMd"} {
-		t.Run(oldID, func(t *testing.T) {
-			world := simulation.CreateWorld(25, catalog)
-			ship := objects.CreatePlayerShip(world, objects.Properties{})
-			module := modules.Create(newID, simulation.ObjectProperties{World: world}, catalog)
-			ship.Fit(module, nil)
-			ship.CargoContents = append(ship.CargoContents, modules.Create(newID, simulation.ObjectProperties{World: world}, catalog))
-			saved := objects.CaptureShip(ship)
-
-			for i := range saved.Modules {
-				if saved.Modules[i].Type == newID {
-					saved.Modules[i].Type = oldID
-				}
-			}
-
-			for i := range saved.Cargo {
-				if saved.Cargo[i].Type == newID {
-					saved.Cargo[i].Type = oldID
-				}
-			}
-
-			restored, err := objects.RestoreShip(saved, world, 7)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if !slices.ContainsFunc(restored.Modules(), func(m simulation.Module) bool { return m.ModuleBase().Type == newID }) {
-				t.Fatal("legacy fitted module did not restore")
-			}
-
-			if !slices.ContainsFunc(restored.CargoContents, func(e simulation.Entity) bool {
-				m, ok := e.(simulation.Module)
-				return ok && m.ModuleBase().Type == newID
-			}) {
-				t.Fatal("legacy cargo module did not restore")
-			}
-		})
-	}
-}
-
 func BenchmarkCaptureShip(b *testing.B) {
 	catalog, _ := specs.Load()
 	ship := objects.CreatePlayerShip(simulation.CreateWorld(25, catalog), objects.Properties{})
@@ -223,50 +142,5 @@ func BenchmarkCaptureShip(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		objects.CaptureShip(ship)
-	}
-}
-
-func TestRestoreMustangBeforePowerPlantMove(t *testing.T) {
-	catalog, err := specs.Load()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	world := simulation.CreateWorld(25, catalog)
-	ship := objects.CreatePlayerShip(world, objects.Properties{})
-	current := objects.CaptureShip(ship)
-
-	for _, oldLayout := range []bool{false, true} {
-		saved := objects.CaptureShip(ship)
-
-		if oldLayout {
-			for i := range saved.Modules {
-				mount := &saved.Modules[i].Mount
-
-				if *mount == 3 {
-					*mount = 6
-				} else if *mount >= 4 {
-					*mount--
-				}
-			}
-		}
-
-		restored, err := objects.RestoreShip(saved, world, 1)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		actual, _ := json.Marshal(objects.CaptureShip(restored).Modules)
-		expected, _ := json.Marshal(current.Modules)
-
-		if !bytes.Equal(actual, expected) {
-			t.Fatalf("old layout %v: equipment changed: %s != %s", oldLayout, actual, expected)
-		}
-
-		if restored.Mounts()[3].Module.ModuleBase().Type != "powerPlant" {
-			t.Fatal("power plant was not restored to its new slot")
-		}
 	}
 }

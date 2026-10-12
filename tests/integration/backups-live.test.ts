@@ -18,7 +18,7 @@ for (const [options, command] of [
     "'/app/server' '--delete-backup' '/data/backup with '\\''quotes'\\'''",
   ],
 ] as const) {
-  const calls: string[] = [];
+  const calls: string[][] = [];
   let output = '';
 
   await backupsLive({
@@ -27,10 +27,18 @@ for (const [options, command] of [
     output: (text) => {
       output += text;
     },
-    request: async (path, body) => {
-      calls.push(path);
+    run: async (args) => {
+      calls.push(args);
 
-      if (path === '') {
+      if (args[1] === 'list') {
+        assert.deepEqual(args, [
+          'machine',
+          'list',
+          '--app',
+          'test-app',
+          '--json',
+        ]);
+
         return [
           {
             id: 'game',
@@ -40,12 +48,17 @@ for (const [options, command] of [
         ];
       }
 
-      assert.equal(path, '/game/exec');
-
-      assert.deepEqual(body, {
-        cmd: command,
-        timeout: 20,
-      });
+      assert.deepEqual(args, [
+        'machine',
+        'exec',
+        'game',
+        command,
+        '--app',
+        'test-app',
+        '--json',
+        '--timeout',
+        '25',
+      ]);
 
       // Successful Fly exec responses can omit their zero exit code.
       return { stdout: 'Backups: 2; volume available\n' };
@@ -53,25 +66,25 @@ for (const [options, command] of [
   });
 
   assert.deepEqual(
-    calls,
-    ['', '/game/exec'],
+    calls.map((args) => args[1]),
+    ['list', 'exec'],
     'maintenance does not stop or reconfigure the Machine',
   );
   assert.match(output, /test-app\/game.*Backups: 2/s);
 }
 
 for (const [state, count, expected] of [
-  ['stopped', 1, /restore the saved configuration/],
+  ['stopped', 1, /requires a running Machine/],
   ['started', 0, /found 0/],
   ['started', 2, /found 2/],
 ] as const) {
   await assert.rejects(
     backupsLive({
       app: 'test-app',
-      request: async (path) => {
+      run: async (args) => {
         assert.equal(
-          path,
-          '',
+          args[1],
+          'list',
           'invalid Machine selection cannot execute a command',
         );
 
@@ -90,7 +103,7 @@ for (const [result, expected] of [
   [{ exit_code: 1, stderr: 'not a listed backup' }, /not a listed backup/],
   [
     { exit_code: 2, stderr: 'flag provided but not defined: -backups' },
-    /Deploy the server version/,
+    /flag provided but not defined/,
   ],
   [{ exit_code: 0, exit_signal: 9 }, /signal 9/],
   [{ stdout: '' }, /exit unknown/],
@@ -99,8 +112,8 @@ for (const [result, expected] of [
     backupsLive({
       app: 'test-app',
       output: () => {},
-      request: async (path) =>
-        path === ''
+      run: async (args) =>
+        args[1] === 'list'
           ? [
               {
                 id: 'game',

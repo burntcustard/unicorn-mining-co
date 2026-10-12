@@ -20,10 +20,6 @@ type movementParent struct {
 	radial        bool
 }
 
-func LocalMovement(child Entity, movers []Entity, dt float64) {
-	localMovement(child, movers, nil, dt)
-}
-
 func localMovement(child Entity, movers []Entity, parents []movementParent, dt float64) {
 	object := child.Base()
 	parent := object.LocalMovementParent

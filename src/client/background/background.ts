@@ -247,8 +247,11 @@ const build = () => {
 
   tiles.forEach((canvas, i) =>
     createImageBitmap(canvas).then((bitmap) => {
-      if (tiles[i] === canvas) tiles[i] = bitmap;
-      else bitmap.close();
+      if (tiles[i] === canvas) {
+        tiles[i] = bitmap;
+      } else {
+        bitmap.close();
+      }
     }),
   );
 };

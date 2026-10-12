@@ -123,7 +123,9 @@ const createMountControls = ({
   const release = () => {
     if (module instanceof Weapon || module instanceof Laser) {
       craft.firing = false;
-    } else setActive(false);
+    } else {
+      setActive(false);
+    }
 
     releases.delete(release);
   };
@@ -133,8 +135,11 @@ const createMountControls = ({
     Ship.prototype.fireWeapons.call(craft, 0);
     craft.updateVisual(0);
 
-    if (mode === 'hold') releases.add(release);
-    else release();
+    if (mode === 'hold') {
+      releases.add(release);
+    } else {
+      release();
+    }
   };
 
   attachments[key] = attached?.type ?? '';
@@ -354,7 +359,9 @@ const render = (now: number) => {
 
       ctx.restore();
     }
-  } else previewObject?.render();
+  } else {
+    previewObject?.render();
+  }
 
   renderEffects({ ctx });
 
@@ -421,10 +428,13 @@ controls.onchange = ({ target }) => {
   } else if (target === specSelect) {
     state.selected[state.type] = specSelect.value;
     rebuild();
-  } else if (target === gridInput) state.grid = gridInput.checked;
-  else if (target === mountPointsInput) {
+  } else if (target === gridInput) {
+    state.grid = gridInput.checked;
+  } else if (target === mountPointsInput) {
     state.mountPoints = mountPointsInput.checked;
-  } else if (target === spinInput) state.spin = spinInput.checked;
+  } else if (target === spinInput) {
+    state.spin = spinInput.checked;
+  }
 
   persist();
 };

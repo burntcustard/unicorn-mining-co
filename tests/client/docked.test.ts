@@ -28,7 +28,7 @@ import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
 import { colors } from '${process.cwd()}/src/specs/colors.ts';
 import { mustang } from '${process.cwd()}/src/specs/ships/index.ts';
 import { fitsOf, cargoMenuEntriesOf } from '${process.cwd()}/src/client/ui/docked-model.ts';
-import { sendAppliedAction, removeModule } from '${process.cwd()}/src/client/ui/docked-actions.ts';
+import { applyCraftAction } from '${process.cwd()}/src/client/network/craft-actions.ts';
 
 assert(colors.gray.join() === '#778,#99a,#bbc,#334,#eef');
 assert(colors.black.join() === '#000,#111,#222,#879,#200');
@@ -121,14 +121,14 @@ first.shades = colors.red;
 second.shades = colors.orange;
 ship.cargoContents.push(first, second);
 const mount = ship.mounts[0];
-const equip = module => sendAppliedAction(ship, {action:'equip',moduleId:module.id,mount:0});
+const equip = module => applyCraftAction(ship, {action:'equip',moduleId:module.id,mount:0});
 const stableRows = () => assert.deepEqual(fitsOf(ship,mount).slice(0,2).map(module=>module.id),
   [first.id,second.id], 'equip and remove preserve module acquisition order');
 stableRows();
 equip(second);
 assert(mount.module === second, 'equip second instance');
 stableRows();
-removeModule(ship,0);
+applyCraftAction(ship,{action:'remove',mount:0});
 assert(!mount.module && ship.cargoContents.includes(second), 'remove second instance');
 stableRows();
 equip(first);
@@ -147,8 +147,8 @@ stableRows();
 assert(first.shades === colors.red && second.shades === colors.orange, 'paint identity');
 assert(ship.segments.filter(segment=>segment.mount===mount).every(segment=>segment.shades===colors.orange),
   'equipped paint');
-removeModule(ship,0);
-sendAppliedAction(ship,{action:'sell',objectIds:[second.id]});
+applyCraftAction(ship,{action:'remove',mount:0});
+applyCraftAction(ship,{action:'sell',objectIds:[second.id]});
 assert(!ship.cargoContents.includes(second) && ship.cargoContents.includes(first), 'sell exact selected instance');
 assert.deepEqual(sentActions.at(-1),{action:'sell',objectIds:[second.id]}, 'sale sends exact cargo IDs');
 assert(fitsOf(ship,mount)[0]===first, 'remaining owned module replaces sold row');
@@ -158,16 +158,16 @@ assert(fitsOf(ship,mount)[0]===CargoHatch, 'module fitted elsewhere is not offer
 assert(!ship.cargoContents.length && ship.modules[0]===first, 'fitting preserves ownership');
 
 const beforeBuy = player.credits;
-const purchaseAction = sendAppliedAction(ship,{action:'buy',module:moduleTypes.indexOf(CargoHatch)});
+const purchaseAction = applyCraftAction(ship,{action:'buy',module:moduleTypes.indexOf(CargoHatch)});
 const bought = ship.modules.find(module=>module.id===purchaseAction.moduleId);
 assert(bought.constructor===CargoHatch && bought!==first, 'purchase appends a fresh instance');
 assert(player.credits===beforeBuy-CargoHatch.price, 'purchase debits once');
 equip(bought);
 assert(mount.module===bought && !ship.cargoContents.length, 'new purchase fits');
 assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
-sendAppliedAction(ship,{action:'paint',paint:2,moduleId:bought.id,mount:0});
+applyCraftAction(ship,{action:'paint',paint:2,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.yellow, 'paint purchased module yellow');
-sendAppliedAction(ship,{action:'paint',paint:5,moduleId:bought.id,mount:0});
+applyCraftAction(ship,{action:'paint',paint:5,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.violet && first.shades===colors.red, 'painting preserves other modules');
 
 // The ownership checks below need these paints earned before selecting them.
@@ -186,23 +186,23 @@ assert(player.note === 'GOLD ORE 100/200', 'field coordinates follow the unlock'
 player.noteFor = 0;
 presentEvents({playerId:1,events:[{...slatePickup,by:1,message:'AMETHYST CLUSTER 300/400'}],onMessage:readSlate});
 assert(player.note === 'AMETHYST CLUSTER 300/400', 'already unlocked orange shows coordinates only');
-sendAppliedAction(ship,{action:'paint',paint:0,moduleId:bought.id,mount:0});
+applyCraftAction(ship,{action:'paint',paint:0,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.red && first.shades===colors.red, 'paint purchased instance');
-sendAppliedAction(ship,{action:'paint',paint:1,moduleId:bought.id,mount:0});
+applyCraftAction(ship,{action:'paint',paint:1,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.orange && first.shades===colors.red, 'independent paint');
 mount.health=3.11111;
 const repairCredits=player.credits;
 player.credits=0;
-assert.equal(sendAppliedAction(ship,{action:'repair',moduleId:bought.id,mount:0}),undefined,
+assert.equal(applyCraftAction(ship,{action:'repair',moduleId:bought.id,mount:0}),undefined,
   'unaffordable module repair is rejected');
 assert.equal(mount.health,3.11111, 'rejected repair preserves health');
 player.credits=repairCredits;
-sendAppliedAction(ship,{action:'repair',moduleId:bought.id,mount:0});
+applyCraftAction(ship,{action:'repair',moduleId:bought.id,mount:0});
 assert(mount.health===CargoHatch.healthActivated && player.credits===repairCredits-1,
   'module repair charges for displayed missing HP');
 assert.deepEqual(sentActions.at(-1),{action:'repair',moduleId:bought.id,mount:0},
   'module repair sends its mounted instance');
-removeModule(ship,0);
+applyCraftAction(ship,{action:'remove',mount:0});
 assert(!bought.mount && ship.cargoContents[0]===bought, 'removed instance becomes cargo');
 
 const ore={...diamondSpec,name:'Ore',resource:2,price:7};
@@ -217,21 +217,21 @@ assert(ship.cargoContents.length<ship.cargoSpace, 'equipping frees cargo space')
 ship.fit(0,mount);
 assert(ship.cargoContents.length>=ship.cargoSpace, 'removing consumes cargo space');
 const fullCredits=player.credits;
-assert.equal(sendAppliedAction(ship,{action:'buy',module:moduleTypes.indexOf(CargoHatch)}),undefined,
+assert.equal(applyCraftAction(ship,{action:'buy',module:moduleTypes.indexOf(CargoHatch)}),undefined,
   'full cargo rejects purchases');
 assert(player.credits===fullCredits && ship.modules.length===2, 'rejected buy preserves credits and ownership');
 ship.cargoContents=[bought,new Item(ore),new Item(gem),new Item(ore)];
 assert.deepEqual(cargoMenuEntriesOf(ship),[[bought,1],[ore,2],[gem,1]],
   'cargo groups resources while keeping individual module instances');
 const beforeSale=player.credits;
-sendAppliedAction(ship,{action:'sell',objectIds:[bought.id]});
+applyCraftAction(ship,{action:'sell',objectIds:[bought.id]});
 assert(ship.modules.length===1 && ship.modules[0]===first, 'cargo sale preserves equipped module');
 const oreIds=ship.cargoContents.filter(object=>object.item===ore).map(object=>object.id);
-sendAppliedAction(ship,{action:'sell',objectIds:oreIds});
+applyCraftAction(ship,{action:'sell',objectIds:oreIds});
 assert(ship.cargoContents.length===1 && ship.cargoContents[0].item===gem, 'ore stack sale');
 syncPaintUnlocks(100);
 assert(!paintUnlocked(colors.cyan), 'cyan is locked before selling a diamond');
-sendAppliedAction(ship,{action:'sell',objectIds:[ship.cargoContents[0].id]});
+applyCraftAction(ship,{action:'sell',objectIds:[ship.cargoContents[0].id]});
 assert(!ship.cargoContents.length && player.credits===beforeSale+CargoHatch.price+25, 'last cargo sale');
 unlockPaint('CYAN','DIAMOND SOLD');
 assert(paintUnlocked(colors.cyan) && player.note==='DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlock message');
@@ -250,7 +250,7 @@ assert(paintUnlocked(colors.cyan), 'updated authoritative mask preserves an acce
 lowerMount.hull.health=1.11111;
 const hullRepairCost=ship.repairCost();
 const hullRepairCredits=player.credits;
-sendAppliedAction(ship,{action:'repair'});
+applyCraftAction(ship,{action:'repair'});
 assert(lowerMount.hull.health===lowerMount.hull.module.health, 'hull repair');
 assert.equal(player.credits,hullRepairCredits-hullRepairCost, 'hull repair charges for missing HP');
 assert.deepEqual(sentActions.at(-1),{action:'repair'}, 'hull repair sends its own dock action');

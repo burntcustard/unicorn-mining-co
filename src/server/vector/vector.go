@@ -13,8 +13,6 @@ func Create(x, y float64) Vector { return Vector{x, y} }
 
 func Set(out *Vector, value Vector) *Vector { *out = value; return out }
 
-func SetXY(out *Vector, x, y float64) *Vector { *out = Vector{x, y}; return out }
-
 func Clone(value Vector) Vector { return value }
 
 func Add(a, b Vector) Vector { return Vector{a.X + b.X, a.Y + b.Y} }

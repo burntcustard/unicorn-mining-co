@@ -103,7 +103,9 @@ export class FramePrediction {
         this.endpoint = captureWorld({ world: this.world });
         this.endpointInput = input.input;
         this.endpointChange = change;
-      } else restoreWorld({ world: this.world, state: this.endpoint });
+      } else {
+        restoreWorld({ world: this.world, state: this.endpoint });
+      }
 
       if (dt < simulationStep) {
         this.world.entities.forEach((entity) => {
@@ -128,10 +130,14 @@ export class FramePrediction {
                 0;
 
             if (dt < launchOffset) entity.rotation = from.rotation;
-          } else entity.rotation = pose.rotation;
+          } else {
+            entity.rotation = pose.rotation;
+          }
         });
       }
-    } else restoreWorld({ world: this.world, state: this.state });
+    } else {
+      restoreWorld({ world: this.world, state: this.state });
+    }
 
     // Visual phases advance on the live craft at display rate, outside history.
     // Refresh even cached endpoints so their markings never freeze between ticks.

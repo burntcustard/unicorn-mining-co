@@ -15,13 +15,6 @@ type Station struct {
 	moduleSellers       map[int64]int64
 }
 
-func newStation(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Station {
-	s := &Station{Craft: NewCraft(props, plans, catalog)}
-	s.Self = s
-	s.Kind = "station"
-	return s
-}
-
 func (s *Station) Holds(child simulation.Entity) bool {
 	return Vec.DistanceSquared(child.Base().Position, s.Position) <= s.LocalMovementRadius*s.LocalMovementRadius
 }
@@ -62,8 +55,9 @@ func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
 		}
 	}
 
-	station := newStation(props, plans, catalog)
+	station := &Station{Craft: NewCraft(props, plans, catalog)}
 	station.Self = station
+	station.Kind = "station"
 
 	if id != "corral-5" {
 		station.DefinitionID = id
@@ -88,7 +82,7 @@ func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
 }
 
 func CreateStation(props Properties, catalog specs.Catalog) *Station {
-	if props.DefinitionID == "" || props.DefinitionID == "corral" {
+	if props.DefinitionID == "" {
 		props.DefinitionID = "corral-5"
 	}
 

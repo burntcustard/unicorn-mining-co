@@ -371,18 +371,6 @@ func (a *Asteroid) Segments() []*AsteroidSegment {
 	return a.segmentList
 }
 
-func (a *Asteroid) SetSegments(segments []*AsteroidSegment) {
-	a.uncutContents = nil
-	a.uncutLocked = false
-
-	if len(a.segmentList) != len(segments) || (len(segments) > 0 && &a.segmentList[0] != &segments[0]) {
-		a.lockedSegmentList = nil
-		a.geometrySource = nil
-	}
-
-	a.segmentList = segments
-}
-
 func (a *Asteroid) Damaged() bool {
 	if a.uncutContents != nil {
 		return false

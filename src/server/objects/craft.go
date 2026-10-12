@@ -736,14 +736,6 @@ func (c *Craft) SetModuleActive(id string, enabled bool) {
 	}
 }
 
-func (c *Craft) Toggle(id string) {
-	for _, s := range c.Segments {
-		if s.Module != nil && (s.Module.ModuleBase().Type == id || s.Module.ModuleBase().Spec.Behavior == id) {
-			c.setSegmentActive(s, 1-s.Active)
-		}
-	}
-}
-
 func (c *Craft) setSegmentActive(s *simulation.Segment, active float64) {
 	spec := s.ModuleSpec()
 

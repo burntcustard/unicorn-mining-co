@@ -10,11 +10,6 @@ export type Shades = readonly string[];
 
 export type Pose = { position: Vec.Value; rotation: number };
 
-export type ModuleSegmentPlan = {
-  [key: string]: any;
-  points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
-};
-
 export type Mount = {
   [key: string]: any;
   localPosition: Vec.Value;

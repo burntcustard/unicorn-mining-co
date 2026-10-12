@@ -1,5 +1,5 @@
 import html from './main-menu.html?raw';
-import { createScreen, query, ui } from './ui';
+import { createScreen, query } from './ui';
 import { verifyIdentity, type Identity } from './identity';
 import { version } from '../../../../package.json';
 
@@ -23,7 +23,8 @@ export const createMainMenu = ({
   query(screen.element, '[data-action="saves"]').hidden = running;
   query(screen.element, '[data-action="disconnect"]').hidden = !running;
 
-  screen.element.classList.toggle('ui-running', running);
+  screen.element.classList.toggle('ui-backdrop', running);
+  screen.escape = () => running && play.click();
 
   screen.element.addEventListener(
     'click',
@@ -43,8 +44,11 @@ export const createMainMenu = ({
       if (destination === 'play') cancelPreview();
 
       try {
-        if (destination === 'play') await onPlay();
-        else await onNavigate(destination);
+        if (destination === 'play') {
+          await onPlay();
+        } else {
+          await onNavigate(destination);
+        }
       } catch {
         /* Leave the menu available if a chunk cannot load. */
       } finally {
@@ -54,23 +58,6 @@ export const createMainMenu = ({
       }
     },
     { signal: screen.signal },
-  );
-
-  window.addEventListener(
-    'keydown',
-    (event) => {
-      if (
-        event.key === 'Escape' &&
-        !event.repeat &&
-        !event.defaultPrevented &&
-        running &&
-        ui.current === screen
-      ) {
-        event.preventDefault();
-        play.click();
-      }
-    },
-    { capture: true, signal: screen.signal },
   );
 
   const privateId = localStorage.getItem('playerToken');

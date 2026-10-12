@@ -11,13 +11,7 @@ import { autogunAmmo } from '../../../specs/items';
 import { Module, moduleMaximumHealth } from '../../objects/modules/module';
 import { moduleTypes } from '../../objects/modules';
 import { fitsOf, cargoMenuEntriesOf } from '../docked-model';
-import {
-  sendAppliedAction,
-  repairHullSegment,
-  buyAmmo,
-  refuelShip,
-  removeModule,
-} from '../docked-actions';
+import { applyCraftAction } from '../../network/craft-actions';
 import shipPreview from './ship-preview';
 import {
   moduleCategories,
@@ -162,7 +156,9 @@ const createDocked = () => {
         detailPreview,
         currentItem as Module | ItemSpec,
       );
-    } else if (kind === 'hull') preview.thumbnail(detailPreview, Number(index));
+    } else if (kind === 'hull') {
+      preview.thumbnail(detailPreview, Number(index));
+    }
   };
 
   const thumbnailObserver = new ResizeObserver(drawThumbnails);
@@ -362,7 +358,9 @@ const createDocked = () => {
       .forEach((element) => {
         if (element.getAttribute('data-tab') === selection.tab) {
           element.setAttribute('aria-current', 'page');
-        } else element.removeAttribute('aria-current');
+        } else {
+          element.removeAttribute('aria-current');
+        }
       });
 
     query(root, '.dock-summary').hidden = trading;
@@ -818,8 +816,9 @@ const createDocked = () => {
     const key = element.getAttribute('data-key');
     const candidate = element.closest('[data-candidates]');
 
-    if (candidate) selection.candidate = key;
-    else {
+    if (candidate) {
+      selection.candidate = key;
+    } else {
       rememberOrigin(element);
       selection.key = key;
       selection.candidate = '';
@@ -871,11 +870,11 @@ const createDocked = () => {
       ship.mounts.reduce((sum, mount) => sum + ship.repairCost(mount), 0);
 
     if (player.credits < total) return;
-    sendAppliedAction(ship, { action: 'repair' });
+    applyCraftAction(ship, { action: 'repair' });
 
     ship.mounts.forEach((mount, index) => {
       if (mount.module) {
-        sendAppliedAction(ship, {
+        applyCraftAction(ship, {
           action: 'repair',
           mount: index,
           moduleId: mount.module.id,
@@ -895,13 +894,6 @@ const createDocked = () => {
         event.metaKey ||
         document.querySelector('dialog[open]')
       ) {
-        return;
-      }
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-
-        if (!event.repeat) back();
         return;
       }
 
@@ -1068,8 +1060,9 @@ const createDocked = () => {
           selection.inspected = currentKey;
         }
 
-        if (element) inspect(element);
-        else {
+        if (element) {
+          inspect(element);
+        } else {
           if (type === 'focusin') inspectedCandidate = '';
           update();
         }
@@ -1172,7 +1165,7 @@ const createDocked = () => {
       }
 
       if (element.hasAttribute('data-refuel')) {
-        refuelShip(ship);
+        applyCraftAction(ship, { action: 'refuel' });
         update();
 
         if (element.disabled) firstButton('[data-overview]')?.focus();
@@ -1213,7 +1206,7 @@ const createDocked = () => {
               : undefined);
 
         if (element.hasAttribute('data-paint')) {
-          sendAppliedAction(ship, {
+          applyCraftAction(ship, {
             action: 'paint',
             paint: Number(element.getAttribute('data-paint')),
             ...(selection.key !== 'paint' && {
@@ -1224,9 +1217,10 @@ const createDocked = () => {
         }
 
         if (command === 'FIX') {
-          if (kind === 'hull') repairHullSegment(ship, index);
-          else {
-            sendAppliedAction(ship, {
+          if (kind === 'hull') {
+            applyCraftAction(ship, { action: 'repairHull', hullIndex: index });
+          } else {
+            applyCraftAction(ship, {
               action: 'repair',
               moduleId: item.id,
               mount: index,
@@ -1246,12 +1240,12 @@ const createDocked = () => {
             );
 
           const applied = stockObject
-            ? sendAppliedAction(ship, {
+            ? applyCraftAction(ship, {
                 action: 'buyStock',
                 objectIds: [stockObject.id],
               })
             : typeof item === 'function'
-              ? sendAppliedAction(ship, {
+              ? applyCraftAction(ship, {
                   action: 'buy',
                   module: moduleTypes.indexOf(item),
                 })
@@ -1268,10 +1262,12 @@ const createDocked = () => {
           }
         }
 
-        if (command === 'BUY_AMMO') buyAmmo(ship);
+        if (command === 'BUY_AMMO') {
+          applyCraftAction(ship, { action: 'buyAmmo' });
+        }
 
         if (command === 'EQUIP') {
-          const applied = sendAppliedAction(ship, {
+          const applied = applyCraftAction(ship, {
             action: 'equip',
             moduleId: item.id,
             mount: index,
@@ -1287,14 +1283,14 @@ const createDocked = () => {
         }
 
         if (command === 'REMOVE') {
-          removeModule(ship, index);
+          applyCraftAction(ship, { action: 'remove', mount: index });
           selection.candidate = '';
           inspectedCandidate = '';
         }
 
         if (command === 'SELL') {
           if (mount?.module) {
-            removeModule(ship, index);
+            applyCraftAction(ship, { action: 'remove', mount: index });
           }
 
           const object = ship.cargoContents.find((object) =>
@@ -1303,7 +1299,7 @@ const createDocked = () => {
               : object.item === item,
           );
 
-          const sold = sendAppliedAction(ship, {
+          const sold = applyCraftAction(ship, {
             action: 'sell',
             objectIds: object ? [object.id] : [],
           });
@@ -1332,6 +1328,7 @@ const createDocked = () => {
   screen.signal.addEventListener('abort', preview.destroy);
   screen.signal.addEventListener('abort', () => thumbnailObserver.disconnect());
   screen.update = update;
+  screen.escape = back;
   return screen;
 };
 

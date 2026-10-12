@@ -1,4 +1,4 @@
-// Port of src/server/http-handler.ts using Go's HTTP and filesystem APIs.
+// Serve the production client using Go's HTTP and filesystem APIs.
 package network
 
 import (
@@ -25,8 +25,7 @@ var contentTypes = map[string]string{
 
 var hashedAsset = regexp.MustCompile(`-[\w-]+\.(?:js|css|woff2)$`)
 
-// URL normalizes literal and percent-encoded dot segments before
-// decodeURIComponent decodes the pathname in the TypeScript handler.
+// Normalize literal and percent-encoded dot segments before decoding the path.
 func requestPath(raw string) (string, error) {
 	if raw == "" {
 		raw = "/"
@@ -82,8 +81,7 @@ func requestPath(raw string) (string, error) {
 	return pathname, nil
 }
 
-// HandleHTTP handles only ordinary HTTP requests. GameServer owns upgrades,
-// just as the separate upgrade listener in the TypeScript implementation does.
+// HandleHTTP serves static assets and health requests. GameServer owns upgrades.
 func HandleHTTP(assets string) http.Handler {
 	root, err := filepath.Abs(assets)
 
@@ -110,10 +108,6 @@ func HandleHTTP(assets string) http.Handler {
 		}
 
 		if request.Host == "www.unicorn-mining.co" {
-			if raw == "" {
-				raw = "/"
-			}
-
 			response.Header().Set("Location", "https://unicorn-mining.co"+raw)
 			response.WriteHeader(http.StatusPermanentRedirect)
 			return
@@ -129,11 +123,6 @@ func HandleHTTP(assets string) http.Handler {
 
 		if err != nil {
 			response.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if pathname == "/server.js" {
-			response.WriteHeader(http.StatusNotFound)
 			return
 		}
 

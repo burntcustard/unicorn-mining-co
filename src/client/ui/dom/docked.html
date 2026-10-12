@@ -1,4 +1,6 @@
-<section class="dock-screen ui-layout ui-surface h-full">
+<section
+  class="dock-screen ui-layout pt-7 px-10 pb-4 ui-surface ui-backdrop h-full"
+>
   <header class="dock-header ui-row gap-6">
     <div class="ui-inline gap-6">
       <span class="dock-station-icon"></span>
@@ -66,7 +68,7 @@
         </nav>
       </div>
       <div data-outfitting hidden>
-        <div class="dock-list-heading ui-row gap-3 mb-6">
+        <div class="ui-row gap-3 mb-6 px-3">
           <h2 class="uppercase">Loadout</h2>
           <span class="uppercase text-muted text-sm">Health</span>
         </div>
@@ -95,7 +97,7 @@
         role="img"
         aria-label="Ship preview"
       ></canvas>
-      <section class="dock-energy text-sm">
+      <section class="dock-energy py-4 px-3 text-sm">
         <div class="ui-row gap-3">
           <h2 class="uppercase">Power consumption</h2>
           <span class="dock-output" data-output></span>
@@ -112,7 +114,7 @@
     </div>
     <div class="dock-inspector gap-6">
       <section data-candidate-panel hidden>
-        <div class="dock-list-heading ui-row gap-3 mb-6">
+        <div class="ui-row gap-3 mb-6 px-3">
           <h2 class="uppercase">Compatible modules</h2>
           <span class="uppercase text-muted text-sm">Price</span>
         </div>
@@ -168,12 +170,12 @@
       </aside>
     </div>
   </div>
-  <footer class="dock-footer ui-row text-muted text-sm uppercase">
+  <footer class="dock-footer ui-controls ui-row text-muted text-sm uppercase">
     <button class="gap-2 ui-inline" data-launch>
       <kbd>Esc</kbd><span data-back-label>Launch</span>
       <span class="dock-launch-icon" aria-hidden="true"></span>
     </button>
-    <div class="ui-controls gap-8">
+    <div class="ui-inline gap-8">
       <span class="gap-2 ui-inline"
         ><span class="gap-1 ui-inline"
           ><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></span

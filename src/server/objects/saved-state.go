@@ -32,7 +32,7 @@ type SavedObject struct {
 }
 
 type SavedEntity struct {
-	Fuel                     *float64
+	Fuel                     float64
 	Rounds                   *int
 	Object                   SavedObject
 	ModuleType               string
@@ -67,17 +67,6 @@ func savedOutline(p *simulation.ShapeOutline) *simulation.ShapeOutline {
 	}
 
 	return &simulation.ShapeOutline{Points: slices.Clone(p.Points), Edges: slices.Clone(p.Edges)}
-}
-
-func restoreModuleID(id string) string {
-	switch id {
-	case "shieldGenerator":
-		return "shieldGeneratorSm"
-	case "thrusterSingle":
-		return "thrusterSingleMd"
-	default:
-		return id
-	}
 }
 
 func CaptureEntity(entity simulation.Entity) SavedEntity {
@@ -197,7 +186,7 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 	}
 
 	if ship, ok := entity.(*Ship); ok {
-		s.Fuel = savedPointer(&ship.Fuel)
+		s.Fuel = ship.Fuel
 	}
 
 	return s
@@ -217,8 +206,6 @@ func craftOf(entity simulation.Entity) *Craft {
 }
 
 func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, error) {
-	s.ModuleType = restoreModuleID(s.ModuleType)
-
 	o := s.Object
 
 	for _, index := range s.UnstrokedWreckage {
@@ -276,7 +263,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 			} else if o.Kind == "station" {
 				id := o.DefinitionID
 
-				if id == "" || id == "corral" {
+				if id == "" {
 					id = "corral-5"
 				}
 
@@ -313,7 +300,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 					return nil, fmt.Errorf("missing saved module type")
 				}
 
-				id := restoreModuleID(s.ModuleTypes[i])
+				id := s.ModuleTypes[i]
 				s.Modules[i].Type = slices.Index(c.Catalog.ModuleIDs, id)
 				m := s.Modules[i]
 
@@ -348,12 +335,8 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 		c.HasLaunching = s.HasLaunching
 	}
 
-	if o.Kind == "station" && o.DefinitionID == "corral" {
-		o.DefinitionID = ""
-	}
-
-	if ship, ok := entity.(*Ship); ok && s.Fuel != nil {
-		ship.Fuel = *s.Fuel
+	if ship, ok := entity.(*Ship); ok {
+		ship.Fuel = s.Fuel
 	}
 
 	b := entity.Base()

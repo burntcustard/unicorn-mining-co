@@ -129,7 +129,9 @@ const connect = async (url: string) => {
       msg.error
         ? p.reject(new Error(JSON.stringify(msg.error)))
         : p.resolve(msg.result);
-    } else events.push(msg);
+    } else {
+      events.push(msg);
+    }
   });
 
   return {
@@ -1164,7 +1166,7 @@ try {
     await check(`(() => {
     const footer = document.querySelector('.dock-footer');
     const launch = footer.querySelector('[data-launch]');
-    const controls = footer.querySelector('.ui-controls');
+    const controls = footer.lastElementChild;
     const keys = [...controls.querySelectorAll('kbd')].map(key => key.textContent);
     return ['↑', '↓', '←', '→', 'Enter', 'Space'].every(key => keys.includes(key))
       && footer.firstElementChild === launch
@@ -1805,7 +1807,9 @@ try {
 
     if (activation === 'click') {
       await click(secondStock + ' .dock-trade-price');
-    } else await pressKey(activation);
+    } else {
+      await pressKey(activation);
+    }
 
     const purchased = await check('fixture.transactionState()');
 
@@ -1826,8 +1830,12 @@ try {
     await focusDock(soldRow);
     await check('fixture.replaceTradeCargo()');
 
-    if (activation === 'click') await click(soldRow + ' .dock-trade-price');
-    else await pressKey(activation);
+    if (activation === 'click') {
+      await click(soldRow + ' .dock-trade-price');
+    } else {
+      await pressKey(activation);
+    }
+
     const sold = await check('fixture.transactionState()');
 
     assert.deepEqual(

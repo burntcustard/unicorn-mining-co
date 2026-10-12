@@ -21,11 +21,14 @@ func TestProjectileStationInterior(t *testing.T) {
 			t.Run(weapon+"/"+mode, func(t *testing.T) {
 				world := simulation.CreateWorld(1, catalog)
 
-				station := newStation(Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, []*simulation.SegmentPlan{{
+				station := &Station{Craft: NewCraft(Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, []*simulation.SegmentPlan{{
 					DisablePhysics: true,
 					Health:         new(100.0),
 					Points:         &simulation.ShapeOutline{Points: []simulation.Point{{40, -20}, {60, -20}, {60, 20}, {40, 20}}},
-				}}, catalog)
+				}}, catalog)}
+
+				station.Self = station
+				station.Kind = "station"
 
 				simulation.AddEntity(world, station)
 

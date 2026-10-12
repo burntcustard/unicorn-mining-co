@@ -12,25 +12,6 @@ import { simulationStep } from '../../specs/simulation';
 import { updateTiers } from '../../specs/update-tier';
 import { visibleRange } from '../../specs/replication';
 
-/*
- * Nearby and on-screen objects share the same movement schedule.
- */
-export const updateTier = ({
-  entity,
-  observers,
-}: {
-  entity: Pick<GameObject, 'position'>;
-  observers: Pick<GameObject, 'position'>[];
-}) => {
-  return observers.some(
-    (observer) =>
-      Vec.distanceSquared(entity.position, observer.position) <=
-      visibleRange * visibleRange,
-  )
-    ? updateTiers.visible
-    : updateTiers.distant;
-};
-
 const schedules = new WeakMap<
   SimulationWorld,
   {
@@ -137,7 +118,9 @@ export const updateEntities = ({
       entry.tier = tier;
       entry.step = step;
       entry.laserDuration = 0;
-    } else scheduled.push({ entity, tier, step, laserDuration: 0 });
+    } else {
+      scheduled.push({ entity, tier, step, laserDuration: 0 });
+    }
   }
 
   scheduled.length = list.length;

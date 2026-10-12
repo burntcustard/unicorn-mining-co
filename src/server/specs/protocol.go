@@ -13,7 +13,6 @@ type BinaryFields struct {
 	Rounds            int `json:"rounds"`
 	DefinitionID      int `json:"definitionId"`
 	CargoContents     int `json:"cargoContents"`
-	Credits           int `json:"credits"`
 	Contents          int `json:"contents"`
 	Decay             int `json:"decay"`
 	Friction          int `json:"friction"`

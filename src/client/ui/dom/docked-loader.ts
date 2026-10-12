@@ -29,8 +29,9 @@ export const syncDockedUi = ({
 
   if (!wanted || ui.current) return;
 
-  if (loaded) open();
-  else {
+  if (loaded) {
+    open();
+  } else {
     loading ||= import('./docked')
       .then(({ default: module }) => {
         loaded = module;

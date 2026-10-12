@@ -20,8 +20,11 @@ const run = (executable: string, args: string[]) =>
     command.on('exit', (code) => {
       command = undefined;
 
-      if (code === 0) resolve();
-      else reject(new Error(`${executable} exited with ${code}`));
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${executable} exited with ${code}`));
+      }
     });
   });
 

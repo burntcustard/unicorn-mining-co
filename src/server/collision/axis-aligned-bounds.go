@@ -10,10 +10,6 @@ type AABB struct {
 	UpperBound Vec.Vector `json:"upperBound"`
 }
 
-func (a AABB) GetPerimeter() float64 {
-	return 2 * (a.UpperBound.X - a.LowerBound.X + a.UpperBound.Y - a.LowerBound.Y)
-}
-
 func (out *AABB) Combine(a, b AABB) {
 	*out = AABB{Vec.Vector{X: min(a.LowerBound.X, b.LowerBound.X), Y: min(a.LowerBound.Y, b.LowerBound.Y)}, Vec.Vector{X: max(b.UpperBound.X, a.UpperBound.X), Y: max(b.UpperBound.Y, a.UpperBound.Y)}}
 }
@@ -33,10 +29,4 @@ func Extend(out *AABB, value float64) {
 
 func TestOverlap(a, b AABB) bool {
 	return !(b.LowerBound.X > a.UpperBound.X || b.LowerBound.Y > a.UpperBound.Y || a.LowerBound.X > b.UpperBound.X || a.LowerBound.Y > b.UpperBound.Y)
-}
-
-func CombinedPerimeter(a, b AABB) float64 {
-	lx, ly := min(a.LowerBound.X, b.LowerBound.X), min(a.LowerBound.Y, b.LowerBound.Y)
-	ux, uy := max(a.UpperBound.X, b.UpperBound.X), max(a.UpperBound.Y, b.UpperBound.Y)
-	return 2 * (ux - lx + uy - ly)
 }

@@ -251,7 +251,9 @@ export class GameCollisions {
 
         order[j + 1] = item;
       }
-    } else order.sort((a, b) => bounds[a * 4] - bounds[b * 4]);
+    } else {
+      order.sort((a, b) => bounds[a * 4] - bounds[b * 4]);
+    }
 
     for (let i = 0; i < count; i++) {
       const a = order[i] * 4;
@@ -367,7 +369,9 @@ export class GameCollisions {
         (entity instanceof Asteroid || entity instanceof Station)
       ) {
         record.syncPending = true;
-      } else record = this.sync(entity);
+      } else {
+        record = this.sync(entity);
+      }
 
       let start =
         (previous ? previous.get(entity.id) : record.previous) || entity;
@@ -387,7 +391,9 @@ export class GameCollisions {
       if (dt) {
         Vec.subtract(entity.position, start.position, velocity);
         Vec.scale(velocity, 1 / dt, velocity);
-      } else Vec.setXY(velocity, 0, 0);
+      } else {
+        Vec.setXY(velocity, 0, 0);
+      }
 
       record.spin = dt ? (entity.rotation - start.rotation) / dt : 0;
       record.sweepStart = start;
@@ -450,8 +456,11 @@ export class GameCollisions {
         // Bodies report angles in [-pi, pi], as the sweep's atan2 would.
         let angle = start.rotation;
 
-        if (angle > Math.PI) angle -= 2 * Math.PI;
-        else if (angle < -Math.PI) angle += 2 * Math.PI;
+        if (angle > Math.PI) {
+          angle -= 2 * Math.PI;
+        } else if (angle < -Math.PI) {
+          angle += 2 * Math.PI;
+        }
 
         if (!(Math.abs(angle) <= Math.PI)) {
           angle = Math.atan2(Math.sin(angle), Math.cos(angle));
@@ -487,7 +496,9 @@ export class GameCollisions {
           entity.velocity.x += vx - velocity.x;
           entity.velocity.y += vy - velocity.y;
           entity.spin += w - spin;
-        } else Vec.set(entity.position, start.position);
+        } else {
+          Vec.set(entity.position, start.position);
+        }
 
         entity.rotation = angle;
         continue;
@@ -695,7 +706,9 @@ export class GameCollisions {
             offset.y + (x * sin + y * cos),
           ),
         );
-      } else geometry.push(offset.x, offset.y, collider.radius);
+      } else {
+        geometry.push(offset.x, offset.y, collider.radius);
+      }
     });
 
     // Keep fixtures whose own slice of geometry is unchanged, such as a hull

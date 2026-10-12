@@ -612,8 +612,9 @@ export class Asteroid extends GameObject {
     };
 
     // Segment vertices never reach past the outline they are cut from.
-    if (this.uncutContents) shapeOutlineOf(this).forEach(measure);
-    else {
+    if (this.uncutContents) {
+      shapeOutlineOf(this).forEach(measure);
+    } else {
       this.hitbox().forEach(({ shapeOutline }) =>
         shapeOutline.forEach(measure),
       );
@@ -673,7 +674,9 @@ export class Asteroid extends GameObject {
         asteroidId: this.id,
         childIds: children.map((child) => child.id),
       });
-    } else return false;
+    } else {
+      return false;
+    }
 
     return true;
   }

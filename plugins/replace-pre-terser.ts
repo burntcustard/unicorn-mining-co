@@ -64,7 +64,9 @@ export const replacePreTerser = (
           value.forEach((child) => {
             if (child?.type) visit(child);
           });
-        } else if (value?.type) visit(value);
+        } else if (value?.type) {
+          visit(value);
+        }
       });
     };
 

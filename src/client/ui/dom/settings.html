@@ -1,5 +1,5 @@
 <section
-  class="ui-layout ui-surface h-full ui-settings gap-6"
+  class="ui-layout pt-7 px-10 pb-4 ui-surface ui-backdrop h-full ui-settings gap-6"
   aria-labelledby="settings-heading"
 >
   <header class="ui-row gap-6 flex-wrap">
@@ -11,24 +11,39 @@
       Controls</button
     ><button class="ui-tab ui-highlight" data-graphics>Graphics</button>
   </nav>
-  <section class="ui-scroll grid gap-4 ui-control-panel">
+  <section class="ui-scroll grid gap-4 ui-control-panel" data-controls-panel>
     <p>
       Select a binding and press a key. Escape cancels. Tab, Enter and Escape
       remain available for menus.
     </p>
+    <h3 class="uppercase text-sm text-muted mt-6">Ship controls</h3>
     <div data-bindings></div>
+    <hr class="mt-4" />
+    <h3 class="uppercase text-sm text-muted mt-6">
+      Activate/deactivate module
+    </h3>
+    <div data-module-bindings></div>
     <button class="uppercase button" data-reset>Reset to defaults</button>
   </section>
-  <section class="ui-scroll" data-graphics-panel hidden>
-    <label class="uppercase ui-row gap-6 py-2"
-      >Starfield <input type="checkbox" data-graphic="0"
-    /></label>
-    <label class="uppercase ui-row gap-6 py-2"
-      >Clouds <input type="checkbox" data-graphic="1"
-    /></label>
-    <label class="uppercase ui-row gap-6 py-2"
-      >Sparkles <input type="checkbox" data-graphic="2"
-    /></label>
+  <section
+    class="ui-scroll grid gap-4 ui-control-panel"
+    data-graphics-panel
+    hidden
+  >
+    <h3 class="uppercase text-sm text-muted">Effects</h3>
+    <div>
+      <label class="uppercase ui-row gap-6 py-2"
+        >Starfield <input type="checkbox" data-graphic="0"
+      /></label>
+      <label class="uppercase ui-row gap-6 py-2"
+        >Clouds <input type="checkbox" data-graphic="1"
+      /></label>
+      <label class="uppercase ui-row gap-6 py-2"
+        >Sparkles <input type="checkbox" data-graphic="2"
+      /></label>
+    </div>
+    <hr class="mt-4" />
+    <h3 class="uppercase text-sm text-muted mt-6">Display</h3>
     <label class="uppercase ui-row gap-6 py-2"
       >Rendering resolution
       <select class="ui-input" data-resolution>

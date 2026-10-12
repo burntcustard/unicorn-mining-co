@@ -8,8 +8,11 @@ const visit = (directory: string) => {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
 
-    if (entry.isDirectory()) visit(path);
-    else if (entry.isFile() && path.endsWith('.go')) files.push(path);
+    if (entry.isDirectory()) {
+      visit(path);
+    } else if (entry.isFile() && path.endsWith('.go')) {
+      files.push(path);
+    }
   }
 };
 

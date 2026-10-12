@@ -63,14 +63,20 @@ const showMainMenu = () =>
   );
 
 window.addEventListener('keydown', (event) => {
+  // A held key repeats; only a fresh press should take another step.
   if (
-    event.key === 'Escape' &&
-    !event.repeat &&
-    !event.defaultPrevented &&
-    !ui.current &&
-    gameplay
+    event.key !== 'Escape' ||
+    event.repeat ||
+    document.querySelector('dialog[open]')
   ) {
-    event.preventDefault();
+    return;
+  }
+
+  event.preventDefault();
+
+  if (ui.current) {
+    ui.current.escape();
+  } else if (gameplay) {
     showMainMenu();
   }
 });

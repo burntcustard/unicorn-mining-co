@@ -65,7 +65,9 @@ if (!isMainThread) {
           checksum += (
             await Promise.all(workers.map((w) => run(w, count / 2)))
           ).reduce((s, x) => s + x, 0);
-        } else checksum += batch(count / 2) + batch(count / 2);
+        } else {
+          checksum += batch(count / 2) + batch(count / 2);
+        }
       }
 
       const used = process.cpuUsage(cpu);

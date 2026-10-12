@@ -93,7 +93,9 @@ function compare(a: unknown, b: unknown, path: string) {
     for (const key of Object.keys(a)) {
       compare(Reflect.get(a, key), Reflect.get(b, key), `${path}.${key}`);
     }
-  } else assert.deepEqual(a, b, path);
+  } else {
+    assert.deepEqual(a, b, path);
+  }
 }
 
 function save() {

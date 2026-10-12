@@ -33,18 +33,17 @@ contact handling belongs to `Craft`, so the history is not restricted to station
 The players table uses `WITHOUT ROWID`, so its UUID key is also its storage key.
 Dates, playtime and credits are integers. The ship record contains its object ID,
 spec ID, integer `[x,y]` position, heading, optional paint/docking/death
-state, hull health values, fitted modules, and cargo. Modules contain an ID, type,
+state, hull health values, fuel, fitted modules, and cargo. Modules contain an ID, type,
 mount, health, optional paint and firing cooldown, and active/activation-progress
 pairs. Cargo contains its identity, type and condition, plus message contents or
-remaining ammunition rounds where needed. Both ship and world saves restore
-legacy `shieldGenerator` and `thrusterSingle` IDs as the small shield generator
-and medium single thruster specs.
+remaining ammunition rounds where needed. Saves use the current item and module
+IDs and mount layout; renamed IDs and retired layouts are not translated.
 Credits are stored only in their SQL column. Shapes, physics constants, velocity,
 spin, movement parents, flight inputs and RNG state are not saved for player
 ships. Specs rebuild those defaults, and ships resume stationary. Partial
 health and module activation retain their precision. Rounding affects saved
-copies, never the running physics. A default ship occupies 403 bytes of JSON,
-compared with 2,142 bytes in the original general world-object Gob format.
+copies, never the running physics. A default ship occupies 512 bytes of JSON,
+compared with 2,306 bytes as a general world-object Gob record.
 World entities keep their fuller mechanics records, including movement, since
 floating objects and damaged asteroids need those mechanics to resume correctly.
 
@@ -161,9 +160,8 @@ npm run reset-world:live
 npm run reset-world:live -- my-app
 ```
 
-The script uses `FLY_API_TOKEN` or creates an app-scoped deploy token through
-`fly tokens create deploy --app <app> --expiry 15m`. It requires exactly one
-running Machine mounting `/data`. It executes
+The script uses the installed Fly CLI with your existing login or
+`FLY_API_TOKEN`. It requires exactly one running Machine mounting `/data` and executes
 `/app/server --reset-world-live`, which contacts the running server through
 `DATABASE_PATH.control.sock`. This Unix socket is mode `0600`, accessible only
 to the game user; there is no public reset HTTP endpoint.
@@ -178,9 +176,8 @@ and configured health checks. It never updates the Machine configuration or
 changes its attached volume during a normal reset. Archives stay on `/data`.
 Players can reconnect normally; old tokens receive new tokens and fresh profiles.
 
-Fly exec refuses Machines with externally held leases, so normal reset/resume
-does not acquire a separate Machine lease. The private socket serializes the
-game's maintenance operations. Do not deploy concurrently with a reset.
+The private socket serializes the game's maintenance operations. Do not deploy
+concurrently with a reset.
 
 If an existing world cannot load (for example after generation rules change),
 the server keeps its main process and private maintenance socket running while
@@ -205,31 +202,12 @@ rather than queued. A client timeout may occur after the server accepted a
 reset, so the script does not retry resets automatically. Inspect health and
 logs or resume instead of repeating a reset after an ambiguous failure.
 
-### Recover an older interrupted Machine reset
-
-Recovery of the previous offline-reset workflow remains supported:
-
-```sh
-npm run reset-world:live -- unicorn-mining-co --restore <machine-id> /tmp/unicorn-world-reset-<id>/machine.json
-```
-
-Configuration recovery holds a Machine lease while changing its settings.
-Use the original game configuration, not a file containing a reset startup
-command. Restore applies its startup, service and restart settings while
-preserving the volumes currently attached at the saved mount paths. A changed
-mount layout is refused. If the stopped Machine already has the original
-ordinary game startup command and image, recovery first starts it, allowing Fly
-to migrate it away from a full host. It never starts a configured offline reset.
-It then rereads the volume IDs, updates the recovery file, applies the original
-settings, and waits for the restored Machine version and health checks.
-
 An HTTP 409 reporting `insufficient memory available ... on the current host`
 means Fly could not reserve host RAM for a Machine update. It does not indicate
 that the data volume is full, and deleting backups does not fix that host-memory
 allocation error. The new live reset avoids the Machine stop/update cycle that
-triggered this failure. Older configuration recovery still involves a Machine
-update and can fail if Fly lacks capacity; the script retains a recovery file
-with the current volume IDs. Do not deploy concurrently with maintenance.
+triggered this failure. The obsolete `--restore` Machine-configuration workflow
+has been removed; these scripts never change Machine settings or attached volumes.
 
 The offline reset command is also available directly as
 `DATABASE_PATH=/path/to/world.sqlite ./bin/server --reset-world`.
@@ -290,12 +268,9 @@ database, its sidecars and lock, incomplete backups and unrelated files. Reset
 archives with unexpected content are refused. Normal six-hour backups continue
 after deletion. These commands do not list or delete Fly's volume snapshots.
 
-Both scripts use `FLY_API_TOKEN` or an app-scoped deploy token, select exactly
-one Machine mounting `/data`, and execute the server's maintenance command via
-the Machines API. No shell or maintenance image is required, and the game can
-stay running. The Machine must already be running; recover an interrupted
-world reset with its saved `--restore` command before inspecting backups.
-The scripts report when the deployed server lacks the new maintenance flags.
+Both scripts use the installed Fly CLI, select exactly one running Machine
+mounting `/data`, and execute the server's maintenance command. No shell or
+maintenance image is required, and the game can stay running.
 
 To restore, stop the server, preserve the current database and its `-wal`/`-shm`
 files elsewhere, put a completed backup at `DATABASE_PATH`, remove stale sidecar

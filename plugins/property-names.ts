@@ -126,7 +126,6 @@ export const propertyNames = [
   // 'load', // Must preserve the native FontFaceSet.load method.
   'loaded',
   'lowerBound',
-  'managed',
   'mask',
   // 'message', // WebSocket's event name must remain unchanged.
   'mode',

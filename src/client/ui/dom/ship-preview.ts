@@ -147,7 +147,9 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       )
     ) {
       requestDraw();
-    } else previousTime = 0;
+    } else {
+      previousTime = 0;
+    }
 
     const box = canvas.getBoundingClientRect();
     const ratio = Math.min(devicePixelRatio, 2);
@@ -546,7 +548,9 @@ const itemThumbnail = (
 
     if (object instanceof Ship) {
       layers.forEach((zIndex) => object.render({ zIndex }));
-    } else object.render();
+    } else {
+      object.render();
+    }
   } finally {
     game.ctx = previousContext;
     game.scale = previousScale;

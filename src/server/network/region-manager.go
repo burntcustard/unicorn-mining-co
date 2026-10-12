@@ -1,4 +1,4 @@
-// Port of src/server/region-manager.ts.
+// Manage procedural entities around connected players.
 package network
 
 import (

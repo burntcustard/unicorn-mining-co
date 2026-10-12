@@ -126,7 +126,10 @@ if (
           ),
       ),
   ) ||
-  Object.values(binaryFieldIds).some((value, index) => value !== index + 1) ||
+  !unique(Object.values(binaryFieldIds)) ||
+  Object.values(binaryFieldIds).some(
+    (value) => !Number.isInteger(value) || value < 1,
+  ) ||
   ![controlMessageIds, dockActionIds, entityKindIds].every((ids) =>
     unique(Object.values(ids)),
   )
@@ -155,7 +158,6 @@ const numericConstants = {
   MaxRotation: physics.maxRotation,
   MaxLinearCorrection: physics.maxLinearCorrection,
   PositionBaumgarte: physics.positionBaumgarte,
-  ToiBaumgarte: physics.toiBaumgarte,
 };
 
 const constants = Object.entries(numericConstants)

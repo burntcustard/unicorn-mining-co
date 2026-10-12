@@ -1,4 +1,4 @@
-// Port of src/server/game-server.ts. Socket readers enqueue messages; the
+// Socket readers enqueue messages; the
 // owner goroutine alone calls GameSession and changes the world.
 package network
 

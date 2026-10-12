@@ -117,7 +117,7 @@ export const tint = (shades: Shades, worn: number, along: number) =>
  *   frame rather than the world's.
  * shade: Turns a place on the ramp into a color.
  */
-export const litFill = (
+const litFill = (
   ctx: CanvasRenderingContext2D,
   shape: LitShape,
   light: number,
