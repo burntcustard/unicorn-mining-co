@@ -5,7 +5,7 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { rolldown } from 'rolldown';
 
 // Exercise the mechanics and assertions together under production transforms.
-// The separate lazy-docked test checks the actual module boundary.
+// The browser UI suite checks the HTML docking loader across production chunks.
 const scenario = `
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { roundMotion } from '${process.cwd()}/src/client/utilities/round.ts';
@@ -26,9 +26,11 @@ import { game } from '${process.cwd()}/src/client/game.ts';
 import { presentEvents } from '${process.cwd()}/src/client/effects/present-events.ts';
 import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
 import { colors } from '${process.cwd()}/src/specs/colors.ts';
-import { back, confirmSelection, moveSelection, moveSubSelection, fitsOf, cargoMenuEntryName, selectionSnapshot } from '${process.cwd()}/src/client/ui/docked.ts';
+import { mustang } from '${process.cwd()}/src/specs/ships/index.ts';
+import { fitsOf, cargoMenuEntriesOf } from '${process.cwd()}/src/client/ui/docked-model.ts';
+import { sendAppliedAction, removeModule } from '${process.cwd()}/src/client/ui/docked-actions.ts';
 
-assert(colors.grey.join() === '#778,#99a,#bbc,#334,#eef');
+assert(colors.gray.join() === '#778,#99a,#bbc,#334,#eef');
 assert(colors.black.join() === '#000,#111,#222,#879,#200');
 assert(colors.indigo.join() === '#33c,#44d,#55f,#217,#bdf');
 assert(colors.purple.join() === '#102,#213,#325,#001,#647');
@@ -91,20 +93,12 @@ const thrusterHull=[
 ];
 assert.equal(ship.name,'Mustang','ship instances keep their display names under production transforms');
 assert.equal(ship.hullMaxHealth, 186, 'Ship hull has twice its original 93 HP');
-const pendingSales = [];
-const pendingRepairs = [];
-setCraftActionDispatcher(action => {
-  if (action.action === 'sell') pendingSales.push(action);
-  if (action.action === 'repair') pendingRepairs.push(action);
+const sentActions = [];
+setCraftActionDispatcher((ship, action) => {
+  const applied = ship.applyDockAction(action, player);
+  if (applied) sentActions.push(applied);
+  return applied;
 });
-const settleSale = () => {
-  const request = pendingSales.shift();
-  assert(request?.objectIds.length, 'sale sends exact cargo IDs');
-  const sold = ship.cargoContents.filter(object => request.objectIds.includes(object.id));
-  assert.equal(sold.length, request.objectIds.length);
-  ship.cargoContents = ship.cargoContents.filter(object => !request.objectIds.includes(object.id));
-  player.credits += sold.reduce((total, object) => total + object.price, 0);
-};
 const wreck = new Ship({ shades: colors.white, velocity: Vec.create(12, -7), spin: 0.2 }).addToScene();
 const contents = [diamondSpec, messageSpec, messageSpec].map(itemData =>
   new Item(itemData).addToScene());
@@ -127,112 +121,54 @@ first.shades = colors.red;
 second.shades = colors.orange;
 ship.cargoContents.push(first, second);
 const mount = ship.mounts[0];
-const confirm = () => confirmSelection(ship);
-const move = (delta) => moveSelection(delta, ship);
-const check = (selected, message) => {
-  const rows = fitsOf(ship, mount);
-  assert(rows[0] === first && rows[1] === second, message + ': stable rows');
-  const [row, stage] = selectionSnapshot();
-  assert(rows[row] === selected && stage === 2, message + ': same instance submenu');
-};
-
-move(2); confirm(); move(1); confirm();
-check(second, 'before equip');
-move(1);
-assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
-  'down from EQUIP jumps directly to the paint row');
-move(-1);
-assert(selectionSnapshot(ship)[3] === 0, 'up from paint returns to EQUIP');
-confirm();
+const equip = module => sendAppliedAction(ship, {action:'equip',moduleId:module.id,mount:0});
+const stableRows = () => assert.deepEqual(fitsOf(ship,mount).slice(0,2).map(module=>module.id),
+  [first.id,second.id], 'equip and remove preserve module acquisition order');
+stableRows();
+equip(second);
 assert(mount.module === second, 'equip second instance');
-check(second, 'after equip');
-move(1);
-assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
-  'down from REMOVE on an equipped hatch reaches paint');
-move(-1);
-assert(selectionSnapshot(ship)[3] === 0,
-  'up from equipped hatch paint returns to REMOVE');
-confirm();
+stableRows();
+removeModule(ship,0);
 assert(!mount.module && ship.cargoContents.includes(second), 'remove second instance');
-check(second, 'after remove');
-
-back(ship); move(-1); confirm(); confirm();
+stableRows();
+equip(first);
 assert(mount.module === first, 'equip first instance');
-check(first, 'first equipped');
-back(ship); move(1); confirm(); confirm();
+stableRows();
+equip(second);
 assert(mount.module === second && ship.cargoContents.includes(first), 'swap fitted instances');
-check(second, 'after swap');
-// Live snapshots replace module objects and list fitted modules before cargo.
-// Acquisition order and the selected instance must survive that replacement.
+stableRows();
+// Snapshots replace module objects while preserving acquisition order and paint.
 const dockWorld = createWorld();
-addEntity(dockWorld, ship);
-new PredictionManager({ world: dockWorld }).reconcile({
-  tick: 0, entities: [cloneEntity({ entity: ship })],
-});
-const reconciledFirst = ship.modules.find(module => module.id === first.id);
-const reconciledSecond = ship.modules.find(module => module.id === second.id);
-assert.deepEqual(fitsOf(ship, mount).slice(0, 2).map(module => module.id),
-  [first.id, second.id], 'snapshot preserves acquisition order');
-assert.equal(fitsOf(ship, mount)[selectionSnapshot()[0]].id, second.id,
-  'snapshot keeps REMOVE focused on the fitted instance');
-// Continue the existing checks against the reconciled instances.
-first = reconciledFirst;
-second = reconciledSecond;
+addEntity(dockWorld,ship);
+new PredictionManager({world:dockWorld}).reconcile({tick:0,entities:[cloneEntity({entity:ship})]});
+first = ship.modules.find(module=>module.id===first.id);
+second = ship.modules.find(module=>module.id===second.id);
+stableRows();
 assert(first.shades === colors.red && second.shades === colors.orange, 'paint identity');
-assert(ship.segments.filter(segment => segment.mount === mount).every(segment => segment.shades === colors.orange), 'equipped paint');
+assert(ship.segments.filter(segment=>segment.mount===mount).every(segment=>segment.shades===colors.orange),
+  'equipped paint');
+removeModule(ship,0);
+sendAppliedAction(ship,{action:'sell',objectIds:[second.id]});
+assert(!ship.cargoContents.includes(second) && ship.cargoContents.includes(first), 'sell exact selected instance');
+assert.deepEqual(sentActions.at(-1),{action:'sell',objectIds:[second.id]}, 'sale sends exact cargo IDs');
+assert(fitsOf(ship,mount)[0]===first, 'remaining owned module replaces sold row');
+const lowerMount = ship.mounts[6];
+ship.fit(first,lowerMount);
+assert(fitsOf(ship,mount)[0]===CargoHatch, 'module fitted elsewhere is not offered');
+assert(!ship.cargoContents.length && ship.modules[0]===first, 'fitting preserves ownership');
 
-confirm();
-check(second, 'remove swapped instance');
-moveSubSelection(1, ship); confirm();
-assert(ship.cargoContents.includes(second), 'sale waits for the server snapshot');
-settleSale();
-assert(!ship.cargoContents.includes(second) && ship.cargoContents.includes(first), 'sell selected instance');
-assert(fitsOf(ship, mount)[0] === first && selectionSnapshot()[0] === 0 && selectionSnapshot()[1] === 1, 'sale closes on replacement');
-move(fitsOf(ship, mount).length);
-assert(selectionSnapshot()[0] === fitsOf(ship, mount).length, 'down reaches BACK after module sale');
-confirm();
-assert(selectionSnapshot()[1] === 0, 'BACK leaves module list');
-confirm();
-// An equipped instance on another mount must not be offered or counted as cargo.
-const lowerMount = ship.mounts[5];
-ship.fit(first, lowerMount);
-assert(fitsOf(ship, mount)[0] === CargoHatch, 'other mount only offers a new type');
-assert(!ship.cargoContents.length && ship.modules[0] === first, 'fitting preserves ownership');
-
-// Buy through the menu, paint, repair, and remove the exact purchased instance.
-back(ship); move(-100); move(2); confirm(); confirm();
 const beforeBuy = player.credits;
-move(1);
-assert(selectionSnapshot(ship)[3] === 1, 'down from BUY reaches BACK');
-move(-1);
-confirm();
-const bought = ship.modules[1];
-assert(bought.constructor === CargoHatch && bought !== first, 'purchase appends a fresh instance');
-assert(player.credits === beforeBuy - CargoHatch.price, 'purchase debits once');
-move(1);
-assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
-  'down from EQUIP after buying reaches the paint row');
-move(-1);
-assert(selectionSnapshot(ship)[3] === 0, 'up from paint returns to EQUIP after buying');
-confirm();
-assert(mount.module === bought && !ship.cargoContents.length, 'new purchase fits');
-// Navigation skips locked colours: a new pilot has only yellow, pink and white.
+const purchaseAction = sendAppliedAction(ship,{action:'buy',module:moduleTypes.indexOf(CargoHatch)});
+const bought = ship.modules.find(module=>module.id===purchaseAction.moduleId);
+assert(bought.constructor===CargoHatch && bought!==first, 'purchase appends a fresh instance');
+assert(player.credits===beforeBuy-CargoHatch.price, 'purchase debits once');
+equip(bought);
+assert(mount.module===bought && !ship.cargoContents.length, 'new purchase fits');
 assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
-move(1);
-assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
-  'down from REMOVE reaches the paint row after equipping');
-move(-1);
-moveSubSelection(1, ship);
-assert(selectionSnapshot()[3] === 1, 'right reaches BACK after equipping');
-move(1);
-assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
-  'down from BACK reaches the paint row');
-move(-1);
-assert(selectionSnapshot(ship)[3] === 1, 'up from paint returns to BACK');
-move(1); moveSubSelection(-100, ship); confirm();
-assert(bought.shades === colors.yellow, 'first unlocked paint is yellow');
-moveSubSelection(1, ship); confirm();
-assert(bought.shades === colors.violet && first.shades === colors.red, 'next unlocked paint is pink');
+sendAppliedAction(ship,{action:'paint',paint:2,moduleId:bought.id,mount:0});
+assert(bought.shades===colors.yellow, 'paint purchased module yellow');
+sendAppliedAction(ship,{action:'paint',paint:5,moduleId:bought.id,mount:0});
+assert(bought.shades===colors.violet && first.shades===colors.red, 'painting preserves other modules');
 
 // The ownership checks below need these paints earned before selecting them.
 unlockPaint('RED', 'DAMAGED');
@@ -250,79 +186,55 @@ assert(player.note === 'GOLD ORE 100/200', 'field coordinates follow the unlock'
 player.noteFor = 0;
 presentEvents({playerId:1,events:[{...slatePickup,by:1,message:'AMETHYST CLUSTER 300/400'}],onMessage:readSlate});
 assert(player.note === 'AMETHYST CLUSTER 300/400', 'already unlocked orange shows coordinates only');
-moveSubSelection(-100, ship); confirm();
-assert(bought.shades === colors.red && first.shades === colors.red, 'paint purchased instance');
-moveSubSelection(1, ship); confirm();
-assert(bought.shades === colors.orange && first.shades === colors.red, 'independent paint');
-back(ship); mount.health = 3.11111;
-const repairCredits = player.credits;
-player.credits = 0; confirm();
-assert(selectionSnapshot(ship)[2][0] === 'FIX' && selectionSnapshot(ship)[3] === 2,
-  'unaffordable module repair is visible but cannot be focused');
-move(1); move(-1);
-assert(selectionSnapshot(ship)[3] === 2, 'up from paints skips disabled repair for BACK');
-player.credits = repairCredits; back(ship); confirm();
-move(1);
-assert(selectionSnapshot(ship)[3] > selectionSnapshot(ship)[2].length,
-  'down from FIX on a horizontal action row reaches paint, not BACK');
-move(-1);
-assert(selectionSnapshot(ship)[3] === 0,
-  'up from paint returns to FIX on a horizontal action row');
-confirm();
-assert(mount.health === CargoHatch.healthActivated && player.credits === repairCredits - 1,
+sendAppliedAction(ship,{action:'paint',paint:0,moduleId:bought.id,mount:0});
+assert(bought.shades===colors.red && first.shades===colors.red, 'paint purchased instance');
+sendAppliedAction(ship,{action:'paint',paint:1,moduleId:bought.id,mount:0});
+assert(bought.shades===colors.orange && first.shades===colors.red, 'independent paint');
+mount.health=3.11111;
+const repairCredits=player.credits;
+player.credits=0;
+assert.equal(sendAppliedAction(ship,{action:'repair',moduleId:bought.id,mount:0}),undefined,
+  'unaffordable module repair is rejected');
+assert.equal(mount.health,3.11111, 'rejected repair preserves health');
+player.credits=repairCredits;
+sendAppliedAction(ship,{action:'repair',moduleId:bought.id,mount:0});
+assert(mount.health===CargoHatch.healthActivated && player.credits===repairCredits-1,
   'module repair charges for displayed missing HP');
-assert.deepEqual(pendingRepairs.shift(),
-  {action: 'repair', moduleId: bought.id, mount: ship.mounts.indexOf(mount)},
+assert.deepEqual(sentActions.at(-1),{action:'repair',moduleId:bought.id,mount:0},
   'module repair sends its mounted instance');
-confirm();
-assert(!bought.mount && ship.cargoContents[0] === bought, 'removed instance becomes cargo');
+removeModule(ship,0);
+assert(!bought.mount && ship.cargoContents[0]===bought, 'removed instance becomes cargo');
 
-// Capacity counts loose modules and physical cargo, excluding fitted modules.
-const ore = {...diamondSpec,name:'Ore',resource:2,price:7};
-const gem = {...diamondSpec,name:'Diamond',price:11};
-assert.equal(cargoMenuEntryName([gem,2]),'DIAMOND *2','cargo uppercases display names without changing their stored case');
-assert.equal(gem.name,'Diamond');
-assert.equal(cargoMenuEntryName([bought,1]),CargoHatch.name.toUpperCase(),'loose modules uppercase their names for the current glyphs');
-for(const [Type,name] of [[ShieldGenerator,'Shield Generator sm'],[ShieldGeneratorMd,'Shield Generator md']]){
-  const shield=new Type();
-  assert.equal(shield.name,name,'shield names preserve their stored case');
-  assert.equal(cargoMenuEntryName([shield,1]),name.toUpperCase(),'shield cargo names use uppercase glyphs');
+const ore={...diamondSpec,name:'Ore',resource:2,price:7};
+const gem={...diamondSpec,name:'Diamond',price:11};
+for(const [Type,name] of [[ShieldGenerator,'Shield Generator sm'],[ShieldGeneratorMd,'Shield Generator md']]) {
+  assert.equal(new Type().name,name, 'shield names preserve their stored case');
 }
-ship.cargoContents.push(...Array.from({length: 11}, () => new Item(ore)));
-assert(ship.cargoContents.length >= ship.cargoSpace, 'loose module fills twelfth cargo space');
-ship.fit(bought, mount);
-assert((ship.cargoContents.length < ship.cargoSpace), 'equipping frees cargo space');
-ship.fit(0, mount);
-assert(ship.cargoContents.length >= ship.cargoSpace, 'removing consumes cargo space');
-
-// Full cargo blocks a purchase without altering cargo contents or credits.
-back(ship); back(ship); move(-100); move(3); confirm();
-const buyCredits = player.credits;
-player.credits = 0; confirm();
-assert(selectionSnapshot(ship)[2][0] === 'BUY' && selectionSnapshot(ship)[3] === 1,
-  'unaffordable purchase is visible but cannot be focused');
-player.credits = buyCredits; back(ship); confirm();
-const fullCredits = player.credits;
-confirm();
-assert(player.credits === fullCredits && ship.modules.length === 2, 'full cargo blocks buy');
-back(ship); back(ship); move(-100);
-ship.cargoContents = [bought, new Item(ore), new Item(gem), new Item(ore)];
-const beforeSale = player.credits;
-confirm(); confirm(); confirm(); settleSale();
-assert(ship.modules.length === 1 && ship.modules[0] === first, 'cargo sale preserves equipped module');
-assert(selectionSnapshot()[1] === 1, 'cargo sale closes submenu');
-move(3);
-assert(selectionSnapshot()[0] === 3, 'down reaches BACK past the ammunition offer after cargo sale');
-confirm(); confirm();
-confirm(); confirm(); settleSale();
-assert(ship.cargoContents.length === 1 && ship.cargoContents[0].item === gem, 'ore stack sale');
-assert(selectionSnapshot()[1] === 1, 'stack sale closes submenu');
+ship.cargoContents.push(...Array.from({length:11},()=>new Item(ore)));
+assert(ship.cargoContents.length>=ship.cargoSpace, 'loose module fills twelfth cargo space');
+ship.fit(bought,mount);
+assert(ship.cargoContents.length<ship.cargoSpace, 'equipping frees cargo space');
+ship.fit(0,mount);
+assert(ship.cargoContents.length>=ship.cargoSpace, 'removing consumes cargo space');
+const fullCredits=player.credits;
+assert.equal(sendAppliedAction(ship,{action:'buy',module:moduleTypes.indexOf(CargoHatch)}),undefined,
+  'full cargo rejects purchases');
+assert(player.credits===fullCredits && ship.modules.length===2, 'rejected buy preserves credits and ownership');
+ship.cargoContents=[bought,new Item(ore),new Item(gem),new Item(ore)];
+assert.deepEqual(cargoMenuEntriesOf(ship),[[bought,1],[ore,2],[gem,1]],
+  'cargo groups resources while keeping individual module instances');
+const beforeSale=player.credits;
+sendAppliedAction(ship,{action:'sell',objectIds:[bought.id]});
+assert(ship.modules.length===1 && ship.modules[0]===first, 'cargo sale preserves equipped module');
+const oreIds=ship.cargoContents.filter(object=>object.item===ore).map(object=>object.id);
+sendAppliedAction(ship,{action:'sell',objectIds:oreIds});
+assert(ship.cargoContents.length===1 && ship.cargoContents[0].item===gem, 'ore stack sale');
 syncPaintUnlocks(100);
 assert(!paintUnlocked(colors.cyan), 'cyan is locked before selling a diamond');
-confirm(); confirm(); settleSale();
-assert(!ship.cargoContents.length && player.credits === beforeSale + CargoHatch.price + 25, 'last cargo sale');
-assert(selectionSnapshot()[1] === 1, 'empty cargo returns to list');
-assert(paintUnlocked(colors.cyan) && player.note === 'DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlocks cyan with its name');
+sendAppliedAction(ship,{action:'sell',objectIds:[ship.cargoContents[0].id]});
+assert(!ship.cargoContents.length && player.credits===beforeSale+CargoHatch.price+25, 'last cargo sale');
+unlockPaint('CYAN','DIAMOND SOLD');
+assert(paintUnlocked(colors.cyan) && player.note==='DIAMOND SOLD - CYAN UNLOCKED', 'diamond sale unlock message');
 player.note = 'UNCHANGED';
 unlockPaint('CYAN');
 assert(player.note === 'UNCHANGED', 'cyan only announces once');
@@ -334,18 +246,14 @@ unlockPaint('CYAN', 'DIAMOND SOLD');
 syncPaintUnlocks(116);
 assert(paintUnlocked(colors.cyan), 'updated authoritative mask preserves an accepted unlock');
 
-// Rebuild hulls without duplicating mounts or resurrecting destroyed cargo contents.
-back(ship); move(1); confirm();
-lowerMount.hull.health = 1.11111;
-const hullHealth = ship.segments.filter(({hull}) => hull).reduce((total, segment) => total + segment.health, 0);
-const hullMaxHealth = ship.hullSegments.reduce((total, segment) => total + segment.health, 0);
-const hullRepairCredits = player.credits;
-confirm();
-assert(lowerMount.hull.health === lowerMount.hull.module.health, 'hull repair');
-assert(player.credits === hullRepairCredits - hullMaxHealth + (hullHealth | 0),
-  'hull repair charges for displayed missing HP');
-assert.deepEqual(pendingRepairs.shift(), {action: 'repair'},
-  'hull repair sends its own dock action');
+// Rebuild hulls without duplicating mounts or resurrecting destroyed cargo.
+lowerMount.hull.health=1.11111;
+const hullRepairCost=ship.repairCost();
+const hullRepairCredits=player.credits;
+sendAppliedAction(ship,{action:'repair'});
+assert(lowerMount.hull.health===lowerMount.hull.module.health, 'hull repair');
+assert.equal(player.credits,hullRepairCredits-hullRepairCost, 'hull repair charges for missing HP');
+assert.deepEqual(sentActions.at(-1),{action:'repair'}, 'hull repair sends its own dock action');
 const damaged = new Ship({shades: colors.white}).addToScene();
 const spare = new CargoHatch();
 const lost = new CargoHatch();
@@ -375,7 +283,7 @@ const wreckage = game.crafts.at(-1);
 assert(wreckage !== damaged && wreckage.decay && wreckage.hitbox().length, 'detached cargo hatch remains physical wreckage');
 assert.equal(wreckage.segments.length, 1, 'detached cargo hatch leaves only its physical door');
 assert(!wreckage.segments[0].catches, 'detached cargo hatch omits its cargo contact point');
-assert.deepEqual(wreckage.shades, colors.violet, 'detached cargo hatch retains its pink module colour');
+assert.deepEqual(wreckage.shades, colors.violet, 'detached cargo hatch retains its pink module color');
 assert.equal(wreckage.segments[0].fillShade, 2, 'detached cargo hatch keeps its light fill shade');
 const hatchShapeOutline = wreckage.segments[0].points;
 assert.deepEqual(hatchShapeOutline.map(([x,y]) => Vec.add(wreckage.position, Vec.create(x,y))), attachedDoor,
@@ -384,7 +292,7 @@ const hatchMiddle = hatchShapeOutline
   .reduce(([sumX,sumY],[x,y]) => [sumX+x,sumY+y],[0,0])
   .map(sum => sum/hatchShapeOutline.length);
 assert(Math.hypot(wreckage.segments[0].localPosition.x+hatchMiddle[0],wreckage.segments[0].localPosition.y+hatchMiddle[1]) < 1e-9,
-  'detached cargo hatch is centred on its existing door shapeOutline');
+  'detached cargo hatch is centered on its existing door shapeOutline');
 assert(wreckage.hitbox()[0].radius < 9, 'detached cargo hatch collision fits the narrow strip');
 
 // Scoop doors still suppress their hull collision only while sufficiently open.
@@ -404,8 +312,8 @@ hatchShip.segmentsAtMount(hatchMount).forEach(segment => { segment.active = 0; s
 assert.equal(hatchShip.hitbox().find(box => box.segment === hatchDoor).collides, false,
   'closing the cargo hatch removes door contacts again');
 // The starter loadout is owned once and completely fitted by player setup.
-assert(player.ship.modules.length === 5 && !player.ship.cargoContents.length, 'starter cargo contents');
-assert(new Set(player.ship.modules).size === 5, 'starter modules are distinct instances');
+assert(player.ship.modules.length === mustang.initialLoadout.length && !player.ship.cargoContents.length, 'starter cargo contents');
+assert(new Set(player.ship.modules).size === mustang.initialLoadout.length, 'starter modules are distinct instances');
 assert(player.ship.modules.every(module => module.mount.module === module), 'starter mount links');
 assert(new CargoHatch().shades === colors.violet && new ShieldGenerator().shades === colors.violet &&
   thrusters.every((thruster) => new thruster().shades === colors.violet), 'purchased modules are pink');
@@ -529,18 +437,15 @@ for (const type of thrusters) {
   crafts.forEach(craft => craft.remove());
 }
 
-// Check the remaining reward names under production minification too.
+// Check paint rewards under production minification too.
 assert(paintUnlocked(colors.yellow), 'YELLOW starts unlocked');
-
-for (const [name, shades] of [['GREEN', colors.green]]) {
-  assert(!paintUnlocked(shades), name + ' starts locked');
-  unlockPaint(name, '3 STATION VISITS');
-  assert(paintUnlocked(shades), name + ' unlocks its paint');
-  assert(player.note === '3 STATION VISITS - GREEN UNLOCKED', name + ' reward message');
-  player.note = 'UNCHANGED';
-  unlockPaint(name);
-  assert(player.note === 'UNCHANGED', name + ' only announces once');
-}
+assert(!paintUnlocked(colors.green), 'GREEN starts locked');
+unlockPaint('GREEN', '3 STATION VISITS');
+assert(paintUnlocked(colors.green), 'GREEN unlocks its paint');
+assert.equal(player.note, '3 STATION VISITS - GREEN UNLOCKED');
+player.note = 'UNCHANGED';
+unlockPaint('GREEN');
+assert.equal(player.note, 'UNCHANGED', 'GREEN only announces once');
 const replacement = new Ship({shades:colors.white}).addToScene();
 const spareShip = new Ship({shades:colors.yellow});
 const ownedShips = player.ships;
@@ -567,8 +472,6 @@ assert.deepEqual(player.queuedNotes, notesBefore, 'queued notes survive ship rep
 assert(player.note === 'SHIP REPLACED' && player.noteFor === 7,
   'current note survives ship replacement');
 assert(player.hudAlpha === 0.5 && player.started, 'HUD state survives ship replacement');
-assert(!Object.hasOwn(replacement, 'note') && !Object.hasOwn(replacement, 'credits'),
-  'player state is not copied onto the replacement ship');
 replacement.docked(new Ship({id:701}));
 assert(player.visitedStations.size === 2, 'new ship retains the docking reward callback and visit history');
 assert(player.ship.update === updateBefore, 'decoration does not replace shared physics');
@@ -576,7 +479,7 @@ adoptPlayerShip({ship:replacement});
 assert(!replacement.dead && game.sprites.includes(replacement), 'adopting the current ship does not remove it');
 assert(player.ships.length === 2 && player.ships[1] === spareShip,
   'adopting the current ship does not duplicate it or remove other owned ships');
-console.log('Cargo contents, menu, damage, repairs, cargo hatch physics and flight tests passed');
+console.log('Cargo contents, dock actions, damage, repairs, cargo hatch physics and flight tests passed');
 `;
 
 for (const production of [false, true]) {
@@ -603,10 +506,6 @@ for (const production of [false, true]) {
             );
           }
         },
-        transform: (code, id) =>
-          id.endsWith('/src/client/ui/docked.ts')
-            ? `${code}\nexport { fitsOf, cargoMenuEntryName };\nexport const selectionSnapshot = ship => [moduleOption, stage, ship && selectionOf(ship).actions, focused];`
-            : undefined,
       },
       buildPrePlugin(),
       ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),

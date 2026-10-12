@@ -10,6 +10,7 @@ type HullSegmentSpecification = {
 
 export type ShipSpec = {
   name: string;
+  fuelCapacity: number;
   cargoSpace: number;
   drag: number;
   mass: number;

@@ -10,4 +10,4 @@ assert.equal(withAlpha({ color: '#e6f', alpha: 0.3 }), '#ee66ff4d');
 assert.equal(withAlpha({ color: '#ee66ff', alpha: 0.4 }), '#ee66ff66');
 assert.equal(withAlpha({ color: '#E6F', alpha: 0.2 }), '#EE66FF33');
 
-console.log('Numeric colour alpha preserves palette colours and hex opacity');
+console.log('Numeric color alpha preserves palette colors and hex opacity');

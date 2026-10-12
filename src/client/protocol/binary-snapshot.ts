@@ -282,7 +282,7 @@ export function decodeBinarySnapshot(
       const field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
 
-      if (field < 1 || field > BinaryField.rounds || seen.has(field)) {
+      if (field < 1 || field > BinaryField.fuel || seen.has(field)) {
         return fail();
       }
 
@@ -450,6 +450,10 @@ export function decodeBinarySnapshot(
           entity.velocity = clear ? null : vector();
           break;
 
+        case BinaryField.fuel:
+          entity.fuel = clear ? null : number();
+          break;
+
         case BinaryField.rounds:
           entity.rounds = clear ? null : number();
           break;
@@ -462,7 +466,7 @@ export function decodeBinarySnapshot(
   if (byte() !== 0x55 || byte() !== 0x4d || byte() !== 1) return fail();
   const flags = byte();
 
-  if (flags & ~31) return fail();
+  if (flags & ~63) return fail();
   const serverTick = unsigned();
   const nextEntityId = unsigned();
   const acknowledgedSequence = flags & 4 ? unsigned() : undefined;
@@ -470,6 +474,22 @@ export function decodeBinarySnapshot(
 
   if (flags & 8) inputLead = signed();
   const snapshotSequence = flags & 16 ? unsigned() : undefined;
+  const acknowledgedDockSequence = flags & 32 ? unsigned() : undefined;
+  const credits = flags & 32 ? number() : undefined;
+  const dockIds: [number, number][] = [];
+
+  if (flags & 32) {
+    if (credits === undefined || !Number.isFinite(credits) || credits < 0) {
+      return fail();
+    }
+
+    const length = count(2);
+
+    for (let index = 0; index < length; index++) {
+      dockIds.push([signed(), signed()]);
+    }
+  }
+
   let entityIds: number[] | undefined;
 
   if (flags & 2) {
@@ -494,6 +514,11 @@ export function decodeBinarySnapshot(
     ...(acknowledgedSequence !== undefined && { acknowledgedSequence }),
     ...(inputLead !== undefined && { inputLead }),
     ...(snapshotSequence !== undefined && { snapshotSequence }),
+    ...(acknowledgedDockSequence !== undefined && {
+      acknowledgedDockSequence,
+      credits,
+      dockIds,
+    }),
     ...(entityIds && { entityIds }),
     fullEntities,
   };

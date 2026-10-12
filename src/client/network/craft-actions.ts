@@ -1,11 +1,18 @@
 import { type CraftAction } from '../protocol/network';
+import { type Ship } from '../objects/ship';
+import { player } from '../player';
 
-let dispatch = (_action: CraftAction) => {};
+type DockActionDispatcher = (
+  ship: Ship,
+  action: Parameters<Ship['applyDockAction']>[0],
+) => CraftAction | undefined;
 
-export const setCraftActionDispatcher = (
-  next: (action: CraftAction) => void,
-) => {
+let dispatch: DockActionDispatcher = (ship, action) =>
+  ship.applyDockAction(action, player);
+
+export const setCraftActionDispatcher = (next: DockActionDispatcher) => {
   dispatch = next;
 };
 
-export const sendCraftAction = (action: CraftAction) => dispatch(action);
+export const applyCraftAction: DockActionDispatcher = (ship, action) =>
+  dispatch(ship, action);

@@ -2,6 +2,7 @@ import type { ShipSpec } from './types';
 
 export const crotus = {
   name: 'Crotus',
+  fuelCapacity: 120,
   cargoSpace: 12,
   drag: 5 / 9,
   mass: 9,
@@ -12,6 +13,7 @@ export const crotus = {
     { mount: 4, module: 'cargoHatch' },
     { mount: 3, module: 'cargoHatch' },
     { mount: 0, module: 'autogun' },
+    { mount: 6, module: 'powerPlant' },
   ],
   hullSegments: [
     {
@@ -182,6 +184,7 @@ export const crotus = {
             fits: ['shieldGeneratorSm', 'shieldGeneratorMd'],
           },
         ],
+        [{ x: 0, y: 0, fits: ['powerPlant'] }],
       ],
       points: [
         [-5, 0],

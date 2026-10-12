@@ -14,7 +14,7 @@ const visit = (directory: string) => {
 };
 
 ['src/server', 'benchmarking'].forEach(visit);
-files.sort((a, b) => a.localeCompare(b));
+files.sort((a, b) => a.localeCompare(b, 'en-US'));
 
 const check = process.argv.includes('--check');
 const result = spawnSync(

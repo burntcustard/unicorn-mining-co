@@ -35,6 +35,7 @@ const bundle = await rolldown({
           sequence=>encodeClientMessage({type:'snapshotAck',sequence}),
           packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerToken,message.playerId,message.shipId,message.serverTick,message.unlockedPaints,message.credits];},
           packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
+          ()=>encodeClientMessage({type:'activity'}),
         ];`
           : undefined,
     },
@@ -101,6 +102,7 @@ const source = [
       message.fullEntities.length,
     ];
   },
+  () => encodeClientMessage({ type: 'activity' }),
 ];
 
 const sockets: WebSocket[] = [];
@@ -184,7 +186,10 @@ try {
           }
         });
 
-        socket.on('open', () => socket.send(codec[0](token)));
+        socket.on('open', () => {
+          socket.send(codec[0](token));
+          socket.send(codec[5]());
+        });
 
         socket.on('message', (data, binary) => {
           try {
@@ -260,7 +265,7 @@ try {
   assert.equal(resumed.shipId, first.shipId);
   await once(sockets.at(-1)!, 'close');
   console.log(
-    'Go assets, health, source/production UC+UM codecs, input acknowledgement and reconnect passed',
+    'Go assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
   );
 } finally {
   clearTimeout(timeout);

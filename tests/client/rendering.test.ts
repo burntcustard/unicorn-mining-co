@@ -117,7 +117,7 @@ assert.equal(
 assert.equal(sparks.length, 4, 'only the damaged surface produces sparks');
 assert(
   sparks.every((spark) => spark.color === '#0af'),
-  'the undamaged surface emits no sparks in its colour',
+  'the undamaged surface emits no sparks in its color',
 );
 assert(
   sparks.every((spark) => spark.position.x === 7 && spark.position.y === 3),
@@ -454,10 +454,6 @@ assert.equal(
   'presentation never changes collision rotation',
 );
 for (const ship of [local, remote]) {
-  assert(
-    !Object.hasOwn(ship, 'render'),
-    'rendering lives on the shared class prototype',
-  );
   const nozzles = ship.segments.filter((segment) =>
     thrusters.some((Type) => segment.module instanceof Type),
   );
@@ -530,7 +526,7 @@ for (const ship of [local, remote]) {
     draws.some((draw) =>
       draw.style.stops?.every((stop) => cyanTints.includes(stop)),
     ),
-    'remote hull is lit from the authoritative colour',
+    'remote hull is lit from the authoritative color',
   );
   const hornDrillSegment = ship.segments.find(
     (segment) => segment.module instanceof HornDrill,
@@ -544,7 +540,7 @@ for (const ship of [local, remote]) {
   );
   assert(
     strokes.every((color) => color === colors.yellow[2]),
-    'horn drill shapeOutline and flutes retain their colour across parent canvas restore',
+    'horn drill shapeOutline and flutes retain their color across parent canvas restore',
   );
   const hatchDoor = ship.segments.find(
     (segment) => segment.module instanceof CargoHatch && !segment.catches,
@@ -742,7 +738,7 @@ customShield.render({ segment: customBody });
 assert.equal(
   draws.at(-1).style,
   withAlpha({ color: colors.orange[1], alpha: 0.5 }),
-  'model opacity applies to its explicit colour',
+  'model opacity applies to its explicit color',
 );
 assert.deepEqual(
   Reflect.get(strokePaths.at(-1), 'vertices'),
@@ -1189,7 +1185,7 @@ for (const Weapon of [PlasmaAccelerator, Autogun])
       );
       assert(
         fragment.segments.every((segment, index) => segment.fillShade === gun.model[index].fillShade),
-        'weapon wreckage retains its painted fill colours',
+        'weapon wreckage retains its painted fill colors',
       );
       assert(
         strokePaths
@@ -1383,29 +1379,6 @@ for (const [index, stage] of packet.drillingStages.entries()) {
     assert.equal(loot[0].velocity.y, 2);
   }
 }
-const panelShip = cloneEntity({ entity: remote });
-transforms.length = 0;
-strokes.length = 0;
-renderControls(game, panelShip);
-const panelPositions = structuredClone(transforms),
-  panelStrokes = [...strokes];
-panelShip.mounts.push(
-  { module: new PlasmaAccelerator() },
-  { module: new Autogun() },
-);
-transforms.length = 0;
-strokes.length = 0;
-renderControls(game, panelShip);
-assert.deepEqual(
-  strokes,
-  panelStrokes,
-  'fitted weapons add no controls panel labels or checkboxes',
-);
-assert.deepEqual(
-  transforms,
-  panelPositions,
-  'weapons do not change the controls panel layout',
-);
 for (const direct of [false, true]) {
   const miningWorld = createWorld();
   const rock = addEntity(

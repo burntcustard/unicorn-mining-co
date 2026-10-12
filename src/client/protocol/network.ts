@@ -9,8 +9,9 @@ export type ReplicatedModule = ModuleState;
 
 export type CraftAction =
   | { action: 'buy'; module: number; moduleId: number }
-  | { action: 'buyAmmo' }
-  | { action: 'sell'; objectIds: number[] }
+  | { action: 'buyAmmo' | 'refuel' }
+  | { action: 'repairHull'; hullIndex: number }
+  | { action: 'sell' | 'buyStock'; objectIds: number[] }
   | { action: 'equip'; moduleId: number; mount: number }
   | { action: 'remove'; mount: number }
   | { action: 'paint'; moduleId?: number; mount?: number; paint: number }
@@ -46,6 +47,7 @@ export type ReplicatedEntity = {
   radiusEven?: number;
   resource?: number;
   rounds?: number;
+  fuel?: number;
   rotation: number;
   spin: number;
   segments?: AsteroidSegment[];
@@ -70,8 +72,8 @@ export type ClientMessage =
       playerToken: string | null;
       type: 'hello';
     }
-  | ({ type: 'dock' } & CraftAction)
-  | { type: 'respawn' }
+  | ({ type: 'dock'; sequence?: number } & CraftAction)
+  | { type: 'respawn' | 'activity' }
   | { type: 'snapshotAck'; sequence: number }
   | PlayerInputMessage;
 
@@ -95,6 +97,9 @@ export type ServerMessage =
   | {
       snapshotSequence?: number;
       acknowledgedSequence?: number;
+      acknowledgedDockSequence?: number;
+      credits?: number;
+      dockIds?: [number, number][];
       inputLead?: number;
       fullEntities: ReplicatedEntity[];
       // Runtime spawns out of replication range still consume ids, so the

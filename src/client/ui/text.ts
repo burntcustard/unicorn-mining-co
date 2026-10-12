@@ -7,8 +7,8 @@ export interface RenderTextProps {
   x: number; // The text's horizontal anchor.
   y: number; // The text's vertical anchor.
   size?: number; // The glyph scale, defaulting to 0.6.
-  align?: number; // Horizontal alignment: -1 left, 0 centre, 1 right.
-  color?: string; // The glyph colour, defaulting to '#fff'.
+  align?: number; // Horizontal alignment: -1 left, 0 center, 1 right.
+  color?: string; // The glyph color, defaulting to '#fff'.
 }
 
 export function renderText({
@@ -28,10 +28,10 @@ export function renderText({
 
   ctx.save();
   ctx.scale(uiScale, uiScale);
-  ctx.translate(x - (align + 1) * glyphs.length * 6.5 * size, y);
+  ctx.translate(x, y);
   ctx.scale(size, size);
   ctx.font = '16px Gemetric';
-  ctx.textAlign = 'left';
+  ctx.textAlign = ['left', 'center', 'right'][align + 1];
   ctx.textBaseline = 'alphabetic';
   ctx.lineJoin = 'round';
   ctx.lineWidth = 2;

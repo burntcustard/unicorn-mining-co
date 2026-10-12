@@ -9,6 +9,7 @@ type Protocol struct {
 }
 
 type BinaryFields struct {
+	Fuel              int `json:"fuel"`
 	Rounds            int `json:"rounds"`
 	DefinitionID      int `json:"definitionId"`
 	CargoContents     int `json:"cargoContents"`

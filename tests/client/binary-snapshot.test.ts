@@ -80,10 +80,15 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 {
   const writer = new Writer();
 
-  start(writer, 31, 3, 10);
+  start(writer, 63, 3, 10);
   writer.unsigned(11); // acknowledgedSequence
   writer.unsigned(5); // inputLead = -3 after zigzag decoding
   writer.unsigned(12); // snapshotSequence
+  writer.unsigned(7); // acknowledgedDockSequence
+  writer.number(1234); // credits
+  writer.unsigned(1); // dock ID mappings
+  writer.unsigned(1); // signed -1
+  writer.unsigned(84); // signed 42
   writer.unsigned(1);
   writer.unsigned(7); // entityIds
   writer.unsigned(1); // record count
@@ -177,6 +182,9 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
     acknowledgedSequence: 11,
     inputLead: -3,
     snapshotSequence: 12,
+    acknowledgedDockSequence: 7,
+    credits: 1234,
+    dockIds: [[-1, 42]],
     entityIds: [7],
     fullEntities: [
       {
@@ -239,7 +247,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 
   start(unknownField, 0, 0, 1);
   unknownField.unsigned(1);
-  unknownField.record(1, [[36, null]]);
+  unknownField.record(1, [[37, null]]);
   const duplicateField = new Writer();
 
   start(duplicateField, 0, 0, 1);
@@ -255,6 +263,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
     Uint8Array.from([0]),
     Uint8Array.from([0x55, 0x4d, 2, 0, 0, 1, 0]),
     Uint8Array.from([0x55, 0x4d, 1, 32, 0, 1, 0]),
+    Uint8Array.from([0x55, 0x4d, 1, 64, 0, 1, 0]),
     Uint8Array.from([0x55, 0x4d, 1, 0, 0x80, 0, 1, 0]),
     writer.packet().subarray(0, writer.bytes.length - 1),
     Uint8Array.from([...writer.packet(), 0]),
@@ -316,6 +325,12 @@ const client = new NetworkClient({ url: 'ws://test' });
 const socket = Socket.sockets.at(-1)!;
 
 assert.equal(socket.binaryType, 'arraybuffer');
+client.sendActivity({ now: 0 });
+assert.equal(
+  socket.sent.length,
+  0,
+  'disconnected clients do not send activity',
+);
 socket.onopen?.();
 
 assert.deepEqual(decodeClientMessage(socket.sent[0]), {
@@ -378,7 +393,6 @@ assert.deepEqual(
   [...client.player.unlockedPaints],
   [colors.yellow, colors.violet, colors.white],
 );
-assert(!Object.hasOwn(client.world.entities.get(1)!, 'credits'));
 
 socket.onmessage?.({
   data: encodeServerControl({
@@ -424,6 +438,28 @@ assert.equal(authoritative.get(2)?.label, 'before');
 assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
   type: 'snapshotAck',
   sequence: 1,
+});
+
+const beforeActivity = socket.sent.length;
+
+client.sendActivity({ now: 0 });
+
+assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
+  type: 'activity',
+});
+
+for (const now of [1, 100, 10_000, 29_999]) client.sendActivity({ now });
+
+assert.equal(
+  socket.sent.length,
+  beforeActivity + 1,
+  'activity bursts are throttled',
+);
+client.sendActivity({ now: 30_000 });
+assert.equal(socket.sent.length, beforeActivity + 2);
+
+assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
+  type: 'activity',
 });
 
 const delta = new Writer();

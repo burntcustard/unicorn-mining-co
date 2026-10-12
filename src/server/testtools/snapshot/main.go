@@ -29,6 +29,7 @@ func main() {
 				field.Spin: float64(-0.5), field.Velocity: protocol.Vector{X: 3, Y: -4},
 				field.DefinitionID:  "testScout",
 				field.Label:         "MUSTANG",
+				field.Fuel:          float64(3.25),
 				field.Shades:        []string{"#fff", "#000"},
 				field.HullHealth:    []float64{8, 20, 40},
 				field.Modules:       []protocol.ModuleState{{Type: 12, Mount: 2, FireCooldown: new(float64(.375)), ChargeCooldown: new(float64(1.125)), ID: new(float64(-10)), Health: new(float64(20)), Shades: []string{"#a", "#b"}, Segments: []protocol.ModuleSegment{{Active: 1, ActivationProgress: 0.5}}}},

@@ -5,7 +5,7 @@ import { colors } from '../../specs/colors';
 import { seededRandom } from '../utilities/seeded-random';
 
 /**
- * The sky behind everything: sparks of starlight and soft clouds of colour,
+ * The sky behind everything: sparks of starlight and soft clouds of color,
  * with nothing solid about any of it. None of it is ever collided with, so it
  * can be any size it likes.
  *
@@ -24,8 +24,8 @@ let span: number | undefined;
 // How much of the camera's movement each layer takes, and what is in it.
 // Barely any of it, because all of this is a very long way off. The layers sit
 // close together too, so the nearest reads as far away rather than as near.
-// Most of the sky is fine coloured specks, and only a handful of stars are near
-// enough to flare out into a coloured sparkle
+// Most of the sky is fine colored specks, and only a handful of stars are near
+// enough to flare out into a colored sparkle
 const dotCounts = [550, 380, 230];
 
 type Tile = HTMLCanvasElement | ImageBitmap;
@@ -95,7 +95,7 @@ const makeTile = ({
   const random = seededRandom(seed);
 
   // Every mark fits within half a tile (clouds reach at most 440 units).
-  // Centred positions need only the original and its positive-axis copies.
+  // Centered positions need only the original and its positive-axis copies.
   const wrappedPaint = (paint: () => void) => {
     const x = (random() - 0.5) * tile;
     const y = (random() - 0.5) * tile;
@@ -301,8 +301,8 @@ export const renderBackground = (
   // @endif
 
   tiles.forEach((image, i) => {
-    // Centre the tile in the viewport and follow the camera's world centre,
-    // so zooming around that centre does not shift the sky. Each layer moves
+    // Center the tile in the viewport and follow the camera's world center,
+    // so zooming around that center does not shift the sky. Each layer moves
     // by (i + 1) / 50 of the camera, so distant sky lags.
     const offsetX =
       ((cameraX * scale + canvas.width / 2) * (i + 1)) / 50 -

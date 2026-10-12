@@ -225,7 +225,7 @@ export function buildPlugin(flags: Record<string, boolean> = {}) {
         .flatMap((directory) =>
           sourceFiles(new URL(`../src/${directory}/`, import.meta.url)),
         )
-        .sort((a, b) => a.pathname.localeCompare(b.pathname));
+        .sort((a, b) => a.pathname.localeCompare(b.pathname, 'en-US'));
 
       reserved = reservedProperties(files);
 

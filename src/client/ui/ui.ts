@@ -23,7 +23,9 @@ export const renderUI = (
   if (shipDestroyed || shipStranded) {
     const message = shipDestroyed
       ? 'YOU DIED - PRESS ANY KEY TO RESPAWN'
-      : 'NO THRUSTER - PRESS R TO RESPAWN';
+      : player.ship.fuel <= 0
+        ? 'OUT OF FUEL - PRESS R TO RESPAWN'
+        : 'NO THRUSTER - PRESS R TO RESPAWN';
 
     renderText({
       game,
@@ -49,18 +51,21 @@ export const renderUI = (
 
   game.ctx.globalAlpha = game.uiAlpha;
 
-  // Messages keep their own visibility and sit over the docked panel, so a
-  // reward announced by a sale is still read
-  if (player.noteFor) {
-    renderText({
-      game,
-      text: player.note,
-      x: game.uiWidth / 2,
-      y: game.uiHeight - 40,
-      size: 1,
-      align: 0,
-    });
+  if (player.ship.lowFuel) {
+    game.ctx.globalAlpha =
+      game.uiAlpha * (0.5 + Math.sin(Date.now() / 300) / 2);
   }
+
+  renderText({
+    game,
+    text: `FUEL ${Math.ceil((player.ship.fuel / player.ship.fuelCapacity) * 100)}%`,
+    x: game.uiWidth - 120,
+    y: 20,
+    size: 1,
+    align: 1,
+  });
+
+  game.ctx.globalAlpha = game.uiAlpha;
 
   renderText({ game, text: `$${player.credits}`, x: 20, y: 20, size: 1 });
 

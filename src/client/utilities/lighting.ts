@@ -24,7 +24,7 @@ import { type Pose, type Segment, type Shades } from '../types';
 type GlowCache = { image?: HTMLCanvasElement; scale?: number };
 
 interface LitShape {
-  // Facing angle and centre in the craft's local frame.
+  // Facing angle and center in the craft's local frame.
   facing?: number;
   middle?: number[];
   reach?: number;
@@ -44,21 +44,21 @@ export const toggleLights = () => (lights = !lights);
 
 // Craft are painted to be told apart at a glance, so the light only tints what
 // they are already wearing rather than replacing it. The lit side is lifted
-// towards white and then given a push towards the colour's own light, since
-// tinting a pale colour straight at a hue only darkens it. The shaded side
-// falls towards the colour's own shadow
+// toward white and then given a push toward the color's own light, since
+// tinting a pale color straight at a hue only darkens it. The shaded side
+// falls toward the color's own shadow
 
 // How far a lit shape's own glow carries past its edges, in screen pixels. A
 // blur is not put through the transform the way a path is, so this does not
 // grow and shrink with the view
 
 // Shades are one hex digit a channel. Spreading them over a whole
-// byte before blending is what lets two pale colours meet somewhere other than
+// byte before blending is what lets two pale colors meet somewhere other than
 // on one of the sixteen steps they started on
 // Parsing '#' too creates an unused NaN channel that travels through blending.
 // Dropping it in hex saves a few bytes over selecting just the RGB digits here.
 const parse = (color: string) =>
-  // oxlint-disable-next-line typescript/no-misused-spread -- Colours are internally generated ASCII hex strings.
+  // oxlint-disable-next-line typescript/no-misused-spread -- Colors are internally generated ASCII hex strings.
   [...color].map((channel) => parseInt(channel, 16) * 17);
 const hex = (channels: number[]) =>
   `#${channels
@@ -68,7 +68,7 @@ const hex = (channels: number[]) =>
 
 const white = parse(colors.white[2]);
 
-// Shading is worked out up front and looked up, rather than colours being
+// Shading is worked out up front and looked up, rather than colors being
 // built out of strings on every frame of every piece of every craft
 const at = (along: number) => Math.round(Math.min(1, Math.max(0, along)) * 63);
 const table = (shade: (along: number) => string) =>
@@ -80,26 +80,26 @@ const shadeOf = (shades: Shades, worn: number) => {
   const base = parse(shades[worn]);
 
   return table((along) => {
-    const towards = (along - 0.5) * 2;
+    const toward = (along - 0.5) * 2;
 
-    if (towards > 0) {
-      return hex(mix(base, parse(shades[3]), towards * shadeTint));
+    if (toward > 0) {
+      return hex(mix(base, parse(shades[3]), toward * shadeTint));
     }
 
     return hex(
       mix(
-        mix(base, white, -towards * litTint),
+        mix(base, white, -toward * litTint),
         parse(shades[4]),
-        -towards * warmTint,
+        -toward * warmTint,
       ),
     );
   });
 };
 
 /**
- * Painted work, which keeps its colour and is only lightened or darkened.
+ * Painted work, which keeps its color and is only lightened or darkened.
  *
- * shades: The colour the piece is painted.
+ * shades: The color the piece is painted.
  * worn: Which of its shades the piece is currently wearing.
  * along: 0 facing the light, 1 facing right away from it.
  */
@@ -115,7 +115,7 @@ export const tint = (shades: Shades, worn: number, along: number) =>
  * shape: Anything built with a facing, middle and reach.
  * light: Which way the light lies, in the craft's own turned
  *   frame rather than the world's.
- * shade: Turns a place on the ramp into a colour.
+ * shade: Turns a place on the ramp into a color.
  */
 export const litFill = (
   ctx: CanvasRenderingContext2D,
@@ -130,14 +130,14 @@ export const litFill = (
   // @endif
 
   const [middleX, middleY] = shape.middle!;
-  const towardsX = Math.cos(light) * shape.reach;
-  const towardsY = Math.sin(light) * shape.reach;
+  const towardX = Math.cos(light) * shape.reach;
+  const towardY = Math.sin(light) * shape.reach;
   const along = 0.5 - Math.cos(shape.facing - light) * 0.4;
   const gradient = ctx.createLinearGradient(
-    middleX + towardsX,
-    middleY + towardsY,
-    middleX - towardsX,
-    middleY - towardsY,
+    middleX + towardX,
+    middleY + towardY,
+    middleX - towardX,
+    middleY - towardY,
   );
 
   gradient.addColorStop(0, shade(along - spread));

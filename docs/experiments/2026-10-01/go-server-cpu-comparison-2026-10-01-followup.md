@@ -6,7 +6,7 @@ The subsequent [precision and SIMD investigation](go-server-precision-simd-2026-
 
 Latest Go uses **51.83% less total CPU than original Go**, and **80.43% less than current Node.js**, summing the scenario medians. The equal-scenario average speedups are **2.130× over original Go** and **7.360× over Node.js**. Relative to the optimized Go checkpoint before this follow-up, the aggregate CPU change is **-4.14%**.
 
-These are fresh local measurements of whole-session user plus system CPU. They include simulation, collisions, modules, region synchronization, replication, binary encoding and acknowledgements. They do not measure network latency or production CPU quotas.
+These are fresh local measurements of whole-session user plus system CPU. They include simulation, collisions, modules, region synchronization, replication, binary encoding and acknowledgments. They do not measure network latency or production CPU quotas.
 
 ## CPU per tick
 
@@ -218,7 +218,7 @@ The separate traced [Go/Node parity run](../../../benchmarking/experiments/2026-
 - Latest Go: current uncommitted source, `GOGC=800`, fresh PGO, `GOEXPERIMENT=simd`, nearest-eight enabled.
 - Node: current shared source, matching motion and collision rules, normal V8 GC settings.
 
-The harness runs real complete in-memory sessions with procedural regions and all players, plus binary snapshot acknowledgement processing. Process startup, initial setup, warmup, compilation and profile collection are outside timed samples. No concurrent builds, tests or compression jobs ran during measurement. Node CPU includes all process threads even though affinity is pinned.
+The harness runs real complete in-memory sessions with procedural regions and all players, plus binary snapshot acknowledgment processing. Process startup, initial setup, warmup, compilation and profile collection are outside timed samples. No concurrent builds, tests or compression jobs ran during measurement. Node CPU includes all process threads even though affinity is pinned.
 
 Validation passed: full `npm test`; `npm run test:go` with regenerated shared fixtures; complete scalar and experimental Go suites; SIMD exactness tests; AVX2-disabled runtime tests; ARM64 scalar-fallback cross-compilation; lint and formatting; production builds before and after. Lint retains two existing `unicorn(no-new-array)` warnings.
 

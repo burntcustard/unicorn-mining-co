@@ -40,4 +40,4 @@ The [live deployment benchmark](live/README.md) visits the
 production site with real headless browser players at 320 × 200. Every run covers
 4/8/16/32 players and four activities per count, with a two-minute cooldown only
 between player counts. It records client frame times, snapshot cadence and input
-acknowledgements, uses an installed Chrome/Chromium, and starts no local server.
+acknowledgments, uses an installed Chrome/Chromium, and starts no local server.

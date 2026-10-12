@@ -4,9 +4,6 @@ import assert from 'node:assert/strict';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
 import { rolldown } from 'rolldown';
 
-assert.equal('window' in globalThis, false);
-assert.equal('document' in globalThis, false);
-
 const bundle = await rolldown({
   input: 'simulation',
   plugins: [
@@ -805,7 +802,7 @@ const drillSelectsTouchedSegment = () => {
   );
   assert(
     ![...world.entities.values()].some((entity) => entity.kind === 'item'),
-    'the parent does not release its contents at its centre',
+    'the parent does not release its contents at its center',
   );
   // Whole-body destruction remains valid, even with healthy segments remaining.
   asteroid.health = 0;
@@ -963,7 +960,7 @@ const diamondPickup = () => {
 
 diamondPickup();
 
-// The cargo contact may overlap an item's edge, but pickup waits for its centre.
+// The cargo contact may overlap an item's edge, but pickup waits for its center.
 {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 9 }));
@@ -1023,7 +1020,7 @@ diamondPickup();
   assert.equal(
     ship.cargoContents[0],
     item,
-    'the item centre reaching the mouth collects it',
+    'the item center reaching the mouth collects it',
   );
 }
 

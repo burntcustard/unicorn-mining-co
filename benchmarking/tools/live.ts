@@ -91,7 +91,7 @@ const metadata: {
     .update(await readFile(new URL('./live-suite.ts', import.meta.url)))
     .digest('hex'),
   serverCpu:
-    'Not exposed by the public endpoints; tick cadence and input acknowledgement delay are indirect pressure indicators.',
+    'Not exposed by the public endpoints; tick cadence and input acknowledgment delay are indirect pressure indicators.',
 };
 
 const save = async () => {
@@ -567,7 +567,7 @@ try {
             gapsOver1000Ms: snapshots.filter((value) => value.gap > 1000)
               .length,
             inputAckMs: distribution(
-              capture.acknowledgements.map((value) => value.ms),
+              capture.acknowledgments.map((value) => value.ms),
             ),
             inputLeadTicks: distribution(snapshots.map((value) => value.lead)),
             pendingInputs: capture.pendingInputs,

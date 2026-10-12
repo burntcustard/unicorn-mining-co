@@ -21,7 +21,7 @@ import { createRandom } from '../utilities/seeded-random';
 import { addPlayer, createWorld } from '../simulation/world';
 import { createAsteroid } from '../objects/asteroid';
 import { Item } from '../objects/item';
-import { itemTypes } from '../../specs/items';
+import { autogunAmmo, itemTypes } from '../../specs/items';
 import { GameObject } from '../objects/game-object';
 import { Craft } from '../objects/craft';
 import { Ship } from '../objects/ship';
@@ -30,6 +30,7 @@ import { createShip } from '../objects/create-ship';
 import { createWreckage } from '../objects/create-wreckage';
 import { type SimulationWorld } from '../simulation/world';
 import { PredictionManager } from '../prediction/prediction';
+import { cloneEntity } from '../simulation/world-state';
 import { RemoteMotion } from '../prediction/remote-motion';
 import { maxPredictionTicks } from '../../specs/prediction';
 import { simulationStep } from '../../specs/simulation';
@@ -136,6 +137,7 @@ const makeEntity = ({
         : entity.kind === 'station'
           ? new Station({
               ...common,
+              cargoContents: [],
               stationType:
                 entity.definitionId as import('../../specs/stations').StationId,
               world,
@@ -149,6 +151,7 @@ const makeEntity = ({
             }),
     common,
     {
+      ...(entity.fuel !== undefined && { fuel: entity.fuel }),
       dockedTo: entity.dockedTo,
       health: entity.health ?? 100,
       ...(!wreckage && {
@@ -187,10 +190,16 @@ export class NetworkClient {
   // Separate from predicted objects: decoding must never mutate live state or
   // rollback history. Retain only the current interest set between packets.
   private authoritativeEntities = new Map<number, GameObject>();
+  private authoritativeCredits = 0;
+  private acknowledgedDockSequence = 0;
+  private dockSequence = 0;
+  private dockIds = new Map<number, number>();
+  private pendingDockActions: { sequence: number; action: CraftAction }[] = [];
   connected = false;
   private entityRecords = new Map<number, ReplicatedEntity>();
   readonly events: SimulationEvent[] = [];
   private inputTickStartedAt = performance.now();
+  private lastActivitySentAt = -Infinity;
   private pendingEntities = new Map<
     number,
     { entity: ReplicatedEntity; tick: number }
@@ -219,7 +228,7 @@ export class NetworkClient {
       this.connected &&
       ship instanceof Ship &&
       !ship.dead &&
-      !ship.engine.mount &&
+      (!ship.engine.mount || ship.fuel <= 0) &&
       !ship.dockedTo &&
       !ship.launching
     );
@@ -249,7 +258,7 @@ export class NetworkClient {
       this.world.tick = this.serverTick;
     }
 
-    const entities = message.fullEntities.map((entity) =>
+    let entities = message.fullEntities.map((entity) =>
       makeEntity({
         entity,
         world: this.world,
@@ -268,6 +277,57 @@ export class NetworkClient {
       this.authoritativeEntities.set(entity.id, entity),
     );
 
+    if (message.acknowledgedDockSequence !== undefined) {
+      this.acknowledgedDockSequence = message.acknowledgedDockSequence;
+      this.pendingDockActions = this.pendingDockActions.filter(
+        ({ sequence }) => sequence > this.acknowledgedDockSequence,
+      );
+    }
+
+    if (message.credits !== undefined) {
+      this.authoritativeCredits = message.credits;
+    }
+
+    const account = { credits: this.authoritativeCredits };
+
+    if (this.pendingDockActions.length) {
+      // Rebuild the prediction from decoded server state, then replay only
+      // actions the server has not processed. Never replay over live stock.
+      const copies = new Map(this.authoritativeEntities);
+      const own = copies.get(this.shipId!);
+
+      if (own instanceof Ship) {
+        const ship = cloneEntity({ entity: own }) as Ship;
+        const station = copies.get(ship.dockedTo);
+
+        copies.set(ship.id, ship);
+
+        if (station) {
+          copies.set(station.id, cloneEntity({ entity: station }));
+        }
+
+        ship.world = {
+          ...this.world,
+          entities: copies,
+          nextEntityId: message.nextEntityId,
+        };
+
+        this.pendingDockActions.forEach(({ action }) =>
+          ship.applyDockAction(this.resolveDockAction(action), account),
+        );
+        const projected = [ship, copies.get(ship.dockedTo)].filter(
+          (entity): entity is GameObject => Boolean(entity),
+        );
+
+        entities = entities.filter(
+          (entity) => !projected.some((copy) => copy.id === entity.id),
+        );
+        entities.push(...projected);
+      }
+    }
+
+    this.player.credits = account.credits;
+
     this.prediction.reconcile({
       entities,
       entityIds,
@@ -275,6 +335,8 @@ export class NetworkClient {
       nextEntityId: message.nextEntityId,
       tick: this.serverTick,
     });
+
+    if (!this.pendingDockActions.length) this.dockIds.clear();
 
     if (message.type === 'load') {
       this.pendingTime = 0;
@@ -343,6 +405,13 @@ export class NetworkClient {
       this.connected = false;
       this.pendingTime = 0;
       this.events.length = 0;
+      this.pendingDockActions.length = 0;
+      this.player.credits = this.authoritativeCredits;
+
+      this.prediction.reconcile({
+        entities: [...this.authoritativeEntities.values()],
+        tick: this.serverTick,
+      });
 
       if (code === 4001) {
         this.showConnectionStatus('GAME OPEN IN ANOTHER TAB');
@@ -388,7 +457,13 @@ export class NetworkClient {
     if (message.type === 'progress') {
       syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);
 
-      if (message.credits !== undefined) this.player.credits = message.credits;
+      // Sequenced snapshots carry balance and inventory together. A progress
+      // control can arrive before the snapshot that confirms a trade.
+      if (!this.dockSequence && message.credits !== undefined) {
+        this.authoritativeCredits = message.credits;
+        this.player.credits = message.credits;
+      }
+
       return;
     }
 
@@ -397,6 +472,10 @@ export class NetworkClient {
       syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);
 
       if (message.credits !== undefined) this.player.credits = message.credits;
+      this.authoritativeCredits = this.player.credits;
+      this.dockSequence = this.acknowledgedDockSequence = 0;
+      this.dockIds.clear();
+      this.pendingDockActions.length = 0;
       this.world.entities.clear();
       this.world.players.clear();
       this.world.nextEntityId = 1;
@@ -435,13 +514,19 @@ export class NetworkClient {
     }
 
     if (
-      message.type === 'snapshot' &&
-      message.serverTick < (this.pendingSnapshot?.serverTick ?? this.serverTick)
+      (message.type === 'snapshot' &&
+        message.serverTick <
+          (this.pendingSnapshot?.serverTick ?? this.serverTick)) ||
+      (message.acknowledgedDockSequence !== undefined &&
+        message.acknowledgedDockSequence <
+          (this.pendingSnapshot?.acknowledgedDockSequence ??
+            this.acknowledgedDockSequence))
     ) {
       return;
     }
 
     this.snapshotReceivedAt = performance.now();
+    message.dockIds?.forEach(([from, to]) => this.dockIds.set(from, to));
 
     if (message.type === 'load') {
       this.entityRecords.clear();
@@ -522,7 +607,63 @@ export class NetworkClient {
 
   sendCraftAction(action: CraftAction) {
     if (!this.connected) return;
-    this.send({ ...action, type: 'dock' });
+    const sequence = ++this.dockSequence;
+
+    this.pendingDockActions.push({ sequence, action });
+    this.send({ ...this.resolveDockAction(action), sequence, type: 'dock' });
+  }
+
+  private resolveDockAction(action: CraftAction): CraftAction {
+    const resolve = (id: number) => {
+      for (let count = 0; count < this.dockIds.size; count++) {
+        const next = this.dockIds.get(id);
+
+        if (next === undefined) break;
+        id = next;
+      }
+
+      return id;
+    };
+
+    return action.action === 'sell' || action.action === 'buyStock'
+      ? { ...action, objectIds: action.objectIds.map(resolve) }
+      : 'moduleId' in action &&
+          action.moduleId !== undefined &&
+          action.action !== 'buy'
+        ? { ...action, moduleId: resolve(action.moduleId) }
+        : action;
+  }
+
+  applyCraftAction(ship: Ship, action: Parameters<Ship['applyDockAction']>[0]) {
+    if (!this.connected || this.socket.readyState !== WebSocket.OPEN) return;
+
+    if (action.action === 'buyAmmo') {
+      const station = this.world.entities.get(ship.dockedTo) as
+        | Craft
+        | undefined;
+      const item = station?.cargoContents.find(
+        (object) => object.item === autogunAmmo,
+      );
+
+      if (!item) return;
+      action = { action: 'buyStock', objectIds: [item.id] };
+    }
+
+    const applied = ship.applyDockAction(action, this.player);
+
+    if (applied) {
+      if (applied.action === 'buy') this.dockIds.delete(applied.moduleId);
+      this.prediction.invalidateFrame();
+      this.sendCraftAction(applied);
+    }
+
+    return applied;
+  }
+
+  sendActivity({ now = performance.now() }: { now?: number } = {}) {
+    if (!this.connected || now - this.lastActivitySentAt < 30_000) return;
+    this.lastActivitySentAt = now;
+    this.send({ type: 'activity' });
   }
 
   private showConnectionStatus(message?: string) {
@@ -681,4 +822,6 @@ export const network = new NetworkClient({
   url: `${socketProtocol}//${location.host}/game-socket`,
 });
 
-setCraftActionDispatcher((action) => network.sendCraftAction(action));
+setCraftActionDispatcher((ship, action) =>
+  network.applyCraftAction(ship, action),
+);

@@ -6,7 +6,7 @@ import { Item } from '../../client/objects/item';
 import { moduleControls as gameModuleControls } from '../../client/objects/control-ship';
 import { moduleBinding } from '../../client/input/keybindings';
 import { createWorld } from '../../client/simulation/world';
-import { autogunAmmunition } from '../../specs/items';
+import { autogunAmmo } from '../../specs/items';
 import { Laser } from '../../client/objects/modules/laser';
 import { Weapon } from '../../client/objects/modules/weapon';
 import { type GameObject } from '../../client/objects/game-object';
@@ -112,6 +112,9 @@ const createMountControls = ({
   const select = document.createElement('select');
   const button = document.createElement('button');
 
+  label.className = 'mt-4 mb-2';
+  button.className = 'text-xs mt-4';
+
   const setActive = (active: boolean) =>
     craft.segmentsAtMount(mount).forEach((segment) => {
       segment.active = Number(active);
@@ -157,6 +160,7 @@ const createMountControls = ({
   );
   select.value = attached?.type ?? '';
   select.dataset.module = key;
+  select.className = 'text-xs';
   select.setAttribute('aria-label', `Module for ${mountLabel}`);
   button.type = 'button';
   button.textContent = 'Fire';
@@ -257,7 +261,7 @@ const rebuild = () => {
     craft.world = world;
     craft.playerId = 1;
     world.players.set(1, { id: 1, shipId: craft.id });
-    craft.cargoContents.push(new Item(autogunAmmunition, { rounds: Infinity }));
+    craft.cargoContents.push(new Item(autogunAmmo, { rounds: Infinity }));
     state.modules[spec.key] ||= {};
     state.attachments[spec.key] ||= {};
     const mounts = previewMounts(craft);

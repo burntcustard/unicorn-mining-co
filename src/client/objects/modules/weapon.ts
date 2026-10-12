@@ -222,11 +222,11 @@ class AutogunModule extends Weapon {
     const { segment } = options;
 
     // Keep the authored barrel shapes for collision and detached wreckage.
-    // Draw the rear pair first and the front pair second, before the collar.
+    // Draw the rear pair first and the front pair second, before the collars.
     const pair = this.model.findIndex((part) => part.points === segment.points);
 
     if (
-      this.model.length !== 3 ||
+      this.model.length < 3 ||
       pair < 0 ||
       pair > 1 ||
       typeof segment.points !== 'function'
@@ -238,7 +238,7 @@ class AutogunModule extends Weapon {
     const points = this.model[0].points(segment) as ShapeOutline;
     const { middle } = shapeOutlineExtent(points);
     const radius = Math.abs(middle[1]) * Math.SQRT2;
-    // A quarter turn per shot puts a barrel on the centre line whenever the
+    // A quarter turn per shot puts a barrel on the center line whenever the
     // cooldown wraps. At rest the 45-degree start stacks four into two.
     const phase = this.firingPhase(segment) ?? (segment.phase || 0);
     const angle = Math.PI / 4 + (phase * Math.PI) / 2;

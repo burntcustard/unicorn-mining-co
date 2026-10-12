@@ -56,7 +56,7 @@
         {
           "id": -4,
           "type": 6,
-          "mount": 3,
+          "mount": 4,
           "health": 2,
           "shades": ["#ca1", "#ec3", "#fe4", "#c50", "#f95"],
           "segments": [{ "active": 0, "activationProgress": 0 }]
@@ -64,7 +64,7 @@
         {
           "id": -5,
           "type": 5,
-          "mount": 4,
+          "mount": 5,
           "health": 10,
           "shades": ["#0ac", "#1bd", "#4df", "#148", "#cff"],
           "segments": [{ "active": 1, "activationProgress": 1 }]
@@ -72,7 +72,7 @@
         {
           "id": -3,
           "type": 4,
-          "mount": 5,
+          "mount": 6,
           "health": 4,
           "shades": ["#c2c", "#d3d", "#e6f", "#427", "#e6f"],
           "segments": [

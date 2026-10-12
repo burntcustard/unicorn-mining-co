@@ -1,14 +1,12 @@
 import { type PlayerInput } from '../protocol/input';
 import { type moduleControls } from '../objects/control-ship';
-import {
-  plasmaAcceleratorName,
-  autogunName,
-  laserName,
-  hornDrillName,
-  cargoHatchName,
-  searchLightName,
-  shieldGeneratorName,
-} from '../../specs/modules/names';
+import { plasmaAccelerator } from '../../specs/modules/offense/plasma-accelerator';
+import { autogun } from '../../specs/modules/offense/autogun';
+import { laser } from '../../specs/modules/offense/laser';
+import { hornDrill } from '../../specs/modules/offense/horn-drill';
+import { cargoHatch } from '../../specs/modules/utility/cargo-hatch';
+import { searchLight } from '../../specs/modules/utility/search-light';
+import { shield } from '../../specs/modules/utility/shield';
 
 export type KeyAction =
   | 'fire'
@@ -97,13 +95,13 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Turn left', defaultKeybindings.turnLeft],
   ['Turn right', defaultKeybindings.turnRight],
   ['Fire weapons', defaultKeybindings.fire],
-  [plasmaAcceleratorName, defaultKeybindings.plasmaActive],
-  [autogunName, defaultKeybindings.autogunActive],
-  [laserName, defaultKeybindings.laserActive],
-  [hornDrillName, defaultKeybindings.hornDrill],
-  [cargoHatchName, defaultKeybindings.cargoHatch],
-  [searchLightName, defaultKeybindings.searchLight],
-  [shieldGeneratorName, defaultKeybindings.shieldGenerator],
+  [plasmaAccelerator.name, defaultKeybindings.plasmaActive],
+  [autogun.name, defaultKeybindings.autogunActive],
+  [laser.name, defaultKeybindings.laserActive],
+  [hornDrill.name, defaultKeybindings.hornDrill],
+  [cargoHatch.name, defaultKeybindings.cargoHatch],
+  [searchLight.name, defaultKeybindings.searchLight],
+  [shield.name, defaultKeybindings.shieldGenerator],
 ];
 const originalKeys = bindingEntries.map(([, binding]) => [...binding.keys]);
 

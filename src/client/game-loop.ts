@@ -5,7 +5,7 @@ import { maxPredictionTicks } from '../specs/prediction';
 import { simulationStep } from '../specs/simulation';
 
 /**
- * Based on Kontra gameLoop.js, available under the MIT licence:
+ * Based on Kontra gameLoop.js, available under the MIT license:
  * https://github.com/straker/kontra/blob/main/src/gameLoop.js
  */
 export const GameLoop = ({

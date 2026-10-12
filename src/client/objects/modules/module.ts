@@ -8,6 +8,7 @@ import {
   moduleIds,
   type ModuleId,
 } from '../../../specs/modules';
+import type { ModuleCategory } from '../../../specs/modules/categories';
 import { type ModuleSpec } from '../../../specs/modules/types';
 import { colors } from '../../../specs/colors';
 
@@ -28,6 +29,7 @@ export class Module extends GameObject {
   static definitionId: ModuleId;
   declare health: number;
   declare name: string;
+  declare category: ModuleCategory;
   static model: any[] = [];
   declare model: any[];
   declare mount: any;
@@ -115,3 +117,12 @@ export class Module extends GameObject {
     });
   }
 }
+
+export const moduleMaximumHealth = (module: Module | typeof Module) => {
+  const Type =
+    typeof module === 'function'
+      ? module
+      : (module.constructor as typeof Module);
+
+  return Type.health || Type.healthActivated;
+};

@@ -131,8 +131,8 @@ const segmentsOf = ({
   const asteroidSegmentHealth =
     (health * 2) / (triangles.length * segmentsPerFace);
   const asteroidSegmentMass = mass / (triangles.length * segmentsPerFace);
-  // Match the original topology order: all centre leaves first, then the next
-  // corner from every face. Cargo placement depends on that centre-first bias.
+  // Match the original topology order: all center leaves first, then the next
+  // corner from every face. Cargo placement depends on that center-first bias.
   const shapeOutlines = Array.from({ length: segmentsPerFace }, (_, corner) =>
     leaves.map((leaf) => leaf[corner]),
   ).flat();
@@ -366,7 +366,7 @@ const insideShapeOutline = ({
 
 /**
  * Where a round body meets an asteroid's shape outline, rather than the circle that
- * only bounds it: the normal points out of the rock, towards the body.
+ * only bounds it: the normal points out of the rock, toward the body.
  */
 export const asteroidContact = ({
   asteroid,

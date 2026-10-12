@@ -1,0 +1,317 @@
+.dock-screen {
+  --ui-accent: #3f7;
+  background: rgb(from #334 r g b / 0.96);
+}
+
+.dock-header {
+  height: 84px;
+  border-bottom: 2px solid var(--ui-line);
+}
+
+.dock-station-icon > svg {
+  color: var(--ui-accent);
+  display: block;
+}
+
+.dock-summary {
+  height: 96px;
+}
+
+.dock-workspace {
+  display: grid;
+  margin-bottom: 16px;
+  grid-template-columns: minmax(390px, 440px) minmax(240px, 1fr) minmax(
+      400px,
+      480px
+    );
+}
+
+.dock-workspace > * {
+  min-height: 0;
+  min-width: 0;
+}
+
+.dock-list-heading {
+  padding-inline: 10px;
+}
+
+.dock-group {
+  background: rgb(from #112 r g b / 0.38);
+}
+
+.dock-row {
+  width: 100%;
+  height: var(--ui-row-height);
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.dock-row-text,
+.dock-trade-name::after {
+  transform: translateY(0.1em);
+}
+
+.dock-row:not(:first-child) {
+  /* Adjacent rows share a single border. */
+  margin-top: calc(-1 * var(--ui-border-width));
+  border-top-color: rgb(from #eef r g b / 0.1);
+}
+
+.dock-row:not(:last-child) {
+  border-bottom-color: transparent;
+}
+
+.dock-row:not(:first-child)::before,
+.dock-row:not(:last-child)::after {
+  display: none;
+}
+
+.dock-row:is(:hover, :focus-visible, [aria-pressed='true']) {
+  outline: none;
+  z-index: 1;
+}
+
+.dock-row:is(:hover, :focus-visible):not([aria-pressed='true']) {
+  border-color: var(--ui-color);
+}
+
+.dock-row:where(:not(.dock-trade-row)) > :first-child {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--ui-color);
+}
+
+.dock-row > small,
+.dock-trade-row .dock-trade-name > span {
+  color: rgb(from #eef r g b / 0.75);
+}
+
+.dock-row[aria-pressed='true'] > * {
+  color: inherit;
+}
+
+.dock-row.dock-empty:not([aria-pressed='true']) {
+  color: #bbc;
+}
+
+.dock-center {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 232px;
+}
+
+.dock-preview {
+  width: 100%;
+  min-height: 0;
+}
+
+.dock-energy {
+  position: relative;
+  border-top: 2px solid var(--ui-line);
+  padding: 16px 12px;
+}
+
+.dock-power-track {
+  display: flex;
+  position: relative;
+  height: 18px;
+  background: rgb(from #eef r g b / 0.06);
+}
+
+.dock-power-part {
+  background: var(--ui-color);
+  box-shadow: inset -2px 0 #334;
+}
+
+.dock-generation {
+  position: absolute;
+  inset-block: -4px;
+  width: 3px;
+  background: #fff;
+  transform: translateX(-100%);
+  box-shadow: 0 0 0 2px #334;
+}
+
+.dock-energy.dock-inspecting
+  :is(.dock-power-label, .dock-energy-legend, .dock-output) {
+  opacity: 0.45;
+}
+
+.dock-energy.dock-inspecting-generator .dock-output {
+  opacity: 1;
+  color: #e6f;
+}
+
+.dock-inspector {
+  display: flex;
+  flex-direction: column;
+}
+
+.dock-detail {
+  min-height: 0;
+  max-height: 100%;
+}
+
+.dock-detail-preview {
+  width: 160px;
+  height: 160px;
+}
+
+.dock-paints {
+  padding: 5px;
+}
+
+.dock-paints button {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--paint);
+  transform: rotate(45deg);
+}
+
+.dock-paints button[aria-pressed='true'] {
+  background: var(--paint);
+}
+
+.dock-footer {
+  padding-top: 16px;
+  border-top: 2px solid var(--ui-line);
+}
+
+.dock-footer button:is(:hover, :focus-visible) {
+  color: #fff;
+  outline: none;
+}
+
+.dock-footer button:is(:hover, :focus-visible) kbd {
+  border-color: currentColor;
+}
+
+.dock-launch-icon {
+  width: 28px;
+  height: 28px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dock-launch-icon > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.dock-footer button:is(:hover, :focus-visible) .dock-launch-icon {
+  opacity: 1;
+}
+
+.dock-overview-stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+}
+
+.dock-overview-stats dt {
+  color: var(--ui-muted);
+}
+
+.dock-candidates {
+  max-height: 220px;
+}
+
+.dock-fitting-preview {
+  position: absolute;
+  bottom: -8px;
+  right: 12px;
+}
+
+.dock-screen:has([data-tab='trade'][aria-current='page']) {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.dock-screen:has([data-tab='trade'][aria-current='page']) .dock-workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(400px, 480px);
+  margin-top: 24px;
+}
+
+.dock-trade-table {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  column-gap: 0;
+  row-gap: 0;
+
+  /* Reserve two row steps, including the heading and shared border. */
+  margin-top: calc(
+    2 * (var(--ui-row-height) - var(--ui-border-width)) - var(--ui-row-height)
+  );
+}
+
+.dock-trade-heading {
+  height: calc(var(--ui-row-height) - var(--ui-border-width));
+}
+
+.dock-trade-table > nav,
+.dock-trade-heading,
+.dock-trade-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.dock-trade-heading,
+.dock-trade-row {
+  align-items: center;
+}
+
+.dock-trade-heading > *,
+.dock-trade-row > * {
+  border-inline: calc(var(--ui-border-width) / 2) solid transparent;
+
+  &:first-child {
+    border-inline-start: 0;
+  }
+
+  &:last-child {
+    border-inline-end: 0;
+  }
+}
+
+.dock-trade-row > * {
+  align-self: stretch;
+  align-items: center;
+  border-inline-color: rgb(from #eef r g b / 0.05);
+}
+
+.dock-trade-row {
+  padding: 0;
+}
+
+.dock-trade-table > nav > p {
+  grid-column: 1 / -1;
+}
+
+.dock-trade-row .dock-trade-name {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dock-trade-row .dock-trade-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock-trade-row:is(:hover, :focus-visible) .dock-trade-name::after {
+  content: attr(data-trade-action);
+  flex: none;
+  margin-inline-start: auto;
+}
+
+.dock-trade-row :is(.dock-trade-supply, .dock-trade-price) {
+  justify-self: stretch;
+  display: grid;
+  text-align: right;
+}
+
+.dock-trade-row[aria-disabled='true'] .dock-trade-price {
+  opacity: 0.3;
+}

@@ -501,7 +501,7 @@ assert.equal(new GameObject().mass, 3);
   assert.ok(sync(), 'reenabled colliders recreate their fixtures');
 }
 
-// Off-centre impacts exchange angular as well as linear momentum.
+// Off-center impacts exchange angular as well as linear momentum.
 const triangle = new GameObject({
   id: 10,
   mass: 200,
@@ -1088,7 +1088,7 @@ closeTo(fastTriggerTarget.position.x, 25);
 closeTo(fastTriggerTarget.velocity.x, 0);
 
 // A pickup point crossing the open mouth between ticks still collects cargo.
-// The item's physical body remains separate from its nonphysical centre point.
+// The item's physical body remains separate from its nonphysical center point.
 {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 7 }));
@@ -1130,7 +1130,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
         (collider.segment === mouthPart && other.pickupPoint) ||
         (other.segment === mouthPart && collider.pickupPoint),
     ),
-    'continuous collision detects the item centre crossing the mouth',
+    'continuous collision detects the item center crossing the mouth',
   );
   assert(
     crossingContacts.every(
@@ -1139,7 +1139,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
         collider.segment === mouthPart ||
         other.segment === mouthPart,
     ),
-    'item centre contacts are filtered to cargo hatch mouths',
+    'item center contacts are filtered to cargo hatch mouths',
   );
   assert(
     crossingContacts.every(
@@ -1680,7 +1680,7 @@ for (const direction of [-1, 1]) {
   closeTo(ship.spin, 0);
 }
 
-const offCentreStrike = ({
+const offCenterStrike = ({
   angularInertiaScale,
 }: {
   angularInertiaScale?: number;
@@ -1715,12 +1715,12 @@ const offCentreStrike = ({
   return peakSpin;
 };
 
-const originalImpactSpin = offCentreStrike({ angularInertiaScale: 1 });
-const resistedImpactSpin = offCentreStrike({});
+const originalImpactSpin = offCenterStrike({ angularInertiaScale: 1 });
+const resistedImpactSpin = offCenterStrike({});
 
 assert(
   originalImpactSpin > 1 && resistedImpactSpin > 0,
-  'the off-centre strike causes real rotation',
+  'the off-center strike causes real rotation',
 );
 assert(
   resistedImpactSpin < originalImpactSpin * 0.85,
@@ -1760,7 +1760,7 @@ console.log(
   'CCD, angular response, shield bounce, original steering and drift passed',
 );
 
-// Browser-only damage still emits each surface colour at the impact point;
+// Browser-only damage still emits each surface color at the impact point;
 // presentation remains outside the headless resolver.
 
 const damagedHull: Partial<import('../../src/client/types').Segment> = {

@@ -42,7 +42,7 @@ func TestWeaponRecoil(t *testing.T) {
 					}
 				}
 
-				ship.CargoContents = append(ship.CargoContents, NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog))
+				ship.CargoContents = append(ship.CargoContents, NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog))
 				ship.SetModuleActive(weapon, true)
 				ship.UpdateModules(3)
 				ship.Firing = true
@@ -153,7 +153,7 @@ func TestWeaponBarrelCollisions(t *testing.T) {
 	}
 }
 
-func TestWeaponCadenceAndAmmunition(t *testing.T) {
+func TestWeaponCadenceAndAmmo(t *testing.T) {
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -187,7 +187,7 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 
 	ship.CargoContents = append(ship.CargoContents, NewItem("gold", simulation.ObjectProperties{World: world}, catalog))
 
-	pack := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
+	pack := NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog)
 	ship.CargoContents = append(ship.CargoContents, pack)
 	cargoCount := len(ship.CargoContents)
 	ammoIndex := cargoCount - 1
@@ -306,9 +306,9 @@ func TestWeaponCadenceAndAmmunition(t *testing.T) {
 		t.Fatal("restored and saved packs must own their round counters")
 	}
 
-	lastRound := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
+	lastRound := NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog)
 	*lastRound.Rounds = 1
-	nextPack := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
+	nextPack := NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog)
 	ship.CargoContents = append(ship.CargoContents, lastRound, nextPack)
 	ship.UpdateModules(3)
 	ship.fireWeapons(0)
@@ -376,7 +376,7 @@ func TestPlasmaRecharge(t *testing.T) {
 				}
 			} else if len(outline) == 8 {
 				if outline[4][1] != .5*side || outline[5][1] != .5*side {
-					t.Fatal("the barrel cutout must face away from the ship centre")
+					t.Fatal("the barrel cutout must face away from the ship center")
 				}
 			} else {
 				for _, point := range outline {
@@ -452,7 +452,7 @@ func TestProjectileChunkDamage(t *testing.T) {
 						}
 
 						if hit.Position.X <= -15 || hit.Position.X >= -9 || math.Abs(hit.Position.Y) > 1e-6 || hit.Colors[1] != catalog.Colors["white"][2] {
-							t.Fatal("hit effects must use the swept contact position and struck surface colour")
+							t.Fatal("hit effects must use the swept contact position and struck surface color")
 						}
 
 						split := false
@@ -482,11 +482,19 @@ func TestBuyAutogunAmmo(t *testing.T) {
 
 	world := simulation.CreateWorld(25, catalog)
 	ship := CreatePlayerShip(world, Properties{})
+	station := NewStation("corral-5", Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, catalog)
+	simulation.AddEntity(world, station)
+	ship.DockedTo = &station.ID
+	stockedAmmo := station.CargoContents[0]
 	credits := 4.0
 	_, ok := ship.ApplyDockAction(protocol.DockAction{Action: "buyAmmo"}, &credits)
 
 	if !ok || credits != 2 || ship.CargoContents[len(ship.CargoContents)-1].Base().ID < 1 || ship.CargoContents[len(ship.CargoContents)-1].Base().Resource != 5 || *ship.CargoContents[len(ship.CargoContents)-1].(*Item).Rounds != 200 {
-		t.Fatal("ammo purchase must allocate an entity ID and charge its price")
+		t.Fatal("ammo purchase must transfer a stocked entity ID and charge its price")
+	}
+
+	if len(station.CargoContents) != 299 || ship.CargoContents[len(ship.CargoContents)-1] != stockedAmmo {
+		t.Fatal("ammo purchase must reduce station supply and transfer the stocked pack")
 	}
 
 	credits = 1
@@ -503,6 +511,13 @@ func TestBuyAutogunAmmo(t *testing.T) {
 
 	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "buyAmmo"}, &credits); ok || credits != 4 {
 		t.Fatal("full cargo must reject ammo purchase")
+	}
+
+	ship.CargoContents = nil
+	station.CargoContents = nil
+
+	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "buyAmmo"}, &credits); ok || credits != 4 {
+		t.Fatal("empty stock must reject ammo purchase without charging credits")
 	}
 }
 
@@ -620,7 +635,7 @@ func TestProjectileExpirySparks(t *testing.T) {
 			event, ok := events[0].(protocol.ObjectDestroyed)
 
 			if !ok || event.ObjectID != shot.ID || event.Color != catalog.ModuleSpecs[id].Projectile.Color || event.Damage != catalog.ModuleSpecs[id].Damage || event.Position != shot.Position {
-				t.Fatal("expiry sparks must retain the projectile's colour and location")
+				t.Fatal("expiry sparks must retain the projectile's color and location")
 			}
 		}
 
@@ -1040,7 +1055,7 @@ func TestWeaponDeployment(t *testing.T) {
 				}
 			}
 
-			pack := NewItem("autogunAmmunition", simulation.ObjectProperties{World: world}, catalog)
+			pack := NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog)
 			ship.CargoContents = append(ship.CargoContents, pack)
 			part := ship.SegmentsAtMount(gun.ModuleBase().Mount)[0]
 			spec := gun.ModuleBase().Spec

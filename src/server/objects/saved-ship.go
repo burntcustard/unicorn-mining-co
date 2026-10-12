@@ -13,6 +13,7 @@ import (
 // Player ships resume stationary. Specs provide geometry and physics;
 // this record contains only identity, condition, equipment and possessions.
 type SavedShip struct {
+	Fuel     *float64          `json:"fuel,omitempty"`
 	ID       int64             `json:"id"`
 	Type     string            `json:"type"`
 	Position [2]int64          `json:"position"`
@@ -67,7 +68,7 @@ func savedPaint(shades []string, catalog specs.Catalog) *int {
 }
 
 func CaptureShip(ship *Ship) SavedShip {
-	s := SavedShip{ID: ship.ID, Type: ship.DefinitionID, Position: [2]int64{int64(math.Round(ship.Position.X)), int64(math.Round(ship.Position.Y))}, Rotation: ship.Rotation, Dead: ship.Dead, DockedTo: savedPointer(ship.DockedTo), Hull: ship.HullHealth(), Modules: []SavedShipModule{}}
+	s := SavedShip{Fuel: savedPointer(&ship.Fuel), ID: ship.ID, Type: ship.DefinitionID, Position: [2]int64{int64(math.Round(ship.Position.X)), int64(math.Round(ship.Position.Y))}, Rotation: ship.Rotation, Dead: ship.Dead, DockedTo: savedPointer(ship.DockedTo), Hull: ship.HullHealth(), Modules: []SavedShipModule{}}
 
 	if s.Type == "" {
 		s.Type = "mustang"
@@ -154,6 +155,14 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		return nil, fmt.Errorf("saved hull does not match %q", s.Type)
 	}
 
+	if s.Fuel != nil {
+		if math.IsNaN(*s.Fuel) || math.IsInf(*s.Fuel, 0) || *s.Fuel < 0 || *s.Fuel > ship.FuelCapacity {
+			return nil, fmt.Errorf("invalid saved fuel")
+		}
+
+		ship.Fuel = *s.Fuel
+	}
+
 	ship.SetHullHealth(s.Hull)
 	var hulls []*simulation.Segment
 
@@ -175,6 +184,20 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 
 		if kind < 0 || m.Mount < 0 || m.Mount >= len(ship.Mounts()) {
 			return nil, fmt.Errorf("invalid saved module %q at mount %d", m.Type, m.Mount)
+		}
+
+		// Moving the Mustang's power plant to Hull 04 shifted its last four slots.
+		// Only old placements fail the current fit check; new saves stay unchanged.
+		if s.Type == "mustang" && m.Mount >= 3 && m.Mount <= 6 && !slices.Contains(ship.Mounts()[m.Mount].Fits, m.Type) {
+			mount := m.Mount + 1
+
+			if m.Mount == 6 {
+				mount = 3
+			}
+
+			if slices.Contains(ship.Mounts()[mount].Fits, m.Type) {
+				m.Mount = mount
+			}
 		}
 
 		shades, err := restorePaint(m.Paint, catalog)
@@ -237,6 +260,11 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 				entity.Base().Health = math.NaN()
 			}
 		} else {
+			// Older player saves use the original ammo catalog ID.
+			if cargo.Type == "autogunAmmunition" {
+				cargo.Type = "autogunAmmo"
+			}
+
 			if _, ok := catalog.ItemSpecs[cargo.Type]; !ok {
 				return nil, fmt.Errorf("unknown cargo item %q", cargo.Type)
 			}

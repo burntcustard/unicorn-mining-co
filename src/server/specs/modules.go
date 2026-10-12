@@ -32,13 +32,17 @@ type Projectile struct {
 }
 
 type Module struct {
+	FuelUsage             float64     `json:"fuelUsage"`
+	PowerGenerated        float64     `json:"powerGenerated"`
+	Power                 float64     `json:"power"`
+	PowerActivated        float64     `json:"powerActivated"`
 	DischargeDuration     float64     `json:"dischargeDuration"`
 	ChargeDuration        float64     `json:"chargeDuration"`
 	RetractionDistance    float64     `json:"retractionDistance"`
 	FireInterval          float64     `json:"fireInterval"`
 	Recoil                float64     `json:"recoil"`
 	Projectile            Projectile  `json:"projectile"`
-	Ammunition            *int        `json:"ammunition"`
+	Ammo                  *int        `json:"ammo"`
 	BarrelLength          float64     `json:"barrelLength"`
 	Model                 []ModelPart `json:"model"`
 	Behavior              string      `json:"behavior"`

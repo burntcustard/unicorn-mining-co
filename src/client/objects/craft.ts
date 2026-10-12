@@ -445,7 +445,7 @@ export class Craft extends GameObject {
       );
       craftModule.mount = mount;
       // Taken once, so repainting the hull later does not appear to repaint a
-      // module that is already built in the colour it was fitted in
+      // module that is already built in the color it was fitted in
       craftModule.shades ||= this.shades;
       this.segments.push(
         ...craftModule.model!.map((segmentPlan) =>
@@ -1128,7 +1128,7 @@ export class Craft extends GameObject {
    * rebased around `origin`, carrying the motion it had while attached, and
    * shoved clear along `away`.
    *
-   * origin: The fragment's own centre, in this ship's frame.
+   * origin: The fragment's own center, in this ship's frame.
    * segments: The segments it takes with it.
    * own: What each copied segment overrides of its original.
    * away: Which way it is pushed, in this ship's frame.
@@ -1241,7 +1241,7 @@ export class Craft extends GameObject {
     }
   }
 
-  private setSegmentActive(segment: Segment, active: number) {
+  setSegmentActive(segment: Segment, active: number) {
     const module = segment.module;
 
     if (

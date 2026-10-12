@@ -38,4 +38,4 @@ On 2 October 2026, material dated before 1 October was moved into the
 cutoff, not an automatic rolling deletion policy. Reusable tools remain active
 regardless of age. Archive older reports and results together, preserving their
 paths, and verify extracted bytes against a manifest before removing originals.
-Keep a browsable report catalogue and point surviving links to it.
+Keep a browsable report catalog and point surviving links to it.

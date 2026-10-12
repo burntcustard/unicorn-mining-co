@@ -45,7 +45,7 @@ func main() {
 		}
 
 		ammoID := simulation.EntityID(world)
-		ammo := objects.NewItem("autogunAmmunition", simulation.ObjectProperties{World: world, ID: &ammoID}, catalog)
+		ammo := objects.NewItem("autogunAmmo", simulation.ObjectProperties{World: world, ID: &ammoID}, catalog)
 		ship.CargoContents = append(ship.CargoContents, ammo)
 		replication := network.NewBinaryReplicationManager(catalog)
 		options := network.SnapshotOptions{World: world, ShipID: id}

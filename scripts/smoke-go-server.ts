@@ -86,7 +86,7 @@ try {
   });
 
   console.log(
-    `Go health, static client, WebSocket welcome, ${snapshots} UM snapshots, and input acknowledgement passed`,
+    `Go health, static client, WebSocket welcome, ${snapshots} UM snapshots, and input acknowledgment passed`,
   );
 } finally {
   clearTimeout(timeout);

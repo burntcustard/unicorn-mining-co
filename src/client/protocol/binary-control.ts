@@ -9,8 +9,16 @@ type ServerControl = Extract<
   { type: 'welcome' | 'respawn' | 'progress' }
 >;
 
-const { hello, input, dock, respawn, snapshotAck, welcome, progress } =
-  controlMessageIds;
+const {
+  hello,
+  input,
+  dock,
+  respawn,
+  snapshotAck,
+  welcome,
+  progress,
+  activity,
+} = controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const hex = '0123456789abcdef';
@@ -249,6 +257,10 @@ export function encodeClientMessage(
       const writer = new ControlWriter(dock);
 
       switch (message.action) {
+        case 'refuel':
+          writer.byte(dockActionIds.refuel);
+          break;
+
         case 'buyAmmo':
           writer.byte(dockActionIds.buyAmmo);
           break;
@@ -259,12 +271,17 @@ export function encodeClientMessage(
           writer.signed(message.moduleId);
           break;
 
+        case 'buyStock':
         case 'sell':
           if (message.objectIds.length < 1 || message.objectIds.length > 100) {
             throw new RangeError('Invalid binary sell count');
           }
 
-          writer.byte(dockActionIds.sell);
+          writer.byte(
+            message.action === 'sell'
+              ? dockActionIds.sell
+              : dockActionIds.buyStock,
+          );
           writer.byte(message.objectIds.length);
           message.objectIds.forEach((id) => writer.signed(id));
           break;
@@ -278,6 +295,11 @@ export function encodeClientMessage(
         case 'remove':
           writer.byte(dockActionIds.remove);
           writer.unsigned(message.mount);
+          break;
+
+        case 'repairHull':
+          writer.byte(dockActionIds.repairHull);
+          writer.unsigned(message.hullIndex);
           break;
         case 'paint':
 
@@ -302,11 +324,15 @@ export function encodeClientMessage(
         }
       }
 
+      if (message.sequence !== undefined) writer.unsigned(message.sequence);
       return writer.finish();
     }
 
     case 'respawn':
       return new ControlWriter(respawn).finish();
+
+    case 'activity':
+      return new ControlWriter(activity).finish();
 
     case 'snapshotAck': {
       const writer = new ControlWriter(snapshotAck);
@@ -371,6 +397,10 @@ export function decodeClientMessage(
       const action = reader.byte();
 
       switch (action) {
+        case dockActionIds.refuel:
+          message = { type: 'dock', action: 'refuel' };
+          break;
+
         case dockActionIds.buyAmmo:
           message = {
             type: 'dock',
@@ -389,6 +419,7 @@ export function decodeClientMessage(
 
           break;
 
+        case dockActionIds.buyStock:
         case dockActionIds.sell: {
           const count = reader.byte();
 
@@ -402,7 +433,12 @@ export function decodeClientMessage(
             objectIds.push(reader.signed());
           }
 
-          message = { type: 'dock', action: 'sell', objectIds };
+          message = {
+            type: 'dock',
+            action: action === dockActionIds.sell ? 'sell' : 'buyStock',
+            objectIds,
+          };
+
           break;
         }
 
@@ -421,6 +457,15 @@ export function decodeClientMessage(
             type: 'dock',
             action: 'remove',
             mount: reader.unsigned(),
+          };
+
+          break;
+
+        case dockActionIds.repairHull:
+          message = {
+            type: 'dock',
+            action: 'repairHull',
+            hullIndex: reader.unsigned(),
           };
 
           break;
@@ -458,11 +503,16 @@ export function decodeClientMessage(
           throw new Error('Invalid binary control');
       }
 
+      if (reader.remaining) message.sequence = reader.unsigned();
       break;
     }
 
     case respawn:
       message = { type: 'respawn' };
+      break;
+
+    case activity:
+      message = { type: 'activity' };
       break;
 
     case snapshotAck:

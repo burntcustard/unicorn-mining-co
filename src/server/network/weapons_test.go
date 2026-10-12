@@ -20,6 +20,10 @@ func TestWeaponsAndPurchasedAmmoReplicate(t *testing.T) {
 	world := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(world, objects.Properties{})
 	simulation.AddEntity(world, ship)
+	stationID := simulation.EntityID(world)
+	station := objects.NewStation("corral-5", objects.Properties{ObjectProperties: simulation.ObjectProperties{World: world, ID: &stationID}}, catalog)
+	simulation.AddEntity(world, station)
+	ship.DockedTo = &station.ID
 	credits := 20.0
 
 	for range 10 {

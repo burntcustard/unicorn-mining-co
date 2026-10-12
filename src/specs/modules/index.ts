@@ -1,19 +1,42 @@
-import { plasmaAccelerator } from './plasma-accelerator';
-import { laser } from './laser';
-import { autogun } from './autogun';
-import { thrusterSingleMd } from './thruster-x1-md';
-import { thrusterSingleSm } from './thruster-x1-sm';
-import { thrusterSingleLg } from './thruster-x1-lg';
-import { thrusterSingleXl } from './thruster-x1-xl';
-import { thrusterDualLg } from './thruster-x2-lg';
-import { thrusterDualMd } from './thruster-x2-md';
-import { thrusterDualXl } from './thruster-x2-xl';
-import { thrusterTriple } from './thruster-x3';
-import { cargoHatch } from './cargo-hatch';
-import { searchLight } from './search-light';
-import { hornDrill } from './horn-drill';
-import { shieldGeneratorSm } from './shield-sm';
-import { shieldGeneratorMd } from './shield-md';
+import * as core from './core';
+import * as offense from './offense';
+import * as utility from './utility';
+import type { ModuleCategory } from './categories';
+import type { ModuleSpec } from './types';
+
+const categorize = <
+  Category extends ModuleCategory,
+  Specs extends Record<string, ModuleSpec>,
+>({
+  category,
+  specs,
+}: {
+  category: Category;
+  specs: Specs;
+}) =>
+  Object.fromEntries(
+    Object.entries(specs).map(([id, spec]) => [id, { ...spec, category }]),
+  ) as unknown as { [Id in keyof Specs]: Specs[Id] & { category: Category } };
+
+const {
+  powerPlant,
+  thrusterSingleSm,
+  thrusterSingleMd,
+  thrusterSingleLg,
+  thrusterSingleXl,
+  thrusterDualMd,
+  thrusterDualLg,
+  thrusterDualXl,
+  thrusterTriple,
+} = categorize({ category: 'core', specs: core });
+
+const { autogun, laser, plasmaAccelerator, hornDrill } = categorize({
+  category: 'offense',
+  specs: offense,
+});
+
+const { cargoHatch, searchLight, shieldGeneratorSm, shieldGeneratorMd } =
+  categorize({ category: 'utility', specs: utility });
 
 export {
   thrusterSingleMd,
@@ -32,7 +55,9 @@ export {
   autogun,
   thrusterDualLg,
   laser,
+  powerPlant,
 };
+// Stable wire IDs: folder and category order must not change these indexes.
 export const moduleIds = [
   'thrusterSingleMd',
   'thrusterDualMd',
@@ -50,6 +75,7 @@ export const moduleIds = [
   'autogun',
   'thrusterDualLg',
   'laser',
+  'powerPlant',
 ] as const;
 
 export type ModuleId = (typeof moduleIds)[number];
@@ -71,6 +97,7 @@ export const moduleSpecs = {
   autogun,
   thrusterDualLg,
   laser,
+  powerPlant,
 };
 
 export const moduleSpecList = Object.values(moduleSpecs);

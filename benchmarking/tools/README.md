@@ -48,7 +48,7 @@ node benchmarking/tools/websocket-transport.ts /tmp/unicorn-transport -game
 ```
 
 The Go harness and Node client measure real framing/socket writes with the
-browser binary codec. `ACK_DELAY_MS` adds acknowledgement delay;
+browser binary codec. `ACK_DELAY_MS` adds acknowledgment delay;
 `BENCH_CPU_AFFINITY` optionally pins the Go child. The comparison runner accepts
 before/after transport executables; check its usage message for arguments.
 

@@ -22,13 +22,13 @@ export const createSettings = () => {
   const buttons = bindingEntries.map(([label], i) => {
     const row = document.createElement('div');
 
-    row.className = 'ui-binding';
+    row.className = 'ui-row gap-6 py-2 uppercase';
     const text = document.createElement('span');
 
     text.textContent = label;
     const button = document.createElement('button');
 
-    button.className = 'ui-choice';
+    button.className = 'button text-center';
 
     button.addEventListener(
       'click',
@@ -51,7 +51,7 @@ export const createSettings = () => {
     buttons.forEach((button, i) => {
       const [label, binding] = bindingEntries[i];
       const keys = binding.keys
-        .map((key) => (key === ' ' ? 'SPACE' : key.toUpperCase()))
+        .map((key) => (key === ' ' ? 'Space' : key))
         .join(' / ');
 
       button.textContent = keys;
@@ -131,27 +131,28 @@ export const createSettings = () => {
     { signal: screen.signal },
   );
 
-  [false, true].forEach((isGraphics) => {
-    const button = query(
-      screen.element,
-      isGraphics ? '[data-graphics]' : '[data-controls]',
-    );
+  const tabs = [
+    {
+      button: query(screen.element, '[data-controls]'),
+      panel: query(screen.element, '.ui-control-panel'),
+    },
+    {
+      button: query(screen.element, '[data-graphics]'),
+      panel: query(screen.element, '[data-graphics-panel]'),
+    },
+  ];
 
+  tabs.forEach(({ button }, index) => {
     button.addEventListener(
       'click',
       () => {
-        capture = -1;
         status.textContent = '';
-        query(screen.element, '[data-control-panel]').hidden = isGraphics;
-        query(screen.element, '[data-graphics-panel]').hidden = !isGraphics;
 
-        [false, true].forEach((tab) => {
-          const control = query(
-            screen.element,
-            tab ? '[data-graphics]' : '[data-controls]',
-          );
+        tabs.forEach(({ button, panel }, at) => {
+          panel.hidden = at !== index;
 
-          control.setAttribute('aria-pressed', String(tab === isGraphics));
+          if (at === index) button.setAttribute('aria-current', 'page');
+          else button.removeAttribute('aria-current');
         });
       },
       { signal: screen.signal },

@@ -164,7 +164,7 @@ const startRings = [...stations]
 
 const key = [
   ['white', 'Space station'],
-  ['#fa3', 'Wreck (paint colour)'],
+  ['#fa3', 'Wreck (paint color)'],
   [fieldColors[4], 'Mixed asteroid field'],
   [fieldColors[2], 'gold field'],
   [fieldColors[1], 'amethyst field'],

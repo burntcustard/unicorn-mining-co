@@ -70,7 +70,7 @@ func main() {
 		ship.UpdateModules(gun.ModuleBase().Spec.ActivationDuration + gun.ModuleBase().Spec.ChargeDuration)
 
 		ammoID := simulation.EntityID(world)
-		ship.CargoContents = append(ship.CargoContents, objects.NewItem("autogunAmmunition", simulation.ObjectProperties{ID: &ammoID, World: world}, catalog))
+		ship.CargoContents = append(ship.CargoContents, objects.NewItem("autogunAmmo", simulation.ObjectProperties{ID: &ammoID, World: world}, catalog))
 		rockID := int64(100)
 		radius := 50.0
 		position := Vec.Create(150, -25)

@@ -8,13 +8,36 @@ body,
 h1,
 h2,
 h3,
-p {
+p,
+dl,
+dd,
+ul,
+fieldset {
   margin: 0;
 }
 
+h1,
+h2,
+h3,
+small,
+kbd,
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+
+button {
+  user-select: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+}
+
+[hidden] {
+  display: none !important;
 }

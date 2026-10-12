@@ -27,15 +27,21 @@ func TestGenerationDigestCompatibility(t *testing.T) {
 	previous := catalog
 	previous.ItemIDs = previous.ItemIDs[:5]
 	previousDigest := GenerationDigest(previous)
+	renamed := catalog
+	renamed.ItemIDs = append([]string{}, catalog.ItemIDs...)
+	renamed.ItemIDs[5] = "autogunAmmunition"
+	renamedDigest := GenerationDigest(renamed)
 
-	if !CompatibleGenerationDigest(catalog, previousDigest) || !CompatibleGenerationDigest(catalog, GenerationDigest(catalog)) {
-		t.Fatal("unchanged generation rejected after ammunition addition")
+	for _, saved := range []string{previousDigest, renamedDigest, GenerationDigest(catalog)} {
+		if !CompatibleGenerationDigest(catalog, saved) {
+			t.Fatal("unchanged generation rejected after ammo addition or rename")
+		}
 	}
 
 	for _, name := range []string{"rules", "region size", "item order", "unknown digest"} {
 		t.Run(name, func(t *testing.T) {
 			changed := catalog
-			saved := previousDigest
+			saved := []string{previousDigest, renamedDigest}
 
 			switch name {
 			case "rules":
@@ -46,11 +52,13 @@ func TestGenerationDigestCompatibility(t *testing.T) {
 				changed.ItemIDs = append([]string{}, catalog.ItemIDs...)
 				changed.ItemIDs[0], changed.ItemIDs[1] = changed.ItemIDs[1], changed.ItemIDs[0]
 			case "unknown digest":
-				saved = "unknown"
+				saved = []string{"unknown"}
 			}
 
-			if CompatibleGenerationDigest(changed, saved) {
-				t.Fatal("incompatible world accepted")
+			for _, digest := range saved {
+				if CompatibleGenerationDigest(changed, digest) {
+					t.Fatal("incompatible world accepted")
+				}
 			}
 		})
 	}

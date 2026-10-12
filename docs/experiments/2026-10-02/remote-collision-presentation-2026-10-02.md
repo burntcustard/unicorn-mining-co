@@ -34,7 +34,7 @@ still cover prediction without a pending visual correction.
 ## Reproduction and results
 
 The new `tests/remote-contact.test.ts` uses two actual `NetworkClient` instances,
-binary snapshots, delta reconstruction, receipt acknowledgements, prediction and
+binary snapshots, delta reconstruction, receipt acknowledgments, prediction and
 the TypeScript authoritative session. A moving ship bumps a fixed asteroid and
 can subsequently hit the observer. It tests observer separations of 0, 85, 110,
 160 and 400 world units, with 40 or 90 ms downstream delay and periodic 20 ms
@@ -58,7 +58,7 @@ physical bumps, changes of direction and catch-up motion still occur.
 The baseline is commit `106cee4` (the 30 Hz snapshot change). The
 [raw comparison](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-contact.json.gz)
 retains all samples, source hashes and baseline client sources. The comparison
-uses in-memory socket transport with immediate upstream input/acknowledgement
+uses in-memory socket transport with immediate upstream input/acknowledgment
 delivery, so it does not measure WAN loss, GPU rendering or browser stalls.
 The existing real WebSocket two-client prediction and bump tests separately pass.
 

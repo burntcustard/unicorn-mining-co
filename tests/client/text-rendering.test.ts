@@ -30,25 +30,26 @@ renderText({game, text: 'Aé😀m+.J', x: 50, y: 20, size: 1, align: 0, color: '
 assert.equal(Reflect.get(globalThis, 'pathAllocations'), allocations,
   'native text allocates no Path2D geometry');
 assert.deepEqual(calls.map(call => call.slice(0, 4)),
-  [['stroke', 'A□□m□□J', 0, 13], ['fill', 'A□□m□□J', 0, 13]],
+  [['stroke', 'A□□m+.J', 0, 13], ['fill', 'A□□m+.J', 0, 13]],
   'unsupported characters become boxes; supported glyphs retain paint order');
 assert.equal(calls[1][4], '#f0f');
-assert.deepEqual(calls[0].slice(5), ['16px Gemetric', 'left', 'alphabetic', 'round', 2]);
-assert.deepEqual(transforms, [[2, 2], [4.5, 20], [1, 1]],
-  'native centering retains the 13-unit advance and UI scale');
+assert.deepEqual(calls[0].slice(5), ['16px Gemetric', 'center', 'alphabetic', 'round', 2]);
+assert.deepEqual(transforms, [[2, 2], [50, 20], [1, 1]],
+  'native centering uses font metrics and retains UI scale');
 assert.deepEqual(ctx, initial, 'text restores the canvas drawing state');
 for (const align of [-1, 0, 1]) {
   transforms.length = calls.length = 0;
   renderText({game, text: '12', x: 50, y: 20, align});
-  assert.deepEqual(transforms, [[2, 2], [50 - (align + 1) * 7.8, 20], [.6, .6]]);
+  assert.deepEqual(transforms, [[2, 2], [50, 20], [.6, .6]]);
+  assert.equal(calls[0][6], ['left', 'center', 'right'][align + 1]);
   assert.equal(calls[1][4], '#fff');
 }
 transforms.length = calls.length = 0;
 renderText({game, text: 'aΩ🦄? □', x: 50, y: 20, size: 1, align: 0});
 assert.equal(calls[1][1], 'aΩ🦄□ □',
   'new glyphs render automatically, spaces stay blank and boxes render directly');
-assert.deepEqual(transforms, [[2, 2], [11, 20], [1, 1]],
-  'non-BMP glyphs occupy one cell when centering text');
+assert.deepEqual(transforms, [[2, 2], [50, 20], [1, 1]],
+  'native alignment handles non-BMP glyphs');
 const path = new Path2D('M0 0L10 0');
 const outline = radius => {
   strokes.length = 0;

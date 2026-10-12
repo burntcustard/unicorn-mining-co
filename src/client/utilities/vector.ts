@@ -1,6 +1,6 @@
 /*
  * The game vector operations are based on Kontra vector.js, available under
- * the MIT licence: https://github.com/straker/kontra/blob/main/src/vector.js
+ * the MIT license: https://github.com/straker/kontra/blob/main/src/vector.js
  */
 
 export type Value = { x: number; y: number };

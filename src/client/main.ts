@@ -1,8 +1,5 @@
 import { ui } from './ui/dom/ui';
 import { createMainMenu } from './ui/dom/main-menu';
-import { createSettings } from './ui/dom/settings';
-import { createCredits } from './ui/dom/credits';
-import { createSaves } from './ui/dom/saves';
 import { graphics, restoreGraphics } from './ui/dom/graphics';
 
 window.addEventListener('ui-graphics', restoreGraphics);
@@ -38,12 +35,17 @@ const renderSky = () => {
 window.addEventListener('resize', renderSky);
 window.addEventListener('ui-graphics', renderSky);
 
-const navigate = (destination: string) => {
-  if (destination === 'settings') ui.push(createSettings());
+const navigate = async (destination: string) => {
+  const menu = ui.current;
+  const { default: screens } = await import('./ui/dom/menu-screens');
 
-  if (destination === 'credits') ui.push(createCredits());
+  if (ui.current !== menu) return;
 
-  if (destination === 'saves') ui.push(createSaves());
+  if (destination === 'settings') ui.push(screens.createSettings());
+
+  if (destination === 'credits') ui.push(screens.createCredits());
+
+  if (destination === 'saves') ui.push(screens.createSaves());
 };
 
 const showMainMenu = () =>
@@ -60,23 +62,10 @@ const showMainMenu = () =>
     }),
   );
 
-const menuButton = document.createElement('button');
-
-menuButton.className = 'ui-choice ui-game-menu';
-menuButton.textContent = 'MENU';
-menuButton.hidden = true;
-document.body.append(menuButton);
-menuButton.addEventListener('click', showMainMenu);
-
-window.addEventListener('ui-navigation', () => {
-  menuButton.hidden = !gameplay || Boolean(ui.current);
-});
-
-window.addEventListener('ui-main-menu', showMainMenu);
-
 window.addEventListener('keydown', (event) => {
   if (
     event.key === 'Escape' &&
+    !event.repeat &&
     !event.defaultPrevented &&
     !ui.current &&
     gameplay

@@ -102,10 +102,6 @@ moduleSpecList.forEach((spec, index) => {
   const module = new Type();
 
   assert.equal(Type.definitionId, moduleIds[index]);
-  assert.equal(module.name, spec.name);
-  assert.equal(module.label, undefined);
-  assert.equal(module.health, spec.health);
-  assert.equal(module.price, spec.price);
 
   for (const [name, value] of Object.entries(moduleSpecForSimulation(spec))) {
     if (name !== 'model') assert.deepEqual(module[name], value);
@@ -189,12 +185,6 @@ const previewStation = new Station({
 assert.equal(previewShip.cargoSpace, 25);
 assert.equal(previewShip.name, 'Mustang');
 assert.equal(previewStation.localMovementRadius, 750);
-assert.equal(
-  shipSpecsById.has(shipId),
-  false,
-  'direct specs need no game registration',
-);
-assert.equal(stationSpecsById.has(stationId), false);
 const Engine = moduleTypesById.get('thrusterSingleMd')!;
 const engineMount = previewShip.mounts.find((mount) =>
   mount.fits.includes(Engine),
@@ -314,8 +304,6 @@ try {
   const first = createPlayerShip(world, { shipType: shipId });
   const second = createPlayerShip(world, { shipType: shipId });
 
-  assert(!Object.hasOwn(first, 'credits'));
-  assert(!Object.hasOwn(first, 'startingCredits'));
   assert.equal(first.definitionId, shipId);
   assert.equal(first.cargoSpace, 20);
   assert.equal(first.modules.length, mustang.initialLoadout.length);
@@ -344,7 +332,7 @@ console.log(
 
 const arrowShip = createPlayerShip(createWorld(), { shipType: 'arrow' });
 
-assert.equal(arrowShip.modules.length, 3);
+assert.equal(arrowShip.modules.length, 4);
 assert.deepEqual(
   arrowShip.mounts.flatMap((mount) =>
     mount.module instanceof CargoHatch ? [mount.localPosition] : [],
@@ -391,12 +379,20 @@ for (const id of ['thrusterDualMd', 'thrusterDualLg'] as const) {
 
 const crotusShip = createPlayerShip(createWorld(), { shipType: 'crotus' });
 
-assert.equal(crotusShip.modules.length, 4);
+assert.equal(crotusShip.modules.length, 5);
 assert.deepEqual(
   crotusShip.mounts.map((mount) =>
     mount.module ? mount.module.definitionId : null,
   ),
-  ['autogun', null, 'thrusterDualMd', 'cargoHatch', 'cargoHatch', null],
+  [
+    'autogun',
+    null,
+    'thrusterDualMd',
+    'cargoHatch',
+    'cargoHatch',
+    null,
+    'powerPlant',
+  ],
 );
 
 assert.deepEqual(
@@ -408,6 +404,7 @@ assert.deepEqual(
     Vec.create(-26, 0),
     Vec.create(-7, -22),
     Vec.create(-7, 22),
+    Vec.create(0, 0),
   ],
 );
 

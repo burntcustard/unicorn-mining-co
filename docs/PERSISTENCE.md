@@ -101,11 +101,15 @@ The database has one owner: another game server using the same
 file fails with a lock error rather than overwriting live state.
 
 The seed and a digest of generation rules are checked on startup. The catalog
-upgrade that appended autogun ammunition accepts the previous five-item
-digest because procedural resource indices did not change. The next world save
+upgrades that appended autogun ammo and renamed its ID to `autogunAmmo` accept
+the previous five-item and six-item digests because procedural resource indices
+did not change. Older player cargo IDs are translated when restored. The next world save
 records the current digest while preserving player and entity records. Changing
 `WORLD_SEED` or generation rules requires a fresh world database; an incompatible
 database never silently creates a fresh world.
+
+New stations start with 300 autogun ammo packs. Saved stations restore their
+inventory as saved, including partial or empty ammo supplies.
 
 ## Fly deployment
 

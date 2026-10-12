@@ -19,8 +19,8 @@ writer queue, WebSocket framing and TCP connection over loopback.
 The Go server and Node `ws` clients run in separate processes. Each exchange
 sends one deterministic binary frame to every client. Each client verifies the
 entire payload and strictly increasing sequence, then sends two separate masked
-32-byte frames: an input and an acknowledgement. The server waits for all
-acknowledgements before advancing. Every run validates all frames, including
+32-byte frames: an input and an acknowledgment. The server waits for all
+acknowledgments before advancing. Every run validates all frames, including
 warmup, without missing, duplicated, reordered or corrupted payloads.
 
 The retained comparison uses five alternating before/after repetitions for each
@@ -29,7 +29,7 @@ measured exchanges; and 2,048-byte payloads at 30 Hz for 150 measured exchanges.
 Each case first completes 120 unpaced warmup exchanges. CPU is server-process
 user plus system time from `getrusage`, normalized per exchange. Client CPU,
 startup, connection upgrades and warmup are excluded. Allocation counts come
-from `runtime.MemStats`; latency spans enqueue through the last acknowledgement.
+from `runtime.MemStats`; latency spans enqueue through the last acknowledgment.
 
 Host: Intel Core Ultra X7 358H, Linux, Go 1.27.1 with `GOEXPERIMENT=simd`.
 Both server executables use the same supplied production PGO profile, `GOGC=800`

@@ -25,4 +25,4 @@ Recent investigations are grouped by measurement date. Use [benchmarking](../../
 
 ## Earlier work
 
-Reports and results before 1 October 2026 are in the [September archive](../../benchmarking/archive/README.md#september-2026). Its catalogue lists the reports without requiring extraction.
+Reports and results before 1 October 2026 are in the [September archive](../../benchmarking/archive/README.md#september-2026). Its catalog lists the reports without requiring extraction.

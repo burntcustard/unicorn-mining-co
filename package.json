@@ -40,9 +40,10 @@
     "typecheck": "tsc --noEmit",
     "viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
     "world-preview": "node scripts/world-preview.ts",
-    "test:ui": "node --import tsx scripts/check-ui.mjs"
+    "test:ui": "node --import tsx scripts/check-ui.ts"
   },
   "devDependencies": {
+    "@fullhuman/postcss-purgecss": "^8.0.0",
     "@types/clipper-lib": "6.4.0",
     "@types/ws": "^8.18.1",
     "clipper-lib": "6.4.2",

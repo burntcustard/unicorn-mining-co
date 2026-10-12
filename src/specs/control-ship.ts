@@ -1,4 +1,8 @@
 export const flight = {
+  lowFuelThreshold: 0.05,
+  lowFuelSpeed: 0.5,
+  lowFuelUsage: 0.25,
+  fuelPrice: 0.2,
   thrustScale: 220,
   steeringEase: 0.5,
   spinDivisor: 16,

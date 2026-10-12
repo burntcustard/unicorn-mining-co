@@ -11,6 +11,10 @@ type Motion struct {
 }
 
 type Flight struct {
+	LowFuelThreshold    float64 `json:"lowFuelThreshold"`
+	LowFuelSpeed        float64 `json:"lowFuelSpeed"`
+	LowFuelUsage        float64 `json:"lowFuelUsage"`
+	FuelPrice           float64 `json:"fuelPrice"`
 	ThrustScale         float64 `json:"thrustScale"`
 	SteeringEase        float64 `json:"steeringEase"`
 	SpinDivisor         float64 `json:"spinDivisor"`

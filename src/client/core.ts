@@ -5,7 +5,7 @@ declare global {
 /* global canvas */
 
 /**
- * Based on Kontra core.js, available under the MIT licence:
+ * Based on Kontra core.js, available under the MIT license:
  * https://github.com/straker/kontra/blob/main/src/core.js
  */
 

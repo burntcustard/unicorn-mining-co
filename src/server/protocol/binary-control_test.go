@@ -13,13 +13,13 @@ import (
 type controlFixture struct {
 	Client []struct {
 		Message struct {
-			Type, PlayerToken              string
-			Tick, Sequence                 uint64
-			Input                          Input
-			Offset                         float64
-			Action                         string
-			Module, ModuleID, Mount, Paint int64
-			ObjectIDs                      []int64
+			Type, PlayerToken                         string
+			Tick, Sequence                            uint64
+			Input                                     Input
+			Offset                                    float64
+			Action                                    string
+			Module, ModuleID, Mount, Paint, HullIndex int64
+			ObjectIDs                                 []int64
 		}
 		Hex string
 	}
@@ -80,7 +80,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 				t.Errorf("input: %+v vs %+v", got, fixture.Message)
 			}
 		case "dock":
-			if got.Dock.Action != fixture.Message.Action || got.Dock.Module != fixture.Message.Module || got.Dock.ModuleID != fixture.Message.ModuleID || got.Dock.Mount != fixture.Message.Mount || got.Dock.Paint != fixture.Message.Paint || !reflect.DeepEqual(got.Dock.ObjectIDs, fixture.Message.ObjectIDs) {
+			if got.Dock.Action != fixture.Message.Action || got.Dock.Module != fixture.Message.Module || got.Dock.ModuleID != fixture.Message.ModuleID || got.Dock.Mount != fixture.Message.Mount || got.Dock.Paint != fixture.Message.Paint || got.Dock.HullIndex != fixture.Message.HullIndex || !reflect.DeepEqual(got.Dock.ObjectIDs, fixture.Message.ObjectIDs) {
 				t.Errorf("dock: %+v vs %+v", got.Dock, fixture.Message)
 			}
 		case "snapshotAck":

@@ -97,11 +97,34 @@ function compare(a: unknown, b: unknown, path: string) {
   }
 
   if (a && b && typeof a === 'object' && typeof b === 'object') {
-    assert.deepEqual(Object.keys(a).sort(), Object.keys(b).sort(), path);
+    const actual = a as Record<string, unknown>;
+    const archived = b as Record<string, unknown>;
+    const legacyFuel =
+      actual.kind === 'ship' &&
+      archived.kind === 'ship' &&
+      !('fuel' in archived);
+
+    // The archive predates fuel. Require valid fuel on current ships; exact
+    // consumption, refueling, and replication are covered by the fuel tests.
+    if (legacyFuel) {
+      assert(
+        typeof actual.fuel === 'number' &&
+          Number.isFinite(actual.fuel) &&
+          actual.fuel >= 0,
+        `${path}.fuel`,
+      );
+    }
+
+    assert.deepEqual(
+      Object.keys(a)
+        .filter((key) => !legacyFuel || key !== 'fuel')
+        .sort(),
+      Object.keys(b).sort(),
+      path,
+    );
 
     for (const key of Object.keys(a)) {
-      const actual = a as Record<string, unknown>;
-      const archived = b as Record<string, unknown>;
+      if (legacyFuel && key === 'fuel') continue;
 
       // The archive snapped docked ships to the station angle. Arrival-angle
       // preservation is covered by the client and Go docking regressions.
@@ -159,7 +182,14 @@ function snapshots() {
       entities.set(entity.id, state);
     }
 
-    const { snapshotSequence: _, entityIds: __, ...metadata } = message;
+    const {
+      snapshotSequence: _,
+      entityIds: __,
+      acknowledgedDockSequence: ___,
+      credits: ____,
+      dockIds: _____,
+      ...metadata
+    } = message;
 
     return {
       ...metadata,
@@ -179,6 +209,7 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
   const archivedState = snapshots();
   let previous: ReturnType<typeof actualState>;
   let rejectedActions = 0;
+  let credits = 2000;
 
   const actualPackets = go[id].packets.flatMap((packet: string) => {
     const message = decoded(packet);
@@ -193,6 +224,8 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
 
     if (message.type === 'progress') {
       assert.equal(id, '4');
+      assert.notEqual(message.credits, undefined);
+      credits = message.credits!;
 
       progress.push({
         unlockedPaints: message.unlockedPaints,
@@ -200,6 +233,14 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
       });
 
       return [];
+    }
+
+    if (message.type === 'load' || message.type === 'snapshot') {
+      // The archive has unsequenced dock requests. Verify the new snapshot
+      // account metadata before comparing its historical gameplay state.
+      assert.equal(message.acknowledgedDockSequence, 0);
+      assert.deepEqual(message.dockIds, []);
+      assert.equal(message.credits, credits);
     }
 
     // The occupied-mount equip and locked module paint now explicitly reject

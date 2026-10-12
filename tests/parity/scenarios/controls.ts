@@ -34,12 +34,16 @@ const client: ClientMessage[] = [
     moduleId: -Number.MAX_SAFE_INTEGER,
   },
   { type: 'dock', action: 'sell', objectIds: [-3, 9, 128] },
+  { type: 'dock', action: 'buyStock', objectIds: [42] },
   { type: 'dock', action: 'equip', moduleId: -15, mount: 5 },
   { type: 'dock', action: 'remove', mount: 4 },
   { type: 'dock', action: 'paint', paint: 6, moduleId: -22, mount: 2 },
   { type: 'dock', action: 'repair', moduleId: -22 },
+  { type: 'dock', action: 'repairHull', hullIndex: 4 },
+  { type: 'dock', action: 'refuel' },
   { type: 'respawn' },
   { type: 'snapshotAck', sequence: 16384 },
+  { type: 'activity' },
 ];
 
 const server = [

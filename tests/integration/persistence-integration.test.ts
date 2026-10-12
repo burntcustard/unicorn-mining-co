@@ -113,7 +113,6 @@ async function join(address: string, token: string | null) {
         );
 
         if (!ship || welcome.credits === undefined) return;
-        assert(!Object.hasOwn(ship, 'credits'));
 
         resolvePlayer({
           token: welcome.playerToken,

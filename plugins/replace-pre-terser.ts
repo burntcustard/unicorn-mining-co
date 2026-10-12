@@ -1,3 +1,5 @@
+import { parseAst } from 'rolldown/parseAst';
+import type { Node } from '@oxc-project/types';
 import { propertyNames } from './property-names.ts';
 import { protocolTags, encodeProtocolTags } from './protocol-tags.ts';
 
@@ -31,7 +33,7 @@ const propertyNamePattern = new RegExp(
   'g',
 );
 const propertyPattern = new RegExp(
-  String.raw`(["'])(?:\\.|(?!\1)[^\\\r\n])*\1|\b(?:export\s+)?function\s+distance\b|\bVec\.distance\b|\b(${propertyNames.join('|')})\b`,
+  String.raw`(["'])(?:\\.|(?!\1)[^\\\r\n])*\1|\b(?:export\s+)?function\s+distance\b|\bVec\.distance\b|\bclassList\s*\.\s*(?:contains|remove|toggle)\b|\b(${propertyNames.join('|')})\b`,
   'g',
 );
 
@@ -41,8 +43,44 @@ const propertyPattern = new RegExp(
 export const replacePreTerser = (
   src: string,
   { preserveStrings = false }: { preserveStrings?: boolean } = {},
-) =>
-  src
+) => {
+  // HTML quotes inside template text must not hide JavaScript interpolations
+  // from the property rewrite. Protect only the literal spans, not expressions.
+  const literals: string[] = [];
+
+  if (src.includes('/') || (preserveStrings && src.includes('`'))) {
+    const spans: { start: number; end: number }[] = [];
+
+    const visit = (node: Node) => {
+      if (
+        (preserveStrings && node.type === 'TemplateElement') ||
+        (node.type === 'Literal' && 'regex' in node)
+      ) {
+        spans.push(node);
+      }
+
+      Object.values(node).forEach((value) => {
+        if (Array.isArray(value)) {
+          value.forEach((child) => {
+            if (child?.type) visit(child);
+          });
+        } else if (value?.type) visit(value);
+      });
+    };
+
+    visit(parseAst(src));
+
+    spans
+      .sort((a, b) => b.start - a.start)
+      .forEach((span) => {
+        const token = `__UI_LITERAL_${literals.length}__`;
+
+        literals.push(src.slice(span.start, span.end));
+        src = src.slice(0, span.start) + token + src.slice(span.end);
+      });
+  }
+
+  return src
     .replace(
       tagPattern,
       (_, quote, tag) =>
@@ -50,10 +88,12 @@ export const replacePreTerser = (
     )
     .replace(propertyPattern, (match, quote, name) => {
       if (quote) {
-        return preserveStrings || match.includes('/') || /[:-]/.test(match)
+        return preserveStrings || match.includes('/') || /[:-]|\s/.test(match)
           ? match
           : match.replace(propertyNamePattern, (property) => `_${property}`);
       }
 
       return name ? `_${name}` : match;
-    });
+    })
+    .replace(/__UI_LITERAL_(\d+)__/g, (_, index) => literals[Number(index)]);
+};

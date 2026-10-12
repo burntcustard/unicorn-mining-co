@@ -240,7 +240,7 @@ func TestGameServerInputEdgesBetweenTicks(t *testing.T) {
 	acknowledged, err := binary.ReadUvarint(header)
 
 	if err != nil || acknowledged != 2 {
-		t.Fatalf("queued input acknowledgement: %d %v", acknowledged, err)
+		t.Fatalf("queued input acknowledgment: %d %v", acknowledged, err)
 	}
 
 	if err := game.Stop(context.Background()); err != nil {

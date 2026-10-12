@@ -156,7 +156,7 @@ for (const production of [false, true]) {
   pending.splice(0).forEach((resolve) => resolve());
   await Promise.resolve();
 
-  // Hold the same world position at the centre, as the camera does on zoom.
+  // Hold the same world position at the center, as the camera does on zoom.
   // The first layer's texture coordinate there must survive zoom and resize.
   for (const [width, height, scale] of [
     [1080, 1080, 1],

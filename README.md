@@ -100,17 +100,23 @@ Oxfmt. `npm run format:check` checks them without writing changes. Oxfmt reads
 formatting and the broader checks used by `npm run lint`. These commands use the
 npm dependencies and do not require Go.
 
+Use American English (`en-US`) throughout game text, identifiers, comments, tests,
+and documentation. Specify `en-US` explicitly for locale-sensitive formatting.
+
 CSS in `src` and `font` is checked by Stylelint using `.stylelintrc.json`.
 Leave blank lines between CSS rules and at-rule blocks, including nested rules;
 keep comments with the block they describe. `npm run lint` and
 `npm run format:check` enforce this, while `npm run format` and
 `npm run lint:fix` fix it automatically. Use `npm run lint:css` to check CSS alone.
+Use the `text-xs`, `text-sm`, `text-lg`, and `text-xl` utility classes for game UI
+font sizes, inheriting the base size when no size class is needed. Keep font-size
+declarations in the utilities stylesheet rather than component CSS.
 Use `rem` for font sizes, including the `font` shorthand; responsive `clamp()`
 values may use `vw` between their `rem` limits. Stylelint rejects pixel font sizes.
 Leave cursors to the browser; Stylelint rejects all `cursor` declarations.
 The current UI targets desktop and uses no media queries.
 Shared browser resets belong in `src/reset.css`, imported before the game and tool
-styles. Keep colours, typography choices, and layout in their own stylesheets.
+styles. Keep colors, typography choices, and layout in their own stylesheets.
 
 Format Go source separately with `npm run format:go`, or check it with
 `npm run format:go:check`. Both Go commands require `go` on PATH. They apply
@@ -124,6 +130,9 @@ declarations, and control-flow blocks, including inside function bodies.
 `GOEXPERIMENT=simd`. `npm run build:client` type-checks and builds browser assets;
 `npm run build:server` generates the catalog and compiles Go.
 The full build generates the catalog once, during the server build.
+Production CSS passes through PurgeCSS, scanning client HTML, TypeScript, SVGs, and
+shared specs so lazy screens and dynamically created rows keep their styles.
+Unused utilities remain available in source and development builds.
 The browser build warns when a chunk exceeds 14 KB gzipped; see
 [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading tiers.
 
@@ -181,7 +190,7 @@ measured checkout.
 
 ### Current references
 
-- [Client chunk loading and protocol delivery](docs/CHUNK_LOADING.md)
+- [Client chunk loading](docs/CHUNK_LOADING.md)
 - [Code terminology](docs/terminology.md)
 - [Todo](docs/todo.md)
 - [Ideas](docs/ideas.md)

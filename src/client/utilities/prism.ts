@@ -69,7 +69,7 @@ const fillOf = (
  * Neighbouring rays that went into the same rock make one sheet of light. Where
  * they leave it is taken as one straight line square to the way they are headed,
  * set back far enough that the rock itself covers where the stripes begin, and
- * that line is cut across into equal stripes, one a colour, each thrown out
+ * that line is cut across into equal stripes, one a color, each thrown out
  * along its own share of a fan opened around the way the sheet was already
  * going. It is a picture of a prism rather than a simulation of one: solid
  * stripes, all the same width, fanning out from one place.
@@ -110,7 +110,7 @@ const flipMargin = 0.01;
 // How far past the width it started at a sheet is ever allowed to open out.
 // However hard a rock bends the light, a beam squeezed to a sliver on its way
 // through only has a sliver of light to split, and a rainbow that opened out of
-// all proportion to it would be colour coming from nowhere
+// all proportion to it would be color coming from nowhere
 const spreading = 1.2;
 
 // Narrower than this and a sheet is a thread a pixel or so across, too thin to
@@ -465,12 +465,12 @@ export const drawInside = (
 
 /**
  * The rainbow: each sheet of light leaving a rock, cut across its width into as
- * many equal stripes as there are colours. Stripes are laid down side by side
+ * many equal stripes as there are colors. Stripes are laid down side by side
  * and added rather than overlapped, so where two of them meet the half of a
  * pixel each covers adds up to the whole of it, with no bright seam between
  * them and no thread of background showing through either. Sheets crossing one
  * another add up the same way: each is light, and light fades to nothing rather
- * than to a colour, so neither can take anything away from the other.
+ * than to a color, so neither can take anything away from the other.
  */
 export const drawSpectrum = (
   ctx: CanvasRenderingContext2D,
@@ -523,7 +523,7 @@ export const drawSpectrum = (
     const root = near[spectrum.length >> 1];
     const tip = Vec.addScaled(root, away, length);
 
-    // Violet is bent furthest, so it belongs on the side the rock bent towards
+    // Violet is bent furthest, so it belongs on the side the rock bent toward
     spectrum.forEach((_, band) => {
       ctx.fillStyle = fillOf(
         ctx,

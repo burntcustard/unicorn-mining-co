@@ -1,6 +1,6 @@
 /**
  * Each set of shades contains damage, module fill, hull/line, shadow and highlight
- * colours. Shades are picked by eye to suit each hue.
+ * colors. Shades are picked by eye to suit each hue.
  */
 type Shades = readonly [string, string, string, string, string];
 
@@ -14,7 +14,7 @@ export const colors = {
   violet: ['#c2c', '#d3d', '#e6f', '#427', '#e6f'],
   purple: ['#102', '#213', '#325', '#001', '#647'],
   white: ['#ddd', '#eee', '#fff', '#33c', '#f8d'],
-  grey: ['#778', '#99a', '#bbc', '#334', '#eef'],
+  gray: ['#778', '#99a', '#bbc', '#334', '#eef'],
   black: ['#000', '#111', '#222', '#879', '#200'],
 } as const satisfies Record<string, Shades>;
 

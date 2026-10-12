@@ -5,12 +5,14 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"slices"
 )
 
 type Station struct {
 	*Craft
 	LocalMovementRadius float64
 	DockingBays         []float64
+	moduleSellers       map[int64]int64
 }
 
 func newStation(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Station {
@@ -70,6 +72,18 @@ func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
 	station.DockingBays = d.DockingBays
 	station.ZIndex = d.ZIndex
 	station.LocalMovementRadius = d.LocalMovementRadius
+
+	if props.CargoContents == nil && station.World != nil {
+		station.World.NextEntityID = max(station.World.NextEntityID, station.ID+1)
+
+		for _, entry := range d.InitialCargoContents {
+			for range entry.Count {
+				id := simulation.EntityID(station.World)
+				station.CargoContents = append(station.CargoContents, NewItem(entry.Item, simulation.ObjectProperties{World: station.World, ID: &id}, catalog))
+			}
+		}
+	}
+
 	return station
 }
 
@@ -79,4 +93,33 @@ func CreateStation(props Properties, catalog specs.Catalog) *Station {
 	}
 
 	return NewStation(props.DefinitionID, props, catalog)
+}
+
+// Sold modules are available only until their seller ends the docking visit.
+func (s *Station) EndTradeVisit(shipID int64) {
+	s.CargoContents = slices.DeleteFunc(s.CargoContents, func(e simulation.Entity) bool {
+		if s.moduleSellers[e.Base().ID] != shipID {
+			return false
+		}
+
+		delete(s.moduleSellers, e.Base().ID)
+		return true
+	})
+}
+
+func (c *Craft) TradeStation() *Station {
+	if c.DockedTo != nil && c.World != nil {
+		if entity, ok := c.World.Entities.Get(*c.DockedTo); ok {
+			station, _ := entity.(*Station)
+			return station
+		}
+	}
+
+	return nil
+}
+
+func (c *Craft) EndTradeVisit() {
+	if station := c.TradeStation(); station != nil {
+		station.EndTradeVisit(c.ID)
+	}
 }

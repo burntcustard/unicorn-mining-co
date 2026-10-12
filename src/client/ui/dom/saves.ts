@@ -28,7 +28,7 @@ export const createSaves = () => {
       const visible = privateId.getAttribute('type') === 'password';
 
       privateId.setAttribute('type', visible ? 'text' : 'password');
-      reveal.textContent = visible ? 'HIDE' : 'REVEAL';
+      reveal.textContent = visible ? 'Hide' : 'Reveal';
       reveal.setAttribute('aria-pressed', String(visible));
     },
     { signal: screen.signal },
@@ -43,7 +43,7 @@ export const createSaves = () => {
       } catch {
         privateId.setAttribute('type', 'text');
         privateId.select();
-        reveal.textContent = 'HIDE';
+        reveal.textContent = 'Hide';
         reveal.setAttribute('aria-pressed', 'true');
         status.textContent =
           'Copy is unavailable. Select and copy your private ID manually.';
@@ -122,7 +122,7 @@ export const createSaves = () => {
             'Storage is unavailable. Your identity was not changed.';
         }
       } else {
-        status.textContent = 'Import cancelled. Your identity is unchanged.';
+        status.textContent = 'Import canceled. Your identity is unchanged.';
       }
 
       verifiedId = '';

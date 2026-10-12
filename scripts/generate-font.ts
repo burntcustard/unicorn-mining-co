@@ -5,7 +5,8 @@ import ClipperLib from 'clipper-lib';
 import { Font, woff2, type TTF } from 'fonteditor-core';
 import { glyphPaths } from '../font/glyph-paths.ts';
 
-// Eight font units per path unit: 16px em, 13px advance, 13px baseline.
+// Eight font units per path unit: 16px em, 13px baseline.
+// Letters and digits advance 13px; decimal and grouping separators use 6px.
 // A 1/8-unit grid keeps the approved appearance while reducing coordinate bytes.
 const precision = 8;
 
@@ -121,6 +122,7 @@ export async function generateFont() {
     const xs = points.map(({ x }) => x);
     const ys = points.map(({ y }) => y);
     const xMin = points.length ? Math.min(...xs) : 0;
+    const punctuation = character === '.' || character === ',';
 
     return {
       name: character || '.notdef',
@@ -134,8 +136,8 @@ export async function generateFont() {
       yMin: points.length ? Math.min(...ys) : 0,
       xMax: points.length ? Math.max(...xs) - xMin : 0,
       yMax: points.length ? Math.max(...ys) : 0,
-      advanceWidth: 13 * precision,
-      leftSideBearing: xMin,
+      advanceWidth: (punctuation ? 6 : 13) * precision,
+      leftSideBearing: xMin - (punctuation ? 2 * precision : 0),
     };
   });
 
@@ -150,6 +152,9 @@ export async function generateFont() {
     lineGap: 0,
   });
 
+  // Unhinted TrueType fonts still require one zone; the writer defaults to zero.
+  data.maxp.maxZones = 1;
+
   // The writer encodes omitted numeric fields as zero. Avoid its sample-font
   // defaults for subscripts, superscripts, vendor names and optional metadata.
   Object.assign(data, {
@@ -159,7 +164,7 @@ export async function generateFont() {
       fsSelection: 64,
       bFamilyType: 2,
       bWeight: 5,
-      bProportion: 9,
+      bProportion: 0,
       ulUnicodeRange1: 1,
       achVendID: '    ',
       sTypoAscender: data.hhea.ascent,
@@ -167,7 +172,7 @@ export async function generateFont() {
       usWinAscent: 14 * precision,
       usWinDescent: 3 * precision,
     },
-    post: { format: 3, isFixedPitch: 1 },
+    post: { format: 3, isFixedPitch: 0 },
   });
 
   await woff2.init();

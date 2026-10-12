@@ -20,6 +20,7 @@ type Input struct {
 type DockAction struct {
 	Action                         string
 	Module, ModuleID, Mount, Paint int64
+	HullIndex                      int64
 	ObjectIDs                      []int64
 	HasModuleID, HasMount          bool
 }
@@ -252,6 +253,8 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 		}
 
 		switch int(action) {
+		case ids.DockActionIDs["refuel"]:
+			message.Dock.Action = "refuel"
 		case ids.DockActionIDs["buyAmmo"]:
 			message.Dock.Action = "buyAmmo"
 		case ids.DockActionIDs["buy"]:
@@ -269,8 +272,13 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 			if err != nil {
 				return Control{}, err
 			}
-		case ids.DockActionIDs["sell"]:
+		case ids.DockActionIDs["sell"], ids.DockActionIDs["buyStock"]:
 			message.Dock.Action = "sell"
+
+			if int(action) == ids.DockActionIDs["buyStock"] {
+				message.Dock.Action = "buyStock"
+			}
+
 			count, err := r.byte()
 
 			if err != nil || count < 1 || count > 100 {
@@ -313,6 +321,15 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 			}
 
 			message.Dock.Mount = int64(value)
+		case ids.DockActionIDs["repairHull"]:
+			value, err := r.unsigned()
+
+			if err != nil {
+				return Control{}, err
+			}
+
+			message.Dock.Action = "repairHull"
+			message.Dock.HullIndex = int64(value)
 		case ids.DockActionIDs["paint"], ids.DockActionIDs["repair"]:
 			if int(action) == ids.DockActionIDs["paint"] {
 				message.Dock.Action = "paint"
@@ -355,8 +372,18 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 		default:
 			return Control{}, ErrControl
 		}
+
+		if r.offset < len(data) {
+			message.Sequence, err = r.unsigned()
+
+			if err != nil {
+				return Control{}, err
+			}
+		}
 	case ids.ControlMessageIDs["respawn"]:
 		message.Type = "respawn"
+	case ids.ControlMessageIDs["activity"]:
+		message.Type = "activity"
 	case ids.ControlMessageIDs["snapshotAck"]:
 		message.Type = "snapshotAck"
 		var err error

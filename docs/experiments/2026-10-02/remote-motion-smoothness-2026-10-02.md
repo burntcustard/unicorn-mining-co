@@ -41,7 +41,7 @@ Both servers previously allowed just two unacknowledged snapshots, limiting
 expand to nine after an ordinary snapshot receipt demonstrates a round trip
 within eight simulation ticks. The extra slot covers tick phasing. Slower
 receipts reduce the window to two again; initial loads do not qualify for
-expansion. Existing byte-buffer limits, cumulative acknowledgement validation,
+expansion. Existing byte-buffer limits, cumulative acknowledgment validation,
 connection resets and delta-baseline rules continue to apply.
 
 ## Validation workloads
@@ -53,7 +53,7 @@ The fixed handoff permits no backwards movement, no speed above 1.51 times the
 flight speed, and no frame-to-frame speed change above 30% of flight speed.
 
 `tests/remote-perspectives.test.ts` uses real clients, binary deltas,
-acknowledgements, prediction and the TypeScript authoritative session. Every
+acknowledgments, prediction and the TypeScript authoritative session. Every
 client's view of every other player is sampled. Paired ships encounter heavy
 asteroids, then turn and can bump into other ships. Transport preserves FIFO in
 both directions and varies latency by client. Profiles cover steady 80–160 ms

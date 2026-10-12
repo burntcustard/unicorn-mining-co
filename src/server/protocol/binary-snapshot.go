@@ -62,6 +62,9 @@ type Snapshot struct {
 	MembershipChanged  bool
 	Tick, NextEntityID uint64
 	Ack, Sequence      *uint64
+	DockSequence       *uint64
+	Credits            *float64
+	DockIDs            [][2]int64
 	InputLead          *int64
 	EntityIDs          []uint64
 	Records            []EntityRecord
@@ -365,12 +368,12 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 }
 
 func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) error {
-	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.Rounds {
+	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.Fuel {
 		return ErrSnapshot
 	}
 
 	if value.Values != nil {
-		if len(value.Values) > protocol.BinaryFieldIDs.Rounds {
+		if len(value.Values) > protocol.BinaryFieldIDs.Fuel {
 			return ErrSnapshot
 		}
 
@@ -378,7 +381,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 		w.unsigned(uint64(len(value.Values)))
 
 		for _, field := range value.Values {
-			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.Rounds {
+			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.Fuel {
 				return ErrSnapshot
 			}
 
@@ -415,7 +418,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 	}
 
 	for _, id := range ids {
-		if id < 1 || id > protocol.BinaryFieldIDs.Rounds {
+		if id < 1 || id > protocol.BinaryFieldIDs.Fuel {
 			return ErrSnapshot
 		}
 
@@ -447,6 +450,10 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol)
 		return nil, ErrSnapshot
 	}
 
+	if value.DockSequence != nil && (value.Credits == nil || *value.Credits < 0 || math.IsNaN(*value.Credits) || math.IsInf(*value.Credits, 0)) {
+		return nil, ErrSnapshot
+	}
+
 	w := writer{data: destination}
 	var flags byte
 
@@ -470,6 +477,10 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol)
 		flags |= 16
 	}
 
+	if value.DockSequence != nil {
+		flags |= 32
+	}
+
 	w.data = append(w.data, 0x55, 0x4d, 1, flags)
 	w.unsigned(value.Tick)
 	w.unsigned(value.NextEntityID)
@@ -484,6 +495,17 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol)
 
 	if value.Sequence != nil {
 		w.unsigned(*value.Sequence)
+	}
+
+	if value.DockSequence != nil {
+		w.unsigned(*value.DockSequence)
+		w.number(*value.Credits)
+		w.unsigned(uint64(len(value.DockIDs)))
+
+		for _, pair := range value.DockIDs {
+			w.signed(pair[0])
+			w.signed(pair[1])
+		}
 	}
 
 	if flags&2 != 0 {

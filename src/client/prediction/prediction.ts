@@ -277,6 +277,10 @@ export class PredictionManager {
     return { input: value, changes: this.localInputs.get(tick) || [] };
   }
 
+  invalidateFrame() {
+    this.frame.reset();
+  }
+
   predictFrame({ elapsed }: { elapsed: number }) {
     return this.localPlayerId === undefined
       ? this.world
@@ -460,7 +464,10 @@ export class PredictionManager {
         entities,
         entityIds,
         entityTicks,
-        exclude: own?.id,
+        // Several dock actions can change cargo within one simulation tick.
+        // Matching that tick's old checkpoint does not mean the displayed
+        // inventory already contains the latest confirmed transaction.
+        exclude: own?.dockedTo ? undefined : own?.id,
         catchUp: targetTick - tick,
       });
 

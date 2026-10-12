@@ -73,6 +73,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	token, id, shipID := p.profile.ID, p.playerID, p.shipID
 	p.ship.Position = Vec.Create(1234, 2345)
 	p.profile.Credits = 9876
+	p.ship.Fuel = 3.25
 	p.ship.Mounts()[0].Health -= 7
 	p.ship.CargoContents = append(p.ship.CargoContents, objects.NewItem("diamond", simulation.ObjectProperties{World: s.World}, s.World.Specification))
 	visits := []int64{10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
@@ -153,6 +154,10 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	socket = &benchmarkSocket{}
 	s.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
 	p = s.playersBySocket[socket]
+
+	if p.ship.Fuel != 3.25 {
+		t.Fatal("fuel did not survive restart")
+	}
 
 	if p.playerID != id || p.shipID != shipID || p.profile.Credits != 9876 || p.ship.Position != Vec.Create(1234, 2345) {
 		t.Fatalf("lost identity/progress: %+v", p)

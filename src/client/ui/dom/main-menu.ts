@@ -12,18 +12,18 @@ export const createMainMenu = ({
   running: boolean;
   identity?: Identity;
   onPlay: () => Promise<void>;
-  onNavigate: (destination: string) => void;
+  onNavigate: (destination: string) => Promise<void>;
 }) => {
   const screen = createScreen(html);
   const play = query<HTMLButtonElement>(screen.element, '[data-action="play"]');
 
   query(screen.element, '.ui-version').textContent = `v${version}`;
-  query(play, 'span').textContent = running ? 'RESUME' : 'PLAY';
+  query(play, 'span').textContent = running ? 'Resume' : 'Play';
   query(screen.element, '[data-resume-hint]').hidden = !running;
   query(screen.element, '[data-action="saves"]').hidden = running;
   query(screen.element, '[data-action="disconnect"]').hidden = !running;
 
-  if (running) screen.element.className += ' is-running';
+  screen.element.classList.toggle('ui-running', running);
 
   screen.element.addEventListener(
     'click',
@@ -38,17 +38,19 @@ export const createMainMenu = ({
         return;
       }
 
-      if (destination !== 'play') {
-        onNavigate(destination);
-        return;
-      }
+      button.disabled = true;
 
-      play.disabled = true;
+      if (destination === 'play') cancelPreview();
 
       try {
-        await onPlay();
+        if (destination === 'play') await onPlay();
+        else await onNavigate(destination);
       } catch {
-        play.disabled = false;
+        /* Leave the menu available if a chunk cannot load. */
+      } finally {
+        button.disabled = false;
+
+        if (destination === 'play') schedulePreview();
       }
     },
     { signal: screen.signal },
@@ -59,6 +61,7 @@ export const createMainMenu = ({
     (event) => {
       if (
         event.key === 'Escape' &&
+        !event.repeat &&
         !event.defaultPrevented &&
         running &&
         ui.current === screen
@@ -72,18 +75,17 @@ export const createMainMenu = ({
 
   const privateId = localStorage.getItem('playerToken');
 
-  let disposePreview = () => {};
+  let shipPreview: ReturnType<
+    (typeof import('./ship-preview'))['default']['createShipPreview']
+  >;
 
   const showPreview = async (identity?: Identity) => {
     const { default: preview } = await import('./ship-preview');
 
     if (screen.signal.aborted) return;
-    disposePreview();
     query(screen.element, '.ui-preview').hidden = false;
-    disposePreview = preview.mountPreview(
-      query(screen.element, 'canvas'),
-      identity?.[2],
-    );
+    shipPreview ||= preview.createShipPreview(query(screen.element, 'canvas'));
+    shipPreview.update(identity?.[2]);
 
     if (!identity) return;
     query(screen.element, '.ui-pilot').hidden = false;
@@ -118,15 +120,57 @@ export const createMainMenu = ({
     await showPreview(await verifyIdentity(privateId, screen.signal));
   };
 
-  void loadPreview().catch(() => {
-    /* Keep any cached preview if refreshing fails. */
+  let previewFrame = 0;
+  let previewTimer = 0;
+  let previewRequested = false;
+  let previewLoaded = false;
+
+  const cancelPreview = () => {
+    cancelAnimationFrame(previewFrame);
+    clearTimeout(previewTimer);
+  };
+
+  const schedulePreview = () => {
+    cancelPreview();
+
+    if (
+      previewRequested ||
+      previewLoaded ||
+      screen.signal.aborted ||
+      screen.element.hidden ||
+      play.disabled
+    ) {
+      return;
+    }
+
+    previewFrame = requestAnimationFrame(() => {
+      previewTimer = window.setTimeout(() => {
+        previewRequested = true;
+
+        void loadPreview()
+          .then(() => {
+            previewLoaded = true;
+          })
+          .catch(() => {
+            /* Keep any cached preview; a later navigation can retry. */
+          })
+          .finally(() => {
+            previewRequested = false;
+          });
+      });
+    });
+  };
+
+  window.addEventListener('ui-navigation', schedulePreview, {
+    signal: screen.signal,
   });
 
   const destroy = screen.destroy;
 
   screen.destroy = () => {
     destroy();
-    disposePreview();
+    cancelPreview();
+    shipPreview?.destroy();
   };
 
   return screen;

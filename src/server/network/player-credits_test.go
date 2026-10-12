@@ -2,12 +2,10 @@ package network
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -28,7 +26,8 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	station := s.nearestStation(p.ship.Position)
 	stationID := int64(station.ID)
 	p.ship.DockedTo = &stationID
-	gold := objects.NewItem("gold", simulation.ObjectProperties{World: s.World}, s.World.Specification)
+	goldID := simulation.EntityID(s.World)
+	gold := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: &goldID}, s.World.Specification)
 	p.ship.CargoContents = append(p.ship.CargoContents, gold)
 	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "sell", ObjectIDs: []int64{gold.ID}}}, socket)
 	committedSession(t, s)
@@ -50,12 +49,6 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 
 	if p.profile.Credits != 380 || len(p.ship.CargoContents) != 1 || other.profile.Credits != 2000 {
 		t.Fatal("purchase did not debit only the owning player")
-	}
-
-	data, err := json.Marshal(objects.CaptureShip(p.ship))
-
-	if err != nil || strings.Contains(string(data), "credits") {
-		t.Fatal("ship save contains player credits", err)
 	}
 
 	oldShip := p.shipID

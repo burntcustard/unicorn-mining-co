@@ -1,5 +1,5 @@
 // Fetch and execute the audio implementation only after a genuine user gesture.
-// Calls made before that gesture retain the old behaviour and are ignored.
+// Calls made before that gesture retain the old behavior and are ignored.
 type SoundModule = (typeof import('./sound'))['default'];
 
 let loading: Promise<SoundModule> | undefined;

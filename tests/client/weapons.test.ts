@@ -41,7 +41,7 @@ import { updateEntities } from '${root}/src/client/simulation/update-tier.ts';
 import { damage } from '${root}/src/client/objects/damage.ts';
 import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 import { Item } from '${root}/src/client/objects/item.ts';
-import { autogunAmmunition, gold } from '${root}/src/specs/items/index.ts';
+import { autogunAmmo, gold } from '${root}/src/specs/items/index.ts';
 import { moduleSpecs } from '${root}/src/specs/modules/index.ts';
 import { game } from '${root}/src/client/game.ts';
 import { colors, paintColors } from '${root}/src/specs/colors.ts';
@@ -136,7 +136,7 @@ for (const Type of [PlasmaAccelerator, Autogun]) {
   const shutdown = gun.activationDuration + (gun.dischargeDuration ?? 0);
   const ratio = shutdown / gun.activationDuration;
   deployedShip.fit(gun, deployedShip.mounts.find((mount) => mount.fits.includes(Type)));
-  const pack = new Item(autogunAmmunition);
+  const pack = new Item(autogunAmmo);
   deployedShip.cargoContents.push(pack);
   const segments = deployedShip.segmentsAtMount(gun.mount);
   const part = segments[0];
@@ -352,7 +352,7 @@ for (const weapon of [PlasmaAccelerator, Autogun])
         gun,
         recoilShip.mounts.find((mount) => mount.fits.includes(weapon)),
       );
-      recoilShip.cargoContents.push(new Item(autogunAmmunition));
+      recoilShip.cargoContents.push(new Item(autogunAmmo));
       recoilShip.setModuleActive({ module: weapon, active: true });
       recoilShip.updateModules(gun.activationDuration + gun.chargeDuration);
       recoilShip.firing = true;
@@ -440,7 +440,7 @@ assert.equal(
   'toggle',
   'weapons activate with a toggle binding',
 );
-const ammo = new Item(autogunAmmunition);
+const ammo = new Item(autogunAmmo);
 assert.equal(ammo.rounds, 200, 'a new ammunition pack contains 200 rounds');
 ship.cargoContents.push(new Item(gold), ammo);
 ship.updateModules(3);
@@ -528,8 +528,8 @@ assert.equal(
   200,
   'empty autogun cannot fire',
 );
-const lastRound = new Item(autogunAmmunition, { rounds: 1 }),
-  nextPack = new Item(autogunAmmunition);
+const lastRound = new Item(autogunAmmo, { rounds: 1 }),
+  nextPack = new Item(autogunAmmo);
 ship.cargoContents.push(lastRound, nextPack);
 ship.fireWeapons(0);
 ship.fireWeapons(0.25);
@@ -643,7 +643,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
         assert.equal(
           hit.colors[0],
           moduleSpecs[id].projectile.color,
-          'projectile sparks use their own configured colour',
+          'projectile sparks use their own configured color',
         );
         assert.equal(
           hit.damage[1],
@@ -659,7 +659,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
         assert.equal(
           hit.colors[1],
           colors[maxHealth === 71 ? 'violet' : 'white'][2],
-          'rock sparks use the struck asteroid outline colour',
+          'rock sparks use the struck asteroid outline color',
         );
         assert.equal(
           sparks.length,
@@ -684,7 +684,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
         );
         assert(
           sparks.every((spark) => spark.color === hit.colors[1]),
-          'target damage emits the struck surface colour',
+          'target damage emits the struck surface color',
         );
         assert(
           sparks.every(
@@ -1118,7 +1118,7 @@ for (const id of ['plasmaAccelerator', 'autogun'])
           event.b === light.id &&
           event.damage[1] > 0,
       ),
-      'splash damage emits target-colour sparks',
+      'splash damage emits target-color sparks',
     );
     assert.equal(far.health, 100);
     assert.equal(buried.health, 100);
@@ -1412,7 +1412,7 @@ game.ctx = {
   },
 };
 game.scale = 1;
-// Synthetic beam presentation follows spec colour, range and first impact.
+// Synthetic beam presentation follows spec color, range and first impact.
 {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 9 }));
@@ -1455,7 +1455,7 @@ game.scale = 1;
   assert(beamDrawOrder.indexOf('beam') < beamDrawOrder.lastIndexOf('model'), 'the cap covers the beam');
   assert(beamDrawOrder.lastIndexOf('model') < beamDrawOrder.lastIndexOf('beam'), 'the muzzle flare strokes render above the cap');
   assert.equal(halos.at(-1).coordinates[0], laser.barrelLength + beamEffect.muzzleOffset, 'the muzzle flare uses its configured offset');
-  assert.equal(halos.at(-1).gradient.stops[0][1], '#12345699', 'beam effects use the configured colour');
+  assert.equal(halos.at(-1).gradient.stops[0][1], '#12345699', 'beam effects use the configured color');
   assert(beamLines.some(([x, y]) => x === laser.barrelLength + 321 && y === 0), 'unobstructed beams end at their configured range');
   const target = addEntity(world, new GameObject({ world, position: Vec.create(150, laser.mount.localPosition.y), radius: 10, health: 100 }));
   const beforeHit = gradients;
@@ -1493,7 +1493,7 @@ game.scale = 1;
     ship.moduleStates = ship.moduleStates.map((state) => ({ ...state, shades: state.shades?.slice() }));
     const beforePaintFills = fills.length;
     ship.segmentsAtMount(laser.mount).forEach((segment) => laser.render({ segment, craft: ship }));
-    assert.deepEqual(fills.slice(beforePaintFills).filter((color) => typeof color === 'string'), originalModelFills, 'painting and restoring a laser preserves its explicit model colours');
+    assert.deepEqual(fills.slice(beforePaintFills).filter((color) => typeof color === 'string'), originalModelFills, 'painting and restoring a laser preserves its explicit model colors');
     const expectedGlow = withAlpha({ color: shades[2], alpha: 0.6 });
     assert.equal(halos.at(-2).gradient.stops[0][1], expectedGlow, 'muzzle glow follows the laser paint');
     assert.equal(halos.at(-1).gradient.stops[0][1], expectedGlow, 'impact glow follows the laser paint');
@@ -1526,7 +1526,7 @@ for (const Type of [Autogun, PlasmaAccelerator]) {
     muzzleFlash: [{ type: 'glow', color: '#ff0', duration: 50, radius: 6 }],
   });
   flashShip.fit(gun, flashShip.mounts.find((mount) => mount.fits.includes(Type)));
-  flashShip.cargoContents.push(new Item(autogunAmmunition));
+  flashShip.cargoContents.push(new Item(autogunAmmo));
   flashShip.setModuleActive({ module: Type, active: true });
   flashShip.updateModules(gun.activationDuration + gun.chargeDuration);
   flashShip.firing = true;
@@ -1685,7 +1685,7 @@ const plasmaShots = () =>
 assert.deepEqual(
   indicatorColors(),
   [colors.cyan[2], colors.cyan[2], colors.cyan[2]],
-  'a ready weapon has three bright indicators in its paint colour',
+  'a ready weapon has three bright indicators in its paint color',
 );
 controlShip(chargingShip, { ...playerInput, fire: true }, []);
 chargingShip.fireWeapons(0);
@@ -1736,7 +1736,7 @@ assert.deepEqual(
   'each shot restarts the recharge sequence',
 );
 
-// The same spec settings work on another weapon, with different colours and glow.
+// The same spec settings work on another weapon, with different colors and glow.
 const genericShip = addEntity(
   rechargeWorld,
   createPlayerShip(rechargeWorld, { playerId: 4 }),
@@ -1773,7 +1773,7 @@ genericGun.render({ segment: genericPart });
 assert.equal(
   fills.at(-1),
   colors.green[0],
-  'any weapon uses its configured recharge colour',
+  'any weapon uses its configured recharge color',
 );
 const beforeGenericGlow = gradients;
 genericGun.renderGlow({ segment: genericPart });
@@ -1787,7 +1787,7 @@ genericGun.render({ segment: genericPart });
 assert.equal(
   fills.at(-1),
   colors.green[1],
-  'any weapon restores its configured charged colour',
+  'any weapon restores its configured charged color',
 );
 genericGun.renderGlow({ segment: genericPart });
 assert.equal(gradients, beforeGenericGlow + 1);
@@ -1821,7 +1821,7 @@ assert.deepEqual(
     [0, colors.green[1]],
     [1, '#00000000'],
   ],
-  'gradient stops accept paint shades and literal colours from the spec',
+  'gradient stops accept paint shades and literal colors from the spec',
 );
 genericPart.rechargeDelay = undefined;
 genericGun.fireCooldown = 0.25;
@@ -1849,7 +1849,7 @@ for (const y of [-29, 29]) {
       [1, 0.5 * side],
       [1, 3 * side],
     ],
-    'the cutout faces away from the ship centre',
+    'the cutout faces away from the ship center',
   );
   assert(
     indicators.every((segment) =>
@@ -1935,7 +1935,7 @@ for (const Type of [PlasmaAccelerator, Autogun])
       'projectiles strike the weapon barrel rather than passing through it',
     );
   }
-// Synthetic visuals test both projectile types without fixing their production colours.
+// Synthetic visuals test both projectile types without fixing their production colors.
 for (const id of ['plasmaAccelerator', 'autogun']) {
   const custom = moduleSpecs[id].projectile;
   const original = { ...custom };
@@ -1958,7 +1958,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
   assert.equal(
     fills.at(-1),
     colors.yellow[2],
-    'the solid circle keeps its own colour',
+    'the solid circle keeps its own color',
   );
   assert.deepEqual(
     fills.at(-2).stops,
@@ -1966,7 +1966,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
       [0, '#33ff774d'],
       [1, '#00000000'],
     ],
-    'the glow combines its own colour and numeric opacity before fading to transparent',
+    'the glow combines its own color and numeric opacity before fading to transparent',
   );
   assert.equal(
     halos.at(-1).coordinates[5],
@@ -1980,7 +1980,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
   assert.equal(
     fills.at(-1),
     colors.yellow[2],
-    'unglowing projectiles retain their configured colour',
+    'unglowing projectiles retain their configured color',
   );
   custom.fadeOut = 400;
   for (const [remaining, alpha] of [[0.8, 1], [0.4, 1], [0.2, 0.5], [0, 0]]) {
@@ -2010,9 +2010,9 @@ for (const delay of [1, 3, 8]) {
   );
   serverShip.setModuleActive({ module: Autogun, active: true });
   serverShip.updateModules(3);
-  serverShip.cargoContents.push(new Item(autogunAmmunition));
-  const ammunition = serverShip.cargoContents.find((item) => item.resource === 5);
-  const initialRounds = ammunition.rounds;
+  serverShip.cargoContents.push(new Item(autogunAmmo));
+  const serverAmmo = serverShip.cargoContents.find((item) => item.resource === 5);
+  const initialRounds = serverAmmo.rounds;
   addPlayer(server, { id: 1, shipId: serverShip.id });
   addEntity(
     server,
@@ -2074,7 +2074,7 @@ for (const delay of [1, 3, 8]) {
   }
   assert.equal(
     effects.length,
-    initialRounds - ammunition.rounds,
+    initialRounds - serverAmmo.rounds,
     'each authoritative round produces exactly one local flash across delayed snapshots and frame prediction',
   );
   assert.equal(
@@ -2149,8 +2149,14 @@ for (const delay of [1, 3, 8]) {
   );
 }
 const account = { credits: 4 };
+const ammoStation = addEntity(world, new Station({ world }));
+ship.dockedTo = ammoStation.id;
+assert.equal(ammoStation.cargoContents.length, 300, 'stations start with 300 ammunition packs');
+const stockedAmmo = ammoStation.cargoContents[0];
 const bought = ship.applyDockAction({ action: 'buyAmmo' }, account);
 assert(bought && account.credits === 2);
+assert.equal(ammoStation.cargoContents.length, 299, 'ammo purchases reduce station supply');
+assert.equal(ship.cargoContents.at(-1), stockedAmmo, 'ammo purchases transfer the stocked pack');
 assert.equal(ship.cargoContents.at(-1).resource, 5);
 assert.equal(
   ship.cargoContents.at(-1).rounds,
@@ -2167,6 +2173,10 @@ assert.equal(
   undefined,
   'full cargo blocks buying ammo',
 );
+ship.cargoContents = [];
+ammoStation.cargoContents = [];
+assert.equal(ship.applyDockAction({ action: 'buyAmmo' }, account), undefined, 'empty stock blocks buying ammo');
+assert.equal(account.credits, 2, 'empty stock cannot charge the player');
 console.log(
   'Weapon controls, cadence, ammunition, CCD, chunk damage, replication and rendering passed',
 );

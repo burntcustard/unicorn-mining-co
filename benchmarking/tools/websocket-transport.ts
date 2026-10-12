@@ -208,7 +208,7 @@ try {
               Number.isSafeInteger(message.acknowledgedSequence) &&
                 message.acknowledgedSequence >= state.acknowledged &&
                 message.acknowledgedSequence <= state.sequence,
-              'Invalid input acknowledgement sequence',
+              'Invalid input acknowledgment sequence',
             );
             state.acknowledged = message.acknowledgedSequence;
             const now = performance.now();
@@ -319,10 +319,10 @@ try {
 
           message.writeBigUInt64LE(sequence, 8);
           socket.send(message);
-          const acknowledgement = Buffer.from(message);
+          const acknowledgment = Buffer.from(message);
 
-          acknowledgement[0] = 1;
-          socket.send(acknowledgement);
+          acknowledgment[0] = 1;
+          socket.send(acknowledgment);
         } catch (error) {
           failure =
             error instanceof Error ? String(error) : JSON.stringify(error);

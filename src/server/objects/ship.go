@@ -16,8 +16,9 @@ import (
 
 type Ship struct {
 	*Craft
-	Name   string
-	Firing bool
+	Name               string
+	Firing             bool
+	Fuel, FuelCapacity float64
 }
 
 func newShip(props Properties, plans []*simulation.SegmentPlan, catalog specs.Catalog) *Ship {
@@ -149,6 +150,60 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 	}
 
 	switch action.Action {
+	case "refuel":
+		cost := s.RefuelCost()
+
+		if s.TradeStation() == nil || !(cost > 0) || *credits < cost {
+			return action, false
+		}
+
+		*credits -= cost
+		s.Fuel = s.FuelCapacity
+	case "buyStock":
+		station := s.TradeStation()
+
+		if station == nil || len(action.ObjectIDs) == 0 || len(s.CargoContents)+len(action.ObjectIDs) > s.CargoSpace {
+			return action, false
+		}
+
+		seen := map[int64]bool{}
+		objects := []simulation.Entity{}
+		cost := 0.0
+
+		for _, id := range action.ObjectIDs {
+			if seen[id] {
+				return action, false
+			}
+
+			seen[id] = true
+
+			index := slices.IndexFunc(station.CargoContents, func(e simulation.Entity) bool { return e.Base().ID == id })
+
+			if index < 0 {
+				return action, false
+			}
+
+			object := station.CargoContents[index]
+			objects = append(objects, object)
+			cost += object.Base().Price
+		}
+
+		if math.IsNaN(cost) || *credits < cost {
+			return action, false
+		}
+
+		station.CargoContents = slices.DeleteFunc(station.CargoContents, func(e simulation.Entity) bool { return seen[e.Base().ID] })
+
+		for _, object := range objects {
+			delete(station.moduleSellers, object.Base().ID)
+		}
+
+		s.CargoContents = append(s.CargoContents, objects...)
+		*credits -= cost
+
+		if s.World.EntityChanged != nil {
+			s.World.EntityChanged(station, false)
+		}
 	case "sell":
 		ids := action.ObjectIDs
 
@@ -199,18 +254,39 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 			}
 		}
 
-		*credits += sum
-	case "buyAmmo":
-		spec := s.Catalog.ItemSpecs["autogunAmmunition"]
+		if station := s.TradeStation(); station != nil {
+			for _, object := range objects {
+				if _, ok := object.(simulation.Module); ok {
+					// Cargo module IDs are local to a ship; station stock shares one namespace.
+					object.Base().ID = simulation.EntityID(s.World)
 
-		if *credits < *spec.Price || len(s.CargoContents) >= s.CargoSpace {
-			return action, false
+					if station.moduleSellers == nil {
+						station.moduleSellers = map[int64]int64{}
+					}
+
+					station.moduleSellers[object.Base().ID] = s.ID
+				}
+
+				station.CargoContents = append(station.CargoContents, object)
+			}
+
+			if s.World.EntityChanged != nil {
+				s.World.EntityChanged(station, false)
+			}
 		}
 
-		id := simulation.EntityID(s.World)
-		item := NewItem("autogunAmmunition", simulation.ObjectProperties{World: s.World, ID: &id}, s.Catalog)
-		s.CargoContents = append(s.CargoContents, item)
-		*credits -= *spec.Price
+		*credits += sum
+	case "buyAmmo":
+		if station := s.TradeStation(); station != nil {
+			for _, object := range station.CargoContents {
+				if object.Base().Item && object.Base().Resource == s.Catalog.ItemSpecs["autogunAmmo"].Resource {
+					_, ok := s.ApplyDockAction(protocol.DockAction{Action: "buyStock", ObjectIDs: []int64{object.Base().ID}}, credits)
+					return action, ok
+				}
+			}
+		}
+
+		return action, false
 	case "buy":
 		if action.Module < 0 || action.Module >= int64(len(s.Catalog.ModuleIDs)) {
 			return action, false
@@ -257,6 +333,24 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 		}
 
 		s.Fit(module, mount)
+	case "repairHull":
+		index := action.HullIndex
+
+		if index < 0 || index >= int64(len(s.HullSegments)) || s.HullSegments[index].Health == nil {
+			return action, false
+		}
+
+		health := s.HullHealth()
+		maximum := *s.HullSegments[index].Health
+		cost := maximum - math.Floor(health[index])
+
+		if !(cost > 0) || *credits < cost {
+			return action, false
+		}
+
+		*credits -= cost
+		health[index] = maximum
+		s.SetHullHealth(health)
 	case "repair":
 		if !action.HasMount {
 			if action.HasModuleID {
@@ -362,6 +456,41 @@ func (s *Ship) Engine() simulation.Module {
 	return nil
 }
 
+func (s *Ship) LowFuel() bool { return s.Fuel < s.FuelCapacity*s.Rules.Flight.LowFuelThreshold }
+
+func (s *Ship) FuelThrottle() float64 {
+	if s.Fuel <= 0 {
+		return 0
+	}
+
+	if s.LowFuel() {
+		return s.Rules.Flight.LowFuelSpeed
+	}
+
+	return 1
+}
+
+func (s *Ship) RefuelCost() float64 {
+	return math.Ceil((s.FuelCapacity - s.Fuel) * s.Rules.Flight.FuelPrice)
+}
+
+func (s *Ship) ConsumeFuel(dt float64) {
+	if s.Cockpit == nil || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 {
+		return
+	}
+
+	engine := s.Engine()
+
+	if engine == nil {
+		return
+	}
+
+	usage := engine.ModuleBase().Spec.FuelUsage * math.Max(s.Forward, math.Abs(s.Turn)/2)
+	reserve := s.FuelCapacity * s.Rules.Flight.LowFuelThreshold
+	normal := math.Min(math.Max(0, s.Fuel-reserve), usage*dt)
+	s.Fuel = math.Max(0, s.Fuel-normal-(usage*dt-normal)*s.Rules.Flight.LowFuelUsage)
+}
+
 func (s *Ship) LaunchThrottle() float64 {
 	f := s.Rules.Flight
 
@@ -380,7 +509,7 @@ func (s *Ship) ForwardThrust() float64 {
 	}
 
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.ForwardThrust * (throttle * throttle)
+	return engine.ModuleBase().Spec.ForwardThrust * (throttle * throttle) * s.FuelThrottle()
 }
 
 func (s *Ship) RotationalThrust() float64 {
@@ -391,7 +520,7 @@ func (s *Ship) RotationalThrust() float64 {
 	}
 
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.RotationalThrust * (throttle * throttle)
+	return engine.ModuleBase().Spec.RotationalThrust * (throttle * throttle) * s.FuelThrottle()
 }
 
 func (s *Ship) MaxSpeed() float64 {
@@ -424,7 +553,7 @@ func (s *Ship) Fly(forward, turn float64) {
 			}
 		}
 
-		segment.Active *= s.LaunchThrottle()
+		segment.Active *= s.LaunchThrottle() * s.FuelThrottle()
 	}
 }
 
@@ -458,10 +587,10 @@ func (s *Ship) fireWeapons(dt float64) {
 		}
 
 		for m.FireCooldown <= 1e-9 {
-			if m.Spec.Ammunition != nil {
+			if m.Spec.Ammo != nil {
 				index := slices.IndexFunc(s.CargoContents, func(item simulation.Entity) bool {
 					ammo, ok := item.(*Item)
-					return ok && ammo.Resource == *m.Spec.Ammunition && ammo.Rounds != nil && *ammo.Rounds > 0
+					return ok && ammo.Resource == *m.Spec.Ammo && ammo.Rounds != nil && *ammo.Rounds > 0
 				})
 
 				if index < 0 {
@@ -507,6 +636,13 @@ func (s *Ship) Update(dt float64) {
 		target := (s.Turn * s.TurnRate * thrust * (throttle * throttle)) / f.SpinDivisor
 		s.Spin = utilities.Approach(s.Spin, target, thrust*dt)
 		s.Velocity = simulation.MovePoint(s.Velocity, s.Rotation+s.Spin*dt, push)
+	}
+
+	throttle := s.FuelThrottle()
+	s.ConsumeFuel(dt)
+
+	if throttle != s.FuelThrottle() {
+		s.Fly(s.Forward, s.Turn)
 	}
 
 	s.Craft.Update(dt)
@@ -567,6 +703,7 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 		ship.DefinitionID = id
 	}
 
+	ship.FuelCapacity, ship.Fuel = d.FuelCapacity, d.FuelCapacity
 	ship.CargoSpace = d.CargoSpace
 	ship.TurnRate = d.TurnRate
 	return ship

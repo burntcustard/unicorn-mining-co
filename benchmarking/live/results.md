@@ -83,7 +83,7 @@ was performed during this check.
 | 32      | 30.05–30.08      | 291.8                 | 1070.4             | 36.0–105.1            |
 
 Observed tick cadence remained approximately 30 Hz throughout. Worst-workload
-input acknowledgement p95 changed from 63.4 to 46.4 ms at 4 players, 77.2 to
+input acknowledgment p95 changed from 63.4 to 46.4 ms at 4 players, 77.2 to
 79.9 ms at 8, 207.1 to 255.2 ms at 16, and 1142.8 to 1070.4 ms at 32. The
 16-player increase came from the module workload; the other three activities
 were close to baseline. Worst snapshot-gap p95 rose about 12% at 16 players,
@@ -176,7 +176,7 @@ all 32-player workloads. No deployment or production restart was performed.
 For the measured 32-player workloads, median client FPS changed from 11.3 to
 9.5 for convoy, 23.8 to 23.9 for spread and 7.0 to 5.7 for contact versus
 5 October. All three saturated the local host at over 99% CPU. Their aggregate
-snapshot-gap p95 was 387.6 ms and input acknowledgement p95 was 1128.7 ms;
+snapshot-gap p95 was 387.6 ms and input acknowledgment p95 was 1128.7 ms;
 the previous full-suite values were 291.8 ms and 1070.4 ms. Missing modules,
 client exceptions and changing persistent world contents limit comparisons.
 

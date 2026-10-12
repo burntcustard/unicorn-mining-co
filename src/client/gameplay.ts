@@ -1,4 +1,4 @@
-import { ui } from './ui/dom/ui';
+import { ui, updateNotification } from './ui/dom/ui';
 import { syncDockedUi } from './ui/dom/docked-loader';
 import { renderingLayers } from '../specs/rendering-layers';
 import { init } from './core';
@@ -194,6 +194,7 @@ let activeTime = 0;
 let spriteCount = 0;
 
 initKeys({
+  onActivity: () => network.sendActivity(),
   onChange: (input) => network.recordInput({ input }),
   onKeyDown: ({ key }) => {
     if (
@@ -350,6 +351,8 @@ const gameLoop = GameLoop({
       ship: renderedShip,
       available: Boolean(game.uiVisible && !network.shipDestroyed),
     });
+
+    updateNotification(player.noteFor > 0 ? player.note : '');
 
     if (!ui.current) {
       renderUI(game, stationMarkers, {

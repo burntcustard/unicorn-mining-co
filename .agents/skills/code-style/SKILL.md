@@ -5,19 +5,25 @@ description: Apply Unicorn Mining Co.'s local source-style conventions when writ
 
 # Code style
 
+- Use TypeScript (`.ts`) for authored scripts and tests.
+
+- Use American English (`en-US`) in game text, identifiers, comments, tests, and
+  documentation. Specify `en-US` for locale-sensitive formatting.
+
 - Specify visual alpha as a number from 0 to 1, including glow stops and
   `fillAlpha`. Use `withAlpha` from `src/client/utilities/color` when a canvas
-  colour needs opacity; do not append hex alpha digits to colour strings.
-  CSS colour alpha also uses a number from 0 to 1.
-- Specify visual effect durations, delays and fade durations in milliseconds.
-  Convert frame seconds to milliseconds at the effect update boundary.
+  color needs opacity; do not append hex alpha digits to color strings.
+  CSS color alpha also uses a number from 0 to 1.
+- Use seconds for CSS transition and animation durations and delays.
+- Specify JavaScript visual effect durations, delays and fade durations in
+  milliseconds. Convert frame seconds to milliseconds at the effect update boundary.
 
 - Prefer native array methods such as `filter`, `map`, `find`, `some`, and
   `includes` over one-off collection helpers. Use `filter` for removals when
   replacing the array is safe; preserve shared array identity with native
   mutation methods when other objects retain references to that array.
 - Keep general-purpose helpers in `src/client/utilities` or `src/server/utilities`; put object-specific
-  behaviour on its owning class rather than in standalone helper files.
+  behavior on its owning class rather than in standalone helper files.
 - Represent positions, offsets, velocities, and other `{ x, y }` values with
   `import * as Vec from '.../vector'`, using `Vec.create` and its operations.
   Pass an output vector when an existing object's identity must be preserved.

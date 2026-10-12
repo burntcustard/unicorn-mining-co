@@ -17,6 +17,21 @@ assert.equal(
 );
 
 const stationBranch = `entity.kind === "station" ? createStation() : createShip()`;
+
+assert.equal(
+  replacePreTerser(
+    `element.classList.toggle('running', state.active); element.classList.remove('running'); element.classList.contains('running'); model.toggle();`,
+  ),
+  `element.classList.toggle('running', state._active); element.classList.remove('running'); element.classList.contains('running'); _model._toggle();`,
+  'native class-list methods survive while application methods still mangle',
+);
+
+assert.equal(
+  replacePreTerser('observer.disconnect();'),
+  'observer.disconnect();',
+  'native observer cleanup must not be renamed',
+);
+
 const replacedStationBranch = replacePreTerser(stationBranch);
 const encodedStation = replacePreTerser('"station"');
 
@@ -36,6 +51,29 @@ assert.equal(
     '_model.',
   ),
   'DOM literals and native String.trim survive production while app state still mangles',
+);
+
+assert.equal(
+  replacePreTerser(
+    'const description = "Launch a charged plasma projectile.";',
+  ),
+  'const _description = "Launch a charged plasma projectile.";',
+  'prose is not rewritten as app-owned property names',
+);
+
+assert.equal(
+  replacePreTerser('const pattern = /Unknown replicated entity kind/;'),
+  'const pattern = /Unknown replicated entity kind/;',
+  'regular expressions keep literal text intact',
+);
+
+const template =
+  'const html = `<span title="${item.name}">${item.power}</span>`;';
+
+assert.equal(
+  replacePreTerser(template, { preserveStrings: true }),
+  'const html = `<span title="${item._name}">${item._power}</span>`;',
+  'HTML template attributes preserve their text while expressions mangle',
 );
 
 const entryId = resolve('src/__mangle_entry.ts');

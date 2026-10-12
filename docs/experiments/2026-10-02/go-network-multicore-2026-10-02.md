@@ -44,8 +44,8 @@ after 120 warmup periods:
 
 Mean CPU reduction is **24.47%**, giving each player count equal weight. The
 lowest measured input/snapshot rate is 29.995 Hz. Rates near 30 Hz include a
-one-frame measurement-boundary variation. These acknowledgements target inputs
-one tick ahead and measure server acknowledgement timing, not visual response.
+one-frame measurement-boundary variation. These acknowledgments target inputs
+one tick ahead and measure server acknowledgment timing, not visual response.
 
 ## Keep an entire outgoing frame in the owned send buffer
 
@@ -95,9 +95,9 @@ two execution CPUs. Equal-case mean CPU reduction is **25.13%**:
 The lowest measured snapshot rate was 29.995 Hz. The lowest input rate was
 29.832 Hz, one input at a six-second measurement boundary; every sample is
 approximately 30 Hz. The maximum recorded snapshot gap was **38.02 ms**. Median
-worst-client p95 input acknowledgement delays were unchanged or lower within
+worst-client p95 input acknowledgment delays were unchanged or lower within
 about 0.1 ms, apart from a 4.63 ms improvement in 4-player idle. The input target
-remains one tick ahead; acknowledgement time is not visual response time.
+remains one tick ahead; acknowledgment time is not visual response time.
 
 Allocations fell by about eight per player per tick. These totals include
 gameplay/replication allocations and vary by activity. Median received bytes
@@ -152,10 +152,10 @@ fewer bytes**. Both builds' metadata is retained in the
 The generated JavaScript assets have unchanged hashes and sizes.
 
 The [delayed-receipt validation](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-delayed-receipts.json.gz)
-delays every snapshot acknowledgement by **250 ms**. It runs both variants in
+delays every snapshot acknowledgment by **250 ms**. It runs both variants in
 idle and flight at all four player counts, for 16 samples. Every sample retains
 approximately 30 Hz inputs and snapshots, with the lowest rate above 29.994 Hz.
-Input acknowledgements are checked to advance, remain monotonic and reference
+Input acknowledgments are checked to advance, remain monotonic and reference
 only inputs already sent. This exercises the bounded snapshot window with
 delayed receipts; it does not model a complete bidirectional Internet link.
 
@@ -168,7 +168,7 @@ before receive/event/input/send-buffer reuse. Both variants run the production
 pinned to CPUs 0/1, where Go reports two available execution CPUs. The Node
 client runs on CPUs 2–15 and uses the real TypeScript control encoder/snapshot
 decoder. It sends independently timed, staggered inputs at 30 Hz and validates
-every snapshot sequence and measures input acknowledgement delay.
+every snapshot sequence and measures input acknowledgment delay.
 
 Host: Intel Core Ultra X7 358H, Go 1.27.1 with SIMD and the same production PGO
 profile, `GOGC=800`, Node 26.5.0. Each sample has four seconds of warmup and six
@@ -179,7 +179,7 @@ serialized with builds, tests and profiling.
 
 The capture's exact [timing harness](../../../benchmarking/experiments/2026-10-02/websocket-transport/patches/multicore-timing-harness.tar.gz)
 is retained with its recorded source hashes. The current client additionally
-supports delayed receipt checks and verifies input acknowledgements are
+supports delayed receipt checks and verifies input acknowledgments are
 monotonic, refer only to sent inputs, and continue advancing.
 
 The [retained packet-handling patch](../../../benchmarking/experiments/2026-10-02/websocket-transport/patches/multicore-packet-handling.patch)

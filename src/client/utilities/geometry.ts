@@ -59,7 +59,7 @@ export const shapeOf = (
 
   return {
     // Which way the piece looks, taken as the way out from the middle of the
-    // craft towards the middle of the piece
+    // craft toward the middle of the piece
     facing: Math.atan2(
       middle[1] + mount.localPosition.y,
       middle[0] + mount.localPosition.x,

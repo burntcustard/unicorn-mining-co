@@ -55,8 +55,8 @@ func TestArrowInitialLoadout(t *testing.T) {
 	world := simulation.CreateWorld(25, catalog)
 	ship := CreatePlayerShip(world, Properties{DefinitionID: "arrow"})
 
-	if len(ship.Modules()) != 3 {
-		t.Fatal("Arrow must start with two cargo hatches and a medium thruster")
+	if len(ship.Modules()) != 4 {
+		t.Fatal("Arrow must start with two cargo hatches, a medium thruster and a power plant")
 	}
 
 	thruster := ship.Mounts()[2].Module
@@ -75,5 +75,57 @@ func TestArrowInitialLoadout(t *testing.T) {
 
 	if len(CreateShip(world, Properties{DefinitionID: "arrow"}).Modules()) != 0 {
 		t.Fatal("generic Arrow ships must remain unequipped")
+	}
+}
+
+func TestStartingPowerPlants(t *testing.T) {
+	catalog, _ := specs.Load()
+
+	for shipType := range catalog.ShipSpecs {
+		t.Run(shipType, func(t *testing.T) {
+			world := simulation.CreateWorld(25, catalog)
+			ship := CreatePlayerShip(world, Properties{DefinitionID: shipType})
+			plants := 0
+
+			for _, mount := range ship.Mounts() {
+				if mount.Module == nil || mount.Module.ModuleBase().Type != "powerPlant" {
+					continue
+				}
+
+				plants++
+
+				if len(mount.Module.ModuleBase().Model) != 0 || mount.Module.ModuleBase().Spec.PowerGenerated <= 0 {
+					t.Fatal("power plants must generate power without a visible model")
+				}
+
+				mount.Health = 40
+			}
+
+			if plants != 1 {
+				t.Fatalf("expected one starting power plant, got %d", plants)
+			}
+
+			restored, err := RestoreShip(CaptureShip(ship), world, 1)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			plants = 0
+
+			for _, mount := range restored.Mounts() {
+				if mount.Module != nil && mount.Module.ModuleBase().Type == "powerPlant" {
+					plants++
+
+					if mount.Health != 40 {
+						t.Fatal("restoring an internal plant must retain its health")
+					}
+				}
+			}
+
+			if plants != 1 {
+				t.Fatal("restoring a ship lost its internal power plant")
+			}
+		})
 	}
 }

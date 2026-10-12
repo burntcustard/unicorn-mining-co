@@ -53,7 +53,7 @@ const discover = <T>({
           create: () => create(spec as T),
         })),
     )
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort((a, b) => a.label.localeCompare(b.label, 'en-US'));
 
 export const catalog = {
   ship: discover({

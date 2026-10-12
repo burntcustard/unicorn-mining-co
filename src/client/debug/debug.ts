@@ -25,7 +25,7 @@ let showColorsDemo = false;
 
 export { lights };
 
-// One hull of every colour, lined up to see how the light falls across them
+// One hull of every color, lined up to see how the light falls across them
 export const debugCrafts = (game: GameState) =>
   [
     ['#000', '#111', '#222', '#879', '#200'],

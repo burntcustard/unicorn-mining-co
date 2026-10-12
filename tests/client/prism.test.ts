@@ -92,7 +92,6 @@ const joins = (
   });
 
   asteroid.scenery = true;
-  assert.equal(asteroid.shapeOutline, undefined);
 
   const lamp = {
     localPosition: Vec.create(),

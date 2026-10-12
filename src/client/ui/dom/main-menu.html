@@ -1,32 +1,50 @@
-<main class="ui-main" aria-label="Main menu">
-  <h1 class="ui-logo">UNICORN-<br />MINING.CO</h1>
-  <div class="ui-pilot" hidden>
-    <small>PILOT</small><span class="ui-label" data-pilot></span>
+<main class="ui-main h-full gap-6">
+  <h1 class="uppercase ui-logo text-xl">
+    Unicorn-<br />Mining.co<span class="mt-4" aria-hidden="true"></span>
+  </h1>
+  <div class="ui-pilot text-right" hidden>
+    <small class="uppercase text-sm">Pilot</small
+    ><span class="ui-label mr-2" aria-hidden="true">◆</span
+    ><span class="ui-label" data-pilot></span>
   </div>
-  <nav class="ui-menu" aria-label="Main menu">
-    <button class="ui-choice ui-choice--large" data-action="play">
-      <span>PLAY</span>
+  <nav class="ui-menu grid gap-2 leading-tight uppercase">
+    <button class="ui-choice ui-highlight text-xl" data-action="play">
+      <span>Play</span>
     </button>
-    <button class="ui-choice ui-choice--large" data-action="saves">
-      <span>SAVES</span>
+    <button class="ui-choice ui-highlight text-xl" data-action="saves">
+      <span>Saves</span>
     </button>
-    <button class="ui-choice ui-choice--large" data-action="settings">
-      <span>SETTINGS</span>
+    <button class="ui-choice ui-highlight text-xl" data-action="settings">
+      <span>Settings</span>
     </button>
-    <button class="ui-choice ui-choice--large" data-action="credits">
-      <span>CREDITS</span>
+    <button class="ui-choice ui-highlight text-xl" data-action="credits">
+      <span>Credits</span>
     </button>
-    <button class="ui-choice ui-choice--large" data-action="disconnect" hidden>
-      <span>DISCONNECT</span>
+    <button
+      class="ui-choice ui-highlight text-xl"
+      data-action="disconnect"
+      hidden
+    >
+      <span>Disconnect</span>
     </button>
   </nav>
-  <canvas class="ui-preview" role="img" hidden></canvas>
-  <footer class="ui-footer">
-    <span class="ui-version"></span
-    ><span class="ui-control-hint"><kbd>↑</kbd><kbd>↓</kbd> NAVIGATE</span
-    ><span class="ui-control-hint"><kbd>ENTER</kbd> SELECT</span
-    ><span class="ui-control-hint" data-resume-hint hidden
-      ><kbd>ESC</kbd> RESUME</span
-    >
+  <canvas
+    class="ui-preview"
+    role="img"
+    aria-label="Ship preview"
+    hidden
+  ></canvas>
+  <footer class="ui-footer ui-inline gap-8 text-sm">
+    <span class="ui-version"></span>
+    <div class="ui-controls gap-8 uppercase">
+      <span class="gap-2 ui-inline"
+        ><span class="gap-1 ui-inline"><kbd>↑</kbd><kbd>↓</kbd></span
+        >Navigate</span
+      >
+      <span class="gap-2 ui-inline"><kbd>Enter</kbd> Select</span>
+      <span class="gap-2 ui-inline" data-resume-hint hidden
+        ><kbd>Esc</kbd> Resume</span
+      >
+    </div>
   </footer>
 </main>

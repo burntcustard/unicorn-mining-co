@@ -27,6 +27,7 @@ const fields = [
   'dockedTo',
   'forward',
   'firing',
+  'fuel',
   'turn',
   'localMovementRate',
   'localMovementParent',

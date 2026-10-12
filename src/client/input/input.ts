@@ -37,9 +37,11 @@ export const bindAction = (
 
 export const initKeys = ({
   onChange = () => {},
+  onActivity = () => {},
   onKeyDown,
 }: {
   onChange?: (input: PlayerInput) => void;
+  onActivity?: () => void;
   onKeyDown?: (event: KeyboardEvent) => boolean;
 } = {}) => {
   const notify = (previous: PlayerInput) => {
@@ -138,11 +140,19 @@ export const initKeys = ({
   window.addEventListener('keydown', keyDown);
   window.addEventListener('keyup', keyUp);
   window.addEventListener('blur', blur);
+  const activityEvents = ['keydown', 'pointerdown', 'pointermove', 'wheel'];
+
+  activityEvents.forEach((type) =>
+    window.addEventListener(type, onActivity, { capture: true, passive: true }),
+  );
 
   return () => {
     window.removeEventListener('keydown', keyDown);
     window.removeEventListener('keyup', keyUp);
     window.removeEventListener('blur', blur);
+    activityEvents.forEach((type) =>
+      window.removeEventListener(type, onActivity, { capture: true }),
+    );
     blur();
   };
 };

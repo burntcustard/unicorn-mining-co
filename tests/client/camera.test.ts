@@ -57,7 +57,7 @@ const press = (key: string, ctrlKey = true, repeat = false) => {
 
 assert.equal(press('-').defaultPrevented, true);
 assert(game.scale < initialScale, 'zooming out shows more world');
-assert.deepEqual(center(), initialCenter, 'zoom keeps the view centred');
+assert.deepEqual(center(), initialCenter, 'zoom keeps the view centered');
 assert.deepEqual([game.uiScale, game.uiWidth, game.uiHeight], initialUI);
 assert.equal(press('+').defaultPrevented, true);
 assert(Math.abs(game.scale - initialScale) < 1e-12);
@@ -85,4 +85,4 @@ assert(
   ),
 );
 
-console.log('Square camera sizing, centred zoom, and zoom shortcuts passed');
+console.log('Square camera sizing, centered zoom, and zoom shortcuts passed');

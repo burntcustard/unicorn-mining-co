@@ -1,4 +1,4 @@
-import { autogunAmmunition } from '../../specs/items';
+import { autogunAmmo } from '../../specs/items';
 import { Laser } from './modules/laser';
 import { Weapon } from './modules/weapon';
 import { Projectile } from './projectile';
@@ -38,6 +38,34 @@ export class Ship extends Craft {
   static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
   firing = false;
+  declare fuelCapacity: number;
+  fuel: number;
+
+  get lowFuel() {
+    return this.fuel < this.fuelCapacity * flight.lowFuelThreshold;
+  }
+
+  get fuelThrottle() {
+    return this.fuel <= 0 ? 0 : this.lowFuel ? flight.lowFuelSpeed : 1;
+  }
+
+  get refuelCost() {
+    return Math.ceil((this.fuelCapacity - this.fuel) * flight.fuelPrice);
+  }
+
+  consumeFuel(dt: number) {
+    if (!this.cockpit || this.dockedTo || this.dead) return;
+    const usage =
+      (this.engine.fuelUsage || 0) *
+      Math.max(this.forward || 0, Math.abs(this.turn || 0) / 2);
+    const reserve = this.fuelCapacity * flight.lowFuelThreshold;
+    const normal = Math.min(Math.max(0, this.fuel - reserve), usage * dt);
+
+    this.fuel = Math.max(
+      0,
+      this.fuel - normal - (usage * dt - normal) * flight.lowFuelUsage,
+    );
+  }
 
   /**
    * Apply one dock action to this ship. A local buy action gets its module ID
@@ -52,7 +80,46 @@ export class Ship extends Craft {
         ? this.mounts[action.mount]
         : undefined;
 
-    if (action.action === 'sell') {
+    const station = this.world?.entities.get(this.dockedTo) as
+      | Craft
+      | undefined;
+
+    if (action.action === 'refuel') {
+      const cost = this.refuelCost;
+
+      if (station?.kind !== 'station' || !(cost > 0) || player.credits < cost) {
+        return;
+      }
+
+      player.credits -= cost;
+      this.fuel = this.fuelCapacity;
+    } else if (action.action === 'buyStock') {
+      const ids = action.objectIds;
+      const objects = ids.map((id) =>
+        station?.cargoContents.find((object) => object.id === id),
+      );
+      const cost = objects.reduce(
+        (sum, object) => sum + (object?.price || 0),
+        0,
+      );
+
+      if (
+        !station ||
+        !ids.length ||
+        new Set(ids).size !== ids.length ||
+        objects.some((object) => !object) ||
+        player.credits < cost ||
+        this.cargoContents.length + ids.length > this.cargoSpace
+      ) {
+        return;
+      }
+
+      station.cargoContents = station.cargoContents.filter(
+        (object) => !ids.includes(object.id),
+      );
+      this.cargoContents.push(...objects);
+      player.credits -= cost;
+    } else if (action.action === 'sell') {
       const ids = action.objectIds;
 
       if (
@@ -77,26 +144,31 @@ export class Ship extends Craft {
       this.cargoContents = this.cargoContents.filter(
         (object) => !ids.includes(object.id),
       );
+
+      if (station?.cargoContents) {
+        objectsToSell.forEach((object) => {
+          // Keep the ID usable for immediate buyback until the server assigns
+          // a station ID and acknowledges the sale.
+          station.cargoContents.push(object);
+        });
+      }
+
       player.credits += objectsToSell.reduce(
         (total, object) => total + (object.price || 0),
         0,
       );
     } else if (action.action === 'buyAmmo') {
-      if (
-        player.credits < autogunAmmunition.price ||
-        this.cargoContents.length >= this.cargoSpace
-      ) {
-        return;
-      }
+      const item = station?.cargoContents.find(
+        (object) => object.item === autogunAmmo,
+      );
 
-      const item = new Item(autogunAmmunition, {
-        world: this.world,
-        id: entityId(this.world!),
-      });
-
-      this.cargoContents.push(item);
-      player.credits -= autogunAmmunition.price;
-      return action;
+      if (!item) return;
+      return (
+        this.applyDockAction(
+          { action: 'buyStock', objectIds: [item.id] },
+          player,
+        ) && action
+      );
     } else if (action.action === 'buy') {
       const Type = moduleTypes[action.module];
       const objects = [...this.modules, ...this.cargoContents];
@@ -123,6 +195,19 @@ export class Ship extends Craft {
 
       if (!mount || !module || !mount.fits.includes(module.constructor)) return;
       this.fit(module, mount);
+    } else if (action.action === 'repairHull') {
+      const index = action.hullIndex;
+      const plan = this.hullSegments[index];
+      const health = this.hullHealth;
+      const cost = plan?.health - Math.floor(health[index]);
+
+      if (!Number.isInteger(index) || !(cost > 0) || player.credits < cost) {
+        return;
+      }
+
+      player.credits -= cost;
+      health[index] = plan.health;
+      this.hullHealth = health;
     } else if (action.action === 'repair') {
       if (action.mount === undefined) {
         if (action.moduleId !== undefined) return;
@@ -191,6 +276,7 @@ export class Ship extends Craft {
       ...properties,
     });
 
+    this.fuel = properties.fuel ?? spec.fuelCapacity;
     this.definitionId = shipType === 'mustang' ? undefined : shipType;
   }
 
@@ -239,13 +325,17 @@ export class Ship extends Craft {
               ? 1
               : forward * flight.steeringEase
             : forward;
-        segment.active *= this.launchThrottle;
+        segment.active *= this.launchThrottle * this.fuelThrottle;
       }
     });
   }
 
   get forwardThrust() {
-    return (this.engine.forwardThrust || 0) * this.launchThrottle ** 2;
+    return (
+      (this.engine.forwardThrust || 0) *
+      this.launchThrottle ** 2 *
+      this.fuelThrottle
+    );
   }
 
   handleContacts({
@@ -382,7 +472,11 @@ export class Ship extends Craft {
   }
 
   get rotationalThrust() {
-    return (this.engine.rotationalThrust || 0) * this.launchThrottle ** 2;
+    return (
+      (this.engine.rotationalThrust || 0) *
+      this.launchThrottle ** 2 *
+      this.fuelThrottle
+    );
   }
 
   get thrust() {
@@ -428,9 +522,9 @@ export class Ship extends Craft {
       }
 
       while (module.fireCooldown <= 1e-9) {
-        if (module.ammunition !== undefined) {
+        if (module.ammo !== undefined) {
           const index = this.cargoContents.findIndex(
-            (item) => item.resource === module.ammunition && item.rounds > 0,
+            (item) => item.resource === module.ammo && item.rounds > 0,
           );
 
           if (index < 0) {
@@ -507,6 +601,11 @@ export class Ship extends Craft {
       );
     }
 
+    const throttle = this.fuelThrottle;
+
+    this.consumeFuel(dt);
+
+    if (throttle !== this.fuelThrottle) this.fly(this.forward, this.turn);
     super.update(dt);
     this.fireWeapons(dt);
   }

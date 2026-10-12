@@ -64,7 +64,10 @@ const controls: ClientMessage[] = [
     input: { ...emptyPlayerInput(), fire: true },
   },
   { type: 'dock', action: 'buyAmmo' },
+  { type: 'dock', action: 'buyAmmo', sequence: 42 },
+  { type: 'dock', action: 'buyStock', objectIds: [42], sequence: 43 },
   { type: 'dock', action: 'sell', objectIds: [-1, 2] },
+  { type: 'dock', action: 'buyStock', objectIds: [42] },
   { type: 'dock', action: 'equip', moduleId: 4, mount: 3 },
   { type: 'dock', action: 'remove', mount: 2 },
   { type: 'dock', action: 'paint', paint: 3 },
@@ -76,7 +79,9 @@ const controls: ClientMessage[] = [
     moduleId: -Number.MAX_SAFE_INTEGER,
     mount: Number.MAX_SAFE_INTEGER,
   },
+  { type: 'dock', action: 'repairHull', hullIndex: 4 },
   { type: 'respawn' },
+  { type: 'activity' },
   { type: 'snapshotAck', sequence: Number.MAX_SAFE_INTEGER },
 ];
 
@@ -122,6 +127,13 @@ for (const message of [
 }
 
 const hello = encodeClientMessage({ type: 'hello', playerToken: null });
+const activity = encodeClientMessage({ type: 'activity' });
+
+assert.deepEqual([...activity], [0x55, 0x43, 1, 7]);
+assert.throws(
+  () => decodeClientMessage(Uint8Array.from([...activity, 0])),
+  /Invalid binary control/,
+);
 
 const input = encodeClientMessage({
   type: 'input',

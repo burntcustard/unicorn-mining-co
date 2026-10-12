@@ -2,6 +2,7 @@ import type { ShipSpec } from './types';
 
 export const mustang = {
   name: 'Mustang',
+  fuelCapacity: 120,
   cargoSpace: 12,
   drag: 5 / 9,
   mass: 9,
@@ -10,9 +11,10 @@ export const mustang = {
   initialLoadout: [
     { mount: 1, module: 'thrusterDualMd' },
     { mount: 0, module: 'cargoHatch' },
-    { mount: 5, module: 'cargoHatch' },
-    { mount: 3, module: 'hornDrill' },
-    { mount: 4, module: 'searchLight' },
+    { mount: 6, module: 'cargoHatch' },
+    { mount: 4, module: 'hornDrill' },
+    { mount: 5, module: 'searchLight' },
+    { mount: 3, module: 'powerPlant' },
   ],
   hullSegments: [
     {
@@ -33,14 +35,14 @@ export const mustang = {
             fits: ['cargoHatch'],
           },
           {
-            x: -2,
+            x: -1,
             y: -25,
             fits: ['autogun', 'laser'],
           },
           {
             x: 5,
             y: -25,
-            fits: ['plasmaAccelerator', 'laser'],
+            fits: ['plasmaAccelerator'],
           },
         ],
       ],
@@ -82,6 +84,7 @@ export const mustang = {
             fits: ['shieldGeneratorSm'],
           },
         ],
+        [{ x: -8, y: 0, fits: ['powerPlant'] }],
       ],
       points: [
         [-16, -20],
@@ -132,14 +135,14 @@ export const mustang = {
             fits: ['cargoHatch'],
           },
           {
-            x: -2,
+            x: -1,
             y: 25,
             fits: ['autogun', 'laser'],
           },
           {
             x: 5,
             y: 25,
-            fits: ['plasmaAccelerator', 'laser'],
+            fits: ['plasmaAccelerator'],
           },
         ],
       ],

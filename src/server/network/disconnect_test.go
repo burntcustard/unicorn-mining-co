@@ -29,6 +29,7 @@ func TestDisconnectedShipCooldown(t *testing.T) {
 			p := s.playersBySocket[socket]
 			token := p.profile.ID
 			ship := p.ship
+			ship.Fuel = 3.25
 			ship.SetModuleActive("searchLight", true)
 			ship.SetModuleActive("cargoHatch", true)
 			ship.Velocity = Vec.Create(3, 4)
@@ -59,7 +60,7 @@ func TestDisconnectedShipCooldown(t *testing.T) {
 			s.Tick(1)
 
 			if s.World.Entities.Has(p.shipID) != reconnectEarly || slices.Contains(observer.binaryReplication.entityIDs, uint64(p.shipID)) != reconnectEarly || p.hiddenShip == reconnectEarly {
-				t.Fatal("cooldown did not remove the offline ship or was not cancelled by reconnect")
+				t.Fatal("cooldown did not remove the offline ship or was not canceled by reconnect")
 			}
 
 			if !reconnectEarly {
@@ -73,6 +74,10 @@ func TestDisconnectedShipCooldown(t *testing.T) {
 
 				socket = &benchmarkSocket{}
 				s.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
+			}
+
+			if ship.Fuel != 3.25 {
+				t.Fatal("fuel changed while disconnected")
 			}
 
 			if s.playersBySocket[socket].ship != ship || !s.World.Entities.Has(p.shipID) || !ship.ModuleActive("searchLight") || !ship.ModuleActive("cargoHatch") {

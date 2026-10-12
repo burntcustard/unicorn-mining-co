@@ -40,6 +40,14 @@
 
 **friction** - A physical material’s resistance to sliding along a contact. The solver mixes two surfaces using the geometric mean, so either surface with zero friction makes the contact frictionless. A nonphysical trigger has no friction impulse.
 
+**fuel** - The propellant remaining in a ship, measured in liters (L). It belongs to the ship and persists through reconnects and server restarts. New and respawned ships start full.
+
+**fuel capacity** - The maximum liters (L) of fuel a ship can hold, defined by its ship spec.
+
+**fuel usage** - A thruster module's full forward-thrust consumption in liters per second (L/s). Turning alone uses half this rate; forward thrust with turning uses the forward rate. Coasting and docking use no fuel. Below 5% capacity, speed and turn rate are halved and fuel usage is one quarter of normal.
+
+**refuel** - A station overview action that fills the ship's fuel tank, charging for the missing liters at the shared fuel price, rounded up to whole unicredits.
+
 **game object** - Anything in the game with its own identity and state, such as a craft, asteroid, item, or module.
 
 **health** - The remaining strength or 'hitpoints' of a game object or one of its pieces. Damage reduces a game objects health.
@@ -60,7 +68,7 @@
 
 **light beam** - The visible cone projected by an active search light, from its lens to the first asteroid it meets or the end of its reach.
 
-**local position** - A location measured from a craft's centre, used for its mounts and segments.
+**local position** - A location measured from a craft's center, used for its mounts and segments.
 
 **model** - The plan for a module's shape, made from one or more segments. A segment in the model may use points to describe its shape.
 
@@ -72,7 +80,7 @@
 
 **mount** - A location on a craft where a module can be fitted. The mount is the fitting location rather than the module itself.
 
-**paint** - A choice of colour scheme for a craft or module.
+**paint** - A choice of color scheme for a craft or module.
 
 **physical response** - The solver’s position correction and impulses at a contact between physical colliders. Nonphysical contacts still produce gameplay events without this response.
 
@@ -108,7 +116,7 @@
 
 **sell** - A docked action that exchanges cargo contents for credits. Selling a module or item is the opposite of buying it. An equipped module must be removed before it can be sold.
 
-**shades** - The colours used to draw a craft or module, including its fill, edge stroke, shadow, and highlight.
+**shades** - The colors used to draw a craft or module, including its fill, edge stroke, shadow, and highlight.
 
 **shape outline** - An ordered sequence of points tracing a game shape, used for geometry, collision, and replication.
 
@@ -122,7 +130,7 @@
 
 **snapshot** - A server update describing which objects are in a player's view and the current state of some of them.
 
-**spectrum** - The rainbow of coloured light projected from the far side of an asteroid when a search light beam passes through it.
+**spectrum** - The rainbow of colored light projected from the far side of an asteroid when a search light beam passes through it.
 
 **spec** - Authored game data or tuning in `src/specs`, such as a ship, module, item or visual effect. A spec describes an instance; it is not the instance’s mutable state. Shared data schemas may live beside their specs. Runtime types and interfaces belong beside the implementation that owns them. The generated Go catalog and its schemas live in `src/server/specs`. Existing serialized `definitionId`/`DefinitionID` names continue to identify specs.
 

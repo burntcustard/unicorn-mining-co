@@ -429,6 +429,8 @@ func (c *Craft) FixHull() {
 }
 
 func (c *Craft) Launch() {
+	c.EndTradeVisit()
+
 	if c.DockedTo != nil && c.World != nil {
 		if entity, ok := c.World.Entities.Get(*c.DockedTo); ok {
 			if station, ok := entity.(*Station); ok && len(station.DockingBays) > 0 {

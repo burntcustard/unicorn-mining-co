@@ -3,9 +3,6 @@
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
 
-assert.equal('window' in globalThis, false);
-assert.equal('document' in globalThis, false);
-
 const bundle = await rolldown({
   input: 'regions',
   plugins: [

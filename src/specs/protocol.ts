@@ -7,6 +7,7 @@ export const controlMessageIds = {
   snapshotAck: 4,
   welcome: 5,
   progress: 6,
+  activity: 7,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {
@@ -17,6 +18,9 @@ export const dockActionIds = {
   paint: 4,
   repair: 5,
   buyAmmo: 6,
+  repairHull: 7,
+  buyStock: 8,
+  refuel: 9,
 } as const satisfies Record<string, number>;
 
 export const binaryFieldIds = {
@@ -56,6 +60,7 @@ export const binaryFieldIds = {
   velocity: 33,
   definitionId: 34,
   rounds: 35,
+  fuel: 36,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {

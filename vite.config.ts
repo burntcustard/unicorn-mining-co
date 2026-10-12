@@ -4,6 +4,7 @@ import {
   buildPrePlugin,
 } from './plugins/build-plugins.ts';
 import { defineConfig } from 'vite';
+import purgeCSS from '@fullhuman/postcss-purgecss';
 
 export default defineConfig(({ mode, command }) => {
   // DEBUG code runs under any Vite dev server (dev, dev:host, and the
@@ -24,6 +25,24 @@ export default defineConfig(({ mode, command }) => {
 
   return {
     base: './',
+    css: {
+      postcss: {
+        plugins:
+          command === 'build'
+            ? [
+                purgeCSS({
+                  content: [
+                    'index.html',
+                    'src/client/**/*.{html,ts,svg}',
+                    'src/specs/**/*.ts',
+                  ],
+                  // Interaction states are supplied by the browser, not markup.
+                  safelist: [/^:/],
+                }),
+              ]
+            : [],
+      },
+    },
     preview: {
       proxy,
     },

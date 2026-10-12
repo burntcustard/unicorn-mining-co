@@ -35,6 +35,10 @@ export const protocolTags = [
   'objectDestroyed',
   'explosion',
   'laserDamage',
+  'repairHull',
+  'powerPlant',
+  'refuel',
+  'activity',
 ];
 
 /**

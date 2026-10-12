@@ -62,7 +62,7 @@ const markBallistic = (record: BodyRecord) => {
 };
 
 // Explicit object mass controls translation. Geometry only determines how
-// strongly an off-centre hit rotates it around the object's origin.
+// strongly an off-center hit rotates it around the object's origin.
 const inertiaPerMass = (fixtures: Fixture[]) => {
   let area = 0;
   let moment = 0;

@@ -1,9 +1,9 @@
 /**
- * Authored centre-lines in a 13-unit cell. The generator expands their
+ * Authored center-lines in a 13-unit cell. The generator expands their
  * 2-unit, butt-capped, bevel-joined stroke into filled font contours.
  * The initial M command is implicit; later M commands begin new subpaths.
  * Empty strings reserve characters without including them in the font.
- * Lowercase m is the metre indicator. All former debug glyphs are included.
+ * Lowercase m is the meter indicator. All former debug glyphs are included.
  */
 export const glyphPaths = {
   '!': '5 0 5 9M5 11 5 13',
@@ -12,8 +12,10 @@ export const glyphPaths = {
   '(': '8 0 4 0 4 13 8 13',
   ')': '3 0 7 0 7 13 3 13',
   '*': '3 4 8 9M8 4 3 9',
+  '+': '2 7 10 7M6 3 6 11',
   ',': '6 12 4 15',
   '-': '3 6 8 6',
+  '.': '4 12 6 12',
   '/': '3 14 9 0',
   '0': '4 1 8 1 10 7 8 12 4 12 2 7Z',
   '1': '2 4 6 1 6 13',
@@ -54,7 +56,9 @@ export const glyphPaths = {
   'Y': '6 13 6 9M2 1 6 9 10 1',
   'Z': '1 2 9 2 1 12 9 12',
   'm': '2 13 2 6 6 11 10 6 10 13',
+  '←': '5 3 1 7 5 11M1 7 12 7',
   '↑': '2 6 6 2 10 6M6 2 6 13',
+  '→': '8 3 12 7 8 11M1 7 12 7',
   '↓': '2 9 6 13 10 9M6 2 6 13',
   '□': '3 2 9 2 9 12 3 12Z',
 } as const;

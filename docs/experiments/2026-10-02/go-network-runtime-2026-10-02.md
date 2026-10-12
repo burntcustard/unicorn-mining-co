@@ -62,7 +62,7 @@ benchmark barrier before ticking.
 Measurements begin after all clients are ready and 120 normal warmup ticks
 (four seconds). Each sample measures 180 tick periods (six seconds), using
 server-process user plus system CPU and allocation counters. The client reports
-snapshot/input rates, p95 and maximum gaps, input-acknowledgement delays and
+snapshot/input rates, p95 and maximum gaps, input-acknowledgment delays and
 received bytes. Comparisons alternate before/after order and require every
 client to maintain at least 28.5 Hz; actual rates are retained with each sample.
 Protocol bundling and connection startup happen outside measurement.
@@ -103,10 +103,10 @@ this is an additional reduction, not a new Go-versus-Node comparison.
 
 Snapshot/input rates stayed approximately 30 Hz. The lowest measured snapshot
 rate was 29.833 Hz, a one-snapshot difference at a six-second measurement
-boundary. Median per-run worst-client p95 input acknowledgement delays changed
+boundary. Median per-run worst-client p95 input acknowledgment delays changed
 by less than 3 ms in all cases; most were approximately 63–67 ms on both sides.
 The workload deliberately targets inputs one tick ahead, so this measures
-acknowledgement timing, not visual control response or Internet RTT.
+acknowledgment timing, not visual control response or Internet RTT.
 
 Receive-buffer and event reuse remove approximately **four allocations per
 client per tick**: two incoming frame payloads and two decoded control objects.
@@ -171,8 +171,8 @@ transport. Equal-case mean CPU reduction is **27.23%**.
 
 Every client in all 48 samples delivered at least **29.994 Hz** for both inputs
 and snapshots. The largest recorded snapshot gap was **39.16 ms**. Median
-worst-client p95 input-acknowledgement delay changed by at most **1.16 ms** per
-case. Across all cases, the maximum recorded input-acknowledgement delay was
+worst-client p95 input-acknowledgment delay changed by at most **1.16 ms** per
+case. Across all cases, the maximum recorded input-acknowledgment delay was
 69.99 ms before and 71.47 ms after. These are diagnostic loopback timings, not
 browser response or Internet latency.
 

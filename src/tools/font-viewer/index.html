@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-US">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,16 +8,16 @@
   <body>
     <aside>
       <header>
-        <p>UNICORN MINING CO.</p>
-        <h1>Font Viewer</h1>
+        <p class="text-muted text-xs">UNICORN MINING CO.</p>
+        <h1 class="text-lg my-4">Font Viewer</h1>
       </header>
-      <label for="background">Background colour</label>
+      <label class="mt-4 mb-2" for="background">Background color</label>
       <input id="background" type="color" value="#332255" />
-      <label for="outline">Outline colour</label>
+      <label class="mt-4 mb-2" for="outline">Outline color</label>
       <input id="outline" type="color" value="#000000" />
-      <label for="outline-opacity"
+      <label class="mt-4 mb-2" for="outline-opacity"
         >Outline opacity
-        <output id="outline-opacity-value" for="outline-opacity"
+        <output class="ml-auto" id="outline-opacity-value" for="outline-opacity"
           >46.7% [7]</output
         ></label
       >
@@ -29,39 +29,40 @@
         step="1"
         value="7"
       />
-      <label for="text">Text colour</label>
+      <label class="mt-4 mb-2" for="text">Text color</label>
       <input id="text" type="color" value="#ffffff" />
-      <label for="size"
-        >Font size <output id="size-value" for="size">3rem</output></label
+      <label class="mt-4 mb-2" for="size"
+        >Font size
+        <output class="ml-auto" id="size-value" for="size">3rem</output></label
       >
       <input id="size" type="range" min="0.75" max="8" step="0.125" value="3" />
-      <label>
+      <label class="mt-4 mb-2">
         <input id="font-metrics" type="checkbox" checked /> Font metrics
       </label>
-      <ul class="metrics-key" aria-label="Font metrics key">
+      <ul class="metrics-key text-xs my-4">
         <li style="--metric-color: var(--metric-top)">Top</li>
         <li style="--metric-color: var(--metric-ascent)">Ascent</li>
         <li style="--metric-color: var(--metric-baseline)">Baseline</li>
         <li style="--metric-color: var(--metric-descent)">Descent</li>
         <li style="--metric-color: var(--metric-bottom)">Bottom</li>
       </ul>
-      <p id="status" class="help" role="status">Generating Gemetric…</p>
+      <p id="status" class="text-muted text-xs mt-6" role="status">
+        Generating Gemetric…
+      </p>
     </aside>
-    <main aria-label="Font preview">
-      <div class="content">
-        <section aria-labelledby="uppercase-label">
-          <h2 id="uppercase-label">Uppercase</h2>
-          <p id="uppercase" class="specimen"></p>
-        </section>
-        <section aria-labelledby="lowercase-label">
-          <h2 id="lowercase-label">Lowercase</h2>
-          <p id="lowercase" class="specimen"></p>
-        </section>
-        <section aria-labelledby="symbols-label">
-          <h2 id="symbols-label">Other glyphs</h2>
-          <p id="symbols" class="specimen"></p>
-        </section>
-      </div>
+    <main class="content">
+      <section aria-labelledby="uppercase-label">
+        <h2 class="text-muted text-xs my-4" id="uppercase-label">Uppercase</h2>
+        <p id="uppercase" class="specimen"></p>
+      </section>
+      <section class="mt-8" aria-labelledby="lowercase-label">
+        <h2 class="text-muted text-xs my-4" id="lowercase-label">Lowercase</h2>
+        <p id="lowercase" class="specimen"></p>
+      </section>
+      <section class="mt-8" aria-labelledby="symbols-label">
+        <h2 class="text-muted text-xs my-4" id="symbols-label">Other glyphs</h2>
+        <p id="symbols" class="specimen"></p>
+      </section>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

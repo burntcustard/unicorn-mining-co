@@ -32,6 +32,15 @@ inputs. Huge angles intentionally use the float64 remainder as their direction.
 tolerance 2e-8; random welcome tokens are normalized. This is independent fixed
 regression evidence, not generated from the implementation under test.
 
+The Go replay restores the archived Mustang loadout and mount numbering by
+removing its later power plant and mount and adjusting subsequent starter-module
+indices. Normal spawn and respawn tests use the current catalog, including power
+plants. The recorded session packets and actions remain unchanged.
+
+The historical replay also leaves station starting cargo empty, matching the
+archive before finite ammunition stock was introduced. Current trade and
+persistence tests exercise the 300-pack supply and its depletion.
+
 The session test reconstructs entity states to compare interest sets independently
 of record ordering after reconnect. Welcome and progress messages separately
 verify player-owned balances and paint unlocks. Two rejected dock actions now

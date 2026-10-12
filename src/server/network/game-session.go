@@ -26,8 +26,14 @@ type SessionSocket interface {
 }
 
 type pendingSnapshot struct {
+	sequence     uint64
+	tick         int64
+	dockSequence uint64
+}
+
+type dockAlias struct {
+	id       int64
 	sequence uint64
-	tick     int64
 }
 
 type queuedInputs struct {
@@ -41,6 +47,9 @@ type playerRecord struct {
 	saveSequence                                    uint64
 	welcomePending, respawnPending, progressPending bool
 	snapshotSequence                                uint64
+	dockSequence                                    uint64
+	sentDockSequence                                uint64
+	dockIDs                                         map[int64]dockAlias
 	pendingSnapshots                                []pendingSnapshot
 	snapshotWindow                                  int
 	needsLoad                                       bool
@@ -143,6 +152,12 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 	if message.Type == "snapshotAck" {
 		for i, snapshot := range player.pendingSnapshots {
 			if snapshot.sequence == message.Sequence {
+				for id, alias := range player.dockIDs {
+					if alias.sequence <= snapshot.dockSequence {
+						delete(player.dockIDs, id)
+					}
+				}
+
 				if snapshot.tick >= 0 {
 					player.snapshotWindow = 2
 
@@ -186,6 +201,7 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 	player.disconnectedAt = &now
 	s.World.Players.Delete(player.playerID)
 	ship := player.ship
+	ship.EndTradeVisit()
 	ship.LocalMovementParent = nil
 	ship.LocalMovementRate = 0
 	ship.Velocity = Vec.Vector{}
@@ -405,7 +421,24 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 		inputLead = &p.inputLead
 	}
 
-	options := SnapshotOptions{World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: inputLead, SnapshotSequence: &p.snapshotSequence, ReplicationView: view, BinaryBatch: batch}
+	// Direct replies must include dock changes even within the same tick.
+	var forceUpdateIDs []int64
+
+	if view == nil || p.sentDockSequence != p.dockSequence {
+		forceUpdateIDs = append(forceUpdateIDs, p.shipID)
+
+		if p.ship.DockedTo != nil {
+			forceUpdateIDs = append(forceUpdateIDs, *p.ship.DockedTo)
+		}
+	}
+
+	dockIDs := make([][2]int64, 0, len(p.dockIDs))
+
+	for id, alias := range p.dockIDs {
+		dockIDs = append(dockIDs, [2]int64{id, alias.id})
+	}
+
+	options := SnapshotOptions{ForceUpdateIDs: forceUpdateIDs, World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: inputLead, SnapshotSequence: &p.snapshotSequence, DockSequence: &p.dockSequence, Credits: &p.profile.Credits, DockIDs: dockIDs, ReplicationView: view, BinaryBatch: batch}
 	packet := p.binaryReplication.encode(options, p.needsLoad)
 	tick := int64(s.World.Tick)
 
@@ -414,8 +447,9 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	}
 
 	p.needsLoad = false
+	p.sentDockSequence = p.dockSequence
 	p.hasInputLead = false
-	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick})
+	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick, dockSequence: p.dockSequence})
 	send(socket, packet)
 }
 
@@ -467,6 +501,9 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 	p.playedAt = s.now()
 	s.playersBySocket[socket] = p
 	p.snapshotSequence = 0
+	p.dockSequence = 0
+	p.sentDockSequence = 0
+	p.dockIDs = map[int64]dockAlias{}
 	p.pendingSnapshots = nil
 	p.snapshotWindow = 2
 	p.needsLoad = true
@@ -500,7 +537,7 @@ func (s *GameSession) sendWelcome(p *playerRecord) {
 }
 
 func (s *GameSession) respawn(p *playerRecord) {
-	if s.World.Entities.Has(p.shipID) && (p.ship.Engine() != nil || p.ship.DockedTo != nil && *p.ship.DockedTo != 0 || p.ship.Launching != 0) {
+	if s.World.Entities.Has(p.shipID) && (p.ship.Engine() != nil && p.ship.Fuel > 0 || p.ship.DockedTo != nil && *p.ship.DockedTo != 0 || p.ship.Launching != 0) {
 		return
 	}
 
@@ -579,6 +616,14 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 		s.sendSnapshot(p, nil, nil)
 	}()
 
+	if message.Sequence != 0 {
+		if message.Sequence <= p.dockSequence {
+			return
+		}
+
+		p.dockSequence = message.Sequence
+	}
+
 	if message.Dock.Action == "paint" && (message.Dock.Paint < 0 || message.Dock.Paint >= 7 || p.profile.UnlockedPaints&(1<<uint(message.Dock.Paint)) == 0) {
 		return
 	}
@@ -595,6 +640,44 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 		return
 	}
 
+	// Requests sent before a module sale is acknowledged still use its ship ID.
+	// These aliases are private to this connection and expire when acknowledged.
+	originalIDs := slices.Clone(message.Dock.ObjectIDs)
+
+	resolveID := func(id int64) int64 {
+		for range len(p.dockIDs) {
+			alias, ok := p.dockIDs[id]
+
+			if !ok {
+				break
+			}
+
+			id = alias.id
+		}
+
+		return id
+	}
+
+	if message.Dock.Action == "buy" {
+		delete(p.dockIDs, message.Dock.ModuleID)
+	} else if message.Dock.HasModuleID {
+		message.Dock.ModuleID = resolveID(message.Dock.ModuleID)
+	}
+
+	for i, id := range message.Dock.ObjectIDs {
+		message.Dock.ObjectIDs[i] = resolveID(id)
+	}
+
+	soldModules := map[int64]simulation.Entity{}
+
+	if message.Dock.Action == "sell" {
+		for _, object := range ship.ShipBase().CargoContents {
+			if _, ok := object.(simulation.Module); ok && slices.Contains(message.Dock.ObjectIDs, object.Base().ID) {
+				soldModules[object.Base().ID] = object
+			}
+		}
+	}
+
 	soldDiamond := false
 
 	if message.Dock.Action == "sell" {
@@ -607,6 +690,14 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 
 	if _, ok := ship.ShipBase().ApplyDockAction(message.Dock, &p.profile.Credits); ok {
 		accepted = true
+
+		for i, id := range message.Dock.ObjectIDs {
+			if object := soldModules[id]; object != nil {
+				alias := dockAlias{id: object.Base().ID, sequence: message.Sequence}
+				p.dockIDs[originalIDs[i]] = alias
+				p.dockIDs[id] = alias
+			}
+		}
 
 		if soldDiamond {
 			s.unlockPaint(p, 4)

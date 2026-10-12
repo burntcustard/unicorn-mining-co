@@ -83,7 +83,7 @@ assert.equal(frame.strokes[0].radius,35,'ease-out expansion is faster at the sta
 assert.equal(frame.strokes[0].width,6,'ring width thins independently of radius easing');
 assert.equal(frame.strokes[0].alpha,.8,'thinning does not require fading');
 assert.equal(frame.gradients[0].radius,10,'glows use the same scale interpolation as other layers');
-assert.deepEqual(frame.gradients[0].stops,[[0,'#f80'],[1,'#ff880000']], 'glows fade to transparent without changing their colour');
+assert.deepEqual(frame.gradients[0].stops,[[0,'#f80'],[1,'#ff880000']], 'glows fade to transparent without changing their color');
 assert.equal(frame.fills[1].size,25,'polygon scale combines radius, layer animation and instance scale');
 frame=advanceTo(170);
 assert.equal(frame.fills[0].alpha,.6);
@@ -188,7 +188,7 @@ for(const value of [.25,.75]){
 Math.random=fanRandom;
 assert.notDeepEqual(fanSamples[0],fanSamples[1],'different shots vary their tip angles as well as their lengths');
 
-// Dissolving polygons reveal their centre while keeping their stable outline.
+// Dissolving polygons reveal their center while keeping their stable outline.
 addEffect({position:{x:10,y:20},rotation:0,effect:[{type:'polygon',color:'#fff',radius:10,pointCount:5,duration:200,delay:20,dissolveDuration:100}]});
 const dissolvingPath=effects[0].parts[0].path;
 updateEffects(120);frame=record();
@@ -198,7 +198,7 @@ updateEffects(50);frame=record();
 assert.deepEqual(frame.clips,[dissolvingPath],'the hole is clipped to the original polygon');
 assert.deepEqual(frame.arcs,[5],'the hole grows in normalized polygon space');
 assert.deepEqual(frame.rects,[[-1,-1,2,2]],'the fill covers the normalized outline');
-assert.equal(frame.fills[0].path,'evenodd','the centre is excluded without clearing the scene');
+assert.equal(frame.fills[0].path,'evenodd','the center is excluded without clearing the scene');
 assert.equal(frame.fills[0].alpha,1,'dissolve does not require opacity fading');
 updateEffects(49);frame=record();
 assert.equal(frame.arcs[0],9.9,'the hole approaches the outer tips before expiry');
@@ -258,7 +258,7 @@ const collision={type:'collision',a:source.id,b:2,damage:[2,2],impact:0,colors:[
 const destruction={type:'objectDestroyed',objectId:source.id,damage:2,color:'#44f',position:{x:10,y:20}};
 presentEvents({events:[collision,destruction,...events]});
 assert.equal(effects.length,1);
-assert.equal(sparks.length,4,'only source sparks are suppressed, even when the target has the same colour');
+assert.equal(sparks.length,4,'only source sparks are suppressed, even when the target has the same color');
 assert.equal(source.health,100,'presentation does not modify gameplay');
 sparks.length=0;
 presentEvents({events:[{...collision,a:2,b:source.id},...events]});

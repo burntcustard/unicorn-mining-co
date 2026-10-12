@@ -26,6 +26,18 @@ export const query = <T extends Element = HTMLElement>(
   selector: string,
 ) => element.querySelector<T>(selector)!;
 
+const notification = document.createElement('div');
+
+notification.className = 'ui-notification text-center uppercase';
+notification.setAttribute('role', 'status');
+notification.hidden = true;
+document.body.append(notification);
+
+export const updateNotification = (message: string) => {
+  if (notification.textContent !== message) notification.textContent = message;
+  notification.hidden = !message;
+};
+
 export const ui = (() => {
   const element = document.createElement('div');
 
@@ -66,19 +78,8 @@ export const ui = (() => {
     while (stack.length) back();
   };
 
-  element.addEventListener('pointerover', (event) => {
-    if (
-      !(event.composedPath()[0] as Element).closest('button:not(:disabled)')
-    ) {
-      return;
-    }
-
-    (document.activeElement as HTMLElement)?.blur();
-    element.removeAttribute('data-arrow-navigation');
-  });
-
   window.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab') element.removeAttribute('data-arrow-navigation');
+    if (event.key === 'Tab') element.classList.remove('ui-arrow-navigation');
 
     if (
       event.defaultPrevented ||
@@ -102,7 +103,7 @@ export const ui = (() => {
     if (focused && !focused.matches('button')) return;
 
     const group =
-      focused?.closest('nav, [data-bindings], .ui-actions, .ui-paints') ||
+      focused?.closest('nav, [data-bindings], .ui-actions') ||
       screen.querySelector('nav') ||
       screen;
 
@@ -113,7 +114,7 @@ export const ui = (() => {
 
     if (!buttons.length) return;
     event.preventDefault();
-    element.setAttribute('data-arrow-navigation', '');
+    element.classList.add('ui-arrow-navigation');
     const next =
       index < 0
         ? direction > 0
@@ -127,6 +128,7 @@ export const ui = (() => {
   window.addEventListener('keydown', (event) => {
     if (
       event.key !== 'Escape' ||
+      event.repeat ||
       event.defaultPrevented ||
       document.querySelector('dialog[open]')
     ) {

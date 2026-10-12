@@ -161,7 +161,7 @@ The stripped static Go executable also remains 7,889,056 bytes.
   places opposing pairs close together; module exercises drilling targets and
   hatch/light transitions, replenishing targets every 120 measured ticks.
 - Timing includes region lifecycle, simulation, collision physics, gameplay
-  modules, per-player replication, binary encoding and acknowledgements through
+  modules, per-player replication, binary encoding and acknowledgments through
   in-memory socket sinks. It excludes compilation, startup, warmup, trace writing
   and operating-system WebSocket I/O. No other performance job runs concurrently.
 - The 224 timed processes matched between versions on contact counts, gameplay

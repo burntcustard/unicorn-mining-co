@@ -48,16 +48,23 @@ func GenerationDigest(catalog specs.Catalog) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// CompatibleGenerationDigest also accepts the catalog before ammunition was
-// appended. Generation uses resource indices 0–3, so that addition did not
+// CompatibleGenerationDigest accepts catalogs before ammo was appended or
+// renamed. Generation uses resource indices 0–3, so those changes did not
 // change generated contents. Keep all other generation checks intact.
 func CompatibleGenerationDigest(catalog specs.Catalog, saved string) bool {
 	if saved == GenerationDigest(catalog) {
 		return true
 	}
 
-	if !slices.Equal(catalog.ItemIDs, []string{"diamond", "amethyst", "gold", "opal", "message", "autogunAmmunition"}) {
+	if !slices.Equal(catalog.ItemIDs, []string{"diamond", "amethyst", "gold", "opal", "message", "autogunAmmo"}) {
 		return false
+	}
+
+	catalog.ItemIDs = slices.Clone(catalog.ItemIDs)
+	catalog.ItemIDs[5] = "autogunAmmunition"
+
+	if saved == GenerationDigest(catalog) {
+		return true
 	}
 
 	catalog.ItemIDs = catalog.ItemIDs[:5]

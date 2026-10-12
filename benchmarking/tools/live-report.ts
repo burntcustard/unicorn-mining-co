@@ -118,10 +118,10 @@ const rows = run.counts
         0.95,
       ),
     );
-    const acknowledgements = cases.map((result) =>
+    const acknowledgments = cases.map((result) =>
       quantile(
         result.captures.flatMap((capture) =>
-          capture.acknowledgements.map((ack) => ack.ms),
+          capture.acknowledgments.map((ack) => ack.ms),
         ),
         0.95,
       ),
@@ -136,7 +136,7 @@ const rows = run.counts
         2,
       ),
       number(Math.max(...gaps)),
-      number(Math.max(...acknowledgements)),
+      number(Math.max(...acknowledgments)),
       range(
         cases.map((result) =>
           quantile(result.summaries.map((sample) => sample.downloadKiBs)),
@@ -147,7 +147,7 @@ const rows = run.counts
 
 assert(rows.length, 'Capture has no measured cases');
 
-const measuredAt = new Intl.DateTimeFormat('en-GB', {
+const measuredAt = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Europe/London',
   dateStyle: 'long',
   timeStyle: 'long',

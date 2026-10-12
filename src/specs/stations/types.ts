@@ -1,7 +1,9 @@
 import type { MountPointSpec } from '../mounts';
 import type { RenderingLayer } from '../rendering-layers';
+import type { ItemId } from '../items';
 
 export type StationSpec = {
+  initialCargoContents: { item: ItemId; count: number }[];
   dockingBays: number[];
   hullSegments: {
     points: number[][];

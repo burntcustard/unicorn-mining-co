@@ -32,6 +32,7 @@ type SavedObject struct {
 }
 
 type SavedEntity struct {
+	Fuel                     *float64
 	Rounds                   *int
 	Object                   SavedObject
 	ModuleType               string
@@ -141,6 +142,10 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 
 		s.Modules = c.ModuleStates()
 
+		if o.Kind == "station" {
+			s.Modules = slices.DeleteFunc(s.Modules, func(m ModuleState) bool { return m.Mount < 0 })
+		}
+
 		for i := range s.Modules {
 			m := &s.Modules[i]
 			s.ModuleTypes = append(s.ModuleTypes, c.Catalog.ModuleIDs[m.Type])
@@ -149,6 +154,10 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 		}
 
 		for _, item := range c.CargoContents {
+			if _, module := item.(simulation.Module); o.Kind == "station" && module {
+				continue
+			}
+
 			// Modules are restored by SetModuleStates; preserve their cargo order below.
 			s.CargoContents = append(s.CargoContents, CaptureEntity(item))
 		}
@@ -185,6 +194,10 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 		s.DockedTo = savedPointer(c.DockedTo)
 		s.Launching, s.Forward, s.Turn = c.Launching, c.Forward, c.Turn
 		s.HasLaunching = c.HasLaunching
+	}
+
+	if ship, ok := entity.(*Ship); ok {
+		s.Fuel = savedPointer(&ship.Fuel)
 	}
 
 	return s
@@ -271,6 +284,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 					return nil, fmt.Errorf("unknown saved station %q", id)
 				}
 
+				p.CargoContents = []simulation.Entity{}
 				entity = CreateStation(p, world.Specification)
 			} else {
 				id := o.DefinitionID
@@ -336,6 +350,10 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 
 	if o.Kind == "station" && o.DefinitionID == "corral" {
 		o.DefinitionID = ""
+	}
+
+	if ship, ok := entity.(*Ship); ok && s.Fuel != nil {
+		ship.Fuel = *s.Fuel
 	}
 
 	b := entity.Base()

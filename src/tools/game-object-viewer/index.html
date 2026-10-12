@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-US">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,51 +8,59 @@
   <body>
     <aside>
       <header>
-        <p>UNICORN MINING CO.</p>
-        <h1>GameObject Viewer</h1>
+        <p class="text-muted text-xs">UNICORN MINING CO.</p>
+        <h1 class="text-lg my-4">GameObject Viewer</h1>
       </header>
-      <label for="object-type">Object type</label>
-      <select id="object-type">
+      <label class="mt-4 mb-2" for="object-type">Object type</label>
+      <select class="text-xs" id="object-type">
         <option value="ship">Ship</option>
         <option value="station">Station</option>
         <option value="item">Item</option>
         <option value="asteroid">Asteroid</option>
       </select>
-      <label for="spec">Spec</label>
-      <select id="spec"></select>
-      <fieldset>
+      <label class="mt-4 mb-2" for="spec">Spec</label>
+      <select class="text-xs" id="spec"></select>
+      <fieldset class="my-4">
         <legend>View</legend>
-        <label><input id="grid" type="checkbox" /> Coordinate grid</label>
-        <label
+        <label class="mt-4 mb-2"
+          ><input id="grid" type="checkbox" /> Coordinate grid</label
+        >
+        <label class="mt-4 mb-2"
           ><input id="mount-points" type="checkbox" /> Mounting points</label
         >
-        <label><input id="spin" type="checkbox" /> Spin</label>
-        <button id="reset-rotation" type="button">Reset rotation</button>
-        <label for="zoom">Zoom <output id="zoom-value"></output></label>
+        <label class="mt-4 mb-2"
+          ><input id="spin" type="checkbox" /> Spin</label
+        >
+        <button class="text-xs mt-4" id="reset-rotation" type="button">
+          Reset rotation
+        </button>
+        <label class="mt-4 mb-2" for="zoom"
+          >Zoom <output class="ml-auto" id="zoom-value" for="zoom"></output
+        ></label>
         <input id="zoom" type="range" min="1" max="8" step="0.25" />
       </fieldset>
-      <fieldset id="module-controls">
+      <fieldset class="my-4" id="module-controls">
         <legend>Fitted modules</legend>
         <div id="modules"></div>
       </fieldset>
-      <fieldset>
+      <fieldset class="my-4">
         <legend>Effects</legend>
-        <button id="replay-effect" type="button">
+        <button class="text-xs mt-4" id="replay-effect" type="button">
           Replay plasma explosion
         </button>
-        <button id="replay-autogun-effect" type="button">
+        <button class="text-xs mt-4" id="replay-autogun-effect" type="button">
           Replay autogun explosion
         </button>
-        <label
+        <label class="mt-4 mb-2"
           ><input id="slow-effect" type="checkbox" /> Slow motion (¼
           speed)</label
         >
       </fieldset>
-      <p id="source" class="help"></p>
+      <p id="source" class="text-muted text-xs mt-6"></p>
     </aside>
     <main>
-      <canvas id="canvas" aria-label="GameObject preview"></canvas>
-      <output id="coordinates" hidden></output>
+      <canvas id="canvas" role="img" aria-label="GameObject preview"></canvas>
+      <output class="text-xs" id="coordinates" hidden></output>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

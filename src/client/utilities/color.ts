@@ -1,5 +1,5 @@
 /**
- * Apply numeric opacity to an opaque three- or six-digit hex colour.
+ * Apply numeric opacity to an opaque three- or six-digit hex color.
  */
 export const withAlpha = ({
   color,

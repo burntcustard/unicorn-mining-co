@@ -2,16 +2,17 @@
 package specs
 
 type Item struct {
-	Rounds    int       `json:"rounds"`
-	Resource  int       `json:"resource"`
-	Name      string    `json:"name"`
-	Price     *float64  `json:"price"`
-	Points    []Point   `json:"points"`
-	Radius    float64   `json:"radius"`
-	Lines     [][]Point `json:"lines"`
-	Shades    []string  `json:"shades"`
-	Glint     bool      `json:"glint"`
-	Rainbow   bool      `json:"rainbow"`
-	FillAlpha float64   `json:"fillAlpha"`
-	Unlock    string    `json:"unlock"`
+	Description string    `json:"description"`
+	Rounds      int       `json:"rounds"`
+	Resource    int       `json:"resource"`
+	Name        string    `json:"name"`
+	Price       *float64  `json:"price"`
+	Points      []Point   `json:"points"`
+	Radius      float64   `json:"radius"`
+	Lines       [][]Point `json:"lines"`
+	Shades      []string  `json:"shades"`
+	Glint       bool      `json:"glint"`
+	Rainbow     bool      `json:"rainbow"`
+	FillAlpha   float64   `json:"fillAlpha"`
+	Unlock      string    `json:"unlock"`
 }

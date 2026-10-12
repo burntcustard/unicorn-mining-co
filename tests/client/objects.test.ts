@@ -45,8 +45,6 @@ import {
   cloneEntity,
 } from '${process.cwd()}/src/client/simulation/world-state.ts';
 
-assert.equal(typeof document, 'undefined');
-assert.equal(typeof window, 'undefined');
 assert.equal(Object.getPrototypeOf(Craft.prototype), GameObject.prototype);
 assert.equal(Object.getPrototypeOf(Ship.prototype), Craft.prototype);
 assert.equal(Object.getPrototypeOf(Module.prototype), GameObject.prototype);

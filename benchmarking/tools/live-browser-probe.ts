@@ -47,7 +47,7 @@ export function installLiveProbe(clockFields: {
       tick: number;
       input: PlayerInput;
     }[] = [],
-    acknowledgements: { sequence: number; ms: number; input: PlayerInput }[] =
+    acknowledgments: { sequence: number; ms: number; input: PlayerInput }[] =
       [],
     errors: string[] = [];
 
@@ -128,7 +128,7 @@ export function installLiveProbe(clockFields: {
 
                 if (sequence > message.acknowledgedSequence) continue;
 
-                acknowledgements.push({
+                acknowledgments.push({
                   sequence,
                   ms: at - input.at,
                   input: input.input,
@@ -376,7 +376,7 @@ export function installLiveProbe(clockFields: {
       );
 
       thrust = Math.abs(angle) < (workload === 'contact' ? 1 : 0.6);
-      // Periodic thrust pulses provide fresh acknowledgements in straight flight.
+      // Periodic thrust pulses provide fresh acknowledgments in straight flight.
 
       if (workload === 'convoy' || workload === 'spread') {
         thrust &&= Math.floor(elapsed) % 4 !== 3;
@@ -439,7 +439,7 @@ export function installLiveProbe(clockFields: {
       frames = [];
       snapshots = [];
       inputs = [];
-      acknowledgements = [];
+      acknowledgments = [];
       errors = [];
       closes = [];
       decodeCosts = [];
@@ -471,7 +471,7 @@ export function installLiveProbe(clockFields: {
         frames,
         snapshots,
         inputs,
-        acknowledgements,
+        acknowledgments,
         pendingInputs: pending.size,
         errors,
         closes,

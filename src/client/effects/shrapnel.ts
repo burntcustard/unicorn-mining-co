@@ -2,7 +2,7 @@ import * as Vec from '../utilities/vector';
 import { objectLineWidth } from '../utilities/drawing';
 
 /**
- * Short streaks thrown from damage contacts in the damaged object's colour.
+ * Short streaks thrown from damage contacts in the damaged object's color.
  */
 
 const speed = 100;

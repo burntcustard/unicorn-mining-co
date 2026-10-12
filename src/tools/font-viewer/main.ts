@@ -60,14 +60,15 @@ const updateFont = async (metadata: {
     document.fonts.add(face);
     const samples = createSpecimens(metadata.characters);
 
+    preview.style.setProperty('--font', `"${face.family}", monospace`);
+
     for (const specimen of specimens) {
-      specimen.style.fontFamily = `"${face.family}", monospace`;
       specimen.textContent = samples[specimen.id as keyof typeof samples];
     }
 
     if (activeFont) document.fonts.delete(activeFont);
     activeFont = face;
-    status.textContent = `${metadata.characters.length} glyphs · ${metadata.bytes.toLocaleString()} bytes (${(metadata.bytes / 1024).toFixed(2)} KiB)`;
+    status.textContent = `${metadata.characters.length} glyphs · ${metadata.bytes.toLocaleString('en-US')} bytes (${(metadata.bytes / 1024).toFixed(2)} KiB)`;
   } catch (error) {
     status.textContent = `Font preview failed: ${error instanceof Error ? error.message : JSON.stringify(error)}`;
   }

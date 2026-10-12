@@ -351,7 +351,7 @@ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) pr
 func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord {
 	catalog := &batch.catalog
 	field := catalog.Protocol.BinaryFieldIDs
-	record := recordOf(source, field.Rounds)
+	record := recordOf(source, field.Fuel)
 
 	if record.batchGeneration == batch.Generation {
 		return record
@@ -467,6 +467,7 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 
 	if s, ok := source.(interface{ ShipBase() *objects.Ship }); ok {
 		ship := s.ShipBase()
+		scalarNumber(record, field.Fuel, ship.Fuel)
 		scalarNumber(record, field.Thrust, ship.Forward)
 		scalarNumber(record, field.Turn, ship.Turn)
 	}
@@ -632,10 +633,14 @@ func (b *BinarySnapshotBatch) fragment(record *binaryRecord, baseline int64, rep
 }
 
 type SnapshotOptions struct {
+	ForceUpdateIDs                         []int64
 	World                                  *simulation.World
 	ShipID                                 int64
 	Position                               Vec.Vector
 	AcknowledgedSequence, SnapshotSequence *uint64
+	DockSequence                           *uint64
+	Credits                                *float64
+	DockIDs                                [][2]int64
 	InputLead                              *int64
 	ReplicationView                        *ReplicationView
 	BinaryBatch                            *BinarySnapshotBatch
@@ -795,7 +800,7 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 			membershipChanged = true
 		}
 
-		if loaded {
+		if loaded && !slices.Contains(options.ForceUpdateIDs, object.ID) {
 			if packedCadence {
 				due := distantDue
 				mask := ballisticDistant
@@ -924,7 +929,7 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 		fragments[i] = batch.arena[f.offset : f.offset+f.length]
 	}
 
-	data, err := protocol.AppendSnapshot(m.writer[:0], protocol.Snapshot{Load: load, MembershipChanged: membershipChanged, Tick: world.Tick, NextEntityID: uint64(world.NextEntityID), Ack: options.AcknowledgedSequence, InputLead: options.InputLead, Sequence: options.SnapshotSequence, EntityIDs: m.entityIDs, Fragments: fragments}, m.catalog.Protocol)
+	data, err := protocol.AppendSnapshot(m.writer[:0], protocol.Snapshot{Load: load, MembershipChanged: membershipChanged, Tick: world.Tick, NextEntityID: uint64(world.NextEntityID), Ack: options.AcknowledgedSequence, InputLead: options.InputLead, Sequence: options.SnapshotSequence, DockSequence: options.DockSequence, Credits: options.Credits, DockIDs: options.DockIDs, EntityIDs: m.entityIDs, Fragments: fragments}, m.catalog.Protocol)
 
 	if err != nil {
 		panic(err)

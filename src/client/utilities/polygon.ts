@@ -3,7 +3,7 @@ import { type ShapeOutline, type Point } from '../types';
 export interface PolygonOptions {
   // Number of corners and edges.
   pointCount: number;
-  // Distance of odd corners from the centre.
+  // Distance of odd corners from the center.
   radius: number;
   // Distance of even corners; defaults to radius.
   radiusEven?: number;

@@ -20,8 +20,8 @@ packets, catch-up batches and sparse entity replication. Distant entities and
 ballistic scenery retain their existing replication schedules. The client's
 15 Hz active-sprite range refresh is independent of network timing.
 
-The two-snapshot acknowledgement window and byte-buffer limits still bound slow
-receivers. Full 30 Hz delivery requires acknowledgements within roughly 67 ms;
+The two-snapshot acknowledgment window and byte-buffer limits still bound slow
+receivers. Full 30 Hz delivery requires acknowledgments within roughly 67 ms;
 longer round trips or congestion reduce snapshot frequency. The existing slow-link
 test keeps healthy clients current, limits the slow client's queue to two
 snapshots, and verifies recovery after bandwidth returns.
@@ -72,7 +72,7 @@ why doubling packet count increases byte totals by less than 100%.
 - Four workloads: convoy flight, spread-out turning flight, opposing contact pairs, and drilling with hatch/light transitions and replenished targets.
 - Three runs per workload/player count/version: 48 baseline runs followed by the source change and 48 changed runs. No builds or test suites run concurrently with measurement.
 - Separately compiled test executables; compilation, setup, warmup and artifact writing are outside timing. Runs advance as fast as possible.
-- Real replication and binary serialization, with in-memory socket sinks and acknowledgements. OS WebSocket I/O, external clients, browser rendering and WAN delivery are excluded.
+- Real replication and binary serialization, with in-memory socket sinks and acknowledgments. OS WebSocket I/O, external clients, browser rendering and WAN delivery are excluded.
 
 The baseline is commit `83f5fa42b962260a79ac145a9df7fc8904bd5635`. The measured
 baseline executable SHA-256 is `4f2b3be61bd3df09667b46618e558ec448052d55a5eadf50328361df69fa1ab3`;

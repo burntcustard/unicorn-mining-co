@@ -103,21 +103,17 @@ func TestArrowRespawnPreservesShipAndLoadout(t *testing.T) {
 	p.shipID = p.ship.ID
 	s.Receive(protocol.Control{Type: "respawn"}, socket)
 
-	if p.ship.DefinitionID != "arrow" || len(p.ship.Modules()) != 3 {
-		t.Fatal("respawn must preserve Arrow and restore its cargo hatches and medium thruster")
+	expected := catalog.ShipSpecs["arrow"].InitialLoadout
+
+	if p.ship.DefinitionID != "arrow" || len(p.ship.Modules()) != len(expected) {
+		t.Fatal("respawn must preserve Arrow and restore its starter loadout")
 	}
 
-	thruster := p.ship.Mounts()[2].Module
+	for _, entry := range expected {
+		module := p.ship.Mounts()[entry.Mount].Module
 
-	if thruster == nil || thruster.ModuleBase().Type != "thrusterSingleMd" {
-		t.Fatal("Arrow must start with its medium thruster")
-	}
-
-	for _, index := range []int{0, 4} {
-		module := p.ship.Mounts()[index].Module
-
-		if module == nil || module.ModuleBase().Type != "cargoHatch" {
-			t.Fatal("respawn must equip both rear cargo hatches")
+		if module == nil || module.ModuleBase().Type != entry.Module {
+			t.Fatalf("respawn must equip %s at mount %d", entry.Module, entry.Mount)
 		}
 	}
 }

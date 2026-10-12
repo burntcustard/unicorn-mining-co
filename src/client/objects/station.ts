@@ -9,6 +9,9 @@ import { stationSpecsById, type StationId } from '../../specs/stations';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
 import { type StationSpec } from '../../specs/stations/types';
+import { Item } from './item';
+import { itemSpecs } from '../../specs/items';
+import { entityId } from '../simulation/world';
 
 export class Station extends Craft {
   kind = 'station';
@@ -29,6 +32,22 @@ export class Station extends Craft {
     super({ ...spec, ...properties });
     this.dockingBays = spec.dockingBays;
     this.definitionId = stationType === 'corral-5' ? undefined : stationType;
+
+    if (!properties.cargoContents && this.world) {
+      this.world.nextEntityId = Math.max(this.world.nextEntityId, this.id + 1);
+
+      this.cargoContents = spec.initialCargoContents.flatMap(
+        ({ item, count }) =>
+          Array.from(
+            { length: count },
+            () =>
+              new Item(itemSpecs[item], {
+                world: this.world,
+                id: entityId(this.world!),
+              }),
+          ),
+      );
+    }
   }
 
   holds(child: { position: Vec.Value }) {

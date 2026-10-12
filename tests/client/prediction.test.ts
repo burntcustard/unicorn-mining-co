@@ -12,7 +12,7 @@ import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { Item } from '../../src/client/objects/item';
 import {
   diamond as diamondSpec,
-  autogunAmmunition,
+  autogunAmmo,
 } from '../../src/specs/items/index';
 import {
   captureWorld,
@@ -547,7 +547,7 @@ for (const correction of ['cargo', 'rounds'] as const) {
   const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
 
   addPlayer(world, { id: 1, shipId: ship.id });
-  ship.cargoContents.push(new Item(autogunAmmunition, { world, id: 999 }));
+  ship.cargoContents.push(new Item(autogunAmmo, { world, id: 999 }));
   const prediction = new PredictionManager({ world });
 
   prediction.setLocalPlayer({ playerId: 1 });

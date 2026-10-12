@@ -67,8 +67,14 @@ const input: {
 );
 
 const changes: import('../../src/client/protocol/input').PlayerInput[] = [];
+let activity = 0;
 
-const stopKeys = input.initKeys({ onChange: (state) => changes.push(state) });
+const stopKeys = input.initKeys({
+  onChange: (state) => changes.push(state),
+  onActivity: () => activity++,
+});
+
+assert.equal(activity, 0, 'initialization does not report player activity');
 
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
 window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
@@ -90,6 +96,37 @@ assert(
   'native navigation remains available',
 );
 assert.equal(input.playerInput.fire, false, 'menu keys cannot fire weapons');
+const menuChanges = changes.length;
+const beforeActivity = activity;
+const handled = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+
+handled.preventDefault();
+window.dispatchEvent(handled);
+window.dispatchEvent(
+  new KeyboardEvent('keydown', { key: 'Tab', repeat: true }),
+);
+
+for (const type of ['pointermove', 'pointerdown', 'wheel']) {
+  window.dispatchEvent(new Event(type));
+}
+
+assert.equal(
+  activity,
+  beforeActivity + 5,
+  'menu navigation, held keys, pointer movement, clicks, and scrolling count as activity',
+);
+assert.equal(
+  changes.length,
+  menuChanges,
+  'menu activity preserves flight input',
+);
+window.dispatchEvent(new Event('focus'));
+window.dispatchEvent(new Event('scroll'));
+assert.equal(
+  activity,
+  beforeActivity + 5,
+  'passive UI updates are not activity',
+);
 input.setMenuInput(false);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
 assert.equal(
@@ -177,6 +214,17 @@ window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 assert(escaped, 'full key names work for menu bindings');
 
 stopKeys();
+const stoppedActivity = activity;
+
+for (const type of ['keydown', 'pointermove', 'pointerdown', 'wheel']) {
+  window.dispatchEvent(new KeyboardEvent(type, { key: 'ArrowDown' }));
+}
+
+assert.equal(
+  activity,
+  stoppedActivity,
+  'cleanup removes every activity listener',
+);
 let respawnKeys = 0;
 
 const stopDeadKeys = input.initKeys({

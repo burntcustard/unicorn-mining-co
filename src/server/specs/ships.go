@@ -25,6 +25,7 @@ type InitialModule struct {
 }
 
 type Ship struct {
+	FuelCapacity   float64         `json:"fuelCapacity"`
 	InitialLoadout []InitialModule `json:"initialLoadout"`
 	Name           string          `json:"name"`
 	CargoSpace     int             `json:"cargoSpace"`

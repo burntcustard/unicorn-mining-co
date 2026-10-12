@@ -1,45 +1,187 @@
-<section class="ui-screen" aria-labelledby="docked-heading">
-  <div class="ui-panel">
-    <header>
-      <h2 id="docked-heading">DOCKED</h2>
-      <span class="ui-value" data-balance></span
-      ><button class="ui-choice" data-main-menu>MENU</button>
-    </header>
-    <div class="ui-dock-grid">
-      <div class="ui-dock-list">
-        <nav data-sections aria-label="Ship and cargo"></nav>
-        <h3 data-list-heading>AVAILABLE CARGO</h3>
-        <nav data-items aria-label="Available items"></nav>
+<section class="dock-screen ui-layout ui-surface h-full">
+  <header class="dock-header ui-row gap-6">
+    <div class="ui-inline gap-6">
+      <span class="dock-station-icon"></span>
+      <div>
+        <h1 class="text-lg uppercase" data-station></h1>
+        <span class="uppercase text-muted text-sm">Docked</span>
       </div>
-      <section class="ui-dock-info" aria-labelledby="item-heading">
-        <h3 id="item-heading">CARGO</h3>
-        <dl class="ui-value">
-          <dt>HEALTH</dt>
-          <dd data-health></dd>
-          <dt>PRICE</dt>
-          <dd data-price></dd>
-          <dt>REPAIR</dt>
-          <dd data-repair></dd>
-          <dt>CARGO</dt>
-          <dd data-cargo></dd>
-        </dl>
-        <div class="ui-actions" data-actions>
-          <button class="ui-choice" data-command="BUY">BUY</button
-          ><button class="ui-choice" data-command="SELL">SELL</button
-          ><button class="ui-choice" data-command="EQUIP">EQUIP</button
-          ><button class="ui-choice" data-command="REMOVE">REMOVE</button
-          ><button class="ui-choice" data-command="FIX">FIX</button>
-        </div>
-        <section data-paint-panel>
-          <h3>PAINT</h3>
-          <div class="ui-paints" data-paints></div>
-        </section>
-        <p class="ui-status" role="status"></p>
-      </section>
     </div>
-    <div class="ui-actions">
-      <button class="ui-choice" data-back>BACK</button
-      ><button class="ui-choice" data-launch>LAUNCH</button>
+    <nav class="ui-tabs h-full gap-6 uppercase">
+      <button
+        class="ui-tab ui-highlight"
+        data-tab="overview"
+        aria-current="page"
+      >
+        Overview
+      </button>
+      <button class="ui-tab ui-highlight" data-tab="outfitting">
+        Outfitting
+      </button>
+      <button class="ui-tab ui-highlight" data-tab="trade">Trade</button>
+      <button class="ui-tab ui-highlight" data-tab="services">Services</button>
+    </nav>
+    <div class="text-right">
+      <span class="uppercase text-muted text-sm">Available unicredits</span>
+      <div class="text-xl" data-balance></div>
+    </div>
+  </header>
+  <div class="dock-summary ui-row gap-8">
+    <div class="ui-inline gap-8">
+      <h2 class="text-xl uppercase" data-ship-name></h2>
+      <span class="uppercase text-muted text-sm"
+        >Hull <span class="text-color ml-4" data-hull-condition></span
+      ></span>
+    </div>
+    <div class="ui-actions gap-6 ui-inline">
+      <button class="uppercase button" data-repair-all>
+        Repair all
+        <span class="text-muted text-sm" data-repair-total></span></button
+      ><button class="uppercase button" data-hull-paint>Hull paint</button>
     </div>
   </div>
+  <div class="dock-workspace gap-6">
+    <aside class="ui-scroll" data-sidebar>
+      <div data-overview>
+        <h2 class="uppercase">Ship overview</h2>
+        <dl class="dock-overview-stats gap-4 my-8">
+          <dt class="uppercase">Hull</dt>
+          <dd data-hull-total></dd>
+          <dt class="uppercase">Modules fitted</dt>
+          <dd data-module-count></dd>
+          <dt class="uppercase">Cargo</dt>
+          <dd data-cargo-total></dd>
+          <dt class="uppercase">Fuel</dt>
+          <dd data-fuel></dd>
+          <dt class="uppercase">Power output</dt>
+          <dd data-generation></dd>
+        </dl>
+        <nav class="grid gap-3 mt-6 uppercase">
+          <button class="button" data-refuel>
+            Refuel <span data-fuel-price></span>
+          </button>
+          <button class="button" data-open="outfitting">Outfitting</button
+          ><button class="button" data-open="trade">Trade</button
+          ><button class="button" data-open="services">Services</button>
+        </nav>
+      </div>
+      <div data-outfitting hidden>
+        <div class="dock-list-heading ui-row gap-3 mb-6">
+          <h2 class="uppercase">Loadout</h2>
+          <span class="uppercase text-muted text-sm">Health</span>
+        </div>
+        <nav class="text-sm uppercase" data-loadout></nav>
+      </div>
+      <div data-trade hidden>
+        <h2 class="uppercase">Sell from cargo</h2>
+        <div data-trade-items role="group"></div>
+      </div>
+      <div data-services hidden>
+        <h2 class="uppercase">Services</h2>
+        <p>Repair your hull and fitted modules, or change your hull paint.</p>
+        <nav class="grid gap-3 mt-6 uppercase">
+          <button class="button" data-service="repair">Repair all</button
+          ><button class="button" data-service="paint">Hull paint</button>
+        </nav>
+      </div>
+    </aside>
+    <div class="ui-scroll" data-trade-stock hidden>
+      <h2 class="uppercase">Buy from market</h2>
+      <div data-stock-items role="group"></div>
+    </div>
+    <div class="dock-center gap-3">
+      <canvas
+        class="dock-preview h-full"
+        role="img"
+        aria-label="Ship preview"
+      ></canvas>
+      <section class="dock-energy text-sm">
+        <div class="ui-row gap-3">
+          <h2 class="uppercase">Power consumption</h2>
+          <span class="dock-output" data-output></span>
+        </div>
+        <div data-power-bars></div>
+        <span
+          class="uppercase dock-fitting-preview text-muted text-sm"
+          data-fitting-preview
+          hidden
+          >Fitting preview</span
+        >
+        <div class="dock-energy-legend ui-row gap-3 mt-4 uppercase"></div>
+      </section>
+    </div>
+    <div class="dock-inspector gap-6">
+      <section data-candidate-panel hidden>
+        <div class="dock-list-heading ui-row gap-3 mb-6">
+          <h2 class="uppercase">Compatible modules</h2>
+          <span class="uppercase text-muted text-sm">Price</span>
+        </div>
+        <nav
+          class="dock-group uppercase dock-candidates ui-scroll text-sm"
+          tabindex="-1"
+          data-candidates
+        ></nav>
+      </section>
+      <aside class="dock-detail ui-card ui-scroll" tabindex="-1">
+        <div class="ui-row gap-3 text-muted text-sm mb-6 uppercase">
+          <span data-location></span
+          ><span class="text-color" data-category></span>
+        </div>
+        <h2 class="leading-tight text-lg uppercase" data-title></h2>
+        <canvas
+          class="dock-detail-preview block mx-auto mt-4"
+          data-detail-preview
+          role="img"
+          aria-label="Selection preview"
+          hidden
+        ></canvas>
+        <p class="mt-4" data-description></p>
+        <div class="ui-row gap-3 mt-6" data-trade-price-panel hidden>
+          <span class="uppercase text-sm" data-trade-price-label></span>
+          <span data-trade-value></span>
+        </div>
+        <div class="mt-6" data-module-power hidden></div>
+        <p class="mt-4" data-fuel-usage></p>
+        <div class="ui-row gap-3 text-muted text-sm mt-6" data-health-panel>
+          <span class="uppercase">Health</span><span data-health></span>
+        </div>
+        <div class="grid gap-2 text-color mt-6 uppercase" data-actions>
+          <button class="button ui-row" data-command="FIX">
+            Repair<span data-repair></span>
+          </button>
+          <button class="button ui-row" data-command="REMOVE">Remove</button>
+          <button class="button ui-row" data-command="SELL">
+            Sell<span data-sale></span>
+          </button>
+          <button class="button ui-row" data-command="BUY">
+            Buy<span data-price></span>
+          </button>
+          <button class="button ui-row" data-command="EQUIP">Equip</button>
+          <button class="button ui-row" data-command="BUY_AMMO">
+            Buy ammo<span data-ammo-price></span>
+          </button>
+        </div>
+        <section class="mt-6" data-paint-panel>
+          <h3 class="uppercase text-sm" data-paint-heading>Module paint</h3>
+          <div class="ui-actions gap-4 dock-paints mt-4" data-paints></div>
+        </section>
+      </aside>
+    </div>
+  </div>
+  <footer class="dock-footer ui-row text-muted text-sm uppercase">
+    <button class="gap-2 ui-inline" data-launch>
+      <kbd>Esc</kbd><span data-back-label>Launch</span>
+      <span class="dock-launch-icon" aria-hidden="true"></span>
+    </button>
+    <div class="ui-controls gap-8">
+      <span class="gap-2 ui-inline"
+        ><span class="gap-1 ui-inline"
+          ><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></span
+        >Navigate</span
+      ><span class="gap-2 ui-inline"
+        ><span class="gap-1 ui-inline"><kbd>Enter</kbd><kbd>Space</kbd></span
+        >Select</span
+      >
+    </div>
+  </footer>
 </section>

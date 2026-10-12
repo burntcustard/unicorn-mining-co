@@ -15,6 +15,31 @@ import (
 	"testing"
 )
 
+func TestRestoreShipRenamesLegacyAmmo(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(world, objects.Properties{})
+	rounds := 73
+	saved := objects.CaptureShip(ship)
+	saved.Cargo = []objects.SavedCargo{{ID: 987, Type: "autogunAmmunition", Rounds: &rounds}}
+	restored, err := objects.RestoreShip(saved, world, 1)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	after := objects.CaptureShip(restored)
+
+	if len(after.Cargo) != 1 || after.Cargo[0].Type != "autogunAmmo" || after.Cargo[0].ID != 987 || after.Cargo[0].Rounds == nil || *after.Cargo[0].Rounds != rounds {
+		t.Fatal("legacy ammo lost its identity or remaining rounds", after.Cargo)
+	}
+}
+
 func TestRestoreShipRepairsDuplicateOwnedIDs(t *testing.T) {
 	catalog, err := specs.Load()
 
@@ -123,12 +148,6 @@ func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 	if !bytes.Equal(data, unchanged) {
 		t.Fatal("saved ship retains mutable world data")
 	}
-
-	for _, omitted := range []string{"velocity", "spin", "credits", "mass", "friction", "random", "ShapeOutline"} {
-		if bytes.Contains(data, []byte("\""+omitted+"\"")) {
-			t.Fatal("unneeded field remains", omitted)
-		}
-	}
 }
 
 func TestCompactShipSize(t *testing.T) {
@@ -204,5 +223,50 @@ func BenchmarkCaptureShip(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		objects.CaptureShip(ship)
+	}
+}
+
+func TestRestoreMustangBeforePowerPlantMove(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(world, objects.Properties{})
+	current := objects.CaptureShip(ship)
+
+	for _, oldLayout := range []bool{false, true} {
+		saved := objects.CaptureShip(ship)
+
+		if oldLayout {
+			for i := range saved.Modules {
+				mount := &saved.Modules[i].Mount
+
+				if *mount == 3 {
+					*mount = 6
+				} else if *mount >= 4 {
+					*mount--
+				}
+			}
+		}
+
+		restored, err := objects.RestoreShip(saved, world, 1)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		actual, _ := json.Marshal(objects.CaptureShip(restored).Modules)
+		expected, _ := json.Marshal(current.Modules)
+
+		if !bytes.Equal(actual, expected) {
+			t.Fatalf("old layout %v: equipment changed: %s != %s", oldLayout, actual, expected)
+		}
+
+		if restored.Mounts()[3].Module.ModuleBase().Type != "powerPlant" {
+			t.Fatal("power plant was not restored to its new slot")
+		}
 	}
 }

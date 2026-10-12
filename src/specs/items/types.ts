@@ -2,6 +2,7 @@ export type ItemSpec = {
   resource: number;
   rounds?: number;
   name: string;
+  description?: string;
   price?: number;
   points?: number[][];
   radius?: number;

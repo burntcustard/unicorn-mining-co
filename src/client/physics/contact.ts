@@ -570,7 +570,7 @@ export class Contact {
 
       vcp.tangentMass = 1 / kTangent;
 
-      // A growing surface separates bodies even when their centres are still.
+      // A growing surface separates bodies even when their centers are still.
       vcp.velocityBias = 0;
       let vRel = 0;
 

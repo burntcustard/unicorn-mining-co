@@ -29,6 +29,12 @@ type ModuleModelPart = {
 
 type ModuleValues = {
   name: string;
+  icon: string;
+  description: string;
+  // Idle draw and total activated draw, in MW.
+  power: number;
+  powerActivated: number;
+  powerGenerated?: number;
   health: number;
   // Optional separate health pool for the exposed active module or shield bubble.
   healthActivated?: number;
@@ -76,7 +82,7 @@ type ModuleValues = {
     speed: number;
   };
 
-  ammunition?: number;
+  ammo?: number;
   barrelLength?: number;
   model: ModuleModelPart[];
   activationThreshold?: number;
@@ -108,8 +114,10 @@ type ModuleValues = {
 
 export type ModuleSpec = ModuleValues &
   (
+    | { behavior: 'powerPlant'; powerGenerated: number; model: [] }
     | {
         behavior: 'thruster';
+        fuelUsage: number;
         forwardThrust: number;
         rotationalThrust: number;
         model: (ModuleModelPart & {
