@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
@@ -27,21 +28,34 @@ func TestGenerationDigestCompatibility(t *testing.T) {
 	previous := catalog
 	previous.ItemIDs = previous.ItemIDs[:5]
 	previousDigest := GenerationDigest(previous)
-	renamed := catalog
-	renamed.ItemIDs = append([]string{}, catalog.ItemIDs...)
-	renamed.ItemIDs[5] = "autogunAmmunition"
-	renamedDigest := GenerationDigest(renamed)
 
-	for _, saved := range []string{previousDigest, renamedDigest, GenerationDigest(catalog)} {
+	for _, saved := range []string{previousDigest, GenerationDigest(catalog)} {
 		if !CompatibleGenerationDigest(catalog, saved) {
-			t.Fatal("unchanged generation rejected after ammo addition or rename")
+			t.Fatal("unchanged generation rejected after item addition")
 		}
 	}
 
-	for _, name := range []string{"rules", "region size", "item order", "unknown digest"} {
+	extended := catalog
+	extended.ItemIDs = append(append([]string{}, catalog.ItemIDs...), "new-resource", "another-resource")
+	extended.ModuleIDs = append(append([]string{}, catalog.ModuleIDs...), "new-weapon")
+
+	for _, savedItems := range []int{5, len(catalog.ItemIDs), len(extended.ItemIDs) - 1} {
+		savedCatalog := extended
+		savedCatalog.ItemIDs = extended.ItemIDs[:savedItems]
+
+		if !CompatibleGenerationDigest(extended, GenerationDigest(savedCatalog)) {
+			t.Fatal("adding multiple items or a weapon must not require resetting existing saves", savedItems)
+		}
+	}
+
+	if !CompatibleGenerationDigest(extended, previousDigest) {
+		t.Fatal("restoring an older backup must remain possible after further item additions")
+	}
+
+	for _, name := range []string{"rules", "region size", "item order", "item name", "unknown digest"} {
 		t.Run(name, func(t *testing.T) {
 			changed := catalog
-			saved := []string{previousDigest, renamedDigest}
+			saved := []string{previousDigest, GenerationDigest(catalog)}
 
 			switch name {
 			case "rules":
@@ -51,6 +65,10 @@ func TestGenerationDigestCompatibility(t *testing.T) {
 			case "item order":
 				changed.ItemIDs = append([]string{}, catalog.ItemIDs...)
 				changed.ItemIDs[0], changed.ItemIDs[1] = changed.ItemIDs[1], changed.ItemIDs[0]
+			case "item name":
+				changed.ItemIDs = append([]string{}, catalog.ItemIDs...)
+				changed.ItemIDs[5] = "other-ammo"
+				saved = []string{GenerationDigest(catalog)}
 			case "unknown digest":
 				saved = []string{"unknown"}
 			}

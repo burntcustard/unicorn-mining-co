@@ -100,11 +100,13 @@ the server is down. Offline time does not count as playtime.
 The database has one owner: another game server using the same
 file fails with a lock error rather than overwriting live state.
 
-The seed and a digest of generation rules are checked on startup. The catalog
-upgrades that appended autogun ammo and renamed its ID to `autogunAmmo` accept
-the previous five-item and six-item digests because procedural resource indices
-did not change. Older player cargo IDs are translated when restored. The next world save
-records the current digest while preserving player and entity records. Changing
+The seed and a digest of generation rules are checked on startup. Appending
+new items to the catalog accepts saves from any earlier prefix of that catalog;
+existing resource IDs must keep their current names and order. Weapon definitions
+can also be added without resetting the world. Older restored ships and cargo keep
+their saved contents; newly defined items or weapons are available through their
+normal gameplay creation or purchase paths. The next world save records the
+current digest while preserving player and entity records. Changing
 `WORLD_SEED` or generation rules requires a fresh world database; an incompatible
 database never silently creates a fresh world.
 
@@ -151,7 +153,7 @@ directory beside the database. Periodic backups and unrelated `.data` files are
 retained. Start the server normally to generate a fresh world. Browser player
 tokens can remain; players receive fresh profiles when they reconnect.
 
-After deploying a version with the `--reset-world` command, reset Fly with:
+After deploying a version with the `--reset-world-live` command, reset Fly with:
 
 ```sh
 npm run reset-world:live
@@ -160,26 +162,74 @@ npm run reset-world:live -- my-app
 ```
 
 The script uses `FLY_API_TOKEN` or creates an app-scoped deploy token through
-`fly tokens create deploy --app <app> --expiry 15m`. It requires
-exactly one Machine mounting `/data`, holds a Machine lease during maintenance
-to prevent proxy autostarts, saves its original config locally, disables
-traffic during maintenance, stops the game cleanly, and runs
-`/app/server --reset-world` on the existing volume. It waits for each replacement
-Machine version to finish preparing before starting it. After a successful exit it
-restores the original config and starts the game, waiting for configured health
-checks to pass. Archives stay on `/data`.
-On failure it retains the maintenance configuration and prints recovery commands
-with the saved config path; it does not report success or automatically restart
-a failed reset. Do not deploy concurrently with this maintenance operation.
+`fly tokens create deploy --app <app> --expiry 15m`. It requires exactly one
+running Machine mounting `/data`. It executes
+`/app/server --reset-world-live`, which contacts the running server through
+`DATABASE_PATH.control.sock`. This Unix socket is mode `0600`, accessible only
+to the game user; there is no public reset HTTP endpoint.
 
-Recover with the command printed by the script, for example:
+The main process and Fly Machine stay running throughout the operation. The
+server disconnects players, stops its simulation and HTTP listener, flushes
+pending saves, closes SQLite and its database lock, and archives the database
+and sidecars together. It releases the old world from memory, creates a fresh
+world, and reopens the same HTTP port. The private maintenance socket stays
+available throughout. The script waits for the command's successful response
+and configured health checks. It never updates the Machine configuration or
+changes its attached volume during a normal reset. Archives stay on `/data`.
+Players can reconnect normally; old tokens receive new tokens and fresh profiles.
+
+Fly exec refuses Machines with externally held leases, so normal reset/resume
+does not acquire a separate Machine lease. The private socket serializes the
+game's maintenance operations. Do not deploy concurrently with a reset.
+
+If an existing world cannot load (for example after generation rules change),
+the server keeps its main process and private maintenance socket running while
+the game remains unavailable. It logs the startup error and preserves the
+database. An explicit live reset can then archive that incompatible database
+and start the new world without reallocating the Machine. A failed resume never
+silently clears incompatible progress.
+
+A failed flush prevents archiving. A failed archive or restart leaves the game
+stopped inside the still-running Machine, with the private maintenance socket
+available. Fix the underlying error, then resume without another reset:
+
+```sh
+npm run reset-world:live -- unicorn-mining-co --resume
+```
+
+Resume never archives another world. It refuses to silently create an empty
+database if an unsuccessful archive left the original database missing. A
+successful reset followed by a failed startup can resume its fresh database
+while retaining the archived world. Concurrent maintenance commands are refused
+rather than queued. A client timeout may occur after the server accepted a
+reset, so the script does not retry resets automatically. Inspect health and
+logs or resume instead of repeating a reset after an ambiguous failure.
+
+### Recover an older interrupted Machine reset
+
+Recovery of the previous offline-reset workflow remains supported:
 
 ```sh
 npm run reset-world:live -- unicorn-mining-co --restore <machine-id> /tmp/unicorn-world-reset-<id>/machine.json
 ```
 
-This restores the exact saved config through the API, clears the temporary
-maintenance command, and starts the game without resetting its database.
+Configuration recovery holds a Machine lease while changing its settings.
+Use the original game configuration, not a file containing a reset startup
+command. Restore applies its startup, service and restart settings while
+preserving the volumes currently attached at the saved mount paths. A changed
+mount layout is refused. If the stopped Machine already has the original
+ordinary game startup command and image, recovery first starts it, allowing Fly
+to migrate it away from a full host. It never starts a configured offline reset.
+It then rereads the volume IDs, updates the recovery file, applies the original
+settings, and waits for the restored Machine version and health checks.
+
+An HTTP 409 reporting `insufficient memory available ... on the current host`
+means Fly could not reserve host RAM for a Machine update. It does not indicate
+that the data volume is full, and deleting backups does not fix that host-memory
+allocation error. The new live reset avoids the Machine stop/update cycle that
+triggered this failure. Older configuration recovery still involves a Machine
+update and can fail if Fly lacks capacity; the script retains a recovery file
+with the current volume IDs. Do not deploy concurrently with maintenance.
 
 The offline reset command is also available directly as
 `DATABASE_PATH=/path/to/world.sqlite ./bin/server --reset-world`.
@@ -208,6 +258,44 @@ Temporary/incomplete backups are never presented as completed files. These local
 edits; they **do not protect against losing the volume itself**. Copy completed
 backups to separate storage, and keep Fly volume snapshots enabled. Off-server
 storage/upload credentials are not provisioned by this code change.
+
+After deploying the server with backup maintenance commands, inspect the live
+volume with:
+
+```sh
+npm run backups:live
+# Optional app override, supported by both scripts:
+npm run backups:live -- --app my-app
+```
+
+The listing includes completed periodic files in `BACKUP_DIRECTORY` and
+`world.sqlite.reset-*` archives beside `DATABASE_PATH`, with full paths,
+modification times in UTC, and allocated disk space for each entry. It reports
+the number of backups, total backup space, and available/used/total space on the
+database volume. Disk totals also include the live database and other files.
+Incomplete `.tmp` backups are excluded from the backup count and deletion.
+
+Copy a full path from the listing to delete one backup, or use `--all` to delete
+all completed periodic backups and reset archives:
+
+```sh
+npm run backups:delete:live -- /data/backups/world-20261012T120000.000000000.sqlite
+npm run backups:delete:live -- /data/world.sqlite.reset-123456789
+npm run backups:delete:live -- --all
+```
+
+Deletion immediately removes the selected local copies and reports backup
+counts, backup space and volume space before and after. It preserves the live
+database, its sidecars and lock, incomplete backups and unrelated files. Reset
+archives with unexpected content are refused. Normal six-hour backups continue
+after deletion. These commands do not list or delete Fly's volume snapshots.
+
+Both scripts use `FLY_API_TOKEN` or an app-scoped deploy token, select exactly
+one Machine mounting `/data`, and execute the server's maintenance command via
+the Machines API. No shell or maintenance image is required, and the game can
+stay running. The Machine must already be running; recover an interrupted
+world reset with its saved `--restore` command before inspecting backups.
+The scripts report when the deployed server lacks the new maintenance flags.
 
 To restore, stop the server, preserve the current database and its `-wal`/`-shm`
 files elsewhere, put a completed backup at `DATABASE_PATH`, remove stale sidecar

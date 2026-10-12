@@ -12,17 +12,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"log"
 	"math"
-	"modernc.org/sqlite"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	"modernc.org/sqlite"
 )
 
 const SchemaVersion = 4
@@ -48,27 +48,21 @@ func GenerationDigest(catalog specs.Catalog) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// CompatibleGenerationDigest accepts catalogs before ammo was appended or
-// renamed. Generation uses resource indices 0–3, so those changes did not
-// change generated contents. Keep all other generation checks intact.
+// CompatibleGenerationDigest accepts catalogs before items were appended.
+// Existing resource indices and saved contents stay unchanged; keep all other
+// generation checks intact.
 func CompatibleGenerationDigest(catalog specs.Catalog, saved string) bool {
-	if saved == GenerationDigest(catalog) {
-		return true
+	for {
+		if saved == GenerationDigest(catalog) {
+			return true
+		}
+
+		if len(catalog.ItemIDs) == 0 {
+			return false
+		}
+
+		catalog.ItemIDs = catalog.ItemIDs[:len(catalog.ItemIDs)-1]
 	}
-
-	if !slices.Equal(catalog.ItemIDs, []string{"diamond", "amethyst", "gold", "opal", "message", "autogunAmmo"}) {
-		return false
-	}
-
-	catalog.ItemIDs = slices.Clone(catalog.ItemIDs)
-	catalog.ItemIDs[5] = "autogunAmmunition"
-
-	if saved == GenerationDigest(catalog) {
-		return true
-	}
-
-	catalog.ItemIDs = catalog.ItemIDs[:5]
-	return saved == GenerationDigest(catalog)
 }
 
 type Player struct {

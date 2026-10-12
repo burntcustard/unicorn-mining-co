@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/network"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -18,16 +21,33 @@ import (
 
 func main() {
 	resetWorld := flag.Bool("reset-world", false, "archive the saved world and player progress, then exit; requires a stopped server")
+	resetWorldLive := flag.Bool("reset-world-live", false, "reset the running game through its private maintenance socket; keep the Machine running")
+	resumeWorldLive := flag.Bool("resume-world-live", false, "resume the game after failed live maintenance without resetting again")
+	backups := flag.Bool("backups", false, "list completed backups, reset archives and volume space, then exit")
+	deleteBackup := flag.String("delete-backup", "", "delete one listed backup path, report volume space, then exit")
+	deleteAllBackups := flag.Bool("delete-all-backups", false, "delete all completed backups and reset archives, report volume space, then exit")
 	flag.Parse()
+
+	flag.Visit(func(option *flag.Flag) {
+		if option.Name == "delete-backup" && *deleteBackup == "" {
+			log.Fatal("delete-backup requires a nonempty path from the backup listing")
+		}
+	})
+
+	maintenance := 0
+
+	for _, enabled := range []bool{*resetWorld, *resetWorldLive, *resumeWorldLive, *backups, *deleteBackup != "", *deleteAllBackups} {
+		if enabled {
+			maintenance++
+		}
+	}
+
+	if flag.NArg() != 0 || maintenance > 1 {
+		log.Fatal("choose one maintenance command without extra arguments")
+	}
 
 	if _, configured := os.LookupEnv("GOGC"); !configured {
 		debug.SetGCPercent(800)
-	}
-
-	catalog, err := specs.Load()
-
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	port := 3001
@@ -84,7 +104,36 @@ func main() {
 		return
 	}
 
-	store, err := persistence.Open(databasePath, backupDirectory)
+	if *resetWorldLive || *resumeWorldLive {
+		action := "reset-world"
+
+		if *resumeWorldLive {
+			action = "resume-world"
+		}
+
+		if err := requestMaintenance(databasePath, action); err != nil {
+			log.Fatal(err)
+		}
+
+		return
+	}
+
+	if *backups || *deleteBackup != "" || *deleteAllBackups {
+		if err := persistence.ManageBackups(persistence.BackupOptions{
+			DatabasePath: databasePath,
+			Directory:    backupDirectory,
+			DeletePath:   *deleteBackup,
+			DeleteAll:    *deleteAllBackups,
+			Output:       os.Stdout,
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
+	catalog, err := specs.Load()
 
 	if err != nil {
 		log.Fatal(err)
@@ -114,26 +163,67 @@ func main() {
 		}
 	}
 
-	game := network.NewGameServer(seed, catalog)
+	var game *network.GameServer
+	maintenanceServer := &maintenanceServer{databasePath: databasePath, canReset: true}
 
-	if err := game.EnablePersistence(store); err != nil {
+	maintenanceServer.startGame = func() error {
+		store, err := persistence.Open(databasePath, backupDirectory)
+
+		if err != nil {
+			return err
+		}
+
+		next := network.NewGameServer(seed, catalog)
+
+		if err := next.EnablePersistence(store); err != nil {
+			return errors.Join(err, store.Close(context.Background()))
+		}
+
+		listener, err := next.Start(port, assets, production)
+
+		if err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			return errors.Join(err, store.Close(ctx))
+		}
+
+		game = next
+		port = listener.Addr().(*net.TCPAddr).Port
+		log.Printf("Go server listening on %s", listener.Addr())
+		return nil
+	}
+
+	maintenanceServer.stopGame = func(ctx context.Context) error {
+		previous := game
+		game = nil
+		return previous.Stop(ctx)
+	}
+
+	if err := maintenanceServer.startGame(); err != nil {
+		log.Printf("Game unavailable: %v; live maintenance remains available", err)
+	} else {
+		maintenanceServer.running = true
+	}
+
+	if err := maintenanceServer.serve(); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+
+		if maintenanceServer.running {
+			err = errors.Join(err, maintenanceServer.stopGame(ctx))
+		}
+
 		log.Fatal(err)
 	}
 
-	listener, err := game.Start(port, assets, production)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Go server listening on %s", listener.Addr())
 	stopped := make(chan os.Signal, 1)
 	signal.Notify(stopped, os.Interrupt, syscall.SIGTERM)
+	log.Print("World maintenance ready")
 	<-stopped
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
-	if err := game.Stop(ctx); err != nil {
+	if err := maintenanceServer.close(ctx); err != nil {
 		log.Print(err)
 	}
 }

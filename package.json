@@ -14,6 +14,8 @@
   },
   "type": "module",
   "scripts": {
+    "backups:live": "node scripts/backups-live.ts",
+    "backups:delete:live": "node scripts/backups-live.ts --delete",
     "benchmark": "node benchmarking/tools/run.ts",
     "benchmark:headless": "BENCH_HEADLESS=1 node benchmarking/tools/run.ts",
     "build": "npm run build:client && npm run build:server",

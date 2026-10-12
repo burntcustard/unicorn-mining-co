@@ -1,194 +1,401 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { readFile, rm } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import {
   createFlyRequest,
+  parseResetArgs,
   resetWorldLive,
+  restoreVolumeConfig,
 } from '../../scripts/reset-world-live.ts';
 
-for (const [exitCode, autostart, restoreOnly] of [
-  [0, false, false],
-  [0, true, false],
-  [1, false, false],
-  [1, true, false],
-  [0, false, true],
-] as const) {
-  const original = {
-    image: 'deployed-image',
-    mounts: [{ path: '/data', volume: 'existing-volume' }],
-    services: [{ port: 8080, checks: [{ type: 'http' }] }],
-    restart: { policy: 'on-failure' },
-    init: { cmd: ['/app/server'] } as { cmd?: string[]; exec?: string[] },
-  };
+const original = {
+  image: 'deployed-image',
+  mounts: [{ path: '/data', volume: 'old-volume' }],
+  services: [{ port: 8080, checks: [{ type: 'http' }] }],
+  restart: { policy: 'on-failure' },
+  init: { cmd: ['/app/server'] },
+  env: { DATABASE_PATH: '/data/world.sqlite', WORLD_SEED: '25' },
+};
 
-  let config = restoreOnly
-    ? {
-        ...original,
-        services: [],
-        init: { exec: ['/app/server', '--reset-world'] },
-      }
-    : original;
+assert.deepEqual(parseResetArgs([]), {
+  app: undefined,
+  resume: false,
+  restore: undefined,
+});
 
-  let state = 'started';
-  let resetRan = false;
-  let gameRestarted = false;
-  let timestamp = 1;
-  let instanceId = 'version-0';
-  let nextVersion = 0;
+assert.equal(parseResetArgs(['--resume']).resume, true);
+assert.equal(parseResetArgs(['my-app', '--resume']).app, 'my-app');
+assert.deepEqual(
+  parseResetArgs(['--restore', 'machine', '/tmp/config.json']).restore,
+  { machineId: 'machine', configPath: '/tmp/config.json' },
+);
+
+for (const args of [
+  ['--restore'],
+  ['app', 'restore'],
+  ['app', '--restore'],
+  ['--resume', '--all'],
+  ['--unknown'],
+]) {
+  assert.throws(() => parseResetArgs(args), /Usage/);
+}
+
+await assert.rejects(
+  promisify(execFile)(
+    process.execPath,
+    [
+      fileURLToPath(
+        new URL('../../scripts/reset-world-live.ts', import.meta.url),
+      ),
+    ],
+    {
+      env: { ...process.env, npm_config_restore: 'true' },
+      timeout: 2000,
+    },
+  ),
+  /Put a standalone -- before script flags/,
+  'an npm-consumed restore flag must never become another reset',
+);
+
+for (const resume of [false, true]) {
   let leased = false;
-  let healthReads = 0;
+  let reads = 0;
+  let executions = 0;
+  const paths: string[] = [];
 
-  let pending:
-    | { config: typeof original; instanceId: string; reads: number }
-    | undefined;
-
-  const events = [] as {
-    type: string;
-    status?: string;
-    timestamp: number;
-    request?: {
-      exit_event: { guest_exit_code?: number; guest_signal?: number };
-    };
-  }[];
-
-  const request = async (
-    path: string,
-    body?: unknown,
-    options?: { method?: string; leaseNonce?: string },
-  ) => {
-    const machine = () => ({
-      id: 'game',
-      instance_id: instanceId,
-      state,
-      config,
-      events,
-      checks: gameRestarted
-        ? [{ status: healthReads++ < 2 ? 'warning' : 'passing' }]
-        : [],
-    });
-
-    if (path === '') return [machine()];
-
-    if (path === '/game/lease') {
-      if (options?.method === 'DELETE') {
-        assert(leased);
-        assert.equal(options.leaseNonce, 'test-lease');
-        leased = false;
-        return {};
-      }
-
-      leased = true;
-      return { data: { nonce: 'test-lease' } };
-    }
-
-    assert(leased, 'maintenance holds a lease to prevent proxy autostarts');
-    assert.equal(options?.leaseNonce, 'test-lease');
-
-    if (body === undefined) {
-      if (pending) {
-        pending.reads++;
-
-        if (pending.reads === 1) return { ...machine(), state: 'stopped' };
-
-        // Fly can publish the new version before the host finishes preparing it.
-        instanceId = pending.instanceId;
-        config = pending.config;
-        state = 'stopped';
-
-        if (pending.reads === 2) {
-          return {
-            ...machine(),
-            events: [
-              { type: 'launch', status: 'created', timestamp: timestamp++ },
-            ],
-          };
-        }
-
-        events.length = 0;
-
-        events.unshift({
-          type: 'update',
-          status: 'stopped',
-          timestamp: timestamp++,
-        });
-
-        pending = undefined;
-      }
-
-      return machine();
-    }
-
-    if (path === '/game') {
-      pending = {
-        config: (body as { config: typeof original }).config,
-        instanceId: `version-${++nextVersion}`,
-        reads: 0,
-      };
-
-      return {
-        ...machine(),
-        instance_id: pending.instanceId,
-        state: 'created',
-      };
-    }
-
-    if (path === '/game/start') {
-      assert(
-        !pending,
-        'starting before the replacement is ready causes HTTP 412',
-      );
-
-      if ('exec' in config.init) {
-        assert.deepEqual(config.mounts, original.mounts);
-        assert.deepEqual(config.restart, { policy: 'no' });
-        assert.deepEqual(config.services, []);
-        resetRan = true;
-        state = 'stopped';
-
-        // The API may omit a zero exit code.
-        events.unshift({
-          type: 'exit',
-          timestamp: timestamp++,
-          request: {
-            exit_event: exitCode
-              ? { guest_exit_code: exitCode }
-              : { guest_signal: -1 },
-          },
-        });
-      } else {
-        assert(resetRan || restoreOnly);
-        assert.equal(exitCode, 0, 'a failed reset cannot restart the game');
-        assert.deepEqual(
-          config,
-          original,
-          'all original settings are restored',
-        );
-        gameRestarted = true;
-        state = 'started';
-
-        if (autostart) {
-          throw new Error('HTTP 412: machine is already started');
-        }
-      }
-
-      return machine();
-    }
-
-    throw new Error(`Unexpected request ${path}`);
-  };
-
-  const reset = resetWorldLive({
-    app: 'test-app',
-    request,
-    pause: async () => {},
-    ...(restoreOnly && { restore: { machineId: 'game', config: original } }),
+  const machine = () => ({
+    id: 'game',
+    state: 'started',
+    instance_id: 'same-vm',
+    config: original,
+    checks: [{ status: reads++ < 3 ? 'warning' : 'passing' }],
   });
 
-  if (exitCode) await assert.rejects(reset, /did not exit successfully/);
-  else await reset;
-  assert.equal(resetRan, !restoreOnly, 'recovery cannot run the reset command');
-  assert.equal(gameRestarted, exitCode === 0);
+  await resetWorldLive({
+    app: 'test-app',
+    resume,
+    pause: async () => {},
+    request: async (path, body, options) => {
+      paths.push(path);
 
-  if (!exitCode) assert(healthReads >= 3, 'wait for health checks to pass');
-  assert(!leased, 'the lease is released after success and failure');
+      if (path === '') return [machine()];
+
+      if (path === '/game/lease') {
+        if (options?.method === 'DELETE') {
+          assert(leased);
+          assert.equal(options.leaseNonce, 'lease');
+          leased = false;
+          return {};
+        }
+
+        leased = true;
+        return { data: { nonce: 'lease' } };
+      }
+
+      assert(
+        !leased,
+        'Fly exec is blocked by an externally acquired Machine lease',
+      );
+      assert.equal(options?.leaseNonce, undefined);
+
+      if (path === '/game' && body === undefined) return machine();
+
+      assert.equal(
+        path,
+        '/game/exec',
+        'reset cannot stop, start or reconfigure the Machine',
+      );
+
+      assert.deepEqual(body, {
+        cmd: `/app/server --${resume ? 'resume' : 'reset'}-world-live`,
+        timeout: 25,
+      });
+
+      executions++;
+
+      return {
+        stdout: resume
+          ? 'Game running; no world reset was run.'
+          : 'World reset complete; previous database archived in /data/archive',
+      };
+    },
+  });
+
+  assert.equal(executions, 1);
+  assert(!leased);
+  assert(reads >= 4, 'maintenance waits for health checks');
+  assert(!paths.includes('/game/start'));
+  assert(
+    !paths.includes('/game/lease'),
+    'live maintenance uses the private socket lock',
+  );
+}
+
+for (const result of [
+  { exit_code: 1, stderr: 'shutdown did not flush successfully' },
+  { exit_code: 0, exit_signal: 9 },
+  { stdout: 'unfinished output' },
+  { exit_code: 2, stderr: 'flag provided but not defined: -reset-world-live' },
+]) {
+  let released = false;
+  let executions = 0;
+
+  const machine = {
+    id: 'game',
+    state: 'started',
+    instance_id: 'vm',
+    config: original,
+  };
+
+  await assert.rejects(
+    resetWorldLive({
+      app: 'test-app',
+      pause: async () => {},
+      request: async (path, body, options) => {
+        if (path === '') return [machine];
+
+        if (path === '/game/lease') {
+          if (options?.method === 'DELETE') {
+            released = true;
+            return {};
+          }
+
+          return { data: { nonce: 'lease' } };
+        }
+
+        if (path === '/game' && body === undefined) return machine;
+
+        assert.equal(path, '/game/exec');
+        executions++;
+        return result;
+      },
+    }),
+    /did not complete successfully|Deploy the server version/,
+  );
+
+  assert.equal(executions, 1, 'failed reset is never replayed automatically');
+  assert(!released, 'normal reset never acquires a Machine lease');
+}
+
+for (const [stopped, legacyReset] of [
+  [false, false],
+  [true, false],
+  [true, true],
+]) {
+  let state = stopped ? 'stopped' : 'started';
+
+  let config: Omit<typeof original, 'init'> & {
+    init: { cmd?: string[]; exec?: string[] };
+  } = {
+    ...original,
+    services: [],
+    restart: { policy: 'no' },
+    init: legacyReset
+      ? { exec: ['/app/server', '--reset-world'] }
+      : original.init,
+  };
+
+  let instanceId = 'initial';
+  let currentVolume = 'already-migrated-volume';
+  let startCalls = 0;
+  let updates = 0;
+  let readsAfterUpdate = 0;
+  let released = false;
+
+  const machine = () => ({
+    id: 'game',
+    state,
+    instance_id: instanceId,
+    config: { ...config, mounts: [{ path: '/data', volume: currentVolume }] },
+    checks: [{ status: readsAfterUpdate >= 3 ? 'passing' : 'warning' }],
+  });
+
+  await resetWorldLive({
+    app: 'test-app',
+    pause: async () => {},
+    restore: { machineId: 'game', config: original },
+    request: async (path, body, options) => {
+      if (path === '') return [machine()];
+
+      if (path === '/game/lease') {
+        if (options?.method === 'DELETE') {
+          released = true;
+          return {};
+        }
+
+        return { data: { nonce: 'lease' } };
+      }
+
+      assert.equal(options?.leaseNonce, 'lease');
+
+      if (path === '/game/start') {
+        assert(
+          !legacyReset,
+          'recovery must never boot the old offline reset command',
+        );
+        startCalls++;
+        currentVolume = 'new-volume-after-start-migration';
+        instanceId = 'migrated';
+        state = 'started';
+        return machine();
+      }
+
+      if (path === '/game' && body === undefined) {
+        if (updates) {
+          readsAfterUpdate++;
+
+          // Do not accept old-version health before the replacement starts.
+          if (readsAfterUpdate >= 2) {
+            instanceId = 'restored';
+            state = 'started';
+          }
+        }
+
+        return machine();
+      }
+
+      assert.equal(
+        path,
+        '/game',
+        'configuration recovery cannot execute a reset',
+      );
+
+      assert.deepEqual(body, {
+        config: {
+          ...original,
+          mounts: [{ path: '/data', volume: currentVolume }],
+        },
+        skip_launch: false,
+      });
+
+      updates++;
+
+      config = (body as { config: typeof config }).config;
+
+      return { ...machine(), instance_id: 'restored' };
+    },
+  });
+
+  assert.equal(startCalls, stopped && !legacyReset ? 1 : 0);
+  assert.equal(updates, 1);
+  assert(readsAfterUpdate >= 3);
+  assert(released);
+  assert.equal(
+    original.mounts[0].volume,
+    'old-volume',
+    'saved config is not mutated',
+  );
+}
+
+assert.throws(
+  () =>
+    restoreVolumeConfig({
+      saved: original,
+      current: { mounts: [{ path: '/other', volume: 'volume' }] },
+    }),
+  /mount paths differ/,
+);
+
+assert.throws(
+  () =>
+    restoreVolumeConfig({
+      saved: original,
+      current: { mounts: [{ path: '/data' }] },
+    }),
+  /no volume ID/,
+);
+
+await assert.rejects(
+  resetWorldLive({
+    app: 'test-app',
+    restore: {
+      machineId: 'game',
+      config: {
+        ...original,
+        init: { exec: ['/app/server', '--reset-world=true'] },
+      },
+    },
+    request: async (path, body, options) => {
+      if (path === '') {
+        return [
+          { id: 'game', state: 'stopped', instance_id: 'vm', config: original },
+        ];
+      }
+
+      if (path === '/game/lease') {
+        return options?.method === 'DELETE' ? {} : { data: { nonce: 'lease' } };
+      }
+
+      assert.equal(path, '/game');
+      assert.equal(
+        body,
+        undefined,
+        'unsafe saved startup cannot cause any Machine mutation',
+      );
+
+      return {
+        id: 'game',
+        state: 'stopped',
+        instance_id: 'vm',
+        config: original,
+      };
+    },
+  }),
+  /saved configuration contains a reset command/,
+);
+
+// A failed restore must save the migrated ID in its next recovery file.
+let recovery = '';
+const report = console.error;
+
+console.error = (...args: unknown[]) => {
+  const match = (typeof args[0] === 'string' ? args[0] : '').match(
+    /Recovery config saved at (.+)\. Restore/,
+  );
+
+  if (match) recovery = match[1];
+};
+
+try {
+  const machine = {
+    id: 'game',
+    state: 'started',
+    instance_id: 'vm',
+    config: { ...original, mounts: [{ path: '/data', volume: 'new-volume' }] },
+  };
+
+  await assert.rejects(
+    resetWorldLive({
+      app: 'test-app',
+      restore: { machineId: 'game', config: original },
+      request: async (path, body, options) => {
+        if (path === '') return [machine];
+
+        if (path === '/game/lease') {
+          return options?.method === 'DELETE'
+            ? {}
+            : { data: { nonce: 'lease' } };
+        }
+
+        if (body === undefined) return machine;
+
+        throw new Error('HTTP 409: insufficient memory on host');
+      },
+    }),
+    /insufficient memory/,
+  );
+
+  assert.equal(
+    JSON.parse(await readFile(recovery, 'utf8')).mounts[0].volume,
+    'new-volume',
+  );
+} finally {
+  console.error = report;
+
+  if (recovery) await rm(dirname(recovery), { recursive: true });
 }
 
 const failedRequest = createFlyRequest({
@@ -202,15 +409,10 @@ await assert.rejects(
   failedRequest('/game/start', {}),
   /HTTP 412:.*machine is still updating/,
 );
-
 await assert.rejects(
-  resetWorldLive({
-    app: 'test-app',
-    request: async () => [],
-  }),
+  resetWorldLive({ app: 'test-app', request: async () => [] }),
   /Expected one game Machine/,
 );
-
 console.log(
-  'Server world reset preserves config and volume, and refuses failed maintenance',
+  'Live resets keep the Machine running; recovery preserves migrated volumes',
 );
