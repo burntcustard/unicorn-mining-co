@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 const scenario = `
 import assert from 'node:assert/strict';
 import { TestAudioContext } from '${process.cwd()}/tests/support/audio-context.ts';
-import { playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/client/audio/sound.ts';
+import { continuousSound, playSound, ramp, tone, updateThrusterSound } from '${process.cwd()}/src/client/audio/sound.ts';
 import { HornDrill } from '${process.cwd()}/src/client/objects/modules/horn-drill.ts';
 import { updateHornDrillSounds } from '${process.cwd()}/src/client/audio/update-horn-drill-sounds.ts';
 const hornDrill = new HornDrill();
@@ -22,6 +22,8 @@ const lastVoice = () => TestAudioContext.instances[0].sources.at(-1);
 assert.equal(TestAudioContext.instances.length, 0, 'import does not initialize audio');
 updateHornDrill({ phase: 0, activationProgress: 0 }, 1 / 60);
 assert.equal(TestAudioContext.instances.length, 0, 'inactive horn drill does not initialize audio');
+continuousSound(0, 1);
+assert.equal(TestAudioContext.instances.length, 0, 'preloaded looped audio waits for a gesture');
 
 const beep = tone();
 assert.equal(beep.buffer.getChannelData(0).length, 1470, 'one cached cycle of the chopped 30 Hz horn drill');

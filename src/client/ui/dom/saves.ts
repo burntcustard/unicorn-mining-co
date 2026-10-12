@@ -19,7 +19,7 @@ export const createSaves = () => {
 
   if (!privateId.value) {
     status.textContent =
-      'Play to create a pilot, or import an existing private ID.';
+      'Connecting to create a pilot, or import an existing private ID.';
   }
 
   reveal.addEventListener(

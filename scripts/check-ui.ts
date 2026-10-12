@@ -163,7 +163,7 @@ const evaluate = async (
   return result.result.value;
 };
 
-try {
+checkUi: try {
   let endpoint;
 
   for (let n = 0; n < 100; n++) {
@@ -198,7 +198,19 @@ try {
   const { identifier: menuFrameScript } = await c.send(
     'Page.addScriptToEvaluateOnNewDocument',
     {
-      source: `new MutationObserver((_, observer) => {
+      source: `window.audioContexts = 0;
+      const OriginalAudioContext = AudioContext;
+      window.AudioContext = class extends OriginalAudioContext {
+        constructor(...args) { super(...args); window.audioContexts++; }
+      };
+      window.gameFrames = 0;
+      const clearRect = CanvasRenderingContext2D.prototype.clearRect;
+      CanvasRenderingContext2D.prototype.clearRect = function(...args) {
+        if (this.canvas.id === 'canvas') window.gameFrames++;
+        if (this.canvas.matches('.ui-preview') && !window.previewFrame) window.previewFrame = performance.now();
+        return clearRect.apply(this, args);
+      };
+      new MutationObserver((_, observer) => {
         if (!document.querySelector('.ui-main')) return;
         observer.disconnect();
         requestAnimationFrame(() => { window.menuFrame = performance.now(); });
@@ -388,11 +400,9 @@ try {
       !c.events.some(
         (event) =>
           event.method === 'Network.requestWillBeSent' &&
-          /\/(?:keybindings|menu-screens|gameplay)-[\w-]+\.js/.test(
-            event.params.request.url,
-          ),
+          /\/menu-screens-[\w-]+\.js/.test(event.params.request.url),
       ),
-      'the initial menu requests no submenu or gameplay code',
+      'the initial menu requests no submenu code',
     );
     assert.deepEqual(
       await check(
@@ -464,10 +474,10 @@ try {
       'hovering main-menu text preserves keyboard focus',
     );
     assert(
-      !(await check(
-        `performance.getEntriesByType('resource').some(x=>/gameplay-/.test(x.name))`,
-      )),
-      'the starting ship preview does not fetch gameplay',
+      await check(
+        `performance.getEntriesByType('resource').some(entry => /gameplay-/.test(entry.name) && entry.startTime >= window.previewFrame)`,
+      ),
+      'gameplay preparation starts after the preview draws',
     );
     await checkShipPreview();
     assert(
@@ -478,20 +488,58 @@ try {
     );
     assert(
       await check(
-        `document.querySelector('.ui-pilot').hidden && !localStorage.getItem('playerToken') && !localStorage.getItem('unicorn-preview')`,
+        `document.querySelector('.ui-pilot').hidden && !!localStorage.getItem('playerToken') && !localStorage.getItem('unicorn-preview')`,
       ),
-      'the starting ship preview does not create a pilot or cached identity',
+      'preparation creates a pilot while preserving the default preview',
     );
     assert(
-      !c.events.some(
-        (event) =>
-          event.method === 'Network.webSocketCreated' ||
-          (event.method === 'Network.requestWillBeSent' &&
-            event.params.request.url.includes('/api/')),
-      ),
-      'the starting ship preview does not contact the game server',
+      c.events.some((event) => event.method === 'Network.webSocketCreated'),
+      'the main menu connects to the game server before Play',
     );
+    await waitFor(
+      `['gameplay', 'docked', 'sound'].every(name => performance.getEntriesByType('resource').some(entry => entry.name.includes('/' + name + '-') && entry.name.endsWith('.js'))) && performance.getEntriesByType('resource').some(entry => /docked-.*\\.css/.test(entry.name))`,
+      'the main menu preloads gameplay, docking CSS and audio',
+    );
+    assert.equal(
+      await check('window.gameFrames'),
+      0,
+      'preparation does not start the game loop',
+    );
+    assert.equal(
+      await check('window.audioContexts'),
+      0,
+      'preparation does not initialize audio',
+    );
+    assert(
+      c.events
+        .filter((event) => event.method === 'Network.webSocketFrameReceived')
+        .every(
+          (event) =>
+            Buffer.from(event.params.response.payloadData, 'base64')[1] !==
+            0x4d,
+        ),
+      'the prepared connection receives no world snapshots before Play',
+    );
+    assert(
+      c.events.some(
+        (event) =>
+          event.method === 'Network.webSocketFrameSent' &&
+          Buffer.from(event.params.response.payloadData, 'base64')[3] === 8,
+      ),
+      'the menu authenticates with a preparation request',
+    );
+    const preparedSockets = c.events.filter(
+      (event) => event.method === 'Network.webSocketCreated',
+    ).length;
+
     await openMenuScreen('settings');
+    assert.equal(
+      await check(
+        `document.querySelector('[data-bindings] > :last-child').textContent.trim()`,
+      ),
+      'Target next objectt',
+      'targeting appears in Settings with T as its default',
+    );
     await capture('settings');
     const settingsLayout = await check(`(() => {
       const bounds = element => {
@@ -512,7 +560,7 @@ try {
         `(() => {
           const panel = document.querySelector('.ui-control-panel');
           const bounds = [...panel.children].map(element => element.getBoundingClientRect());
-          return bounds.slice(1).every((box, index) => Math.abs(box.top - bounds[index].bottom - 16) < 1)
+          return bounds.slice(1).every((box, index) => Math.abs(box.top - bounds[index].bottom - 16 - parseFloat(getComputedStyle(panel.children[index + 1]).marginTop)) < 1)
             && getComputedStyle(panel.querySelector('[data-reset]')).marginTop === '0px';
         })()`,
       ),
@@ -653,6 +701,13 @@ try {
       await check(`document.querySelector('#canvas').width === 640`),
       'resolution applies immediately',
     );
+    assert(
+      await check(`(() => {
+        const canvas = document.querySelector('#canvas');
+        return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value);
+      })()`),
+      'the prepared menu redraws its background after graphics changes',
+    );
     await check(
       `document.querySelector('[data-resolution]').value = '1'; document.querySelector('[data-resolution]').dispatchEvent(new Event('change', {bubbles:true}));`,
     );
@@ -744,11 +799,20 @@ try {
     await pressKey('ArrowDown');
     assert(
       await check(
-        `document.querySelector('[data-bindings] button').textContent === 'ArrowDown'`,
+        `document.querySelector('[data-bindings] button').textContent === '↓'`,
       ),
       'key capture takes precedence over arrow navigation',
     );
     await click('[data-reset]');
+    await click('[data-bindings] > :last-child button');
+    await pressKey('n');
+    assert.equal(
+      await check(
+        `JSON.parse(localStorage.getItem('unicorn-controls')).at(-1)[0]`,
+      ),
+      'n',
+      'targeting can be rebound and saved',
+    );
     await click('[data-back]');
     await openMenuScreen('saves');
     await check(`document.querySelector('[data-import-id]').focus()`);
@@ -774,7 +838,7 @@ try {
     );
 
     await capture('saves');
-    assert(await check(`document.querySelector('[data-clear]').disabled`));
+    assert(await check(`!document.querySelector('[data-clear]').disabled`));
     await check(
       `document.querySelector('[data-import-id]').value = 'invalid'; document.querySelector('[data-import]').requestSubmit()`,
     );
@@ -794,13 +858,199 @@ try {
     await capture('credits');
     await click('[data-back]');
 
+    const playEvents = c.events.length;
+
     await click('[data-action="play"]');
+    await waitFor(
+      `!!document.querySelector('#profile-name')`,
+      'first Play opens profile creation',
+    );
+    assert.equal(
+      await check('window.gameFrames || 0'),
+      0,
+      'profile creation waits before entering the world',
+    );
+    assert(
+      await check(
+        `document.activeElement === document.querySelector('#profile-name')`,
+      ),
+      'profile input receives keyboard focus',
+    );
+    await check(`(() => {
+      const input = document.querySelector('#profile-name');
+      input.value = '🦄'.repeat(17);
+      input.dispatchEvent(new Event('input'));
+    })()`);
+    assert(
+      await check(`!document.querySelector('#profile-name').checkValidity()`),
+      '17 Unicode characters are rejected',
+    );
+    await check(`(() => {
+      const input = document.querySelector('#profile-name');
+      input.value = '🦄'.repeat(16);
+      input.dispatchEvent(new Event('input'));
+    })()`);
+    assert(
+      await check(`document.querySelector('#profile-name').checkValidity()`),
+      '16 Unicode characters are accepted',
+    );
+    await check(`(() => {
+      const input = document.querySelector('#profile-name');
+      input.value = 'asterPilot🦄<&';
+      input.dispatchEvent(new Event('input'));
+    })()`);
+    assert.equal(
+      await check(`document.querySelector('[data-name-preview]').textContent`),
+      'asterPilot□□□',
+      'profile preview uses fallback boxes',
+    );
+    await capture('profile');
+    await check(`document.querySelector('.ui-profile').requestSubmit()`);
     await pause(6500);
+    assert.equal(
+      c.events
+        .slice(playEvents)
+        .filter(
+          (event) =>
+            event.method === 'Network.webSocketFrameSent' &&
+            Buffer.from(event.params.response.payloadData, 'base64')[3] === 9,
+        ).length,
+      1,
+      'Play sends one world-entry request on the prepared connection',
+    );
+    assert.equal(
+      c.events.filter((event) => event.method === 'Network.webSocketCreated')
+        .length,
+      preparedSockets,
+      'Play reuses the prepared connection',
+    );
+    assert(await check('window.gameFrames > 0'), 'Play starts the game loop');
+    await waitFor(
+      `document.querySelector('#connection-status').hidden`,
+      'game connection stays available after profile creation',
+    );
+    await check(`(() => {
+      window.targetLabels = [];
+      window.targetAlphas = [];
+      const paths = new WeakMap();
+      const moveTo = Path2D.prototype.moveTo;
+      Path2D.prototype.moveTo = function(x, y) {
+        if (!paths.has(this)) paths.set(this, []);
+        paths.get(this).push([x, y]);
+        return moveTo.call(this, x, y);
+      };
+      const stroke = CanvasRenderingContext2D.prototype.stroke;
+      CanvasRenderingContext2D.prototype.stroke = function(...args) {
+        const path = args[0];
+        const points = paths.get(path);
+        if (this.canvas.id === 'canvas' && this.strokeStyle === '#ee66ff' && points?.length === 6) {
+          const transform = this.getTransform();
+          const screenPoints = points.map(([x, y]) => new DOMPoint(x, y).matrixTransform(transform));
+          window.targetBox = [Math.min(...screenPoints.map(p => p.x)), Math.max(...screenPoints.map(p => p.x)), Math.min(...screenPoints.map(p => p.y)), Math.max(...screenPoints.map(p => p.y))];
+          window.targetAlphas.push(this.globalAlpha);
+          if (this.globalAlpha === 1) window.targetLabelPending = true;
+        }
+        return stroke.apply(this, args);
+      };
+      const fillText = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function(...args) {
+        if (this.canvas.id === 'canvas' && window.targetLabelPending) {
+          window.targetLabels.push(args[0]);
+          window.targetLabelPending = false;
+        }
+        return fillText.apply(this, args);
+      };
+    })()`);
+    await pressKey('t');
+    await pause(100);
+    assert.equal(
+      await check('window.targetLabels.length'),
+      0,
+      'rebinding removes T as a hidden target key',
+    );
+    let hoverPoint: number[];
+
+    for (const y of [100, 300, 500, 700]) {
+      for (const x of [100, 300, 500, 700, 900, 1100]) {
+        await c.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+        await pause(40);
+
+        if (await check('!!window.targetBox')) {
+          hoverPoint = [x, y];
+          break;
+        }
+      }
+
+      if (hoverPoint) break;
+    }
+
+    assert(hoverPoint, 'hover finds a visible world object');
+    assert.equal(
+      await check('window.targetLabels.length'),
+      0,
+      'hover hides names',
+    );
+    assert(
+      await check('window.targetAlphas.every(alpha => alpha === 0.5)'),
+      'hover corners use 50 percent opacity',
+    );
+    await capture('world-hover');
+
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await c.send('Input.dispatchMouseEvent', {
+        type,
+        x: hoverPoint[0],
+        y: hoverPoint[1],
+        button: 'left',
+        clickCount: 1,
+      });
+    }
+
+    await waitFor(
+      'window.targetLabels.length > 0',
+      'click targeting shows the object name',
+    );
+    assert.equal(
+      await check('window.targetAlphas.at(-1)'),
+      1,
+      'click targeting uses full opacity',
+    );
+    await capture('targeting');
+    await check(
+      `document.querySelector('#canvas').dispatchEvent(new PointerEvent('pointerleave')); window.targetLabels = []; window.targetAlphas = []`,
+    );
+    await waitFor(
+      'window.targetLabels.length > 0',
+      'leaving the canvas preserves targeted corners and name',
+    );
+    assert(
+      await check('window.targetAlphas.every(alpha => alpha === 1)'),
+      'leaving the canvas clears hover while preserving full targeting opacity',
+    );
+
+    await check('window.targetLabels = []');
+    await pressKey('n');
+    await waitFor(
+      'window.targetLabels.length > 0',
+      'the rebound target key targets a world object',
+    );
     await capture('docked');
     assert.equal(errors().length, 0, errors().join('\n'));
     const savedToken = await check(`localStorage.getItem('playerToken')`);
 
     assert(savedToken);
+
+    const namedIdentity = await fetch('http://localhost:3000/api/identity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: savedToken,
+    }).then((response) => response.json());
+
+    assert.equal(
+      namedIdentity[0],
+      'asterPilot🦄<&',
+      'server stores the original Unicode profile name',
+    );
 
     await c.send('Network.setBlockedURLs', { urls: ['*/api/identity'] });
 
@@ -818,6 +1068,11 @@ try {
 
     await pause(800);
     await capture('saved-menu');
+    assert.equal(
+      await check(`document.querySelector('[data-pilot]').textContent`),
+      'asterPilot□□□',
+      'main menu shows the saved profile with fallback glyphs',
+    );
     await pressKey('Escape', { repeat: true });
     assert(
       await check(`!!document.querySelector('.ui-main')`),
@@ -834,7 +1089,7 @@ try {
     assert(
       await check(`(() => {
       const hint = document.querySelector('[data-resume-hint]');
-      return hint.getClientRects().length && hint.textContent.trim() === 'Esc Resume';
+      return hint.getClientRects().length && hint.querySelector('kbd').textContent === 'Esc' && hint.textContent.trim().endsWith('Resume');
     })()`),
       'Escape hint offers Resume once the game is running',
     );
@@ -939,16 +1194,14 @@ try {
       'Disconnect preserves preferences',
     );
     assert(
-      !c.events
+      c.events
         .slice(disconnectEvents)
         .some((event) => event.method === 'Network.webSocketCreated'),
-      'Disconnect does not reconnect to gameplay',
+      'returning to the main menu prepares a new connection',
     );
     assert(
-      !(await check(
-        `performance.getEntriesByType('resource').some(entry => /gameplay-/.test(entry.name))`,
-      )),
-      'Disconnect unloads gameplay',
+      await check('window.gameFrames === 0'),
+      'returning to the main menu keeps the game loop stopped',
     );
     await checkHiddenElements();
     await checkShipPreview();
@@ -972,9 +1225,9 @@ try {
     await pause(1000);
     assert(
       await check(
-        `!localStorage.getItem('playerToken') && !localStorage.getItem('unicorn-preview')`,
+        `localStorage.getItem('playerToken') !== ${JSON.stringify(savedToken)} && !localStorage.getItem('unicorn-preview')`,
       ),
-      'clearing a save removes the local identity and cached ship',
+      'clearing a save replaces the local identity and removes the cached ship',
     );
     assert.deepEqual(
       await check(
@@ -991,7 +1244,7 @@ try {
     );
     await checkShipPreview();
     assert(
-      !c.events
+      c.events
         .slice(clearEvents)
         .some(
           (event) =>
@@ -999,7 +1252,7 @@ try {
             (event.method === 'Network.requestWillBeSent' &&
               event.params.request.url.includes('/api/')),
         ),
-      'clearing a save does not contact the game server',
+      'the fresh main menu prepares a new pilot connection',
     );
 
     const preservedIdentity = await fetch(
@@ -1012,7 +1265,7 @@ try {
 
     assert(preservedIdentity.ok, 'the cleared pilot remains on the server');
     await openMenuScreen('saves');
-    assert(await check(`document.querySelector('[data-clear]').disabled`));
+    assert(await check(`!document.querySelector('[data-clear]').disabled`));
 
     await check(
       `localStorage.setItem('playerToken', ${JSON.stringify(savedToken)})`,
@@ -1022,10 +1275,8 @@ try {
     await pause(1000);
     await checkShipPreview();
     assert(
-      !(await check(
-        `performance.getEntriesByType('resource').some(x=>/gameplay-/.test(x.name))`,
-      )),
-      'saved-ship preview does not fetch gameplay',
+      await check('window.gameFrames === 0'),
+      'saved-ship preparation leaves the game loop stopped',
     );
     await capture('returning');
     await checkShipPreview();
@@ -1090,6 +1341,60 @@ try {
     await checkShipPreview();
     await capture('menu-desktop');
 
+    await check(`localStorage.removeItem('unicorn-preview')`);
+
+    await c.send('Fetch.enable', {
+      patterns: [{ urlPattern: '*/api/identity' }],
+    });
+
+    const identityEvents = c.events.length;
+
+    await c.send('Page.reload');
+    await checkShipPreview();
+    await waitFor(
+      `performance.getEntriesByType('resource').some(entry => /gameplay-/.test(entry.name)) && !!localStorage.getItem('playerToken')`,
+      'uncached preview and gameplay load while identity verification is pending',
+    );
+    const identityRequest = c.events
+      .slice(identityEvents)
+      .find((event) => event.method === 'Fetch.requestPaused');
+
+    assert(identityRequest, 'saved identity verification is still pending');
+    assert.equal(await check('window.gameFrames'), 0);
+
+    await c.send('Fetch.continueRequest', {
+      requestId: identityRequest.params.requestId,
+    });
+
+    await c.send('Fetch.disable');
+
+    await c.send('Fetch.enable', {
+      patterns: [{ urlPattern: '*gameplay-*.js' }],
+    });
+
+    const gameplayEvents = c.events.length;
+
+    await c.send('Page.reload');
+    await checkShipPreview();
+    const gameplayRequest = c.events
+      .slice(gameplayEvents)
+      .find((event) => event.method === 'Fetch.requestPaused');
+
+    assert(gameplayRequest, 'background gameplay request is pending');
+    await openMenuScreen('settings');
+    await click('[data-back]');
+
+    await c.send('Fetch.failRequest', {
+      requestId: gameplayRequest.params.requestId,
+      errorReason: 'Failed',
+    });
+
+    await c.send('Fetch.disable');
+    assert(
+      await check(`!document.querySelector('[data-action="play"]').disabled`),
+      'a failed preparation leaves the menu interactive',
+    );
+
     const { identifier: playScript } = await c.send(
       'Page.addScriptToEvaluateOnNewDocument',
       {
@@ -1114,10 +1419,8 @@ try {
     });
 
     assert(
-      !(await check(
-        `performance.getEntriesByType('resource').some(entry => entry.name.includes('/ship-preview-'))`,
-      )),
-      'playing immediately cancels the menu preview request',
+      await check('!window.previewFrame'),
+      'playing immediately cancels menu preview rendering',
     );
 
     await c.send('Emulation.setDeviceMetricsOverride', {
@@ -1126,6 +1429,13 @@ try {
       deviceScaleFactor: 1,
       mobile: false,
     });
+  }
+
+  if (process.env.UI_MENU_ONLY) {
+    console.log(
+      'Production menu: deferred preparation, connection reuse, delayed identity, failed loading, navigation and immediate Play passed.',
+    );
+    break checkUi;
   }
 
   await c.send('Page.removeScriptToEvaluateOnNewDocument', {

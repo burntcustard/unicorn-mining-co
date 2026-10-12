@@ -1,5 +1,5 @@
 import { withAlpha } from '../utilities/color';
-import characters from 'virtual:font-characters';
+import { fontText } from '../utilities/font-text';
 
 export interface RenderTextProps {
   game: any; // Supplies the UI canvas context and scale.
@@ -21,10 +21,7 @@ export function renderText({
   color = '#fff',
 }: RenderTextProps) {
   const { ctx, uiScale } = game;
-  const glyphs = Array.from(text, (character) =>
-    character === ' ' || characters.includes(character) ? character : '□',
-  );
-  const displayText = glyphs.join('');
+  const displayText = fontText(text);
 
   ctx.save();
   ctx.scale(uiScale, uiScale);

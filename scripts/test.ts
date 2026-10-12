@@ -128,6 +128,8 @@ if (needsFixtures) {
   await run(process.execPath, [
     '--import',
     'tsx',
+    '--import',
+    './tests/support/local-storage.ts',
     'tests/parity/generate-fixtures.ts',
   ]);
 }
@@ -136,6 +138,8 @@ if (nodeFiles.length) {
   await run(process.execPath, [
     '--import',
     'tsx',
+    '--import',
+    './tests/support/local-storage.ts',
     '--test',
     '--test-reporter=spec',
     `--test-concurrency=${concurrency}`,

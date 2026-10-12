@@ -83,6 +83,9 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), binaryReplication: NewBinaryReplicationManager(s.World.Specification)}
 
 			ship.Fly(0, 0)
+			if profile.DisplayName != "" {
+				ship.Label = p.profile.DisplayName
+			}
 			p.profile.Ship = objects.SavedShip{}
 			s.players.Set(profile.ID, p)
 		}
@@ -151,9 +154,10 @@ func (s *GameSession) accountTime(p *playerRecord) {
 
 	if !p.playedAt.IsZero() {
 		p.profile.PlayedFor += max(0, now.Sub(p.playedAt).Seconds())
+		p.playedAt = now
 	}
 
-	p.playedAt, p.profile.LastSeenAt = now, now
+	p.profile.LastSeenAt = now
 }
 
 func (s *GameSession) savePlayer(p *playerRecord) {

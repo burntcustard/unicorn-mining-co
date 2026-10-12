@@ -11,6 +11,10 @@ const token = '01234567-89ab-cdef-0123-456789abcdef';
 const client: ClientMessage[] = [
   { type: 'hello', playerToken: null },
   { type: 'hello', playerToken: token },
+  { type: 'prepare', playerToken: null },
+  { type: 'prepare', playerToken: token },
+  { type: 'play' },
+  { type: 'profile', displayName: 'aé🦄 <&>\u0000' },
   { type: 'input', tick: 130, sequence: 52, input: emptyPlayerInput() },
   {
     type: 'input',
@@ -47,6 +51,19 @@ const client: ClientMessage[] = [
 ];
 
 const server = [
+  { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
+  {
+    type: 'welcome' as const,
+    playerId: 2,
+    shipId: 5,
+    serverTick: 80,
+    playerToken: token,
+    worldSeed: 25,
+    spawn: { x: -400, y: 250 },
+    unlockedPaints: 96,
+    credits: 500,
+    displayName: 'aé🦄 <&>\u0000',
+  },
   {
     type: 'welcome' as const,
     playerId: 2,

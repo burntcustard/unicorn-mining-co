@@ -8,6 +8,9 @@ type Gameplay = (typeof import('./gameplay'))['default'];
 let gameplay: Gameplay;
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
 
+const loadGameplay = async () =>
+  (gameplay ||= (await import('./gameplay')).default);
+
 const renderSky = () => {
   if (gameplay) return;
   canvas.width = innerWidth * graphics[3];
@@ -51,12 +54,30 @@ const navigate = async (destination: string) => {
 const showMainMenu = () =>
   ui.push(
     createMainMenu({
-      running: Boolean(gameplay),
-      identity: gameplay?.identityPreview(),
+      running: Boolean(gameplay?.running),
+      identity: gameplay?.running ? gameplay.identityPreview() : undefined,
       onNavigate: navigate,
+      onPrepare: loadGameplay,
       onPlay: async () => {
-        gameplay ||= (await import('./gameplay')).default;
-        await gameplay.ready;
+        await loadGameplay();
+
+        if (!(await gameplay.prepareProfile())) {
+          const { default: screens } = await import('./ui/dom/menu-screens');
+
+          ui.push(
+            screens.createProfile({
+              onSave: async (displayName) => {
+                await gameplay.createProfile(displayName);
+                await gameplay.start();
+                ui.clear();
+              },
+            }),
+          );
+
+          return;
+        }
+
+        await gameplay.start();
         ui.clear();
       },
     }),
@@ -76,7 +97,7 @@ window.addEventListener('keydown', (event) => {
 
   if (ui.current) {
     ui.current.escape();
-  } else if (gameplay) {
+  } else if (gameplay?.running) {
     showMainMenu();
   }
 });

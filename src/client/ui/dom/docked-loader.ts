@@ -13,6 +13,16 @@ const open = () => {
   ui.push(dockedScreen);
 };
 
+export const preloadDockedUi = () =>
+  (loading ||= import('./docked')
+    .then(({ default: module }) => {
+      loaded = module;
+      open();
+    })
+    .catch(() => {
+      loading = undefined;
+    }));
+
 export const syncDockedUi = ({
   ship,
   available,
@@ -32,13 +42,6 @@ export const syncDockedUi = ({
   if (loaded) {
     open();
   } else {
-    loading ||= import('./docked')
-      .then(({ default: module }) => {
-        loaded = module;
-        open();
-      })
-      .catch(() => {
-        loading = undefined;
-      });
+    void preloadDockedUi();
   }
 };

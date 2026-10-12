@@ -39,6 +39,9 @@ export const protocolTags = [
   'powerPlant',
   'refuel',
   'activity',
+  'prepare',
+  'play',
+  'profile',
 ];
 
 /**

@@ -19,11 +19,12 @@ export type KeyAction =
   | 'hornDrill'
   | 'cargoHatch'
   | 'searchLight'
-  | 'shieldGenerator';
+  | 'shieldGenerator'
+  | 'targetNext';
 
 export type KeyBinding = {
   keys: readonly string[];
-  mode: 'hold' | 'toggle';
+  mode: 'hold' | 'toggle' | 'press';
 };
 
 export type Keybindings = Record<KeyAction, KeyBinding>;
@@ -42,6 +43,7 @@ export const defaultKeybindings = {
   cargoHatch: { keys: ['h'], mode: 'toggle' },
   searchLight: { keys: ['l'], mode: 'toggle' },
   shieldGenerator: { keys: ['s'], mode: 'toggle' },
+  targetNext: { keys: ['t'], mode: 'press' },
 } satisfies Keybindings;
 
 // Module actions are one-byte protocol tags; binding fields are mangled
@@ -102,6 +104,7 @@ export const bindingEntries: [string, KeyBinding][] = [
   [cargoHatch.name, defaultKeybindings.cargoHatch],
   [searchLight.name, defaultKeybindings.searchLight],
   [shield.name, defaultKeybindings.shieldGenerator],
+  ['Target next object', defaultKeybindings.targetNext],
 ];
 const originalKeys = bindingEntries.map(([, binding]) => [...binding.keys]);
 
@@ -128,7 +131,8 @@ try {
 
   if (
     Array.isArray(saved) &&
-    saved.length === bindingEntries.length &&
+    (saved.length === bindingEntries.length ||
+      saved.length === bindingEntries.length - 1) &&
     saved.every(
       (keys) =>
         Array.isArray(keys) &&
@@ -136,7 +140,7 @@ try {
         keys.every((key) => typeof key === 'string' && key.length < 30),
     )
   ) {
-    bindingEntries.forEach(([, binding], i) => (binding.keys = saved[i]));
+    saved.forEach((keys, i) => (bindingEntries[i][1].keys = keys));
   }
 } catch {
   /* Defaults work without storage. */

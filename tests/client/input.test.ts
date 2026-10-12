@@ -36,7 +36,7 @@ const bundle = await rolldown({
       name: 'input-test-entry',
       load: (id) => {
         if (id === '\0input') {
-          return `export * from '${process.cwd()}/src/client/input/input.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';export {maxPredictionTicks} from '${process.cwd()}/src/specs/prediction.ts';export {simulationStep} from '${process.cwd()}/src/specs/simulation.ts';`;
+          return `export * from '${process.cwd()}/src/client/input/input.ts';export {defaultKeybindings} from '${process.cwd()}/src/client/input/keybindings.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';export {maxPredictionTicks} from '${process.cwd()}/src/specs/prediction.ts';export {simulationStep} from '${process.cwd()}/src/specs/simulation.ts';`;
         }
 
         if (id.endsWith('/src/client/core.ts')) {
@@ -56,6 +56,8 @@ const { output } = await bundle.generate({ format: 'esm' });
 
 const input: {
   bindKeys: typeof import('../../src/client/input/input').bindKeys;
+  bindAction: typeof import('../../src/client/input/input').bindAction;
+  defaultKeybindings: typeof import('../../src/client/input/keybindings').defaultKeybindings;
   setMenuInput: typeof import('../../src/client/input/input').setMenuInput;
   initKeys: typeof import('../../src/client/input/input').initKeys;
   playerInput: typeof import('../../src/client/input/input').playerInput;
@@ -136,6 +138,32 @@ assert.equal(
 );
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' }));
 changes.length = 0;
+
+let targetRequests = 0;
+
+input.bindAction(input.defaultKeybindings.targetNext, () => targetRequests++);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
+assert.equal(targetRequests, 1, 'T requests a target once per press');
+const targetTab = new KeyboardEvent('keydown', { key: 'Tab' });
+
+window.dispatchEvent(targetTab);
+assert.equal(targetRequests, 1, 'Tab does not target objects');
+assert(!targetTab.defaultPrevented, 'Tab retains native browser navigation');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab' }));
+input.defaultKeybindings.targetNext.keys = ['n'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
+assert.equal(targetRequests, 1, 'rebinding removes the default target key');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'N' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'n' }));
+assert.equal(targetRequests, 2, 'the rebound target key works immediately');
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
+assert.equal(targetRequests, 2, 'menus suppress world targeting');
+input.setMenuInput(false);
+input.defaultKeybindings.targetNext.keys = ['t'];
 
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
 assert.equal(input.playerInput.hornDrill, true);

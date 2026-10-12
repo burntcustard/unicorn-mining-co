@@ -13,6 +13,7 @@ import (
 type controlFixture struct {
 	Client []struct {
 		Message struct {
+			DisplayName                               string
 			Type, PlayerToken                         string
 			Tick, Sequence                            uint64
 			Input                                     Input
@@ -25,6 +26,9 @@ type controlFixture struct {
 	}
 	Server []struct {
 		Message struct {
+			DisplayName                  *string
+			UnlockedPaints               *uint8
+			Credits                      *float64
 			Type, PlayerToken            string
 			PlayerID, ShipID, ServerTick uint64
 			WorldSeed                    float64
@@ -71,7 +75,11 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		}
 
 		switch got.Type {
-		case "hello":
+		case "profile":
+			if got.DisplayName != fixture.Message.DisplayName {
+				t.Errorf("name: %q", got.DisplayName)
+			}
+		case "hello", "prepare":
 			if got.PlayerToken != fixture.Message.PlayerToken {
 				t.Errorf("token: %q", got.PlayerToken)
 			}
@@ -97,6 +105,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 			Type: message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
 			ServerTick: message.ServerTick, PlayerToken: message.PlayerToken,
 			WorldSeed: message.WorldSeed, Spawn: message.Spawn,
+			DisplayName: message.DisplayName, Credits: message.Credits, UnlockedPaints: message.UnlockedPaints,
 		}, spec.Protocol)
 
 		if err != nil {

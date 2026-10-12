@@ -2,16 +2,19 @@ import html from './main-menu.html?raw';
 import { createScreen, query } from './ui';
 import { verifyIdentity, type Identity } from './identity';
 import { version } from '../../../../package.json';
+import { fontText } from '../../utilities/font-text';
 
 export const createMainMenu = ({
   running,
   identity,
   onPlay,
+  onPrepare,
   onNavigate,
 }: {
   running: boolean;
   identity?: Identity;
   onPlay: () => Promise<void>;
+  onPrepare: () => Promise<unknown>;
   onNavigate: (destination: string) => Promise<void>;
 }) => {
   const screen = createScreen(html);
@@ -71,12 +74,28 @@ export const createMainMenu = ({
 
     if (screen.signal.aborted) return;
     query(screen.element, '.ui-preview').hidden = false;
+    const firstPreview = !shipPreview;
+
     shipPreview ||= preview.createShipPreview(query(screen.element, 'canvas'));
     shipPreview.update(identity?.[2]);
 
+    if (firstPreview && !running) {
+      // The preview's draw is already queued. Let that frame paint before
+      // fetching and executing the remaining gameplay code.
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (screen.signal.aborted) return;
+
+          void onPrepare().catch(() => {
+            /* Leave the menu usable if background preparation fails. */
+          });
+        });
+      });
+    }
+
     if (!identity) return;
-    query(screen.element, '.ui-pilot').hidden = false;
-    query(screen.element, '[data-pilot]').textContent = identity[0];
+    query(screen.element, '.ui-pilot').hidden = !identity[0];
+    query(screen.element, '[data-pilot]').textContent = fontText(identity[0]);
 
     try {
       localStorage.setItem(
@@ -104,6 +123,9 @@ export const createMainMenu = ({
     }
 
     if (screen.signal.aborted) return;
+
+    // An uncached identity must not hold the preview or preparation behind HTTP.
+    if (!shipPreview) await showPreview();
     await showPreview(await verifyIdentity(privateId, screen.signal));
   };
 

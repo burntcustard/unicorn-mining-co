@@ -2,7 +2,6 @@ package network
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/google/uuid"
 	"io"
@@ -50,7 +49,7 @@ func (s *GameSession) identityPreview(privateID string) []any {
 		modules = append(modules, []any{slices.Index(s.World.Specification.ModuleIDs, module.Type), module.Mount, shade, health})
 	}
 
-	return []any{fmt.Sprintf("PILOT %03d", p.playerID), p.profile.Credits, []any{ship.Type, paint, ship.Hull, modules}}
+	return []any{p.profile.DisplayName, p.profile.Credits, []any{ship.Type, paint, ship.Hull, modules}}
 }
 
 func (s *GameServer) handleIdentity(w http.ResponseWriter, r *http.Request) {

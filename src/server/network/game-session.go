@@ -46,6 +46,7 @@ type playerRecord struct {
 	playedAt                                        time.Time
 	saveSequence                                    uint64
 	welcomePending, respawnPending, progressPending bool
+	profilePending                                  bool
 	snapshotSequence                                uint64
 	dockSequence                                    uint64
 	sentDockSequence                                uint64
@@ -138,8 +139,8 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 		return
 	}
 
-	if message.Type == "hello" {
-		s.hello(socket, message.PlayerToken)
+	if message.Type == "hello" || message.Type == "prepare" {
+		s.hello(message, socket)
 		return
 	}
 
@@ -176,6 +177,30 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 
 	player.lastInputAt = s.now()
 
+	if message.Type == "profile" {
+		if message.DisplayName == "" || !protocol.ValidDisplayName(message.DisplayName) {
+			return
+		}
+		if player.profile.DisplayName == "" {
+			player.profile.DisplayName = message.DisplayName
+			player.ship.Label = player.profile.DisplayName
+			s.savePlayer(player)
+			s.flushChanges()
+		}
+		player.profilePending = true
+		s.sendSnapshot(player, nil, nil)
+		return
+	}
+
+	if message.Type == "play" {
+		s.play(player)
+		return
+	}
+
+	if !s.World.Players.Has(player.playerID) {
+		return
+	}
+
 	switch message.Type {
 	case "input":
 		s.input(message, player)
@@ -200,6 +225,14 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 	now := s.now()
 	player.disconnectedAt = &now
 	s.World.Players.Delete(player.playerID)
+
+	if player.playedAt.IsZero() {
+		s.savePlayer(player)
+		s.flushChanges()
+		return
+	}
+
+	player.playedAt = time.Time{}
 	ship := player.ship
 	ship.EndTradeVisit()
 	ship.LocalMovementParent = nil
@@ -223,7 +256,7 @@ func (s *GameSession) positions() []Vec.Vector {
 	positions := []Vec.Vector{}
 
 	s.players.ForEach(func(p *playerRecord, _ string) {
-		if p.socket != nil || s.World.Entities.Has(p.shipID) {
+		if s.World.Players.Has(p.playerID) || s.World.Entities.Has(p.shipID) {
 			positions = append(positions, p.ship.Position)
 		}
 	})
@@ -327,7 +360,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	step := world.Specification.Simulation.SimulationStep
 
 	s.players.ForEach(func(p *playerRecord, _ string) {
-		if p.socket == nil {
+		if p.socket == nil || !world.Players.Has(p.playerID) {
 			return
 		}
 
@@ -390,6 +423,15 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	if p.welcomePending {
 		p.welcomePending = false
 		s.sendWelcome(p)
+	}
+
+	if p.profilePending {
+		p.profilePending = false
+		s.sendControl(socket, protocol.ServerControl{Type: "profile", DisplayName: &p.profile.DisplayName})
+	}
+
+	if !s.World.Players.Has(p.playerID) {
+		return
 	}
 
 	if p.respawnPending {
@@ -463,7 +505,8 @@ func (s *GameSession) sendControl(socket SessionSocket, message protocol.ServerC
 	send(socket, packet)
 }
 
-func (s *GameSession) hello(socket SessionSocket, token string) {
+func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
+	token := message.PlayerToken
 	p, _ := s.players.Get(token)
 
 	if p == nil {
@@ -477,7 +520,6 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 		spawn.X = utilities.RoundTiesUp(spawn.X)
 		spawn.Y = utilities.RoundTiesUp(spawn.Y)
 		ship := objects.CreatePlayerShip(s.World, objects.Properties{PlayerID: &id, Position: spawn})
-		simulation.AddEntity(s.World, ship)
 		// Every allowed future tick has its own slot; consumed slots reuse storage.
 		p = &playerRecord{needsLoad: true, inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), lastInputAt: s.now(), playerID: id, binaryReplication: NewBinaryReplicationManager(s.World.Specification), ship: ship, shipID: ship.ID}
 		now := s.now()
@@ -486,19 +528,20 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 	}
 
 	if p.socket != nil {
-		s.accountTime(p)
-		delete(s.playersBySocket, p.socket)
-		p.socket.CloseWith(4001, "Session opened elsewhere")
+		previous := p.socket
+		s.Disconnect(previous)
+		previous.CloseWith(4001, "Session opened elsewhere")
 	}
 
-	if p.hiddenShip {
-		simulation.AddEntity(s.World, p.ship.Self)
-		p.hiddenShip = false
-	}
-
-	simulation.AddPlayer(s.World, simulation.Player{ID: p.playerID, ShipID: p.shipID, Credits: &p.profile.Credits})
+	// The authenticated ship stays outside simulation until Play.
+	s.World.Entities.Delete(p.shipID)
+	p.hiddenShip = !p.ship.Dead
 	p.socket = socket
-	p.playedAt = s.now()
+	p.profilePending = false
+	if p.profile.DisplayName != "" {
+		p.ship.Label = p.profile.DisplayName
+	}
+	p.playedAt = time.Time{}
 	s.playersBySocket[socket] = p
 	p.snapshotSequence = 0
 	p.dockSequence = 0
@@ -519,10 +562,31 @@ func (s *GameSession) hello(socket SessionSocket, token string) {
 	p.lastSequence = 0
 	p.hasInputLead = false
 	roundSpawn(p.ship)
-	s.regions.Sync(s.World, s.positions())
 	s.savePlayer(p)
 	s.flushChanges()
 	p.welcomePending = true
+
+	if message.Type == "hello" {
+		s.play(p)
+		return
+	}
+
+	s.sendSnapshot(p, nil, nil)
+}
+
+func (s *GameSession) play(p *playerRecord) {
+	if s.World.Players.Has(p.playerID) {
+		return
+	}
+
+	if p.hiddenShip {
+		simulation.AddEntity(s.World, p.ship.Self)
+		p.hiddenShip = false
+	}
+
+	simulation.AddPlayer(s.World, simulation.Player{ID: p.playerID, ShipID: p.shipID, Credits: &p.profile.Credits})
+	p.playedAt = s.now()
+	s.regions.Sync(s.World, s.positions())
 	s.sendSnapshot(p, nil, nil)
 }
 
@@ -532,6 +596,7 @@ func (s *GameSession) sendWelcome(p *playerRecord) {
 	mask := p.profile.UnlockedPaints
 	message.UnlockedPaints = &mask
 	message.Credits = &p.profile.Credits
+	message.DisplayName = &p.profile.DisplayName
 
 	s.sendControl(p.socket, message)
 }
@@ -553,6 +618,9 @@ func (s *GameSession) respawn(p *playerRecord) {
 	ship := objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: p.ship.DefinitionID, PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
 	id := station.Base().ID
 	ship.DockedTo = &id
+	if p.profile.DisplayName != "" {
+		ship.Label = p.profile.DisplayName
+	}
 	simulation.AddEntity(s.World, ship)
 	simulation.AddPlayer(s.World, simulation.Player{ID: p.playerID, ShipID: ship.ID, Credits: &p.profile.Credits})
 	p.ship = ship

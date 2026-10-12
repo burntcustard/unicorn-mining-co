@@ -140,6 +140,12 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 
 **sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.
 
+**target** - A game object deliberately targeted by a player or another controller of a craft. Each controller can have at most one target at a time and can change or clear that target at any time. An item, ship, asteroid, station, or other game object can be a target.
+
+**targeted** - The state of a game object that is a controller's current target. Hovering previews an object without making it targeted or changing the current target.
+
+**targeting** - Setting, changing, or clearing a controller's current target. Use “target” and “targeted” for this gameplay behavior; “selection” and “selected” remain appropriate for menu choices, cargo, and loadouts.
+
 **text outline** - A stroke around text paths for legibility.
 
 **time of impact** - The earliest fraction of a sweep at which two colliders touch. The continuous collision solver advances to it before resolving that contact and searching for later impacts.

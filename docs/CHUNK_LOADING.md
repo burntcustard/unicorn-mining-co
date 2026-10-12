@@ -7,19 +7,28 @@ chunk transforms.
 
 ## Loading triggers
 
-| Resource                          | Trigger                                                                                   |
-| --------------------------------- | ----------------------------------------------------------------------------------------- |
-| Inline background renderer        | HTML parsing. Built separately from `src/client/background/background-boot.ts`.           |
-| `index` and shared CSS            | HTML parsing. Mounts the main menu without gameplay or ship rendering.                    |
-| `menu-screens`                    | First navigation to Settings, Saves, or Credits.                                          |
-| `ship-preview`                    | After the main menu's first paint. Play cancels a pending preview.                        |
-| `gameplay`                        | Play. Connects to the server and starts the simulation; Resume reuses the loaded session. |
-| `sound`                           | First gameplay keyboard input unlocks audio.                                              |
-| `docked`, its CSS, and SVG assets | The predicted ship is docked, launch is not pending, and no other HTML screen is open.    |
+| Resource                          | Trigger                                                                                                                                             |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inline background renderer        | HTML parsing. Built separately from `src/client/background/background-boot.ts`.                                                                     |
+| `index` and shared CSS            | HTML parsing. Mounts the main menu without gameplay or ship rendering.                                                                              |
+| `menu-screens`                    | First navigation to Settings, Saves, or Credits, or Play when the authenticated account needs a profile name.                                       |
+| `ship-preview`                    | After the main menu's first paint. Play cancels a pending preview.                                                                                  |
+| `gameplay`                        | After the ship preview paints, or immediately on Play. Authenticates the connection; Play enters the world and starts the game loop.                |
+| `sound`                           | Gameplay preparation loads the code. First gameplay keyboard input creates and unlocks audio.                                                       |
+| `docked`, its CSS, and SVG assets | Gameplay preparation loads the assets. The screen opens when the predicted ship is docked, launch is not pending, and no other HTML screen is open. |
 
 Shared dependency chunks, including `ship`, `shield`, and `keybindings`, load
 with their importers. They have no independent loading trigger. Keep the runtime
 object hierarchy together to avoid class-initialization cycles.
+
+Preparation follows the preview's first paint, including a default or cached
+preview while saved identity verification is pending. Native module caching lets
+Play reuse background loading. Gameplay prepares docking, audio, and the font
+in parallel with authentication. Only Play sends the world-entry request;
+prepared connections receive no world snapshots, activate no nearby physics,
+and accumulate no playtime. Returning ships remain hidden until Play too.
+Loading gameplay does not start the game loop or change Play to Resume.
+The font remains preloaded by HTML.
 
 ## Changing a boundary
 
@@ -38,3 +47,7 @@ After `npm run build`, start `npm run dev:server` and
 loading triggers and exercises the real docking loader with separately emitted
 production-transformed chunks. Bundling both sides into one test file cannot
 validate that boundary. Stop the servers after testing.
+
+Use `UI_MENU_ONLY=1 npm run test:ui` to check startup and menu loading without
+the docking fixture, or `UI_DOCK_ONLY=1 npm run test:ui` for the docking fixture.
+Set `CHROME_BIN` when the browser executable is not named `chromium`.

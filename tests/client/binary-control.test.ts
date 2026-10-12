@@ -10,6 +10,21 @@ import type { ClientMessage } from '../../src/client/protocol/network';
 
 const token = '12345678-9abc-4def-8012-3456789abcde';
 
+for (const displayName of ['', 'a'.repeat(17), '🦄'.repeat(17)]) {
+  assert.throws(() => encodeClientMessage({ type: 'profile', displayName }));
+}
+
+for (const bytes of [
+  [0],
+  [2, 255, 255],
+  [64, 97],
+  [17, ...Array(17).fill(97)],
+]) {
+  assert.throws(() =>
+    decodeClientMessage(Uint8Array.from([0x55, 0x43, 1, 10, ...bytes])),
+  );
+}
+
 const controls: ClientMessage[] = [
   {
     type: 'input',
@@ -19,6 +34,12 @@ const controls: ClientMessage[] = [
   },
   { type: 'hello', playerToken: null },
   { type: 'hello', playerToken: token },
+  { type: 'prepare', playerToken: null },
+  { type: 'prepare', playerToken: token },
+  { type: 'play' },
+  { type: 'profile', displayName: 'aé🦄 <&>\u0000' },
+  { type: 'profile', displayName: '🦄'.repeat(16) },
+  { type: 'profile', displayName: '\ufeffA' },
   {
     type: 'input',
     tick: Number.MAX_SAFE_INTEGER,
@@ -95,6 +116,19 @@ for (const message of controls) {
 }
 
 for (const message of [
+  { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
+  {
+    type: 'welcome' as const,
+    playerId: 2,
+    playerToken: token,
+    shipId: 7,
+    serverTick: 80,
+    worldSeed: 25,
+    spawn: { x: 0, y: 0 },
+    unlockedPaints: 96,
+    credits: 500,
+    displayName: '🦄'.repeat(16),
+  },
   {
     type: 'welcome' as const,
     playerId: 2,
@@ -123,7 +157,10 @@ for (const message of [
 
   assert.deepEqual(decodeServerControl(encoded), message);
   assert.deepEqual(decodeServerControl(encoded.buffer), message);
-  assert.throws(() => decodeClientMessage(encoded), /Invalid binary control/);
+
+  if (message.type !== 'profile') {
+    assert.throws(() => decodeClientMessage(encoded), /Invalid binary control/);
+  }
 }
 
 const hello = encodeClientMessage({ type: 'hello', playerToken: null });

@@ -186,6 +186,12 @@ const makeEntity = ({
 };
 
 export class NetworkClient {
+  displayName = '';
+  readonly authenticated: Promise<void>;
+  private resolveAuthenticated!: () => void;
+  private pendingProfile?: { resolve(): void; reject(error: Error): void };
+  private deferred: boolean;
+  private playing: boolean;
   readonly player: Pick<typeof player, 'credits' | 'unlockedPaints'>;
   // Separate from predicted objects: decoding must never mutate live state or
   // rollback history. Retain only the current interest set between packets.
@@ -377,7 +383,7 @@ export class NetworkClient {
         localStorage.removeItem('playerToken');
       }
 
-      this.send({ playerToken, type: 'hello' });
+      this.send({ playerToken, type: this.deferred ? 'prepare' : 'hello' });
     };
 
     socket.onmessage = ({ data }) => {
@@ -403,6 +409,10 @@ export class NetworkClient {
     socket.onclose = ({ code }) => {
       if (this.socket !== socket) return;
       this.connected = false;
+      this.pendingProfile?.reject(
+        new Error('Connection lost. Please try again.'),
+      );
+      this.pendingProfile = undefined;
       this.pendingTime = 0;
       this.events.length = 0;
       this.pendingDockActions.length = 0;
@@ -433,16 +443,48 @@ export class NetworkClient {
 
   constructor({
     url,
+    deferred = false,
     player: state = { credits: 0, unlockedPaints: [] },
   }: {
     url: string;
+    deferred?: boolean;
     player?: Pick<typeof player, 'credits' | 'unlockedPaints'>;
   }) {
     this.player = state;
+    this.deferred = deferred;
+    this.playing = !deferred;
     this.prediction = new PredictionManager({ world: this.world });
 
     this.ready = new Promise((resolve) => (this.resolveReady = resolve));
+    this.authenticated = new Promise(
+      (resolve) => (this.resolveAuthenticated = resolve),
+    );
     this.connect(url);
+  }
+
+  enterWorld() {
+    if (!this.playing) {
+      this.playing = true;
+
+      if (this.welcomed) this.send({ type: 'play' });
+    }
+
+    return this.ready;
+  }
+
+  async createProfile(displayName: string) {
+    await this.authenticated;
+
+    if (!this.welcomed || this.socket.readyState !== WebSocket.OPEN) {
+      throw new Error('Connecting to the server. Please try again.');
+    }
+
+    const packet = encodeClientMessage({ type: 'profile', displayName });
+
+    return new Promise<void>((resolve, reject) => {
+      this.pendingProfile = { resolve, reject };
+      this.socket.send(packet);
+    });
   }
 
   predictFrame({ now = performance.now() }: { now?: number } = {}) {
@@ -454,6 +496,13 @@ export class NetworkClient {
   }
 
   private receive({ message }: { message: ServerMessage }) {
+    if (message.type === 'profile') {
+      this.displayName = message.displayName;
+      this.pendingProfile?.resolve();
+      this.pendingProfile = undefined;
+      return;
+    }
+
     if (message.type === 'progress') {
       syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);
 
@@ -468,6 +517,7 @@ export class NetworkClient {
     }
 
     if (message.type === 'welcome') {
+      this.displayName = message.displayName || '';
       this.connected = false;
       syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);
 
@@ -502,6 +552,15 @@ export class NetworkClient {
 
       this.prediction.setLocalPlayer({ playerId: message.playerId });
       this.welcomed = true;
+      this.resolveAuthenticated();
+
+      if (this.deferred) {
+        this.retryDelay = 500;
+        this.showConnectionStatus();
+
+        if (this.playing) this.send({ type: 'play' });
+      }
+
       return;
     }
 
@@ -661,7 +720,7 @@ export class NetworkClient {
   }
 
   sendActivity({ now = performance.now() }: { now?: number } = {}) {
-    if (!this.connected || now - this.lastActivitySentAt < 30_000) return;
+    if (!this.welcomed || now - this.lastActivitySentAt < 30_000) return;
     this.lastActivitySentAt = now;
     this.send({ type: 'activity' });
   }
@@ -819,6 +878,7 @@ const socketProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
 
 export const network = new NetworkClient({
   player,
+  deferred: true,
   url: `${socketProtocol}//${location.host}/game-socket`,
 });
 

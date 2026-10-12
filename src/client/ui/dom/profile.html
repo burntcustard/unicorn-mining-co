@@ -1,0 +1,30 @@
+<section
+  class="ui-screen ui-surface ui-backdrop h-full"
+  aria-labelledby="profile-heading"
+>
+  <form class="ui-panel ui-card ui-profile grid gap-4">
+    <h2 class="uppercase text-xl" id="profile-heading">Create profile</h2>
+    <label for="profile-name">Player name</label>
+    <input
+      class="ui-input"
+      id="profile-name"
+      name="player-name"
+      type="text"
+      required
+      autocomplete="nickname"
+      spellcheck="false"
+      aria-describedby="profile-hint profile-status"
+    />
+    <p id="profile-hint">Choose a name up to 16 characters.</p>
+    <output
+      class="ui-label"
+      aria-label="In-game name preview"
+      data-name-preview
+    ></output>
+    <p class="ui-status" id="profile-status" role="status"></p>
+    <div class="ui-actions gap-4">
+      <button class="button uppercase" type="submit">Play</button>
+      <button class="button uppercase" type="button" data-back>Back</button>
+    </div>
+  </form>
+</section>

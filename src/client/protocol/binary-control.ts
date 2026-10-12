@@ -6,7 +6,7 @@ import { controlMessageIds, dockActionIds } from '../../specs/protocol';
 
 type ServerControl = Extract<
   ServerMessage,
-  { type: 'welcome' | 'respawn' | 'progress' }
+  { type: 'welcome' | 'respawn' | 'progress' | 'profile' }
 >;
 
 const {
@@ -18,6 +18,9 @@ const {
   welcome,
   progress,
   activity,
+  prepare,
+  play,
+  profile,
 } = controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -91,6 +94,14 @@ class ControlWriter {
     for (let index = 0; index < 32; index += 2) {
       this.byte(Number.parseInt(digits.slice(index, index + 2), 16));
     }
+  }
+
+  string(value: string) {
+    if (Array.from(value).length > 16) throw new RangeError('Name is too long');
+    const bytes = new TextEncoder().encode(value);
+
+    this.byte(bytes.length);
+    this.bytes.push(...bytes);
   }
 }
 
@@ -215,6 +226,22 @@ class ControlReader {
 
     return `${digits.slice(0, 8)}-${digits.slice(8, 12)}-${digits.slice(12, 16)}-${digits.slice(16, 20)}-${digits.slice(20)}`;
   }
+
+  string() {
+    const length = this.byte();
+
+    if (length > 64 || length > this.remaining) throw new Error('Invalid name');
+
+    const value = new TextDecoder('utf-8', {
+      fatal: true,
+      ignoreBOM: true,
+    }).decode(this.bytes.subarray(this.offset, this.offset + length));
+
+    this.offset += length;
+
+    if (Array.from(value).length > 16) throw new Error('Name is too long');
+    return value;
+  }
 }
 
 /**
@@ -224,8 +251,19 @@ export function encodeClientMessage(
   message: ClientMessage,
 ): Uint8Array<ArrayBuffer> {
   switch (message.type) {
-    case 'hello': {
-      const writer = new ControlWriter(hello);
+    case 'profile': {
+      if (!message.displayName) throw new Error('Enter a name');
+      const writer = new ControlWriter(profile);
+
+      writer.string(message.displayName);
+      return writer.finish();
+    }
+    case 'hello':
+
+    case 'prepare': {
+      const writer = new ControlWriter(
+        message.type === 'hello' ? hello : prepare,
+      );
 
       writer.byte(+(message.playerToken !== null));
 
@@ -334,6 +372,9 @@ export function encodeClientMessage(
     case 'activity':
       return new ControlWriter(activity).finish();
 
+    case 'play':
+      return new ControlWriter(play).finish();
+
     case 'snapshotAck': {
       const writer = new ControlWriter(snapshotAck);
 
@@ -353,13 +394,20 @@ export function decodeClientMessage(
   let message: ClientMessage;
 
   switch (reader.type) {
-    case hello: {
+    case profile:
+      message = { type: 'profile', displayName: reader.string() };
+
+      if (!message.displayName) throw new Error('Enter a name');
+      break;
+    case hello:
+
+    case prepare: {
       const token = reader.byte();
 
       if (token > 1) throw new Error('Invalid binary control');
 
       message = {
-        type: 'hello',
+        type: reader.type === hello ? 'hello' : 'prepare',
         playerToken: token ? reader.uuid() : null,
       };
 
@@ -515,6 +563,10 @@ export function decodeClientMessage(
       message = { type: 'activity' };
       break;
 
+    case play:
+      message = { type: 'play' };
+      break;
+
     case snapshotAck:
       message = { type: 'snapshotAck', sequence: reader.unsigned() };
       break;
@@ -533,6 +585,13 @@ export function decodeClientMessage(
 export function encodeServerControl(
   message: ServerControl,
 ): Uint8Array<ArrayBuffer> {
+  if (message.type === 'profile') {
+    const writer = new ControlWriter(profile);
+
+    writer.string(message.displayName);
+    return writer.finish();
+  }
+
   if (
     message.type !== 'respawn' &&
     message.credits !== undefined &&
@@ -577,6 +636,11 @@ export function encodeServerControl(
     writer.number(message.credits);
   }
 
+  if (message.displayName !== undefined) {
+    if (message.credits === undefined) throw new Error('Name requires balance');
+    writer.string(message.displayName);
+  }
+
   return writer.finish();
 }
 
@@ -590,6 +654,10 @@ export function decodeServerControl(
   let message: ServerControl;
 
   switch (reader.type) {
+    case profile:
+      message = { type: 'profile', displayName: reader.string() };
+      break;
+
     case progress: {
       const unlockedPaints = reader.byte();
 
@@ -629,6 +697,8 @@ export function decodeServerControl(
         message.unlockedPaints = unlockedPaints;
 
         if (reader.remaining) message.credits = reader.number();
+
+        if (reader.remaining) message.displayName = reader.string();
       }
 
       break;
@@ -642,6 +712,7 @@ export function decodeServerControl(
 
   if (
     message.type !== 'respawn' &&
+    message.type !== 'profile' &&
     message.credits !== undefined &&
     message.credits < 0
   ) {

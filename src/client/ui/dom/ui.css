@@ -265,6 +265,15 @@
     background: var(--ui-panel);
   }
 
+  .ui-profile {
+    width: min(100%, 440px);
+  }
+
+  :is([data-pilot], [data-name-preview]) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   .ui-layout {
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;

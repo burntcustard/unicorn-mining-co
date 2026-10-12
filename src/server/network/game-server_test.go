@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"io"
 	"math"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 func connectGame(t *testing.T, address string) (net.Conn, *bufio.Reader) {
@@ -175,6 +176,49 @@ func TestGameServerJoinBetweenTicks(t *testing.T) {
 		if err != nil || kind != OpBinary || len(data) < 4 || data[1] != marker {
 			t.Fatalf("join waited for a simulation tick: kind %d, data %x, error %v", kind, data, err)
 		}
+	}
+}
+
+func TestGameServerPrepareGreeting(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	game := NewGameServer(25, catalog)
+	listener, err := game.Start(0, t.TempDir(), false)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer game.Stop(context.Background())
+	conn, reader := connectGame(t, listener.Addr().String())
+	defer conn.Close()
+
+	if err := conn.SetDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := clientFrame(conn, OpBinary, []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["prepare"]), 0}); err != nil {
+		t.Fatal(err)
+	}
+
+	kind, data, err := readServerFrame(reader)
+
+	if err != nil || kind != OpBinary || len(data) < 4 || data[1] != 0x43 {
+		t.Fatalf("prepare did not receive welcome: kind %d, data %x, error %v", kind, data, err)
+	}
+
+	if err := clientFrame(conn, OpBinary, []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["play"])}); err != nil {
+		t.Fatal(err)
+	}
+
+	kind, data, err = readServerFrame(reader)
+
+	if err != nil || kind != OpBinary || len(data) < 4 || data[1] != 0x4d {
+		t.Fatalf("play did not receive snapshot: kind %d, data %x, error %v", kind, data, err)
 	}
 }
 

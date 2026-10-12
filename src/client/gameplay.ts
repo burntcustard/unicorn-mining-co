@@ -1,5 +1,5 @@
 import { ui, updateNotification } from './ui/dom/ui';
-import { syncDockedUi } from './ui/dom/docked-loader';
+import { preloadDockedUi, syncDockedUi } from './ui/dom/docked-loader';
 import { renderingLayers } from '../specs/rendering-layers';
 import { init } from './core';
 import { dockDuration } from '../specs/camera';
@@ -19,7 +19,7 @@ import {
 
 // @endif
 import { bindAction, initKeys, playerInput, setMenuInput } from './input/input';
-import { moduleBinding } from './input/keybindings';
+import { defaultKeybindings, moduleBinding } from './input/keybindings';
 import { network } from './network/network';
 import { camera, centerCamera, followTarget, zoomCamera } from './camera';
 
@@ -44,9 +44,10 @@ import { game } from './game';
 
 import { Item } from './objects/item';
 
-import { playSound } from './audio/sound-loader';
+import { playSound, preloadSound } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
 import { renderUI } from './ui/ui';
+import { Targeting } from './ui/targeting';
 import { setSizing } from './ui/set-sizing';
 import { type GameObject as SimulationObject } from './objects/game-object';
 
@@ -61,6 +62,8 @@ type Background = {
 };
 
 let gameStarted = false;
+const targeting = new Targeting();
+let pointerPosition: Vec.Value | undefined;
 
 const background = (
   globalThis as typeof globalThis & { background: Background }
@@ -86,10 +89,58 @@ window.onresize = () => {
   gameStarted || renderSky();
 };
 
-window.addEventListener('ui-graphics', () => setSizing(game));
-window.addEventListener('ui-navigation', () =>
-  setMenuInput(Boolean(ui.current)),
-);
+window.addEventListener('ui-graphics', () => {
+  setSizing(game);
+  gameStarted || renderSky();
+});
+
+window.addEventListener('ui-navigation', () => {
+  setMenuInput(Boolean(ui.current));
+
+  if (ui.current) {
+    pointerPosition = undefined;
+    targeting.hover();
+  }
+});
+
+const updatePointer = (event: MouseEvent) => {
+  const rect = canvas.getBoundingClientRect();
+
+  pointerPosition = Vec.create(
+    (event.clientX - rect.left) / rect.width,
+    (event.clientY - rect.top) / rect.height,
+  );
+  targeting.hover(
+    Vec.create(
+      camera.x + pointerPosition.x * game.width,
+      camera.y + pointerPosition.y * game.height,
+    ),
+  );
+};
+
+canvas.addEventListener('pointermove', (event) => {
+  if (ui.current || !gameStarted) return;
+  updatePointer(event);
+});
+
+canvas.addEventListener('click', (event) => {
+  if (
+    ui.current ||
+    !gameStarted ||
+    network.shipDestroyed ||
+    event.button !== 0
+  ) {
+    return;
+  }
+
+  updatePointer(event);
+  targeting.targetHovered();
+});
+
+canvas.addEventListener('pointerleave', () => {
+  pointerPosition = undefined;
+  targeting.hover();
+});
 
 window.addEventListener('keydown', (event) => {
   if (!ui.current) zoomCamera(game, event);
@@ -196,7 +247,9 @@ let spriteCount = 0;
 initKeys({
   onActivity: () => network.sendActivity(),
   onChange: (input) => network.recordInput({ input }),
-  onKeyDown: ({ key }) => {
+  onKeyDown: (event) => {
+    const { key } = event;
+
     if (
       !network.shipDestroyed &&
       !(network.shipStranded && key.toLowerCase() === 'r')
@@ -210,6 +263,12 @@ initKeys({
 });
 
 setMenuInput(Boolean(ui.current));
+
+bindAction(defaultKeybindings.targetNext, (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  event.preventDefault();
+  targeting.cycleTarget(event.shiftKey);
+});
 
 moduleControls.forEach(({ Type, input: action }) =>
   bindAction(moduleBinding(action), () => {
@@ -355,6 +414,24 @@ const gameLoop = GameLoop({
     updateNotification(player.noteFor > 0 ? player.note : '');
 
     if (!ui.current) {
+      if (pointerPosition) {
+        targeting.hover(
+          Vec.create(
+            camera.x + pointerPosition.x * game.width,
+            camera.y + pointerPosition.y * game.height,
+          ),
+        );
+      }
+
+      targeting.update({
+        game,
+        objects: activeSprites,
+        poses: remotePoses,
+        ship: renderedShip,
+      });
+
+      if (!network.shipDestroyed) targeting.render(game);
+
       renderUI(game, stationMarkers, {
         controlsShip: renderedShip,
         shipDestroyed: network.shipDestroyed,
@@ -427,12 +504,17 @@ const gameLoop = GameLoop({
   },
 });
 
-const ready = Promise.all([
-  network.ready,
-  // The HTML preloads the font. Wait before the first HUD frame so canvas
-  // doesn't briefly draw fallback glyphs; a failed asset mustn't stop play.
+// Prepare assets alongside the connection, without creating a screen or audio.
+const assetsReady = Promise.all([
   document.fonts.load('16px Gemetric').catch(() => {}),
-]).then(() => {
+  preloadDockedUi(),
+  preloadSound().catch(() => {}),
+]);
+
+const start = async () => {
+  await Promise.all([assetsReady, network.enterWorld()]);
+
+  if (gameStarted) return;
   refreshReplication();
   syncPlayerShip();
   player.started = true;
@@ -448,13 +530,13 @@ const ready = Promise.all([
 
   gameStarted = true;
   gameLoop.start();
-});
+};
 
 const identityPreview = (): Identity => {
   const { ship, credits } = player;
 
   return [
-    `PILOT ${String(network.playerId).padStart(3, '0')}`,
+    network.displayName,
     credits,
     [
       ship.definitionId || 'mustang',
@@ -472,4 +554,15 @@ const identityPreview = (): Identity => {
   ];
 };
 
-export default { ready, identityPreview };
+export default {
+  start,
+  async prepareProfile() {
+    await network.authenticated;
+    return network.displayName;
+  },
+  createProfile: (displayName: string) => network.createProfile(displayName),
+  identityPreview,
+  get running() {
+    return gameStarted;
+  },
+};

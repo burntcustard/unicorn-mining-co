@@ -4,6 +4,7 @@ import {
   bindingEntries,
   saveBindings,
   resetBindings,
+  defaultKeybindings,
 } from '../../input/keybindings';
 import { graphics, saveGraphics } from './graphics';
 
@@ -44,8 +45,11 @@ export const createSettings = () => {
     );
 
     row.append(text, button);
-    // The first four bindings fly the ship; the rest toggle modules.
-    (i < 4 ? bindings : moduleBindings).append(row);
+    // Keep targeting beside flight and weapon controls.
+    (i < 4 || bindingEntries[i][1] === defaultKeybindings.targetNext
+      ? bindings
+      : moduleBindings
+    ).append(row);
     return button;
   });
 

@@ -5,9 +5,6 @@ package network
 import (
 	"context"
 	"errors"
-	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
-	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"net"
 	"net/http"
 	"strconv"
@@ -15,6 +12,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
+	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 type socketEvent struct {
@@ -165,7 +166,7 @@ func (s *GameServer) read(socket *WebSocket) {
 			return
 		}
 
-		if message.Type == "hello" {
+		if message.Type == "hello" || message.Type == "prepare" {
 			if greeted {
 				socket.CloseWith(1008, "Already joined")
 				return

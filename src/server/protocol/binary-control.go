@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
@@ -26,6 +27,7 @@ type DockAction struct {
 }
 
 type Control struct {
+	DisplayName    string
 	Type           string
 	PlayerToken    string
 	Tick, Sequence uint64
@@ -36,6 +38,7 @@ type Control struct {
 }
 
 type ServerControl struct {
+	DisplayName                  *string
 	Credits                      *float64
 	UnlockedPaints               *uint8
 	Type                         string
@@ -46,6 +49,19 @@ type ServerControl struct {
 }
 
 type writer struct{ data []byte }
+
+func ValidDisplayName(value string) bool {
+	return utf8.ValidString(value) && utf8.RuneCountInString(value) <= 16
+}
+
+func (w *writer) name(value string) error {
+	if !ValidDisplayName(value) {
+		return ErrControl
+	}
+	w.byte(byte(len(value)))
+	w.data = append(w.data, value...)
+	return nil
+}
 
 func (w *writer) byte(value byte) { w.data = append(w.data, value) }
 
@@ -176,6 +192,19 @@ func (r *reader) uuid() (string, error) {
 	return digits[:8] + "-" + digits[8:12] + "-" + digits[12:16] + "-" + digits[16:20] + "-" + digits[20:], nil
 }
 
+func (r *reader) name() (string, error) {
+	length, err := r.byte()
+	if err != nil || length > 64 || int(length) > len(r.data)-r.offset {
+		return "", ErrControl
+	}
+	value := string(r.data[r.offset : r.offset+int(length)])
+	r.offset += int(length)
+	if !ValidDisplayName(value) {
+		return "", ErrControl
+	}
+	return value, nil
+}
+
 func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control, error) {
 	var message Control
 
@@ -186,8 +215,20 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 	r := reader{data: data, offset: 4}
 
 	switch int(data[3]) {
-	case ids.ControlMessageIDs["hello"]:
+	case ids.ControlMessageIDs["profile"]:
+		var err error
+		message.Type = "profile"
+		message.DisplayName, err = r.name()
+		if err != nil || message.DisplayName == "" {
+			return Control{}, ErrControl
+		}
+	case ids.ControlMessageIDs["hello"], ids.ControlMessageIDs["prepare"]:
 		message.Type = "hello"
+
+		if int(data[3]) == ids.ControlMessageIDs["prepare"] {
+			message.Type = "prepare"
+		}
+
 		present, err := r.byte()
 
 		if err != nil || present > 1 {
@@ -384,6 +425,8 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 		message.Type = "respawn"
 	case ids.ControlMessageIDs["activity"]:
 		message.Type = "activity"
+	case ids.ControlMessageIDs["play"]:
+		message.Type = "play"
 	case ids.ControlMessageIDs["snapshotAck"]:
 		message.Type = "snapshotAck"
 		var err error
@@ -404,6 +447,13 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 }
 
 func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, error) {
+	if message.Type == "profile" && message.DisplayName != nil {
+		w := controlWriter(ids.ControlMessageIDs["profile"])
+		if err := w.name(*message.DisplayName); err != nil {
+			return nil, err
+		}
+		return w.data, nil
+	}
 	if message.Credits != nil && (message.UnlockedPaints == nil || *message.Credits < 0 || math.IsNaN(*message.Credits) || math.IsInf(*message.Credits, 0)) {
 		return nil, ErrControl
 	}
@@ -447,6 +497,15 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 
 		if message.Credits != nil {
 			w.number(*message.Credits)
+		}
+	}
+
+	if message.DisplayName != nil {
+		if message.Credits == nil {
+			return nil, ErrControl
+		}
+		if err := w.name(*message.DisplayName); err != nil {
+			return nil, err
 		}
 	}
 

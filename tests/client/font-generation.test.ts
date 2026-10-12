@@ -9,6 +9,17 @@ const characters = Object.entries(glyphPaths)
   .filter(([, path]) => path)
   .map(([character]) => character.codePointAt(0)!);
 
+for (const character of 'abcdefghijklmnopqrstuvwxyz') {
+  const path = glyphPaths[character as keyof typeof glyphPaths];
+
+  assert.ok(path, `lowercase ${character} is authored`);
+  assert.ok(!path.includes('.'), `lowercase ${character} uses integer points`);
+  assert.ok(
+    font.cmap[character.codePointAt(0)!],
+    `lowercase ${character} is generated`,
+  );
+}
+
 assert.deepEqual(
   Object.keys(font.cmap).map(Number),
   [32, ...characters].toSorted((a, b) => a - b),

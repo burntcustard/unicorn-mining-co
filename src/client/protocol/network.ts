@@ -68,16 +68,18 @@ export type PlayerInputMessage = {
 };
 
 export type ClientMessage =
+  | { type: 'profile'; displayName: string }
   | {
       playerToken: string | null;
-      type: 'hello';
+      type: 'hello' | 'prepare';
     }
   | ({ type: 'dock'; sequence?: number } & CraftAction)
-  | { type: 'respawn' | 'activity' }
+  | { type: 'respawn' | 'activity' | 'play' }
   | { type: 'snapshotAck'; sequence: number }
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | { type: 'profile'; displayName: string }
   | { type: 'progress'; unlockedPaints: number; credits?: number }
   | {
       shipId: number;
@@ -90,6 +92,7 @@ export type ServerMessage =
       shipId: number;
       spawn: NetworkVector;
       type: 'welcome';
+      displayName?: string;
       worldSeed: number;
       unlockedPaints?: number;
       credits?: number;

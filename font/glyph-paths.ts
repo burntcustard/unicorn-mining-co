@@ -3,7 +3,7 @@
  * 2-unit, butt-capped, bevel-joined stroke into filled font contours.
  * The initial M command is implicit; later M commands begin new subpaths.
  * Empty strings reserve characters without including them in the font.
- * Lowercase m is the meter indicator. All former debug glyphs are included.
+ * Lowercase letters start at y=6, with ascenders and descenders.
  */
 export const glyphPaths = {
   '!': '5 0 5 9M5 11 5 13',
@@ -55,7 +55,32 @@ export const glyphPaths = {
   'X': '2 1 10 13M10 1 2 13',
   'Y': '6 13 6 9M2 1 6 9 10 1',
   'Z': '1 2 9 2 1 12 9 12',
+  'a': '9 13 9 6 4 6 2 9 4 12 9 12',
+  'b': '3 1 3 12 8 12 10 9 8 6 3 6',
+  'c': '9 6 4 6 2 9 4 12 9 12',
+  'd': '9 1 9 12 4 12 2 9 4 6 9 6',
+  'e': '2 9 10 9 8 6 4 6 2 9 4 12 9 12',
+  'f': '5 13 5 3 7 1 10 1M2 6 9 6',
+  'g': '9 6 4 6 2 9 4 12 9 12M9 6 9 15 4 15',
+  'h': '3 1 3 13M3 7 6 6 9 7 9 13',
+  'i': '6 6 6 13M5 2 7 2',
+  'j': '8 6 8 15 4 15 2 13M7 2 9 2',
+  'k': '3 1 3 13M9 6 4 9 9 13',
+  'l': '5 1 5 12 8 12',
   'm': '2 13 2 6 6 11 10 6 10 13',
+  'n': '3 13 3 6 6 6 9 8 9 13',
+  'o': '4 6 8 6 10 9 8 12 4 12 2 9Z',
+  'p': '3 15 3 6 8 6 10 9 8 12 3 12',
+  'q': '9 15 9 6 4 6 2 9 4 12 9 12',
+  'r': '3 13 3 6 7 6 9 8',
+  's': '9 6 3 6 3 9 9 9 9 12 3 12',
+  't': '5 2 5 12 9 12M2 6 9 6',
+  'u': '3 6 3 11 5 12 9 12 9 6',
+  'v': '2 6 6 13 10 6',
+  'w': '1 6 3 13 6 8 9 13 11 6',
+  'x': '3 6 9 13M9 6 3 13',
+  'y': '2 6 6 12M10 6 4 15',
+  'z': '2 6 9 6 2 12 9 12',
   '←': '5 3 1 7 5 11M1 7 12 7',
   '↑': '2 6 6 2 10 6M6 2 6 13',
   '→': '8 3 12 7 8 11M1 7 12 7',

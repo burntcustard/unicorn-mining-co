@@ -8,6 +8,9 @@ export const controlMessageIds = {
   welcome: 5,
   progress: 6,
   activity: 7,
+  prepare: 8,
+  play: 9,
+  profile: 10,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {

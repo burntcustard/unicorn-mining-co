@@ -168,6 +168,8 @@ export const continuousSound = (
   playbackRate = level ? 1 - level / 80 : 0.4,
   engine = 0,
 ) => {
+  if (!audio || audio.state !== 'running') return sound;
+
   if (!sound && !level) return;
   sound ||= tone(engine);
 

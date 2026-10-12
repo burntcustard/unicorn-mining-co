@@ -1,17 +1,21 @@
-// Fetch and execute the audio implementation only after a genuine user gesture.
-// Calls made before that gesture retain the old behavior and are ignored.
+// Prepare audio code in the menu; create its context only on a user gesture.
 type SoundModule = (typeof import('./sound'))['default'];
 
 let loading: Promise<SoundModule> | undefined;
 let sound: SoundModule | undefined;
 
-const loadSound = () =>
-  (loading ||= import('./sound').then(
-    ({ default: module }) => (sound = module),
-  ));
+export const preloadSound = () =>
+  (loading ||= import('./sound')
+    .then(({ default: module }) => (sound = module))
+    .catch((error) => {
+      loading = undefined;
+      throw error;
+    }));
 
 export const unlockAudio = () =>
-  loadSound().then((module) => module.unlockAudio());
+  sound
+    ? sound.unlockAudio()
+    : preloadSound().then((module) => module.unlockAudio());
 
 export const playSound = (effect: number) => {
   if (sound) return sound.playSound(effect);
@@ -29,5 +33,6 @@ export const updateThrusterSound = (
 ) => sound?.updateThrusterSound(...settings);
 
 // @ifdef DEBUG
-export const testTone = () => loadSound().then((module) => module.testTone());
+export const testTone = () =>
+  preloadSound().then((module) => module.testTone());
 // @endif

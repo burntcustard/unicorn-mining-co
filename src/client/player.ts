@@ -15,7 +15,7 @@ export const player = {
       shades: colors.white,
       position: Vec.create(),
       networked: 1,
-    }).addToScene(),
+    }),
   ],
   // The first owned ship is the one the player is currently piloting.
   get ship() {
