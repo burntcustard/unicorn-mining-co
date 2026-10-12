@@ -1,6 +1,5 @@
 import html from './profile.html?raw';
 import { createScreen, query, ui } from './ui';
-import { fontText } from '../../utilities/font-text';
 
 export const createProfile = ({
   onSave,
@@ -17,9 +16,6 @@ export const createProfile = ({
     const length = Array.from(input.value).length;
 
     input.setCustomValidity(length > 16 ? 'Use at most 16 characters.' : '');
-    query(screen.element, '[data-name-preview]').textContent = fontText(
-      input.value,
-    );
     return length > 0 && length <= 16;
   };
 

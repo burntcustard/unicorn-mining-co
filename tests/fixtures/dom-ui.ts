@@ -162,9 +162,12 @@ export const withdrawStock = (id: number) => {
 };
 
 export const rejectPurchase = (id: number) => {
-  const object = player.ship.cargoContents.find((object) => object.id === id);
+  const object = player.ship.modules.find((object) => object.id === id);
 
   if (!object) throw new Error('Purchased module not found');
+
+  if (object.mount) player.ship.fit(0, object.mount);
+
   player.ship.cargoContents = player.ship.cargoContents.filter(
     (entry) => entry !== object,
   );

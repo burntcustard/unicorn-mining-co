@@ -427,7 +427,7 @@ const createDocked = () => {
             `<button class="button dock-row ui-hover-extend ui-inline gap-2" data-key="${itemKey(entry)}"
             style="--ui-color:${moduleCategories.get(entry.category).color}">
             <span>${icons.get(entry.icon)}</span><span class="dock-row-text">${entry.name}</span>
-            <small class="dock-row-text ml-auto">${money(entry.price)}</small>
+            <small class="dock-row-text ml-auto">${entry instanceof Module ? 'IN CARGO' : money(entry.price)}</small>
           </button>`,
         )
         .join(''),
@@ -571,7 +571,10 @@ const createDocked = () => {
         : mount?.module
           ? mount.health
           : item instanceof Module
-            ? item.health
+            ? item.health ||
+              ((item.constructor as typeof Module).health === 0
+                ? item.healthActivated
+                : 0)
             : maximum;
 
     query(root, '[data-health-panel]').hidden = trading || !maximum;
@@ -823,7 +826,13 @@ const createDocked = () => {
     update();
   };
 
-  const selectRow = (element: HTMLElement) => {
+  const selectRow = ({
+    element,
+    event,
+  }: {
+    element: HTMLElement;
+    event: MouseEvent;
+  }) => {
     const key = element.getAttribute('data-key');
     const candidate = element.closest('[data-candidates]');
 
@@ -838,7 +847,7 @@ const createDocked = () => {
     inspect(element);
     inDetails = true;
 
-    if (!candidate) {
+    if (!candidate || event.detail === 0) {
       (key.startsWith('mount:') && !currentItem
         ? candidateList.getClientRects().length
           ? candidateList
@@ -1171,7 +1180,7 @@ const createDocked = () => {
       }
 
       if (element.hasAttribute('data-key') && selection.tab !== 'trade') {
-        selectRow(element);
+        selectRow({ element, event });
         return;
       }
 
@@ -1270,6 +1279,21 @@ const createDocked = () => {
           if (applied?.action === 'buy') {
             selection.candidate = `owned-${applied.moduleId}`;
             inspectedCandidate = '';
+
+            if (
+              mount &&
+              !mount.module &&
+              applyCraftAction(ship, {
+                action: 'equip',
+                moduleId: applied.moduleId,
+                mount: index,
+              })
+            ) {
+              selection.candidate = '';
+              update();
+              (buttons(detail)[0] || detail).focus();
+              return;
+            }
           }
         }
 

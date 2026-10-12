@@ -47,6 +47,7 @@ import { decodeServerControl } from '${root}/src/client/protocol/binary-control.
 import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { Module } from '${root}/src/client/objects/modules/module.ts';
+import { Laser, moduleTypes } from '${root}/src/client/objects/modules/index.ts';
 import { autogunAmmo } from '${root}/src/specs/items/index.ts';
 
 export default async () => {
@@ -210,6 +211,21 @@ await flush();
 assert(!ship().cargoContents.some(object => object.id === contested.id), 'rejection corrects speculative cargo');
 assert.equal(client.player.credits, beforeRejection[0], 'rejection restores the balance');
 assert.equal(station().cargoContents.length, beforeRejection[2].length - 1);
+
+// Outfitting immediately follows Buy with Equip for the selected empty mount.
+assert(act({ action: 'remove', mount: 0 }));
+const beforeLaser = state();
+const laser = act({ action: 'buy', module: moduleTypes.indexOf(Laser) });
+assert(laser, 'new Beam Laser purchase is accepted');
+assert(act({ action: 'equip', mount: 0, moduleId: laser.moduleId }));
+assert.equal(ship().mounts[0].module.id, laser.moduleId);
+assert.equal(ship().mounts[0].health, 40, 'optimistic Beam Laser starts at full health');
+assert.deepEqual(state()[1], beforeLaser[1], 'automatic fitting preserves existing cargo');
+await flush();
+assert.equal(ship().mounts[0].module.id, laser.moduleId, 'server confirms the immediately fitted purchase');
+assert.equal(ship().mounts[0].health, 40, 'server confirms full Beam Laser health');
+assert.equal(client.player.credits, beforeLaser[0] - Laser.price, 'server charges the purchase once');
+assert.deepEqual(state()[1], beforeLaser[1], 'confirmed fitting leaves no extra cargo module');
 
 const settled = state();
 client.connected = false;

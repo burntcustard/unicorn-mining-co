@@ -269,7 +269,7 @@
     width: min(100%, 440px);
   }
 
-  :is([data-pilot], [data-name-preview]) {
+  [data-pilot] {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

@@ -899,11 +899,6 @@ checkUi: try {
       input.value = 'asterPilot🦄<&';
       input.dispatchEvent(new Event('input'));
     })()`);
-    assert.equal(
-      await check(`document.querySelector('[data-name-preview]').textContent`),
-      'asterPilot□□□',
-      'profile preview uses fallback boxes',
-    );
     await capture('profile');
     await check(`document.querySelector('.ui-profile').requestSubmit()`);
     await pause(6500);
@@ -1451,6 +1446,69 @@ checkUi: try {
     `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
   );
   await pause(250);
+
+  for (const activation of ['Enter', ' ', 'click']) {
+    await click('[data-tab="outfitting"]');
+    await click('[data-key="mount:0"]');
+    await click('[data-command="REMOVE"]');
+    const candidate = '[data-candidates] [data-key="shop-laser"]';
+
+    await click(candidate);
+    assert.equal(
+      await check(`document.querySelector('[data-health]').textContent`),
+      '40 / 40',
+      'a new Beam Laser previews full health',
+    );
+    const before = await check('fixture.transactionState()');
+
+    if (activation === 'click') {
+      await click('[data-command="BUY"]');
+    } else {
+      await check(`document.querySelector('[data-command="BUY"]').focus()`);
+      await pressKey(activation);
+    }
+
+    const bought = await check('fixture.transactionState()');
+
+    assert.equal(
+      bought[0],
+      before[0] - 700,
+      'a Beam Laser purchase charges once',
+    );
+    assert.notEqual(
+      bought[1][0],
+      null,
+      'buying fits the module into the selected empty slot',
+    );
+    assert.deepEqual(
+      bought[2],
+      before[2],
+      'automatic fitting leaves existing cargo untouched',
+    );
+    assert.equal(
+      await check(`document.querySelector('[data-health]').textContent`),
+      '40 / 40',
+      'a newly fitted Beam Laser has full health',
+    );
+    assert(
+      await check(`document.activeElement.matches('[data-command="REMOVE"]')`),
+      'buying an empty-slot module focuses its fitted controls',
+    );
+    await click('[data-command="REMOVE"]');
+    await click('[data-candidates] [data-key="owned-' + bought[1][0] + '"]');
+    assert.equal(
+      await check(`document.querySelector('[data-health]').textContent`),
+      '40 / 40',
+      'an intact Beam Laser in cargo displays its active health',
+    );
+    await c.send('Page.reload');
+    await pause(250);
+    await check(
+      `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
+    );
+    await pause(250);
+  }
+
   assert(await check(`!!document.querySelector('[data-loadout]')`));
   await check(`fixture.notification('DIAMOND SOLD - CYAN UNLOCKED')`);
   assert(
@@ -1570,6 +1628,12 @@ checkUi: try {
       await check('fixture.transactionState()'),
       transaction,
       'selecting a compatible module does not buy, equip, or sell it',
+    );
+    assert(
+      await check(`document.activeElement === Array.from(document.querySelectorAll('.dock-detail button'))
+        .find(button => !button.disabled && button.getAttribute('aria-disabled') !== 'true' && button.getClientRects().length)
+        && document.activeElement.matches(':focus-visible')`),
+      'Enter and Space move visible keyboard focus to the first available card action',
     );
     assert(
       await check(`(() => {
@@ -2602,6 +2666,14 @@ checkUi: try {
   );
 
   await click(firstCandidate);
+  await expectFocus(
+    firstCandidate,
+    'clicking a compatible module keeps focus on its row',
+  );
+  assert(
+    await check(`!document.activeElement.matches(':focus-visible')`),
+    'clicking a compatible module does not show keyboard focus',
+  );
   await waitForFitting('active && progress === 1');
   await hover('[data-title]');
   const leavingSelectedRow = await fittingState();
@@ -2841,23 +2913,26 @@ checkUi: try {
     await focusDock('[data-command="BUY"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates] [aria-pressed="true"]',
-      'the Buy action focuses the purchased module instead of Sell',
+      '[data-command="REMOVE"]',
+      'the Buy action automatically fits the purchased module and focuses Remove',
     );
     const boughtTransaction = await check('fixture.transactionState()');
 
-    assert.equal(boughtTransaction[2].length, 1);
-    const boughtId = boughtTransaction[2][0];
-
-    await expectFocus(
-      `[data-key="owned-${boughtId}"]`,
-      'the new owned candidate has the purchased instance ID',
+    assert.equal(
+      boughtTransaction[2].length,
+      0,
+      'the fitted purchase does not occupy cargo',
+    );
+    assert.notEqual(
+      boughtTransaction[1][0],
+      null,
+      'the purchased instance occupies the selected mount',
     );
     await focusDock('[data-command="SELL"]');
     await pressKey(activation);
     await expectFocus(
       '[data-loadout] [data-key="mount:0"]',
-      'selling an unequipped fitting candidate returns to the loadout slot',
+      'selling the automatically fitted purchase returns to the loadout slot',
     );
     await pressKey('Enter');
     await expectFocus(
@@ -3015,25 +3090,14 @@ checkUi: try {
     await selectCandidate('[data-candidates] [data-key^="shop-"]', activation);
     await focusDock('[data-command="BUY"]');
     await pressKey(activation);
-    const rejectedId = Number(
-      (await check(`document.activeElement.getAttribute('data-key')`)).replace(
-        'owned-',
-        '',
-      ),
-    );
+    const rejectedId = (await check('fixture.transactionState()'))[1][0];
 
-    await focusDock('[data-command="EQUIP"]');
     await check(`fixture.rejectPurchase(${rejectedId})`);
     await expectFocus(
-      '[data-key="mount:0"]',
-      'a rejected purchase returns focus to its loadout slot instead of another module',
+      '[data-candidates]',
+      'a rejected fitted purchase returns focus to the empty compatible list',
     );
-    assert(
-      await check(
-        `document.querySelector('[data-back-label]').textContent === 'Launch'`,
-      ),
-      'a rejected purchase clears the unavailable fitting candidate',
-    );
+    await expectEmptySlot();
   }
 
   await c.send('Page.reload');
@@ -3534,32 +3598,15 @@ checkUi: try {
   await click('[data-command="BUY"]');
   assert.deepEqual(await check(`fixture.inspect().slice(0,3)`), [
     1394,
-    2,
-    false,
+    1,
+    true,
   ]);
   assert(
-    await check(`!document.querySelector('[data-command="EQUIP"]').hidden`),
-    'purchased module remains selected',
+    await check(
+      `document.querySelector('[data-command="EQUIP"]').hidden && !document.querySelector('[data-command="REMOVE"]').hidden`,
+    ),
+    'buying automatically fits the selected module and shows fitted actions',
   );
-
-  await c.send('Input.dispatchMouseEvent', {
-    type: 'mouseMoved',
-    x: 640,
-    y: 150,
-  });
-
-  await check(
-    `document.querySelector('[data-candidates] [aria-pressed="true"]').focus()`,
-  );
-  await pressKey('Enter');
-  assert.equal(
-    (await check(`fixture.inspect()`))[2],
-    false,
-    'confirming an already selected candidate does not equip it',
-  );
-  await focusDock('[data-command="EQUIP"]');
-  await pressKey('Enter');
-  assert.equal((await check(`fixture.inspect()`))[2], true);
   const beforeAmmo = await check(`fixture.inspect()`);
 
   assert(
@@ -3824,20 +3871,14 @@ checkUi: try {
     ),
     'Space selects the focused shop module',
   );
-  await focusDock('[data-command="BUY"]');
-  await pressKey(' ');
-  assert(
-    await check(
-      `document.activeElement.getAttribute('data-key').startsWith('owned-')`,
-    ),
-    'Space on Buy purchases the selected shop module',
+  await expectFocus(
+    '[data-command="BUY"]',
+    'Space on a shop module moves focus directly to Buy',
   );
-  await focusDock('[data-command="EQUIP"]');
   await pressKey(' ');
-  assert.equal(
-    await check(`document.activeElement.getAttribute('data-command')`),
-    'REMOVE',
-    'Space on Equip fits the purchased module',
+  await expectFocus(
+    '[data-command="REMOVE"]',
+    'Space on Buy fits the purchased module and focuses Remove',
   );
   await pause(150);
   assert(
@@ -3967,16 +4008,15 @@ checkUi: try {
   assert(boughtShield[0] < beforeShieldPurchase[0]);
   assert.equal(
     boughtShield[2].length,
-    beforeShieldPurchase[2].length + 1,
-    'clicking Buy purchases the previewed module exactly once',
+    beforeShieldPurchase[2].length,
+    'clicking Buy fits the previewed module without consuming cargo space',
   );
-  await click('[data-command="EQUIP"]');
-  const equippedShield = await check('fixture.transactionState()');
+  const equippedShield = boughtShield;
 
   assert.notEqual(
     equippedShield[1][2],
     null,
-    'clicking Equip fits the purchased shield to the selected mount',
+    'clicking Buy fits the purchased shield to the selected mount',
   );
   assert.equal(equippedShield[2].length, beforeShieldPurchase[2].length);
   await click('[data-key="hull:3"]');
