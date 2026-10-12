@@ -20,3 +20,9 @@
 [ ] shimmer
 [ ] starfall
 [ ] radiant
+
+## Module ideas
+
+[ ] Tractor beam
+[ ] Fuel limpets
+[ ] Cargo Limpets

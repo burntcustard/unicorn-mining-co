@@ -11,7 +11,13 @@ import { autogunAmmo } from '../../../specs/items';
 import { Module, moduleMaximumHealth } from '../../objects/modules/module';
 import { moduleTypes } from '../../objects/modules';
 import { fitsOf, cargoMenuEntriesOf } from '../docked-model';
-import { applyCraftAction } from '../../network/craft-actions';
+import {
+  applyCraftAction,
+  buyAmmo,
+  refuelShip,
+  removeModule,
+  repairHullSegment,
+} from '../../network/craft-actions';
 import shipPreview from './ship-preview';
 import {
   moduleCategories,
@@ -1165,7 +1171,7 @@ const createDocked = () => {
       }
 
       if (element.hasAttribute('data-refuel')) {
-        applyCraftAction(ship, { action: 'refuel' });
+        refuelShip(ship);
         update();
 
         if (element.disabled) firstButton('[data-overview]')?.focus();
@@ -1218,7 +1224,7 @@ const createDocked = () => {
 
         if (command === 'FIX') {
           if (kind === 'hull') {
-            applyCraftAction(ship, { action: 'repairHull', hullIndex: index });
+            repairHullSegment({ ship, hullIndex: index });
           } else {
             applyCraftAction(ship, {
               action: 'repair',
@@ -1263,7 +1269,7 @@ const createDocked = () => {
         }
 
         if (command === 'BUY_AMMO') {
-          applyCraftAction(ship, { action: 'buyAmmo' });
+          buyAmmo(ship);
         }
 
         if (command === 'EQUIP') {
@@ -1283,15 +1289,13 @@ const createDocked = () => {
         }
 
         if (command === 'REMOVE') {
-          applyCraftAction(ship, { action: 'remove', mount: index });
+          removeModule({ ship, mount: index });
           selection.candidate = '';
           inspectedCandidate = '';
         }
 
         if (command === 'SELL') {
-          if (mount?.module) {
-            applyCraftAction(ship, { action: 'remove', mount: index });
-          }
+          if (mount?.module) removeModule({ ship, mount: index });
 
           const object = ship.cargoContents.find((object) =>
             item instanceof Module

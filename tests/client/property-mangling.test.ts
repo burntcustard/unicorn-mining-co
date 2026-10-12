@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -75,6 +76,21 @@ assert.equal(
   'const html = `<span title="${item._name}">${item._power}</span>`;',
   'HTML template attributes preserve their text while expressions mangle',
 );
+
+const domDirectory = resolve('src/client/ui/dom');
+
+for (const name of readdirSync(domDirectory)) {
+  if (!name.endsWith('.ts')) continue;
+  const source = readFileSync(join(domDirectory, name), 'utf8');
+
+  for (const [, literal] of source.matchAll(/\baction:\s*(['"]\w+['"])/g)) {
+    assert.equal(
+      replacePreTerser(literal),
+      literal,
+      `${name} sends ${literal}, which the game code compares in its rewritten production form`,
+    );
+  }
+}
 
 const entryId = resolve('src/__mangle_entry.ts');
 const lazyId = resolve('src/__mangle_lazy.ts');

@@ -226,7 +226,17 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
   ) => {
     const segment = hullAt(index);
 
-    if (!segment || !Array.isArray(segment.points)) return;
+    if (!segment || !Array.isArray(segment.points)) {
+      // A destroyed hull has no segment; do not leave the previous image.
+      if (thumbnails.get(target) !== '') {
+        thumbnails.set(target, '');
+        itemThumbnails.delete(target);
+        target.getContext('2d')!.clearRect(0, 0, target.width, target.height);
+      }
+
+      return;
+    }
+
     const points = rotatePoints(
       segment.points,
       ship.rotation,
