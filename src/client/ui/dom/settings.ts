@@ -49,17 +49,17 @@ export const createSettings = () => {
     return button;
   });
 
-  const symbols: Record<string, string> = {
-    ArrowUp: '↑',
-    ArrowDown: '↓',
-    ArrowLeft: '←',
-    ArrowRight: '→',
-  };
+  const symbols = new Map([
+    ['ArrowUp', '↑'],
+    ['ArrowDown', '↓'],
+    ['ArrowLeft', '←'],
+    ['ArrowRight', '→'],
+  ]);
 
   const update = () =>
     buttons.forEach((button, i) => {
       button.textContent = bindingEntries[i][1].keys
-        .map((key) => (key === ' ' ? 'Space' : symbols[key] || key))
+        .map((key) => (key === ' ' ? 'Space' : symbols.get(key) || key))
         .join(' / ');
     });
 

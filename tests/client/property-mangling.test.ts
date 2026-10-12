@@ -203,6 +203,87 @@ try {
   await keybindingBundle.close();
 }
 
+const settingsEntry = resolve('src/__mangle_settings.ts');
+
+const settingsBundle = await rolldown({
+  input: settingsEntry,
+  plugins: [
+    {
+      name: 'settings-fixture',
+      resolveId: (id) => (id === settingsEntry ? id : undefined),
+      load: (id) => {
+        if (id === settingsEntry) {
+          return `import { createSettings } from './client/ui/dom/settings';
+import { bindingEntries } from './client/input/keybindings';
+export function inspectSettings(keys) {
+  const buttons = [];
+  const element = () => ({
+    textContent: '',
+    addEventListener() {},
+    append(...children) {
+      for (const child of children) {
+        if (child.className === 'button text-center') buttons.push(child);
+      }
+    },
+    querySelectorAll() { return []; },
+  });
+  globalThis.document = { createElement: element };
+  bindingEntries[0][1].keys = keys;
+  const screen = createSettings();
+  screen.update();
+  return buttons.map(button => button.textContent);
+}`;
+        }
+
+        if (id.endsWith('/ui/dom/settings.html?raw')) {
+          return 'export default "";';
+        }
+
+        if (id.endsWith('/ui/dom/ui.ts')) {
+          return `export const createScreen = () => ({ element: { querySelectorAll: () => [] } });
+export const query = () => ({ addEventListener() {}, append() {} });
+export const ui = { back() {} };`;
+        }
+      },
+    },
+    { ...buildPlugin(), generateBundle: undefined },
+  ],
+});
+
+try {
+  const { output } = await settingsBundle.generate({
+    format: 'esm',
+    minify: true,
+  });
+
+  const chunk = output.find((item) => item.type === 'chunk');
+
+  assert(chunk);
+  const built = await import(
+    `data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`
+  );
+
+  assert.deepEqual(built.inspectSettings(['ArrowUp']).slice(0, 4), [
+    '↑',
+    '←',
+    '→',
+    'Space',
+  ]);
+  assert.equal(
+    built.inspectSettings([
+      'ArrowDown',
+      'ArrowUp',
+      'ArrowLeft',
+      'ArrowRight',
+      'q',
+    ])[0],
+    '↓ / ↑ / ← / → / q',
+    'settings arrow glyphs survive production mangling',
+  );
+} finally {
+  await settingsBundle.close();
+}
+
 const inputEntry = resolve('src/__mangle_input.ts');
 
 const inputBundle = await rolldown({
