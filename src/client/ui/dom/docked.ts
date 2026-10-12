@@ -128,7 +128,7 @@ const createDocked = () => {
 
   const rememberOrigin = (element: HTMLElement) => {
     const group =
-      element.closest('[data-trade-items]') || element.closest('nav') || root;
+      element.closest('[data-trade-items], [data-stock-items], nav') || root;
     const index = buttons(group).indexOf(element as HTMLButtonElement);
     const key = element.getAttribute('data-key');
 
@@ -279,7 +279,9 @@ const createDocked = () => {
     const focused = root.querySelector<HTMLButtonElement>('button:focus');
     const focusGroup =
       focused?.closest('[data-trade-items]') ||
-      focused?.closest('nav, .ui-actions') ||
+      focused?.closest(
+        '[data-trade-items], [data-stock-items], nav, .ui-actions',
+      ) ||
       inspector;
     const focusIndex = focused ? buttons(focusGroup).indexOf(focused) : -1;
     const focusKey = focused?.getAttribute('data-key');
@@ -1035,8 +1037,7 @@ const createDocked = () => {
       } else {
         const group =
           inInspector ||
-          focused.closest('[data-trade-items]') ||
-          focused.closest('nav');
+          focused.closest('[data-trade-items], [data-stock-items], nav');
         const column = group
           ? buttons(group).filter((button) => !button.closest('[data-paints]'))
           : [];

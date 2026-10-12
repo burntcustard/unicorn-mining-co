@@ -49,13 +49,12 @@
   }
 
   .dock-row:not(:first-child) {
-    /* Adjacent rows share a single border. */
-    margin-top: calc(-1 * var(--ui-border-width));
-    border-top-color: rgb(from #eef r g b / 0.1);
+    border-top-width: 0;
+    box-shadow: inset 0 var(--ui-border-width) rgb(from #eef r g b / 0.1);
   }
 
   .dock-row:not(:last-child) {
-    border-bottom-color: transparent;
+    border-bottom-width: 0;
   }
 
   .dock-row:not(:first-child)::before,
@@ -70,6 +69,8 @@
 
   .dock-row:is(:hover, :focus-visible):not([aria-pressed='true']) {
     border-color: var(--ui-color);
+    outline: var(--ui-border-width) solid var(--ui-color);
+    outline-offset: calc(-1 * var(--ui-border-width));
   }
 
   .dock-row:where(:not(.dock-trade-row)) > :first-child {
@@ -236,7 +237,7 @@
     height: calc(var(--ui-row-height) - var(--ui-border-width));
   }
 
-  .dock-trade-table > nav,
+  .dock-trade-table > .dock-group,
   .dock-trade-heading,
   .dock-trade-row {
     display: grid;
@@ -265,14 +266,18 @@
   .dock-trade-row > * {
     align-self: stretch;
     align-items: center;
-    border-inline-color: rgb(from #eef r g b / 0.05);
+    border-inline-color: rgb(from #eef r g b / 0.06);
+  }
+
+  .dock-trade-row:not(:first-child) > * {
+    margin-top: var(--ui-border-width);
   }
 
   .dock-trade-row {
     padding: 0;
   }
 
-  .dock-trade-table > nav > p {
+  .dock-trade-table > .dock-group > p {
     grid-column: 1 / -1;
   }
 

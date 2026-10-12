@@ -1802,6 +1802,17 @@ checkUi: try {
   );
   assert(
     await check(`Array.from(document.querySelectorAll('.dock-trade-row')).every(row => {
+      const bounds = row.getBoundingClientRect();
+      const center = (bounds.top + bounds.bottom) / 2;
+      return Array.from(row.querySelectorAll('.dock-row-text')).every(text => {
+        const cell = text.getBoundingClientRect();
+        return Math.abs((cell.top + cell.bottom) / 2 - center) < 3;
+      });
+    })`),
+    'trade names, supply counts, and prices stay vertically centered in their row',
+  );
+  assert(
+    await check(`Array.from(document.querySelectorAll('.dock-trade-row')).every(row => {
       const cells = Array.from(row.children);
       return cells.slice(1).every((cell, index) => {
         const previous = cells[index];
