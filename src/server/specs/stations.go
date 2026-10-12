@@ -1,6 +1,7 @@
 package specs
 
 type Station struct {
+	Name                 string `json:"name"`
 	InitialCargoContents []struct {
 		Item  string `json:"item"`
 		Count int    `json:"count"`

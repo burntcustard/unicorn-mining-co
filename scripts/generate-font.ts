@@ -170,7 +170,7 @@ export async function generateFont() {
       sTypoAscender: data.hhea.ascent,
       sTypoDescender: data.hhea.descent,
       usWinAscent: 14 * precision,
-      usWinDescent: 3 * precision,
+      usWinDescent: 4 * precision,
     },
     post: { format: 3, isFixedPitch: 0 },
   });

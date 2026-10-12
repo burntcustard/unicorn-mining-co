@@ -154,6 +154,7 @@ export const createCorral = ({
   });
 
   return {
+    name: `Corral-${sideCount}`,
     initialCargoContents: [{ item: 'autogunAmmo', count: 300 }],
     dockingBays: baySides.map((index) => angles[index]),
     ...specification,

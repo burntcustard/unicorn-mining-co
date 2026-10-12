@@ -13,6 +13,7 @@ import (
 // SavedObject contains mechanics, never live pointers, caches, or callbacks.
 // Gob preserves the NaN defaults used by the simulation and is versioned by
 // the database schema. Capture runs on the world owner; encoding runs elsewhere.
+// Label is the legacy on-disk key for Name; keep it compatible with existing gob saves.
 type SavedObject struct {
 	ID                                                                                                                                  int64
 	Kind, DefinitionID, Label, Unlock                                                                                                   string
@@ -73,7 +74,7 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 	o := entity.Base()
 
 	s := SavedEntity{Object: SavedObject{
-		ID: o.ID, Kind: o.Kind, DefinitionID: o.DefinitionID, Label: o.Label, Unlock: o.Unlock,
+		ID: o.ID, Kind: o.Kind, DefinitionID: o.DefinitionID, Label: o.Name, Unlock: o.Unlock,
 		Position: Vec.Create(math.Round(o.Position.X), math.Round(o.Position.Y)), Velocity: o.Velocity, Rotation: o.Rotation, Spin: o.Spin, Radius: o.Radius,
 		AngularDrag: o.AngularDrag, AngularInertiaScale: o.AngularInertiaScale, Mass: o.Mass, Friction: o.Friction,
 		Drag: o.Drag, SpeedLimit: o.SpeedLimit, PendingUpdateTime: o.PendingUpdateTime, Health: o.Health, Decay: o.Decay, Price: o.Price,
@@ -340,7 +341,12 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 	}
 
 	b := entity.Base()
-	b.ID, b.Kind, b.DefinitionID, b.Label, b.Unlock = o.ID, o.Kind, o.DefinitionID, o.Label, o.Unlock
+	b.ID, b.Kind, b.DefinitionID, b.Unlock = o.ID, o.Kind, o.DefinitionID, o.Unlock
+
+	if o.Label != "" {
+		b.Name = o.Label
+	}
+
 	b.Position, b.Velocity, b.Rotation, b.Spin, b.Radius = o.Position, o.Velocity, o.Rotation, o.Spin, o.Radius
 	b.AngularDrag, b.AngularInertiaScale, b.Mass, b.Friction = o.AngularDrag, o.AngularInertiaScale, o.Mass, o.Friction
 	b.Drag, b.SpeedLimit, b.PendingUpdateTime, b.Health, b.Decay, b.Price = o.Drag, o.SpeedLimit, o.PendingUpdateTime, o.Health, o.Decay, o.Price

@@ -330,7 +330,7 @@ assert.equal(
   'item damage survives replication',
 );
 assert.equal(
-  remote.cargoContents[2].label,
+  remote.cargoContents[2].name,
   'CRATE',
   'generic cargo state survives replication',
 );

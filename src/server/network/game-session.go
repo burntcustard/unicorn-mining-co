@@ -181,12 +181,14 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 		if message.DisplayName == "" || !protocol.ValidDisplayName(message.DisplayName) {
 			return
 		}
+
 		if player.profile.DisplayName == "" {
 			player.profile.DisplayName = message.DisplayName
-			player.ship.Label = player.profile.DisplayName
+			player.ship.Name = player.profile.DisplayName
 			s.savePlayer(player)
 			s.flushChanges()
 		}
+
 		player.profilePending = true
 		s.sendSnapshot(player, nil, nil)
 		return
@@ -538,9 +540,11 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	p.hiddenShip = !p.ship.Dead
 	p.socket = socket
 	p.profilePending = false
+
 	if p.profile.DisplayName != "" {
-		p.ship.Label = p.profile.DisplayName
+		p.ship.Name = p.profile.DisplayName
 	}
+
 	p.playedAt = time.Time{}
 	s.playersBySocket[socket] = p
 	p.snapshotSequence = 0
@@ -618,9 +622,11 @@ func (s *GameSession) respawn(p *playerRecord) {
 	ship := objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: p.ship.DefinitionID, PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
 	id := station.Base().ID
 	ship.DockedTo = &id
+
 	if p.profile.DisplayName != "" {
-		ship.Label = p.profile.DisplayName
+		ship.Name = p.profile.DisplayName
 	}
+
 	simulation.AddEntity(s.World, ship)
 	simulation.AddPlayer(s.World, simulation.Player{ID: p.playerID, ShipID: ship.ID, Credits: &p.profile.Credits})
 	p.ship = ship

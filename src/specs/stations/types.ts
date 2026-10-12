@@ -3,6 +3,7 @@ import type { RenderingLayer } from '../rendering-layers';
 import type { ItemId } from '../items';
 
 export type StationSpec = {
+  name: string;
   initialCargoContents: { item: ItemId; count: number }[];
   dockingBays: number[];
   hullSegments: {

@@ -35,7 +35,7 @@ type GameObject struct {
 	hitboxIndex                                                                                   int
 	gameplayContacts                                                                              []collision.Contact
 	Decay                                                                                         float64
-	Label                                                                                         string
+	Name                                                                                          string
 	Message                                                                                       *string
 	PlayerID                                                                                      *int64
 	Paint, PointCount, Resource                                                                   int
@@ -60,7 +60,7 @@ type ObjectProperties struct {
 	Message                                                  *string
 	PlayerID                                                 *int64
 	Resource                                                 *int
-	Label                                                    *string
+	Name                                                     *string
 
 	ID                 *int64
 	Position, Velocity Vec.Vector
@@ -339,8 +339,8 @@ func (o *GameObject) ApplyProperties(props ObjectProperties) {
 		o.HasResource = true
 	}
 
-	if props.Label != nil {
-		o.Label = *props.Label
+	if props.Name != nil {
+		o.Name = *props.Name
 	}
 }
 

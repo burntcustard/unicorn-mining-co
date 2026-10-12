@@ -22,7 +22,7 @@ const specs = import.meta.glob<Record<string, unknown>>(
 
 export type PreviewSpec = {
   key: string;
-  label: string;
+  name: string;
   source: string;
   create: () => GameObject;
 };
@@ -46,14 +46,12 @@ const discover = <T>({
         )
         .map(([name, spec]) => ({
           key: `${path}#${name}`,
-          label:
-            (spec as { name?: string }).name ||
-            (name === 'default' ? path.split('/').at(-1)!.slice(0, -3) : name),
+          name: (spec as { name: string }).name,
           source: path.replace('../../', 'src/'),
           create: () => create(spec as T),
         })),
     )
-    .sort((a, b) => a.label.localeCompare(b.label, 'en-US'));
+    .sort((a, b) => a.name.localeCompare(b.name, 'en-US'));
 
 export const catalog = {
   ship: discover({
@@ -70,12 +68,12 @@ export const catalog = {
   }),
   // Asteroids have procedural variants rather than individual spec files.
   asteroid: [
-    { label: 'Mixed rock', resource: 4 },
-    { label: 'Spiky amethyst', resource: 1 },
-    { label: 'Gold-rich rock', resource: 2 },
-  ].map(({ label, resource }): PreviewSpec => ({
+    { name: 'Mixed rock', resource: 4 },
+    { name: 'Spiky amethyst', resource: 1 },
+    { name: 'Gold-rich rock', resource: 2 },
+  ].map(({ name, resource }): PreviewSpec => ({
     key: `asteroid:${resource}`,
-    label,
+    name,
     source: 'src/specs/region-generation.ts',
     create: () => {
       const description = makeAsteroid({
@@ -108,7 +106,7 @@ export const previewMounts = (craft: Craft) =>
   craft.mounts.flatMap((mount, index) => {
     const options = [...moduleTypesById]
       .filter(([, Type]) => mount.fits.includes(Type))
-      .map(([type, Type]) => ({ type, Type, label: Type.name }));
+      .map(([type, Type]) => ({ type, Type, name: Type.name }));
 
     if (!options.length) return [];
     const defaultOption = options.find(({ Type }) => Type === mount.fits[0])!;

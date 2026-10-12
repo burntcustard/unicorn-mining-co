@@ -54,7 +54,7 @@ const makeEntity = ({
     world,
     ...(entity.friction !== undefined && { friction: entity.friction }),
     ...(entity.health !== undefined && { health: entity.health }),
-    ...(entity.label !== undefined && { label: entity.label }),
+    ...(entity.name !== undefined && { name: entity.name }),
     ...(entity.message !== undefined && { message: entity.message }),
     ...(entity.rounds !== undefined && { rounds: entity.rounds }),
     id: entity.id,

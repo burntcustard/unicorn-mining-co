@@ -10,7 +10,6 @@ import (
 
 type Item struct {
 	*simulation.GameObject
-	Name   string
 	Rounds *int
 }
 

@@ -58,6 +58,8 @@ func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
 	station := &Station{Craft: NewCraft(props, plans, catalog)}
 	station.Self = station
 	station.Kind = "station"
+	station.Name = d.Name
+	station.ApplyProperties(props.ObjectProperties)
 
 	if id != "corral-5" {
 		station.DefinitionID = id

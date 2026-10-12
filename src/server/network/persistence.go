@@ -83,9 +83,11 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), binaryReplication: NewBinaryReplicationManager(s.World.Specification)}
 
 			ship.Fly(0, 0)
+
 			if profile.DisplayName != "" {
-				ship.Label = p.profile.DisplayName
+				ship.Name = p.profile.DisplayName
 			}
+
 			p.profile.Ship = objects.SavedShip{}
 			s.players.Set(profile.ID, p)
 		}

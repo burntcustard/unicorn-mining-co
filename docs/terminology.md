@@ -66,6 +66,8 @@
 
 **item** - A collectible game object, such as a gem or message.
 
+**label** - A UI caption for a control, field, or view. A label is not a game object’s name.
+
 **light beam** - The visible cone projected by an active search light, from its lens to the first asteroid it meets or the end of its reach.
 
 **local position** - A location measured from a craft's center, used for its mounts and segments.
@@ -79,6 +81,8 @@
 **module state** - A description of a module's current condition, including whether it is fitted and how its parts are behaving.
 
 **mount** - A location on a craft where a module can be fitted. The mount is the fitting location rather than the module itself.
+
+**name** - Human-readable display text for a game object or spec. A player’s ship uses the player profile name; other objects start with their spec name or object-kind name. `definitionId`/`DefinitionID` is the internal spec key, never display text.
 
 **paint** - A choice of color scheme for a craft or module.
 
@@ -140,7 +144,7 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 
 **sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.
 
-**target** - A game object deliberately targeted by a player or another controller of a craft. Each controller can have at most one target at a time and can change or clear that target at any time. An item, ship, asteroid, station, or other game object can be a target.
+**target** - A game object deliberately targeted by a player or another controller of a craft. Each controller can have at most one target at a time and can change or clear that target at any time. Crafts (including ships and stations), asteroids, and items can be targets. Projectiles, loose modules, and other game objects cannot.
 
 **targeted** - The state of a game object that is a controller's current target. Hovering previews an object without making it targeted or changing the current target.
 

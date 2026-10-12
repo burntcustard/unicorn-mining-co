@@ -349,8 +349,8 @@ export function decodeBinarySnapshot(
           entity.definitionId = clear ? null : string();
           break;
 
-        case BinaryField.label:
-          entity.label = clear ? null : string();
+        case BinaryField.name:
+          entity.name = clear ? null : string();
           break;
 
         case BinaryField.launching:

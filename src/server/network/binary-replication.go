@@ -484,10 +484,10 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 	optionalNumber(record, field.Friction, o.Friction, o.Friction != defaultFriction)
 	optionalNumber(record, field.Health, o.Health, !math.IsNaN(o.Health) && !(o.Kind == "asteroid" && o.Health == o.Radius*2) && !(crafted && o.Health == 100))
 
-	if o.Label != "" {
-		scalar(record, field.Label, o.Label)
+	if o.Name != "" {
+		scalar(record, field.Name, o.Name)
 	} else {
-		clearField(record, field.Label)
+		clearField(record, field.Name)
 	}
 
 	if o.Message != nil {

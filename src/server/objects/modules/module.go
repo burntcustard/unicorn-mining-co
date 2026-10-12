@@ -11,7 +11,6 @@ import (
 type Module struct {
 	*simulation.GameObject
 	simulation.ModuleData
-	Name string
 }
 
 func (m *Module) ModuleBase() *simulation.ModuleData { return &m.ModuleData }

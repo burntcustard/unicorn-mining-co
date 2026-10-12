@@ -82,7 +82,10 @@ export class Targeting {
           object !== ship &&
           object.id !== ship.id &&
           !object.dead &&
-          !object.buried,
+          !object.buried &&
+          ['ship', 'station', 'craft', 'asteroid', 'item'].includes(
+            object.kind!,
+          ),
       )
       .map((object) => {
         const pose = poses.get(object.id) || object;
@@ -214,17 +217,7 @@ export class Targeting {
 
     renderText({
       game,
-      text:
-        (object.playerId !== undefined
-          ? object.label
-          : object.name || object.label) ||
-        (object.kind === 'station'
-          ? object.definitionId || 'corral-5'
-          : object.kind === 'asteroid'
-            ? 'Asteroid'
-            : object.kind === 'projectile'
-              ? 'Projectile'
-              : object.name || object.definitionId || 'Game object'),
+      text: object.name,
       x: center.x,
       y: center.y + radius + 10,
       align: 0,

@@ -197,7 +197,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
         health: null,
         hullHealth: [0, null, 2],
         kind: 'ship',
-        label: 'a\ud800b',
+        name: 'a\ud800b',
         modules: [
           {
             type: 3,
@@ -430,10 +430,10 @@ assert.deepEqual(decodeClientMessage(reconnectSocket.sent[0]), {
 
 const authoritative = Reflect.get(client, 'authoritativeEntities') as Map<
   number,
-  { label?: string; position: { x: number; y: number } }
+  { name?: string; position: { x: number; y: number } }
 >;
 
-assert.equal(authoritative.get(2)?.label, 'before');
+assert.equal(authoritative.get(2)?.name, 'before');
 
 assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
   type: 'snapshotAck',
@@ -488,7 +488,7 @@ assert.deepEqual(decodeClientMessage(socket.sent.at(-1)!), {
 
 client.update({ input: emptyPlayerInput() });
 assert.equal(authoritative.get(2)?.position.x, 20);
-assert.equal(authoritative.get(2)?.label, undefined);
+assert.equal(authoritative.get(2)?.name, '');
 assert.equal(
   client.player.credits,
   380,
@@ -501,12 +501,12 @@ socket.onmessage?.({
     serverTick: 2,
     nextEntityId: 3,
     snapshotSequence: 3,
-    fullEntities: [{ id: 2, label: 'JSON is invalid' }],
+    fullEntities: [{ id: 2, name: 'JSON is invalid' }],
   }),
 });
 
 assert.deepEqual(socket.closed, [1007], 'JSON snapshots are rejected');
-assert.equal(authoritative.get(2)?.label, undefined);
+assert.equal(authoritative.get(2)?.name, '');
 
 // A restored load must seed keyboard toggles before the first predicted input.
 const restoredClient = new NetworkClient({ url: 'ws://restored-test' });

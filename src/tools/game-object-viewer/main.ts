@@ -161,7 +161,7 @@ const createMountControls = ({
   label.append(checkbox, mountLabel);
   select.replaceChildren(
     new Option('Empty', ''),
-    ...options.map(({ type, label }) => new Option(label, type)),
+    ...options.map(({ type, name }) => new Option(name, type)),
   );
   select.value = attached?.type ?? '';
   select.dataset.module = key;
@@ -170,7 +170,7 @@ const createMountControls = ({
   button.type = 'button';
   button.textContent = 'Fire';
   button.hidden = !firing;
-  button.setAttribute('aria-label', `Fire ${attached?.label} at ${mountLabel}`);
+  button.setAttribute('aria-label', `Fire ${attached?.name} at ${mountLabel}`);
 
   checkbox.onchange = () => {
     activation[key] = checkbox.checked;
@@ -243,7 +243,7 @@ const rebuild = () => {
     specs.find(({ key }) => key === state.selected[state.type]) || specs[0];
 
   specSelect.replaceChildren(
-    ...specs.map(({ key, label }) => new Option(label, key)),
+    ...specs.map(({ key, name }) => new Option(name, key)),
   );
   specSelect.disabled = !spec;
   modules.replaceChildren();

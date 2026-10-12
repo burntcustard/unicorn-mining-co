@@ -294,7 +294,7 @@ export class Craft extends GameObject {
   }
 
   constructor(props: CraftProperties = {}, data?: CraftData) {
-    super(props);
+    super({ name: 'Wreckage', ...props });
 
     // Debris comes with its pieces already broken off something else. It is
     // worth about the same few seconds however big it was, give or take, so a

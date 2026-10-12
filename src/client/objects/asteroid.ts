@@ -556,7 +556,7 @@ export class Asteroid extends GameObject {
     resource?: number;
     segments?: AsteroidSegment[];
   }) {
-    super(properties);
+    super({ name: 'Asteroid', ...properties });
     this.contents = [...contents];
     this.decay = decay;
     this.health = health;

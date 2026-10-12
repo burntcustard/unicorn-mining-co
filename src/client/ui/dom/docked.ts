@@ -232,9 +232,12 @@ const createDocked = () => {
     const station = ship.world?.entities.get(ship.dockedTo) as
       | Craft
       | undefined;
+
+    if (!station) return;
+
     const trading = selection.tab === 'trade';
     const cargo = cargoMenuEntriesOf(ship);
-    const stock = cargoMenuEntriesOf(station || { cargoContents: [] });
+    const stock = cargoMenuEntriesOf(station);
 
     if (trading) {
       const keys = [
@@ -256,6 +259,7 @@ const createDocked = () => {
     const view = JSON.stringify([
       selection,
       ship.definitionId,
+      ship.name,
       inspectedCandidate,
       inDetails,
       hullHealth,
@@ -265,9 +269,10 @@ const createDocked = () => {
       player.credits,
       player.unlockedPaints,
       ship.shades,
-      station?.definitionId,
-      station?.moduleStates,
-      station?.cargoContents.map((object) => [object.id, object.health]),
+      station.definitionId,
+      station.name,
+      station.moduleStates,
+      station.cargoContents.map((object) => [object.id, object.health]),
     ]);
 
     if (previousView === view) return;
@@ -323,12 +328,12 @@ const createDocked = () => {
 
     detail.style.setProperty('--ui-color', color);
 
-    const stationName = station?.definitionId || 'corral-5';
+    const stationName = station.name;
 
     text('[data-station]', stationName);
     setHtml(
       query(root, '.dock-station-icon'),
-      stationName === 'corral-6' ? hexagon : pentagon,
+      station.definitionId === 'corral-6' ? hexagon : pentagon,
     );
     text('[data-fuel]', `${ship.fuel.toFixed(1)} / ${ship.fuelCapacity} L`);
     text('[data-fuel-price]', money(ship.refuelCost));
@@ -443,8 +448,8 @@ const createDocked = () => {
             `<button class="button dock-row dock-trade-row ui-hover-extend" data-key="${kind}:${tradeKey(entry)}"
               style="--ui-color:${entry instanceof Module ? moduleCategories.get(entry.category).color : '#eef'}"
               aria-disabled="${kind === 'shop' && (ship.cargoContents.length >= ship.cargoSpace || player.credits < entry.price)}"
-              aria-label="${kind === 'cargo' ? 'Sell' : 'Buy'} one ${entry.name || entry.label} for ${money(entry.price || 0)}, supply ${count}">
-              <span class="px-3 dock-trade-name" data-trade-action="${kind === 'cargo' ? 'SELL' : 'BUY'}"><span class="dock-row-text">${entry.name || entry.label}</span></span>
+              aria-label="${kind === 'cargo' ? 'Sell' : 'Buy'} one ${entry.name} for ${money(entry.price || 0)}, supply ${count}">
+              <span class="px-3 dock-trade-name" data-trade-action="${kind === 'cargo' ? 'SELL' : 'BUY'}"><span class="dock-row-text">${entry.name}</span></span>
               <small class="px-3 text-right dock-trade-supply" aria-hidden="true"><span class="dock-row-text">${count.toLocaleString('en-US')}</span></small>
               <small class="px-3 text-right dock-trade-price" aria-hidden="true"><span class="dock-row-text">${money(entry.price || 0)}</span></small>
             </button>`,
@@ -526,7 +531,7 @@ const createDocked = () => {
         : module
           ? module.name
           : item
-            ? item.name || item.label
+            ? item.name
             : kind === 'hull'
               ? ''
               : overview

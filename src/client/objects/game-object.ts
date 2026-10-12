@@ -35,7 +35,7 @@ export class GameObject {
   health: number | undefined = undefined;
   id: number;
   kind?: string = undefined;
-  label?: string = undefined;
+  name = '';
   // Initialize hot optional fields before subclasses add their own properties.
   localMovementParent: GameObject | 0 | undefined = undefined;
   localMovementRate: number | undefined = undefined;

@@ -35,7 +35,7 @@ export const binaryFieldIds = {
   health: 7,
   hullHealth: 8,
   kind: 9,
-  label: 10,
+  name: 10,
   launching: 11,
   mass: 12,
   message: 13,

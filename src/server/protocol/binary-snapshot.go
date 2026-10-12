@@ -342,14 +342,14 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 		}
 
 		w.byte(byte(tag))
-	case fields.Label, fields.Message, fields.DefinitionID:
-		label, ok := value.(string)
+	case fields.Name, fields.Message, fields.DefinitionID:
+		name, ok := value.(string)
 
 		if !ok {
 			return ErrSnapshot
 		}
 
-		w.string(label)
+		w.string(name)
 	default:
 		number, ok := value.(float64)
 

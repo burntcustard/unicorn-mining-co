@@ -32,6 +32,11 @@ assert.equal(ship.modules?.[0].chargeCooldown, 1.125);
 
 assert.equal(ship.id, 7);
 assert.equal(ship.definitionId, 'testScout');
+assert.equal(
+  ship.name,
+  'MUSTANG',
+  'display names and spec identifiers remain separate on the wire',
+);
 assert.equal(ship.kind, 'ship');
 assert.equal(ship.fuel, 3.25);
 assert.deepEqual(ship.position, { x: -1.25, y: 20.5 });

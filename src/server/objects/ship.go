@@ -16,7 +16,6 @@ import (
 
 type Ship struct {
 	*Craft
-	Name               string
 	Firing             bool
 	Fuel, FuelCapacity float64
 }
@@ -692,6 +691,10 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 	}
 
 	ship.Name = d.Name
+
+	if props.Name != nil {
+		ship.Name = *props.Name
+	}
 
 	if id != "mustang" {
 		ship.DefinitionID = id

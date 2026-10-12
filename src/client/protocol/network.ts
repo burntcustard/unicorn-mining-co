@@ -28,7 +28,7 @@ export type ReplicatedEntity = {
   hullHealth?: number[];
   id: number;
   kind: 'asteroid' | 'item' | 'ship' | 'station' | 'object' | 'projectile';
-  label?: string;
+  name?: string;
   launching?: number;
   mass?: number;
   message?: string;

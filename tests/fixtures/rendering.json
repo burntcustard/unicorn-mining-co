@@ -4,7 +4,7 @@
       "cargoContents": [
         {
           "health": 42,
-          "label": "DIAMOND",
+          "name": "Diamond",
           "resource": 0,
           "id": 321,
           "kind": "item",
@@ -17,7 +17,7 @@
         { "moduleIndex": 5 },
         {
           "health": 19,
-          "label": "CRATE",
+          "name": "CRATE",
           "id": 323,
           "kind": "object",
           "mass": 6,
@@ -106,7 +106,7 @@
       "cargoContents": [
         {
           "health": 100,
-          "label": "DIAMOND",
+          "name": "Diamond",
           "resource": 0,
           "id": 421,
           "kind": "item",
@@ -286,7 +286,7 @@
       },
       {
         "health": 100,
-        "label": "AMETHYST",
+        "name": "Amethyst",
         "resource": 1,
         "id": 503,
         "kind": "item",

@@ -168,7 +168,7 @@ func TestSavedStateOwnsItsMemory(t *testing.T) {
 	saved := objects.CaptureEntity(ship)
 	before, _ := persistence.Encode(saved)
 	ship.Modules()[0].Base().Shades[0] = "modified"
-	ship.CargoContents[0].Base().Label = "changed"
+	ship.CargoContents[0].Base().Name = "changed"
 	after, _ := persistence.Encode(saved)
 
 	if !bytes.Equal(before, after) {
@@ -251,5 +251,54 @@ func TestSavedCorralVariants(t *testing.T) {
 			t.Fatalf("%q restored wrong bay count", id)
 		}
 
+	}
+}
+
+func TestSavedNames(t *testing.T) {
+	catalog, _ := specs.Load()
+	world := simulation.CreateWorld(25, catalog)
+	name := "aé🦄"
+	props := simulation.ObjectProperties{World: world, Name: &name}
+
+	entities := []simulation.Entity{
+		objects.NewShip("mustang", objects.Properties{ObjectProperties: props}, catalog),
+		objects.NewStation("corral-6", objects.Properties{ObjectProperties: props}, catalog),
+		objects.NewItem("diamond", props, catalog),
+		simulation.NewAsteroid(simulation.AsteroidProperties{ObjectProperties: props}, world),
+	}
+
+	for _, entity := range entities {
+		t.Run(entity.Base().Kind, func(t *testing.T) {
+			if entity.Base().Name != name {
+				t.Fatal("the instance name must override its spec name")
+			}
+
+			encoded, err := persistence.Encode(objects.CaptureEntity(entity))
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var saved objects.SavedEntity
+
+			if err := persistence.Decode(encoded, &saved); err != nil {
+				t.Fatal(err)
+			}
+
+			restored, err := objects.RestoreEntity(saved, world)
+
+			if err != nil || restored.Base().Name != name {
+				t.Fatalf("instance name did not survive saving: %v", err)
+			}
+		})
+	}
+
+	ship := objects.NewShip("mustang", objects.Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, catalog)
+	legacy := objects.CaptureEntity(ship)
+	legacy.Object.Label = ""
+	restored, err := objects.RestoreEntity(legacy, world)
+
+	if err != nil || restored.Base().Name != "Mustang" {
+		t.Fatalf("old saves must reconstruct the spec name: %v", err)
 	}
 }

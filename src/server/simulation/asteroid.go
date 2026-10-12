@@ -319,6 +319,7 @@ func cloneOutline(outline *ShapeOutline) *ShapeOutline {
 
 func NewAsteroid(props AsteroidProperties, world *World) *Asteroid {
 	object := NewGameObject(props.ObjectProperties, world.Specification.Simulation)
+	object.Name = "Asteroid"
 	object.Friction = 0.2
 	object.AngularDrag = 0
 	object.ApplyProperties(props.ObjectProperties)

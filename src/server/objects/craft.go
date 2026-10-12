@@ -98,6 +98,7 @@ func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog specs.C
 	c := &Craft{GameObject: simulation.NewGameObject(props.ObjectProperties, catalog.Simulation), Catalog: catalog, CargoContents: props.CargoContents, HullSegments: plans, DockedTo: props.DockedTo, Launching: props.Launching}
 	c.Self = c
 	c.Kind = "craft"
+	c.Name = "Wreckage"
 	c.ZIndex = specs.HullZIndex
 	c.Friction = specs.CraftFriction
 	c.Health = specs.CraftHealth

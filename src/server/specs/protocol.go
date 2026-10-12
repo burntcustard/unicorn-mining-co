@@ -20,7 +20,7 @@ type BinaryFields struct {
 	Health            int `json:"health"`
 	HullHealth        int `json:"hullHealth"`
 	Kind              int `json:"kind"`
-	Label             int `json:"label"`
+	Name              int `json:"name"`
 	Launching         int `json:"launching"`
 	Mass              int `json:"mass"`
 	Message           int `json:"message"`

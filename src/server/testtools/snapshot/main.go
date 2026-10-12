@@ -28,7 +28,7 @@ func main() {
 				field.Radius: float64(40), field.Rotation: float64(0.25),
 				field.Spin: float64(-0.5), field.Velocity: protocol.Vector{X: 3, Y: -4},
 				field.DefinitionID:  "testScout",
-				field.Label:         "MUSTANG",
+				field.Name:          "MUSTANG",
 				field.Fuel:          float64(3.25),
 				field.Shades:        []string{"#fff", "#000"},
 				field.HullHealth:    []float64{8, 20, 40},
