@@ -133,8 +133,8 @@ export const checkStationGuideCache = () => {
 };
 
 /*
- * Compare flat interior pixels with the native canvas renderer. Edge smoothing
- * may differ slightly; holes, clipping, blending, uploads, and order must agree.
+ * Compare interiors and thin, axis-aligned edges with the native canvas renderer.
+ * Diagonal coverage may differ; holes, clipping, blending, and order must agree.
  */
 export const checkGraphics = async () => {
   const nativeCanvas = document.createElement('canvas');
@@ -163,6 +163,43 @@ export const checkGraphics = async () => {
     probes: number[][];
     draw: (ctx: CanvasRenderingContext2D) => void;
   }[] = [
+    {
+      name: 'pixel-aligned thin outlines and gaps',
+      probes: [
+        [16, 16],
+        [17, 16],
+        [18, 16],
+        [19, 16],
+        [20, 16],
+        [21, 16],
+        [16, 23],
+        [18, 23],
+        [15, 16],
+        [16, 15],
+      ],
+      draw: (ctx) => {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(16, 16, 2, 8);
+        ctx.fillRect(20, 16, 2, 8);
+      },
+    },
+    {
+      name: 'subpixel thin outline coverage',
+      probes: [
+        [16, 20],
+        [17, 20],
+        [18, 20],
+        [19, 20],
+        [20, 20],
+        [21, 20],
+        [22, 20],
+      ],
+      draw: (ctx) => {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(16.5, 16, 2, 8);
+        ctx.fillRect(20.5, 16, 2, 8);
+      },
+    },
     {
       name: 'concave fill and draw order',
       probes: [

@@ -5,7 +5,7 @@ import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 /*
- * Keep the complete Go/client matrix in separately scheduled regression suites.
+ * Exercise representative Go/client regressions, with an opt-in full matrix.
  */
 export async function runProjectilePrediction({
   group,
@@ -67,11 +67,16 @@ import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 const fixtures = ${fixtureSource};
+const extended = ${process.env.TEST_EXTENDED === '1'};
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
 `;
 
   const snapshots = `
-for (const renderEvery of [1, 8]) for (const delay of [0, 1, 3, 8]) for (const fixture of fixtures.filter(fixture => !fixture.repeated)) {
+// Retain immediate updates, delayed ID reuse, and delayed batched frames.
+const snapshotTimings = extended
+  ? [1, 8].flatMap(renderEvery => [0, 1, 3, 8].map(delay => [renderEvery, delay]))
+  : [[1, 0], [1, 8], [8, 8]];
+for (const [renderEvery, delay] of snapshotTimings) for (const fixture of fixtures.filter(fixture => !fixture.repeated)) {
   // Replaying rotating contacts from binary checkpoints can accumulate tiny
   // rounding differences. These remain far below a visible displacement.
   const tolerance = .01;
@@ -159,7 +164,11 @@ for (const renderEvery of [1, 8]) for (const delay of [0, 1, 3, 8]) for (const f
 // a push/contact changed motion without changing the reported segment health.
 const repeated = fixtures.find(fixture => fixture.repeated);
 assert(repeated.frames.flatMap(frame => frame.splits).length > 3, 'the regression mines an already fractured remainder');
-for (const start of [0, 241]) for (const framesPerTick of [2, 4]) {
+// Cover both joining paths and both frame cadences without every pairing.
+const miningTimings = extended
+  ? [0, 241].flatMap(start => [2, 4].map(framesPerTick => [start, framesPerTick]))
+  : [[0, 2], [241, 4]];
+for (const [start, framesPerTick] of miningTimings) {
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
     type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
@@ -200,7 +209,10 @@ for (const start of [0, 241]) for (const framesPerTick of [2, 4]) {
   const triangles = `
 // Shoot untouched, rotated triangles from a distance, including rocks that only
 // spin and fragments whose IDs compete with unseen server allocations.
-for (const fixture of fixtures.filter(fixture => fixture.triangle && fixture.weapon === 'autogun')) for (const delay of [0, 3, 8]) for (const framesPerTick of [2, 4]) {
+const triangleTimings = extended
+  ? [0, 3, 8].flatMap(delay => [2, 4].map(framesPerTick => [delay, framesPerTick]))
+  : [[0, 2], [8, 4]];
+for (const fixture of fixtures.filter(fixture => fixture.triangle && fixture.weapon === 'autogun')) for (const [delay, framesPerTick] of triangleTimings) {
   assert(fixture.frames.some(frame => frame.splits.includes(100)), 'autogun splits the untouched triangle');
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {

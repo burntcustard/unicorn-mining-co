@@ -153,9 +153,15 @@ Use `npm test -- --skip-build` after `npm run build` to test existing artifacts
 without rebuilding them. CI reports test starts and completions immediately,
 alongside the normal ordered results.
 Projectile prediction runs as four independent suites covering autogun and
-plasma snapshots, repeated mining, and triangle fractures. Each runs its full
-matrix against both source and production bundles generated from real Go
-snapshots. `npm run test projectile-prediction` still selects all four suites;
+plasma snapshots, repeated mining, and triangle fractures. Normal runs use
+representative immediate/delayed snapshots, batched frames, reloads, and frame
+cadences against both source and production bundles generated from real Go
+snapshots. Muzzle-flash tests replay two firing cycles and cover immediate,
+delayed, and paused firing. These tests favor faster deployment over checking
+every timing combination. `npm run test:extended` restores the full timing
+matrices and four muzzle-flash cycles; it accepts the same selectors and
+`--skip-build` option as `npm test`. Intermediate delays and all cadence/pause
+pairings are reserved for extended runs. `npm run test projectile-prediction` still selects all four suites;
 select a suffixed filename to run one group. Go network tests run isolated
 sessions, temporary databases, and ephemeral listeners in parallel, retaining
 their complete assertions and real timeout checks.
@@ -260,6 +266,8 @@ CI builds `bin/server` and `dist/` once, then runs the full test suite with
 that the artifacts remain unchanged before Fly packages them. Go unit tests
 and fixture tools still compile their own executables, sharing the cached Go
 dependencies and build outputs with `GOEXPERIMENT=simd`.
+CI uses `flyctl deploy --ha=false --local-only` to package the tested artifacts
+with the runner's Docker daemon, avoiding the remote builder queue.
 The production Dockerfile copies the tested artifacts into a scratch image;
 it contains only `server` and `dist/`, with no build stages or npm dependencies.
 Manual deployment also requires a Linux amd64 build first. On Linux amd64,

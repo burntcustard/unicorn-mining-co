@@ -88,20 +88,17 @@ export class WorldRenderer {
   batchProgram: WebGLProgram;
   batchBuffer: WebGLBuffer;
   batchSize: WebGLUniformLocation;
-  frame: WebGLFramebuffer;
-  world: WebGLTexture;
-  stencilBuffer: WebGLRenderbuffer;
-  width = 0;
-  height = 0;
   backdropWidth = 0;
   backdropHeight = 0;
   static create(canvas: HTMLCanvasElement) {
+    // Draw directly to the antialiased canvas so thin details stay sharp.
     const gl = canvas.getContext(
       'webgl2',
       Object.fromEntries([
         ['alpha', true],
         ['stencil', true],
-        ['antialias', false],
+        ['antialias', true],
+        ['depth', false],
         ['premultipliedAlpha', true],
       ]),
     ) as WebGL2RenderingContext;
@@ -126,13 +123,7 @@ export class WorldRenderer {
         gl.FRAGMENT_SHADER,
         `#version 300 es
       precision highp float;in vec2 v_local;uniform vec2 u_size;uniform vec4 u_colors[4];uniform vec4 u_stops;uniform int u_kind,u_count,u_blend;uniform vec4 u_axis,u_rect,u_uv;uniform float u_alpha;uniform sampler2D u_image,u_backdrop;out vec4 r_color;
-      float r_luma(vec4 r_c){return dot(r_c.rgb,vec3(.299,.587,.114));}
-      vec4 r_edge(vec2 r_uv){vec2 r_px=1./u_size;vec4 r_mid=texture(u_image,r_uv);float r_nw=r_luma(texture(u_image,r_uv+vec2(-1.,1.)*r_px)),r_ne=r_luma(texture(u_image,r_uv+r_px)),r_sw=r_luma(texture(u_image,r_uv-r_px)),r_se=r_luma(texture(u_image,r_uv+vec2(1.,-1.)*r_px));
-        float r_lo=min(r_luma(r_mid),min(min(r_nw,r_ne),min(r_sw,r_se))),r_hi=max(r_luma(r_mid),max(max(r_nw,r_ne),max(r_sw,r_se)));if(r_hi-r_lo<.04)return r_mid;
-        vec2 r_dir=vec2(-((r_nw+r_ne)-(r_sw+r_se)),(r_nw+r_sw)-(r_ne+r_se));float r_reduce=max((r_nw+r_ne+r_sw+r_se)*.03125,.0078125);r_dir=clamp(r_dir/(min(abs(r_dir.x),abs(r_dir.y))+r_reduce),vec2(-8.),vec2(8.))*r_px;
-        vec4 r_a=.5*(texture(u_image,r_uv+r_dir*(-1./6.))+texture(u_image,r_uv+r_dir*(1./6.)));vec4 r_b=r_a*.5+.25*(texture(u_image,r_uv-r_dir*.5)+texture(u_image,r_uv+r_dir*.5));float r_lb=r_luma(r_b);return r_lb<r_lo||r_lb>r_hi?r_a:r_b;
-      }
-      void main(){vec4 r_src=u_colors[0];if(u_kind==5){r_color=r_edge(vec2(v_local.x/u_size.x,1.-v_local.y/u_size.y));return;}if(u_kind==3){vec2 r_uv=u_uv.xy+(v_local-u_rect.xy)/u_rect.zw*u_uv.zw;r_src=texture(u_image,r_uv);}
+      void main(){vec4 r_src=u_colors[0];if(u_kind==3){vec2 r_uv=u_uv.xy+(v_local-u_rect.xy)/u_rect.zw*u_uv.zw;r_src=texture(u_image,r_uv);}
       else if(u_kind==4){vec2 r_p=v_local-u_axis.xy;float r_len=length(r_p),r_aa=max(fwidth(r_len),.00001);float r_mask=clamp(.5-(abs(r_len-u_axis.z)-u_axis.w*.5)/r_aa,0.,1.);if(r_mask<=0.)discard;
         if(u_stops.x>0.){float r_angle=mod(atan(r_p.y,r_p.x)+6.28318530718,6.28318530718);float r_q=mod(r_angle*u_axis.z,u_stops.x);r_mask*=smoothstep(-r_aa*.5,r_aa*.5,min(r_q,u_stops.y-r_q));}r_src.a*=r_mask;}
       else if(u_kind!=0){float r_t=u_kind==1?dot(v_local-u_axis.xy,u_axis.zw):length(v_local-u_axis.xy)*u_axis.z+u_axis.w;
@@ -189,9 +180,6 @@ export class WorldRenderer {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     this.backdrop = this.texture();
-    this.world = this.texture();
-    this.frame = gl.createFramebuffer()!;
-    this.stencilBuffer = gl.createRenderbuffer()!;
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     this.createBatch();
     const initial = gl.getError();
@@ -315,53 +303,6 @@ export class WorldRenderer {
   clearRect() {
     const g = this.gl;
 
-    if (
-      this.width !== this.canvas.width ||
-      this.height !== this.canvas.height
-    ) {
-      this.width = this.canvas.width;
-      this.height = this.canvas.height;
-      g.activeTexture(g.TEXTURE0);
-      g.bindTexture(g.TEXTURE_2D, this.world);
-      g.texImage2D(
-        g.TEXTURE_2D,
-        0,
-        g.RGBA,
-        this.width,
-        this.height,
-        0,
-        g.RGBA,
-        g.UNSIGNED_BYTE,
-        null,
-      );
-      g.bindFramebuffer(g.FRAMEBUFFER, this.frame);
-      g.framebufferTexture2D(
-        g.FRAMEBUFFER,
-        g.COLOR_ATTACHMENT0,
-        g.TEXTURE_2D,
-        this.world,
-        0,
-      );
-      g.bindRenderbuffer(g.RENDERBUFFER, this.stencilBuffer);
-      g.renderbufferStorage(
-        g.RENDERBUFFER,
-        g.STENCIL_INDEX8,
-        this.width,
-        this.height,
-      );
-      g.framebufferRenderbuffer(
-        g.FRAMEBUFFER,
-        g.STENCIL_ATTACHMENT,
-        g.RENDERBUFFER,
-        this.stencilBuffer,
-      );
-
-      if (g.checkFramebufferStatus(g.FRAMEBUFFER) !== g.FRAMEBUFFER_COMPLETE) {
-        throw Error('Vector framebuffer incomplete');
-      }
-    }
-
-    g.bindFramebuffer(g.FRAMEBUFFER, this.frame);
     g.activeTexture(g.TEXTURE0);
     g.bindTexture(g.TEXTURE_2D, null);
     g.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -937,16 +878,5 @@ export class WorldRenderer {
   }
   present() {
     this.flush();
-    const g = this.gl;
-
-    g.bindFramebuffer(g.FRAMEBUFFER, null);
-    g.disable(g.SCISSOR_TEST);
-    g.disable(g.STENCIL_TEST);
-    g.disable(g.BLEND);
-    g.colorMask(true, true, true, true);
-    g.activeTexture(g.TEXTURE0);
-    g.bindTexture(g.TEXTURE_2D, this.world);
-    g.uniform1i(this.uniforms.get('u_kind')!, 5);
-    this.vertices(this.quad([0, 0, this.width, this.height]), new DOMMatrix());
   }
 }

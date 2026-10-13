@@ -39,6 +39,7 @@
     "reset-world:live": "node scripts/reset-world-live.ts",
     "start:server": "./bin/server",
     "test": "node scripts/test.ts",
+    "test:extended": "TEST_EXTENDED=1 node scripts/test.ts",
     "typecheck": "tsc --noEmit",
     "viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
     "world-preview": "node scripts/world-preview.ts",
