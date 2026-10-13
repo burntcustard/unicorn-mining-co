@@ -1,0 +1,75 @@
+{
+  "regional": [
+    {
+      "mode": "before",
+      "region": {
+        "left": 447,
+        "top": 300,
+        "right": 800,
+        "bottom": 480
+      },
+      "meanLuminance": 47.62870759836683,
+      "brightnessRatioToBefore": 1,
+      "meanAbsoluteChannelDifference": 0,
+      "meanSignedChannelDifference": 0,
+      "maxChannelDifference": 0
+    },
+    {
+      "mode": "canvas",
+      "region": {
+        "left": 447,
+        "top": 300,
+        "right": 800,
+        "bottom": 480
+      },
+      "meanLuminance": 51.68348583884287,
+      "brightnessRatioToBefore": 1.0851330729917827,
+      "meanAbsoluteChannelDifference": 5.474635400272794,
+      "meanSignedChannelDifference": 5.336077011856049,
+      "maxChannelDifference": 78
+    },
+    {
+      "mode": "webgl",
+      "region": {
+        "left": 447,
+        "top": 300,
+        "right": 800,
+        "bottom": 480
+      },
+      "meanLuminance": 51.661634220964395,
+      "brightnessRatioToBefore": 1.0846742820864586,
+      "meanAbsoluteChannelDifference": 5.421005141118456,
+      "meanSignedChannelDifference": 5.314688909873046,
+      "maxChannelDifference": 62
+    }
+  ],
+  "rainbow": [
+    {
+      "mode": "before",
+      "maskPixels": 9019,
+      "meanRainbowLuminance": 111.05894544849718,
+      "meanBackgroundLuminance": 42.168240514469474,
+      "meanLightAdded": 68.8907049340277,
+      "backgroundMeanAbsoluteChannelDifference": 0,
+      "backgroundMaxChannelDifference": 0
+    },
+    {
+      "mode": "canvas",
+      "maskPixels": 9019,
+      "meanRainbowLuminance": 123.65980447943149,
+      "meanBackgroundLuminance": 45.547187315667856,
+      "meanLightAdded": 78.11261716376363,
+      "backgroundMeanAbsoluteChannelDifference": 1.3217565104166666,
+      "backgroundMaxChannelDifference": 13
+    },
+    {
+      "mode": "webgl",
+      "maskPixels": 9019,
+      "meanRainbowLuminance": 123.65980447943149,
+      "meanBackgroundLuminance": 45.547187315667856,
+      "meanLightAdded": 78.11261716376363,
+      "backgroundMeanAbsoluteChannelDifference": 1.3217565104166666,
+      "backgroundMaxChannelDifference": 13
+    }
+  ]
+}

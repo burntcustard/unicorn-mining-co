@@ -1,0 +1,199 @@
+{
+  "baseline": "1798df7",
+  "currentRevision": "900ca29 with Canvas-default preference changes",
+  "viewport": [1280, 800],
+  "pixelRatio": 1,
+  "scale": 1.2,
+  "backgroundCamera": [-200, 0],
+  "backgroundSeeds": [1, 2, 3],
+  "note": "Each revision uses its real gameplay background pipeline. Historical background is drawn on the foreground canvas; current background uses separate compositor layers. Background-only captures record their small rendering differences.",
+  "captures": [
+    {
+      "mode": "before",
+      "lamp": {
+        "activation": 1,
+        "reach": 400,
+        "spread": 35,
+        "refractedRayCount": 65
+      },
+      "surfaces": [],
+      "rocks": [
+        {
+          "id": 10,
+          "position": {
+            "x": 300,
+            "y": 330
+          },
+          "radius": 65,
+          "rotation": 0.24
+        },
+        {
+          "id": 12,
+          "position": {
+            "x": 430,
+            "y": 490
+          },
+          "radius": 65,
+          "rotation": -0.33
+        },
+        {
+          "id": 17,
+          "position": {
+            "x": 510,
+            "y": 220
+          },
+          "radius": 55,
+          "rotation": 0.4
+        }
+      ],
+      "background": {
+        "scale": 1.2,
+        "camera": [-200, 0],
+        "layers": 0
+      },
+      "viewport": [1280, 800],
+      "canvas": [1280, 800]
+    },
+    {
+      "mode": "canvas",
+      "lamp": {
+        "activation": 1,
+        "reach": 400,
+        "spread": 35,
+        "refractedRayCount": 65
+      },
+      "surfaces": [
+        {
+          "className": "world-surface world-floor world-spectrum",
+          "width": 384,
+          "height": 64,
+          "transform": "matrix(1, 0, 0, 1, 423, 376)",
+          "blend": "plus-lighter"
+        },
+        {
+          "className": "world-surface",
+          "width": 192,
+          "height": 192,
+          "transform": "matrix(0.971338, 0.237703, -0.237703, 0.971338, 299.108, 295.65)",
+          "blend": "normal"
+        },
+        {
+          "className": "world-surface",
+          "width": 192,
+          "height": 192,
+          "transform": "matrix(0.946042, -0.324043, 0.324043, 0.946042, 410.583, 536.374)",
+          "blend": "normal"
+        },
+        {
+          "className": "world-surface",
+          "width": 192,
+          "height": 192,
+          "transform": "matrix(0.921061, 0.389418, -0.389418, 0.921061, 574.253, 170.956)",
+          "blend": "normal"
+        },
+        {
+          "className": "world-surface world-light",
+          "width": 192,
+          "height": 64,
+          "transform": "matrix(1, 0, 0, 1, 290, 376)",
+          "blend": "lighten"
+        }
+      ],
+      "rocks": [
+        {
+          "id": 10,
+          "position": {
+            "x": 300,
+            "y": 330
+          },
+          "radius": 65,
+          "rotation": 0.24
+        },
+        {
+          "id": 12,
+          "position": {
+            "x": 430,
+            "y": 490
+          },
+          "radius": 65,
+          "rotation": -0.33
+        },
+        {
+          "id": 17,
+          "position": {
+            "x": 510,
+            "y": 220
+          },
+          "radius": 55,
+          "rotation": 0.4
+        }
+      ],
+      "background": {
+        "scale": 1.2,
+        "camera": [-200, 0],
+        "layers": 3
+      },
+      "viewport": [1280, 800],
+      "canvas": [1280, 800]
+    },
+    {
+      "mode": "webgl",
+      "lamp": {
+        "activation": 1,
+        "reach": 400,
+        "spread": 35,
+        "refractedRayCount": 65
+      },
+      "surfaces": [],
+      "attributes": {
+        "alpha": true,
+        "antialias": true,
+        "depth": false,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": true,
+        "preserveDrawingBuffer": false,
+        "stencil": true,
+        "xrCompatible": false,
+        "willReadFrequently": false
+      },
+      "rocks": [
+        {
+          "id": 10,
+          "position": {
+            "x": 300,
+            "y": 330
+          },
+          "radius": 65,
+          "rotation": 0.24
+        },
+        {
+          "id": 12,
+          "position": {
+            "x": 430,
+            "y": 490
+          },
+          "radius": 65,
+          "rotation": -0.33
+        },
+        {
+          "id": 17,
+          "position": {
+            "x": 510,
+            "y": 220
+          },
+          "radius": 55,
+          "rotation": 0.4
+        }
+      ],
+      "background": {
+        "scale": 1.2,
+        "camera": [-200, 0],
+        "layers": 3
+      },
+      "viewport": [1280, 800],
+      "canvas": [1280, 800]
+    }
+  ]
+}

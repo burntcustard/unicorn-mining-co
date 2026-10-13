@@ -1,0 +1,183 @@
+{
+  "baseline": "1798df7",
+  "baselineRelation": "Four commits before 900ca29; parent of the performance optimization commit 24fa510",
+  "currentRevision": "900ca29 with Canvas-default preference changes",
+  "viewport": [1280, 800],
+  "pixelRatio": 1,
+  "scale": 1.2,
+  "scene": "Triangular asteroid",
+  "captures": [
+    {
+      "mode": "before",
+      "lamp": {
+        "activation": 1,
+        "reach": 400,
+        "spread": 35,
+        "refractedRayCount": 65
+      },
+      "surfaces": [],
+      "rocks": [
+        {
+          "id": 10,
+          "position": {
+            "x": 300,
+            "y": 330
+          },
+          "radius": 86,
+          "rotation": 0
+        },
+        {
+          "id": 12,
+          "position": {
+            "x": 430,
+            "y": 490
+          },
+          "radius": 65,
+          "rotation": -0.33
+        },
+        {
+          "id": 17,
+          "position": {
+            "x": 510,
+            "y": 220
+          },
+          "radius": 55,
+          "rotation": 0.4
+        }
+      ],
+      "viewport": [1280, 800],
+      "canvas": [1280, 800]
+    },
+    {
+      "mode": "canvas",
+      "lamp": {
+        "activation": 1,
+        "reach": 400,
+        "spread": 35,
+        "refractedRayCount": 65
+      },
+      "surfaces": [
+        {
+          "className": "world-surface world-floor world-spectrum",
+          "width": 384,
+          "height": 64,
+          "transform": "matrix(1, 0, 0, 1, 407, 374)",
+          "blend": "plus-lighter"
+        },
+        {
+          "className": "world-surface",
+          "width": 256,
+          "height": 256,
+          "transform": "matrix(1, 0, 0, 1, 252, 288)",
+          "blend": "normal"
+        },
+        {
+          "className": "world-surface",
+          "width": 192,
+          "height": 192,
+          "transform": "matrix(0.946042, -0.324043, 0.324043, 0.946042, 410.583, 536.374)",
+          "blend": "normal"
+        },
+        {
+          "className": "world-surface",
+          "width": 192,
+          "height": 192,
+          "transform": "matrix(0.921061, 0.389418, -0.389418, 0.921061, 574.253, 170.956)",
+          "blend": "normal"
+        },
+        {
+          "className": "world-surface world-light",
+          "width": 192,
+          "height": 64,
+          "transform": "matrix(1, 0, 0, 1, 298, 374)",
+          "blend": "lighten"
+        }
+      ],
+      "rocks": [
+        {
+          "id": 10,
+          "position": {
+            "x": 300,
+            "y": 330
+          },
+          "radius": 86,
+          "rotation": 0
+        },
+        {
+          "id": 12,
+          "position": {
+            "x": 430,
+            "y": 490
+          },
+          "radius": 65,
+          "rotation": -0.33
+        },
+        {
+          "id": 17,
+          "position": {
+            "x": 510,
+            "y": 220
+          },
+          "radius": 55,
+          "rotation": 0.4
+        }
+      ],
+      "viewport": [1280, 800],
+      "canvas": [1280, 800]
+    },
+    {
+      "mode": "webgl",
+      "lamp": {
+        "activation": 1,
+        "reach": 400,
+        "spread": 35,
+        "refractedRayCount": 65
+      },
+      "surfaces": [],
+      "attributes": {
+        "alpha": true,
+        "antialias": true,
+        "depth": false,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": true,
+        "preserveDrawingBuffer": false,
+        "stencil": true,
+        "xrCompatible": false,
+        "willReadFrequently": false
+      },
+      "rocks": [
+        {
+          "id": 10,
+          "position": {
+            "x": 300,
+            "y": 330
+          },
+          "radius": 86,
+          "rotation": 0
+        },
+        {
+          "id": 12,
+          "position": {
+            "x": 430,
+            "y": 490
+          },
+          "radius": 65,
+          "rotation": -0.33
+        },
+        {
+          "id": 17,
+          "position": {
+            "x": 510,
+            "y": 220
+          },
+          "radius": 55,
+          "rotation": 0.4
+        }
+      ],
+      "viewport": [1280, 800],
+      "canvas": [1280, 800]
+    }
+  ]
+}
