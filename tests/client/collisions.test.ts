@@ -261,6 +261,55 @@ closeTo(contact.depth, 2);
 closeTo(contact.normal.x, 1);
 closeTo(contact.normal.y, 0);
 
+// Missing faces leave a connected remainder and a separate loose fragment.
+const cutGrid: import('../../src/client/types').ShapeOutline[] = [];
+
+for (let x = 0; x < 3; x++) {
+  for (let y = 0; y < 2; y++) {
+    if (x === 1 && y === 0) continue;
+    cutGrid.push(
+      [
+        [x, y],
+        [x + 1, y],
+        [x + 1, y + 1],
+      ],
+      [
+        [x, y],
+        [x + 1, y + 1],
+        [x, y + 1],
+      ],
+    );
+  }
+}
+
+cutGrid.push([
+  [10, 10],
+  [11, 10],
+  [10, 11],
+]);
+assert.deepEqual(
+  outerEdges(cutGrid),
+  [[10], [9, 8, 4, 7, 5, 6, 2, 3, 1, 0]],
+  'fractures preserve group and segment order around missing faces',
+);
+assert.deepEqual(
+  cutGrid.map((outline) => outline.edges),
+  [
+    [true, true, false],
+    [false, false, true],
+    [false, false, false],
+    [false, true, true],
+    [true, false, false],
+    [false, true, false],
+    [true, true, false],
+    [false, false, true],
+    [false, true, false],
+    [false, true, false],
+    [true, true, true],
+  ],
+  'only exposed polygon edges are marked outside',
+);
+
 // A compound pentagon exposes each convex piece as a collider. At an outside
 // vertex, the deepest contact has a radial normal and identifies its piece.
 const corners = Array.from({ length: 5 }, (_, index) => [

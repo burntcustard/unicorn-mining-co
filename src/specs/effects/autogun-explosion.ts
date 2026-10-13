@@ -4,8 +4,8 @@ export const autogunExplosion = [
   {
     alpha: 0.4,
     color: colors.yellow[2],
-    duration: 310,
-    easeOut: 310 / 130,
+    duration: 270,
+    easeOut: 270 / 130,
     fadeDuration: 230,
     radius: 26,
     scale: [0, 1],
@@ -14,8 +14,8 @@ export const autogunExplosion = [
   {
     color: colors.yellow[2],
     dissolveDuration: 190,
-    duration: 210,
-    easeOut: 210 / 90,
+    duration: 180,
+    easeOut: 180 / 90,
     fadeDuration: 80,
     pointCount: 7,
     radius: 13,
@@ -25,7 +25,7 @@ export const autogunExplosion = [
   },
   {
     color: colors.yellow[2],
-    duration: 70,
+    duration: 60,
     easeOut: 2,
     fadeDuration: 20,
     pointCount: 7,

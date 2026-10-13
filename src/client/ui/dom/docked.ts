@@ -606,7 +606,7 @@ const createDocked = () => {
     query(root, '[data-fuel-usage]').hidden = !module?.fuelUsage;
     const owned = item instanceof Module;
     const ammo =
-      module?.ammo === autogunAmmo.resource ? autogunAmmo : undefined;
+      module?.ammo === autogunAmmo ? autogunAmmo : undefined;
     const equipped = Boolean(mount?.module);
     const hasSpace = ship.cargoContents.length < ship.cargoSpace;
     const available = trading

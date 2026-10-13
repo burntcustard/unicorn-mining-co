@@ -228,8 +228,8 @@ func TestWeaponCadenceAndAmmo(t *testing.T) {
 		}
 	})
 
-	if counts["plasmaAccelerator"] != 1 || counts["autogun"] != 4 {
-		t.Fatalf("want 1 plasma and 4 autogun shots, got %v", counts)
+	if counts["plasmaAccelerator"] != 1 || counts["autogun"] != 5 {
+		t.Fatalf("want 1 plasma and 5 autogun shots, got %v", counts)
 	}
 
 	ammo, gold := 0, 0
@@ -244,7 +244,7 @@ func TestWeaponCadenceAndAmmo(t *testing.T) {
 		}
 	}
 
-	if ammo != 1 || *pack.Rounds != 196 || gold != 1 {
+	if ammo != 1 || *pack.Rounds != 195 || gold != 1 {
 		t.Fatal("each shot must consume one round, keeping the pack and leaving ore")
 	}
 
@@ -254,7 +254,7 @@ func TestWeaponCadenceAndAmmo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if *compact.CargoContents[ammoIndex].(*Item).Rounds != 196 {
+	if *compact.CargoContents[ammoIndex].(*Item).Rounds != 195 {
 		t.Fatal("player profile must preserve rounds in partially used packs")
 	}
 
@@ -271,7 +271,7 @@ func TestWeaponCadenceAndAmmo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if *restored.(*Ship).CargoContents[ammoIndex].(*Item).Rounds != 196 {
+	if *restored.(*Ship).CargoContents[ammoIndex].(*Item).Rounds != 195 {
 		t.Fatal("world save must preserve rounds in partially used packs")
 	}
 
@@ -281,7 +281,7 @@ func TestWeaponCadenceAndAmmo(t *testing.T) {
 		}
 	}
 
-	for range 196 {
+	for range 195 {
 		ship.fireWeapons(.25)
 	}
 
@@ -302,7 +302,7 @@ func TestWeaponCadenceAndAmmo(t *testing.T) {
 		t.Fatal("one pack must fire exactly 200 shots and then stop")
 	}
 
-	if *compact.CargoContents[ammoIndex].(*Item).Rounds != 196 || *restored.(*Ship).CargoContents[ammoIndex].(*Item).Rounds != 196 || *saved.CargoContents[ammoIndex].Rounds != 196 {
+	if *compact.CargoContents[ammoIndex].(*Item).Rounds != 195 || *restored.(*Ship).CargoContents[ammoIndex].(*Item).Rounds != 195 || *saved.CargoContents[ammoIndex].Rounds != 195 {
 		t.Fatal("restored and saved packs must own their round counters")
 	}
 
@@ -542,7 +542,7 @@ func TestProjectileHitsNearestCircleAndIgnoresOwner(t *testing.T) {
 	events := []protocol.SimulationEvent{}
 	shot.ResolveHits(&events, world, 1.0/30)
 
-	if !shot.Dead || friendly.Health != 100 || near.Health != 96 || far.Health != 100 {
+	if !shot.Dead || friendly.Health != 100 || near.Health != 100-catalog.ModuleSpecs["autogun"].Damage || far.Health != 100 {
 		t.Fatalf("want one nearest hit and owner immunity; dead=%v, health=%v/%v/%v", shot.Dead, friendly.Health, near.Health, far.Health)
 	}
 }

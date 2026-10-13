@@ -1,7 +1,7 @@
 import { ui, updateNotification } from './ui/dom/ui';
 import { preloadDockedUi, syncDockedUi } from './ui/dom/docked-loader';
 import { renderingLayers } from '../specs/rendering-layers';
-import { init } from './core';
+import { init, hudContext } from './core';
 import { dockDuration } from '../specs/camera';
 import * as Vec from './utilities/vector';
 import { Craft } from './objects/craft';
@@ -39,10 +39,12 @@ import { benchmarkFlag } from './debug/benchmark';
 
 // @endif
 import { colors, paintColors } from '../specs/colors';
+import { glowBlur } from '../specs/lighting';
 import { type Identity } from './ui/dom/identity';
 import { game } from './game';
 
 import { Item } from './objects/item';
+import { beginSurfaces, endSurfaces } from './utilities/composited-surface';
 
 import { playSound, preloadSound } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
@@ -69,14 +71,27 @@ const background = (
   globalThis as typeof globalThis & { background: Background }
 ).background;
 
-const renderSky = () =>
+const skyCanvas =
+  document.querySelector<HTMLCanvasElement>('#background-canvas')!;
+const skyContext = skyCanvas.getContext('2d')!;
+
+const renderSky = () => {
+  if (
+    skyCanvas.width !== game.canvas.width ||
+    skyCanvas.height !== game.canvas.height
+  ) {
+    skyCanvas.width = game.canvas.width;
+    skyCanvas.height = game.canvas.height;
+  }
+
   background.renderBackground(
-    game.canvas,
-    game.ctx,
+    skyCanvas,
+    skyContext,
     game.scale,
     camera.x,
     camera.y,
   );
+};
 
 const { canvas, context } = init();
 
@@ -324,14 +339,63 @@ const gameLoop = GameLoop({
 
     const { ctx, scale } = game;
 
+    beginSurfaces();
+
     ctx.save();
     ctx.scale(scale, scale);
     ctx.translate(-camera.x, -camera.y);
 
+    const visibleSprites = activeSprites.filter((object) => {
+      // Moving craft can project beams beyond their hull. An unfitted station
+      // only extends as far as its orbital guide and docking glow.
+      if (
+        object instanceof Craft &&
+        (!(object instanceof Station) ||
+          object.segments.some((segment) =>
+            segment.mounts?.some((mount) => mount.module),
+          ))
+      ) {
+        return true;
+      }
+
+      const { position } = remotePoses.get(object.id) || object;
+      const radius =
+        object instanceof Station
+          ? Math.max(
+              object.radius + (glowBlur * 2) / scale,
+              object.localMovementRadius || 0,
+            )
+          : (object instanceof Projectile
+              ? object.renderRadius
+              : object instanceof Item
+                ? object.radius * 2
+                : object.radius) + 3;
+
+      return (
+        position.x + radius >= camera.x &&
+        position.x - radius <= camera.x + game.width &&
+        position.y + radius >= camera.y &&
+        position.y - radius <= camera.y + game.height
+      );
+    });
+
+    const renderedCrafts = visibleSprites
+      .filter(
+        (object): object is Craft => object instanceof Craft && !object.dead,
+      )
+      .map((craft) => {
+        const prediction = predicted.entities.get(craft.id);
+
+        return prediction instanceof Craft &&
+          prediction.constructor === craft.constructor
+          ? prediction
+          : craft;
+      });
+
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them. Thruster glows sit above flares, below hulls.
     for (const zIndex of Object.values(renderingLayers)) {
-      activeSprites
+      visibleSprites
         .filter((object) => object.scenery && object.zIndex === zIndex)
         .forEach((object) => {
           object.render({ pose: remotePoses.get(object.id) });
@@ -349,7 +413,8 @@ const gameLoop = GameLoop({
         if (lights) {
           // @endif
           revealBuriedItems({
-            sprites: activeSprites,
+            sprites: visibleSprites,
+            scenery: activeSprites,
             predicted: predicted.entities,
             poses: remotePoses,
           });
@@ -357,7 +422,7 @@ const gameLoop = GameLoop({
         }
         // @endif
 
-        activeSprites.forEach(
+        visibleSprites.forEach(
           (item) =>
             item.item &&
             !item.buried &&
@@ -366,16 +431,8 @@ const gameLoop = GameLoop({
         );
       }
 
-      activeSprites.forEach((craft) => {
-        if (!(craft instanceof Craft) || craft.dead) return;
-        const prediction = predicted.entities.get(craft.id);
-        const renderedCraft =
-          prediction instanceof Craft &&
-          prediction.constructor === craft.constructor
-            ? prediction
-            : craft;
-
-        renderedCraft.render({
+      renderedCrafts.forEach((craft) => {
+        craft.render({
           scenery: activeSprites,
           zIndex,
           pose: remotePoses.get(craft.id),
@@ -383,7 +440,9 @@ const gameLoop = GameLoop({
       });
     }
 
-    activeSprites.forEach(
+    endSurfaces();
+
+    visibleSprites.forEach(
       (object) =>
         object instanceof Projectile &&
         !object.dead &&
@@ -397,6 +456,8 @@ const gameLoop = GameLoop({
     ctx.restore();
 
     // @ifdef DEBUG
+    game.ctx = hudContext();
+
     renderDebug({
       game,
       sprites: activeSprites,
@@ -404,6 +465,7 @@ const gameLoop = GameLoop({
     });
 
     renderDebugDemos(game);
+    game.ctx = ctx;
     // @endif
 
     syncDockedUi({
@@ -430,6 +492,8 @@ const gameLoop = GameLoop({
         ship: renderedShip,
       });
 
+      game.ctx = hudContext();
+
       if (!network.shipDestroyed) targeting.render(game);
 
       renderUI(game, stationMarkers, {
@@ -437,6 +501,8 @@ const gameLoop = GameLoop({
         shipDestroyed: network.shipDestroyed,
         shipStranded: network.shipStranded,
       });
+
+      game.ctx = ctx;
     }
   },
   update: ({ dt, now }) => {

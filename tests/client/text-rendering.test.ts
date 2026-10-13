@@ -14,12 +14,12 @@ assert.equal(typeof document.fonts.load, 'function',
 const strokes = [], transforms = [], styles = [], calls = [];
 const ctx = {
   fillStyle: '#123', strokeStyle: '#456', font: '10px serif',
-  textAlign: 'right', textBaseline: 'bottom', lineJoin: 'bevel', lineWidth: 7,
+  textAlign: 'right', textBaseline: 'bottom', lineJoin: 'bevel', lineCap: 'butt', lineWidth: 7,
   save() { styles.push({...this}); },
   restore() { Object.assign(this, styles.pop()); },
   scale(...values) { transforms.push(values); },
   translate(...values) { transforms.push(values); },
-  stroke(path) { strokes.push([path, this.strokeStyle]); },
+  stroke(path) { strokes.push([path, this.strokeStyle, this.lineWidth, this.lineJoin, this.lineCap]); },
   strokeText(...args) { calls.push(['stroke', ...args, this.strokeStyle, this.font, this.textAlign, this.textBaseline, this.lineJoin, this.lineWidth]); },
   fillText(...args) { calls.push(['fill', ...args, this.fillStyle]); },
 };
@@ -54,18 +54,89 @@ const path = new Path2D('M0 0L10 0');
 const outline = radius => {
   strokes.length = 0;
   pathOutline({ctx, path, radius});
-  return strokes[0][0];
+  return strokes[0];
 };
 const narrow = outline(1), wide = outline(2);
-assert.notEqual(wide, narrow, 'non-text outlines still cache by radius');
-assert.equal(outline(1), narrow);
-assert.equal(Reflect.get(wide, 'commands').length, 16);
-assert.deepEqual(Reflect.get(wide, 'commands')[0].slice(2), [2, 0]);
+assert.equal(narrow[0], path);
+assert.equal(wide[0], path);
+assert.equal(narrow[2], initial.lineWidth + 2, 'the narrow halo expands both sides');
+assert.equal(wide[2], initial.lineWidth + 4, 'a larger halo covers a larger border');
+assert.deepEqual(wide.slice(3), ['round', 'round'], 'line ends and corners have rounded halos');
+assert.deepEqual(ctx, initial, 'outlines restore the original drawing state');
+Reflect.set(document.fonts, 'check', () => true);
+const images = [], cachedContext = {
+  ...ctx, globalAlpha: .35,
+  measureText() { return {actualBoundingBoxLeft: 13, actualBoundingBoxRight: 13, actualBoundingBoxAscent: 13, actualBoundingBoxDescent: 0}; },
+  drawImage(...args) { images.push([...args, this.globalAlpha]); },
+};
+const cachedGame = {ctx: cachedContext, uiScale: 2};
+calls.length = 0;
+for (let frame = 0; frame < 12; frame++) {
+  renderText({game: cachedGame, text: 'AB', x: 50, y: 20, size: 1, align: 0});
+}
+assert.equal(calls.length, 14, 'the first seven frames draw text natively');
+assert.equal(images.length, 5, 'unchanged labels reuse their pixel image');
+assert.deepEqual(images[0].slice(1), [-15, -2, 30, 17, .35],
+  'font ink bounds include the outline and preserve centering and caller opacity');
+assert.equal(images[0][0].width, 60);
+assert.equal(images[0][0].height, 34);
+assert.deepEqual(Reflect.get(globalThis, 'text-image-options'), {willReadFrequently: true},
+  'production builds preserve the native backing-store option');
+assert.deepEqual(Reflect.get(globalThis, 'text-image-paints'), [['stroke', 'AB', 0, 13], ['fill', 'AB', 0, 13]],
+  'the cached image retains the native outline and fill order');
+renderText({game: cachedGame, text: 'AC', x: 50, y: 20, size: 1, align: 0});
+assert.equal(calls.length, 16, 'changing readouts immediately draw their new text');
+assert.equal(cachedContext.globalAlpha, .35);
+const numericStart = images.length;
+for (const text of ['12', '12', '13']) {
+  renderText({game: cachedGame, text, x: 80, y: 20, size: 1, align: 0});
+}
+assert.equal(images.length, numericStart + 3, 'numeric readouts use their pixel image immediately');
+assert.equal(images[numericStart][0], images[numericStart + 2][0],
+  'changed numeric values reuse the same canvas');
+assert.deepEqual(Reflect.get(globalThis, 'text-image-paints'),
+  [['stroke', '12', 0, 13], ['fill', '12', 0, 13], ['stroke', '13', 0, 13], ['fill', '13', 0, 13]],
+  'changing readouts repaint their complete native text, preserving kerning');
+assert.equal(calls.length, 16, 'numeric readouts keep text rasterization off the foreground');
+for (let index = 0; index < 40; index++) {
+  renderText({game: cachedGame, text: 'LABEL ' + index, x: 50, y: 20});
+}
+const beforeEviction = images.length;
+renderText({game: cachedGame, text: 'AB', x: 50, y: 20, size: 1, align: 0});
+assert.equal(images.length, beforeEviction, 'a bounded cache evicts labels after enough other values');
 console.log('Native font drawing, layout, fallback cells, canvas state and non-text outlines passed');
 `;
 
 Object.assign(globalThis, {
-  document: { fonts: { load: async (font: string) => font } },
+  document: {
+    fonts: { load: async (font: string) => font, check: () => false },
+    createElement() {
+      const paints: unknown[] = [];
+
+      Reflect.set(globalThis, 'text-image-paints', paints);
+
+      return {
+        width: 0,
+        height: 0,
+        getContext(_type: string, options: CanvasRenderingContext2DSettings) {
+          Reflect.set(globalThis, 'text-image-options', options);
+
+          return {
+            resetTransform() {},
+            clearRect() {},
+            translate() {},
+            scale() {},
+            strokeText(...args: unknown[]) {
+              paints.push(['stroke', ...args]);
+            },
+            fillText(...args: unknown[]) {
+              paints.push(['fill', ...args]);
+            },
+          };
+        },
+      };
+    },
+  },
   pathAllocations: 0,
   Path2D: class {
     commands: unknown[] = [];
@@ -107,6 +178,7 @@ Object.assign(glyphPaths, extraGlyphs);
 
 try {
   for (const production of [false, true]) {
+    Reflect.set(document.fonts, 'check', () => false);
     const entry = production ? `${root}/src/__text-test.ts` : 'text-test';
 
     const bundle = await rolldown({

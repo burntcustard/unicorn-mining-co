@@ -16,7 +16,7 @@
 [x] Figure out 1 player freezing completely on the server
 [x] Make ships 2x tougher so teamkilling is harder but 2x collision damage too
 [x] Make sure FIX updates on client without needing module removal & equipping
-[ ] Fix mini horn visual bug (incorrect position on respawn?)
+[?] Fix mini horn visual bug (incorrect position on respawn?)
 [x] Fix getting all your credits back (500) on respawn. Should have old credits.
 [x] Fix sparks not being the color of the outline of object being damaged
 [x] Fix horizontal menu selecting BACK instead of colors when down pressed
@@ -46,9 +46,9 @@
 [ ] New UI v1
 [x] Rewrite keyboard handler with full key strings
 [x] Better text demo
-[ ] Create lower case versions of A-Z
+[x] Create lower case versions of A-Z
 [ ] Create more symbols
-[ ] Add characters for lowercase and special chars
+[x] Add characters for lowercase and special chars
 [ ] Neaten up files, especially player.ts & vector.ts
 [ ] Better non-debug-only FPS counter with memory usage etc.
 [ ] Refine module (mount?) categories like thrusters
@@ -56,7 +56,7 @@
 [?] Fix floodlight not revealing along its edge pixels
 [?] Smoothly move camera to center of station again
 [ ] Ensure tests aren't overlapping with each other
-[ ] Swap 'FIX' with 'REPAIR' or 'Repair'
+[x] Swap 'FIX' with 'REPAIR' or 'Repair'
 [x] Fix colors unlocked not saving on reconnect
 [ ] Remove or refactor updateHornDrillSounds because its weird
 [ ] Adjust sound volumes depending on distance to camera
@@ -64,6 +64,7 @@
 [ ] Adjust sounds v1 (less bassy, less annoying?)
 [ ] Adjust sounds v2 (custom with more levers & layers)
 [x] Convert font to WOFF2
+[ ] Rewrite tests to not run off our actual specs, but examples
 
 ## Big future things
 

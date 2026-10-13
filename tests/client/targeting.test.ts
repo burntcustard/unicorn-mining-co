@@ -3,6 +3,8 @@ import { rolldown } from 'rolldown';
 import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
 
 const root = process.cwd();
+
+Object.assign(globalThis, { document: { fonts: { check: () => false } } });
 const scenario = `
 import assert from 'node:assert/strict';
 import { Targeting, targetBounds } from '${root}/src/client/ui/targeting.ts';

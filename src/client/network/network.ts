@@ -19,7 +19,7 @@ import {
 } from '../protocol/network';
 import { createRandom } from '../utilities/seeded-random';
 import { addPlayer, createWorld } from '../simulation/world';
-import { createAsteroid } from '../objects/asteroid';
+import { Asteroid, createAsteroid } from '../objects/asteroid';
 import { Item } from '../objects/item';
 import { autogunAmmo, itemTypes } from '../../specs/items';
 import { GameObject } from '../objects/game-object';
@@ -37,6 +37,8 @@ import { simulationStep } from '../../specs/simulation';
 import { setCraftActionDispatcher } from './craft-actions';
 import { type CraftAction } from '../protocol/network';
 import { shadesOf } from '../../specs/colors';
+
+const asteroidRecords = new WeakMap<Asteroid, ReplicatedEntity>();
 
 const makeEntity = ({
   entity,
@@ -83,18 +85,38 @@ const makeEntity = ({
   if (entity.kind === 'object') return withFriction(new GameObject(common));
 
   if (entity.kind === 'asteroid') {
-    return withFriction(
-      Object.assign(
-        createAsteroid(world, {
-          ...entity,
-          ...common,
-          contents: entity.contents || [],
-          health: entity.health ?? entity.radius * 2,
-          maxHealth: entity.maxHealth || entity.radius * 2,
-        }),
-        { pendingUpdateTime: common.pendingUpdateTime },
-      ),
-    );
+    const before =
+      previous instanceof Asteroid && asteroidRecords.get(previous);
+    const unchanged =
+      before &&
+      before.radius === entity.radius &&
+      before.radiusEven === entity.radiusEven &&
+      before.pointCount === entity.pointCount &&
+      before.health === entity.health &&
+      before.maxHealth === entity.maxHealth &&
+      before.mass === entity.mass &&
+      before.resource === entity.resource &&
+      before.contents === entity.contents &&
+      before.segments === entity.segments &&
+      before.shapeOutline === entity.shapeOutline;
+
+    // Motion deltas retain the wire model arrays. Keep their cut geometry and
+    // collision caches; a model or damage update constructs another model.
+    const asteroid = unchanged
+      ? Object.assign(previous as Asteroid, common, { decay: entity.decay })
+      : Object.assign(
+          createAsteroid(world, {
+            ...entity,
+            ...common,
+            contents: entity.contents || [],
+            health: entity.health ?? entity.radius * 2,
+            maxHealth: entity.maxHealth || entity.radius * 2,
+          }),
+          { pendingUpdateTime: common.pendingUpdateTime },
+        ).lockGeometry();
+
+    asteroidRecords.set(asteroid, entity);
+    return withFriction(asteroid);
   }
 
   if (entity.kind === 'item') {

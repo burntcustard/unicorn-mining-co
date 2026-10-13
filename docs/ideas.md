@@ -26,3 +26,5 @@
 [ ] Tractor beam
 [ ] Fuel limpets
 [ ] Cargo Limpets
+[ ] Invisibility
+[ ] Blink/teleport

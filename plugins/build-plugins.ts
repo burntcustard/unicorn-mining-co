@@ -44,7 +44,12 @@ const sourceFiles = (directory: URL): URL[] =>
   });
 
 const reservedProperties = (files: URL[]) => {
-  const reserved = new Set(['background', 'bufferedAmount']);
+  const reserved = new Set([
+    'background',
+    'bufferedAmount',
+    // Native context option missing from Terser's built-in DOM property list.
+    'willReadFrequently',
+  ]);
 
   const reserve = (name: string) => {
     reserved.add(name);

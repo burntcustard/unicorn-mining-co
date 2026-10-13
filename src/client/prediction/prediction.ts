@@ -18,6 +18,7 @@ import { Asteroid } from '../objects/asteroid';
 import { type SimulationWorld } from '../simulation/world';
 import { type GameObject } from '../objects/game-object';
 import { Ship } from '../objects/ship';
+import { Item } from '../objects/item';
 import { type EntityState } from '../simulation/entity-state';
 import {
   captureWorld,
@@ -34,6 +35,11 @@ export const predictionStats = { corrections: 0, steps: 0, worst: 0 };
 
 Object.assign(globalThis, { predictionStats });
 // @endif
+
+const replicatedGeometry = new WeakMap<
+  Asteroid,
+  { source: object; local: object }
+>();
 
 const matches = ({
   ship,
@@ -118,24 +124,70 @@ const applyEntity = ({
   entity.rounds = server.rounds;
 
   if (entity instanceof Asteroid && server instanceof Asteroid) {
+    const source = server.geometrySource;
+    const before = replicatedGeometry.get(entity);
+    const unchanged =
+      source &&
+      before?.source === source &&
+      before.local === entity.geometrySource;
+
     entity.contents = [...server.contents];
     entity.decay = server.decay;
     entity.maxHealth = server.maxHealth;
     entity.resource = server.resource;
     entity.pointCount = server.pointCount;
     entity.radiusEven = server.radiusEven;
-    entity.shapeOutline = server.shapeOutline?.map(([x, y]) => [x, y]);
 
-    entity.segments = server.segments?.map((asteroidSegment) => ({
-      ...asteroidSegment,
-      contents: [...asteroidSegment.contents],
-      shapeOutline: asteroidSegment.shapeOutline.map(([x, y]) => [x, y]),
-    }));
+    if (unchanged) {
+      // Segment health is mutable even when the model itself is unchanged.
+      server.segments?.forEach((segment, index) => {
+        entity.segments![index].health = segment.health;
+      });
+    } else {
+      entity.shapeOutline = server.shapeOutline?.map(([x, y]) => [x, y]);
+
+      entity.segments = server.segments?.map((asteroidSegment) => ({
+        ...asteroidSegment,
+        contents: [...asteroidSegment.contents],
+        shapeOutline: asteroidSegment.shapeOutline.map(([x, y]) => [x, y]),
+      }));
+
+      entity.lockGeometry();
+
+      if (source) {
+        replicatedGeometry.set(entity, {
+          source,
+          local: entity.geometrySource!,
+        });
+      } else {
+        replicatedGeometry.delete(entity);
+      }
+    }
   } else if (entity instanceof Craft && server instanceof Craft) {
+    const previousCargo = new Map(
+      entity.cargoContents.map((object) => [object.id, object]),
+    );
+    const copies = new WeakMap<object, any>();
+
     const cargoCopies = new Map(
       server.cargoContents
         .filter((object) => !(object instanceof Module))
-        .map((object) => [object, cloneEntity({ entity: object })]),
+        .map((object) => {
+          const previous = previousCargo.get(object.id);
+
+          // Stable inventory objects keep display and checkpoint caches warm.
+          // A just-collected world item still needs its scene removal first.
+          if (
+            object instanceof Item &&
+            previous instanceof Item &&
+            previous.item === object.item &&
+            !previous.collections.length
+          ) {
+            copies.set(object, previous);
+          }
+
+          return [object, cloneEntity({ entity: object, copies })];
+        }),
     );
 
     entity.cargoContents = server.cargoContents
@@ -224,6 +276,8 @@ export class PredictionManager {
 
           restored.world = this.world;
           restored.random = this.world.random;
+
+          if (restored instanceof Asteroid) restored.lockGeometry();
           this.world.entities.set(server.id, restored);
         }
 
@@ -280,7 +334,7 @@ export class PredictionManager {
   }
 
   invalidateFrame() {
-    this.frame.reset();
+    this.frame.invalidate();
   }
 
   predictFrame({ elapsed }: { elapsed: number }) {
@@ -322,7 +376,7 @@ export class PredictionManager {
       this.serverNextEntityId,
     );
 
-    this.frame.reset();
+    this.frame.invalidate();
 
     if (Math.abs(targetTick - tick) > maxPredictionTicks) {
       this.reset();

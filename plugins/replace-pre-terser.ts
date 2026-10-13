@@ -33,7 +33,7 @@ const propertyNamePattern = new RegExp(
   'g',
 );
 const propertyPattern = new RegExp(
-  String.raw`(["'])(?:\\.|(?!\1)[^\\\r\n])*\1|\b(?:export\s+)?function\s+distance\b|\bVec\.distance\b|\bclassList\s*\.\s*(?:contains|remove|toggle)\b|\b(${propertyNames.join('|')})\b`,
+  String.raw`(["'])(?:\\.|(?!\1)[^\\\r\n])*\1|\b(?:export\s+)?function\s+distance\b|\bVec\.distance\b|\bclassList\s*\.\s*(?:contains|remove|toggle)\b|\bstyle\s*\.\s*transform\b|\b(${propertyNames.join('|')})\b`,
   'g',
 );
 

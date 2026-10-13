@@ -455,8 +455,8 @@ assert.equal(
 );
 assert.equal(
   shots.filter((shot) => shot.definitionId === 'autogun').length,
-  4,
-  'autogun fires four shots per second',
+  5,
+  'autogun fires five shots per second',
 );
 for (const shot of shots) {
   const spec = moduleSpecs[shot.definitionId].projectile;
@@ -477,7 +477,7 @@ for (const shot of shots) {
     'firing uses the nested projectile speed',
   );
 }
-assert.equal(ammo.rounds, 196, 'one round consumed per shot');
+assert.equal(ammo.rounds, 195, 'one round consumed per shot');
 assert(
   ship.cargoContents.includes(ammo),
   'partially used packs remain in cargo',
@@ -493,11 +493,11 @@ assert(
 const checkpoint = captureWorld({ world });
 const cooldown = plasma.fireCooldown;
 ship.fireWeapons(0.25);
-assert.equal(ammo.rounds, 195);
+assert.equal(ammo.rounds, 193);
 restoreWorld({ world, state: checkpoint });
 assert.equal(
   ammo.rounds,
-  196,
+  195,
   'rollback restores ammunition remaining in cargo',
 );
 assert.equal(plasma.fireCooldown, cooldown, 'rollback restores firing cadence');
@@ -509,7 +509,7 @@ assert.equal(
   cooldown,
   'replication carries weapon cooldown',
 );
-for (let shot = 0; shot < 196; shot++) ship.fireWeapons(0.25);
+for (let shot = 0; shot < 195; shot++) ship.fireWeapons(0.25);
 assert(
   !ship.cargoContents.includes(ammo),
   'a pack is removed after its 200th shot',
@@ -763,14 +763,14 @@ const circleEvents = [];
 circleShot.resolveHits(circleEvents, circleWorld, 1 / 30);
 assert.equal(
   circleEvents[0].damage[1],
-  4,
+  moduleSpecs.autogun.damage,
   'circle hits also report damage through collision events',
 );
 assert(circleShot.dead);
 assert.equal(friendly.health, 100, 'projectiles ignore the firing player');
 assert.equal(
   near.health,
-  96,
+  100 - moduleSpecs.autogun.damage,
   'the closest circle receives damage across a catch-up sweep',
 );
 assert.equal(far.health, 100, 'a shot cannot damage two targets');
@@ -1782,7 +1782,7 @@ assert.equal(
   beforeGenericGlow,
   'any weapon suppresses its configured glow until the part recharges',
 );
-genericGun.fireCooldown = 0.15;
+genericGun.fireCooldown = 0.1;
 genericGun.render({ segment: genericPart });
 assert.equal(
   fills.at(-1),
@@ -1992,7 +1992,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
     game.ctx.fill = function() { drawAlphas.push(this.globalAlpha); };
     customShot.render();
     game.ctx.fill = fill;
-    assert.deepEqual(drawAlphas, [0.6 * alpha, 0.6 * alpha], 'round and glow fade together over the configured duration');
+    assert(drawAlphas.every((drawAlpha) => Math.abs(drawAlpha - 0.6 * alpha) < 1e-12), 'round and glow fade together over the configured duration');
   }
   delete custom.fadeOut;
   Object.assign(custom, original);

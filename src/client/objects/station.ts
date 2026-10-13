@@ -12,6 +12,12 @@ import { type StationSpec } from '../../specs/stations/types';
 import { Item } from './item';
 import { itemSpecs } from '../../specs/items';
 import { entityId } from '../simulation/world';
+import {
+  composedSurfaces,
+  renderSurface,
+} from '../utilities/composited-surface';
+
+const guides = new WeakMap<Station, { radius: number }>();
 
 export class Station extends Craft {
   kind = 'station';
@@ -59,9 +65,64 @@ export class Station extends Craft {
 
   render({
     zIndex = renderingLayers.shipHull,
+    guide = true,
     ...options
-  }: CraftRenderOptions = {}) {
+  }: CraftRenderOptions & { guide?: boolean } = {}) {
     const { ctx } = game;
+
+    if (
+      composedSurfaces(ctx) &&
+      zIndex === renderingLayers.stationFloor &&
+      ctx.canvas === game.canvas &&
+      game.canvas?.isConnected
+    ) {
+      const pose = options.pose || this;
+
+      ctx.save();
+      ctx.translate(pose.position.x, pose.position.y);
+      ctx.rotate(pose.rotation);
+
+      if (guide && this.localMovementRadius) {
+        const radius = this.localMovementRadius;
+        let cached = guides.get(this);
+
+        if (cached?.radius !== radius) {
+          cached = { radius };
+          guides.set(this, cached);
+        }
+
+        renderSurface({
+          ctx,
+          key: cached,
+          cache: cached,
+          floor: true,
+          bounds: {
+            left: -radius - 3,
+            right: radius + 3,
+            top: -radius - 3,
+            bottom: radius + 3,
+          },
+          draw: (paint) => {
+            paint.strokeStyle = withAlpha({
+              color: colors.cyan[2],
+              alpha: 0.4,
+            });
+
+            paint.lineWidth = 3;
+            paint.setLineDash([12, 12]);
+            paint.beginPath();
+            paint.arc(0, 0, radius, 0, Math.PI * 2);
+            paint.stroke();
+          },
+        });
+      }
+
+      ctx.restore();
+
+      // Keep both translucent bay halves and their additive glows on the
+      // foreground canvas. Rotating only a cached half creates a visible seam.
+      guide = false;
+    }
 
     super.render({
       ...options,
@@ -101,7 +162,8 @@ export class Station extends Craft {
 
         if (
           zIndex !== renderingLayers.stationFloor ||
-          !this.localMovementRadius
+          !this.localMovementRadius ||
+          !guide
         ) {
           return;
         }

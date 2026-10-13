@@ -2,6 +2,7 @@ import * as Vec from '../utilities/vector';
 import { interpolatePose } from '../utilities/interpolate-pose';
 import { type GameObject } from '../objects/game-object';
 import { Craft } from '../objects/craft';
+import { Station } from '../objects/station';
 import { type PlayerId } from '../protocol/entities';
 import { type InputFrame } from '../protocol/input-frame';
 import {
@@ -25,13 +26,22 @@ import {
  * speculative damage, cargo transfers and events never escape into history.
  */
 export class FramePrediction {
-  private endpoint?: SimulationWorldState;
+  private copies = new WeakMap<object, any>();
+  private endpoint?: Map<
+    number,
+    Pick<GameObject, 'position' | 'velocity' | 'rotation' | 'spin'>
+  >;
   private endpointChange?: InputFrame['changes'][number];
   private endpointInput?: InputFrame['input'];
   private state?: SimulationWorldState;
   private world = createWorld();
 
   reset() {
+    this.copies = new WeakMap();
+    this.invalidate();
+  }
+
+  invalidate() {
     this.state = undefined;
     this.endpoint = undefined;
   }
@@ -52,7 +62,9 @@ export class FramePrediction {
 
     if (!ship) return world;
 
-    if (!this.state || this.state.tick !== world.tick) {
+    const fresh = !this.state || this.state.tick !== world.tick;
+
+    if (fresh) {
       this.world.entities.clear();
       this.world.players = new Map([[playerId, { ...player! }]]);
       this.world.tick = world.tick;
@@ -61,7 +73,16 @@ export class FramePrediction {
 
       // Preserve authoritative iteration order for the contact solver.
       [...world.entities.values()].forEach((entity) => {
-        const copy = cloneEntity({ entity });
+        const copy = cloneEntity({
+          entity,
+          copies: this.copies,
+          // Unfitted station stock changes through dock commands, never through
+          // a display tick. Trading reads the live world, so this isolated
+          // motion solve needs its hull but not hundreds of shop items.
+          includeCargo:
+            !(entity instanceof Station) ||
+            entity.mounts.some((mount) => mount.module),
+        });
 
         copy.random = this.world.random;
         addEntity(this.world, copy);
@@ -92,7 +113,9 @@ export class FramePrediction {
         this.endpointInput !== input.input ||
         this.endpointChange !== change
       ) {
-        restoreWorld({ world: this.world, state: this.state });
+        // A newly copied world already is the start checkpoint. Only resampling
+        // a previously solved endpoint needs to rewind mechanics first.
+        if (!fresh) restoreWorld({ world: this.world, state: this.state! });
 
         updateWorld({
           world: this.world,
@@ -100,22 +123,35 @@ export class FramePrediction {
           dt: simulationStep,
         });
 
-        this.endpoint = captureWorld({ world: this.world });
+        // The solved mechanics stay in this isolated world. Interpolation only
+        // changes poses, so endpoints need motion data rather than another
+        // checkpoint of every module and cargo item.
+        this.endpoint = new Map(
+          [...this.world.entities].map(([id, entity]) => [
+            id,
+            {
+              position: Vec.clone(entity.position),
+              velocity: Vec.clone(entity.velocity),
+              rotation: entity.rotation,
+              spin: entity.spin,
+            },
+          ]),
+        );
+
         this.endpointInput = input.input;
         this.endpointChange = change;
-      } else {
-        restoreWorld({ world: this.world, state: this.endpoint });
       }
 
       if (dt < simulationStep) {
         this.world.entities.forEach((entity) => {
           const from = this.state!.entities.get(entity.id);
+          const to = this.endpoint!.get(entity.id)!;
 
           if (!from) return;
 
           const pose = interpolatePose({
             from,
-            to: entity,
+            to,
             fraction: dt / simulationStep,
             dt: simulationStep,
           });
@@ -129,14 +165,22 @@ export class FramePrediction {
               : input.changes.find((change) => change.input.launch)?.offset ||
                 0;
 
-            if (dt < launchOffset) entity.rotation = from.rotation;
+            entity.rotation = dt < launchOffset ? from.rotation : to.rotation;
           } else {
             entity.rotation = pose.rotation;
           }
         });
+      } else {
+        this.world.entities.forEach((entity) => {
+          const to = this.endpoint!.get(entity.id)!;
+
+          Vec.set(entity.position, to.position);
+          entity.rotation = to.rotation;
+        });
       }
     } else {
-      restoreWorld({ world: this.world, state: this.state });
+      if (!fresh) restoreWorld({ world: this.world, state: this.state! });
+      this.endpoint = undefined;
     }
 
     // Visual phases advance on the live craft at display rate, outside history.
@@ -146,8 +190,14 @@ export class FramePrediction {
 
       if (!(entity instanceof Craft) || !(source instanceof Craft)) return;
 
-      entity.modules.forEach((module) => {
-        const live = source.modules.find(
+      const modules = entity.modules;
+
+      if (!modules.length) return;
+      const liveModules = source.modules;
+
+      modules.forEach((module) => {
+        if (!module.mount) return;
+        const live = liveModules.find(
           (candidate) => candidate.id === module.id,
         );
 

@@ -1,0 +1,145 @@
+[
+  {
+    "resource": "docked.css",
+    "before": {
+      "bytes": 4444,
+      "gzip1Bytes": 1541
+    },
+    "after": {
+      "bytes": 4444,
+      "gzip1Bytes": 1541
+    }
+  },
+  {
+    "resource": "docked.js",
+    "before": {
+      "bytes": 29131,
+      "gzip1Bytes": 10478
+    },
+    "after": {
+      "bytes": 29126,
+      "gzip1Bytes": 10476
+    }
+  },
+  {
+    "resource": "gameplay.js",
+    "before": {
+      "bytes": 92447,
+      "gzip1Bytes": 39177
+    },
+    "after": {
+      "bytes": 92806,
+      "gzip1Bytes": 39319
+    }
+  },
+  {
+    "resource": "gemetric.woff2",
+    "before": {
+      "bytes": 1868,
+      "gzip1Bytes": 1891
+    },
+    "after": {
+      "bytes": 1868,
+      "gzip1Bytes": 1891
+    }
+  },
+  {
+    "resource": "index.css",
+    "before": {
+      "bytes": 7507,
+      "gzip1Bytes": 2897
+    },
+    "after": {
+      "bytes": 7507,
+      "gzip1Bytes": 2897
+    }
+  },
+  {
+    "resource": "index.html",
+    "before": {
+      "bytes": 8002,
+      "gzip1Bytes": 3687
+    },
+    "after": {
+      "bytes": 8147,
+      "gzip1Bytes": 3746
+    }
+  },
+  {
+    "resource": "index.js",
+    "before": {
+      "bytes": 8939,
+      "gzip1Bytes": 3830
+    },
+    "after": {
+      "bytes": 9229,
+      "gzip1Bytes": 3946
+    }
+  },
+  {
+    "resource": "keybindings.js",
+    "before": {
+      "bytes": 1580,
+      "gzip1Bytes": 743
+    },
+    "after": {
+      "bytes": 1580,
+      "gzip1Bytes": 745
+    }
+  },
+  {
+    "resource": "menu-screens.js",
+    "before": {
+      "bytes": 12348,
+      "gzip1Bytes": 4308
+    },
+    "after": {
+      "bytes": 12827,
+      "gzip1Bytes": 4471
+    }
+  },
+  {
+    "resource": "shield.js",
+    "before": {
+      "bytes": 5104,
+      "gzip1Bytes": 2227
+    },
+    "after": {
+      "bytes": 5104,
+      "gzip1Bytes": 2228
+    }
+  },
+  {
+    "resource": "ship-preview.js",
+    "before": {
+      "bytes": 5129,
+      "gzip1Bytes": 2579
+    },
+    "after": {
+      "bytes": 5129,
+      "gzip1Bytes": 2577
+    }
+  },
+  {
+    "resource": "ship.js",
+    "before": {
+      "bytes": 85089,
+      "gzip1Bytes": 36977
+    },
+    "after": {
+      "bytes": 85204,
+      "gzip1Bytes": 37008
+    }
+  },
+  {
+    "resource": "sound.js",
+    "before": {
+      "bytes": 1712,
+      "gzip1Bytes": 946
+    },
+    "after": {
+      "bytes": 1712,
+      "gzip1Bytes": 946
+    }
+  }
+]

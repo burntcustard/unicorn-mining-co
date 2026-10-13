@@ -300,6 +300,10 @@
     justify-self: start;
   }
 
+  .ui-control-panel select {
+    flex-shrink: 0;
+  }
+
   :where(.ui-surface) hr {
     width: 100%;
     margin: 0;

@@ -7,14 +7,21 @@ window.addEventListener('ui-graphics', restoreGraphics);
 type Gameplay = (typeof import('./gameplay'))['default'];
 let gameplay: Gameplay;
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
+const skyCanvas =
+  document.querySelector<HTMLCanvasElement>('#background-canvas')!;
 
 const loadGameplay = async () =>
   (gameplay ||= (await import('./gameplay')).default);
 
 const renderSky = () => {
   if (gameplay) return;
-  canvas.width = innerWidth * graphics[3];
-  canvas.height = innerHeight * graphics[3];
+  const width = Math.trunc(innerWidth * graphics[3]);
+  const height = Math.trunc(innerHeight * graphics[3]);
+
+  if (skyCanvas.width !== width || skyCanvas.height !== height) {
+    skyCanvas.width = canvas.width = width;
+    skyCanvas.height = canvas.height = height;
+  }
 
   const background = (
     globalThis as typeof globalThis & {
@@ -29,8 +36,8 @@ const renderSky = () => {
   ).background;
 
   background.renderBackground(
-    canvas,
-    canvas.getContext('2d')!,
+    skyCanvas,
+    skyCanvas.getContext('2d')!,
     (Math.min(innerWidth, innerHeight) / 1080) * graphics[3],
   );
 };

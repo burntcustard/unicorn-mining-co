@@ -5,6 +5,7 @@ import { type Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { moduleControls } from '../objects/control-ship';
 import { moduleBinding } from '../input/keybindings';
+import { Item } from '../objects/item';
 
 /**
  * The bottom-right readout of the ship's modules, after the fashion of an Elite
@@ -30,6 +31,8 @@ const gap = 6;
 // How far in from each side of a letter its key-underline is drawn, and how far
 // below the row's top it sits
 const underDrop = 10;
+
+let layout: { key: string; paths: Path2D[] };
 
 // Every module on the ship the pilot can switch, each type the once, in the
 // order their mounts sit in. A pair of cargo hatches is one row worked by one key. Modules
@@ -58,10 +61,22 @@ export const renderControls = (game: GameState, ship: Ship) => {
       ({ Type }) => Type === module || module.prototype instanceof Type,
     )!.input;
     const key = moduleBinding(action).keys[0]?.toLowerCase();
+    const ammo = module.ammo;
+    const rounds = ammo
+      ? ship.cargoContents.reduce(
+          (total, item) =>
+            item instanceof Item && item.resource === ammo.resource
+              ? total + (item.rounds ?? 0)
+              : total,
+          0,
+        )
+      : undefined;
+    const moduleName =
+      rounds === undefined ? module.name : `${module.name}(${rounds})`;
     const name =
       key && !module.name.toLowerCase().includes(key)
-        ? `${key.toUpperCase()} ${module.name}`
-        : module.name;
+        ? `${key.toUpperCase()} ${moduleName}`
+        : moduleName;
 
     return { name, index: key ? name.toLowerCase().indexOf(key) : -1 };
   });
@@ -71,6 +86,31 @@ export const renderControls = (game: GameState, ship: Ship) => {
   const textX = boxX + box + gap;
   const top =
     game.uiHeight - inset - (modules.length - 1) * rowGap - lineHeight;
+  const key = JSON.stringify([
+    boxX,
+    textX,
+    top,
+    labels.map((label) => label.index),
+  ]);
+
+  if (layout?.key !== key) {
+    layout = {
+      key,
+      paths: labels.map(({ index }, i) => {
+        const y = top + i * rowGap;
+        const path = new Path2D();
+
+        path.rect(boxX, y, box, box);
+
+        if (index >= 0) {
+          path.moveTo(textX + index * glyph, y + underDrop);
+          path.lineTo(textX + (index + 1) * glyph - 1, y + underDrop);
+        }
+
+        return path;
+      }),
+    };
+  }
 
   // The boxes and underlines, drawn in the HUD's own grid so they line up with
   // the text. Bevelled joins take the sharp points off the box corners
@@ -88,16 +128,7 @@ export const renderControls = (game: GameState, ship: Ship) => {
       ctx.fillRect(boxX, y, box, box);
     }
 
-    const path = new Path2D();
-
-    path.rect(boxX, y, box, box);
-    // Underline the bound key, prefixing it when absent from the module name.
-    const keyIndex = labels[i].index;
-
-    if (keyIndex >= 0) {
-      path.moveTo(textX + keyIndex * glyph, y + underDrop);
-      path.lineTo(textX + (keyIndex + 1) * glyph - 1, y + underDrop);
-    }
+    const path = layout.paths[i];
 
     pathOutline({ ctx, path, radius: textSize });
     ctx.stroke(path);

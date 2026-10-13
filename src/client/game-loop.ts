@@ -1,6 +1,6 @@
 /* global canvas */
 
-import { context } from './core';
+import { clearFrame, presentFrame } from './core';
 import { maxPredictionTicks } from '../specs/prediction';
 import { simulationStep } from '../specs/simulation';
 
@@ -27,10 +27,11 @@ export const GameLoop = ({
     last = now;
 
     update({ dt, now });
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    clearFrame();
     // Use the frame timestamp for both phases. Sampling CPU completion time
     // turns variable tick/reconciliation cost into visible speed changes.
     render({ dt, now });
+    presentFrame();
   };
 
   const animate = (now: number) => {

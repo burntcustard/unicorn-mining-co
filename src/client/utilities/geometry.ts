@@ -31,12 +31,15 @@ export const rotatePoints = (
   points: number[][],
   angle: number,
   position = Vec.create(),
-): ShapeOutline =>
-  points.map(([pointX, pointY]) => {
-    const point = rotatePoint(Vec.create(pointX, pointY), angle);
+): ShapeOutline => {
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
 
-    return [position.x + point.x, position.y + point.y] as Point;
-  }) as ShapeOutline;
+  return points.map(([x, y]) => [
+    position.x + (x * cos - y * sin),
+    position.y + (x * sin + y * cos),
+  ]) as ShapeOutline;
+};
 
 // Midpoint and farthest-point distance for a nonempty shape outline.
 export const shapeOutlineExtent = (points: ShapeOutline) => {

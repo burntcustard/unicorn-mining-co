@@ -6,7 +6,13 @@ import {
   resetBindings,
   defaultKeybindings,
 } from '../../input/keybindings';
-import { graphics, saveGraphics } from './graphics';
+import {
+  graphics,
+  saveGraphics,
+  rendererPreference,
+  saveRenderer,
+  autoWebGL,
+} from './graphics';
 
 export const createSettings = () => {
   const screen = createScreen(html);
@@ -200,6 +206,21 @@ export const createSettings = () => {
     () => {
       graphics[3] = Number(resolution.value);
       saveGraphics();
+    },
+    { signal: screen.signal },
+  );
+
+  const renderer = query<HTMLSelectElement>(screen.element, '[data-renderer]');
+
+  query(renderer, 'option[value="auto"]').textContent =
+    `Auto (${autoWebGL ? 'WebGL2' : 'Canvas'})`;
+  renderer.value = rendererPreference;
+
+  renderer.addEventListener(
+    'change',
+    () => {
+      saveRenderer(renderer.value);
+      status.textContent = 'Renderer saved. Reload the page to apply it.';
     },
     { signal: screen.signal },
   );

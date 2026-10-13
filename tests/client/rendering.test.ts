@@ -11,6 +11,7 @@ import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
 import { makeEntity } from '${root}/src/client/network/network.ts';
 import { applyEntity } from '${root}/src/client/prediction/prediction.ts';
 import { game } from '${root}/src/client/game.ts';
+import { init } from '${root}/src/client/core.ts';
 import { createWorld, addEntity } from '${root}/src/client/simulation/world.ts';
 import {
   captureWorld,
@@ -63,6 +64,41 @@ import { withAlpha } from '${root}/src/client/utilities/color.ts';
 import { renderControls } from '${root}/src/client/ui/controls.ts';
 import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
+
+init();
+assert.deepEqual(
+  Reflect.get(globalThis, 'context-options'),
+  {willReadFrequently: true},
+  'the native foreground context option survives production property mangling',
+);
+
+// Movement-only wire updates retain isolated, immutable rock geometry.
+{
+  const world = createWorld();
+  const record = {kind: 'asteroid', id: 123456, radius: 60,
+    position: Vec.create(), rotation: 0, spin: 0, contents: [0, 1]};
+  const server = makeEntity({entity: record, world});
+  const rock = addEntity(world, cloneEntity({entity: server}));
+
+  applyEntity({entity: rock, server});
+  const segments = rock.segments;
+  const colliders = rock.hitbox();
+  const saved = captureWorld({world});
+  const moved = makeEntity({entity: {...record, position: Vec.create(100, 200)}, world, previous: server});
+
+  assert.equal(moved, server, 'motion deltas reuse the decoded model');
+  applyEntity({entity: rock, server: moved});
+  assert.equal(rock.segments, segments);
+  assert.equal(rock.hitbox(), colliders, 'motion deltas keep collision fixtures warm');
+  assert.notEqual(rock.segments, server.segments, 'mutable health stays isolated');
+  const damaged = makeEntity({entity: {...record, health: 50}, world, previous: server});
+
+  applyEntity({entity: rock, server: damaged});
+  assert.notEqual(rock.segments, segments, 'damage refreshes the replicated model');
+  restoreWorld({world, state: saved});
+  assert.equal(rock.segments, segments, 'older topology checkpoints still rewind');
+  assert.equal(rock.position.x, 0);
+}
 const soundCount = Reflect.get(globalThis, 'sounds').length;
 presentEvents({
   playerId: 1,
@@ -298,6 +334,12 @@ assert.deepEqual(
   colors.white,
   'station retains its own palette',
 );
+assert.equal(
+  cloneEntity({ entity: station, includeCargo: false }).cargoContents.length,
+  0,
+  'the production display clone can omit shop inventory',
+);
+
 for (const craft of [remote, station]) {
   assert.equal(
     craft.cargoContents.length,
@@ -473,16 +515,30 @@ for (const ship of [local, remote]) {
   const searchLightSegment = ship.segments.find(
     (segment) => segment.module instanceof SearchLight,
   );
-  const before = gradients;
+  const before = glowImages;
   searchLightSegment.module.render({
     segment: searchLightSegment,
     craft: ship,
     scenery: [],
   });
   assert(
-    gradients > before,
-    'active local/remote search light draws a beam gradient',
+    glowImages > before,
+    'active local/remote search light draws its cached beam image',
   );
+  const originalPoints = searchLightSegment.points;
+  const originalPhase = searchLightSegment.phase;
+
+  searchLightSegment.points = segment => [[0,-1], [segment.phase + 1,0], [0,1]];
+  const masks = [];
+
+  for (const phase of [0, 1]) {
+    searchLightSegment.phase = phase;
+    searchLightSegment.module.render({ segment: searchLightSegment, craft: ship, scenery: [] });
+    masks.push(Reflect.get(Reflect.get(globalThis, 'surface-last-fill'), 'vertices'));
+  }
+  assert.notDeepEqual(masks[0], masks[1], 'animated light geometry refreshes its mask');
+  searchLightSegment.points = originalPoints;
+  searchLightSegment.phase = originalPhase;
   const housing = ship.segments.find(
     (segment) =>
       segment.module instanceof SearchLight && segment.beam === false,
@@ -954,6 +1010,15 @@ const litRock = {
   ],
 };
 const remotePose = { position: Vec.create(900, 800), rotation: 0.3 };
+litRock.position = Vec.add(
+  remotePose.position,
+  Vec.create(Math.cos(remotePose.rotation) * 100, Math.sin(remotePose.rotation) * 100),
+);
+const unlitRock = {
+  ...litRock,
+  position: Vec.add(remotePose.position, Vec.create(0, 200)),
+  renderContents: [{ render() { assert.fail('buried cargo outside the traced light is not drawn'); } }],
+};
 const remotePrediction = cloneEntity({ entity: remote });
 const predictedLamp = remotePrediction.segments.find(
   (segment) => segment.module instanceof SearchLight,
@@ -963,16 +1028,22 @@ const remoteLamp = remote.segments.find(
 );
 const reveal = () =>
   revealBuriedItems({
-    sprites: [remote, litRock],
+    sprites: [remote, litRock, unlitRock],
     predicted: new Map([[remote.id, remotePrediction]]),
     poses: new Map([[remote.id, remotePose]]),
   });
 transforms.length = 0;
 const clipsBefore = clips;
+const surfaceClipsBefore = Reflect.get(globalThis, 'surface-clips') || 0;
 reveal();
 assert.equal(revealed, 1, 'an active remote lamp reveals buried cargo');
 assert.equal(
   clips - clipsBefore,
+  0,
+  'the foreground receives the revealed image without nested GPU clips',
+);
+assert.equal(
+  Reflect.get(globalThis, 'surface-clips') - surfaceClipsBefore,
   2,
   'the cargo is clipped to the remote beam and rock slice',
 );
@@ -1485,10 +1556,10 @@ const pieces = solid.detach({
 const remainder = pieces.find((piece) => piece.segments?.length);
 const predictedRemainder = cloneEntity({ entity: remainder });
 applyEntity({ entity: predictedRemainder, server: remainder });
-assert.equal(
+assert.notEqual(
   predictedRemainder.segments[0].shapeOutline.edges,
-  undefined,
-  'prediction copies polygon points without cached edge marks',
+  remainder.segments[0].shapeOutline.edges,
+  'prediction has independent polygon edge metadata',
 );
 predictedRemainder.addToScene();
 draws.length = 0;
@@ -1531,7 +1602,29 @@ class TestCanvas {
   #width = 0;
 
   getContext() {
-    return { translate() {}, scale() {}, fill() {} };
+    return {
+      save() {},
+      restore() {},
+      resetTransform() {},
+      setTransform() {},
+      clearRect() {},
+      clip() {
+        Reflect.set(
+          globalThis,
+          'surface-clips',
+          (Reflect.get(globalThis, 'surface-clips') || 0) + 1,
+        );
+      },
+      translate() {},
+      rotate() {},
+      scale() {},
+      fill(path: object) {
+        Reflect.set(globalThis, 'surface-last-fill', path);
+      },
+      createLinearGradient() {
+        return { addColorStop() {} };
+      },
+    };
   }
 
   get width() {
@@ -1544,13 +1637,26 @@ class TestCanvas {
 }
 
 Object.assign(globalThis, {
+  createImageBitmap: async (image: { width: number; height: number }) => ({
+    width: image.width,
+    height: image.height,
+    close() {},
+  }),
   document: {
+    fonts: { check: () => false },
     createElement: () => new TestCanvas(),
     getElementById: () => null as null,
   },
 });
 
-Object.assign(globalThis, { canvas: { getContext: () => ({}) } });
+Object.assign(globalThis, {
+  canvas: {
+    getContext(_kind: string, options: CanvasRenderingContext2DSettings) {
+      Reflect.set(globalThis, 'context-options', options);
+      return {};
+    },
+  },
+});
 
 Object.assign(globalThis, {
   location: { protocol: 'http:', host: 'localhost' },

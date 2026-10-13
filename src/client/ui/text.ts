@@ -1,6 +1,20 @@
 import { withAlpha } from '../utilities/color';
 import { fontText } from '../utilities/font-text';
 
+const textImages = new WeakMap<
+  CanvasRenderingContext2D,
+  Map<
+    string,
+    {
+      uses: number;
+      image?: HTMLCanvasElement;
+      left?: number;
+      top?: number;
+      text?: string;
+    }
+  >
+>();
+
 export interface RenderTextProps {
   game: any; // Supplies the UI canvas context and scale.
   text: string; // The glyphs to draw.
@@ -34,7 +48,94 @@ export function renderText({
   ctx.lineWidth = 2;
   ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
   ctx.fillStyle = color;
-  ctx.strokeText(displayText, 0, 13);
-  ctx.fillText(displayText, 0, 13);
+
+  const scale = uiScale * size;
+  let cached;
+
+  if (scale > 0 && document.fonts.check?.('16px Gemetric')) {
+    let images = textImages.get(ctx);
+
+    if (!images) textImages.set(ctx, (images = new Map()));
+    const readout = /^[\d /-]+$/.test(displayText);
+    const key = JSON.stringify([
+      readout ? [x, y] : displayText,
+      scale,
+      align,
+      color,
+    ]);
+
+    cached = images.get(key);
+
+    if (!cached) {
+      // Numeric readouts reuse their canvas as the value changes. Repeated
+      // labels amortize the bitmap; other changing text stays native.
+      if (images.size === 32) {
+        images.delete(images.keys().next().value);
+      }
+
+      cached = { uses: 0 };
+    } else {
+      images.delete(key);
+    }
+
+    images.set(key, cached);
+
+    if (
+      (readout && cached.text !== displayText) ||
+      (!readout && ++cached.uses === 8)
+    ) {
+      const metrics = ctx.measureText(displayText);
+      const left = Math.floor((-metrics.actualBoundingBoxLeft - 2) * scale);
+      const top = Math.floor(
+        (13 - metrics.actualBoundingBoxAscent - 2) * scale,
+      );
+      const image = cached.image || document.createElement('canvas');
+
+      const width =
+        Math.ceil((metrics.actualBoundingBoxRight + 2) * scale) - left;
+      const height =
+        Math.ceil((13 + metrics.actualBoundingBoxDescent + 2) * scale) - top;
+
+      if (image.width !== width) image.width = width;
+
+      if (image.height !== height) image.height = height;
+      const paint = image.getContext('2d', { willReadFrequently: true })!;
+
+      paint.resetTransform();
+      paint.clearRect(0, 0, image.width, image.height);
+      paint.translate(-left, -top);
+      paint.scale(scale, scale);
+      paint.font = ctx.font;
+      paint.textAlign = ctx.textAlign;
+      paint.textBaseline = ctx.textBaseline;
+      paint.lineJoin = ctx.lineJoin;
+      paint.lineWidth = ctx.lineWidth;
+      paint.strokeStyle = ctx.strokeStyle;
+      paint.fillStyle = ctx.fillStyle;
+      paint.strokeText(displayText, 0, 13);
+      paint.fillText(displayText, 0, 13);
+
+      Object.assign(cached, {
+        image,
+        text: displayText,
+        left: left / scale,
+        top: top / scale,
+      });
+    }
+  }
+
+  if (cached?.image) {
+    ctx.drawImage(
+      cached.image,
+      cached.left!,
+      cached.top!,
+      cached.image.width / scale,
+      cached.image.height / scale,
+    );
+  } else {
+    ctx.strokeText(displayText, 0, 13);
+    ctx.fillText(displayText, 0, 13);
+  }
+
   ctx.restore();
 }

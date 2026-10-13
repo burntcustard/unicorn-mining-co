@@ -219,6 +219,91 @@ const makeTile = ({
 };
 
 let tiles: Tile[];
+let revision = 0;
+const views = new WeakMap<HTMLCanvasElement, string>();
+
+const surfaces = new WeakMap<
+  HTMLCanvasElement,
+  {
+    key: string;
+    offsets?: string;
+    layers: {
+      canvas: HTMLCanvasElement;
+      ctx: CanvasRenderingContext2D;
+      left: number;
+      top: number;
+    }[];
+  }
+>();
+
+// Leave room to slide each parallax layer without repainting its pixels.
+const padding = 64;
+
+const slideLayers = (canvas: HTMLCanvasElement, offsets: number[][]) => {
+  let view = surfaces.get(canvas);
+
+  if (!view) {
+    const layers = tiles.map(() => {
+      const layer = document.createElement('canvas');
+
+      layer.className = 'background-layer';
+      layer.setAttribute('aria-hidden', 'true');
+      layer.style.opacity = canvas.style.opacity;
+      requestAnimationFrame(() => (layer.style.opacity = ''));
+      return { canvas: layer, ctx: layer.getContext('2d')!, left: 0, top: 0 };
+    });
+
+    canvas.after(...layers.map((layer) => layer.canvas));
+    view = { key: '', layers };
+    surfaces.set(canvas, view);
+  }
+
+  const key = [canvas.width, canvas.height, span, revision].join(':');
+  const ratio = canvas.clientWidth / canvas.width;
+  const positionKey = [key, ratio, ...offsets.flat().map(Math.round)].join(':');
+
+  if (view.offsets === positionKey) return;
+
+  view.layers.forEach((layer, i) => {
+    const [left, top] = offsets[i].map(Math.round);
+    const rebuild =
+      view.key !== key ||
+      Math.abs(left - layer.left) > padding / 2 ||
+      Math.abs(top - layer.top) > padding / 2;
+
+    layer.canvas.style.display = '';
+
+    if (rebuild) {
+      layer.left = left;
+      layer.top = top;
+
+      if (
+        layer.canvas.width !== canvas.width + padding * 2 ||
+        layer.canvas.height !== canvas.height + padding * 2
+      ) {
+        layer.canvas.width = canvas.width + padding * 2;
+        layer.canvas.height = canvas.height + padding * 2;
+      } else {
+        layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+      }
+
+      layer.ctx.imageSmoothingEnabled = false;
+
+      for (let x = left + padding - span; x < layer.canvas.width; x += span) {
+        for (let y = top + padding - span; y < layer.canvas.height; y += span) {
+          layer.ctx.drawImage(tiles[i], x, y);
+        }
+      }
+    }
+
+    layer.canvas.style.width = `${layer.canvas.width * ratio}px`;
+    layer.canvas.style.height = `${layer.canvas.height * ratio}px`;
+    layer.canvas.style.transform = `translate(${(left - layer.left - padding) * ratio}px, ${(top - layer.top - padding) * ratio}px)`;
+  });
+
+  view.key = key;
+  view.offsets = positionKey;
+};
 
 window.addEventListener('ui-graphics', () => {
   span = undefined;
@@ -228,6 +313,8 @@ window.addEventListener('ui-graphics', () => {
 // replayed on every blit, which makes a tile cost whatever it took to draw
 // rather than what it looks like. A bitmap is pixels and nothing else
 const build = () => {
+  revision++;
+
   tiles?.forEach((image) => {
     if ('close' in image) image.close();
   });
@@ -249,6 +336,7 @@ const build = () => {
     createImageBitmap(canvas).then((bitmap) => {
       if (tiles[i] === canvas) {
         tiles[i] = bitmap;
+        revision++;
       } else {
         bitmap.close();
       }
@@ -300,10 +388,18 @@ export const renderBackground = (
   }
 
   // @ifdef DEBUG
-  if (!sky.parts.length) return;
+  if (!sky.parts.length) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    surfaces.get(canvas)?.layers.forEach((layer) => {
+      layer.canvas.style.display = 'none';
+    });
+
+    return;
+  }
   // @endif
 
-  tiles.forEach((image, i) => {
+  const offsets = tiles.map((_, i) => {
     // Center the tile in the viewport and follow the camera's world center,
     // so zooming around that center does not shift the sky. Each layer moves
     // by (i + 1) / 50 of the camera, so distant sky lags.
@@ -319,6 +415,34 @@ export const renderBackground = (
     // it unsnapped; stamping every `span` pixels then covers the viewport.
     const left = -((offsetX % span) + span) % span;
     const top = -((offsetY % span) + span) % span;
+
+    return [left, top];
+  });
+
+  // Browser composition moves these unchanged surfaces on the GPU. The
+  // ordinary canvas path remains useful for detached previews and exports.
+  if (canvas.id === 'background-canvas' && canvas.isConnected) {
+    slideLayers(canvas, offsets);
+    return;
+  }
+
+  // The sky keeps its own surface. Nearest-pixel blits do not change until
+  // one layer crosses a pixel, even while the foreground moves at display rate.
+  const key = [
+    canvas.width,
+    canvas.height,
+    span,
+    revision,
+    ...offsets.flat().map(Math.round),
+  ].join(':');
+
+  if (views.get(canvas) === key) return;
+  views.set(canvas, key);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;
+
+  tiles.forEach((image, i) => {
+    const [left, top] = offsets[i];
 
     for (let atX = left; atX < canvas.width; atX += span) {
       for (let atY = top; atY < canvas.height; atY += span) {

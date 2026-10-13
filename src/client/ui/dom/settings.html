@@ -48,17 +48,30 @@
     </div>
     <hr class="mt-4" />
     <h3 class="uppercase text-sm text-muted mt-6">Display</h3>
-    <label class="uppercase ui-row gap-6 py-2">
-      Rendering resolution
-      <select class="ui-input" data-resolution>
-        <option value="0.5">50%</option>
-        <option value="0.75">75%</option>
-        <option value="1">100%</option>
-        <option value="1.5">150%</option>
-        <option value="2">200%</option>
-      </select>
-    </label>
-    <p>Changes apply immediately. Lower resolution reduces rendering work.</p>
+    <div>
+      <label class="uppercase ui-row gap-6 py-2">
+        World renderer
+        <select class="ui-input" data-renderer>
+          <option value="auto">Auto</option>
+          <option value="canvas">Canvas</option>
+          <option value="webgl">WebGL2</option>
+        </select>
+      </label>
+      <p>Try another renderer if gameplay stutters. Reload to apply.</p>
+    </div>
+    <div>
+      <label class="uppercase ui-row gap-6 py-2">
+        Rendering resolution
+        <select class="ui-input" data-resolution>
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+          <option value="1.5">150%</option>
+          <option value="2">200%</option>
+        </select>
+      </label>
+      <p>Changes apply immediately. Lower resolution reduces rendering work.</p>
+    </div>
   </section>
   <p class="ui-status" role="status"></p>
   <dialog

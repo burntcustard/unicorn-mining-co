@@ -1,7 +1,9 @@
+import { createPath } from '../utilities/drawing-path';
 import { withAlpha } from '../utilities/color';
 import { renderingLayers } from '../../specs/rendering-layers';
 import { colors } from '../../specs/colors';
 import { game } from '../game';
+import { renderSurface } from '../utilities/composited-surface';
 import { objectLineWidth, shapePath } from '../utilities/drawing';
 import * as Vec from '../utilities/vector';
 import { rotatePoint } from '../utilities/geometry';
@@ -65,13 +67,15 @@ export const shapeOutlineOf = (asteroid: Asteroid) => {
       random: random.next,
       variance: asteroidVariance,
     }).map(roundPoint);
+
+    shapeOutline = withoutCollinearPoints(shapeOutline);
     // A long session flies past more rock than is worth remembering.
 
     if (shapeOutlines.size > 5000) shapeOutlines.clear();
     shapeOutlines.set(key, shapeOutline);
   }
 
-  return withoutCollinearPoints(shapeOutline);
+  return shapeOutline;
 };
 
 const splitTriangle = (triangle: number[][]) => {
@@ -491,7 +495,8 @@ const fixedProperty = { writable: false, configurable: false };
 const presentationCache = new WeakMap<
   Asteroid,
   {
-    key: string;
+    key: string | object;
+    contents: string | number[];
     path: Path2D;
     buried: {
       item: Item;
@@ -774,12 +779,16 @@ export class Asteroid extends GameObject {
       const polygon = outline as ShapeOutline;
 
       polygon.edges ||= polygon.map(() => true);
+      Object.seal(polygon.edges);
       outline.forEach(Object.freeze);
       Object.freeze(outline);
       lockedGeometry.add(outline);
     };
 
+    Object.freeze(this.contents);
+
     if (this.uncutContents) {
+      Object.freeze(this.uncutContents);
       this.uncutLocked = true;
       return this;
     }
@@ -788,7 +797,12 @@ export class Asteroid extends GameObject {
 
     this.segments?.forEach((segment) => {
       lock(segment.shapeOutline);
+      Object.freeze(segment.contents);
+      Object.defineProperty(segment, 'contents', fixedProperty);
       Object.defineProperty(segment, 'shapeOutline', fixedProperty);
+      Object.defineProperty(segment, 'mass', fixedProperty);
+      Object.defineProperty(segment, 'maxHealth', fixedProperty);
+      Object.seal(segment);
     });
 
     if (this.segments) {
@@ -815,19 +829,33 @@ export class Asteroid extends GameObject {
   }
 
   private presentation(pose: Pose = this) {
-    const key = JSON.stringify([
-      shapeOutlineOf(this),
-      this.segments?.map(({ shapeOutline, contents }) => ({
-        shapeOutline,
-        contents,
-      })),
-      this.contents,
-    ]);
+    const source = this.geometrySource;
+
+    const key =
+      source ||
+      JSON.stringify([
+        shapeOutlineOf(this),
+        this.segments?.map(({ shapeOutline, contents }) => ({
+          shapeOutline,
+          contents,
+        })),
+        this.contents,
+      ]);
+
+    // A locked model's resource lists are immutable too. Their identity covers
+    // contents changes without serializing every leaf on every display frame.
+    const contents =
+      source && Object.isFrozen(this.contents)
+        ? this.contents
+        : JSON.stringify([
+            this.contents,
+            this.segments?.map((segment) => segment.contents),
+          ]);
 
     let state = presentationCache.get(this);
 
-    if (!state || state.key !== key) {
-      const path = new Path2D();
+    if (!state || state.key !== key || state.contents !== contents) {
+      const path = createPath();
       const shapeOutlines = this.segments?.length
         ? shapeOutlinesFrom(this.segments)
         : [shapeOutlineOf(this)];
@@ -838,6 +866,7 @@ export class Asteroid extends GameObject {
 
       state = {
         key,
+        contents,
         path,
         buried: this.buriedContents.map(({ resource, ...pose }) => ({
           item: new Item(itemTypes[resource]),
@@ -870,16 +899,37 @@ export class Asteroid extends GameObject {
       draw: () => {
         const { ctx } = game;
 
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = objectLineWidth;
-        ctx.strokeStyle =
-          this.resource === 1 ? colors.violet[2] : colors.white[2];
-        ctx.fillStyle =
-          this.resource === 1
-            ? withAlpha({ color: colors.purple[1], alpha: 0.6 })
-            : '#222';
-        ctx.fill(path, 'evenodd');
-        ctx.stroke(path);
+        const draw = (paint: CanvasRenderingContext2D) => {
+          paint.lineJoin = 'bevel';
+          paint.lineWidth = objectLineWidth;
+          paint.strokeStyle =
+            this.resource === 1 ? colors.violet[2] : colors.white[2];
+          paint.fillStyle =
+            this.resource === 1
+              ? withAlpha({ color: colors.purple[1], alpha: 0.6 })
+              : '#222';
+          paint.fill(path, 'evenodd');
+          paint.stroke(path);
+        };
+
+        const radius = this.radius + objectLineWidth;
+
+        if (
+          !renderSurface({
+            ctx,
+            key: this,
+            cache: path,
+            bounds: {
+              left: -radius,
+              top: -radius,
+              right: radius,
+              bottom: radius,
+            },
+            draw,
+          })
+        ) {
+          draw(ctx);
+        }
       },
     });
   }

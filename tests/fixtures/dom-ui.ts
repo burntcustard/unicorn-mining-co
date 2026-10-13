@@ -22,6 +22,19 @@ import { packPlayerInput } from '../../src/client/protocol/input.ts';
 const { canvas, context } = init();
 
 Object.assign(game, { canvas, ctx: context });
+
+// The standalone docking fixture does not load main.ts, which owns Escape.
+window.addEventListener('keydown', (event) => {
+  if (
+    event.key === 'Escape' &&
+    !event.repeat &&
+    !document.querySelector('dialog[open]')
+  ) {
+    event.preventDefault();
+    ui.current?.escape();
+  }
+});
+
 addEntity(createWorld(), player.ship);
 const station = new Station({ id: 100, world: player.ship.world });
 

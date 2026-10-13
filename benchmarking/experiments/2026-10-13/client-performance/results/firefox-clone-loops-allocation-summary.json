@@ -1,0 +1,246 @@
+{
+  "types": [
+    [
+      "Object",
+      1007408
+    ],
+    [
+      "LexicalEnvironment",
+      269200
+    ],
+    [
+      "Function",
+      265664
+    ],
+    [
+      "Array",
+      257496
+    ],
+    [
+      "Call",
+      188056
+    ],
+    [
+      "Array Iterator",
+      32200
+    ],
+    [
+      "RegExp",
+      16520
+    ],
+    [
+      "Path2D",
+      8400
+    ],
+    [
+      "DOMMatrix",
+      6080
+    ],
+    [
+      "Map Iterator",
+      3744
+    ],
+    [
+      "Set Iterator",
+      3600
+    ],
+    [
+      "Map",
+      2520
+    ],
+    [
+      "Set",
+      2040
+    ],
+    [
+      "CanvasGradient",
+      1760
+    ],
+    [
+      "WeakSet",
+      1400
+    ],
+    [
+      "DOMPoint",
+      1040
+    ],
+    [
+      "String Iterator",
+      1000
+    ],
+    [
+      "Boolean",
+      840
+    ],
+    [
+      "CSSStyleProperties",
+      80
+    ],
+    [
+      "Uint8Array",
+      72
+    ]
+  ],
+  "leaf": [
+    [
+      "C (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:24237)[19]",
+      223760
+    ],
+    [
+      "get Er (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:93170)[19]",
+      194624
+    ],
+    [
+      "f (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:168042)[19]",
+      187088
+    ],
+    [
+      "dn (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:55383)[19]",
+      110096
+    ],
+    [
+      "get Qi (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:127046)[19]",
+      78120
+    ],
+    [
+      "rl (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:166634)[19]",
+      72712
+    ],
+    [
+      "t (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:164845)[19]",
+      63096
+    ],
+    [
+      "s (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:167720)[19]",
+      62776
+    ],
+    [
+      "ht/< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:26622)[19]",
+      52632
+    ],
+    [
+      "mt/< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:27160)[19]",
+      51320
+    ],
+    [
+      "gn (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:56047)[19]",
+      42632
+    ],
+    [
+      "il (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:166537)[19]",
+      42376
+    ],
+    [
+      "get Wo (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:52153)[19]",
+      38512
+    ],
+    [
+      "Ja (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:141540)[19]",
+      31592
+    ],
+    [
+      "i (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:141586)[19]",
+      30024
+    ],
+    [
+      "ll (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:167435)[19]",
+      29232
+    ],
+    [
+      "mr (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:54121)[19]",
+      27536
+    ],
+    [
+      "zh (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:164661)[19]",
+      22392
+    ],
+    [
+      "ra (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:54184)[19]",
+      21624
+    ],
+    [
+      "Gl (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:152657)[19]",
+      20872
+    ],
+    [
+      "vi/</< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:81951)[19]",
+      20608
+    ],
+    [
+      "presentation (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:53593)[19]",
+      20456
+    ],
+    [
+      "w (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:3772)[19]",
+      19392
+    ],
+    [
+      "Br/< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:170621)[19]",
+      19176
+    ],
+    [
+      "mr (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:198960)[19]",
+      17976
+    ],
+    [
+      "fl/<.Ct< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:168875)[19]",
+      16632
+    ],
+    [
+      "mr (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:115251)[19]",
+      16416
+    ],
+    [
+      "mr (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:94427)[19]",
+      16056
+    ],
+    [
+      "mt (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:27076)[19]",
+      15632
+    ],
+    [
+      "ht (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:26555)[19]",
+      15224
+    ],
+    [
+      "rf (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:190342)[19]",
+      15000
+    ],
+    [
+      "Ot (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:29129)[19]",
+      14392
+    ],
+    [
+      "t/< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:165533)[19]",
+      13680
+    ],
+    [
+      "v (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:95292)[19]",
+      12480
+    ],
+    [
+      "ir/this.Re< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:195428)[19]",
+      12056
+    ],
+    [
+      "_query (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:143490)[19]",
+      11560
+    ],
+    [
+      "yn/l< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:56784)[19]",
+      11376
+    ],
+    [
+      "fl (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:168838)[19]",
+      10920
+    ],
+    [
+      "vi/< (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:81825)[19]",
+      10648
+    ],
+    [
+      "yn (http://localhost:3000/benchmarking/local/production-gameplay-584517/fixture.js:1:56573)[19]",
+      10056
+    ]
+  ]
+}

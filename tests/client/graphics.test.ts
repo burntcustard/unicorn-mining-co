@@ -16,8 +16,8 @@ Object.defineProperty(globalThis, 'window', {
   configurable: true,
 });
 
-const { graphics, restoreGraphics, saveGraphics } =
-  await import('../../src/client/ui/dom/graphics.ts');
+const preferences = await import('../../src/client/ui/dom/graphics.ts');
+const { graphics, restoreGraphics, saveGraphics } = preferences;
 
 assert.deepEqual(graphics, [true, true, true, 1]);
 storage.set(
@@ -57,3 +57,16 @@ assert.equal(
   1.5,
   'a boolean cannot become the rendering resolution',
 );
+
+const activeRenderer = preferences.useWebGL;
+
+preferences.saveRenderer('webgl');
+assert.equal(storage.get('unicorn-renderer'), 'webgl');
+assert.equal(preferences.rendererPreference, 'webgl');
+assert.equal(
+  preferences.useWebGL,
+  activeRenderer,
+  'changing the preference preserves the current canvas until reloading',
+);
+preferences.saveRenderer('canvas');
+assert.equal(storage.get('unicorn-renderer'), 'canvas');

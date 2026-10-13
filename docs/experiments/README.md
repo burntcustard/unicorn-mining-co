@@ -2,6 +2,11 @@
 
 Recent investigations are grouped by measurement date. Use [benchmarking](../../benchmarking/README.md) for runners and saved evidence, or the [documentation index](../../README.md#documentation) for current reference material.
 
+## 2026-10-13
+
+- [Native 4K gameplay performance — 2026-10-13](2026-10-13/client-performance-4k-2026-10-13.md)
+- [Client gameplay performance — 2026-10-13](2026-10-13/client-performance-2026-10-13.md)
+
 ## 2026-10-02
 
 - [Go networking with normal CPU scheduling — 2026-10-02](2026-10-02/go-network-multicore-2026-10-02.md)

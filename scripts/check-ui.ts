@@ -12,11 +12,26 @@ type CdpReply = Record<string, any>;
 
 // Run after a production build, with the standard game server and preview running.
 const rootDirectory = process.cwd();
-const fixtureDirectory = resolve('dist/ui-fixture');
+const fixturePath = `ui-fixture-${process.pid}`;
+const fixtureDirectory = resolve('dist', fixturePath);
 const entryId = resolve('src/__dom_fixture.ts');
-const fixtureCode = (
-  await readFile('tests/fixtures/dom-ui.ts', 'utf8')
-).replaceAll('../../src/', `${rootDirectory}/src/`);
+const fixtureModules = new Map(
+  await Promise.all(
+    ['dom-ui', 'graphics'].map(
+      async (name) =>
+        [
+          resolve(`src/__${name}_fixture.ts`),
+          (await readFile(`tests/fixtures/${name}.ts`, 'utf8')).replaceAll(
+            '../../src/',
+            `${rootDirectory}/src/`,
+          ),
+        ] as const,
+    ),
+  ),
+);
+const fixtureCode = [...fixtureModules.keys()]
+  .map((path) => `export * from '${path}';`)
+  .join('\n');
 
 const bundle = await rolldown({
   input: entryId,
@@ -24,10 +39,12 @@ const bundle = await rolldown({
     {
       name: 'dom-fixture',
       resolveId(id) {
-        if (id === entryId) return entryId;
+        if (id === entryId || fixtureModules.has(id)) return id;
       },
       async load(id) {
         if (id === entryId) return fixtureCode;
+
+        if (fixtureModules.has(id)) return fixtureModules.get(id);
 
         if (id.endsWith('?raw')) {
           return `export default ${JSON.stringify(await readFile(id.slice(0, -4), 'utf8'))};`;
@@ -84,7 +101,7 @@ const profile = await mkdtemp('/tmp/unicorn-ui-browser-');
 const chrome = spawn(
   process.env.CHROME_BIN || 'chromium',
   [
-    '--headless=new',
+    ...(process.env.UI_HEADFUL ? [] : ['--headless=new']),
     '--no-sandbox',
     '--no-first-run',
     '--no-default-browser-check',
@@ -209,6 +226,11 @@ checkUi: try {
         if (this.canvas.id === 'canvas') window.gameFrames++;
         if (this.canvas.matches('.ui-preview') && !window.previewFrame) window.previewFrame = performance.now();
         return clearRect.apply(this, args);
+      };
+      const clear = WebGL2RenderingContext.prototype.clear;
+      WebGL2RenderingContext.prototype.clear = function(...args) {
+        if (this.canvas.id === 'canvas') window.gameFrames++;
+        return clear.apply(this, args);
       };
       new MutationObserver((_, observer) => {
         if (!document.querySelector('.ui-main')) return;
@@ -664,6 +686,28 @@ checkUi: try {
       3,
       'graphics offers only starfield, clouds and sparkles toggles',
     );
+    assert.deepEqual(
+      await check(
+        `[...document.querySelector('[data-renderer]').options].map(option => option.value)`,
+      ),
+      ['auto', 'canvas', 'webgl'],
+      'either renderer is available independently of browser',
+    );
+    await check(
+      `document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'));`,
+    );
+    assert.equal(
+      await check(`localStorage.getItem('unicorn-renderer')`),
+      'canvas',
+    );
+    assert(
+      await check(
+        `document.querySelector('.ui-status').textContent.includes('Reload')`,
+      ),
+    );
+    await check(
+      `document.querySelector('[data-renderer]').value = 'auto'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'));`,
+    );
     assert(
       await check(`(() => {
     const selected = getComputedStyle(document.querySelector('[data-graphics]'));
@@ -703,8 +747,8 @@ checkUi: try {
     );
     assert(
       await check(`(() => {
-        const canvas = document.querySelector('#canvas');
-        return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value);
+        const canvas = document.querySelector('.background-layer');
+        return canvas && canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value);
       })()`),
       'the prepared menu redraws its background after graphics changes',
     );
@@ -927,7 +971,9 @@ checkUi: try {
     await check(`(() => {
       window.targetLabels = [];
       window.targetAlphas = [];
+      const isHud = canvas => canvas.id === 'canvas' || canvas.classList.contains('foreground-hud');
       const paths = new WeakMap();
+      const labels = new WeakMap();
       const moveTo = Path2D.prototype.moveTo;
       Path2D.prototype.moveTo = function(x, y) {
         if (!paths.has(this)) paths.set(this, []);
@@ -938,22 +984,32 @@ checkUi: try {
       CanvasRenderingContext2D.prototype.stroke = function(...args) {
         const path = args[0];
         const points = paths.get(path);
-        if (this.canvas.id === 'canvas' && this.strokeStyle === '#ee66ff' && points?.length === 6) {
+        if (isHud(this.canvas) && this.strokeStyle === '#ee66ff' && points?.length === 6) {
           const transform = this.getTransform();
           const screenPoints = points.map(([x, y]) => new DOMPoint(x, y).matrixTransform(transform));
           window.targetBox = [Math.min(...screenPoints.map(p => p.x)), Math.max(...screenPoints.map(p => p.x)), Math.min(...screenPoints.map(p => p.y)), Math.max(...screenPoints.map(p => p.y))];
           window.targetAlphas.push(this.globalAlpha);
-          if (this.globalAlpha === 1) window.targetLabelPending = true;
+          if (this.globalAlpha === 0.9) window.targetLabelPending = true;
         }
         return stroke.apply(this, args);
       };
       const fillText = CanvasRenderingContext2D.prototype.fillText;
       CanvasRenderingContext2D.prototype.fillText = function(...args) {
-        if (this.canvas.id === 'canvas' && window.targetLabelPending) {
+        if (!isHud(this.canvas)) labels.set(this.canvas, args[0]);
+        if (isHud(this.canvas) && window.targetLabelPending) {
           window.targetLabels.push(args[0]);
           window.targetLabelPending = false;
         }
         return fillText.apply(this, args);
+      };
+      const drawImage = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.drawImage = function(...args) {
+        const label = labels.get(args[0]);
+        if (isHud(this.canvas) && window.targetLabelPending && label) {
+          window.targetLabels.push(label);
+          window.targetLabelPending = false;
+        }
+        return drawImage.apply(this, args);
       };
     })()`);
     await pressKey('t');
@@ -1007,8 +1063,8 @@ checkUi: try {
     );
     assert.equal(
       await check('window.targetAlphas.at(-1)'),
-      1,
-      'click targeting uses full opacity',
+      0.9,
+      'click targeting uses 90 percent opacity',
     );
     await capture('targeting');
     await check(
@@ -1019,8 +1075,8 @@ checkUi: try {
       'leaving the canvas preserves targeted corners and name',
     );
     assert(
-      await check('window.targetAlphas.every(alpha => alpha === 1)'),
-      'leaving the canvas clears hover while preserving full targeting opacity',
+      await check('window.targetAlphas.every(alpha => alpha === 0.9)'),
+      'leaving the canvas clears hover while preserving targeting opacity',
     );
 
     await check('window.targetLabels = []');
@@ -1438,13 +1494,52 @@ checkUi: try {
   });
 
   await c.send('Page.navigate', {
-    url: 'http://localhost:3000/ui-fixture/index.html',
+    url: `http://localhost:3000/${fixturePath}/index.html`,
   });
 
   await pause(250);
   await check(
     `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
   );
+  const graphics = await check('fixture.checkGraphics()');
+  const bays = await check('fixture.checkStationBay()');
+
+  bays.forEach(
+    ({ rotation, difference }: { rotation: number; difference: number }) => {
+      assert(
+        difference <= 2,
+        `Docking bay at ${rotation}: cached and direct rendering differ by ${difference}`,
+      );
+    },
+  );
+
+  const [initial, minor, major, damaged, resized] = await check(
+    'fixture.checkStationGuideCache()',
+  );
+
+  assert.equal(initial[0], 1);
+  assert.equal(minor[0], 1, 'minor rotation reuses the station guide');
+  assert.notEqual(initial[1], minor[1], 'movement and rotation stay smooth');
+  assert.equal(major[0], 1, 'a larger turn reuses the station guide');
+  assert.equal(damaged[0], 1, 'hull damage does not repaint the station guide');
+  assert.equal(resized[0], 2, 'resolution changes refresh native artwork');
+
+  graphics.forEach(
+    ({ name, difference }: { name: string; difference: number }) => {
+      assert(
+        difference <= 2,
+        `${name}: WebGL and native canvas pixels differ by ${difference}`,
+      );
+    },
+  );
+
+  if (process.env.UI_GRAPHICS_ONLY) {
+    console.log(
+      'Production graphics: holes, clips, blending, gradients, transforms, uploads, and frame order passed.',
+    );
+    break checkUi;
+  }
+
   await pause(250);
 
   for (const activation of ['Enter', ' ', 'click']) {
@@ -1630,10 +1725,11 @@ checkUi: try {
       'selecting a compatible module does not buy, equip, or sell it',
     );
     assert(
-      await check(`document.activeElement === Array.from(document.querySelectorAll('.dock-detail button'))
+      await check(`document.activeElement === (Array.from(document.querySelectorAll('.dock-detail button'))
         .find(button => !button.disabled && button.getAttribute('aria-disabled') !== 'true' && button.getClientRects().length)
+        || document.querySelector('.dock-detail'))
         && document.activeElement.matches(':focus-visible')`),
-      'Enter and Space move visible keyboard focus to the first available card action',
+      'Enter and Space focus the first available action, or the card when all actions are disabled',
     );
     assert(
       await check(`(() => {
@@ -2456,7 +2552,7 @@ checkUi: try {
 
   await focusDock('[data-tab="trade"]');
   await pressKey('Enter');
-  await focusDock('[data-stock-items] button:last-child');
+  await focusDock('[data-stock-items] > section:last-child button:last-child');
   await pressKey('Tab');
   await expectFocus(
     '[data-launch]',
@@ -2464,7 +2560,7 @@ checkUi: try {
   );
   await pressKey('Tab', { shift: true });
   await expectFocus(
-    '[data-stock-items] button:last-child',
+    '[data-stock-items] > section:last-child button:last-child',
     'Shift+Tab returns from Launch to the final stock row',
   );
 
@@ -2481,12 +2577,12 @@ checkUi: try {
     ),
     'selling the last cargo closes its detail navigation state',
   );
-  await focusDock('[data-stock-items] button:last-child');
+  await focusDock('[data-stock-items] > section:last-child button:last-child');
   await pressKey('Tab');
   await expectFocus('[data-launch]', 'Trade cards have no extra focus stops');
   await pressKey('Tab', { shift: true });
   await expectFocus(
-    '[data-stock-items] button:last-child',
+    '[data-stock-items] > section:last-child button:last-child',
     'returning from the footer preserves the current stock row',
   );
   await focusDock('[data-stock-items] [data-key="shop:item-0"]');
@@ -2687,13 +2783,14 @@ checkUi: try {
   );
   await waitForFitting('active && progress === 1');
   await hover('[data-title]');
+  await waitForFitting('!active && progress === 0');
   const leavingSelectedRow = await fittingState();
 
   assert.equal(leavingSelectedRow[0], firstFitting[0]);
   assert.equal(
     leavingSelectedRow[1],
-    true,
-    'hovering the selected card preserves the focused compatible row and its activation',
+    false,
+    'leaving a mouse-focused row deactivates its preview while preserving the selected fitting',
   );
   assert(
     await check(
@@ -2835,13 +2932,13 @@ checkUi: try {
   await check('fixture.setFuel(120, 0)');
   await focusDock('[data-tab="trade"]');
   await pressKey('Enter');
-  await focusDock('[data-stock-items] button:last-child');
+  await focusDock('[data-stock-items] > section:last-child button:last-child');
   const unavailableTrade = await committedDockState();
 
   await pressKey('Enter');
   await pressKey(' ');
   await expectFocus(
-    '[data-stock-items] button:last-child',
+    '[data-stock-items] > section:last-child button:last-child',
     'unaffordable item activation keeps its row focused',
   );
   assert.deepEqual(

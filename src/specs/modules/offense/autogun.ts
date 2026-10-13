@@ -3,6 +3,7 @@ import { colors } from '../../colors';
 import { autogunExplosion } from '../../effects/autogun-explosion';
 import { autogunMuzzleFlash } from '../../effects/autogun-muzzle-flash';
 import type { ModuleSpec } from '../types';
+import { autogunAmmo } from '../../items';
 
 export const autogun = {
   icon: './autogun.svg',
@@ -20,8 +21,8 @@ export const autogun = {
   chargeDuration: 1000,
   dischargeDuration: 1000,
   retractionDistance: 15,
-  damage: 4,
-  fireInterval: 250,
+  damage: 3,
+  fireInterval: 200,
   muzzleFlash: autogunMuzzleFlash,
   projectile: {
     effect: autogunExplosion,
@@ -36,7 +37,7 @@ export const autogun = {
       radius: 14,
     },
   },
-  ammo: 5,
+  ammo: autogunAmmo,
   barrelLength: 22,
   model: [
     {

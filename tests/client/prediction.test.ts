@@ -29,8 +29,390 @@ import { CargoHatch } from '../../src/client/objects/modules/cargo-hatch';
 import { HornDrill } from '../../src/client/objects/modules/horn-drill';
 import { maxPredictionTicks } from '../../src/specs/prediction';
 import { simulationStep } from '../../src/specs/simulation';
+import { EntityState } from '../../src/client/simulation/entity-state';
+import { createRandom } from '../../src/client/utilities/seeded-random';
+import { type ShapeOutline } from '../../src/client/types';
+
+// Reusing display objects across ticks must refresh mechanics and refitted links.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const station = addEntity(
+    world,
+    new Station({ world, position: Vec.create(2000) }),
+  );
+  const stock = station.cargoContents.length;
+
+  const rock = addEntity(
+    world,
+    createAsteroid(world, {
+      position: Vec.create(10000),
+      radius: 50,
+    }).lockGeometry(),
+  );
+
+  rock.hitbox();
+  const ammo = new Item(autogunAmmo, { id: 1000 });
+
+  ship.cargoContents.push(ammo);
+  const frames = new FramePrediction();
+  const input: InputFrame = { input: emptyPlayerInput(), changes: [] };
+  const sample = () =>
+    frames
+      .sample({ world, playerId: 1, input, elapsed: simulationStep / 2 })
+      .entities.get(ship.id) as typeof ship;
+  const first = sample();
+  const copiedAmmo = first.cargoContents.find(({ id }) => id === ammo.id)!;
+  const copiedRock = frames
+    .sample({ world, playerId: 1, input, elapsed: simulationStep / 2 })
+    .entities.get(rock.id) as typeof rock;
+  const geometry = copiedRock.geometrySource;
+  const bodies = copiedRock.hitbox();
+
+  assert(geometry, 'display copies retain the fixed-geometry marker');
+
+  assert.notEqual(first, ship);
+  assert.notEqual(copiedAmmo, ammo);
+  assert.equal(
+    (
+      frames
+        .sample({ world, playerId: 1, input, elapsed: simulationStep / 2 })
+        .entities.get(station.id) as Station
+    ).cargoContents.length,
+    0,
+    'display-only station motion does not clone shop stock',
+  );
+  assert.equal(
+    station.cargoContents.length,
+    stock,
+    'live trading retains the stock',
+  );
+  copiedAmmo.rounds = 1;
+  assert.equal(ammo.rounds, autogunAmmo.rounds);
+
+  updateWorld({ world, inputs: new Map([[1, emptyPlayerInput()]]) });
+  rock.segments[0].health--;
+  ammo.rounds--;
+  ship.fit(new CargoHatch({ id: 1001 }), ship.mounts[0]);
+  const second = sample();
+  const refitted = second.mounts[0].module!;
+
+  assert(refitted);
+  assert.equal(second, first, 'display bodies survive an ordinary tick');
+  assert.equal(
+    second.cargoContents.find(({ id }) => id === ammo.id),
+    copiedAmmo,
+  );
+  assert.equal(
+    copiedAmmo.rounds,
+    ammo.rounds,
+    'reused cargo refreshes mutable state',
+  );
+  assert.equal(refitted.id, 1001);
+  assert.equal(
+    copiedRock.geometrySource,
+    geometry,
+    'ordinary ticks retain display geometry',
+  );
+  assert.equal(
+    copiedRock.hitbox(),
+    bodies,
+    'ordinary ticks retain display collision caches',
+  );
+  assert(Object.isSealed(copiedRock.segments[0]));
+  assert.equal(
+    copiedRock.segments[0].health,
+    rock.segments[0].health,
+    'fixed layouts still refresh mutable damage',
+  );
+  assert.equal(
+    refitted.mount,
+    second.mounts[0],
+    'refits link to copied mounts',
+  );
+  assert.notEqual(refitted.mount, ship.mounts[0]);
+
+  ship.position.x += 200;
+  ammo.rounds = 11;
+  frames.invalidate();
+  const corrected = sample();
+
+  assert.equal(
+    corrected,
+    second,
+    'corrections retain the isolated display body',
+  );
+  assert.equal(corrected.position.x, ship.position.x);
+  assert.equal(
+    copiedAmmo.rounds,
+    11,
+    'same-tick corrections refresh inventory',
+  );
+
+  frames.reset();
+  assert.notEqual(
+    sample(),
+    second,
+    'reset discards the reusable display graph',
+  );
+}
+
+// Inventory identity can survive a snapshot without changing saved history.
+{
+  const world = createWorld();
+  const station = new Station({ world });
+  const module = new HornDrill({ id: 1234 });
+
+  module.random = station.random;
+  station.cargoContents.push(module);
+  world.random.state = 11;
+  module.health = 2;
+  module.fireCooldown = module.chargeCooldown = 0;
+  const before = new EntityState(station);
+
+  world.random.state = 22;
+  module.health = 1;
+  module.fireCooldown = 3;
+  module.chargeCooldown = 4;
+  const after = new EntityState(station);
+  const repeated = new EntityState(station);
+
+  world.random.state = 33;
+  module.health = 0;
+  module.fireCooldown = module.chargeCooldown = 8;
+  repeated.restore();
+  assert.deepEqual(
+    [
+      module.health,
+      module.fireCooldown,
+      module.chargeCooldown,
+      world.random.state,
+    ],
+    [1, 3, 4, 22],
+    'unchanged module checkpoints preserve current mechanics and the shared seed',
+  );
+  before.restore();
+  assert.deepEqual(
+    [
+      module.health,
+      module.fireCooldown,
+      module.chargeCooldown,
+      world.random.state,
+    ],
+    [2, 0, 0, 11],
+    'earlier module checkpoints retain independent mechanics',
+  );
+  after.restore();
+  assert.deepEqual(
+    [
+      module.health,
+      module.fireCooldown,
+      module.chargeCooldown,
+      world.random.state,
+    ],
+    [1, 3, 4, 22],
+    'restoring an earlier checkpoint does not mutate a later one',
+  );
+}
+
+{
+  const world = createWorld();
+  const station = new Station({ world });
+  const ownRandom = new Item(autogunAmmo);
+
+  station.cargoContents.push(ownRandom);
+  world.random.state = 42;
+  ownRandom.random.state = 11;
+  const before = new EntityState(station);
+
+  world.random.state = 99;
+  ownRandom.random.state = 77;
+  const after = new EntityState(station);
+
+  station.random = createRandom(123);
+  world.random.state = 500;
+  ownRandom.random.state = 500;
+  after.restore();
+  assert.equal(
+    world.random.state,
+    99,
+    'unchanged stock restores the current shared seed',
+  );
+  assert.equal(
+    ownRandom.random.state,
+    77,
+    'independent cargo RNG still rewinds',
+  );
+  before.restore();
+  assert.equal(
+    world.random.state,
+    42,
+    'earlier stock checkpoints retain their shared seed',
+  );
+  assert.equal(ownRandom.random.state, 11);
+}
+
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+  addPlayer(world, { id: 1, shipId: ship.id });
+  const ammo = new Item(autogunAmmo, { id: 1000 });
+
+  ship.cargoContents.push(ammo);
+  const before = captureWorld({ world });
+  const prediction = new PredictionManager({ world });
+
+  prediction.setLocalPlayer({ playerId: 1 });
+
+  prediction.step({ input: emptyPlayerInput(), send() {} });
+
+  const server = cloneEntity({ entity: ship }) as typeof ship;
+  const serverAmmo = server.cargoContents.find(({ id }) => id === ammo.id)!;
+
+  serverAmmo.rounds = 120;
+  prediction.reconcile({ tick: world.tick, entities: [server] });
+  assert.equal(
+    ship.cargoContents.find(({ id }) => id === ammo.id),
+    ammo,
+  );
+  assert.equal(ammo.rounds, 120);
+  ammo.rounds--;
+  assert.equal(
+    serverAmmo.rounds,
+    120,
+    'inventory remains isolated from decoded state',
+  );
+  restoreWorld({ world, state: before });
+  assert.equal(
+    ammo.rounds,
+    autogunAmmo.rounds,
+    'earlier ammunition checkpoints still rewind',
+  );
+}
+
+// Reusing a graph must also remove fields and array slots removed at the source.
+{
+  const source = new GameObject();
+  const copies = new WeakMap<object, any>();
+
+  source.contents = [undefined, 2, 3];
+  source.message = 'temporary';
+  const copy = cloneEntity({ entity: source, copies });
+
+  assert(
+    Object.hasOwn(copy.contents, 0),
+    'explicit undefined entries remain present',
+  );
+
+  delete source.message;
+  delete source.contents[1];
+  cloneEntity({ entity: source, copies });
+  assert(
+    !Object.hasOwn(copy, 'message'),
+    'deleted fields leave the reused clone',
+  );
+  assert(!Object.hasOwn(copy.contents, 1), 'deleted array slots stay sparse');
+  assert.equal(copy.contents[2], 3);
+}
+
+// Locked coordinates can be reused while their mutable metadata still refreshes.
+{
+  const source = new GameObject();
+  const copies = new WeakMap<object, any>();
+  const outline: any = [
+    [0, 0],
+    [10, 0],
+    [0, 10],
+  ].map(Object.freeze);
+
+  outline.edges = [true, true, true];
+  source.shapeOutline = Object.freeze(outline);
+  source.contents = Object.freeze([{ health: 5 }]);
+  const copy = cloneEntity({ entity: source, copies });
+  const polygon = copy.shapeOutline;
+
+  outline.edges[0] = false;
+  source.contents[0].health = 4;
+  cloneEntity({ entity: source, copies });
+  assert.equal(copy.shapeOutline, polygon);
+  assert.equal(copy.shapeOutline[0], source.shapeOutline[0]);
+  assert.notEqual(copy.shapeOutline.edges, outline.edges);
+  assert.equal(copy.shapeOutline.edges[0], false);
+  assert.notEqual(copy.contents[0], source.contents[0]);
+  assert.equal(
+    copy.contents[0].health,
+    4,
+    'frozen containers can still hold mutable objects',
+  );
+}
+
+// Reused locked rock keeps health and edge flags isolated, including after a cut.
+{
+  const world = createWorld();
+  const source = createAsteroid(world, { radius: 50, contents: [0] });
+
+  const segments = source.segments;
+
+  source.lockGeometry();
+
+  const metadata = {
+    shapeOutline: [
+      [1, 2],
+      [3, 4],
+    ],
+    segmentList: [{ health: 7 }],
+  };
+
+  Reflect.set(source, 'extra-mechanics', metadata);
+  const copies = new WeakMap<object, any>();
+  const copy = cloneEntity({ entity: source, copies }) as typeof source;
+  const segment = copy.segments[0];
+  const edges = (segments[0].shapeOutline as ShapeOutline).edges;
+
+  source.segments[0].health--;
+  edges[0] = !edges[0];
+  metadata.shapeOutline[0][0] = 9;
+  metadata.segmentList[0].health = 5;
+  cloneEntity({ entity: source, copies });
+  assert.deepEqual(Reflect.get(copy, 'extra-mechanics'), metadata);
+  assert.notEqual(
+    Reflect.get(copy, 'extra-mechanics').shapeOutline,
+    metadata.shapeOutline,
+  );
+  assert.equal(copy.segments[0], segment);
+  assert.equal(segment.health, source.segments[0].health);
+  assert.notEqual((segment.shapeOutline as ShapeOutline).edges, edges);
+  assert.deepEqual((segment.shapeOutline as ShapeOutline).edges, edges);
+
+  copy.segments.pop();
+  cloneEntity({ entity: source, copies });
+  assert.equal(copy.segments.length, source.segments.length);
+  source.segments.shift();
+  cloneEntity({ entity: source, copies });
+  assert.equal(copy.segments.length, source.segments.length);
+  assert.equal(copy.segments[0].health, source.segments[0].health);
+}
 
 // Cached display prediction must follow the live horn's animation phase.
+{
+  const world = createWorld();
+  const source = createAsteroid(world, { radius: 50, contents: [0] });
+  const copies = new WeakMap<object, any>();
+  const copy = cloneEntity({ entity: source, copies }) as typeof source;
+
+  source.contents.push(1);
+  cloneEntity({ entity: source, copies });
+  assert.deepEqual(
+    copy.contents,
+    source.contents,
+    'unlocked models retain mutable cloning behavior',
+  );
+  assert.notEqual(copy.contents, source.contents);
+}
+
 {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));

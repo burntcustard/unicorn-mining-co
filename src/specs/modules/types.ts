@@ -1,6 +1,7 @@
 import type { EffectSpec } from '../../client/effects/effect';
 import type { BeamEffectSpec } from '../../client/effects/beam-effect';
 import type { RenderingLayer } from '../rendering-layers';
+import type { ItemSpec } from '../items/types';
 
 type ModuleModelPart = {
   // Draw the normal edge outline; false draws only the fill and any markings.
@@ -82,7 +83,7 @@ type ModuleValues = {
     speed: number;
   };
 
-  ammo?: number;
+  ammo?: ItemSpec;
   barrelLength?: number;
   model: ModuleModelPart[];
   activationThreshold?: number;

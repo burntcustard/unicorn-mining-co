@@ -10,6 +10,17 @@ import { Asteroid } from '../asteroid';
 import { type Ship } from '../ship';
 import { type SimulationWorld } from '../../simulation/world';
 
+const drillLines = Object.freeze(
+  Array.from({ length: 6 }, (_, index) => {
+    const middle = 3 + (index - 1) * 6;
+
+    return [
+      [middle - 3, -6],
+      [middle + 3, 6],
+    ];
+  }),
+) as number[][][];
+
 class HornDrillModule extends Module {
   static bounciness = (segment: Segment) =>
     segment.activationProgress > segment.module.activationThreshold
@@ -105,18 +116,8 @@ class HornDrillModule extends Module {
       ),
     );
 
-    ctx.stroke(
-      linesPath(
-        Array.from({ length: 6 }, (_, index) => {
-          const middle = 3 + (index - 1 + (segment.phase || 0)) * 6;
-
-          return [
-            [middle - 3, -6],
-            [middle + 3, 6],
-          ];
-        }),
-      ),
-    );
+    ctx.translate((segment.phase || 0) * 6, 0);
+    ctx.stroke(linesPath(drillLines));
 
     ctx.restore();
   }

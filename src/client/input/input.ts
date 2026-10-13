@@ -63,6 +63,11 @@ export const initKeys = ({
 
     const key = event.key.toLowerCase();
 
+    if (key === 'tab') {
+      event.preventDefault();
+      return;
+    }
+
     if (key.startsWith('arrow') || key === ' ') event.preventDefault();
 
     if (event.repeat || pressed.has(key)) return;

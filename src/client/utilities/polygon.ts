@@ -92,7 +92,8 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
         ),
       ),
   );
-  const left = shapeOutlines.map((_, index) => index);
+  const left = new Set(shapeOutlines.map((_, index) => index));
+  let seed = shapeOutlines.length - 1;
   const groups: number[][] = [];
 
   shapeOutlines.forEach((points, index) => {
@@ -105,15 +106,20 @@ export const outerEdges = (shapeOutlines: ShapeOutline[]) => {
     });
   });
 
-  while (left.length) {
-    const group = [left.pop()!];
+  while (left.size) {
+    while (!left.has(seed)) seed--;
+    const group = [seed];
+
+    left.delete(seed);
 
     for (let at = 0; at < group.length; at++) {
-      for (let index = left.length; index--;) {
-        if (neighbours[group[at]].has(left[index])) {
-          group.push(left.splice(index, 1)[0]);
-        }
-      }
+      // Preserve the descending traversal order used for fragment IDs and
+      // cargo placement, visiting only actual shared-edge neighbors.
+      [...neighbours[group[at]]]
+        .sort((a, b) => b - a)
+        .forEach((index) => {
+          if (left.delete(index)) group.push(index);
+        });
     }
 
     groups.push(group);

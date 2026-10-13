@@ -7,12 +7,17 @@ window.addEventListener('ui-graphics', restoreGraphics);
 // same bridge in development, where Vite serves this file as an ES module.
 Object.assign(globalThis, { background: { renderBackground } });
 
-const ctx = canvas.getContext('2d');
+const skyCanvas =
+  document.querySelector<HTMLCanvasElement>('#background-canvas')!;
+const ctx = skyCanvas.getContext('2d');
 const scale = Math.min(innerWidth, innerHeight) / (720 * 1.5);
 
-canvas.width = innerWidth;
-canvas.height = innerHeight;
-renderBackground(canvas, ctx, scale);
-requestAnimationFrame(() => (canvas.style.opacity = ''));
+skyCanvas.width = canvas.width = innerWidth;
+skyCanvas.height = canvas.height = innerHeight;
+renderBackground(skyCanvas, ctx, scale);
+
+requestAnimationFrame(() => {
+  skyCanvas.style.opacity = canvas.style.opacity = '';
+});
 
 export { renderBackground };

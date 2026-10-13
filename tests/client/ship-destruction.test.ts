@@ -21,6 +21,10 @@ const fixtures = JSON.parse(
 );
 
 Object.assign(globalThis, {
+  document: {
+    fonts: { check: () => false },
+    getElementById: () => null as null,
+  },
   destructionPackets: fixtures,
   location: { protocol: 'http:', host: 'localhost' },
   WebSocket: class {

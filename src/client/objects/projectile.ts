@@ -41,6 +41,13 @@ export class Projectile extends GameObject {
     return [];
   }
 
+  get renderRadius() {
+    return Math.max(
+      this.radius,
+      moduleSpecs[this.definitionId].projectile.glow?.radius || 0,
+    );
+  }
+
   captureSweep() {
     this.sweepStart = Vec.clone(this.position);
   }

@@ -1,8 +1,10 @@
+import { createPath } from './drawing-path';
 import { withAlpha } from './color';
 import * as Vec from './vector';
 import { directionOf, rotatePoint, rotatePoints } from './geometry';
 import { shapePath, strip } from './drawing';
 import { colors } from '../../specs/colors';
+import { renderSurface } from './composited-surface';
 import {
   Asteroid,
   shapeOutlineOf as asteroidShapeOutlineOf,
@@ -31,8 +33,17 @@ type CompleteRay = Ray & {
   out: Crossing & { away: Vec.Value; length: number };
 };
 
+type BoundedPolygon = {
+  shapeOutline: ShapeOutline;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+};
+
 export interface Beam {
   mask: Path2D;
+  objects?: GameObject[];
   shapeOutlines: ShapeOutline[];
   rays: Ray[];
 }
@@ -40,6 +51,14 @@ export interface Beam {
 type Lamp = Segment;
 
 type Scenery = GameObject & { shapeOutline?: ShapeOutline; scenery?: boolean };
+
+const interiors = new WeakMap<
+  Beam,
+  {
+    path: Path2D;
+    bounds: { left: number; right: number; top: number; bottom: number };
+  }
+>();
 
 const fillOf = (
   ctx: CanvasRenderingContext2D,
@@ -156,43 +175,43 @@ const cross = (
   dir: Vec.Value,
 ): Crossing | undefined => {
   let near = Infinity;
-  let normal: Vec.Value | undefined;
   let faceIndex = 0;
+  let normalX = 0;
+  let normalY = 0;
 
-  points.forEach((corner, i) => {
+  for (let i = 0; i < points.length; i++) {
+    const corner = points[i];
     const next = points[(i + 1) % points.length];
-    const edge = Vec.create(next[0] - corner[0], next[1] - corner[1]);
-    const denom = Vec.cross(dir, edge);
-    const start = Vec.create(corner[0] - from.x, corner[1] - from.y);
-    const along = Vec.cross(start, dir) / denom;
-    const distance = Vec.cross(start, edge) / denom;
+    const edgeX = next[0] - corner[0];
+    const edgeY = next[1] - corner[1];
+    const denom = dir.x * edgeY - dir.y * edgeX;
 
-    if (
-      !denom ||
-      along < 0 ||
-      along > 1 ||
-      distance < inset ||
-      distance >= near
-    ) {
-      return;
+    if (!denom) continue;
+    const startX = corner[0] - from.x;
+    const startY = corner[1] - from.y;
+    const along = (startX * dir.y - startY * dir.x) / denom;
+    const distance = (startX * edgeY - startY * edgeX) / denom;
+
+    if (along < 0 || along > 1 || distance < inset || distance >= near) {
+      continue;
     }
 
     near = distance;
     faceIndex = i;
-    normal = Vec.scale(
-      Vec.normalize(Vec.create(edge.y, -edge.x)),
-      denom > 0 ? -1 : 1,
-    );
-  });
+    const sense = denom > 0 ? -1 : 1;
 
-  return (
-    normal && {
-      at: Vec.addScaled(from, dir, near),
-      distance: near,
-      face: faceIndex,
-      normal,
-    }
-  );
+    normalX = edgeY * sense;
+    normalY = -edgeX * sense;
+  }
+
+  return near < Infinity
+    ? {
+        at: Vec.addScaled(from, dir, near),
+        distance: near,
+        face: faceIndex,
+        normal: Vec.normalize(Vec.create(normalX, normalY)),
+      }
+    : undefined;
 };
 
 /**
@@ -219,14 +238,8 @@ const refract = (dir: Vec.Value, normal: Vec.Value, index: number) => {
   );
 };
 
-// One scenery object's shape in the lamp's frame, added to the mask as a path
-// and handed back as points for the rays to be tested against
-const shapeOutlineOf = (
-  ship: Pose,
-  lamp: Segment,
-  object: Scenery,
-  mask: Path2D,
-) => {
+// One scenery object's shape in the lamp's frame.
+const shapeOutlineOf = (ship: Pose, lamp: Segment, object: Scenery) => {
   const middle = Vec.subtract(
     rotatePoint(Vec.subtract(object.position, ship.position), -ship.rotation),
     lamp.localPosition,
@@ -240,8 +253,6 @@ const shapeOutlineOf = (
     middle,
   );
 
-  mask.addPath(shapePath(shapeOutline));
-
   return shapeOutline;
 };
 
@@ -250,7 +261,7 @@ const shapeOutlineOf = (
  * what it found on the way is everything the rainbow needs.
  */
 const rayAt = (
-  shapeOutlines: ShapeOutline[],
+  polygons: BoundedPolygon[],
   angle: number,
   range: number,
 ): Ray => {
@@ -259,7 +270,23 @@ const rayAt = (
   let entry: Crossing | Ray = { at: Vec.scale(dir, range), distance: range };
   let hit: ShapeOutline | undefined;
 
-  shapeOutlines.forEach((shapeOutline) => {
+  polygons.forEach(({ shapeOutline, left, right, top, bottom }) => {
+    // Rays point along positive x in the lamp's frame. Reuse each polygon's
+    // bounds to reject a missed slab before examining its individual edges.
+    const near = Math.max(0, left / dir.x);
+    const far = Math.min(entry.distance, right / dir.x);
+
+    if (far + inset < near) return;
+
+    if (!dir.y) {
+      if (top > 0 || bottom < 0) return;
+    } else {
+      const a = top / dir.y;
+      const b = bottom / dir.y;
+
+      if (Math.min(a, b) > far + inset || Math.max(a, b) < near - inset) return;
+    }
+
     const found = cross(shapeOutline, from, dir);
 
     if (found && found.distance < entry.distance) {
@@ -309,23 +336,69 @@ export const traceBeam = (
   const { reach, spread } = lamp.module;
   const range = Math.hypot(reach, spread);
   const edge = Math.atan2(spread, reach);
-  const mask = new Path2D();
-  const shapeOutlines = scenery
-    .filter(
-      (object): object is Scenery =>
-        !!object.scenery &&
-        (object instanceof Asteroid || !!object.shapeOutline) &&
-        Vec.distance(object.position, ship.position) - object.radius < range,
-    )
-    .map((object) => shapeOutlineOf(ship, lamp, object, mask));
+  const mask = createPath();
+  const objects = scenery.filter(
+    (object): object is Scenery =>
+      !!object.scenery &&
+      (object instanceof Asteroid || !!object.shapeOutline) &&
+      Vec.distance(object.position, ship.position) - object.radius < range,
+  );
+  const shapeOutlines = objects.map((object) =>
+    shapeOutlineOf(ship, lamp, object),
+  );
 
-  return {
+  const bounds = shapeOutlines.map((points) => {
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+
+    points.forEach(([x, y]) => {
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+    });
+
+    return { left, right, top, bottom, shapeOutline: points };
+  });
+
+  // A rock outside the cone's bounds cannot be the first crossing.
+  const candidates = bounds.filter(({ left, right, top, bottom }) => {
+    return left <= range && right >= 0 && top <= spread && bottom >= -spread;
+  });
+
+  const fan = Array.from({ length: rays + 1 }, (_, i) =>
+    rayAt(candidates, edge * ((i * 2) / rays - 1), range),
+  );
+  const hits = new Set(fan.filter((ray) => ray.out).map((ray) => ray.hit));
+
+  const beam = {
     mask,
+    objects: objects.filter((_, index) => hits.has(shapeOutlines[index])),
     shapeOutlines,
-    rays: Array.from({ length: rays + 1 }, (_, i) =>
-      rayAt(shapeOutlines, edge * ((i * 2) / rays - 1), range),
-    ),
+    rays: fan,
   };
+
+  const interior = insideBounds(beam);
+
+  // Only rock intersecting the lit interior can affect either interior clip.
+  // Keep overlapping rocks too, preserving the complete mask's coverage while
+  // avoiding a canvas clip containing every asteroid around the ship.
+  shapeOutlines.forEach((points, index) => {
+    const { left, right, top, bottom } = bounds[index];
+
+    if (
+      left <= interior.right &&
+      right >= interior.left &&
+      top <= interior.bottom &&
+      bottom >= interior.top
+    ) {
+      mask.addPath(shapePath(points));
+    }
+  });
+
+  return beam;
 };
 
 // Neighbouring rays that went into the same rock and left it as one sheet of
@@ -413,7 +486,7 @@ const sheetOf = (run: CompleteRay[]) => {
 
 // How far the light got, as the fan of everywhere its rays stopped
 export const litPath = ({ rays: fan }: Beam) => {
-  const path = new Path2D();
+  const path = createPath();
 
   path.moveTo(0, 0);
   fan.forEach(({ at }) => path.lineTo(at.x, at.y));
@@ -424,43 +497,88 @@ export const litPath = ({ rays: fan }: Beam) => {
 
 // The slice of rock the light is actually crossing, from where it went in to
 // where it came out again
-export const insidePath = (beam: Beam) => {
-  const path = new Path2D();
+const interiorOf = (beam: Beam) => {
+  const cached = interiors.get(beam);
+
+  if (cached) return cached;
+  const path = createPath();
+
+  const bounds = {
+    left: Infinity,
+    right: -Infinity,
+    top: Infinity,
+    bottom: -Infinity,
+  };
+
+  const include = ({ x, y }: Vec.Value) => {
+    bounds.left = Math.min(bounds.left, x);
+    bounds.right = Math.max(bounds.right, x);
+    bounds.top = Math.min(bounds.top, y);
+    bounds.bottom = Math.max(bounds.bottom, y);
+  };
 
   runsOf(beam).forEach((run) => {
     const { middle, span } = sheetOf(run);
     const edge = Vec.scale(span, 0.5);
+    const far = [Vec.subtract(middle, edge), Vec.add(middle, edge)];
+
+    run.forEach((ray) => {
+      include(ray.at);
+      include(ray.out.at);
+    });
+
+    far.forEach(include);
 
     path.addPath(strip(run));
-    path.addPath(strip(run));
-    path.addPath(
-      strip(run, [Vec.subtract(middle, edge), Vec.add(middle, edge)]),
-    );
+    path.addPath(strip(run, far));
   });
 
-  return path;
+  const interior = { path, bounds };
+
+  interiors.set(beam, interior);
+  return interior;
 };
+
+export const insidePath = (beam: Beam) => interiorOf(beam).path;
+export const insideBounds = (beam: Beam) => interiorOf(beam).bounds;
 
 export const drawInside = (
   ctx: CanvasRenderingContext2D,
   lamp: Lamp,
   beam: Beam,
 ) => {
+  if (insideBounds(beam).left === Infinity) return;
+
   const path = insidePath(beam);
 
-  ctx.save();
-  ctx.clip(beam.mask);
-  ctx.globalCompositeOperation = 'lighten';
-  ctx.globalAlpha = lamp.activationProgress;
-  ctx.fillStyle = inside;
-  ctx.strokeStyle = inside;
-  ctx.lineWidth = 1;
-  ctx.fill(path);
-  // Where one sheet was split from the next they leave a ray's width of a gap
-  // between them, too thin to be anything but a black hair, so the same light
-  // is run round the edges to close it over
-  ctx.stroke(path);
-  ctx.restore();
+  const draw = (
+    paint: CanvasRenderingContext2D,
+    composite: GlobalCompositeOperation,
+  ) => {
+    paint.save();
+    paint.clip(beam.mask);
+    paint.globalCompositeOperation = composite;
+    paint.globalAlpha = lamp.activationProgress;
+    paint.fillStyle = inside;
+    paint.strokeStyle = inside;
+    paint.lineWidth = 1;
+    paint.fill(path);
+    // Close the hairline seams between adjacent sheets with the same color.
+    paint.stroke(path);
+    paint.restore();
+  };
+
+  if (
+    !renderSurface({
+      ctx,
+      key: lamp,
+      bounds: insideBounds(beam),
+      light: true,
+      draw: (paint) => draw(paint, 'source-over'),
+    })
+  ) {
+    draw(ctx, 'lighten');
+  }
 };
 
 /**
@@ -472,19 +590,38 @@ export const drawInside = (
  * another add up the same way: each is light, and light fades to nothing rather
  * than to a color, so neither can take anything away from the other.
  */
-export const drawSpectrum = (
-  ctx: CanvasRenderingContext2D,
-  lamp: Lamp,
-  beam: Beam,
-) => {
+type Spectrum = {
+  bounds: { left: number; right: number; top: number; bottom: number };
+  bands: {
+    path: Path2D;
+    color: string;
+    from: Vec.Value;
+    to: Vec.Value;
+    fade: number;
+  }[];
+};
+
+const spectra = new WeakMap<Beam, Spectrum>();
+
+const spectrumOf = (beam: Beam) => {
+  const cached = spectra.get(beam);
+
+  if (cached) return cached;
+
+  const result: Spectrum = {
+    bounds: {
+      left: Infinity,
+      right: -Infinity,
+      top: Infinity,
+      bottom: -Infinity,
+    },
+    bands: [],
+  };
+
   const edges = Array.from(
     { length: spectrum.length + 1 },
     (_, i) => i / spectrum.length,
   );
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = lamp.activationProgress * spectrumStrength;
 
   runsOf(beam).forEach((run) => {
     const away = Vec.normalize(
@@ -523,19 +660,61 @@ export const drawSpectrum = (
     const root = near[spectrum.length >> 1];
     const tip = Vec.addScaled(root, away, length);
 
+    [...near, ...far].forEach(({ x, y }) => {
+      result.bounds.left = Math.min(result.bounds.left, x);
+      result.bounds.right = Math.max(result.bounds.right, x);
+      result.bounds.top = Math.min(result.bounds.top, y);
+      result.bounds.bottom = Math.max(result.bounds.bottom, y);
+    });
+
     // Violet is bent furthest, so it belongs on the side the rock bent toward
     spectrum.forEach((_, band) => {
-      ctx.fillStyle = fillOf(
-        ctx,
-        spectrum[
-          sense * spin > -flipMargin ? band : spectrum.length - 1 - band
-        ],
-        root,
-        tip,
-        Math.max(0, 1 - fades / length),
-      );
-      ctx.fill(strip(near.slice(band, band + 2), far.slice(band, band + 2)));
+      result.bands.push({
+        color:
+          spectrum[
+            sense * spin > -flipMargin ? band : spectrum.length - 1 - band
+          ],
+        from: root,
+        to: tip,
+        fade: Math.max(0, 1 - fades / length),
+        path: strip(near.slice(band, band + 2), far.slice(band, band + 2)),
+      });
     });
+  });
+
+  spectra.set(beam, result);
+  return result;
+};
+
+export const drawSpectrum = (
+  ctx: CanvasRenderingContext2D,
+  lamp: Lamp,
+  beam: Beam,
+) => {
+  const { bands, bounds } = spectrumOf(beam);
+
+  if (!bands.length) return;
+
+  if (
+    renderSurface({
+      ctx,
+      key: lamp,
+      bounds,
+      floor: true,
+      additive: true,
+      draw: (paint) => drawSpectrum(paint, lamp, beam),
+    })
+  ) {
+    return;
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = lamp.activationProgress * spectrumStrength;
+
+  bands.forEach(({ path, color, from, to, fade }) => {
+    ctx.fillStyle = fillOf(ctx, color, from, to, fade);
+    ctx.fill(path);
   });
 
   ctx.restore();

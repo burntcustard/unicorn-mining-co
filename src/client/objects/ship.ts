@@ -528,7 +528,7 @@ export class Ship extends Craft {
       while (module.fireCooldown <= 1e-9) {
         if (module.ammo !== undefined) {
           const index = this.cargoContents.findIndex(
-            (item) => item.resource === module.ammo && item.rounds > 0,
+            (item) => item.resource === module.ammo.resource && item.rounds > 0,
           );
 
           if (index < 0) {

@@ -24,6 +24,24 @@ assert.equal(
 const stationBranch = `entity.kind === "station" ? createStation() : createShip()`;
 
 assert.equal(
+  replacePreTerser('cache.keys().next().value;'),
+  'cache.keys().next().value;',
+  'native map iterators survive production rewriting during cache eviction',
+);
+
+assert.equal(
+  replacePreTerser('pattern.setTransform(matrix);'),
+  'pattern.setTransform(matrix);',
+  'native canvas pattern transforms survive production rewriting',
+);
+
+assert.equal(
+  replacePreTerser('canvas.style.transform = matrix; model.transform = pose;'),
+  'canvas.style.transform = matrix; _model._transform = _pose;',
+  'native CSS transforms survive while physics transforms still mangle',
+);
+
+assert.equal(
   replacePreTerser(
     `element.classList.toggle('running', state.active); element.classList.remove('running'); element.classList.contains('running'); model.toggle();`,
   ),
@@ -502,7 +520,10 @@ const browser = createContext({
   canvas,
   innerWidth: 800,
   innerHeight: 600,
-  document: { createElement: () => ({ getContext: () => context }) },
+  document: {
+    createElement: () => ({ getContext: () => context }),
+    querySelector: () => canvas,
+  },
   Path2D: class {
     addPath() {}
 

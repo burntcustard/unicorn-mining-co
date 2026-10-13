@@ -7,6 +7,7 @@ import { type ModuleSpec } from '../../../specs/modules/types';
 
 // SearchLight
 // A lamp on the nose, with its housing and beam below the hull and horn drill.
+const paths = new WeakMap<object, { outline: number[][]; path: Path2D }>();
 
 class SearchLightModule extends Module {
   static createModel(spec: Extract<ModuleSpec, { behavior: 'searchLight' }>) {
@@ -42,22 +43,38 @@ class SearchLightModule extends Module {
 
     if (!segment.activationProgress) return;
     const beam = segment.prism || traceBeam(pose, segment, scenery);
+    const points = segment.points;
+    const outline = typeof points === 'function' ? points(segment) : points;
+    let cached = paths.get(points);
+
+    if (
+      !cached ||
+      cached.outline.length !== outline.length ||
+      outline.some(
+        ([x, y], index) =>
+          cached.outline[index][0] !== x || cached.outline[index][1] !== y,
+      )
+    ) {
+      cached = {
+        outline: outline.map(([x, y]) => [x, y]),
+        path: shapePath(outline),
+      };
+
+      paths.set(points, cached);
+    }
 
     super.render({
       segment,
       draw: () =>
-        drawBeam(
-          game.ctx,
-          shapePath(
-            typeof segment.points === 'function'
-              ? segment.points(segment)
-              : segment.points,
-          ),
-          segment.shades[2],
-          this.reach,
-          segment.activationProgress,
-          litPath(beam),
-        ),
+        drawBeam({
+          ctx: game.ctx,
+          path: cached.path,
+          color: segment.shades[2],
+          reach: this.reach,
+          spread: this.spread,
+          activationProgress: segment.activationProgress,
+          lit: litPath(beam),
+        }),
     });
   }
 }

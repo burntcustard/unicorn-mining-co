@@ -36,7 +36,20 @@ export class Item extends GameObject {
     this.item = spec;
     this.shapeOutline = this.points;
 
-    if (this.shapeOutline) this.radius = radiusOf(this.shapeOutline);
+    if (this.shapeOutline) {
+      // Item models are fixed specs, like hull models. Only their pose and
+      // ammunition change; display prediction can share these coordinates.
+      this.shapeOutline.forEach(Object.freeze);
+      Object.freeze(this.shapeOutline);
+      this.radius = radiusOf(this.shapeOutline);
+    }
+
+    this.lines?.forEach((line: number[][]) => {
+      line.forEach(Object.freeze);
+      Object.freeze(line);
+    });
+
+    if (this.lines) Object.freeze(this.lines);
   }
 
   hitbox(): Collider[] {
@@ -45,11 +58,11 @@ export class Item extends GameObject {
     return body.length ? [...body, cargoPickupPoint(this)] : body;
   }
 
-  render({ pose = this }: RenderOptions = {}) {
+  render({ ctx = game.ctx, pose = this }: RenderOptions = {}) {
     super.render({
+      ctx,
       pose,
       draw: () => {
-        const { ctx } = game;
         const path = this.points
           ? shapePath(this.points)
           : circlePath(this.radius);

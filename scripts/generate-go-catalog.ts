@@ -18,6 +18,7 @@ import { writeFileSync } from 'node:fs';
 import { colors, paintColors } from '../src/specs/colors';
 import { itemIds, itemSpecs } from '../src/specs/items/index';
 import { moduleIds, moduleSpecs } from '../src/specs/modules/index';
+import type { ModuleSpec } from '../src/specs/modules/types';
 import { shipSpecs } from '../src/specs/ships/index';
 import type { ShipSpec } from '../src/specs/ships/types';
 import type { StationSpec } from '../src/specs/stations/types';
@@ -86,7 +87,10 @@ const catalog = {
   moduleSpecs: Object.fromEntries(
     Object.entries(moduleSpecs).map(([id, spec]) => [
       id,
-      moduleSpecForSimulation(spec),
+      {
+        ...moduleSpecForSimulation(spec as ModuleSpec),
+        ammo: (spec as ModuleSpec).ammo?.resource,
+      },
     ]),
   ),
   shipSpecs,

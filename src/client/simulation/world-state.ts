@@ -5,6 +5,7 @@ import {
 } from '../protocol/entities';
 import { type SimulationWorld } from './world';
 import { GameObject } from '../objects/game-object';
+import { Asteroid } from '../objects/asteroid';
 import { Module } from '../objects/modules/module';
 import { createRandom } from '../utilities/seeded-random';
 import { EntityState } from './entity-state';
@@ -45,63 +46,289 @@ const specs: Record<string, boolean> = {
   shades: true,
 };
 
+const omittedStock: Record<string, boolean> = {
+  ...omitted,
+  cargoContents: true,
+};
+
+const immutableArrays = new WeakMap<object, boolean>();
+const immutableMembers = new WeakMap<object, boolean>();
+const arrayMetadata = new WeakMap<object, string[]>();
+const previousKeys = new WeakMap<object, string[]>();
+const fixedKeys = new WeakMap<object, string[]>();
+const updatingKeys = new WeakMap<object, string[]>();
+
+const clonedGeometry = new WeakMap<
+  Asteroid,
+  { source: object; local: object }
+>();
+
+const keysOf = (value: any) => {
+  let keys = fixedKeys.get(value);
+
+  if (!keys) {
+    keys = Object.keys(value);
+
+    if (Object.isSealed(value)) fixedKeys.set(value, keys);
+  }
+
+  return keys;
+};
+
+const ownKeys = (value: any, copy: any) => {
+  const keys = keysOf(value);
+
+  const before = previousKeys.get(copy);
+
+  if (
+    before &&
+    before !== keys &&
+    (before.length !== keys.length ||
+      before.some((key, index) => key !== keys[index]))
+  ) {
+    before.forEach((key) => {
+      if (
+        (Array.isArray(value) || !omitted[key]) &&
+        !Object.hasOwn(value, key)
+      ) {
+        delete copy[key];
+      }
+    });
+  }
+
+  previousKeys.set(copy, keys);
+  return keys;
+};
+
+const immutable = (value: any[]): boolean => {
+  const cached = immutableArrays.get(value);
+
+  if (cached !== undefined) return cached;
+
+  if (!Object.isFrozen(value)) return false;
+
+  // Polygon arrays can have mutable edge metadata even when their coordinates
+  // are frozen. Only share arrays whose entire contents are immutable.
+  const fixed = keysOf(value).length === value.length && fixedMembers(value);
+
+  immutableArrays.set(value, fixed);
+  return fixed;
+};
+
+const fixedMembers = (value: any[]) => {
+  let fixed = immutableMembers.get(value);
+
+  if (fixed === undefined) {
+    if (!Object.isFrozen(value)) return false;
+    fixed = value.every(
+      (member) =>
+        !member ||
+        typeof member !== 'object' ||
+        (Array.isArray(member) && immutable(member)),
+    );
+    immutableMembers.set(value, fixed);
+  }
+
+  return fixed;
+};
+
+const mutableKeys = (value: any, keys: string[]) => {
+  let mutable = updatingKeys.get(value);
+
+  if (!mutable) {
+    mutable = keys.filter((name) => {
+      // A fixed data slot can be skipped only when its contents are immutable.
+      // Accessors and polygon edge metadata must still refresh normally.
+      if (Object.getOwnPropertyDescriptor(value, name)?.writable !== false) {
+        return true;
+      }
+
+      const member = value[name];
+
+      return (
+        member &&
+        typeof member === 'object' &&
+        !(Array.isArray(member) && immutable(member))
+      );
+    });
+
+    updatingKeys.set(value, mutable);
+  }
+
+  return mutable;
+};
+
 /*
  * Copy mutable mechanics, preserving prototype-based hull/module specs
  * and the links between a ship's segments, mounts and cargo contents.
  * This is for materialising independent authoritative objects, not tick
  * history. History below stores compact EntityState records instead.
  */
-export const cloneEntity = ({ entity }: { entity: GameObject }): GameObject => {
-  const copies = new Map<object, any>();
+export const cloneEntity = ({
+  entity,
+  copies = new WeakMap<object, any>(),
+  includeCargo = true,
+}: {
+  entity: GameObject;
+  copies?: WeakMap<object, any>;
+  includeCargo?: boolean;
+}): GameObject => {
+  const visited = new WeakSet<object>();
+  const skipped = includeCargo ? omitted : omittedStock;
+  const previous = copies.get(entity) as Asteroid | undefined;
+  const geometry = entity instanceof Asteroid && entity.geometrySource;
+  const before = previous && clonedGeometry.get(previous);
+  const sameGeometry =
+    geometry &&
+    before?.source === geometry &&
+    before.local === previous!.geometrySource;
 
-  const special: Record<string, (value: any) => any> = {
+  const special: Record<string, (value: any, owner: any) => any> = {
     random: (value) => createRandom(value.state),
     dockedTo: (value) => (typeof value === 'object' ? value.id : value),
     module: (value) => (value instanceof Module ? clone(value) : value),
   };
 
+  if (sameGeometry) {
+    // Locked asteroid models can only change health and exterior-edge flags.
+    // Reuse their copied topology instead of traversing every fixed vertex.
+    const edges = (source: any, target: any) => {
+      source.edges?.forEach((outside: boolean, index: number) => {
+        target.edges[index] = outside;
+      });
+
+      return target;
+    };
+
+    special.shapeOutline = (value, owner) =>
+      owner === entity ? edges(value, previous!.shapeOutline) : clone(value);
+
+    special.segmentList = (value, owner) => {
+      if (owner !== entity) return clone(value);
+
+      value.forEach((segment: any, index: number) => {
+        const target = previous!.segments[index];
+
+        target.health = segment.health;
+        edges(segment.shapeOutline, target.shapeOutline);
+      });
+
+      return previous!.segments;
+    };
+  }
+
   const clone = (value: any): any => {
     if (!value || typeof value !== 'object') return value;
 
-    if (copies.has(value)) return copies.get(value);
+    // Locked coordinate pairs are immutable model data. Keep the polygon's
+    // mutable edge metadata and segment health in their independent copies.
+    if (Array.isArray(value) && immutable(value)) {
+      return value;
+    }
+
+    if (visited.has(value)) return copies.get(value);
+
+    return cloneObject(value);
+  };
+
+  /*
+   * Keep primitive/shared references out of the recursive copying work.
+   */
+  const cloneObject = (value: any): any => {
+    visited.add(value);
     // Arrays contain mechanics data, not entity fields. Copy their elements
     // directly, retaining named metadata such as collision shape outline edges.
 
     if (Array.isArray(value)) {
+      const previous = copies.get(value);
       // Allocate the known length without a second resize in this hot path.
       // oxlint-disable-next-line unicorn/no-new-array
-      const copy: any = new Array(value.length);
+      const copy: any = previous || new Array(value.length);
 
       copies.set(value, copy);
 
+      if (copy.length !== value.length) copy.length = value.length;
+
       // Copy own enumerable metadata as well as elements, preserving sparse holes.
-      Object.entries(value).forEach(([key, member]) => {
-        copy[key] = clone(member);
-      });
+      let keys = ownKeys(value, copy);
+
+      if (previous && fixedMembers(value)) {
+        // Frozen polygon coordinates cannot change. Refresh only mutable named
+        // metadata such as outside-edge flags, keeping it isolated from history.
+        let metadata = arrayMetadata.get(value);
+
+        if (!metadata) {
+          const length = value.length;
+
+          metadata = keys.filter(
+            (key) =>
+              !/^\d+$/.test(key) || +key >= length || key !== String(+key),
+          );
+          arrayMetadata.set(value, metadata);
+        }
+
+        keys = metadata;
+      }
+
+      for (const key of keys) {
+        const member = clone((value as any)[key]);
+
+        if (copy[key] !== member || !Object.hasOwn(copy, key)) {
+          copy[key] = member;
+        }
+      }
 
       return copy;
     }
 
-    const copy = Object.create(Object.getPrototypeOf(value));
+    const previous = copies.get(value);
+    const copy = previous || Object.create(Object.getPrototypeOf(value));
 
     copies.set(value, copy);
 
-    Object.keys(value).forEach((name) => {
-      if (omitted[name]) return;
+    let keys = ownKeys(value, copy);
+
+    if (previous && Object.isSealed(value) && Object.isSealed(copy)) {
+      keys = mutableKeys(value, keys);
+    }
+
+    for (const name of keys) {
+      if (skipped[name]) continue;
+
       const member = value[name];
 
-      copy[name] = specs[name]
+      const copied = specs[name]
         ? member
         : member && special[name]
-          ? special[name](member)
+          ? special[name](member, value)
           : clone(member);
-    });
+
+      if (copy[name] !== copied || !Object.hasOwn(copy, name)) {
+        copy[name] = copied;
+      }
+    }
 
     if (value instanceof GameObject) copy.collections = [];
     return copy;
   };
 
-  return clone(entity);
+  const copy = clone(entity);
+
+  if (!includeCargo) copy.cargoContents = [];
+
+  if (
+    entity instanceof Asteroid &&
+    entity.geometrySource &&
+    !copy.geometrySource
+  ) {
+    copy.lockGeometry();
+  }
+
+  if (geometry && !sameGeometry && copy.geometrySource) {
+    clonedGeometry.set(copy, { source: geometry, local: copy.geometrySource });
+  }
+
+  return copy;
 };
 
 export const captureWorld = ({

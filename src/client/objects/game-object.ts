@@ -15,6 +15,7 @@ import { type SimulationWorld } from '../simulation/world';
 import { type Pose } from '../types';
 
 export interface RenderOptions {
+  ctx?: CanvasRenderingContext2D;
   draw?: () => void;
   pose?: Pose;
 }
@@ -135,9 +136,7 @@ export class GameObject {
     });
   }
 
-  render({ draw, pose = this }: RenderOptions = {}) {
-    const { ctx } = game;
-
+  render({ ctx = game.ctx, draw, pose = this }: RenderOptions = {}) {
     ctx.save();
     ctx.translate(pose.position.x, pose.position.y);
     ctx.rotate(pose.rotation);

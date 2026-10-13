@@ -1,3 +1,4 @@
+import { composedSurfaces } from './composited-surface';
 import { withAlpha } from './color';
 import {
   lightAngle,
@@ -15,13 +16,26 @@ import { benchmarkFlag } from '../debug/benchmark';
 import { colors } from '../../specs/colors';
 import { Craft } from '../objects/craft';
 import { type GameObject } from '../objects/game-object';
-import { camera } from '../camera';
-import { insidePath, traceBeam } from './prism';
+import { insidePath, insideBounds, traceBeam } from './prism';
+import { pointBetween as mix, rotatePoint } from './geometry';
+import * as Vec from './vector';
 import { game } from '../game';
-import { pointBetween as mix } from './geometry';
 import { type Pose, type Segment, type Shades } from '../types';
 
-type GlowCache = { image?: HTMLCanvasElement; scale?: number };
+type GlowCache = number[][] & {
+  image?: HTMLCanvasElement | ImageBitmap;
+  scale?: number;
+  left?: number;
+  top?: number;
+};
+
+type BeamImages = {
+  images: Map<string, HTMLCanvasElement | ImageBitmap>;
+  scale: number;
+};
+
+const beamImages = new WeakMap<Path2D, BeamImages>();
+let revealSurface: HTMLCanvasElement;
 
 interface LitShape {
   // Facing angle and center in the craft's local frame.
@@ -117,6 +131,58 @@ export const tint = (shades: Shades, worn: number, along: number) =>
  *   frame rather than the world's.
  * shade: Turns a place on the ramp into a color.
  */
+const gradientImages = new Map<string, HTMLCanvasElement>();
+const gradientPatterns = new WeakMap<
+  CanvasRenderingContext2D,
+  Map<string, CanvasPattern>
+>();
+
+/*
+ * Store a linear ramp once and transform its pattern with the hull. The 256
+ * samples cover the ramp plus clamped margins; the world canvas stays native.
+ */
+const gradientPattern = (
+  ctx: CanvasRenderingContext2D,
+  first: string,
+  last: string,
+) => {
+  const key = `${first}/${last}`;
+  let patterns = gradientPatterns.get(ctx);
+
+  if (!patterns) gradientPatterns.set(ctx, (patterns = new Map()));
+  let pattern = patterns.get(key);
+
+  if (!pattern) {
+    let image = gradientImages.get(key);
+
+    if (!image) {
+      image = document.createElement('canvas');
+      image.width = 256;
+      image.height = 1;
+      const paint = image.getContext('2d');
+      const ramp = paint.createLinearGradient(256 / 6, 0, (256 * 5) / 6, 0);
+
+      ramp.addColorStop(0, first);
+      ramp.addColorStop(1, last);
+      paint.fillStyle = ramp;
+      paint.fillRect(0, 0, 256, 1);
+
+      if (gradientImages.size === 128) {
+        gradientImages.delete(gradientImages.keys().next().value);
+      }
+
+      gradientImages.set(key, image);
+    }
+
+    pattern = ctx.createPattern(image, 'repeat-y');
+
+    if (patterns.size === 128) patterns.delete(patterns.keys().next().value);
+    patterns.set(key, pattern);
+  }
+
+  return pattern;
+};
+
 const litFill = (
   ctx: CanvasRenderingContext2D,
   shape: LitShape,
@@ -133,6 +199,27 @@ const litFill = (
   const towardX = Math.cos(light) * shape.reach;
   const towardY = Math.sin(light) * shape.reach;
   const along = 0.5 - Math.cos(shape.facing - light) * 0.4;
+
+  if (composedSurfaces(ctx)) {
+    const pattern = gradientPattern(
+      ctx,
+      shade(along - spread),
+      shade(along + spread),
+    );
+    const ratio = 3 / 256;
+
+    pattern.setTransform({
+      a: -towardX * ratio,
+      b: -towardY * ratio,
+      c: towardY,
+      d: -towardX,
+      e: middleX + towardX * 1.5,
+      f: middleY + towardY * 1.5,
+    });
+
+    return pattern;
+  }
+
   const gradient = ctx.createLinearGradient(
     middleX + towardX,
     middleY + towardY,
@@ -192,24 +279,48 @@ export const drawDockingBayGlow = (
   ctx.globalAlpha = 0.2;
 
   if (cache.scale !== game.scale) {
-    // The station bay fits within 280 world units of its local origin.
-    const reach = 280 * game.scale + glowBlur * 2;
+    if (cache.image && 'close' in cache.image) cache.image.close();
+    // Keep the blurred bay's actual bounds; most of the old square was empty.
+    const left = Math.min(...cache.map(([x]) => x)) * game.scale - glowBlur * 2;
+    const top =
+      Math.min(...cache.map(([, y]) => y)) * game.scale - glowBlur * 2;
+    const right =
+      Math.max(...cache.map(([x]) => x)) * game.scale + glowBlur * 2;
+    const bottom =
+      Math.max(...cache.map(([, y]) => y)) * game.scale + glowBlur * 2;
     const image = document.createElement('canvas');
     const paint = image.getContext('2d')!;
 
-    image.width = image.height = reach * 2;
-    paint.translate(reach, reach);
+    image.width = Math.ceil(right - left);
+    image.height = Math.ceil(bottom - top);
+    paint.translate(-left, -top);
     paint.scale(game.scale, game.scale);
     paint.shadowBlur = glowBlur;
     paint.shadowColor = paint.fillStyle = color;
     paint.fill(path);
     cache.image = image;
     cache.scale = game.scale;
+    cache.left = left / game.scale;
+    cache.top = top / game.scale;
+
+    createImageBitmap(image)
+      .then((bitmap) => {
+        if (cache.image === image) {
+          cache.image = bitmap;
+        } else {
+          bitmap.close();
+        }
+      })
+      .catch(() => {});
   }
 
-  const size = cache.image!.width / game.scale;
-
-  ctx.drawImage(cache.image!, -size / 2, -size / 2, size, size);
+  ctx.drawImage(
+    cache.image!,
+    cache.left!,
+    cache.top!,
+    cache.image!.width / game.scale,
+    cache.image!.height / game.scale,
+  );
 
   ctx.restore();
 };
@@ -224,14 +335,23 @@ export const drawDockingBayGlow = (
  * activationProgress: How far up the lamp has come, 0 to 1.
  * lit: How far the light got before it ran into anything.
  */
-export const drawBeam = (
-  ctx: CanvasRenderingContext2D,
-  path: Path2D,
-  color: string,
-  reach: number,
-  activationProgress: number,
-  lit: Path2D,
-) => {
+export const drawBeam = ({
+  ctx,
+  path,
+  color,
+  reach,
+  spread,
+  activationProgress,
+  lit,
+}: {
+  ctx: CanvasRenderingContext2D;
+  path: Path2D;
+  color: string;
+  reach: number;
+  spread: number;
+  activationProgress: number;
+  lit: Path2D;
+}) => {
   // @ifdef DEBUG
   if (!lights) return;
   // @endif
@@ -240,11 +360,62 @@ export const drawBeam = (
   if (benchmarkFlag('noLighting') || benchmarkFlag('noBeam')) return;
   // @endif
 
-  const gradient = ctx.createLinearGradient(0, 0, reach, 0);
+  let cached = beamImages.get(path);
+  const scale = game.scale;
+  const padding = glowBlur * 2;
 
-  gradient.addColorStop(0, color);
-  gradient.addColorStop(0.15, withAlpha({ color, alpha: 0.8 }));
-  gradient.addColorStop(1, withAlpha({ color: '#000', alpha: 0 }));
+  if (!cached || cached.scale !== scale) {
+    cached?.images.forEach((image) => {
+      if ('close' in image) image.close();
+    });
+
+    cached = { images: new Map(), scale };
+    beamImages.set(path, cached);
+  }
+
+  let image = cached.images.get(color);
+
+  if (!image) {
+    const canvas = document.createElement('canvas');
+    const paint = canvas.getContext('2d')!;
+
+    canvas.width = Math.ceil(reach * scale + padding * 2);
+    canvas.height = Math.ceil(spread * 2 * scale + padding * 2);
+    paint.translate(padding, spread * scale + padding);
+    paint.scale(scale, scale);
+    const gradient = paint.createLinearGradient(0, 0, reach, 0);
+
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.15, withAlpha({ color, alpha: 0.8 }));
+    gradient.addColorStop(1, withAlpha({ color: '#000', alpha: 0 }));
+
+    // Bake the same screen-pixel blur once. The traced rock edge still clips
+    // both the cone and its glow when the cached image is drawn each frame.
+    // @ifdef BENCHMARK
+    if (!benchmarkFlag('noBlur')) {
+      // @endif
+      paint.shadowBlur = glowBlur;
+      paint.shadowColor = color;
+      // @ifdef BENCHMARK
+    }
+
+    // @endif
+    paint.fillStyle = gradient;
+    paint.fill(path);
+    cached.images.set(color, canvas);
+    image = canvas;
+    const entry = cached;
+
+    createImageBitmap(canvas)
+      .then((bitmap) => {
+        if (beamImages.get(path) === entry) {
+          entry.images.set(color, bitmap);
+        } else {
+          bitmap.close();
+        }
+      })
+      .catch(() => {});
+  }
 
   ctx.save();
   // The cone says how wide the beam is and the trace says how far it got, so
@@ -252,30 +423,25 @@ export const drawBeam = (
   ctx.clip(lit);
   ctx.globalAlpha = activationProgress * 0.5;
 
-  // Cast off the beam rather than laid down under it, so it gives out along
-  // with the light. A glow of its own has no idea how far down the beam it is
-  // and ends in a hard edge wherever the light happens to stop
-  // @ifdef BENCHMARK
-  if (!benchmarkFlag('noBlur')) {
-    // @endif
-    ctx.shadowBlur = glowBlur;
-    ctx.shadowColor = color;
-    // @ifdef BENCHMARK
-  }
-  // @endif
-
-  ctx.fillStyle = gradient;
-  ctx.fill(path);
+  ctx.drawImage(
+    image,
+    -padding / scale,
+    -spread - padding / scale,
+    image.width / scale,
+    image.height / scale,
+  );
   ctx.restore();
 };
 
 // Both local and remote beams reveal the contents of rock they cross.
 export const revealBuriedItems = ({
   sprites,
+  scenery = sprites,
   predicted,
   poses,
 }: {
   sprites: GameObject[];
+  scenery?: GameObject[];
   predicted: ReadonlyMap<number, GameObject>;
   poses: ReadonlyMap<number, Pose>;
 }) => {
@@ -302,22 +468,86 @@ export const revealBuriedItems = ({
         return;
       }
 
-      const beam = lamp.prism || traceBeam(pose, lamp, sprites);
+      const beam = lamp.prism || traceBeam(pose, lamp, scenery);
+      const bounds = insideBounds(beam);
+
+      const items = asteroids
+        .filter((asteroid) => !beam.objects || beam.objects.includes(asteroid))
+        .flatMap((asteroid) => asteroid.renderContents as GameObject[])
+        .filter((item) => {
+          if (!item.position || !item.radius) return true;
+          const at = Vec.subtract(
+            rotatePoint(
+              Vec.subtract(item.position, pose.position),
+              -pose.rotation,
+            ),
+            lamp.localPosition,
+          );
+          // Include strokes and glints, which can extend past an item's body.
+          const radius = item.radius * 2 + 2 + 1 / scale;
+
+          return (
+            at.x + radius >= bounds.left &&
+            at.x - radius <= bounds.right &&
+            at.y + radius >= bounds.top &&
+            at.y - radius <= bounds.bottom
+          );
+        });
+
+      if (!items.length) return;
+
+      // Nested, changing clips can trigger expensive GPU work on first use.
+      // Rasterize only this small slice of revealed cargo, then composite it.
+      revealSurface ||= document.createElement('canvas');
+
+      const paint = revealSurface.getContext('2d', {
+        willReadFrequently: true,
+      })!;
+
+      const left = Math.floor(bounds.left * scale - 1) / scale;
+      const top = Math.floor(bounds.top * scale - 1) / scale;
+      const width = Math.ceil(bounds.right * scale + 1) - left * scale;
+      const height = Math.ceil(bounds.bottom * scale + 1) - top * scale;
+
+      // Reuse the backing store as the beam changes shape and direction.
+      if (width > revealSurface.width) {
+        revealSurface.width = Math.ceil(width / 64) * 64;
+      }
+
+      if (height > revealSurface.height) {
+        revealSurface.height = Math.ceil(height / 64) * 64;
+      }
+
+      paint.resetTransform();
+      // Only the used rectangle is copied below. Clear a pixel of transparent
+      // guard space too, so interpolation cannot pick up an older beam's edge.
+      paint.clearRect(0, 0, Math.ceil(width) + 1, Math.ceil(height) + 1);
+      paint.save();
+      paint.translate(-left * scale, -top * scale);
+      paint.scale(scale, scale);
+      paint.clip(insidePath(beam));
+      paint.clip(beam.mask);
+      paint.translate(-lamp.localPosition.x, -lamp.localPosition.y);
+      paint.rotate(-pose.rotation);
+      paint.translate(-pose.position.x, -pose.position.y);
+      items.forEach((item) => item.render({ ctx: paint }));
+      paint.restore();
 
       ctx.save();
       ctx.translate(pose.position.x, pose.position.y);
       ctx.rotate(pose.rotation);
       ctx.translate(lamp.localPosition.x, lamp.localPosition.y);
-      ctx.clip(insidePath(beam));
-      ctx.clip(beam.mask);
-      ctx.resetTransform();
-      ctx.scale(scale, scale);
-      ctx.translate(-camera.x, -camera.y);
-
-      asteroids.forEach((asteroid) =>
-        asteroid.renderContents.forEach((item: GameObject) => item.render()),
+      ctx.drawImage(
+        revealSurface,
+        0,
+        0,
+        width,
+        height,
+        left,
+        top,
+        width / scale,
+        height / scale,
       );
-
       ctx.restore();
     });
   });

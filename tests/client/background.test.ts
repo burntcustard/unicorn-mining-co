@@ -40,7 +40,11 @@ for (const production of [false, true]) {
           },
         );
 
-        return { getContext: () => context };
+        return {
+          style: {},
+          setAttribute() {},
+          getContext: () => context,
+        };
       },
     },
     Path2D: class {
@@ -72,6 +76,7 @@ for (const production of [false, true]) {
         bitmaps.push(bitmap);
         pending.push(() => resolve(bitmap));
       }),
+    requestAnimationFrame: () => 0,
   });
 
   const bundle = await rolldown({
@@ -102,6 +107,7 @@ for (const production of [false, true]) {
   const stamps: number[][] = [];
 
   const ctx = {
+    clearRect() {},
     drawImage(_image: unknown, x: number, y: number) {
       stamps.push([x, y]);
     },
@@ -181,6 +187,43 @@ for (const production of [false, true]) {
 
   pending.splice(0).forEach((resolve) => resolve());
   await Promise.resolve();
+
+  // Connected sky layers slide without repainting while their margin covers
+  // the view, then refresh their pixels after a longer pan or resize.
+  let layersInPage: HTMLCanvasElement[] = [];
+
+  const visible = {
+    id: 'background-canvas',
+    isConnected: true,
+    width: 1080,
+    height: 1080,
+    clientWidth: 1080,
+    style: {},
+    after(...layers: HTMLCanvasElement[]) {
+      layersInPage = layers;
+    },
+  } as unknown as HTMLCanvasElement;
+
+  background.renderBackground(visible, ctx, 1);
+  assert.equal(layersInPage.length, layers);
+  const layerDrawings = drawings.slice(-layers);
+  const paintCount = () =>
+    layerDrawings.reduce((sum, commands) => sum + commands.length, 0);
+  const firstPaints = paintCount();
+  const transforms = layersInPage.map((layer) => layer.style.transform);
+
+  background.renderBackground(visible, ctx, 1, 100, 100);
+  assert.equal(paintCount(), firstPaints, 'small pans only move surfaces');
+  assert.notDeepEqual(
+    layersInPage.map((layer) => layer.style.transform),
+    transforms,
+    'each layer follows its own parallax speed',
+  );
+  background.renderBackground(visible, ctx, 1, 10000, 10000);
+  assert(paintCount() > firstPaints, 'long pans refresh the covered margin');
+  visible.width = 1440;
+  background.renderBackground(visible, ctx, 1, 10000, 10000);
+  assert(layersInPage.every((layer) => layer.width > visible.width));
 }
 
 console.log(

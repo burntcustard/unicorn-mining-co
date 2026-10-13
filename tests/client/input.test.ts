@@ -17,14 +17,20 @@ Object.assign(globalThis, {
   KeyboardEvent: class extends Event {
     declare key: string;
     declare repeat: boolean;
+    declare shiftKey: boolean;
 
     constructor(
       type: string,
-      { key, repeat = false }: { key: string; repeat?: boolean },
+      {
+        key,
+        repeat = false,
+        shiftKey = false,
+      }: { key: string; repeat?: boolean; shiftKey?: boolean },
     ) {
       super(type, { cancelable: true });
       this.key = key;
       this.repeat = repeat;
+      this.shiftKey = shiftKey;
     }
   },
 });
@@ -40,7 +46,7 @@ const bundle = await rolldown({
         }
 
         if (id.endsWith('/src/client/core.ts')) {
-          return 'export const context={clearRect(){}};';
+          return 'export const clearFrame=()=>{};export const presentFrame=()=>{};';
         }
 
         if (id.endsWith('/src/client/audio/sound-loader.ts')) {
@@ -97,6 +103,14 @@ assert(
   !tab.defaultPrevented && !space.defaultPrevented,
   'native navigation remains available',
 );
+
+const menuShiftTab = new KeyboardEvent('keydown', {
+  key: 'Tab',
+  shiftKey: true,
+});
+
+window.dispatchEvent(menuShiftTab);
+assert(!menuShiftTab.defaultPrevented, 'menus preserve Shift+Tab navigation');
 assert.equal(input.playerInput.fire, false, 'menu keys cannot fire weapons');
 const menuChanges = changes.length;
 const beforeActivity = activity;
@@ -150,18 +164,35 @@ const targetTab = new KeyboardEvent('keydown', { key: 'Tab' });
 
 window.dispatchEvent(targetTab);
 assert.equal(targetRequests, 1, 'Tab does not target objects');
-assert(!targetTab.defaultPrevented, 'Tab retains native browser navigation');
+assert(targetTab.defaultPrevented, 'Tab cannot move focus out of gameplay');
+
+for (const options of [{ repeat: true }, { shiftKey: true }]) {
+  const tab = new KeyboardEvent('keydown', { key: 'Tab', ...options });
+
+  window.dispatchEvent(tab);
+  assert(
+    tab.defaultPrevented,
+    'held Tab and Shift+Tab cannot move gameplay focus',
+  );
+}
+
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
+assert.equal(targetRequests, 2, 'targeting still works after Tab');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.equal(input.playerInput.thrust, 1, 'ship controls still work after Tab');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' }));
 input.defaultKeybindings.targetNext.keys = ['n'];
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
-assert.equal(targetRequests, 1, 'rebinding removes the default target key');
+assert.equal(targetRequests, 2, 'rebinding removes the default target key');
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'N' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'n' }));
-assert.equal(targetRequests, 2, 'the rebound target key works immediately');
+assert.equal(targetRequests, 3, 'the rebound target key works immediately');
 input.setMenuInput(true);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
-assert.equal(targetRequests, 2, 'menus suppress world targeting');
+assert.equal(targetRequests, 3, 'menus suppress world targeting');
 input.setMenuInput(false);
 input.defaultKeybindings.targetNext.keys = ['t'];
 

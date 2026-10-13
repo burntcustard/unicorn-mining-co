@@ -1352,8 +1352,8 @@ export class Craft extends GameObject {
     const previous = visualPhases.get(this);
     const phases = new Map<number | Module, number[]>();
 
-    this.modules.forEach((module: Module) => {
-      if (!module.updateVisual) return;
+    this.mounts.forEach(({ module }) => {
+      if (!module || !module.updateVisual) return;
       const segments = this.segmentsAtMount(module.mount);
       const key = module.id ?? module;
       const stored = previous?.get(key);
