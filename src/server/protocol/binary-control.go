@@ -58,6 +58,7 @@ func (w *writer) name(value string) error {
 	if !ValidDisplayName(value) {
 		return ErrControl
 	}
+
 	w.byte(byte(len(value)))
 	w.data = append(w.data, value...)
 	return nil
@@ -194,14 +195,18 @@ func (r *reader) uuid() (string, error) {
 
 func (r *reader) name() (string, error) {
 	length, err := r.byte()
+
 	if err != nil || length > 64 || int(length) > len(r.data)-r.offset {
 		return "", ErrControl
 	}
+
 	value := string(r.data[r.offset : r.offset+int(length)])
 	r.offset += int(length)
+
 	if !ValidDisplayName(value) {
 		return "", ErrControl
 	}
+
 	return value, nil
 }
 
@@ -219,6 +224,7 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 		var err error
 		message.Type = "profile"
 		message.DisplayName, err = r.name()
+
 		if err != nil || message.DisplayName == "" {
 			return Control{}, ErrControl
 		}
@@ -449,11 +455,14 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, error) {
 	if message.Type == "profile" && message.DisplayName != nil {
 		w := controlWriter(ids.ControlMessageIDs["profile"])
+
 		if err := w.name(*message.DisplayName); err != nil {
 			return nil, err
 		}
+
 		return w.data, nil
 	}
+
 	if message.Credits != nil && (message.UnlockedPaints == nil || *message.Credits < 0 || math.IsNaN(*message.Credits) || math.IsInf(*message.Credits, 0)) {
 		return nil, ErrControl
 	}
@@ -504,6 +513,7 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 		if message.Credits == nil {
 			return nil, ErrControl
 		}
+
 		if err := w.name(*message.DisplayName); err != nil {
 			return nil, err
 		}
