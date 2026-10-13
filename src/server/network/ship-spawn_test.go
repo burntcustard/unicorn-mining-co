@@ -11,6 +11,8 @@ import (
 )
 
 func TestPlayerSpawnAndRespawnReceiveStarterModules(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}
@@ -67,6 +69,8 @@ func TestPlayerSpawnAndRespawnReceiveStarterModules(t *testing.T) {
 }
 
 func TestProceduralWrecksStartWithoutModules(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	ranges := protocol.Ranges(catalog.Simulation.WorldRanges)
@@ -93,6 +97,8 @@ func TestProceduralWrecksStartWithoutModules(t *testing.T) {
 }
 
 func TestArrowRespawnPreservesShipAndLoadout(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}
@@ -119,6 +125,8 @@ func TestArrowRespawnPreservesShipAndLoadout(t *testing.T) {
 }
 
 func TestCoreDestructionAllowsRespawn(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 
 	for _, shipType := range []string{"mustang", "arrow"} {
@@ -162,6 +170,8 @@ func TestCoreDestructionAllowsRespawn(t *testing.T) {
 }
 
 func TestHydratedFatalHullAllowsRespawn(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}
@@ -191,6 +201,8 @@ func TestHydratedFatalHullAllowsRespawn(t *testing.T) {
 }
 
 func TestStrandedShipManualRespawn(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}

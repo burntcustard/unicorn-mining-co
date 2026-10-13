@@ -11,6 +11,8 @@ import (
 )
 
 func TestNumericFieldCachePreservesCanonicalChanges(t *testing.T) {
+	t.Parallel()
+
 	for _, id := range []int{1, 34, 65} {
 		record := &binaryRecord{fields: make([]fieldState, 70), numberValues: make([]float64, 70)}
 		reference := &binaryRecord{fields: make([]fieldState, 70)}
@@ -32,6 +34,8 @@ func TestNumericFieldCachePreservesCanonicalChanges(t *testing.T) {
 }
 
 func TestMembershipCacheSurvivesReorderReplacementAndEviction(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -96,6 +100,8 @@ func TestMembershipCacheSurvivesReorderReplacementAndEviction(t *testing.T) {
 }
 
 func TestPackedCadenceRetainsFallbackForForeignViews(t *testing.T) {
+	t.Parallel()
+
 	for _, test := range []struct {
 		interval int
 		id       int64
@@ -133,6 +139,8 @@ func TestPackedCadenceRetainsFallbackForForeignViews(t *testing.T) {
 }
 
 func TestStationaryPlayerOmitsUnchangedFragments(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {

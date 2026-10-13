@@ -12,6 +12,8 @@ import (
 )
 
 func TestIdentityPreviewIsReadOnly(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {

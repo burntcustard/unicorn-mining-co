@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -11,7 +11,21 @@ const testFiles = ['tests', 'src/server']
       .map((file) => join(directory, file)),
   )
   .sort();
-const requested = process.argv.slice(2);
+
+const testGroups = new Map([
+  [
+    'tests/client/projectile-prediction.test.ts',
+    [
+      'tests/client/projectile-prediction.test.ts',
+      'tests/client/projectile-prediction-plasma.test.ts',
+      'tests/client/projectile-prediction-repeated.test.ts',
+      'tests/client/projectile-prediction-triangles.test.ts',
+    ],
+  ],
+]);
+
+const skipBuild = process.argv.includes('--skip-build');
+const requested = process.argv.slice(2).filter((arg) => arg !== '--skip-build');
 const files = requested.length
   ? [...new Set(requested.flatMap(selectFiles))]
   : testFiles;
@@ -20,6 +34,13 @@ const goFiles = files.filter((file) => file.endsWith('.go'));
 const concurrency = Number(
   process.env.TEST_CONCURRENCY || Math.min(4, availableParallelism()),
 );
+
+const goEnv = {
+  ...process.env,
+  CGO_ENABLED: '0',
+  GOEXPERIMENT: 'simd',
+  GOFLAGS: [process.env.GOFLAGS, '-trimpath'].filter(Boolean).join(' '),
+};
 
 if (!Number.isInteger(concurrency) || concurrency < 1) {
   throw new Error('TEST_CONCURRENCY must be a positive integer');
@@ -72,7 +93,7 @@ function selectFiles(name: string) {
     );
   }
 
-  return matches;
+  return testGroups.get(matches[0]) ?? matches;
 }
 
 const goPackages = new Map<string, string[]>();
@@ -96,7 +117,8 @@ if (requested.length) {
   }
 }
 
-async function run(command: string, args: string[], env = process.env) {
+async function run(command: string, args: string[], env = goEnv) {
+  console.log(`> ${command} ${args.join(' ')}`);
   const child = spawn(command, args, { stdio: 'inherit', env });
   const [code, signal] = await once(child, 'exit');
 
@@ -112,16 +134,31 @@ const needsFixtures =
   goFiles.length > 0 ||
   nodeFiles.some((file) => file.startsWith('tests/parity/'));
 
-if (requested.length && nodeFiles.length) {
-  await run('npm', ['run', 'typecheck']);
-}
+if (skipBuild) {
+  const artifacts = [
+    ...(!requested.length || needsServer ? ['bin/server'] : []),
+    ...(!requested.length ? ['dist/index.html'] : []),
+  ];
 
-if (!requested.length) {
-  await run('npm', ['run', 'build']);
-} else if (needsServer) {
-  await run('npm', ['run', 'build:server']);
-} else if (needsFixtures) {
-  await run('npm', ['run', 'catalog:go']);
+  for (const artifact of artifacts) {
+    if (!existsSync(artifact)) {
+      throw new Error(
+        `Missing ${artifact}; run npm run build before --skip-build`,
+      );
+    }
+  }
+} else {
+  if (requested.length && nodeFiles.length) {
+    await run('npm', ['run', 'typecheck']);
+  }
+
+  if (!requested.length) {
+    await run('npm', ['run', 'build']);
+  } else if (needsServer) {
+    await run('npm', ['run', 'build:server']);
+  } else if (needsFixtures) {
+    await run('npm', ['run', 'catalog:go']);
+  }
 }
 
 if (needsFixtures) {
@@ -142,12 +179,17 @@ if (nodeFiles.length) {
     './tests/support/local-storage.ts',
     '--test',
     '--test-reporter=spec',
+    '--test-reporter-destination=stdout',
+    ...(process.env.CI
+      ? [
+          '--test-reporter=./scripts/test-progress.ts',
+          '--test-reporter-destination=stdout',
+        ]
+      : []),
     `--test-concurrency=${concurrency}`,
     ...nodeFiles,
   ]);
 }
-
-const goEnv = { ...process.env, GOEXPERIMENT: 'simd' };
 
 if (!requested.length) {
   await run('go', ['test', './src/server/...'], goEnv);

@@ -11,6 +11,8 @@ import (
 )
 
 func TestWeaponsAndPurchasedAmmoReplicate(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {

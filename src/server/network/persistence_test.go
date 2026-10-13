@@ -58,6 +58,8 @@ func committedSession(t *testing.T, s *GameSession) {
 }
 
 func TestProgressAndWorldSurviveRestart(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
 	socket := &benchmarkSocket{}
@@ -213,6 +215,8 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 }
 
 func TestCargoTransferSavedAtomically(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
 	socket := &benchmarkSocket{}
@@ -244,6 +248,8 @@ func TestCargoTransferSavedAtomically(t *testing.T) {
 }
 
 func TestCheckpointBudgetAndPlayedTime(t *testing.T) {
+	t.Parallel()
+
 	s, store := persistedSession(t, filepath.Join(t.TempDir(), "world.sqlite"))
 	defer store.Close(context.Background())
 	clock := time.Unix(100000, 0)
@@ -284,6 +290,8 @@ func TestCheckpointBudgetAndPlayedTime(t *testing.T) {
 }
 
 func TestLockedPaintRejected(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}
@@ -310,6 +318,8 @@ func TestLockedPaintRejected(t *testing.T) {
 }
 
 func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
 	socket := &benchmarkSocket{}
@@ -373,6 +383,8 @@ func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
 }
 
 func TestWorldChangesSaveOnlyAffectedPlayers(t *testing.T) {
+	t.Parallel()
+
 	s, store := persistedSession(t, filepath.Join(t.TempDir(), "world.sqlite"))
 	defer store.Close(context.Background())
 	aSocket, bSocket := &benchmarkSocket{}, &benchmarkSocket{}
@@ -433,6 +445,8 @@ func TestWorldChangesSaveOnlyAffectedPlayers(t *testing.T) {
 }
 
 func TestModuleStateSurvivesReconnectAndRestart(t *testing.T) {
+	t.Parallel()
+
 	for _, active := range []bool{false, true} {
 		for _, restart := range []string{"reconnect", "disconnect-restart", "shutdown"} {
 			t.Run(restart+"/"+map[bool]string{false: "closed", true: "open"}[active], func(t *testing.T) {

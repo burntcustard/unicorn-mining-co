@@ -44,6 +44,8 @@ func sellTradeCargo(t *testing.T, s *GameSession, socket *benchmarkSocket) (*obj
 }
 
 func TestTradeModuleBuybackEndsWithVisit(t *testing.T) {
+	t.Parallel()
+
 	for _, exit := range []string{"undock", "disconnect"} {
 		t.Run(exit, func(t *testing.T) {
 			catalog, _ := specs.Load()
@@ -101,6 +103,8 @@ func TestTradeModuleBuybackEndsWithVisit(t *testing.T) {
 }
 
 func TestTradeItemsSurviveRestart(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
 	socket := &benchmarkSocket{}
@@ -154,6 +158,8 @@ func TestTradeItemsSurviveRestart(t *testing.T) {
 }
 
 func TestStationAmmoSupplySurvivesRestart(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
 	socket := &benchmarkSocket{}

@@ -7,6 +7,8 @@ import (
 )
 
 func TestSnapshotCadence(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -68,6 +70,8 @@ func TestSnapshotCadence(t *testing.T) {
 }
 
 func TestSnapshotRoundTrips(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -119,6 +123,8 @@ func TestSnapshotRoundTrips(t *testing.T) {
 }
 
 func TestInputsAcrossServerStall(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -159,6 +165,8 @@ func TestInputsAcrossServerStall(t *testing.T) {
 }
 
 func TestInputsWindowWrapAndCatchUp(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {

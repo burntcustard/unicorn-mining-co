@@ -11,6 +11,8 @@ import (
 )
 
 func TestDisconnectedShipCooldown(t *testing.T) {
+	t.Parallel()
+
 	for _, reconnectEarly := range []bool{false, true} {
 		t.Run(map[bool]string{false: "expires", true: "reconnect-cancels"}[reconnectEarly], func(t *testing.T) {
 			catalog, err := specs.Load()
@@ -88,6 +90,8 @@ func TestDisconnectedShipCooldown(t *testing.T) {
 }
 
 func TestDisconnectedDeadShipDoesNotReappear(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	clock := time.Unix(100000, 0)
@@ -110,6 +114,8 @@ func TestDisconnectedDeadShipDoesNotReappear(t *testing.T) {
 }
 
 func TestFatalDamageDisconnectStillAllowsRespawn(t *testing.T) {
+	t.Parallel()
+
 	for _, disconnectBeforeUpdate := range []bool{false, true} {
 		t.Run(map[bool]string{false: "after-update", true: "before-update"}[disconnectBeforeUpdate], func(t *testing.T) {
 			catalog, _ := specs.Load()

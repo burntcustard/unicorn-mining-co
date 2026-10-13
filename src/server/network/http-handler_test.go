@@ -10,6 +10,8 @@ import (
 )
 
 func TestHTTPHandler(t *testing.T) {
+	t.Parallel()
+
 	root := t.TempDir()
 
 	files := map[string]string{

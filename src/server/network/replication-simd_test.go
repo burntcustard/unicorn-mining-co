@@ -10,6 +10,8 @@ import (
 )
 
 func TestReplicationBlockExact(t *testing.T) {
+	t.Parallel()
+
 	if !archsimd.X86.AVX2() {
 		t.Skip("AVX2 unavailable")
 	}

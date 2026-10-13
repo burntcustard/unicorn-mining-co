@@ -11,6 +11,8 @@ import (
 )
 
 func TestProfileNameSurvivesReconnectRestartAndRespawn(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
 	socket := &benchmarkSocket{}
@@ -70,6 +72,8 @@ func TestProfileNameSurvivesReconnectRestartAndRespawn(t *testing.T) {
 }
 
 func TestProfileNameValidationAndOwnership(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}

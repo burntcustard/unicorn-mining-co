@@ -128,7 +128,8 @@ declarations, and control-flow blocks, including inside function bodies.
 `npm run build` type-checks the client, tests, scripts and benchmark tools, generates the Go catalog from
 `src/specs`, builds browser ES modules, and compiles `bin/server` with
 `GOEXPERIMENT=simd`. `npm run build:client` type-checks and builds browser assets;
-`npm run build:server` generates the catalog and compiles Go.
+`npm run build:server` generates the catalog and compiles a static, stripped Go
+binary with the production flags used for deployment.
 The full build generates the catalog once, during the server build.
 Production CSS passes through PurgeCSS, scanning client HTML, TypeScript, SVGs, and
 shared specs so lazy screens and dynamically created rows keep their styles.
@@ -148,6 +149,16 @@ checks Go physics and collisions; `npm run test src/server tests/parity` runs al
 Go and parity checks.
 Selected integration and parity tests prepare their server/catalog and fixtures
 automatically; client-only selections skip the full build.
+Use `npm test -- --skip-build` after `npm run build` to test existing artifacts
+without rebuilding them. CI reports test starts and completions immediately,
+alongside the normal ordered results.
+Projectile prediction runs as four independent suites covering autogun and
+plasma snapshots, repeated mining, and triangle fractures. Each runs its full
+matrix against both source and production bundles generated from real Go
+snapshots. `npm run test projectile-prediction` still selects all four suites;
+select a suffixed filename to run one group. Go network tests run isolated
+sessions, temporary databases, and ephemeral listeners in parallel, retaining
+their complete assertions and real timeout checks.
 Set `TEST_CONCURRENCY=1` to run the Node tests sequentially.
 `npm run typecheck` and `npm run lint` check the TypeScript source, tests, helpers,
 scripts and benchmark tools. Selected Node tests also run the compiler check before
@@ -222,6 +233,7 @@ volume. Fly's trial stops Machines after five minutes even with `auto_stop_machi
    already exist. This keeps the committed `fly.toml`. Allocate public
    addresses with `fly ips allocate-v4 --shared` and `fly ips allocate-v6`
    (check `fly ips list` first if the app already existed). Deploy with
+   `GOOS=linux GOARCH=amd64 npm run build` followed by
    `fly deploy --ha=false`, then check `fly status`, `fly logs`, and the
    app's `https://<app>.fly.dev/` URL. Verify that exactly one Machine is
    running and `/healthz` returns `ok`.
@@ -243,9 +255,16 @@ volume. Fly's trial stops Machines after five minutes even with `auto_stop_machi
    GitHub Pages publication once the Fly site is working. Inspect Fly logs
    and CPU/memory graphs during the first player session.
 
-The production Dockerfile uses Node to build browser assets and generate the
-catalog, then compiles Go. The final scratch image contains only `server` and
-`dist/`; it has no Node runtime or npm dependencies. The listener binds to
+CI builds `bin/server` and `dist/` once, then runs the full test suite with
+`--skip-build`. Integration tests launch that server binary. Checksums verify
+that the artifacts remain unchanged before Fly packages them. Go unit tests
+and fixture tools still compile their own executables, sharing the cached Go
+dependencies and build outputs with `GOEXPERIMENT=simd`.
+The production Dockerfile copies the tested artifacts into a scratch image;
+it contains only `server` and `dist/`, with no build stages or npm dependencies.
+Manual deployment also requires a Linux amd64 build first. On Linux amd64,
+run `npm test -- --skip-build` before deploying to test that build locally.
+The listener binds to
 `0.0.0.0:$PORT`; `fly.toml` supplies port 8080, HTTPS, and an HTTP health check.
 Its single-world simulation requires one Machine. Player progress and world
 changes persist in SQLite on the `game_data` Fly Volume. Before the first

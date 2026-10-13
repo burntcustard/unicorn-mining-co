@@ -16,6 +16,8 @@ type activitySocket struct {
 func (s *activitySocket) CloseWith(code uint16, _ string) { s.closeCode = code }
 
 func TestDockedPlayerActivity(t *testing.T) {
+	t.Parallel()
+
 	for _, kind := range []string{"activity", "snapshotAck", "none"} {
 		t.Run(kind, func(t *testing.T) {
 			catalog, err := specs.Load()

@@ -121,6 +121,7 @@ create a 1 GB volume if `game_data` does not already exist:
 
 ```sh
 fly volumes create game_data --region lhr --size 1
+GOOS=linux GOARCH=amd64 npm run build
 fly deploy --ha=false
 ```
 

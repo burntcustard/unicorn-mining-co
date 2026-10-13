@@ -42,6 +42,8 @@ func maskedFrame(kind byte, final bool, payload []byte) []byte {
 }
 
 func TestWebSocketReadMessageBoundaries(t *testing.T) {
+	t.Parallel()
+
 	for _, size := range []int{0, 1, 32, 125, 126, 4096, MaxPayload} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
 			payload := bytes.Repeat([]byte{0x91}, size)
@@ -63,6 +65,8 @@ func TestWebSocketReadMessageBoundaries(t *testing.T) {
 }
 
 func TestWebSocketReadMessageInto(t *testing.T) {
+	t.Parallel()
+
 	frames := maskedFrame(OpBinary, true, []byte("first"))
 	frames = append(frames, maskedFrame(OpBinary, false, []byte("fragment"))...)
 	frames = append(frames, maskedFrame(OpPing, true, []byte("ping"))...)
@@ -91,6 +95,8 @@ func TestWebSocketReadMessageInto(t *testing.T) {
 }
 
 func TestWebSocketConcurrentQueueAccounting(t *testing.T) {
+	t.Parallel()
+
 	transport, client := net.Pipe()
 	defer transport.Close()
 	defer client.Close()
@@ -143,6 +149,8 @@ func TestWebSocketConcurrentQueueAccounting(t *testing.T) {
 }
 
 func TestWebSocketConcurrentPayloadOwnership(t *testing.T) {
+	t.Parallel()
+
 	transport, client := net.Pipe()
 	defer transport.Close()
 	defer client.Close()
@@ -221,6 +229,8 @@ func TestWebSocketConcurrentPayloadOwnership(t *testing.T) {
 }
 
 func TestWebSocketFragmentedMessageAndPing(t *testing.T) {
+	t.Parallel()
+
 	frames := maskedFrame(OpBinary, false, []byte("first"))
 	frames = append(frames, maskedFrame(OpPing, true, []byte("ping"))...)
 	frames = append(frames, maskedFrame(OpContinuation, false, nil)...)
@@ -253,6 +263,8 @@ func TestWebSocketFragmentedMessageAndPing(t *testing.T) {
 }
 
 func TestWebSocketRejectsMalformedFrames(t *testing.T) {
+	t.Parallel()
+
 	for _, test := range []struct {
 		name string
 		data []byte
@@ -279,6 +291,8 @@ func TestWebSocketRejectsMalformedFrames(t *testing.T) {
 }
 
 func TestWebSocketPartialReads(t *testing.T) {
+	t.Parallel()
+
 	payload := bytes.Repeat([]byte{0x12, 0x34, 0x56}, 100)
 	frame := maskedFrame(OpBinary, true, payload)
 	socket := &WebSocket{reader: bufio.NewReader(iotest.OneByteReader(bytes.NewReader(frame)))}
@@ -294,6 +308,8 @@ type shortWriteConn struct{ net.Conn }
 func (c shortWriteConn) Write(data []byte) (int, error) { return len(data) - 1, nil }
 
 func TestWebSocketShortWrite(t *testing.T) {
+	t.Parallel()
+
 	transport, client := net.Pipe()
 	defer transport.Close()
 	defer client.Close()
@@ -307,6 +323,8 @@ func TestWebSocketShortWrite(t *testing.T) {
 }
 
 func TestWebSocketOutgoingPayloadOwnership(t *testing.T) {
+	t.Parallel()
+
 	for _, size := range []int{0, 125, 126, 4096, 4097, 65535, 65536} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
 			joined := make(chan *WebSocket, 1)
@@ -341,6 +359,8 @@ func TestWebSocketOutgoingPayloadOwnership(t *testing.T) {
 }
 
 func TestWebSocketQueueAccounting(t *testing.T) {
+	t.Parallel()
+
 	transport, client := net.Pipe()
 	defer transport.Close()
 	defer client.Close()

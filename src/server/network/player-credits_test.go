@@ -10,6 +10,8 @@ import (
 )
 
 func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
 	socket, otherSocket := &benchmarkSocket{}, &benchmarkSocket{}

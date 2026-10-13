@@ -14,6 +14,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-26.04
+    env:
+      CGO_ENABLED: '0'
+      GOEXPERIMENT: simd
 
     steps:
       - uses: actions/checkout@v7
@@ -26,13 +29,23 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build production assets and server
+        run: |
+          npm run build
+          sha256sum bin/server dist/* > "$RUNNER_TEMP/deploy-artifacts.sha256"
+      - name: Test production build
+        run: npm test -- --skip-build
+      - name: Verify tested artifacts
+        run: sha256sum --check "$RUNNER_TEMP/deploy-artifacts.sha256"
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --ha=false
+      - name: Deploy tested artifacts to Fly
+        run: flyctl deploy --ha=false
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -8,6 +8,8 @@ import (
 )
 
 func TestPackedDistanceThresholds(t *testing.T) {
+	t.Parallel()
+
 	r := rand.New(rand.NewPCG(1, 2))
 
 	for n := 0; n < 129; n++ {

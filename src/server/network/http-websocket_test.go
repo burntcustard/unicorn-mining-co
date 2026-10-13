@@ -13,6 +13,8 @@ import (
 )
 
 func TestWebSocketUpgradeAndMaskedBinary(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		socket, err := Upgrade(w, r, false)
 
@@ -98,6 +100,8 @@ func TestWebSocketUpgradeAndMaskedBinary(t *testing.T) {
 }
 
 func TestProductionOriginRejected(t *testing.T) {
+	t.Parallel()
+
 	request := httptest.NewRequest("GET", "http://example.com/game-socket", nil)
 	request.Header.Set("Upgrade", "websocket")
 	request.Header.Set("Connection", "Upgrade")

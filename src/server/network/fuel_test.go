@@ -7,6 +7,8 @@ import (
 )
 
 func TestRefuelAndEmptyTankRespawn(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}

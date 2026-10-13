@@ -10,6 +10,8 @@ import (
 )
 
 func TestStationPhysicsRange(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {

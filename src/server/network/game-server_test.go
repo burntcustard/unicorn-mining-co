@@ -98,6 +98,8 @@ func readServerFrame(reader *bufio.Reader) (byte, []byte, error) {
 }
 
 func TestGameServerReadHeaderTimeout(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -143,6 +145,8 @@ func TestGameServerReadHeaderTimeout(t *testing.T) {
 }
 
 func TestGameServerJoinBetweenTicks(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -180,6 +184,8 @@ func TestGameServerJoinBetweenTicks(t *testing.T) {
 }
 
 func TestGameServerPrepareGreeting(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -223,6 +229,8 @@ func TestGameServerPrepareGreeting(t *testing.T) {
 }
 
 func TestGameServerInputEdgesBetweenTicks(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -302,6 +310,8 @@ func TestGameServerInputEdgesBetweenTicks(t *testing.T) {
 }
 
 func TestGameServerConcurrentConnections(t *testing.T) {
+	t.Parallel()
+
 	catalog, err := specs.Load()
 
 	if err != nil {

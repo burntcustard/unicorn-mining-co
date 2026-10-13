@@ -10,6 +10,8 @@ import (
 )
 
 func TestMenuPreparationWaitsForPlay(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	clock := time.Unix(100000, 0)
@@ -74,6 +76,8 @@ func TestMenuPreparationWaitsForPlay(t *testing.T) {
 }
 
 func TestReturningPilotStaysHiddenUntilPlay(t *testing.T) {
+	t.Parallel()
+
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &benchmarkSocket{}
