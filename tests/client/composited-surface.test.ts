@@ -4,6 +4,7 @@ import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
 
 // These DOM methods remain outside the production transform, like the browser.
 class Canvas {
+  className = '';
   width = 300;
   height = 150;
   isConnected = false;
@@ -101,16 +102,17 @@ import {game} from '${process.cwd()}/src/client/game.ts';
 import {beginSurfaces, endSurfaces, renderSurface} from '${process.cwd()}/src/client/utilities/composited-surface.ts';
 game.canvas = Reflect.get(globalThis, 'surface-foreground');
 game.scale = 1;
-const key = {}, other = {}, cache = {};
+const key = {}, other = {}, spectrum = {}, cache = {};
 const bounds = {left:-10, top:-10, right:10, bottom:10};
 Reflect.set(globalThis, 'surface-test', action => {
   beginSurfaces();
   if (action === 'scale') game.scale = 2;
   let drawn = false;
   if (action !== 'hide') drawn = renderSurface({
-    ctx: game.canvas.getContext('2d'), key: action === 'other' ? other : key, bounds,
-    cache: action === 'change' ? {} : action === 'dynamic-surface' ? undefined : cache,
-    floor: action === 'dynamic-surface',
+    ctx: game.canvas.getContext('2d'), key: action === 'spectrum' ? spectrum : action === 'other' ? other : key, bounds,
+    cache: action === 'change' ? {} : ['dynamic-surface', 'spectrum'].includes(action) ? undefined : cache,
+    floor: ['dynamic-surface', 'spectrum'].includes(action),
+    additive: action === 'spectrum',
     draw: paint => {
       paint.fillRect(-10, -10, 20, 20);
       Reflect.set(globalThis, 'surface-fallback', renderSurface({
@@ -215,6 +217,27 @@ Reflect.set(globalThis, 'surface-test', action => {
       created[0].draws,
       beforeReuse + 2,
       'an old object cannot reuse artwork now owned by another',
+    );
+
+    Reflect.set(foreground.context, 'createPattern', undefined);
+    assert(run('spectrum'), 'WebGL additive light uses a sky-blending surface');
+    assert.equal(children.length, 1);
+    assert.equal(
+      children[0].className,
+      'world-surface world-floor world-spectrum',
+    );
+    assert.equal(
+      Reflect.get(globalThis, 'surface-fallback'),
+      false,
+      'the native paint callback cannot recursively create world surfaces',
+    );
+    run('hide');
+    assert.equal(children.length, 0, 'inactive WebGL spectra leave the DOM');
+    foreground.isConnected = false;
+    assert.equal(
+      run('spectrum'),
+      false,
+      'detached previews keep direct drawing',
     );
   }
 }

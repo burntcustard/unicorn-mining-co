@@ -17,8 +17,8 @@ type Surface = {
 const surfaces = new WeakMap<object, Map<number, Surface>>();
 const active = new Set<Surface>();
 const pools = new Map<number, Surface[]>();
-// Native Canvas can move cached artwork through the compositor. The WebGL
-// adapter submits its geometry directly and has no CanvasPattern API.
+// Native Canvas can move cached artwork through the compositor. WebGL submits
+// ordinary geometry directly, but additive light must blend with the sky too.
 export const composedSurfaces = (ctx: CanvasRenderingContext2D) =>
   typeof ctx.createPattern === 'function';
 
@@ -69,7 +69,7 @@ export const renderSurface = ({
   draw: (ctx: CanvasRenderingContext2D) => void;
 }) => {
   if (
-    !composedSurfaces(ctx) ||
+    (!additive && !composedSurfaces(ctx)) ||
     !game.canvas?.isConnected ||
     ctx.canvas !== game.canvas
   ) {

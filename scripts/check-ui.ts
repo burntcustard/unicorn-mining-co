@@ -690,15 +690,15 @@ checkUi: try {
       await check(
         `[...document.querySelector('[data-renderer]').options].map(option => option.value)`,
       ),
-      ['auto', 'canvas', 'webgl'],
+      ['canvas', 'webgl'],
       'either renderer is available independently of browser',
     );
     await check(
-      `document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'));`,
+      `document.querySelector('[data-renderer]').value = 'webgl'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'));`,
     );
     assert.equal(
       await check(`localStorage.getItem('unicorn-renderer')`),
-      'canvas',
+      'webgl',
     );
     assert(
       await check(
@@ -706,7 +706,7 @@ checkUi: try {
       ),
     );
     await check(
-      `document.querySelector('[data-renderer]').value = 'auto'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'));`,
+      `document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'));`,
     );
     assert(
       await check(`(() => {
@@ -2985,14 +2985,16 @@ checkUi: try {
     await focusDock('[data-command="SELL"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-loadout] [data-key="mount:0"]',
-      'selling a fitted module returns to its empty loadout slot',
+      '[data-candidates]',
+      'selling a fitted module focuses replacements for its empty slot',
     );
+    await expectEmptySlot();
     assert(
       await check(
-        `document.querySelector('[data-back-label]').textContent === 'Launch'`,
+        `document.querySelector('[data-back-label]').textContent === 'Back'
+          && document.querySelector('[data-loadout] [data-key="mount:0"]').getAttribute('aria-pressed') === 'true'`,
       ),
-      'selling a module closes its stale details',
+      'selling a module keeps its vacated slot selected',
     );
     const soldTransaction = await check('fixture.transactionState()');
 
@@ -3008,8 +3010,6 @@ checkUi: try {
       'the sold module reaches station stock',
     );
 
-    await pressKey('Enter');
-    await expectEmptySlot();
     const catalogueKey = await check(
       `document.querySelector('[data-candidates] [data-key^="shop-"]').getAttribute('data-key')`,
     );
@@ -3039,13 +3039,8 @@ checkUi: try {
     await focusDock('[data-command="SELL"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-loadout] [data-key="mount:0"]',
-      'selling the automatically fitted purchase returns to the loadout slot',
-    );
-    await pressKey('Enter');
-    await expectFocus(
       '[data-candidates]',
-      'reopening the slot focuses the list after selling the last owned copy',
+      'selling the automatically fitted purchase focuses replacements for its empty slot',
     );
     await expectEmptySlot();
     assert(
@@ -3191,10 +3186,10 @@ checkUi: try {
       'selling the second fitting candidate preserves the first copy',
     );
     await expectFocus(
-      '[data-key="mount:0"]',
-      'selling from full cargo returns to the loadout',
+      '[data-candidates]',
+      'selling from full cargo keeps replacements for the empty slot focused',
     );
-    await pressKey('Enter');
+    await expectEmptySlot();
     await selectCandidate('[data-candidates] [data-key^="shop-"]', activation);
     await focusDock('[data-command="BUY"]');
     await pressKey(activation);
@@ -3783,7 +3778,9 @@ checkUi: try {
   await click('[data-command="REMOVE"]');
   await expectEmptySlot();
   await click(`[data-candidates] [data-key="${ownedAutogun}"]`);
+  await click('[data-command="EQUIP"]');
   await click('[data-command="SELL"]');
+  await expectEmptySlot();
   assert.equal((await check(`fixture.inspect()`))[1], 1);
   await click('[data-tab="trade"]');
   const soldModule = await check(

@@ -39,25 +39,19 @@ export const saveGraphics = () => {
   window.dispatchEvent(new Event('ui-graphics'));
 };
 
-export let rendererPreference = 'auto';
+export let rendererPreference = 'canvas';
 
 try {
   const saved = localStorage.getItem('unicorn-renderer');
 
-  if (['auto', 'canvas', 'webgl'].includes(saved)) rendererPreference = saved;
+  if (['canvas', 'webgl'].includes(saved)) rendererPreference = saved;
 } catch {
   /* Storage may be unavailable. */
 }
 
-// A starting default, based on measurements. Users can override it for their
-// device and driver. The active canvas context is fixed until the page reloads.
-export const autoWebGL = /Chrome|Chromium/.test(
-  globalThis.navigator?.userAgent || '',
-);
-
-export const useWebGL =
-  rendererPreference === 'webgl' ||
-  (rendererPreference === 'auto' && autoWebGL);
+// Prefer Canvas edge quality; WebGL remains an explicit performance option.
+// The active canvas context is fixed until the page reloads.
+export const useWebGL = rendererPreference === 'webgl';
 
 export const saveRenderer = (value: string) => {
   rendererPreference = value;

@@ -605,8 +605,7 @@ const createDocked = () => {
     );
     query(root, '[data-fuel-usage]').hidden = !module?.fuelUsage;
     const owned = item instanceof Module;
-    const ammo =
-      module?.ammo === autogunAmmo ? autogunAmmo : undefined;
+    const ammo = module?.ammo === autogunAmmo ? autogunAmmo : undefined;
     const equipped = Boolean(mount?.module);
     const hasSpace = ship.cargoContents.length < ship.cargoSpace;
     const available = trading
@@ -1341,8 +1340,8 @@ const createDocked = () => {
           if (sold && item.resource === 0) unlockPaint('CYAN', 'DIAMOND SOLD');
 
           if (sold && selection.tab === 'outfitting') {
-            back();
-            return;
+            selection.candidate = '';
+            inspectedCandidate = '';
           }
 
           if (kind === 'cargo') {

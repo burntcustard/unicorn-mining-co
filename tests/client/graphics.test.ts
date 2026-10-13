@@ -19,6 +19,8 @@ Object.defineProperty(globalThis, 'window', {
 const preferences = await import('../../src/client/ui/dom/graphics.ts');
 const { graphics, restoreGraphics, saveGraphics } = preferences;
 
+assert.equal(preferences.rendererPreference, 'canvas');
+assert.equal(preferences.useWebGL, false);
 assert.deepEqual(graphics, [true, true, true, 1]);
 storage.set(
   'unicorn-graphics',
@@ -70,3 +72,33 @@ assert.equal(
 );
 preferences.saveRenderer('canvas');
 assert.equal(storage.get('unicorn-renderer'), 'canvas');
+
+for (const browser of ['Chrome', 'Firefox']) {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { userAgent: browser },
+    configurable: true,
+  });
+
+  for (const saved of [undefined, 'auto', 'canvas', 'webgl']) {
+    if (saved) {
+      storage.set('unicorn-renderer', saved);
+    } else {
+      storage.delete('unicorn-renderer');
+    }
+
+    const restored = await import(
+      '../../src/client/ui/dom/graphics.ts' +
+        '?renderer=' +
+        browser +
+        '-' +
+        (saved ?? 'default')
+    );
+
+    assert.equal(
+      restored.rendererPreference,
+      saved === 'webgl' ? 'webgl' : 'canvas',
+      `${browser} uses Canvas unless WebGL is explicitly selected`,
+    );
+    assert.equal(restored.useWebGL, saved === 'webgl');
+  }
+}

@@ -11,7 +11,6 @@ import {
   saveGraphics,
   rendererPreference,
   saveRenderer,
-  autoWebGL,
 } from './graphics';
 
 export const createSettings = () => {
@@ -212,8 +211,6 @@ export const createSettings = () => {
 
   const renderer = query<HTMLSelectElement>(screen.element, '[data-renderer]');
 
-  query(renderer, 'option[value="auto"]').textContent =
-    `Auto (${autoWebGL ? 'WebGL2' : 'Canvas'})`;
   renderer.value = rendererPreference;
 
   renderer.addEventListener(
