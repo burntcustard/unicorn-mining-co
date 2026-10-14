@@ -36,6 +36,7 @@ const bundle = await rolldown({
           packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerToken,message.playerId,message.shipId,message.serverTick,message.unlockedPaints,message.credits];},
           packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
           ()=>encodeClientMessage({type:'activity'}),
+          packet=>{const message=decodeServerControl(packet);return message.type==='sounds' ? message.sounds.map(sound=>[sound.effect,sound.id,sound.by,sound.position.x,sound.position.y]) : undefined;},
         ];`
           : undefined,
     },
@@ -52,6 +53,20 @@ const production = (
     `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
   )
 ).default;
+
+const decodeSounds = (packet: Uint8Array) => {
+  const message = decodeServerControl(packet);
+
+  return message.type === 'sounds'
+    ? message.sounds.map((sound) => [
+        sound.effect,
+        sound.id,
+        sound.by,
+        sound.position.x,
+        sound.position.y,
+      ])
+    : undefined;
+};
 
 const source = [
   (playerToken: string | null) =>
@@ -103,6 +118,19 @@ const source = [
     ];
   },
   () => encodeClientMessage({ type: 'activity' }),
+  (packet: Uint8Array) => {
+    const message = decodeServerControl(packet);
+
+    return message.type === 'sounds'
+      ? message.sounds.map((sound) => [
+          sound.effect,
+          sound.id,
+          sound.by,
+          sound.position.x,
+          sound.position.y,
+        ])
+      : undefined;
+  },
 ];
 
 const sockets: WebSocket[] = [];
@@ -267,6 +295,114 @@ try {
   assert.equal(resumed.playerId, first.playerId);
   assert.equal(resumed.shipId, first.shipId);
   await once(sockets.at(-1)!, 'close');
+
+  // A second pilot receives the first pilot's actual server-generated audio.
+  const join = () => {
+    const socket = new WebSocket(
+      address.replace('http', 'ws') + '/game-socket',
+    );
+
+    sockets.push(socket);
+
+    return new Promise<{
+      socket: WebSocket;
+      playerId: number;
+      shipId: number;
+      tick: number;
+    }>((resolveClient, reject) => {
+      let welcome: Extract<
+        ReturnType<typeof decodeServerControl>,
+        { type: 'welcome' }
+      >;
+
+      socket.on('error', reject);
+      socket.on('open', () =>
+        socket.send(encodeClientMessage({ type: 'hello', playerToken: null })),
+      );
+
+      socket.on('message', (data) => {
+        try {
+          const packet = new Uint8Array(data as Buffer);
+
+          if (packet[1] === 0x43) {
+            const control = decodeServerControl(packet);
+
+            if (control.type === 'welcome') welcome = control;
+            return;
+          }
+
+          const snapshot = decodeBinarySnapshot(packet);
+
+          if (snapshot.snapshotSequence !== undefined) {
+            socket.send(
+              encodeClientMessage({
+                type: 'snapshotAck',
+                sequence: snapshot.snapshotSequence,
+              }),
+            );
+          }
+
+          if (welcome) {
+            resolveClient({
+              socket,
+              playerId: welcome.playerId,
+              shipId: welcome.shipId,
+              tick: snapshot.serverTick,
+            });
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+  };
+
+  const actor = await join();
+  const observer = await join();
+
+  const heard = new Promise<void>((resolveSound, reject) => {
+    observer.socket.on('message', (data) => {
+      try {
+        const packet = new Uint8Array(data as Buffer);
+
+        if (packet[1] !== 0x43) return;
+        const original = decodeSounds(packet);
+        const compact = production[6](packet);
+
+        assert.deepEqual(
+          compact,
+          original,
+          'production and source sound codecs agree on the Go audio packet',
+        );
+
+        if (
+          original?.some(
+            (sound: number[]) =>
+              sound[0] === 0 &&
+              sound[1] === actor.shipId &&
+              sound[2] === actor.playerId,
+          )
+        ) {
+          resolveSound();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+
+  actor.socket.send(
+    encodeClientMessage({
+      type: 'input',
+      tick: Math.max(actor.tick, observer.tick),
+      sequence: 1,
+      input: { ...emptyPlayerInput(), cargoHatch: true },
+    }),
+  );
+
+  await heard;
+  actor.socket.close();
+  observer.socket.close();
   console.log(
     'Go assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
   );

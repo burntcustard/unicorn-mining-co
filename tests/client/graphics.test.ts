@@ -21,6 +21,17 @@ const { graphics, restoreGraphics, saveGraphics } = preferences;
 
 assert.equal(preferences.rendererPreference, 'canvas');
 assert.equal(preferences.useWebGL, false);
+assert.equal(
+  preferences.nativeHud,
+  true,
+  'native HUD resolution is the default',
+);
+preferences.saveNativeHud(false);
+assert.equal(preferences.nativeHud, false);
+assert.equal(storage.get('unicorn-native-hud'), 'false');
+preferences.saveNativeHud(true);
+assert.equal(preferences.nativeHud, true);
+assert.equal(storage.get('unicorn-native-hud'), 'true');
 assert.deepEqual(graphics, [true, true, true, 1]);
 storage.set(
   'unicorn-graphics',
@@ -74,6 +85,8 @@ preferences.saveRenderer('canvas');
 assert.equal(storage.get('unicorn-renderer'), 'canvas');
 
 for (const browser of ['Chrome', 'Firefox']) {
+  storage.set('unicorn-native-hud', String(browser === 'Chrome'));
+
   Object.defineProperty(globalThis, 'navigator', {
     value: { userAgent: browser },
     configurable: true,
@@ -100,5 +113,10 @@ for (const browser of ['Chrome', 'Firefox']) {
       `${browser} uses Canvas unless WebGL is explicitly selected`,
     );
     assert.equal(restored.useWebGL, saved === 'webgl');
+    assert.equal(
+      restored.nativeHud,
+      browser === 'Chrome',
+      'HUD resolution restores independently of the renderer',
+    );
   }
 }

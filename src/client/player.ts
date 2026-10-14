@@ -5,8 +5,7 @@ import { startingCredits } from '../specs/player';
 import { mustang } from '../specs/ships';
 import { game } from './game';
 import { colors, paintColors } from '../specs/colors';
-import { updateThrusterSound } from './audio/sound-loader';
-import { type Shades, type Segment } from './types';
+import { type Shades } from './types';
 
 export const player = {
   credits: startingCredits,
@@ -122,35 +121,6 @@ export const updatePlayer = (dt: number) => {
   player.hudAlpha = Math.max(
     0,
     Math.min(1, player.hudAlpha + (player.ship.dockedTo ? -2 : 2) * dt),
-  );
-
-  // Normalize the replicated spin against the same steering limit used by the
-  // simulation. Steering effort also covers braking and reversing direction.
-  const turningSpeed =
-    ((player.ship.spin as number) * 16) /
-    ((player.ship.turnRate as number) *
-      (player.ship.rotationalThrust as number) *
-      (player.ship.launchThrottle as number) ** 2 || 1);
-  const steeringEffort = Math.min(1, Math.abs(player.ship.turn - turningSpeed));
-  const engineLoad = Math.min(
-    1,
-    Math.max(
-      Vec.length(player.ship.velocity) / player.ship.maxSpeed,
-      Math.abs(turningSpeed),
-      steeringEffort * 0.65,
-    ),
-  );
-
-  updateThrusterSound(
-    !player.ship.dead && !player.ship.dockedTo && player.ship.engine.mount
-      ? Math.max(
-          steeringEffort * player.ship.launchThrottle,
-          ...player.ship.segments
-            .filter((segment: Segment) => segment.module === player.ship.engine)
-            .map((segment: Segment) => segment.active),
-        )
-      : 0,
-    engineLoad,
   );
 };
 

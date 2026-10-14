@@ -99,125 +99,28 @@ assert.deepEqual(
   assert.equal(rock.segments, segments, 'older topology checkpoints still rewind');
   assert.equal(rock.position.x, 0);
 }
-const soundCount = Reflect.get(globalThis, 'sounds').length;
-presentEvents({
-  playerId: 1,
-  events: [{ type: 'itemCollected', by: 1, itemId: 888, resource: 0 }],
-});
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  soundCount + 1,
-  'collecting cargo plays a sound',
-);
-assert.equal(
-  Reflect.get(globalThis, 'sounds').at(-1),
-  2,
-  'pickup uses the original pickup effect',
-);
-presentEvents({
-  playerId: 1,
-  events: [{ type: 'itemCollected', by: 2, itemId: 889, resource: 0 }],
-});
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  soundCount + 1,
-  'other pilots do not play our cargo notification',
-);
 const collision = {
-  type: 'collision',
-  a: 10,
-  b: 11,
-  impact: 400,
-  colors: ['#f00', '#0af'],
-  damage: [0, 0],
-  position: Vec.create(7, 3),
+  type: 'collision', a: 10, b: 11, impact: 400,
+  colors: ['#f00', '#0af'], damage: [0, 0], position: Vec.create(7, 3),
 };
 presentEvents({ shipId: 10, events: [collision] });
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  soundCount + 1,
-  'a harmless ship collision does not play the crash effect',
-);
-assert.equal(
-  sparks.length,
-  0,
-  'a fast collision without damage produces no sparks',
-);
-const crashCount = Reflect.get(globalThis, 'sounds').length;
-presentEvents({ shipId: 12, events: [{ ...collision, damage: [0, 2] }] });
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  crashCount,
-  'other objects colliding do not play our crash sound',
-);
-assert.equal(sparks.length, 4, 'only the damaged surface produces sparks');
-assert(
-  sparks.every((spark) => spark.color === '#0af'),
-  'the undamaged surface emits no sparks in its color',
-);
-assert(
-  sparks.every((spark) => spark.position.x === 7 && spark.position.y === 3),
-  'sparks appear at the contact point',
-);
+assert.equal(sparks.length, 0, 'a harmless collision produces no sparks');
+for (const [damage, color] of [[[0, 2], '#0af'], [[2, 0], '#f00']]) {
+  sparks.length = 0;
+  presentEvents({ shipId: 12, events: [{ ...collision, damage }] });
+  assert.equal(sparks.length, 4, 'only the damaged surface produces sparks');
+  assert(sparks.every(spark => spark.color === color), 'sparks use the damaged surface color');
+  assert(sparks.every(spark => spark.position.x === 7 && spark.position.y === 3), 'sparks appear at the contact point');
+}
 sparks.length = 0;
-presentEvents({ shipId: 10, events: [{ ...collision, damage: [0, 2] }] });
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  crashCount,
-  'damaging only the object hit by our ship does not play a crash',
-);
-sparks.length = 0;
-presentEvents({ shipId: 11, events: [{ ...collision, damage: [2, 0] }] });
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  crashCount,
-  'the undamaged ship stays silent with either collider order',
-);
-assert(
-  sparks.every((spark) => spark.color === '#f00'),
-  'damage follows its own surface in either collider order',
-);
-sparks.length = 0;
-presentEvents({ shipId: 10, events: [{ ...collision, damage: [2, 0] }] });
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  crashCount + 1,
-  'damage to our ship hull or an attached module plays a crash',
-);
-assert.equal(
-  Reflect.get(globalThis, 'sounds').at(-1),
-  3,
-  'ship damage uses the crash effect',
-);
-sparks.length = 0;
-presentEvents({ shipId: 11, events: [{ ...collision, damage: [0, 2] }] });
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  crashCount + 2,
-  'damage to our ship plays a crash with either collider order',
-);
-sparks.length = 0;
-const slowCrashCount = Reflect.get(globalThis, 'sounds').length;
-presentEvents({ shipId: 10, events: [{ ...collision, impact: 1 }] });
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  slowCrashCount,
-  'resting contact does not play a crash',
-);
-presentEvents({
-  shipId: 10,
-  events: [{ ...collision, impact: 1, damage: [0, 2] }],
-});
-assert.equal(
-  sparks.length,
-  4,
-  'damaging contacts produce sparks even below the crash-sound speed threshold',
-);
-assert.equal(
-  Reflect.get(globalThis, 'sounds').length,
-  slowCrashCount,
-  'slow damage still does not play the crash sound',
-);
+presentEvents({ shipId: 10, events: [{ ...collision, impact: 1, damage: [0, 2] }] });
+assert.equal(sparks.length, 4, 'damaging contacts produce sparks even below the crash sound threshold');
+const sounds = Reflect.get(globalThis, 'capturedEffects').length;
+presentEvents({ playerId: 1, events: [
+  { type: 'itemCollected', by: 2, itemId: 889, resource: 0 },
+  { ...collision, damage: [2, 2] },
+] });
+assert.equal(Reflect.get(globalThis, 'capturedEffects').length, sounds, 'predicted events leave audio to the authoritative stream');
 sparks.length = 0;
 const packet = JSON.parse(Reflect.get(globalThis, 'packet'));
 const world = createWorld();
@@ -607,19 +510,11 @@ for (const ship of [local, remote]) {
     draws.some((draw) => draw.style === colors.violet[2]),
     'attached cargo hatch uses its light shade',
   );
-  const sounds = Reflect.get(globalThis, 'sounds');
-  const beforeSound = sounds.length;
+  const beforeSound = Reflect.get(globalThis, 'capturedEffects').length;
   ship.updateVisual(1 / 60);
-  assert(
-    sounds.slice(beforeSound).includes(0),
-    'opening a replicated cargo hatch plays its sound',
-  );
   ship.setModuleActive({ module: CargoHatch, active: false });
   ship.updateVisual(1 / 60);
-  assert(
-    sounds.slice(beforeSound).includes(1),
-    'closing a replicated cargo hatch plays its sound',
-  );
+  assert.equal(Reflect.get(globalThis, 'capturedEffects').length, beforeSound, 'snapshot hatch updates do not duplicate authoritative sounds');
 }
 for (const y of [-29, 29]) {
   const craft = new Ship({ shades: colors.cyan });
@@ -1670,7 +1565,7 @@ Object.assign(globalThis, {
   },
 });
 
-Object.assign(globalThis, { sounds: [] });
+Object.assign(globalThis, { capturedEffects: [], soundVolumes: [] });
 
 Object.assign(globalThis, {
   Path2D: class {
@@ -1738,7 +1633,7 @@ for (const production of [false, true]) {
         resolveId: (id) => (id === entry ? entry : undefined),
         load(id: string) {
           if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return "export const playSound=value=>Reflect.get(globalThis, 'sounds').push(value);export const continuousSound=()=>undefined;export const unlockAudio=()=>{};export const updateThrusterSound=()=>{};";
+            return "export const playSound=(value,volume=1)=>{Reflect.get(globalThis, 'capturedEffects').push(value);Reflect.get(globalThis, 'soundVolumes').push(volume)};export const continuousSound=()=>undefined;export const unlockAudio=()=>{};export const updateThrusterSound=()=>{};";
           }
 
           if (id === entry) {

@@ -19,7 +19,7 @@ import {
 
 // @endif
 import { bindAction, initKeys, playerInput, setMenuInput } from './input/input';
-import { defaultKeybindings, moduleBinding } from './input/keybindings';
+import { defaultKeybindings } from './input/keybindings';
 import { network } from './network/network';
 import { camera, centerCamera, followTarget, zoomCamera } from './camera';
 
@@ -31,7 +31,6 @@ import { renderEffects, updateEffects } from './effects/effect';
 import { presentEvents } from './effects/present-events';
 import { GameLoop } from './game-loop';
 import { Ship } from './objects/ship';
-import { SearchLight } from './objects/modules/index';
 import { moduleControls } from './objects/control-ship';
 
 // @ifdef BENCHMARK
@@ -46,9 +45,13 @@ import { game } from './game';
 import { Item } from './objects/item';
 import { beginSurfaces, endSurfaces } from './utilities/composited-surface';
 
-import { playSound, preloadSound } from './audio/sound-loader';
+import { preloadSound } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
+import { remoteSoundVolume } from './audio/remote-sound-volume';
+import { presentWorldSounds } from './audio/present-world-sounds';
+import { updateThrusterSounds } from './audio/update-thruster-sounds';
 import { renderUI } from './ui/ui';
+import { toggleFps } from './ui/fps';
 import { Targeting } from './ui/targeting';
 import { setSizing } from './ui/set-sizing';
 import { type GameObject as SimulationObject } from './objects/game-object';
@@ -210,6 +213,16 @@ const syncPlayerShip = () => {
   }
 };
 
+const craftSoundVolume = (craft: Craft) =>
+  craft.id === player.ship.id
+    ? 1
+    : remoteSoundVolume({
+        position: craft.position,
+        view: camera,
+        width: game.width,
+        height: game.height,
+      });
+
 const syncSimulationObjects = (dt: number) => {
   regionalObjects.forEach((object) => {
     if (object instanceof Craft && object !== player.ship) {
@@ -285,20 +298,11 @@ bindAction(defaultKeybindings.targetNext, (event) => {
   targeting.cycleTarget(event.shiftKey);
 });
 
-moduleControls.forEach(({ Type, input: action }) =>
-  bindAction(moduleBinding(action), () => {
-    if (player.ship.launching || player.ship.dockedTo) return;
-    const segment = player.ship.segments.find(
-      (segment) => segment.module instanceof Type && segment.mount.health > 0,
-    );
-
-    if (!segment || player.ship.dead) return;
-
-    if (action === 'shieldGenerator') playSound(segment.active ? 6 : 7);
-
-    if (Type === SearchLight) playSound(9);
-  }),
-);
+bindAction(defaultKeybindings.fpsCounter, (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  event.preventDefault();
+  toggleFps();
+});
 
 // @ifdef DEBUG
 bindDebug(game);
@@ -542,6 +546,12 @@ const gameLoop = GameLoop({
 
     syncSimulationObjects(dt);
 
+    presentWorldSounds({
+      sounds: network.takeSounds(),
+      playerId: network.playerId,
+      view: { position: camera, width: game.width, height: game.height },
+    });
+
     // Things that happen at 15 Hz, or as soon as sprites
     // come or go, so shipwreck fragments are not left out: refresh the active tier.
     activeTime += dt;
@@ -560,7 +570,8 @@ const gameLoop = GameLoop({
     updateSparks(dt * 1000);
     updatePlayer(dt);
     player.ship.updateVisual(dt);
-    updateHornDrillSounds({ crafts: game.crafts });
+    updateHornDrillSounds({ crafts: game.crafts, volume: craftSoundVolume });
+    updateThrusterSounds({ crafts: game.crafts, volume: craftSoundVolume });
 
     if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
 

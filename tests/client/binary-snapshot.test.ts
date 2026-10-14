@@ -3,6 +3,7 @@ import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot'
 import {
   decodeClientMessage,
   encodeServerControl,
+  decodeServerControl,
 } from '../../src/client/protocol/binary-control';
 import { colors } from '../../src/specs/colors';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
@@ -388,6 +389,56 @@ load.record(2, [
 socket.onmessage?.({ data: load.packet().buffer });
 await client.ready;
 assert.equal(client.connected, true);
+
+const worldSounds = [0, 1, 2, 3, 4, 5, 6, 7, 9].map((effect) => ({
+  effect,
+  id: -130,
+  by: 2,
+  position: { x: -400.25, y: 250.5 },
+}));
+
+const soundsPacket = encodeServerControl({
+  type: 'sounds',
+  sounds: worldSounds,
+});
+
+assert.deepEqual(decodeServerControl(soundsPacket), {
+  type: 'sounds',
+  sounds: worldSounds,
+});
+
+socket.onmessage?.({ data: soundsPacket });
+assert.deepEqual(
+  client.takeSounds(),
+  worldSounds,
+  'network delivers every gameplay sound, including remote actions',
+);
+assert.deepEqual(
+  client.takeSounds(),
+  [],
+  'taking sounds consumes the packet exactly once',
+);
+
+assert.throws(
+  () =>
+    encodeServerControl({
+      type: 'sounds',
+      sounds: [{ ...worldSounds[0], effect: 8 }],
+    }),
+  'UI bleeps cannot enter the multiplayer stream',
+);
+
+const invalidSoundPacket = soundsPacket.slice();
+
+invalidSoundPacket[5] = 8;
+assert.throws(
+  () => decodeServerControl(invalidSoundPacket),
+  'remote UI sound packets are rejected',
+);
+assert.throws(
+  () => decodeServerControl(soundsPacket.slice(0, -1)),
+  'truncated sound packets are rejected',
+);
 assert.equal(client.player.credits, 500);
 assert.deepEqual(
   [...client.player.unlockedPaints],

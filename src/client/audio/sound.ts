@@ -2,7 +2,7 @@
 let audio: AudioContext | 0 = 0;
 const loopBuffers: (AudioBuffer | undefined)[] = [];
 const effectBuffers: (AudioBuffer | undefined)[] = [];
-const effectNextPlay: number[] = [];
+const effectNextPlay = new Map<string, [number, number]>();
 
 interface Sound extends AudioBufferSourceNode {
   gain: AudioParam;
@@ -122,13 +122,28 @@ const effectData = (
   .split(',')
   .map(Number);
 
-export const playSound = (effect: number) => {
+export const playSound = (
+  effect: number,
+  {
+    volume = 1,
+    id = 0,
+    by = 0,
+  }: { volume?: number; id?: number; by?: number } = {},
+) => {
   // A real key gesture unlocks audio. Drop effects before that first gesture.
-  if (!audio || audio.state !== 'running') return;
+  if (!audio || audio.state !== 'running' || volume <= 0) return;
   const time = audio.currentTime;
 
-  if (time < effectNextPlay[effect]) return;
-  effectNextPlay[effect] = time + 0.1;
+  const key = `${effect}:${id}:${by}`;
+  const previous = effectNextPlay.get(key);
+
+  if (previous && time < previous[0] && volume <= previous[1]) return;
+
+  effectNextPlay.forEach(([deadline], key) => {
+    if (deadline <= time) effectNextPlay.delete(key);
+  });
+
+  effectNextPlay.set(key, [time + 0.1, volume]);
 
   // Render each complete effect once. Rapid playback then reuses one buffer.
   if (!effectBuffers[effect]) {
@@ -138,6 +153,7 @@ export const playSound = (effect: number) => {
     const length = ((attack + decay) * sampleRate) | 0;
 
     let filtered = 0;
+    let bass = 0;
     let t = 0;
 
     effectBuffers[effect] = soundBuffer(length, (i: number) => {
@@ -150,15 +166,23 @@ export const playSound = (effect: number) => {
       );
       const sample = wave * envelope * volume;
 
-      return (filtered +=
-        (sample - filtered) * (cutoff ? cutoff / (cutoff + sampleRate) : 1));
+      filtered +=
+        (sample - filtered) * (cutoff ? cutoff / (cutoff + sampleRate) : 1);
+      // Subtract a gentle 30 Hz low-pass to soften asteroid-break sub-bass.
+      bass +=
+        (filtered - bass) *
+        (effect === 4 ? (2 * Math.PI * 30) / sampleRate : 0);
+      return filtered - bass;
     });
   }
 
   const source = (audio as AudioContext).createBufferSource();
+  const gain = (audio as AudioContext).createGain();
 
   source.buffer = effectBuffers[effect];
-  source.connect((audio as AudioContext).destination);
+  gain.gain.value = volume;
+  source.connect(gain);
+  gain.connect((audio as AudioContext).destination);
   source.start();
 };
 
@@ -188,20 +212,23 @@ export const continuousSound = (
   return sound;
 };
 
-let thrusterSound: Sound | 0 = 0;
-
 // One engine voice for the whole ship, independent of its nozzle count.
-export const updateThrusterSound = (power: number, load = 0) => {
-  if (!audio || audio.state !== 'running') return;
+export const updateThrusterSound = (
+  sound: Sound | 0 | undefined,
+  {
+    power,
+    load = 0,
+    volume = 1,
+  }: { power: number; load?: number; volume?: number },
+) => {
   const revs = load * 1.2;
 
-  thrusterSound =
-    continuousSound(
-      thrusterSound,
-      (power * (0.24 + revs)) / 2,
-      0.7 + revs,
-      1,
-    ) || 0;
+  return continuousSound(
+    sound,
+    (power * (0.24 + revs) * volume) / 2,
+    0.7 + revs,
+    1,
+  );
 };
 
 export default {

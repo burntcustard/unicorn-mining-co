@@ -409,6 +409,8 @@ func (s *GameSession) Tick(ticks uint64) {
 	batch := s.binaryBatch.Begin(view)
 
 	s.players.ForEach(func(p *playerRecord, _ string) { s.sendSnapshot(p, view, batch) })
+
+	s.sendWorldSounds(events)
 }
 
 func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch *BinarySnapshotBatch) {

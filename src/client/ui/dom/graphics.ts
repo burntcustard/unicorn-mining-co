@@ -39,6 +39,26 @@ export const saveGraphics = () => {
   window.dispatchEvent(new Event('ui-graphics'));
 };
 
+export let nativeHud = true;
+
+try {
+  nativeHud = localStorage.getItem('unicorn-native-hud') !== 'false';
+} catch {
+  /* Use native display resolution when storage is unavailable. */
+}
+
+export const saveNativeHud = (value: boolean) => {
+  nativeHud = value;
+
+  try {
+    localStorage.setItem('unicorn-native-hud', String(value));
+  } catch {
+    /* Apply for this visit. */
+  }
+
+  window.dispatchEvent(new Event('ui-graphics'));
+};
+
 export let rendererPreference = 'canvas';
 
 try {

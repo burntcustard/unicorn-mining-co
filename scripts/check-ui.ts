@@ -708,6 +708,23 @@ checkUi: try {
     await check(
       `document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'));`,
     );
+    assert.equal(
+      await check(`document.querySelector('[data-hud-resolution]').value`),
+      'native',
+      'HUD defaults to native display resolution',
+    );
+
+    for (const value of ['world', 'native']) {
+      await check(
+        `document.querySelector('[data-hud-resolution]').value = '${value}'; document.querySelector('[data-hud-resolution]').dispatchEvent(new Event('change'));`,
+      );
+      assert.equal(
+        await check(`localStorage.getItem('unicorn-native-hud')`),
+        String(value === 'native'),
+        'HUD resolution persists independently of world settings',
+      );
+    }
+
     assert(
       await check(`(() => {
     const selected = getComputedStyle(document.querySelector('[data-graphics]'));
@@ -1503,6 +1520,68 @@ checkUi: try {
   );
   const graphics = await check('fixture.checkGraphics()');
   const bays = await check('fixture.checkStationBay()');
+
+  for (const renderer of ['canvas', 'webgl']) {
+    await check(`localStorage.setItem('unicorn-renderer', '${renderer}')`);
+    await c.send('Page.reload');
+    await pause(250);
+    await check(
+      `(async () => { window.fixture = await import('./fixture.js'); })()`,
+    );
+
+    for (const density of [1, 1.25, 1.5, 2]) {
+      await c.send('Emulation.setDeviceMetricsOverride', {
+        width: 1280,
+        height: 900,
+        deviceScaleFactor: density,
+        mobile: false,
+      });
+
+      const [results, cleared, legacy, world] = await check(
+        'fixture.checkHudText()',
+      );
+
+      for (const [resolution, width, height, difference, visible] of results) {
+        assert.equal(
+          width,
+          1280 * density,
+          'HUD width follows display density',
+        );
+        assert.equal(
+          height,
+          900 * density,
+          'HUD height follows display density',
+        );
+        assert(visible, 'HUD text contains visible pixels');
+        assert(
+          difference < 0.05,
+          `${renderer}, density ${density}, world ${resolution}: cached and native text differ by ${difference}`,
+        );
+      }
+
+      assert(cleared, 'switching HUD resolution clears the previous overlay');
+      assert.deepEqual(
+        legacy,
+        world,
+        'legacy HUD resolution follows the world',
+      );
+    }
+  }
+
+  await check(`localStorage.setItem('unicorn-renderer', 'canvas')`);
+
+  await c.send('Emulation.setDeviceMetricsOverride', {
+    width: 1280,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+
+  await c.send('Page.reload');
+  await pause(250);
+  await check(
+    `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
+  );
 
   bays.forEach(
     ({ rotation, difference }: { rotation: number; difference: number }) => {

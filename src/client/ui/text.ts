@@ -49,17 +49,32 @@ export function renderText({
   ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
   ctx.fillStyle = color;
 
-  const scale = uiScale * size;
+  const transform = document.fonts.check?.('16px Gemetric')
+    ? ctx.getTransform()
+    : undefined;
+  const scaleX = transform?.a;
+  const scaleY = transform?.d;
   let cached;
 
-  if (scale > 0 && document.fonts.check?.('16px Gemetric')) {
+  if (scaleX > 0 && scaleY > 0 && !transform.b && !transform.c) {
+    // Rasterize at the final HUD density and place both native and cached
+    // text on whole pixels so the bitmap never needs a second resampling.
+    ctx.setTransform(
+      scaleX,
+      0,
+      0,
+      scaleY,
+      Math.round(transform.e),
+      Math.round(transform.f),
+    );
     let images = textImages.get(ctx);
 
     if (!images) textImages.set(ctx, (images = new Map()));
     const readout = /^[\d /-]+$/.test(displayText);
     const key = JSON.stringify([
       readout ? [x, y] : displayText,
-      scale,
+      scaleX,
+      scaleY,
       align,
       color,
     ]);
@@ -85,16 +100,16 @@ export function renderText({
       (!readout && ++cached.uses === 8)
     ) {
       const metrics = ctx.measureText(displayText);
-      const left = Math.floor((-metrics.actualBoundingBoxLeft - 2) * scale);
+      const left = Math.floor((-metrics.actualBoundingBoxLeft - 2) * scaleX);
       const top = Math.floor(
-        (13 - metrics.actualBoundingBoxAscent - 2) * scale,
+        (13 - metrics.actualBoundingBoxAscent - 2) * scaleY,
       );
       const image = cached.image || document.createElement('canvas');
 
       const width =
-        Math.ceil((metrics.actualBoundingBoxRight + 2) * scale) - left;
+        Math.ceil((metrics.actualBoundingBoxRight + 2) * scaleX) - left;
       const height =
-        Math.ceil((13 + metrics.actualBoundingBoxDescent + 2) * scale) - top;
+        Math.ceil((13 + metrics.actualBoundingBoxDescent + 2) * scaleY) - top;
 
       if (image.width !== width) image.width = width;
 
@@ -104,7 +119,7 @@ export function renderText({
       paint.resetTransform();
       paint.clearRect(0, 0, image.width, image.height);
       paint.translate(-left, -top);
-      paint.scale(scale, scale);
+      paint.scale(scaleX, scaleY);
       paint.font = ctx.font;
       paint.textAlign = ctx.textAlign;
       paint.textBaseline = ctx.textBaseline;
@@ -118,19 +133,18 @@ export function renderText({
       Object.assign(cached, {
         image,
         text: displayText,
-        left: left / scale,
-        top: top / scale,
+        left,
+        top,
       });
     }
   }
 
   if (cached?.image) {
+    ctx.resetTransform();
     ctx.drawImage(
       cached.image,
-      cached.left!,
-      cached.top!,
-      cached.image.width / scale,
-      cached.image.height / scale,
+      Math.round(transform.e) + cached.left!,
+      Math.round(transform.f) + cached.top!,
     );
   } else {
     ctx.strokeText(displayText, 0, 13);

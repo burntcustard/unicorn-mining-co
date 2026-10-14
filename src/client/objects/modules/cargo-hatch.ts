@@ -1,5 +1,3 @@
-import { type Segment } from '../../types';
-import { playSound } from '../../audio/sound-loader';
 import { type ModuleSpec } from '../../../specs/modules/types';
 import { moduleSpecs } from '../../../specs/modules/index';
 import { Module, type ModuleRenderOptions } from './module';
@@ -151,13 +149,6 @@ class CargoHatchModule extends Module {
 
   render({ segment }: ModuleRenderOptions) {
     if (!segment.catches) super.render({ segment });
-  }
-
-  updateVisual({ segments }: { dt: number; segments: Segment[] }) {
-    const active = Boolean(segments.some((segment) => segment.active));
-
-    if (active !== Boolean(this.lastActive)) playSound(active ? 0 : 1);
-    this.lastActive = active;
   }
 }
 

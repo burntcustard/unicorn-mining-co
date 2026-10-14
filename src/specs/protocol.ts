@@ -11,6 +11,7 @@ export const controlMessageIds = {
   prepare: 8,
   play: 9,
   profile: 10,
+  sounds: 11,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {

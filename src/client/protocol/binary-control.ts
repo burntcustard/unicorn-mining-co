@@ -6,7 +6,7 @@ import { controlMessageIds, dockActionIds } from '../../specs/protocol';
 
 type ServerControl = Extract<
   ServerMessage,
-  { type: 'welcome' | 'respawn' | 'progress' | 'profile' }
+  { type: 'welcome' | 'respawn' | 'progress' | 'profile' | 'sounds' }
 >;
 
 const {
@@ -21,6 +21,7 @@ const {
   prepare,
   play,
   profile,
+  sounds,
 } = controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -585,6 +586,31 @@ export function decodeClientMessage(
 export function encodeServerControl(
   message: ServerControl,
 ): Uint8Array<ArrayBuffer> {
+  if (message.type === 'sounds') {
+    const writer = new ControlWriter(sounds);
+
+    writer.unsigned(message.sounds.length);
+
+    message.sounds.forEach((sound) => {
+      if (
+        !Number.isInteger(sound.effect) ||
+        sound.effect < 0 ||
+        sound.effect > 9 ||
+        sound.effect === 8
+      ) {
+        throw new Error('Invalid gameplay sound');
+      }
+
+      writer.byte(sound.effect);
+      writer.signed(sound.id);
+      writer.unsigned(sound.by);
+      writer.number(sound.position.x);
+      writer.number(sound.position.y);
+    });
+
+    return writer.finish();
+  }
+
   if (message.type === 'profile') {
     const writer = new ControlWriter(profile);
 
@@ -654,6 +680,34 @@ export function decodeServerControl(
   let message: ServerControl;
 
   switch (reader.type) {
+    case sounds: {
+      const count = reader.unsigned();
+
+      if (count > reader.remaining / 19) {
+        throw new Error('Invalid binary control');
+      }
+
+      message = {
+        type: 'sounds',
+        sounds: Array.from({ length: count }, () => {
+          const effect = reader.byte();
+
+          if (effect > 9 || effect === 8) {
+            throw new Error('Invalid gameplay sound');
+          }
+
+          return {
+            effect,
+            id: reader.signed(),
+            by: reader.unsigned(),
+            position: Vec.create(reader.number(), reader.number()),
+          };
+        }),
+      };
+
+      break;
+    }
+
     case profile:
       message = { type: 'profile', displayName: reader.string() };
       break;
@@ -713,6 +767,7 @@ export function decodeServerControl(
   if (
     message.type !== 'respawn' &&
     message.type !== 'profile' &&
+    message.type !== 'sounds' &&
     message.credits !== undefined &&
     message.credits < 0
   ) {

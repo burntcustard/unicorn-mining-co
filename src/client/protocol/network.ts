@@ -3,6 +3,7 @@ import { type PlayerInput } from './input';
 import { type AsteroidSegment } from './entities';
 import { type ModuleState } from '../objects/craft';
 import { type WreckageSegment } from '../objects/wreckage-segment';
+import { type WorldSound } from './sounds';
 
 export type NetworkVector = Vec.Value;
 export type ReplicatedModule = ModuleState;
@@ -79,6 +80,7 @@ export type ClientMessage =
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | { type: 'sounds'; sounds: WorldSound[] }
   | { type: 'profile'; displayName: string }
   | { type: 'progress'; unlockedPaints: number; credits?: number }
   | {

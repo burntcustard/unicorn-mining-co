@@ -5,6 +5,7 @@ import { renderIndicators } from './indicators';
 import * as Vec from '../utilities/vector';
 import { type Ship } from '../objects/ship';
 import { renderText } from './text';
+import { renderFps } from './fps';
 
 export const renderUI = (
   game: GameState,
@@ -51,6 +52,10 @@ export const renderUI = (
 
   game.ctx.globalAlpha = game.uiAlpha;
 
+  const gap = 40;
+  const credits = `$${player.credits}`;
+  const cargo = `CARGO ${player.ship.cargoContents.length}/${player.ship.cargoSpace}`;
+
   if (player.ship.lowFuel) {
     game.ctx.globalAlpha =
       game.uiAlpha * (0.5 + Math.sin(Date.now() / 300) / 2);
@@ -59,7 +64,7 @@ export const renderUI = (
   renderText({
     game,
     text: `FUEL ${Math.ceil((player.ship.fuel / player.ship.fuelCapacity) * 100)}%`,
-    x: game.uiWidth - 120,
+    x: game.uiWidth - 20 - cargo.length * 13 - gap,
     y: 20,
     size: 1,
     align: 1,
@@ -67,7 +72,8 @@ export const renderUI = (
 
   game.ctx.globalAlpha = game.uiAlpha;
 
-  renderText({ game, text: `$${player.credits}`, x: 20, y: 20, size: 1 });
+  renderText({ game, text: credits, x: 20, y: 20, size: 1 });
+  renderFps({ game, x: 20 + credits.length * 13 + gap });
 
   if (player.ship.cargoContents.length >= player.ship.cargoSpace) {
     game.ctx.globalAlpha =
@@ -76,7 +82,7 @@ export const renderUI = (
 
   renderText({
     game,
-    text: `${player.ship.cargoContents.length}/${player.ship.cargoSpace}`,
+    text: cargo,
     x: game.uiWidth - 20,
     y: 20,
     size: 1,

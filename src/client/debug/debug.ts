@@ -4,7 +4,6 @@ import { playSound, testTone } from '../audio/sound-loader';
 import { bindKeys } from '../input/input';
 import { colors } from '../../specs/colors';
 import { colorsDemo } from './colors-demo';
-import { renderFps } from './fps';
 import { renderText } from '../ui/text';
 import { sky } from '../background/background';
 import { textDemo } from './text-demo';
@@ -95,50 +94,48 @@ export const renderDebug = ({
     renderDeadzone(game);
   }
 
-  renderFps(game);
-
   renderText({
     game,
     text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`,
     x: 20,
-    y: 90,
+    y: 70,
   });
 
   renderText({
     game,
     text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`,
     x: 20,
-    y: 110,
+    y: 90,
   });
 
   renderText({
     game,
     text: `4 ZONE-BORDERS:${showDeadzone ? 'ON' : 'OFF'}`,
     x: 20,
-    y: 130,
+    y: 110,
   });
 
   renderText({
     game,
     text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`,
     x: 20,
-    y: 150,
+    y: 130,
   });
 
-  renderText({ game, text: `6 SKY:${sky.label}`, x: 20, y: 170 });
+  renderText({ game, text: `6 SKY:${sky.label}`, x: 20, y: 150 });
 
   renderText({
     game,
     text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`,
     x: 20,
-    y: 190,
+    y: 170,
   });
 
   renderText({
     game,
     text: `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`,
     x: 20,
-    y: 210,
+    y: 190,
   });
 
   if (showMass) {

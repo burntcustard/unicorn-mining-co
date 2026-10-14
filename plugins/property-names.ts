@@ -124,6 +124,7 @@ export const propertyNames = [
   'kind',
   'label',
   'level',
+  'sounds',
   'lines',
   // 'load', // Must preserve the native FontFaceSet.load method.
   'loaded',

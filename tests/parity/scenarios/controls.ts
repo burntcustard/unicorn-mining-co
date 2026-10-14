@@ -51,6 +51,15 @@ const client: ClientMessage[] = [
 ];
 
 const server = [
+  {
+    type: 'sounds' as const,
+    sounds: [0, 1, 2, 3, 4, 5, 6, 7, 9].map((effect) => ({
+      effect,
+      id: -130,
+      by: 2,
+      position: { x: -400.25, y: 250.5 },
+    })),
+  },
   { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
   {
     type: 'welcome' as const,

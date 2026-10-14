@@ -26,6 +26,7 @@ type controlFixture struct {
 	}
 	Server []struct {
 		Message struct {
+			Sounds                       []WorldSound
 			DisplayName                  *string
 			UnlockedPaints               *uint8
 			Credits                      *float64
@@ -102,7 +103,8 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		message := fixture.Message
 
 		got, err := EncodeServerControl(ServerControl{
-			Type: message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
+			Sounds: message.Sounds,
+			Type:   message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
 			ServerTick: message.ServerTick, PlayerToken: message.PlayerToken,
 			WorldSeed: message.WorldSeed, Spawn: message.Spawn,
 			DisplayName: message.DisplayName, Credits: message.Credits, UnlockedPaints: message.UnlockedPaints,

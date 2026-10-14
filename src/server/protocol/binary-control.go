@@ -38,6 +38,7 @@ type Control struct {
 }
 
 type ServerControl struct {
+	Sounds                       []WorldSound
 	DisplayName                  *string
 	Credits                      *float64
 	UnlockedPaints               *uint8
@@ -453,6 +454,25 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 }
 
 func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, error) {
+	if message.Type == "sounds" {
+		w := controlWriter(ids.ControlMessageIDs["sounds"])
+		w.unsigned(uint64(len(message.Sounds)))
+
+		for _, sound := range message.Sounds {
+			if sound.Effect > 9 || sound.Effect == 8 || sound.By < 0 || math.IsNaN(sound.Position.X) || math.IsNaN(sound.Position.Y) || math.IsInf(sound.Position.X, 0) || math.IsInf(sound.Position.Y, 0) {
+				return nil, ErrControl
+			}
+
+			w.byte(sound.Effect)
+			w.signed(sound.ID)
+			w.unsigned(uint64(sound.By))
+			w.number(sound.Position.X)
+			w.number(sound.Position.Y)
+		}
+
+		return w.data, nil
+	}
+
 	if message.Type == "profile" && message.DisplayName != nil {
 		w := controlWriter(ids.ControlMessageIDs["profile"])
 

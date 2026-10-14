@@ -153,6 +153,30 @@ assert.equal(
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' }));
 changes.length = 0;
 
+let fpsToggles = 0;
+
+input.bindAction(input.defaultKeybindings.fpsCounter, () => fpsToggles++);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
+assert.equal(fpsToggles, 1, 'F toggles FPS once until released');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+assert.equal(fpsToggles, 2, 'a second tap toggles FPS again');
+input.defaultKeybindings.fpsCounter.keys = ['v'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+assert.equal(fpsToggles, 2, 'rebinding removes the default FPS key');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'V' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'v' }));
+assert.equal(fpsToggles, 3, 'the rebound FPS key works immediately');
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
+assert.equal(fpsToggles, 3, 'menu keys do not toggle FPS');
+input.setMenuInput(false);
+input.defaultKeybindings.fpsCounter.keys = ['f'];
+
 let targetRequests = 0;
 
 input.bindAction(input.defaultKeybindings.targetNext, () => targetRequests++);

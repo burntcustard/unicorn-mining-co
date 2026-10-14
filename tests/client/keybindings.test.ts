@@ -15,8 +15,10 @@ try {
   const defaults = await loadBindings('defaults');
 
   assert.deepEqual(defaults.defaultKeybindings.targetNext.keys, ['t']);
+  assert.deepEqual(defaults.defaultKeybindings.fpsCounter.keys, ['f']);
+  assert.equal(defaults.defaultKeybindings.fpsCounter.mode, 'toggle');
   const legacy = defaults.bindingEntries
-    .slice(0, -1)
+    .slice(0, -2)
     .map(([, binding]) => [...binding.keys]);
 
   legacy[0] = ['q'];
@@ -24,15 +26,36 @@ try {
   const migrated = await loadBindings('legacy');
 
   assert.deepEqual(
-    migrated.bindingEntries.slice(0, -1).map(([, binding]) => binding.keys),
+    migrated.bindingEntries.slice(0, -2).map(([, binding]) => binding.keys),
     legacy,
     'adding targeting preserves old saved bindings',
   );
   assert.deepEqual(migrated.defaultKeybindings.targetNext.keys, ['t']);
+  assert.deepEqual(migrated.defaultKeybindings.fpsCounter.keys, ['f']);
   migrated.defaultKeybindings.targetNext.keys = ['n'];
-  migrated.saveBindings();
+  localStorage.setItem(
+    'unicorn-controls',
+    JSON.stringify(
+      migrated.bindingEntries.slice(0, -1).map(([, binding]) => binding.keys),
+    ),
+  );
+  const withTargeting = await loadBindings('with-targeting');
+
+  assert.deepEqual(withTargeting.defaultKeybindings.targetNext.keys, ['n']);
+  assert.deepEqual(
+    withTargeting.defaultKeybindings.fpsCounter.keys,
+    ['f'],
+    'adding the FPS shortcut preserves saved targeting and flight bindings',
+  );
+  withTargeting.defaultKeybindings.fpsCounter.keys = ['v'];
+  withTargeting.saveBindings();
   const reloaded = await loadBindings('reloaded');
 
+  assert.deepEqual(
+    reloaded.defaultKeybindings.fpsCounter.keys,
+    ['v'],
+    'FPS binding survives reload',
+  );
   assert.deepEqual(
     reloaded.defaultKeybindings.targetNext.keys,
     ['n'],
@@ -40,6 +63,11 @@ try {
   );
   assert.deepEqual(reloaded.defaultKeybindings.forwardThrust.keys, ['q']);
   reloaded.resetBindings();
+  assert.deepEqual(
+    reloaded.defaultKeybindings.fpsCounter.keys,
+    ['f'],
+    'reset restores the default FPS key',
+  );
   assert.deepEqual(
     reloaded.defaultKeybindings.targetNext.keys,
     ['t'],

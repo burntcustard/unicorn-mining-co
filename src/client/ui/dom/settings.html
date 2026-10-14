@@ -27,14 +27,14 @@
     <button class="uppercase button" data-reset>Reset to defaults</button>
   </section>
   <section
-    class="ui-scroll grid gap-4 ui-control-panel"
+    class="ui-scroll grid gap-6 ui-control-panel"
     data-graphics-panel
     hidden
   >
     <h3 class="uppercase text-sm text-muted">Effects</h3>
     <div>
       <label class="uppercase ui-row gap-6 py-2">
-        Starfield
+        Stars
         <input type="checkbox" data-graphic="0" />
       </label>
       <label class="uppercase ui-row gap-6 py-2">
@@ -56,11 +56,14 @@
           <option value="webgl">WebGL2</option>
         </select>
       </label>
-      <p>Canvas renderer looks slightly better, however WebGL2 may improve performance. Reload to apply.</p>
+      <p>
+        Canvas renderer looks slightly better, however WebGL2 may improve
+        performance. Reload to apply.
+      </p>
     </div>
     <div>
       <label class="uppercase ui-row gap-6 py-2">
-        Rendering resolution
+        World rendering resolution
         <select class="ui-input" data-resolution>
           <option value="0.5">50%</option>
           <option value="0.75">75%</option>
@@ -70,6 +73,19 @@
         </select>
       </label>
       <p>Changes apply immediately. Lower resolution reduces rendering work.</p>
+    </div>
+    <div>
+      <label class="uppercase ui-row gap-6 py-2">
+        HUD resolution
+        <select class="ui-input" data-hud-resolution>
+          <option value="native">Native display (default)</option>
+          <option value="world">Match world</option>
+        </select>
+      </label>
+      <p>
+        Native keeps text sharp with display scaling. Match world can reduce
+        memory and rendering work. Changes apply immediately.
+      </p>
     </div>
   </section>
   <p class="ui-status" role="status"></p>

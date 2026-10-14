@@ -3,7 +3,7 @@ declare global {
 }
 
 import { WorldRenderer } from './utilities/world-renderer';
-import { useWebGL } from './ui/dom/graphics';
+import { nativeHud, useWebGL } from './ui/dom/graphics';
 
 /* global canvas */
 
@@ -19,7 +19,11 @@ let renderer: WorldRenderer;
 let hud: HTMLCanvasElement;
 
 export const hudContext = () => {
-  if (!renderer) return context;
+  if (!renderer && !nativeHud) {
+    hud?.parentNode.removeChild(hud);
+    hud = undefined;
+    return context;
+  }
 
   if (!hud) {
     hud = document.createElement('canvas');
@@ -28,24 +32,40 @@ export const hudContext = () => {
     canvas.after(hud);
   }
 
-  if (hud.width !== canvas.width || hud.height !== canvas.height) {
-    hud.width = canvas.width;
-    hud.height = canvas.height;
+  const width = nativeHud
+    ? Math.round(window.innerWidth * (window.devicePixelRatio || 1))
+    : canvas.width;
+  const height = nativeHud
+    ? Math.round(window.innerHeight * (window.devicePixelRatio || 1))
+    : canvas.height;
+
+  if (hud.width !== width || hud.height !== height) {
+    hud.width = width;
+    hud.height = height;
   }
 
-  return hud.getContext('2d');
+  const ctx = hud.getContext('2d');
+
+  // Keep world and HUD coordinates aligned while their pixel densities differ.
+  ctx.setTransform(width / canvas.width, 0, 0, height / canvas.height, 0, 0);
+  return ctx;
 };
 
 export const clearFrame = () => {
   context.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (renderer) hudContext().clearRect(0, 0, canvas.width, canvas.height);
+  if (hud) {
+    const ctx = hud.getContext('2d');
+
+    ctx.resetTransform();
+    ctx.clearRect(0, 0, hud.width, hud.height);
+  }
 };
 
 export const presentFrame = () => renderer?.present();
 
 export const init = () => {
-  // Both rendering paths preserve the drawing API and native pixel density.
+  // Both world rendering paths preserve the drawing API.
   if (useWebGL) {
     renderer = WorldRenderer.create(canvas);
   }

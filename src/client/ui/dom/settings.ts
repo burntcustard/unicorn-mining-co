@@ -11,6 +11,8 @@ import {
   saveGraphics,
   rendererPreference,
   saveRenderer,
+  nativeHud,
+  saveNativeHud,
 } from './graphics';
 
 export const createSettings = () => {
@@ -50,8 +52,10 @@ export const createSettings = () => {
     );
 
     row.append(text, button);
-    // Keep targeting beside flight and weapon controls.
-    (i < 4 || bindingEntries[i][1] === defaultKeybindings.targetNext
+    // Keep targeting and HUD shortcuts beside flight and weapon controls.
+    (i < 4 ||
+    bindingEntries[i][1] === defaultKeybindings.targetNext ||
+    bindingEntries[i][1] === defaultKeybindings.fpsCounter
       ? bindings
       : moduleBindings
     ).append(row);
@@ -206,6 +210,18 @@ export const createSettings = () => {
       graphics[3] = Number(resolution.value);
       saveGraphics();
     },
+    { signal: screen.signal },
+  );
+
+  const hudResolution = query<HTMLSelectElement>(
+    screen.element,
+    '[data-hud-resolution]',
+  );
+
+  hudResolution.value = nativeHud ? 'native' : 'world';
+  hudResolution.addEventListener(
+    'change',
+    () => saveNativeHud(hudResolution.value === 'native'),
     { signal: screen.signal },
   );
 

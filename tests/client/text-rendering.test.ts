@@ -13,19 +13,23 @@ assert.equal(typeof document.fonts.load, 'function',
   'the production property rewrite must preserve native FontFaceSet.load');
 const strokes = [], transforms = [], styles = [], calls = [];
 const ctx = {
+  matrix: {a: 1, b: 0, c: 0, d: 1, e: 0, f: 0},
   fillStyle: '#123', strokeStyle: '#456', font: '10px serif',
   textAlign: 'right', textBaseline: 'bottom', lineJoin: 'bevel', lineCap: 'butt', lineWidth: 7,
-  save() { styles.push({...this}); },
+  save() { styles.push({...this, matrix: {...this.matrix}}); },
   restore() { Object.assign(this, styles.pop()); },
-  scale(...values) { transforms.push(values); },
-  translate(...values) { transforms.push(values); },
+  scale(...values) { transforms.push(values); this.matrix.a *= values[0]; this.matrix.d *= values[1]; },
+  translate(...values) { transforms.push(values); this.matrix.e += this.matrix.a * values[0]; this.matrix.f += this.matrix.d * values[1]; },
+  getTransform() { return {...this.matrix}; },
+  setTransform(a, b, c, d, e, f) { this.matrix = {a, b, c, d, e, f}; },
+  resetTransform() { this.setTransform(1, 0, 0, 1, 0, 0); },
   stroke(path) { strokes.push([path, this.strokeStyle, this.lineWidth, this.lineJoin, this.lineCap]); },
   strokeText(...args) { calls.push(['stroke', ...args, this.strokeStyle, this.font, this.textAlign, this.textBaseline, this.lineJoin, this.lineWidth]); },
   fillText(...args) { calls.push(['fill', ...args, this.fillStyle]); },
 };
 const game = {ctx, uiScale: 2};
 const allocations = Reflect.get(globalThis, 'pathAllocations');
-const initial = {...ctx};
+const initial = {...ctx, matrix: {...ctx.matrix}};
 renderText({game, text: 'Aé😀m+.J', x: 50, y: 20, size: 1, align: 0, color: '#f0f'});
 assert.equal(Reflect.get(globalThis, 'pathAllocations'), allocations,
   'native text allocates no Path2D geometry');
@@ -76,8 +80,8 @@ for (let frame = 0; frame < 12; frame++) {
 }
 assert.equal(calls.length, 14, 'the first seven frames draw text natively');
 assert.equal(images.length, 5, 'unchanged labels reuse their pixel image');
-assert.deepEqual(images[0].slice(1), [-15, -2, 30, 17, .35],
-  'font ink bounds include the outline and preserve centering and caller opacity');
+assert.deepEqual(images[0].slice(1), [70, 36, .35],
+  'cached text copies pixels directly, preserving centering, outline and caller opacity');
 assert.equal(images[0][0].width, 60);
 assert.equal(images[0][0].height, 34);
 assert.deepEqual(Reflect.get(globalThis, 'text-image-options'), {willReadFrequently: true},
@@ -104,6 +108,24 @@ for (let index = 0; index < 40; index++) {
 const beforeEviction = images.length;
 renderText({game: cachedGame, text: 'AB', x: 50, y: 20, size: 1, align: 0});
 assert.equal(images.length, beforeEviction, 'a bounded cache evicts labels after enough other values');
+for (const density of [1, 1.25, 1.5, 2]) {
+  for (const resolution of [.5, 1, 2]) {
+    const base = density / resolution;
+    cachedContext.setTransform(base, 0, 0, base, 0, 0);
+    cachedGame.uiScale = 1.25 * resolution;
+    const state = cachedContext.getTransform();
+    renderText({game: cachedGame, text: '12', x: 50.2, y: 20.1, size: 1, align: 0});
+    const [image, x, y, alpha] = images.at(-1);
+    const scale = density * 1.25;
+    assert.equal(image.width, Math.ceil(15 * scale) - Math.floor(-15 * scale),
+      'text raster density follows the display independently of world resolution');
+    assert.equal(image.height, Math.ceil(15 * scale) - Math.floor(-2 * scale));
+    assert.equal(x, Math.round(50.2 * scale) + Math.floor(-15 * scale));
+    assert.equal(y, Math.round(20.1 * scale) + Math.floor(-2 * scale));
+    assert.equal(alpha, .35);
+    assert.deepEqual(cachedContext.getTransform(), state, 'text restores the HUD transform');
+  }
+}
 console.log('Native font drawing, layout, fallback cells, canvas state and non-text outlines passed');
 `;
 

@@ -1,5 +1,4 @@
 import { type SimulationEvent } from '../protocol/events';
-import { playSound } from '../audio/sound-loader';
 import { sprayDamage } from './shrapnel';
 import { addEffect } from './effect';
 
@@ -10,7 +9,6 @@ export const presentEvents = ({
   events,
   onMessage,
   playerId,
-  shipId,
 }: {
   events: SimulationEvent[];
   onMessage?: (note: { message: string; unlock?: string }) => void;
@@ -34,8 +32,6 @@ export const presentEvents = ({
     } else if (event.type === 'itemCollected') {
       if (event.by !== playerId) return;
 
-      playSound(2);
-
       if (event.message) {
         onMessage?.({ message: event.message, unlock: event.unlock });
       }
@@ -56,20 +52,7 @@ export const presentEvents = ({
             ? Math.min(2, event.damage)
             : event.damage,
       });
-    } else if (
-      event.type === 'asteroidSplit' ||
-      event.type === 'asteroidDestroyed'
-    ) {
-      playSound(4);
     } else if (event.type === 'collision') {
-      if (
-        event.impact >= 40 &&
-        ((event.a === shipId && event.damage[0] > 0) ||
-          (event.b === shipId && event.damage[1] > 0))
-      ) {
-        playSound(3);
-      }
-
       event.colors.forEach((color, index) => {
         if (
           event.damage[index] > 0 &&

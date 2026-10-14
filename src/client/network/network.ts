@@ -12,6 +12,7 @@ import {
 } from '../protocol/binary-control';
 import { decodeBinarySnapshot } from '../protocol/binary-snapshot';
 import { type SimulationEvent } from '../protocol/events';
+import { type WorldSound } from '../protocol/sounds';
 import {
   type ClientMessage,
   type ReplicatedEntity,
@@ -226,6 +227,7 @@ export class NetworkClient {
   connected = false;
   private entityRecords = new Map<number, ReplicatedEntity>();
   readonly events: SimulationEvent[] = [];
+  readonly sounds: WorldSound[] = [];
   private inputTickStartedAt = performance.now();
   private lastActivitySentAt = -Infinity;
   private pendingEntities = new Map<
@@ -437,6 +439,7 @@ export class NetworkClient {
       this.pendingProfile = undefined;
       this.pendingTime = 0;
       this.events.length = 0;
+      this.sounds.length = 0;
       this.pendingDockActions.length = 0;
       this.player.credits = this.authoritativeCredits;
 
@@ -518,6 +521,11 @@ export class NetworkClient {
   }
 
   private receive({ message }: { message: ServerMessage }) {
+    if (message.type === 'sounds') {
+      if (this.connected) this.sounds.push(...message.sounds);
+      return;
+    }
+
     if (message.type === 'profile') {
       this.displayName = message.displayName;
       this.pendingProfile?.resolve();
@@ -556,6 +564,7 @@ export class NetworkClient {
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
       this.events.length = 0;
+      this.sounds.length = 0;
       this.remoteMotion.reset();
       this.prediction.reset();
       localStorage.setItem('playerToken', message.playerToken);
@@ -784,6 +793,10 @@ export class NetworkClient {
 
   takeEvents() {
     return this.events.splice(0);
+  }
+
+  takeSounds() {
+    return this.sounds.splice(0);
   }
 
   update({

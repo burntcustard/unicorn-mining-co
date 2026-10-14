@@ -17,10 +17,12 @@ export const unlockAudio = () =>
     ? sound.unlockAudio()
     : preloadSound().then((module) => module.unlockAudio());
 
-export const playSound = (effect: number) => {
-  if (sound) return sound.playSound(effect);
+export const playSound = (
+  ...settings: Parameters<SoundModule['playSound']>
+) => {
+  if (sound) return sound.playSound(...settings);
 
-  return loading?.then((module) => module.playSound(effect));
+  return loading?.then((module) => module.playSound(...settings));
 };
 
 export const continuousSound = (

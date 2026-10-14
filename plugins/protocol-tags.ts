@@ -42,6 +42,7 @@ export const protocolTags = [
   'prepare',
   'play',
   'profile',
+  'sounds',
 ];
 
 /**

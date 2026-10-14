@@ -3,12 +3,126 @@ import { DrawingPath } from '../../src/client/utilities/drawing-path';
 import { Station } from '../../src/client/objects/station';
 import { game } from '../../src/client/game';
 import { renderingLayers } from '../../src/specs/rendering-layers';
+import { clearFrame, hudContext } from '../../src/client/core';
+import {
+  graphics,
+  nativeHud,
+  saveNativeHud,
+} from '../../src/client/ui/dom/graphics';
+import { renderText } from '../../src/client/ui/text';
+import { setSizing } from '../../src/client/ui/set-sizing';
 import {
   beginSurfaces,
   endSurfaces,
 } from '../../src/client/utilities/composited-surface';
 
 const createPath = () => new DrawingPath();
+
+export const checkHudText = async () => {
+  await document.fonts.load('16px Gemetric');
+  const previousResolution = graphics[3];
+  const previousNative = nativeHud;
+  const width = game.canvas.width;
+  const height = game.canvas.height;
+  const hudGame = { ...game, size: 1.5 };
+  const results = [];
+
+  try {
+    saveNativeHud(true);
+
+    for (const resolution of [0.5, 1, 2]) {
+      graphics[3] = resolution;
+      setSizing(hudGame);
+      const ctx = hudContext();
+      const hud = ctx.canvas;
+      let difference = 0;
+      let visible = false;
+
+      hudGame.ctx = ctx;
+
+      for (const align of [-1, 0, 1]) {
+        for (const size of [0.6, 1]) {
+          let first: Uint8ClampedArray;
+
+          for (let frame = 0; frame < 10; frame++) {
+            clearFrame();
+            hudContext();
+
+            renderText({
+              game: hudGame,
+              text: 'CARGO 12/34',
+              x: 200.3,
+              y: 20.1,
+              size,
+              align,
+            });
+
+            const pixels = ctx.getImageData(
+              0,
+              0,
+              Math.min(hud.width, 1000),
+              Math.min(hud.height, 150),
+            ).data;
+
+            if (!frame) first = pixels;
+
+            if (frame === 9) {
+              visible ||= pixels.some((value) => value > 0);
+              let error = 0;
+              let ink = 0;
+
+              // Compare premultiplied ink, allowing small glyph-edge coverage
+              // differences when text is rasterized at a different origin.
+              for (let i = 0; i < pixels.length; i += 4) {
+                const alpha = pixels[i + 3];
+                const expectedAlpha = first[i + 3];
+
+                error += Math.abs(alpha - expectedAlpha);
+                ink += expectedAlpha;
+
+                for (let channel = 0; channel < 3; channel++) {
+                  error +=
+                    Math.abs(
+                      pixels[i + channel] * alpha -
+                        first[i + channel] * expectedAlpha,
+                    ) / 255;
+                  ink += (first[i + channel] * expectedAlpha) / 255;
+                }
+              }
+
+              difference = Math.max(difference, error / ink);
+            }
+          }
+        }
+      }
+
+      results.push([resolution, hud.width, hud.height, difference, visible]);
+    }
+
+    saveNativeHud(false);
+    clearFrame();
+    const overlay =
+      document.querySelector<HTMLCanvasElement>('.foreground-hud');
+    const cleared = !overlay
+      .getContext('2d')
+      .getImageData(0, 0, overlay.width, overlay.height)
+      .data.some((value) => value);
+    const legacy = hudContext().canvas;
+
+    return [
+      results,
+      cleared,
+      [legacy.width, legacy.height],
+      [game.canvas.width, game.canvas.height],
+    ];
+  } finally {
+    graphics[3] = previousResolution;
+    saveNativeHud(previousNative);
+    game.canvas.width = width;
+    game.canvas.height = height;
+    clearFrame();
+  }
+};
 
 export const checkStationBay = () => {
   const canvas = document.createElement('canvas');
