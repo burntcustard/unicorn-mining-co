@@ -2,7 +2,6 @@ import { ui, updateNotification } from './ui/dom/ui';
 import { preloadDockedUi, syncDockedUi } from './ui/dom/docked-loader';
 import { renderingLayers } from '../specs/rendering-layers';
 import { init, hudContext } from './core';
-import { dockDuration } from '../specs/camera';
 import * as Vec from './utilities/vector';
 import { Craft } from './objects/craft';
 import { Projectile } from './objects/projectile';
@@ -573,8 +572,6 @@ const gameLoop = GameLoop({
     updateHornDrillSounds({ crafts: game.crafts, volume: craftSoundVolume });
     updateThrusterSounds({ crafts: game.crafts, volume: craftSoundVolume });
 
-    if (game.uiVisible) game.uiAlpha = Math.min(1, game.uiAlpha + 2 * dt);
-
     activeSprites.forEach(
       (sprite) => !sprite.dead && !sprite.networked && sprite.update(dt),
     );
@@ -598,12 +595,10 @@ const start = async () => {
 
   if (network.shipDestroyed) {
     centerCamera(game, { position: network.spawnPosition });
-    game.uiVisible = 1;
-    game.uiAlpha = 1;
-  } else {
-    // Keep the camera transition clear before bringing the HUD into view.
-    setTimeout(() => (game.uiVisible = 1), dockDuration * 1000);
   }
+
+  game.uiVisible = 1;
+  game.uiAlpha = 1;
 
   gameStarted = true;
   gameLoop.start();
