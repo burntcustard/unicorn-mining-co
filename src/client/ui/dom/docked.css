@@ -62,12 +62,19 @@
     display: none;
   }
 
-  .dock-row:is(:hover, :focus-visible, [aria-pressed='true']) {
+  .dock-row:is(
+    :hover:not(:where(.dock-keyboard *)),
+    :focus-visible:not(:where(.dock-pointer *)),
+    [aria-pressed='true']
+  ) {
     outline: none;
     z-index: 1;
   }
 
-  .dock-row:is(:hover, :focus-visible):not([aria-pressed='true']) {
+  .dock-row:is(
+      :hover:not(:where(.dock-keyboard *)),
+      :focus-visible:not(:where(.dock-pointer *))
+    ):not([aria-pressed='true']) {
     border-color: var(--ui-color);
     outline: var(--ui-border-width) solid var(--ui-color);
     outline-offset: calc(-1 * var(--ui-border-width));
@@ -189,7 +196,12 @@
     height: 100%;
   }
 
-  .dock-footer button:is(:hover, :focus-visible) .dock-launch-icon {
+  .dock-footer
+    button:is(
+      :hover:not(:where(.dock-keyboard *)),
+      :focus-visible:not(:where(.dock-pointer *))
+    )
+    .dock-launch-icon {
     opacity: 1;
   }
 
@@ -292,7 +304,11 @@
     text-overflow: ellipsis;
   }
 
-  .dock-trade-row:is(:hover, :focus-visible) .dock-trade-name::after {
+  .dock-trade-row:is(
+      :hover:not(:where(.dock-keyboard *)),
+      :focus-visible:not(:where(.dock-pointer *))
+    )
+    .dock-trade-name::after {
     content: attr(data-trade-action);
     flex: none;
     margin-inline-start: auto;

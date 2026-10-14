@@ -85,7 +85,10 @@
     transition: opacity 0.2s ease;
   }
 
-  .ui-highlight:is(:hover, :focus-visible):not(:disabled)::before {
+  .ui-highlight:is(
+      :hover:not(:where(.dock-keyboard *)),
+      :focus-visible:not(:where(.dock-pointer *))
+    ):not(:disabled)::before {
     opacity: 1;
   }
 
@@ -103,9 +106,13 @@
     text-shadow: 0 0 8px rgb(from #4df r g b / 0.5);
   }
 
-  :focus-visible {
+  :focus-visible:not(:where(.dock-pointer *)) {
     outline: 2px solid #fff;
     outline-offset: 2px;
+  }
+
+  :where(.dock-pointer) :focus-visible {
+    outline: none;
   }
 
   .ui-arrow-navigation .ui-choice:focus-visible {
@@ -236,7 +243,13 @@
     padding-inline: 12px;
   }
 
-  .ui-surface :where(button:enabled:is(:hover, :focus-visible)) {
+  .ui-surface
+    :where(
+      button:enabled:is(
+          :hover:not(:where(.dock-keyboard *)),
+          :focus-visible:not(:where(.dock-pointer *))
+        )
+    ) {
     outline: 2px solid var(--ui-color);
     outline-offset: -2px;
   }
@@ -364,7 +377,11 @@
     transition: border-bottom-color 0.2s ease;
   }
 
-  .ui-tab:is(:hover, :focus-visible, [aria-current='page']) {
+  .ui-tab:is(
+    :hover:not(:where(.dock-keyboard *)),
+    :focus-visible:not(:where(.dock-pointer *)),
+    [aria-current='page']
+  ) {
     border-bottom-color: var(--ui-color);
     outline: none;
   }

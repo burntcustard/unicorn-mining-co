@@ -83,6 +83,11 @@ const createDocked = () => {
   let currentItem: Module | typeof Module | ItemSpec;
   let currentKey = '';
 
+  const setKeyboard = (keyboard: boolean) => {
+    root.classList.toggle('dock-keyboard', keyboard);
+    root.classList.toggle('dock-pointer', !keyboard);
+  };
+
   const text = (selector: string, value: string) => {
     query(root, selector).textContent = value;
   };
@@ -924,6 +929,10 @@ const createDocked = () => {
         event.key === 'ArrowLeft' || event.key === 'ArrowRight';
       const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
 
+      if (horizontal || vertical || ['Tab', 'Enter', ' '].includes(event.key)) {
+        setKeyboard(true);
+      }
+
       if (event.key === 'Tab') {
         ui.element.classList.remove('ui-arrow-navigation');
         const index = available.indexOf(focused as HTMLButtonElement);
@@ -1056,12 +1065,18 @@ const createDocked = () => {
     { capture: true, signal: screen.signal },
   );
 
-  ['focusin', 'pointermove'].forEach((type) => {
+  ['focusin', 'pointermove', 'pointerdown'].forEach((type) => {
     root.addEventListener(
       type,
       (event) => {
         const target = event.composedPath()[0] as HTMLElement;
         const element = target.closest<HTMLElement>('[data-key]');
+
+        if (type !== 'focusin') {
+          setKeyboard(false);
+        } else if (target.matches(':focus-visible')) {
+          setKeyboard(true);
+        }
 
         if (
           type === 'focusin' &&

@@ -2262,6 +2262,39 @@ checkUi: try {
     await focusDock(firstStock);
     await pressKey('ArrowDown');
     await expectFocus(secondStock, 'Down focuses the next stock item');
+
+    if (activation === 'Enter') {
+      await hover(firstStock);
+      const stockHighlights = () =>
+        check(`['${firstStock}', '${secondStock}'].map(selector => {
+          const row = document.querySelector(selector);
+          return [getComputedStyle(row).outlineStyle,
+            getComputedStyle(row.querySelector('.dock-trade-name'), '::after').content];
+        })`);
+
+      assert.deepEqual(
+        await stockHighlights(),
+        [
+          ['solid', '"BUY"'],
+          ['none', 'none'],
+        ],
+        'pointer hover hides the separate keyboard outline and trade action',
+      );
+      await pressKey('ArrowRight');
+      await expectFocus(
+        secondStock,
+        'hover preserves the keyboard navigation position',
+      );
+      assert.deepEqual(
+        await stockHighlights(),
+        [
+          ['none', 'none'],
+          ['solid', '"BUY"'],
+        ],
+        'an arrow key hides the stationary hover outline and trade action even when focus stays put',
+      );
+    }
+
     await pressKey('ArrowUp');
     await expectFocus(firstStock, 'Up returns to the previous stock item');
     await pressKey('ArrowLeft');
