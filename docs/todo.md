@@ -22,6 +22,14 @@
 [x] Fix horizontal menu selecting BACK instead of colors when down pressed
 [x] Further improve server CPU performance, limits still hit with 2 players
 [x] Fix crash sound not playing
+[ ] Move repair and refuel to same side
+[ ] Fix orange not unlocking?
+[ ] Make it more clear that cargo hatch slots accept guns
+[ ] Multiplayer dying/respawning very broken sometimes?
+[ ] Laser beam not seen by other players? Ensure effects are always seen
+[ ] Gun comes with ammo? Or make more clear
+[ ] New world gen with worm-gates and worm-holes
+[ ] New sounds
 
 ## MVP
 
