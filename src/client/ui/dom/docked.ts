@@ -1170,11 +1170,11 @@ const createDocked = () => {
   root.addEventListener(
     'click',
     (event) => {
-      const element = (
-        event.composedPath()[0] as HTMLElement
-      ).closest<HTMLButtonElement>('button');
+      const target = event.composedPath()[0] as HTMLElement;
+      const element = target.closest<HTMLButtonElement>('button');
 
       if (!element) {
+        if (target.closest('.dock-detail')) return;
         root.querySelector<HTMLElement>(':focus')?.blur();
         return open(selection.tab);
       }

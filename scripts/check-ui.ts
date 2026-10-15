@@ -4077,7 +4077,7 @@ checkUi: try {
   );
 
   for (const [button, background] of [
-    ['[data-key="hull:0"]', '[data-title]'],
+    ['[data-key="hull:0"]', '.dock-preview'],
     ['[data-key="mount:1"]', '.dock-preview'],
     ['[data-hull-paint]', '[data-ship-name]'],
   ]) {
@@ -4085,6 +4085,52 @@ checkUi: try {
 
     await click(`[data-tab="${painting ? 'overview' : 'outfitting'}"]`);
     await click(button);
+    const title = await check(
+      `document.querySelector('[data-title]').textContent`,
+    );
+
+    for (const content of [
+      '[data-location]',
+      '[data-title]',
+      '[data-description]',
+    ]) {
+      if (
+        !(await check(
+          `!!document.querySelector('${content}').getClientRects().length`,
+        ))
+      ) {
+        continue;
+      }
+
+      await click(content);
+      assert(
+        await check(`document.querySelector('${button}').getAttribute('aria-pressed') === 'true'
+          && document.querySelector('[data-title]').textContent === ${JSON.stringify(title)}
+          && document.querySelector('[data-back-label]').textContent === 'Back'`),
+        'clicking card content preserves the selected object and its details',
+      );
+    }
+
+    const [x, y] = await check(`(() => {
+      const box = document.querySelector('.dock-detail').getBoundingClientRect();
+      return [box.x + 8, box.y + 8];
+    })()`);
+
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await c.send('Input.dispatchMouseEvent', {
+        type,
+        x,
+        y,
+        button: 'left',
+        clickCount: 1,
+      });
+    }
+
+    assert(
+      await check(`document.querySelector('${button}').getAttribute('aria-pressed') === 'true'
+        && document.querySelector('[data-title]').textContent === ${JSON.stringify(title)}`),
+      'clicking card padding preserves the selected object and its details',
+    );
     await click(background);
     assert(
       await check(`document.querySelector('[data-title]').textContent === '${painting ? 'Ship overview' : 'Outfitting'}'
@@ -4093,7 +4139,7 @@ checkUi: try {
         && !document.querySelector('.dock-energy').classList.contains('dock-inspecting')
         && document.querySelector('[data-back-label]').textContent === 'Launch'
         && !document.querySelector('.dock-screen :focus')`),
-      'clicking non-button content clears selection, inspection and detail focus',
+      'clicking outside the card clears selection, inspection and detail focus',
     );
   }
 
