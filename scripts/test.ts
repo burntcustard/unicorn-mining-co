@@ -118,7 +118,6 @@ if (requested.length) {
 }
 
 async function run(command: string, args: string[], env = goEnv) {
-  console.log(`> ${command} ${args.join(' ')}`);
   const child = spawn(command, args, { stdio: 'inherit', env });
   const [code, signal] = await once(child, 'exit');
 
@@ -191,14 +190,8 @@ if (nodeFiles.length) {
     '--import',
     './tests/support/local-storage.ts',
     '--test',
-    '--test-reporter=spec',
+    '--test-reporter=./scripts/test-reporter.ts',
     '--test-reporter-destination=stdout',
-    ...(process.env.CI
-      ? [
-          '--test-reporter=./scripts/test-progress.ts',
-          '--test-reporter-destination=stdout',
-        ]
-      : []),
     `--test-concurrency=${concurrency}`,
     ...nodeFiles,
   ]);
