@@ -20,7 +20,7 @@ assert.deepEqual(
   { type: 'dock', ...action },
 );
 assert(ship.applyDockAction(action, account));
-assert.equal(account.credits, 94);
+assert.equal(account.credits, 90);
 assert.equal(ship.hullHealth[0], ship.hullSegments[0].health);
 assert.equal(ship.hullHealth[1], 10, 'repair leaves other hull pieces damaged');
 assert.equal(

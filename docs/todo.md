@@ -26,7 +26,7 @@
 [ ] Fix orange not unlocking?
 [ ] Make it more clear that cargo hatch slots accept guns
 [ ] Multiplayer dying/respawning very broken sometimes?
-[ ] Laser beam not seen by other players? Ensure effects are always seen
+[x] Laser beam not seen by other players? Ensure effects are always seen
 [ ] Gun comes with ammo? Or make more clear
 [ ] New world gen with worm-gates and worm-holes
 [ ] New sounds

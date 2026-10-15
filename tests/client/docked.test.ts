@@ -60,7 +60,7 @@ sparks.length = 0;
 // A hull segment destroyed by an impact also breaks off as short-lived,
 // physical wreckage instead of disappearing with the surviving hull's split.
 const battered = new Ship({shades: colors.white}).addToScene();
-const corner = battered.segments.find(({ hull, health }) => hull && health === 8);
+const corner = battered.segments.find(({ hull, health }) => hull && health === 12);
 corner.health = 0;
 battered.update(0);
 const hullWreckage = game.crafts.at(-1);
@@ -95,7 +95,7 @@ const thrusterHull=[
   {health:100,core:true,points:[[8,0],[20,0],[-16,20]]}
 ];
 assert.equal(ship.name,'Mustang','ship instances keep their display names under production transforms');
-assert.equal(ship.hullMaxHealth, 186, 'Ship hull has twice its original 93 HP');
+assert.equal(ship.hullMaxHealth, 194, 'Mustang hull includes both 12 HP corner segments');
 const sentActions = [];
 setCraftActionDispatcher((ship, action) => {
   const applied = ship.applyDockAction(action, player);

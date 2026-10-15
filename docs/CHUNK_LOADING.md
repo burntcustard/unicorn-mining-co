@@ -42,12 +42,7 @@ The font remains preloaded by HTML.
   and shared state must agree across separately emitted chunks.
 
 `npm run test property-mangling` checks shared property names across chunks.
-After `npm run build`, start `npm run dev:server` and
-`npm run preview -- --strictPort`, then run `npm run test:ui`. It checks the menu
-loading triggers and exercises the real docking loader with separately emitted
-production-transformed chunks. Bundling both sides into one test file cannot
-validate that boundary. Stop the servers after testing.
-
-Use `UI_MENU_ONLY=1 npm run test:ui` to check startup and menu loading without
-the docking fixture, or `UI_DOCK_ONLY=1 npm run test:ui` for the docking fixture.
-Set `CHROME_BIN` when the browser executable is not named `chromium`.
+The browser tests verify menu loading triggers and exercise the real docking
+loader with separately emitted production-transformed chunks. Bundling both
+sides into one test file cannot validate that boundary. See the
+[browser test instructions](../README.md#browser-tests) for setup and commands.

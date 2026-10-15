@@ -27,7 +27,7 @@ func TestIndividualHullRepair(t *testing.T) {
 		t.Fatal("repair failed")
 	}
 
-	if credits != 94 || ship.HullHealth()[0] != 8 || ship.HullHealth()[1] != 10 {
+	if credits != 90 || ship.HullHealth()[0] != 12 || ship.HullHealth()[1] != 10 {
 		t.Fatal("repair changed wrong hull or charged wrong amount")
 	}
 

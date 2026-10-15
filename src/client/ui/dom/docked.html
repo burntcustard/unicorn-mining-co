@@ -28,27 +28,13 @@
       <div class="text-xl" data-balance></div>
     </div>
   </header>
-  <div class="dock-summary ui-row gap-8">
-    <div class="ui-inline gap-8">
+  <div class="dock-workspace">
+    <div class="dock-summary ui-row gap-8">
       <h2 class="text-xl uppercase" data-ship-name></h2>
-      <span class="uppercase text-muted text-sm">
-        Hull
-        <span class="text-color ml-4" data-hull-condition></span>
-      </span>
     </div>
-    <div class="ui-actions gap-6 ui-inline">
-      <button class="uppercase button" data-repair-all>
-        Repair all
-        <span class="text-muted text-sm" data-repair-total></span>
-      </button>
-      <button class="uppercase button" data-hull-paint>Hull paint</button>
-    </div>
-  </div>
-  <div class="dock-workspace gap-6">
     <aside class="ui-scroll" data-sidebar>
       <div data-overview>
-        <h2 class="uppercase">Ship overview</h2>
-        <dl class="dock-overview-stats gap-4 my-8">
+        <dl class="dock-overview-stats gap-4 mb-8">
           <dt class="uppercase">Hull</dt>
           <dd data-hull-total></dd>
           <dt class="uppercase">Modules fitted</dt>
@@ -61,13 +47,15 @@
           <dd data-generation></dd>
         </dl>
         <nav class="grid gap-3 mt-6 uppercase">
-          <button class="button" data-refuel>
+          <button class="button ui-row" data-refuel>
             Refuel
             <span data-fuel-price></span>
           </button>
-          <button class="button" data-open="outfitting">Outfitting</button>
-          <button class="button" data-open="trade">Trade</button>
-          <button class="button" data-open="services">Services</button>
+          <button class="button ui-row" data-repair-all>
+            Repair all
+            <span data-repair-total></span>
+          </button>
+          <button class="button" data-hull-paint>Hull paint</button>
         </nav>
       </div>
       <div data-outfitting hidden>

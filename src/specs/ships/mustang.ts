@@ -18,7 +18,7 @@ export const mustang = {
   ],
   hullSegments: [
     {
-      health: 8,
+      health: 12,
       points: [
         [-16, -36],
         [-4, -36],
@@ -153,7 +153,7 @@ export const mustang = {
       ],
     },
     {
-      health: 8,
+      health: 12,
       points: [
         [-16, 20],
         [-4, 36],

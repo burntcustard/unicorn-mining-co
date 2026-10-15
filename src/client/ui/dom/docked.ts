@@ -92,9 +92,9 @@ const createDocked = () => {
     query(root, selector).textContent = value;
   };
 
-  const money = (value: number) => `$${value.toLocaleString('en-US')}`;
+  const money = (value: number) => `${value.toLocaleString('en-US')}$`;
   const health = (value: number, maximum: number) =>
-    `${Math.floor(value)} / ${maximum}`;
+    `${Math.floor(value)}/${maximum}`;
   const number = (value: number) => String(value + 1).padStart(2, '0');
   const itemKey = (item: Module | typeof Module) =>
     item instanceof Module ? `owned-${item.id}` : `shop-${item.definitionId}`;
@@ -342,16 +342,12 @@ const createDocked = () => {
       query(root, '.dock-station-icon'),
       station.definitionId === 'corral-6' ? hexagon : pentagon,
     );
-    text('[data-fuel]', `${ship.fuel.toFixed(1)} / ${ship.fuelCapacity} L`);
+    text('[data-fuel]', `${ship.fuel.toFixed(1)}/${ship.fuelCapacity} L`);
     text('[data-fuel-price]', money(ship.refuelCost));
     query<HTMLButtonElement>(root, '[data-refuel]').disabled =
       !ship.refuelCost || player.credits < ship.refuelCost;
     text('[data-balance]', money(player.credits));
     text('[data-ship-name]', ship.name);
-    text(
-      '[data-hull-condition]',
-      `${Math.round((ship.hullHealthTotal / ship.hullMaxHealth) * 100)}%`,
-    );
     const repairTotal =
       ship.repairCost() +
       mounts.reduce((sum, entry) => sum + ship.repairCost(entry), 0);
@@ -363,12 +359,12 @@ const createDocked = () => {
       !repairTotal || player.credits < repairTotal;
     text(
       '[data-cargo-total]',
-      `${ship.cargoContents.length} / ${ship.cargoSpace}`,
+      `${ship.cargoContents.length}/${ship.cargoSpace}`,
     );
     text('[data-hull-total]', health(ship.hullHealthTotal, ship.hullMaxHealth));
     text(
       '[data-module-count]',
-      `${mounts.filter((entry) => entry.module).length} / ${mounts.length}`,
+      `${mounts.filter((entry) => entry.module).length}/${mounts.length}`,
     );
 
     root
@@ -1183,13 +1179,8 @@ const createDocked = () => {
 
       const ship = player.ship;
 
-      if (
-        element.getAttribute('data-tab') ||
-        element.getAttribute('data-open')
-      ) {
-        open(
-          element.getAttribute('data-tab') || element.getAttribute('data-open'),
-        );
+      if (element.getAttribute('data-tab')) {
+        open(element.getAttribute('data-tab'));
         activeTab().focus();
         return;
       }

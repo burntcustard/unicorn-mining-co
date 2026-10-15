@@ -1,5 +1,5 @@
 import { writeFile, readFile, mkdir, readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { extname, resolve, sep } from 'node:path';
 import { rolldown } from 'rolldown';
 import { buildPlugin, buildPrePlugin } from '../plugins/build-plugins.ts';
 import assert from 'node:assert/strict';
@@ -10,7 +10,8 @@ import WebSocket from 'ws';
 
 type CdpReply = Record<string, any>;
 
-// Run after a production build, with the standard game server and preview running.
+// Run after a production build, with the standard game server and frontend running.
+// Browser interception serves built assets without replacing a running frontend.
 const rootDirectory = process.cwd();
 const fixturePath = `ui-fixture-${process.pid}`;
 const fixtureDirectory = resolve('dist', fixturePath);
@@ -105,6 +106,8 @@ const chrome = spawn(
     '--no-sandbox',
     '--no-first-run',
     '--no-default-browser-check',
+    // Intercepted documents lack the loopback address-space classification.
+    '--disable-features=LocalNetworkAccessChecks',
     '--remote-debugging-port=0',
     `--user-data-dir=${profile}`,
     '--window-size=1280,900',
@@ -135,6 +138,7 @@ const connect = async (url: string) => {
   >();
 
   const events: CdpReply[] = [];
+  const listeners: ((event: CdpReply) => void)[] = [];
 
   ws.on('message', (data) => {
     const msg = JSON.parse((data as Buffer).toString());
@@ -148,11 +152,13 @@ const connect = async (url: string) => {
         : p.resolve(msg.result);
     } else {
       events.push(msg);
+      listeners.forEach((listener) => listener(msg));
     }
   });
 
   return {
     events,
+    onEvent: (listener: (event: CdpReply) => void) => listeners.push(listener),
     send: (method: string, params: object = {}) =>
       new Promise<CdpReply>((resolve, reject) => {
         const id = ++seq;
@@ -207,6 +213,60 @@ checkUi: try {
     targets.find((t) => t.id === targetId).webSocketDebuggerUrl,
   );
 
+  const contentTypes: Record<string, string> = {
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.woff2': 'font/woff2',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+  };
+
+  let heldResource: RegExp;
+
+  c.onEvent((event) => {
+    if (event.method !== 'Fetch.requestPaused') return;
+    const { requestId, request } = event.params;
+    const path = new URL(request.url).pathname;
+
+    if (heldResource?.test(path)) return;
+
+    if (path.startsWith('/api/') || path.startsWith('/game-socket')) {
+      void c.send('Fetch.continueRequest', { requestId });
+      return;
+    }
+
+    const file = resolve('dist', `.${path === '/' ? '/index.html' : path}`);
+
+    void (async () => {
+      let body: Buffer;
+
+      try {
+        assert(file.startsWith(`${resolve('dist')}${sep}`));
+        body = await readFile(file);
+      } catch {
+        await c.send('Fetch.fulfillRequest', { requestId, responseCode: 404 });
+        return;
+      }
+
+      await c.send('Fetch.fulfillRequest', {
+        requestId,
+        responseCode: 200,
+        responseHeaders: [
+          {
+            name: 'Content-Type',
+            value: contentTypes[extname(file)] || 'application/octet-stream',
+          },
+        ],
+        body: body.toString('base64'),
+      });
+    })();
+  });
+
+  await c.send('Fetch.enable', {
+    patterns: [{ urlPattern: 'http://localhost:3000/*' }],
+  });
+
   await c.send('Runtime.enable');
   await c.send('Log.enable');
   await c.send('Network.enable');
@@ -257,7 +317,9 @@ checkUi: try {
       await pause(100);
     }
 
-    assert.fail(message);
+    assert.fail(
+      `${message}\n${JSON.stringify(c.events.filter((event) => /webSocketFrameError|loadingFailed|exceptionThrown/.test(event.method)).slice(-10)).slice(0, 6000)}`,
+    );
   };
 
   const checkHiddenElements = async () => {
@@ -397,7 +459,7 @@ checkUi: try {
       await check(`(() => {
         const surface = document.createElement('div');
         surface.className = 'ui-surface';
-        surface.innerHTML = '<p class="text-muted my-8 mx-8 mt-4 mr-2 mb-2 ml-4">Muted paragraph</p><span class="text-muted">Muted caption</span>';
+        surface.innerHTML = '<p class="text-muted mt-4 mr-2 mb-2">Muted paragraph</p><span class="text-muted">Muted caption</span>';
         document.body.append(surface);
         const paragraph = getComputedStyle(surface.firstElementChild);
         const caption = getComputedStyle(surface.lastElementChild);
@@ -406,8 +468,8 @@ checkUi: try {
         document.body.removeChild(surface);
         return result;
       })()`),
-      ['16px', '8px', '8px', '16px', true],
-      'directional utilities override axis margins, and muted paragraphs match muted captions',
+      ['16px', '8px', '8px', '0px', true],
+      'directional margin utilities retain their spacing, and muted paragraphs match muted captions',
     );
     await checkHiddenElements();
     await capture('menu');
@@ -508,6 +570,10 @@ checkUi: try {
       ),
       'the ship preview is requested after the first menu frame',
     );
+    await waitFor(
+      `!!localStorage.getItem('playerToken')`,
+      'preparation receives the new pilot identity',
+    );
     assert(
       await check(
         `document.querySelector('.ui-pilot').hidden && !!localStorage.getItem('playerToken') && !localStorage.getItem('unicorn-preview')`,
@@ -557,7 +623,7 @@ checkUi: try {
     await openMenuScreen('settings');
     assert.equal(
       await check(
-        `document.querySelector('[data-bindings] > :last-child').textContent.trim()`,
+        `[...document.querySelectorAll('[data-bindings] > *')].find(row => row.textContent.startsWith('Target next object')).textContent.trim()`,
       ),
       'Target next objectt',
       'targeting appears in Settings with T as its default',
@@ -865,11 +931,18 @@ checkUi: try {
       'key capture takes precedence over arrow navigation',
     );
     await click('[data-reset]');
-    await click('[data-bindings] > :last-child button');
+    const targetingIndex = await check(`(() => {
+      const rows = [...document.querySelectorAll('[data-bindings] > *')];
+      const index = rows.findIndex(row => row.textContent.startsWith('Target next object'));
+      rows[index].querySelector('button').setAttribute('data-target-binding', '');
+      return JSON.parse(localStorage.getItem('unicorn-controls')).findIndex(keys => keys.includes('t'));
+    })()`);
+
+    await click('[data-target-binding]');
     await pressKey('n');
     assert.equal(
       await check(
-        `JSON.parse(localStorage.getItem('unicorn-controls')).at(-1)[0]`,
+        `JSON.parse(localStorage.getItem('unicorn-controls'))[${targetingIndex}][0]`,
       ),
       'n',
       'targeting can be rebound and saved',
@@ -1411,9 +1484,7 @@ checkUi: try {
 
     await check(`localStorage.removeItem('unicorn-preview')`);
 
-    await c.send('Fetch.enable', {
-      patterns: [{ urlPattern: '*/api/identity' }],
-    });
+    heldResource = /^\/api\/identity$/;
 
     const identityEvents = c.events.length;
 
@@ -1425,7 +1496,11 @@ checkUi: try {
     );
     const identityRequest = c.events
       .slice(identityEvents)
-      .find((event) => event.method === 'Fetch.requestPaused');
+      .find(
+        (event) =>
+          event.method === 'Fetch.requestPaused' &&
+          event.params.request.url.endsWith('/api/identity'),
+      );
 
     assert(identityRequest, 'saved identity verification is still pending');
     assert.equal(await check('window.gameFrames'), 0);
@@ -1434,11 +1509,7 @@ checkUi: try {
       requestId: identityRequest.params.requestId,
     });
 
-    await c.send('Fetch.disable');
-
-    await c.send('Fetch.enable', {
-      patterns: [{ urlPattern: '*gameplay-*.js' }],
-    });
+    heldResource = /gameplay-.*\.js$/;
 
     const gameplayEvents = c.events.length;
 
@@ -1446,7 +1517,11 @@ checkUi: try {
     await checkShipPreview();
     const gameplayRequest = c.events
       .slice(gameplayEvents)
-      .find((event) => event.method === 'Fetch.requestPaused');
+      .find(
+        (event) =>
+          event.method === 'Fetch.requestPaused' &&
+          /gameplay-.*\.js$/.test(event.params.request.url),
+      );
 
     assert(gameplayRequest, 'background gameplay request is pending');
     await openMenuScreen('settings');
@@ -1457,7 +1532,7 @@ checkUi: try {
       errorReason: 'Failed',
     });
 
-    await c.send('Fetch.disable');
+    heldResource = undefined;
     assert(
       await check(`!document.querySelector('[data-action="play"]').disabled`),
       'a failed preparation leaves the menu interactive',
@@ -1630,7 +1705,7 @@ checkUi: try {
     await click(candidate);
     assert.equal(
       await check(`document.querySelector('[data-health]').textContent`),
-      '40 / 40',
+      '40/40',
       'a new Beam Laser previews full health',
     );
     const before = await check('fixture.transactionState()');
@@ -1661,7 +1736,7 @@ checkUi: try {
     );
     assert.equal(
       await check(`document.querySelector('[data-health]').textContent`),
-      '40 / 40',
+      '40/40',
       'a newly fitted Beam Laser has full health',
     );
     assert(
@@ -1672,7 +1747,7 @@ checkUi: try {
     await click('[data-candidates] [data-key="owned-' + bought[1][0] + '"]');
     assert.equal(
       await check(`document.querySelector('[data-health]').textContent`),
-      '40 / 40',
+      '40/40',
       'an intact Beam Laser in cargo displays its active health',
     );
     await c.send('Page.reload');
@@ -1737,41 +1812,16 @@ checkUi: try {
     await pressKey('ArrowDown');
     assert(
       await check(
-        `!!document.activeElement.closest('${tab === 'trade' ? '[data-trade-stock]' : '.dock-summary'}') && !document.activeElement.disabled`,
-      ),
-      `${tab}: Down leaves tabs for the first available action`,
-    );
-    await pressKey('ArrowUp');
-    assert(
-      await check(
-        `document.activeElement.getAttribute('data-tab') === '${tab}'`,
-      ),
-      `${tab}: Up from summary returns to the active tab`,
-    );
-    await pressKey('ArrowDown');
-
-    if (tab !== 'trade') await pressKey('ArrowDown');
-    assert(
-      await check(
         `!!document.activeElement.closest('${tab === 'trade' ? '[data-trade-stock]' : '[data-sidebar]'}') && !document.activeElement.disabled`,
       ),
       `${tab}: Down enters the active tab's content`,
     );
     await pressKey('ArrowUp');
-
-    if (tab !== 'trade') {
-      assert(
-        await check(`document.activeElement.matches('[data-hull-paint]')`),
-        `${tab}: Up from the first content row reaches Hull Paint when repairs are unavailable`,
-      );
-      await pressKey('ArrowUp');
-    }
-
     assert(
       await check(
         `document.activeElement.getAttribute('data-tab') === '${tab}'`,
       ),
-      `${tab}: Up reaches the active tab after the summary actions`,
+      `${tab}: Up from the first content action returns to the active tab`,
     );
     await pressKey('ArrowRight');
     await pressKey('ArrowLeft');
@@ -2290,7 +2340,7 @@ checkUi: try {
         assert.equal(after[3].length, before[3].length + 1);
         assert.equal(
           after[0] - before[0],
-          Number(price.slice(1).replaceAll(',', '')),
+          Number(price.slice(0, -1).replaceAll(',', '')),
         );
 
         if (remaining) {
@@ -2511,17 +2561,16 @@ checkUi: try {
 
     await focusDock('[data-tab="overview"]');
     await pressKey(activation);
-    await focusDock('[data-open="outfitting"]');
+    await focusDock('[data-tab="outfitting"]');
     await pressKey(activation);
     await expectFocus(
       '[data-tab="outfitting"]',
-      'an Overview shortcut leaves focus on the destination tab',
+      'activating Outfitting leaves focus on its tab',
     );
-    await pressKey('ArrowDown');
     await pressKey('ArrowDown');
     await expectFocus(
       '[data-key="hull:0"]',
-      'Down enters the loadout from the shortcut destination',
+      'Down enters the loadout from the Outfitting tab',
     );
 
     for (const key of ['hull:0', 'mount:0', 'mount:2']) {
@@ -2638,16 +2687,18 @@ checkUi: try {
       'Escape returns to the Services paint button',
     );
 
+    await click('[data-tab="overview"]');
     await focusDock('[data-hull-paint]');
     await pressKey(activation);
     await pressKey('Escape');
     await expectFocus(
       '[data-hull-paint]',
-      'Escape returns to the summary paint button',
+      'Escape returns to the overview paint button',
     );
   }
 
   await check(`fixture.damageHull()`);
+  await click('[data-tab="services"]');
   await focusDock('[data-service="repair"]');
   await pressKey('Enter');
   await expectFocus(
@@ -2655,11 +2706,12 @@ checkUi: try {
     'repairing from Services skips the newly disabled Repair All button',
   );
   await check(`fixture.damageHull()`);
+  await click('[data-tab="overview"]');
   await focusDock('[data-repair-all]');
   await pressKey(' ');
   await expectFocus(
     '[data-hull-paint]',
-    'repairing from the summary preserves focus on an enabled action',
+    'repairing from the overview preserves focus on an enabled action',
   );
 
   await focusDock('[data-tab="trade"]');
@@ -2987,20 +3039,22 @@ checkUi: try {
   );
   await pressKey('Escape');
 
+  await click('[data-tab="overview"]');
   await focusDock('[data-hull-paint]');
-  await pressKey('ArrowLeft');
+  await pressKey('ArrowUp');
   await expectFocus(
-    '[data-hull-paint]',
-    'horizontal summary navigation skips disabled Repair All',
+    '[data-tab="overview"]',
+    'Up skips disabled Refuel and Repair All and reaches Overview',
   );
+  await focusDock('[data-hull-paint]');
   await check('fixture.damageHull()');
-  await pressKey('ArrowLeft');
+  await pressKey('ArrowUp');
   await expectFocus(
     '[data-repair-all]',
-    'Left reaches Repair All when it becomes available',
+    'Up reaches Repair All when it becomes available',
   );
-  await pressKey('ArrowRight');
-  await expectFocus('[data-hull-paint]', 'Right returns to Hull Paint');
+  await pressKey('ArrowDown');
+  await expectFocus('[data-hull-paint]', 'Down returns to Hull Paint');
   await pressKey('Enter');
   await pressKey('ArrowDown');
   await expectFocus('[data-launch]', 'Down from the paint row reaches Back');
@@ -3017,6 +3071,7 @@ checkUi: try {
     'Back does not launch while a detail panel is open',
   );
 
+  await click('[data-tab="outfitting"]');
   await focusDock('[data-key="mount:5"]');
   await check(
     `window.hoverBox = document.activeElement.getBoundingClientRect().toJSON()`,
@@ -3333,7 +3388,7 @@ checkUi: try {
   await check('fixture.setFuel(0, 24)');
   assert(
     await check(
-      `document.querySelector('[data-fuel]').textContent === '0.0 / 120 L'`,
+      `document.querySelector('[data-fuel]').textContent === '0.0/120 L'`,
     ),
   );
   await click('[data-refuel]');
@@ -3779,12 +3834,12 @@ checkUi: try {
   await check(`document.querySelector('[data-loadout] button').focus()`);
   await pressKey('ArrowUp');
   assert(
-    await check(`document.activeElement.matches('[data-repair-all]')`),
-    'Up from the first loadout row reaches Repair All when repairs are available',
+    await check(`document.activeElement.matches('[data-tab="outfitting"]')`),
+    'Up from the first loadout row reaches the Outfitting tab',
   );
   await click('[data-key="hull:0"]');
   await click('[data-command="FIX"]');
-  assert.equal((await check(`fixture.hullHealth()`))[0], 8);
+  assert.equal((await check(`fixture.hullHealth()`))[0], 12);
   await click('[data-key="mount:0"]');
   await click('[data-command="REMOVE"]');
   await expectEmptySlot();
@@ -3812,7 +3867,7 @@ checkUi: try {
   await capture('docked-compatible-module');
   await click('[data-command="BUY"]');
   assert.deepEqual(await check(`fixture.inspect().slice(0,3)`), [
-    1394,
+    1390,
     1,
     true,
   ]);
@@ -3826,7 +3881,7 @@ checkUi: try {
 
   assert(
     await check(
-      `!document.querySelector('[data-command="BUY_AMMO"]').hidden && document.querySelector('[data-ammo-price]').textContent === '$2'`,
+      `!document.querySelector('[data-command="BUY_AMMO"]').hidden && document.querySelector('[data-ammo-price]').textContent === '2$'`,
     ),
     'an ammunition-consuming module offers its stocked ammunition at the pack price',
   );
@@ -4006,7 +4061,7 @@ checkUi: try {
     beforeTradeNavigation,
     'column navigation does not buy or sell anything',
   );
-  await click('[data-tab="outfitting"]');
+  await click('[data-tab="overview"]');
   await click('[data-hull-paint]');
   await click('[data-paints] button:nth-child(6)');
   assert(
@@ -4026,10 +4081,13 @@ checkUi: try {
     ['[data-key="mount:1"]', '.dock-preview'],
     ['[data-hull-paint]', '[data-ship-name]'],
   ]) {
+    const painting = button === '[data-hull-paint]';
+
+    await click(`[data-tab="${painting ? 'overview' : 'outfitting'}"]`);
     await click(button);
     await click(background);
     assert(
-      await check(`document.querySelector('[data-title]').textContent === 'Outfitting'
+      await check(`document.querySelector('[data-title]').textContent === '${painting ? 'Ship overview' : 'Outfitting'}'
         && !document.querySelector('[data-loadout] [aria-pressed="true"]')
         && document.querySelector('[data-hull-paint]').getAttribute('aria-pressed') === 'false'
         && !document.querySelector('.dock-energy').classList.contains('dock-inspecting')
@@ -4039,6 +4097,7 @@ checkUi: try {
     );
   }
 
+  await click('[data-tab="outfitting"]');
   await check(
     `document.querySelector('[data-loadout] [data-key="hull:0"]').focus(); window.focusedRow = document.activeElement; fixture.refresh()`,
   );
@@ -4051,7 +4110,7 @@ checkUi: try {
   );
   assert(
     await check(
-      `document.activeElement === focusedRow && focusedRow.querySelector('canvas') === savedThumbnail && focusedRow.textContent.includes('2 / 8')`,
+      `document.activeElement === focusedRow && focusedRow.querySelector('canvas') === savedThumbnail && focusedRow.textContent.includes('2/12')`,
     ),
     'changing hull health updates the existing focused row and keeps its thumbnail canvas',
   );
@@ -4126,7 +4185,7 @@ checkUi: try {
   );
   assert(
     await check(
-      `document.querySelector('[data-health]').textContent === '20 / 20'`,
+      `document.querySelector('[data-health]').textContent === '20/20'`,
     ),
     'module maximum health is retained across the lazy boundary',
   );

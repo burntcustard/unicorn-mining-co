@@ -94,7 +94,7 @@ export const createSaves = () => {
         if (screen.signal.aborted) return;
         verifiedId = candidate;
         query(screen.element, '[data-preview]').textContent =
-          `${identity[0]} · ${identity[2][0]} · $${identity[1]}`;
+          `${identity[0]} · ${identity[2][0]} · ${identity[1]}$`;
         status.textContent = 'Identity verified. Confirm to switch pilots.';
         dialog.showModal();
       } catch (error) {

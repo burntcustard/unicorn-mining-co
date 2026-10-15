@@ -26,7 +26,7 @@
 
 **craft** - An object built from hull and module segments, such as a ship or station. Broken-off craft fragments use the same structure.
 
-**credits** - The game's currency, also called **unicredits**. Players have credits, stored in their player accounts and retained when their ships are replaced. The `$` character selects the custom credits symbol in the game's text renderer and prefixes balances and prices.
+**credits** - The game's currency, also called **unicredits**. Players have credits, stored in their player accounts and retained when their ships are replaced. The `$` character selects the custom credits symbol in the game's text renderer. Always place the symbol immediately after the value in balances and prices, and store and display them as whole integers for example `1,000$`.
 
 **docking** - A ship entering a station's docking bay and becoming attached to that station.
 

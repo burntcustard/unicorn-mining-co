@@ -185,6 +185,18 @@ test setup, enabling or disabling ammo, explosions, fading, and spin-down to
 cover optional behavior. Catalog tests verify that playable constructors consume
 their specs without prescribing their balance values.
 
+### Browser tests
+
+After `npm run build`, reuse the running game server and frontend, starting
+`npm run dev:server` and `npm run dev -- --strictPort` only if they are missing,
+then run `npm run test:ui`. A running preview also works. The browser intercepts
+static requests to load the built files; API requests and WebSockets use the
+frontend's normal proxy. Stop only servers started for testing.
+
+Use `UI_MENU_ONLY=1 npm run test:ui` to check startup and menu loading without
+the docking fixture, or `UI_DOCK_ONLY=1 npm run test:ui` for the docking fixture.
+Set `CHROME_BIN` when the browser executable is not named `chromium`.
+
 ## Source layout
 
 - `src/specs`: typed authored items, modules, ships, stations, and tuning.

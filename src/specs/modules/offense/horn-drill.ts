@@ -7,7 +7,7 @@ export const hornDrill = {
   description: 'Cut into asteroids to break off rock and extract ore.',
   behavior: 'hornDrill',
   name: 'Horn Drill',
-  health: 100,
+  health: 80,
   power: 0.1,
   powerActivated: 3.6,
   price: 350,

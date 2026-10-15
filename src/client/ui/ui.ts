@@ -53,7 +53,7 @@ export const renderUI = (
   game.ctx.globalAlpha = game.uiAlpha;
 
   const gap = 40;
-  const credits = `$${player.credits}`;
+  const credits = `${player.credits}$`;
   const cargo = `CARGO ${player.ship.cargoContents.length}/${player.ship.cargoSpace}`;
 
   if (player.ship.lowFuel) {

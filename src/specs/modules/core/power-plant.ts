@@ -6,7 +6,7 @@ export const powerPlant = {
   description: 'Generate power for fitted modules.',
   name: 'Power Plant',
   behavior: 'powerPlant',
-  health: 100,
+  health: 80,
   price: 750,
   power: 0,
   powerActivated: 0,

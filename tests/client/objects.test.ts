@@ -272,7 +272,7 @@ assert.equal(
 );
 const damaged = addEntity(world, createPlayerShip(world));
 damaged.segments.find(
-  (segment) => segment.hull && segment.health === 8,
+  (segment) => segment.hull && segment.health === 12,
 ).health = 0;
 damaged.update(0);
 const fragment = [...world.entities.values()].find((entity) => entity.decay);
