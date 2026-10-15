@@ -3301,14 +3301,8 @@ checkUi: try {
     await expectEmptySlot();
     await selectCandidate('[data-candidates] [data-key^="shop-"]', activation);
     assert(
-      await check(`document.querySelector('[data-command="BUY"]').disabled`),
-      'Outfitting disables purchases when cargo is full',
-    );
-    await pressKey(activation);
-    assert.deepEqual(
-      await check('fixture.transactionState()'),
-      fullTransaction,
-      'unavailable fitting purchases leave state unchanged',
+      await check(`!document.querySelector('[data-command="BUY"]').disabled`),
+      'Outfitting can buy directly into an empty mount when cargo is full',
     );
     await selectCandidate(
       `[data-candidates] [data-key="owned-${duplicateIds[1]}"]`,

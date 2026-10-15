@@ -639,7 +639,7 @@ const createDocked = () => {
         action === 'FIX'
           ? !repairCost || player.credits < repairCost
           : action === 'BUY' || action === 'BUY_AMMO'
-            ? !hasSpace ||
+            ? (!hasSpace && (action === 'BUY_AMMO' || !mount || equipped)) ||
               (action === 'BUY_AMMO' &&
                 !stock.some(([entry]) => entry === ammo)) ||
               player.credits <
@@ -1283,6 +1283,7 @@ const createDocked = () => {
               ? applyCraftAction(ship, {
                   action: 'buy',
                   module: moduleTypes.indexOf(item),
+                  ...(mount && { mount: index }),
                 })
               : undefined;
 
@@ -1295,15 +1296,7 @@ const createDocked = () => {
             selection.candidate = `owned-${applied.moduleId}`;
             inspectedCandidate = '';
 
-            if (
-              mount &&
-              !mount.module &&
-              applyCraftAction(ship, {
-                action: 'equip',
-                moduleId: applied.moduleId,
-                mount: index,
-              })
-            ) {
+            if (mount?.module) {
               selection.candidate = '';
               update();
               (buttons(detail)[0] || detail).focus();

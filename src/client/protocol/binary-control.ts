@@ -306,9 +306,15 @@ export function encodeClientMessage(
           break;
 
         case 'buy':
-          writer.byte(dockActionIds.buy);
+          writer.byte(
+            message.mount === undefined
+              ? dockActionIds.buy
+              : dockActionIds.buyEquipped,
+          );
           writer.unsigned(message.module);
           writer.signed(message.moduleId);
+
+          if (message.mount !== undefined) writer.unsigned(message.mount);
           break;
 
         case 'buyStock':
@@ -460,11 +466,15 @@ export function decodeClientMessage(
           break;
 
         case dockActionIds.buy:
+        case dockActionIds.buyEquipped:
           message = {
             type: 'dock',
             action: 'buy',
             module: reader.unsigned(),
             moduleId: reader.signed(),
+            ...(action === dockActionIds.buyEquipped && {
+              mount: reader.unsigned(),
+            }),
           };
 
           break;

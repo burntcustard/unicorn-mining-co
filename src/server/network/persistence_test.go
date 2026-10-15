@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
@@ -370,8 +371,22 @@ func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
 	health := asteroid.Segments()[0].Health
 	asteroidID := asteroid.ID
 	p.profile.Credits = 1234
-	p.ship.Remove()
-	s.progress(nil)
+	spare := modules.Create("searchLight", simulation.ObjectProperties{World: s.World}, s.World.Specification)
+	p.ship.CargoContents = append(p.ship.CargoContents, spare)
+
+	for _, segment := range p.ship.Segments {
+		if segment.Core {
+			objects.Damage(segment, 10000)
+		}
+	}
+
+	s.Tick(1)
+
+	if !p.ship.Dead || spare.Base().ID <= 0 {
+		t.Fatal("fatal damage must release inventory with a world entity ID")
+	}
+
+	spareID := spare.Base().ID
 	s.regions.Sync(s.World, nil)
 	committedSession(t, s)
 
@@ -397,6 +412,16 @@ func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
 
 	if !ok || a.(*simulation.Asteroid).Segments()[0].Health != health {
 		t.Fatal("partial drilling reset")
+	}
+
+	debris, ok := s.World.Entities.Get(spareID)
+
+	if !ok {
+		debris, ok = s.regions.sleeping.Get(spareID)
+	}
+
+	if !ok || debris.(simulation.Module).ModuleBase().Type != "searchLight" {
+		t.Fatal("released inventory did not survive restarting")
 	}
 
 	oldShip := p.shipID

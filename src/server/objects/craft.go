@@ -976,6 +976,10 @@ func (c *Craft) Detach(mount *simulation.Mount) {
 		c.CargoContents = slices.DeleteFunc(c.CargoContents, func(e simulation.Entity) bool { return e == destroyed })
 	}
 
+	if len(segments) == 0 {
+		return
+	}
+
 	shades := c.Shades
 
 	if destroyed != nil && destroyed.Base().Shades != nil {
@@ -1076,6 +1080,11 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 		for _, e := range contents {
 			o := e.Base()
 			o.World = c.World
+
+			if o.ID < 0 && c.World != nil {
+				o.ID = simulation.EntityID(c.World)
+			}
+
 			o.Position = c.Position
 			o.Velocity = c.Velocity
 			physics.ApplyForce(o, simulation.MovePoint(Vec.Vector{}, c.Random.Next()*math.Pi*2, 30), c.Random.Next()-0.5)

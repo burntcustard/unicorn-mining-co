@@ -124,6 +124,11 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
         'loose modules keep valid cargo indexes when mounted modules disappear');
       if(stage===0){
         const damaged=cloneEntity({entity});
+        damaged.world=createWorld();
+        damaged.world.nextEntityId=packet.nextEntityId;
+        const cargo=[...damaged.cargoContents];
+        for(const mount of damaged.mounts){if(mount.module)mount.health=0;}
+        damaged.update(0);
         const health=damaged.hullHealth;
         damaged.hullSegments.forEach((plan,index)=>{if(plan.core)health[index]=0;});
         damaged.playerId=1;
@@ -131,6 +136,15 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
         assert(!damaged.cockpit,'hydration has already removed both cores');
         damaged.update(0);
         assert(damaged.dead,'hydrated fatal damage still ends a player ship');
+        assert(cargo.length>0,'death covers ships carrying spare modules');
+        for(const object of damaged.world.entities.values()){
+          assert(object.mass>0,'detachment never creates empty debris bodies');
+          assert(Number.isFinite(object.position.x)&&Number.isFinite(object.position.y)&&Number.isFinite(object.rotation),'debris motion stays finite');
+        }
+        for(const object of cargo){
+          assert(object.id>0,'predicted cargo release allocates world entity IDs');
+          assert.equal(damaged.world.entities.get(object.id),object,'released cargo enters the prediction world');
+        }
       }
     }
   }

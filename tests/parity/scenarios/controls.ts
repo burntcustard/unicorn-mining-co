@@ -30,6 +30,15 @@ const client: ClientMessage[] = [
     },
   },
   { type: 'dock', action: 'buy', module: 7, moduleId: -42 },
+  { type: 'dock', action: 'buy', module: 7, moduleId: -43, mount: 0 },
+  {
+    type: 'dock',
+    action: 'buy',
+    module: 7,
+    moduleId: -44,
+    mount: 5,
+    sequence: 8,
+  },
   { type: 'dock', action: 'buy', module: 7, moduleId: Number.MAX_SAFE_INTEGER },
   {
     type: 'dock',

@@ -37,9 +37,7 @@ func main() {
 			ship := objects.CreatePlayerShip(world, objects.Properties{DefinitionID: shipType})
 			simulation.AddEntity(world, ship)
 
-			if !ship.HullSegments[index].Core {
-				ship.CargoContents = append(ship.CargoContents, modules.Create("searchLight", simulation.ObjectProperties{World: world}, catalog))
-			}
+			ship.CargoContents = append(ship.CargoContents, modules.Create("searchLight", simulation.ObjectProperties{World: world}, catalog))
 
 			manager := network.NewBinaryReplicationManager(catalog)
 			options := network.SnapshotOptions{World: world, ShipID: ship.ID}

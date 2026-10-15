@@ -54,6 +54,15 @@ const controls: ClientMessage[] = [
     input: { ...emptyPlayerInput(), searchLight: true, turn: 1 },
   },
   { type: 'dock', action: 'buy', module: 2, moduleId: -1 },
+  { type: 'dock', action: 'buy', module: 2, moduleId: -2, mount: 0 },
+  {
+    type: 'dock',
+    action: 'buy',
+    module: 2,
+    moduleId: -3,
+    mount: 5,
+    sequence: 42,
+  },
   {
     type: 'input',
     tick: 5,

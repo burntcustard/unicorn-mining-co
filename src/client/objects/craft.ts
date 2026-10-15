@@ -389,6 +389,8 @@ export class Craft extends GameObject {
       );
     }
 
+    if (!segments.length) return;
+
     this.spawn(
       origin,
       segments,
@@ -555,6 +557,11 @@ export class Craft extends GameObject {
     } else {
       this.cargoContents.splice(0).forEach((object) => {
         object.world = this.world;
+
+        if (object.id < 0 && this.world) {
+          object.id = entityId(this.world);
+        }
+
         Vec.set(object.position, this.position);
         Vec.set(object.velocity, this.velocity);
 

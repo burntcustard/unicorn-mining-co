@@ -241,10 +241,6 @@
     text-align: right;
   }
 
-  .dock-candidates {
-    max-height: 220px;
-  }
-
   .dock-fitting-preview {
     position: absolute;
     bottom: -8px;

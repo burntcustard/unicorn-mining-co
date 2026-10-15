@@ -212,12 +212,11 @@ assert(!ship().cargoContents.some(object => object.id === contested.id), 'reject
 assert.equal(client.player.credits, beforeRejection[0], 'rejection restores the balance');
 assert.equal(station().cargoContents.length, beforeRejection[2].length - 1);
 
-// Outfitting immediately follows Buy with Equip for the selected empty mount.
+// Outfitting buys directly into the selected empty mount.
 assert(act({ action: 'remove', mount: 0 }));
 const beforeLaser = state();
-const laser = act({ action: 'buy', module: moduleTypes.indexOf(Laser) });
+const laser = act({ action: 'buy', module: moduleTypes.indexOf(Laser), mount: 0 });
 assert(laser, 'new Beam Laser purchase is accepted');
-assert(act({ action: 'equip', mount: 0, moduleId: laser.moduleId }));
 assert.equal(ship().mounts[0].module.id, laser.moduleId);
 assert.equal(ship().mounts[0].health, 40, 'optimistic Beam Laser starts at full health');
 assert.deepEqual(state()[1], beforeLaser[1], 'automatic fitting preserves existing cargo');

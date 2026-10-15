@@ -30,6 +30,8 @@
 [ ] Gun comes with ammo? Or make more clear
 [ ] New world gen with worm-gates and worm-holes
 [ ] New sounds
+[ ] Fix unnecessary scroll on right card thing
+[ ] Can't buy search light?
 
 ## MVP
 

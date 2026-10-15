@@ -2,9 +2,12 @@ package network
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"math"
 	"slices"
 	"strconv"
 	"testing"
@@ -159,6 +162,14 @@ func TestCoreDestructionAllowsRespawn(t *testing.T) {
 					t.Fatal("fatal core damage must remove the ship")
 				}
 
+				s.World.Entities.ForEach(func(entity simulation.Entity, _ int64) {
+					object := entity.Base()
+
+					if object.Mass <= 0 || math.IsNaN(object.Position.X) || math.IsNaN(object.Position.Y) || math.IsNaN(object.Rotation) || math.IsInf(object.Position.X, 0) || math.IsInf(object.Position.Y, 0) {
+						t.Fatalf("fatal core damage left invalid debris: mass=%v position=%v rotation=%v", object.Mass, object.Position, object.Rotation)
+					}
+				})
+
 				s.Receive(protocol.Control{Type: "respawn"}, socket)
 
 				if p.shipID == previousID || !s.World.Entities.Has(p.shipID) {
@@ -166,6 +177,63 @@ func TestCoreDestructionAllowsRespawn(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestShipDeathWithCargoKeepsPlayersConnected(t *testing.T) {
+	t.Parallel()
+
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket, observer := &benchmarkSocket{}, &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	s.Receive(protocol.Control{Type: "hello"}, observer)
+	p := s.playersBySocket[socket]
+	itemID := simulation.EntityID(s.World)
+	item := objects.NewItem("diamond", simulation.ObjectProperties{World: s.World, ID: &itemID}, catalog)
+	spare := modules.Create("searchLight", simulation.ObjectProperties{World: s.World}, catalog)
+	p.ship.CargoContents = append(p.ship.CargoContents, item, spare)
+
+	for _, segment := range p.ship.Segments {
+		if segment.Core {
+			objects.Damage(segment, 10000)
+		}
+	}
+
+	s.Tick(1)
+
+	if !p.ship.Dead || s.World.Entities.Has(p.shipID) || len(p.ship.CargoContents) != 0 {
+		t.Fatal("death must remove the ship and release its cargo")
+	}
+
+	for _, cargo := range []simulation.Entity{item, spare} {
+		if cargo.Base().ID <= 0 || !s.World.Entities.Has(cargo.Base().ID) {
+			t.Fatal("released cargo must have a replicable world entity ID")
+		}
+	}
+
+	if item.ID != itemID {
+		t.Fatal("released world items must retain their identity")
+	}
+
+	for range 60 {
+		for _, client := range []*benchmarkSocket{socket, observer} {
+			previous := client.sequence
+			s.Receive(protocol.Control{Type: "snapshotAck", Sequence: previous}, client)
+		}
+
+		s.Tick(1)
+	}
+
+	if socket.sequence < 60 || observer.sequence < 60 {
+		t.Fatal("both players must keep receiving snapshots after the death")
+	}
+
+	previousID := p.shipID
+	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+	if p.shipID == previousID || p.ship.Dead || !s.World.Entities.Has(p.shipID) {
+		t.Fatal("cargo release must still allow respawning")
 	}
 }
 

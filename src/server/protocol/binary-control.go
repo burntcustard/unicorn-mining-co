@@ -305,7 +305,7 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 			message.Dock.Action = "refuel"
 		case ids.DockActionIDs["buyAmmo"]:
 			message.Dock.Action = "buyAmmo"
-		case ids.DockActionIDs["buy"]:
+		case ids.DockActionIDs["buy"], ids.DockActionIDs["buyEquipped"]:
 			message.Dock.Action = "buy"
 			message.Dock.HasModuleID = true
 			value, err := r.unsigned()
@@ -319,6 +319,17 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 
 			if err != nil {
 				return Control{}, err
+			}
+
+			if int(action) == ids.DockActionIDs["buyEquipped"] {
+				value, err := r.unsigned()
+
+				if err != nil {
+					return Control{}, err
+				}
+
+				message.Dock.HasMount = true
+				message.Dock.Mount = int64(value)
 			}
 		case ids.DockActionIDs["sell"], ids.DockActionIDs["buyStock"]:
 			message.Dock.Action = "sell"

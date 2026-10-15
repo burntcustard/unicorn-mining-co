@@ -25,6 +25,7 @@ export const dockActionIds = {
   repairHull: 7,
   buyStock: 8,
   refuel: 9,
+  buyEquipped: 10,
 } as const satisfies Record<string, number>;
 
 export const binaryFieldIds = {

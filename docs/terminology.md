@@ -6,7 +6,7 @@
 
 **bounciness** - A physical material’s bounce contribution. A contact mixes the two surfaces by averaging their values and clamping the result at zero. A negative contribution can damp a bounce; a value above 1 can exaggerate it. Slow contacts use no bounce.
 
-**buy** - A docked action that pays credits for a new module or item and puts it in cargo contents. It is the opposite of selling. Buying does not automatically equip a module.
+**buy** - A docked action that pays credits for a new module or item. Trade puts purchases in cargo contents; Outfitting buys and equips a module on a compatible empty mount in one action. It is the opposite of selling.
 
 **cargo** - Things carried inside a craft. Always clarify with an additional term, for example to refer to a craft's contents, capacity, or entry point.
 

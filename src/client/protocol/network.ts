@@ -9,7 +9,7 @@ export type NetworkVector = Vec.Value;
 export type ReplicatedModule = ModuleState;
 
 export type CraftAction =
-  | { action: 'buy'; module: number; moduleId: number }
+  | { action: 'buy'; module: number; moduleId: number; mount?: number }
   | { action: 'buyAmmo' | 'refuel' }
   | { action: 'repairHull'; hullIndex: number }
   | { action: 'sell' | 'buyStock'; objectIds: number[] }

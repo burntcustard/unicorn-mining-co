@@ -281,7 +281,15 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 		id := s.Catalog.ModuleIDs[action.Module]
 		d := s.Catalog.ModuleSpecs[id]
 
-		if *credits < d.Price || len(s.CargoContents) >= s.CargoSpace {
+		if *credits < d.Price {
+			return action, false
+		}
+
+		if action.HasMount {
+			if mount == nil || mount.Module != nil || !slices.Contains(mount.Fits, id) {
+				return action, false
+			}
+		} else if len(s.CargoContents) >= s.CargoSpace {
 			return action, false
 		}
 
@@ -301,7 +309,13 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 
 		module := modules.Create(id, props, s.Catalog)
 		*credits -= d.Price
-		s.CargoContents = append(s.CargoContents, module)
+
+		if mount != nil {
+			s.Fit(module, mount)
+		} else {
+			s.CargoContents = append(s.CargoContents, module)
+		}
+
 		action.ModuleID = module.Base().ID
 		action.HasModuleID = true
 	case "equip":

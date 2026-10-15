@@ -30,7 +30,7 @@ import { type CraftAction } from '../protocol/network';
 
 type DockActionRequest =
   | Exclude<CraftAction, { action: 'buy' }>
-  | { action: 'buy'; module: number; moduleId?: number };
+  | { action: 'buy'; module: number; moduleId?: number; mount?: number };
 
 export class Ship extends Craft {
   declare name: string;
@@ -176,7 +176,9 @@ export class Ship extends Craft {
       if (
         !Type ||
         player.credits < Type.price ||
-        this.cargoContents.length >= this.cargoSpace ||
+        (action.mount !== undefined
+          ? !mount || mount.module || !mount.fits.includes(Type)
+          : this.cargoContents.length >= this.cargoSpace) ||
         objects.some((object) => object.id === action.moduleId)
       ) {
         return;
@@ -188,7 +190,13 @@ export class Ship extends Craft {
       });
 
       player.credits -= Type.price;
-      this.cargoContents.push(module);
+
+      if (mount) {
+        this.fit(module, mount);
+      } else {
+        this.cargoContents.push(module);
+      }
+
       return { ...action, moduleId: module.id };
     } else if (action.action === 'equip') {
       const module = this.modules.find(({ id }) => id === action.moduleId);
