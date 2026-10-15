@@ -4,6 +4,9 @@ import { Ship } from '../../src/client/objects/ship';
 import { PowerPlant } from '../../src/client/objects/modules';
 import { createWorld } from '../../src/client/simulation/world';
 import { shipIds } from '../../src/specs/ships';
+import { installExampleModules } from '../support/example-modules';
+
+installExampleModules();
 
 for (const shipType of shipIds) {
   const ship = createPlayerShip(createWorld(), { shipType });

@@ -282,7 +282,7 @@ export function decodeBinarySnapshot(
       const field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
 
-      if (field < 1 || field > BinaryField.fuel || seen.has(field)) {
+      if (field < 1 || field > BinaryField.firing || seen.has(field)) {
         return fail();
       }
 
@@ -356,6 +356,14 @@ export function decodeBinarySnapshot(
         case BinaryField.launching:
           entity.launching = clear ? null : number();
           break;
+
+        case BinaryField.firing: {
+          const value = clear ? null : byte();
+
+          if (value !== null && value > 1) return fail();
+          entity.firing = value === null ? null : value === 1;
+          break;
+        }
 
         case BinaryField.mass:
           entity.mass = clear ? null : number();

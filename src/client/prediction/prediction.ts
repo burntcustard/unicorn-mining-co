@@ -223,6 +223,7 @@ const applyEntity = ({
     });
 
     if (entity instanceof Ship && server instanceof Ship) {
+      entity.firing = server.firing;
       entity.fly(server.thrust, server.turn);
     }
   }

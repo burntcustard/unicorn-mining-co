@@ -1,11 +1,13 @@
 /* global Buffer, process */
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 const root = process.cwd();
 const scenario = `
 import assert from 'node:assert/strict';
+import { installExampleModules } from '${root}/tests/support/example-modules.ts';
 import { initKeys, playerInput } from '${root}/src/client/input/input.ts';
 import { moduleBinding } from '${root}/src/client/input/keybindings.ts';
 import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
@@ -43,6 +45,7 @@ import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 import { Item } from '${root}/src/client/objects/item.ts';
 import { autogunAmmo, gold } from '${root}/src/specs/items/index.ts';
 import { moduleSpecs } from '${root}/src/specs/modules/index.ts';
+import { exampleBeamEffect } from '${root}/src/specs/effects/example-weapon.ts';
 import { game } from '${root}/src/client/game.ts';
 import { colors, paintColors } from '${root}/src/specs/colors.ts';
 import { withAlpha } from '${root}/src/client/utilities/color.ts';
@@ -60,6 +63,7 @@ globalThis.Path2D = class {
 };
 globalThis.window = new EventTarget();
 initKeys();
+installExampleModules();
 // A laser damages the nearest surface continuously without spawning projectiles.
 {
   const world = createWorld();
@@ -1416,21 +1420,7 @@ game.scale = 1;
 {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 9 }));
-  const beamEffect = {
-    startFraction: 0.25,
-    muzzleOffset: 2,
-    pulseDuration: 80,
-    pulseScale: 0.2,
-    layers: [{ lineWidth: 5, alpha: 0.2 }, { lineWidth: 1, alpha: 1 }],
-    muzzleFlash: [
-      { type: 'rays', radius: 3, radiusEven: 1, pointCount: 6, lineWidth: 2 },
-      { type: 'glow', radius: 7, alpha: 0.6 },
-    ],
-    hitMarker: [
-      { type: 'rays', radius: 5, radiusEven: 2, pointCount: 4, lineWidth: 1 },
-      { type: 'glow', radius: 10, alpha: 0.6 },
-    ],
-  };
+  const beamEffect = exampleBeamEffect;
   const laser = new Laser({ beamEffect, shades: ['#111111', '#222222', '#123456', '#444444', '#555555'], reach: 321 });
   ship.fit(laser, ship.mounts.find((mount) => mount.fits.includes(Laser)));
   ship.setModuleActive({ module: Laser, active: true });
@@ -2210,7 +2200,7 @@ for (const production of [false, true]) {
         },
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

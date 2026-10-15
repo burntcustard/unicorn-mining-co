@@ -49,6 +49,7 @@ export type ReplicatedEntity = {
   resource?: number;
   rounds?: number;
   fuel?: number;
+  firing?: boolean;
   rotation: number;
   spin: number;
   segments?: AsteroidSegment[];

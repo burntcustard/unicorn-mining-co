@@ -1,18 +1,18 @@
 package objects_test
 
 import (
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"slices"
 )
 
 func TestShieldSizes(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)

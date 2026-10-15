@@ -248,7 +248,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 
   start(unknownField, 0, 0, 1);
   unknownField.unsigned(1);
-  unknownField.record(1, [[37, null]]);
+  unknownField.record(1, [[38, null]]);
   const duplicateField = new Writer();
 
   start(duplicateField, 0, 0, 1);

@@ -12,6 +12,8 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0simulation'
           ? `
+import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
+installExampleModules();
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/client/simulation/world.ts';
       export { createAsteroid, shapeOutlinesFrom } from '${process.cwd()}/src/client/objects/asteroid.ts';
       export { diamond as diamondSpec } from '${process.cwd()}/src/specs/items/index.ts';

@@ -1,6 +1,7 @@
 package modules
 
 import (
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
@@ -8,7 +9,7 @@ import (
 )
 
 func TestModelPartOutlines(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)

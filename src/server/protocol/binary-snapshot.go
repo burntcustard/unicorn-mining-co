@@ -264,6 +264,18 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 	}
 
 	switch id {
+	case fields.Firing:
+		firing, ok := value.(bool)
+
+		if !ok {
+			return ErrSnapshot
+		}
+
+		if firing {
+			w.byte(1)
+		} else {
+			w.byte(0)
+		}
 	case fields.CargoContents:
 		entries, ok := value.([]CargoEntry)
 
@@ -368,12 +380,12 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 }
 
 func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) error {
-	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.Fuel {
+	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.Firing {
 		return ErrSnapshot
 	}
 
 	if value.Values != nil {
-		if len(value.Values) > protocol.BinaryFieldIDs.Fuel {
+		if len(value.Values) > protocol.BinaryFieldIDs.Firing {
 			return ErrSnapshot
 		}
 
@@ -381,7 +393,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 		w.unsigned(uint64(len(value.Values)))
 
 		for _, field := range value.Values {
-			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.Fuel {
+			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.Firing {
 				return ErrSnapshot
 			}
 
@@ -418,7 +430,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 	}
 
 	for _, id := range ids {
-		if id < 1 || id > protocol.BinaryFieldIDs.Fuel {
+		if id < 1 || id > protocol.BinaryFieldIDs.Firing {
 			return ErrSnapshot
 		}
 

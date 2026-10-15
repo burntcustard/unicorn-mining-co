@@ -24,7 +24,9 @@ const bundle = await rolldown({
       resolveId: (id) => (id === entry ? entry : undefined),
       load: (id) =>
         id === entry
-          ? `export {SearchLight} from './client/objects/modules/index';
+          ? `import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
+installExampleModules();
+export {SearchLight} from './client/objects/modules/index';
 export * from './client/utilities/prism';
 export * as Vec from './client/utilities/vector';
 export {createAsteroid} from './client/objects/asteroid';

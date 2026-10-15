@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 assert.deepEqual(readdirSync('src').sort(), [
@@ -14,6 +15,8 @@ assert.deepEqual(readdirSync('src').sort(), [
   'tools',
 ]);
 const scenario = `
+import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
+installExampleModules();
 import assert from 'node:assert/strict';
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { GameObject } from '${process.cwd()}/src/client/objects/game-object.ts';
@@ -412,7 +415,7 @@ for (const production of [false, true]) {
             : undefined,
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

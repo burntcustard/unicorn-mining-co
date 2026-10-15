@@ -1,7 +1,8 @@
 /* global Buffer, process */
 import { execFileSync } from 'node:child_process';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 const root = process.cwd();
@@ -41,6 +42,7 @@ Object.assign(globalThis, {
 });
 
 const scenario = `
+import { installExampleModules } from '${root}/tests/support/example-modules.ts';
 import assert from 'node:assert/strict';
 import { NetworkClient } from '${root}/src/client/network/network.ts';
 import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
@@ -49,6 +51,7 @@ import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { effects } from '${root}/src/client/effects/effect.ts';
 globalThis.Path2D = class { moveTo() {} lineTo() {} closePath() {} };
 const fixtures = ${fixtureSource};
+installExampleModules();
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
 // Exercise immediate firing, delayed firing, and a pause under delayed snapshots.
 const timings = ${extended}
@@ -142,7 +145,7 @@ for (const production of [false, true]) {
         },
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

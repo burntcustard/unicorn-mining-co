@@ -9,7 +9,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"os"
 )
 
@@ -48,7 +48,7 @@ func main() {
 		panic(err)
 	}
 
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		panic(err)

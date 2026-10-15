@@ -181,6 +181,7 @@ const makeEntity = ({
         ...(entity.hullHealth && { hullHealth: entity.hullHealth }),
       }),
       launching: entity.launching,
+      firing: !!entity.firing,
       paint: entity.paint,
       playerId: entity.playerId,
       thrust: entity.thrust ?? 0,

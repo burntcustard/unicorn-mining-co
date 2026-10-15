@@ -33,6 +33,10 @@ import { EntityState } from '../../src/client/simulation/entity-state';
 import { createRandom } from '../../src/client/utilities/seeded-random';
 import { type ShapeOutline } from '../../src/client/types';
 
+import { installExampleModules } from '../support/example-modules';
+
+installExampleModules();
+
 // Reusing display objects across ticks must refresh mechanics and refitted links.
 {
   const world = createWorld();

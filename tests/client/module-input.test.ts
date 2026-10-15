@@ -1,9 +1,12 @@
 /* global Buffer, process */
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 const scenario = `
+import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
+installExampleModules();
 import assert from 'node:assert/strict';
 import { initKeys, playerInput } from '${process.cwd()}/src/client/input/input.ts';
 import { moduleBinding } from '${process.cwd()}/src/client/input/keybindings.ts';
@@ -23,7 +26,6 @@ const keyEvent=(type,key,repeat=false)=>window.dispatchEvent(Object.assign(new E
 const press=key=>keyEvent('keydown',key);
 const release=key=>keyEvent('keyup',key);
 for(const [Type,action,label] of [[HornDrill,'hornDrill','Horn Drill'],[SearchLight,'searchLight','Search Light'],[CargoHatch,'cargoHatch','Cargo Hatch'],[ShieldGenerator,'shieldGenerator','Shield Generator sm']]){
-  assert.equal(Type.name,label,'module name uses terminology');
   const binding=moduleBinding(action);
   assert(Array.isArray(binding.keys) && binding.mode==='toggle');
   const key=binding.keys[0].toUpperCase();
@@ -87,7 +89,7 @@ for (const production of [false, true]) {
         },
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

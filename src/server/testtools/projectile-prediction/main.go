@@ -13,14 +13,14 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 )
 
 // Exercise the real server's hits and staggered binary deltas, rather than
 // treating a complete TypeScript world clone as an authoritative snapshot.
 func main() {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		panic(err)

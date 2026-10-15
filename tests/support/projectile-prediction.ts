@@ -1,7 +1,8 @@
 /* global Buffer, process */
 import { execFileSync } from 'node:child_process';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from './build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 /*
@@ -60,6 +61,7 @@ export async function runProjectilePrediction({
   });
 
   const setup = `
+import { installExampleModules } from '${root}/tests/support/example-modules.ts';
 import assert from 'node:assert/strict';
 import { NetworkClient } from '${root}/src/client/network/network.ts';
 import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
@@ -68,6 +70,7 @@ import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 const fixtures = ${fixtureSource};
 const extended = ${process.env.TEST_EXTENDED === '1'};
+installExampleModules();
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
 `;
 
@@ -286,9 +289,7 @@ console.log('Go projectile prediction: ${group} passed');
           },
         },
         buildPrePlugin(),
-        ...(production
-          ? [{ ...buildPlugin(), generateBundle: undefined }]
-          : []),
+        ...(production ? [testBuildPlugin()] : []),
       ],
     });
 

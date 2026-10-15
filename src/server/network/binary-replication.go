@@ -350,7 +350,7 @@ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) pr
 func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord {
 	catalog := &batch.catalog
 	field := catalog.Protocol.BinaryFieldIDs
-	record := recordOf(source, field.Fuel)
+	record := recordOf(source, field.Firing)
 
 	if record.batchGeneration == batch.Generation {
 		return record
@@ -466,6 +466,7 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 
 	if s, ok := source.(interface{ ShipBase() *objects.Ship }); ok {
 		ship := s.ShipBase()
+		scalar(record, field.Firing, ship.Firing)
 		scalarNumber(record, field.Fuel, ship.Fuel)
 		scalarNumber(record, field.Thrust, ship.Forward)
 		scalarNumber(record, field.Turn, ship.Turn)

@@ -1,11 +1,14 @@
 /* global Buffer, process */
 import { readFileSync } from 'node:fs';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 
 const root = process.cwd();
 const scenario = `
+import { installExampleModules } from '${root}/tests/support/example-modules.ts';
+installExampleModules();
 import assert from 'node:assert/strict';
 import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
 import { makeEntity } from '${root}/src/client/network/network.ts';
@@ -1658,7 +1661,7 @@ for (const production of [false, true]) {
         },
       },
       buildPrePlugin({ DEBUG: !production }),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

@@ -161,6 +161,19 @@ if (skipBuild) {
   }
 }
 
+if (
+  goFiles.length ||
+  nodeFiles.some((file) =>
+    /(?:beam-visibility|muzzle-flash|projectile-prediction|session)/.test(file),
+  )
+) {
+  await run(process.execPath, [
+    '--import',
+    'tsx',
+    'scripts/generate-example-modules.ts',
+  ]);
+}
+
 if (needsFixtures) {
   await run(process.execPath, [
     '--import',

@@ -1,12 +1,15 @@
 /* global process */
 import '../support/audio-context.ts';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { rolldown } from 'rolldown';
 
 // Exercise the mechanics and assertions together under production transforms.
 // The browser UI suite checks the HTML docking loader across production chunks.
 const scenario = `
+import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
+installExampleModules();
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { roundMotion } from '${process.cwd()}/src/client/utilities/round.ts';
 import assert from 'node:assert/strict';
@@ -207,7 +210,7 @@ assert(!bought.mount && ship.cargoContents[0]===bought, 'removed instance become
 
 const ore={...diamondSpec,name:'Ore',resource:2,price:7};
 const gem={...diamondSpec,name:'Diamond',price:11};
-for(const [Type,name] of [[ShieldGenerator,'Shield Generator sm'],[ShieldGeneratorMd,'Shield Generator md']]) {
+for(const [Type,name] of [[ShieldGenerator,'Example Shield'],[ShieldGeneratorMd,'Example Large Shield']]) {
   assert.equal(new Type().name,name, 'shield names preserve their stored case');
 }
 ship.cargoContents.push(...Array.from({length:11},()=>new Item(ore)));
@@ -318,7 +321,7 @@ assert(player.ship.modules.every(module => module.mount.module === module), 'sta
 assert(new CargoHatch().shades === colors.violet && new ShieldGenerator().shades === colors.violet &&
   thrusters.every((thruster) => new thruster().shades === colors.violet), 'purchased modules are pink');
 assert(new HornDrill().shades === colors.yellow, 'purchased horns are yellow');
-assert(ThrusterSingleMd.name === 'Thruster md' && ThrusterSingleMd.forwardThrust === 22, 'single thruster');
+assert(ThrusterSingleMd.name === 'Example Thruster' && ThrusterSingleMd.forwardThrust === 22, 'example single thruster');
 const flyer = new Ship({shades: colors.white}).addToScene();
 const engine = new ThrusterDualMd();
 flyer.cargoContents.push(engine); flyer.fit(engine);
@@ -508,7 +511,7 @@ for (const production of [false, true]) {
         },
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

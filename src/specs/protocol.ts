@@ -63,6 +63,7 @@ export const binaryFieldIds = {
   definitionId: 34,
   rounds: 35,
   fuel: 36,
+  firing: 37,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {

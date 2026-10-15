@@ -1,16 +1,16 @@
 package objects
 
 import (
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
 
 func TestProjectileStationInterior(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)

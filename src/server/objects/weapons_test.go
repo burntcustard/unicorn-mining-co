@@ -1,6 +1,7 @@
 package objects
 
 import (
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"math"
 	"slices"
 	"testing"
@@ -14,7 +15,7 @@ import (
 )
 
 func TestWeaponRecoil(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +90,7 @@ func TestWeaponRecoil(t *testing.T) {
 }
 
 func TestWeaponBarrelCollisions(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -154,7 +155,7 @@ func TestWeaponBarrelCollisions(t *testing.T) {
 }
 
 func TestWeaponCadenceAndAmmo(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -337,7 +338,7 @@ func TestWeaponCadenceAndAmmo(t *testing.T) {
 }
 
 func TestPlasmaRecharge(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -409,7 +410,7 @@ func TestPlasmaRecharge(t *testing.T) {
 }
 
 func TestProjectileChunkDamage(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -474,7 +475,7 @@ func TestProjectileChunkDamage(t *testing.T) {
 }
 
 func TestBuyAutogunAmmo(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -522,7 +523,7 @@ func TestBuyAutogunAmmo(t *testing.T) {
 }
 
 func TestProjectileHitsNearestCircleAndIgnoresOwner(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -548,7 +549,7 @@ func TestProjectileHitsNearestCircleAndIgnoresOwner(t *testing.T) {
 }
 
 func TestProjectileHitsDetachedAsteroid(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -569,7 +570,7 @@ func TestProjectileHitsDetachedAsteroid(t *testing.T) {
 }
 
 func TestProjectileHitsMovedCachedAsteroid(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -606,7 +607,7 @@ func TestProjectileHitsMovedCachedAsteroid(t *testing.T) {
 }
 
 func TestProjectileExpirySparks(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -653,7 +654,7 @@ func TestProjectileExpirySparks(t *testing.T) {
 }
 
 func TestExplosionFromGameObject(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -715,7 +716,7 @@ func TestExplosionFromGameObject(t *testing.T) {
 }
 
 func TestProjectileExplosion(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -828,7 +829,7 @@ func TestProjectileExplosion(t *testing.T) {
 }
 
 func TestProjectileExplosionPushesReleasedItems(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -862,7 +863,7 @@ func TestProjectileExplosionPushesReleasedItems(t *testing.T) {
 }
 
 func TestExplosionDamagesNearbySegments(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -929,7 +930,7 @@ func TestExplosionDamagesNearbySegments(t *testing.T) {
 }
 
 func TestPlasmaPushSurvivesMovement(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -990,7 +991,7 @@ func TestPlasmaPushSurvivesMovement(t *testing.T) {
 }
 
 func TestExplosionDamagesModuleOnce(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -1035,7 +1036,7 @@ func TestExplosionDamagesModuleOnce(t *testing.T) {
 }
 
 func TestWeaponDeployment(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -1215,7 +1216,7 @@ func TestWeaponDeployment(t *testing.T) {
 }
 
 func TestModuleHealthPools(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -1253,7 +1254,7 @@ func TestModuleHealthPools(t *testing.T) {
 }
 
 func TestShieldHealthAndRecharge(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)

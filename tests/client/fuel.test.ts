@@ -4,12 +4,14 @@ import { Station } from '../../src/client/objects/station';
 import { createWorld, addEntity } from '../../src/client/simulation/world';
 import { EntityState } from '../../src/client/simulation/entity-state';
 import { moduleTypesById } from '../../src/client/objects/modules';
-import { moduleSpecList } from '../../src/specs/modules';
 import { shipSpecsById } from '../../src/specs/ships';
 import {
   encodeClientMessage,
   decodeClientMessage,
 } from '../../src/client/protocol/binary-control';
+import { installExampleModules } from '../support/example-modules';
+
+installExampleModules();
 
 const world = createWorld();
 const ship = createPlayerShip(world);
@@ -100,17 +102,8 @@ assert.equal(ship.refuelCost, 12);
 
 ship.dockedTo = undefined;
 
-for (const spec of moduleSpecList) {
-  if (spec.behavior !== 'thruster') continue;
-  const duration = (ship.fuelCapacity * 1.15) / spec.fuelUsage;
-
-  assert(duration >= 31 * 60 && duration <= 63 * 60);
-}
-
-for (const [id, duration] of [
-  ['thrusterSingleSm', (3600 * 1.15) / 1.1],
-  ['thrusterTriple', (1800 * 1.15) / 1.1],
-] as const) {
+// Full thrust uses the normal rate down to the reserve, then one quarter.
+for (const id of ['thrusterSingleSm', 'thrusterTriple'] as const) {
   const ship = createPlayerShip(world, {
     shipType: id === 'thrusterSingleSm' ? 'arrow' : 'mustang',
   });
@@ -120,7 +113,11 @@ for (const [id, duration] of [
   ship.fit(new Type(), ship.engine.mount);
   ship.fuel = ship.fuelCapacity;
   ship.fly(1, 0);
-  ship.consumeFuel(duration - 1);
+  const usage = ship.engine.fuelUsage;
+
+  ship.consumeFuel((ship.fuelCapacity * 0.95) / usage);
+  near(ship.fuel, ship.fuelCapacity * 0.05);
+  ship.consumeFuel((ship.fuel - usage * 0.25) / (usage * 0.25));
   assert(ship.fuel > 0);
   ship.consumeFuel(1);
   near(ship.fuel, 0);

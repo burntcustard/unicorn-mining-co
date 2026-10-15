@@ -28,8 +28,9 @@ against native trig at the wrapped angle, unit length, signed zero and nonfinite
 inputs. Huge angles intentionally use the float64 remainder as their direction.
 
 `session.json.gz` stores 983 session actions and fixed decoded messages from the
-current Go server. The replay uses the normal catalog, including power plants,
-station ammunition, and fuel. The test decodes newly emitted packets through the
+current Go server. The replay uses the example module and ammunition catalog, with the normal
+ship, station, and fuel specs. Full ship records include the replicated
+`firing` boolean, initially false in these actions. The test decodes newly emitted packets through the
 client codec and checks every message against those fixed records, including
 account metadata, rejected actions, interest sets, reconnects, and respawns.
 Random welcome tokens and entity record ordering are normalized; numeric values

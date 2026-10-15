@@ -1,6 +1,7 @@
 package objects
 
 import (
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"reflect"
 	"slices"
 	"testing"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestDockedAutogunPurchaseAndReplacement(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +57,7 @@ func TestDockedAutogunPurchaseAndReplacement(t *testing.T) {
 }
 
 func TestReconciledMountOrder(t *testing.T) {
-	catalog, _ := specs.Load()
+	catalog, _ := testsupport.Load()
 
 	for id := range catalog.ShipSpecs {
 		t.Run(id, func(t *testing.T) {
@@ -101,7 +102,7 @@ func TestReconciledMountOrder(t *testing.T) {
 }
 
 func TestModuleMountCoordinates(t *testing.T) {
-	catalog, err := specs.Load()
+	catalog, err := testsupport.Load()
 
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +204,7 @@ func TestModuleMountCoordinates(t *testing.T) {
 }
 
 func TestThrusterMountSpacing(t *testing.T) {
-	catalog, _ := specs.Load()
+	catalog, _ := testsupport.Load()
 	world := simulation.CreateWorld(25, catalog)
 
 	for _, id := range []string{"thrusterDualMd", "thrusterDualLg"} {

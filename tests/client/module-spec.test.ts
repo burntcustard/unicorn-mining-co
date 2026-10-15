@@ -97,7 +97,10 @@ for (const category of moduleCategoryIds) {
   );
 
   for (const file of readdirSync(folder).filter(
-    (file) => file.endsWith('.ts') && file !== 'index.ts',
+    (file) =>
+      file.endsWith('.ts') &&
+      file !== 'index.ts' &&
+      !file.startsWith('example-'),
   )) {
     const exports = await import(new URL(file, folder).href);
 
@@ -175,26 +178,6 @@ for (const module of moduleSpecList) {
     Number.isFinite(module.powerActivated) &&
       module.powerActivated >= module.power,
   );
-}
-
-for (const family of [
-  [
-    moduleSpecs.thrusterSingleSm,
-    moduleSpecs.thrusterSingleMd,
-    moduleSpecs.thrusterSingleLg,
-    moduleSpecs.thrusterSingleXl,
-  ],
-  [
-    moduleSpecs.thrusterDualMd,
-    moduleSpecs.thrusterDualLg,
-    moduleSpecs.thrusterDualXl,
-    moduleSpecs.thrusterTriple,
-  ],
-]) {
-  family.slice(1).forEach((module, index) => {
-    assert(module.power > family[index].power);
-    assert(module.powerActivated > family[index].powerActivated);
-  });
 }
 
 assert(moduleSpecs.powerPlant.powerGenerated > 0);

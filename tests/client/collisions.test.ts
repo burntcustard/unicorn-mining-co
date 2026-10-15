@@ -27,6 +27,8 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0physics'
           ? `
+import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
+installExampleModules();
       export { detectCollisions } from '${process.cwd()}/src/client/collision/detect-collisions.ts';
       export { contactBetween } from '${process.cwd()}/src/client/collision/contact-between.ts';
       export { outerEdges } from '${process.cwd()}/src/client/utilities/polygon.ts';

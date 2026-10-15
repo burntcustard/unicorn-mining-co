@@ -173,6 +173,18 @@ loader flags are needed.
 `npm run test snapshot server-integration` checks Go output using both source and
 production-mangled client codecs, reporting real WebSocket packet sizes.
 
+Module mechanics tests use the `example-*.ts` specs beside the playable module
+specs. Examples are excluded from category exports and the production catalog,
+so changing weapon damage, timing, geometry, or other gameplay tuning does not
+change mechanics test inputs. `tests/support/example-modules.ts` installs these
+specs in an isolated client test process using the existing control and wire
+slots. `scripts/generate-example-modules.ts` emits the same data for Go's test
+catalog. Run it after editing examples; the test runner also regenerates it
+before Go tests. Weapon variants derive from `offense/example-weapon.ts` in
+test setup, enabling or disabling ammo, explosions, fading, and spin-down to
+cover optional behavior. Catalog tests verify that playable constructors consume
+their specs without prescribing their balance values.
+
 ## Source layout
 
 - `src/specs`: typed authored items, modules, ships, stations, and tuning.
