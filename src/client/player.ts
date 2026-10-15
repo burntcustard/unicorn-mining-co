@@ -20,15 +20,7 @@ export const player = {
   get ship() {
     return this.ships[0];
   },
-  // Violet is the pink paint in the paint selection.
-  unlockedPaints: [
-    colors.orange,
-    colors.yellow,
-    colors.violet,
-    colors.white,
-    colors.gray,
-    colors.black,
-  ] as Shades[],
+  unlockedPaints: [...paintColors] as Shades[],
   visitedStations: new Set<number>(),
   queuedNotes: [] as string[],
   // The last thing worth telling the pilot about, and how long it stays visible.

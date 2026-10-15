@@ -73,6 +73,8 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	}
 
 	token, id, shipID := p.profile.ID, p.playerID, p.shipID
+	// Exercise unlock progression even while all paints are available by default.
+	p.profile.UnlockedPaints &^= 1<<0 | 1<<3
 	p.ship.Position = Vec.Create(1234, 2345)
 	p.profile.Credits = 9876
 	p.ship.Fuel = 3.25
@@ -95,6 +97,8 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	}
 
 	s.unlockPaint(p, 0)
+	// A returning player keeps the paint selection saved in their profile.
+	p.profile.UnlockedPaints &^= 1 << 4
 	// A generated asteroid deletion must survive procedural regeneration.
 	var asteroid *simulation.Asteroid
 
@@ -165,7 +169,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 		t.Fatalf("lost identity/progress: %+v", p)
 	}
 
-	if p.profile.UnlockedPaints != persistence.DefaultPaints|1<<0|1<<3 || !slices.Equal(p.profile.Visited, visits) || len(p.ship.CargoContents) != 1 {
+	if p.profile.UnlockedPaints != persistence.DefaultPaints&^(1<<4) || !slices.Equal(p.profile.Visited, visits) || len(p.ship.CargoContents) != 1 {
 		t.Fatal("lost unlocks, visits or cargo")
 	}
 
@@ -289,7 +293,7 @@ func TestCheckpointBudgetAndPlayedTime(t *testing.T) {
 	}
 }
 
-func TestLockedPaintRejected(t *testing.T) {
+func TestDefaultPaintsAndLockedPaintRejected(t *testing.T) {
 	t.Parallel()
 
 	catalog, _ := specs.Load()
@@ -297,6 +301,13 @@ func TestLockedPaintRejected(t *testing.T) {
 	socket := &benchmarkSocket{}
 	s.Receive(protocol.Control{Type: "hello"}, socket)
 	p := s.playersBySocket[socket]
+
+	if p.profile.UnlockedPaints != 1<<len(catalog.PaintColors)-1 {
+		t.Fatal("not all paints are unlocked by default")
+	}
+
+	// Preserve coverage of the lock checks and unlock action.
+	p.profile.UnlockedPaints &^= 1
 	station := s.nearestStation(p.ship.Position)
 	stationID := int64(station.ID)
 	p.ship.DockedTo = &stationID
@@ -318,14 +329,14 @@ func TestLockedPaintRejected(t *testing.T) {
 
 	module := p.ship.Modules()[0]
 
-	for _, paint := range []int64{1, 7, 8} {
-		s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "paint", Paint: paint}}, socket)
+	for paint := range catalog.PaintColors {
+		s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "paint", Paint: int64(paint)}}, socket)
 
 		if !slices.Equal(p.ship.Shades, catalog.PaintColors[paint]) {
 			t.Fatal("default hull paint rejected", paint)
 		}
 
-		s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "paint", Paint: paint, ModuleID: module.Base().ID, HasModuleID: true}}, socket)
+		s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "paint", Paint: int64(paint), ModuleID: module.Base().ID, HasModuleID: true}}, socket)
 
 		if !slices.Equal(module.Base().Shades, catalog.PaintColors[paint]) {
 			t.Fatal("default module paint rejected", paint)

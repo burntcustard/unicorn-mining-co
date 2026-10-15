@@ -26,7 +26,7 @@ import (
 )
 
 const SchemaVersion = 5
-const DefaultPaints uint16 = 1<<1 | 1<<2 | 1<<5 | 1<<6 | 1<<7 | 1<<8
+const DefaultPaints uint16 = 1<<9 - 1
 
 type World struct {
 	GenerationDigest string

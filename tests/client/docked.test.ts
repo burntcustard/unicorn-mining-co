@@ -167,9 +167,8 @@ assert(bought.constructor===CargoHatch && bought!==first, 'purchase appends a fr
 assert(player.credits===beforeBuy-CargoHatch.price, 'purchase debits once');
 equip(bought);
 assert(mount.module===bought && !ship.cargoContents.length, 'new purchase fits');
-assert(!paintUnlocked(colors.red), 'red starts locked');
-for (const shades of [colors.orange, colors.gray, colors.black]) {
-  assert(paintUnlocked(shades), 'orange, gray and black start unlocked');
+for (const shades of paintColors) {
+  assert(paintUnlocked(shades), 'every paint starts unlocked');
   const paint = paintColors.indexOf(shades);
   applyCraftAction(ship,{action:'paint',paint,moduleId:bought.id,mount:0});
   assert(bought.shades===shades, 'default paint applies to modules');
@@ -181,7 +180,8 @@ assert(bought.shades===colors.yellow, 'paint purchased module yellow');
 applyCraftAction(ship,{action:'paint',paint:5,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.violet && first.shades===colors.red, 'painting preserves other modules');
 
-// The ownership checks below need these paints earned before selecting them.
+// Keep exercising unlock rewards with a restricted paint selection.
+syncPaintUnlocks(486);
 unlockPaint('RED', 'DAMAGED');
 assert(player.note === 'DAMAGED - RED UNLOCKED', 'red reward message');
 assert(!('unlock' in messageSpec), 'wreckage messages do not reward paint');
