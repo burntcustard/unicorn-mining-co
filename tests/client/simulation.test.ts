@@ -1070,7 +1070,7 @@ diamondPickup();
     message: 'GOLD ORE 100/200',
     resource: 4,
     type: 'itemCollected',
-    unlock: 'ORANGE',
+    unlock: undefined,
   });
 }
 

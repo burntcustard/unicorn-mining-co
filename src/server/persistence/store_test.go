@@ -182,7 +182,7 @@ func TestSQLiteDurabilityAndBackup(t *testing.T) {
 	defer s.Close(context.Background())
 	saved, err := s.Load(25)
 
-	if err != nil || saved.World == nil || *saved.World != batch.World || len(saved.Players) != 1 || saved.Players[0].Visited == nil || len(saved.Players[0].Visited) != 0 || saved.Players[0].Credits != 500 {
+	if err != nil || saved.World == nil || *saved.World != batch.World || len(saved.Players) != 1 || saved.Players[0].Visited == nil || len(saved.Players[0].Visited) != 0 || saved.Players[0].Credits != 500 || saved.Players[0].UnlockedPaints != DefaultPaints {
 		t.Fatalf("restart: %+v %v", saved, err)
 	}
 

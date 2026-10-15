@@ -25,8 +25,8 @@ import (
 	"modernc.org/sqlite"
 )
 
-const SchemaVersion = 4
-const DefaultPaints uint8 = 1<<2 | 1<<5 | 1<<6
+const SchemaVersion = 5
+const DefaultPaints uint16 = 1<<1 | 1<<2 | 1<<5 | 1<<6 | 1<<7 | 1<<8
 
 type World struct {
 	GenerationDigest string
@@ -71,7 +71,7 @@ type Player struct {
 	// PlayedFor is connected playtime in seconds; fractions accumulate in memory.
 	PlayedFor      float64
 	Credits        float64
-	UnlockedPaints uint8
+	UnlockedPaints uint16
 	// Visited records docked-to craft IDs in chronological order, including repeats.
 	Visited []int64
 	Ship    objects.SavedShip
@@ -199,7 +199,7 @@ func (s *Store) initialize() error {
   first_joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
   played_for INTEGER NOT NULL CHECK(typeof(played_for)='integer' AND played_for>=0),
   credits INTEGER NOT NULL CHECK(typeof(credits)='integer' AND credits>=0),
-  unlocked_paints INTEGER NOT NULL CHECK(unlocked_paints BETWEEN 0 AND 127),
+  unlocked_paints INTEGER NOT NULL CHECK(unlocked_paints BETWEEN 0 AND 511),
   visited TEXT NOT NULL, ship TEXT NOT NULL
  ) WITHOUT ROWID`); err != nil {
 		return err

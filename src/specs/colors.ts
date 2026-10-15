@@ -26,6 +26,8 @@ export const paintColors = [
   colors.cyan,
   colors.violet,
   colors.white,
+  colors.gray,
+  colors.black,
 ] as const;
 
 export const shadesOf = (shades: readonly string[]) =>

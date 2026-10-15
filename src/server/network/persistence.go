@@ -292,7 +292,7 @@ func (s *GameSession) shutdownPersistence(ctx context.Context) error {
 }
 
 func (s *GameSession) unlockPaint(p *playerRecord, index uint8) {
-	mask := uint8(1 << index)
+	mask := uint16(1 << index)
 
 	if p.profile.UnlockedPaints&mask != 0 {
 		return

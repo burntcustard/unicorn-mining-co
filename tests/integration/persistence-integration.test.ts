@@ -137,7 +137,7 @@ try {
   let address = await start();
   const first = await join(address, null);
 
-  assert.equal(first.paints, 100);
+  assert.equal(first.paints, 486);
   assert.equal(first.credits, 2000);
   const firstClosed = once(sockets[0], 'close');
 

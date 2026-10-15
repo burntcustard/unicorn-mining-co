@@ -94,7 +94,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 		s.progress([]protocol.SimulationEvent{protocol.Docked{PlayerID: id, DockedTo: stationID}})
 	}
 
-	s.unlockPaint(p, 1)
+	s.unlockPaint(p, 0)
 	// A generated asteroid deletion must survive procedural regeneration.
 	var asteroid *simulation.Asteroid
 
@@ -165,7 +165,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 		t.Fatalf("lost identity/progress: %+v", p)
 	}
 
-	if p.profile.UnlockedPaints&(1<<1|1<<3) != 1<<1|1<<3 || !slices.Equal(p.profile.Visited, visits) || len(p.ship.CargoContents) != 1 {
+	if p.profile.UnlockedPaints != persistence.DefaultPaints|1<<0|1<<3 || !slices.Equal(p.profile.Visited, visits) || len(p.ship.CargoContents) != 1 {
 		t.Fatal("lost unlocks, visits or cargo")
 	}
 
@@ -314,6 +314,22 @@ func TestLockedPaintRejected(t *testing.T) {
 
 	if p.ship.Shades[0] != catalog.PaintColors[0][0] {
 		t.Fatal("unlocked paint rejected")
+	}
+
+	module := p.ship.Modules()[0]
+
+	for _, paint := range []int64{1, 7, 8} {
+		s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "paint", Paint: paint}}, socket)
+
+		if !slices.Equal(p.ship.Shades, catalog.PaintColors[paint]) {
+			t.Fatal("default hull paint rejected", paint)
+		}
+
+		s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "paint", Paint: paint, ModuleID: module.Base().ID, HasModuleID: true}}, socket)
+
+		if !slices.Equal(module.Base().Shades, catalog.PaintColors[paint]) {
+			t.Fatal("default module paint rejected", paint)
+		}
 	}
 }
 

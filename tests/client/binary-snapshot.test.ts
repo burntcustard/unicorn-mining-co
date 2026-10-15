@@ -351,7 +351,7 @@ socket.onmessage?.({
     serverTick: 0,
     worldSeed: 2,
     spawn: { x: 0, y: 0 },
-    unlockedPaints: 100,
+    unlockedPaints: 486,
     credits: 500,
   }),
 });
@@ -442,13 +442,20 @@ assert.throws(
 assert.equal(client.player.credits, 500);
 assert.deepEqual(
   [...client.player.unlockedPaints],
-  [colors.yellow, colors.violet, colors.white],
+  [
+    colors.orange,
+    colors.yellow,
+    colors.violet,
+    colors.white,
+    colors.gray,
+    colors.black,
+  ],
 );
 
 socket.onmessage?.({
   data: encodeServerControl({
     type: 'progress',
-    unlockedPaints: 116,
+    unlockedPaints: 502,
     credits: 380,
   }),
 });
@@ -461,7 +468,7 @@ const unlockedPaints = client.player.unlockedPaints;
 client.player.unlockedPaints.push(colors.red);
 
 socket.onmessage?.({
-  data: encodeServerControl({ type: 'progress', unlockedPaints: 116 }),
+  data: encodeServerControl({ type: 'progress', unlockedPaints: 502 }),
 });
 
 assert.equal(client.player.unlockedPaints, unlockedPaints);

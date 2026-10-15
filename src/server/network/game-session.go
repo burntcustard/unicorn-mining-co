@@ -700,7 +700,7 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 		p.dockSequence = message.Sequence
 	}
 
-	if message.Dock.Action == "paint" && (message.Dock.Paint < 0 || message.Dock.Paint >= 7 || p.profile.UnlockedPaints&(1<<uint(message.Dock.Paint)) == 0) {
+	if message.Dock.Action == "paint" && (message.Dock.Paint < 0 || message.Dock.Paint >= int64(len(s.World.Specification.PaintColors)) || p.profile.UnlockedPaints&(1<<uint(message.Dock.Paint)) == 0) {
 		return
 	}
 

@@ -41,7 +41,7 @@ type ServerControl struct {
 	Sounds                       []WorldSound
 	DisplayName                  *string
 	Credits                      *float64
-	UnlockedPaints               *uint8
+	UnlockedPaints               *uint16
 	Type                         string
 	PlayerID, ShipID, ServerTick uint64
 	PlayerToken                  string
@@ -489,7 +489,7 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 
 	if message.Type == "progress" && message.UnlockedPaints != nil {
 		w := controlWriter(ids.ControlMessageIDs["progress"])
-		w.byte(*message.UnlockedPaints)
+		w.unsigned(uint64(*message.UnlockedPaints))
 
 		if message.Credits != nil {
 			w.number(*message.Credits)
@@ -522,7 +522,7 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 	w.number(message.Spawn.Y)
 
 	if message.UnlockedPaints != nil {
-		w.byte(*message.UnlockedPaints)
+		w.unsigned(uint64(*message.UnlockedPaints))
 
 		if message.Credits != nil {
 			w.number(*message.Credits)

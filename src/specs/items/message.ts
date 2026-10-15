@@ -4,7 +4,6 @@ import type { ItemSpec } from './types';
 export const message = {
   resource: 4,
   name: 'Message',
-  unlock: 'ORANGE',
   points: [
     [-6.5, -5],
     [6.5, -5],

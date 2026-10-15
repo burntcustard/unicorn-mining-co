@@ -42,6 +42,7 @@ const client: ClientMessage[] = [
   { type: 'dock', action: 'equip', moduleId: -15, mount: 5 },
   { type: 'dock', action: 'remove', mount: 4 },
   { type: 'dock', action: 'paint', paint: 6, moduleId: -22, mount: 2 },
+  { type: 'dock', action: 'paint', paint: 8 },
   { type: 'dock', action: 'repair', moduleId: -22 },
   { type: 'dock', action: 'repairHull', hullIndex: 4 },
   { type: 'dock', action: 'refuel' },
@@ -69,7 +70,7 @@ const server = [
     playerToken: token,
     worldSeed: 25,
     spawn: { x: -400, y: 250 },
-    unlockedPaints: 96,
+    unlockedPaints: 486,
     credits: 500,
     displayName: 'aé🦄 <&>\u0000',
   },
@@ -83,6 +84,7 @@ const server = [
     spawn: { x: -400, y: 250 },
   },
   { type: 'respawn' as const, shipId: 22 },
+  { type: 'progress' as const, unlockedPaints: 511, credits: 1234 },
 ];
 
 export default {

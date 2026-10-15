@@ -3,6 +3,7 @@ import { simulationStep } from '../../specs/simulation';
 import { packPlayerInput, unpackPlayerInput } from './input';
 import type { ClientMessage, ServerMessage } from './network';
 import { controlMessageIds, dockActionIds } from '../../specs/protocol';
+import { paintColors } from '../../specs/colors';
 
 type ServerControl = Extract<
   ServerMessage,
@@ -629,7 +630,7 @@ export function encodeServerControl(
   if (message.type === 'progress') {
     const writer = new ControlWriter(progress);
 
-    writer.byte(message.unlockedPaints);
+    writer.unsigned(message.unlockedPaints);
 
     if (message.credits !== undefined) writer.number(message.credits);
     return writer.finish();
@@ -652,7 +653,9 @@ export function encodeServerControl(
   writer.number(message.spawn.x);
   writer.number(message.spawn.y);
 
-  if (message.unlockedPaints !== undefined) writer.byte(message.unlockedPaints);
+  if (message.unlockedPaints !== undefined) {
+    writer.unsigned(message.unlockedPaints);
+  }
 
   if (message.credits !== undefined) {
     if (message.unlockedPaints === undefined) {
@@ -713,9 +716,12 @@ export function decodeServerControl(
       break;
 
     case progress: {
-      const unlockedPaints = reader.byte();
+      const unlockedPaints = reader.unsigned();
 
-      if (unlockedPaints > 127) throw new Error('Invalid binary control');
+      if (unlockedPaints >= 1 << paintColors.length) {
+        throw new Error('Invalid binary control');
+      }
+
       message = { type: 'progress', unlockedPaints };
 
       if (reader.remaining) message.credits = reader.number();
@@ -745,9 +751,12 @@ export function decodeServerControl(
       };
 
       if (reader.remaining) {
-        const unlockedPaints = reader.byte();
+        const unlockedPaints = reader.unsigned();
 
-        if (unlockedPaints > 127) throw new Error('Invalid binary control');
+        if (unlockedPaints >= 1 << paintColors.length) {
+          throw new Error('Invalid binary control');
+        }
+
         message.unlockedPaints = unlockedPaints;
 
         if (reader.remaining) message.credits = reader.number();

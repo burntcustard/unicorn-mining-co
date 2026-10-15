@@ -140,6 +140,8 @@ for (const message of [
   },
   { type: 'respawn' as const, shipId: 8 },
   { type: 'progress' as const, unlockedPaints: 127 },
+  { type: 'progress' as const, unlockedPaints: 511 },
+  { type: 'progress' as const, unlockedPaints: 486, credits: 2000 },
   { type: 'progress' as const, unlockedPaints: 100, credits: 0 },
   {
     type: 'welcome' as const,
@@ -149,7 +151,7 @@ for (const message of [
     serverTick: 500,
     worldSeed: 25,
     spawn: { x: 1, y: 2 },
-    unlockedPaints: 100,
+    unlockedPaints: 486,
     credits: 12345,
   },
 ]) {
@@ -231,6 +233,13 @@ assert.throws(
 );
 
 assert.throws(() => decodeServerControl(hello), /Invalid binary control/);
+assert.throws(
+  () =>
+    decodeServerControl(
+      encodeServerControl({ type: 'progress', unlockedPaints: 512 }),
+    ),
+  /Invalid binary control/,
+);
 
 console.log(
   'Binary client and server controls round-trip and reject invalid frames',

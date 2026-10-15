@@ -240,7 +240,6 @@ const debugNote = new Item(messageSpec).addToScene();
 
 debugNote.message = 'REGION 0/0';
 
-debugNote.unlock = 'ORANGE';
 debugNote.remove();
 debugWreck.cargoContents.push(debugNote);
 

@@ -28,7 +28,7 @@ import { player, adoptPlayerShip, paintUnlocked, readSlate, syncPaintUnlocks, un
 import { game } from '${process.cwd()}/src/client/game.ts';
 import { presentEvents } from '${process.cwd()}/src/client/effects/present-events.ts';
 import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
-import { colors } from '${process.cwd()}/src/specs/colors.ts';
+import { colors, paintColors } from '${process.cwd()}/src/specs/colors.ts';
 import { mustang } from '${process.cwd()}/src/specs/ships/index.ts';
 import { fitsOf, cargoMenuEntriesOf } from '${process.cwd()}/src/client/ui/docked-model.ts';
 import { applyCraftAction } from '${process.cwd()}/src/client/network/craft-actions.ts';
@@ -167,7 +167,15 @@ assert(bought.constructor===CargoHatch && bought!==first, 'purchase appends a fr
 assert(player.credits===beforeBuy-CargoHatch.price, 'purchase debits once');
 equip(bought);
 assert(mount.module===bought && !ship.cargoContents.length, 'new purchase fits');
-assert(!paintUnlocked(colors.red) && !paintUnlocked(colors.orange), 'red and orange start locked');
+assert(!paintUnlocked(colors.red), 'red starts locked');
+for (const shades of [colors.orange, colors.gray, colors.black]) {
+  assert(paintUnlocked(shades), 'orange, gray and black start unlocked');
+  const paint = paintColors.indexOf(shades);
+  applyCraftAction(ship,{action:'paint',paint,moduleId:bought.id,mount:0});
+  assert(bought.shades===shades, 'default paint applies to modules');
+  applyCraftAction(ship,{action:'paint',paint});
+  assert(ship.shades===shades, 'default paint applies to the hull');
+}
 applyCraftAction(ship,{action:'paint',paint:2,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.yellow, 'paint purchased module yellow');
 applyCraftAction(ship,{action:'paint',paint:5,moduleId:bought.id,mount:0});
@@ -176,19 +184,19 @@ assert(bought.shades===colors.violet && first.shades===colors.red, 'painting pre
 // The ownership checks below need these paints earned before selecting them.
 unlockPaint('RED', 'DAMAGED');
 assert(player.note === 'DAMAGED - RED UNLOCKED', 'red reward message');
-const slatePickup = {type:'itemCollected',itemId:999,resource:4,unlock:'ORANGE',message:'GOLD ORE 100/200'};
+assert(!('unlock' in messageSpec), 'wreckage messages do not reward paint');
+const slatePickup = {type:'itemCollected',itemId:999,resource:4,message:'GOLD ORE 100/200'};
 const noteBeforeOtherPickup = player.note;
 presentEvents({playerId:1,events:[{...slatePickup,by:2}],onMessage:readSlate});
-assert(!paintUnlocked(colors.orange) && player.note === noteBeforeOtherPickup,
-  'another player reading a slate does not show our message or unlock');
+assert(player.note === noteBeforeOtherPickup,
+  'another player reading a slate does not show our message');
 presentEvents({playerId:1,events:[{...slatePickup,by:1}],onMessage:readSlate});
-assert(paintUnlocked(colors.red) && paintUnlocked(colors.orange), 'earned paints become available');
-assert(player.note === 'CARGO FOUND - ORANGE UNLOCKED', 'orange unlock appears first');
+assert(player.note === noteBeforeOtherPickup, 'coordinates wait for the current note');
 updatePlayer(10);
-assert(player.note === 'GOLD ORE 100/200', 'field coordinates follow the unlock');
+assert(player.note === 'GOLD ORE 100/200', 'field coordinates follow the current note');
 player.noteFor = 0;
 presentEvents({playerId:1,events:[{...slatePickup,by:1,message:'AMETHYST CLUSTER 300/400'}],onMessage:readSlate});
-assert(player.note === 'AMETHYST CLUSTER 300/400', 'already unlocked orange shows coordinates only');
+assert(player.note === 'AMETHYST CLUSTER 300/400', 'wreckage messages show coordinates without a paint reward');
 applyCraftAction(ship,{action:'paint',paint:0,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.red && first.shades===colors.red, 'paint purchased instance');
 applyCraftAction(ship,{action:'paint',paint:1,moduleId:bought.id,mount:0});
@@ -232,7 +240,7 @@ assert(ship.modules.length===1 && ship.modules[0]===first, 'cargo sale preserves
 const oreIds=ship.cargoContents.filter(object=>object.item===ore).map(object=>object.id);
 applyCraftAction(ship,{action:'sell',objectIds:oreIds});
 assert(ship.cargoContents.length===1 && ship.cargoContents[0].item===gem, 'ore stack sale');
-syncPaintUnlocks(100);
+syncPaintUnlocks(486);
 assert(!paintUnlocked(colors.cyan), 'cyan is locked before selling a diamond');
 applyCraftAction(ship,{action:'sell',objectIds:[ship.cargoContents[0].id]});
 assert(!ship.cargoContents.length && player.credits===beforeSale+CargoHatch.price+25, 'last cargo sale');
@@ -243,10 +251,10 @@ unlockPaint('CYAN');
 assert(player.note === 'UNCHANGED', 'cyan only announces once');
 syncPaintUnlocks(undefined);
 assert(paintUnlocked(colors.cyan), 'no authoritative mask preserves the optimistic unlock');
-syncPaintUnlocks(100);
+syncPaintUnlocks(486);
 assert(!paintUnlocked(colors.cyan), 'unchanged authoritative mask rolls back a rejected diamond-sale unlock');
 unlockPaint('CYAN', 'DIAMOND SOLD');
-syncPaintUnlocks(116);
+syncPaintUnlocks(502);
 assert(paintUnlocked(colors.cyan), 'updated authoritative mask preserves an accepted unlock');
 
 // Rebuild hulls without duplicating mounts or resurrecting destroyed cargo.

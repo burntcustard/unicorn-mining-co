@@ -28,7 +28,7 @@ type controlFixture struct {
 		Message struct {
 			Sounds                       []WorldSound
 			DisplayName                  *string
-			UnlockedPaints               *uint8
+			UnlockedPaints               *uint16
 			Credits                      *float64
 			Type, PlayerToken            string
 			PlayerID, ShipID, ServerTick uint64

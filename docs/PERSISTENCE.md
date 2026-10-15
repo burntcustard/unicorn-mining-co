@@ -23,7 +23,7 @@ that anonymous identity. Display names are stored as player metadata.
 | `last_seen_at`    | UTC Unix seconds for the latest connected save/disconnect.                       |
 | `played_for`      | Rounded whole connected seconds. Fractional time accumulates in memory.          |
 | `credits`         | Rounded whole balance, directly editable during maintenance.                     |
-| `unlocked_paints` | Compact seven-bit mask.                                                          |
+| `unlocked_paints` | Compact nine-bit mask.                                                           |
 | `visited`         | JSON list of every docked-to craft ID in chronological order, including repeats. |
 | `ship`            | Small JSON record of the ship's type, position, condition, equipment and cargo.  |
 
@@ -57,7 +57,7 @@ negative counter. Restoring an explicit ID consumes no new ID. Standalone object
 without a world must supply an explicit ID. The generation digest detects changed
 procedural rules; the SQLite schema version covers the saved-data format.
 
-The current database format is schema version 4. Startup validates the schema
+The current database format is schema version 5. Startup validates the schema
 version. An incompatible database requires a fresh `DATABASE_PATH`.
 
 Gameplay creation/removal, cargo transfers, docking, purchases, equipment,

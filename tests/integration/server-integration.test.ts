@@ -228,7 +228,7 @@ try {
               const control = codec[3](packet);
 
               if (!control[0]) {
-                assert.equal(control[5], 100);
+                assert.equal(control[5], 486);
                 assert.equal(control[6], 2000);
                 accountReceived = true;
                 return;
@@ -236,7 +236,7 @@ try {
 
               welcome = control;
               assert(welcome[0]);
-              assert.equal(welcome[5], 100);
+              assert.equal(welcome[5], 486);
               assert.equal(welcome[6], 2000);
               socket.send(codec[1](welcome[4]));
 
