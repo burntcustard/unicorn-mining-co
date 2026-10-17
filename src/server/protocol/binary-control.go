@@ -45,6 +45,7 @@ type ServerControl struct {
 	Sender, SenderRole, Text     string
 	Sounds                       []WorldSound
 	DisplayName                  *string
+	SectorName                   *string
 	Credits                      *float64
 	UnlockedPaints               *uint16
 	Type                         string
@@ -596,6 +597,16 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 		}
 
 		if err := w.name(*message.DisplayName); err != nil {
+			return nil, err
+		}
+	}
+
+	if message.SectorName != nil {
+		if message.DisplayName == nil {
+			return nil, ErrControl
+		}
+
+		if err := w.name(*message.SectorName); err != nil {
 			return nil, err
 		}
 	}

@@ -7,6 +7,8 @@ import {
 } from '../../src/client/protocol/binary-control';
 import { colors } from '../../src/specs/colors';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
+import { maxPredictionTicks } from '../../src/specs/prediction';
+import { simulationStep } from '../../src/specs/simulation';
 
 class Writer {
   bytes: number[] = [];
@@ -265,6 +267,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
     Uint8Array.from([0x55, 0x4d, 2, 0, 0, 1, 0]),
     Uint8Array.from([0x55, 0x4d, 1, 32, 0, 1, 0]),
     Uint8Array.from([0x55, 0x4d, 1, 64, 0, 1, 0]),
+    Uint8Array.from([0x55, 0x4d, 1, 128, 0, 1, 0]),
     Uint8Array.from([0x55, 0x4d, 1, 0, 0x80, 0, 1, 0]),
     writer.packet().subarray(0, writer.bytes.length - 1),
     Uint8Array.from([...writer.packet(), 0]),
@@ -275,6 +278,41 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
     );
   }
 }
+
+for (const positions of [[], [{ x: -2999, y: 3.5 }]]) {
+  const radar = new Writer();
+
+  start(radar, 64, 0, 1);
+  radar.unsigned(positions.length);
+
+  positions.forEach(({ x, y }) => {
+    radar.number(x);
+    radar.number(y);
+  });
+
+  radar.unsigned(0);
+  const decoded = decodeBinarySnapshot(radar.packet());
+
+  assert.deepEqual(decoded.asteroidPositions, positions);
+  assert.deepEqual(
+    decoded.fullEntities,
+    [],
+    'radar coordinates contain no entity model',
+  );
+  assert.throws(() => decodeBinarySnapshot(radar.packet().subarray(0, -1)));
+}
+
+const invalidRadar = new Writer();
+
+start(invalidRadar, 64, 0, 1);
+invalidRadar.unsigned(1);
+invalidRadar.number(Infinity);
+invalidRadar.number(0);
+invalidRadar.unsigned(0);
+assert.throws(
+  () => decodeBinarySnapshot(invalidRadar.packet()),
+  /Invalid binary snapshot/,
+);
 
 class Socket {
   binaryType = 'blob';
@@ -358,8 +396,11 @@ socket.onmessage?.({
 
 const load = new Writer();
 
-start(load, 19, 0, 3); // load, entityIds, snapshotSequence
+start(load, 83, 0, 3); // load, entityIds, snapshotSequence, asteroid positions
 load.unsigned(1); // snapshotSequence
+load.unsigned(1);
+load.number(2999);
+load.number(-4);
 load.unsigned(2);
 load.unsigned(1);
 load.unsigned(2);
@@ -391,6 +432,12 @@ load.record(2, [
 socket.onmessage?.({ data: load.packet().buffer });
 await client.ready;
 assert.equal(client.connected, true);
+assert.deepEqual(client.asteroidPositions, [{ x: 2999, y: -4 }]);
+assert.equal(
+  client.world.entities.size,
+  2,
+  'radar positions do not instantiate world entities',
+);
 const hydratedShip = client.world.entities.get(1);
 
 assert.equal(
@@ -636,6 +683,75 @@ for (const active of [true, false]) {
 
   assert.equal(predictedShip.moduleActive({ module: SearchLight }), active);
   assert.equal(predictedShip.moduleActive({ module: CargoHatch }), active);
+}
+
+// A resumed tab can reach its prediction limit before a newer snapshot arrives.
+// That snapshot can be close to the predicted clock but beyond the old limit.
+for (const gap of [1, maxPredictionTicks, maxPredictionTicks + 1]) {
+  const recoveringClient = new NetworkClient({ url: 'ws://catch-up-test' });
+  const receive = Reflect.get(recoveringClient, 'receive').bind(
+    recoveringClient,
+  );
+
+  receive({
+    message: {
+      type: 'welcome',
+      playerToken,
+      playerId: 1,
+      shipId: 1,
+      serverTick: 0,
+      worldSeed: 2,
+      spawn: { x: 0, y: 0 },
+    },
+  });
+
+  receive({
+    message: {
+      type: 'load',
+      serverTick: 0,
+      nextEntityId: 1,
+      entityIds: [],
+      fullEntities: [],
+    },
+  });
+
+  for (let tick = 0; tick < maxPredictionTicks + 1; tick++) {
+    recoveringClient.update({ input: emptyPlayerInput() });
+  }
+
+  assert.equal(recoveringClient.world.tick, maxPredictionTicks);
+  const serverTick = maxPredictionTicks + gap;
+
+  receive({
+    message: {
+      type: 'snapshot',
+      serverTick,
+      nextEntityId: 1,
+      entityIds: [],
+      fullEntities: [],
+    },
+  });
+
+  recoveringClient.updateFrame({
+    input: emptyPlayerInput(),
+    now: performance.now() + 1,
+    dt: 0,
+  });
+
+  assert.equal(recoveringClient.serverTick, serverTick);
+  assert.equal(recoveringClient.world.tick, serverTick);
+
+  recoveringClient.updateFrame({
+    input: emptyPlayerInput(),
+    now: performance.now() + 2,
+    dt: simulationStep,
+  });
+
+  assert.equal(
+    recoveringClient.world.tick,
+    serverTick + 1,
+    'prediction resumes after adopting a snapshot beyond the old limit',
+  );
 }
 
 const malformedClient = new NetworkClient({ url: 'ws://malformed-test' });

@@ -70,11 +70,17 @@ await bundle.write({
 });
 
 await bundle.close();
+
 const stylesheets = (await readdir('dist'))
   .filter((name) => name.endsWith('.css'))
-  .sort(
-    (a, b) => Number(a.startsWith('docked-')) - Number(b.startsWith('docked-')),
-  );
+  // Match real loading order: the entry stylesheet declares CSS layer priority
+  // before gameplay and docked component styles arrive.
+  .sort((a, b) => {
+    const priority = (name: string) =>
+      name.startsWith('index-') ? 0 : name.startsWith('docked-') ? 2 : 1;
+
+    return priority(a) - priority(b);
+  });
 
 const productionCss = (
   await Promise.all(stylesheets.map((name) => readFile(`dist/${name}`, 'utf8')))
@@ -86,7 +92,7 @@ assert(
 );
 assert(
   productionCss.includes('.dock-empty') &&
-    productionCss.includes('.ui-arrow-navigation'),
+    productionCss.includes('.ui-notification'),
   'production CSS retains dynamically applied classes',
 );
 assert(
@@ -428,6 +434,14 @@ checkUi: try {
   };
 
   const capture = async (name: string) => {
+    assert(
+      await check(`Array.from(document.querySelectorAll('.ui-card:not(.hud-stores-panel)')).every(panel => {
+      const style = getComputedStyle(panel);
+      return ['padding-top', 'padding-right', 'padding-bottom', 'padding-left'].every(side => style.getPropertyValue(side) === '16px');
+    })`),
+      `${name}: all panels use shared 16px padding`,
+    );
+
     await check(
       `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
     );
@@ -449,7 +463,11 @@ checkUi: try {
       );
 
   if (!process.env.UI_DOCK_ONLY) {
-    assert(await check(`!!document.querySelector('#ui-root')`));
+    assert(
+      await check(
+        `document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root')`,
+      ),
+    );
     assert.equal(errors().length, 0, errors().join('\n'));
     assert(
       await check(`!!document.querySelector('.ui-main')`),
@@ -535,9 +553,9 @@ checkUi: try {
     await pressKey('Tab');
     assert(
       await check(
-        `document.activeElement === document.querySelector('[data-action="saves"]') && getComputedStyle(document.activeElement).outlineStyle === 'solid'`,
+        `document.activeElement === document.querySelector('[data-action="saves"]') && getComputedStyle(document.activeElement).outlineStyle === 'none'`,
       ),
-      'Tab restores the normal keyboard-focus outline',
+      'main-menu keyboard focus uses the highlight without an outline',
     );
     const playBox = await check(`(() => {
     const box = document.querySelector('[data-action="play"] span').getBoundingClientRect();
@@ -553,9 +571,9 @@ checkUi: try {
     await pause(180);
     assert(
       await check(
-        `document.activeElement === document.querySelector('[data-action="saves"]')`,
+        `document.activeElement === document.querySelector('[data-action="saves"]') && getComputedStyle(document.querySelector('[data-action="play"]')).outlineStyle === 'none'`,
       ),
-      'hovering main-menu text preserves keyboard focus',
+      'hovering main-menu text preserves keyboard focus without adding an outline',
     );
     assert(
       await check(
@@ -1157,6 +1175,106 @@ checkUi: try {
       'click targeting uses 90 percent opacity',
     );
     await capture('targeting');
+    assert(
+      await check(
+        `document.querySelector('.hud-sector [data-sector]').textContent === 'Patroclus' && document.querySelectorAll('.hud-modules kbd').length > 0`,
+      ),
+      'live production flight HUD shows sector and fitted module shortcuts',
+    );
+
+    assert(
+      await check(`(() => {
+        const root = document.querySelector('.hud');
+        return document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root') &&
+          !document.querySelector('.hud-instruments') &&
+          ['.hud-left', '.hud-right', '.hud-sector', '.hud-map'].every(selector => document.querySelector(selector).parentElement === root) &&
+          document.querySelector('.game-chat').parentElement === root &&
+          document.querySelector('.ui-notification').parentElement === root;
+      })()`),
+      'instruments, chat, and notifications share one HUD parent',
+    );
+
+    const moduleButton = '.hud-modules > button';
+    const beforeToggle = await check(
+      `document.querySelector('${moduleButton}').getAttribute('aria-pressed')`,
+    );
+
+    await click(moduleButton);
+    await waitFor(
+      `document.querySelector('${moduleButton}').getAttribute('aria-pressed') !== '${beforeToggle}'`,
+      'clicking a module shortcut updates predicted and replicated module state',
+    );
+    await pressKey('h');
+    await waitFor(
+      `document.querySelector('${moduleButton}').getAttribute('aria-pressed') === '${beforeToggle}'`,
+      'keyboard and clickable module controls share state',
+    );
+
+    await hover('[data-store="fuel"] > button');
+    assert(
+      await check(
+        `getComputedStyle(document.querySelector('#hud-fuel-tooltip')).display === 'block' && document.querySelector('#hud-fuel-tooltip').textContent.includes(' L') && !document.querySelector('#hud-fuel-tooltip').textContent.includes('segment')`,
+      ),
+      'fuel icon reveals the exact fuel volume on hover',
+    );
+    await capture('hud-fuel-tooltip');
+
+    await c.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: 600,
+      y: 400,
+    });
+
+    for (const [width, height] of [
+      [1680, 942],
+      [800, 700],
+    ]) {
+      await c.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+
+      await pause(250);
+      assert(
+        await check(`['.hud-left', '.hud-right', '.hud-sector', '.hud-stores', '.hud-map'].every(selector => {
+        const bounds = document.querySelector(selector).getBoundingClientRect();
+        return bounds.left >= 0 && bounds.top >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
+      })`),
+        `flight instruments fit ${width}px viewport`,
+      );
+
+      assert(
+        await check(`Array.from(document.querySelectorAll('.hud-widget.ui-card, .hud-widget .ui-card:not(.hud-stores-panel), .game-chat')).every(panel => {
+        const style = getComputedStyle(panel);
+        return panel.classList.contains('ui-card') && ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].every(side => style[side] === '16px');
+      })`),
+        `shared panel padding stays 16px at ${width}px`,
+      );
+
+      assert(
+        await check(`(() => {
+          return Array.from(document.querySelectorAll('.hud-stores [role="meter"]')).every(bar => {
+            const store = bar.closest('[data-store]').getBoundingClientRect();
+            return bar.getBoundingClientRect().right <= store.right;
+          });
+        })()`),
+        `all meters stay inside their instrument rows at ${width}px`,
+      );
+
+      await capture(`hud-${width}`);
+    }
+
+    await c.send('Emulation.setDeviceMetricsOverride', {
+      width: 1280,
+      height: 800,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+
+    await pause(250);
+
     await check(
       `document.querySelector('#canvas').dispatchEvent(new PointerEvent('pointerleave')); window.targetLabels = []; window.targetAlphas = []`,
     );
@@ -1596,6 +1714,11 @@ checkUi: try {
   const graphics = await check('fixture.checkGraphics()');
   const bays = await check('fixture.checkStationBay()');
   const chat = await check('fixture.checkChat()');
+  const hud = await check('fixture.checkHud()');
+
+  for (const [behavior, passed] of Object.entries(hud)) {
+    assert(passed, `HUD: ${behavior}`);
+  }
 
   for (const [behavior, passed] of Object.entries(chat)) {
     assert(passed, `chat: ${behavior}`);
@@ -1769,7 +1892,7 @@ checkUi: try {
     await check(`(() => {
     const note = document.querySelector('.ui-notification');
     return !note.hidden && note.textContent === 'DIAMOND SOLD - CYAN UNLOCKED' &&
-      getComputedStyle(note).pointerEvents === 'none' && Number(getComputedStyle(note).zIndex) > (Number(getComputedStyle(document.querySelector('#ui-root')).zIndex) || 0);
+      getComputedStyle(note).pointerEvents === 'none' && Number(getComputedStyle(note).zIndex) > (Number(getComputedStyle(document.querySelector('.hud')).zIndex) || 0);
   })()`),
     'notifications appear above docking without blocking pointer input',
   );
@@ -1799,6 +1922,7 @@ checkUi: try {
     'the footer places Escape on the left and navigation and selection hints on the right',
   );
   await check(`document.querySelector('[data-launch]').focus()`);
+
   assert(
     await check(`(() => {
     const launch = document.querySelector('[data-launch]');
@@ -1806,10 +1930,10 @@ checkUi: try {
     const icon = launch.querySelector('.dock-launch-icon');
     return style.color === 'rgb(255, 255, 255)'
       && parseFloat(style.webkitTextStrokeWidth) === 0
-      && getComputedStyle(launch.querySelector('kbd')).borderColor === style.color
+      && getComputedStyle(launch.querySelector('kbd')).borderColor === 'rgb(221, 221, 221)'
       && getComputedStyle(icon).opacity === '1' && !!icon.querySelector('svg path');
   })()`),
-    'the Launch action shows white text, a matching shortcut border, and the ship outline on keyboard focus',
+    'the Launch action shows white text, a highlighted shortcut border, and the ship outline on keyboard focus',
   );
 
   for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
@@ -4226,7 +4350,7 @@ checkUi: try {
   );
   assert(
     await check(
-      `Array.from(document.querySelectorAll('.dock-generation')).every(el=>getComputedStyle(el).opacity==='1')`,
+      `(() => { const markers = Array.from(document.querySelectorAll('.dock-energy .ui-power-marker')); return markers.length > 0 && markers.every(el=>getComputedStyle(el).opacity==='1'); })()`,
     ),
     'generation markers stay fully opaque',
   );

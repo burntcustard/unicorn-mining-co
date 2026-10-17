@@ -35,7 +35,9 @@ type ModuleValues = {
   // Idle draw and total activated draw, in MW.
   power: number;
   powerActivated: number;
+  // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
+  powerCapacity?: number;
   health: number;
   // Optional separate health pool for the exposed active module or shield bubble.
   healthActivated?: number;

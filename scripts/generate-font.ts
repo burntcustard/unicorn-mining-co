@@ -15,7 +15,10 @@ const paths = Object.entries(glyphPaths)
   .filter(([, path]) => path)
   .sort(([a], [b]) => a.codePointAt(0)! - b.codePointAt(0)!);
 
-export function glyphContours(path: string): TTF.Contour[] {
+export function glyphContours(
+  path: string,
+  { filled = false, miter = false }: { filled?: boolean; miter?: boolean } = {},
+): TTF.Contour[] {
   const polygons: ClipperLib.Paths = [];
 
   const polygon = (points: number[][]) => {
@@ -43,6 +46,28 @@ export function glyphContours(path: string): TTF.Contour[] {
     const points = Array.from({ length: numbers.length / 2 }, (_, i) =>
       numbers.slice(i * 2, i * 2 + 2),
     );
+
+    if (closed && filled) polygon(points);
+
+    if (closed && miter) {
+      // A one-unit outline leaves room for sharp star tips and a visible hole.
+      const outline = new ClipperLib.ClipperOffset(4);
+      const contours: ClipperLib.Paths = [];
+
+      outline.AddPath(
+        points.map(([x, y]) => ({
+          X: Math.round(x * precision),
+          Y: Math.round((13 - y) * precision),
+        })),
+        ClipperLib.JoinType.jtMiter,
+        ClipperLib.EndType.etClosedLine,
+      );
+
+      outline.Execute(contours, precision / 2);
+      polygons.push(...contours);
+      continue;
+    }
+
     const count = points.length - (closed ? 0 : 1);
 
     const normals = Array.from({ length: count }, (_, i) => {
@@ -116,30 +141,39 @@ export async function generateFont() {
   const font = Font.create();
   const data = font.get();
 
-  data.glyf = [['', ''], [' ', ''], ...paths].map(([character, path]) => {
-    const contours = path ? glyphContours(path) : [];
-    const points = contours.flat();
-    const xs = points.map(({ x }) => x);
-    const ys = points.map(({ y }) => y);
-    const xMin = points.length ? Math.min(...xs) : 0;
-    const punctuation = character === '.' || character === ',';
+  data.glyf = [['', ''], [' ', ''], ['\u2009', ''], ...paths].map(
+    ([character, path]) => {
+      const contours = path
+        ? glyphContours(path, {
+            filled: character === '★',
+            miter: character === '★' || character === '☆',
+          })
+        : [];
 
-    return {
-      name: character || '.notdef',
-      unicode: character ? [character.codePointAt(0)!] : [],
-      // Moving stored coordinates to x=0 makes their deltas smaller. The
-      // original left bearing restores the exact placement during rendering.
-      contours: contours.map((contour) =>
-        contour.map((point) => ({ ...point, x: point.x - xMin })),
-      ),
-      xMin: 0,
-      yMin: points.length ? Math.min(...ys) : 0,
-      xMax: points.length ? Math.max(...xs) - xMin : 0,
-      yMax: points.length ? Math.max(...ys) : 0,
-      advanceWidth: (punctuation ? 6 : 13) * precision,
-      leftSideBearing: xMin - (punctuation ? 2 * precision : 0),
-    };
-  });
+      const points = contours.flat();
+      const xs = points.map(({ x }) => x);
+      const ys = points.map(({ y }) => y);
+      const xMin = points.length ? Math.min(...xs) : 0;
+      const punctuation = character === '.' || character === ',';
+
+      return {
+        name: character || '.notdef',
+        unicode: character ? [character.codePointAt(0)!] : [],
+        // Moving stored coordinates to x=0 makes their deltas smaller. The
+        // original left bearing restores the exact placement during rendering.
+        contours: contours.map((contour) =>
+          contour.map((point) => ({ ...point, x: point.x - xMin })),
+        ),
+        xMin: 0,
+        yMin: points.length ? Math.min(...ys) : 0,
+        xMax: points.length ? Math.max(...xs) - xMin : 0,
+        yMax: points.length ? Math.max(...ys) : 0,
+        advanceWidth:
+          (character === '\u2009' ? 6.5 : punctuation ? 6 : 13) * precision,
+        leftSideBearing: xMin - (punctuation ? 2 * precision : 0),
+      };
+    },
+  );
 
   Object.assign(data.head, {
     unitsPerEm: 16 * precision,

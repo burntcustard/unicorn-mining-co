@@ -21,7 +21,15 @@ export const toggleFps = () => {
  * Frames counted over the last 200 ms rather than taken from the gap
  * between the last two, so that one slow frame does not throw the number.
  */
-export const renderFps = ({ game, x }: { game: GameState; x: number }) => {
+export const renderFps = ({
+  game,
+  x,
+  y = 20,
+}: {
+  game: GameState;
+  x: number;
+  y?: number;
+}) => {
   if (!enabled) return;
   const now = performance.now();
 
@@ -34,5 +42,5 @@ export const renderFps = ({ game, x }: { game: GameState; x: number }) => {
     frames = 0;
   }
 
-  renderText({ game, text: `FPS:${rate}`, x, y: 20, size: 1 });
+  renderText({ game, text: `FPS:${rate}`, x, y, size: 1 });
 };

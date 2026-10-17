@@ -34,6 +34,7 @@ type controlFixture struct {
 			Sender, SenderRole, Text     string
 			Sounds                       []WorldSound
 			DisplayName                  *string
+			SectorName                   *string
 			UnlockedPaints               *uint16
 			Credits                      *float64
 			Type, PlayerToken            string
@@ -122,7 +123,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 			Type:   message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
 			ServerTick: message.ServerTick, PlayerToken: message.PlayerToken,
 			WorldSeed: message.WorldSeed, Spawn: message.Spawn,
-			DisplayName: message.DisplayName, Credits: message.Credits, UnlockedPaints: message.UnlockedPaints,
+			SectorName: message.SectorName, DisplayName: message.DisplayName, Credits: message.Credits, UnlockedPaints: message.UnlockedPaints,
 		}, spec.Protocol)
 
 		if err != nil {

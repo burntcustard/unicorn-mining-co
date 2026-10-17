@@ -189,6 +189,9 @@ const makeEntity = ({
     common,
     {
       ...(entity.fuel !== undefined && { fuel: entity.fuel }),
+      ...(entity.storedPower !== undefined && {
+        storedPower: entity.storedPower,
+      }),
       dockedTo: entity.dockedTo,
       health: entity.health ?? 100,
       ...(!wreckage && {
@@ -227,6 +230,7 @@ const makeEntity = ({
 
 export class NetworkClient {
   displayName = '';
+  asteroidPositions: Vec.Value[] = [];
   readonly authenticated: Promise<void>;
   private resolveAuthenticated!: () => void;
   private pendingProfile?: { resolve(): void; reject(error: Error): void };
@@ -297,6 +301,7 @@ export class NetworkClient {
   private welcomed = false;
   readonly world = createWorld();
   worldSeed?: number;
+  sectorName = '';
 
   private applySnapshot({
     message,
@@ -584,6 +589,7 @@ export class NetworkClient {
     }
 
     if (message.type === 'welcome') {
+      this.asteroidPositions = [];
       this.chatMessages = this.chatMessages.filter(
         ({ channel }) => channel === 1,
       );
@@ -612,6 +618,7 @@ export class NetworkClient {
       this.shipId = message.shipId;
       Vec.set(this.spawnPosition, message.spawn);
       this.worldSeed = message.worldSeed;
+      this.sectorName = message.sectorName || 'Unknown';
       this.serverTick = message.serverTick;
       this.world.tick = message.serverTick;
       this.world.random = createRandom(message.worldSeed);
@@ -636,6 +643,7 @@ export class NetworkClient {
     }
 
     if (message.type === 'respawn') {
+      this.asteroidPositions = [];
       this.shipId = message.shipId;
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
@@ -656,6 +664,13 @@ export class NetworkClient {
     }
 
     this.snapshotReceivedAt = performance.now();
+
+    if (message.asteroidPositions) {
+      this.asteroidPositions = message.asteroidPositions;
+    } else if (message.type === 'load') {
+      this.asteroidPositions = [];
+    }
+
     message.dockIds?.forEach(([from, to]) => this.dockIds.set(from, to));
 
     if (message.type === 'load') {
@@ -860,11 +875,13 @@ export class NetworkClient {
   }) {
     if (!this.connected) return false;
 
-    // Adopt snapshots beyond the prediction horizon without smoothing stale poses.
+    // A nearby snapshot can still exceed the last confirmed prediction horizon.
+    // Adopt it directly rather than trying to step past that hard limit.
     const recovering =
       this.pendingSnapshot &&
-      Math.abs(this.pendingSnapshot.serverTick - this.world.tick) >
-        maxPredictionTicks;
+      (Math.abs(this.pendingSnapshot.serverTick - this.world.tick) >
+        maxPredictionTicks ||
+        this.pendingSnapshot.serverTick > this.serverTick + maxPredictionTicks);
 
     if (recovering) this.remoteMotion.reset();
 
@@ -887,7 +904,11 @@ export class NetworkClient {
     // Otherwise smoothing treats legitimate movement as a prediction error.
     if (!recovering && snapshotDue) {
       while (this.world.tick < this.pendingSnapshot.serverTick) {
+        const tick = this.world.tick;
+
         this.step({ input, now: now - this.pendingTime * 1000 });
+
+        if (this.world.tick === tick) break;
       }
     }
 

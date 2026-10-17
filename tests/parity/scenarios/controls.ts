@@ -92,6 +92,7 @@ const server = [
     unlockedPaints: 486,
     credits: 500,
     displayName: 'aé🦄 <&>\u0000',
+    sectorName: 'Hippokoon',
   },
   {
     type: 'welcome' as const,

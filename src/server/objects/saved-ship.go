@@ -14,6 +14,7 @@ import (
 // Specs provide geometry and physics;
 // this record contains only identity, condition, equipment and possessions.
 type SavedShip struct {
+	StoredPower *float64          `json:"storedPower,omitempty"`
 	TransitTime float64           `json:"transitTime,omitempty"`
 	TransitGate int64             `json:"transitGate,omitempty"`
 	Fuel        float64           `json:"fuel"`
@@ -71,7 +72,8 @@ func savedPaint(shades []string, catalog specs.Catalog) *int {
 }
 
 func CaptureShip(ship *Ship) SavedShip {
-	s := SavedShip{TransitTime: ship.TransitTime, TransitGate: ship.TransitGate, Fuel: ship.Fuel, ID: ship.ID, Type: ship.DefinitionID, Position: [2]int64{int64(math.Round(ship.Position.X)), int64(math.Round(ship.Position.Y))}, Rotation: ship.Rotation, Dead: ship.Dead, DockedTo: savedPointer(ship.DockedTo), Hull: ship.HullHealth(), Modules: []SavedShipModule{}}
+	stored := max(0, min(ship.PowerCapacity(), ship.StoredPower))
+	s := SavedShip{StoredPower: &stored, TransitTime: ship.TransitTime, TransitGate: ship.TransitGate, Fuel: ship.Fuel, ID: ship.ID, Type: ship.DefinitionID, Position: [2]int64{int64(math.Round(ship.Position.X)), int64(math.Round(ship.Position.Y))}, Rotation: ship.Rotation, Dead: ship.Dead, DockedTo: savedPointer(ship.DockedTo), Hull: ship.HullHealth(), Modules: []SavedShipModule{}}
 
 	if s.Type == "" {
 		s.Type = "mustang"
@@ -229,6 +231,15 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 	}
 
 	ship.SetModuleStates(states)
+	ship.StoredPower = ship.PowerCapacity()
+
+	if s.StoredPower != nil {
+		if math.IsNaN(*s.StoredPower) || math.IsInf(*s.StoredPower, 0) || *s.StoredPower < 0 || *s.StoredPower > ship.PowerCapacity() {
+			return nil, fmt.Errorf("invalid saved power storage")
+		}
+
+		ship.StoredPower = *s.StoredPower
+	}
 
 	for _, cargo := range s.Cargo {
 		props := simulation.ObjectProperties{ID: &cargo.ID, Message: cargo.Message, Health: cargo.Health}

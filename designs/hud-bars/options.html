@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Five HUD meter options</title>
+  <style>
+    @font-face {
+      font-family: Gemetric;
+      src: url(data:font/woff2;base64,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)
+        format('woff2');
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 32px 36px 24px;
+      background: #101018;
+      color: #eef;
+      font:
+        15px/1.5 system-ui,
+        sans-serif;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      letter-spacing: -0.6px;
+      font-weight: 600;
+    }
+    header p {
+      margin: 0;
+      color: #aaa9bd;
+    }
+    .badge {
+      color: #c5b5de;
+      border: 1px solid #eef3;
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 100px;
+    }
+    .options {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 22px;
+    }
+    .option {
+      grid-column: span 2;
+      min-width: 0;
+    }
+    .option:nth-child(n + 4) {
+      grid-column: span 3;
+    }
+    .heading {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .index {
+      font-size: 16px;
+      color: #e6f;
+      border: 1px solid #e6f6;
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+    }
+    .heading h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .heading small {
+      display: block;
+      color: #a6a4ba;
+      font-size: 12px;
+    }
+    .scene {
+      height: 254px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #eef2;
+      border-radius: 8px;
+      background:
+        radial-gradient(ellipse at 85% 100%, #31245670, transparent 70%),
+        radial-gradient(ellipse at 5% 10%, #3c174a45, transparent 60%), #11091e;
+    }
+    .scene:before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.45;
+      background-image:
+        radial-gradient(circle, #bd99ee 0 1px, transparent 1.4px),
+        radial-gradient(circle, #75adc6 0 0.7px, transparent 1px);
+      background-size:
+        103px 79px,
+        63px 117px;
+      background-position:
+        40px 23px,
+        11px 48px;
+    }
+    .ship {
+      position: absolute;
+      right: 36px;
+      bottom: 40px;
+      width: 35px;
+      height: 40px;
+      opacity: 0.6;
+      transform: rotate(28deg);
+    }
+    .stack {
+      position: absolute;
+      left: 20px;
+      top: 20px;
+      display: grid;
+      gap: 12px;
+      justify-items: start;
+    }
+    .panel {
+      padding: 16px;
+      border: 2px solid #eeeeff4d;
+      background: #222233cc;
+      backdrop-filter: blur(4px);
+      font:
+        12px/1.5 Gemetric,
+        sans-serif;
+      color: #eef;
+    }
+    .stacked {
+      display: grid;
+      gap: 10px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .icon {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 19px;
+      height: 20px;
+      flex: none;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: #d9d5e8;
+      cursor: help;
+      outline-offset: 4px;
+    }
+    .icon svg {
+      width: 18px;
+      height: 18px;
+    }
+    .icon.fuel {
+      color: #e6f;
+    }
+    .icon.cargo {
+      color: #fe4;
+    }
+    .icon.power {
+      color: #ddd8ee;
+    }
+    .tooltip {
+      position: absolute;
+      left: calc(100% + 14px);
+      top: 50%;
+      transform: translateY(-50%);
+      display: none;
+      z-index: 10;
+      min-width: max-content;
+      text-align: left;
+      padding: 8px 11px;
+      background: #13101fee;
+      border: 1px solid #eeeeff4d;
+      box-shadow: 0 3px 14px #0008;
+      font:
+        12px/1.45 system-ui,
+        sans-serif;
+      color: #eef;
+      pointer-events: none;
+    }
+    .tooltip b {
+      font-weight: 600;
+      display: block;
+    }
+    .tooltip span {
+      color: #c3bfd1;
+      display: block;
+    }
+    .tooltip:before {
+      content: '';
+      position: absolute;
+      left: -5px;
+      top: calc(50% - 4px);
+      width: 8px;
+      height: 8px;
+      background: #13101f;
+      border-left: 1px solid #eeeeff4d;
+      border-bottom: 1px solid #eeeeff4d;
+      transform: rotate(45deg);
+    }
+    .icon:hover .tooltip,
+    .icon:focus-visible .tooltip,
+    .icon.showcase .tooltip {
+      display: block;
+    }
+    .segments {
+      display: flex;
+      gap: 2px;
+      height: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+    .segments i {
+      height: 100%;
+      flex: 1;
+      background: #eeeeff1f;
+    }
+    .fuel {
+      --fill: #e6f;
+    }
+    .cargo {
+      --fill: #fe4;
+    }
+    .segments .filled {
+      background: var(--fill);
+    }
+    .power-track {
+      height: 12px;
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      background: #eeeeff1f;
+      overflow: hidden;
+    }
+    .power-track i {
+      width: var(--part);
+      height: 100%;
+      flex: none;
+      background: var(--fill);
+      box-shadow: inset -1px 0 #222233cc;
+    }
+    .minimal {
+      width: 258px;
+    }
+    .number {
+      text-align: right;
+      white-space: nowrap;
+      color: #e3deec;
+      font-size: 10px;
+    }
+    .exact {
+      width: 304px;
+    }
+    .exact .segments,
+    .exact .power-track {
+      width: 138px;
+      flex: none;
+    }
+    .exact .number {
+      margin-left: auto;
+    }
+    .modules {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 238px;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: #bbb7ca;
+      background: #22223390;
+      border-color: #eeeeff30;
+    }
+    .modules kbd {
+      display: grid;
+      place-items: center;
+      flex: none;
+      font:
+        12px/1.5 Gemetric,
+        sans-serif;
+      height: 30px;
+      min-width: 30px;
+      padding: 4px 6px;
+      border: 2px solid #eeeeff66;
+      color: #eef;
+    }
+    .modules i {
+      width: 22.5px;
+      height: 22.5px;
+      margin-left: auto;
+      border: 2px solid #e6f;
+      padding: 3px;
+    }
+    .gauges {
+      display: flex;
+      gap: 22px;
+      width: 174px;
+      justify-content: space-between;
+    }
+    .gauge {
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+    }
+    .segments.vertical {
+      height: 100px;
+      width: 20px;
+      flex-direction: column-reverse;
+      gap: 2px;
+    }
+    .segments.vertical i {
+      width: 100%;
+      height: auto;
+      min-height: 0;
+    }
+    .power-track.vertical {
+      height: 100px;
+      width: 20px;
+      flex-direction: column-reverse;
+    }
+    .power-track.vertical i {
+      width: 100%;
+      height: var(--part);
+      box-shadow: inset 0 1px #222233cc;
+    }
+    .option:nth-child(3) .modules {
+      padding: 8px 16px;
+      width: 238px;
+    }
+    .strip {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      width: 510px;
+    }
+    .strip .row {
+      flex: 1;
+      gap: 8px;
+    }
+    .strip .segments {
+      gap: 1px;
+    }
+    .priority {
+      width: 346px;
+      gap: 14px;
+    }
+    .priority > .row .number {
+      font-size: 10px;
+    }
+    .paired {
+      display: flex;
+      gap: 22px;
+    }
+    .paired .row {
+      flex: 1;
+    }
+    .paired .segments {
+      gap: 2px;
+    }
+    .description {
+      margin: 10px 0 0;
+      max-width: 520px;
+      color: #aaa7bc;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    footer {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      gap: 32px;
+      border-top: 1px solid #eef2;
+      padding-top: 16px;
+      color: #a8a4ba;
+      font-size: 12px;
+    }
+    footer b {
+      color: #ddd7e8;
+      font-weight: 500;
+    }
+    .legend {
+      display: flex;
+      gap: 20px;
+    }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      display: inline-block;
+      border-radius: 50%;
+    }
+    .footnote {
+      max-width: 580px;
+      text-align: right;
+    }
+    @media (max-width: 1000px) {
+      body {
+        padding: 24px;
+      }
+      .options {
+        grid-template-columns: 1fr 1fr;
+      }
+      .option,
+      .option:nth-child(n + 4) {
+        grid-column: auto;
+      }
+      .strip {
+        width: 360px;
+        gap: 10px;
+      }
+      header {
+        display: block;
+      }
+      .badge {
+        display: inline-block;
+        margin-top: 12px;
+      }
+    }
+    @media (max-width: 650px) {
+      .options {
+        grid-template-columns: 1fr;
+      }
+      footer {
+        display: block;
+      }
+      .footnote {
+        text-align: left;
+      }
+    }
+  </style>
+  <header>
+    <div>
+      <h1>Five ways to group the ship meters</h1>
+      <p>
+        Top-left HUD · current panel styling · icon labels on hover or keyboard
+        focus
+      </p>
+    </div>
+    <span class="badge">Design exploration · no game changes</span>
+  </header>
+  <main class="options">
+    <article class="option">
+      <div class="heading">
+        <span class="index">1</span>
+        <div>
+          <h2>Minimal stack</h2>
+          <small>Smallest familiar layout</small>
+        </div>
+      </div>
+      <div class="scene">
+        <svg class="ship" viewBox="0 0 32 42" fill="#eee9f5">
+          <path d="M16 1 30 34 16 28 2 34Z" />
+        </svg>
+        <div class="stack">
+          <div class="panel stacked minimal">
+            <div class="row">
+              <button class="icon fuel" aria-label="Fuel: 68% remaining">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2C10 6 5 11 5 15a7 7 0 0 0 14 0c0-4-5-9-7-13Z" />
+                  <path d="M8 15a4 4 0 0 0 4 4" />
+                </svg>
+                <span class="tooltip">
+                  <b>Fuel</b>
+                  <span>68% remaining</span>
+                </span>
+              </button>
+              <div class="segments fuel" style="--count: 20">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+            </div>
+            <div class="row">
+              <button
+                class="icon cargo"
+                aria-label="Cargo: 6 / 12 slots occupied"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m12 2 9 5v10l-9 5-9-5V7Z" />
+                  <path d="m3 7 9 5 9-5M12 12v10M7.5 4.5l9 5" />
+                </svg>
+                <span class="tooltip">
+                  <b>Cargo</b>
+                  <span>6 / 12 slots occupied</span>
+                </span>
+              </button>
+              <div class="segments cargo" style="--count: 12">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+            </div>
+            <div class="row">
+              <button
+                class="icon power"
+                aria-label="Power: 4.8 / 6.4 MW · 75% used"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M13 2 4 14h7l-1 8L21 9h-8l1-7Z" />
+                </svg>
+                <span class="tooltip">
+                  <b>Power</b>
+                  <span>4.8 / 6.4 MW · 75% used</span>
+                </span>
+              </button>
+              <div class="power-track">
+                <i style="--part: 32.292%; --fill: #c568d6"></i>
+                <i style="--part: 12.5%; --fill: #c6b256"></i>
+                <i style="--part: 5.208%; --fill: #37d990"></i>
+              </div>
+            </div>
+          </div>
+          <div class="panel modules">
+            <kbd>H</kbd>
+            <span>Cargo hatch</span>
+            <i></i>
+          </div>
+        </div>
+      </div>
+      <p class="description">
+        Three equal rows. Icons replace labels; hover for exact readings.
+      </p>
+    </article>
+    <article class="option">
+      <div class="heading">
+        <span class="index">2</span>
+        <div>
+          <h2>Exact readings</h2>
+          <small>Numbers always visible</small>
+        </div>
+      </div>
+      <div class="scene">
+        <svg class="ship" viewBox="0 0 32 42" fill="#eee9f5">
+          <path d="M16 1 30 34 16 28 2 34Z" />
+        </svg>
+        <div class="stack">
+          <div class="panel stacked exact">
+            <div class="row">
+              <button class="icon fuel" aria-label="Fuel: 68% remaining">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2C10 6 5 11 5 15a7 7 0 0 0 14 0c0-4-5-9-7-13Z" />
+                  <path d="M8 15a4 4 0 0 0 4 4" />
+                </svg>
+                <span class="tooltip">
+                  <b>Fuel</b>
+                  <span>68% remaining</span>
+                </span>
+              </button>
+              <div class="segments fuel" style="--count: 20">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+              <span class="number">68%</span>
+            </div>
+            <div class="row">
+              <button
+                class="icon cargo"
+                aria-label="Cargo: 6 / 12 slots occupied"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m12 2 9 5v10l-9 5-9-5V7Z" />
+                  <path d="m3 7 9 5 9-5M12 12v10M7.5 4.5l9 5" />
+                </svg>
+                <span class="tooltip">
+                  <b>Cargo</b>
+                  <span>6 / 12 slots occupied</span>
+                </span>
+              </button>
+              <div class="segments cargo" style="--count: 12">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+              <span class="number">6 / 12</span>
+            </div>
+            <div class="row">
+              <button
+                class="icon power"
+                aria-label="Power: 4.8 / 6.4 MW · 75% used"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M13 2 4 14h7l-1 8L21 9h-8l1-7Z" />
+                </svg>
+                <span class="tooltip">
+                  <b>Power</b>
+                  <span>4.8 / 6.4 MW · 75% used</span>
+                </span>
+              </button>
+              <div class="power-track">
+                <i style="--part: 32.292%; --fill: #c568d6"></i>
+                <i style="--part: 12.5%; --fill: #c6b256"></i>
+                <i style="--part: 5.208%; --fill: #37d990"></i>
+              </div>
+              <span class="number">4.8 / 6.4</span>
+            </div>
+          </div>
+          <div class="panel modules">
+            <kbd>H</kbd>
+            <span>Cargo hatch</span>
+            <i></i>
+          </div>
+        </div>
+      </div>
+      <p class="description">
+        The same compact stack, with precise values at the right edge.
+      </p>
+    </article>
+    <article class="option">
+      <div class="heading">
+        <span class="index">3</span>
+        <div>
+          <h2>Vertical gauges</h2>
+          <small>Narrow, taller footprint</small>
+        </div>
+      </div>
+      <div class="scene">
+        <svg class="ship" viewBox="0 0 32 42" fill="#eee9f5">
+          <path d="M16 1 30 34 16 28 2 34Z" />
+        </svg>
+        <div class="stack">
+          <div class="panel gauges">
+            <div class="gauge">
+              <div class="segments fuel vertical" style="--count: 20">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+              <button class="icon fuel" aria-label="Fuel: 68% remaining">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2C10 6 5 11 5 15a7 7 0 0 0 14 0c0-4-5-9-7-13Z" />
+                  <path d="M8 15a4 4 0 0 0 4 4" />
+                </svg>
+                <span class="tooltip">
+                  <b>Fuel</b>
+                  <span>68% remaining</span>
+                </span>
+              </button>
+            </div>
+            <div class="gauge">
+              <div class="segments cargo vertical" style="--count: 12">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+              <button
+                class="icon cargo"
+                aria-label="Cargo: 6 / 12 slots occupied"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m12 2 9 5v10l-9 5-9-5V7Z" />
+                  <path d="m3 7 9 5 9-5M12 12v10M7.5 4.5l9 5" />
+                </svg>
+                <span class="tooltip">
+                  <b>Cargo</b>
+                  <span>6 / 12 slots occupied</span>
+                </span>
+              </button>
+            </div>
+            <div class="gauge">
+              <div class="power-track vertical">
+                <i style="--part: 32.292%; --fill: #c568d6"></i>
+                <i style="--part: 12.5%; --fill: #c6b256"></i>
+                <i style="--part: 5.208%; --fill: #37d990"></i>
+              </div>
+              <button
+                class="icon power showcase"
+                aria-label="Power: 4.8 / 6.4 MW · 75% used"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M13 2 4 14h7l-1 8L21 9h-8l1-7Z" />
+                </svg>
+                <span class="tooltip">
+                  <b>Power</b>
+                  <span>4.8 / 6.4 MW · 75% used</span>
+                </span>
+              </button>
+            </div>
+          </div>
+          <div class="panel modules">
+            <kbd>H</kbd>
+            <span>Cargo hatch</span>
+            <i></i>
+          </div>
+        </div>
+      </div>
+      <p class="description">
+        Three upright meters with icons below. More open space beside them.
+      </p>
+    </article>
+    <article class="option">
+      <div class="heading">
+        <span class="index">4</span>
+        <div>
+          <h2>Single strip</h2>
+          <small>Lowest profile</small>
+        </div>
+      </div>
+      <div class="scene">
+        <svg class="ship" viewBox="0 0 32 42" fill="#eee9f5">
+          <path d="M16 1 30 34 16 28 2 34Z" />
+        </svg>
+        <div class="stack">
+          <div class="panel strip">
+            <div class="row">
+              <button class="icon fuel" aria-label="Fuel: 68% remaining">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2C10 6 5 11 5 15a7 7 0 0 0 14 0c0-4-5-9-7-13Z" />
+                  <path d="M8 15a4 4 0 0 0 4 4" />
+                </svg>
+                <span class="tooltip">
+                  <b>Fuel</b>
+                  <span>68% remaining</span>
+                </span>
+              </button>
+              <div class="segments fuel" style="--count: 20">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+            </div>
+            <div class="row">
+              <button
+                class="icon cargo"
+                aria-label="Cargo: 6 / 12 slots occupied"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m12 2 9 5v10l-9 5-9-5V7Z" />
+                  <path d="m3 7 9 5 9-5M12 12v10M7.5 4.5l9 5" />
+                </svg>
+                <span class="tooltip">
+                  <b>Cargo</b>
+                  <span>6 / 12 slots occupied</span>
+                </span>
+              </button>
+              <div class="segments cargo" style="--count: 12">
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class="filled"></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+                <i class=""></i>
+              </div>
+            </div>
+            <div class="row">
+              <button
+                class="icon power"
+                aria-label="Power: 4.8 / 6.4 MW · 75% used"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M13 2 4 14h7l-1 8L21 9h-8l1-7Z" />
+                </svg>
+                <span class="tooltip">
+                  <b>Power</b>
+                  <span>4.8 / 6.4 MW · 75% used</span>
+                </span>
+              </button>
+              <div class="power-track">
+                <i style="--part: 32.292%; --fill: #c568d6"></i>
+                <i style="--part: 12.5%; --fill: #c6b256"></i>
+                <i style="--part: 5.208%; --fill: #37d990"></i>
+              </div>
+            </div>
+          </div>
+          <div class="panel modules">
+            <kbd>H</kbd>
+            <span>Cargo hatch</span>
+            <i></i>
+          </div>
+        </div>
+      </div>
+      <p class="description">
+        All three meters in one horizontal strip. Fast to scan across.
+      </p>
+    </article>
+    <article class="option">
+      <div class="heading">
+        <span class="index">5</span>
+        <div>
+          <h2>Power first</h2>
+          <small>Emphasis on module demand</small>
+        </div>
+      </div>
+      <div class="scene">
+        <svg class="ship" viewBox="0 0 32 42" fill="#eee9f5">
+          <path d="M16 1 30 34 16 28 2 34Z" />
+        </svg>
+        <div class="stack">
+          <div class="panel stacked priority">
+            <div class="row">
+              <button
+                class="icon power"
+                aria-label="Power: 4.8 / 6.4 MW · 75% used"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M13 2 4 14h7l-1 8L21 9h-8l1-7Z" />
+                </svg>
+                <span class="tooltip">
+                  <b>Power</b>
+                  <span>4.8 / 6.4 MW · 75% used</span>
+                </span>
+              </button>
+              <div class="power-track">
+                <i style="--part: 32.292%; --fill: #c568d6"></i>
+                <i style="--part: 12.5%; --fill: #c6b256"></i>
+                <i style="--part: 5.208%; --fill: #37d990"></i>
+              </div>
+              <span class="number">4.8 / 6.4 MW</span>
+            </div>
+            <div class="paired">
+              <div class="row">
+                <button class="icon fuel" aria-label="Fuel: 68% remaining">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 2C10 6 5 11 5 15a7 7 0 0 0 14 0c0-4-5-9-7-13Z"
+                    />
+                    <path d="M8 15a4 4 0 0 0 4 4" />
+                  </svg>
+                  <span class="tooltip">
+                    <b>Fuel</b>
+                    <span>68% remaining</span>
+                  </span>
+                </button>
+                <div class="segments fuel" style="--count: 20">
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                </div>
+              </div>
+              <div class="row">
+                <button
+                  class="icon cargo"
+                  aria-label="Cargo: 6 / 12 slots occupied"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m12 2 9 5v10l-9 5-9-5V7Z" />
+                    <path d="m3 7 9 5 9-5M12 12v10M7.5 4.5l9 5" />
+                  </svg>
+                  <span class="tooltip">
+                    <b>Cargo</b>
+                    <span>6 / 12 slots occupied</span>
+                  </span>
+                </button>
+                <div class="segments cargo" style="--count: 12">
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class="filled"></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                  <i class=""></i>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="panel modules">
+            <kbd>H</kbd>
+            <span>Cargo hatch</span>
+            <i></i>
+          </div>
+        </div>
+      </div>
+      <p class="description">
+        A wide power meter above paired fuel and cargo meters.
+      </p>
+    </article>
+  </main>
+  <footer>
+    <div>
+      <b>Same readings in every option</b>
+      <div class="legend">
+        <span>
+          <i class="dot" style="background: #e6f"></i>
+          Fuel 68%
+        </span>
+        <span>
+          <i class="dot" style="background: #fe4"></i>
+          Cargo 6 / 12
+        </span>
+        <span>
+          <i class="dot" style="background: #37d990"></i>
+          Power 4.8 / 6.4 MW
+        </span>
+      </div>
+    </div>
+    <div class="footnote">
+      Fuel: 20 segments. Cargo: one segment per slot. Power: module colors,
+      scaled to 150% of generation.
+      <br />
+      Option 3 shows an example tooltip; all meter icons support the same
+      tooltip.
+    </div>
+  </footer>
+</html>

@@ -3,6 +3,17 @@ kbd {
   font-size: 0.75rem;
 }
 
+.outline-shadow {
+  filter: drop-shadow(1px 0 0 rgb(from #000 r g b / 0.8))
+    drop-shadow(-1px 0 0 rgb(from #000 r g b / 0.8))
+    drop-shadow(0 1px 0 rgb(from #000 r g b / 0.8))
+    drop-shadow(0 -1px 0 rgb(from #000 r g b / 0.8));
+}
+
+.transition-width {
+  transition: width 0.2s ease;
+}
+
 .text-sm {
   font-size: 0.875rem;
 }
@@ -35,6 +46,10 @@ kbd {
   color: var(--ui-muted);
 }
 
+.text-secondary {
+  color: #ddd;
+}
+
 .leading-tight {
   line-height: 1.2;
 }
@@ -47,12 +62,20 @@ kbd {
   display: grid;
 }
 
+.items-baseline {
+  align-items: baseline;
+}
+
 .flex-wrap {
   flex-wrap: wrap;
 }
 
 .h-full {
   height: 100%;
+}
+
+.border-full {
+  border-radius: 50%;
 }
 
 .p-16 {

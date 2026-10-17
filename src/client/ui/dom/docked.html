@@ -82,22 +82,22 @@
       <h2 class="uppercase">Buy from market</h2>
       <div data-stock-items role="group"></div>
     </div>
-    <div class="dock-center gap-3">
+    <div class="dock-center grid gap-3">
       <canvas class="dock-preview h-full" aria-hidden="true"></canvas>
-      <section class="dock-energy py-4 px-3 text-sm">
+      <section class="dock-energy ui-card text-sm">
         <div class="ui-row gap-3">
           <h2 class="uppercase">Power consumption</h2>
           <span class="dock-output" data-output></span>
         </div>
         <div data-power-bars></div>
+        <div class="dock-energy-legend ui-row gap-3 mt-4 uppercase"></div>
         <span
-          class="uppercase dock-fitting-preview text-muted text-sm"
+          class="block text-right uppercase text-muted text-sm mt-2"
           data-fitting-preview
           hidden
         >
           Fitting preview
         </span>
-        <div class="dock-energy-legend ui-row gap-3 mt-4 uppercase"></div>
       </section>
     </div>
     <div class="dock-inspector gap-6">
@@ -163,13 +163,13 @@
     </div>
   </div>
   <footer class="dock-footer ui-controls ui-row text-muted text-sm uppercase">
-    <button class="gap-2 ui-inline" data-launch>
+    <button class="gap-3 ui-inline" data-launch>
       <kbd>Esc</kbd>
       <span data-back-label>Launch</span>
-      <span class="dock-launch-icon" aria-hidden="true"></span>
+      <span class="dock-launch-icon ui-icon" aria-hidden="true"></span>
     </button>
     <div class="ui-inline gap-8">
-      <span class="gap-2 ui-inline">
+      <span class="gap-3 ui-inline">
         <span class="gap-1 ui-inline">
           <kbd>↑</kbd>
           <kbd>↓</kbd>
@@ -178,7 +178,7 @@
         </span>
         Navigate
       </span>
-      <span class="gap-2 ui-inline">
+      <span class="gap-3 ui-inline">
         <span class="gap-1 ui-inline">
           <kbd>Enter</kbd>
           <kbd>Space</kbd>

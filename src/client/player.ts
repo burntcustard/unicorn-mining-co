@@ -26,7 +26,6 @@ export const player = {
   // The last thing worth telling the pilot about, and how long it stays visible.
   note: '',
   noteFor: 0,
-  hudAlpha: 0,
   started: false,
 };
 
@@ -116,11 +115,6 @@ export const updatePlayer = (dt: number) => {
   if (!player.noteFor && player.queuedNotes.length) {
     say(player.queuedNotes.shift()!);
   }
-
-  player.hudAlpha = Math.max(
-    0,
-    Math.min(1, player.hudAlpha + (player.ship.dockedTo ? -2 : 2) * dt),
-  );
 };
 
 export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {

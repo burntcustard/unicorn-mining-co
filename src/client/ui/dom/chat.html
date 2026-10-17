@@ -1,11 +1,14 @@
-<section class="game-chat" aria-label="Communications" hidden>
-  <div class="chat-tabs" role="tablist">
-    <button type="button" role="tab" aria-selected="true">Sector</button>
-    <button type="button" role="tab" aria-selected="false">Global</button>
+<section class="game-chat ui-surface ui-card" hidden>
+  <div class="chat-tabs uppercase">
+    <button type="button" aria-pressed="true">Sector</button>
+    <button type="button" aria-pressed="false">Global</button>
   </div>
-  <div class="chat-log" role="log" aria-live="polite"></div>
+  <div class="chat-log" role="log"></div>
   <div class="chat-contact" hidden>
-    <p><strong></strong><span></span></p>
+    <p>
+      <strong></strong>
+      <span></span>
+    </p>
     <button type="button">Yes — request access</button>
   </div>
   <input

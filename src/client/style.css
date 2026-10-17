@@ -30,10 +30,6 @@
     z-index: 4;
   }
 
-  #ui-root {
-    z-index: 5;
-  }
-
   .world-surface {
     position: fixed;
     top: 0;

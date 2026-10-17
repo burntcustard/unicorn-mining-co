@@ -755,6 +755,14 @@ export function encodeServerControl(
     writer.string(message.displayName);
   }
 
+  if (message.sectorName !== undefined) {
+    if (message.displayName === undefined) {
+      throw new Error('Sector requires profile name');
+    }
+
+    writer.string(message.sectorName);
+  }
+
   return writer.finish();
 }
 
@@ -863,6 +871,8 @@ export function decodeServerControl(
         if (reader.remaining) message.credits = reader.number();
 
         if (reader.remaining) message.displayName = reader.string();
+
+        if (reader.remaining) message.sectorName = reader.string();
       }
 
       break;

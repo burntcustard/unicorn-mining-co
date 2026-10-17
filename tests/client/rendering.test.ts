@@ -64,7 +64,6 @@ import {
 } from '${root}/src/client/utilities/lighting.ts';
 import { colors } from '${root}/src/specs/colors.ts';
 import { withAlpha } from '${root}/src/client/utilities/color.ts';
-import { renderControls } from '${root}/src/client/ui/controls.ts';
 import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
 
@@ -470,13 +469,6 @@ for (const ship of [local, remote]) {
     );
   }
   housing.activationProgress = housingProgress;
-  const beforeBoxes = boxes;
-  renderControls(game, ship);
-  assert.equal(
-    boxes - beforeBoxes,
-    2,
-    'cargo hatch and search light checkboxes reflect replicated activation',
-  );
   draws.length = 0;
   const beforeHull = gradients;
   ship.render({ zIndex: renderingLayers.shipHull });
@@ -1491,7 +1483,7 @@ assert(
   'rendered rock area equals the remaining segments',
 );
 console.log(
-  'Replicated flares, light beams, module checkboxes, palettes, render inheritance and asteroid holes passed',
+  'Replicated flares, light beams, palettes, render inheritance and asteroid holes passed',
 );
 `;
 

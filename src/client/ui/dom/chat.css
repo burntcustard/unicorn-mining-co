@@ -1,18 +1,14 @@
 /* Keep chat above the game canvas, HUD, menus, status, and notifications. */
 .game-chat {
   position: fixed;
-  bottom: 1rem;
-  left: 1rem;
+  top: var(--hud-inset, 1rem);
+  left: var(--hud-inset, 1rem);
   z-index: 30;
   width: min(23rem, calc(100vw - 2rem));
   color: #eee;
   font:
     0.8rem / 1.4 system-ui,
     sans-serif;
-  background: rgb(17 0 34 / 0.8);
-  border: 1px solid #647;
-  border-radius: 0.3rem;
-  padding: 0.5rem;
 }
 
 .chat-tabs {
@@ -20,6 +16,7 @@
   gap: 0.3rem;
   border-bottom: 1px solid #647;
   padding-bottom: 0.3rem;
+  font-family: Gemetric, sans-serif;
 }
 
 .game-chat button,
@@ -32,7 +29,7 @@
   padding: 0.25rem 0.5rem;
 }
 
-.chat-tabs [aria-selected='true'] {
+.chat-tabs [aria-pressed='true'] {
   color: #4df;
   border-color: #4df;
 }
@@ -55,10 +52,6 @@
   color: var(--sender-color, #fff);
 }
 
-.chat-contact strong {
-  color: #3f7;
-}
-
 .chat-contact {
   border-top: 1px solid #647;
   padding: 0.25rem 0 0.5rem;
@@ -67,13 +60,24 @@
 .game-chat input {
   width: 100%;
   margin-top: 0.3rem;
+  background: #30243f;
 }
 
+.chat-contact strong,
 .game-chat button:disabled {
   color: #3f7;
 }
 
-.chat-tabs button {
-  font-family: Gemetric, sans-serif;
-  text-transform: uppercase;
+.chat-log time {
+  color: #a9a3b5;
+  margin-right: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (width < 600px) {
+  .game-chat {
+    width: calc(100vw - 185px);
+    left: 8px;
+    top: 8px;
+  }
 }

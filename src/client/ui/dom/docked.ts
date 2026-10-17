@@ -1,3 +1,4 @@
+import { powerParts } from './power';
 import html from './docked.html?raw';
 import './docked.css';
 import pentagon from '../icons/corral-5.svg?raw';
@@ -602,7 +603,7 @@ const createDocked = () => {
       query(root, '[data-module-power]'),
       module && !trading
         ? module.powerGenerated
-          ? `<h3 class="text-sm uppercase">Output</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div>`
+          ? `<h3 class="text-sm uppercase">Generation</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div><h3 class="text-sm uppercase mt-4">Storage</h3><div class="text-color text-lg mt-4">${(module.powerCapacity || 0).toFixed(1)} MJ</div>`
           : `<h3 class="text-sm uppercase">Power consumption</h3><div class="ui-inline gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div></div>`
         : '',
     );
@@ -721,29 +722,27 @@ const createDocked = () => {
       total: number;
       active?: boolean;
     }) => {
-      const parts = consumers
-        .map(({ module, at }) => {
-          const value = active ? module.powerActivated : module.power;
-          const highlighted =
+      const parts = powerParts({
+        scale,
+        entries: consumers.map(({ module, at }) => ({
+          module,
+          value: active ? module.powerActivated : module.power,
+          highlighted:
             previewHull < 0 ||
             (previewMount
               ? at === previewIndex
-              : hullIndexOf(at) === previewHull);
-
-          return `<span class="dock-power-part" title="${module.name}: ${value.toFixed(1)} MW"
-          style="--ui-color:${moduleCategories.get(module.category).color};
-          width:${(value / scale) * 100}%;opacity:${highlighted ? 1 : 0.25}"></span>`;
-        })
-        .join('');
+              : hullIndexOf(at) === previewHull),
+        })),
+      });
 
       const generation = output
-        ? `<span class="dock-generation" title="Output: ${output.toFixed(1)} MW"
+        ? `<span class="ui-power-marker" title="Output: ${output.toFixed(1)} MW"
             style="left:${(output / scale) * 100}%"></span>`
         : '';
 
       return `<div class="dock-power-label ui-row gap-3 mt-4 mb-2">
         <span class="uppercase">${label}</span><span>${total.toFixed(1)} MW</span>
-      </div><div class="dock-power-track">${parts}${generation}</div>`;
+      </div><div class="ui-power-track">${parts}${generation}</div>`;
     };
 
     query(root, '[data-fitting-preview]').hidden = !previewCandidate;
@@ -760,7 +759,7 @@ const createDocked = () => {
         ),
     );
 
-    setHtml(
+    setRows(
       query(root, '[data-power-bars]'),
       powerBar({ label: 'Idle', total: idle }) +
         powerBar({

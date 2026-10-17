@@ -28,12 +28,22 @@ export const query = <T extends Element = HTMLElement>(
   selector: string,
 ) => element.querySelector<T>(selector)!;
 
-const notification = document.createElement('div');
+const root =
+  document.querySelector<HTMLElement>('.hud') || document.createElement('div');
 
-notification.className = 'ui-notification py-2 px-4 text-center uppercase';
+root.className = 'hud ui-surface';
+
+if (!root.isConnected) document.body.append(root);
+
+const notification =
+  root.querySelector<HTMLElement>('.ui-notification') ||
+  document.createElement('div');
+
+notification.className =
+  'ui-notification ui-surface ui-card text-center uppercase';
 notification.setAttribute('role', 'status');
 notification.hidden = true;
-document.body.append(notification);
+root.append(notification);
 
 export const updateNotification = (message: string) => {
   if (notification.textContent !== message) notification.textContent = message;
@@ -41,10 +51,7 @@ export const updateNotification = (message: string) => {
 };
 
 export const ui = (() => {
-  const element = document.createElement('div');
-
-  element.setAttribute('id', 'ui-root');
-  document.body.append(element);
+  const element = root;
 
   const stack: Screen[] = [];
 

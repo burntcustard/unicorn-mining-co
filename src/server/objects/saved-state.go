@@ -33,26 +33,30 @@ type SavedObject struct {
 }
 
 type SavedEntity struct {
-	TransitTime              float64
-	TransitGate              int64
-	Fuel                     float64
-	Rounds                   *int
-	Object                   SavedObject
-	ModuleType               string
-	Contents                 []int
-	MaxHealth                float64
-	AsteroidSegments         []*simulation.AsteroidSegment
-	HullHealth               []float64
-	HullEdges                [][]bool
-	Modules                  []ModuleState
-	ModuleTypes              []string
-	CargoContents            []SavedEntity
-	Wreckage                 []WreckageSegment
-	UnstrokedWreckage        []int
-	ZeroFillWreckage         []int
-	DockedTo                 *int64
-	Launching, Forward, Turn float64
-	HasLaunching             bool
+	TransitTime float64
+	TransitGate int64
+	Fuel        float64
+	StoredPower float64
+	// Gob omits zero-valued pointers; an empty battery needs explicit presence.
+	HasPower                    bool
+	ThrusterPower, SystemsPower float64
+	Rounds                      *int
+	Object                      SavedObject
+	ModuleType                  string
+	Contents                    []int
+	MaxHealth                   float64
+	AsteroidSegments            []*simulation.AsteroidSegment
+	HullHealth                  []float64
+	HullEdges                   [][]bool
+	Modules                     []ModuleState
+	ModuleTypes                 []string
+	CargoContents               []SavedEntity
+	Wreckage                    []WreckageSegment
+	UnstrokedWreckage           []int
+	ZeroFillWreckage            []int
+	DockedTo                    *int64
+	Launching, Forward, Turn    float64
+	HasLaunching                bool
 }
 
 func savedPointer[T any](p *T) *T {
@@ -191,6 +195,8 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 
 	if ship, ok := entity.(*Ship); ok {
 		s.Fuel = ship.Fuel
+		s.StoredPower, s.HasPower = ship.StoredPower, true
+		s.ThrusterPower, s.SystemsPower = ship.ThrusterPower, ship.SystemsPower
 	}
 
 	return s
@@ -342,6 +348,13 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 
 	if ship, ok := entity.(*Ship); ok {
 		ship.Fuel = s.Fuel
+
+		if s.HasPower {
+			ship.StoredPower = s.StoredPower
+			ship.ThrusterPower, ship.SystemsPower = s.ThrusterPower, s.SystemsPower
+		} else {
+			ship.StoredPower = ship.PowerCapacity()
+		}
 	}
 
 	b := entity.Base()

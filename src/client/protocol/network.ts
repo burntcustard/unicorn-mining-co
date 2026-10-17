@@ -62,6 +62,7 @@ export type ReplicatedEntity = {
   resource?: number;
   rounds?: number;
   fuel?: number;
+  storedPower?: number;
   firing?: boolean;
   rotation: number;
   spin: number;
@@ -119,6 +120,7 @@ export type ServerMessage =
       type: 'welcome';
       displayName?: string;
       worldSeed: number;
+      sectorName?: string;
       unlockedPaints?: number;
       credits?: number;
     }
@@ -136,4 +138,5 @@ export type ServerMessage =
       serverTick: number;
       type: 'load' | 'snapshot';
       entityIds?: number[];
+      asteroidPositions?: NetworkVector[];
     };

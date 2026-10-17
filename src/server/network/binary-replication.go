@@ -350,7 +350,7 @@ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) pr
 func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord {
 	catalog := &batch.catalog
 	field := catalog.Protocol.BinaryFieldIDs
-	record := recordOf(source, field.TransitGate)
+	record := recordOf(source, field.StoredPower)
 
 	if record.batchGeneration == batch.Generation {
 		return record
@@ -470,6 +470,7 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		ship := s.ShipBase()
 		scalar(record, field.Firing, ship.Firing)
 		scalarNumber(record, field.Fuel, ship.Fuel)
+		scalarNumber(record, field.StoredPower, ship.StoredPower)
 		scalarNumber(record, field.Thrust, ship.Forward)
 		scalarNumber(record, field.Turn, ship.Turn)
 	}
@@ -665,6 +666,9 @@ type member struct {
 
 type BinaryReplicationManager struct {
 	snapshotTick, stamp uint64
+	asteroidTick        uint64
+	asteroidPositions   []Vec.Vector
+	asteroidBuffer      []Vec.Vector
 	writer              []byte
 	entityIDs           []uint64
 	fragments           []fragment
@@ -733,6 +737,32 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 	m.fragments = m.fragments[:0]
 	rules := &m.catalog.Simulation
 	ranges := rules.Replication
+	var asteroidPositions []Vec.Vector
+
+	// Radar contacts have no entity identity or geometry on the client. Refresh
+	// at the ballistic cadence and omit identical lists between refreshes.
+	if load || world.Tick-m.asteroidTick >= uint64(max(1, rules.BallisticReplicateEvery)) {
+		m.asteroidTick = world.Tick
+		m.asteroidBuffer = m.asteroidBuffer[:0]
+
+		for i, object := range view.objects {
+			dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
+
+			if object.Kind == "asteroid" && !object.Dead && !object.Buried && dx*dx+dy*dy <= ranges.EntityUnload*ranges.EntityUnload {
+				m.asteroidBuffer = append(m.asteroidBuffer, object.Position)
+			}
+		}
+
+		if load || !slices.Equal(m.asteroidBuffer, m.asteroidPositions) {
+			m.asteroidPositions, m.asteroidBuffer = m.asteroidBuffer, m.asteroidPositions
+			asteroidPositions = m.asteroidPositions
+
+			if asteroidPositions == nil {
+				asteroidPositions = []Vec.Vector{}
+			}
+		}
+	}
+
 	distantInterval := rules.UpdateTiers["distant"].ReplicateEvery
 	visibleInterval := rules.UpdateTiers["visible"].ReplicateEvery
 	visibleSquared := rules.VisibleRange * rules.VisibleRange
@@ -939,7 +969,7 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 		fragments[i] = batch.arena[f.offset : f.offset+f.length]
 	}
 
-	data, err := protocol.AppendSnapshot(m.writer[:0], protocol.Snapshot{Load: load, MembershipChanged: membershipChanged, Tick: world.Tick, NextEntityID: uint64(world.NextEntityID), Ack: options.AcknowledgedSequence, InputLead: options.InputLead, Sequence: options.SnapshotSequence, DockSequence: options.DockSequence, Credits: options.Credits, DockIDs: options.DockIDs, EntityIDs: m.entityIDs, Fragments: fragments}, m.catalog.Protocol)
+	data, err := protocol.AppendSnapshot(m.writer[:0], protocol.Snapshot{Load: load, MembershipChanged: membershipChanged, Tick: world.Tick, NextEntityID: uint64(world.NextEntityID), Ack: options.AcknowledgedSequence, InputLead: options.InputLead, Sequence: options.SnapshotSequence, DockSequence: options.DockSequence, Credits: options.Credits, DockIDs: options.DockIDs, AsteroidPositions: asteroidPositions, EntityIDs: m.entityIDs, Fragments: fragments}, m.catalog.Protocol)
 
 	if err != nil {
 		panic(err)

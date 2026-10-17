@@ -1,39 +1,11 @@
 import { type Craft } from '../../objects/craft';
-import { HornDrill } from '../../objects/modules/horn-drill';
-import { rotatePoint, rotatePoints } from '../../utilities/geometry';
+import { shipOutlines } from '../ship-outline';
 
 /**
  * Outline the current hull, horn drill, and thruster flares facing northeast.
  */
 export const shipIcon = (ship: Craft) => {
-  const angle = -Math.PI / 4;
-
-  const outlines = ship.segments
-    .filter(
-      (segment) =>
-        (segment.hull ||
-          segment.module instanceof HornDrill ||
-          segment.flareSize) &&
-        !(segment.health < 1),
-    )
-    .map((segment) => {
-      const size = segment.flareSize;
-      const points = size
-        ? [
-            [0, -size],
-            [-size * 2.5, 0],
-            [0, size],
-          ]
-        : typeof segment.points === 'function'
-          ? segment.points(segment)
-          : segment.points;
-
-      return rotatePoints(
-        points || [],
-        angle,
-        rotatePoint(segment.localPosition, angle),
-      );
-    });
+  const outlines = shipOutlines({ ship, rotation: -Math.PI / 4 });
 
   const points = outlines.flat();
 

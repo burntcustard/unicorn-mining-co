@@ -21,7 +21,8 @@ func main() {
 	packet, err := protocol.EncodeSnapshot(protocol.Snapshot{
 		Tick: 42, NextEntityID: 100, Ack: new(uint64(9)), InputLead: new(int64(-2)),
 		Sequence: new(uint64(10)), MembershipChanged: true,
-		EntityIDs: []uint64{7, 9, 11},
+		EntityIDs:         []uint64{7, 9, 11},
+		AsteroidPositions: []protocol.Vector{{X: -2999, Y: 2}, {X: 2999, Y: 3}},
 		Records: []protocol.EntityRecord{
 			{ID: 7, Fields: map[int]any{
 				field.Kind: "ship", field.Position: protocol.Vector{X: -1.25, Y: 20.5},
@@ -30,6 +31,7 @@ func main() {
 				field.DefinitionID:  "testScout",
 				field.Name:          "MUSTANG",
 				field.Fuel:          float64(3.25),
+				field.StoredPower:   float64(12.5),
 				field.TransitTime:   float64(-1.25),
 				field.TransitGate:   float64(987),
 				field.Shades:        []string{"#fff", "#000"},

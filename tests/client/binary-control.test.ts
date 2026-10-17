@@ -147,6 +147,7 @@ for (const message of [
     unlockedPaints: 96,
     credits: 500,
     displayName: '🦄'.repeat(16),
+    sectorName: 'Hippokoon',
   },
   {
     type: 'welcome' as const,

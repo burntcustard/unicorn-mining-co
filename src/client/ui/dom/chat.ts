@@ -1,6 +1,6 @@
 import './chat.css';
 import html from './chat.html?raw';
-import { createScreen, query } from './ui';
+import { createScreen, query, ui } from './ui';
 import { type NetworkClient } from '../../network/network';
 import { JumpGate } from '../../objects/jump-gate';
 import { type GameObject } from '../../objects/game-object';
@@ -35,6 +35,7 @@ export const createChat = ({
   const input = query<HTMLInputElement>(panel, 'input');
   const buttons =
     panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
+  const receivedAt = new WeakMap<object, Date>();
   let channel = 0;
   let target: JumpGate | undefined;
   let lastMessages: typeof network.chatMessages | undefined;
@@ -43,14 +44,14 @@ export const createChat = ({
     button.addEventListener('click', () => {
       channel = index;
       buttons.forEach((tab, at) =>
-        tab.setAttribute('aria-selected', String(at === channel)),
+        tab.setAttribute('aria-pressed', String(at === channel)),
       );
       lastMessages = undefined;
       button.blur();
     });
   });
 
-  document.body.append(panel);
+  ui.element.append(panel);
 
   access.addEventListener('click', () => {
     if (target) network.requestGateAccess(target.id);
@@ -86,6 +87,10 @@ export const createChat = ({
       return true;
     },
     update(object: GameObject | undefined, shown: boolean) {
+      network.chatMessages.forEach((message) => {
+        if (!receivedAt.has(message)) receivedAt.set(message, new Date());
+      });
+
       panel.hidden = !shown;
 
       if (!shown) {
@@ -126,7 +131,12 @@ export const createChat = ({
             );
 
             sender.textContent = `${message.sender}: `;
-            line.append(sender, document.createTextNode(message.text));
+            const time = document.createElement('time');
+            const date = receivedAt.get(message)!;
+
+            time.dateTime = date.toISOString();
+            time.textContent = `[${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}]`;
+            line.append(time, sender, document.createTextNode(message.text));
             return line;
           }),
         );

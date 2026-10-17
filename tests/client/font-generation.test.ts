@@ -22,8 +22,30 @@ for (const character of 'abcdefghijklmnopqrstuvwxyz') {
 
 assert.deepEqual(
   Object.keys(font.cmap).map(Number),
-  [32, ...characters].toSorted((a, b) => a - b),
+  [32, 0x2009, ...characters].toSorted((a, b) => a - b),
   'the font maps authored characters and space, excluding placeholders',
+);
+
+const space = font.glyf[font.cmap[32]];
+const thinSpace = font.glyf[font.cmap[0x2009]];
+const filledStar = font.glyf[font.cmap['★'.codePointAt(0)!]];
+const outlinedStar = font.glyf[font.cmap['☆'.codePointAt(0)!]];
+
+assert.equal(filledStar.contours.length, 1, 'the solid star has no hole');
+assert.equal(outlinedStar.contours.length, 2, 'the outlined star has a hole');
+assert.equal(filledStar.advanceWidth, outlinedStar.advanceWidth);
+assert.equal(filledStar.leftSideBearing, outlinedStar.leftSideBearing);
+assert.deepEqual(
+  outlinedStar.contours.find((contour) => contour.some(({ x }) => x === 0)),
+  filledStar.contours[0],
+  'both stars have exactly the same outer shape',
+);
+
+assert.equal(thinSpace.advanceWidth * 2, space.advanceWidth);
+assert.equal(
+  thinSpace.contours.length,
+  0,
+  'thin spaces have no visible outline',
 );
 
 assert.ok(

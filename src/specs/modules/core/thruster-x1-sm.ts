@@ -5,7 +5,7 @@ export const thrusterSingleSm = {
   ...thruster,
   name: 'Thruster sm',
   health: 15,
-  power: 0.1,
+  power: 0.8,
   powerActivated: 0.8,
   price: 200,
   fuelUsage: 2.2 / 60,

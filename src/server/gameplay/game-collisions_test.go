@@ -57,6 +57,9 @@ func recordEntity(e simulation.Entity) map[string]any {
 		r["dockedTo"] = s.DockedTo
 		r["forward"] = s.Forward
 		r["turn"] = s.Turn
+		r["storedPower"] = s.StoredPower
+		r["thrusterPower"] = s.ThrusterPower
+		r["systemsPower"] = s.SystemsPower
 	}
 
 	return r
@@ -161,6 +164,27 @@ func TestTypeScriptGameplay(t *testing.T) {
 					ship.Launch()
 				}
 
+				if scenario.Name == "power" {
+					var hatch simulation.Module
+
+					for _, module := range ship.Modules() {
+						spec := &module.ModuleBase().Spec
+						spec.Power, spec.PowerActivated = 0, 0
+
+						if spec.PowerGenerated > 0 {
+							spec.PowerGenerated = 2
+						}
+
+						if hatch == nil && spec.Behavior == "cargoHatch" {
+							hatch = module
+						}
+					}
+
+					ship.Engine().ModuleBase().Spec.PowerActivated = 2
+					hatch.ModuleBase().Spec.Power, hatch.ModuleBase().Spec.PowerActivated = 1, 1
+					ship.StoredPower = 0.25
+				}
+
 				for index, m := range ship.Modules() {
 					m.Base().ID = int64(-1000 - i*100 - index)
 				}
@@ -186,6 +210,20 @@ func TestTypeScriptGameplay(t *testing.T) {
 			snapshot := 0
 
 			for tick := 0; tick < scenario.Ticks; tick++ {
+				if scenario.Name == "power" && (tick == 60 || tick == 120) {
+					entity, _ := world.Entities.Get(1)
+
+					for _, module := range entity.(*objects.Ship).Modules() {
+						if module.ModuleBase().Spec.PowerGenerated > 0 {
+							module.ModuleBase().Spec.PowerGenerated = 0.5
+
+							if tick == 60 {
+								module.ModuleBase().Spec.PowerGenerated = 5
+							}
+						}
+					}
+				}
+
 				inputs := map[int64]protocol.InputFrame{}
 
 				world.Players.ForEach(func(p simulation.Player, _ int64) {

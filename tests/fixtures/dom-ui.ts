@@ -1,3 +1,6 @@
+import { createHud } from '../../src/client/ui/dom/hud';
+import { createPlayerShip } from '../../src/client/objects/create-ship';
+import { moduleBinding } from '../../src/client/input/keybindings';
 import { player } from '../../src/client/player.ts';
 import { init } from '../../src/client/core.ts';
 import { game } from '../../src/client/game.ts';
@@ -8,7 +11,11 @@ import { Station } from '../../src/client/objects/station.ts';
 import { Item } from '../../src/client/objects/item.ts';
 import { diamond } from '../../src/specs/items';
 import { cloneEntity } from '../../src/client/simulation/world-state';
-import { Autogun, Laser } from '../../src/client/objects/modules/index.ts';
+import {
+  Autogun,
+  Laser,
+  SearchLight,
+} from '../../src/client/objects/modules/index.ts';
 import { paintColors } from '../../src/specs/colors.ts';
 import { type ShipPreview } from '../../src/client/ui/dom/identity.ts';
 import { addEntity, createWorld } from '../../src/client/simulation/world.ts';
@@ -56,8 +63,13 @@ export const checkChat = () => {
 
   chat.update(gate, true);
   const escaped =
-    log.textContent === '<b>Pilot</b>: <img src=x>' &&
+    log.textContent?.endsWith('<b>Pilot</b>: <img src=x>') &&
     !log.querySelector('b, img');
+  const timestamp = log.querySelector('time')!;
+  const timeText = timestamp.textContent;
+  const timestamps =
+    /^\[\d{2}:\d{2}\]$/.test(timeText || '') &&
+    Boolean(Date.parse(timestamp.dateTime));
   const line = log.firstElementChild;
 
   chat.update(gate, true);
@@ -65,7 +77,8 @@ export const checkChat = () => {
 
   tabs[1].click();
   chat.update(gate, true);
-  const global = log.textContent === 'Global: Hello';
+  const stableTime = log.querySelector('time')?.textContent === timeText;
+  const global = log.textContent?.endsWith('Global: Hello');
 
   network.chatMessages = [
     ...network.chatMessages,
@@ -113,9 +126,11 @@ export const checkChat = () => {
     !panel.getClientRects().length &&
     document.activeElement !== input;
 
-  document.body.removeChild(panel);
+  panel.parentNode!.removeChild(panel);
 
   return {
+    timestamps,
+    stableTime,
     roleColors,
     escaped,
     unchanged,
@@ -659,4 +674,488 @@ export const previewStability = async () => {
     window.cancelAnimationFrame = cancel;
     document.body.removeChild(target);
   }
+};
+
+export const checkHud = () => {
+  let toggled: unknown;
+
+  const hud = createHud({
+    onToggle: (Type) => {
+      toggled = Type;
+    },
+  });
+
+  const element = ui.element;
+  const panels = Array.from(
+    element.querySelectorAll<HTMLElement>(':scope > .hud-widget'),
+  );
+  const ship = createPlayerShip(createWorld());
+  const target = new Item(diamond, { position: { x: 300, y: 400 } });
+
+  const options = {
+    ship,
+    target,
+    credits: 1998,
+    sectorName: 'Patroclus',
+    objects: [ship, target],
+    poses: new Map(),
+    shown: true,
+    alpha: 1,
+  };
+
+  const text = (selector: string) =>
+    element.querySelector(selector)?.textContent;
+
+  hud.update(options);
+  const readouts =
+    text('.hud-credits') === '1,998$' &&
+    text('[data-sector]') === 'Patroclus' &&
+    text('[data-coordinates]') === '0 / 0';
+
+  const details = {
+    ['target name: ' + text('[data-name]')]: text('[data-name]') === 'Diamond',
+    ['target distance: ' + text('[data-distance]')]:
+      text('[data-distance]') === '500 m',
+    ['target value: ' + text('[data-value]')]: text('[data-value]') === '80$',
+    ['target kind: ' + text('[data-kind]')]: text('[data-kind]') === 'Resource',
+    'target icon': Boolean(element.querySelector('.hud-target-icon canvas')),
+  };
+
+  const keys = element.querySelectorAll('kbd').length > 0;
+
+  element.querySelector<HTMLButtonElement>('.hud-modules > button')!.click();
+  const clickable = Boolean(toggled);
+  const compactModuleControls = Array.from(
+    element.querySelectorAll('.hud-modules > button'),
+  ).every(
+    (button) =>
+      button.children.length === 2 &&
+      button.firstElementChild!.tagName === 'KBD',
+  );
+
+  const storeTooltips =
+    element.querySelector('[aria-label="Power"] > [aria-hidden]')
+      ?.textContent === '🗲' &&
+    Array.from(element.querySelectorAll('.hud-stores button')).every(
+      (button) => {
+        const tooltip = element.querySelector(
+          '#' + button.getAttribute('aria-describedby'),
+        );
+
+        return Boolean(
+          tooltip?.textContent && tooltip.classList.contains('ui-card'),
+        );
+      },
+    );
+
+  const card = document.createElement('aside');
+
+  card.className = 'ui-card';
+  element.append(card);
+  const cardStyle = getComputedStyle(card);
+
+  const sharedPanels =
+    [...element.querySelectorAll('.ui-card')].every((panel) => {
+      const style = getComputedStyle(panel);
+
+      if (panel.classList.contains('hud-stores-panel')) {
+        return (
+          style.backgroundColor === cardStyle.backgroundColor &&
+          style.backdropFilter === cardStyle.backdropFilter
+        );
+      }
+
+      return (
+        style.backgroundColor === cardStyle.backgroundColor &&
+        style.backdropFilter === cardStyle.backdropFilter &&
+        style.borderTopWidth === cardStyle.borderTopWidth &&
+        style.borderTopColor === cardStyle.borderTopColor &&
+        [
+          'padding-top',
+          'padding-right',
+          'padding-bottom',
+          'padding-left',
+        ].every((side) => style.getPropertyValue(side) === '16px')
+      );
+    }) && cardStyle.borderTopColor === cardStyle.borderLeftColor;
+
+  element.removeChild(card);
+
+  const meter = element.querySelector('[data-power-usage-bar]')!;
+  const storage = element.querySelector<HTMLElement>('[data-power-storage]')!;
+  const storageFill = storage.querySelector<HTMLElement>('.ui-power-part')!;
+  const storedPower = ship.storedPower;
+  const solidStorage = getComputedStyle(storageFill).boxShadow === 'none';
+
+  ship.storedPower = ship.powerCapacity / 2;
+  hud.update(options);
+  const streamingPower =
+    storageFill.style.width === '50%' &&
+    text('[data-power-label]') ===
+      `${Math.round(ship.storedPower)}/${Math.round(ship.powerCapacity)}` &&
+    storage.getBoundingClientRect().height === 12 &&
+    meter.getBoundingClientRect().height === 4 &&
+    meter.getBoundingClientRect().top >
+      storage.getBoundingClientRect().bottom &&
+    text('[data-power-usage]') === ship.powerUsage.toFixed(1) &&
+    text('[data-power-generation]') === ship.powerGeneration.toFixed(1);
+  const generationReadout = element.querySelector<HTMLElement>(
+    '[data-power-generation]',
+  )!;
+  const usageReadout =
+    element.querySelector<HTMLElement>('[data-power-usage]')!;
+  const netReadout = element.querySelector<HTMLElement>('[data-power-net]')!;
+  const barCenter =
+    (storage.getBoundingClientRect().top +
+      meter.getBoundingClientRect().bottom) /
+    2;
+
+  const powerReadouts =
+    [generationReadout.parentElement!, netReadout.parentElement!].every(
+      (readout) => {
+        const { top, bottom } = readout.getBoundingClientRect();
+
+        return Math.abs((top + bottom) / 2 - barCenter) < 1;
+      },
+    ) &&
+    generationReadout.getBoundingClientRect().bottom <=
+      usageReadout.getBoundingClientRect().top &&
+    netReadout.getBoundingClientRect().left >
+      generationReadout.getBoundingClientRect().right &&
+    getComputedStyle(generationReadout).fontSize === '12px' &&
+    parseFloat(getComputedStyle(netReadout).fontSize) > 12 &&
+    netReadout.textContent ===
+      `+${(ship.powerGeneration - ship.powerUsage).toFixed(1)}` &&
+    getComputedStyle(netReadout).getPropertyValue('--ui-color') ===
+      getComputedStyle(storageFill).getPropertyValue('--ui-color');
+
+  const chargedColor =
+    getComputedStyle(netReadout).getPropertyValue('--ui-color');
+
+  ship.storedPower = 0;
+  hud.update(options);
+  const emptyStorage =
+    storageFill.style.width === '0%' &&
+    text('[data-power-label]') === `0/${Math.round(ship.powerCapacity)}` &&
+    getComputedStyle(netReadout).getPropertyValue('--ui-color') !==
+      chargedColor &&
+    getComputedStyle(storageFill).getPropertyValue('--ui-color') ===
+      chargedColor &&
+    getComputedStyle(netReadout).getPropertyValue('--ui-color') ===
+      getComputedStyle(usageReadout).getPropertyValue('--ui-color');
+
+  ship.storedPower = storedPower;
+  hud.update(options);
+  const consumption = Number(meter.getAttribute('aria-valuenow'));
+  const powerScale = meter.getAttribute('aria-valuemax');
+  const generated = ship.mounts.reduce(
+    (sum, { module, health }) =>
+      sum + (health >= 1 && module ? module.powerGenerated || 0 : 0),
+    0,
+  );
+
+  const proportionalPower =
+    Number(powerScale) === generated * 1.5 &&
+    Array.from(meter.children).every((part) => {
+      const value = Number(
+        part.getAttribute('title')!.match(/: ([\d.]+) MW$/)![1],
+      );
+
+      return (
+        Math.abs(
+          parseFloat((part as HTMLElement).style.width) -
+            (value / (generated * 1.5)) * 100,
+        ) < 0.1
+      );
+    });
+
+  const fuelBar = element.querySelector<HTMLElement>(
+    '[data-store="fuel"] .ui-power-track',
+  )!;
+  const filledFuelSegments = () => fuelBar.querySelectorAll('.filled').length;
+  const noCargoBar = !element.querySelector(
+    '[data-store="cargo"] [role="meter"], .ui-segmented-bar',
+  );
+  const storeDisplay =
+    fuelBar.children.length === 8 && filledFuelSegments() === 8 && noCargoBar;
+  const fuelLabels = Array.from(
+    element.querySelectorAll<HTMLElement>('.hud-fuel > span'),
+  );
+  const labeledFuel =
+    fuelLabels.map((label) => label.textContent).join('') === 'EF' &&
+    fuelLabels.every((label) =>
+      getComputedStyle(label).fontFamily.startsWith('Gemetric'),
+    ) &&
+    fuelLabels[0].getBoundingClientRect().right <
+      fuelBar.getBoundingClientRect().left &&
+    fuelLabels[1].getBoundingClientRect().left >
+      fuelBar.getBoundingClientRect().right;
+  const cargoReadout =
+    getComputedStyle(element.querySelector('[data-store="cargo"] output')!)
+      .alignItems === 'baseline' &&
+    text('[data-cargo-current]') === '0' &&
+    text('[data-cargo-capacity]') === String(ship.cargoSpace) &&
+    parseFloat(
+      getComputedStyle(element.querySelector('[data-cargo-current]')!).fontSize,
+    ) >
+      parseFloat(
+        getComputedStyle(element.querySelector('[data-cargo-capacity]')!)
+          .fontSize,
+      );
+  const cargoStyles = [
+    '[data-cargo-current]',
+    '[data-store="cargo"] output > span:last-child',
+    '[data-cargo-capacity]',
+  ].map((selector) => getComputedStyle(element.querySelector(selector)!));
+  const sharedTextStyle = cargoStyles.every(
+    (style) =>
+      style.color ===
+        getComputedStyle(element.querySelector('.hud-credits')!).color &&
+      parseFloat(style.getPropertyValue('-webkit-text-stroke-width')) > 0 &&
+      style.getPropertyValue('paint-order').startsWith('stroke'),
+  );
+  const storeOrder =
+    Array.from(element.querySelectorAll('.hud-stores > [data-store]'))
+      .map((store) => store.getAttribute('data-store'))
+      .join(' / ') === 'cargo / fuel / power';
+  const fuelCapacity = ship.fuelCapacity;
+  const cargoCapacity = ship.cargoSpace;
+  const fuelWidth = fuelBar.getBoundingClientRect().width;
+
+  ship.fuelCapacity += 100;
+  ship.cargoSpace += 4;
+  hud.update(options);
+  const capacityGrowth =
+    fuelBar.getBoundingClientRect().width > fuelWidth &&
+    text('[data-cargo-capacity]') === String(cargoCapacity + 4) &&
+    filledFuelSegments() === Math.ceil((ship.fuel / ship.fuelCapacity) * 8);
+  const storesPanel = element.querySelector<HTMLElement>('.hud-stores')!;
+
+  ship.fuelCapacity = fuelCapacity * 10;
+  ship.cargoSpace = cargoCapacity * 10;
+  hud.update(options);
+  const largeCapacityReadout =
+    text('[data-cargo-capacity]') === String(cargoCapacity * 10) &&
+    fuelBar.children.length === 8 &&
+    fuelBar.getBoundingClientRect().width > fuelWidth;
+
+  const containedPower =
+    meter.getBoundingClientRect().right <
+    storesPanel.getBoundingClientRect().right;
+
+  ship.fuelCapacity = fuelCapacity;
+  ship.cargoSpace = 0;
+  hud.update(options);
+  const emptyCargoCapacity =
+    text('[data-cargo-current]') === '0' &&
+    text('[data-cargo-capacity]') === '0';
+
+  ship.cargoSpace = cargoCapacity;
+  hud.update(options);
+  const tooltips =
+    text('#hud-fuel-tooltip')?.includes(
+      `${ship.fuel.toFixed(1)} / ${fuelCapacity} L`,
+    ) &&
+    text('#hud-cargo-tooltip') === `Cargo: 0 / ${cargoCapacity} slots` &&
+    Boolean(text('#hud-power-tooltip')?.includes(generated.toFixed(1)));
+  const groupedMeters =
+    Array.from(element.querySelectorAll('[role="meter"]')).length === 3 &&
+    Array.from(element.querySelectorAll('[role="meter"]')).every((bar) =>
+      bar.closest('.hud-stores'),
+    );
+
+  const originalFuel = ship.fuel;
+
+  ship.fuel = ship.fuelCapacity / 2;
+  ship.cargoContents.push(target);
+  hud.update(options);
+  const storeUpdates =
+    filledFuelSegments() === 4 && text('[data-cargo-current]') === '1';
+
+  ship.fuel = ship.fuelCapacity / 8 + 0.01;
+  hud.update(options);
+  const aboveReserve =
+    filledFuelSegments() === 2 && !fuelBar.classList.contains('hud-fuel-low');
+
+  ship.fuel = ship.fuelCapacity / 8;
+  hud.update(options);
+  const reserveWarning =
+    aboveReserve &&
+    filledFuelSegments() === 1 &&
+    fuelBar.classList.contains('hud-fuel-low') &&
+    getComputedStyle(fuelBar.firstElementChild!).animationName !== 'none';
+
+  ship.fuel = 0;
+  hud.update(options);
+  const emptyFuel =
+    filledFuelSegments() === 0 && fuelBar.classList.contains('hud-fuel-low');
+
+  ship.fuel = originalFuel;
+  ship.cargoContents.pop();
+  hud.update(options);
+  const fuelRecovered = !fuelBar.classList.contains('hud-fuel-low');
+  const sharedRoot =
+    panels.length === 4 &&
+    panels.every((panel) => panel.parentElement === element) &&
+    document.querySelectorAll('.hud').length === 1 &&
+    !document.querySelector('#ui-root, .hud-instruments');
+  const naturalCase = getComputedStyle(element).textTransform === 'none';
+
+  ship.fly(1, 0);
+  hud.update(options);
+  const constantThrusterPower =
+    Number(meter.getAttribute('aria-valuenow')) === consumption;
+
+  ship.fly(0, 0);
+
+  meter
+    .getAnimations({ subtree: true })
+    .forEach((animation) => animation.finish());
+  const usageParts = Array.from(meter.children) as HTMLElement[];
+  const previousWidths = usageParts.map(
+    (part) => part.getBoundingClientRect().width,
+  );
+
+  const binding = moduleBinding('searchLight');
+  const original = [...binding.keys];
+
+  binding.keys = ['ArrowUp'];
+
+  ship.segments.forEach((segment) => {
+    if (segment.module instanceof SearchLight) segment.active = 1;
+  });
+
+  hud.update({ ...options, sectorName: 'Hippokoon' });
+  const animations = meter.getAnimations({ subtree: true });
+
+  animations.forEach((animation) => {
+    animation.pause();
+    animation.currentTime = 100;
+  });
+
+  const retainedSegments = usageParts.every(
+    (part, index) => meter.children[index] === part,
+  );
+
+  const animatedUsage =
+    retainedSegments &&
+    animations.length > 0 &&
+    usageParts.some((part, index) => {
+      const width = part.getBoundingClientRect().width;
+      const targetWidth =
+        (parseFloat(part.style.width) * meter.getBoundingClientRect().width) /
+        100;
+
+      return (
+        targetWidth > previousWidths[index] + 1 &&
+        width > previousWidths[index] &&
+        width < targetWidth &&
+        getComputedStyle(part).getPropertyValue('transition-property') ===
+          'width' &&
+        getComputedStyle(part).getPropertyValue('transition-duration') ===
+          '0.2s'
+      );
+    });
+
+  animations.forEach((animation) => animation.finish());
+  const settledUsage = usageParts.every(
+    (part) =>
+      Math.abs(
+        part.getBoundingClientRect().width -
+          (parseFloat(part.style.width) * meter.getBoundingClientRect().width) /
+            100,
+      ) < 0.1,
+  );
+
+  const wholePixelPower =
+    Math.abs(meter.getBoundingClientRect().width - Number(powerScale) * 30) <
+      0.1 &&
+    usageParts.every((part) => {
+      const width = part.getBoundingClientRect().width;
+
+      return Math.abs(width - Math.round(width)) < 0.02;
+    });
+
+  const matchingDividers = usageParts.every(
+    (part) =>
+      getComputedStyle(part).boxShadow !== 'none' &&
+      getComputedStyle(part).boxShadow ===
+        getComputedStyle(usageParts[0]).boxShadow,
+  );
+
+  const rebinding = [...element.querySelectorAll('kbd')].some(
+    (key) => key.textContent === '↑',
+  );
+  const activation = Boolean(
+    element.querySelector('.hud-modules > button[aria-pressed="true"]'),
+  );
+  const powerChanges =
+    Number(meter.getAttribute('aria-valuenow')) > consumption;
+  const powerScaleStable = meter.getAttribute('aria-valuemax') === powerScale;
+  const activeKey = element.querySelector(
+    '.hud-modules > button[aria-pressed="true"] > kbd',
+  )!;
+  const keyStyle = getComputedStyle(activeKey);
+  const insetFill =
+    keyStyle.backgroundImage.startsWith('linear-gradient(') &&
+    keyStyle.backgroundSize === 'calc(100% - 6px) calc(100% - 6px)' &&
+    keyStyle.getPropertyValue(' color '.trim()) === 'rgb(0, 0, 0)';
+  const travel = text('[data-sector]') === 'Hippokoon';
+
+  binding.keys = original;
+  hud.update({ ...options, target: undefined, shown: false });
+  const hidden =
+    panels.every((panel) => !panel.getClientRects().length) &&
+    element.getClientRects().length > 0;
+
+  hud.update({ ...options, target: undefined });
+  const cleared = element.querySelector<HTMLElement>('.hud-target')!.hidden;
+
+  hud.destroy();
+
+  return Object.fromEntries([
+    ['readouts', readouts],
+    ['sharedRoot', sharedRoot],
+    ['naturalCase', naturalCase],
+    ['storeDisplay', storeDisplay],
+    ['labeledFuel', labeledFuel],
+    ['cargoReadout', cargoReadout],
+    ['storeOrder', storeOrder],
+    ['noCargoBar', noCargoBar],
+    ['sharedTextStyle', sharedTextStyle],
+    ['capacityGrowth', capacityGrowth],
+    ['largeCapacityReadout', largeCapacityReadout],
+    ['containedPower', containedPower],
+    ['emptyCargoCapacity', emptyCargoCapacity],
+    ['tooltips', tooltips],
+    ['groupedMeters', groupedMeters],
+    ['storeUpdates', storeUpdates],
+    ['emptyFuel', emptyFuel],
+    ['reserveWarning', reserveWarning],
+    ['fuelRecovered', fuelRecovered],
+    ['proportionalPower', proportionalPower],
+    ['streamingPower', streamingPower],
+    ['solidStorage', solidStorage],
+    ['powerReadouts', powerReadouts],
+    ['emptyStorage', emptyStorage],
+    ['powerScaleStable', powerScaleStable],
+    ['insetFill', insetFill],
+    ['keys', keys],
+    ['clickable', clickable],
+    ['compactModuleControls', compactModuleControls],
+    ['storeTooltips', storeTooltips],
+    ['sharedPanels', sharedPanels],
+    ['rebinding', rebinding],
+    ['activation', activation],
+    ['powerChanges', powerChanges],
+    ['constantThrusterPower', constantThrusterPower],
+    ['animatedUsage', animatedUsage],
+    ['settledUsage', settledUsage],
+    ['wholePixelPower', wholePixelPower],
+    ['matchingDividers', matchingDividers],
+    ['travel', travel],
+    ['hidden', hidden],
+    ['cleared', cleared],
+    ...Object.entries(details),
+  ]);
 };

@@ -17,13 +17,14 @@
       sans-serif;
   }
 
-  #ui-root {
+  .hud {
     position: fixed;
     inset: 0;
+    z-index: 5;
     pointer-events: none;
   }
 
-  #ui-root > * {
+  .hud > :not(.hud-widget, .ui-notification) {
     pointer-events: auto;
   }
 
@@ -33,7 +34,6 @@
     z-index: 20;
     width: fit-content;
     margin-inline: auto;
-    background: rgb(from #102 r g b / 0.9);
     pointer-events: none;
   }
 
@@ -41,14 +41,14 @@
   .ui-label,
   .ui-choice,
   .ui-controls,
-  .ui-surface,
-  .ui-notification {
+  .ui-surface {
     font-family: Gemetric, sans-serif;
   }
 
   .ui-logo,
   .ui-label,
-  .ui-choice {
+  .ui-choice,
+  .text-outline {
     -webkit-text-stroke: 0.035em rgb(from #000 r g b / 0.5);
     paint-order: stroke fill;
   }
@@ -69,6 +69,7 @@
     min-height: 60px;
     padding-block: 8px;
     padding-inline: 20px;
+    outline: none;
   }
 
   .ui-highlight {
@@ -106,16 +107,12 @@
     text-shadow: 0 0 8px rgb(from #4df r g b / 0.5);
   }
 
-  :focus-visible:not(:where(.dock-pointer *)) {
+  :focus-visible:not(:where(.dock-pointer *, .ui-choice)) {
     outline: 2px solid #fff;
     outline-offset: 2px;
   }
 
   :where(.dock-pointer) :focus-visible {
-    outline: none;
-  }
-
-  .ui-arrow-navigation .ui-choice:focus-visible {
     outline: none;
   }
 
@@ -125,6 +122,7 @@
 
   .ui-choice > span {
     display: inline-block;
+    will-change: transform;
     transition: transform 0.1s ease;
   }
 
@@ -207,7 +205,7 @@
 
   .ui-footer {
     grid-area: footer;
-    color: rgb(from #eef r g b / 0.8);
+    color: #ddd;
   }
 
   .ui-version {
@@ -216,16 +214,25 @@
   }
 
   kbd {
+    height: calc(1lh + 12px);
     min-width: calc(1lh + 12px);
-    padding-block: 4px;
+    padding-block: calc(4px + 0.05em) calc(4px - 0.05em);
     padding-inline: 6px;
-    border: 2px solid rgb(from #eef r g b / 0.4);
+    border: 2px solid #778;
+    color: #ddd;
     text-align: center;
+  }
+
+  .ui-controls > button[aria-pressed='true'] > kbd {
+    background: linear-gradient(var(--ui-color), var(--ui-color)) center /
+      calc(100% - 6px) calc(100% - 6px) no-repeat;
+    color: #000;
+    text-shadow: none;
   }
 
   .ui-surface {
     --ui-color: #eef;
-    --ui-line: rgb(from #eef r g b / 0.3);
+    --ui-line: #778;
     --ui-muted: rgb(from #eef r g b / 0.6);
     color: #eef;
   }
@@ -245,7 +252,7 @@
 
   .ui-surface
     :where(
-      button:enabled:is(
+      button:enabled:not(.ui-choice):is(
           :hover:not(:where(.dock-keyboard *)),
           :focus-visible:not(:where(.dock-pointer *))
         )
@@ -272,10 +279,10 @@
   }
 
   .ui-card {
-    border: 2px solid var(--ui-line);
-    border-top: 3px solid var(--ui-color);
-    padding: 24px;
+    padding: 16px;
+    border: var(--ui-border-width) solid var(--ui-line);
     background: var(--ui-panel);
+    backdrop-filter: blur(4px);
   }
 
   .ui-profile {
@@ -340,6 +347,10 @@
     justify-content: space-between;
   }
 
+  .ui-controls {
+    user-select: none;
+  }
+
   .ui-controls,
   .ui-tabs,
   .ui-actions {
@@ -351,8 +362,15 @@
     outline: none;
   }
 
+  kbd:hover,
   .ui-controls > button:is(:hover, :focus-visible) kbd {
-    border-color: currentColor;
+    border-color: #ddd;
+  }
+
+  .ui-controls
+    > button:not([aria-pressed='true']):is(:hover, :focus-visible)
+    kbd {
+    color: #fff;
   }
 
   .ui-scroll {
@@ -360,8 +378,44 @@
     scrollbar-width: thin;
   }
 
-  .ui-inline > svg {
+  .ui-inline > svg,
+  .ui-inline > kbd {
     flex: none;
+  }
+
+  .ui-tooltip {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    width: 18px;
+    height: 20px;
+  }
+
+  .ui-tooltip:hover {
+    outline: none;
+  }
+
+  .ui-tooltip-content {
+    display: none;
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    color: #eef;
+    font-family: system-ui, sans-serif;
+    white-space: pre;
+    pointer-events: none;
+  }
+
+  .ui-tooltip:is(:hover, :focus-visible) > .ui-tooltip-content {
+    display: block;
+  }
+
+  .ui-icon > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
 
   .ui-actions {
@@ -462,5 +516,48 @@
 
   .ui-hover-extend::after {
     bottom: -6px;
+  }
+
+  .ui-power-track {
+    display: flex;
+    position: relative;
+    height: 18px;
+    background: rgb(from #eef r g b / 0.12);
+  }
+
+  .ui-power-track-sm {
+    height: 12px;
+  }
+
+  .ui-power-marker,
+  .ui-power-marked::after {
+    position: absolute;
+    inset-block: -4px;
+    width: 3px;
+    background: #fff;
+    transform: translateX(-100%);
+    box-shadow: 0 0 0 2px #334;
+  }
+
+  .ui-power-marked::after {
+    content: '';
+    left: var(--ui-power-generation);
+  }
+
+  .ui-power-track-xxs {
+    height: 4px;
+  }
+
+  .ui-power-track-xs {
+    height: 8px;
+  }
+
+  .ui-power-part {
+    flex: none;
+    background: var(--ui-color);
+  }
+
+  .ui-power-part:not(:only-child) {
+    box-shadow: inset -2px 0 var(--ui-panel);
   }
 }

@@ -288,7 +288,7 @@ export function decodeBinarySnapshot(
       const field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
 
-      if (field < 1 || field > BinaryField.transitGate || seen.has(field)) {
+      if (field < 1 || field > BinaryField.storedPower || seen.has(field)) {
         return fail();
       }
 
@@ -479,6 +479,10 @@ export function decodeBinarySnapshot(
           entity.velocity = clear ? null : vector();
           break;
 
+        case BinaryField.storedPower:
+          entity.storedPower = clear ? null : number();
+          break;
+
         case BinaryField.fuel:
           entity.fuel = clear ? null : number();
           break;
@@ -495,7 +499,7 @@ export function decodeBinarySnapshot(
   if (byte() !== 0x55 || byte() !== 0x4d || byte() !== 1) return fail();
   const flags = byte();
 
-  if (flags & ~63) return fail();
+  if (flags & ~127) return fail();
   const serverTick = unsigned();
   const nextEntityId = unsigned();
   const acknowledgedSequence = flags & 4 ? unsigned() : undefined;
@@ -516,6 +520,22 @@ export function decodeBinarySnapshot(
 
     for (let index = 0; index < length; index++) {
       dockIds.push([signed(), signed()]);
+    }
+  }
+
+  let asteroidPositions: Vec.Value[] | undefined;
+
+  if (flags & 64) {
+    const length = count(16);
+
+    asteroidPositions = [];
+
+    for (let index = 0; index < length; index++) {
+      const x = number();
+      const y = number();
+
+      if (x === null || y === null) return fail();
+      asteroidPositions.push(Vec.create(x, y));
     }
   }
 
@@ -549,6 +569,7 @@ export function decodeBinarySnapshot(
       dockIds,
     }),
     ...(entityIds && { entityIds }),
+    ...(asteroidPositions && { asteroidPositions }),
     fullEntities,
   };
 }

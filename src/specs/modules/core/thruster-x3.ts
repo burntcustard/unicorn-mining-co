@@ -5,7 +5,7 @@ export const thrusterTriple = {
   ...thruster,
   name: 'Triple Thruster',
   health: 30,
-  power: 0.6,
+  power: 4.8,
   powerActivated: 4.8,
   price: 1800,
   fuelUsage: 4.4 / 60,

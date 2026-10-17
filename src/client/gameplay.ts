@@ -1,3 +1,4 @@
+import { createHud } from './ui/dom/hud';
 import { holeSpec } from '../specs/hole';
 import { createChat } from './ui/dom/chat';
 import { Passage } from './objects/passage';
@@ -53,7 +54,7 @@ import { game } from './game';
 import { Item } from './objects/item';
 import { beginSurfaces, endSurfaces } from './utilities/composited-surface';
 
-import { preloadSound } from './audio/sound-loader';
+import { preloadSound, unlockAudio } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
 import { remoteSoundVolume } from './audio/remote-sound-volume';
 import { presentWorldSounds } from './audio/present-world-sounds';
@@ -76,6 +77,34 @@ type Background = {
 
 let gameStarted = false;
 const targeting = new Targeting();
+
+const hud = createHud({
+  onToggle: (Type) => {
+    if (
+      ui.current ||
+      !gameStarted ||
+      !network.connected ||
+      network.shipDestroyed
+    ) {
+      return;
+    }
+
+    const control = moduleControls.find(
+      ({ Type: control }) =>
+        Type === control || Type.prototype instanceof control,
+    )!;
+
+    unlockAudio();
+
+    control.writeInput({
+      input: playerInput,
+      active: !control.readInput(playerInput),
+    });
+
+    network.recordInput({ input: { ...playerInput } });
+    network.sendActivity();
+  },
+});
 
 const chat = createChat({
   network,
@@ -566,8 +595,24 @@ const gameLoop = GameLoop({
 
       if (!network.shipDestroyed) targeting.render(view);
 
+      hud.update({
+        ship: renderedShip,
+        credits: player.credits,
+        sectorName: network.sectorName,
+        target: targeting.target,
+        objects: game.sprites,
+        asteroidPositions: network.asteroidPositions,
+        poses: remotePoses,
+        shown:
+          gameStarted &&
+          !ui.current &&
+          network.connected &&
+          !network.shipDestroyed &&
+          game.uiAlpha > 0,
+        alpha: game.uiAlpha,
+      });
+
       renderUI(view, stationMarkers, {
-        controlsShip: renderedShip,
         shipDestroyed: network.shipDestroyed,
         shipStranded: network.shipStranded,
       });
@@ -578,6 +623,16 @@ const gameLoop = GameLoop({
   },
   update: ({ dt, now }) => {
     updateEffects(dt * 1000);
+
+    if (
+      !gameStarted ||
+      ui.current ||
+      !network.connected ||
+      network.shipDestroyed
+    ) {
+      hud.setShown(false);
+    }
+
     chat.update(
       targeting.target,
       gameStarted && !ui.current && network.connected,

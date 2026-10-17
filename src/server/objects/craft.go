@@ -670,6 +670,16 @@ func (c *Craft) setSegmentActive(s *simulation.Segment, active float64) {
 	s.Active = active
 }
 
+func (c *Craft) modulePower(module simulation.Module) float64 {
+	if powered, ok := c.Self.(interface {
+		ModulePower(simulation.Module) float64
+	}); ok {
+		return powered.ModulePower(module)
+	}
+
+	return 1
+}
+
 func (c *Craft) UpdateModules(dt float64) {
 	for _, module := range c.Modules() {
 		data := module.ModuleBase()
@@ -692,7 +702,7 @@ func (c *Craft) UpdateModules(dt float64) {
 		}
 
 		if !slices.ContainsFunc(segments, func(s *simulation.Segment) bool { return s.Active != 0 }) {
-			*mount.HealthActivated = math.Min(*data.Spec.HealthActivated, *mount.HealthActivated+*data.Spec.HealthActivated*dt/data.Spec.RechargeDuration)
+			*mount.HealthActivated = math.Min(*data.Spec.HealthActivated, *mount.HealthActivated+*data.Spec.HealthActivated*dt*c.modulePower(module)/data.Spec.RechargeDuration)
 		}
 	}
 
@@ -702,6 +712,10 @@ func (c *Craft) UpdateModules(dt float64) {
 		}
 
 		target := s.Active
+
+		if s.Module != nil {
+			target *= c.modulePower(s.Module)
+		}
 
 		if *s.TargetHealth() < 1 {
 			target = 0

@@ -1188,6 +1188,10 @@ export class Craft extends GameObject {
     segment.active = active;
   }
 
+  modulePower(_module: Module) {
+    return 1;
+  }
+
   updateModules(dt: number) {
     this.modules.forEach((module) => {
       if (
@@ -1212,7 +1216,8 @@ export class Craft extends GameObject {
         module.mount.healthActivated = Math.min(
           module.healthActivated,
           module.mount.healthActivated +
-            (module.healthActivated * dt) / module.rechargeDuration,
+            (module.healthActivated * dt * this.modulePower(module)) /
+              module.rechargeDuration,
         );
       }
     });
@@ -1220,7 +1225,8 @@ export class Craft extends GameObject {
     this.segments.forEach((segment) => {
       if (this.dockedTo) this.setSegmentActive(segment, 0);
       const target = !((segment.mount || segment).health < 1)
-        ? segment.active
+        ? segment.active *
+          (segment.module ? this.modulePower(segment.module) : 1)
         : 0;
 
       const previousProgress = segment.activationProgress;

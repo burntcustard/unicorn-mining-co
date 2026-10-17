@@ -107,6 +107,8 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **position** - A game object's location in the world.
 
+**power UI** - The ship's power instruments. At standard UI scale, 0.1 MW corresponds to 2 CSS pixels in the HUD power usage bar.
+
 **prediction** - The client's estimate of what happens after player input, before the matching server update arrives.
 
 **region** - A square part of the world used to generate and load nearby asteroids, stations, and wrecks.

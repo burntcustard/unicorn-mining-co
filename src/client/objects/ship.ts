@@ -41,6 +41,89 @@ export class Ship extends Craft {
   firing = false;
   declare fuelCapacity: number;
   fuel: number;
+  storedPower = 0;
+  thrusterPower = 1;
+  systemsPower = 1;
+
+  get powerEntries() {
+    return this.mounts.flatMap(({ module, health }) => {
+      if (!module || health < 1) return [];
+      const active =
+        module.forwardThrust ||
+        this.segments.some(
+          (segment) => segment.module === module && segment.active,
+        );
+
+      return [
+        {
+          module,
+          value: Number(active ? module.powerActivated : module.power) || 0,
+        },
+      ];
+    });
+  }
+
+  get powerGeneration() {
+    return this.powerEntries.reduce(
+      (sum, { module }) => sum + (module.powerGenerated || 0),
+      0,
+    );
+  }
+
+  get powerCapacity() {
+    return this.powerEntries.reduce(
+      (sum, { module }) => sum + (module.powerCapacity || 0),
+      0,
+    );
+  }
+
+  get powerUsage() {
+    return this.powerEntries.reduce((sum, { value }) => sum + value, 0);
+  }
+
+  modulePower(module: Module) {
+    return module.forwardThrust ? 1 : this.systemsPower;
+  }
+
+  /**
+   * Supply other modules first, then share spare generation and stored energy
+   * among thrusters. MW integrated over seconds gives MJ of stored energy.
+   */
+  updatePower(dt: number) {
+    if (!(dt > 0)) return;
+    let generation = 0;
+    let capacity = 0;
+    let systems = 0;
+    let thrusters = 0;
+
+    this.powerEntries.forEach(({ module, value }) => {
+      generation += module.powerGenerated || 0;
+      capacity += module.powerCapacity || 0;
+
+      if (module.forwardThrust) {
+        thrusters += value;
+      } else {
+        systems += value;
+      }
+    });
+
+    const stored = Math.max(0, Math.min(capacity, this.storedPower));
+    const available = generation + stored / dt;
+
+    this.systemsPower = systems > 0 ? Math.min(1, available / systems) : 1;
+    this.thrusterPower =
+      thrusters > 0
+        ? Math.max(0, Math.min(1, (available - systems) / thrusters))
+        : 1;
+    const supplied =
+      systems * this.systemsPower + thrusters * this.thrusterPower;
+
+    this.storedPower = Math.max(
+      0,
+      Math.min(capacity, stored + (generation - supplied) * dt),
+    );
+    this.fly(this.forward || 0, this.turn || 0);
+  }
 
   get lowFuel() {
     return this.fuel < this.fuelCapacity * flight.lowFuelThreshold;
@@ -58,6 +141,7 @@ export class Ship extends Craft {
     if (!this.cockpit || this.dockedTo || this.dead) return;
     const usage =
       (this.engine.fuelUsage || 0) *
+      this.thrusterPower *
       Math.max(this.forward || 0, Math.abs(this.turn || 0) / 2);
     const reserve = this.fuelCapacity * flight.lowFuelThreshold;
     const normal = Math.min(Math.max(0, this.fuel - reserve), usage * dt);
@@ -290,6 +374,7 @@ export class Ship extends Craft {
     });
 
     this.fuel = properties.fuel ?? spec.fuelCapacity;
+    this.storedPower = properties.storedPower ?? 0;
     this.definitionId = shipType === 'mustang' ? undefined : shipType;
   }
 
@@ -338,7 +423,8 @@ export class Ship extends Craft {
               ? 1
               : forward * flight.steeringEase
             : forward;
-        segment.active *= this.launchThrottle * this.fuelThrottle;
+        segment.active *=
+          this.launchThrottle * this.fuelThrottle * this.thrusterPower;
       }
     });
   }
@@ -347,7 +433,8 @@ export class Ship extends Craft {
     return (
       (this.engine.forwardThrust || 0) *
       this.launchThrottle ** 2 *
-      this.fuelThrottle
+      this.fuelThrottle *
+      this.thrusterPower
     );
   }
 
@@ -492,7 +579,8 @@ export class Ship extends Craft {
     return (
       (this.engine.rotationalThrust || 0) *
       this.launchThrottle ** 2 *
-      this.fuelThrottle
+      this.fuelThrottle *
+      this.thrusterPower
     );
   }
 
@@ -593,6 +681,8 @@ export class Ship extends Craft {
   }
 
   update(dt: number) {
+    this.updatePower(dt);
+
     if (this.transitTime) {
       const portal = this.world?.entities.get(this.transitGate);
 

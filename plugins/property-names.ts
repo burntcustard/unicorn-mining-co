@@ -5,6 +5,9 @@
  * skips quoted paths, so a name can also occur inside shape-distance.
  */
 export const propertyNames = [
+  'asteroidPositions',
+  'setShown',
+  'sectorName',
   'transitTime',
   'transitGate',
   'pullDuration',
@@ -39,6 +42,15 @@ export const propertyNames = [
   'power',
   'powerActivated',
   'powerGenerated',
+  'powerCapacity',
+  'powerGeneration',
+  'powerUsage',
+  'powerEntries',
+  'storedPower',
+  'thrusterPower',
+  'systemsPower',
+  'updatePower',
+  'modulePower',
   'hullIndex',
   'rotationJump',
   'outline',

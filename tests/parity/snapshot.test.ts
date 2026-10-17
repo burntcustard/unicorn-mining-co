@@ -20,6 +20,10 @@ assert.equal(snapshot.acknowledgedSequence, 9);
 assert.equal(snapshot.inputLead, -2);
 assert.equal(snapshot.snapshotSequence, 10);
 assert.deepEqual(snapshot.entityIds, [7, 9, 11]);
+assert.deepEqual(snapshot.asteroidPositions, [
+  { x: -2999, y: 2 },
+  { x: 2999, y: 3 },
+]);
 assert.equal(snapshot.fullEntities.length, 3);
 const [ship, asteroid, projectile] = snapshot.fullEntities;
 
@@ -42,6 +46,7 @@ assert.equal(
 );
 assert.equal(ship.kind, 'ship');
 assert.equal(ship.fuel, 3.25);
+assert.equal(ship.storedPower, 12.5);
 assert.deepEqual(ship.position, { x: -1.25, y: 20.5 });
 assert.deepEqual(ship.velocity, { x: 3, y: -4 });
 assert.deepEqual(ship.hullHealth, [8, 20, 40]);

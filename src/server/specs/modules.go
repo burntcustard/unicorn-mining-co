@@ -32,6 +32,7 @@ type Projectile struct {
 }
 
 type Module struct {
+	PowerCapacity         float64     `json:"powerCapacity"`
 	FuelUsage             float64     `json:"fuelUsage"`
 	PowerGenerated        float64     `json:"powerGenerated"`
 	Power                 float64     `json:"power"`

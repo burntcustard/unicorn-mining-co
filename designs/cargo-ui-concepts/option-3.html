@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en-US">
+  <meta charset="utf-8" />
+  <title>Cargo UI concepts</title>
+  <style>
+    @font-face {
+      font-family: Gemetric;
+      src: url(data:font/woff2;base64,d09GMgABAAAAAAdUAAoAAAAAEyAAAAcKAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABk4AfAqeRJNoC4EsAAE2AiQDgUYEIAVUByAbZQxRlE5Sj+xngul2pHSnqM+SlCatsP2fz4db+VkNR4789bnXvN3ZrM151lNPDagCp1ThXFOnKp6KOBXz1MfK2e6SvTzvTlULGF0hMRKNkQhlgzIxwa3KtElrsKawru3JvyP9D/C9eXJN7acdkZ0EdCTU3KRsPikk37/7vCpS2hGQk4AKWKGqG5BQuwmFRmyHeUYlMqW+Gq+tDYCFsVOoFuqUquxqMSLxlvAhey7Fav1T4KmQ9hh8FasJpPIAAZKUf9FO9GAzbIU9UMT+Mt55es+lWgvkst1Q2BLbgDmaU37vvXziIx94zzve9Mb/+uDhd25HDG7aTKRcB74OqGkN5CPJVHNGxCvTqTedE3YPh6lWxemRSKIbOdfIjd+hDWanXnlXA9irpibxUloD6xRa7H2y5qUT0kh5EJPHSmeuZVSWUJgoNBXhQU6NWGiw4tlaLshmtVvFOGrHVkQUQ8idrFYrtOIRW0vFPS/SmIBQAqG1gMkCzBAE6ULpxJ+tyu6w2opKwIoQI+WfwgVESdyYGWVbPMwTNOQKdNWMQU1LegX4S1RbsU6l2eFFN8Ta2lL2DuZGjBH+O0Ms1T9CjO8Jpl/xaVmuH6htYxBWnU32/nOtpVM1q6NyMrGriBVe1+PpbJPPJ5eYTnwuuY7GlvHkhQLV79tNpQkItcZGL+8zfn/FJ32gllIbnHSlM5xiQkGzBHE06qA56QGIGGw/JRNi95BAg4uOSQpN1e1ZIhSDarO7XWgcCw1mOsHapzCgSAOnkPjCJBTcFfUqzd72eOqL6VtUl+tts2U8s25UQkgr6uYyX/FjHWJLzZR91pXmtFq0lGmfH1LL1QNvedJRTeFCkreO11fT1SRib4DFtzghs6hIUtvd6Hk2vEOUTUlrK3S1cKxXI2OLpdkMsd3bpq5a87HgK8MJaIayM3vTBBwSzi21iaWUKANodRGjc5BmKQ+EVHasxZnfUmXqBmQ/8DSN1UUZAgh2kdgqp1IBFVr/oKGjMqn0fuEm33CNfK6vHZ6bxPCMEoJGjzDSjXOToVBk20yd6a+tflSD7gpahPE0oL0VNvtFuylp13o6yxzz2VhYlkcQFC18jveaggcDsuGb54q5FIsThioszyirkhI5ITDAIRjn7UjZyWSGGU0Smga71q1LUJIGSeHh2JYciYxohDh8dFXFsNRNN2THFgEdLPYGFgeSoiAoYbxNQaoeve+/H/rFUBTiVDCjSgSXigBJ1E5d9QZ6ZCQf9Aefbn5dr5frdW00X86PsFv0RIm5yUiGzwF66wPRMMQMLCdrZp29I3vNGjvCJh3pN24wpy3woQGOT/cGbuDRlWq/YAOm9oiOE9tmb1B0yk6gAg8F+kv7im84M9CYmTDBmeQ4E3P2LrvY2tSvM+Ozn7+vNXujYmexb8Op6a5R+CQjtQx8KpbfFiwhDtJJjeqOotVXfOO6nuPeGfcyon/tr21/q/lXF67WaaYKhRQXRRBui85L2qEKbcq8hm4OnVubrXQukPOiagUoMCJ2l2qD2im6QMFKUbjgSHDQcO8eF5Jyr/KpGihRKUVeBSB90r0LNIbvMxySVIHfovMiD5Q4Sdw73gkbbBgF5iQVUPr0yCM/LTEVT+a37lc7bEv8X/GnEmqkdbA8T84rG+VpcloZely23coWAnff8kYpgefLq8+/J3z07UTZLCf0t/v3eRNWzXOHiQ84ePbwfsEGj/3pkaXRfOToU+SYg8gwtWPrjilmqvtoCk9R/fZbeLmqIBmg+HMi9UzymUTqZ6v4SSz2R81zz1WOPLLCL3TEEdircuihle/b2Y6xw9u69PfiV4dBn7CNaJ4KPHde4uKWtKHtiy+2oxKVnBflYkhhd06zbqp5sEqQy20uFUuB7JvtpAWDZe3L+tOwzyW5hu9gc2gKCpduHYtbCJQcSRnDYip12bq4yJG00iIupMDkLMkt9w7fb86xEMg8sJhbDx/0ylfnT2yFUeKNORre6xdf/LpHp9VsdQDf68RiXZzkGUaDOF6MeGHMKiWL+QZzFFLZGV4g8zp8v9mFFJfHaajgTTAd/PyovKF2BaOX69P3MFQ5/vhKlMT965WVZOXKX6OVSCzUjozc29x8L4fF+6w74+3R7NtbILmmi96u+jGYYOqwYXtu3xBiKy1UqASSGRwL61Fs6ctpMzcIpkI1x/DHf/K98fuitcXvRkx+wH79UaV/T7cB1wD/o/LF+u8MYLoYiSXxBQJp6E0kTkSiAI2ccBHHQAB2bYCBiYKeQygEIs4FTAgtIJrBPBMnxkh2lZiC+m8LA1Yg7tkc2AUSiVlSDaisZExjj8QpaLRXuAHzCohY/Uz0oHbJw1NbDe6/2dSa7CQgihwGWAQQ0AaexgKsCLqux1oswTxME00XYQOWY05q9dVwAQ==);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #101018;
+      color: #eef;
+      font:
+        14px/1.5 system-ui,
+        sans-serif;
+    }
+    main {
+      padding: 28px;
+    }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 26px;
+      margin: 0 0 4px;
+      font-weight: 600;
+    }
+    header p {
+      margin: 0;
+      color: #a9a6bd;
+    }
+    .badge {
+      border: 1px solid #eeeeff33;
+      padding: 6px 12px;
+      color: #c1b8d4;
+      font-size: 12px;
+    }
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .option h2 {
+      font-size: 17px;
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    .option p {
+      color: #b0aabf;
+      margin: 10px 0 0;
+      min-height: 42px;
+      font-size: 13px;
+      max-width: 480px;
+    }
+    .scene {
+      height: 240px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #eeeeff26;
+      background:
+        radial-gradient(ellipse at 80% 80%, #35205b, transparent 65%),
+        radial-gradient(ellipse at 10% 0%, #162c52, transparent 70%), #130b24;
+    }
+    .stars {
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 12% 15%, #fff 0 0.7px, transparent 1px),
+        radial-gradient(circle at 65% 19%, #4df 0 0.6px, transparent 1px),
+        radial-gradient(circle at 85% 50%, #fff 0 0.7px, transparent 1px),
+        radial-gradient(circle at 31% 72%, #eef 0 0.5px, transparent 1px);
+      background-size:
+        170px 130px,
+        220px 180px,
+        240px 170px,
+        130px 140px;
+      opacity: 0.5;
+    }
+    .panel {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      width: 390px;
+      padding: 16px 32px 16px 16px;
+      font:
+        12px/1.5 Gemetric,
+        sans-serif;
+      display: grid;
+      gap: 12px;
+    }
+    .panel:before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgb(from #223 r g b / 0.8);
+      backdrop-filter: blur(4px);
+      clip-path: polygon(
+        0 0,
+        calc(100% - 100px) 0,
+        100% 58px,
+        100% 100%,
+        0 100%
+      );
+    }
+    .panel:after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgb(from #eef r g b / 0.3);
+      clip-path: polygon(
+        evenodd,
+        0 0,
+        calc(100% - 100px) 0,
+        100% 58px,
+        100% 100%,
+        0 100%,
+        0 0,
+        2px 2px,
+        2px calc(100% - 2px),
+        calc(100% - 2px) calc(100% - 2px),
+        calc(100% - 2px) 59.15px,
+        calc(100% - 100.54px) 2px,
+        2px 2px
+      );
+      pointer-events: none;
+    }
+    .panel > * {
+      position: relative;
+      z-index: 1;
+    }
+    .cargo {
+      width: 270px;
+      min-height: 62px;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+    .cargo-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cargo-heading > svg,
+    .fuel > svg,
+    .power > svg,
+    .dial-caption > svg {
+      width: 18px;
+      height: 20px;
+      flex: none;
+    }
+    .count {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+    }
+    .count strong {
+      font-size: 24px;
+      font-weight: 400;
+      line-height: 1.2;
+    }
+    .count span {
+      font-size: 12px;
+      color: #ddd;
+    }
+    .aside {
+      margin-left: auto;
+      font-size: 12px;
+      color: #aaa9bd;
+    }
+    .slot-rack {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 3px;
+      width: 192px;
+      margin-left: 28px;
+    }
+    .slot-rack i {
+      height: 12px;
+      border: 1px solid #eeeeff66;
+      background: #eeeeff0a;
+    }
+    .slot-rack i.used {
+      background: #4df;
+      border-color: #4df;
+    }
+    .capacity-bar {
+      margin-left: 28px;
+      width: 220px;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 2px;
+    }
+    .capacity-bar i {
+      height: 10px;
+      background: #eeeeff26;
+    }
+    .capacity-bar i.used {
+      background: #4df;
+    }
+    .crate-layout {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .crates {
+      display: grid;
+      grid-template-columns: repeat(4, 25px);
+      gap: 0 3px;
+    }
+    .crates span {
+      width: 25px;
+      height: 26px;
+      color: #eeeeff40;
+    }
+    .crates svg {
+      width: 25px;
+      height: 26px;
+    }
+    .crates .used {
+      color: #4df;
+    }
+    .crates .used svg {
+      fill: #44ddff26;
+    }
+    .micro {
+      display: block;
+      color: #aaa9bd;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .dial-layout {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .dial {
+      position: relative;
+      width: 90px;
+      height: 90px;
+    }
+    .ring {
+      width: 90px;
+      height: 90px;
+      display: block;
+    }
+    .dial-count {
+      position: absolute;
+      inset: 20px 0;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      line-height: 1.35;
+    }
+    .dial-count strong {
+      font-size: 24px;
+      font-weight: 400;
+    }
+    .dial-count small {
+      font-size: 12px;
+      color: #ddd;
+    }
+    .dial-caption {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .dial-caption small {
+      font-size: 12px;
+      color: #aaa9bd;
+      display: inline-block;
+      margin-top: 6px;
+    }
+    .free-number {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      color: #4df;
+    }
+    .free-number strong {
+      font-size: 24px;
+      font-weight: 400;
+    }
+    .free-number span {
+      font-size: 12px;
+    }
+    .used-count {
+      margin-left: auto;
+      font-size: 16px;
+    }
+    .used-count small {
+      display: block;
+      color: #aaa9bd;
+      font-size: 12px;
+    }
+    .free-space {
+      display: flex;
+      height: 12px;
+      width: 220px;
+      margin-left: 28px;
+      gap: 3px;
+    }
+    .occupied {
+      width: 58.333%;
+      background: #eeeeff40;
+    }
+    .available {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 3px;
+    }
+    .available i {
+      background: #44ddff26;
+      border: 1px solid #4df;
+    }
+    .fuel,
+    .power {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 20px;
+    }
+    .fuel-segments {
+      display: flex;
+      gap: 2px;
+      width: 120px;
+      height: 8px;
+    }
+    .fuel-segments i {
+      flex: 1;
+      background: #4df;
+    }
+    .fuel-segments i:first-child {
+      background: #c00;
+    }
+    .fuel-segments i:nth-last-child(-n + 2) {
+      background: #eeeeff26;
+    }
+    .fuel small {
+      font-size: 12px;
+    }
+    .power-bar {
+      width: 192px;
+      height: 12px;
+      background: linear-gradient(90deg, #fd4 0 66%, #eeeeff26 66%);
+    }
+    .net {
+      font-size: 20px;
+      color: #fd4;
+      margin-left: 5px;
+      white-space: nowrap;
+    }
+    .net small {
+      font-size: 12px;
+    }
+    .single main {
+      padding: 24px;
+    }
+    .single .options {
+      display: block;
+    }
+    .single header {
+      display: none;
+    }
+    .single .scene {
+      height: 255px;
+    }
+    .single .option p {
+      max-width: 460px;
+    }
+  </style>
+  <body class="single">
+    <main>
+      <header>
+        <div>
+          <h1>Cargo UI concepts</h1>
+          <p>Five ways to show 7 spaces used out of 12.</p>
+        </div>
+        <span class="badge">HUD STUDIES · 7 / 12</span>
+      </header>
+      <section class="options">
+        <article class="option">
+          <h2>3. Crate stack</h2>
+          <div class="scene">
+            <div class="stars"></div>
+            <div class="panel">
+              <div class="cargo">
+                <div class="crate-layout">
+                  <div class="crates">
+                    <span class="used">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="used">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="used">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="used">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="used">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="used">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="used">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                    <span class="">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      >
+                        <path
+                          d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10 M7.5 4.5l9 5"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                  <div>
+                    <div class="count">
+                      <strong>7</strong>
+                      <span>/ 12</span>
+                    </div>
+                    <span class="micro">CARGO SPACES</span>
+                  </div>
+                </div>
+              </div>
+              <div class="fuel">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="M12 2C10 6 5 11 5 15a7 7 0 0 0 14 0c0-4-5-9-7-13Z" />
+                  <path d="M8 15a4 4 0 0 0 4 4" />
+                </svg>
+                <small>E</small>
+                <span class="fuel-segments">
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                </span>
+                <small>F</small>
+              </div>
+              <div class="power">
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M11 1 3 14h7l-2 9L22 8h-9l3-7Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <div class="power-bar"></div>
+                <span class="net">
+                  +3.0
+                  <small>MW</small>
+                </span>
+              </div>
+            </div>
+          </div>
+          <p>
+            Seven solid crates and five wireframe crates show the hold at a
+            glance.
+          </p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

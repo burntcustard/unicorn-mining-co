@@ -16,6 +16,7 @@ type BinaryFields struct {
 	DestinationName   int `json:"destinationName"`
 	Firing            int `json:"firing"`
 	Fuel              int `json:"fuel"`
+	StoredPower       int `json:"storedPower"`
 	Rounds            int `json:"rounds"`
 	DefinitionID      int `json:"definitionId"`
 	CargoContents     int `json:"cargoContents"`

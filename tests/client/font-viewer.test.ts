@@ -22,7 +22,10 @@ assert.equal(
 const combined = Object.values(specimens).join('');
 
 assert.ok(characters.every((character) => combined.includes(character)));
-assert.equal(new Set(specimens.symbols).size, specimens.symbols.length);
+assert.equal(
+  new Set(specimens.symbols).size,
+  Array.from(specimens.symbols).length,
+);
 
 const extended = createSpecimens([...characters, 'J', 'a', '?']);
 

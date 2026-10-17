@@ -20,7 +20,7 @@ import { PredictionManager } from '${process.cwd()}/src/client/prediction/predic
 import { cloneEntity } from '${process.cwd()}/src/client/simulation/world-state.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/client/simulation/world.ts';
 import { diamond as diamondSpec, itemTypes, message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
-import { Autogun, CargoHatch, HornDrill, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters, moduleTypes } from '${process.cwd()}/src/client/objects/modules/index.ts';
+import { Autogun, CargoHatch, HornDrill, PowerPlant, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters, moduleTypes } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
@@ -91,7 +91,7 @@ assert.deepEqual(fitsOf(ship,engineMount),thrusters.filter(type=>engineMount.fit
 // Exercise every thruster independently of the production ships' loadouts.
 const thrusterHull=[
   {health:100,core:true,points:[[-16,-20],[8,0],[-16,20]],
-    mounts:[[{x:-16,y:0,fits:thrusters.map(type=>type.definitionId)}]]},
+    mounts:[[{x:-16,y:0,fits:thrusters.map(type=>type.definitionId)}], [{x:0,y:0,fits:['powerPlant']}]]},
   {health:100,core:true,points:[[8,0],[20,0],[-16,20]]}
 ];
 assert.equal(ship.name,'Mustang','ship instances keep their display names under production transforms');
@@ -353,6 +353,8 @@ for (const type of thrusters) {
   const departing = new Ship({hullSegments:thrusterHull,shades: colors.white, position: Vec.create(100000, 100000)}).addToScene();
   const engine = new type();
   departing.cargoContents.push(engine); departing.fit(engine);
+  departing.fit(new PowerPlant());
+  departing.storedPower = departing.powerCapacity;
   departing.launch();
   let timer = 3;
   let expectedSpeed = 0;
@@ -467,7 +469,6 @@ assert(player.visitedStations.size === 1, 'recreated station objects count as th
 player.note = 'SHIP REPLACED';
 player.noteFor = 7;
 player.queuedNotes.push('NEXT MESSAGE');
-player.hudAlpha = 0.5;
 player.started = true;
 const creditsBefore = player.credits;
 const paintsBefore = [...player.unlockedPaints];
@@ -482,7 +483,7 @@ assert.deepEqual(player.unlockedPaints, paintsBefore, 'paint unlocks survive shi
 assert.deepEqual(player.queuedNotes, notesBefore, 'queued notes survive ship replacement');
 assert(player.note === 'SHIP REPLACED' && player.noteFor === 7,
   'current note survives ship replacement');
-assert(player.hudAlpha === 0.5 && player.started, 'HUD state survives ship replacement');
+assert(player.started, 'started state survives ship replacement');
 replacement.docked(new Ship({id:701}));
 assert(player.visitedStations.size === 2, 'new ship retains the docking reward callback and visit history');
 assert(player.ship.update === updateBefore, 'decoration does not replace shared physics');

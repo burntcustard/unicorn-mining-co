@@ -67,7 +67,10 @@ type Snapshot struct {
 	DockIDs            [][2]int64
 	InputLead          *int64
 	EntityIDs          []uint64
-	Records            []EntityRecord
+	// Snapshot flag 64 carries a replacement radar position list. Nil retains
+	// the previous list; an empty non-nil slice clears it.
+	AsteroidPositions []Vector
+	Records           []EntityRecord
 }
 
 func (w *writer) string(value string) {
@@ -380,12 +383,12 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 }
 
 func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) error {
-	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.TransitGate {
+	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.StoredPower {
 		return ErrSnapshot
 	}
 
 	if value.Values != nil {
-		if len(value.Values) > protocol.BinaryFieldIDs.TransitGate {
+		if len(value.Values) > protocol.BinaryFieldIDs.StoredPower {
 			return ErrSnapshot
 		}
 
@@ -393,7 +396,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 		w.unsigned(uint64(len(value.Values)))
 
 		for _, field := range value.Values {
-			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.TransitGate {
+			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.StoredPower {
 				return ErrSnapshot
 			}
 
@@ -430,7 +433,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 	}
 
 	for _, id := range ids {
-		if id < 1 || id > protocol.BinaryFieldIDs.TransitGate {
+		if id < 1 || id > protocol.BinaryFieldIDs.StoredPower {
 			return ErrSnapshot
 		}
 
@@ -493,6 +496,10 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol)
 		flags |= 32
 	}
 
+	if value.AsteroidPositions != nil {
+		flags |= 64
+	}
+
 	w.data = append(w.data, 0x55, 0x4d, 1, flags)
 	w.unsigned(value.Tick)
 	w.unsigned(value.NextEntityID)
@@ -517,6 +524,14 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol)
 		for _, pair := range value.DockIDs {
 			w.signed(pair[0])
 			w.signed(pair[1])
+		}
+	}
+
+	if flags&64 != 0 {
+		w.unsigned(uint64(len(value.AsteroidPositions)))
+
+		for _, position := range value.AsteroidPositions {
+			w.vector(position)
 		}
 	}
 

@@ -173,3 +173,38 @@ func TestStationaryPlayerOmitsUnchangedFragments(t *testing.T) {
 		t.Fatal("unchanged docked ships need no heartbeat")
 	}
 }
+
+func TestEntityReplicationLoadAndUnloadBoundaries(t *testing.T) {
+	t.Parallel()
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	id, radius := int64(2), 0.0
+	object := simulation.NewGameObject(simulation.ObjectProperties{ID: &id, Radius: &radius}, catalog.Simulation)
+	simulation.AddEntity(world, object)
+	manager := NewBinaryReplicationManager(catalog)
+	ranges := catalog.Simulation.Replication
+
+	check := func(distance float64, expected bool) {
+		t.Helper()
+		object.Position.X = distance
+		world.Tick++
+		manager.Snapshot(SnapshotOptions{World: world, ShipID: 1})
+		_, loaded := manager.members[id]
+
+		if loaded != expected {
+			t.Fatalf("distance %v: loaded=%v, want %v", distance, loaded, expected)
+		}
+	}
+
+	check(ranges.EntityLoad+1, false)
+	check(ranges.EntityLoad, true)
+	check(ranges.EntityUnload, true)
+	check(ranges.EntityUnload+1, false)
+	check(ranges.EntityLoad+1, false)
+	check(ranges.EntityLoad, true)
+}

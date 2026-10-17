@@ -148,3 +148,16 @@ try {
 } catch {
   /* Defaults work without storage. */
 }
+
+const keyLabels = new Map([
+  [' ', 'Space'],
+  ['ArrowUp', '↑'],
+  ['ArrowDown', '↓'],
+  ['ArrowLeft', '←'],
+  ['ArrowRight', '→'],
+]);
+
+/**
+ * Human-readable keyboard labels shared by settings and flight instruments.
+ */
+export const keyLabel = (key: string) => keyLabels.get(key) || key;

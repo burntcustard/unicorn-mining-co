@@ -2,6 +2,7 @@ import html from './settings.html?raw';
 import { createScreen, query, ui } from './ui';
 import {
   bindingEntries,
+  keyLabel,
   saveBindings,
   resetBindings,
   defaultKeybindings,
@@ -62,18 +63,9 @@ export const createSettings = () => {
     return button;
   });
 
-  const symbols = new Map([
-    ['ArrowUp', '↑'],
-    ['ArrowDown', '↓'],
-    ['ArrowLeft', '←'],
-    ['ArrowRight', '→'],
-  ]);
-
   const update = () =>
     buttons.forEach((button, i) => {
-      button.textContent = bindingEntries[i][1].keys
-        .map((key) => (key === ' ' ? 'Space' : symbols.get(key) || key))
-        .join(' / ');
+      button.textContent = bindingEntries[i][1].keys.map(keyLabel).join(' / ');
     });
 
   dialog.addEventListener(

@@ -48,5 +48,6 @@ export const createPlayerShip = (
     .initialLoadout.forEach(({ mount, module }) =>
       ship.fit(new (moduleTypesById.get(module)!)(), ship.mounts[mount]),
     );
+  ship.storedPower = ship.powerCapacity;
   return ship;
 };

@@ -11,6 +11,7 @@ export const powerPlant = {
   power: 0,
   powerActivated: 0,
   powerGenerated: 6.4,
+  powerCapacity: 64,
   zIndex: renderingLayers.modulesAboveShipHull,
   model: [],
 } satisfies ModuleSpec;

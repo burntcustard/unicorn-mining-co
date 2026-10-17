@@ -72,6 +72,7 @@ export const binaryFieldIds = {
   destinationName: 40,
   transitTime: 41,
   transitGate: 42,
+  storedPower: 43,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {

@@ -646,6 +646,13 @@ func (s *GameSession) sendWelcome(p *playerRecord) {
 	message.Credits = &p.profile.Credits
 	message.DisplayName = &p.profile.DisplayName
 
+	for _, sector := range s.sectorMap.Sectors {
+		if sector.ID == p.sectorID {
+			message.SectorName = &sector.Name
+			break
+		}
+	}
+
 	s.sendControl(p.socket, message)
 }
 

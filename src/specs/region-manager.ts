@@ -1,3 +1,5 @@
+import { replication } from './replication';
+
 export const regionSize = 2000;
 
 export const worldRanges = {
@@ -9,9 +11,9 @@ export const worldRanges = {
 } as const;
 
 export const serverRegionRanges = {
-  asteroid: 2500,
+  asteroid: replication.entityUnload,
   item: 2000,
   stationMarker: 10000,
   stationPhysics: 11000,
-  wreck: 2500,
+  wreck: replication.entityUnload,
 } as const;

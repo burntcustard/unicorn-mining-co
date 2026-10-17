@@ -16,8 +16,9 @@ import (
 
 type Ship struct {
 	*Craft
-	Firing             bool
-	Fuel, FuelCapacity float64
+	Firing                                   bool
+	Fuel, FuelCapacity                       float64
+	StoredPower, ThrusterPower, SystemsPower float64
 }
 
 func (s *Ship) Cargo() *[]simulation.Entity { return &s.CargoContents }
@@ -485,7 +486,7 @@ func (s *Ship) ConsumeFuel(dt float64) {
 		return
 	}
 
-	usage := engine.ModuleBase().Spec.FuelUsage * math.Max(s.Forward, math.Abs(s.Turn)/2)
+	usage := engine.ModuleBase().Spec.FuelUsage * s.ThrusterPower * math.Max(s.Forward, math.Abs(s.Turn)/2)
 	reserve := s.FuelCapacity * s.Rules.Flight.LowFuelThreshold
 	normal := math.Min(math.Max(0, s.Fuel-reserve), usage*dt)
 	s.Fuel = math.Max(0, s.Fuel-normal-(usage*dt-normal)*s.Rules.Flight.LowFuelUsage)
@@ -509,7 +510,7 @@ func (s *Ship) ForwardThrust() float64 {
 	}
 
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.ForwardThrust * (throttle * throttle) * s.FuelThrottle()
+	return engine.ModuleBase().Spec.ForwardThrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
 }
 
 func (s *Ship) RotationalThrust() float64 {
@@ -520,7 +521,7 @@ func (s *Ship) RotationalThrust() float64 {
 	}
 
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.RotationalThrust * (throttle * throttle) * s.FuelThrottle()
+	return engine.ModuleBase().Spec.RotationalThrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
 }
 
 func (s *Ship) MaxSpeed() float64 {
@@ -553,7 +554,7 @@ func (s *Ship) Fly(forward, turn float64) {
 			}
 		}
 
-		segment.Active *= s.LaunchThrottle() * s.FuelThrottle()
+		segment.Active *= s.LaunchThrottle() * s.FuelThrottle() * s.ThrusterPower
 	}
 }
 
@@ -623,6 +624,8 @@ func (s *Ship) fireWeapons(dt float64) {
 }
 
 func (s *Ship) Update(dt float64) {
+	s.UpdatePower(dt)
+
 	if s.TransitTime != 0 {
 		spec := s.Catalog.HoleSpec
 
@@ -724,7 +727,7 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 		plans[i] = plan
 	}
 
-	ship := &Ship{Craft: NewCraft(props, plans, catalog)}
+	ship := &Ship{Craft: NewCraft(props, plans, catalog), ThrusterPower: 1, SystemsPower: 1}
 	ship.Self = ship
 	ship.Kind = "ship"
 	ship.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale
@@ -776,6 +779,8 @@ func CreatePlayerShip(world *simulation.World, props Properties) *Ship {
 	for _, entry := range world.Specification.ShipSpecs[id].InitialLoadout {
 		ship.Fit(modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification), ship.Mounts()[entry.Mount])
 	}
+
+	ship.StoredPower = ship.PowerCapacity()
 
 	return ship
 }

@@ -1,3 +1,4 @@
+import { targetKinds } from './target-kinds';
 import { type GameObject } from '../objects/game-object';
 import { type Pose } from '../types';
 import { type GameState } from '../game';
@@ -83,15 +84,7 @@ export class Targeting {
           object.id !== ship.id &&
           !object.dead &&
           !object.buried &&
-          [
-            'ship',
-            'station',
-            'craft',
-            'asteroid',
-            'item',
-            'jumpGate',
-            'wormhole',
-          ].includes(object.kind!),
+          targetKinds.has(object.kind!),
       )
       .map((object) => {
         const pose = poses.get(object.id) || object;

@@ -71,6 +71,9 @@ const record = (entity: GameObject) => ({
     dockedTo: entity.dockedTo || null,
     forward: entity.forward,
     turn: entity.turn,
+    storedPower: entity.storedPower,
+    thrusterPower: entity.thrusterPower,
+    systemsPower: entity.systemsPower,
   }),
 });
 
@@ -81,6 +84,7 @@ const cases = [
   { name: 'drill', count: 1, ticks: 180 },
   { name: 'docking', count: 1, ticks: 120 },
   { name: 'shield', count: 1, ticks: 180 },
+  { name: 'power', count: 1, ticks: 180 },
   ...(
     [
       'thrusterSingleMd',
@@ -114,6 +118,22 @@ const cases = [
 
     if (scenario.name === 'shield') {
       ship.fit(new ShieldGenerator({ id: -2000 }));
+    }
+
+    if (scenario.name === 'power') {
+      for (const module of ship.modules) {
+        module.power = module.powerActivated = 0;
+
+        if (module.powerGenerated) module.powerGenerated = 2;
+      }
+
+      ship.engine.powerActivated = 2;
+      ship.modules.find((module) => module.behavior === 'cargoHatch')!.power =
+        1;
+      ship.modules.find(
+        (module) => module.behavior === 'cargoHatch',
+      )!.powerActivated = 1;
+      ship.storedPower = 0.25;
     }
 
     if ('engine' in scenario) {
@@ -163,6 +183,13 @@ const cases = [
   const snapshots = [];
 
   for (let tick = 0; tick < scenario.ticks; tick++) {
+    if (scenario.name === 'power' && (tick === 60 || tick === 120)) {
+      const ship = world.entities.get(1) as Ship;
+
+      ship.modules.find((module) => module.powerGenerated)!.powerGenerated =
+        tick === 60 ? 5 : 0.5;
+    }
+
     const inputs = new Map(
       [...world.players.keys()].map((id) => [
         id,
