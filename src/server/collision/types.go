@@ -14,7 +14,6 @@ type Collider struct {
 	ReadPose func() (Vec.Vector, float64, float64, float64)
 
 	Owner                       any
-	Role                        string
 	PickupPoint                 bool
 	ContactFilter               func(self, other *Collider) bool
 	Position                    Vec.Vector

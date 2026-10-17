@@ -33,6 +33,8 @@ type SavedObject struct {
 }
 
 type SavedEntity struct {
+	TransitTime              float64
+	TransitGate              int64
 	Fuel                     float64
 	Rounds                   *int
 	Object                   SavedObject
@@ -184,6 +186,7 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 		s.DockedTo = savedPointer(c.DockedTo)
 		s.Launching, s.Forward, s.Turn = c.Launching, c.Forward, c.Turn
 		s.HasLaunching = c.HasLaunching
+		s.TransitTime, s.TransitGate = c.TransitTime, c.TransitGate
 	}
 
 	if ship, ok := entity.(*Ship); ok {
@@ -334,6 +337,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 
 		c.DockedTo, c.Launching, c.Forward, c.Turn = s.DockedTo, s.Launching, s.Forward, s.Turn
 		c.HasLaunching = s.HasLaunching
+		c.TransitTime, c.TransitGate = s.TransitTime, s.TransitGate
 	}
 
 	if ship, ok := entity.(*Ship); ok {

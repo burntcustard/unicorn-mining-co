@@ -10,6 +10,8 @@ import { Module } from '../objects/modules/module';
  * until that history expires, allowing drilling and cargo transfers to rewind.
  */
 const fields = [
+  'opening',
+  'openingTarget',
   'sweepStart',
   'definitionId',
   'playerId',
@@ -26,6 +28,8 @@ const fields = [
   'decay',
   'buried',
   'launching',
+  'transitTime',
+  'transitGate',
   'dockedTo',
   'forward',
   'firing',
@@ -83,6 +87,8 @@ export class EntityState {
   readonly health: number;
   readonly hullHealth?: number[];
   readonly launching: number;
+  readonly transitTime: number;
+  readonly transitGate: number;
   readonly moduleStates?: ModuleState[];
   readonly position: Vec.Value;
   private readonly randomState: number;
@@ -100,6 +106,8 @@ export class EntityState {
     this.spin = entity.spin;
     this.health = entity.health;
     this.launching = entity.launching;
+    this.transitTime = entity.transitTime;
+    this.transitGate = entity.transitGate;
     this.dockedTo = entity.dockedTo;
     this.randomState = entity.random.state;
     this.values = fields.map((key) => entity[key]);

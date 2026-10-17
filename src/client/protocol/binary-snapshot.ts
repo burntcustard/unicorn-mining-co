@@ -257,6 +257,12 @@ export function decodeBinarySnapshot(
       case entityKindIds.ship:
         return 'ship';
 
+      case entityKindIds.jumpGate:
+        return 'jumpGate';
+
+      case entityKindIds.wormhole:
+        return 'wormhole';
+
       case entityKindIds.station:
         return 'station';
 
@@ -282,7 +288,7 @@ export function decodeBinarySnapshot(
       const field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
 
-      if (field < 1 || field > BinaryField.firing || seen.has(field)) {
+      if (field < 1 || field > BinaryField.transitGate || seen.has(field)) {
         return fail();
       }
 
@@ -349,8 +355,28 @@ export function decodeBinarySnapshot(
           entity.definitionId = clear ? null : string();
           break;
 
+        case BinaryField.opening:
+          entity.opening = clear ? null : number();
+          break;
+
+        case BinaryField.openingTarget:
+          entity.openingTarget = clear ? null : number();
+          break;
+
+        case BinaryField.destinationName:
+          entity.destinationName = clear ? null : string();
+          break;
+
         case BinaryField.name:
           entity.name = clear ? null : string();
+          break;
+
+        case BinaryField.transitTime:
+          entity.transitTime = clear ? null : number();
+          break;
+
+        case BinaryField.transitGate:
+          entity.transitGate = clear ? null : number();
           break;
 
         case BinaryField.launching:

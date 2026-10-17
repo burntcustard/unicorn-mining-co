@@ -10,22 +10,23 @@ import { regionSize } from '../../specs/region-manager';
 import { round } from '../utilities/round';
 import { regionGeneration as specification } from '../../specs/region-generation';
 
-const mix = (value: number) => {
-  value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
-  value = Math.imul(value ^ (value >>> 15), 0x846ca68b);
-  return (value ^ (value >>> 16)) >>> 0;
-};
+import { mixSeed as mix } from '../utilities/seed-hash';
+import { sectorDensity, type Sector } from './sector-generation';
+import { sectorGeneration } from '../../specs/sectors';
 
 /**
  * Derive one region's seed without depending on generation order.
  */
 export const regionSeed = ({
   worldSeed,
+  sector,
   region,
 }: {
   worldSeed: number;
+  sector?: Sector;
   region: Vec.Value;
-}) => mix(worldSeed ^ mix(region.x) ^ mix(region.y + 0x9e3779b9));
+}) =>
+  mix((sector?.seed ?? worldSeed) ^ mix(region.x) ^ mix(region.y + 0x9e3779b9));
 
 const descriptionId = ({
   seed,
@@ -86,24 +87,59 @@ const featureSettings = specification.features;
 
 const featureCandidate = ({
   worldSeed,
+  sector,
   cell,
   kind,
 }: {
   worldSeed: number;
+  sector?: Sector;
   cell: Vec.Value;
   kind: FeatureKind;
 }): Feature | undefined => {
+  if (sector && kind === stationFeature && !sector.gateSites.length) return;
+
   const settings = featureSettings[kind];
-  const seed = regionSeed({ worldSeed, region: cell });
+  const seed = regionSeed({ worldSeed, sector, region: cell });
   // Separate station samples keep seed 25 near its historical starting station.
   const stream = kind === stationFeature ? specification.stationStream : 0;
   const random = createRandom(
     descriptionId({ seed, kind: settings.kind, index: stream }),
   );
 
-  if (random.next() >= settings.chance) return;
+  const chance = random.next();
+
+  if (
+    chance >=
+    settings.chance * (sector ? sectorGeneration.density[kind].peak : 1)
+  ) {
+    return;
+  }
 
   const position = randomPosition({ random, cell, size: settings.size });
+
+  if (
+    sector &&
+    chance >= settings.chance * sectorDensity({ sector, position, kind })
+  ) {
+    return;
+  }
+
+  if (
+    sector &&
+    kind !== fieldFeature &&
+    [...sector.gateSites, ...sector.wormholeSites].some(
+      (site) =>
+        Vec.distance(site.position, position) <
+        sectorGeneration.gateArrivalDistance +
+          sectorGeneration.gateClearance +
+          (kind === stationFeature
+            ? specification.stationRadius
+            : specification.wreckRadius),
+    )
+  ) {
+    return;
+  }
+
   const id = descriptionId({ seed, kind: settings.kind, index: 1 });
 
   if (kind === fieldFeature) {
@@ -153,14 +189,16 @@ const spacingRadius = (feature: Feature, kind: FeatureKind) =>
 
 const acceptedFeature = ({
   worldSeed,
+  sector,
   cell,
   kind,
 }: {
   worldSeed: number;
+  sector?: Sector;
   cell: Vec.Value;
   kind: FeatureKind;
 }): Feature | undefined => {
-  const candidate = featureCandidate({ worldSeed, cell, kind });
+  const candidate = featureCandidate({ worldSeed, sector, cell, kind });
 
   if (!candidate) return;
 
@@ -170,6 +208,7 @@ const acceptedFeature = ({
 
       const other = featureCandidate({
         worldSeed,
+        sector,
         cell: Vec.create(cell.x + x, cell.y + y),
         kind,
       });
@@ -188,17 +227,20 @@ const acceptedFeature = ({
   return crowded ? undefined : candidate;
 };
 
+type FeatureBounds = {
+  worldSeed: number;
+  sector?: Sector;
+  from: Vec.Value;
+  to: Vec.Value;
+};
+
 const featuresWithin = ({
   worldSeed,
+  sector,
   from,
   to,
   kind,
-}: {
-  worldSeed: number;
-  from: Vec.Value;
-  to: Vec.Value;
-  kind: FeatureKind;
-}) => {
+}: FeatureBounds & { kind: FeatureKind }) => {
   const size = featureSettings[kind].size;
   const features: Feature[] = [];
 
@@ -206,6 +248,7 @@ const featuresWithin = ({
     for (let y = Math.floor(from.y / size); y <= Math.floor(to.y / size); y++) {
       const feature = acceptedFeature({
         worldSeed,
+        sector,
         cell: Vec.create(x, y),
         kind,
       });
@@ -225,50 +268,47 @@ const featuresWithin = ({
   return features;
 };
 
-export const generateStations = (options: {
-  worldSeed: number;
-  from: Vec.Value;
-  to: Vec.Value;
-}) =>
+export const generateStations = (options: FeatureBounds) =>
   featuresWithin({ ...options, kind: stationFeature }) as StationDescription[];
+
+export const generateWrecks = (options: FeatureBounds) =>
+  featuresWithin({ ...options, kind: wreckFeature }) as WreckCandidate[];
 
 /**
  * Expose the field outlines to the world preview without storing them in regions.
  */
-export const generateFields = ({
-  worldSeed,
-  from,
-  to,
-}: {
-  worldSeed: number;
-  from: Vec.Value;
-  to: Vec.Value;
-}) => featuresWithin({ worldSeed, from, to, kind: fieldFeature }) as Field[];
+export const generateFields = (options: FeatureBounds) =>
+  featuresWithin({ ...options, kind: fieldFeature }) as Field[];
 
 export const fieldMessage = ({
   position,
   resource,
+  sectorName,
 }: {
   position: Vec.Value;
   resource: number;
+  sectorName?: string;
 }) =>
-  `${resource === 1 ? 'AMETHYST CLUSTER' : 'GOLD ORE'} ${position.x}/${position.y}`;
+  `${sectorName ? `${sectorName} / ` : ''}${resource === 1 ? 'AMETHYST CLUSTER' : 'GOLD ORE'} ${position.x}/${position.y}`;
 
 /**
- * Search farther until the square contains every field closer than our best.
+ * Bound clue searches; distant wrecks can retain ordinary cargo without a clue.
  */
 const nearestRichField = ({
   worldSeed,
+  sector,
   position,
 }: {
   worldSeed: number;
+  sector?: Sector;
   position: Vec.Value;
-}): Field => {
-  let range = specification.nearestFieldInitialRange;
+}): Field | undefined => {
+  let range: number = specification.nearestFieldInitialRange;
 
   for (;;) {
     const richFields = generateFields({
       worldSeed,
+      sector,
       from: Vec.add(position, Vec.create(-range, -range)),
       to: Vec.add(position, Vec.create(range, range)),
     }).filter(({ resource }) => resource < 3);
@@ -287,7 +327,8 @@ const nearestRichField = ({
       return nearest;
     }
 
-    range *= 2;
+    if (range >= sectorGeneration.richFieldSearchRange) return nearest;
+    range = Math.min(range * 2, sectorGeneration.richFieldSearchRange);
   }
 };
 
@@ -356,12 +397,14 @@ const candidateRegions = new Map<string, RegionCandidates>();
 
 const generateCandidates = ({
   worldSeed,
+  sector,
   region,
 }: {
   worldSeed: number;
+  sector?: Sector;
   region: Vec.Value;
 }): RegionCandidates => {
-  const key = `${worldSeed}:${region.x},${region.y}`;
+  const key = `${worldSeed}:${sector ? JSON.stringify(sector) : ''}:${region.x},${region.y}`;
   const cached = candidateRegions.get(key);
 
   if (cached) return cached;
@@ -370,6 +413,7 @@ const generateCandidates = ({
 
   const stations = featuresWithin({
     worldSeed,
+    sector,
     from,
     to,
     kind: stationFeature,
@@ -377,6 +421,7 @@ const generateCandidates = ({
 
   const wrecks = featuresWithin({
     worldSeed,
+    sector,
     from,
     to,
     kind: wreckFeature,
@@ -384,6 +429,7 @@ const generateCandidates = ({
 
   const fields = generateFields({
     worldSeed,
+    sector,
     from: Vec.add(
       from,
       Vec.create(
@@ -401,7 +447,7 @@ const generateCandidates = ({
   });
 
   const asteroids = fields.flatMap((field) => {
-    const seed = mix(regionSeed({ worldSeed, region }) ^ field.id);
+    const seed = mix(regionSeed({ worldSeed, sector, region }) ^ field.id);
     const random = createRandom(seed);
     // Rich gold fields stay sparser; small amethyst pockets hold short spikes.
     const count =
@@ -441,28 +487,40 @@ export const asteroidSpacing = specification.asteroidSpacing;
 // Reject crowded candidates in a stable order, independent of region load order.
 export const generateRegion = ({
   worldSeed,
+  sector,
   region,
 }: {
   worldSeed: number;
+  sector?: Sector;
   region: Vec.Value;
 }): RegionDescription => {
-  const current = generateCandidates({ worldSeed, region });
+  const current = generateCandidates({ worldSeed, sector, region });
 
   const nearby = [-1, 0, 1].flatMap((y) =>
     [-1, 0, 1].map((x) =>
       x || y
         ? generateCandidates({
             worldSeed,
+            sector,
             region: Vec.create(region.x + x, region.y + y),
           })
         : current,
     ),
   );
 
-  const obstacles = nearby.flatMap(({ stations, wrecks }) => [
-    ...stations,
-    ...wrecks,
-  ]);
+  const obstacles: { position: Vec.Value; radius: number }[] = nearby.flatMap(
+    ({ stations, wrecks }) => [...stations, ...wrecks],
+  );
+
+  if (sector) {
+    obstacles.push(
+      ...[...sector.gateSites, ...sector.wormholeSites].map((site) => ({
+        ...site,
+        radius:
+          sectorGeneration.gateArrivalDistance + sectorGeneration.gateClearance,
+      })),
+    );
+  }
 
   const overlaps = (
     asteroid: AsteroidDescription,
@@ -502,13 +560,16 @@ export const generateRegion = ({
     wrecks: current.wrecks.map((wreck) => {
       const clueField = nearestRichField({
         worldSeed,
+        sector,
         position: wreck.position,
       });
 
       return {
         ...wreck,
-        cargoContents: wreck.cargoContents.map(() => clueField.resource),
-        clueField,
+        ...(clueField && {
+          cargoContents: wreck.cargoContents.map(() => clueField.resource),
+          clueField,
+        }),
       };
     }),
     asteroids: current.asteroids.filter((asteroid) => {

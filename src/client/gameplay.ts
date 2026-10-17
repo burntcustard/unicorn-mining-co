@@ -1,3 +1,6 @@
+import { holeSpec } from '../specs/hole';
+import { createChat } from './ui/dom/chat';
+import { Passage } from './objects/passage';
 import { ui, updateNotification } from './ui/dom/ui';
 import { preloadDockedUi, syncDockedUi } from './ui/dom/docked-loader';
 import { renderingLayers } from '../specs/rendering-layers';
@@ -20,7 +23,13 @@ import {
 import { bindAction, initKeys, playerInput, setMenuInput } from './input/input';
 import { defaultKeybindings } from './input/keybindings';
 import { network } from './network/network';
-import { camera, centerCamera, followTarget, zoomCamera } from './camera';
+import {
+  camera,
+  centerCamera,
+  followTarget,
+  zoomCamera,
+  holeZoom,
+} from './camera';
 
 import { revealBuriedItems } from './utilities/lighting';
 import { message as messageSpec } from '../specs/items';
@@ -67,6 +76,12 @@ type Background = {
 
 let gameStarted = false;
 const targeting = new Targeting();
+
+const chat = createChat({
+  network,
+  onTyping: (typing) => setMenuInput(typing || Boolean(ui.current)),
+});
+
 let pointerPosition: Vec.Value | undefined;
 
 const background = (
@@ -120,6 +135,12 @@ window.addEventListener('ui-navigation', () => {
   }
 });
 
+const pointerView = {
+  position: Vec.create(),
+  width: game.width,
+  height: game.height,
+};
+
 const updatePointer = (event: MouseEvent) => {
   const rect = canvas.getBoundingClientRect();
 
@@ -129,8 +150,8 @@ const updatePointer = (event: MouseEvent) => {
   );
   targeting.hover(
     Vec.create(
-      camera.x + pointerPosition.x * game.width,
-      camera.y + pointerPosition.y * game.height,
+      pointerView.position.x + pointerPosition.x * pointerView.width,
+      pointerView.position.y + pointerPosition.y * pointerView.height,
     ),
   );
 };
@@ -209,6 +230,7 @@ const syncPlayerShip = () => {
   if (player.ship !== ship) {
     refreshReplication();
     adoptPlayerShip({ ship });
+    centerCamera(game, ship);
   }
 };
 
@@ -276,6 +298,11 @@ initKeys({
   onKeyDown: (event) => {
     const { key } = event;
 
+    if (key === 'Enter' && chat.focus()) {
+      event.preventDefault();
+      return true;
+    }
+
     if (
       !network.shipDestroyed &&
       !(network.shipStranded && key.toLowerCase() === 'r')
@@ -321,12 +348,23 @@ const gameLoop = GameLoop({
     const renderedShip =
       predictedPlayerShip instanceof Ship ? predictedPlayerShip : player.ship;
     const playerPose = remotePoses.get(player.ship.id) || renderedShip;
+    const transitPortal = renderedShip.transitTime
+      ? predicted.entities.get(renderedShip.transitGate)
+      : undefined;
 
     if (!network.shipDestroyed) {
       followTarget(
         game,
-        { position: playerPose.position, dockedTo: player.ship.dockedTo },
+        {
+          position: transitPortal?.position || playerPose.position,
+          dockedTo: transitPortal?.id || player.ship.dockedTo,
+        },
         dt,
+        transitPortal
+          ? renderedShip.transitTime > 0
+            ? 0
+            : holeSpec.pullDuration / 1000
+          : undefined,
       );
     }
     // The sky slides past at its own pace, so it moves itself
@@ -340,12 +378,16 @@ const gameLoop = GameLoop({
     // @endif
 
     const { ctx, scale } = game;
+    const zoom = network.shipDestroyed ? 1 : holeZoom(renderedShip.transitTime);
+    const focus = playerPose.position;
 
     beginSurfaces();
 
     ctx.save();
     ctx.scale(scale, scale);
-    ctx.translate(-camera.x, -camera.y);
+    ctx.translate(focus.x - camera.x, focus.y - camera.y);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-focus.x, -focus.y);
 
     const visibleSprites = activeSprites.filter((object) => {
       // Moving craft can project beams beyond their hull. An unfitted station
@@ -383,12 +425,14 @@ const gameLoop = GameLoop({
 
     const renderedCrafts = visibleSprites
       .filter(
-        (object): object is Craft => object instanceof Craft && !object.dead,
+        (object): object is Craft | Passage =>
+          (object instanceof Craft || object instanceof Passage) &&
+          !object.dead,
       )
       .map((craft) => {
         const prediction = predicted.entities.get(craft.id);
 
-        return prediction instanceof Craft &&
+        return (prediction instanceof Craft || prediction instanceof Passage) &&
           prediction.constructor === craft.constructor
           ? prediction
           : craft;
@@ -478,37 +522,66 @@ const gameLoop = GameLoop({
     updateNotification(player.noteFor > 0 ? player.note : '');
 
     if (!ui.current) {
+      // Project world-anchored HUD elements through the same zoom while keeping
+      // controls and text at their normal UI size. Restore the sky's camera below.
+      const baseCamera = Vec.clone(camera);
+
+      const view =
+        zoom === 1
+          ? game
+          : {
+              ...game,
+              scale: scale * zoom,
+              width: game.width / zoom,
+              height: game.height / zoom,
+            };
+
+      Vec.setXY(
+        camera,
+        focus.x + (baseCamera.x - focus.x) / zoom,
+        focus.y + (baseCamera.y - focus.y) / zoom,
+      );
+
+      Vec.set(pointerView.position, camera);
+      pointerView.width = view.width;
+      pointerView.height = view.height;
+
       if (pointerPosition) {
         targeting.hover(
           Vec.create(
-            camera.x + pointerPosition.x * game.width,
-            camera.y + pointerPosition.y * game.height,
+            camera.x + pointerPosition.x * view.width,
+            camera.y + pointerPosition.y * view.height,
           ),
         );
       }
 
       targeting.update({
-        game,
+        game: view,
         objects: activeSprites,
         poses: remotePoses,
         ship: renderedShip,
       });
 
-      game.ctx = hudContext();
+      game.ctx = view.ctx = hudContext();
 
-      if (!network.shipDestroyed) targeting.render(game);
+      if (!network.shipDestroyed) targeting.render(view);
 
-      renderUI(game, stationMarkers, {
+      renderUI(view, stationMarkers, {
         controlsShip: renderedShip,
         shipDestroyed: network.shipDestroyed,
         shipStranded: network.shipStranded,
       });
 
       game.ctx = ctx;
+      Vec.set(camera, baseCamera);
     }
   },
   update: ({ dt, now }) => {
     updateEffects(dt * 1000);
+    chat.update(
+      targeting.target,
+      gameStarted && !ui.current && network.connected,
+    );
 
     if (player.ship.launchRequested) {
       playerInput.launch = true;

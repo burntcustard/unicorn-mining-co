@@ -22,18 +22,18 @@ func TestRenderingLayerInheritance(t *testing.T) {
 	module := modules.NewHornDrill(simulation.ObjectProperties{ID: &moduleID}, catalog)
 	module.Spec.ZIndex = zero
 
-	if got := makeSegment(craft, nil, plan, nil).ZIndex; got != specs.HullZIndex {
+	if got := makeSegment(craft.GameObject, craft.ZIndex, nil, plan, nil).ZIndex; got != specs.HullZIndex {
 		t.Fatalf("default hull layer = %d, want %d", got, specs.HullZIndex)
 	}
 
-	if got := makeSegment(craft, module, plan, nil).ZIndex; got != zero {
+	if got := makeSegment(craft.GameObject, craft.ZIndex, module, plan, nil).ZIndex; got != zero {
 		t.Fatalf("explicit module layer = %d, want 0", got)
 	}
 
 	plan.ZIndex = &zero
 	module.Spec.ZIndex = specs.HullZIndex
 
-	if got := makeSegment(craft, module, plan, nil).ZIndex; got != zero {
+	if got := makeSegment(craft.GameObject, craft.ZIndex, module, plan, nil).ZIndex; got != zero {
 		t.Fatalf("explicit segment layer = %d, want 0", got)
 	}
 

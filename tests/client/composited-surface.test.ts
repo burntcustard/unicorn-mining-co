@@ -105,7 +105,7 @@ game.scale = 1;
 const key = {}, other = {}, spectrum = {}, cache = {};
 const bounds = {left:-10, top:-10, right:10, bottom:10};
 Reflect.set(globalThis, 'surface-test', action => {
-  beginSurfaces();
+  if (action !== 'preview') beginSurfaces();
   if (action === 'scale') game.scale = 2;
   let drawn = false;
   if (action !== 'hide') drawn = renderSurface({
@@ -120,7 +120,7 @@ Reflect.set(globalThis, 'surface-test', action => {
       }));
     },
   });
-  endSurfaces();
+  if (action !== 'preview') endSurfaces();
   return drawn;
 });`;
 
@@ -150,6 +150,13 @@ Reflect.set(globalThis, 'surface-test', action => {
     );
     const run = Reflect.get(globalThis, 'surface-test');
 
+    assert.equal(
+      run('preview'),
+      false,
+      'attached previews draw directly outside a managed world frame',
+    );
+    assert.equal(created.length, 0, 'previews do not create DOM overlays');
+
     Reflect.set(foreground.context, 'createPattern', undefined);
     assert.equal(
       run('show'),
@@ -175,6 +182,12 @@ Reflect.set(globalThis, 'surface-test', action => {
     assert.equal(created[0].style.transform, 'matrix(1,0,0,1,14,-1)');
     run('hide');
     assert.equal(children.length, 0, 'expired world surfaces leave the DOM');
+    assert.equal(
+      run('preview'),
+      false,
+      'ending a world frame restores direct preview drawing',
+    );
+    assert.equal(children.length, 0, 'previews do not revive retired overlays');
     run('show');
     assert.equal(children.length, 1);
     assert.equal(created.length, 1, 'returning bodies reuse their surface');

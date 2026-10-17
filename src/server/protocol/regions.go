@@ -36,14 +36,14 @@ type FieldDescription struct {
 }
 
 type WreckDescription struct {
-	CargoContents []int            `json:"cargoContents"`
-	ClueField     FieldDescription `json:"clueField"`
-	ID            uint32           `json:"id"`
-	Paint         int              `json:"paint"`
-	Position      Vec.Vector       `json:"position"`
-	Radius        float64          `json:"radius"`
-	Spin          float64          `json:"spin"`
-	Type          string           `json:"type"`
+	CargoContents []int             `json:"cargoContents"`
+	ClueField     *FieldDescription `json:"clueField,omitempty"`
+	ID            uint32            `json:"id"`
+	Paint         int               `json:"paint"`
+	Position      Vec.Vector        `json:"position"`
+	Radius        float64           `json:"radius"`
+	Spin          float64           `json:"spin"`
+	Type          string            `json:"type"`
 }
 
 type RegionDescription struct {

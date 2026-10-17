@@ -525,7 +525,11 @@ assert.equal(new GameObject().mass, 3);
     () => delete collider.collisionMargin,
     () => (collider.physics = false),
     () => (collider.pickupPoint = true),
-    () => (collider.role = 'cargoHatch'),
+    () =>
+      (collider.segment = createPlayerShip(createWorld()).segments.find(
+        (segment) => segment.catches,
+      )),
+    () => (collider.segment.catches = false),
     () => (object.mass = 20),
     () => (object.angularInertiaScale = 2),
     () => delete collider.shapeOutline,
@@ -1079,7 +1083,6 @@ trigger.hitbox = () => [
     rotation: 0,
     physics: false,
     friction: trigger.friction,
-    role: 'cargoHatch',
   },
 ];
 
@@ -1106,7 +1109,7 @@ const triggerContacts = new GameCollisions().step({
 assert(
   triggerContacts.some(
     ({ collider, other }) =>
-      collider.role === 'cargoHatch' && other.owner === triggerTarget,
+      collider.owner === trigger && other.owner === triggerTarget,
   ),
   'overlapping nonphysical fixtures report a contact',
 );
@@ -1195,8 +1198,8 @@ closeTo(fastTriggerTarget.velocity.x, 0);
   assert(
     crossingContacts.every(
       ({ collider, other }) =>
-        (collider.role !== 'cargoHatch' || other.pickupPoint) &&
-        (other.role !== 'cargoHatch' || collider.pickupPoint),
+        (!collider.segment?.catches || other.pickupPoint) &&
+        (!other.segment?.catches || collider.pickupPoint),
     ),
     'cargo hatch mouths ignore the item body and all other solid colliders',
   );

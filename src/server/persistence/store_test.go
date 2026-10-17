@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -182,7 +183,7 @@ func TestSQLiteDurabilityAndBackup(t *testing.T) {
 	defer s.Close(context.Background())
 	saved, err := s.Load(25)
 
-	if err != nil || saved.World == nil || *saved.World != batch.World || len(saved.Players) != 1 || saved.Players[0].Visited == nil || len(saved.Players[0].Visited) != 0 || saved.Players[0].Credits != 500 || saved.Players[0].UnlockedPaints != DefaultPaints {
+	if err != nil || saved.World == nil || !reflect.DeepEqual(*saved.World, batch.World) || len(saved.Players) != 1 || saved.Players[0].Visited == nil || len(saved.Players[0].Visited) != 0 || saved.Players[0].Credits != 500 || saved.Players[0].UnlockedPaints != DefaultPaints {
 		t.Fatalf("restart: %+v %v", saved, err)
 	}
 
@@ -209,7 +210,7 @@ func TestSQLiteDurabilityAndBackup(t *testing.T) {
 	copy, err := backup.Load(25)
 	backup.Close(context.Background())
 
-	if err != nil || copy.World == nil || *copy.World != batch.World || len(copy.Players) != 1 || copy.Players[0].Credits != 500 || copy.Players[0].ID != fixtureID {
+	if err != nil || copy.World == nil || !reflect.DeepEqual(*copy.World, batch.World) || len(copy.Players) != 1 || copy.Players[0].Credits != 500 || copy.Players[0].ID != fixtureID {
 		t.Fatal("backup cannot restore progress", err)
 	}
 }
@@ -398,5 +399,73 @@ func TestRejectCorruptionAndFutureSchema(t *testing.T) {
 	if s, err := Open(path, ""); err == nil {
 		s.Close(context.Background())
 		t.Fatal("future database schema accepted")
+	}
+}
+
+func TestPlayerModerationMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "world.sqlite")
+	store, err := Open(path, "")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	batch := fixtureBatch(t)
+	batch.Players[0].DisplayName = "Existing Pilot"
+
+	if err := store.save(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+
+	store.Close(context.Background())
+	db, err := sql.Open("sqlite", path)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := db.Exec("ALTER TABLE players DROP COLUMN role; ALTER TABLE players DROP COLUMN banned; PRAGMA user_version=6;"); err != nil {
+		t.Fatal(err)
+	}
+
+	db.Close()
+	store, err = Open(path, "")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer store.Close(context.Background())
+	saved, err := store.Load(25)
+
+	if err != nil || len(saved.Players) != 1 {
+		t.Fatal("migration lost the existing player", err)
+	}
+
+	p := saved.Players[0]
+
+	if p.Role != RoleUser || p.Banned || p.DisplayName != batch.Players[0].DisplayName || p.Credits != batch.Players[0].Credits || !reflect.DeepEqual(p.Ship, batch.Players[0].Ship) {
+		t.Fatal("migration changed player data or failed to apply defaults")
+	}
+
+	for _, role := range []PlayerRole{RoleAdmin, RoleOwner, RoleUser} {
+		batch.Players[0].Role = role
+		batch.Players[0].Banned = role == RoleAdmin
+
+		if err := store.save(context.Background(), batch); err != nil {
+			t.Fatal(err)
+		}
+
+		saved, err := store.Load(25)
+
+		if err != nil || saved.Players[0].Role != role || saved.Players[0].Banned != batch.Players[0].Banned {
+			t.Fatal("role or ban was not saved", err)
+		}
+	}
+
+	for _, query := range []string{"UPDATE players SET role='moderator'", "UPDATE players SET banned=2"} {
+		if _, err := store.db.Exec(query); err == nil {
+			t.Fatal("invalid player moderation value accepted", query)
+		}
 	}
 }

@@ -1,0 +1,75 @@
+/* Keep chat above the game canvas, HUD, menus, status, and notifications. */
+.game-chat {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 30;
+  width: min(23rem, calc(100vw - 2rem));
+  color: #eee;
+  font:
+    0.8rem / 1.4 system-ui,
+    sans-serif;
+  background: rgb(17 0 34 / 0.8);
+  border: 1px solid #647;
+  border-radius: 0.3rem;
+  padding: 0.5rem;
+}
+
+.chat-tabs {
+  display: flex;
+  gap: 0.3rem;
+  border-bottom: 1px solid #647;
+  padding-bottom: 0.3rem;
+}
+
+.game-chat button,
+.game-chat input {
+  font: inherit;
+  color: inherit;
+  background: #213;
+  border: 1px solid #647;
+  border-radius: 0.2rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.chat-tabs [aria-selected='true'] {
+  color: #4df;
+  border-color: #4df;
+}
+
+.chat-log {
+  max-height: 8rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+.game-chat p {
+  margin: 0.3rem 0;
+}
+
+.chat-log p {
+  white-space: pre-wrap;
+}
+
+.chat-log strong {
+  color: #4df;
+}
+
+.chat-contact {
+  border-top: 1px solid #647;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.game-chat input {
+  width: 100%;
+  margin-top: 0.3rem;
+}
+
+.game-chat button:disabled {
+  color: #3f7;
+}
+
+.chat-tabs button {
+  font-family: Gemetric, sans-serif;
+  text-transform: uppercase;
+}

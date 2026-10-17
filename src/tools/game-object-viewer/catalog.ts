@@ -1,3 +1,5 @@
+import { JumpGate } from '../../client/objects/jump-gate';
+import { Wormhole } from '../../client/objects/wormhole';
 import { type ShipSpec } from '../../specs/ships/types';
 import { type StationSpec } from '../../specs/stations/types';
 import { type ItemSpec } from '../../specs/items/types';
@@ -54,6 +56,22 @@ const discover = <T>({
     .sort((a, b) => a.name.localeCompare(b.name, 'en-US'));
 
 export const catalog = {
+  jumpGate: [
+    {
+      key: 'jumpGate',
+      name: 'Jump Gate',
+      source: 'src/specs/jump-gate.ts',
+      create: () => new JumpGate(),
+    },
+  ],
+  wormhole: [
+    {
+      key: 'wormhole',
+      name: 'Wormhole',
+      source: 'src/specs/wormhole.ts',
+      create: () => new Wormhole(),
+    },
+  ],
   ship: discover({
     folder: 'ships',
     create: (spec: ShipSpec) => new Ship({ spec }),

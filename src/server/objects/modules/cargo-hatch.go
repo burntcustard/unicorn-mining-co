@@ -10,7 +10,9 @@ import (
 )
 
 func CargoContactAllowed(self, other *collision.Collider) bool {
-	return self.PickupPoint && other.Role == "cargoHatch" || self.Role == "cargoHatch" && other.PickupPoint
+	selfSegment, _ := self.Segment.(*simulation.Segment)
+	otherSegment, _ := other.Segment.(*simulation.Segment)
+	return self.PickupPoint && otherSegment != nil && otherSegment.Catches || selfSegment != nil && selfSegment.Catches && other.PickupPoint
 }
 
 func CargoPickupPoint(item simulation.Entity) *collision.Collider {
@@ -111,7 +113,7 @@ func (m *CargoHatch) Collect(ship CargoShip, contact collision.Contact, events *
 	var throat *collision.Collider
 
 	for _, candidate := range []*collision.Collider{contact.Collider, contact.Other} {
-		if segment, ok := candidate.Segment.(*simulation.Segment); ok && segment.Module == m && candidate.Role == "cargoHatch" {
+		if segment, ok := candidate.Segment.(*simulation.Segment); ok && segment.Module == m && segment.Catches {
 			throat = candidate
 			break
 		}

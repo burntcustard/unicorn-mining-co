@@ -57,6 +57,14 @@ button {
   padding: 0.5rem;
 }
 
+/* Viewer controls use native button styling, cleared by the game's reset. */
+button {
+  border: revert;
+  background: revert;
+  color: revert;
+  text-align: revert;
+}
+
 input[type='color'] {
   height: 2.5rem;
 }

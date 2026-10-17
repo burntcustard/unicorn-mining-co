@@ -43,6 +43,10 @@ export const protocolTags = [
   'play',
   'profile',
   'sounds',
+  'jumpGate',
+  'wormhole',
+  'gateAccess',
+  'chat',
 ];
 
 /**

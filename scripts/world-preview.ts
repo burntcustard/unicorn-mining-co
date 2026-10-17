@@ -1,41 +1,28 @@
-import { rolldown } from 'rolldown';
 import { writeFile } from 'node:fs/promises';
-import type * as Vector from '../src/client/utilities/vector';
-
-type WorldPreviewApi = Pick<
-  typeof import('../src/client/simulation/region-generation'),
-  'generateRegion' | 'generateFields' | 'fieldMessage'
-> & { Vec: typeof Vector };
-
-const bundle = await rolldown({
-  input: 'world-entry',
-  plugins: [
-    {
-      name: 'world-entry',
-      load: (id) =>
-        id === '\0world-entry'
-          ? `
-            export { generateRegion, generateFields, fieldMessage } from '${process.cwd()}/src/client/simulation/region-generation.ts';
-            export * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
-          `
-          : undefined,
-      resolveId: (id) => (id === 'world-entry' ? '\0world-entry' : undefined),
-    },
-  ],
-});
-
-const { output } = await bundle.generate({ format: 'esm' });
-
-await bundle.close();
-
-const { generateRegion, generateFields, fieldMessage, Vec }: WorldPreviewApi =
-  await import(
-    `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
-  );
+import * as Vec from '../src/client/utilities/vector';
+import {
+  generateRegion,
+  generateFields,
+  generateStations,
+  generateWrecks,
+  fieldMessage,
+} from '../src/client/simulation/region-generation';
+import { generateSectorMap } from '../src/client/simulation/sector-generation';
+import { regionSize } from '../src/specs/region-manager';
 
 const seed = Number(process.argv[2] ?? 25);
-const worldRadius = 50000;
-const regionSize = 2000;
+const map = generateSectorMap({ worldSeed: seed });
+const sector = map.sectors.find(
+  ({ id }) => id === process.argv[3]?.toLowerCase(),
+);
+
+if (process.argv[3] && !sector) {
+  throw new Error(`Unknown sector: ${process.argv[3]}`);
+}
+
+const worldRadius = sector
+  ? Math.ceil((Math.max(sector.radiusX, sector.radiusY) * 1.5) / 2000) * 2000
+  : 50000;
 const size = 1000;
 const scale = size / (worldRadius * 2);
 const center = size / 2;
@@ -43,6 +30,7 @@ const point = (value: number) => center + value * scale;
 
 const fields = generateFields({
   worldSeed: seed,
+  sector,
   from: Vec.create(-worldRadius - 4000, -worldRadius - 4000),
   to: Vec.create(worldRadius + 4000, worldRadius + 4000),
 });
@@ -53,15 +41,30 @@ const visibleFields = fields.filter(
 );
 const regions: ReturnType<typeof generateRegion>[] = [];
 
-for (let x = -worldRadius / regionSize; x < worldRadius / regionSize; x++) {
-  for (let y = -worldRadius / regionSize; y < worldRadius / regionSize; y++) {
-    regions.push(generateRegion({ worldSeed: seed, region: Vec.create(x, y) }));
+if (!sector) {
+  for (let x = -worldRadius / regionSize; x < worldRadius / regionSize; x++) {
+    for (let y = -worldRadius / regionSize; y < worldRadius / regionSize; y++) {
+      regions.push(
+        generateRegion({ worldSeed: seed, sector, region: Vec.create(x, y) }),
+      );
+    }
   }
 }
 
 const asteroids = regions.flatMap(({ asteroids }) => asteroids);
-const stations = regions.flatMap(({ stations }) => stations);
-const wrecks = regions.flatMap(({ wrecks }) => wrecks);
+
+const bounds = {
+  worldSeed: seed,
+  sector,
+  from: Vec.create(-worldRadius, -worldRadius),
+  to: Vec.create(worldRadius, worldRadius),
+};
+
+const stations = sector
+  ? generateStations(bounds)
+  : regions.flatMap(({ stations }) => stations);
+const wrecks: import('../src/client/protocol/regions').WreckDescription[] =
+  sector ? generateWrecks(bounds) : regions.flatMap(({ wrecks }) => wrecks);
 
 const fieldColors: Record<number, string> = {
   1: '#c86cff',
@@ -77,7 +80,7 @@ const circle = ({
   fill,
   extra = '',
 }: {
-  position: Vector.Value;
+  position: Vec.Value;
   radius: number;
   fill: string;
   extra?: string;
@@ -87,7 +90,7 @@ const circle = ({
 
 const grid = Array.from(
   { length: 11 },
-  (_, index) => -worldRadius + index * 10000,
+  (_, index) => -worldRadius + (index * worldRadius) / 5,
 )
   .flatMap((offset) => [
     `<line x1="${point(offset)}" y1="0" x2="${point(offset)}" y2="${size}"/>`,
@@ -140,6 +143,7 @@ const wreckCircles = wrecks
   .join('');
 
 const clueLines = wrecks
+  .filter(({ clueField }) => clueField)
   .map(
     ({ position, clueField }) =>
       `<line x1="${point(position.x)}" y1="${point(position.y)}" ` +
@@ -171,6 +175,8 @@ const key = [
   [fieldColors[2], 'gold clue line'],
   [fieldColors[1], 'amethyst clue line'],
   ['#45d6c5', 'Nearest starting stations'],
+  ['#45d6c5', 'Jump Gate'],
+  ['#b89aff', 'Wormhole'],
 ]
   .map(
     ([color, label], index) =>
@@ -178,18 +184,48 @@ const key = [
       `<text x="42" y="${34 + index * 22}">${label}</text>`,
   )
   .join('');
+
+const connections = sector
+  ? [
+      {
+        links: map.links,
+        sites: sector.gateSites,
+        label: 'Jump Gate',
+        color: '#45d6c5',
+      },
+      {
+        links: map.wormholeLinks,
+        sites: sector.wormholeSites,
+        label: 'Wormhole',
+        color: '#b89aff',
+      },
+    ]
+      .map(({ links, sites, label, color }) =>
+        links
+          .filter((link) => link.sectors.includes(sector.id))
+          .map((link) => {
+            const side = link.sectors.indexOf(sector.id);
+            const site = sites[link.sites[side]];
+
+            return `<g><title>${label} to ${link.sectors[1 - side]} at ${site.position.x}/${site.position.y}</title>${circle({ ...site, radius: 1000, fill: color })}</g>`;
+          })
+          .join(''),
+      )
+      .join('')
+  : '';
+
 const svg =
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" ` +
   `style="background:#171326;font:14px sans-serif">` +
   `<g stroke="#fff" stroke-opacity=".08">${grid}</g>` +
-  `${fieldCircles}${asteroidCircles}${clueLines}${stationCircles}${wreckCircles}` +
+  `${fieldCircles}${asteroidCircles}${clueLines}${stationCircles}${wreckCircles}${connections}` +
   `<circle cx="${center}" cy="${center}" r="${worldRadius * scale}" ` +
   `fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="2"/>` +
   `${startRings}` +
-  `<rect x="15" y="12" width="255" height="256" fill="#100c1c" fill-opacity=".9"/>` +
-  `<g fill="white">${key}<text x="20" y="214">Seed ${seed}; 100 km square</text>` +
-  `<text x="20" y="234">Circle: old 50 km world radius</text></g></svg>`;
-const filename = `world-${seed}.svg`;
+  `<rect x="15" y="12" width="255" height="300" fill="#100c1c" fill-opacity=".9"/>` +
+  `<g fill="white">${key}<text x="20" y="258">${sector?.name || 'World'}; seed ${seed}</text>` +
+  `<text x="20" y="278">${(worldRadius * 2) / 1000} km square${sector ? '; field overview' : ''}</text></g></svg>`;
+const filename = `world-${seed}${sector ? `-${sector.id}` : ''}.svg`;
 
 await writeFile(filename, svg);
 console.log(

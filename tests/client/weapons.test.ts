@@ -1394,6 +1394,7 @@ game.ctx = {
   restore() {},
   translate() {},
   rotate() {},
+  scale() {},
   beginPath() {},
   moveTo(x, y) { beamStarts.push([x, y]); },
   lineTo(x, y) { beamLines.push([x, y]); },

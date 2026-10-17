@@ -14,8 +14,8 @@ const cargoHatchOpenAngle = specification.cargoGeometry.openAngle;
 const cargoHatchDoorWidth = specification.cargoGeometry.doorWidth;
 
 export const cargoContactAllowed = (self: Collider, other: Collider) =>
-  (self.pickupPoint === true && other.role === 'cargoHatch') ||
-  (self.role === 'cargoHatch' && other.pickupPoint === true);
+  (self.pickupPoint === true && other.segment?.catches === true) ||
+  (self.segment?.catches === true && other.pickupPoint === true);
 
 export const cargoPickupPoint = (item: GameObject): Collider => ({
   owner: item,
@@ -109,9 +109,9 @@ class CargoHatchModule extends Module {
   }) {
     const { collider, other } = contact;
     const throat =
-      collider.segment?.module === this && collider.role === 'cargoHatch'
+      collider.segment?.module === this && collider.segment.catches
         ? collider
-        : other.segment?.module === this && other.role === 'cargoHatch'
+        : other.segment?.module === this && other.segment.catches
           ? other
           : undefined;
 

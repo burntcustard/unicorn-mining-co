@@ -1595,6 +1595,11 @@ checkUi: try {
   );
   const graphics = await check('fixture.checkGraphics()');
   const bays = await check('fixture.checkStationBay()');
+  const chat = await check('fixture.checkChat()');
+
+  for (const [behavior, passed] of Object.entries(chat)) {
+    assert(passed, `chat: ${behavior}`);
+  }
 
   for (const renderer of ['canvas', 'webgl']) {
     await check(`localStorage.setItem('unicorn-renderer', '${renderer}')`);
@@ -1967,9 +1972,8 @@ checkUi: try {
     deltaY: 100,
   });
 
-  await pause(50);
-  assert(
-    (await dockActivity())[0] > activity,
+  await waitFor(
+    `fixture.dockActivityState()[0] > ${activity}`,
     'docked scrolling reports activity',
   );
   assert.equal(
@@ -2947,14 +2951,14 @@ checkUi: try {
   );
   await waitForFitting('active && progress === 1');
   await hover('[data-title]');
-  await waitForFitting('!active && progress === 0');
+  await waitForFitting('active && progress === 1');
   const leavingSelectedRow = await fittingState();
 
   assert.equal(leavingSelectedRow[0], firstFitting[0]);
   assert.equal(
     leavingSelectedRow[1],
-    false,
-    'leaving a mouse-focused row deactivates its preview while preserving the selected fitting',
+    true,
+    'leaving a mouse-focused row keeps the selected fitting active',
   );
   assert(
     await check(
@@ -2963,11 +2967,27 @@ checkUi: try {
     'hovering card content does not blur its focused row',
   );
   await focusDock('.dock-detail');
-  await waitForFitting('!active && progress === 0');
+  await waitForFitting('active && progress === 1');
   assert.equal(
     (await fittingState())[0],
     firstFitting[0],
-    'the explicitly selected fitting remains mounted in its inactive state',
+    'the explicitly selected fitting stays active when focus moves to its card',
+  );
+  assert.deepEqual(await committedDockState(), activatedCandidate);
+
+  await hover(secondCandidate);
+  await waitForFitting('active && progress === 1');
+  assert.notEqual(
+    (await fittingState())[0],
+    firstFitting[0],
+    'hovering another candidate temporarily previews it over the selected fitting',
+  );
+  await hover('[data-title]');
+  await waitForFitting('active && progress === 1');
+  assert.equal(
+    (await fittingState())[0],
+    firstFitting[0],
+    'leaving another candidate restores the active selected fitting',
   );
   assert.deepEqual(await committedDockState(), activatedCandidate);
 
@@ -2988,10 +3008,11 @@ checkUi: try {
     '[data-command="SELL"]',
     'Down from the last compatible module reaches the selected card actions',
   );
+  await waitForFitting('active && progress === 1');
   assert.equal(
     (await fittingState())[1],
-    false,
-    'moving focus to the selected card deactivates the compatible-row preview',
+    true,
+    'moving focus to the selected card restores its active fitting preview',
   );
   assert.deepEqual(await committedDockState(), activatedCandidate);
   await pressKey('ArrowUp');

@@ -21,7 +21,6 @@ export type Collider = {
   localPosition?: Vec.Value;
   position: Vec.Value;
   radius: number;
-  role?: 'hornDrill' | 'cargoHatch';
   rotation: number;
 };
 

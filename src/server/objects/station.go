@@ -28,21 +28,7 @@ func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
 		panic("Unknown station spec: " + id)
 	}
 
-	plans := make([]*simulation.SegmentPlan, len(d.HullSegments))
-
-	for i, segment := range d.HullSegments {
-		outline := &simulation.ShapeOutline{Points: make([]simulation.Point, len(segment.Points))}
-
-		for j, point := range segment.Points {
-			outline.Points[j] = simulation.Point(point)
-		}
-
-		plans[i] = &simulation.SegmentPlan{Health: segment.Health, Points: outline, DisablePhysics: segment.DisablePhysics, DockSegment: segment.DockSegment, Shades: segment.Shades, ZIndex: segment.ZIndex}
-
-		for _, mount := range segment.Mounts {
-			plans[i].Mounts = append(plans[i].Mounts, simulation.NewMount(mount))
-		}
-	}
+	plans := hullPlans(d.HullSegments)
 
 	if props.Mass == nil {
 		props.Mass = &d.Mass

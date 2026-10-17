@@ -83,9 +83,15 @@ export class Targeting {
           object.id !== ship.id &&
           !object.dead &&
           !object.buried &&
-          ['ship', 'station', 'craft', 'asteroid', 'item'].includes(
-            object.kind!,
-          ),
+          [
+            'ship',
+            'station',
+            'craft',
+            'asteroid',
+            'item',
+            'jumpGate',
+            'wormhole',
+          ].includes(object.kind!),
       )
       .map((object) => {
         const pose = poses.get(object.id) || object;
@@ -215,13 +221,15 @@ export class Targeting {
 
     if (!targeted) return;
 
-    renderText({
-      game,
-      text: object.name,
-      x: center.x,
-      y: center.y + radius + 10,
-      align: 0,
-      color: colors.violet[2],
+    object.name.split('\n').forEach((text, index) => {
+      renderText({
+        game,
+        text,
+        x: center.x,
+        y: center.y + radius + 10 + index * 12,
+        align: 0,
+        color: colors.violet[2],
+      });
     });
   }
 }

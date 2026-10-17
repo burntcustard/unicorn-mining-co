@@ -25,7 +25,6 @@
     "dev": "vite",
     "dev:host": "vite --host",
     "dev:server": "node scripts/dev-server.ts",
-    "font-viewer": "vite --config src/tools/font-viewer/vite.config.ts",
     "font": "node scripts/generate-font.ts",
     "format": "oxlint -A correctness --fix . && npm run lint:css -- --fix && oxfmt .",
     "format:check": "oxlint -A correctness . && npm run lint:css && oxfmt --check .",
@@ -40,9 +39,11 @@
     "start:server": "./bin/server",
     "test": "node scripts/test.ts",
     "test:extended": "TEST_EXTENDED=1 node scripts/test.ts",
+    "tool:font-viewer": "vite --config src/tools/font-viewer/vite.config.ts",
+    "tool:object-viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
+    "tool:world-viewer": "vite --config src/tools/world-viewer/vite.config.ts",
     "typecheck": "tsc --noEmit",
-    "viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
-    "world-preview": "node scripts/world-preview.ts",
+    "world-preview": "node --import tsx scripts/world-preview.ts",
     "test:ui": "node --import tsx scripts/check-ui.ts"
   },
   "devDependencies": {

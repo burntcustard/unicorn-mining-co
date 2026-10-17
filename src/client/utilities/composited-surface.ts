@@ -17,16 +17,20 @@ type Surface = {
 const surfaces = new WeakMap<object, Map<number, Surface>>();
 const active = new Set<Surface>();
 const pools = new Map<number, Surface[]>();
+let composing = false;
 // Native Canvas can move cached artwork through the compositor. WebGL submits
 // ordinary geometry directly, but additive light must blend with the sky too.
 export const composedSurfaces = (ctx: CanvasRenderingContext2D) =>
   typeof ctx.createPattern === 'function';
 
 export const beginSurfaces = () => {
+  composing = true;
   active.forEach((surface) => (surface.seen = false));
 };
 
 export const endSurfaces = () => {
+  composing = false;
+
   active.forEach((surface) => {
     if (!surface.seen) {
       surface.canvas.parentNode?.removeChild(surface.canvas);
@@ -47,7 +51,8 @@ export const endSurfaces = () => {
 
 /*
  * Let the browser move unchanged artwork without rasterizing or resampling it
- * on the foreground canvas. Detached previews keep their ordinary canvas path.
+ * on the foreground canvas. Only managed world frames use these DOM layers;
+ * previews keep their ordinary canvas path, including attached tool canvases.
  */
 export const renderSurface = ({
   ctx,
@@ -69,6 +74,7 @@ export const renderSurface = ({
   draw: (ctx: CanvasRenderingContext2D) => void;
 }) => {
   if (
+    !composing ||
     (!additive && !composedSurfaces(ctx)) ||
     !game.canvas?.isConnected ||
     ctx.canvas !== game.canvas

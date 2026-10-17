@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>World Viewer · Unicorn Mining Co.</title>
+  </head>
+  <body>
+    <aside>
+      <header>
+        <p class="text-muted text-xs">UNICORN MINING CO.</p>
+        <h1 class="text-lg my-4">World Viewer</h1>
+      </header>
+      <label class="mt-4 mb-2" for="seed">World seed</label>
+      <input
+        id="seed"
+        required
+        type="number"
+        min="0"
+        max="4294967295"
+        step="1"
+        value="25"
+      />
+      <label class="mt-4 mb-2" for="view">View</label>
+      <select id="view">
+        <option value="sector">Sector</option>
+        <option value="world">World map</option>
+      </select>
+      <label class="mt-4 mb-2" for="sector">Sector</label>
+      <select id="sector"></select>
+      <p id="parameters" class="text-muted text-xs mt-4"></p>
+      <button id="fit" type="button" class="mt-4">Fit view</button>
+      <fieldset class="mt-6">
+        <legend>Layers</legend>
+        <label>
+          <input type="checkbox" data-layer="fields" />
+          Asteroid fields
+        </label>
+        <label>
+          <input type="checkbox" data-layer="asteroids" />
+          Asteroids (zoom in)
+        </label>
+        <label>
+          <input type="checkbox" data-layer="stations" />
+          Stations
+        </label>
+        <label>
+          <input type="checkbox" data-layer="wrecks" />
+          Wrecks
+        </label>
+        <label>
+          <input type="checkbox" data-layer="gates" />
+          Jump Gates
+        </label>
+        <label>
+          <input type="checkbox" data-layer="wormholes" />
+          Wormholes
+        </label>
+        <label>
+          <input type="checkbox" data-layer="density" />
+          Density contours
+        </label>
+        <label>
+          <input type="checkbox" data-layer="grid" />
+          Coordinates
+        </label>
+      </fieldset>
+      <label class="mt-4">
+        <input id="disabled" type="checkbox" />
+        Show future sectors and reserved sites
+      </label>
+      <ul class="legend text-xs my-4">
+        <li>
+          <i class="mixed"></i>
+          Mixed field
+        </li>
+        <li>
+          <i class="gold"></i>
+          Gold-rich field
+        </li>
+        <li>
+          <i class="amethyst"></i>
+          Amethyst-rich field
+        </li>
+        <li>
+          <i class="station"></i>
+          Station / station falloff
+        </li>
+        <li>
+          <i class="wreck"></i>
+          Wreck / wreck falloff
+        </li>
+        <li>
+          <i class="gate"></i>
+          Jump Gate / arrival point
+        </li>
+        <li>
+          <i class="wormhole"></i>
+          Wormhole / arrival point
+        </li>
+      </ul>
+      <p class="text-muted text-xs mt-4">
+        Drag to pan. Scroll to zoom. Click a sector on the world map to inspect
+        it.
+      </p>
+      <p class="text-muted text-xs mt-4">
+        Wormholes are visible here for inspection. Players discover them through
+        exploration. Dim Jump Gates lead to future sectors.
+      </p>
+      <p class="text-muted text-xs mt-4">
+        Edit
+        <code>src/specs/sectors.ts</code>
+        or the region generator to update this view live. Your view and layer
+        choices are retained.
+      </p>
+      <p id="status" class="text-xs mt-4" role="status">Generating…</p>
+    </aside>
+    <main>
+      <canvas
+        id="canvas"
+        aria-label="Interactive sector and world map"
+      ></canvas>
+      <output id="coordinates" hidden></output>
+      <div id="caption">
+        <strong id="title"></strong>
+        <span id="scale"></span>
+      </div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

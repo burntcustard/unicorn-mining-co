@@ -1,0 +1,97 @@
+@import '../style.css';
+
+main {
+  overflow: hidden;
+  background: #101521;
+}
+
+canvas {
+  touch-action: none;
+}
+
+input[type='number'] {
+  width: 100%;
+  padding: 0.5rem;
+  background: #102;
+  border: 1px solid #657;
+}
+
+fieldset label {
+  margin-block: 0.35rem;
+}
+
+.legend {
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.legend i {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.mixed {
+  background: #8fb7ba;
+}
+
+.gold {
+  background: #ffd54a;
+}
+
+.amethyst {
+  background: #c86cff;
+}
+
+.station {
+  background: #fff;
+}
+
+.wreck {
+  background: #ff9966;
+}
+
+.gate {
+  background: #45d6c5;
+}
+
+.wormhole {
+  background: #b89aff;
+}
+
+#caption {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  position: absolute;
+  inset: 1rem 1rem auto;
+  pointer-events: none;
+  text-shadow: 0 1px 3px #000;
+}
+
+#scale {
+  font-size: 0.75rem;
+  color: #bac;
+}
+
+#coordinates {
+  inset: auto 1rem 1rem auto;
+  max-width: calc(100% - 2rem);
+  white-space: normal;
+}
+
+@media (width < 700px) {
+  body {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+
+  aside {
+    padding: 1rem;
+  }
+}

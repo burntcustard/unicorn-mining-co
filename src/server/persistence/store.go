@@ -25,10 +25,25 @@ import (
 	"modernc.org/sqlite"
 )
 
-const SchemaVersion = 5
+const SchemaVersion = 7
 const DefaultPaints uint16 = 1<<9 - 1
 
+type PlayerRole string
+
+const (
+	RoleUser  PlayerRole = "user"
+	RoleAdmin PlayerRole = "admin"
+	RoleOwner PlayerRole = "owner"
+)
+
+type SectorState struct {
+	Tick                       uint64
+	RandomState                float64
+	NextEntityID, NextObjectID int64
+}
+
 type World struct {
+	Sectors          map[string]SectorState
 	GenerationDigest string
 	Seed             float64
 	Tick             uint64
@@ -39,10 +54,12 @@ type World struct {
 
 func GenerationDigest(catalog specs.Catalog) string {
 	data, _ := json.Marshal(struct {
-		Rules      specs.RegionGeneration
-		RegionSize float64
-		ItemIDs    []string
-	}{catalog.RegionGeneration, catalog.Simulation.RegionSize, catalog.ItemIDs})
+		Sectors     specs.SectorGeneration
+		SectorNames []string
+		Rules       specs.RegionGeneration
+		RegionSize  float64
+		ItemIDs     []string
+	}{catalog.SectorGeneration, catalog.SectorNames, catalog.RegionGeneration, catalog.Simulation.RegionSize, catalog.ItemIDs})
 
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
@@ -66,6 +83,9 @@ func CompatibleGenerationDigest(catalog specs.Catalog, saved string) bool {
 }
 
 type Player struct {
+	Role                      PlayerRole
+	Banned                    bool
+	SectorID                  string
 	ID, DisplayName           string
 	FirstJoinedAt, LastSeenAt time.Time
 	// PlayedFor is connected playtime in seconds; fractions accumulate in memory.
@@ -78,6 +98,7 @@ type Player struct {
 }
 
 type Entity struct {
+	SectorID           string
 	ID                 int64
 	Generated, Deleted bool
 	State              objects.SavedEntity
@@ -168,7 +189,7 @@ func (s *Store) initialize() error {
 		return err
 	}
 
-	if version != 0 && version != SchemaVersion {
+	if version != 0 && version != 6 && version != SchemaVersion {
 		return fmt.Errorf("unsupported database schema %d; this server requires %d", version, SchemaVersion)
 	}
 
@@ -184,23 +205,38 @@ func (s *Store) initialize() error {
 
 	defer tx.Rollback()
 
+	if version == 6 {
+		if _, err = tx.Exec(`ALTER TABLE players ADD COLUMN role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','owner'));
+ALTER TABLE players ADD COLUMN banned INTEGER NOT NULL DEFAULT 0 CHECK(banned IN (0,1));`); err != nil {
+			return err
+		}
+
+		if _, err = tx.Exec(fmt.Sprintf("PRAGMA user_version=%d", SchemaVersion)); err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}
+
 	if _, err = tx.Exec(`CREATE TABLE world (
   id INTEGER PRIMARY KEY CHECK(id=1), seed REAL NOT NULL,
   generation_digest TEXT NOT NULL, tick INTEGER NOT NULL,
   random_state REAL NOT NULL, next_entity_id INTEGER NOT NULL,
-  next_object_id INTEGER NOT NULL
+  next_object_id INTEGER NOT NULL, sectors TEXT NOT NULL
 );
-		CREATE TABLE entities (id INTEGER PRIMARY KEY, generated INTEGER NOT NULL, deleted INTEGER NOT NULL, state BLOB);`); err != nil {
+		CREATE TABLE entities (id INTEGER PRIMARY KEY, sector TEXT NOT NULL, generated INTEGER NOT NULL, deleted INTEGER NOT NULL, state BLOB);`); err != nil {
 		return err
 	}
 
 	if _, err = tx.Exec(`CREATE TABLE players (
   id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','owner')),
+  banned INTEGER NOT NULL DEFAULT 0 CHECK(banned IN (0,1)),
   first_joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
   played_for INTEGER NOT NULL CHECK(typeof(played_for)='integer' AND played_for>=0),
   credits INTEGER NOT NULL CHECK(typeof(credits)='integer' AND credits>=0),
   unlocked_paints INTEGER NOT NULL CHECK(unlocked_paints BETWEEN 0 AND 511),
-  visited TEXT NOT NULL, ship TEXT NOT NULL
+  visited TEXT NOT NULL, ship TEXT NOT NULL, sector TEXT NOT NULL
  ) WITHOUT ROWID`); err != nil {
 		return err
 	}
@@ -216,8 +252,9 @@ func (s *Store) Load(seed float64) (SavedWorld, error) {
 	var saved SavedWorld
 	var data []byte
 	var world World
-	err := s.db.QueryRow("SELECT seed,generation_digest,tick,random_state,next_entity_id,next_object_id FROM world WHERE id=1").Scan(
-		&world.Seed, &world.GenerationDigest, &world.Tick, &world.RandomState, &world.NextEntityID, &world.NextObjectID)
+	var sectors []byte
+	err := s.db.QueryRow("SELECT seed,generation_digest,tick,random_state,next_entity_id,next_object_id,sectors FROM world WHERE id=1").Scan(
+		&world.Seed, &world.GenerationDigest, &world.Tick, &world.RandomState, &world.NextEntityID, &world.NextObjectID, &sectors)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return saved, nil
@@ -231,9 +268,13 @@ func (s *Store) Load(seed float64) (SavedWorld, error) {
 		return saved, fmt.Errorf("saved world seed differs; use a fresh world database before changing WORLD_SEED")
 	}
 
+	if err = json.Unmarshal(sectors, &world.Sectors); err != nil {
+		return saved, err
+	}
+
 	saved.World = &world
 
-	rows, err := s.db.Query("SELECT id,display_name,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship FROM players ORDER BY id")
+	rows, err := s.db.Query("SELECT id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector FROM players ORDER BY id")
 
 	if err != nil {
 		return saved, err
@@ -244,7 +285,7 @@ func (s *Store) Load(seed float64) (SavedWorld, error) {
 		var joined, seen int64
 		var visits, ship []byte
 
-		if err = rows.Scan(&p.ID, &p.DisplayName, &joined, &seen, &p.PlayedFor, &p.Credits, &p.UnlockedPaints, &visits, &ship); err != nil {
+		if err = rows.Scan(&p.ID, &p.DisplayName, &p.Role, &p.Banned, &joined, &seen, &p.PlayedFor, &p.Credits, &p.UnlockedPaints, &visits, &ship, &p.SectorID); err != nil {
 			break
 		}
 
@@ -271,7 +312,7 @@ func (s *Store) Load(seed float64) (SavedWorld, error) {
 		return saved, err
 	}
 
-	rows, err = s.db.Query("SELECT id,generated,deleted,state FROM entities ORDER BY id")
+	rows, err = s.db.Query("SELECT id,generated,deleted,state,sector FROM entities ORDER BY id")
 
 	if err != nil {
 		return saved, err
@@ -282,7 +323,7 @@ func (s *Store) Load(seed float64) (SavedWorld, error) {
 	for rows.Next() {
 		var e Entity
 
-		if err = rows.Scan(&e.ID, &e.Generated, &e.Deleted, &data); err != nil {
+		if err = rows.Scan(&e.ID, &e.Generated, &e.Deleted, &data, &e.SectorID); err != nil {
 			return saved, err
 		}
 
@@ -487,19 +528,28 @@ func (s *Store) save(ctx context.Context, batch Batch) error {
 	defer tx.Rollback()
 
 	w := batch.World
+	sectorData, err := json.Marshal(w.Sectors)
 
-	if _, err = tx.ExecContext(ctx, `INSERT INTO world(id,seed,generation_digest,tick,random_state,next_entity_id,next_object_id)
-  VALUES(1,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET seed=excluded.seed,generation_digest=excluded.generation_digest,tick=excluded.tick,random_state=excluded.random_state,next_entity_id=excluded.next_entity_id,next_object_id=excluded.next_object_id`,
-		w.Seed, w.GenerationDigest, w.Tick, w.RandomState, w.NextEntityID, w.NextObjectID); err != nil {
+	if err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(ctx, `INSERT INTO world(id,seed,generation_digest,tick,random_state,next_entity_id,next_object_id,sectors)
+  VALUES(1,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET seed=excluded.seed,generation_digest=excluded.generation_digest,tick=excluded.tick,random_state=excluded.random_state,next_entity_id=excluded.next_entity_id,next_object_id=excluded.next_object_id,sectors=excluded.sectors`,
+		w.Seed, w.GenerationDigest, w.Tick, w.RandomState, w.NextEntityID, w.NextObjectID, string(sectorData)); err != nil {
 		return err
 	}
 
 	for _, encoded := range players {
 		p := encoded.player
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO players(id,display_name,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship)
-  VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name,last_seen_at=excluded.last_seen_at,played_for=excluded.played_for,credits=excluded.credits,unlocked_paints=excluded.unlocked_paints,visited=excluded.visited,ship=excluded.ship`,
-			p.ID, p.DisplayName, p.FirstJoinedAt.Unix(), p.LastSeenAt.Unix(), int64(math.Round(p.PlayedFor)), int64(math.Round(p.Credits)), p.UnlockedPaints, string(encoded.visits), string(encoded.ship))
+		if p.Role == "" {
+			p.Role = RoleUser
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO players(id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector)
+  VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name,role=excluded.role,banned=excluded.banned,last_seen_at=excluded.last_seen_at,played_for=excluded.played_for,credits=excluded.credits,unlocked_paints=excluded.unlocked_paints,visited=excluded.visited,ship=excluded.ship,sector=excluded.sector`,
+			p.ID, p.DisplayName, p.Role, p.Banned, p.FirstJoinedAt.Unix(), p.LastSeenAt.Unix(), int64(math.Round(p.PlayedFor)), int64(math.Round(p.Credits)), p.UnlockedPaints, string(encoded.visits), string(encoded.ship), p.SectorID)
 
 		if err != nil {
 			return err
@@ -515,7 +565,7 @@ func (s *Store) save(ctx context.Context, batch Batch) error {
 			continue
 		}
 
-		if _, err = tx.ExecContext(ctx, `INSERT INTO entities(id,generated,deleted,state) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET generated=excluded.generated,deleted=excluded.deleted,state=excluded.state WHERE entities.state IS NOT excluded.state OR entities.generated!=excluded.generated OR entities.deleted!=excluded.deleted`, e.ID, e.Generated, e.Deleted, entities[i]); err != nil {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO entities(id,generated,deleted,state,sector) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET generated=excluded.generated,deleted=excluded.deleted,state=excluded.state,sector=excluded.sector WHERE entities.state IS NOT excluded.state OR entities.generated!=excluded.generated OR entities.deleted!=excluded.deleted OR entities.sector!=excluded.sector`, e.ID, e.Generated, e.Deleted, entities[i], e.SectorID); err != nil {
 			return err
 		}
 	}

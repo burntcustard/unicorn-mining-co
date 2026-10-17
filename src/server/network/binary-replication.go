@@ -350,7 +350,7 @@ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) pr
 func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord {
 	catalog := &batch.catalog
 	field := catalog.Protocol.BinaryFieldIDs
-	record := recordOf(source, field.Firing)
+	record := recordOf(source, field.TransitGate)
 
 	if record.batchGeneration == batch.Generation {
 		return record
@@ -426,6 +426,8 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		}
 
 		optionalNumber(record, field.Launching, entity.Launching, entity.HasLaunching)
+		optionalNumber(record, field.TransitTime, entity.TransitTime, entity.TransitTime != 0)
+		optionalNumber(record, field.TransitGate, float64(entity.TransitGate), entity.TransitGate != 0)
 		f := &record.fields[field.Modules]
 
 		if states != nil {
@@ -526,6 +528,14 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		kind = "station"
 	} else if crafted {
 		kind = "ship"
+	}
+
+	if passage, ok := source.(objects.PassageEntity); ok {
+		p := passage.PassageBase()
+		kind = p.Kind
+		scalarNumber(record, field.Opening, p.Opening)
+		scalarNumber(record, field.OpeningTarget, p.OpeningTarget)
+		scalar(record, field.DestinationName, p.DestinationName)
 	}
 
 	scalar(record, field.Kind, kind)

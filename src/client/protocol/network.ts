@@ -28,9 +28,22 @@ export type ReplicatedEntity = {
   health?: number;
   hullHealth?: number[];
   id: number;
-  kind: 'asteroid' | 'item' | 'ship' | 'station' | 'object' | 'projectile';
+  kind:
+    | 'asteroid'
+    | 'item'
+    | 'ship'
+    | 'station'
+    | 'object'
+    | 'projectile'
+    | 'jumpGate'
+    | 'wormhole';
+  opening?: number;
+  openingTarget?: number;
+  destinationName?: string;
   name?: string;
   launching?: number;
+  transitTime?: number;
+  transitGate?: number;
   mass?: number;
   message?: string;
   pendingUpdateTime?: number;
@@ -70,6 +83,8 @@ export type PlayerInputMessage = {
 };
 
 export type ClientMessage =
+  | { type: 'gateAccess'; gateId: number }
+  | { type: 'chat'; channel: number; text: string }
   | { type: 'profile'; displayName: string }
   | {
       playerToken: string | null;
@@ -81,6 +96,7 @@ export type ClientMessage =
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | { type: 'chat'; channel: number; sender: string; text: string }
   | { type: 'sounds'; sounds: WorldSound[] }
   | { type: 'profile'; displayName: string }
   | { type: 'progress'; unlockedPaints: number; credits?: number }

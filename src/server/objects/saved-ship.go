@@ -10,20 +10,23 @@ import (
 	"slices"
 )
 
-// Player ships resume stationary. Specs provide geometry and physics;
+// Player ships resume stationary, preserving any in-progress portal sequence.
+// Specs provide geometry and physics;
 // this record contains only identity, condition, equipment and possessions.
 type SavedShip struct {
-	Fuel     float64           `json:"fuel"`
-	ID       int64             `json:"id"`
-	Type     string            `json:"type"`
-	Position [2]int64          `json:"position"`
-	Rotation float64           `json:"rotation,omitempty"`
-	Paint    *int              `json:"paint,omitempty"`
-	Dead     bool              `json:"dead,omitempty"`
-	DockedTo *int64            `json:"dockedTo,omitempty"`
-	Hull     []float64         `json:"hull"`
-	Modules  []SavedShipModule `json:"modules"`
-	Cargo    []SavedCargo      `json:"cargo,omitempty"`
+	TransitTime float64           `json:"transitTime,omitempty"`
+	TransitGate int64             `json:"transitGate,omitempty"`
+	Fuel        float64           `json:"fuel"`
+	ID          int64             `json:"id"`
+	Type        string            `json:"type"`
+	Position    [2]int64          `json:"position"`
+	Rotation    float64           `json:"rotation,omitempty"`
+	Paint       *int              `json:"paint,omitempty"`
+	Dead        bool              `json:"dead,omitempty"`
+	DockedTo    *int64            `json:"dockedTo,omitempty"`
+	Hull        []float64         `json:"hull"`
+	Modules     []SavedShipModule `json:"modules"`
+	Cargo       []SavedCargo      `json:"cargo,omitempty"`
 }
 
 type SavedShipModule struct {
@@ -68,7 +71,7 @@ func savedPaint(shades []string, catalog specs.Catalog) *int {
 }
 
 func CaptureShip(ship *Ship) SavedShip {
-	s := SavedShip{Fuel: ship.Fuel, ID: ship.ID, Type: ship.DefinitionID, Position: [2]int64{int64(math.Round(ship.Position.X)), int64(math.Round(ship.Position.Y))}, Rotation: ship.Rotation, Dead: ship.Dead, DockedTo: savedPointer(ship.DockedTo), Hull: ship.HullHealth(), Modules: []SavedShipModule{}}
+	s := SavedShip{TransitTime: ship.TransitTime, TransitGate: ship.TransitGate, Fuel: ship.Fuel, ID: ship.ID, Type: ship.DefinitionID, Position: [2]int64{int64(math.Round(ship.Position.X)), int64(math.Round(ship.Position.Y))}, Rotation: ship.Rotation, Dead: ship.Dead, DockedTo: savedPointer(ship.DockedTo), Hull: ship.HullHealth(), Modules: []SavedShipModule{}}
 
 	if s.Type == "" {
 		s.Type = "mustang"
@@ -157,6 +160,16 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 
 	if math.IsNaN(s.Fuel) || math.IsInf(s.Fuel, 0) || s.Fuel < 0 || s.Fuel > ship.FuelCapacity {
 		return nil, fmt.Errorf("invalid saved fuel")
+	}
+
+	if s.TransitTime != 0 || s.TransitGate != 0 {
+		portal, ok := world.Entities.Get(s.TransitGate)
+
+		if math.IsNaN(s.TransitTime) || math.IsInf(s.TransitTime, 0) || !ok || (portal.Base().Kind != "jumpGate" && portal.Base().Kind != "wormhole") {
+			return nil, fmt.Errorf("invalid saved portal transit")
+		}
+
+		ship.TransitTime, ship.TransitGate = s.TransitTime, s.TransitGate
 	}
 
 	ship.Fuel = s.Fuel

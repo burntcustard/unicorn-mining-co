@@ -28,6 +28,9 @@ type Properties struct {
 type geometrySource struct{ identity byte }
 
 type Craft struct {
+	// Negative time counts down departure; positive time counts down arrival, in seconds.
+	TransitTime  float64
+	TransitGate  int64
 	HasLaunching bool
 	*simulation.GameObject
 	Catalog                            specs.Catalog
@@ -149,98 +152,6 @@ func outlinesOf(segments []*simulation.Segment) []*simulation.ShapeOutline {
 	return outlines
 }
 
-func makeSegment(c *Craft, module simulation.Module, plan *simulation.SegmentPlan, mount *simulation.Mount) *simulation.Segment {
-	s := &simulation.Segment{SegmentPlan: *plan, Hull: mount == nil, Module: module, Mount: mount, Health: math.NaN()}
-
-	if module == nil {
-		s.HullPlan = plan
-	}
-
-	if plan.Health != nil {
-		s.Health = *plan.Health
-	}
-
-	duration := plan.ActivationDuration
-	spec := s.ModuleSpec()
-
-	if duration == 0 {
-		duration = spec.ActivationDuration
-	}
-
-	if duration == 0 {
-		duration = specs.DefaultActivationDuration
-	}
-
-	s.Rate = 1 / duration
-
-	if plan.Points != nil {
-		if plan.Points.Edges == nil {
-			plan.Points.Edges = make([]bool, len(plan.Points.Points))
-
-			for i := range plan.Points.Edges {
-				plan.Points.Edges[i] = true
-			}
-		}
-
-		if len(plan.Points.Points) > 0 {
-			middle, reach := simulation.ShapeOutlineExtent(plan.Points.Points)
-			s.Middle = &middle
-
-			if s.Radius == nil {
-				s.Radius = func(*simulation.Segment) float64 { return reach }
-			}
-		}
-	}
-
-	s.Shades = c.Shades
-
-	if module != nil && module.Base().Shades != nil {
-		s.Shades = module.Base().Shades
-	} else if module == nil && plan.Shades != nil {
-		s.Shades = plan.Shades
-	}
-
-	s.LocalPosition = plan.LocalPosition
-
-	if mount != nil {
-		s.LocalPosition = mount.LocalPosition
-	}
-
-	side := plan.ThrusterNozzleSide
-
-	if spec.CollectsCargo && mount != nil {
-		if mount.LocalPosition.Y < 0 {
-			side = 1
-		} else if mount.LocalPosition.Y > 0 {
-			side = -1
-		}
-	}
-
-	offset := spec.Offset
-
-	if plan.ThrusterNozzleSide != 0 && mount != nil && module != nil {
-		for _, point := range mount.MountPoints {
-			if slices.Contains(point.Fits, module.ModuleBase().Type) {
-				offset += point.ThrusterOffset
-				break
-			}
-		}
-	}
-
-	s.LocalPosition = Vec.Add(s.LocalPosition, Vec.Create(0, side*offset))
-	s.ZIndex = c.ZIndex
-
-	if module != nil {
-		s.ZIndex = spec.ZIndex
-	}
-
-	if plan.ZIndex != nil {
-		s.ZIndex = *plan.ZIndex
-	}
-
-	return s
-}
-
 func (c *Craft) sortSegments() {
 	slices.SortStableFunc(c.Segments, func(a, b *simulation.Segment) int {
 		if a.ZIndex < b.ZIndex {
@@ -358,7 +269,7 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 		}
 
 		for _, plan := range module.ModuleBase().Model {
-			c.Segments = append(c.Segments, makeSegment(c, module, plan, mount))
+			c.Segments = append(c.Segments, makeSegment(c.GameObject, c.ZIndex, module, plan, mount))
 		}
 	}
 
@@ -393,7 +304,7 @@ func (c *Craft) FixHull() {
 				found.Health = *plan.Health
 			}
 		} else {
-			s := makeSegment(c, nil, plan, nil)
+			s := makeSegment(c.GameObject, c.ZIndex, nil, plan, nil)
 			s.Mounts = []*simulation.Mount{}
 
 			for _, mount := range plan.Mounts {
@@ -1187,7 +1098,8 @@ func (c *Craft) GeometrySource() any {
 func (c *Craft) Hitbox() []*collision.Collider { return c.hitbox(false) }
 
 func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
-	if c.DockedTo != nil && *c.DockedTo != 0 {
+	if c.TransitTime != 0 || c.DockedTo != nil && *c.DockedTo != 0 {
+		// Invalidate the geometry token so physics removes cached fixtures too.
 		c.source = nil
 		c.colliders = nil
 		return nil
@@ -1243,13 +1155,7 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 
 		position := Vec.Create(c.Position.X+(x*cos-y*sin), c.Position.Y+(x*sin+y*cos))
 		radius := s.Radius(s)
-		role := ""
-
-		if s.Catches {
-			role = "cargoHatch"
-		}
-
-		changed = changed || collider.LocalPosition == nil || collider.LocalPosition.X != x || collider.LocalPosition.Y != y || collider.Physics == nil || *collider.Physics != physical || collider.Role != role || collider.CollisionMargin != nil || collider.PickupPoint || collider.Radius != radius || (collider.ShapeOutline != nil) != (points != nil)
+		changed = changed || collider.LocalPosition == nil || collider.LocalPosition.X != x || collider.LocalPosition.Y != y || collider.Physics == nil || *collider.Physics != physical || (collider.ContactFilter != nil) != s.Catches || collider.CollisionMargin != nil || collider.PickupPoint || collider.Radius != radius || (collider.ShapeOutline != nil) != (points != nil)
 
 		if collider.LocalPosition == nil {
 			collider.LocalPosition = &Vec.Vector{}
@@ -1313,7 +1219,6 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		}
 
 		collider.DockSegment = s.DockSegment
-		collider.Role = role
 		collider.ShapeOutline = outline
 
 		if collider.Collides == nil {
@@ -1352,7 +1257,7 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 
 			if tip == nil {
 				physical := false
-				tip = &collision.Collider{Owner: c.Self, Segment: s, Role: "hornDrill", Physics: &physical, Friction: c.Friction}
+				tip = &collision.Collider{Owner: c.Self, Segment: s, Physics: &physical, Friction: c.Friction}
 				s.DrillCollider = tip
 			}
 

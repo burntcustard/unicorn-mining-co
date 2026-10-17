@@ -9,6 +9,7 @@ type MountPoint struct {
 }
 
 type HullSegment struct {
+	Side           float64        `json:"side"`
 	DisablePhysics bool           `json:"disablePhysics"`
 	DockSegment    bool           `json:"dockSegment"`
 	Shades         []string       `json:"shades"`

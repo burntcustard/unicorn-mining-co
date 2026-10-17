@@ -55,7 +55,7 @@ func (s *Ship) HandleContacts(contacts []collision.Contact, events *[]protocol.S
 			hatch.Collect(s, contact, events, world)
 		}
 
-		if _, ok := segment.Module.(*modules.HornDrill); !ok || own.Role != "hornDrill" {
+		if _, ok := segment.Module.(*modules.HornDrill); !ok || own != segment.DrillCollider {
 			continue
 		}
 
@@ -623,8 +623,37 @@ func (s *Ship) fireWeapons(dt float64) {
 }
 
 func (s *Ship) Update(dt float64) {
+	if s.TransitTime != 0 {
+		spec := s.Catalog.HoleSpec
+
+		if portal, ok := s.World.Entities.Get(s.TransitGate); ok {
+			remaining := -s.TransitTime - spec.TransitScaleDuration/1000
+			ratio := 1.0
+
+			if s.TransitTime < 0 && remaining > dt {
+				ratio = dt / remaining
+			}
+
+			s.Position = Vec.AddScaled(s.Position, Vec.Subtract(portal.Base().Position, s.Position), ratio)
+		}
+
+		s.Velocity, s.Spin = Vec.Vector{}, 0
+		s.Fly(0, 0)
+		s.UpdateModules(dt)
+
+		if s.TransitTime < 0 {
+			s.TransitTime = min(-1e-6, s.TransitTime+dt)
+		} else {
+			s.TransitTime = max(0, s.TransitTime-dt)
+
+		}
+
+		return
+	}
+
 	if s.Launching != 0 {
 		s.Launching = max(0, s.Launching-dt)
+
 		s.Fly(s.Forward, s.Turn)
 	}
 

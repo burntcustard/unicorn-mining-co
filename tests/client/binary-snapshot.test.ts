@@ -248,7 +248,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 
   start(unknownField, 0, 0, 1);
   unknownField.unsigned(1);
-  unknownField.record(1, [[38, null]]);
+  unknownField.record(1, [[44, null]]);
   const duplicateField = new Writer();
 
   start(duplicateField, 0, 0, 1);
@@ -373,6 +373,8 @@ const position = (x: number, y: number) => {
 load.record(1, [
   [9, () => load.byte(2)],
   [22, () => load.number(1)],
+  [41, () => load.number(-1.25)],
+  [42, () => load.number(987)],
   [24, () => position(0, 0)],
   [25, () => load.number(25)],
   [28, () => load.number(0)],
@@ -389,6 +391,14 @@ load.record(2, [
 socket.onmessage?.({ data: load.packet().buffer });
 await client.ready;
 assert.equal(client.connected, true);
+const hydratedShip = client.world.entities.get(1);
+
+assert.equal(
+  hydratedShip.transitTime,
+  -1.25,
+  'wire transit timer reaches the live ship',
+);
+assert.equal(hydratedShip.transitGate, 987);
 
 const worldSounds = [0, 1, 2, 3, 4, 5, 6, 7, 9].map((effect) => ({
   effect,
@@ -638,3 +648,16 @@ assert.deepEqual(malformedSocket.closed, [1007]);
 console.log(
   'Binary snapshots decode, reconcile, acknowledge, and reject malformed packets',
 );
+
+const transit = new Writer();
+
+start(transit, 0, 0, 2);
+transit.unsigned(1);
+transit.record(1, [
+  [41, () => transit.number(-1.25)],
+  [42, () => transit.number(987)],
+]);
+const transitMessage = decodeBinarySnapshot(transit.packet());
+
+assert.equal(transitMessage.fullEntities[0].transitTime, -1.25);
+assert.equal(transitMessage.fullEntities[0].transitGate, 987);

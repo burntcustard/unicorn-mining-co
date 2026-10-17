@@ -1,3 +1,11 @@
+import { jumpGateSpec, jumpGateHull } from '../src/specs/jump-gate';
+import { wormholeSpec } from '../src/specs/wormhole';
+import { holeSpec } from '../src/specs/hole';
+import {
+  sectorNames,
+  sectorGeneration,
+  startingSectorId,
+} from '../src/specs/sectors';
 import { moduleSpecForSimulation } from '../src/client/utilities/module-spec';
 import { renderingLayers } from '../src/specs/rendering-layers';
 import {
@@ -77,6 +85,13 @@ const simulation = {
 };
 
 const catalog = {
+  jumpGateSpec,
+  wormholeSpec,
+  holeSpec,
+  jumpGateHull,
+  sectorNames,
+  sectorGeneration,
+  startingSectorId,
   startingCredits,
   colors,
   paintColors,

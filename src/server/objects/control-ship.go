@@ -8,6 +8,12 @@ import (
 )
 
 func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent) {
+	if s.TransitTime != 0 {
+		s.Firing = false
+		s.Fly(0, 0)
+		return
+	}
+
 	s.Firing = input.Fire
 
 	if input.Launch {

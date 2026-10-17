@@ -11,6 +11,13 @@ type Point [2]float64
 type Vector = vector.Vector
 
 type Catalog struct {
+	HoleSpec         Hole                `json:"holeSpec"`
+	JumpGateSpec     JumpGate            `json:"jumpGateSpec"`
+	WormholeSpec     Wormhole            `json:"wormholeSpec"`
+	JumpGateHull     []HullSegment       `json:"jumpGateHull"`
+	SectorNames      []string            `json:"sectorNames"`
+	SectorGeneration SectorGeneration    `json:"sectorGeneration"`
+	StartingSectorID string              `json:"startingSectorId"`
 	StartingCredits  float64             `json:"startingCredits"`
 	Colors           map[string][]string `json:"colors"`
 	PaintColors      [][]string          `json:"paintColors"`

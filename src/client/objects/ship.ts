@@ -1,3 +1,4 @@
+import { drawHullSegment } from './hull-rendering';
 import { autogunAmmo } from '../../specs/items';
 import { Laser } from './modules/laser';
 import { Weapon } from './modules/weapon';
@@ -5,12 +6,12 @@ import { Projectile } from './projectile';
 import { addEntity, entityId } from '../simulation/world';
 import { applyForce } from '../physics/apply-force';
 import { rotatePoint } from '../utilities/geometry';
-import { drawSegment } from '../utilities/drawing';
 import { game } from '../game';
-import { hullSegmentFill } from '../utilities/lighting';
 import { shipSpecsById, type ShipId } from '../../specs/ships';
 import { type ShipSpec } from '../../specs/ships/types';
 import { flight } from '../../specs/control-ship';
+import { holeSpec } from '../../specs/hole';
+import { easeProgress } from '../utilities/ease';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
 import { movePoint } from '../utilities/geometry';
@@ -18,7 +19,7 @@ import { approach } from '../utilities/approach';
 import { type Contact } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
 import { type SimulationWorld } from '../simulation/world';
-import { type Pose, type Mount, type Segment } from '../types';
+import { type Mount, type Segment } from '../types';
 import { HornDrill } from './modules/horn-drill';
 import { CargoHatch } from './modules/cargo-hatch';
 import { moduleTypes } from './modules/index';
@@ -361,11 +362,11 @@ export class Ship extends Craft {
     world: SimulationWorld;
     dt: number;
   }) {
-    const hornDrills = new Map<
+    const drillTips = new Map<
       Segment,
       {
         contact: Contact;
-        hornDrill: Contact['collider'];
+        drillTip: Contact['collider'];
         target: Contact['collider'];
       }
     >();
@@ -383,28 +384,28 @@ export class Ship extends Craft {
         own.segment.module.collect({ ship: this, contact, events, world });
       }
 
-      const hornDrill = own;
+      const drillTip = own;
 
       if (
-        !hornDrill?.segment ||
-        !(hornDrill.segment.module instanceof HornDrill) ||
-        hornDrill.role !== 'hornDrill'
+        !drillTip?.segment ||
+        !(drillTip.segment.module instanceof HornDrill) ||
+        !this.isDrillTip(drillTip)
       ) {
         return;
       }
 
-      const target = hornDrill === collider ? other : collider;
-      const current = hornDrills.get(hornDrill.segment);
+      const target = drillTip === collider ? other : collider;
+      const current = drillTips.get(drillTip.segment);
 
       if (!current || contact.depth > current.contact.depth) {
-        hornDrills.set(hornDrill.segment, { contact, hornDrill, target });
+        drillTips.set(drillTip.segment, { contact, drillTip, target });
       }
     });
 
-    hornDrills.forEach(({ contact, hornDrill, target }) => {
-      (hornDrill.segment!.module as HornDrill).drill({
+    drillTips.forEach(({ contact, drillTip, target }) => {
+      (drillTip.segment!.module as HornDrill).drill({
         ship: this,
-        segment: hornDrill.segment!,
+        segment: drillTip.segment!,
         target,
         position: contact.point,
         events,
@@ -445,34 +446,38 @@ export class Ship extends Craft {
   }
 
   render(options: CraftRenderOptions = {}) {
+    const { ctx } = game;
+    const pose = options.pose || this;
+    const scaleDuration = holeSpec.transitScaleDuration / 1000;
+    const scale =
+      this.transitTime < 0
+        ? Math.min(1, -this.transitTime / scaleDuration)
+        : this.transitTime > 0
+          ? Math.max(
+              0,
+              Math.min(
+                1,
+                (scaleDuration +
+                  holeSpec.arrivalHoldDuration / 1000 -
+                  this.transitTime) /
+                  scaleDuration,
+              ),
+            )
+          : 1;
+    const eased = easeProgress(scale);
+
+    if (eased < 1e-8) return;
+    ctx.save();
+    ctx.translate(pose.position.x, pose.position.y);
+    ctx.scale(eased, eased);
+    ctx.translate(-pose.position.x, -pose.position.y);
+
     super.render({
       ...options,
-      drawHull: ({
-        segment,
-        health,
-        pose,
-      }: {
-        segment: Segment;
-        health: number;
-        pose: Pose;
-      }) => {
-        const { ctx } = game;
-        const worn =
-          health < (segment.module.health || segment.module.healthActivated) / 2
-            ? 0
-            : +!!segment.hull;
-
-        ctx.fillStyle = hullSegmentFill({
-          ctx,
-          segment,
-          worn,
-          rotation: pose.rotation,
-        });
-
-        ctx.strokeStyle = segment.shades[2];
-        drawSegment({ ctx, segment });
-      },
+      drawHull: (options) => drawHullSegment({ ctx, ...options }),
     });
+
+    ctx.restore();
   }
 
   repairCost(mount?: Mount) {
@@ -588,8 +593,40 @@ export class Ship extends Craft {
   }
 
   update(dt: number) {
+    if (this.transitTime) {
+      const portal = this.world?.entities.get(this.transitGate);
+
+      if (portal) {
+        const remaining =
+          -this.transitTime - holeSpec.transitScaleDuration / 1000;
+        const ratio =
+          this.transitTime < 0 && remaining > dt ? dt / remaining : 1;
+
+        Vec.addScaled(
+          this.position,
+          Vec.subtract(portal.position, this.position),
+          ratio,
+          this.position,
+        );
+      }
+
+      Vec.setXY(this.velocity, 0, 0);
+      this.spin = 0;
+      this.fly(0, 0);
+      this.updateModules(dt);
+
+      if (this.transitTime < 0) {
+        this.transitTime = Math.min(-1e-6, this.transitTime + dt);
+      } else {
+        this.transitTime = Math.max(0, this.transitTime - dt);
+      }
+
+      return;
+    }
+
     if (this.launching) {
       this.launching = Math.max(0, this.launching - dt);
+
       this.fly(this.forward, this.turn);
     }
 

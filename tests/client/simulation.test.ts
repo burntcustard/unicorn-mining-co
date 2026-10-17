@@ -526,12 +526,13 @@ const drillDamagesOnlyAtTip = () => {
   );
   const drill = ship.hitbox().filter(({ segment }) => segment?.module.grinds);
   const body = drill.find(({ shapeOutline }) => shapeOutline);
-  const tip = drill.find(({ role }) => role === 'hornDrill');
+  const tip = drill.find((collider) => ship.isDrillTip(collider));
 
   assert(body?.physics, 'the drill body remains a physical collider');
   assert.equal(body.friction, 0.3);
   assert.equal(tip.friction, ship.friction);
-  assert.equal(body.role, undefined);
+  assert.equal(ship.isDrillTip(body), false);
+  assert.equal(ship.isDrillTip({ ...tip }), false);
   assert.equal(tip?.physics, false);
   assert.equal(tip?.radius, 3);
   assert(Vec.distance(tip.position, Vec.create(46)) < 1e-9);
@@ -566,9 +567,7 @@ const drillDamagesOnlyAtTip = () => {
 
   assert(
     flank.contacts.some(({ collider, other }) =>
-      [collider, other].some(
-        ({ segment, role }) => segment === body.segment && role !== 'hornDrill',
-      ),
+      [collider, other].some((collider) => collider === body),
     ),
     'the drill body still touches a rock on its flank',
   );
@@ -582,8 +581,7 @@ const drillDamagesOnlyAtTip = () => {
   const head = check(Vec.create(50));
 
   const tipContact = head.contacts.find(
-    ({ collider, other }) =>
-      collider.role === 'hornDrill' || other.role === 'hornDrill',
+    ({ collider, other }) => collider === tip || other === tip,
   );
   const drilled = head.events.find(({ type }) => type === 'drillDamage');
 
@@ -592,8 +590,7 @@ const drillDamagesOnlyAtTip = () => {
   assert(
     head.contacts.some(
       ({ collider, other, point }) =>
-        (collider.role === 'hornDrill' || other.role === 'hornDrill') &&
-        point === drilled.position,
+        (collider === tip || other === tip) && point === drilled.position,
     ),
     'drill damage records the point of one tip contact',
   );
@@ -605,14 +602,11 @@ const drillDamagesOnlyAtTip = () => {
     createPlayerShip(world, { playerId: 8, position: Vec.create(60) }),
   );
   const craftContacts = detectCollisions({ entities: [ship, otherShip] })
-    .filter(
-      ({ collider, other }) =>
-        collider.role === 'hornDrill' || other.role === 'hornDrill',
-    )
+    .filter(({ collider, other }) => collider === tip || other === tip)
     .sort((a, b) => b.depth - a.depth);
   const craftContact = craftContacts[0];
   const struck =
-    craftContact?.collider.role === 'hornDrill'
+    craftContact?.collider === tip
       ? craftContact.other
       : craftContact?.collider;
   const damaged = struck?.segment?.mount || struck?.segment;
@@ -936,7 +930,7 @@ const diamondPickup = () => {
     );
   }
 
-  const throat = ship.hitbox().find(({ role }) => role === 'cargoHatch');
+  const throat = ship.hitbox().find(({ segment }) => segment?.catches);
 
   Vec.set(item.position, throat.position);
 
@@ -966,7 +960,7 @@ diamondPickup();
 {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 9 }));
-  const throat = ship.hitbox().find(({ role }) => role === 'cargoHatch');
+  const throat = ship.hitbox().find(({ segment }) => segment?.catches);
   const door = ship
     .hitbox()
     .find(
@@ -1030,7 +1024,7 @@ diamondPickup();
 {
   const world = createWorld();
   const ship = addEntity(world, createPlayerShip(world, { playerId: 9 }));
-  const throat = ship.hitbox().find(({ role }) => role === 'cargoHatch');
+  const throat = ship.hitbox().find(({ segment }) => segment?.catches);
   const module = throat.segment.module;
 
   throat.segment.active = 1;
@@ -1203,15 +1197,12 @@ const interiorSplitRetainsHole = () => {
   ship.handleContacts({
     contacts: [
       {
-        collider: {
-          friction: ship.friction,
-          position: ship.position,
-          radius: ship.radius,
-          rotation: ship.rotation,
-          owner: ship,
-          role: 'hornDrill',
-          segment: drill,
-        },
+        collider: ship
+          .hitbox()
+          .find(
+            (collider) =>
+              collider.segment === drill && ship.isDrillTip(collider),
+          ),
         other: {
           friction: rock.friction,
           position: rock.position,

@@ -32,8 +32,8 @@ type RegionManager struct {
 	catalog                   specs.Catalog
 }
 
-func NewRegionManager(seed uint32, catalog specs.Catalog) *RegionManager {
-	return &RegionManager{loaded: utilities.NewOrderedMap[Vec.Vector, *protocol.LoadedRegion](), saved: map[Vec.Vector]*protocol.RegionDescription{}, worldSeed: seed, removed: map[uint32]bool{}, descriptionOwners: map[uint32][]*protocol.RegionDescription{}, stationLists: map[regionBounds][]protocol.StationDescription{}, generator: NewRegionGenerator(catalog), catalog: catalog}
+func NewRegionManager(seed uint32, catalog specs.Catalog, sectors ...Sector) *RegionManager {
+	return &RegionManager{loaded: utilities.NewOrderedMap[Vec.Vector, *protocol.LoadedRegion](), saved: map[Vec.Vector]*protocol.RegionDescription{}, worldSeed: seed, removed: map[uint32]bool{}, descriptionOwners: map[uint32][]*protocol.RegionDescription{}, stationLists: map[regionBounds][]protocol.StationDescription{}, generator: NewRegionGenerator(catalog, sectors...), catalog: catalog}
 }
 
 func (r *RegionManager) PreGenerate(radius float64) {

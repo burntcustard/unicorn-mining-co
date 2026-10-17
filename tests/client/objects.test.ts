@@ -23,6 +23,13 @@ import { GameObject } from '${process.cwd()}/src/client/objects/game-object.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
 import { Station } from '${process.cwd()}/src/client/objects/station.ts';
+import { JumpGate } from '${process.cwd()}/src/client/objects/jump-gate.ts';
+import { Wormhole } from '${process.cwd()}/src/client/objects/wormhole.ts';
+import { ease, easeProgress } from '${process.cwd()}/src/client/utilities/ease.ts';
+import { jumpGateSpec, jumpGateFlareDurationOuter, jumpGateFlareDurationInner } from '${process.cwd()}/src/specs/jump-gate.ts';
+import { renderingLayers } from '${process.cwd()}/src/specs/rendering-layers.ts';
+import { ThrusterSingleMd } from '${process.cwd()}/src/client/objects/modules/thruster.ts';
+import { holeSpec } from '${process.cwd()}/src/specs/hole.ts';
 import { mustang } from '${process.cwd()}/src/specs/ships/mustang.ts';
 import { corral5 } from '${process.cwd()}/src/specs/stations/corral-5.ts';
 import { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
@@ -47,6 +54,99 @@ import {
   restoreWorld,
   cloneEntity,
 } from '${process.cwd()}/src/client/simulation/world-state.ts';
+
+const gate = new JumpGate({ position: Vec.create(500, 800), rotation: 0.71 });
+assert(!(gate instanceof Craft), 'gates share hull construction without craft gameplay');
+assert.equal(gate.health, undefined);
+assert(gate.segments.length > 0);
+assert(gate.hitbox().every(collider => !collider.dockSegment && collider.physics));
+const fixedPosition = Vec.clone(gate.position);
+for (const target of [1, 0]) {
+  gate.opening = 1 - target;
+  gate.openingTarget = target;
+  const duration = (target ? jumpGateSpec.openingDuration : jumpGateSpec.closingDuration) / 1000;
+  const transition = ease({ duration, from: Vec.create(1 - target, 0), to: Vec.create(target, 0) });
+  for (let step = 0; step < 4; step++) {
+    gate.update(duration / 4);
+    const expected = easeProgress(transition(duration / 4).x) * jumpGateSpec.halfTravel;
+    gate.hitbox().forEach((collider, index) => {
+      const segment = gate.segments[index];
+      assert(Math.abs(collider.localPosition.x - segment.middle[0] - segment.side * expected) < 1e-9,
+        'gate collision hull follows the strengthened easing curve in both directions');
+      const { x, y } = collider.localPosition;
+      assert(Math.abs(collider.position.x - gate.position.x - x * Math.cos(gate.rotation) + y * Math.sin(gate.rotation)) < 1e-9);
+      assert(Math.abs(collider.position.y - gate.position.y - x * Math.sin(gate.rotation) - y * Math.cos(gate.rotation)) < 1e-9);
+      assert.equal(collider.rotation, gate.rotation, 'gate colliders rotate with the hull');
+    });
+  }
+  assert.equal(gate.opening, target);
+}
+gate.openingTarget = 1;
+gate.update(10);
+assert.equal(gate.opening, 1);
+assert.equal(gate.rotation, 0.71, 'gate opening preserves its fixed orientation');
+assert.deepEqual(gate.position, fixedPosition);
+const gateState = captureWorld({ world: addGateWorld(gate) });
+gate.opening = 0;
+restoreWorld({ world: gate.world, state: gateState });
+assert.equal(gate.opening, 1, 'gate animation rewinds with simulation state');
+const copiedGate = cloneEntity({ entity: gate });
+assert(copiedGate instanceof JumpGate);
+assert.equal(copiedGate.hitbox()[0].owner, copiedGate);
+// Frame prediction refreshes the same render copy from unrendered mechanics.
+// Its visual fades must keep progressing across those refreshes.
+{
+  const originalNow = Object.getOwnPropertyDescriptor(performance, 'now');
+  const originalRender = Object.getOwnPropertyDescriptor(ThrusterSingleMd.prototype, 'render');
+  const originalGlow = Object.getOwnPropertyDescriptor(ThrusterSingleMd.prototype, 'renderGlow');
+  let now = 0;
+  let flare = 0;
+  let glow = 0;
+  Object.defineProperty(performance, 'now', {configurable:true, value:() => now});
+  ThrusterSingleMd.prototype.render = ({segment}) => { flare = Math.max(flare, segment.activationProgress); };
+  ThrusterSingleMd.prototype.renderGlow = ({segment}) => { glow = Math.max(glow, segment.activationProgress); };
+  const rotations = [];
+  const ctx = {save(){}, restore(){}, translate(){}, scale(){}, rotate(angle){rotations.push(angle);}};
+  try {
+    for (const target of [0, 1]) {
+      for (const opening of [.25, .75]) {
+        const source = new JumpGate({opening, openingTarget:target, rotation:0.71});
+        const copies = new WeakMap();
+        const frame = () => {
+          now += Math.max(jumpGateFlareDurationOuter, jumpGateFlareDurationInner) / 4;
+          flare = glow = 0;
+          const rendered = cloneEntity({entity:source, copies});
+          for (const zIndex of [renderingLayers.modulesBelowStationHull, renderingLayers.glowBelowStations]) {
+            rotations.length = 0;
+            rendered.render({ctx, zIndex});
+            assert.equal(rotations[0], source.rotation, 'gate engines and glows share the hull orientation');
+          }
+        };
+        for (let i = 0; i < 8; i++) frame();
+        assert.equal(flare, 1, 'gate flares ramp up despite repeated prediction copies');
+        assert.equal(glow, 1, 'gate glows follow the preserved fade');
+        source.opening = target;
+        frame();
+        assert(flare > 0, 'gate flares do not disappear immediately when movement stops');
+        for (let i = 0; i < 8; i++) frame();
+        assert.equal(flare, 0, 'gate flares finish fading out');
+        assert.equal(glow, 0, 'gate glows finish fading out');
+      }
+    }
+  } finally {
+    if (originalNow) Object.defineProperty(performance, 'now', originalNow);
+    else delete performance.now;
+    if (originalRender) Object.defineProperty(ThrusterSingleMd.prototype, 'render', originalRender);
+    else delete ThrusterSingleMd.prototype.render;
+    if (originalGlow) Object.defineProperty(ThrusterSingleMd.prototype, 'renderGlow', originalGlow);
+    else delete ThrusterSingleMd.prototype.renderGlow;
+  }
+}
+const hole = new Wormhole();
+assert.equal(hole.health, undefined);
+assert.equal(hole.opening, 1);
+assert.equal(hole.hitbox().length, 0);
+function addGateWorld(object) { const world = createWorld(); addEntity(world, object); return world; }
 
 assert.equal(Object.getPrototypeOf(Craft.prototype), GameObject.prototype);
 assert.equal(Object.getPrototypeOf(Ship.prototype), Craft.prototype);
@@ -115,6 +215,37 @@ assert.equal(
 assert.equal(bare.modules.length, 0);
 assert(bare.hitbox().length > 0);
 assert.equal(bare.forwardThrust, 0);
+const transitWorld = createWorld({ seed: 25 });
+const transitPortal = addEntity(transitWorld, new Wormhole({ position: Vec.create(1000, 2000) }));
+const transitShip = addEntity(transitWorld, createPlayerShip(transitWorld));
+const pullDuration = holeSpec.pullDuration / 1000;
+const scaleDuration = holeSpec.transitScaleDuration / 1000;
+const holdDuration = holeSpec.arrivalHoldDuration / 1000;
+transitShip.position = Vec.add(transitPortal.position, Vec.create(0, 100));
+transitShip.transitGate = transitPortal.id;
+transitShip.transitTime = -(pullDuration + scaleDuration);
+const transitState = captureWorld({ world: transitWorld });
+transitShip.update(pullDuration / 2);
+assert(Vec.distance(transitShip.position, transitPortal.position) < 100);
+assert(Vec.distance(transitShip.position, transitPortal.position) > 0);
+assert.equal(transitShip.hitbox().length, 0);
+restoreWorld({ world: transitWorld, state: transitState });
+assert.equal(transitShip.transitTime, -(pullDuration + scaleDuration), 'prediction restores the transit phase');
+transitShip.update(pullDuration);
+assert.deepEqual(transitShip.position, transitPortal.position);
+transitShip.update(scaleDuration);
+assert.equal(transitShip.transitTime, -1e-6, 'wait for authoritative transfer');
+transitShip.transitTime = scaleDuration + holdDuration;
+transitShip.update(scaleDuration);
+assert.equal(transitShip.launching || 0, 0);
+assert.deepEqual(transitShip.position, transitPortal.position);
+transitShip.update(holdDuration);
+assert.equal(transitShip.transitTime, 0);
+assert.equal(transitShip.transitGate, transitPortal.id);
+assert.equal(transitShip.launching || 0, 0);
+assert.equal(transitShip.forward, 0);
+assert.deepEqual(transitShip.velocity, Vec.create());
+
 const world = createWorld({ seed: 25 });
 {
   const registry = [];
@@ -197,6 +328,21 @@ for (const Type of [Craft, Station, Station, Ship]) {
   }
 }
 const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+const gateCollider = gate.hitbox()[0];
+const shipCollider = ship.hitbox()[0];
+const savedPosition = Vec.clone(ship.position);
+ship.position = Vec.add(gate.position, Vec.create(200, 0));
+ship.velocity = Vec.create(100, 0);
+gate.opening = 1;
+assert.equal(gateCollider.contactFilter(gateCollider, shipCollider), false, 'outgoing ships clear an open gate frame');
+ship.velocity.x = -100;
+assert.equal(gateCollider.contactFilter(gateCollider, shipCollider), true, 'incoming ships still collide with the frame');
+ship.velocity.x = 100;
+gate.opening = 0;
+assert.equal(gateCollider.contactFilter(gateCollider, shipCollider), true, 'closed gates retain hull collisions');
+ship.position = savedPosition;
+ship.velocity = Vec.create();
+
 ship.setModuleActive({ module: HornDrill, active: true });
 ship.update(0.1);
 const moduleStates = ship.moduleStates;

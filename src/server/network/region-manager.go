@@ -11,6 +11,7 @@ import (
 )
 
 type RegionManager struct {
+	idOffset int64
 	onSleep  func(simulation.Entity)
 	managed  *utilities.OrderedMap[int64, bool]
 	sleeping *utilities.OrderedMap[int64, simulation.Entity]
@@ -18,9 +19,13 @@ type RegionManager struct {
 	catalog  specs.Catalog
 }
 
-func NewRegionManager(seed uint32, catalog specs.Catalog) *RegionManager {
-	r := &RegionManager{managed: utilities.NewOrderedMap[int64, bool](), sleeping: utilities.NewOrderedMap[int64, simulation.Entity](), regions: simulation.NewRegionManager(seed, catalog), catalog: catalog}
-	r.regions.PreGenerate(catalog.Simulation.PreGeneratedRadius)
+func NewRegionManager(seed uint32, catalog specs.Catalog, sectors ...simulation.Sector) *RegionManager {
+	r := &RegionManager{managed: utilities.NewOrderedMap[int64, bool](), sleeping: utilities.NewOrderedMap[int64, simulation.Entity](), regions: simulation.NewRegionManager(seed, catalog, sectors...), catalog: catalog}
+
+	if len(sectors) == 0 {
+		r.regions.PreGenerate(catalog.Simulation.PreGeneratedRadius)
+	}
+
 	return r
 }
 
@@ -62,7 +67,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 	})
 
 	world.Entities.ForEach(func(e simulation.Entity, id int64) {
-		if r.managed.Has(id) || e.Base().PlayerID != nil || nearby(e) {
+		if r.managed.Has(id) || e.Base().PlayerID != nil || e.Base().Kind == "jumpGate" || e.Base().Kind == "wormhole" || nearby(e) {
 			return
 		}
 
@@ -80,7 +85,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 
 	for _, view := range views {
 		for _, d := range view.Asteroids {
-			id := int64(d.ID)
+			id := r.idOffset + int64(d.ID)
 
 			if wanted[id] {
 				continue
@@ -109,7 +114,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 		}
 
 		for _, d := range view.Stations {
-			id := int64(d.ID)
+			id := r.idOffset + int64(d.ID)
 
 			if wanted[id] {
 				continue
@@ -133,7 +138,7 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 		}
 
 		for _, d := range view.Wrecks {
-			id := int64(d.ID)
+			id := r.idOffset + int64(d.ID)
 
 			if wanted[id] {
 				continue
@@ -152,9 +157,12 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 				wreck.CargoContents = append(wreck.CargoContents, world.ItemTypes[resource](simulation.ObjectProperties{World: world, ID: &id}))
 			}
 
-			message := simulation.FieldMessage(d.ClueField.Position, d.ClueField.Resource)
-			messageID := simulation.EntityID(world)
-			wreck.CargoContents = append(wreck.CargoContents, objects.NewItem("message", simulation.ObjectProperties{World: world, ID: &messageID, Message: &message}, r.catalog))
+			if d.ClueField != nil {
+				message := simulation.FieldMessage(d.ClueField.Position, d.ClueField.Resource)
+				messageID := simulation.EntityID(world)
+				wreck.CargoContents = append(wreck.CargoContents, objects.NewItem("message", simulation.ObjectProperties{World: world, ID: &messageID, Message: &message}, r.catalog))
+			}
+
 			wreck.Paint = d.Paint
 			wreck.HasPaint = true
 			simulation.AddEntity(world, wreck)

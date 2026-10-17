@@ -53,6 +53,8 @@ type featureKey struct {
 // The TS module's bounded candidate cache is owned by its simulation in Go.
 // Entries stay immutable and generated region descriptions are detached copies.
 type RegionGenerator struct {
+	sector           *Sector
+	sectorSpec       specs.SectorGeneration
 	spec             specs.RegionGeneration
 	regionSize       float64
 	candidateRegions map[candidateKey]*regionCandidates
@@ -60,8 +62,22 @@ type RegionGenerator struct {
 	features         map[featureKey]*feature
 }
 
-func NewRegionGenerator(spec specs.Catalog) *RegionGenerator {
-	return &RegionGenerator{spec: spec.RegionGeneration, regionSize: spec.Simulation.RegionSize, candidateRegions: make(map[candidateKey]*regionCandidates), features: make(map[featureKey]*feature)}
+func NewRegionGenerator(spec specs.Catalog, sectors ...Sector) *RegionGenerator {
+	g := &RegionGenerator{sectorSpec: spec.SectorGeneration, spec: spec.RegionGeneration, regionSize: spec.Simulation.RegionSize, candidateRegions: make(map[candidateKey]*regionCandidates), features: make(map[featureKey]*feature)}
+
+	if len(sectors) > 0 {
+		g.sector = &sectors[0]
+	}
+
+	return g
+}
+
+func (g *RegionGenerator) seed(worldSeed uint32) uint32 {
+	if g.sector != nil {
+		return g.sector.Seed
+	}
+
+	return worldSeed
 }
 
 func mix(value uint32) uint32 {
@@ -115,8 +131,12 @@ func randomSpin(r *random.Random) float64 {
 func randomResource(r *random.Random) int { return 3 - int(math.Floor(math.Pow(r.Next(), 3)*4)) }
 
 func (g *RegionGenerator) featureCandidate(worldSeed uint32, cell Vec.Vector, kind int) *feature {
+	if g.sector != nil && kind == stationFeature && len(g.sector.GateSites) == 0 {
+		return nil
+	}
+
 	settings := g.spec.Features[kind]
-	seed := RegionSeed(worldSeed, cell)
+	seed := RegionSeed(g.seed(worldSeed), cell)
 	stream := uint32(0)
 
 	if kind == stationFeature {
@@ -125,11 +145,40 @@ func (g *RegionGenerator) featureCandidate(worldSeed uint32, cell Vec.Vector, ki
 
 	r := random.CreateRandom(float64(descriptionID(seed, settings.Kind, stream)))
 
-	if r.Next() >= settings.Chance {
+	chance := r.Next()
+
+	peak := 1.0
+
+	if g.sector != nil {
+		peak = g.sectorSpec.Density[kind].Peak
+	}
+
+	if chance >= settings.Chance*peak {
 		return nil
 	}
 
 	position := randomPosition(r, cell, settings.Size)
+
+	if g.sector != nil {
+		if chance >= settings.Chance*SectorDensity(g.sector, position, kind, g.sectorSpec) {
+			return nil
+		}
+
+		if kind != fieldFeature {
+			radius := g.spec.WreckRadius
+
+			if kind == stationFeature {
+				radius = g.spec.StationRadius
+			}
+
+			for _, site := range slices.Concat(g.sector.GateSites, g.sector.WormholeSites) {
+				if Vec.Distance(site.Position, position) < g.sectorSpec.GateArrivalDistance+g.sectorSpec.GateClearance+radius {
+					return nil
+				}
+			}
+		}
+	}
+
 	id := descriptionID(seed, settings.Kind, 1)
 
 	if kind == fieldFeature {
@@ -262,17 +311,21 @@ func (g *RegionGenerator) GenerateFields(worldSeed uint32, from, to Vec.Vector) 
 	return fields
 }
 
-func FieldMessage(position Vec.Vector, resource int) string {
+func FieldMessage(position Vec.Vector, resource int, sectorName ...string) string {
 	label := "GOLD ORE"
 
 	if resource == 1 {
 		label = "AMETHYST CLUSTER"
 	}
 
+	if len(sectorName) > 0 && sectorName[0] != "" {
+		label = sectorName[0] + " / " + label
+	}
+
 	return fmt.Sprintf("%s %s/%s", label, positionNumber(position.X), positionNumber(position.Y))
 }
 
-func (g *RegionGenerator) nearestRichField(worldSeed uint32, position Vec.Vector) protocol.FieldDescription {
+func (g *RegionGenerator) nearestRichField(worldSeed uint32, position Vec.Vector) *protocol.FieldDescription {
 	distance := g.spec.NearestFieldInitialRange
 
 	for {
@@ -288,10 +341,14 @@ func (g *RegionGenerator) nearestRichField(worldSeed uint32, position Vec.Vector
 		}
 
 		if nearest != nil && Vec.Distance(nearest.Position, position) <= distance {
-			return *nearest
+			return nearest
 		}
 
-		distance *= 2
+		if distance >= g.sectorSpec.RichFieldSearchRange {
+			return nearest
+		}
+
+		distance = math.Min(distance*2, g.sectorSpec.RichFieldSearchRange)
 	}
 }
 
@@ -371,7 +428,7 @@ func (g *RegionGenerator) generateCandidates(worldSeed uint32, region Vec.Vector
 	asteroids := []*protocol.AsteroidDescription{}
 
 	for _, field := range fields {
-		seed := mix(RegionSeed(worldSeed, region) ^ field.ID)
+		seed := mix(RegionSeed(g.seed(worldSeed), region) ^ field.ID)
 		r := random.CreateRandom(float64(seed))
 		count := g.spec.AsteroidCounts["mixed"]
 
@@ -422,6 +479,12 @@ func (g *RegionGenerator) GenerateRegion(worldSeed uint32, region Vec.Vector) pr
 	}
 
 	obstacles := []obstacle{}
+
+	if g.sector != nil {
+		for _, site := range slices.Concat(g.sector.GateSites, g.sector.WormholeSites) {
+			obstacles = append(obstacles, obstacle{site.Position, g.sectorSpec.GateArrivalDistance + g.sectorSpec.GateClearance})
+		}
+	}
 
 	for _, region := range nearby {
 		for _, s := range region.Stations {
@@ -477,10 +540,12 @@ func (g *RegionGenerator) GenerateRegion(worldSeed uint32, region Vec.Vector) pr
 
 	for _, wreck := range current.Wrecks {
 		clueField := g.nearestRichField(worldSeed, wreck.Position)
-		wreck.CargoContents = make([]int, len(wreck.CargoContents))
+		wreck.CargoContents = slices.Clone(wreck.CargoContents)
 
-		for i := range wreck.CargoContents {
-			wreck.CargoContents[i] = clueField.Resource
+		if clueField != nil {
+			for i := range wreck.CargoContents {
+				wreck.CargoContents[i] = clueField.Resource
+			}
 		}
 
 		wreck.ClueField = clueField

@@ -1,3 +1,5 @@
+import { JumpGate } from '../objects/jump-gate';
+import { Wormhole } from '../objects/wormhole';
 import { Projectile } from '../objects/projectile';
 import { type WeaponId } from '../../specs/modules';
 import * as Vec from '../utilities/vector';
@@ -134,6 +136,18 @@ const makeEntity = ({
     );
   }
 
+  if (entity.kind === 'jumpGate' || entity.kind === 'wormhole') {
+    const Type = entity.kind === 'jumpGate' ? JumpGate : Wormhole;
+    const passage = previous instanceof Type ? previous : new Type(common);
+
+    return Object.assign(passage, common, {
+      mass: Infinity,
+      opening: entity.opening ?? 1,
+      openingTarget: entity.openingTarget ?? 1,
+      destinationName: entity.destinationName || '',
+    });
+  }
+
   const wreckage = entity.wreckage;
 
   if (entity.kind !== 'ship' && entity.kind !== 'station') {
@@ -181,6 +195,8 @@ const makeEntity = ({
         ...(entity.hullHealth && { hullHealth: entity.hullHealth }),
       }),
       launching: entity.launching,
+      transitTime: entity.transitTime || 0,
+      transitGate: entity.transitGate || 0,
       firing: !!entity.firing,
       paint: entity.paint,
       playerId: entity.playerId,
@@ -264,6 +280,16 @@ export class NetworkClient {
       !ship.launching
     );
   }
+  chatMessages: Extract<ServerMessage, { type: 'chat' }>[] = [];
+
+  sendChat(channel: number, text: string) {
+    this.send({ type: 'chat', channel, text });
+  }
+
+  requestGateAccess(gateId: number) {
+    this.send({ type: 'gateAccess', gateId });
+  }
+
   shipId?: number;
   private snapshotReceivedAt = performance.now();
   private socket!: WebSocket;
@@ -431,7 +457,7 @@ export class NetworkClient {
       }
     };
 
-    socket.onclose = ({ code }) => {
+    socket.onclose = ({ code, reason }) => {
       if (this.socket !== socket) return;
       this.connected = false;
       this.pendingProfile?.reject(
@@ -456,6 +482,11 @@ export class NetworkClient {
 
       if (code === 4002) {
         this.showConnectionStatus('AWAY TOO LONG - RELOAD TO PLAY');
+        return;
+      }
+
+      if (code === 4003) {
+        this.showConnectionStatus(reason);
         return;
       }
 
@@ -547,7 +578,15 @@ export class NetworkClient {
       return;
     }
 
+    if (message.type === 'chat') {
+      this.chatMessages = [...this.chatMessages.slice(-99), message];
+      return;
+    }
+
     if (message.type === 'welcome') {
+      this.chatMessages = this.chatMessages.filter(
+        ({ channel }) => channel === 1,
+      );
       this.displayName = message.displayName || '';
       this.connected = false;
       syncPaintUnlocks(message.unlockedPaints, this.player.unlockedPaints);

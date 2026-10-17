@@ -59,6 +59,8 @@ const matches = ({
     Math.abs(ship.rotation - checkpoint.rotation) < 0.002 &&
     Math.abs(ship.spin - checkpoint.spin) < 0.002 &&
     (ship.launching || 0) === (checkpoint.launching || 0) &&
+    (ship.transitTime || 0) === (checkpoint.transitTime || 0) &&
+    (ship.transitGate || 0) === (checkpoint.transitGate || 0) &&
     ship.health === checkpoint.health &&
     checkpoint.cargoContents.length === cargoIds?.length &&
     checkpoint.cargoContents.every(
@@ -122,6 +124,12 @@ const applyEntity = ({
   entity.playerId = server.playerId;
   entity.pendingUpdateTime = server.pendingUpdateTime;
   entity.rounds = server.rounds;
+
+  if (server.kind === 'jumpGate' || server.kind === 'wormhole') {
+    entity.opening = server.opening;
+    entity.openingTarget = server.openingTarget;
+    entity.destinationName = server.destinationName;
+  }
 
   if (entity instanceof Asteroid && server instanceof Asteroid) {
     const source = server.geometrySource;
@@ -215,6 +223,8 @@ const applyEntity = ({
         : cargoCopies.get(object)!,
     );
     entity.launching = server.launching;
+    entity.transitTime = server.transitTime;
+    entity.transitGate = server.transitGate;
     entity.paint = server.paint;
     entity.shades = server.shades;
 

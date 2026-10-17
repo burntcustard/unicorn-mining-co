@@ -23,6 +23,9 @@ assert.deepEqual(snapshot.entityIds, [7, 9, 11]);
 assert.equal(snapshot.fullEntities.length, 3);
 const [ship, asteroid, projectile] = snapshot.fullEntities;
 
+assert.equal(ship.transitTime, -1.25);
+assert.equal(ship.transitGate, 987);
+
 assert.equal(projectile.kind, 'projectile');
 assert.equal(projectile.definitionId, 'autogun');
 assert.equal(projectile.health, 1.25);

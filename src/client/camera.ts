@@ -1,6 +1,7 @@
-import { deadzone, lag, dockDuration } from '../specs/camera';
+import { deadzone, lag, dockDuration, holeZoomScale } from '../specs/camera';
 import * as Vec from './utilities/vector';
-import { ease } from './utilities/ease';
+import { ease, easeProgress } from './utilities/ease';
+import { holeSpec } from '../specs/hole';
 import { type GameObject } from './objects/game-object';
 import { setSizing } from './ui/set-sizing';
 
@@ -59,12 +60,19 @@ export const followTarget = (
   game: GameState,
   target: Pick<GameObject, 'position'> & { dockedTo?: GameObject | number },
   dt: number,
+  duration = dockDuration,
 ) => {
+  if (duration === 0) {
+    dockedTo = 0;
+    centerCamera(game, target);
+    return;
+  }
+
   if (target.dockedTo) {
     if (target.dockedTo !== dockedTo) {
       dockedTo = target.dockedTo;
       dockTo = Vec.create();
-      dockEase = ease({ duration: dockDuration, from: camera, to: dockTo });
+      dockEase = ease({ duration, from: camera, to: dockTo });
     }
 
     Vec.set(
@@ -117,3 +125,21 @@ export const renderDeadzone = (game: GameState) => {
 };
 
 import { type GameState } from './game';
+
+/**
+ * Magnify the foreground as a ship disappears; unwind as it grows at arrival.
+ * This only changes the drawing transform, never canvas or background sizes.
+ */
+export const holeZoom = (transitTime: number) => {
+  const duration = holeSpec.transitScaleDuration / 1000;
+  const progress =
+    transitTime < 0
+      ? 1 + transitTime / duration
+      : transitTime > 0
+        ? (transitTime - holeSpec.arrivalHoldDuration / 1000) / duration
+        : 0;
+
+  return (
+    1 + (holeZoomScale - 1) * easeProgress(Math.max(0, Math.min(1, progress)))
+  );
+};

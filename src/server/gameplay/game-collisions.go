@@ -174,7 +174,7 @@ func geometryFlags(c *collision.Collider) int {
 		flags |= 4
 	}
 
-	if c.Role == "cargoHatch" {
+	if segment, ok := c.Segment.(*simulation.Segment); ok && segment.Catches {
 		flags |= 8
 	}
 

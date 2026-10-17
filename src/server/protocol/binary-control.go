@@ -27,6 +27,9 @@ type DockAction struct {
 }
 
 type Control struct {
+	GateID         uint64
+	Channel        byte
+	Text           string
 	DisplayName    string
 	Type           string
 	PlayerToken    string
@@ -38,6 +41,8 @@ type Control struct {
 }
 
 type ServerControl struct {
+	Channel                      byte
+	Sender, Text                 string
 	Sounds                       []WorldSound
 	DisplayName                  *string
 	Credits                      *float64
@@ -441,6 +446,28 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 		}
 	case ids.ControlMessageIDs["respawn"]:
 		message.Type = "respawn"
+	case ids.ControlMessageIDs["gateAccess"]:
+		message.Type = "gateAccess"
+		var err error
+		message.GateID, err = r.unsigned()
+
+		if err != nil || message.GateID > 1<<53-1 {
+			return Control{}, ErrControl
+		}
+	case ids.ControlMessageIDs["chat"]:
+		message.Type = "chat"
+		var err error
+		message.Channel, err = r.byte()
+
+		if err != nil || message.Channel > 1 {
+			return Control{}, ErrControl
+		}
+
+		message.Text, err = r.text()
+
+		if err != nil {
+			return Control{}, err
+		}
 	case ids.ControlMessageIDs["activity"]:
 		message.Type = "activity"
 	case ids.ControlMessageIDs["play"]:
@@ -465,6 +492,25 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 }
 
 func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, error) {
+	if message.Type == "chat" {
+		if message.Channel > 1 {
+			return nil, ErrControl
+		}
+
+		w := controlWriter(ids.ControlMessageIDs["chat"])
+		w.byte(message.Channel)
+
+		if err := w.text(message.Sender); err != nil {
+			return nil, err
+		}
+
+		if err := w.text(message.Text); err != nil {
+			return nil, err
+		}
+
+		return w.data, nil
+	}
+
 	if message.Type == "sounds" {
 		w := controlWriter(ids.ControlMessageIDs["sounds"])
 		w.unsigned(uint64(len(message.Sounds)))
@@ -551,4 +597,31 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 	}
 
 	return w.data, nil
+}
+
+func (w *writer) text(value string) error {
+	if !utf8.ValidString(value) || utf8.RuneCountInString(value) > 240 {
+		return ErrControl
+	}
+
+	w.unsigned(uint64(len(value)))
+	w.data = append(w.data, value...)
+	return nil
+}
+
+func (r *reader) text() (string, error) {
+	length, err := r.unsigned()
+
+	if err != nil || length > 960 || length > uint64(len(r.data)-r.offset) {
+		return "", ErrControl
+	}
+
+	value := string(r.data[r.offset : r.offset+int(length)])
+	r.offset += int(length)
+
+	if !utf8.ValidString(value) || utf8.RuneCountInString(value) > 240 {
+		return "", ErrControl
+	}
+
+	return value, nil
 }

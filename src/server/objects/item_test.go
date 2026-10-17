@@ -93,7 +93,7 @@ func TestItems(t *testing.T) {
 			}
 
 			other := *body
-			other.Role = "cargoHatch"
+			other.Segment = &simulation.Segment{SegmentPlan: simulation.SegmentPlan{Catches: true}}
 
 			if !pickup.ContactFilter(pickup, &other) {
 				t.Fatal("pickup point rejected hatch")

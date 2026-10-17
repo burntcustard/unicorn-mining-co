@@ -1,3 +1,5 @@
+import { Passage } from '../../client/objects/passage';
+import { JumpGate } from '../../client/objects/jump-gate';
 import '../style.css';
 import { game } from '../../client/game';
 import { Craft } from '../../client/objects/craft';
@@ -12,6 +14,7 @@ import { Weapon } from '../../client/objects/modules/weapon';
 import { type GameObject } from '../../client/objects/game-object';
 import { renderingLayers } from '../../specs/rendering-layers';
 import { simulationStep } from '../../specs/simulation';
+import { jumpGateSpec } from '../../specs/jump-gate';
 import * as Vec from '../../client/utilities/vector';
 import { catalog, previewMounts, type ObjectType } from './catalog';
 import { drawGrid } from './grid';
@@ -74,6 +77,7 @@ const slowEffect = document.querySelector<HTMLInputElement>('#slow-effect')!;
 let pointer: Vec.Value | undefined;
 let frame: number;
 let previousTime = performance.now();
+let gateHoldRemaining = jumpGateSpec.stateHoldDuration / 1000;
 export let previewObject: GameObject | undefined;
 
 Object.assign(game, { canvas, ctx, physicsOn: false });
@@ -257,6 +261,7 @@ const rebuild = () => {
   specSelect.value = spec.key;
 
   previewObject = spec.create();
+  gateHoldRemaining = jumpGateSpec.stateHoldDuration / 1000;
   previewObject.physics = false;
   previewObject.rotation = state.rotation;
 
@@ -294,6 +299,24 @@ const render = (now: number) => {
   if (previewObject) {
     previewObject.rotation = state.rotation;
 
+    if (previewObject instanceof JumpGate) {
+      let movementTime = dt;
+
+      if (previewObject.opening === previewObject.openingTarget) {
+        const wait = Math.min(movementTime, gateHoldRemaining);
+
+        gateHoldRemaining -= wait;
+        movementTime -= wait;
+
+        if (gateHoldRemaining === 0) {
+          previewObject.openingTarget = 1 - previewObject.openingTarget;
+          gateHoldRemaining = jumpGateSpec.stateHoldDuration / 1000;
+        }
+      }
+
+      previewObject.update(movementTime);
+    }
+
     if (previewObject instanceof Craft) {
       previewObject.updateModules(dt);
       Ship.prototype.fireWeapons.call(previewObject, dt);
@@ -330,11 +353,15 @@ const render = (now: number) => {
 
   ctx.restore();
 
-  if (previewObject instanceof Craft) {
+  if (previewObject instanceof Craft || previewObject instanceof Passage) {
     for (const zIndex of Object.values(renderingLayers)) {
       previewObject.render({ zIndex });
     }
+  } else {
+    previewObject?.render();
+  }
 
+  if (previewObject instanceof Craft) {
     world.entities.forEach((projectile) => projectile.render());
 
     if (state.mountPoints) {
@@ -359,8 +386,6 @@ const render = (now: number) => {
 
       ctx.restore();
     }
-  } else {
-    previewObject?.render();
   }
 
   renderEffects({ ctx });

@@ -7,7 +7,7 @@ import { paintColors } from '../../specs/colors';
 
 type ServerControl = Extract<
   ServerMessage,
-  { type: 'welcome' | 'respawn' | 'progress' | 'profile' | 'sounds' }
+  { type: 'welcome' | 'respawn' | 'progress' | 'profile' | 'sounds' | 'chat' }
 >;
 
 const {
@@ -23,6 +23,8 @@ const {
   play,
   profile,
   sounds,
+  gateAccess,
+  chat,
 } = controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -96,6 +98,17 @@ class ControlWriter {
     for (let index = 0; index < 32; index += 2) {
       this.byte(Number.parseInt(digits.slice(index, index + 2), 16));
     }
+  }
+
+  text(value: string) {
+    const bytes = new TextEncoder().encode(value);
+
+    if (Array.from(value).length > 240) {
+      throw new RangeError('Message is too long');
+    }
+
+    this.unsigned(bytes.length);
+    this.bytes.push(...bytes);
   }
 
   string(value: string) {
@@ -227,6 +240,23 @@ class ControlReader {
     }
 
     return `${digits.slice(0, 8)}-${digits.slice(8, 12)}-${digits.slice(12, 16)}-${digits.slice(16, 20)}-${digits.slice(20)}`;
+  }
+
+  text() {
+    const length = this.unsigned();
+
+    if (length > 960 || length > this.remaining) {
+      throw new Error('Invalid message');
+    }
+
+    const value = new TextDecoder('utf-8', { fatal: true }).decode(
+      this.bytes.subarray(this.offset, this.offset + length),
+    );
+
+    this.offset += length;
+
+    if (Array.from(value).length > 240) throw new Error('Message is too long');
+    return value;
   }
 
   string() {
@@ -376,6 +406,25 @@ export function encodeClientMessage(
 
     case 'respawn':
       return new ControlWriter(respawn).finish();
+
+    case 'gateAccess': {
+      const writer = new ControlWriter(gateAccess);
+
+      writer.unsigned(message.gateId);
+      return writer.finish();
+    }
+
+    case 'chat': {
+      const writer = new ControlWriter(chat);
+
+      if (message.channel !== 0 && message.channel !== 1) {
+        throw new Error('Invalid channel');
+      }
+
+      writer.byte(message.channel);
+      writer.text(message.text);
+      return writer.finish();
+    }
 
     case 'activity':
       return new ControlWriter(activity).finish();
@@ -571,6 +620,18 @@ export function decodeClientMessage(
       message = { type: 'respawn' };
       break;
 
+    case gateAccess:
+      message = { type: 'gateAccess', gateId: reader.unsigned() };
+      break;
+
+    case chat: {
+      const channel = reader.byte();
+
+      if (channel > 1) throw new Error('Invalid channel');
+      message = { type: 'chat', channel, text: reader.text() };
+      break;
+    }
+
     case activity:
       message = { type: 'activity' };
       break;
@@ -597,6 +658,19 @@ export function decodeClientMessage(
 export function encodeServerControl(
   message: ServerControl,
 ): Uint8Array<ArrayBuffer> {
+  if (message.type === 'chat') {
+    const writer = new ControlWriter(chat);
+
+    if (message.channel !== 0 && message.channel !== 1) {
+      throw new Error('Invalid channel');
+    }
+
+    writer.byte(message.channel);
+    writer.text(message.sender);
+    writer.text(message.text);
+    return writer.finish();
+  }
+
   if (message.type === 'sounds') {
     const writer = new ControlWriter(sounds);
 
@@ -693,6 +767,21 @@ export function decodeServerControl(
   let message: ServerControl;
 
   switch (reader.type) {
+    case chat: {
+      const channel = reader.byte();
+
+      if (channel > 1) throw new Error('Invalid channel');
+
+      message = {
+        type: 'chat',
+        channel,
+        sender: reader.text(),
+        text: reader.text(),
+      };
+
+      break;
+    }
+
     case sounds: {
       const count = reader.unsigned();
 
@@ -784,6 +873,7 @@ export function decodeServerControl(
   reader.finish();
 
   if (
+    message.type !== 'chat' &&
     message.type !== 'respawn' &&
     message.type !== 'profile' &&
     message.type !== 'sounds' &&

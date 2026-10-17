@@ -387,7 +387,7 @@ assert.deepEqual(
   'remote hull renders at the buffered position',
 );
 assert.equal(
-  transforms[1],
+  transforms.find((transform) => typeof transform === 'number'),
   0.75,
   'remote hull renders at the buffered rotation',
 );

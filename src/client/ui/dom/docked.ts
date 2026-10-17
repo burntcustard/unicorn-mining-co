@@ -774,7 +774,6 @@ const createDocked = () => {
       hull: previewHull,
       mount: previewMount ? previewIndex : -1,
       candidate: previewCandidate,
-      active: !previewCandidate || !!inspectedCandidate,
     });
 
     drawThumbnails();

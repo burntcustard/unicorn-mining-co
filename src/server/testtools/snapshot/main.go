@@ -30,6 +30,8 @@ func main() {
 				field.DefinitionID:  "testScout",
 				field.Name:          "MUSTANG",
 				field.Fuel:          float64(3.25),
+				field.TransitTime:   float64(-1.25),
+				field.TransitGate:   float64(987),
 				field.Shades:        []string{"#fff", "#000"},
 				field.HullHealth:    []float64{8, 20, 40},
 				field.Modules:       []protocol.ModuleState{{Type: 12, Mount: 2, FireCooldown: new(float64(.375)), ChargeCooldown: new(float64(1.125)), ID: new(float64(-10)), Health: new(float64(20)), Shades: []string{"#a", "#b"}, Segments: []protocol.ModuleSegment{{Active: 1, ActivationProgress: 0.5}}}},

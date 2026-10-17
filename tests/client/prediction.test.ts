@@ -1,3 +1,4 @@
+import { JumpGate } from '../../src/client/objects/jump-gate';
 import * as Vec from '../../src/client/utilities/vector';
 import assert from 'node:assert/strict';
 import { createAsteroid } from '../../src/client/objects/asteroid';
@@ -36,6 +37,49 @@ import { type ShapeOutline } from '../../src/client/types';
 import { installExampleModules } from '../support/example-modules';
 
 installExampleModules();
+
+{
+  const world = createWorld();
+  const gate = addEntity(world, new JumpGate({ id: 100 }));
+  const prediction = new PredictionManager({ world });
+
+  const authoritative = new JumpGate({
+    id: gate.id,
+    opening: 0.5,
+    openingTarget: 1,
+    destinationName: 'Priamus',
+  });
+
+  prediction.reconcile({ entities: [authoritative], tick: 0 });
+  assert.equal(world.entities.get(gate.id), gate);
+  assert.equal(
+    gate.opening,
+    0.5,
+    'replicated gates update the reused prediction object',
+  );
+  assert.equal(gate.openingTarget, 1);
+  assert.equal(gate.destinationName, 'Priamus');
+}
+
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const prediction = new PredictionManager({ world });
+  const server = cloneEntity({ entity: ship }) as typeof ship;
+
+  for (const transitTime of [-1.25, -0.25, 1.5, 1.25, 0]) {
+    server.transitTime = transitTime;
+    server.transitGate = transitTime ? 987 : 0;
+    prediction.reconcile({ entities: [server], tick: 0 });
+    assert.equal(world.entities.get(ship.id), ship);
+    assert.equal(
+      ship.transitTime,
+      transitTime,
+      'reused render ship receives each transit phase',
+    );
+    assert.equal(ship.transitGate, server.transitGate);
+  }
+}
 
 // Reusing display objects across ticks must refresh mechanics and refitted links.
 {

@@ -12,6 +12,8 @@ export const controlMessageIds = {
   play: 9,
   profile: 10,
   sounds: 11,
+  gateAccess: 12,
+  chat: 13,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {
@@ -65,6 +67,11 @@ export const binaryFieldIds = {
   rounds: 35,
   fuel: 36,
   firing: 37,
+  opening: 38,
+  openingTarget: 39,
+  destinationName: 40,
+  transitTime: 41,
+  transitGate: 42,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {
@@ -74,4 +81,6 @@ export const entityKindIds = {
   station: 3,
   object: 4,
   projectile: 5,
+  jumpGate: 6,
+  wormhole: 7,
 } as const satisfies Record<string, number>;

@@ -1,3 +1,8 @@
+import {
+  makeSegment,
+  lockedOutlines,
+  type HullSegmentPlan,
+} from './hull-segments';
 import { withAlpha } from '../utilities/color';
 import { type Ship } from './ship';
 import { type Station } from './station';
@@ -18,20 +23,17 @@ import {
   defaultFriction,
   defaultHealth,
   hullBounciness,
-  defaultActivationDuration,
   wreckageDecay,
   wreckageHealth,
 } from '../../specs/craft';
 import { flight } from '../../specs/control-ship';
 import * as Vec from '../utilities/vector';
 import { type WreckageSegment } from './wreckage-segment';
-import { type MountPointSpec } from '../../specs/mounts';
 import { cargoHatchOpen, moduleTypes, moduleTypesById } from './modules/index';
 import {
   movePoint,
   shapeOutlineExtent,
   rotatePoint,
-  shapeOf,
 } from '../utilities/geometry';
 import { GameObject, type RenderOptions } from './game-object';
 import { colors, shadesOf } from '../../specs/colors';
@@ -71,15 +73,6 @@ export interface CraftRenderOptions extends RenderOptions {
   }) => void;
 }
 
-type ModuleRecord = Module;
-
-type HullSegmentPlan = Omit<Partial<Segment>, 'mounts'> & {
-  [key: string]: any;
-  health?: number;
-  mounts?: MountPointSpec[][];
-  points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
-};
-
 type CraftData = {
   [key: string]: any;
   hullSegments: HullSegmentPlan[];
@@ -102,7 +95,6 @@ const collisionCaches = new WeakMap<
 >();
 
 const drillColliders = new WeakMap<Segment, Collider>();
-const lockedOutlines = new WeakSet<ShapeOutline>();
 
 const collisionOutlines = new WeakMap<
   ShapeOutline,
@@ -124,110 +116,10 @@ const outlinesOf = (segments: Segment[]) =>
     .map(({ points }) => points)
     .filter((points): points is ShapeOutline => Array.isArray(points));
 
-const makeSegment = (
-  craft: Craft,
-  craftModule: ModuleRecord | HullSegmentPlan,
-  segmentPlan: HullSegmentPlan,
-  mount?: Mount,
-): Segment => {
-  const { points } = segmentPlan;
-  const fixedPoints = Array.isArray(points) ? points : undefined;
-  const shape = fixedPoints?.[0] && shapeOf(fixedPoints, mount);
-  const thrusterOffset = segmentPlan.thrusterNozzleSide
-    ? (mount?.mountPoints?.find(({ fits }) =>
-        fits.includes(craftModule.constructor as typeof Module),
-      )?.thrusterOffset ?? 0)
-    : 0;
-
-  // Model vertices are shared specs. Edge markings remain mutable;
-  // changed geometry supplies another outline, including animated models.
-  if (fixedPoints && !lockedOutlines.has(fixedPoints)) {
-    fixedPoints.edges ||= fixedPoints.map(() => true);
-    fixedPoints.forEach(Object.freeze);
-    Object.freeze(fixedPoints);
-    lockedOutlines.add(fixedPoints);
-  }
-
-  // A thruster's flare is up about as soon as the key is down, unless told
-  // otherwise, either on the module itself or (as the shield's bubble does)
-  // on just the one segment of it
-  const duration =
-    segmentPlan.activationDuration ||
-    craftModule.activationDuration ||
-    defaultActivationDuration;
-
-  // Give hulls and modules the same runtime layout. Blueprint values are
-  // copied once instead of making every blueprint a different prototype.
-  return Object.assign(
-    {
-      health: undefined,
-      points: undefined,
-      mounts: undefined,
-      core: undefined,
-      disablePhysics: undefined,
-      dockSegment: undefined,
-      activationDuration: undefined,
-      covers: undefined,
-      fillAlpha: undefined,
-      fillShade: undefined,
-      color: undefined,
-      wreckageColor: undefined,
-      shapeOutline: undefined,
-      wreckage: undefined,
-      catches: undefined,
-      flareSize: undefined,
-      thrusterNozzleSide: undefined,
-      facing: undefined,
-      middle: undefined,
-      reach: undefined,
-      biting: undefined,
-      collider: undefined,
-      expandingTick: undefined,
-      phase: 0,
-      activationProgress: 0,
-      hull: false,
-      module: undefined,
-      mount: undefined,
-      active: 0,
-      radius: undefined,
-      rate: 0,
-      shades: undefined,
-      localPosition: undefined,
-      zIndex: renderingLayers.shipHull,
-    },
-    segmentPlan,
-    {
-      phase: 0,
-      ...shape,
-      activationProgress: 0,
-      hull: !mount,
-      module: craftModule,
-      mount,
-      active: 0,
-      radius: segmentPlan.radius || (shape && (() => shape.reach)),
-      rate: 1 / duration,
-      shades: craftModule.shades || craft.shades,
-      localPosition: Vec.add(
-        mount?.localPosition || segmentPlan.localPosition || Vec.create(),
-        Vec.create(
-          0,
-          (segmentPlan.thrusterNozzleSide ||
-            (craftModule.collectsCargo && mount
-              ? -Math.sign(mount.localPosition.y)
-              : 0)) *
-            ((craftModule.offset || 0) + thrusterOffset),
-        ),
-      ),
-      zIndex:
-        segmentPlan.zIndex ??
-        craftModule.zIndex ??
-        craft.zIndex ??
-        renderingLayers.shipHull,
-    },
-  ) as Segment;
-};
-
 export class Craft extends GameObject {
+  // Negative time counts down departure; positive time counts down arrival, in seconds.
+  transitTime = 0;
+  transitGate = 0;
   declare cargoContents: GameObject[];
   declare cockpit?: Segment;
   static friction = defaultFriction;
@@ -407,7 +299,7 @@ export class Craft extends GameObject {
   // Fit an owned instance, or pass a falsy module to empty the mount. Replaced
   // instances remain owned and enter cargo contents when their link clears.
   fit(
-    craftModule: ModuleRecord | 0,
+    craftModule: Module | 0,
     mount = this.mounts.find(
       ({ fits, module }) =>
         !module && fits.includes(craftModule && craftModule.constructor),
@@ -585,8 +477,20 @@ export class Craft extends GameObject {
     return collisionCaches.get(this)?.source;
   }
 
+  isDrillTip(collider: Collider) {
+    return (
+      collider.owner === this &&
+      collider.segment !== undefined &&
+      drillColliders.get(collider.segment) === collider
+    );
+  }
+
   hitbox(collidingOnly = false) {
-    if (this.dockedTo !== undefined && this.dockedTo !== 0) {
+    if (
+      this.transitTime ||
+      (this.dockedTo !== undefined && this.dockedTo !== 0)
+    ) {
+      // Invalidate the geometry token so physics removes cached fixtures too.
       collisionCaches.delete(this);
 
       return [];
@@ -654,7 +558,8 @@ export class Craft extends GameObject {
         collider.localPosition?.x !== x ||
         collider.localPosition?.y !== y ||
         collider.physics !== physics ||
-        collider.role !== (segment.catches ? 'cargoHatch' : undefined) ||
+        collider.contactFilter !==
+          (segment.catches ? cargoContactAllowed : undefined) ||
         collider.collisionMargin !== undefined ||
         collider.pickupPoint !== undefined ||
         collider.radius !== radius ||
@@ -712,7 +617,6 @@ export class Craft extends GameObject {
       collider.friction =
         (friction?.call ? friction(segment) : friction) ?? this.friction;
       collider.dockSegment = segment.dockSegment;
-      collider.role = segment.catches ? 'cargoHatch' : undefined;
       collider.shapeOutline = shapeOutline;
       collider.collides = Boolean(collides);
       collider.contactFilter = segment.catches
@@ -740,7 +644,6 @@ export class Craft extends GameObject {
           tip = {
             owner: this,
             segment,
-            role: 'hornDrill',
             physics: false,
             friction: this.friction,
             position: Vec.create(),

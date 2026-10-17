@@ -1,10 +1,10 @@
+import { drawHullSegment } from './hull-rendering';
 import { withAlpha } from '../utilities/color';
 import { renderingLayers } from '../../specs/rendering-layers';
-import { drawSegment, shapePath } from '../utilities/drawing';
+import { shapePath } from '../utilities/drawing';
 import { game } from '../game';
 import { colors } from '../../specs/colors';
-import { type Pose, type Segment } from '../types';
-import { drawDockingBayGlow, hullSegmentFill } from '../utilities/lighting';
+import { drawDockingBayGlow } from '../utilities/lighting';
 import { stationSpecsById, type StationId } from '../../specs/stations';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
@@ -91,7 +91,7 @@ export class Station extends Craft {
           guides.set(this, cached);
         }
 
-        renderSurface({
+        guide = !renderSurface({
           ctx,
           key: cached,
           cache: cached,
@@ -119,9 +119,8 @@ export class Station extends Craft {
 
       ctx.restore();
 
-      // Keep both translucent bay halves and their additive glows on the
-      // foreground canvas. Rotating only a cached half creates a visible seam.
-      guide = false;
+      // Previews draw the guide below when no composed world frame is active.
+      // Bay halves and their glows always stay on the foreground canvas.
     }
 
     super.render({
@@ -175,30 +174,7 @@ export class Station extends Craft {
         ctx.stroke();
         ctx.setLineDash([]);
       },
-      drawHull: ({
-        segment,
-        health,
-        pose,
-      }: {
-        segment: Segment;
-        health: number;
-        pose: Pose;
-      }) => {
-        const worn =
-          health < (segment.module.health || segment.module.healthActivated) / 2
-            ? 0
-            : +!!segment.hull;
-
-        ctx.fillStyle = hullSegmentFill({
-          ctx,
-          segment,
-          worn,
-          rotation: pose.rotation,
-        });
-
-        ctx.strokeStyle = segment.shades[2];
-        drawSegment({ ctx, segment });
-      },
+      drawHull: (options) => drawHullSegment({ ctx, ...options }),
     });
   }
 }

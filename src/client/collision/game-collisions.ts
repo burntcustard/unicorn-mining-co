@@ -110,7 +110,7 @@ const geometryFlags = (collider: Collider) =>
   +(collider.physics !== false) |
   (+(collider.collisionMargin !== undefined) << 1) |
   (+(collider.pickupPoint === true) << 2) |
-  (+(collider.role === 'cargoHatch') << 3);
+  (+(collider.segment?.catches === true) << 3);
 
 export class GameCollisions {
   private bodies = new Map<number, BodyRecord>();

@@ -72,7 +72,7 @@ export const renderDebug = ({
   if (showDeadzone) {
     const drillTipCollider = ship
       .hitbox()
-      .find(({ role }) => role === 'hornDrill');
+      .find((collider) => ship.isDrillTip(collider));
 
     if (drillTipCollider) {
       game.ctx.save();

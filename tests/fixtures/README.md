@@ -28,7 +28,10 @@ against native trig at the wrapped angle, unit length, signed zero and nonfinite
 inputs. Huge angles intentionally use the float64 remainder as their direction.
 
 `session.json.gz` stores 983 session actions and fixed decoded messages from the
-current Go server. The replay uses the example module and ammunition catalog, with the normal
+current Go server with sector generation and globally allocated runtime IDs.
+The sector update retains the same packet types, counts, and account balances;
+spawn positions, nearby generated entities, and runtime IDs now reflect Patroclus.
+The replay uses the example module and ammunition catalog, with the normal
 ship, station, and fuel specs. Full ship records include the replicated
 `firing` boolean, initially false in these actions. The test decodes newly emitted packets through the
 client codec and checks every message against those fixed records, including

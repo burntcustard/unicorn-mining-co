@@ -9,6 +9,9 @@ const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
 const token = '01234567-89ab-cdef-0123-456789abcdef';
 
 const client: ClientMessage[] = [
+  { type: 'gateAccess', gateId: 2 ** 45 },
+  { type: 'chat', channel: 0, text: 'Hello 🦄 <&>' },
+  { type: 'chat', channel: 1, text: '🦄'.repeat(240) },
   { type: 'hello', playerToken: null },
   { type: 'hello', playerToken: token },
   { type: 'prepare', playerToken: null },
@@ -61,6 +64,12 @@ const client: ClientMessage[] = [
 ];
 
 const server = [
+  {
+    type: 'chat' as const,
+    channel: 1,
+    sender: 'Pilot 🦄',
+    text: 'Hello sectors',
+  },
   {
     type: 'sounds' as const,
     sounds: [0, 1, 2, 3, 4, 5, 6, 7, 9].map((effect) => ({

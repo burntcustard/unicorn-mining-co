@@ -13,6 +13,9 @@ import (
 type controlFixture struct {
 	Client []struct {
 		Message struct {
+			GateID                                    uint64
+			Channel                                   byte
+			Sender, Text                              string
 			DisplayName                               string
 			Type, PlayerToken                         string
 			Tick, Sequence                            uint64
@@ -26,6 +29,9 @@ type controlFixture struct {
 	}
 	Server []struct {
 		Message struct {
+			GateID                       uint64
+			Channel                      byte
+			Sender, Text                 string
 			Sounds                       []WorldSound
 			DisplayName                  *string
 			UnlockedPaints               *uint16
@@ -76,6 +82,14 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		}
 
 		switch got.Type {
+		case "gateAccess":
+			if got.GateID != fixture.Message.GateID {
+				t.Fatal("gate ID differs")
+			}
+		case "chat":
+			if got.Channel != fixture.Message.Channel || got.Text != fixture.Message.Text {
+				t.Fatal("chat differs")
+			}
 		case "profile":
 			if got.DisplayName != fixture.Message.DisplayName {
 				t.Errorf("name: %q", got.DisplayName)
@@ -103,6 +117,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		message := fixture.Message
 
 		got, err := EncodeServerControl(ServerControl{
+			Channel: message.Channel, Sender: message.Sender, Text: message.Text,
 			Sounds: message.Sounds,
 			Type:   message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
 			ServerTick: message.ServerTick, PlayerToken: message.PlayerToken,

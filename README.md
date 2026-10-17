@@ -71,7 +71,7 @@ New players start with 2,000 credits. Existing players keep their saved balance.
 The same Go server supports source and production clients through binary packets.
 Node is used only for frontend builds, generators, and development/test tooling.
 
-To preview object specs independently, run `npm run viewer` and open
+To preview object specs independently, run `npm run tool:object-viewer` and open
 [localhost:3000](http://localhost:3000/). Stop the regular frontend first because
 both use port 3000. The development-only GameObject Viewer needs no Go server.
 It uses the actual client renderers for ships, stations, items and procedural
@@ -88,9 +88,72 @@ Selection, rotation, zoom, viewing aids, fitted modules and module activation
 survive updates and page refreshes. Viewer source lives under `src/tools/game-object-viewer` and is
 excluded from the game production entry.
 
-To preview Gemetric, run `npm run font-viewer` and open
+To preview Gemetric, run `npm run tool:font-viewer` and open
 [localhost:3000](http://localhost:3000/) with the other frontend stopped.
 See [font/README.md](font/README.md) for glyph editing, generation, and reuse.
+
+To inspect procedural sectors, run `npm run tool:world-viewer` and open
+[localhost:3000](http://localhost:3000/) with the other frontend stopped.
+The World Viewer needs no Go server. Choose a seed and sector, pan by dragging,
+and scroll to zoom. The world map shows the connected initial 20 sectors;
+enable future sectors to see all 68. Click a map sector to inspect its fields,
+stations, wrecks, planned Jump Gates and wormholes. Zoom in for individual
+asteroids from the actual region generator. Both kinds of passage include
+reserved arrival space. Wormholes have their own layer and dashed purple map
+links; the viewer reveals them for inspection, while gameplay discovery will
+require exploration. Dim Jump Gates lead to future sectors. In the game, passages appear as you explore.
+
+Edit `src/specs/sectors.ts` for sector sizes, feature falloff and gate placement,
+or `src/specs/region-generation.ts` for field contents and feature spacing.
+The two passage counts are independent seeded draws scaled by sector size,
+with at least one connection overall. Some sectors are reachable only by
+wormhole. Jump Gates cluster nearer the populated area; wormholes sample a
+wider annulus, favoring the outskirts. Every passage and arrival point stays
+below 100,000 units from the origin. All stations follow the same procedural
+density and spacing rules; sectors have no guaranteed station. Sectors without
+Jump Gates have no stations.
+Source edits hot-reload, retaining the seed, selection, camera and layers.
+Generation runs in a worker so navigation stays responsive. Large views draw
+feature outlines without generating every asteroid. This tool is excluded from
+the production game. `npm run world-preview -- 25 Patroclus` still exports an SVG.
+
+The game runs isolated sector worlds and saves each player's current sector.
+Target a Jump Gate to open its conversation in the bottom-left communications
+panel, then choose Yes to request access. Requests require proximity to the gate.
+Access opens the moving hull; the circular portal remains active. Wormholes
+are always open. Travel pulls a ship into the portal, shrinks it, and restores
+it at the destination center. The ship waits for pilot input, and cannot travel
+back until it has left that portal. Connected Jump Gates share a fixed, seeded
+rotation. Gate hulls are indestructible and cannot be docked with. The GameObject Viewer includes
+animated Jump Gate and wormhole previews. Tune them in `src/specs/jump-gate.ts`
+and `src/specs/wormhole.ts`; shared travel timings live in `src/specs/hole.ts`.
+Press Enter to type in Sector chat, or switch to the compact Global tab.
+
+Player roles are `user` (the default), `admin`, and `owner`. The initial owner is
+the saved account named `burntcustard`; once assigned, ownership stays with that
+account's private ID. New accounts reusing the name do not gain ownership. If
+multiple existing accounts have that name, ownership is not assigned automatically.
+Admins and owners can use `/admin playername`, `/unadmin playername`,
+`/ban playername`, `/pardon playername`, and `/tp x y`. Name matching ignores case
+and accepts names containing spaces; ambiguous names are rejected. Owners cannot
+be demoted or banned through these commands. Bans disconnect the player and block
+their private ID from reconnecting while retaining their progress. Roles and bans
+survive server restarts. Everyone can use `/list` to privately list online player
+names on separate lines. Admins and owners also see each player's sector and
+coordinates.
+
+Schema 6 databases upgrade to schema 7 automatically, adding player roles and
+bans without resetting progress. This generation requires a sector-format world
+database (schema 6 or later). The TS and Go generators
+accept an explicit sector context. The catalog's name order is append-only: IDs and individual
+sector seeds are name-derived. `graphStages` records completed catalog batches;
+keep those boundaries fixed and append new boundaries when adding batches of
+names. Otherwise, appended names join individually. Graph expansion uses free
+sites without changing earlier connections or moving endpoints. Within a new
+batch, connectivity can add an endpoint when random counts leave a sector
+unreachable, favoring larger sectors. Changing the initial enabled count does
+not regenerate the graph. The starting sector is a separate setting from the
+graph anchor.
 
 7. See [package.json](package.json) for other scripts
 

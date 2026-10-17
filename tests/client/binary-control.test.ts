@@ -26,6 +26,9 @@ for (const bytes of [
 }
 
 const controls: ClientMessage[] = [
+  { type: 'gateAccess', gateId: 2 ** 45 },
+  { type: 'chat', channel: 0, text: 'Hello 🦄 <script> sector' },
+  { type: 'chat', channel: 1, text: '🦄'.repeat(240) },
   {
     type: 'input',
     tick: 1,
@@ -125,6 +128,12 @@ for (const message of controls) {
 }
 
 for (const message of [
+  {
+    type: 'chat' as const,
+    channel: 1,
+    sender: 'Jump Gate',
+    text: 'Access granted.',
+  },
   { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
   {
     type: 'welcome' as const,
@@ -252,4 +261,11 @@ assert.throws(
 
 console.log(
   'Binary client and server controls round-trip and reject invalid frames',
+);
+
+assert.throws(() =>
+  encodeClientMessage({ type: 'chat', channel: 2, text: 'Bad channel' }),
+);
+assert.throws(() =>
+  encodeClientMessage({ type: 'chat', channel: 0, text: 'a'.repeat(241) }),
 );

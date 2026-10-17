@@ -48,7 +48,7 @@
 
 **refuel** - A station overview action that fills the ship's fuel tank, charging for the missing liters at the shared fuel price, rounded up to whole unicredits.
 
-**game object** - Anything in the game with its own identity and state, such as a craft, asteroid, item, or module.
+**game object** - Anything in the game with its own identity and state, such as a craft, asteroid, passage, item, or module.
 
 **health** - The remaining strength or 'hitpoints' of a game object or one of its pieces. Damage reduces a game objects health.
 
@@ -56,9 +56,9 @@
 
 **horn drill** - A pointed drill module fitted to a craft.
 
-**hull** - The structural body of a craft, made from hull segments rather than fitted modules.
+**hull** - The structural body of a craft or jump gate, made from hull segments rather than fitted modules.
 
-**hull segment** - One structural piece of a craft's hull. It has its own shape and health and may carry a mount.
+**hull segment** - One structural piece of a craft's or jump gate's hull. It has its own shape and health and may carry a mount.
 
 **input frame** - The controls held at the start of a simulation tick, together with any changes during that tick.
 
@@ -94,6 +94,11 @@
 
 **player input** - The controls a player uses to fly a ship or operate its modules.
 
+**player role** - A saved account's server-enforced permissions: `user` by default,
+`admin` for moderation and teleport commands, or `owner` with those permissions
+and protection from demotion and banning through chat. Roles belong to players,
+not their ships, modules, segments, or colliders. Banned status is separate from role.
+
 **point count** - The number of points used to form a shape, such as an asteroid's shape outline.
 
 **points** - The places marking the corners of a shape, usually in order around its shape outline. In a model, points can give a segment its shape.
@@ -105,6 +110,12 @@
 **prediction** - The client's estimate of what happens after player input, before the matching server update arrives.
 
 **region** - A square part of the world used to generate and load nearby asteroids, stations, and wrecks.
+
+**sector** - A named area with its own procedural seed and unbounded gameplay coordinates, centered on the remains of a Trojan asteroid. Its world-map position is separate from its gameplay coordinates. A sector simulation uses the existing world and region machinery.
+
+**jump gate** - A permanent human-made structure connecting two sectors. Each endpoint has a reserved arrival position. Natural or secret passages are wormholes.
+
+**wormhole** - A natural, bidirectional passage between sectors, discovered through exploration. Wormholes have stable endpoints and reserved arrival positions, and can occur farther from a sector's center than jump gates.
 
 **region description** - A plan for the asteroids, stations, and wrecks in a region before they appear as objects in the world.
 
@@ -144,7 +155,7 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 
 **sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.
 
-**target** - A game object deliberately targeted by a player or another controller of a craft. Each controller can have at most one target at a time and can change or clear that target at any time. Crafts (including ships and stations), asteroids, and items can be targets. Projectiles, loose modules, and other game objects cannot.
+**target** - A game object deliberately targeted by a player or another controller of a craft. Each controller can have at most one target at a time and can change or clear that target at any time. Crafts (including ships and stations), jump gates, wormholes, asteroids, and items can be targets. Projectiles, loose modules, and other game objects cannot.
 
 **targeted** - The state of a game object that is a controller's current target. Hovering previews an object without making it targeted or changing the current target.
 

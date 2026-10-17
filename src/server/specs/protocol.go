@@ -9,6 +9,11 @@ type Protocol struct {
 }
 
 type BinaryFields struct {
+	TransitTime       int `json:"transitTime"`
+	TransitGate       int `json:"transitGate"`
+	Opening           int `json:"opening"`
+	OpeningTarget     int `json:"openingTarget"`
+	DestinationName   int `json:"destinationName"`
 	Firing            int `json:"firing"`
 	Fuel              int `json:"fuel"`
 	Rounds            int `json:"rounds"`

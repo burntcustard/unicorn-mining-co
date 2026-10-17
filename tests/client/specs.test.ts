@@ -89,8 +89,14 @@ for (const spec of itemTypes as readonly ItemSpec[]) {
   assert.equal(pickup.radius, 0);
   assert(pickup.contactFilter);
   assert.equal(pickup.contactFilter(pickup, body), false);
+
   assert.equal(
-    pickup.contactFilter(pickup, { ...body, role: 'cargoHatch' }),
+    pickup.contactFilter(pickup, {
+      ...body,
+      segment: createPlayerShip(createWorld()).segments.find(
+        (segment) => segment.catches,
+      ),
+    }),
     true,
   );
 }

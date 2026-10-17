@@ -45,8 +45,19 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 		s.World.Tick, s.World.Random.State = w.Tick, w.RandomState
 		s.World.NextEntityID, s.World.NextObjectID = w.NextEntityID, w.NextObjectID
+		previous := s.currentSector
+
+		for id, state := range w.Sectors {
+			s.activateSector(id)
+			s.World.Tick, s.World.Random.State = state.Tick, state.RandomState
+			s.World.NextEntityID, s.World.NextObjectID = state.NextEntityID, state.NextObjectID
+		}
+
+		s.activateSector(previous)
 
 		for _, e := range saved.Entities {
+			s.activateSector(e.SectorID)
+
 			if e.Deleted {
 				if e.Generated {
 					s.regions.regions.Remove(uint32(e.ID))
@@ -69,6 +80,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 		}
 
 		for _, profile := range saved.Players {
+			s.activateSector(profile.SectorID)
 			id := s.nextPlayerID
 			s.nextPlayerID++
 			ship, err := objects.RestoreShip(profile.Ship, s.World, id)
@@ -79,7 +91,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 			now := s.now()
 
-			p := &playerRecord{profile: profile, playerID: id, ship: ship, shipID: ship.ID, hiddenShip: !ship.Dead, disconnectedAt: &now,
+			p := &playerRecord{sectorID: s.currentSector, profile: profile, playerID: id, ship: ship, shipID: ship.ID, hiddenShip: !ship.Dead, disconnectedAt: &now,
 				inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), binaryReplication: NewBinaryReplicationManager(s.World.Specification)}
 
 			ship.Fly(0, 0)
@@ -93,6 +105,8 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 		}
 
 		for _, e := range saved.Entities {
+			s.activateSector(e.SectorID)
+
 			if e.Deleted || e.State.Object.LocalMovementParent == 0 {
 				continue
 			}
@@ -106,45 +120,31 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 		}
 	} else {
 		// Procedural IDs are uint32; runtime objects occupy a separate range.
-		s.World.NextEntityID = 1 << 32
+		s.World.NextEntityID = s.nextEntityID
 	}
 
 	s.persistence = &sessionPersistence{generationDigest: persistence.GenerationDigest(s.World.Specification), store: store, entities: map[int64]changedEntity{}, players: map[*playerRecord]bool{}, nextCheckpoint: s.now().Add(30 * time.Second)}
 
-	s.World.EntityChanged = func(e simulation.Entity, deleted bool) {
-		if s.World.Loading {
-			return
-		}
+	s.activateSector(s.World.Specification.StartingSectorID)
 
-		if e.Base().PlayerID != nil {
-			s.players.ForEach(func(p *playerRecord, _ string) {
-				if p.shipID == e.Base().ID {
-					s.persistence.players[p] = true
-				}
-			})
-
-			return
-		}
-
-		generated := s.regions.managed.Has(e.Base().ID)
-
-		if deleted && generated {
-			s.regions.regions.Remove(uint32(e.Base().ID))
-		}
-
-		s.persistence.entities[e.Base().ID] = changedEntity{e, generated, deleted}
+	for _, runtime := range s.sectors {
+		s.attachSectorPersistence(runtime)
 	}
 
-	s.regions.onSleep = func(e simulation.Entity) {
-		s.persistence.entities[e.Base().ID] = changedEntity{e, s.regions.managed.Has(e.Base().ID), false}
-	}
-
+	s.assignInitialOwner()
 	store.Start()
 	return nil
 }
 
 func (s *GameSession) worldRecord() persistence.World {
-	return persistence.World{Seed: s.worldSeed, GenerationDigest: s.persistence.generationDigest, Tick: s.World.Tick, RandomState: s.World.Random.State, NextEntityID: s.World.NextEntityID, NextObjectID: s.World.NextObjectID}
+	states := map[string]persistence.SectorState{}
+
+	for id, runtime := range s.sectors {
+		w := runtime.world
+		states[id] = persistence.SectorState{Tick: w.Tick, RandomState: w.Random.State, NextEntityID: w.NextEntityID, NextObjectID: w.NextObjectID}
+	}
+
+	return persistence.World{Sectors: states, Seed: s.worldSeed, GenerationDigest: s.persistence.generationDigest, Tick: s.World.Tick, RandomState: s.World.Random.State, NextEntityID: s.World.NextEntityID, NextObjectID: s.World.NextObjectID}
 }
 
 func (s *GameSession) accountTime(p *playerRecord) {
@@ -172,6 +172,7 @@ func (s *GameSession) capturePlayer(p *playerRecord) persistence.Player {
 	s.accountTime(p)
 
 	profile := p.profile
+	profile.SectorID = p.sectorID
 	profile.Visited = slices.Clone(profile.Visited)
 	profile.Ship = objects.CaptureShip(p.ship)
 	return profile
@@ -195,7 +196,7 @@ func (s *GameSession) flushChanges() bool {
 	}
 
 	for id, change := range persist.entities {
-		e := persistence.Entity{ID: id, Generated: change.generated, Deleted: change.deleted}
+		e := persistence.Entity{SectorID: s.sectorForWorld(change.entity.Base().World), ID: id, Generated: change.generated, Deleted: change.deleted}
 
 		if !e.Deleted {
 			e.State = objects.CaptureEntity(change.entity)
@@ -231,7 +232,9 @@ func (s *GameSession) checkpoint() {
 	}
 
 	if !s.now().Before(persist.nextCheckpoint) && len(persist.checkpoint)+len(persist.checkpointPlayers) == 0 {
-		persist.checkpoint = s.World.Entities.Values()
+		for _, runtime := range s.sectors {
+			persist.checkpoint = append(persist.checkpoint, runtime.world.Entities.Values()...)
+		}
 
 		s.players.ForEach(func(p *playerRecord, _ string) {
 			if p.socket != nil {
@@ -248,11 +251,11 @@ func (s *GameSession) checkpoint() {
 		persist.checkpoint[0] = nil
 		persist.checkpoint = persist.checkpoint[1:]
 
-		if e.Base().PlayerID != nil || e.Base().Dead {
+		if e.Base().PlayerID != nil || e.Base().Dead || e.Base().Kind == "jumpGate" || e.Base().Kind == "wormhole" {
 			continue
 		}
 
-		persist.entities[e.Base().ID] = changedEntity{e, s.regions.managed.Has(e.Base().ID), false}
+		persist.entities[e.Base().ID] = changedEntity{e, s.sectors[s.sectorForWorld(e.Base().World)].regions.managed.Has(e.Base().ID), false}
 	}
 
 	if len(persist.checkpointPlayers) > 0 {
@@ -272,11 +275,14 @@ func (s *GameSession) shutdownPersistence(ctx context.Context) error {
 
 	// At shutdown the owner is stopped, so copying remaining active mechanics
 	// cannot contend with simulation. Sleeping records are saved when unloaded.
-	s.World.Entities.ForEach(func(e simulation.Entity, id int64) {
-		if e.Base().PlayerID == nil {
-			s.persistence.entities[id] = changedEntity{e, s.regions.managed.Has(id), false}
-		}
-	})
+	for _, runtime := range s.sectors {
+		runtime.world.Entities.ForEach(func(e simulation.Entity, id int64) {
+			if e.Base().PlayerID == nil && e.Base().Kind != "jumpGate" && e.Base().Kind != "wormhole" {
+				s.persistence.entities[id] = changedEntity{e, runtime.regions.managed.Has(id), false}
+			}
+		})
+
+	}
 
 	s.players.ForEach(func(p *playerRecord, _ string) { s.savePlayer(p) })
 
@@ -357,4 +363,35 @@ func (s *GameSession) progress(events []protocol.SimulationEvent) {
 			s.unlockPaint(p, 0)
 		}
 	})
+}
+
+func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
+	runtime.world.EntityChanged = func(e simulation.Entity, deleted bool) {
+		if runtime.world.Loading || e.Base().Kind == "jumpGate" || e.Base().Kind == "wormhole" {
+			return
+		}
+
+		if e.Base().PlayerID != nil {
+			s.players.ForEach(func(p *playerRecord, _ string) {
+				if p.shipID == e.Base().ID {
+					s.persistence.players[p] = true
+				}
+			})
+
+			return
+		}
+
+		generated := runtime.regions.managed.Has(e.Base().ID)
+
+		if deleted && generated {
+			runtime.regions.regions.Remove(uint32(e.Base().ID))
+		}
+
+		s.persistence.entities[e.Base().ID] = changedEntity{e, generated, deleted}
+	}
+
+	runtime.regions.onSleep = func(e simulation.Entity) {
+		s.persistence.entities[e.Base().ID] = changedEntity{e, runtime.regions.managed.Has(e.Base().ID), false}
+	}
+
 }

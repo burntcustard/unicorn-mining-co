@@ -18,6 +18,83 @@ import {
   playerInput,
 } from '../../src/client/input/input.ts';
 import { packPlayerInput } from '../../src/client/protocol/input.ts';
+import { createChat } from '../../src/client/ui/dom/chat';
+import { JumpGate } from '../../src/client/objects/jump-gate';
+
+export const checkChat = () => {
+  const sent: (string | number)[][] = [];
+  const typing: boolean[] = [];
+
+  const network = {
+    displayName: 'Pilot',
+    chatMessages: [
+      {
+        type: 'chat' as const,
+        channel: 0,
+        sender: '<b>Pilot</b>',
+        text: '<img src=x>',
+      },
+      { type: 'chat' as const, channel: 1, sender: 'Global', text: 'Hello' },
+    ],
+    sendChat: (channel: number, text: string) => sent.push([channel, text]),
+    requestGateAccess: (id: number) => sent.push([id]),
+  };
+
+  const chat = createChat({ network, onTyping: (value) => typing.push(value) });
+  const panel = document.querySelector<HTMLElement>('.game-chat')!;
+  const log = panel.querySelector('.chat-log')!;
+  const input = panel.querySelector<HTMLInputElement>('.game-chat input')!;
+  const tabs = panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
+  const gate = new JumpGate({ id: 987, destinationName: 'Priamus' });
+
+  chat.update(gate, true);
+  const escaped =
+    log.textContent === '<b>Pilot</b>: <img src=x>' &&
+    !log.querySelector('b, img');
+  const line = log.firstElementChild;
+
+  chat.update(gate, true);
+  const unchanged = line === log.firstElementChild;
+
+  tabs[1].click();
+  chat.update(gate, true);
+  const global = log.textContent === 'Global: Hello';
+
+  network.chatMessages = [
+    ...network.chatMessages,
+    { type: 'chat', channel: 1, sender: 'New', text: 'Message' },
+  ];
+  chat.update(gate, true);
+  const updated = log.children.length === 2;
+
+  chat.focus();
+  input.value = '  Send this  ';
+  input.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+  );
+  panel.querySelector<HTMLButtonElement>('.chat-contact button')!.click();
+  const actions =
+    JSON.stringify(sent) === JSON.stringify([[1, 'Send this'], [987]]);
+
+  chat.focus();
+  chat.update(undefined, false);
+  const hidden =
+    !chat.focus() &&
+    !panel.getClientRects().length &&
+    document.activeElement !== input;
+
+  document.body.removeChild(panel);
+
+  return {
+    escaped,
+    unchanged,
+    global,
+    updated,
+    actions,
+    hidden,
+    typing: typing.join() === 'true,false,true,false',
+  };
+};
 
 const { canvas, context } = init();
 

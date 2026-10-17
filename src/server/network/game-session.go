@@ -2,7 +2,6 @@
 package network
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
@@ -42,6 +41,9 @@ type queuedInputs struct {
 }
 
 type playerRecord struct {
+	sectorID                                        string
+	travelledTick                                   uint64
+	chatAt                                          time.Time
 	profile                                         persistence.Player
 	playedAt                                        time.Time
 	saveSequence                                    uint64
@@ -77,6 +79,10 @@ func (p *playerRecord) clearInputs() {
 }
 
 type GameSession struct {
+	nextEntityID    int64
+	sectorMap       simulation.SectorMap
+	sectors         map[string]*sectorRuntime
+	currentSector   string
 	persistence     *sessionPersistence
 	World           *simulation.World
 	nextPlayerID    int64
@@ -93,9 +99,11 @@ type GameSession struct {
 
 func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
 	world := simulation.CreateWorld(seed, catalog)
-	world.ItemTypes = objects.ItemTypes(catalog)
-	world.Collisions = gameplay.NewGameCollisions(catalog)
-	return &GameSession{World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, replicationView: NewReplicationView(world), binaryBatch: NewBinarySnapshotBatch(catalog), regions: NewRegionManager(uint32(seed), catalog), regionsSyncedAt: math.Inf(-1), worldSeed: seed, now: time.Now}
+	session := &GameSession{nextEntityID: 1 << 48, World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, worldSeed: seed, now: time.Now}
+	session.sectorMap = simulation.GenerateSectorMap(uint32(seed), catalog)
+	session.sectors = map[string]*sectorRuntime{}
+	session.activateSector(catalog.StartingSectorID)
+	return session
 }
 
 func send(socket SessionSocket, packet []byte) {
@@ -117,9 +125,13 @@ func (s *GameSession) nearestStation(position Vec.Vector) protocol.StationDescri
 	ranges := protocol.Ranges(s.World.Specification.Simulation.WorldRanges)
 	stations := s.regions.View(position, nil).StationMarkers
 
-	for len(stations) == 0 {
+	for len(stations) == 0 && ranges.StationMarker < 200000 {
 		ranges.StationMarker *= 2
 		stations = s.regions.View(position, &ranges).StationMarkers
+	}
+
+	if len(stations) == 0 {
+		return protocol.StationDescription{}
 	}
 
 	closest := stations[0]
@@ -134,6 +146,20 @@ func (s *GameSession) nearestStation(position Vec.Vector) protocol.StationDescri
 }
 
 func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
+	if p := s.playersBySocket[socket]; p != nil {
+		defer s.useSector(p.sectorID)()
+	}
+
+	if message.Type == "hello" || message.Type == "prepare" {
+		id := s.World.Specification.StartingSectorID
+
+		if p, ok := s.players.Get(message.PlayerToken); ok {
+			id = p.sectorID
+		}
+
+		defer s.useSector(id)()
+	}
+
 	if message.Type != "snapshotAck" && !s.persistenceReady() {
 		socket.CloseWith(1013, "Storage temporarily unavailable")
 		return
@@ -185,6 +211,7 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 		if player.profile.DisplayName == "" {
 			player.profile.DisplayName = message.DisplayName
 			player.ship.Name = player.profile.DisplayName
+			s.assignInitialOwner()
 			s.savePlayer(player)
 			s.flushChanges()
 		}
@@ -204,6 +231,10 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 	}
 
 	switch message.Type {
+	case "gateAccess":
+		s.requestGateAccess(player, int64(message.GateID))
+	case "chat":
+		s.chat(player, message)
 	case "input":
 		s.input(message, player)
 	case "respawn":
@@ -214,6 +245,10 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 }
 
 func (s *GameSession) Disconnect(socket SessionSocket) {
+	if p := s.playersBySocket[socket]; p != nil {
+		defer s.useSector(p.sectorID)()
+	}
+
 	player := s.playersBySocket[socket]
 
 	if player == nil {
@@ -257,7 +292,7 @@ func roundSpawn(ship *objects.Ship) {
 func (s *GameSession) positions() []Vec.Vector {
 	positions := []Vec.Vector{}
 
-	s.players.ForEach(func(p *playerRecord, _ string) {
+	s.sectorPlayers(func(p *playerRecord, _ string) {
 		if s.World.Players.Has(p.playerID) || s.World.Entities.Has(p.shipID) {
 			positions = append(positions, p.ship.Position)
 		}
@@ -266,7 +301,7 @@ func (s *GameSession) positions() []Vec.Vector {
 	return positions
 }
 
-func (s *GameSession) Tick(ticks uint64) {
+func (s *GameSession) tickSector(ticks uint64) {
 	if !s.persistenceReady() {
 		return
 	}
@@ -279,7 +314,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	// Match the launch transition's duration so brief reconnects retain the ship.
 	disconnectCooldown := time.Duration(world.Specification.Simulation.Flight.LaunchDuration * float64(time.Second))
 
-	s.players.ForEach(func(p *playerRecord, _ string) {
+	s.sectorPlayers(func(p *playerRecord, _ string) {
 		if p.socket != nil || p.disconnectedAt == nil || !world.Entities.Has(p.shipID) || s.now().Sub(*p.disconnectedAt) < disconnectCooldown {
 			return
 		}
@@ -298,7 +333,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	if world.Tick%30 == 0 || world.Tick%30+ticks > 30 {
 		idleBefore := s.now().Add(-5 * time.Minute)
 
-		s.players.ForEach(func(p *playerRecord, _ string) {
+		s.sectorPlayers(func(p *playerRecord, _ string) {
 			if p.socket == nil {
 				return
 			}
@@ -320,8 +355,8 @@ func (s *GameSession) Tick(ticks uint64) {
 	if s.persistence == nil && (world.Tick%900 == 0 || world.Tick%900+ticks > 900) {
 		expired := s.now().Add(-30 * time.Minute)
 
-		s.players.ForEach(func(p *playerRecord, token string) {
-			if p.disconnectedAt == nil || p.disconnectedAt.After(expired) {
+		s.sectorPlayers(func(p *playerRecord, token string) {
+			if p.disconnectedAt == nil || p.disconnectedAt.After(expired) || p.profile.Banned || p.profile.Role != persistence.RoleUser {
 				return
 			}
 
@@ -361,7 +396,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	clear(s.inputs)
 	step := world.Specification.Simulation.SimulationStep
 
-	s.players.ForEach(func(p *playerRecord, _ string) {
+	s.sectorPlayers(func(p *playerRecord, _ string) {
 		if p.socket == nil || !world.Players.Has(p.playerID) {
 			return
 		}
@@ -399,8 +434,10 @@ func (s *GameSession) Tick(ticks uint64) {
 		s.inputs[p.playerID] = p.frame
 	})
 
+	before := s.preparePassages()
 	dt := float64(ticks) * step
 	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
+	s.crossPassages(before)
 	s.progress(events)
 	s.flushChanges()
 	s.checkpoint()
@@ -408,7 +445,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	view := s.replicationView.Reset()
 	batch := s.binaryBatch.Begin(view)
 
-	s.players.ForEach(func(p *playerRecord, _ string) { s.sendSnapshot(p, view, batch) })
+	s.sectorPlayers(func(p *playerRecord, _ string) { s.sendSnapshot(p, view, batch) })
 
 	s.sendWorldSounds(events)
 }
@@ -513,6 +550,11 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	token := message.PlayerToken
 	p, _ := s.players.Get(token)
 
+	if p != nil && p.profile.Banned {
+		socket.CloseWith(4003, bannedMessage)
+		return
+	}
+
 	if p == nil {
 		token = uuid.NewString()
 		id := s.nextPlayerID
@@ -525,9 +567,9 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 		spawn.Y = utilities.RoundTiesUp(spawn.Y)
 		ship := objects.CreatePlayerShip(s.World, objects.Properties{PlayerID: &id, Position: spawn})
 		// Every allowed future tick has its own slot; consumed slots reuse storage.
-		p = &playerRecord{needsLoad: true, inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), lastInputAt: s.now(), playerID: id, binaryReplication: NewBinaryReplicationManager(s.World.Specification), ship: ship, shipID: ship.ID}
+		p = &playerRecord{sectorID: s.currentSector, needsLoad: true, inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), lastInputAt: s.now(), playerID: id, binaryReplication: NewBinaryReplicationManager(s.World.Specification), ship: ship, shipID: ship.ID}
 		now := s.now()
-		p.profile = persistence.Player{ID: token, FirstJoinedAt: now, LastSeenAt: now, UnlockedPaints: persistence.DefaultPaints, Credits: s.World.Specification.StartingCredits}
+		p.profile = persistence.Player{ID: token, Role: persistence.RoleUser, FirstJoinedAt: now, LastSeenAt: now, UnlockedPaints: persistence.DefaultPaints, Credits: s.World.Specification.StartingCredits}
 		s.players.Set(token, p)
 	}
 
@@ -613,8 +655,15 @@ func (s *GameSession) respawn(p *playerRecord) {
 	}
 
 	nearest := s.nearestStation(p.ship.Position)
+
+	if nearest.ID == 0 {
+		s.relocatePlayer(p, s.World.Specification.StartingSectorID, sectorArrival{})
+		defer s.useSector(p.sectorID)()
+		nearest = s.nearestStation(Vec.Vector{})
+	}
+
 	s.regions.Sync(s.World, append(s.positions(), nearest.Position))
-	station, ok := s.World.Entities.Get(int64(nearest.ID))
+	station, ok := s.World.Entities.Get(s.regions.idOffset + int64(nearest.ID))
 
 	if !ok || station.Base().Kind != "station" {
 		return
