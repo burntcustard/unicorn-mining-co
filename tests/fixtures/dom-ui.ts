@@ -31,10 +31,17 @@ export const checkChat = () => {
       {
         type: 'chat' as const,
         channel: 0,
+        senderRole: 'user',
         sender: '<b>Pilot</b>',
         text: '<img src=x>',
       },
-      { type: 'chat' as const, channel: 1, sender: 'Global', text: 'Hello' },
+      {
+        type: 'chat' as const,
+        channel: 1,
+        senderRole: 'user',
+        sender: 'Global',
+        text: 'Hello',
+      },
     ],
     sendChat: (channel: number, text: string) => sent.push([channel, text]),
     requestGateAccess: (id: number) => sent.push([id]),
@@ -62,10 +69,33 @@ export const checkChat = () => {
 
   network.chatMessages = [
     ...network.chatMessages,
-    { type: 'chat', channel: 1, sender: 'New', text: 'Message' },
+    {
+      type: 'chat',
+      channel: 1,
+      senderRole: 'user',
+      sender: 'New',
+      text: 'Message',
+    },
   ];
+
   chat.update(gate, true);
   const updated = log.children.length === 2;
+
+  network.chatMessages = ['user', 'owner', 'friendly', 'admin', 'hostile'].map(
+    (senderRole) => ({
+      type: 'chat' as const,
+      channel: 1,
+      senderRole,
+      sender: senderRole,
+      text: 'Hello',
+    }),
+  );
+
+  chat.update(gate, true);
+  const roleColors =
+    [...log.querySelectorAll('strong')]
+      .map((sender) => sender.style.getPropertyValue('--sender-color'))
+      .join() === '#fff,#ff0,#3f7,#4df,#f44';
 
   chat.focus();
   input.value = '  Send this  ';
@@ -86,6 +116,7 @@ export const checkChat = () => {
   document.body.removeChild(panel);
 
   return {
+    roleColors,
     escaped,
     unchanged,
     global,

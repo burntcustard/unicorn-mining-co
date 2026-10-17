@@ -96,7 +96,13 @@ export type ClientMessage =
   | PlayerInputMessage;
 
 export type ServerMessage =
-  | { type: 'chat'; channel: number; sender: string; text: string }
+  | {
+      type: 'chat';
+      channel: number;
+      sender: string;
+      senderRole: string;
+      text: string;
+    }
   | { type: 'sounds'; sounds: WorldSound[] }
   | { type: 'profile'; displayName: string }
   | { type: 'progress'; unlockedPaints: number; credits?: number }

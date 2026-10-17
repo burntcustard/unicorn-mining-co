@@ -48,7 +48,7 @@ func (s *GameSession) chat(p *playerRecord, message protocol.Control) {
 		return
 	}
 
-	response := protocol.ServerControl{Type: "chat", Channel: message.Channel, Sender: p.profile.DisplayName, Text: text}
+	response := protocol.ServerControl{Type: "chat", Channel: message.Channel, Sender: p.profile.DisplayName, SenderRole: string(p.profile.Role), Text: text}
 
 	s.players.ForEach(func(recipient *playerRecord, _ string) {
 		if recipient.socket != nil && !recipient.playedAt.IsZero() && (message.Channel == 1 || recipient.sectorID == p.sectorID) {
@@ -58,7 +58,7 @@ func (s *GameSession) chat(p *playerRecord, message protocol.Control) {
 }
 
 func (s *GameSession) replyChat(p *playerRecord, channel byte, text string) {
-	s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Channel: channel, Sender: "System", Text: text})
+	s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Channel: channel, Sender: "System", SenderRole: "friendly", Text: text})
 }
 
 func (s *GameSession) listCommand(p *playerRecord, channel byte) {
@@ -161,5 +161,5 @@ func (s *GameSession) requestGateAccess(p *playerRecord, id int64) {
 		gate.CloseAfter = float64(s.World.Tick)*s.World.Specification.Simulation.SimulationStep + gate.Spec.OpeningDuration/1000
 	}
 
-	s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, Text: response})
+	s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: response})
 }

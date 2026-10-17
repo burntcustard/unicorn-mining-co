@@ -275,7 +275,7 @@ export const generateWrecks = (options: FeatureBounds) =>
   featuresWithin({ ...options, kind: wreckFeature }) as WreckCandidate[];
 
 /**
- * Expose the field outlines to the world preview without storing them in regions.
+ * Expose the field outlines to the World Viewer without storing them in regions.
  */
 export const generateFields = (options: FeatureBounds) =>
   featuresWithin({ ...options, kind: fieldFeature }) as Field[];

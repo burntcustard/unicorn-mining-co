@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -72,5 +73,23 @@ func TestTeleportChatCommand(t *testing.T) {
 
 	if p.ship.Position != position || p.ship.DockedTo == nil {
 		t.Fatal("docked command moved the ship")
+	}
+}
+
+func TestChatSenderRoles(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &soundSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+	for _, role := range []persistence.PlayerRole{persistence.RoleUser, persistence.RoleOwner, persistence.RoleAdmin} {
+		p.profile.Role = role
+		p.chatAt = time.Time{}
+		socket.frames = nil
+		s.Receive(protocol.Control{Type: "chat", Text: "Hello"}, socket)
+		expected, err := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Sender: p.profile.DisplayName, SenderRole: string(role), Text: "Hello"}, catalog.Protocol)
+		if err != nil || len(socket.frames) != 1 || !bytes.Equal(socket.frames[0], expected) {
+			t.Fatalf("chat lost authoritative role %s", role)
+		}
 	}
 }

@@ -52,7 +52,11 @@
 }
 
 .chat-log strong {
-  color: #4df;
+  color: var(--sender-color, #fff);
+}
+
+.chat-contact strong {
+  color: #3f7;
 }
 
 .chat-contact {

@@ -667,6 +667,7 @@ export function encodeServerControl(
 
     writer.byte(message.channel);
     writer.text(message.sender);
+    writer.text(message.senderRole);
     writer.text(message.text);
     return writer.finish();
   }
@@ -776,6 +777,7 @@ export function decodeServerControl(
         type: 'chat',
         channel,
         sender: reader.text(),
+        senderRole: reader.text(),
         text: reader.text(),
       };
 

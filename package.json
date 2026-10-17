@@ -43,7 +43,6 @@
     "tool:object-viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
     "tool:world-viewer": "vite --config src/tools/world-viewer/vite.config.ts",
     "typecheck": "tsc --noEmit",
-    "world-preview": "node --import tsx scripts/world-preview.ts",
     "test:ui": "node --import tsx scripts/check-ui.ts"
   },
   "devDependencies": {

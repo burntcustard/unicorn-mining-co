@@ -18,7 +18,7 @@ The world is large, and it's seeded-random, so it's the same for everyone, but t
 <details>
 <summary>World Generation</summary>
 
-Coordinates at the top of the screen are in meters. The whole map is a circle approximately 100,000 meters diameter, with 0,0 in the center. The is a `world-##.svg` file in this repo that was created with the currently chosen seed, that can be used to find your way around.
+Coordinates at the top of the screen are in meters. The whole map is a circle approximately 100,000 meters diameter, with 0,0 in the center.
 
 Most asteroid fields have a mix of all items, but occasionally you'll find purple pointy amethyst asteroid fields, or asteroid fields with large gold-rich rocks. Ship wrecks can contain a few gems alongside message boxes with coordinates of both of those special asteroid field types - although ship wrecks themselves are quite rare.
 
@@ -115,7 +115,7 @@ Jump Gates have no stations.
 Source edits hot-reload, retaining the seed, selection, camera and layers.
 Generation runs in a worker so navigation stays responsive. Large views draw
 feature outlines without generating every asteroid. This tool is excluded from
-the production game. `npm run world-preview -- 25 Patroclus` still exports an SVG.
+the production game.
 
 The game runs isolated sector worlds and saves each player's current sector.
 Target a Jump Gate to open its conversation in the bottom-left communications

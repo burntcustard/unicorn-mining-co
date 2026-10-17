@@ -53,7 +53,7 @@ func chatReplies(t *testing.T, s *GameSession, socket *moderationSocket) []strin
 		reader := bytes.NewReader(frame[5:])
 		var parts []string
 
-		for range 2 {
+		for range 3 {
 			length, err := binary.ReadUvarint(reader)
 
 			if err != nil || length > 960 {
@@ -77,7 +77,7 @@ func chatReplies(t *testing.T, s *GameSession, socket *moderationSocket) []strin
 			t.Fatal("invalid command response")
 		}
 
-		messages = append(messages, parts[1])
+		messages = append(messages, parts[2])
 	}
 
 	return messages

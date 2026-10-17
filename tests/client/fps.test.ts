@@ -43,7 +43,11 @@ try {
   const render = () => renderFps({ game, x: 20 });
 
   render();
-  assert.equal(labels.at(-1), 'FPS:0', 'FPS starts enabled');
+  assert.equal(labels.length, 0, 'FPS starts hidden');
+  assert.equal(readings, 0, 'hidden FPS never reads the clock');
+  toggleFps();
+  render();
+  assert.equal(labels.at(-1), 'FPS:0', 'FPS can be enabled');
 
   for (now = 100; now <= 500; now += 100) render();
   assert.equal(labels.at(-1), 'FPS:10', 'FPS uses its 200 ms sampling window');

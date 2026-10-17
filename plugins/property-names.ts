@@ -17,6 +17,7 @@ export const propertyNames = [
   'gateId',
   'channel',
   'sender',
+  'senderRole',
   'chatMessages',
   'requestGateAccess',
   'sendChat',
@@ -27,7 +28,6 @@ export const propertyNames = [
   'halfTravel',
   'openingDuration',
   'closingDuration',
-
   'fuel',
   'fuelCapacity',
   'fuelUsage',

@@ -5,6 +5,13 @@ import { type NetworkClient } from '../../network/network';
 import { JumpGate } from '../../objects/jump-gate';
 import { type GameObject } from '../../objects/game-object';
 
+const senderColors = new Map([
+  ['owner', '#ff0'],
+  ['friendly', '#3f7'],
+  ['admin', '#4df'],
+  ['hostile', '#f44'],
+]);
+
 /**
  * Sector/global chat shares a compact panel with the targeted gate conversation.
  * All player text is inserted as text nodes, never interpreted as markup.
@@ -22,7 +29,8 @@ export const createChat = ({
   const { element: panel } = createScreen(html);
   const log = query(panel, '.chat-log');
   const contact = query(panel, '.chat-contact');
-  const greeting = query(contact, 'p');
+  const greeting = query(contact, 'span');
+  const gateName = query(contact, 'strong');
   const access = query<HTMLButtonElement>(contact, 'button');
   const input = query<HTMLInputElement>(panel, 'input');
   const buttons =
@@ -91,6 +99,8 @@ export const createChat = ({
       if (target) {
         const message = `Greetings ${network.displayName || 'pilot'}, are you traveling to ${target.destinationName}?`;
 
+        gateName.textContent = `${target.name}: `;
+
         if (greeting.textContent !== message) greeting.textContent = message;
         access.disabled = target.openingTarget === 1;
         access.textContent =
@@ -109,6 +119,11 @@ export const createChat = ({
           ...messages.map((message) => {
             const line = document.createElement('p');
             const sender = document.createElement('strong');
+
+            sender.style.setProperty(
+              '--sender-color',
+              senderColors.get(message.senderRole) || '#fff',
+            );
 
             sender.textContent = `${message.sender}: `;
             line.append(sender, document.createTextNode(message.text));

@@ -42,7 +42,7 @@ type Control struct {
 
 type ServerControl struct {
 	Channel                      byte
-	Sender, Text                 string
+	Sender, SenderRole, Text     string
 	Sounds                       []WorldSound
 	DisplayName                  *string
 	Credits                      *float64
@@ -501,6 +501,10 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 		w.byte(message.Channel)
 
 		if err := w.text(message.Sender); err != nil {
+			return nil, err
+		}
+
+		if err := w.text(message.SenderRole); err != nil {
 			return nil, err
 		}
 

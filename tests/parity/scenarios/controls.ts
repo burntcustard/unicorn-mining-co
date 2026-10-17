@@ -64,12 +64,13 @@ const client: ClientMessage[] = [
 ];
 
 const server = [
-  {
+  ...['user', 'owner', 'friendly', 'admin', 'hostile'].map((senderRole) => ({
     type: 'chat' as const,
     channel: 1,
+    senderRole,
     sender: 'Pilot 🦄',
     text: 'Hello sectors',
-  },
+  })),
   {
     type: 'sounds' as const,
     sounds: [0, 1, 2, 3, 4, 5, 6, 7, 9].map((effect) => ({

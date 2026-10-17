@@ -32,6 +32,9 @@
 [ ] New sounds
 [x] Fix unnecessary scroll on right card thing
 [?] Can't buy search light
+[ ] Map UI (tab?)
+[ ] Move currency to somewhere on the right
+[x] Make FPS not on by default
 
 ## MVP
 
@@ -74,7 +77,13 @@
 [ ] Adjust sounds v1 (less bassy, less annoying?)
 [ ] Adjust sounds v2 (custom with more levers & layers)
 [x] Convert font to WOFF2
-[ ] Rewrite tests to not run off our actual specs, but examples
+[x] Rewrite tests to not run off our actual specs, but examples
+[ ] Figure out new unlocks
+[ ] Add missions to stations
+[ ] Add wormhole-scanning sensor
+[ ] Add missile/torpedo module
+[ ] Add turret modules
+[ ] Add holding cargo hatch key to drop all cargo
 
 ## Big future things
 

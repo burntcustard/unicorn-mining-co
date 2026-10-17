@@ -5,7 +5,7 @@ import { type GameState } from '../game';
 // is a blur of digits rather than something readable
 const settle = 200;
 
-let enabled = true;
+let enabled = false;
 let since: number | undefined;
 let frames = 0;
 let rate = 0;

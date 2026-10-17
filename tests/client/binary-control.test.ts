@@ -131,6 +131,7 @@ for (const message of [
   {
     type: 'chat' as const,
     channel: 1,
+    senderRole: 'user',
     sender: 'Jump Gate',
     text: 'Access granted.',
   },

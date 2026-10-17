@@ -31,7 +31,7 @@ type controlFixture struct {
 		Message struct {
 			GateID                       uint64
 			Channel                      byte
-			Sender, Text                 string
+			Sender, SenderRole, Text     string
 			Sounds                       []WorldSound
 			DisplayName                  *string
 			UnlockedPaints               *uint16
@@ -117,7 +117,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		message := fixture.Message
 
 		got, err := EncodeServerControl(ServerControl{
-			Channel: message.Channel, Sender: message.Sender, Text: message.Text,
+			Channel: message.Channel, Sender: message.Sender, SenderRole: message.SenderRole, Text: message.Text,
 			Sounds: message.Sounds,
 			Type:   message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
 			ServerTick: message.ServerTick, PlayerToken: message.PlayerToken,
