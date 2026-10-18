@@ -1,28 +1,35 @@
 @layer components {
   .hud {
-    --hud-inset: 1rem;
+    --hud-inset: 20px;
+    --hud-inset-top: 24px;
     --hud-side: clamp(220px, 26vw, 360px);
   }
 
   .hud-widget {
+    --ui-color: #e6f;
     position: absolute;
     z-index: 5;
-    font-size: 0.8rem;
-    --ui-color: #e6f;
   }
 
   .hud-right {
-    top: var(--hud-inset);
+    top: var(--hud-inset-top);
     right: var(--hud-inset);
     width: var(--hud-side);
-    align-content: start;
   }
 
   .hud-left {
     left: var(--hud-inset);
     bottom: var(--hud-inset);
     width: max-content;
+    max-width: calc(100% - 2 * var(--hud-inset));
     justify-items: start;
+  }
+
+  .hud-credits {
+    justify-self: end;
+    height: 88px;
+    padding-block: 8px 6px;
+    padding-inline: calc(20px - var(--ui-border-width));
   }
 
   .hud-stores {
@@ -32,7 +39,8 @@
     gap: 4px 32px;
     width: max-content;
     justify-items: start;
-    padding: 16px 24px 16px 20px;
+    padding-block: 16px;
+    padding-inline: 20px 24px;
     pointer-events: auto;
   }
 
@@ -84,7 +92,6 @@
   .hud-stores > [data-store='power'] {
     grid-column: 1 / -1;
     grid-template-columns: repeat(3, max-content);
-    align-items: center;
     column-gap: 8px;
     margin-top: 20px;
   }
@@ -98,8 +105,7 @@
     overflow: hidden;
   }
 
-  .hud-cargo,
-  .hud-fuel {
+  :is(.hud-cargo, .hud-fuel) {
     grid-row: 1 / span 2;
     grid-template-rows: subgrid;
   }
@@ -133,15 +139,7 @@
     margin-block-end: 6px;
   }
 
-  .hud-store-label {
-    justify-self: start;
-    width: auto;
-    height: auto;
-    line-height: 1;
-  }
-
   .hud-stores .hud-fuel-track {
-    display: grid;
     translate: 0 -1px;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 2px;
@@ -184,7 +182,6 @@
     width: max-content;
     max-width: 100%;
     pointer-events: auto;
-    color: #ddd;
   }
 
   .hud-modules > button > span {
@@ -192,8 +189,12 @@
     overflow-wrap: anywhere;
   }
 
+  .hud-modules kbd {
+    background-color: var(--ui-panel);
+  }
+
   .hud-sector {
-    top: var(--hud-inset);
+    top: var(--hud-inset-top);
     left: 50%;
     transform: translateX(-50%);
     white-space: nowrap;
@@ -205,75 +206,24 @@
   }
 
   .hud-target-icon {
-    flex: none;
     width: 64px;
     height: 72px;
   }
 
   .hud-target h2 {
     overflow-wrap: anywhere;
-    font-size: 1.1rem;
   }
 
   .hud-map {
     right: var(--hud-inset);
     bottom: var(--hud-inset);
     width: clamp(160px, 21vw, 300px);
+    padding: 0;
   }
 
   .hud-map canvas {
     display: block;
     width: 100%;
     height: auto;
-  }
-
-  @media (width < 1100px) {
-    .hud-sector {
-      top: calc(var(--hud-inset) + 90px);
-      font-size: 0.75rem;
-      gap: 8px;
-    }
-  }
-
-  @media (width < 600px) {
-    .hud {
-      --hud-inset: 8px;
-      --hud-side: 46%;
-    }
-
-    .hud-widget {
-      font-size: 0.75rem;
-    }
-
-    .hud-sector {
-      top: calc(var(--hud-inset) + 110px);
-      left: auto;
-      right: var(--hud-inset);
-      transform: none;
-      flex-wrap: wrap;
-      max-width: 46%;
-    }
-
-    .hud-right {
-      gap: 4px;
-    }
-
-    .hud-target {
-      margin-top: 145px;
-      max-height: 27vh;
-    }
-
-    .hud-target-icon {
-      width: 32px;
-      height: 32px;
-    }
-
-    .hud-target h2 {
-      font-size: 0.8rem;
-    }
-
-    .hud-map {
-      width: 145px;
-    }
   }
 }

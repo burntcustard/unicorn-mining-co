@@ -138,6 +138,22 @@ func (s *GameSession) teleportCommand(p *playerRecord, fields []string, channel 
 	reply(fmt.Sprintf("Teleported to %g, %g.", x, y))
 }
 
+type gateAccessRequest struct {
+	gate        *objects.JumpGate
+	elapsed     float64
+	pendingSent bool
+}
+
+func (s *GameSession) gateChat(gate *objects.Passage, text string) {
+	message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: text}
+
+	s.players.ForEach(func(recipient *playerRecord, _ string) {
+		if recipient.socket != nil && recipient.ship.World == gate.World && gate.World.Players.Has(recipient.playerID) {
+			s.sendControl(recipient.socket, message)
+		}
+	})
+}
+
 func (s *GameSession) requestGateAccess(p *playerRecord, id int64) {
 	entity, ok := s.World.Entities.Get(id)
 
@@ -151,15 +167,45 @@ func (s *GameSession) requestGateAccess(p *playerRecord, id int64) {
 		return
 	}
 
-	response := "Access granted. Enter the circle once the gate is fully open."
-
 	if Vec.DistanceSquared(p.ship.Position, gate.Position) > gate.Spec.ApproachRadius*gate.Spec.ApproachRadius {
-		response = "Please approach the gate before requesting access."
-	} else {
-		s.connectedPassage(gate.Passage)
-		gate.RequestOpening(1)
-		gate.CloseAfter = float64(s.World.Tick)*s.World.Specification.Simulation.SimulationStep + gate.Spec.OpeningDuration/1000
+		s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: "Please approach the gate before requesting access."})
+		return
 	}
 
-	s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: response})
+	if p.gateAccess == nil || p.gateAccess.gate != gate {
+		p.gateAccess = &gateAccessRequest{gate: gate}
+	}
+}
+
+func (s *GameSession) updateGateAccess(dt float64) {
+	s.sectorPlayers(func(p *playerRecord, _ string) {
+		request := p.gateAccess
+
+		if request == nil {
+			return
+		}
+
+		gate := request.gate
+
+		if p.socket == nil || p.ship.Dead || p.ship.DockedTo != nil || gate.World != p.ship.World || Vec.DistanceSquared(p.ship.Position, gate.Position) > gate.Spec.ApproachRadius*gate.Spec.ApproachRadius {
+			p.gateAccess = nil
+			return
+		}
+
+		request.elapsed += dt
+		delay := gate.Spec.AccessResponseDelay / 1000
+
+		if !request.pendingSent && request.elapsed+1e-9 >= delay {
+			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.AccessPendingMessage})
+			request.pendingSent = true
+		}
+
+		if request.elapsed+1e-9 >= 2*delay {
+			s.connectedPassage(gate.Passage)
+			gate.RequestOpening(1)
+			gate.CloseAfter = float64(s.World.Tick)*s.World.Specification.Simulation.SimulationStep + gate.Spec.OpeningDuration/1000
+			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.AccessGrantedMessage})
+			p.gateAccess = nil
+		}
+	})
 }

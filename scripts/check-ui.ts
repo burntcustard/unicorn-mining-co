@@ -96,7 +96,7 @@ assert(
   'production CSS retains dynamically applied classes',
 );
 assert(
-  /ui-highlight:is\([^)]*hover/.test(productionCss),
+  /:is\(\.ui-choice,\.ui-tab\):is\([^)]*hover/.test(productionCss),
   'production CSS retains browser interaction states inside functional selectors',
 );
 
@@ -433,13 +433,21 @@ checkUi: try {
     );
   };
 
+  const checkPanelPadding = () =>
+    check(`Array.from(document.querySelectorAll('.ui-card:not(.hud-stores-panel)')).every(panel => {
+      const style = getComputedStyle(panel);
+      const expected = panel.classList.contains('hud-map') ? [0, 0, 0, 0]
+        : panel.classList.contains('hud-credits') ? [8, 18, 6, 18]
+        : panel.classList.contains('chat-panel') ? [12, 18, 18, 18]
+        : [16, 16, 16, 16];
+      return ['padding-top', 'padding-right', 'padding-bottom', 'padding-left'].every((side, index) =>
+        style.getPropertyValue(side) === expected[index] + 'px');
+    })`);
+
   const capture = async (name: string) => {
     assert(
-      await check(`Array.from(document.querySelectorAll('.ui-card:not(.hud-stores-panel)')).every(panel => {
-      const style = getComputedStyle(panel);
-      return ['padding-top', 'padding-right', 'padding-bottom', 'padding-left'].every(side => style.getPropertyValue(side) === '16px');
-    })`),
-      `${name}: all panels use shared 16px padding`,
+      await checkPanelPadding(),
+      `${name}: panels retain their intended padding`,
     );
 
     await check(
@@ -653,7 +661,7 @@ checkUi: try {
         return [box.x, box.y, box.width, box.height];
       };
       const panel = document.querySelector('.ui-settings');
-      const content = document.querySelector('.ui-control-panel');
+      const content = document.querySelector('[data-controls-panel]');
       return [bounds(panel), bounds(panel.querySelector('header')), bounds(panel.querySelector('nav')), bounds(content)];
     })()`);
 
@@ -664,7 +672,7 @@ checkUi: try {
     assert(
       await check(
         `(() => {
-          const panel = document.querySelector('.ui-control-panel');
+          const panel = document.querySelector('[data-controls-panel]');
           const bounds = [...panel.children].map(element => element.getBoundingClientRect());
           return bounds.slice(1).every((box, index) => Math.abs(box.top - bounds[index].bottom - 16 - parseFloat(getComputedStyle(panel.children[index + 1]).marginTop)) < 1)
             && getComputedStyle(panel.querySelector('[data-reset]')).marginTop === '0px';
@@ -1188,7 +1196,7 @@ checkUi: try {
         return document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root') &&
           !document.querySelector('.hud-instruments') &&
           ['.hud-left', '.hud-right', '.hud-sector', '.hud-map'].every(selector => document.querySelector(selector).parentElement === root) &&
-          document.querySelector('.game-chat').parentElement === root &&
+          document.querySelector('.chat-panel').parentElement === root &&
           document.querySelector('.ui-notification').parentElement === root;
       })()`),
       'instruments, chat, and notifications share one HUD parent',
@@ -1246,11 +1254,8 @@ checkUi: try {
       );
 
       assert(
-        await check(`Array.from(document.querySelectorAll('.hud-widget.ui-card, .hud-widget .ui-card:not(.hud-stores-panel), .game-chat')).every(panel => {
-        const style = getComputedStyle(panel);
-        return panel.classList.contains('ui-card') && ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].every(side => style[side] === '16px');
-      })`),
-        `shared panel padding stays 16px at ${width}px`,
+        await checkPanelPadding(),
+        `panels retain their intended padding at ${width}px`,
       );
 
       assert(
@@ -1328,7 +1333,9 @@ checkUi: try {
     await pause(800);
     await capture('saved-menu');
     assert.equal(
-      await check(`document.querySelector('[data-pilot]').textContent`),
+      await check(
+        `document.querySelector('.ui-main [data-pilot]').textContent`,
+      ),
       'asterPilot□□□',
       'main menu shows the saved profile with fallback glyphs',
     );

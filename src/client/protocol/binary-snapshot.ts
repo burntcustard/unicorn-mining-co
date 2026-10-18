@@ -288,7 +288,7 @@ export function decodeBinarySnapshot(
       const field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
 
-      if (field < 1 || field > BinaryField.storedPower || seen.has(field)) {
+      if (field < 1 || field > BinaryField.blockedBeams || seen.has(field)) {
         return fail();
       }
 
@@ -363,8 +363,16 @@ export function decodeBinarySnapshot(
           entity.openingTarget = clear ? null : number();
           break;
 
+        case BinaryField.blockedBeams:
+          entity.blockedBeams = clear ? null : number();
+          break;
+
         case BinaryField.destinationName:
           entity.destinationName = clear ? null : string();
+          break;
+
+        case BinaryField.targetLabel:
+          entity.targetLabel = clear ? null : string();
           break;
 
         case BinaryField.name:

@@ -68,6 +68,26 @@ import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
 
 init();
+
+// Gate safety state survives wire hydration, prediction, and authoritative reset.
+{
+  const world = createWorld();
+  const record = {kind: 'jumpGate', id: 987, radius: 450,
+    position: Vec.create(), rotation: 0, spin: 0, opening: .75,
+    openingTarget: 1, blockedBeams: 2};
+  const gate = makeEntity({entity: record, world});
+  const predicted = cloneEntity({entity: gate});
+
+  assert.equal(gate.blockedBeams, 2, 'wire state identifies the interrupted beam');
+  assert.equal(predicted.blockedBeams, 2, 'prediction retains the red beam');
+  predicted.update(.01);
+  assert.equal(predicted.blockedBeams, 2, 'the beam remains red during reopening');
+  const opened = makeEntity({entity: {...record, opening: 1, blockedBeams: 0}, world, previous: gate});
+
+  applyEntity({entity: predicted, server: opened});
+  assert.equal(predicted.blockedBeams, 0, 'the authoritative opening resets the beam');
+}
+
 assert.deepEqual(
   Reflect.get(globalThis, 'context-options'),
   {willReadFrequently: true},
@@ -1157,8 +1177,8 @@ for (const Weapon of [PlasmaAccelerator, Autogun])
     }
   }
 const diamond = new Item(diamondSpec);
-// A destroyed lamp retains its module spec and warmed beam cache in the
-// local fragment. Render that fragment as fixed wreckage through every path.
+// Destroy a lamp after warming its beam cache, then render the frozen
+// fragment through local, replicated, and prediction paths.
 for (const active of [false, true])
   for (const destruction of ['detach', 'health']) {
     const lightWorld = createWorld();
@@ -1198,8 +1218,8 @@ for (const active of [false, true])
       'a detached light is bare Craft wreckage',
     );
     assert(
-      lightDebris.segments.some((segment) => segment.module === detachedLight),
-      'local wreckage retains the former light spec',
+      lightDebris.segments.every((segment) => segment.module !== detachedLight && !segment.mount),
+      'local wreckage discards the live light module and its old mount',
     );
     const replicatedDebris = createWreckage({
       properties: {

@@ -1,5 +1,5 @@
 <section
-  class="ui-screen ui-surface ui-backdrop h-full"
+  class="ui-screen ui-surface ui-backdrop h-full grid"
   aria-labelledby="profile-heading"
 >
   <form class="ui-panel ui-card ui-profile grid gap-4">
@@ -9,7 +9,6 @@
       class="ui-input"
       id="profile-name"
       name="player-name"
-      type="text"
       required
       autocomplete="nickname"
       spellcheck="false"
@@ -17,9 +16,9 @@
     />
     <p id="profile-hint">Choose a name up to 16 characters.</p>
     <p class="ui-status" id="profile-status" role="status"></p>
-    <div class="ui-actions gap-4">
-      <button class="button uppercase" type="submit">Play</button>
-      <button class="button uppercase" type="button" data-back>Back</button>
+    <div class="gap-4 flex flex-wrap" data-action-group>
+      <button class="ui-button uppercase">Play</button>
+      <button class="ui-button uppercase" type="button" data-back>Back</button>
     </div>
   </form>
 </section>

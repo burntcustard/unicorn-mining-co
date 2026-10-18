@@ -44,6 +44,8 @@ type playerRecord struct {
 	sectorID                                        string
 	travelledTick                                   uint64
 	chatAt                                          time.Time
+	gateAccess                                      *gateAccessRequest
+	arrivalMessage                                  *protocol.ServerControl
 	profile                                         persistence.Player
 	playedAt                                        time.Time
 	saveSequence                                    uint64
@@ -246,6 +248,7 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 
 func (s *GameSession) Disconnect(socket SessionSocket) {
 	if p := s.playersBySocket[socket]; p != nil {
+		p.gateAccess = nil
 		defer s.useSector(p.sectorID)()
 	}
 
@@ -436,7 +439,9 @@ func (s *GameSession) tickSector(ticks uint64) {
 
 	before := s.preparePassages()
 	dt := float64(ticks) * step
+	s.updateGateAccess(dt)
 	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
+	s.interruptGateClosing(before)
 	s.crossPassages(before)
 	s.progress(events)
 	s.flushChanges()
@@ -464,6 +469,11 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	if p.welcomePending {
 		p.welcomePending = false
 		s.sendWelcome(p)
+	}
+
+	if p.arrivalMessage != nil {
+		s.sendControl(socket, *p.arrivalMessage)
+		p.arrivalMessage = nil
 	}
 
 	if p.profilePending {

@@ -1,40 +1,33 @@
-<section
-  class="dock-screen ui-layout pt-7 px-10 pb-4 ui-surface ui-backdrop h-full"
->
-  <header class="dock-header ui-row gap-6">
-    <div class="ui-inline gap-6">
+<section class="dock-screen pt-7 px-10 pb-4 ui-surface ui-backdrop h-full grid">
+  <header class="dock-header flex items-center justify-between gap-6">
+    <div class="flex items-center gap-6">
       <span class="dock-station-icon"></span>
       <div>
         <h1 class="text-lg uppercase" data-station></h1>
         <span class="uppercase text-muted text-sm">Docked</span>
       </div>
     </div>
-    <nav class="ui-tabs h-full gap-6 uppercase">
-      <button
-        class="ui-tab ui-highlight"
-        data-tab="overview"
-        aria-current="page"
-      >
+    <nav class="ui-tabs h-full gap-6 uppercase flex">
+      <button class="ui-tab" data-tab="overview" aria-current="page">
         Overview
       </button>
-      <button class="ui-tab ui-highlight" data-tab="outfitting">
-        Outfitting
-      </button>
-      <button class="ui-tab ui-highlight" data-tab="trade">Trade</button>
-      <button class="ui-tab ui-highlight" data-tab="services">Services</button>
+      <button class="ui-tab" data-tab="outfitting">Outfitting</button>
+      <button class="ui-tab" data-tab="trade">Trade</button>
+      <button class="ui-tab" data-tab="services">Services</button>
     </nav>
-    <div class="text-right">
-      <span class="uppercase text-muted text-sm">Available unicredits</span>
+    <div class="ui-credits text-right text-outline">
+      <span class="uppercase text-color text-sm">Available unicredits</span>
       <div class="text-xl" data-balance></div>
     </div>
   </header>
-  <div class="dock-workspace">
-    <div class="dock-summary ui-row gap-8">
-      <h2 class="text-xl uppercase" data-ship-name></h2>
-    </div>
+  <div class="dock-workspace grid mb-4">
+    <h2
+      class="dock-summary flex items-center text-xl uppercase"
+      data-ship-name
+    ></h2>
     <aside class="ui-scroll" data-sidebar>
       <div data-overview>
-        <dl class="dock-overview-stats gap-4 mb-8">
+        <dl class="dock-overview-stats gap-4 mb-8 grid">
           <dt class="uppercase">Hull</dt>
           <dd data-hull-total></dd>
           <dt class="uppercase">Modules fitted</dt>
@@ -47,19 +40,25 @@
           <dd data-generation></dd>
         </dl>
         <nav class="grid gap-3 mt-6 uppercase">
-          <button class="button ui-row" data-refuel>
+          <button
+            class="ui-button flex items-center justify-between"
+            data-refuel
+          >
             Refuel
             <span data-fuel-price></span>
           </button>
-          <button class="button ui-row" data-repair-all>
+          <button
+            class="ui-button flex items-center justify-between"
+            data-repair-all
+          >
             Repair all
             <span data-repair-total></span>
           </button>
-          <button class="button" data-hull-paint>Hull paint</button>
+          <button class="ui-button" data-hull-paint>Hull paint</button>
         </nav>
       </div>
       <div data-outfitting hidden>
-        <div class="ui-row gap-3 mb-6 px-3">
+        <div class="flex items-center justify-between gap-3 mb-6 px-3">
           <h2 class="uppercase">Loadout</h2>
           <span class="uppercase text-muted text-sm">Health</span>
         </div>
@@ -73,8 +72,8 @@
         <h2 class="uppercase">Services</h2>
         <p>Repair your hull and fitted modules, or change your hull paint.</p>
         <nav class="grid gap-3 mt-6 uppercase">
-          <button class="button" data-service="repair">Repair all</button>
-          <button class="button" data-service="paint">Hull paint</button>
+          <button class="ui-button" data-service="repair">Repair all</button>
+          <button class="ui-button" data-service="paint">Hull paint</button>
         </nav>
       </div>
     </aside>
@@ -85,12 +84,14 @@
     <div class="dock-center grid gap-3">
       <canvas class="dock-preview h-full" aria-hidden="true"></canvas>
       <section class="dock-energy ui-card text-sm">
-        <div class="ui-row gap-3">
+        <div class="flex items-center justify-between gap-3">
           <h2 class="uppercase">Power consumption</h2>
-          <span class="dock-output" data-output></span>
+          <span data-output></span>
         </div>
         <div data-power-bars></div>
-        <div class="dock-energy-legend ui-row gap-3 mt-4 uppercase"></div>
+        <div
+          class="dock-energy-legend flex items-center justify-between gap-3 mt-4 uppercase"
+        ></div>
         <span
           class="block text-right uppercase text-muted text-sm mt-2"
           data-fitting-preview
@@ -100,9 +101,9 @@
         </span>
       </section>
     </div>
-    <div class="dock-inspector gap-6">
+    <div class="dock-inspector gap-6 flex flex-col">
       <section data-candidate-panel hidden>
-        <div class="ui-row gap-3 mb-6 px-3">
+        <div class="flex items-center justify-between gap-3 mb-6 px-3">
           <h2 class="uppercase">Compatible modules</h2>
           <span class="uppercase text-muted text-sm">Price</span>
         </div>
@@ -113,75 +114,102 @@
         ></nav>
       </section>
       <aside class="dock-detail ui-card ui-scroll" tabindex="-1">
-        <div class="ui-row gap-3 text-muted text-sm mb-6 uppercase">
+        <div
+          class="flex items-center justify-between gap-3 text-muted text-sm mb-6 uppercase"
+        >
           <span data-location></span>
           <span class="text-color" data-category></span>
         </div>
         <h2 class="leading-tight text-lg uppercase" data-title></h2>
         <canvas
-          class="dock-detail-preview block mx-auto mt-4"
+          class="block mx-auto mt-4"
           data-detail-preview
           aria-hidden="true"
           hidden
         ></canvas>
         <p class="mt-4" data-description></p>
-        <div class="ui-row gap-3 mt-6" data-trade-price-panel hidden>
+        <div
+          class="flex items-center justify-between gap-3 mt-6"
+          data-trade-price-panel
+          hidden
+        >
           <span class="uppercase text-sm" data-trade-price-label></span>
           <span data-trade-value></span>
         </div>
         <div class="mt-6" data-module-power hidden></div>
         <p class="mt-4" data-fuel-usage></p>
-        <div class="ui-row gap-3 text-muted text-sm mt-6" data-health-panel>
+        <div
+          class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
+          data-health-panel
+        >
           <span class="uppercase">Health</span>
           <span data-health></span>
         </div>
         <div class="grid gap-2 text-color mt-6 uppercase" data-actions>
-          <button class="button ui-row" data-command="FIX">
+          <button
+            class="ui-button flex items-center justify-between"
+            data-command="FIX"
+          >
             Repair
             <span data-repair></span>
           </button>
-          <button class="button ui-row" data-command="REMOVE">Remove</button>
-          <button class="button ui-row" data-command="SELL">
+          <button class="ui-button" data-command="REMOVE">Remove</button>
+          <button
+            class="ui-button flex items-center justify-between"
+            data-command="SELL"
+          >
             Sell
             <span data-sale></span>
           </button>
-          <button class="button ui-row" data-command="BUY">
+          <button
+            class="ui-button flex items-center justify-between"
+            data-command="BUY"
+          >
             Buy
             <span data-price></span>
           </button>
-          <button class="button ui-row" data-command="EQUIP">Equip</button>
-          <button class="button ui-row" data-command="BUY_AMMO">
+          <button class="ui-button" data-command="EQUIP">Equip</button>
+          <button
+            class="ui-button flex items-center justify-between"
+            data-command="BUY_AMMO"
+          >
             Buy ammo
             <span data-ammo-price></span>
           </button>
         </div>
         <section class="mt-6" data-paint-panel>
           <h3 class="uppercase text-sm" data-paint-heading>Module paint</h3>
-          <div class="ui-actions gap-4 dock-paints mt-4" data-paints></div>
+          <div
+            class="gap-4 dock-paints mt-4 flex flex-wrap"
+            data-action-group
+            data-paints
+          ></div>
         </section>
       </aside>
     </div>
   </div>
-  <footer class="dock-footer ui-controls ui-row text-muted text-sm uppercase">
-    <button class="gap-3 ui-inline" data-launch>
-      <kbd>Esc</kbd>
+  <footer
+    class="dock-footer ui-controls flex items-center justify-between text-muted text-sm uppercase"
+  >
+    <button class="gap-3 flex items-center" data-launch>
+      <kbd class="flex-none">Esc</kbd>
       <span data-back-label>Launch</span>
       <span class="dock-launch-icon ui-icon" aria-hidden="true"></span>
     </button>
-    <div class="ui-inline gap-8">
-      <span class="gap-3 ui-inline">
-        <span class="gap-1 ui-inline">
-          <kbd>↑</kbd>
-          <kbd>↓</kbd>
-          <kbd>←</kbd>
-          <kbd>→</kbd>
+    <div class="flex items-center gap-8">
+      <span class="gap-3 flex items-center">
+        <span class="gap-1 flex items-center">
+          <kbd class="flex-none">↑</kbd>
+          <kbd class="flex-none">↓</kbd>
+          <kbd class="flex-none">←</kbd>
+          <kbd class="flex-none">→</kbd>
         </span>
         Navigate
       </span>
-      <span class="gap-3 ui-inline">
-        <span class="gap-1 ui-inline">
-          <kbd>Enter</kbd>
-          <kbd>Space</kbd>
+      <span class="gap-3 flex items-center">
+        <span class="gap-1 flex items-center">
+          <kbd class="flex-none">Enter</kbd>
+          <kbd class="flex-none">Space</kbd>
         </span>
         Select
       </span>

@@ -4,6 +4,9 @@ import { createScreen, query, ui } from './ui';
 import { type NetworkClient } from '../../network/network';
 import { JumpGate } from '../../objects/jump-gate';
 import { type GameObject } from '../../objects/game-object';
+import { defaultKeybindings, keyLabel } from '../../input/keybindings';
+import { jumpGateSpec } from '../../../specs/jump-gate';
+import * as Vec from '../../utilities/vector';
 
 const senderColors = new Map([
   ['owner', '#ff0'],
@@ -13,7 +16,7 @@ const senderColors = new Map([
 ]);
 
 /**
- * Sector/global chat shares a compact panel with the targeted gate conversation.
+ * Gate conversations and received messages share one chronological chat history.
  * All player text is inserted as text nodes, never interpreted as markup.
  */
 export const createChat = ({
@@ -22,23 +25,44 @@ export const createChat = ({
 }: {
   network: Pick<
     NetworkClient,
-    'displayName' | 'chatMessages' | 'sendChat' | 'requestGateAccess'
+    | 'displayName'
+    | 'world'
+    | 'shipId'
+    | 'sectorName'
+    | 'chatMessages'
+    | 'sendChat'
+    | 'requestGateAccess'
   >;
   onTyping: (typing: boolean) => void;
 }) => {
   const { element: panel } = createScreen(html);
   const log = query(panel, '.chat-log');
-  const contact = query(panel, '.chat-contact');
-  const greeting = query(contact, 'span');
-  const gateName = query(contact, 'strong');
-  const access = query<HTMLButtonElement>(contact, 'button');
+  const template = query<HTMLTemplateElement>(panel, 'template');
   const input = query<HTMLInputElement>(panel, 'input');
   const buttons =
     panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
-  const receivedAt = new WeakMap<object, Date>();
+  const received = new WeakSet<object>();
+
+  type ChatEntry = {
+    message: (typeof network.chatMessages)[number] | JumpGate;
+    channel: number;
+    element: HTMLElement;
+  };
+
+  let entries: ChatEntry[] = [];
+  let sector = network.sectorName;
   let channel = 0;
+  let renderedChannel = 0;
   let target: JumpGate | undefined;
-  let lastMessages: typeof network.chatMessages | undefined;
+  let access: HTMLButtonElement | undefined;
+
+  let pending: (ChatEntry & { message: JumpGate }) | undefined;
+
+  const finishPending = (text: string) => {
+    if (!pending) return;
+    query(pending.element, 'button > span').textContent = text;
+    pending = undefined;
+  };
 
   buttons.forEach((button, index) => {
     button.addEventListener('click', () => {
@@ -46,18 +70,11 @@ export const createChat = ({
       buttons.forEach((tab, at) =>
         tab.setAttribute('aria-pressed', String(at === channel)),
       );
-      lastMessages = undefined;
       button.blur();
     });
   });
 
   ui.element.append(panel);
-
-  access.addEventListener('click', () => {
-    if (target) network.requestGateAccess(target.id);
-    access.blur();
-  });
-
   input.addEventListener('focus', () => onTyping(true));
   input.addEventListener('blur', () => onTyping(false));
 
@@ -81,68 +98,193 @@ export const createChat = ({
   });
 
   return {
+    requestGateAccess() {
+      if (!panel.hidden && channel === 0) access?.click();
+    },
     focus() {
       if (panel.hidden) return false;
       input.focus();
       return true;
     },
     update(object: GameObject | undefined, shown: boolean) {
+      if (sector !== network.sectorName) {
+        sector = network.sectorName;
+        entries = entries.filter((entry) => entry.channel === 1);
+        target = undefined;
+        pending = undefined;
+      }
+
+      entries = entries.filter(
+        (entry) =>
+          entry.message instanceof JumpGate ||
+          network.chatMessages.includes(entry.message),
+      );
+
       network.chatMessages.forEach((message) => {
-        if (!receivedAt.has(message)) receivedAt.set(message, new Date());
+        if (received.has(message)) return;
+        received.add(message);
+
+        if (
+          pending &&
+          message.channel === 0 &&
+          message.senderRole === 'friendly' &&
+          message.sender === pending.message.name &&
+          message.text !== jumpGateSpec.accessPendingMessage &&
+          message.text !== jumpGateSpec.closingMessage &&
+          message.text !== jumpGateSpec.closingInterruptedMessage
+        ) {
+          if (message.text === jumpGateSpec.accessGrantedMessage) {
+            query(pending.element, 'button > span').textContent =
+              'Access granted';
+          } else {
+            finishPending('Access unavailable');
+          }
+        }
+
+        const line = document.createElement('p');
+        const sender = document.createElement('strong');
+
+        sender.textContent = `${message.sender}: `;
+        line.append(sender, document.createTextNode(message.text));
+        entries.push({ message, channel: message.channel, element: line });
       });
 
       panel.hidden = !shown;
+      const ship = network.world.entities.get(network.shipId!);
+
+      if (pending) {
+        const gate = pending.message;
+
+        if (
+          !ship ||
+          ship.dead ||
+          ship.dockedTo ||
+          network.world.entities.get(gate.id) !== gate ||
+          gate.openingTarget === 1 ||
+          Vec.distanceSquared(ship.position, gate.position) >
+            jumpGateSpec.approachRadius ** 2
+        ) {
+          finishPending(
+            gate.openingTarget === 1 ? 'Access granted' : 'Access unavailable',
+          );
+        }
+      }
+
+      target =
+        object instanceof JumpGate &&
+        network.world.entities.get(object.id) === object
+          ? object
+          : undefined;
+      const canRequest =
+        target &&
+        ship &&
+        !ship.dead &&
+        !ship.dockedTo &&
+        target.openingTarget !== 1 &&
+        Vec.distanceSquared(ship.position, target.position) <=
+          jumpGateSpec.approachRadius ** 2;
+      let greetingAdded = false;
+      const accessKeys = defaultKeybindings.requestGateAccess.keys
+        .map(keyLabel)
+        .join(' / ');
+
+      access = undefined;
+
+      entries.forEach(({ message, element }) => {
+        if (message instanceof JumpGate) {
+          const button = query<HTMLButtonElement>(element, 'button');
+
+          // Historical requests stay disabled, even when this gate is eligible again.
+          if (!button.disabled) {
+            button.disabled = message !== target || !canRequest;
+
+            if (message.openingTarget === 1) {
+              query(button, 'span').textContent = 'Access granted';
+            }
+          }
+
+          query(button, 'kbd').textContent = accessKeys;
+
+          if (message === target && !button.disabled) access = button;
+        } else {
+          query(element, 'strong').style.setProperty(
+            '--sender-color',
+            message.sender === network.displayName &&
+              !['admin', 'owner'].includes(message.senderRole)
+              ? '#e6f'
+              : senderColors.get(message.senderRole) || '#fff',
+          );
+        }
+      });
 
       if (!shown) {
         if (document.activeElement === input) input.blur();
         return;
       }
 
-      target = object instanceof JumpGate ? object : undefined;
-      contact.hidden = !target;
+      if (target && canRequest && pending?.message !== target && !access) {
+        const gate = target;
+        const line = template.content.firstElementChild!.cloneNode(
+          true,
+        ) as HTMLElement;
+        const button = query<HTMLButtonElement>(line, 'button');
+        const entry = { message: gate, channel: 0, element: line };
 
-      if (target) {
-        const message = `Greetings ${network.displayName || 'pilot'}, are you traveling to ${target.destinationName}?`;
+        if (entries.some(({ message }) => message === gate)) {
+          line.removeChild(query(line, 'p'));
+        } else {
+          query(line, 'strong').textContent = `${gate.name}: `;
+          query(line, 'p > span').textContent = jumpGateSpec.greetingMessage
+            .replace('{player}', () => network.displayName || 'pilot')
+            .replace('{destination}', () => gate.destinationName);
+        }
 
-        gateName.textContent = `${target.name}: `;
+        button.addEventListener('click', () => {
+          if (
+            !button.disabled &&
+            !panel.hidden &&
+            channel === 0 &&
+            target === gate
+          ) {
+            finishPending('Access unavailable');
+            pending = entry;
+            button.disabled = true;
+            query(button, 'span').textContent = 'Access pending';
+            network.requestGateAccess(gate.id);
+          }
 
-        if (greeting.textContent !== message) greeting.textContent = message;
-        access.disabled = target.openingTarget === 1;
-        access.textContent =
-          target.openingTarget === 1
-            ? 'Access granted'
-            : 'Yes — request access';
+          button.blur();
+        });
+
+        query(button, 'kbd').textContent = accessKeys;
+        entries.push(entry);
+        access = button;
+        greetingAdded = true;
       }
 
-      if (lastMessages !== network.chatMessages) {
-        lastMessages = network.chatMessages;
-        const messages = lastMessages.filter(
-          (message) => message.channel === channel,
-        );
+      entries = entries.slice(-100);
 
-        log.replaceChildren(
-          ...messages.map((message) => {
-            const line = document.createElement('p');
-            const sender = document.createElement('strong');
+      const nodes = entries
+        .filter((entry) => entry.channel === channel)
+        .map((entry) => entry.element);
+      const scrollTop = log.scrollTop;
+      const atBottom = log.scrollHeight - scrollTop - log.clientHeight < 4;
 
-            sender.style.setProperty(
-              '--sender-color',
-              senderColors.get(message.senderRole) || '#fff',
-            );
+      if (
+        nodes.length !== log.children.length ||
+        nodes.some((node, i) => node !== log.children[i])
+      ) {
+        log.replaceChildren(...nodes);
+        log.hidden = !nodes.length;
 
-            sender.textContent = `${message.sender}: `;
-            const time = document.createElement('time');
-            const date = receivedAt.get(message)!;
-
-            time.dateTime = date.toISOString();
-            time.textContent = `[${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}]`;
-            line.append(time, sender, document.createTextNode(message.text));
-            return line;
-          }),
-        );
-
-        log.scrollTop = log.scrollHeight;
+        if (atBottom || greetingAdded || renderedChannel !== channel) {
+          log.scrollTop = log.scrollHeight;
+        } else {
+          log.scrollTop = scrollTop;
+        }
       }
+
+      renderedChannel = channel;
     },
   };
 };

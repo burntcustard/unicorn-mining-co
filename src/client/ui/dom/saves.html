@@ -1,11 +1,11 @@
 <section
-  class="ui-screen ui-surface ui-backdrop h-full"
+  class="ui-screen ui-surface ui-backdrop h-full grid"
   aria-labelledby="saves-heading"
 >
   <div class="ui-panel ui-card grid gap-6">
-    <header class="ui-row gap-6 flex-wrap">
+    <header class="flex items-center justify-between gap-6 flex-wrap">
       <h2 class="uppercase text-xl" id="saves-heading">Saves</h2>
-      <button class="uppercase button" data-back>Back</button>
+      <button class="uppercase ui-button" data-back>Back</button>
     </header>
     <section class="grid gap-4" aria-labelledby="export-heading">
       <h3 class="uppercase text-lg" id="export-heading">Your private ID</h3>
@@ -23,12 +23,12 @@
           autocomplete="off"
         />
       </label>
-      <div class="ui-actions gap-2">
-        <button class="uppercase button" data-reveal aria-pressed="false">
+      <div class="gap-2 flex flex-wrap" data-action-group>
+        <button class="uppercase ui-button" data-reveal aria-pressed="false">
           Reveal
         </button>
-        <button class="uppercase button" data-copy>Copy</button>
-        <button class="uppercase button" data-clear>Clear save</button>
+        <button class="uppercase ui-button" data-copy>Copy</button>
+        <button class="uppercase ui-button" data-clear>Clear save</button>
       </div>
       <p>
         Clear Save removes this browser's save and reloads the game. Your pilot
@@ -50,9 +50,7 @@
           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         />
       </label>
-      <button class="uppercase button" type="submit" data-verify>
-        Verify ID
-      </button>
+      <button class="uppercase ui-button" data-verify>Verify ID</button>
     </form>
     <p class="ui-status" role="status"></p>
     <dialog class="ui-card" aria-labelledby="confirm-heading">
@@ -62,9 +60,11 @@
         Your current pilot will remain on the server. Save their private ID
         before switching. The game will reload with the imported identity.
       </p>
-      <form method="dialog" class="ui-actions gap-2 mt-4">
-        <button class="uppercase button" value="cancel">Cancel</button>
-        <button class="uppercase button" value="confirm">Switch pilot</button>
+      <form method="dialog" class="gap-2 mt-4 flex flex-wrap" data-action-group>
+        <button class="uppercase ui-button" value="cancel">Cancel</button>
+        <button class="uppercase ui-button" value="confirm">
+          Switch pilot
+        </button>
       </form>
     </dialog>
   </div>

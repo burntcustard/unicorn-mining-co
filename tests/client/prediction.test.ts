@@ -48,6 +48,8 @@ installExampleModules();
     opening: 0.5,
     openingTarget: 1,
     destinationName: 'Priamus',
+    name: 'PP-87',
+    targetLabel: 'JUMP GATE\nPatroclus\u2009→\u2009Priamus',
   });
 
   prediction.reconcile({ entities: [authoritative], tick: 0 });
@@ -59,6 +61,8 @@ installExampleModules();
   );
   assert.equal(gate.openingTarget, 1);
   assert.equal(gate.destinationName, 'Priamus');
+  assert.equal(gate.name, 'PP-87');
+  assert.equal(gate.targetLabel, authoritative.targetLabel);
 }
 
 {

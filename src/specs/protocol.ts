@@ -73,6 +73,8 @@ export const binaryFieldIds = {
   transitTime: 41,
   transitGate: 42,
   storedPower: 43,
+  targetLabel: 44,
+  blockedBeams: 45,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {

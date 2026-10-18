@@ -260,7 +260,7 @@ export function inspectSettings(keys) {
     addEventListener() {},
     append(...children) {
       for (const child of children) {
-        if (child.className === 'button text-center') buttons.push(child);
+        if (child.className === 'ui-button text-center') buttons.push(child);
       }
     },
     querySelectorAll() { return []; },

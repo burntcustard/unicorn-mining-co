@@ -1,18 +1,26 @@
-<section class="game-chat ui-surface ui-card" hidden>
-  <div class="chat-tabs uppercase">
-    <button type="button" aria-pressed="true">Sector</button>
-    <button type="button" aria-pressed="false">Global</button>
+<section class="chat-panel ui-surface ui-card text-sm grid gap-3" hidden>
+  <div class="chat-tabs ui-tabs gap-2 text-xs uppercase flex">
+    <button class="ui-tab" aria-pressed="true">Sector</button>
+    <button class="ui-tab" aria-pressed="false">Global</button>
   </div>
-  <div class="chat-log" role="log"></div>
-  <div class="chat-contact" hidden>
-    <p>
-      <strong></strong>
-      <span></span>
-    </p>
-    <button type="button">Yes — request access</button>
-  </div>
+  <div class="chat-log grid gap-2" role="log" hidden></div>
+  <template>
+    <div class="chat-contact">
+      <p class="mb-2">
+        <strong></strong>
+        <span></span>
+      </p>
+      <div class="ui-controls uppercase text-outline text-secondary">
+        <button class="flex items-center gap-3" type="button">
+          <kbd class="flex-none">R</kbd>
+          <span>Request access</span>
+        </button>
+      </div>
+    </div>
+  </template>
   <input
-    placeholder="Press Enter to chat"
+    class="ui-input"
+    placeholder="Press ENTER to chat"
     aria-label="Chat message"
     maxlength="240"
   />

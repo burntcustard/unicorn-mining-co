@@ -20,6 +20,7 @@ installExampleModules();
 import assert from 'node:assert/strict';
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { GameObject } from '${process.cwd()}/src/client/objects/game-object.ts';
+import { collidersCanContact } from '${process.cwd()}/src/client/collision/types.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { Craft } from '${process.cwd()}/src/client/objects/craft.ts';
 import { Station } from '${process.cwd()}/src/client/objects/station.ts';
@@ -332,14 +333,14 @@ const gateCollider = gate.hitbox()[0];
 const shipCollider = ship.hitbox()[0];
 const savedPosition = Vec.clone(ship.position);
 ship.position = Vec.add(gate.position, Vec.create(200, 0));
-ship.velocity = Vec.create(100, 0);
-gate.opening = 1;
-assert.equal(gateCollider.contactFilter(gateCollider, shipCollider), false, 'outgoing ships clear an open gate frame');
-ship.velocity.x = -100;
-assert.equal(gateCollider.contactFilter(gateCollider, shipCollider), true, 'incoming ships still collide with the frame');
-ship.velocity.x = 100;
+for (const opening of [0, .5, 1]) {
+  gate.opening = opening;
+  for (const speed of [-100, 0, 100]) {
+    ship.velocity = Vec.create(speed, 0);
+    assert(collidersCanContact(gateCollider, shipCollider), 'gate hulls remain solid for incoming, outgoing, and stationary ships');
+  }
+}
 gate.opening = 0;
-assert.equal(gateCollider.contactFilter(gateCollider, shipCollider), true, 'closed gates retain hull collisions');
 ship.position = savedPosition;
 ship.velocity = Vec.create();
 

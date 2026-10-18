@@ -1,18 +1,16 @@
 <section
-  class="ui-layout pt-7 px-10 pb-4 ui-surface ui-backdrop h-full ui-settings gap-6"
+  class="pt-7 px-10 pb-4 ui-surface ui-backdrop h-full ui-settings gap-6 grid"
   aria-labelledby="settings-heading"
 >
-  <header class="ui-row gap-6 flex-wrap">
+  <header class="flex items-center justify-between gap-6 flex-wrap">
     <h2 class="uppercase text-xl" id="settings-heading">Settings</h2>
-    <button class="uppercase button" data-back>Back</button>
+    <button class="uppercase ui-button" data-back>Back</button>
   </header>
-  <nav class="ui-tabs gap-6 uppercase">
-    <button class="ui-tab ui-highlight" aria-current="page" data-controls>
-      Controls
-    </button>
-    <button class="ui-tab ui-highlight" data-graphics>Graphics</button>
+  <nav class="ui-tabs gap-6 uppercase flex">
+    <button class="ui-tab" aria-current="page" data-controls>Controls</button>
+    <button class="ui-tab" data-graphics>Graphics</button>
   </nav>
-  <section class="ui-scroll grid gap-4 ui-control-panel" data-controls-panel>
+  <section class="ui-scroll grid gap-4 content-start" data-controls-panel>
     <p>
       Select a binding and press a key. Escape cancels. Tab, Enter and Escape
       remain available for menus.
@@ -24,24 +22,26 @@
       Activate/deactivate module
     </h3>
     <div data-module-bindings></div>
-    <button class="uppercase button" data-reset>Reset to defaults</button>
+    <button class="uppercase ui-button justify-self-start" data-reset>
+      Reset to defaults
+    </button>
   </section>
   <section
-    class="ui-scroll grid gap-6 ui-control-panel"
+    class="ui-scroll grid gap-6 content-start"
     data-graphics-panel
     hidden
   >
     <h3 class="uppercase text-sm text-muted">Effects</h3>
     <div>
-      <label class="uppercase ui-row gap-6 py-2">
+      <label class="uppercase flex items-center justify-between gap-6 py-2">
         Stars
         <input type="checkbox" data-graphic="0" />
       </label>
-      <label class="uppercase ui-row gap-6 py-2">
+      <label class="uppercase flex items-center justify-between gap-6 py-2">
         Clouds
         <input type="checkbox" data-graphic="1" />
       </label>
-      <label class="uppercase ui-row gap-6 py-2">
+      <label class="uppercase flex items-center justify-between gap-6 py-2">
         Sparkles
         <input type="checkbox" data-graphic="2" />
       </label>
@@ -49,9 +49,9 @@
     <hr class="mt-4" />
     <h3 class="uppercase text-sm text-muted mt-6">Display</h3>
     <div>
-      <label class="uppercase ui-row gap-6 py-2">
+      <label class="uppercase flex items-center justify-between gap-6 py-2">
         World renderer
-        <select class="ui-input" data-renderer>
+        <select class="ui-input shrink-0" data-renderer>
           <option value="canvas">Canvas (default)</option>
           <option value="webgl">WebGL2</option>
         </select>
@@ -62,9 +62,9 @@
       </p>
     </div>
     <div>
-      <label class="uppercase ui-row gap-6 py-2">
+      <label class="uppercase flex items-center justify-between gap-6 py-2">
         World rendering resolution
-        <select class="ui-input" data-resolution>
+        <select class="ui-input shrink-0" data-resolution>
           <option value="0.5">50%</option>
           <option value="0.75">75%</option>
           <option value="1">100%</option>
@@ -75,9 +75,9 @@
       <p>Changes apply immediately. Lower resolution reduces rendering work.</p>
     </div>
     <div>
-      <label class="uppercase ui-row gap-6 py-2">
+      <label class="uppercase flex items-center justify-between gap-6 py-2">
         HUD resolution
-        <select class="ui-input" data-hud-resolution>
+        <select class="ui-input shrink-0" data-hud-resolution>
           <option value="native">Native display (default)</option>
           <option value="world">Match world</option>
         </select>
@@ -98,8 +98,8 @@
     <h3 class="uppercase text-lg" id="binding-heading">Change key</h3>
     <p class="mt-4" id="binding-prompt"></p>
     <p class="ui-status mt-4" role="status"></p>
-    <form method="dialog" class="ui-actions gap-2 mt-4">
-      <button class="uppercase button">Cancel</button>
+    <form method="dialog" class="gap-2 mt-4 flex flex-wrap" data-action-group>
+      <button class="uppercase ui-button">Cancel</button>
     </form>
   </dialog>
 </section>

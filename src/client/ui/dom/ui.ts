@@ -112,7 +112,7 @@ export const ui = (() => {
     if (focused && !focused.matches('button')) return;
 
     const group =
-      focused?.closest('nav, [data-bindings], .ui-actions') ||
+      focused?.closest('nav, [data-bindings], [data-action-group]') ||
       screen.querySelector('nav') ||
       screen;
 

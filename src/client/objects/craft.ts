@@ -193,7 +193,31 @@ export class Craft extends GameObject {
     // shipful of it does not all wink out at once
     if (this.segments) {
       this.cargoContents = props.cargoContents || [];
-      this.hullSegments = props.hullSegments || [];
+
+      // Freeze the same inert geometry sent in wreckage snapshots. Keeping
+      // module instances here would retain animations, shields, and old mounts
+      // that no longer exist after the fragment is replicated or rewound.
+      this.hullSegments = this.segments.map((segment) => {
+        const points =
+          typeof segment.points === 'function'
+            ? segment.points(segment)
+            : segment.points;
+        const radius = segment.radius?.(segment) || 0;
+
+        return {
+          points: points?.map(([x, y]) => [x, y]),
+          radius: () => radius,
+          localPosition: Vec.clone(segment.localPosition),
+          health: (segment.mount || segment).health,
+          fillShade: segment.fillShade,
+          color: segment.fillShade === undefined ? segment.color : undefined,
+          shapeOutline: segment.shapeOutline,
+        };
+      });
+
+      this.segments = this.hullSegments.map((plan) =>
+        makeSegment(this, plan, plan),
+      );
       this.decay = wreckageDecay;
       this.health = wreckageHealth + this.random.next();
       this.mass = this.segments.length;

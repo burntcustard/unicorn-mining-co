@@ -151,6 +151,10 @@ func (w *World) Step(dt float64, velocityIterations, positionIterations int) {
 	}
 
 	w.Locked = false
+
+	if dt > 0 {
+		w.recoverOverlaps()
+	}
 }
 
 func (w *World) FindNewContacts() { w.BroadPhase.UpdatePairs(w.CreateContact) }

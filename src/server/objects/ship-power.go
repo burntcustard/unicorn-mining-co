@@ -29,6 +29,10 @@ func (s *Ship) powerRates() powerRates {
 
 		if active {
 			usage = spec.PowerActivated
+
+			if spec.PowerCharging > 0 && max(module.ChargeCooldown, module.FireCooldown) > 1e-9 {
+				usage = spec.PowerCharging
+			}
 		}
 
 		rates.generation += spec.PowerGenerated

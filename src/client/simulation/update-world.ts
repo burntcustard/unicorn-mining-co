@@ -13,7 +13,10 @@ import { type Contact } from '../collision/types';
 import { simulationStep } from '../../specs/simulation';
 import { updateEntities } from './update-tier';
 
-const collisionWorlds = new WeakMap<SimulationWorld, GameCollisions>();
+const collisionWorlds = new WeakMap<
+  SimulationWorld,
+  { tick: number; collisions: GameCollisions }
+>();
 
 /*
  * Preserve gameplay movement, then sweep it through the shared collision system.
@@ -52,12 +55,16 @@ export const updateWorld = ({
     }
   });
 
-  let collisions = collisionWorlds.get(world);
+  let cached = collisionWorlds.get(world);
 
-  if (!collisions) {
-    collisions = new GameCollisions();
-    collisionWorlds.set(world, collisions);
+  // Contacts and fixture order belong to the timeline that produced them.
+  // Replaying destroyed modules must not reuse their later debris contacts.
+  if (!cached || cached.tick !== world.tick) {
+    cached = { tick: world.tick, collisions: new GameCollisions() };
+    collisionWorlds.set(world, cached);
   }
+
+  const { collisions } = cached;
 
   collisions.capturePoses(world.entities);
 
@@ -123,5 +130,6 @@ export const updateWorld = ({
   // Contacts and docking can move entities after their own update.
   world.entities.forEach((entity) => entity.roundMotion());
   world.tick += ticks;
+  cached.tick = world.tick;
   return events;
 };

@@ -13,20 +13,19 @@ import (
 // by the session; an open passage can be crossed by any nearby piloted ship.
 type Passage struct {
 	*simulation.GameObject
-	*passageMotion
-	DestinationSector, DestinationName string
-	TravelRadius                       float64
-	Spec                               specs.JumpGate
-	Segments                           []*simulation.Segment
-	Sides                              []float64
-	ConnectionID                       string
-	Connected                          *Passage
-}
-
-// Linked gates share one motion state, advanced once by the session per tick.
-type passageMotion struct {
 	Opening, OpeningTarget, CloseAfter         float64
 	stateHoldRemaining, requestedOpeningTarget float64
+	previousOpening                            float64
+	BlockedBeams                               uint8
+	OnClosing                                  func()
+	DestinationSector, DestinationName         string
+	TravelRadius                               float64
+	Spec                                       specs.JumpGate
+	Segments                                   []*simulation.Segment
+	Sides                                      []float64
+	ConnectionID                               string
+	TargetLabel                                string
+	Connected                                  *Passage
 }
 
 type JumpGate struct{ *Passage }
@@ -47,7 +46,6 @@ type PassageOptions struct {
 
 func NewPassage(world *simulation.World, options PassageOptions) PassageEntity {
 	p := &Passage{GameObject: simulation.NewGameObject(simulation.ObjectProperties{World: world, ID: &options.ID, Position: options.Position}, world.Specification.Simulation), DestinationSector: options.DestinationSector, DestinationName: options.DestinationName}
-	p.passageMotion = &passageMotion{}
 	p.Mass = math.Inf(1)
 	p.Health = math.NaN()
 	p.Physics = false
@@ -82,10 +80,6 @@ func (p *Passage) PassageBase() *Passage { return p }
 
 func (p *Passage) Connect(other *Passage) {
 	p.Connected, other.Connected = other, p
-
-	if p.Kind == "jumpGate" {
-		other.passageMotion = p.passageMotion
-	}
 }
 
 // Requests wait for the current movement and minimum settled-state hold.
@@ -93,8 +87,67 @@ func (p *Passage) RequestOpening(target float64) {
 	p.requestedOpeningTarget = target
 
 	if p.Opening == p.OpeningTarget && p.stateHoldRemaining == 0 {
-		p.OpeningTarget = target
+		p.setOpeningTarget(target)
 	}
+}
+
+func (p *Passage) setOpeningTarget(target float64) {
+	if p.OpeningTarget == target {
+		return
+	}
+
+	p.OpeningTarget = target
+
+	if target == 0 && p.OnClosing != nil {
+		p.OnClosing()
+	}
+}
+
+// Safety overrides queued access changes and reverses the existing motion in place.
+func (p *Passage) InterruptClosing(beams uint8) {
+	p.BlockedBeams |= beams
+	p.OpeningTarget, p.requestedOpeningTarget = 1, 1
+	p.stateHoldRemaining = 0
+}
+
+// Sweep the ship's bounds against each finite beam, including fast crossings.
+func (p *Passage) CrossedBeams(from, to Vec.Vector, radius float64) uint8 {
+	path := collision.BaseShape{Count: 2, Vertices: []Vec.Vector{
+		simulation.RotatePoint(Vec.Subtract(from, p.Position), -p.Rotation),
+		simulation.RotatePoint(Vec.Subtract(to, p.Position), -p.Rotation),
+	}}
+
+	span := p.Spec.HalfTravel*utilities.EaseProgress(utilities.EaseProgress(max(p.Opening, p.previousOpening))) + p.Spec.BeamInset
+	blocked := uint8(0)
+
+	for index, y := range p.Spec.BeamOffsets {
+		beam := collision.BaseShape{Count: 2, Vertices: []Vec.Vector{Vec.Create(-span, y), Vec.Create(span, y)}}
+		var distance collision.DistanceOutput
+		var cache collision.SimplexCache
+		collision.ComputeDistance(&distance, &cache, collision.DistanceInput{ProxyA: &path, ProxyB: &beam, TransformA: Vec.Transform(0, 0, 0), TransformB: Vec.Transform(0, 0, 0)})
+
+		if distance.Distance <= radius {
+			blocked |= 1 << index
+		}
+	}
+
+	return blocked
+}
+
+// Exit access skips the settled-state hold, but never interrupts hull movement.
+func (p *Passage) RequestExitOpening() {
+	if p.Opening == 0 && p.OpeningTarget == 0 {
+		p.stateHoldRemaining = 0
+	}
+
+	p.RequestOpening(1)
+}
+
+// The closed hull's inner octagon, measured in the gate's local coordinates.
+func (p *Passage) ContainsInterior(position Vec.Vector) bool {
+	local := simulation.RotatePoint(Vec.Subtract(position, p.Position), -p.Rotation)
+	x, y := math.Abs(local.X), math.Abs(local.Y)
+	return x < 189 && y < 202.5 && x+y < 274.5
 }
 
 func (p *Passage) Update(dt float64) {
@@ -104,6 +157,8 @@ func (p *Passage) Update(dt float64) {
 }
 
 func (p *Passage) Advance(dt float64) {
+	p.previousOpening = p.Opening
+
 	if p.Kind != "jumpGate" {
 		return
 	}
@@ -118,7 +173,7 @@ func (p *Passage) Advance(dt float64) {
 				return
 			}
 
-			p.OpeningTarget = p.requestedOpeningTarget
+			p.setOpeningTarget(p.requestedOpeningTarget)
 		}
 
 		duration := p.Spec.ClosingDuration / 1000
@@ -135,6 +190,10 @@ func (p *Passage) Advance(dt float64) {
 		if step == remaining {
 			p.Opening = p.OpeningTarget
 			p.stateHoldRemaining = p.Spec.StateHoldDuration / 1000
+
+			if p.Opening == 1 {
+				p.BlockedBeams = 0
+			}
 		}
 	}
 }
@@ -148,19 +207,6 @@ func (p *Passage) Hitbox() []*collision.Collider {
 
 		if segment.Collider == nil {
 			segment.Collider = &collision.Collider{Owner: p.Self, Segment: segment, Physics: new(true), Collides: new(true), Radius: segment.Radius(segment), Friction: p.Friction}
-
-			// Ships emerging from the aperture can pass outward through the open frame.
-			segment.Collider.ContactFilter = func(_, other *collision.Collider) bool {
-				owner, ok := other.Owner.(interface{ ShipBase() *Ship })
-
-				if !ok || p.Opening < 1 {
-					return true
-				}
-
-				ship := owner.ShipBase()
-				return Vec.Dot(Vec.Subtract(ship.Position, p.Position), ship.Velocity) <= 0
-			}
-
 		}
 
 		if segment.Collider.ShapeOutline == nil {

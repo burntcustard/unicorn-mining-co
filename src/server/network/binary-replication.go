@@ -350,7 +350,7 @@ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) pr
 func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord {
 	catalog := &batch.catalog
 	field := catalog.Protocol.BinaryFieldIDs
-	record := recordOf(source, field.StoredPower)
+	record := recordOf(source, field.BlockedBeams)
 
 	if record.batchGeneration == batch.Generation {
 		return record
@@ -536,7 +536,13 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		kind = p.Kind
 		scalarNumber(record, field.Opening, p.Opening)
 		scalarNumber(record, field.OpeningTarget, p.OpeningTarget)
+
+		if p.Kind == "jumpGate" {
+			scalarNumber(record, field.BlockedBeams, float64(p.BlockedBeams))
+		}
+
 		scalar(record, field.DestinationName, p.DestinationName)
+		scalar(record, field.TargetLabel, p.TargetLabel)
 	}
 
 	scalar(record, field.Kind, kind)
@@ -742,13 +748,14 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 	// Radar contacts have no entity identity or geometry on the client. Refresh
 	// at the ballistic cadence and omit identical lists between refreshes.
 	if load || world.Tick-m.asteroidTick >= uint64(max(1, rules.BallisticReplicateEvery)) {
+		radarRange := rules.ServerRegionRanges["asteroid"]
 		m.asteroidTick = world.Tick
 		m.asteroidBuffer = m.asteroidBuffer[:0]
 
 		for i, object := range view.objects {
 			dx, dy := view.X[i]-position.X, view.Y[i]-position.Y
 
-			if object.Kind == "asteroid" && !object.Dead && !object.Buried && dx*dx+dy*dy <= ranges.EntityUnload*ranges.EntityUnload {
+			if object.Kind == "asteroid" && !object.Dead && !object.Buried && dx*dx+dy*dy <= radarRange*radarRange {
 				m.asteroidBuffer = append(m.asteroidBuffer, object.Position)
 			}
 		}

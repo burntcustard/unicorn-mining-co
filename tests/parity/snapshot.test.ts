@@ -27,6 +27,8 @@ assert.deepEqual(snapshot.asteroidPositions, [
 assert.equal(snapshot.fullEntities.length, 3);
 const [ship, asteroid, projectile] = snapshot.fullEntities;
 
+assert.equal(ship.targetLabel, 'CUSTOM\nTARGET LABEL');
+assert.equal(ship.blockedBeams, 10);
 assert.equal(ship.transitTime, -1.25);
 assert.equal(ship.transitGate, 987);
 

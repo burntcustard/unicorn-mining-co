@@ -8,6 +8,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"reflect"
 	"testing"
 )
 
@@ -105,6 +106,12 @@ func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
 			module := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
 			ship.Fit(module, mounted)
 			simulation.AddEntity(world, ship)
+
+			for _, segment := range ship.SegmentsAtMount(mounted) {
+				segment.Active = 1
+				segment.ActivationProgress = .75
+			}
+
 			ship.Detach(mounted)
 			var debris *objects.Craft
 
@@ -119,6 +126,22 @@ func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
 			}
 
 			check := func(craft *objects.Craft) {
+				for _, segment := range craft.Segments {
+					if segment.Module != nil || segment.Mount != nil || len(segment.Mounts) != 0 || segment.DynamicPoints != nil || segment.Catches || segment.Covers {
+						t.Fatalf("%s wreckage retained live module behavior", id)
+					}
+				}
+
+				before := craft.Wreckage()
+
+				for range 10 {
+					craft.UpdateModules(.01)
+				}
+
+				if !reflect.DeepEqual(before, craft.Wreckage()) {
+					t.Fatalf("%s wreckage kept animating after detachment", id)
+				}
+
 				for i, segment := range craft.Wreckage() {
 					original := debris.Wreckage()[i]
 
@@ -156,6 +179,14 @@ func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
 			}
 
 			check(restored.(*objects.Craft))
+
+			for i, collider := range debris.Hitbox() {
+				other := restored.Hitbox()[i]
+
+				if collider.GetFriction() != other.GetFriction() || !reflect.DeepEqual(collider.Bounciness, other.Bounciness) || !reflect.DeepEqual(collider.Physics, other.Physics) || !reflect.DeepEqual(collider.ShapeOutline, other.ShapeOutline) {
+					t.Fatalf("%s wreckage changed physical surfaces after restoration", id)
+				}
+			}
 		}
 	}
 }

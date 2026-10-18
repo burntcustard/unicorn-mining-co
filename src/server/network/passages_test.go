@@ -1,10 +1,12 @@
 package network
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -21,6 +23,7 @@ func TestGateAccessAndSectorTravel(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello"}, socket)
 	s.Receive(protocol.Control{Type: "hello"}, observer)
 	p, other := s.playersBySocket[socket], s.playersBySocket[observer]
+	p.profile.DisplayName = "Arriving pilot"
 	source := s.currentSector
 	var gate *objects.Passage
 
@@ -50,20 +53,22 @@ func TestGateAccessAndSectorTravel(t *testing.T) {
 	p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, 500))
 	s.Receive(protocol.Control{Type: "gateAccess", GateID: uint64(gate.ID)}, socket)
 
+	s.updateGateAccess(2 * gate.Spec.AccessResponseDelay / 1000)
+
 	if gate.OpeningTarget != 0 {
 		t.Fatal("access request bypassed the new gate's minimum closed-state hold")
 	}
 
-	s.updateGatePairs(gate.Spec.StateHoldDuration / 1000)
+	s.updateGates(gate.Spec.StateHoldDuration / 1000)
 
 	if gate.OpeningTarget != 1 {
 		t.Fatal("nearby access refused")
 	}
 
-	s.updateGatePairs(gate.Spec.OpeningDuration / 1000)
+	s.updateGates(gate.Spec.OpeningDuration / 1000)
 
-	if gate.Connected == nil || gate.Connected.Opening != 1 || gate.Opening != 1 {
-		t.Fatal("gate did not finish opening")
+	if gate.Connected == nil || gate.Connected.Opening != 0 || gate.Opening != 1 {
+		t.Fatal("access should open only the requested gate")
 	}
 
 	if gate.Rotation != gateRotation || gate.Position == (Vec.Vector{}) {
@@ -88,6 +93,31 @@ func TestGateAccessAndSectorTravel(t *testing.T) {
 	s.crossPassages(before)
 	finishDeparture(t, s, p)
 
+	arrivalMessage, err := protocol.EncodeServerControl(protocol.ServerControl{
+		Type: "chat", Sender: gate.Connected.Name, SenderRole: "friendly",
+		Text: fmt.Sprintf("Welcome to %s, %s", gate.DestinationName, p.profile.DisplayName),
+	}, catalog.Protocol)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	countArrivalMessages := func(frames [][]byte) int {
+		count := 0
+
+		for _, frame := range frames {
+			if bytes.Equal(frame, arrivalMessage) {
+				count++
+			}
+		}
+
+		return count
+	}
+
+	if countArrivalMessages(socket.frames) != 1 || countArrivalMessages(observer.frames) != 0 {
+		t.Fatal("destination gate should greet only the arriving player once")
+	}
+
 	if p.sectorID != gate.DestinationSector || p.ship.Position != gate.Connected.Position || p.shipID != shipID || p.ship.Fuel != 7.5 || p.profile.Credits != credits {
 		t.Fatal("travel lost ship state or used wrong arrival")
 	}
@@ -106,6 +136,10 @@ func TestGateAccessAndSectorTravel(t *testing.T) {
 
 	s.Receive(protocol.Control{Type: "snapshotAck", Sequence: observer.sequence}, observer)
 	s.Tick(1)
+
+	if countArrivalMessages(socket.frames) != 1 {
+		t.Fatal("destination gate repeated its arrival greeting")
+	}
 
 	if slices.Contains(other.binaryReplication.entityIDs, uint64(shipID)) {
 		t.Fatal("ship replicated into old sector")
@@ -252,8 +286,10 @@ func TestSectorTravelSurvivesRestart(t *testing.T) {
 
 	portal := entity.(objects.PassageEntity).PassageBase()
 
-	if portal.Opening != 1 {
-		t.Fatal("restart did not reopen the arrival gate")
+	step := restored.World.Specification.Simulation.SimulationStep * 1000 / portal.Spec.OpeningDuration
+
+	if portal.Opening < 0 || portal.Opening > step || portal.OpeningTarget != 1 {
+		t.Fatal("resuming a saved transit did not request a smooth opening")
 	}
 
 }
@@ -371,7 +407,7 @@ func TestPassageArrivalAndManualDeparture(t *testing.T) {
 	}
 }
 
-func TestLinkedGateMotionAndRemoteOccupancy(t *testing.T) {
+func TestGateMotionAndOccupancyAreIndependent(t *testing.T) {
 	catalog, _ := specs.Load()
 	s := NewGameSession(25, catalog)
 	socket := &soundSocket{}
@@ -389,31 +425,31 @@ func TestLinkedGateMotionAndRemoteOccupancy(t *testing.T) {
 	exit := s.connectedPassage(gate)
 	s.relocatePlayer(p, gate.DestinationSector, sectorArrival{position: Vec.Add(exit.Position, Vec.Create(0, exit.Radius-1))})
 	exit.RequestOpening(1)
-	s.updateGatePairs(gate.Spec.StateHoldDuration / 1000)
-	s.updateGatePairs(gate.Spec.OpeningDuration / 2000)
+	s.updateGates(gate.Spec.StateHoldDuration / 1000)
+	s.updateGates(gate.Spec.OpeningDuration / 2000)
 
-	if gate.Opening != .5 || exit.Opening != .5 {
-		t.Fatal("linked gates did not advance exactly once together")
+	if gate.Opening != 0 || exit.Opening != .5 {
+		t.Fatal("opening the destination changed the entrance")
 	}
 
-	s.updateGatePairs(gate.Spec.OpeningDuration / 2000)
-	s.updateGatePairs(gate.Spec.StateHoldDuration / 1000)
+	s.updateGates(gate.Spec.OpeningDuration / 2000)
+	s.updateGates(gate.Spec.StateHoldDuration / 1000)
 
-	if gate.Opening != 1 || exit.Opening != 1 || gate.OpeningTarget != 1 {
-		t.Fatal("remote ship did not hold both gates open")
+	if gate.Opening != 0 || exit.Opening != 1 || gate.OpeningTarget != 0 {
+		t.Fatal("remote occupancy should hold only the destination open")
 	}
 
 	p.ship.Position = Vec.Add(exit.Position, Vec.Create(0, exit.Radius+1))
-	s.updateGatePairs(catalog.Simulation.SimulationStep)
+	s.updateGates(catalog.Simulation.SimulationStep)
 
-	if gate.OpeningTarget != 0 || gate.Opening >= 1 || exit.Opening != gate.Opening {
-		t.Fatal("both gates must begin closing on the first unoccupied tick")
+	if gate.Opening != 0 || gate.OpeningTarget != 0 || exit.OpeningTarget != 0 || exit.Opening >= 1 {
+		t.Fatal("only the destination should begin closing when its occupant leaves")
 	}
 
-	s.updateGatePairs(gate.Spec.ClosingDuration / 1000)
+	s.updateGates(gate.Spec.ClosingDuration / 1000)
 
 	if gate.Opening != 0 || exit.Opening != 0 {
-		t.Fatal("gates did not close together")
+		t.Fatal("destination did not finish closing")
 	}
 }
 
@@ -473,5 +509,280 @@ func TestClosedGatePortalDoesNotRequireAccess(t *testing.T) {
 
 	if math.Abs(p.ship.Rotation-rotation) > 1e-6 || p.sectorID != gate.DestinationSector {
 		t.Fatal("travel changed hull rotation or failed to transfer")
+	}
+}
+
+func TestGateTransitPreservesMotion(t *testing.T) {
+	for _, state := range []struct {
+		name            string
+		opening, target float64
+	}{
+		{"closed", 0, 0},
+		{"closing", .5, 0},
+		{"opening", .5, 1},
+	} {
+		t.Run(state.name, func(t *testing.T) {
+			catalog, _ := specs.Load()
+			s := NewGameSession(25, catalog)
+			socket := &soundSocket{}
+			s.Receive(protocol.Control{Type: "hello"}, socket)
+			p := s.playersBySocket[socket]
+			var gate *objects.Passage
+
+			for _, passage := range s.sectors[p.sectorID].passages {
+				if passage.Kind == "jumpGate" {
+					gate = passage
+					break
+				}
+			}
+
+			exit := s.connectedPassage(gate)
+			gate.Opening, gate.OpeningTarget = state.opening, state.target
+			gate.RequestOpening(state.target)
+			p.ship.Position = gate.Position
+			duration := gate.Spec.ClosingDuration
+
+			if state.target == 1 {
+				duration = gate.Spec.OpeningDuration
+			}
+
+			step := catalog.Simulation.SimulationStep * 1000 / min(duration, gate.Spec.OpeningDuration)
+			previous, previousExit := state.opening, exit.Opening
+
+			// Cover entry, departure, arrival, and waiting inside the destination.
+			for tick := range 900 {
+				s.Tick(1)
+
+				if math.Abs(gate.Opening-previous) > step+1e-8 || math.Abs(exit.Opening-previousExit) > step+1e-8 {
+					t.Fatalf("transit snapped gate motion at tick %d: opening=%v previous=%v", tick, gate.Opening, previous)
+				}
+
+				previous, previousExit = gate.Opening, exit.Opening
+			}
+
+			if exit.Opening != 1 || p.sectorID != gate.DestinationSector || p.ship.TransitTime != 0 || p.ship.Position != exit.Position {
+				t.Fatal("preserving gate motion prevented travel or stationary arrival")
+			}
+		})
+	}
+}
+
+func TestGateEntryRequestsDestinationOpeningImmediately(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &soundSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+
+	for _, gate := range s.sectors[p.sectorID].passages {
+		if gate.Kind != "jumpGate" {
+			continue
+		}
+
+		p.ship.Position = gate.Position
+		s.World.Tick++
+		s.crossPassages(map[*playerRecord]Vec.Vector{p: Vec.Add(gate.Position, Vec.Create(0, 200))})
+
+		if p.ship.TransitTime >= 0 || gate.Connected == nil || gate.Connected.Opening != 0 || gate.Connected.OpeningTarget != 1 {
+			t.Fatal("entry did not immediately request opening at the destination without snapping")
+		}
+
+		s.updateGates(catalog.Simulation.SimulationStep)
+
+		if gate.Connected.Opening <= 0 || gate.Connected.Opening >= 1 {
+			t.Fatal("destination did not start animating open during departure")
+		}
+
+		return
+	}
+
+	t.Fatal("starting sector has no jump gate")
+}
+
+func TestClosedGateInteriorRecovery(t *testing.T) {
+	for _, position := range []struct {
+		name   string
+		offset Vec.Vector
+		inside bool
+	}{
+		{"interior", Vec.Create(0, 180), true},
+		{"diagonal interior", Vec.Create(120, 140), true},
+		{"outside side", Vec.Create(210, 0), false},
+		{"outside top", Vec.Create(0, 230), false},
+		{"outside diagonal", Vec.Create(180, 180), false},
+	} {
+		for _, rotation := range []float64{0, .71} {
+			t.Run(fmt.Sprintf("%s/%g", position.name, rotation), func(t *testing.T) {
+				catalog, _ := specs.Load()
+				catalog.JumpGateSpec.RecoveryMessage = "Recovery for {player}"
+				s := NewGameSession(25, catalog)
+				a, b, remote := &soundSocket{}, &soundSocket{}, &soundSocket{}
+
+				for _, socket := range []*soundSocket{a, b, remote} {
+					s.Receive(protocol.Control{Type: "hello"}, socket)
+				}
+
+				p := s.playersBySocket[a]
+				p.profile.DisplayName = "Custard"
+				var gate *objects.Passage
+
+				for _, passage := range s.sectors[p.sectorID].passages {
+					if passage.Kind == "jumpGate" {
+						gate = passage
+						break
+					}
+				}
+
+				exit := s.connectedPassage(gate)
+				s.relocatePlayer(s.playersBySocket[remote], gate.DestinationSector, sectorArrival{})
+				gate.Rotation = rotation
+				p.ship.Position = Vec.Add(gate.Position, simulation.RotatePoint(position.offset, rotation))
+				a.frames, b.frames, remote.frames = nil, nil, nil
+				s.preparePassages()
+
+				if !position.inside {
+					if gate.OpeningTarget != 0 || len(a.frames)+len(b.frames)+len(remote.frames) != 0 {
+						t.Fatal("ship outside the octagon triggered recovery")
+					}
+
+					return
+				}
+
+				if gate.Opening != 0 || gate.OpeningTarget != 1 || exit.Opening != 0 || exit.OpeningTarget != 0 {
+					t.Fatal("trapped ship did not request a smooth opening")
+				}
+
+				expected, err := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: "Recovery for Custard"}, catalog.Protocol)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				for _, socket := range []*soundSocket{a, b} {
+					if len(socket.frames) != 1 || !bytes.Equal(socket.frames[0], expected) {
+						t.Fatal("recovery message missing from sector chat")
+					}
+				}
+
+				s.preparePassages()
+
+				if len(a.frames) != 1 || len(b.frames) != 1 || len(remote.frames) != 0 {
+					t.Fatal("recovery message repeated or escaped the sector")
+				}
+
+				s.updateGates(catalog.Simulation.SimulationStep)
+
+				if gate.Opening <= 0 || gate.Opening >= 1 || exit.Opening != 0 || exit.OpeningTarget != 0 {
+					t.Fatal("recovery did not animate the gate open")
+				}
+			})
+		}
+	}
+}
+
+func TestReconnectInsideClosedGateOpensOnlyLocalGate(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &soundSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+	p.profile.DisplayName = "Custard"
+	var entrance *objects.Passage
+
+	for _, gate := range s.sectors[p.sectorID].passages {
+		if gate.Kind == "jumpGate" {
+			entrance = gate
+			break
+		}
+	}
+
+	p.ship.Position = entrance.Position
+	s.Tick(1)
+	finishDeparture(t, s, p)
+
+	for p.ship.TransitTime > 0 {
+		s.Tick(1)
+	}
+
+	exit := entrance.Connected
+	s.Disconnect(socket)
+	// Let the unoccupied gates finish opening and close while the pilot is away.
+	s.World.Tick += 10000
+	s.updateGates(60)
+
+	if entrance.Opening != 0 || exit.Opening != 0 {
+		t.Fatal("unoccupied gates did not close")
+	}
+
+	s.Receive(protocol.Control{Type: "hello", PlayerToken: p.profile.ID}, socket)
+	defer s.useSector(p.sectorID)()
+	socket.frames = nil
+	s.preparePassages()
+
+	if exit.Opening != 0 || exit.OpeningTarget != 1 || entrance.Opening != 0 || entrance.OpeningTarget != 0 {
+		t.Fatal("reconnect recovery must open only the gate containing the ship")
+	}
+
+	expected, err := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Channel: 0, Sender: exit.Name, SenderRole: "friendly"}, catalog.Protocol)
+
+	if err != nil || len(socket.frames) != 1 || !bytes.HasPrefix(socket.frames[0], expected[:len(expected)-1]) || len(socket.frames[0]) <= len(expected) {
+		t.Fatal("reconnected pilot did not receive the recovery message")
+	}
+
+	s.updateGates(catalog.Simulation.SimulationStep)
+
+	if exit.Opening <= 0 || exit.Opening >= 1 || entrance.Opening != 0 || entrance.OpeningTarget != 0 {
+		t.Fatal("local recovery animation changed the remote gate")
+	}
+}
+
+func TestJumpGateCallsign(t *testing.T) {
+	for _, position := range []struct {
+		position Vec.Vector
+		callsign string
+	}{
+		{Vec.Create(-5348, -52877), "PA-87"},
+		{Vec.Create(5340, 52870), "PA-00"},
+		{Vec.Create(-5347.6, -52876.6), "PA-87"},
+	} {
+		t.Run(position.callsign+fmt.Sprint(position.position), func(t *testing.T) {
+			catalog, _ := specs.Load()
+			s := NewGameSession(25, catalog)
+			start := s.currentSector
+			var link simulation.SectorLink
+			var end int
+
+			for _, candidate := range s.sectorMap.Links {
+				if index := slices.Index(candidate.Sectors[:], start); index >= 0 {
+					link, end = candidate, 1-index
+					break
+				}
+			}
+
+			for i := range s.sectorMap.Sectors {
+				sector := &s.sectorMap.Sectors[i]
+
+				if sector.ID == start {
+					sector.Name = "Acamas"
+				} else if sector.ID == link.Sectors[end] {
+					sector.Name = "Patroclus"
+					sector.GateSites[link.Sites[end]].Position = position.position
+				}
+			}
+
+			s.activateSector(link.Sectors[end])
+
+			for _, gate := range s.sectors[s.currentSector].passages {
+				if gate.ConnectionID == link.ID && gate.Kind == "jumpGate" {
+					if gate.Name != position.callsign || gate.TargetLabel != "JUMP GATE\nPatroclus\u2009→\u2009Acamas" {
+						t.Fatalf("gate callsign=%q label=%q", gate.Name, gate.TargetLabel)
+					}
+
+					return
+				}
+			}
+
+			t.Fatal("destination gate missing")
+		})
 	}
 }

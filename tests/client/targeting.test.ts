@@ -134,6 +134,12 @@ assert.deepEqual(commands, originalCorners, 'rotating a targeted object leaves i
 calls.splice(0, 2);
 
 assert.deepEqual(calls.map(call => call.slice(0, 2)), [['stroke', 'a□□'], ['fill', 'a□□']], 'targeting labels use native text outline and unsupported glyph boxes');
+near.targetLabel = 'JUMP GATE';
+calls.length = 0;
+targeting.render(game);
+assert.deepEqual(calls.map(call => call.slice(0, 2)), [['stroke', 'JUMP GATE'], ['fill', 'JUMP GATE']], 'a custom target label replaces the object name only under the targeting indicator');
+assert.equal(near.name, 'aé🦄', 'custom target labels preserve the object name');
+near.targetLabel = undefined;
 far.dead = false;
 targeting.hover({x: 80, y: 0}); update();
 calls.length = strokes.length = 0;

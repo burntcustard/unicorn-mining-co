@@ -188,8 +188,23 @@ assert.equal(
   'center arrow uses the rendered player heading',
 );
 assert.equal(depth, 0, 'map clipping and transforms are restored');
+assert.deepEqual(
+  strokes[0].points.slice(-4),
+  [
+    [-148, 0],
+    [148, 0],
+    [0, -148],
+    [0, 148],
+  ],
+  'map guides include horizontal and vertical diameters in the ring stroke',
+);
+assert.equal(strokes[0].width, 2, 'map guides have a 2px stroke');
 
-const iconRadius = arcs.find(({ radius }) => radius > 6 && radius < 10)!.radius;
+const iconRadius = Math.max(
+  ...strokes
+    .find(({ points, color }) => points.length === 6 && color === '#3f7')!
+    .points.map(([x, y]) => Math.hypot(x, y)),
+);
 
 assert(
   arcs.some(
@@ -283,33 +298,39 @@ for (const kind of [
   const normal = drawContact();
   const targeted = drawContact(contact);
 
-  if (kind === 'asteroid') {
-    assert.equal(normal.strokes.length, 3, 'asteroids have no outline');
+  if (kind === 'asteroid' || kind === 'item') {
+    assert.equal(normal.strokes.length, 2, `${kind}: dots have no outline`);
     assert.equal(
       normal.fills[0].length,
       0,
-      'asteroid markers use no polygon vertices',
+      `${kind}: dots use no polygon vertices`,
+    );
+    assert.equal(normal.arcs.at(-1)!.radius, 4, `${kind}: dots share a size`);
+    assert.equal(
+      normal.arcs.at(-1)!.fill,
+      kind === 'item' ? '#4df' : '#fff',
+      `${kind}: item dots are cyan and asteroid dots are white`,
     );
   }
 
   const outline = normal.strokes
-    .slice(0, -1)
+    .slice(1, -1)
     .find(({ points }) => points.length);
   const radius =
-    kind === 'asteroid'
+    kind === 'asteroid' || kind === 'item'
       ? normal.arcs.at(-1)!.radius
       : outline
         ? Math.max(...outline.points.map(([x, y]) => Math.hypot(x, y)))
         : normal.arcs.at(-1)!.radius;
 
   assert(
-    kind === 'asteroid'
+    kind === 'asteroid' || kind === 'item'
       ? radius > 0 && radius < iconRadius
       : Math.abs(radius - iconRadius) < 1e-8,
-    `${kind}: asteroids are smaller than other contact icons`,
+    `${kind}: asteroid and item dots are smaller than other contact icons`,
   );
   assert(
-    normal.strokes.slice(2, -1).every(({ width }) => width === 2),
+    normal.strokes.slice(1, -1).every(({ width }) => width === 2),
     `${kind}: contact outlines share a thickness`,
   );
   const highlight = targeted.strokes.filter(
@@ -341,6 +362,7 @@ renderMinimap({
   asteroidPositions: [
     { x: ship.position.x + minimapRange - 1, y: 0 },
     { x: ship.position.x + minimapRange + 1, y: 0 },
+    { x: ship.position.x + minimapRange * (153 / 148), y: 0 },
   ],
 });
 
@@ -348,15 +370,81 @@ const radarContacts = arcs.filter(({ radius }) => radius < 10);
 
 assert.equal(
   radarContacts.length,
-  1,
-  'position-only contacts are clipped to radar range',
+  2,
+  'position-only contacts remain until their entire dot clears the map',
 );
 assert(
   radarContacts[0].x > 147,
   'unloaded asteroid positions reach the radar edge',
+);
+assert(
+  radarContacts[1].x > 148,
+  'asteroid dots whose centers are outside the map still reach the clip',
 );
 assert.equal(
   contacts.length,
   1,
   'full asteroid entities do not duplicate position-only contacts',
 );
+
+for (const clientWidth of [300, 150]) {
+  Object.defineProperty(ctx, 'canvas', {
+    value: { clientWidth },
+    configurable: true,
+  });
+
+  const displayScale = 300 / clientWidth;
+
+  for (const kind of ['asteroid', 'item', 'ship', 'station']) {
+    for (const targeted of [false, true]) {
+      const markerRadius =
+        (targeted ? 14 : kind === 'asteroid' || kind === 'item' ? 4 : 8) *
+        displayScale;
+
+      for (const overlap of [-0.5, 0.5]) {
+        const contact = object(
+          100,
+          kind,
+          ship.position.x +
+            ((148 + markerRadius + overlap) * minimapRange) / 148,
+        );
+
+        contacts.length = 0;
+
+        renderMinimap({
+          ctx,
+          ship,
+          objects: [contact],
+          poses: new Map(),
+          target: targeted ? contact : undefined,
+        });
+
+        assert.equal(
+          contacts.length,
+          overlap < 0 ? 2 : 1,
+          `${clientWidth}px ${kind}${targeted ? ' target' : ''}: only fully outside markers are culled`,
+        );
+      }
+    }
+  }
+
+  arcs.length = 0;
+  const padding = (4 * displayScale * minimapRange) / 148;
+
+  renderMinimap({
+    ctx,
+    ship,
+    objects: [],
+    poses: new Map(),
+    asteroidPositions: [
+      { x: ship.position.x + minimapRange + padding / 2, y: 0 },
+      { x: ship.position.x + minimapRange + padding + 1, y: 0 },
+    ],
+  });
+
+  assert.equal(
+    arcs.filter(({ radius }) => radius < 10).length,
+    1,
+    `${clientWidth}px: streamed asteroid dots retain their overlapping edge`,
+  );
+}

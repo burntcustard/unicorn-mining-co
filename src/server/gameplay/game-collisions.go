@@ -31,6 +31,8 @@ type BodyRecord struct {
 	Radius                    float64
 	Deferred                  *simulation.Asteroid
 	SyncPending, Ballistic    bool
+	Opening                   float64
+	Speed                     float64
 }
 
 type impactRecord struct {
@@ -74,6 +76,25 @@ func NewGameCollisions(catalog specs.Catalog) *GameCollisions {
 
 		if physical {
 			surfaceSpeed = a.Speed + b.Speed
+
+			for index, collider := range []*collision.Collider{a, b} {
+				gate, ok := collider.Owner.(*objects.JumpGate)
+
+				if !ok {
+					continue
+				}
+
+				record := g.recordFor(gate)
+				direction := 1.0
+
+				if index == 1 {
+					direction = -1
+				}
+
+				sin, cos := math.Sincos(gate.Rotation)
+				surfaceSpeed += direction * math.Copysign(1, collider.LocalPosition.X) * record.Speed * (cos*manifold.Normal.X + sin*manifold.Normal.Y)
+			}
+
 			impact = surfaceSpeed - ((vb.X-va.X)*manifold.Normal.X + (vb.Y-va.Y)*manifold.Normal.Y)
 			contact.SurfaceSpeed = surfaceSpeed
 			contact.Friction = math.Sqrt(a.GetFriction() * b.GetFriction())
@@ -272,6 +293,15 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		}
 
 		record.SweepStart = start
+
+		if gate, ok := e.(*objects.JumpGate); ok {
+			record.Speed = 0
+
+			if dt != 0 {
+				record.Speed = gate.Spec.HalfTravel * (utilities.EaseProgress(utilities.EaseProgress(gate.Opening)) - utilities.EaseProgress(utilities.EaseProgress(record.Opening))) / dt
+			}
+		}
+
 		g.motions = append(g.motions, record)
 	}
 
@@ -419,7 +449,129 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		*events = append(*events, protocol.CollisionEvent{A: ao.ID, B: bo.ID, Impact: impact, Colors: [2]string{collision.OutlineColorOf(a, g.catalog.Colors), collision.OutlineColorOf(b, g.catalog.Colors)}, Damage: applied, Position: point})
 	})
 
+	if dt > 0 {
+		g.damageCrushedShips(events)
+	}
+
+	for _, record := range g.motions {
+		if gate, ok := record.Entity.(*objects.JumpGate); ok {
+			record.Opening = gate.Opening
+		}
+	}
+
 	return g.contacts
+}
+
+func (g *GameCollisions) damageCrushedShips(events *[]protocol.SimulationEvent) {
+	// Ordered maps preserve the client contact order for deterministic damage.
+	pinches := utilities.NewOrderedMap[*objects.JumpGate, *utilities.OrderedMap[simulation.Entity, []collision.Contact]]()
+
+	for _, contact := range g.contacts {
+		for index, pair := range [][2]*collision.Collider{{contact.Collider, contact.Other}, {contact.Other, contact.Collider}} {
+			panel, hit := pair[0], pair[1]
+			gate, ok := panel.Owner.(*objects.JumpGate)
+
+			if !ok {
+				continue
+			}
+
+			ship := hit.Owner.(simulation.Entity)
+			record := g.recordFor(gate)
+
+			if ship.Base().Kind != "ship" || panel.Physics != nil && !*panel.Physics || hit.Physics != nil && !*hit.Physics || gate.Opening >= record.Opening || contact.Depth <= 0 {
+				continue
+			}
+
+			side := math.Copysign(1, panel.LocalPosition.X)
+
+			normal := simulation.RotatePoint(contact.Normal, -gate.Rotation)
+			direction := 1.0
+
+			if index == 1 {
+				direction = -1
+			}
+
+			if normal.X*direction*side >= -.5 {
+				continue
+			}
+
+			ships, found := pinches.Get(gate)
+
+			if !found {
+				ships = utilities.NewOrderedMap[simulation.Entity, []collision.Contact]()
+				pinches.Set(gate, ships)
+			}
+
+			contacts, _ := ships.Get(ship)
+			ships.Set(ship, append(contacts, contact))
+		}
+	}
+
+	pinches.ForEach(func(ships *utilities.OrderedMap[simulation.Entity, []collision.Contact], gate *objects.JumpGate) {
+		panelOf := func(c collision.Contact) *collision.Collider {
+			if c.Collider.Owner == gate {
+				return c.Collider
+			}
+
+			return c.Other
+		}
+
+		ships.ForEach(func(contacts []collision.Contact, ship simulation.Entity) {
+			// Sloped contacts can squeeze a tapered tip out; a crush requires
+			// opposing normals that leave no shared escape direction.
+			pinched := false
+
+			for _, a := range contacts {
+				for _, b := range contacts {
+					direction := 1.0
+
+					if (a.Collider.Owner == gate) != (b.Collider.Owner == gate) {
+						direction = -1
+					}
+
+					pinched = pinched || math.Signbit(panelOf(a).LocalPosition.X) != math.Signbit(panelOf(b).LocalPosition.X) && Vec.Dot(a.Normal, b.Normal)*direction < -.98
+				}
+			}
+
+			if !pinched {
+				return
+			}
+
+			damaged := map[any]bool{}
+
+			for _, c := range contacts {
+				hit := c.Collider
+
+				if hit.Owner != ship {
+					hit = c.Other
+				}
+
+				var part any = ship
+				var target any = ship
+
+				if segment, ok := hit.Segment.(*simulation.Segment); ok && segment != nil {
+					part, target = segment, segment
+
+					if segment.Mount != nil {
+						target = segment.Mount
+					}
+				}
+
+				if ship.Base().Dead || damaged[target] {
+					continue
+				}
+
+				damaged[target] = true
+				applied := objects.Damage(part, gate.Spec.CrushDamage)
+
+				if applied == 0 {
+					continue
+				}
+
+				*events = append(*events, protocol.CollisionEvent{A: ship.Base().ID, B: gate.ID, Impact: 0, Colors: [2]string{collision.OutlineColorOf(hit, g.catalog.Colors), collision.OutlineColorOf(panelOf(c), g.catalog.Colors)}, Damage: [2]float64{applied, 0}, Position: c.Point})
+			}
+		})
+	})
 }
 
 func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
@@ -533,6 +685,11 @@ func (g *GameCollisions) recordFor(entity simulation.Entity) *BodyRecord {
 
 	if record == nil {
 		record = &BodyRecord{Entity: entity, Object: object, Body: g.world.CreateBody(), Previous: simulation.Pose{Position: object.Position, Rotation: object.Rotation}}
+
+		if gate, ok := entity.(*objects.JumpGate); ok {
+			record.Opening = gate.Opening
+		}
+
 		g.bodies.Set(id, record)
 		object.CollisionState = record
 	}

@@ -21,6 +21,8 @@ import { Craft } from '../objects/craft';
 import { Asteroid } from '../objects/asteroid';
 import { Station } from '../objects/station';
 import { type Pose } from '../types';
+import { jumpGateSpec } from '../../specs/jump-gate';
+import { easeProgress } from '../utilities/ease';
 
 type BodyRecord = {
   body: Body;
@@ -41,6 +43,10 @@ type BodyRecord = {
   syncPending?: boolean;
   // Whether the entity is in the ballistic set.
   ballistic?: boolean;
+  // Last simulated opening, independent of when the session advances the gate.
+  opening?: number;
+  // Outward velocity of a gate half relative to its fixed body.
+  speed?: number;
 };
 
 // Match the solver's per-step motion limits for bodies integrated here.
@@ -135,10 +141,13 @@ export class GameCollisions {
    */
   capturePoses(entities: ReadonlyMap<number, GameObject>) {
     entities.forEach((entity) => {
-      const { previous } = this.recordFor(entity);
+      const record = this.recordFor(entity);
+      const { previous } = record;
 
       Vec.set(previous.position, entity.position);
       previous.rotation = entity.rotation;
+      // Prediction can rewind the gate independently of these cached bodies.
+      record.opening = entity.opening;
       entity.rotationJump = 0;
     });
   }
@@ -162,7 +171,28 @@ export class GameCollisions {
         .getBody()
         .getLinearVelocityFromWorldPoint(point, this.velocityB);
       const physical = a.physics !== false && b.physics !== false;
-      const surfaceSpeed = physical ? (a.speed || 0) + (b.speed || 0) : 0;
+      let surfaceSpeed = 0;
+
+      if (physical) {
+        for (const [collider, direction] of [
+          [a, 1],
+          [b, -1],
+        ] as const) {
+          surfaceSpeed += collider.speed || 0;
+          const gate = collider.owner;
+
+          if (gate.kind !== 'jumpGate') continue;
+          const speed = this.bodies.get(gate.id)?.speed || 0;
+
+          surfaceSpeed +=
+            direction *
+            Math.sign(collider.localPosition!.x) *
+            speed *
+            (Math.cos(gate.rotation) * manifold.normal.x +
+              Math.sin(gate.rotation) * manifold.normal.y);
+        }
+      }
+
       const impact = physical
         ? surfaceSpeed -
           ((vb.x - va.x) * manifold.normal.x +
@@ -288,6 +318,7 @@ export class GameCollisions {
     if (!record) {
       record = {
         entity,
+        opening: entity.opening,
         body: this.world.createBody(),
         fixtures: [],
         geometry: [],
@@ -396,6 +427,17 @@ export class GameCollisions {
       }
 
       record.spin = dt ? (entity.rotation - start.rotation) / dt : 0;
+
+      if (entity.kind === 'jumpGate') {
+        record.speed =
+          dt && record.opening !== undefined
+            ? (jumpGateSpec.halfTravel *
+                (easeProgress(easeProgress(entity.opening)) -
+                  easeProgress(easeProgress(record.opening)))) /
+              dt
+            : 0;
+      }
+
       record.sweepStart = start;
       motions.push(record);
     }
@@ -559,7 +601,98 @@ export class GameCollisions {
       });
     });
 
+    if (dt > 0) this.damageCrushedShips(events);
+
+    for (const record of motions) record.opening = record.entity.opening;
     return this.contacts;
+  }
+
+  private damageCrushedShips(events: SimulationEvent[]) {
+    const pinches = new Map<GameObject, Map<GameObject, Contact[]>>();
+    const sideOf = (panel: Collider) => Math.sign(panel.localPosition!.x);
+
+    for (const contact of this.contacts) {
+      for (const [panel, hit, direction] of [
+        [contact.collider, contact.other, 1],
+        [contact.other, contact.collider, -1],
+      ] as const) {
+        const gate = panel.owner;
+        const previous = this.bodies.get(gate.id)?.opening;
+
+        if (
+          gate.kind !== 'jumpGate' ||
+          hit.owner.kind !== 'ship' ||
+          panel.physics === false ||
+          hit.physics === false ||
+          previous === undefined ||
+          gate.opening >= previous ||
+          contact.depth <= 0
+        ) {
+          continue;
+        }
+
+        const normal = rotatePoint(contact.normal, -gate.rotation);
+
+        // Ignore exterior faces and the edges along the top and bottom.
+        if (normal.x * direction * sideOf(panel) >= -0.5) continue;
+        let ships = pinches.get(gate);
+
+        if (!ships) pinches.set(gate, (ships = new Map()));
+        let contacts = ships.get(hit.owner);
+
+        if (!contacts) ships.set(hit.owner, (contacts = []));
+        contacts.push(contact);
+      }
+    }
+
+    pinches.forEach((ships, gate) =>
+      ships.forEach((contacts, ship) => {
+        const panelOf = (contact: Contact) =>
+          contact.collider.owner === gate ? contact.collider : contact.other;
+
+        // Sloped contacts can squeeze a tapered tip out; a crush requires
+        // opposing normals that leave no shared escape direction.
+        if (
+          !contacts.some((a) =>
+            contacts.some(
+              (b) =>
+                sideOf(panelOf(a)) !== sideOf(panelOf(b)) &&
+                Vec.dot(a.normal, b.normal) *
+                  (a.collider.owner === gate ? 1 : -1) *
+                  (b.collider.owner === gate ? 1 : -1) <
+                  -0.98,
+            ),
+          )
+        ) {
+          return;
+        }
+
+        const damaged = new Set();
+
+        for (const contact of contacts) {
+          const hit =
+            contact.collider.owner === ship ? contact.collider : contact.other;
+          const part = hit.segment || ship;
+          const target = hit.segment?.mount || part;
+
+          if (ship.dead || damaged.has(target)) continue;
+          damaged.add(target);
+          const applied = damage(part, jumpGateSpec.crushDamage);
+
+          if (!applied) continue;
+
+          events.push({
+            type: 'collision',
+            a: ship.id,
+            b: gate.id,
+            impact: 0,
+            colors: [outlineColorOf(hit), outlineColorOf(panelOf(contact))],
+            damage: [applied, 0],
+            position: contact.point,
+          });
+        }
+      }),
+    );
   }
 
   private sync(entity: GameObject) {

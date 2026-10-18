@@ -18,13 +18,14 @@ func TestAsteroidRadarPositionsBeyondEntityLoad(t *testing.T) {
 
 	world := simulation.CreateWorld(25, catalog)
 	ranges := catalog.Simulation.Replication
-	positions := []float64{1000, ranges.EntityLoad + 1, ranges.EntityUnload, ranges.EntityUnload + 1, 100}
+	radarRange := catalog.Simulation.ServerRegionRanges["asteroid"]
+	positions := []float64{1000, ranges.EntityLoad + 1, ranges.EntityUnload, ranges.EntityUnload + 1, radarRange, radarRange + 1, 100}
 
 	for i, x := range positions {
 		id := int64(i + 2)
 		object := simulation.NewGameObject(simulation.ObjectProperties{ID: &id, Position: Vec.Create(x, 0)}, catalog.Simulation)
 		object.Kind = "asteroid"
-		object.Dead = i == 4
+		object.Dead = i == len(positions)-1
 		simulation.AddEntity(world, object)
 	}
 
@@ -32,11 +33,11 @@ func TestAsteroidRadarPositionsBeyondEntityLoad(t *testing.T) {
 	options := SnapshotOptions{World: world, ShipID: 1}
 	packet := manager.Initial(options)
 
-	if packet[3]&64 == 0 || len(manager.asteroidPositions) != 3 {
+	if packet[3]&64 == 0 || len(manager.asteroidPositions) != 5 {
 		t.Fatalf("initial radar positions: flags=%d positions=%v", packet[3], manager.asteroidPositions)
 	}
 
-	for _, id := range []int64{3, 4, 5} {
+	for _, id := range []int64{3, 4, 5, 6, 7} {
 		if manager.members[id] != nil {
 			t.Fatalf("distant asteroid %d loaded full geometry", id)
 		}
@@ -44,6 +45,10 @@ func TestAsteroidRadarPositionsBeyondEntityLoad(t *testing.T) {
 
 	if manager.asteroidPositions[2].X != ranges.EntityUnload {
 		t.Fatal("radar does not reach its edge")
+	}
+
+	if manager.asteroidPositions[4].X != radarRange || radarRange <= ranges.EntityUnload {
+		t.Fatal("radar omits asteroid centers beyond the visible map edge")
 	}
 
 	world.Tick += uint64(catalog.Simulation.BallisticReplicateEvery)

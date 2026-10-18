@@ -1,26 +1,23 @@
 <div class="hud-left hud-widget grid gap-3" hidden>
   <section
-    class="hud-modules ui-controls grid gap-2 uppercase text-outline outline-shadow"
+    class="hud-modules ui-controls grid gap-2 uppercase text-outline text-secondary"
   ></section>
   <div class="hud-stores grid">
     <div class="hud-stores-panel ui-card" aria-hidden="true"></div>
     <section class="hud-cargo grid" data-store="cargo">
-      <output class="ui-inline items-baseline gap-1 text-xs text-outline">
-        <span class="text-lg" data-cargo-current></span>
-        <span class="ui-inline text-secondary">
-          /&#8201;
-          <span data-cargo-capacity></span>
-        </span>
+      <output class="flex items-baseline text-outline">
+        <span class="text-lg mr-1" data-cargo-current></span>
+        <span class="text-xs text-secondary">/&#8201;</span>
+        <span class="text-xs text-secondary" data-cargo-capacity></span>
       </output>
       <button
-        class="ui-tooltip hud-store-label text-xs uppercase"
-        type="button"
+        class="ui-tooltip text-xs uppercase"
         aria-label="Cargo"
         aria-describedby="hud-cargo-tooltip"
       >
         Cargo
         <span
-          class="ui-tooltip-content ui-card text-xs"
+          class="ui-tooltip-content ui-card"
           id="hud-cargo-tooltip"
           role="tooltip"
         ></span>
@@ -29,7 +26,7 @@
     <section class="hud-fuel grid" data-store="fuel">
       <span class="text-xs" aria-hidden="true">E</span>
       <div
-        class="hud-fuel-track ui-power-track ui-power-track-xs"
+        class="hud-fuel-track ui-power-track ui-power-track-xs grid"
         role="meter"
         aria-label="Fuel"
         aria-valuemin="0"
@@ -45,28 +42,26 @@
       </div>
       <span class="text-xs" aria-hidden="true">F</span>
       <button
-        class="ui-tooltip hud-store-label text-xs uppercase"
-        type="button"
+        class="ui-tooltip text-xs uppercase"
         aria-label="Fuel"
         aria-describedby="hud-fuel-tooltip"
       >
         Fuel
         <span
-          class="ui-tooltip-content ui-card text-xs"
+          class="ui-tooltip-content ui-card"
           id="hud-fuel-tooltip"
           role="tooltip"
         ></span>
       </button>
     </section>
-    <section class="grid" data-store="power">
+    <section class="grid items-center" data-store="power">
       <button
-        class="ui-tooltip hud-store-label text-xs gap-1"
-        type="button"
+        class="ui-tooltip gap-1"
         aria-label="Power"
         aria-describedby="hud-power-tooltip"
       >
-        <span class="text-color" aria-hidden="true">🗲</span>
-        <output data-power-label></output>
+        <span class="text-xs text-color" aria-hidden="true">🗲</span>
+        <output class="text-xs" data-power-label></output>
         <span
           class="ui-tooltip-content ui-card text-xs"
           id="hud-power-tooltip"
@@ -91,49 +86,58 @@
           aria-valuemin="0"
         ></div>
       </div>
-      <output class="grid text-xs text-outline leading-tight text-right">
-        <span class="text-color" data-power-generation></span>
-        <span class="text-color" data-power-usage></span>
+      <output class="grid text-outline leading-tight text-right">
+        <span class="text-xs text-color" data-power-generation></span>
+        <span class="text-xs text-color" data-power-usage></span>
       </output>
-      <output class="ui-inline items-baseline gap-1 text-outline text-color">
+      <output class="flex items-baseline gap-1 text-outline text-color">
         <span class="text-lg" data-power-net></span>
         <span class="text-xs">MW</span>
       </output>
     </section>
   </div>
 </div>
-<section class="hud-sector hud-widget ui-card ui-inline gap-4" hidden>
-  <span class="text-muted">Sector</span>
-  <strong class="text-color" data-sector></strong>
-  <output data-coordinates></output>
+<section class="hud-sector hud-widget ui-card flex items-center gap-2" hidden>
+  <strong class="text-sm text-color" data-sector></strong>
+  <span class="text-sm text-muted uppercase">Sector</span>
+  <output class="flex items-center" data-coordinates>
+    <span class="text-sm" data-coordinate-x></span>
+    <span class="text-sm text-muted">&#8201;/&#8201;</span>
+    <span class="text-sm" data-coordinate-y></span>
+  </output>
 </section>
 <div class="hud-right hud-widget grid gap-3" hidden>
-  <output
-    class="hud-credits ui-card text-right text-lg"
-    aria-label="Unicredits"
-  ></output>
-  <aside class="hud-target ui-card" hidden>
-    <div class="ui-row text-muted gap-3">
-      <span>Target</span>
-      <output data-distance></output>
-    </div>
-    <div class="ui-inline gap-3 mt-4">
-      <div class="hud-target-icon ui-icon" aria-hidden="true"></div>
-      <div>
-        <h2 data-name></h2>
-        <span class="text-sm text-muted" data-kind></span>
+  <div
+    class="hud-credits ui-credits ui-card text-right text-outline flex items-center"
+  >
+    <div>
+      <span class="text-color text-sm" data-pilot></span>
+      <div class="text-xl">
+        <output data-credits aria-label="Unicredits"></output>
       </div>
     </div>
-    <p class="mt-4" data-description></p>
-    <div class="ui-row gap-3 mt-4" data-value-row>
+  </div>
+  <aside class="hud-target ui-card" hidden>
+    <div class="flex items-center justify-between text-muted gap-3">
+      <span class="text-sm uppercase text-secondary">Target</span>
+      <output class="text-sm" data-distance></output>
+    </div>
+    <div class="flex items-center gap-3 mt-4">
+      <div class="hud-target-icon ui-icon flex-none" aria-hidden="true"></div>
+      <div>
+        <h2 class="text-md" data-name></h2>
+        <span class="block text-sm text-muted" data-kind></span>
+      </div>
+    </div>
+    <p class="text-sm mt-4" data-description></p>
+    <div class="flex items-center justify-between gap-3 mt-4" data-value-row>
       <span class="text-muted text-sm">Est. value</span>
-      <output data-value></output>
+      <output class="text-sm" data-value></output>
     </div>
   </aside>
 </div>
 <section class="hud-map hud-widget ui-card border-full" hidden>
   <canvas
-    width="300"
     height="300"
     role="img"
     aria-label="Nearby objects, north up"

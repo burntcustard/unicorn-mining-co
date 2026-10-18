@@ -39,8 +39,10 @@ export type ReplicatedEntity = {
     | 'wormhole';
   opening?: number;
   openingTarget?: number;
+  blockedBeams?: number;
   destinationName?: string;
   name?: string;
+  targetLabel?: string;
   launching?: number;
   transitTime?: number;
   transitGate?: number;

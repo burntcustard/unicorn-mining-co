@@ -220,6 +220,33 @@ assert.equal(targetRequests, 3, 'menus suppress world targeting');
 input.setMenuInput(false);
 input.defaultKeybindings.targetNext.keys = ['t'];
 
+let accessRequests = 0;
+
+input.bindAction(
+  input.defaultKeybindings.requestGateAccess,
+  () => accessRequests++,
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'R' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'r' }));
+assert.equal(accessRequests, 1, 'gate access fires once per press');
+input.defaultKeybindings.requestGateAccess.keys = ['g'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'r' }));
+assert.equal(
+  accessRequests,
+  1,
+  'the old access key stops working after rebinding',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'g' }));
+assert.equal(accessRequests, 2, 'the rebound access key works');
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+assert.equal(accessRequests, 2, 'typing and menus suppress gate access');
+input.setMenuInput(false);
+input.defaultKeybindings.requestGateAccess.keys = ['r'];
+
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
 assert.equal(input.playerInput.hornDrill, true);
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));

@@ -214,7 +214,7 @@ export class Targeting {
 
     if (!targeted) return;
 
-    object.name.split('\n').forEach((text, index) => {
+    (object.targetLabel || object.name).split('\n').forEach((text, index) => {
       renderText({
         game,
         text,

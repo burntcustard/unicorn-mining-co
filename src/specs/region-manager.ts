@@ -11,7 +11,8 @@ export const worldRanges = {
 } as const;
 
 export const serverRegionRanges = {
-  asteroid: replication.entityUnload,
+  // Keep radar dots available until their outer edge clears the map.
+  asteroid: replication.entityUnload * 1.1,
   item: 2000,
   stationMarker: 10000,
   stationPhysics: 11000,

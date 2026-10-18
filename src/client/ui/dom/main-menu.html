@@ -1,9 +1,8 @@
-<main class="ui-main p-16 pb-8 h-full gap-6">
+<main class="ui-main h-full gap-6 grid px-10 pb-8">
   <h1 class="uppercase ui-logo text-xl">
     Unicorn-
     <br />
     Mining.co
-    <span class="mt-4" aria-hidden="true"></span>
   </h1>
   <div class="ui-pilot text-right" hidden>
     <small class="uppercase text-sm">Pilot</small>
@@ -11,43 +10,39 @@
     <span class="ui-label" data-pilot></span>
   </div>
   <nav class="ui-menu grid gap-2 leading-tight uppercase">
-    <button class="ui-choice ui-highlight text-xl" data-action="play">
+    <button class="ui-choice text-xl" data-action="play">
       <span>Play</span>
     </button>
-    <button class="ui-choice ui-highlight text-xl" data-action="saves">
+    <button class="ui-choice text-xl" data-action="saves">
       <span>Saves</span>
     </button>
-    <button class="ui-choice ui-highlight text-xl" data-action="settings">
+    <button class="ui-choice text-xl" data-action="settings">
       <span>Settings</span>
     </button>
-    <button class="ui-choice ui-highlight text-xl" data-action="credits">
+    <button class="ui-choice text-xl" data-action="credits">
       <span>Credits</span>
     </button>
-    <button
-      class="ui-choice ui-highlight text-xl"
-      data-action="disconnect"
-      hidden
-    >
+    <button class="ui-choice text-xl" data-action="disconnect" hidden>
       <span>Disconnect</span>
     </button>
   </nav>
   <canvas class="ui-preview" aria-hidden="true" hidden></canvas>
-  <footer class="ui-footer ui-inline gap-8 text-sm">
+  <footer class="ui-footer flex items-center gap-8 text-sm">
     <span class="ui-version"></span>
-    <div class="ui-controls gap-8 uppercase">
-      <span class="gap-3 ui-inline">
-        <span class="gap-1 ui-inline">
-          <kbd>↑</kbd>
-          <kbd>↓</kbd>
+    <div class="ui-controls gap-8 uppercase flex">
+      <span class="gap-3 flex items-center">
+        <span class="gap-1 flex items-center">
+          <kbd class="flex-none">↑</kbd>
+          <kbd class="flex-none">↓</kbd>
         </span>
         Navigate
       </span>
-      <span class="gap-3 ui-inline">
-        <kbd>Enter</kbd>
+      <span class="gap-3 flex items-center">
+        <kbd class="flex-none">Enter</kbd>
         Select
       </span>
-      <span class="gap-3 ui-inline" data-resume-hint hidden>
-        <kbd>Esc</kbd>
+      <span class="gap-3 flex items-center" data-resume-hint hidden>
+        <kbd class="flex-none">Esc</kbd>
         Resume
       </span>
     </div>

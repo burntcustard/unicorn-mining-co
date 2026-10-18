@@ -1337,3 +1337,57 @@ func TestShieldHealthAndRecharge(t *testing.T) {
 		})
 	}
 }
+
+func TestPlasmaChargingPower(t *testing.T) {
+	catalog, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := CreatePlayerShip(world, Properties{PlayerID: new(int64(1))})
+	gun := modules.Create("plasmaAccelerator", simulation.ObjectProperties{World: world}, catalog)
+
+	for _, mount := range ship.Mounts() {
+		if slices.Contains(mount.Fits, "plasmaAccelerator") {
+			ship.Fit(gun, mount)
+			break
+		}
+	}
+
+	if gun.ModuleBase().Mount == nil {
+		t.Fatal("weapon was not fitted")
+	}
+
+	for _, module := range ship.Modules() {
+		module.ModuleBase().Spec.Power = 0
+		module.ModuleBase().Spec.PowerActivated = 0
+	}
+
+	gun.ModuleBase().Spec.Power = 0.2
+	gun.ModuleBase().Spec.PowerActivated = 0.4
+	gun.ModuleBase().Spec.PowerCharging = 3.2
+
+	check := func(want float64) {
+		t.Helper()
+
+		if got := ship.PowerUsage(); math.Abs(got-want) > 1e-9 {
+			t.Fatalf("power usage = %v, want %v", got, want)
+		}
+	}
+
+	check(0.2)
+	ship.SetModuleActive("plasmaAccelerator", true)
+	check(3.2)
+	ship.UpdateModules(3)
+	check(0.4)
+	ship.Firing = true
+	ship.fireWeapons(0)
+	check(3.2)
+	ship.Firing = false
+	ship.fireWeapons(gun.ModuleBase().Spec.FireInterval)
+	check(0.4)
+	ship.SetModuleActive("plasmaAccelerator", false)
+	check(0.2)
+}

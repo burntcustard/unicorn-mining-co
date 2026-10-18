@@ -35,6 +35,8 @@ type ModuleValues = {
   // Idle draw and total activated draw, in MW.
   power: number;
   powerActivated: number;
+  // Total draw during initial weapon charging and between shots, in MW.
+  powerCharging?: number;
   // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
   powerCapacity?: number;

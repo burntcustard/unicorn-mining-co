@@ -142,6 +142,92 @@ const entityMap = (
   entities: import('../../src/client/objects/game-object').GameObject[],
 ) => new Map(entities.map((entity) => [entity.id, entity]));
 
+// Containment, compound jaws, and neighboring obstacles require a clear escape
+// for the whole body. Rotate and translate the scene to catch axis assumptions.
+for (const angle of [0, 0.71, Math.PI / 2]) {
+  for (const circle of [false, true]) {
+    for (const jaws of [false, true]) {
+      const world = new physics.PhysicsWorld();
+      const origin = Vec.create(1234, -5678);
+      const body = world.createBody();
+      const wall = world.createBody();
+      const box = (x: number, y: number, width: number, height: number) =>
+        new PolygonShape(
+          [
+            Vec.create(x - width, y - height),
+            Vec.create(x + width, y - height),
+            Vec.create(x + width, y + height),
+            Vec.create(x - width, y + height),
+          ],
+          0,
+        );
+
+      body.setMass(1, 100);
+      body.setTransform(origin, angle);
+      wall.setMass(Infinity, Infinity);
+      wall.setTransform(origin, angle);
+      body.createFixture(
+        circle ? new physics.CircleShape(Vec.create(), 10) : box(0, 0, 10, 10),
+        {},
+      );
+      body.createFixture(box(0, 14, 3, 5), {});
+      wall.createFixture(box(jaws ? -25 : 0, 0, jaws ? 24 : 50, 30), {});
+
+      if (jaws) wall.createFixture(box(25, 0, 24, 30), {});
+      // A separate body blocks one otherwise tempting escape direction.
+      const neighbor = world.createBody();
+
+      neighbor.setMass(Infinity, Infinity);
+      neighbor.setTransform(origin, angle);
+      neighbor.createFixture(box(0, 50, 60, 10), {});
+      world.step(1 / 60, 8, 3);
+      assert(Vec.distance(body.getPosition(), origin) > 15);
+      assert(Vec.distance(body.getPosition(), origin) < 100);
+      assert.deepEqual(wall.getPosition(), origin);
+      assert.deepEqual(body.getLinearVelocity(), Vec.create());
+
+      for (const other of [wall, neighbor]) {
+        for (let a = body.m_fixtureList; a; a = a.m_next) {
+          for (let b = other.m_fixtureList; b; b = b.m_next) {
+            const contact = contactBetween(
+              {
+                position: body.getPosition(),
+                rotation: body.getAngle(),
+                radius: a.m_shape.m_radius,
+                shapeOutline:
+                  a.m_shape.m_type === 'polygon'
+                    ? a.m_shape.m_vertices.map(({ x, y }) => [x, y])
+                    : undefined,
+                collisionMargin: 0,
+              },
+              {
+                position: other.getPosition(),
+                rotation: other.getAngle(),
+                radius: b.m_shape.m_radius,
+                shapeOutline: b.m_shape.m_vertices.map(({ x, y }) => [x, y]),
+                collisionMargin: 0,
+              },
+            );
+
+            assert(
+              !contact || contact.depth < 1e-7,
+              'recovery must clear every physical fixture',
+            );
+          }
+        }
+      }
+
+      const recovered = Vec.clone(body.getPosition());
+
+      for (let tick = 0; tick < 10; tick++) world.step(1 / 60, 8, 3);
+      assert(
+        Vec.distance(body.getPosition(), recovered) < 1e-7,
+        'recovery must settle',
+      );
+    }
+  }
+}
+
 // Multiple fixtures count as one neighbor. Deferred bodies return next step.
 {
   const world = new physics.PhysicsWorld();

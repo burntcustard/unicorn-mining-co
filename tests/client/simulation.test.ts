@@ -653,7 +653,7 @@ drillDamagesOnlyAtTip();
   addEntity(
     world,
     createAsteroid(world, {
-      position: Vec.create(55),
+      position: Vec.create(70),
       radius: 25,
       pointCount: 6,
     }),

@@ -177,7 +177,13 @@ declarations in the utilities stylesheet rather than component CSS.
 Use `rem` for font sizes, including the `font` shorthand; responsive `clamp()`
 values may use `vw` between their `rem` limits. Stylelint rejects pixel font sizes.
 Leave cursors to the browser; Stylelint rejects all `cursor` declarations.
-The current UI targets desktop and uses no media queries.
+The UI targets current Firefox and Chrome. Use native CSS nesting to keep a
+component's child and state rules together. Shared controls use the `ui-` prefix
+(`ui-button`, `ui-tab`, `ui-input`). Keep HUD, docking, and chat layout in their
+respective `hud-`, `dock-`, and `chat-` families. Compose layout with utilities
+such as `flex items-center justify-between gap-3`; use `data-action-group` for
+keyboard navigation within a group of action buttons. Keep reusable spacing
+utilities, including unused sizes in an existing family, in `utilities.css`.
 Shared browser resets belong in `src/reset.css`, imported before the game and tool
 styles. Keep colors, typography choices, and layout in their own stylesheets.
 

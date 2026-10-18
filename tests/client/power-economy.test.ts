@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { createPlayerShip } from '../../src/client/objects/create-ship';
-import { PowerPlant } from '../../src/client/objects/modules';
+import {
+  PlasmaAccelerator,
+  PowerPlant,
+} from '../../src/client/objects/modules';
 import { EntityState } from '../../src/client/simulation/entity-state';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import { createWorld } from '../../src/client/simulation/world';
@@ -91,3 +94,33 @@ assert.equal(ship.thrusterPower, 0);
 console.log(
   'Streaming power storage, supply priorities, thrust and prediction state',
 );
+
+const chargingWorld = createWorld();
+const chargingShip = createPlayerShip(chargingWorld, { playerId: 1 });
+
+chargingWorld.players.set(1, { id: 1, shipId: chargingShip.id });
+const gun = new PlasmaAccelerator();
+
+chargingShip.fit(
+  gun,
+  chargingShip.mounts.find((mount) => mount.fits.includes(PlasmaAccelerator)),
+);
+gun.power = 0.2;
+gun.powerActivated = 0.4;
+gun.powerCharging = 3.2;
+const demand = () =>
+  chargingShip.powerEntries.find(({ module }) => module === gun)!.value;
+
+assert.equal(demand(), 0.2, 'inactive weapons ignore their pending charge');
+chargingShip.setModuleActive({ module: PlasmaAccelerator, active: true });
+assert.equal(demand(), 3.2, 'activation requests charging power immediately');
+chargingShip.updateModules(3);
+assert.equal(demand(), 0.4, 'ready weapons use standby power');
+chargingShip.firing = true;
+chargingShip.fireWeapons(0);
+assert.equal(demand(), 3.2, 'shots request charging power during cooldown');
+chargingShip.firing = false;
+chargingShip.fireWeapons(gun.fireInterval);
+assert.equal(demand(), 0.4, 'finished reload returns to standby');
+chargingShip.setModuleActive({ module: PlasmaAccelerator, active: false });
+assert.equal(demand(), 0.2, 'retracted weapons return to idle power');

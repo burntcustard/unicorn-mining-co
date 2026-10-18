@@ -2,6 +2,7 @@ import { BroadPhase } from '../collision/broad-phase';
 import { Solver, TimeStep } from './solver';
 import { Body } from './body';
 import { Contact } from './contact';
+import { recoverOverlaps } from './overlap-recovery';
 
 import { Fixture } from './fixture';
 
@@ -341,6 +342,8 @@ export class World {
     }
 
     this.m_locked = false;
+
+    if (timeStep > 0) recoverOverlaps(this);
   }
 
   /**

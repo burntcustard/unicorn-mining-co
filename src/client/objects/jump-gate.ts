@@ -35,6 +35,7 @@ export class JumpGate extends Passage {
   travelRadius = jumpGateSpec.travelRadius;
   opening = 0;
   openingTarget = 0;
+  blockedBeams = 0;
   shades = colors.white;
   segments = jumpGateHull.map((plan) => makeSegment(this, plan, plan));
   private engines = [new ThrusterSingleMd(), new ThrusterSingleMd()];
@@ -54,6 +55,8 @@ export class JumpGate extends Passage {
       -change,
       Math.min(change, this.openingTarget - this.opening),
     );
+
+    if (this.opening === 1) this.blockedBeams = 0;
   }
 
   hitbox(): Collider[] {
@@ -78,14 +81,6 @@ export class JumpGate extends Passage {
         radius: segment.radius(segment),
         rotation: 0,
         friction: this.friction,
-        // Ships emerging from the aperture can pass outward through the open frame.
-        contactFilter: (_self: Collider, other: Collider) =>
-          other.owner.kind !== 'ship' ||
-          this.opening < 1 ||
-          Vec.dot(
-            Vec.subtract(other.owner.position, this.position),
-            other.owner.velocity,
-          ) <= 0,
       });
 
       Vec.setXY(
@@ -119,20 +114,26 @@ export class JumpGate extends Passage {
 
     if (zIndex === renderingLayers.stationHull) {
       // The four soft beams span the moving locks, leaving the portal fixed.
-      ctx.strokeStyle = withAlpha({ color: colors.green[2], alpha: 0.35 });
       ctx.lineWidth = 2;
       ctx.fillStyle = colors.gray[0];
 
-      for (const y of [-259.5, -225, 225, 259.5]) {
+      jumpGateSpec.beamOffsets.forEach((y, index) => {
+        ctx.strokeStyle = withAlpha({
+          color: (this.blockedBeams & (1 << index)
+            ? colors.red
+            : colors.green)[2],
+          alpha: 0.35,
+        });
+
         ctx.beginPath();
-        ctx.moveTo(-distance - 7.5, y);
-        ctx.lineTo(distance + 7.5, y);
+        ctx.moveTo(-distance - jumpGateSpec.beamInset, y);
+        ctx.lineTo(distance + jumpGateSpec.beamInset, y);
         ctx.stroke();
 
         // Emitters tuck beneath the hull and meet at the seam when closed.
         ctx.fillRect(-distance - 18, y - 3, 18, 6);
         ctx.fillRect(distance, y - 3, 18, 6);
-      }
+      });
 
       ctx.lineWidth = objectLineWidth;
 

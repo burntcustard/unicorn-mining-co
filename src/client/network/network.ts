@@ -60,6 +60,7 @@ const makeEntity = ({
     ...(entity.friction !== undefined && { friction: entity.friction }),
     ...(entity.health !== undefined && { health: entity.health }),
     ...(entity.name !== undefined && { name: entity.name }),
+    targetLabel: entity.targetLabel,
     ...(entity.message !== undefined && { message: entity.message }),
     ...(entity.rounds !== undefined && { rounds: entity.rounds }),
     id: entity.id,
@@ -144,6 +145,7 @@ const makeEntity = ({
       mass: Infinity,
       opening: entity.opening ?? 1,
       openingTarget: entity.openingTarget ?? 1,
+      blockedBeams: entity.blockedBeams ?? 0,
       destinationName: entity.destinationName || '',
     });
   }

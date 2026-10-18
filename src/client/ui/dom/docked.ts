@@ -186,7 +186,7 @@ const createDocked = () => {
       ? `<small class="dock-row-text ml-auto">${health(mount.health, moduleMaximumHealth(module))}</small>`
       : '';
 
-    return `<button class="button dock-row ui-hover-extend ui-inline gap-2${module ? '' : ' dock-empty'}" data-key="mount:${index}" style="--ui-color:${color}">
+    return `<button class="ui-button dock-row flex items-center gap-2${module ? '' : ' dock-empty'}" data-key="mount:${index}" style="--ui-color:${color}">
       <span>${icon}</span><span class="dock-row-text">${module ? module.name : 'Empty slot'}</span>${condition}
     </button>`;
   };
@@ -202,7 +202,7 @@ const createDocked = () => {
     maximum: number;
     modules: string;
   }) => `<div class="dock-group mb-2">
-    <button class="button dock-row ui-hover-extend ui-inline gap-2" data-key="hull:${index}">
+    <button class="ui-button dock-row flex items-center gap-2" data-key="hull:${index}">
       <canvas data-hull="${index}" aria-hidden="true"></canvas>
       <span class="dock-row-text">Hull ${number(index)}</span>
       <small class="dock-row-text ml-auto">${health(current, maximum)}</small>
@@ -295,7 +295,7 @@ const createDocked = () => {
     const focusGroup =
       focused?.closest('[data-trade-items]') ||
       focused?.closest(
-        '[data-trade-items], [data-stock-items], nav, .ui-actions',
+        '[data-trade-items], [data-stock-items], nav, [data-action-group]',
       ) ||
       inspector;
     const focusIndex = focused ? buttons(focusGroup).indexOf(focused) : -1;
@@ -437,7 +437,7 @@ const createDocked = () => {
       candidates
         .map(
           (entry) =>
-            `<button class="button dock-row ui-hover-extend ui-inline gap-2" data-key="${itemKey(entry)}"
+            `<button class="ui-button dock-row flex items-center gap-2" data-key="${itemKey(entry)}"
             style="--ui-color:${moduleCategories.get(entry.category).color}">
             <span>${icons.get(entry.icon)}</span><span class="dock-row-text">${entry.name}</span>
             <small class="dock-row-text ml-auto">${entry instanceof Module ? 'IN CARGO' : money(entry.price)}</small>
@@ -458,13 +458,13 @@ const createDocked = () => {
       entries
         .map(
           ([entry, count]) =>
-            `<button class="button dock-row dock-trade-row ui-hover-extend" data-key="${kind}:${tradeKey(entry)}"
+            `<button class="ui-button dock-row dock-trade-row" data-key="${kind}:${tradeKey(entry)}"
               style="--ui-color:${entry instanceof Module ? moduleCategories.get(entry.category).color : '#eef'}"
               aria-disabled="${kind === 'shop' && (ship.cargoContents.length >= ship.cargoSpace || player.credits < entry.price)}"
               aria-label="${kind === 'cargo' ? 'Sell' : 'Buy'} one ${entry.name} for ${money(entry.price || 0)}, supply ${count}">
-              <span class="px-3 dock-trade-name" data-trade-action="${kind === 'cargo' ? 'SELL' : 'BUY'}"><span class="dock-row-text">${entry.name}</span></span>
-              <small class="px-3 text-right dock-trade-supply" aria-hidden="true"><span class="dock-row-text">${count.toLocaleString('en-US')}</span></small>
-              <small class="px-3 text-right dock-trade-price" aria-hidden="true"><span class="dock-row-text">${money(entry.price || 0)}</span></small>
+              <span class="px-3 dock-trade-name flex gap-2" data-trade-action="${kind === 'cargo' ? 'SELL' : 'BUY'}"><span class="dock-row-text">${entry.name}</span></span>
+              <small class="px-3 text-right dock-trade-supply grid" aria-hidden="true"><span class="dock-row-text">${count.toLocaleString('en-US')}</span></small>
+              <small class="px-3 text-right dock-trade-price grid" aria-hidden="true"><span class="dock-row-text">${money(entry.price || 0)}</span></small>
             </button>`,
         )
         .join('');
@@ -490,11 +490,11 @@ const createDocked = () => {
         .filter(([, entries]) => entries.length)
         .map(
           ([name, entries]) =>
-            `<section class="dock-trade-table" data-trade-group="${name.toLowerCase()}">
-              <div class="dock-trade-heading uppercase text-muted text-sm">
+            `<section class="dock-trade-table grid uppercase text-sm" data-trade-group="${name.toLowerCase()}">
+              <div class="dock-trade-heading text-muted">
                 <h3 class="px-3">${name}</h3><span class="px-3 text-right">Supply</span><span class="px-3 text-right">${kind === 'cargo' ? 'Sell' : 'Buy'}</span>
               </div>
-              <div class="dock-group uppercase text-sm">${tradeRows(entries, kind)}</div>
+              <div class="dock-group">${tradeRows(entries, kind)}</div>
             </section>`,
         )
         .join('');
@@ -604,7 +604,7 @@ const createDocked = () => {
       module && !trading
         ? module.powerGenerated
           ? `<h3 class="text-sm uppercase">Generation</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div><h3 class="text-sm uppercase mt-4">Storage</h3><div class="text-color text-lg mt-4">${(module.powerCapacity || 0).toFixed(1)} MJ</div>`
-          : `<h3 class="text-sm uppercase">Power consumption</h3><div class="ui-inline gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div></div>`
+          : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div>${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-color text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`
         : '',
     );
     query(root, '[data-module-power]').hidden = !module || trading;
@@ -664,7 +664,7 @@ const createDocked = () => {
       trading || (!paintHull && !owned);
     query(root, '[data-paint-heading]').hidden = paintHull;
     query(root, '[data-paints]').className =
-      `ui-actions gap-4 dock-paints${paintHull ? '' : ' mt-4'}`;
+      `flex flex-wrap gap-4 dock-paints${paintHull ? '' : ' mt-4'}`;
 
     swatches.forEach((element, at) => {
       element.disabled = !paintUnlocked(paintColors[at]);
@@ -740,7 +740,7 @@ const createDocked = () => {
             style="left:${(output / scale) * 100}%"></span>`
         : '';
 
-      return `<div class="dock-power-label ui-row gap-3 mt-4 mb-2">
+      return `<div class="dock-power-label flex items-center justify-between gap-3 mt-4 mb-2">
         <span class="uppercase">${label}</span><span>${total.toFixed(1)} MW</span>
       </div><div class="ui-power-track">${parts}${generation}</div>`;
     };

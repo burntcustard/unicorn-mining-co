@@ -122,6 +122,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
     [8, () => writer.numbers([-0, NaN, 2])],
     [9, () => writer.byte(2)],
     [10, () => writer.string('a\ud800b')],
+    [45, () => writer.number(5)],
     [
       17,
       () => {
@@ -201,6 +202,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
         hullHealth: [0, null, 2],
         kind: 'ship',
         name: 'a\ud800b',
+        blockedBeams: 5,
         modules: [
           {
             type: 3,
@@ -250,7 +252,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 
   start(unknownField, 0, 0, 1);
   unknownField.unsigned(1);
-  unknownField.record(1, [[44, null]]);
+  unknownField.record(1, [[46, null]]);
   const duplicateField = new Writer();
 
   start(duplicateField, 0, 0, 1);

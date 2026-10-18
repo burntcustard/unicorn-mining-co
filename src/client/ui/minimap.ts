@@ -40,19 +40,28 @@ export const renderMinimap = ({
   ctx.clip();
   ctx.strokeStyle = withAlpha({ color: '#eef', alpha: 0.12 });
   const displayScale = 300 / (ctx.canvas?.clientWidth || 300);
+  const asteroidRadius = 4 * displayScale;
   const iconRadius = 7 * displayScale;
   const iconStrokeWidth = 2 * displayScale;
 
+  ctx.lineWidth = iconStrokeWidth;
+  ctx.beginPath();
+
   [49, 98].forEach((radius) => {
-    ctx.beginPath();
+    ctx.moveTo(radius, 0);
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.stroke();
   });
+
+  ctx.moveTo(-148, 0);
+  ctx.lineTo(148, 0);
+  ctx.moveTo(0, -148);
+  ctx.lineTo(0, 148);
+  ctx.stroke();
 
   const drawAsteroid = (offset: Vec.Value) => {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.arc(offset.x, offset.y, 4 * displayScale, 0, Math.PI * 2);
+    ctx.arc(offset.x, offset.y, asteroidRadius, 0, Math.PI * 2);
     ctx.fill();
   };
 
@@ -62,7 +71,9 @@ export const renderMinimap = ({
       148 / minimapRange,
     );
 
-    if (Vec.lengthSquared(offset) <= 148 * 148) drawAsteroid(offset);
+    if (Vec.lengthSquared(offset) <= (148 + asteroidRadius) ** 2) {
+      drawAsteroid(offset);
+    }
   });
 
   objects.forEach((object) => {
@@ -81,7 +92,14 @@ export const renderMinimap = ({
       148 / minimapRange,
     );
 
-    if (Vec.lengthSquared(offset) > 148 * 148) return;
+    const markerRadius =
+      object.id === target?.id
+        ? 14 * displayScale
+        : object.kind === 'asteroid' || object.kind === 'item'
+          ? asteroidRadius
+          : iconRadius + iconStrokeWidth / 2;
+
+    if (Vec.lengthSquared(offset) > (148 + markerRadius) ** 2) return;
 
     if (
       object.kind === 'asteroid' &&
@@ -118,7 +136,8 @@ export const renderMinimap = ({
     ctx.beginPath();
 
     if (object.kind === 'item') {
-      ctx.arc(0, 0, iconRadius, 0, Math.PI * 2);
+      ctx.fillStyle = colors.cyan[2];
+      ctx.arc(0, 0, asteroidRadius, 0, Math.PI * 2);
       ctx.fill();
     } else if (object.kind === 'asteroid') {
       if (!asteroidPositions) drawAsteroid(Vec.create());
@@ -150,7 +169,7 @@ export const renderMinimap = ({
       ctx.fill();
     }
 
-    if (object.kind !== 'asteroid') ctx.stroke();
+    if (object.kind !== 'asteroid' && object.kind !== 'item') ctx.stroke();
 
     if (object.kind === 'jumpGate') {
       [

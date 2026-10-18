@@ -21,7 +21,8 @@ export type KeyAction =
   | 'searchLight'
   | 'shieldGenerator'
   | 'targetNext'
-  | 'fpsCounter';
+  | 'fpsCounter'
+  | 'requestGateAccess';
 
 export type KeyBinding = {
   keys: readonly string[];
@@ -46,6 +47,7 @@ export const defaultKeybindings = {
   shieldGenerator: { keys: ['s'], mode: 'toggle' },
   targetNext: { keys: ['t'], mode: 'press' },
   fpsCounter: { keys: ['f'], mode: 'toggle' },
+  requestGateAccess: { keys: ['r'], mode: 'press' },
 } satisfies Keybindings;
 
 // Module actions are one-byte protocol tags; binding fields are mangled
@@ -108,6 +110,7 @@ export const bindingEntries: [string, KeyBinding][] = [
   [shield.name, defaultKeybindings.shieldGenerator],
   ['Target next object', defaultKeybindings.targetNext],
   ['Toggle FPS counter', defaultKeybindings.fpsCounter],
+  ['Request access', defaultKeybindings.requestGateAccess],
 ];
 const originalKeys = bindingEntries.map(([, binding]) => [...binding.keys]);
 
@@ -134,7 +137,7 @@ try {
 
   if (
     Array.isArray(saved) &&
-    saved.length >= bindingEntries.length - 2 &&
+    saved.length >= bindingEntries.length - 3 &&
     saved.length <= bindingEntries.length &&
     saved.every(
       (keys) =>

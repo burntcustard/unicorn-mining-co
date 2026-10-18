@@ -57,7 +57,15 @@ export class Ship extends Craft {
       return [
         {
           module,
-          value: Number(active ? module.powerActivated : module.power) || 0,
+          value:
+            Number(
+              active
+                ? module.powerCharging &&
+                  Math.max(module.chargeCooldown, module.fireCooldown) > 1e-9
+                  ? module.powerCharging
+                  : module.powerActivated
+                : module.power,
+            ) || 0,
         },
       ];
     });

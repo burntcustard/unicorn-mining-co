@@ -1,13 +1,16 @@
 package network
 
 import (
+	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
+	"strings"
 )
 
 type sectorRuntime struct {
@@ -17,6 +20,7 @@ type sectorRuntime struct {
 	batch    *BinarySnapshotBatch
 	syncedAt float64
 	passages []*objects.Passage
+	closing  map[*objects.Passage]bool
 }
 
 func (s *GameSession) sectorPlayers(visit func(*playerRecord, string)) {
@@ -73,6 +77,7 @@ func (s *GameSession) activateSector(id string) {
 		regions := NewRegionManager(uint32(s.worldSeed), catalog, *sector)
 		regions.idOffset = offset
 		runtime = &sectorRuntime{world: world, regions: regions, view: NewReplicationView(world), batch: NewBinarySnapshotBatch(catalog), syncedAt: math.Inf(-1)}
+		runtime.closing = make(map[*objects.Passage]bool)
 		s.sectors[id] = runtime
 
 		for kind, links := range [][]simulation.SectorLink{s.sectorMap.Links, s.sectorMap.WormholeLinks} {
@@ -104,8 +109,14 @@ func (s *GameSession) activateSector(id string) {
 				passage.ConnectionID = link.ID
 
 				if kind == 0 {
-					passage.Name = "JUMP GATE\n" + sector.Name + "→" + destination.Name
+					passage.TargetLabel = "JUMP GATE\n" + sector.Name + "\u2009→\u2009" + destination.Name
+					passage.Name = fmt.Sprintf("%s%s-%d%d", sector.Name[:1], destination.Name[:1], int(math.Abs(utilities.RoundTiesUp(site.Position.X)))%10, int(math.Abs(utilities.RoundTiesUp(site.Position.Y)))%10)
 					passage.Rotation = link.Rotation
+
+					passage.OnClosing = func() {
+						runtime.closing[passage] = true
+						s.gateChat(passage, passage.Spec.ClosingMessage)
+					}
 				}
 
 				runtime.passages = append(runtime.passages, passage)
@@ -132,7 +143,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	}
 
 	previous := s.currentSector
-	s.updateGatePairs(float64(ticks) * s.World.Specification.Simulation.SimulationStep)
+	s.updateGates(float64(ticks) * s.World.Specification.Simulation.SimulationStep)
 	// Take a stable list: travel can lazily instantiate another sector this tick.
 	ids := make([]string, 0, len(s.sectors))
 
@@ -164,14 +175,30 @@ func (s *GameSession) preparePassages() map[*playerRecord]Vec.Vector {
 		if s.World.Players.Has(p.playerID) {
 			before[p] = p.ship.Position
 
-			// Gate animation is ephemeral, but a saved transit must resume into an open pair.
-			if p.ship.TransitGate != 0 {
-				for _, passage := range s.sectors[s.currentSector].passages {
-					if passage.ID == p.ship.TransitGate && passage.Kind == "jumpGate" && passage.Opening != 1 {
-						s.connectedPassage(passage)
-						passage.Opening, passage.OpeningTarget = 1, 1
-						passage.RequestOpening(1)
+			if p.ship.Dead || p.ship.DockedTo != nil {
+				return
+			}
+
+			for _, gate := range s.sectors[s.currentSector].passages {
+				if gate.Kind != "jumpGate" {
+					continue
+				}
+
+				if p.ship.TransitGate == gate.ID && p.ship.TransitTime != 0 {
+					if p.ship.TransitTime < 0 {
+						s.requestDestinationOpening(gate)
+					} else {
+						gate.RequestExitOpening()
 					}
+				} else if gate.Opening == 0 && gate.OpeningTarget == 0 && gate.ContainsInterior(p.ship.Position) {
+					gate.RequestExitOpening()
+					message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: strings.ReplaceAll(gate.Spec.RecoveryMessage, "{player}", p.profile.DisplayName)}
+
+					s.sectorPlayers(func(recipient *playerRecord, _ string) {
+						if recipient.socket != nil && s.World.Players.Has(recipient.playerID) {
+							s.sendControl(recipient.socket, message)
+						}
+					})
 				}
 			}
 		}
@@ -197,22 +224,29 @@ func (s *GameSession) connectedPassage(passage *objects.Passage) *objects.Passag
 	panic("sector connection has no destination passage")
 }
 
-func (s *GameSession) updateGatePairs(dt float64) {
+func (s *GameSession) requestDestinationOpening(passage *objects.Passage) {
+	exit := s.connectedPassage(passage)
+	exit.RequestExitOpening()
+	// Give the empty destination time to open before its traveler arrives.
+	now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
+	hole := s.World.Specification.HoleSpec
+	exit.CloseAfter = max(exit.CloseAfter, now+(hole.PullDuration+hole.TransitScaleDuration+exit.Spec.OpeningDuration)/1000)
+}
+
+func (s *GameSession) updateGates(dt float64) {
 	now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
 
 	for _, runtime := range s.sectors {
 		for _, gate := range runtime.passages {
-			if gate.Kind != "jumpGate" || gate.Connected != nil && gate.ID > gate.Connected.ID {
+			if gate.Kind != "jumpGate" {
 				continue
 			}
 
 			occupied := false
 
 			s.players.ForEach(func(p *playerRecord, _ string) {
-				for _, end := range []*objects.Passage{gate, gate.Connected} {
-					if end != nil && p.ship.World == end.World && end.World.Players.Has(p.playerID) && Vec.DistanceSquared(p.ship.Position, end.Position) < end.Radius*end.Radius {
-						occupied = true
-					}
+				if p.ship.World == gate.World && gate.World.Players.Has(p.playerID) && Vec.DistanceSquared(p.ship.Position, gate.Position) < gate.Radius*gate.Radius {
+					occupied = true
 				}
 			})
 
@@ -227,6 +261,47 @@ func (s *GameSession) updateGatePairs(dt float64) {
 			if gate.Connected != nil {
 				gate.Advance(dt)
 			}
+		}
+	}
+}
+
+func (s *GameSession) interruptGateClosing(before map[*playerRecord]Vec.Vector) {
+	runtime := s.sectors[s.currentSector]
+	now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
+
+	for _, gate := range runtime.passages {
+		closing := gate.OpeningTarget == 0 && (gate.Opening > 0 || runtime.closing[gate])
+		reopening := gate.OpeningTarget == 1 && gate.Opening < 1 && gate.BlockedBeams != 0
+
+		if gate.Kind != "jumpGate" || !closing && !reopening {
+			delete(runtime.closing, gate)
+			continue
+		}
+
+		blocked := uint8(0)
+
+		for player, from := range before {
+			ship := player.ship
+
+			if ship.World != gate.World || ship.Dead || ship.DockedTo != nil || ship.TransitTime != 0 {
+				continue
+			}
+
+			blocked |= gate.CrossedBeams(from, ship.Position, ship.Radius)
+		}
+
+		if blocked != 0 {
+			if reopening {
+				gate.BlockedBeams |= blocked
+				continue
+			}
+
+			gate.InterruptClosing(blocked)
+			gate.CloseAfter = max(gate.CloseAfter, now+gate.Spec.OpeningDuration/1000)
+			delete(runtime.closing, gate)
+			s.gateChat(gate, gate.Spec.ClosingInterruptedMessage)
+		} else if gate.Opening == 0 {
+			delete(runtime.closing, gate)
 		}
 	}
 }
@@ -255,6 +330,17 @@ func (s *GameSession) crossPassages(before map[*playerRecord]Vec.Vector) {
 			passage := entity.(objects.PassageEntity).PassageBase()
 
 			exit := s.connectedPassage(passage)
+
+			if exit.Kind == "jumpGate" {
+				player := p.profile.DisplayName
+
+				if player == "" {
+					player = "pilot"
+				}
+
+				text := strings.NewReplacer("{destination}", passage.DestinationName, "{player}", player).Replace(exit.Spec.ArrivalMessage)
+				p.arrivalMessage = &protocol.ServerControl{Type: "chat", Sender: exit.Name, SenderRole: "friendly", Text: text}
+			}
 
 			s.relocatePlayer(p, passage.DestinationSector, sectorArrival{
 				position: exit.Position,
@@ -291,6 +377,11 @@ func (s *GameSession) crossPassages(before map[*playerRecord]Vec.Vector) {
 			}
 
 			p.ship.TransitGate = passage.ID
+
+			if passage.Kind == "jumpGate" {
+				s.requestDestinationOpening(passage)
+			}
+
 			p.ship.TransitTime = -(s.World.Specification.HoleSpec.PullDuration + s.World.Specification.HoleSpec.TransitScaleDuration) / 1000
 			p.ship.Velocity, p.ship.Spin = Vec.Vector{}, 0
 			p.ship.Firing = false
@@ -306,6 +397,7 @@ type sectorArrival struct {
 }
 
 func (s *GameSession) relocatePlayer(p *playerRecord, destination string, arrival sectorArrival) {
+	p.gateAccess = nil
 	old := p.ship.World
 	old.Entities.Delete(p.shipID)
 	old.Players.Delete(p.playerID)

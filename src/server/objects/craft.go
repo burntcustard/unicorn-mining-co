@@ -113,8 +113,33 @@ func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog specs.C
 	}
 
 	if props.Segments != nil {
-		c.Segments = props.Segments
-		c.HullSegments = props.HullSegments
+		// Detached fragments use the same inert geometry as their snapshots.
+		c.HullSegments = make([]*simulation.SegmentPlan, len(props.Segments))
+		c.Segments = make([]*simulation.Segment, len(props.Segments))
+
+		for i, segment := range props.Segments {
+			radius := 0.0
+
+			if segment.Radius != nil {
+				radius = segment.Radius(segment)
+			}
+
+			health := *segment.TargetHealth()
+
+			plan := &simulation.SegmentPlan{Radius: func(*simulation.Segment) float64 { return radius }, LocalPosition: segment.LocalPosition, Health: &health, FillShade: segment.FillShade, Stroke: segment.Stroke}
+
+			if segment.FillShade == nil {
+				plan.Color = segment.Color
+			}
+
+			if outline := segment.Outline(); outline != nil {
+				plan.Points = &simulation.ShapeOutline{Points: append([]simulation.Point{}, outline.Points...)}
+			}
+
+			c.HullSegments[i] = plan
+			c.Segments[i] = makeSegment(c.GameObject, c.ZIndex, nil, plan, nil)
+		}
+
 		c.Decay = specs.WreckageDecay
 		c.Health = specs.WreckageHealth + c.Random.Next()
 		c.Mass = float64(len(c.Segments))

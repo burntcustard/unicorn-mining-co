@@ -1,83 +1,55 @@
-/* Keep chat above the game canvas, HUD, menus, status, and notifications. */
-.game-chat {
-  position: fixed;
-  top: var(--hud-inset, 1rem);
-  left: var(--hud-inset, 1rem);
-  z-index: 30;
-  width: min(23rem, calc(100vw - 2rem));
-  color: #eee;
-  font:
-    0.8rem / 1.4 system-ui,
-    sans-serif;
-}
+@layer components {
+  /* Keep chat above the game canvas, HUD, menus, status, and notifications. */
+  .chat-panel {
+    position: fixed;
+    top: var(--hud-inset-top, 24px);
+    left: var(--hud-inset, 20px);
+    z-index: 30;
+    width: 24rem;
+    padding-block: 12px calc(20px - var(--ui-border-width));
+    padding-inline: calc(20px - var(--ui-border-width));
+  }
 
-.chat-tabs {
-  display: flex;
-  gap: 0.3rem;
-  border-bottom: 1px solid #647;
-  padding-bottom: 0.3rem;
-  font-family: Gemetric, sans-serif;
-}
+  .chat-tabs {
+    border-bottom: var(--ui-border-width) solid var(--ui-line);
 
-.game-chat button,
-.game-chat input {
-  font: inherit;
-  color: inherit;
-  background: #213;
-  border: 1px solid #647;
-  border-radius: 0.2rem;
-  padding: 0.25rem 0.5rem;
-}
+    & > button {
+      padding-block: 6px;
+      padding-inline: 4px;
+    }
+  }
 
-.chat-tabs [aria-pressed='true'] {
-  color: #4df;
-  border-color: #4df;
-}
+  .chat-log {
+    max-height: 8rem;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
 
-.chat-log {
-  max-height: 8rem;
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-}
+    & > p {
+      white-space: pre-wrap;
+    }
 
-.game-chat p {
-  margin: 0.3rem 0;
-}
+    & strong {
+      color: var(--sender-color, #fff);
+    }
+  }
 
-.chat-log p {
-  white-space: pre-wrap;
-}
+  .chat-panel input {
+    min-height: 32px;
+    padding-block: 4px;
+    padding-inline: 8px;
+    font-family: system-ui, sans-serif;
 
-.chat-log strong {
-  color: var(--sender-color, #fff);
-}
+    &:focus-visible {
+      border-color: var(--ui-color);
+      outline: none;
+    }
+  }
 
-.chat-contact {
-  border-top: 1px solid #647;
-  padding: 0.25rem 0 0.5rem;
-}
+  .chat-contact strong {
+    color: #3f7;
+  }
 
-.game-chat input {
-  width: 100%;
-  margin-top: 0.3rem;
-  background: #30243f;
-}
-
-.chat-contact strong,
-.game-chat button:disabled {
-  color: #3f7;
-}
-
-.chat-log time {
-  color: #a9a3b5;
-  margin-right: 0.75rem;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (width < 600px) {
-  .game-chat {
-    width: calc(100vw - 185px);
-    left: 8px;
-    top: 8px;
+  .chat-contact button:disabled {
+    opacity: 0.6;
   }
 }

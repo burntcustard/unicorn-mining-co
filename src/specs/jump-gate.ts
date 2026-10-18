@@ -11,6 +11,16 @@ export const jumpGateThrustStartDelay = 300;
 export const jumpGateThrustEndLead = 1000;
 
 export const jumpGateSpec = {
+  greetingMessage: 'Greetings {player}, traveling to {destination}?',
+  arrivalMessage: 'Welcome to {destination}, {player}',
+  accessGrantedMessage: 'Access granted. Enter once gate is fully open.',
+  accessPendingMessage: '...',
+  closingMessage: 'Gate closing, stay clear',
+  closingInterruptedMessage: 'Closing interrupted, re-opening',
+  recoveryMessage:
+    "How did you get there {player}? We'll open the gate for you",
+  // Delay before each gate access response.
+  accessResponseDelay: 3000,
   // Overall gate radius, also used to keep it open while ships are nearby.
   radius: 450,
   // Radius of the gate's portal and circular travel trigger.
@@ -25,6 +35,11 @@ export const jumpGateSpec = {
   stateHoldDuration: 3000,
   // Outward travel distance of each hull half between closed and fully open.
   halfTravel: 189,
+  // Safety beams span the gap between the moving halves at these local heights.
+  beamOffsets: [-259.5, -225, 225, 259.5],
+  beamInset: 7.5,
+  // Damage to each ship part pinned between the inward faces of closing halves.
+  crushDamage: 1000,
 };
 
 // Author the left half in its closed position, then mirror both axes.

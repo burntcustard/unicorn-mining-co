@@ -1,6 +1,8 @@
 import { targetKinds } from '../target-kinds';
 import './hud.css';
 import html from './hud.html?raw';
+import pentagon from '../icons/corral-5.svg?raw';
+import hexagon from '../icons/corral-6.svg?raw';
 import { query, ui } from './ui';
 import { type Ship } from '../../objects/ship';
 import { type GameObject } from '../../objects/game-object';
@@ -86,6 +88,7 @@ export const createHud = ({
     update({
       ship,
       credits,
+      displayName,
       sectorName,
       target,
       objects,
@@ -96,6 +99,7 @@ export const createHud = ({
     }: {
       ship: Ship;
       credits: number;
+      displayName: string;
       sectorName: string;
       target?: GameObject;
       objects: GameObject[];
@@ -112,12 +116,11 @@ export const createHud = ({
         panel.style.opacity = String(alpha);
       });
 
-      text('.hud-credits', `${credits.toLocaleString('en-US')}$`);
+      text('[data-pilot]', displayName);
+      text('[data-credits]', `${credits.toLocaleString('en-US')}$`);
       text('[data-sector]', sectorName);
-      text(
-        '[data-coordinates]',
-        `${Math.round(ship.position.x)} / ${Math.round(ship.position.y)}`,
-      );
+      text('[data-coordinate-x]', String(Math.round(ship.position.x)));
+      text('[data-coordinate-y]', String(Math.round(ship.position.y)));
 
       const cargoCount = ship.cargoContents.length;
 
@@ -169,7 +172,7 @@ export const createHud = ({
           const kbd = document.createElement('kbd');
           const name = document.createElement('span');
 
-          row.className = 'ui-inline gap-3';
+          row.className = 'flex items-center gap-3';
           row.type = 'button';
 
           row.addEventListener('click', () => {
@@ -177,7 +180,9 @@ export const createHud = ({
             row.blur();
           });
 
+          kbd.className = 'flex-none';
           kbd.textContent = labels[index][0];
+          name.className = 'text-sm';
           name.textContent = labels[index][1];
           row.append(kbd, name);
           modulesPanel.append(row);
@@ -262,14 +267,17 @@ export const createHud = ({
       if (target) {
         text(
           '[data-distance]',
-          `${Math.round(Vec.distance(ship.position, (poses.get(target.id) || target).position)).toLocaleString('en-US')} m`,
+          `${Math.round(Vec.distance(ship.position, (poses.get(target.id) || target).position)).toLocaleString('en-US')}\u2009m`,
         );
 
         if (target !== previousTarget) {
+          const description =
+            target.targetLabel?.split('\n').at(-1) || target.description;
+
           text('[data-name]', target.name.replaceAll('\n', ' '));
           text('[data-kind]', targetKinds.get(target.kind!) || '');
-          text('[data-description]', target.description || '');
-          query(element, '[data-description]').hidden = !target.description;
+          text('[data-description]', description || '');
+          query(element, '[data-description]').hidden = !description;
           const price = target.price;
 
           query(element, '[data-value-row]').hidden = price === undefined;
@@ -280,8 +288,12 @@ export const createHud = ({
           const icon = query(element, '.hud-target-icon');
 
           icon.replaceChildren();
+          icon.style.color = target.kind === 'station' ? colors.green[2] : '';
 
-          if (target instanceof Craft) {
+          if (target.kind === 'station') {
+            icon.innerHTML =
+              target.definitionId === 'corral-6' ? hexagon : pentagon;
+          } else if (target instanceof Craft) {
             icon.innerHTML = shipIcon(target);
           } else if (target instanceof Item) {
             const canvas = document.createElement('canvas');

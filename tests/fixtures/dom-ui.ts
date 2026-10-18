@@ -1,6 +1,9 @@
 import { createHud } from '../../src/client/ui/dom/hud';
 import { createPlayerShip } from '../../src/client/objects/create-ship';
-import { moduleBinding } from '../../src/client/input/keybindings';
+import {
+  defaultKeybindings,
+  moduleBinding,
+} from '../../src/client/input/keybindings';
 import { player } from '../../src/client/player.ts';
 import { init } from '../../src/client/core.ts';
 import { game } from '../../src/client/game.ts';
@@ -27,6 +30,42 @@ import {
 import { packPlayerInput } from '../../src/client/protocol/input.ts';
 import { createChat } from '../../src/client/ui/dom/chat';
 import { JumpGate } from '../../src/client/objects/jump-gate';
+import { jumpGateSpec } from '../../src/specs/jump-gate';
+import * as Vec from '../../src/client/utilities/vector';
+
+const checkGateBeams = () => {
+  const canvas = document.createElement('canvas');
+
+  canvas.width = canvas.height = 800;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+
+  const gate = new JumpGate({
+    position: Vec.create(400, 400),
+    opening: 0.75,
+    openingTarget: 1,
+    blockedBeams: 2,
+  });
+
+  const pixels = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    gate.render({ ctx });
+    return jumpGateSpec.beamOffsets.map((y) =>
+      [...ctx.getImageData(400, Math.floor(400 + y), 1, 1).data].join(),
+    );
+  };
+
+  const interrupted = pixels();
+
+  gate.update(jumpGateSpec.openingDuration / 1000);
+  const reopened = pixels();
+
+  return {
+    onlyInterruptedBeamChanges: interrupted.every((pixel, index) =>
+      index === 1 ? pixel !== reopened[index] : pixel === reopened[index],
+    ),
+    beamsResetWhenFullyOpen: gate.opening === 1 && gate.blockedBeams === 0,
+  };
+};
 
 export const checkChat = () => {
   const sent: (string | number)[][] = [];
@@ -34,6 +73,9 @@ export const checkChat = () => {
 
   const network = {
     displayName: 'Pilot',
+    world: createWorld(),
+    shipId: 1,
+    sectorName: 'Patroclus',
     chatMessages: [
       {
         type: 'chat' as const,
@@ -54,31 +96,68 @@ export const checkChat = () => {
     requestGateAccess: (id: number) => sent.push([id]),
   };
 
-  const chat = createChat({ network, onTyping: (value) => typing.push(value) });
-  const panel = document.querySelector<HTMLElement>('.game-chat')!;
-  const log = panel.querySelector('.chat-log')!;
-  const input = panel.querySelector<HTMLInputElement>('.game-chat input')!;
-  const tabs = panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
-  const gate = new JumpGate({ id: 987, destinationName: 'Priamus' });
+  const ship = createPlayerShip(network.world, { id: network.shipId });
 
+  network.world.entities.set(ship.id, ship);
+
+  const chat = createChat({ network, onTyping: (value) => typing.push(value) });
+  const panel = document.querySelector<HTMLElement>('.chat-panel')!;
+  const log = panel.querySelector<HTMLElement>('.chat-log')!;
+  const input = panel.querySelector<HTMLInputElement>('.chat-panel input')!;
+  const tabs = panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
+
+  const gate = new JumpGate({
+    id: 987,
+    name: 'PP-87',
+    targetLabel: 'JUMP GATE\nPatroclus\u2009→\u2009Priamus',
+    destinationName: 'Priamus',
+  });
+
+  network.world.entities.set(gate.id, gate);
   chat.update(gate, true);
+  const gateName =
+    panel.querySelector('.chat-contact strong')!.textContent === 'PP-87: ';
+  const greeting = panel.querySelector('.chat-contact p > span')!.textContent!;
+  const greetingPersonalized =
+    greeting.includes(network.displayName) &&
+    greeting.includes(gate.destinationName);
   const escaped =
-    log.textContent?.endsWith('<b>Pilot</b>: <img src=x>') &&
-    !log.querySelector('b, img');
-  const timestamp = log.querySelector('time')!;
-  const timeText = timestamp.textContent;
-  const timestamps =
-    /^\[\d{2}:\d{2}\]$/.test(timeText || '') &&
-    Boolean(Date.parse(timestamp.dateTime));
+    log.querySelector(':scope > p')?.textContent ===
+      '<b>Pilot</b>: <img src=x>' && !log.querySelector('b, img');
+  const messageFormat =
+    !log.querySelector('time') &&
+    panel.querySelector<HTMLElement>('.chat-contact p')!.innerText.trim() ===
+      `PP-87: ${greeting}`;
   const line = log.firstElementChild;
 
   chat.update(gate, true);
   const unchanged = line === log.firstElementChild;
 
+  const originalContact = panel.querySelector('.chat-contact')!;
+
+  network.chatMessages = [
+    ...network.chatMessages,
+    {
+      type: 'chat',
+      channel: 0,
+      senderRole: 'user',
+      sender: 'Later',
+      text: 'After the greeting',
+    },
+  ];
+
+  chat.update(gate, true);
+  const chronological =
+    originalContact.nextElementSibling?.textContent?.endsWith(
+      'Later: After the greeting',
+    );
+
   tabs[1].click();
   chat.update(gate, true);
-  const stableTime = log.querySelector('time')?.textContent === timeText;
-  const global = log.textContent?.endsWith('Global: Hello');
+  const sectorGreeting = !log.querySelector('.chat-contact');
+  const global = log
+    .querySelector(':scope > p')
+    ?.textContent?.endsWith('Global: Hello');
 
   network.chatMessages = [
     ...network.chatMessages,
@@ -92,7 +171,7 @@ export const checkChat = () => {
   ];
 
   chat.update(gate, true);
-  const updated = log.children.length === 2;
+  const updated = log.querySelectorAll(':scope > p').length === 2;
 
   network.chatMessages = ['user', 'owner', 'friendly', 'admin', 'hostile'].map(
     (senderRole) => ({
@@ -106,9 +185,63 @@ export const checkChat = () => {
 
   chat.update(gate, true);
   const roleColors =
-    [...log.querySelectorAll('strong')]
+    [...log.querySelectorAll<HTMLElement>(':scope > p > strong')]
       .map((sender) => sender.style.getPropertyValue('--sender-color'))
       .join() === '#fff,#ff0,#3f7,#4df,#f44';
+
+  network.chatMessages = network.chatMessages.map((message) => ({
+    ...message,
+    sender: network.displayName,
+  }));
+
+  chat.update(gate, true);
+  const selfColors =
+    [...log.querySelectorAll<HTMLElement>(':scope > p > strong')]
+      .map((sender) => sender.style.getPropertyValue('--sender-color'))
+      .join() === '#e6f,#ff0,#e6f,#4df,#e6f';
+
+  tabs[0].click();
+
+  network.chatMessages = network.chatMessages.map((message) => ({
+    ...message,
+    channel: 0,
+  }));
+
+  chat.update(gate, true);
+  const contact = panel.querySelector<HTMLElement>('.chat-contact')!;
+  const sharedScroll = contact.parentElement === log;
+  const messageHistory = network.chatMessages;
+
+  network.chatMessages = Array.from({ length: 20 }, (_, index) => ({
+    ...messageHistory[0],
+    text: `Message ${index}`,
+  }));
+
+  chat.update(gate, true);
+  const contactKeepsPosition =
+    log.firstElementChild === contact && log.lastElementChild !== contact;
+
+  log.scrollTop = log.scrollHeight;
+  const greetingScrolls =
+    log.scrollHeight > log.clientHeight &&
+    contact.getBoundingClientRect().bottom <= log.getBoundingClientRect().top;
+
+  log.scrollTop = 40;
+  const readingOffset = log.scrollTop;
+
+  network.chatMessages = [
+    ...network.chatMessages,
+    {
+      ...messageHistory[0],
+      text: 'New while reading',
+    },
+  ];
+
+  chat.update(gate, true);
+  const preservesScroll = readingOffset > 0 && log.scrollTop === readingOffset;
+
+  network.chatMessages = messageHistory;
+  chat.update(gate, true);
 
   chat.focus();
   input.value = '  Send this  ';
@@ -117,10 +250,258 @@ export const checkChat = () => {
   );
   panel.querySelector<HTMLButtonElement>('.chat-contact button')!.click();
   const actions =
-    JSON.stringify(sent) === JSON.stringify([[1, 'Send this'], [987]]);
+    JSON.stringify(sent) === JSON.stringify([[0, 'Send this'], [987]]);
+
+  const access = panel.querySelector<HTMLButtonElement>(
+    '.chat-contact button',
+  )!;
+  const immediatelyPending =
+    access.disabled &&
+    access.querySelector(':scope > span')!.textContent === 'Access pending';
+
+  chat.requestGateAccess();
+
+  network.chatMessages = [
+    ...network.chatMessages,
+    {
+      type: 'chat',
+      channel: 0,
+      sender: gate.name,
+      senderRole: 'friendly',
+      text: '...',
+    },
+  ];
+
+  chat.update(gate, true);
+  const accessPending =
+    immediatelyPending &&
+    access.disabled &&
+    access.querySelector(':scope > span')!.textContent === 'Access pending' &&
+    sent.length === 2;
+
+  network.chatMessages = [
+    ...network.chatMessages,
+    {
+      type: 'chat',
+      channel: 0,
+      sender: gate.name,
+      senderRole: 'friendly',
+      text: 'Please approach the gate before requesting access.',
+    },
+  ];
+
+  ship.position.x = 10000;
+  chat.update(gate, true);
+  const accessRejected =
+    access.disabled &&
+    access.querySelector(':scope > span')!.textContent ===
+      'Access unavailable' &&
+    log.querySelectorAll('.chat-contact').length === 1;
+
+  ship.position.x = 0;
+  chat.update(gate, true);
+  const retryContact = log.lastElementChild!;
+  const retryAccess = retryContact.querySelector<HTMLButtonElement>('button')!;
+  const freshRequestAfterRejection =
+    retryContact !== contact &&
+    retryContact.classList.contains('chat-contact') &&
+    !retryContact.querySelector('p') &&
+    !retryAccess.disabled &&
+    access.disabled &&
+    contact.parentElement === log &&
+    retryAccess.querySelector(':scope > span')!.textContent ===
+      'Request access';
+
+  chat.update(gate, true);
+  const noDuplicateGreeting =
+    log.querySelectorAll('.chat-contact').length === 2;
+  const originalAccessKeys = defaultKeybindings.requestGateAccess.keys;
+  const moduleStyle =
+    retryAccess.classList.contains('flex') &&
+    retryAccess.parentElement!.classList.contains('ui-controls') &&
+    retryAccess.querySelector('kbd')!.textContent ===
+      originalAccessKeys.join(' / ');
+
+  defaultKeybindings.requestGateAccess.keys = ['g'];
+  chat.update(gate, true);
+  const reboundAccessKey =
+    retryAccess.querySelector('kbd')!.textContent === 'g';
+
+  access.click();
+  chat.requestGateAccess();
+  const accessAction = sent.length === 3 && sent.at(-1)![0] === 987;
+
+  gate.openingTarget = 1;
+  chat.update(gate, true);
+  chat.requestGateAccess();
+  const accessDisabled =
+    sent.length === 3 &&
+    retryAccess.disabled &&
+    retryAccess.querySelector(':scope > span')!.textContent ===
+      'Access granted' &&
+    access.querySelector(':scope > span')!.textContent ===
+      'Access unavailable' &&
+    Boolean(retryAccess.querySelector('kbd'));
+
+  network.chatMessages = [
+    ...network.chatMessages,
+    {
+      type: 'chat',
+      channel: 0,
+      sender: gate.name,
+      senderRole: 'friendly',
+      text: jumpGateSpec.closingMessage,
+    },
+  ];
+
+  gate.openingTarget = 0;
+  chat.update(gate, true);
+  const closedContact = log.lastElementChild!;
+  const closedAccess =
+    closedContact.querySelector<HTMLButtonElement>('button')!;
+  const freshRequestAfterClosing =
+    closedContact !== retryContact &&
+    closedContact.previousElementSibling?.textContent ===
+      `${gate.name}: ${jumpGateSpec.closingMessage}` &&
+    !closedContact.querySelector('p') &&
+    !closedAccess.disabled &&
+    retryAccess.disabled &&
+    retryAccess.querySelector(':scope > span')!.textContent ===
+      'Access granted' &&
+    log.querySelectorAll('.chat-contact').length === 3;
+
+  chat.update(gate, true);
+  const noRepeatedClosingPrompt =
+    log.lastElementChild === closedContact &&
+    log.querySelectorAll('.chat-contact').length === 3;
+
+  chat.update(undefined, true);
+  chat.requestGateAccess();
+  const noTargetAccess =
+    sent.length === 3 && closedAccess.disabled && contact.parentElement === log;
+
+  const otherGate = new JumpGate({
+    id: 988,
+    name: 'PA-00',
+    destinationName: 'Acamas',
+  });
+
+  network.world.entities.set(otherGate.id, otherGate);
+  chat.update(otherGate, true);
+  const separateGreetings =
+    log.querySelectorAll('.chat-contact').length === 4 &&
+    log.lastElementChild?.querySelector('strong')!.textContent === 'PA-00: ' &&
+    contact.querySelector('strong')!.textContent === 'PP-87: ' &&
+    access.disabled;
+
+  chat.update(gate, true);
+  const returnedContact = log.lastElementChild!;
+  const returnedAccess =
+    returnedContact.querySelector<HTMLButtonElement>('button')!;
+  const freshRequestOnReturn =
+    log.querySelectorAll('.chat-contact').length === 5 &&
+    returnedContact !== closedContact &&
+    !returnedAccess.disabled &&
+    closedAccess.disabled &&
+    log.querySelectorAll('.chat-contact button:enabled').length === 1;
+
+  closedAccess.click();
+  retryAccess.click();
+  access.click();
+  const historicalRequestsStayDisabled = sent.length === 3;
+
+  chat.requestGateAccess();
+  ship.position.x = 10000;
+  chat.update(gate, false);
+  ship.position.x = 0;
+  chat.update(gate, false);
+  const noHiddenGreeting = log.querySelectorAll('.chat-contact').length === 5;
+
+  chat.update(gate, true);
+  const freshRequestAfterCancellation =
+    noHiddenGreeting &&
+    sent.length === 4 &&
+    returnedAccess.disabled &&
+    returnedAccess.querySelector(':scope > span')!.textContent ===
+      'Access unavailable' &&
+    log.querySelectorAll('.chat-contact').length === 6 &&
+    log.querySelectorAll('.chat-contact button:enabled').length === 1;
+
+  const observerChat = createChat({ network, onTyping: () => {} });
+
+  const observerPanel = [...document.querySelectorAll('.chat-panel')].at(-1)!;
+
+  observerChat.update(undefined, true);
+  let targetOnlyAccess = !observerPanel.querySelector('.chat-contact button');
+
+  chat.requestGateAccess();
+
+  network.chatMessages = [
+    ...network.chatMessages,
+    ...[
+      jumpGateSpec.closingMessage,
+      jumpGateSpec.closingInterruptedMessage,
+    ].map((text) => ({
+      type: 'chat' as const,
+      channel: 0,
+      sender: gate.name,
+      senderRole: 'friendly',
+      text,
+    })),
+  ];
+
+  observerChat.update(undefined, true);
+  chat.update(gate, true);
+  const warningsKeepAccessPending =
+    log.querySelectorAll('.chat-contact').length === 6 &&
+    log.querySelectorAll('.chat-contact button:enabled').length === 0 &&
+    log.querySelector('.chat-contact:last-of-type button > span')
+      ?.textContent === 'Access pending';
+
+  targetOnlyAccess &&=
+    !observerPanel.querySelector('.chat-contact button') &&
+    observerPanel.textContent!.includes(jumpGateSpec.closingMessage) &&
+    observerPanel.textContent!.includes(jumpGateSpec.closingInterruptedMessage);
+  observerChat.update(gate, true);
+  targetOnlyAccess &&=
+    observerPanel.querySelectorAll('.chat-contact button:enabled').length === 1;
+  observerChat.update(undefined, true);
+  observerChat.update(undefined, true);
+  targetOnlyAccess &&=
+    observerPanel.querySelectorAll('.chat-contact button:enabled').length === 0;
+  observerPanel.parentNode!.removeChild(observerPanel);
+
+  network.sectorName = 'Acamas';
+  network.world.entities.clear();
+
+  network.chatMessages = [
+    {
+      type: 'chat',
+      channel: 0,
+      sender: 'AP-24',
+      senderRole: 'friendly',
+      text: 'Welcome to Acamas, Pilot',
+    },
+  ];
+
+  chat.update(gate, true);
+  const sectorHistoryCleared =
+    log.childElementCount === 1 &&
+    log.textContent === 'AP-24: Welcome to Acamas, Pilot';
+
+  chat.update(gate, true);
+  chat.requestGateAccess();
+  const staleGateIgnored =
+    log.childElementCount === 1 &&
+    !log.querySelector('.chat-contact') &&
+    sent.length === 5;
 
   chat.focus();
-  chat.update(undefined, false);
+  chat.update(gate, false);
+  chat.requestGateAccess();
+  const hiddenAccess = sent.length === 5;
+
+  defaultKeybindings.requestGateAccess.keys = originalAccessKeys;
   const hidden =
     !chat.focus() &&
     !panel.getClientRects().length &&
@@ -129,9 +510,38 @@ export const checkChat = () => {
   panel.parentNode!.removeChild(panel);
 
   return {
-    timestamps,
-    stableTime,
+    ...checkGateBeams(),
+    gateName,
+    greetingPersonalized,
+    sharedScroll,
+    chronological,
+    sectorGreeting,
+    contactKeepsPosition,
+    preservesScroll,
+    separateGreetings,
+    noDuplicateGreeting,
+    freshRequestAfterRejection,
+    freshRequestAfterClosing,
+    noRepeatedClosingPrompt,
+    freshRequestOnReturn,
+    historicalRequestsStayDisabled,
+    freshRequestAfterCancellation,
+    targetOnlyAccess,
+    warningsKeepAccessPending,
+    sectorHistoryCleared,
+    staleGateIgnored,
+    greetingScrolls,
+    moduleStyle,
+    reboundAccessKey,
+    accessAction,
+    accessPending,
+    accessRejected,
+    accessDisabled,
+    noTargetAccess,
+    hiddenAccess,
+    messageFormat,
     roleColors,
+    selfColors,
     escaped,
     unchanged,
     global,
@@ -696,6 +1106,7 @@ export const checkHud = () => {
     ship,
     target,
     credits: 1998,
+    displayName: 'Pilot',
     sectorName: 'Patroclus',
     objects: [ship, target],
     poses: new Map(),
@@ -708,14 +1119,17 @@ export const checkHud = () => {
 
   hud.update(options);
   const readouts =
-    text('.hud-credits') === '1,998$' &&
+    text('[data-credits]') === '1,998$' &&
+    text('[data-pilot]') === 'Pilot' &&
     text('[data-sector]') === 'Patroclus' &&
-    text('[data-coordinates]') === '0 / 0';
+    text('[data-coordinate-x]') === '0' &&
+    text('[data-coordinate-y]') === '0' &&
+    text('[data-coordinates] .text-muted') === '\u2009/\u2009';
 
   const details = {
     ['target name: ' + text('[data-name]')]: text('[data-name]') === 'Diamond',
     ['target distance: ' + text('[data-distance]')]:
-      text('[data-distance]') === '500 m',
+      text('[data-distance]') === '500\u2009m',
     ['target value: ' + text('[data-value]')]: text('[data-value]') === '80$',
     ['target kind: ' + text('[data-kind]')]: text('[data-kind]') === 'Resource',
     'target icon': Boolean(element.querySelector('.hud-target-icon canvas')),
@@ -757,6 +1171,11 @@ export const checkHud = () => {
   const sharedPanels =
     [...element.querySelectorAll('.ui-card')].every((panel) => {
       const style = getComputedStyle(panel);
+      const padding = panel.classList.contains('hud-map')
+        ? [0, 0, 0, 0]
+        : panel.classList.contains('hud-credits')
+          ? [8, 18, 6, 18]
+          : [16, 16, 16, 16];
 
       if (panel.classList.contains('hud-stores-panel')) {
         return (
@@ -775,7 +1194,10 @@ export const checkHud = () => {
           'padding-right',
           'padding-bottom',
           'padding-left',
-        ].every((side) => style.getPropertyValue(side) === '16px')
+        ].every(
+          (side, index) =>
+            style.getPropertyValue(side) === `${padding[index]}px`,
+        )
       );
     }) && cardStyle.borderTopColor === cardStyle.borderLeftColor;
 
@@ -1103,6 +1525,18 @@ export const checkHud = () => {
   const travel = text('[data-sector]') === 'Hippokoon';
 
   binding.keys = original;
+
+  const gate = new JumpGate({
+    name: 'PA-87',
+    targetLabel: 'JUMP GATE\nPatroclus\u2009→\u2009Acamas',
+  });
+
+  hud.update({ ...options, target: gate });
+  const gateRoute =
+    text('[data-name]') === gate.name &&
+    text('[data-description]') === gate.targetLabel!.split('\n').at(-1) &&
+    !element.querySelector<HTMLElement>('[data-description]')!.hidden;
+
   hud.update({ ...options, target: undefined, shown: false });
   const hidden =
     panels.every((panel) => !panel.getClientRects().length) &&
@@ -1154,6 +1588,7 @@ export const checkHud = () => {
     ['wholePixelPower', wholePixelPower],
     ['matchingDividers', matchingDividers],
     ['travel', travel],
+    ['gateRoute', gateRoute],
     ['hidden', hidden],
     ['cleared', cleared],
     ...Object.entries(details),

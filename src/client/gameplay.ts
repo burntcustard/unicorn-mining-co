@@ -352,6 +352,12 @@ bindAction(defaultKeybindings.targetNext, (event) => {
   targeting.cycleTarget(event.shiftKey);
 });
 
+bindAction(defaultKeybindings.requestGateAccess, (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  event.preventDefault();
+  chat.requestGateAccess();
+});
+
 bindAction(defaultKeybindings.fpsCounter, (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
   event.preventDefault();
@@ -598,6 +604,7 @@ const gameLoop = GameLoop({
       hud.update({
         ship: renderedShip,
         credits: player.credits,
+        displayName: network.displayName,
         sectorName: network.sectorName,
         target: targeting.target,
         objects: game.sprites,

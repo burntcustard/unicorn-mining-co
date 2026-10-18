@@ -32,13 +32,13 @@ export const createSettings = () => {
   const buttons = bindingEntries.map(([label], i) => {
     const row = document.createElement('div');
 
-    row.className = 'ui-row gap-6 py-2 uppercase';
+    row.className = 'flex items-center justify-between gap-6 py-2 uppercase';
     const text = document.createElement('span');
 
     text.textContent = label;
     const button = document.createElement('button');
 
-    button.className = 'button text-center';
+    button.className = 'ui-button text-center';
 
     button.addEventListener(
       'click',
@@ -56,7 +56,8 @@ export const createSettings = () => {
     // Keep targeting and HUD shortcuts beside flight and weapon controls.
     (i < 4 ||
     bindingEntries[i][1] === defaultKeybindings.targetNext ||
-    bindingEntries[i][1] === defaultKeybindings.fpsCounter
+    bindingEntries[i][1] === defaultKeybindings.fpsCounter ||
+    bindingEntries[i][1] === defaultKeybindings.requestGateAccess
       ? bindings
       : moduleBindings
     ).append(row);

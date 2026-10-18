@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
@@ -94,4 +95,115 @@ func TestChatSenderRoles(t *testing.T) {
 			t.Fatalf("chat lost authoritative role %s", role)
 		}
 	}
+}
+
+func TestGateAccessChatUsesCallsign(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &soundSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+
+	for _, gate := range s.sectors[p.sectorID].passages {
+		if gate.Kind != "jumpGate" {
+			continue
+		}
+
+		p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, 500))
+		socket.frames = nil
+		s.requestGateAccess(p, gate.ID)
+		s.updateGateAccess(gate.Spec.AccessResponseDelay / 1000)
+		expected, err := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly"}, catalog.Protocol)
+
+		if err != nil || gate.Name == "" || len(socket.frames) != 1 || !bytes.HasPrefix(socket.frames[0], expected[:len(expected)-1]) || len(socket.frames[0]) <= len(expected) {
+			t.Fatal("gate access response did not use its callsign")
+		}
+
+		return
+	}
+
+	t.Fatal("starting sector has no gate")
+}
+
+func TestGateAccessResponseDelay(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket, observer := &soundSocket{}, &soundSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	s.Receive(protocol.Control{Type: "hello"}, observer)
+	p := s.playersBySocket[socket]
+
+	for _, gate := range s.sectors[p.sectorID].passages {
+		if gate.Kind != "jumpGate" {
+			continue
+		}
+
+		gate.Advance(gate.Spec.StateHoldDuration / 1000)
+		delay := gate.Spec.AccessResponseDelay / 1000
+		p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, 500))
+		socket.frames, observer.frames = nil, nil
+		s.requestGateAccess(p, gate.ID)
+		s.updateGateAccess(delay / 2)
+		s.requestGateAccess(p, gate.ID)
+
+		if len(socket.frames) != 0 || gate.OpeningTarget != 0 {
+			t.Fatal("gate responded before the first delay")
+		}
+
+		s.updateGateAccess(delay / 2)
+		pending, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: "..."}, catalog.Protocol)
+
+		if len(socket.frames) != 1 || !bytes.Equal(socket.frames[0], pending) || gate.OpeningTarget != 0 {
+			t.Fatal("gate should send only an ellipsis after the first delay")
+		}
+
+		s.updateGateAccess(delay / 2)
+
+		if len(socket.frames) != 1 || gate.OpeningTarget != 0 {
+			t.Fatal("gate granted access before the second delay")
+		}
+
+		s.updateGateAccess(delay / 2)
+		granted, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.AccessGrantedMessage}, catalog.Protocol)
+
+		if len(socket.frames) != 2 || !bytes.Equal(socket.frames[1], granted) || gate.OpeningTarget != 1 || len(observer.frames) != 0 {
+			t.Fatal("gate should privately grant access and begin opening after the second delay")
+		}
+
+		s.updateGateAccess(2 * delay)
+
+		if len(socket.frames) != 2 {
+			t.Fatal("completed request repeated its response")
+		}
+
+		s.requestGateAccess(p, gate.ID)
+		s.updateGateAccess(delay)
+		p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, gate.Spec.ApproachRadius+1))
+		s.updateGateAccess(delay)
+
+		if len(socket.frames) != 3 || p.gateAccess != nil {
+			t.Fatal("leaving range should cancel the pending grant")
+		}
+
+		p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, 500))
+		s.requestGateAccess(p, gate.ID)
+		s.updateGateAccess(delay / 2)
+		other := objects.NewPassage(s.World, objects.PassageOptions{ID: -123456, Position: gate.Position}).(*objects.JumpGate)
+		s.World.Entities.Set(other.ID, other)
+		s.requestGateAccess(p, other.ID)
+
+		if p.gateAccess == nil || p.gateAccess.gate != other || p.gateAccess.elapsed != 0 {
+			t.Fatal("switching gates retained the previous pending request")
+		}
+
+		s.Disconnect(socket)
+
+		if p.gateAccess != nil {
+			t.Fatal("disconnect retained a pending request")
+		}
+
+		return
+	}
+
+	t.Fatal("starting sector has no gate")
 }

@@ -17,8 +17,10 @@ try {
   assert.deepEqual(defaults.defaultKeybindings.targetNext.keys, ['t']);
   assert.deepEqual(defaults.defaultKeybindings.fpsCounter.keys, ['f']);
   assert.equal(defaults.defaultKeybindings.fpsCounter.mode, 'toggle');
+  assert.deepEqual(defaults.defaultKeybindings.requestGateAccess.keys, ['r']);
+  assert.equal(defaults.defaultKeybindings.requestGateAccess.mode, 'press');
   const legacy = defaults.bindingEntries
-    .slice(0, -2)
+    .slice(0, -3)
     .map(([, binding]) => [...binding.keys]);
 
   legacy[0] = ['q'];
@@ -26,7 +28,7 @@ try {
   const migrated = await loadBindings('legacy');
 
   assert.deepEqual(
-    migrated.bindingEntries.slice(0, -2).map(([, binding]) => binding.keys),
+    migrated.bindingEntries.slice(0, -3).map(([, binding]) => binding.keys),
     legacy,
     'adding targeting preserves old saved bindings',
   );
@@ -36,7 +38,7 @@ try {
   localStorage.setItem(
     'unicorn-controls',
     JSON.stringify(
-      migrated.bindingEntries.slice(0, -1).map(([, binding]) => binding.keys),
+      migrated.bindingEntries.slice(0, -2).map(([, binding]) => binding.keys),
     ),
   );
   const withTargeting = await loadBindings('with-targeting');
@@ -49,6 +51,14 @@ try {
   );
   withTargeting.defaultKeybindings.fpsCounter.keys = ['v'];
   withTargeting.saveBindings();
+  localStorage.setItem(
+    'unicorn-controls',
+    JSON.stringify(
+      withTargeting.bindingEntries
+        .slice(0, -1)
+        .map(([, binding]) => binding.keys),
+    ),
+  );
   const reloaded = await loadBindings('reloaded');
 
   assert.deepEqual(
@@ -62,6 +72,15 @@ try {
     'target binding survives reload',
   );
   assert.deepEqual(reloaded.defaultKeybindings.forwardThrust.keys, ['q']);
+  assert.deepEqual(reloaded.defaultKeybindings.requestGateAccess.keys, ['r']);
+  reloaded.defaultKeybindings.requestGateAccess.keys = ['g'];
+  reloaded.saveBindings();
+  const withAccess = await loadBindings('with-access');
+
+  assert.deepEqual(withAccess.defaultKeybindings.requestGateAccess.keys, ['g']);
+  assert.deepEqual(withAccess.defaultKeybindings.fpsCounter.keys, ['v']);
+  withAccess.resetBindings();
+  assert.deepEqual(withAccess.defaultKeybindings.requestGateAccess.keys, ['r']);
   reloaded.resetBindings();
   assert.deepEqual(
     reloaded.defaultKeybindings.fpsCounter.keys,
