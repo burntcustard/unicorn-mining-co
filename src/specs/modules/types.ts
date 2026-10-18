@@ -37,6 +37,8 @@ type ModuleValues = {
   powerActivated: number;
   // Total draw during initial weapon charging and between shots, in MW.
   powerCharging?: number;
+  // Total draw while a fully deployed beam weapon fires, in MW.
+  powerFiring?: number;
   // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
   powerCapacity?: number;

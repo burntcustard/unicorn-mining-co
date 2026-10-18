@@ -1361,13 +1361,15 @@ func TestPlasmaChargingPower(t *testing.T) {
 	}
 
 	for _, module := range ship.Modules() {
+		if module == gun {
+			continue
+		}
+
 		module.ModuleBase().Spec.Power = 0
 		module.ModuleBase().Spec.PowerActivated = 0
 	}
 
-	gun.ModuleBase().Spec.Power = 0.2
-	gun.ModuleBase().Spec.PowerActivated = 0.4
-	gun.ModuleBase().Spec.PowerCharging = 3.2
+	spec := gun.ModuleBase().Spec
 
 	check := func(want float64) {
 		t.Helper()
@@ -1377,17 +1379,17 @@ func TestPlasmaChargingPower(t *testing.T) {
 		}
 	}
 
-	check(0.2)
+	check(spec.Power)
 	ship.SetModuleActive("plasmaAccelerator", true)
-	check(3.2)
+	check(spec.PowerCharging)
 	ship.UpdateModules(3)
-	check(0.4)
+	check(spec.PowerActivated)
 	ship.Firing = true
 	ship.fireWeapons(0)
-	check(3.2)
+	check(spec.PowerCharging)
 	ship.Firing = false
 	ship.fireWeapons(gun.ModuleBase().Spec.FireInterval)
-	check(0.4)
+	check(spec.PowerActivated)
 	ship.SetModuleActive("plasmaAccelerator", false)
-	check(0.2)
+	check(spec.Power)
 }

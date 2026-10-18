@@ -55,6 +55,7 @@ export const propertyNames = [
   'power',
   'powerActivated',
   'powerCharging',
+  'powerFiring',
   'powerGenerated',
   'powerCapacity',
   'powerGeneration',

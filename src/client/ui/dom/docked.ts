@@ -10,7 +10,7 @@ import { type Craft } from '../../objects/craft';
 import { type ItemSpec } from '../../../specs/items/types';
 import { autogunAmmo } from '../../../specs/items';
 import { Module, moduleMaximumHealth } from '../../objects/modules/module';
-import { moduleTypes } from '../../objects/modules';
+import { moduleTypes, SearchLight, PowerPlant } from '../../objects/modules';
 import { fitsOf, cargoMenuEntriesOf } from '../docked-model';
 import {
   applyCraftAction,
@@ -604,7 +604,7 @@ const createDocked = () => {
       module && !trading
         ? module.powerGenerated
           ? `<h3 class="text-sm uppercase">Generation</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div><h3 class="text-sm uppercase mt-4">Storage</h3><div class="text-color text-lg mt-4">${(module.powerCapacity || 0).toFixed(1)} MJ</div>`
-          : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div>${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-color text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`
+          : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div>${module.powerFiring ? `<div><span class="block text-muted text-sm uppercase">Firing</span><span class="text-color text-lg">${module.powerFiring.toFixed(1)} MW</span></div>` : ''}${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-color text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`
         : '',
     );
     query(root, '[data-module-power]').hidden = !module || trading;
@@ -663,6 +663,11 @@ const createDocked = () => {
     query(root, '[data-paint-panel]').hidden =
       trading || (!paintHull && !owned);
     query(root, '[data-paint-heading]').hidden = paintHull;
+    const paintUnsupported =
+      module instanceof SearchLight || module instanceof PowerPlant;
+
+    query(root, '[data-paint-unsupported]').hidden = !paintUnsupported;
+    query(root, '[data-paints]').hidden = paintUnsupported;
     query(root, '[data-paints]').className =
       `flex flex-wrap gap-4 dock-paints${paintHull ? '' : ' mt-4'}`;
 
@@ -704,7 +709,9 @@ const createDocked = () => {
     );
     const idle = consumers.reduce((sum, entry) => sum + entry.module.power, 0);
     const active = consumers.reduce(
-      (sum, entry) => sum + entry.module.powerActivated,
+      (sum, entry) =>
+        sum +
+        Math.max(entry.module.powerActivated, entry.module.powerFiring || 0),
       0,
     );
     const output = consumers.reduce(
@@ -726,7 +733,9 @@ const createDocked = () => {
         scale,
         entries: consumers.map(({ module, at }) => ({
           module,
-          value: active ? module.powerActivated : module.power,
+          value: active
+            ? Math.max(module.powerActivated, module.powerFiring || 0)
+            : module.power,
           highlighted:
             previewHull < 0 ||
             (previewMount

@@ -101,3 +101,46 @@ func TestLaserContinuousDamage(t *testing.T) {
 		}
 	}
 }
+
+func TestLaserFiringPower(t *testing.T) {
+	catalog, err := testsupport.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := CreatePlayerShip(world, Properties{})
+	laser := modules.Create("laser", simulation.ObjectProperties{World: world}, catalog)
+	for _, mount := range ship.Mounts() {
+		if slices.Contains(mount.Fits, "laser") {
+			ship.Fit(laser, mount)
+			break
+		}
+	}
+
+	spec := laser.ModuleBase().Spec
+	baseline := ship.PowerUsage() - spec.Power
+	check := func(want float64) {
+		t.Helper()
+		if got := ship.PowerUsage() - baseline; math.Abs(got-want) > 1e-9 {
+			t.Fatalf("laser power = %v, want %v", got, want)
+		}
+	}
+
+	ship.Firing = true
+	check(spec.Power)
+	ship.SetModuleActive("laser", true)
+	check(spec.PowerActivated)
+	ship.UpdateModules(1)
+	check(spec.PowerFiring)
+	ship.Firing = false
+	check(spec.PowerActivated)
+	ship.Firing = true
+	ship.Launching = 1
+	check(spec.PowerActivated)
+	ship.Launching = 0
+	ship.SetModuleActive("laser", false)
+	check(spec.Power)
+	laser.ModuleBase().Mount.Health = 0
+	check(0)
+}

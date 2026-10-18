@@ -1831,6 +1831,22 @@ checkUi: try {
 
   await pause(250);
 
+  await click('[data-tab="outfitting"]');
+
+  for (const name of ['Search Light', 'Power Plant']) {
+    const key =
+      await check(`Array.from(document.querySelectorAll('[data-loadout] [data-key]'))
+      .find(button => button.textContent.includes('${name}')).getAttribute('data-key')`);
+
+    await click(`[data-loadout] [data-key="${key}"]`);
+    assert(
+      await check(`!document.querySelector('[data-paint-unsupported]').hidden
+        && document.querySelector('[data-paint-unsupported]').textContent.trim() === 'Painting unsupported on this module'
+        && document.querySelector('[data-paints]').hidden`),
+      `${name} explains why painting is unavailable`,
+    );
+  }
+
   for (const activation of ['Enter', ' ', 'click']) {
     await click('[data-tab="outfitting"]');
     await click('[data-key="mount:0"]');
@@ -1910,8 +1926,8 @@ checkUi: try {
   );
   assert.deepEqual(
     await check(`fixture.previewStability()`),
-    [true, true, true, true],
-    'preview updates retain animation for cooldown, cargo, paint and health changes while rebuilding changed loadouts',
+    [true, true, true, true, true, true, true, true],
+    'preview updates retain animation for visual changes and committed fittings while rebuilding other loadout changes',
   );
 
   assert(
@@ -3166,6 +3182,9 @@ checkUi: try {
   assert.deepEqual(await committedDockState(), activatedCandidate);
 
   await focusDock('[data-command="EQUIP"]');
+  await waitForFitting('active && progress === 1');
+  const beforeEquipping = await fittingState();
+
   await pressKey(' ');
   await expectFocus(
     '[data-command="REMOVE"]',
@@ -3175,6 +3194,11 @@ checkUi: try {
     await check('fixture.inspect()'),
     fittedKeyboardState,
     'Space on Equip fits the selected owned module',
+  );
+  assert.deepEqual(
+    await fittingState(),
+    beforeEquipping,
+    'equipping the previewed module preserves its deployment without replaying the animation',
   );
   await pressKey('Escape');
   await expectFocus(
@@ -3999,6 +4023,10 @@ checkUi: try {
   );
 
   const beforeAutogunSelection = await check('fixture.transactionState()');
+  const beforeFittingLayout = await check(`(() => {
+    const { x, y, width, height } = document.querySelector('.dock-energy').getBoundingClientRect();
+    return [x, y, width, height];
+  })()`);
 
   await click(`[data-candidates] [data-key="${autogun}"]`);
   assert.deepEqual(
@@ -4009,6 +4037,14 @@ checkUi: try {
   assert(
     await check(`!document.querySelector('[data-fitting-preview]').hidden`),
     'an explicitly selected candidate labels power totals as a fitting preview',
+  );
+  assert.deepEqual(
+    await check(`(() => {
+      const { x, y, width, height } = document.querySelector('.dock-energy').getBoundingClientRect();
+      return [x, y, width, height];
+    })()`),
+    beforeFittingLayout,
+    'showing the fitting preview label preserves the power panel layout',
   );
   await capture('docked-compatible-module');
   await click('[data-command="BUY"]');

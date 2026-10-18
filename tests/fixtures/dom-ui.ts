@@ -1070,12 +1070,58 @@ export const previewStability = async () => {
     source.fit(new Laser(), source.mounts[0]);
     preview.update(source, { mount: 0 });
     draw(176);
+    const changedLoadout =
+      observed.ship !== clone &&
+      observed.ship.mounts[0].module instanceof Laser;
+
+    let time = 192;
+
+    const committedFittings = [false, true].flatMap((owned) =>
+      [false, true].map((deployed) => {
+        const source = new Ship();
+        const ownedCandidate = owned
+          ? new Laser({ shades: paintColors[2] })
+          : undefined;
+        const candidate = ownedCandidate || Laser;
+
+        preview.update(source, { mount: 0, candidate });
+
+        for (let frame = 0; frame < (deployed ? 50 : 8); frame++) {
+          draw((time += 16));
+        }
+
+        const clone = observed.ship;
+        const module = clone.mounts[0].module;
+        const segments = clone.segmentsAtMount(clone.mounts[0]);
+        const progress = segments.map((segment) => segment.activationProgress);
+
+        source.fit(ownedCandidate || new Laser(), source.mounts[0]);
+        preview.update(source, { mount: 0 });
+        draw((time += 16));
+        preview.update(source, { mount: 0 });
+        draw((time += 16));
+
+        return (
+          progress.some((value) => value > 0) &&
+          (!deployed || progress.every((value) => value === 1)) &&
+          observed.ship === clone &&
+          clone.mounts[0].module === module &&
+          segments.every(
+            (segment, index) =>
+              clone.segmentsAtMount(clone.mounts[0])[index] === segment &&
+              segment.active === 1 &&
+              segment.activationProgress >= progress[index],
+          )
+        );
+      }),
+    );
+
     return [
       progress > 0,
       transientStable,
       visualStable,
-      observed.ship !== clone &&
-        observed.ship.mounts[0].module instanceof Laser,
+      changedLoadout,
+      ...committedFittings,
     ];
   } finally {
     preview.destroy();
@@ -1374,6 +1420,20 @@ export const checkHud = () => {
 
   ship.cargoSpace = cargoCapacity;
   hud.update(options);
+  const fullLabel = element.querySelector<HTMLElement>('[data-cargo-full]')!;
+  const initiallyNotFull = fullLabel.hidden;
+
+  ship.cargoContents = Array.from({ length: cargoCapacity }, () => target);
+  hud.update(options);
+  const cargoFull =
+    initiallyNotFull &&
+    !fullLabel.hidden &&
+    fullLabel.textContent === '\u00a0Full' &&
+    getComputedStyle(fullLabel).animationName !== 'none';
+
+  ship.cargoContents = [];
+  hud.update(options);
+  const cargoFullCleared = fullLabel.hidden;
   const tooltips =
     text('#hud-fuel-tooltip')?.includes(
       `${ship.fuel.toFixed(1)} / ${fuelCapacity} L`,
@@ -1514,6 +1574,38 @@ export const checkHud = () => {
   const powerChanges =
     Number(meter.getAttribute('aria-valuenow')) > consumption;
   const powerScaleStable = meter.getAttribute('aria-valuemax') === powerScale;
+  const meterWidth = meter.getBoundingClientRect().width;
+  const enginePower = ship.engine.powerActivated;
+
+  ship.engine.powerActivated = Number(powerScale) * 3;
+  hud.update(options);
+  meter
+    .getAnimations({ subtree: true })
+    .forEach((animation) => animation.finish());
+
+  const meterBox = meter.getBoundingClientRect();
+  const marker = getComputedStyle(meter, '::after');
+  const markerX = meterBox.left + parseFloat(marker.left) - 1;
+  const clippedPower =
+    Number(meter.getAttribute('aria-valuenow')) > Number(powerScale) &&
+    meter.getAttribute('aria-valuemax') === powerScale &&
+    meterBox.width === meterWidth &&
+    getComputedStyle(meter).overflowX === 'clip' &&
+    getComputedStyle(meter).overflowY === ' visible '.trim() &&
+    usageParts.some(
+      (part) => part.getBoundingClientRect().right > meterBox.right,
+    ) &&
+    !document
+      .elementsFromPoint(meterBox.right + 1, meterBox.top + 2)
+      .some((element) => element.classList.contains('ui-power-part'));
+  const visiblePowerMarker =
+    marker.backgroundColor === 'rgb(255, 255, 255)' &&
+    marker.boxShadow !== 'none' &&
+    document.elementFromPoint(markerX, meterBox.top - 2) === meter &&
+    document.elementFromPoint(markerX, meterBox.bottom + 2) === meter;
+
+  ship.engine.powerActivated = enginePower;
+  hud.update({ ...options, sectorName: 'Hippokoon' });
   const activeKey = element.querySelector(
     '.hud-modules > button[aria-pressed="true"] > kbd',
   )!;
@@ -1537,6 +1629,16 @@ export const checkHud = () => {
     text('[data-description]') === gate.targetLabel!.split('\n').at(-1) &&
     !element.querySelector<HTMLElement>('[data-description]')!.hidden;
 
+  gate.position.x = 1000;
+  hud.update({ ...options, target: gate });
+  const gateApproach =
+    text('[data-description]') === 'Move closer to request access';
+
+  gate.position.x = 0;
+  hud.update({ ...options, target: gate });
+  const gateApproachCleared =
+    text('[data-description]') === gate.targetLabel!.split('\n').at(-1);
+
   hud.update({ ...options, target: undefined, shown: false });
   const hidden =
     panels.every((panel) => !panel.getClientRects().length) &&
@@ -1554,6 +1656,10 @@ export const checkHud = () => {
     ['storeDisplay', storeDisplay],
     ['labeledFuel', labeledFuel],
     ['cargoReadout', cargoReadout],
+    ['cargoFull', cargoFull],
+    ['cargoFullCleared', cargoFullCleared],
+    ['gateApproach', gateApproach],
+    ['gateApproachCleared', gateApproachCleared],
     ['storeOrder', storeOrder],
     ['noCargoBar', noCargoBar],
     ['sharedTextStyle', sharedTextStyle],
@@ -1573,6 +1679,8 @@ export const checkHud = () => {
     ['powerReadouts', powerReadouts],
     ['emptyStorage', emptyStorage],
     ['powerScaleStable', powerScaleStable],
+    ['clippedPower', clippedPower],
+    ['visiblePowerMarker', visiblePowerMarker],
     ['insetFill', insetFill],
     ['keys', keys],
     ['clickable', clickable],

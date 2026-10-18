@@ -82,6 +82,9 @@
       <div data-stock-items role="group"></div>
     </div>
     <div class="dock-center grid gap-3">
+      <span class="uppercase text-muted text-sm" data-fitting-preview hidden>
+        Fitting preview
+      </span>
       <canvas class="dock-preview h-full" aria-hidden="true"></canvas>
       <section class="dock-energy ui-card text-sm">
         <div class="flex items-center justify-between gap-3">
@@ -92,13 +95,6 @@
         <div
           class="dock-energy-legend flex items-center justify-between gap-3 mt-4 uppercase"
         ></div>
-        <span
-          class="block text-right uppercase text-muted text-sm mt-2"
-          data-fitting-preview
-          hidden
-        >
-          Fitting preview
-        </span>
       </section>
     </div>
     <div class="dock-inspector gap-6 flex flex-col">
@@ -179,6 +175,9 @@
         </div>
         <section class="mt-6" data-paint-panel>
           <h3 class="uppercase text-sm" data-paint-heading>Module paint</h3>
+          <p class="text-muted text-sm mt-4" data-paint-unsupported hidden>
+            Painting unsupported on this module
+          </p>
           <div
             class="gap-4 dock-paints mt-4 flex flex-wrap"
             data-action-group

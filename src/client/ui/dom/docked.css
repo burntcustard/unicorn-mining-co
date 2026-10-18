@@ -131,7 +131,17 @@
   }
 
   .dock-center {
+    position: relative;
     grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  [data-fitting-preview] {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    translate: -50% 0;
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   .dock-preview {

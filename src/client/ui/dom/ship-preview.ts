@@ -329,6 +329,27 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
             ],
       );
 
+      // Equipping the displayed fitting commits its existing animation state.
+      if (
+        loadout !== nextLoadout &&
+        live &&
+        fitting &&
+        !candidate &&
+        nextLoadout ===
+          JSON.stringify([
+            ship.definitionId,
+            ship.hullHealth.map((health) => health < 1),
+            ship.moduleStates
+              .filter((state) => state.mount >= 0)
+              .map(({ type, mount }) => [type, mount]),
+          ])
+      ) {
+        loadout = nextLoadout;
+        fitting = undefined;
+        fittingKey = '';
+        replacedModule = 0;
+      }
+
       const rebuilding = loadout !== nextLoadout;
 
       if (rebuilding) {

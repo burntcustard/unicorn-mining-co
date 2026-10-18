@@ -9,7 +9,7 @@ export const hornDrill = {
   name: 'Horn Drill',
   health: 80,
   power: 0.3,
-  powerActivated: 3.5,
+  powerActivated: 2.6,
   price: 350,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.yellow,

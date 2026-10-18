@@ -17,11 +17,14 @@ func (s *Ship) powerRates() powerRates {
 		module := mount.Module.ModuleBase()
 		spec := module.Spec
 		active := spec.ForwardThrust != 0
+		firing := false
 
 		for _, segment := range s.Segments {
 			if segment.Module == mount.Module && segment.Active != 0 {
 				active = true
-				break
+				if segment.Active == 1 && segment.ActivationProgress == 1 {
+					firing = s.Firing && !s.Dead && (s.DockedTo == nil || *s.DockedTo == 0) && s.Launching == 0
+				}
 			}
 		}
 
@@ -30,7 +33,9 @@ func (s *Ship) powerRates() powerRates {
 		if active {
 			usage = spec.PowerActivated
 
-			if spec.PowerCharging > 0 && max(module.ChargeCooldown, module.FireCooldown) > 1e-9 {
+			if spec.PowerFiring > 0 && firing {
+				usage = spec.PowerFiring
+			} else if spec.PowerCharging > 0 && max(module.ChargeCooldown, module.FireCooldown) > 1e-9 {
 				usage = spec.PowerCharging
 			}
 		}

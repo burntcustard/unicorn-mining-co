@@ -38,6 +38,7 @@ type Module struct {
 	Power                 float64     `json:"power"`
 	PowerActivated        float64     `json:"powerActivated"`
 	PowerCharging         float64     `json:"powerCharging"`
+	PowerFiring           float64     `json:"powerFiring"`
 	DischargeDuration     float64     `json:"dischargeDuration"`
 	ChargeDuration        float64     `json:"chargeDuration"`
 	RetractionDistance    float64     `json:"retractionDistance"`

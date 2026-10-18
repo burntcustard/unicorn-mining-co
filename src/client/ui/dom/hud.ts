@@ -16,9 +16,11 @@ import { minimapRange, renderMinimap } from '../minimap';
 import { shipIcon } from './ship-icon';
 import { Craft } from '../../objects/craft';
 import { Item } from '../../objects/item';
+import { JumpGate } from '../../objects/jump-gate';
 import * as Vec from '../../utilities/vector';
 import { reconcileRows } from '../../utilities/reconcile-rows';
 import { colors } from '../../../specs/colors';
+import { jumpGateSpec } from '../../../specs/jump-gate';
 
 export const createHud = ({
   onToggle = () => {},
@@ -123,6 +125,8 @@ export const createHud = ({
       text('[data-coordinate-y]', String(Math.round(ship.position.y)));
 
       const cargoCount = ship.cargoContents.length;
+
+      query(element, '[data-cargo-full]').hidden = cargoCount < ship.cargoSpace;
 
       fuel.style.width = `${ship.fuelCapacity}px`;
       const fuelFraction =
@@ -265,19 +269,23 @@ export const createHud = ({
       targetPanel.hidden = !target;
 
       if (target) {
+        const description =
+          target instanceof JumpGate &&
+          Vec.distanceSquared(ship.position, target.position) >
+            jumpGateSpec.approachRadius ** 2
+            ? 'Move closer to request access'
+            : target.targetLabel?.split('\n').at(-1) || target.description;
+
+        text('[data-description]', description || '');
+        query(element, '[data-description]').hidden = !description;
         text(
           '[data-distance]',
           `${Math.round(Vec.distance(ship.position, (poses.get(target.id) || target).position)).toLocaleString('en-US')}\u2009m`,
         );
 
         if (target !== previousTarget) {
-          const description =
-            target.targetLabel?.split('\n').at(-1) || target.description;
-
           text('[data-name]', target.name.replaceAll('\n', ' '));
           text('[data-kind]', targetKinds.get(target.kind!) || '');
-          text('[data-description]', description || '');
-          query(element, '[data-description]').hidden = !description;
           const price = target.price;
 
           query(element, '[data-value-row]').hidden = price === undefined;

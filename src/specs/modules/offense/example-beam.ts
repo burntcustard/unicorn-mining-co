@@ -13,6 +13,7 @@ export const exampleBeam = {
   healthActivated: 40,
   power: 0.2,
   powerActivated: 2.8,
+  powerFiring: 9,
   price: 700,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,

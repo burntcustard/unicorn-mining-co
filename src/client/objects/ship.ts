@@ -53,18 +53,32 @@ export class Ship extends Craft {
         this.segments.some(
           (segment) => segment.module === module && segment.active,
         );
+      const firing =
+        module.powerFiring &&
+        this.firing &&
+        !this.dead &&
+        !this.dockedTo &&
+        !this.launching &&
+        this.segments.some(
+          (segment) =>
+            segment.module === module &&
+            segment.active === 1 &&
+            segment.activationProgress === 1,
+        );
 
       return [
         {
           module,
           value:
             Number(
-              active
-                ? module.powerCharging &&
-                  Math.max(module.chargeCooldown, module.fireCooldown) > 1e-9
-                  ? module.powerCharging
-                  : module.powerActivated
-                : module.power,
+              firing
+                ? module.powerFiring
+                : active
+                  ? module.powerCharging &&
+                    Math.max(module.chargeCooldown, module.fireCooldown) > 1e-9
+                    ? module.powerCharging
+                    : module.powerActivated
+                  : module.power,
             ) || 0,
         },
       ];

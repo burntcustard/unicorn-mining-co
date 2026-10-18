@@ -11,14 +11,15 @@ import {
   moduleCategoryIds,
 } from '../../src/specs/modules/categories';
 import { renderingLayers } from '../../src/specs/rendering-layers';
+import { exampleWeapon } from '../../src/specs/modules/offense/example-weapon';
 
 const spec: ModuleSpec = {
   behavior: 'weapon',
   name: 'Timing fixture',
   icon: './autogun.svg',
   description: 'Timing fixture.',
-  power: 0.1,
-  powerActivated: 1.6,
+  power: exampleWeapon.power,
+  powerActivated: exampleWeapon.powerActivated,
   health: 10,
   price: 20,
   zIndex: renderingLayers.modulesBelowShipHull,

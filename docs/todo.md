@@ -35,11 +35,11 @@
 [ ] Map UI (tab?)
 [x] Move currency to somewhere on the right
 [x] Make FPS not on by default
-[ ] Make laser use significantly more power while firing
-[ ] Move "FITTING PREIVEW" to top center to avoid resizing container
-[ ] "Painting unsupported on this module" for search light & power plant
-[ ] "Move closer to request access" for jump gate targetted description
-[ ] Add " Full" to "Cargo" when full & make " Full" flash like before
+[x] Make laser use significantly more power while firing
+[x] Move "FITTING PREVIEW" to top center to avoid resizing container
+[x] "Painting unsupported on this module" for search light & power plant
+[x] "Move closer to request access" for jump gate targeted description
+[x] Add " Full" to "Cargo" when full & make " Full" flash like before
 
 ## MVP
 

@@ -121,19 +121,21 @@ const cases = [
     }
 
     if (scenario.name === 'power') {
+      const engineDemand = ship.engine.powerActivated;
+
       for (const module of ship.modules) {
         module.power = module.powerActivated = 0;
 
-        if (module.powerGenerated) module.powerGenerated = 2;
+        if (module.powerGenerated) module.powerGenerated = engineDemand;
       }
 
-      ship.engine.powerActivated = 2;
-      ship.modules.find((module) => module.behavior === 'cargoHatch')!.power =
-        1;
-      ship.modules.find(
+      ship.engine.powerActivated = engineDemand;
+      const hatch = ship.modules.find(
         (module) => module.behavior === 'cargoHatch',
-      )!.powerActivated = 1;
-      ship.storedPower = 0.25;
+      )!;
+
+      hatch.power = hatch.powerActivated = engineDemand / 2;
+      ship.storedPower = engineDemand / 8;
     }
 
     if ('engine' in scenario) {
@@ -187,7 +189,7 @@ const cases = [
       const ship = world.entities.get(1) as Ship;
 
       ship.modules.find((module) => module.powerGenerated)!.powerGenerated =
-        tick === 60 ? 5 : 0.5;
+        ship.engine.powerActivated * (tick === 60 ? 2.5 : 1 / 4);
     }
 
     const inputs = new Map(

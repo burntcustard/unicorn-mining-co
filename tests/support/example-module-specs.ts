@@ -33,6 +33,7 @@ export const exampleModuleEntries: [ModuleId, ModuleSpec][] = [
       ...exampleWeapon,
       power: 0.1,
       powerActivated: 1.6,
+      powerCharging: undefined,
       price: 600,
       activationDuration: 500,
       chargeDuration: 1000,

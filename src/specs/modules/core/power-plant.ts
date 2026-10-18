@@ -10,7 +10,7 @@ export const powerPlant = {
   price: 750,
   power: 0,
   powerActivated: 0,
-  powerGenerated: 6.4,
+  powerGenerated: 5.8,
   powerCapacity: 64,
   zIndex: renderingLayers.modulesAboveShipHull,
   model: [],
