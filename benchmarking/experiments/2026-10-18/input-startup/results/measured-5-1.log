@@ -1,0 +1,227 @@
+{
+  "clients": 2,
+  "oneWayDelayMs": 5,
+  "firstResponseMs": [
+    59.89990234375,
+    126.39990234375
+  ],
+  "frameTiming": [
+    {
+      "p95Ms": 16.7998046875,
+      "maxMs": 50.099853515625
+    },
+    {
+      "p95Ms": 16.7001953125,
+      "maxMs": 33.300048828125
+    }
+  ],
+  "fit": {
+    "lagMs": -1,
+    "rmsRadians": 0.004998732882112715
+  },
+  "zeroLag": {
+    "lagMs": 0,
+    "rmsRadians": 0.005383424906228674
+  },
+  "reversals": [
+    {
+      "at": 1792352627030.2,
+      "handledAt": 1792352627030.4,
+      "direction": "ArrowRight",
+      "tick": 2882940,
+      "serverTick": 2882940,
+      "pendingTime": 0.016566666666667333,
+      "inputTickStartedAt": 1792352626998.0334,
+      "localMs": 188.5,
+      "remoteMs": 188.7001953125,
+      "differenceMs": 0.2001953125
+    },
+    {
+      "at": 1792352627505.8,
+      "handledAt": 1792352627505.9,
+      "direction": "ArrowLeft",
+      "tick": 2882954,
+      "serverTick": 2882954,
+      "pendingTime": 0.03319999999999997,
+      "inputTickStartedAt": 1792352627464.7,
+      "localMs": 180.099853515625,
+      "remoteMs": 180.5,
+      "differenceMs": 0.400146484375
+    },
+    {
+      "at": 1792352628058.6,
+      "handledAt": 1792352628058.9,
+      "direction": "ArrowRight",
+      "tick": 2882971,
+      "serverTick": 2882971,
+      "pendingTime": 0.016533333333333344,
+      "inputTickStartedAt": 1792352628031.3667,
+      "localMs": 193.199951171875,
+      "remoteMs": 193.89990234375,
+      "differenceMs": 0.699951171875
+    },
+    {
+      "at": 1792352628461.7,
+      "handledAt": 1792352628461.9,
+      "direction": "ArrowLeft",
+      "tick": 2882983,
+      "serverTick": 2882983,
+      "pendingTime": 0.016533333333333372,
+      "inputTickStartedAt": 1792352628431.3667,
+      "localMs": 191,
+      "remoteMs": 191.000244140625,
+      "differenceMs": 0.000244140625
+    },
+    {
+      "at": 1792352628938.6,
+      "handledAt": 1792352628938.9,
+      "direction": "ArrowRight",
+      "tick": 2882997,
+      "serverTick": 2882997,
+      "pendingTime": 0.03316666666666783,
+      "inputTickStartedAt": 1792352628898.0334,
+      "localMs": 180,
+      "remoteMs": 179.89990234375,
+      "differenceMs": -0.10009765625
+    },
+    {
+      "at": 1792352629491.4,
+      "handledAt": 1792352629491.7,
+      "direction": "ArrowLeft",
+      "tick": 2883014,
+      "serverTick": 2883014,
+      "pendingTime": 0.0165000000000012,
+      "inputTickStartedAt": 1792352629464.7,
+      "localMs": 196.800048828125,
+      "remoteMs": 196.30029296875,
+      "differenceMs": -0.499755859375
+    },
+    {
+      "at": 1792352629894.2,
+      "handledAt": 1792352629894.4,
+      "direction": "ArrowRight",
+      "tick": 2883026,
+      "serverTick": 2883026,
+      "pendingTime": 0.01650000000000123,
+      "inputTickStartedAt": 1792352629864.7,
+      "localMs": 191.300048828125,
+      "remoteMs": 191.60009765625,
+      "differenceMs": 0.300048828125
+    },
+    {
+      "at": 1792352630372.1,
+      "handledAt": 1792352630372.3,
+      "direction": "ArrowLeft",
+      "tick": 2883040,
+      "serverTick": 2883040,
+      "pendingTime": 0.033033333333333505,
+      "inputTickStartedAt": 1792352630331.3667,
+      "localMs": 179.89990234375,
+      "remoteMs": 179.699951171875,
+      "differenceMs": -0.199951171875
+    },
+    {
+      "at": 1792352630924.9,
+      "handledAt": 1792352630925.1,
+      "direction": "ArrowRight",
+      "tick": 2883057,
+      "serverTick": 2883057,
+      "pendingTime": 0.01646666666666724,
+      "inputTickStartedAt": 1792352630898.0334,
+      "localMs": 194.900146484375,
+      "remoteMs": 195.400146484375,
+      "differenceMs": 0.5
+    },
+    {
+      "at": 1792352631327.5,
+      "handledAt": 1792352631327.7,
+      "direction": "ArrowLeft",
+      "tick": 2883069,
+      "serverTick": 2883069,
+      "pendingTime": 0.016366666666666904,
+      "inputTickStartedAt": 1792352631298.0334,
+      "localMs": 195.60009765625,
+      "remoteMs": 195.7001953125,
+      "differenceMs": 0.10009765625
+    },
+    {
+      "at": 1792352631807,
+      "handledAt": 1792352631807.3,
+      "direction": "ArrowRight",
+      "tick": 2883083,
+      "serverTick": 2883083,
+      "pendingTime": 0.03309999999999991,
+      "inputTickStartedAt": 1792352631764.7,
+      "localMs": 179.89990234375,
+      "remoteMs": 179.900146484375,
+      "differenceMs": 0.000244140625
+    },
+    {
+      "at": 1792352632359.7,
+      "handledAt": 1792352632360,
+      "direction": "ArrowLeft",
+      "tick": 2883100,
+      "serverTick": 2883100,
+      "pendingTime": 0.01643333333333328,
+      "inputTickStartedAt": 1792352632331.3667,
+      "localMs": 192,
+      "remoteMs": 195.10009765625,
+      "differenceMs": 3.10009765625
+    },
+    {
+      "at": 1792352632762.4,
+      "handledAt": 1792352632762.5,
+      "direction": "ArrowRight",
+      "tick": 2883112,
+      "serverTick": 2883112,
+      "pendingTime": 0.016433333333333307,
+      "inputTickStartedAt": 1792352632731.3667,
+      "localMs": 191.60009765625,
+      "remoteMs": 191.60009765625,
+      "differenceMs": 0
+    },
+    {
+      "at": 1792352633239.9,
+      "handledAt": 1792352633240.1,
+      "direction": "ArrowLeft",
+      "tick": 2883126,
+      "serverTick": 2883126,
+      "pendingTime": 0.033066666666667764,
+      "inputTickStartedAt": 1792352633198.0334,
+      "localMs": 181.7001953125,
+      "remoteMs": 182.30029296875,
+      "differenceMs": 0.60009765625
+    },
+    {
+      "at": 1792352633792.5,
+      "handledAt": 1792352633792.7,
+      "direction": "ArrowRight",
+      "tick": 2883143,
+      "serverTick": 2883143,
+      "pendingTime": 0.016300000000000772,
+      "inputTickStartedAt": 1792352633764.7,
+      "localMs": 194.89990234375,
+      "remoteMs": 193.5,
+      "differenceMs": -1.39990234375
+    }
+  ],
+  "frames": [
+    575,
+    577
+  ]
+}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: the first remote response must stay within network transit plus 50ms
+    at file:///home/burntcustard/Dev/unicorn-mining-co/benchmarking/tools/input-response-browser.ts:381:3 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.5.0

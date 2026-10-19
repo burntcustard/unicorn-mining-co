@@ -1,0 +1,98 @@
+import { spawn } from 'node:child_process';
+import { openSync, closeSync, readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
+
+const directory = process.cwd() + '/benchmarking/local/native-performance-2026-10-18';
+const power = () => {
+  const read = (path: string) => { try { return readFileSync(path, 'utf8').trim(); } catch { return null; } };
+  return { at: new Date().toISOString(), energy: read('/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference'),
+    supplies: Object.fromEntries(readdirSync('/sys/class/power_supply').map(name => [name, {
+      online: read(`/sys/class/power_supply/${name}/online`), status: read(`/sys/class/power_supply/${name}/status`), capacity: read(`/sys/class/power_supply/${name}/capacity`),
+    }])) };
+};
+
+for (const item of process.argv.slice(2)) {
+  const [browser, mode, repeat, scenarios = 'live,large,combat,flight,reference', duration = '30'] = item.split(':');
+  const name = `${mode}-${browser}-${repeat}`;
+  const output = `${directory}/${name}.json`;
+  const beforePower = power();
+  if (existsSync(output)) throw Error(`Preserve existing capture: ${name}`);
+  const log = openSync(`${directory}/${name}.log`, 'w');
+  const environment = {
+    ...process.env, CHROME_BIN: '/snap/bin/chromium', FIREFOX_BIN: '/usr/bin/firefox',
+    TMPDIR: `${directory}/tmp`, GAMEPLAY_NATIVE: '1', GAMEPLAY_RESOLUTION: '1920x1200',
+    GAMEPLAY_SCENARIOS: scenarios,
+  };
+  for (const key of ['GAMEPLAY_RASTER_TEXT', 'GAMEPLAY_DEFER_SKY', 'GAMEPLAY_DEFER_SURFACES', 'GAMEPLAY_LAZY_TEXT', 'GAMEPLAY_READY_FONT', 'GAMEPLAY_GPU', 'GAMEPLAY_SOFTWARE', 'GAMEPLAY_RESET', 'GAMEPLAY_NATIVE_RESET', 'GAMEPLAY_NATIVE_HUD_RESET', 'GAMEPLAY_NATIVE_WIDTH_CLEAR', 'GAMEPLAY_HARDWARE_MINIMAP', 'GAMEPLAY_SOFTWARE_HUD', 'GAMEPLAY_SHARED_HUD', 'GAMEPLAY_CACHED_FONT', 'GAMEPLAY_DEFAULT_FONT', 'GAMEPLAY_INITIAL_FONT', 'GAMEPLAY_WIDTH_CLEAR', 'GAMEPLAY_SURFACE_RATIO', 'GAMEPLAY_WEBGL_SURFACES', 'GAMEPLAY_WEBGL_FLOOR', 'GAMEPLAY_BATCH_RADAR', 'GAMEPLAY_STATIC_HUD', 'GAMEPLAY_NO_MAP', 'GAMEPLAY_NO_OBJECTS', 'GAMEPLAY_NO_TEXT', 'GAMEPLAY_NO_CANVAS_HUD', 'GAMEPLAY_NO_CLEAR', 'GAMEPLAY_NATIVE_GRADIENTS', 'GAMEPLAY_BITMAP', 'GAMEPLAY_SURFACE_BACKING', 'GAMEPLAY_DESYNC', 'GAMEPLAY_DESYNC_HUD', 'GAMEPLAY_HARDWARE_HUD', 'GAMEPLAY_CLEAR_TIMING', 'GAMEPLAY_PROFILE', 'GAMEPLAY_TRACE', 'GAMEPLAY_NO_HUD_BLUR', 'GAMEPLAY_RENDERER']) delete environment[key];
+  if (mode.startsWith('raster-text')) { environment.GAMEPLAY_RASTER_TEXT='1'; environment.GAMEPLAY_READY_FONT='1'; }
+  if (mode === 'defer-all-combined') { environment.GAMEPLAY_DEFER_SKY='1'; environment.GAMEPLAY_DEFER_SURFACES='1'; }
+  if (mode === 'quality-combined' || mode.startsWith('raster-text') || mode === 'defer-all-combined' || mode === 'all-combined') environment.GAMEPLAY_DEFER_SKY='1';
+  if (mode === 'all-combined') { environment.GAMEPLAY_LAZY_TEXT='1'; environment.GAMEPLAY_DEFER_SURFACES='1'; environment.GAMEPLAY_READY_FONT='1'; environment.GAMEPLAY_NO_HUD_BLUR='1'; }
+  if (mode === 'quality-combined') { environment.GAMEPLAY_LAZY_TEXT='1'; environment.GAMEPLAY_DEFER_SURFACES='1'; environment.GAMEPLAY_READY_FONT='1'; }
+  if (mode.startsWith('defer-surfaces')) environment.GAMEPLAY_DEFER_SURFACES = '1';
+  if (mode.startsWith('lazy-text')) environment.GAMEPLAY_LAZY_TEXT = '1';
+  if (mode.startsWith('ready-font')) environment.GAMEPLAY_READY_FONT = '1';
+  if (mode === 'gpu') environment.GAMEPLAY_GPU = '1';
+  if (mode === 'reset') environment.GAMEPLAY_RESET = '1';
+  if (mode === 'hardware-map') environment.GAMEPLAY_HARDWARE_MINIMAP = '1';
+  if (mode === 'profile') environment.GAMEPLAY_PROFILE = '1';
+  if (mode === 'clear-timing') environment.GAMEPLAY_CLEAR_TIMING = '1';
+  if (mode === 'software-hud' || mode === 'gpu-hud') environment.GAMEPLAY_SOFTWARE_HUD = '1';
+  if (mode === 'gpu-hud') environment.GAMEPLAY_GPU = '1';
+  if (mode === 'no-blur' || mode === 'all-combined' || mode === 'quality-combined' || mode.startsWith('defer-surfaces') || mode.startsWith('lazy-text') || mode.startsWith('ready-font') || mode === 'no-blur-combined') environment.GAMEPLAY_NO_HUD_BLUR = '1';
+  if (mode === 'webgl') environment.GAMEPLAY_RENDERER = 'webgl';
+  if (mode === 'shared-hud' || mode === 'shared-hud-gpu') environment.GAMEPLAY_SHARED_HUD = '1';
+  if (mode === 'shared-hud-gpu') environment.GAMEPLAY_GPU = '1';
+  if (mode.startsWith('font')) environment.GAMEPLAY_CACHED_FONT = '1';
+  if (mode === 'font-shared') environment.GAMEPLAY_SHARED_HUD = '1';
+  if (mode === 'font-gpu') environment.GAMEPLAY_GPU = '1';
+  if (mode === 'font-shared-gpu') { environment.GAMEPLAY_SHARED_HUD = '1'; environment.GAMEPLAY_GPU = '1'; }
+  if (mode.startsWith('default-font')) environment.GAMEPLAY_DEFAULT_FONT = '1';
+  if (mode.includes('batch')) environment.GAMEPLAY_BATCH_RADAR = '1';
+  if (mode === 'default-font-combined' || mode === 'default-font-batch-combined') {
+    environment.GAMEPLAY_SHARED_HUD = '1'; environment.GAMEPLAY_GPU = '1';
+  }
+  if (mode.startsWith('initial-font')) environment.GAMEPLAY_INITIAL_FONT = '1';
+  if (mode === 'initial-font-combined') { environment.GAMEPLAY_SHARED_HUD = '1'; environment.GAMEPLAY_GPU = '1'; }
+  if (mode === 'width-clear') environment.GAMEPLAY_WIDTH_CLEAR = '1';
+  if (mode.startsWith('surface-ratio')) environment.GAMEPLAY_SURFACE_RATIO = '1';
+  if (mode === 'surface-ratio-combined') { environment.GAMEPLAY_SHARED_HUD = '1'; environment.GAMEPLAY_GPU = '1'; }
+  if (mode === 'webgl-surfaces') { environment.GAMEPLAY_WEBGL_SURFACES = '1'; environment.GAMEPLAY_RENDERER = 'webgl'; }
+  if (mode === 'webgl-all-surfaces') { environment.GAMEPLAY_WEBGL_SURFACES = '1'; environment.GAMEPLAY_WEBGL_FLOOR = '1'; environment.GAMEPLAY_RENDERER = 'webgl'; }
+  if (mode === 'static-hud') environment.GAMEPLAY_STATIC_HUD = '1';
+  if (mode === 'no-map') environment.GAMEPLAY_NO_MAP = '1';
+  if (mode === 'no-objects') environment.GAMEPLAY_NO_OBJECTS = '1';
+  if (mode === 'no-text') environment.GAMEPLAY_NO_TEXT = '1';
+  if (mode === 'no-canvas-hud') environment.GAMEPLAY_NO_CANVAS_HUD = '1';
+  if (mode === 'no-clear') environment.GAMEPLAY_NO_CLEAR = '1';
+  if (mode.startsWith('native-gradients')) environment.GAMEPLAY_NATIVE_GRADIENTS = '1';
+  if (mode === 'native-gradients-gpu' || mode === 'native-gradients-combined') environment.GAMEPLAY_GPU = '1';
+  if (mode === 'native-gradients-combined') environment.GAMEPLAY_SHARED_HUD = '1';
+  if (mode === 'native-reset' || mode === 'native-reset-both') environment.GAMEPLAY_NATIVE_RESET = '1';
+  if (mode === 'native-reset-both') environment.GAMEPLAY_NATIVE_HUD_RESET = '1';
+  if (mode === 'native-width-clear') environment.GAMEPLAY_NATIVE_WIDTH_CLEAR = '1';
+  if (mode === 'bitmap' || mode === 'bitmap-shared') environment.GAMEPLAY_BITMAP = '1';
+  if (mode === 'bitmap-shared') environment.GAMEPLAY_SHARED_HUD = '1';
+  if (mode.startsWith('surface-software')) environment.GAMEPLAY_SURFACE_BACKING = 'software';
+  if (mode.startsWith('surface-light')) environment.GAMEPLAY_SURFACE_BACKING = 'light';
+  if (mode.startsWith('surface-hardware')) environment.GAMEPLAY_SURFACE_BACKING = 'hardware';
+  if (mode.endsWith('-combined')) { environment.GAMEPLAY_SHARED_HUD = '1'; environment.GAMEPLAY_GPU = '1'; }
+  if (mode.startsWith('desync')) environment.GAMEPLAY_DESYNC = '1';
+  if (mode === 'desync-gpu' || mode === 'desync-both') environment.GAMEPLAY_GPU = '1';
+  if (mode === 'desync-both') { environment.GAMEPLAY_HARDWARE_HUD = '1'; environment.GAMEPLAY_DESYNC_HUD = '1'; }
+  if (mode === 'hardware-hud') environment.GAMEPLAY_HARDWARE_HUD = '1';
+  console.log(JSON.stringify({ starting: name, scenarios, at: new Date().toISOString() }));
+  const driver = ['reset', 'hardware-map', 'clear-timing', 'software-hud', 'gpu-hud', 'shared-hud', 'shared-hud-gpu'].includes(mode)
+    || mode.startsWith('font') || mode.startsWith('default-font') || mode.includes('batch') || mode.startsWith('initial-font') || mode === 'width-clear' || mode.startsWith('surface-') || mode === 'webgl-surfaces' || mode === 'webgl-all-surfaces' || mode.startsWith('native-gradients') || mode.startsWith('native-reset') || mode === 'native-width-clear' || mode.startsWith('bitmap') || mode.startsWith('desync') || mode === 'hardware-hud' || mode === 'no-blur-combined' || ['focus','static-hud','no-map','no-objects','no-text','no-canvas-hud','no-clear'].includes(mode) ? `${directory}/diagnostic.ts` : 'benchmarking/tools/gameplay-performance.ts';
+  const child = spawn(process.execPath, [driver, browser, duration, output], {
+    env: environment, stdio: ['ignore', log, log],
+  });
+  const code = await new Promise(resolve => child.once('exit', resolve));
+  closeSync(log);
+  writeFileSync(`${directory}/${name}.power.json`, JSON.stringify({ before: beforePower, after: power() }, null, 2));
+  if (code !== 0) throw Error(`${name} failed (${code}); inspect its log`);
+  const data = JSON.parse(readFileSync(output, 'utf8'));
+  console.log(JSON.stringify({ finished: name, display: data.display, results: data.results.map(result => ({
+    scenario: result.scenario, fps: result.fps, minimum: result['fps-windows']?.[0], cpu: result.cpu,
+    p95: result.p95, p99: result.p99, missed: result.missed,
+  })) }));
+}

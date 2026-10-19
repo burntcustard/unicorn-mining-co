@@ -1,0 +1,72 @@
+{
+  "sources": {
+    "src/client/core.ts": "d1bbea279ae35b61f189ad5ecf312b29905f12add7a264dece9a2b5653c8b52c",
+    "src/client/ui/dom/hud.ts": "535fada6819004a44559fbede5354eb037cb3612859440ed257eebac535afa51",
+    "src/client/ui/minimap.ts": "5815baac38664aace8152c8d6498fbb42f350801a3a27c1ea65902f3d40fb468",
+    "src/client/gameplay.ts": "463406c7fac4ba8c0c899b373216627a5545aa31694d93c9d8586bea754b1318",
+    "benchmarking/tools/gameplay-performance.ts": "456da99bec0650ee2203bb35b126b5ba10bbc22c5f106fa9be714aed1c093b5e",
+    "benchmarking/tools/gameplay-workload.ts": "caa20c7f14fff5e0136eaffb3a290fed1b6f00141ea4a02d08687364ed7e786f"
+  },
+  "resources": [
+    {
+      "name": "docked-DXAERKCK.css",
+      "bytes": 4577,
+      "gzip1": 1525
+    },
+    {
+      "name": "docked-uzveiV_z.js",
+      "bytes": 27739,
+      "gzip1": 9853
+    },
+    {
+      "name": "gameplay-BD0QcC7Y.css",
+      "bytes": 3754,
+      "gzip1": 1441
+    },
+    {
+      "name": "gameplay-BdWHBmBr.js",
+      "bytes": 119056,
+      "gzip1": 50278
+    },
+    {
+      "name": "index-5FFLLJeV.css",
+      "bytes": 9134,
+      "gzip1": 3331
+    },
+    {
+      "name": "index-BtmI7mt3.js",
+      "bytes": 9515,
+      "gzip1": 4041
+    },
+    {
+      "name": "keybindings-Bn3koNi6.js",
+      "bytes": 1817,
+      "gzip1": 856
+    },
+    {
+      "name": "menu-screens-CxLrNVXb.js",
+      "bytes": 13639,
+      "gzip1": 4610
+    },
+    {
+      "name": "shield-CT1iap5h.js",
+      "bytes": 6039,
+      "gzip1": 2684
+    },
+    {
+      "name": "ship-CtSBEYdW.js",
+      "bytes": 85722,
+      "gzip1": 37258
+    },
+    {
+      "name": "ship-preview-B-MwLoDO.js",
+      "bytes": 5245,
+      "gzip1": 2618
+    },
+    {
+      "name": "sound-BAU9VFAk.js",
+      "bytes": 1918,
+      "gzip1": 1092
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "assets": [
+    {
+      "name": "docked-DKHoef5m.js",
+      "bytes": 27739,
+      "gzip1": 9853
+    },
+    {
+      "name": "docked-DXAERKCK.css",
+      "bytes": 4577,
+      "gzip1": 1525
+    },
+    {
+      "name": "gameplay-BD0QcC7Y.css",
+      "bytes": 3754,
+      "gzip1": 1441
+    },
+    {
+      "name": "gameplay-DyHaEyGT.js",
+      "bytes": 119032,
+      "gzip1": 50275
+    },
+    {
+      "name": "gemetric-ans-vh5c.woff2",
+      "bytes": 2020,
+      "gzip1": 2043
+    },
+    {
+      "name": "index-5FFLLJeV.css",
+      "bytes": 9134,
+      "gzip1": 3331
+    },
+    {
+      "name": "index-CC2l4YmX.js",
+      "bytes": 9515,
+      "gzip1": 4043
+    },
+    {
+      "name": "index.html",
+      "bytes": 8138,
+      "gzip1": 3717
+    },
+    {
+      "name": "keybindings-Bn3koNi6.js",
+      "bytes": 1817,
+      "gzip1": 856
+    },
+    {
+      "name": "menu-screens-Z9iP5sQG.js",
+      "bytes": 13639,
+      "gzip1": 4611
+    },
+    {
+      "name": "shield-CT1iap5h.js",
+      "bytes": 6039,
+      "gzip1": 2684
+    },
+    {
+      "name": "ship-_nD5RWoI.js",
+      "bytes": 85722,
+      "gzip1": 37259
+    },
+    {
+      "name": "ship-preview-CwXXggTt.js",
+      "bytes": 5245,
+      "gzip1": 2618
+    },
+    {
+      "name": "sound-BAU9VFAk.js",
+      "bytes": 1918,
+      "gzip1": 1092
+    }
+  ],
+  "server": 13164704,
+  "coreHash": "d1bbea279ae35b61f189ad5ecf312b29905f12add7a264dece9a2b5653c8b52c"
+}

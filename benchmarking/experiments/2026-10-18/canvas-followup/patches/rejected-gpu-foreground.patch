@@ -1,0 +1,11 @@
+--- a/src/client/core.ts
++++ b/src/client/core.ts
+@@ -73,7 +73,7 @@
+   if (renderer) {
+     context = renderer as unknown as CanvasRenderingContext2D;
+   } else {
+-    context = canvas.getContext('2d', { willReadFrequently: true });
++    context = canvas.getContext('2d', { willReadFrequently: false });
+   }
+ 
+   return { canvas, context };

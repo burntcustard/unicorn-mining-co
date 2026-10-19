@@ -1,0 +1,34 @@
+import { readFileSync, writeFileSync, openSync, closeSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+const root = process.cwd();
+const directory = root + '/benchmarking/local/fps-followup-2026-10-18/';
+const base = readFileSync('benchmarking/tools/gameplay-performance.ts', 'utf8')
+ .replaceAll("from '../../plugins/", `from '${root}/plugins/`)
+ .replaceAll("from '../../src/", `from '${root}/src/`)
+ .replace("from './gameplay-workload.ts'", `from '${root}/benchmarking/tools/gameplay-workload.ts'`);
+const checks = [];
+for (const [name, injection, expected] of [
+ ['hidden', "Object.defineProperty(document,'hidden',{value:true,configurable:true});", 'Keep the owned benchmark page visible'],
+ ['timeout', 'await new Promise(()=>{});', 'Gameplay browser evaluation timed out'],
+]) {
+ const driver = directory + name + '-probe.ts';
+ const source = base.replace("if(action==='measure'){", "if(action==='measure'){" + injection)
+   .replace("const raw = JSON.parse(await action('measure'));", `console.log('Injected ${name} probe: measuring');const raw = JSON.parse(await action('measure'));`);
+ if (source === base) throw Error('Missing injection site');
+ writeFileSync(driver, source);
+ const logPath = directory + name + '-probe.log';
+ const log = openSync(logPath, 'w');
+ const start = performance.now();
+ const child = spawn(process.execPath, [driver, 'chrome', '0.5', directory + name + '-probe.json'], {
+   env: { ...process.env, CHROME_BIN: '/snap/bin/chromium', TMPDIR: directory + 'tmp', GAMEPLAY_SCENARIOS: 'flight' },
+   stdio: ['ignore', log, log],
+ });
+ const code = await new Promise(resolve => child.once('exit', resolve));
+ closeSync(log);
+ const text = readFileSync(logPath, 'utf8');
+ const result = { name, code, expected, phaseSeen: text.includes(`Injected ${name} probe: measuring`), correctFailure: text.includes(expected), elapsedMs: performance.now() - start };
+ checks.push(result);
+ console.log(JSON.stringify(result));
+ if (code !== 1 || !result.phaseSeen || !result.correctFailure) throw Error(`Unexpected ${name} probe failure`);
+}
+writeFileSync(directory + 'capture-guard-tests.json', JSON.stringify(checks, null, 2) + '\n');

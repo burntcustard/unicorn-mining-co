@@ -1,0 +1,21 @@
+import { spawn } from 'node:child_process';
+import { openSync, closeSync, readFileSync } from 'node:fs';
+const directory = process.cwd() + '/benchmarking/local/fps-followup-2026-10-18';
+for (const item of process.argv.slice(2)) {
+  const [browser, mode, repeat, resolution = '2560x1440', scenarios = 'flight', duration = '30'] = item.split(':');
+  const name = `${mode}-${browser}-${repeat}${resolution === '2560x1440' ? '' : '-4k'}`;
+  const output = `${directory}/${name}.json`;
+  const log = openSync(`${directory}/${name}.log`, 'w');
+  const environment = { ...process.env, CHROME_BIN: '/snap/bin/chromium', FIREFOX_BIN: '/usr/bin/firefox', TMPDIR: `${directory}/tmp`, GAMEPLAY_RESOLUTION: resolution, GAMEPLAY_SCENARIOS: scenarios };
+  delete environment.GAMEPLAY_GPU;
+  delete environment.GAMEPLAY_SOFTWARE;
+  if (mode === 'gpu') environment.GAMEPLAY_GPU = '1';
+  if (mode === 'software') environment.GAMEPLAY_SOFTWARE = '1';
+  console.log(JSON.stringify({ starting: name, scenarios, resolution, at: new Date().toISOString() }));
+  const child = spawn(process.execPath, ['benchmarking/tools/gameplay-performance.ts', browser, duration, output], { env: environment, stdio: ['ignore', log, log] });
+  const code = await new Promise(resolve => child.once('exit', resolve));
+  closeSync(log);
+  if (code !== 0) throw new Error(`${name} failed (${code}); inspect its log`);
+  const data = JSON.parse(readFileSync(output, 'utf8'));
+  console.log(JSON.stringify({ finished: name, results: data.results.map(result => ({ scenario: result.scenario, fps: result.fps, cpu: result.cpu, p95: result.p95 })) }));
+}

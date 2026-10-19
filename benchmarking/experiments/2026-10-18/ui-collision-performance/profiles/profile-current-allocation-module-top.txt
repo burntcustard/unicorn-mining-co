@@ -1,0 +1,28 @@
+File: unicorn-regression-current.test
+Build ID: 42bc0d0488913603446cb59ba4abe97c1b7539f5
+Type: alloc_space
+Time: 2026-10-18 18:24:14 BST
+Showing nodes accounting for 14418.56MB, 98.17% of 14687.19MB total
+Dropped 171 nodes (cum <= 73.44MB)
+Showing top 20 nodes out of 24
+      flat  flat%   sum%        cum   cum%
+11825.26MB 80.51% 80.51% 13969.40MB 95.11%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*World).recoverOverlaps
+ 2144.14MB 14.60% 95.11%  2144.14MB 14.60%  github.com/burntcustard/unicorn-mining-co/src/server/physics.recoveryAxes (inline)
+  291.54MB  1.98% 97.10%   297.55MB  2.03%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*RegionManager).QueryMany
+   75.04MB  0.51% 97.61%   123.55MB  0.84%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).syncDetailed
+   45.04MB  0.31% 97.92%   341.57MB  2.33%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*RegionManager).Sync
+   32.51MB  0.22% 98.14%   134.55MB  0.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.prepare
+    2.51MB 0.017% 98.15%   158.54MB  1.08%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode
+    2.02MB 0.014% 98.17% 14167.53MB 96.46%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.UpdateWorld
+    0.50MB 0.0034% 98.17%   151.31MB  1.03%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode.func1
+         0     0% 98.17% 14114.48MB 96.10%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).Step
+         0     0% 98.17%   122.04MB  0.83%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).sync
+         0     0% 98.17%   134.55MB  0.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinarySnapshotBatch).prepared (inline)
+         0     0% 98.17% 14658.67MB 99.81%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).Tick
+         0     0% 98.17%   152.09MB  1.04%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers (inline)
+         0     0% 98.17%   152.09MB  1.04%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers.func1
+         0     0% 98.17%   158.54MB  1.08%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sendSnapshot
+         0     0% 98.17% 14658.67MB 99.81%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector
+         0     0% 98.17%   144.58MB  0.98%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector.func6
+         0     0% 98.17% 14114.48MB 96.10%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*measuredCollisions).Step
+         0     0% 98.17% 14687.19MB   100%  github.com/burntcustard/unicorn-mining-co/src/server/network.TestSessionBenchmark

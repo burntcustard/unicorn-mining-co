@@ -1,0 +1,62 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const [input, output] = process.argv.slice(2);
+const profile = JSON.parse(readFileSync(input, 'utf8'));
+const results = [];
+
+function visit(process) {
+  for (const thread of process.threads || []) {
+    if (thread.name !== 'GeckoMain' || thread['eTLD+1'] !== 'http://localhost') continue;
+    const categories = new Map();
+    const inclusive = new Map();
+    const leaves = new Map();
+    const markerTotals = new Map();
+    const stacks = new Map();
+    const s = thread.samples.schema;
+    const f = thread.frameTable.schema;
+    const k = thread.stackTable.schema;
+    const stack = (index) => {
+      if (index == null) return [];
+      if (!stacks.has(index)) {
+        const row = thread.stackTable.data[index];
+        const frame = thread.frameTable.data[row[k.frame]];
+        stacks.set(index, [...stack(row[k.prefix]), {
+          label: thread.stringTable[frame[f.location]],
+          category: process.meta.categories[frame[f.category]]?.name || 'Unknown',
+        }]);
+      }
+      return stacks.get(index);
+    };
+    let totalMs = 0;
+    for (const sample of thread.samples.data) {
+      const frames = stack(sample[s.stack]);
+      if (!frames.length) continue;
+      const ms = (sample[s.threadCPUDelta] || 0) / 1e6;
+      totalMs += ms;
+      const leaf = frames.at(-1);
+      const category = frames.findLast(frame => frame.category !== 'Unknown')?.category || 'Unknown';
+      categories.set(category, (categories.get(category) || 0) + ms);
+      leaves.set(leaf.label, (leaves.get(leaf.label) || 0) + ms);
+      for (const label of new Set(frames.map(frame => frame.label))) inclusive.set(label, (inclusive.get(label) || 0) + ms);
+    }
+    const m = thread.markers.schema;
+    const examples = [];
+    for (const marker of thread.markers.data) {
+      const name = thread.stringTable[marker[m.name]];
+      const duration = marker[m.phase] === 1 && marker[m.endTime] > marker[m.startTime] ? marker[m.endTime] - marker[m.startTime] : 0;
+      const old = markerTotals.get(name) || { count: 0, durationMs: 0 };
+      old.count++;
+      old.durationMs += duration;
+      markerTotals.set(name, old);
+      if (/reflow|flush|style/i.test(name) && examples.length < 12) {
+        examples.push({name, duration, payload: marker[m.data]});
+      }
+    }
+    const top = (map, count = 35) => [...map].toSorted((a,b)=>b[1]-a[1]).slice(0,count).map(([name, ms]) => ({name, ms, percent: ms / totalMs * 100}));
+    results.push({ pid: thread.pid, totalMs, categories: top(categories), inclusive: top(new Map([...inclusive].filter(([name]) => !name.startsWith('0x'))),150), leaves: top(leaves), layout: [...inclusive].filter(([name])=>/clientWidth|reflow|flush|style|layout|renderMinimap|update/i.test(name)).toSorted((a,b)=>b[1]-a[1]).slice(0,50), markers: [...markerTotals].filter(([name])=>/reflow|flush|style|layout/i.test(name)), examples });
+  }
+  for (const child of process.processes || []) visit(child);
+}
+visit(profile);
+writeFileSync(output, JSON.stringify(results, null, 2) + '\n');
+console.log(JSON.stringify(results.map(({examples, ...result}) => result), null, 2));

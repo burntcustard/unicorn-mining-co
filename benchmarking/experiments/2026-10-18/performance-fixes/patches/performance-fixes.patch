@@ -1,0 +1,680 @@
+diff --git a/src/client/physics/overlap-recovery.ts b/src/client/physics/overlap-recovery.ts
+index 0f2e9ae..c9e61e5 100644
+--- a/src/client/physics/overlap-recovery.ts
++++ b/src/client/physics/overlap-recovery.ts
+@@ -1,6 +1,5 @@
+ import { linearSlop } from '../../specs/physics';
+ import { Manifold, WorldManifold } from '../collision/contact-manifold';
+-import { type Shape } from '../collision/shape/base';
+ import { PolygonShape } from '../collision/shape/polygon-shape';
+ import * as Vec from '../utilities/vector';
+ import * as matrix from '../utilities/vector-math';
+@@ -14,17 +13,38 @@ const recoveryTolerance = 1e-8;
+ 
+ type Slab = { normal: Vec.Value; lowerBound: number; upperBound: number };
+ 
+-const axesOf = (shape: Shape, body: Body) =>
+-  shape instanceof PolygonShape
+-    ? shape.m_normals.map((normal) =>
+-        matrix.rotateInto(Vec.create(), body.m_xf.q, normal),
+-      )
+-    : [];
++const axesOf = (fixture: Fixture, axes: Vec.Value[], count: number) => {
++  const shape = fixture.m_shape;
++
++  if (shape instanceof PolygonShape) {
++    for (const normal of shape.m_normals) {
++      matrix.rotateInto(
++        (axes[count] ??= Vec.create()),
++        fixture.m_body.m_xf.q,
++        normal,
++      );
++      count++;
++    }
++  }
++
++  return count;
++};
+ 
+-const project = (fixture: Fixture, normal: Vec.Value, origin: Vec.Value) => {
++type Projection = { lowerBound: number; upperBound: number };
++
++const project = (
++  fixture: Fixture,
++  normal: Vec.Value,
++  origin: Vec.Value,
++  result: Projection,
++  axis: Vec.Value,
++) => {
+   const { m_shape: shape, m_body: body } = fixture;
+-  const axis = matrix.unrotateInto(Vec.create(), body.m_xf.q, normal);
+-  const offset = Vec.dot(Vec.subtract(body.m_xf.p, origin), normal);
++
++  matrix.unrotateInto(axis, body.m_xf.q, normal);
++  const offset =
++    (body.m_xf.p.x - origin.x) * normal.x +
++    (body.m_xf.p.y - origin.y) * normal.y;
+   let lowerBound = Infinity;
+   let upperBound = -Infinity;
+ 
+@@ -35,7 +55,58 @@ const project = (fixture: Fixture, normal: Vec.Value, origin: Vec.Value) => {
+     upperBound = Math.max(upperBound, value);
+   }
+ 
+-  return [lowerBound - shape.m_radius, upperBound + shape.m_radius];
++  result.lowerBound = lowerBound - shape.m_radius;
++  result.upperBound = upperBound + shape.m_radius;
++};
++
++const clipInterval = (
++  { normal, lowerBound, upperBound }: Slab,
++  direction: Vec.Value,
++  result: Projection,
++) => {
++  const speed = Vec.dot(normal, direction);
++
++  if (Math.abs(speed) < 1e-10) {
++    if (lowerBound >= -recoveryTolerance || upperBound <= recoveryTolerance) {
++      return false;
++    }
++  } else {
++    const t0 = lowerBound / speed;
++    const t1 = upperBound / speed;
++
++    result.lowerBound = Math.max(result.lowerBound, Math.min(t0, t1));
++    result.upperBound = Math.min(result.upperBound, Math.max(t0, t1));
++  }
++
++  return result.upperBound > 0 && result.lowerBound < result.upperBound;
++};
++
++const intervalFor = (
++  slabs: Slab[],
++  count: number,
++  direction: Vec.Value,
++  result: Projection,
++) => {
++  result.lowerBound = -Infinity;
++  result.upperBound = Infinity;
++
++  for (let index = 0; index < count; index++) {
++    if (!clipInterval(slabs[index], direction, result)) return false;
++  }
++
++  return true;
++};
++
++const escapeDistance = (intervals: number[][]) => {
++  intervals.sort((a, b) => a[0] - b[0]);
++  let distance = 0;
++
++  for (const [entry, exit] of intervals) {
++    if (entry > distance + recoveryTolerance) break;
++    distance = Math.max(distance, exit);
++  }
++
++  return distance;
+ };
+ 
+ /*
+@@ -111,8 +182,63 @@ export const recoverOverlaps = (world: World) => {
+       return Vec.create(Math.cos(angle), Math.sin(angle));
+     });
+ 
+-    const obstacles: Slab[][] = [];
+     const origin = body.m_xf.p;
++    const axes: Vec.Value[] = [];
++    const temporary: Slab[] = [];
++    const intervals: number[][] = [];
++    const aProjection = { lowerBound: 0, upperBound: 0 };
++    const bProjection = { lowerBound: 0, upperBound: 0 };
++    const interval = { lowerBound: 0, upperBound: 0 };
++    const axis = Vec.create();
++
++    // The first ray includes every pair and bounds the rest of the search.
++    // Reuse projections and axes instead of allocating them for every pair.
++    const pairSlabs = (a: Fixture, b: Fixture, limit: number) => {
++      let count = axesOf(b, axes, axesOf(a, axes, 0));
++
++      if (a.m_shape.m_type === 'circle' || b.m_shape.m_type === 'circle') {
++        for (let index = 0; index < 16; index++) {
++          Vec.set((axes[count] ??= Vec.create()), directions[index]);
++          count++;
++        }
++      }
++
++      interval.lowerBound = -Infinity;
++      interval.upperBound = Infinity;
++
++      for (let index = 0; index < count; index++) {
++        const normal = axes[index];
++
++        project(a, normal, origin, aProjection, axis);
++        project(b, normal, origin, bProjection, axis);
++        const lowerBound =
++          bProjection.lowerBound - aProjection.upperBound - linearSlop;
++        const upperBound =
++          bProjection.upperBound - aProjection.lowerBound + linearSlop;
++
++        const slab = (temporary[index] ??= {
++          normal: Vec.create(),
++          lowerBound: 0,
++          upperBound: 0,
++        });
++
++        Vec.set(slab.normal, normal);
++        slab.lowerBound = lowerBound;
++        slab.upperBound = upperBound;
++
++        if (limit === Infinity) {
++          // A pair missing this ray cannot contain its origin either.
++          if (!clipInterval(slab, directions[0], interval)) return 0;
++        } else {
++          const extent = limit * Math.hypot(normal.x, normal.y);
++
++          // Exclude only slabs outside the disk of every better escape.
++          if (lowerBound > extent || upperBound < -extent) return 0;
++        }
++      }
++
++      return count;
++    };
+ 
+     for (let other = world.m_bodyList; other; other = other.m_next) {
+       if (other === body) continue;
+@@ -122,84 +248,79 @@ export const recoverOverlaps = (world: World) => {
+ 
+         for (let b = other.m_fixtureList; b; b = b.m_next) {
+           if (!b.m_physics || !a.shouldCollide(b)) continue;
+-          const axes = [
+-            ...axesOf(a.m_shape, body),
+-            ...axesOf(b.m_shape, other),
+-          ];
++          const count = pairSlabs(a, b, Infinity);
++
++          if (!count) continue;
++          let contains = true;
+ 
+-          if (a.m_shape.m_type === 'circle' || b.m_shape.m_type === 'circle') {
+-            axes.push(...directions.slice(0, 16));
++          for (let index = 0; index < count; index++) {
++            const { lowerBound, upperBound } = temporary[index];
++
++            contains &&=
++              lowerBound < -recoveryTolerance && upperBound > recoveryTolerance;
+           }
+ 
+-          const slabs = axes.map((normal) => {
+-            const [a0, a1] = project(a!, normal, origin);
+-            const [b0, b1] = project(b!, normal, origin);
+-
+-            return {
+-              normal,
+-              lowerBound: b0 - a1 - linearSlop,
+-              upperBound: b1 - a0 + linearSlop,
+-            };
+-          });
+-
+-          if (
+-            slabs.every(
+-              ({ lowerBound, upperBound }) =>
+-                lowerBound < -recoveryTolerance &&
+-                upperBound > recoveryTolerance,
+-            )
+-          ) {
+-            for (const { normal } of slabs) {
+-              directions.push(normal, Vec.scale(normal, -1));
++          if (contains) {
++            for (let index = 0; index < count; index++) {
++              const { normal } = temporary[index];
++
++              directions.push(Vec.clone(normal), Vec.scale(normal, -1));
+             }
+           }
+ 
+-          obstacles.push(slabs);
++          if (intervalFor(temporary, count, directions[0], interval)) {
++            intervals.push([interval.lowerBound, interval.upperBound]);
++          }
+         }
+       }
+     }
+ 
+-    let best = Infinity;
+-    let escape = Vec.create();
++    let best = escapeDistance(intervals);
++    let escape = Number.isFinite(best)
++      ? Vec.scale(directions[0], best)
++      : Vec.create();
++    const maxDirectionLength = directions.reduce(
++      (length, direction) =>
++        Math.max(length, Math.hypot(direction.x, direction.y)),
++      0,
++    );
++    const limit =
++      (best + recoveryTolerance) * maxDirectionLength + recoveryTolerance;
++    const obstacles: Slab[][] = [];
+ 
+-    for (const direction of directions) {
+-      const intervals: number[][] = [];
++    for (let other = world.m_bodyList; other; other = other.m_next) {
++      if (other === body) continue;
+ 
+-      for (const slabs of obstacles) {
+-        let entry = -Infinity;
+-        let exit = Infinity;
+-
+-        for (const { normal, lowerBound, upperBound } of slabs) {
+-          const speed = Vec.dot(normal, direction);
+-
+-          if (Math.abs(speed) < 1e-10) {
+-            if (
+-              lowerBound >= -recoveryTolerance ||
+-              upperBound <= recoveryTolerance
+-            ) {
+-              exit = -Infinity;
+-              break;
+-            }
+-          } else {
+-            const t0 = lowerBound / speed;
+-            const t1 = upperBound / speed;
++      for (let a = body.m_fixtureList; a; a = a.m_next) {
++        if (!a.m_physics) continue;
+ 
+-            entry = Math.max(entry, Math.min(t0, t1));
+-            exit = Math.min(exit, Math.max(t0, t1));
++        for (let b = other.m_fixtureList; b; b = b.m_next) {
++          if (!b.m_physics || !a.shouldCollide(b)) continue;
++          const count = pairSlabs(a, b, limit);
++
++          if (count) {
++            obstacles.push(
++              temporary.slice(0, count).map((slab) => ({
++                ...slab,
++                normal: Vec.clone(slab.normal),
++              })),
++            );
+           }
+         }
+-
+-        if (exit > 0 && entry < exit) intervals.push([entry, exit]);
+       }
++    }
+ 
+-      intervals.sort((a, b) => a[0] - b[0]);
+-      let distance = 0;
++    for (const direction of directions.slice(1)) {
++      intervals.length = 0;
+ 
+-      for (const [entry, exit] of intervals) {
+-        if (entry > distance + recoveryTolerance) break;
+-        distance = Math.max(distance, exit);
++      for (const slabs of obstacles) {
++        if (intervalFor(slabs, slabs.length, direction, interval)) {
++          intervals.push([interval.lowerBound, interval.upperBound]);
++        }
+       }
+ 
++      const distance = escapeDistance(intervals);
++
+       if (distance < best - recoveryTolerance) {
+         best = distance;
+         escape = Vec.scale(direction, distance);
+diff --git a/src/client/ui/dom/hud.ts b/src/client/ui/dom/hud.ts
+index bc45004..2918257 100644
+--- a/src/client/ui/dom/hud.ts
++++ b/src/client/ui/dom/hud.ts
+@@ -51,6 +51,19 @@ export const createHud = ({
+   );
+   const mapCanvas = query<HTMLCanvasElement>(element, '.hud-map canvas');
+   const map = mapCanvas.getContext('2d')!;
++  let mapWidth = 0;
++  let mapOptions: Parameters<typeof renderMinimap>[0] | undefined;
++
++  const mapResize = new ResizeObserver(([entry]) => {
++    mapWidth = Math.round(entry.contentRect.width);
++
++    if (mapWidth && mapOptions) {
++      mapOptions.displayScale = 300 / mapWidth;
++      renderMinimap(mapOptions);
++    }
++  });
++
++  mapResize.observe(mapCanvas);
+ 
+   mapCanvas.setAttribute(
+     'aria-label',
+@@ -85,6 +98,8 @@ export const createHud = ({
+   return {
+     setShown,
+     destroy() {
++      mapResize.disconnect();
++      mapOptions = undefined;
+       panels.forEach((panel) => element.removeChild(panel));
+     },
+     update({
+@@ -114,6 +129,11 @@ export const createHud = ({
+ 
+       if (!shown) return;
+ 
++      // The first visible frame measures once; later resizes arrive after layout.
++      // Avoid flushing pending instrument or world styles on every frame.
++      if (!mapWidth) mapWidth = mapCanvas.clientWidth;
++      const displayScale = 300 / (mapWidth || 300);
++
+       panels.forEach((panel) => {
+         panel.style.opacity = String(alpha);
+       });
+@@ -332,14 +352,17 @@ export const createHud = ({
+ 
+       previousTarget = target;
+ 
+-      renderMinimap({
+-        ctx: map,
+-        ship,
+-        objects,
+-        poses,
+-        target,
+-        asteroidPositions,
+-      });
++      renderMinimap(
++        (mapOptions = {
++          ctx: map,
++          ship,
++          objects,
++          poses,
++          target,
++          asteroidPositions,
++          displayScale,
++        }),
++      );
+     },
+   };
+ };
+diff --git a/src/client/ui/minimap.ts b/src/client/ui/minimap.ts
+index 213c4fc..faab662 100644
+--- a/src/client/ui/minimap.ts
++++ b/src/client/ui/minimap.ts
+@@ -22,6 +22,7 @@ export const renderMinimap = ({
+   poses,
+   target,
+   asteroidPositions,
++  displayScale = 300 / (ctx.canvas?.clientWidth || 300),
+ }: {
+   ctx: CanvasRenderingContext2D;
+   ship: Ship;
+@@ -29,6 +30,7 @@ export const renderMinimap = ({
+   poses: Map<number, Pose>;
+   target?: GameObject;
+   asteroidPositions?: Vec.Value[];
++  displayScale?: number;
+ }) => {
+   const center = poses.get(ship.id) || ship;
+ 
+@@ -39,7 +41,6 @@ export const renderMinimap = ({
+   ctx.arc(0, 0, 148, 0, Math.PI * 2);
+   ctx.clip();
+   ctx.strokeStyle = withAlpha({ color: '#eef', alpha: 0.12 });
+-  const displayScale = 300 / (ctx.canvas?.clientWidth || 300);
+   const asteroidRadius = 4 * displayScale;
+   const iconRadius = 7 * displayScale;
+   const iconStrokeWidth = 2 * displayScale;
+diff --git a/src/server/physics/overlap-recovery.go b/src/server/physics/overlap-recovery.go
+index e7d0953..7244c68 100644
+--- a/src/server/physics/overlap-recovery.go
++++ b/src/server/physics/overlap-recovery.go
+@@ -17,9 +17,7 @@ type recoverySlab struct {
+ 	lowerBound, upperBound float64
+ }
+ 
+-func recoveryAxes(f *Fixture) []Vec.Vector {
+-	result := []Vec.Vector{}
+-
++func recoveryAxes(f *Fixture, result []Vec.Vector) []Vec.Vector {
+ 	if s, ok := f.Shape.(*shape.PolygonShape); ok {
+ 		for _, normal := range s.Normals {
+ 			var axis Vec.Vector
+@@ -45,6 +43,61 @@ func recoveryProject(f *Fixture, normal, origin Vec.Vector) (float64, float64) {
+ 	return lowerBound - f.Shape.Base().Radius, upperBound + f.Shape.Base().Radius
+ }
+ 
++func recoveryClip(slab recoverySlab, direction Vec.Vector, entry, exit float64) (float64, float64) {
++	speed := Vec.Dot(slab.normal, direction)
++
++	if math.Abs(speed) < 1e-10 {
++		if slab.lowerBound >= -recoveryTolerance || slab.upperBound <= recoveryTolerance {
++			return 0, 0
++		}
++	} else {
++		t0, t1 := slab.lowerBound/speed, slab.upperBound/speed
++		entry, exit = max(entry, min(t0, t1)), min(exit, max(t0, t1))
++	}
++
++	return entry, exit
++}
++
++func recoveryInterval(slabs []recoverySlab, direction Vec.Vector) (float64, float64) {
++	entry, exit := math.Inf(-1), math.Inf(1)
++
++	for _, slab := range slabs {
++		entry, exit = recoveryClip(slab, direction, entry, exit)
++
++		if entry >= exit || exit <= 0 {
++			return 0, 0
++		}
++	}
++
++	return entry, exit
++}
++
++func recoveryDistance(intervals [][2]float64) float64 {
++	slices.SortStableFunc(intervals, func(a, b [2]float64) int {
++		if a[0] < b[0] {
++			return -1
++		}
++
++		if a[0] > b[0] {
++			return 1
++		}
++
++		return 0
++	})
++
++	distance := 0.0
++
++	for _, interval := range intervals {
++		if interval[0] > distance+recoveryTolerance {
++			break
++		}
++
++		distance = max(distance, interval[1])
++	}
++
++	return distance
++}
++
+ // Search the union of forbidden translations, preserving the body's full
+ // compound hitbox. Recovery changes position without adding impact velocity.
+ func (w *World) recoverOverlaps() {
+@@ -116,8 +169,50 @@ func (w *World) recoverOverlaps() {
+ 			directions[i] = Vec.Create(math.Cos(angle), math.Sin(angle))
+ 		}
+ 
+-		obstacles := [][]recoverySlab{}
+ 		origin := body.Xf.P
++		var axes []Vec.Vector
++		var temporary []recoverySlab
++		var intervals [][2]float64
++
++		// The first ray visits every fixture pair. Its escape is an upper bound
++		// for the remaining search, including obstacles beyond current contacts.
++		pairSlabs := func(a, b *Fixture, limit float64) []recoverySlab {
++			axes = recoveryAxes(a, axes[:0])
++			axes = recoveryAxes(b, axes)
++
++			if a.Shape.Base().Type == "circle" || b.Shape.Base().Type == "circle" {
++				axes = append(axes, directions[:16]...)
++			}
++
++			temporary = temporary[:0]
++			entry, exit := math.Inf(-1), math.Inf(1)
++
++			for _, normal := range axes {
++				a0, a1 := recoveryProject(a, normal, origin)
++				b0, b1 := recoveryProject(b, normal, origin)
++				slab := recoverySlab{normal, b0 - a1 - slop, b1 - a0 + slop}
++				// A separating slab outside the entire search disk cannot affect
++				// any better escape, even through a chain of adjacent obstacles.
++				if math.IsInf(limit, 1) {
++					entry, exit = recoveryClip(slab, directions[0], entry, exit)
++
++					// A pair missing this ray cannot contain its origin either.
++					if entry >= exit || exit <= 0 {
++						return nil
++					}
++				} else {
++					extent := limit * math.Hypot(normal.X, normal.Y)
++
++					if slab.lowerBound > extent || slab.upperBound < -extent {
++						return nil
++					}
++				}
++
++				temporary = append(temporary, slab)
++			}
++
++			return temporary
++		}
+ 
+ 		for other := w.BodyList; other != nil; other = other.Next {
+ 			if other == body {
+@@ -134,20 +229,15 @@ func (w *World) recoverOverlaps() {
+ 						continue
+ 					}
+ 
+-					axes := append(recoveryAxes(a), recoveryAxes(b)...)
++					slabs := pairSlabs(a, b, math.Inf(1))
+ 
+-					if a.Shape.Base().Type == "circle" || b.Shape.Base().Type == "circle" {
+-						axes = append(axes, directions[:16]...)
++					if len(slabs) == 0 {
++						continue
+ 					}
+ 
+-					slabs := []recoverySlab{}
+ 					contains := true
+ 
+-					for _, normal := range axes {
+-						a0, a1 := recoveryProject(a, normal, origin)
+-						b0, b1 := recoveryProject(b, normal, origin)
+-						slab := recoverySlab{normal, b0 - a1 - slop, b1 - a0 + slop}
+-						slabs = append(slabs, slab)
++					for _, slab := range slabs {
+ 						contains = contains && slab.lowerBound < -recoveryTolerance && slab.upperBound > recoveryTolerance
+ 					}
+ 
+@@ -157,61 +247,70 @@ func (w *World) recoverOverlaps() {
+ 						}
+ 					}
+ 
+-					obstacles = append(obstacles, slabs)
++					entry, exit := recoveryInterval(slabs, directions[0])
++
++					if exit > 0 && entry < exit {
++						intervals = append(intervals, [2]float64{entry, exit})
++					}
+ 				}
+ 			}
+ 		}
+ 
+-		best := math.Inf(1)
++		best := recoveryDistance(intervals)
+ 		escape := Vec.Vector{}
+ 
+-		for _, direction := range directions {
+-			intervals := [][2]float64{}
++		if !math.IsInf(best, 0) {
++			escape = Vec.Scale(directions[0], best)
++		}
+ 
+-			for _, slabs := range obstacles {
+-				entry, exit := math.Inf(-1), math.Inf(1)
++		maxDirectionLength := 0.0
+ 
+-				for _, slab := range slabs {
+-					speed := Vec.Dot(slab.normal, direction)
++		for _, direction := range directions {
++			maxDirectionLength = max(maxDirectionLength, math.Hypot(direction.X, direction.Y))
++		}
+ 
+-					if math.Abs(speed) < 1e-10 {
+-						if slab.lowerBound >= -recoveryTolerance || slab.upperBound <= recoveryTolerance {
+-							exit = math.Inf(-1)
+-							break
+-						}
+-					} else {
+-						t0, t1 := slab.lowerBound/speed, slab.upperBound/speed
+-						entry, exit = max(entry, min(t0, t1)), min(exit, max(t0, t1))
+-					}
+-				}
++		limit := (best+recoveryTolerance)*maxDirectionLength + recoveryTolerance
++		var slabs []recoverySlab
++		var ends []int
+ 
+-				if exit > 0 && entry < exit {
+-					intervals = append(intervals, [2]float64{entry, exit})
+-				}
++		for other := w.BodyList; other != nil; other = other.Next {
++			if other == body {
++				continue
+ 			}
+ 
+-			slices.SortStableFunc(intervals, func(a, b [2]float64) int {
+-				if a[0] < b[0] {
+-					return -1
++			for a := body.FixtureList; a != nil; a = a.Next {
++				if !a.Physics {
++					continue
+ 				}
+ 
+-				if a[0] > b[0] {
+-					return 1
++				for b := other.FixtureList; b != nil; b = b.Next {
++					if !b.Physics || !a.ShouldCollide(b) {
++						continue
++					}
++
++					if pair := pairSlabs(a, b, limit); len(pair) > 0 {
++						slabs = append(slabs, pair...)
++						ends = append(ends, len(slabs))
++					}
+ 				}
++			}
++		}
+ 
+-				return 0
+-			})
++		for _, direction := range directions[1:] {
++			intervals = intervals[:0]
++			start := 0
+ 
+-			distance := 0.0
++			for _, end := range ends {
++				entry, exit := recoveryInterval(slabs[start:end], direction)
++				start = end
+ 
+-			for _, interval := range intervals {
+-				if interval[0] > distance+recoveryTolerance {
+-					break
++				if exit > 0 && entry < exit {
++					intervals = append(intervals, [2]float64{entry, exit})
+ 				}
+-
+-				distance = max(distance, interval[1])
+ 			}
+ 
++			distance := recoveryDistance(intervals)
++
+ 			if distance < best-recoveryTolerance {
+ 				best, escape = distance, Vec.Scale(direction, distance)
+ 			}

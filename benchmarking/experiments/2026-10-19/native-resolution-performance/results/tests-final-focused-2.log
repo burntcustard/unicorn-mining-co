@@ -1,0 +1,15 @@
+npm notice run unicorn-mining-co@0.1.0 test
+npm notice run node scripts/test.ts graphics text-rendering input-response
+npm notice run unicorn-mining-co@0.1.0 typecheck
+npm notice run tsc --noEmit
+✔ tests/client/graphics.test.ts (75ms)
+✔ tests/client/input-response.test.ts (55ms)
+✔ tests/client/text-rendering.test.ts (1265ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1311

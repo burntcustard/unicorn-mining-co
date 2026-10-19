@@ -1,0 +1,50 @@
+{
+  "before": "13ff7a0e0375bcd53f04a29f77003d7599338cbb",
+  "current": "94969b94d40bc30bf780c7da6db5e49d231cb720",
+  "productSourceModified": false,
+  "server": {
+    "compiler": "go version go1.27.1 linux/amd64",
+    "compilerEnvironment": {
+      "CGO_ENABLED": "0",
+      "GOEXPERIMENT": "simd"
+    },
+    "compilerArguments": [
+      "test",
+      "-c",
+      "-pgo=./src/server/default.pgo",
+      "./src/server/network"
+    ],
+    "pgoProfileSha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675",
+    "gomaxprocs": 2,
+    "cpuAffinity": "0,1",
+    "gogc": 200,
+    "gomemlimit": "off",
+    "ticks": 1800,
+    "warmupTicks": 120,
+    "repetitions": 3,
+    "seed": 25,
+    "outcomeComparison": "report",
+    "profilingSpreadTicks": 18000,
+    "allocationProfileScope": "Go test process including setup and warmup; alloc_space sampled bytes",
+    "cpuProfileScope": "Measured ticks only",
+    "executables": {
+      "before": "3c4832fa217917f7bddc36936a3d561da358786269afbed806b27ab298acdcc8",
+      "current": "186ee7cf36740ccf2c7a40a9f92aaaadd3aabf31607dfbbd808745cc0c7ffdc8",
+      "no-recovery": "2d8d7af5a8c24d2e1ba18ebd08a86d03564c2b010b8d58ac1d5948059a08f7d2"
+    },
+    "diagnosticOverlay": {
+      "target": "src/server/physics/world.go",
+      "replacement": "/tmp/unicorn-regression-no-recovery-world.go",
+      "overlay": "/tmp/unicorn-regression-no-recovery-overlay.json",
+      "behaviorPreserving": false,
+      "note": "The first no-recovery raw result records an empty runtime GOEXPERIMENT; both compilations actually used GOEXPERIMENT=simd. The raw metadata is retained unchanged."
+    }
+  },
+  "localClients": "Completed earlier on October 18; not rerun after the live-only request.",
+  "live": {
+    "capture": "benchmarking/local/live-rerun-2026-10-18T16-44-30Z.json.gz",
+    "sha256": "369834ff17977d7d948e50d89e9a93acd98c0132622a55d0c414265b4d584408",
+    "summary": "benchmarking/local/live-rerun-2026-10-18T16-44-30Z-summary.json",
+    "results": "benchmarking/live/results.md"
+  }
+}

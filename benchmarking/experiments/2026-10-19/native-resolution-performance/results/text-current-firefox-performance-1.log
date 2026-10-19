@@ -1,0 +1,482 @@
+{"starting":"large","at":"2026-10-18T23:55:50.433Z"}
+{
+  "scenario": "large",
+  "hud-blur": "blur(4px)",
+  "hud-canvas": true,
+  "fps": 119.86666666666666,
+  "frames": 3596,
+  "p95": 9,
+  "p99": 9,
+  "missed": 4,
+  "max": 19,
+  "hidden-during-capture": false,
+  "fps-windows": [
+    118,
+    120,
+    120,
+    120,
+    120,
+    120.03968253968276,
+    120,
+    120,
+    120,
+    119,
+    120,
+    120,
+    120,
+    120,
+    120,
+    119.88011988011988,
+    120.03968253968254,
+    119.16583912611718,
+    120.03968253968254,
+    119.88011988011988,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    118,
+    120,
+    120
+  ],
+  "stalls": [
+    [
+      8458.999999999998,
+      18,
+      3,
+      5,
+      1,
+      1
+    ],
+    [
+      16524,
+      14,
+      4,
+      7,
+      1,
+      2
+    ],
+    [
+      26460,
+      19,
+      4,
+      7,
+      1,
+      1
+    ],
+    [
+      26475,
+      15,
+      7,
+      5,
+      0,
+      0
+    ]
+  ],
+  "cpu": [
+    3.3177648040033363,
+    6,
+    7,
+    9
+  ],
+  "update": [
+    0.19043647484014456,
+    1,
+    2,
+    3
+  ],
+  "prediction": [
+    0.3628023352793995,
+    2,
+    2,
+    3
+  ],
+  "messages": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "message-count": 0,
+  "viewport": [
+    1920,
+    1200
+  ],
+  "canvas": [
+    1920,
+    1200
+  ],
+  "zoom": 1.5,
+  "rounds": 1832,
+  "alive": true,
+  "context-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "desynchronized": false,
+    "willReadFrequently": true
+  },
+  "minimap-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "desynchronized": false,
+    "willReadFrequently": true
+  },
+  "audio-state": "running",
+  "browser-errors": [],
+  "scene-surfaces": 4,
+  "surface-style-errors": 0,
+  "background-style-errors": 0,
+  "visible-rocks": [
+    4,
+    4,
+    4
+  ],
+  "ship-docked": false,
+  "ui-active": false,
+  "field-wraps": 0,
+  "movement": 0,
+  "camera-movement": 0,
+  "document-extent": [
+    1920,
+    1200,
+    1920,
+    1200
+  ],
+  "splits": 0,
+  "destroyed": 0,
+  "light-active": true,
+  "asteroids": 4,
+  "radar-contacts": 4,
+  "hud-panels": 4,
+  "hud-visible": 4
+}
+{"starting":"combat","at":"2026-10-18T23:56:25.454Z"}
+{
+  "scenario": "combat",
+  "hud-blur": "blur(4px)",
+  "hud-canvas": true,
+  "fps": 119.86666666666666,
+  "frames": 3596,
+  "p95": 9,
+  "p99": 9,
+  "missed": 5,
+  "max": 17,
+  "hidden-during-capture": false,
+  "fps-windows": [
+    119,
+    119,
+    120,
+    120,
+    120,
+    119,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    119,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    119,
+    120,
+    120
+  ],
+  "stalls": [
+    [
+      475,
+      17,
+      21,
+      4,
+      0,
+      1
+    ],
+    [
+      4675,
+      17,
+      9,
+      5,
+      0,
+      0
+    ],
+    [
+      15458,
+      15,
+      3,
+      6,
+      2,
+      1
+    ],
+    [
+      16478,
+      13,
+      3,
+      3,
+      0,
+      0
+    ],
+    [
+      27449,
+      16,
+      3,
+      5,
+      0,
+      0
+    ]
+  ],
+  "cpu": [
+    4.259382819015847,
+    8,
+    9,
+    21
+  ],
+  "update": [
+    0.2849596886294134,
+    1,
+    2,
+    7
+  ],
+  "prediction": [
+    0.5713094245204337,
+    3,
+    3,
+    10
+  ],
+  "messages": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "message-count": 0,
+  "viewport": [
+    1920,
+    1200
+  ],
+  "canvas": [
+    1920,
+    1200
+  ],
+  "zoom": 1.5,
+  "rounds": 1832,
+  "alive": true,
+  "context-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "desynchronized": false,
+    "willReadFrequently": true
+  },
+  "minimap-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "desynchronized": false,
+    "willReadFrequently": true
+  },
+  "audio-state": "running",
+  "browser-errors": [],
+  "scene-surfaces": 46,
+  "surface-style-errors": 0,
+  "background-style-errors": 0,
+  "visible-rocks": [
+    42,
+    43.52066115702479,
+    43
+  ],
+  "ship-docked": false,
+  "ui-active": false,
+  "field-wraps": 0,
+  "movement": 0,
+  "camera-movement": 0,
+  "document-extent": [
+    1920,
+    1200,
+    1920,
+    1200
+  ],
+  "splits": 17,
+  "destroyed": 1,
+  "light-active": true,
+  "asteroids": 49,
+  "radar-contacts": 49,
+  "hud-panels": 4,
+  "hud-visible": 4
+}
+{"starting":"flight","at":"2026-10-18T23:57:00.473Z"}
+{
+  "scenario": "flight",
+  "hud-blur": "blur(4px)",
+  "hud-canvas": true,
+  "fps": 119.83471074380165,
+  "frames": 3596,
+  "p95": 9,
+  "p99": 9,
+  "missed": 5,
+  "max": 16,
+  "hidden-during-capture": false,
+  "fps-windows": [
+    119,
+    120,
+    120,
+    120,
+    119.16583912611718,
+    119,
+    120,
+    120,
+    119.88011988011988,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    119,
+    120,
+    120,
+    120,
+    120,
+    120,
+    119,
+    120,
+    120,
+    120,
+    119,
+    120.03968253968254,
+    120
+  ],
+  "stalls": [
+    [
+      3757,
+      16,
+      3,
+      4,
+      1,
+      2
+    ],
+    [
+      4432,
+      15,
+      4,
+      3,
+      0,
+      0
+    ],
+    [
+      16422,
+      14,
+      3,
+      5,
+      1,
+      1
+    ],
+    [
+      22133,
+      14,
+      5,
+      4,
+      0,
+      0
+    ],
+    [
+      26849,
+      14,
+      3,
+      2,
+      0,
+      0
+    ]
+  ],
+  "cpu": [
+    3.29635807617459,
+    6,
+    7,
+    17
+  ],
+  "update": [
+    0.19738671114817904,
+    1,
+    2,
+    7
+  ],
+  "prediction": [
+    0.5006950236308034,
+    2,
+    3,
+    8
+  ],
+  "messages": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "message-count": 0,
+  "viewport": [
+    1920,
+    1200
+  ],
+  "canvas": [
+    1920,
+    1200
+  ],
+  "zoom": 1.5,
+  "rounds": 1832,
+  "alive": true,
+  "context-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "desynchronized": false,
+    "willReadFrequently": true
+  },
+  "minimap-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "desynchronized": false,
+    "willReadFrequently": true
+  },
+  "audio-state": "running",
+  "browser-errors": [],
+  "scene-surfaces": 38,
+  "surface-style-errors": 0,
+  "background-style-errors": 0,
+  "visible-rocks": [
+    38,
+    40.28099173553719,
+    44
+  ],
+  "ship-docked": false,
+  "ui-active": false,
+  "field-wraps": 210,
+  "movement": 8160.000050067902,
+  "camera-movement": 8164.628907231043,
+  "document-extent": [
+    1920,
+    1200,
+    1920,
+    1200
+  ],
+  "splits": 0,
+  "destroyed": 0,
+  "light-active": true,
+  "asteroids": 48,
+  "radar-contacts": 48,
+  "hud-panels": 4,
+  "hud-visible": 4
+}

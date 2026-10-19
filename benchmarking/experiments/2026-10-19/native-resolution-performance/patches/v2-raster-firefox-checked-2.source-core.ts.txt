@@ -1,0 +1,82 @@
+declare global {
+  const canvas: HTMLCanvasElement;
+}
+
+import { WorldRenderer } from './utilities/world-renderer';
+import { nativeHud, useWebGL } from './ui/dom/graphics';
+
+/* global canvas */
+
+/**
+ * Based on Kontra core.js, available under the MIT license:
+ * https://github.com/straker/kontra/blob/main/src/core.js
+ */
+
+// The canvas element's id is exposed as a global via id-based global binding.
+
+export let context: CanvasRenderingContext2D;
+let renderer: WorldRenderer;
+let hud: HTMLCanvasElement;
+
+export const hudContext = () => {
+  if (!renderer && (!nativeHud || (canvas.width === Math.round(innerWidth * (devicePixelRatio || 1)) && canvas.height === Math.round(innerHeight * (devicePixelRatio || 1))))) {
+    hud?.parentNode.removeChild(hud);
+    hud = undefined;
+    return context;
+  }
+
+  if (!hud) {
+    hud = document.createElement('canvas');
+    hud.className = 'foreground-hud';
+    hud.setAttribute('aria-hidden', 'true');
+    canvas.after(hud);
+  }
+
+  const width = nativeHud
+    ? Math.round(window.innerWidth * (window.devicePixelRatio || 1))
+    : canvas.width;
+  const height = nativeHud
+    ? Math.round(window.innerHeight * (window.devicePixelRatio || 1))
+    : canvas.height;
+
+  if (hud.width !== width || hud.height !== height) {
+    hud.width = width;
+    hud.height = height;
+  }
+
+  const ctx = hud.getContext('2d');
+
+  // Keep world and HUD coordinates aligned while their pixel densities differ.
+  ctx.setTransform(width / canvas.width, 0, 0, height / canvas.height, 0, 0);
+  return ctx;
+};
+
+export const clearFrame = () => {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (hud) {
+    const ctx = hud.getContext('2d');
+
+    ctx.resetTransform();
+    ctx.clearRect(0, 0, hud.width, hud.height);
+  }
+};
+
+export const presentFrame = () => renderer?.present();
+
+export const init = () => {
+  // Both world rendering paths preserve the drawing API.
+  if (useWebGL) {
+    renderer = WorldRenderer.create(canvas);
+  }
+
+  if (renderer) {
+    context = renderer as unknown as CanvasRenderingContext2D;
+  } else {
+    context = canvas.getContext('2d', {willReadFrequently: false});
+  }
+
+  return { canvas, context };
+};
+
+export const getContext = () => context;

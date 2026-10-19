@@ -1,0 +1,41 @@
+{
+  "baselineRevision": "94969b94d40bc30bf780c7da6db5e49d231cb720",
+  "retainedAt": "2026-10-18T20:25:31.319Z",
+  "node": "v26.5.0",
+  "sourceHashes": {
+    "benchmarking/tools/input-response-browser.ts": "221ee1b65965ef63664c694a6c5e150f351ac7ae415b7429127ec9bda47bffb3",
+    "benchmarking/tools/input-response-metrics.ts": "045ba78fffab6d3bbf3730e1c10c7ce349c54590f6a2e2a2e6f384246a1861e7",
+    "benchmarking/tools/input-response-setup.ts": "8728231cd13db0da866f368c7eea2f7e6268096eb8024777f62fa54ceee33579",
+    "benchmarking/tools/browser-gameplay.ts": "13237de571a1822d47d7be7e6f60014191237533894fd656ddc034d0de953b46",
+    "plugins/benchmark-latency.ts": "56aba454fbcb941ca77f328082f2086633d57d1196a9b97a50161165f66e4e91",
+    "vite.config.ts": "6cce6cf5808050d0ccf6feb69c518f7de4adb0480f3da3e17067580e9a045622",
+    "src/client/input/input.ts": "915475b18efc4e4adeed1ae83e3d816e76053000385f62a0b9127309f4613421",
+    "src/client/gameplay.ts": "463406c7fac4ba8c0c899b373216627a5545aa31694d93c9d8586bea754b1318",
+    "src/client/network/network.ts": "53ba1f3db988f667eff1e2a998179a1f6a69d3e5b610d3f9da6733433459db99",
+    "tests/client/binary-snapshot.test.ts": "27d6b89cf987aea715e21778987ce75fc61f8a7cd82c2943a7ad51a3da2114ae",
+    "tests/client/input.test.ts": "e9baa855454bfe220efa3a6093f8b5c1f8c0e7293fbb5b276a29dfad9e8b42e9",
+    "tests/benchmarking/input-response.test.ts": "b001b8b178a1fbf89e713ecc11d93015463d442f10d9dd28c829c5e45f179d49",
+    "scripts/check-ui.ts": "e9c1de035ddfeb82ab3f2e65cf794fd2fd33c7a2fc6573376a5039aef542efa1"
+  },
+  "productPatch": "patches/product.patch",
+  "productPatchSha256": "4a9b26229f34946b5e1fcd2b1f58e96d69f8e271cda3082ece3b8e22d7edde2b",
+  "serverSha256": "e0bbab272c8e48ba6a0e712cb1bec3ccf586a34eb186808e3bbd16f6260b0c75",
+  "conditions": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "verifiedOneWayDelayMs": 5,
+    "primaryHeadless": false,
+    "additionalDefaultHeadlessChromeCheck": true,
+    "server": "npm run dev:server on 3001, existing persisted development world",
+    "frontend": "npm run dev -- --strictPort on 3000, normal Vite proxy",
+    "captures": "Sequential; no concurrent builds, tests or profiles",
+    "verified": "Three captures per browser after Play-time audio initialization and reached-tick snapshot fix"
+  },
+  "sourceNote": "Final runner and product sources are snapshotted exactly. Diagnostic harness iterations were developed before this snapshot; their raw captures, original summaries and failures are retained without rewriting. Worker and page-timer captures are diagnostic, not final latency acceptance.",
+  "browserUserAgents": {
+    "chrome": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "firefox": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0"
+  }
+}

@@ -1,0 +1,1611 @@
+{
+  "rows": [
+    {
+      "file": "audio-trace-5.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "chrome",
+      "transport": "page-timer-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        64.60009765625,
+        147.5
+      ],
+      "differenceMs": 82.89990234375,
+      "inputSendMs": 44.39990234375,
+      "remoteControlReceivedMs": 111.10009765625,
+      "renderAfterControlMs": 36.39990234375,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.006054870696490383
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 49.89990234375
+        },
+        {
+          "p95Ms": 16.7998046875,
+          "maxMs": 33.39990234375
+        }
+      ]
+    },
+    {
+      "file": "final-chrome-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        12.599853515625,
+        61.39990234375
+      ],
+      "differenceMs": 48.800048828125,
+      "inputSendMs": 5,
+      "remoteControlReceivedMs": 46.5,
+      "renderAfterControlMs": 14.89990234375,
+      "fit": {
+        "lagMs": 19,
+        "rmsRadians": 0.03505290156718941
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.300048828125
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.300048828125
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          101.199951171875
+        ],
+        [
+          102.199951171875
+        ]
+      ]
+    },
+    {
+      "file": "final-chrome-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        8.599853515625,
+        46
+      ],
+      "differenceMs": 37.400146484375,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 18.7001953125,
+      "renderAfterControlMs": 27.2998046875,
+      "fit": {
+        "lagMs": -18,
+        "rmsRadians": 0.036512812310217566
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.39990234375
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.400146484375
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          74.5
+        ],
+        [
+          73.7001953125
+        ]
+      ]
+    },
+    {
+      "file": "final-chrome-5-3.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        12.199951171875,
+        37.699951171875
+      ],
+      "differenceMs": 25.5,
+      "inputSendMs": 1.10009765625,
+      "remoteControlReceivedMs": 25.699951171875,
+      "renderAfterControlMs": 12,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.003770243591020427
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.300048828125
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.2998046875
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          110.099853515625
+        ],
+        [
+          111.199951171875
+        ]
+      ]
+    },
+    {
+      "file": "final-firefox-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        50,
+        47
+      ],
+      "differenceMs": -3,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 21,
+      "renderAfterControlMs": 26,
+      "fit": {
+        "lagMs": -6,
+        "rmsRadians": 0.005225347741601875
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 108
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 109
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          52
+        ],
+        [
+          42
+        ]
+      ]
+    },
+    {
+      "file": "final-firefox-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        12,
+        40
+      ],
+      "differenceMs": 28,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 17,
+      "renderAfterControlMs": 23,
+      "fit": {
+        "lagMs": -15,
+        "rmsRadians": 0.005855403296615112
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 109
+        },
+        {
+          "p95Ms": 16,
+          "maxMs": 75
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          49
+        ],
+        [
+          48
+        ]
+      ]
+    },
+    {
+      "file": "final-firefox-5-3.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        8,
+        79
+      ],
+      "differenceMs": 71,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 45,
+      "renderAfterControlMs": 34,
+      "fit": {
+        "lagMs": -25,
+        "rmsRadians": 0.007967968155504875
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 100
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 95
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          34
+        ],
+        [
+          42
+        ]
+      ]
+    },
+    {
+      "file": "headful-chrome-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        55.099853515625,
+        34.10009765625
+      ],
+      "differenceMs": -20.999755859375,
+      "inputSendMs": 2.7998046875,
+      "remoteControlReceivedMs": 22.10009765625,
+      "renderAfterControlMs": 12,
+      "fit": {
+        "lagMs": -18,
+        "rmsRadians": 0.03677716026343135
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.2998046875
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 166.699951171875
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "headful-chrome-5-3.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        47.7001953125,
+        27.300048828125
+      ],
+      "differenceMs": -20.400146484375,
+      "inputSendMs": 0.800048828125,
+      "remoteControlReceivedMs": 14.300048828125,
+      "renderAfterControlMs": 13,
+      "fit": {
+        "lagMs": 0,
+        "rmsRadians": 0.0020325702918559466
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 150
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 150
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "headful-firefox-5-1.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        30,
+        104
+      ],
+      "differenceMs": 74,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 77,
+      "renderAfterControlMs": 27,
+      "fit": {
+        "lagMs": 4,
+        "rmsRadians": 0.007629808643719126
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 95
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 99
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "headful-firefox-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        22,
+        77
+      ],
+      "differenceMs": 55,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 47,
+      "renderAfterControlMs": 30,
+      "fit": {
+        "lagMs": 25,
+        "rmsRadians": 0.0021328565439214277
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 87
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 117
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "headful-firefox-5-3.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        33,
+        97
+      ],
+      "differenceMs": 64,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 63,
+      "renderAfterControlMs": 34,
+      "fit": {
+        "lagMs": -29,
+        "rmsRadians": 0.010807655904200573
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 94
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 73
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "measured-5-1.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "chrome",
+      "transport": "page-timer-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        59.89990234375,
+        126.39990234375
+      ],
+      "differenceMs": 66.5,
+      "inputSendMs": 42.89990234375,
+      "remoteControlReceivedMs": 104.39990234375,
+      "renderAfterControlMs": 22,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.004998732882112715
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.7998046875,
+          "maxMs": 50.099853515625
+        },
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 33.300048828125
+        }
+      ]
+    },
+    {
+      "file": "measured-5-2.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "chrome",
+      "transport": "page-timer-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        51.10009765625,
+        152.099853515625
+      ],
+      "differenceMs": 100.999755859375,
+      "inputSendMs": 40.800048828125,
+      "remoteControlReceivedMs": 124.199951171875,
+      "renderAfterControlMs": 27.89990234375,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.004927995928910476
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 33.300048828125
+        },
+        {
+          "p95Ms": 16.800048828125,
+          "maxMs": 33.39990234375
+        }
+      ]
+    },
+    {
+      "file": "native-chrome-0.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "native-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        67.5,
+        23.699951171875
+      ],
+      "differenceMs": -43.800048828125,
+      "inputSendMs": 1.099853515625,
+      "remoteControlReceivedMs": 12.199951171875,
+      "renderAfterControlMs": 11.5,
+      "fit": {
+        "lagMs": 0,
+        "rmsRadians": 0.001371372486786529
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.39990234375
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.400146484375
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "native-firefox-0-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "native-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        66,
+        44
+      ],
+      "differenceMs": -22,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 21,
+      "renderAfterControlMs": 23,
+      "fit": {
+        "lagMs": -4,
+        "rmsRadians": 0.002531203221870562
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 107
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 103
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "native-firefox-0-3.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "native-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        34,
+        43
+      ],
+      "differenceMs": 9,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 19,
+      "renderAfterControlMs": 24,
+      "fit": {
+        "lagMs": 29,
+        "rmsRadians": 0.015410169763237669
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 99
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 91
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "native-firefox-0.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "native-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        43,
+        64
+      ],
+      "differenceMs": 21,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 28,
+      "renderAfterControlMs": 36,
+      "fit": {
+        "lagMs": -3,
+        "rmsRadians": 0.026732683787496533
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 124
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 100
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "no-audio-firefox-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": true,
+      "firstResponseMs": [
+        11,
+        39
+      ],
+      "differenceMs": 28,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 20,
+      "renderAfterControlMs": 19,
+      "fit": {
+        "lagMs": 28,
+        "rmsRadians": 0.002216068710995119
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 109
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 79
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "no-audio-firefox-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": true,
+      "firstResponseMs": [
+        8,
+        37
+      ],
+      "differenceMs": 29,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 21,
+      "renderAfterControlMs": 16,
+      "fit": {
+        "lagMs": -30,
+        "rmsRadians": 0.010718754510529033
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 91
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 66
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "no-audio-firefox-5-3.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": true,
+      "firstResponseMs": [
+        29,
+        92
+      ],
+      "differenceMs": 63,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 64,
+      "renderAfterControlMs": 28,
+      "fit": {
+        "lagMs": -4,
+        "rmsRadians": 0.00413799322588582
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 105
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 74
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "proxy-chrome-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        54,
+        38.300048828125
+      ],
+      "differenceMs": -15.699951171875,
+      "inputSendMs": 0.900146484375,
+      "remoteControlReceivedMs": 22.7001953125,
+      "renderAfterControlMs": 15.599853515625,
+      "fit": {
+        "lagMs": 0,
+        "rmsRadians": 0.0028746685126143207
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 149.89990234375
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 150
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "proxy-chrome-5-3.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        100.300048828125,
+        66.300048828125
+      ],
+      "differenceMs": -34,
+      "inputSendMs": 0.800048828125,
+      "remoteControlReceivedMs": 44.10009765625,
+      "renderAfterControlMs": 22.199951171875,
+      "fit": {
+        "lagMs": 0,
+        "rmsRadians": 0.0026248099879550937
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.400146484375
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 166.699951171875
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "proxy-firefox-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        48,
+        87
+      ],
+      "differenceMs": 39,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 48,
+      "renderAfterControlMs": 39,
+      "fit": {
+        "lagMs": -36,
+        "rmsRadians": 0.00995731931192331
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 91
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 66
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "proxy-firefox-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        44,
+        84
+      ],
+      "differenceMs": 40,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 51,
+      "renderAfterControlMs": 33,
+      "fit": {
+        "lagMs": 23,
+        "rmsRadians": 0.001066663417578634
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 79
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 72
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "proxy-firefox-5-3.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        50,
+        47
+      ],
+      "differenceMs": -3,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 16,
+      "renderAfterControlMs": 31,
+      "fit": {
+        "lagMs": 29,
+        "rmsRadians": 0.0015592590096398231
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 107
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 69
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "server-trace-firefox-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        32,
+        80
+      ],
+      "differenceMs": 48,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 57,
+      "renderAfterControlMs": 23,
+      "fit": {
+        "lagMs": -30,
+        "rmsRadians": 0.01479391640243067
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 99
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 79
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "server-trace-firefox-5-2.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        42,
+        110
+      ],
+      "differenceMs": 68,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 88,
+      "renderAfterControlMs": 22,
+      "fit": {
+        "lagMs": -3,
+        "rmsRadians": 0.0046112982775628406
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 92
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 58
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "verified-chrome-5-1.json.gz",
+      "verified": true,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        6.599853515625,
+        51.89990234375
+      ],
+      "differenceMs": 45.300048828125,
+      "inputSendMs": 1.599853515625,
+      "remoteControlReceivedMs": 36.89990234375,
+      "renderAfterControlMs": 15,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.004418151326974987
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 141.599853515625
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 150.10009765625
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          109.7998046875
+        ],
+        [
+          111
+        ]
+      ]
+    },
+    {
+      "file": "verified-chrome-5-2.json.gz",
+      "verified": true,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        11.10009765625,
+        58.10009765625
+      ],
+      "differenceMs": 47,
+      "inputSendMs": 2.89990234375,
+      "remoteControlReceivedMs": 41.900146484375,
+      "renderAfterControlMs": 16.199951171875,
+      "fit": {
+        "lagMs": 7,
+        "rmsRadians": 0.03023651965100852
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 150
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 158.39990234375
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          109
+        ],
+        [
+          110.10009765625
+        ]
+      ]
+    },
+    {
+      "file": "verified-chrome-5-3.json.gz",
+      "verified": true,
+      "passed": true,
+      "browser": "chrome",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        11.2001953125,
+        41.199951171875
+      ],
+      "differenceMs": 29.999755859375,
+      "inputSendMs": 2.60009765625,
+      "remoteControlReceivedMs": 19.599853515625,
+      "renderAfterControlMs": 21.60009765625,
+      "fit": {
+        "lagMs": 14,
+        "rmsRadians": 0.03494455881113989
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 141.699951171875
+        },
+        {
+          "p95Ms": 8.400146484375,
+          "maxMs": 141.60009765625
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          110.5
+        ],
+        [
+          109
+        ]
+      ]
+    },
+    {
+      "file": "verified-firefox-5-1.json.gz",
+      "verified": true,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        16,
+        61
+      ],
+      "differenceMs": 45,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 45,
+      "renderAfterControlMs": 16,
+      "fit": {
+        "lagMs": -20,
+        "rmsRadians": 0.005939385925658494
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 92
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 107
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          49
+        ],
+        [
+          43
+        ]
+      ]
+    },
+    {
+      "file": "verified-firefox-5-2.json.gz",
+      "verified": true,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        10,
+        50
+      ],
+      "differenceMs": 40,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 40,
+      "renderAfterControlMs": 10,
+      "fit": {
+        "lagMs": -14,
+        "rmsRadians": 0.0048916117246784385
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 109
+        },
+        {
+          "p95Ms": 16,
+          "maxMs": 58
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          49
+        ],
+        [
+          40
+        ]
+      ]
+    },
+    {
+      "file": "verified-firefox-5-3.json.gz",
+      "verified": true,
+      "passed": true,
+      "browser": "firefox",
+      "headless": false,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        9,
+        68
+      ],
+      "differenceMs": 59,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 47,
+      "renderAfterControlMs": 21,
+      "fit": {
+        "lagMs": 11,
+        "rmsRadians": 0.002075249710032812
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 17,
+          "maxMs": 103
+        },
+        {
+          "p95Ms": 17,
+          "maxMs": 75
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          40
+        ],
+        [
+          44
+        ]
+      ]
+    },
+    {
+      "file": "verified-headless-chrome-5.json.gz",
+      "verified": true,
+      "passed": true,
+      "browser": "chrome",
+      "headless": true,
+      "transport": "vite-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        19.7998046875,
+        53.199951171875
+      ],
+      "differenceMs": 33.400146484375,
+      "inputSendMs": 7.89990234375,
+      "remoteControlReceivedMs": 28.300048828125,
+      "renderAfterControlMs": 24.89990234375,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.0031454970266651524
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 33.300048828125
+        },
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 16.800048828125
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ],
+      "audioStates": [
+        "running",
+        "suspended"
+      ],
+      "audioSetupMs": [
+        [
+          106.300048828125
+        ],
+        [
+          105.099853515625
+        ]
+      ]
+    },
+    {
+      "file": "worker-after-chrome-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        51,
+        37.699951171875
+      ],
+      "differenceMs": -13.300048828125,
+      "inputSendMs": 0.699951171875,
+      "remoteControlReceivedMs": 15.10009765625,
+      "renderAfterControlMs": 22.599853515625,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.0031448116873217737
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.800048828125,
+          "maxMs": 49.89990234375
+        },
+        {
+          "p95Ms": 16.7998046875,
+          "maxMs": 33.400146484375
+        }
+      ]
+    },
+    {
+      "file": "worker-after-chrome-5-2.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        43.800048828125,
+        75.900146484375
+      ],
+      "differenceMs": 32.10009765625,
+      "inputSendMs": 0.800048828125,
+      "remoteControlReceivedMs": 47.900146484375,
+      "renderAfterControlMs": 28,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.005563112397212899
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 33.400146484375
+        },
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 33.39990234375
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "worker-after-chrome-5-3.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        50.60009765625,
+        82.60009765625
+      ],
+      "differenceMs": 32,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 47.800048828125,
+      "renderAfterControlMs": 34.800048828125,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.005252043130390814
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 33.300048828125
+        },
+        {
+          "p95Ms": 16.7998046875,
+          "maxMs": 33.300048828125
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "worker-after-firefox-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        46,
+        85
+      ],
+      "differenceMs": 39,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 40,
+      "renderAfterControlMs": 45,
+      "fit": {
+        "lagMs": -3,
+        "rmsRadians": 0.010085942777622968
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 50.239990234375,
+          "maxMs": 50.3798828125
+        },
+        {
+          "p95Ms": 50.219970703125,
+          "maxMs": 50.31982421875
+        }
+      ]
+    },
+    {
+      "file": "worker-after-firefox-5-2.json.gz",
+      "verified": false,
+      "passed": false,
+      "browser": "firefox",
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        20,
+        124
+      ],
+      "differenceMs": 104,
+      "inputSendMs": 1,
+      "remoteControlReceivedMs": 57,
+      "renderAfterControlMs": 67,
+      "fit": {
+        "lagMs": -28,
+        "rmsRadians": 0.01385986820326984
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 50.199951171875,
+          "maxMs": 83.43994140625
+        },
+        {
+          "p95Ms": 50.260009765625,
+          "maxMs": 66.320068359375
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "worker-after-firefox-5-3.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "firefox",
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        33,
+        72
+      ],
+      "differenceMs": 39,
+      "inputSendMs": 0,
+      "remoteControlReceivedMs": 35,
+      "renderAfterControlMs": 37,
+      "fit": {
+        "lagMs": -2,
+        "rmsRadians": 0.012705709260934043
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 50.259765625,
+          "maxMs": 50.300048828125
+        },
+        {
+          "p95Ms": 50.239990234375,
+          "maxMs": 50.400146484375
+        }
+      ],
+      "errors": [
+        [],
+        []
+      ]
+    },
+    {
+      "file": "worker-before-5-1.json.gz",
+      "verified": false,
+      "passed": true,
+      "browser": "chrome",
+      "transport": "worker-delayed-websocket",
+      "skipAudio": false,
+      "firstResponseMs": [
+        54.199951171875,
+        93.30029296875
+      ],
+      "differenceMs": 39.100341796875,
+      "inputSendMs": 40.5,
+      "remoteControlReceivedMs": 66.30029296875,
+      "renderAfterControlMs": 27,
+      "fit": {
+        "lagMs": -1,
+        "rmsRadians": 0.00447513759928326
+      },
+      "frameTiming": [
+        {
+          "p95Ms": 16.800048828125,
+          "maxMs": 33.300048828125
+        },
+        {
+          "p95Ms": 16.7001953125,
+          "maxMs": 16.800048828125
+        }
+      ]
+    }
+  ],
+  "sizes": {
+    "before": {
+      "js": 270583,
+      "gzip1": 113259,
+      "css": 17465,
+      "server": 13164704
+    },
+    "after": {
+      "js": 270666,
+      "gzip1": 113291,
+      "css": 17465,
+      "server": 13164704
+    },
+    "note": "Baseline is the preceding recovery/HUD follow-up. The initial scratch server stat was overwritten by the development watcher and is excluded; the preceding report records the stripped production size. Go product sources are unchanged in this follow-up."
+  }
+}

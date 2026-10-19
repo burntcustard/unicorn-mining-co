@@ -1,0 +1,145 @@
+{"starting":"flight","at":"2026-10-18T21:33:06.038Z"}
+{
+  "scenario": "flight",
+  "fps": 119.934284409876,
+  "frames": 3599,
+  "p95": 8.400000000001455,
+  "p99": 8.400000000001455,
+  "missed": 2,
+  "max": 16.700000000000728,
+  "hidden-during-capture": false,
+  "fps-windows": [
+    119,
+    120.00396707329176,
+    120,
+    120,
+    120,
+    120.00396707329155,
+    120,
+    120,
+    120,
+    120,
+    119,
+    120,
+    120.00396707329176,
+    119,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120.00396707329176,
+    120,
+    120.00396707329176,
+    120,
+    120,
+    120,
+    120.00396707329134,
+    120.0039670732922,
+    120,
+    120,
+    120
+  ],
+  "stalls": [
+    [
+      9266.6,
+      16.700000000000728,
+      6.4000000059604645,
+      2.1000000089406967,
+      0,
+      0
+    ],
+    [
+      12933.199999999999,
+      16.599999999998545,
+      9.099999994039536,
+      2.6000000089406967,
+      0,
+      0
+    ]
+  ],
+  "cpu": [
+    2.5830277774979673,
+    5.5,
+    7.9000000059604645,
+    10.200000002980232
+  ],
+  "update": [
+    0.3270277777479755,
+    1.4000000059604645,
+    1.7999999970197678,
+    2.7999999970197678
+  ],
+  "prediction": [
+    0.5632499999511573,
+    2.2000000029802322,
+    3.1000000089406967,
+    4.0999999940395355
+  ],
+  "messages": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "message-count": 0,
+  "viewport": [
+    2560,
+    1440
+  ],
+  "canvas": [
+    2560,
+    1440
+  ],
+  "zoom": 1.5,
+  "rounds": 1832,
+  "alive": true,
+  "context-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "colorType": "unorm8",
+    "desynchronized": false,
+    "toneMapping": {
+      "mode": "standard"
+    },
+    "willReadFrequently": true
+  },
+  "minimap-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "colorType": "unorm8",
+    "desynchronized": false,
+    "toneMapping": {
+      "mode": "standard"
+    },
+    "willReadFrequently": true
+  },
+  "audio-state": "running",
+  "browser-errors": [],
+  "scene-surfaces": 38,
+  "surface-style-errors": 0,
+  "background-style-errors": 0,
+  "visible-rocks": [
+    38,
+    41.86776859504132,
+    44
+  ],
+  "ship-docked": false,
+  "ui-active": false,
+  "field-wraps": 210,
+  "movement": 8160.000050067902,
+  "camera-movement": 8164.460643734425,
+  "document-extent": [
+    2560,
+    1440,
+    2560,
+    1440
+  ],
+  "splits": 0,
+  "destroyed": 0,
+  "light-active": true,
+  "asteroids": 48,
+  "radar-contacts": 48,
+  "hud-panels": 4,
+  "hud-visible": 4
+}

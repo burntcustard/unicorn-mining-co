@@ -1,0 +1,16 @@
+--- a/src/client/core.ts
++++ b/src/client/core.ts
+@@ -52,7 +52,12 @@
+ };
+ 
+ export const clearFrame = () => {
+-  context.clearRect(0, 0, canvas.width, canvas.height);
++  if (context.reset) {
++    context.reset();
++    context.imageSmoothingEnabled = false;
++  } else {
++    context.clearRect(0, 0, canvas.width, canvas.height);
++  }
+ 
+   if (hud) {
+     const ctx = hud.getContext('2d');

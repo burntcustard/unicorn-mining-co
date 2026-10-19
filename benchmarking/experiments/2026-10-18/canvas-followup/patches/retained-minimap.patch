@@ -1,0 +1,11 @@
+--- a/src/client/ui/dom/hud.ts
++++ b/src/client/ui/dom/hud.ts
+@@ -50,7 +50,7 @@
+     colors.red[2],
+   );
+   const mapCanvas = query<HTMLCanvasElement>(element, '.hud-map canvas');
+-  const map = mapCanvas.getContext('2d')!;
++  const map = mapCanvas.getContext('2d', { willReadFrequently: true })!;
+   let mapWidth = 0;
+   let mapOptions: Parameters<typeof renderMinimap>[0] | undefined;
+ 

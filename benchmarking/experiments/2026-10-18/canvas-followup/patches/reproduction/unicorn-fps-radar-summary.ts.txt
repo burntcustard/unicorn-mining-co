@@ -1,0 +1,34 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+const directory = process.cwd() + '/benchmarking/local/fps-followup-2026-10-18/';
+const median = values => values.toSorted((a, b) => a - b)[1];
+const summary = {};
+for (const browser of ['chrome', 'firefox']) {
+  const modes = Object.fromEntries(['cpu', 'minimap-software'].map(mode => [mode, [1, 2, 3].map(repeat => {
+    const capture = JSON.parse(readFileSync(`${directory}${mode}-${browser}-radar-${repeat}.json`, 'utf8'));
+    return { name: `${mode}-${browser}-radar-${repeat}`, ...capture.results[0] };
+  })]));
+  const metrics = Object.fromEntries(Object.entries(modes).map(([mode, captures]) => [mode, {
+    fps: median(captures.map(result => result.fps)),
+    frameWork: median(captures.map(result => result.cpu[0])),
+    update: median(captures.map(result => result.update[0])),
+    prediction: median(captures.map(result => result.prediction[0])),
+    p95: median(captures.map(result => result.p95)),
+    p99: median(captures.map(result => result.p99)),
+    contacts: captures.map(result => result['radar-contacts']),
+    hidden: captures.map(result => result['hidden-during-capture']),
+  }]));
+  const baseline = metrics.cpu;
+  const candidate = metrics['minimap-software'];
+  summary[browser] = {
+    medians: metrics,
+    fpsImprovementPercent: 100 * (candidate.fps / baseline.fps - 1),
+    frameWorkReductionPercent: 100 * (1 - candidate.frameWork / baseline.frameWork),
+    pairs: [0, 1, 2].map(index => ({
+      fpsImprovementPercent: 100 * (modes['minimap-software'][index].fps / modes.cpu[index].fps - 1),
+      frameWorkReductionPercent: 100 * (1 - modes['minimap-software'][index].cpu[0] / modes.cpu[index].cpu[0]),
+    })),
+    captures: modes,
+  };
+}
+writeFileSync(directory + 'radar-summary.json', JSON.stringify(summary, null, 2) + '\n');
+console.log(JSON.stringify(Object.fromEntries(Object.entries(summary).map(([browser, { captures, ...metrics }]) => [browser, metrics])), null, 2));

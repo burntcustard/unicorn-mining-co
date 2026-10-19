@@ -1,0 +1,150 @@
+{"starting":"flight","at":"2026-10-18T23:29:44.806Z"}
+{
+  "scenario": "flight",
+  "hud-blur": "blur(4px)",
+  "hud-canvas": false,
+  "clear-statistics": [],
+  "focused": true,
+  "native-reset-type": "function",
+  "fps": 119.86763573835064,
+  "frames": 3597,
+  "p95": 8.400000000001455,
+  "p99": 8.400000000001455,
+  "missed": 2,
+  "max": 33.400000000001455,
+  "hidden-during-capture": false,
+  "fps-windows": [
+    116.0368937816127,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    119.99206664022196,
+    120.01586986708978,
+    120,
+    120,
+    120,
+    120,
+    120.00396707329176,
+    120,
+    120,
+    120,
+    120,
+    120.00396707329176,
+    120,
+    120,
+    116.0368937816127,
+    120,
+    119.99999999999956,
+    120,
+    120.0039670732922,
+    120,
+    120.00396707329134,
+    120,
+    120
+  ],
+  "stalls": [
+    [
+      20108.2,
+      33.400000000001455,
+      1.2000000029802322,
+      9.700000002980232,
+      2.4000000059604645,
+      4.200000002980232
+    ],
+    [
+      20133.2,
+      16.700000000000728,
+      5.299999997019768,
+      1.2000000029802322,
+      0,
+      0
+    ]
+  ],
+  "cpu": [
+    2.1070872706471384,
+    5,
+    6.600000008940697,
+    9.700000002980232
+  ],
+  "update": [
+    0.30850472479329766,
+    1.3999999910593033,
+    1.7000000029802322,
+    2.4000000059604645
+  ],
+  "prediction": [
+    0.5603390772386416,
+    2.300000011920929,
+    3,
+    4.200000002980232
+  ],
+  "messages": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "message-count": 0,
+  "viewport": [
+    1920,
+    1200
+  ],
+  "canvas": [
+    1920,
+    1200
+  ],
+  "zoom": 1.5,
+  "rounds": 1832,
+  "alive": true,
+  "context-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "colorType": "unorm8",
+    "desynchronized": false,
+    "toneMapping": {
+      "mode": "standard"
+    },
+    "willReadFrequently": true
+  },
+  "minimap-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "colorType": "unorm8",
+    "desynchronized": false,
+    "toneMapping": {
+      "mode": "standard"
+    },
+    "willReadFrequently": true
+  },
+  "audio-state": "running",
+  "browser-errors": [],
+  "scene-surfaces": 38,
+  "surface-style-errors": 0,
+  "background-style-errors": 0,
+  "visible-rocks": [
+    38,
+    40.13223140495868,
+    44
+  ],
+  "ship-docked": false,
+  "ui-active": false,
+  "field-wraps": 210,
+  "movement": 8160.000050067902,
+  "camera-movement": 8164.461019182815,
+  "document-extent": [
+    1920,
+    1200,
+    1920,
+    1200
+  ],
+  "splits": 0,
+  "destroyed": 0,
+  "light-active": true,
+  "asteroids": 48,
+  "radar-contacts": 48,
+  "hud-panels": 4,
+  "hud-visible": 4
+}

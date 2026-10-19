@@ -1,0 +1,3 @@
+npm notice run unicorn-mining-co@0.1.0 test:ui
+npm notice run node --import tsx scripts/check-ui.ts
+Production UI: deferred startup, navigation, preferences, identity verification, preview, desktop layout, trading, repairs, paint, focus and launch passed.

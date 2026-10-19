@@ -1,0 +1,39 @@
+{
+  "browser": "chrome",
+  "mode": "old",
+  "scenarios": "large,combat,flight",
+  "duration": "30",
+  "flags": {
+    "GAMEPLAY_OLD_TEXT": "1"
+  },
+  "driver": "/home/burntcustard/Dev/unicorn-mining-co/benchmarking/local/native-performance-2026-10-18/text-comparison.ts",
+  "firefoxLauncher": "/usr/bin/firefox",
+  "textSource": "/home/burntcustard/Dev/unicorn-mining-co/benchmarking/local/native-performance-2026-10-18/v2-shared-firefox-checked-1.source-text.ts",
+  "textHash": "863e46d564e6b490fab3ab77bd03b6dd4fe1a20906741ccdefba7981b21c7c68",
+  "before": {
+    "at": "2026-10-18T23:49:45.448Z",
+    "energy": "balance_performance",
+    "supplies": {
+      "AC": {
+        "online": "1",
+        "status": null
+      },
+      "BAT0": {
+        "online": null,
+        "status": "Full"
+      },
+      "ucsi-source-psy-USBC000:001": {
+        "online": "0",
+        "status": "Not charging"
+      },
+      "ucsi-source-psy-USBC000:002": {
+        "online": "1",
+        "status": "Charging"
+      },
+      "ucsi-source-psy-USBC000:003": {
+        "online": "0",
+        "status": "Not charging"
+      }
+    }
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "clients": 2,
+  "oneWayDelayMs": 5,
+  "transport": "worker-delayed-websocket",
+  "firstResponseMs": [
+    54.199951171875,
+    93.30029296875
+  ],
+  "frameTiming": [
+    {
+      "p95Ms": 16.800048828125,
+      "maxMs": 33.300048828125
+    },
+    {
+      "p95Ms": 16.7001953125,
+      "maxMs": 16.800048828125
+    }
+  ],
+  "fit": {
+    "lagMs": -1,
+    "rmsRadians": 0.00447513759928326
+  },
+  "zeroLag": {
+    "lagMs": 0,
+    "rmsRadians": 0.004888352153850977
+  },
+  "reversals": [
+    {
+      "at": 1792352923588.5999,
+      "handledAt": 1792352923588.7998,
+      "direction": "ArrowRight",
+      "tick": 2891837,
+      "serverTick": 2891836,
+      "pendingTime": 6.666666675300692e-7,
+      "inputTickStartedAt": 1792352923569.4993,
+      "localMs": 200.199951171875,
+      "remoteMs": 201.60009765625,
+      "differenceMs": 1.400146484375
+    },
+    {
+      "at": 1792352924063.7998,
+      "handledAt": 1792352924063.9,
+      "direction": "ArrowLeft",
+      "tick": 2891851,
+      "serverTick": 2891851,
+      "pendingTime": 0.01663400000000017,
+      "inputTickStartedAt": 1792352924036.166,
+      "localMs": 193.2001953125,
+      "remoteMs": 193.30029296875,
+      "differenceMs": 0.10009765625
+    },
+    {
+      "at": 1792352924612.2,
+      "handledAt": 1792352924612.4,
+      "direction": "ArrowRight",
+      "tick": 2891867,
+      "serverTick": 2891867,
+      "pendingTime": 0.033300666666666874,
+      "inputTickStartedAt": 1792352924569.4993,
+      "localMs": 178,
+      "remoteMs": 177.900146484375,
+      "differenceMs": -0.099853515625
+    },
+    {
+      "at": 1792352925014.4,
+      "handledAt": 1792352925014.5999,
+      "direction": "ArrowLeft",
+      "tick": 2891879,
+      "serverTick": 2891879,
+      "pendingTime": 0.03320066666666654,
+      "inputTickStartedAt": 1792352924969.4993,
+      "localMs": 175.800048828125,
+      "remoteMs": 175.7001953125,
+      "differenceMs": -0.099853515625
+    },
+    {
+      "at": 1792352925495.9,
+      "handledAt": 1792352925496.0999,
+      "direction": "ArrowRight",
+      "tick": 2891894,
+      "serverTick": 2891894,
+      "pendingTime": 0.016600666666668026,
+      "inputTickStartedAt": 1792352925469.4993,
+      "localMs": 196.300048828125,
+      "remoteMs": 196.60009765625,
+      "differenceMs": 0.300048828125
+    },
+    {
+      "at": 1792352926043.9,
+      "handledAt": 1792352926044.0999,
+      "direction": "ArrowLeft",
+      "tick": 2891910,
+      "serverTick": 2891910,
+      "pendingTime": 0.03316733333333437,
+      "inputTickStartedAt": 1792352926002.8325,
+      "localMs": 182.5,
+      "remoteMs": 183.60009765625,
+      "differenceMs": 1.10009765625
+    },
+    {
+      "at": 1792352926446.5,
+      "handledAt": 1792352926446.7998,
+      "direction": "ArrowRight",
+      "tick": 2891922,
+      "serverTick": 2891922,
+      "pendingTime": 0.033167333333334395,
+      "inputTickStartedAt": 1792352926402.8325,
+      "localMs": 177.199951171875,
+      "remoteMs": 177.199951171875,
+      "differenceMs": 0
+    },
+    {
+      "at": 1792352926931.5,
+      "handledAt": 1792352926931.9,
+      "direction": "ArrowLeft",
+      "tick": 2891937,
+      "serverTick": 2891937,
+      "pendingTime": 0.0164673333333337,
+      "inputTickStartedAt": 1792352926902.8325,
+      "localMs": 195.89990234375,
+      "remoteMs": 195.199951171875,
+      "differenceMs": -0.699951171875
+    },
+    {
+      "at": 1792352927480.7,
+      "handledAt": 1792352927480.9,
+      "direction": "ArrowRight",
+      "tick": 2891953,
+      "serverTick": 2891953,
+      "pendingTime": 0.03303400000000004,
+      "inputTickStartedAt": 1792352927436.166,
+      "localMs": 175.800048828125,
+      "remoteMs": 176.800048828125,
+      "differenceMs": 1
+    },
+    {
+      "at": 1792352927883.0999,
+      "handledAt": 1792352927883.2,
+      "direction": "ArrowLeft",
+      "tick": 2891965,
+      "serverTick": 2891965,
+      "pendingTime": 0.033134000000000434,
+      "inputTickStartedAt": 1792352927836.166,
+      "localMs": 181.10009765625,
+      "remoteMs": 182.10009765625,
+      "differenceMs": 1
+    },
+    {
+      "at": 1792352928358.0999,
+      "handledAt": 1792352928365.5999,
+      "direction": "ArrowRight",
+      "tick": 2891980,
+      "serverTick": 2891980,
+      "pendingTime": 0.01643400000000156,
+      "inputTickStartedAt": 1792352928336.166,
+      "localMs": 166.900146484375,
+      "remoteMs": 168.000244140625,
+      "differenceMs": 1.10009765625
+    },
+    {
+      "at": 1792352928914.0999,
+      "handledAt": 1792352928914.2,
+      "direction": "ArrowLeft",
+      "tick": 2891996,
+      "serverTick": 2891996,
+      "pendingTime": 0.03310066666666826,
+      "inputTickStartedAt": 1792352928869.4993,
+      "localMs": 176,
+      "remoteMs": 176.2001953125,
+      "differenceMs": 0.2001953125
+    },
+    {
+      "at": 1792352929316.0999,
+      "handledAt": 1792352929316.2998,
+      "direction": "ArrowRight",
+      "tick": 2892008,
+      "serverTick": 2892008,
+      "pendingTime": 0.03300066666666793,
+      "inputTickStartedAt": 1792352929269.4993,
+      "localMs": 174.10009765625,
+      "remoteMs": 174.000244140625,
+      "differenceMs": -0.099853515625
+    },
+    {
+      "at": 1792352929796.2,
+      "handledAt": 1792352929796.4,
+      "direction": "ArrowLeft",
+      "tick": 2892023,
+      "serverTick": 2892023,
+      "pendingTime": 0.016300666666667234,
+      "inputTickStartedAt": 1792352929769.4993,
+      "localMs": 193.5,
+      "remoteMs": 193.7001953125,
+      "differenceMs": 0.2001953125
+    },
+    {
+      "at": 1792352930344.7,
+      "handledAt": 1792352930344.9,
+      "direction": "ArrowRight",
+      "tick": 2892039,
+      "serverTick": 2892039,
+      "pendingTime": 0.03296733333333394,
+      "inputTickStartedAt": 1792352930302.8325,
+      "localMs": 178.800048828125,
+      "remoteMs": 179.800048828125,
+      "differenceMs": 1
+    }
+  ],
+  "frames": [
+    574,
+    575
+  ]
+}

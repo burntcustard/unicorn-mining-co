@@ -1,0 +1,120 @@
+{
+  "baselineRevision": "94969b94d40bc30bf780c7da6db5e49d231cb720",
+  "sourcePatch": "patches/performance-fixes.patch",
+  "sourceHashes": {
+    "src/client/physics/overlap-recovery.ts": "f3ff9afc526880923b23417d51c73f60338ceef6766a2f14694863227b8a5f3d",
+    "src/server/physics/overlap-recovery.go": "3aa3749649e407b2757a5c2bf66a12267ac33f801c7dc18f436d184ac098ebc1",
+    "src/client/ui/dom/hud.ts": "a303d79ed8c8cd0f3cd2ecdbb650f9535dc7e5aafed4bf9f3438bd9b35e21cb5",
+    "src/client/ui/minimap.ts": "5815baac38664aace8152c8d6498fbb42f350801a3a27c1ea65902f3d40fb468"
+  },
+  "sourceNote": "Two blank-line lint fixes followed the acceptance captures; executable code was unchanged.",
+  "hardware": {
+    "before": "13ff7a0e0375bcd53f04a29f77003d7599338cbb",
+    "after": "94969b94d40bc30bf780c7da6db5e49d231cb720",
+    "processor": "Intel Core Ultra X7 358H",
+    "logicalCpus": 16,
+    "physicalDisplay": [
+      1920,
+      1200
+    ],
+    "physicalRefreshHz": 119.9,
+    "clientSeconds": 30,
+    "clientSizes": [
+      [
+        2560,
+        1440
+      ],
+      [
+        3840,
+        2160
+      ]
+    ],
+    "nativeDisplayCaveat": "Verified render viewports and backing buffers exceed this laptop display; not native-resolution scanout tests.",
+    "localServices": "Go development server on 3001 and Vite on 3000",
+    "liveRelease": 88,
+    "liveRevision": "94969b94d40bc30bf780c7da6db5e49d231cb720"
+  },
+  "server": {
+    "compiler": "go version go1.27.1 linux/amd64",
+    "compileEnvironment": {
+      "CGO_ENABLED": "0",
+      "GOEXPERIMENT": "simd"
+    },
+    "compileArguments": [
+      "test",
+      "-c",
+      "-pgo=./src/server/default.pgo",
+      "./src/server/network"
+    ],
+    "pgoProfileHash": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675",
+    "runtime": {
+      "GOGC": "200",
+      "GOMAXPROCS": "2",
+      "GOMEMLIMIT": "off"
+    },
+    "affinity": "0,1",
+    "warmupTicks": 120,
+    "seed": 25,
+    "normal": {
+      "measuredTicks": 1800,
+      "repetitions": 3,
+      "captures": 96
+    },
+    "long": {
+      "measuredTicks": 6000,
+      "repetitions": 1,
+      "captures": 2
+    },
+    "profiledLong": {
+      "measuredTicks": 6000,
+      "profiling": true,
+      "matchedBefore": false
+    },
+    "variants": {
+      "before": {
+        "executable": "/tmp/unicorn-regression-current.test",
+        "GOGC": "200",
+        "executableHash": "186ee7cf36740ccf2c7a40a9f92aaaadd3aabf31607dfbbd808745cc0c7ffdc8"
+      },
+      "after": {
+        "executable": "/tmp/unicorn-recovery-optimized.test",
+        "GOGC": "200",
+        "executableHash": "c44ae33244c28759d24fd9c11eb6a2a14a0eb535dd636f4ac63fc519bfc8980b"
+      }
+    },
+    "comparison": "Final ship states, motion, contact/event counts, entity count, packet count, and encoded byte totals; payload contents and full event traces were not compared."
+  },
+  "client": {
+    "nativeProfiles": {
+      "before-ui": {
+        "path": "/home/burntcustard/Dev/unicorn-mining-co/benchmarking/local/profile-be38cc44-b639-4c59-b171-edc29b66c7da.json",
+        "sha256": "f2c9a49368e5b8c5695364aad3ccd067261cfc129fb04501e3e399b041d9497d",
+        "summary": "results/firefox-before-ui-profile-summary.json.gz"
+      },
+      "early-read": {
+        "path": "/home/burntcustard/Dev/unicorn-mining-co/benchmarking/local/profile-3c8bd254-9e90-4405-8029-15049b4fa1f6.json",
+        "sha256": "2e2a825ece716be06579ae3f20b8390303ce9422d3b1282e77b89fcf5824b881",
+        "summary": "results/firefox-early-read-profile-summary.json.gz"
+      },
+      "cached-map": {
+        "path": "/home/burntcustard/Dev/unicorn-mining-co/benchmarking/local/profile-95c28ff0-f6f4-48a9-8863-04e25fa37534.json",
+        "sha256": "c88f525f1fdc9a3c1769b127c73e4859aa5542453058bd2038a2c6cdd98547d8",
+        "summary": "results/firefox-cached-map-profile-summary.json.gz"
+      }
+    },
+    "accepted": [
+      "firefox-final-1440",
+      "chrome-final-1440",
+      "firefox-final-4k",
+      "chrome-final-4k"
+    ],
+    "excluded": {
+      "path": "benchmarking/local/performance-fixes-2026-10-18/chrome-final-4k-overlapped-tests.json",
+      "reason": "Overlapped full test startup; replaced by a clean repeat."
+    },
+    "inputControls": "Unchanged and optimized client sources served sequentially from the isolated 94969b9 archive, with the same optimized Go development server and unchanged timing limits.",
+    "inputTimingStatus": "Three first-response failures across nine captures; see report. These have not been discarded.",
+    "inputClockPhaseMethod": "Median observer-minus-pilot time for the first recorded frame of each matching simulation tick, within the steady steering period."
+  },
+  "deployed": false
+}

@@ -1,0 +1,221 @@
+{
+  "browser": "chrome",
+  "headless": false,
+  "skipAudio": false,
+  "clients": 2,
+  "oneWayDelayMs": 5,
+  "transport": "vite-delayed-websocket",
+  "firstInputSendMs": 0.900146484375,
+  "firstResponseMs": [
+    54,
+    38.300048828125
+  ],
+  "frameTiming": [
+    {
+      "p95Ms": 8.400146484375,
+      "maxMs": 149.89990234375
+    },
+    {
+      "p95Ms": 8.400146484375,
+      "maxMs": 150
+    }
+  ],
+  "fit": {
+    "lagMs": 0,
+    "rmsRadians": 0.0028746685126143207
+  },
+  "zeroLag": {
+    "lagMs": 0,
+    "rmsRadians": 0.0028746685126143207
+  },
+  "reversals": [
+    {
+      "at": 1792354137347,
+      "handledAt": 1792354137347.2,
+      "direction": "ArrowRight",
+      "tick": 2928187,
+      "serverTick": 2928187,
+      "pendingTime": 0.025070666666666325,
+      "inputTickStartedAt": 1792354137314.2292,
+      "localMs": 186,
+      "remoteMs": 185.800048828125,
+      "differenceMs": -0.199951171875
+    },
+    {
+      "at": 1792354137822,
+      "handledAt": 1792354137822.1,
+      "direction": "ArrowLeft",
+      "tick": 2928202,
+      "serverTick": 2928201,
+      "pendingTime": 0.0001706666666667217,
+      "inputTickStartedAt": 1792354137814.2292,
+      "localMs": 206,
+      "remoteMs": 204.800048828125,
+      "differenceMs": -1.199951171875
+    },
+    {
+      "at": 1792354138371,
+      "handledAt": 1792354138371.2,
+      "direction": "ArrowRight",
+      "tick": 2928218,
+      "serverTick": 2928218,
+      "pendingTime": 0.016737333333333063,
+      "inputTickStartedAt": 1792354138347.5627,
+      "localMs": 190.800048828125,
+      "remoteMs": 190.699951171875,
+      "differenceMs": -0.10009765625
+    },
+    {
+      "at": 1792354138773.8,
+      "handledAt": 1792354138777.9,
+      "direction": "ArrowLeft",
+      "tick": 2928230,
+      "serverTick": 2928230,
+      "pendingTime": 0.02503733333333418,
+      "inputTickStartedAt": 1792354138747.5627,
+      "localMs": 191.89990234375,
+      "remoteMs": 192.599853515625,
+      "differenceMs": 0.699951171875
+    },
+    {
+      "at": 1792354139253.2,
+      "handledAt": 1792354139253.4,
+      "direction": "ArrowRight",
+      "tick": 2928245,
+      "serverTick": 2928244,
+      "pendingTime": 0.0001373333333345786,
+      "inputTickStartedAt": 1792354139247.5627,
+      "localMs": 205.800048828125,
+      "remoteMs": 206.199951171875,
+      "differenceMs": 0.39990234375
+    },
+    {
+      "at": 1792354139801.4,
+      "handledAt": 1792354139801.6,
+      "direction": "ArrowLeft",
+      "tick": 2928261,
+      "serverTick": 2928261,
+      "pendingTime": 0.01670400000000092,
+      "inputTickStartedAt": 1792354139780.896,
+      "localMs": 191.2001953125,
+      "remoteMs": 191.800048828125,
+      "differenceMs": 0.599853515625
+    },
+    {
+      "at": 1792354140204.2,
+      "handledAt": 1792354140204.7,
+      "direction": "ArrowRight",
+      "tick": 2928273,
+      "serverTick": 2928273,
+      "pendingTime": 0.016704000000000947,
+      "inputTickStartedAt": 1792354140180.896,
+      "localMs": 188.199951171875,
+      "remoteMs": 189.699951171875,
+      "differenceMs": 1.5
+    },
+    {
+      "at": 1792354140680.6,
+      "handledAt": 1792354140681,
+      "direction": "ArrowLeft",
+      "tick": 2928287,
+      "serverTick": 2928287,
+      "pendingTime": 0.025137333333334677,
+      "inputTickStartedAt": 1792354140647.5627,
+      "localMs": 185.7998046875,
+      "remoteMs": 186.099853515625,
+      "differenceMs": 0.300048828125
+    },
+    {
+      "at": 1792354141232.6,
+      "handledAt": 1792354141236,
+      "direction": "ArrowRight",
+      "tick": 2928304,
+      "serverTick": 2928304,
+      "pendingTime": 0.016770666666667322,
+      "inputTickStartedAt": 1792354141214.2292,
+      "localMs": 193.89990234375,
+      "remoteMs": 197.5,
+      "differenceMs": 3.60009765625
+    },
+    {
+      "at": 1792354141638.8,
+      "handledAt": 1792354141638.8,
+      "direction": "ArrowLeft",
+      "tick": 2928316,
+      "serverTick": 2928316,
+      "pendingTime": 0.01677066666666735,
+      "inputTickStartedAt": 1792354141614.2292,
+      "localMs": 195.5,
+      "remoteMs": 194.39990234375,
+      "differenceMs": -1.10009765625
+    },
+    {
+      "at": 1792354142114.1,
+      "handledAt": 1792354142114.2,
+      "direction": "ArrowRight",
+      "tick": 2928330,
+      "serverTick": 2928330,
+      "pendingTime": 0.025104000000000716,
+      "inputTickStartedAt": 1792354142080.896,
+      "localMs": 184.7998046875,
+      "remoteMs": 185.2998046875,
+      "differenceMs": 0.5
+    },
+    {
+      "at": 1792354142662.4,
+      "handledAt": 1792354142662.5,
+      "direction": "ArrowLeft",
+      "tick": 2928347,
+      "serverTick": 2928347,
+      "pendingTime": 0.008437333333334088,
+      "inputTickStartedAt": 1792354142647.5627,
+      "localMs": 196.2001953125,
+      "remoteMs": 196.800048828125,
+      "differenceMs": 0.599853515625
+    },
+    {
+      "at": 1792354143065.6,
+      "handledAt": 1792354143065.9,
+      "direction": "ArrowRight",
+      "tick": 2928359,
+      "serverTick": 2928359,
+      "pendingTime": 0.008337333333333752,
+      "inputTickStartedAt": 1792354143047.5627,
+      "localMs": 194.39990234375,
+      "remoteMs": 196,
+      "differenceMs": 1.60009765625
+    },
+    {
+      "at": 1792354143542.7,
+      "handledAt": 1792354143542.9,
+      "direction": "ArrowLeft",
+      "tick": 2928373,
+      "serverTick": 2928373,
+      "pendingTime": 0.025070666666666755,
+      "inputTickStartedAt": 1792354143514.2292,
+      "localMs": 190.699951171875,
+      "remoteMs": 191.900146484375,
+      "differenceMs": 1.2001953125
+    },
+    {
+      "at": 1792354144094,
+      "handledAt": 1792354144094.4,
+      "direction": "ArrowRight",
+      "tick": 2928390,
+      "serverTick": 2928390,
+      "pendingTime": 0.008304000000001581,
+      "inputTickStartedAt": 1792354144080.896,
+      "localMs": 203,
+      "remoteMs": 209.5,
+      "differenceMs": 6.5
+    }
+  ],
+  "frames": [
+    1094,
+    1099
+  ],
+  "errors": [
+    [],
+    []
+  ]
+}

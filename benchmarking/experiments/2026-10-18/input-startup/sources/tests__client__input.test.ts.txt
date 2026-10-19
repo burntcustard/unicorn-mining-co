@@ -1,0 +1,530 @@
+/* global window */
+
+import assert from 'node:assert/strict';
+import { rolldown } from 'rolldown';
+import { PredictionManager } from '../../src/client/prediction/prediction.ts';
+import {
+  createWorld,
+  addEntity,
+  addPlayer,
+} from '../../src/client/simulation/world.ts';
+import { createPlayerShip } from '../../src/client/objects/create-ship.ts';
+import { emptyPlayerInput } from '../../src/client/protocol/input.ts';
+
+Object.assign(globalThis, { window: new EventTarget() });
+
+Object.assign(globalThis, {
+  KeyboardEvent: class extends Event {
+    declare key: string;
+    declare repeat: boolean;
+    declare shiftKey: boolean;
+
+    constructor(
+      type: string,
+      {
+        key,
+        repeat = false,
+        shiftKey = false,
+      }: { key: string; repeat?: boolean; shiftKey?: boolean },
+    ) {
+      super(type, { cancelable: true });
+      this.key = key;
+      this.repeat = repeat;
+      this.shiftKey = shiftKey;
+    }
+  },
+});
+
+const bundle = await rolldown({
+  input: 'input',
+  plugins: [
+    {
+      name: 'input-test-entry',
+      load: (id) => {
+        if (id === '\0input') {
+          return `export * from '${process.cwd()}/src/client/input/input.ts';export {defaultKeybindings} from '${process.cwd()}/src/client/input/keybindings.ts';export {GameLoop} from '${process.cwd()}/src/client/game-loop.ts';export {maxPredictionTicks} from '${process.cwd()}/src/specs/prediction.ts';export {simulationStep} from '${process.cwd()}/src/specs/simulation.ts';`;
+        }
+
+        if (id.endsWith('/src/client/core.ts')) {
+          return 'export const clearFrame=()=>{};export const presentFrame=()=>{};';
+        }
+
+        if (id.endsWith('/src/client/audio/sound-loader.ts')) {
+          return 'export const unlockAudio = () => globalThis.inputAudio?.();';
+        }
+      },
+      resolveId: (id) => (id === 'input' ? '\0input' : undefined),
+    },
+  ],
+});
+
+const { output } = await bundle.generate({ format: 'esm' });
+
+const input: {
+  bindKeys: typeof import('../../src/client/input/input').bindKeys;
+  bindAction: typeof import('../../src/client/input/input').bindAction;
+  defaultKeybindings: typeof import('../../src/client/input/keybindings').defaultKeybindings;
+  setMenuInput: typeof import('../../src/client/input/input').setMenuInput;
+  initKeys: typeof import('../../src/client/input/input').initKeys;
+  playerInput: typeof import('../../src/client/input/input').playerInput;
+  GameLoop: typeof import('../../src/client/game-loop.ts').GameLoop;
+  maxPredictionTicks: typeof import('../../src/specs/prediction.ts').maxPredictionTicks;
+  simulationStep: typeof import('../../src/specs/simulation.ts').simulationStep;
+} = await import(
+  `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
+);
+
+const changes: import('../../src/client/protocol/input').PlayerInput[] = [];
+let activity = 0;
+
+const audioInputs: { thrust: number; changes: number }[] = [];
+
+Object.assign(globalThis, {
+  inputAudio: () =>
+    audioInputs.push({
+      thrust: input.playerInput.thrust,
+      changes: changes.length,
+    }),
+});
+
+const stopKeys = input.initKeys({
+  onChange: (state) => changes.push(state),
+  onActivity: () => activity++,
+});
+
+assert.equal(activity, 0, 'initialization does not report player activity');
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.deepEqual(
+  audioInputs[0],
+  { thrust: 1, changes: 1 },
+  'the first control is recorded and sent before synchronous audio setup',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+input.setMenuInput(true);
+assert.equal(input.playerInput.thrust, 0);
+assert.equal(input.playerInput.fire, false);
+assert.equal(
+  changes.at(-1).thrust,
+  0,
+  'opening a menu sends the release to networking',
+);
+const tab = new KeyboardEvent('keydown', { key: 'Tab' });
+const space = new KeyboardEvent('keydown', { key: ' ' });
+
+window.dispatchEvent(tab);
+window.dispatchEvent(space);
+assert(
+  !tab.defaultPrevented && !space.defaultPrevented,
+  'native navigation remains available',
+);
+
+const menuShiftTab = new KeyboardEvent('keydown', {
+  key: 'Tab',
+  shiftKey: true,
+});
+
+window.dispatchEvent(menuShiftTab);
+assert(!menuShiftTab.defaultPrevented, 'menus preserve Shift+Tab navigation');
+assert.equal(input.playerInput.fire, false, 'menu keys cannot fire weapons');
+const menuChanges = changes.length;
+const beforeActivity = activity;
+const handled = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+
+handled.preventDefault();
+window.dispatchEvent(handled);
+window.dispatchEvent(
+  new KeyboardEvent('keydown', { key: 'Tab', repeat: true }),
+);
+
+for (const type of ['pointermove', 'pointerdown', 'wheel']) {
+  window.dispatchEvent(new Event(type));
+}
+
+assert.equal(
+  activity,
+  beforeActivity + 5,
+  'menu navigation, held keys, pointer movement, clicks, and scrolling count as activity',
+);
+assert.equal(
+  changes.length,
+  menuChanges,
+  'menu activity preserves flight input',
+);
+window.dispatchEvent(new Event('focus'));
+window.dispatchEvent(new Event('scroll'));
+assert.equal(
+  activity,
+  beforeActivity + 5,
+  'passive UI updates are not activity',
+);
+input.setMenuInput(false);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.equal(
+  input.playerInput.thrust,
+  1,
+  'gameplay resumes with a fresh key press',
+);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' }));
+changes.length = 0;
+
+let fpsToggles = 0;
+
+input.bindAction(input.defaultKeybindings.fpsCounter, () => fpsToggles++);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
+assert.equal(fpsToggles, 1, 'F toggles FPS once until released');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+assert.equal(fpsToggles, 2, 'a second tap toggles FPS again');
+input.defaultKeybindings.fpsCounter.keys = ['v'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+assert.equal(fpsToggles, 2, 'rebinding removes the default FPS key');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'V' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'v' }));
+assert.equal(fpsToggles, 3, 'the rebound FPS key works immediately');
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
+assert.equal(fpsToggles, 3, 'menu keys do not toggle FPS');
+input.setMenuInput(false);
+input.defaultKeybindings.fpsCounter.keys = ['f'];
+
+let targetRequests = 0;
+
+input.bindAction(input.defaultKeybindings.targetNext, () => targetRequests++);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
+assert.equal(targetRequests, 1, 'T requests a target once per press');
+const targetTab = new KeyboardEvent('keydown', { key: 'Tab' });
+
+window.dispatchEvent(targetTab);
+assert.equal(targetRequests, 1, 'Tab does not target objects');
+assert(targetTab.defaultPrevented, 'Tab cannot move focus out of gameplay');
+
+for (const options of [{ repeat: true }, { shiftKey: true }]) {
+  const tab = new KeyboardEvent('keydown', { key: 'Tab', ...options });
+
+  window.dispatchEvent(tab);
+  assert(
+    tab.defaultPrevented,
+    'held Tab and Shift+Tab cannot move gameplay focus',
+  );
+}
+
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
+assert.equal(targetRequests, 2, 'targeting still works after Tab');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.equal(input.playerInput.thrust, 1, 'ship controls still work after Tab');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' }));
+input.defaultKeybindings.targetNext.keys = ['n'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
+assert.equal(targetRequests, 2, 'rebinding removes the default target key');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'N' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'n' }));
+assert.equal(targetRequests, 3, 'the rebound target key works immediately');
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
+assert.equal(targetRequests, 3, 'menus suppress world targeting');
+input.setMenuInput(false);
+input.defaultKeybindings.targetNext.keys = ['t'];
+
+let accessRequests = 0;
+
+input.bindAction(
+  input.defaultKeybindings.requestGateAccess,
+  () => accessRequests++,
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'R' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'r' }));
+assert.equal(accessRequests, 1, 'gate access fires once per press');
+input.defaultKeybindings.requestGateAccess.keys = ['g'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'r' }));
+assert.equal(
+  accessRequests,
+  1,
+  'the old access key stops working after rebinding',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'g' }));
+assert.equal(accessRequests, 2, 'the rebound access key works');
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+assert.equal(accessRequests, 2, 'typing and menus suppress gate access');
+input.setMenuInput(false);
+input.defaultKeybindings.requestGateAccess.keys = ['r'];
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
+assert.equal(input.playerInput.hornDrill, true);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
+assert.equal(input.playerInput.hornDrill, true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
+assert.equal(input.playerInput.hornDrill, false);
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'P' }));
+assert.equal(input.playerInput.plasmaActive, true, 'P deploys plasma');
+assert(!input.playerInput.autogunActive, 'P does not deploy autogunActive');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'A' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
+assert.equal(
+  input.playerInput.autogunActive,
+  true,
+  'A independently deploys autogunActive',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.equal(
+  input.playerInput.plasmaActive,
+  true,
+  'release and repeat preserve deployment',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+assert.equal(input.playerInput.fire, true);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+assert.equal(input.playerInput.fire, false);
+assert.equal(
+  input.playerInput.plasmaActive,
+  true,
+  'Space is independent of deployment',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.equal(input.playerInput.plasmaActive, false, 'next P retracts plasma');
+assert.equal(
+  input.playerInput.autogunActive,
+  true,
+  'P does not retract autogunActive',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
+assert.equal(input.playerInput.autogunActive, false);
+console.log('toggle input test passed');
+
+const beforeTap = changes.length;
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+assert.equal(changes.at(-1).turn, -1, 'press is captured synchronously');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' }));
+assert.equal(
+  changes.at(-1).turn,
+  0,
+  'release is captured before any frame runs',
+);
+assert.equal(changes.length, beforeTap + 2);
+assert.equal(
+  changes.at(-2).turn,
+  -1,
+  'captured states are not mutable aliases',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+window.dispatchEvent(new Event('blur'));
+assert.equal(input.playerInput.thrust, 0);
+assert.equal(input.playerInput.turn, 0, 'focus loss releases movement');
+let escaped = false;
+
+input.bindKeys('Escape', () => {
+  escaped = true;
+});
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+assert(escaped, 'full key names work for menu bindings');
+
+stopKeys();
+const stoppedActivity = activity;
+
+for (const type of ['keydown', 'pointermove', 'pointerdown', 'wheel']) {
+  window.dispatchEvent(new KeyboardEvent(type, { key: 'ArrowDown' }));
+}
+
+assert.equal(
+  activity,
+  stoppedActivity,
+  'cleanup removes every activity listener',
+);
+let respawnKeys = 0;
+
+const stopDeadKeys = input.initKeys({
+  onKeyDown: () => {
+    respawnKeys++;
+    return true;
+  },
+});
+
+const zoomEvent = new KeyboardEvent('keydown', { key: '+' });
+
+zoomEvent.preventDefault();
+window.dispatchEvent(zoomEvent);
+assert.equal(respawnKeys, 0, 'handled camera shortcuts do not request respawn');
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.equal(respawnKeys, 1, 'any new key can request a respawn');
+assert.equal(input.playerInput.thrust, 0, 'respawn key does not fly the ship');
+assert.equal(
+  audioInputs.at(-1).thrust,
+  0,
+  'an intercepted gameplay key still unlocks audio without changing controls',
+);
+stopDeadKeys();
+
+const clock = globalThis.performance;
+const interval = globalThis.setInterval;
+let now = 0;
+let updates = 0;
+let renders = 0;
+
+let frameTime: { dt: number; now: number };
+
+const frames: FrameRequestCallback[] = [];
+const maxFrameTime = input.maxPredictionTicks * input.simulationStep;
+
+Object.assign(globalThis, { performance: { now: () => now } });
+Object.assign(globalThis, { canvas: { width: 1, height: 1 } });
+Object.assign(globalThis, { document: { hidden: false } });
+Object.assign(globalThis, { setInterval: () => 0 });
+globalThis.requestAnimationFrame = (frame) => frames.push(frame);
+
+try {
+  input
+    .GameLoop({
+      update(timing: { dt: number; now: number }) {
+        updates++;
+        frameTime = timing;
+        // Vary the time spent simulating without moving the frame's clock.
+        now += updates % 2 ? 8 : 1;
+      },
+      render(timing: { dt: number; now: number }) {
+        const { dt } = timing;
+
+        assert.equal(dt, frameTime.dt, 'rendering uses the frame interval');
+        assert.equal(
+          timing.now,
+          frameTime.now,
+          'prediction uses the same display time as simulation',
+        );
+        renders++;
+        assert(
+          dt > 0 && dt <= maxFrameTime,
+          'frame catch-up is bounded by the prediction horizon',
+        );
+      },
+    })
+    .start();
+
+  // Ordinary slow frames retain all elapsed time. Longer pauses are capped,
+  // and the first normal frame afterward must not replay the discarded debt.
+  const elapsedFrames = [
+    750,
+    1000 / 60,
+    100,
+    200,
+    2000,
+    1000 / 60,
+    ...Array(12).fill(1000 / 120),
+  ];
+
+  elapsedFrames.forEach((elapsedMs, index) => {
+    now = (frameTime?.now || 0) + elapsedMs;
+    const frameStartedAt = now;
+
+    frames.shift()(frameStartedAt);
+    assert.equal(updates, index + 1, 'each frame invokes update once');
+    assert.equal(renders, updates, 'each update is followed by rendering');
+    assert.equal(frameTime.now, frameStartedAt);
+    assert(
+      Math.abs(frameTime.dt - Math.min(elapsedMs / 1000, maxFrameTime)) < 1e-12,
+      `${elapsedMs}ms frame preserves elapsed time up to the catch-up limit`,
+    );
+    assert.equal(frames.length, 1, 'only the next animation frame is queued');
+  });
+
+  // Follow a real predicted ship through tick boundaries at several display
+  // rates. CPU work and callback scheduling must not change its visible speed.
+  for (const hz of [60, 120, 144]) {
+    for (const speed of [272, 1200]) {
+      frames.length = 0;
+      now = 0;
+      const world = createWorld();
+      const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+
+      ship.drag = 0;
+      ship.engine.forwardThrust = speed / 17;
+      ship.velocity.x = speed;
+      addPlayer(world, { id: 1, shipId: ship.id });
+      const prediction = new PredictionManager({ world });
+
+      prediction.setLocalPlayer({ playerId: 1 });
+      let pending = 0;
+      let tickStartedAt = 0;
+      let previous = 0;
+
+      const distances: number[] = [];
+
+      input
+        .GameLoop({
+          update({ dt, now: displayTime }: { dt: number; now: number }) {
+            pending += dt;
+
+            while (pending + 1e-12 >= input.simulationStep) {
+              pending = Math.max(0, pending - input.simulationStep);
+
+              prediction.step({ input: emptyPlayerInput(), send() {} });
+
+              tickStartedAt = displayTime - pending * 1000;
+            }
+
+            // Expensive tick frames alternate with cheap in-between frames.
+            now += world.tick % 2 ? 8 : 1;
+          },
+          render({ now: displayTime }: { dt: number; now: number }) {
+            const predicted = prediction
+              .predictFrame({
+                elapsed: (displayTime - tickStartedAt) / 1000,
+              })
+              .entities.get(ship.id);
+
+            distances.push(predicted.position.x - previous);
+            previous = predicted.position.x;
+          },
+        })
+        .start();
+
+      for (let index = 1; index <= hz * 2; index++) {
+        const displayTime = (index * 1000) / hz;
+
+        now = displayTime + (index % 3 ? 0.2 : 2);
+        frames.shift()(displayTime);
+      }
+
+      const spread = Math.max(...distances) - Math.min(...distances);
+
+      console.log(
+        `${hz} Hz, ${speed} units/s: frame-distance spread ${spread}`,
+      );
+      assert(
+        spread < 1e-5,
+        'steady flight stays smooth despite variable CPU time',
+      );
+      assert(
+        Math.abs(previous - speed * 2) < 1e-5,
+        'flight preserves elapsed distance',
+      );
+    }
+  }
+} finally {
+  globalThis.performance = clock;
+  globalThis.setInterval = interval;
+  delete globalThis.requestAnimationFrame;
+  Reflect.deleteProperty(globalThis, 'canvas');
+  Reflect.deleteProperty(globalThis, 'document');
+}
+
+console.log('Frame catch-up is bounded after short and long stalls');

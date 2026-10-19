@@ -1,0 +1,232 @@
+{
+  "browser": "chrome",
+  "headless": true,
+  "clients": 2,
+  "oneWayDelayMs": 5,
+  "transport": "vite-delayed-websocket",
+  "firstInputSendMs": 7.89990234375,
+  "firstResponseMs": [
+    19.7998046875,
+    53.199951171875
+  ],
+  "frameTiming": [
+    {
+      "p95Ms": 16.7001953125,
+      "maxMs": 33.300048828125
+    },
+    {
+      "p95Ms": 16.7001953125,
+      "maxMs": 16.800048828125
+    }
+  ],
+  "fit": {
+    "lagMs": -1,
+    "rmsRadians": 0.0031454970266651524
+  },
+  "zeroLag": {
+    "lagMs": 0,
+    "rmsRadians": 0.0031846385186675274
+  },
+  "reversals": [
+    {
+      "at": 1792354987232.6,
+      "handledAt": 1792354987232.8,
+      "direction": "ArrowRight",
+      "tick": 2953684,
+      "serverTick": 2953684,
+      "pendingTime": 0.03326933333333312,
+      "inputTickStartedAt": 1792354987186.9307,
+      "localMs": 174,
+      "remoteMs": 174,
+      "differenceMs": 0
+    },
+    {
+      "at": 1792354987713.1,
+      "handledAt": 1792354987713.5,
+      "direction": "ArrowLeft",
+      "tick": 2953699,
+      "serverTick": 2953698,
+      "pendingTime": 0.016569333333334248,
+      "inputTickStartedAt": 1792354987686.9307,
+      "localMs": 194,
+      "remoteMs": 193.800048828125,
+      "differenceMs": -0.199951171875
+    },
+    {
+      "at": 1792354988263.4001,
+      "handledAt": 1792354988263.7,
+      "direction": "ArrowRight",
+      "tick": 2953715,
+      "serverTick": 2953715,
+      "pendingTime": 0.03313600000000059,
+      "inputTickStartedAt": 1792354988220.2642,
+      "localMs": 175.699951171875,
+      "remoteMs": 176.5,
+      "differenceMs": 0.800048828125
+    },
+    {
+      "at": 1792354988666.8,
+      "handledAt": 1792354988667.2,
+      "direction": "ArrowLeft",
+      "tick": 2953727,
+      "serverTick": 2953727,
+      "pendingTime": 0.03323600000000098,
+      "inputTickStartedAt": 1792354988620.2642,
+      "localMs": 173.699951171875,
+      "remoteMs": 173.60009765625,
+      "differenceMs": -0.099853515625
+    },
+    {
+      "at": 1792354989146.3,
+      "handledAt": 1792354989146.8,
+      "direction": "ArrowRight",
+      "tick": 2953742,
+      "serverTick": 2953741,
+      "pendingTime": 0.016435999999999923,
+      "inputTickStartedAt": 1792354989120.2642,
+      "localMs": 193.39990234375,
+      "remoteMs": 194.60009765625,
+      "differenceMs": 1.2001953125
+    },
+    {
+      "at": 1792354989696.1,
+      "handledAt": 1792354989696.3,
+      "direction": "ArrowLeft",
+      "tick": 2953758,
+      "serverTick": 2953758,
+      "pendingTime": 0.03310266666666663,
+      "inputTickStartedAt": 1792354989653.5974,
+      "localMs": 177.099853515625,
+      "remoteMs": 177.800048828125,
+      "differenceMs": 0.7001953125
+    },
+    {
+      "at": 1792354990099.1,
+      "handledAt": 1792354990099.2,
+      "direction": "ArrowRight",
+      "tick": 2953770,
+      "serverTick": 2953770,
+      "pendingTime": 0.03320266666666702,
+      "inputTickStartedAt": 1792354990053.5974,
+      "localMs": 174.300048828125,
+      "remoteMs": 175.199951171875,
+      "differenceMs": 0.89990234375
+    },
+    {
+      "at": 1792354990579.7,
+      "handledAt": 1792354990579.8,
+      "direction": "ArrowLeft",
+      "tick": 2953785,
+      "serverTick": 2953784,
+      "pendingTime": 0.01640266666666778,
+      "inputTickStartedAt": 1792354990553.5974,
+      "localMs": 193.800048828125,
+      "remoteMs": 193.900146484375,
+      "differenceMs": 0.10009765625
+    },
+    {
+      "at": 1792354991129,
+      "handledAt": 1792354991129.3,
+      "direction": "ArrowRight",
+      "tick": 2953801,
+      "serverTick": 2953801,
+      "pendingTime": 0.033069333333334484,
+      "inputTickStartedAt": 1792354991086.9307,
+      "localMs": 177.5,
+      "remoteMs": 177.800048828125,
+      "differenceMs": 0.300048828125
+    },
+    {
+      "at": 1792354991531.8,
+      "handledAt": 1792354991532,
+      "direction": "ArrowLeft",
+      "tick": 2953813,
+      "serverTick": 2953813,
+      "pendingTime": 0.03306933333333451,
+      "inputTickStartedAt": 1792354991486.9307,
+      "localMs": 179.199951171875,
+      "remoteMs": 179.60009765625,
+      "differenceMs": 0.400146484375
+    },
+    {
+      "at": 1792354992012.7,
+      "handledAt": 1792354992013,
+      "direction": "ArrowRight",
+      "tick": 2953828,
+      "serverTick": 2953827,
+      "pendingTime": 0.01636933333333382,
+      "inputTickStartedAt": 1792354991986.9307,
+      "localMs": 193.7001953125,
+      "remoteMs": 194.2001953125,
+      "differenceMs": 0.5
+    },
+    {
+      "at": 1792354992566.7,
+      "handledAt": 1792354992566.9001,
+      "direction": "ArrowLeft",
+      "tick": 2953844,
+      "serverTick": 2953844,
+      "pendingTime": 0.03303600000000052,
+      "inputTickStartedAt": 1792354992520.2642,
+      "localMs": 173.10009765625,
+      "remoteMs": 172.400146484375,
+      "differenceMs": -0.699951171875
+    },
+    {
+      "at": 1792354992969,
+      "handledAt": 1792354992969,
+      "direction": "ArrowRight",
+      "tick": 2953856,
+      "serverTick": 2953856,
+      "pendingTime": 0.03293600000000019,
+      "inputTickStartedAt": 1792354992920.2642,
+      "localMs": 170.699951171875,
+      "remoteMs": 169.900146484375,
+      "differenceMs": -0.7998046875
+    },
+    {
+      "at": 1792354993445.7,
+      "handledAt": 1792354993445.8,
+      "direction": "ArrowLeft",
+      "tick": 2953871,
+      "serverTick": 2953870,
+      "pendingTime": 0.016335999999999858,
+      "inputTickStartedAt": 1792354993420.2642,
+      "localMs": 197.7001953125,
+      "remoteMs": 198.7001953125,
+      "differenceMs": 1
+    },
+    {
+      "at": 1792354993993.8,
+      "handledAt": 1792354993994,
+      "direction": "ArrowRight",
+      "tick": 2953887,
+      "serverTick": 2953887,
+      "pendingTime": 0.03300266666666656,
+      "inputTickStartedAt": 1792354993953.5974,
+      "localMs": 188.10009765625,
+      "remoteMs": 188,
+      "differenceMs": -0.10009765625
+    }
+  ],
+  "frames": [
+    570,
+    570
+  ],
+  "errors": [
+    [],
+    []
+  ],
+  "audioStates": [
+    "running",
+    "suspended"
+  ],
+  "audioSetupMs": [
+    [
+      106.300048828125
+    ],
+    [
+      105.099853515625
+    ]
+  ]
+}

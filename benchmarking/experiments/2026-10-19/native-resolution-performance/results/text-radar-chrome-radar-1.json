@@ -1,0 +1,389 @@
+{
+  "browser": "chrome",
+  "version": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/155.0.8059.79",
+    "revision": "@a49e2e3d4addfd84e765b52afe230bedb81096db",
+    "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "jsVersion": "15.5.35.23"
+  },
+  "display": {
+    "x": 0,
+    "y": 0,
+    "width": 1920,
+    "height": 1200,
+    "devicePixelRatio": 1,
+    "screen": [
+      1920,
+      1200
+    ],
+    "viewport": [
+      1920,
+      1200
+    ]
+  },
+  "setupInfo": {
+    "viewport": [
+      1920,
+      1200
+    ],
+    "canvas": [
+      1920,
+      1200
+    ],
+    "zoom": 1.5,
+    "gs": {
+      "i": 281474976712401,
+      "p": {
+        "x": -3775,
+        "y": 5725
+      },
+      "Ss": [
+        {
+          "i": -1099511630058,
+          "ec": 4,
+          "K": 0,
+          "j": 4,
+          "zc": 4,
+          "sr": [
+            "#c2c",
+            "#d3d",
+            "#e6f",
+            "#427",
+            "#e6f"
+          ],
+          "L": [
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            }
+          ]
+        },
+        {
+          "i": -1099511630057,
+          "ec": 1,
+          "K": 1,
+          "j": 20,
+          "sr": [
+            "#c2c",
+            "#d3d",
+            "#e6f",
+            "#427",
+            "#e6f"
+          ],
+          "L": [
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            }
+          ]
+        },
+        {
+          "i": -1099511630062,
+          "ec": 16,
+          "K": 3,
+          "j": 80,
+          "sr": [
+            "#ddd",
+            "#eee",
+            "#fff",
+            "#33c",
+            "#f8d"
+          ],
+          "L": []
+        },
+        {
+          "i": -1099511630060,
+          "ec": 6,
+          "K": 4,
+          "j": 80,
+          "sr": [
+            "#ca1",
+            "#ec3",
+            "#fe4",
+            "#c50",
+            "#f95"
+          ],
+          "L": [
+            {
+              "q": 0,
+              "Zc": 0
+            }
+          ]
+        },
+        {
+          "i": -1099511630061,
+          "ec": 5,
+          "K": 5,
+          "j": 10,
+          "sr": [
+            "#ddd",
+            "#eee",
+            "#fff",
+            "#33c",
+            "#f8d"
+          ],
+          "L": [
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            }
+          ]
+        },
+        {
+          "i": -1099511630059,
+          "ec": 4,
+          "K": 6,
+          "j": 4,
+          "zc": 4,
+          "sr": [
+            "#c2c",
+            "#d3d",
+            "#e6f",
+            "#427",
+            "#e6f"
+          ],
+          "L": [
+            {
+              "q": 0,
+              "Zc": 0
+            },
+            {
+              "q": 0,
+              "Zc": 0
+            }
+          ]
+        }
+      ],
+      "ew": [],
+      "$r": 2000,
+      "up": false
+    },
+    "tw": {
+      "k": 1,
+      "l": 1
+    }
+  },
+  "seconds": 30,
+  "productionTransforms": true,
+  "source": "working-tree",
+  "rendererPreference": "auto",
+  "stylesheets": [
+    "index-5FFLLJeV.css",
+    "gameplay-BD0QcC7Y.css",
+    "docked-DXAERKCK.css"
+  ],
+  "gpuInfo": [
+    "WebKit",
+    "WebKit WebGL",
+    "ANGLE (Intel, Mesa Intel(R) Graphics (PTL), OpenGL ES 3.2)"
+  ],
+  "simulationStep": 0.03333333333333333,
+  "diagnostics": {
+    "nativeDisplay": true,
+    "clearMode": null,
+    "radarPath": true,
+    "sharedModels": false,
+    "minifyMode": "default",
+    "oldText": false,
+    "profiler": false,
+    "trace": false,
+    "softwareCanvas": false,
+    "gpuCanvas": false,
+    "sourceOverInterior": false,
+    "noHudBlur": false
+  },
+  "snapshotNote": "Live uses normal networking; combat and flight use the isolated deterministic client world.",
+  "results": [
+    {
+      "scenario": "flight",
+      "hud-blur": "blur(4px)",
+      "hud-canvas": true,
+      "fps": 119.7676627310626,
+      "frames": 3594,
+      "p95": 8.400000000001455,
+      "p99": 8.400000000001455,
+      "missed": 4,
+      "max": 41.69999999999709,
+      "hidden-during-capture": false,
+      "fps-windows": [
+        115,
+        120,
+        119,
+        120,
+        120,
+        120,
+        120,
+        120,
+        115,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120.00396707329176,
+        120,
+        120,
+        120,
+        119.02400317397333,
+        120,
+        120,
+        119.98800119988019,
+        120,
+        120.01586986708978,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "stalls": [
+        [
+          1666.699999999999,
+          16.600000000000364,
+          4.700000002980232,
+          1.800000011920929,
+          0.10000000894069672,
+          0.09999999403953552
+        ],
+        [
+          7683.399999999998,
+          41.69999999999709,
+          1.3999999910593033,
+          10.399999991059303,
+          2.5999999940395355,
+          5.700000002980232
+        ],
+        [
+          7708.399999999998,
+          16.69999999999709,
+          1.0999999940395355,
+          1,
+          0,
+          0.10000000894069672
+        ],
+        [
+          17658.2,
+          16.700000000000728,
+          1.4000000059604645,
+          2.4000000059604645,
+          0.5,
+          0.9000000059604645
+        ]
+      ],
+      "cpu": [
+        2.1283449231915084,
+        4.9000000059604645,
+        7.200000002980232,
+        10.399999991059303
+      ],
+      "update": [
+        0.307399165447962,
+        1.300000011920929,
+        1.7999999970197678,
+        2.5999999940395355
+      ],
+      "prediction": [
+        0.564394992793054,
+        2.300000011920929,
+        3.199999988079071,
+        5.700000002980232
+      ],
+      "messages": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "message-count": 0,
+      "viewport": [
+        1920,
+        1200
+      ],
+      "canvas": [
+        1920,
+        1200
+      ],
+      "zoom": 1.5,
+      "rounds": 1832,
+      "alive": true,
+      "context-attributes": {
+        "alpha": true,
+        "colorSpace": "srgb",
+        "colorType": "unorm8",
+        "desynchronized": false,
+        "toneMapping": {
+          "mode": "standard"
+        },
+        "willReadFrequently": true
+      },
+      "minimap-attributes": {
+        "alpha": true,
+        "colorSpace": "srgb",
+        "colorType": "unorm8",
+        "desynchronized": false,
+        "toneMapping": {
+          "mode": "standard"
+        },
+        "willReadFrequently": true
+      },
+      "audio-state": "running",
+      "browser-errors": [],
+      "scene-surfaces": 38,
+      "surface-style-errors": 0,
+      "background-style-errors": 0,
+      "visible-rocks": [
+        38,
+        40.19834710743802,
+        38
+      ],
+      "ship-docked": false,
+      "ui-active": false,
+      "field-wraps": 210,
+      "movement": 8160.000050067902,
+      "camera-movement": 8164.461062246315,
+      "document-extent": [
+        1920,
+        1200,
+        1920,
+        1200
+      ],
+      "splits": 0,
+      "destroyed": 0,
+      "light-active": true,
+      "asteroids": 48,
+      "radar-contacts": 48,
+      "hud-panels": 4,
+      "hud-visible": 4
+    }
+  ]
+}

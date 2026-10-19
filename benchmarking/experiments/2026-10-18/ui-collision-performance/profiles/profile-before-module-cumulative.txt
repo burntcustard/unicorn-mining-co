@@ -1,0 +1,34 @@
+File: unicorn-regression-before.test
+Build ID: 88fd183f39bf4c94bf21da0c8405636bf9c8038b
+Type: cpu
+Time: 2026-10-18 18:20:39 BST
+Duration: 2.20s, Total samples = 2270ms (103.29%)
+Showing nodes accounting for 480ms, 21.15% of 2270ms total
+Dropped 136 nodes (cum <= 11.35ms)
+Showing top 25 nodes out of 152
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     2160ms 95.15%  github.com/burntcustard/unicorn-mining-co/src/server/network.TestSessionBenchmark
+      10ms  0.44%  0.44%     2160ms 95.15%  github.com/burntcustard/unicorn-mining-co/src/server/network.TestSessionBenchmark.func1
+         0     0%  0.44%     2160ms 95.15%  testing.tRunner
+         0     0%  0.44%     2150ms 94.71%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).Tick
+         0     0%  0.44%     2140ms 94.27%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector
+         0     0%  0.44%     1270ms 55.95%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.UpdateWorld
+      30ms  1.32%  1.76%      940ms 41.41%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).Step
+         0     0%  1.76%      940ms 41.41%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*measuredCollisions).Step
+         0     0%  1.76%      770ms 33.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers (inline)
+         0     0%  1.76%      770ms 33.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers.func1
+         0     0%  1.76%      770ms 33.92%  github.com/burntcustard/unicorn-mining-co/src/server/utilities.(*OrderedMap[go.shape.string,go.shape.*uint8]).ForEach
+         0     0%  1.76%      760ms 33.48%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sendSnapshot
+         0     0%  1.76%      760ms 33.48%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector.func6
+     130ms  5.73%  7.49%      750ms 33.04%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode
+         0     0%  7.49%      620ms 27.31%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*World).Step
+     160ms  7.05% 14.54%      520ms 22.91%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode.func1
+      20ms  0.88% 15.42%      350ms 15.42%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*Solver).SolveWorldTOI
+      10ms  0.44% 15.86%      200ms  8.81%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinarySnapshotBatch).prepared (inline)
+         0     0% 15.86%      190ms  8.37%  github.com/burntcustard/unicorn-mining-co/src/server/network.prepare
+         0     0% 15.86%      180ms  7.93%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).sync
+      30ms  1.32% 17.18%      180ms  7.93%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).syncDetailed
+      50ms  2.20% 19.38%      180ms  7.93%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.UpdateEntities
+         0     0% 19.38%      150ms  6.61%  runtime.systemstack
+      20ms  0.88% 20.26%      140ms  6.17%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*Contact).Update
+      20ms  0.88% 21.15%      140ms  6.17%  runtime.mallocgc

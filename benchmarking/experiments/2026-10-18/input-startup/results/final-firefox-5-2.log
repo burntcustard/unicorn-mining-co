@@ -1,0 +1,232 @@
+{
+  "browser": "firefox",
+  "headless": false,
+  "clients": 2,
+  "oneWayDelayMs": 5,
+  "transport": "vite-delayed-websocket",
+  "firstInputSendMs": 0,
+  "firstResponseMs": [
+    12,
+    40
+  ],
+  "frameTiming": [
+    {
+      "p95Ms": 17,
+      "maxMs": 109
+    },
+    {
+      "p95Ms": 16,
+      "maxMs": 75
+    }
+  ],
+  "fit": {
+    "lagMs": -15,
+    "rmsRadians": 0.005855403296615112
+  },
+  "zeroLag": {
+    "lagMs": 0,
+    "rmsRadians": 0.03278440669076254
+  },
+  "reversals": [
+    {
+      "at": 1792354550777,
+      "handledAt": 1792354550777,
+      "direction": "ArrowRight",
+      "tick": 2940590,
+      "serverTick": 2940590,
+      "pendingTime": 0.014080000000000946,
+      "inputTickStartedAt": 1792354550747.78,
+      "localMs": 160,
+      "remoteMs": 148,
+      "differenceMs": -12
+    },
+    {
+      "at": 1792354551278,
+      "handledAt": 1792354551279,
+      "direction": "ArrowLeft",
+      "tick": 2940605,
+      "serverTick": 2940605,
+      "pendingTime": 0.01408000000000098,
+      "inputTickStartedAt": 1792354551247.78,
+      "localMs": 193,
+      "remoteMs": 174,
+      "differenceMs": -19
+    },
+    {
+      "at": 1792354551853,
+      "handledAt": 1792354551854,
+      "direction": "ArrowRight",
+      "tick": 2940622,
+      "serverTick": 2940622,
+      "pendingTime": 0.03141333333333435,
+      "inputTickStartedAt": 1792354551814.4468,
+      "localMs": 197,
+      "remoteMs": 183,
+      "differenceMs": -14
+    },
+    {
+      "at": 1792354552285,
+      "handledAt": 1792354552285,
+      "direction": "ArrowLeft",
+      "tick": 2940635,
+      "serverTick": 2940635,
+      "pendingTime": 0.023080000000001037,
+      "inputTickStartedAt": 1792354552247.78,
+      "localMs": 194,
+      "remoteMs": 173,
+      "differenceMs": -21
+    },
+    {
+      "at": 1792354552777,
+      "handledAt": 1792354552777,
+      "direction": "ArrowRight",
+      "tick": 2940650,
+      "serverTick": 2940650,
+      "pendingTime": 0.01508000000000107,
+      "inputTickStartedAt": 1792354552747.78,
+      "localMs": 194,
+      "remoteMs": 190,
+      "differenceMs": -4
+    },
+    {
+      "at": 1792354553349,
+      "handledAt": 1792354553350,
+      "direction": "ArrowLeft",
+      "tick": 2940667,
+      "serverTick": 2940667,
+      "pendingTime": 0.03041333333333443,
+      "inputTickStartedAt": 1792354553314.4468,
+      "localMs": 190,
+      "remoteMs": 169,
+      "differenceMs": -21
+    },
+    {
+      "at": 1792354553791,
+      "handledAt": 1792354553791,
+      "direction": "ArrowRight",
+      "tick": 2940680,
+      "serverTick": 2940680,
+      "pendingTime": 0.031080000000001128,
+      "inputTickStartedAt": 1792354553747.78,
+      "localMs": 178,
+      "remoteMs": 160,
+      "differenceMs": -18
+    },
+    {
+      "at": 1792354554312,
+      "handledAt": 1792354554312,
+      "direction": "ArrowLeft",
+      "tick": 2940696,
+      "serverTick": 2940696,
+      "pendingTime": 0.014746666666667829,
+      "inputTickStartedAt": 1792354554281.1133,
+      "localMs": 166,
+      "remoteMs": 146,
+      "differenceMs": -20
+    },
+    {
+      "at": 1792354554905,
+      "handledAt": 1792354554905,
+      "direction": "ArrowRight",
+      "tick": 2940714,
+      "serverTick": 2940714,
+      "pendingTime": 0.005746666666667871,
+      "inputTickStartedAt": 1792354554881.1133,
+      "localMs": 165,
+      "remoteMs": 160,
+      "differenceMs": -5
+    },
+    {
+      "at": 1792354555327,
+      "handledAt": 1792354555327,
+      "direction": "ArrowLeft",
+      "tick": 2940726,
+      "serverTick": 2940726,
+      "pendingTime": 0.03174666666666789,
+      "inputTickStartedAt": 1792354555281.1133,
+      "localMs": 188,
+      "remoteMs": 181,
+      "differenceMs": -7
+    },
+    {
+      "at": 1792354555837,
+      "handledAt": 1792354555837,
+      "direction": "ArrowRight",
+      "tick": 2940742,
+      "serverTick": 2940742,
+      "pendingTime": 0.014413333333334583,
+      "inputTickStartedAt": 1792354555814.4468,
+      "localMs": 170,
+      "remoteMs": 155,
+      "differenceMs": -15
+    },
+    {
+      "at": 1792354556416,
+      "handledAt": 1792354556416,
+      "direction": "ArrowLeft",
+      "tick": 2940759,
+      "serverTick": 2940759,
+      "pendingTime": 0.022746666666667956,
+      "inputTickStartedAt": 1792354556381.1133,
+      "localMs": 158,
+      "remoteMs": 137,
+      "differenceMs": -21
+    },
+    {
+      "at": 1792354556851,
+      "handledAt": 1792354556851,
+      "direction": "ArrowRight",
+      "tick": 2940772,
+      "serverTick": 2940772,
+      "pendingTime": 0.023413333333334653,
+      "inputTickStartedAt": 1792354556814.4468,
+      "localMs": 158,
+      "remoteMs": 138,
+      "differenceMs": -20
+    },
+    {
+      "at": 1792354557340,
+      "handledAt": 1792354557340,
+      "direction": "ArrowLeft",
+      "tick": 2940787,
+      "serverTick": 2940787,
+      "pendingTime": 0.014413333333334685,
+      "inputTickStartedAt": 1792354557314.4468,
+      "localMs": 194,
+      "remoteMs": 179,
+      "differenceMs": -15
+    },
+    {
+      "at": 1792354557913,
+      "handledAt": 1792354557913,
+      "direction": "ArrowRight",
+      "tick": 2940804,
+      "serverTick": 2940804,
+      "pendingTime": 0.02274666666666806,
+      "inputTickStartedAt": 1792354557881.1133,
+      "localMs": 166,
+      "remoteMs": 143,
+      "differenceMs": -23
+    }
+  ],
+  "frames": [
+    1036,
+    1108
+  ],
+  "errors": [
+    [],
+    []
+  ],
+  "audioStates": [
+    "running",
+    "suspended"
+  ],
+  "audioSetupMs": [
+    [
+      49
+    ],
+    [
+      48
+    ]
+  ]
+}

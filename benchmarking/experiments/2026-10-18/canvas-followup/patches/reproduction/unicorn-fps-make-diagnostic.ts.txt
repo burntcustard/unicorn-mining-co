@@ -1,0 +1,26 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+const root = process.cwd();
+let source = readFileSync('benchmarking/tools/gameplay-performance.ts', 'utf8')
+  .replaceAll("from '../../plugins/", `from '${root}/plugins/`)
+  .replaceAll("from '../../src/", `from '${root}/src/`)
+  .replace("from './gameplay-workload.ts'", `from '${root}/benchmarking/tools/gameplay-workload.ts'`)
+  .replace('transform: (source, id) => {', `transform: (source, id) => {
+        if (process.env.GAMEPLAY_RESET && id.endsWith('/client/core.ts')) {
+          const before = source;
+          source = source.replace('context.clearRect(0, 0, canvas.width, canvas.height);', 'if (context.reset) { context.reset(); context.imageSmoothingEnabled = false; } else { context.clearRect(0, 0, canvas.width, canvas.height); }');
+          assert.notEqual(source, before, 'The reset diagnostic must replace the native clear');
+        }
+        if (process.env.GAMEPLAY_SOFTWARE_MINIMAP && id.endsWith('/ui/dom/hud.ts')) {
+          const modified = source.replace("mapCanvas.getContext('2d')", "mapCanvas.getContext('2d', { willReadFrequently: true })");
+          assert.notEqual(modified, source, 'The minimap diagnostic must change its context hint');
+          return modified;
+        }`)
+  .replace("['context-attributes',game.ctx.getContextAttributes()],", "['context-attributes',game.ctx.getContextAttributes()],['minimap-attributes',document.querySelector('.hud-map canvas').getContext('2d').getContextAttributes()],")
+  .replace('profiler: Boolean(process.env.GAMEPLAY_PROFILE),', 'resetCanvas: Boolean(process.env.GAMEPLAY_RESET),\n          softwareMinimap: Boolean(process.env.GAMEPLAY_SOFTWARE_MINIMAP),\n          profiler: Boolean(process.env.GAMEPLAY_PROFILE),')
+  .replace('assert.equal(result.zoom, 1.5);', "assert.equal(result.zoom, 1.5);\n    assert.equal(result['minimap-attributes'].willReadFrequently, Boolean(process.env.GAMEPLAY_SOFTWARE_MINIMAP));");
+const needle = '        }\n      },\n    },\n    buildPrePlugin(),';
+if (!source.includes(needle)) throw Error('Missing transform return site');
+source = source.replace(needle, '        }\n        return source;\n      },\n    },\n    buildPrePlugin(),');
+writeFileSync('benchmarking/local/fps-followup-2026-10-18/canvas-diagnostic-radar.ts', source);
+let queue = readFileSync('/tmp/unicorn-fps-guarded-queue.ts', 'utf8').replace('canvas-diagnostic-guarded.ts', 'canvas-diagnostic-radar.ts');
+writeFileSync('/tmp/unicorn-fps-radar-queue.ts', queue);

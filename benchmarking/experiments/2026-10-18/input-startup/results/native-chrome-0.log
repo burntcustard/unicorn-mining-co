@@ -1,0 +1,220 @@
+{
+  "browser": "chrome",
+  "headless": false,
+  "clients": 2,
+  "oneWayDelayMs": 0,
+  "transport": "native-websocket",
+  "firstInputSendMs": 1.099853515625,
+  "firstResponseMs": [
+    67.5,
+    23.699951171875
+  ],
+  "frameTiming": [
+    {
+      "p95Ms": 8.400146484375,
+      "maxMs": 158.39990234375
+    },
+    {
+      "p95Ms": 8.400146484375,
+      "maxMs": 158.400146484375
+    }
+  ],
+  "fit": {
+    "lagMs": 0,
+    "rmsRadians": 0.001371372486786529
+  },
+  "zeroLag": {
+    "lagMs": 0,
+    "rmsRadians": 0.001371372486786529
+  },
+  "reversals": [
+    {
+      "at": 1792353362224.2,
+      "handledAt": 1792353362227.3,
+      "direction": "ArrowRight",
+      "tick": 2904996,
+      "serverTick": 2904996,
+      "pendingTime": 0.025033333333333248,
+      "inputTickStartedAt": 1792353362198.5667,
+      "localMs": 187.699951171875,
+      "remoteMs": 187.60009765625,
+      "differenceMs": -0.099853515625
+    },
+    {
+      "at": 1792353362707,
+      "handledAt": 1792353362711.0999,
+      "direction": "ArrowLeft",
+      "tick": 2905011,
+      "serverTick": 2905010,
+      "pendingTime": 0.008333333333334372,
+      "inputTickStartedAt": 1792353362698.5667,
+      "localMs": 203.699951171875,
+      "remoteMs": 204.300048828125,
+      "differenceMs": 0.60009765625
+    },
+    {
+      "at": 1792353363260.0999,
+      "handledAt": 1792353363260.3,
+      "direction": "ArrowRight",
+      "tick": 2905027,
+      "serverTick": 2905027,
+      "pendingTime": 0.025099999999999623,
+      "inputTickStartedAt": 1792353363231.9,
+      "localMs": 185.2001953125,
+      "remoteMs": 184.30029296875,
+      "differenceMs": -0.89990234375
+    },
+    {
+      "at": 1792353363664.5999,
+      "handledAt": 1792353363665.0999,
+      "direction": "ArrowLeft",
+      "tick": 2905039,
+      "serverTick": 2905039,
+      "pendingTime": 0.025000000000001105,
+      "inputTickStartedAt": 1792353363631.9,
+      "localMs": 177.300048828125,
+      "remoteMs": 179.000244140625,
+      "differenceMs": 1.7001953125
+    },
+    {
+      "at": 1792353364140.8,
+      "handledAt": 1792353364145,
+      "direction": "ArrowRight",
+      "tick": 2905054,
+      "serverTick": 2905054,
+      "pendingTime": 0.008400000000000775,
+      "inputTickStartedAt": 1792353364131.9,
+      "localMs": 202.599853515625,
+      "remoteMs": 202.199951171875,
+      "differenceMs": -0.39990234375
+    },
+    {
+      "at": 1792353364697.0999,
+      "handledAt": 1792353364697.5,
+      "direction": "ArrowLeft",
+      "tick": 2905070,
+      "serverTick": 2905070,
+      "pendingTime": 0.02506666666666748,
+      "inputTickStartedAt": 1792353364665.2334,
+      "localMs": 184.10009765625,
+      "remoteMs": 181.2001953125,
+      "differenceMs": -2.89990234375
+    },
+    {
+      "at": 1792353365100,
+      "handledAt": 1792353365103.8,
+      "direction": "ArrowRight",
+      "tick": 2905083,
+      "serverTick": 2905082,
+      "pendingTime": 0.000033333333333447623,
+      "inputTickStartedAt": 1792353365098.5667,
+      "localMs": 184.89990234375,
+      "remoteMs": 184,
+      "differenceMs": -0.89990234375
+    },
+    {
+      "at": 1792353365580,
+      "handledAt": 1792353365580.3,
+      "direction": "ArrowLeft",
+      "tick": 2905097,
+      "serverTick": 2905097,
+      "pendingTime": 0.008366666666666814,
+      "inputTickStartedAt": 1792353365565.2334,
+      "localMs": 199.099853515625,
+      "remoteMs": 197.800048828125,
+      "differenceMs": -1.2998046875
+    },
+    {
+      "at": 1792353366129,
+      "handledAt": 1792353366129.2,
+      "direction": "ArrowRight",
+      "tick": 2905113,
+      "serverTick": 2905113,
+      "pendingTime": 0.02503333333333352,
+      "inputTickStartedAt": 1792353366098.5667,
+      "localMs": 181.099853515625,
+      "remoteMs": 182.400146484375,
+      "differenceMs": 1.30029296875
+    },
+    {
+      "at": 1792353366532.7,
+      "handledAt": 1792353366539.0999,
+      "direction": "ArrowLeft",
+      "tick": 2905126,
+      "serverTick": 2905125,
+      "pendingTime": 1.304512053934559e-15,
+      "inputTickStartedAt": 1792353366531.9,
+      "localMs": 184.800048828125,
+      "remoteMs": 184.7001953125,
+      "differenceMs": -0.099853515625
+    },
+    {
+      "at": 1792353367016.4,
+      "handledAt": 1792353367026.0999,
+      "direction": "ArrowRight",
+      "tick": 2905140,
+      "serverTick": 2905140,
+      "pendingTime": 0.016733333333334308,
+      "inputTickStartedAt": 1792353366998.5667,
+      "localMs": 193.800048828125,
+      "remoteMs": 195.60009765625,
+      "differenceMs": 1.800048828125
+    },
+    {
+      "at": 1792353367581.4,
+      "handledAt": 1792353367581.7,
+      "direction": "ArrowLeft",
+      "tick": 2905157,
+      "serverTick": 2905157,
+      "pendingTime": 0.008266666666666587,
+      "inputTickStartedAt": 1792353367565.2334,
+      "localMs": 197.300048828125,
+      "remoteMs": 195.900146484375,
+      "differenceMs": -1.39990234375
+    },
+    {
+      "at": 1792353367988.2,
+      "handledAt": 1792353367988.5,
+      "direction": "ArrowRight",
+      "tick": 2905169,
+      "serverTick": 2905169,
+      "pendingTime": 0.01666666666666807,
+      "inputTickStartedAt": 1792353367965.2334,
+      "localMs": 191.89990234375,
+      "remoteMs": 190.10009765625,
+      "differenceMs": -1.7998046875
+    },
+    {
+      "at": 1792353368463.8,
+      "handledAt": 1792353368464,
+      "direction": "ArrowLeft",
+      "tick": 2905183,
+      "serverTick": 2905183,
+      "pendingTime": 0.025000000000001438,
+      "inputTickStartedAt": 1792353368431.9,
+      "localMs": 178.39990234375,
+      "remoteMs": 179.800048828125,
+      "differenceMs": 1.400146484375
+    },
+    {
+      "at": 1792353369012.2,
+      "handledAt": 1792353369012.4,
+      "direction": "ArrowRight",
+      "tick": 2905200,
+      "serverTick": 2905200,
+      "pendingTime": 0.00833333333333481,
+      "inputTickStartedAt": 1792353368998.5667,
+      "localMs": 199.10009765625,
+      "remoteMs": 202.2001953125,
+      "differenceMs": 3.10009765625
+    }
+  ],
+  "frames": [
+    1108,
+    1111
+  ],
+  "errors": [
+    [],
+    []
+  ]
+}

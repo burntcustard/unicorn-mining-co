@@ -1,0 +1,287 @@
+diff --git a/src/client/ui/text.ts b/src/client/ui/text.ts
+index d08f300..264bfcd 100644
+--- a/src/client/ui/text.ts
++++ b/src/client/ui/text.ts
+@@ -1,12 +1,13 @@
+ import { withAlpha } from '../utilities/color';
+ import { fontText } from '../utilities/font-text';
+ 
++let fontReady = false;
++
+ const textImages = new WeakMap<
+   CanvasRenderingContext2D,
+   Map<
+     string,
+     {
+-      uses: number;
+       image?: HTMLCanvasElement;
+       left?: number;
+       top?: number;
+@@ -41,17 +42,9 @@ export function renderText({
+   ctx.scale(uiScale, uiScale);
+   ctx.translate(x, y);
+   ctx.scale(size, size);
+-  ctx.font = '16px Gemetric';
+-  ctx.textAlign = ['left', 'center', 'right'][align + 1];
+-  ctx.textBaseline = 'alphabetic';
+-  ctx.lineJoin = 'round';
+-  ctx.lineWidth = 2;
+-  ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
+-  ctx.fillStyle = color;
+-
+-  const transform = document.fonts.check?.('16px Gemetric')
+-    ? ctx.getTransform()
+-    : undefined;
++
++  fontReady ||= document.fonts.check?.('16px Gemetric');
++  const transform = fontReady ? ctx.getTransform() : undefined;
+   const scaleX = transform?.a;
+   const scaleY = transform?.d;
+   let cached;
+@@ -82,30 +75,35 @@ export function renderText({
+     cached = images.get(key);
+ 
+     if (!cached) {
+-      // Numeric readouts reuse their canvas as the value changes. Repeated
+-      // labels amortize the bitmap; other changing text stays native.
++      // Reuse a bounded pool of bitmaps, including for changing labels.
+       if (images.size === 32) {
+-        images.delete(images.keys().next().value);
+-      }
++        const previous = images.keys().next().value;
+ 
+-      cached = { uses: 0 };
++        cached = images.get(previous);
++        images.delete(previous);
++        cached.text = undefined;
++      } else {
++        cached = {};
++      }
+     } else {
+       images.delete(key);
+     }
+ 
+     images.set(key, cached);
+ 
+-    if (
+-      (readout && cached.text !== displayText) ||
+-      (!readout && ++cached.uses === 8)
+-    ) {
+-      const metrics = ctx.measureText(displayText);
++    if (cached.text !== displayText) {
++      const image = cached.image || document.createElement('canvas');
++      const paint = image.getContext('2d', { willReadFrequently: true })!;
++      const alignment = (['left', 'center', 'right'] as const)[align + 1];
++
++      // Measure on the bitmap so the visible canvas need not resolve fonts.
++      paint.font = '16px Gemetric';
++      paint.textAlign = alignment;
++      const metrics = paint.measureText(displayText);
+       const left = Math.floor((-metrics.actualBoundingBoxLeft - 2) * scaleX);
+       const top = Math.floor(
+         (13 - metrics.actualBoundingBoxAscent - 2) * scaleY,
+       );
+-      const image = cached.image || document.createElement('canvas');
+-
+       const width =
+         Math.ceil((metrics.actualBoundingBoxRight + 2) * scaleX) - left;
+       const height =
+@@ -114,19 +112,18 @@ export function renderText({
+       if (image.width !== width) image.width = width;
+ 
+       if (image.height !== height) image.height = height;
+-      const paint = image.getContext('2d', { willReadFrequently: true })!;
+ 
+       paint.resetTransform();
+       paint.clearRect(0, 0, image.width, image.height);
+       paint.translate(-left, -top);
+       paint.scale(scaleX, scaleY);
+-      paint.font = ctx.font;
+-      paint.textAlign = ctx.textAlign;
+-      paint.textBaseline = ctx.textBaseline;
+-      paint.lineJoin = ctx.lineJoin;
+-      paint.lineWidth = ctx.lineWidth;
+-      paint.strokeStyle = ctx.strokeStyle;
+-      paint.fillStyle = ctx.fillStyle;
++      paint.font = '16px Gemetric';
++      paint.textAlign = alignment;
++      paint.textBaseline = 'alphabetic';
++      paint.lineJoin = 'round';
++      paint.lineWidth = 2;
++      paint.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
++      paint.fillStyle = color;
+       paint.strokeText(displayText, 0, 13);
+       paint.fillText(displayText, 0, 13);
+ 
+@@ -147,6 +144,13 @@ export function renderText({
+       Math.round(transform.f) + cached.top!,
+     );
+   } else {
++    ctx.font = '16px Gemetric';
++    ctx.textAlign = ['left', 'center', 'right'][align + 1];
++    ctx.textBaseline = 'alphabetic';
++    ctx.lineJoin = 'round';
++    ctx.lineWidth = 2;
++    ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
++    ctx.fillStyle = color;
+     ctx.strokeText(displayText, 0, 13);
+     ctx.fillText(displayText, 0, 13);
+   }
+diff --git a/tests/client/text-rendering.test.ts b/tests/client/text-rendering.test.ts
+index 54e24c5..dc95da6 100644
+--- a/tests/client/text-rendering.test.ts
++++ b/tests/client/text-rendering.test.ts
+@@ -70,16 +70,17 @@ assert.deepEqual(ctx, initial, 'outlines restore the original drawing state');
+ Reflect.set(document.fonts, 'check', () => true);
+ const images = [], cachedContext = {
+   ...ctx, globalAlpha: .35,
+-  measureText() { return {actualBoundingBoxLeft: 13, actualBoundingBoxRight: 13, actualBoundingBoxAscent: 13, actualBoundingBoxDescent: 0}; },
++  measureText() { throw Error('cached text must measure on its bitmap, not the visible canvas'); },
+   drawImage(...args) { images.push([...args, this.globalAlpha]); },
+ };
+ const cachedGame = {ctx: cachedContext, uiScale: 2};
++const imageAllocations = Reflect.get(globalThis, 'text-image-allocations');
+ calls.length = 0;
+ for (let frame = 0; frame < 12; frame++) {
+   renderText({game: cachedGame, text: 'AB', x: 50, y: 20, size: 1, align: 0});
+ }
+-assert.equal(calls.length, 14, 'the first seven frames draw text natively');
+-assert.equal(images.length, 5, 'unchanged labels reuse their pixel image');
++assert.equal(calls.length, 0, 'ready fonts rasterize on the bitmap from the first frame');
++assert.equal(images.length, 12, 'unchanged labels reuse their pixel image');
+ assert.deepEqual(images[0].slice(1), [70, 36, .35],
+   'cached text copies pixels directly, preserving centering, outline and caller opacity');
+ assert.equal(images[0][0].width, 60);
+@@ -89,7 +90,7 @@ assert.deepEqual(Reflect.get(globalThis, 'text-image-options'), {willReadFrequen
+ assert.deepEqual(Reflect.get(globalThis, 'text-image-paints'), [['stroke', 'AB', 0, 13], ['fill', 'AB', 0, 13]],
+   'the cached image retains the native outline and fill order');
+ renderText({game: cachedGame, text: 'AC', x: 50, y: 20, size: 1, align: 0});
+-assert.equal(calls.length, 16, 'changing readouts immediately draw their new text');
++assert.equal(calls.length, 0, 'changing labels keep text rasterization off the visible canvas');
+ assert.equal(cachedContext.globalAlpha, .35);
+ const numericStart = images.length;
+ for (const text of ['12', '12', '13']) {
+@@ -101,13 +102,15 @@ assert.equal(images[numericStart][0], images[numericStart + 2][0],
+ assert.deepEqual(Reflect.get(globalThis, 'text-image-paints'),
+   [['stroke', '12', 0, 13], ['fill', '12', 0, 13], ['stroke', '13', 0, 13], ['fill', '13', 0, 13]],
+   'changing readouts repaint their complete native text, preserving kerning');
+-assert.equal(calls.length, 16, 'numeric readouts keep text rasterization off the foreground');
++assert.equal(calls.length, 0, 'numeric readouts keep text rasterization off the foreground');
+ for (let index = 0; index < 40; index++) {
+   renderText({game: cachedGame, text: 'LABEL ' + index, x: 50, y: 20});
+ }
+ const beforeEviction = images.length;
+ renderText({game: cachedGame, text: 'AB', x: 50, y: 20, size: 1, align: 0});
+-assert.equal(images.length, beforeEviction, 'a bounded cache evicts labels after enough other values');
++assert.equal(images.length, beforeEviction + 1, 'an evicted label immediately paints its current text');
++assert.equal(Reflect.get(globalThis, 'text-image-allocations') - imageAllocations, 32,
++  'eviction reuses bitmap canvases instead of allocating beyond the bounded cache');
+ for (const density of [1, 1.25, 1.5, 2]) {
+   for (const resolution of [.5, 1, 2]) {
+     const base = density / resolution;
+@@ -133,6 +136,11 @@ Object.assign(globalThis, {
+   document: {
+     fonts: { load: async (font: string) => font, check: () => false },
+     createElement() {
++      Reflect.set(
++        globalThis,
++        'text-image-allocations',
++        Reflect.get(globalThis, 'text-image-allocations') + 1,
++      );
+       const paints: unknown[] = [];
+ 
+       Reflect.set(globalThis, 'text-image-paints', paints);
+@@ -144,6 +152,19 @@ Object.assign(globalThis, {
+           Reflect.set(globalThis, 'text-image-options', options);
+ 
+           return {
++            font: '10px sans-serif',
++            textAlign: 'start',
++            measureText() {
++              assert.equal(this.font, '16px Gemetric');
++              assert(['left', 'center', 'right'].includes(this.textAlign));
++
++              return {
++                actualBoundingBoxLeft: 13,
++                actualBoundingBoxRight: 13,
++                actualBoundingBoxAscent: 13,
++                actualBoundingBoxDescent: 0,
++              };
++            },
+             resetTransform() {},
+             clearRect() {},
+             translate() {},
+@@ -160,6 +181,7 @@ Object.assign(globalThis, {
+     },
+   },
+   pathAllocations: 0,
++  'text-image-allocations': 0,
+   Path2D: class {
+     commands: unknown[] = [];
+ 
+diff --git a/tests/fixtures/graphics.ts b/tests/fixtures/graphics.ts
+index 3bc3f1c..f64777b 100644
+--- a/tests/fixtures/graphics.ts
++++ b/tests/fixtures/graphics.ts
+@@ -11,6 +11,7 @@ import {
+ } from '../../src/client/ui/dom/graphics';
+ import { renderText } from '../../src/client/ui/text';
+ import { setSizing } from '../../src/client/ui/set-sizing';
++import { withAlpha } from '../../src/client/utilities/color';
+ import {
+   beginSurfaces,
+   endSurfaces,
+@@ -48,14 +49,45 @@ export const checkHudText = async () => {
+             clearFrame();
+             hudContext();
+ 
+-            renderText({
+-              game: hudGame,
+-              text: 'CARGO 12/34',
+-              x: 200.3,
+-              y: 20.1,
+-              size,
+-              align,
+-            });
++            if (!frame) {
++              // Keep an independent native reference even when text is cached
++              // immediately, so comparisons cannot validate the cache against itself.
++              ctx.save();
++              ctx.scale(hudGame.uiScale, hudGame.uiScale);
++              ctx.translate(200.3, 20.1);
++              ctx.scale(size, size);
++              const matrix = ctx.getTransform();
++
++              ctx.setTransform(
++                matrix.a,
++                0,
++                0,
++                matrix.d,
++                Math.round(matrix.e),
++                Math.round(matrix.f),
++              );
++              ctx.font = '16px Gemetric';
++              ctx.textAlign = ['left', 'center', 'right'][
++                align + 1
++              ] as CanvasTextAlign;
++              ctx.textBaseline = 'alphabetic';
++              ctx.lineJoin = 'round';
++              ctx.lineWidth = 2;
++              ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
++              ctx.fillStyle = '#fff';
++              ctx.strokeText('CARGO 12/34', 0, 13);
++              ctx.fillText('CARGO 12/34', 0, 13);
++              ctx.restore();
++            } else {
++              renderText({
++                game: hudGame,
++                text: 'CARGO 12/34',
++                x: 200.3,
++                y: 20.1,
++                size,
++                align,
++              });
++            }
+ 
+             const pixels = ctx.getImageData(
+               0,

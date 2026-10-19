@@ -1,0 +1,200 @@
+{"starting":"live","at":"2026-10-18T23:06:44.978Z"}
+{
+  "scenario": "live",
+  "fps": 119.70141295654493,
+  "frames": 3592,
+  "p95": 8.400000000001455,
+  "p99": 8.400000000001455,
+  "missed": 7,
+  "max": 25,
+  "hidden-during-capture": false,
+  "fps-windows": [
+    118,
+    120,
+    120,
+    120,
+    120.00396707329155,
+    119,
+    118,
+    120.00396707329176,
+    120,
+    120,
+    119,
+    120,
+    120,
+    120,
+    120.00396707329176,
+    120.00396707329176,
+    120,
+    120,
+    120.00396707329134,
+    120,
+    118,
+    119,
+    120,
+    119.02400317397377,
+    119,
+    120,
+    119.98800119988019,
+    120,
+    120,
+    120
+  ],
+  "stalls": [
+    [
+      4299.9,
+      16.599999999998545,
+      1.5,
+      1.5,
+      0,
+      0.10000000894069672
+    ],
+    [
+      5933.300000000001,
+      25,
+      6.5,
+      0.7999999970197678,
+      0,
+      0.09999999403953552
+    ],
+    [
+      9916.6,
+      16.700000000000728,
+      0.6000000089406967,
+      8.399999991059303,
+      7.399999991059303,
+      0
+    ],
+    [
+      19924.800000000003,
+      25,
+      0.7999999970197678,
+      5.299999997019768,
+      4.5,
+      0.09999999403953552
+    ],
+    [
+      20924.800000000003,
+      16.600000000002183,
+      14.199999988079071,
+      1.5,
+      0,
+      0.09999999403953552
+    ],
+    [
+      22433.199999999997,
+      16.799999999999272,
+      1.8999999910593033,
+      1.6000000089406967,
+      0,
+      0.09999999403953552
+    ],
+    [
+      23966.5,
+      16.80000000000291,
+      1.2000000029802322,
+      1.2999999970197678,
+      0,
+      0
+    ]
+  ],
+  "cpu": [
+    2.6753409404733737,
+    8.700000002980232,
+    10.900000005960464,
+    14.199999988079071
+  ],
+  "update": [
+    1.7134984691943294,
+    7.600000008940697,
+    9.299999997019768,
+    12.199999988079071
+  ],
+  "prediction": [
+    0.36501019837494664,
+    1.2000000029802322,
+    1.5,
+    2.199999988079071
+  ],
+  "messages": [
+    0.16277777782744832,
+    0.29999999701976776,
+    0.30000001192092896,
+    0.4000000059604645
+  ],
+  "message-count": 900,
+  "viewport": [
+    1920,
+    1200
+  ],
+  "canvas": [
+    1920,
+    1200
+  ],
+  "zoom": 1.5,
+  "rounds": 0,
+  "alive": true,
+  "context-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "colorType": "unorm8",
+    "desynchronized": false,
+    "toneMapping": {
+      "mode": "standard"
+    },
+    "willReadFrequently": true
+  },
+  "minimap-attributes": {
+    "alpha": true,
+    "colorSpace": "srgb",
+    "colorType": "unorm8",
+    "desynchronized": false,
+    "toneMapping": {
+      "mode": "standard"
+    },
+    "willReadFrequently": true
+  },
+  "audio-state": "running",
+  "browser-errors": [],
+  "scene-surfaces": 1,
+  "surface-style-errors": 0,
+  "background-style-errors": 0,
+  "visible-rocks": [
+    0,
+    0,
+    0
+  ],
+  "ship-docked": false,
+  "ui-active": false,
+  "field-wraps": 0,
+  "movement": 237.7115850858401,
+  "camera-movement": 83.3665352115897,
+  "document-extent": [
+    1920,
+    1200,
+    1920,
+    1200
+  ],
+  "splits": 0,
+  "destroyed": 0,
+  "light-active": true,
+  "asteroids": 0,
+  "radar-contacts": 12,
+  "hud-panels": 4,
+  "hud-visible": 4
+}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: flight must move the ship and camera through space
+    at file:///home/burntcustard/Dev/unicorn-mining-co/benchmarking/tools/gameplay-performance.ts:761:7 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.5.0

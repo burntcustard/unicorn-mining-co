@@ -1,0 +1,29 @@
+File: unicorn-recovery-optimized.test
+Build ID: 063410dd0be1afd0c2a61fd783d732917d7de838
+Type: cpu
+Time: 2026-10-18 18:40:38 BST
+Duration: 30.18s, Total samples = 30.47s (100.95%)
+Showing nodes accounting for 17.92s, 58.81% of 30.47s total
+Dropped 435 nodes (cum <= 0.15s)
+Showing top 20 nodes out of 107
+      flat  flat%   sum%        cum   cum%
+     6.46s 21.20% 21.20%      6.96s 22.84%  github.com/burntcustard/unicorn-mining-co/src/server/physics.recoveryProject
+     1.80s  5.91% 27.11%      1.83s  6.01%  github.com/burntcustard/unicorn-mining-co/src/server/physics.recoveryClip
+     1.39s  4.56% 31.67%     11.71s 38.43%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*World).recoverOverlaps.func2
+     1.18s  3.87% 35.54%      3.91s 12.83%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode.func1
+     1.05s  3.45% 38.99%      1.48s  4.86%  github.com/burntcustard/unicorn-mining-co/src/server/physics.recoveryAxes (inline)
+     0.82s  2.69% 41.68%     14.85s 48.74%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*World).recoverOverlaps
+     0.54s  1.77% 43.45%      0.76s  2.49%  github.com/burntcustard/unicorn-mining-co/src/server/collision/shape.findMaxSeparation
+     0.54s  1.77% 45.22%      0.54s  1.77%  github.com/burntcustard/unicorn-mining-co/src/server/vector.RotateInto (inline)
+     0.44s  1.44% 46.67%      4.83s 15.85%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode
+     0.42s  1.38% 48.05%      0.54s  1.77%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).findFree
+     0.42s  1.38% 49.43%      2.15s  7.06%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*Solver).SolveWorldTOI
+     0.37s  1.21% 50.64%     22.36s 73.38%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).Step
+     0.34s  1.12% 51.76%      0.35s  1.15%  github.com/burntcustard/unicorn-mining-co/src/server/collision.CollidersCanContact
+     0.34s  1.12% 52.87%      0.34s  1.12%  github.com/burntcustard/unicorn-mining-co/src/server/vector.Dot (inline)
+     0.33s  1.08% 53.95%      0.33s  1.08%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).Step.func1
+     0.31s  1.02% 54.97%      0.62s  2.03%  github.com/burntcustard/unicorn-mining-co/src/server/physics.recoveryInterval
+     0.31s  1.02% 55.99%      0.32s  1.05%  math.IsInf (inline)
+     0.30s  0.98% 56.97%      0.30s  0.98%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*GameObject).Hitbox
+     0.28s  0.92% 57.89%      0.28s  0.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.integerArray
+     0.28s  0.92% 58.81%      0.28s  0.92%  internal/runtime/maps.ctrlGroup.matchH2 (inline)

@@ -1,0 +1,64 @@
+{
+  "before": {
+    "at": "2026-10-18T23:10:57.321Z",
+    "energy": "balance_performance",
+    "supplies": {
+      "AC": {
+        "online": "1",
+        "status": null,
+        "capacity": null
+      },
+      "BAT0": {
+        "online": null,
+        "status": "Charging",
+        "capacity": "95"
+      },
+      "ucsi-source-psy-USBC000:001": {
+        "online": "0",
+        "status": "Not charging",
+        "capacity": null
+      },
+      "ucsi-source-psy-USBC000:002": {
+        "online": "1",
+        "status": "Charging",
+        "capacity": null
+      },
+      "ucsi-source-psy-USBC000:003": {
+        "online": "0",
+        "status": "Not charging",
+        "capacity": null
+      }
+    }
+  },
+  "after": {
+    "at": "2026-10-18T23:11:42.745Z",
+    "energy": "balance_performance",
+    "supplies": {
+      "AC": {
+        "online": "1",
+        "status": null,
+        "capacity": null
+      },
+      "BAT0": {
+        "online": null,
+        "status": "Charging",
+        "capacity": "96"
+      },
+      "ucsi-source-psy-USBC000:001": {
+        "online": "0",
+        "status": "Not charging",
+        "capacity": null
+      },
+      "ucsi-source-psy-USBC000:002": {
+        "online": "1",
+        "status": "Charging",
+        "capacity": null
+      },
+      "ucsi-source-psy-USBC000:003": {
+        "online": "0",
+        "status": "Not charging",
+        "capacity": null
+      }
+    }
+  }
+}
