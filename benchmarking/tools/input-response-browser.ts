@@ -29,31 +29,50 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import WebSocket from 'ws';
+import { startBrowserGameplay } from './browser-gameplay.ts';
+import { firstMotionResponse } from './input-response-metrics.ts';
+import { inputResponseSetup } from './input-response-setup.ts';
 
 // Start the standard dev server pair first, as described in codebase-workflow.
 const output = process.argv[2];
 const delay = Number(process.argv[3] || 0);
+const browserName = process.argv[4] || 'chrome';
+const headless = !process.env.INPUT_RESPONSE_HEADFUL;
 
 assert(
   output,
-  'Usage: node benchmarking/tools/input-response-browser.ts OUTPUT.json.gz',
+  'Usage: node benchmarking/tools/input-response-browser.ts OUTPUT.json.gz [DELAY_MS] [chrome|firefox]',
 );
+assert(['chrome', 'firefox'].includes(browserName));
+assert(Number.isFinite(delay) && delay >= 0);
 const profile = await mkdtemp(join(tmpdir(), 'unicorn-remote-browser-'));
 const connections: WebSocket[] = [];
+const clients: Send[] = [];
 const chrome = spawn(
-  'google-chrome',
-  [
-    '--headless=new',
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--disable-background-timer-throttling',
-    '--disable-renderer-backgrounding',
-    '--disable-backgrounding-occluded-windows',
-    '--remote-debugging-port=9333',
-    `--user-data-dir=${profile}`,
-    '--window-size=1440,900',
-    'about:blank',
-  ],
+  browserName === 'chrome'
+    ? process.env.CHROME_BIN || 'google-chrome'
+    : process.env.FIREFOX_BIN || 'firefox',
+  browserName === 'chrome'
+    ? [
+        ...(headless ? ['--headless=new'] : []),
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--disable-backgrounding-occluded-windows',
+        '--remote-debugging-port=9333',
+        `--user-data-dir=${profile}`,
+        '--window-size=1440,900',
+        'about:blank',
+      ]
+    : [
+        ...(headless ? ['--headless'] : []),
+        '--new-instance',
+        '--profile',
+        profile,
+        '--remote-debugging-port=9333',
+        'about:blank',
+      ],
   { stdio: ['ignore', 'ignore', 'pipe'] },
 );
 let chromeErrors = '';
@@ -89,19 +108,34 @@ const connect = async (url: string) => {
 
     if (!request) return;
     pending.delete(message.id);
+    clearTimeout(request.timer);
 
-    if (message.error) {
+    if (message.error || message.type === 'error') {
       request.reject(new Error(JSON.stringify(message.error)));
     } else {
       request.resolve(message.result);
     }
   });
 
+  socket.on('close', () => {
+    pending.forEach(({ reject, timer }) => {
+      clearTimeout(timer);
+      reject(new Error('Browser automation connection closed'));
+    });
+
+    pending.clear();
+  });
+
   const send: Send = (method, params = {}) =>
     new Promise<CdpReply>((resolve, reject) => {
       const id = ++sequence;
 
-      pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`Timed out waiting for ${method}`));
+      }, 30000);
+
+      pending.set(id, { resolve, reject, timer });
       socket.send(JSON.stringify({ id, method, params }));
     });
 
@@ -131,6 +165,16 @@ try {
 
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
+      if (browserName === 'firefox') {
+        if (chromeErrors.includes('WebDriver BiDi listening')) {
+          version = { webSocketDebuggerUrl: 'ws://127.0.0.1:9333/session' };
+        }
+
+        if (version) break;
+        await pause(100);
+        continue;
+      }
+
       version = await (
         await fetch('http://127.0.0.1:9333/json/version')
       ).json();
@@ -142,13 +186,90 @@ try {
 
   assert(version, chromeErrors);
   const browser = await connect(version.webSocketDebuggerUrl);
-  const clients: Send[] = [];
+
+  if (browserName === 'firefox') {
+    await browser('session.new', { capabilities: { alwaysMatch: {} } });
+  }
 
   for (let index = 0; index < 2; index++) {
+    if (browserName === 'firefox') {
+      const { userContext } = await browser('browser.createUserContext');
+
+      await browser('script.addPreloadScript', {
+        functionDeclaration: `() => {${inputResponseSetup(delay)}}`,
+        userContexts: [userContext],
+      });
+
+      const { context } = await browser('browsingContext.create', {
+        type: 'window',
+        userContext,
+      });
+
+      await browser('browsingContext.setViewport', {
+        context,
+        viewport: { width: 1440, height: 900 },
+        devicePixelRatio: 1,
+      });
+
+      await browser('browsingContext.navigate', {
+        context,
+        url: 'http://localhost:3000/',
+        wait: 'complete',
+      });
+
+      const send: Send = async (method, params: CdpReply = {}) => {
+        if (method === 'Runtime.evaluate') {
+          const reply = await browser('script.evaluate', {
+            expression: `(async () => JSON.stringify(await (${params.expression})))()`,
+            awaitPromise: true,
+            target: { context },
+          });
+
+          if (reply.type === 'exception') return { exceptionDetails: reply };
+
+          return {
+            result: {
+              value:
+                reply.result.value === undefined
+                  ? undefined
+                  : JSON.parse(reply.result.value),
+            },
+          };
+        }
+
+        if (method === 'Input.dispatchKeyEvent') {
+          const value = params.key === 'ArrowLeft' ? '\uE012' : '\uE014';
+
+          return browser('input.performActions', {
+            context,
+            actions: [
+              {
+                type: 'key',
+                id: 'steering',
+                actions: [{ type: params.type, value }],
+              },
+            ],
+          });
+        }
+
+        if (method === 'Page.captureScreenshot') {
+          return browser('browsingContext.captureScreenshot', {
+            context,
+            format: { type: 'image/png' },
+          });
+        }
+
+        throw Error(`Unsupported Firefox benchmark command: ${method}`);
+      };
+
+      clients.push(send);
+      continue;
+    }
+
     const { browserContextId } = await browser('Target.createBrowserContext');
 
     const { targetId } = await browser('Target.createTarget', {
-      url: 'http://localhost:3000/',
+      url: 'about:blank',
       browserContextId,
       newWindow: true,
     });
@@ -165,6 +286,10 @@ try {
     await send('Runtime.enable');
     await send('Page.enable');
 
+    await send('Page.addScriptToEvaluateOnNewDocument', {
+      source: inputResponseSetup(delay),
+    });
+
     await send('Emulation.setDeviceMetricsOverride', {
       width: 1440,
       height: 900,
@@ -172,18 +297,15 @@ try {
       mobile: false,
     });
 
+    await send('Page.navigate', { url: 'http://localhost:3000/' });
+
     clients.push(send);
   }
 
   // Give the real app time to finish its intro and load every peer.
   await pause(7000);
   const activeIds = await Promise.all(
-    clients.map((send: Send) =>
-      evaluate(
-        send,
-        "(async()=>{window.loadedGameModule=name=>import(performance.getEntriesByType('resource').find(entry=>new URL(entry.name).pathname.endsWith('/src/client/'+name)).name);const{network}=await window.loadedGameModule('network/network.ts');await network.ready;return network.shipId})()",
-      ),
-    ),
+    clients.map((send: Send) => evaluate(send, startBrowserGameplay)),
   );
 
   await Promise.all(
@@ -195,18 +317,27 @@ try {
     const {player}=await window.loadedGameModule('player.ts');
     if(player.ship.id!==network.shipId) throw Error('wrong game instance');
     const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('ui/set-sizing.ts'); game.size=5; setSizing(game);
-    const socket=Reflect.get(network,'socket');
-    if(${delay}) {const deliver=socket.onmessage, send=socket.send.bind(socket); socket.onmessage=event=>setTimeout(()=>deliver.call(socket,event),${delay}); socket.send=data=>setTimeout(()=>send(data),${delay});}
-    const capture={shipId:network.shipId,frames:[]}; window.motionCapture=capture;
+    const capture={shipId:network.shipId,frames:[],edges:[],messages:[],initialAudioState:window.inputBenchmarkAudio?.state}; window.motionCapture=capture;
+    const timestamp=()=>performance.timeOrigin+performance.now();
+    const clock=()=>({tick:network.world.tick,serverTick:network.serverTick,pendingTime:Reflect.get(network,'pendingTime'),inputTickStartedAt:performance.timeOrigin+Reflect.get(network,'inputTickStartedAt')});
+    const {default:sound}=await window.loadedGameModule('audio/sound.ts');
+    const unlock=sound.unlockAudio;
+    sound.unlockAudio=()=>{capture.messages.push({type:'audioStart',at:timestamp()}); const result=unlock(); capture.messages.push({type:'audioEnd',at:timestamp()}); return result;};
+    addEventListener('keydown',event=>{if(!capture.finished&&['ArrowLeft','ArrowRight'].includes(event.code)) capture.edges.push({at:performance.timeOrigin+event.timeStamp,handledAt:timestamp(),direction:event.code,...clock()});},true);
+    const send=network.send.bind(network), receive=network.receive.bind(network);
+    network.send=message=>{if(!capture.finished&&message.type==='input') capture.messages.push({at:timestamp(),...clock(),...message}); return send(message);};
+    network.receive=options=>{const message=options.message; if(!capture.finished&&message.type==='snapshot') capture.messages.push({at:timestamp(),...clock(),type:message.type,snapshotTick:message.serverTick,acknowledgedSequence:message.acknowledgedSequence,inputLead:message.inputLead,entities:message.fullEntities.filter(entity=>${JSON.stringify(activeIds)}.includes(entity.id))}); return receive(options);};
     const sample=network.remoteMotion.sample.bind(network.remoteMotion);
     let latest;
     network.remoteMotion.sample=options=>{
       const poses=sample(options);
-      latest={at:performance.timeOrigin+options.now,tick:network.world.tick,
+      latest={at:performance.timeOrigin+options.now,...clock(),
         poses:[...poses].filter(([id])=>${JSON.stringify(activeIds)}.includes(id)).map(([id,p])=>({id,x:p.position.x,y:p.position.y,rotation:p.rotation}))};
       return poses;
     };
-    const record=()=>{if(latest&&capture.frames.at(-1)?.at!==latest.at) capture.frames.push(latest); if(!capture.finished) requestAnimationFrame(record)};
+    // This callback runs after the game's registered rAF callback. Preserve
+    // simulation time for trajectory fitting and completion time for latency.
+    const record=()=>{if(latest&&capture.frames.at(-1)?.at!==latest.at) capture.frames.push({...latest,completedAt:timestamp(),hidden:document.hidden}); if(!capture.finished) requestAnimationFrame(record)};
     requestAnimationFrame(record);
   })()`,
       ),
@@ -218,22 +349,12 @@ try {
   // Turn in place so both ships stay inside each other's interest range.
   await pause(1000);
 
-  const edges: { at: number; direction: string }[] = [];
-
   for (let i = 0; i < 16; i++) {
     const direction = i % 2 ? 'ArrowRight' : 'ArrowLeft';
     const previous = i % 2 ? 'ArrowLeft' : 'ArrowRight';
 
     await key('keyUp', previous);
     await key('keyDown', direction);
-
-    edges.push({
-      at: await evaluate(
-        clients[0],
-        'performance.timeOrigin+performance.now()',
-      ),
-      direction,
-    });
 
     await pause(400 + (i % 3) * 73);
   }
@@ -254,9 +375,17 @@ try {
     clients.map((send: Send) =>
       evaluate(
         send,
-        'window.motionCapture.finished=true; window.motionCapture',
+        '(() => {window.motionCapture.finished=true; return {...window.motionCapture,errors:window.inputBenchmarkErrors,userAgent:navigator.userAgent,audioState:window.inputBenchmarkAudio?.state,audioSetup:window.inputBenchmarkAudioSetup}})()',
       ),
     ),
+  );
+
+  const edges: { at: number; direction: string }[] = results[0].edges;
+
+  assert.equal(
+    edges.length,
+    16,
+    'every dispatched keydown must reach the game',
   );
   const pilot = activeIds[0];
 
@@ -264,7 +393,7 @@ try {
     r.frames.flatMap((f: Frame) => {
       const p = f.poses.find((p: Pose) => p.id === pilot);
 
-      return p ? [{ ...p, at: f.at }] : [];
+      return p ? [{ ...p, at: f.at, completedAt: f.completedAt }] : [];
     }),
   );
 
@@ -287,7 +416,7 @@ try {
     end = edges.at(-1).at;
   const fits = [];
 
-  for (let lag = -30; lag <= 350; lag++) {
+  for (let lag = -350; lag <= 350; lag++) {
     const errors = series[0]
       .filter((f: Frame) => f.at >= start && f.at <= end)
       .flatMap((f: Frame) => {
@@ -313,8 +442,8 @@ try {
       const i = frames.findIndex(
         (f: Frame, i: number) =>
           i > 0 &&
-          f.at >= edge.at &&
-          f.at < edge.at + 350 &&
+          f.completedAt >= edge.at &&
+          f.completedAt < edge.at + 350 &&
           [0, 1, 2].every(
             (offset) =>
               frames[i + offset] &&
@@ -326,7 +455,7 @@ try {
           ),
       );
 
-      return i < 0 ? null : frames[i].at - edge.at;
+      return i < 0 ? null : frames[i].completedAt - edge.at;
     });
 
     return {
@@ -340,16 +469,9 @@ try {
     };
   });
 
-  const firstResponseMs = series.map((frames: Frame[]) => {
-    const initial = sample(frames, edges[0].at);
-
-    return (
-      frames.find(
-        (f: Frame) =>
-          f.at >= edges[0].at && Math.abs(angle(f.rotation - initial)) > 0.0001,
-      ).at - edges[0].at
-    );
-  });
+  const firstResponseMs = series.map((frames) =>
+    firstMotionResponse({ frames, edgeAt: edges[0].at }),
+  );
 
   const frameTiming = series.map((frames: Frame[]) => {
     const gaps = frames
@@ -364,14 +486,30 @@ try {
   });
 
   const summary = {
+    browser: browserName,
+    headless,
     clients: 2,
     oneWayDelayMs: delay,
+    transport: delay ? 'vite-delayed-websocket' : 'native-websocket',
+    firstInputSendMs:
+      results[0].messages.find(
+        (message: CdpReply) =>
+          message.type === 'input' && message.at >= edges[0].at,
+      ).at - edges[0].at,
     firstResponseMs,
     frameTiming,
     fit: fits[0],
     zeroLag: fits.find((f) => f.lagMs === 0),
     reversals,
     frames: results.map((r) => r.frames.length),
+    errors: results.map((r) => r.errors),
+    audioStates: results.map((r) => r.audioState),
+    audioSetupMs: results.map((r) =>
+      r.audioSetup.map(
+        (setup: { at: number; completedAt: number }) =>
+          setup.completedAt - setup.at,
+      ),
+    ),
   };
 
   await writeFile(
@@ -379,6 +517,15 @@ try {
     gzipSync(JSON.stringify({ summary, edges, results }, null, 2)),
   );
   console.log(JSON.stringify(summary, null, 2));
+  assert(
+    results.every((result) => !result.errors.length),
+    'both clients must remain free of browser errors',
+  );
+  assert.equal(
+    results[0].audioState,
+    'running',
+    'trusted steering keys must unlock audio',
+  );
   assert(
     Math.abs(summary.fit.lagMs) < 50 + 2 * delay,
     'remote steering must not add a playback buffer',
@@ -402,6 +549,15 @@ try {
     'both real renderers must see the piloted ship',
   );
 } finally {
+  await Promise.allSettled(
+    clients.map((send) =>
+      evaluate(
+        send,
+        '(() => {const socket=window.network&&Reflect.get(window.network,"socket");if(socket?.readyState===WebSocket.OPEN)socket.close(1000,"Benchmark complete")})()',
+      ),
+    ),
+  );
+  await pause(50);
   connections.forEach((socket) => socket.close());
 
   if (chrome.exitCode === null && chrome.signalCode === null) {

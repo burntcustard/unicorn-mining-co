@@ -14,6 +14,26 @@ scratch output under `benchmarking/local/`.
 
 ## Retained investigations
 
+The [native-resolution follow-up](../../docs/experiments/2026-10-19/native-resolution-performance.md)
+separates 1920 × 1200 rendering work from laptop power policy, retains the small
+text-cache improvement, and records rejected candidates and sustained captures.
+
+The [canvas and radar follow-up](../../docs/experiments/2026-10-18/canvas-followup-2026-10-18.md)
+retains corrected paired browser measurements, the one-line shared minimap
+improvement, and rejected foreground/reset experiments.
+
+The [input and startup follow-up](../../docs/experiments/2026-10-18/input-startup-2026-10-18.md)
+retains corrected Chrome/Firefox timing captures and the fixes for cold input
+and already-reached snapshots.
+
+The [October 18 UI and collision comparison](2026-10-18/ui-collision-performance/)
+retains the server regression profiles and earlier local client captures. The
+[report](../../docs/experiments/2026-10-18/ui-collision-performance-2026-10-18.md)
+links to the completed live rerun, which is recorded separately.
+
+The [performance follow-up](../../docs/experiments/2026-10-18/performance-fixes-2026-10-18.md)
+records the subsequent recovery and HUD improvements.
+
 The [native 4K follow-up](2026-10-13/client-performance-4k/) includes renderer
 comparisons and the final simplification/regression checks.
 

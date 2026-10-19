@@ -345,3 +345,62 @@ Raw captures are retained in ignored
 `benchmarking/local/cpu-budget-2026-10-06-{standard,long,convoy-repeat}.json`.
 The accompanying `cpu-budget-2026-10-06-metadata.json` records compiler flags,
 the production PGO profile hash and both executable hashes.
+
+## October 18, 2026 at 5:44:30 PM GMT+1
+
+This fresh run completed all **16/16 cases**: convoy, spread, contact, and module
+at 4/8/16/32 players. Each case measured 60 seconds after a 15-second warmup;
+all three player-count transitions had a 120-second cooldown. It started at
+17:44:30 BST and finished at 18:13:44 BST. No local client benchmarks were
+repeated for this rerun.
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| ------- | ---------------- | --------------------- | ------------------ | --------------------- |
+| 4       | 30.00            | 43.7                  | 122.5              | 15.0–86.1             |
+| 8       | 30.00            | 70.0                  | 156.8              | 15.5–111.8            |
+| 16      | 30.00–30.05      | 165.5                 | 487.9              | 19.9–176.5            |
+| 32      | 30.14–30.42      | 281.7                 | 759.3              | 53.9–160.5            |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
+
+All clients reported **zero exceptions and zero socket closes** during measured
+cases. Fly release 88 remained on revision
+`94969b94d40bc30bf780c7da6db5e49d231cb720` throughout, on the same machine
+instance, with passing health checks before and after each player level. The
+post-run logs showed no new crash or restart during this run.
+
+Every graphics probe reported Chromium's SwiftShader software renderer. At
+16-player modules and 32-player convoy/contact/modules, local CPU occupancy
+reached approximately 96–100%. The median client FPS per case illustrates the
+load on the benchmark host:
+
+| Players | Convoy FPS | Spread FPS | Contact FPS | Module FPS |
+| ------- | ---------- | ---------- | ----------- | ---------- |
+| 4       | 60.0       | 60.0       | 60.0        | 57.4       |
+| 8       | 33.1       | 38.1       | 32.2        | 25.7       |
+| 16      | 10.6       | 15.6       | 11.5        | 6.2        |
+| 32      | 2.7        | 5.7        | 2.2         | 2.3        |
+
+Rates slightly above 30 Hz at high counts reflect loaded client measurement
+windows; they do not demonstrate a faster simulation. The fresh suite confirms
+connectivity and observed service behavior but cannot attribute high-count
+latency to production CPU alone. It has no matched old-revision live run on
+this host and evolving production world.
+
+Server-only follow-up measurements found a substantial collision regression:
+32-player modules rose from 1.251 to 17.439 CPU ms/tick, with 103.070 ms elapsed
+tick p95. Profiles attribute 83.49% of CPU and 95.11% of allocated bytes to the
+new overlap-recovery path. See the
+[investigation](../../docs/experiments/2026-10-18/ui-collision-performance-2026-10-18.md)
+for repeated comparisons, attribution diagnostics, and limitations. The
+measurements preceded the local
+[recovery and HUD improvements](../../docs/experiments/2026-10-18/performance-fixes-2026-10-18.md).
+Those improvements have not been deployed.
+
+Complete raw capture:
+`benchmarking/local/live-rerun-2026-10-18T16-44-30Z.json.gz`.
+Its accompanying log and `-summary.json` share that basename. Interrupted and
+failed earlier attempts are retained separately and were not combined into this
+result. The raw capture's hash is retained in the investigation metadata.

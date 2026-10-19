@@ -8,9 +8,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import { startBrowserGameplay } from './browser-gameplay.ts';
+import { createGameplayWorkload } from './gameplay-workload.ts';
 
 const host = '127.0.0.1';
-const gamePort = Number(process.env.BENCH_GAME_PORT || 4273);
+const gamePort = 3000;
 const debugPort = Number(process.env.BENCH_DEBUG_PORT || 9333);
 const seconds = Number(process.env.BENCH_SECONDS || 5);
 const warmup = Number(process.env.BENCH_WARMUP || 2);
@@ -99,25 +101,25 @@ const tests = [
   { name: 'no blur', query: 'noBlur' },
   { name: 'lamp on', lamp: true },
   { name: 'no beam', query: 'noBeam', lamp: true },
-  { code: 'Digit7', key: '7', name: 'lighting off' },
+  { name: 'lighting off', query: 'noLighting' },
   { name: 'asteroid field', query: 'field' },
   { name: 'asteroid field no beam', query: 'field&noBeam' },
   { hold: 'ArrowRight', name: 'asteroid field spinning', query: 'field' },
   { name: 'asteroid segments', query: 'field', asteroidSegments: true },
-  { code: 'Digit9', key: '9', name: 'physics off' },
+  { name: 'physics off', physicsOff: true },
 ];
 
 try {
-  launch(join(process.cwd(), 'node_modules/.bin/vite'), [
-    '--host',
-    host,
-    '--port',
-    String(gamePort),
-    '--strictPort',
-    '--mode',
-    'benchmark',
-  ]);
   await waitFor(`http://${host}:${gamePort}`);
+  const benchmarkSource = await (
+    await fetch(`http://${host}:${gamePort}/src/client/debug/benchmark.ts`)
+  ).text();
+
+  if (!benchmarkSource.includes('new URLSearchParams')) {
+    throw new Error(
+      'Start Vite with npm run dev -- --strictPort --mode benchmark',
+    );
+  }
 
   launch(chrome, [
     ...(headless ? ['--headless=new'] : ['--new-window']),
@@ -179,13 +181,40 @@ try {
 
     await pause(warmup * 1000);
 
+    const evaluate = async (expression: string) => {
+      const reply = await send('Runtime.evaluate', {
+        expression,
+        awaitPromise: true,
+        returnByValue: true,
+      });
+
+      if (reply.exceptionDetails) {
+        throw new Error(reply.exceptionDetails.exception.description);
+      }
+
+      return reply.result.value;
+    };
+
+    await evaluate(startBrowserGameplay);
+
+    if (test.query?.includes('field')) {
+      await evaluate(createGameplayWorkload());
+      await pause(warmup * 1000);
+    }
+
     for (let cycle = 0; cycle < (test.sky || 0); cycle++) {
-      await press('6', 'Digit6');
+      await evaluate(
+        "import('/src/client/background/background.ts').then(({sky}) => sky.cycle())",
+      );
     }
 
     if (test.lamp) await press('l', 'KeyL');
 
-    if (test.key) await press(test.key, test.code);
+    if (test.physicsOff) {
+      await evaluate(
+        'network.updateFrame = () => false; network.predictFrame = () => network.world',
+      );
+    }
 
     if (test.hold) {
       await send('Input.dispatchKeyEvent', {
@@ -196,19 +225,16 @@ try {
     }
 
     if (test.asteroidSegments) {
-      const checked = await send('Runtime.evaluate', {
-        returnByValue: true,
-        expression: `window.testSegments()`,
-      });
-
-      if (checked.exceptionDetails) {
-        throw Error(checked.exceptionDetails.exception.description);
-      }
-
-      console.table([checked.result.value]);
+      console.table([
+        await evaluate(`(() => {
+        const rocks = game.sprites.filter(object => object.kind === 'asteroid');
+        if (!rocks.length) throw Error('The asteroid field must be populated');
+        return {asteroids: rocks.length, segments: rocks.reduce((sum, rock) => sum + (rock.segments?.length || 1), 0)};
+      })()`),
+      ]);
     }
 
-    if (test.sky || test.lamp || test.key) await pause(1000);
+    if (test.sky || test.lamp || test.physicsOff) await pause(1000);
 
     const evaluated = await send('Runtime.evaluate', {
       awaitPromise: true,

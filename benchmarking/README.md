@@ -14,13 +14,13 @@ and disposable local output separate:
 
 ## Common checks
 
-| Check                               | Command                                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| Browser rendering                   | `npm run benchmark` or `npm run benchmark:headless`                         |
-| Live deployment (4/8/16/32 players) | `node benchmarking/tools/live.ts`                                           |
-| Two-client input response           | `node benchmarking/tools/input-response-browser.ts /tmp/response.json.gz 5` |
-| Four-client presentation            | `node benchmarking/tools/remote-browser.ts /tmp/remote.json.gz`             |
-| Brief network outage                | `node benchmarking/tools/stall-browser.ts /tmp/stall.json.gz 5 network`     |
+| Check                               | Command                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Browser rendering                   | `npm run benchmark` or `npm run benchmark:headless` (standard Go/Vite pair; Vite in `--mode benchmark`) |
+| Live deployment (4/8/16/32 players) | `node benchmarking/tools/live.ts`                                                                       |
+| Two-client input response           | `node benchmarking/tools/input-response-browser.ts /tmp/response.json.gz 5 chrome`                      |
+| Four-client presentation            | `node benchmarking/tools/remote-browser.ts /tmp/remote.json.gz`                                         |
+| Brief network outage                | `node benchmarking/tools/stall-browser.ts /tmp/stall.json.gz 5 network`                                 |
 
 The client response, presentation, and outage checks require a fresh game server
 on 3001 and Vite on 3000, using the normal proxy. Follow the repository's
@@ -28,6 +28,18 @@ on 3001 and Vite on 3000, using the normal proxy. Follow the repository's
 the processes when finished. The response/outage delay argument is milliseconds
 **each way**, so `5` models a 10 ms round trip. CPU comparisons should run
 sequentially without builds or browser captures competing for resources.
+
+The input runner also supports `firefox` and visible windows with
+`INPUT_RESPONSE_HEADFUL=1`. It applies artificial transit in the development
+proxy while retaining native browser sockets. See the
+[input/startup results](../docs/experiments/2026-10-18/input-startup-2026-10-18.md)
+for corrected timing methods and retained failures.
+Its timing regression checks live in
+[`tests/client/input-response.test.ts`](../tests/client/input-response.test.ts).
+
+The rendering diagnostics also reuse that standard proxy. Start Vite with
+`npm run dev -- --strictPort --mode benchmark` for these diagnostics; their
+switches are excluded from ordinary development and production builds.
 
 Go CPU runners compare separately compiled Go test executables and write
 measurements under `local/`. Their usage is in the tool reference. Other runners use

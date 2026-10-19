@@ -50,7 +50,20 @@ export const createHud = ({
     colors.red[2],
   );
   const mapCanvas = query<HTMLCanvasElement>(element, '.hud-map canvas');
-  const map = mapCanvas.getContext('2d')!;
+  const map = mapCanvas.getContext('2d', { willReadFrequently: true })!;
+  let mapWidth = 0;
+  let mapOptions: Parameters<typeof renderMinimap>[0] | undefined;
+
+  const mapResize = new ResizeObserver(([entry]) => {
+    mapWidth = Math.round(entry.contentRect.width);
+
+    if (mapWidth && mapOptions) {
+      mapOptions.displayScale = 300 / mapWidth;
+      renderMinimap(mapOptions);
+    }
+  });
+
+  mapResize.observe(mapCanvas);
 
   mapCanvas.setAttribute(
     'aria-label',
@@ -85,6 +98,8 @@ export const createHud = ({
   return {
     setShown,
     destroy() {
+      mapResize.disconnect();
+      mapOptions = undefined;
       panels.forEach((panel) => element.removeChild(panel));
     },
     update({
@@ -113,6 +128,11 @@ export const createHud = ({
       setShown(shown);
 
       if (!shown) return;
+
+      // The first visible frame measures once; later resizes arrive after layout.
+      // Avoid flushing pending instrument or world styles on every frame.
+      if (!mapWidth) mapWidth = mapCanvas.clientWidth;
+      const displayScale = 300 / (mapWidth || 300);
 
       panels.forEach((panel) => {
         panel.style.opacity = String(alpha);
@@ -332,14 +352,17 @@ export const createHud = ({
 
       previousTarget = target;
 
-      renderMinimap({
-        ctx: map,
-        ship,
-        objects,
-        poses,
-        target,
-        asteroidPositions,
-      });
+      renderMinimap(
+        (mapOptions = {
+          ctx: map,
+          ship,
+          objects,
+          poses,
+          target,
+          asteroidPositions,
+          displayScale,
+        }),
+      );
     },
   };
 };

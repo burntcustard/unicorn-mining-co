@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
@@ -22,8 +29,21 @@ const baseline = process.env.GAMEPLAY_BASELINE;
 const [width, height] = (process.env.GAMEPLAY_RESOLUTION || '2560x1440')
   .split('x')
   .map(Number);
-const fullscreen = width === 3840 && height === 2160;
+const nativeDisplay = Boolean(process.env.GAMEPLAY_NATIVE);
+const fullscreen = nativeDisplay || (width === 3840 && height === 2160);
 const rendererPreference = process.env.GAMEPLAY_RENDERER || 'auto';
+const noHudBlur = Boolean(process.env.GAMEPLAY_NO_HUD_BLUR);
+
+const stylesheets = (await readdir('dist'))
+  .filter((name) => name.endsWith('.css'))
+  .sort((a, b) => {
+    const priority = (name: string) =>
+      name.startsWith('index-') ? 0 : name.startsWith('docked-') ? 2 : 1;
+
+    return priority(a) - priority(b);
+  });
+
+assert(stylesheets.length, 'Build production CSS before measuring gameplay');
 
 assert(width > 0 && height > 0, 'Use a resolution such as 3840x2160');
 assert(['auto', 'canvas', 'webgl'].includes(rendererPreference));
@@ -39,6 +59,50 @@ assert(
 );
 const pause = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const readHostPower = async () => {
+  const read = (path: string) =>
+    readFile(path, 'utf8').then(
+      (value) => value.trim(),
+      (): null => null,
+    );
+  const [energyPreference, supplies] = await Promise.all([
+    read('/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference'),
+    readdir('/sys/class/power_supply').catch((): string[] => []),
+  ]);
+  const online = Object.fromEntries(
+    (
+      await Promise.all(
+        supplies
+        .toSorted((left, right) => left.localeCompare(right, 'en-US'))
+          .map(
+            async (name) =>
+              [
+                name,
+                await read(`/sys/class/power_supply/${name}/online`),
+              ] as const,
+          ),
+      )
+    ).filter(([, value]) => value !== null),
+  );
+  let profile: string = null;
+
+  try {
+    profile = execFileSync('powerprofilesctl', ['get'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    }).trim();
+  } catch {
+    /* Other platforms may not expose a power policy. */
+  }
+
+  return {
+    at: new Date().toISOString(),
+    policy: { profile, energyPreference, online },
+  };
+};
+
 const root = process.cwd();
 const directory = resolve(
   `benchmarking/local/production-gameplay-${process.pid}`,
@@ -107,7 +171,7 @@ Reflect.set(window, 'perf-capture', async action => {
   if(action==='measure'){
     const result=await (${measureGameplay(seconds * 1000).replaceAll('window.perfFixture', 'perfFixture')});
     return JSON.stringify(Object.fromEntries([
-      ['fps',result.fps],['frames',result.frames],['p95',result.p95],['p99',result.p99],['missed',result.missed],['max',result.max],
+      ['fps',result.fps],['frames',result.frames],['p95',result.p95],['p99',result.p99],['missed',result.missed],['max',result.max],['hidden-during-capture',result.hidden],
       ['fps-windows',result.fpsWindows],
       ['stalls',result.stalls],
       ['cpu',[result.cpu.mean,result.cpu.p95,result.cpu.p99,result.cpu.max]],
@@ -116,6 +180,7 @@ Reflect.set(window, 'perf-capture', async action => {
       ['messages',[result.messages.mean,result.messages.p95,result.messages.p99,result.messages.max]],['message-count',result.messageCount],
       ['viewport',result.viewport],['canvas',result.canvas],['zoom',result.zoom],['rounds',result.rounds],['alive',result.alive],
       ['context-attributes',game.ctx.getContextAttributes()],
+      ['minimap-attributes',document.querySelector('.hud-map canvas').getContext('2d').getContextAttributes()],
       ['audio-state',Reflect.get(window,'perf-audio-context')?.state || 'absent'],
       ['browser-errors',Reflect.get(window,'perf-errors')],
       ['scene-surfaces',document.querySelectorAll('.world-surface').length],
@@ -129,7 +194,8 @@ Reflect.set(window, 'perf-capture', async action => {
       ['document-extent',[document.documentElement.clientWidth,document.documentElement.clientHeight,document.documentElement.scrollWidth,document.documentElement.scrollHeight]],
       ['splits',perfFixture?.events['asteroidSplit']||0],['destroyed',perfFixture?.events['asteroidDestroyed']||0],
       ['light-active',player.ship.moduleActive({module:m8.SearchLight})],
-      ['asteroids',game.sprites.filter(object=>object.kind==='asteroid').length]
+      ['asteroids',game.sprites.filter(object=>object.kind==='asteroid').length],
+      ['radar-contacts',network.asteroidPositions.length]
     ]));
   }
 });`;
@@ -232,7 +298,7 @@ const { output: backgroundOutput } = await backgroundBundle.generate({
 await backgroundBundle.close();
 await writeFile(
   join(directory, 'index.html'),
-  `<!doctype html><html lang="en-US"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/src/client/style.css"></head><body><canvas id="background-canvas"></canvas><canvas id="canvas"></canvas><script>localStorage.setItem('unicorn-renderer',${JSON.stringify(rendererPreference)});${backgroundOutput[0].code}</script><script type="module" src="./fixture.js"></script></body></html>`,
+  `<!doctype html><html lang="en-US"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${stylesheets.map((name) => `<link rel="stylesheet" href="/dist/${name}">`).join('')}${noHudBlur ? '<style>.hud .ui-card{backdrop-filter:none}</style>' : ''}</head><body><canvas id="background-canvas"></canvas><canvas id="canvas"></canvas><script>localStorage.setItem('unicorn-renderer',${JSON.stringify(rendererPreference)});${backgroundOutput[0].code}</script><script type="module" src="./fixture.js"></script></body></html>`,
 );
 
 const portProbe = createServer();
@@ -409,11 +475,13 @@ try {
 
     await send('browsingContext.activate', { context });
 
-    await send('browsingContext.setViewport', {
-      context,
-      viewport: { width, height },
-      devicePixelRatio: 1,
-    });
+    if (!nativeDisplay) {
+      await send('browsingContext.setViewport', {
+        context,
+        viewport: { width, height },
+        devicePixelRatio: 1,
+      });
+    }
   } else {
     version = await send('Browser.getVersion');
 
@@ -426,31 +494,48 @@ try {
       });
     }
 
-    await send('Emulation.setDeviceMetricsOverride', {
-      width,
-      height,
-      deviceScaleFactor: 1,
-      mobile: false,
-    });
+    if (!nativeDisplay) {
+      await send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+    }
 
     await send('Page.bringToFront');
   }
 
   await pause(5000);
 
+  const bounded = <Value>(request: Promise<Value>) => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    return Promise.race([
+      request,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Gameplay browser evaluation timed out')),
+          seconds * 1000 + 20000,
+        );
+      }),
+    ]).finally(() => clearTimeout(timer));
+  };
+
   const evaluate = async (expression: string) => {
-    const result =
+    const result = await bounded(
       browserName === 'chrome'
-        ? await send('Runtime.evaluate', {
+        ? send('Runtime.evaluate', {
             expression,
             awaitPromise: true,
             returnByValue: true,
           })
-        : await send('script.evaluate', {
+        : send('script.evaluate', {
             expression,
             awaitPromise: true,
             target: { context },
-          });
+          }),
+    );
 
     if (result.exceptionDetails || result.type === 'exception') {
       throw Error(JSON.stringify(result));
@@ -512,9 +597,28 @@ try {
 
   const display = JSON.parse(
     await evaluate(
-      `JSON.stringify({x:screenX,y:screenY,width:outerWidth,height:outerHeight,devicePixelRatio,screen:[screen.width,screen.height]})`,
+      `JSON.stringify({x:screenX,y:screenY,width:outerWidth,height:outerHeight,devicePixelRatio,screen:[screen.width,screen.height],viewport:[innerWidth,innerHeight]})`,
     ),
   );
+
+  if (nativeDisplay) {
+    assert.deepEqual(
+      display.screen,
+      [width, height],
+      'Match the physical display',
+    );
+    assert.deepEqual(
+      display.viewport,
+      [width, height],
+      'Use a native fullscreen viewport',
+    );
+    assert.equal(
+      display.devicePixelRatio,
+      1,
+      'Use one canvas pixel per display pixel',
+    );
+  }
+
   const results: Reply[] = [];
   let stopping = false;
 
@@ -536,6 +640,33 @@ try {
       ['live', 'combat', 'flight', 'large', 'reference'].includes(scenario),
     );
 
+    await send(
+      browserName === 'chrome'
+        ? 'Page.bringToFront'
+        : 'browsingContext.activate',
+      browserName === 'chrome' ? {} : { context },
+    );
+    console.log(
+      JSON.stringify({ starting: scenario, at: new Date().toISOString() }),
+    );
+
+    const powerBefore = await readHostPower();
+
+    const recordResult = async (result: Reply) => {
+      const powerAfter = await readHostPower();
+
+      assert.deepEqual(
+        powerAfter.policy,
+        powerBefore.policy,
+        'Power policy changed during capture; repeat with stable power',
+      );
+
+      results.push({
+        ...result,
+        power: { before: powerBefore, after: powerAfter },
+      });
+    };
+
     if (scenario === 'reference') {
       await send(
         browserName === 'chrome' ? 'Page.navigate' : 'browsingContext.navigate',
@@ -545,6 +676,7 @@ try {
       );
       await pause(1000);
       const reference = await evaluate(`new Promise(resolve=>{
+        let hidden=document.hidden;const visibility=()=>{hidden ||= document.hidden};document.addEventListener('visibilitychange',visibility);
         document.body.style.cssText='margin:0;background:#102;overflow:hidden';
         const canvas=document.createElement('canvas');canvas.width=${width};canvas.height=${height};document.body.append(canvas);
         const ctx=canvas.getContext('2d',{alpha:false});
@@ -552,13 +684,19 @@ try {
         const frame=now=>{const from=performance.now();ctx.clearRect(0,0,${width},${height});ctx.fillRect((now/10)%${width - 100},100,100,100);work.push(performance.now()-from);
           start??=now;if(before!==undefined)gaps.push(now-before);before=now;
           if(now-start<${seconds * 1000})requestAnimationFrame(frame);else {const sorted=gaps.toSorted((a,b)=>a-b),cpu=work.toSorted((a,b)=>a-b);
-            resolve(JSON.stringify({scenario:'reference',fps:gaps.length*1000/gaps.reduce((a,b)=>a+b,0),frames:gaps.length,p95:sorted[Math.floor(sorted.length*.95)],p99:sorted[Math.floor(sorted.length*.99)],missed:gaps.filter(value=>value>12.5).length,max:sorted.at(-1),cpu:[work.reduce((a,b)=>a+b,0)/work.length,cpu[Math.floor(cpu.length*.95)],cpu[Math.floor(cpu.length*.99)],cpu.at(-1)],viewport:[innerWidth,innerHeight],canvas:[canvas.width,canvas.height]}));}
+            document.removeEventListener('visibilitychange',visibility);
+            resolve(JSON.stringify({scenario:'reference','hidden-during-capture':hidden,fps:gaps.length*1000/gaps.reduce((a,b)=>a+b,0),frames:gaps.length,p95:sorted[Math.floor(sorted.length*.95)],p99:sorted[Math.floor(sorted.length*.99)],missed:gaps.filter(value=>value>12.5).length,max:sorted.at(-1),cpu:[work.reduce((a,b)=>a+b,0)/work.length,cpu[Math.floor(cpu.length*.95)],cpu[Math.floor(cpu.length*.99)],cpu.at(-1)],viewport:[innerWidth,innerHeight],canvas:[canvas.width,canvas.height]}));}
         };requestAnimationFrame(frame);
       })`);
       const result = JSON.parse(reference);
 
+      assert.equal(
+        result['hidden-during-capture'],
+        false,
+        'Keep the owned benchmark page visible',
+      );
       console.log(JSON.stringify(result, null, 2));
-      results.push(result);
+      await recordResult(result);
       continue;
     }
 
@@ -618,7 +756,22 @@ try {
       Object.entries(raw).map(([key, value]) => [key.replace(/^_/, ''), value]),
     );
 
+    Object.assign(
+      result,
+      JSON.parse(
+        await evaluate(`JSON.stringify({
+          'hud-panels': document.querySelectorAll('.hud-widget').length,
+          'hud-visible': [...document.querySelectorAll('.hud-widget')].filter(element => !element.hidden && getComputedStyle(element).position === 'absolute').length
+        })`),
+      ),
+    );
+
     console.log(JSON.stringify({ scenario, ...result }, null, 2));
+    assert.equal(
+      result['hidden-during-capture'],
+      false,
+      'Keep the owned benchmark page visible',
+    );
     assert.deepEqual(
       result['browser-errors'],
       [],
@@ -638,6 +791,11 @@ try {
     assert.deepEqual(result.viewport, [width, height]);
     assert.deepEqual(result.canvas, [width, height]);
     assert.equal(result.zoom, 1.5);
+    assert.equal(
+      result['hud-visible'],
+      result['hud-panels'],
+      'all gameplay HUD panels must be visible with production styles',
+    );
 
     if (process.env.GAMEPLAY_SOFTWARE || process.env.GAMEPLAY_GPU) {
       const attributes = result[
@@ -658,6 +816,11 @@ try {
     );
 
     if (scenario !== 'live') {
+      assert.equal(
+        result['radar-contacts'],
+        result.asteroids,
+        'isolated radar contacts must come from the measured world',
+      );
       assert(
         Number(result.rounds) > 0 &&
           Number(result.rounds) < 2000 &&
@@ -683,7 +846,7 @@ try {
       );
     }
 
-    results.push({ scenario, ...result });
+    await recordResult({ scenario, ...result });
 
     if (process.env.GAMEPLAY_SCREENSHOTS) {
       const capture =
@@ -716,14 +879,17 @@ try {
         productionTransforms: true,
         source: baseline || 'working-tree',
         rendererPreference,
+        stylesheets,
         gpuInfo,
         simulationStep,
         diagnostics: {
+          nativeDisplay,
           profiler: Boolean(process.env.GAMEPLAY_PROFILE),
           trace: Boolean(process.env.GAMEPLAY_TRACE),
           softwareCanvas: Boolean(process.env.GAMEPLAY_SOFTWARE),
           gpuCanvas: Boolean(process.env.GAMEPLAY_GPU),
           sourceOverInterior: Boolean(process.env.GAMEPLAY_NO_LIGHTEN),
+          noHudBlur,
         },
         snapshotNote:
           'Live uses normal networking; combat and flight use the isolated deterministic client world.',

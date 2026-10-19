@@ -11,6 +11,7 @@ import {
 } from '../../src/client/ui/dom/graphics';
 import { renderText } from '../../src/client/ui/text';
 import { setSizing } from '../../src/client/ui/set-sizing';
+import { withAlpha } from '../../src/client/utilities/color';
 import {
   beginSurfaces,
   endSurfaces,
@@ -48,14 +49,45 @@ export const checkHudText = async () => {
             clearFrame();
             hudContext();
 
-            renderText({
-              game: hudGame,
-              text: 'CARGO 12/34',
-              x: 200.3,
-              y: 20.1,
-              size,
-              align,
-            });
+            if (!frame) {
+              // Keep an independent native reference even when text is cached
+              // immediately, so comparisons cannot validate the cache against itself.
+              ctx.save();
+              ctx.scale(hudGame.uiScale, hudGame.uiScale);
+              ctx.translate(200.3, 20.1);
+              ctx.scale(size, size);
+              const matrix = ctx.getTransform();
+
+              ctx.setTransform(
+                matrix.a,
+                0,
+                0,
+                matrix.d,
+                Math.round(matrix.e),
+                Math.round(matrix.f),
+              );
+              ctx.font = '16px Gemetric';
+              ctx.textAlign = ['left', 'center', 'right'][
+                align + 1
+              ] as CanvasTextAlign;
+              ctx.textBaseline = 'alphabetic';
+              ctx.lineJoin = 'round';
+              ctx.lineWidth = 2;
+              ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
+              ctx.fillStyle = '#fff';
+              ctx.strokeText('CARGO 12/34', 0, 13);
+              ctx.fillText('CARGO 12/34', 0, 13);
+              ctx.restore();
+            } else {
+              renderText({
+                game: hudGame,
+                text: 'CARGO 12/34',
+                x: 200.3,
+                y: 20.1,
+                size,
+                align,
+              });
+            }
 
             const pixels = ctx.getImageData(
               0,

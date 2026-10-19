@@ -17,9 +17,7 @@ type recoverySlab struct {
 	lowerBound, upperBound float64
 }
 
-func recoveryAxes(f *Fixture) []Vec.Vector {
-	result := []Vec.Vector{}
-
+func recoveryAxes(f *Fixture, result []Vec.Vector) []Vec.Vector {
 	if s, ok := f.Shape.(*shape.PolygonShape); ok {
 		for _, normal := range s.Normals {
 			var axis Vec.Vector
@@ -43,6 +41,61 @@ func recoveryProject(f *Fixture, normal, origin Vec.Vector) (float64, float64) {
 	}
 
 	return lowerBound - f.Shape.Base().Radius, upperBound + f.Shape.Base().Radius
+}
+
+func recoveryClip(slab recoverySlab, direction Vec.Vector, entry, exit float64) (float64, float64) {
+	speed := Vec.Dot(slab.normal, direction)
+
+	if math.Abs(speed) < 1e-10 {
+		if slab.lowerBound >= -recoveryTolerance || slab.upperBound <= recoveryTolerance {
+			return 0, 0
+		}
+	} else {
+		t0, t1 := slab.lowerBound/speed, slab.upperBound/speed
+		entry, exit = max(entry, min(t0, t1)), min(exit, max(t0, t1))
+	}
+
+	return entry, exit
+}
+
+func recoveryInterval(slabs []recoverySlab, direction Vec.Vector) (float64, float64) {
+	entry, exit := math.Inf(-1), math.Inf(1)
+
+	for _, slab := range slabs {
+		entry, exit = recoveryClip(slab, direction, entry, exit)
+
+		if entry >= exit || exit <= 0 {
+			return 0, 0
+		}
+	}
+
+	return entry, exit
+}
+
+func recoveryDistance(intervals [][2]float64) float64 {
+	slices.SortStableFunc(intervals, func(a, b [2]float64) int {
+		if a[0] < b[0] {
+			return -1
+		}
+
+		if a[0] > b[0] {
+			return 1
+		}
+
+		return 0
+	})
+
+	distance := 0.0
+
+	for _, interval := range intervals {
+		if interval[0] > distance+recoveryTolerance {
+			break
+		}
+
+		distance = max(distance, interval[1])
+	}
+
+	return distance
 }
 
 // Search the union of forbidden translations, preserving the body's full
@@ -116,8 +169,50 @@ func (w *World) recoverOverlaps() {
 			directions[i] = Vec.Create(math.Cos(angle), math.Sin(angle))
 		}
 
-		obstacles := [][]recoverySlab{}
 		origin := body.Xf.P
+		var axes []Vec.Vector
+		var temporary []recoverySlab
+		var intervals [][2]float64
+
+		// The first ray visits every fixture pair. Its escape is an upper bound
+		// for the remaining search, including obstacles beyond current contacts.
+		pairSlabs := func(a, b *Fixture, limit float64) []recoverySlab {
+			axes = recoveryAxes(a, axes[:0])
+			axes = recoveryAxes(b, axes)
+
+			if a.Shape.Base().Type == "circle" || b.Shape.Base().Type == "circle" {
+				axes = append(axes, directions[:16]...)
+			}
+
+			temporary = temporary[:0]
+			entry, exit := math.Inf(-1), math.Inf(1)
+
+			for _, normal := range axes {
+				a0, a1 := recoveryProject(a, normal, origin)
+				b0, b1 := recoveryProject(b, normal, origin)
+				slab := recoverySlab{normal, b0 - a1 - slop, b1 - a0 + slop}
+				// A separating slab outside the entire search disk cannot affect
+				// any better escape, even through a chain of adjacent obstacles.
+				if math.IsInf(limit, 1) {
+					entry, exit = recoveryClip(slab, directions[0], entry, exit)
+
+					// A pair missing this ray cannot contain its origin either.
+					if entry >= exit || exit <= 0 {
+						return nil
+					}
+				} else {
+					extent := limit * math.Hypot(normal.X, normal.Y)
+
+					if slab.lowerBound > extent || slab.upperBound < -extent {
+						return nil
+					}
+				}
+
+				temporary = append(temporary, slab)
+			}
+
+			return temporary
+		}
 
 		for other := w.BodyList; other != nil; other = other.Next {
 			if other == body {
@@ -134,20 +229,15 @@ func (w *World) recoverOverlaps() {
 						continue
 					}
 
-					axes := append(recoveryAxes(a), recoveryAxes(b)...)
+					slabs := pairSlabs(a, b, math.Inf(1))
 
-					if a.Shape.Base().Type == "circle" || b.Shape.Base().Type == "circle" {
-						axes = append(axes, directions[:16]...)
+					if len(slabs) == 0 {
+						continue
 					}
 
-					slabs := []recoverySlab{}
 					contains := true
 
-					for _, normal := range axes {
-						a0, a1 := recoveryProject(a, normal, origin)
-						b0, b1 := recoveryProject(b, normal, origin)
-						slab := recoverySlab{normal, b0 - a1 - slop, b1 - a0 + slop}
-						slabs = append(slabs, slab)
+					for _, slab := range slabs {
 						contains = contains && slab.lowerBound < -recoveryTolerance && slab.upperBound > recoveryTolerance
 					}
 
@@ -157,60 +247,69 @@ func (w *World) recoverOverlaps() {
 						}
 					}
 
-					obstacles = append(obstacles, slabs)
+					entry, exit := recoveryInterval(slabs, directions[0])
+
+					if exit > 0 && entry < exit {
+						intervals = append(intervals, [2]float64{entry, exit})
+					}
 				}
 			}
 		}
 
-		best := math.Inf(1)
+		best := recoveryDistance(intervals)
 		escape := Vec.Vector{}
 
+		if !math.IsInf(best, 0) {
+			escape = Vec.Scale(directions[0], best)
+		}
+
+		maxDirectionLength := 0.0
+
 		for _, direction := range directions {
-			intervals := [][2]float64{}
+			maxDirectionLength = max(maxDirectionLength, math.Hypot(direction.X, direction.Y))
+		}
 
-			for _, slabs := range obstacles {
-				entry, exit := math.Inf(-1), math.Inf(1)
+		limit := (best+recoveryTolerance)*maxDirectionLength + recoveryTolerance
+		var slabs []recoverySlab
+		var ends []int
 
-				for _, slab := range slabs {
-					speed := Vec.Dot(slab.normal, direction)
+		for other := w.BodyList; other != nil; other = other.Next {
+			if other == body {
+				continue
+			}
 
-					if math.Abs(speed) < 1e-10 {
-						if slab.lowerBound >= -recoveryTolerance || slab.upperBound <= recoveryTolerance {
-							exit = math.Inf(-1)
-							break
-						}
-					} else {
-						t0, t1 := slab.lowerBound/speed, slab.upperBound/speed
-						entry, exit = max(entry, min(t0, t1)), min(exit, max(t0, t1))
+			for a := body.FixtureList; a != nil; a = a.Next {
+				if !a.Physics {
+					continue
+				}
+
+				for b := other.FixtureList; b != nil; b = b.Next {
+					if !b.Physics || !a.ShouldCollide(b) {
+						continue
+					}
+
+					if pair := pairSlabs(a, b, limit); len(pair) > 0 {
+						slabs = append(slabs, pair...)
+						ends = append(ends, len(slabs))
 					}
 				}
+			}
+		}
+
+		for _, direction := range directions[1:] {
+			intervals = intervals[:0]
+			start := 0
+
+			for _, end := range ends {
+				entry, exit := recoveryInterval(slabs[start:end], direction)
+				start = end
 
 				if exit > 0 && entry < exit {
 					intervals = append(intervals, [2]float64{entry, exit})
 				}
 			}
 
-			slices.SortStableFunc(intervals, func(a, b [2]float64) int {
-				if a[0] < b[0] {
-					return -1
-				}
-
-				if a[0] > b[0] {
-					return 1
-				}
-
-				return 0
-			})
-
-			distance := 0.0
-
-			for _, interval := range intervals {
-				if interval[0] > distance+recoveryTolerance {
-					break
-				}
-
-				distance = max(distance, interval[1])
-			}
+			distance := recoveryDistance(intervals)
 
 			if distance < best-recoveryTolerance {
 				best, escape = distance, Vec.Scale(direction, distance)

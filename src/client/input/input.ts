@@ -71,9 +71,12 @@ export const initKeys = ({
     if (key.startsWith('arrow') || key === ' ') event.preventDefault();
 
     if (event.repeat || pressed.has(key)) return;
-    unlockAudio();
 
-    if (onKeyDown?.(event)) return;
+    if (onKeyDown?.(event)) {
+      unlockAudio();
+      return;
+    }
+
     const previous = { ...playerInput };
 
     pressed.add(key);
@@ -107,6 +110,9 @@ export const initKeys = ({
     }
 
     notify(previous);
+    // Send controls before first-use audio setup can block this gesture.
+    // Keep unlocking synchronous so browser autoplay policies still allow it.
+    unlockAudio();
     callbacks.get(key)?.(event);
 
     actionCallbacks.forEach((callback, binding) => {

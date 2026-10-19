@@ -756,6 +756,85 @@ for (const gap of [1, maxPredictionTicks, maxPredictionTicks + 1]) {
   );
 }
 
+// The browser may execute a frame after receiving a packet while retaining an
+// older rAF timestamp. Reconcile a reached tick without waiting another frame;
+// snapshots ahead of that clock must still wait for their receipt boundary.
+for (const ahead of [0, 1]) {
+  const client = new NetworkClient({ url: 'ws://frame-receipt-test' });
+  const receive = Reflect.get(client, 'receive').bind(client);
+  const now = performance.now() + 100;
+
+  receive({
+    message: {
+      type: 'welcome',
+      playerToken,
+      playerId: 1,
+      shipId: 1,
+      serverTick: 0,
+      worldSeed: 2,
+      spawn: { x: 0, y: 0 },
+    },
+  });
+
+  receive({
+    message: {
+      type: 'load',
+      serverTick: 0,
+      nextEntityId: 1,
+      entityIds: [],
+      fullEntities: [],
+    },
+  });
+
+  for (let tick = 0; tick <= ahead; tick++) {
+    client.updateFrame({ input: emptyPlayerInput(), now, dt: simulationStep });
+  }
+
+  const snapshot = (serverTick: number) => {
+    receive({
+      message: {
+        type: 'snapshot',
+        serverTick,
+        nextEntityId: 1,
+        entityIds: [],
+        fullEntities: [],
+      },
+    });
+
+    Reflect.set(client, 'snapshotReceivedAt', now + 5);
+  };
+
+  snapshot(1);
+  client.updateFrame({ input: emptyPlayerInput(), now, dt: 0 });
+  assert.equal(
+    client.serverTick,
+    1,
+    'a reached snapshot tick reconciles immediately',
+  );
+  assert.equal(
+    client.world.tick,
+    1 + ahead,
+    'receipt does not advance prediction',
+  );
+
+  const future = client.world.tick + 1;
+
+  snapshot(future);
+  client.updateFrame({ input: emptyPlayerInput(), now, dt: 0 });
+  assert.equal(
+    client.serverTick,
+    1,
+    'a future snapshot stays pending before receipt time',
+  );
+  client.updateFrame({ input: emptyPlayerInput(), now: now + 6, dt: 0 });
+  assert.equal(
+    client.serverTick,
+    future,
+    'the future snapshot reconciles once due',
+  );
+  assert.equal(client.world.tick, future);
+}
+
 const malformedClient = new NetworkClient({ url: 'ws://malformed-test' });
 const malformedSocket = Socket.sockets.at(-1)!;
 

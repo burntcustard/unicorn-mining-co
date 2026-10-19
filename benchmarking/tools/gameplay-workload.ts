@@ -59,7 +59,9 @@ export const createGameplayWorkload = ({
   ui.clear();
   network.socket.onmessage = network.socket.onclose = null;
   network.socket.close();
-  network.connected = false;
+  // Keep normal gameplay presentation, including the HUD, active offline.
+  network.connected = true;
+  network.asteroidPositions = [];
   game.sprites.splice(0);
   game.crafts.splice(0);
   const world = network.world;
@@ -147,6 +149,11 @@ export const createGameplayWorkload = ({
         perfFixture.events[e.type] = (perfFixture.events[e.type] || 0) + 1;
       changed = true;
     }
+    if (changed) {
+      network.asteroidPositions = [...world.entities.values()]
+        .filter(object => object.kind === 'asteroid' && !object.dead)
+        .map(object => object.position);
+    }
     return changed;
   };
   network.predictFrame = () => manager.predictFrame({ elapsed: pending });
@@ -158,6 +165,9 @@ export const createGameplayWorkload = ({
 })()`;
 
 const measurement = `new Promise((resolve) => {
+  let hidden = document.hidden;
+  const visibility = () => { hidden ||= document.hidden; };
+  document.addEventListener('visibilitychange', visibility);
   const gaps = [],
     durations = [],
     work = [],
@@ -222,6 +232,7 @@ const measurement = `new Promise((resolve) => {
     before = now;
     if (now - start < 10000) requestAnimationFrame(frame);
     else {
+      document.removeEventListener('visibilitychange', visibility);
       network.remoteMotion.sample = original;
       network.updateFrame = originalUpdate;
       network.predictFrame = originalPredict;
@@ -237,6 +248,7 @@ const measurement = `new Promise((resolve) => {
       };
       const sorted = gaps.toSorted((a, b) => a - b);
       resolve({
+        hidden,
         fps: (gaps.length * 1000) / gaps.reduce((s, x) => s + x, 0),
         frames: gaps.length,
         fpsWindows: [Math.min(...fpsWindows), ...fpsWindows],

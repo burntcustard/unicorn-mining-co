@@ -14,7 +14,7 @@ chunk transforms.
 | `menu-screens`                    | First navigation to Settings, Saves, or Credits, or Play when the authenticated account needs a profile name.                                       |
 | `ship-preview`                    | After the main menu's first paint. Play cancels a pending preview.                                                                                  |
 | `gameplay`                        | After the ship preview paints, or immediately on Play. Authenticates the connection; Play enters the world and starts the game loop.                |
-| `sound`                           | Gameplay preparation loads the code. First gameplay keyboard input creates and unlocks audio.                                                       |
+| `sound`                           | Gameplay preparation loads the code. Play initializes audio alongside world entry; gameplay keyboard input also unlocks it if suspended.            |
 | `docked`, its CSS, and SVG assets | Gameplay preparation loads the assets. The screen opens when the predicted ship is docked, launch is not pending, and no other HTML screen is open. |
 
 Shared dependency chunks, including `ship`, `shield`, and `keybindings`, load

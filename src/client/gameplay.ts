@@ -720,6 +720,12 @@ const assetsReady = Promise.all([
 ]);
 
 const start = async () => {
+  // Initialize audio alongside world entry instead of blocking the first
+  // flight control. A real key gesture still resumes a suspended context.
+  preloadSound()
+    .then((sound) => sound.unlockAudio())
+    .catch(() => {});
+
   await Promise.all([assetsReady, network.enterWorld()]);
 
   if (gameStarted) return;

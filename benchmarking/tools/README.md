@@ -65,14 +65,26 @@ node benchmarking/tools/gameplay-performance.ts chrome 30
 node benchmarking/tools/gameplay-performance.ts firefox 30
 ```
 
-Set `GAMEPLAY_RESOLUTION=3840x2160` for native 4K fullscreen captures. Results
+Use `GAMEPLAY_NATIVE=1 GAMEPLAY_RESOLUTION=1920x1200` on a 1920 × 1200 display
+for fullscreen captures without viewport emulation. Native mode verifies the
+physical screen, viewport, and pixel density, rejecting mismatched dimensions.
+Set `GAMEPLAY_RESOLUTION=3840x2160` for emulated 4K viewport/backing-canvas
+captures. The physical display is recorded separately; oversized virtual
+viewports do not represent native display performance. Results
 include consecutive one-second FPS windows; `fps-windows[0]` is their minimum.
 Set `GAMEPLAY_RENDERER=canvas` or `webgl` to compare the Graphics setting in
 either browser. `auto` uses the app default. This affects only the owned profile.
 
+Each scenario records host power policy before and after measurement and rejects
+a policy change. On Linux this includes the power profile, CPU energy preference,
+and online power sources. Unavailable values are recorded as `null` or an empty
+source map. Compare captures made with the same power policy; plugged-in power
+alone does not imply the Performance profile.
+
 The runner opens an owned, visible browser on the primary display, verifies a
 2560 × 1440 viewport and backing canvas at default zoom, and unlocks audio with
-a trusted key event. Its default scenarios are normal-network flight, large
+a trusted key event. It loads the built production CSS and asserts that gameplay
+HUD panels remain visible, including in isolated worlds. Its default scenarios are normal-network flight, large
 asteroid fractures, dense combat, continuous flight, and a minimal canvas
 reference. Combat and flight equip an autogun with ten ammunition packs and
 keep the searchlight active. The isolated
@@ -80,7 +92,9 @@ world uses the real simulation cadence and production property/tag transforms,
 including separately emitted lazy chunks. Flight must move both ship and camera;
 combat must consume ammunition and fracture rock. Flight recycles rocks already
 outside the viewport before pose capture, and records the minimum, mean, and
-final visible-rock count. It closes only its browser.
+final visible-rock count. Isolated radar contacts are rebuilt from that world's
+asteroids each simulation step, and their count must match the scene. It closes
+only its browser.
 
 JSON results include rAF frame intervals, missed refreshes above 12.5 ms,
 main-loop/update/prediction/message timings, canvas attributes, movement, audio
@@ -90,18 +104,23 @@ measurement. Results default to ignored `benchmarking/local`.
 
 `GAMEPLAY_SCENARIOS=live,large,combat,flight,reference` selects the scenarios.
 Repeating `live` measures consecutive periods in
-one browser without resetting the world. Captures reject browser errors and
-missing native CSS transforms. Do not run builds, other browser checks, or CPU
+one browser without resetting the world. Each gameplay scenario activates the
+owned browser tab. Captures reject browser errors, a page hidden during measurement,
+and missing native CSS transforms. Browser evaluations time out after the capture
+duration plus 20 seconds, including a reference canvas waiting for frames.
+Do not run builds, other browser checks, or CPU
 profiles alongside an acceptance capture.
 
 Optional diagnostics:
 
+- `GAMEPLAY_NO_HUD_BLUR=1`: disable HUD card backdrop blur to isolate its
+  rendering cost. This changes appearance and is excluded from acceptance captures.
 - `GAMEPLAY_SCREENSHOTS=1`: capture each scenario after its measurement.
 - `GAMEPLAY_BASELINE=FULL_COMMIT_HASH`: compile that commit's client source
   without changing the checkout; specs must match the running Go server.
 - `GAMEPLAY_GPU=1` / `GAMEPLAY_SOFTWARE=1`: override and verify the native
   Canvas foreground backing-store hint for a backend comparison. These flags
-  apply to Firefox's native renderer; Chrome uses WebGL2 when available.
+  apply to native Canvas rendering; explicit `webgl` selection uses WebGL2.
 - `GAMEPLAY_NO_LIGHTEN=1`: replace interior lightening with source-over for
   diagnosis; this changes appearance and is excluded from acceptance captures.
 - `GAMEPLAY_PROFILE=1`: capture Firefox's native profiler through its
@@ -117,11 +136,19 @@ It covers clipping, holes, blending, gradients, uploads, and frame order.
 Set `UI_HEADFUL=1` to run UI checks on the real display GPU; the default
 headless Chrome uses a software graphics backend on this device.
 
-- `npm run benchmark` / `benchmark:headless`: Vite benchmark mode and Chrome.
+- `npm run benchmark` / `benchmark:headless`: 16 rendering diagnostics in Chrome.
+  Start the standard Go server and Vite with
+  `npm run dev -- --strictPort --mode benchmark` first. The runner reuses port
+  3000 and its normal proxy; benchmark mode enables the rendering switches.
 - `live.ts`, `live-suite.ts`, `live-browser-probe.ts`, `live-report.ts`: deployed
   game measurements; see [live instructions](../live/README.md).
 - `input-response-browser.ts`, `remote-browser.ts`, `stall-browser.ts`: client
   input, presentation and outage checks with local Go on 3001 and Vite on 3000.
+  The input runner accepts `OUTPUT.json.gz DELAY_MS [chrome|firefox]` and uses
+  native browser WebSockets with delay in the development Vite proxy. Use
+  `INPUT_RESPONSE_HEADFUL=1` for visible-window checks. It records DOM key time,
+  completed-frame response, audio state, and browser errors; its latency limits
+  remain unchanged. See the [input/startup report](../../docs/experiments/2026-10-18/input-startup-2026-10-18.md).
 - `flight-resources.ts`: network resource observations.
 
 Follow [the local browser workflow](../../.agents/skills/codebase-workflow/SKILL.md)

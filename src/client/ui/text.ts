@@ -1,12 +1,13 @@
 import { withAlpha } from '../utilities/color';
 import { fontText } from '../utilities/font-text';
 
+let fontReady = false;
+
 const textImages = new WeakMap<
   CanvasRenderingContext2D,
   Map<
     string,
     {
-      uses: number;
       image?: HTMLCanvasElement;
       left?: number;
       top?: number;
@@ -41,17 +42,9 @@ export function renderText({
   ctx.scale(uiScale, uiScale);
   ctx.translate(x, y);
   ctx.scale(size, size);
-  ctx.font = '16px Gemetric';
-  ctx.textAlign = ['left', 'center', 'right'][align + 1];
-  ctx.textBaseline = 'alphabetic';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
-  ctx.fillStyle = color;
 
-  const transform = document.fonts.check?.('16px Gemetric')
-    ? ctx.getTransform()
-    : undefined;
+  fontReady ||= document.fonts.check?.('16px Gemetric');
+  const transform = fontReady ? ctx.getTransform() : undefined;
   const scaleX = transform?.a;
   const scaleY = transform?.d;
   let cached;
@@ -82,30 +75,35 @@ export function renderText({
     cached = images.get(key);
 
     if (!cached) {
-      // Numeric readouts reuse their canvas as the value changes. Repeated
-      // labels amortize the bitmap; other changing text stays native.
+      // Reuse a bounded pool of bitmaps, including for changing labels.
       if (images.size === 32) {
-        images.delete(images.keys().next().value);
-      }
+        const previous = images.keys().next().value;
 
-      cached = { uses: 0 };
+        cached = images.get(previous);
+        images.delete(previous);
+        cached.text = undefined;
+      } else {
+        cached = {};
+      }
     } else {
       images.delete(key);
     }
 
     images.set(key, cached);
 
-    if (
-      (readout && cached.text !== displayText) ||
-      (!readout && ++cached.uses === 8)
-    ) {
-      const metrics = ctx.measureText(displayText);
+    if (cached.text !== displayText) {
+      const image = cached.image || document.createElement('canvas');
+      const paint = image.getContext('2d', { willReadFrequently: true })!;
+      const alignment = (['left', 'center', 'right'] as const)[align + 1];
+
+      // Measure on the bitmap so the visible canvas need not resolve fonts.
+      paint.font = '16px Gemetric';
+      paint.textAlign = alignment;
+      const metrics = paint.measureText(displayText);
       const left = Math.floor((-metrics.actualBoundingBoxLeft - 2) * scaleX);
       const top = Math.floor(
         (13 - metrics.actualBoundingBoxAscent - 2) * scaleY,
       );
-      const image = cached.image || document.createElement('canvas');
-
       const width =
         Math.ceil((metrics.actualBoundingBoxRight + 2) * scaleX) - left;
       const height =
@@ -114,19 +112,18 @@ export function renderText({
       if (image.width !== width) image.width = width;
 
       if (image.height !== height) image.height = height;
-      const paint = image.getContext('2d', { willReadFrequently: true })!;
 
       paint.resetTransform();
       paint.clearRect(0, 0, image.width, image.height);
       paint.translate(-left, -top);
       paint.scale(scaleX, scaleY);
-      paint.font = ctx.font;
-      paint.textAlign = ctx.textAlign;
-      paint.textBaseline = ctx.textBaseline;
-      paint.lineJoin = ctx.lineJoin;
-      paint.lineWidth = ctx.lineWidth;
-      paint.strokeStyle = ctx.strokeStyle;
-      paint.fillStyle = ctx.fillStyle;
+      paint.font = '16px Gemetric';
+      paint.textAlign = alignment;
+      paint.textBaseline = 'alphabetic';
+      paint.lineJoin = 'round';
+      paint.lineWidth = 2;
+      paint.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
+      paint.fillStyle = color;
       paint.strokeText(displayText, 0, 13);
       paint.fillText(displayText, 0, 13);
 
@@ -147,6 +144,13 @@ export function renderText({
       Math.round(transform.f) + cached.top!,
     );
   } else {
+    ctx.font = '16px Gemetric';
+    ctx.textAlign = ['left', 'center', 'right'][align + 1];
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = withAlpha({ color: '#000', alpha: 0.5 });
+    ctx.fillStyle = color;
     ctx.strokeText(displayText, 0, 13);
     ctx.fillText(displayText, 0, 13);
   }

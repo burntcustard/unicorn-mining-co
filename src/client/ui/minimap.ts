@@ -22,6 +22,7 @@ export const renderMinimap = ({
   poses,
   target,
   asteroidPositions,
+  displayScale = 300 / (ctx.canvas?.clientWidth || 300),
 }: {
   ctx: CanvasRenderingContext2D;
   ship: Ship;
@@ -29,6 +30,7 @@ export const renderMinimap = ({
   poses: Map<number, Pose>;
   target?: GameObject;
   asteroidPositions?: Vec.Value[];
+  displayScale?: number;
 }) => {
   const center = poses.get(ship.id) || ship;
 
@@ -39,7 +41,6 @@ export const renderMinimap = ({
   ctx.arc(0, 0, 148, 0, Math.PI * 2);
   ctx.clip();
   ctx.strokeStyle = withAlpha({ color: '#eef', alpha: 0.12 });
-  const displayScale = 300 / (ctx.canvas?.clientWidth || 300);
   const asteroidRadius = 4 * displayScale;
   const iconRadius = 7 * displayScale;
   const iconStrokeWidth = 2 * displayScale;

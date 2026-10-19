@@ -899,8 +899,13 @@ export class NetworkClient {
       });
     }
 
+    // A decoded snapshot for a tick already reached can reconcile now, even
+    // when this frame's rAF timestamp predates receipt. Waiting adds a frame
+    // of input latency without protecting an earlier simulation boundary.
     const snapshotDue =
-      this.pendingSnapshot && now + 1e-6 >= this.snapshotReceivedAt;
+      this.pendingSnapshot &&
+      (now + 1e-6 >= this.snapshotReceivedAt ||
+        this.world.tick >= this.pendingSnapshot.serverTick);
 
     // Compare poses at the same tick, including a snapshot ahead of our clock.
     // Otherwise smoothing treats legitimate movement as a prediction error.

@@ -50,7 +50,7 @@ const bundle = await rolldown({
         }
 
         if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-          return 'export const unlockAudio = () => {};';
+          return 'export const unlockAudio = () => globalThis.inputAudio?.();';
         }
       },
       resolveId: (id) => (id === 'input' ? '\0input' : undefined),
@@ -77,6 +77,16 @@ const input: {
 const changes: import('../../src/client/protocol/input').PlayerInput[] = [];
 let activity = 0;
 
+const audioInputs: { thrust: number; changes: number }[] = [];
+
+Object.assign(globalThis, {
+  inputAudio: () =>
+    audioInputs.push({
+      thrust: input.playerInput.thrust,
+      changes: changes.length,
+    }),
+});
+
 const stopKeys = input.initKeys({
   onChange: (state) => changes.push(state),
   onActivity: () => activity++,
@@ -85,6 +95,11 @@ const stopKeys = input.initKeys({
 assert.equal(activity, 0, 'initialization does not report player activity');
 
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+assert.deepEqual(
+  audioInputs[0],
+  { thrust: 1, changes: 1 },
+  'the first control is recorded and sent before synchronous audio setup',
+);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
 input.setMenuInput(true);
 assert.equal(input.playerInput.thrust, 0);
@@ -353,6 +368,11 @@ assert.equal(respawnKeys, 0, 'handled camera shortcuts do not request respawn');
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
 assert.equal(respawnKeys, 1, 'any new key can request a respawn');
 assert.equal(input.playerInput.thrust, 0, 'respawn key does not fly the ship');
+assert.equal(
+  audioInputs.at(-1).thrust,
+  0,
+  'an intercepted gameplay key still unlocks audio without changing controls',
+);
 stopDeadKeys();
 
 const clock = globalThis.performance;

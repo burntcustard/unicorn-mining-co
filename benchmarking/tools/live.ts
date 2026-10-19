@@ -31,6 +31,7 @@ import WebSocket from 'ws';
 import { rolldown } from 'rolldown';
 import { installLiveProbe } from './live-browser-probe.ts';
 import { liveSuite, runLiveSuite } from './live-suite.ts';
+import { advanceBenchmarkMenu } from './browser-gameplay.ts';
 
 const date = new Date().toISOString();
 const output =
@@ -67,6 +68,7 @@ const metadata: {
     startedAt: string;
     endedAt: string;
   }[];
+  startups: { players: number; workload: string; attempts: number[] }[];
   [key: string]: unknown;
 } = {
   date,
@@ -77,6 +79,7 @@ const metadata: {
   warmup,
   cooldownBetweenCounts,
   cooldowns: [],
+  startups: [],
   viewport,
   headless: true,
   node: process.version,
@@ -89,6 +92,7 @@ const metadata: {
     .update(await readFile(new URL(import.meta.url)))
     .update(await readFile(new URL('./live-browser-probe.ts', import.meta.url)))
     .update(await readFile(new URL('./live-suite.ts', import.meta.url)))
+    .update(await readFile(new URL('./browser-gameplay.ts', import.meta.url)))
     .digest('hex'),
   serverCpu:
     'Not exposed by the public endpoints; tick cadence and input acknowledgment delay are indirect pressure indicators.',
@@ -219,17 +223,46 @@ try {
   const html = await (await fetch(url)).text();
   const entryUrl = new URL(html.match(/<script[^>]+src="([^"]+)"/)[1], url)
     .href;
-  const source = await (await fetch(entryUrl)).text();
+  const entrySource = await (await fetch(entryUrl)).text();
+  const sources = new Map([[entryUrl, entrySource]]);
+
+  // Gameplay loads on Play and may contain the network constructor in a chunk.
+  for (const [assetUrl, assetSource] of sources) {
+    for (const match of assetSource.matchAll(/["'`]([^"'`]+\.js)["'`]/g)) {
+      const dependency = new URL(match[1], assetUrl).href;
+
+      if (
+        new URL(dependency).origin !== new URL(url).origin ||
+        sources.has(dependency)
+      ) {
+        continue;
+      }
+
+      const response = await fetch(dependency);
+
+      assert(response.ok, `Asset fetch failed: ${dependency}`);
+      sources.set(dependency, await response.text());
+    }
+  }
+
+  const networkAsset = [...sources].find(([, source]) =>
+    source.includes('new WebSocket('),
+  );
+
+  assert(networkAsset, 'Cannot locate the live network constructor');
+  const [networkUrl, source] = networkAsset;
   const socketAt = source.indexOf('new WebSocket(');
 
   assert(socketAt >= 0, 'Cannot locate the live network constructor');
   const applied = source.match(
-    /\w+\(\{message:(\w+)(?:,[^}]*)?\}\)\{this\.(\w+)=\1\.\w+/,
+    /[$\w]+\(\{message:([$\w]+)(?:,[^}]*)?\}\)\{this\.([$\w]+)=\1\.[$\w]+/,
   );
 
   assert(applied, 'Cannot identify the client snapshot clock');
   const world = source.match(
-    new RegExp(`this\\.(\\w+)\\.(\\w+)=this\\.${applied[2]}(?:[,;})])`),
+    new RegExp(
+      `this\\.([$\\w]+)\\.([$\\w]+)=this\\.${applied[2].replaceAll('$', '\\$')}(?:[,;})])`,
+    ),
   );
 
   assert(world, 'Cannot identify the client simulation clock');
@@ -239,6 +272,11 @@ try {
 
   metadata.entryAsset = {
     url: entryUrl,
+    sha256: createHash('sha256').update(entrySource).digest('hex'),
+  };
+
+  metadata.networkAsset = {
+    url: networkUrl,
     sha256: createHash('sha256').update(source).digest('hex'),
   };
 
@@ -429,7 +467,7 @@ try {
           await send('Debugger.enable');
 
           await send('Debugger.setBreakpointByUrl', {
-            url: entryUrl,
+            url: networkUrl,
             lineNumber: beforeSocket.length - 1,
             columnNumber: beforeSocket.at(-1).length,
           });
@@ -444,6 +482,11 @@ try {
         >[];
 
         for (let attempt = 0; attempt < 180; attempt++) {
+          await Promise.all(
+            clients.map((send) =>
+              evaluate(send, `(${advanceBenchmarkMenu.toString()})()`),
+            ),
+          );
           states = await Promise.all(
             clients.map((send) =>
               evaluate(send, 'globalThis.liveBenchmark?.state()'),
@@ -452,6 +495,28 @@ try {
 
           if (states.every((state) => state?.ready)) break;
           await pause(500);
+        }
+
+        if (!states.every((state) => state?.ready)) {
+          metadata.startupFailure = {
+            players,
+            workload,
+            clients: await Promise.all(
+              clients.map((send) =>
+                evaluate(
+                  send,
+                  `({
+              state: globalThis.liveBenchmark?.state(),
+              capture: globalThis.liveBenchmark?.finish(),
+              text: document.body.innerText,
+              playAttempts: document.documentElement.dataset.benchmarkPlayAttempts,
+              scripts: [...document.scripts].map(script => script.src),
+              resources: performance.getEntriesByType('resource').map(entry => entry.name)
+            })`,
+                ),
+              ),
+            ),
+          };
         }
 
         assert(
@@ -468,6 +533,19 @@ try {
           states.every((state) => state.clock),
           'Every rendered client must expose its simulation clock',
         );
+
+        metadata.startups.push({
+          players,
+          workload,
+          attempts: await Promise.all(
+            clients.map((send) =>
+              evaluate(
+                send,
+                'Number(document.documentElement.dataset.benchmarkPlayAttempts || 0)',
+              ),
+            ),
+          ),
+        });
         // Hash fetched script bodies to identify the exact deployed release.
 
         for (const resource of await evaluate(

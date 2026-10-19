@@ -29,6 +29,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import WebSocket from 'ws';
+import { startBrowserGameplay } from './browser-gameplay.ts';
 
 // Start the standard dev server pair first, as described in codebase-workflow.
 const output = process.argv[2];
@@ -47,7 +48,7 @@ assert(
 const profile = await mkdtemp(join(tmpdir(), 'unicorn-remote-browser-'));
 const connections: WebSocket[] = [];
 const chrome = spawn(
-  'google-chrome',
+  process.env.CHROME_BIN || 'google-chrome',
   [
     '--headless=new',
     '--no-first-run',
@@ -184,12 +185,7 @@ try {
   // Give the real app time to finish its intro and load every peer.
   await pause(7000);
   const activeIds = await Promise.all(
-    clients.map((send: Send) =>
-      evaluate(
-        send,
-        "(async()=>{window.loadedGameModule=name=>import(performance.getEntriesByType('resource').find(entry=>new URL(entry.name).pathname.endsWith('/src/client/'+name)).name);const{network}=await window.loadedGameModule('network.ts');await network.ready;return network.shipId})()",
-      ),
-    ),
+    clients.map((send: Send) => evaluate(send, startBrowserGameplay)),
   );
 
   await Promise.all(
@@ -197,10 +193,10 @@ try {
       evaluate(
         send,
         `(async()=>{
-    const {network}=await window.loadedGameModule('network.ts');
+    const {network}=await window.loadedGameModule('network/network.ts');
     const {player}=await window.loadedGameModule('player.ts');
     if(player.ship.id!==network.shipId) throw Error('wrong game instance');
-    const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('set-sizing.ts'); game.size=5; setSizing(game);
+    const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('ui/set-sizing.ts'); game.size=5; setSizing(game);
     const socket=Reflect.get(network,'socket');
     if(${delay}) {const deliver=socket.onmessage, send=socket.send.bind(socket); socket.onmessage=event=>setTimeout(()=>deliver.call(socket,event),${delay}); socket.send=data=>setTimeout(()=>send(data),${delay});}
     const capture={shipId:network.shipId,frames:[]}; window.motionCapture=capture;
@@ -234,7 +230,7 @@ try {
     await evaluate(
       clients[0],
       `(async()=>{
-      const {network}=await window.loadedGameModule('network.ts');
+      const {network}=await window.loadedGameModule('network/network.ts');
       const socket=Reflect.get(network,'socket');
       const receive=socket.onmessage, send=socket.send.bind(socket), incoming=[], outgoing=[];
       socket.onmessage=event=>incoming.push(event); socket.send=data=>outgoing.push(data);

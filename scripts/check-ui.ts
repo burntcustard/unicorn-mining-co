@@ -1080,6 +1080,11 @@ checkUi: try {
       'Play reuses the prepared connection',
     );
     assert(await check('window.gameFrames > 0'), 'Play starts the game loop');
+    assert.equal(
+      await check('window.audioContexts'),
+      1,
+      'Play initializes audio before the first flight control',
+    );
     await waitFor(
       `document.querySelector('#connection-status').hidden`,
       'game connection stays available after profile creation',

@@ -70,16 +70,17 @@ assert.deepEqual(ctx, initial, 'outlines restore the original drawing state');
 Reflect.set(document.fonts, 'check', () => true);
 const images = [], cachedContext = {
   ...ctx, globalAlpha: .35,
-  measureText() { return {actualBoundingBoxLeft: 13, actualBoundingBoxRight: 13, actualBoundingBoxAscent: 13, actualBoundingBoxDescent: 0}; },
+  measureText() { throw Error('cached text must measure on its bitmap, not the visible canvas'); },
   drawImage(...args) { images.push([...args, this.globalAlpha]); },
 };
 const cachedGame = {ctx: cachedContext, uiScale: 2};
+const imageAllocations = Reflect.get(globalThis, 'text-image-allocations');
 calls.length = 0;
 for (let frame = 0; frame < 12; frame++) {
   renderText({game: cachedGame, text: 'AB', x: 50, y: 20, size: 1, align: 0});
 }
-assert.equal(calls.length, 14, 'the first seven frames draw text natively');
-assert.equal(images.length, 5, 'unchanged labels reuse their pixel image');
+assert.equal(calls.length, 0, 'ready fonts rasterize on the bitmap from the first frame');
+assert.equal(images.length, 12, 'unchanged labels reuse their pixel image');
 assert.deepEqual(images[0].slice(1), [70, 36, .35],
   'cached text copies pixels directly, preserving centering, outline and caller opacity');
 assert.equal(images[0][0].width, 60);
@@ -89,7 +90,7 @@ assert.deepEqual(Reflect.get(globalThis, 'text-image-options'), {willReadFrequen
 assert.deepEqual(Reflect.get(globalThis, 'text-image-paints'), [['stroke', 'AB', 0, 13], ['fill', 'AB', 0, 13]],
   'the cached image retains the native outline and fill order');
 renderText({game: cachedGame, text: 'AC', x: 50, y: 20, size: 1, align: 0});
-assert.equal(calls.length, 16, 'changing readouts immediately draw their new text');
+assert.equal(calls.length, 0, 'changing labels keep text rasterization off the visible canvas');
 assert.equal(cachedContext.globalAlpha, .35);
 const numericStart = images.length;
 for (const text of ['12', '12', '13']) {
@@ -101,13 +102,15 @@ assert.equal(images[numericStart][0], images[numericStart + 2][0],
 assert.deepEqual(Reflect.get(globalThis, 'text-image-paints'),
   [['stroke', '12', 0, 13], ['fill', '12', 0, 13], ['stroke', '13', 0, 13], ['fill', '13', 0, 13]],
   'changing readouts repaint their complete native text, preserving kerning');
-assert.equal(calls.length, 16, 'numeric readouts keep text rasterization off the foreground');
+assert.equal(calls.length, 0, 'numeric readouts keep text rasterization off the foreground');
 for (let index = 0; index < 40; index++) {
   renderText({game: cachedGame, text: 'LABEL ' + index, x: 50, y: 20});
 }
 const beforeEviction = images.length;
 renderText({game: cachedGame, text: 'AB', x: 50, y: 20, size: 1, align: 0});
-assert.equal(images.length, beforeEviction, 'a bounded cache evicts labels after enough other values');
+assert.equal(images.length, beforeEviction + 1, 'an evicted label immediately paints its current text');
+assert.equal(Reflect.get(globalThis, 'text-image-allocations') - imageAllocations, 32,
+  'eviction reuses bitmap canvases instead of allocating beyond the bounded cache');
 for (const density of [1, 1.25, 1.5, 2]) {
   for (const resolution of [.5, 1, 2]) {
     const base = density / resolution;
@@ -133,6 +136,11 @@ Object.assign(globalThis, {
   document: {
     fonts: { load: async (font: string) => font, check: () => false },
     createElement() {
+      Reflect.set(
+        globalThis,
+        'text-image-allocations',
+        Reflect.get(globalThis, 'text-image-allocations') + 1,
+      );
       const paints: unknown[] = [];
 
       Reflect.set(globalThis, 'text-image-paints', paints);
@@ -144,6 +152,19 @@ Object.assign(globalThis, {
           Reflect.set(globalThis, 'text-image-options', options);
 
           return {
+            font: '10px sans-serif',
+            textAlign: 'start',
+            measureText() {
+              assert.equal(this.font, '16px Gemetric');
+              assert(['left', 'center', 'right'].includes(this.textAlign));
+
+              return {
+                actualBoundingBoxLeft: 13,
+                actualBoundingBoxRight: 13,
+                actualBoundingBoxAscent: 13,
+                actualBoundingBoxDescent: 0,
+              };
+            },
             resetTransform() {},
             clearRect() {},
             translate() {},
@@ -160,6 +181,7 @@ Object.assign(globalThis, {
     },
   },
   pathAllocations: 0,
+  'text-image-allocations': 0,
   Path2D: class {
     commands: unknown[] = [];
 

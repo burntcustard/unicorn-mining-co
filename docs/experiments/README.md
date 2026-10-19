@@ -2,6 +2,17 @@
 
 Recent investigations are grouped by measurement date. Use [benchmarking](../../benchmarking/README.md) for runners and saved evidence, or the [documentation index](../../README.md#documentation) for current reference material.
 
+## 2026-10-19
+
+- [Native-resolution client performance and power policy](2026-10-19/native-resolution-performance.md)
+
+## 2026-10-18
+
+- [Canvas and radar performance follow-up — 2026-10-18](2026-10-18/canvas-followup-2026-10-18.md)
+- [Browser input and startup follow-up — 2026-10-18](2026-10-18/input-startup-2026-10-18.md)
+- [Collision and HUD performance improvements — 2026-10-18](2026-10-18/performance-fixes-2026-10-18.md)
+- [UI and collision performance — 2026-10-18](2026-10-18/ui-collision-performance-2026-10-18.md)
+
 ## 2026-10-13
 
 - [Native 4K gameplay performance — 2026-10-13](2026-10-13/client-performance-4k-2026-10-13.md)
