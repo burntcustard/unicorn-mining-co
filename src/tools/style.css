@@ -104,6 +104,8 @@ h2 {
 }
 
 .specimen {
+  min-height: 1lh;
+  white-space: pre-wrap;
   color: var(--text);
   font-family: var(--font, monospace);
   font-size: var(--size);

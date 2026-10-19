@@ -5,6 +5,12 @@ const preview = document.querySelector('main')!;
 const specimens = [
   ...document.querySelectorAll<HTMLParagraphElement>('.specimen'),
 ];
+const editedSpecimens = new Set<HTMLParagraphElement>();
+
+for (const specimen of specimens) {
+  specimen.addEventListener('input', () => editedSpecimens.add(specimen));
+}
+
 const status = document.querySelector('#status')!;
 const sizeValue = document.querySelector('#size-value')!;
 const outlineOpacity =
@@ -63,7 +69,9 @@ const updateFont = async (metadata: {
     preview.style.setProperty('--font', `"${face.family}", monospace`);
 
     for (const specimen of specimens) {
-      specimen.textContent = samples[specimen.id as keyof typeof samples];
+      if (!editedSpecimens.has(specimen)) {
+        specimen.textContent = samples[specimen.id as keyof typeof samples];
+      }
     }
 
     if (activeFont) document.fonts.delete(activeFont);

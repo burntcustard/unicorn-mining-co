@@ -404,3 +404,44 @@ Complete raw capture:
 Its accompanying log and `-summary.json` share that basename. Interrupted and
 failed earlier attempts are retained separately and were not combined into this
 result. The raw capture's hash is retained in the investigation metadata.
+
+## October 19, 2026 at 7:11:55 AM GMT+1
+
+All **16/16 cases** completed between 07:11:55 and 07:40:36 BST, with zero
+client exceptions and zero socket closes during measurement. Each case used
+a 15-second warmup and 60-second measurement at 320 × 200, with 120-second
+cooldowns between player counts. Chromium 155.0.8059.79 loaded deployed entry
+`index-CgshXqD4.js` and gameplay chunk `gameplay-l7h4abCC.js`; every client
+observed world seed 25. The live health endpoint returned `ok` before, during,
+and after the suite. The benchmark browser stopped successfully.
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| ------- | ---------------- | --------------------- | ------------------ | --------------------- |
+| 4       | 30.00            | 39.2                  | 58.2               | 13.2–84.8             |
+| 8       | 30.00            | 62.6                  | 121.5              | 17.4–114.4            |
+| 16      | 30.00–30.01      | 159.5                 | 347.1              | 19.3–221.1            |
+| 32      | 30.01–30.06      | 293.8                 | 690.5              | 44.3–205.7            |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
+
+Every graphics probe reported SwiftShader software rendering. Host CPU use
+reached 94.8% for 16-player modules and 99.2–99.6% for 32-player
+convoy/contact/modules. Median client FPS by workload:
+
+| Players | Convoy FPS | Spread FPS | Contact FPS | Module FPS |
+| ------- | ---------- | ---------- | ----------- | ---------- |
+| 4       | 60.0       | 60.0       | 60.0        | 60.0       |
+| 8       | 39.9       | 42.8       | 46.8        | 31.3       |
+| 16      | 13.6       | 19.4       | 17.6        | 8.3        |
+| 32      | 3.0        | 8.4        | 3.7         | 2.7        |
+
+No builds or other benchmark captures ran alongside this suite. This run used
+a newer Chromium than the 18 October capture and an evolving production world;
+differences do not isolate a code change or production server CPU cost.
+
+Raw capture: ignored `benchmarking/local/2026-10-19T06-11-55.795Z.json.gz`.
+The log is `benchmarking/local/live-2026-10-19.log`; verified case counts,
+timings, asset hashes, and the raw capture SHA-256 are recorded in
+`benchmarking/local/live-2026-10-19-summary.json`.
