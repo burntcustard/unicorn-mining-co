@@ -92,6 +92,7 @@
 [ ] In outfitting, have current ammo listed somewhere
 [ ] Figure out dual/split thrusters
 [ ] Courser MKII ship
+[ ] Stations have gone back to wireframe icons in info panels
 
 ## Big future things
 

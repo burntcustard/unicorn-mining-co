@@ -445,3 +445,45 @@ Raw capture: ignored `benchmarking/local/2026-10-19T06-11-55.795Z.json.gz`.
 The log is `benchmarking/local/live-2026-10-19.log`; verified case counts,
 timings, asset hashes, and the raw capture SHA-256 are recorded in
 `benchmarking/local/live-2026-10-19-summary.json`.
+
+## October 20, 2026 at 9:41:21 PM GMT+1
+
+All **16/16 cases** completed between 21:41:21 and 22:10:03 BST, with zero
+client exceptions and zero socket closes during measurement. Each case used
+a 15-second warmup and 60-second measurement at 320 × 200, with 120-second
+cooldowns between player counts. Chromium 155.0.8059.79 loaded deployed entry
+`index-CK781NR0.js` and gameplay chunk `gameplay-B-xlrLP_.js`; every client
+observed world seed 25. The benchmark browser stopped successfully.
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| ------- | ---------------- | --------------------- | ------------------ | --------------------- |
+| 4       | 30.00            | 43.2                  | 121.4              | 13.2–76.0             |
+| 8       | 29.99–30.00      | 53.2                  | 116.2              | 15.5–107.3            |
+| 16      | 29.99–30.00      | 122.6                 | 220.6              | 19.3–202.0            |
+| 32      | 30.06–30.19      | 285.8                 | 636.9              | 39.4–195.6            |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
+
+Every graphics probe reported SwiftShader software rendering. Host CPU use
+reached 90.4% for 16-player modules and 99.5–99.7% for 32-player
+convoy/contact/modules. Median client FPS by workload:
+
+| Players | Convoy FPS | Spread FPS | Contact FPS | Module FPS |
+| ------- | ---------- | ---------- | ----------- | ---------- |
+| 4       | 60.0       | 60.0       | 60.0        | 60.0       |
+| 8       | 39.7       | 46.3       | 42.2        | 31.9       |
+| 16      | 16.1       | 19.7       | 14.1        | 8.8        |
+| 32      | 2.7        | 7.9        | 3.4         | 2.8        |
+
+Rates above 30 Hz reflect loaded client measurement windows and do not show
+a faster simulation. This run used the same Chromium version as the 19 October
+capture, but a different deployed release and an evolving production world;
+differences do not isolate a code change or production server CPU cost.
+
+Raw capture: ignored `benchmarking/local/2026-10-20T20-41-21.299Z.json.gz`.
+The log is `benchmarking/local/live-2026-10-20-retry.log`; verified case counts,
+timings, asset hashes, and the raw capture SHA-256 are recorded in
+`benchmarking/local/live-2026-10-20-summary.json`. The initial browser startup
+failure is retained separately and contributed no measurements to this result.
