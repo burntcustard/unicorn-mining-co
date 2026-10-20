@@ -2,7 +2,7 @@ import * as Vec from './utilities/vector';
 import { Ship } from './objects/ship';
 import { moduleTypesById } from './objects/modules/index';
 import { startingCredits } from '../specs/player';
-import { mustang } from '../specs/ships';
+import { mustang } from '../specs/ships/mustang';
 import { game } from './game';
 import { colors, paintColors } from '../specs/colors';
 import { type Shades } from './types';

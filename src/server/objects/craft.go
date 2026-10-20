@@ -706,7 +706,9 @@ func (c *Craft) modulePower(module simulation.Module) float64 {
 }
 
 func (c *Craft) UpdateModules(dt float64) {
-	for _, module := range c.Modules() {
+	var modules [16]simulation.Module
+
+	for _, module := range c.AppendModules(modules[:0]) {
 		data := module.ModuleBase()
 		mount := data.Mount
 
@@ -1063,7 +1065,7 @@ func (c *Craft) Update(dt float64) {
 	}
 
 	// Hydration removes broken cores before updating; owned ships must still
-	// resolve fatal damage even when neither core leaves a cockpit behind.
+	// resolve fatal damage even when no core leaves a cockpit behind.
 	if c.Cockpit == nil && c.PlayerID == nil {
 		return
 	}
@@ -1084,7 +1086,7 @@ func (c *Craft) Update(dt float64) {
 		}
 	}
 
-	if !brokenMount && cores >= 2 && !brokenHull {
+	if !brokenMount && cores > 0 && !brokenHull {
 		return
 	}
 
@@ -1113,7 +1115,16 @@ func (c *Craft) Update(dt float64) {
 		}
 	}
 
-	lost := cores < 2
+	lost := cores == 0
+
+	if !lost && (c.Cockpit == nil || c.Cockpit.Health < 1) {
+		for _, segment := range hulls {
+			if segment.Core {
+				c.Cockpit = segment
+				break
+			}
+		}
+	}
 
 	if lost || len(hulls) < len(all) {
 		c.Fracture(broken, true, true)

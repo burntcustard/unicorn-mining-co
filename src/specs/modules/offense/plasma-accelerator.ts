@@ -21,7 +21,6 @@ export const plasmaAccelerator = {
   shades: colors.violet,
   activationDuration: 700,
   chargeDuration: fireInterval,
-  dischargeDuration: 0,
   retractionDistance: 17,
   damage: 10,
   fireInterval,

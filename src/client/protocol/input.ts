@@ -3,6 +3,7 @@
  */
 export type PlayerInput = {
   fire?: boolean;
+  cargoRelease?: boolean;
   plasmaActive?: boolean;
   autogunActive?: boolean;
   laserActive?: boolean;
@@ -17,7 +18,7 @@ export type PlayerInput = {
 
 /**
  * Bit order: drill, hatch, light, shield, launch, thrust, left, right,
- * fire, plasma activation, autogun activation, laser activation.
+ * fire, plasma activation, autogun activation, laser activation, cargo release.
  * Keyboard thrust is 0 or 1; turn is -1, 0, or 1.
  */
 export const packPlayerInput = (input: PlayerInput) =>
@@ -34,6 +35,7 @@ export const packPlayerInput = (input: PlayerInput) =>
     input.plasmaActive,
     input.autogunActive,
     input.laserActive,
+    input.cargoRelease,
   ].reduce((code, active, bit) => code | (Number(active) << bit), 0);
 
 /**
@@ -47,6 +49,7 @@ export const unpackPlayerInput = (code: number): PlayerInput => {
     ...(bit(9) && { plasmaActive: true }),
     ...(bit(10) && { autogunActive: true }),
     ...(bit(11) && { laserActive: true }),
+    ...(bit(12) && { cargoRelease: true }),
     hornDrill: !!bit(0),
     cargoHatch: !!bit(1),
     searchLight: !!bit(2),
@@ -71,6 +74,7 @@ export const emptyPlayerInput = (): PlayerInput => ({
  * Only changed controls need a new transition; held keys need no repeat packets.
  */
 export const sameInput = (a: PlayerInput, b: PlayerInput) =>
+  !!a.cargoRelease === !!b.cargoRelease &&
   !!a.fire === !!b.fire &&
   !!a.plasmaActive === !!b.plasmaActive &&
   !!a.autogunActive === !!b.autogunActive &&

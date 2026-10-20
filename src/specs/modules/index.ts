@@ -30,13 +30,19 @@ const {
   thrusterTriple,
 } = categorize({ category: 'core', specs: core });
 
-const { autogun, laser, plasmaAccelerator, hornDrill } = categorize({
+const { autogun, laser, plasmaAccelerator, hornDrill, cannonSm } = categorize({
   category: 'offense',
   specs: offense,
 });
 
-const { cargoHatch, searchLight, shieldGeneratorSm, shieldGeneratorMd } =
-  categorize({ category: 'utility', specs: utility });
+const {
+  cargoHatch,
+  cargoHatchPair,
+  searchLight,
+  shieldGeneratorSm,
+  shieldGeneratorMd,
+  shieldGeneratorXs,
+} = categorize({ category: 'utility', specs: utility });
 
 export {
   thrusterSingleMd,
@@ -56,6 +62,9 @@ export {
   thrusterDualLg,
   laser,
   powerPlant,
+  cannonSm,
+  cargoHatchPair,
+  shieldGeneratorXs,
 };
 // Stable wire IDs: folder and category order must not change these indexes.
 export const moduleIds = [
@@ -76,6 +85,9 @@ export const moduleIds = [
   'thrusterDualLg',
   'laser',
   'powerPlant',
+  'cannonSm',
+  'cargoHatchPair',
+  'shieldGeneratorXs',
 ] as const;
 
 export type ModuleId = (typeof moduleIds)[number];
@@ -98,6 +110,9 @@ export const moduleSpecs = {
   thrusterDualLg,
   laser,
   powerPlant,
+  cannonSm,
+  cargoHatchPair,
+  shieldGeneratorXs,
 };
 
 export const moduleSpecList = Object.values(moduleSpecs);
@@ -107,3 +122,25 @@ export type WeaponId = {
     ? Id
     : never;
 }[ModuleId];
+
+// Stations offer these modules; NPC equipment remains in the full catalog.
+export const stationModuleIds: readonly ModuleId[] = [
+  'thrusterSingleMd',
+  'thrusterDualMd',
+  'thrusterDualXl',
+  'thrusterTriple',
+  'cargoHatch',
+  'searchLight',
+  'hornDrill',
+  'shieldGeneratorSm',
+  'shieldGeneratorMd',
+  'thrusterSingleSm',
+  'thrusterSingleLg',
+  'thrusterSingleXl',
+  'plasmaAccelerator',
+  'autogun',
+  'thrusterDualLg',
+  'laser',
+  'powerPlant',
+  'shieldGeneratorXs',
+];

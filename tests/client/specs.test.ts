@@ -1,3 +1,4 @@
+import { mustang } from '../../src/specs/ships/mustang';
 import { moduleSpecForSimulation } from '../../src/client/utilities/module-spec';
 import assert from 'node:assert/strict';
 import { itemTypes, diamond } from '../../src/specs/items';
@@ -5,7 +6,7 @@ import { itemDefaults } from '../../src/specs/items/defaults';
 import type { ItemSpec } from '../../src/specs/items/types';
 import { defaultFriction } from '../../src/specs/game-object';
 import { moduleIds, moduleSpecList } from '../../src/specs/modules';
-import { mustang, shipSpecsById, type ShipId } from '../../src/specs/ships';
+import { shipSpecsById, type ShipId } from '../../src/specs/ships';
 import {
   corral5,
   corral6,

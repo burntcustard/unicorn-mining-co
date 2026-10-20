@@ -109,6 +109,7 @@ installExampleModules();
   const ammo = new Item(autogunAmmo, { id: 1000 });
 
   ship.cargoContents.push(ammo);
+  ship.npcState = 'Pursuing';
   const frames = new FramePrediction();
   const input: InputFrame = { input: emptyPlayerInput(), changes: [] };
   const sample = () =>
@@ -126,6 +127,7 @@ installExampleModules();
   assert(geometry, 'display copies retain the fixed-geometry marker');
 
   assert.notEqual(first, ship);
+  assert.equal(first.npcState, 'Pursuing');
   assert.notEqual(copiedAmmo, ammo);
   assert.equal(
     (
@@ -148,11 +150,17 @@ installExampleModules();
   rock.segments[0].health--;
   ammo.rounds--;
   ship.fit(new CargoHatch({ id: 1001 }), ship.mounts[0]);
+  ship.npcState = 'Collecting';
   const second = sample();
   const refitted = second.mounts[0].module!;
 
   assert(refitted);
   assert.equal(second, first, 'display bodies survive an ordinary tick');
+  assert.equal(
+    second.npcState,
+    'Collecting',
+    'reused display bodies refresh NPC state',
+  );
   assert.equal(
     second.cargoContents.find(({ id }) => id === ammo.id),
     copiedAmmo,

@@ -14,8 +14,10 @@ import (
 var ErrControl = errors.New("invalid binary control")
 
 type Input struct {
-	HornDrill, CargoHatch, SearchLight, ShieldGenerator, Launch, Fire, PlasmaActive, AutogunActive, LaserActive bool
-	Thrust, Turn                                                                                                float64
+	HornDrill, CargoHatch, SearchLight, ShieldGenerator bool
+	Launch, Fire, CargoRelease                          bool
+	PlasmaActive, AutogunActive, LaserActive            bool
+	Thrust, Turn                                        float64
 }
 
 type DockAction struct {
@@ -41,6 +43,7 @@ type Control struct {
 }
 
 type ServerControl struct {
+	CargoDemand                  *int64
 	Channel                      byte
 	Sender, SenderRole, Text     string
 	Sounds                       []WorldSound
@@ -278,12 +281,12 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 
 		hasOffset, err := r.byte()
 
-		if err != nil || hasOffset > 31 {
+		if err != nil || hasOffset > 63 {
 			return Control{}, ErrControl
 		}
 
 		message.Input = Input{
-			Fire: hasOffset&2 != 0, PlasmaActive: hasOffset&4 != 0, AutogunActive: hasOffset&8 != 0, LaserActive: hasOffset&16 != 0, HornDrill: code&1 != 0, CargoHatch: code&2 != 0,
+			CargoRelease: hasOffset&32 != 0, Fire: hasOffset&2 != 0, PlasmaActive: hasOffset&4 != 0, AutogunActive: hasOffset&8 != 0, LaserActive: hasOffset&16 != 0, HornDrill: code&1 != 0, CargoHatch: code&2 != 0,
 			SearchLight: code&4 != 0, ShieldGenerator: code&8 != 0,
 			Launch: code&16 != 0, Thrust: float64((code >> 5) & 1),
 			Turn: float64((code>>7)&1) - float64((code>>6)&1),
@@ -511,6 +514,10 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 
 		if err := w.text(message.Text); err != nil {
 			return nil, err
+		}
+
+		if message.CargoDemand != nil {
+			w.unsigned(uint64(*message.CargoDemand))
 		}
 
 		return w.data, nil

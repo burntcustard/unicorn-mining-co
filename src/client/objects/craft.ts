@@ -416,8 +416,7 @@ export class Craft extends GameObject {
     ];
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
     outerEdges(outlinesOf(hulls));
-    // Either core anchors flight and the hull kept attached to it; losing one
-    // ends the ship, so which of the two is found here does not matter
+    // A surviving core anchors flight and the hull kept attached to it.
     this.cockpit = hulls.find(({ core }) => core);
   }
 
@@ -1141,7 +1140,7 @@ export class Craft extends GameObject {
       this.spin = 0;
     }
 
-    // Hydrated player ships can have lost both cores already.
+    // Hydrated player ships can have lost all cores already.
     if (this.cockpit || this.playerId !== undefined) {
       // Count first; most ticks nothing is broken and nothing is allocated.
       const segments = this.segments;
@@ -1165,14 +1164,18 @@ export class Craft extends GameObject {
         }
       }
 
-      if (!brokenMount && cores >= 2 && !brokenHull) return;
+      if (!brokenMount && cores > 0 && !brokenHull) return;
       this.mounts
         .filter(({ health, module }) => module && health < 1)
         .forEach((mount) => this.detach(mount));
       const all = this.segments.filter(({ hull }) => hull);
       const hulls = all.filter(({ health }) => !(health < 1));
-      // Losing either core, the pilot's piece or the engine mount, ends the ship
-      const lost = hulls.filter(({ core }) => core).length < 2;
+      // Keep a surviving core section alive when the engine section is lost.
+      const lost = !hulls.some(({ core }) => core);
+
+      if (!lost && (!this.cockpit || this.cockpit.health < 1)) {
+        this.cockpit = hulls.find(({ core }) => core);
+      }
 
       if (lost || hulls.length < all.length) {
         const broken = all.filter((segment) => !hulls.includes(segment));
@@ -1214,6 +1217,10 @@ export class Craft extends GameObject {
 
   modulePower(_module: Module) {
     return 1;
+  }
+
+  moduleFiring(_module: Module) {
+    return Boolean(this.firing);
   }
 
   updateModules(dt: number) {

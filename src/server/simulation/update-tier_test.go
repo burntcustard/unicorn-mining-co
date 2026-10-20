@@ -101,6 +101,61 @@ func TestExpiryAtEachSubstep(t *testing.T) {
 	}
 }
 
+func TestLimitedObserverRangeRefreshesAndMissingShipsRemainDistant(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := CreateWorld(1, catalog)
+	probe := &scheduleProbe{GameObject: NewGameObject(ObjectProperties{World: world, ID: new(int64(1)), Position: Vec.Create(1200, 0)}, catalog.Simulation)}
+	probe.Self = probe
+	AddEntity(world, probe)
+	AddPlayer(world, Player{ID: 2, ShipID: 2, ObserverRange: 200})
+	UpdateEntities(world, UpdateEntitiesOptions{})
+
+	if len(probe.calls) != 0 {
+		t.Fatal("a missing limited observer made distant objects visible")
+	}
+
+	observer := NewGameObject(ObjectProperties{World: world, ID: new(int64(2)), Position: Vec.Create(1000, 0)}, catalog.Simulation)
+	AddEntity(world, observer)
+	UpdateEntities(world, UpdateEntitiesOptions{})
+
+	if len(probe.calls) != catalog.Simulation.UpdateTiers["visible"].Substeps {
+		t.Fatal("an object on the limited observer's range boundary was not visible")
+	}
+
+	probe.calls = nil
+	observer.Position = Vec.Create(999, 0)
+	UpdateEntities(world, UpdateEntitiesOptions{})
+
+	if len(probe.calls) != 0 {
+		t.Fatal("limited observer visibility retained its previous position or a larger player range")
+	}
+}
+
+func TestPartialMovementUpdateRetainsOtherMovementParents(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := CreateWorld(1, catalog)
+	holder := &movementHolder{NewGameObject(ObjectProperties{World: world, ID: new(int64(1)), Spin: .7}, catalog.Simulation)}
+	holder.Self = holder
+	child := NewGameObject(ObjectProperties{World: world, ID: new(int64(2)), Position: Vec.Create(10, 0)}, catalog.Simulation)
+	AddEntity(world, holder)
+	AddEntity(world, child)
+	UpdateEntities(world, UpdateEntitiesOptions{Entities: []Entity{child}})
+
+	if child.LocalMovementParent != holder {
+		t.Fatal("updating a subset lost a movement parent outside that subset")
+	}
+}
+
 func TestTypeScriptMovement(t *testing.T) {
 	data, err := os.ReadFile("../../../tests/fixtures/movement.json")
 

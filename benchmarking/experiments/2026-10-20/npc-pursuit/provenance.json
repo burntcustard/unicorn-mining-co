@@ -1,0 +1,74 @@
+{
+  "baseline": {
+    "source": "../npc-maneuvers/sources/final.json.gz",
+    "goSource": "../npc-maneuvers/sources/final-go.json.gz",
+    "fullSourceEntries": 345,
+    "fullSourceSha256": "28754ccf5c5cc0e61c724a8f5b541c6b5e1658eb7a40e3eeca5dbbf30f542765",
+    "executableSha256": "35ec997e79833752b7bb2ecc60b48dadfa8e1c2c95a11320e72a61efd9b891bd"
+  },
+  "final": {
+    "source": "sources/final.json.gz",
+    "goSource": "sources/final-go.json.gz",
+    "fullSourceEntries": 350,
+    "goSourceEntries": 255,
+    "fullSourceSha256": "a4ad88edcaab09ccb4da13113eeafd037a4fab2521c30800058ac85a44a24506",
+    "executableSha256": "404df2329ce4cd10bb8d11bd893a46de5b5f98d27d18571f238bc71db740648a",
+    "sourceMatchesValidatedCheckout": true
+  },
+  "initialCheckpoint": {
+    "sourceDelta": "checkpoints/initial/source-changes.json.gz",
+    "sourceDeltaBase": "sources/final.json.gz",
+    "changedFiles": ["src/server/npc/prediction.go", "src/server/npc/route.go"],
+    "fullSourceSha256": "d72fd3ed4fb9cef95ff68d8a9597fcce8f5ec970ef2188b7c658eee0bd7efa75",
+    "executableSha256": "95fec543b3bc11c015307041b02ff23a6b4a81eb0df0e58c572f5667be21793d",
+    "cpuChangePercent": 7.277735422148979
+  },
+  "benchmark": {
+    "fixture": "../pirate-cpu/fixtures/unicorn-cpu-final-fixture.go.txt",
+    "fixtureSha256": "410fb7f8fd287813b444756108f9eeb0b902eea8d1cae23d30acf421ca36c807",
+    "pgo": "../pirate-cpu/profiles/unicorn-cpu-default.pgo",
+    "pgoSha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675",
+    "go": "go1.27.1-X:simd",
+    "buildCommand": "CGO_ENABLED=0 GOEXPERIMENT=simd go test -c -overlay=OVERLAY -pgo=SAVED_PGO -o=EXECUTABLE ./src/server/network",
+    "GOGC": "800",
+    "GOMAXPROCS": "automatic (16)",
+    "affinity": "0-15",
+    "repetitions": 5,
+    "measuredTicksPerCase": 9000,
+    "cpuMetric": "Process user plus system CPU per measured whole-session tick; excludes setup/warmup.",
+    "aggregation": "Sum of each case median; equal tick count per case.",
+    "finalCpuChangePercent": 4.725062704997107,
+    "CGO_ENABLED": 0
+  },
+  "quality": {
+    "scenarioCount": 46,
+    "fiveMinuteScenarioCount": 40,
+    "existingScenarioCount": 33,
+    "newBlindCurvingScenarios": 10,
+    "newPhysicalGapScenarios": 3,
+    "primaryTenPointExcess": [30883.8, 20361.7],
+    "expandedFifteenPointExcess": [35540.5, 25526.4],
+    "expandedFifteenPhysicalExcess": [43285.4, 28502.0],
+    "blindFivePointExcess": [4656.7, 5164.7],
+    "blindFivePhysicalExcess": [4274.6, 4223.1],
+    "blindPointMeanLag": [146.6, 145.44],
+    "frozenBeforeCandidateEvaluation": true,
+    "finalEquivalence": "46 metric lines unchanged; 198 planned paths equal before/after the semantic routing guard; 204\u2192203 grid searches.",
+    "lagMetric": "Integral of distance beyond 300 units over simulated seconds, summed across cases.",
+    "escapeMetric": "Simulated seconds farther than 700 units.",
+    "baselineNewGapFailure": "The third mixed-resource physical gap fails the circle-controller gap regression; references are independently physically clear.",
+    "spinningAsteroidContacts": [0, 1],
+    "spinningMinutesPerCheckpoint": 35
+  },
+  "resources": {
+    "gzipMethod": "Python gzip.compress(compresslevel=1,mtime=0)",
+    "serverRawChange": 16384,
+    "serverGzipChange": 5891,
+    "clientAssetsIdentical": true
+  },
+  "rejectedArithmeticTrial": {
+    "productionEdits": false,
+    "result": "Not retained: bounded grid Hypot\u2192sqrt(distance\u00b2) changed two physical trajectories and measured +0.93% aggregate CPU. No rejected executable/source is archived."
+  },
+  "scope": "Measurements and source snapshots include accepted selective asteroid geometry and one-second blocked-route target interception. Movement settings, ship physics, quality thresholds, and target fixtures are unchanged."
+}

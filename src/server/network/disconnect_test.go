@@ -128,7 +128,6 @@ func TestFatalDamageDisconnectStillAllowsRespawn(t *testing.T) {
 			for _, segment := range p.ship.Segments {
 				if segment.Core {
 					objects.Damage(segment, 10000)
-					break
 				}
 			}
 

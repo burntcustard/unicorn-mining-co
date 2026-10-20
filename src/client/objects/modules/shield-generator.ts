@@ -41,3 +41,6 @@ export const ShieldGenerator =
   ShieldGeneratorModule.define('shieldGeneratorSm');
 export const ShieldGeneratorMd =
   ShieldGeneratorModule.define('shieldGeneratorMd');
+
+export const ShieldGeneratorXs =
+  ShieldGeneratorModule.define('shieldGeneratorXs');

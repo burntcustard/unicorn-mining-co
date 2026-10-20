@@ -362,7 +362,7 @@ assert(
 assert(
   totals.gates / totals.wormholes > 0.9 &&
     totals.gates / totals.wormholes < 1.1,
-  'both passage types have comparable counts',
+  'both portal types have comparable counts',
 );
 assert(
   totals.wormholeDistance / totals.wormholes >

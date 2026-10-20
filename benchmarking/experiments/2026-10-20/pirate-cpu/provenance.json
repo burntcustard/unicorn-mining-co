@@ -1,0 +1,318 @@
+{
+  "curatedAt": "2026-10-20T15:43:06.075Z",
+  "repositoryBaseCommit": "146c3c3f2f90a79b554cfa2c536a691a4325fd75",
+  "baseline": {
+    "source": "sources/unicorn-cpu-before.json.gz",
+    "pgo": "profiles/unicorn-cpu-default.pgo",
+    "note": "Uncommitted working-tree checkpoint before CPU optimization; base commit alone does not reproduce it."
+  },
+  "sourceIdentity": {
+    "before": {
+      "file": "sources/unicorn-cpu-before.json.gz",
+      "originalSha256": "ced0cb02f55a316c10b0db5cb1f08119605b46d6a2c50dc9716a17af97a54e54",
+      "entries": 326,
+      "goFiles": 234,
+      "specFiles": 92,
+      "productionGoSha256": "e1ce31798e73885277de6a886f4ac766a027f2ffdadfe644432ec22b5307744a"
+    },
+    "initial-after": {
+      "file": "sources/unicorn-cpu-initial-after.json.gz",
+      "originalSha256": "1e36a172bff5cb41c0a99ac96232f3a763cc4b032fadd46b938cbea42dce61e8",
+      "entries": 139,
+      "goFiles": 139,
+      "specFiles": 0,
+      "productionGoSha256": "25ce390ae13f5ede3a586ee47442b0141be2be9a5041c3b6c8e196e537a4d95c"
+    },
+    "third": {
+      "file": "sources/unicorn-cpu-third.json.gz",
+      "originalSha256": "30d55fcbabdef08bd9a6d29bc6575efa3e0d7ac277b99dbbddfe5e3feff9f387",
+      "entries": 240,
+      "goFiles": 240,
+      "specFiles": 0,
+      "productionGoSha256": "4052a246573657ad4912a74b253801a9affea00660512d283222101bc9a97f03"
+    },
+    "fourth": {
+      "file": "sources/unicorn-cpu-fourth.json.gz",
+      "originalSha256": "e279317e5aaa40a17c16fcf520932a641ef075c43f3a166c77dc10ce47f33315",
+      "entries": 244,
+      "goFiles": 244,
+      "specFiles": 0,
+      "productionGoSha256": "2e68f2241c58d1e8236a1072de25af775d95078a2e63b09e3b3a079d39607515"
+    },
+    "fifth": {
+      "file": "sources/unicorn-cpu-fifth.json.gz",
+      "originalSha256": "a9b19c9026200cab0d7698ddb40ac18dfe947750ccc651591aa66c2eca484bc8",
+      "entries": 245,
+      "goFiles": 245,
+      "specFiles": 0,
+      "productionGoSha256": "7c5d926354dc602914010260fbb191f29274d6fd6fac06c4136e4d7cf08f2e4d"
+    },
+    "sixth": {
+      "file": "sources/unicorn-cpu-sixth.json.gz",
+      "originalSha256": "ed6dba1040ffc9902cf137d338f0e44aed1485e920121ddbc43b1103a30692b6",
+      "entries": 245,
+      "goFiles": 245,
+      "specFiles": 0,
+      "productionGoSha256": "2c77e6d27bb9d0b46e781163b9cb40ef818f8ee5fce46c8d4d1b31c53739af67"
+    },
+    "seventh": {
+      "file": "sources/unicorn-cpu-seventh.json.gz",
+      "originalSha256": "d96196aaee229ba3631006e0bc73a78832faa6a172a5fc8cb3c3120948dbf2e7",
+      "entries": 246,
+      "goFiles": 246,
+      "specFiles": 0,
+      "productionGoSha256": "e5f5f4c160cd6044366763ba4952c8120c25097a308e058052f5f5ac56f6d8ce"
+    }
+  },
+  "stages": [
+    {
+      "name": "initial",
+      "sources": "sources/unicorn-cpu-initial-after.json.gz",
+      "pgo": "off",
+      "note": "Production-only after snapshot; use baseline snapshot as fallback for omitted tests/specs. Non-PGO diagnostic.",
+      "results": "results/unicorn-cpu-results-initial.json",
+      "executables": {
+        "before": "3bc474673025737f7eef5c983cdc99eed97af001e45fc10754d09027cd589b0d",
+        "current": "e4ef72fae0e522ff969fd55bc4decfdc79bf78f0003ca8f26b904515c494c1cd"
+      }
+    },
+    {
+      "name": "pgo-cargo",
+      "sources": null,
+      "pgo": "profiles/unicorn-cpu-default.pgo",
+      "note": "Exact cargo-v1 after source was not separately captured. Raw timing/profile checkpoint; not independently reconstructable.",
+      "results": "results/unicorn-cpu-results-pgo-cargo.json",
+      "executables": {
+        "before": "f4d158e8d33ed9aedafce4744390060279bbe0c4793496602281c71fc1de1921",
+        "current": "3fa83ffcbf9b6faacee811ad048e265a537349f1f6cb444700180f18650d2ba0"
+      }
+    },
+    {
+      "name": "third",
+      "sources": "sources/unicorn-cpu-third.json.gz",
+      "pgo": "profiles/unicorn-cpu-default.pgo",
+      "note": "Original three-case checkpoint.",
+      "results": "results/unicorn-cpu-results-third.json",
+      "executables": {
+        "before": "f4d158e8d33ed9aedafce4744390060279bbe0c4793496602281c71fc1de1921",
+        "current": "0aef3a78d2510dc014f8ec958ba29fc3845764c0e9a3ae7e3eddddb9e23426e0"
+      }
+    },
+    {
+      "name": "fourth",
+      "sources": "sources/unicorn-cpu-fourth.json.gz",
+      "pgo": "profiles/unicorn-cpu-default.pgo",
+      "note": "Original three-case checkpoint.",
+      "results": "results/unicorn-cpu-results-fourth.json",
+      "executables": {
+        "before": "f4d158e8d33ed9aedafce4744390060279bbe0c4793496602281c71fc1de1921",
+        "current": "1995febe7cad2c158aaa34be208c916b9d0aa47bdda5257db907185ae339325a"
+      }
+    },
+    {
+      "name": "fifth",
+      "sources": "sources/unicorn-cpu-fifth.json.gz",
+      "pgo": "profiles/unicorn-cpu-default.pgo",
+      "note": "Original three-case checkpoint.",
+      "results": "results/unicorn-cpu-results-fifth.json",
+      "executables": {
+        "before": "f4d158e8d33ed9aedafce4744390060279bbe0c4793496602281c71fc1de1921",
+        "current": "fc456b7ad6eb7762a3c82370b52ffb3da675d09eda478806dec7b0f3d46323de"
+      }
+    },
+    {
+      "name": "sixth",
+      "sources": "sources/unicorn-cpu-sixth.json.gz",
+      "pgo": "profiles/unicorn-cpu-default.pgo",
+      "note": "Five-case candidate with five alternating pairs. Final acceptance remains report-owned.",
+      "results": "results/unicorn-cpu-results-sixth.json",
+      "executables": {
+        "before": {
+          "path": "/tmp/unicorn-cpu-before-fast-pgo.test",
+          "sha256": "87ab378942f8fc917d2f511a41cd47a4f51c12a93eaeb946389dde53176ec975",
+          "build": "/tmp/unicorn-cpu-before-fast-pgo.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+        },
+        "after": {
+          "path": "/tmp/unicorn-cpu-session-sixth-pgo.test",
+          "sha256": "a35286bc451c4335ba44a4a402e35a4b363fe413f37f1c94d34a6014af9f8008",
+          "build": "/tmp/unicorn-cpu-session-sixth-pgo.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+        }
+      }
+    },
+    {
+      "name": "pgo-refresh",
+      "sources": "sources/unicorn-cpu-fourth.json.gz",
+      "pgo": {
+        "before": "profiles/unicorn-cpu-default.pgo",
+        "current": "profiles/unicorn-cpu-dense-fourth.pprof"
+      },
+      "note": "Same fourth source on both sides; refreshed PGO was not adopted.",
+      "results": "results/unicorn-cpu-results-pgo-refresh.json",
+      "executables": {
+        "before": "1995febe7cad2c158aaa34be208c916b9d0aa47bdda5257db907185ae339325a",
+        "current": "6820036c6cb3f23f06e6227b43736d25e0f831f0c613e10c89d66fb7eaa35107"
+      }
+    },
+    {
+      "name": "seventh",
+      "sources": "sources/unicorn-cpu-seventh.json.gz",
+      "pgo": "profiles/unicorn-cpu-default.pgo",
+      "note": "Final measured source, frozen five-case fixture, five alternating 9000-tick pairs.",
+      "results": "results/unicorn-cpu-results-seventh.json",
+      "executables": {
+        "before": {
+          "path": "/tmp/unicorn-cpu-before-fast-pgo.test",
+          "sha256": "87ab378942f8fc917d2f511a41cd47a4f51c12a93eaeb946389dde53176ec975",
+          "build": "/tmp/unicorn-cpu-before-fast-pgo.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+        },
+        "after": {
+          "path": "/tmp/unicorn-cpu-session-seventh-pgo.test",
+          "sha256": "a4e13686088a5dfe28f94f98157e59caa93c2fa93f500568fe192d8762d0e09b",
+          "build": "/tmp/unicorn-cpu-session-seventh-pgo.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+        }
+      }
+    }
+  ],
+  "binaryIdentity": {
+    "matchedBefore": {
+      "originalPath": "/tmp/unicorn-cpu-session-before-pgo.test",
+      "sha256": "f4d158e8d33ed9aedafce4744390060279bbe0c4793496602281c71fc1de1921"
+    },
+    "cargoAfter": {
+      "originalPath": "/tmp/unicorn-cpu-session-cargo-pgo.test",
+      "sha256": "3fa83ffcbf9b6faacee811ad048e265a537349f1f6cb444700180f18650d2ba0"
+    },
+    "thirdAfter": {
+      "originalPath": "/tmp/unicorn-cpu-session-third-pgo.test",
+      "sha256": "0aef3a78d2510dc014f8ec958ba29fc3845764c0e9a3ae7e3eddddb9e23426e0"
+    },
+    "fourthAfter": {
+      "originalPath": "/tmp/unicorn-cpu-session-fourth-pgo.test",
+      "sha256": "1995febe7cad2c158aaa34be208c916b9d0aa47bdda5257db907185ae339325a"
+    },
+    "fifthAfter": {
+      "originalPath": "/tmp/unicorn-cpu-session-fifth-pgo.test",
+      "sha256": "fc456b7ad6eb7762a3c82370b52ffb3da675d09eda478806dec7b0f3d46323de"
+    },
+    "sixthAfter": {
+      "originalPath": "/tmp/unicorn-cpu-session-sixth-pgo.test",
+      "sha256": "a35286bc451c4335ba44a4a402e35a4b363fe413f37f1c94d34a6014af9f8008"
+    },
+    "sixthBefore": {
+      "originalPath": "/tmp/unicorn-cpu-before-fast-pgo.test",
+      "sha256": "87ab378942f8fc917d2f511a41cd47a4f51c12a93eaeb946389dde53176ec975"
+    },
+    "refreshedFourth": {
+      "originalPath": "/tmp/unicorn-cpu-fourth-refreshed-pgo.test",
+      "sha256": "6820036c6cb3f23f06e6227b43736d25e0f831f0c613e10c89d66fb7eaa35107"
+    },
+    "seventhAfter": {
+      "originalPath": "/tmp/unicorn-cpu-session-seventh-pgo.test",
+      "sha256": "a4e13686088a5dfe28f94f98157e59caa93c2fa93f500568fe192d8762d0e09b",
+      "buildMetadata": "support/unicorn-cpu-seventh-build-identity.txt"
+    }
+  },
+  "profileAssociations": {
+    "unicorn-cpu-session-before-800.pprof": {
+      "source": "before",
+      "note": "Diagnostic baseline GOGC800 profile; predates matched-PGO compilation."
+    },
+    "unicorn-cpu-session-current-800.pprof": {
+      "source": "pgo-cargo",
+      "binary": "cargoAfter",
+      "note": "Exact source snapshot unavailable."
+    },
+    "unicorn-cpu-session-third.pprof": {
+      "source": "third",
+      "binary": "thirdAfter"
+    },
+    "unicorn-cpu-dense-third.pprof": {
+      "source": "third",
+      "binary": "thirdAfter"
+    },
+    "unicorn-cpu-dense-fourth.pprof": {
+      "source": "fourth",
+      "binary": "fourthAfter",
+      "note": "Also used as PGO input in unadopted refresh experiment."
+    },
+    "unicorn-cpu-dense-sixth.pprof": {
+      "source": "sixth",
+      "binary": "sixthAfter",
+      "note": "Diagnostic preceding final mount layout, collision-order reuse and stack scratch-list changes."
+    },
+    "unicorn-cpu-dense-seventh.pprof": {
+      "source": "seventh",
+      "binary": "seventhAfter",
+      "metadata": "profiles/unicorn-cpu-seventh-meta.json",
+      "note": "Fresh diagnostic using the exact final measured executable; saved reports exclude setup and warmup. Does not replace original acceptance pairs."
+    }
+  },
+  "fixtures": {
+    "original": {
+      "file": "fixtures/pirate-benchmark-original.go.txt",
+      "sha256": "1df467035ca55d836216cb82833f6196d8a40bb9a93e79dd34223432e5a866b7",
+      "cases": [
+        "open",
+        "normal",
+        "dense"
+      ]
+    },
+    "acceptance": {
+      "file": "fixtures/unicorn-cpu-final-fixture.go.txt",
+      "sha256": "410fb7f8fd287813b444756108f9eeb0b902eea8d1cae23d30acf421ca36c807",
+      "cases": [
+        "open",
+        "normal",
+        "dense",
+        "normal-fast",
+        "dense-fast"
+      ]
+    },
+    "quality": {
+      "file": "fixtures/unicorn-cpu-final-heldout.go.txt",
+      "before": "results/unicorn-cpu-final-quality-before.log",
+      "current": "results/unicorn-cpu-final-quality-current.log",
+      "note": "Logs captured before sixth acceptance compile: 14 held-out and seven spinning five-minute courses.",
+      "finalCurrent": "results/unicorn-cpu-final-quality-order-reuse.log"
+    }
+  },
+  "resources": {
+    "before": "results/unicorn-cpu-resources-before.json",
+    "after": "results/unicorn-cpu-resources-after-python.json",
+    "note": "Comparable Python zlib gzip1,mtime0. After is an intermediate build; final resource figures belong in report. Node gzip totals intentionally not mixed with baseline.",
+    "final": "results/unicorn-cpu-resources-final.json"
+  },
+  "support": {
+    "goModSha256": "4439c93c722ed17fc94be57b55beb43991f87e97c1c345f66040a0361b01b52c",
+    "goSumSha256": "59d6f9f0590f841c826c0c2003f906b038b16397a886eaef7a562ac031b68d6b",
+    "note": "Unchanged dependencies; checkout supplies assembly and non-Go assets.",
+    "binaryBuildMetadata": "support/unicorn-cpu-build-identities.txt"
+  },
+  "omitted": "Executables and scratch overlays are intentionally not archived. prepare.ts regenerates portable overlays.",
+  "reproductionValidation": {
+    "note": "Portable archived baseline with original and five-case fixtures, archived sixth with five-case fixture, and final archived seventh with five-case fixture compiled successfully. No timing rerun during curation.",
+    "goExperiment": "simd",
+    "pgo": "profiles/unicorn-cpu-default.pgo",
+    "newGoFilesMasked": true,
+    "validatedSnapshots": [
+      "before",
+      "sixth",
+      "seventh"
+    ]
+  },
+  "final": {
+    "source": "sources/unicorn-cpu-seventh.json.gz",
+    "results": "results/unicorn-cpu-results-seventh.json",
+    "benchmarkFixture": "fixtures/unicorn-cpu-final-fixture.go.txt",
+    "pgo": "profiles/unicorn-cpu-default.pgo",
+    "qualityBefore": "results/unicorn-cpu-final-quality-before.log",
+    "qualityCurrent": "results/unicorn-cpu-final-quality-order-reuse.log",
+    "build": "results/unicorn-cpu-build-final.log",
+    "lint": "results/unicorn-cpu-lint-final.log",
+    "tests": "results/unicorn-cpu-full-tests-final.log",
+    "resources": "results/unicorn-cpu-resources-final.json",
+    "note": "The report owns interpretation; original raw captures and executable/source identities are retained unchanged.",
+    "profile": "profiles/unicorn-cpu-dense-seventh.pprof",
+    "profileMetadata": "profiles/unicorn-cpu-seventh-meta.json"
+  }
+}

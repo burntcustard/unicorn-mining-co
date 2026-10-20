@@ -74,12 +74,25 @@ type Snapshot struct {
 }
 
 func (w *writer) string(value string) {
-	units := utf16.Encode([]rune(value))
-	w.unsigned(uint64(len(units)))
+	units := uint64(0)
 
-	for _, unit := range units {
-		w.byte(byte(unit))
-		w.byte(byte(unit >> 8))
+	for _, r := range value {
+		units++
+
+		if r > 0xffff {
+			units++
+		}
+	}
+
+	w.unsigned(units)
+
+	for _, r := range value {
+		if r <= 0xffff {
+			w.data = append(w.data, byte(r), byte(r>>8))
+		} else {
+			high, low := utf16.EncodeRune(r)
+			w.data = append(w.data, byte(high), byte(high>>8), byte(low), byte(low>>8))
+		}
 	}
 }
 
@@ -267,14 +280,14 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 	}
 
 	switch id {
-	case fields.Firing:
-		firing, ok := value.(bool)
+	case fields.Firing, fields.Hostile:
+		flag, ok := value.(bool)
 
 		if !ok {
 			return ErrSnapshot
 		}
 
-		if firing {
+		if flag {
 			w.byte(1)
 		} else {
 			w.byte(0)
@@ -357,7 +370,7 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 		}
 
 		w.byte(byte(tag))
-	case fields.Name, fields.Message, fields.DefinitionID, fields.DestinationName, fields.TargetLabel:
+	case fields.Name, fields.Message, fields.DefinitionID, fields.DestinationName, fields.TargetLabel, fields.NPCState:
 		name, ok := value.(string)
 
 		if !ok {
@@ -383,12 +396,12 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 }
 
 func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) error {
-	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.BlockedBeams {
+	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.NPCState {
 		return ErrSnapshot
 	}
 
 	if value.Values != nil {
-		if len(value.Values) > protocol.BinaryFieldIDs.BlockedBeams {
+		if len(value.Values) > protocol.BinaryFieldIDs.NPCState {
 			return ErrSnapshot
 		}
 
@@ -396,7 +409,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 		w.unsigned(uint64(len(value.Values)))
 
 		for _, field := range value.Values {
-			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.BlockedBeams {
+			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.NPCState {
 				return ErrSnapshot
 			}
 
@@ -433,7 +446,7 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 	}
 
 	for _, id := range ids {
-		if id < 1 || id > protocol.BinaryFieldIDs.BlockedBeams {
+		if id < 1 || id > protocol.BinaryFieldIDs.NPCState {
 			return ErrSnapshot
 		}
 

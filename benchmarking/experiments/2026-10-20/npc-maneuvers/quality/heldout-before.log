@@ -1,0 +1,46 @@
+=== RUN   TestFinalHeldOutCurvingPursuit
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed2/resource2/speed170
+    final_heldout_research_test.go:25: mean=146.5 p95=211.0 excess=1165.1 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed3/resource1/speed180
+    final_heldout_research_test.go:25: mean=204.2 p95=876.8 excess=15815.7 escaped=22.13s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed6/resource2/speed190
+    final_heldout_research_test.go:25: mean=160.2 p95=372.5 excess=2674.5 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed10/resource4/speed170
+    final_heldout_research_test.go:25: mean=144.8 p95=196.2 excess=850.2 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed13/resource2/speed180
+    final_heldout_research_test.go:25: mean=156.8 p95=255.0 excess=1826.5 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed17/resource4/speed190
+    final_heldout_research_test.go:25: mean=169.2 p95=274.8 excess=4356.8 escaped=5.10s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed31/resource4/speed170
+    final_heldout_research_test.go:25: mean=144.6 p95=204.4 excess=988.5 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed2/resource2/speed170
+    final_heldout_research_test.go:25: mean=153.8 p95=252.1 excess=1339.2 escaped=0.00s asteroids=0 ships=2 stationary=3 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed3/resource1/speed180
+    final_heldout_research_test.go:25: mean=182.0 p95=573.7 excess=8127.7 escaped=9.03s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed6/resource2/speed190
+    final_heldout_research_test.go:25: mean=180.9 p95=517.1 excess=6878.4 escaped=5.13s asteroids=0 ships=2 stationary=3 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed10/resource4/speed170
+    final_heldout_research_test.go:25: mean=152.3 p95=264.3 excess=1393.1 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed13/resource2/speed180
+    final_heldout_research_test.go:25: mean=155.5 p95=272.8 excess=1180.7 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed17/resource4/speed190
+    final_heldout_research_test.go:25: mean=157.1 p95=257.5 excess=43.4 escaped=0.00s asteroids=0 ships=2 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed31/resource4/speed170
+    final_heldout_research_test.go:25: mean=156.5 p95=316.2 excess=1771.0 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+--- PASS: TestFinalHeldOutCurvingPursuit (9.90s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed2/resource2/speed170 (0.89s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed3/resource1/speed180 (0.28s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed6/resource2/speed190 (0.73s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed10/resource4/speed170 (0.67s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed13/resource2/speed180 (0.95s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed17/resource4/speed190 (0.62s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed31/resource4/speed170 (0.73s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed2/resource2/speed170 (0.95s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed3/resource1/speed180 (0.28s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed6/resource2/speed190 (0.78s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed10/resource4/speed170 (0.65s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed13/resource2/speed180 (0.99s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed17/resource4/speed190 (0.67s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed31/resource4/speed170 (0.72s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/npc	9.907s

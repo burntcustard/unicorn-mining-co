@@ -21,6 +21,12 @@ assert.equal(
   'quoted chunk paths must stay intact while distance is mangled',
 );
 
+assert.equal(
+  replacePreTerser("const role = 'hostile';"),
+  "const role = 'hostile';",
+  'hostile chat roles keep their wire text',
+);
+
 const stationBranch = `entity.kind === "station" ? createStation() : createShip()`;
 
 assert.equal(

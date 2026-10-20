@@ -29,7 +29,7 @@ import { game } from '${process.cwd()}/src/client/game.ts';
 import { presentEvents } from '${process.cwd()}/src/client/effects/present-events.ts';
 import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
 import { colors, paintColors } from '${process.cwd()}/src/specs/colors.ts';
-import { mustang } from '${process.cwd()}/src/specs/ships/index.ts';
+import { mustang } from '${process.cwd()}/src/specs/ships/mustang.ts';
 import { fitsOf, cargoMenuEntriesOf } from '${process.cwd()}/src/client/ui/docked-model.ts';
 import { applyCraftAction } from '${process.cwd()}/src/client/network/craft-actions.ts';
 
@@ -107,7 +107,7 @@ const contents = [diamondSpec, messageSpec, messageSpec].map(itemData =>
   new Item(itemData).addToScene());
 contents.forEach(item => item.remove());
 wreck.cargoContents.push(...contents);
-wreck.cockpit.health = 0;
+wreck.segments.filter(segment=>segment.hull && segment.core).forEach(segment=>{segment.health=0;});
 wreck.update(0);
 assert(wreck.dead, 'destroyed ship is removed');
 for (const item of contents) {
@@ -232,8 +232,10 @@ assert.equal(applyCraftAction(ship,{action:'buy',module:moduleTypes.indexOf(Carg
   'full cargo rejects purchases');
 assert(player.credits===fullCredits && ship.modules.length===2, 'rejected buy preserves credits and ownership');
 ship.cargoContents=[bought,new Item(ore),new Item(gem),new Item(ore)];
-assert.deepEqual(cargoMenuEntriesOf(ship),[[bought,1],[ore,2],[gem,1]],
-  'cargo groups resources while keeping individual module instances');
+assert.deepEqual(cargoMenuEntriesOf(ship),[[gem,1],[bought,1],[ore,2]],
+  'cargo groups resources alphabetically while keeping individual module instances');
+ship.cargoContents.reverse();
+assert.deepEqual(cargoMenuEntriesOf(ship),[[gem,1],[bought,1],[ore,2]], 'inventory reordering does not move trade rows');
 const beforeSale=player.credits;
 applyCraftAction(ship,{action:'sell',objectIds:[bought.id]});
 assert(ship.modules.length===1 && ship.modules[0]===first, 'cargo sale preserves equipped module');

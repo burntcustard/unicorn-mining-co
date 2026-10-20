@@ -144,8 +144,8 @@ type gateAccessRequest struct {
 	pendingSent bool
 }
 
-func (s *GameSession) gateChat(gate *objects.Passage, text string) {
-	message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: text}
+func (s *GameSession) gateChat(gate *objects.Portal, lines []string) {
+	message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: dialogText(lines)}
 
 	s.players.ForEach(func(recipient *playerRecord, _ string) {
 		if recipient.socket != nil && recipient.ship.World == gate.World && gate.World.Players.Has(recipient.playerID) {
@@ -163,12 +163,7 @@ func (s *GameSession) requestGateAccess(p *playerRecord, id int64) {
 
 	gate, ok := entity.(*objects.JumpGate)
 
-	if !ok {
-		return
-	}
-
-	if Vec.DistanceSquared(p.ship.Position, gate.Position) > gate.Spec.ApproachRadius*gate.Spec.ApproachRadius {
-		s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: "Please approach the gate before requesting access."})
+	if !ok || Vec.DistanceSquared(p.ship.Position, gate.Position) > gate.Spec.ApproachRadius*gate.Spec.ApproachRadius {
 		return
 	}
 
@@ -196,15 +191,15 @@ func (s *GameSession) updateGateAccess(dt float64) {
 		delay := gate.Spec.AccessResponseDelay / 1000
 
 		if !request.pendingSent && request.elapsed+1e-9 >= delay {
-			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.AccessPendingMessage})
+			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: dialogText(gate.World.Specification.JumpGateDialog.AccessPending)})
 			request.pendingSent = true
 		}
 
 		if request.elapsed+1e-9 >= 2*delay {
-			s.connectedPassage(gate.Passage)
+			s.connectedPortal(gate.Portal)
 			gate.RequestOpening(1)
 			gate.CloseAfter = float64(s.World.Tick)*s.World.Specification.Simulation.SimulationStep + gate.Spec.OpeningDuration/1000
-			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.AccessGrantedMessage})
+			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: dialogText(gate.World.Specification.JumpGateDialog.AccessGranted)})
 			p.gateAccess = nil
 		}
 	})

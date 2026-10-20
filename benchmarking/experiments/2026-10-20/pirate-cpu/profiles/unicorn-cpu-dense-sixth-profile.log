@@ -1,0 +1,6 @@
+goos: linux
+goarch: amd64
+pkg: github.com/burntcustard/unicorn-mining-co/src/server/network
+cpu: Intel(R) Core(TM) Ultra X7 358H
+BenchmarkPirateCombat/dense-16         	   30000	     52706 ns/op	        16.00 GOMAXPROCS	       168.0 asteroids	     53925 cpu-ns/tick	         0 fast/tick	         1.000 fighting/tick	         0.1132 firing/tick	         1.000 in-field/tick	       308.5 max-distance	       123.1 npc-speed	       103.5 player-speed	      1598 wire-B/tick	   11723 B/op	     156 allocs/op
+PASS

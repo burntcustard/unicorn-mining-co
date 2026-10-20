@@ -11,14 +11,6 @@ export const jumpGateThrustStartDelay = 300;
 export const jumpGateThrustEndLead = 1000;
 
 export const jumpGateSpec = {
-  greetingMessage: 'Greetings {player}, traveling to {destination}?',
-  arrivalMessage: 'Welcome to {destination}, {player}',
-  accessGrantedMessage: 'Access granted. Enter once gate is fully open.',
-  accessPendingMessage: '...',
-  closingMessage: 'Gate closing, stay clear',
-  closingInterruptedMessage: 'Closing interrupted, re-opening',
-  recoveryMessage:
-    "How did you get there {player}? We'll open the gate for you",
   // Delay before each gate access response.
   accessResponseDelay: 3000,
   // Overall gate radius, also used to keep it open while ships are nearby.

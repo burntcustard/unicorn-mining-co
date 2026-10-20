@@ -134,6 +134,8 @@ export const renderMinimap = ({
 
     ctx.strokeStyle = object.kind === 'station' ? '#3f7' : '#eef';
     ctx.fillStyle = '#eef';
+
+    if (object.hostile) ctx.strokeStyle = ctx.fillStyle = colors.red[2];
     ctx.beginPath();
 
     if (object.kind === 'item') {

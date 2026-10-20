@@ -47,6 +47,8 @@ assert.equal(
   'display names and spec identifiers remain separate on the wire',
 );
 assert.equal(ship.kind, 'ship');
+assert.equal(ship.hostile, true);
+assert.equal(ship.npcState, 'Collecting');
 assert.equal(ship.fuel, 3.25);
 assert.equal(ship.storedPower, 12.5);
 assert.deepEqual(ship.position, { x: -1.25, y: 20.5 });

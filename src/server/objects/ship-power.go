@@ -8,8 +8,9 @@ type powerRates struct {
 
 func (s *Ship) powerRates() powerRates {
 	var rates powerRates
+	var mounts [16]*simulation.Mount
 
-	for _, mount := range s.Mounts() {
+	for _, mount := range s.AppendMounts(mounts[:0]) {
 		if mount.Module == nil || mount.Health < 1 {
 			continue
 		}
@@ -22,6 +23,7 @@ func (s *Ship) powerRates() powerRates {
 		for _, segment := range s.Segments {
 			if segment.Module == mount.Module && segment.Active != 0 {
 				active = true
+
 				if segment.Active == 1 && segment.ActivationProgress == 1 {
 					firing = s.Firing && !s.Dead && (s.DockedTo == nil || *s.DockedTo == 0) && s.Launching == 0
 				}

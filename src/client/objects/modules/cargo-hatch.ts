@@ -9,9 +9,6 @@ import { Item } from '../item';
 import { type GameObject } from '../game-object';
 
 const specification = moduleSpecs.cargoHatch;
-const cargoHatchLength = specification.cargoGeometry.length;
-const cargoHatchOpenAngle = specification.cargoGeometry.openAngle;
-const cargoHatchDoorWidth = specification.cargoGeometry.doorWidth;
 
 export const cargoContactAllowed = (self: Collider, other: Collider) =>
   (self.pickupPoint === true && other.segment?.catches === true) ||
@@ -35,18 +32,20 @@ export const cargoHatchGeometry = {
   doorShapeOutline: ({
     progress,
     side,
+    geometry = specification.cargoGeometry,
   }: {
     progress: number;
     side: number;
+    geometry?: Extract<ModuleSpec, { behavior: 'cargoHatch' }>['cargoGeometry'];
   }) => {
-    const angle = progress * cargoHatchOpenAngle;
+    const angle = progress * geometry.openAngle;
     const sine = Math.sin(angle);
     const cosine = Math.cos(angle);
-    const fromY = side * cargoHatchLength;
-    const toX = cargoHatchLength * sine;
-    const toY = side * cargoHatchLength * (1 - cosine);
-    const outX = -side * cosine * cargoHatchDoorWidth;
-    const outY = -sine * cargoHatchDoorWidth;
+    const fromY = side * geometry.length;
+    const toX = geometry.length * sine;
+    const toY = side * geometry.length * (1 - cosine);
+    const outX = -side * cosine * geometry.doorWidth;
+    const outY = -sine * geometry.doorWidth;
 
     return [
       [outX, fromY + outY],
@@ -69,12 +68,14 @@ export const cargoHatchOpen = cargoHatchGeometry.openingThreshold;
 
 class CargoHatchModule extends Module {
   static createModel(spec: Extract<ModuleSpec, { behavior: 'cargoHatch' }>) {
-    return super.createModel(spec).map((part) =>
+    const geometry = spec.cargoGeometry;
+
+    return super.createModel(spec).map((part, index) =>
       part.catches
         ? {
             ...part,
             wreckage: false,
-            radius: () => cargoHatchGeometry.throatRadius,
+            radius: () => geometry.throatRadius,
           }
         : {
             ...part,
@@ -88,9 +89,14 @@ class CargoHatchModule extends Module {
             }) =>
               cargoHatchGeometry.doorShapeOutline({
                 progress: activationProgress,
-                side: Math.sign(mount.localPosition.y),
+                side: geometry.paired
+                  ? index === 0
+                    ? -1
+                    : 1
+                  : Math.sign(mount.localPosition.y),
+                geometry,
               }),
-            radius: () => cargoHatchGeometry.doorRadius,
+            radius: () => geometry.doorRadius,
             wreckage: { color: part.color, fillShade: part.fillShade },
           },
     );
@@ -153,3 +159,4 @@ class CargoHatchModule extends Module {
 }
 
 export const CargoHatch = CargoHatchModule.define('cargoHatch');
+export const CargoHatchPair = CargoHatch.define('cargoHatchPair');

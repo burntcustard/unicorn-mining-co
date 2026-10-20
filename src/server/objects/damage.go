@@ -13,6 +13,10 @@ func Damage(object any, amount float64) float64 {
 
 	switch target := object.(type) {
 	case *simulation.Segment:
+		if target.Mount != nil && target.Mount.Hull != nil && target.ModuleSpec().ForwardThrust > 0 {
+			return Damage(target.Mount.Hull, amount)
+		}
+
 		segment = target
 		spec := segment.ModuleSpec()
 
@@ -70,7 +74,7 @@ func Damage(object any, amount float64) float64 {
 
 			if segment.Health < 1 {
 				mount.Health -= mount.Health
-			} else if mount.Module != nil && mount.Module.ModuleBase().Spec.DisablePhysics {
+			} else if mount.Module != nil && mount.Module.ModuleBase().Spec.DisablePhysics && mount.Module.ModuleBase().Spec.ForwardThrust == 0 {
 				mount.Health -= amount
 			}
 		}

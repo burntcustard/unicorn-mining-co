@@ -1,0 +1,12 @@
+{
+  "referenceCases": 46,
+  "checkedCases": 46,
+  "identical": 46,
+  "changes": [],
+  "routePlansCompared": 198,
+  "originalGridSearches": 204,
+  "optimizedGridSearches": 203,
+  "guardSha256": "a1b76970e449505e19b59147df6c9b5e122383fee8200047b6931daecbe2553f",
+  "referenceLog": "/tmp/unicorn-pursuit-risk-quality-integrated.log",
+  "checkedLog": "/tmp/unicorn-route-shortcuts/simple-equivalence.log"
+}

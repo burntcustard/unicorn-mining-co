@@ -1,7 +1,7 @@
 import { deadzone, lag, dockDuration, holeZoomScale } from '../specs/camera';
 import * as Vec from './utilities/vector';
 import { ease, easeProgress } from './utilities/ease';
-import { holeSpec } from '../specs/hole';
+import { portalSpec } from '../specs/portal';
 import { type GameObject } from './objects/game-object';
 import { setSizing } from './ui/set-sizing';
 
@@ -131,12 +131,12 @@ import { type GameState } from './game';
  * This only changes the drawing transform, never canvas or background sizes.
  */
 export const holeZoom = (transitTime: number) => {
-  const duration = holeSpec.transitScaleDuration / 1000;
+  const duration = portalSpec.transitScaleDuration / 1000;
   const progress =
     transitTime < 0
       ? 1 + transitTime / duration
       : transitTime > 0
-        ? (transitTime - holeSpec.arrivalHoldDuration / 1000) / duration
+        ? (transitTime - portalSpec.arrivalHoldDuration / 1000) / duration
         : 0;
 
   return (

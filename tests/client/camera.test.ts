@@ -1,4 +1,4 @@
-import { holeSpec } from '../../src/specs/hole';
+import { portalSpec } from '../../src/specs/portal';
 import assert from 'node:assert/strict';
 import {
   camera,
@@ -116,8 +116,8 @@ assert.deepEqual(
   'arrival starts centered without panning across sectors',
 );
 
-const duration = holeSpec.transitScaleDuration / 1000;
-const hold = holeSpec.arrivalHoldDuration / 1000;
+const duration = portalSpec.transitScaleDuration / 1000;
+const hold = portalSpec.arrivalHoldDuration / 1000;
 const sizing = [
   game.size,
   game.scale,

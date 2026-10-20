@@ -1,17 +1,19 @@
 import { Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { type Mount } from '../types';
+import { stationModuleIds } from '../../specs/modules';
 import { moduleTypesById } from '../objects/modules';
 
-export const cargoMenuEntriesOf = (ship: any) => [
-  ...ship.cargoContents
-    .map((object: any) => object.item || object)
-    .reduce(
-      (types: Map<any, number>, item: any) =>
-        types.set(item, (types.get(item) || 0) + 1),
-      new Map(),
-    ),
-];
+export const cargoMenuEntriesOf = (ship: any) =>
+  [
+    ...ship.cargoContents
+      .map((object: any) => object.item || object)
+      .reduce(
+        (types: Map<any, number>, item: any) =>
+          types.set(item, (types.get(item) || 0) + 1),
+        new Map(),
+      ),
+  ].sort(([a], [b]) => a.name.localeCompare(b.name, 'en-US'));
 
 const moduleRows = new WeakMap<Ship, number[]>();
 
@@ -37,6 +39,10 @@ export const fitsOf = (ship: Ship, mount: Mount) => {
           (!module.mount || module.mount === mount),
       );
 
-      return owned.length ? owned : [type];
+      return owned.length
+        ? owned
+        : stationModuleIds.includes(type.definitionId)
+          ? [type]
+          : [];
     });
 };

@@ -12,7 +12,8 @@ import { syncDockedUi } from '../../src/client/ui/dom/docked-loader.ts';
 import { setCraftActionDispatcher } from '../../src/client/network/craft-actions.ts';
 import { Station } from '../../src/client/objects/station.ts';
 import { Item } from '../../src/client/objects/item.ts';
-import { diamond } from '../../src/specs/items';
+import { autogunAmmo, diamond } from '../../src/specs/items';
+import { pirateDialog } from '../../src/specs/dialog/pirate';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import {
   Autogun,
@@ -31,6 +32,7 @@ import { packPlayerInput } from '../../src/client/protocol/input.ts';
 import { createChat } from '../../src/client/ui/dom/chat';
 import { JumpGate } from '../../src/client/objects/jump-gate';
 import { jumpGateSpec } from '../../src/specs/jump-gate';
+import { jumpGateDialog } from '../../src/specs/dialog/jump-gate';
 import * as Vec from '../../src/client/utilities/vector';
 
 const checkGateBeams = () => {
@@ -68,10 +70,17 @@ const checkGateBeams = () => {
 };
 
 export const checkChat = () => {
+  const restoreDialog = Object.entries(jumpGateDialog).map(([name, lines]) => {
+    const length = lines.length;
+
+    lines.push(`Test ${name}: {player} {destination}`);
+    return () => lines.splice(length);
+  });
+
   const sent: (string | number)[][] = [];
   const typing: boolean[] = [];
 
-  const network = {
+  const network: Parameters<typeof createChat>[0]['network'] = {
     displayName: 'Pilot',
     world: createWorld(),
     shipId: 1,
@@ -100,11 +109,102 @@ export const checkChat = () => {
 
   network.world.entities.set(ship.id, ship);
 
-  const chat = createChat({ network, onTyping: (value) => typing.push(value) });
+  let releases = 0;
+
+  const chat = createChat({
+    network,
+    onTyping: (value) => typing.push(value),
+    onCargoRelease: () => releases++,
+  });
+
   const panel = document.querySelector<HTMLElement>('.chat-panel')!;
   const log = panel.querySelector<HTMLElement>('.chat-log')!;
   const input = panel.querySelector<HTMLInputElement>('.chat-panel input')!;
   const tabs = panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
+
+  chat.update(undefined, true);
+  const release = panel.querySelector<HTMLButtonElement>('.cargo-release')!;
+  const releaseRequiresCargo = release.disabled;
+
+  ship.cargoContents.push(new Item(diamond));
+  chat.update(undefined, true);
+  release.click();
+  const releaseRequiresDemand =
+    release.disabled && releases === 0 && !release.getClientRects().length;
+
+  const pirate = createPlayerShip(network.world, {
+    id: 988,
+    shipType: 'courser',
+  });
+
+  pirate.hostile = true;
+  network.world.entities.set(pirate.id, pirate);
+
+  network.chatMessages.push({
+    type: 'chat',
+    channel: 0,
+    sender: 'Pirate',
+    senderRole: 'hostile',
+    text: pirateDialog.cargoDemand[0],
+  });
+
+  chat.update(undefined, true);
+  const publicDemandIsNotPersonal = !release.getClientRects().length;
+
+  network.chatMessages.push({
+    type: 'chat',
+    channel: 0,
+    sender: 'Pirate',
+    senderRole: 'hostile',
+    text: '',
+    cargoDemand: pirate.id,
+  });
+
+  chat.update(undefined, true);
+  release.click();
+  const releaseAction =
+    !release.disabled &&
+    releases === 1 &&
+    !!release.getClientRects().length &&
+    release.querySelector('kbd')!.textContent ===
+      defaultKeybindings.cargoRelease.keys.join(' / ') &&
+    release.textContent!.includes('(hold) Release Cargo');
+
+  ship.cargoContents = [
+    new SearchLight(),
+    new Item(autogunAmmo, { rounds: 117 }),
+  ];
+  chat.update(undefined, true);
+  const releaseKeepsModulesAndOpenedAmmo = release.disabled;
+
+  ship.cargoContents.push(new Item(autogunAmmo));
+  chat.update(undefined, true);
+  const releaseAllowsUnopenedAmmo = !release.disabled;
+
+  const originalReleaseKeys = defaultKeybindings.cargoRelease.keys;
+
+  defaultKeybindings.cargoRelease.keys = ['v'];
+  chat.update(undefined, true);
+  const reboundReleaseKey = release.querySelector('kbd')!.textContent === 'v';
+
+  defaultKeybindings.cargoRelease.keys = originalReleaseKeys;
+
+  network.chatMessages.push({
+    type: 'chat',
+    channel: 0,
+    sender: 'Pirate',
+    senderRole: 'hostile',
+    text: '',
+    cargoDemand: 0,
+  });
+
+  chat.update(undefined, true);
+  const releaseEndsWithDemand =
+    !release.getClientRects().length && !log.querySelectorAll('p:empty').length;
+
+  network.chatMessages = network.chatMessages.slice(0, 2);
+  chat.update(undefined, true);
+  ship.cargoContents = [];
 
   const gate = new JumpGate({
     id: 987,
@@ -114,6 +214,13 @@ export const checkChat = () => {
   });
 
   network.world.entities.set(gate.id, gate);
+  ship.position.x = jumpGateSpec.approachRadius + 1;
+  chat.update(gate, true);
+  chat.requestGateAccess();
+  const distantGateSilent =
+    !panel.querySelector('.chat-contact') && sent.length === 0;
+
+  ship.position.x = 0;
   chat.update(gate, true);
   const gateName =
     panel.querySelector('.chat-contact strong')!.textContent === 'PP-87: ';
@@ -268,7 +375,7 @@ export const checkChat = () => {
       channel: 0,
       sender: gate.name,
       senderRole: 'friendly',
-      text: '...',
+      text: jumpGateDialog.accessPending.at(-1)!,
     },
   ];
 
@@ -278,17 +385,6 @@ export const checkChat = () => {
     access.disabled &&
     access.querySelector(':scope > span')!.textContent === 'Access pending' &&
     sent.length === 2;
-
-  network.chatMessages = [
-    ...network.chatMessages,
-    {
-      type: 'chat',
-      channel: 0,
-      sender: gate.name,
-      senderRole: 'friendly',
-      text: 'Please approach the gate before requesting access.',
-    },
-  ];
 
   ship.position.x = 10000;
   chat.update(gate, true);
@@ -350,7 +446,7 @@ export const checkChat = () => {
       channel: 0,
       sender: gate.name,
       senderRole: 'friendly',
-      text: jumpGateSpec.closingMessage,
+      text: jumpGateDialog.closing.at(-1)!,
     },
   ];
 
@@ -362,7 +458,7 @@ export const checkChat = () => {
   const freshRequestAfterClosing =
     closedContact !== retryContact &&
     closedContact.previousElementSibling?.textContent ===
-      `${gate.name}: ${jumpGateSpec.closingMessage}` &&
+      `${gate.name}: ${jumpGateDialog.closing.at(-1)!}` &&
     !closedContact.querySelector('p') &&
     !closedAccess.disabled &&
     retryAccess.disabled &&
@@ -439,8 +535,8 @@ export const checkChat = () => {
   network.chatMessages = [
     ...network.chatMessages,
     ...[
-      jumpGateSpec.closingMessage,
-      jumpGateSpec.closingInterruptedMessage,
+      jumpGateDialog.closing.at(-1)!,
+      jumpGateDialog.closingInterrupted.at(-1)!,
     ].map((text) => ({
       type: 'chat' as const,
       channel: 0,
@@ -460,11 +556,31 @@ export const checkChat = () => {
 
   targetOnlyAccess &&=
     !observerPanel.querySelector('.chat-contact button') &&
-    observerPanel.textContent!.includes(jumpGateSpec.closingMessage) &&
-    observerPanel.textContent!.includes(jumpGateSpec.closingInterruptedMessage);
+    observerPanel.textContent!.includes(jumpGateDialog.closing.at(-1)!) &&
+    observerPanel.textContent!.includes(
+      jumpGateDialog.closingInterrupted.at(-1)!,
+    );
   observerChat.update(gate, true);
+  const sharedGreeting =
+    observerPanel.querySelector('.chat-contact p > span')!.textContent ===
+    greeting;
+
   targetOnlyAccess &&=
     observerPanel.querySelectorAll('.chat-contact button:enabled').length === 1;
+
+  network.chatMessages.push({
+    type: 'chat',
+    channel: 0,
+    sender: gate.name,
+    senderRole: 'friendly',
+    text: jumpGateDialog.accessGranted.at(-1)!,
+  });
+
+  chat.update(gate, true);
+  const accessGrantedVariant =
+    log.querySelector('.chat-contact:last-of-type button > span')
+      ?.textContent === 'Access granted';
+
   observerChat.update(undefined, true);
   observerChat.update(undefined, true);
   targetOnlyAccess &&=
@@ -508,10 +624,20 @@ export const checkChat = () => {
     document.activeElement !== input;
 
   panel.parentNode!.removeChild(panel);
+  restoreDialog.forEach((restore) => restore());
 
   return {
     ...checkGateBeams(),
+    releaseRequiresCargo,
+    releaseRequiresDemand,
+    publicDemandIsNotPersonal,
+    releaseEndsWithDemand,
+    releaseAction,
+    releaseKeepsModulesAndOpenedAmmo,
+    releaseAllowsUnopenedAmmo,
+    reboundReleaseKey,
     gateName,
+    distantGateSilent,
     greetingPersonalized,
     sharedScroll,
     chronological,
@@ -519,6 +645,8 @@ export const checkChat = () => {
     contactKeepsPosition,
     preservesScroll,
     separateGreetings,
+    sharedGreeting,
+    accessGrantedVariant,
     noDuplicateGreeting,
     freshRequestAfterRejection,
     freshRequestAfterClosing,

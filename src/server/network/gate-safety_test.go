@@ -23,17 +23,17 @@ func TestGateClosingWarningAndBeamInterruption(t *testing.T) {
 			}
 
 			p := s.playersBySocket[a]
-			var gate *objects.Passage
+			var gate *objects.Portal
 
-			for _, passage := range s.sectors[p.sectorID].passages {
-				if passage.Kind == "jumpGate" {
-					gate = passage
+			for _, portal := range s.sectors[p.sectorID].portals {
+				if portal.Kind == "jumpGate" {
+					gate = portal
 					break
 				}
 			}
 
 			if connected {
-				s.connectedPassage(gate)
+				s.connectedPortal(gate)
 			}
 
 			s.relocatePlayer(s.playersBySocket[remote], gate.DestinationSector, sectorArrival{})
@@ -42,7 +42,7 @@ func TestGateClosingWarningAndBeamInterruption(t *testing.T) {
 			gate.Advance((gate.Spec.OpeningDuration + gate.Spec.StateHoldDuration) / 1000)
 			a.frames, b.frames, remote.frames = nil, nil, nil
 			s.updateGates(catalog.Simulation.SimulationStep)
-			warning, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.ClosingMessage}, catalog.Protocol)
+			warning, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: catalog.JumpGateDialog.Closing[0]}, catalog.Protocol)
 
 			for _, socket := range []*soundSocket{a, b} {
 				if len(socket.frames) != 1 || !bytes.Equal(socket.frames[0], warning) {
@@ -63,7 +63,7 @@ func TestGateClosingWarningAndBeamInterruption(t *testing.T) {
 			}
 
 			s.interruptGateClosing(before)
-			interrupted, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.ClosingInterruptedMessage}, catalog.Protocol)
+			interrupted, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: catalog.JumpGateDialog.ClosingInterrupted[0]}, catalog.Protocol)
 
 			for _, socket := range []*soundSocket{a, b} {
 				if len(socket.frames) != 2 || !bytes.Equal(socket.frames[1], interrupted) {
@@ -113,7 +113,7 @@ func TestGateBeamsStayGreenDuringInitialOpening(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello"}, socket)
 	p := s.playersBySocket[socket]
 
-	for _, gate := range s.sectors[p.sectorID].passages {
+	for _, gate := range s.sectors[p.sectorID].portals {
 		if gate.Kind != "jumpGate" {
 			continue
 		}
@@ -147,12 +147,12 @@ func TestGateSafetyRunsDuringWorldTicks(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello"}, socket)
 	p := s.playersBySocket[socket]
 
-	for _, gate := range s.sectors[p.sectorID].passages {
+	for _, gate := range s.sectors[p.sectorID].portals {
 		if gate.Kind != "jumpGate" {
 			continue
 		}
 
-		s.connectedPassage(gate)
+		s.connectedPortal(gate)
 		gate.RequestExitOpening()
 		gate.Advance((gate.Spec.OpeningDuration + gate.Spec.StateHoldDuration) / 1000)
 		gate.RequestOpening(0)

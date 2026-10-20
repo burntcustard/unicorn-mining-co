@@ -20,15 +20,22 @@ type ControlledShip interface {
 }
 
 type scheduledEntity struct {
-	entity                Entity
-	object                *GameObject
-	substeps, updateEvery int
-	step, laserDuration   float64
+	entity              Entity
+	object              *GameObject
+	substeps            int
+	due                 bool
+	step, laserDuration float64
+}
+
+type limitedObserver struct {
+	position      Vec.Vector
+	radiusSquared float64
 }
 
 type movementSchedule struct {
 	observers, parents, entities []Entity
 	positions                    []Vec.Vector
+	limitedObservers             []limitedObserver
 	observerX, observerY         []float64
 	entries                      []scheduledEntity
 	parentRecords                []movementParent
@@ -88,7 +95,22 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 	clear(schedule.parents)
 	schedule.parents = schedule.parents[:0]
 
+	schedule.limitedObservers = schedule.limitedObservers[:0]
+
 	world.Players.ForEach(func(player Player, _ int64) {
+		if player.ObserverRange > 0 {
+			// A missing observer still keeps the default update tier distant.
+			observer := limitedObserver{radiusSquared: -1}
+
+			if entity, ok := world.Entities.Get(player.ShipID); ok {
+				observer.position = entity.Base().Position
+				observer.radiusSquared = player.ObserverRange * player.ObserverRange
+			}
+
+			schedule.limitedObservers = append(schedule.limitedObservers, observer)
+			return
+		}
+
 		if entity, ok := world.Entities.Get(player.ShipID); ok {
 			schedule.observers = append(schedule.observers, entity)
 		}
@@ -114,11 +136,26 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 		object := entity.Base()
 		tier := visible
 
-		if len(schedule.positions) > 0 {
+		if options.Entities == nil {
+			if _, ok := entity.(MovementParent); ok {
+				schedule.parents = append(schedule.parents, entity)
+			}
+		}
+
+		if len(schedule.positions) > 0 || len(schedule.limitedObservers) > 0 {
 			tier = distant
 
 			if schedule.withinObservers(object.Position, radiusSquared) {
 				tier = visible
+			}
+		}
+
+		if tier != visible {
+			for _, observer := range schedule.limitedObservers {
+				if Vec.DistanceSquared(object.Position, observer.position) <= observer.radiusSquared {
+					tier = visible
+					break
+				}
 			}
 		}
 
@@ -129,14 +166,16 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 		}
 
 		step := (object.PendingUpdateTime + rules.SimulationStep) / float64(tier.Substeps)
-		schedule.entries = append(schedule.entries, scheduledEntity{entity: entity, object: object, substeps: tier.Substeps, updateEvery: tier.UpdateEvery, step: step})
+		schedule.entries = append(schedule.entries, scheduledEntity{entity: entity, object: object, substeps: tier.Substeps, due: (tick+1)%uint64(tier.UpdateEvery) == 0, step: step})
 	}
 
-	world.Entities.ForEach(func(entity Entity, _ int64) {
-		if _, ok := entity.(MovementParent); ok {
-			schedule.parents = append(schedule.parents, entity)
-		}
-	})
+	if options.Entities != nil {
+		world.Entities.ForEach(func(entity Entity, _ int64) {
+			if _, ok := entity.(MovementParent); ok {
+				schedule.parents = append(schedule.parents, entity)
+			}
+		})
+	}
 
 	// An empty but non-nil slice is significant to GameObject.Update.
 	if schedule.parents == nil {
@@ -177,7 +216,7 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 				object.PendingUpdateTime += dt
 			}
 
-			if (tick+1)%uint64(entry.updateEvery) != 0 || substep >= entry.substeps {
+			if !entry.due || substep >= entry.substeps {
 				continue
 			}
 

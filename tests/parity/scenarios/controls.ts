@@ -80,6 +80,14 @@ const server = [
       position: { x: -400.25, y: 250.5 },
     })),
   },
+  ...[0, 281474976710999].map((cargoDemand) => ({
+    type: 'chat' as const,
+    channel: 0,
+    sender: 'Pirate',
+    senderRole: 'hostile',
+    text: '',
+    cargoDemand,
+  })),
   { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
   {
     type: 'welcome' as const,

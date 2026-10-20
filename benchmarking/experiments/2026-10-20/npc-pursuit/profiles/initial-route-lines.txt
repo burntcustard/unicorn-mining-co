@@ -1,0 +1,142 @@
+Total: 2.31s
+ROUTINE ======================== github.com/burntcustard/unicorn-mining-co/src/server/npc.gridRoute in /home/burntcustard/Dev/unicorn-mining-co/src/server/npc/route.go
+      50ms      400ms (flat, cum) 17.32% of Total
+         .          .    113:func gridRoute(from, target Vec.Vector, radius, cell float64, obstacles []obstacle, outline bool) []Vec.Vector {
+         .          .    114:	offset := Vec.Subtract(target, from)
+         .          .    115:
+         .          .    116:	margin := 900.0
+      10ms       10ms    117:	left, top := int(math.Floor((min(0, offset.X)-margin)/cell)), int(math.Floor((min(0, offset.Y)-margin)/cell))
+         .          .    118:	right, bottom := int(math.Ceil((max(0, offset.X)+margin)/cell)), int(math.Ceil((max(0, offset.Y)+margin)/cell))
+         .          .    119:	width, height := right-left+1, bottom-top+1
+         .          .    120:	count := width * height
+         .          .    121:
+         .          .    122:	point := func(index int) Vec.Vector {
+         .          .    123:		return Vec.Add(from, Vec.Create(float64(index%width+left)*cell, float64(index/width+top)*cell))
+         .          .    124:	}
+         .          .    125:
+         .          .    126:	nearby := make([]obstacle, 0, len(obstacles))
+         .          .    127:	boxMin := Vec.Add(from, Vec.Create(float64(left)*cell, float64(top)*cell))
+         .          .    128:	boxMax := Vec.Add(from, Vec.Create(float64(right)*cell, float64(bottom)*cell))
+         .          .    129:
+         .          .    130:	for _, object := range obstacles {
+         .          .    131:		reach := object.radius + radius
+         .          .    132:
+         .          .    133:		if object.position.X+reach >= boxMin.X && object.position.X-reach <= boxMax.X && object.position.Y+reach >= boxMin.Y && object.position.Y-reach <= boxMax.Y {
+         .          .    134:			nearby = append(nearby, object)
+         .          .    135:		}
+         .          .    136:	}
+         .          .    137:
+         .          .    138:	cost, parent := make([]float64, count), make([]int, count)
+         .          .    139:	passable, closed := make([]int8, count), make([]bool, count)
+         .          .    140:
+         .          .    141:	for index := range cost {
+         .          .    142:		cost[index], parent[index] = math.Inf(1), -1
+         .          .    143:	}
+         .          .    144:
+         .          .    145:	free := func(index int) bool {
+         .          .    146:		if passable[index] == 0 {
+         .          .    147:			passable[index] = 1
+         .          .    148:			position := point(index)
+         .          .    149:
+         .          .    150:			for _, object := range nearby {
+         .          .    151:				reach := object.radius + radius
+         .          .    152:
+         .          .    153:				if Vec.DistanceSquared(position, object.position) < reach*reach && (!outline || object.distance(position) < radius) {
+         .          .    154:					passable[index] = -1
+         .          .    155:					break
+         .          .    156:				}
+         .          .    157:			}
+         .          .    158:		}
+         .          .    159:
+         .          .    160:		return passable[index] == 1
+         .          .    161:	}
+         .          .    162:
+         .          .    163:	start := -left - top*width
+         .          .    164:	cost[start] = 0
+         .          .    165:	queue := routeQueue{{index: start, score: Vec.Distance(from, target)}}
+         .          .    166:	best, closest := start, Vec.Distance(from, target)
+         .          .    167:	finished := false
+         .          .    168:
+         .          .    169:	for len(queue) > 0 {
+         .       80ms    170:		current := queue.pop().index
+         .          .    171:
+         .          .    172:		if closed[current] {
+         .          .    173:			continue
+         .          .    174:		}
+         .          .    175:
+         .          .    176:		closed[current] = true
+         .          .    177:		position := point(current)
+         .       30ms    178:		distance := Vec.Distance(position, target)
+         .          .    179:
+         .          .    180:		if distance < closest {
+         .          .    181:			best, closest = current, distance
+         .          .    182:		}
+         .          .    183:
+         .          .    184:		if distance < cell*2 && clearSegment(position, target, radius, nearby, current == start) {
+         .          .    185:			best, finished = current, true
+         .          .    186:			break
+         .          .    187:		}
+         .          .    188:
+         .          .    189:		reach := 1
+         .          .    190:
+         .          .    191:		if current == start {
+         .          .    192:			reach = 4
+         .          .    193:		}
+         .          .    194:
+         .          .    195:		for dy := -reach; dy <= reach; dy++ {
+         .          .    196:			for dx := -reach; dx <= reach; dx++ {
+         .          .    197:				if dx == 0 && dy == 0 {
+         .          .    198:					continue
+         .          .    199:				}
+         .          .    200:
+         .          .    201:				x, y := current%width+dx, current/width+dy
+         .          .    202:
+      10ms       10ms    203:				if x < 0 || x >= width || y < 0 || y >= height {
+         .          .    204:					continue
+         .          .    205:				}
+         .          .    206:
+         .          .    207:				next := y*width + x
+         .          .    208:
+         .       30ms    209:				if closed[next] || !free(next) {
+         .          .    210:					continue
+         .          .    211:				}
+         .          .    212:
+         .       20ms    213:				to := point(next)
+         .       70ms    214:				candidate := cost[current] + Vec.Distance(position, to)
+         .          .    215:
+      30ms      120ms    216:				if candidate >= cost[next] || !clearSegment(position, to, radius, nearby, current == start) {
+         .          .    217:					continue
+         .          .    218:				}
+         .          .    219:
+         .          .    220:				cost[next], parent[next] = candidate, current
+         .       30ms    221:				queue.push(routeNode{next, candidate + Vec.Distance(to, target)})
+         .          .    222:			}
+         .          .    223:		}
+         .          .    224:	}
+         .          .    225:
+         .          .    226:	if best == start {
+ROUTINE ======================== github.com/burntcustard/unicorn-mining-co/src/server/npc.gridRoute.func1 in /home/burntcustard/Dev/unicorn-mining-co/src/server/npc/route.go
+      20ms       20ms (flat, cum)  0.87% of Total
+         .          .    122:	point := func(index int) Vec.Vector {
+      20ms       20ms    123:		return Vec.Add(from, Vec.Create(float64(index%width+left)*cell, float64(index/width+top)*cell))
+         .          .    124:	}
+         .          .    125:
+         .          .    126:	nearby := make([]obstacle, 0, len(obstacles))
+         .          .    127:	boxMin := Vec.Add(from, Vec.Create(float64(left)*cell, float64(top)*cell))
+         .          .    128:	boxMax := Vec.Add(from, Vec.Create(float64(right)*cell, float64(bottom)*cell))
+ROUTINE ======================== github.com/burntcustard/unicorn-mining-co/src/server/npc.gridRoute.func2 in /home/burntcustard/Dev/unicorn-mining-co/src/server/npc/route.go
+      20ms       30ms (flat, cum)  1.30% of Total
+         .          .    145:	free := func(index int) bool {
+         .          .    146:		if passable[index] == 0 {
+         .          .    147:			passable[index] = 1
+         .          .    148:			position := point(index)
+         .          .    149:
+         .          .    150:			for _, object := range nearby {
+         .          .    151:				reach := object.radius + radius
+         .          .    152:
+      20ms       30ms    153:				if Vec.DistanceSquared(position, object.position) < reach*reach && (!outline || object.distance(position) < radius) {
+         .          .    154:					passable[index] = -1
+         .          .    155:					break
+         .          .    156:				}
+         .          .    157:			}
+         .          .    158:		}

@@ -110,6 +110,7 @@ type ModuleValues = {
   coverDuration?: number;
   drillTip?: { position: { x: number; y: number }; radius: number };
   cargoGeometry?: {
+    paired?: boolean;
     length: number;
     openAngle: number;
     doorWidth: number;

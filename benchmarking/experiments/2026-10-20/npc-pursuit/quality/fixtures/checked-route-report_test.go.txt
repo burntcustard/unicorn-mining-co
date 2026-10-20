@@ -1,0 +1,3 @@
+package npc
+import "testing"
+func TestZZRouteOptimizationCounts(t *testing.T){t.Logf("checkedRoutes=%d originalGridSearches=%d optimizedGridSearches=%d",routeCheckCalls,routeCheckBefore,routeCheckAfter)}

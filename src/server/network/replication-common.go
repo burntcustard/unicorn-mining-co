@@ -10,6 +10,7 @@ import (
 
 type moduleRecord struct {
 	modules []simulation.Module
+	mounts  []*simulation.Mount
 	states  []protocol.ModuleState
 	indexes map[simulation.Module]int
 	counts  []int
@@ -79,12 +80,19 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 
 	mounts := binary.mountBuffer
 	p := binary.modules
-	same := p != nil && len(modules) == len(p.modules)
+	same := p != nil && len(modules) == len(p.modules) && slices.Equal(mounts, p.mounts)
+	cooldownsChanged := false
 
 	if same {
 		for i, module := range modules {
 			state := p.states[i]
 			object, data := module.Base(), module.ModuleBase()
+			var mount *simulation.Mount
+
+			if state.Mount >= 0 {
+				mount = p.mounts[int(state.Mount)]
+			}
+
 			health := object.Health
 
 			if data.Mount != nil {
@@ -109,11 +117,10 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 			}
 
 			if data.FireCooldown != cooldown || data.ChargeCooldown != charge {
-				same = false
-				break
+				cooldownsChanged = true
 			}
 
-			if module != p.modules[i] || state.ID == nil || float64(object.ID) != *state.ID || float64(slices.Index(mounts, data.Mount)) != state.Mount || state.Health == nil || health != *state.Health || !slices.Equal(object.Shades, state.Shades) {
+			if module != p.modules[i] || state.ID == nil || float64(object.ID) != *state.ID || data.Mount != mount || state.Health == nil || health != *state.Health || !slices.Equal(object.Shades, state.Shades) {
 				same = false
 				break
 			}
@@ -121,10 +128,33 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 	}
 
 	if same && sameModuleSegments(entity, p) {
-		return p
+		if !cooldownsChanged {
+			return p
+		}
+
+		// Cooldowns change while firing; retain the stable module layout.
+		record := *p
+		record.states = slices.Clone(p.states)
+
+		for i, module := range modules {
+			data := module.ModuleBase()
+			state := &record.states[i]
+			state.FireCooldown, state.ChargeCooldown = nil, nil
+
+			if data.FireCooldown > 0 {
+				state.FireCooldown = new(data.FireCooldown)
+			}
+
+			if data.ChargeCooldown > 0 {
+				state.ChargeCooldown = new(data.ChargeCooldown)
+			}
+		}
+
+		binary.modules = &record
+		return &record
 	}
 
-	record := &moduleRecord{modules: slices.Clone(modules), indexes: map[simulation.Module]int{}, counts: make([]int, len(modules))}
+	record := &moduleRecord{modules: slices.Clone(modules), mounts: slices.Clone(mounts), indexes: map[simulation.Module]int{}, counts: make([]int, len(modules))}
 
 	for i, module := range modules {
 		o, d := module.Base(), module.ModuleBase()

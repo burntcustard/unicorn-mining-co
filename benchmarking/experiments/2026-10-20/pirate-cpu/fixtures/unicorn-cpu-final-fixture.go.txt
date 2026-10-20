@@ -1,0 +1,290 @@
+package network
+
+import (
+	"math"
+	"runtime"
+	"slices"
+	"testing"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+)
+
+type pirateCombatBenchmark struct {
+	session                     *GameSession
+	player                      *playerRecord
+	npc                         *pirate
+	socket                      *benchmarkSocket
+	sequence                    uint64
+	firing, fighting, asteroids int
+	fast, inField               int
+	thrust                      float64
+	playerSpeed, npcSpeed       float64
+	fieldCenter                 Vec.Vector
+	fieldRadius, furthest       float64
+}
+
+/*
+Run the normal session with one real player ship and one fighting pirate.
+The player sends deterministic flight/fire inputs at 30 Hz. It alternates straight
+flight and broad turns through a real generated asteroid field; collisions and
+weapons remain active. Enlarged ship health and ammunition keep combat running.
+Each measured batch covers 30 simulated seconds, with a fresh world and four-second
+warmup outside timing, so destroyed asteroids and long-term drift cannot turn a
+field case into an open-space case during benchmark calibration.
+The socket sink includes packet construction but excludes TCP transport and timers.
+*/
+func newPirateCombatBenchmark(t testing.TB, seed float64, resource int, thrust ...float64) *pirateCombatBenchmark {
+	t.Helper()
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewGameSession(seed, catalog)
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+	center := Vec.Create(10000, 10000)
+	fieldRadius := 0.
+	ranges := protocol.Ranges(catalog.Simulation.ServerRegionRanges)
+	ranges.Asteroid = 6500
+
+	if resource >= 0 {
+		index := slices.IndexFunc(s.sectorMap.Sectors, func(sector simulation.Sector) bool { return sector.ID == s.currentSector })
+
+		generator := simulation.NewRegionGenerator(catalog, s.sectorMap.Sectors[index])
+		fields := generator.GenerateFields(uint32(seed), Vec.Create(-40000, -40000), Vec.Create(40000, 40000))
+
+		slices.SortFunc(fields, func(a, b protocol.FieldDescription) int {
+			return int(Vec.LengthSquared(a.Position) - Vec.LengthSquared(b.Position))
+		})
+
+		index = slices.IndexFunc(fields, func(field protocol.FieldDescription) bool { return field.Resource == resource })
+
+		if index < 0 {
+			t.Fatal("missing generated combat field")
+		}
+
+		center = fields[index].Position
+		fieldRadius = fields[index].Radius
+	} else {
+		found := false
+
+		for x := 5000.; x <= 45000 && !found; x += 5000 {
+			for y := 5000.; y <= 45000; y += 5000 {
+				candidate := Vec.Create(x, y)
+				clear := true
+
+				for _, rock := range s.regions.View(candidate, &ranges).Asteroids {
+					if Vec.Distance(candidate, rock.Position) < 2200 {
+						clear = false
+						break
+					}
+				}
+
+				if clear {
+					center, found = candidate, true
+					break
+				}
+			}
+		}
+
+		if !found {
+			t.Fatal("missing generated open space")
+		}
+	}
+
+	view := s.regions.View(center, &ranges)
+
+	clear := func(position Vec.Vector) bool {
+		for _, rock := range view.Asteroids {
+			radius := max(rock.Radius, rock.RadiusEven) * (1 + catalog.RegionGeneration.AsteroidVariance)
+
+			if Vec.Distance(position, rock.Position) < radius+55 {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	chosen, found := center, false
+
+	for distance := 0.; distance <= 2400 && !found; distance += 120 {
+		for angle := 0.; angle < 2*math.Pi; angle += math.Pi / 12 {
+			candidate := Vec.Add(center, Vec.Create(distance*math.Cos(angle), distance*math.Sin(angle)))
+
+			if clear(candidate) && clear(Vec.Add(candidate, Vec.Create(-250, 0))) {
+				chosen, found = candidate, true
+				break
+			}
+		}
+	}
+
+	if !found {
+		t.Fatal("missing clear combat starting positions")
+	}
+
+	old := p.ship
+	s.World.Entities.Delete(old.ID)
+	p.ship = objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: "courser", ObjectProperties: simulation.ObjectProperties{World: s.World, ID: &p.shipID, PlayerID: &p.playerID, Position: chosen}})
+	simulation.AddEntity(s.World, p.ship)
+	s.regions.Sync(s.World, s.positions())
+	home := s.nearestStation(p.ship.Position)
+	npc := s.spawnPirate(p, home)
+	npc.state, npc.ship.Launching, npc.ship.DockedTo = pirateFighting, 0, nil
+	npc.aggressors[p.playerID] = true
+	npc.ship.Position = Vec.Add(chosen, Vec.Create(-250, 0))
+	npc.ship.Face(0)
+	*npc.ammunition.Rounds = 1000000000
+
+	for _, ship := range []*objects.Ship{p.ship, npc.ship} {
+		for _, segment := range ship.Segments {
+			if !math.IsNaN(segment.Health) && segment.Health > 0 {
+				segment.Health = 1e12
+			}
+		}
+	}
+
+	ammoID := simulation.EntityID(s.World)
+	ammo := objects.NewItem("autogunAmmo", simulation.ObjectProperties{World: s.World, ID: &ammoID}, catalog)
+	*ammo.Rounds = 1000000000
+	p.ship.CargoContents = append(p.ship.CargoContents, ammo)
+
+	for range 7 {
+		id := simulation.EntityID(s.World)
+		item := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: &id}, catalog)
+		item.Mined = true
+		p.ship.CargoContents = append(p.ship.CargoContents, item)
+	}
+
+	bench := &pirateCombatBenchmark{session: s, player: p, npc: npc, socket: socket, thrust: .3, fieldCenter: center, fieldRadius: fieldRadius}
+
+	if len(thrust) > 0 {
+		bench.thrust = thrust[0]
+	}
+
+	for range 120 {
+		bench.step()
+	}
+
+	bench.firing, bench.socket.packets, bench.socket.bytes = 0, 0, 0
+	bench.fighting, bench.fast, bench.inField = 0, 0, 0
+	bench.playerSpeed, bench.npcSpeed, bench.furthest = 0, 0, 0
+
+	s.World.Entities.ForEach(func(entity simulation.Entity, _ int64) {
+		if entity.Base().Kind == "asteroid" {
+			bench.asteroids++
+		}
+	})
+
+	return bench
+}
+
+func (b *pirateCombatBenchmark) step() {
+	s, ship := b.session, b.player.ship
+	ship.Fuel, b.npc.ship.Fuel = ship.FuelCapacity, b.npc.ship.FuelCapacity
+	b.npc.spawnedAt = float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
+	turn := 0.
+
+	if b.sequence/30%10 >= 6 {
+		turn = .4
+	}
+
+	b.sequence++
+	s.Receive(protocol.Control{Type: "snapshotAck", Sequence: b.socket.sequence}, b.socket)
+	s.Receive(protocol.Control{Type: "input", Tick: s.World.Tick, Sequence: b.sequence, Input: protocol.Input{Thrust: b.thrust, Turn: turn, Fire: true, AutogunActive: true}}, b.socket)
+	s.Tick(1)
+	speed := Vec.Length(ship.Velocity)
+	b.playerSpeed += speed
+	b.npcSpeed += Vec.Length(b.npc.ship.Velocity)
+	b.furthest = max(b.furthest, Vec.Distance(ship.Position, b.npc.ship.Position))
+
+	if speed >= 170 {
+		b.fast++
+	}
+
+	if Vec.DistanceSquared(ship.Position, b.fieldCenter) <= b.fieldRadius*b.fieldRadius {
+		b.inField++
+	}
+
+	if b.npc.state == pirateFighting {
+		b.fighting++
+	}
+
+	if b.npc.ship.Firing {
+		b.firing++
+	}
+}
+
+func BenchmarkPirateCombat(b *testing.B) {
+	for _, scenario := range []struct {
+		name     string
+		seed     float64
+		resource int
+		thrust   float64
+	}{{"open", 25, -1, .3}, {"normal", 25, 2, .3}, {"dense", 5, 4, .3}, {"normal-fast", 25, 2, 1}, {"dense-fast", 5, 4, 1}} {
+		b.Run(scenario.name, func(b *testing.B) {
+			bench := newPirateCombatBenchmark(b, scenario.seed, scenario.resource, scenario.thrust)
+			b.ReportAllocs()
+			b.ResetTimer()
+			cpu, firing, bytes := int64(0), 0, 0
+			fighting, fast, inField := 0, 0, 0
+			playerSpeed, npcSpeed, furthest := 0., 0., 0.
+
+			for completed := 0; completed < b.N; {
+				count := min(900, b.N-completed)
+				startCPU := cpuMicros()
+
+				for range count {
+					bench.step()
+				}
+
+				cpu += cpuMicros() - startCPU
+				b.StopTimer()
+				firing += bench.firing
+				bytes += bench.socket.bytes
+				fighting += bench.fighting
+				fast += bench.fast
+				inField += bench.inField
+				playerSpeed += bench.playerSpeed
+				npcSpeed += bench.npcSpeed
+				furthest = max(furthest, bench.furthest)
+
+				if bench.npc.ship.Dead || bench.player.ship.Dead || bench.npc.state != pirateFighting {
+					b.Fatal("combat workload ended")
+				}
+
+				completed += count
+
+				if completed < b.N {
+					bench = newPirateCombatBenchmark(b, scenario.seed, scenario.resource, scenario.thrust)
+				}
+
+				b.StartTimer()
+			}
+
+			b.StopTimer()
+			b.ReportMetric(float64(cpu)*1000/float64(b.N), "cpu-ns/tick")
+			b.ReportMetric(float64(firing)/float64(b.N), "firing/tick")
+			b.ReportMetric(float64(bytes)/float64(b.N), "wire-B/tick")
+			b.ReportMetric(float64(bench.asteroids), "asteroids")
+			b.ReportMetric(float64(runtime.GOMAXPROCS(0)), "GOMAXPROCS")
+			b.ReportMetric(float64(fighting)/float64(b.N), "fighting/tick")
+			b.ReportMetric(float64(fast)/float64(b.N), "fast/tick")
+			b.ReportMetric(float64(inField)/float64(b.N), "in-field/tick")
+			b.ReportMetric(playerSpeed/float64(b.N), "player-speed")
+			b.ReportMetric(npcSpeed/float64(b.N), "npc-speed")
+			b.ReportMetric(furthest, "max-distance")
+
+			if scenario.thrust == 1 && b.N >= 900 && (playerSpeed/float64(b.N) < 160 || fast*5 < b.N*3 || inField*10 < b.N*9 || fighting*20 < b.N*17 || firing == 0) {
+				b.Fatal("fast pursuit workload lost its speed, field or combat coverage")
+			}
+		})
+	}
+}

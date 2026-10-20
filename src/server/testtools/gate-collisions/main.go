@@ -31,7 +31,7 @@ func main() {
 
 	for _, state := range states {
 		world := simulation.CreateWorld(1, catalog)
-		gate := objects.NewPassage(world, objects.PassageOptions{ID: 100, DestinationSector: "other", DestinationName: "Other"}).(*objects.JumpGate)
+		gate := objects.NewPortal(world, objects.PortalOptions{ID: 100, DestinationSector: "other", DestinationName: "Other"}).(*objects.JumpGate)
 		gate.Opening, gate.OpeningTarget = state[0], state[1]
 		gate.Rotation = state[3]
 		gate.RequestOpening(state[1])

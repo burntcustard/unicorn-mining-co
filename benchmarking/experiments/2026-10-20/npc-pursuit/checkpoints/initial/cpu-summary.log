@@ -1,0 +1,12 @@
+before repetition 1/3
+after repetition 1/3
+after repetition 2/3
+before repetition 2/3
+before repetition 3/3
+after repetition 3/3
+open: 17.445 → 19.851 µs CPU/tick; -13.79% less
+normal: 37.321 → 35.636 µs CPU/tick; 4.51% less
+dense: 51.825 → 52.946 µs CPU/tick; -2.16% less
+normal-fast: 40.135 → 42.752 µs CPU/tick; -6.52% less
+dense-fast: 56.579 → 66.916 µs CPU/tick; -18.27% less
+/tmp/unicorn-pursuit-risk-initial-cpu-results.json

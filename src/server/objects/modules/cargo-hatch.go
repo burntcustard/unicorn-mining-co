@@ -65,12 +65,12 @@ func CargoHatchDoorShapeOutline(spec specs.Module, progress, side float64) *simu
 
 type CargoHatch struct{ *Module }
 
-func NewCargoHatch(props simulation.ObjectProperties, catalog specs.Catalog) *CargoHatch {
-	m := &CargoHatch{NewModule("cargoHatch", props, catalog)}
+func NewCargoHatch(id string, props simulation.ObjectProperties, catalog specs.Catalog) *CargoHatch {
+	m := &CargoHatch{NewModule(id, props, catalog)}
 	m.Self = m
 	d := m.Spec
 
-	for _, plan := range m.Model {
+	for index, plan := range m.Model {
 		if plan.Catches {
 			plan.NoWreckage = true
 
@@ -86,6 +86,14 @@ func NewCargoHatch(props simulation.ObjectProperties, catalog specs.Catalog) *Ca
 				side = -1
 			} else if s.Mount.LocalPosition.Y > 0 {
 				side = 1
+			}
+
+			if d.CargoGeometry.Paired {
+				side = -1
+
+				if index == 1 {
+					side = 1
+				}
 			}
 
 			return s.CachedOutline([2]float64{s.ActivationProgress, side}, func() *simulation.ShapeOutline {
@@ -133,6 +141,10 @@ func (m *CargoHatch) Collect(ship CargoShip, contact collision.Contact, events *
 	item := entity.Base()
 	object := ship.Base()
 	contents := ship.Cargo()
+
+	if item.DroppedBy != nil && object.PlayerID != nil && *item.DroppedBy == *object.PlayerID && world.Tick < item.PickupAfter {
+		return
+	}
 
 	if !item.Item ||
 		!CargoContactAllowed(throat, pickup) ||

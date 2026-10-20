@@ -78,6 +78,7 @@ type Module struct {
 		Radius   float64 `json:"radius"`
 	} `json:"drillTip"`
 	CargoGeometry struct {
+		Paired           bool    `json:"paired"`
 		Length           float64 `json:"length"`
 		OpenAngle        float64 `json:"openAngle"`
 		DoorWidth        float64 `json:"doorWidth"`

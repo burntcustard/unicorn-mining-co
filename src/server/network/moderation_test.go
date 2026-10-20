@@ -173,7 +173,7 @@ func TestBanPardonAndRolesSurviveRestart(t *testing.T) {
 	owner, _ := namedPlayer(s, "burntcustard")
 	admin, _ := namedPlayer(s, "Admin")
 	target, targetSocket := namedPlayer(s, "Pilot")
-	destination := s.sectors[target.sectorID].passages[0].DestinationSector
+	destination := s.sectors[target.sectorID].portals[0].DestinationSector
 	s.relocatePlayer(target, destination, sectorArrival{position: Vec.Create(123, -456)})
 	runChatCommand(s, owner, "/admin Admin")
 	runChatCommand(s, admin, "/ban Pilot")
@@ -279,7 +279,7 @@ func TestListChatCommand(t *testing.T) {
 	menuSocket := &moderationSocket{}
 	s.Receive(protocol.Control{Type: "prepare"}, menuSocket)
 	s.Receive(protocol.Control{Type: "profile", DisplayName: "Menu"}, menuSocket)
-	destination := s.sectors[other.sectorID].passages[0].DestinationSector
+	destination := s.sectors[other.sectorID].portals[0].DestinationSector
 	s.relocatePlayer(other, destination, sectorArrival{position: Vec.Create(123, -456)})
 	requester.ship.Position = Vec.Create(-12, 34)
 	otherSocket.frames, offlineSocket.frames, menuSocket.frames, socket.frames = nil, nil, nil, nil

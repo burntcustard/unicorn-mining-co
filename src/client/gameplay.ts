@@ -1,7 +1,7 @@
 import { createHud } from './ui/dom/hud';
-import { holeSpec } from '../specs/hole';
+import { portalSpec } from '../specs/portal';
 import { createChat } from './ui/dom/chat';
-import { Passage } from './objects/passage';
+import { Portal } from './objects/portal';
 import { ui, updateNotification } from './ui/dom/ui';
 import { preloadDockedUi, syncDockedUi } from './ui/dom/docked-loader';
 import { renderingLayers } from '../specs/rendering-layers';
@@ -21,7 +21,13 @@ import {
 } from './debug/debug';
 
 // @endif
-import { bindAction, initKeys, playerInput, setMenuInput } from './input/input';
+import {
+  bindAction,
+  initKeys,
+  playerInput,
+  cargoRelease,
+  setMenuInput,
+} from './input/input';
 import { defaultKeybindings } from './input/keybindings';
 import { network } from './network/network';
 import {
@@ -108,6 +114,7 @@ const hud = createHud({
 
 const chat = createChat({
   network,
+  onCargoRelease: cargoRelease,
   onTyping: (typing) => setMenuInput(typing || Boolean(ui.current)),
 });
 
@@ -398,7 +405,7 @@ const gameLoop = GameLoop({
         transitPortal
           ? renderedShip.transitTime > 0
             ? 0
-            : holeSpec.pullDuration / 1000
+            : portalSpec.pullDuration / 1000
           : undefined,
       );
     }
@@ -460,14 +467,13 @@ const gameLoop = GameLoop({
 
     const renderedCrafts = visibleSprites
       .filter(
-        (object): object is Craft | Passage =>
-          (object instanceof Craft || object instanceof Passage) &&
-          !object.dead,
+        (object): object is Craft | Portal =>
+          (object instanceof Craft || object instanceof Portal) && !object.dead,
       )
       .map((craft) => {
         const prediction = predicted.entities.get(craft.id);
 
-        return (prediction instanceof Craft || prediction instanceof Passage) &&
+        return (prediction instanceof Craft || prediction instanceof Portal) &&
           prediction.constructor === craft.constructor
           ? prediction
           : craft;
@@ -543,6 +549,7 @@ const gameLoop = GameLoop({
       game,
       sprites: activeSprites,
       ship: renderedShip,
+      poses: remotePoses,
     });
 
     renderDebugDemos(game);

@@ -43,6 +43,7 @@ type SavedShipModule struct {
 }
 
 type SavedCargo struct {
+	Mined   bool     `json:"mined,omitempty"`
 	Rounds  *int     `json:"rounds,omitempty"`
 	ID      int64    `json:"id"`
 	Type    string   `json:"type"`
@@ -111,7 +112,7 @@ func CaptureShip(ship *Ship) SavedShip {
 
 	for _, entity := range ship.CargoContents {
 		o := entity.Base()
-		cargo := SavedCargo{ID: o.ID, Health: finiteHealth(o.Health), Message: savedPointer(o.Message), Unlock: o.Unlock}
+		cargo := SavedCargo{Mined: o.Mined, ID: o.ID, Health: finiteHealth(o.Health), Message: savedPointer(o.Message), Unlock: o.Unlock}
 
 		if m, ok := entity.(simulation.Module); ok {
 			cargo.Module, cargo.Type, cargo.Paint = true, m.ModuleBase().Type, savedPaint(o.Shades, ship.Catalog)
@@ -278,6 +279,7 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 			entity.Base().Unlock = cargo.Unlock
 		}
 
+		entity.Base().Mined = cargo.Mined
 		entity.Base().Dead = true
 		ship.CargoContents = append(ship.CargoContents, entity)
 	}

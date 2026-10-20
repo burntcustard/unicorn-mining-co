@@ -127,12 +127,54 @@ func TestArrowRespawnPreservesShipAndLoadout(t *testing.T) {
 	}
 }
 
+func TestCourserReconnectPreservesCannonToggle(t *testing.T) {
+	t.Parallel()
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+	p.ship.Remove()
+	p.ship = objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: "courser", PlayerID: &p.playerID})
+	p.ship.Add()
+	p.shipID = p.ship.ID
+	p.ship.SetModuleActive("cannonSm", true)
+	p.ship.SetModuleActive("cargoHatch", true)
+	s.Disconnect(socket)
+	socket = &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello", PlayerToken: p.profile.ID}, socket)
+	s.Tick(1)
+
+	if p.ship.DefinitionID != "courser" || !p.lastInput.AutogunActive || !p.ship.ModuleActive("cannonSm") || !p.ship.ModuleActive("cargoHatch") {
+		t.Fatal("reconnection must preserve Courser's cannon and paired hatch toggles")
+	}
+
+	p.ship.Remove()
+	s.Receive(protocol.Control{Type: "respawn"}, socket)
+
+	for _, entry := range catalog.ShipSpecs["courser"].InitialLoadout {
+		module := p.ship.Mounts()[entry.Mount].Module
+
+		if p.ship.DefinitionID != "courser" || module == nil || module.ModuleBase().Type != entry.Module {
+			t.Fatal("respawn must restore Courser and its starter equipment")
+		}
+	}
+}
+
 func TestCoreDestructionAllowsRespawn(t *testing.T) {
 	t.Parallel()
 
 	catalog, _ := specs.Load()
 
-	for _, shipType := range []string{"mustang", "arrow"} {
+	for _, shipType := range []string{"mustang", "arrow", "courser"} {
+		coreCount := 0
+
+		for _, plan := range catalog.ShipSpecs[shipType].HullSegments {
+			if plan.Core {
+				coreCount++
+			}
+		}
+
 		for index, plan := range catalog.ShipSpecs[shipType].HullSegments {
 			if !plan.Core {
 				continue
@@ -153,6 +195,18 @@ func TestCoreDestructionAllowsRespawn(t *testing.T) {
 					if segment.HullPlan == p.ship.HullSegments[index] {
 						objects.Damage(segment, 10000)
 						break
+					}
+				}
+
+				s.Tick(1)
+
+				if coreCount > 1 && (p.ship.Dead || !s.World.Entities.Has(previousID)) {
+					t.Fatal("a surviving core must keep its ship alive")
+				}
+
+				for _, segment := range p.ship.Segments {
+					if segment.Hull && segment.Core {
+						objects.Damage(segment, 10000)
 					}
 				}
 

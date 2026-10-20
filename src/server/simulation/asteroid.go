@@ -116,10 +116,11 @@ func ShapeOutlineOf(asteroid *Asteroid) *ShapeOutline {
 			clear(cache)
 		}
 
+		outline.Points = withoutCollinearPoints(outline.Points)
 		cache[key] = outline
 	}
 
-	return &ShapeOutline{Points: withoutCollinearPoints(outline.Points)}
+	return outline
 }
 
 func splitTriangle(triangle []Point) [][]Point {
@@ -660,6 +661,7 @@ func (a *Asteroid) Fracture(segment *AsteroidSegment, by int64, events *[]protoc
 			for index, resource := range segment.Contents {
 				id := EntityID(world)
 				item := world.ItemTypes[resource](ObjectProperties{World: world, ID: &id, Position: Vec.Add(a.Position, offset), Rotation: a.Rotation + rotation + float64(index), Spin: a.Spin + (random.Next()-0.5)*0.5, Velocity: Vec.AddScaled(a.Velocity, Vec.Create(-offset.Y, offset.X), a.Spin)})
+				item.Base().Mined = true
 				AddEntity(world, item)
 			}
 		}

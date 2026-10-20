@@ -62,7 +62,6 @@ export const mustang = {
     },
     {
       health: 50,
-      core: true,
       mounts: [
         [
           {

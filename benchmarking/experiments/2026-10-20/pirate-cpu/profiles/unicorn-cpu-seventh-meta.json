@@ -1,0 +1,58 @@
+{
+  "files": {
+    "source": {
+      "path": "/tmp/unicorn-cpu-seventh.json",
+      "sha256": "d96196aaee229ba3631006e0bc73a78832faa6a172a5fc8cb3c3120948dbf2e7",
+      "bytes": 1451150
+    },
+    "executable": {
+      "path": "/tmp/unicorn-cpu-session-seventh-pgo.test",
+      "sha256": "a4e13686088a5dfe28f94f98157e59caa93c2fa93f500568fe192d8762d0e09b",
+      "bytes": 21275485
+    },
+    "fixture": {
+      "path": "/tmp/unicorn-cpu-final-fixture.go",
+      "sha256": "410fb7f8fd287813b444756108f9eeb0b902eea8d1cae23d30acf421ca36c807",
+      "bytes": 9169
+    },
+    "pgo": {
+      "path": "/tmp/unicorn-cpu-default.pgo",
+      "sha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675",
+      "bytes": 11912
+    },
+    "results": {
+      "path": "/tmp/unicorn-cpu-results-seventh.json",
+      "sha256": "aaae86abb04f6934a88fe5c1c1fce11fef54349ec33c46a2b17be91965bacb56",
+      "bytes": 30363
+    },
+    "profile": {
+      "path": "/tmp/unicorn-cpu-dense-seventh.pprof",
+      "sha256": "4129d2a14cb5bca6802c1e02b02c07427578bd3de6f9c8e85b5dd72202307d98",
+      "bytes": 18737
+    },
+    "allocationProfile": {
+      "path": "/tmp/unicorn-cpu-dense-seventh.mem",
+      "sha256": "1685acf79b8d948ad6b99994b469f1335a3341c1faa1192c8d84ee5a56ebbfe1",
+      "bytes": 20418
+    }
+  },
+  "buildCommand": "GOCACHE=/tmp/unicorn-go-cache GOEXPERIMENT=simd go test -c -pgo=/tmp/unicorn-cpu-default.pgo -o /tmp/unicorn-cpu-session-seventh-pgo.test ./src/server/network",
+  "benchmarkCommand": "REPETITIONS=5 TICKS=9000 GOGC=800 node benchmarking/tools/pirate-cpu.ts /tmp/unicorn-cpu-before-fast-pgo.test /tmp/unicorn-cpu-session-seventh-pgo.test /tmp/unicorn-cpu-results-seventh.json",
+  "profileCommand": "GOGC=800 /tmp/unicorn-cpu-session-seventh-pgo.test -test.run '^$' -test.bench '^BenchmarkPirateCombat/dense$' -test.benchtime 30000x -test.count 1 -test.cpuprofile /tmp/unicorn-cpu-dense-seventh.pprof -test.memprofile /tmp/unicorn-cpu-dense-seventh.mem",
+  "environment": {
+    "GOGC": "800",
+    "GOMAXPROCS": "automatic",
+    "affinity": "0-15",
+    "GOEXPERIMENT": "simd"
+  },
+  "buildInfo": "/tmp/unicorn-cpu-session-seventh-pgo.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n",
+  "profileReports": {
+    "cpu": "go tool pprof -top -cum -nodecount=45 -focus=tickSector -ignore=newPirateCombatBenchmark /tmp/unicorn-cpu-session-seventh-pgo.test /tmp/unicorn-cpu-dense-seventh.pprof",
+    "allocation": "go tool pprof -top -alloc_objects -nodecount=35 -focus=tickSector -ignore=newPirateCombatBenchmark /tmp/unicorn-cpu-session-seventh-pgo.test /tmp/unicorn-cpu-dense-seventh.mem"
+  },
+  "notes": [
+    "CPU acceptance results remain the original five paired all-case measurements; diagnostic profiling is not substituted.",
+    "Profile reports exclude both fixture setup and warmup Tick calls using ignore=newPirateCombatBenchmark.",
+    "Current source capture contains all246src/server Go files; specs/catalog and savedPGO were unchanged from paired acceptance."
+  ]
+}

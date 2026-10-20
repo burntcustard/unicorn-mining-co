@@ -11,7 +11,7 @@ export const colorsDemo = (game: GameState) => {
   const margin = 10;
   const shades = Object.values(colors);
   const left = game.uiWidth - margin - 5 * (swatch + gap);
-  const top = margin;
+  const top = margin + 100;
 
   ctx.save();
   ctx.scale(game.uiScale, game.uiScale);

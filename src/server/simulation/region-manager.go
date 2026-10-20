@@ -159,7 +159,15 @@ func (r *RegionManager) Query(position Vec.Vector, ranges *protocol.WorldRanges)
 	return r.QueryMany([]Vec.Vector{position}, ranges)[0]
 }
 
-func (r *RegionManager) QueryMany(positions []Vec.Vector, supplied *protocol.WorldRanges) []protocol.RegionalView {
+func (r *RegionManager) QueryMany(positions []Vec.Vector, supplied *protocol.WorldRanges, limits ...float64) []protocol.RegionalView {
+	return r.QueryManyInto(nil, positions, supplied, limits...)
+}
+
+/*
+Reuse caller-owned result storage. QueryMany returns independent lists for callers
+that need to retain an earlier view while querying or removing entities.
+*/
+func (r *RegionManager) QueryManyInto(result []protocol.RegionalView, positions []Vec.Vector, supplied *protocol.WorldRanges, limits ...float64) []protocol.RegionalView {
 	ranges := protocol.Ranges(r.catalog.Simulation.WorldRanges)
 
 	if supplied != nil {
@@ -176,6 +184,12 @@ func (r *RegionManager) QueryMany(positions []Vec.Vector, supplied *protocol.Wor
 		out = out[:len(positions)]
 
 		for i, p := range positions {
+			reach := reach
+
+			if i < len(limits) && limits[i] > 0 {
+				reach = min(reach, limits[i])
+			}
+
 			out[i] = regionBounds{Vec.Create(math.Floor((p.X-reach)/size), math.Floor((p.Y-reach)/size)), Vec.Create(math.Floor((p.X+reach)/size), math.Floor((p.Y+reach)/size))}
 		}
 
@@ -264,10 +278,46 @@ func (r *RegionManager) QueryMany(positions []Vec.Vector, supplied *protocol.Wor
 		r.queried = cached
 	}
 
-	result := make([]protocol.RegionalView, len(positions))
+	if result == nil {
+		result = []protocol.RegionalView{}
+	}
+
+	if cap(result) < len(positions) {
+		result = append(result, make([]protocol.RegionalView, len(positions)-len(result))...)
+	} else {
+		if len(result) > len(positions) {
+			clear(result[len(positions):])
+		}
+
+		result = result[:len(positions)]
+	}
 
 	for i, p := range positions {
-		view := protocol.RegionalView{Asteroids: []protocol.AsteroidDescription{}, StationMarkers: []protocol.StationDescription{}, Stations: []protocol.StationDescription{}, Wrecks: []protocol.WreckDescription{}}
+		ranges := ranges
+
+		if i < len(limits) && limits[i] > 0 {
+			reach := limits[i]
+			ranges = protocol.WorldRanges{Asteroid: min(ranges.Asteroid, reach), Wreck: min(ranges.Wreck, reach), StationMarker: min(ranges.StationMarker, reach), StationPhysics: min(ranges.StationPhysics, reach)}
+		}
+
+		view := result[i]
+		view.Asteroids, view.StationMarkers, view.Stations, view.Wrecks = view.Asteroids[:0], view.StationMarkers[:0], view.Stations[:0], view.Wrecks[:0]
+
+		if view.Asteroids == nil {
+			view.Asteroids = []protocol.AsteroidDescription{}
+		}
+
+		if view.StationMarkers == nil {
+			view.StationMarkers = []protocol.StationDescription{}
+		}
+
+		if view.Stations == nil {
+			view.Stations = []protocol.StationDescription{}
+		}
+
+		if view.Wrecks == nil {
+			view.Wrecks = []protocol.WreckDescription{}
+		}
 
 		for _, a := range r.queried.asteroids[i] {
 			if Vec.DistanceSquared(a.Position, p) <= ranges.Asteroid*ranges.Asteroid {

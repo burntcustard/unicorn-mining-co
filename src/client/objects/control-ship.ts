@@ -1,6 +1,6 @@
 import { CargoHatch, SearchLight, HornDrill } from './modules/index';
 import { ShieldGeneratorModule } from './modules/shield-generator';
-import { PlasmaAccelerator, Autogun } from './modules/weapon';
+import { PlasmaAccelerator, KineticWeapon } from './modules/weapon';
 import { Laser } from './modules/laser';
 import { Ship } from './ship';
 import { type PlayerInput } from '../protocol/input';
@@ -26,7 +26,7 @@ export const moduleControls = [
     },
   },
   {
-    Type: Autogun,
+    Type: KineticWeapon,
     input: 'autogunActive',
     readInput: (input: PlayerInput) => !!input.autogunActive,
     writeInput: ({ input, active }: ModuleInputOptions) => {
@@ -87,7 +87,8 @@ export const controlShip = (
   );
 
   moduleControls.forEach(({ Type, input: command, readInput }) => {
-    const enabled = readInput(input);
+    const enabled =
+      readInput(input) || (command === 'cargoHatch' && !!input.cargoRelease);
 
     if (
       !ship.segments.some(

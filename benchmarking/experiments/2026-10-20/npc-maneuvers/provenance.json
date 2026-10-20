@@ -1,0 +1,137 @@
+{
+  "date": "2026-10-20",
+  "sourceCaptures": {
+    "before": {
+      "originalPath": "/tmp/unicorn-maneuvers-before.json",
+      "originalSha256": "5645e5518d7899a69b879c40ca6e2f1e75a232557185ed8e3fcee65e60e9bb65",
+      "entries": 341,
+      "GoEntries": 246,
+      "archivedFullSnapshot": "sources/before.json.gz",
+      "compilableGoSnapshot": "sources/before-go.json.gz"
+    },
+    "final": {
+      "originalPath": "/tmp/unicorn-maneuvers-final.json",
+      "originalSha256": "28754ccf5c5cc0e61c724a8f5b541c6b5e1658eb7a40e3eeca5dbbf30f542765",
+      "entries": 345,
+      "GoEntries": 250,
+      "archivedFullSnapshot": "sources/final.json.gz",
+      "compilableGoSnapshot": "sources/final-go.json.gz"
+    }
+  },
+  "dependencies": {
+    "go.mod": {
+      "before": "4439c93c722ed17fc94be57b55beb43991f87e97c1c345f66040a0361b01b52c",
+      "final": "4439c93c722ed17fc94be57b55beb43991f87e97c1c345f66040a0361b01b52c"
+    },
+    "go.sum": {
+      "before": "59d6f9f0590f841c826c0c2003f906b038b16397a886eaef7a562ac031b68d6b",
+      "final": "59d6f9f0590f841c826c0c2003f906b038b16397a886eaef7a562ac031b68d6b"
+    },
+    "package.json": {
+      "before": "03e28e0d8fc47e8208b9e00dc9222e9b42a6708e4064b7f98483897cf2eb3ea1",
+      "final": "03e28e0d8fc47e8208b9e00dc9222e9b42a6708e4064b7f98483897cf2eb3ea1"
+    }
+  },
+  "PGO": {
+    "path": "../pirate-cpu/profiles/unicorn-cpu-default.pgo",
+    "sha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675"
+  },
+  "benchmarkFixture": {
+    "path": "../pirate-cpu/fixtures/unicorn-cpu-final-fixture.go.txt",
+    "sha256": "410fb7f8fd287813b444756108f9eeb0b902eea8d1cae23d30acf421ca36c807"
+  },
+  "executables": {
+    "before": {
+      "path": "/tmp/unicorn-maneuvers-before.test",
+      "sha256": "a4e13686088a5dfe28f94f98157e59caa93c2fa93f500568fe192d8762d0e09b",
+      "build": "/tmp/unicorn-maneuvers-before.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+    },
+    "after": {
+      "path": "/tmp/unicorn-maneuvers-final.test",
+      "sha256": "35ec997e79833752b7bb2ecc60b48dadfa8e1c2c95a11320e72a61efd9b891bd",
+      "build": "/tmp/unicorn-maneuvers-final.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+    }
+  },
+  "environment": {
+    "GOGC": "800",
+    "GOMAXPROCS": "automatic",
+    "affinity": "0-15"
+  },
+  "CPU": {
+    "ticksPerCase": 9000,
+    "pairedRepetitions": 5,
+    "medianCpuNanosecondsPerTick": {
+      "open": {
+        "before": 19424,
+        "after": 20460
+      },
+      "normal": {
+        "before": 39984,
+        "after": 34347
+      },
+      "dense": {
+        "before": 55168,
+        "after": 52398
+      },
+      "normal-fast": {
+        "before": 44184,
+        "after": 44034
+      },
+      "dense-fast": {
+        "before": 58074,
+        "after": 59488
+      }
+    },
+    "aggregateReductionPercent": 2.8164402261637966,
+    "metric": "Process user+system CPU per measured session tick; setup/warmup excluded.",
+    "workload": "Identical input scripts and fixture; NPC actions, firing, and resulting motion may change."
+  },
+  "quality": {
+    "permanentCases": 19,
+    "heldOutCases": 14,
+    "movingReferenceEnvelope": 44,
+    "curvingCases": 20,
+    "before": {
+      "integratedLagBeyond300": 94227.9,
+      "secondsBeyond700": 75.63,
+      "asteroidContacts": 1,
+      "shipContacts": 18,
+      "maximumStationarySeconds": 5
+    },
+    "final": {
+      "integratedLagBeyond300": 69894.6,
+      "secondsBeyond700": 25.39,
+      "asteroidContacts": 1,
+      "shipContacts": 13,
+      "maximumStationarySeconds": 3
+    },
+    "fixtures": "quality/fixtures",
+    "changes": [
+      "Radius-based reference paths use a44-unit envelope exceeding the37.556-unit physical navigation radius plus configured clearance.",
+      "Straight gap cases use seeds501/5/7 because their generated fields contain88\u2013115-unit circle-compatible crossings; old polygon-recess fixtures are preserved in the full before snapshot.",
+      "Near-antiparallel reference curves now use the hairpin branch only for exact180degree turns, preserving continuous endpoint velocity.",
+      "Absolute lag/contact/stall budgets were retained; historical tenfold claims were removed because reference routes changed.",
+      "The exact same corrected fixtures were run against the saved before production and final production."
+    ]
+  },
+  "resourceCompression": "Python gzip.compress(compresslevel=1,mtime=0), applied identically before/after.",
+  "validationMissing": [],
+  "validationAuthoritativeFinalLogs": [
+    "validation/build-final.log",
+    "validation/lint-final.log",
+    "validation/test-final.log"
+  ],
+  "resources": {
+    "before": "resources/before.json",
+    "final": "resources/after.json"
+  },
+  "checkpoints": {
+    "initialAccepted": {
+      "directory": "checkpoints/initial-accepted",
+      "sourceSha256": "1bc0293ed55cffeb5a522bfc69c52b4342bce7aeb0313efb287c26e8dedfc4fb",
+      "executableSha256": "79eaf9d32c78bd215665df4f2d648005dc226ccae6c83e821d8ade80df4ffc88",
+      "aggregateCpuReductionPercent": 4.478087798840036,
+      "notes": "Provisional accepted checkpoint; final comparison uses the later cleanup source and raw samples in cpu/. Quality metrics match exactly."
+    }
+  }
+}

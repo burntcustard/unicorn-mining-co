@@ -2,6 +2,13 @@
 
 Recent investigations are grouped by measurement date. Use [benchmarking](../../benchmarking/README.md) for runners and saved evidence, or the [documentation index](../../README.md#documentation) for current reference material.
 
+## 2026-10-20
+
+- [NPC pursuit and narrow asteroid gaps](2026-10-20/npc-pursuit.md)
+- [Removing NPC clearance distance](2026-10-20/npc-clearance.md)
+- [NPC circle navigation and maneuvers](2026-10-20/npc-maneuvers.md)
+- [Pirate combat CPU](2026-10-20/pirate-cpu.md)
+
 ## 2026-10-19
 
 - [Native-resolution client performance and power policy](2026-10-19/native-resolution-performance.md)

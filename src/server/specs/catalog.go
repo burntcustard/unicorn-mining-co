@@ -11,7 +11,12 @@ type Point [2]float64
 type Vector = vector.Vector
 
 type Catalog struct {
-	HoleSpec         Hole                `json:"holeSpec"`
+	NPCMovement      NPCMovement         `json:"npcMovement"`
+	PirateSpec       Pirate              `json:"pirateSpec"`
+	JumpGateDialog   JumpGateDialog      `json:"jumpGateDialog"`
+	PirateDialog     PirateDialog        `json:"pirateDialog"`
+	StationModuleIDs []string            `json:"stationModuleIds"`
+	PortalSpec       Portal              `json:"portalSpec"`
 	JumpGateSpec     JumpGate            `json:"jumpGateSpec"`
 	WormholeSpec     Wormhole            `json:"wormholeSpec"`
 	JumpGateHull     []HullSegment       `json:"jumpGateHull"`

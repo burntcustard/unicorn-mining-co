@@ -1,4 +1,4 @@
-import { Passage } from '../../client/objects/passage';
+import { Portal } from '../../client/objects/portal';
 import { JumpGate } from '../../client/objects/jump-gate';
 import '../style.css';
 import { game } from '../../client/game';
@@ -11,6 +11,7 @@ import { createWorld } from '../../client/simulation/world';
 import { autogunAmmo } from '../../specs/items';
 import { Laser } from '../../client/objects/modules/laser';
 import { Weapon } from '../../client/objects/modules/weapon';
+import { type Module } from '../../client/objects/modules/module';
 import { type GameObject } from '../../client/objects/game-object';
 import { renderingLayers } from '../../specs/rendering-layers';
 import { simulationStep } from '../../specs/simulation';
@@ -84,6 +85,7 @@ Object.assign(game, { canvas, ctx, physicsOn: false });
 
 const persist = () => localStorage.setItem(storageKey, JSON.stringify(state));
 const world = createWorld();
+const firingModules = new Set<Module>();
 const releases = new Set<() => void>();
 const stopFiring = () => releases.forEach((release) => release());
 
@@ -126,7 +128,7 @@ const createMountControls = ({
 
   const release = () => {
     if (module instanceof Weapon || module instanceof Laser) {
-      craft.firing = false;
+      firingModules.delete(module);
     } else {
       setActive(false);
     }
@@ -135,7 +137,12 @@ const createMountControls = ({
   };
 
   const fire = () => {
-    craft.firing = true;
+    if (module instanceof Weapon || module instanceof Laser) {
+      firingModules.add(module);
+    } else {
+      setActive(true);
+    }
+
     Ship.prototype.fireWeapons.call(craft, 0);
     craft.updateVisual(0);
 
@@ -269,6 +276,7 @@ const rebuild = () => {
     const craft = previewObject;
 
     craft.world = world;
+    craft.moduleFiring = (module) => firingModules.has(module);
     craft.playerId = 1;
     world.players.set(1, { id: 1, shipId: craft.id });
     craft.cargoContents.push(new Item(autogunAmmo, { rounds: Infinity }));
@@ -353,7 +361,7 @@ const render = (now: number) => {
 
   ctx.restore();
 
-  if (previewObject instanceof Craft || previewObject instanceof Passage) {
+  if (previewObject instanceof Craft || previewObject instanceof Portal) {
     for (const zIndex of Object.values(renderingLayers)) {
       previewObject.render({ zIndex });
     }

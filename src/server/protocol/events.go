@@ -48,6 +48,8 @@ type LaserDamage struct {
 func (LaserDamage) simulationEvent() {}
 
 type CollisionEvent struct {
+	// Server-only weapon ownership survives removal of the projectile.
+	By       int64 `json:"-"`
 	A, B     int64
 	Impact   float64
 	Colors   [2]string

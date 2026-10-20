@@ -87,8 +87,14 @@ func Explode(options ExplosionOptions) {
 					continue
 				}
 
+				by := int64(0)
+
+				if object.PlayerID != nil {
+					by = *object.PlayerID
+				}
+
 				damaged[target] = true
-				*events = append(*events, protocol.CollisionEvent{A: object.ID, B: o.ID, Colors: [2]string{"", collision.OutlineColorOf(collider, world.Specification.Colors)}, Damage: [2]float64{0, applied}, Position: contact.Point})
+				*events = append(*events, protocol.CollisionEvent{A: object.ID, B: o.ID, By: by, Colors: [2]string{"", collision.OutlineColorOf(collider, world.Specification.Colors)}, Damage: [2]float64{0, applied}, Position: contact.Point})
 			}
 
 			if asteroid, ok := entity.(*simulation.Asteroid); ok {

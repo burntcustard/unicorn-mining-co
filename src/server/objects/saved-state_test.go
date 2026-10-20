@@ -86,6 +86,37 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 	}
 }
 
+func TestMinedItemRemainsMiningCargoAfterReload(t *testing.T) {
+	catalog, _ := specs.Load()
+	world := simulation.CreateWorld(25, catalog)
+	item := objects.NewItem("diamond", simulation.ObjectProperties{World: world}, catalog)
+	item.Mined = true
+	data, err := persistence.Encode(objects.CaptureEntity(item))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var saved objects.SavedEntity
+
+	if err := persistence.Decode(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+
+	restored, err := objects.RestoreEntity(saved, world)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ship := objects.CreatePlayerShip(world, objects.Properties{})
+	ship.CargoContents = []simulation.Entity{restored}
+
+	if ship.MinedCargoValue() != item.Price {
+		t.Fatal("reloaded mined cargo must still contribute to pirate dispatch value")
+	}
+}
+
 func TestUnstrokedModuleWreckageRoundTrip(t *testing.T) {
 	catalog, _ := specs.Load()
 

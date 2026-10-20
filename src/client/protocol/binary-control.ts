@@ -310,7 +310,7 @@ export function encodeClientMessage(
       writer.unsigned(message.tick);
       writer.unsigned(message.sequence);
       writer.byte(code & 255);
-      writer.byte(+(message.offset !== undefined) | ((code >> 7) & 30));
+      writer.byte(+(message.offset !== undefined) | ((code >> 7) & 62));
 
       if (message.offset !== undefined) {
         if (message.offset < 0 || message.offset >= simulationStep) {
@@ -477,7 +477,7 @@ export function decodeClientMessage(
       const code = reader.byte();
       const hasOffset = reader.byte();
 
-      if (code >= 192 || hasOffset > 31) {
+      if (code >= 192 || hasOffset > 63) {
         throw new Error('Invalid binary control');
       }
 
@@ -491,7 +491,7 @@ export function decodeClientMessage(
         type: 'input',
         tick,
         sequence,
-        input: unpackPlayerInput(code | ((hasOffset & 30) << 7)),
+        input: unpackPlayerInput(code | ((hasOffset & 62) << 7)),
         ...(offset !== undefined && { offset }),
       };
 
@@ -669,6 +669,8 @@ export function encodeServerControl(
     writer.text(message.sender);
     writer.text(message.senderRole);
     writer.text(message.text);
+
+    if (message.cargoDemand !== undefined) writer.unsigned(message.cargoDemand);
     return writer.finish();
   }
 
@@ -787,6 +789,7 @@ export function decodeServerControl(
         sender: reader.text(),
         senderRole: reader.text(),
         text: reader.text(),
+        ...(reader.remaining && { cargoDemand: reader.unsigned() }),
       };
 
       break;

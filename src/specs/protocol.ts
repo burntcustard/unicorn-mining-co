@@ -75,6 +75,8 @@ export const binaryFieldIds = {
   storedPower: 43,
   targetLabel: 44,
   blockedBeams: 45,
+  hostile: 46,
+  npcState: 47,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {

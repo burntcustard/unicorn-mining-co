@@ -14,6 +14,11 @@ try {
   localStorage.removeItem('unicorn-controls');
   const defaults = await loadBindings('defaults');
 
+  assert.deepEqual(defaults.defaultKeybindings.cargoRelease, {
+    keys: ['c'],
+    mode: 'hold',
+  });
+
   assert.deepEqual(defaults.defaultKeybindings.targetNext.keys, ['t']);
   assert.deepEqual(defaults.defaultKeybindings.fpsCounter.keys, ['f']);
   assert.equal(defaults.defaultKeybindings.fpsCounter.mode, 'toggle');

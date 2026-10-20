@@ -65,6 +65,7 @@ const input: {
   bindAction: typeof import('../../src/client/input/input').bindAction;
   defaultKeybindings: typeof import('../../src/client/input/keybindings').defaultKeybindings;
   setMenuInput: typeof import('../../src/client/input/input').setMenuInput;
+  cargoRelease: typeof import('../../src/client/input/input').cargoRelease;
   initKeys: typeof import('../../src/client/input/input').initKeys;
   playerInput: typeof import('../../src/client/input/input').playerInput;
   GameLoop: typeof import('../../src/client/game-loop.ts').GameLoop;
@@ -528,3 +529,61 @@ try {
 }
 
 console.log('Frame catch-up is bounded after short and long stalls');
+
+input.setMenuInput(false);
+const stopCargoKeys = input.initKeys();
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'C' }));
+assert.equal(
+  input.playerInput.cargoRelease,
+  true,
+  'holding C requests cargo release',
+);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'C' }));
+assert.equal(
+  input.playerInput.cargoRelease,
+  false,
+  'releasing C cancels the hold',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'C' }));
+input.setMenuInput(true);
+assert.equal(
+  input.playerInput.cargoRelease,
+  false,
+  'opening a menu cancels cargo release',
+);
+stopCargoKeys();
+
+const originalTimeout = globalThis.setTimeout;
+
+let finishCargoClick: () => void = () => {};
+
+globalThis.setTimeout = ((callback: () => void, delay: number) => {
+  assert.equal(delay, 1100);
+  finishCargoClick = callback;
+  return 0;
+}) as typeof setTimeout;
+
+try {
+  input.setMenuInput(false);
+  const sent: boolean[] = [];
+
+  const stopClickKeys = input.initKeys({
+    onChange: (value) => sent.push(!!value.cargoRelease),
+  });
+
+  input.cargoRelease();
+  assert.equal(input.playerInput.cargoRelease, true);
+  assert.equal(input.playerInput.cargoHatch, true);
+  assert.deepEqual(sent, [true], 'chat click sends the release hold');
+  finishCargoClick();
+  assert.equal(input.playerInput.cargoRelease, false);
+  assert.deepEqual(
+    sent,
+    [true, false],
+    'chat releases the input after the hold',
+  );
+  stopClickKeys();
+} finally {
+  globalThis.setTimeout = originalTimeout;
+}

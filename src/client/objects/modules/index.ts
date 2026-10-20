@@ -1,14 +1,18 @@
 import { Laser } from './laser';
-import { PlasmaAccelerator, Autogun } from './weapon';
+import { PlasmaAccelerator, Autogun, CannonSm } from './weapon';
 import { moduleIds, type ModuleId } from '../../../specs/modules/index';
 import { Module } from './module';
 
 export const PowerPlant = Module.define('powerPlant');
 
-import { CargoHatch } from './cargo-hatch';
+import { CargoHatch, CargoHatchPair } from './cargo-hatch';
 import { SearchLight } from './search-light';
 import { HornDrill } from './horn-drill';
-import { ShieldGenerator, ShieldGeneratorMd } from './shield-generator';
+import {
+  ShieldGenerator,
+  ShieldGeneratorMd,
+  ShieldGeneratorXs,
+} from './shield-generator';
 import {
   ThrusterSingleMd,
   ThrusterSingleSm,
@@ -23,12 +27,15 @@ import { ThrusterTriple } from './thruster';
 export {
   PlasmaAccelerator,
   Autogun,
+  CannonSm,
   Laser,
   CargoHatch,
+  CargoHatchPair,
   SearchLight,
   HornDrill,
   ShieldGenerator,
   ShieldGeneratorMd,
+  ShieldGeneratorXs,
   ThrusterSingleMd,
   ThrusterSingleSm,
   ThrusterSingleLg,
@@ -57,10 +64,13 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
     HornDrill,
     ShieldGenerator,
     ShieldGeneratorMd,
+    ShieldGeneratorXs,
     PlasmaAccelerator,
     Autogun,
     Laser,
     PowerPlant,
+    CannonSm,
+    CargoHatchPair,
   ].map((Type) => [Type.definitionId, Type]),
 );
 export const moduleTypes = moduleIds.map((id) => moduleTypesById.get(id)!);

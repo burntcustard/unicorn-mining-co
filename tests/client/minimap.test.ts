@@ -1,3 +1,4 @@
+import { colors } from '../../src/specs/colors';
 import { type Ship } from '../../src/client/objects/ship';
 import assert from 'node:assert/strict';
 import { minimapRange, renderMinimap } from '../../src/client/ui/minimap';
@@ -448,3 +449,17 @@ for (const clientWidth of [300, 150]) {
     `${clientWidth}px: streamed asteroid dots retain their overlapping edge`,
   );
 }
+
+renderMinimap({
+  ctx,
+  ship,
+  objects: [object(99, 'ship', 200, { hostile: true })],
+  poses: new Map(),
+});
+
+assert(
+  strokes.some(
+    ({ points, color }) => points.length === 3 && color === colors.red[2],
+  ),
+  'hostile ships use red triangles',
+);

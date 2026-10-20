@@ -288,7 +288,7 @@ export function decodeBinarySnapshot(
       const field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
 
-      if (field < 1 || field > BinaryField.blockedBeams || seen.has(field)) {
+      if (field < 1 || field > BinaryField.npcState || seen.has(field)) {
         return fail();
       }
 
@@ -379,6 +379,10 @@ export function decodeBinarySnapshot(
           entity.name = clear ? null : string();
           break;
 
+        case BinaryField.npcState:
+          entity.npcState = clear ? null : string();
+          break;
+
         case BinaryField.transitTime:
           entity.transitTime = clear ? null : number();
           break;
@@ -390,6 +394,14 @@ export function decodeBinarySnapshot(
         case BinaryField.launching:
           entity.launching = clear ? null : number();
           break;
+
+        case BinaryField.hostile: {
+          const value = clear ? null : byte();
+
+          if (value !== null && value > 1) return fail();
+          entity.hostile = value === null ? null : value === 1;
+          break;
+        }
 
         case BinaryField.firing: {
           const value = clear ? null : byte();

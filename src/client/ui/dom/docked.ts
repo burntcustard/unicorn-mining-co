@@ -62,6 +62,9 @@ const tabContent = new Map([
   ],
 ]);
 
+const buyLabel = (price = 0, label = 'Buy') =>
+  player.credits < price ? `${label} (insufficient funds)` : label;
+
 const createDocked = () => {
   const screen = createScreen(html);
   const root = screen.element;
@@ -461,8 +464,8 @@ const createDocked = () => {
             `<button class="ui-button dock-row dock-trade-row" data-key="${kind}:${tradeKey(entry)}"
               style="--ui-color:${entry instanceof Module ? moduleCategories.get(entry.category).color : '#eef'}"
               aria-disabled="${kind === 'shop' && (ship.cargoContents.length >= ship.cargoSpace || player.credits < entry.price)}"
-              aria-label="${kind === 'cargo' ? 'Sell' : 'Buy'} one ${entry.name} for ${money(entry.price || 0)}, supply ${count}">
-              <span class="px-3 dock-trade-name flex gap-2" data-trade-action="${kind === 'cargo' ? 'SELL' : 'BUY'}"><span class="dock-row-text">${entry.name}</span></span>
+              aria-label="${kind === 'cargo' ? 'Sell' : buyLabel(entry.price)} one ${entry.name} for ${money(entry.price || 0)}, supply ${count}">
+              <span class="px-3 dock-trade-name flex gap-2" data-trade-action="${kind === 'cargo' ? 'SELL' : buyLabel(entry.price, 'BUY')}"><span class="dock-row-text">${entry.name}</span></span>
               <small class="px-3 text-right dock-trade-supply grid" aria-hidden="true"><span class="dock-row-text">${count.toLocaleString('en-US')}</span></small>
               <small class="px-3 text-right dock-trade-price grid" aria-hidden="true"><span class="dock-row-text">${money(entry.price || 0)}</span></small>
             </button>`,
@@ -651,6 +654,8 @@ const createDocked = () => {
     });
 
     text('[data-repair]', money(repairCost));
+    text('[data-buy-label]', buyLabel(item?.price));
+    text('[data-buy-ammo-label]', buyLabel(ammo?.price, 'Buy ammo'));
     text('[data-price]', money(item?.price || 0));
     text('[data-ammo-price]', money(ammo?.price || 0));
     text('[data-sale]', `+${money(item?.price || 0)}`);

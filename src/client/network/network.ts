@@ -139,9 +139,9 @@ const makeEntity = ({
 
   if (entity.kind === 'jumpGate' || entity.kind === 'wormhole') {
     const Type = entity.kind === 'jumpGate' ? JumpGate : Wormhole;
-    const passage = previous instanceof Type ? previous : new Type(common);
+    const portal = previous instanceof Type ? previous : new Type(common);
 
-    return Object.assign(passage, common, {
+    return Object.assign(portal, common, {
       mass: Infinity,
       opening: entity.opening ?? 1,
       openingTarget: entity.openingTarget ?? 1,
@@ -203,6 +203,8 @@ const makeEntity = ({
       transitTime: entity.transitTime || 0,
       transitGate: entity.transitGate || 0,
       firing: !!entity.firing,
+      hostile: !!entity.hostile,
+      npcState: entity.npcState,
       paint: entity.paint,
       playerId: entity.playerId,
       thrust: entity.thrust ?? 0,
@@ -277,15 +279,9 @@ export class NetworkClient {
   get shipStranded() {
     const ship = this.world.entities.get(this.shipId!);
 
-    return (
-      this.connected &&
-      ship instanceof Ship &&
-      !ship.dead &&
-      (!ship.engine.mount || ship.fuel <= 0) &&
-      !ship.dockedTo &&
-      !ship.launching
-    );
+    return this.connected && ship instanceof Ship && ship.stranded;
   }
+
   chatMessages: Extract<ServerMessage, { type: 'chat' }>[] = [];
 
   sendChat(channel: number, text: string) {

@@ -15,7 +15,12 @@ import (
 )
 
 type Ship struct {
+	cargoReleaseHeld  bool
+	releasingCargo    bool
+	cargoReleaseHatch int
+	cargoReleaseTime  float64
 	*Craft
+	NPCState                                 string
 	Firing                                   bool
 	Fuel, FuelCapacity                       float64
 	StoredPower, ThrusterPower, SystemsPower float64
@@ -171,6 +176,11 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 			}
 
 			object := station.CargoContents[index]
+
+			if module, ok := object.(simulation.Module); ok && !slices.Contains(s.Catalog.StationModuleIDs, module.ModuleBase().Type) {
+				return action, false
+			}
+
 			objects = append(objects, object)
 			cost += object.Base().Price
 		}
@@ -183,6 +193,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 
 		for _, object := range objects {
 			delete(station.moduleSellers, object.Base().ID)
+			object.Base().Mined = false
 		}
 
 		s.CargoContents = append(s.CargoContents, objects...)
@@ -243,7 +254,11 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 
 		if station := s.TradeStation(); station != nil {
 			for _, object := range objects {
-				if _, ok := object.(simulation.Module); ok {
+				if module, ok := object.(simulation.Module); ok {
+					if !slices.Contains(s.Catalog.StationModuleIDs, module.ModuleBase().Type) {
+						continue
+					}
+
 					// Cargo module IDs are local to a ship; station stock shares one namespace.
 					object.Base().ID = simulation.EntityID(s.World)
 
@@ -282,7 +297,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 		id := s.Catalog.ModuleIDs[action.Module]
 		d := s.Catalog.ModuleSpecs[id]
 
-		if *credits < d.Price {
+		if !slices.Contains(s.Catalog.StationModuleIDs, id) || *credits < d.Price {
 			return action, false
 		}
 
@@ -435,6 +450,19 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 	}
 
 	return action, true
+}
+
+/*
+Stranded ships remain alive, but cannot fly until they regain an engine or fuel.
+*/
+func (s *Ship) Stranded() bool {
+	if s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
+		return false
+	}
+
+	return (s.Engine() == nil || s.Fuel <= 0) && slices.ContainsFunc(s.Segments, func(segment *simulation.Segment) bool {
+		return segment.Hull && segment.Core && !(segment.Health < 1)
+	})
 }
 
 func (s *Ship) Engine() simulation.Module {
@@ -624,10 +652,11 @@ func (s *Ship) fireWeapons(dt float64) {
 }
 
 func (s *Ship) Update(dt float64) {
+	s.updateCargoRelease(dt)
 	s.UpdatePower(dt)
 
 	if s.TransitTime != 0 {
-		spec := s.Catalog.HoleSpec
+		spec := s.Catalog.PortalSpec
 
 		if portal, ok := s.World.Entities.Get(s.TransitGate); ok {
 			remaining := -s.TransitTime - spec.TransitScaleDuration/1000

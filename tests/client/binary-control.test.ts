@@ -33,7 +33,12 @@ const controls: ClientMessage[] = [
     type: 'input',
     tick: 1,
     sequence: 1,
-    input: { ...emptyPlayerInput(), laserActive: true, fire: true },
+    input: {
+      ...emptyPlayerInput(),
+      laserActive: true,
+      fire: true,
+      cargoRelease: true,
+    },
   },
   { type: 'hello', playerToken: null },
   { type: 'hello', playerToken: token },
@@ -135,6 +140,14 @@ for (const message of [
     sender: 'Jump Gate',
     text: 'Access granted.',
   },
+  ...[0, 281474976710999].map((cargoDemand) => ({
+    type: 'chat' as const,
+    channel: 0,
+    sender: 'Pirate',
+    senderRole: 'hostile',
+    text: '',
+    cargoDemand,
+  })),
   { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
   {
     type: 'welcome' as const,
@@ -224,7 +237,7 @@ for (const invalid of [
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
-  changed(input, 7, 32), // invalid input flags
+  changed(input, 7, 64), // invalid input flags
   changed(paint, 6, 4), // unknown optional field bit
   Uint8Array.from([0x55, 0x43, 1, 2, 1, 0]), // empty sell list
 ]) {

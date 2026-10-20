@@ -17,7 +17,7 @@ func TestGateBeamSweeps(t *testing.T) {
 
 	for _, rotation := range []float64{0, .71, math.Pi / 2} {
 		world := simulation.CreateWorld(1, catalog)
-		gate := NewPassage(world, PassageOptions{ID: 1, Position: Vec.Create(40, -80)}).(*JumpGate)
+		gate := NewPortal(world, PortalOptions{ID: 1, Position: Vec.Create(40, -80)}).(*JumpGate)
 		gate.Rotation, gate.Opening = rotation, .5
 
 		for _, test := range []struct {
@@ -45,7 +45,7 @@ func TestGateBeamSweeps(t *testing.T) {
 func TestGateSafetyReversesMotionAndResetsBeamsAtFullOpening(t *testing.T) {
 	catalog, _ := specs.Load()
 	world := simulation.CreateWorld(1, catalog)
-	gate := NewPassage(world, PassageOptions{ID: 1}).(*JumpGate)
+	gate := NewPortal(world, PortalOptions{ID: 1}).(*JumpGate)
 	gate.RequestExitOpening()
 	gate.Advance((gate.Spec.OpeningDuration + gate.Spec.StateHoldDuration) / 1000)
 	warnings := 0

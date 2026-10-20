@@ -4,6 +4,8 @@ package collision
 import Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 
 type Collider struct {
+	proxySource     any
+	proxy           *BaseShape
 	Segment         any
 	LocalPosition   *Vec.Vector
 	Collides        *bool
@@ -21,6 +23,22 @@ type Collider struct {
 	Bounciness, CollisionMargin *float64
 	Physics                     *bool
 	ShapeOutline                [][]float64
+}
+
+/*
+ShapeProxy reuses local sweep geometry while its owner's geometry token is stable.
+Owners without a token rebuild the proxy so mutable outlines remain observable.
+*/
+func (c *Collider) ShapeProxy(source any, build func() *BaseShape) *BaseShape {
+	if source == nil {
+		return build()
+	}
+
+	if c.proxy == nil || c.proxySource != source {
+		c.proxy, c.proxySource = build(), source
+	}
+
+	return c.proxy
 }
 
 func CollidersCanContact(a, b *Collider) bool {

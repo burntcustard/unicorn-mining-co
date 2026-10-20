@@ -98,17 +98,17 @@ The World Viewer needs no Go server. Choose a seed and sector, pan by dragging,
 and scroll to zoom. The world map shows the connected initial 20 sectors;
 enable future sectors to see all 68. Click a map sector to inspect its fields,
 stations, wrecks, planned Jump Gates and wormholes. Zoom in for individual
-asteroids from the actual region generator. Both kinds of passage include
+asteroids from the actual region generator. Both kinds of portal include
 reserved arrival space. Wormholes have their own layer and dashed purple map
 links; the viewer reveals them for inspection, while gameplay discovery will
-require exploration. Dim Jump Gates lead to future sectors. In the game, passages appear as you explore.
+require exploration. Dim Jump Gates lead to future sectors. In the game, portals appear as you explore.
 
 Edit `src/specs/sectors.ts` for sector sizes, feature falloff and gate placement,
 or `src/specs/region-generation.ts` for field contents and feature spacing.
-The two passage counts are independent seeded draws scaled by sector size,
+The two portal counts are independent seeded draws scaled by sector size,
 with at least one connection overall. Some sectors are reachable only by
 wormhole. Jump Gates cluster nearer the populated area; wormholes sample a
-wider annulus, favoring the outskirts. Every passage and arrival point stays
+wider annulus, favoring the outskirts. Every portal and arrival point stays
 below 100,000 units from the origin. All stations follow the same procedural
 density and spacing rules; sectors have no guaranteed station. Sectors without
 Jump Gates have no stations.
@@ -126,7 +126,7 @@ it at the destination center. The ship waits for pilot input, and cannot travel
 back until it has left that portal. Connected Jump Gates share a fixed, seeded
 rotation. Gate hulls are indestructible and cannot be docked with. The GameObject Viewer includes
 animated Jump Gate and wormhole previews. Tune them in `src/specs/jump-gate.ts`
-and `src/specs/wormhole.ts`; shared travel timings live in `src/specs/hole.ts`.
+and `src/specs/wormhole.ts`; shared travel timings live in `src/specs/portal.ts`.
 Press Enter to type in Sector chat, or switch to the compact Global tab.
 
 Player roles are `user` (the default), `admin`, and `owner`. The initial owner is

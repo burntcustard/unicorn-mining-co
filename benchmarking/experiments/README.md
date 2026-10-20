@@ -14,6 +14,22 @@ scratch output under `benchmarking/local/`.
 
 ## Retained investigations
 
+The [NPC pursuit investigation](../../docs/experiments/2026-10-20/npc-pursuit.md)
+compares short target forecasts and selective asteroid outlines on fixed moving
+courses, including narrow gaps, blind validation, and paired combat CPU runs.
+
+The [NPC clearance experiment](../../docs/experiments/2026-10-20/npc-clearance.md)
+compares complete removal of the extra navigation margin with the accepted
+one-unit setting, preserving pursuit and combat CPU results.
+
+The [NPC maneuver investigation](../../docs/experiments/2026-10-20/npc-maneuvers.md)
+compares circle-based navigation, corner control, clearance margins, arrival,
+and generated-field pursuit, with paired combat CPU measurements.
+
+The [pirate combat CPU investigation](../../docs/experiments/2026-10-20/pirate-cpu.md)
+retains paired one-player/one-pirate combat benchmarks, generated pursuit-course
+replays, source overlays and profiles, including full-throttle chases.
+
 The [native-resolution follow-up](../../docs/experiments/2026-10-19/native-resolution-performance.md)
 separates 1920 × 1200 rendering work from laptop power policy, retains the small
 text-cache improvement, and records rejected candidates and sustained captures.

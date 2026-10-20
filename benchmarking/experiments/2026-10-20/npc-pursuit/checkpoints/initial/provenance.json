@@ -1,0 +1,89 @@
+{
+  "stage": "Initial integrated selective geometry + linear 1s blocked-route interception",
+  "buildCommand": "GOCACHE=/tmp/unicorn-go-cache GOTMPDIR=\"$PWD/node_modules/.cache/go-tmp\" GOEXPERIMENT=simd go test -pgo=/tmp/unicorn-maneuvers-default.pgo -c -o node_modules/.cache/pursuit-risk-initial.test ./src/server/network",
+  "cpuCommand": "REPETITIONS=3 TICKS=9000 GOGC=800 node benchmarking/tools/pirate-cpu.ts /tmp/unicorn-pursuit-risk-before.test \"$PWD/node_modules/.cache/pursuit-risk-initial.test\" /tmp/unicorn-pursuit-risk-initial-cpu-results.json",
+  "cpuAggregateChangePercent": 7.277735422148979,
+  "artifacts": {
+    "beforeSource": {
+      "path": "/tmp/unicorn-pursuit-risk-before.json",
+      "bytes": 1565446,
+      "sha256": "28754ccf5c5cc0e61c724a8f5b541c6b5e1658eb7a40e3eeca5dbbf30f542765"
+    },
+    "initialSource": {
+      "path": "/tmp/unicorn-pursuit-risk-initial-source.json",
+      "bytes": 1594070,
+      "sha256": "d72fd3ed4fb9cef95ff68d8a9597fcce8f5ec970ef2188b7c658eee0bd7efa75"
+    },
+    "beforeExecutable": {
+      "path": "/tmp/unicorn-pursuit-risk-before.test",
+      "bytes": 21297550,
+      "sha256": "35ec997e79833752b7bb2ecc60b48dadfa8e1c2c95a11320e72a61efd9b891bd"
+    },
+    "initialExecutable": {
+      "path": "/home/burntcustard/Dev/unicorn-mining-co/node_modules/.cache/pursuit-risk-initial.test",
+      "bytes": 21318280,
+      "sha256": "95fec543b3bc11c015307041b02ff23a6b4a81eb0df0e58c572f5667be21793d"
+    },
+    "pgo": {
+      "path": "/tmp/unicorn-maneuvers-default.pgo",
+      "bytes": 11912,
+      "sha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675"
+    },
+    "benchmarkFixture": {
+      "path": "/home/burntcustard/Dev/unicorn-mining-co/src/server/network/pirate-benchmark_test.go",
+      "bytes": 9169,
+      "sha256": "410fb7f8fd287813b444756108f9eeb0b902eea8d1cae23d30acf421ca36c807"
+    },
+    "gapFixture": {
+      "path": "/tmp/unicorn-pursuit-risk-fixture.go",
+      "bytes": 7099,
+      "sha256": "b604ceb7eeb5541fdb00bdc6e05ada12a5f165803b1086e9b1303bdf4b8ebfdb"
+    },
+    "heldoutFixture": {
+      "path": "/tmp/unicorn-pursuit-risk-heldout.go",
+      "bytes": 1569,
+      "sha256": "0dc6655bc0e2fca46f4d2f88cbf5c143dca9c30d970f4ac6c82d79655fc82139"
+    },
+    "freshFixture": {
+      "path": "/tmp/unicorn-pursuit-risk-fresh.go",
+      "bytes": 3341,
+      "sha256": "0de872056e40bf9c565c02e34ff8f2be31fe6e66d3400cf23e122a99014a8f37"
+    },
+    "cpuResults": {
+      "path": "/tmp/unicorn-pursuit-risk-initial-cpu-results.json",
+      "bytes": 19309,
+      "sha256": "10f673241a8ac2495b4ee2a4f9c7d271f256f14db0382994879366ef6fac430c"
+    },
+    "qualityLog": {
+      "path": "/tmp/unicorn-pursuit-risk-quality-integrated.log",
+      "bytes": 19771,
+      "sha256": "ff2ce72ceb5c1741d269aa80142286d328b6d7a65c982d8ab521a5677765da10"
+    },
+    "qualityMetrics": {
+      "path": "/tmp/unicorn-pursuit-risk-integrated-metrics.json",
+      "bytes": 9931,
+      "sha256": "ca6f79171a53fc87089cfdd0d9a9690123c53e1532e9167022e8921031f5ef31"
+    },
+    "beforeCpuProfile": {
+      "path": "/tmp/unicorn-pursuit-risk-before-dense-fast.pprof",
+      "bytes": 18790,
+      "sha256": "5002806249d2c25acafd3038232b5a18b12ec9c7b42a94181a8d28794dbe9c42"
+    },
+    "initialCpuProfile": {
+      "path": "/tmp/unicorn-pursuit-risk-initial-dense-fast.pprof",
+      "bytes": 18302,
+      "sha256": "241755ac38e5de9b0fe2d18d0d74f391ad02824c2c49873074d6214e76bb5731"
+    },
+    "beforeAllocationProfile": {
+      "path": "/tmp/unicorn-pursuit-risk-before-dense-fast.mem.pprof",
+      "bytes": 20970,
+      "sha256": "e87b7079a6eff66b274fef37a11c4d49efc50558cc00a3e2a07082af9dc5ce0b"
+    },
+    "initialAllocationProfile": {
+      "path": "/tmp/unicorn-pursuit-risk-initial-dense-fast.mem.pprof",
+      "bytes": 20153,
+      "sha256": "7e900cbac8984be69b473c43f8303c48c7c53c4cbadbaca149d9c95359da1d44"
+    }
+  },
+  "buildMetadata": "/home/burntcustard/Dev/unicorn-mining-co/node_modules/.cache/pursuit-risk-initial.test: go1.27.1-X:simd\n\tpath\tgithub.com/burntcustard/unicorn-mining-co/src/server/network.test\n\tmod\tgithub.com/burntcustard/unicorn-mining-co\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tmodernc.org/libc\tv1.75.6\th1:yKk8qo+Di4gkmvRboK8ocCqH22FiUCR6jRy2OwtCRus=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/sqlite\tv1.58.0\th1:38u40/bwkfM7f0Myhosl+SEMltSDxnGdQf8o6Kjmys0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOEXPERIMENT=simd\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+}

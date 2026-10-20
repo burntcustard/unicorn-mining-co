@@ -29,6 +29,7 @@ type controlFixture struct {
 	}
 	Server []struct {
 		Message struct {
+			CargoDemand                  *int64
 			GateID                       uint64
 			Channel                      byte
 			Sender, SenderRole, Text     string
@@ -118,7 +119,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		message := fixture.Message
 
 		got, err := EncodeServerControl(ServerControl{
-			Channel: message.Channel, Sender: message.Sender, SenderRole: message.SenderRole, Text: message.Text,
+			CargoDemand: message.CargoDemand, Channel: message.Channel, Sender: message.Sender, SenderRole: message.SenderRole, Text: message.Text,
 			Sounds: message.Sounds,
 			Type:   message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
 			ServerTick: message.ServerTick, PlayerToken: message.PlayerToken,
@@ -164,5 +165,21 @@ func TestWeaponControls(t *testing.T) {
 
 	if err != nil || control.Dock.Action != "buyAmmo" {
 		t.Fatalf("ammo action lost: %+v %v", control, err)
+	}
+}
+
+func TestCargoReleaseInputFlag(t *testing.T) {
+	catalog, _ := specs.Load()
+	packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 32}
+	control, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep)
+
+	if err != nil || !control.Input.CargoRelease || control.Input.Fire {
+		t.Fatalf("cargo release control: %+v %v", control, err)
+	}
+
+	packet[7] = 64
+
+	if _, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
+		t.Fatal("unknown flag accepted")
 	}
 }

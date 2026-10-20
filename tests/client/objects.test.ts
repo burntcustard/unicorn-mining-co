@@ -30,7 +30,7 @@ import { ease, easeProgress } from '${process.cwd()}/src/client/utilities/ease.t
 import { jumpGateSpec, jumpGateFlareDurationOuter, jumpGateFlareDurationInner } from '${process.cwd()}/src/specs/jump-gate.ts';
 import { renderingLayers } from '${process.cwd()}/src/specs/rendering-layers.ts';
 import { ThrusterSingleMd } from '${process.cwd()}/src/client/objects/modules/thruster.ts';
-import { holeSpec } from '${process.cwd()}/src/specs/hole.ts';
+import { portalSpec } from '${process.cwd()}/src/specs/portal.ts';
 import { mustang } from '${process.cwd()}/src/specs/ships/mustang.ts';
 import { corral5 } from '${process.cwd()}/src/specs/stations/corral-5.ts';
 import { Module } from '${process.cwd()}/src/client/objects/modules/module.ts';
@@ -143,10 +143,10 @@ assert.equal(copiedGate.hitbox()[0].owner, copiedGate);
     else delete ThrusterSingleMd.prototype.renderGlow;
   }
 }
-const hole = new Wormhole();
-assert.equal(hole.health, undefined);
-assert.equal(hole.opening, 1);
-assert.equal(hole.hitbox().length, 0);
+const wormhole = new Wormhole();
+assert.equal(wormhole.health, undefined);
+assert.equal(wormhole.opening, 1);
+assert.equal(wormhole.hitbox().length, 0);
 function addGateWorld(object) { const world = createWorld(); addEntity(world, object); return world; }
 
 assert.equal(Object.getPrototypeOf(Craft.prototype), GameObject.prototype);
@@ -219,9 +219,9 @@ assert.equal(bare.forwardThrust, 0);
 const transitWorld = createWorld({ seed: 25 });
 const transitPortal = addEntity(transitWorld, new Wormhole({ position: Vec.create(1000, 2000) }));
 const transitShip = addEntity(transitWorld, createPlayerShip(transitWorld));
-const pullDuration = holeSpec.pullDuration / 1000;
-const scaleDuration = holeSpec.transitScaleDuration / 1000;
-const holdDuration = holeSpec.arrivalHoldDuration / 1000;
+const pullDuration = portalSpec.pullDuration / 1000;
+const scaleDuration = portalSpec.transitScaleDuration / 1000;
+const holdDuration = portalSpec.arrivalHoldDuration / 1000;
 transitShip.position = Vec.add(transitPortal.position, Vec.create(0, 100));
 transitShip.transitGate = transitPortal.id;
 transitShip.transitTime = -(pullDuration + scaleDuration);

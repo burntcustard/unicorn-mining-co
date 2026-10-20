@@ -11,7 +11,7 @@ func Create(id string, props simulation.ObjectProperties, catalog specs.Catalog)
 	case "thruster":
 		return NewThruster(id, props, catalog)
 	case "cargoHatch":
-		return NewCargoHatch(props, catalog)
+		return NewCargoHatch(id, props, catalog)
 	case "searchLight":
 		return NewSearchLight(props, catalog)
 	case "hornDrill":

@@ -1,7 +1,7 @@
-import { Passage } from './passage';
+import { Portal } from './portal';
 import { wormholeSpec } from '../../specs/wormhole';
 
-export class Wormhole extends Passage {
+export class Wormhole extends Portal {
   kind = 'wormhole';
   name = 'Wormhole';
   radius = wormholeSpec.radius;

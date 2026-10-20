@@ -20,7 +20,7 @@ func TestTeleportChatCommand(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello"}, b)
 	p := s.playersBySocket[a]
 	p.profile.Role = persistence.RoleAdmin
-	destination := s.sectors[p.sectorID].passages[0].DestinationSector
+	destination := s.sectors[p.sectorID].portals[0].DestinationSector
 	s.relocatePlayer(p, destination, sectorArrival{})
 	world := p.ship.World
 
@@ -104,7 +104,7 @@ func TestGateAccessChatUsesCallsign(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello"}, socket)
 	p := s.playersBySocket[socket]
 
-	for _, gate := range s.sectors[p.sectorID].passages {
+	for _, gate := range s.sectors[p.sectorID].portals {
 		if gate.Kind != "jumpGate" {
 			continue
 		}
@@ -133,13 +133,22 @@ func TestGateAccessResponseDelay(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello"}, observer)
 	p := s.playersBySocket[socket]
 
-	for _, gate := range s.sectors[p.sectorID].passages {
+	for _, gate := range s.sectors[p.sectorID].portals {
 		if gate.Kind != "jumpGate" {
 			continue
 		}
 
 		gate.Advance(gate.Spec.StateHoldDuration / 1000)
 		delay := gate.Spec.AccessResponseDelay / 1000
+		p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, gate.Spec.ApproachRadius+1))
+		socket.frames, observer.frames = nil, nil
+		s.requestGateAccess(p, gate.ID)
+		s.updateGateAccess(3 * delay)
+
+		if len(socket.frames) != 0 || len(observer.frames) != 0 || p.gateAccess != nil || gate.OpeningTarget != 0 {
+			t.Fatal("an out-of-range access request must be ignored without dialog")
+		}
+
 		p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, 500))
 		socket.frames, observer.frames = nil, nil
 		s.requestGateAccess(p, gate.ID)
@@ -164,7 +173,7 @@ func TestGateAccessResponseDelay(t *testing.T) {
 		}
 
 		s.updateGateAccess(delay / 2)
-		granted, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: gate.Spec.AccessGrantedMessage}, catalog.Protocol)
+		granted, _ := protocol.EncodeServerControl(protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: catalog.JumpGateDialog.AccessGranted[0]}, catalog.Protocol)
 
 		if len(socket.frames) != 2 || !bytes.Equal(socket.frames[1], granted) || gate.OpeningTarget != 1 || len(observer.frames) != 0 {
 			t.Fatal("gate should privately grant access and begin opening after the second delay")
@@ -188,7 +197,7 @@ func TestGateAccessResponseDelay(t *testing.T) {
 		p.ship.Position = Vec.Add(gate.Position, Vec.Create(0, 500))
 		s.requestGateAccess(p, gate.ID)
 		s.updateGateAccess(delay / 2)
-		other := objects.NewPassage(s.World, objects.PassageOptions{ID: -123456, Position: gate.Position}).(*objects.JumpGate)
+		other := objects.NewPortal(s.World, objects.PortalOptions{ID: -123456, Position: gate.Position}).(*objects.JumpGate)
 		s.World.Entities.Set(other.ID, other)
 		s.requestGateAccess(p, other.ID)
 

@@ -6,6 +6,8 @@ import { JumpGate } from '../../objects/jump-gate';
 import { type GameObject } from '../../objects/game-object';
 import { defaultKeybindings, keyLabel } from '../../input/keybindings';
 import { jumpGateSpec } from '../../../specs/jump-gate';
+import { jumpGateDialog } from '../../../specs/dialog/jump-gate';
+import { namedSeed } from '../../utilities/seed-hash';
 import * as Vec from '../../utilities/vector';
 
 const senderColors = new Map([
@@ -22,6 +24,7 @@ const senderColors = new Map([
 export const createChat = ({
   network,
   onTyping,
+  onCargoRelease = () => {},
 }: {
   network: Pick<
     NetworkClient,
@@ -34,9 +37,18 @@ export const createChat = ({
     | 'requestGateAccess'
   >;
   onTyping: (typing: boolean) => void;
+  onCargoRelease?: () => void;
 }) => {
   const { element: panel } = createScreen(html);
   const log = query(panel, '.chat-log');
+  const cargoAction = query(panel, '[data-cargo-release]');
+  const release = query<HTMLButtonElement>(panel, '.cargo-release');
+
+  release.addEventListener('click', () => {
+    if (!release.disabled && !panel.hidden) onCargoRelease();
+    release.blur();
+  });
+
   const template = query<HTMLTemplateElement>(panel, 'template');
   const input = query<HTMLInputElement>(panel, 'input');
   const buttons =
@@ -49,6 +61,7 @@ export const createChat = ({
     element: HTMLElement;
   };
 
+  let cargoDemand: number | undefined;
   let entries: ChatEntry[] = [];
   let sector = network.sectorName;
   let channel = 0;
@@ -109,6 +122,7 @@ export const createChat = ({
     update(object: GameObject | undefined, shown: boolean) {
       if (sector !== network.sectorName) {
         sector = network.sectorName;
+        cargoDemand = undefined;
         entries = entries.filter((entry) => entry.channel === 1);
         target = undefined;
         pending = undefined;
@@ -124,16 +138,22 @@ export const createChat = ({
         if (received.has(message)) return;
         received.add(message);
 
+        if (message.cargoDemand !== undefined) {
+          cargoDemand = message.cargoDemand || undefined;
+        }
+
+        if (!message.text) return;
+
         if (
           pending &&
           message.channel === 0 &&
           message.senderRole === 'friendly' &&
           message.sender === pending.message.name &&
-          message.text !== jumpGateSpec.accessPendingMessage &&
-          message.text !== jumpGateSpec.closingMessage &&
-          message.text !== jumpGateSpec.closingInterruptedMessage
+          !jumpGateDialog.accessPending.includes(message.text) &&
+          !jumpGateDialog.closing.includes(message.text) &&
+          !jumpGateDialog.closingInterrupted.includes(message.text)
         ) {
-          if (message.text === jumpGateSpec.accessGrantedMessage) {
+          if (jumpGateDialog.accessGranted.includes(message.text)) {
             query(pending.element, 'button > span').textContent =
               'Access granted';
           } else {
@@ -151,6 +171,28 @@ export const createChat = ({
 
       panel.hidden = !shown;
       const ship = network.world.entities.get(network.shipId!);
+
+      const pirate = network.world.entities.get(cargoDemand!);
+
+      cargoAction.hidden =
+        channel !== 0 ||
+        !pirate ||
+        pirate.dead ||
+        !ship ||
+        ship.dead ||
+        !!ship.dockedTo ||
+        !!ship.transitTime;
+      release.disabled =
+        cargoAction.hidden ||
+        !ship?.cargoContents?.some(
+          (object: GameObject) =>
+            object.item &&
+            (object.rounds === undefined ||
+              object.rounds === object.item.rounds),
+        );
+      query(release, 'kbd').textContent = defaultKeybindings.cargoRelease.keys
+        .map(keyLabel)
+        .join(' / ');
 
       if (pending) {
         const gate = pending.message;
@@ -233,8 +275,16 @@ export const createChat = ({
         if (entries.some(({ message }) => message === gate)) {
           line.removeChild(query(line, 'p'));
         } else {
+          // Every client chooses the same greeting template for this gate.
+          const greetings = jumpGateDialog.greeting;
+          const greeting =
+            greetings[
+              namedSeed({ seed: 0, name: `greeting:${gate.id}` }) %
+                greetings.length
+            ];
+
           query(line, 'strong').textContent = `${gate.name}: `;
-          query(line, 'p > span').textContent = jumpGateSpec.greetingMessage
+          query(line, 'p > span').textContent = greeting
             .replace('{player}', () => network.displayName || 'pilot')
             .replace('{destination}', () => gate.destinationName);
         }

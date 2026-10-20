@@ -23,7 +23,7 @@ func TestGateCrushingInWorld(t *testing.T) {
 	for _, rotation := range []float64{0, .71} {
 		world := simulation.CreateWorld(25, catalog)
 		world.Collisions = NewGameCollisions(catalog)
-		gate := objects.NewPassage(world, objects.PassageOptions{ID: 100, Position: Vec.Create(1234, -5678)}).(*objects.JumpGate)
+		gate := objects.NewPortal(world, objects.PortalOptions{ID: 100, Position: Vec.Create(1234, -5678)}).(*objects.JumpGate)
 		gate.Rotation, gate.Opening, gate.OpeningTarget = rotation, .35, 0
 		ship := objects.CreatePlayerShip(world, objects.Properties{ObjectProperties: simulation.ObjectProperties{ID: new(int64(1)), Position: Vec.Add(gate.Position, simulation.RotatePoint(Vec.Create(0, 242), rotation)), Rotation: rotation + .4}})
 		simulation.AddEntity(world, ship)
@@ -35,7 +35,7 @@ func TestGateCrushingInWorld(t *testing.T) {
 			// Session-owned gates move before CapturePoses. Keep the same ordering
 			// here while exercising normal destruction and fragment processing.
 			gate.Advance(catalog.Simulation.SimulationStep)
-			gate.Connected = gate.Passage
+			gate.Connected = gate.Portal
 			events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{})
 
 			for _, event := range events {

@@ -1,6 +1,6 @@
 import { jumpGateSpec, jumpGateHull } from '../src/specs/jump-gate';
 import { wormholeSpec } from '../src/specs/wormhole';
-import { holeSpec } from '../src/specs/hole';
+import { portalSpec } from '../src/specs/portal';
 import {
   sectorNames,
   sectorGeneration,
@@ -24,8 +24,16 @@ import {
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { colors, paintColors } from '../src/specs/colors';
+import { pirateDialog } from '../src/specs/dialog/pirate';
+import { pirateSpec } from '../src/specs/pirate';
+import { npcMovement } from '../src/specs/npc-movement';
+import { jumpGateDialog } from '../src/specs/dialog/jump-gate';
 import { itemIds, itemSpecs } from '../src/specs/items/index';
-import { moduleIds, moduleSpecs } from '../src/specs/modules/index';
+import {
+  moduleIds,
+  moduleSpecs,
+  stationModuleIds,
+} from '../src/specs/modules/index';
 import type { ModuleSpec } from '../src/specs/modules/types';
 import { shipSpecs } from '../src/specs/ships/index';
 import type { ShipSpec } from '../src/specs/ships/types';
@@ -85,9 +93,13 @@ const simulation = {
 };
 
 const catalog = {
+  npcMovement,
+  pirateSpec,
+  jumpGateDialog,
+  pirateDialog,
   jumpGateSpec,
   wormholeSpec,
-  holeSpec,
+  portalSpec,
   jumpGateHull,
   sectorNames,
   sectorGeneration,
@@ -99,6 +111,7 @@ const catalog = {
   itemIds,
   itemSpecs,
   moduleIds,
+  stationModuleIds,
   moduleSpecs: Object.fromEntries(
     Object.entries(moduleSpecs).map(([id, spec]) => [
       id,

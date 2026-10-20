@@ -1,0 +1,126 @@
+{
+  "1": [
+    {
+      "case": "TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed5/speed170",
+      "mean": 179.0,
+      "p95": 485.4,
+      "excess": 5287.4,
+      "escaped": 0.0,
+      "asteroidContacts": 1.0,
+      "shipContacts": 2.0,
+      "stationary": 1.0
+    },
+    {
+      "case": "TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed9/speed180",
+      "mean": 183.6,
+      "p95": 584.1,
+      "excess": 8004.9,
+      "escaped": 4.53,
+      "asteroidContacts": 0.0,
+      "shipContacts": 3.0,
+      "stationary": 3.0
+    },
+    {
+      "case": "TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed4/speed190",
+      "mean": 168.5,
+      "p95": 356.0,
+      "excess": 2347.6,
+      "escaped": 0.0,
+      "asteroidContacts": 0.0,
+      "shipContacts": 1.0,
+      "stationary": 1.0
+    },
+    {
+      "case": "TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed5/resource4/speed170",
+      "mean": 158.4,
+      "p95": 384.6,
+      "excess": 2903.4,
+      "escaped": 0.0,
+      "asteroidContacts": 0.0,
+      "shipContacts": 0,
+      "stationary": 3.0
+    },
+    {
+      "case": "TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed9/resource4/speed180",
+      "mean": 164.5,
+      "p95": 424.2,
+      "excess": 5099.7,
+      "escaped": 5.13,
+      "asteroidContacts": 0.0,
+      "shipContacts": 0,
+      "stationary": 3.0
+    },
+    {
+      "case": "TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed4/resource1/speed190",
+      "mean": 189.8,
+      "p95": 469.0,
+      "excess": 6377.5,
+      "escaped": 0.0,
+      "asteroidContacts": 0.0,
+      "shipContacts": 0,
+      "stationary": 2.0
+    }
+  ],
+  "0": [
+    {
+      "case": "TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed5/speed170",
+      "mean": 170.4,
+      "p95": 366.3,
+      "excess": 4003.4,
+      "escaped": 0.9,
+      "asteroidContacts": 1.0,
+      "shipContacts": 1.0,
+      "stationary": 2.0
+    },
+    {
+      "case": "TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed9/speed180",
+      "mean": 213.8,
+      "p95": 757.1,
+      "excess": 16677.0,
+      "escaped": 17.57,
+      "asteroidContacts": 0.0,
+      "shipContacts": 2.0,
+      "stationary": 3.0
+    },
+    {
+      "case": "TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed4/speed190",
+      "mean": 164.2,
+      "p95": 333.6,
+      "excess": 2158.1,
+      "escaped": 0.0,
+      "asteroidContacts": 0.0,
+      "shipContacts": 1.0,
+      "stationary": 1.0
+    },
+    {
+      "case": "TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed5/resource4/speed170",
+      "mean": 158.0,
+      "p95": 373.9,
+      "excess": 2758.3,
+      "escaped": 0.0,
+      "asteroidContacts": 0.0,
+      "shipContacts": 0,
+      "stationary": 3.0
+    },
+    {
+      "case": "TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed9/resource4/speed180",
+      "mean": 190.6,
+      "p95": 657.4,
+      "excess": 10632.8,
+      "escaped": 10.77,
+      "asteroidContacts": 0.0,
+      "shipContacts": 0,
+      "stationary": 3.0
+    },
+    {
+      "case": "TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed4/resource1/speed190",
+      "mean": 189.7,
+      "p95": 468.6,
+      "excess": 6348.3,
+      "escaped": 0.0,
+      "asteroidContacts": 0.0,
+      "shipContacts": 0,
+      "stationary": 2.0
+    }
+  ]
+}

@@ -10,9 +10,11 @@ import { textDemo } from './text-demo';
 import * as Vec from '../utilities/vector';
 import { type GameObject } from '../objects/game-object';
 import { Ship } from '../objects/ship';
+import { type Pose } from '../types';
 
 export let showDeadzone = false;
 let showMass = false;
+let showNpcState = false;
 let showTextDemo = false;
 let showColorsDemo = false;
 
@@ -52,6 +54,7 @@ export const bindDebug = (game: GameState) => {
   bindKeys('6', (sky as typeof sky & { cycle: () => void }).cycle);
 
   bindKeys('7', toggleLights);
+  bindKeys('8', () => (showNpcState = !showNpcState));
   bindKeys('9', () => (game.physicsOn = !game.physicsOn));
   bindKeys('0', testTone);
   bindKeys('c', () => playSound(9));
@@ -64,10 +67,12 @@ export const renderDebug = ({
   game,
   sprites,
   ship,
+  poses,
 }: {
   game: GameState;
   sprites: GameObject[];
   ship: Ship;
+  poses?: Map<number, Pose>;
 }) => {
   if (showDeadzone) {
     const drillTipCollider = ship
@@ -94,49 +99,35 @@ export const renderDebug = ({
     renderDeadzone(game);
   }
 
-  renderText({
-    game,
-    text: `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`,
-    x: 20,
-    y: 70,
+  [
+    `2 COLORS-DEMO:${showColorsDemo ? 'ON' : 'OFF'}`,
+    `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`,
+    `4 ZONE-BORDERS:${showDeadzone ? 'ON' : 'OFF'}`,
+    `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`,
+    `6 SKY:${sky.label}`,
+    `7 LIGHTING:${lights ? 'ON' : 'OFF'}`,
+    `8 NPC STATE:${showNpcState ? 'ON' : 'OFF'}`,
+    `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`,
+  ].forEach((text, index) => {
+    renderText({ game, text, x: 20, y: 170 + index * 20 });
   });
 
-  renderText({
-    game,
-    text: `3 TEXT-DEMO:${showTextDemo ? 'ON' : 'OFF'}`,
-    x: 20,
-    y: 90,
-  });
+  if (showNpcState) {
+    const ratio = game.scale / game.uiScale;
 
-  renderText({
-    game,
-    text: `4 ZONE-BORDERS:${showDeadzone ? 'ON' : 'OFF'}`,
-    x: 20,
-    y: 110,
-  });
+    sprites.forEach((object) => {
+      if (!(object instanceof Ship) || !object.npcState || object.dead) return;
+      const { position } = poses?.get(object.id) || object;
 
-  renderText({
-    game,
-    text: `5 MASS-VALUES:${showMass ? 'ON' : 'OFF'}`,
-    x: 20,
-    y: 130,
-  });
-
-  renderText({ game, text: `6 SKY:${sky.label}`, x: 20, y: 150 });
-
-  renderText({
-    game,
-    text: `7 LIGHTING:${lights ? 'ON' : 'OFF'}`,
-    x: 20,
-    y: 170,
-  });
-
-  renderText({
-    game,
-    text: `9 PHYSICS:${game.physicsOn ? 'ON' : 'OFF'}`,
-    x: 20,
-    y: 190,
-  });
+      renderText({
+        game,
+        text: `${object.name} ${object.npcState}`,
+        x: (position.x - camera.x) * ratio,
+        y: (position.y - camera.y - object.radius) * ratio - 14,
+        align: 0,
+      });
+    });
+  }
 
   if (showMass) {
     game.ctx.save();

@@ -1,0 +1,38 @@
+File: pursuit-risk-initial.test
+Build ID: 7575ef4c30249bce8358744746b35188bf4de9b6
+Type: cpu
+Time: 2026-10-20 18:40:59 BST
+Duration: 2.25s, Total samples = 2.31s (102.44%)
+Active filters:
+   focus=npc.gridRoute
+Showing nodes accounting for 0.40s, 17.32% of 2.31s total
+      flat  flat%   sum%        cum   cum%
+     0.11s  4.76%  4.76%      0.11s  4.76%  math.archHypot
+     0.08s  3.46%  8.23%      0.08s  3.46%  github.com/burntcustard/unicorn-mining-co/src/server/npc.(*routeQueue).pop
+     0.07s  3.03% 11.26%      0.09s  3.90%  github.com/burntcustard/unicorn-mining-co/src/server/npc.clearSegment
+     0.05s  2.16% 13.42%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/npc.gridRoute
+     0.02s  0.87% 14.29%      0.02s  0.87%  github.com/burntcustard/unicorn-mining-co/src/server/npc.gridRoute.func1 (inline)
+     0.02s  0.87% 15.15%      0.03s  1.30%  github.com/burntcustard/unicorn-mining-co/src/server/npc.gridRoute.func2 (inline)
+     0.02s  0.87% 16.02%      0.02s  0.87%  github.com/burntcustard/unicorn-mining-co/src/server/vector.Dot (inline)
+     0.01s  0.43% 16.45%      0.01s  0.43%  github.com/burntcustard/unicorn-mining-co/src/server/npc.(*routeQueue).push (inline)
+     0.01s  0.43% 16.88%      0.12s  5.19%  github.com/burntcustard/unicorn-mining-co/src/server/vector.Distance (inline)
+     0.01s  0.43% 17.32%      0.01s  0.43%  github.com/burntcustard/unicorn-mining-co/src/server/vector.DistanceSquared (inline)
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).Tick
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).pirateInput
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).updatePirates
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).updatePirates.func1
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*pirateCombatBenchmark).step
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/network.BenchmarkPirateCombat.func1
+         0     0% 17.32%      0.02s  0.87%  github.com/burntcustard/unicorn-mining-co/src/server/network.newPirateCombatBenchmark
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/npc.(*Pilot).Steer
+         0     0% 17.32%      0.01s  0.43%  github.com/burntcustard/unicorn-mining-co/src/server/npc.(*obstacleGeometry).distance
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/npc.(*routePlan).waypoint
+         0     0% 17.32%      0.01s  0.43%  github.com/burntcustard/unicorn-mining-co/src/server/npc.obstacle.distance
+         0     0% 17.32%      0.40s 17.32%  github.com/burntcustard/unicorn-mining-co/src/server/npc.planRoute
+         0     0% 17.32%      0.01s  0.43%  github.com/burntcustard/unicorn-mining-co/src/server/npc.pointSegmentDistanceSquared
+         0     0% 17.32%      0.11s  4.76%  math.Hypot (inline)
+         0     0% 17.32%      0.40s 17.32%  slices.DeleteFunc[go.shape.[]*github.com/burntcustard/unicorn-mining-co/src/server/network.pirate,go.shape.*uint8]
+         0     0% 17.32%      0.40s 17.32%  slices.IndexFunc[go.shape.[]*github.com/burntcustard/unicorn-mining-co/src/server/network.pirate,go.shape.*uint8] (inline)
+         0     0% 17.32%      0.40s 17.32%  testing.(*B).launch
+         0     0% 17.32%      0.40s 17.32%  testing.(*B).runN

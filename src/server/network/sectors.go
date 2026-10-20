@@ -10,17 +10,18 @@ import (
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
-	"strings"
 )
 
 type sectorRuntime struct {
-	world    *simulation.World
-	regions  *RegionManager
-	view     *ReplicationView
-	batch    *BinarySnapshotBatch
-	syncedAt float64
-	passages []*objects.Passage
-	closing  map[*objects.Passage]bool
+	pirates          []*pirate
+	pirateDispatchAt uint64
+	world            *simulation.World
+	regions          *RegionManager
+	view             *ReplicationView
+	batch            *BinarySnapshotBatch
+	syncedAt         float64
+	portals          []*objects.Portal
+	closing          map[*objects.Portal]bool
 }
 
 func (s *GameSession) sectorPlayers(visit func(*playerRecord, string)) {
@@ -77,7 +78,7 @@ func (s *GameSession) activateSector(id string) {
 		regions := NewRegionManager(uint32(s.worldSeed), catalog, *sector)
 		regions.idOffset = offset
 		runtime = &sectorRuntime{world: world, regions: regions, view: NewReplicationView(world), batch: NewBinarySnapshotBatch(catalog), syncedAt: math.Inf(-1)}
-		runtime.closing = make(map[*objects.Passage]bool)
+		runtime.closing = make(map[*objects.Portal]bool)
 		s.sectors[id] = runtime
 
 		for kind, links := range [][]simulation.SectorLink{s.sectorMap.Links, s.sectorMap.WormholeLinks} {
@@ -99,27 +100,27 @@ func (s *GameSession) activateSector(id string) {
 
 				site := sites[link.Sites[end]]
 
-				entity := objects.NewPassage(world, objects.PassageOptions{
-					ID: offset + 1<<32 + int64(len(runtime.passages)), Position: site.Position,
+				entity := objects.NewPortal(world, objects.PortalOptions{
+					ID: offset + 1<<32 + int64(len(runtime.portals)), Position: site.Position,
 					DestinationSector: destination.ID, DestinationName: destination.Name, Wormhole: kind == 1,
 				})
 
-				passage := entity.PassageBase()
+				portal := entity.PortalBase()
 
-				passage.ConnectionID = link.ID
+				portal.ConnectionID = link.ID
 
 				if kind == 0 {
-					passage.TargetLabel = "JUMP GATE\n" + sector.Name + "\u2009→\u2009" + destination.Name
-					passage.Name = fmt.Sprintf("%s%s-%d%d", sector.Name[:1], destination.Name[:1], int(math.Abs(utilities.RoundTiesUp(site.Position.X)))%10, int(math.Abs(utilities.RoundTiesUp(site.Position.Y)))%10)
-					passage.Rotation = link.Rotation
+					portal.TargetLabel = "JUMP GATE\n" + sector.Name + "\u2009→\u2009" + destination.Name
+					portal.Name = fmt.Sprintf("%s%s-%d%d", sector.Name[:1], destination.Name[:1], int(math.Abs(utilities.RoundTiesUp(site.Position.X)))%10, int(math.Abs(utilities.RoundTiesUp(site.Position.Y)))%10)
+					portal.Rotation = link.Rotation
 
-					passage.OnClosing = func() {
-						runtime.closing[passage] = true
-						s.gateChat(passage, passage.Spec.ClosingMessage)
+					portal.OnClosing = func() {
+						runtime.closing[portal] = true
+						s.gateChat(portal, portal.World.Specification.JumpGateDialog.Closing)
 					}
 				}
 
-				runtime.passages = append(runtime.passages, passage)
+				runtime.portals = append(runtime.portals, portal)
 				simulation.AddEntity(world, entity)
 			}
 		}
@@ -168,7 +169,7 @@ func (s *GameSession) Tick(ticks uint64) {
 	s.activateSector(previous)
 }
 
-func (s *GameSession) preparePassages() map[*playerRecord]Vec.Vector {
+func (s *GameSession) preparePortals() map[*playerRecord]Vec.Vector {
 	before := map[*playerRecord]Vec.Vector{}
 
 	s.sectorPlayers(func(p *playerRecord, _ string) {
@@ -179,7 +180,7 @@ func (s *GameSession) preparePassages() map[*playerRecord]Vec.Vector {
 				return
 			}
 
-			for _, gate := range s.sectors[s.currentSector].passages {
+			for _, gate := range s.sectors[s.currentSector].portals {
 				if gate.Kind != "jumpGate" {
 					continue
 				}
@@ -192,7 +193,7 @@ func (s *GameSession) preparePassages() map[*playerRecord]Vec.Vector {
 					}
 				} else if gate.Opening == 0 && gate.OpeningTarget == 0 && gate.ContainsInterior(p.ship.Position) {
 					gate.RequestExitOpening()
-					message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: strings.ReplaceAll(gate.Spec.RecoveryMessage, "{player}", p.profile.DisplayName)}
+					message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: dialogText(gate.World.Specification.JumpGateDialog.Recovery, "{player}", p.profile.DisplayName)}
 
 					s.sectorPlayers(func(recipient *playerRecord, _ string) {
 						if recipient.socket != nil && s.World.Players.Has(recipient.playerID) {
@@ -207,37 +208,37 @@ func (s *GameSession) preparePassages() map[*playerRecord]Vec.Vector {
 	return before
 }
 
-func (s *GameSession) connectedPassage(passage *objects.Passage) *objects.Passage {
-	if passage.Connected != nil {
-		return passage.Connected
+func (s *GameSession) connectedPortal(portal *objects.Portal) *objects.Portal {
+	if portal.Connected != nil {
+		return portal.Connected
 	}
 
-	defer s.useSector(passage.DestinationSector)()
+	defer s.useSector(portal.DestinationSector)()
 
-	for _, other := range s.sectors[passage.DestinationSector].passages {
-		if other.Kind == passage.Kind && other.ConnectionID == passage.ConnectionID {
-			passage.Connect(other)
+	for _, other := range s.sectors[portal.DestinationSector].portals {
+		if other.Kind == portal.Kind && other.ConnectionID == portal.ConnectionID {
+			portal.Connect(other)
 			return other
 		}
 	}
 
-	panic("sector connection has no destination passage")
+	panic("sector connection has no destination portal")
 }
 
-func (s *GameSession) requestDestinationOpening(passage *objects.Passage) {
-	exit := s.connectedPassage(passage)
+func (s *GameSession) requestDestinationOpening(portal *objects.Portal) {
+	exit := s.connectedPortal(portal)
 	exit.RequestExitOpening()
 	// Give the empty destination time to open before its traveler arrives.
 	now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
-	hole := s.World.Specification.HoleSpec
-	exit.CloseAfter = max(exit.CloseAfter, now+(hole.PullDuration+hole.TransitScaleDuration+exit.Spec.OpeningDuration)/1000)
+	spec := s.World.Specification.PortalSpec
+	exit.CloseAfter = max(exit.CloseAfter, now+(spec.PullDuration+spec.TransitScaleDuration+exit.Spec.OpeningDuration)/1000)
 }
 
 func (s *GameSession) updateGates(dt float64) {
 	now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
 
 	for _, runtime := range s.sectors {
-		for _, gate := range runtime.passages {
+		for _, gate := range runtime.portals {
 			if gate.Kind != "jumpGate" {
 				continue
 			}
@@ -269,7 +270,7 @@ func (s *GameSession) interruptGateClosing(before map[*playerRecord]Vec.Vector) 
 	runtime := s.sectors[s.currentSector]
 	now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
 
-	for _, gate := range runtime.passages {
+	for _, gate := range runtime.portals {
 		closing := gate.OpeningTarget == 0 && (gate.Opening > 0 || runtime.closing[gate])
 		reopening := gate.OpeningTarget == 1 && gate.Opening < 1 && gate.BlockedBeams != 0
 
@@ -299,14 +300,14 @@ func (s *GameSession) interruptGateClosing(before map[*playerRecord]Vec.Vector) 
 			gate.InterruptClosing(blocked)
 			gate.CloseAfter = max(gate.CloseAfter, now+gate.Spec.OpeningDuration/1000)
 			delete(runtime.closing, gate)
-			s.gateChat(gate, gate.Spec.ClosingInterruptedMessage)
+			s.gateChat(gate, gate.World.Specification.JumpGateDialog.ClosingInterrupted)
 		} else if gate.Opening == 0 {
 			delete(runtime.closing, gate)
 		}
 	}
 }
 
-func (s *GameSession) crossPassages(before map[*playerRecord]Vec.Vector) {
+func (s *GameSession) crossPortals(before map[*playerRecord]Vec.Vector) {
 	for p, from := range before {
 		if p.ship.Dead || p.ship.DockedTo != nil || p.ship.Launching != 0 || p.travelledTick == s.World.Tick {
 			continue
@@ -327,9 +328,9 @@ func (s *GameSession) crossPassages(before map[*playerRecord]Vec.Vector) {
 				continue
 			}
 
-			passage := entity.(objects.PassageEntity).PassageBase()
+			portal := entity.(objects.PortalEntity).PortalBase()
 
-			exit := s.connectedPassage(passage)
+			exit := s.connectedPortal(portal)
 
 			if exit.Kind == "jumpGate" {
 				player := p.profile.DisplayName
@@ -338,11 +339,11 @@ func (s *GameSession) crossPassages(before map[*playerRecord]Vec.Vector) {
 					player = "pilot"
 				}
 
-				text := strings.NewReplacer("{destination}", passage.DestinationName, "{player}", player).Replace(exit.Spec.ArrivalMessage)
+				text := dialogText(exit.World.Specification.JumpGateDialog.Arrival, "{destination}", portal.DestinationName, "{player}", player)
 				p.arrivalMessage = &protocol.ServerControl{Type: "chat", Sender: exit.Name, SenderRole: "friendly", Text: text}
 			}
 
-			s.relocatePlayer(p, passage.DestinationSector, sectorArrival{
+			s.relocatePlayer(p, portal.DestinationSector, sectorArrival{
 				position: exit.Position,
 				portal:   exit.ID,
 			})
@@ -353,7 +354,7 @@ func (s *GameSession) crossPassages(before map[*playerRecord]Vec.Vector) {
 		// Stay at the destination until the pilot leaves its trigger; do not bounce back.
 		if p.ship.TransitGate != 0 {
 			if entity, ok := s.World.Entities.Get(p.ship.TransitGate); ok {
-				portal := entity.(objects.PassageEntity).PassageBase()
+				portal := entity.(objects.PortalEntity).PortalBase()
 
 				if Vec.DistanceSquared(p.ship.Position, portal.Position) <= portal.TravelRadius*portal.TravelRadius {
 					continue
@@ -364,25 +365,25 @@ func (s *GameSession) crossPassages(before map[*playerRecord]Vec.Vector) {
 			continue
 		}
 
-		for _, passage := range s.sectors[s.currentSector].passages {
-			if !passage.Crossed(from, p.ship.Position) {
+		for _, portal := range s.sectors[s.currentSector].portals {
+			if !portal.Crossed(from, p.ship.Position) {
 				continue
 			}
 
-			// Begin at the crossing point even when a fast step overshoots the hole.
-			offset := Vec.Subtract(p.ship.Position, passage.Position)
+			// Begin at the crossing point even when a fast step overshoots the portal.
+			offset := Vec.Subtract(p.ship.Position, portal.Position)
 
-			if Vec.Length(offset) > passage.TravelRadius {
-				p.ship.Position = Vec.AddScaled(passage.Position, Vec.Normalize(Vec.Subtract(from, passage.Position)), passage.TravelRadius)
+			if Vec.Length(offset) > portal.TravelRadius {
+				p.ship.Position = Vec.AddScaled(portal.Position, Vec.Normalize(Vec.Subtract(from, portal.Position)), portal.TravelRadius)
 			}
 
-			p.ship.TransitGate = passage.ID
+			p.ship.TransitGate = portal.ID
 
-			if passage.Kind == "jumpGate" {
-				s.requestDestinationOpening(passage)
+			if portal.Kind == "jumpGate" {
+				s.requestDestinationOpening(portal)
 			}
 
-			p.ship.TransitTime = -(s.World.Specification.HoleSpec.PullDuration + s.World.Specification.HoleSpec.TransitScaleDuration) / 1000
+			p.ship.TransitTime = -(s.World.Specification.PortalSpec.PullDuration + s.World.Specification.PortalSpec.TransitScaleDuration) / 1000
 			p.ship.Velocity, p.ship.Spin = Vec.Vector{}, 0
 			p.ship.Firing = false
 			p.ship.Fly(0, 0)
@@ -418,7 +419,7 @@ func (s *GameSession) relocatePlayer(p *playerRecord, destination string, arriva
 	p.ship.TransitTime = 0
 
 	if arrival.portal != 0 {
-		spec := s.World.Specification.HoleSpec
+		spec := s.World.Specification.PortalSpec
 		p.ship.TransitTime = (spec.TransitScaleDuration + spec.ArrivalHoldDuration) / 1000
 		p.ship.Fly(0, 0)
 	}

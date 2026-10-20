@@ -41,6 +41,7 @@ type queuedInputs struct {
 }
 
 type playerRecord struct {
+	pirateAfter                                     uint64
 	sectorID                                        string
 	travelledTick                                   uint64
 	chatAt                                          time.Time
@@ -280,6 +281,7 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 	ship.Velocity = Vec.Vector{}
 	ship.Spin = 0
 	ship.Fly(0, 0)
+	ship.CancelCargoRelease()
 	player.lastInput = protocol.Input{}
 	player.clearInputs()
 	roundSpawn(ship)
@@ -369,6 +371,8 @@ func (s *GameSession) tickSector(ticks uint64) {
 		})
 	}
 
+	s.dispatchPirates()
+
 	if float64(world.Tick)-s.regionsSyncedAt >= 8 {
 		s.regions.Sync(world, s.positions())
 		s.regionsSyncedAt = float64(world.Tick)
@@ -386,6 +390,13 @@ func (s *GameSession) tickSector(ticks uint64) {
 		}
 
 		object.InactivePhysics = true
+
+		for _, npc := range s.sectors[s.currentSector].pirates {
+			if !npc.ship.Dead && Vec.DistanceSquared(object.Position, npc.ship.Position) <= pirateRange*pirateRange {
+				object.InactivePhysics = false
+				return
+			}
+		}
 
 		for _, position := range positions {
 			if Vec.DistanceSquared(object.Position, position) <= 2000*2000 {
@@ -437,12 +448,14 @@ func (s *GameSession) tickSector(ticks uint64) {
 		s.inputs[p.playerID] = p.frame
 	})
 
-	before := s.preparePassages()
+	before := s.preparePortals()
 	dt := float64(ticks) * step
+	s.updatePirates()
 	s.updateGateAccess(dt)
 	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
+	s.pirateHits(events)
 	s.interruptGateClosing(before)
-	s.crossPassages(before)
+	s.crossPortals(before)
 	s.progress(events)
 	s.flushChanges()
 	s.checkpoint()
@@ -614,7 +627,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 
 	p.lastInput = protocol.Input{
 		HornDrill: p.ship.ModuleActive("hornDrill"), CargoHatch: p.ship.ModuleActive("cargoHatch"),
-		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"), PlasmaActive: p.ship.ModuleActive("plasmaAccelerator"), AutogunActive: p.ship.ModuleActive("autogun"),
+		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"), PlasmaActive: p.ship.ModuleActive("plasmaAccelerator"), AutogunActive: p.ship.ModuleActive("autogun") || p.ship.ModuleActive("cannonSm"),
 	}
 
 	p.lastSequence = 0

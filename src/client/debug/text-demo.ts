@@ -12,7 +12,7 @@ export const textDemo = (game: any) => {
     game,
     text: 'HELLO WORLD',
     x: game.uiWidth / 2,
-    y: game.uiHeight / 2 - 150,
+    y: game.uiHeight / 2 - 50,
     size: 1,
     align: 0,
   });
@@ -22,7 +22,7 @@ export const textDemo = (game: any) => {
       game,
       text,
       x: game.uiWidth / 2,
-      y: game.uiHeight / 2 - 150 + 40 + i * 20,
+      y: game.uiHeight / 2 - 50 + 40 + i * 20,
       size: 1,
       align: 0,
     });

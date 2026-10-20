@@ -39,6 +39,53 @@ SESSION_WORKLOAD=module GOEXPERIMENT=simd go test \
 cp /tmp/server.pgo src/server/default.pgo
 ```
 
+## Pirate combat CPU
+
+`BenchmarkPirateCombat` runs one physically simulated player and one fighting
+pirate through the normal session input, region, weapon, collision and snapshot
+updates. Its open, normal and dense cases use generated sectors and fields at
+30% player thrust. Additional normal-fast and dense-fast cases use full player
+thrust with the same turns. The player sends repeatable flight/fire inputs;
+enlarged ship health and ammunition
+keep the encounter running. Fresh worlds and four-second warmups occur outside
+measurement every 900 ticks, preventing benchmark calibration from exhausting a
+field. The in-memory socket excludes TCP transport and timer scheduling.
+
+Build before/after test executables from their respective sources with the same
+generated catalog and production PGO profile:
+
+```sh
+GOEXPERIMENT=simd go test -c -pgo=./src/server/default.pgo \
+  -o /tmp/pirate-after.test ./src/server/network
+node benchmarking/tools/pirate-cpu.ts /tmp/pirate-before.test \
+  /tmp/pirate-after.test benchmarking/local/pirate-cpu.json
+```
+
+The paired runner alternates before/after order for five repetitions of 9,000
+ticks per case. It discovers case names from benchmark output and checks that both
+variants run the same cases. It records process user plus system CPU as `cpu-ns/tick`, binary
+hashes, build information, GC settings, scheduler width, allocation counts,
+firing time and outgoing bytes. Speed, time inside the field and separation
+metrics check that full-thrust cases remain meaningful chases. `TICKS`,
+`REPETITIONS` and `GOGC` configure both
+variants identically. The default `GOGC=800` matches the production server;
+scheduler width and CPU affinity are inherited. Run timing comparisons without
+concurrent builds, tests or profiles. The ordinary `ns/op` remains wall time.
+
+For a separate dense-case diagnostic profile:
+
+```sh
+GOGC=800 /tmp/pirate-after.test -test.run '^$' \
+  -test.bench '^BenchmarkPirateCombat/dense$' -test.benchtime=30000x \
+  -test.cpuprofile=/tmp/pirate.pprof -test.memprofile=/tmp/pirate.mem
+go tool pprof -top -cum -focus=tickSector -ignore=newPirateCombatBenchmark \
+  /tmp/pirate-after.test /tmp/pirate.pprof
+```
+
+Profiles include fixture setup and warmup unless filtered as above; reported
+CPU/tick excludes both. Inputs enter the session as decoded controls; binary
+control decoding, TCP writes and timer scheduling are outside this benchmark.
+
 ## WebSocket transport
 
 ```sh

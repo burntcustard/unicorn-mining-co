@@ -20,47 +20,55 @@ type ObjectRules struct {
 type GameObject struct {
 	DefinitionID string
 	// Keep IDs, motion and per-tick state together ahead of cold metadata.
-	ID                                                                                            int64
-	Position, Velocity                                                                            Vec.Vector
-	Rotation, Spin, Radius, RotationJump                                                          float64
-	World                                                                                         *World
-	CollisionState, ReplicationState                                                              any
-	Kind                                                                                          string
-	Physics, Dead, Buried, InactivePhysics, Ballistic, HasPaint, HasResource                      bool
-	Self                                                                                          Entity
-	AngularDrag, AngularInertiaScale, Mass, Friction, Drag, SpeedLimit, PendingUpdateTime, Health float64
-	LocalMovementParent                                                                           Entity
-	LocalMovementRate                                                                             float64
-	hitboxes                                                                                      [2][]*collision.Collider
-	hitboxIndex                                                                                   int
-	gameplayContacts                                                                              []collision.Contact
-	Decay                                                                                         float64
-	Name                                                                                          string
-	Message                                                                                       *string
-	PlayerID                                                                                      *int64
-	Paint, PointCount, Resource                                                                   int
-	RadiusEven                                                                                    *float64
-	Collections                                                                                   []*[]Entity
-	Random                                                                                        *random.Random
-	ShapeOutline                                                                                  *ShapeOutline
-	Bounciness                                                                                    *float64
-	Rules                                                                                         ObjectRules
-	Shades                                                                                        []string
-	Price                                                                                         float64
-	Item                                                                                          bool
-	Unlock                                                                                        string
+	ID                                     int64
+	Position, Velocity                     Vec.Vector
+	Rotation, Spin, Radius, RotationJump   float64
+	World                                  *World
+	CollisionState, ReplicationState       any
+	Kind                                   string
+	Physics, Dead, Buried, InactivePhysics bool
+	Ballistic, HasPaint, HasResource       bool
+	Self                                   Entity
+	AngularDrag, AngularInertiaScale       float64
+	Mass, Friction, Drag, SpeedLimit       float64
+	PendingUpdateTime, Health              float64
+	LocalMovementParent                    Entity
+	LocalMovementRate                      float64
+	hitboxes                               [2][]*collision.Collider
+	hitboxIndex                            int
+	gameplayContacts                       []collision.Contact
+	Decay                                  float64
+	Name                                   string
+	Message                                *string
+	PlayerID                               *int64
+	Paint, PointCount, Resource            int
+	RadiusEven                             *float64
+	Collections                            []*[]Entity
+	Random                                 *random.Random
+	ShapeOutline                           *ShapeOutline
+	Bounciness                             *float64
+	Rules                                  ObjectRules
+	Shades                                 []string
+	Price                                  float64
+	Hostile                                bool
+	DroppedBy                              *int64
+	PickupAfter                            uint64
+	Mined                                  bool
+	Item                                   bool
+	Unlock                                 string
 }
 
 type ObjectProperties struct {
-	Points                                                   *[]Point
-	Mass, AngularDrag, AngularInertiaScale, Friction, Radius *float64
-	Drag, SpeedLimit, Decay, Health, Bounciness              *float64
-	Physics, Buried                                          *bool
-	ShapeOutline                                             *ShapeOutline
-	Message                                                  *string
-	PlayerID                                                 *int64
-	Resource                                                 *int
-	Name                                                     *string
+	Points                                      *[]Point
+	Mass, AngularDrag, AngularInertiaScale      *float64
+	Friction, Radius                            *float64
+	Drag, SpeedLimit, Decay, Health, Bounciness *float64
+	Physics, Buried                             *bool
+	ShapeOutline                                *ShapeOutline
+	Message                                     *string
+	PlayerID                                    *int64
+	Resource                                    *int
+	Name                                        *string
 
 	ID                 *int64
 	Position, Velocity Vec.Vector

@@ -17,8 +17,9 @@ type Entity interface {
 }
 
 type Player struct {
-	ID, ShipID int64
-	Credits    *float64
+	ID, ShipID    int64
+	Credits       *float64
+	ObserverRange float64
 }
 
 type World struct {

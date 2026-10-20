@@ -1,0 +1,15 @@
+{
+  "commonFixtureSha256": {
+    "src/server/npc/pursuit_course_test.go": "1a7ff35e7182e0683b699acae95c5a2e32446c2dd60ed049f49add3fe43d52cb",
+    "src/server/npc/pursuit_gaps_test.go": "38cc797b49888a50b1ee2957f96c57fcb0fb0dd5c29bb675993df88b744e4234",
+    "src/server/npc/maneuvers_course_test.go": "0ae3e6b5f8e5c5c543ef65f11bac2c907696909925807f486d2331eda5b1ac36"
+  },
+  "referenceEnvelope": 44,
+  "retainedBudgets": "Same absolute lag/contact/stall thresholds as before; historical10xcomparison removed because routes changed.",
+  "referenceNotes": [
+    "Circle paths contain the37.556-unit physical ship navigation circle plus3units configuredclearance.",
+    "Near-hairpin curves are used only for exact antiparallel segments, avoiding discontinuous endpoint velocity.",
+    "Straightcourse seeds501gold,5amethyst,7resource1 chosen by existenceof88\u2013115unit physicallyclear circle-compatible corridors.",
+    "Orbits validate onecomplete repeatedlap; pursuefor300seconds."
+  ]
+}

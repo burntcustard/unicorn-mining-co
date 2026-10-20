@@ -3,12 +3,12 @@ import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { Ship } from '../../src/client/objects/ship';
 import { PowerPlant } from '../../src/client/objects/modules';
 import { createWorld } from '../../src/client/simulation/world';
-import { shipIds } from '../../src/specs/ships';
+import { shipSpecsById } from '../../src/specs/ships';
 import { installExampleModules } from '../support/example-modules';
 
 installExampleModules();
 
-for (const shipType of shipIds) {
+for (const shipType of shipSpecsById.keys()) {
   const ship = createPlayerShip(createWorld(), { shipType });
   const plants = ship.modules.filter((module) => module instanceof PowerPlant);
 

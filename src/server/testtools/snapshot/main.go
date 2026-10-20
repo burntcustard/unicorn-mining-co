@@ -30,6 +30,8 @@ func main() {
 				field.Spin: float64(-0.5), field.Velocity: protocol.Vector{X: 3, Y: -4},
 				field.DefinitionID:  "testScout",
 				field.Name:          "MUSTANG",
+				field.Hostile:       true,
+				field.NPCState:      "Collecting",
 				field.TargetLabel:   "CUSTOM\nTARGET LABEL",
 				field.BlockedBeams:  float64(10),
 				field.Fuel:          float64(3.25),

@@ -21,6 +21,12 @@ type fieldState struct {
 	revision      int64
 }
 
+type cargoState struct {
+	source   simulation.Entity
+	record   *binaryRecord
+	revision int64
+}
+
 type binaryRecord struct {
 	numberValues                                     []float64
 	numberMask                                       uint64
@@ -35,6 +41,7 @@ type binaryRecord struct {
 	nested                                           []byte
 	values                                           []protocol.FieldValue
 	hullHealth                                       []float64
+	cargoStates                                      []cargoState
 	fullGeneration, deltaGeneration                  uint64
 	fullOffset, fullLength, deltaOffset, deltaLength int
 }
@@ -99,6 +106,15 @@ func scalar(record *binaryRecord, id int, value any) {
 	}
 
 	changed(record, id, normalized, wire)
+}
+
+func scalarString(record *binaryRecord, id int, value string) {
+	if before, ok := record.fields[id].compare.(string); ok && before == value {
+		return
+	}
+
+	boxed := any(value)
+	changed(record, id, boxed, boxed)
 }
 
 func vector(record *binaryRecord, id int, value *Vec.Vector) {
@@ -347,10 +363,63 @@ func fullRecord(record *binaryRecord, baseline int64, replaced *binaryRecord) pr
 	return protocol.EntityRecord{ID: uint64(record.source.Base().ID), Values: values}
 }
 
+/*
+Prepare mutable cargo before comparing its revisions and module indexes. Rebuild
+the complete nested payload only when contents, ordering or child state changes.
+*/
+func cargoContents(record *binaryRecord, cargo []simulation.Entity, modules *moduleRecord, batch *BinarySnapshotBatch) {
+	id := batch.catalog.Protocol.BinaryFieldIDs.CargoContents
+	updated := len(record.cargoStates) != len(cargo)
+
+	if updated {
+		clear(record.cargoStates)
+		record.cargoStates = append(record.cargoStates[:0], make([]cargoState, len(cargo))...)
+	}
+
+	if len(cargo) == 0 {
+		clearField(record, id)
+		return
+	}
+
+	for i, object := range cargo {
+		state := cargoState{source: object}
+
+		if module, ok := object.(simulation.Module); ok {
+			state.revision = int64(modules.indexes[module])
+		} else {
+			state.record = prepare(object, batch)
+			state.revision = state.record.revision
+		}
+
+		if record.cargoStates[i] != state {
+			record.cargoStates[i] = state
+			updated = true
+		}
+	}
+
+	if !updated {
+		return
+	}
+
+	entries := make([]protocol.CargoEntry, len(cargo))
+
+	for i, state := range record.cargoStates {
+		if state.record == nil {
+			index := float64(state.revision)
+			entries[i].ModuleIndex = &index
+		} else {
+			nested := fullRecord(state.record, -1, nil)
+			entries[i].Entity = &nested
+		}
+	}
+
+	captureBytes(record, id, entries, &batch.catalog)
+}
+
 func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord {
 	catalog := &batch.catalog
 	field := catalog.Protocol.BinaryFieldIDs
-	record := recordOf(source, field.BlockedBeams)
+	record := recordOf(source, field.NPCState)
 
 	if record.batchGeneration == batch.Generation {
 		return record
@@ -384,25 +453,7 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 	if crafted {
 		entity := c.CraftBase()
 		states := readModules(entity, record)
-		cargo := entity.CargoContents
-
-		if len(cargo) > 0 {
-			entries := make([]protocol.CargoEntry, len(cargo))
-
-			for i, object := range cargo {
-				if module, ok := object.(simulation.Module); ok {
-					index := float64(states.indexes[module])
-					entries[i].ModuleIndex = &index
-				} else {
-					nested := fullRecord(prepare(object, batch), -1, nil)
-					entries[i].Entity = &nested
-				}
-			}
-
-			captureBytes(record, field.CargoContents, entries, catalog)
-		} else {
-			clearField(record, field.CargoContents)
-		}
+		cargoContents(record, entity.CargoContents, states, batch)
 
 		if entity.DockedTo != nil {
 			scalarNumber(record, field.DockedTo, float64(*entity.DockedTo))
@@ -468,6 +519,19 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 
 	if s, ok := source.(interface{ ShipBase() *objects.Ship }); ok {
 		ship := s.ShipBase()
+
+		if ship.NPCState != "" {
+			scalarString(record, field.NPCState, ship.NPCState)
+		} else {
+			clearField(record, field.NPCState)
+		}
+
+		if ship.Hostile {
+			scalar(record, field.Hostile, true)
+		} else {
+			clearField(record, field.Hostile)
+		}
+
 		scalar(record, field.Firing, ship.Firing)
 		scalarNumber(record, field.Fuel, ship.Fuel)
 		scalarNumber(record, field.StoredPower, ship.StoredPower)
@@ -489,13 +553,13 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 	optionalNumber(record, field.Health, o.Health, !math.IsNaN(o.Health) && !(o.Kind == "asteroid" && o.Health == o.Radius*2) && !(crafted && o.Health == 100))
 
 	if o.Name != "" {
-		scalar(record, field.Name, o.Name)
+		scalarString(record, field.Name, o.Name)
 	} else {
 		clearField(record, field.Name)
 	}
 
 	if o.Message != nil {
-		scalar(record, field.Message, *o.Message)
+		scalarString(record, field.Message, *o.Message)
 	} else {
 		clearField(record, field.Message)
 	}
@@ -531,8 +595,8 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		kind = "ship"
 	}
 
-	if passage, ok := source.(objects.PassageEntity); ok {
-		p := passage.PassageBase()
+	if portal, ok := source.(objects.PortalEntity); ok {
+		p := portal.PortalBase()
 		kind = p.Kind
 		scalarNumber(record, field.Opening, p.Opening)
 		scalarNumber(record, field.OpeningTarget, p.OpeningTarget)
@@ -541,14 +605,14 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 			scalarNumber(record, field.BlockedBeams, float64(p.BlockedBeams))
 		}
 
-		scalar(record, field.DestinationName, p.DestinationName)
-		scalar(record, field.TargetLabel, p.TargetLabel)
+		scalarString(record, field.DestinationName, p.DestinationName)
+		scalarString(record, field.TargetLabel, p.TargetLabel)
 	}
 
-	scalar(record, field.Kind, kind)
+	scalarString(record, field.Kind, kind)
 
 	if o.DefinitionID != "" {
-		scalar(record, field.DefinitionID, o.DefinitionID)
+		scalarString(record, field.DefinitionID, o.DefinitionID)
 	} else {
 		clearField(record, field.DefinitionID)
 	}

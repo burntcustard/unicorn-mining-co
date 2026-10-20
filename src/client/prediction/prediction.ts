@@ -237,6 +237,7 @@ const applyEntity = ({
 
     if (entity instanceof Ship && server instanceof Ship) {
       entity.firing = server.firing;
+      entity.npcState = server.npcState;
       entity.fly(server.thrust, server.turn);
     }
   }

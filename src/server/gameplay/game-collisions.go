@@ -233,14 +233,12 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		object := e.Base()
 		record, _ := object.CollisionState.(*BodyRecord)
 
-		if record != nil && (record.Body.World != g.world || record.Body.Destroyed) {
-			record = nil
-		}
-
 		if record != nil && record.Entity == e && record.Body.World == g.world && !record.Body.Destroyed {
 			live++
 			record.visited = g.visit
 			park = park || object.InactivePhysics && !record.Body.Parked
+		} else {
+			record = nil
 		}
 
 		if !object.InactivePhysics {
@@ -582,10 +580,17 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 		g.bounds = make([]float64, count*8)
 	}
 
-	reuse := len(g.sortOrder) == count
+	previousCount := len(g.sortOrder)
+	reuse := previousCount > 0
 
-	if !reuse {
-		g.sortOrder = make([]int, count)
+	if count < previousCount {
+		g.sortOrder = slices.DeleteFunc(g.sortOrder, func(index int) bool { return index >= count })
+	} else {
+		g.sortOrder = slices.Grow(g.sortOrder, count-previousCount)
+
+		for index := previousCount; index < count; index++ {
+			g.sortOrder = append(g.sortOrder, index)
+		}
 	}
 
 	bounds, free, order := g.bounds, g.free, g.sortOrder
@@ -598,10 +603,6 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 		x := start.X + dx/2
 		bounds[i*4], bounds[i*4+1], bounds[i*4+2], bounds[i*4+3] = x-reach, x, start.Y+dy/2, reach
 		free[i] = true
-
-		if !reuse {
-			order[i] = i
-		}
 	}
 
 	if reuse {
@@ -632,6 +633,11 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 	}
 
 	for i := range count {
+		// Ships can temporarily lose their fixtures during transit or docking.
+		if record := motions[order[i]]; !record.Object.Physics && len(record.Fixtures) == 0 && record.Deferred == nil {
+			continue
+		}
+
 		a := order[i] * 4
 		right := bounds[a+1] + bounds[a+3]
 
@@ -640,6 +646,10 @@ func (g *GameCollisions) findFree(motions []*BodyRecord) []bool {
 
 			if bounds[b] > right {
 				break
+			}
+
+			if record := motions[order[j]]; !record.Object.Physics && len(record.Fixtures) == 0 && record.Deferred == nil {
+				continue
 			}
 
 			if !free[order[i]] && !free[order[j]] {
@@ -754,12 +764,16 @@ func (g *GameCollisions) syncDetailed(entity simulation.Entity, record *BodyReco
 	if c, ok := entity.(interface{ CraftBase() *objects.Craft }); ok {
 		hitbox = c.CraftBase().HitboxColliding()
 		source = c.CraftBase().GeometrySource()
-
-		if source != nil && source == record.GeometrySource && same(object.Mass, geometryAt(record.Geometry, 0)) && same(object.AngularInertiaScale, geometryAt(record.Geometry, 1)) {
-			return record
-		}
 	} else {
 		hitbox = entity.Hitbox()
+
+		if geometry, ok := entity.(interface{ GeometrySource() any }); ok {
+			source = geometry.GeometrySource()
+		}
+	}
+
+	if source != nil && source == record.GeometrySource && same(object.Mass, geometryAt(record.Geometry, 0)) && same(object.AngularInertiaScale, geometryAt(record.Geometry, 1)) {
+		return record
 	}
 
 	colliders := []*collision.Collider{}

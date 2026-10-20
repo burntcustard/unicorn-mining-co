@@ -1,0 +1,187 @@
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed25/resource2/speed110
+    course_test.go:320: asteroids=88 contacts=0 average speed=108.4 longest stationary=1s minimum seven-second progress=292.7 in sight=100.0% furthest=367.7
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed67/resource2/speed110
+    course_test.go:320: asteroids=36 contacts=0 average speed=109.5 longest stationary=1s minimum seven-second progress=391.4 in sight=100.0% furthest=367.7
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed501/resource2/speed110
+    course_test.go:320: asteroids=46 contacts=0 average speed=109.8 longest stationary=1s minimum seven-second progress=397.1 in sight=100.0% furthest=367.7
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed4/resource1/speed170
+    course_test.go:320: asteroids=93 contacts=0 average speed=171.9 longest stationary=1s minimum seven-second progress=567.1 in sight=100.0% furthest=462.1
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed5/resource4/speed170
+    course_test.go:320: asteroids=238 contacts=0 average speed=172.4 longest stationary=2s minimum seven-second progress=550.0 in sight=100.0% furthest=575.9
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed18/resource4/speed170
+    course_test.go:320: asteroids=183 contacts=1 average speed=169.5 longest stationary=1s minimum seven-second progress=499.3 in sight=100.0% furthest=695.6
+=== RUN   TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed9/resource4/speed170
+    course_test.go:320: asteroids=234 contacts=0 average speed=171.9 longest stationary=1s minimum seven-second progress=545.7 in sight=100.0% furthest=368.1
+--- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes (1.23s)
+    --- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed25/resource2/speed110 (0.13s)
+    --- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed67/resource2/speed110 (0.07s)
+    --- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed501/resource2/speed110 (0.08s)
+    --- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed4/resource1/speed170 (0.14s)
+    --- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed5/resource4/speed170 (0.25s)
+    --- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed18/resource4/speed170 (0.23s)
+    --- PASS: TestPilotChasesThroughGeneratedAsteroidFieldsForFiveMinutes/seed9/resource4/speed170 (0.31s)
+=== RUN   TestFinalHeldOutCurvingPursuit
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed2/resource2/speed170
+    final_heldout_research_test.go:25: mean=142.6 p95=184.3 excess=493.5 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed3/resource1/speed180
+    final_heldout_research_test.go:25: mean=140.2 p95=189.7 excess=290.5 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed6/resource2/speed190
+    final_heldout_research_test.go:25: mean=156.3 p95=315.8 excess=1728.1 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed10/resource4/speed170
+    final_heldout_research_test.go:25: mean=146.7 p95=193.4 excess=1095.5 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed13/resource2/speed180
+    final_heldout_research_test.go:25: mean=150.8 p95=208.9 excess=1256.9 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed17/resource4/speed190
+    final_heldout_research_test.go:25: mean=147.9 p95=219.3 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicalfalse/seed31/resource4/speed170
+    final_heldout_research_test.go:25: mean=146.1 p95=195.7 excess=1317.4 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed2/resource2/speed170
+    final_heldout_research_test.go:25: mean=156.9 p95=242.3 excess=2431.6 escaped=0.00s asteroids=0 ships=2 stationary=3 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed3/resource1/speed180
+    final_heldout_research_test.go:25: mean=143.3 p95=185.1 excess=382.6 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed6/resource2/speed190
+    final_heldout_research_test.go:25: mean=176.1 p95=530.7 excess=5809.8 escaped=5.07s asteroids=0 ships=2 stationary=3 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed10/resource4/speed170
+    final_heldout_research_test.go:25: mean=154.4 p95=269.4 excess=1922.5 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed13/resource2/speed180
+    final_heldout_research_test.go:25: mean=161.8 p95=359.5 excess=2470.7 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed17/resource4/speed190
+    final_heldout_research_test.go:25: mean=160.1 p95=259.2 excess=35.2 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFinalHeldOutCurvingPursuit/physicaltrue/seed31/resource4/speed170
+    final_heldout_research_test.go:25: mean=145.8 p95=192.3 excess=924.2 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+--- PASS: TestFinalHeldOutCurvingPursuit (9.81s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed2/resource2/speed170 (0.92s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed3/resource1/speed180 (0.28s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed6/resource2/speed190 (0.75s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed10/resource4/speed170 (0.59s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed13/resource2/speed180 (0.95s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed17/resource4/speed190 (0.62s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicalfalse/seed31/resource4/speed170 (0.68s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed2/resource2/speed170 (0.91s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed3/resource1/speed180 (0.32s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed6/resource2/speed190 (0.78s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed10/resource4/speed170 (0.67s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed13/resource2/speed180 (0.95s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed17/resource4/speed190 (0.67s)
+    --- PASS: TestFinalHeldOutCurvingPursuit/physicaltrue/seed31/resource4/speed170 (0.73s)
+=== RUN   TestFreshRiskReferenceGeometry
+=== RUN   TestFreshRiskReferenceGeometry/seed101/resource2/speed170
+    fresh_risk_research_test.go:44: rocks=68 points=24714 lap=121.11s speed=170.00 yaw=1.50 force=229.33
+=== RUN   TestFreshRiskReferenceGeometry/seed103/resource4/speed180
+    fresh_risk_research_test.go:44: rocks=222 points=25152 lap=120.18s speed=180.00 yaw=1.52 force=234.25
+=== RUN   TestFreshRiskReferenceGeometry/seed107/resource1/speed190
+    fresh_risk_research_test.go:44: rocks=111 points=26590 lap=122.00s speed=190.00 yaw=1.86 force=223.47
+=== RUN   TestFreshRiskReferenceGeometry/seed109/resource4/speed170
+    fresh_risk_research_test.go:44: rocks=135 points=26096 lap=130.42s speed=170.00 yaw=1.52 force=228.34
+=== RUN   TestFreshRiskReferenceGeometry/seed113/resource2/speed190
+    fresh_risk_research_test.go:44: rocks=90 points=24408 lap=111.08s speed=190.00 yaw=1.50 force=235.91
+--- PASS: TestFreshRiskReferenceGeometry (1.16s)
+    --- PASS: TestFreshRiskReferenceGeometry/seed101/resource2/speed170 (0.32s)
+    --- PASS: TestFreshRiskReferenceGeometry/seed103/resource4/speed180 (0.28s)
+    --- PASS: TestFreshRiskReferenceGeometry/seed107/resource1/speed190 (0.04s)
+    --- PASS: TestFreshRiskReferenceGeometry/seed109/resource4/speed170 (0.28s)
+    --- PASS: TestFreshRiskReferenceGeometry/seed113/resource2/speed190 (0.25s)
+=== RUN   TestFreshRiskCurvingPursuit
+=== RUN   TestFreshRiskCurvingPursuit/physicalfalse/seed101/resource2/speed170
+    fresh_risk_research_test.go:74: mean=137.6 p95=164.5 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicalfalse/seed103/resource4/speed180
+    fresh_risk_research_test.go:74: mean=137.0 p95=173.7 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicalfalse/seed107/resource1/speed190
+    fresh_risk_research_test.go:74: mean=140.5 p95=183.1 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicalfalse/seed109/resource4/speed170
+    fresh_risk_research_test.go:74: mean=148.6 p95=190.3 excess=1640.1 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicalfalse/seed113/resource2/speed190
+    fresh_risk_research_test.go:74: mean=163.5 p95=409.5 excess=3524.6 escaped=0.00s asteroids=0 ships=0 stationary=2 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicaltrue/seed101/resource2/speed170
+    fresh_risk_research_test.go:74: mean=150.3 p95=224.6 excess=1125.6 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicaltrue/seed103/resource4/speed180
+    fresh_risk_research_test.go:74: mean=141.3 p95=188.6 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicaltrue/seed107/resource1/speed190
+    fresh_risk_research_test.go:74: mean=150.4 p95=222.2 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=1 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicaltrue/seed109/resource4/speed170
+    fresh_risk_research_test.go:74: mean=152.2 p95=225.7 excess=1238.5 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+=== RUN   TestFreshRiskCurvingPursuit/physicaltrue/seed113/resource2/speed190
+    fresh_risk_research_test.go:74: mean=162.3 p95=314.7 excess=1859.0 escaped=0.00s asteroids=0 ships=1 stationary=1 dead=false stranded=false
+--- PASS: TestFreshRiskCurvingPursuit (1.91s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicalfalse/seed101/resource2/speed170 (0.11s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicalfalse/seed103/resource4/speed180 (0.28s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicalfalse/seed107/resource1/speed190 (0.15s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicalfalse/seed109/resource4/speed170 (0.19s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicalfalse/seed113/resource2/speed190 (0.15s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicaltrue/seed101/resource2/speed170 (0.15s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicaltrue/seed103/resource4/speed180 (0.32s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicaltrue/seed107/resource1/speed190 (0.16s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicaltrue/seed109/resource4/speed170 (0.21s)
+    --- PASS: TestFreshRiskCurvingPursuit/physicaltrue/seed113/resource2/speed190 (0.18s)
+=== RUN   TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes
+=== RUN   TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes/radius280/speed170
+    maneuvers_course_test.go:53: force=139.9/293.3 mean=163.6 p95=163.8 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=1s closest=138.5
+=== RUN   TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes/radius320/speed180
+    maneuvers_course_test.go:53: force=142.3/293.3 mean=162.7 p95=162.8 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=1s closest=136.7
+=== RUN   TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes/radius360/speed190
+    maneuvers_course_test.go:53: force=145.6/293.3 mean=161.8 p95=161.6 excess=0.0 escaped=0.00s asteroids=0 ships=0 stationary=1s closest=140.9
+--- PASS: TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes (0.41s)
+    --- PASS: TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes/radius280/speed170 (0.31s)
+    --- PASS: TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes/radius320/speed180 (0.05s)
+    --- PASS: TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes/radius360/speed190 (0.06s)
+=== RUN   TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses
+=== RUN   TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed5/speed170
+    pursuit_course_test.go:372: mean=172.3 p95=414.6 excess=4274.4 escaped=0.03s asteroids=0 ships=1 stationary=1s closest=44.2
+=== RUN   TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed9/speed180
+    pursuit_course_test.go:372: mean=164.8 p95=320.3 excess=3781.0 escaped=0.53s asteroids=0 ships=2 stationary=4s closest=56.8
+=== RUN   TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed4/speed190
+    pursuit_course_test.go:372: mean=166.0 p95=343.0 excess=2246.9 escaped=0.00s asteroids=0 ships=1 stationary=1s closest=46.4
+--- PASS: TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses (0.84s)
+    --- PASS: TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed5/speed170 (0.33s)
+    --- PASS: TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed9/speed180 (0.34s)
+    --- PASS: TestPursuitKeepsUpWithPhysicalPlayerShipsAroundNarrowCourses/seed4/speed190 (0.17s)
+=== RUN   TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes
+=== RUN   TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed5/resource4/speed170
+    pursuit_course_test.go:419: reference maximum speed=170.0 yaw=1.59 thrust=226.4 force yaw=377.0
+    pursuit_course_test.go:430: points=25361 lap=130.3s mean=155.5 p95=339.6 excess=1976.7 escaped=0.00s contacts=0 stationary=3s closest=2.7
+=== RUN   TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed9/resource4/speed180
+    pursuit_course_test.go:419: reference maximum speed=180.0 yaw=1.76 thrust=234.1 force yaw=377.0
+    pursuit_course_test.go:430: points=24590 lap=123.3s mean=168.4 p95=453.0 excess=5716.6 escaped=6.97s contacts=0 stationary=4s closest=10.2
+=== RUN   TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed4/resource1/speed190
+    pursuit_course_test.go:419: reference maximum speed=190.0 yaw=1.60 thrust=229.0 force yaw=101.3
+    pursuit_course_test.go:430: points=24120 lap=108.4s mean=192.9 p95=472.3 excess=6486.5 escaped=0.00s contacts=0 stationary=2s closest=5.8
+--- PASS: TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes (2.08s)
+    --- PASS: TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed5/resource4/speed170 (0.83s)
+    --- PASS: TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed9/resource4/speed180 (0.94s)
+    --- PASS: TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes/seed4/resource1/speed190 (0.31s)
+=== RUN   TestPursuitKeepsUpThroughUsableGeneratedGaps
+=== RUN   TestPursuitKeepsUpThroughUsableGeneratedGaps/seed501/resource2/speed170
+    pursuit_gaps_test.go:205: path={origin:{X:13949.226511861527 Y:-12183.483354783466} direction:{X:-0.9919856636264234 Y:0.12635047748087236} speed:170 duration:35} mean=137.4 p95=157.0 excess=0.0 escaped=0.00s contacts=0 stationary=1s closest=133.7
+=== RUN   TestPursuitKeepsUpThroughUsableGeneratedGaps/seed5/resource4/speed180
+    pursuit_gaps_test.go:205: path={origin:{X:4496.582355047369 Y:1099.3420845428184} direction:{X:-0.8563459552628147 Y:0.5164025609009094} speed:180 duration:35} mean=138.2 p95=172.9 excess=0.0 escaped=0.00s contacts=0 stationary=1s closest=134.3
+=== RUN   TestPursuitKeepsUpThroughUsableGeneratedGaps/seed7/resource1/speed190
+    pursuit_gaps_test.go:205: path={origin:{X:8597.356378652006 Y:-11558.097528798768} direction:{X:-0.4957988129187854 Y:0.8684374111634776} speed:190 duration:35} mean=140.9 p95=189.4 excess=0.0 escaped=0.00s contacts=0 stationary=1s closest=134.0
+--- PASS: TestPursuitKeepsUpThroughUsableGeneratedGaps (0.14s)
+    --- PASS: TestPursuitKeepsUpThroughUsableGeneratedGaps/seed501/resource2/speed170 (0.04s)
+    --- PASS: TestPursuitKeepsUpThroughUsableGeneratedGaps/seed5/resource4/speed180 (0.07s)
+    --- PASS: TestPursuitKeepsUpThroughUsableGeneratedGaps/seed7/resource1/speed190 (0.03s)
+=== RUN   TestGeneratedRiskGapReferencesFitPhysicalShips
+=== RUN   TestGeneratedRiskGapReferencesFitPhysicalShips/seed5/resource2/speed170
+    pursuit_risk_test.go:112: rocks=79 pair=457401854/130194003 circle clearance=32.73 reference envelope=44.0 path={origin:{X:-16389.68510501844 Y:-3423.869714973028} direction:{X:0.8007481285757141 Y:0.5990011974800147} speed:170 duration:14} center={-15869.198821444226 -3034.5189366110185}
+=== RUN   TestGeneratedRiskGapReferencesFitPhysicalShips/seed3/resource4/speed180
+    pursuit_risk_test.go:112: rocks=224 pair=1069182851/806119139 circle clearance=28.23 reference envelope=44.0 path={origin:{X:-2132.637496386362 Y:-2487.6596106956467} direction:{X:0.9994877631129189 Y:-0.03200330275977326} speed:180 duration:14} center={-1482.9704503629644 -2508.461757489499}
+=== RUN   TestGeneratedRiskGapReferencesFitPhysicalShips/seed2/resource1/speed190
+    pursuit_risk_test.go:112: rocks=37 pair=483652595/244709727 circle clearance=31.26 reference envelope=44.0 path={origin:{X:-7619.2577499280205 Y:5677.09063296714} direction:{X:0.9159835085664022 Y:-0.40121591697536624} speed:190 duration:14} center={-7023.868469359859 5416.300286933152}
+--- PASS: TestGeneratedRiskGapReferencesFitPhysicalShips (0.10s)
+    --- PASS: TestGeneratedRiskGapReferencesFitPhysicalShips/seed5/resource2/speed170 (0.05s)
+    --- PASS: TestGeneratedRiskGapReferencesFitPhysicalShips/seed3/resource4/speed180 (0.04s)
+    --- PASS: TestGeneratedRiskGapReferencesFitPhysicalShips/seed2/resource1/speed190 (0.01s)
+=== RUN   TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii
+=== RUN   TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii/seed5/resource2/speed170
+    pursuit_risk_test.go:201: pair=457401854/130194003 circle clearance=32.73 mean=141.6 p95=193.3 excess=0.0 escaped=0.00s contacts=0 stationary=1s crossing offset=0.0 at=4.65s
+=== RUN   TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii/seed3/resource4/speed180
+    pursuit_risk_test.go:201: pair=1069182851/806119139 circle clearance=28.23 mean=144.1 p95=198.5 excess=0.0 escaped=0.00s contacts=0 stationary=1s crossing offset=0.0 at=4.39s
+=== RUN   TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii/seed2/resource1/speed190
+    pursuit_risk_test.go:201: pair=483652595/244709727 circle clearance=31.26 mean=151.2 p95=204.3 excess=0.0 escaped=0.00s contacts=0 stationary=1s crossing offset=0.0 at=4.27s
+--- PASS: TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii (0.12s)
+    --- PASS: TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii/seed5/resource2/speed170 (0.06s)
+    --- PASS: TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii/seed3/resource4/speed180 (0.05s)
+    --- PASS: TestPursuitUsesPhysicalGapsHiddenByAsteroidRadii/seed2/resource1/speed190 (0.01s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/npc	17.813s

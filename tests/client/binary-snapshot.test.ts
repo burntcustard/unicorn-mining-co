@@ -252,7 +252,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
 
   start(unknownField, 0, 0, 1);
   unknownField.unsigned(1);
-  unknownField.record(1, [[46, null]]);
+  unknownField.record(1, [[48, null]]);
   const duplicateField = new Writer();
 
   start(duplicateField, 0, 0, 1);
@@ -858,3 +858,32 @@ const transitMessage = decodeBinarySnapshot(transit.packet());
 
 assert.equal(transitMessage.fullEntities[0].transitTime, -1.25);
 assert.equal(transitMessage.fullEntities[0].transitGate, 987);
+
+for (const hostile of [0, 1, 2]) {
+  const writer = new Writer();
+
+  start(writer, 0, 0, 1);
+  writer.unsigned(1);
+  writer.record(1, [[46, () => writer.byte(hostile)]]);
+
+  if (hostile > 1) {
+    assert.throws(() => decodeBinarySnapshot(writer.packet()));
+  } else {
+    assert.equal(
+      decodeBinarySnapshot(writer.packet()).fullEntities[0].hostile,
+      !!hostile,
+    );
+  }
+}
+
+for (const state of [null, 'Fighting', 'Collecting']) {
+  const writer = new Writer();
+
+  start(writer, 0, 0, 1);
+  writer.unsigned(1);
+  writer.record(1, [[47, state === null ? null : () => writer.string(state)]]);
+  assert.equal(
+    decodeBinarySnapshot(writer.packet()).fullEntities[0].npcState,
+    state,
+  );
+}

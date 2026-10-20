@@ -29,6 +29,7 @@ export class GameObject {
   buried: boolean | undefined = undefined;
   collections: any[][] = [];
   dead = false;
+  hostile = false;
   decay?: number = undefined;
   drag: number | undefined = undefined;
   static friction = defaultFriction;

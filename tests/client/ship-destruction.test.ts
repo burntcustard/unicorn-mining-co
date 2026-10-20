@@ -133,7 +133,7 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
         damaged.hullSegments.forEach((plan,index)=>{if(plan.core)health[index]=0;});
         damaged.playerId=1;
         damaged.hullHealth=health;
-        assert(!damaged.cockpit,'hydration has already removed both cores');
+        assert(!damaged.cockpit,'hydration has already removed all cores');
         damaged.update(0);
         assert(damaged.dead,'hydrated fatal damage still ends a player ship');
         assert(cargo.length>0,'death covers ships carrying spare modules');

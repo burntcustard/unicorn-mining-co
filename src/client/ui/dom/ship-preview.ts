@@ -9,7 +9,8 @@ import {
 } from '../../../specs/rendering-layers';
 import { type Segment } from '../../types';
 import { moduleTypes, moduleTypesById } from '../../objects/modules';
-import { mustang, type ShipId } from '../../../specs/ships';
+import { mustang } from '../../../specs/ships/mustang';
+import { type ShipId } from '../../../specs/ships';
 import { paintColors, colors } from '../../../specs/colors';
 import { type ShipPreview } from './identity';
 import { rotatePoint, rotatePoints } from '../../utilities/geometry';

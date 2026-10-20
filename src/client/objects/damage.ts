@@ -6,9 +6,14 @@ export const damage = (
   object: GameObject | Segment | AsteroidSegment,
   amount: number,
   _point?: number[],
-) => {
+): number => {
   const segment = (('segment' in object && object.segment) ||
     object) as Segment;
+
+  if (segment.mount?.hull && segment.module?.forwardThrust) {
+    return damage(segment.mount.hull, amount);
+  }
+
   const target = segment.mount || segment;
   // Asteroids and items are ground down here too, and carry no module
   const { module } = segment;
@@ -44,7 +49,11 @@ export const damage = (
 
     if (segment.health < 1) {
       mount.health -= mount.health;
-    } else if (mount.module && mount.module.disablePhysics) {
+    } else if (
+      mount.module &&
+      mount.module.disablePhysics &&
+      !mount.module.forwardThrust
+    ) {
       mount.health -= amount;
     }
   });

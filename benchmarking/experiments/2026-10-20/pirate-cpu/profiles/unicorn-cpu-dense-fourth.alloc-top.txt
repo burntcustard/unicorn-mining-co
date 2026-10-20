@@ -1,0 +1,30 @@
+File: unicorn-cpu-session-fourth-pgo.test
+Build ID: 928c72f913f928dc220c51350190cb75407d7866
+Type: alloc_objects
+Time: 2026-10-20 16:21:34 BST
+Active filters:
+   focus=tickSector
+Showing nodes accounting for 5191389, 66.21% of 7841039 total
+Dropped 80 nodes (cum <= 39205)
+Showing top 20 nodes out of 75
+      flat  flat%   sum%        cum   cum%
+   1083046 13.81% 13.81%    1172932 14.96%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*RegionManager).Sync
+   1034700 13.20% 27.01%    1054986 13.45%  github.com/burntcustard/unicorn-mining-co/src/server/npc.obstaclesFor.func1
+    425989  5.43% 32.44%     425989  5.43%  github.com/burntcustard/unicorn-mining-co/src/server/network.canonical (inline)
+    404148  5.15% 37.60%     404148  5.15%  github.com/burntcustard/unicorn-mining-co/src/server/objects.(*Craft).AppendMounts (inline)
+    382589  4.88% 42.47%     462715  5.90%  github.com/burntcustard/unicorn-mining-co/src/server/network.readModules
+    327707  4.18% 46.65%     327707  4.18%  github.com/burntcustard/unicorn-mining-co/src/server/objects.(*Craft).AppendModules (inline)
+    248502  3.17% 49.82%     248502  3.17%  github.com/burntcustard/unicorn-mining-co/src/server/objects/modules.points (inline)
+    229379  2.93% 52.75%     237571  3.03%  github.com/burntcustard/unicorn-mining-co/src/server/network.vector
+    168523  2.15% 54.90%     168523  2.15%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*Asteroid).collider
+    159175  2.03% 56.93%     320913  4.09%  github.com/burntcustard/unicorn-mining-co/src/server/objects.(*Projectile).ResolveHits.func1
+    131072  1.67% 58.60%     379574  4.84%  github.com/burntcustard/unicorn-mining-co/src/server/objects.(*Craft).hitbox (partial-inline)
+    101586  1.30% 59.90%     529339  6.75%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).syncDetailed
+     74906  0.96% 60.85%     424099  5.41%  github.com/burntcustard/unicorn-mining-co/src/server/objects.(*Projectile).ResolveHits
+     69604  0.89% 61.74%      69604  0.89%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*RegionManager).QueryMany
+     65537  0.84% 62.57%      65537  0.84%  github.com/burntcustard/unicorn-mining-co/src/server/network.wireOutline (inline)
+     65537  0.84% 63.41%      65992  0.84%  github.com/burntcustard/unicorn-mining-co/src/server/physics.(*World).FindNewContacts (inline)
+     65537  0.84% 64.25%    1910714 24.37%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.UpdateWorld
+     62806   0.8% 65.05%      62806   0.8%  github.com/burntcustard/unicorn-mining-co/src/server/collision.(*SpatialGrid[go.shape.*uint8]).CreateProxy
+     47356   0.6% 65.65%      47356   0.6%  slices.Clone[go.shape.[]github.com/burntcustard/unicorn-mining-co/src/server/protocol.ModuleState,go.shape.struct { Type float64; Mount float64; ID *float64; Health *float64; HealthActivated *float64; FireCooldown *float64; ChargeCooldown *float64; Shades []string; Segments []github.com/burntcustard/unicorn-mining-co/src/server/protocol.ModuleSegment }] (inline)
+     43690  0.56% 66.21%    1272805 16.23%  github.com/burntcustard/unicorn-mining-co/src/server/network.prepare

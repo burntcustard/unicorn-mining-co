@@ -13,6 +13,7 @@ type Projectile struct {
 	*simulation.GameObject
 	Spec       specs.Module
 	SweepStart Vec.Vector
+	proxy      *collision.BaseShape
 }
 
 func NewProjectile(id string, props simulation.ObjectProperties, catalog specs.Catalog) *Projectile {
@@ -80,7 +81,11 @@ func (p *Projectile) ResolveHits(events *[]protocol.SimulationEvent, world *simu
 
 	var first *collision.Collider
 	fraction := 1.0
-	shot := shape.NewCircle(Vec.Vector{}, p.Radius)
+
+	if p.proxy == nil || p.proxy.Radius != p.Radius {
+		p.proxy = shape.NewCircle(Vec.Vector{}, p.Radius).Base()
+	}
+
 	sweepA := collision.NewSweep()
 	sweepA.C0, sweepA.C = p.SweepStart, p.Position
 	travel := Vec.Distance(p.SweepStart, p.Position)
@@ -98,31 +103,40 @@ func (p *Projectile) ResolveHits(events *[]protocol.SimulationEvent, world *simu
 			return
 		}
 
-		for _, c := range entity.Hitbox() {
+		hitbox := entity.Hitbox()
+		var source any
+
+		if geometry, ok := entity.(interface{ GeometrySource() any }); ok {
+			source = geometry.GeometrySource()
+		}
+
+		for _, c := range hitbox {
 			segment, _ := c.Segment.(*simulation.Segment)
 
 			if c.Physics != nil && !*c.Physics && !(o.Kind == "station" && segment != nil && segment.Hull) || c.PickupPoint {
 				continue
 			}
 
-			proxy := shape.NewCircle(Vec.Vector{}, c.GetRadius()).Base()
+			proxy := c.ShapeProxy(source, func() *collision.BaseShape {
+				if len(c.ShapeOutline) == 0 {
+					return shape.NewCircle(Vec.Vector{}, c.GetRadius()).Base()
+				}
 
-			if len(c.ShapeOutline) > 0 {
 				vertices := make([]Vec.Vector, len(c.ShapeOutline))
 
 				for i, point := range c.ShapeOutline {
 					vertices[i] = Vec.Create(point[0], point[1])
 				}
 
-				proxy = shape.NewPolygon(vertices, c.CollisionMargin, world.Specification.Simulation.LinearSlop).Base()
-			}
+				return shape.NewPolygon(vertices, c.CollisionMargin, world.Specification.Simulation.LinearSlop).Base()
+			})
 
 			sweepB := collision.NewSweep()
 			position, rotation := c.GetPosition(), c.GetRotation()
 			sweepB.C, sweepB.C0 = position, Vec.AddScaled(position, o.Velocity, -dt)
 			sweepB.A, sweepB.A0 = rotation, rotation-o.Spin*dt
 			result := collision.TOIOutput{T: fraction}
-			collision.FindTimeOfImpact(&result, collision.TOIInput{ProxyA: shot.Base(), ProxyB: proxy, SweepA: &sweepA, SweepB: &sweepB, TMax: fraction}, world.Specification.Simulation.LinearSlop)
+			collision.FindTimeOfImpact(&result, collision.TOIInput{ProxyA: p.proxy, ProxyB: proxy, SweepA: &sweepA, SweepB: &sweepB, TMax: fraction}, world.Specification.Simulation.LinearSlop)
 
 			if (result.Touching || result.T == 0) && (first == nil || result.T < fraction) {
 				first = c
@@ -151,11 +165,18 @@ func (p *Projectile) ResolveHits(events *[]protocol.SimulationEvent, world *simu
 	}
 
 	applied := Damage(target, p.Spec.Damage)
+
+	by := int64(0)
+
+	if applied > 0 && p.PlayerID != nil {
+		by = *p.PlayerID
+	}
+
 	selfApplied := Damage(p, p.Spec.Damage)
 	p.Position = Vec.AddScaled(p.SweepStart, Vec.Subtract(p.Position, p.SweepStart), fraction)
 
 	*events = append(*events, protocol.CollisionEvent{
-		A: p.ID, B: first.Owner.(simulation.Entity).Base().ID,
+		A: p.ID, B: first.Owner.(simulation.Entity).Base().ID, By: by,
 		Impact:   Vec.Distance(p.Velocity, first.Owner.(simulation.Entity).Base().Velocity),
 		Colors:   [2]string{p.Spec.Projectile.Color, collision.OutlineColorOf(first, world.Specification.Colors)},
 		Damage:   [2]float64{selfApplied, applied},

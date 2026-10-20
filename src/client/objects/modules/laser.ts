@@ -121,7 +121,11 @@ class LaserModule extends Module {
   }
 
   resolveHits(craft: Ship, dt: number, events: SimulationEvent[]) {
-    if (!craft.firing || !this.ready(craft) || craft.playerId === undefined) {
+    if (
+      !craft.moduleFiring(this) ||
+      !this.ready(craft) ||
+      craft.playerId === undefined
+    ) {
       return;
     }
 
@@ -169,7 +173,7 @@ class LaserModule extends Module {
 
     if (
       craft &&
-      craft.firing &&
+      craft.moduleFiring(this) &&
       this.ready(craft) &&
       craft.segmentsAtMount(this.mount).at(-1) === segment
     ) {

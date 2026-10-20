@@ -10,6 +10,7 @@ import { shield } from '../../specs/modules/utility/shield';
 
 export type KeyAction =
   | 'fire'
+  | 'cargoRelease'
   | 'plasmaActive'
   | 'autogunActive'
   | 'laserActive'
@@ -35,6 +36,7 @@ export type Keybindings = Record<KeyAction, KeyBinding>;
 // an array so a later player profile can assign several keys to one action.
 export const defaultKeybindings = {
   fire: { keys: [' '], mode: 'hold' },
+  cargoRelease: { keys: ['c'], mode: 'hold' },
   plasmaActive: { keys: ['p'], mode: 'toggle' },
   autogunActive: { keys: ['a'], mode: 'toggle' },
   laserActive: { keys: ['b'], mode: 'toggle' },
@@ -90,6 +92,7 @@ export const updateMovement = (
     binding.keys.some((key) => pressed.has(key.toLowerCase()));
 
   input.fire = held(defaultKeybindings.fire);
+  input.cargoRelease = held(defaultKeybindings.cargoRelease);
   input.thrust = Number(held(defaultKeybindings.forwardThrust));
   input.turn =
     Number(held(defaultKeybindings.turnRight)) -
@@ -111,6 +114,7 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Target next object', defaultKeybindings.targetNext],
   ['Toggle FPS counter', defaultKeybindings.fpsCounter],
   ['Request access', defaultKeybindings.requestGateAccess],
+  ['Release all cargo (hold 1 second)', defaultKeybindings.cargoRelease],
 ];
 const originalKeys = bindingEntries.map(([, binding]) => [...binding.keys]);
 
@@ -137,7 +141,7 @@ try {
 
   if (
     Array.isArray(saved) &&
-    saved.length >= bindingEntries.length - 3 &&
+    saved.length >= bindingEntries.length - 4 &&
     saved.length <= bindingEntries.length &&
     saved.every(
       (keys) =>

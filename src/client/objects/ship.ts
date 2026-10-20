@@ -10,7 +10,7 @@ import { game } from '../game';
 import { shipSpecsById, type ShipId } from '../../specs/ships';
 import { type ShipSpec } from '../../specs/ships/types';
 import { flight } from '../../specs/control-ship';
-import { holeSpec } from '../../specs/hole';
+import { portalSpec } from '../../specs/portal';
 import { easeProgress } from '../utilities/ease';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
@@ -23,6 +23,7 @@ import { type Mount, type Segment } from '../types';
 import { HornDrill } from './modules/horn-drill';
 import { CargoHatch } from './modules/cargo-hatch';
 import { moduleTypes } from './modules/index';
+import { stationModuleIds } from '../../specs/modules';
 import { Module } from './modules/module';
 import { Item } from './item';
 import { paintColors } from '../../specs/colors';
@@ -35,6 +36,7 @@ type DockActionRequest =
 
 export class Ship extends Craft {
   declare name: string;
+  declare npcState?: string;
   // Resist collision torque without changing the pilot's steering response.
   static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
@@ -55,7 +57,7 @@ export class Ship extends Craft {
         );
       const firing =
         module.powerFiring &&
-        this.firing &&
+        this.moduleFiring(module) &&
         !this.dead &&
         !this.dockedTo &&
         !this.launching &&
@@ -214,7 +216,12 @@ export class Ship extends Craft {
         !station ||
         !ids.length ||
         new Set(ids).size !== ids.length ||
-        objects.some((object) => !object) ||
+        objects.some(
+          (object) =>
+            !object ||
+            (object instanceof Module &&
+              !stationModuleIds.includes(object.definitionId)),
+        ) ||
         player.credits < cost ||
         this.cargoContents.length + ids.length > this.cargoSpace
       ) {
@@ -254,6 +261,13 @@ export class Ship extends Craft {
 
       if (station?.cargoContents) {
         objectsToSell.forEach((object) => {
+          if (
+            object instanceof Module &&
+            !stationModuleIds.includes(object.definitionId)
+          ) {
+            return;
+          }
+
           // Keep the ID usable for immediate buyback until the server assigns
           // a station ID and acknowledges the sale.
           station.cargoContents.push(object);
@@ -282,6 +296,7 @@ export class Ship extends Craft {
 
       if (
         !Type ||
+        !stationModuleIds.includes(Type.definitionId) ||
         player.credits < Type.price ||
         (action.mount !== undefined
           ? !mount || mount.module || !mount.fits.includes(Type)
@@ -398,6 +413,18 @@ export class Ship extends Craft {
     this.fuel = properties.fuel ?? spec.fuelCapacity;
     this.storedPower = properties.storedPower ?? 0;
     this.definitionId = shipType === 'mustang' ? undefined : shipType;
+  }
+
+  get stranded() {
+    return (
+      !this.dead &&
+      !this.dockedTo &&
+      !this.launching &&
+      (!this.engine.mount || this.fuel <= 0) &&
+      this.segments.some(
+        (segment) => segment.hull && segment.core && !(segment.health < 1),
+      )
+    );
   }
 
   // This hull has one engine mount; each nozzle belongs to the same module.
@@ -557,7 +584,7 @@ export class Ship extends Craft {
   render(options: CraftRenderOptions = {}) {
     const { ctx } = game;
     const pose = options.pose || this;
-    const scaleDuration = holeSpec.transitScaleDuration / 1000;
+    const scaleDuration = portalSpec.transitScaleDuration / 1000;
     const scale =
       this.transitTime < 0
         ? Math.min(1, -this.transitTime / scaleDuration)
@@ -567,7 +594,7 @@ export class Ship extends Craft {
               Math.min(
                 1,
                 (scaleDuration +
-                  holeSpec.arrivalHoldDuration / 1000 -
+                  portalSpec.arrivalHoldDuration / 1000 -
                   this.transitTime) /
                   scaleDuration,
               ),
@@ -643,7 +670,11 @@ export class Ship extends Craft {
           segment.mount.health > 0,
       );
 
-      if (!this.firing || !active || module.chargeCooldown > 1e-9) {
+      if (
+        !this.moduleFiring(module) ||
+        !active ||
+        module.chargeCooldown > 1e-9
+      ) {
         module.fireCooldown = Math.max(0, module.fireCooldown);
         continue;
       }
@@ -710,7 +741,7 @@ export class Ship extends Craft {
 
       if (portal) {
         const remaining =
-          -this.transitTime - holeSpec.transitScaleDuration / 1000;
+          -this.transitTime - portalSpec.transitScaleDuration / 1000;
         const ratio =
           this.transitTime < 0 && remaining > dt ? dt / remaining : 1;
 

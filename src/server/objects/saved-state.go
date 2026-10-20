@@ -15,21 +15,24 @@ import (
 // the database schema. Capture runs on the world owner; encoding runs elsewhere.
 // Label is the legacy on-disk key for Name; keep it compatible with existing gob saves.
 type SavedObject struct {
-	ID                                                                                                                                  int64
-	Kind, DefinitionID, Label, Unlock                                                                                                   string
-	Position, Velocity                                                                                                                  Vec.Vector
-	Rotation, Spin, Radius, AngularDrag, AngularInertiaScale, Mass, Friction, Drag, SpeedLimit, PendingUpdateTime, Health, Decay, Price float64
-	Physics, Dead, Buried, Ballistic, HasPaint, HasResource, Item                                                                       bool
-	Paint, PointCount, Resource                                                                                                         int
-	RadiusEven, Bounciness                                                                                                              *float64
-	Message                                                                                                                             *string
-	PlayerID                                                                                                                            *int64
-	Shades                                                                                                                              []string
-	ShapeOutline                                                                                                                        *simulation.ShapeOutline
-	LocalMovementParent                                                                                                                 int64
-	LocalMovementRate                                                                                                                   float64
-	RandomState                                                                                                                         float64
-	SharedRandom                                                                                                                        bool
+	ID                                                       int64
+	Kind, DefinitionID, Label, Unlock                        string
+	Position, Velocity                                       Vec.Vector
+	Rotation, Spin, Radius, AngularDrag, AngularInertiaScale float64
+	Mass, Friction, Drag, SpeedLimit                         float64
+	PendingUpdateTime, Health, Decay, Price                  float64
+	Physics, Dead, Buried, Ballistic                         bool
+	HasPaint, HasResource, Item, Mined                       bool
+	Paint, PointCount, Resource                              int
+	RadiusEven, Bounciness                                   *float64
+	Message                                                  *string
+	PlayerID                                                 *int64
+	Shades                                                   []string
+	ShapeOutline                                             *simulation.ShapeOutline
+	LocalMovementParent                                      int64
+	LocalMovementRate                                        float64
+	RandomState                                              float64
+	SharedRandom                                             bool
 }
 
 type SavedEntity struct {
@@ -84,7 +87,7 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 		Position: Vec.Create(math.Round(o.Position.X), math.Round(o.Position.Y)), Velocity: o.Velocity, Rotation: o.Rotation, Spin: o.Spin, Radius: o.Radius,
 		AngularDrag: o.AngularDrag, AngularInertiaScale: o.AngularInertiaScale, Mass: o.Mass, Friction: o.Friction,
 		Drag: o.Drag, SpeedLimit: o.SpeedLimit, PendingUpdateTime: o.PendingUpdateTime, Health: o.Health, Decay: o.Decay, Price: o.Price,
-		Physics: o.Physics, Dead: o.Dead, Buried: o.Buried, Ballistic: o.Ballistic, HasPaint: o.HasPaint, HasResource: o.HasResource, Item: o.Item,
+		Physics: o.Physics, Dead: o.Dead, Buried: o.Buried, Ballistic: o.Ballistic, HasPaint: o.HasPaint, HasResource: o.HasResource, Item: o.Item, Mined: o.Mined,
 		Paint: o.Paint, PointCount: o.PointCount, Resource: o.Resource, RadiusEven: savedPointer(o.RadiusEven), Bounciness: savedPointer(o.Bounciness),
 		Message: savedPointer(o.Message), PlayerID: savedPointer(o.PlayerID), Shades: slices.Clone(o.Shades), ShapeOutline: savedOutline(o.ShapeOutline),
 		LocalMovementRate: o.LocalMovementRate,
@@ -367,7 +370,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 	b.Position, b.Velocity, b.Rotation, b.Spin, b.Radius = o.Position, o.Velocity, o.Rotation, o.Spin, o.Radius
 	b.AngularDrag, b.AngularInertiaScale, b.Mass, b.Friction = o.AngularDrag, o.AngularInertiaScale, o.Mass, o.Friction
 	b.Drag, b.SpeedLimit, b.PendingUpdateTime, b.Health, b.Decay, b.Price = o.Drag, o.SpeedLimit, o.PendingUpdateTime, o.Health, o.Decay, o.Price
-	b.Physics, b.Dead, b.Buried, b.Ballistic, b.HasPaint, b.HasResource, b.Item = o.Physics, o.Dead, o.Buried, o.Ballistic, o.HasPaint, o.HasResource, o.Item
+	b.Physics, b.Dead, b.Buried, b.Ballistic, b.HasPaint, b.HasResource, b.Item, b.Mined = o.Physics, o.Dead, o.Buried, o.Ballistic, o.HasPaint, o.HasResource, o.Item, o.Mined
 	b.Paint, b.PointCount, b.Resource, b.RadiusEven, b.Bounciness = o.Paint, o.PointCount, o.Resource, o.RadiusEven, o.Bounciness
 	b.Message, b.PlayerID, b.Shades, b.ShapeOutline = o.Message, o.PlayerID, o.Shades, o.ShapeOutline
 	b.LocalMovementRate = o.LocalMovementRate

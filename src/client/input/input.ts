@@ -15,6 +15,21 @@ const callbacks = new Map<string, (event: KeyboardEvent) => void>();
 const pressed = new Set<string>();
 const actionCallbacks = new Map<KeyBinding, (event: KeyboardEvent) => void>();
 let menuInput = false;
+let cargoReleaseClicked = false;
+let cargoReleaseTimer: ReturnType<typeof setTimeout>;
+
+let notifyCargoRelease = () => {};
+
+export const cargoRelease = () => {
+  cargoReleaseClicked = true;
+  clearTimeout(cargoReleaseTimer);
+  notifyCargoRelease();
+
+  cargoReleaseTimer = setTimeout(() => {
+    cargoReleaseClicked = false;
+    notifyCargoRelease();
+  }, 1100);
+};
 
 let releaseInput = () => {};
 
@@ -46,9 +61,14 @@ export const initKeys = ({
 } = {}) => {
   const notify = (previous: PlayerInput) => {
     updateMovement(pressed, playerInput);
+    playerInput.cargoRelease ||= cargoReleaseClicked;
+
+    if (playerInput.cargoRelease) playerInput.cargoHatch = true;
 
     if (!sameInput(previous, playerInput)) onChange({ ...playerInput });
   };
+
+  notifyCargoRelease = () => notify({ ...playerInput });
 
   const keyDown = (event: KeyboardEvent) => {
     if (
@@ -137,9 +157,12 @@ export const initKeys = ({
 
   releaseInput = () => {
     pressed.clear();
+    cargoReleaseClicked = false;
+    clearTimeout(cargoReleaseTimer);
 
     Object.assign(playerInput, emptyPlayerInput(), {
       fire: false,
+      cargoRelease: false,
       plasmaActive: false,
       autogunActive: false,
       laserActive: false,

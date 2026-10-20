@@ -174,6 +174,29 @@ func TestStationaryPlayerOmitsUnchangedFragments(t *testing.T) {
 	}
 }
 
+func TestNPCStateIsReplicatedAndCleared(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(world, objects.Properties{PlayerID: new(int64(1))})
+	batch := NewBinarySnapshotBatch(catalog)
+
+	for _, state := range []string{"Pursuing", "Waiting", "Fighting", "Collecting", ""} {
+		ship.NPCState = state
+		batch.Begin(NewReplicationView(world))
+		record := batch.prepared(ship)
+		value := record.fields[catalog.Protocol.BinaryFieldIDs.NPCState].wire
+
+		if state == "" && value != nil || state != "" && value != state {
+			t.Fatalf("NPC state %q replicated as %v", state, value)
+		}
+	}
+}
+
 func TestEntityReplicationLoadAndUnloadBoundaries(t *testing.T) {
 	t.Parallel()
 	catalog, err := specs.Load()

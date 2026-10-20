@@ -174,7 +174,11 @@ export class Weapon extends Module {
 
 export const PlasmaAccelerator = Weapon.define('plasmaAccelerator');
 
-class AutogunModule extends Weapon {
+export class KineticWeapon extends Weapon {}
+
+export const CannonSm = KineticWeapon.define('cannonSm');
+
+class AutogunModule extends KineticWeapon {
   private firingPhase(segment: Segment) {
     return segment.active === 1 &&
       segment.activationProgress === 1 &&

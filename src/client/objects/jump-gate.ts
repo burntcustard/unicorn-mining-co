@@ -1,4 +1,4 @@
-import { Passage, type PassageRenderOptions } from './passage';
+import { Portal, type PortalRenderOptions } from './portal';
 import { makeSegment } from './hull-segments';
 import { drawHullSegment } from './hull-rendering';
 import {
@@ -27,7 +27,7 @@ const flares = new WeakMap<
   { progress: number[]; targets: number[]; updatedAt: number }
 >();
 
-export class JumpGate extends Passage {
+export class JumpGate extends Portal {
   kind = 'jumpGate';
   physics = true;
   name = 'Jump Gate';
@@ -40,7 +40,7 @@ export class JumpGate extends Passage {
   segments = jumpGateHull.map((plan) => makeSegment(this, plan, plan));
   private engines = [new ThrusterSingleMd(), new ThrusterSingleMd()];
 
-  constructor(properties: ConstructorParameters<typeof Passage>[0] = {}) {
+  constructor(properties: ConstructorParameters<typeof Portal>[0] = {}) {
     super(properties);
     Object.assign(this, properties);
   }
@@ -102,7 +102,7 @@ export class JumpGate extends Passage {
     ctx = game.ctx,
     pose = this,
     zIndex = renderingLayers.stationHull,
-  }: PassageRenderOptions = {}) {
+  }: PortalRenderOptions = {}) {
     super.render({ ctx, pose, zIndex });
     ctx.save();
     ctx.translate(pose.position.x, pose.position.y);

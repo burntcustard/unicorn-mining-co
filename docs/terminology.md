@@ -48,7 +48,7 @@
 
 **refuel** - A station overview action that fills the ship's fuel tank, charging for the missing liters at the shared fuel price, rounded up to whole unicredits.
 
-**game object** - Anything in the game with its own identity and state, such as a craft, asteroid, passage, item, or module.
+**game object** - Anything in the game with its own identity and state, such as a craft, asteroid, portal, item, or module.
 
 **health** - The remaining strength or 'hitpoints' of a game object or one of its pieces. Damage reduces a game objects health.
 
@@ -115,9 +115,11 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **sector** - A named area with its own procedural seed and unbounded gameplay coordinates, centered on the remains of a Trojan asteroid. Its world-map position is separate from its gameplay coordinates. A sector simulation uses the existing world and region machinery.
 
-**jump gate** - A permanent human-made structure connecting two sectors. Each endpoint has a reserved arrival position. Natural or secret passages are wormholes.
+**jump gate** - A permanent human-made structure connecting two sectors through a portal. Each endpoint has a reserved arrival position.
 
-**wormhole** - A natural, bidirectional passage between sectors, discovered through exploration. Wormholes have stable endpoints and reserved arrival positions, and can occur farther from a sector's center than jump gates.
+**wormhole** - A natural, bidirectional connection between sectors, discovered through exploration. Each endpoint contains a portal. Wormholes have stable endpoints and reserved arrival positions, and can occur farther from a sector's center than jump gates.
+
+**portal** - The colorful, rotating opening inside a jump gate or wormhole. A ship enters the portal to travel between connected sectors. The portal is separate from a jump gate's moving hull.
 
 **region description** - A plan for the asteroids, stations, and wrecks in a region before they appear as objects in the world.
 

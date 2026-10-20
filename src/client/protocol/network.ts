@@ -42,6 +42,7 @@ export type ReplicatedEntity = {
   blockedBeams?: number;
   destinationName?: string;
   name?: string;
+  npcState?: string;
   targetLabel?: string;
   launching?: number;
   transitTime?: number;
@@ -66,6 +67,7 @@ export type ReplicatedEntity = {
   fuel?: number;
   storedPower?: number;
   firing?: boolean;
+  hostile?: boolean;
   rotation: number;
   spin: number;
   segments?: AsteroidSegment[];
@@ -101,6 +103,7 @@ export type ClientMessage =
 export type ServerMessage =
   | {
       type: 'chat';
+      cargoDemand?: number;
       channel: number;
       sender: string;
       senderRole: string;

@@ -1,0 +1,35 @@
+File: pursuit-risk-initial.test
+Build ID: 7575ef4c30249bce8358744746b35188bf4de9b6
+Type: alloc_space
+Time: 2026-10-20 18:41:02 BST
+Active filters:
+   focus=GameSession.*Tick
+Showing nodes accounting for 186.67MB, 26.77% of 697.17MB total
+Dropped 61 nodes (cum <= 3.49MB)
+Showing top 25 nodes out of 74
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%   440.56MB 63.19%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).Tick
+         0     0%     0%   440.56MB 63.19%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*pirateCombatBenchmark).step
+         0     0%     0%   440.56MB 63.19%  github.com/burntcustard/unicorn-mining-co/src/server/network.BenchmarkPirateCombat.func1
+         0     0%     0%   440.56MB 63.19%  testing.(*B).runN
+         0     0%     0%   440.06MB 63.12%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector
+         0     0%     0%   438.06MB 62.83%  testing.(*B).launch
+   95.01MB 13.63% 13.63%   187.16MB 26.85%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*RegionManager).Sync
+         0     0% 13.63%   106.09MB 15.22%  github.com/burntcustard/unicorn-mining-co/src/server/utilities.(*OrderedMap[go.shape.string,go.shape.*uint8]).ForEach
+         0     0% 13.63%   105.59MB 15.14%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers (inline)
+         0     0% 13.63%   105.59MB 15.14%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers.func1
+       1MB  0.14% 13.77%    96.55MB 13.85%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.UpdateWorld
+       1MB  0.14% 13.91%    96.08MB 13.78%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sendSnapshot
+         0     0% 13.91%    96.08MB 13.78%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector.func6
+    0.50MB 0.072% 13.99%    95.08MB 13.64%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode
+       1MB  0.14% 14.13%    93.58MB 13.42%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode.func1
+   87.65MB 12.57% 26.70%    88.15MB 12.64%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*RegionManager).QueryManyInto
+         0     0% 26.70%    87.57MB 12.56%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinarySnapshotBatch).prepared (inline)
+    0.50MB 0.072% 26.77%    87.57MB 12.56%  github.com/burntcustard/unicorn-mining-co/src/server/network.prepare
+         0     0% 26.77%    87.44MB 12.54%  github.com/burntcustard/unicorn-mining-co/src/server/network.newPirateCombatBenchmark
+         0     0% 26.77%    57.04MB  8.18%  github.com/burntcustard/unicorn-mining-co/src/server/utilities.(*OrderedMap[go.shape.int64,go.shape.interface { Base() *github.com/burntcustard/unicorn-mining-co/src/server/simulation.GameObject; Hitbox() []*github.com/burntcustard/unicorn-mining-co/src/server/collision.Collider; MaxSpeed() float64; Update(float64) }]).ForEach
+         0     0% 26.77%    48.26MB  6.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).pirateInput
+         0     0% 26.77%    48.26MB  6.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).updatePirates
+         0     0% 26.77%    48.26MB  6.92%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).updatePirates.func1
+         0     0% 26.77%    48.26MB  6.92%  github.com/burntcustard/unicorn-mining-co/src/server/npc.(*Pilot).Steer
+         0     0% 26.77%    48.26MB  6.92%  slices.DeleteFunc[go.shape.[]*github.com/burntcustard/unicorn-mining-co/src/server/network.pirate,go.shape.*uint8]

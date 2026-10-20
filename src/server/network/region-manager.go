@@ -15,12 +15,14 @@ type RegionManager struct {
 	onSleep  func(simulation.Entity)
 	managed  *utilities.OrderedMap[int64, bool]
 	sleeping *utilities.OrderedMap[int64, simulation.Entity]
+	wanted   map[int64]bool
+	views    []protocol.RegionalView
 	regions  *simulation.RegionManager
 	catalog  specs.Catalog
 }
 
 func NewRegionManager(seed uint32, catalog specs.Catalog, sectors ...simulation.Sector) *RegionManager {
-	r := &RegionManager{managed: utilities.NewOrderedMap[int64, bool](), sleeping: utilities.NewOrderedMap[int64, simulation.Entity](), regions: simulation.NewRegionManager(seed, catalog, sectors...), catalog: catalog}
+	r := &RegionManager{managed: utilities.NewOrderedMap[int64, bool](), sleeping: utilities.NewOrderedMap[int64, simulation.Entity](), wanted: map[int64]bool{}, regions: simulation.NewRegionManager(seed, catalog, sectors...), catalog: catalog}
 
 	if len(sectors) == 0 {
 		r.regions.PreGenerate(catalog.Simulation.PreGeneratedRadius)
@@ -33,10 +35,27 @@ func (r *RegionManager) View(position Vec.Vector, ranges *protocol.WorldRanges) 
 	return r.regions.Query(position, ranges)
 }
 
-func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []protocol.RegionalView {
+func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) {
 	world.Loading = true
 
 	defer func() { world.Loading = false }()
+
+	var limits []float64
+
+	world.Players.ForEach(func(player simulation.Player, _ int64) {
+		if player.ObserverRange <= 0 {
+			return
+		}
+
+		if ship, ok := world.Entities.Get(player.ShipID); ok && !ship.Base().Dead {
+			if limits == nil {
+				limits = make([]float64, len(positions))
+			}
+
+			positions = append(positions, ship.Base().Position)
+			limits = append(limits, player.ObserverRange)
+		}
+	})
 
 	ranges := protocol.Ranges(r.catalog.Simulation.ServerRegionRanges)
 
@@ -47,7 +66,13 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 			reach = ranges.StationPhysics
 		}
 
-		for _, p := range positions {
+		for i, p := range positions {
+			reach := reach
+
+			if i < len(limits) && limits[i] > 0 {
+				reach = min(reach, limits[i])
+			}
+
 			if Vec.DistanceSquared(e.Base().Position, p) <= reach*reach {
 				return true
 			}
@@ -80,10 +105,11 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 		world.Entities.Delete(id)
 	})
 
-	views := r.regions.QueryMany(positions, &ranges)
-	wanted := map[int64]bool{}
+	r.views = r.regions.QueryManyInto(r.views, positions, &ranges, limits...)
+	wanted := r.wanted
+	clear(wanted)
 
-	for _, view := range views {
+	for _, view := range r.views {
 		for _, d := range view.Asteroids {
 			id := r.idOffset + int64(d.ID)
 
@@ -185,6 +211,4 @@ func (r *RegionManager) Sync(world *simulation.World, positions []Vec.Vector) []
 
 		world.Entities.Delete(id)
 	})
-
-	return views
 }

@@ -28,7 +28,7 @@
 [x] Multiplayer dying/respawning very broken sometimes?
 [x] Laser beam not seen by other players? Ensure effects are always seen
 [ ] Gun comes with ammo? Or make more clear
-[x] New world gen with worm-gates and worm-holes
+[x] New world gen with jump gates and wormholes
 [ ] New sounds
 [x] Fix unnecessary scroll on right card thing
 [?] Can't buy search light
@@ -89,6 +89,9 @@
 [ ] Add missile/torpedo module
 [ ] Add turret modules
 [ ] Add holding cargo hatch key to drop all cargo
+[ ] In outfitting, have current ammo listed somewhere
+[ ] Figure out dual/split thrusters
+[ ] Courser MKII ship
 
 ## Big future things
 

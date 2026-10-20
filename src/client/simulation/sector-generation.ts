@@ -40,7 +40,7 @@ export type SectorMap = {
 export const sectorId = (name: string) => name.toLowerCase();
 
 /**
- * Site positions depend on their own index, so adding a passage never moves an
+ * Site positions depend on their own index, so adding a portal never moves an
  * existing one. The first two of each kind are on opposite sides of the sector.
  */
 const connectionSite = ({

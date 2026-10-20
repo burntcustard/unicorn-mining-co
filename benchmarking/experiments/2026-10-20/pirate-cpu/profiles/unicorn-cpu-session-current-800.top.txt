@@ -1,0 +1,41 @@
+File: unicorn-cpu-session-current-pgo.test
+Build ID: 0b434257fe28334aebe8fb395bd27e51345e9b35
+Type: cpu
+Time: 2026-10-20 16:05:25 BST
+Duration: 3.86s, Total samples = 4.10s (106.31%)
+Showing nodes accounting for 0.54s, 13.17% of 4.10s total
+Dropped 253 nodes (cum <= 0.02s)
+Showing top 32 nodes out of 191
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      3.82s 93.17%  testing.(*B).runN
+         0     0%     0%      3.81s 92.93%  github.com/burntcustard/unicorn-mining-co/src/server/network.BenchmarkPirateCombat.func1
+         0     0%     0%      3.78s 92.20%  testing.(*B).launch
+         0     0%     0%      3.37s 82.20%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*pirateCombatBenchmark).step
+     0.02s  0.49%  0.49%      3.36s 81.95%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).Tick
+         0     0%  0.49%      3.27s 79.76%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector
+         0     0%  0.49%      1.59s 38.78%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.UpdateWorld
+         0     0%  0.49%      0.88s 21.46%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sendSnapshot
+     0.01s  0.24%  0.73%      0.88s 21.46%  github.com/burntcustard/unicorn-mining-co/src/server/utilities.(*OrderedMap[go.shape.string,go.shape.*uint8]).ForEach
+     0.04s  0.98%  1.71%      0.87s 21.22%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode
+         0     0%  1.71%      0.86s 20.98%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers (inline)
+         0     0%  1.71%      0.86s 20.98%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).sectorPlayers.func1
+         0     0%  1.71%      0.85s 20.73%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).tickSector.func6
+         0     0%  1.71%      0.82s 20.00%  github.com/burntcustard/unicorn-mining-co/src/server/network.newPirateCombatBenchmark
+     0.03s  0.73%  2.44%      0.77s 18.78%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinaryReplicationManager).encode.func1
+     0.04s  0.98%  3.41%      0.73s 17.80%  github.com/burntcustard/unicorn-mining-co/src/server/utilities.(*OrderedMap[go.shape.int64,go.shape.interface { Base() *github.com/burntcustard/unicorn-mining-co/src/server/simulation.GameObject; Hitbox() []*github.com/burntcustard/unicorn-mining-co/src/server/collision.Collider; MaxSpeed() float64; Update(float64) }]).ForEach
+     0.10s  2.44%  5.85%      0.69s 16.83%  github.com/burntcustard/unicorn-mining-co/src/server/gameplay.(*GameCollisions).Step
+         0     0%  5.85%      0.62s 15.12%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).pirateInput
+         0     0%  5.85%      0.62s 15.12%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).updatePirates
+         0     0%  5.85%      0.62s 15.12%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*GameSession).updatePirates.func1
+         0     0%  5.85%      0.62s 15.12%  github.com/burntcustard/unicorn-mining-co/src/server/npc.(*Pilot).Steer
+         0     0%  5.85%      0.62s 15.12%  slices.DeleteFunc[go.shape.[]*github.com/burntcustard/unicorn-mining-co/src/server/network.pirate,go.shape.*uint8]
+         0     0%  5.85%      0.62s 15.12%  slices.IndexFunc[go.shape.[]*github.com/burntcustard/unicorn-mining-co/src/server/network.pirate,go.shape.*uint8] (inline)
+         0     0%  5.85%      0.60s 14.63%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*BinarySnapshotBatch).prepared (inline)
+     0.12s  2.93%  8.78%      0.60s 14.63%  github.com/burntcustard/unicorn-mining-co/src/server/network.prepare
+     0.12s  2.93% 11.71%      0.41s 10.00%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.UpdateEntities
+     0.02s  0.49% 12.20%      0.38s  9.27%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*RegionManager).QueryMany
+     0.02s  0.49% 12.68%      0.32s  7.80%  runtime.mallocgc
+     0.01s  0.24% 12.93%      0.31s  7.56%  github.com/burntcustard/unicorn-mining-co/src/server/npc.avoid
+     0.01s  0.24% 13.17%      0.28s  6.83%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*RegionGenerator).GenerateRegion
+         0     0% 13.17%      0.28s  6.83%  github.com/burntcustard/unicorn-mining-co/src/server/simulation.(*RegionManager).Load
+         0     0% 13.17%      0.26s  6.34%  github.com/burntcustard/unicorn-mining-co/src/server/network.(*RegionManager).View (inline)
