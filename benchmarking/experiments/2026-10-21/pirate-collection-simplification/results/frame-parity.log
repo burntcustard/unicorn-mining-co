@@ -1,0 +1,12 @@
+=== RUN   TestCollectionLocalFrameParityPrototype
+=== RUN   TestCollectionLocalFrameParityPrototype/polygons
+=== RUN   TestCollectionLocalFrameParityPrototype/polygon-circle
+=== RUN   TestCollectionLocalFrameParityPrototype/circle-polygon
+=== RUN   TestCollectionLocalFrameParityPrototype/circles
+--- PASS: TestCollectionLocalFrameParityPrototype (0.01s)
+    --- PASS: TestCollectionLocalFrameParityPrototype/polygons (0.00s)
+    --- PASS: TestCollectionLocalFrameParityPrototype/polygon-circle (0.00s)
+    --- PASS: TestCollectionLocalFrameParityPrototype/circle-polygon (0.00s)
+    --- PASS: TestCollectionLocalFrameParityPrototype/circles (0.00s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/collision/query	0.010s

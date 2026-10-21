@@ -1,0 +1,77 @@
+{
+  "dist/docked-C5oSYdBF.js": {
+    "bytes": 28835,
+    "gzip": 9252,
+    "sha256": "d4a8fd2998155dac1f7d65ee754e77f73c059f69cc96eccac6b7d26a452e3083"
+  },
+  "dist/docked-DXAERKCK.css": {
+    "bytes": 4577,
+    "gzip": 1428,
+    "sha256": "651a1d8be1b9a9353f22c398b4ed823930824ff7f05e85f22ede8c9b1f0d3a5c"
+  },
+  "dist/gameplay-89jgPTI_.css": {
+    "bytes": 3747,
+    "gzip": 1354,
+    "sha256": "d706fad75b8ee35b9d14f0e33f37ad7a2d92ab1fde456229d92e0558a3f487a7"
+  },
+  "dist/gameplay-ClHZ9np1.js": {
+    "bytes": 120414,
+    "gzip": 45835,
+    "sha256": "0b8848201ca0cffdb4c56ef5ca89883081168c98ffecb32e509cf0b9a2999edc"
+  },
+  "dist/gemetric-C1AxyIbI.woff2": {
+    "bytes": 2200,
+    "gzip": 2223,
+    "sha256": "0ddd8f4eb78cb1c647cc08c6cecdeddadd0d06ab97a8251cb2f10f7f45d44fc9"
+  },
+  "dist/index-B9HsRmgp.js": {
+    "bytes": 9522,
+    "gzip": 3890,
+    "sha256": "917872e20521502d214ebab0fda76d1b69b6c657ce07fee92809649b2e6d90d3"
+  },
+  "dist/index-BnZ0QesD.css": {
+    "bytes": 9767,
+    "gzip": 3181,
+    "sha256": "bd14425a20f04c988c3232accba9310f59bbf24db4210efab6ed6b3a8768d97f"
+  },
+  "dist/index.html": {
+    "bytes": 8138,
+    "gzip": 3549,
+    "sha256": "3ff370c66cfee34b86f069c89b5dc6d74a8215383dcd4fc1a94ce9312d099895"
+  },
+  "dist/keybindings-Ted_VD-t.js": {
+    "bytes": 2522,
+    "gzip": 1139,
+    "sha256": "08fc5822c069047eaeac14216c1873dd66d2071ed96f8b7e01a4401706a5a02b"
+  },
+  "dist/menu-screens-DZ9_puk4.js": {
+    "bytes": 14290,
+    "gzip": 4516,
+    "sha256": "9129fbb93fce2328fbfc2ec5abd319e6052a13f4da020d00a3a5fb9ef2056f36"
+  },
+  "dist/shield-Ci8mKorD.js": {
+    "bytes": 6205,
+    "gzip": 2587,
+    "sha256": "71a6284d82de33b30de78708b324355982bd48679e37334cba71e49ba230507e"
+  },
+  "dist/ship-C1d4lQM5.js": {
+    "bytes": 88413,
+    "gzip": 34574,
+    "sha256": "a7982a7b07369f68b3604ff52464826a6b09b3c7ca4497598e2212fbd719dbe5"
+  },
+  "dist/ship-preview-BnbVzqLI.js": {
+    "bytes": 5240,
+    "gzip": 2525,
+    "sha256": "5e821e1ad3630b05d1d2bd6ef0b7c823d275754c2eb408750a393ed13a13bb99"
+  },
+  "dist/sound-BAU9VFAk.js": {
+    "bytes": 1918,
+    "gzip": 1081,
+    "sha256": "10faa8ecf9524a2c5ed6ae0d095d868726816ebf75488e6a537b17d51da0a625"
+  },
+  "bin/server": {
+    "bytes": 13365408,
+    "gzip": 5631459,
+    "sha256": "7bcfde6d3fda5bd1e0ebcde9d5ab9a449afd56df38400990d4c2a563359fd989"
+  }
+}

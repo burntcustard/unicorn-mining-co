@@ -1,0 +1,424 @@
+{
+  "1": {
+    "fixtureCount": 44,
+    "original12Seconds": 449.09999999999997,
+    "generalization32Seconds": 1316.8333333333335,
+    "all44Seconds": 1765.9333333333336,
+    "primary": 21.766666666666666,
+    "main4": [
+      {
+        "seed": 25,
+        "seconds": 21.766666666666666
+      },
+      {
+        "seed": 67,
+        "seconds": 27.03333333333333
+      },
+      {
+        "seed": 123,
+        "seconds": 50.9
+      },
+      {
+        "seed": 501,
+        "seconds": 53.5
+      }
+    ],
+    "improved": 8,
+    "unchanged": 17,
+    "regressed": 19,
+    "incomplete": [],
+    "worstRegressions": [
+      {
+        "seed": 10012,
+        "before": 37.166666666666664,
+        "after": 69.46666666666667,
+        "collected": 8,
+        "delta": 32.300000000000004,
+        "ratio": 1.8690582959641258
+      },
+      {
+        "seed": 10016,
+        "before": 31.666666666666668,
+        "after": 62.43333333333333,
+        "collected": 8,
+        "delta": 30.766666666666662,
+        "ratio": 1.9715789473684209
+      },
+      {
+        "seed": 10009,
+        "before": 23.933333333333334,
+        "after": 50.43333333333333,
+        "collected": 8,
+        "delta": 26.499999999999996,
+        "ratio": 2.107242339832869
+      },
+      {
+        "seed": 501,
+        "before": 33.43333333333333,
+        "after": 53.5,
+        "collected": 8,
+        "delta": 20.06666666666667,
+        "ratio": 1.6001994017946164
+      },
+      {
+        "seed": 123,
+        "before": 35.4,
+        "after": 50.9,
+        "collected": 8,
+        "delta": 15.5,
+        "ratio": 1.4378531073446328
+      },
+      {
+        "seed": 10014,
+        "before": 25.433333333333334,
+        "after": 40.7,
+        "collected": 8,
+        "delta": 15.26666666666667,
+        "ratio": 1.600262123197903
+      },
+      {
+        "seed": 10003,
+        "before": 42.833333333333336,
+        "after": 53.733333333333334,
+        "collected": 8,
+        "delta": 10.899999999999999,
+        "ratio": 1.2544747081712062
+      },
+      {
+        "seed": 10022,
+        "before": 33.5,
+        "after": 42.833333333333336,
+        "collected": 8,
+        "delta": 9.333333333333336,
+        "ratio": 1.2786069651741294
+      }
+    ],
+    "largestGains": [
+      {
+        "seed": 20261021,
+        "before": 66.33333333333333,
+        "after": 45.333333333333336,
+        "collected": 8,
+        "delta": -20.999999999999993,
+        "ratio": 0.6834170854271358
+      },
+      {
+        "seed": 10017,
+        "before": 62.733333333333334,
+        "after": 45.63333333333333,
+        "collected": 8,
+        "delta": -17.1,
+        "ratio": 0.7274176408076514
+      },
+      {
+        "seed": 10029,
+        "before": 59.8,
+        "after": 43.6,
+        "collected": 8,
+        "delta": -16.199999999999996,
+        "ratio": 0.7290969899665553
+      },
+      {
+        "seed": 10025,
+        "before": 54.666666666666664,
+        "after": 42.03333333333333,
+        "collected": 8,
+        "delta": -12.633333333333333,
+        "ratio": 0.7689024390243903
+      },
+      {
+        "seed": 2026,
+        "before": 54.733333333333334,
+        "after": 45.03333333333333,
+        "collected": 8,
+        "delta": -9.700000000000003,
+        "ratio": 0.822777101096224
+      }
+    ],
+    "failures": [
+      "    pirate-collection-benchmark_test.go:204: eight pickups took 50.90s, exceeding 42.00s",
+      "    pirate-collection-benchmark_test.go:204: eight pickups took 53.50s, exceeding 40.00s",
+      "    pirate-collection-benchmark_test.go:204: eight pickups took 35.90s, exceeding 35.00s"
+    ]
+  },
+  "2": {
+    "fixtureCount": 44,
+    "original12Seconds": 441.9666666666667,
+    "generalization32Seconds": 1190.3666666666666,
+    "all44Seconds": 1632.3333333333333,
+    "primary": 21.766666666666666,
+    "main4": [
+      {
+        "seed": 25,
+        "seconds": 21.766666666666666
+      },
+      {
+        "seed": 67,
+        "seconds": 29.233333333333334
+      },
+      {
+        "seed": 123,
+        "seconds": 35.4
+      },
+      {
+        "seed": 501,
+        "seconds": 33.43333333333333
+      }
+    ],
+    "improved": 0,
+    "unchanged": 44,
+    "regressed": 0,
+    "incomplete": [],
+    "worstRegressions": [
+      {
+        "seed": 10001,
+        "before": 39.8,
+        "after": 39.8,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10002,
+        "before": 30.566666666666666,
+        "after": 30.566666666666666,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10003,
+        "before": 42.833333333333336,
+        "after": 42.833333333333336,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10004,
+        "before": 37.13333333333333,
+        "after": 37.13333333333333,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10005,
+        "before": 26.933333333333334,
+        "after": 26.933333333333334,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10006,
+        "before": 31.066666666666666,
+        "after": 31.066666666666666,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10007,
+        "before": 41.7,
+        "after": 41.7,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10008,
+        "before": 35.03333333333333,
+        "after": 35.03333333333333,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      }
+    ],
+    "largestGains": [
+      {
+        "seed": 10001,
+        "before": 39.8,
+        "after": 39.8,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10002,
+        "before": 30.566666666666666,
+        "after": 30.566666666666666,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10003,
+        "before": 42.833333333333336,
+        "after": 42.833333333333336,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10004,
+        "before": 37.13333333333333,
+        "after": 37.13333333333333,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      },
+      {
+        "seed": 10005,
+        "before": 26.933333333333334,
+        "after": 26.933333333333334,
+        "collected": 8,
+        "delta": 0,
+        "ratio": 1
+      }
+    ],
+    "failures": []
+  },
+  "1.5": {
+    "fixtureCount": 44,
+    "original12Seconds": 460.5333333333333,
+    "generalization32Seconds": 1184.5666666666666,
+    "all44Seconds": 1645.1,
+    "primary": 21.766666666666666,
+    "main4": [
+      {
+        "seed": 25,
+        "seconds": 21.766666666666666
+      },
+      {
+        "seed": 67,
+        "seconds": 43.56666666666666
+      },
+      {
+        "seed": 123,
+        "seconds": 42.4
+      },
+      {
+        "seed": 501,
+        "seconds": 35.666666666666664
+      }
+    ],
+    "improved": 5,
+    "unchanged": 28,
+    "regressed": 11,
+    "incomplete": [],
+    "worstRegressions": [
+      {
+        "seed": 67,
+        "before": 29.233333333333334,
+        "after": 43.56666666666666,
+        "collected": 8,
+        "delta": 14.333333333333329,
+        "ratio": 1.4903078677309005
+      },
+      {
+        "seed": 10003,
+        "before": 42.833333333333336,
+        "after": 54.733333333333334,
+        "collected": 8,
+        "delta": 11.899999999999999,
+        "ratio": 1.2778210116731517
+      },
+      {
+        "seed": 10012,
+        "before": 37.166666666666664,
+        "after": 46.63333333333333,
+        "collected": 8,
+        "delta": 9.466666666666669,
+        "ratio": 1.2547085201793722
+      },
+      {
+        "seed": 73,
+        "before": 27.599999999999998,
+        "after": 36.2,
+        "collected": 8,
+        "delta": 8.600000000000005,
+        "ratio": 1.311594202898551
+      },
+      {
+        "seed": 2026,
+        "before": 54.733333333333334,
+        "after": 62.03333333333333,
+        "collected": 8,
+        "delta": 7.299999999999997,
+        "ratio": 1.133373934226553
+      },
+      {
+        "seed": 123,
+        "before": 35.4,
+        "after": 42.4,
+        "collected": 8,
+        "delta": 7,
+        "ratio": 1.1977401129943503
+      },
+      {
+        "seed": 8,
+        "before": 41.2,
+        "after": 47.333333333333336,
+        "collected": 8,
+        "delta": 6.133333333333333,
+        "ratio": 1.1488673139158576
+      },
+      {
+        "seed": 977,
+        "before": 45.1,
+        "after": 50.53333333333333,
+        "collected": 8,
+        "delta": 5.43333333333333,
+        "ratio": 1.1204730229120472
+      }
+    ],
+    "largestGains": [
+      {
+        "seed": 20261021,
+        "before": 66.33333333333333,
+        "after": 33.86666666666667,
+        "collected": 8,
+        "delta": -32.46666666666666,
+        "ratio": 0.5105527638190955
+      },
+      {
+        "seed": 10029,
+        "before": 59.8,
+        "after": 42.333333333333336,
+        "collected": 8,
+        "delta": -17.46666666666666,
+        "ratio": 0.7079152731326646
+      },
+      {
+        "seed": 10025,
+        "before": 54.666666666666664,
+        "after": 48.5,
+        "collected": 8,
+        "delta": -6.166666666666664,
+        "ratio": 0.8871951219512195
+      },
+      {
+        "seed": 10026,
+        "before": 48.5,
+        "after": 42.9,
+        "collected": 8,
+        "delta": -5.600000000000001,
+        "ratio": 0.8845360824742268
+      },
+      {
+        "seed": 10017,
+        "before": 62.733333333333334,
+        "after": 62.13333333333333,
+        "collected": 8,
+        "delta": -0.6000000000000014,
+        "ratio": 0.9904357066950052
+      }
+    ],
+    "failures": [
+      "    pirate-collection-benchmark_test.go:204: eight pickups took 43.57s, exceeding 35.00s",
+      "    pirate-collection-benchmark_test.go:204: eight pickups took 42.40s, exceeding 42.00s",
+      "    pirate-collection-benchmark_test.go:204: eight pickups took 36.20s, exceeding 35.00s"
+    ]
+  }
+}

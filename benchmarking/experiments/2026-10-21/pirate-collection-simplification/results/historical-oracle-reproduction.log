@@ -1,0 +1,5 @@
+=== RUN   TestCollectionControlsMatchExhaustive
+    collection-equivalence_test.go:103: 1,000 seeded states matched bitwise; PCG=(20261021,99), 500 Courser + 500 Arrow, 800 real polygon items + 200 circles, 1485 hull/module health changes, 52 disabled hatch segments, 33 absent targets
+--- PASS: TestCollectionControlsMatchExhaustive (0.83s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/npc	0.840s

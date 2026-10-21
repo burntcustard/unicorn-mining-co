@@ -1,0 +1,414 @@
+{
+  "settings": {
+    "CGO_ENABLED": "0",
+    "GOEXPERIMENT": "simd",
+    "GOGC": "800",
+    "trimpath": true,
+    "benchtime": "10x",
+    "repeats": 5,
+    "orders": [
+      [
+        "original",
+        "fast-before",
+        "optimized"
+      ],
+      [
+        "optimized",
+        "fast-before",
+        "original"
+      ],
+      [
+        "fast-before",
+        "original",
+        "optimized"
+      ],
+      [
+        "optimized",
+        "original",
+        "fast-before"
+      ],
+      [
+        "original",
+        "optimized",
+        "fast-before"
+      ]
+    ],
+    "processCPUDescription": "Child user+system CPU for four scenarios of10 complete hauls each, including fixture setup and harness."
+  },
+  "samples": [
+    {
+      "repeat": 1,
+      "variant": "original",
+      "processCPUSeconds": 1.544732,
+      "cases": {
+        "main": {
+          "nsPerHaul": 43644348.0,
+          "simulationSeconds": 85.33
+        },
+        "compact": {
+          "nsPerHaul": 35821378.0,
+          "simulationSeconds": 67.83
+        },
+        "wide": {
+          "nsPerHaul": 34097207.0,
+          "simulationSeconds": 65.9
+        },
+        "heldout": {
+          "nsPerHaul": 34947716.0,
+          "simulationSeconds": 70.13
+        }
+      }
+    },
+    {
+      "repeat": 1,
+      "variant": "fast-before",
+      "processCPUSeconds": 2.805010999999999,
+      "cases": {
+        "main": {
+          "nsPerHaul": 59731918.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 74183530.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 69827932.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 71152050.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 1,
+      "variant": "optimized",
+      "processCPUSeconds": 1.3828849999999995,
+      "cases": {
+        "main": {
+          "nsPerHaul": 29886207.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 35953511.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 32732706.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 35855644.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 2,
+      "variant": "optimized",
+      "processCPUSeconds": 1.3922590000000006,
+      "cases": {
+        "main": {
+          "nsPerHaul": 29370704.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 34410891.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 35312134.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 35399117.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 2,
+      "variant": "fast-before",
+      "processCPUSeconds": 2.748872999999999,
+      "cases": {
+        "main": {
+          "nsPerHaul": 51146606.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 78270555.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 70142984.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 70462231.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 2,
+      "variant": "original",
+      "processCPUSeconds": 1.503760000000001,
+      "cases": {
+        "main": {
+          "nsPerHaul": 46164316.0,
+          "simulationSeconds": 85.33
+        },
+        "compact": {
+          "nsPerHaul": 34763514.0,
+          "simulationSeconds": 67.83
+        },
+        "wide": {
+          "nsPerHaul": 31268014.0,
+          "simulationSeconds": 65.9
+        },
+        "heldout": {
+          "nsPerHaul": 32940001.0,
+          "simulationSeconds": 70.13
+        }
+      }
+    },
+    {
+      "repeat": 3,
+      "variant": "fast-before",
+      "processCPUSeconds": 2.758533,
+      "cases": {
+        "main": {
+          "nsPerHaul": 55734568.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 73813664.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 72240789.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 69535185.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 3,
+      "variant": "original",
+      "processCPUSeconds": 1.5042719999999994,
+      "cases": {
+        "main": {
+          "nsPerHaul": 44426524.0,
+          "simulationSeconds": 85.33
+        },
+        "compact": {
+          "nsPerHaul": 34200947.0,
+          "simulationSeconds": 67.83
+        },
+        "wide": {
+          "nsPerHaul": 33925085.0,
+          "simulationSeconds": 65.9
+        },
+        "heldout": {
+          "nsPerHaul": 33259944.0,
+          "simulationSeconds": 70.13
+        }
+      }
+    },
+    {
+      "repeat": 3,
+      "variant": "optimized",
+      "processCPUSeconds": 1.3753019999999991,
+      "cases": {
+        "main": {
+          "nsPerHaul": 29167757.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 33262778.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 34338442.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 35999363.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 4,
+      "variant": "optimized",
+      "processCPUSeconds": 1.3901829999999997,
+      "cases": {
+        "main": {
+          "nsPerHaul": 27971117.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 35788374.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 34380442.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 36130012.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 4,
+      "variant": "original",
+      "processCPUSeconds": 1.6346939999999996,
+      "cases": {
+        "main": {
+          "nsPerHaul": 45013973.0,
+          "simulationSeconds": 85.33
+        },
+        "compact": {
+          "nsPerHaul": 39321051.0,
+          "simulationSeconds": 67.83
+        },
+        "wide": {
+          "nsPerHaul": 35688549.0,
+          "simulationSeconds": 65.9
+        },
+        "heldout": {
+          "nsPerHaul": 37202934.0,
+          "simulationSeconds": 70.13
+        }
+      }
+    },
+    {
+      "repeat": 4,
+      "variant": "fast-before",
+      "processCPUSeconds": 2.7316360000000004,
+      "cases": {
+        "main": {
+          "nsPerHaul": 55397531.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 72811770.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 71456703.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 68716119.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 5,
+      "variant": "original",
+      "processCPUSeconds": 1.5021400000000016,
+      "cases": {
+        "main": {
+          "nsPerHaul": 44867644.0,
+          "simulationSeconds": 85.33
+        },
+        "compact": {
+          "nsPerHaul": 31578400.0,
+          "simulationSeconds": 67.83
+        },
+        "wide": {
+          "nsPerHaul": 32227363.0,
+          "simulationSeconds": 65.9
+        },
+        "heldout": {
+          "nsPerHaul": 36121722.0,
+          "simulationSeconds": 70.13
+        }
+      }
+    },
+    {
+      "repeat": 5,
+      "variant": "optimized",
+      "processCPUSeconds": 1.4210320000000012,
+      "cases": {
+        "main": {
+          "nsPerHaul": 28249951.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 32342978.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 36838982.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 40399549.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    },
+    {
+      "repeat": 5,
+      "variant": "fast-before",
+      "processCPUSeconds": 2.754924999999996,
+      "cases": {
+        "main": {
+          "nsPerHaul": 52711214.0,
+          "simulationSeconds": 21.77
+        },
+        "compact": {
+          "nsPerHaul": 76075148.0,
+          "simulationSeconds": 29.23
+        },
+        "wide": {
+          "nsPerHaul": 71838283.0,
+          "simulationSeconds": 35.4
+        },
+        "heldout": {
+          "nsPerHaul": 69885135.0,
+          "simulationSeconds": 33.43
+        }
+      }
+    }
+  ],
+  "medianCPUSeconds": {
+    "original": 1.5042719999999994,
+    "fast-before": 2.754924999999996,
+    "optimized": 1.3901829999999997
+  },
+  "medianNanosecondsPerHaul": {
+    "main": {
+      "original": 44867644.0,
+      "fast-before": 55397531.0,
+      "optimized": 29167757.0
+    },
+    "compact": {
+      "original": 34763514.0,
+      "fast-before": 74183530.0,
+      "optimized": 34410891.0
+    },
+    "wide": {
+      "original": 33925085.0,
+      "fast-before": 71456703.0,
+      "optimized": 34380442.0
+    },
+    "heldout": {
+      "original": 34947716.0,
+      "fast-before": 69885135.0,
+      "optimized": 35999363.0
+    }
+  },
+  "cpuReductionFromFastBefore": 0.4953826329210408,
+  "cpuReductionFromOriginal": 0.07584333152514955
+}

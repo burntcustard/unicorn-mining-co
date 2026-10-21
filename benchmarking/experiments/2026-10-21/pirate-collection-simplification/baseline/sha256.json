@@ -1,0 +1,9 @@
+{
+  "collection-controls.go": "f6b6c5d9f747f6eba0c83c02eb9101d531c0c06820e42b7b272715af2cc3ed7a",
+  "collection-hull.go": "94278aaee78a3d17a8ec4e4ca909a6453c34a0f943b27124b99cca233a3de6cd",
+  "collection.go": "b70ec62e4d1b36d12cdb6192dfb50fa81aabc7d99fb448fd771ce6eefdb7eee7",
+  "collection_test.go": "4e157b43d6cf391fec6da3a2161def906c69552afe11528442247186109f52fa",
+  "generalization_test.go": "71b76c6a7f97b5ee9b4fb5b92fd4a8a31a9ac92ee6243a5a3b3ce28b387796a1",
+  "movement.go": "1f84dd9171894a79b59cb0ce8cd7b23eeaad88ecac5da1df21ebe5e2c479f220",
+  "prediction.go": "c24a8ae6bba194e4d2aba77fac26fb76f718729a34d25024918819afc1a321a5"
+}

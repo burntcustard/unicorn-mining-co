@@ -1,0 +1,316 @@
+[
+  {
+    "description": "Aim at pickup throat center",
+    "log": "01-throat-center.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 85.16666666666667,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 62.166666666666664,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 54.4,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 47.86666666666667,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "Maintain collection speed",
+    "log": "02-pickup-speed-40.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 50.6,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 52.333333333333336,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 57.86666666666667,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 56.4,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "Lock target until collected",
+    "log": "03-committed-target.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 41.233333333333334,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 59.699999999999996,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 67.36666666666666,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 56.4,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "Cap approach speed",
+    "log": "04-capped-80.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 92.23333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 44.2,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 81.26666666666667,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 63.93333333333333,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "Stage lengthwise before approach",
+    "log": "05-shape-staging.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 97.73333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 109.5,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 97.53333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 94.5,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "Drive through staging approach",
+    "log": "06-through-staging.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 66.4,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 72.06666666666666,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 62.93333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 63.46666666666667,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "Stage and follow straight entry line",
+    "log": "07-line-staging.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 341,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 146.13333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 252.96666666666667,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 280.0333333333333,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "True throat center and passive item drag",
+    "log": "accurate-prediction.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 49.666666666666664,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 24.333333333333332,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 31.8,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 30.166666666666668,
+        "collected": 8
+      },
+      {
+        "seed": 8,
+        "seconds": 31.7,
+        "collected": 8
+      },
+      {
+        "seed": 42,
+        "seconds": 39.86666666666667,
+        "collected": 8
+      },
+      {
+        "seed": 73,
+        "seconds": 57.733333333333334,
+        "collected": 8
+      },
+      {
+        "seed": 211,
+        "seconds": 32.3,
+        "collected": 8
+      },
+      {
+        "seed": 809,
+        "seconds": 26.03333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 977,
+        "seconds": 35.03333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 2026,
+        "seconds": 38.63333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 20261021,
+        "seconds": 23.9,
+        "collected": 8
+      }
+    ]
+  },
+  {
+    "description": "Retained pickup forecast and fixed recovery waypoint",
+    "log": "final-collection.log",
+    "measurements": [
+      {
+        "seed": 25,
+        "seconds": 21.766666666666666,
+        "collected": 8
+      },
+      {
+        "seed": 67,
+        "seconds": 29.233333333333334,
+        "collected": 8
+      },
+      {
+        "seed": 123,
+        "seconds": 35.4,
+        "collected": 8
+      },
+      {
+        "seed": 501,
+        "seconds": 33.43333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 8,
+        "seconds": 41.2,
+        "collected": 8
+      },
+      {
+        "seed": 42,
+        "seconds": 32.2,
+        "collected": 8
+      },
+      {
+        "seed": 73,
+        "seconds": 27.599999999999998,
+        "collected": 8
+      },
+      {
+        "seed": 211,
+        "seconds": 28.03333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 809,
+        "seconds": 26.933333333333334,
+        "collected": 8
+      },
+      {
+        "seed": 977,
+        "seconds": 55.43333333333333,
+        "collected": 8
+      },
+      {
+        "seed": 2026,
+        "seconds": 54.733333333333334,
+        "collected": 8
+      },
+      {
+        "seed": 20261021,
+        "seconds": 66.33333333333333,
+        "collected": 8
+      }
+    ]
+  }
+]

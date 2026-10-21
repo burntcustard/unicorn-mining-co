@@ -22,7 +22,10 @@ type Contact struct {
 	Point  Vec.Vector `json:"point"`
 }
 
-func shapeOf(collider ShapeData, linearSlop float64) shape.Shape {
+/*
+ShapeOf prepares local collision geometry for reuse across contact queries.
+*/
+func ShapeOf(collider ShapeData, linearSlop float64) shape.Shape {
 	if collider.Outline != nil {
 		vertices := make([]Vec.Vector, len(collider.Outline))
 
@@ -37,8 +40,15 @@ func shapeOf(collider ShapeData, linearSlop float64) shape.Shape {
 }
 
 func ContactBetween(a, b ShapeData, linearSlop float64) (Contact, bool) {
-	sa, sb := shapeOf(a, linearSlop), shapeOf(b, linearSlop)
+	sa, sb := ShapeOf(a, linearSlop), ShapeOf(b, linearSlop)
 	xa, xb := Vec.Transform(a.Position.X, a.Position.Y, a.Rotation), Vec.Transform(b.Position.X, b.Position.Y, b.Rotation)
+	return ContactShapes(sa, sb, xa, xb, linearSlop)
+}
+
+/*
+ContactShapes queries prepared geometry at the supplied world transforms.
+*/
+func ContactShapes(sa, sb shape.Shape, xa, xb Vec.TransformValue, linearSlop float64) (Contact, bool) {
 	var manifold collision.Manifold
 	reversed := false
 
@@ -64,14 +74,14 @@ func ContactBetween(a, b ShapeData, linearSlop float64) (Contact, bool) {
 		return Contact{}, false
 	}
 
-	var contact *collision.WorldManifold
+	var contact collision.WorldManifold
 	direction := 1.0
 
 	if reversed {
-		contact = manifold.GetWorldManifold(nil, xb, sb.Base().Radius, xa, sa.Base().Radius)
+		manifold.GetWorldManifold(&contact, xb, sb.Base().Radius, xa, sa.Base().Radius)
 		direction = -1
 	} else {
-		contact = manifold.GetWorldManifold(nil, xa, sa.Base().Radius, xb, sb.Base().Radius)
+		manifold.GetWorldManifold(&contact, xa, sa.Base().Radius, xb, sb.Base().Radius)
 	}
 
 	return Contact{Depth: -min(contact.Separations[0], contact.Separations[1]), Normal: Vec.Scale(contact.Normal, direction), Point: contact.Points[0]}, true

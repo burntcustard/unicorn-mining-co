@@ -1,0 +1,37 @@
+package query
+
+import (
+ "math"
+ "math/rand/v2"
+ "testing"
+ Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+)
+
+func TestCollectionLocalFrameParityPrototype(t *testing.T) {
+ random := rand.New(rand.NewPCG(25,8))
+ polygon := ShapeData{Outline:[][]float64{{-6,-3.5},{6,-3.5},{7,3.5},{-7,3.5}},CollisionMargin:new(0.0)}
+ hull := ShapeData{Outline:[][]float64{{-8,-1.5},{18,-1.5},{18,1.5},{-8,1.5}},CollisionMargin:new(0.0)}
+ circle := ShapeData{Radius:7}
+ for _, scenario := range []struct{name string;a,b ShapeData}{{"polygons",hull,polygon},{"polygon-circle",hull,circle},{"circle-polygon",circle,polygon},{"circles",circle,circle}} {
+  t.Run(scenario.name,func(t *testing.T) {
+   a,b:=ShapeOf(scenario.a,.005),ShapeOf(scenario.b,.005)
+   for range 10000 {
+    angle:=random.Float64()*2*math.Pi
+    direction:=Vec.Create(math.Cos(angle),math.Sin(angle))
+    origin:=Vec.Create(5000+random.Float64()*40000,5000+random.Float64()*40000)
+    local:=Vec.Create((random.Float64()*2-1)*40,(random.Float64()*2-1)*40)
+    hullPosition:=Vec.Add(origin,Vec.Create(local.X*direction.X-local.Y*direction.Y,local.X*direction.Y+local.Y*direction.X))
+    itemPosition:=Vec.Add(origin,Vec.Create((random.Float64()*2-1)*50,(random.Float64()*2-1)*50))
+    hullAngle:=(random.Float64()*2-1)*math.Pi
+    itemAngle:=random.Float64()*2*math.Pi
+    worldA,worldB:=Vec.Transform(hullPosition.X,hullPosition.Y,angle+hullAngle),Vec.Transform(itemPosition.X,itemPosition.Y,itemAngle)
+    localA:=Vec.Transform(local.X,local.Y,hullAngle)
+    var localB Vec.TransformValue
+    Vec.DetransformTransform(&localB,Vec.TransformValue{P:origin,Q:Vec.RotValue{Sin:direction.Y,Cos:direction.X}},worldB)
+    expected,touching:=ContactShapes(a,b,worldA,worldB,.005)
+    actual,localTouching:=ContactShapes(a,b,localA,localB,.005)
+    if touching!=localTouching || touching && math.Abs(actual.Depth-expected.Depth)>1e-8 { t.Fatalf("frame changed contact: world=%+v/%v local=%+v/%v",expected,touching,actual,localTouching) }
+   }
+  })
+ }
+}

@@ -62,6 +62,7 @@ type pirate struct {
 	countdown               int
 	aggressors              map[int64]bool
 	loot                    []simulation.Entity
+	lootTarget              simulation.Entity
 	ammunition              *objects.Item
 	input                   protocol.Input
 }

@@ -1,0 +1,264 @@
+package npc
+
+import (
+	"fmt"
+	"math"
+	"slices"
+	"testing"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+)
+
+func TestCollectionContactBoundKeepsNativeCornerContacts(t *testing.T) {
+	const slop = .5
+	square := []Vec.Vector{{X: -1, Y: -1}, {X: 1, Y: -1}, {X: 1, Y: 1}, {X: -1, Y: 1}}
+	item := shape.NewPolygon(square, new(0.0), slop)
+
+	for _, scenario := range []struct {
+		name     string
+		margin   *float64
+		distance float64
+	}{
+		{"large", new(10.0), 11.9},
+		{"default", nil, 2.9},
+		{"zero", new(0.0), 1.9},
+	} {
+		for _, rotation := range []float64{0, math.Pi / 7, math.Pi / 2} {
+			t.Run(fmt.Sprintf("%s/rotation%g", scenario.name, rotation), func(t *testing.T) {
+				hull := collectionHull{shape: shape.NewPolygon(square, scenario.margin, slop)}
+				position := simulation.RotatePoint(Vec.Create(scenario.distance, scenario.distance), rotation)
+				a := Vec.Transform(0, 0, rotation)
+				b := Vec.Transform(position.X, position.Y, rotation)
+
+				if _, touching := query.ContactShapes(hull.shape, item, a, b, slop); !touching {
+					t.Fatal("fixture must produce a native polygon corner contact")
+				}
+
+				reach := hull.contactRadius(slop) + math.Sqrt(2) + slop
+
+				if Vec.DistanceSquared(a.P, b.P) > reach*reach {
+					t.Fatal("collection bound discarded a native polygon corner contact")
+				}
+			})
+		}
+	}
+}
+
+func TestCollectionContactBoundPreservesDefaultSkinsAndCircles(t *testing.T) {
+	const slop = .5
+	square := []Vec.Vector{{X: -1, Y: -1}, {X: 1, Y: -1}, {X: 1, Y: 1}, {X: -1, Y: 1}}
+
+	for _, scenario := range []struct {
+		name   string
+		shape  shape.Shape
+		radius float64
+	}{
+		{"default", shape.NewPolygon(square, nil, slop), math.Sqrt(2) + 2*slop},
+		{"zero", shape.NewPolygon(square, new(0.0), slop), math.Sqrt(2)},
+		{"circle", shape.NewCircle(Vec.Create(3, 4), 10), 15},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			hull := collectionHull{shape: scenario.shape}
+
+			if radius := hull.contactRadius(slop); radius != scenario.radius {
+				t.Fatalf("contact radius changed: got %g, want %g", radius, scenario.radius)
+			}
+		})
+	}
+}
+
+func collectionThroat(t *testing.T, ship *objects.Ship) (*simulation.Segment, *collision.Collider) {
+	t.Helper()
+	ship.SetModuleActive("cargoHatch", true)
+	ship.UpdateModules(1)
+
+	for _, collider := range ship.Hitbox() {
+		if segment, ok := collider.Segment.(*simulation.Segment); ok && segment.Catches {
+			return segment, collider
+		}
+	}
+
+	t.Fatal("collection fixture has no cargo pickup throat")
+	return nil, nil
+}
+
+/*
+Keep real item shapes, hatch animation and physical contacts active throughout
+the approach. The result measures simulation time rather than machine speed.
+*/
+func collectOneItem(t *testing.T, ship *objects.Ship, item *objects.Item, pilot *Pilot) (float64, float64) {
+	t.Helper()
+	thrust, turn, channelTime := 0.0, 0.0, 0.0
+	step := ship.Catalog.Simulation.SimulationStep
+
+	for tick := range int(45 / step) {
+		if tick%steeringIntervalTicks(ship) == 0 {
+			thrust, turn = pilot.Steer(ship, Movement{Position: item.Position, Velocity: item.Velocity, IgnoreID: item.ID, Collect: true})
+		}
+
+		local := simulation.RotatePoint(Vec.Subtract(item.Position, ship.Position), -ship.Rotation)
+
+		if local.X > 0 && local.X < 40 && math.Abs(local.Y) < 8 && Vec.Length(Vec.Subtract(ship.Velocity, item.Velocity)) < 10 {
+			channelTime += step
+		}
+
+		ship.Fly(thrust, turn)
+		simulation.UpdateWorld(ship.World, simulation.UpdateWorldOptions{})
+
+		if slices.Contains(ship.CargoContents, simulation.Entity(item)) {
+			return float64(tick+1) * step, channelTime
+		}
+
+		if item.Dead {
+			t.Fatal("collection approach destroyed its target item")
+		}
+	}
+
+	t.Fatalf("item was not collected: ship=%v item=%v speed=%g slow channel time=%g", ship.Position, item.Position, Vec.Length(ship.Velocity), channelTime)
+	return 0, 0
+}
+
+func TestCollectionRestartsAtTheHatchHinge(t *testing.T) {
+	for _, heading := range []float64{0, math.Pi / 2, math.Pi, -math.Pi / 2} {
+		t.Run(fmt.Sprintf("heading%g", heading), func(t *testing.T) {
+			ship := arrivalShip(t, "courser")
+			ship.Face(heading)
+			segment, _ := collectionThroat(t, ship)
+			item := objects.NewItem("diamond", simulation.ObjectProperties{World: ship.World, Position: Vec.Add(ship.Position, simulation.RotatePoint(segment.LocalPosition, heading)), Rotation: heading}, ship.Catalog)
+			simulation.AddEntity(ship.World, item)
+			simulation.UpdateWorld(ship.World, simulation.UpdateWorldOptions{})
+
+			if slices.Contains(ship.CargoContents, simulation.Entity(item)) {
+				t.Fatal("hinge fixture must begin outside the actual pickup throat")
+			}
+
+			pilot := &Pilot{}
+			thrust, _ := pilot.Steer(ship, Movement{Position: item.Position, Velocity: item.Velocity, IgnoreID: item.ID, Collect: true})
+
+			if thrust <= 0 {
+				t.Fatal("ship stopped with the item at the hinge before it entered the pickup throat")
+			}
+
+			elapsed, slow := collectOneItem(t, ship, item, pilot)
+
+			if elapsed > 1 {
+				t.Fatalf("item waited at the hinge for %.3f seconds before collection", elapsed)
+			}
+
+			t.Logf("picked up hinge item in %.3f simulation seconds; slow channel time %.3f", elapsed, slow)
+		})
+	}
+}
+
+func TestCollectionApproachesTheActualHatchAcrossHeadings(t *testing.T) {
+	for _, definition := range []string{"courser", "arrow"} {
+		for _, heading := range []float64{0, math.Pi / 2, math.Pi, -math.Pi / 2} {
+			t.Run(fmt.Sprintf("%s/heading%g", definition, heading), func(t *testing.T) {
+				ship := arrivalShip(t, definition)
+				ship.Face(heading)
+				_, throat := collectionThroat(t, ship)
+				item := objects.NewItem("diamond", simulation.ObjectProperties{World: ship.World, Position: Vec.Add(throat.Position, simulation.RotatePoint(Vec.Create(90, 0), heading)), Rotation: heading}, ship.Catalog)
+				simulation.AddEntity(ship.World, item)
+				elapsed, slow := collectOneItem(t, ship, item, &Pilot{})
+
+				if elapsed > 3 {
+					t.Fatalf("nearby item took %.3f seconds to enter the actual hatch", elapsed)
+				}
+
+				t.Logf("picked up item in %.3f simulation seconds; slow channel time %.3f", elapsed, slow)
+			})
+		}
+	}
+}
+
+func TestCollectionMovesThroughTheCourserChannel(t *testing.T) {
+	for _, definition := range []string{"diamond", "gold", "amethyst", "opal"} {
+		t.Run(definition, func(t *testing.T) {
+			ship := arrivalShip(t, "courser")
+			collectionThroat(t, ship)
+			item := objects.NewItem(definition, simulation.ObjectProperties{World: ship.World, Position: Vec.Create(250, 0)}, ship.Catalog)
+			simulation.AddEntity(ship.World, item)
+			elapsed, slow := collectOneItem(t, ship, item, &Pilot{})
+
+			if elapsed > 4 || slow > .5 {
+				t.Fatalf("collection slowed before the item entered the hatch: elapsed=%.3f slow=%.3f", elapsed, slow)
+			}
+
+			t.Logf("picked up item in %.3f simulation seconds; slow channel time %.3f", elapsed, slow)
+		})
+	}
+}
+
+func TestCollectionRecoveryLeavesCargoMovingWithTheShip(t *testing.T) {
+	ship := arrivalShip(t, "courser")
+	collectionThroat(t, ship)
+	ship.Velocity = Vec.Create(180, 0)
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(16, 0), Velocity: Vec.Clone(ship.Velocity), Rotation: 2}, ship.Catalog)
+	simulation.AddEntity(ship.World, item)
+	approach := collectionApproach{}
+	destination := Movement{Position: item.Position, Velocity: item.Velocity, IgnoreID: item.ID, Collect: true}
+	approach.movement(ship, destination)
+	ship.World.Tick += uint64(math.Ceil(2.1 / ship.Catalog.Simulation.SimulationStep))
+	first := approach.movement(ship, destination)
+
+	if first.Collect {
+		t.Fatal("wedged cargo never triggered another approach")
+	}
+
+	// A blocked item can travel with the ship while neither closes the gap.
+	// Recovery must leave that moving pair rather than chasing its own offset.
+	ship.Position = Vec.Add(ship.Position, Vec.Create(180, 0))
+	item.Position = Vec.Add(item.Position, Vec.Create(180, 0))
+	ship.World.Tick++
+	destination.Position = item.Position
+	next := approach.movement(ship, destination)
+
+	if next.Collect || next.Position != first.Position || Vec.LengthSquared(next.Velocity) != 0 {
+		t.Fatalf("recovery followed the moving cargo: first=%v next=%v velocity=%v", first.Position, next.Position, next.Velocity)
+	}
+}
+
+func TestCollectionEscapesCargoPushedAcrossTheChannel(t *testing.T) {
+	ship := arrivalShip(t, "courser")
+	collectionThroat(t, ship)
+	ship.Velocity = Vec.Create(180, 0)
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(16, 0), Velocity: Vec.Clone(ship.Velocity), Rotation: 2}, ship.Catalog)
+	simulation.AddEntity(ship.World, item)
+	elapsed, slow := collectOneItem(t, ship, item, &Pilot{})
+
+	if elapsed > 25 {
+		t.Fatalf("ship kept pushing blocked cargo for %.3f seconds", elapsed)
+	}
+
+	t.Logf("collected cargo moving with the ship in %.3f simulation seconds; slow channel time %.3f", elapsed, slow)
+}
+
+func TestCollectionRoutesAroundAnObstacleAfterPlanningAPickup(t *testing.T) {
+	ship := arrivalShip(t, "courser")
+	collectionThroat(t, ship)
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(350, 0)}, ship.Catalog)
+	simulation.AddEntity(ship.World, item)
+	pilot := &Pilot{}
+	pilot.Steer(ship, Movement{Position: item.Position, IgnoreID: item.ID, Collect: true})
+
+	// New obstacles must replace the open pickup approach with a safe route.
+	rock := simulation.CreateAsteroid(ship.World, simulation.AsteroidProperties{
+		ObjectProperties: simulation.ObjectProperties{Position: Vec.Create(150, 0), Radius: new(40.0)},
+		PointCount:       8,
+	})
+
+	simulation.AddEntity(ship.World, rock.LockGeometry())
+	health := ship.HullHealthTotal()
+	elapsed, _ := collectOneItem(t, ship, item, pilot)
+
+	if ship.HullHealthTotal() != health {
+		t.Fatalf("collection crossed the blocking asteroid: hull health before=%g after=%g", health, ship.HullHealthTotal())
+	}
+
+	t.Logf("collected cargo around the new obstacle in %.3f simulation seconds", elapsed)
+}

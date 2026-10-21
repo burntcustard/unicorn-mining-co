@@ -1,0 +1,31 @@
+package npc
+
+import (
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"math"
+)
+
+/*
+contactRadius encloses the prepared geometry and its collision skin. Polygon
+clipping extends corners along both the face normal and tangent; large custom
+skins need additional room beyond the slop already added to each contact query.
+*/
+func (h collectionHull) contactRadius(slop float64) float64 {
+	geometry := h.shape.Base()
+	radiusSquared := 0.0
+
+	for _, vertex := range geometry.Vertices[:geometry.Count] {
+		radiusSquared = max(radiusSquared, Vec.LengthSquared(vertex))
+	}
+
+	radius := math.Sqrt(radiusSquared) + geometry.Radius
+
+	if _, polygon := h.shape.(*shape.PolygonShape); polygon {
+		if extra := (math.Sqrt2 - 1) * geometry.Radius; extra > slop {
+			radius += extra
+		}
+	}
+
+	return radius
+}

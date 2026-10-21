@@ -1,0 +1,86 @@
+{
+  "samples": [
+    {
+      "repeat": 1,
+      "variant": "before",
+      "cpu": 0.721869
+    },
+    {
+      "repeat": 1,
+      "variant": "cached-bound",
+      "cpu": 0.7475039999999998
+    },
+    {
+      "repeat": 1,
+      "variant": "cached-simple",
+      "cpu": 0.8852129999999999
+    },
+    {
+      "repeat": 1,
+      "variant": "local-score",
+      "cpu": 0.7537530000000003
+    },
+    {
+      "repeat": 1,
+      "variant": "local-score-simple",
+      "cpu": 0.8351389999999996
+    },
+    {
+      "repeat": 2,
+      "variant": "local-score-simple",
+      "cpu": 0.9187459999999997
+    },
+    {
+      "repeat": 2,
+      "variant": "local-score",
+      "cpu": 0.718675
+    },
+    {
+      "repeat": 2,
+      "variant": "cached-simple",
+      "cpu": 0.8900750000000002
+    },
+    {
+      "repeat": 2,
+      "variant": "cached-bound",
+      "cpu": 0.7318749999999996
+    },
+    {
+      "repeat": 2,
+      "variant": "before",
+      "cpu": 0.7117290000000007
+    },
+    {
+      "repeat": 3,
+      "variant": "local-score-simple",
+      "cpu": 0.9190139999999991
+    },
+    {
+      "repeat": 3,
+      "variant": "before",
+      "cpu": 0.743988999999999
+    },
+    {
+      "repeat": 3,
+      "variant": "cached-bound",
+      "cpu": 0.7539120000000006
+    },
+    {
+      "repeat": 3,
+      "variant": "local-score",
+      "cpu": 0.7439999999999993
+    },
+    {
+      "repeat": 3,
+      "variant": "cached-simple",
+      "cpu": 0.8813600000000005
+    }
+  ],
+  "medianCPUSeconds": {
+    "before": 0.721869,
+    "cached-bound": 0.7475039999999998,
+    "cached-simple": 0.8852129999999999,
+    "local-score": 0.7439999999999993,
+    "local-score-simple": 0.9187459999999997
+  }
+}

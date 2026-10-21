@@ -7,10 +7,11 @@ import (
 )
 
 type collectionApproach struct {
-	itemID     int64
-	checkedAt  uint64
-	distance   float64
-	reposition Vec.Vector
+	itemID        int64
+	checkedAt     uint64
+	distance      float64
+	reposition    Vec.Vector
+	repositioning bool
 }
 
 /*
@@ -29,12 +30,12 @@ func (c *collectionApproach) movement(ship *objects.Ship, destination Movement) 
 		*c = collectionApproach{itemID: destination.IgnoreID, checkedAt: ship.World.Tick, distance: distance}
 	}
 
-	if c.reposition != (Vec.Vector{}) && Vec.Distance(ship.Position, Vec.Add(destination.Position, c.reposition)) <= 20 {
-		c.reposition = Vec.Vector{}
+	if c.repositioning && Vec.Distance(ship.Position, c.reposition) <= 20 {
+		c.repositioning = false
 		c.checkedAt, c.distance = ship.World.Tick, distance
 	}
 
-	if c.reposition == (Vec.Vector{}) {
+	if !c.repositioning {
 		if distance < c.distance-2 || distance > 2*navigationRadius(ship) {
 			c.checkedAt, c.distance = ship.World.Tick, distance
 		}
@@ -50,14 +51,43 @@ func (c *collectionApproach) movement(ship *objects.Ship, destination Movement) 
 					c.reposition = Vec.Scale(c.reposition, -1)
 				}
 			}
+
+			// Keep the escape point fixed. Following a waypoint attached to a
+			// wedged, moving item keeps pushing the ship and item together.
+			c.reposition = Vec.Add(destination.Position, c.reposition)
+			c.repositioning = true
 		}
 	}
 
-	if c.reposition != (Vec.Vector{}) {
-		destination.Position = Vec.Add(destination.Position, c.reposition)
+	if c.repositioning {
+		destination.Position = c.reposition
 		destination.Collect = false
+		destination.Velocity = Vec.Vector{}
 		destination.FollowDistance = 1
 	}
 
 	return destination
+}
+
+/*
+collectionCenter locates the working pickup throat in ship-local coordinates.
+Use its current outline because animated geometry can differ from cached centers.
+*/
+func collectionCenter(ship *objects.Ship) (Vec.Vector, bool) {
+	for _, segment := range ship.Segments {
+		if !segment.Catches || segment.Module == nil || *segment.TargetHealth() < 1 {
+			continue
+		}
+
+		center := segment.LocalPosition
+
+		if outline := segment.Outline(); outline != nil && len(outline.Points) > 0 {
+			middle, _ := simulation.ShapeOutlineExtent(outline.Points)
+			center = Vec.Add(center, Vec.Create(middle[0], middle[1]))
+		}
+
+		return center, true
+	}
+
+	return Vec.Vector{}, false
 }

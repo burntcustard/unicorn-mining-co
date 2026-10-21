@@ -109,11 +109,18 @@ func (s *GameSession) pirateInput(npc *pirate) protocol.Input {
 
 		for _, item := range npc.loot {
 			if world.Entities.Has(item.Base().ID) || s.regions.sleeping.Has(item.Base().ID) {
+				if item == npc.lootTarget {
+					nearest = item
+					break
+				}
+
 				if d := Vec.DistanceSquared(ship.Position, item.Base().Position); d < best {
 					nearest, best = item, d
 				}
 			}
 		}
+
+		npc.lootTarget = nearest
 
 		if nearest != nil && len(ship.CargoContents) < ship.CargoSpace {
 			input.CargoHatch = true

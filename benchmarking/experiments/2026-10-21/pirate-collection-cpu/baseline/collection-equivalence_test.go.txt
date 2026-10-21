@@ -1,0 +1,230 @@
+package npc
+
+import (
+	"math"
+	"math/rand/v2"
+	"slices"
+	"testing"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+)
+
+/*
+Compare production controls bit for bit with the exhaustive pre-optimization
+controller. Independent reusable pilots exercise forecast storage reuse. Seeded
+states vary real hulls, item polygons and circles, hatch animation, damaged hull
+and modules, rotation, velocity, spin, pickup range, and absent target entities.
+This archived experiment is an optimization oracle rather than a gameplay rule.
+*/
+func TestCollectionControlsMatchExhaustive(t *testing.T) {
+	random := rand.New(rand.NewPCG(20261021, 99))
+	actualPilot, referencePilot := &Pilot{}, &Pilot{}
+	shapes := []string{"gold", "diamond", "amethyst", "opal", ""}
+	damaged, disabledHatches, missing, circles := 0, 0, 0, 0
+
+	for index := range 1000 {
+		ship := arrivalShip(t, []string{"courser", "arrow"}[index%2])
+		ship.Position = Vec.Create(5000+random.Float64()*50000, 5000+random.Float64()*50000)
+		ship.Face((random.Float64()*2 - 1) * math.Pi)
+		ship.Spin = (random.Float64()*2 - 1) * 3
+		ship.Velocity = Vec.Create((random.Float64()*2-1)*250, (random.Float64()*2-1)*250)
+
+		switch index % 4 {
+		case 0:
+			ship.SetModuleActive("cargoHatch", false)
+			ship.UpdateModules(1)
+		case 1:
+			ship.SetModuleActive("cargoHatch", true)
+			ship.UpdateModules(random.Float64() * .2)
+		case 2:
+			ship.SetModuleActive("cargoHatch", true)
+			ship.UpdateModules(1)
+		case 3:
+			ship.SetModuleActive("cargoHatch", true)
+			ship.UpdateModules(1)
+			ship.SetModuleActive("cargoHatch", false)
+			ship.UpdateModules(random.Float64() * .2)
+		}
+
+		for _, segment := range ship.Segments {
+			health := segment.TargetHealth()
+			if *health >= 1 && random.Float64() < .12 {
+				*health *= random.Float64()
+				damaged++
+			}
+			if segment.Catches && index%29 == 0 {
+				*health = 0
+				disabledHatches++
+			}
+		}
+		ship.UpdateModules(0)
+
+		bearing := random.Float64() * 2 * math.Pi
+		distance := random.Float64() * 400
+		if index%3 == 0 {
+			bearing = ship.Rotation + (random.Float64()*2-1)*.3
+			distance = random.Float64() * 70
+		}
+		position := Vec.Add(ship.Position, Vec.Create(math.Cos(bearing)*distance, math.Sin(bearing)*distance))
+		item := objects.NewItem(shapes[index%len(shapes)], simulation.ObjectProperties{
+			World: ship.World, Position: position,
+			Velocity: Vec.Create((random.Float64()*2-1)*150, (random.Float64()*2-1)*150),
+			Rotation: (random.Float64()*2 - 1) * math.Pi,
+		}, ship.Catalog)
+		item.Spin = (random.Float64()*2 - 1) * 8
+		if index%len(shapes) == len(shapes)-1 {
+			item.ShapeOutline = nil
+			item.Radius = .1 + random.Float64()*20
+			circles++
+		}
+		simulation.AddEntity(ship.World, item)
+		destination := Movement{Position: item.Position, Velocity: item.Velocity, IgnoreID: item.ID, Collect: true}
+		if index%31 == 0 {
+			ship.World.Entities.Delete(item.ID)
+			missing++
+		}
+
+		var actualThrust, actualTurn, referenceThrust, referenceTurn float64
+		if index%2 == 0 {
+			actualThrust, actualTurn = actualPilot.collectControls(ship, destination, nil)
+			referenceThrust, referenceTurn = referencePilot.collectControlsReference(ship, destination, nil)
+		} else {
+			referenceThrust, referenceTurn = referencePilot.collectControlsReference(ship, destination, nil)
+			actualThrust, actualTurn = actualPilot.collectControls(ship, destination, nil)
+		}
+		if math.Float64bits(actualThrust) != math.Float64bits(referenceThrust) || math.Float64bits(actualTurn) != math.Float64bits(referenceTurn) {
+			t.Fatalf("seeded state %d differs: thrust want %.17g got %.17g, turn want %.17g got %.17g; ship=%s position=%v velocity=%v rotation=%g spin=%g item=%s distance=%g", index, referenceThrust, actualThrust, referenceTurn, actualTurn, ship.DefinitionID, ship.Position, ship.Velocity, ship.Rotation, ship.Spin, shapes[index%len(shapes)], distance)
+		}
+	}
+	t.Logf("1,000 seeded states matched bitwise; PCG=(20261021,99), 500 Courser + 500 Arrow, 800 real polygon items + %d circles, %d hull/module health changes, %d disabled hatch segments, %d absent targets", circles, damaged, disabledHatches, missing)
+}
+
+/*
+Preserved exhaustive controller from the pre-optimization source archive.
+*/
+func (p *Pilot) collectControlsReference(ship *objects.Ship, destination Movement, obstacles []obstacle) (float64, float64) {
+	var center Vec.Vector
+	found := false
+
+	for _, segment := range ship.Segments {
+		if segment.Catches && segment.Module != nil && !(*segment.TargetHealth() < 1) {
+			center = segment.LocalPosition
+
+			if outline := segment.Outline(); outline != nil && len(outline.Points) > 0 {
+				offset := Vec.Vector{}
+
+				for _, point := range outline.Points {
+					offset = Vec.Add(offset, Vec.Create(point[0], point[1]))
+				}
+
+				center = Vec.Add(center, Vec.Scale(offset, 1/float64(len(outline.Points))))
+			}
+
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return 0, 0
+	}
+
+	// Aim beyond the throat center so slowing cannot leave cargo at its entrance.
+	center.X -= 5
+	offset := Vec.Subtract(destination.Position, ship.Position)
+	bearing := math.Atan2(offset.Y, offset.X)
+	forecast := p.forecast.reset(ship, navigationRadius(ship), nil)
+	// Collection needs to see a complete turn and pickup. Obstacle avoidance
+	// resets this shared storage to its usual, shorter prediction horizon.
+	forecast.steps = collectionPredictionSteps
+	forecast.path = slices.Grow(forecast.path[:0], forecast.steps+1)[:forecast.steps+1]
+	forecast.directions = slices.Grow(forecast.directions[:0], forecast.steps)[:forecast.steps]
+	slop := ship.Catalog.Simulation.LinearSlop
+	var hullStorage [16]collectionHull
+	hull := hullStorage[:0]
+
+	for _, collider := range ship.Hitbox() {
+		if collider.Physics != nil && !*collider.Physics || collider.Collides != nil && !*collider.Collides {
+			continue
+		}
+
+		hull = append(hull, collectionHull{
+			position: simulation.RotatePoint(Vec.Subtract(collider.GetPosition(), ship.Position), -ship.Rotation),
+			rotation: collider.GetRotation() - ship.Rotation,
+			shape:    query.ShapeOf(query.ShapeData{Outline: collider.ShapeOutline, Radius: collider.GetRadius(), CollisionMargin: collider.CollisionMargin}, slop),
+		})
+	}
+
+	entity, exists := ship.World.Entities.Get(destination.IgnoreID)
+	var itemShape shape.Shape
+	var itemRotation, itemSpin float64
+	contactReach := 60.0
+
+	if exists {
+		item := entity.Base()
+		contactReach = max(contactReach, navigationRadius(ship)+item.Radius)
+		itemRotation, itemSpin = item.Rotation, item.Spin
+		var outline [][]float64
+
+		if item.ShapeOutline != nil {
+			outline = make([][]float64, len(item.ShapeOutline.Points))
+
+			for index, point := range item.ShapeOutline.Points {
+				outline[index] = []float64{point[0], point[1]}
+			}
+		}
+
+		itemShape = query.ShapeOf(query.ShapeData{Outline: outline, Radius: item.Radius, CollisionMargin: new(0.0)}, slop)
+	}
+
+	best := math.Inf(1)
+	bestHeading, bestThrust, bestTurn := bearing, 0.0, 0.0
+
+	for _, offset := range []float64{0, -.05, .05, -.1, .1, -.2, .2, -.35, .35, -.5, .5, -.75, .75, -1, 1, -1.5, 1.5, -2, 2, math.Pi} {
+		heading := bearing + offset
+		turn := turnInput(ship, math.Remainder(heading-ship.Rotation, 2*math.Pi))
+
+		for _, thrust := range []float64{0, .25, .5, .75, 1} {
+			forecast.project(heading, thrust, turn)
+			closest, penalty := math.Inf(1), 0.0
+
+			for step := range forecast.steps {
+				elapsed := float64(step+1) * predictionStep
+				direction := forecast.directions[step]
+				rotated := Vec.Create(center.X*direction.X-center.Y*direction.Y, center.X*direction.Y+center.Y*direction.X)
+				hatch := Vec.Add(forecast.path[step+1], rotated)
+				item := Vec.AddScaled(destination.Position, destination.Velocity, elapsed)
+				error := Vec.Subtract(item, hatch)
+				along, across := Vec.Dot(error, direction), Vec.Cross(direction, error)
+				distance := math.Hypot(max(0, math.Abs(along)-2), max(0, math.Abs(across)-4))
+
+				if exists && Vec.DistanceSquared(item, forecast.path[step+1]) < contactReach*contactReach {
+					rotation := math.Atan2(direction.Y, direction.X)
+
+					for _, collider := range hull {
+						position := Vec.Add(forecast.path[step+1], simulation.RotatePoint(collider.position, rotation))
+						a := Vec.Transform(position.X, position.Y, rotation+collider.rotation)
+						b := Vec.Transform(item.X, item.Y, itemRotation+itemSpin*elapsed)
+						contact, touching := query.ContactShapes(collider.shape, itemShape, a, b, slop)
+
+						if touching {
+							penalty += 2 * max(.1, contact.Depth)
+						}
+					}
+				}
+
+				closest = min(closest, distance+4*elapsed+penalty)
+			}
+
+			if closest < best {
+				best, bestHeading, bestThrust, bestTurn = closest, heading, thrust, turn
+			}
+		}
+	}
+
+	return p.avoid(ship, simulation.DirectionOf(bestHeading), bestThrust, bestTurn, obstacles)
+}

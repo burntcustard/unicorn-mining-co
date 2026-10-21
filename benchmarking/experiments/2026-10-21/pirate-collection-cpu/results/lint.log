@@ -1,0 +1,4 @@
+npm notice run unicorn-mining-co@0.1.0 lint
+npm notice run oxlint --type-aware --type-check . && npm run lint:css
+npm notice run unicorn-mining-co@0.1.0 lint:css
+npm notice run stylelint "{src,font}/**/*.css"

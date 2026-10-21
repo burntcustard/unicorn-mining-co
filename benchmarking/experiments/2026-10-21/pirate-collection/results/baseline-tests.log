@@ -1,0 +1,25 @@
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/npc	6.222s
+--- FAIL: TestWebSocketUpgradeAndMaskedBinary (0.00s)
+panic: httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted [recovered, repanicked]
+
+goroutine 127 [running]:
+testing.tRunner.func1.2({0x10e87d8, 0xc7a78382010})
+	/usr/local/go/src/testing/testing.go:2123 +0x232
+testing.tRunner.func1()
+	/usr/local/go/src/testing/testing.go:2126 +0x329
+panic({0x10e87d8?, 0xc7a78382010?})
+	/usr/local/go/src/runtime/panic.go:859 +0x125
+net/http/httptest.newLocalListener()
+	/usr/local/go/src/net/http/httptest/server.go:226 +0xd9
+net/http/httptest.NewUnstartedServer(...)
+	/usr/local/go/src/net/http/httptest/server.go:284
+net/http/httptest.NewServer({0x11627b0, 0x1167eb0})
+	/usr/local/go/src/net/http/httptest/server.go:267 +0x25
+github.com/burntcustard/unicorn-mining-co/src/server/network.TestWebSocketUpgradeAndMaskedBinary(0xc7a78129688)
+	/home/burntcustard/Dev/unicorn-mining-co/src/server/network/http-websocket_test.go:18 +0x4b
+testing.tRunner(0xc7a78129688, 0x1167da8)
+	/usr/local/go/src/testing/testing.go:2193 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/local/go/src/testing/testing.go:2258 +0x4d4
+FAIL	github.com/burntcustard/unicorn-mining-co/src/server/network	2.407s
+FAIL

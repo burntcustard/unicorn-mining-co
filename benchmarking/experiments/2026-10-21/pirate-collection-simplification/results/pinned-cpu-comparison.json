@@ -1,0 +1,119 @@
+{
+  "settings": {
+    "GOGC": 800,
+    "GOMAXPROCS": 1,
+    "affinity": [
+      0
+    ],
+    "benchtime": "10x",
+    "orders": [
+      [
+        "before",
+        "winner-simple",
+        "winner-bound"
+      ],
+      [
+        "winner-bound",
+        "winner-simple",
+        "before"
+      ],
+      [
+        "winner-simple",
+        "before",
+        "winner-bound"
+      ],
+      [
+        "winner-bound",
+        "before",
+        "winner-simple"
+      ],
+      [
+        "before",
+        "winner-bound",
+        "winner-simple"
+      ]
+    ]
+  },
+  "samples": [
+    {
+      "repeat": 1,
+      "variant": "before",
+      "cpu": 1.182925
+    },
+    {
+      "repeat": 1,
+      "variant": "winner-simple",
+      "cpu": 1.2343060000000001
+    },
+    {
+      "repeat": 1,
+      "variant": "winner-bound",
+      "cpu": 1.1679880000000002
+    },
+    {
+      "repeat": 2,
+      "variant": "winner-bound",
+      "cpu": 1.1615300000000002
+    },
+    {
+      "repeat": 2,
+      "variant": "winner-simple",
+      "cpu": 1.2292839999999998
+    },
+    {
+      "repeat": 2,
+      "variant": "before",
+      "cpu": 1.1679809999999997
+    },
+    {
+      "repeat": 3,
+      "variant": "winner-simple",
+      "cpu": 1.2353580000000004
+    },
+    {
+      "repeat": 3,
+      "variant": "before",
+      "cpu": 1.167840999999999
+    },
+    {
+      "repeat": 3,
+      "variant": "winner-bound",
+      "cpu": 1.1776709999999995
+    },
+    {
+      "repeat": 4,
+      "variant": "winner-bound",
+      "cpu": 1.1774240000000014
+    },
+    {
+      "repeat": 4,
+      "variant": "before",
+      "cpu": 1.1730019999999992
+    },
+    {
+      "repeat": 4,
+      "variant": "winner-simple",
+      "cpu": 1.2469210000000008
+    },
+    {
+      "repeat": 5,
+      "variant": "before",
+      "cpu": 1.1899940000000004
+    },
+    {
+      "repeat": 5,
+      "variant": "winner-bound",
+      "cpu": 1.1832279999999968
+    },
+    {
+      "repeat": 5,
+      "variant": "winner-simple",
+      "cpu": 1.2470480000000017
+    }
+  ],
+  "medianCPUSeconds": {
+    "before": 1.1730019999999992,
+    "winner-simple": 1.2353580000000004,
+    "winner-bound": 1.1774240000000014
+  }
+}

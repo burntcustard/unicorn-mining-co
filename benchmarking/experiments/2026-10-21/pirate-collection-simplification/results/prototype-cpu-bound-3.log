@@ -1,0 +1,9 @@
+goos: linux
+goarch: amd64
+pkg: github.com/burntcustard/unicorn-mining-co/src/server/network
+cpu: Intel(R) Core(TM) Ultra X7 358H
+BenchmarkPirateCollection/main-16         	       5	  30519989 ns/op	      3506 distance/8items	         4.700 max-gap-s	        21.77 sim-s/8items	         0 slow-s/8items
+BenchmarkPirateCollection/compact-16      	       5	  36810227 ns/op	      3292 distance/8items	         9.600 max-gap-s	        29.23 sim-s/8items	         0.03333 slow-s/8items
+BenchmarkPirateCollection/wide-16         	       5	  40363839 ns/op	      5723 distance/8items	        12.30 max-gap-s	        35.40 sim-s/8items	         0 slow-s/8items
+BenchmarkPirateCollection/heldout-16      	       5	  43773400 ns/op	      4954 distance/8items	         8.767 max-gap-s	        33.43 sim-s/8items	         0 slow-s/8items
+PASS

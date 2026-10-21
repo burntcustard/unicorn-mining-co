@@ -65,12 +65,13 @@ func (p *Pilot) Steer(ship *objects.Ship, destination Movement) (float64, float6
 		p.passing = false
 	}
 
+	center, hasHatch := Vec.Vector{}, false
+
 	if destination.Collect {
-		for _, segment := range ship.Segments {
-			if segment.Catches && segment.Module != nil && !(*segment.TargetHealth() < 1) {
-				target = Vec.Subtract(target, simulation.RotatePoint(segment.LocalPosition, ship.Rotation))
-				break
-			}
+		center, hasHatch = collectionCenter(ship)
+
+		if hasHatch {
+			target = Vec.Subtract(target, simulation.RotatePoint(center, ship.Rotation))
 		}
 	}
 
@@ -112,6 +113,30 @@ func (p *Pilot) Steer(ship *objects.Ship, destination Movement) (float64, float6
 		return 0, 0
 	}
 
+	collectNearby := destination.Collect && !detour && distance < ship.MaxSpeed()*float64(collectionPredictionSteps)*predictionStep
+	nearStation := false
+
+	if collectNearby {
+		pickupReach := ship.MaxSpeed()*float64(collectionPredictionSteps)*predictionStep + navigationRadius(ship)
+
+		for _, object := range obstacles {
+			reach := object.radius + pickupReach
+
+			if object.station && Vec.DistanceSquared(ship.Position, object.position) < reach*reach {
+				nearStation = true
+				break
+			}
+		}
+
+		if !nearStation {
+			if !hasHatch {
+				return 0, 0
+			}
+
+			return p.collectControls(ship, destination, obstacles, center)
+		}
+	}
+
 	// Compensate for drift relative to the target while retaining a forward course.
 	relative := Vec.Subtract(ship.Velocity, velocity)
 	lateral := Vec.Subtract(relative, Vec.Scale(direction, Vec.Dot(relative, direction)))
@@ -121,13 +146,28 @@ func (p *Pilot) Steer(ship *objects.Ship, destination Movement) (float64, float6
 
 	desired := Vec.Add(velocity, Vec.Scale(direction, speed))
 
-	if chasing && !detour {
+	// Keep a controlled closing speed near docking interiors, where a fast
+	// glancing contact can send cargo inside circular navigation bounds.
+	if nearStation {
+		desired = Vec.Add(velocity, Vec.Scale(direction, min(50, max(40, distance*.8))))
+	} else if chasing && !detour {
 		wanted := Vec.Dot(velocity, direction) + (distance-destination.FollowDistance)*ship.Drag
 		desired = Vec.Scale(direction, max(0, min(ship.MaxSpeed(), wanted)))
 	}
 
 	maximum := ship.Rules.Flight.ThrustScale * ship.ForwardThrust() / ship.Mass
 	acceleration := Vec.Add(Vec.Scale(desired, ship.Drag), Vec.Scale(Vec.Subtract(desired, ship.Velocity), 1/rules.ResponseTime))
+
+	if nearStation {
+		forward := simulation.DirectionOf(ship.Rotation)
+		thrust := 0.0
+
+		if maximum > 0 {
+			thrust = max(0, min(1, Vec.Dot(acceleration, forward)/maximum))
+		}
+
+		return p.avoid(ship, heading, thrust, turn, obstacles)
+	}
 
 	if chasing && !detour {
 		acceleration = Vec.Add(acceleration, targetAcceleration)

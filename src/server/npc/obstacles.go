@@ -8,6 +8,7 @@ import (
 )
 
 type obstacle struct {
+	station            bool
 	position, velocity Vec.Vector
 	acceleration       Vec.Vector
 	radius             float64
@@ -111,7 +112,7 @@ func (s *obstacleSnapshot) capture(ship *objects.Ship, ignore int64) []obstacle 
 			return
 		}
 
-		value := obstacle{position: object.Position, velocity: object.Velocity, radius: object.Radius, spin: object.Spin}
+		value := obstacle{station: object.Kind == "station", position: object.Position, velocity: object.Velocity, radius: object.Radius, spin: object.Spin}
 
 		if asteroid, ok := entity.(*simulation.Asteroid); ok {
 			source := asteroid.GeometrySource()
