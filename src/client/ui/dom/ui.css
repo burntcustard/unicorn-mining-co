@@ -458,11 +458,7 @@
 
     & > button {
       margin-inline: -1px;
-      text-decoration: underline;
-      text-decoration-thickness: 0.15em;
-      text-underline-offset: 0.2em;
-      text-decoration-inset: 0.05em;
-      transition: text-decoration-color 0.1s, color 0.1s;
+      transition: color 0.1s;
 
       &:not([aria-pressed='true']) {
         text-decoration-color: #0000;
