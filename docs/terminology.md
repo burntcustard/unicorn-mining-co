@@ -133,7 +133,7 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **segment** - One piece of a larger object. Kinds of segments include: asteroid segment, hull segment, module segment.
 
-**sell** - A docked action that exchanges cargo contents for credits. Selling a module or item is the opposite of buying it. An equipped module must be removed before it can be sold.
+**sell** - A docked action that exchanges cargo contents or an equipped module for credits. Selling a module or item is the opposite of buying it. Selling an equipped module frees its mount without requiring cargo space.
 
 **shades** - The colors used to draw a craft or module, including its fill, edge stroke, shadow, and highlight.
 

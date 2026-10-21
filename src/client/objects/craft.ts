@@ -558,7 +558,7 @@ export class Craft extends GameObject {
 
       if (collidingOnly && !collides) continue;
 
-      const { bounciness, friction } = segment.module;
+      const { bounciness, friction, collisionMargin } = segment.module;
       const points =
         typeof segment.points === 'function'
           ? segment.points(segment)
@@ -583,7 +583,7 @@ export class Craft extends GameObject {
         collider.physics !== physics ||
         collider.contactFilter !==
           (segment.catches ? cargoContactAllowed : undefined) ||
-        collider.collisionMargin !== undefined ||
+        collider.collisionMargin !== collisionMargin ||
         collider.pickupPoint !== undefined ||
         collider.radius !== radius ||
         Boolean(collider.shapeOutline) !== Boolean(points);
@@ -646,6 +646,11 @@ export class Craft extends GameObject {
         ? cargoContactAllowed
         : undefined;
       collider.physics = physics;
+
+      if (collisionMargin !== undefined) {
+        collider.collisionMargin = collisionMargin;
+      }
+
       collider.radius = radius;
       collider.rotation = this.rotation;
       collider.speed =

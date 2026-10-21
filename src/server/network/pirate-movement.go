@@ -122,10 +122,18 @@ func (s *GameSession) pirateInput(npc *pirate) protocol.Input {
 			return input
 		}
 
-		if victim.ReleasingCargo() && slices.ContainsFunc(npc.loot, func(item simulation.Entity) bool { return slices.Contains(victim.CargoContents, item) }) {
+		full := len(ship.CargoContents) >= ship.CargoSpace
+
+		if !full && victim.ReleasingCargo() && slices.ContainsFunc(npc.loot, func(item simulation.Entity) bool { return slices.Contains(victim.CargoContents, item) }) {
 			input.AutogunActive = false
 			input.CargoHatch = true
 			return input
+		}
+
+		if full {
+			s.pirateChat(npc, world.Specification.PirateDialog.CargoFull)
+		} else if slices.ContainsFunc(ship.CargoContents, func(item simulation.Entity) bool { return item != npc.ammunition && item.Base().Price > 0 }) {
+			s.pirateChat(npc, world.Specification.PirateDialog.SuccessfulHaul, "{player_name}", victim.Name)
 		}
 
 		npc.state = pirateReturning

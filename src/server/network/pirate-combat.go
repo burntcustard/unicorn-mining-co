@@ -6,6 +6,26 @@ import (
 )
 
 /*
+lostEquipment detects the loss of all cargo hatches or both cannons, even
+before destroyed module segments have been removed from the ship.
+*/
+func (npc *pirate) lostEquipment() bool {
+	hatch, cannon := false, false
+
+	for _, segment := range npc.ship.Segments {
+		if segment.Module == nil || *segment.TargetHealth() < 1 || segment.Mount.Hull.Health < 1 {
+			continue
+		}
+
+		module := segment.Module.ModuleBase()
+		hatch = hatch || module.Spec.Behavior == "cargoHatch"
+		cannon = cannon || module.Type == "cannonSm"
+	}
+
+	return !hatch || !cannon
+}
+
+/*
 updatePirateAttack finishes the pause or resumes the interrupted activity when
 the last aggressor leaves. Living enemies outside sight remain hostile.
 */
@@ -41,6 +61,7 @@ beginPirateCollection accepts a truce and waits before opening the cargo hatches
 Hostility toward other players retains its existing attack delay.
 */
 func (s *GameSession) beginPirateCollection(npc *pirate, now float64) {
+	npc.reDemandAfter = 0
 	npc.state, npc.thinkAfter, npc.countdown = pirateWaiting, 0, -1
 	npc.collectAfter = now + s.World.Specification.PirateSpec.CollectDelay
 	npc.cargoAccepted = true
@@ -55,6 +76,7 @@ beginPirateAttack announces a new fight and holds fire for the configured pause.
 The debug state follows the same phase as the held movement and weapon inputs.
 */
 func (s *GameSession) beginPirateAttack(npc *pirate, now float64, lines []string) {
+	npc.reDemandAfter = 0
 	if npc.state != pirateStranded {
 		npc.state = pirateWaiting
 	}
@@ -72,7 +94,7 @@ pirateRetaliationDialog distinguishes a broken cargo truce from an unsolicited a
 func (s *GameSession) pirateRetaliationDialog(npc *pirate, attacker int64) []string {
 	dialog := &s.World.Specification.PirateDialog
 
-	if npc.state == pirateCollecting || npc.collectAfter > 0 {
+	if npc.collecting() {
 		if attacker == npc.victim.playerID {
 			return dialog.BrokenTruce
 		}
@@ -130,17 +152,16 @@ func (s *GameSession) pirateHits(events []protocol.SimulationEvent) {
 		}
 
 		for _, npc := range s.sectors[s.currentSector].pirates {
-			if npc.ship.ID != target || by == *npc.ship.PlayerID || npc.ship.Dead || npc.ship.DockedTo != nil {
+			if npc.ship.ID != target || by == *npc.ship.PlayerID || npc.ship.Dead || npc.ship.DockedTo != nil || npc.defeated {
 				continue
 			}
 
-			collecting := npc.state == pirateCollecting || npc.collectAfter > 0
 			ongoing := npc.state == pirateFighting || npc.attackAfter > 0 || npc.tauntAfter > 0
 			lines := s.pirateRetaliationDialog(npc, by)
 			npc.aggressors[by] = true
 			npc.thinkAfter = 0
 
-			if collecting || !ongoing {
+			if npc.collecting() || !ongoing {
 				now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
 				s.beginPirateAttack(npc, now, lines)
 			}

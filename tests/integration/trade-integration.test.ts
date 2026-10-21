@@ -41,8 +41,7 @@ Object.assign(globalThis, {
 const scenario = `
 import assert from 'node:assert/strict';
 import { NetworkClient } from '${root}/src/client/network/network.ts';
-import { setCraftActionDispatcher } from '${root}/src/client/network/craft-actions.ts';
-import { applyCraftAction } from '${root}/src/client/network/craft-actions.ts';
+import { applyCraftAction, setCraftActionDispatcher } from '${root}/src/client/network/craft-actions.ts';
 import { decodeServerControl } from '${root}/src/client/protocol/binary-control.ts';
 import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
@@ -225,6 +224,36 @@ assert.equal(ship().mounts[0].module.id, laser.moduleId, 'server confirms the im
 assert.equal(ship().mounts[0].health, 40, 'server confirms full Beam Laser health');
 assert.equal(client.player.credits, beforeLaser[0] - Laser.price, 'server charges the purchase once');
 assert.deepEqual(state()[1], beforeLaser[1], 'confirmed fitting leaves no extra cargo module');
+
+// Sell directly from the mount with every cargo slot occupied.
+while (ship().cargoContents.length < ship().cargoSpace) {
+  assert(act({ action: 'buyAmmo' }));
+}
+await flush();
+const fullCargo = state();
+const equippedId = ship().mounts[0].module.id;
+assert(act({ action: 'sell', objectIds: [equippedId] }));
+assert(!ship().mounts[0].module, 'sale immediately clears the mount with full cargo');
+assert.deepEqual(state()[1], fullCargo[1], 'optimistic sale preserves full cargo');
+await flush();
+assert(!ship().mounts[0].module, 'server confirms the direct equipped sale');
+assert.deepEqual(state()[1], fullCargo[1], 'confirmed sale needs no extra cargo slot');
+assert.equal(client.player.credits, fullCargo[0] + Laser.price, 'equipped sale pays exactly once');
+assert(act({ action: 'sell', objectIds: [ship().cargoContents.find(object => object.item === autogunAmmo).id] }));
+await flush();
+
+// Rapid buyback and resale must resolve station IDs for equipped sales too.
+const soldLaser = station().cargoContents.find(object => object instanceof Laser);
+const beforeEquippedBuyback = client.player.credits;
+for (let cycle = 0; cycle < 2; cycle++) {
+  assert(act({ action: 'buyStock', objectIds: [soldLaser.id] }));
+  assert(act({ action: 'equip', moduleId: soldLaser.id, mount: 0 }));
+  assert(act({ action: 'sell', objectIds: [soldLaser.id] }));
+}
+await flush();
+assert(!ship().mounts[0].module, 'rapid equipped sales stay sold after server confirmation');
+assert.equal(client.player.credits, beforeEquippedBuyback, 'rapid equipped buyback and resale are charged correctly');
+assert.equal(ship().cargoContents.length, ship().cargoSpace - 1, 'rapid equipped trades preserve cargo');
 
 const settled = state();
 client.connected = false;

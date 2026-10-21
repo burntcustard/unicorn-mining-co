@@ -7,16 +7,18 @@ import (
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
 
-// Search advances around an expanding spiral, retaining each leg through detours.
+// Search advances around an expanding spiral, retaining reachable legs through detours.
 type Search struct {
-	Origin  Vec.Vector
-	Heading float64
-	angle   float64
+	Origin    Vec.Vector
+	Heading   float64
+	angle     float64
+	obstacles obstacleSnapshot
 }
 
 /*
-Movement advances with the ship rather than time, so obstacles cannot skip search legs.
-Switching legs before arriving keeps the ship moving around the search area.
+Movement advances with the ship rather than time. Skip points inside obstacles
+so an unreachable waypoint cannot trap the search in small circles.
+Switching reachable legs before arriving keeps the ship moving around the area.
 */
 func (s *Search) Movement(ship *objects.Ship) Movement {
 	waypoint := func() Vec.Vector {
@@ -34,8 +36,10 @@ func (s *Search) Movement(ship *objects.Ship) Movement {
 	}
 
 	lookahead = max(70, lookahead)
+	obstacles := s.obstacles.capture(ship, 0)
+	radius := navigationRadius(ship) + ship.Catalog.NPCMovement.ClearanceDistance
 
-	for Vec.Distance(ship.Position, target) < lookahead {
+	for Vec.Distance(ship.Position, target) < lookahead || !clearSegment(target, target, radius, obstacles, false) {
 		s.angle += math.Pi / 32
 		target = waypoint()
 	}

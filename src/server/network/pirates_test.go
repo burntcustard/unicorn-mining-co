@@ -833,19 +833,7 @@ func TestPirateAnnouncesStrandingAndDestructionOnce(t *testing.T) {
 
 	s.updatePirates()
 
-	count := func(text string) int {
-		n := 0
-
-		for _, frame := range socket.frames {
-			if bytes.HasSuffix(frame, []byte(text)) {
-				n++
-			}
-		}
-
-		return n
-	}
-
-	if count("Oh no") != 1 || count("AHH!") != 0 {
+	if pirateDialogCount(socket, s.World.Specification.PirateDialog.Stranded) != 1 || chatCount(socket, "AHH!") != 0 {
 		t.Fatal("stranding message was missing, repeated, or treated as death")
 	}
 
@@ -859,7 +847,7 @@ func TestPirateAnnouncesStrandingAndDestructionOnce(t *testing.T) {
 	s.updatePirates()
 	s.updatePirates()
 
-	if count("AHH!") != 1 || count("Oh no") != 1 || len(s.sectors[s.currentSector].pirates) != 0 {
+	if chatCount(socket, "AHH!") != 1 || pirateDialogCount(socket, s.World.Specification.PirateDialog.Stranded) != 1 || len(s.sectors[s.currentSector].pirates) != 0 {
 		t.Fatal("full destruction did not produce one final message and cleanup")
 	}
 }
@@ -879,10 +867,8 @@ func TestPirateDestroyedDirectlyDoesNotAnnounceStranding(t *testing.T) {
 	npc.ship.Update(0)
 	s.updatePirates()
 
-	for _, frame := range socket.frames {
-		if bytes.HasSuffix(frame, []byte("Oh no")) {
-			t.Fatal("doomed pirate briefly announced being stranded")
-		}
+	if pirateDialogCount(socket, s.World.Specification.PirateDialog.Stranded) != 0 {
+		t.Fatal("doomed pirate briefly announced being stranded")
 	}
 
 	if !slices.ContainsFunc(socket.frames, func(frame []byte) bool { return bytes.HasSuffix(frame, []byte("AHH!")) }) {

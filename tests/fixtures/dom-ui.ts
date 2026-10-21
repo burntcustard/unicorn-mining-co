@@ -31,6 +31,7 @@ import {
 import { packPlayerInput } from '../../src/client/protocol/input.ts';
 import { createChat } from '../../src/client/ui/dom/chat';
 import { JumpGate } from '../../src/client/objects/jump-gate';
+import { Wormhole } from '../../src/client/objects/wormhole';
 import { jumpGateSpec } from '../../src/specs/jump-gate';
 import { jumpGateDialog } from '../../src/specs/dialog/jump-gate';
 import * as Vec from '../../src/client/utilities/vector';
@@ -1767,6 +1768,26 @@ export const checkHud = () => {
   const gateApproachCleared =
     text('[data-description]') === gate.targetLabel!.split('\n').at(-1);
 
+  const targetArtwork = [
+    new Station({ stationType: 'corral-5' }),
+    new Station({ stationType: 'corral-6' }),
+    gate,
+    new Wormhole(),
+    ship,
+  ].every((target) => {
+    hud.update({ ...options, target });
+    const canvas = element.querySelector<HTMLCanvasElement>(
+      '.hud-target-icon canvas',
+    );
+
+    if (!canvas || element.querySelector('.hud-target-icon svg')) return false;
+    const pixels = canvas
+      .getContext('2d')!
+      .getImageData(0, 0, canvas.width, canvas.height).data;
+
+    return pixels.some((value, index) => index % 4 === 3 && value > 0);
+  });
+
   hud.update({ ...options, target: undefined, shown: false });
   const hidden =
     panels.every((panel) => !panel.getClientRects().length) &&
@@ -1825,6 +1846,7 @@ export const checkHud = () => {
     ['matchingDividers', matchingDividers],
     ['travel', travel],
     ['gateRoute', gateRoute],
+    ['targetArtwork', targetArtwork],
     ['hidden', hidden],
     ['cleared', cleared],
     ...Object.entries(details),

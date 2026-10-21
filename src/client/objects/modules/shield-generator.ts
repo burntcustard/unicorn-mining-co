@@ -32,7 +32,7 @@ export class ShieldGeneratorModule extends Module {
       (segment) =>
         (segment.phase =
           ((segment.phase || 0) + dt * 3 * segment.activationProgress) %
-          (Math.PI / 2)),
+          (Math.PI * 2)),
     );
   }
 }
@@ -44,3 +44,5 @@ export const ShieldGeneratorMd =
 
 export const ShieldGeneratorXs =
   ShieldGeneratorModule.define('shieldGeneratorXs');
+export const ShieldGeneratorLg =
+  ShieldGeneratorModule.define('shieldGeneratorLg');

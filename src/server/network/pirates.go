@@ -44,6 +44,7 @@ type pirate struct {
 	victim                  *playerRecord
 	victimShipID            int64
 	victimVisible           bool
+	playerSeen              bool
 	following               bool
 	home                    protocol.StationDescription
 	homeID                  int64
@@ -51,8 +52,11 @@ type pirate struct {
 	spawnedAt, warnedAt     float64
 	thinkAfter              float64
 	searchStartedAt         float64
+	searchExpired           bool
+	defeated                bool
 	attackAfter, tauntAfter float64
 	collectAfter            float64
+	reDemandAfter           float64
 	victimReleasingCargo    bool
 	cargoAccepted           bool
 	countdown               int
@@ -150,13 +154,16 @@ observePirate remembers only visible positions, then searches the last reported 
 Search can acquire a different player, while existing hostility is retained.
 */
 func (s *GameSession) observePirate(npc *pirate, now float64) {
-	if npc.state > pirateSearch {
+	returningFromSearch := npc.state == pirateReturning && npc.searchExpired
+
+	if npc.state > pirateSearch && !returningFromSearch {
 		return
 	}
 
 	npc.victimVisible = npc.victim.shipID == npc.victimShipID && s.pirateSeesPlayer(npc, npc.victim)
+	npc.playerSeen = npc.playerSeen || npc.victimVisible
 
-	if npc.collectAfter > 0 {
+	if npc.collectAfter > 0 || npc.reDemandAfter > 0 {
 		return
 	}
 
@@ -176,6 +183,12 @@ func (s *GameSession) observePirate(npc *pirate, now float64) {
 	}
 
 	if enemy != nil {
+		if returningFromSearch {
+			npc.spawnedAt = now
+		}
+
+		npc.searchExpired = false
+		npc.playerSeen = true
 		npc.destination = enemy.Position
 		npc.state = pirateFighting
 		return
@@ -184,9 +197,15 @@ func (s *GameSession) observePirate(npc *pirate, now float64) {
 	if npc.victimVisible && (len(npc.aggressors) == 0 || npc.aggressors[npc.victim.playerID]) {
 		npc.destination = npc.victim.ship.Position
 
-		if npc.state == pirateSearch {
+		if returningFromSearch {
+			npc.spawnedAt = now
+		}
+
+		if npc.state == pirateSearch || returningFromSearch {
 			npc.state = piratePursuing
 		}
+
+		npc.searchExpired = false
 
 		if npc.aggressors[npc.victim.playerID] {
 			npc.state = pirateFighting
@@ -204,11 +223,17 @@ func (s *GameSession) observePirate(npc *pirate, now float64) {
 	if npc.state == piratePursuing && Vec.DistanceSquared(npc.ship.Position, npc.destination) <= arrivalDistance*arrivalDistance {
 		npc.state, npc.searchStartedAt = pirateSearch, now
 		npc.search = ai.Search{Origin: npc.destination, Heading: npc.ship.Rotation}
-		s.pirateChat(npc, s.World.Specification.PirateDialog.Search)
+
+		if npc.playerSeen {
+			s.pirateChat(npc, s.World.Specification.PirateDialog.LostPlayer)
+		} else {
+			s.pirateChat(npc, s.World.Specification.PirateDialog.Search)
+		}
+
 		return
 	}
 
-	if npc.state != pirateSearch {
+	if npc.state != pirateSearch && !returningFromSearch {
 		return
 	}
 
@@ -224,6 +249,12 @@ func (s *GameSession) observePirate(npc *pirate, now float64) {
 	})
 
 	if found != nil {
+		if returningFromSearch {
+			npc.spawnedAt = now
+		}
+
+		npc.searchExpired = false
+
 		if npc.victim != found {
 			npc.victim.pirateAfter = s.World.Tick + uint64(s.World.Specification.PirateSpec.EncounterCooldown/s.World.Specification.Simulation.SimulationStep)
 		}
@@ -235,10 +266,12 @@ func (s *GameSession) observePirate(npc *pirate, now float64) {
 		}
 
 		npc.victim, npc.victimShipID = found, found.shipID
+		npc.playerSeen = true
 		npc.state, npc.destination, npc.victimVisible = piratePursuing, found.ship.Position, true
-	} else if now-npc.searchStartedAt+1e-9 >= s.World.Specification.PirateSpec.SearchDuration {
+	} else if npc.state == pirateSearch && now-npc.searchStartedAt+1e-9 >= s.World.Specification.PirateSpec.SearchDuration {
 		s.pirateChat(npc, s.World.Specification.PirateDialog.SearchExpired)
 		npc.state, npc.loot = pirateReturning, nil
+		npc.searchExpired = true
 	}
 }
 
@@ -263,6 +296,7 @@ func (s *GameSession) callOffDockedPirateTargets(npc *pirate) {
 			npc.victimVisible = false
 			npc.loot = nil
 			npc.collectAfter = 0
+			npc.reDemandAfter = 0
 			npc.cargoAccepted = false
 
 			if npc.state != pirateStranded && len(npc.aggressors) == 0 {
@@ -304,6 +338,18 @@ func (s *GameSession) updatePirates() {
 
 		remove := ship.Dead || ship.DockedTo != nil || !world.Entities.Has(ship.ID)
 
+		if !remove && !npc.defeated && npc.lostEquipment() {
+			npc.defeated = true
+			npc.state, npc.thinkAfter = pirateReturning, 0
+			npc.collectAfter, npc.attackAfter, npc.tauntAfter = 0, 0, 0
+			npc.reDemandAfter = 0
+			npc.searchExpired, npc.victimVisible = false, false
+			npc.loot = nil
+			clear(npc.aggressors)
+			s.pirateCargoDemand(npc, false)
+			s.pirateChat(npc, dialog.Defeat)
+		}
+
 		// Searches keep their full window and their return trip home.
 		// Other expired encounters release cargo before cleanup.
 		if !remove && now-npc.spawnedAt > rules.EncounterDuration && npc.state != pirateSearch && npc.state != pirateReturning {
@@ -329,6 +375,7 @@ func (s *GameSession) updatePirates() {
 		if stranded := ship.Stranded(); stranded && npc.state != pirateStranded {
 			npc.state, npc.thinkAfter = pirateStranded, 0
 			npc.collectAfter = 0
+			npc.reDemandAfter = 0
 			s.pirateCargoDemand(npc, false)
 			s.pirateChat(npc, dialog.Stranded)
 		} else if npc.state == pirateStranded && !stranded {
@@ -363,7 +410,9 @@ func (s *GameSession) updatePirates() {
 		available := npc.victim.shipID == npc.victimShipID && npc.victim.socket != nil && victim.World == world && !victim.Dead && world.Entities.Has(victim.ID) && victim.DockedTo == nil && victim.TransitTime == 0
 
 		if npc.state <= pirateFighting && npc.collectAfter == 0 {
-			if newRelease || npc.victimVisible && victim.MinedCargoValue() == 0 && len(npc.aggressors) == 0 || victim.Dead && !npc.cargoAccepted {
+			claimedCargo := slices.ContainsFunc(npc.loot, func(item simulation.Entity) bool { return slices.Contains(victim.CargoContents, item) })
+
+			if newRelease || npc.victimVisible && victim.MinedCargoValue() == 0 && !claimedCargo && len(npc.aggressors) == 0 || victim.Dead && !npc.cargoAccepted {
 				if newRelease {
 					if npc.state == pirateFighting {
 						s.pirateChat(npc, dialog.LateSurrender)
@@ -387,6 +436,7 @@ func (s *GameSession) updatePirates() {
 
 				npc.loot = nil
 				npc.cargoAccepted = false
+				npc.reDemandAfter = 0
 			}
 		}
 

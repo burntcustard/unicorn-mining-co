@@ -14,7 +14,6 @@ import { Station } from './objects/station';
 // @ifdef DEBUG
 import {
   bindDebug,
-  debugCrafts,
   lights,
   renderDebug,
   renderDebugDemos,
@@ -39,7 +38,6 @@ import {
 } from './camera';
 
 import { revealBuriedItems } from './utilities/lighting';
-import { message as messageSpec } from '../specs/items';
 import { adoptPlayerShip, player, readSlate, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './effects/shrapnel';
 import { renderEffects, updateEffects } from './effects/effect';
@@ -52,7 +50,7 @@ import { moduleControls } from './objects/control-ship';
 import { benchmarkFlag } from './debug/benchmark';
 
 // @endif
-import { colors, paintColors } from '../specs/colors';
+import { paintColors } from '../specs/colors';
 import { glowBlur } from '../specs/lighting';
 import { type Identity } from './ui/dom/identity';
 import { game } from './game';
@@ -287,23 +285,6 @@ const syncSimulationObjects = (dt: number) => {
     }
   });
 };
-
-// @ifdef DEBUG
-const debugWreck = new Ship({
-  shades: colors.orange,
-  position: Vec.add(player.ship.position, Vec.create(500)),
-}).addToScene();
-
-const debugNote = new Item(messageSpec).addToScene();
-
-debugNote.message = 'REGION 0/0';
-
-debugNote.remove();
-debugWreck.cargoContents.push(debugNote);
-
-// @ifdef DEBUG
-debugCrafts(game);
-// @endif
 
 // @ifdef BENCHMARK
 if (benchmarkFlag('field')) {

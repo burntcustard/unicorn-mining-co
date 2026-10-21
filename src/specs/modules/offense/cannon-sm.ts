@@ -18,6 +18,8 @@ export const cannonSm = {
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   activationDuration: 500,
+  // Preserve the visible clearance for cargo between paired barrels.
+  collisionMargin: 0,
   damage: 3,
   fireInterval: 1000,
   muzzleFlash: autogunMuzzleFlash,

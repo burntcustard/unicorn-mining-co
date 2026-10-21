@@ -2,6 +2,7 @@
 package objects
 
 import (
+	"cmp"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/physics"
@@ -179,15 +180,7 @@ func outlinesOf(segments []*simulation.Segment) []*simulation.ShapeOutline {
 
 func (c *Craft) sortSegments() {
 	slices.SortStableFunc(c.Segments, func(a, b *simulation.Segment) int {
-		if a.ZIndex < b.ZIndex {
-			return -1
-		}
-
-		if a.ZIndex > b.ZIndex {
-			return 1
-		}
-
-		return 0
+		return cmp.Compare(a.ZIndex, b.ZIndex)
 	})
 }
 
@@ -1205,7 +1198,7 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 
 		position := Vec.Create(c.Position.X+(x*cos-y*sin), c.Position.Y+(x*sin+y*cos))
 		radius := s.Radius(s)
-		changed = changed || collider.LocalPosition == nil || collider.LocalPosition.X != x || collider.LocalPosition.Y != y || collider.Physics == nil || *collider.Physics != physical || (collider.ContactFilter != nil) != s.Catches || collider.CollisionMargin != nil || collider.PickupPoint || collider.Radius != radius || (collider.ShapeOutline != nil) != (points != nil)
+		changed = changed || collider.LocalPosition == nil || collider.LocalPosition.X != x || collider.LocalPosition.Y != y || collider.Physics == nil || *collider.Physics != physical || (collider.ContactFilter != nil) != s.Catches || collider.CollisionMargin != d.CollisionMargin || collider.PickupPoint || collider.Radius != radius || (collider.ShapeOutline != nil) != (points != nil)
 
 		if collider.LocalPosition == nil {
 			collider.LocalPosition = &Vec.Vector{}
@@ -1287,6 +1280,11 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		}
 
 		*collider.Physics = physical
+
+		if d.CollisionMargin != nil {
+			collider.CollisionMargin = d.CollisionMargin
+		}
+
 		collider.Radius = radius
 		collider.Rotation = c.Rotation
 		collider.Speed = 0

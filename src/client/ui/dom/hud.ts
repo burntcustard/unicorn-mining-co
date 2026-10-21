@@ -1,8 +1,6 @@
 import { targetKinds } from '../target-kinds';
 import './hud.css';
 import html from './hud.html?raw';
-import pentagon from '../icons/corral-5.svg?raw';
-import hexagon from '../icons/corral-6.svg?raw';
 import { query, ui } from './ui';
 import { type Ship } from '../../objects/ship';
 import { type GameObject } from '../../objects/game-object';
@@ -13,14 +11,12 @@ import { keyLabel } from '../../input/keybindings';
 import { moduleCategoryIds } from '../../../specs/modules/categories';
 import { powerParts } from './power';
 import { minimapRange, renderMinimap } from '../minimap';
-import { shipIcon } from './ship-icon';
-import { Craft } from '../../objects/craft';
-import { Item } from '../../objects/item';
 import { JumpGate } from '../../objects/jump-gate';
 import * as Vec from '../../utilities/vector';
 import { reconcileRows } from '../../utilities/reconcile-rows';
 import { colors } from '../../../specs/colors';
 import { jumpGateSpec } from '../../../specs/jump-gate';
+import { renderTargetPreview } from '../target-preview';
 
 export const createHud = ({
   onToggle = () => {},
@@ -313,40 +309,10 @@ export const createHud = ({
             '[data-value]',
             `${Number(price || 0).toLocaleString('en-US')}$`,
           );
-          const icon = query(element, '.hud-target-icon');
+          const canvas = document.createElement('canvas');
 
-          icon.replaceChildren();
-          icon.style.color = target.kind === 'station' ? colors.green[2] : '';
-
-          if (target.kind === 'station') {
-            icon.innerHTML =
-              target.definitionId === 'corral-6' ? hexagon : pentagon;
-          } else if (target instanceof Craft) {
-            icon.innerHTML = shipIcon(target);
-          } else if (target instanceof Item) {
-            const canvas = document.createElement('canvas');
-
-            canvas.width = 128;
-            canvas.height = 144;
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            const ctx = canvas.getContext('2d')!;
-
-            ctx.translate(64, 72);
-            const scale = 48 / Math.max(target.radius, 1);
-
-            ctx.scale(scale, scale);
-
-            target.render({
-              ctx,
-              pose: { position: Vec.create(), rotation: 0 },
-            });
-
-            icon.append(canvas);
-          } else {
-            icon.innerHTML =
-              '<svg viewBox="-12 -12 24 24" fill="none" stroke="currentColor"><path d="M0-10 10 0 0 10-10 0Z"/></svg>';
-          }
+          renderTargetPreview(canvas, target);
+          query(element, '.hud-target-icon').replaceChildren(canvas);
         }
       }
 

@@ -453,6 +453,7 @@ func (s *GameSession) tickSector(ticks uint64) {
 	s.updatePirates()
 	s.updateGateAccess(dt)
 	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
+	s.pirateLootCollected(events)
 	s.pirateHits(events)
 	s.interruptGateClosing(before)
 	s.crossPortals(before)
@@ -789,9 +790,14 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 		return
 	}
 
-	ship, ok := entity.(interface{ ShipBase() *objects.Ship })
+	owner, ok := entity.(interface{ ShipBase() *objects.Ship })
 
-	if !ok || ship.ShipBase().DockedTo == nil {
+	if !ok {
+		return
+	}
+	ship := owner.ShipBase()
+
+	if ship.DockedTo == nil {
 		return
 	}
 
@@ -824,26 +830,23 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 	}
 
 	soldModules := map[int64]simulation.Entity{}
-
-	if message.Dock.Action == "sell" {
-		for _, object := range ship.ShipBase().CargoContents {
-			if _, ok := object.(simulation.Module); ok && slices.Contains(message.Dock.ObjectIDs, object.Base().ID) {
-				soldModules[object.Base().ID] = object
-			}
-		}
-	}
-
 	soldDiamond := false
 
 	if message.Dock.Action == "sell" {
-		for _, item := range ship.ShipBase().CargoContents {
+		for _, object := range ship.Modules() {
+			if slices.Contains(message.Dock.ObjectIDs, object.Base().ID) {
+				soldModules[object.Base().ID] = object
+			}
+		}
+
+		for _, item := range ship.CargoContents {
 			if item.Base().Item && item.Base().Resource == 0 && slices.Contains(message.Dock.ObjectIDs, item.Base().ID) {
 				soldDiamond = true
 			}
 		}
 	}
 
-	if _, ok := ship.ShipBase().ApplyDockAction(message.Dock, &p.profile.Credits); ok {
+	if _, ok := ship.ApplyDockAction(message.Dock, &p.profile.Credits); ok {
 		accepted = true
 
 		for i, id := range message.Dock.ObjectIDs {

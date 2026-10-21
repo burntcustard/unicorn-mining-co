@@ -56,6 +56,54 @@ func TestDockedAutogunPurchaseAndReplacement(t *testing.T) {
 	}
 }
 
+func TestSellEquippedAutogunWithFullCargo(t *testing.T) {
+	catalog, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := CreatePlayerShip(world, Properties{})
+	station := CreateStation(Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, catalog)
+	simulation.AddEntity(world, station)
+	ship.DockedTo = &station.ID
+	mount := ship.Mounts()[0]
+	gun := modules.Create("autogun", simulation.ObjectProperties{World: world}, catalog)
+	ship.Fit(gun, mount)
+	ammo := NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog)
+	*ammo.Rounds = 150
+	ship.CargoContents = []simulation.Entity{ammo}
+
+	for len(ship.CargoContents) < ship.CargoSpace {
+		ship.CargoContents = append(ship.CargoContents, NewItem("gold", simulation.ObjectProperties{World: world}, catalog))
+	}
+
+	before := slices.Clone(ship.CargoContents)
+	credits := 0.0
+	id := gun.Base().ID
+
+	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{id, 123456789}}, &credits); ok || mount.Module != gun || credits != 0 {
+		t.Fatal("invalid batch partially sold an equipped module")
+	}
+
+	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{id}}, &credits); !ok {
+		t.Fatal("full cargo prevented selling an equipped autogun")
+	}
+
+	if mount.Module != nil || gun.ModuleBase().Mount != nil || !slices.Equal(ship.CargoContents, before) || credits != gun.Base().Price || *ammo.Rounds != 150 {
+		t.Fatal("sale did not free the mount, preserve cargo, and pay exactly once")
+	}
+
+	if !slices.Contains(station.CargoContents, simulation.Entity(gun)) {
+		t.Fatal("sold autogun did not enter station stock")
+	}
+
+	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{id}}, &credits); ok || credits != gun.Base().Price {
+		t.Fatal("the same equipped module was sold twice")
+	}
+}
+
 func TestReconciledMountOrder(t *testing.T) {
 	catalog, _ := testsupport.Load()
 

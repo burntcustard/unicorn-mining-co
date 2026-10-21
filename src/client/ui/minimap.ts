@@ -1,3 +1,4 @@
+import { renderLandmarkIcon } from './landmark-icon';
 import { replication } from '../../specs/replication';
 import { shipOutlines } from './ship-outline';
 import { type Ship } from '../objects/ship';
@@ -132,8 +133,7 @@ export const renderMinimap = ({
       ctx.stroke();
     }
 
-    ctx.strokeStyle = object.kind === 'station' ? '#3f7' : '#eef';
-    ctx.fillStyle = '#eef';
+    ctx.strokeStyle = ctx.fillStyle = '#eef';
 
     if (object.hostile) ctx.strokeStyle = ctx.fillStyle = colors.red[2];
     ctx.beginPath();
@@ -144,56 +144,14 @@ export const renderMinimap = ({
       ctx.fill();
     } else if (object.kind === 'asteroid') {
       if (!asteroidPositions) drawAsteroid(Vec.create());
-    } else if (['station', 'jumpGate', 'wormhole'].includes(object.kind!)) {
-      const sides =
-        object.kind === 'station'
-          ? object.definitionId === 'corral-6'
-            ? 6
-            : 5
-          : object.kind === 'jumpGate'
-            ? 8
-            : 4;
-
-      if (object.kind === 'jumpGate') ctx.strokeStyle = '#fff';
-
-      for (let i = 0; i < sides; i++) {
-        const angle = (i * Math.PI * 2) / sides - Math.PI / 2;
-
-        ctx.lineTo(Math.cos(angle) * iconRadius, Math.sin(angle) * iconRadius);
-      }
-
-      ctx.closePath();
-    } else {
+    } else if (!renderLandmarkIcon({ ctx, object, radius: iconRadius })) {
       ctx.rotate(pose.rotation);
       ctx.moveTo(-0.8 * iconRadius, -0.6 * iconRadius);
       ctx.lineTo(iconRadius, 0);
       ctx.lineTo(-0.8 * iconRadius, 0.6 * iconRadius);
       ctx.closePath();
       ctx.fill();
-    }
-
-    if (object.kind !== 'asteroid' && object.kind !== 'item') ctx.stroke();
-
-    if (object.kind === 'jumpGate') {
-      [
-        colors.red,
-        colors.orange,
-        colors.yellow,
-        colors.green,
-        colors.cyan,
-        colors.violet,
-      ].forEach((shades, index) => {
-        ctx.beginPath();
-        ctx.strokeStyle = shades[2];
-        ctx.arc(
-          0,
-          0,
-          iconRadius * 0.45,
-          (index * Math.PI) / 3,
-          ((index + 1) * Math.PI) / 3,
-        );
-        ctx.stroke();
-      });
+      ctx.stroke();
     }
 
     ctx.restore();

@@ -1,10 +1,16 @@
-import { writeFile, readFile, mkdir, readdir } from 'node:fs/promises';
+import {
+  writeFile,
+  readFile,
+  mkdir,
+  readdir,
+  mkdtemp,
+  rm,
+} from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { rolldown } from 'rolldown';
 import { buildPlugin, buildPrePlugin } from '../plugins/build-plugins.ts';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
 import { once } from 'node:events';
 import WebSocket from 'ws';
 
@@ -3472,9 +3478,9 @@ checkUi: try {
     await pressKey('Enter');
     assert(
       await check(
-        `document.querySelector('[data-command="REMOVE"]').disabled && document.querySelector('[data-command="SELL"]').disabled`,
+        `document.querySelector('[data-command="REMOVE"]').disabled && !document.querySelector('[data-command="SELL"]').disabled`,
       ),
-      'full cargo disables fitted-module actions that require removal',
+      'full cargo disables removal but allows selling an equipped module',
     );
     await pressKey('Escape');
     await focusDock('[data-key="mount:0"]');

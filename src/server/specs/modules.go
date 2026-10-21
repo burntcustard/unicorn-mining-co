@@ -62,6 +62,7 @@ type Module struct {
 	GripDecay             float64  `json:"gripDecay"`
 	GripScale             float64  `json:"gripScale"`
 	DisablePhysics        bool     `json:"disablePhysics"`
+	CollisionMargin       *float64 `json:"collisionMargin"`
 	ForwardThrust         float64  `json:"forwardThrust"`
 	RotationalThrust      float64  `json:"rotationalThrust"`
 	Offset                float64  `json:"offset"`

@@ -6,14 +6,27 @@ export const cargoHatchPair = {
   name: 'Cargo Hatch Pair',
   description: 'Open two center-split doors to collect loose ore and cargo.',
   offset: 0,
-  model: [cargoHatch.model[0], cargoHatch.model[0], cargoHatch.model[1]],
+  collisionMargin: 0,
+  model: [
+    cargoHatch.model[0],
+    cargoHatch.model[0],
+    {
+      ...cargoHatch.model[1],
+      // Collect behind the door hinges, after cargo passes the visible doors.
+      points: [
+        [-8, -6],
+        [-2, -6],
+        [-2, 6],
+        [-8, 6],
+      ],
+    },
+  ],
   cargoGeometry: {
     ...cargoHatch.cargoGeometry,
     paired: true,
     length: cargoHatch.cargoGeometry.length / 2,
     openAngle: Math.PI / 2,
     doorRadius: 16,
-    // Reach past the paired cannons so their barrels cannot push cargo away.
-    throatRadius: 40,
+    throatRadius: 10,
   },
 } satisfies ModuleSpec;

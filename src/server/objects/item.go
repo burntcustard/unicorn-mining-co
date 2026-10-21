@@ -10,7 +10,8 @@ import (
 
 type Item struct {
 	*simulation.GameObject
-	Rounds *int
+	Rounds          *int
+	collisionMargin float64
 }
 
 func NewItem(id string, props simulation.ObjectProperties, catalog specs.Catalog) *Item {
@@ -51,6 +52,8 @@ func (item *Item) Hitbox() []*collision.Collider {
 	body := item.GameObject.Hitbox()
 
 	if len(body) > 0 {
+		// Cargo must fit narrow openings according to its visible outline.
+		body[0].CollisionMargin = &item.collisionMargin
 		body = body[:2]
 
 		if body[1] == nil {

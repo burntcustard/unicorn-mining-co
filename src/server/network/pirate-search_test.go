@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
@@ -64,7 +65,7 @@ func TestPirateSearchStartsWithinTenUnitsOfTheReport(t *testing.T) {
 	s.World.Tick += pirateDecisionTicks(s)
 	s.updatePirates()
 
-	if npc.destination != report || chatCount(socket, "I heard reports of mining in this area...") != 1 {
+	if npc.destination != report || chatCount(socket, "I heard reports of mining in this area...") != 1 || chatCount(socket, "Where did you go?") != 0 {
 		t.Fatal("search tracked an unseen player or repeated its opening message")
 	}
 }
@@ -87,6 +88,48 @@ func TestPirateSearchRespectsAsteroidCover(t *testing.T) {
 
 	if npc.state != piratePursuing || !npc.victimVisible || npc.destination != p.ship.Position {
 		t.Fatal("nearby sensors did not reacquire the player through cover")
+	}
+}
+
+func TestPirateLosingASeenPlayerDoesNotRepeatMiningReports(t *testing.T) {
+	s, p, socket, npc := searchEncounter(t)
+	p.ship.Position = Vec.Add(npc.ship.Position, Vec.Create(500, 0))
+	s.updatePirates()
+
+	if !npc.victimVisible || !npc.playerSeen {
+		t.Fatal("pirate did not encounter the player")
+	}
+
+	lastSeen := p.ship.Position
+	p.ship.Position.X += 20000
+	npc.ship.Position = lastSeen
+	s.World.Tick += pirateDecisionTicks(s)
+	s.updatePirates()
+
+	if npc.state != pirateSearch || chatCount(socket, "I heard reports of mining in this area...") != 0 || chatCount(socket, "Where did you go?") != 1 || chatCount(socket, "I guess they left") != 0 {
+		t.Fatal("searching for a known player did not announce losing them")
+	}
+
+	searchTicks := uint64(s.World.Specification.PirateSpec.SearchDuration / s.World.Specification.Simulation.SimulationStep)
+	s.World.Tick += searchTicks - pirateDecisionTicks(s)
+	s.updatePirates()
+
+	if npc.state != pirateSearch || chatCount(socket, "I guess they left") != 0 || chatCount(socket, "Where did you go?") != 1 {
+		t.Fatal("searching repeated its opening or announced expiration too early")
+	}
+
+	s.World.Tick += pirateDecisionTicks(s)
+	s.updatePirates()
+
+	if npc.state != pirateReturning || chatCount(socket, "I guess they left") != 1 {
+		t.Fatal("search expiration did not announce the lost player exactly once")
+	}
+
+	s.World.Tick += pirateDecisionTicks(s)
+	s.updatePirates()
+
+	if chatCount(socket, "I guess they left") != 1 || chatCount(socket, "Where did you go?") != 1 {
+		t.Fatal("returning home repeated a search message")
 	}
 }
 
@@ -242,6 +285,103 @@ func TestPirateLateSearchKeepsItsFullSearchWindowAndReturnTrip(t *testing.T) {
 
 	if npc.state != pirateReturning || !s.World.Entities.Has(npc.ship.ID) || chatCount(socket, "I guess they left") != 1 {
 		t.Fatal("an older pirate did not finish searching and start its return trip")
+	}
+}
+
+func TestPirateReacquiresItsPlayerAfterGivingUpSearch(t *testing.T) {
+	for _, hostile := range []bool{false, true} {
+		t.Run(strconv.FormatBool(hostile), func(t *testing.T) {
+			s, p, socket, npc := searchEncounter(t)
+			npc.ship.Position = npc.destination
+
+			if hostile {
+				npc.aggressors[p.playerID] = true
+			}
+
+			s.updatePirates()
+			s.World.Tick += uint64(s.World.Specification.PirateSpec.SearchDuration / s.World.Specification.Simulation.SimulationStep)
+			s.updatePirates()
+
+			if npc.state != pirateReturning {
+				t.Fatal("fixture did not give up searching")
+			}
+
+			p.ship.Position = Vec.Add(npc.ship.Position, Vec.Create(500, 0))
+			s.World.Tick += pirateDecisionTicks(s)
+			s.updatePirates()
+			expected := piratePursuing
+
+			if hostile {
+				expected = pirateFighting
+			}
+
+			if npc.state != expected || !npc.victimVisible || npc.destination != p.ship.Position || npc.ship.NPCState != pirateStateNames[expected] {
+				t.Fatalf("returning pirate ignored the player: state=%d visible=%v", npc.state, npc.victimVisible)
+			}
+
+			if chatCount(socket, "I guess they left") != 1 {
+				t.Fatal("reacquisition repeated the search expiration message")
+			}
+		})
+	}
+}
+
+func TestPirateExpiredSearchCanFindAnotherPlayer(t *testing.T) {
+	s, p, _, npc := searchEncounter(t)
+	npc.ship.Position = npc.destination
+	s.updatePirates()
+	s.World.Tick += uint64(s.World.Specification.PirateSpec.SearchDuration / s.World.Specification.Simulation.SimulationStep)
+	s.updatePirates()
+	otherSocket := &soundSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, otherSocket)
+	other := s.playersBySocket[otherSocket]
+	other.ship.Position = Vec.Add(npc.ship.Position, Vec.Create(500, 0))
+
+	for range 3 {
+		item := objects.NewItem("diamond", simulation.ObjectProperties{World: s.World}, s.World.Specification)
+		item.Mined = true
+		other.ship.CargoContents = append(other.ship.CargoContents, item)
+	}
+
+	s.World.Tick += pirateDecisionTicks(s)
+	s.updatePirates()
+
+	if npc.state != piratePursuing || npc.victim != other || !npc.victimVisible || npc.destination != other.ship.Position || p.pirateAfter <= s.World.Tick {
+		t.Fatal("returning pirate did not acquire the nearby player")
+	}
+}
+
+func TestPirateReacquisitionAfterLateSearchStartsANewEncounterWindow(t *testing.T) {
+	s, p, _, npc := searchEncounter(t)
+	npc.ship.Position = npc.destination
+	s.World.Tick = uint64((s.World.Specification.PirateSpec.EncounterDuration - 10) / s.World.Specification.Simulation.SimulationStep)
+	s.updatePirates()
+	s.World.Tick += uint64(s.World.Specification.PirateSpec.SearchDuration / s.World.Specification.Simulation.SimulationStep)
+	s.updatePirates()
+
+	if npc.state != pirateReturning {
+		t.Fatal("late search did not start returning home")
+	}
+
+	p.ship.Position = Vec.Add(npc.ship.Position, Vec.Create(500, 0))
+	s.World.Tick += pirateDecisionTicks(s)
+	s.updatePirates()
+	s.World.Tick += pirateDecisionTicks(s)
+	s.updatePirates()
+
+	if npc.state != piratePursuing || !s.World.Entities.Has(npc.ship.ID) || len(s.sectors[s.currentSector].pirates) != 1 {
+		t.Fatal("old encounter timeout removed a pirate after it reacquired its player")
+	}
+}
+
+func TestPirateReturningAfterSurrenderDoesNotRestartItsDemand(t *testing.T) {
+	s, p, socket, npc := searchEncounter(t)
+	npc.state, npc.cargoAccepted = pirateReturning, true
+	p.ship.Position = Vec.Add(npc.ship.Position, Vec.Create(250, 0))
+	s.updatePirates()
+
+	if npc.state != pirateReturning || chatCount(socket, "Give me all your cargo or I'll open fire.") != 0 {
+		t.Fatal("returning pirate broke its cargo truce")
 	}
 }
 

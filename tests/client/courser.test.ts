@@ -7,13 +7,14 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { createPlayerShip } from '${process.cwd()}/src/client/objects/create-ship.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/client/simulation/world.ts';
+import { updateWorld } from '${process.cwd()}/src/client/simulation/update-world.ts';
 import { controlShip, moduleControls } from '${process.cwd()}/src/client/objects/control-ship.ts';
 import { CannonSm, CargoHatch, CargoHatchPair, ShieldGeneratorXs, moduleTypes, thrusters } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { Projectile } from '${process.cwd()}/src/client/objects/projectile.ts';
 import { damage } from '${process.cwd()}/src/client/objects/damage.ts';
 import { Station } from '${process.cwd()}/src/client/objects/station.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
-import { autogunAmmo, diamond } from '${process.cwd()}/src/specs/items/index.ts';
+import { amethyst, autogunAmmo, diamond, gold, opal } from '${process.cwd()}/src/specs/items/index.ts';
 import { moduleSpecs } from '${process.cwd()}/src/specs/modules/index.ts';
 import { fitsOf } from '${process.cwd()}/src/client/ui/docked-model.ts';
 import { moduleRowsOf } from '${process.cwd()}/src/client/ui/controls.ts';
@@ -21,6 +22,7 @@ import { playerInput } from '${process.cwd()}/src/client/input/input.ts';
 import { EntityState } from '${process.cwd()}/src/client/simulation/entity-state.ts';
 import { outerEdges } from '${process.cwd()}/src/client/utilities/polygon.ts';
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
+import { rotatePoint } from '${process.cwd()}/src/client/utilities/geometry.ts';
 
 const world = createWorld();
 for (const shipType of ['courser', 'crotus']) {
@@ -42,6 +44,7 @@ assert(shieldMount && !shieldMount.module, 'Courser starts with an empty XS shie
 assert.equal(shieldMount.localPosition.y, 0);
 assert.equal(shieldMount.hull.module, ship.cockpit.module, 'shield mount belongs to the central core');
 assert.equal(guns.length, 2);
+assert.deepEqual(guns.map(mount => mount.localPosition.y), [-8, 8], 'cargo collection preserves the cannon positions');
 assert(hatch.module instanceof CargoHatch, 'paired hatches use normal cargo controls and collection');
 assert.equal(hatch.localPosition.y, 0);
 assert.deepEqual(ship.mounts.flatMap(mount => mount.fits.filter(Type => thrusters.includes(Type))).map(Type => Type.definitionId), ['thrusterSingleSm']);
@@ -93,13 +96,52 @@ for (const progress of [0, 0.5, 1]) {
 }
 const throat = ship.hitbox().find(collider => collider.segment?.module === hatch.module && collider.segment.catches);
 assert(throat && !throat.physics);
-const item = addEntity(world, new Item(diamond, { world, position: Vec.add(ship.position, hatch.localPosition) }));
+const item = addEntity(world, new Item(diamond, { world, position: Vec.clone(throat.position) }));
 const pickup = item.hitbox().find(collider => collider.pickupPoint);
 const events = [];
 hatch.module.collect({ ship, contact: { collider: throat, other: pickup }, events, world });
 assert(ship.cargoContents.includes(item), 'paired hatches collect real items');
 assert(!world.entities.has(item.id));
 assert.equal(events[0].type, 'itemCollected');
+
+for (const heading of [0, Math.PI / 2]) {
+  for (const [position, moving, spec] of [
+    [Vec.create(35, 0), false, diamond],
+    [Vec.create(4, -30), false, diamond],
+    [Vec.create(4, 30), false, diamond],
+    [Vec.create(-30, 0), false, diamond],
+    [Vec.create(15, 12), false, diamond],
+    [Vec.create(10, 0), false, diamond],
+    [Vec.create(3.8, 0), false, diamond],
+    [Vec.create(2.8, 0), false, diamond],
+    [Vec.create(70, 0), true, diamond],
+    [Vec.create(70, 0), true, gold],
+    [Vec.create(70, 0), true, amethyst],
+    [Vec.create(70, 0), true, opal],
+  ]) {
+    const testWorld = createWorld();
+    const testShip = addEntity(testWorld, createPlayerShip(testWorld, { shipType: 'courser', playerId: 2, position: Vec.create(100, 200), rotation: heading }));
+    controlShip(testShip, { ...playerInput, cargoHatch: true, autogunActive: true }, []);
+    testShip.updateModules(1);
+    const cargo = addEntity(testWorld, new Item(spec, {
+      world: testWorld,
+      position: Vec.add(testShip.position, rotatePoint(Vec.add(position, Vec.create(4, 0)), heading)),
+      rotation: heading,
+      velocity: moving ? rotatePoint(Vec.create(-40, 0), heading) : Vec.create(),
+    }));
+    for (let tick = 0; tick < (moving ? 150 : 1); tick++) {
+      updateWorld({ world: testWorld, inputs: new Map() });
+      if (testShip.cargoContents.includes(cargo)) {
+        const local = rotatePoint(Vec.subtract(cargo.position, testShip.position), -testShip.rotation);
+        assert(moving && local.x <= 6 && local.x >= -1 && Math.abs(local.y) <= 7,
+          'cargo must pass behind the hatch doors before collection');
+        break;
+      }
+    }
+    assert.equal(testShip.cargoContents.includes(cargo), moving,
+      'only cargo traveling between the cannons reaches the open hatch');
+  }
+}
 
 const station = addEntity(world, new Station({ world }));
 ship.dockedTo = station.id;

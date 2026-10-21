@@ -8,6 +8,9 @@ export const pirateSpec = {
 
   // Time between demanding cargo and beginning the countdown.
   demandDelay: 10,
+  // Pause from noticing stolen loot to demanding its return, then to counting down.
+  lootTheftDelay: 3,
+  reDemandDelay: 3,
   countdownFrom: 5,
 
   // Pause before the final ellipsis and again before announcing an attack.

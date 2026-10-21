@@ -102,6 +102,22 @@ setCraftActionDispatcher((ship, action) => {
   if (applied) sentActions.push(applied);
   return applied;
 });
+const fullSeller = new Ship({shades: colors.white});
+const saleGun = new Autogun();
+fullSeller.fit(saleGun, fullSeller.mounts[0]);
+fullSeller.cargoContents = Array.from({length: fullSeller.cargoSpace}, () => new Item(itemTypes.find(item => item.rounds)));
+fullSeller.cargoContents[0].rounds = 150;
+const fullContents = [...fullSeller.cargoContents];
+const saleBalance = player.credits;
+assert.equal(applyCraftAction(fullSeller, {action: 'sell', objectIds: [saleGun.id, 123456789]}), undefined);
+assert.equal(fullSeller.mounts[0].module, saleGun, 'invalid batch leaves the fitted gun alone');
+assert(applyCraftAction(fullSeller, {action: 'sell', objectIds: [saleGun.id]}), 'full cargo allows selling an equipped gun');
+assert(!fullSeller.mounts[0].module && !saleGun.mount, 'selling clears the mount');
+assert.deepEqual(fullSeller.cargoContents, fullContents, 'selling does not need a cargo slot or unload ammo');
+assert.equal(fullSeller.cargoContents[0].rounds, 150, 'cargo ammo remains unchanged');
+assert.equal(player.credits, saleBalance + saleGun.price, 'selling pays once');
+assert.equal(applyCraftAction(fullSeller, {action: 'sell', objectIds: [saleGun.id]}), undefined, 'sold equipment cannot be sold again');
+
 const wreck = new Ship({ shades: colors.white, velocity: Vec.create(12, -7), spin: 0.2 }).addToScene();
 const contents = [diamondSpec, messageSpec, messageSpec].map(itemData =>
   new Item(itemData).addToScene());

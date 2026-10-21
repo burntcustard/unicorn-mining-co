@@ -16,6 +16,19 @@ func (s *GameSession) updatePirateWarning(npc *pirate, now float64) {
 
 	dialog := &s.World.Specification.PirateDialog
 	rules := &s.World.Specification.PirateSpec
+
+	if npc.reDemandAfter > 0 {
+		if now+1e-9 < npc.reDemandAfter {
+			return
+		}
+
+		npc.warnedAt = npc.reDemandAfter + rules.ReDemandDelay - rules.DemandDelay
+		npc.reDemandAfter = 0
+		npc.countdown = rules.CountdownFrom + 1
+		s.pirateChat(npc, dialog.CargoReDemand)
+		s.pirateCargoDemand(npc, true)
+	}
+
 	elapsed := now - npc.warnedAt + 1e-9
 	remaining := int(math.Ceil(rules.DemandDelay + float64(rules.CountdownFrom) - elapsed))
 	end := rules.DemandDelay + float64(rules.CountdownFrom-1) + rules.CountdownPause

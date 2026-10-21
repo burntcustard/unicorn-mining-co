@@ -4,6 +4,8 @@ type Pirate struct {
 	AttackDelay           float64 `json:"attackDelay"`
 	CollectDelay          float64 `json:"collectDelay"`
 	DemandDelay           float64 `json:"demandDelay"`
+	LootTheftDelay        float64 `json:"lootTheftDelay"`
+	ReDemandDelay         float64 `json:"reDemandDelay"`
 	CountdownFrom         int     `json:"countdownFrom"`
 	CountdownPause        float64 `json:"countdownPause"`
 	TauntInterval         float64 `json:"tauntInterval"`

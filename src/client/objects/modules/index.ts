@@ -12,6 +12,7 @@ import {
   ShieldGenerator,
   ShieldGeneratorMd,
   ShieldGeneratorXs,
+  ShieldGeneratorLg,
 } from './shield-generator';
 import {
   ThrusterSingleMd,
@@ -36,6 +37,7 @@ export {
   ShieldGenerator,
   ShieldGeneratorMd,
   ShieldGeneratorXs,
+  ShieldGeneratorLg,
   ThrusterSingleMd,
   ThrusterSingleSm,
   ThrusterSingleLg,
@@ -65,6 +67,7 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
     ShieldGenerator,
     ShieldGeneratorMd,
     ShieldGeneratorXs,
+    ShieldGeneratorLg,
     PlasmaAccelerator,
     Autogun,
     Laser,

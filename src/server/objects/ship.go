@@ -205,12 +205,19 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 	case "sell":
 		ids := action.ObjectIDs
 
-		if len(ids) == 0 || len(ids) > len(s.CargoContents) {
+		if len(ids) == 0 {
 			return action, false
 		}
 
 		seen := map[int64]bool{}
 		objects := []simulation.Entity{}
+		inventory := slices.Clone(s.CargoContents)
+
+		for _, mount := range mounts {
+			if mount.Module != nil {
+				inventory = append(inventory, mount.Module)
+			}
+		}
 
 		for _, id := range ids {
 			if seen[id] {
@@ -218,19 +225,13 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 			}
 
 			seen[id] = true
-			var found simulation.Entity
+			index := slices.IndexFunc(inventory, func(object simulation.Entity) bool { return object.Base().ID == id })
 
-			for _, e := range s.CargoContents {
-				if e.Base().ID == id {
-					found = e
-					break
-				}
-			}
-
-			if found == nil {
+			if index < 0 {
 				return action, false
 			}
 
+			found := inventory[index]
 			_, module := found.(simulation.Module)
 
 			if !module && !found.Base().Item {
@@ -238,6 +239,12 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 			}
 
 			objects = append(objects, found)
+		}
+
+		for _, object := range objects {
+			if module, ok := object.(simulation.Module); ok && module.ModuleBase().Mount != nil {
+				s.Fit(nil, module.ModuleBase().Mount)
+			}
 		}
 
 		s.CargoContents = slices.DeleteFunc(s.CargoContents, func(e simulation.Entity) bool { return seen[e.Base().ID] })

@@ -7,7 +7,6 @@ import { colorsDemo } from './colors-demo';
 import { renderText } from '../ui/text';
 import { sky } from '../background/background';
 import { textDemo } from './text-demo';
-import * as Vec from '../utilities/vector';
 import { type GameObject } from '../objects/game-object';
 import { Ship } from '../objects/ship';
 import { type Pose } from '../types';
@@ -25,25 +24,6 @@ let showColorsDemo = false;
 // whoosh: [0.1, 0, 0, 0.06, 0.12, 0.5, 4, 0.5, 700]
 
 export { lights };
-
-// One hull of every color, lined up to see how the light falls across them
-export const debugCrafts = (game: GameState) =>
-  [
-    ['#000', '#111', '#222', '#879', '#200'],
-    colors.red,
-    colors.orange,
-    colors.yellow,
-    colors.green,
-    colors.cyan,
-    colors.violet,
-    ['#000', '#111', '#222', '#879', '#200'],
-    colors.white,
-  ].map((shades, i) =>
-    new Ship({
-      shades,
-      position: Vec.create(120 + i * 120, game.height - 100),
-    }).addToScene(),
-  );
 
 export const bindDebug = (game: GameState) => {
   bindKeys('2', () => (showColorsDemo = !showColorsDemo));

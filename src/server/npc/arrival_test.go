@@ -200,6 +200,36 @@ func TestCargoArrivalUsesFullThrustFarAwayAndCollectsThroughItsHatch(t *testing.
 	t.Fatal("coasting arrival never collected cargo through its open hatch")
 }
 
+func TestCargoArrivalReapproachesBlockedGold(t *testing.T) {
+	ship := arrivalShip(t, "courser")
+	ship.SetModuleActive("cargoHatch", true)
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(100, 0), Rotation: math.Pi / 2}, ship.Catalog)
+	simulation.AddEntity(ship.World, item)
+	pilot := Pilot{}
+	thrust, turn := 0.0, 0.0
+	retried := false
+
+	for tick := range 30 * 90 {
+		if tick%steeringIntervalTicks(ship) == 0 {
+			thrust, turn = pilot.Steer(ship, Movement{Position: item.Position, Velocity: item.Velocity, IgnoreID: item.ID, Collect: true})
+			retried = retried || Vec.LengthSquared(pilot.collection.reposition) > 0
+		}
+
+		ship.Fly(thrust, turn)
+		simulation.UpdateWorld(ship.World, simulation.UpdateWorldOptions{})
+
+		if slices.Contains(ship.CargoContents, simulation.Entity(item)) {
+			if !retried {
+				t.Fatal("fixture did not exercise a blocked cargo approach")
+			}
+
+			return
+		}
+	}
+
+	t.Fatal("ship kept pushing blocked gold instead of collecting it from another angle")
+}
+
 func TestFollowArrivalKeepsSpaceAfterAnAsteroidDetour(t *testing.T) {
 	for _, x := range []float64{750, 900} {
 		for _, side := range []float64{-1, 1} {

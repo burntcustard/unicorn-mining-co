@@ -55,6 +55,9 @@ export class Item extends GameObject {
   hitbox(): Collider[] {
     const body = super.hitbox();
 
+    // Cargo must fit narrow openings according to its visible outline.
+    if (body.length) body[0].collisionMargin = 0;
+
     return body.length ? [...body, cargoPickupPoint(this)] : body;
   }
 

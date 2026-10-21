@@ -4,3 +4,4 @@ export { searchLight } from './search-light';
 export { shieldGeneratorSm } from './shield-sm';
 export { shieldGeneratorMd } from './shield-md';
 export { shieldGeneratorXs } from './shield-xs';
+export { shieldGeneratorLg } from './shield-lg';

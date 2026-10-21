@@ -7,8 +7,6 @@ export const shield = {
   description: 'Project a protective shield around your ship.',
   behavior: 'shieldGenerator',
   name: 'Shield Generator',
-  health: 40,
-  healthActivated: 100,
   rechargeDuration: 10000,
   zIndex: renderingLayers.modulesAboveShipHull,
   shades: colors.violet,

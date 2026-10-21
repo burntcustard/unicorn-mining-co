@@ -648,7 +648,7 @@ const createDocked = () => {
                 !stock.some(([entry]) => entry === ammo)) ||
               player.credits <
                 (action === 'BUY_AMMO' ? ammo?.price : item?.price)
-            : action === 'REMOVE' || (action === 'SELL' && equipped)
+            : action === 'REMOVE'
               ? !hasSpace
               : false;
     });
@@ -1344,13 +1344,10 @@ const createDocked = () => {
         }
 
         if (command === 'SELL') {
-          if (mount?.module) removeModule({ ship, mount: index });
-
-          const object = ship.cargoContents.find((object) =>
+          const object =
             item instanceof Module
-              ? object.id === item.id
-              : object.item === item,
-          );
+              ? item
+              : ship.cargoContents.find((object) => object.item === item);
 
           const sold = applyCraftAction(ship, {
             action: 'sell',

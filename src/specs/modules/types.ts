@@ -96,6 +96,7 @@ type ModuleValues = {
   gripDecay?: number;
   gripScale?: number;
   disablePhysics?: boolean;
+  collisionMargin?: number;
   forwardThrust?: number;
   rotationalThrust?: number;
   offset?: number;

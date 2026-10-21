@@ -32,6 +32,7 @@ type Pilot struct {
 	dockingID                 int64
 	dockingBay                int
 	enteringDock              bool
+	collection                collectionApproach
 }
 
 /*
@@ -49,6 +50,8 @@ func (p *Pilot) Steer(ship *objects.Ship, destination Movement) (float64, float6
 	if ship.Launching > 0 {
 		return 1, 0
 	}
+
+	destination = p.collection.movement(ship, destination)
 
 	combatTarget := destination
 	targetAcceleration := p.observeTarget(ship, destination)
@@ -178,7 +181,7 @@ func (p *Pilot) Steer(ship *objects.Ship, destination Movement) (float64, float6
 		if entity, ok := ship.World.Entities.Get(combatTarget.TargetID); ok {
 			if target, ok := entity.(*objects.Ship); ok {
 				// Extrapolate the actual target's observed turning and braking.
-				obstacles = append(obstacles, obstacle{position: target.Position, velocity: target.Velocity, acceleration: targetAcceleration, radius: target.Radius})
+				obstacles = append(obstacles, obstacle{position: target.Position, velocity: target.Velocity, acceleration: targetAcceleration, radius: navigationRadius(target)})
 			}
 		}
 	}

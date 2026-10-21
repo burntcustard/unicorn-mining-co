@@ -5,7 +5,7 @@ import { Weapon } from './modules/weapon';
 import { Projectile } from './projectile';
 import { addEntity, entityId } from '../simulation/world';
 import { applyForce } from '../physics/apply-force';
-import { rotatePoint } from '../utilities/geometry';
+import { movePoint, rotatePoint } from '../utilities/geometry';
 import { game } from '../game';
 import { shipSpecsById, type ShipId } from '../../specs/ships';
 import { type ShipSpec } from '../../specs/ships/types';
@@ -14,7 +14,6 @@ import { portalSpec } from '../../specs/portal';
 import { easeProgress } from '../utilities/ease';
 import * as Vec from '../utilities/vector';
 import { Craft, type CraftRenderOptions } from './craft';
-import { movePoint } from '../utilities/geometry';
 import { approach } from '../utilities/approach';
 import { type Contact } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
@@ -239,28 +238,37 @@ export class Ship extends Craft {
       if (
         !Array.isArray(ids) ||
         !ids.length ||
-        ids.length > this.cargoContents.length ||
         ids.some((id) => !Number.isInteger(id)) ||
         new Set(ids).size !== ids.length
       ) {
         return;
       }
 
+      const inventory = [...this.cargoContents, ...this.modules];
       const objects = ids.map((id) =>
-        this.cargoContents.find((object) => object.id === id),
-      );
-      const objectsToSell = objects.filter(
-        (object): object is Module | Item =>
-          object instanceof Module || object instanceof Item,
+        inventory.find((object) => object.id === id),
       );
 
-      if (objectsToSell.length !== ids.length) return;
+      if (
+        !objects.every(
+          (object) => object instanceof Module || object instanceof Item,
+        )
+      ) {
+        return;
+      }
+
+      objects.forEach((object) => {
+        if (object instanceof Module && object.mount) {
+          this.fit(0, object.mount);
+        }
+      });
+
       this.cargoContents = this.cargoContents.filter(
         (object) => !ids.includes(object.id),
       );
 
       if (station?.cargoContents) {
-        objectsToSell.forEach((object) => {
+        objects.forEach((object) => {
           if (
             object instanceof Module &&
             !stationModuleIds.includes(object.definitionId)
@@ -274,7 +282,7 @@ export class Ship extends Craft {
         });
       }
 
-      player.credits += objectsToSell.reduce(
+      player.credits += objects.reduce(
         (total, object) => total + (object.price || 0),
         0,
       );

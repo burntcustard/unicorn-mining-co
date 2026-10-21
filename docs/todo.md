@@ -92,7 +92,9 @@
 [ ] In outfitting, have current ammo listed somewhere
 [ ] Figure out dual/split thrusters
 [ ] Courser MKII ship
-[ ] Stations have gone back to wireframe icons in info panels
+[x] Fix stations having gone back to wireframe icon in info panels
+[x] Fix not being able to sell Autocannon with inventory full
+[x] Fix "Heard reports of mining" on losing track of player
 
 ## Big future things
 
