@@ -111,11 +111,16 @@ export const checkChat = () => {
   network.world.entities.set(ship.id, ship);
 
   let releases = 0;
+  let releasing = false;
 
   const chat = createChat({
     network,
     onTyping: (value) => typing.push(value),
-    onCargoRelease: () => releases++,
+    onCargoRelease: (active) => {
+      releasing = active;
+
+      if (active) releases++;
+    },
   });
 
   const panel = document.querySelector<HTMLElement>('.chat-panel')!;
@@ -129,7 +134,7 @@ export const checkChat = () => {
 
   ship.cargoContents.push(new Item(diamond));
   chat.update(undefined, true);
-  release.click();
+  release.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
   const releaseRequiresDemand =
     release.disabled && releases === 0 && !release.getClientRects().length;
 
@@ -162,14 +167,25 @@ export const checkChat = () => {
   });
 
   chat.update(undefined, true);
-  release.click();
+  release.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+  const releaseLabel = release.querySelector('kbd')!;
+  const [releaseKey, releaseMode] = releaseLabel.children;
+  const divider = getComputedStyle(releaseMode);
   const releaseAction =
     !release.disabled &&
     releases === 1 &&
     !!release.getClientRects().length &&
-    release.querySelector('kbd')!.textContent ===
+    releaseLabel.children.length === 2 &&
+    releaseKey.textContent ===
       defaultKeybindings.cargoRelease.keys.join(' / ') &&
-    release.textContent!.includes('(hold) Release Cargo');
+    releaseMode.textContent === 'Hold' &&
+    divider.borderLeftWidth === '2px' &&
+    divider.borderLeftColor ===
+      getComputedStyle(releaseLabel).borderLeftColor &&
+    release.querySelector(':scope > span')!.textContent === 'Release Cargo';
+
+  release.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+  const releaseStopsOnKeyup = !releasing;
 
   ship.cargoContents = [
     new SearchLight(),
@@ -186,9 +202,19 @@ export const checkChat = () => {
 
   defaultKeybindings.cargoRelease.keys = ['v'];
   chat.update(undefined, true);
-  const reboundReleaseKey = release.querySelector('kbd')!.textContent === 'v';
+  const reboundReleaseKey = releaseKey.textContent === 'v';
 
+  const originalReleaseMode = defaultKeybindings.cargoRelease.mode;
+
+  defaultKeybindings.cargoRelease.mode = 'toggle';
+  chat.update(undefined, true);
+  const toggleModeHidden = releaseMode.hasAttribute('hidden');
+
+  defaultKeybindings.cargoRelease.mode = originalReleaseMode;
   defaultKeybindings.cargoRelease.keys = originalReleaseKeys;
+  chat.update(undefined, true);
+  const onlyHoldModeVisible =
+    toggleModeHidden && !releaseMode.hasAttribute('hidden');
 
   network.chatMessages.push({
     type: 'chat',
@@ -637,6 +663,8 @@ export const checkChat = () => {
     releaseKeepsModulesAndOpenedAmmo,
     releaseAllowsUnopenedAmmo,
     reboundReleaseKey,
+    onlyHoldModeVisible,
+    releaseStopsOnKeyup,
     gateName,
     distantGateSilent,
     greetingPersonalized,

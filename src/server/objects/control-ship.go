@@ -8,11 +8,11 @@ import (
 )
 
 func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent) {
-	s.cargoReleaseHeld = input.CargoRelease
-
-	if !input.CargoRelease && !s.releasingCargo {
-		s.cargoReleaseTime = 0
+	if s.cargoReleaseHeld && !input.CargoRelease {
+		s.CancelCargoRelease()
 	}
+
+	s.cargoReleaseHeld = input.CargoRelease
 
 	if s.TransitTime != 0 {
 		s.Firing = false

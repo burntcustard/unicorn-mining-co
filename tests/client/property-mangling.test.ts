@@ -263,6 +263,7 @@ export function inspectSettings(keys) {
   const buttons = [];
   const element = () => ({
     textContent: '',
+    setAttribute() {},
     addEventListener() {},
     append(...children) {
       for (const child of children) {

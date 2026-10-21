@@ -5,7 +5,9 @@ import {
 } from '../protocol/input';
 import {
   defaultKeybindings,
+  bindingEntries,
   matchesBinding,
+  moduleKeyControls,
   updateMovement,
   type KeyBinding,
 } from './keybindings';
@@ -15,21 +17,10 @@ const callbacks = new Map<string, (event: KeyboardEvent) => void>();
 const pressed = new Set<string>();
 const actionCallbacks = new Map<KeyBinding, (event: KeyboardEvent) => void>();
 let menuInput = false;
-let cargoReleaseClicked = false;
-let cargoReleaseTimer: ReturnType<typeof setTimeout>;
 
-let notifyCargoRelease = () => {};
+let notifyCargoRelease = (_active: boolean) => {};
 
-export const cargoRelease = () => {
-  cargoReleaseClicked = true;
-  clearTimeout(cargoReleaseTimer);
-  notifyCargoRelease();
-
-  cargoReleaseTimer = setTimeout(() => {
-    cargoReleaseClicked = false;
-    notifyCargoRelease();
-  }, 1100);
-};
+export const cargoRelease = (active: boolean) => notifyCargoRelease(active);
 
 let releaseInput = () => {};
 
@@ -59,16 +50,23 @@ export const initKeys = ({
   onActivity?: () => void;
   onKeyDown?: (event: KeyboardEvent) => boolean;
 } = {}) => {
+  const controller = new AbortController();
+  const { signal } = controller;
+  const holdTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const consumedKeys = new Set<string>();
+
   const notify = (previous: PlayerInput) => {
     updateMovement(pressed, playerInput);
-    playerInput.cargoRelease ||= cargoReleaseClicked;
-
-    if (playerInput.cargoRelease) playerInput.cargoHatch = true;
 
     if (!sameInput(previous, playerInput)) onChange({ ...playerInput });
   };
 
-  notifyCargoRelease = () => notify({ ...playerInput });
+  notifyCargoRelease = (active) => {
+    const previous = { ...playerInput };
+
+    playerInput.cargoRelease = active;
+    notify(previous);
+  };
 
   const keyDown = (event: KeyboardEvent) => {
     if (
@@ -101,32 +99,34 @@ export const initKeys = ({
 
     pressed.add(key);
 
-    if (matchesBinding(defaultKeybindings.plasmaActive, key)) {
-      playerInput.plasmaActive = !playerInput.plasmaActive;
-    }
+    const holds = moduleKeyControls.filter(
+      ({ binding }) => binding.mode === 'hold' && matchesBinding(binding, key),
+    );
 
-    if (matchesBinding(defaultKeybindings.laserActive, key)) {
-      playerInput.laserActive = !playerInput.laserActive;
-    }
+    if (holds.length) {
+      const activate = () => {
+        holdTimers.delete(key);
+        // Completing a Hold cancels this key's pending Toggle actions.
+        consumedKeys.add(key);
+        holds.forEach(({ writeInput }) => writeInput(playerInput, true));
+      };
 
-    if (matchesBinding(defaultKeybindings.autogunActive, key)) {
-      playerInput.autogunActive = !playerInput.autogunActive;
-    }
+      if (
+        bindingEntries.filter(([, binding]) => matchesBinding(binding, key))
+          .length > 1
+      ) {
+        holdTimers.set(
+          key,
+          setTimeout(() => {
+            const previous = { ...playerInput };
 
-    if (matchesBinding(defaultKeybindings.hornDrill, key)) {
-      playerInput.hornDrill = !playerInput.hornDrill;
-    }
-
-    if (matchesBinding(defaultKeybindings.cargoHatch, key)) {
-      playerInput.cargoHatch = !playerInput.cargoHatch;
-    }
-
-    if (matchesBinding(defaultKeybindings.searchLight, key)) {
-      playerInput.searchLight = !playerInput.searchLight;
-    }
-
-    if (matchesBinding(defaultKeybindings.shieldGenerator, key)) {
-      playerInput.shieldGenerator = !playerInput.shieldGenerator;
+            activate();
+            notify(previous);
+          }, 500),
+        );
+      } else {
+        activate();
+      }
     }
 
     notify(previous);
@@ -136,29 +136,69 @@ export const initKeys = ({
     callbacks.get(key)?.(event);
 
     actionCallbacks.forEach((callback, binding) => {
-      if (matchesBinding(binding, key)) callback(event);
+      if (binding.mode !== 'toggle' && matchesBinding(binding, key)) {
+        callback(event);
+      }
     });
   };
 
   const keyUp = (event: KeyboardEvent) => {
     if (menuInput) return;
-    const previous = { ...playerInput };
+    const key = event.key.toLowerCase();
 
-    pressed.delete(event.key.toLowerCase());
+    if (!pressed.delete(key)) return;
+    const previous = { ...playerInput };
+    const consumed = consumedKeys.delete(key);
+
+    clearTimeout(holdTimers.get(key));
+    holdTimers.delete(key);
+
+    moduleKeyControls.forEach(({ binding, readInput, writeInput }) => {
+      if (binding.mode === 'toggle') {
+        if (!consumed && matchesBinding(binding, key)) {
+          writeInput(playerInput, !readInput(playerInput));
+        }
+      } else if (!binding.keys.some((key) => pressed.has(key.toLowerCase()))) {
+        writeInput(playerInput, false);
+      }
+    });
+
     notify(previous);
+
+    if (!consumed) {
+      actionCallbacks.forEach((callback, binding) => {
+        if (binding.mode === 'toggle' && matchesBinding(binding, key)) {
+          callback(event);
+        }
+      });
+    }
   };
 
   const blur = () => {
     const previous = { ...playerInput };
 
+    holdTimers.forEach(clearTimeout);
+    holdTimers.clear();
     pressed.clear();
+    consumedKeys.clear();
+
+    moduleKeyControls.forEach(({ binding, writeInput }) => {
+      if (
+        binding.mode === 'hold' ||
+        binding === defaultKeybindings.cargoRelease
+      ) {
+        writeInput(playerInput, false);
+      }
+    });
+
     notify(previous);
   };
 
   releaseInput = () => {
+    holdTimers.forEach(clearTimeout);
+    holdTimers.clear();
     pressed.clear();
-    cargoReleaseClicked = false;
-    clearTimeout(cargoReleaseTimer);
+    consumedKeys.clear();
 
     Object.assign(playerInput, emptyPlayerInput(), {
       fire: false,
@@ -171,22 +211,21 @@ export const initKeys = ({
     onChange({ ...playerInput });
   };
 
-  window.addEventListener('keydown', keyDown);
-  window.addEventListener('keyup', keyUp);
-  window.addEventListener('blur', blur);
+  window.addEventListener('keydown', keyDown, { signal });
+  window.addEventListener('keyup', keyUp, { signal });
+  window.addEventListener('blur', blur, { signal });
   const activityEvents = ['keydown', 'pointerdown', 'pointermove', 'wheel'];
 
   activityEvents.forEach((type) =>
-    window.addEventListener(type, onActivity, { capture: true, passive: true }),
+    window.addEventListener(type, onActivity, {
+      capture: true,
+      passive: true,
+      signal,
+    }),
   );
 
   return () => {
-    window.removeEventListener('keydown', keyDown);
-    window.removeEventListener('keyup', keyUp);
-    window.removeEventListener('blur', blur);
-    activityEvents.forEach((type) =>
-      window.removeEventListener(type, onActivity, { capture: true }),
-    );
+    controller.abort();
     blur();
   };
 };

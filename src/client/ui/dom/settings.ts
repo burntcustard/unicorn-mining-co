@@ -2,10 +2,13 @@ import html from './settings.html?raw';
 import { createScreen, query, ui } from './ui';
 import {
   bindingEntries,
+  bindingModes,
+  bindingModeLabel,
+  hasBindingMode,
+  type KeyBinding,
   keyLabel,
   saveBindings,
   resetBindings,
-  defaultKeybindings,
 } from '../../input/keybindings';
 import {
   graphics,
@@ -29,7 +32,13 @@ export const createSettings = () => {
   const bindings = query(screen.element, '[data-bindings]');
   const moduleBindings = query(screen.element, '[data-module-bindings]');
 
-  const buttons = bindingEntries.map(([label], i) => {
+  const modeButtons: {
+    button: HTMLButtonElement;
+    binding: KeyBinding;
+    mode: KeyBinding['mode'];
+  }[] = [];
+
+  const buttons = bindingEntries.map(([label, binding], i) => {
     const row = document.createElement('div');
 
     row.className = 'flex items-center justify-between gap-6 py-2 uppercase';
@@ -52,22 +61,59 @@ export const createSettings = () => {
       { signal: screen.signal },
     );
 
-    row.append(text, button);
-    // Keep targeting and HUD shortcuts beside flight and weapon controls.
-    (i < 4 ||
-    bindingEntries[i][1] === defaultKeybindings.targetNext ||
-    bindingEntries[i][1] === defaultKeybindings.fpsCounter ||
-    bindingEntries[i][1] === defaultKeybindings.requestGateAccess
-      ? bindings
-      : moduleBindings
-    ).append(row);
+    const controls = document.createElement('div');
+
+    controls.className = 'flex items-center gap-4';
+
+    if (hasBindingMode(binding)) {
+      const modes = document.createElement('div');
+
+      modes.className = 'ui-binding-modes flex';
+      modes.setAttribute('role', 'group');
+      modes.setAttribute('aria-label', `${label} activation mode`);
+
+      bindingModes.forEach((mode) => {
+        const choice = document.createElement('button');
+
+        choice.className = 'ui-button';
+        choice.textContent = bindingModeLabel(mode);
+        choice.title =
+          mode === 'hold'
+            ? 'Active while held; shared keys wait 0.5 seconds'
+            : 'Press to toggle on or off';
+
+        choice.addEventListener(
+          'click',
+          () => {
+            binding.mode = mode;
+            saveBindings();
+            update();
+          },
+          { signal: screen.signal },
+        );
+
+        modeButtons.push({ button: choice, binding, mode });
+        modes.append(choice);
+      });
+
+      controls.append(modes);
+    }
+
+    controls.append(button);
+    row.append(text, controls);
+    (hasBindingMode(binding) ? moduleBindings : bindings).append(row);
     return button;
   });
 
-  const update = () =>
+  const update = () => {
+    modeButtons.forEach(({ button, binding, mode }) =>
+      button.setAttribute('aria-pressed', String(binding.mode === mode)),
+    );
+
     buttons.forEach((button, i) => {
       button.textContent = bindingEntries[i][1].keys.map(keyLabel).join(' / ');
     });
+  };
 
   dialog.addEventListener(
     'keydown',
@@ -98,6 +144,9 @@ export const createSettings = () => {
       const conflict = bindingEntries.findIndex(
         ([, binding], i) =>
           i !== capture &&
+          (!hasBindingMode(binding) ||
+            !hasBindingMode(bindingEntries[capture][1]) ||
+            binding.mode === bindingEntries[capture][1].mode) &&
           binding.keys.some((bound) => bound.toLowerCase() === key),
       );
 

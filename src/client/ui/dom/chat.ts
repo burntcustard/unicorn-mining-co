@@ -4,7 +4,11 @@ import { createScreen, query, ui } from './ui';
 import { type NetworkClient } from '../../network/network';
 import { JumpGate } from '../../objects/jump-gate';
 import { type GameObject } from '../../objects/game-object';
-import { defaultKeybindings, keyLabel } from '../../input/keybindings';
+import {
+  defaultKeybindings,
+  bindingModeLabel,
+  keyLabel,
+} from '../../input/keybindings';
 import { jumpGateSpec } from '../../../specs/jump-gate';
 import { jumpGateDialog } from '../../../specs/dialog/jump-gate';
 import { namedSeed } from '../../utilities/seed-hash';
@@ -37,16 +41,53 @@ export const createChat = ({
     | 'requestGateAccess'
   >;
   onTyping: (typing: boolean) => void;
-  onCargoRelease?: () => void;
+  onCargoRelease?: (active: boolean) => void;
 }) => {
   const { element: panel } = createScreen(html);
   const log = query(panel, '.chat-log');
   const cargoAction = query(panel, '[data-cargo-release]');
   const release = query<HTMLButtonElement>(panel, '.cargo-release');
+  const [releaseKey, releaseMode] =
+    release.querySelectorAll<HTMLElement>('kbd > span');
 
-  release.addEventListener('click', () => {
-    if (!release.disabled && !panel.hidden) onCargoRelease();
+  let releaseHeld = false;
+
+  const setCargoRelease = (active: boolean) => {
+    if (
+      active === releaseHeld ||
+      (active && (release.disabled || panel.hidden))
+    ) {
+      return;
+    }
+
+    releaseHeld = active;
+    onCargoRelease(active);
+  };
+
+  release.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || release.disabled || panel.hidden) return;
+    release.setPointerCapture(event.pointerId);
+    setCargoRelease(true);
+  });
+
+  const stopCargoRelease = () => {
+    setCargoRelease(false);
     release.blur();
+  };
+
+  ['pointerup', 'pointercancel', 'lostpointercapture', 'blur'].forEach((type) =>
+    release.addEventListener(type, stopCargoRelease),
+  );
+
+  release.addEventListener('keydown', (event) => {
+    if (![' ', 'Enter'].includes(event.key)) return;
+    event.preventDefault();
+
+    if (!event.repeat) setCargoRelease(true);
+  });
+
+  release.addEventListener('keyup', (event) => {
+    if ([' ', 'Enter'].includes(event.key)) stopCargoRelease();
   });
 
   const template = query<HTMLTemplateElement>(panel, 'template');
@@ -190,9 +231,13 @@ export const createChat = ({
             (object.rounds === undefined ||
               object.rounds === object.item.rounds),
         );
-      query(release, 'kbd').textContent = defaultKeybindings.cargoRelease.keys
+      releaseKey.textContent = defaultKeybindings.cargoRelease.keys
         .map(keyLabel)
         .join(' / ');
+      releaseMode.hidden = defaultKeybindings.cargoRelease.mode !== 'hold';
+      releaseMode.textContent = bindingModeLabel(
+        defaultKeybindings.cargoRelease.mode,
+      );
 
       if (pending) {
         const gate = pending.message;

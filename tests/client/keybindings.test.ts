@@ -15,7 +15,7 @@ try {
   const defaults = await loadBindings('defaults');
 
   assert.deepEqual(defaults.defaultKeybindings.cargoRelease, {
-    keys: ['c'],
+    keys: ['h'],
     mode: 'hold',
   });
 
@@ -84,6 +84,29 @@ try {
 
   assert.deepEqual(withAccess.defaultKeybindings.requestGateAccess.keys, ['g']);
   assert.deepEqual(withAccess.defaultKeybindings.fpsCounter.keys, ['v']);
+  withAccess.defaultKeybindings.cargoRelease.mode = 'press';
+  withAccess.defaultKeybindings.cargoRelease.keys = ['j'];
+  withAccess.defaultKeybindings.searchLight.mode = 'hold';
+  withAccess.saveBindings();
+  const withModes = await loadBindings('with-modes');
+
+  assert.equal(
+    withModes.defaultKeybindings.cargoRelease.mode,
+    'hold',
+    'saved module Press settings migrate to Hold',
+  );
+  assert.deepEqual(withModes.bindingModes, ['hold', 'toggle']);
+  assert.equal(
+    withModes.defaultKeybindings.hornDrill.mode,
+    'toggle',
+    'saved Toggle IDs stay compatible',
+  );
+  assert.equal(withModes.defaultKeybindings.searchLight.mode, 'hold');
+  assert.deepEqual(withModes.defaultKeybindings.cargoRelease.keys, ['j']);
+  withModes.resetBindings();
+  assert.equal(withModes.defaultKeybindings.cargoRelease.mode, 'hold');
+  assert.equal(withModes.defaultKeybindings.searchLight.mode, 'toggle');
+  assert.deepEqual(withModes.defaultKeybindings.cargoRelease.keys, ['h']);
   withAccess.resetBindings();
   assert.deepEqual(withAccess.defaultKeybindings.requestGateAccess.keys, ['r']);
   reloaded.resetBindings();

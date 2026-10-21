@@ -175,8 +175,9 @@ input.bindAction(input.defaultKeybindings.fpsCounter, () => fpsToggles++);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F' }));
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', repeat: true }));
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
-assert.equal(fpsToggles, 1, 'F toggles FPS once until released');
+assert.equal(fpsToggles, 0, 'F waits for key release before toggling FPS');
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+assert.equal(fpsToggles, 1, 'F toggles once on release');
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
 assert.equal(fpsToggles, 2, 'a second tap toggles FPS again');
@@ -264,14 +265,24 @@ input.setMenuInput(false);
 input.defaultKeybindings.requestGateAccess.keys = ['r'];
 
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
-assert.equal(input.playerInput.hornDrill, true);
+assert.equal(
+  input.playerInput.hornDrill,
+  false,
+  'module toggles wait for keyup',
+);
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
 assert.equal(input.playerInput.hornDrill, true);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
+assert.equal(input.playerInput.hornDrill, true);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
 assert.equal(input.playerInput.hornDrill, false);
 
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'P' }));
-assert.equal(input.playerInput.plasmaActive, true, 'P deploys plasma');
+assert.equal(
+  !!input.playerInput.plasmaActive,
+  false,
+  'P does not deploy before release',
+);
 assert(!input.playerInput.autogunActive, 'P does not deploy autogunActive');
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'A' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
@@ -285,7 +296,7 @@ window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
 assert.equal(
   input.playerInput.plasmaActive,
   true,
-  'release and repeat preserve deployment',
+  'P deploys plasma on release and ignores repeat',
 );
 window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
 assert.equal(input.playerInput.fire, true);
@@ -530,60 +541,306 @@ try {
 
 console.log('Frame catch-up is bounded after short and long stalls');
 
+input.setMenuInput(true);
 input.setMenuInput(false);
 const stopCargoKeys = input.initKeys();
-
-window.dispatchEvent(new KeyboardEvent('keydown', { key: 'C' }));
-assert.equal(
-  input.playerInput.cargoRelease,
-  true,
-  'holding C requests cargo release',
-);
-window.dispatchEvent(new KeyboardEvent('keyup', { key: 'C' }));
-assert.equal(
-  input.playerInput.cargoRelease,
-  false,
-  'releasing C cancels the hold',
-);
-window.dispatchEvent(new KeyboardEvent('keydown', { key: 'C' }));
-input.setMenuInput(true);
-assert.equal(
-  input.playerInput.cargoRelease,
-  false,
-  'opening a menu cancels cargo release',
-);
-stopCargoKeys();
-
-const originalTimeout = globalThis.setTimeout;
-
-let finishCargoClick: () => void = () => {};
+const timeout = globalThis.setTimeout;
+const clearTimeout = globalThis.clearTimeout;
+const holds = new Map<number, () => void>();
+let nextTimer = 0;
 
 globalThis.setTimeout = ((callback: () => void, delay: number) => {
-  assert.equal(delay, 1100);
-  finishCargoClick = callback;
-  return 0;
-}) as typeof setTimeout;
+  assert.equal(delay, 500, 'shared keys wait half a second');
+  holds.set(++nextTimer, callback);
+  return nextTimer;
+}) as unknown as typeof setTimeout;
+
+globalThis.clearTimeout = ((id: number) =>
+  holds.delete(id)) as unknown as typeof clearTimeout;
+
+const finishHold = () => {
+  const callbacks = [...holds.values()];
+
+  holds.clear();
+  callbacks.forEach((callback) => callback());
+};
+
+const key = (type: string, key: string, repeat = false) =>
+  window.dispatchEvent(new KeyboardEvent(type, { key, repeat }));
 
 try {
-  input.setMenuInput(false);
-  const sent: boolean[] = [];
-
-  const stopClickKeys = input.initKeys({
-    onChange: (value) => sent.push(!!value.cargoRelease),
-  });
-
-  input.cargoRelease();
-  assert.equal(input.playerInput.cargoRelease, true);
-  assert.equal(input.playerInput.cargoHatch, true);
-  assert.deepEqual(sent, [true], 'chat click sends the release hold');
-  finishCargoClick();
-  assert.equal(input.playerInput.cargoRelease, false);
-  assert.deepEqual(
-    sent,
-    [true, false],
-    'chat releases the input after the hold',
+  key('keydown', 'H');
+  assert.equal(
+    input.playerInput.cargoHatch,
+    false,
+    'H does not toggle on keydown',
   );
-  stopClickKeys();
+  assert.equal(
+    !!input.playerInput.cargoRelease,
+    false,
+    'shared H delays cargo release',
+  );
+  key('keydown', 'h', true);
+  assert.equal(holds.size, 1, 'key repeat does not restart the delay');
+  key('keyup', 'h');
+  assert.equal(holds.size, 0, 'a tap cancels the pending release');
+  assert.equal(!!input.playerInput.cargoRelease, false);
+  assert.equal(
+    input.playerInput.cargoHatch,
+    true,
+    'a short tap toggles on release',
+  );
+
+  key('keydown', 'h');
+  assert.equal(
+    input.playerInput.cargoHatch,
+    true,
+    'holding H does not close an open hatch',
+  );
+  finishHold();
+  assert.equal(
+    input.playerInput.cargoRelease,
+    true,
+    'a completed hold releases cargo',
+  );
+  key('keyup', 'h');
+  assert.equal(
+    input.playerInput.cargoRelease,
+    false,
+    'releasing H stops cargo release',
+  );
+  assert.equal(
+    input.playerInput.cargoHatch,
+    true,
+    'a completed hold cancels the hatch toggle',
+  );
+  key('keyup', 'h');
+  assert.equal(
+    input.playerInput.cargoHatch,
+    true,
+    'duplicate keyup cannot toggle the hatch',
+  );
+
+  key('keydown', 'h');
+  assert.equal(input.playerInput.cargoHatch, true);
+  key('keyup', 'h');
+  assert.equal(
+    input.playerInput.cargoHatch,
+    false,
+    'the next tap closes the hatch',
+  );
+  key('keydown', 'h');
+  finishHold();
+  assert.equal(input.playerInput.cargoRelease, true);
+  assert.equal(
+    input.playerInput.cargoHatch,
+    false,
+    'a hold preserves a closed hatch toggle state',
+  );
+  key('keyup', 'h');
+  assert.equal(input.playerInput.cargoRelease, false);
+  assert.equal(
+    input.playerInput.cargoHatch,
+    false,
+    'keyup after a hold does not latch the hatch open',
+  );
+  key('keydown', 'h');
+  key('keyup', 'h');
+  assert.equal(
+    input.playerInput.cargoHatch,
+    true,
+    'a new tap works after a consumed release',
+  );
+  key('keydown', 'h');
+  key('keyup', 'h');
+  assert.equal(input.playerInput.cargoHatch, false);
+
+  input.defaultKeybindings.cargoRelease.keys = ['j'];
+  key('keydown', 'j');
+  assert.equal(
+    input.playerInput.cargoRelease,
+    true,
+    'an unshared release key activates immediately',
+  );
+  assert.equal(holds.size, 0);
+  key('keyup', 'j');
+  assert.equal(input.playerInput.cargoRelease, false);
+  input.defaultKeybindings.cargoRelease.keys = ['h'];
+
+  input.defaultKeybindings.searchLight.mode = 'hold';
+  key('keydown', 'l');
+  assert.equal(
+    input.playerInput.searchLight,
+    true,
+    'unshared Hold activates immediately',
+  );
+  assert.equal(holds.size, 0);
+  key('keyup', 'l');
+  assert.equal(
+    input.playerInput.searchLight,
+    false,
+    'Hold deactivates on release',
+  );
+
+  input.defaultKeybindings.searchLight.keys = ['d', 'l'];
+  key('keydown', 'd');
+  assert.equal(
+    input.playerInput.hornDrill,
+    false,
+    'the shared Toggle waits for keyup',
+  );
+  assert.equal(input.playerInput.searchLight, false);
+  key('keyup', 'd');
+  assert.equal(holds.size, 0);
+  key('keydown', 'd');
+  finishHold();
+  assert.equal(
+    input.playerInput.searchLight,
+    true,
+    'shared Hold activates after the delay',
+  );
+  key('keyup', 'd');
+  assert.equal(input.playerInput.searchLight, false);
+  assert.equal(
+    input.playerInput.hornDrill,
+    true,
+    'a completed hold suppresses the drill toggle',
+  );
+
+  key('keydown', 'd');
+  key('keydown', 'l');
+  assert.equal(
+    input.playerInput.searchLight,
+    true,
+    'an unshared alternative activates without waiting',
+  );
+  assert.equal(holds.size, 1, 'each shared key keeps its own hold delay');
+  key('keyup', 'l');
+  assert.equal(
+    input.playerInput.searchLight,
+    true,
+    'another bound key remains pressed',
+  );
+  finishHold();
+  key('keyup', 'd');
+  assert.equal(input.playerInput.searchLight, false);
+  assert.equal(
+    input.playerInput.hornDrill,
+    true,
+    'another held key does not lose toggle suppression',
+  );
+
+  input.defaultKeybindings.hornDrill.keys = ['d', 'l'];
+  key('keydown', 'd');
+  key('keydown', 'l');
+  assert.equal(holds.size, 2, 'shared alternatives track independent holds');
+  key('keyup', 'd');
+  assert.equal(
+    input.playerInput.hornDrill,
+    false,
+    'a short shared-key tap still toggles',
+  );
+  finishHold();
+  key('keyup', 'l');
+  assert.equal(
+    input.playerInput.hornDrill,
+    false,
+    'the remaining key consumes only its own toggle',
+  );
+  input.defaultKeybindings.hornDrill.keys = ['d'];
+
+  input.defaultKeybindings.searchLight.keys = [' '];
+  key('keydown', ' ');
+  assert.equal(input.playerInput.fire, true);
+  assert.equal(
+    input.playerInput.searchLight,
+    false,
+    'sharing with ship controls also delays Hold',
+  );
+  finishHold();
+  assert.equal(input.playerInput.searchLight, true);
+  key('keyup', ' ');
+  assert.equal(input.playerInput.fire, false);
+  assert.equal(input.playerInput.searchLight, false);
+
+  input.defaultKeybindings.searchLight.keys = ['f'];
+  const beforeSharedFps = fpsToggles;
+
+  key('keydown', 'f');
+  key('keyup', 'f');
+  assert.equal(
+    fpsToggles,
+    beforeSharedFps + 1,
+    'callback toggles also run on keyup',
+  );
+  key('keydown', 'f');
+  finishHold();
+  key('keyup', 'f');
+  assert.equal(
+    fpsToggles,
+    beforeSharedFps + 1,
+    'a shared hold cancels callback toggles too',
+  );
+
+  input.defaultKeybindings.searchLight.keys = ['d'];
+  const beforeBlurDrill = input.playerInput.hornDrill;
+
+  key('keydown', 'd');
+  window.dispatchEvent(new Event('blur'));
+  key('keyup', 'd');
+  assert.equal(
+    input.playerInput.hornDrill,
+    beforeBlurDrill,
+    'blur cancels pending tap toggles',
+  );
+  assert.equal(holds.size, 0, 'blur cancels pending holds');
+  key('keydown', 'd');
+  finishHold();
+  window.dispatchEvent(new Event('blur'));
+  assert.equal(
+    input.playerInput.searchLight,
+    false,
+    'blur releases active holds',
+  );
+  key('keyup', 'd');
+  key('keydown', 'd');
+  key('keyup', 'd');
+  assert.equal(
+    input.playerInput.hornDrill,
+    !beforeBlurDrill,
+    'blur clears consumed keys before the next tap',
+  );
+  key('keydown', 'h');
+  input.setMenuInput(true);
+  assert.equal(holds.size, 0, 'menus cancel pending holds');
+  assert.equal(input.playerInput.cargoRelease, false);
+  input.setMenuInput(false);
+  key('keyup', 'h');
+  assert.equal(
+    input.playerInput.cargoHatch,
+    false,
+    'opening a menu cancels the pending hatch toggle',
+  );
 } finally {
-  globalThis.setTimeout = originalTimeout;
+  globalThis.setTimeout = timeout;
+  globalThis.clearTimeout = clearTimeout;
+  input.defaultKeybindings.cargoRelease.keys = ['h'];
+  input.defaultKeybindings.hornDrill.keys = ['d'];
+  input.defaultKeybindings.searchLight.keys = ['l'];
+  input.defaultKeybindings.searchLight.mode = 'toggle';
+  stopCargoKeys();
 }
+
+input.setMenuInput(false);
+const sent: boolean[] = [];
+
+const stopClickKeys = input.initKeys({
+  onChange: (value) => sent.push(!!value.cargoRelease),
+});
+
+input.cargoRelease(true);
+assert.equal(input.playerInput.cargoRelease, true);
+input.cargoRelease(false);
+assert.equal(input.playerInput.cargoRelease, false);
+assert.deepEqual(sent, [true, false], 'chat can start and stop cargo release');
+stopClickKeys();

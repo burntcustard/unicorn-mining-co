@@ -5,7 +5,7 @@ import { moduleBinding } from '../input/keybindings';
 import { Item } from '../objects/item';
 
 /**
- * One row per fitted toggle-controlled module type, in mount order. Resolve
+ * One row per fitted controlled module type, in mount order. Resolve
  * binding modes here, alongside gameplay tags, before presenting them in DOM UI.
  */
 export const moduleRowsOf = (ship: Ship) => {
@@ -17,10 +17,7 @@ export const moduleRowsOf = (ship: Ship) => {
 
     if (
       !types.includes(Type) &&
-      moduleControls.some(
-        ({ Type: control, input }) =>
-          module instanceof control && moduleBinding(input).mode === 'toggle',
-      )
+      moduleControls.some(({ Type: control }) => module instanceof control)
     ) {
       types.push(Type);
     }

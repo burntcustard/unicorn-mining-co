@@ -55,12 +55,6 @@ func (s *Ship) updateCargoRelease(dt float64) {
 			return
 		}
 
-		s.cargoReleaseTime += dt
-
-		if s.cargoReleaseTime+1e-9 < 1 {
-			return
-		}
-
 		s.CargoRelease()
 
 		if !s.releasingCargo {
@@ -113,7 +107,7 @@ func (s *Ship) updateCargoRelease(dt float64) {
 	s.CargoContents = slices.DeleteFunc(s.CargoContents, func(entity simulation.Entity) bool { return entity == item })
 
 	object.Add()
-	s.cargoReleaseTime = 0.25
+	s.cargoReleaseTime = 0.5
 
 	if s.World.EntityChanged != nil {
 		s.World.EntityChanged(s, false)

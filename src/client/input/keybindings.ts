@@ -25,18 +25,25 @@ export type KeyAction =
   | 'fpsCounter'
   | 'requestGateAccess';
 
+export const bindingModes = ['hold', 'toggle'] as const;
+// Keep saved mode IDs stable: 1 was the old module Press option.
+const savedBindingModes = ['hold', 'press', 'toggle'] as const;
+
 export type KeyBinding = {
   keys: readonly string[];
-  mode: 'hold' | 'toggle' | 'press';
+  mode: (typeof savedBindingModes)[number];
 };
 
 export type Keybindings = Record<KeyAction, KeyBinding>;
 
+export const bindingModeLabel = (mode: KeyBinding['mode']) =>
+  ['Hold', 'Press', 'Toggle'][savedBindingModes.indexOf(mode)];
+
 // Keys use KeyboardEvent.key names, compared without case. Each action keeps
 // an array so a later player profile can assign several keys to one action.
-export const defaultKeybindings = {
+export const defaultKeybindings: Keybindings = {
   fire: { keys: [' '], mode: 'hold' },
-  cargoRelease: { keys: ['c'], mode: 'hold' },
+  cargoRelease: { keys: ['h'], mode: 'hold' },
   plasmaActive: { keys: ['p'], mode: 'toggle' },
   autogunActive: { keys: ['a'], mode: 'toggle' },
   laserActive: { keys: ['b'], mode: 'toggle' },
@@ -50,7 +57,7 @@ export const defaultKeybindings = {
   targetNext: { keys: ['t'], mode: 'press' },
   fpsCounter: { keys: ['f'], mode: 'toggle' },
   requestGateAccess: { keys: ['r'], mode: 'press' },
-} satisfies Keybindings;
+};
 
 // Module actions are one-byte protocol tags; binding fields are mangled
 // properties. Resolve the tag before accessing a field.
@@ -92,7 +99,6 @@ export const updateMovement = (
     binding.keys.some((key) => pressed.has(key.toLowerCase()));
 
   input.fire = held(defaultKeybindings.fire);
-  input.cargoRelease = held(defaultKeybindings.cargoRelease);
   input.thrust = Number(held(defaultKeybindings.forwardThrust));
   input.turn =
     Number(held(defaultKeybindings.turnRight)) -
@@ -114,15 +120,54 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Target next object', defaultKeybindings.targetNext],
   ['Toggle FPS counter', defaultKeybindings.fpsCounter],
   ['Request access', defaultKeybindings.requestGateAccess],
-  ['Release all cargo (hold 1 second)', defaultKeybindings.cargoRelease],
+  ['Release cargo', defaultKeybindings.cargoRelease],
 ];
-const originalKeys = bindingEntries.map(([, binding]) => [...binding.keys]);
+
+// Derive input property names from object keys so production property mangling
+// stays consistent without using gameplay tag strings as property names.
+const moduleBindings = {
+  plasmaActive: defaultKeybindings.plasmaActive,
+  autogunActive: defaultKeybindings.autogunActive,
+  laserActive: defaultKeybindings.laserActive,
+  hornDrill: defaultKeybindings.hornDrill,
+  cargoHatch: defaultKeybindings.cargoHatch,
+  searchLight: defaultKeybindings.searchLight,
+  shieldGenerator: defaultKeybindings.shieldGenerator,
+  cargoRelease: defaultKeybindings.cargoRelease,
+};
+
+export const moduleKeyControls = Object.entries(moduleBindings).map(
+  ([key, binding]) => {
+    const property = key as keyof typeof moduleBindings;
+
+    return {
+      binding,
+      readInput: (input: PlayerInput) => !!input[property],
+      writeInput: (input: PlayerInput, active: boolean) => {
+        input[property] = active;
+      },
+    };
+  },
+);
+
+export const hasBindingMode = (binding: KeyBinding) =>
+  moduleKeyControls.some((control) => control.binding === binding);
+
+const originalBindings = bindingEntries.map(([, binding]) => ({
+  keys: [...binding.keys],
+  mode: binding.mode,
+}));
 
 export const saveBindings = () => {
   try {
     localStorage.setItem(
       'unicorn-controls',
-      JSON.stringify(bindingEntries.map(([, binding]) => binding.keys)),
+      JSON.stringify(
+        bindingEntries.map(([, binding]) => [
+          binding.keys,
+          savedBindingModes.indexOf(binding.mode),
+        ]),
+      ),
     );
   } catch {
     /* Keep this visit's bindings. */
@@ -130,9 +175,11 @@ export const saveBindings = () => {
 };
 
 export const resetBindings = () => {
-  bindingEntries.forEach(
-    ([, binding], i) => (binding.keys = [...originalKeys[i]]),
-  );
+  bindingEntries.forEach(([, binding], i) => {
+    binding.keys = [...originalBindings[i].keys];
+    binding.mode = originalBindings[i].mode;
+  });
+
   saveBindings();
 };
 
@@ -143,14 +190,33 @@ try {
     Array.isArray(saved) &&
     saved.length >= bindingEntries.length - 4 &&
     saved.length <= bindingEntries.length &&
-    saved.every(
-      (keys) =>
+    saved.every((entry) => {
+      const keys = Array.isArray(entry?.[0]) ? entry[0] : entry;
+
+      return (
         Array.isArray(keys) &&
         keys.length &&
-        keys.every((key) => typeof key === 'string' && key.length < 30),
-    )
+        keys.every((key) => typeof key === 'string' && key.length < 30) &&
+        (!Array.isArray(entry[0]) ||
+          (Number.isInteger(entry[1]) &&
+            entry[1] >= 0 &&
+            entry[1] < savedBindingModes.length))
+      );
+    })
   ) {
-    saved.forEach((keys, i) => (bindingEntries[i][1].keys = keys));
+    saved.forEach((entry, i) => {
+      const binding = bindingEntries[i][1];
+
+      if (Array.isArray(entry[0])) {
+        binding.keys = entry[0];
+
+        if (hasBindingMode(binding)) {
+          binding.mode = entry[1] === 2 ? bindingModes[1] : 'hold';
+        }
+      } else {
+        binding.keys = entry;
+      }
+    });
   }
 } catch {
   /* Defaults work without storage. */

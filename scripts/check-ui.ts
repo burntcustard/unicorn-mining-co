@@ -660,7 +660,42 @@ checkUi: try {
       'Target next objectt',
       'targeting appears in Settings with T as its default',
     );
+    assert(
+      await check(`(() => {
+      const groups = [...document.querySelectorAll('.ui-binding-modes')];
+      return groups.length === 8 && groups.every((group, index) => {
+        const buttons = [...group.querySelectorAll('button')];
+        const boxes = buttons.map(button => button.getBoundingClientRect());
+        return group.nextElementSibling?.tagName === 'BUTTON' &&
+          buttons.map(button => button.textContent).join('/') === 'Hold/Toggle' &&
+          buttons.find(button => button.getAttribute('aria-pressed') === 'true').textContent === (index === 7 ? 'Hold' : 'Toggle') &&
+          boxes.slice(1).every((box, i) => Math.abs(box.left - boxes[i].right + 2) < 0.1);
+      });
+    })()`),
+      'module bindings have two modes with two-pixel overlaps and correct defaults',
+    );
+    await click('.ui-binding-modes button');
+    assert(
+      await check(
+        `document.querySelector('.ui-binding-modes button').getAttribute('aria-pressed') === 'true' && JSON.parse(localStorage.getItem('unicorn-controls'))[4][1] === 0`,
+      ),
+      'choosing a mode updates and saves it',
+    );
+    await click('.ui-binding-modes button:last-child');
+    await check(
+      `document.querySelector('[data-controls-panel]').scrollTo(0, 0)`,
+    );
     await capture('settings');
+    await check(
+      `document.querySelector('[data-module-bindings]').scrollIntoView()`,
+    );
+    await capture('module-bindings');
+    assert(
+      await check(
+        `document.querySelector('[data-controls-panel]').scrollWidth <= document.querySelector('[data-controls-panel]').clientWidth`,
+      ),
+      'module controls fit without horizontal scrolling',
+    );
     const settingsLayout = await check(`(() => {
       const bounds = element => {
         const box = element.getBoundingClientRect();
@@ -672,8 +707,10 @@ checkUi: try {
     })()`);
 
     assert(
-      Math.abs(settingsLayout[3][2] - (settingsLayout[0][2] - 80 - 48) / 3) < 1,
-      'settings content occupies one of three equal grid columns',
+      Math.abs(
+        settingsLayout[3][2] - Math.min(settingsLayout[0][2] - 80, 600),
+      ) < 1,
+      'controls use the shared settings width capped at 600px',
     );
     assert(
       await check(
@@ -832,12 +869,18 @@ checkUi: try {
       'selected tabs have an accent underline and text without the light-text stroke',
     );
     await capture('graphics');
+    assert(
+      (await check(
+        `document.querySelector('[data-graphics-panel]').getBoundingClientRect().width`,
+      )) === settingsLayout[3][2],
+      'graphics and controls use the same content width',
+    );
     assert.deepEqual(
-      await check(`['.ui-settings', '.ui-settings header', '.ui-settings .ui-tabs', '[data-graphics-panel]'].map(selector => {
+      await check(`['.ui-settings', '.ui-settings header', '.ui-settings .ui-tabs'].map(selector => {
       const box = document.querySelector(selector).getBoundingClientRect();
       return [box.x, box.y, box.width, box.height];
     })`),
-      settingsLayout,
+      settingsLayout.slice(0, 3),
       'settings stays fixed when switching between panels',
     );
     await click('[data-graphic="1"]');
@@ -916,7 +959,7 @@ checkUi: try {
     );
     assert(
       await check(
-        `!document.querySelector('[data-binding-dialog]').open && JSON.parse(localStorage.getItem('unicorn-controls'))[0][0] === 'q'`,
+        `!document.querySelector('[data-binding-dialog]').open && JSON.parse(localStorage.getItem('unicorn-controls'))[0][0][0] === 'q'`,
       ),
       'a valid key is persisted and closes the dialog',
     );
@@ -967,14 +1010,14 @@ checkUi: try {
       const rows = [...document.querySelectorAll('[data-bindings] > *')];
       const index = rows.findIndex(row => row.textContent.startsWith('Target next object'));
       rows[index].querySelector('button').setAttribute('data-target-binding', '');
-      return JSON.parse(localStorage.getItem('unicorn-controls')).findIndex(keys => keys.includes('t'));
+      return JSON.parse(localStorage.getItem('unicorn-controls')).findIndex(([keys]) => keys.includes('t'));
     })()`);
 
     await click('[data-target-binding]');
     await pressKey('n');
     assert.equal(
       await check(
-        `JSON.parse(localStorage.getItem('unicorn-controls'))[${targetingIndex}][0]`,
+        `JSON.parse(localStorage.getItem('unicorn-controls'))[${targetingIndex}][0][0]`,
       ),
       'n',
       'targeting can be rebound and saved',
@@ -1200,6 +1243,13 @@ checkUi: try {
       ),
       'live production flight HUD shows sector and fitted module shortcuts',
     );
+    assert(
+      await check(`(() => {
+      const labels = [...document.querySelectorAll('.hud-modules kbd')];
+      return labels.every(kbd => kbd.children.length === 0 && kbd.textContent.length > 0);
+    })()`),
+      'flight shortcuts show only their keys',
+    );
 
     assert(
       await check(`(() => {
@@ -1212,6 +1262,90 @@ checkUi: try {
       })()`),
       'instruments, chat, and notifications share one HUD parent',
     );
+
+    await check(
+      `document.querySelector('.hud-modules > button').setAttribute('data-cargo-shortcut', '')`,
+    );
+    const hatchActive = `document.querySelector('[data-cargo-shortcut]').getAttribute('aria-pressed') === 'true'`;
+
+    await check('document.activeElement.blur()');
+
+    await c.send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'h',
+      code: 'KeyH',
+    });
+
+    assert(
+      await check(`!(${hatchActive})`),
+      'H does not toggle the hatch on keydown',
+    );
+
+    await c.send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'h',
+      code: 'KeyH',
+    });
+
+    await waitFor(hatchActive, 'a short tap opens the hatch on keyup');
+
+    await c.send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'h',
+      code: 'KeyH',
+    });
+
+    await pause(600);
+    await waitFor(
+      hatchActive,
+      'holding H preserves the open hatch while releasing cargo',
+    );
+
+    await c.send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'h',
+      code: 'KeyH',
+    });
+
+    await pause(150);
+    assert(
+      await check(hatchActive),
+      'releasing a completed hold does not toggle an open hatch',
+    );
+
+    await pressKey('h');
+    await waitFor(`!(${hatchActive})`, 'a new short tap closes the hatch');
+
+    await c.send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'h',
+      code: 'KeyH',
+    });
+
+    assert(
+      await check(`!(${hatchActive})`),
+      'a pending hold keeps the closed hatch unchanged',
+    );
+    await pause(600);
+    await waitFor(
+      hatchActive,
+      'a completed hold temporarily opens a closed hatch for cargo release',
+    );
+
+    await c.send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'h',
+      code: 'KeyH',
+    });
+
+    await waitFor(
+      `!(${hatchActive})`,
+      'a completed hold leaves the hatch toggle off after keyup',
+    );
+    await pressKey('h');
+    await waitFor(hatchActive, 'a new tap works after a consumed key release');
+    await pressKey('h');
+    await waitFor(`!(${hatchActive})`, 'another tap closes the hatch');
 
     const moduleButton = '.hud-modules > button';
     const beforeToggle = await check(

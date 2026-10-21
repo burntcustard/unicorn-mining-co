@@ -501,41 +501,80 @@ func BenchmarkPirateSession(b *testing.B) {
 	}
 }
 
-func TestCargoReleaseRequiresContinuousHold(t *testing.T) {
+func TestCargoReleaseRepeatsEveryHalfSecondWhileHeld(t *testing.T) {
 	s, p, socket := pirateEncounter(t)
 	p.pirateAfter = math.MaxUint64
-	p.lastInput = protocol.Input{CargoRelease: true}
+	p.lastInput = protocol.Input{CargoHatch: true}
 
-	for range 15 {
+	for range 30 {
 		advanceEncounter(s, socket)
 	}
 
-	p.lastInput = protocol.Input{}
-	advanceEncounter(s, socket)
-	p.lastInput = protocol.Input{CargoRelease: true}
-
-	for range 29 {
-		advanceEncounter(s, socket)
-	}
-
-	if len(p.ship.CargoContents) != 7 {
-		t.Fatal("short taps accumulated into an accidental cargo release")
-	}
-
+	p.lastInput = protocol.Input{CargoHatch: true, CargoRelease: true}
 	advanceEncounter(s, socket)
 
 	if len(p.ship.CargoContents) != 6 {
-		t.Fatalf("first release should eject one item, cargo=%d", len(p.ship.CargoContents))
+		t.Fatal("activating release should immediately eject one item through an open hatch")
+	}
+
+	for range 14 {
+		advanceEncounter(s, socket)
+	}
+
+	if len(p.ship.CargoContents) != 6 {
+		t.Fatal("the next item was released before half a second elapsed")
+	}
+
+	advanceEncounter(s, socket)
+
+	if len(p.ship.CargoContents) != 5 {
+		t.Fatal("holding release should eject the next item after half a second")
 	}
 
 	p.lastInput = protocol.Input{CargoHatch: true}
 
-	for range 50 {
+	for range 30 {
+		advanceEncounter(s, socket)
+	}
+
+	if len(p.ship.CargoContents) != 5 {
+		t.Fatal("cargo continued releasing after keyup")
+	}
+}
+
+func TestCargoReleaseStartsFromActivatedBinding(t *testing.T) {
+	s, p, socket := pirateEncounter(t)
+	p.pirateAfter = math.MaxUint64
+	// The client applies the selected activation mode before sending input.
+	p.lastInput = protocol.Input{CargoRelease: true}
+
+	for range 30 {
+		advanceEncounter(s, socket)
+	}
+
+	if len(p.ship.CargoContents) >= 7 {
+		t.Fatal("activated release binding did not eject cargo")
+	}
+
+	remaining := len(p.ship.CargoContents)
+	p.lastInput = protocol.Input{CargoHatch: true}
+
+	for range 10 {
+		advanceEncounter(s, socket)
+	}
+
+	if len(p.ship.CargoContents) != remaining {
+		t.Fatal("deactivating the release binding did not stop cargo release")
+	}
+
+	p.lastInput = protocol.Input{CargoHatch: true, CargoRelease: true}
+
+	for range 90 {
 		advanceEncounter(s, socket)
 	}
 
 	if len(p.ship.CargoContents) != 0 {
-		t.Fatal("staggered release did not finish after keyup")
+		t.Fatal("staggered release did not finish while activated")
 	}
 
 	count := 0
@@ -557,6 +596,42 @@ func TestCargoReleaseRequiresContinuousHold(t *testing.T) {
 	if len(p.ship.CargoContents) != 0 {
 		t.Fatal("release immediately recollected its cargo")
 	}
+
+	id := simulation.EntityID(s.World)
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: &id}, s.World.Specification)
+	p.ship.CargoContents = append(p.ship.CargoContents, item)
+
+	for range 30 {
+		advanceEncounter(s, socket)
+	}
+
+	if len(p.ship.CargoContents) != 0 {
+		t.Fatal("holding release did not release newly collected cargo")
+	}
+
+	p.lastInput = protocol.Input{CargoHatch: true}
+	advanceEncounter(s, socket)
+	id = simulation.EntityID(s.World)
+	item = objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: &id}, s.World.Specification)
+	p.ship.CargoContents = append(p.ship.CargoContents, item)
+
+	for range 30 {
+		advanceEncounter(s, socket)
+	}
+
+	if len(p.ship.CargoContents) != 1 {
+		t.Fatal("releasing the key did not stop subsequent cargo release")
+	}
+
+	p.lastInput = protocol.Input{CargoHatch: true, CargoRelease: true}
+
+	for range 30 {
+		advanceEncounter(s, socket)
+	}
+
+	if len(p.ship.CargoContents) != 0 {
+		t.Fatal("a new activation did not release the next cargo batch")
+	}
 }
 
 func TestPirateSurrenderAfterAttackStopsFire(t *testing.T) {
@@ -577,12 +652,24 @@ func TestPirateSurrenderAfterAttackStopsFire(t *testing.T) {
 
 	p.lastInput = protocol.Input{CargoRelease: true}
 
-	for range 31 + 45 {
+	for range 30 {
 		advanceEncounter(s, socket)
 	}
 
-	if len(p.ship.CargoContents) != 0 || npc.ship.Firing || npc.state != pirateWaiting || npc.collectAfter == 0 {
-		t.Fatal("surrender did not stop the ongoing robbery attack")
+	if npc.ship.Firing || npc.state != pirateWaiting || npc.collectAfter == 0 {
+		t.Fatalf("surrender did not stop the ongoing robbery attack: cargo=%d firing=%v state=%d collectAfter=%v releasing=%v", len(p.ship.CargoContents), npc.ship.Firing, npc.state, npc.collectAfter, p.ship.ReleasingCargo())
+	}
+
+	for range 30 * 4 {
+		advanceEncounter(s, socket)
+
+		if npc.ship.Firing {
+			t.Fatal("pirate resumed firing while cargo was being released")
+		}
+	}
+
+	if len(p.ship.CargoContents) != 0 {
+		t.Fatal("held surrender did not finish releasing cargo")
 	}
 }
 
@@ -701,7 +788,7 @@ func TestCargoReleaseRetainsModulesAndOpenedAmmo(t *testing.T) {
 	p.ship.CargoContents = append(p.ship.CargoContents, module, partial, full)
 	p.lastInput = protocol.Input{CargoRelease: true}
 
-	for range 30 {
+	for ticks := 0; ticks < 30 && len(p.ship.CargoContents) == 10; ticks++ {
 		advanceEncounter(s, socket)
 	}
 
@@ -738,9 +825,9 @@ func TestCargoReleaseRetainsModulesAndOpenedAmmo(t *testing.T) {
 		t.Fatal("item did not emerge at an open cargo hatch")
 	}
 
-	p.lastInput = protocol.Input{CargoHatch: true}
+	p.lastInput = protocol.Input{CargoHatch: true, CargoRelease: true}
 
-	for range 70 {
+	for range 120 {
 		advanceEncounter(s, socket)
 	}
 

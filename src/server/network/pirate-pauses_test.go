@@ -168,6 +168,8 @@ func TestFriendlyVictimDockingDoesNotAbandonDefendedLoot(t *testing.T) {
 	for _, active := range []bool{false, true} {
 		t.Run("fighting"+strconv.FormatBool(active), func(t *testing.T) {
 			s, p, socket, npc := waitingEncounter(t)
+			// Finish this fixture's release within the pirate's collection delay.
+			p.ship.CargoContents = p.ship.CargoContents[:4]
 			p.ship.CargoRelease()
 
 			for tick := 0; tick < 150 && npc.state != pirateCollecting; tick++ {
@@ -298,6 +300,8 @@ func TestPirateDefendsSurrenderedCargoAfterASecondPause(t *testing.T) {
 				other := s.playersBySocket[otherSocket]
 				other.ship.Position = Vec.Add(npc.ship.Position, Vec.Create(180, 0))
 				other.ship.DockedTo, other.ship.Launching = nil, 0
+				// Finish this fixture's release during the three-second attack pause.
+				p.ship.CargoContents = p.ship.CargoContents[:4]
 				p.ship.CargoRelease()
 				advanceEncounter(s, socket)
 

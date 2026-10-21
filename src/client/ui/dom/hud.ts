@@ -201,6 +201,7 @@ export const createHud = ({
           });
 
           kbd.className = 'flex-none';
+
           kbd.textContent = labels[index][0];
           name.className = 'text-sm';
           name.textContent = labels[index][1];
