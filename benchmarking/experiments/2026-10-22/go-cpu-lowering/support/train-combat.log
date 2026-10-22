@@ -1,0 +1,7 @@
+goos: linux
+goarch: amd64
+pkg: github.com/burntcustard/unicorn-mining-co/src/server/network
+cpu: AMD Ryzen 7 5800X3D 8-Core Processor           
+BenchmarkPirateCombat/normal-2         	    9000	     50599 ns/op	         2.000 GOMAXPROCS	        67.00 asteroids	     51956 cpu-ns/tick	         0 fast/tick	         1.000 fighting/tick	         0.06000 firing/tick	         1.000 in-field/tick	       537.8 max-distance	        93.59 npc-speed	       100.1 player-speed	      1214 wire-B/tick	    7746 B/op	     104 allocs/op
+BenchmarkPirateCombat/dense-2          	    9000	     65347 ns/op	         2.000 GOMAXPROCS	       168.0 asteroids	     67024 cpu-ns/tick	         0 fast/tick	         1.000 fighting/tick	         0.1067 firing/tick	         1.000 in-field/tick	       174.0 max-distance	        99.42 npc-speed	       103.5 player-speed	      1582 wire-B/tick	   10677 B/op	     134 allocs/op
+PASS

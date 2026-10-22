@@ -47,7 +47,7 @@ func (m *HornDrill) Drill(ship simulation.Entity, segment *simulation.Segment, t
 
 	before := *health
 	object := ship.Base()
-	d := m.Spec
+	d := &m.Spec
 
 	if segment.ActivationProgress <= d.ActivationThreshold ||
 		object.PlayerID == nil ||

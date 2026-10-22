@@ -128,7 +128,7 @@ func runPirateCollection(t testing.TB, scenario pirateCollectionCase) pirateColl
 	for tick := 0; tick < int(600/step) && result.Collected < len(items); tick++ {
 		before := npc.ship.Position
 		npc.ship.Fuel = npc.ship.FuelCapacity
-		s.Receive(protocol.Control{Type: "snapshotAck", Sequence: socket.sequence}, socket)
+		socket.acknowledge(s)
 		s.Tick(1)
 		result.Seconds = float64(tick+1) * step
 		result.Distance += Vec.Distance(before, npc.ship.Position)

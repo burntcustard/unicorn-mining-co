@@ -17,6 +17,80 @@ type recoverySlab struct {
 	lowerBound, upperBound float64
 }
 
+// Bound the offset polygon, including the miter at acute corners. Recovery
+// intersects face slabs, so the ordinary rounded-shape radius is insufficient.
+func recoveryRadius(f *Fixture, slop float64) float64 {
+	if f.Geometry.Count == 0 || f.Geometry.Count != len(f.Geometry.Vertices) {
+		return math.Inf(1)
+	}
+
+	// Sixteen evenly spaced circle axes have sec(pi/16) < 1.02 corner reach.
+	padding := 1.02
+
+	if polygon, ok := f.Shape.(*shape.PolygonShape); ok {
+		for i, normal := range polygon.Normals {
+			previous := polygon.Normals[(i+len(polygon.Normals)-1)%len(polygon.Normals)]
+			padding = max(padding, 2/math.Abs(Vec.Cross(previous, normal)))
+		}
+	}
+
+	return (f.Geometry.GetBound().Radius+max(0, f.Geometry.Radius+slop)*padding)*(1+1e-10) + recoveryTolerance
+}
+
+type recoveryCircle struct {
+	center Vec.Vector
+	radius float64
+	pose   uint64
+}
+
+type recoveryObstacle struct {
+	body   *Body
+	radius float64
+}
+
+func (f *Fixture) recoveryBound(slop float64) *recoveryCircle {
+	if f.recovery.radius == 0 || f.recoverySlop != slop {
+		f.recovery.radius = recoveryRadius(f, slop)
+		f.recoverySlop = slop
+		f.recovery.pose = ^f.Body.poseVersion
+	}
+
+	if f.recovery.pose != f.Body.poseVersion {
+		bound := f.Geometry.GetBound()
+		Vec.TransformInto(&f.recovery.center, f.Body.Xf, Vec.Create(bound.X, bound.Y))
+
+		// At huge world coordinates, keep the original relative projections;
+		// subtracting separately translated centers can lose local detail.
+		if math.Abs(f.recovery.center.X) > 1e9 || math.Abs(f.recovery.center.Y) > 1e9 {
+			f.recovery.radius = math.Inf(1)
+		}
+
+		f.recovery.pose = f.Body.poseVersion
+	}
+
+	return &f.recovery
+}
+
+func recoveryIntersects(delta Vec.Vector, radius float64, direction Vec.Vector, limit float64) bool {
+	if math.IsInf(limit, 1) {
+		return math.Abs(Vec.Cross(delta, direction)) <= radius && Vec.Dot(delta, direction) >= -radius
+	}
+
+	return Vec.Dot(delta, delta) <= (radius+limit)*(radius+limit)
+}
+
+func (b *Body) recoveryReach(slop float64) float64 {
+	radius := -1.0
+
+	for f := b.FixtureList; f != nil; f = f.Next {
+		if f.Physics {
+			radius = max(radius, (f.Geometry.GetBound().OffsetRadius+f.recoveryBound(slop).radius)*(1+1e-10))
+		}
+	}
+
+	return radius
+}
+
 func recoveryAxes(f *Fixture, result []Vec.Vector) []Vec.Vector {
 	if s, ok := f.Shape.(*shape.PolygonShape); ok {
 		for _, normal := range s.Normals {
@@ -72,8 +146,33 @@ func recoveryInterval(slabs []recoverySlab, direction Vec.Vector) (float64, floa
 	return entry, exit
 }
 
+// For a region strictly containing the origin, entry is irrelevant to the
+// interval union. Each nonparallel slab contributes just one positive exit.
+func recoveryContainedExit(slabs []recoverySlab, direction Vec.Vector) float64 {
+	exit := math.Inf(1)
+
+	for _, slab := range slabs {
+		speed := Vec.Dot(slab.normal, direction)
+		var boundary float64
+
+		if speed >= 1e-10 {
+			boundary = slab.upperBound
+		} else if speed <= -1e-10 {
+			boundary = slab.lowerBound
+		} else {
+			continue
+		}
+
+		if candidate := boundary / speed; candidate < exit {
+			exit = candidate
+		}
+	}
+
+	return exit
+}
+
 func recoveryDistance(intervals [][2]float64) float64 {
-	slices.SortStableFunc(intervals, func(a, b [2]float64) int {
+	slices.SortFunc(intervals, func(a, b [2]float64) int {
 		if a[0] < b[0] {
 			return -1
 		}
@@ -96,6 +195,17 @@ func recoveryDistance(intervals [][2]float64) float64 {
 	}
 
 	return distance
+}
+
+// A conservative length for pruning; keep Hypot's extreme-value behavior.
+func recoveryAxisLength(axis Vec.Vector) float64 {
+	squared := Vec.Dot(axis, axis)
+
+	if squared >= 0x1p-1022 && squared <= math.MaxFloat64 {
+		return math.Sqrt(squared) * (1 + 1e-12)
+	}
+
+	return math.Hypot(axis.X, axis.Y)
 }
 
 // Search the union of forbidden translations, preserving the body's full
@@ -148,6 +258,18 @@ func (w *World) recoverOverlaps() {
 		}
 	}
 
+	if len(candidates) == 0 {
+		return
+	}
+
+	var obstacles []recoveryObstacle
+
+	for other := w.BodyList; other != nil; other = other.Next {
+		if radius := other.recoveryReach(slop); radius >= 0 {
+			obstacles = append(obstacles, recoveryObstacle{other, radius})
+		}
+	}
+
 	for _, body := range candidates {
 		trapped := false
 
@@ -170,13 +292,23 @@ func (w *World) recoverOverlaps() {
 		}
 
 		origin := body.Xf.P
+		reach := body.recoveryReach(slop)
 		var axes []Vec.Vector
 		var temporary []recoverySlab
 		var intervals [][2]float64
+		var firstEntry, firstExit float64
 
 		// The first ray visits every fixture pair. Its escape is an upper bound
 		// for the remaining search, including obstacles beyond current contacts.
 		pairSlabs := func(a, b *Fixture, limit float64) []recoverySlab {
+			ca, cb := a.recoveryBound(slop), b.recoveryBound(slop)
+			delta := Vec.Subtract(cb.center, ca.center)
+			radius := ca.radius + cb.radius
+
+			if !recoveryIntersects(delta, radius, directions[0], limit) {
+				return nil
+			}
+
 			axes = recoveryAxes(a, axes[:0])
 			axes = recoveryAxes(b, axes)
 
@@ -191,6 +323,7 @@ func (w *World) recoverOverlaps() {
 				a0, a1 := recoveryProject(a, normal, origin)
 				b0, b1 := recoveryProject(b, normal, origin)
 				slab := recoverySlab{normal, b0 - a1 - slop, b1 - a0 + slop}
+
 				// A separating slab outside the entire search disk cannot affect
 				// any better escape, even through a chain of adjacent obstacles.
 				if math.IsInf(limit, 1) {
@@ -201,7 +334,7 @@ func (w *World) recoverOverlaps() {
 						return nil
 					}
 				} else {
-					extent := limit * math.Hypot(normal.X, normal.Y)
+					extent := limit * recoveryAxisLength(normal)
 
 					if slab.lowerBound > extent || slab.upperBound < -extent {
 						return nil
@@ -211,11 +344,14 @@ func (w *World) recoverOverlaps() {
 				temporary = append(temporary, slab)
 			}
 
+			firstEntry, firstExit = entry, exit
 			return temporary
 		}
 
-		for other := w.BodyList; other != nil; other = other.Next {
-			if other == body {
+		for _, obstacle := range obstacles {
+			other := obstacle.body
+
+			if other == body || !recoveryIntersects(Vec.Subtract(other.Xf.P, origin), reach+obstacle.radius, directions[0], math.Inf(1)) {
 				continue
 			}
 
@@ -243,14 +379,16 @@ func (w *World) recoverOverlaps() {
 
 					if contains {
 						for _, slab := range slabs {
-							directions = append(directions, slab.normal, Vec.Scale(slab.normal, -1))
+							for _, direction := range [2]Vec.Vector{slab.normal, Vec.Scale(slab.normal, -1)} {
+								if !slices.Contains(directions, direction) {
+									directions = append(directions, direction)
+								}
+							}
 						}
 					}
 
-					entry, exit := recoveryInterval(slabs, directions[0])
-
-					if exit > 0 && entry < exit {
-						intervals = append(intervals, [2]float64{entry, exit})
+					if firstExit > 0 && firstEntry < firstExit {
+						intervals = append(intervals, [2]float64{firstEntry, firstExit})
 					}
 				}
 			}
@@ -266,15 +404,18 @@ func (w *World) recoverOverlaps() {
 		maxDirectionLength := 0.0
 
 		for _, direction := range directions {
-			maxDirectionLength = max(maxDirectionLength, math.Hypot(direction.X, direction.Y))
+			maxDirectionLength = max(maxDirectionLength, recoveryAxisLength(direction))
 		}
 
 		limit := (best+recoveryTolerance)*maxDirectionLength + recoveryTolerance
 		var slabs []recoverySlab
 		var ends []int
+		var inside []bool
 
-		for other := w.BodyList; other != nil; other = other.Next {
-			if other == body {
+		for _, obstacle := range obstacles {
+			other := obstacle.body
+
+			if other == body || !recoveryIntersects(Vec.Subtract(other.Xf.P, origin), reach+obstacle.radius, directions[0], limit) {
 				continue
 			}
 
@@ -289,6 +430,13 @@ func (w *World) recoverOverlaps() {
 					}
 
 					if pair := pairSlabs(a, b, limit); len(pair) > 0 {
+						contained := true
+
+						for _, slab := range pair {
+							contained = contained && slab.lowerBound < -recoveryTolerance && slab.upperBound > recoveryTolerance
+						}
+
+						inside = append(inside, contained)
 						slabs = append(slabs, pair...)
 						ends = append(ends, len(slabs))
 					}
@@ -296,15 +444,33 @@ func (w *World) recoverOverlaps() {
 			}
 		}
 
+	search:
 		for _, direction := range directions[1:] {
 			intervals = intervals[:0]
 			start := 0
+			reachable := 0.0
 
-			for _, end := range ends {
-				entry, exit := recoveryInterval(slabs[start:end], direction)
+			for i, end := range ends {
+				entry, exit := 0.0, 0.0
+
+				if inside[i] {
+					exit = recoveryContainedExit(slabs[start:end], direction)
+				} else {
+					entry, exit = recoveryInterval(slabs[start:end], direction)
+				}
+
 				start = end
 
 				if exit > 0 && entry < exit {
+					// A connected subset of intervals already rules out improvement.
+					if entry <= reachable+recoveryTolerance && exit > reachable {
+						reachable = exit
+					}
+
+					if reachable >= best-recoveryTolerance {
+						continue search
+					}
+
 					intervals = append(intervals, [2]float64{entry, exit})
 				}
 			}

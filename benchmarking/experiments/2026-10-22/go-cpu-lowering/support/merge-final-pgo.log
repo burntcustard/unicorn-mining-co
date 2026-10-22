@@ -1,0 +1,5 @@
+16/contact: 0.188353 -> 0.186661 ms CPU/tick (1.01x)
+16/module: 0.775230 -> 0.716506 ms CPU/tick (1.08x)
+32/contact: 0.361242 -> 0.362859 ms CPU/tick (1.00x)
+32/module: 2.021879 -> 1.984272 ms CPU/tick (1.02x)
+benchmarking/local/cpu-lowering-2026-10-22/merge-final-pgo.json

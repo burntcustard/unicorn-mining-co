@@ -1,0 +1,8 @@
+before: 8 clients / flight / 30 Hz / 0.5673 CPU ms/tick / 149.4 allocations/tick
+after: 8 clients / flight / 30 Hz / 0.4664 CPU ms/tick / 122.0 allocations/tick
+after: 8 clients / flight / 30 Hz / 0.4809 CPU ms/tick / 122.6 allocations/tick
+before: 8 clients / flight / 30 Hz / 0.5587 CPU ms/tick / 149.3 allocations/tick
+before: 32 clients / flight / 30 Hz / 1.6233 CPU ms/tick / 566.7 allocations/tick
+after: 32 clients / flight / 30 Hz / 1.3299 CPU ms/tick / 459.9 allocations/tick
+after: 32 clients / flight / 30 Hz / 1.3301 CPU ms/tick / 459.3 allocations/tick
+before: 32 clients / flight / 30 Hz / 1.5945 CPU ms/tick / 566.2 allocations/tick

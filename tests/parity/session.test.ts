@@ -75,9 +75,18 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
   assert.equal(go[id].packets.length, socket.messages.length);
 
   socket.messages.forEach((expected, index) => {
+    const actual = decoded(go[id].packets[index]);
+    const comparable = { ...(expected as Record<string, unknown>) };
+
+    // Receipt requests are optional; every present sequence and all gameplay
+    // fields still match the fixture. Loads must always request a receipt.
+    if (actual.type === 'snapshot' && actual.snapshotSequence === undefined) {
+      delete comparable.snapshotSequence;
+    }
+
     compare(
-      decoded(go[id].packets[index]),
-      expected,
+      actual,
+      comparable,
       `socket ${id} packet ${index}`,
     );
     packets++;

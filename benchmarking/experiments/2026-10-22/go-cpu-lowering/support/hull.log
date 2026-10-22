@@ -1,0 +1,9 @@
+16/convoy: 0.196690 -> 0.178767 ms CPU/tick (1.10x)
+16/spread: 0.341088 -> 0.329875 ms CPU/tick (1.03x)
+16/contact: 0.191183 -> 0.258984 ms CPU/tick (0.74x)
+16/module: 0.620916 -> 0.524123 ms CPU/tick (1.18x)
+32/convoy: 0.458387 -> 0.391348 ms CPU/tick (1.17x)
+32/spread: 0.496659 -> 0.472185 ms CPU/tick (1.05x)
+32/contact: 0.361453 -> 0.485157 ms CPU/tick (0.75x)
+32/module: 1.424608 -> 1.393922 ms CPU/tick (1.02x)
+benchmarking/local/cpu-lowering-2026-10-22/hull.json

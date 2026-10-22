@@ -34,7 +34,7 @@ func TestSnapshotCadence(t *testing.T) {
 		session.Receive(protocol.Control{Type: "input", Tick: session.World.Tick, Sequence: tick, Input: protocol.Input{Thrust: float64(tick % 2)}}, socket)
 		session.Tick(1)
 
-		if socket.packets != int(tick)+2 || socket.sequence != tick+1 || player.lastSequence != tick || session.World.Tick != tick {
+		if socket.packets != int(tick)+2 || player.snapshotSequence != tick+1 || player.lastSequence != tick || session.World.Tick != tick {
 			t.Fatalf("tick %d: packets=%d sequence=%d input=%d world=%d", tick, socket.packets, socket.sequence, player.lastSequence, session.World.Tick)
 		}
 	}
@@ -42,29 +42,33 @@ func TestSnapshotCadence(t *testing.T) {
 	acknowledge()
 	session.Tick(3)
 
-	if session.World.Tick != 11 || socket.packets != 11 || socket.sequence != 10 {
+	if session.World.Tick != 11 || socket.packets != 11 || player.snapshotSequence != 10 {
 		t.Fatal("a catch-up batch must send only its completed state")
 	}
 
-	// Stop after nine unacknowledged snapshots, then send only current state.
-	for i := 0; i < 10; i++ {
+	// Bound the unacknowledged tail, including the receipt-spacing allowance.
+	window := player.snapshotWindow + max(0, player.ackInterval-1)
+	expectedPackets := socket.packets + window - len(player.pendingSnapshots)
+
+	for i := 0; i < 20; i++ {
 		session.Tick(1)
 	}
 
-	if socket.packets != 19 || len(player.pendingSnapshots) != 9 {
-		t.Fatal("receipts must bound the window to nine snapshots")
+	if socket.packets != expectedPackets || len(player.pendingSnapshots) != window {
+		t.Fatal("receipts must bound pending snapshots")
 	}
 
-	session.Receive(protocol.Control{Type: "snapshotAck", Sequence: socket.sequence + 1}, socket)
+	session.Receive(protocol.Control{Type: "snapshotAck", Sequence: player.snapshotSequence + 1}, socket)
 
-	if len(player.pendingSnapshots) != 9 {
+	if len(player.pendingSnapshots) != window {
 		t.Fatal("an unsent sequence cannot free capacity")
 	}
 
 	acknowledge()
+	previousSequence := player.snapshotSequence
 	session.Tick(1)
 
-	if socket.packets != 20 || socket.sequence != 19 || session.World.Tick != 22 {
+	if socket.packets != expectedPackets+1 || player.snapshotSequence != previousSequence+1 || session.World.Tick != 32 {
 		t.Fatal("acknowledging must resume snapshots on the next simulation tick")
 	}
 }
@@ -94,21 +98,22 @@ func TestSnapshotRoundTrips(t *testing.T) {
 				receipts = receipts[1:]
 			}
 
-			previous := socket.sequence
+			previous := socket.packets
+			previousReceipt := socket.sequence
 			session.Tick(1)
 
-			if socket.sequence != previous {
+			if socket.sequence != previousReceipt {
 				receipts = append(receipts, receipt{session.World.Tick + roundTrip, socket.sequence})
+			}
 
-				if session.World.Tick > 60 {
-					lateSnapshots++
-				}
+			if socket.packets != previous && session.World.Tick > 60 {
+				lateSnapshots++
 			}
 		}
 
 		player := session.playersBySocket[socket]
 
-		if len(player.pendingSnapshots) > player.snapshotWindow {
+		if len(player.pendingSnapshots) > player.snapshotWindow+max(0, player.ackInterval-1)+1 {
 			t.Fatal("receipts must bound pending snapshots")
 		}
 

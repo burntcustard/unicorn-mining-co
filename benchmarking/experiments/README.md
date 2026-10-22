@@ -14,6 +14,18 @@ scratch output under `benchmarking/local/`.
 
 ## Retained investigations
 
+The [October 22 transport investigation](../../docs/experiments/2026-10-22/go-server-cpu-transport.md)
+records a further 24.23% CPU saving in the complete two-core TCP matrix, bounded
+cumulative receipts, nonblocking sends, jitter/backpressure tests, and source snapshots.
+
+The [October 22 compiler investigation](../../docs/experiments/2026-10-22/go-server-cpu-lowering.md)
+retains instruction disassembly, inherited hardware counters, compiler/architecture
+screens, rejected physics/transport prototypes, and further paired CPU measurements.
+
+The [October 22 Go CPU investigation](../../docs/experiments/2026-10-22/go-server-cpu.md)
+retains recovery pruning, matched two-core session/combat/TCP comparisons,
+PGO inputs, exact recovery checks, source overlays, and rejected allocation work.
+
 The [NPC pursuit investigation](../../docs/experiments/2026-10-20/npc-pursuit.md)
 compares short target forecasts and selective asteroid outlines on fixed moving
 courses, including narrow gaps, blind validation, and paired combat CPU runs.

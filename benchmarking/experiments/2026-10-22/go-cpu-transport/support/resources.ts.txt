@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { gzipSync, gunzipSync } from 'node:zlib';
+const root='benchmarking/local/cpu-game-2026-10-22';
+const previous=JSON.parse(gunzipSync(readFileSync('benchmarking/experiments/2026-10-22/go-cpu-lowering/results/resources-after.json.gz')).toString());
+const sha=(data:Buffer)=>createHash('sha256').update(data).digest('hex');
+const describe=(path:string,source=path)=>{const data=readFileSync(source);return{path,bytes:data.length,gzipBytes:gzipSync(data,{level:1}).length,sha256:sha(data)}};
+const client=previous.filter((row:{path:string})=>row.path.startsWith('dist/'));
+for(const row of client) assert.equal(sha(readFileSync(row.path)),row.sha256,`Client asset changed: ${row.path}`);
+const before=[...client,describe('bin/server',`${root}/server-before`),describe('src/server/default.pgo',`${root}/before.pgo`)];
+const after=before.map(row=>describe(row.path));
+writeFileSync(`${root}/resources-before.json`,JSON.stringify(before,null,2)+'\n');
+writeFileSync(`${root}/resources-after.json`,JSON.stringify(after,null,2)+'\n');
+console.log(JSON.stringify({unchangedClientAssets:client.length,before:before.filter(r=>!r.path.startsWith('dist/')),after:after.filter(r=>!r.path.startsWith('dist/'))},null,2));

@@ -1,9 +1,10 @@
 // Measure before/after executables sequentially, alternating process order.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { cpuAffinity, goEnvironment } from './go-cpu-environment.ts';
 
 const [label, before, after] = process.argv.slice(2);
 
@@ -13,11 +14,7 @@ if (!label || !before || !after) {
   );
 }
 
-const cpu =
-  process.env.CPU_AFFINITY ||
-  readFileSync('/proc/self/status', 'utf8').match(
-    /Cpus_allowed_list:\s*([\d,-]+)/,
-  )[1];
+const cpu = cpuAffinity;
 const ticks = Number(process.env.TICKS || 900);
 const repetitions = Number(process.env.REPETITIONS || 5);
 const motionTolerance = Number(process.env.MOTION_TOLERANCE || 2e-8);
@@ -33,14 +30,14 @@ const workloads = (
 const variants = {
   before: {
     executable: before,
-    GOGC: process.env.BEFORE_GOGC || '100',
+    GOGC: process.env.BEFORE_GOGC || goEnvironment.GOGC,
     SIMD: process.env.BEFORE_SIMD,
     motionRounding: process.env.BEFORE_ROUNDING,
     collisionNeighbors: process.env.BEFORE_NEIGHBORS,
   },
   after: {
     executable: after,
-    GOGC: process.env.AFTER_GOGC || '800',
+    GOGC: process.env.AFTER_GOGC || goEnvironment.GOGC,
     SIMD: process.env.AFTER_SIMD,
     motionRounding: process.env.AFTER_ROUNDING,
     collisionNeighbors: process.env.AFTER_NEIGHBORS,
@@ -105,6 +102,7 @@ function save() {
       {
         label,
         cpu,
+        gomaxprocs: goEnvironment.GOMAXPROCS,
         ticks,
         repetitions,
         motionTolerance,
@@ -140,12 +138,14 @@ for (const count of players) {
         const value = variants[variant];
         const output = `/tmp/unicorn-cpu-paired-${process.pid}.json`;
 
+        rmSync(output, { force: true });
+
         execFileSync(
           'taskset',
           ['-c', cpu, value.executable, '-test.run', '^TestSessionBenchmark$'],
           {
             env: {
-              ...process.env,
+              ...goEnvironment,
               GOGC: value.GOGC,
               GO_SERVER_SIMD: value.SIMD ?? process.env.GO_SERVER_SIMD ?? '',
               GO_SERVER_MOTION_ROUNDING: value.motionRounding ?? '',
@@ -162,6 +162,10 @@ for (const count of players) {
         );
 
         pair[variant] = JSON.parse(readFileSync(output, 'utf8'));
+        assert.equal(pair[variant].players, count);
+        assert.equal(pair[variant].workload, workload);
+        assert.equal(pair[variant].ticks, ticks);
+        assert(Number.isFinite(pair[variant].cpuMsPerTick));
         delete pair[variant].traces;
         delete pair[variant].contactTrace;
         delete pair[variant].eventTrace;

@@ -1,0 +1,10 @@
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+const root='benchmarking/local/cpu-game-2026-10-22';
+const pattern=String.raw`network\.\(\*WebSocket\)\.(enqueue|writePump|writePartialFrame)|network\.newDirectSender\.func1|syscall\.Syscall(6)?$|syscall\.RawSyscall6$|internal/runtime/syscall/linux\.Syscall6|internal/poll\.\(\*FD\)\.Write$`;
+for(const [name,executable] of [['before','/tmp/unicorn-game-transport-before'],['after','/tmp/unicorn-game-transport-final']]){
+ const assembly=execFileSync('/tmp/unicorn-objdump',['-s',pattern,executable],{encoding:'utf8',maxBuffer:32*1024*1024});
+ writeFileSync(`${root}/transport-${name}.asm`,assembly);
+ const calls=Object.fromEntries([...new Set([...assembly.matchAll(/CALL ([^\n]+)/g)].map(m=>m[1]))].sort().map(name=>[name,assembly.split(`CALL ${name}`).length-1]));
+ writeFileSync(`${root}/transport-${name}-assembly.json`,JSON.stringify({executable,lines:assembly.split('\n').length,calls},null,2)+'\n');
+}

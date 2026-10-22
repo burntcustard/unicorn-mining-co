@@ -14,15 +14,17 @@ type FixtureOpt struct {
 }
 
 type Fixture struct {
-	Body        *Body
-	Physics     bool
-	Shape       shape.Shape
-	Geometry    *collision.BaseShape
-	Next        *Fixture
-	Proxy       *collision.SpatialProxy[*Fixture]
-	aabb        collision.AABB
-	UserData    any
-	ProxyMargin float64
+	Body         *Body
+	Physics      bool
+	Shape        shape.Shape
+	Geometry     *collision.BaseShape
+	Next         *Fixture
+	Proxy        *collision.SpatialProxy[*Fixture]
+	aabb         collision.AABB
+	UserData     any
+	ProxyMargin  float64
+	recovery     recoveryCircle
+	recoverySlop float64
 }
 
 func newFixture(body *Body, s shape.Shape, definition FixtureOpt) *Fixture {

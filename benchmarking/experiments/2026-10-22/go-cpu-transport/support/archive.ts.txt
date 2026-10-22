@@ -1,0 +1,75 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { gzipSync } from 'node:zlib';
+const scratch='benchmarking/local/cpu-game-2026-10-22';
+const archive='benchmarking/experiments/2026-10-22/go-cpu-transport';
+const previous='benchmarking/experiments/2026-10-22/go-cpu-lowering';
+const prior=JSON.parse(readFileSync(`${previous}/sources.json`,'utf8'));
+const baseline=JSON.parse(readFileSync(`${scratch}/baseline.json`,'utf8'));
+const paths=readdirSync('src/server',{recursive:true,encoding:'utf8'}).filter(p=>p.endsWith('.go')).map(p=>`src/server/${p}`).sort();
+const common=new Set(['src/server/network/session-benchmark_test.go','src/server/network/pirate-benchmark_test.go','src/server/network/pirate-collection-benchmark_test.go','benchmarking/tools/websocket-transport/main.go']);
+const changed=paths.filter(p=>!existsSync(`${scratch}/before/${p}.txt`)||!readFileSync(p).equals(readFileSync(`${scratch}/before/${p}.txt`)));
+const selected=[...new Set([...Object.keys(prior.variants.after.files),...changed])].filter(p=>!common.has(p)).sort();
+const save=(name:string,data:Buffer|string)=>{const path=`${archive}/${name}`;mkdirSync(dirname(path),{recursive:true});writeFileSync(path,data)};
+const sha=(data:Buffer|string)=>createHash('sha256').update(data).digest('hex');
+const sourceHash=(variant:string)=>{
+ const hash=createHash('sha256');
+ for(const p of paths.filter(p=>!p.endsWith('_test.go'))){
+  const file=variant==='before'?`${scratch}/before/${p}.txt`:p;
+  if(!existsSync(file))continue;
+  hash.update(`${p}\0`).update(readFileSync(file)).update('\0');
+ }
+ return hash.digest('hex');
+};
+assert.equal(sourceHash('before'),baseline.productionSourceSha256);
+const variants:Record<string,unknown>={};
+for(const variant of ['before','after']){
+ const files:Record<string,string|null>={};
+ for(const p of selected){
+  const input=variant==='before'?`${scratch}/before/${p}.txt`:p;
+  if(!existsSync(input)){files[p]=null;continue;}
+  const snapshot=`sources/${variant}/${p}.txt`;
+  save(snapshot,readFileSync(input));files[p]=snapshot;
+ }
+ const profile=`profiles/${variant}.pgo`;
+ const data=readFileSync(variant==='before'?`${scratch}/before.pgo`:'src/server/default.pgo');
+ save(profile,data);
+ variants[variant]={files,profile,profileSha256:sha(data)};
+}
+const commonFiles:Record<string,string>={};
+for(const p of common){const snapshot=`sources/common/${p}.txt`;save(snapshot,readFileSync(p));commonFiles[p]=snapshot;}
+const modules=Object.fromEntries(['go.mod','go.sum'].map(p=>{const snapshot=`sources/modules/${p}.txt`;const data=readFileSync(p);save(snapshot,data);return[p,{snapshot,sha256:sha(data)}]}));
+save('sources.json',JSON.stringify({baselineRevision:prior.baselineRevision,startingPoint:'Optimized uncommitted result from go-cpu-lowering; no earlier saving counted again',productionSourceSha256:{before:sourceHash('before'),after:sourceHash('after')},variants,commonFiles,modules,commonHarnessNote:'Both variants acknowledge only new receipt requests, matching the unchanged production client.'},null,2)+'\n');
+let builder=readFileSync(`${previous}/build.ts`,'utf8').replaceAll('go-cpu-lowering','go-cpu-transport');
+builder=builder.replace('Object.entries(input.files).map', 'Object.entries({ ...input.files, ...manifest.commonFiles }).map');
+const start=builder.indexOf('for (const path of readdirSync('),end=builder.indexOf(' {\n  const source =',start);
+assert(start>=0&&end>start);
+builder=builder.slice(0,start)+`for (const path of [...new Set([
+ ...readdirSync(join(repository, 'src/server'), {recursive:true, encoding:'utf8'}).filter(p=>p.endsWith('.go')).map(p=>'src/server/'+p),
+ ...Object.keys(input.files),
+])].filter(p=>p.endsWith('.go')&&!p.endsWith('_test.go')).sort())`+builder.slice(end);
+builder=builder.replace("  const overlay = join(temporary, 'overlay.json');",`  const overlay = join(temporary, 'overlay.json');
+  for(const [name, input] of Object.entries(manifest.modules) as [string,{snapshot:string;sha256:string}][]){
+   const data=readFileSync(join(here,input.snapshot));
+   assert.equal(createHash('sha256').update(data).digest('hex'),input.sha256);
+   writeFileSync(join(temporary,name),data);
+  }`);
+builder=builder.replace('`-overlay=${overlay}`,','`-overlay=${overlay}`,\n      `-modfile=${join(temporary, "go.mod")}`,');
+save('build.ts', existsSync(`${scratch}/reproduction-build.ts.txt`) ? readFileSync(`${scratch}/reproduction-build.ts.txt`) : builder);
+for(const name of readdirSync(scratch)){
+ const path=join(scratch,name);
+ if(name.endsWith('.json.gz'))save(`results/${name}`,readFileSync(path));
+ else if(name.endsWith('.json'))save(`results/${name}.gz`,gzipSync(readFileSync(path)));
+ else if(name.endsWith('.pprof'))save(`profiles/${name}`,readFileSync(path));
+ else if(name.endsWith('.asm'))save(`results/assembly/${name}.gz`,gzipSync(readFileSync(path)));
+ else if(name.endsWith('.log'))save(`support/${name}`,readFileSync(path));
+ else if(name.endsWith('.ts'))save(`support/${name}.txt`,readFileSync(path));
+ else if(name.endsWith('.go.txt'))save(`patches/${name}`,readFileSync(path));
+ else if(name==='transport-client-invalid-startup.ts.txt')save(`support/${name}`,readFileSync(path));
+}
+for(const [name,path] of Object.entries({paired:'benchmarking/tools/go-cpu-paired.ts',session:'src/server/network/session-benchmark_test.go',combat:'benchmarking/tools/pirate-cpu.ts',transport:'benchmarking/tools/websocket-transport/main.go',tcpClient:'benchmarking/tools/websocket-transport.ts',tcpCompare:'benchmarking/tools/websocket-transport-compare.ts',environment:'benchmarking/tools/go-cpu-environment.ts',oracle:'benchmarking/tools/go-transport-check.ts',perf:'benchmarking/tools/go-perf/main_linux.go'}))save(`support/harness/${name}.txt`,readFileSync(path));
+const entries=readdirSync(archive,{recursive:true,encoding:'utf8'}).filter(p=>p!=='manifest.json'&&existsSync(join(archive,p))).filter(p=>!p.endsWith('/')&&p.includes('.')).flatMap(p=>{try{const data=readFileSync(join(archive,p));return[{path:p,bytes:data.length,sha256:sha(data)}]}catch{return[]}});
+save('manifest.json',JSON.stringify({createdAt:new Date().toISOString(),artifacts:entries},null,2)+'\n');
+console.log(JSON.stringify({archive,selectedFiles:selected.length,commonFiles:common.size,sourceHashes:{before:sourceHash('before'),after:sourceHash('after')},artifacts:entries.length,bytes:entries.reduce((n,e)=>n+e.bytes,0)},null,2));

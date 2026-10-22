@@ -1,0 +1,11 @@
+{
+  "archive": "benchmarking/experiments/2026-10-22/go-cpu-transport",
+  "selectedFiles": 21,
+  "commonFiles": 4,
+  "sourceHashes": {
+    "before": "52303a73a689203ada16c7223097f22baacb91f05f5e6e463647a1b0ae70d7ad",
+    "after": "cf01003255ff93e8f1a6eb06626f6242963245b4ef21df20036daf7d790a4746"
+  },
+  "artifacts": 168,
+  "bytes": 1636112
+}

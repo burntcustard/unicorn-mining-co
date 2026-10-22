@@ -1,0 +1,9 @@
+16/convoy: 0.198162 -> 0.205259 ms CPU/tick (0.97x)
+16/spread: 0.341424 -> 0.356707 ms CPU/tick (0.96x)
+16/contact: 0.189987 -> 0.201099 ms CPU/tick (0.94x)
+16/module: 0.624460 -> 0.658767 ms CPU/tick (0.95x)
+32/convoy: 0.466309 -> 0.493297 ms CPU/tick (0.95x)
+32/spread: 0.498073 -> 0.507669 ms CPU/tick (0.98x)
+32/contact: 0.366874 -> 0.382539 ms CPU/tick (0.96x)
+32/module: 1.423178 -> 1.494750 ms CPU/tick (0.95x)
+benchmarking/local/cpu-game-2026-10-22/caches.json

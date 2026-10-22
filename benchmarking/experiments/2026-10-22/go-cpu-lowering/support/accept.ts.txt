@@ -1,0 +1,28 @@
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+const root = 'benchmarking/local/cpu-lowering-2026-10-22';
+function run(tool: string, arguments_: string[], name: string, env = {}) {
+  console.log(`Starting ${name}`);
+  const output = execFileSync(process.execPath, [tool, ...arguments_], {
+    env: { ...process.env, ...env }, encoding: 'utf8',
+  });
+  writeFileSync(`${root}/${name}.log`, output);
+  console.log(output);
+}
+const before = '/tmp/unicorn-lower-before.test';
+const after = '/tmp/unicorn-lower-after.test';
+run('benchmarking/tools/go-cpu-paired.ts', ['cpu-lowering-2026-10-22-acceptance', before, after], 'acceptance', {
+  TICKS: '3000', REPETITIONS: '5', OUTCOME_COMPARISON: 'strict',
+  RESULT: `${root}/acceptance.json`,
+});
+run('benchmarking/tools/go-cpu-paired.ts', ['cpu-lowering-2026-10-22-sustained', before, after], 'sustained', {
+  PLAYERS: '32', WORKLOADS: 'module', TICKS: '6000', REPETITIONS: '3', OUTCOME_COMPARISON: 'strict',
+  RESULT: `${root}/sustained.json`,
+});
+run('benchmarking/tools/pirate-cpu.ts', [before, after, `${root}/pirate.json`], 'pirate', {
+  TICKS: '9000', REPETITIONS: '5',
+});
+run('benchmarking/tools/websocket-transport-compare.ts', [
+  '/tmp/unicorn-lower-transport-before', '/tmp/unicorn-lower-transport-after', `${root}/transport.json.gz`,
+], 'transport', { GAME: '1', PLAYERS: '8,32', REPETITIONS: '3', PACED_TICKS: '180',
+  GOMAXPROCS: '2', GOGC: '200', BENCH_CPU_AFFINITY: '0,1' });

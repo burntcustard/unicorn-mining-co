@@ -10,12 +10,16 @@ Build a session test executable, including the generated catalog:
 
 ```sh
 npm run catalog:go
-GOEXPERIMENT=simd go test -c -o /tmp/unicorn-session.test ./src/server/network
+GOEXPERIMENT=simd go test -c -pgo=./src/server/default.pgo \
+  -o /tmp/unicorn-session.test ./src/server/network
 node benchmarking/tools/go-cpu.ts current /tmp/unicorn-session.test
 ```
 
 The runner measures convoy, spread, contact and module workloads at 4/8/16/32
-players, using a shared CPU affinity. `PLAYERS`, `WORKLOADS`, `TICKS`,
+players, using the first two available physical cores, `GOMAXPROCS=2`, and
+`GOGC=200` to match the current Fly configuration. Affinity limits parallelism;
+it does not emulate Fly's shared CPU quota or burst balance.
+`PLAYERS`, `WORKLOADS`, `TICKS`,
 `REPETITIONS`, and `CPUSET` configure it. Its optional third argument is a previous
 JSON or gzipped JSON result. Measurements include full session simulation and
 packet construction with in-memory socket sinks, excluding real network latency.
@@ -27,17 +31,49 @@ node benchmarking/tools/go-cpu-paired.ts change BEFORE_EXECUTABLE AFTER_EXECUTAB
 ```
 
 Use `CPU_AFFINITY`, `PLAYERS`, `WORKLOADS`, `TICKS`, and `REPETITIONS` to configure
-paired runs. Avoid concurrent builds or browser captures during CPU measurement.
+paired runs. Both variants default to the same GC setting. `BEFORE_GOGC` and
+`AFTER_GOGC` allow an explicit GC experiment. For a future four- or eight-core
+comparison, set both `CPU_AFFINITY` and `GOMAXPROCS`. Avoid concurrent builds or
+browser captures during CPU measurement.
+
+The paired runner removes each temporary result before execution and checks its
+player/workload/tick metadata. A missing test or result fails the comparison.
+
+For Linux instruction and branch diagnostics around the same workload:
+
+```sh
+go build -o /tmp/unicorn-go-perf ./benchmarking/tools/go-perf
+GOGC=200 GOMAXPROCS=2 SESSION_RESULT=/tmp/counters-session.json \
+  SESSION_PLAYERS=32 SESSION_TICKS=3000 SESSION_WORKLOAD=module \
+  taskset -c 0,1 /tmp/unicorn-go-perf -o /tmp/counters.json \
+  /tmp/unicorn-session.test -test.run '^TestSessionBenchmark$'
+```
+
+This reads inherited user-mode hardware counters, including startup, warmup and
+small wrapper-thread overhead. It records enabled/running time for scaling and
+reports unavailable counters. Generic cache events are hardware/kernel-specific;
+do not interpret them as L3 misses without checking their mapping. Counter runs
+and profiles are diagnostics, separate from ordinary CPU timing captures. See
+the [compiler and instruction investigation](../../docs/experiments/2026-10-22/go-server-cpu-lowering.md).
 
 Refresh the executable's PGO profile after package/function changes:
 
 ```sh
-SESSION_RESULT=/tmp/session.json SESSION_PLAYERS=8 SESSION_TICKS=900 \
-SESSION_WORKLOAD=module GOEXPERIMENT=simd go test \
-  -run '^TestSessionBenchmark$' -cpuprofile=/tmp/server.pgo \
-  -o /tmp/unicorn-profile.test ./src/server/network
+for workload in convoy spread contact module; do
+  GOGC=200 GOMAXPROCS=2 SESSION_RESULT="/tmp/$workload.json" \
+  SESSION_PLAYERS=32 SESSION_TICKS=3000 SESSION_WORKLOAD="$workload" \
+  SESSION_CPU_PROFILE="/tmp/$workload.pprof" taskset -c 0,1 \
+    /tmp/unicorn-session.test -test.run '^TestSessionBenchmark$'
+done
+go tool pprof -proto /tmp/convoy.pprof /tmp/spread.pprof \
+  /tmp/contact.pprof /tmp/module.pprof > /tmp/server.pgo
 cp /tmp/server.pgo src/server/default.pgo
 ```
+
+`SESSION_CPU_PROFILE` excludes setup and warmup. Profile combat separately when
+it is part of the target workload, and compare old/new PGO builds before keeping
+the refresh. The [October 22 investigation](../../docs/experiments/2026-10-22/go-server-cpu.md)
+records a mixed session/combat profile and held-out timing comparisons.
 
 ## Pirate combat CPU
 
@@ -68,14 +104,15 @@ hashes, build information, GC settings, scheduler width, allocation counts,
 firing time and outgoing bytes. Speed, time inside the field and separation
 metrics check that full-thrust cases remain meaningful chases. `TICKS`,
 `REPETITIONS` and `GOGC` configure both
-variants identically. The default `GOGC=800` matches the production server;
-scheduler width and CPU affinity are inherited. Run timing comparisons without
+variants identically. The default `GOGC=200` matches `fly.toml`; standalone
+server startup still defaults to 800. The runner uses the same two-core defaults
+and affinity overrides as the session runners. Run timing comparisons without
 concurrent builds, tests or profiles. The ordinary `ns/op` remains wall time.
 
 For a separate dense-case diagnostic profile:
 
 ```sh
-GOGC=800 /tmp/pirate-after.test -test.run '^$' \
+GOGC=200 GOMAXPROCS=2 taskset -c 0,1 /tmp/pirate-after.test -test.run '^$' \
   -test.bench '^BenchmarkPirateCombat/dense$' -test.benchtime=30000x \
   -test.cpuprofile=/tmp/pirate.pprof -test.memprofile=/tmp/pirate.mem
 go tool pprof -top -cum -focus=tickSector -ignore=newPirateCombatBenchmark \
@@ -91,13 +128,30 @@ control decoding, TCP writes and timer scheduling are outside this benchmark.
 ```sh
 CGO_ENABLED=0 GOEXPERIMENT=simd go build -pgo=./src/server/default.pgo \
   -o /tmp/unicorn-transport ./benchmarking/tools/websocket-transport
-node benchmarking/tools/websocket-transport.ts /tmp/unicorn-transport -game
+GOGC=200 GOMAXPROCS=2 BENCH_CPU_AFFINITY=0,1 \
+  node benchmarking/tools/websocket-transport.ts /tmp/unicorn-transport -game
 ```
 
 The Go harness and Node client measure real framing/socket writes with the
 browser binary codec. `ACK_DELAY_MS` adds acknowledgment delay;
 `BENCH_CPU_AFFINITY` optionally pins the Go child. The comparison runner accepts
 before/after transport executables; check its usage message for arguments.
+Choose two available physical cores for the host; the example uses 0/1.
+
+The client validates optional receipt requests, records receipt counts, and checks
+packet order separately from simulation ticks. Undelayed measured snapshots must
+advance one tick each; startup and delayed-receipt checks allow backpressure.
+
+Linux kernel backpressure, partial-frame ordering, and receipt jitter checks run
+with the integration tests. Run them separately, including the race detector, with:
+
+```sh
+GOEXPERIMENT=simd node benchmarking/tools/go-transport-check.ts --race
+```
+
+The PMU wrapper also records whole-child Linux `ProcessUsage`: CPU time, context
+switches, and peak RSS (`Maxrss`, KiB). These include setup/warmup. PMU counters
+remain user-mode only, including the wrapper thread and inherited child tasks.
 
 ## Browser and live checks
 

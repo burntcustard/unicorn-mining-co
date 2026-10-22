@@ -1,0 +1,65 @@
+package network
+
+import (
+	"golang.org/x/sys/unix"
+	"net"
+	"runtime"
+	"syscall"
+	"unsafe"
+)
+
+type directSender struct {
+	raw       syscall.RawConn
+	callback  func(uintptr)
+	data      []byte
+	count     int
+	sendError error
+}
+
+func newDirectSender(connection net.Conn) *directSender {
+	connectionWithFD, ok := connection.(syscall.Conn)
+
+	if !ok {
+		return nil
+	}
+
+	raw, err := connectionWithFD.SyscallConn()
+
+	if err != nil {
+		return nil
+	}
+
+	sender := &directSender{raw: raw}
+
+	sender.callback = func(fd uintptr) {
+		count, _, errno := syscall.RawSyscall6(syscall.SYS_SENDTO, fd, uintptr(unsafe.Pointer(unsafe.SliceData(sender.data))), uintptr(len(sender.data)), unix.MSG_DONTWAIT|unix.MSG_NOSIGNAL, 0, 0)
+		runtime.KeepAlive(sender.data)
+		sender.count, sender.sendError = int(count), nil
+
+		if errno != 0 {
+			sender.sendError = errno
+		}
+	}
+
+	return sender
+}
+
+/*
+ * Try only once; a full socket returns to the existing asynchronous writer.
+ * enqueue serializes access to this connection's reusable callback state.
+ */
+func (s *directSender) send(data []byte) (int, error) {
+	s.data = data
+	err := s.raw.Control(s.callback)
+	s.data = nil
+
+	if err != nil {
+		return 0, err
+	}
+
+	if s.sendError == unix.EAGAIN || s.sendError == unix.EINTR {
+		return 0, nil
+	}
+
+	return max(0, s.count), s.sendError
+}

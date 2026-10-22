@@ -1,0 +1,36 @@
+{
+  "cases": [
+    {
+      "scenario": "open",
+      "before": 26119,
+      "after": 24348,
+      "cpuSavedPercent": 6.780504613499749
+    },
+    {
+      "scenario": "normal",
+      "before": 54452,
+      "after": 51625,
+      "cpuSavedPercent": 5.191728494821124
+    },
+    {
+      "scenario": "dense",
+      "before": 73067,
+      "after": 69746,
+      "cpuSavedPercent": 4.545143498432946
+    },
+    {
+      "scenario": "normal-fast",
+      "before": 58141,
+      "after": 55528,
+      "cpuSavedPercent": 4.494246744982022
+    },
+    {
+      "scenario": "dense-fast",
+      "before": 100315,
+      "after": 96290,
+      "cpuSavedPercent": 4.012361062652648
+    }
+  ],
+  "aggregateCpuSavedPercent": 4.664299858375998,
+  "activityMatches": true
+}

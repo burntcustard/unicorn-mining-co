@@ -1,0 +1,9 @@
+16/convoy: 0.199142 -> 0.198694 ms CPU/tick (1.00x)
+16/spread: 0.356065 -> 0.362318 ms CPU/tick (0.98x)
+16/contact: 0.191373 -> 0.192474 ms CPU/tick (0.99x)
+16/module: 0.656002 -> 0.636827 ms CPU/tick (1.03x)
+32/convoy: 0.467821 -> 0.471671 ms CPU/tick (0.99x)
+32/spread: 0.522095 -> 0.521169 ms CPU/tick (1.00x)
+32/contact: 0.367174 -> 0.368207 ms CPU/tick (1.00x)
+32/module: 1.489863 -> 1.447785 ms CPU/tick (1.03x)
+benchmarking/local/cpu-lowering-2026-10-22-prune.json

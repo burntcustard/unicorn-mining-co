@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { cpuAffinity, goEnvironment } from './go-cpu-environment.ts';
 
 const [before, after, output = 'benchmarking/local/pirate-cpu.json'] =
   process.argv.slice(2);
@@ -36,15 +37,13 @@ type Sample = {
 const executables = { before, after };
 const samples: Sample[] = [];
 const scenarios: string[] = [];
-const environment = { ...process.env, GOGC: process.env.GOGC || '800' };
+const environment = goEnvironment;
 
 const result = {
   environment: {
     GOGC: environment.GOGC,
-    GOMAXPROCS: process.env.GOMAXPROCS || 'automatic',
-    affinity: readFileSync('/proc/self/status', 'utf8').match(
-      /Cpus_allowed_list:\s*([^\n]+)/,
-    )?.[1],
+    GOMAXPROCS: environment.GOMAXPROCS,
+    affinity: cpuAffinity,
   },
   executables: Object.fromEntries(
     Object.entries(executables).map(([variant, path]) => [
@@ -74,8 +73,11 @@ for (let repetition = 0; repetition < repetitions; repetition++) {
   for (const variant of order) {
     const start = samples.length;
     const text = execFileSync(
-      executables[variant],
+      'taskset',
       [
+        '-c',
+        cpuAffinity,
+        executables[variant],
         '-test.run',
         '^$',
         '-test.bench',

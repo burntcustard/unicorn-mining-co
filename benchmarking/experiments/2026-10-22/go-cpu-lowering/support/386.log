@@ -1,0 +1,5 @@
+16/spread: 0.342030 -> 0.581629 ms CPU/tick (0.59x)
+16/module: 0.622067 -> 0.995618 ms CPU/tick (0.62x)
+32/spread: 0.498716 -> 0.858461 ms CPU/tick (0.58x)
+32/module: 1.403857 -> 2.252692 ms CPU/tick (0.62x)
+benchmarking/local/cpu-lowering-2026-10-22-386.json

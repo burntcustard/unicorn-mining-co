@@ -1,0 +1,65 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+const root='benchmarking/local/cpu-game-2026-10-22';
+const file='docs/experiments/2026-10-22/go-server-cpu-transport.md';
+const tcp=JSON.parse(readFileSync(`${root}/transport-summary.json`,'utf8'));
+const session=JSON.parse(readFileSync(`${root}/acceptance-session-summary.json`,'utf8'));
+const cases=tcp.cases.toSorted((a,b)=>Number(a.name.split('/')[0])-Number(b.name.split('/')[0])||a.name.localeCompare(b.name,'en-US'));
+const table=cases.map(c=>`| ${c.name.replace('/',' | ')} | ${c.before.cpuMsPerTick.toFixed(4)} | ${c.after.cpuMsPerTick.toFixed(4)} | ${c.cpuSavedPercent.toFixed(2)}% | ${c.before.medianWorstInputAckP95Ms.toFixed(2)} | ${c.after.medianWorstInputAckP95Ms.toFixed(2)} |`).join('\n');
+let text=readFileSync(file,'utf8');
+text=text.replace('<!-- ACCEPTANCE_RESULTS -->',`The retained changes save **${tcp.aggregateCpuSavedPercent.toFixed(2)}% additional process CPU** in the
+complete existing TCP game benchmark. Every case improves by more than 20%.
+The equal-case mean saving is **${tcp.equalCaseMeanCpuSavedPercent.toFixed(2)}%**; the paired bootstrap
+95% interval for the ratio-of-sums result is **${tcp.bootstrap95Percent.map(n=>n.toFixed(2)).join('–')}%**.
+This interval describes repeat variation on this machine, not hardware or
+production-workload uncertainty.
+
+| Players | Activity | Before CPU ms/tick | After CPU ms/tick | CPU saved | Before input ack p95 ms | After input ack p95 ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+${table}
+
+Each p95 column is the median of each run's worst client. All snapshots remain
+at least 29.9948 Hz; the minimum input rate is 29.8304 Hz, a one-input measurement
+boundary difference. The largest observed snapshot gap is 36.01 ms. Input
+acknowledgment p95 changes range from -1.46 to +1.66 ms, around the unchanged
+two-tick input target. These are acknowledgment timings, not visual prediction
+latency. There is no new input or snapshot batching timer.
+
+Both executables use Go 1.27.1, CGO disabled, the existing SIMD experiment,
+GOAMD64=v1, the identical PGO profile, GOGC=200 and GOMAXPROCS=2. The server is
+pinned to distinct physical cores 0/1 of the Ryzen 7 5800X3D; the Node driver
+runs on CPUs 2–15. Each of eight cases has five alternating before/after pairs,
+120 warmup periods and 180 measured periods at 30 Hz: 80 measured server
+processes. CPU is process user plus system time per tick. Builds, tests and
+profiles are serialized with these measurements.
+
+Receipts fall from approximately 30 to **4.33 per client per second** on this
+loopback workload. At 32 players, allocations/tick fall from 427.6 to 320.4 in
+idle and 566.2 to 459.4 in flight. Allocated bytes do not uniformly decrease:
+pending entries are larger, and real-time join/input phase affects flight
+trajectories. No blanket memory-saving claim is made.
+
+A separate three-pair 8/32-player flight comparison holds the corrected receipt
+logic constant. The nonblocking writer alone saves **5.32% aggregate CPU**
+(4.18% and 5.72% in the two cases), supporting retention of its additional code.
+With 250 ms added receipt delay, all 16 validation processes preserve cadence;
+receipt requests approach every snapshot. That two-pair delayed-link capture
+saves only 3.42% aggregate CPU. The 24.23% result is not a claim of a 20% saving
+on high-latency links.`);
+text=text.replace('<!-- VALIDATION_RESULTS -->',`Production builds before and after, all **69 Node test files**, all Go packages,
+and lint pass. The session parity fixture permits omission only of the existing
+optional receipt-request field on snapshots; all other fields, every transmitted
+sequence, loads, direct replies, and packet counts remain checked.
+
+The independent 4/8/16/32-player convoy/spread/contact/module matrix runs 3,000
+measured ticks with five alternating pairs per case. All **80 pairs** exactly
+match states, contacts, events, entities, packets and near-zero collision counts.
+Byte totals differ because receipt metadata is omitted. Simulation/replication
+CPU changes by just **${session.aggregateCpuSavedPercent.toFixed(2)}%**, with a 95% repeat interval of
+**${session.bootstrap95Percent.map(n=>n.toFixed(2)).join('–')}%**: essentially flat. The largest case median RSS
+changes from 112,435,200 to 117,178,368 bytes. Physics and gameplay algorithms
+are unchanged in this follow-up.`);
+text=text.replace('<!-- EVIDENCE_LINK -->',`The [evidence archive](../../../benchmarking/experiments/2026-10-22/go-cpu-transport/README.md)
+contains raw results, source/profile snapshots, disassembly, rejected prototypes,
+research inventory, regression logs, checksums and standalone before/after build
+instructions. It preserves unsuccessful captures separately from acceptance.`);
+writeFileSync(file,text);

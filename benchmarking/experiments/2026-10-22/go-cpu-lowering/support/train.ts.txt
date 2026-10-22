@@ -1,0 +1,25 @@
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+const root = 'benchmarking/local/cpu-lowering-2026-10-22';
+const executable = '/tmp/unicorn-lower-final-source.test';
+const env = { ...process.env, GOMAXPROCS: '2', GOGC: '200' };
+const profiles: string[] = [];
+for (const workload of ['convoy', 'spread', 'contact', 'module']) {
+  const profile = resolve(`${root}/train-${workload}.pprof`);
+  const output = execFileSync('taskset', ['-c', '0,1', executable, '-test.run', '^TestSessionBenchmark$'], {
+    env: { ...env, SESSION_PLAYERS: '32', SESSION_TICKS: '3000', SESSION_WORKLOAD: workload,
+      SESSION_CPU_PROFILE: profile, SESSION_RESULT: resolve(`${root}/train-${workload}.json`) },
+    encoding: 'utf8',
+  });
+  writeFileSync(`${root}/train-${workload}.log`, output);
+  profiles.push(profile);
+}
+const combat = resolve(`${root}/train-combat.pprof`);
+writeFileSync(`${root}/train-combat.log`, execFileSync('taskset', ['-c', '0,1', executable,
+  '-test.run', '^$', '-test.bench', '^BenchmarkPirateCombat/(normal|dense)$',
+  '-test.benchtime', '9000x', '-test.cpuprofile', combat], {env, encoding: 'utf8'}));
+profiles.push(combat);
+const pprof = '/tmp/unicorn-cpu-go-cache/d3/d359ab48909d13c3b9ec64bdd3d86030ba543c06915b4808f79eaa0b9a79cd9a-d/pprof';
+writeFileSync(`${root}/fresh.pgo`, execFileSync(pprof, ['-proto', ...profiles]));
+console.log('Training complete; fresh profile saved.');

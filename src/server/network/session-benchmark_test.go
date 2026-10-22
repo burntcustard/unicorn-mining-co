@@ -23,6 +23,7 @@ import (
 type benchmarkSocket struct {
 	packets, bytes int
 	sequence       uint64
+	acknowledged   uint64
 	trace          []string
 	record         bool
 }
@@ -76,6 +77,14 @@ func (s *benchmarkSocket) SendBinary(data []byte) error {
 	}
 
 	return nil
+}
+
+// Match the production client: only requested receipts produce controls.
+func (s *benchmarkSocket) acknowledge(session *GameSession) {
+	if s.sequence != s.acknowledged {
+		s.acknowledged = s.sequence
+		session.Receive(protocol.Control{Type: "snapshotAck", Sequence: s.sequence}, s)
+	}
 }
 
 func (s *benchmarkSocket) Terminate() {}
@@ -219,7 +228,7 @@ func TestSessionBenchmark(t *testing.T) {
 		}
 
 		for i := range players {
-			session.Receive(protocol.Control{Type: "snapshotAck", Sequence: sockets[i].sequence}, sockets[i])
+			sockets[i].acknowledge(session)
 
 			if tick%inputEvery == 0 && workload != "idle" {
 				input := protocol.Input{Thrust: 1}

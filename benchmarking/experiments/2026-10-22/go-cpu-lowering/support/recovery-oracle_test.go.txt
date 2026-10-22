@@ -1,0 +1,296 @@
+package physics
+
+import (
+	"math"
+	"math/rand/v2"
+	"reflect"
+	"slices"
+	"testing"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+)
+
+func TestRecoveryAgainstExhaustive(t *testing.T) {
+	catalog, err := specs.Load()
+	if err != nil { t.Fatal(err) }
+	for seed := uint64(0); seed < 1000; seed++ {
+		makeWorld := func() (*World, []*Body) {
+			random := rand.New(rand.NewPCG(seed, 225))
+			world := NewWorld(catalog.Simulation)
+			var bodies []*Body
+			origin := Vec.Create(1234, -5678)
+			if seed%10 == 0 { origin = Vec.Create(1e12, -1e12) }
+			for i := 0; i < 12; i++ {
+				body := world.CreateBody()
+				body.SetMass(1+random.Float64()*20, 100)
+				if i > 2 { body.SetMass(math.Inf(1), math.Inf(1)) }
+				spread := 20.
+				if i > 5 { spread = 10000 }
+				body.SetTransform(Vec.Add(origin, Vec.Create((random.Float64()-.5)*spread, (random.Float64()-.5)*spread)), random.Float64()*2*math.Pi)
+				for part := 0; part < 1+int(seed%3); part++ {
+					var geometry shape.Shape
+					x, y := (random.Float64()-.5)*40, (random.Float64()-.5)*40
+					if (uint64(i+part)+seed)%4 == 0 {
+						geometry = shape.NewCircle(Vec.Create(x, y), 1+random.Float64()*20)
+					} else {
+						width, height := 2+random.Float64()*20, 2+random.Float64()*20
+						points := []Vec.Vector{Vec.Create(x-width, y-height), Vec.Create(x+width, y-height), Vec.Create(x+width, y+height), Vec.Create(x-width, y+height)}
+						if seed%7 == 0 { points = []Vec.Vector{Vec.Create(x-100, y), Vec.Create(x+100, y), Vec.Create(x, y+.6)} }
+						margin := []float64{0, 1, 25}[seed%3]
+						geometry = shape.NewPolygon(points, &margin, catalog.Simulation.LinearSlop)
+					}
+					body.CreateFixture(geometry, FixtureOpt{Physics: new((i+part)%8 != 7)})
+				}
+				bodies = append(bodies, body)
+			}
+			world.FindNewContacts()
+			world.UpdateContacts()
+			return world, bodies
+		}
+		a, aa := makeWorld()
+		b, bb := makeWorld()
+		for step := range 3 {
+			a.recoverOverlaps()
+			b.recoverOverlapsExhaustive()
+			for i := range aa {
+				if !reflect.DeepEqual(aa[i].Xf, bb[i].Xf) {
+					t.Fatalf("seed %d step %d body %d: %v != %v", seed, step, i, aa[i].Xf, bb[i].Xf)
+				}
+			}
+			// Reuse bounds after both moving and rotating an obstacle.
+			for _, list := range [][]*Body{aa, bb} {
+				list[3].SetTransform(Vec.Add(list[3].Xf.P, Vec.Create(.7, -.9)), list[3].GetAngle()+.13)
+			}
+			a.FindNewContacts(); a.UpdateContacts()
+			b.FindNewContacts(); b.UpdateContacts()
+		}
+	}
+}
+func (w *World) recoverOverlapsExhaustive() {
+	candidates := []*Body{}
+	var manifold collision.Manifold
+	slop := w.Rules.LinearSlop
+
+	var result collision.WorldManifold
+
+	embedded := func(c *Contact) bool {
+		a, b := c.FixtureA, c.FixtureB
+
+		if !c.EnabledFlag || !a.Physics || !b.Physics || a.Body.InvMass == 0 && b.Body.InvMass == 0 || !a.ShouldCollide(b) {
+			return false
+		}
+
+		c.Evaluate(&manifold, a.Body.Xf, b.Body.Xf)
+
+		if manifold.PointCount == 0 {
+			return false
+		}
+
+		manifold.GetWorldManifold(&result, a.Body.Xf, a.Shape.Base().Radius, b.Body.Xf, b.Shape.Base().Radius)
+		deep := false
+
+		for _, separation := range result.Separations[:result.PointCount] {
+			deep = deep || separation < -3*slop-recoveryTolerance
+		}
+
+		return deep
+	}
+
+	for c := w.ContactList; c != nil; c = c.Next {
+		if !embedded(c) {
+			continue
+		}
+
+		a, b := c.FixtureA, c.FixtureB
+
+		body := a.Body
+
+		if b.Body.InvMass > a.Body.InvMass {
+			body = b.Body
+		}
+
+		if body.InvMass > 0 && !slices.Contains(candidates, body) {
+			candidates = append(candidates, body)
+		}
+	}
+
+	for _, body := range candidates {
+		trapped := false
+
+		for edge := body.ContactList; edge != nil; edge = edge.Next {
+			if embedded(edge.Contact) {
+				trapped = true
+				break
+			}
+		}
+
+		if !trapped {
+			continue
+		}
+
+		directions := make([]Vec.Vector, 16)
+
+		for i := range 16 {
+			angle := body.GetAngle() + float64(i)*math.Pi/8
+			directions[i] = Vec.Create(math.Cos(angle), math.Sin(angle))
+		}
+
+		origin := body.Xf.P
+		var axes []Vec.Vector
+		var temporary []recoverySlab
+		var intervals [][2]float64
+
+		// The first ray visits every fixture pair. Its escape is an upper bound
+		// for the remaining search, including obstacles beyond current contacts.
+		pairSlabs := func(a, b *Fixture, limit float64) []recoverySlab {
+			axes = recoveryAxes(a, axes[:0])
+			axes = recoveryAxes(b, axes)
+
+			if a.Shape.Base().Type == "circle" || b.Shape.Base().Type == "circle" {
+				axes = append(axes, directions[:16]...)
+			}
+
+			temporary = temporary[:0]
+			entry, exit := math.Inf(-1), math.Inf(1)
+
+			for _, normal := range axes {
+				a0, a1 := recoveryProject(a, normal, origin)
+				b0, b1 := recoveryProject(b, normal, origin)
+				slab := recoverySlab{normal, b0 - a1 - slop, b1 - a0 + slop}
+				// A separating slab outside the entire search disk cannot affect
+				// any better escape, even through a chain of adjacent obstacles.
+				if math.IsInf(limit, 1) {
+					entry, exit = recoveryClip(slab, directions[0], entry, exit)
+
+					// A pair missing this ray cannot contain its origin either.
+					if entry >= exit || exit <= 0 {
+						return nil
+					}
+				} else {
+					extent := limit * math.Hypot(normal.X, normal.Y)
+
+					if slab.lowerBound > extent || slab.upperBound < -extent {
+						return nil
+					}
+				}
+
+				temporary = append(temporary, slab)
+			}
+
+			return temporary
+		}
+
+		for other := w.BodyList; other != nil; other = other.Next {
+			if other == body {
+				continue
+			}
+
+			for a := body.FixtureList; a != nil; a = a.Next {
+				if !a.Physics {
+					continue
+				}
+
+				for b := other.FixtureList; b != nil; b = b.Next {
+					if !b.Physics || !a.ShouldCollide(b) {
+						continue
+					}
+
+					slabs := pairSlabs(a, b, math.Inf(1))
+
+					if len(slabs) == 0 {
+						continue
+					}
+
+					contains := true
+
+					for _, slab := range slabs {
+						contains = contains && slab.lowerBound < -recoveryTolerance && slab.upperBound > recoveryTolerance
+					}
+
+					if contains {
+						for _, slab := range slabs {
+							directions = append(directions, slab.normal, Vec.Scale(slab.normal, -1))
+						}
+					}
+
+					entry, exit := recoveryInterval(slabs, directions[0])
+
+					if exit > 0 && entry < exit {
+						intervals = append(intervals, [2]float64{entry, exit})
+					}
+				}
+			}
+		}
+
+		best := recoveryDistance(intervals)
+		escape := Vec.Vector{}
+
+		if !math.IsInf(best, 0) {
+			escape = Vec.Scale(directions[0], best)
+		}
+
+		maxDirectionLength := 0.0
+
+		for _, direction := range directions {
+			maxDirectionLength = max(maxDirectionLength, math.Hypot(direction.X, direction.Y))
+		}
+
+		limit := (best+recoveryTolerance)*maxDirectionLength + recoveryTolerance
+		var slabs []recoverySlab
+		var ends []int
+
+		for other := w.BodyList; other != nil; other = other.Next {
+			if other == body {
+				continue
+			}
+
+			for a := body.FixtureList; a != nil; a = a.Next {
+				if !a.Physics {
+					continue
+				}
+
+				for b := other.FixtureList; b != nil; b = b.Next {
+					if !b.Physics || !a.ShouldCollide(b) {
+						continue
+					}
+
+					if pair := pairSlabs(a, b, limit); len(pair) > 0 {
+						slabs = append(slabs, pair...)
+						ends = append(ends, len(slabs))
+					}
+				}
+			}
+		}
+
+		for _, direction := range directions[1:] {
+			intervals = intervals[:0]
+			start := 0
+
+			for _, end := range ends {
+				entry, exit := recoveryInterval(slabs[start:end], direction)
+				start = end
+
+				if exit > 0 && entry < exit {
+					intervals = append(intervals, [2]float64{entry, exit})
+				}
+			}
+
+			distance := recoveryDistance(intervals)
+
+			if distance < best-recoveryTolerance {
+				best, escape = distance, Vec.Scale(direction, distance)
+			}
+		}
+
+		if best > 0 && !math.IsInf(best, 0) {
+			body.SetTransform(Vec.Add(origin, escape), body.GetAngle())
+		}
+	}
+
+	if len(candidates) > 0 {
+		w.FindNewContacts()
+	}
+}

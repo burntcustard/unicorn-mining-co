@@ -83,7 +83,7 @@ const capture = {
 
 const env = {
   ...process.env,
-  GOGC: process.env.GOGC || '800',
+  GOGC: process.env.GOGC || '200',
 };
 
 const save = () => {

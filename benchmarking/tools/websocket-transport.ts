@@ -40,19 +40,22 @@ const child = spawn(
   { stdio: [game ? 'pipe' : 'ignore', 'pipe', 'inherit'] },
 );
 const sockets = [];
-let failure;
+let failure: string | undefined;
 
 const completion = new Promise<void>((resolve, reject) => {
   child.once('error', reject);
 
   child.once('exit', (code, signal) => {
     if (code !== 0 || signal) {
-      reject(new Error(`Server exited: ${code}, ${signal}`));
+      reject(new Error(failure || `Server exited: ${code}, ${signal}`));
     } else {
       resolve();
     }
   });
 });
+
+// Keep a client assertion visible even if cleanup exits the server before EOF.
+void completion.catch(() => {});
 
 const lines = createInterface({ input: child.stdout });
 const sizeAt = options.indexOf('-size');
@@ -64,6 +67,8 @@ const states: {
   welcomed: boolean;
   count: number;
   bytes: number;
+  controlBytes: number;
+  controlMessages: Record<string, number>;
   gaps: number[];
   delays: number[];
   sent: Map<number, number>;
@@ -72,6 +77,7 @@ const states: {
   lastAt: number;
   tick: number;
   inputs: number;
+  acknowledgments: number;
   nextAt: number;
   timer: ReturnType<typeof setTimeout>;
 }[] = [];
@@ -92,9 +98,12 @@ try {
       states.forEach((state) => {
         state.count = 0;
         state.bytes = 0;
+        state.controlBytes = 0;
+        state.controlMessages = {};
         state.gaps = [];
         state.delays = [];
         state.inputs = 0;
+        state.acknowledgments = 0;
       });
 
       continue;
@@ -114,7 +123,10 @@ try {
           snapshots: state.count,
           snapshotHz: (state.count * 1000) / result.wallMs,
           bytes: state.bytes,
+          controlBytes: state.controlBytes,
+          controlMessages: state.controlMessages,
           inputHz: (state.inputs * 1000) / result.wallMs,
+          acknowledgments: state.acknowledgments,
           snapshotGapP95Ms: quantile(state.gaps, 0.95),
           inputAckP95Ms: quantile(state.delays, 0.95),
           maxSnapshotGapMs: Math.max(0, ...state.gaps),
@@ -151,6 +163,8 @@ try {
         welcomed: false,
         count: 0,
         bytes: 0,
+        controlBytes: 0,
+        controlMessages: {},
         gaps: [],
         delays: [],
         sent: new Map(),
@@ -159,6 +173,7 @@ try {
         lastAt: 0,
         tick: 0,
         inputs: 0,
+        acknowledgments: 0,
         nextAt: 0,
         timer: null,
       };
@@ -191,19 +206,49 @@ try {
             if (data[1] === 0x43) {
               const message = controls.decodeServerControl(data);
 
-              assert.equal(message.type, 'welcome');
-              state.welcomed = true;
+              if (message.type === 'welcome') {
+                state.welcomed = true;
+              } else {
+                assert(state.welcomed, 'Game control arrived before welcome');
+              }
+
+              if (measuring) {
+                state.controlBytes += data.length;
+                state.controlMessages[message.type] =
+                  (state.controlMessages[message.type] || 0) + 1;
+              }
+
               return;
             }
 
             const message = snapshots.decodeBinarySnapshot(data);
-            const sequence = BigInt(message.snapshotSequence);
+            const sequence = previous < 0 ? 1n : previous + 1n;
 
-            assert.equal(
-              sequence,
-              previous < 0 ? 1n : previous + 1n,
-              'Game snapshot lost, duplicated or reordered',
-            );
+            if (message.snapshotSequence !== undefined) {
+              assert.equal(
+                BigInt(message.snapshotSequence),
+                sequence,
+                'Snapshot packet sequence skipped or repeated',
+              );
+            }
+
+            assert(message.serverTick >= 0);
+
+            if (previous >= 0) {
+              assert(
+                message.serverTick > state.tick,
+                'Server tick did not advance',
+              );
+
+              if (measuring && !ackDelayMs) {
+                assert.equal(
+                  message.serverTick,
+                  state.tick + 1,
+                  'Measured snapshot skipped a simulation tick',
+                );
+              }
+            }
+
             previous = sequence;
             state.tick = message.serverTick;
             assert(
@@ -233,6 +278,10 @@ try {
 
             const acknowledge = () => {
               if (finished || socket.readyState !== WebSocket.OPEN) return;
+
+              if (message.snapshotSequence === undefined) return;
+
+              if (measuring) state.acknowledgments++;
 
               socket.send(
                 controls.encodeClientMessage({

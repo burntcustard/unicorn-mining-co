@@ -1,0 +1,80 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const root='benchmarking/local/cpu-lowering-2026-10-22';
+const read=(name:string)=>JSON.parse(readFileSync(`${root}/${name}.json`,'utf8'));
+const sessions=read('acceptance-summary'), heavy=read('sustained-summary'), combat=read('pirate-summary'), tcp=read('transport-summary');
+const percent=(n:number)=>n.toFixed(2)+'%';
+const rows=sessions.cases.map((c:any)=>`| ${c.name.replace('/',' | ')} | ${c.before.cpuMsPerTick.toFixed(6)} | ${c.after.cpuMsPerTick.toFixed(6)} | ${percent(c.cpuSavedPercent)} |`).join('\n');
+const results=`The complete session matrix uses **${percent(sessions.aggregateCpuSavedPercent)} less CPU**
+(1.045× aggregate throughput), with an equal-case mean reduction of
+**${percent(sessions.equalCaseMeanCpuSavedPercent)}**. The paired bootstrap 95% interval is
+**${sessions.bootstrap95Percent.map(percent).join('–')}** on this host. It describes repeat
+variation, not uncertainty across production hardware or workload mixtures.
+
+| Players | Workload | Before CPU ms/tick | After CPU ms/tick | CPU saved |
+| --- | --- | ---: | ---: | ---: |
+${rows}
+
+All **80 before/after pairs** match exactly on final ship states, contacts,
+events, entities, packet counts, encoded-byte totals and near-zero collision
+counts. These are compared summary outcomes, rather than byte-by-byte checks
+of every intermediate packet. The independent integration/parity suite supplies
+additional protocol and simulation coverage.
+
+The sustained module case saves **${percent(heavy.aggregateCpuSavedPercent)}**
+(${heavy.cases[0].before.cpuMsPerTick.toFixed(6)} → ${heavy.cases[0].after.cpuMsPerTick.toFixed(6)} CPU ms/tick).
+Pirate combat saves **${percent(combat.aggregateCpuSavedPercent)}** in aggregate; all recorded
+activity/output metrics match exactly. The open case changes only 0.46%.
+
+Real TCP establishes **no CPU improvement**: its aggregate point estimate is
+**${percent(-tcp.aggregateCpuSavedPercent)} more CPU**, with substantial variation between individual
+runs. Minimum snapshot rates remain about 29.995 Hz. Worst p95 input-acknowledgment
+latencies remain around 66–67 ms; per-case differences are under 0.52 ms. These
+are acknowledgments measured by the existing transport harness, not rendered
+input-to-photon latency. There is no added queue, tick or replication delay.
+
+[Raw session results](../../../benchmarking/experiments/2026-10-22/go-cpu-lowering/results/acceptance.json.gz),
+[exact-outcome/CPU summary](../../../benchmarking/experiments/2026-10-22/go-cpu-lowering/results/acceptance-summary.json.gz),
+[sustained results](../../../benchmarking/experiments/2026-10-22/go-cpu-lowering/results/sustained.json.gz),
+[combat summary](../../../benchmarking/experiments/2026-10-22/go-cpu-lowering/results/pirate-summary.json.gz),
+and [TCP summary](../../../benchmarking/experiments/2026-10-22/go-cpu-lowering/results/transport-summary.json.gz)
+retain the sample details and limitations.
+
+An identical-source old-versus-new PGO comparison is effectively neutral across
+four 16/32-player spread/module cases. The refresh is retained as small profile
+maintenance aligned with current call sites; no independent CPU saving is
+attributed to it. A separate control compares no PGO with the fresh profile.
+Network-package test executables require an explicit profile path; they do not
+automatically discover the main server package's default profile. The archive
+builder passes it explicitly.
+`;
+const validation=`- Production builds before and after pass.
+- All **68 Node tests** and **all Go server packages** pass, including networking
+  and shared client/server parity tests. Lint and targeted Go formatting checks pass.
+- The exhaustive recovery oracle passes **1,000 generated scenes × three
+  recovery steps**, with exact transforms. It exercises compound circles/polygons,
+  acute triangles, distant obstacles, large world coordinates, varying collision
+  margins and nonphysical fixtures. Moved/rotated obstacles test cache invalidation.
+- Focused regression tests cover immutable ordered-map lists, conservative
+  pruning lengths and specialized interval exits. The paired-runner stale-file
+  guard also passes a manual missing-result check.
+- Rebuilding both archived variants verifies their complete production-source
+  and profile hashes. The starting hash is exactly the preceding investigation's
+  final hash. The archived final-source recovery overlay passes independently.
+- All **14 client resources are byte-identical**. No client FPS cost is introduced
+  by client code or resource changes. No new browser FPS claim is made.
+- Stripped server: **13,537,440 → 13,512,864 bytes** (−24,576).
+  Gzip level 1: **6,255,428 → 6,245,814 bytes** (−9,614).
+  PGO profile: **48,604 → 38,612 bytes**.
+
+The [evidence archive and reproduction instructions](../../../benchmarking/experiments/2026-10-22/go-cpu-lowering/README.md)
+retain source/profile overlays, raw data, disassembly, hardware counters, training
+inputs, rejected prototype fragments, build identities, logs and resource hashes.
+No deployment was made. The requested additional **20% remains unmet**.
+`;
+const path='docs/experiments/2026-10-22/go-server-cpu-lowering.md';
+let text=readFileSync(path,'utf8').replace('RESULTS_PENDING',results).replace('VALIDATION_PENDING',validation);
+text=text.replace('The requested additional 20% CPU reduction has **not**\nbeen established. Final measurements and validation are recorded below.','The retained changes save **4.33% additional process CPU** across the existing\nsession matrix. The requested additional 20% CPU reduction has **not** been\nestablished. Combat saves 2.57%; real TCP establishes no CPU improvement.');
+text=text.replace('The final counter capture, source\nsnapshots and disassembly are retained separately.','The final capture shows **5.62% fewer instructions**, **11.85% fewer branch\nmisses** and **6.51% fewer cycles** over its larger diagnostic scope. Generic\ncache misses increase 0.62%; no cache-miss reduction is claimed. Source snapshots\nand disassembly are retained separately.');
+text=text.replace('| Immediate nonblocking socket writes |','| Merge adjacent ship-hull fixtures, with original-leaf contact lookup | Helped convoy and the 16-player module screen, but contact workloads used about 34–35% more CPU. Rejected; original hull fixtures remain. |\n| Immediate nonblocking socket writes |');
+writeFileSync(path,text);
+console.log('Report completed.');

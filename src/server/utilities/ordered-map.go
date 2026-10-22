@@ -12,6 +12,7 @@ type OrderedMap[K comparable, V any] struct {
 	iterationDepth int
 	entries        []orderedEntry[K, V]
 	lookup         map[K]int
+	readValues     []V
 }
 
 func NewOrderedMap[K comparable, V any]() *OrderedMap[K, V] {
@@ -19,6 +20,8 @@ func NewOrderedMap[K comparable, V any]() *OrderedMap[K, V] {
 }
 
 func (m *OrderedMap[K, V]) Set(key K, value V) {
+	m.readValues = nil
+
 	if index := m.lookup[key]; index != 0 {
 		m.entries[index-1].value = value
 		return
@@ -41,6 +44,7 @@ func (m *OrderedMap[K, V]) Has(key K) bool { return m.lookup[key] != 0 }
 
 func (m *OrderedMap[K, V]) Delete(key K) {
 	if index := m.lookup[key]; index != 0 {
+		m.readValues = nil
 		m.entries[index-1] = orderedEntry[K, V]{}
 		delete(m.lookup, key)
 		m.compact()
@@ -64,9 +68,27 @@ func (m *OrderedMap[K, V]) ForEach(f func(V, K)) {
 }
 
 func (m *OrderedMap[K, V]) Values() []V {
-	values := make([]V, 0, m.Len())
+	return m.AppendValues(make([]V, 0, m.Len()))
+}
 
-	m.ForEach(func(v V, _ K) { values = append(values, v) })
+// ReadValues shares a read-only value list until the next map mutation.
+// Previously returned lists remain unchanged when later reads rebuild it.
+func (m *OrderedMap[K, V]) ReadValues() []V {
+	if m.readValues == nil {
+		m.readValues = m.Values()
+	}
+
+	return m.readValues
+}
+
+// AppendValues copies live values in Map order into caller-owned storage.
+// No callback runs during the copy, so the entry list cannot change underneath it.
+func (m *OrderedMap[K, V]) AppendValues(values []V) []V {
+	for i := range m.entries {
+		if entry := &m.entries[i]; entry.live {
+			values = append(values, entry.value)
+		}
+	}
 
 	return values
 }
@@ -92,6 +114,7 @@ func (m *OrderedMap[K, V]) compact() {
 }
 
 func (m *OrderedMap[K, V]) Clear() {
+	m.readValues = nil
 	clear(m.entries)
 	clear(m.lookup)
 

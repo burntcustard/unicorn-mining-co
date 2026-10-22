@@ -1,0 +1,55 @@
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+const scratch = 'benchmarking/local/cpu-lowering-2026-10-22';
+const archive = 'benchmarking/experiments/2026-10-22/go-cpu-lowering';
+const previous = 'benchmarking/experiments/2026-10-22/go-cpu';
+const old = JSON.parse(readFileSync(`${previous}/sources.json`, 'utf8'));
+const paths = readdirSync('src/server', {recursive:true, encoding:'utf8'}).filter(p=>p.endsWith('.go')).map(p=>`src/server/${p}`).sort();
+const changed = paths.filter(p=>!existsSync(`${scratch}/before/${p}.txt`) || !readFileSync(p).equals(readFileSync(`${scratch}/before/${p}.txt`)));
+const selected = [...new Set([...Object.keys(old.variants.after.files), ...changed])].sort();
+const sha = (data: Buffer) => createHash('sha256').update(data).digest('hex');
+const save = (name: string, data: Buffer | string) => {const path = `${archive}/${name}`;mkdirSync(dirname(path),{recursive:true});writeFileSync(path,data);};
+const sourceHash = (variant: string) => {
+ const hash = createHash('sha256');
+ for(const p of paths.filter(p=>!p.endsWith('_test.go'))){
+  hash.update(`${p}\0`);
+  hash.update(readFileSync(variant==='before'?`${scratch}/before/${p}.txt`:p));
+  hash.update('\0');
+ }
+ return hash.digest('hex');
+};
+const variants: Record<string, unknown> = {};
+for(const variant of ['before','after']){
+ const files: Record<string,string|null> = {};
+ for(const p of selected){
+  const source = variant==='before'?`${scratch}/before/${p}.txt`:p;
+  if(!existsSync(source)){files[p]=null;continue;}
+  const destination=`sources/${variant}/${p}.txt`;
+  save(destination,readFileSync(source));
+  files[p]=destination;
+ }
+ const profile=`profiles/${variant}.pgo`;
+ const data=readFileSync(`${scratch}/${variant==='before'?'before.pgo':'fresh.pgo'}`);
+ save(profile,data);
+ variants[variant]={files,profile,profileSha256:sha(data)};
+}
+save('sources.json',JSON.stringify({baselineRevision:old.baselineRevision,startingPoint:'Optimized uncommitted result from sibling go-cpu investigation',productionSourceSha256:{before:sourceHash('before'),after:sourceHash('after')},variants},null,2)+'\n');
+save('build.ts', readFileSync(`${previous}/build.ts`,'utf8').replaceAll('2026-10-22/go-cpu/build.ts','2026-10-22/go-cpu-lowering/build.ts'));
+for(const name of readdirSync(scratch)){
+ const source=join(scratch,name);
+ if(name.endsWith('.pprof'))save(`profiles/${name}`,readFileSync(source));
+ else if(name.endsWith('.asm')||name.endsWith('-list.txt'))save(`results/assembly/${name}.gz`,gzipSync(readFileSync(source)));
+ else if(name.endsWith('-prototype.go.txt')||name.startsWith('broker-')&&name.endsWith('.go.txt')||name.startsWith('merge-')&&name.endsWith('.go.txt')||name.startsWith('hull-')&&name.endsWith('.go.txt')||name==='portable-session-benchmark_test.go.txt')save(`patches/${name}`,readFileSync(source));
+ else if(name.endsWith('.json.gz'))save(`results/${name}`,readFileSync(source));
+ else if(name.endsWith('.json'))save(`results/${name}.gz`,gzipSync(readFileSync(source)));
+ else if(name.endsWith('.log'))save(`support/${name}`,readFileSync(source));
+ else if(name.endsWith('.ts'))save(`support/${name}.txt`,readFileSync(source));
+}
+for(const name of readdirSync('benchmarking/local').filter(n=>n.startsWith('cpu-lowering-2026-10-22-')&&n.endsWith('.json')))save(`results/screens/${name}.gz`,gzipSync(readFileSync(`benchmarking/local/${name}`)));
+for(const name of ['summarize.ts','summarize-transport.ts'])save(`support/${name}`,readFileSync(`${previous}/support/${name}`));
+save('support/recovery-oracle_test.go.txt',readFileSync('benchmarking/local/cpu-2026-10-22/recovery-oracle_test.go.txt'));
+save('support/build-before.log',readFileSync('/tmp/unicorn-cpu-lower-before-build.log'));
+for(const [name,source] of Object.entries({session:'src/server/network/session-benchmark_test.go',pirate:'src/server/network/pirate-benchmark_test.go',transport:'benchmarking/tools/websocket-transport/main.go',paired:'benchmarking/tools/go-cpu-paired.ts',cpu:'benchmarking/tools/go-cpu.ts',combat:'benchmarking/tools/pirate-cpu.ts',tcpClient:'benchmarking/tools/websocket-transport.ts',tcpCompare:'benchmarking/tools/websocket-transport-compare.ts',environment:'benchmarking/tools/go-cpu-environment.ts',perf:'benchmarking/tools/go-perf/main_linux.go'}))save(`support/harness/${name}.txt`,readFileSync(source));
+console.log({archive,selected: selected.length,sourceHash:{before:sourceHash('before'),after:sourceHash('after')}});

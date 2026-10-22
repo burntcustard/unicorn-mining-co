@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+const root = 'benchmarking/local/cpu-lowering-2026-10-22';
+const d = JSON.parse(readFileSync(`${root}/pirate.json`, 'utf8'));
+const cases = [];
+const median = (a:number[]) => a.toSorted((a,b)=>a-b)[Math.floor(a.length/2)];
+for(const [name, rows] of Map.groupBy(d.samples, (r:any)=>r.scenario)){
+ for(let i=0;i<d.repetitions;i++){
+  const a:any=rows.find((r:any)=>r.variant==='before'&&r.repetition===i);
+  const b:any=rows.find((r:any)=>r.variant==='after'&&r.repetition===i);
+  for(const key of ['GOMAXPROCS','asteroids','fast/tick','fighting/tick','firing/tick','in-field/tick','max-distance','npc-speed','player-speed','wire-B/tick'])assert.equal(a.metrics[key],b.metrics[key],`${name} ${i} ${key}`);
+ }
+ const cpu = ['before','after'].map(v=>median(rows.filter((r:any)=>r.variant===v).map((r:any)=>r.metrics['cpu-ns/tick'])));
+ cases.push({name,before:cpu[0],after:cpu[1],cpuSavedPercent:100*(1-cpu[1]/cpu[0])});
+}
+const summary={cases,aggregateCpuSavedPercent:100*(1-cases.reduce((s,c)=>s+c.after,0)/cases.reduce((s,c)=>s+c.before,0)),activityMetricsMatchExactly:true};
+writeFileSync(`${root}/pirate-summary.json`,JSON.stringify(summary,null,2)+'\n');
+console.log(summary);

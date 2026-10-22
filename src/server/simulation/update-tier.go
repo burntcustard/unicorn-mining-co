@@ -33,12 +33,12 @@ type limitedObserver struct {
 }
 
 type movementSchedule struct {
-	observers, parents, entities []Entity
-	positions                    []Vec.Vector
-	limitedObservers             []limitedObserver
-	observerX, observerY         []float64
-	entries                      []scheduledEntity
-	parentRecords                []movementParent
+	observers, parents   []Entity
+	positions            []Vec.Vector
+	limitedObservers     []limitedObserver
+	observerX, observerY []float64
+	entries              []scheduledEntity
+	parentRecords        []movementParent
 }
 
 type UpdateEntitiesOptions struct {
@@ -82,12 +82,7 @@ func UpdateEntities(world *World, options UpdateEntitiesOptions) {
 	list := options.Entities
 
 	if list == nil {
-		clear(schedule.entities)
-		schedule.entities = schedule.entities[:0]
-
-		world.Entities.ForEach(func(entity Entity, _ int64) { schedule.entities = append(schedule.entities, entity) })
-
-		list = schedule.entities
+		list = world.Entities.ReadValues()
 	}
 
 	clear(schedule.observers)

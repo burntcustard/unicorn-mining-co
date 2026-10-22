@@ -49,11 +49,11 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
 
 	events := []protocol.SimulationEvent{}
 
-	world.Entities.ForEach(func(e Entity, _ int64) {
+	for _, e := range world.Entities.ReadValues() {
 		if ship, ok := e.(interface{ ResetBiting() }); ok {
 			ship.ResetBiting()
 		}
-	})
+	}
 
 	world.Players.ForEach(func(player Player, id int64) {
 		entity, ok := world.Entities.Get(player.ShipID)
@@ -71,11 +71,11 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
 		panic("simulation world has no collision system")
 	}
 
-	world.Entities.ForEach(func(e Entity, _ int64) {
+	for _, e := range world.Entities.ReadValues() {
 		if p, ok := e.(ProjectileEntity); ok {
 			p.CaptureSweep()
 		}
-	})
+	}
 
 	world.Collisions.CapturePoses(world.Entities)
 
@@ -141,7 +141,9 @@ func UpdateWorld(world *World, options UpdateWorldOptions) []protocol.Simulation
 	clear(world.contactHandlers)
 	world.contactHandlers = world.contactHandlers[:0]
 
-	world.Entities.ForEach(func(e Entity, _ int64) { e.Base().RoundMotion() })
+	for _, e := range world.Entities.ReadValues() {
+		e.Base().RoundMotion()
+	}
 
 	world.Tick += uint64(ticks)
 	return events

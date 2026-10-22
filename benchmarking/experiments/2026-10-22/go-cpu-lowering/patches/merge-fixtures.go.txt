@@ -1,0 +1,70 @@
+package gameplay
+import (
+ "math"
+ "slices"
+ "github.com/burntcustard/unicorn-mining-co/src/server/collision"
+ "github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+ Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+)
+func mergeOutlines(a, b [][]float64) [][]float64 {
+ for i, p := range a {
+  q := a[(i+1)%len(a)]
+  for j, r := range b {
+   s := b[(j+1)%len(b)]
+   if p[0]!=s[0] || p[1]!=s[1] || q[0]!=r[0] || q[1]!=r[1] {continue}
+   points := make([][]float64, 0, len(a)+len(b)-2)
+   for k:=1;k<len(a);k++ { points=append(points,a[(i+1+k)%len(a)]) }
+   for k:=1;k<len(b);k++ { points=append(points,b[(j+1+k)%len(b)]) }
+   if len(points)>12 { return nil }
+   positive, negative := false,false
+   for k, v := range points {
+    prev,next:=points[(k+len(points)-1)%len(points)],points[(k+1)%len(points)]
+    cross:=(v[0]-prev[0])*(next[1]-v[1])-(v[1]-prev[1])*(next[0]-v[0])
+    positive=positive||cross>1e-7
+    negative=negative||cross< -1e-7
+   }
+   if positive && negative {return nil}
+   return points
+  }
+ }
+ return nil
+}
+func mergedAsteroidColliders(input []*collision.Collider) []*collision.Collider {
+ result:=slices.Clone(input)
+ for i:=0;i<len(result);i++ {
+  for j:=i+1;j<len(result);j++ {
+   outline:=mergeOutlines(result[i].ShapeOutline,result[j].ShapeOutline)
+   if outline==nil {continue}
+   merged:=*result[i]
+   merged.ShapeOutline=outline
+   merged.AsteroidSegment=nil
+   result[i]=&merged
+   result=slices.Delete(result,j,j+1)
+   j=i
+  }
+ }
+ return result
+}
+func mergedContact(c *collision.Collider, world Vec.Vector) *collision.Collider {
+ a,ok:=c.Owner.(*simulation.Asteroid)
+ if !ok || c.AsteroidSegment!=nil {return c}
+ point:=simulation.RotatePoint(Vec.Subtract(world,a.Position),-a.Rotation)
+ best:=math.Inf(1)
+ found:=c
+ for _, leaf:=range a.Hitbox() {
+  inside:=true
+  distance:=math.Inf(1)
+  for i,p:=range leaf.ShapeOutline {
+   q:=leaf.ShapeOutline[(i+1)%len(leaf.ShapeOutline)]
+   dx,dy:=q[0]-p[0],q[1]-p[1]
+   x,y:=point.X-p[0],point.Y-p[1]
+   inside=inside&&dx*y-dy*x>=-1e-7
+   t:=min(1,max(0,(x*dx+y*dy)/(dx*dx+dy*dy)))
+   ex,ey:=x-t*dx,y-t*dy
+   distance=min(distance,ex*ex+ey*ey)
+  }
+  if inside {return leaf}
+  if distance<best {best,found=distance,leaf}
+ }
+ return found
+}

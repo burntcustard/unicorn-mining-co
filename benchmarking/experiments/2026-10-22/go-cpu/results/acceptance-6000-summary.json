@@ -1,0 +1,39 @@
+{
+  "source": "benchmarking/local/cpu-2026-10-22-acceptance-6000.json",
+  "ticks": 6000,
+  "repetitions": 3,
+  "cases": [
+    {
+      "name": "32/module",
+      "before": {
+        "cpuMsPerTick": 6.1754435,
+        "p95Ms": 26.592681,
+        "p99Ms": 48.538064,
+        "maxMs": 136.00117,
+        "rssBytes": 165146624,
+        "allocationsPerTick": 3452.608,
+        "allocatedBytesPerTick": 404337.60133333335
+      },
+      "after": {
+        "cpuMsPerTick": 3.0020758333333335,
+        "p95Ms": 5.391864,
+        "p99Ms": 7.663775,
+        "maxMs": 12.292608,
+        "rssBytes": 167182336,
+        "allocationsPerTick": 3466.71,
+        "allocatedBytesPerTick": 419591.808
+      },
+      "cpuSavedPercent": 51.38687879933913,
+      "speedup": 2.0570577969521646
+    }
+  ],
+  "aggregateCpuSavedPercent": 51.38687879933913,
+  "aggregateSpeedup": 2.0570577969521646,
+  "equalCaseMeanCpuSavedPercent": 51.38687879933913,
+  "equalCaseMeanSpeedup": 2.0570577969521646,
+  "bootstrap95Percent": [
+    51.2595253143404,
+    51.40660459609823
+  ],
+  "exactComparedOutcomes": true
+}

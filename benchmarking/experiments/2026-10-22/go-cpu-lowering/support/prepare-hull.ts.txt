@@ -1,0 +1,36 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const root='benchmarking/local/cpu-lowering-2026-10-22';
+let source=readFileSync(`${root}/merge-game-collisions.go.txt`,'utf8');
+source=source.replace('colliders = mergedAsteroidColliders(colliders)','colliders = mergedAsteroidColliders(colliders)').replace('object.Kind == "asteroid" {\n\t\tcolliders', '(object.Kind == "asteroid" || object.Kind == "ship") {\n\t\tif object.Kind == "ship" { colliders = mergeHullColliders(colliders, object) } else {\n\t\tcolliders').replace('\t\thitbox = colliders','\t\t}\n\t\thitbox = colliders');
+let helper=readFileSync(`${root}/merge-fixtures.go.txt`,'utf8');
+helper=helper.replace('merged.AsteroidSegment=nil','merged.AsteroidSegment=nil\n   merged.Segment=nil');
+helper=helper.replace('a,ok:=c.Owner.(*simulation.Asteroid)\n if !ok || c.AsteroidSegment!=nil {return c}\n point:=simulation.RotatePoint(Vec.Subtract(world,a.Position),-a.Rotation)',`a,ok:=c.Owner.(simulation.Entity)
+ if !ok || c.AsteroidSegment!=nil || c.Segment!=nil {return c}
+ object:=a.Base()
+ point:=simulation.RotatePoint(Vec.Subtract(world,object.Position),-object.Rotation)`);
+helper=helper.replace('for _, leaf:=range a.Hitbox() {','for _, leaf:=range a.Hitbox() {\n  offset:=Vec.Vector{}\n  if object.Kind=="ship" { s,ok:=leaf.Segment.(*simulation.Segment);if !ok || !s.Hull || leaf.Physics!=nil && !*leaf.Physics {continue}; if leaf.LocalPosition!=nil {offset=*leaf.LocalPosition} }');
+helper=helper.replace('x,y:=point.X-p[0],point.Y-p[1]','x,y:=point.X-offset.X-p[0],point.Y-offset.Y-p[1]');
+helper+=`\nfunc mergeHullColliders(input []*collision.Collider, object *simulation.GameObject) []*collision.Collider {
+ var hull, other []*collision.Collider
+ for _,c:=range input {
+  s,ok:=c.Segment.(*simulation.Segment)
+  if !ok || !s.Hull || c.ShapeOutline==nil || c.DockSegment || c.ContactFilter!=nil || c.Physics!=nil && !*c.Physics {other=append(other,c);continue}
+  copy:=*c
+  offset:=Vec.Vector{}
+  if c.LocalPosition!=nil {offset=*c.LocalPosition}
+  copy.ShapeOutline=make([][]float64,len(c.ShapeOutline))
+  for i,p:=range c.ShapeOutline {copy.ShapeOutline[i]=[]float64{p[0]+offset.X,p[1]+offset.Y}}
+  copy.Position=object.Position
+  copy.Rotation=object.Rotation
+  copy.LocalPosition=nil
+  hull=append(hull,&copy)
+ }
+ return append(mergedAsteroidColliders(hull),other...)
+}
+`;
+writeFileSync(`${root}/hull-game-collisions.go.txt`,source);
+writeFileSync(`${root}/hull-fixtures.go.txt`,helper);
+writeFileSync(`${root}/hull-overlay.json`,JSON.stringify({Replace:{
+ [`${process.cwd()}/src/server/gameplay/game-collisions.go`]:`${process.cwd()}/${root}/hull-game-collisions.go.txt`,
+ [`${process.cwd()}/src/server/gameplay/merge-fixtures.go`]:`${process.cwd()}/${root}/hull-fixtures.go.txt`,
+}},null,2));

@@ -1,0 +1,31 @@
+{
+  "unchangedClientAssets": 14,
+  "before": [
+    {
+      "path": "bin/server",
+      "bytes": 13512864,
+      "gzipBytes": 6245814,
+      "sha256": "7854f4ded20e5fc67cc7d8130ce4011df419477a749d60f9f4c195f1b17977cb"
+    },
+    {
+      "path": "src/server/default.pgo",
+      "bytes": 38612,
+      "gzipBytes": 38645,
+      "sha256": "d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb"
+    }
+  ],
+  "after": [
+    {
+      "path": "bin/server",
+      "bytes": 13521056,
+      "gzipBytes": 6249771,
+      "sha256": "8b78b6fbb4a6c62203faa875ead4f2f13fe32570a6e50fcb46539a46b6a2b2df"
+    },
+    {
+      "path": "src/server/default.pgo",
+      "bytes": 38612,
+      "gzipBytes": 38645,
+      "sha256": "d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb"
+    }
+  ]
+}

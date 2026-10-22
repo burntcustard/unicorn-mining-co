@@ -203,18 +203,18 @@ func geometryFlags(c *collision.Collider) int {
 }
 
 func (g *GameCollisions) CapturePoses(entities *utilities.OrderedMap[int64, simulation.Entity]) {
-	entities.ForEach(func(e simulation.Entity, _ int64) {
+	for _, e := range entities.ReadValues() {
 		object := e.Base()
 
 		if object.InactivePhysics {
 			object.Ballistic = true
-			return
+			continue
 		}
 
 		record := g.recordFor(e)
 		record.Previous = simulation.Pose{Position: object.Position, Rotation: object.Rotation}
 		object.RotationJump = 0
-	})
+	}
 }
 
 func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.Entity], dt float64, events *[]protocol.SimulationEvent) []collision.Contact {
@@ -229,7 +229,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 	live := 0
 	park := false
 
-	entities.ForEach(func(e simulation.Entity, _ int64) {
+	for _, e := range entities.ReadValues() {
 		object := e.Base()
 		record, _ := object.CollisionState.(*BodyRecord)
 
@@ -245,7 +245,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 			g.visiting = append(g.visiting, e)
 			g.found = append(g.found, record)
 		}
-	})
+	}
 
 	visiting := g.visiting
 
@@ -274,7 +274,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		if record != nil && record.Entity == e && record.Body.Parked && record.GeometrySource != nil && (object.Kind == "asteroid" || object.Kind == "station") {
 			record.SyncPending = true
 		} else {
-			record = g.sync(e)
+			record = g.syncRecord(e, record)
 		}
 
 		start := record.Previous
@@ -319,7 +319,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 
 		if record.SyncPending {
 			record.SyncPending = false
-			g.sync(record.Entity)
+			g.syncRecord(record.Entity, record)
 		}
 
 		if record.Deferred != nil {
@@ -716,7 +716,14 @@ func geometryAt(values []float64, index int) float64 {
 }
 
 func (g *GameCollisions) sync(entity simulation.Entity) *BodyRecord {
-	r := g.recordFor(entity)
+	return g.syncRecord(entity, nil)
+}
+
+func (g *GameCollisions) syncRecord(entity simulation.Entity, r *BodyRecord) *BodyRecord {
+	if r == nil {
+		r = g.recordFor(entity)
+	}
+
 	o := entity.Base()
 
 	if asteroid, ok := entity.(*simulation.Asteroid); ok {

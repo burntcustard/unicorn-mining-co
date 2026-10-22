@@ -1,0 +1,45 @@
+{
+  "baselineRevision": "5cfd246c76a99d7f202bcf8e05eaeaa148316421",
+  "productionSourceSha256": {
+    "before": "fa3ff8581119a0ab12cf058098476b52081705b427abaa1678edf86f3728f968",
+    "after": "507091254a0724fdcc3f36a14b1cd28b41896af59ed4df1d2275f5719d51917f"
+  },
+  "variants": {
+    "before": {
+      "files": {
+        "src/server/gameplay/game-collisions.go": "sources/before/src/server/gameplay/game-collisions.go.txt",
+        "src/server/network/replication-common.go": "sources/before/src/server/network/replication-common.go.txt",
+        "src/server/objects/control-ship.go": "sources/before/src/server/objects/control-ship.go.txt",
+        "src/server/objects/laser.go": "sources/before/src/server/objects/laser.go.txt",
+        "src/server/objects/ship-power.go": "sources/before/src/server/objects/ship-power.go.txt",
+        "src/server/objects/ship.go": "sources/before/src/server/objects/ship.go.txt",
+        "src/server/physics/fixture.go": "sources/before/src/server/physics/fixture.go.txt",
+        "src/server/physics/overlap-recovery.go": "sources/before/src/server/physics/overlap-recovery.go.txt",
+        "src/server/simulation/update-tier.go": "sources/before/src/server/simulation/update-tier.go.txt",
+        "src/server/utilities/ordered-map.go": "sources/before/src/server/utilities/ordered-map.go.txt",
+        "src/server/objects/modules/horn-drill.go": "sources/before/src/server/objects/modules/horn-drill.go.txt",
+        "src/server/physics/overlap-recovery_test.go": null
+      },
+      "profile": "profiles/original.pgo",
+      "profileSha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675"
+    },
+    "after": {
+      "files": {
+        "src/server/gameplay/game-collisions.go": "sources/after/src/server/gameplay/game-collisions.go.txt",
+        "src/server/network/replication-common.go": "sources/after/src/server/network/replication-common.go.txt",
+        "src/server/objects/control-ship.go": "sources/after/src/server/objects/control-ship.go.txt",
+        "src/server/objects/laser.go": "sources/after/src/server/objects/laser.go.txt",
+        "src/server/objects/ship-power.go": "sources/after/src/server/objects/ship-power.go.txt",
+        "src/server/objects/ship.go": "sources/after/src/server/objects/ship.go.txt",
+        "src/server/physics/fixture.go": "sources/after/src/server/physics/fixture.go.txt",
+        "src/server/physics/overlap-recovery.go": "sources/after/src/server/physics/overlap-recovery.go.txt",
+        "src/server/simulation/update-tier.go": "sources/after/src/server/simulation/update-tier.go.txt",
+        "src/server/utilities/ordered-map.go": "sources/after/src/server/utilities/ordered-map.go.txt",
+        "src/server/objects/modules/horn-drill.go": "sources/after/src/server/objects/modules/horn-drill.go.txt",
+        "src/server/physics/overlap-recovery_test.go": "sources/after/src/server/physics/overlap-recovery_test.go.txt"
+      },
+      "profile": "profiles/retained.pgo",
+      "profileSha256": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6"
+    }
+  }
+}

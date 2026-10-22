@@ -1,0 +1,48 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+const root='benchmarking/local/cpu-game-2026-10-22';
+function save(name:string, files:Record<string,string>){
+ const Replace:Record<string,string>={};
+ for(const [path,data]of Object.entries(files)){
+  const target=resolve(`${root}/${name}-${path.split('/').at(-1)}.txt`);
+  writeFileSync(target,data);Replace[resolve(path)]=target;
+ }
+ writeFileSync(`${root}/${name}-overlay.json`,JSON.stringify({Replace},null,2));
+}
+const physics='src/server/physics/contact.go';
+let contact=readFileSync(physics,'utf8');
+contact=contact.replace('type Contact struct {',`type Contact struct {
+ evaluationValid bool
+ evaluationA, evaluationB Vec.TransformValue
+ evaluation collision.Manifold
+ evaluationGap float64`);
+contact=contact.replace('func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) float64 {',`func (c *Contact) Evaluate(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) float64 {
+ if c.evaluationValid && c.evaluationA==xfA && c.evaluationB==xfB {
+  *manifold=c.evaluation
+  return c.evaluationGap
+ }
+ gap:=c.evaluateUncached(manifold,xfA,xfB)
+ c.evaluationValid,c.evaluationA,c.evaluationB=true,xfA,xfB
+ c.evaluation,c.evaluationGap=*manifold,gap
+ return gap
+}
+func (c *Contact) evaluateUncached(manifold *collision.Manifold, xfA, xfB Vec.TransformValue) float64 {`);
+contact=contact.replace('c.separationCache = [2]uint8{}','c.evaluationValid=false\n c.separationCache = [2]uint8{}');
+save('manifold',{[physics]:contact});
+const network='src/server/network/binary-replication.go';
+let binary=readFileSync(network,'utf8');
+binary=binary.replace('type binaryRecord struct {','type binaryRecord struct {\n observerCache [32]*member');
+binary=binary.replace('type member struct {','var observerSequence atomic.Uint64\n\ntype member struct {\n observer uint64');
+binary=binary.replace('type BinaryReplicationManager struct {','type BinaryReplicationManager struct {\n observer uint64');
+binary=binary.replace('return &BinaryReplicationManager{catalog: catalog,','return &BinaryReplicationManager{observer:observerSequence.Add(1),catalog: catalog,');
+binary=binary.replace('\t\tvar previous *member\n',`\t\tvar previous *member
+  if r:=view.records[i];r!=nil {
+   if cached:=r.observerCache[m.observer&31];cached!=nil && cached.observer==m.observer && cached.seen==stamp-1 {previous=cached}
+  }
+`);
+binary=binary.replace('if cached := m.memberCache[i]; cached != nil && cached.entityID == object.ID && cached.seen == stamp-1 {','if cached := m.memberCache[i]; previous==nil && cached != nil && cached.entityID == object.ID && cached.seen == stamp-1 {');
+binary=binary.replace('previous.seen = stamp','previous.seen = stamp\n   if r:=view.records[i];r!=nil {r.observerCache[m.observer&31]=previous}');
+binary=binary.replace('previous = &member{record: prepared,','previous = &member{observer:m.observer,record: prepared,');
+binary=binary.replace('\t\tm.memberCache[i] = previous\n\t\treplaced', '\t\tm.memberCache[i] = previous\n  prepared.observerCache[m.observer&31]=previous\n\t\treplaced');
+save('observers',{[network]:binary});
+save('caches',{[physics]:contact,[network]:binary});

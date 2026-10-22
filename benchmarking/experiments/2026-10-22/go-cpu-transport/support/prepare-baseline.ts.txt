@@ -1,0 +1,12 @@
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+const root='benchmarking/local/cpu-game-2026-10-22';
+const common = new Set(['network/session-benchmark_test.go','network/pirate-benchmark_test.go','network/pirate-collection-benchmark_test.go']);
+const Replace: Record<string,string> = {};
+for (const path of readdirSync('src/server',{recursive:true,encoding:'utf8'}).filter(p=>p.endsWith('.go'))) {
+ const file=`src/server/${path}`, before=`${root}/before/${file}.txt`;
+ if(common.has(path)) continue;
+ if(!existsSync(before)) Replace[resolve(file)]='';
+ else if(!readFileSync(file).equals(readFileSync(before))) Replace[resolve(file)]=resolve(before);
+}
+writeFileSync(`${root}/before-overlay.json`, JSON.stringify({Replace},null,2));

@@ -1,0 +1,16 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+const root='benchmarking/local/cpu-game-2026-10-22';
+const file='src/server/network/game-session.go';
+let source=readFileSync(file,'utf8');
+source=source.replace('snapshotWindow                                  int','snapshotWindow                                  int\n ackInterval int');
+source=source.replace('player.pendingSnapshots = player.pendingSnapshots[i+1:]','player.ackInterval = max(1, player.snapshotWindow - int(int64(s.World.Tick)-snapshot.tick) - 2)\n\t\t\t\tplayer.pendingSnapshots = player.pendingSnapshots[i+1:]');
+source=source.replace('\toptions := SnapshotOptions{ForceUpdateIDs: forceUpdateIDs',` var snapshotSequence *uint64 = &p.snapshotSequence
+ if !p.needsLoad && view!=nil && len(forceUpdateIDs)==0 && p.ackInterval>1 && sequence%uint64(p.ackInterval)!=0 {
+  snapshotSequence=nil
+ }
+\toptions := SnapshotOptions{ForceUpdateIDs: forceUpdateIDs`);
+source=source.replace('SnapshotSequence: &p.snapshotSequence,','SnapshotSequence: snapshotSequence,');
+const destination=resolve(`${root}/ack-game-session.go.txt`);
+writeFileSync(destination,source);
+writeFileSync(`${root}/ack-overlay.json`,JSON.stringify({Replace:{[resolve(file)]:destination}},null,2));

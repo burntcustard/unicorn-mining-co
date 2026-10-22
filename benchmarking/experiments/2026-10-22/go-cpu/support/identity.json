@@ -1,0 +1,11 @@
+{
+  "baselineRevision": "5cfd246c76a99d7f202bcf8e05eaeaa148316421",
+  "productionSourceSha256": {
+    "before": "fa3ff8581119a0ab12cf058098476b52081705b427abaa1678edf86f3728f968",
+    "after": "507091254a0724fdcc3f36a14b1cd28b41896af59ed4df1d2275f5719d51917f"
+  },
+  "profiles": {
+    "original.pgo": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675",
+    "candidate.pgo": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6"
+  }
+}

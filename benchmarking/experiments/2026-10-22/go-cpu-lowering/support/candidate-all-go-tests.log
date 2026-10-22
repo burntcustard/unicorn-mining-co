@@ -1,0 +1,49 @@
+ok  	github.com/burntcustard/unicorn-mining-co/src/server	0.016s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/collision	0.031s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/collision/query	0.003s
+?   	github.com/burntcustard/unicorn-mining-co/src/server/collision/shape	[no test files]
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/gameplay	0.555s
+--- FAIL: TestWebSocketUpgradeAndMaskedBinary (0.00s)
+panic: httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted [recovered, repanicked]
+
+goroutine 68 [running]:
+testing.tRunner.func1.2({0x10f0888, 0x16d938da0020})
+	/usr/local/go/src/testing/testing.go:2123 +0x232
+testing.tRunner.func1()
+	/usr/local/go/src/testing/testing.go:2126 +0x329
+panic({0x10f0888?, 0x16d938da0020?})
+	/usr/local/go/src/runtime/panic.go:859 +0x125
+net/http/httptest.newLocalListener()
+	/usr/local/go/src/net/http/httptest/server.go:226 +0xd9
+net/http/httptest.NewUnstartedServer(...)
+	/usr/local/go/src/net/http/httptest/server.go:284
+net/http/httptest.NewServer({0x116aef8, 0x1170600})
+	/usr/local/go/src/net/http/httptest/server.go:267 +0x25
+github.com/burntcustard/unicorn-mining-co/src/server/network.TestWebSocketUpgradeAndMaskedBinary(0x16d938a3d8c8)
+	/home/burntcustard/Documents/unicorn-mining-co/src/server/network/http-websocket_test.go:18 +0x4b
+testing.tRunner(0x16d938a3d8c8, 0x11704f8)
+	/usr/local/go/src/testing/testing.go:2193 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/local/go/src/testing/testing.go:2258 +0x4d4
+FAIL	github.com/burntcustard/unicorn-mining-co/src/server/network	3.213s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/npc	6.734s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/objects	0.091s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/objects/modules	0.006s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/persistence	1.310s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/physics	0.135s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/protocol	0.009s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/random	0.015s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/simulation	0.323s
+?   	github.com/burntcustard/unicorn-mining-co/src/server/specs	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/beam-visibility	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/compare	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/gate-collisions	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/muzzle-flashes	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/projectile-prediction	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/session	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/ship-destruction	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/snapshot	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/trade	[no test files]
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/utilities	(cached)
+?   	github.com/burntcustard/unicorn-mining-co/src/server/vector	[no test files]
+FAIL

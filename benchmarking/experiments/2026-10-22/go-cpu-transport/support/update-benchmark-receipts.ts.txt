@@ -1,0 +1,19 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+const file = 'src/server/network/session-benchmark_test.go';
+let source = readFileSync(file, 'utf8');
+source = source.replace('sequence       uint64', 'sequence       uint64\n acknowledged uint64');
+source = source.replace('func (s *benchmarkSocket) Terminate()', `// Match the production client: only requested receipts produce controls.
+func (s *benchmarkSocket) acknowledge(session *GameSession) {
+ if s.sequence != s.acknowledged {
+  s.acknowledged = s.sequence
+  session.Receive(protocol.Control{Type: "snapshotAck", Sequence: s.sequence}, s)
+ }
+}
+
+func (s *benchmarkSocket) Terminate()`);
+source = source.replace('session.Receive(protocol.Control{Type: "snapshotAck", Sequence: sockets[i].sequence}, sockets[i])', 'sockets[i].acknowledge(session)');
+writeFileSync(file, source);
+for (const [file, old, replacement] of [
+ ['src/server/network/pirate-benchmark_test.go', 's.Receive(protocol.Control{Type: "snapshotAck", Sequence: b.socket.sequence}, b.socket)', 'b.socket.acknowledge(s)'],
+ ['src/server/network/pirate-collection-benchmark_test.go', 's.Receive(protocol.Control{Type: "snapshotAck", Sequence: socket.sequence}, socket)', 'socket.acknowledge(s)'],
+]) writeFileSync(file, readFileSync(file, 'utf8').replace(old, replacement));

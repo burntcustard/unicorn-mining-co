@@ -16,7 +16,7 @@ func (s *Ship) powerRates() powerRates {
 		}
 
 		module := mount.Module.ModuleBase()
-		spec := module.Spec
+		spec := &module.Spec
 		active := spec.ForwardThrust != 0
 		firing := false
 

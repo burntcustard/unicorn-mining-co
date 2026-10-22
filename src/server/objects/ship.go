@@ -225,6 +225,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 			}
 
 			seen[id] = true
+
 			index := slices.IndexFunc(inventory, func(object simulation.Entity) bool { return object.Base().ID == id })
 
 			if index < 0 {
@@ -477,15 +478,25 @@ func (s *Ship) Engine() simulation.Module {
 		for _, m := range segment.Mounts {
 			module := m.Module
 
-			if module != nil && module.ModuleBase().Spec.ForwardThrust != 0 && module.ModuleBase().Mount != nil && !(module.ModuleBase().Mount.Health < 1) {
+			if module == nil {
+				continue
+			}
+
+			data := module.ModuleBase()
+
+			if data.Spec.ForwardThrust != 0 && data.Mount != nil && !(data.Mount.Health < 1) {
 				return module
 			}
 		}
 	}
 
 	for _, e := range s.CargoContents {
-		if m, ok := e.(simulation.Module); ok && m.ModuleBase().Spec.ForwardThrust != 0 && m.ModuleBase().Mount != nil && !(m.ModuleBase().Mount.Health < 1) {
-			return m
+		if module, ok := e.(simulation.Module); ok {
+			data := module.ModuleBase()
+
+			if data.Spec.ForwardThrust != 0 && data.Mount != nil && !(data.Mount.Health < 1) {
+				return module
+			}
 		}
 	}
 

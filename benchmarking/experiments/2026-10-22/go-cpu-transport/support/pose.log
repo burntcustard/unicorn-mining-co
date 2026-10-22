@@ -1,0 +1,9 @@
+16/convoy: 0.199191 -> 0.199102 ms CPU/tick (1.00x)
+16/spread: 0.339103 -> 0.337992 ms CPU/tick (1.00x)
+16/contact: 0.188127 -> 0.189761 ms CPU/tick (0.99x)
+16/module: 0.622459 -> 0.622425 ms CPU/tick (1.00x)
+32/convoy: 0.461839 -> 0.465219 ms CPU/tick (0.99x)
+32/spread: 0.495821 -> 0.498076 ms CPU/tick (1.00x)
+32/contact: 0.368791 -> 0.369972 ms CPU/tick (1.00x)
+32/module: 1.431922 -> 1.417747 ms CPU/tick (1.01x)
+benchmarking/local/cpu-game-2026-10-22/pose.json

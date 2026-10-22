@@ -197,7 +197,7 @@ func (b *pirateCombatBenchmark) step() {
 	}
 
 	b.sequence++
-	s.Receive(protocol.Control{Type: "snapshotAck", Sequence: b.socket.sequence}, b.socket)
+	b.socket.acknowledge(s)
 	s.Receive(protocol.Control{Type: "input", Tick: s.World.Tick, Sequence: b.sequence, Input: protocol.Input{Thrust: b.thrust, Turn: turn, Fire: true, AutogunActive: true}}, b.socket)
 	s.Tick(1)
 	speed := Vec.Length(ship.Velocity)

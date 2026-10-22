@@ -487,3 +487,61 @@ The log is `benchmarking/local/live-2026-10-20-retry.log`; verified case counts,
 timings, asset hashes, and the raw capture SHA-256 are recorded in
 `benchmarking/local/live-2026-10-20-summary.json`. The initial browser startup
 failure is retained separately and contributed no measurements to this result.
+
+## October 22, 2026 at 9:52:58 AM GMT+1
+
+Pre-deployment baseline for the pending local CPU improvements. Production ran
+revision `5cfd246c76a99d7f202bcf8e05eaeaa148316421` (Fly release 97), with
+`GOGC=200` on the two-vCPU, 512 MiB London Machine. The uncommitted local server
+changes were not deployed or exercised by this live suite.
+
+All **16/16 cases** completed between 09:52:58 and 10:21:11 BST, with zero
+client exceptions and zero socket closes during measurement. Every client
+observed world seed 25. The live health endpoint returned `ok` before the
+suite, during each player-count cooldown, and afterward. The Machine instance
+and image were unchanged between the before/after status captures, and its
+final Fly health check was passing. The benchmark browser stopped successfully.
+
+Chrome 156.0.8078.47 ran on an AMD Ryzen 7 5800X3D host with 16 logical CPUs,
+using a 320 × 200 viewport, 15-second warmup, 60-second measurement, and
+120-second cooldowns between player counts. No builds or other benchmark
+captures ran alongside this suite. Deployed entry asset: `index-CwXLFxRd.js`;
+gameplay chunk: `gameplay-Cy-Q4lUG.js`. Asset hashes stayed consistent across
+all cases. Runner hash:
+`ba8099b36a13f4798d6fb5220c4d0e7356010427d57a8c5a0e5a7d9af8390851`.
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| ------- | ---------------- | --------------------- | ------------------ | --------------------- |
+| 4       | 30.00            | 36.4                  | 44.6               | 15.8–46.3             |
+| 8       | 30.00            | 46.9                  | 57.1               | 14.5–127.2            |
+| 16      | 30.00            | 146.5                 | 265.7              | 20.4–209.2            |
+| 32      | 30.01–30.15      | 304.4                 | 640.4              | 36.4–233.0            |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
+
+Every graphics probe reported SwiftShader software rendering. Host CPU use
+reached 90.3% for 16-player modules and 99.7–99.8% for 32-player
+convoy/contact/modules. Median client FPS by workload:
+
+| Players | Convoy FPS | Spread FPS | Contact FPS | Module FPS |
+| ------- | ---------- | ---------- | ----------- | ---------- |
+| 4       | 60.0       | 60.0       | 60.0        | 59.0       |
+| 8       | 30.8       | 37.1       | 32.8        | 26.7       |
+| 16      | 12.1       | 15.8       | 16.7        | 8.4        |
+| 32      | 3.0        | 7.2        | 3.1         | 2.2        |
+
+Rates above 30 Hz reflect loaded client measurement windows and do not show
+a faster simulation. Compared with 20 October, the host, Chrome version,
+deployed release, and persistent world contents differ, so changes cannot be
+attributed to server CPU performance. For the post-deployment comparison,
+reuse this host, browser, runner, and timings, and record the new deployment
+revision; the persistent world will still evolve between captures.
+
+Raw capture: ignored `benchmarking/local/2026-10-22T08-52-58.305Z.json.gz`.
+SHA-256: `1ecc1d102bcb930b061c43d91ee6ee559079070c6641d31ce9e25e8cdc12981a`.
+The log is `benchmarking/local/live-2026-10-22.log`; verified case counts,
+timings, asset hashes, and capture metadata are recorded in
+`benchmarking/local/live-2026-10-22-summary.json`. Before/after Fly status
+captures are `benchmarking/local/live-2026-10-22-status-{before,after}.json`.

@@ -28,6 +28,8 @@ type pendingSnapshot struct {
 	sequence     uint64
 	tick         int64
 	dockSequence uint64
+	requested    bool
+	window       int
 }
 
 type dockAlias struct {
@@ -58,6 +60,7 @@ type playerRecord struct {
 	dockIDs                                         map[int64]dockAlias
 	pendingSnapshots                                []pendingSnapshot
 	snapshotWindow                                  int
+	ackInterval                                     int
 	needsLoad                                       bool
 	inputLead                                       int64
 	hasInputLead                                    bool
@@ -196,6 +199,9 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 					}
 				}
 
+				// Cumulative receipts cover intervening deltas. Reserve two slots
+				// beyond the measured round trip before requesting the next one.
+				player.ackInterval = max(1, player.snapshotWindow-int(int64(s.World.Tick)-snapshot.tick)-2)
 				player.pendingSnapshots = player.pendingSnapshots[i+1:]
 				break
 			}
@@ -515,8 +521,18 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 		return
 	}
 
-	// Match the adaptive TypeScript window, including slow-link backpressure.
-	if socket.BufferedBytes() > MaxSnapshotBuffer || len(p.pendingSnapshots) >= p.snapshotWindow {
+	// Account for receipt spacing so batching cannot stall a previously healthy
+	// link. If a slower receipt shrinks the window past an unrequested tail,
+	// send one current-state probe rather than wait for a nonexistent receipt.
+	window := p.snapshotWindow + max(0, p.ackInterval-1)
+
+	if len(p.pendingSnapshots) >= window {
+		for _, snapshot := range p.pendingSnapshots {
+			window = max(window, snapshot.window)
+		}
+	}
+
+	if socket.BufferedBytes() > MaxSnapshotBuffer || len(p.pendingSnapshots) >= window && slices.ContainsFunc(p.pendingSnapshots, func(snapshot pendingSnapshot) bool { return snapshot.requested }) {
 		return
 	}
 
@@ -545,7 +561,13 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 		dockIDs = append(dockIDs, [2]int64{id, alias.id})
 	}
 
-	options := SnapshotOptions{ForceUpdateIDs: forceUpdateIDs, World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: inputLead, SnapshotSequence: &p.snapshotSequence, DockSequence: &p.dockSequence, Credits: &p.profile.Credits, DockIDs: dockIDs, ReplicationView: view, BinaryBatch: batch}
+	var snapshotSequence *uint64 = &p.snapshotSequence
+
+	if !p.needsLoad && view != nil && len(forceUpdateIDs) == 0 && p.ackInterval > 1 && sequence%uint64(p.ackInterval) != 0 && len(p.pendingSnapshots) < window-1 {
+		snapshotSequence = nil
+	}
+
+	options := SnapshotOptions{ForceUpdateIDs: forceUpdateIDs, World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: inputLead, SnapshotSequence: snapshotSequence, DockSequence: &p.dockSequence, Credits: &p.profile.Credits, DockIDs: dockIDs, ReplicationView: view, BinaryBatch: batch}
 	packet := p.binaryReplication.encode(options, p.needsLoad)
 	tick := int64(s.World.Tick)
 
@@ -556,7 +578,7 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	p.needsLoad = false
 	p.sentDockSequence = p.dockSequence
 	p.hasInputLead = false
-	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick, dockSequence: p.dockSequence})
+	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick, dockSequence: p.dockSequence, requested: snapshotSequence != nil, window: p.snapshotWindow + max(0, p.ackInterval-1)})
 	send(socket, packet)
 }
 
@@ -621,6 +643,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	p.dockIDs = map[int64]dockAlias{}
 	p.pendingSnapshots = nil
 	p.snapshotWindow = 2
+	p.ackInterval = 0
 	p.needsLoad = true
 	p.lastInputAt = s.now()
 	p.disconnectedAt = nil
@@ -795,6 +818,7 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 	if !ok {
 		return
 	}
+
 	ship := owner.ShipBase()
 
 	if ship.DockedTo == nil {

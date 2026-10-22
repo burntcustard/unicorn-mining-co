@@ -1,0 +1,103 @@
+{
+  "source": "benchmarking/local/cpu-game-2026-10-22/delayed-transport.json.gz",
+  "repetitions": 2,
+  "cases": [
+    {
+      "name": "4/idle",
+      "before": {
+        "cpuMsPerTick": 0.39646111111111104,
+        "minimumSnapshotHz": 29.995453884010097,
+        "minimumInputHz": 29.995453884010097,
+        "worstSnapshotGapP95Ms": 33.98526599999968,
+        "worstInputAckP95Ms": 66.2340809999996,
+        "maxSnapshotGapMs": 34.185583000000406,
+        "maxInputAckMs": 67.15221999999994,
+        "controlMessages": {}
+      },
+      "after": {
+        "cpuMsPerTick": 0.3597277777777778,
+        "minimumSnapshotHz": 29.997106679070445,
+        "minimumInputHz": 29.997106679070445,
+        "worstSnapshotGapP95Ms": 34.03487000000041,
+        "worstInputAckP95Ms": 66.47773100000086,
+        "maxSnapshotGapMs": 34.253280000000814,
+        "maxInputAckMs": 66.99520500000017,
+        "controlMessages": {}
+      },
+      "cpuSavedPercent": 9.265305550495329
+    },
+    {
+      "name": "4/flight",
+      "before": {
+        "cpuMsPerTick": 0.4034833333333333,
+        "minimumSnapshotHz": 29.997810824761267,
+        "minimumInputHz": 29.997810824761267,
+        "worstSnapshotGapP95Ms": 34.033957999999984,
+        "worstInputAckP95Ms": 66.49726800000008,
+        "maxSnapshotGapMs": 34.385048999999526,
+        "maxInputAckMs": 67.5005170000004,
+        "controlMessages": {}
+      },
+      "after": {
+        "cpuMsPerTick": 0.3917722222222221,
+        "minimumSnapshotHz": 29.996176067477467,
+        "minimumInputHz": 29.996176067477467,
+        "worstSnapshotGapP95Ms": 33.983784000000014,
+        "worstInputAckP95Ms": 66.51644300000044,
+        "maxSnapshotGapMs": 34.417641,
+        "maxInputAckMs": 67.12728399999924,
+        "controlMessages": {}
+      },
+      "cpuSavedPercent": 2.902501824390402
+    },
+    {
+      "name": "32/idle",
+      "before": {
+        "cpuMsPerTick": 1.4546944444444443,
+        "minimumSnapshotHz": 29.996540124070737,
+        "minimumInputHz": 29.996540124070737,
+        "worstSnapshotGapP95Ms": 34.15240099999937,
+        "worstInputAckP95Ms": 66.49085500000001,
+        "maxSnapshotGapMs": 34.395848999998634,
+        "maxInputAckMs": 67.28764600000068,
+        "controlMessages": {}
+      },
+      "after": {
+        "cpuMsPerTick": 1.3855944444444441,
+        "minimumSnapshotHz": 29.996479273232396,
+        "minimumInputHz": 29.829832166158884,
+        "worstSnapshotGapP95Ms": 34.07860199999959,
+        "worstInputAckP95Ms": 66.66185699999915,
+        "maxSnapshotGapMs": 34.386092000000644,
+        "maxInputAckMs": 67.7732300000007,
+        "controlMessages": {}
+      },
+      "cpuSavedPercent": 4.750138440680562
+    },
+    {
+      "name": "32/flight",
+      "before": {
+        "cpuMsPerTick": 1.5946222222222224,
+        "minimumSnapshotHz": 29.99678025059663,
+        "minimumInputHz": 29.99678025059663,
+        "worstSnapshotGapP95Ms": 34.42600599999969,
+        "worstInputAckP95Ms": 66.94889799999964,
+        "maxSnapshotGapMs": 35.90761600000042,
+        "maxInputAckMs": 67.37898800000039,
+        "controlMessages": {}
+      },
+      "after": {
+        "cpuMsPerTick": 1.5804944444444442,
+        "minimumSnapshotHz": 29.997122556015935,
+        "minimumInputHz": 29.997122556015935,
+        "worstSnapshotGapP95Ms": 34.326568999999836,
+        "worstInputAckP95Ms": 66.86753500000032,
+        "maxSnapshotGapMs": 35.454843999999866,
+        "maxInputAckMs": 69.03809300000103,
+        "controlMessages": {}
+      },
+      "cpuSavedPercent": 0.8859639343348769
+    }
+  ],
+  "aggregateCpuSavedPercent": 3.420714220766763
+}

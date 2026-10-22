@@ -34,11 +34,15 @@ var ErrQueueFull = errors.New("websocket send queue full")
 var ErrClosed = errors.New("websocket closed")
 
 type outbound struct {
+	offset int
 	opcode byte
 	data   []byte
 }
 
 type WebSocket struct {
+	sendMu     sync.Mutex
+	pending    atomic.Int64
+	direct     *directSender
 	closing    atomic.Bool
 	conn       net.Conn
 	reader     *bufio.Reader
@@ -116,6 +120,7 @@ func Upgrade(w http.ResponseWriter, r *http.Request, production bool) (*WebSocke
 		done: make(chan struct{}), lastPong: time.Now(),
 	}
 
+	socket.direct = newDirectSender(conn)
 	go socket.writePump()
 	return socket, nil
 }
@@ -133,6 +138,9 @@ func (s *WebSocket) LastPong() time.Time { s.pongMu.Lock(); defer s.pongMu.Unloc
 func (s *WebSocket) markPong() { s.pongMu.Lock(); s.lastPong = time.Now(); s.pongMu.Unlock() }
 
 func (s *WebSocket) enqueue(opcode byte, payload []byte) error {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+
 	select {
 	case <-s.done:
 		return ErrClosed
@@ -162,14 +170,45 @@ func (s *WebSocket) enqueue(opcode byte, payload []byte) error {
 
 	copy(data[frameHeaderSize:], payload)
 
+	frame := outbound{opcode: opcode, data: data}
+
+	if s.direct != nil && s.pending.Load() == 0 {
+		wire := frameBytes(opcode, data)
+		count, err := s.direct.send(wire)
+
+		if err != nil {
+			s.buffered.Add(-int64(len(payload)))
+			s.recycle(data)
+			s.closeTransport()
+			return err
+		}
+
+		if count == len(wire) {
+			s.buffered.Add(-int64(len(payload)))
+			s.recycle(data)
+
+			if opcode == OpClose {
+				s.closeTransport()
+			}
+
+			return nil
+		}
+
+		frame.offset = count
+	}
+
+	s.pending.Add(1)
+
 	select {
-	case s.queue <- outbound{opcode: opcode, data: data}:
+	case s.queue <- frame:
 		return nil
 	case <-s.done:
+		s.pending.Add(-1)
 		s.buffered.Add(-int64(len(payload)))
 		s.recycle(data)
 		return ErrClosed
 	default:
+		s.pending.Add(-1)
 		s.buffered.Add(-int64(len(payload)))
 		s.recycle(data)
 		return ErrQueueFull
@@ -197,9 +236,10 @@ func (s *WebSocket) writePump() {
 		case <-s.done:
 			return
 		case frame := <-s.queue:
-			err := s.writeFrame(frame.opcode, frame.data)
+			err := s.writePartialFrame(frame.opcode, frame.data, frame.offset)
 			s.buffered.Add(-int64(len(frame.data) - frameHeaderSize))
 			s.recycle(frame.data)
+			s.pending.Add(-1)
 
 			if err != nil || frame.opcode == OpClose {
 				s.closeTransport()
@@ -214,10 +254,25 @@ func (s *WebSocket) writePump() {
  * prefix and send the header and payload together with one ordinary write.
  */
 func (s *WebSocket) writeFrame(opcode byte, data []byte) error {
+	return s.writePartialFrame(opcode, data, 0)
+}
+
+func (s *WebSocket) writePartialFrame(opcode byte, data []byte, offset int) error {
 	if err := s.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		return err
 	}
 
+	wire := frameBytes(opcode, data)[offset:]
+	n, err := s.conn.Write(wire)
+
+	if err == nil && n != len(wire) {
+		return io.ErrShortWrite
+	}
+
+	return err
+}
+
+func frameBytes(opcode byte, data []byte) []byte {
 	size := len(data) - frameHeaderSize
 	count := 2
 
@@ -243,13 +298,7 @@ func (s *WebSocket) writeFrame(opcode byte, data []byte) error {
 		binary.BigEndian.PutUint64(header[2:], uint64(size))
 	}
 
-	n, err := s.conn.Write(data[frameHeaderSize-count:])
-
-	if err == nil && n != count+size {
-		return io.ErrShortWrite
-	}
-
-	return err
+	return data[frameHeaderSize-count:]
 }
 
 func (s *WebSocket) CloseWith(code uint16, reason string) {

@@ -7,7 +7,9 @@ import "math"
 // Keep coefficients and operation order identical to client/utilities/sin-cos.ts sinCos.
 // For huge angles, results are defined by the remainder modulo float64 2*pi.
 func SinCos(angle float64) (float64, float64) {
-	angle = math.Mod(angle, 2*math.Pi)
+	if angle <= -2*math.Pi || angle >= 2*math.Pi {
+		angle = math.Mod(angle, 2*math.Pi)
+	}
 
 	index := int(math.Floor(angle*(2/math.Pi) + 0.5))
 	residual := angle - float64(index)*(math.Pi/2)

@@ -1,0 +1,10 @@
+import {execFileSync} from 'node:child_process';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const root='benchmarking/local/cpu-lowering-2026-10-22';
+const binaries=['before.test','after.test','transport-before','transport-after','reproduced-before.test','reproduced-after.test'];
+const artifacts=binaries.map(name=>{
+ const path=`/tmp/unicorn-lower-${name}`;
+ return {path,sha256:createHash('sha256').update(readFileSync(path)).digest('hex'),build:execFileSync('go',['version','-m',path],{encoding:'utf8'})};
+});
+writeFileSync(`${root}/identities.json`,JSON.stringify({toolchain:execFileSync('go',['version'],{encoding:'utf8'}).trim(),artifacts,notes:'Acceptance before uses the preceding investigation final source/profile; acceptance after uses the final source and fresh profile. Test executable build metadata does not list its -pgo flag; archive build.ts supplies the profile explicitly. PGO-control compares no PGO to fresh; PGO-refresh compares the previous profile to fresh.'},null,2)+'\n');

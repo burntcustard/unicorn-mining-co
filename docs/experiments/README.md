@@ -2,6 +2,12 @@
 
 Recent investigations are grouped by measurement date. Use [benchmarking](../../benchmarking/README.md) for runners and saved evidence, or the [documentation index](../../README.md#documentation) for current reference material.
 
+## 2026-10-22
+
+- [Additional server CPU savings from cumulative receipts and nonblocking sends](2026-10-22/go-server-cpu-transport.md)
+- [Go compiler lowering, hardware counters, and additional CPU improvements](2026-10-22/go-server-cpu-lowering.md)
+- [Go server CPU, conservative recovery, and two-core measurements](2026-10-22/go-server-cpu.md)
+
 ## 2026-10-20
 
 - [NPC pursuit and narrow asteroid gaps](2026-10-20/npc-pursuit.md)

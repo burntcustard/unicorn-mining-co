@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { cpuAffinity, goEnvironment } from './go-cpu-environment.ts';
 import { dirname } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
@@ -13,11 +14,7 @@ if (!label || !executable) {
   );
 }
 
-const cpu =
-  process.env.CPUSET ||
-  readFileSync('/proc/self/status', 'utf8').match(
-    /Cpus_allowed_list:\s*([\d,-]+)/,
-  )[1];
+const cpu = cpuAffinity;
 const ticks = Number(process.env.TICKS || 900);
 const repetitions = Number(process.env.REPETITIONS || 3);
 const counts = (process.env.PLAYERS || '4,8,16,32').split(',').map(Number);
@@ -59,7 +56,7 @@ for (const players of counts) {
         ['-c', cpu, executable, '-test.run', '^TestSessionBenchmark$'],
         {
           env: {
-            ...process.env,
+            ...goEnvironment,
             SESSION_PLAYERS: String(players),
             SESSION_WORKLOAD: workload,
             SESSION_TICKS: String(ticks),
@@ -115,7 +112,8 @@ writeFileSync(
       repetitions,
       go: process.env.GO_VERSION || 'go1.27.1',
       environment: {
-        GOGC: process.env.GOGC || '100',
+        GOGC: goEnvironment.GOGC,
+        GOMAXPROCS: goEnvironment.GOMAXPROCS,
         GOEXPERIMENT: process.env.GOEXPERIMENT || '',
       },
       results,

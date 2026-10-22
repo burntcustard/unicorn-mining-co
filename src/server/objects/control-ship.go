@@ -41,7 +41,12 @@ func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent)
 
 	for _, control := range controls {
 		changed := slices.ContainsFunc(s.Segments, func(segment *simulation.Segment) bool {
-			return segment.Module != nil && (segment.Module.ModuleBase().Spec.Behavior == control.id || segment.Module.ModuleBase().Type == control.id) && !(*segment.TargetHealth() < 1) && (segment.Active != 0) != control.enabled
+			if segment.Module == nil || (segment.Active != 0) == control.enabled || *segment.TargetHealth() < 1 {
+				return false
+			}
+
+			module := segment.Module.ModuleBase()
+			return module.Spec.Behavior == control.id || module.Type == control.id
 		})
 
 		if !changed {

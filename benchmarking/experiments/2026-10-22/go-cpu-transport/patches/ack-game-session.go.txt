@@ -1,0 +1,873 @@
+// Authoritative game session. All methods run on the world owner.
+package network
+
+import (
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
+	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"github.com/google/uuid"
+	"math"
+	"slices"
+	"time"
+)
+
+type SessionSocket interface {
+	IsOpen() bool
+	BufferedBytes() int
+	// SendBinary must consume or copy the packet before returning.
+	SendBinary([]byte) error
+	Terminate()
+	CloseWith(uint16, string)
+}
+
+type pendingSnapshot struct {
+	sequence     uint64
+	tick         int64
+	dockSequence uint64
+}
+
+type dockAlias struct {
+	id       int64
+	sequence uint64
+}
+
+type queuedInputs struct {
+	tick    uint64
+	changes []protocol.Control
+}
+
+type playerRecord struct {
+	pirateAfter                                     uint64
+	sectorID                                        string
+	travelledTick                                   uint64
+	chatAt                                          time.Time
+	gateAccess                                      *gateAccessRequest
+	arrivalMessage                                  *protocol.ServerControl
+	profile                                         persistence.Player
+	playedAt                                        time.Time
+	saveSequence                                    uint64
+	welcomePending, respawnPending, progressPending bool
+	profilePending                                  bool
+	snapshotSequence                                uint64
+	dockSequence                                    uint64
+	sentDockSequence                                uint64
+	dockIDs                                         map[int64]dockAlias
+	pendingSnapshots                                []pendingSnapshot
+	snapshotWindow                                  int
+ ackInterval int
+	needsLoad                                       bool
+	inputLead                                       int64
+	hasInputLead                                    bool
+	inputs                                          []queuedInputs
+	frame                                           protocol.InputFrame
+	lastInput                                       protocol.Input
+	lastSequence                                    uint64
+	lastInputAt                                     time.Time
+	hiddenShip                                      bool
+	playerID                                        int64
+	binaryReplication                               *BinaryReplicationManager
+	ship                                            *objects.Ship
+	shipID                                          int64
+	socket                                          SessionSocket
+	disconnectedAt                                  *time.Time
+}
+
+func (p *playerRecord) clearInputs() {
+	for i := range p.inputs {
+		p.inputs[i].changes = p.inputs[i].changes[:0]
+	}
+}
+
+type GameSession struct {
+	nextEntityID    int64
+	sectorMap       simulation.SectorMap
+	sectors         map[string]*sectorRuntime
+	currentSector   string
+	persistence     *sessionPersistence
+	World           *simulation.World
+	nextPlayerID    int64
+	players         *utilities.OrderedMap[string, *playerRecord]
+	playersBySocket map[SessionSocket]*playerRecord
+	inputs          map[int64]protocol.InputFrame
+	binaryBatch     *BinarySnapshotBatch
+	replicationView *ReplicationView
+	regions         *RegionManager
+	regionsSyncedAt float64
+	worldSeed       float64
+	now             func() time.Time
+}
+
+func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
+	world := simulation.CreateWorld(seed, catalog)
+	session := &GameSession{nextEntityID: 1 << 48, World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, worldSeed: seed, now: time.Now}
+	session.sectorMap = simulation.GenerateSectorMap(uint32(seed), catalog)
+	session.sectors = map[string]*sectorRuntime{}
+	session.activateSector(catalog.StartingSectorID)
+	return session
+}
+
+func send(socket SessionSocket, packet []byte) {
+	if !socket.IsOpen() {
+		return
+	}
+
+	if socket.BufferedBytes() > MaxSocketBuffer {
+		socket.Terminate()
+		return
+	}
+
+	if err := socket.SendBinary(packet); err != nil {
+		socket.Terminate()
+	}
+}
+
+func (s *GameSession) nearestStation(position Vec.Vector) protocol.StationDescription {
+	ranges := protocol.Ranges(s.World.Specification.Simulation.WorldRanges)
+	stations := s.regions.View(position, nil).StationMarkers
+
+	for len(stations) == 0 && ranges.StationMarker < 200000 {
+		ranges.StationMarker *= 2
+		stations = s.regions.View(position, &ranges).StationMarkers
+	}
+
+	if len(stations) == 0 {
+		return protocol.StationDescription{}
+	}
+
+	closest := stations[0]
+
+	for _, station := range stations[1:] {
+		if Vec.Distance(station.Position, position) < Vec.Distance(closest.Position, position) {
+			closest = station
+		}
+	}
+
+	return closest
+}
+
+func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
+	if p := s.playersBySocket[socket]; p != nil {
+		defer s.useSector(p.sectorID)()
+	}
+
+	if message.Type == "hello" || message.Type == "prepare" {
+		id := s.World.Specification.StartingSectorID
+
+		if p, ok := s.players.Get(message.PlayerToken); ok {
+			id = p.sectorID
+		}
+
+		defer s.useSector(id)()
+	}
+
+	if message.Type != "snapshotAck" && !s.persistenceReady() {
+		socket.CloseWith(1013, "Storage temporarily unavailable")
+		return
+	}
+
+	if message.Type == "hello" || message.Type == "prepare" {
+		s.hello(message, socket)
+		return
+	}
+
+	player := s.playersBySocket[socket]
+
+	if player == nil {
+		return
+	}
+
+	if message.Type == "snapshotAck" {
+		for i, snapshot := range player.pendingSnapshots {
+			if snapshot.sequence == message.Sequence {
+				for id, alias := range player.dockIDs {
+					if alias.sequence <= snapshot.dockSequence {
+						delete(player.dockIDs, id)
+					}
+				}
+
+				if snapshot.tick >= 0 {
+					player.snapshotWindow = 2
+
+					if int64(s.World.Tick)-snapshot.tick <= 8 {
+						player.snapshotWindow = 9
+					}
+				}
+
+				player.ackInterval = max(1, player.snapshotWindow - int(int64(s.World.Tick)-snapshot.tick) - 2)
+				player.pendingSnapshots = player.pendingSnapshots[i+1:]
+				break
+			}
+		}
+
+		return
+	}
+
+	player.lastInputAt = s.now()
+
+	if message.Type == "profile" {
+		if message.DisplayName == "" || !protocol.ValidDisplayName(message.DisplayName) {
+			return
+		}
+
+		if player.profile.DisplayName == "" {
+			player.profile.DisplayName = message.DisplayName
+			player.ship.Name = player.profile.DisplayName
+			s.assignInitialOwner()
+			s.savePlayer(player)
+			s.flushChanges()
+		}
+
+		player.profilePending = true
+		s.sendSnapshot(player, nil, nil)
+		return
+	}
+
+	if message.Type == "play" {
+		s.play(player)
+		return
+	}
+
+	if !s.World.Players.Has(player.playerID) {
+		return
+	}
+
+	switch message.Type {
+	case "gateAccess":
+		s.requestGateAccess(player, int64(message.GateID))
+	case "chat":
+		s.chat(player, message)
+	case "input":
+		s.input(message, player)
+	case "respawn":
+		s.respawn(player)
+	case "dock":
+		s.dock(message, player)
+	}
+}
+
+func (s *GameSession) Disconnect(socket SessionSocket) {
+	if p := s.playersBySocket[socket]; p != nil {
+		p.gateAccess = nil
+		defer s.useSector(p.sectorID)()
+	}
+
+	player := s.playersBySocket[socket]
+
+	if player == nil {
+		return
+	}
+
+	delete(s.playersBySocket, socket)
+	s.accountTime(player)
+	player.socket = nil
+	player.binaryReplication = NewBinaryReplicationManager(s.World.Specification)
+	now := s.now()
+	player.disconnectedAt = &now
+	s.World.Players.Delete(player.playerID)
+
+	if player.playedAt.IsZero() {
+		s.savePlayer(player)
+		s.flushChanges()
+		return
+	}
+
+	player.playedAt = time.Time{}
+	ship := player.ship
+	ship.EndTradeVisit()
+	ship.LocalMovementParent = nil
+	ship.LocalMovementRate = 0
+	ship.Velocity = Vec.Vector{}
+	ship.Spin = 0
+	ship.Fly(0, 0)
+	ship.CancelCargoRelease()
+	player.lastInput = protocol.Input{}
+	player.clearInputs()
+	roundSpawn(ship)
+	s.savePlayer(player)
+	s.flushChanges()
+}
+
+func roundSpawn(ship *objects.Ship) {
+	ship.Position.X = utilities.RoundTiesUp(ship.Position.X)
+	ship.Position.Y = utilities.RoundTiesUp(ship.Position.Y)
+}
+
+func (s *GameSession) positions() []Vec.Vector {
+	positions := []Vec.Vector{}
+
+	s.sectorPlayers(func(p *playerRecord, _ string) {
+		if s.World.Players.Has(p.playerID) || s.World.Entities.Has(p.shipID) {
+			positions = append(positions, p.ship.Position)
+		}
+	})
+
+	return positions
+}
+
+func (s *GameSession) tickSector(ticks uint64) {
+	if !s.persistenceReady() {
+		return
+	}
+
+	if ticks == 0 {
+		ticks = 1
+	}
+
+	world := s.World
+	// Match the launch transition's duration so brief reconnects retain the ship.
+	disconnectCooldown := time.Duration(world.Specification.Simulation.Flight.LaunchDuration * float64(time.Second))
+
+	s.sectorPlayers(func(p *playerRecord, _ string) {
+		if p.socket != nil || p.disconnectedAt == nil || !world.Entities.Has(p.shipID) || s.now().Sub(*p.disconnectedAt) < disconnectCooldown {
+			return
+		}
+
+		p.hiddenShip = world.Entities.Has(p.shipID)
+		world.Entities.Delete(p.shipID)
+		p.ship.LocalMovementParent = nil
+		p.ship.LocalMovementRate = 0
+		p.ship.Velocity = Vec.Vector{}
+		p.ship.Spin = 0
+		p.ship.Fly(0, 0)
+		roundSpawn(p.ship)
+		s.savePlayer(p)
+	})
+
+	if world.Tick%30 == 0 || world.Tick%30+ticks > 30 {
+		idleBefore := s.now().Add(-5 * time.Minute)
+
+		s.sectorPlayers(func(p *playerRecord, _ string) {
+			if p.socket == nil {
+				return
+			}
+
+			if p.lastInput.Thrust != 0 || p.lastInput.Turn != 0 {
+				p.lastInputAt = s.now()
+			}
+
+			if p.lastInputAt.After(idleBefore) {
+				return
+			}
+
+			socket := p.socket
+			s.Disconnect(socket)
+			socket.CloseWith(4002, "Idle timeout")
+		})
+	}
+
+	if s.persistence == nil && (world.Tick%900 == 0 || world.Tick%900+ticks > 900) {
+		expired := s.now().Add(-30 * time.Minute)
+
+		s.sectorPlayers(func(p *playerRecord, token string) {
+			if p.disconnectedAt == nil || p.disconnectedAt.After(expired) || p.profile.Banned || p.profile.Role != persistence.RoleUser {
+				return
+			}
+
+			s.players.Delete(token)
+			world.Players.Delete(p.playerID)
+			world.Entities.Delete(p.shipID)
+		})
+	}
+
+	s.dispatchPirates()
+
+	if float64(world.Tick)-s.regionsSyncedAt >= 8 {
+		s.regions.Sync(world, s.positions())
+		s.regionsSyncedAt = float64(world.Tick)
+	}
+
+	// Visibility and physics activation are independent. Marker entities remain
+	// available to replication while distant bodies have no collision proxies.
+	positions := s.positions()
+
+	world.Entities.ForEach(func(e simulation.Entity, _ int64) {
+		object := e.Base()
+
+		if object.Kind != "station" {
+			return
+		}
+
+		object.InactivePhysics = true
+
+		for _, npc := range s.sectors[s.currentSector].pirates {
+			if !npc.ship.Dead && Vec.DistanceSquared(object.Position, npc.ship.Position) <= pirateRange*pirateRange {
+				object.InactivePhysics = false
+				return
+			}
+		}
+
+		for _, position := range positions {
+			if Vec.DistanceSquared(object.Position, position) <= 2000*2000 {
+				object.InactivePhysics = false
+				break
+			}
+		}
+	})
+
+	tick := world.Tick
+	clear(s.inputs)
+	step := world.Specification.Simulation.SimulationStep
+
+	s.sectorPlayers(func(p *playerRecord, _ string) {
+		if p.socket == nil || !world.Players.Has(p.playerID) {
+			return
+		}
+
+		p.frame.Input = p.lastInput
+		p.frame.Changes = p.frame.Changes[:0]
+
+		for i := uint64(0); i < ticks; i++ {
+			slot := &p.inputs[(tick+i)%uint64(len(p.inputs))]
+
+			if slot.tick != tick+i {
+				continue
+			}
+
+			for _, change := range slot.changes {
+				if change.Sequence <= p.lastSequence {
+					continue
+				}
+
+				last := 0.0
+
+				if len(p.frame.Changes) > 0 {
+					last = p.frame.Changes[len(p.frame.Changes)-1].Offset
+				}
+
+				offset := math.Max(last, float64(i)*step+math.Min(step-1e-9, math.Max(0, change.Offset)))
+				p.frame.Changes = append(p.frame.Changes, protocol.InputChange{Input: change.Input, Offset: offset})
+				p.lastInput = change.Input
+				p.lastSequence = change.Sequence
+			}
+
+			slot.changes = slot.changes[:0]
+		}
+
+		s.inputs[p.playerID] = p.frame
+	})
+
+	before := s.preparePortals()
+	dt := float64(ticks) * step
+	s.updatePirates()
+	s.updateGateAccess(dt)
+	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
+	s.pirateLootCollected(events)
+	s.pirateHits(events)
+	s.interruptGateClosing(before)
+	s.crossPortals(before)
+	s.progress(events)
+	s.flushChanges()
+	s.checkpoint()
+	// Send the completed simulation state once, including after a catch-up batch.
+	view := s.replicationView.Reset()
+	batch := s.binaryBatch.Begin(view)
+
+	s.sectorPlayers(func(p *playerRecord, _ string) { s.sendSnapshot(p, view, batch) })
+
+	s.sendWorldSounds(events)
+}
+
+func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch *BinarySnapshotBatch) {
+	socket := p.socket
+
+	if socket == nil || !socket.IsOpen() {
+		return
+	}
+
+	if s.persistence != nil && (s.persistence.players[p] || s.persistence.store.Committed() < p.saveSequence) {
+		return
+	}
+
+	if p.welcomePending {
+		p.welcomePending = false
+		s.sendWelcome(p)
+	}
+
+	if p.arrivalMessage != nil {
+		s.sendControl(socket, *p.arrivalMessage)
+		p.arrivalMessage = nil
+	}
+
+	if p.profilePending {
+		p.profilePending = false
+		s.sendControl(socket, protocol.ServerControl{Type: "profile", DisplayName: &p.profile.DisplayName})
+	}
+
+	if !s.World.Players.Has(p.playerID) {
+		return
+	}
+
+	if p.respawnPending {
+		p.respawnPending = false
+		s.sendControl(socket, protocol.ServerControl{Type: "respawn", ShipID: uint64(p.shipID)})
+	}
+
+	if p.progressPending {
+		p.progressPending = false
+		mask := p.profile.UnlockedPaints
+		s.sendControl(socket, protocol.ServerControl{Type: "progress", UnlockedPaints: &mask, Credits: &p.profile.Credits})
+	}
+
+	if socket.BufferedBytes() > MaxSocketBuffer {
+		socket.Terminate()
+		return
+	}
+
+	// Match the adaptive TypeScript window, including slow-link backpressure.
+	if socket.BufferedBytes() > MaxSnapshotBuffer || len(p.pendingSnapshots) >= p.snapshotWindow {
+		return
+	}
+
+	p.snapshotSequence++
+	sequence := p.snapshotSequence
+	var inputLead *int64
+
+	if p.hasInputLead {
+		inputLead = &p.inputLead
+	}
+
+	// Direct replies must include dock changes even within the same tick.
+	var forceUpdateIDs []int64
+
+	if view == nil || p.sentDockSequence != p.dockSequence {
+		forceUpdateIDs = append(forceUpdateIDs, p.shipID)
+
+		if p.ship.DockedTo != nil {
+			forceUpdateIDs = append(forceUpdateIDs, *p.ship.DockedTo)
+		}
+	}
+
+	dockIDs := make([][2]int64, 0, len(p.dockIDs))
+
+	for id, alias := range p.dockIDs {
+		dockIDs = append(dockIDs, [2]int64{id, alias.id})
+	}
+
+ var snapshotSequence *uint64 = &p.snapshotSequence
+ if !p.needsLoad && view!=nil && len(forceUpdateIDs)==0 && p.ackInterval>1 && sequence%uint64(p.ackInterval)!=0 {
+  snapshotSequence=nil
+ }
+	options := SnapshotOptions{ForceUpdateIDs: forceUpdateIDs, World: s.World, ShipID: p.shipID, Position: p.ship.Position, AcknowledgedSequence: &p.lastSequence, InputLead: inputLead, SnapshotSequence: snapshotSequence, DockSequence: &p.dockSequence, Credits: &p.profile.Credits, DockIDs: dockIDs, ReplicationView: view, BinaryBatch: batch}
+	packet := p.binaryReplication.encode(options, p.needsLoad)
+	tick := int64(s.World.Tick)
+
+	if p.needsLoad {
+		tick = -1
+	}
+
+	p.needsLoad = false
+	p.sentDockSequence = p.dockSequence
+	p.hasInputLead = false
+	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick, dockSequence: p.dockSequence})
+	send(socket, packet)
+}
+
+func (s *GameSession) sendControl(socket SessionSocket, message protocol.ServerControl) {
+	packet, err := protocol.EncodeServerControl(message, s.World.Specification.Protocol)
+
+	if err != nil {
+		panic(err)
+	}
+
+	send(socket, packet)
+}
+
+func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
+	token := message.PlayerToken
+	p, _ := s.players.Get(token)
+
+	if p != nil && p.profile.Banned {
+		socket.CloseWith(4003, bannedMessage)
+		return
+	}
+
+	if p == nil {
+		token = uuid.NewString()
+		id := s.nextPlayerID
+		s.nextPlayerID++
+		station := s.nearestStation(Vec.Vector{})
+		angle := float64(id) * 2.4
+		sin, cos := math.Sincos(angle)
+		spawn := Vec.AddScaled(station.Position, Vec.Vector{X: cos, Y: sin}, station.Radius+250)
+		spawn.X = utilities.RoundTiesUp(spawn.X)
+		spawn.Y = utilities.RoundTiesUp(spawn.Y)
+		ship := objects.CreatePlayerShip(s.World, objects.Properties{PlayerID: &id, Position: spawn})
+		// Every allowed future tick has its own slot; consumed slots reuse storage.
+		p = &playerRecord{sectorID: s.currentSector, needsLoad: true, inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), lastInputAt: s.now(), playerID: id, binaryReplication: NewBinaryReplicationManager(s.World.Specification), ship: ship, shipID: ship.ID}
+		now := s.now()
+		p.profile = persistence.Player{ID: token, Role: persistence.RoleUser, FirstJoinedAt: now, LastSeenAt: now, UnlockedPaints: persistence.DefaultPaints, Credits: s.World.Specification.StartingCredits}
+		s.players.Set(token, p)
+	}
+
+	if p.socket != nil {
+		previous := p.socket
+		s.Disconnect(previous)
+		previous.CloseWith(4001, "Session opened elsewhere")
+	}
+
+	// The authenticated ship stays outside simulation until Play.
+	s.World.Entities.Delete(p.shipID)
+	p.hiddenShip = !p.ship.Dead
+	p.socket = socket
+	p.profilePending = false
+
+	if p.profile.DisplayName != "" {
+		p.ship.Name = p.profile.DisplayName
+	}
+
+	p.playedAt = time.Time{}
+	s.playersBySocket[socket] = p
+	p.snapshotSequence = 0
+	p.dockSequence = 0
+	p.sentDockSequence = 0
+	p.dockIDs = map[int64]dockAlias{}
+	p.pendingSnapshots = nil
+	p.snapshotWindow = 2
+	p.needsLoad = true
+	p.lastInputAt = s.now()
+	p.disconnectedAt = nil
+	p.clearInputs()
+
+	p.lastInput = protocol.Input{
+		HornDrill: p.ship.ModuleActive("hornDrill"), CargoHatch: p.ship.ModuleActive("cargoHatch"),
+		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"), PlasmaActive: p.ship.ModuleActive("plasmaAccelerator"), AutogunActive: p.ship.ModuleActive("autogun") || p.ship.ModuleActive("cannonSm"),
+	}
+
+	p.lastSequence = 0
+	p.hasInputLead = false
+	roundSpawn(p.ship)
+	s.savePlayer(p)
+	s.flushChanges()
+	p.welcomePending = true
+
+	if message.Type == "hello" {
+		s.play(p)
+		return
+	}
+
+	s.sendSnapshot(p, nil, nil)
+}
+
+func (s *GameSession) play(p *playerRecord) {
+	if s.World.Players.Has(p.playerID) {
+		return
+	}
+
+	if p.hiddenShip {
+		simulation.AddEntity(s.World, p.ship.Self)
+		p.hiddenShip = false
+	}
+
+	simulation.AddPlayer(s.World, simulation.Player{ID: p.playerID, ShipID: p.shipID, Credits: &p.profile.Credits})
+	p.playedAt = s.now()
+	s.regions.Sync(s.World, s.positions())
+	s.sendSnapshot(p, nil, nil)
+}
+
+func (s *GameSession) sendWelcome(p *playerRecord) {
+	message := protocol.ServerControl{Type: "welcome", PlayerID: uint64(p.playerID), ShipID: uint64(p.shipID), ServerTick: s.World.Tick, PlayerToken: p.profile.ID, WorldSeed: s.worldSeed, Spawn: specs.Vector{X: p.ship.Position.X, Y: p.ship.Position.Y}}
+
+	mask := p.profile.UnlockedPaints
+	message.UnlockedPaints = &mask
+	message.Credits = &p.profile.Credits
+	message.DisplayName = &p.profile.DisplayName
+
+	for _, sector := range s.sectorMap.Sectors {
+		if sector.ID == p.sectorID {
+			message.SectorName = &sector.Name
+			break
+		}
+	}
+
+	s.sendControl(p.socket, message)
+}
+
+func (s *GameSession) respawn(p *playerRecord) {
+	if s.World.Entities.Has(p.shipID) && (p.ship.Engine() != nil && p.ship.Fuel > 0 || p.ship.DockedTo != nil && *p.ship.DockedTo != 0 || p.ship.Launching != 0) {
+		return
+	}
+
+	nearest := s.nearestStation(p.ship.Position)
+
+	if nearest.ID == 0 {
+		s.relocatePlayer(p, s.World.Specification.StartingSectorID, sectorArrival{})
+		defer s.useSector(p.sectorID)()
+		nearest = s.nearestStation(Vec.Vector{})
+	}
+
+	s.regions.Sync(s.World, append(s.positions(), nearest.Position))
+	station, ok := s.World.Entities.Get(s.regions.idOffset + int64(nearest.ID))
+
+	if !ok || station.Base().Kind != "station" {
+		return
+	}
+
+	p.ship.Remove()
+	ship := objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: p.ship.DefinitionID, PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
+	id := station.Base().ID
+	ship.DockedTo = &id
+
+	if p.profile.DisplayName != "" {
+		ship.Name = p.profile.DisplayName
+	}
+
+	simulation.AddEntity(s.World, ship)
+	simulation.AddPlayer(s.World, simulation.Player{ID: p.playerID, ShipID: ship.ID, Credits: &p.profile.Credits})
+	p.ship = ship
+	p.shipID = ship.ID
+	p.clearInputs()
+	p.lastInput = protocol.Input{}
+	p.hasInputLead = false
+	s.savePlayer(p)
+	s.flushChanges()
+
+	if p.socket == nil {
+		return
+	}
+
+	p.respawnPending = true
+	p.needsLoad = true
+	s.sendSnapshot(p, nil, nil)
+}
+
+func (s *GameSession) input(message protocol.Control, p *playerRecord) {
+	lead := int64(message.Tick) - int64(s.World.Tick)
+	p.inputLead = lead
+	p.hasInputLead = true
+
+	if lead < 0 || lead > int64(s.World.Specification.Simulation.MaxPredictionTicks) {
+		if message.Sequence > p.lastSequence {
+			p.lastInput = message.Input
+			p.lastSequence = message.Sequence
+		}
+
+		return
+	}
+
+	slot := &p.inputs[message.Tick%uint64(len(p.inputs))]
+
+	if slot.tick != message.Tick {
+		slot.tick = message.Tick
+		slot.changes = slot.changes[:0]
+	}
+
+	last := p.lastSequence
+
+	if len(slot.changes) > 0 {
+		last = slot.changes[len(slot.changes)-1].Sequence
+	}
+
+	if message.Sequence > last {
+		slot.changes = append(slot.changes, message)
+	}
+}
+
+func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
+	p.progressPending = true
+	accepted := false
+
+	defer func() {
+		if !accepted {
+			p.needsLoad = true
+		}
+
+		s.sendSnapshot(p, nil, nil)
+	}()
+
+	if message.Sequence != 0 {
+		if message.Sequence <= p.dockSequence {
+			return
+		}
+
+		p.dockSequence = message.Sequence
+	}
+
+	if message.Dock.Action == "paint" && (message.Dock.Paint < 0 || message.Dock.Paint >= int64(len(s.World.Specification.PaintColors)) || p.profile.UnlockedPaints&(1<<uint(message.Dock.Paint)) == 0) {
+		return
+	}
+
+	entity, ok := s.World.Entities.Get(p.shipID)
+
+	if !ok {
+		return
+	}
+
+	owner, ok := entity.(interface{ ShipBase() *objects.Ship })
+
+	if !ok {
+		return
+	}
+	ship := owner.ShipBase()
+
+	if ship.DockedTo == nil {
+		return
+	}
+
+	// Requests sent before a module sale is acknowledged still use its ship ID.
+	// These aliases are private to this connection and expire when acknowledged.
+	originalIDs := slices.Clone(message.Dock.ObjectIDs)
+
+	resolveID := func(id int64) int64 {
+		for range len(p.dockIDs) {
+			alias, ok := p.dockIDs[id]
+
+			if !ok {
+				break
+			}
+
+			id = alias.id
+		}
+
+		return id
+	}
+
+	if message.Dock.Action == "buy" {
+		delete(p.dockIDs, message.Dock.ModuleID)
+	} else if message.Dock.HasModuleID {
+		message.Dock.ModuleID = resolveID(message.Dock.ModuleID)
+	}
+
+	for i, id := range message.Dock.ObjectIDs {
+		message.Dock.ObjectIDs[i] = resolveID(id)
+	}
+
+	soldModules := map[int64]simulation.Entity{}
+	soldDiamond := false
+
+	if message.Dock.Action == "sell" {
+		for _, object := range ship.Modules() {
+			if slices.Contains(message.Dock.ObjectIDs, object.Base().ID) {
+				soldModules[object.Base().ID] = object
+			}
+		}
+
+		for _, item := range ship.CargoContents {
+			if item.Base().Item && item.Base().Resource == 0 && slices.Contains(message.Dock.ObjectIDs, item.Base().ID) {
+				soldDiamond = true
+			}
+		}
+	}
+
+	if _, ok := ship.ApplyDockAction(message.Dock, &p.profile.Credits); ok {
+		accepted = true
+
+		for i, id := range message.Dock.ObjectIDs {
+			if object := soldModules[id]; object != nil {
+				alias := dockAlias{id: object.Base().ID, sequence: message.Sequence}
+				p.dockIDs[originalIDs[i]] = alias
+				p.dockIDs[id] = alias
+			}
+		}
+
+		if soldDiamond {
+			s.unlockPaint(p, 4)
+		}
+
+		s.savePlayer(p)
+		s.flushChanges()
+	}
+}

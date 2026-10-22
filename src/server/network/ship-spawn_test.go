@@ -270,16 +270,18 @@ func TestShipDeathWithCargoKeepsPlayersConnected(t *testing.T) {
 		t.Fatal("released world items must retain their identity")
 	}
 
+	previousSnapshots := p.snapshotSequence
+	previousObserverSnapshots := s.playersBySocket[observer].snapshotSequence
+
 	for range 60 {
 		for _, client := range []*benchmarkSocket{socket, observer} {
-			previous := client.sequence
-			s.Receive(protocol.Control{Type: "snapshotAck", Sequence: previous}, client)
+			client.acknowledge(s)
 		}
 
 		s.Tick(1)
 	}
 
-	if socket.sequence < 60 || observer.sequence < 60 {
+	if p.snapshotSequence != previousSnapshots+60 || s.playersBySocket[observer].snapshotSequence != previousObserverSnapshots+60 {
 		t.Fatal("both players must keep receiving snapshots after the death")
 	}
 

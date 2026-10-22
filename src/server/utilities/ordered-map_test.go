@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestOrderedMapReadValuesRetainsEarlierList(t *testing.T) {
+	m := NewOrderedMap[int, int]()
+	m.Set(1, 10)
+	m.Set(2, 20)
+	before := m.ReadValues()
+	m.Set(1, 11)
+	m.Delete(2)
+	m.Set(2, 22)
+	m.Set(3, 33)
+	after := m.ReadValues()
+
+	if !slices.Equal(before, []int{10, 20}) || !slices.Equal(after, []int{11, 22, 33}) {
+		t.Fatal("map mutation changed an earlier list or lost insertion order")
+	}
+
+	m.Clear()
+
+	if len(m.ReadValues()) != 0 || !slices.Equal(after, []int{11, 22, 33}) {
+		t.Fatal("clearing the map changed a retained list")
+	}
+}
+
 func TestOrderedMapMutationDuringIteration(t *testing.T) {
 	m := NewOrderedMap[int, int]()
 

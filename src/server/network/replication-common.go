@@ -254,9 +254,7 @@ func NewReplicationView(world *simulation.World) *ReplicationView {
 func (v *ReplicationView) Entities() []simulation.Entity {
 	if !v.prepared {
 		v.prepared = true
-		v.snapshotList = v.snapshotList[:0]
-
-		v.world.Entities.ForEach(func(e simulation.Entity, _ int64) { v.snapshotList = append(v.snapshotList, e) })
+		v.snapshotList = v.world.Entities.ReadValues()
 
 		count := len(v.snapshotList)
 
@@ -301,8 +299,7 @@ func (v *ReplicationView) Entities() []simulation.Entity {
 }
 
 func (v *ReplicationView) Reset() *ReplicationView {
-	clear(v.snapshotList)
-	v.snapshotList = v.snapshotList[:0]
+	v.snapshotList = nil
 	v.prepared = false
 	v.idsPrepared = false
 	return v

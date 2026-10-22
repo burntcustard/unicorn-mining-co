@@ -1,0 +1,15 @@
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+
+for (const variant of ['small-inline', 'no-pgo', 'v3', '386']) {
+  const label = `cpu-lowering-2026-10-22-${variant}`;
+  const text = execFileSync(process.execPath, [
+    'benchmarking/tools/go-cpu-paired.ts', label,
+    '/tmp/unicorn-lower-chain.test', `/tmp/unicorn-lower-${variant}.test`,
+  ], {
+    env: { ...process.env, PLAYERS: '16,32', WORKLOADS: 'spread,module', TICKS: '1200', REPETITIONS: '3', OUTCOME_COMPARISON: variant === 'v3' || variant === '386' ? 'report' : 'strict' },
+    encoding: 'utf8',
+  });
+  writeFileSync(`benchmarking/local/cpu-lowering-2026-10-22/${variant}.log`, text);
+  console.log(text);
+}
