@@ -1,0 +1,6 @@
+{
+  "Replace": {
+    "/home/burntcustard/Documents/unicorn-mining-co/src/server/network/game-session.go": "/tmp/unicorn-receipt-policies/margin2/game-session.go",
+    "/home/burntcustard/Documents/unicorn-mining-co/src/server/network/snapshot-cadence_test.go": "/tmp/unicorn-receipt-policies/margin2/snapshot-cadence_test.go"
+  }
+}

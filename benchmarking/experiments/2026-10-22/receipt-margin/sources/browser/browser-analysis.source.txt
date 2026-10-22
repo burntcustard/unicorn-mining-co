@@ -1,0 +1,70 @@
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+
+const distribution = (values: number[]) => {
+  const sorted = values.toSorted((a, b) => a - b);
+  const quantile = (fraction: number) =>
+    sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)] ?? null;
+
+  return {
+    count: sorted.length,
+    p50: quantile(0.5),
+    p95: quantile(0.95),
+    p99: quantile(0.99),
+    max: sorted.at(-1) ?? null,
+  };
+};
+
+for (const path of process.argv.slice(2)) {
+  const bytes = readFileSync(path);
+  const capture = JSON.parse(gunzipSync(bytes).toString());
+  const pilot = capture.results[0];
+  const fireTrials = (capture.trials || []).filter((trial: any) => trial.kind === 'fire');
+  const firstEligibleFrameOffsets = fireTrials.map((trial: any) => {
+    const edge = pilot.edges.find((edge: any) => edge.trialId === trial.id && edge.type === 'keydown');
+    const eligible = pilot.frames.findIndex((frame: any) => frame.renderAt >= edge.handledAt);
+    const frameIndex = pilot.frames.findIndex((frame: any) =>
+      frame.completedAt >= trial.edgeAt && frame.completedAt <= trial.endAt && (
+        frame.projectileDraws.some((draw: any) =>
+          draw.inView && draw.at >= trial.edgeAt && pilot.shots.some((shot: any) =>
+            shot.trialId === trial.id && shot.id === draw.id && shot.at >= trial.edgeAt && shot.at <= draw.at,
+          ),
+        ) || (frame.muzzleDraws || []).some((draw: any) =>
+          draw.trialId === trial.id && draw.createdAt >= trial.edgeAt && draw.at >= trial.edgeAt && draw.inView && draw.alpha > 0,
+        )
+      ),
+    );
+
+    return { id: trial.id, offset: frameIndex < 0 || eligible < 0 ? null : frameIndex - eligible };
+  });
+  const firstEligibleFrameHistogram: Record<string, number> = {};
+
+  for (const trial of firstEligibleFrameOffsets) {
+    const key = String(trial.offset);
+
+    firstEligibleFrameHistogram[key] = (firstEligibleFrameHistogram[key] || 0) + 1;
+  }
+
+  const analysis = {
+    path,
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    mode: capture.mode || capture.summary.mode,
+    headless: capture.headless ?? false,
+    oneWayDelayMs: capture.oneWayDelayMs ?? capture.summary.oneWayDelayMs,
+    delayModel: capture.delayModel ?? 'Native WebSocket delay in the existing Vite development proxy.',
+    summary: capture.summary,
+    frameTiming: capture.results.map((result: any) => ({
+      completed: distribution(result.frames.slice(1).map((frame: any, index: number) => frame.completedAt - result.frames[index].completedAt)),
+      raf: distribution(result.frames.slice(1).map((frame: any, index: number) => frame.at - result.frames[index].at)),
+      hiddenFrames: result.frames.filter((frame: any) => frame.hidden).length,
+    })),
+    trustedKeydowns: pilot.edges ? pilot.edges.filter((edge: any) => edge.type === 'keydown' && edge.trusted).length : null,
+    untrustedKeydowns: pilot.edges ? pilot.edges.filter((edge: any) => edge.type === 'keydown' && !edge.trusted).length : null,
+    firstEligibleFrameOffsets,
+    firstEligibleFrameHistogram,
+    firstEligibleMethod: 'The first actual render sample with renderAt >= trusted DOM handledAt is eligible. Feedback requires an in-viewport projectile draw matching this trial birth, or a nontransparent in-viewport muzzle draw from this trial. Completed frame time measures draw submission, not scanout.',
+  };
+
+  writeFileSync(path.replace(/\.json\.gz$/, '-analysis.json'), JSON.stringify(analysis, null, 2) + '\n');
+}

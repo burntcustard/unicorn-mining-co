@@ -15,6 +15,19 @@ scratch output under `benchmarking/local/`.
 
 ## Retained investigations
 
+The [October 22 receipt-margin comparison](../../docs/experiments/2026-10-22/receipt-margin.md)
+tests stateless margins 2–4 against sticky lag, retaining ordered-jitter and stall
+traces, local combat response, and real-TCP CPU measurements. All three margins
+were rejected on healthy jitter cadence; the production policy remains unchanged.
+
+The [October 22 combat input investigation](../../docs/experiments/2026-10-22/combat-input-latency.md)
+records trusted-key movement and firing feedback, preserved overdue input taps,
+causal fractional-shot presentation, and paired server CPU measurements.
+
+The [October 22 input acknowledgment investigation](../../docs/experiments/2026-10-22/input-acknowledgment.md)
+traces the live latency regression to expanded snapshot buffering and retains
+browser comparisons, bounded receipt-window changes, and timing-analysis evidence.
+
 The [October 22 transport investigation](../../docs/experiments/2026-10-22/go-server-cpu-transport.md)
 records a further 24.23% CPU saving in the complete two-core TCP matrix, bounded
 cumulative receipts, nonblocking sends, jitter/backpressure tests, and source snapshots.

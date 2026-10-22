@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-22T14:29:56.422Z",
+  "revision": "47ee8f14e2eceb4f440a523da98d8056215a5fd4",
+  "go": "go version go1.27.1 linux/amd64",
+  "node": "v26.12.1",
+  "browser": [
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+  ],
+  "services": {
+    "frontend": "npm run dev -- --strictPort",
+    "backend": "GOGC=200 GOMAXPROCS=2 GOFLAGS=-overlay=/tmp/unicorn-combat-docked-overlay.json DATABASE_PATH=/tmp/unicorn-combat-baseline/world.sqlite npm run dev:server"
+  },
+  "measurements": {
+    "browser": "INPUT_RESPONSE_HEADFUL=1 COMBAT_RESPONSE=1 node benchmarking/tools/input-response-browser.ts OUTPUT.json.gz DELAY chrome",
+    "delays": [
+      0,
+      50,
+      100
+    ],
+    "cpu": "sequential fixed physical cores, same default Go PGO settings, GOGC=200 GOMAXPROCS=2",
+    "endpoint": "ws://localhost:3000/game-socket"
+  }
+}

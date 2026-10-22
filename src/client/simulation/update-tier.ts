@@ -6,7 +6,7 @@ import { type PlayerInput } from '../protocol/input';
 import { type InputFrame } from '../protocol/input-frame';
 import { type SimulationEvent } from '../protocol/events';
 import { controlShip } from '../objects/control-ship';
-import { Ship } from '../objects/ship';
+import { Ship, type ShotObserver } from '../objects/ship';
 import { Craft } from '../objects/craft';
 import { simulationStep } from '../../specs/simulation';
 import { updateTiers } from '../../specs/update-tier';
@@ -41,6 +41,7 @@ export const updateEntities = ({
   events = [],
   dt = simulationStep,
   inputOffset = 0,
+  onShot,
 }: {
   world: SimulationWorld;
   entities?: GameObject[];
@@ -49,6 +50,7 @@ export const updateEntities = ({
   events?: SimulationEvent[];
   dt?: number;
   inputOffset?: number;
+  onShot?: ShotObserver;
 }) => {
   let schedule = schedules.get(world);
 
@@ -164,7 +166,15 @@ export const updateEntities = ({
           if (offset < elapsed || offset >= end) continue;
 
           if (offset > elapsed) {
-            entity.update(offset - elapsed);
+            if (onShot) {
+              entity.update(offset - elapsed, {
+                onShot,
+                offset: inputOffset + elapsed,
+              });
+            } else {
+              entity.update(offset - elapsed);
+            }
+
             entry.laserDuration += offset - elapsed;
           }
 
@@ -175,7 +185,11 @@ export const updateEntities = ({
         }
       }
 
-      entity.update(end - elapsed);
+      if (onShot && input && entity instanceof Ship) {
+        entity.update(end - elapsed, { onShot, offset: inputOffset + elapsed });
+      } else {
+        entity.update(end - elapsed);
+      }
 
       // Accumulate both movement substeps into one damage tick. Control
       // transitions above flush early to preserve the duration of short taps.

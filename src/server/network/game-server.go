@@ -47,6 +47,11 @@ func (s *GameServer) EnablePersistence(store *persistence.Store) error {
 	return s.session.EnablePersistence(store)
 }
 
+// LogStats enables one line per finished connection and a periodic summary.
+func (s *GameServer) LogStats(logf func(string, ...any)) {
+	s.session.statsLogf = logf
+}
+
 func (s *GameServer) Start(port int, assets string, production bool) (net.Listener, error) {
 	listener, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
 

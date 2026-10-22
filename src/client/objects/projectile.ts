@@ -15,6 +15,11 @@ import { Asteroid } from './asteroid';
 import { type SimulationEvent } from '../protocol/events';
 import { type SimulationWorld } from '../simulation/world';
 
+export type ProjectileHitObserver = (hit: {
+  projectile: Projectile;
+  collider: Collider;
+}) => void;
+
 export class Projectile extends GameObject {
   declare definitionId: WeaponId;
   sweepStart: Vec.Value;
@@ -100,7 +105,59 @@ export class Projectile extends GameObject {
     };
   }
 
-  resolveHits(events: SimulationEvent[], world: SimulationWorld, dt: number) {
+  /*
+   * Query a display-only trajectory against the same swept hit geometry. Only
+   * an isolated newborn shot killed by the full solve needs this second query.
+   */
+  impactFraction({
+    collider,
+    position,
+    endPosition,
+    dt,
+    velocity,
+    spin,
+  }: {
+    collider: Collider;
+    position: Vec.Value;
+    endPosition: Vec.Value;
+    dt: number;
+    velocity: Vec.Value;
+    spin: number;
+  }) {
+    const target = collider.shapeOutline?.length
+      ? new PolygonShape(
+          collider.shapeOutline.map(([x, y]) => Vec.create(x, y)),
+          collider.collisionMargin,
+        )
+      : new CircleShape(Vec.create(), collider.radius);
+    const a = new Sweep(),
+      b = new Sweep();
+
+    Vec.set(a.c0, position);
+    Vec.set(a.c, endPosition);
+    Vec.set(b.c, collider.position);
+    Vec.addScaled(collider.position, velocity, -dt, b.c0);
+    b.a = collider.rotation;
+    b.a0 = collider.rotation - spin * dt;
+    const result = { touching: false, t: 1 };
+
+    findTimeOfImpact(result, {
+      proxyA: new CircleShape(Vec.create(), this.radius),
+      proxyB: target,
+      sweepA: a,
+      sweepB: b,
+      tMax: 1,
+    });
+
+    return result.touching || result.t === 0 ? result.t : 1;
+  }
+
+  resolveHits(
+    events: SimulationEvent[],
+    world: SimulationWorld,
+    dt: number,
+    onProjectileHit?: ProjectileHitObserver,
+  ) {
     if (this.dead) return;
     let first: Collider | undefined;
     let fraction = 1;
@@ -171,6 +228,8 @@ export class Projectile extends GameObject {
     }
 
     if (!first) return;
+
+    onProjectileHit?.({ projectile: this, collider: first });
 
     if (first.physics === false) return this.remove();
 

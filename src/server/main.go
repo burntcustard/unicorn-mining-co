@@ -174,6 +174,7 @@ func main() {
 		}
 
 		next := network.NewGameServer(seed, catalog)
+		next.LogStats(log.Printf)
 
 		if err := next.EnablePersistence(store); err != nil {
 			return errors.Join(err, store.Close(context.Background()))

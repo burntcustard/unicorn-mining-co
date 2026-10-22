@@ -28,6 +28,20 @@ import { Item } from './item';
 import { paintColors } from '../../specs/colors';
 import { type player as localPlayer } from '../player';
 import { type CraftAction } from '../protocol/network';
+import { simulationStep } from '../../specs/simulation';
+import { interpolatePose } from '../utilities/interpolate-pose';
+
+export type PredictedShot = {
+  projectile: Projectile;
+  weapon: Weapon;
+  position: Vec.Value;
+  velocity: Vec.Value;
+  offset: number;
+  deadline: number;
+  health: number;
+};
+
+export type ShotObserver = (shot: PredictedShot) => void;
 
 type DockActionRequest =
   | Exclude<CraftAction, { action: 'buy' }>
@@ -655,7 +669,20 @@ export class Ship extends Craft {
     }
   }
 
-  fireWeapons(dt: number) {
+  fireWeapons(
+    dt: number,
+    preview?: {
+      onShot: ShotObserver;
+      offset: number;
+      startPose: {
+        position: Vec.Value;
+        velocity: Vec.Value;
+        rotation: number;
+        spin: number;
+      };
+      ready: Map<Weapon, boolean>;
+    },
+  ) {
     if (
       !this.world ||
       this.playerId === undefined ||
@@ -718,7 +745,7 @@ export class Ship extends Craft {
           rotatePoint(Vec.create(module.projectile.speed, 0), this.rotation),
         );
 
-        addEntity(
+        const projectile = addEntity(
           this.world,
           new Projectile(module.definitionId, {
             id: entityId(this.world),
@@ -728,6 +755,55 @@ export class Ship extends Craft {
             playerId: this.playerId,
           }),
         );
+
+        if (preview) {
+          // Normal mechanics still spawn at the segment endpoint. Only the
+          // isolated display trace can reveal an already-ready shot earlier.
+          // A deployment or charge completed inside this segment is not exposed
+          // until its end; power-dependent readiness is not guessed backward.
+          const birth = preview.ready.get(module)
+            ? Math.max(0, dt + module.fireCooldown)
+            : dt;
+          const fraction = dt ? Math.min(1, birth / dt) : 1;
+
+          const pose = interpolatePose({
+            from: preview.startPose,
+            to: this,
+            fraction,
+            dt,
+          });
+
+          preview.onShot({
+            projectile,
+            health: projectile.health,
+            weapon: module,
+            position: Vec.add(
+              pose.position,
+              rotatePoint(
+                Vec.subtract(position, this.position),
+                pose.rotation - this.rotation,
+              ),
+            ),
+            velocity: Vec.add(
+              Vec.addScaled(
+                preview.startPose.velocity,
+                Vec.subtract(this.velocity, preview.startPose.velocity),
+                fraction,
+              ),
+              rotatePoint(
+                Vec.subtract(velocity, this.velocity),
+                pose.rotation - this.rotation,
+              ),
+            ),
+            offset: preview.offset + birth,
+            deadline:
+              this.world.tick * simulationStep +
+              preview.offset +
+              dt +
+              module.fireCooldown +
+              module.fireInterval,
+          });
+        }
 
         if (module.recoil) {
           applyForce(
@@ -741,7 +817,31 @@ export class Ship extends Craft {
     }
   }
 
-  update(dt: number) {
+  update(dt: number, preview?: { onShot: ShotObserver; offset: number }) {
+    const shotState = preview && {
+      ...preview,
+      startPose: {
+        position: Vec.clone(this.position),
+        velocity: Vec.clone(this.velocity),
+        rotation: this.rotation,
+        spin: this.spin,
+      },
+      ready: new Map(
+        this.modules
+          .filter((module): module is Weapon => module instanceof Weapon)
+          .map((module) => [
+            module,
+            module.chargeCooldown <= 1e-9 &&
+              this.segments.some(
+                (segment) =>
+                  segment.module === module &&
+                  segment.active === 1 &&
+                  segment.activationProgress === 1,
+              ),
+          ]),
+      ),
+    };
+
     this.updatePower(dt);
 
     if (this.transitTime) {
@@ -807,6 +907,6 @@ export class Ship extends Craft {
 
     if (throttle !== this.fuelThrottle) this.fly(this.forward, this.turn);
     super.update(dt);
-    this.fireWeapons(dt);
+    this.fireWeapons(dt, shotState);
   }
 }

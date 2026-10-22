@@ -32,12 +32,14 @@ import WebSocket from 'ws';
 import { startBrowserGameplay } from './browser-gameplay.ts';
 import { firstMotionResponse } from './input-response-metrics.ts';
 import { inputResponseSetup } from './input-response-setup.ts';
+import { prepareCombatGameplay, runCombatResponse } from './combat-response.ts';
 
 // Start the standard dev server pair first, as described in codebase-workflow.
 const output = process.argv[2];
 const delay = Number(process.argv[3] || 0);
 const browserName = process.argv[4] || 'chrome';
 const headless = !process.env.INPUT_RESPONSE_HEADFUL;
+const combatResponse = process.env.COMBAT_RESPONSE === '1';
 
 assert(
   output,
@@ -238,7 +240,14 @@ try {
         }
 
         if (method === 'Input.dispatchKeyEvent') {
-          const value = params.key === 'ArrowLeft' ? '\uE012' : '\uE014';
+          const value =
+            params.key === 'ArrowLeft'
+              ? '\uE012'
+              : params.key === 'ArrowRight'
+                ? '\uE014'
+                : params.key === 'ArrowUp'
+                  ? '\uE013'
+                  : params.key;
 
           return browser('input.performActions', {
             context,
@@ -304,15 +313,40 @@ try {
 
   // Give the real app time to finish its intro and load every peer.
   await pause(7000);
-  const activeIds = await Promise.all(
-    clients.map((send: Send) => evaluate(send, startBrowserGameplay)),
-  );
-
-  await Promise.all(
-    clients.map((send: Send) =>
+  const active = await Promise.all(
+    clients.map((send: Send, index) =>
       evaluate(
         send,
-        `(async()=>{
+        combatResponse
+          ? `(${prepareCombatGameplay.toString()})(${JSON.stringify({ pilot: index === 0 })})`
+          : startBrowserGameplay,
+      ),
+    ),
+  );
+
+  if (combatResponse) {
+    const capture = await runCombatResponse({
+      clients,
+      evaluate,
+      active,
+      delay,
+      browserName,
+    });
+
+    await writeFile(output, gzipSync(JSON.stringify(capture, null, 2)));
+    console.log(JSON.stringify(capture.summary, null, 2));
+    assert(
+      capture.summary.errors.every((errors) => !errors.length),
+      'combat clients must remain free of browser errors',
+    );
+  } else {
+    const activeIds = active;
+
+    await Promise.all(
+      clients.map((send: Send) =>
+        evaluate(
+          send,
+          `(async()=>{
     const {network}=await window.loadedGameModule('network/network.ts');
     const {player}=await window.loadedGameModule('player.ts');
     if(player.ship.id!==network.shipId) throw Error('wrong game instance');
@@ -340,214 +374,219 @@ try {
     const record=()=>{if(latest&&capture.frames.at(-1)?.at!==latest.at) capture.frames.push({...latest,completedAt:timestamp(),hidden:document.hidden}); if(!capture.finished) requestAnimationFrame(record)};
     requestAnimationFrame(record);
   })()`,
+        ),
       ),
-    ),
-  );
-  const key = (type: string, key: string) =>
-    clients[0]('Input.dispatchKeyEvent', { type, key, code: key });
-
-  // Turn in place so both ships stay inside each other's interest range.
-  await pause(1000);
-
-  for (let i = 0; i < 16; i++) {
-    const direction = i % 2 ? 'ArrowRight' : 'ArrowLeft';
-    const previous = i % 2 ? 'ArrowLeft' : 'ArrowRight';
-
-    await key('keyUp', previous);
-    await key('keyDown', direction);
-
-    await pause(400 + (i % 3) * 73);
-  }
-
-  await key('keyUp', 'ArrowRight');
-  await pause(500);
-
-  for (let i = 0; i < clients.length; i++) {
-    const shot = await clients[i]('Page.captureScreenshot', { format: 'png' });
-
-    await writeFile(
-      join(tmpdir(), `unicorn-response-${i}.png`),
-      Buffer.from(shot.data, 'base64'),
     );
-  }
+    const key = (type: string, key: string) =>
+      clients[0]('Input.dispatchKeyEvent', { type, key, code: key });
 
-  const results = await Promise.all(
-    clients.map((send: Send) =>
-      evaluate(
-        send,
-        '(() => {window.motionCapture.finished=true; return {...window.motionCapture,errors:window.inputBenchmarkErrors,userAgent:navigator.userAgent,audioState:window.inputBenchmarkAudio?.state,audioSetup:window.inputBenchmarkAudioSetup}})()',
-      ),
-    ),
-  );
+    // Turn in place so both ships stay inside each other's interest range.
+    await pause(1000);
 
-  const edges: { at: number; direction: string }[] = results[0].edges;
+    for (let i = 0; i < 16; i++) {
+      const direction = i % 2 ? 'ArrowRight' : 'ArrowLeft';
+      const previous = i % 2 ? 'ArrowLeft' : 'ArrowRight';
 
-  assert.equal(
-    edges.length,
-    16,
-    'every dispatched keydown must reach the game',
-  );
-  const pilot = activeIds[0];
+      await key('keyUp', previous);
+      await key('keyDown', direction);
 
-  const series = results.map((r) =>
-    r.frames.flatMap((f: Frame) => {
-      const p = f.poses.find((p: Pose) => p.id === pilot);
+      await pause(400 + (i % 3) * 73);
+    }
 
-      return p ? [{ ...p, at: f.at, completedAt: f.completedAt }] : [];
-    }),
-  );
+    await key('keyUp', 'ArrowRight');
+    await pause(500);
 
-  const angle = (value: number) => Math.atan2(Math.sin(value), Math.cos(value));
-
-  const sample = (frames: Frame[], at: number) => {
-    const i = frames.findIndex((f: Frame) => f.at >= at);
-
-    if (i < 1) return;
-    const a = frames[i - 1],
-      b = frames[i];
-
-    return (
-      a.rotation +
-      (angle(b.rotation - a.rotation) * (at - a.at)) / (b.at - a.at)
-    );
-  };
-
-  const start = edges[1].at,
-    end = edges.at(-1).at;
-  const fits = [];
-
-  for (let lag = -350; lag <= 350; lag++) {
-    const errors = series[0]
-      .filter((f: Frame) => f.at >= start && f.at <= end)
-      .flatMap((f: Frame) => {
-        const remote = sample(series[1], f.at + lag);
-
-        return remote === undefined ? [] : [angle(remote - f.rotation) ** 2];
+    for (let i = 0; i < clients.length; i++) {
+      const shot = await clients[i]('Page.captureScreenshot', {
+        format: 'png',
       });
 
-    fits.push({
-      lagMs: lag,
-      rmsRadians: Math.sqrt(
-        errors.reduce((a: number, b: number) => a + b, 0) / errors.length,
-      ),
-    });
-  }
-
-  fits.sort((a, b) => a.rmsRadians - b.rmsRadians);
-
-  const reversals = edges.slice(1).map((edge) => {
-    const sign = edge.direction === 'ArrowRight' ? 1 : -1;
-
-    const responses = series.map((frames: Frame[]) => {
-      const i = frames.findIndex(
-        (f: Frame, i: number) =>
-          i > 0 &&
-          f.completedAt >= edge.at &&
-          f.completedAt < edge.at + 350 &&
-          [0, 1, 2].every(
-            (offset) =>
-              frames[i + offset] &&
-              sign *
-                angle(
-                  frames[i + offset].rotation - frames[i + offset - 1].rotation,
-                ) >
-                0.0001,
-          ),
+      await writeFile(
+        join(tmpdir(), `unicorn-response-${i}.png`),
+        Buffer.from(shot.data, 'base64'),
       );
+    }
 
-      return i < 0 ? null : frames[i].completedAt - edge.at;
+    const results = await Promise.all(
+      clients.map((send: Send) =>
+        evaluate(
+          send,
+          '(() => {window.motionCapture.finished=true; return {...window.motionCapture,errors:window.inputBenchmarkErrors,userAgent:navigator.userAgent,audioState:window.inputBenchmarkAudio?.state,audioSetup:window.inputBenchmarkAudioSetup}})()',
+        ),
+      ),
+    );
+
+    const edges: { at: number; direction: string }[] = results[0].edges;
+
+    assert.equal(
+      edges.length,
+      16,
+      'every dispatched keydown must reach the game',
+    );
+    const pilot = activeIds[0];
+
+    const series = results.map((r) =>
+      r.frames.flatMap((f: Frame) => {
+        const p = f.poses.find((p: Pose) => p.id === pilot);
+
+        return p ? [{ ...p, at: f.at, completedAt: f.completedAt }] : [];
+      }),
+    );
+
+    const angle = (value: number) =>
+      Math.atan2(Math.sin(value), Math.cos(value));
+
+    const sample = (frames: Frame[], at: number) => {
+      const i = frames.findIndex((f: Frame) => f.at >= at);
+
+      if (i < 1) return;
+      const a = frames[i - 1],
+        b = frames[i];
+
+      return (
+        a.rotation +
+        (angle(b.rotation - a.rotation) * (at - a.at)) / (b.at - a.at)
+      );
+    };
+
+    const start = edges[1].at,
+      end = edges.at(-1).at;
+    const fits = [];
+
+    for (let lag = -350; lag <= 350; lag++) {
+      const errors = series[0]
+        .filter((f: Frame) => f.at >= start && f.at <= end)
+        .flatMap((f: Frame) => {
+          const remote = sample(series[1], f.at + lag);
+
+          return remote === undefined ? [] : [angle(remote - f.rotation) ** 2];
+        });
+
+      fits.push({
+        lagMs: lag,
+        rmsRadians: Math.sqrt(
+          errors.reduce((a: number, b: number) => a + b, 0) / errors.length,
+        ),
+      });
+    }
+
+    fits.sort((a, b) => a.rmsRadians - b.rmsRadians);
+
+    const reversals = edges.slice(1).map((edge) => {
+      const sign = edge.direction === 'ArrowRight' ? 1 : -1;
+
+      const responses = series.map((frames: Frame[]) => {
+        const i = frames.findIndex(
+          (f: Frame, i: number) =>
+            i > 0 &&
+            f.completedAt >= edge.at &&
+            f.completedAt < edge.at + 350 &&
+            [0, 1, 2].every(
+              (offset) =>
+                frames[i + offset] &&
+                sign *
+                  angle(
+                    frames[i + offset].rotation -
+                      frames[i + offset - 1].rotation,
+                  ) >
+                  0.0001,
+            ),
+        );
+
+        return i < 0 ? null : frames[i].completedAt - edge.at;
+      });
+
+      return {
+        ...edge,
+        localMs: responses[0],
+        remoteMs: responses[1],
+        differenceMs:
+          responses[1] === null || responses[0] === null
+            ? null
+            : responses[1] - responses[0],
+      };
     });
 
-    return {
-      ...edge,
-      localMs: responses[0],
-      remoteMs: responses[1],
-      differenceMs:
-        responses[1] === null || responses[0] === null
-          ? null
-          : responses[1] - responses[0],
-    };
-  });
+    const firstResponseMs = series.map((frames) =>
+      firstMotionResponse({ frames, edgeAt: edges[0].at }),
+    );
 
-  const firstResponseMs = series.map((frames) =>
-    firstMotionResponse({ frames, edgeAt: edges[0].at }),
-  );
+    const frameTiming = series.map((frames: Frame[]) => {
+      const gaps = frames
+        .slice(1)
+        .map((f: Frame, i: number) => f.at - frames[i].at)
+        .sort((a: number, b: number) => a - b);
 
-  const frameTiming = series.map((frames: Frame[]) => {
-    const gaps = frames
-      .slice(1)
-      .map((f: Frame, i: number) => f.at - frames[i].at)
-      .sort((a: number, b: number) => a - b);
+      return {
+        p95Ms: gaps[Math.floor(gaps.length * 0.95)],
+        maxMs: Math.max(...gaps),
+      };
+    });
 
-    return {
-      p95Ms: gaps[Math.floor(gaps.length * 0.95)],
-      maxMs: Math.max(...gaps),
-    };
-  });
-
-  const summary = {
-    browser: browserName,
-    headless,
-    clients: 2,
-    oneWayDelayMs: delay,
-    transport: delay ? 'vite-delayed-websocket' : 'native-websocket',
-    firstInputSendMs:
-      results[0].messages.find(
-        (message: CdpReply) =>
-          message.type === 'input' && message.at >= edges[0].at,
-      ).at - edges[0].at,
-    firstResponseMs,
-    frameTiming,
-    fit: fits[0],
-    zeroLag: fits.find((f) => f.lagMs === 0),
-    reversals,
-    frames: results.map((r) => r.frames.length),
-    errors: results.map((r) => r.errors),
-    audioStates: results.map((r) => r.audioState),
-    audioSetupMs: results.map((r) =>
-      r.audioSetup.map(
-        (setup: { at: number; completedAt: number }) =>
-          setup.completedAt - setup.at,
-      ),
-    ),
-  };
-
-  await writeFile(
-    output,
-    gzipSync(JSON.stringify({ summary, edges, results }, null, 2)),
-  );
-  console.log(JSON.stringify(summary, null, 2));
-  assert(
-    results.every((result) => !result.errors.length),
-    'both clients must remain free of browser errors',
-  );
-  assert.equal(
-    results[0].audioState,
-    'running',
-    'trusted steering keys must unlock audio',
-  );
-  assert(
-    Math.abs(summary.fit.lagMs) < 50 + 2 * delay,
-    'remote steering must not add a playback buffer',
-  );
-  assert(
-    Math.abs(firstResponseMs[1] - firstResponseMs[0]) < 50 + 2 * delay,
-    'the first remote response must stay within network transit plus 50ms',
-  );
-  assert(
-    results.every((result) =>
-      result.frames
-        .filter((frame: Frame) => frame.at >= start && frame.at <= end)
-        .every((frame: Frame) =>
-          frame.poses.some((pose: Pose) => pose.id === pilot),
+    const summary = {
+      browser: browserName,
+      headless,
+      clients: 2,
+      oneWayDelayMs: delay,
+      transport: delay ? 'vite-delayed-websocket' : 'native-websocket',
+      firstInputSendMs:
+        results[0].messages.find(
+          (message: CdpReply) =>
+            message.type === 'input' && message.at >= edges[0].at,
+        ).at - edges[0].at,
+      firstResponseMs,
+      frameTiming,
+      fit: fits[0],
+      zeroLag: fits.find((f) => f.lagMs === 0),
+      reversals,
+      frames: results.map((r) => r.frames.length),
+      errors: results.map((r) => r.errors),
+      audioStates: results.map((r) => r.audioState),
+      audioSetupMs: results.map((r) =>
+        r.audioSetup.map(
+          (setup: { at: number; completedAt: number }) =>
+            setup.completedAt - setup.at,
         ),
-    ),
-    'both clients must retain the piloted ship throughout the steering sequence',
-  );
-  assert(
-    series.every((s) => s.length > 300),
-    'both real renderers must see the piloted ship',
-  );
+      ),
+    };
+
+    await writeFile(
+      output,
+      gzipSync(JSON.stringify({ summary, edges, results }, null, 2)),
+    );
+    console.log(JSON.stringify(summary, null, 2));
+    assert(
+      results.every((result) => !result.errors.length),
+      'both clients must remain free of browser errors',
+    );
+    assert.equal(
+      results[0].audioState,
+      'running',
+      'trusted steering keys must unlock audio',
+    );
+    assert(
+      Math.abs(summary.fit.lagMs) < 50 + 2 * delay,
+      'remote steering must not add a playback buffer',
+    );
+    assert(
+      Math.abs(firstResponseMs[1] - firstResponseMs[0]) < 50 + 2 * delay,
+      'the first remote response must stay within network transit plus 50ms',
+    );
+    assert(
+      results.every((result) =>
+        result.frames
+          .filter((frame: Frame) => frame.at >= start && frame.at <= end)
+          .every((frame: Frame) =>
+            frame.poses.some((pose: Pose) => pose.id === pilot),
+          ),
+      ),
+      'both clients must retain the piloted ship throughout the steering sequence',
+    );
+    assert(
+      series.every((s) => s.length > 300),
+      'both real renderers must see the piloted ship',
+    );
+  }
 } finally {
   await Promise.allSettled(
     clients.map((send) =>

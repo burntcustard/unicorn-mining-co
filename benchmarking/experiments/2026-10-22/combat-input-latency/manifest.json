@@ -1,0 +1,400 @@
+{
+  "format": 1,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 5414,
+      "sha256": "7a5f889fed7ddd8ee6afe0670bf05e0233d54aa09901253c2194783971f62194"
+    },
+    {
+      "path": "results/browser-summary.json",
+      "bytes": 55671,
+      "sha256": "1490b3fb803acb78614e47501a924f52ef47a981f6fcd375b5af7a4e325a0b71"
+    },
+    {
+      "path": "results/build-before.log",
+      "bytes": 1579,
+      "sha256": "f4c2291388682f9f6d6d0b157cdaa218e5eb15576b59439128a0a887f96c7860"
+    },
+    {
+      "path": "results/build-final.log",
+      "bytes": 1579,
+      "sha256": "f21e933ffe3c939f7088c4831501a4837b4e707601fb98016665ac448cc5f04e"
+    },
+    {
+      "path": "results/causal-birth-before.log",
+      "bytes": 676,
+      "sha256": "cc0cce0be1c3e1782701e568c9cf2c39edae6ad86957f63ff7681abfadb672a4"
+    },
+    {
+      "path": "results/causal-impact-before.log",
+      "bytes": 1468,
+      "sha256": "310f3afcde2a6b9f0ebb1a1e30b39d5fbe9cb3c2fb1807192414b9ac61c57572"
+    },
+    {
+      "path": "results/combat-cpu-after.json.gz",
+      "bytes": 39612,
+      "sha256": "6272aa5de3c613855d732ce46dbfec1205657b91d8dbb2dd207d3815d2b65669"
+    },
+    {
+      "path": "results/combat-cpu-after.log",
+      "bytes": 279,
+      "sha256": "d5c76b801b9d346676e329ed40757cd7960d1b96b830f6a82230ebf3ebd9ceea"
+    },
+    {
+      "path": "results/combat-cpu-before.json.gz",
+      "bytes": 39595,
+      "sha256": "e07ec844be4e314e357a282c0ef291982e76369e65665a8582c8d8446fc993a0"
+    },
+    {
+      "path": "results/combat-cpu-before.log",
+      "bytes": 233,
+      "sha256": "c0c641d2339eeeea3cd1b2a8a3e376687eb10adec3838d06832748103236c367"
+    },
+    {
+      "path": "results/combat-cpu-late-after.json.gz",
+      "bytes": 30728,
+      "sha256": "132258316bba3bf9c9fc382b7ba84203c224a6b755f257431713d89d8fb5feff"
+    },
+    {
+      "path": "results/combat-cpu-late-after.log",
+      "bytes": 203,
+      "sha256": "8d5be0b17b8c12ac4b11ea4f09d3d6d88b23516f205a307e5eedf94fae2b4cb9"
+    },
+    {
+      "path": "results/combat-cpu-late-before.json.gz",
+      "bytes": 30716,
+      "sha256": "23a874713ee78300d64ace946bff8f06c2ca1ecf2b8ec8426fe6d1fdfccb1e0c"
+    },
+    {
+      "path": "results/combat-cpu-late-before.log",
+      "bytes": 173,
+      "sha256": "20b4a05663b0d2a3e018af21a96e43df8d9633be7cb1e80bb55f15473015a749"
+    },
+    {
+      "path": "results/combat-cpu-late16-after.json.gz",
+      "bytes": 30978,
+      "sha256": "2d5ec003f33ad734a6038d42c18d48af31441ded186e7c714761879d4cb0b9e4"
+    },
+    {
+      "path": "results/combat-cpu-late16-after.log",
+      "bytes": 205,
+      "sha256": "4295eedf59f1c2db241f7e2bb04f28a972d9b88628c96caaa2e0e01ab65164df"
+    },
+    {
+      "path": "results/combat-cpu-late16-before.json.gz",
+      "bytes": 31322,
+      "sha256": "e78cd50c33bea7b46009a935b42dfa32b94aef8f332157a343919a863a5cf442"
+    },
+    {
+      "path": "results/combat-cpu-late16-before.log",
+      "bytes": 175,
+      "sha256": "f2185fb5f36bd81ca47772dadd5a4a80e90c917843933f2abe982535d6341775"
+    },
+    {
+      "path": "results/combat-input-authority.json.gz",
+      "bytes": 7674,
+      "sha256": "89b421e6c0771aa0044df71d96533a6afdb4907bdd344160210a053393c2ec3d"
+    },
+    {
+      "path": "results/combat-input-authority.log",
+      "bytes": 673,
+      "sha256": "4da964cfa65d87f0738a4a5d05709262bd17ed8da2fcb850fbd548895a9f245a"
+    },
+    {
+      "path": "results/combat-response-final-headful-after.json.gz",
+      "bytes": 447808,
+      "sha256": "116f3589059dca3737734ca0d123bff97a16dabfb3b5c5d58af51660bf40e131"
+    },
+    {
+      "path": "results/combat-response-final-headful-after.log",
+      "bytes": 4262,
+      "sha256": "27e5a5bc9b9170637742b88549386616fa0208b48f98e80379fcbe71dbc97c34"
+    },
+    {
+      "path": "results/combat-response-final-headful-before.json.gz",
+      "bytes": 457181,
+      "sha256": "20b39b6a0a7e857da80aad433b7461807bdfcc77dac4a98d004dd19cb32f061d"
+    },
+    {
+      "path": "results/combat-response-final-headful-before.log",
+      "bytes": 4270,
+      "sha256": "1d134295071a6ddb32103a75e36f001e67d28252c24c686427025a4fedd3d713"
+    },
+    {
+      "path": "results/combat-response-final-headful-delay100.json.gz",
+      "bytes": 254513,
+      "sha256": "2fce9bbb3e000d1e83141f2f79160530eca2268978ed07699b7068ed21ea0c85"
+    },
+    {
+      "path": "results/combat-response-final-headful-delay100.log",
+      "bytes": 4284,
+      "sha256": "deef3ee0dcd114f051f9bc005a886fd67ed15383de3fac77829ce7dc9e137722"
+    },
+    {
+      "path": "results/combat-response-final-headful-delay50.json.gz",
+      "bytes": 365684,
+      "sha256": "0d10a6e8738bae1ff28b5e2db97d433d54c5822e7b00602134ff5b045e7b5545"
+    },
+    {
+      "path": "results/combat-response-final-headful-delay50.log",
+      "bytes": 4320,
+      "sha256": "e4816a8242102e2cc72ec133f9e4e0f50f667799871b9c7299c53b4cd5a5a65f"
+    },
+    {
+      "path": "results/environment.json",
+      "bytes": 1005,
+      "sha256": "f799df9759863953aaa19d9e2ae401964f31b7c705e25c217aef4c262f6a3da3"
+    },
+    {
+      "path": "results/exploratory/combat-response-after-1.json.gz",
+      "bytes": 71267,
+      "sha256": "a9e2b24983634ac469605fca232f8e3e2cad9d048bffd14e16f4e3ec2a256e98"
+    },
+    {
+      "path": "results/exploratory/combat-response-after-2.json.gz",
+      "bytes": 82839,
+      "sha256": "d19f3d16c77f8a01179cfafe33cfd4cd992835b663b1438068d4f679fb1103b3"
+    },
+    {
+      "path": "results/exploratory/combat-response-after-headful.json.gz",
+      "bytes": 130137,
+      "sha256": "8fec9d3ac7c21907aa6ab1029df0bac563ce639e0b9ac0000dc3d4210bbfbbc1"
+    },
+    {
+      "path": "results/exploratory/combat-response-before.json.gz",
+      "bytes": 79824,
+      "sha256": "5e7a929a1a8498e732881b58f368b2802411503c143f3b534ea2c2dd5d6051a4"
+    },
+    {
+      "path": "results/go-format-final.log",
+      "bytes": 111,
+      "sha256": "37d8c1ee7396b85655459d2cb82665e487e72bf3a1c1735d6aabce94e92e2271"
+    },
+    {
+      "path": "results/lint-final.log",
+      "bytes": 209,
+      "sha256": "09a960a927c2a470b898806fca9716981e9d218c82620f4cb256d59d6ab2ea3d"
+    },
+    {
+      "path": "results/resource-sizes.json",
+      "bytes": 366,
+      "sha256": "73e07e46026df84449f45476571d2a48454a6ed7151400f016ba156338685df6"
+    },
+    {
+      "path": "results/server-notes.md",
+      "bytes": 8368,
+      "sha256": "703831a5eb4157d88f482e1c2a61a1adebea9b505ff6bdfd24fb8084d9f3f110"
+    },
+    {
+      "path": "results/tests-final.log",
+      "bytes": 5798,
+      "sha256": "28d169b9a588c269913d0a5605f964920f33ed6dd3e78fdaa5261519c3113bee"
+    },
+    {
+      "path": "results/transport-race-final.log",
+      "bytes": 4310,
+      "sha256": "6291b8b00f0437ad193ed2be48ea0a64d505d710623058aefb70e2f9156c46ae"
+    },
+    {
+      "path": "sources/before-game-session.go.txt",
+      "bytes": 25620,
+      "sha256": "214a2ce570a7f37bca77051ff04585cbb7b560d024761a961195b57799fd5e58"
+    },
+    {
+      "path": "sources/before-gameplay.ts.txt",
+      "bytes": 20052,
+      "sha256": "6cbf844369f865293c40804bd987b863b825bf154d21e6ea03b93275980062a2"
+    },
+    {
+      "path": "sources/before-network--network.ts.txt",
+      "bytes": 30087,
+      "sha256": "656d622d17733a8fb3a0f69e52a35565f935c11ce4570b98ef6e3bd07433720b"
+    },
+    {
+      "path": "sources/before-objects--modules--weapon.ts.txt",
+      "bytes": 8267,
+      "sha256": "d3528f40959974937f6c405832f9c714d360e5ffe0939c05eac55a901e95fba7"
+    },
+    {
+      "path": "sources/before-objects--projectile.ts.txt",
+      "bytes": 6956,
+      "sha256": "8595c6ac7c6e23d8f3ecc340c6c03df2ac85ba370691348a9ec16c75aeeab380"
+    },
+    {
+      "path": "sources/before-objects--ship.ts.txt",
+      "bytes": 22328,
+      "sha256": "c36e03d5c3caed99b30b62e12124ac18bd3cf93512e9f189c26a1d9743f71d68"
+    },
+    {
+      "path": "sources/before-prediction--frame-prediction.ts.txt",
+      "bytes": 6950,
+      "sha256": "7999a606a64ecf09ab06e301845533674e8b092fd08f29af1fb55f3de92a7b3f"
+    },
+    {
+      "path": "sources/before-prediction--prediction.ts.txt",
+      "bytes": 21720,
+      "sha256": "bb3d15f4e6056e7d66a38955ad7bb7362f3702ce7338220e9b707bd393cc1817"
+    },
+    {
+      "path": "sources/before-simulation--update-tier.ts.txt",
+      "bytes": 5884,
+      "sha256": "37bb77fd99c34ee0ae8a0c4d4c01db43cdf4ab42b47fbb8ed95ac37579f361be"
+    },
+    {
+      "path": "sources/before-simulation--update-world.ts.txt",
+      "bytes": 4051,
+      "sha256": "d9e92611fd8fc8a3b4ccea22e28ce0c328010b05541dd21939be5ac52fcc372e"
+    },
+    {
+      "path": "sources/before-snapshot-cadence_test.go.txt",
+      "bytes": 13939,
+      "sha256": "a89fd5777fe057a245631ab24dbbb18db4bdccc47171b9ef75d83b0e6c64a8c8"
+    },
+    {
+      "path": "sources/before-vite.config.ts.txt",
+      "bytes": 814,
+      "sha256": "281b01cd668602be4f6a1dc7918b59c43a3f1ccba1776b18e348c91695d9e89c"
+    },
+    {
+      "path": "sources/browser-docked-game-session.go.txt",
+      "bytes": 27555,
+      "sha256": "fba6bfe47d18b2fc340246ba4da8259d83ab398154b43d8fd71fa5bb7030ae67"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--combat-fixture.ts.txt",
+      "bytes": 1463,
+      "sha256": "928319c2e258f54d7eb6c4c275246d8499912a647cfba5e46f99e6f0a8afb81e"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--combat-response.ts.txt",
+      "bytes": 28264,
+      "sha256": "26daf1c90ceef8f7d3f2ce17cba865044be4e7563036d41f99fb7d2c49b7a491"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--go-cpu-environment.ts.txt",
+      "bytes": 1067,
+      "sha256": "374be4804de4bda4ea113feab5ba8236fe02dedfb2a6f949621aba024e71d2bf"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--go-cpu.ts.txt",
+      "bytes": 3606,
+      "sha256": "65890d5742159ed09462b7a71b79a85caf98a67b4b54008676756b18a78f2e26"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--go-transport-check.ts.txt",
+      "bytes": 7632,
+      "sha256": "bc42a7b56e9879da6d3ab7ecb5fdbd18b95193494d8926000ac27e50cf6d2090"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--input-authority.ts.txt",
+      "bytes": 8460,
+      "sha256": "bdf976eae5f5f5cf70364d5e2f852544c4cc6286577efd4303f1d7d626194ab0"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--input-response-browser.ts.txt",
+      "bytes": 19153,
+      "sha256": "7d8bfa353bf3ec602db8a82bfd25a7ea6684c2739590ee2a7c2ee81f65e9aba9"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--input-response-metrics.ts.txt",
+      "bytes": 4672,
+      "sha256": "d2b4e6319100829efbbc2e94d8b5313c889351dba22c6909b5c8ced9a6b8b4ef"
+    },
+    {
+      "path": "sources/final-benchmarking--tools--input-response-setup.ts.txt",
+      "bytes": 1284,
+      "sha256": "8728231cd13db0da866f368c7eea2f7e6268096eb8024777f62fa54ceee33579"
+    },
+    {
+      "path": "sources/final-plugins--property-names.ts.txt",
+      "bytes": 4525,
+      "sha256": "4704d3dddf81be68a5f4b18ef8895be40164267407e9c9e9d178f236b00413ee"
+    },
+    {
+      "path": "sources/final-src--client--gameplay.ts.txt",
+      "bytes": 20561,
+      "sha256": "1b2452816caf86712854c84d1e1b45de7a4bcfcbc2eac18cb9f0b5aa65e661ea"
+    },
+    {
+      "path": "sources/final-src--client--input--input.ts.txt",
+      "bytes": 6254,
+      "sha256": "e05fee4df65178858c4a203279a902525a56cbec4b95d72f6e143df5d80ff0ed"
+    },
+    {
+      "path": "sources/final-src--client--network--network.ts.txt",
+      "bytes": 30151,
+      "sha256": "070b26885bbe69789fd0329df671814b6b0769702d50d591dbb010203741d706"
+    },
+    {
+      "path": "sources/final-src--client--objects--modules--weapon.ts.txt",
+      "bytes": 8470,
+      "sha256": "6e44ca4a9ed5c42319164dee01b115fb6b04f37f706b7ee5cf870833da338651"
+    },
+    {
+      "path": "sources/final-src--client--objects--projectile.ts.txt",
+      "bytes": 8406,
+      "sha256": "447a694599211399aca23e39b20e542133e8f47bb39171df6ea84507fe6ca5fc"
+    },
+    {
+      "path": "sources/final-src--client--objects--ship.ts.txt",
+      "bytes": 25365,
+      "sha256": "e10a780f22ba9b00ca62d71e6abc7a1a422d1d1116db7d34c202218e4642d41c"
+    },
+    {
+      "path": "sources/final-src--client--prediction--frame-prediction.ts.txt",
+      "bytes": 10817,
+      "sha256": "24d9e393f791a91f26d94ec0d4849dcbb2f0186327298fdedddc76093bbcc51c"
+    },
+    {
+      "path": "sources/final-src--client--prediction--prediction.ts.txt",
+      "bytes": 21770,
+      "sha256": "d091e9adbfd2d3b00b896e074fefb095f1481171dbbb8fda4497a4a775febc96"
+    },
+    {
+      "path": "sources/final-src--client--simulation--update-tier.ts.txt",
+      "bytes": 6300,
+      "sha256": "0a49cbed86d72058dbc47cfd7e46adad580b2dd877b2c7af14c56570a95785dd"
+    },
+    {
+      "path": "sources/final-src--client--simulation--update-world.ts.txt",
+      "bytes": 4240,
+      "sha256": "211d456ba54355088285f0c6da3ae86aff2036389409a28611977c5eae1ed530"
+    },
+    {
+      "path": "sources/final-src--server--network--game-session.go.txt",
+      "bytes": 27108,
+      "sha256": "c6bb43299cc13dc2c677e5b8bfb4317c5d719d9171478dbe66f76a45e7cdb0d3"
+    },
+    {
+      "path": "sources/final-src--server--network--input-late_test.go.txt",
+      "bytes": 11477,
+      "sha256": "f97b79dd0040c462242ecced3ec85e73a975f9b0a534076a52948575577792cb"
+    },
+    {
+      "path": "sources/final-src--server--network--session-benchmark_test.go.txt",
+      "bytes": 10743,
+      "sha256": "1581ba77af6cd32ae97521f0799345f5efde50a9eebee283d99e9a4f14c9cd6a"
+    },
+    {
+      "path": "sources/final-src--server--network--snapshot-cadence_test.go.txt",
+      "bytes": 13939,
+      "sha256": "a89fd5777fe057a245631ab24dbbb18db4bdccc47171b9ef75d83b0e6c64a8c8"
+    },
+    {
+      "path": "sources/final-tests--client--fractional-shots.test.ts.txt",
+      "bytes": 1420,
+      "sha256": "1d3d9261772e96cefb01b337a7eb23af59a5e0ee54f2f76f457449fade5455dc"
+    },
+    {
+      "path": "sources/final-tests--support--fractional-shots.ts.txt",
+      "bytes": 13534,
+      "sha256": "5afb2958692b9fb859e2677c3375540fc31c2a8d39e0ca6f6a841eb43747914b"
+    },
+    {
+      "path": "sources/summarize-final-combat.ts.txt",
+      "bytes": 2314,
+      "sha256": "78787c327615c0e3d5ecc737b0078c00d61cca17ca5d11e2750dc69aab25c757"
+    }
+  ]
+}

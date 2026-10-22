@@ -9,6 +9,7 @@ export const liveSuite = {
 export async function runLiveSuite({
   runCase,
   cooldown,
+  suite = liveSuite,
 }: {
   runCase: (options: { players: number; workload: string }) => Promise<void>;
   cooldown: (options: {
@@ -16,17 +17,18 @@ export async function runLiveSuite({
     previousPlayers: number;
     nextPlayers: number;
   }) => Promise<void>;
+  suite?: typeof liveSuite;
 }) {
-  for (const [index, players] of liveSuite.counts.entries()) {
+  for (const [index, players] of suite.counts.entries()) {
     if (index > 0) {
       await cooldown({
-        seconds: liveSuite.cooldownBetweenCounts,
-        previousPlayers: liveSuite.counts[index - 1],
+        seconds: suite.cooldownBetweenCounts,
+        previousPlayers: suite.counts[index - 1],
         nextPlayers: players,
       });
     }
 
-    for (const workload of liveSuite.workloads) {
+    for (const workload of suite.workloads) {
       await runCase({ players, workload });
     }
   }

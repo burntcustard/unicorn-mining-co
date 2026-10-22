@@ -255,6 +255,16 @@ headless Chrome uses a software graphics backend on this device.
   3000 and its normal proxy; benchmark mode enables the rendering switches.
 - `live.ts`, `live-suite.ts`, `live-browser-probe.ts`, `live-report.ts`: deployed
   game measurements; see [live instructions](../live/README.md).
+- For a focused local production-client capture, set
+  `BENCH_URL=http://localhost:3000/ LOCAL_ACK_PLAYERS=32 LOCAL_ACK_WORKLOADS=module`
+  on `live.ts`. These selectors accept only existing suite counts/workloads on
+  HTTP loopback port 3000. Start the standard Go server and production preview
+  with its normal proxy first. Local captures do not append live results.
+- `live-ack-analysis.ts INPUT.json.gz[,INPUT.json.gz] OUTPUT.json.gz` joins
+  acknowledgments to their inputs and snapshots, counts delivery batches, and
+  records per-client and pooled distributions. See the
+  [acknowledgment investigation](../../docs/experiments/2026-10-22/input-acknowledgment.md)
+  for clock-model limitations and the retained local comparison.
 - `input-response-browser.ts`, `remote-browser.ts`, `stall-browser.ts`: client
   input, presentation and outage checks with local Go on 3001 and Vite on 3000.
   The input runner accepts `OUTPUT.json.gz DELAY_MS [chrome|firefox]` and uses
@@ -262,6 +272,36 @@ headless Chrome uses a software graphics backend on this device.
   `INPUT_RESPONSE_HEADFUL=1` for visible-window checks. It records DOM key time,
   completed-frame response, audio state, and browser errors; its latency limits
   remain unchanged. See the [input/startup report](../../docs/experiments/2026-10-18/input-startup-2026-10-18.md).
+- `COMBAT_RESPONSE=1` on `input-response-browser.ts` selects 20 settled steering
+  and 20 ready-autogun trials, recording actual projectile and muzzle-flash draws,
+  input sends, and authoritative acknowledgments separately. Use
+  `INPUT_RESPONSE_HEADFUL=1` for the desktop display. `combat-fixture.ts DIRECTORY`
+  generates the local docked-spawn Go compiler overlay needed for normal equipment
+  purchases; use a temporary database with the standard dev server pair. See the
+  [combat report and reproduction instructions](../../docs/experiments/2026-10-22/combat-input-latency.md).
+- `input-authority.ts LOCAL_WEBSOCKET_URL OUTPUT.json.gz` phase-sweeps current
+  versus next-tick controls and checks completed authoritative thrust. It measures
+  applied control and acknowledgment timing, separately from visual response.
+- `receipt-margin.ts` compares sticky receipt lag with stateless margins 2, 3,
+  and 4 using isolated Go compiler overlays. It measures ordered receipt jitter,
+  acknowledgment tails, snapshot gaps, receipt rates, and receipt-only stalls.
+  `RECEIPT_MARGIN_BASELINE` selects a directory containing a frozen sticky
+  `game-session.go` (default `src/server/network`);
+  `RECEIPT_MARGIN_DIRECTORY` selects output (default
+  `benchmarking/local/receipt-margin`); `--prepare` skips execution. Completed
+  sweeps retain rejected cases: inspect `healthyCadencePass`, not just exit status.
+  See the [margin comparison](../../docs/experiments/2026-10-22/receipt-margin.md)
+  for model limits and separate TCP CPU/browser captures.
+- Combat and stall captures record application receipt sends per client,
+  snapshot gap p95/p99/max, and cumulative input acknowledgment p95/p99 with
+  missing/pending counts. `snapshot-traffic-metrics.ts` shares that analysis.
+  `INPUT_RESPONSE_HEADFUL=1` also enables visible-window stall captures. Stall
+  output separates before/outage/recovery windows; its few input edges do not
+  establish a reliable tail percentile. The queued-outgoing flush precedes
+  resumed incoming processing to preserve application send order.
+- `SESSION_LATE_BURST=2` on `go-cpu.ts` exercises an overdue press/release pair;
+  `16` selects the heavier burst diagnostic. The stock ships are unarmed, so this
+  isolates control processing and subdivisions without adding projectile load.
 - `flight-resources.ts`: network resource observations.
 
 Follow [the local browser workflow](../../.agents/skills/codebase-workflow/SKILL.md)

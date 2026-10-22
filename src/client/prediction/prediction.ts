@@ -245,6 +245,10 @@ const applyEntity = ({
 
 export class PredictionManager {
   private frame = new FramePrediction();
+
+  get shots() {
+    return this.frame.shots;
+  }
   private history = new Map<number, SimulationWorldState>();
   private lastSent?: PlayerInput;
   private localInputs = new Map<number, InputFrame['changes']>();

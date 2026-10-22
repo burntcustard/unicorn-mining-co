@@ -1,0 +1,323 @@
+// Compare receipt policies against the same authoritative session and ordered
+// return path. These logical-tick results isolate flow control, not render time.
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+const directory = resolve(
+  process.env.RECEIPT_MARGIN_DIRECTORY || 'benchmarking/local/receipt-margin',
+);
+const baseline = resolve(
+  process.env.RECEIPT_MARGIN_BASELINE || 'src/server/network',
+);
+const original = readFileSync(join(baseline, 'game-session.go'), 'utf8');
+const policies = ['sticky', 'margin-2', 'margin-3', 'margin-4'];
+const generated = String.raw`package network
+
+import (
+ "encoding/json"
+ "fmt"
+ "math"
+ "os"
+ "slices"
+ "testing"
+ "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+ "github.com/burntcustard/unicorn-mining-co/src/server/specs"
+)
+
+type marginScenario struct {
+ name string
+ delays []uint64
+ healthy bool
+ stallStart, stallLength, stallPeriod uint64
+}
+
+type marginPhase struct {
+ ticks, snapshots, receipts, requests, missing, longestMissing, currentMissing int
+ delays, gaps []float64
+ intervals map[int]int
+}
+
+func marginSummary(values []float64) map[string]any {
+ slices.Sort(values)
+ percentile := func(p float64) float64 {
+  if len(values)==0 { return 0 }
+  return values[max(0,int(math.Ceil(p*float64(len(values))))-1)]
+ }
+ return map[string]any{"samples":len(values),"p50Ms":percentile(.5),"p95Ms":percentile(.95),"p99Ms":percentile(.99),"maxMs":percentile(1)}
+}
+
+func TestReceiptMarginSweep(t *testing.T) {
+ path:=os.Getenv("RECEIPT_MARGIN_RESULT")
+ if path=="" {t.Skip("invoked by receipt-margin.ts")}
+ catalog,err:=specs.Load();if err!=nil {t.Fatal(err)}
+ const warmup uint64=240
+ const measured uint64=1800
+ const drain uint64=240
+ spike:=[]uint64{8,8}
+ for range 20 {spike=append(spike,1)}
+ scenarios:=[]marginScenario{
+  {name:"fixed-1",delays:[]uint64{1},healthy:true},
+  {name:"fixed-2",delays:[]uint64{2},healthy:true},
+  {name:"fixed-6",delays:[]uint64{6},healthy:true},
+  {name:"fixed-8",delays:[]uint64{8},healthy:true},
+  {name:"fixed-18",delays:[]uint64{18}},
+  {name:"jitter-2-4-3-2",delays:[]uint64{2,4,3,2},healthy:true},
+  {name:"jitter-2-8-3-1",delays:[]uint64{2,8,3,1},healthy:true},
+  {name:"jitter-1-2-10-2",delays:[]uint64{1,2,10,2}},
+  {name:"learned-8-low-1-spikes",delays:spike,healthy:true},
+  {name:"stall-18",delays:[]uint64{2},stallStart:warmup+300,stallLength:18},
+  {name:"stall-60",delays:[]uint64{2},stallStart:warmup+300,stallLength:60},
+  {name:"repeated-stall-18",delays:[]uint64{2},stallStart:warmup+300,stallLength:18,stallPeriod:300},
+ }
+ wide:=[]uint64{2,8,3,1}
+ for shift:=1;shift<len(wide);shift++ {
+  rotated:=append(slices.Clone(wide[shift:]),wide[:shift]...)
+  scenarios=append(scenarios,marginScenario{name:fmt.Sprintf("jitter-2-8-3-1-phase-%d",shift),delays:rotated,healthy:true})
+ }
+ results:=[]any{}
+ for _,scenario:=range scenarios {
+  session:=NewGameSession(25,catalog)
+  socket:=&benchmarkSocket{}
+  session.Receive(protocol.Control{Type:"hello"},socket)
+  player:=session.playersBySocket[socket]
+  step:=session.World.Specification.Simulation.SimulationStep
+  milliseconds:=1000*step
+  phases:=map[string]*marginPhase{}
+  for _,name:=range []string{"steady","stall","recovery"} {phases[name]=&marginPhase{intervals:map[int]int{}}}
+  phaseAt:=func(tick uint64) string {
+   if scenario.stallLength==0 || tick<scenario.stallStart {return "steady"}
+   elapsed:=tick-scenario.stallStart
+   if scenario.stallPeriod!=0 {elapsed%=scenario.stallPeriod}
+   if elapsed<scenario.stallLength {return "stall"}
+   if elapsed<scenario.stallLength+90 {return "recovery"}
+   return "steady"
+  }
+  holdUntil:=func(tick uint64) uint64 {
+   if scenario.stallLength==0 || tick<scenario.stallStart {return tick}
+   elapsed:=tick-scenario.stallStart
+   start:=scenario.stallStart
+   if scenario.stallPeriod!=0 {start+=elapsed/scenario.stallPeriod*scenario.stallPeriod;elapsed%=scenario.stallPeriod}
+   if elapsed<scenario.stallLength {return start+scenario.stallLength}
+   return tick
+  }
+  type receipt struct{at,sequence uint64}
+  receipts:=[]receipt{}
+  requestIndex:=0
+  lastArrival:=uint64(0)
+  request:=func(sequence,tick uint64) {
+   delay:=scenario.delays[requestIndex%len(scenario.delays)]
+   requestIndex++
+   // Every receipt retains its original WebSocket send order. Equal arrivals
+   // are delivered separately, in order, before that world's next tick.
+   lastArrival=max(lastArrival,holdUntil(tick+delay))
+   receipts=append(receipts,receipt{lastArrival,sequence})
+  }
+  request(socket.sequence,0)
+  maxPending,controlErrors:=0,0
+  sequence,acked:=uint64(0),uint64(0)
+  lastSnapshot:=uint64(0)
+  allDelays,allGaps:=[]float64{},[]float64{}
+  history:=[]map[string]any{}
+  missingExamples:=[]any{}
+  snapshots,requests,returns,missing,longestMissing,currentMissing:=0,0,0,0,0,0
+  for tick:=uint64(0);tick<warmup+measured+drain;tick++ {
+   phase:=phases[phaseAt(tick)]
+   measuring:=tick>=warmup&&tick<warmup+measured
+   returned:=[]map[string]any{}
+   for len(receipts)>0&&receipts[0].at<=session.World.Tick {
+    lag:=int64(-1)
+    for _,snapshot:=range player.pendingSnapshots {if snapshot.sequence==receipts[0].sequence&&snapshot.tick>=0 {lag=int64(session.World.Tick)-snapshot.tick;break}}
+    returned=append(returned,map[string]any{"sequence":receipts[0].sequence,"lagTicks":lag})
+    session.Receive(protocol.Control{Type:"snapshotAck",Sequence:receipts[0].sequence},socket)
+    receipts=receipts[1:]
+    if measuring {returns++;phase.receipts++}
+   }
+   if tick<warmup+measured {
+    sequence++
+    session.Receive(protocol.Control{Type:"input",Tick:session.World.Tick,Sequence:sequence,Offset:step/4,Input:protocol.Input{Thrust:float64(sequence%2),Turn:float64(int(sequence%3)-1),Fire:sequence%2==1}},socket)
+   }
+   previous:=player.snapshotSequence
+   session.Tick(1)
+   if player.lastSequence!=sequence || player.lastInput.Thrust!=float64(sequence%2) || player.lastInput.Turn!=float64(int(sequence%3)-1) || player.lastInput.Fire!=(sequence%2==1) {controlErrors++}
+   maxPending=max(maxPending,len(player.pendingSnapshots))
+   if len(player.pendingSnapshots)>9 {t.Fatalf("%s: pending window exceeded nine",scenario.name)}
+   sent:=player.snapshotSequence!=previous
+   if sent {
+    if lastSnapshot!=0&&measuring {gap:=float64(session.World.Tick-lastSnapshot)*milliseconds;allGaps=append(allGaps,gap);phase.gaps=append(phase.gaps,gap)}
+    lastSnapshot=session.World.Tick
+    // Wire acknowledgments are cumulative; every continuous input edge is
+    // included once, including edges held behind receipt backpressure.
+    for acked<socket.inputSequence {
+     acked++
+     sentAt:=acked-1
+     if sentAt>=warmup&&sentAt<warmup+measured {
+      delay:=float64(session.World.Tick-sentAt)*milliseconds
+      allDelays=append(allDelays,delay)
+      phases[phaseAt(sentAt)].delays=append(phases[phaseAt(sentAt)].delays,delay)
+     }
+    }
+    if socket.sequence==player.snapshotSequence {
+     request(socket.sequence,session.World.Tick)
+     if measuring {requests++;phase.requests++}
+    }
+   }
+   if measuring {
+    phase.ticks++
+    phase.intervals[player.ackInterval]++
+    if sent {snapshots++;phase.snapshots++;currentMissing=0;phase.currentMissing=0} else {
+     missing++;phase.missing++;currentMissing++;phase.currentMissing++
+     longestMissing=max(longestMissing,currentMissing);phase.longestMissing=max(phase.longestMissing,phase.currentMissing)
+    }
+   }
+   history=append(history,map[string]any{"tick":tick,"snapshot":sent,"sequence":player.snapshotSequence,"requested":sent&&socket.sequence==player.snapshotSequence,"returned":returned,"pending":len(player.pendingSnapshots),"window":player.snapshotWindow,"ackInterval":player.ackInterval,"recoveryUntil":player.snapshotRecoveryUntil,"wireInputAck":socket.inputSequence})
+   if len(history)>16 {history=history[1:]}
+   if measuring&&!sent&&len(missingExamples)<3 {missingExamples=append(missingExamples,slices.Clone(history))}
+  }
+  if controlErrors!=0 {t.Fatalf("%s: %d physical control/sequence errors",scenario.name,controlErrors)}
+  if len(allDelays)!=int(measured) {t.Fatalf("%s: only %d/%d input edges acknowledged after drain",scenario.name,len(allDelays),measured)}
+  fullCadence:=snapshots==int(measured)&&longestMissing==0
+  phaseResults:=map[string]any{}
+  for name,p:=range phases {
+   seconds:=float64(p.ticks)*step
+   hz,receiptRate:=0.0,0.0
+   if seconds>0 {hz=float64(p.snapshots)/seconds;receiptRate=float64(p.receipts)/seconds}
+   phaseResults[name]=map[string]any{"ticks":p.ticks,"snapshots":p.snapshots,"snapshotHz":hz,"receiptsPerSecond":receiptRate,"receiptRequests":p.requests,"missingSnapshots":p.missing,"longestMissingTicks":p.longestMissing,"inputAck":marginSummary(p.delays),"snapshotGap":marginSummary(p.gaps),"ackIntervals":p.intervals}
+  }
+  result:=map[string]any{"scenario":scenario.name,"healthy":scenario.healthy,"healthyCadencePass":!scenario.healthy||fullCadence,"snapshots":snapshots,"snapshotHz":float64(snapshots)/(float64(measured)*step),"receiptRequests":requests,"receiptReturns":returns,"receiptsPerSecond":float64(returns)/(float64(measured)*step),"missingSnapshots":missing,"longestMissingTicks":longestMissing,"maxPending":maxPending,"physicalControlErrors":controlErrors,"inputAck":marginSummary(allDelays),"snapshotGap":marginSummary(allGaps),"phases":phaseResults,"finalWindow":player.snapshotWindow,"finalAckInterval":player.ackInterval,"missingExamples":missingExamples}
+  results=append(results,result)
+  fmt.Printf("%s: snapshots=%d/%d receipts=%d longestMissing=%d healthyPass=%v\n",scenario.name,snapshots,measured,returns,longestMissing,!scenario.healthy||fullCadence)
+ }
+ data,err:=json.MarshalIndent(map[string]any{"warmupTicks":warmup,"measuredTicks":measured,"drainTicks":drain,"clients":1,"tickRateHz":30,"model":"instant snapshot delivery; delayed ordered receipt return; request-indexed jitter; continuous authoritative inputs; not renderer or Internet latency","scenarios":results},"","  ")
+ if err!=nil {t.Fatal(err)}
+ if err:=os.WriteFile(path,data,0644);err!=nil {t.Fatal(err)}
+}
+`;
+
+mkdirSync(directory, { recursive: true });
+const testPath = join(directory, 'receipt_margin_sweep_test.go');
+const emptyPath = join(directory, 'empty_test.go');
+
+writeFileSync(testPath, generated);
+writeFileSync(emptyPath, 'package network\n');
+
+const manifest: Record<
+  string,
+  { source: string; overlay: string; executable: string; sha256: string }
+> = {};
+
+for (const policy of policies) {
+  const path = join(directory, policy);
+
+  mkdirSync(path, { recursive: true });
+  let source = original;
+
+  if (policy !== 'sticky') {
+    const margin = Number(policy.slice(-1));
+
+    source = source
+      .replace(/^\s*receiptLag\s+int\n/m, '\n')
+      .replace(/^\s*p\.receiptLag = 0\n/m, '\n')
+      .replace(
+        /\n\s*\/\/ Keep the longest observed receipt lag[^]*?player\.receiptLag = max\(player\.receiptLag, min\(8, int\(lag\)\)\)/,
+        '',
+      )
+      .replace(
+        'player.ackInterval = max(1, player.snapshotWindow-player.receiptLag-2)',
+        `receiptLag := 0\n\t\t\t\tif snapshot.tick >= 0 {\n\t\t\t\t\treceiptLag = max(0, int(int64(s.World.Tick)-snapshot.tick))\n\t\t\t\t}\n\t\t\t\tplayer.ackInterval = max(1, player.snapshotWindow-receiptLag-${margin})`,
+      );
+
+    if (/\.receiptLag/.test(source) || source === original) {
+      throw new Error(`incomplete ${policy} replacement`);
+    }
+  }
+
+  const sourcePath = join(path, 'game-session.go');
+  const overlay = join(path, 'overlay.json');
+  const executable = join(path, 'sweep.test');
+
+  writeFileSync(sourcePath, source);
+
+  writeFileSync(
+    overlay,
+    JSON.stringify({
+      Replace: {
+        [resolve('src/server/network/game-session.go')]: sourcePath,
+        [resolve('src/server/network/snapshot-cadence_test.go')]: emptyPath,
+        [resolve('src/server/network/receipt_margin_sweep_test.go')]: testPath,
+      },
+    }),
+  );
+
+  manifest[policy] = {
+    source: sourcePath,
+    overlay,
+    executable,
+    sha256: createHash('sha256').update(source).digest('hex'),
+  };
+}
+
+writeFileSync(
+  join(directory, 'manifest.json'),
+  JSON.stringify(manifest, null, 2),
+);
+console.log(`Policy sources and overlays: ${join(directory, 'manifest.json')}`);
+
+if (process.argv.includes('--prepare')) process.exit(0);
+
+const summaries = [];
+
+for (const policy of policies) {
+  const { overlay, executable } = manifest[policy];
+
+  execFileSync(
+    'go',
+    [
+      'test',
+      '-c',
+      '-overlay',
+      overlay,
+      '-o',
+      executable,
+      './src/server/network',
+    ],
+    {
+      env: { ...process.env, GOEXPERIMENT: 'simd', CGO_ENABLED: '0' },
+      stdio: 'inherit',
+    },
+  );
+
+  const resultPath = join(directory, policy, 'deterministic.json');
+
+  execFileSync(
+    executable,
+    ['-test.run=^TestReceiptMarginSweep$', '-test.count=1', '-test.v'],
+    {
+      env: { ...process.env, RECEIPT_MARGIN_RESULT: resultPath },
+      stdio: 'inherit',
+    },
+  );
+
+  const result = JSON.parse(readFileSync(resultPath, 'utf8'));
+
+  const failures = result.scenarios.filter(
+    (scenario: { healthyCadencePass: boolean }) => !scenario.healthyCadencePass,
+  );
+
+  summaries.push({
+    policy,
+    healthyCadencePass: failures.length === 0,
+    failedScenarios: failures.map(
+      (scenario: { scenario: string }) => scenario.scenario,
+    ),
+    ...manifest[policy],
+    resultPath,
+  });
+}
+
+writeFileSync(
+  join(directory, 'summary.json'),
+  JSON.stringify(summaries, null, 2),
+);
+console.log(JSON.stringify(summaries, null, 2));

@@ -1,0 +1,19 @@
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+const distribution=(values:number[])=>{const a=values.slice().sort((a,b)=>a-b);return{count:a.length,p50:a[Math.floor(a.length*.5)]??null,p95:a[Math.ceil(a.length*.95)-1]??null,max:a.at(-1)??null};};
+const output=[];
+for(const path of process.argv.slice(2)){
+const x=JSON.parse(gunzipSync(readFileSync(path)).toString());const pilot=x.results[0];
+const firings=x.trials.filter((t:any)=>t.kind==='fire').map((t:any)=>{
+const edge=pilot.edges.find((e:any)=>e.trialId===t.id&&e.type==='keydown');const frames=pilot.frames;
+const eligible=frames.findIndex((f:any)=>f.renderAt>=edge.handledAt);
+const projectiles=(f:any)=>f.projectileDraws.some((d:any)=>d.at>=t.edgeAt&&d.inView&&pilot.shots.some((s:any)=>s.trialId===t.id&&s.id===d.id&&s.at>=t.edgeAt&&s.at<=d.at));
+const muzzles=(f:any)=>(f.muzzleDraws||[]).some((d:any)=>d.at>=t.edgeAt&&d.createdAt>=t.edgeAt&&d.trialId===t.id&&d.inView&&d.alpha>0);
+const result:any={id:t.id,handledMs:t.handledMs,localFeedbackMs:t.localFeedbackMs,localProjectileMs:t.localMs,localMuzzleMs:t.localMuzzleMs,remoteFeedbackMs:t.remoteFeedbackMs,firstEligibleMs:eligible>=0?frames[eligible].completedAt-t.edgeAt:null};
+for(const [kind,predicate]of[['projectile',projectiles],['muzzle',muzzles],['feedback',(f:any)=>projectiles(f)||muzzles(f)]]as const){const i=frames.findIndex((f:any)=>f.completedAt>=t.edgeAt&&f.completedAt<=t.endAt&&predicate(f));result[kind+'FrameOffset']=i<0?null:i-eligible;}
+return result;
+});
+const histograms:any={};for(const key of ['projectileFrameOffset','muzzleFrameOffset','feedbackFrameOffset']){const h:any={};for(const t of firings){h[String(t[key])]=(h[String(t[key])]||0)+1;}histograms[key]=h;}
+output.push({path,summary:x.summary,frameTiming:x.results.map((r:any)=>({completed:distribution(r.frames.slice(1).map((f:any,i:number)=>f.completedAt-r.frames[i].completedAt)),raf:distribution(r.frames.slice(1).map((f:any,i:number)=>f.at-r.frames[i].at))})),trustedKeydowns:pilot.edges.filter((e:any)=>e.type==='keydown'&&e.trusted).length,untrustedKeydowns:pilot.edges.filter((e:any)=>e.type==='keydown'&&!e.trusted).length,firstEligibleHistograms:histograms,fireTrials:firings,userAgents:x.results.map((r:any)=>r.userAgent)});
+}
+console.log(JSON.stringify(output,null,2));

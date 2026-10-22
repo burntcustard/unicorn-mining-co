@@ -1,0 +1,7 @@
+4/convoy: 0.043472 ms CPU/tick (-3.2%)
+4/contact: 0.063014 ms CPU/tick (-5.2%)
+4/module: 0.131917 ms CPU/tick (-1.2%)
+32/convoy: 0.359991 ms CPU/tick (-0.5%)
+32/contact: 0.389540 ms CPU/tick (1.3%)
+32/module: 1.383903 ms CPU/tick (-1.6%)
+benchmarking/local/combat-cpu-after.json

@@ -1,0 +1,346 @@
+{
+  "mode": "network",
+  "oneWayDelayMs": 50,
+  "summary": [
+    {
+      "index": 0,
+      "frames": 480,
+      "missing": 0,
+      "freezes": 0,
+      "maxSpeed": 289.92608345960065,
+      "maxSpin": 3.0042308937072844,
+      "gaps": [],
+      "maxFrameMs": 16.699951171875,
+      "traffic": {
+        "start": 1792683009779.7,
+        "end": 1792683016406.1,
+        "durationMs": 6626.400146484375,
+        "snapshots": 149,
+        "snapshotsPerSecond": 22.485813821408247,
+        "requestedSnapshots": 82,
+        "receipts": 82,
+        "receiptsPerSecond": 12.374743176882392,
+        "snapshotGapMs": {
+          "count": 148,
+          "p50": 33.39990234375,
+          "p95": 67,
+          "p99": 100.39990234375,
+          "max": 1109.900146484375
+        },
+        "longestSnapshotGapMs": 1109.900146484375,
+        "longestSnapshotSilenceMs": 1109.900146484375,
+        "snapshotSilenceAtEndMs": 29.10009765625,
+        "receiptGapMs": {
+          "count": 81,
+          "p50": 33.900146484375,
+          "p95": 133.89990234375,
+          "p99": 1143.199951171875,
+          "max": 1143.199951171875
+        },
+        "inputs": 3,
+        "acknowledgedInputs": 3,
+        "missingInputAcknowledgments": 0,
+        "inputsPendingAtEnd": 0,
+        "inputAcknowledgmentMs": {
+          "count": 3,
+          "p50": 666.89990234375,
+          "p95": 968.199951171875,
+          "p99": 968.199951171875,
+          "max": 968.199951171875
+        },
+        "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+      },
+      "trafficPhases": {
+        "before": {
+          "start": 1792683009779.7,
+          "end": 1792683012798.1,
+          "durationMs": 3018.400146484375,
+          "snapshots": 87,
+          "snapshotsPerSecond": 28.823216199923532,
+          "requestedSnapshots": 23,
+          "receipts": 23,
+          "receiptsPerSecond": 7.619930719520014,
+          "snapshotGapMs": {
+            "count": 86,
+            "p50": 33.39990234375,
+            "p95": 34.39990234375,
+            "p99": 66.800048828125,
+            "max": 66.800048828125
+          },
+          "longestSnapshotGapMs": 66.800048828125,
+          "longestSnapshotSilenceMs": 70.400146484375,
+          "snapshotSilenceAtEndMs": 20.60009765625,
+          "receiptGapMs": {
+            "count": 22,
+            "p50": 132.7001953125,
+            "p95": 140.89990234375,
+            "p99": 167,
+            "max": 167
+          },
+          "inputs": 1,
+          "acknowledgedInputs": 1,
+          "missingInputAcknowledgments": 0,
+          "inputsPendingAtEnd": 0,
+          "inputAcknowledgmentMs": {
+            "count": 1,
+            "p50": 116.800048828125,
+            "p95": 116.800048828125,
+            "p99": 116.800048828125,
+            "max": 116.800048828125
+          },
+          "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+        },
+        "outage": {
+          "start": 1792683012798.1,
+          "end": 1792683013903.5,
+          "durationMs": 1105.39990234375,
+          "snapshots": 2,
+          "snapshotsPerSecond": 1.8092999608191147,
+          "requestedSnapshots": 1,
+          "receipts": 1,
+          "receiptsPerSecond": 0.9046499804095574,
+          "snapshotGapMs": {
+            "count": 2,
+            "p50": 32.60009765625,
+            "p95": 33.2998046875,
+            "p99": 33.2998046875,
+            "max": 33.2998046875
+          },
+          "longestSnapshotGapMs": 33.2998046875,
+          "longestSnapshotSilenceMs": 1060.10009765625,
+          "snapshotSilenceAtEndMs": 1060.10009765625,
+          "receiptGapMs": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "inputs": 2,
+          "acknowledgedInputs": 2,
+          "missingInputAcknowledgments": 0,
+          "inputsPendingAtEnd": 2,
+          "inputAcknowledgmentMs": {
+            "count": 2,
+            "p50": 666.89990234375,
+            "p95": 968.199951171875,
+            "p99": 968.199951171875,
+            "max": 968.199951171875
+          },
+          "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+        },
+        "recovery": {
+          "start": 1792683013903.5,
+          "end": 1792683016406.1,
+          "durationMs": 2502.60009765625,
+          "snapshots": 60,
+          "snapshotsPerSecond": 23.97506499587831,
+          "requestedSnapshots": 58,
+          "receipts": 58,
+          "receiptsPerSecond": 23.175896162682367,
+          "snapshotGapMs": {
+            "count": 60,
+            "p50": 33.5,
+            "p95": 100.300048828125,
+            "p99": 1109.900146484375,
+            "max": 1109.900146484375
+          },
+          "longestSnapshotGapMs": 1109.900146484375,
+          "longestSnapshotSilenceMs": 100.39990234375,
+          "snapshotSilenceAtEndMs": 29.10009765625,
+          "receiptGapMs": {
+            "count": 57,
+            "p50": 33.5,
+            "p95": 100.300048828125,
+            "p99": 100.400146484375,
+            "max": 100.400146484375
+          },
+          "inputs": 0,
+          "acknowledgedInputs": 0,
+          "missingInputAcknowledgments": 0,
+          "inputsPendingAtEnd": 0,
+          "inputAcknowledgmentMs": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+        }
+      },
+      "errors": [],
+      "closes": []
+    },
+    {
+      "index": 1,
+      "frames": 481,
+      "missing": 0,
+      "freezes": 0,
+      "maxSpeed": 272.0098390458471,
+      "maxSpin": 0.8401648086814176,
+      "gaps": [],
+      "maxFrameMs": 8.400146484375,
+      "traffic": {
+        "start": 1792683009782.5999,
+        "end": 1792683016405.7998,
+        "durationMs": 6623.199951171875,
+        "snapshots": 195,
+        "snapshotsPerSecond": 29.441961806618522,
+        "requestedSnapshots": 49,
+        "receipts": 49,
+        "receiptsPerSecond": 7.39823655653491,
+        "snapshotGapMs": {
+          "count": 194,
+          "p50": 33.39990234375,
+          "p95": 34.300048828125,
+          "p99": 67.099853515625,
+          "max": 67.2001953125
+        },
+        "longestSnapshotGapMs": 67.2001953125,
+        "longestSnapshotSilenceMs": 76.60009765625,
+        "snapshotSilenceAtEndMs": 28.89990234375,
+        "receiptGapMs": {
+          "count": 48,
+          "p50": 133.599853515625,
+          "p95": 133.900146484375,
+          "p99": 167.2001953125,
+          "max": 167.2001953125
+        },
+        "inputs": 1,
+        "acknowledgedInputs": 1,
+        "missingInputAcknowledgments": 0,
+        "inputsPendingAtEnd": 0,
+        "inputAcknowledgmentMs": {
+          "count": 1,
+          "p50": 127,
+          "p95": 127,
+          "p99": 127,
+          "max": 127
+        },
+        "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+      },
+      "trafficPhases": {
+        "before": {
+          "start": 1792683009782.5999,
+          "end": 1792683012798.1,
+          "durationMs": 3015.500244140625,
+          "snapshots": 87,
+          "snapshotsPerSecond": 28.850934490570328,
+          "requestedSnapshots": 22,
+          "receipts": 22,
+          "receiptsPerSecond": 7.295638606810887,
+          "snapshotGapMs": {
+            "count": 86,
+            "p50": 33.39990234375,
+            "p95": 34.199951171875,
+            "p99": 67.2001953125,
+            "max": 67.2001953125
+          },
+          "longestSnapshotGapMs": 67.2001953125,
+          "longestSnapshotSilenceMs": 76.60009765625,
+          "snapshotSilenceAtEndMs": 20.7001953125,
+          "receiptGapMs": {
+            "count": 21,
+            "p50": 133.599853515625,
+            "p95": 134.2998046875,
+            "p99": 167.2001953125,
+            "max": 167.2001953125
+          },
+          "inputs": 1,
+          "acknowledgedInputs": 1,
+          "missingInputAcknowledgments": 0,
+          "inputsPendingAtEnd": 0,
+          "inputAcknowledgmentMs": {
+            "count": 1,
+            "p50": 127,
+            "p95": 127,
+            "p99": 127,
+            "max": 127
+          },
+          "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+        },
+        "outage": {
+          "start": 1792683012798.1,
+          "end": 1792683013903.5,
+          "durationMs": 1105.39990234375,
+          "snapshots": 33,
+          "snapshotsPerSecond": 29.85344935351539,
+          "requestedSnapshots": 8,
+          "receipts": 8,
+          "receiptsPerSecond": 7.237199843276459,
+          "snapshotGapMs": {
+            "count": 33,
+            "p50": 33.300048828125,
+            "p95": 34.400146484375,
+            "p99": 37.699951171875,
+            "max": 37.699951171875
+          },
+          "longestSnapshotGapMs": 37.699951171875,
+          "longestSnapshotSilenceMs": 37.699951171875,
+          "snapshotSilenceAtEndMs": 26.60009765625,
+          "receiptGapMs": {
+            "count": 7,
+            "p50": 133.5,
+            "p95": 133.699951171875,
+            "p99": 133.699951171875,
+            "max": 133.699951171875
+          },
+          "inputs": 0,
+          "acknowledgedInputs": 0,
+          "missingInputAcknowledgments": 0,
+          "inputsPendingAtEnd": 0,
+          "inputAcknowledgmentMs": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+        },
+        "recovery": {
+          "start": 1792683013903.5,
+          "end": 1792683016405.7998,
+          "durationMs": 2502.2998046875,
+          "snapshots": 75,
+          "snapshotsPerSecond": 29.97242770810446,
+          "requestedSnapshots": 19,
+          "receipts": 19,
+          "receiptsPerSecond": 7.5930150193864625,
+          "snapshotGapMs": {
+            "count": 75,
+            "p50": 33.400146484375,
+            "p95": 34.300048828125,
+            "p99": 39.5,
+            "max": 39.5
+          },
+          "longestSnapshotGapMs": 39.5,
+          "longestSnapshotSilenceMs": 39.5,
+          "snapshotSilenceAtEndMs": 28.89990234375,
+          "receiptGapMs": {
+            "count": 18,
+            "p50": 133.60009765625,
+            "p95": 133.900146484375,
+            "p99": 133.900146484375,
+            "max": 133.900146484375
+          },
+          "inputs": 0,
+          "acknowledgedInputs": 0,
+          "missingInputAcknowledgments": 0,
+          "inputsPendingAtEnd": 0,
+          "inputAcknowledgmentMs": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+        }
+      },
+      "errors": [],
+      "closes": []
+    }
+  ]
+}

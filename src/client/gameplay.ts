@@ -98,14 +98,13 @@ const hud = createHud({
         Type === control || Type.prototype instanceof control,
     )!;
 
-    unlockAudio();
-
     control.writeInput({
       input: playerInput,
       active: !control.readInput(playerInput),
     });
 
     network.recordInput({ input: { ...playerInput } });
+    unlockAudio();
     network.sendActivity();
   },
 });
@@ -359,6 +358,9 @@ bindDebug(game);
 const gameLoop = GameLoop({
   render: ({ dt, now }) => {
     const predicted = network.predictFrame({ now });
+    const ownShots = network.predictedShots.filter(
+      ({ projectile }) => projectile.playerId === network.playerId,
+    );
 
     const remotePoses = network.remoteMotion.sample({
       now,
@@ -446,6 +448,16 @@ const gameLoop = GameLoop({
       );
     });
 
+    for (const { projectile } of ownShots) {
+      if (
+        !projectile.dead &&
+        !network.world.entities.has(projectile.id) &&
+        predicted.entities.get(projectile.id) === projectile
+      ) {
+        visibleSprites.push(projectile);
+      }
+    }
+
     const renderedCrafts = visibleSprites
       .filter(
         (object): object is Craft | Portal =>
@@ -516,6 +528,10 @@ const gameLoop = GameLoop({
         !object.dead &&
         object.render({ pose: remotePoses.get(object.id) }),
     );
+
+    for (const { weapon, deadline } of ownShots) {
+      weapon.presentShot({ craft: player.ship, deadline });
+    }
 
     renderEffects({ ctx, poses: remotePoses });
     // Sparks off the HornDrill sit over the asteroids and ships they come off

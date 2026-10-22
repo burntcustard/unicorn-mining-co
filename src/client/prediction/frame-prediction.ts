@@ -2,6 +2,9 @@ import * as Vec from '../utilities/vector';
 import { interpolatePose } from '../utilities/interpolate-pose';
 import { type GameObject } from '../objects/game-object';
 import { Craft } from '../objects/craft';
+import { type PredictedShot } from '../objects/ship';
+import { type Projectile } from '../objects/projectile';
+import { type Collider } from '../collision/types';
 import { Station } from '../objects/station';
 import { type PlayerId } from '../protocol/entities';
 import { type InputFrame } from '../protocol/input-frame';
@@ -26,6 +29,15 @@ import {
  * speculative damage, cargo transfers and events never escape into history.
  */
 export class FramePrediction {
+  private dueShots: PredictedShot[] = [];
+
+  get shots(): readonly PredictedShot[] {
+    return this.dueShots;
+  }
+  private pendingShots: (PredictedShot & {
+    deathAt?: number;
+    hit?: { collider: Collider; velocity: Vec.Value; spin: number };
+  })[] = [];
   private copies = new WeakMap<object, any>();
   private endpoint?: Map<
     number,
@@ -42,6 +54,8 @@ export class FramePrediction {
   }
 
   invalidate() {
+    this.dueShots = [];
+    this.pendingShots = [];
     this.state = undefined;
     this.endpoint = undefined;
   }
@@ -60,11 +74,16 @@ export class FramePrediction {
     const player = world.players.get(playerId);
     const ship = player && world.entities.get(player.shipId);
 
-    if (!ship) return world;
+    if (!ship) {
+      this.dueShots = [];
+      return world;
+    }
 
     const fresh = !this.state || this.state.tick !== world.tick;
 
     if (fresh) {
+      this.dueShots = [];
+      this.pendingShots = [];
       this.world.entities.clear();
       this.world.players = new Map([[playerId, { ...player! }]]);
       this.world.tick = world.tick;
@@ -117,7 +136,31 @@ export class FramePrediction {
         // a previously solved endpoint needs to rewind mechanics first.
         if (!fresh) restoreWorld({ world: this.world, state: this.state! });
 
+        this.pendingShots = [];
+
         updateWorld({
+          onShot: (shot) => {
+            if (shot.projectile.playerId === playerId) {
+              this.pendingShots.push(shot);
+            }
+          },
+          onProjectileHit: ({ projectile, collider }) => {
+            const shot = this.pendingShots.find(
+              (shot) => shot.projectile === projectile,
+            );
+
+            if (shot) {
+              shot.hit = {
+                collider: {
+                  ...collider,
+                  position: Vec.clone(collider.position),
+                  shapeOutline: collider.shapeOutline?.map(([x, y]) => [x, y]),
+                },
+                velocity: Vec.clone(collider.owner.velocity),
+                spin: collider.owner.spin,
+              };
+            }
+          },
           world: this.world,
           inputs: new Map([[playerId, input]]),
           dt: simulationStep,
@@ -137,6 +180,44 @@ export class FramePrediction {
             },
           ]),
         );
+
+        for (const shot of this.pendingShots) {
+          if (!shot.projectile.dead || !shot.hit) continue;
+          const duration = Math.max(0, simulationStep - shot.offset);
+
+          const fraction = shot.projectile.impactFraction({
+            ...shot.hit,
+            position: shot.position,
+            endPosition: shot.projectile.position,
+            dt: duration,
+          });
+
+          shot.deathAt = shot.offset + duration * fraction;
+
+          const projectile = cloneEntity({
+            entity: shot.projectile,
+          }) as Projectile;
+
+          projectile.dead = false;
+          projectile.health = shot.health;
+          projectile.world = this.world;
+          Vec.set(
+            projectile.position,
+            Vec.addScaled(
+              shot.position,
+              Vec.subtract(projectile.position, shot.position),
+              fraction,
+            ),
+          );
+          shot.projectile = projectile;
+
+          this.endpoint.set(projectile.id, {
+            position: Vec.clone(projectile.position),
+            velocity: Vec.clone(projectile.velocity),
+            rotation: projectile.rotation,
+            spin: projectile.spin,
+          });
+        }
 
         this.endpointInput = input.input;
         this.endpointChange = change;
@@ -181,6 +262,53 @@ export class FramePrediction {
     } else {
       if (!fresh) restoreWorld({ world: this.world, state: this.state! });
       this.endpoint = undefined;
+      this.pendingShots = [];
+    }
+
+    // Keep full-tick mechanics cached, but expose births only after their
+    // actual input/cooldown boundary. Resampling may move backward in time.
+    this.dueShots = this.pendingShots.filter(
+      (shot) => shot.offset <= dt + 1e-9,
+    );
+
+    if (this.endpoint) {
+      for (const shot of this.pendingShots) {
+        const entity = shot.projectile;
+        const endpoint = this.endpoint.get(entity.id);
+
+        if (
+          shot.offset > dt + 1e-9 ||
+          !endpoint ||
+          entity.dead ||
+          (shot.deathAt !== undefined && dt + 1e-9 >= shot.deathAt)
+        ) {
+          this.world.entities.delete(entity.id);
+          continue;
+        }
+
+        const fraction = Math.min(
+          1,
+          Math.max(
+            0,
+            (dt - shot.offset) /
+              ((shot.deathAt ?? simulationStep) - shot.offset || 1),
+          ),
+        );
+
+        Vec.set(
+          entity.position,
+          Vec.addScaled(
+            shot.position,
+            Vec.subtract(endpoint.position, shot.position),
+            fraction,
+          ),
+        );
+        Vec.set(
+          entity.velocity,
+          dt < simulationStep ? shot.velocity : endpoint.velocity,
+        );
+        this.world.entities.set(entity.id, entity);
+      }
     }
 
     // Visual phases advance on the live craft at display rate, outside history.

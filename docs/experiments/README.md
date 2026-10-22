@@ -4,6 +4,9 @@ Recent investigations are grouped by measurement date. Use [benchmarking](../../
 
 ## 2026-10-22
 
+- [Stateless snapshot receipt margins and jitter comparison](2026-10-22/receipt-margin.md)
+- [Combat input latency and ready-weapon presentation](2026-10-22/combat-input-latency.md)
+- [Input acknowledgment regression and bounded snapshot receipts](2026-10-22/input-acknowledgment.md)
 - [Additional server CPU savings from cumulative receipts and nonblocking sends](2026-10-22/go-server-cpu-transport.md)
 - [Go compiler lowering, hardware counters, and additional CPU improvements](2026-10-22/go-server-cpu-lowering.md)
 - [Go server CPU, conservative recovery, and two-core measurements](2026-10-22/go-server-cpu.md)

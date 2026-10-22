@@ -547,6 +547,10 @@ export class NetworkClient {
     });
   }
 
+  get predictedShots() {
+    return this.prediction.shots;
+  }
+
   predictFrame({ now = performance.now() }: { now?: number } = {}) {
     if (!this.connected) return this.world;
 

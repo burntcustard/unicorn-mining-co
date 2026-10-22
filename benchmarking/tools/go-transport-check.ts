@@ -20,8 +20,6 @@ import (
  "testing"
  "time"
  "golang.org/x/sys/unix"
- "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
- "github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 func transportPair(t *testing.T) (*WebSocket, net.Conn) {
@@ -164,42 +162,6 @@ func TestTransportKernelConcurrentWrites(t *testing.T) {
  if err:=<-failures;err!=nil {t.Fatal(err)}
 }
 
-func TestTransportReceiptJitter(t *testing.T) {
- catalog,err:=specs.Load()
- if err!=nil {t.Fatal(err)}
- for _,latencies:=range [][]uint64{{2},{6},{8},{18},{2,4,3,2},{2,8,3,1},{1,2,10,2}} {
-  session:=NewGameSession(25,catalog)
-  socket:=&benchmarkSocket{}
-  session.Receive(protocol.Control{Type:"hello"},socket)
-  player:=session.playersBySocket[socket]
-  type receipt struct{at,sequence uint64}
-  receipts:=[]receipt{{latencies[0],socket.sequence}}
-  snapshots,requests:=0,0
-  longestGap,gap:=0,0
-  for tick:=0;tick<180;tick++ {
-   for i:=0;i<len(receipts); {
-    if receipts[i].at<=session.World.Tick {
-     session.Receive(protocol.Control{Type:"snapshotAck",Sequence:receipts[i].sequence},socket)
-     receipts=append(receipts[:i],receipts[i+1:]...)
-    } else {i++}
-   }
-   previous,previousReceipt:=socket.packets,socket.sequence
-   session.Receive(protocol.Control{Type:"input",Tick:session.World.Tick,Sequence:uint64(tick+1),Input:protocol.Input{Turn:float64(tick%3-1)}},socket)
-   session.Tick(1)
-   if player.lastSequence!=uint64(tick+1) {t.Fatal("receipt pacing delayed an input")}
-   if socket.sequence!=previousReceipt {
-    receipts=append(receipts,receipt{session.World.Tick+latencies[requests%len(latencies)],socket.sequence})
-    requests++
-   }
-   if session.World.Tick>60 {
-    if socket.packets!=previous {snapshots++;gap=0} else {gap++;longestGap=max(longestGap,gap)}
-   }
-  }
-  t.Logf("latencies=%v snapshots=%d requests=%d longestGap=%d",latencies,snapshots,requests,longestGap)
-  if (len(latencies)>1 || latencies[0]<=8) && snapshots!=120 {t.Fatal("receipt pacing lost snapshot cadence")}
-  if len(player.pendingSnapshots)>16 {t.Fatal("receipt pacing exceeded its bounded allowance")}
- }
-}
 `;
 
 try {
@@ -230,7 +192,8 @@ try {
       ...(process.argv.includes('--race') ? ['-race'] : []),
       './src/server/network',
       '-run',
-      '^TestTransport(Kernel|Receipt)',
+      // Reuse the permanent ordered-receipt and input regression tests.
+      '^Test(TransportKernel|Snapshot|Inputs|LateInput)',
       '-count=1',
       '-v',
     ],

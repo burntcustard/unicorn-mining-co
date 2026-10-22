@@ -1,0 +1,5 @@
+4/convoy: 0.043926 ms CPU/tick
+4/module: 0.187907 ms CPU/tick
+32/convoy: 0.362118 ms CPU/tick
+32/module: 1.295524 ms CPU/tick
+benchmarking/local/combat-cpu-late-before.json

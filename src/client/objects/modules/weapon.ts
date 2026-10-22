@@ -21,6 +21,16 @@ export class Weapon extends Module {
   chargeCooldown = this.chargeDuration ?? 0;
 
   updateVisual({ craft }: { dt: number; segments: Segment[]; craft: Craft }) {
+    this.presentShot({
+      craft,
+      deadline:
+        this.fireCooldown > 0
+          ? (craft.world?.tick ?? 0) * simulationStep + this.fireCooldown
+          : undefined,
+    });
+  }
+
+  presentShot({ craft, deadline }: { craft: Craft; deadline?: number }) {
     let shots = shownShots.get(craft);
 
     if (!shots) {
@@ -30,7 +40,6 @@ export class Weapon extends Module {
 
     const tick = craft.world?.tick ?? 0;
     const previous = shots.get(this.id) ?? [-Infinity, tick];
-    const deadline = tick * simulationStep + this.fireCooldown;
 
     // Cooldown counts down against simulation time, leaving the deadline fixed
     // until another shot. This also observes server shots after prediction is
@@ -40,7 +49,7 @@ export class Weapon extends Module {
     if (
       this.muzzleFlash &&
       this.mount?.health > 0 &&
-      this.fireCooldown > 0 &&
+      deadline !== undefined &&
       deadline - previous[0] > this.fireInterval / 2
     ) {
       addEffect({

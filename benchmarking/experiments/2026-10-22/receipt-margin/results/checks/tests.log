@@ -1,0 +1,106 @@
+npm notice run unicorn-mining-co@0.1.0 test
+npm notice run node scripts/test.ts --skip-build
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/network	8.120s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/npc	(cached)
+ok  	github.com/burntcustard/unicorn-mining-co/src/server	(cached)
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/collision	0.030s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/collision/query	(cached)
+?   	github.com/burntcustard/unicorn-mining-co/src/server/collision/shape	[no test files]
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/gameplay	0.550s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/objects	(cached)
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/objects/modules	(cached)
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/persistence	(cached)
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/physics	0.125s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/protocol	0.007s
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/random	(cached)
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/simulation	0.313s
+?   	github.com/burntcustard/unicorn-mining-co/src/server/specs	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/beam-visibility	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/compare	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/gate-collisions	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/muzzle-flashes	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/projectile-prediction	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/session	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/ship-destruction	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/snapshot	[no test files]
+?   	github.com/burntcustard/unicorn-mining-co/src/server/testtools/trade	[no test files]
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/utilities	0.023s
+?   	github.com/burntcustard/unicorn-mining-co/src/server/vector	[no test files]
+✔ tests/client/projectile-prediction-repeated.test.ts (5790ms)
+✔ tests/client/projectile-prediction.test.ts (5865ms)
+✔ tests/client/muzzle-flash.test.ts (5788ms)
+✔ tests/client/projectile-prediction-plasma.test.ts (5136ms)
+✔ tests/parity/gate-collisions.test.ts (4626ms)
+✔ tests/integration/trade-integration.test.ts (3988ms)
+✔ tests/client/projectile-prediction-triangles.test.ts (4266ms)
+✔ tests/client/weapons.test.ts (4070ms)
+✔ tests/linting/oxlint-formatting.test.ts (4337ms)
+✔ tests/client/ship-destruction.test.ts (2372ms)
+✔ tests/client/gate-modules.test.ts (2113ms)
+✔ tests/client/beam-visibility.test.ts (2001ms)
+✔ tests/client/background.test.ts (376ms)
+✔ tests/client/binary-control.test.ts (75ms)
+✔ tests/client/binary-snapshot.test.ts (188ms)
+✔ tests/client/camera.test.ts (74ms)
+✔ tests/client/collisions.test.ts (396ms)
+✔ tests/client/color.test.ts (78ms)
+✔ tests/client/composited-surface.test.ts (673ms)
+✔ tests/client/courser.test.ts (1866ms)
+✔ tests/client/dialog.test.ts (73ms)
+✔ tests/client/docked.test.ts (1817ms)
+✔ tests/client/explosion-effects.test.ts (1141ms)
+✔ tests/client/font-generation.test.ts (209ms)
+✔ tests/client/font-viewer.test.ts (68ms)
+✔ tests/client/fps.test.ts (145ms)
+✔ tests/client/fractional-shots.test.ts (1779ms)
+✔ tests/client/fuel.test.ts (155ms)
+✔ tests/client/game-object-viewer.test.ts (645ms)
+✔ tests/client/graphics.test.ts (73ms)
+✔ tests/client/hull-repair.test.ts (133ms)
+✔ tests/client/input-response.test.ts (119ms)
+✔ tests/client/input.test.ts (476ms)
+✔ tests/client/keybindings.test.ts (91ms)
+✔ tests/client/local-storage.test.ts (148ms)
+✔ tests/client/minimap.test.ts (90ms)
+✔ tests/client/module-input.test.ts (1510ms)
+✔ tests/client/module-spec.test.ts (765ms)
+✔ tests/client/network-connection.test.ts (1889ms)
+✔ tests/client/objects.test.ts (1587ms)
+✔ tests/client/power-economy.test.ts (153ms)
+✔ tests/client/power-plant.test.ts (153ms)
+✔ tests/client/prediction.test.ts (758ms)
+✔ tests/client/prism.test.ts (243ms)
+✔ tests/client/property-mangling.test.ts (2145ms)
+✔ tests/client/regions.test.ts (1132ms)
+✔ tests/client/remote-handoff.test.ts (101ms)
+✔ tests/client/remote-motion.test.ts (78ms)
+✔ tests/client/remote-trajectory.test.ts (83ms)
+✔ tests/client/rendering.test.ts (2187ms)
+✔ tests/client/sectors.test.ts (379ms)
+✔ tests/client/simulation.test.ts (489ms)
+✔ rotation polynomial agrees with native trig for ordinary angles (6ms)
+✔ rotations wrap locally through the polynomial at every finite magnitude (0ms)
+✔ rotation polynomial preserves signed zero at full turns (0ms)
+✔ nonfinite angles produce NaN components without native trig (0ms)
+✔ tests/client/sound.test.ts (1424ms)
+✔ tests/client/specs.test.ts (174ms)
+✔ tests/client/targeting.test.ts (727ms)
+✔ tests/client/text-rendering.test.ts (635ms)
+✔ tests/integration/backups-live.test.ts (93ms)
+✔ tests/integration/go-transport.test.ts (1531ms)
+✔ tests/integration/live-world-maintenance.test.ts (623ms)
+✔ tests/integration/persistence-integration.test.ts (805ms)
+✔ tests/integration/reset-world-live.test.ts (265ms)
+✔ tests/integration/server-integration.test.ts (2137ms)
+✔ tests/linting/css-formatting.test.ts (384ms)
+✔ tests/linting/go-formatting.test.ts (225ms)
+✔ tests/parity/session.test.ts (419ms)
+✔ tests/parity/snapshot.test.ts (118ms)
+ℹ tests 70
+ℹ suites 0
+ℹ pass 70
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22054

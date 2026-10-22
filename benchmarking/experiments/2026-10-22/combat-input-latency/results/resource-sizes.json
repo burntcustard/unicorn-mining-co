@@ -1,0 +1,22 @@
+{
+  "client": {
+    "before": {
+      "raw": 277360,
+      "gzip1": 115775,
+      "gzip6": 105987,
+      "chunks": 9
+    },
+    "after": {
+      "raw": 279557,
+      "gzip1": 116875,
+      "gzip6": 106846,
+      "chunks": 9
+    }
+  },
+  "server": {
+    "beforeBytes": 13521056,
+    "afterBytes": 13516960,
+    "beforeGzip1": 6249683,
+    "afterGzip1": 6248897
+  }
+}

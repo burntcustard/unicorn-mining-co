@@ -25,6 +25,25 @@ The report generator appends one compact server/network table per run, with a
 Europe/London date and time heading, and rejects duplicate captures.
 An optional second argument writes a standalone scratch report instead.
 
+## Server connection stats
+
+The Go server logs one `connection-stats` line when a connection ends and a
+`server-stats` summary every 10 minutes (read them with `fly logs`). Counters are
+plain increments on existing paths; nothing is sent to clients.
+
+- `connection-stats`: `reason` (`closed`, `idle`, `replaced`, `banned`), `seconds`,
+  `players` online, snapshots (`snapshots`, `direct`, `slow` sent in the
+  two-snapshot window), `snapshot_bytes`, `max_gap_ms`, stalls (`window_stalls`,
+  `buffer_stalls`), `max_pending`, receipts (`receipts`, `receipt_requests`),
+  lag in ticks (`mean_lag`, `max_lag`, `held_lag`, the capped high-water mark that
+  sets receipt spacing), `high_lag_s` (seconds until lag first reached 6, or -1),
+  `recoveries`, and inputs (`inputs`, `late`, `far`, `duplicates`, `compressed`,
+  `lead_min`, `lead_max`).
+- `server-stats`: cumulative finished-connection totals and `receipts_per_s`, plus
+  held-lag histograms (buckets 0–8) for ended and still-open connections, split by
+  age under 1 minute, 1–10 minutes, and over 10 minutes. Compare like-aged
+  connections, since the high-water mark only rises with session length.
+
 ## Historical harnesses
 
 The [source ZIP](harnesses.zip) and [manifest](harnesses.manifest.json) preserve

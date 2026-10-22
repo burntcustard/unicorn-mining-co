@@ -1,0 +1,401 @@
+{
+  "path": "benchmarking/local/receipt-margin/browser-sticky-combat.json.gz",
+  "sha256": "43b8cc7b5299e12ac98d47052791ab764f6f94e3d2ff8a2adcb086525413e824",
+  "mode": "repeated-steering-onset-and-ready-autogun-draw",
+  "headless": false,
+  "oneWayDelayMs": 0,
+  "delayModel": "Native WebSocket delay in the existing Vite development proxy.",
+  "summary": {
+    "mode": "repeated-steering-onset-and-ready-autogun-draw",
+    "browser": "chrome",
+    "clients": 2,
+    "oneWayDelayMs": 0,
+    "fixture": "Local server compiler overlay changes only fresh-player spawn to an authoritative docked starter ship at the nearest station. Autogun fitting and ammunition use normal dock actions; no client weapon or readiness state is injected.",
+    "timing": "Trusted DOM keydown to completed game draw submission; excludes hardware scanout. Steering starts neutral. Fire feedback is the first actual own projectile or nontransparent muzzle-flash draw; local projectile births match the current trial even if speculative IDs are reused. Only the observer zooms out to size5; pilot retains normal size1.5.",
+    "traffic": [
+      {
+        "start": 1792682950743.3,
+        "end": 1792682982579.8,
+        "durationMs": 31836.5,
+        "snapshots": 953,
+        "snapshotsPerSecond": 29.934195027719756,
+        "requestedSnapshots": 136,
+        "receipts": 136,
+        "receiptsPerSecond": 4.271826362822546,
+        "snapshotGapMs": {
+          "count": 952,
+          "p50": 33.300048828125,
+          "p95": 34.199951171875,
+          "p99": 39,
+          "max": 67
+        },
+        "longestSnapshotGapMs": 67,
+        "longestSnapshotSilenceMs": 67,
+        "snapshotSilenceAtEndMs": 19.800048828125,
+        "receiptGapMs": {
+          "count": 135,
+          "p50": 233.400146484375,
+          "p95": 234.10009765625,
+          "p99": 266.10009765625,
+          "max": 267.2001953125
+        },
+        "inputs": 83,
+        "acknowledgedInputs": 83,
+        "missingInputAcknowledgments": 0,
+        "inputsPendingAtEnd": 0,
+        "inputAcknowledgmentMs": {
+          "count": 83,
+          "p50": 28.599853515625,
+          "p95": 42.900146484375,
+          "p99": 43.800048828125,
+          "max": 43.800048828125
+        },
+        "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+      },
+      {
+        "start": 1792682950744.4001,
+        "end": 1792682982579.8,
+        "durationMs": 31835.39990234375,
+        "snapshots": 953,
+        "snapshotsPerSecond": 29.935229427723925,
+        "requestedSnapshots": 136,
+        "receipts": 136,
+        "receiptsPerSecond": 4.271973979192501,
+        "snapshotGapMs": {
+          "count": 952,
+          "p50": 33.300048828125,
+          "p95": 34.199951171875,
+          "p99": 34.60009765625,
+          "max": 67
+        },
+        "longestSnapshotGapMs": 67,
+        "longestSnapshotSilenceMs": 67,
+        "snapshotSilenceAtEndMs": 19.800048828125,
+        "receiptGapMs": {
+          "count": 135,
+          "p50": 233.400146484375,
+          "p95": 234.099853515625,
+          "p99": 266.199951171875,
+          "max": 267.300048828125
+        },
+        "inputs": 0,
+        "acknowledgedInputs": 0,
+        "missingInputAcknowledgments": 0,
+        "inputsPendingAtEnd": 0,
+        "inputAcknowledgmentMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        },
+        "measurement": "Application input send to decoded snapshot receive; snapshotAck counts are application sends, not server receipt or wire times. Snapshot gaps end inside the window and may start before it; longest snapshot silence includes window boundaries. Missing acknowledgments remain explicit; observed acknowledgments may complete after the window in the retained tail."
+      }
+    ],
+    "phases": [
+      {
+        "kind": "steering",
+        "trials": 20,
+        "readinessFailures": 0,
+        "localMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 5.300048828125,
+          "p95": 11.89990234375,
+          "p99": 12.300048828125,
+          "max": 12.300048828125
+        },
+        "remoteMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 44.5,
+          "p95": 55.199951171875,
+          "p99": 55.699951171875,
+          "max": 55.699951171875
+        },
+        "localMuzzleMs": {
+          "trials": 20,
+          "observed": 0,
+          "missed": 20,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        },
+        "remoteMuzzleMs": {
+          "trials": 20,
+          "observed": 0,
+          "missed": 20,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        },
+        "localFeedbackMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 5.300048828125,
+          "p95": 11.89990234375,
+          "p99": 12.300048828125,
+          "max": 12.300048828125
+        },
+        "remoteFeedbackMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 44.5,
+          "p95": 55.199951171875,
+          "p99": 55.699951171875,
+          "max": 55.699951171875
+        },
+        "remoteAmbiguousTrials": 0,
+        "inputSendMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 0.2001953125,
+          "p95": 0.300048828125,
+          "p99": 1.300048828125,
+          "max": 1.300048828125
+        },
+        "inputAckMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 30.800048828125,
+          "p95": 41.10009765625,
+          "p99": 42.199951171875,
+          "max": 42.199951171875
+        },
+        "localShotMs": {
+          "trials": 20,
+          "observed": 0,
+          "missed": 20,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        }
+      },
+      {
+        "kind": "fire",
+        "trials": 20,
+        "readinessFailures": 0,
+        "localMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 6.89990234375,
+          "p95": 9.89990234375,
+          "p99": 10.900146484375,
+          "max": 10.900146484375
+        },
+        "remoteMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 42,
+          "p95": 52.89990234375,
+          "p99": 72.199951171875,
+          "max": 72.199951171875
+        },
+        "localMuzzleMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 6.89990234375,
+          "p95": 9.89990234375,
+          "p99": 10.900146484375,
+          "max": 10.900146484375
+        },
+        "remoteMuzzleMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 42,
+          "p95": 52.89990234375,
+          "p99": 72.199951171875,
+          "max": 72.199951171875
+        },
+        "localFeedbackMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 6.89990234375,
+          "p95": 9.89990234375,
+          "p99": 10.900146484375,
+          "max": 10.900146484375
+        },
+        "remoteFeedbackMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 42,
+          "p95": 52.89990234375,
+          "p99": 72.199951171875,
+          "max": 72.199951171875
+        },
+        "remoteAmbiguousTrials": 0,
+        "inputSendMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 0.199951171875,
+          "p95": 1.400146484375,
+          "p99": 3.599853515625,
+          "max": 3.599853515625
+        },
+        "inputAckMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 30.699951171875,
+          "p95": 43.199951171875,
+          "p99": 46.5,
+          "max": 46.5
+        },
+        "localShotMs": {
+          "trials": 20,
+          "observed": 20,
+          "missed": 0,
+          "p50": 5.10009765625,
+          "p95": 8.599853515625,
+          "p99": 9.10009765625,
+          "max": 9.10009765625
+        }
+      }
+    ],
+    "errors": [
+      [],
+      []
+    ]
+  },
+  "frameTiming": [
+    {
+      "completed": {
+        "count": 3814,
+        "p50": 8.39990234375,
+        "p95": 10.60009765625,
+        "p99": 12.800048828125,
+        "max": 54.60009765625
+      },
+      "raf": {
+        "count": 3814,
+        "p50": 8.300048828125,
+        "p95": 8.400146484375,
+        "p99": 8.400146484375,
+        "max": 41.699951171875
+      },
+      "hiddenFrames": 0
+    },
+    {
+      "completed": {
+        "count": 3812,
+        "p50": 8.300048828125,
+        "p95": 10.699951171875,
+        "p99": 12.89990234375,
+        "max": 57.60009765625
+      },
+      "raf": {
+        "count": 3812,
+        "p50": 8.300048828125,
+        "p95": 8.400146484375,
+        "p99": 8.400146484375,
+        "max": 41.599853515625
+      },
+      "hiddenFrames": 0
+    }
+  ],
+  "trustedKeydowns": 40,
+  "untrustedKeydowns": 0,
+  "firstEligibleFrameOffsets": [
+    {
+      "id": 21,
+      "offset": 0
+    },
+    {
+      "id": 22,
+      "offset": 0
+    },
+    {
+      "id": 23,
+      "offset": 0
+    },
+    {
+      "id": 24,
+      "offset": 0
+    },
+    {
+      "id": 25,
+      "offset": 0
+    },
+    {
+      "id": 26,
+      "offset": 0
+    },
+    {
+      "id": 27,
+      "offset": 0
+    },
+    {
+      "id": 28,
+      "offset": 0
+    },
+    {
+      "id": 29,
+      "offset": 0
+    },
+    {
+      "id": 30,
+      "offset": 0
+    },
+    {
+      "id": 31,
+      "offset": 0
+    },
+    {
+      "id": 32,
+      "offset": 1
+    },
+    {
+      "id": 33,
+      "offset": 0
+    },
+    {
+      "id": 34,
+      "offset": 0
+    },
+    {
+      "id": 35,
+      "offset": 0
+    },
+    {
+      "id": 36,
+      "offset": 0
+    },
+    {
+      "id": 37,
+      "offset": 0
+    },
+    {
+      "id": 38,
+      "offset": 0
+    },
+    {
+      "id": 39,
+      "offset": 0
+    },
+    {
+      "id": 40,
+      "offset": 0
+    }
+  ],
+  "firstEligibleFrameHistogram": {
+    "0": 19,
+    "1": 1
+  },
+  "firstEligibleMethod": "The first actual render sample with renderAt >= trusted DOM handledAt is eligible. Feedback requires an in-viewport projectile draw matching this trial birth, or a nontransparent in-viewport muzzle draw from this trial. Completed frame time measures draw submission, not scanout."
+}

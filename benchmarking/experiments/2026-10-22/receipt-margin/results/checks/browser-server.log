@@ -1,0 +1,10 @@
+npm notice run unicorn-mining-co@0.1.0 dev:server
+npm notice run node scripts/dev-server.ts
+2026/10/22 16:28:11 Go server listening on [::]:3001
+2026/10/22 16:28:11 World maintenance ready
+2026/10/22 16:32:36 Go server listening on [::]:3001
+2026/10/22 16:32:36 World maintenance ready
+2026/10/22 16:35:05 Go server listening on [::]:3001
+2026/10/22 16:35:05 World maintenance ready
+2026/10/22 16:37:29 Go server listening on [::]:3001
+2026/10/22 16:37:29 World maintenance ready

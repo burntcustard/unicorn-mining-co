@@ -166,6 +166,12 @@ func (s *GameSession) Tick(ticks uint64) {
 		runtime.world.Tick = tick + ticks
 	}
 
+	every := uint64(statsInterval.Seconds() / s.World.Specification.Simulation.SimulationStep)
+
+	if every > 0 && (tick%every == 0 || tick%every+ticks > every) {
+		s.logTotals()
+	}
+
 	s.activateSector(previous)
 }
 

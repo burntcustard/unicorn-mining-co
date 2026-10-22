@@ -1,4 +1,4 @@
-import { Projectile } from '../objects/projectile';
+import { Projectile, type ProjectileHitObserver } from '../objects/projectile';
 import { type PlayerId } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
 import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
@@ -6,7 +6,7 @@ import { type InputFrame } from '../protocol/input-frame';
 import { GameCollisions } from '../collision/game-collisions';
 import { controlShip } from '../objects/control-ship';
 import { type SimulationWorld } from './world';
-import { Ship } from '../objects/ship';
+import { Ship, type ShotObserver } from '../objects/ship';
 import { Craft } from '../objects/craft';
 import { type GameObject } from '../objects/game-object';
 import { type Contact } from '../collision/types';
@@ -27,11 +27,15 @@ export const updateWorld = ({
   inputs,
   dt = simulationStep,
   ticks = 1,
+  onShot,
+  onProjectileHit,
 }: {
   world: SimulationWorld;
   inputs: Map<PlayerId, PlayerInput | InputFrame>;
   dt?: number;
   ticks?: number;
+  onShot?: ShotObserver;
+  onProjectileHit?: ProjectileHitObserver;
 }): SimulationEvent[] => {
   const events: SimulationEvent[] = [];
 
@@ -78,6 +82,7 @@ export const updateWorld = ({
       dt: dt / ticks,
       tick: world.tick + index,
       inputOffset: (index * dt) / ticks,
+      onShot,
     });
   }
 
@@ -88,7 +93,9 @@ export const updateWorld = ({
   });
 
   world.entities.forEach((entity) => {
-    if (entity instanceof Projectile) entity.resolveHits(events, world, dt);
+    if (entity instanceof Projectile) {
+      entity.resolveHits(events, world, dt, onProjectileHit);
+    }
   });
 
   const contactsByOwner = new Map<GameObject, Contact[]>();

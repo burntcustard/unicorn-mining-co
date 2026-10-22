@@ -42,6 +42,20 @@ type queuedInputs struct {
 	changes []protocol.Control
 }
 
+func (q *queuedInputs) lateOffset(index, previous int, step float64) float64 {
+	if previous < 0 {
+		return 0
+	}
+
+	change, start := &q.changes[index], &q.changes[previous]
+
+	if change.Tick < start.Tick {
+		return 0
+	}
+
+	return max(0, float64(change.Tick-start.Tick)*step+change.Offset-start.Offset)
+}
+
 type playerRecord struct {
 	pirateAfter                                     uint64
 	sectorID                                        string
@@ -59,8 +73,11 @@ type playerRecord struct {
 	sentDockSequence                                uint64
 	dockIDs                                         map[int64]dockAlias
 	pendingSnapshots                                []pendingSnapshot
+	snapshotRecoveryUntil                           uint64
+	lastSnapshotReceipt                             uint64
 	snapshotWindow                                  int
 	ackInterval                                     int
+	receiptLag                                      int
 	needsLoad                                       bool
 	inputLead                                       int64
 	hasInputLead                                    bool
@@ -68,6 +85,7 @@ type playerRecord struct {
 	frame                                           protocol.InputFrame
 	lastInput                                       protocol.Input
 	lastSequence                                    uint64
+	lastReceivedSequence                            uint64
 	lastInputAt                                     time.Time
 	hiddenShip                                      bool
 	playerID                                        int64
@@ -76,6 +94,7 @@ type playerRecord struct {
 	shipID                                          int64
 	socket                                          SessionSocket
 	disconnectedAt                                  *time.Time
+	stats                                           connectionStats
 }
 
 func (p *playerRecord) clearInputs() {
@@ -101,6 +120,8 @@ type GameSession struct {
 	regionsSyncedAt float64
 	worldSeed       float64
 	now             func() time.Time
+	statsLogf       func(string, ...any)
+	statsTotals     sessionTotals
 }
 
 func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
@@ -191,17 +212,40 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 					}
 				}
 
+				player.stats.receiptsReceived++
+
 				if snapshot.tick >= 0 {
+					lag := int64(s.World.Tick) - snapshot.tick
+					receiptGap := s.World.Tick - player.lastSnapshotReceipt
+					player.lastSnapshotReceipt = s.World.Tick
+					s.recordLag(player, lag)
+
+					if lag > 8 || player.snapshotRecoveryUntil != 0 && receiptGap > 8 {
+						// Require a second of regular receipts after a stall. Time spent
+						// without receipt progress does not count toward recovery.
+						recoveryTicks := uint64(math.Ceil(1 / s.World.Specification.Simulation.SimulationStep))
+
+						if player.snapshotRecoveryUntil == 0 {
+							player.stats.recoveries++
+						}
+
+						player.snapshotRecoveryUntil = s.World.Tick + recoveryTicks
+					}
+
 					player.snapshotWindow = 2
 
-					if int64(s.World.Tick)-snapshot.tick <= 8 {
+					if lag <= 8 && s.World.Tick >= player.snapshotRecoveryUntil {
 						player.snapshotWindow = 9
+						player.snapshotRecoveryUntil = 0
 					}
+
+					// Keep the longest observed receipt lag so a jittery client does not
+					// repeatedly exhaust its window after a faster receipt. Eight ticks
+					// already require a receipt on every snapshot in the healthy window.
+					player.receiptLag = max(player.receiptLag, min(8, int(lag)))
 				}
 
-				// Cumulative receipts cover intervening deltas. Reserve two slots
-				// beyond the measured round trip before requesting the next one.
-				player.ackInterval = max(1, player.snapshotWindow-int(int64(s.World.Tick)-snapshot.tick)-2)
+				player.ackInterval = max(1, player.snapshotWindow-player.receiptLag-2)
 				player.pendingSnapshots = player.pendingSnapshots[i+1:]
 				break
 			}
@@ -265,6 +309,7 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 		return
 	}
 
+	s.finishStats(player)
 	delete(s.playersBySocket, socket)
 	s.accountTime(player)
 	player.socket = nil
@@ -358,6 +403,7 @@ func (s *GameSession) tickSector(ticks uint64) {
 			}
 
 			socket := p.socket
+			p.stats.endReason = "idle"
 			s.Disconnect(socket)
 			socket.CloseWith(4002, "Idle timeout")
 		})
@@ -431,7 +477,40 @@ func (s *GameSession) tickSector(ticks uint64) {
 				continue
 			}
 
-			for _, change := range slot.changes {
+			// Overdue edges retain their relative timing within one current tick.
+			// Long backlogs compress into that tick instead of replaying old damage.
+			previousLate, span := -1, 0.0
+
+			for index := range slot.changes {
+				change := &slot.changes[index]
+
+				if change.Sequence <= p.lastSequence {
+					continue
+				}
+
+				if change.Tick < slot.tick {
+					span += slot.lateOffset(index, previousLate, step)
+					previousLate = index
+				} else {
+					span = max(span, min(step-1e-9, max(0, change.Offset)))
+				}
+			}
+
+			lateScale := 1.0
+
+			if span > step-1e-9 {
+				p.stats.compressedTicks++
+				// Regular edges provide a floor for subsequent overdue intervals.
+				// Scale the shared timeline rather than squeezing a tap to zero time.
+				lateScale = (step - 1e-9) / span
+			}
+
+			previousLate = -1
+			timeline := 0.0
+
+			for index := range slot.changes {
+				change := &slot.changes[index]
+
 				if change.Sequence <= p.lastSequence {
 					continue
 				}
@@ -442,7 +521,14 @@ func (s *GameSession) tickSector(ticks uint64) {
 					last = p.frame.Changes[len(p.frame.Changes)-1].Offset
 				}
 
-				offset := math.Max(last, float64(i)*step+math.Min(step-1e-9, math.Max(0, change.Offset)))
+				if change.Tick < slot.tick {
+					timeline += slot.lateOffset(index, previousLate, step)
+					previousLate = index
+				} else {
+					timeline = max(timeline, min(step-1e-9, max(0, change.Offset)))
+				}
+
+				offset := math.Max(last, float64(i)*step+math.Min(step-1e-9, timeline*lateScale))
 				p.frame.Changes = append(p.frame.Changes, protocol.InputChange{Input: change.Input, Offset: offset})
 				p.lastInput = change.Input
 				p.lastSequence = change.Sequence
@@ -521,10 +607,10 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 		return
 	}
 
-	// Account for receipt spacing so batching cannot stall a previously healthy
-	// link. If a slower receipt shrinks the window past an unrequested tail,
-	// send one current-state probe rather than wait for a nonexistent receipt.
-	window := p.snapshotWindow + max(0, p.ackInterval-1)
+	// Receipt batching must not expand the number of snapshots a client has to
+	// decode after a stall. Retain the allowance of an existing tail when a slow
+	// receipt shrinks the window, and request its final slot to ensure progress.
+	window := p.snapshotWindow
 
 	if len(p.pendingSnapshots) >= window {
 		for _, snapshot := range p.pendingSnapshots {
@@ -532,7 +618,13 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 		}
 	}
 
-	if socket.BufferedBytes() > MaxSnapshotBuffer || len(p.pendingSnapshots) >= window && slices.ContainsFunc(p.pendingSnapshots, func(snapshot pendingSnapshot) bool { return snapshot.requested }) {
+	if socket.BufferedBytes() > MaxSnapshotBuffer {
+		p.stats.bufferStalls++
+		return
+	}
+
+	if len(p.pendingSnapshots) >= window && slices.ContainsFunc(p.pendingSnapshots, func(snapshot pendingSnapshot) bool { return snapshot.requested }) {
+		p.stats.windowStalls++
 		return
 	}
 
@@ -578,7 +670,8 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	p.needsLoad = false
 	p.sentDockSequence = p.dockSequence
 	p.hasInputLead = false
-	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick, dockSequence: p.dockSequence, requested: snapshotSequence != nil, window: p.snapshotWindow + max(0, p.ackInterval-1)})
+	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick, dockSequence: p.dockSequence, requested: snapshotSequence != nil, window: p.snapshotWindow})
+	p.recordSnapshot(view != nil, snapshotSequence != nil, len(packet), s.World.Tick)
 	send(socket, packet)
 }
 
@@ -621,6 +714,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 
 	if p.socket != nil {
 		previous := p.socket
+		p.stats.endReason = "replaced"
 		s.Disconnect(previous)
 		previous.CloseWith(4001, "Session opened elsewhere")
 	}
@@ -642,8 +736,11 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	p.sentDockSequence = 0
 	p.dockIDs = map[int64]dockAlias{}
 	p.pendingSnapshots = nil
+	p.snapshotRecoveryUntil = 0
+	p.lastSnapshotReceipt = 0
 	p.snapshotWindow = 2
 	p.ackInterval = 0
+	p.receiptLag = 0
 	p.needsLoad = true
 	p.lastInputAt = s.now()
 	p.disconnectedAt = nil
@@ -655,7 +752,9 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	}
 
 	p.lastSequence = 0
+	p.lastReceivedSequence = 0
 	p.hasInputLead = false
+	s.startStats(p)
 	roundSpawn(p.ship)
 	s.savePlayer(p)
 	s.flushChanges()
@@ -755,32 +854,35 @@ func (s *GameSession) input(message protocol.Control, p *playerRecord) {
 	lead := int64(message.Tick) - int64(s.World.Tick)
 	p.inputLead = lead
 	p.hasInputLead = true
+	p.stats.inputs++
+	s.recordInputLead(p, lead)
 
-	if lead < 0 || lead > int64(s.World.Specification.Simulation.MaxPredictionTicks) {
-		if message.Sequence > p.lastSequence {
-			p.lastInput = message.Input
-			p.lastSequence = message.Sequence
-		}
-
+	if message.Sequence <= max(p.lastSequence, p.lastReceivedSequence) {
+		p.stats.duplicates++
 		return
 	}
 
-	slot := &p.inputs[message.Tick%uint64(len(p.inputs))]
+	tick := message.Tick
 
-	if slot.tick != message.Tick {
-		slot.tick = message.Tick
+	if message.Tick < s.World.Tick {
+		p.stats.lateInputs++
+		tick = s.World.Tick
+	} else if message.Tick-s.World.Tick > uint64(s.World.Specification.Simulation.MaxPredictionTicks) {
+		p.stats.farInputs++
+		// Preserve the existing latest-state fallback for excessive future ticks.
+		tick = s.World.Tick
+		message.Tick, message.Offset = tick, 0
+	}
+
+	slot := &p.inputs[tick%uint64(len(p.inputs))]
+
+	if slot.tick != tick {
+		slot.tick = tick
 		slot.changes = slot.changes[:0]
 	}
 
-	last := p.lastSequence
-
-	if len(slot.changes) > 0 {
-		last = slot.changes[len(slot.changes)-1].Sequence
-	}
-
-	if message.Sequence > last {
-		slot.changes = append(slot.changes, message)
-	}
+	slot.changes = append(slot.changes, message)
+	p.lastReceivedSequence = message.Sequence
 }
 
 func (s *GameSession) dock(message protocol.Control, p *playerRecord) {

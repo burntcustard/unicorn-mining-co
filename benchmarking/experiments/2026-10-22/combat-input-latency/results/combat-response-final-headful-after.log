@@ -1,0 +1,170 @@
+{
+  "mode": "repeated-steering-onset-and-ready-autogun-draw",
+  "browser": "chrome",
+  "clients": 2,
+  "oneWayDelayMs": 0,
+  "fixture": "Local server compiler overlay changes only fresh-player spawn to an authoritative docked starter ship at the nearest station. Autogun fitting and ammunition use normal dock actions; no client weapon or readiness state is injected.",
+  "timing": "Trusted DOM keydown to completed game draw submission; excludes hardware scanout. Steering starts neutral. Fire feedback is the first actual own projectile or nontransparent muzzle-flash draw; local projectile births match the current trial even if speculative IDs are reused. Only the observer zooms out to size5; pilot retains normal size1.5.",
+  "phases": [
+    {
+      "kind": "steering",
+      "trials": 20,
+      "readinessFailures": 0,
+      "localMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 5.699951171875,
+        "p95": 11.699951171875,
+        "max": 12.60009765625
+      },
+      "remoteMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 44.099853515625,
+        "p95": 56.400146484375,
+        "max": 57.599853515625
+      },
+      "localMuzzleMs": {
+        "trials": 20,
+        "observed": 0,
+        "missed": 20,
+        "p50": null,
+        "p95": null,
+        "max": null
+      },
+      "remoteMuzzleMs": {
+        "trials": 20,
+        "observed": 0,
+        "missed": 20,
+        "p50": null,
+        "p95": null,
+        "max": null
+      },
+      "localFeedbackMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 5.699951171875,
+        "p95": 11.699951171875,
+        "max": 12.60009765625
+      },
+      "remoteFeedbackMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 44.099853515625,
+        "p95": 56.400146484375,
+        "max": 57.599853515625
+      },
+      "remoteAmbiguousTrials": 0,
+      "inputSendMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 0.199951171875,
+        "p95": 0.300048828125,
+        "max": 2.699951171875
+      },
+      "inputAckMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 28.699951171875,
+        "p95": 41.2998046875,
+        "max": 41.400146484375
+      },
+      "localShotMs": {
+        "trials": 20,
+        "observed": 0,
+        "missed": 20,
+        "p50": null,
+        "p95": null,
+        "max": null
+      }
+    },
+    {
+      "kind": "fire",
+      "trials": 20,
+      "readinessFailures": 0,
+      "localMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 5,
+        "p95": 10,
+        "max": 11.10009765625
+      },
+      "remoteMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 38.400146484375,
+        "p95": 53,
+        "max": 64.699951171875
+      },
+      "localMuzzleMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 5,
+        "p95": 10,
+        "max": 11.10009765625
+      },
+      "remoteMuzzleMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 38.400146484375,
+        "p95": 53,
+        "max": 64.699951171875
+      },
+      "localFeedbackMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 5,
+        "p95": 10,
+        "max": 11.10009765625
+      },
+      "remoteFeedbackMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 38.400146484375,
+        "p95": 53,
+        "max": 64.699951171875
+      },
+      "remoteAmbiguousTrials": 0,
+      "inputSendMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 0.2001953125,
+        "p95": 1.60009765625,
+        "max": 2.400146484375
+      },
+      "inputAckMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 31,
+        "p95": 41.10009765625,
+        "max": 45.400146484375
+      },
+      "localShotMs": {
+        "trials": 20,
+        "observed": 20,
+        "missed": 0,
+        "p50": 2.599853515625,
+        "p95": 8.5,
+        "max": 8.800048828125
+      }
+    }
+  ],
+  "errors": [
+    [],
+    []
+  ]
+}

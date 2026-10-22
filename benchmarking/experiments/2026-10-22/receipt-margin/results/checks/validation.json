@@ -1,0 +1,45 @@
+{
+  "productionPolicy": "sticky baseline retained",
+  "gameSessionIdentical": true,
+  "beforeBuild": 0,
+  "finalBuild": 0,
+  "fullTests": {
+    "exit": 0,
+    "nodeFiles": 70,
+    "goPackages": "all"
+  },
+  "lint": 0,
+  "goFormatting": 0,
+  "raceTransportAndSnapshots": 0,
+  "portablePrepare": 0,
+  "browserCaptures": 6,
+  "browserExitCodes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "originalJitter": {
+    "sticky": 0,
+    "margin2": 1,
+    "margin3": 1,
+    "margin4": 0
+  },
+  "extendedJitter": {
+    "sticky": 0,
+    "margin4": 1
+  },
+  "candidateFailuresExpected": true,
+  "cleanup": {
+    "ports": [
+      3000,
+      3001,
+      9333
+    ],
+    "listeners": 0
+  },
+  "scratchMovedTo": "/tmp/unicorn-receipt-margin-scratch",
+  "reason": "Private generated .go artifacts moved out of benchmarking after retention so repository Go formatting checks only active sources."
+}

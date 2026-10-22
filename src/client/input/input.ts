@@ -99,6 +99,22 @@ export const initKeys = ({
 
     pressed.add(key);
 
+    const bindings = bindingEntries.filter(([, binding]) =>
+      matchesBinding(binding, key),
+    );
+    const toggled =
+      bindings.length === 1
+        ? moduleKeyControls.find(
+            ({ binding }) =>
+              binding === bindings[0][1] && binding.mode === 'toggle',
+          )
+        : undefined;
+
+    if (toggled) {
+      consumedKeys.add(key);
+      toggled.writeInput(playerInput, !toggled.readInput(playerInput));
+    }
+
     const holds = moduleKeyControls.filter(
       ({ binding }) => binding.mode === 'hold' && matchesBinding(binding, key),
     );
@@ -111,10 +127,7 @@ export const initKeys = ({
         holds.forEach(({ writeInput }) => writeInput(playerInput, true));
       };
 
-      if (
-        bindingEntries.filter(([, binding]) => matchesBinding(binding, key))
-          .length > 1
-      ) {
+      if (bindings.length > 1) {
         holdTimers.set(
           key,
           setTimeout(() => {
@@ -136,7 +149,10 @@ export const initKeys = ({
     callbacks.get(key)?.(event);
 
     actionCallbacks.forEach((callback, binding) => {
-      if (binding.mode !== 'toggle' && matchesBinding(binding, key)) {
+      if (
+        (binding.mode !== 'toggle' || binding === toggled?.binding) &&
+        matchesBinding(binding, key)
+      ) {
         callback(event);
       }
     });

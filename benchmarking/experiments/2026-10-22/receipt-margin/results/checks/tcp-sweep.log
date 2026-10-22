@@ -1,0 +1,12 @@
+{"label":"sticky","repetition":0,"cpuMsPerTick":1.3868733333333332,"receiptsPerSecond":4.430995246574793,"worstAckP95":66.76793499999985,"worstAckP99":67.31306600000062,"longestSnapshotGap":34.815701999999874}
+{"label":"margin2","repetition":0,"cpuMsPerTick":1.3318366666666666,"receiptsPerSecond":4.299939629707584,"worstAckP95":67.0134250000001,"worstAckP99":67.59843100000035,"longestSnapshotGap":34.95242800000051}
+{"label":"margin3","repetition":0,"cpuMsPerTick":1.4101833333333331,"receiptsPerSecond":4.999945046103989,"worstAckP95":67.00513000000046,"worstAckP99":67.70556300000135,"longestSnapshotGap":34.912553000000116}
+{"label":"margin4","repetition":0,"cpuMsPerTick":1.3656166666666667,"receiptsPerSecond":5.999823905768351,"worstAckP95":56.035617999999886,"worstAckP99":56.45911100000012,"longestSnapshotGap":35.08524699999998}
+{"label":"margin4","repetition":1,"cpuMsPerTick":1.3736366666666666,"receiptsPerSecond":5.999758695705019,"worstAckP95":66.8214539999999,"worstAckP99":67.47240600000077,"longestSnapshotGap":34.962798000000475}
+{"label":"margin3","repetition":1,"cpuMsPerTick":1.3546266666666664,"receiptsPerSecond":4.999941017195804,"worstAckP95":66.96270999999979,"worstAckP99":67.23477000000094,"longestSnapshotGap":34.987764999999854}
+{"label":"margin2","repetition":1,"cpuMsPerTick":1.3328633333333333,"receiptsPerSecond":4.299926058901487,"worstAckP95":66.98964999999953,"worstAckP99":67.27394400000048,"longestSnapshotGap":34.825770999999804}
+{"label":"sticky","repetition":1,"cpuMsPerTick":1.299343333333333,"receiptsPerSecond":4.409143674277128,"worstAckP95":59.72437499999978,"worstAckP99":60.11145099999885,"longestSnapshotGap":34.762000999999145}
+{"label":"margin2","repetition":2,"cpuMsPerTick":1.4139433333333336,"receiptsPerSecond":4.299846053471716,"worstAckP95":66.8359219999993,"worstAckP99":67.41589900000145,"longestSnapshotGap":35.166409999999814}
+{"label":"margin4","repetition":2,"cpuMsPerTick":1.3548966666666666,"receiptsPerSecond":5.999490297103186,"worstAckP95":65.44953200000054,"worstAckP99":65.64405599999918,"longestSnapshotGap":34.52059900000131}
+{"label":"sticky","repetition":2,"cpuMsPerTick":1.2540200000000001,"receiptsPerSecond":4.540322060177469,"worstAckP95":54.48237499999959,"worstAckP99":55.16937300000063,"longestSnapshotGap":34.76296299999922}
+{"label":"margin3","repetition":2,"cpuMsPerTick":1.3884,"receiptsPerSecond":4.999765297017614,"worstAckP95":65.99317200000041,"worstAckP99":66.40546499999982,"longestSnapshotGap":35.29544199999964}

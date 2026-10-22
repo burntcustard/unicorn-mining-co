@@ -1,0 +1,2 @@
+npm notice run unicorn-mining-co@0.1.0 format:go:check
+npm notice run node scripts/run-go-formatter.ts --check

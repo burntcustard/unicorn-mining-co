@@ -82,6 +82,7 @@ func (s *GameSession) moderationCommand(p *playerRecord, command, name string, c
 		reply(fmt.Sprintf("%s has been banned.", target.profile.DisplayName))
 
 		if socket := target.socket; socket != nil {
+			target.stats.endReason = "banned"
 			s.Disconnect(socket)
 			socket.CloseWith(4003, bannedMessage)
 		}

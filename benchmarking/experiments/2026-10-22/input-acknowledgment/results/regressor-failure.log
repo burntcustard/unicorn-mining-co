@@ -1,0 +1,5 @@
+--- FAIL: TestSnapshotBackpressureAfterClientStall (0.01s)
+    snapshot-cadence_test.go:243: a client stall delayed input or expanded its snapshot backlog
+FAIL
+FAIL	github.com/burntcustard/unicorn-mining-co/src/server/network	0.010s
+FAIL

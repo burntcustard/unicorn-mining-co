@@ -24,6 +24,7 @@ type benchmarkSocket struct {
 	packets, bytes int
 	sequence       uint64
 	acknowledged   uint64
+	inputSequence  uint64
 	trace          []string
 	record         bool
 }
@@ -60,7 +61,7 @@ func (s *benchmarkSocket) SendBinary(data []byte) error {
 		read()
 
 		if data[3]&4 != 0 {
-			read()
+			s.inputSequence = read()
 		}
 
 		if data[3]&8 != 0 {
@@ -139,6 +140,17 @@ func TestSessionBenchmark(t *testing.T) {
 
 		if err != nil || inputEvery < 1 {
 			t.Fatal("invalid SESSION_INPUT_EVERY")
+		}
+	}
+
+	lateBurst := 0
+
+	if value := os.Getenv("SESSION_LATE_BURST"); value != "" {
+		var err error
+		lateBurst, err = strconv.Atoi(value)
+
+		if err != nil || lateBurst < 2 || lateBurst > 120 || lateBurst%2 != 0 {
+			t.Fatal("SESSION_LATE_BURST must be an even edge count from 2 through 120")
 		}
 	}
 
@@ -243,7 +255,24 @@ func TestSessionBenchmark(t *testing.T) {
 					input.SearchLight = tick%180 < 90
 				}
 
-				session.Receive(protocol.Control{Type: "input", Tick: session.World.Tick, Sequence: uint64(tick + 1), Input: input, Offset: 0.01, HasOffset: true}, sockets[i])
+				if lateBurst == 0 {
+					session.Receive(protocol.Control{Type: "input", Tick: session.World.Tick, Sequence: uint64(tick + 1), Input: input, Offset: 0.01, HasOffset: true}, sockets[i])
+				} else {
+					inputTick := session.World.Tick
+
+					if inputTick > 0 {
+						inputTick--
+					}
+
+					// The stock workload has no armed gun: alternating fire edges
+					// isolate late-control processing without adding projectile load.
+					for edge := 0; edge < lateBurst; edge++ {
+						input.Fire = edge%2 == 0
+						offset := float64(edge) / float64(lateBurst) * catalog.Simulation.SimulationStep
+						sequence := uint64(tick+1)*uint64(lateBurst) + uint64(edge)
+						session.Receive(protocol.Control{Type: "input", Tick: inputTick, Sequence: sequence, Input: input, Offset: offset, HasOffset: true}, sockets[i])
+					}
+				}
 			}
 		}
 
@@ -361,6 +390,7 @@ func TestSessionBenchmark(t *testing.T) {
 
 	result := map[string]any{"eventTrace": eventTrace, "contactTrace": measured.trace, "nearZeroCollisions": nearZeroCollisions, "runtime": "go", "seed": seed, "players": count, "workload": workload, "ticks": ticks, "cpuMsPerTick": cpu / float64(ticks), "wallMsPerTick": elapsed / float64(ticks), "p95Ms": samples[int(float64(ticks)*.95)], "p99Ms": samples[int(float64(ticks)*.99)], "maxMs": samples[ticks-1], "rssBytes": rss, "heapBytes": memory.HeapAlloc, "allocatedBytesPerTick": float64(memory.TotalAlloc-beforeMemory.TotalAlloc) / float64(ticks), "allocationsPerTick": float64(memory.Mallocs-beforeMemory.Mallocs) / float64(ticks), "collections": memory.NumGC - beforeMemory.NumGC, "contacts": measured.contacts, "events": events, "packets": packets, "bytes": bytes, "entities": session.World.Entities.Len(), "states": states, "traces": traces}
 	result["inputEvery"] = inputEvery
+	result["lateBurst"] = lateBurst
 	result["gomaxprocs"] = runtime.GOMAXPROCS(0)
 	data, err := json.Marshal(result)
 

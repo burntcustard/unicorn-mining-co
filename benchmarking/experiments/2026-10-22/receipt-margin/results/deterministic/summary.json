@@ -1,0 +1,60 @@
+[
+  {
+    "policy": "sticky",
+    "healthyCadencePass": true,
+    "failedScenarios": [],
+    "source": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/sticky/game-session.go",
+    "overlay": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/sticky/overlay.json",
+    "executable": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/sticky/sweep.test",
+    "sha256": "c6bb43299cc13dc2c677e5b8bfb4317c5d719d9171478dbe66f76a45e7cdb0d3",
+    "resultPath": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/sticky/deterministic.json"
+  },
+  {
+    "policy": "margin-2",
+    "healthyCadencePass": false,
+    "failedScenarios": [
+      "jitter-2-8-3-1",
+      "learned-8-low-1-spikes",
+      "jitter-2-8-3-1-phase-1",
+      "jitter-2-8-3-1-phase-2",
+      "jitter-2-8-3-1-phase-3"
+    ],
+    "source": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-2/game-session.go",
+    "overlay": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-2/overlay.json",
+    "executable": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-2/sweep.test",
+    "sha256": "dce4a027d1c1d1b7f310a158a9d7283700c545485dc26f0b7f4b7e6a31a40121",
+    "resultPath": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-2/deterministic.json"
+  },
+  {
+    "policy": "margin-3",
+    "healthyCadencePass": false,
+    "failedScenarios": [
+      "jitter-2-8-3-1",
+      "learned-8-low-1-spikes",
+      "jitter-2-8-3-1-phase-1",
+      "jitter-2-8-3-1-phase-2",
+      "jitter-2-8-3-1-phase-3"
+    ],
+    "source": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-3/game-session.go",
+    "overlay": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-3/overlay.json",
+    "executable": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-3/sweep.test",
+    "sha256": "e57bf8a0f4f9b738ea5acb0a0282d96c97e43a3f210f40f75d39ed406a3e4ef3",
+    "resultPath": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-3/deterministic.json"
+  },
+  {
+    "policy": "margin-4",
+    "healthyCadencePass": false,
+    "failedScenarios": [
+      "jitter-2-8-3-1",
+      "learned-8-low-1-spikes",
+      "jitter-2-8-3-1-phase-1",
+      "jitter-2-8-3-1-phase-2",
+      "jitter-2-8-3-1-phase-3"
+    ],
+    "source": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-4/game-session.go",
+    "overlay": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-4/overlay.json",
+    "executable": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-4/sweep.test",
+    "sha256": "c1d32dacfad0d7b36c24a8cb73b700d53a1cb553eb346508c9b4243fdc359e94",
+    "resultPath": "/home/burntcustard/Documents/unicorn-mining-co/benchmarking/local/receipt-margin/margin-4/deterministic.json"
+  }
+]

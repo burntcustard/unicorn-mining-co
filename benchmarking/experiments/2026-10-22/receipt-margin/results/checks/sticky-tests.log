@@ -1,0 +1,76 @@
+=== RUN   TestSnapshotCadence
+=== PAUSE TestSnapshotCadence
+=== RUN   TestSnapshotRoundTrips
+=== PAUSE TestSnapshotRoundTrips
+=== RUN   TestSnapshotReceiptJitter
+=== PAUSE TestSnapshotReceiptJitter
+=== RUN   TestSnapshotBackpressureAfterClientStall
+=== PAUSE TestSnapshotBackpressureAfterClientStall
+=== RUN   TestSnapshotReceiptAfterWindowShrinks
+=== PAUSE TestSnapshotReceiptAfterWindowShrinks
+=== CONT  TestSnapshotCadence
+=== CONT  TestSnapshotReceiptAfterWindowShrinks
+=== CONT  TestSnapshotReceiptJitter
+=== CONT  TestSnapshotBackpressureAfterClientStall
+=== CONT  TestSnapshotRoundTrips
+=== RUN   TestSnapshotReceiptJitter/[2_4_3_2]/recovery-2
+--- PASS: TestSnapshotReceiptAfterWindowShrinks (0.01s)
+--- PASS: TestSnapshotCadence (0.01s)
+--- PASS: TestSnapshotBackpressureAfterClientStall (0.01s)
+=== RUN   TestSnapshotReceiptJitter/[2_4_3_2]/recovery-6
+--- PASS: TestSnapshotRoundTrips (0.03s)
+=== RUN   TestSnapshotReceiptJitter/[2_4_3_2]/recovery-8
+=== RUN   TestSnapshotReceiptJitter/[2_8_3_1]/recovery-2
+=== RUN   TestSnapshotReceiptJitter/[2_8_3_1]/recovery-6
+=== RUN   TestSnapshotReceiptJitter/[2_8_3_1]/recovery-8
+=== RUN   TestSnapshotReceiptJitter/[1_2_10_2]/recovery-2
+=== RUN   TestSnapshotReceiptJitter/[1_2_10_2]/recovery-6
+=== RUN   TestSnapshotReceiptJitter/[1_2_10_2]/recovery-8
+=== RUN   TestSnapshotReceiptJitter/[18]/recovery-2
+=== RUN   TestSnapshotReceiptJitter/[18]/recovery-6
+=== RUN   TestSnapshotReceiptJitter/[18]/recovery-8
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-0/recovery-2
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-0/recovery-6
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-0/recovery-8
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-1/recovery-2
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-1/recovery-6
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-1/recovery-8
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-2/recovery-2
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-2/recovery-6
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-2/recovery-8
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-3/recovery-2
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-3/recovery-6
+=== RUN   TestSnapshotReceiptJitter/ordered-wide-phase-3/recovery-8
+=== RUN   TestSnapshotReceiptJitter/learned-eight-between-fast-receipts/recovery-2
+=== RUN   TestSnapshotReceiptJitter/learned-eight-between-fast-receipts/recovery-6
+=== RUN   TestSnapshotReceiptJitter/learned-eight-between-fast-receipts/recovery-8
+--- PASS: TestSnapshotReceiptJitter (0.30s)
+    --- PASS: TestSnapshotReceiptJitter/[2_4_3_2]/recovery-2 (0.02s)
+    --- PASS: TestSnapshotReceiptJitter/[2_4_3_2]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_4_3_2]/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_8_3_1]/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_8_3_1]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_8_3_1]/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[1_2_10_2]/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[1_2_10_2]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[1_2_10_2]/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[18]/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[18]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[18]/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-0/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-0/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-0/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-1/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-1/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-1/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-2/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-2/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-2/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-3/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-3/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/ordered-wide-phase-3/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/learned-eight-between-fast-receipts/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/learned-eight-between-fast-receipts/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/learned-eight-between-fast-receipts/recovery-8 (0.01s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/network	0.307s

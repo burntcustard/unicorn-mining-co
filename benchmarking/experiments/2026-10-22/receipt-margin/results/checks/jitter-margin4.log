@@ -1,0 +1,30 @@
+=== RUN   TestSnapshotReceiptJitter
+=== PAUSE TestSnapshotReceiptJitter
+=== CONT  TestSnapshotReceiptJitter
+=== RUN   TestSnapshotReceiptJitter/[2_4_3_2]/recovery-2
+=== RUN   TestSnapshotReceiptJitter/[2_4_3_2]/recovery-6
+=== RUN   TestSnapshotReceiptJitter/[2_4_3_2]/recovery-8
+=== RUN   TestSnapshotReceiptJitter/[2_8_3_1]/recovery-2
+=== RUN   TestSnapshotReceiptJitter/[2_8_3_1]/recovery-6
+=== RUN   TestSnapshotReceiptJitter/[2_8_3_1]/recovery-8
+=== RUN   TestSnapshotReceiptJitter/[1_2_10_2]/recovery-2
+=== RUN   TestSnapshotReceiptJitter/[1_2_10_2]/recovery-6
+=== RUN   TestSnapshotReceiptJitter/[1_2_10_2]/recovery-8
+=== RUN   TestSnapshotReceiptJitter/[18]/recovery-2
+=== RUN   TestSnapshotReceiptJitter/[18]/recovery-6
+=== RUN   TestSnapshotReceiptJitter/[18]/recovery-8
+--- PASS: TestSnapshotReceiptJitter (0.14s)
+    --- PASS: TestSnapshotReceiptJitter/[2_4_3_2]/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_4_3_2]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_4_3_2]/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_8_3_1]/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_8_3_1]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[2_8_3_1]/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[1_2_10_2]/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[1_2_10_2]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[1_2_10_2]/recovery-8 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[18]/recovery-2 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[18]/recovery-6 (0.01s)
+    --- PASS: TestSnapshotReceiptJitter/[18]/recovery-8 (0.01s)
+PASS
+ok  	github.com/burntcustard/unicorn-mining-co/src/server/network	0.148s

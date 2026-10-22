@@ -30,12 +30,14 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import WebSocket from 'ws';
 import { startBrowserGameplay } from './browser-gameplay.ts';
+import { summarizeSnapshotTraffic } from './snapshot-traffic-metrics.ts';
 
 // Start the standard dev server pair first, as described in codebase-workflow.
 const output = process.argv[2];
 const delay = Number(process.argv[3] || 5);
 const mode = process.argv[4] || 'network';
 const serverPid = Number(process.argv[5]);
+const headless = !process.env.INPUT_RESPONSE_HEADFUL;
 let serverStopped = false;
 
 assert(['network', 'server', 'client'].includes(mode));
@@ -50,7 +52,7 @@ const connections: WebSocket[] = [];
 const chrome = spawn(
   process.env.CHROME_BIN || 'google-chrome',
   [
-    '--headless=new',
+    ...(headless ? ['--headless=new'] : []),
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-background-timer-throttling',
@@ -155,7 +157,7 @@ try {
     const { browserContextId } = await browser('Target.createBrowserContext');
 
     const { targetId } = await browser('Target.createTarget', {
-      url: 'http://localhost:3000/',
+      url: 'about:blank',
       browserContextId,
       newWindow: true,
     });
@@ -172,12 +174,20 @@ try {
     await send('Runtime.enable');
     await send('Page.enable');
 
+    await send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `window.stallBenchmarkErrors=[];
+        addEventListener('error',event=>window.stallBenchmarkErrors.push(event.message));
+        addEventListener('unhandledrejection',event=>window.stallBenchmarkErrors.push(String(event.reason)));`,
+    });
+
     await send('Emulation.setDeviceMetricsOverride', {
       width: 1440,
       height: 900,
       deviceScaleFactor: 1,
       mobile: false,
     });
+
+    await send('Page.navigate', { url: 'http://localhost:3000/' });
 
     clients.push(send);
   }
@@ -199,16 +209,29 @@ try {
     const {game}=await window.loadedGameModule('game.ts'); const {setSizing}=await window.loadedGameModule('ui/set-sizing.ts'); game.size=5; setSizing(game);
     const socket=Reflect.get(network,'socket');
     if(${delay}) {const deliver=socket.onmessage, send=socket.send.bind(socket); socket.onmessage=event=>setTimeout(()=>deliver.call(socket,event),${delay}); socket.send=data=>setTimeout(()=>send(data),${delay});}
-    const capture={shipId:network.shipId,frames:[]}; window.motionCapture=capture;
+    const timestamp=()=>performance.timeOrigin+performance.now();
+    const capture={shipId:network.shipId,startedAt:timestamp(),frames:[],messages:[],closes:[]}; window.motionCapture=capture;
+    socket.addEventListener('close',event=>capture.closes.push({at:timestamp(),code:event.code,reason:event.reason}));
+    const send=network.send.bind(network),receive=network.receive.bind(network);
+    network.send=(...args)=>{
+      const [message]=args;
+      if(!capture.finished&&['input','snapshotAck'].includes(message.type)) capture.messages.push({...message,at:timestamp()});
+      return send(...args);
+    };
+    network.receive=(...args)=>{
+      const message=args[0].message;
+      if(!capture.finished&&['snapshot','load'].includes(message.type)) capture.messages.push({at:timestamp(),type:message.type,serverTick:message.serverTick,snapshotSequence:message.snapshotSequence,acknowledgedSequence:message.acknowledgedSequence,inputLead:message.inputLead});
+      return receive(...args);
+    };
     const sample=network.remoteMotion.sample.bind(network.remoteMotion);
     let latest;
-    network.remoteMotion.sample=options=>{
-      const poses=sample(options);
+    network.remoteMotion.sample=(...args)=>{
+      const [options]=args,poses=sample(...args);
       latest={at:performance.timeOrigin+options.now,tick:network.world.tick,
         poses:[...poses].filter(([id])=>${JSON.stringify(activeIds)}.includes(id)).map(([id,p])=>({id,x:p.position.x,y:p.position.y,rotation:p.rotation}))};
       return poses;
     };
-    const record=()=>{if(latest&&capture.frames.at(-1)?.at!==latest.at) capture.frames.push(latest); if(!capture.finished) requestAnimationFrame(record)};
+    const record=()=>{if(latest&&capture.frames.at(-1)?.at!==latest.at) capture.frames.push({...latest,completedAt:timestamp(),hidden:document.hidden}); if(!capture.finished) requestAnimationFrame(record)};
     requestAnimationFrame(record);
   })()`,
       ),
@@ -234,7 +257,7 @@ try {
       const socket=Reflect.get(network,'socket');
       const receive=socket.onmessage, send=socket.send.bind(socket), incoming=[], outgoing=[];
       socket.onmessage=event=>incoming.push(event); socket.send=data=>outgoing.push(data);
-      window.releaseNetwork=()=>{socket.onmessage=receive; socket.send=send; incoming.forEach(event=>receive.call(socket,event)); outgoing.forEach(data=>send(data));};
+      window.releaseNetwork=()=>{socket.onmessage=receive; socket.send=send; outgoing.forEach(data=>send(data)); incoming.forEach(event=>receive.call(socket,event));};
     })()`,
     );
   }
@@ -273,7 +296,7 @@ try {
     clients.map((send: Send) =>
       evaluate(
         send,
-        'window.motionCapture.finished=true; window.motionCapture',
+        'window.motionCapture.finishedAt=performance.timeOrigin+performance.now(); window.motionCapture.finished=true; ({...window.motionCapture,errors:window.stallBenchmarkErrors,userAgent:navigator.userAgent})',
       ),
     ),
   );
@@ -327,6 +350,30 @@ try {
       maxSpin: Math.max(...advances.map((frame: Frame) => frame.spin)),
       gaps: advances.filter((frame: Frame) => frame.dt > 0.2),
       maxFrameMs: Math.max(...advances.map((frame: Frame) => frame.dt * 1000)),
+      traffic: summarizeSnapshotTraffic({
+        messages: result.messages,
+        start: result.startedAt,
+        end: result.finishedAt,
+      }),
+      trafficPhases: {
+        before: summarizeSnapshotTraffic({
+          messages: result.messages,
+          start: result.startedAt,
+          end: start,
+        }),
+        outage: summarizeSnapshotTraffic({
+          messages: result.messages,
+          start,
+          end,
+        }),
+        recovery: summarizeSnapshotTraffic({
+          messages: result.messages,
+          start: end,
+          end: result.finishedAt,
+        }),
+      },
+      errors: result.errors,
+      closes: result.closes,
     };
   });
 
@@ -336,6 +383,9 @@ try {
       JSON.stringify({
         mode,
         oneWayDelayMs: delay,
+        headless,
+        delayModel:
+          'Page timers delay outgoing sends and incoming message callbacks; this models application dispatch and receipt scheduling, not isolated wire latency. Network mode queues both directions during the outage and preserves order within each direction.',
         start,
         end,
         summary,
@@ -345,6 +395,10 @@ try {
   );
 
   console.log(JSON.stringify({ mode, oneWayDelayMs: delay, summary }, null, 2));
+  assert(
+    results.every((result) => !result.errors.length && !result.closes.length),
+    'both clients must remain connected without browser errors',
+  );
   assert(
     summary.every((result) => result.missing === 0 && result.frames > 100),
     'both screens must retain the piloted ship',

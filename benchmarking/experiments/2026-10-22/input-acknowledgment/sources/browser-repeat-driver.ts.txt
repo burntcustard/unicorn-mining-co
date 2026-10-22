@@ -1,0 +1,80 @@
+import { spawn } from 'node:child_process';
+import { open, readFile } from 'node:fs/promises';
+import { gunzipSync } from 'node:zlib';
+import assert from 'node:assert/strict';
+
+const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+let ownedServer: ReturnType<typeof spawn> | undefined;
+
+const stop = async () => {
+  if (!ownedServer || ownedServer.exitCode !== null) return;
+  const completion = new Promise((done) => ownedServer!.once('exit', done));
+  process.kill(-ownedServer.pid!, 'SIGTERM');
+  await completion;
+  ownedServer = undefined;
+};
+
+const run = async (variant: string, repetition: number) => {
+  assert(await fetch('http://localhost:3001/healthz').then(() => false, () => true), 'Port 3001 must be free before starting an owned server');
+  const base = `benchmarking/local/ack-browser-${variant}-${repetition}`;
+  const log = await open(`${base}-server.log`, 'w');
+  const overlay = ['fixed', 'recovery', 'active'].includes(variant) ? undefined : `/tmp/unicorn-ack-${variant}-overlay.json`;
+  ownedServer = spawn('npm', ['run', 'dev:server'], {
+    detached: true,
+    stdio: ['ignore', log.fd, log.fd],
+    env: {
+      ...process.env,
+      GOGC: '200',
+      GOMAXPROCS: '2',
+      DATABASE_PATH: `/tmp/unicorn-ack-repeat-${variant}-${repetition}/world.sqlite`,
+      ...(overlay && { GOFLAGS: `-overlay=${overlay}` }),
+    },
+  });
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 150; attempt++) {
+      assert(ownedServer.exitCode === null, 'Owned server exited before health check');
+      ready = await fetch('http://localhost:3001/healthz').then((response) => response.ok, () => false);
+      if (ready) break;
+      await pause(200);
+    }
+    assert(ready, 'Owned server failed health check');
+    console.log(`${new Date().toISOString()} START ${variant} repetition ${repetition}`);
+    const captureLog = await open(`${base}.log`, 'w');
+    try {
+      const browser = spawn(process.execPath, ['benchmarking/tools/live.ts', `${base}.json.gz`], {
+        stdio: ['ignore', captureLog.fd, captureLog.fd],
+        env: {
+          ...process.env,
+          BENCH_URL: 'http://localhost:3000/',
+          LOCAL_ACK_PLAYERS: '32',
+          LOCAL_ACK_WORKLOADS: 'module',
+          BENCH_SECONDS: '45',
+          BENCH_WARMUP: '15',
+        },
+      });
+      await new Promise<void>((resolve, reject) => {
+        browser.once('error', reject);
+        browser.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`Browser exited ${code}: ${base}.log`)));
+      });
+    } finally {
+      await captureLog.close();
+    }
+    const capture = JSON.parse(gunzipSync(await readFile(`${base}.json.gz`)).toString());
+    assert(capture.completedAt && !capture.failure && capture.results.length === 1);
+    assert(capture.results[0].summaries.every((sample: {errors: number; closes: number}) => sample.errors === 0 && sample.closes === 0));
+    console.log(`${new Date().toISOString()} DONE ${variant} repetition ${repetition}`);
+  } finally {
+    await stop();
+    await log.close();
+  }
+};
+
+try {
+  const plan: [number, string[]][] = process.argv[2] ? JSON.parse(process.argv[2]) : [[2, ['fixed', 'before', 'current']], [3, ['current', 'fixed', 'before']]];
+  for (const [repetition, order] of plan) {
+    for (const variant of order) await run(variant, repetition);
+  }
+} finally {
+  await stop();
+}

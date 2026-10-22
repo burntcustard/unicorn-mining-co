@@ -1,0 +1,11 @@
+import config from '/home/burntcustard/Documents/unicorn-mining-co/vite.config.ts';
+import { readFileSync } from 'node:fs';
+const root = '/home/burntcustard/Documents/unicorn-mining-co/src/client/';
+const files = new Set(['gameplay.ts','network/network.ts','objects/ship.ts','objects/modules/weapon.ts','prediction/frame-prediction.ts','prediction/prediction.ts','simulation/update-tier.ts','simulation/update-world.ts']);
+export default async (environment) => {
+  const base = await config(environment);
+  return {...base, plugins: [{name:'combat-saved-client',enforce:'pre',load(id) {
+    const file = id.split('?')[0];
+    if(file.startsWith(root) && files.has(file.slice(root.length))) return readFileSync('/tmp/unicorn-combat-client-before/client/'+file.slice(root.length),'utf8');
+  }},...base.plugins]};
+};

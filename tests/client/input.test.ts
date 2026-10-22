@@ -264,40 +264,67 @@ assert.equal(accessRequests, 2, 'typing and menus suppress gate access');
 input.setMenuInput(false);
 input.defaultKeybindings.requestGateAccess.keys = ['r'];
 
+const beforeDrill = changes.length;
+
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D' }));
 assert.equal(
   input.playerInput.hornDrill,
-  false,
-  'module toggles wait for keyup',
+  true,
+  'a dedicated module toggle activates on keydown',
 );
+assert.equal(changes.length, beforeDrill + 1);
+assert.equal(
+  changes.at(-1).hornDrill,
+  true,
+  'activation is sent synchronously',
+);
+assert.equal(
+  audioInputs.at(-1).changes,
+  beforeDrill + 1,
+  'module activation is sent before audio setup',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', repeat: true }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
 assert.equal(input.playerInput.hornDrill, true);
+assert.equal(
+  changes.length,
+  beforeDrill + 1,
+  'repeat, duplicate keydown, and release do not toggle again',
+);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
-assert.equal(input.playerInput.hornDrill, true);
+assert.equal(input.playerInput.hornDrill, false, 'the next press toggles off');
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'd' }));
 assert.equal(input.playerInput.hornDrill, false);
 
+const plasmaCallbacks: string[] = [];
+
+input.bindAction(input.defaultKeybindings.plasmaActive, (event) =>
+  plasmaCallbacks.push(event.type),
+);
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'P' }));
 assert.equal(
   !!input.playerInput.plasmaActive,
-  false,
-  'P does not deploy before release',
+  true,
+  'P deploys plasma without waiting for release',
 );
+assert.deepEqual(plasmaCallbacks, ['keydown']);
 assert(!input.playerInput.autogunActive, 'P does not deploy autogunActive');
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'A' }));
-window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
 assert.equal(
   input.playerInput.autogunActive,
   true,
   'A independently deploys autogunActive',
 );
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', repeat: true }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
 assert.equal(
   input.playerInput.plasmaActive,
   true,
-  'P deploys plasma on release and ignores repeat',
+  'P ignores repeat and stays deployed after release',
 );
+assert.deepEqual(plasmaCallbacks, ['keydown'], 'the callback also runs once');
 window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
 assert.equal(input.playerInput.fire, true);
 window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
@@ -308,8 +335,9 @@ assert.equal(
   'Space is independent of deployment',
 );
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
-window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
 assert.equal(input.playerInput.plasmaActive, false, 'next P retracts plasma');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.deepEqual(plasmaCallbacks, ['keydown', 'keydown']);
 assert.equal(
   input.playerInput.autogunActive,
   true,
@@ -318,6 +346,41 @@ assert.equal(
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
 assert.equal(input.playerInput.autogunActive, false);
+
+input.defaultKeybindings.plasmaActive.keys = ['a'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+assert.equal(input.playerInput.plasmaActive, false);
+assert.equal(
+  input.playerInput.autogunActive,
+  false,
+  'two toggles sharing a key retain release behavior',
+);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
+assert.equal(input.playerInput.plasmaActive, true);
+assert.equal(input.playerInput.autogunActive, true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
+assert.equal(input.playerInput.plasmaActive, false);
+assert.equal(input.playerInput.autogunActive, false);
+input.defaultKeybindings.plasmaActive.keys = ['p'];
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+window.dispatchEvent(new Event('blur'));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.equal(
+  input.playerInput.plasmaActive,
+  true,
+  'focus loss preserves an activated toggle and cancels its pending release',
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.equal(input.playerInput.plasmaActive, false);
+
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'p' }));
+assert.equal(input.playerInput.plasmaActive, false, 'menus suppress toggles');
+input.setMenuInput(false);
 console.log('toggle input test passed');
 
 const beforeTap = changes.length;

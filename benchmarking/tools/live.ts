@@ -38,7 +38,48 @@ const output =
   process.argv[2] ||
   join('benchmarking/local', date.replaceAll(':', '-') + '.json.gz');
 const url = process.env.BENCH_URL || 'https://unicorn-mining.co/';
-const { counts, workloads, viewport, cooldownBetweenCounts } = liveSuite;
+const target = new URL(url);
+const localDiagnostic =
+  target.protocol === 'http:' &&
+  ['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) &&
+  target.port === '3000';
+const localPlayers = process.env.LOCAL_ACK_PLAYERS;
+const localWorkloads = process.env.LOCAL_ACK_WORKLOADS;
+
+assert(
+  localDiagnostic ||
+    (localPlayers === undefined && localWorkloads === undefined),
+  'LOCAL_ACK settings require BENCH_URL=http://localhost:3000/',
+);
+
+const suite = {
+  ...liveSuite,
+  counts:
+    localPlayers === undefined
+      ? liveSuite.counts
+      : localPlayers.split(',').map(Number),
+  workloads:
+    localWorkloads === undefined
+      ? liveSuite.workloads
+      : localWorkloads.split(','),
+};
+
+assert(
+  suite.counts.length > 0 &&
+    suite.counts.every((players) => liveSuite.counts.includes(players)) &&
+    new Set(suite.counts).size === suite.counts.length,
+  'LOCAL_ACK_PLAYERS must select unique counts from 4,8,16,32',
+);
+assert(
+  suite.workloads.length > 0 &&
+    suite.workloads.every((workload) =>
+      liveSuite.workloads.includes(workload),
+    ) &&
+    new Set(suite.workloads).size === suite.workloads.length,
+  'LOCAL_ACK_WORKLOADS must select unique convoy,spread,contact,module workloads',
+);
+
+const { counts, workloads, viewport, cooldownBetweenCounts } = suite;
 const { width, height } = viewport;
 const seconds = Number(process.env.BENCH_SECONDS || 60);
 const warmup = Number(process.env.BENCH_WARMUP || 15);
@@ -96,6 +137,9 @@ const metadata: {
     .digest('hex'),
   serverCpu:
     'Not exposed by the public endpoints; tick cadence and input acknowledgment delay are indirect pressure indicators.',
+  ...(localDiagnostic && {
+    localDiagnostic: { counts, workloads, reportAppended: false },
+  }),
 };
 
 const save = async () => {
@@ -357,6 +401,7 @@ try {
   browser = await connect(version.webSocketDebuggerUrl);
 
   await runLiveSuite({
+    suite,
     runCase: async ({ players, workload }) => {
       const contexts: string[] = [],
         clients: Send[] = [],
@@ -786,8 +831,14 @@ try {
 }
 
 // Publish tables after Chrome has stopped, without competing with measurement.
-execFileSync(process.execPath, ['benchmarking/tools/live-report.ts', output], {
-  stdio: 'inherit',
-});
+if (!localDiagnostic) {
+  execFileSync(
+    process.execPath,
+    ['benchmarking/tools/live-report.ts', output],
+    {
+      stdio: 'inherit',
+    },
+  );
+}
 
 console.log(`Scratch capture: ${output}`);
