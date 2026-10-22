@@ -81,8 +81,8 @@
       background-color: transparent;
       backdrop-filter: blur(0);
       transition:
-        background-color 0.5s ease,
-        backdrop-filter 0.5s ease;
+        background-color 0.2s ease,
+        backdrop-filter 0.2s ease;
     }
 
     &:has(> .ui-backdrop:not([hidden]))::before {
@@ -133,6 +133,15 @@
 
   .ui-profile {
     width: min(100%, 440px);
+  }
+
+  /* Use the station heading's title line and secondary row for corner pairs. */
+  .ui-heading-pair {
+    line-height: 1.35;
+
+    & > .text-sm {
+      line-height: 1.5rem;
+    }
   }
 
   :where(.ui-surface) hr {

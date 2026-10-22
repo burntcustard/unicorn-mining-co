@@ -641,3 +641,16 @@ Local saturation affected this run’s network timings. These are observed servi
 Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
 
 Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
+
+## October 22, 2026 at 7:20:33 PM GMT+1
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| --- | --- | --- | --- | --- |
+| 4 | 30.00 | 40.5 | 46.0 | 12.7–95.1 |
+| 8 | 30.00 | 102.0 | 144.3 | 17.5–163.7 |
+| 16 | 29.99–30.00 | 168.8 | 251.8 | 19.0–238.4 |
+| 32 | 30.00–30.13 | 327.5 | 568.5 | 32.7–184.9 |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
