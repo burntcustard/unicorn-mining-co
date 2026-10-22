@@ -7,7 +7,9 @@
     --ui-row-height: 40px;
     --ui-border-width: 2px;
     --ui-accent: #4df;
+    --ui-dimmer: rgb(from #111 r g b / 0.7);
     --ui-panel: rgb(from #222 r g b / 0.8);
+    --ui-dock: rgb(from #334 r g b / 0.9);
     color-scheme: dark;
   }
 
@@ -69,6 +71,28 @@
     inset: 0;
     z-index: 5;
     pointer-events: none;
+
+    /* Keep the backdrop mounted so it can fade when screens are removed. */
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background-color: transparent;
+      backdrop-filter: blur(0);
+      transition:
+        background-color 0.5s ease,
+        backdrop-filter 0.5s ease;
+    }
+
+    &:has(> .ui-backdrop:not([hidden]))::before {
+      background-color: var(--ui-dimmer);
+      backdrop-filter: blur(4px);
+    }
+
+    &:has(> .ui-settings:not([hidden]))::before {
+      background-color: var(--ui-panel);
+    }
   }
 
   .hud > :not(.hud-widget, .ui-notification) {
@@ -82,10 +106,6 @@
     width: fit-content;
     margin-inline: auto;
     pointer-events: none;
-  }
-
-  .ui-backdrop {
-    background: rgb(from var(--ui-backdrop, #112) r g b / 0.5);
   }
 
   .ui-screen {
@@ -104,6 +124,11 @@
     border: var(--ui-border-width) solid var(--ui-line);
     background: var(--ui-panel);
     backdrop-filter: blur(4px);
+  }
+
+  /* Fullscreen surfaces already blur the world behind their cards. */
+  body:has(.hud > .ui-backdrop:not([hidden])) .ui-card {
+    backdrop-filter: none;
   }
 
   .ui-profile {
@@ -348,7 +373,7 @@
     min-height: 44px;
     min-width: 0;
     padding: 10px;
-    background: var(--ui-panel);
+    background: none;
     border: 2px solid var(--ui-line);
     color: inherit;
   }
@@ -368,7 +393,7 @@
     color: inherit;
 
     &::backdrop {
-      background: rgb(from #000 r g b / 0.7);
+      background: var(--ui-dimmer);
     }
   }
 
@@ -438,6 +463,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .hud::before {
+      transition: none;
+    }
+
     .ui-preview {
       animation: none;
     }

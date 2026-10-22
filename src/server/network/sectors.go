@@ -10,6 +10,7 @@ import (
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
+	"time"
 )
 
 type sectorRuntime struct {
@@ -141,6 +142,12 @@ func (s *GameSession) Tick(ticks uint64) {
 
 	if ticks == 0 {
 		ticks = 1
+	}
+
+	if s.statsLogf != nil {
+		started := time.Now()
+
+		defer func() { s.recordTick(time.Since(started), ticks) }()
 	}
 
 	previous := s.currentSector

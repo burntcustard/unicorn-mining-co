@@ -50,6 +50,7 @@ func (s *GameServer) EnablePersistence(store *persistence.Store) error {
 // LogStats enables one line per finished connection and a periodic summary.
 func (s *GameServer) LogStats(logf func(string, ...any)) {
 	s.session.statsLogf = logf
+	s.session.startLoadStats()
 }
 
 func (s *GameServer) Start(port int, assets string, production bool) (net.Listener, error) {

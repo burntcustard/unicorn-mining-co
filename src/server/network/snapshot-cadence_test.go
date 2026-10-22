@@ -181,6 +181,8 @@ func TestSnapshotReceiptJitter(t *testing.T) {
 				socket := &benchmarkSocket{}
 				session.Receive(protocol.Control{Type: "hello"}, socket)
 				player := session.playersBySocket[socket]
+				// These scenarios model steady-state jitter, not a client still loading.
+				player.joinUntil = 1
 
 				type receipt struct{ at, sequence uint64 }
 
@@ -259,6 +261,7 @@ func TestSnapshotBackpressureAfterClientStall(t *testing.T) {
 	socket := &benchmarkSocket{}
 	session.Receive(protocol.Control{Type: "hello"}, socket)
 	player := session.playersBySocket[socket]
+	player.joinUntil = 1
 
 	for range 30 {
 		socket.acknowledge(session)

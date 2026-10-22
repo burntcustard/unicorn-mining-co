@@ -615,3 +615,29 @@ asset hashes, per-case metrics, and baseline comparisons are recorded in
 `benchmarking/local/live-2026-10-22-post-cpu-summary.json`. Before/after Fly
 status captures are
 `benchmarking/local/live-2026-10-22-post-cpu-status-{before,after}.json`.
+
+## October 22, 2026 at 5:47:20 PM GMT+1
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| --- | --- | --- | --- | --- |
+| 4 | 30.00 | 40.2 | 45.9 | 16.4–72.4 |
+| 8 | 30.00 | 55.1 | 64.2 | 14.1–116.0 |
+| 16 | 30.00 | 145.6 | 209.1 | 19.4–225.9 |
+| 32 | 30.09–30.24 | 330.6 | 503.3 | 41.3–139.7 |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.
+
+## October 22, 2026 at 6:16:13 PM GMT+1
+
+| Players | Observed ticks/s | Snapshot gap p95 (ms) | Input ack p95 (ms) | Download KiB/s/client |
+| --- | --- | --- | --- | --- |
+| 4 | 30.00–30.01 | 59.5 | 68.7 | 16.1–108.9 |
+| 8 | 29.98–30.00 | 76.0 | 95.3 | 17.8–192.1 |
+| 16 | 29.96–30.00 | 249.1 | 410.5 | 21.1–184.4 |
+| 32 | 30.00–30.16 | 375.8 | 587.5 | 46.3–123.5 |
+
+Rates are ranges of client medians across workloads; delays are the worst workload p95. Snapshot gaps use browser transport timestamps; download measures WebSocket payload.
+
+Local saturation affected this run’s network timings. These are observed service/network measurements, not server CPU measurements.

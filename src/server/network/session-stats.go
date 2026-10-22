@@ -26,7 +26,7 @@ type connectionStats struct {
 	lastSnapshotTick, maxSnapshotGap          uint64
 	windowStalls, bufferStalls, maxPending    uint64
 	receiptsRequested, receiptsReceived       uint64
-	lagSum, lagSamples, maxLag                uint64
+	lagSum, lagSamples, maxLag, joinLag       uint64
 	highLagTick                               int64
 	recoveries                                uint64
 	inputs, lateInputs, farInputs, duplicates uint64
@@ -61,11 +61,12 @@ func durationBucket(duration time.Duration) int {
 }
 
 func (s *GameSession) startStats(p *playerRecord) {
-	p.stats = connectionStats{connectedAt: s.now(), connectedTick: s.World.Tick, endReason: "closed", highLagTick: -1, lastSnapshotTick: s.World.Tick}
+	p.stats = connectionStats{connectedAt: s.now(), connectedTick: s.World.Tick, endReason: "closed", highLagTick: -1}
 }
 
-func (p *playerRecord) recordSnapshot(regular, requested bool, size int, tick uint64) {
+func (s *GameSession) recordSnapshot(p *playerRecord, regular, requested bool, size int) {
 	stats := &p.stats
+	tick := s.World.Tick
 	stats.snapshotBytes += uint64(size)
 	stats.maxSnapshotBytes = max(stats.maxSnapshotBytes, size)
 	stats.maxPending = max(stats.maxPending, uint64(len(p.pendingSnapshots)))
@@ -79,17 +80,17 @@ func (p *playerRecord) recordSnapshot(regular, requested bool, size int, tick ui
 		return
 	}
 
+	// The first gap is the time spent joining, not a delivery gap.
+	if stats.snapshots > 0 && tick > stats.lastSnapshotTick {
+		stats.maxSnapshotGap = max(stats.maxSnapshotGap, tick-stats.lastSnapshotTick)
+	}
+
 	stats.snapshots++
+	stats.lastSnapshotTick = tick
 
 	if p.snapshotWindow == 2 {
 		stats.slowSnapshots++
 	}
-
-	if tick > stats.lastSnapshotTick {
-		stats.maxSnapshotGap = max(stats.maxSnapshotGap, tick-stats.lastSnapshotTick)
-	}
-
-	stats.lastSnapshotTick = tick
 }
 
 func (s *GameSession) recordLag(p *playerRecord, lag int64) {
@@ -98,6 +99,11 @@ func (s *GameSession) recordLag(p *playerRecord, lag int64) {
 	stats.lagSum += uint64(lag)
 	stats.lagSamples++
 	stats.maxLag = max(stats.maxLag, uint64(lag))
+
+	if s.joining(p) {
+		stats.joinLag = max(stats.joinLag, uint64(lag))
+		return
+	}
 
 	if lag >= statsPinnedLag && stats.highLagTick < 0 {
 		stats.highLagTick = int64(s.World.Tick - stats.connectedTick)
@@ -155,11 +161,11 @@ func (s *GameSession) finishStats(p *playerRecord) {
 		step := s.World.Specification.Simulation.SimulationStep
 		s.logf("connection-stats reason=%s seconds=%.1f ticks=%d players=%d snapshots=%d direct=%d slow=%d "+
 			"snapshot_bytes=%d max_snapshot_bytes=%d max_gap_ms=%.1f window_stalls=%d buffer_stalls=%d max_pending=%d "+
-			"receipts=%d receipt_requests=%d mean_lag=%.2f max_lag=%d held_lag=%d high_lag_s=%.1f recoveries=%d "+
+			"receipts=%d receipt_requests=%d mean_lag=%.2f max_lag=%d join_lag=%d held_lag=%d high_lag_s=%.1f recoveries=%d "+
 			"inputs=%d late=%d far=%d duplicates=%d compressed=%d lead_min=%d lead_max=%d",
 			stats.endReason, seconds, ticks, len(s.playersBySocket), stats.snapshots, stats.directReplies, stats.slowSnapshots,
 			stats.snapshotBytes, stats.maxSnapshotBytes, float64(stats.maxSnapshotGap)*step*1000, stats.windowStalls, stats.bufferStalls, stats.maxPending,
-			stats.receiptsReceived, stats.receiptsRequested, meanLag, stats.maxLag, p.receiptLag, highLagSeconds, stats.recoveries,
+			stats.receiptsReceived, stats.receiptsRequested, meanLag, stats.maxLag, stats.joinLag, p.receiptLag, highLagSeconds, stats.recoveries,
 			stats.inputs, stats.lateInputs, stats.farInputs, stats.duplicates, stats.compressedTicks, stats.minLead, stats.maxLead)
 	}
 }
@@ -202,4 +208,5 @@ func (s *GameSession) logTotals() {
 		statsPinnedLag, totals.connections, rate, totals.snapshots, len(s.playersBySocket),
 		formatLagBuckets(totals.lag[0]), formatLagBuckets(totals.lag[1]), formatLagBuckets(totals.lag[2]),
 		formatLagBuckets(live[0]), formatLagBuckets(live[1]), formatLagBuckets(live[2]))
+	s.logLoad()
 }

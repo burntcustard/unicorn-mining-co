@@ -42,6 +42,16 @@ type queuedInputs struct {
 	changes []protocol.Control
 }
 
+// joinWarmupSeconds is how long after a client's first regular snapshot its
+// receipt lag is not remembered. Loading a world stalls browsers briefly.
+const joinWarmupSeconds = 10
+
+// joining reports whether a connection is still loading, before or during its
+// warmup after the first regular snapshot.
+func (s *GameSession) joining(p *playerRecord) bool {
+	return p.joinUntil == 0 || s.World.Tick < p.joinUntil
+}
+
 func (q *queuedInputs) lateOffset(index, previous int, step float64) float64 {
 	if previous < 0 {
 		return 0
@@ -78,6 +88,7 @@ type playerRecord struct {
 	snapshotWindow                                  int
 	ackInterval                                     int
 	receiptLag                                      int
+	joinUntil                                       uint64
 	needsLoad                                       bool
 	inputLead                                       int64
 	hasInputLead                                    bool
@@ -122,6 +133,8 @@ type GameSession struct {
 	now             func() time.Time
 	statsLogf       func(string, ...any)
 	statsTotals     sessionTotals
+	tickStats       tickStats
+	loadSince       loadBaseline
 }
 
 func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
@@ -213,6 +226,7 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 				}
 
 				player.stats.receiptsReceived++
+				observedLag := 0
 
 				if snapshot.tick >= 0 {
 					lag := int64(s.World.Tick) - snapshot.tick
@@ -242,10 +256,16 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 					// Keep the longest observed receipt lag so a jittery client does not
 					// repeatedly exhaust its window after a faster receipt. Eight ticks
 					// already require a receipt on every snapshot in the healthy window.
-					player.receiptLag = max(player.receiptLag, min(8, int(lag)))
+					// Stalls while the client is still loading are not remembered, but
+					// still shape this receipt's spacing and trigger recovery above.
+					observedLag = min(8, int(lag))
+
+					if !s.joining(player) {
+						player.receiptLag = max(player.receiptLag, observedLag)
+					}
 				}
 
-				player.ackInterval = max(1, player.snapshotWindow-player.receiptLag-2)
+				player.ackInterval = max(1, player.snapshotWindow-max(player.receiptLag, observedLag)-2)
 				player.pendingSnapshots = player.pendingSnapshots[i+1:]
 				break
 			}
@@ -671,7 +691,12 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 	p.sentDockSequence = p.dockSequence
 	p.hasInputLead = false
 	p.pendingSnapshots = append(p.pendingSnapshots, pendingSnapshot{sequence: sequence, tick: tick, dockSequence: p.dockSequence, requested: snapshotSequence != nil, window: p.snapshotWindow})
-	p.recordSnapshot(view != nil, snapshotSequence != nil, len(packet), s.World.Tick)
+
+	if view != nil && p.joinUntil == 0 {
+		p.joinUntil = s.World.Tick + uint64(math.Ceil(joinWarmupSeconds/s.World.Specification.Simulation.SimulationStep))
+	}
+
+	s.recordSnapshot(p, view != nil, snapshotSequence != nil, len(packet))
 	send(socket, packet)
 }
 
@@ -741,6 +766,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	p.snapshotWindow = 2
 	p.ackInterval = 0
 	p.receiptLag = 0
+	p.joinUntil = 0
 	p.needsLoad = true
 	p.lastInputAt = s.now()
 	p.disconnectedAt = nil

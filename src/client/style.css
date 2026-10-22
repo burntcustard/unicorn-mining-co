@@ -70,8 +70,6 @@
     position: fixed;
     inset: 50% auto auto 50%;
     transform: translate(-50%, -50%);
-    background: #213;
-    padding: 14px;
     z-index: 10;
   }
 }

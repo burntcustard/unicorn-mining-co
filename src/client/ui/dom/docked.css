@@ -1,7 +1,10 @@
 @layer components {
+  .hud:has(> .dock-screen:not([hidden]))::before {
+    background-color: var(--ui-dock);
+  }
+
   .dock-screen {
     --ui-accent: #3f7;
-    --ui-backdrop: #334;
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
@@ -44,7 +47,7 @@
   }
 
   .dock-group {
-    background: rgb(from #112 r g b / 0.4);
+    background: var(--ui-panel);
   }
 
   .dock-row {

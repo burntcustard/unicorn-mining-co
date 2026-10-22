@@ -35,14 +35,26 @@ plain increments on existing paths; nothing is sent to clients.
   `players` online, snapshots (`snapshots`, `direct`, `slow` sent in the
   two-snapshot window), `snapshot_bytes`, `max_gap_ms`, stalls (`window_stalls`,
   `buffer_stalls`), `max_pending`, receipts (`receipts`, `receipt_requests`),
-  lag in ticks (`mean_lag`, `max_lag`, `held_lag`, the capped high-water mark that
-  sets receipt spacing), `high_lag_s` (seconds until lag first reached 6, or -1),
+  lag in ticks (`mean_lag`, `max_lag`, `join_lag`, `held_lag`, the capped
+  high-water mark that sets receipt spacing), `high_lag_s` (seconds from connecting
+  until lag first reached 6 after the join warmup, or -1),
   `recoveries`, and inputs (`inputs`, `late`, `far`, `duplicates`, `compressed`,
-  `lead_min`, `lead_max`).
+  `lead_min`, `lead_max`). `max_gap_ms` is the longest gap between regular
+  snapshots, starting from the first one.
 - `server-stats`: cumulative finished-connection totals and `receipts_per_s`, plus
   held-lag histograms (buckets 0–8) for ended and still-open connections, split by
   age under 1 minute, 1–10 minutes, and over 10 minutes. Compare like-aged
   connections, since the high-water mark only rises with session length.
+- `server-load`, printed with each `server-stats`: wall seconds, process CPU
+  (`cpu_s`, `cpu_percent` of one core, `cpu_ms_per_tick`), tick duration (`ticks`,
+  `tick_mean_ms`, `tick_max_ms`, `ticks_over_step`), event-loop catch-up
+  (`catchups` calls covering several ticks, `catchup_ticks` extra ticks), garbage
+  collection (`gc_cycles`, `gc_pause_ms`), `heap_mib`, and `players`. Each
+  covers the interval since the previous line. A server stall shows as high
+  `tick_max_ms` or `catchups`; a client stall leaves these unchanged.
+
+Lag seen during a connection's first 10 seconds of snapshots (`join_lag`) still
+triggers recovery and spaces that receipt, but is not remembered in `held_lag`.
 
 ## Historical harnesses
 

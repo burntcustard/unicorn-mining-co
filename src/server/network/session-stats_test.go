@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -64,17 +65,14 @@ func TestConnectionStatsLog(t *testing.T) {
 	}
 }
 
-func TestConnectionStatsHighLagAndRecovery(t *testing.T) {
-	t.Parallel()
-	session, player, socket := lateInputSession(t)
-	session.startStats(player)
-
-	for range 20 {
+// slowReceipt lets snapshots sit unacknowledged, then acknowledges the oldest
+// requested one. Receipts are cumulative, so that is a slow round trip even
+// though newer snapshots were sent.
+func slowReceipt(session *GameSession, player *playerRecord, socket *benchmarkSocket, ticks int) {
+	for range ticks {
 		session.Tick(1)
 	}
 
-	// Receipts are cumulative, so acknowledging the oldest requested snapshot
-	// is a slow round trip even though newer snapshots were sent.
 	var oldest uint64
 
 	for _, snapshot := range player.pendingSnapshots {
@@ -85,9 +83,95 @@ func TestConnectionStatsHighLagAndRecovery(t *testing.T) {
 	}
 
 	session.Receive(protocol.Control{Type: "snapshotAck", Sequence: oldest}, socket)
+}
 
-	if player.stats.maxLag < statsPinnedLag || player.stats.highLagTick < 0 || player.stats.recoveries != 1 {
-		t.Fatalf("expected high lag and one recovery: %+v", player.stats)
+func TestConnectionStatsHighLagAndRecovery(t *testing.T) {
+	t.Parallel()
+	session, player, socket := lateInputSession(t)
+	session.startStats(player)
+	player.joinUntil = 1
+	slowReceipt(session, player, socket, 20)
+
+	if player.stats.maxLag < statsPinnedLag || player.stats.highLagTick < 0 || player.stats.recoveries != 1 || player.receiptLag != 8 {
+		t.Fatalf("expected remembered high lag and one recovery: %+v", player.stats)
+	}
+}
+
+func TestJoinStallIsNotRemembered(t *testing.T) {
+	t.Parallel()
+	session, player, socket := lateInputSession(t)
+	session.startStats(player)
+
+	if player.joinUntil == 0 {
+		t.Fatal("regular snapshots must start the join warmup")
+	}
+
+	slowReceipt(session, player, socket, 20)
+
+	// The stall still starts recovery, but is only reported, not remembered.
+	if player.stats.recoveries != 1 || player.snapshotWindow != 2 || player.stats.joinLag < statsPinnedLag || player.stats.highLagTick >= 0 || player.receiptLag != 0 {
+		t.Fatalf("unexpected join-stall state: lag=%d window=%d %+v", player.receiptLag, player.snapshotWindow, player.stats)
+	}
+
+	// The next fast receipts space requests by their own lag, not the stall's.
+	for range int(math.Ceil(1/session.World.Specification.Simulation.SimulationStep)) + 10 {
+		session.Tick(1)
+		socket.acknowledge(session)
+	}
+
+	if player.ackInterval <= 1 {
+		t.Fatalf("a join stall must not force a receipt on every snapshot: interval %d", player.ackInterval)
+	}
+
+	// After the warmup the same stall is remembered.
+	player.joinUntil = 1
+	slowReceipt(session, player, socket, 20)
+
+	if player.receiptLag != 8 || player.ackInterval != 1 {
+		t.Fatalf("a post-join stall must be remembered: lag=%d interval=%d", player.receiptLag, player.ackInterval)
+	}
+}
+
+func TestSnapshotGapExcludesJoining(t *testing.T) {
+	t.Parallel()
+	session, player, socket := lateInputSession(t)
+	session.startStats(player)
+
+	for range 5 {
+		session.Tick(1)
+		socket.acknowledge(session)
+	}
+
+	if player.stats.snapshots == 0 || player.stats.maxSnapshotGap != 1 {
+		t.Fatalf("expected one-tick gaps from the first snapshot: %+v", player.stats)
+	}
+}
+
+func TestServerLoadLine(t *testing.T) {
+	t.Parallel()
+	session, _, socket := lateInputSession(t)
+	var lines []string
+
+	session.statsLogf = func(format string, args ...any) { lines = append(lines, fmt.Sprintf(format, args...)) }
+
+	session.startLoadStats()
+
+	for range 10 {
+		session.Tick(1)
+		socket.acknowledge(session)
+	}
+
+	session.Tick(3)
+	session.logLoad()
+
+	if len(lines) != 1 {
+		t.Fatalf("expected one load line: %v", lines)
+	}
+
+	for _, want := range []string{"server-load ", "ticks=13", "catchups=1", "catchup_ticks=2", "tick_max_ms=", "cpu_ms_per_tick=", "gc_cycles=", "players=1"} {
+		if !strings.Contains(lines[0], want) {
+			t.Errorf("missing %q in %s", want, lines[0])
+		}
 	}
 }
 

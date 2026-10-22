@@ -4,6 +4,7 @@ Recent investigations are grouped by measurement date. Use [benchmarking](../../
 
 ## 2026-10-22
 
+- [Live receipt lag, join warmup and receipt cost](2026-10-22/receipt-cost-and-join-warmup.md)
 - [Stateless snapshot receipt margins and jitter comparison](2026-10-22/receipt-margin.md)
 - [Combat input latency and ready-weapon presentation](2026-10-22/combat-input-latency.md)
 - [Input acknowledgment regression and bounded snapshot receipts](2026-10-22/input-acknowledgment.md)
