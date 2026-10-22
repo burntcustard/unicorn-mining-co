@@ -84,11 +84,7 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
       delete comparable.snapshotSequence;
     }
 
-    compare(
-      actual,
-      comparable,
-      `socket ${id} packet ${index}`,
-    );
+    compare(actual, comparable, `socket ${id} packet ${index}`);
     packets++;
   });
 }

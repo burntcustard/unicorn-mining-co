@@ -1,5 +1,10 @@
 # Go server CPU comparison — 2026-10-01
 
+> Evidence for this completed investigation is in the
+> [2026-10-01 archive](../../../benchmarking/archive/README.md#2026-10-01).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-01`.
+
 This is the earlier checkpoint. See the [follow-up comparison](go-server-cpu-comparison-2026-10-01-followup.md)
 for fresh measurements of the latest Go implementation against this same original
 Go baseline and the updated Node.js server. The historical tables below are unchanged.
@@ -12,7 +17,7 @@ optimization pass. Every scenario uses less CPU; individual speedups range from
 **Before:** commit `db1b7050e0b5ecd70c808728b989816e9320c468`, with
 `GOGC=100` and no profile-guided optimization (PGO).
 **Current:** the uncommitted Go source, with the retained optimizations,
-`GOGC=800`, and the supplied [checkpoint PGO profile](../../../benchmarking/experiments/2026-10-01/go-cpu/profiles/pre-followup-default.pgo).
+`GOGC=800`, and the supplied [checkpoint PGO profile](../../../benchmarking/profiles/da75321f62214378ddefa6577733c5a61c330d15032146507ca9caa992418bc3.pgo).
 These are the respective production configurations, so the comparison includes
 both source changes and compiler/GC configuration changes.
 
@@ -81,7 +86,7 @@ sides, with `GOGC=100` versus `800`, for **6,000 measured ticks and three runs p
 **382.9 MiB** at `800`, versus **103.6 MiB** at `100`; the largest observed peak at
 `800` was **385.6 MiB**. This isolates the GC setting rather than comparing the
 original and current source. See the
-[sustained GC samples](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-gc-sustained.json.gz).
+[sustained GC samples](../../../benchmarking/archive/README.md#2026-10-01).
 
 ## Tick duration
 
@@ -134,8 +139,8 @@ per-scenario current/previous CPU ratios, minus one.
 | Rebuild an ordered map of contact lists each tick        |             +4.60% | Reject: contact-heavy scenarios use 8.36–19.68% more CPU |
 | Reuse buffers with simpler bookkeeping and clearer names |             +0.40% | Keep: simpler code, with less than 1% average change     |
 
-[Map comparison samples](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-contact-map-review.json.gz)
-and [cleanup comparison samples](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-contact-simplification-review.json.gz)
+[Map comparison samples](../../../benchmarking/archive/README.md#2026-10-01)
+and [cleanup comparison samples](../../../benchmarking/archive/README.md#2026-10-01)
 retain all measured outcomes. Both comparisons match on contact counts, events,
 near-zero collision notification counts, entity counts, packet counts, encoded
 bytes and final ship states. The main tables
@@ -186,10 +191,10 @@ The stripped static Go executable also remains 7,889,056 bytes.
   scenario. The contact-buffer cleanup itself changes none of these counts.
 
 The primary evidence is the
-[complete before/current samples](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-contact-review-final.json),
+[complete before/current samples](../../../benchmarking/archive/README.md#2026-10-01),
 including allocation, memory, latency, outcome and executable-hash records.
-The separate [Go/Node parity results](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-go-parity-final.json)
-and [original 32-player module parity audit](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-original-32-module-parity.json)
+The separate [Go/Node parity results](../../../benchmarking/archive/README.md#2026-10-01)
+and [original 32-player module parity audit](../../../benchmarking/archive/README.md#2026-10-01)
 record the numerical tolerances and original ordering check.
 
 The measured current Go production source matches the working tree when this

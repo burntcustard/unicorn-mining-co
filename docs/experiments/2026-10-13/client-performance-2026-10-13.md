@@ -1,5 +1,10 @@
 # Client gameplay performance — 2026-10-13
 
+> Evidence for this completed investigation is in the
+> [2026-10-13 archive](../../../benchmarking/archive/README.md#2026-10-13).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-13`.
+
 The [4K follow-up](client-performance-4k-2026-10-13.md) adds a renderer setting,
 reviews these uncommitted changes, and fixes the docking test assumptions
 recorded below. The captures in this report retain their original metadata.
@@ -66,13 +71,13 @@ seven missed refreshes. The averages meet the clarified acceptance threshold;
 Firefox still has more occasional scheduling/collection gaps than its minimal
 reference. Large-fracture and combat captures consumed 255 rounds each.
 
-[Chrome final data](../../../benchmarking/experiments/2026-10-13/client-performance/results/chrome-final.json)
-and [Firefox final data](../../../benchmarking/experiments/2026-10-13/client-performance/results/firefox-final.json)
+[Chrome final data](../../../benchmarking/archive/README.md#2026-10-13)
+and [Firefox final data](../../../benchmarking/archive/README.md#2026-10-13)
 contain activity checks, frame gaps, timing distributions, and browser errors.
-Screenshots retain the [Firefox combat](../../../benchmarking/experiments/2026-10-13/client-performance/results/firefox-combat.png)
-and [large-fracture](../../../benchmarking/experiments/2026-10-13/client-performance/results/firefox-large.png)
-scenes, plus [Chrome combat](../../../benchmarking/experiments/2026-10-13/client-performance/results/chrome-combat.png)
-and [large fractures](../../../benchmarking/experiments/2026-10-13/client-performance/results/chrome-large.png),
+Screenshots retain the [Firefox combat](../../../benchmarking/archive/README.md#2026-10-13)
+and [large-fracture](../../../benchmarking/archive/README.md#2026-10-13)
+scenes, plus [Chrome combat](../../../benchmarking/archive/README.md#2026-10-13)
+and [large fractures](../../../benchmarking/archive/README.md#2026-10-13),
 at native resolution.
 
 Corrected original-client combat captures, each 30 seconds, measured:
@@ -82,8 +87,8 @@ Corrected original-client combat captures, each 30 seconds, measured:
 | Firefox |  53.869 | 18.40 ms |    29 ms |    41.36 ms |
 | Chrome  | 119.671 |  4.48 ms | 11.30 ms |    16.70 ms |
 
-The [Firefox](../../../benchmarking/experiments/2026-10-13/client-performance/results/firefox-before.json)
-and [Chrome](../../../benchmarking/experiments/2026-10-13/client-performance/results/chrome-before.json)
+The [Firefox](../../../benchmarking/archive/README.md#2026-10-13)
+and [Chrome](../../../benchmarking/archive/README.md#2026-10-13)
 baselines use the matching deterministic combat workload. Capture duration
 changed from 30 to 60 seconds, so compare rates/distributions rather than raw
 miss counts. Earlier captures with incorrect simulation cadence, suspended
@@ -160,8 +165,8 @@ intervals span multiple slices and are not continuous pauses. Sampled allocation
 profiles showed cloning callbacks and repeated module getters as substantial
 allocation sources. Replacing clone callbacks cut sampled lexical-environment
 allocation by about 48% and cloning-leaf allocation by about 62% in the paired
-20-second diagnostic. The [before](../../../benchmarking/experiments/2026-10-13/client-performance/results/firefox-allocation-summary.json)
-and [after](../../../benchmarking/experiments/2026-10-13/client-performance/results/firefox-clone-loops-allocation-summary.json)
+20-second diagnostic. The [before](../../../benchmarking/archive/README.md#2026-10-13)
+and [after](../../../benchmarking/archive/README.md#2026-10-13)
 summaries retain the sampled evidence. These totals are directional evidence;
 profiling adds overhead and the ordinary captures above determine acceptance.
 
@@ -191,7 +196,7 @@ mouse-focused item to retain keyboard hover on pointer exit, while unchanged
 product code retains it only for `:focus-visible`. This is recorded separately
 from the rendering and gameplay checks.
 
-[Resource sizes](../../../benchmarking/experiments/2026-10-13/client-performance/results/resource-sizes.json)
+[Resource sizes](../../../benchmarking/archive/README.md#2026-10-13)
 compare the original build with the final build; gzip uses Node's level 1, as
 in the production budget check. Loading triggers are unchanged.
 

@@ -1,5 +1,0 @@
-{
-  "sha256": "e4ef72fae0e522ff969fd55bc4decfdc79bf78f0003ca8f26b904515c494c1cd",
-  "snapshot": "/tmp/unicorn-cpu-initial-after.json",
-  "note": "NPC forecast, geometry, route queue, asteroid outline caching; excludes cargo cache, restored source from before snapshot. Tests aside from benchmark are not included in this production-source snapshot."
-}

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
+import { buildPrePlugin } from '../../plugins/build-plugins';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const status = { hidden: true, textContent: '' };
 const sockets: TestWebSocket[] = [];
@@ -48,9 +49,7 @@ for (const production of [false, true]) {
                export default () => new NetworkClient({url: 'test'});`
             : undefined,
       },
-      ...(production
-        ? [buildPrePlugin(), { ...buildPlugin(), generateBundle: undefined }]
-        : []),
+      ...(production ? [buildPrePlugin(), testBuildPlugin()] : []),
     ],
   });
 

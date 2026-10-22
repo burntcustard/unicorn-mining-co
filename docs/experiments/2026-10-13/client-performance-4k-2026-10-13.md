@@ -1,5 +1,10 @@
 # Native 4K gameplay performance — 2026-10-13
 
+> Evidence for this completed investigation is in the
+> [2026-10-13 archive](../../../benchmarking/archive/README.md#2026-10-13).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-13`.
+
 The target is at least 100 FPS during the established gameplay workloads in
 Chrome and Firefox at native 3840 × 2160 resolution and default zoom 1.5.
 The optimized client passed all four 60-second gameplay workloads in both
@@ -53,11 +58,11 @@ was unsuitable for measuring display cadence.
 | Firefox | Flight    |     119.951 |                118.99 |  4.78 / 7.00 ms |    17.12 ms |
 | Firefox | Reference |     119.866 |                     — |  0.01 / 0.00 ms |    33.24 ms |
 
-[Chrome data](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/chrome-final.json)
-and [Firefox data](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-final.json)
+[Chrome data](../../../benchmarking/archive/README.md#2026-10-13)
+and [Firefox data](../../../benchmarking/archive/README.md#2026-10-13)
 retain activity checks, timing distributions, individual stalls, native dimensions,
-and browser errors. [Chrome](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/chrome-combat.png)
-and [Firefox](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-combat.png)
+and browser errors. [Chrome](../../../benchmarking/archive/README.md#2026-10-13)
+and [Firefox](../../../benchmarking/archive/README.md#2026-10-13)
 screenshots show native 4K combat, searchlight/refraction, revealed cargo, and HUD.
 
 Before simplification, the 60-second gameplay runs passed:
@@ -181,17 +186,17 @@ Loading triggers are unchanged.
 | ship-preview.js |         5,129 / 2,579 |        5,129 / 2,577 |
 | ship.js         |       85,089 / 36,977 |      85,204 / 37,008 |
 
-[Complete resource data](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/resource-sizes.json)
+[Complete resource data](../../../benchmarking/archive/README.md#2026-10-13)
 includes unchanged resources. Original pre-investigation sizes remain in the
 1440p report.
 
 The final 30-second 1440p regression captures preserve the earlier 119.8 FPS
 acceptance threshold: Chrome gameplay measured 119.91–119.94 FPS, and Firefox
-119.83–119.96 FPS. [Chrome](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/chrome-1440-regression.json)
-and [Firefox](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-1440-regression.json)
+119.83–119.96 FPS. [Chrome](../../../benchmarking/archive/README.md#2026-10-13)
+and [Firefox](../../../benchmarking/archive/README.md#2026-10-13)
 data retain their original metadata.
 
-The final renderer settings are shown in the [Graphics screenshot](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/graphics-settings.png).
+The final renderer settings are shown in the [Graphics screenshot](../../../benchmarking/archive/README.md#2026-10-13).
 Temporary browser and Go/Vite processes started for the investigation are
 stopped; pre-existing user processes are preserved.
 
@@ -218,7 +223,7 @@ with a detached direct-canvas reference at three angles, sampling both halves
 and their joining edge. All sampled RGBA channels matched exactly in Firefox.
 The station guide still repaints only when its geometry or rendering scale changes.
 
-[Before at 1440p](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-bay-before-1440.png), [after at 1440p](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-bay-after-1440.png), [after at 4K](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-bay-after-4k.png), and [visual-check metadata](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-docking-bay-visual-checks.json).
+[Before at 1440p](../../../benchmarking/archive/README.md#2026-10-13), [after at 1440p](../../../benchmarking/archive/README.md#2026-10-13), [after at 4K](../../../benchmarking/archive/README.md#2026-10-13), and [visual-check metadata](../../../benchmarking/archive/README.md#2026-10-13).
 
 All 53 Node tests, all Go test packages, build, lint, and the complete production
 UI suite passed after the correction. The gameplay chunk shrank from 92,806 to
@@ -235,7 +240,7 @@ The four established Firefox workloads were rerun for 30 seconds each at native
 | Combat   |      119.60 |                111.05 |
 | Flight   |      119.70 |                114.02 |
 
-[Updated Firefox acceptance data](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-4k-docking-bay-regression.json). Every measured one-second window remained above 100 FPS.
+[Updated Firefox acceptance data](../../../benchmarking/archive/README.md#2026-10-13). Every measured one-second window remained above 100 FPS.
 
 A separate, denser diagnostic moves the station to (450, 300), keeping its hull
 and rotating bay visible alongside the 48-asteroid combat fixture. Its 60-second
@@ -244,4 +249,4 @@ a longest refresh gap of 55.56 ms. This diagnostic does **not** meet the
 100 FPS window threshold; the earlier station-visible diagnostics also had
 sub-100 FPS windows. It differs from the four established acceptance workloads
 and is recorded separately rather than being included in their passing result.
-[Station-visible stress data](../../../benchmarking/experiments/2026-10-13/client-performance-4k/results/firefox-4k-docking-bay-stress.json).
+[Station-visible stress data](../../../benchmarking/archive/README.md#2026-10-13).

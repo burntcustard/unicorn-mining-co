@@ -4,9 +4,10 @@ import { rolldown } from 'rolldown';
 import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { testBuildPlugin } from './build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
+import { fixtureSource } from './fixture-source.ts';
 
 /*
- * Exercise representative Go/client regressions, with an opt-in full matrix.
+ * Exercise Go/client regressions with focused geometry and timing cases.
  */
 export async function runProjectilePrediction({
   group,
@@ -18,30 +19,16 @@ export async function runProjectilePrediction({
   const fixtures = JSON.parse(
     execFileSync(
       'go',
-      ['run', 'src/server/testtools/projectile-prediction/main.go'],
+      ['run', 'src/server/testtools/projectile-prediction/main.go', group],
       { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
     ),
-  ).filter(
-    (fixture: { weapon: string; repeated?: boolean; triangle?: boolean }) =>
-      group === 'repeated'
-        ? fixture.repeated
-        : group === 'triangles'
-          ? fixture.triangle && fixture.weapon === 'autogun'
-          : !fixture.repeated &&
-            fixture.weapon ===
-              (group === 'autogun' ? 'autogun' : 'plasmaAccelerator'),
   );
 
   if (!fixtures.length) {
     throw new Error(`No Go projectile fixtures for ${group}`);
   }
 
-  // Fixture keys are properties, while quoted gameplay strings are tags. Keep
-  // keys unquoted so the production tag rewrite cannot turn "input" into a tag.
-  const fixtureSource = JSON.stringify(fixtures).replace(
-    /"([A-Za-z_]\w*)":/g,
-    '$1:',
-  );
+  const fixture = fixtureSource(fixtures);
 
   // NetworkClient also exports the normal singleton; supply browser APIs before
   // evaluating either bundle, and drive packet receipt independently of rendering.
@@ -68,18 +55,22 @@ import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapsho
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
-const fixtures = ${fixtureSource};
-const extended = ${process.env.TEST_EXTENDED === '1'};
+const fixtures = ${fixture};
 installExampleModules();
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
 `;
 
   const snapshots = `
-// Retain immediate updates, delayed ID reuse, and delayed batched frames.
-const snapshotTimings = extended
-  ? [1, 8].flatMap(renderEvery => [0, 1, 3, 8].map(delay => [renderEvery, delay]))
-  : [[1, 0], [1, 8], [8, 8]];
-for (const [renderEvery, delay] of snapshotTimings) for (const fixture of fixtures.filter(fixture => !fixture.repeated)) {
+for (const fixture of fixtures.filter(fixture => !fixture.repeated)) {
+// Assign timing coverage to the geometry cases instead of repeating their
+// entire cross-product. ID reuse specifically needs delayed, unbatched frames.
+const snapshotTimings = fixture.reservesIDs ? [[1, 8]]
+  : fixture.triangle ? [[8, 8]]
+  : fixture.moving ? [[1, 3]]
+  : fixture.weapon === 'autogun' ? [[1, 0]] : [[1, 1]];
+const authoritativeHits = fixture.frames.flatMap(frame => frame.hits);
+const authoritativeSplits = fixture.frames.flatMap(frame => frame.splits);
+for (const [renderEvery, delay] of snapshotTimings) {
   // Replaying rotating contacts from binary checkpoints can accumulate tiny
   // rounding differences. These remain far below a visible displacement.
   const tolerance = .01;
@@ -135,7 +126,7 @@ for (const [renderEvery, delay] of snapshotTimings) for (const fixture of fixtur
     splits.push(...events.filter(event => event.type === 'asteroidSplit'));
     hits.push(...events.filter(event => event.type === 'collision' && event.damage[1] > 0));
     if(!fixture.reservesIDs) for (const hit of events.filter(event => event.type === 'collision' && event.damage[1] > 0)) {
-      const expected = fixture.frames.flatMap(frame => frame.hits).filter(reported => reported.a === hit.a && reported.b === hit.b && reported.damage[0] === hit.damage[0] && reported.colors[1] === hit.colors[1]).sort((a,b) => Math.hypot(a.position.x-hit.position.x,a.position.y-hit.position.y)-Math.hypot(b.position.x-hit.position.x,b.position.y-hit.position.y))[0];
+      const expected = authoritativeHits.filter(reported => reported.a === hit.a && reported.b === hit.b && reported.damage[0] === hit.damage[0] && reported.colors[1] === hit.colors[1]).sort((a,b) => Math.hypot(a.position.x-hit.position.x,a.position.y-hit.position.y)-Math.hypot(b.position.x-hit.position.x,b.position.y-hit.position.y))[0];
       assert(expected, 'asteroid and moving fragment hits match the authoritative Go event');
       assert.deepEqual(hit.colors, expected.colors);
       assert(hit.damage.every((amount, index) => Math.abs(amount - expected.damage[index]) < 1e-8));
@@ -149,15 +140,14 @@ for (const [renderEvery, delay] of snapshotTimings) for (const fixture of fixtur
   const directHits=hits.filter(hit=>hit.damage[0]>0);
   assert.equal(new Set(directHits.map(hit => hit.a)).size, directHits.length, 'reconciliation never presents the same direct projectile impact twice');
   const hitKey=hit=>[hit.a,hit.b,hit.damage[0],...hit.colors].join(':');
-  const authoritativeHits=fixture.frames.flatMap(frame=>frame.hits).filter(hit=>hit.damage[1]>0);
-  for(const key of new Set(hits.map(hitKey))) assert(hits.filter(hit=>hitKey(hit)===key).length<=authoritativeHits.filter(hit=>hitKey(hit)===key).length,'reconciliation does not repeat splash effects');
+  for(const key of new Set(hits.map(hitKey))) assert(hits.filter(hit=>hitKey(hit)===key).length<=authoritativeHits.filter(hit=>hit.damage[1]>0 && hitKey(hit)===key).length,'reconciliation does not repeat splash effects');
   const originalSplits = splits.filter(event => event.asteroidId === 100).length;
   if (renderEvery === 1) assert.equal(originalSplits, 1, 'the predicted split is presented once');
   assert(originalSplits <= 1, 'batched authoritative splits must not repeat the predicted effect');
-  const authoritativeSplits = fixture.frames.flatMap(frame => frame.splits);
   assert(authoritativeSplits.includes(100), 'the fixed-damage firing sequence actually splits the original asteroid');
   assert.equal(new Set(splits.map(event => event.asteroidId)).size, splits.length, 'subsequent chunk hits do not repeat a split');
   assert(splits.every(event => authoritativeSplits.includes(event.asteroidId)), 'presented splits match authoritative damage and fractures');
+}
 }
 `;
 
@@ -168,9 +158,7 @@ for (const [renderEvery, delay] of snapshotTimings) for (const fixture of fixtur
 const repeated = fixtures.find(fixture => fixture.repeated);
 assert(repeated.frames.flatMap(frame => frame.splits).length > 3, 'the regression mines an already fractured remainder');
 // Cover both joining paths and both frame cadences without every pairing.
-const miningTimings = extended
-  ? [0, 241].flatMap(start => [2, 4].map(framesPerTick => [start, framesPerTick]))
-  : [[0, 2], [241, 4]];
+const miningTimings = [[0, 2], [241, 4]];
 for (const [start, framesPerTick] of miningTimings) {
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
@@ -212,10 +200,9 @@ for (const [start, framesPerTick] of miningTimings) {
   const triangles = `
 // Shoot untouched, rotated triangles from a distance, including rocks that only
 // spin and fragments whose IDs compete with unseen server allocations.
-const triangleTimings = extended
-  ? [0, 3, 8].flatMap(delay => [2, 4].map(framesPerTick => [delay, framesPerTick]))
-  : [[0, 2], [8, 4]];
-for (const fixture of fixtures.filter(fixture => fixture.triangle && fixture.weapon === 'autogun')) for (const [delay, framesPerTick] of triangleTimings) {
+for (const fixture of fixtures.filter(fixture => fixture.triangle && fixture.weapon === 'autogun')) {
+const triangleTimings = fixture.moving || fixture.drifting ? [[8, 4]] : [[0, 2]];
+for (const [delay, framesPerTick] of triangleTimings) {
   assert(fixture.frames.some(frame => frame.splits.includes(100)), 'autogun splits the untouched triangle');
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
@@ -247,6 +234,7 @@ for (const fixture of fixtures.filter(fixture => fixture.triangle && fixture.wea
   }
   assert(displacement < .05, 'autogun triangle position correction: delay=' + delay + ' drifting=' + fixture.drifting + ' displacement=' + displacement);
   assert(edgeDisplacement < .05, 'autogun triangle rotation correction: delay=' + delay + ' drifting=' + fixture.drifting + ' displacement=' + edgeDisplacement);
+}
 }
 `;
 

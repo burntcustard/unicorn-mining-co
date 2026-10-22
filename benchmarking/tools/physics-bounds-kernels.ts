@@ -19,8 +19,9 @@ if (!process.argv[2]) {
   process.exit(0);
 }
 
-// Compiled from physics-bounds.wat using wabt; no compiler/runtime dependency
-// is added to the game. Regenerate with wat2wasm if the WAT is edited.
+// The WAT source and regeneration instructions are in the September 27 physics
+// investigation inside benchmarking/archive/2026-09.zip; see archive/README.md.
+// This embedded binary adds no compiler/runtime dependency to the game.
 const buffer = Buffer.from(
   'AGFzbQEAAAABCwFgBn9/fHx8fAF8AwIBAAUDAQABBxMCBm1lbW9yeQIABmJvdW5kcwAACr4BAbsBAQZ7/QwAAAAAAADwfwAAAAAAAPB/IQb9DAAAAAAAAPD/AAAAAAAA8P8hByAC/RQhCSADmv0UIAP9IgEhCiAE/RQgBf0iASELA0AgAP0ABAAhCCAIIAn98gEgCCAI/Q0ICQoLDA0ODwABAgMEBQYHIAr98gH98AEgC/3wASEIIAYgCP30ASEGIAcgCP31ASEHIABBEGohACABQQFrIQEgAQ0ACyAG/SEAIAf9IQCgIAb9IQEgB/0hAaCgCw==',
   'base64',

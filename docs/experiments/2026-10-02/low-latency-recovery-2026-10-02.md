@@ -1,5 +1,10 @@
 # Low-latency movement and stall recovery — 2 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-02 archive](../../../benchmarking/archive/README.md#2026-10-02).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-02`.
+
 This follows the [input-response simplification](ship-input-response-2026-10-02.md).
 The target is a 10–50 ms round trip, with 100 ms round trips as a stress case.
 A one-second interruption must not exhaust local prediction or throw away
@@ -132,4 +137,4 @@ Only pass the PID of the local test server to the last command. Its `finally`
 block resumes that process if the run fails. The scripts close their browsers;
 the local server/frontend pair should also be stopped after testing.
 
-[Saved captures, deterministic results, and before/after source](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-low-latency-recovery.json.gz).
+[Saved captures, deterministic results, and before/after source](../../../benchmarking/archive/README.md#2026-10-02).

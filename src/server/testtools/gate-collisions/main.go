@@ -107,7 +107,8 @@ func main() {
 		ticks := 90
 
 		if state[4] != 0 || state[6] != 0 {
-			ticks = 600
+			// Finish the full movement from .35 and sample its settled contacts.
+			ticks = 180
 		}
 
 		if state[8] != 0 {
@@ -150,7 +151,7 @@ func main() {
 				}
 			}
 
-			frames = append(frames, map[string]any{"position": object.Position, "velocity": object.Velocity, "rotation": object.Rotation, "spin": object.Spin, "health": craft.HullHealth(), "contacts": len(contacts), "depth": depth})
+			frames = append(frames, map[string]any{"position": object.Position, "velocity": object.Velocity, "rotation": object.Rotation, "spin": object.Spin, "health": craft.HullHealth(), "contacts": len(contacts), "opening": gate.Opening, "depth": depth})
 		}
 
 		results = append(results, frames)

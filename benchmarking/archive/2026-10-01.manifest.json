@@ -1,0 +1,1840 @@
+{
+  "archiveSha256": "7de391c244fd40beb202782a1af6abc6b43a6938c7bc5e660cdca0cca1b1c584",
+  "files": [
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/README.md",
+      "bytes": 5204,
+      "sha256": "a741db0f19ed77a823dd7d84e8298632742eb82e7ffc77fa6001a13d74a2f269"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/motion-batch-2026-10-01.patch",
+      "bytes": 4850,
+      "sha256": "b151abed671d222aee4a79dc389ebf0640acfa72e6ba1d3ac4a54292ffce3fc2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/motion-native-clean-2026-10-01.patch",
+      "bytes": 3935,
+      "sha256": "677e13fa91185759dbdba32a3d821bc940a8e43b76eea2f1b27e3b092a94fed2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/motion-native-dirty-2026-10-01.patch",
+      "bytes": 1463,
+      "sha256": "69a9dc37a5d78401e33a0ed3913f74c37415acfaecc5ba1cc8b5585bdf45d4c1"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/motion-rounding-2026-10-01.patch",
+      "bytes": 1663,
+      "sha256": "e4d6a83d7863134edf0a0e483af900ab81a5680eedd3f390b5027fa034333b93"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/nearest-eight-v1-2026-10-01.patch",
+      "bytes": 5999,
+      "sha256": "d4439853b347510472805558d836e901c47701a27137cd37995a2f2800037b9a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/nearest-eight-v2-2026-10-01.patch",
+      "bytes": 8536,
+      "sha256": "9068b37e7c9e1e573e0e399d137ede1602d2d854039a7b9ca25af147bd3f8714"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/nearest-eight-v3-2026-10-01.patch",
+      "bytes": 6341,
+      "sha256": "aff500411b44ae1b7bae90733d4257d363b565fc04b9b779316ff018a86edc11"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/patches/nearest-eight-v4-2026-10-01.patch",
+      "bytes": 7764,
+      "sha256": "19161692e67a26e79b1dd791282e08f2964d6f066488890d1a5ee7dc574a4259"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/baseline-contact.pprof",
+      "bytes": 13963,
+      "sha256": "e31b26f9c8b9bb5be645ec04cae583f0ed6165f1c9a9ff6fb416690a87fc18dd"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/baseline-convoy.pprof",
+      "bytes": 17987,
+      "sha256": "23de02c2fca3eee21ec064533a966b7bdfe625ea03b925c07ae15c94e8f5ec0e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/baseline-module.pprof",
+      "bytes": 39436,
+      "sha256": "6b40d455fc78077d56304689db1db5bd255cfc79d7b6a5b4935c0efe258474bf"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/baseline-spread.pprof",
+      "bytes": 22944,
+      "sha256": "4be1e20a9d44163eaf21d4528ff2dd643f301ab89ee09178a59b15d1962eb2c7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/checkpoint-spread.pprof",
+      "bytes": 15811,
+      "sha256": "fa2bb3130d018c5d74faa7d392fe2565ec76dee6a1c6aea8dc0731109adadb0f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/current-contact.pprof",
+      "bytes": 12764,
+      "sha256": "14b5dfbe2a82268d5c0434eac5c0682dd9c7ce22f698e7913358b1bf586baba4"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/current-convoy.pprof",
+      "bytes": 17620,
+      "sha256": "2ec1d812a0ec33ce59baff3db5284dab57f961e603391a8bbda2c8eb2d77d48a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/current-module.pprof",
+      "bytes": 34158,
+      "sha256": "f454e7f4a70181bd062fe9c47e556202df7f33c986ec022cb0c15b81508be655"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/current-spread.pprof",
+      "bytes": 20545,
+      "sha256": "80b363487500d55bf9a90e6195e310add3570a66e35dd5b6e83befa9d9d1278c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/final-training-contact.pprof",
+      "bytes": 11078,
+      "sha256": "49235e2740dd35f1ad0096951652b3e753efc340a938928611f008ce4a703417"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/final-training-convoy.pprof",
+      "bytes": 14397,
+      "sha256": "8282a3f2073c7cb1d421d46f1ef9840bbae7168d4d4d1e936213dbda3e08a3bd"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/final-training-module.pprof",
+      "bytes": 28295,
+      "sha256": "9fd987d10fdbaec43202b0f5fdcb2c91e81d5ed84efd8cb9e6ac9d97432b9a5c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/final-training-spread.pprof",
+      "bytes": 12204,
+      "sha256": "a65c9e9e09ebc13e089a425554c4e23d839f167cb72d62b5118e7c3db12cc48b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/followup-training-contact.pprof",
+      "bytes": 14931,
+      "sha256": "7ad1c16eed102fe2474636421fc09338a9cb5456419dfca5331bff4698c458fa"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/followup-training-convoy.pprof",
+      "bytes": 20640,
+      "sha256": "9b7e074b2b1fa18270e1482a714c155ba87ced292c009689712bc77d3b4613e0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/followup-training-module.pprof",
+      "bytes": 45329,
+      "sha256": "0ef0cf871caee1a7bdfe3c3501e9de36d47a0092c4edd21c75571b402832dbce"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/followup-training-spread.pprof",
+      "bytes": 17767,
+      "sha256": "cea0ca0fc027ee1087929906e9bf06df7224b205bd02aa8832051031e3f64df2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/fresh-training-contact.pprof",
+      "bytes": 12891,
+      "sha256": "9a48e4bf5accb7df904b24cae3a4a84c4659d438fe36c4529d5d307b8f106ccb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/fresh-training-convoy.pprof",
+      "bytes": 16697,
+      "sha256": "163fcc154d39af3c92d4b87bfabaa8725a469b5ce412240a3ba2a98ac8fdbd9e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/fresh-training-module.pprof",
+      "bytes": 30881,
+      "sha256": "696a9fcd2b00a67b9617466210a7757ffc64b8d02524e6a890b85754b462e157"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/fresh-training-spread.pprof",
+      "bytes": 13983,
+      "sha256": "c13872738061aac126fc0451172a63040840a187367f6f82a4981cb7b5a0121b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/interim-spread.pprof",
+      "bytes": 18092,
+      "sha256": "24888563cc13f6fb3a5d6a36b395d7d65241f1b6560af1c92432edc0add0d35e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/latest-module.pprof",
+      "bytes": 48057,
+      "sha256": "535c554e2aa3dac189501221db2b60d2fab59a2f00b474131ba22a01242d6d54"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/pre-followup-default.pgo",
+      "bytes": 33741,
+      "sha256": "da75321f62214378ddefa6577733c5a61c330d15032146507ca9caa992418bc3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/pre-solver-default.pgo",
+      "bytes": 51297,
+      "sha256": "1d77b5ac1d74c4aed4886f78c5affe12307a292d13007715fab4988d9ef33475"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/production-final-contact.pprof",
+      "bytes": 7327,
+      "sha256": "49b2c4f513d3a954e6115d82c150f50e762f17c3bc4b6361f5f7378f21b9a93e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/production-final-convoy.pprof",
+      "bytes": 11764,
+      "sha256": "c8a5beef8108bc10c11e0debefb75f76d47112e7e64bc7c28949e42f847613a7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/production-final-module.pprof",
+      "bytes": 23511,
+      "sha256": "23a91a276ef9962733f228cbb24359280475887850524f35197c7229ff9bbaa5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/production-final-spread.pprof",
+      "bytes": 14755,
+      "sha256": "d2c7ececeaa18004c6be6916d6e073f2dd65ead67af8d07bebb3287e27341c2f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-final-training-contact.pprof",
+      "bytes": 8524,
+      "sha256": "7f3589a5115d1830b785f7dfc8a5a86df76008f75a71b26ba5eedcbdd3648811"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-final-training-convoy.pprof",
+      "bytes": 12887,
+      "sha256": "b0f5bfacca03b5ef35ed3501b99d31882d6bac9488b552fb0a33540be7ea6fef"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-final-training-module.pprof",
+      "bytes": 29923,
+      "sha256": "deaf6569d2dd01bd5ce6f8281ed4b857348ecc7fc009834ad9a5b7e8f0d586d6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-final-training-spread.pprof",
+      "bytes": 15684,
+      "sha256": "51011914596fcb39ac5a791f16bcd98c3b45303ae8b946d7fa5b9aed4e34dd17"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-final.pgo",
+      "bytes": 34605,
+      "sha256": "35a3d270804a4bf4a1a609d3bf11b4b1056a8fcdb419392df0d3b720d078eaa5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-source-training-contact.pprof",
+      "bytes": 8659,
+      "sha256": "b07a509976774779b75a630b2f68dd3b1da3f341ca8215080b615364dbb16b3b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-source-training-convoy.pprof",
+      "bytes": 11280,
+      "sha256": "fa94386884da43ab3de80983e086908c8695bf30d692df7a92b950df1ea0aac4"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-source-training-module.pprof",
+      "bytes": 29410,
+      "sha256": "5be9f5c13957bc404aaab2eecfe70dcfae75991140bcbda0fd0611ff6abc9642"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/solver-source-training-spread.pprof",
+      "bytes": 15919,
+      "sha256": "169b74a3132a85148b390b774ee7c1a53a75cf9914453a07349e28af249ea943"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/training-contact.pprof",
+      "bytes": 14698,
+      "sha256": "0af988e46209b6d8ef0da7c39582aceab0741cdc1cb6f19a103c694f4b0dff03"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/training-convoy.pprof",
+      "bytes": 16862,
+      "sha256": "a1230b4a5710c0469b9ae229e9eb26d3b2a916c3070ac2bce97d3be83573d8da"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/training-module.pprof",
+      "bytes": 35708,
+      "sha256": "df63988a6977f3edcad631f824d24aa82c9a80ebde05a9226a8ad62c81595c92"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/profiles/training-spread.pprof",
+      "bytes": 17112,
+      "sha256": "5ef9c2e23cf9392b59bdf19dd35cb81f8c185cb09c85f1cbb84207973450d5ff"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-active-ablation.json.gz",
+      "bytes": 114349,
+      "sha256": "43c591428d7f1adcca780cf2eb3ec18b7846fa8da6ee231b2baef0a31a25daba"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-active.json.gz",
+      "bytes": 21805,
+      "sha256": "4acbcf8ca5a9f3a0bafe9b9a3a3b0f65bad92c82dc4ea9795871032215eb40bf"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-amd64-v2.json.gz",
+      "bytes": 105931,
+      "sha256": "722d9469f54c299e09608256fad33782fa43520bc2029396e2cf0b74f7c4d604"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-avx-ablation.json.gz",
+      "bytes": 218001,
+      "sha256": "85750d77e7fd8d4f2fa0da2868dcd8daa358a758f1b941a68696902cfe420267"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-avx-pgo.json.gz",
+      "bytes": 133209,
+      "sha256": "fdad2a0d3cbf87289f1a3b6ae7fd33813740390318f9d3439581438d99290eed"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-avx-sixteen.json.gz",
+      "bytes": 217868,
+      "sha256": "8693ad74bf6e3d65f409a6b194092033363266de2250b4f0923e73fd3e409c6d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-axis-prune-ablation.json.gz",
+      "bytes": 114338,
+      "sha256": "8bd082a0a6ac88c878b3ad70b80ec2661f5205a1c91b8d8da400bf3d65f2e56c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-axis-prune.json.gz",
+      "bytes": 21776,
+      "sha256": "ac6c3b71205a2d91c8cdf939f5113ac0a03fa7214b1022a3470ff739d259504f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-ballistic.json.gz",
+      "bytes": 21750,
+      "sha256": "06c9df5731272d90f26e8837635968b430e1279197b5a62fe8c0c744d1662cf7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-baseline.json.gz",
+      "bytes": 58614,
+      "sha256": "059e5f941a6055209a3b02013198c23a30aceec903d5f3b0bcba9ae1f567be63"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-borrow.json.gz",
+      "bytes": 21825,
+      "sha256": "cd68c08f584b00e6d7e2a05c8ac9e87a5142763f3e9be4109e5d23437c2d8de8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-boxing.json.gz",
+      "bytes": 21713,
+      "sha256": "7e8526681ae2f93954581c94d9f3360a3d616bb521307e27694323b017fc44be"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-builtin-minmax.json.gz",
+      "bytes": 106042,
+      "sha256": "c7035bcb1460b2745ad070ff01aa2a54799ac0cb7f3679887c83f2d1346f16f4"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-cadence.json.gz",
+      "bytes": 21798,
+      "sha256": "87508c4601be651a279dabdc2ce98f4de58ead44008a61e14239831a3071cda1"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-collider-reuse.json.gz",
+      "bytes": 21728,
+      "sha256": "1dff0be4e2aa6ce778adabd50da4deb3c799bf834631eb2fa0d2655b4e7581cf"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-collision-reuse.json.gz",
+      "bytes": 21744,
+      "sha256": "43405f19ffe0b8fdb7b4b5492106e35c04653bdc1371bb0e36c34efffc8fce1e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-concrete-aabb.json.gz",
+      "bytes": 21795,
+      "sha256": "f1bf2bd0f9ef4cca4ab4414a7e176df6cc6d86ed18b4a3bea3ec55cb14e65f6e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-concrete-proxies.json.gz",
+      "bytes": 21822,
+      "sha256": "06a724c332e03f54c30b2ed1920f11f3dbb9a427d57fbcbd2c31edd36933c203"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-concrete-sweep.json.gz",
+      "bytes": 21786,
+      "sha256": "f793a8282f101980025adba53de7ff4e3d2ffc6f7608a61d3124e6a2e7c2b46f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-constraint-cache-ablation.json.gz",
+      "bytes": 114309,
+      "sha256": "a00f67b136721cb380cc986d794c28779f66936242cd3bcd36ba4bcfe16a1312"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-constraint-trig.json.gz",
+      "bytes": 21806,
+      "sha256": "46a4701d05814eaf755bd0fab662beac69831611aa15eb469ebbb94d0362455e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-contact-groups.json.gz",
+      "bytes": 21759,
+      "sha256": "dacabd49a92a0a3f5a0fa905c8e0c998b319140558b4b5b696de26ad9b615fb7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-contact-map-review.json.gz",
+      "bytes": 189160,
+      "sha256": "6c4e0e5df667348b608342f7a7eb375cc3b75fa0e2f0b95aa1e3be8786a5c38a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-contact-review-final.json",
+      "bytes": 8535688,
+      "sha256": "886eedbde33aba0ca1109cb74a716c1ed438870a558d0accaceb5c7149f3f786"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-contact-simplification-review.json.gz",
+      "bytes": 188746,
+      "sha256": "2f52d8c07835c1c5e4bb892e8df4ebfd7120e05ae9618bc300933812a6b1e457"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-converge.json.gz",
+      "bytes": 21812,
+      "sha256": "59534618c5df4dd976724bc131db76794f2269600dfc3f5bf648d77d08960618"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-direct-angle.json.gz",
+      "bytes": 105895,
+      "sha256": "441f2416aa84fed6d516a930e4ef61cd6ee2388b6044a29ec41f8d508c3aa218"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-direct.json.gz",
+      "bytes": 21746,
+      "sha256": "ddc1f410889ad5ce93a0dec7f4a99c1154392fc9d3dd9c7805af77f234f532b5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-drag-cache.json.gz",
+      "bytes": 21710,
+      "sha256": "f625091806177ac559770d5bc024cdfab939d70bfd87478b57412767c131d9cb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-edge-cache.json.gz",
+      "bytes": 114864,
+      "sha256": "00a0fa44dabe0abb0374695c1f48e98ac812b78dbc4e522be35330eaf29e78a0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-experiments.json",
+      "bytes": 49388,
+      "sha256": "44111cfb2517aeed8d1b5e04c4daa8efdda32909462d0369b692f00820287f2c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-feature-cache.json.gz",
+      "bytes": 21811,
+      "sha256": "84c3871f7ef9a56954fc71274089d425526b45703794293ac11505f09bd137ee"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-field-dispatch.json.gz",
+      "bytes": 114839,
+      "sha256": "c9caa1763777779555d8e2da31f24e0dd7f8ea7d4d84d0a28dc67dfdf9fac47e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-fields.json.gz",
+      "bytes": 21738,
+      "sha256": "0287ceffb6a1178704b262752bcf50854202d1316202a120cee8ceff801340f2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-candidate.json.gz",
+      "bytes": 189576,
+      "sha256": "48826bf51cae956c0a12ddb5a5bc3567b98733af07780d7a823565eae63cb9fb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-gc-sustained.json.gz",
+      "bytes": 70742,
+      "sha256": "be5ee1e1bbc4307001d58c2574b760eb6210e6718ea12d2c0a39ffa97c196fee"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-gc800-baseline.json.gz",
+      "bytes": 263271,
+      "sha256": "160e185b0b24f3b0cc8d8ec2ce5d0a5021f7546a424d75fd4ca43742bdc33a1f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-gc800-sustained.json.gz",
+      "bytes": 44638,
+      "sha256": "e5198b217ee06eecf482032486b0fe2be9816c1db6552dcdca1e0159da4f6b58"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-gc800.json.gz",
+      "bytes": 188922,
+      "sha256": "abaeee3117c36a15160927c652a9e19b9db693a79c0a55b7556f597d48080b52"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-pgo.json.gz",
+      "bytes": 114899,
+      "sha256": "d0dc7d9b36ea6a45e0ac5384d63916d12cb13b6cf924c198c8c2e69c9de9053c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final-profiles.json",
+      "bytes": 319473,
+      "sha256": "57ecbc9fc58f8a1f7a8fe4059dbb2a6fa117ea420cad7f06f5e7a3cccfc71bf7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-final.json.gz",
+      "bytes": 263307,
+      "sha256": "ac1bdcae09e340cade8c0a8088fbfc8709f753a092a4d399e3e853883cf8b587"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-build-info.log",
+      "bytes": 922,
+      "sha256": "a201f4cf995d768f479e6006569c2cb0653a8159f35302a0b48610d6f7338143"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-experiments.json",
+      "bytes": 29868,
+      "sha256": "b703cb951fd16e2b84d112a5885c0d26bcfff65a1485880f1f4203c631eeee38"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-final.json.gz",
+      "bytes": 691541,
+      "sha256": "27ae26ce0abc23d61f9e42531cfa007c5e72b56645eca96ba7e4e1c3874e56c3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-pgo.json.gz",
+      "bytes": 148355,
+      "sha256": "7e4af49fbe634ca2f61de5159e161a889f73b2ffbc4d787e7568c939f8746f65"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-resources.json",
+      "bytes": 1269,
+      "sha256": "1b760b666d42d5cbc28aac4ecc7057db6f3bee608402b32e86e8c0ae51b99c95"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-summary.json",
+      "bytes": 968,
+      "sha256": "a5d70d582827d292ad9830f50bd5370271d4cf1cdf6bd7fa8c43c202c4a0b513"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-training.json",
+      "bytes": 3450,
+      "sha256": "7f3be8d733f6c86b5addf1328fab95245297ff02e1e1e018c4b0058de9d78ce0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-fragment-value.json.gz",
+      "bytes": 114887,
+      "sha256": "45733b28d1880af06da347a40abe9f03f8e6219b755f5bdbd18daa3b10ec5c4e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-fresh-pgo.json.gz",
+      "bytes": 115073,
+      "sha256": "fd2c0c174a21181f5a04d8d60e0c23de567b85284a09e0051d4bebd8db1f5b0d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-full-ids.json.gz",
+      "bytes": 115105,
+      "sha256": "3a491295424c6f313a0ded1097527a7c53aaf165adf705bf7ec977cdec42496f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-gc1600-sustained.json.gz",
+      "bytes": 23939,
+      "sha256": "3023a4f55eb9951b82bc886fd9e15b93927fa8a339613608050a2db930577030"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-gc400-sustained.json.gz",
+      "bytes": 23919,
+      "sha256": "40656f47126ba1f86b8afdbb9ff43b57ebbf23c6f39adf26a8338d35037b2e1f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-gc800-sustained.json.gz",
+      "bytes": 23948,
+      "sha256": "ff078c4aed49b17a9e5b9c94948d81ae2237588e04fbe4afeb623370f2f7a6bf"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-geometry-cache.json.gz",
+      "bytes": 21805,
+      "sha256": "768d4c220b9113aaf4d4c3b8cc673743b188a87b908c4cf65b281d8e3aa76030"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-geometry.json.gz",
+      "bytes": 21777,
+      "sha256": "39cd01cfd6b405ad6c9c8445fe1fd27fa9e3ebb94fdef4d97d7ebb4ef28ca0b7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-gogc400.json.gz",
+      "bytes": 21728,
+      "sha256": "347a99fea08b2a4f8172c4640afdf1ed2c9bae5c7b55e278496bbf18004786b0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-grid.json.gz",
+      "bytes": 21739,
+      "sha256": "4bac9bb63ccaaf8e85de2ff56a4e1b1d450fec9883fb389fb40dd8e1744e7968"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-hull.json.gz",
+      "bytes": 21788,
+      "sha256": "6c62853c879e0283fcf06ff91398a97158a2ffe54fb774a0eec00760557d4cc3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-integer-array.json.gz",
+      "bytes": 21788,
+      "sha256": "073820222f43bc45b0c4013ec695ea812234fbcfa44ade529eb90e9895bab2b1"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-integer-random.json.gz",
+      "bytes": 21786,
+      "sha256": "28c7aacdf226710157c472a354cc366606fcc1c593c774b64e79172c27ddb6c0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-interim.json.gz",
+      "bytes": 189552,
+      "sha256": "57090b9d7e794ee038a04f18ce4c1cc6585026ec0f85bbe4d9870a637a204a97"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-item-source-sustained.json.gz",
+      "bytes": 35477,
+      "sha256": "b62673bee2b88839b477629da9287bdf81e2d9dd0ea6f90232318701c1dc8205"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-item-source.json.gz",
+      "bytes": 21783,
+      "sha256": "033bc5649eea243e7651e8be1877e730d20b45638f99d91675ad0fa6597bf3e2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-iteration-sustained.json.gz",
+      "bytes": 114335,
+      "sha256": "8ca4dc63367912666ba0308fe6f15b1bd8c1f2232262e3b8b8a7f12717101ea6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-iteration.json.gz",
+      "bytes": 114896,
+      "sha256": "d7b4094a6fc61f4de535a4f0e464e8d4dac8d24a0d4f359882944e49755ff22d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-last-sincos.json.gz",
+      "bytes": 114874,
+      "sha256": "24f7e5853909bfe6fc2063fdea47b14718b57d5244ea902c7b3816873bfcf978"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-layout.json.gz",
+      "bytes": 21790,
+      "sha256": "72d5a61ff6b155c1b1e11ac1788c4b58af19f5f501f4812a8835b253408243f4"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-live-count.json.gz",
+      "bytes": 21823,
+      "sha256": "2d4e655ad1742e5f78945b867bdb0a51722feba05260fcf367b803c221ee70cc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-load-marker-cache.json.gz",
+      "bytes": 114843,
+      "sha256": "f3076251fa9a80a04a7087d341da3685fbbfa54f39395b58a017054033a9c012"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-maths.json.gz",
+      "bytes": 21746,
+      "sha256": "ea22aaba56b075a0d281b128d0cbca2c9a2539fe3aebf9a71885a351afc7c232"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-members.json.gz",
+      "bytes": 21787,
+      "sha256": "5b7d712e1971b2bd8fdf5f01becfeda2ab056995ed76168cdb6271074fc0e1d0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-module-buffers.json.gz",
+      "bytes": 21829,
+      "sha256": "025c25e9caf9b38bf8005aa6bc7f70820bb8b33e86b265cfa331efe358d90ecd"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-module-reference.json.gz",
+      "bytes": 21763,
+      "sha256": "afaf142ffee6957d41567464d10de5dcd755db84abe0f27a2555e05e3dc06d0a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-more-trig.json.gz",
+      "bytes": 21788,
+      "sha256": "0c8824b0f98a1f078e2b5787cb8b69f8cd34c0d475888260a47c3ae1f97717d1"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-batch.json.gz",
+      "bytes": 217851,
+      "sha256": "f23afade77d9aa072896a419e4e916581b220e1383390b2a562621945037eb9f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-cache.json.gz",
+      "bytes": 21739,
+      "sha256": "9d39a69cc83cafa1ea9b7b876b2b586a67a441253e546ceda512efb781a58b75"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-inactive-corrected.json.gz",
+      "bytes": 218008,
+      "sha256": "bb41f7895ef0dacab3293742df8c8f7918723d4e0f3a28a83df1af77a3d39fd9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-inactive.json.gz",
+      "bytes": 217988,
+      "sha256": "7c73f8e6a66da5a58d40e86860444e17075b87303d5ae71e2dadfa26be44ead8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-none.json.gz",
+      "bytes": 156348,
+      "sha256": "92451c37357723bd3260eb1197c2e3a0ce2626b4b92aeea561375fa330a312de"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-once.json.gz",
+      "bytes": 139853,
+      "sha256": "0d299c204c6b6f8e0a2acddddb6cce0593a4956b59b8ee7995337fcd5f155bd0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-pose.json.gz",
+      "bytes": 142203,
+      "sha256": "f262243796f91b5f71e9095329fb91e222fc96d3f74b985e7c14a503666d90e2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-native-motion-grid.json.gz",
+      "bytes": 243666,
+      "sha256": "69f38241eb970b3e8549f109c56f8d3db081c3d4f06a40ba3ed246715e6cd882"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-native-vector-motion-clean.json.gz",
+      "bytes": 336977,
+      "sha256": "6d8b83166828c537aab1232ef428374a5d1706f8a65b8d5417b0329d03f60a5c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-native-vector-motion.json.gz",
+      "bytes": 242469,
+      "sha256": "32b59c44a322b4a6d6707b10679a9240879986e909178010383f24f1f94fde49"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v1.json.gz",
+      "bytes": 133639,
+      "sha256": "bec38597d803f619ed16e408816c4c80557f71b3a24ee18cf6a7adc127d2ce6e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v2.json.gz",
+      "bytes": 133476,
+      "sha256": "1aae61f28b93b78f123530cb37f5ffa13e39a284885c47744ea2489bf02a8aad"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v3.json.gz",
+      "bytes": 133170,
+      "sha256": "30038b3f8411cbb4ac209bcb20afc020fabe1967c7e7df145bec22e9870f2940"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v4.json.gz",
+      "bytes": 133301,
+      "sha256": "76d8da6dc8f1a7404758d2f3efa29fbaa7b85620f329b48e2fcaa598cc9c0934"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v5.json.gz",
+      "bytes": 159029,
+      "sha256": "73f2827ff7226232793bd14bf494dac779e89be1953d91c67e17fd5d870b4ccd"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-object-hitbox-sustained.json.gz",
+      "bytes": 35470,
+      "sha256": "fa75af44119e5c6df111c30e6fc95d028aa87f3ac68a4b389e5f7d9b6c040060"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-object-hitbox.json.gz",
+      "bytes": 21809,
+      "sha256": "861fe07964bf0b81d8cea1a35fc06ca6741eb9236cff60a1adb910d73bc24324"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-object-rules.json.gz",
+      "bytes": 105907,
+      "sha256": "f4be49daace457fb0ad20711839d3ffd0d93249a23cd6871836eb7bce0f04851"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-object-schedule.json.gz",
+      "bytes": 114887,
+      "sha256": "de6f7be03a36c3649d85d6a3a31b6e0e957028b7ccaccb3586bec7691c1a58d0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-observer-bounds-ablation.json.gz",
+      "bytes": 114265,
+      "sha256": "f15fd54d34d9028aaf6d73212ce27989ce5ee8017603eac3a6e4b389a96c42c9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-observer-bounds.json.gz",
+      "bytes": 21841,
+      "sha256": "427c8e08c5474944616921c76cdbda8f6fe90412481cdfddce5d5d8031721425"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-observer-cache-ablation.json.gz",
+      "bytes": 114862,
+      "sha256": "32783958a80831be6de145c8a18a85591faf248a1a1c5eab545f6c2c112af935"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-offset-radius.json.gz",
+      "bytes": 114842,
+      "sha256": "62e7d175dc560a127d9a12a92e1c0ef4b8934ba945ec10f9ca0dbdd1651df5b7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-optional.json.gz",
+      "bytes": 21802,
+      "sha256": "408f6adde6fc065b46bb73168bd6bd744f1e8f1e57e69e0531c5f73438becd9a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-ordered-values.json.gz",
+      "bytes": 21793,
+      "sha256": "82745d35801b7e1670611cccdf345bab5ece65469a1adcd731f2108b561d46ad"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-outline-source.json.gz",
+      "bytes": 21819,
+      "sha256": "3b53227932a6eb35f99f1f48d6a6cb72195c1bc735246cb0de8b4f59e71598ec"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-outlines.json.gz",
+      "bytes": 21714,
+      "sha256": "4a9d514e3189c67110d9ceee647e0a48f5f6701eeeef92c62819e72ce55d6a30"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-pair-map.json.gz",
+      "bytes": 21780,
+      "sha256": "22290082d9a9a677857221bcdd0ffa8d358c018a3c1fbccc198ca909b89400dc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-parallel.json.gz",
+      "bytes": 33000,
+      "sha256": "1af79aff9804d74c121bfdd0ffad6d39cafd324947c5ba50adf437c333ea349f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-parent-x-reject.json.gz",
+      "bytes": 114943,
+      "sha256": "1bb29592cb4a1b6a690ba82d84634f3ed2b1191a3ead28d984d6ece1a2ccd034"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-parents.json.gz",
+      "bytes": 21760,
+      "sha256": "faf9261b36a8675277df4547094415ab20951a3481338baa0aab1c0f4aa42186"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-pgo.json.gz",
+      "bytes": 58975,
+      "sha256": "17dec130c5d33f71bf4c7fd7efa68089d57a9a5d0964b436f57cff14e9bbb24e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-pickup.json.gz",
+      "bytes": 21796,
+      "sha256": "3c820a213788533d6c04ee644d5af376524933c5d959f93607f50d5bfb34ce08"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-player-guard.json.gz",
+      "bytes": 114847,
+      "sha256": "9f7a75fc9dd8a9f81aff26c439bf101abef801f994864cc536e0fb7a3b6ba5dc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-pool-queue.json.gz",
+      "bytes": 105843,
+      "sha256": "27496bc1af6aed7fc23bba897c9a88d714c3dd58c0eea83d0874bb21d1ee7a9f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-prepare-cache.json.gz",
+      "bytes": 21785,
+      "sha256": "0ded2f931f03c138b8aa88dd18109d2547eec81c253ebc44bb62d0d70c58442e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-production-final.json",
+      "bytes": 8535679,
+      "sha256": "38ab02fd5ef46ad5bd230514324fb8e9ae32ade5c85e9694a1c8dccbe142cb42"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-reciprocal.json.gz",
+      "bytes": 6073,
+      "sha256": "ecdf5a520ef2ed9a5aa6be7a5d7e247df2657fd42e330a2c458b565baadea783"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-records.json.gz",
+      "bytes": 21776,
+      "sha256": "e95e622ceb84684fe09d833db68f1092918187ee57cdd50ea84fa37aa411febe"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-reduced-rounding.json.gz",
+      "bytes": 22056,
+      "sha256": "192732fd5ae133450a32b916bdf35869b937e693b4375a59fc1826e56915f4b5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-references.json.gz",
+      "bytes": 21773,
+      "sha256": "31b08481acb4e8a3764b53d5c7905cc9c5df15a395ade2177e3be9ae6b0e49e6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-region-bounds.json.gz",
+      "bytes": 21817,
+      "sha256": "1c0a8297c601a5156102fbe476333a30674eba24b3f06422fff918888dc180bc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-reuse.json.gz",
+      "bytes": 21754,
+      "sha256": "6b81619e1c475d4ae6f56c7e884c65a9ef5110b0728d0d92040a09fbb0fafb30"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-round-cache-ablation.json.gz",
+      "bytes": 114305,
+      "sha256": "d64fd073372902a7e3a81c23c589f225c5a39779e96f59a451971469ca4ca3aa"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-rounding.json.gz",
+      "bytes": 21756,
+      "sha256": "528e3bd712d8cbbcc20ea0be648b0916daf70be76164f2521c6e2bc070217b06"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-schedule.json.gz",
+      "bytes": 21743,
+      "sha256": "28d3121d3e831538532a59dba59a8345dab8676dc46981c9d83db0d3622ef58d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-scheduled-due.json.gz",
+      "bytes": 105979,
+      "sha256": "a21cf1da25a934ab11151a72297bba81bf9389dd1ffcaf78b39f31c62343a521"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-separation.json.gz",
+      "bytes": 21807,
+      "sha256": "ba6030feee345502429bfefb1ec49abbd7104fcb4bdcf8896dc1c25b4c16e64e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-shape-cache.json.gz",
+      "bytes": 105911,
+      "sha256": "80f8c50f878be36e40ffe8691119320bfbb05ccca5fc2e5f84a36a425a90a4ef"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-simple-distance.json.gz",
+      "bytes": 105901,
+      "sha256": "93063108de31877e135b97ba3441ecc7879c60c2be626caf5803d92de9541731"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-slots.json.gz",
+      "bytes": 21819,
+      "sha256": "26acb9b9699db8eccd7fb6c3ee1c8af7e5ca6853f5472bdfffbd2e6b8e0df93a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-small-remainder.json.gz",
+      "bytes": 105931,
+      "sha256": "45304d4d0c6f4ab88d32cc0ea504817821e7ed76190f194b39f084d3876fab57"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-spatial.json.gz",
+      "bytes": 21746,
+      "sha256": "9989f3c6f1eca78f4d86866702b10facb921062823abf8ee4926a823c8bbbc11"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-stations-reuse.json.gz",
+      "bytes": 21779,
+      "sha256": "992ca52e518ba584e18a581e9ba9dce6caa06919082b167d2ce7fed26914fff9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-stations.json.gz",
+      "bytes": 58714,
+      "sha256": "b764d086fb58a5418ed999a0427abc35efbaa308ba7ba926ebabaf7fc1498ebe"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-support.json.gz",
+      "bytes": 21815,
+      "sha256": "ae25fc297a0ca69bde910edfc2340a04cc76f1f2d008f4390acbdf2b22ce33d3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-sustained-checkpoint.json.gz",
+      "bytes": 8236,
+      "sha256": "010e6211848957716cc61bae782bddeb407ded532a16e94d2b5d7abb2f69b97f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-swept-bounds.json.gz",
+      "bytes": 21947,
+      "sha256": "c650699971a1559200991ac209b236c4c204b5563190719c3713d50ce2ef7415"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-target-check.json.gz",
+      "bytes": 189573,
+      "sha256": "269f1d1aa45cabf595b563795b71cee91da681f78b1fec7dc9c2eae84adcf593"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-tier.json.gz",
+      "bytes": 21791,
+      "sha256": "1fef823a54404d72480abfb70083a23417b4f27ee7a56692ef852a4c253ff8f0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-tight-bounds-screen.json.gz",
+      "bytes": 21741,
+      "sha256": "c25c31c16e789a57a71bc1070a86feabcb4eb06c8462d245e3055b1adc2f7c32"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-tight-bounds.json.gz",
+      "bytes": 4401,
+      "sha256": "3247f4c1ae5d781d2109b1640aa66b9208b27b29ed89c2382c98bb5fd55716d0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-toi-prune.json.gz",
+      "bytes": 21737,
+      "sha256": "61d8b8dc4069edb9a32611bc62ba64a8d58a467021491045ff174f404db024d9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-toi.json.gz",
+      "bytes": 21733,
+      "sha256": "b30877b7e5f5bd959ff258f9cfa362966c4db9958e3974fc91f043ef4216c566"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-transform-cache.json.gz",
+      "bytes": 21804,
+      "sha256": "c669476d8880529ac2a05bcaf14238e0ad374ebca1cb8e0a84f167996afa96d6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-typed-sort.json.gz",
+      "bytes": 114959,
+      "sha256": "d0ef4044eb6ec036d8ed5740bbaffbec80af3227df44659ed763851a3a9ad524"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-vector-keys.json.gz",
+      "bytes": 115009,
+      "sha256": "cbb48cf67cf01cec9685cbd9939393b27c18891757a49d54830e0924972b88fa"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-vertex-ranges.json.gz",
+      "bytes": 105892,
+      "sha256": "d767c2d6ba95185901213611837ac577ba4d11f5170f3fe519254867fb237445"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-zero-correction.json.gz",
+      "bytes": 105888,
+      "sha256": "024171c651b2ca7923a9a6ff5f96627587cd52ae052468a67b33903e23e6ed54"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-zero.json.gz",
+      "bytes": 21789,
+      "sha256": "0417ea244493af06e07030bc2028d48ee08f50fec60d65b07fe5a6abd2d2a218"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-followup-distance-kernel.log",
+      "bytes": 753,
+      "sha256": "3b0baf187cafaa6cfdf33a62590e0608518876021ee9e8ac5f2b5ca13e764bec"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-followup-parity.json",
+      "bytes": 443,
+      "sha256": "573ace1d701065b4631a54ab801202ddb95b9bee033493ea2b8324560f6b5c4e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-go-fix.json",
+      "bytes": 19947,
+      "sha256": "a78db883f4c60f8fc0af18a79b15f83a8e0e17ad690aa64777bf7fee68e106de"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-go-parity-final.json",
+      "bytes": 21269,
+      "sha256": "d5282ff9157078370e32a9982ac7696c9f6125666dda0fead459af1244c080df"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-go-parity.json",
+      "bytes": 19636,
+      "sha256": "e6717ea6e887a2b7f3649028103f04e872c7853b5ac616bcdca8154f87e32dfc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-native-motion-parity.json",
+      "bytes": 443,
+      "sha256": "aa6cee824dccc81de5a1cfa69d69d0a809c76c81c34f382b4ef96af1bbf5b818"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-nearest-eight-stress-v1.log",
+      "bytes": 1649,
+      "sha256": "6911b7995a97526392d02c85ba0fe0cdbee6c213836a31bf6317df416d8a709c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-nearest-eight-stress-v2-early.log",
+      "bytes": 1649,
+      "sha256": "59f3088adcd018623e3de84d924ac1437fca3d7d8bebb73e594b924a32d05622"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-nearest-eight-stress-v2.log",
+      "bytes": 1649,
+      "sha256": "9d445bd1a51a09ed06f83d1e479ba3d699df4c4f978ab2829c11ff7205b5f82f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-nearest-eight-stress-v3.log",
+      "bytes": 1649,
+      "sha256": "8640e33f7305288388bf8aaf8dd8d10f52bfd3abe894495d8de03cc9904aeca8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-nearest-eight-stress-v4.log",
+      "bytes": 1649,
+      "sha256": "df692f64ba3e9919916eb18d823f47d484060957eff45e7f8f9c077009bd9aea"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-nearest-eight-stress-v5.log",
+      "bytes": 1649,
+      "sha256": "f278c590dd95a900070569716146e6addab3c4af95805dcf9039d58ff17e7da7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-original-32-module-parity.json",
+      "bytes": 1083,
+      "sha256": "09190f0d99e6adc6e2962c3ea28ffd6f826017a5b9343f23af861fc22780ff6e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/packed-physics-parity.ts",
+      "bytes": 1929,
+      "sha256": "84ffbf7ba1af524629cf6e07a18c6405c6d9f118ebb3c21319976600ab912f94"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-audit-global.patch",
+      "bytes": 7073,
+      "sha256": "d10f23f9c2b5ec09a581c72cddf417192e4a690ac85048065e3e3f9a36f2355c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-audit.patch",
+      "bytes": 5823,
+      "sha256": "f45b0a1637bd728f047d93573fe876aaa5611e8ece46effbf8e1b3c29b48aad0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-avx.log",
+      "bytes": 7943,
+      "sha256": "6a45fce8262cbe3eee06da89286337c7f8914c5b020b058ba277a4887a48568e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-bodies.patch",
+      "bytes": 2735,
+      "sha256": "ad4114e29442856bc7788fc32f8b2d0bf9840e90ce9ab265b4df4af3ad642915"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-f32-scalar.patch",
+      "bytes": 9585,
+      "sha256": "0e08a97c697e68e8b754e8fa023768c50cf677c96474d8b611a39fddf7a4bf83"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-f32-simd-tested.patch",
+      "bytes": 14254,
+      "sha256": "cb7a43465a41f50587edf4f9de08ca12e3be0d83894e7d7d5f76d17af4d95387"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-f32-simd.patch",
+      "bytes": 11808,
+      "sha256": "8192457f08bd946787e2ca04520e3cb4853c8333b7482a567f0ff1043a6add22"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-f64-scalar.patch",
+      "bytes": 9585,
+      "sha256": "9316812c71aa08a134c657a020ec5efb2df8e4ed4d5f2401dc5ec2f05239ad6b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-f64-simd.patch",
+      "bytes": 11808,
+      "sha256": "ca727263f8eb1602be0ac40f1933a032fd04e0a0cb5127608ccd9e551df451ce"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-flat-f32-pipeline-tested.patch",
+      "bytes": 17166,
+      "sha256": "46419ef73ce0430bb903d720a14f571b2463fef7e63b6c3ed8a0fed22e2ff9fc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-flat-f32-pipeline.patch",
+      "bytes": 13716,
+      "sha256": "f6568b319e88a8a8eeaf93c3d61b25f9f2e3bb897c0ef69c99965f71e27602c8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-flat-f32-simd.patch",
+      "bytes": 12714,
+      "sha256": "f7ab44ff6425076e2df9725ee632e0a4b0a4286212674602f77c43d155b53665"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-flat-f64-pipeline-tested.patch",
+      "bytes": 17166,
+      "sha256": "cc97f578cbc82fd6f66cc8634ea8523c24fbd20ce33b2f61ac76dd6f5b5c3c5d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-flat-f64-pipeline.patch",
+      "bytes": 13716,
+      "sha256": "639c07aca908af5e56deea54b40459464bbf4c209ade4c96090eeeae0ef7b5ba"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/patches/packed-physics-2026-10-01-flat-f64-simd.patch",
+      "bytes": 12714,
+      "sha256": "56c646cf41b7e138d74b1b1fbfce1866544c671912dfe58316aeda8c2dfbc013"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-bodies.json.gz",
+      "bytes": 130132,
+      "sha256": "2e81858051bd9a39a215b07bdeda569c407500764689e0f0197152d63416a534"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-confirm-two-cores.json.gz",
+      "bytes": 223291,
+      "sha256": "059645bdae948854af790203d829e0415da94cf9786b3f94cc3e8ba2099aa6a6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f32-scalar.json.gz",
+      "bytes": 133635,
+      "sha256": "d0b86b8dadf8fd11a6e32261d5eca0f20b3992f0e2cfeb3eb973f77fae1eacdb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f32-simd.json.gz",
+      "bytes": 135694,
+      "sha256": "30fccacd72744e684534c7ba94fd3cdda2a8cb3ea34e4f33dddee6340d1916fc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f64-scalar.json.gz",
+      "bytes": 130133,
+      "sha256": "94e72f2372537420f823c2bd6213abbf80b3616ee67d24f8144bcb66431c5913"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f64-simd.json.gz",
+      "bytes": 130114,
+      "sha256": "1ef911afffc78fe51ee0240faeede99669e44bb9e239de18302d8c2267202c19"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f32-pipeline.json.gz",
+      "bytes": 135694,
+      "sha256": "866158d94eddc56e216663cd2a6ebdbd03492e11dad9e71e474b6aacc6b6f58b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f32-simd.json.gz",
+      "bytes": 135666,
+      "sha256": "df349b8ce7779f9ad4864e3a88bb4546ad146ac472baa61f6c35e8c4c33bc8b0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f64-pipeline.json.gz",
+      "bytes": 130194,
+      "sha256": "349ceb7a7a510ffedc1eff1b113af32116a7b5d048c2977d7440f744d0c69b15"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f64-simd.json.gz",
+      "bytes": 130237,
+      "sha256": "74c6aa033ef2e658a2fe16a19cd9c296d284fd6f08ce1bbd0723bcc3938c3d34"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-kernel.json.gz",
+      "bytes": 21731,
+      "sha256": "95600fb7dd6ae5455d82539ced40767b303cb30d105a9a4808fac0acefbfe286"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-records.json.gz",
+      "bytes": 21812,
+      "sha256": "524c79267dd9c504ae40786d5537da3e21c012cebc015f902a09b1f8fed5ae8d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed.json.gz",
+      "bytes": 21741,
+      "sha256": "c899ebc236bb3344f480d44afc768f3287732adc82e8f9a33e23a3cc1d414541"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-precision-trig-packed.json.gz",
+      "bytes": 130130,
+      "sha256": "883881ccdd6034a8469d8e7ad7ef71c8e0536cf6679a283505220b1d8386d317"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-geometry-kernel.log",
+      "bytes": 1741,
+      "sha256": "67d8337cdd73288dac5b6187fd82a323e79de1dc1e90483f22ea99eb269bbd79"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-audit.json",
+      "bytes": 370271,
+      "sha256": "af310e9bc0b487625b9d62213b1b91959b02b209f006c93448769daa0c4c561d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-parity-cases.json.gz",
+      "bytes": 90534,
+      "sha256": "3ebb90efe2d267772a7df6df45fc0e37d120e5e743e30e0c35a38a37e0f09266"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-parity.json",
+      "bytes": 257,
+      "sha256": "81ea7c6b18cd4ed74edd7f063a6e17990e2e99f865134ad7c99170c301308dfc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-summary.json",
+      "bytes": 58283,
+      "sha256": "d89397b8718f4bed0724f898c672d603d5d45b0b572a1b4cd07abc0eb89d5342"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-world-audit.json",
+      "bytes": 2033,
+      "sha256": "0e296361a195be1d8764264511e681b6c52628ac70b81ce1be21cc77fa85a8c3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/avx-motion-clean-2026-10-01.log",
+      "bytes": 2794,
+      "sha256": "d2aa97c8f2f0654d66127490190a88f7fdd083a38a1522e7b6a8ef8fb174aacb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/avx-motion-dirty-2026-10-01.log",
+      "bytes": 3160,
+      "sha256": "92a7df8e0703d9d6e0ec85b7b1ae7b0b2ced1add491898ab0dac430602c51b9c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/avx-replication-final-2026-10-01.log",
+      "bytes": 3971,
+      "sha256": "4a7e8846a318a5f50468fcb8bc1f88765c88f984bf353376b43f5cd5c860c9fe"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/precision-2026-10-01-motion-f32.patch",
+      "bytes": 369,
+      "sha256": "c616ac842a9d47fade8ee5241a67e1d6415cf48c853ddd21c2c30bf120ba2954"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/precision-2026-10-01-replication-f32.patch",
+      "bytes": 4471,
+      "sha256": "9fc00362a4593bd447c1ea521740f261d9d2390809f348ca6c00014e3abfa555"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/precision-2026-10-01-trig-packed.patch",
+      "bytes": 2548,
+      "sha256": "fc009b8b4163219ba9b475134a55582e8a2162f16da206a5ffd13190ce1e5478"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/precision-2026-10-01-trig-sse.patch",
+      "bytes": 2454,
+      "sha256": "8083d558bf46e1ec638a578b76a62668683462fcf9519d8a451369709dcef926"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/precision-2026-10-01-trig.patch",
+      "bytes": 2086,
+      "sha256": "9d8393a9e65847fdfbe07d7fa301c623eb2fd59ee35f84118cf588895e1b522c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/simd-2026-10-01-adaptive-float64.patch",
+      "bytes": 8411,
+      "sha256": "ed4a5a604e42973693240e8ddc38ff8eb93bd6f9143236e0370f091260394508"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/simd-2026-10-01-float32-inline-loop.patch",
+      "bytes": 10198,
+      "sha256": "f83406925cf16ada3581393efb80b59c19c054c3dedb215372234536b9b65891"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/simd-2026-10-01-refined.patch",
+      "bytes": 27366,
+      "sha256": "36e3593dd5e6533d09373acfe91738cc0853820dca6a57d2220fd09ed40488b7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/patches/simd-2026-10-01.patch",
+      "bytes": 50181,
+      "sha256": "9b9fb43e3e442603d9b17de241bbe24754ea13ed287d353bb79fe9af7593af15"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-followup-simd.json.gz",
+      "bytes": 242522,
+      "sha256": "258c4c55392f6406c0dbb0ba09d2409c8f9619689e62438d75d8fda401e456ed"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-motion-f32.json.gz",
+      "bytes": 140744,
+      "sha256": "fb1cfac16c1c1eeba0d256710954d462e96950876477f1b9cb00d3e712befc6b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-replication-f32.json.gz",
+      "bytes": 130057,
+      "sha256": "805eb97af0b653bf383af77be65d69b314a53e492a6481b0075e7a93ad6a3d70"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-trig-sse.json.gz",
+      "bytes": 135655,
+      "sha256": "a391846f61574374171615eade62b10af465793fb4f9d3ec9614e98b0f98b5e9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-trig.json.gz",
+      "bytes": 135588,
+      "sha256": "78259c99e6cf9c3e7e9a07d4463b9cebd16bf944f244928f50a12437deedd498"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-two-cores.json.gz",
+      "bytes": 130137,
+      "sha256": "d8131f7796119beac331595e78669bab96a2e619afbbed3ee82fd5753e138eb0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-v2.json.gz",
+      "bytes": 130156,
+      "sha256": "8673f771d941b190d235183b133aaa5d1929bb52f39bea0fb18a171e10e4561c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-v3-nofma.json.gz",
+      "bytes": 130100,
+      "sha256": "2c91110046e77b8f90cacec7d84afba125cad960720d89e95926b82ad34e4685"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-v3.json.gz",
+      "bytes": 6450,
+      "sha256": "b15b33e4a6bd21386c2e59d753e8219c2bbd87a617f41e49ac6dbda0a658e34f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-adaptive-replication.json.gz",
+      "bytes": 303608,
+      "sha256": "413db66b0ff55ba9a762b9e6a3ff1d1c7f8ad941b455ab1b60ffa99073bbc4e1"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-avx-boundary.json.gz",
+      "bytes": 133092,
+      "sha256": "6cb7e1ed0ae623833db3c533b4f324a63d6370354ce667998b3bd5979b30224a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-batch-loop.json.gz",
+      "bytes": 303669,
+      "sha256": "5d66561f157cb88a6b488dde36e91c76660e7d668b5e0577283e53a431fcefdb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-bounds-v1.json.gz",
+      "bytes": 217999,
+      "sha256": "69c179f5ec46cd4adb0271efc0d602a916ba69baa0cb735c7fe191549251fbed"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-clean-geometry.json.gz",
+      "bytes": 303624,
+      "sha256": "fee9039e591948abf52b456dc412f0f8243c8e66066069312ad047c0c9d61f34"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-direct-motion.json.gz",
+      "bytes": 303741,
+      "sha256": "46c522a0c04b6705a19d2f5544a2bc8bf9fd4220848716508921b572e4ca5be9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-lazy-policy.json.gz",
+      "bytes": 303523,
+      "sha256": "a2b0d7f85f21e206011b2121e8ab080d04dda5b0058fcdaedd2f32881dba963d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-motion-clean.json.gz",
+      "bytes": 217853,
+      "sha256": "92f5401f04fc993fbea8d519a66451e67b10cb85a966d75a623980cc98f833dd"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-motion.json.gz",
+      "bytes": 106086,
+      "sha256": "9bac772d7717c207f3b001a402cc953be037b6ab972a7fe1e8de8d7c6b276cb6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-observers-array.json.gz",
+      "bytes": 303772,
+      "sha256": "32161ca22f21e99bd4ffb6afb7c3a2d375e456cf61e3b9d67eff7a4fe51beb08"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-observers-tail.json.gz",
+      "bytes": 303591,
+      "sha256": "988e9d105a3a9049a33e2c62d701d243a6b86463353b2fbdace5a8fb88264b80"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-observers-v1.json.gz",
+      "bytes": 217915,
+      "sha256": "ad211bb2b6ac57a965b6c3b557c5201b41ca1bb4052e022923b28fbd0695ccfd"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-replication-block.json.gz",
+      "bytes": 303665,
+      "sha256": "2a9eab91bbb92fe1acb4fd30cf06097f6d2d171d927c1266604e848de6eb7444"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-replication-float32.json.gz",
+      "bytes": 303777,
+      "sha256": "866b46f322562d6dc431b866520227a989da9586d106414f2f610b2f9e0dd287"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-replication-v1.json.gz",
+      "bytes": 217888,
+      "sha256": "959cfb6603cf797368403acbef27e3244927d8ff948a0e8610b339140df233ad"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-separation-v1.json.gz",
+      "bytes": 217946,
+      "sha256": "295ab8dbb98d14598aaf42ba80fa13de1494605f6ec5051cdaf699443c555b9f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-support-pipeline.json.gz",
+      "bytes": 217940,
+      "sha256": "d1fd2dc5db52a0ee3d929099763e3953cd4ce1a3cb7e9802fa3d091cea2d6104"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-transforms-v1.json.gz",
+      "bytes": 217822,
+      "sha256": "8c30265155d2424af078fd8a1789ceb9c643247987ef966cfe99606a344795fd"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-triangles-aos.json.gz",
+      "bytes": 217900,
+      "sha256": "bd3a5ac275233d6932ac6fee95f52a8bc1b8c98aa047780099105c24d5375855"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-triangles-v1.json.gz",
+      "bytes": 217957,
+      "sha256": "209520780517d80bb98e701b53def036c7d868afac3a8e30622671f0b89ee910"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-unroll.json.gz",
+      "bytes": 303553,
+      "sha256": "b88edd46d8cf5f07fcf6fb68fb2e2b2add26818de398a9a0694fb08f05c8f32e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd.json.gz",
+      "bytes": 21762,
+      "sha256": "c011e5005ccccc75628a88fb807f3106e973f540fd8dd96383fb2a161de77303"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-precision-summary.json",
+      "bytes": 31152,
+      "sha256": "9052bd064393bdd28730e2c59da62964b6e61ce12e00122995e49c2a5edf81cb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-simd-geometry-distribution.json",
+      "bytes": 1703,
+      "sha256": "64ecf53d5cf40990d5ecebefb5e7687b532a751fa98010974c1af4afdae6798a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/snapshot-cadence/results/2026-10-01-snapshots-15hz.json.gz",
+      "bytes": 68711,
+      "sha256": "63e415b75869c7237f62c69471150e0b43056c2a719b404b3d43c74e4235e6f1"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/snapshot-cadence/results/2026-10-01-snapshots-30hz.json.gz",
+      "bytes": 68694,
+      "sha256": "53cd251c9e9f80607598038d04f860fa828385ca6c73ced9832462338de52530"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/README.md",
+      "bytes": 5510,
+      "sha256": "d8fd13d2e00ac0af5c7879531666a41f26cabe27aedf19abda6a727f299435be"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/patches/solver-2026-10-01-batch32.patch",
+      "bytes": 28367,
+      "sha256": "fc5a2b44ca3954beeb4fc6728a0a9daaba166a56af44fe6370a4f1aaac2e6654"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/patches/solver-2026-10-01-batch64.patch",
+      "bytes": 30000,
+      "sha256": "057fba0427732a063c41c3cb230f20fe8d8d458b4d4ee924f9fb3f45045f49ca"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/patches/solver-2026-10-01-final.patch",
+      "bytes": 96565,
+      "sha256": "74ca99fe6887274b1db0ad35e6fd2ae5d496ee1751fb44740a14cdb1754072ab"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/patches/solver-2026-10-01-same-rules-control.patch",
+      "bytes": 71519,
+      "sha256": "bcc00184e6350ce52a949392bddd5c7da13adf1635c987853ca3b9a57f460a9a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/patches/solver-2026-10-01-velocity-audit.patch",
+      "bytes": 10185,
+      "sha256": "409e54b8cf9cb9a1a955950652e3f9b563a28fab52dc120012eeeb81fc3763f4"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-adaptive-4-screen.json.gz",
+      "bytes": 135840,
+      "sha256": "395d2f2b9c0c0e210643477db0ad0f36cc12acbf34e1a654770ff651b012e9f6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-adaptive-5-screen.json.gz",
+      "bytes": 135616,
+      "sha256": "b12e1136564eff14a1973a7ef920ec601528fc9877c280c7308da8429959e857"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-adaptive-screen.json.gz",
+      "bytes": 132608,
+      "sha256": "53e7c50cf6bab85faebcf5958a397a6672f92cad5af428c2977df712b2faacc5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-batch32-assembly.log",
+      "bytes": 13720,
+      "sha256": "8382ffa120a775741c590f89af9da0b0b030964c475a195c97122a537ede522b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-batch32-fixed-screen.json.gz",
+      "bytes": 55632,
+      "sha256": "7af10967a8b790ca8e124234a9c9732d24979cc154582b79abcd43c958edebe7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-batch64-fixed-screen.json.gz",
+      "bytes": 54420,
+      "sha256": "8a5444a20ba90500a923a253615212b71663a29142f31d1034ca74876b2fa694"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-batch64-screen.json.gz",
+      "bytes": 2618,
+      "sha256": "b37b9f98981c43c644b7f26527642273196e066c3c80bbf5cd3f42be81f000c3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-bounds-screen.json.gz",
+      "bytes": 2035,
+      "sha256": "b3ab85f8483d8dd7342b400cd7945656cd5a02e27736b4f1489e02b1a6d40767"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-budget-screen.json.gz",
+      "bytes": 88603,
+      "sha256": "8425ec06a9a39bb6c78197f5a3cfb67f78cff9af9cbe90f8b731b99b06e3455a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-budget-toi-screen.json.gz",
+      "bytes": 130268,
+      "sha256": "a7c603fa31944b6f7bcbede87fc20d5404e513e89e4275ccae3cf9c35b960bc5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-build-info.log",
+      "bytes": 664,
+      "sha256": "675817f6217bab79650c5002c1dbc5ee713bd342ef1bd043dfe36660399d5625"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-cadence-screen.json.gz",
+      "bytes": 130279,
+      "sha256": "bf666c05053b66d78a5bb04556198927d0b451cf51ecd327bf534e89c39446f7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-clean-screen.json.gz",
+      "bytes": 88534,
+      "sha256": "2f716793b50b0358f0c23f511b22e692103c28ebaa92f2e452c5aa94fc7a7284"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-compact-screen.json.gz",
+      "bytes": 57220,
+      "sha256": "b61d64a65d4c1bf190c9263367e59cb656e97422f6a649d20c2a8524b21361f8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-converged-screen.json.gz",
+      "bytes": 130238,
+      "sha256": "7ecb99dc11d83af649589c98f0ed5a54a83e7889670b6a4fa3bb93ba4cde04ca"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-dense-screen.json.gz",
+      "bytes": 130181,
+      "sha256": "97a3a877de73508d1570eceedddfae9118e0c00904fde2e912c9ca723070db09"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-fields-screen.json.gz",
+      "bytes": 130265,
+      "sha256": "b75ec8416ac7fc2f49bf076773741ed3c94aa3ba523e781c63bd055b1d2ac899"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-final-long.json.gz",
+      "bytes": 143141,
+      "sha256": "f9862b514b2f42b6c6235bf4dc4a1ba77ff6d5d5fdc987e31e4466ab5d176f24"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-final-node-parity.json.gz",
+      "bytes": 75013,
+      "sha256": "9f254ed1c5ee7fbc2f899a3e1560cc8c67b20644349d447327981be3e0b83a76"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-final-pgo-screen.json.gz",
+      "bytes": 217374,
+      "sha256": "ca14a334e66bced883c4cf19e7e39a94109835cb68f157bc2ece9987fc7576bb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-final.json.gz",
+      "bytes": 217346,
+      "sha256": "d66ee601827783b6965a0043333b474a3e6cfe255076c5378a88e0534eed0eb3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-free-query-screen.json.gz",
+      "bytes": 130221,
+      "sha256": "81de9eee5c325114bbbec05ecb606afe6e846baaeadd64cecaa08e19e78c252c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-fused-screen.json.gz",
+      "bytes": 130288,
+      "sha256": "2e60136611480498ab8d98bb9bfbb82f0685c908e7e029e0879f8c62c3b46c41"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-islands-long-check.json.gz",
+      "bytes": 1734,
+      "sha256": "76c5d7dd15917afc1c4c985cae044e48bcbd3f8959943b4ea24927a1cc160949"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-islands-screen.json.gz",
+      "bytes": 54450,
+      "sha256": "e9842af3d79ed247cecc0e9914b7843b26226341f5f11c1f8672169ea581646e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-layout.log",
+      "bytes": 427,
+      "sha256": "34d5bbf7bc0d5d1aa4b481e7e7f5484f64a24671be86742d0b6142746e025d96"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-manifolds-screen.json.gz",
+      "bytes": 57209,
+      "sha256": "7d9a9b4d00fd36cc8d4dcf33148262e1113879d4c8ad797a1085e39b07fe28d9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-members-screen.json.gz",
+      "bytes": 130238,
+      "sha256": "d759be8aeb32f6d89ede8d4291071b13943617c603fb9736578fe0ac1c02c009"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-neighbors-screen.json.gz",
+      "bytes": 57222,
+      "sha256": "d23c0841a1d56753f81e1f58c1afb33694a489add36cde3a1b821a5a19862e6f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-node-parity.json.gz",
+      "bytes": 10361,
+      "sha256": "a6a3683f555a80327d8d3ee09474309f2cafd54df384232f94a086bd4bd4c55f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-observers-long.json.gz",
+      "bytes": 143133,
+      "sha256": "d05cf8f3207aa2d0e897923e965690afec72867cdda9d9a2d707c22808a7c67a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-observers-screen.json.gz",
+      "bytes": 132600,
+      "sha256": "29569af624f641288b33686fca634bdea9e96df55189ec6d69d9b038519cb87b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-ordered-screen.json.gz",
+      "bytes": 130211,
+      "sha256": "07ab643136b02dbd925fe57f1d8b989fcbccb4afecfe722102b66d4cd12d216c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-pair-cache-screen.json.gz",
+      "bytes": 130283,
+      "sha256": "19567851c6f0844bf4da562f416ffef63d37564add0a133bbde43ae62b221fd4"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-pair-version-long.json.gz",
+      "bytes": 136975,
+      "sha256": "21168cb990ab9328fa9f2926826017632b4ae2edd2cebb730236688f25d2f4b9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-pair-version-screen.json.gz",
+      "bytes": 130255,
+      "sha256": "e310e0dd1c6321c7edbc8fdfe26e70b442a6ca68d4e59b3bd25687a426755e85"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-pgo-refresh.json.gz",
+      "bytes": 129348,
+      "sha256": "d9a9d10d8b60014a9a4a6f6a5296b8ec5f3e4b9156fc2a4af25e9613b9afbbca"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-phases-screen.json.gz",
+      "bytes": 57218,
+      "sha256": "c0c66d068f283cb5f5745440f8967cec8ce11e41ebd2a1db36ceed516778c88e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-queue-screen.json.gz",
+      "bytes": 54412,
+      "sha256": "11c08e7fcf7f6e4b01e43d2214e0c57975c278a0f1fe290e2b46d17a0a5c61e3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-relative-screen.json.gz",
+      "bytes": 57243,
+      "sha256": "79416c3cc30106053b841f08121fc1a9608fecb040c2300c460de09b9ab14277"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-release-long.json.gz",
+      "bytes": 143134,
+      "sha256": "4b126cac1dd0d88e6d453b3dba8d58f06da57238cb476a3f0a97f3ef5af3eb78"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-release.json.gz",
+      "bytes": 217359,
+      "sha256": "d8c9535e67dd3158637e96fea6563baaf07488c31421877c4fffd17cce2979a5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-resources.json",
+      "bytes": 269,
+      "sha256": "0f5387770a1182a4a7b08f06a999613b8fcca46522b1db47528486225795a5fc"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-retained-long.json.gz",
+      "bytes": 143199,
+      "sha256": "3cadc3d5b6c1c507ead8934e9d63d490750a2dcee41e35615ed36abdc0ab045d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-retained-parity.json",
+      "bytes": 580,
+      "sha256": "d9007be6d248ae82413b995ef4bd164d748df364dc2043dbde7d21ff12aca497"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-retained.json.gz",
+      "bytes": 217330,
+      "sha256": "17438cdcab39a936d19de9739564f41eebbb9181d07e180559bf30b98da17120"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-same-rules.json.gz",
+      "bytes": 129426,
+      "sha256": "2bfbf9cd93d4d641a965b13cdd34bb7de05bb19f2601b99746eb8bb1c5730523"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-seed26-four-player.json.gz",
+      "bytes": 14391,
+      "sha256": "ab950b230a2a949f18c14ee3456c1eafc5a6f2bf299bb49a236b909d3ac520a5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-separation-fixed-screen.json.gz",
+      "bytes": 57242,
+      "sha256": "484d4136049281732c6d48dcb9fcca52d488433b139b330de5b0b0e6d0ce3149"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-separation-screen.json.gz",
+      "bytes": 4865,
+      "sha256": "182587e53bd4db705ef801dc4904405ce039c2f2c43e23489f2d4b05d6074117"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-shape-long.json.gz",
+      "bytes": 146685,
+      "sha256": "61d88521a5e541b05568e333e4878f77e3ac439d58ca88149547ba471acf43be"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-summary.json",
+      "bytes": 522893,
+      "sha256": "ac2ab778f0d4104db603bb0d3fa6d530ee002bb921d30653a3245283df629573"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-table-node-parity.json.gz",
+      "bytes": 71341,
+      "sha256": "d2b9ef4742118cbf71fab96af98d5a72f296581b6ea8fe12be2daedf5b90da60"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-trained-screen.json.gz",
+      "bytes": 130268,
+      "sha256": "34217fe82a798f96275d6e5cc695323f2a6d724d03d3fe7711c949c9b650507c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-transforms-screen.json.gz",
+      "bytes": 57208,
+      "sha256": "d126d41f1ff58eaf97a9912a011197abad0a3658731db9abf25c7e7db63c7e92"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-trig-table-screen.json.gz",
+      "bytes": 135759,
+      "sha256": "f710af8a545dad1037497444c982df6bf4c59a42535d47f424a7856b0a705772"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-velocity-audit-contact.json.gz",
+      "bytes": 262736,
+      "sha256": "bc0db92f24d9c57fdc333d8978140ff9ca07df91df7aca16e661952e0594d2c3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-velocity-audit-convoy.json.gz",
+      "bytes": 452521,
+      "sha256": "b8861a319c8114a83cd3fd38bf315fcd96bd572d0f3062d1e90188f9d39d141e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-velocity-audit-module.json.gz",
+      "bytes": 1621575,
+      "sha256": "56020401cc28d3d4f31a5484705326e3e2a90e9ff5537a189a1ab50cd58c3e39"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-velocity-audit-spread.json.gz",
+      "bytes": 2240189,
+      "sha256": "c82c76f38739f89370f09151fa267203e84543a21cf380c5b75fb9136dd310c1"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-velocity-replay.log",
+      "bytes": 9176,
+      "sha256": "ac500ae0bdb2663c49348db4cab600f73ca37e3683cbf94acdf9569651e994e3"
+    },
+    {
+      "path": "docs/experiments/2026-10-01/go-server-cpu-comparison-2026-10-01-followup.md",
+      "bytes": 34027,
+      "sha256": "91f7db6e5e8523e8573c83617d340d99d3bdf6b484477703e98d970278850964"
+    },
+    {
+      "path": "docs/experiments/2026-10-01/go-server-cpu-comparison-2026-10-01.md",
+      "bytes": 16846,
+      "sha256": "f63f1c1e8b06024775b73997603d215782e24e42e9017e4e397ae23a4eff96ee"
+    },
+    {
+      "path": "docs/experiments/2026-10-01/go-server-packed-physics-2026-10-01.md",
+      "bytes": 25109,
+      "sha256": "ce1e00f3ff1eba339ea12299c07fb244337f7840d03fe7fe7958e53e07426687"
+    },
+    {
+      "path": "docs/experiments/2026-10-01/go-server-precision-simd-2026-10-01.md",
+      "bytes": 14801,
+      "sha256": "b76213a64f6c3dca7c5bca86218a67051da47cceb35424824059343af72e40c1"
+    },
+    {
+      "path": "docs/experiments/2026-10-01/go-server-simd-results-2026-10-01.md",
+      "bytes": 17480,
+      "sha256": "4e3638cdbcc0f94f555ce47ca5a7c4ebcb4d9579a6b8f13656d62a82416012a0"
+    },
+    {
+      "path": "docs/experiments/2026-10-01/go-server-solver-redesign-2026-10-01.md",
+      "bytes": 21665,
+      "sha256": "dd70c48cdb2723bebb88e0e82382bd27f92fe355f3c1cca3fa168370c64e9c66"
+    },
+    {
+      "path": "docs/experiments/2026-10-01/snapshot-cadence-2026-10-01.md",
+      "bytes": 8263,
+      "sha256": "ef52768124554bc253081ed55ae7560eeba581fdbddaf39f46b346cb7315726c"
+    }
+  ]
+}

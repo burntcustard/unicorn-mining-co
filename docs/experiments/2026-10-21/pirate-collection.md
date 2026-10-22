@@ -1,5 +1,10 @@
 # Courser pirate collection — 21 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-21 archive](../../../benchmarking/archive/README.md#2026-10-21).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-21`.
+
 The later [code simplification](pirate-collection-simplification.md) describes the
 current implementation. This report preserves the original behavior investigation
 and its historical measurements.
@@ -129,7 +134,7 @@ At that stage, all 14 client resources retained identical sizes, totaling 305,78
 raw bytes. The server grew from 13,353,120 to 13,365,408 bytes (+12,288).
 Deterministic gzip level 9 grew from 5,626,018 to 5,631,459 bytes (+5,441).
 
-The [evidence archive](../../../benchmarking/experiments/2026-10-21/pirate-collection/README.md)
+The [evidence archive](../../../benchmarking/archive/README.md#2026-10-21)
 contains raw logs, exact before/after metrics, preserved baseline sources,
 resource measurements, and commands that reproduce both versions without
 changing the checkout.

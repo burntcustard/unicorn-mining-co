@@ -1,16 +1,20 @@
 {
   "artifacts": {
     "README.md": {
-      "bytes": 6548,
-      "sha256": "f5d8de4ad5f8e7b14c6ec370e78395d4194d610eb9b2b9c525ca9d93f12d7477"
+      "bytes": 6586,
+      "sha256": "d1e474d7e8f63863067dbf9b0ecf66b89136c733558fd73eceec502dea81f4bb",
+      "originalSha256": "f5d8de4ad5f8e7b14c6ec370e78395d4194d610eb9b2b9c525ca9d93f12d7477",
+      "originalBytes": 6548
     },
     "build.ts": {
       "bytes": 3011,
       "sha256": "78845320164dff6c868cdd4f3bccf379e3bd2b18d5774695f8703b8d0abcc381"
     },
     "sources.json": {
-      "bytes": 3085,
-      "sha256": "57eca6e45417ccb5778d7d560d5d6f0f9a13d00699a4fefd4a512140fb916157"
+      "bytes": 3215,
+      "sha256": "15355fd61d9b2ee1db4125efa8089b189179a4c3ee4ec05925c3c7c42aa8aa28",
+      "originalSha256": "57eca6e45417ccb5778d7d560d5d6f0f9a13d00699a4fefd4a512140fb916157",
+      "originalBytes": 3085
     },
     "diagnostics/baseline.json.gz": {
       "bytes": 69777,
@@ -72,13 +76,15 @@
       "bytes": 32188,
       "sha256": "41fadfb17f5a40f752948277b17c47bf73f645965f0d2766356e2368b03f02fa"
     },
-    "profiles/original.pgo": {
+    "../../../profiles/6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675.pgo": {
       "bytes": 11912,
-      "sha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675"
+      "sha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675",
+      "originalPath": "profiles/original.pgo"
     },
-    "profiles/retained.pgo": {
+    "../../../profiles/27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6.pgo": {
       "bytes": 48604,
-      "sha256": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6"
+      "sha256": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6",
+      "originalPath": "profiles/retained.pgo"
     },
     "profiles/spread-before.pprof": {
       "bytes": 11587,
@@ -192,25 +198,29 @@
       "bytes": 1579,
       "sha256": "256008882bda694967b1f8c1c9ac9f307cbb9081f3a31f8063037707315f7367"
     },
-    "support/build-info-after.txt": {
+    "support/build-info-after.log": {
       "bytes": 1015,
-      "sha256": "99903b2cd54c10afc0987d148a2ba6f86f906af8733853408a214f9ac2a2f63f"
+      "sha256": "99903b2cd54c10afc0987d148a2ba6f86f906af8733853408a214f9ac2a2f63f",
+      "originalPath": "support/build-info-after.txt"
     },
-    "support/build-info-before.txt": {
+    "support/build-info-before.log": {
       "bytes": 1016,
-      "sha256": "b8675150bb600680512e814ce1937a7e11ae66f6d9b170ba1e17665f7056725d"
+      "sha256": "b8675150bb600680512e814ce1937a7e11ae66f6d9b170ba1e17665f7056725d",
+      "originalPath": "support/build-info-before.txt"
     },
     "support/format.log": {
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
-    "support/go-version.txt": {
+    "support/go-version.log": {
       "bytes": 32,
-      "sha256": "f554cfdb85411c2bb1d503df3f53dfbad1f753eb8271938833166a5d26a7547c"
+      "sha256": "f554cfdb85411c2bb1d503df3f53dfbad1f753eb8271938833166a5d26a7547c",
+      "originalPath": "support/go-version.txt"
     },
-    "support/governor.txt": {
+    "support/governor.log": {
       "bytes": 10,
-      "sha256": "887db6466701960a231486e3ae935aacad7a4db669f16767ef3b7b1ea97bd199"
+      "sha256": "887db6466701960a231486e3ae935aacad7a4db669f16767ef3b7b1ea97bd199",
+      "originalPath": "support/governor.txt"
     },
     "support/identity.json": {
       "bytes": 462,
@@ -224,9 +234,10 @@
       "bytes": 209,
       "sha256": "09a960a927c2a470b898806fca9716981e9d218c82620f4cb256d59d6ab2ea3d"
     },
-    "support/lscpu.txt": {
+    "support/lscpu.log": {
       "bytes": 3579,
-      "sha256": "deeb8d85fa7889b5e3b72d204bfb6cae0152014e6018ea97dae7850ad0cca7a0"
+      "sha256": "deeb8d85fa7889b5e3b72d204bfb6cae0152014e6018ea97dae7850ad0cca7a0",
+      "originalPath": "support/lscpu.txt"
     },
     "support/oracle-reproduced.log": {
       "bytes": 73,

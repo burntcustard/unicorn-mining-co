@@ -1,7 +1,8 @@
 /* global Buffer, process */
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const root = process.cwd();
 const scenario = `
@@ -309,7 +310,7 @@ for (const production of [false, true]) {
         },
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

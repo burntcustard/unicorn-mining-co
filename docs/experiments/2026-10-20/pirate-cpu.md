@@ -1,5 +1,10 @@
 # Pirate combat CPU — 20 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-20 archive](../../../benchmarking/archive/README.md#2026-10-20).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-20`.
+
 The final five-scenario combat benchmark uses **50.69% less process CPU** in
 aggregate. Normal-field chases improve by about 54%; dense-field chases improve
 by about 48%, so the dense cases remain slightly below the 50% target individually.
@@ -22,7 +27,7 @@ particular mixture of encounters.
 | Normal field, full-throttle player |              94.532 |             43.694 |        53.78% |                        564 → 102 |
 | Dense field, full-throttle player  |             120.847 |             63.129 |        47.76% |                        543 → 139 |
 
-[Raw final results](../../../benchmarking/experiments/2026-10-20/pirate-cpu/results/unicorn-cpu-results-seventh.json)
+[Raw final results](../../../benchmarking/archive/README.md#2026-10-20)
 and their ten companion logs retain every sample. Allocation counts decrease
 by 74–85%. The five-case mean of the individual percentage reductions is 51.12%;
 the aggregate CPU reduction above uses the ratio of summed medians instead.
@@ -103,7 +108,7 @@ asteroid and seven ship-contact episodes across 35 minutes, no time beyond the
 700-unit firing range, and no deaths or stranding. The point courses retain their
 baseline 4.9 seconds outside that range. No prolonged stalls occur.
 
-The final [quality replay log](../../../benchmarking/experiments/2026-10-20/pirate-cpu/results/unicorn-cpu-final-quality-order-reuse.log)
+The final [quality replay log](../../../benchmarking/archive/README.md#2026-10-20)
 and saved baseline/current logs retain the measurements. The allocation-only
 stack-buffer change leaves iteration order and behavior unchanged; the complete
 NPC suite also passes after it.
@@ -135,7 +140,7 @@ bytes and 129,919 gzip bytes. The stripped server grows from 13,291,680 to
 measurements grow by 8,021 bytes. These comparisons use preserved baseline
 artifacts, rather than the development watcher's executable.
 
-The [evidence archive and reproduction instructions](../../../benchmarking/experiments/2026-10-20/pirate-cpu/README.md)
+The [evidence archive and reproduction instructions](../../../benchmarking/archive/README.md#2026-10-20)
 include the original dirty-workspace baseline, final source snapshot, pinned
 five-case fixture, shared PGO input, raw timing logs, quality harnesses, diagnostic
 profiles and hashes. The overlay builder reconstructs separate before/after test

@@ -1,5 +1,10 @@
 # Remote collision presentation — 2026-10-02
 
+> Evidence for this completed investigation is in the
+> [2026-10-02 archive](../../../benchmarking/archive/README.md#2026-10-02).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-02`.
+
 Two presentation problems reproduce the reported rubber-banding at 30 Hz:
 packet bursts can jump the interpolation clock, and a corrected nearby ship can
 jump directly to its new predicted collision pose. Both now preserve the displayed
@@ -56,7 +61,7 @@ instantaneous presentation discontinuities, not ordinary travel between frames;
 physical bumps, changes of direction and catch-up motion still occur.
 
 The baseline is commit `106cee4` (the 30 Hz snapshot change). The
-[raw comparison](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-contact.json.gz)
+[raw comparison](../../../benchmarking/archive/README.md#2026-10-02)
 retains all samples, source hashes and baseline client sources. The comparison
 uses in-memory socket transport with immediate upstream input/acknowledgment
 delivery, so it does not measure WAN loss, GPU rendering or browser stalls.

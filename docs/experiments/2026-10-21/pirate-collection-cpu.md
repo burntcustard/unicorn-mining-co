@@ -1,5 +1,10 @@
 # Courser collection CPU — 21 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-21 archive](../../../benchmarking/archive/README.md#2026-10-21).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-21`.
+
 The later [code simplification](pirate-collection-simplification.md) describes the
 current implementation. This report preserves the preceding CPU optimization
 and its historical measurements.
@@ -35,7 +40,7 @@ hauls; it does not predict a live server's CPU reduction across a mixed fleet.
 | Wide     |                      70.53 |                   35.28 |                    35.40 |
 | Heldout  |                      68.99 |                   35.68 |                    33.43 |
 
-The [raw CPU comparison](../../../benchmarking/experiments/2026-10-21/pirate-collection-cpu/results/cpu-comparison.json)
+The [raw CPU comparison](../../../benchmarking/archive/README.md#2026-10-21)
 contains every sample and the execution orders. Earlier intermediate measurements
 remain in the archive; `cpu-comparison.json` and `final-cpu-*.log` describe the
 retained implementation.
@@ -100,7 +105,7 @@ All 14 client resources remain byte-for-byte identical, totaling 305,788 raw
 bytes. The server grows from 13,365,408 to 13,369,504 bytes (+4,096).
 Deterministic gzip level 9 grows from 5,631,459 to 5,633,810 bytes (+2,351).
 
-The [evidence archive](../../../benchmarking/experiments/2026-10-21/pirate-collection-cpu/README.md)
+The [evidence archive](../../../benchmarking/archive/README.md#2026-10-21)
 contains source snapshots, raw results, profiles, the oracle, and reproduction
 commands. The [collection behavior report](pirate-collection.md) retains the
 original investigation and the historical CPU increase that prompted this work.

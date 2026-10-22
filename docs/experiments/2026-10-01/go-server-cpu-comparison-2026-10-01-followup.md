@@ -1,5 +1,10 @@
 # Go server CPU comparison after SIMD and collision experiments — 2026-10-01
 
+> Evidence for this completed investigation is in the
+> [2026-10-01 archive](../../../benchmarking/archive/README.md#2026-10-01).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-01`.
+
 The latest [persistent packed physics investigation](go-server-packed-physics-2026-10-01.md) records primary-source research, nine implemented layout comparisons, kernel parity tests, and a longer two-core confirmation.
 
 The subsequent [precision and SIMD investigation](go-server-precision-simd-2026-10-01.md) tests reduced precision, CPU instruction targets, and two-core CPU accounting against this final implementation.
@@ -127,7 +132,7 @@ The earlier motion prototype left upper AVX bits live before scalar code. Cleari
 
 The retained replication pipeline processes **16 entities per call using four float64 AVX2 vectors**, preserves separate multiplication and addition, and clears upper bits before returning an integer mask. It batches distance calculation, radius checks, station-marker exceptions and owned-ship inclusion; the exact distances are stored once and reused for membership and cadence. Sparse observers use this path; dense observers and incomplete tails use scalar code. Packing IDs happens at most once per snapshot when needed. The conservative float32 conversion/guard prototype was replaced with this simpler exact float64 path.
 
-The distance-only kernel measured **2.93× faster for 2,048 entities**: median 2,214 ns scalar versus 755.6 ns AVX2, with zero allocations on both sides. That kernel ratio is not a whole-server ratio. [Kernel samples](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-followup-distance-kernel.txt) contain three repetitions. SIMD exactness tests cover 100,000 unaligned batches, threshold-adjacent values, owned entities, station flags, NaN and infinity. Scalar tails and snapshot ordering are preserved. Production builds now set `GOEXPERIMENT=simd`; runtime AVX2 detection and build tags retain scalar fallbacks. [Go’s SIMD experiment](https://go.dev/blog/simd-experiment) is the compiler/library mechanism used here.
+The distance-only kernel measured **2.93× faster for 2,048 entities**: median 2,214 ns scalar versus 755.6 ns AVX2, with zero allocations on both sides. That kernel ratio is not a whole-server ratio. [Kernel samples](../../../benchmarking/archive/README.md#2026-10-01) contain three repetitions. SIMD exactness tests cover 100,000 unaligned batches, threshold-adjacent values, owned entities, station flags, NaN and infinity. Scalar tails and snapshot ordering are preserved. Production builds now set `GOEXPERIMENT=simd`; runtime AVX2 detection and build tags retain scalar fallbacks. [Go’s SIMD experiment](https://go.dev/blog/simd-experiment) is the compiler/library mechanism used here.
 
 ### Go-native motion rounding
 
@@ -141,11 +146,11 @@ Both shared JavaScript and Go gameplay simulations select the **eight closest po
 
 The final version reuses active-body buffers, lazily allocates eight-entry neighborhoods only for crowded bodies, and maintains a conservative neighbor-count threshold during existing contact bookkeeping. Ordinary bodies with at most eight potential neighbors avoid ranking. Deferred contacts remain cached and are reconsidered; items, asteroids, stations and ships all retain their physics and collision participation. Tests verify ninth-neighbor recovery, multiple-fixture counting, equal-distance order, and existing item/asteroid momentum and damage.
 
-Five variants were measured independently. The final sustained 3,000-tick comparison reduced summed CPU by **2.11%**, with a **0.65% equal-scenario mean reduction**. The deliberately dense collision stress test improved by **12.1% / 41.8% / 40.1%** for 16 / 32 / 64 objects. These are collision-step timings in artificial overlapping crowds, not ordinary whole-session CPU ratios. [Stress samples](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-nearest-eight-stress-v5.txt) preserve the repetitions.
+Five variants were measured independently. The final sustained 3,000-tick comparison reduced summed CPU by **2.11%**, with a **0.65% equal-scenario mean reduction**. The deliberately dense collision stress test improved by **12.1% / 41.8% / 40.1%** for 16 / 32 / 64 objects. These are collision-step timings in artificial overlapping crowds, not ordinary whole-session CPU ratios. [Stress samples](../../../benchmarking/archive/README.md#2026-10-01) preserve the repetitions.
 
 ### Profile-guided compilation
 
-The final PGO profile combines convoy, spread, contact and module workloads with 32 players, 6,000 measured ticks each, and seed 31. Timed comparisons use seed 25. The independent comparison keeps final source and settings identical while replacing the old supplied profile. [Training measurements](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-training.json) and [CPU profiles](../../../benchmarking/experiments/2026-10-01/go-cpu/profiles) are retained.
+The final PGO profile combines convoy, spread, contact and module workloads with 32 players, 6,000 measured ticks each, and seed 31. Timed comparisons use seed 25. The independent comparison keeps final source and settings identical while replacing the old supplied profile. [Training measurements](../../../benchmarking/archive/README.md#2026-10-01) and [CPU profiles](../../../benchmarking/experiments/2026-10-01/go-cpu/profiles) are retained.
 
 The merged training profile contains 35.42 seconds of CPU samples. Collision
 processing accounts for 64.43% cumulatively, including the continuous solver
@@ -159,28 +164,28 @@ roughly 0.6% in this profile, so another GC increase has little potential here.
 
 Negative changes mean less CPU. Mean is the average of per-scenario current/previous CPU ratios minus one; aggregate is the ratio of summed scenario medians minus one. Every row covers all 16 scenarios. Rows use different intermediate baselines and cannot be summed. Shared-rule experiments record changed outcomes rather than claiming bit-identical old/new trajectories.
 
-| Experiment                                                                                                                                              | Runs / ticks per variant and case | Mean CPU change | Aggregate CPU change | Decision                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------: | --------------: | -------------------: | ------------------------------ |
-| [First profile refresh on SIMD prototype](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-avx-pgo.json.gz)                   |                           3 / 900 |          -3.69% |               -1.83% | Keep profile approach          |
-| [Earlier eight-lane replication, scalar toggle](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-avx-ablation.json.gz)        |                           5 / 900 |          -0.83% |               -1.61% | Superseded by exact float64    |
-| [Float32 filter → exact float64 pipeline](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-avx-sixteen.json.gz)               |                           5 / 900 |          -0.56% |               +0.01% | Keep simpler, exact path       |
-| [Omit velocity rounding](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-pose.json.gz)                                |                           3 / 900 |          +2.23% |               +1.73% | Reject changed trajectories    |
-| [Round only after collisions](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-once.json.gz)                           |                           3 / 900 |          +0.30% |               -2.74% | Reject changed trajectories    |
-| [Remove all motion rounding](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-none.json.gz)                            |                           3 / 900 |          +2.24% |               +3.03% | Reject CPU and trajectories    |
-| [Skip final rounding for inactive bodies](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-inactive-corrected.json.gz) |                           5 / 900 |          +0.77% |               +0.78% | Reject slower / extra branch   |
-| [Gather then batch decimal rounding](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-motion-batch.json.gz)                   |                           5 / 900 |          -0.43% |               -0.18% | Reject <1% / more code         |
-| [Decimal motion grid → binary ties-even](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-native-motion-grid.json.gz)         |                           5 / 900 |          -0.30% |               +0.55% | Keep simpler Go rule           |
-| [Native SIMD motion with legacy spills](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-native-vector-motion.json.gz)        |                           5 / 900 |         +11.95% |               +9.49% | Reject faulty AVX usage        |
-| [Native SIMD motion after fixing spills](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-native-vector-motion-clean.json.gz) |                           7 / 900 |          -0.28% |               -0.42% | Reject <1% / more code         |
-| [Rank swept-bound candidates](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v1.json.gz)                      |                           3 / 900 |          +4.58% |               +1.99% | Reject normal-case overhead    |
-| [Filter contact creation and prune cache](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v2.json.gz)          |                           3 / 900 |          +0.56% |               +0.22% | Reject overhead / complexity   |
-| [Rank existing contact graph](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v3.json.gz)                      |                           3 / 900 |          +3.15% |               +2.47% | Reject normal-case overhead    |
-| [Active bodies and dirty counts](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v4.json.gz)                   |                           3 / 900 |          -0.93% |               -0.81% | Superseded by cached threshold |
-| [Cached threshold and retained deferred contacts](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-nearest-eight-v5.json.gz)  |                          3 / 3000 |          -0.65% |               -2.11% | Keep total CPU / crowd gain    |
-| [Final source, old PGO → fresh PGO](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-pgo.json.gz)                    |                           3 / 900 |          -2.25% |               -1.14% | Keep                           |
-| [Final executable, scalar → retained SIMD](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-followup-simd.json.gz)    |                           5 / 900 |          -0.74% |               -1.66% | Keep replication pipeline      |
+| Experiment                                                                                            | Runs / ticks per variant and case | Mean CPU change | Aggregate CPU change | Decision                       |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------: | --------------: | -------------------: | ------------------------------ |
+| [First profile refresh on SIMD prototype](../../../benchmarking/archive/README.md#2026-10-01)         |                           3 / 900 |          -3.69% |               -1.83% | Keep profile approach          |
+| [Earlier eight-lane replication, scalar toggle](../../../benchmarking/archive/README.md#2026-10-01)   |                           5 / 900 |          -0.83% |               -1.61% | Superseded by exact float64    |
+| [Float32 filter → exact float64 pipeline](../../../benchmarking/archive/README.md#2026-10-01)         |                           5 / 900 |          -0.56% |               +0.01% | Keep simpler, exact path       |
+| [Omit velocity rounding](../../../benchmarking/archive/README.md#2026-10-01)                          |                           3 / 900 |          +2.23% |               +1.73% | Reject changed trajectories    |
+| [Round only after collisions](../../../benchmarking/archive/README.md#2026-10-01)                     |                           3 / 900 |          +0.30% |               -2.74% | Reject changed trajectories    |
+| [Remove all motion rounding](../../../benchmarking/archive/README.md#2026-10-01)                      |                           3 / 900 |          +2.24% |               +3.03% | Reject CPU and trajectories    |
+| [Skip final rounding for inactive bodies](../../../benchmarking/archive/README.md#2026-10-01)         |                           5 / 900 |          +0.77% |               +0.78% | Reject slower / extra branch   |
+| [Gather then batch decimal rounding](../../../benchmarking/archive/README.md#2026-10-01)              |                           5 / 900 |          -0.43% |               -0.18% | Reject <1% / more code         |
+| [Decimal motion grid → binary ties-even](../../../benchmarking/archive/README.md#2026-10-01)          |                           5 / 900 |          -0.30% |               +0.55% | Keep simpler Go rule           |
+| [Native SIMD motion with legacy spills](../../../benchmarking/archive/README.md#2026-10-01)           |                           5 / 900 |         +11.95% |               +9.49% | Reject faulty AVX usage        |
+| [Native SIMD motion after fixing spills](../../../benchmarking/archive/README.md#2026-10-01)          |                           7 / 900 |          -0.28% |               -0.42% | Reject <1% / more code         |
+| [Rank swept-bound candidates](../../../benchmarking/archive/README.md#2026-10-01)                     |                           3 / 900 |          +4.58% |               +1.99% | Reject normal-case overhead    |
+| [Filter contact creation and prune cache](../../../benchmarking/archive/README.md#2026-10-01)         |                           3 / 900 |          +0.56% |               +0.22% | Reject overhead / complexity   |
+| [Rank existing contact graph](../../../benchmarking/archive/README.md#2026-10-01)                     |                           3 / 900 |          +3.15% |               +2.47% | Reject normal-case overhead    |
+| [Active bodies and dirty counts](../../../benchmarking/archive/README.md#2026-10-01)                  |                           3 / 900 |          -0.93% |               -0.81% | Superseded by cached threshold |
+| [Cached threshold and retained deferred contacts](../../../benchmarking/archive/README.md#2026-10-01) |                          3 / 3000 |          -0.65% |               -2.11% | Keep total CPU / crowd gain    |
+| [Final source, old PGO → fresh PGO](../../../benchmarking/archive/README.md#2026-10-01)               |                           3 / 900 |          -2.25% |               -1.14% | Keep                           |
+| [Final executable, scalar → retained SIMD](../../../benchmarking/archive/README.md#2026-10-01)        |                           5 / 900 |          -0.74% |               -1.66% | Keep replication pipeline      |
 
-The earlier [SIMD checkpoint](go-server-simd-results-2026-10-01.md) documents polygon support, separation, transforms, observer batches and broad-phase experiments. The [experiment index](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-experiments.json) and [archived implementations](../../../benchmarking/experiments/2026-10-01/go-cpu/README.md) preserve the evidence, including unsuccessful work.
+The earlier [SIMD checkpoint](go-server-simd-results-2026-10-01.md) documents polygon support, separation, transforms, observer batches and broad-phase experiments. The [experiment index](../../../benchmarking/archive/README.md#2026-10-01) and [archived implementations](../../../benchmarking/archive/README.md#2026-10-01) preserve the evidence, including unsuccessful work.
 
 ## Gameplay work, packets and parity
 
@@ -207,7 +212,7 @@ The original Go binary has its original motion and unlimited-neighbor rules. Tin
 
 The largest packet-byte increase versus original Go is **4.25%**, well below doubling. Motion remains fixed-width float64 on the wire; fewer decimal digits do not directly reduce that width. Differences in total bytes also reflect changed fields, interest membership and gameplay events. Binary protocol versions and field identifiers are unchanged.
 
-The separate traced [Go/Node parity run](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-followup-parity.json) checked **108,000 decoded snapshots across all 16 scenarios**, with a maximum numeric difference of **5.96e-08**. The existing numeric tolerances remain `2e-8` through 16 players and `1e-6` at 32 players. Ordered consequential collision events use the existing residual-impact threshold (`0.025` only for 32-player module; `2e-8` otherwise). Near-zero notifications are retained in the raw metrics. The timed four-way run also checked current-Go/Node contact, event, entity and packet counts and final ship states; maximum difference was `0`.
+The separate traced [Go/Node parity run](../../../benchmarking/archive/README.md#2026-10-01) checked **108,000 decoded snapshots across all 16 scenarios**, with a maximum numeric difference of **5.96e-08**. The existing numeric tolerances remain `2e-8` through 16 players and `1e-6` at 32 players. Ordered consequential collision events use the existing residual-impact threshold (`0.025` only for 32-player module; `2e-8` otherwise). Near-zero notifications are retained in the raw metrics. The timed four-way run also checked current-Go/Node contact, event, entity and packet counts and final ship states; maximum difference was `0`.
 
 ## Configuration, validation and reproduction
 
@@ -232,7 +237,7 @@ Validation passed: full `npm test`; `npm run test:go` with regenerated shared fi
 
 The existing client-entry chunk remains above the repository’s 14 KB loading target; this follow-up changes its gzip size by the amount shown above and preserves loading boundaries.
 
-Executable and profile SHA-256 hashes are recorded with all samples in [the final result](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-final.json.gz). [Go build settings](../../../benchmarking/experiments/2026-10-01/go-cpu/results/2026-10-01-cpu-followup-build-info.txt) identify the timed test executable and the stripped production executable. The [reproduction instructions](../../../benchmarking/experiments/2026-10-01/go-cpu/README.md) include original-baseline builds, optional checkpoint sampling, and independent feature toggles.
+Executable and profile SHA-256 hashes are recorded with all samples in [the final result](../../../benchmarking/archive/README.md#2026-10-01). [Go build settings](../../../benchmarking/archive/README.md#2026-10-01) identify the timed test executable and the stripped production executable. The [reproduction instructions](../../../benchmarking/archive/README.md#2026-10-01) include original-baseline builds, optional checkpoint sampling, and independent feature toggles.
 
 ```text
 original executable SHA-256: f692c9dc88f9547404f07d633e0d1b50f044bb40de6d03b609a1970f8267acf3

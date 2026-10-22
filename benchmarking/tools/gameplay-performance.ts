@@ -74,7 +74,7 @@ const readHostPower = async () => {
     (
       await Promise.all(
         supplies
-        .toSorted((left, right) => left.localeCompare(right, 'en-US'))
+          .toSorted((left, right) => left.localeCompare(right, 'en-US'))
           .map(
             async (name) =>
               [

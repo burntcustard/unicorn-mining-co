@@ -1,8 +1,35 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
+import { run as runTests } from 'node:test';
+import testReporter from './test-reporter.ts';
+
+// Start the heavier simulations and integration checks first.
+const testOrder = new Map(
+  [
+    'tests/client/projectile-prediction-repeated.test.ts',
+    'tests/client/projectile-prediction.test.ts',
+    'tests/client/muzzle-flash.test.ts',
+    'tests/client/projectile-prediction-plasma.test.ts',
+    'tests/parity/gate-collisions.test.ts',
+    'tests/integration/trade-integration.test.ts',
+    'tests/client/projectile-prediction-triangles.test.ts',
+    'tests/client/weapons.test.ts',
+    'tests/linting/oxlint-formatting.test.ts',
+    'tests/client/ship-destruction.test.ts',
+    'tests/client/gate-modules.test.ts',
+    'tests/client/beam-visibility.test.ts',
+  ].map((file, index) => [file, index]),
+);
 
 const testFiles = ['tests', 'src/server']
   .flatMap((directory) =>
@@ -29,7 +56,13 @@ const requested = process.argv.slice(2).filter((arg) => arg !== '--skip-build');
 const files = requested.length
   ? [...new Set(requested.flatMap(selectFiles))]
   : testFiles;
-const nodeFiles = files.filter((file) => !file.endsWith('.go'));
+const nodeFiles = files
+  .filter((file) => !file.endsWith('.go'))
+  .sort(
+    (a, b) =>
+      (testOrder.get(a) ?? testOrder.size) -
+        (testOrder.get(b) ?? testOrder.size) || a.localeCompare(b, 'en-US'),
+  );
 const goFiles = files.filter((file) => file.endsWith('.go'));
 const concurrency = Number(
   process.env.TEST_CONCURRENCY || Math.min(4, availableParallelism()),
@@ -183,22 +216,14 @@ if (needsFixtures) {
   ]);
 }
 
-if (nodeFiles.length) {
-  await run(process.execPath, [
-    '--import',
-    'tsx',
-    '--import',
-    './tests/support/local-storage.ts',
-    '--test',
-    '--test-reporter=./scripts/test-reporter.ts',
-    '--test-reporter-destination=stdout',
-    `--test-concurrency=${concurrency}`,
-    ...nodeFiles,
-  ]);
-}
-
+// Compile and test Go once before client fixtures invoke Go tools, avoiding
+// competing cold builds of the same packages in several Node workers.
 if (!requested.length) {
-  await run('go', ['test', './src/server/...'], goEnv);
+  await run(
+    'go',
+    ['test', './src/server/network', './src/server/npc', './src/server/...'],
+    goEnv,
+  );
 } else {
   for (const [directory, names] of goPackages) {
     await run(
@@ -206,5 +231,51 @@ if (!requested.length) {
       ['test', '-run', `^(${names.join('|')})$`, `./${directory}`],
       goEnv,
     );
+  }
+}
+
+if (nodeFiles.length) {
+  const directory = mkdtempSync(join(tmpdir(), 'unicorn-tests-'));
+  const cachePath = join(directory, 'build-cache.json');
+  const needsProduction = nodeFiles.some((file) =>
+    /\b(?:testBuildPlugin|buildPlugin|runProjectilePrediction)\b/.test(
+      readFileSync(file, 'utf8'),
+    ),
+  );
+
+  try {
+    if (needsProduction) {
+      const { preparePropertyCache } =
+        await import('../plugins/build-plugins.ts');
+
+      writeFileSync(cachePath, JSON.stringify(await preparePropertyCache()));
+    }
+
+    // The CLI sorts filenames again; the programmatic runner preserves this
+    // priority order while keeping each file in its own process.
+    const tests = runTests({
+      files: nodeFiles,
+      concurrency,
+      execArgv: [
+        '--import',
+        'tsx',
+        '--import',
+        './tests/support/local-storage.ts',
+      ],
+      env: {
+        ...goEnv,
+        ...(needsProduction ? { TEST_BUILD_CACHE: cachePath } : {}),
+      },
+    });
+
+    tests.on('test:fail', () => {
+      process.exitCode = 1;
+    });
+
+    for await (const chunk of testReporter(tests)) {
+      if (!process.stdout.write(chunk)) await once(process.stdout, 'drain');
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 }

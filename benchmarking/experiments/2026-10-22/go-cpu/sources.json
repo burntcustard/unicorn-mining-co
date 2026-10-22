@@ -20,7 +20,7 @@
         "src/server/objects/modules/horn-drill.go": "sources/before/src/server/objects/modules/horn-drill.go.txt",
         "src/server/physics/overlap-recovery_test.go": null
       },
-      "profile": "profiles/original.pgo",
+      "profile": "../../../profiles/6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675.pgo",
       "profileSha256": "6f4664db84bd91b648d714611f508222a13b6e7385b71be7c5302dc74111e675"
     },
     "after": {
@@ -38,7 +38,7 @@
         "src/server/objects/modules/horn-drill.go": "sources/after/src/server/objects/modules/horn-drill.go.txt",
         "src/server/physics/overlap-recovery_test.go": "sources/after/src/server/physics/overlap-recovery_test.go.txt"
       },
-      "profile": "profiles/retained.pgo",
+      "profile": "../../../profiles/27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6.pgo",
       "profileSha256": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6"
     }
   }

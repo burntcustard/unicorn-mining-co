@@ -1,5 +1,0 @@
-#!/usr/bin/env node
-import {spawn} from 'node:child_process';
-const child=spawn('taskset',['-c','0-3','/usr/bin/firefox',...process.argv.slice(2)],{stdio:'inherit'});
-process.on('SIGTERM',()=>child.kill('SIGTERM'));process.on('SIGINT',()=>child.kill('SIGINT'));
-process.exitCode=await new Promise<number>(resolve=>child.once('exit',code=>resolve(code??1)));

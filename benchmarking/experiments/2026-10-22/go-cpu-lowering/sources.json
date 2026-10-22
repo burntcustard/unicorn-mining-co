@@ -24,7 +24,7 @@
         "src/server/utilities/ordered-map_test.go": "sources/before/src/server/utilities/ordered-map_test.go.txt",
         "src/server/utilities/sin-cos.go": "sources/before/src/server/utilities/sin-cos.go.txt"
       },
-      "profile": "profiles/before.pgo",
+      "profile": "../../../profiles/27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6.pgo",
       "profileSha256": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6"
     },
     "after": {
@@ -45,7 +45,7 @@
         "src/server/utilities/ordered-map_test.go": "sources/after/src/server/utilities/ordered-map_test.go.txt",
         "src/server/utilities/sin-cos.go": "sources/after/src/server/utilities/sin-cos.go.txt"
       },
-      "profile": "profiles/after.pgo",
+      "profile": "../../../profiles/d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb.pgo",
       "profileSha256": "d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb"
     }
   }

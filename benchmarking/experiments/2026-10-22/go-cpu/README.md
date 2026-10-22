@@ -87,7 +87,8 @@ repository type check; this has no runtime effect.
 
 ## Profiles, prototypes, and correctness
 
-`profiles/original.pgo` and `profiles/retained.pgo` are the compiler inputs.
+`sources.json` identifies the immutable compiler inputs in
+[`benchmarking/profiles`](../../../profiles/README.md).
 The retained profile merges the separate convoy/spread/contact/module and
 normal/dense combat training profiles. These profiles use GOGC=800 and the
 documented intermediate body-bounds checkpoint; the acceptance captures use

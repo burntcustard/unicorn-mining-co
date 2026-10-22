@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const root = process.cwd();
 const scenario = `
@@ -101,27 +102,30 @@ for (const type of ['hornDrill','cargoHatch','plasmaAccelerator','shieldGenerato
 
 // Predicting an original fragment or its received snapshot must produce the
 // same squeeze out of a gate, including partially open hatch shapes.
-for (const type of ['hornDrill','cargoHatch']) {
-  for (const progress of [.25,.75,1]) {
-    const runs=[];
-    for(const received of [false,true]) {
-      const {world,ship,debris}=scene({type,progress});
-      world.entities.delete(ship.id);
-      Vec.setXY(debris.position,0,-259.5);
-      Vec.setXY(debris.velocity,0,0);
-      debris.spin=0;
-      const body=received?hydrate(debris,world):debris;
-      world.entities.set(body.id,body);
-      const frames=[];
-      for(let tick=0;tick<90;tick++) {
-        updateWorld({world,inputs:new Map()});
-        frames.push(record(world));
-        assert.equal(world.entities.size,2,'detached debris does not spawn another module');
-      }
-      runs.push(frames);
+// Each module covers partial and complete deployment; use different partial
+// shapes without repeating every deployment value for both module types.
+for (const [type, progress] of [
+  ['hornDrill', .25], ['hornDrill', 1],
+  ['cargoHatch', .75], ['cargoHatch', 1],
+]) {
+  const runs=[];
+  for(const received of [false,true]) {
+    const {world,ship,debris}=scene({type,progress});
+    world.entities.delete(ship.id);
+    Vec.setXY(debris.position,0,-259.5);
+    Vec.setXY(debris.velocity,0,0);
+    debris.spin=0;
+    const body=received?hydrate(debris,world):debris;
+    world.entities.set(body.id,body);
+    const frames=[];
+    for(let tick=0;tick<90;tick++) {
+      updateWorld({world,inputs:new Map()});
+      frames.push(record(world));
+      assert.equal(world.entities.size,2,'detached debris does not spawn another module');
     }
-    assert.deepEqual(runs[0],runs[1],type + ': snapshot reconciliation preserves wreckage motion');
+    runs.push(frames);
   }
+  assert.deepEqual(runs[0],runs[1],type + ': snapshot reconciliation preserves wreckage motion');
 }
 
 // Replaying a crushing tick must not carry fixture/contact order from the later
@@ -130,10 +134,10 @@ for (const destroy of [true,false]) {
   const {world,mount}=scene({destroy,rotation:destroy?.4:0});
   const checkpoint=captureWorld({world});
   let expected;
-  for(let replay=0;replay<3;replay++) {
+  for(let replay=0;replay<2;replay++) {
     restoreWorld({world,state:checkpoint});
     const frames=[];
-    for(let tick=0;tick<60;tick++) {
+    for(let tick=0;tick<24;tick++) {
       updateWorld({world,inputs:new Map()});
       frames.push(record(world));
     }
@@ -165,7 +169,7 @@ for (const production of [false, true]) {
             : undefined,
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

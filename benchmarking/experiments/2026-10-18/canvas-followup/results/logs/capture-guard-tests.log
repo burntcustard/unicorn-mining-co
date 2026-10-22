@@ -1,2 +1,0 @@
-{"name":"hidden","code":1,"expected":"Keep the owned benchmark page visible","phaseSeen":true,"correctFailure":true,"elapsedMs":13675.518965}
-{"name":"timeout","code":1,"expected":"Gameplay browser evaluation timed out","phaseSeen":true,"correctFailure":true,"elapsedMs":33523.648989}

@@ -1,5 +1,5 @@
 /* global Buffer, process */
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import assert from 'node:assert/strict';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { rolldown } from 'rolldown';
@@ -8,6 +8,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const scenario = `
 import assert from 'node:assert/strict';
@@ -312,7 +313,7 @@ for (const production of [false, true]) {
         },
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 
@@ -382,7 +383,7 @@ export async function check() {
       },
     },
     buildPrePlugin(),
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 

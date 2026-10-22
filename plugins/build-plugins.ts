@@ -244,10 +244,46 @@ export function buildPrePlugin(flags: Record<string, boolean> = {}) {
 }
 
 /**
+ * Prepare deterministic property names for one build or a group of fixtures.
+ */
+export async function preparePropertyCache(
+  flags: Record<string, boolean> = {},
+) {
+  const nameCache = {};
+  // Seed the cache in source-path order. Rolldown's parallel transform
+  // order otherwise changes the chosen short names between builds.
+  const files = ['client', 'specs']
+    .flatMap((directory) =>
+      sourceFiles(new URL(`../src/${directory}/`, import.meta.url)),
+    )
+    .sort((a, b) => a.pathname.localeCompare(b.pathname, 'en-US'));
+
+  const reserved = reservedProperties(files);
+
+  for (const url of files) {
+    const code = stripIfdef(readFileSync(url, 'utf8'), flags);
+
+    const javascript = annotateStateKeys(
+      replacePreTerser((await transformWithOxc(code, url.pathname)).code, {
+        preserveStrings: url.pathname.includes('/ui/dom/'),
+      }),
+      url.pathname,
+    );
+
+    await minify(javascript, propertyMangleOptions(nameCache, reserved));
+  }
+
+  return { nameCache, reserved };
+}
+
+/**
  * Keep JavaScript chunks as ordinary files and warn when their gzip level 1
  * transfer size exceeds the 14 KB target.
  */
-export function buildPlugin(flags: Record<string, boolean> = {}) {
+export function buildPlugin(
+  flags: Record<string, boolean> = {},
+  cache?: Awaited<ReturnType<typeof preparePropertyCache>>,
+) {
   const nameCache = {};
   let reserved: string[];
   let mangleQueue = Promise.resolve();
@@ -257,28 +293,10 @@ export function buildPlugin(flags: Record<string, boolean> = {}) {
     apply: 'build',
     enforce: 'post',
     async buildStart() {
-      // Seed the cache in source-path order. Rolldown's parallel transform
-      // order otherwise changes the chosen short names between builds.
-      const files = ['client', 'specs']
-        .flatMap((directory) =>
-          sourceFiles(new URL(`../src/${directory}/`, import.meta.url)),
-        )
-        .sort((a, b) => a.pathname.localeCompare(b.pathname, 'en-US'));
+      const prepared = cache ?? (await preparePropertyCache(flags));
 
-      reserved = reservedProperties(files);
-
-      for (const url of files) {
-        const code = stripIfdef(readFileSync(url, 'utf8'), flags);
-
-        const javascript = annotateStateKeys(
-          replacePreTerser((await transformWithOxc(code, url.pathname)).code, {
-            preserveStrings: url.pathname.includes('/ui/dom/'),
-          }),
-          url.pathname,
-        );
-
-        await minify(javascript, propertyMangleOptions(nameCache, reserved));
-      }
+      Object.assign(nameCache, structuredClone(prepared.nameCache));
+      reserved = prepared.reserved;
     },
     async transform(code, id) {
       if (!id.includes('/src/') || !/\.ts(?:\?|$)/.test(id)) return;

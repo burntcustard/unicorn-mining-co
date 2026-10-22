@@ -1,5 +1,10 @@
 # Precision and SIMD investigation — 2026-10-01
 
+> Evidence for this completed investigation is in the
+> [2026-10-01 archive](../../../benchmarking/archive/README.md#2026-10-01).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-01`.
+
 The proposed packed-data follow-up is now investigated in [Persistent packed physics](go-server-packed-physics-2026-10-01.md), including canonical geometry replacements and body-state pages.
 
 This investigation starts from the **uncommitted final follow-up implementation**, including its AVX2 replication pipeline, binary motion grid, collision-neighbor limit and current PGO. It does not compare against the original Go port. See [the previous follow-up](go-server-cpu-comparison-2026-10-01-followup.md) and [earlier SIMD experiments](go-server-simd-results-2026-10-01.md).
@@ -16,16 +21,16 @@ The precision restriction is relaxed: changes to old trajectories are allowed, b
 
 ## New screening measurements
 
-| Experiment                                                                                                                                                      | Mean CPU change | Aggregate CPU change | Comparison                                             |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------: | -------------------: | ------------------------------------------------------ |
-| [GOAMD64=v2](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-v2.json.gz)                                           |          -0.18% |               +0.03% | Current production rules; strict outcomes match        |
-| [GOAMD64=v3, fusion disabled](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-v3-nofma.json.gz)                    |          -0.84% |               +0.02% | Current production rules; strict outcomes match        |
-| [Float32 final motion rounding](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-motion-f32.json.gz)                |          +0.02% |               +0.19% | Changed simulation; no client port retained            |
-| [Float32 AVX replication distances](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-replication-f32.json.gz)       |          -0.15% |               -0.02% | Same final physics states; packet bytes differ         |
-| [Short scalar sine/cosine polynomial](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-trig.json.gz)                |          +0.29% |               +2.27% | Changed simulation                                     |
-| [128-bit packed polynomial, local constants](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-trig-sse.json.gz)     |          +2.61% |               +4.03% | Changed simulation                                     |
-| [128-bit packed polynomial, shared constants](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-precision-trig-packed.json.gz) |          +1.20% |               -0.00% | Compared with scalar polynomial; strict outcomes match |
-| [GOMAXPROCS 1 → 2, affinity 0,1](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-precision-two-cores.json.gz)                |          +5.11% |               -0.46% | Identical executable; strict outcomes match            |
+| Experiment                                                                                        | Mean CPU change | Aggregate CPU change | Comparison                                             |
+| ------------------------------------------------------------------------------------------------- | --------------: | -------------------: | ------------------------------------------------------ |
+| [GOAMD64=v2](../../../benchmarking/archive/README.md#2026-10-01)                                  |          -0.18% |               +0.03% | Current production rules; strict outcomes match        |
+| [GOAMD64=v3, fusion disabled](../../../benchmarking/archive/README.md#2026-10-01)                 |          -0.84% |               +0.02% | Current production rules; strict outcomes match        |
+| [Float32 final motion rounding](../../../benchmarking/archive/README.md#2026-10-01)               |          +0.02% |               +0.19% | Changed simulation; no client port retained            |
+| [Float32 AVX replication distances](../../../benchmarking/archive/README.md#2026-10-01)           |          -0.15% |               -0.02% | Same final physics states; packet bytes differ         |
+| [Short scalar sine/cosine polynomial](../../../benchmarking/archive/README.md#2026-10-01)         |          +0.29% |               +2.27% | Changed simulation                                     |
+| [128-bit packed polynomial, local constants](../../../benchmarking/archive/README.md#2026-10-01)  |          +2.61% |               +4.03% | Changed simulation                                     |
+| [128-bit packed polynomial, shared constants](../../../benchmarking/archive/README.md#2026-10-01) |          +1.20% |               -0.00% | Compared with scalar polynomial; strict outcomes match |
+| [GOMAXPROCS 1 → 2, affinity 0,1](../../../benchmarking/archive/README.md#2026-10-01)              |          +5.11% |               -0.46% | Identical executable; strict outcomes match            |
 
 Negative CPU change is better. The mean weights each scenario equally; aggregate is the ratio of sums of scenario median CPU times. These are screening point estimates, not confidence intervals. Near-zero differences are inconclusive, and the three-run screen is not sufficient evidence to retain a small gain.
 
@@ -83,4 +88,4 @@ CPU_AFFINITY=0,1 BEFORE_GOMAXPROCS=1 AFTER_GOMAXPROCS=2 \
 
 Validation: production builds before and after passed and emitted identical client chunk names and sizes; lint passed with the same two existing `unicorn(no-new-array)` warnings; the paired driver passed JavaScript syntax checking; the production AVX2 exactness test passed. Strict full-session comparisons passed for both architecture controls, the scalar/packed polynomial comparison, and the two-core run. Experimental changed-rule variants have not been ported to TypeScript or passed cross-language parity; no such variant is being promoted.
 
-Resources are unchanged: client entry 115,157 bytes / 50,909 gzip-level-1 bytes; docked chunk 4,708 / 2,431; sound chunk 1,681 / 942; Node server 100,475 / 43,458. No production Go source or PGO changed in this investigation. The baseline benchmark executable SHA-256 is `1a4505e42327f79aca23ee48578e892fcc8df3e6b8371f586f5a23ac1554beb3`, identical to the previous follow-up's final executable. The [summary](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-precision-summary.json) includes per-scenario medians and changed outcome fields.
+Resources are unchanged: client entry 115,157 bytes / 50,909 gzip-level-1 bytes; docked chunk 4,708 / 2,431; sound chunk 1,681 / 942; Node server 100,475 / 43,458. No production Go source or PGO changed in this investigation. The baseline benchmark executable SHA-256 is `1a4505e42327f79aca23ee48578e892fcc8df3e6b8371f586f5a23ac1554beb3`, identical to the previous follow-up's final executable. The [summary](../../../benchmarking/archive/README.md#2026-10-01) includes per-scenario medians and changed outcome fields.

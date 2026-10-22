@@ -17,7 +17,8 @@ its earlier gains are excluded.
   Fourteen client assets and the existing PGO input are unchanged.
 
 `sources.json` identifies the before/after production source hashes, module
-files, profile hashes, and common benchmark sources. `manifest.json` checksums
+files, profile hashes, and common benchmark sources. Fixed compiler inputs live
+in [`benchmarking/profiles`](../../../profiles/README.md). `manifest.json` checksums
 every archived artifact except itself. Profiles, hardware counters, and syscall
 disassembly are diagnostics, separate from unprofiled acceptance measurements.
 

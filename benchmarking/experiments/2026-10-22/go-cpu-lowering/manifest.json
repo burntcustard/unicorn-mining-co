@@ -1,12 +1,14 @@
 {
   "createdAt": "2026-10-22T02:00:05.075Z",
   "report": "docs/experiments/2026-10-22/go-server-cpu-lowering.md",
-  "reportSha256": "252764e7f31b06ff96d43d7b005670b9e1beddd2c628672c266232b3b9302093",
+  "reportSha256": "ffff2178c36a6d02be263a94dc21725643d82b245032d4c03eb6919ed285b8a4",
   "files": [
     {
       "path": "README.md",
-      "bytes": 4806,
-      "sha256": "6c49f5cf5b559c308d2402d987b9d81ece6dac75ff6a66f1b0abf785119f9006"
+      "bytes": 4903,
+      "sha256": "a7da34f2cabe753bb1edbeb06594741439e9c497483783506ae4a29542db9f5e",
+      "originalSha256": "6c49f5cf5b559c308d2402d987b9d81ece6dac75ff6a66f1b0abf785119f9006",
+      "originalBytes": 4806
     },
     {
       "path": "build.ts",
@@ -94,14 +96,16 @@
       "sha256": "788da5530c8bceaabf0dbe2ebebbcc453093777df76e12f3bd9f3d6b844193b6"
     },
     {
-      "path": "profiles/after.pgo",
+      "path": "../../../profiles/d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb.pgo",
       "bytes": 38612,
-      "sha256": "d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb"
+      "sha256": "d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb",
+      "originalPath": "profiles/after.pgo"
     },
     {
-      "path": "profiles/before.pgo",
+      "path": "../../../profiles/27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6.pgo",
       "bytes": 48604,
-      "sha256": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6"
+      "sha256": "27d6db2c3bfbc164ac75e97600aee0562c899024091eb9e6ae228705198e26c6",
+      "originalPath": "profiles/before.pgo"
     },
     {
       "path": "profiles/convoy-before.pprof",
@@ -460,8 +464,10 @@
     },
     {
       "path": "sources.json",
-      "bytes": 3864,
-      "sha256": "1dd687881e6bdb0baff444bcb58f8db207f606421ee5c0501a0d2c53f8b5a804"
+      "bytes": 3999,
+      "sha256": "5fd9bf20cc737b1c0e04590712e95f6f530885c8562eda01d4ecfa5d0e7adad0",
+      "originalSha256": "1dd687881e6bdb0baff444bcb58f8db207f606421ee5c0501a0d2c53f8b5a804",
+      "originalBytes": 3864
     },
     {
       "path": "sources/after/src/server/gameplay/game-collisions.go.txt",
@@ -1118,5 +1124,6 @@
       "bytes": 472,
       "sha256": "79aa80f679f383c90584087ae7909c8e3efe00dd603f9f9e25c5acdffa684a9d"
     }
-  ]
+  ],
+  "originalReportSha256": "252764e7f31b06ff96d43d7b005670b9e1beddd2c628672c266232b3b9302093"
 }

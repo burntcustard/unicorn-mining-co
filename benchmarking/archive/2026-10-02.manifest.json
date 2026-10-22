@@ -1,0 +1,435 @@
+{
+  "archiveSha256": "e96816d1faa910d5d9622730268518401c419167ae79f543d754d008c9a6f60c",
+  "files": [
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-input-response.json.gz",
+      "bytes": 357615,
+      "sha256": "76d69220c901aa2d6ec690c97a915c7a29edc12b0c5de5b6119776821df0826b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-low-latency-recovery.json.gz",
+      "bytes": 249533,
+      "sha256": "a1743b1a6b4d665f8f4337bd4e34d17f858e84eb518e74fe900fd77554aada59"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-browser.json.gz",
+      "bytes": 210714,
+      "sha256": "4aa489ebaff2909b4e3cfef979404141cbd8f1a2a82cdf93af7463cb700ddd37"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-browser.json.gz",
+      "bytes": 217990,
+      "sha256": "d3be4b6d1ba0202cdc327175c751f65a0e9c104cd7bdaa5b63a6443dcf6bbec9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-critical-candidate.json.gz",
+      "bytes": 162886,
+      "sha256": "41e5f8b57fcc3e7939c92de5d2bc70ba159d3eabf3de3be935ffddbbbc516869"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-critical-screen.json.gz",
+      "bytes": 7632,
+      "sha256": "f663a3235350150decf2b39397c4055a32e55b32f339b7006f9a5ce21c78643f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-easing-candidate.json.gz",
+      "bytes": 176063,
+      "sha256": "b9c695e14f57c9ea36cc1106b8f60b8979d9da7bf07326dcc0d8b1fbe158c641"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-endpoints.json.gz",
+      "bytes": 4140,
+      "sha256": "5f7a95d16f9ce90abf6d41896658455c052e8b0018006cf358ee695a3d864e47"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-go-cpu.json.gz",
+      "bytes": 155802,
+      "sha256": "1cd7e56627b5df461313d3dbcd9f6a2fa2d6b7615feef1927ee68a81312718b8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-hermite-endpoints.json.gz",
+      "bytes": 4212,
+      "sha256": "dd48948335f3cdfd38796c148a6ca48c56a86096eec92cf48c2b7b4bc1dd9b38"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-node-cpu.json.gz",
+      "bytes": 19083,
+      "sha256": "4da78a41d373149e33688d2e1b1dbe8f6ecacaa89ce0c59b8301dc10f4eabb28"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-node-idle.json.gz",
+      "bytes": 4825,
+      "sha256": "97128f9ba5212a451601904a32083254e1a5edaca03738c211aba468ece7b6f8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-peak.json.gz",
+      "bytes": 70058,
+      "sha256": "34afe8d63c20c8cb4a60501d5ec5fc02d95175c9d23166cf5986ee927492f970"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-screen.json.gz",
+      "bytes": 3643,
+      "sha256": "27f59b024acfe7e49ba0c140a3975acb94c94135c8512de57c8dd3dbedb0a03d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency.json.gz",
+      "bytes": 177329,
+      "sha256": "a3360cae01236a08d450d07fb5e415de3afe1d0fbddef34ef80954aaaf3b8ece"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-contact.json.gz",
+      "bytes": 10061,
+      "sha256": "a58dd1c738591ec7b0d35afabfcec6e77fc1ca1742b192a0f1bcac2ad5a6e269"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-outage-recovery.json.gz",
+      "bytes": 35550,
+      "sha256": "51b43d6e7d9d378ba3320838346c75bfdbd0a2d9e5fddf76eaa73299e13ae0c9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-smoothness.json.gz",
+      "bytes": 140603,
+      "sha256": "dc67475a42f1b95eb2c03fedad926b8fa2daf8227519308e54fcdb4bfeb6c348"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/multicore-contiguous-frame.patch",
+      "bytes": 3560,
+      "sha256": "0492cfc85c84d5f6a52acac6324b41df98e654ee988787a72ed66f8aa926ba34"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/multicore-inbox.patch",
+      "bytes": 2826,
+      "sha256": "c2afd1c96d358d010836259a8aee36c571176366fdad6b6c89f0addba2038834"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/multicore-packet-handling.patch",
+      "bytes": 15960,
+      "sha256": "e5607422c5544adb33c1027eeaf6d7f60d98874219c8f3ffb89e170759927e27"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/multicore-timing-harness.tar.gz",
+      "bytes": 6577,
+      "sha256": "5f0258806a2230ed9c13ef57f7d181ff97ea203239846dd6108c62d7f5262e6d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/research-final-runtime.patch",
+      "bytes": 12205,
+      "sha256": "e06a85c819f8951e84d607ee92c6cbf4f3a64b7cb93794eea46ada9d9571c7c8"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/research-input-queue.patch",
+      "bytes": 5557,
+      "sha256": "7aad4af1e968d1d8cd83caeae99bfe1e9c7d071f753ffe69493a78f9e43e8d09"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/research-pre-removal-harness.tar.gz",
+      "bytes": 6621,
+      "sha256": "5be06bc7239a632b6c43de9eeae8ce931b0ff186ca950eacd9cf3558eaec7615"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/research-pre-removal-session-harness.tar.gz",
+      "bytes": 9126,
+      "sha256": "e2e6bfa9d58bfc79026a61daea9a577146db3473724e8e2cca68a951d656b2f3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/research-scheduler-harness.tar.gz",
+      "bytes": 6171,
+      "sha256": "1cc602076c1ed7fdf8a565f6e82c22edaefa629c9c9ac4bda30841e1b1f88528"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/research-transport.patch",
+      "bytes": 4957,
+      "sha256": "2d2ebb19b826eb2205eb25aadac6d2dfee64fa157790b0d1036618c4c7d5b324"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/patches/retained-transport.patch",
+      "bytes": 4248,
+      "sha256": "bbca0aca297b85edd85230921c0fc390d2617f4698f857326b3142c3e5e3e637"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/profiles/after.pprof",
+      "bytes": 6446,
+      "sha256": "46e98de1fd2b1f14f4ae45833c0164aa497653c8dae8a4a08129c7cb1287cef7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/profiles/before.pprof",
+      "bytes": 6888,
+      "sha256": "e0578a8dcc46ebdcb08932e71dd44cecba07363bacfa08a32527dd6cacd16515"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/profiles/multicore-game-after.pprof",
+      "bytes": 13299,
+      "sha256": "579391225115390501e5cf56aaea84def62c627ae471e91a2fc9fddc62857827"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/profiles/multicore-game-before.pprof",
+      "bytes": 14412,
+      "sha256": "c3bea042bc1885ff87b753c7c835fe8018da620252857cded254c0db7c352fa7"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/profiles/research-game-after.pprof",
+      "bytes": 13956,
+      "sha256": "d8664c66611dc1a36e13c56f555fc3b0e5f0712be76bfb6a87a694bad521a4e3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/profiles/research-game-before.pprof",
+      "bytes": 17093,
+      "sha256": "9aa9fdc009aadc8f34b4dc16be223b9ee89e779abcae5c1a48d919bdb9292d6e"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/build-info.log",
+      "bytes": 2218,
+      "sha256": "edc8e17b38b31c6340a0b920f7dfc08c118b41aa931192bab65a53406347e696"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/candidate-screen.json.gz",
+      "bytes": 1182,
+      "sha256": "f70c8a1b2e3d7df134a4987836313a63781ffba052c2a626be477462b9fbe488"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/first-two-counts.json.gz",
+      "bytes": 5276,
+      "sha256": "9008b2c44c9d0d3abcc1709a1e40eb032546fc3daca55dbbcf572a9c4d8e1887"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/four-counts.json.gz",
+      "bytes": 9698,
+      "sha256": "47f137fffcd8acb58920c1cc14b3f03920bcf94fa6299ddfe71a08872163bdd6"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-build-info.log",
+      "bytes": 1883,
+      "sha256": "55280e72473ba9b6cc497e694be070c47b56ced2593e9576c52532e466292c54"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-contiguous-screen.json.gz",
+      "bytes": 5815,
+      "sha256": "8ec50dc56e5618adeee1f968b89cd646fea26f2cf3dd53e5f7dce5242c18c159"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-delayed-receipts.json.gz",
+      "bytes": 11913,
+      "sha256": "d480cb816d01a8af497b13517ea163769540f3096404ead98be6505083a74739"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-full-server.json.gz",
+      "bytes": 33413,
+      "sha256": "a2b7dc4cbf02a123fb009dafca97970ff20e56942402f7caefa86ca4c72bb0af"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-game-after.profile.json",
+      "bytes": 7962,
+      "sha256": "579f814984c9b63981e2e0677b7b45655601db2f87a866a86019665057100750"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-game-after.top.log",
+      "bytes": 3598,
+      "sha256": "0d54b4f6976d604785178d8c6092248767bf094fd7c50abcacc92fbcc1e05b51"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-game-before.profile.json",
+      "bytes": 7991,
+      "sha256": "e6980019bc44d85535d6706e0da6abfc0afa7941fc8a183061f9e568770c63f2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-game-before.top.log",
+      "bytes": 2974,
+      "sha256": "ec17c507d3bba5b727e3bcb217e88706726d28a6b8360b9dd0b6452cd7fb13d2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-inbox-screen.json.gz",
+      "bytes": 17479,
+      "sha256": "fc1153d34b5813c2b87711c5c20b6449abd6f6041e7c694388b5e77f3091d2ab"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-resources.json",
+      "bytes": 1571,
+      "sha256": "ebabb9c682f6cb9842487972a816c2935458ec13d317066ca207647c75fcdd92"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/multicore-startup.log",
+      "bytes": 644,
+      "sha256": "6ba089bd78e15a6966313c151e2ff39359d9ef859d7b05964da40a113f4580a0"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/profile-after-top.log",
+      "bytes": 6555,
+      "sha256": "6dd4761fe79591aeb725eeaf425d59e8b196b31d458f74d520cbd8e490e79fdf"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/profile-after.json",
+      "bytes": 479,
+      "sha256": "21434d90847a26a9a832ede80c6e889b8b5a4a164bebd77755e7144f23960061"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/profile-before-top.log",
+      "bytes": 6476,
+      "sha256": "786d11e8b0507f2ed66c66bbf65d3b5df4b542d34ff790e0902d1a02a93e9e7a"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/profile-before.json",
+      "bytes": 480,
+      "sha256": "8869acfcc745ae85e6e8b43482abfe78b295573e35f1ed1e4bbf92d1c8c3b714"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/receive-benchmarks.log",
+      "bytes": 2904,
+      "sha256": "1d4645c2fb3b68df6e44f3b60d7691365af613732f11fdf658e92821164077f4"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/rejected-hybrid.json.gz",
+      "bytes": 5211,
+      "sha256": "ec052d54c11c5e07b814aab41bb979f6e53f76c49556bcd4342396f18809b36f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-build-info.log",
+      "bytes": 2076,
+      "sha256": "0eb12ccebfde648daf686a15473ca8ab8e3c2cfa0bfe30231b2523aa261e22d3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-combined-game.json.gz",
+      "bytes": 33487,
+      "sha256": "e0ea6f30291a278739115df9962bad167d79a0fd5ecbad09a436aaf0eed24b1d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-game-after.profile.json",
+      "bytes": 7958,
+      "sha256": "6c3593a5c57a6ce1c19cb6d9ff05ad78a5a25ed357e9287066424596684faa33"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-game-after.top.log",
+      "bytes": 4272,
+      "sha256": "b0788ab5e6c5321015ad9e87dc989e962c363b15a0873d397f14cdf551624df9"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-game-before.profile.json",
+      "bytes": 7957,
+      "sha256": "e3b56967c6044523d37b92507b538df6f6d19ad2c04cd0b48955ecdaabbeb78c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-game-before.top.log",
+      "bytes": 3317,
+      "sha256": "6ec7bf0deb2ffff48525c7da6bb7b011ca209d2dac8fd522dffc8891ca45862d"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-input-queue-2hz.json.gz",
+      "bytes": 129576,
+      "sha256": "34b6b872f24b96d5a9b8ee7c5d08f2f3f34d1aeb672e8b9277f73aab1bcbba6f"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-input-queue-30hz.json.gz",
+      "bytes": 135153,
+      "sha256": "eed844b0dab847eaae833eb142f011911d8933d1bb95ce382fdb5506d0904590"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-input-queue-network.json.gz",
+      "bytes": 17335,
+      "sha256": "36d3f352de956ad1dd85bcff9ae67b8ece2f27f0435b2981abc2012425917fdb"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-receive-benchmarks.log",
+      "bytes": 2293,
+      "sha256": "fb916ac149a77c2297356b306de4a3302a5388ccf9cbed89df9679f8096ce1e3"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-resources.json",
+      "bytes": 1237,
+      "sha256": "0c61ba87c3f1008158575dd97b424d9955aee3f9d5686089292c7f15b0ac0ebf"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-runtime-only.json.gz",
+      "bytes": 15437,
+      "sha256": "b67ee42dc6e08d1befd31d01a31e15fea3b1826d9eb3fe93dd18c588edd330d5"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-runtime-transport.json.gz",
+      "bytes": 33558,
+      "sha256": "6a3811d50283380203f3ef2cc803a9b9ef1f01ec0e2fb568147cc966acc0a26c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-send-buffer-reuse.json.gz",
+      "bytes": 5982,
+      "sha256": "190d099c91ea15d3f1916586a25cd73d496b8b917575476040844640572ee291"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/research-startup.log",
+      "bytes": 934,
+      "sha256": "b8365318efa73fad6afe7b07a87efdae7ee32d87687002009ddf30fa30fdee76"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/resources.json",
+      "bytes": 1082,
+      "sha256": "47089b2697f2f7dbfe053ed7962ba0276ceb989d273e37b85c305e7291426e9c"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/reuse-screen.json.gz",
+      "bytes": 987,
+      "sha256": "4667eaf27327b7447a1733089dc28bf6dcb488eb2319a85ddcde5f3121912c85"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/runtime-parallelism.json.gz",
+      "bytes": 2162,
+      "sha256": "51045695d9fe48d4522e04ed1463865d7954f0f279792b7feda1eb1208748f6b"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/syscalls-after.json",
+      "bytes": 449,
+      "sha256": "a5b2b3c9964742c2443d8b89ac48cd188e628b240d65b2ef371f8b9a02f4da54"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/syscalls-after.log",
+      "bytes": 367,
+      "sha256": "14c97e2fe9d9935898fb3a3801c143755f1a5ea1ebe11bdc7177cb3b14194075"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/syscalls-before.json",
+      "bytes": 466,
+      "sha256": "a79a6129d64922a8a404f554948142e1aca124ff6330baaa241c437ab7f97db2"
+    },
+    {
+      "path": "benchmarking/experiments/2026-10-02/websocket-transport/results/syscalls-before.log",
+      "bytes": 309,
+      "sha256": "acc96e3eda4fc93474d0349df9a5352086b5fee076e217b813ad7d668f4f09f0"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/go-network-multicore-2026-10-02.md",
+      "bytes": 14259,
+      "sha256": "6a5abff4ca79752d5313a1c2b0a13243216802c25fe04bd858a8cbcdb00ddb00"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/go-network-runtime-2026-10-02.md",
+      "bytes": 18138,
+      "sha256": "29b1c6d8e32e1d1584a51755b22b710c420a885ec424064b857302a59108f0f4"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/low-latency-recovery-2026-10-02.md",
+      "bytes": 8813,
+      "sha256": "c26b458c5ac1cfc777cfa322851ebb37395cbfa1f1d799e724d9b747d7505d54"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/remote-collision-presentation-2026-10-02.md",
+      "bytes": 5438,
+      "sha256": "12b51b3856e914d366c667fd21dbc3314bf65c7d2abde35032058cb598e3fccc"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/remote-motion-consistency-2026-10-02.md",
+      "bytes": 16584,
+      "sha256": "1f4dc13ae0cd9c10e456ee7266da857471cce00ca7af8320247891aa74df7315"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/remote-motion-smoothness-2026-10-02.md",
+      "bytes": 10042,
+      "sha256": "286d5be55e908eb23f8a88d4b3c5b27b2a3dd7d6f683b61fb3835c7083ec9324"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/ship-input-response-2026-10-02.md",
+      "bytes": 7150,
+      "sha256": "ca52ad0ee1504717cec6abe82eacd2e0cb0484b0f43258e2b388f6b22a70bca3"
+    },
+    {
+      "path": "docs/experiments/2026-10-02/websocket-transport-2026-10-02.md",
+      "bytes": 14140,
+      "sha256": "404808c0acd233f4e93b98eb30c151e08ef68ba2ffc6cbd65e98e1c1b1253d1e"
+    }
+  ]
+}

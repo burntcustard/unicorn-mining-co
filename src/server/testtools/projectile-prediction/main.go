@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"slices"
@@ -20,6 +21,16 @@ import (
 // Exercise the real server's hits and staggered binary deltas, rather than
 // treating a complete TypeScript world clone as an authoritative snapshot.
 func main() {
+	group := "all"
+
+	if len(os.Args) > 1 {
+		group = os.Args[1]
+	}
+
+	if !slices.Contains([]string{"all", "autogun", "plasma", "repeated", "triangles"}, group) {
+		panic(fmt.Sprintf("unknown projectile fixture group: %s", group))
+	}
+
 	catalog, err := testsupport.Load()
 
 	if err != nil {
@@ -47,6 +58,18 @@ func main() {
 		{weapon: "plasmaAccelerator", triangle: true},
 		{weapon: "plasmaAccelerator", moving: true, triangle: true},
 	} {
+		// Each client suite needs only its own server cases. Keep the all-cases
+		// mode for inspecting fixtures without simulating discarded cases in tests.
+		selected := group == "all" ||
+			group == "repeated" && scenario.repeated ||
+			group == "triangles" && scenario.triangle && scenario.weapon == "autogun" ||
+			group == "autogun" && !scenario.repeated && scenario.weapon == "autogun" ||
+			group == "plasma" && !scenario.repeated && scenario.weapon == "plasmaAccelerator"
+
+		if !selected {
+			continue
+		}
+
 		weapon, moving, reservesIDs := scenario.weapon, scenario.moving, scenario.reservesIDs
 
 		world := simulation.CreateWorld(25, catalog)
@@ -76,12 +99,25 @@ func main() {
 		position := Vec.Create(150, -25)
 		ticks := 320
 
+		if group == "autogun" {
+			// Include the second fracture (at most tick 252) and its delayed
+			// reconciliation, rather than another firing cycle afterward.
+			ticks = 272
+		}
+
 		if scenario.repeated {
-			rockID, radius, position, ticks = 3324057349, 70, Vec.Create(160, -25), 800
+			// Five fractures include repeated hits after the reload at tick 241.
+			rockID, radius, position, ticks = 3324057349, 70, Vec.Create(160, -25), 400
 		}
 
 		if scenario.triangle {
 			radius = 51.25
+
+			if group == "triangles" {
+				// The latest first fracture is at tick 113; retain the subsequent
+				// pause, delayed packets, and several dozen correction samples.
+				ticks = 160
+			}
 		}
 
 		if scenario.drifting {

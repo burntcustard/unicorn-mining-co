@@ -26,7 +26,9 @@ func TestStreamingPower(t *testing.T) {
 	engine := ship.Engine()
 	engineDemand := engine.ModuleBase().Spec.PowerActivated
 	systemDemand := engineDemand / 2
+
 	close := func(value, expected float64) bool { return math.Abs(value-expected) < 1e-9 }
+
 	var plant, system simulation.Module
 
 	for _, module := range ship.Modules() {

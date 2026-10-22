@@ -123,7 +123,8 @@ const bundle = await rolldown({
         }
         const collisions = new GameCollisions();
         const frames = [];
-        for (let tick = 0; tick < (frameCase ? 45 : jawY || tipDepth ? 600 : 90); tick++) {
+        // Six seconds includes the complete opening/closing movement from .35.
+        for (let tick = 0; tick < (frameCase ? 45 : jawY || tipDepth ? 180 : 90); tick++) {
           if (transitTime !== 0 && tick === 1) {
             ship.transitTime = transitTime;
             Vec.setXY(ship.position, -260, 50);
@@ -135,7 +136,7 @@ const bundle = await rolldown({
           ship.rotation += ship.spin * dt;
           gate.update(dt);
           const contacts = collisions.step({entities:world.entities, dt, events:[]});
-          frames.push({position:Vec.clone(ship.position), velocity:Vec.clone(ship.velocity), rotation:ship.rotation, spin:ship.spin, health:ship.hullHealth, contacts:contacts.length, depth:jawY || tipDepth || frameCase ? Math.max(0,...detectCollisions({entities:[ship,gate]}).filter(c => c.collider.physics !== false && c.other.physics !== false).map(c => c.depth)) : 0});
+          frames.push({position:Vec.clone(ship.position), velocity:Vec.clone(ship.velocity), rotation:ship.rotation, spin:ship.spin, health:ship.hullHealth, contacts:contacts.length, opening:gate.opening, depth:jawY || tipDepth || frameCase ? Math.max(0,...detectCollisions({entities:[ship,gate]}).filter(c => c.collider.physics !== false && c.other.physics !== false).map(c => c.depth)) : 0});
         }
         results.push(frames);
       }
@@ -267,6 +268,12 @@ for (const [name, runs] of [
 
       continue;
     }
+
+    assert.equal(
+      frames.at(-1).opening,
+      cases[index][1],
+      `${name} jaw case ${index}: the gate completes its movement`,
+    );
 
     const damage = initialHealth.map(
       (health, i) => health - frames.at(-1).health[i],

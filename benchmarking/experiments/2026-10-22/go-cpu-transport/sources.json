@@ -30,7 +30,7 @@
         "src/server/utilities/ordered-map_test.go": "sources/before/src/server/utilities/ordered-map_test.go.txt",
         "src/server/utilities/sin-cos.go": "sources/before/src/server/utilities/sin-cos.go.txt"
       },
-      "profile": "profiles/before.pgo",
+      "profile": "../../../profiles/d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb.pgo",
       "profileSha256": "d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb"
     },
     "after": {
@@ -57,7 +57,7 @@
         "src/server/utilities/ordered-map_test.go": "sources/after/src/server/utilities/ordered-map_test.go.txt",
         "src/server/utilities/sin-cos.go": "sources/after/src/server/utilities/sin-cos.go.txt"
       },
-      "profile": "profiles/after.pgo",
+      "profile": "../../../profiles/d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb.pgo",
       "profileSha256": "d44f49605523c87c6b129ca78b6ab37b332c6ae194c5e5a3bb1c64ee9fba9cdb"
     }
   },

@@ -1,9 +1,0 @@
-before 0 done
-current 0 done
-current 1 done
-before 1 done
-before 2 done
-current 2 done
-open before 43556.0 after 26315.0 saving 39.58 % allocs [('before', 393.0), ('current', 152.0)]
-normal before 92272.0 after 56209.0 saving 39.08 % allocs [('before', 560.0), ('current', 258.0)]
-dense before 95260.0 after 77414.0 saving 18.73 % allocs [('before', 517.0), ('current', 284.0)]

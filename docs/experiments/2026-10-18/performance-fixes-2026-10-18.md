@@ -1,5 +1,10 @@
 # Collision and HUD performance improvements — October 18, 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-18 archive](../../../benchmarking/archive/README.md#2026-10-18).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-18`.
+
 The later [input/startup follow-up](input-startup-2026-10-18.md) investigates the
 input failures recorded here, repairs their measurement, and verifies shared
 audio/input and snapshot timing fixes in Chrome and Firefox. The captures below
@@ -222,7 +227,7 @@ recorded `GAMEPLAY_NO_HUD_BLUR=1` diagnostic; ordinary acceptance runs omit it.
 The default Canvas renderer and the optional WebGL preference are unchanged.
 
 Saved evidence is indexed in the
-[artifact README](../../../benchmarking/experiments/2026-10-18/performance-fixes/README.md).
+[artifact README](../../../benchmarking/archive/README.md#2026-10-18).
 Large raw native Firefox
 profiles remain ignored scratch output; their hashes and summarized local-tab
 stacks identify the captures. Local browser sizes are verified render viewports,

@@ -1,5 +1,10 @@
 # Solver, persistent caches and SIMD follow-up — 2026-10-01
 
+> Evidence for this completed investigation is in the
+> [2026-10-01 archive](../../../benchmarking/archive/README.md#2026-10-01).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-01`.
+
 The retained implementation reduces aggregate process CPU by **10.76% in the 900-tick suite** (five repetitions) and **11.42% in the 3,000-tick suite** (three repetitions), using two cores. This clears the 10% target in both suites. These are aggregate local results; several individual module scenarios regress as changed numerical rules change subsequent collisions. Go and TypeScript match exactly on the compared 3,000-tick outcomes.
 
 This continues the [packed-physics investigation](go-server-packed-physics-2026-10-01.md). The retained implementation combines persistent collision data, less repeated bookkeeping, four-lane AVX2 observer checks, a converging velocity solver, and shared rotation arithmetic. Global positions, local geometry, accumulated velocities and angles remain float64.
@@ -52,7 +57,7 @@ The earlier 1 KB float32 table also passed the short session parity suite, but i
 
 The investigation implemented four-lane float64 and eight-lane float32 velocity solvers across independent one-contact islands. Inputs were packed once, all velocity iterations ran in the packed kernel, and results were written back afterward. This tests batching across contacts rather than placing one tiny polygon in a wide register. The corrected float64 kernel matched scalar results over 4,000 randomized lane cases with eight iterations, and its session checks retained the original outcomes. The float32 kernel changed outcomes and was evaluated separately.
 
-[Disassembly of the corrected float32 kernel](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-batch32-assembly.txt) confirms 256-bit packed-float arithmetic, but also substantial vector traffic to the stack: packing eight lanes did not keep the whole constraint working set in registers. A more carefully scheduled solver remains a different experiment.
+[Disassembly of the corrected float32 kernel](../../../benchmarking/archive/README.md#2026-10-01) confirms 256-bit packed-float arithmetic, but also substantial vector traffic to the stack: packing eight lanes did not keep the whole constraint working set in registers. A more carefully scheduled solver remains a different experiment.
 
 Neither established an additional whole-server gain sufficient to retain it. Only eligible independent islands fill these batches; packing, unfilled lanes, preparation, position solving and continuous collision remain outside the arithmetic kernel. The whole-server measurements include those costs. An initial float64 batch had an incorrect radius component in its cross product; its pre-fix results are invalid, and only the corrected version supports conclusions.
 
@@ -95,9 +100,9 @@ The largest regression is the long 4-player module case: CPU rises 46.68%, while
 
 Positive percentages mean less CPU; negative values are regressions. The aggregate is **10.76% / 11.42% saved**, not the average of the percentages above. The retained measurement comprises 256 processes and 432,000 measured session-ticks, plus warmup.
 
-Raw data: [900 ticks](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-retained.json.gz), [3,000 ticks](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-retained-long.json.gz). The preceding [same-rules control](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-same-rules.json.gz) showed **10.90% lower CPU with strict unchanged outcomes**, before the last PGO refresh. That control retains the old structures and original profile but uses the new numerical rules: it excludes changed gameplay as the explanation for those savings, while still including profile effects.
+Raw data: [900 ticks](../../../benchmarking/archive/README.md#2026-10-01), [3,000 ticks](../../../benchmarking/archive/README.md#2026-10-01). The preceding [same-rules control](../../../benchmarking/archive/README.md#2026-10-01) showed **10.90% lower CPU with strict unchanged outcomes**, before the last PGO refresh. That control retains the old structures and original profile but uses the new numerical rules: it excludes changed gameplay as the explanation for those savings, while still including profile effects.
 
-The [retained-build parity check](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-retained-parity.json) compares every retained long-run repetition with both languages' archived outcomes, including byte totals. The measured retained executable SHA-256 is `2097c41aabb35a07637415985bc9ded9b81660f01c7427a012f167cfd333952a`.
+The [retained-build parity check](../../../benchmarking/archive/README.md#2026-10-01) compares every retained long-run repetition with both languages' archived outcomes, including byte totals. The measured retained executable SHA-256 is `2097c41aabb35a07637415985bc9ded9b81660f01c7427a012f167cfd333952a`.
 
 ## Alternate-seed four-player confirmation
 
@@ -114,7 +119,7 @@ Aggregate CPU falls **19.56%**, calculated from the sums of scenario medians. Th
 
 The opposite contact-count changes on seeds 25 and 26 support sensitivity to changed trajectories and resulting collision work. They do not isolate the rotation implementation from solver convergence, establish performance across arbitrary seeds, or turn changed-workload timing into a per-operation speedup. The original seed-25 regression remains a valid result. The smaller median savings in the contact scenario have overlapping sample ranges.
 
-Each executable reproduces its own contacts, events, packets, bytes, entity count and compared final states exactly across all five repetitions. Old/new outcomes intentionally differ; this run does not repeat TypeScript parity validation. Raw results preserve every sample and both executable hashes: [seed-26 four-player results](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-seed26-four-player.json.gz).
+Each executable reproduces its own contacts, events, packets, bytes, entity count and compared final states exactly across all five repetitions. Old/new outcomes intentionally differ; this run does not repeat TypeScript parity validation. Raw results preserve every sample and both executable hashes: [seed-26 four-player results](../../../benchmarking/archive/README.md#2026-10-01).
 
 Reproduce with:
 
@@ -146,4 +151,4 @@ Client and server must be released together because the convergence rule and rot
 
 ## Reproduction artifacts
 
-[Build, control and replay instructions](../../../benchmarking/experiments/2026-10-01/solver/README.md) describe the source patches, original and retained PGO, the corrected SIMD prototypes, and the instrumented audit. [The experiment summary](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-summary.json) preserves scenario medians and the exploratory history. Some early checkpoints are invalid or discarded; the instructions identify them explicitly. [Resource sizes](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-resources.json) and [the velocity replay output](../../../benchmarking/experiments/2026-10-01/solver/results/2026-10-01-solver-velocity-replay.txt) are archived separately.
+[Build, control and replay instructions](../../../benchmarking/archive/README.md#2026-10-01) describe the source patches, original and retained PGO, the corrected SIMD prototypes, and the instrumented audit. [The experiment summary](../../../benchmarking/archive/README.md#2026-10-01) preserves scenario medians and the exploratory history. Some early checkpoints are invalid or discarded; the instructions identify them explicitly. [Resource sizes](../../../benchmarking/archive/README.md#2026-10-01) and [the velocity replay output](../../../benchmarking/archive/README.md#2026-10-01) are archived separately.

@@ -18,8 +18,10 @@ not reached.
   9,000-tick combat cases. Raw activity and CPU metrics remain available.
 - `results/transport.json.gz`: real paced TCP with 8/32 clients, idle/flight,
   three alternating pairs, 120 warmup and 180 measured ticks.
-- `profiles/`: starting and retained PGO, separate training profiles, and
-  baseline diagnostic profiles. `results/assembly/` holds compressed disassembly.
+- `profiles/`: separate training and baseline diagnostic profiles. Starting and
+  retained compiler inputs are identified by `sources.json` in
+  [`benchmarking/profiles`](../../../profiles/README.md).
+  `results/assembly/` holds compressed disassembly.
 - `results/pmu-*.json.gz`: inherited user-mode hardware counts, including
   startup/warmup. This is a different scope from the measured-tick CPU windows.
 - `results/screens/`: diagnostic prototype and compiler/ISA screens. These

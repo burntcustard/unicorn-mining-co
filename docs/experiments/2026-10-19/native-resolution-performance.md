@@ -1,5 +1,10 @@
 # Native-resolution performance — October 19, 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-19 archive](../../../benchmarking/archive/README.md#2026-10-19).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-19`.
+
 The physical display is 1920 × 1200 at 119.90 Hz. The corrected runner enters
 fullscreen without viewport emulation and rejects a mismatched screen, viewport,
 or device-pixel ratio. The retained-change and power-policy comparisons use

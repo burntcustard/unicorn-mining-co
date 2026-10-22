@@ -1,5 +1,10 @@
 # Snapshots at the simulation rate — 2026-10-01
 
+> Evidence for this completed investigation is in the
+> [2026-10-01 archive](../../../benchmarking/archive/README.md#2026-10-01).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-01`.
+
 Go and TypeScript now send ordinary snapshots after every 30 Hz simulation
 update. Across three runs of each workload at 4, 8, 16 and 32 players, average
 server CPU increases **10–15%** and encoded traffic increases **71–73%**.
@@ -77,8 +82,8 @@ why doubling packet count increases byte totals by less than 100%.
 The baseline is commit `83f5fa42b962260a79ac145a9df7fc8904bd5635`. The measured
 baseline executable SHA-256 is `4f2b3be61bd3df09667b46618e558ec448052d55a5eadf50328361df69fa1ab3`;
 the changed executable is `55d8f3ccc63dfcb542cdab625403ea48a33ecce32b7bafef6e71e75948251e69`.
-Raw [15 Hz results](../../../benchmarking/experiments/2026-10-01/snapshot-cadence/results/2026-10-01-snapshots-15hz.json.gz)
-and [30 Hz results](../../../benchmarking/experiments/2026-10-01/snapshot-cadence/results/2026-10-01-snapshots-30hz.json.gz)
+Raw [15 Hz results](../../../benchmarking/archive/README.md#2026-10-01)
+and [30 Hz results](../../../benchmarking/archive/README.md#2026-10-01)
 retain every CPU sample, allocation/memory measurement, latency tail, packet/byte
 total and outcome. The runner now records the requested CPU affinity correctly.
 

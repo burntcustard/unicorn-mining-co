@@ -40,6 +40,7 @@
 [x] "Painting unsupported on this module" for search light & power plant
 [x] "Move closer to request access" for jump gate targeted description
 [x] Add " Full" to "Cargo" when full & make " Full" flash like before
+[ ] Improve Create Profile styles, & add description of where name is used
 
 ## MVP
 

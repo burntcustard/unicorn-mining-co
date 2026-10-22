@@ -1,5 +1,10 @@
 # Go WebSocket transport — 2 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-02 archive](../../../benchmarking/archive/README.md#2026-10-02).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-02`.
+
 The [networking and runtime follow-up](go-network-runtime-2026-10-02.md) measures
 the complete 30 Hz server and further improvements after this transport baseline.
 
@@ -36,7 +41,7 @@ Both server executables use the same supplied production PGO profile, `GOGC=800`
 and `GOMAXPROCS=2`. Server affinity is logical CPUs 0/1; the Node generator runs
 on CPUs 2–15. Builds, tests and other benchmarks were serialized with timing.
 Executable/harness hashes and every individual sample are saved in
-[the full comparison](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/four-counts.json.gz).
+[the full comparison](../../../benchmarking/archive/README.md#2026-10-02).
 
 This is a synthetic transport workload. Its barrier, input cadence, loopback
 latency and sleeping server differ from the game and Fly's proxy/VM. It measures
@@ -100,7 +105,7 @@ have small additional runtime allocations. At 32 clients and 2,048 bytes,
 allocated bytes per exchange fall from approximately 70,660 to 67,589: the
 payload copy needed by the asynchronous outgoing queue still dominates bytes.
 
-The isolated [receive microbenchmark](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/receive-benchmarks.txt)
+The isolated [receive microbenchmark](../../../benchmarking/archive/README.md#2026-10-02)
 ran three repetitions per implementation in alternating order, with 500 ms per
 size. It parses masked in-memory frames and excludes socket I/O:
 
@@ -115,8 +120,8 @@ A separate syscall trace with 32 clients, 300 exchanges and no warmup sent
 header/payload writes. After: exactly 9,600 `writev` calls plus 71 setup/runtime
 `write` calls. Outgoing frame writes were halved in this run; a blocked or
 partially written TCP connection can still need retries. Tracing adds overhead,
-so its CPU measurements are excluded. Raw [before](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/syscalls-before.txt)
-and [after](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/syscalls-after.txt)
+so its CPU measurements are excluded. Raw [before](../../../benchmarking/archive/README.md#2026-10-02)
+and [after](../../../benchmarking/archive/README.md#2026-10-02)
 counts are retained. WebSocket frame counts and payload bytes do not change.
 
 Median p95 exchange latency at 30 Hz was 0.898→0.829 ms, 1.157→0.955 ms,
@@ -140,20 +145,20 @@ allocations. Combining header and payload in a new contiguous queue allocation
 saved a syscall too, but pushed 2,048-byte payloads into a larger allocation size
 class. The retained reusable vectors achieved similar CPU savings with fewer
 allocated bytes and no additional queue metadata. The
-[candidate screen](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/candidate-screen.json.gz)
-and [descriptor reuse screen](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/reuse-screen.json.gz)
+[candidate screen](../../../benchmarking/archive/README.md#2026-10-02)
+and [descriptor reuse screen](../../../benchmarking/archive/README.md#2026-10-02)
 preserve these comparisons.
 
 An additional prototype copied small packets into a fixed 4 KiB socket buffer
 and used vectors for larger packets. Its
-[five-repeat comparison](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/rejected-hybrid.json.gz)
+[five-repeat comparison](../../../benchmarking/archive/README.md#2026-10-02)
 did not consistently eliminate the four-client regression seen in an earlier
 run. It added per-connection memory and a second write strategy, so it was
 removed. That checkpoint uses vectors for every frame size and player count;
 the [multicore follow-up](go-network-multicore-2026-10-02.md) replaces them with
 one contiguous frame buffer for all sizes.
 
-The [first 4/32-client capture](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/first-two-counts.json.gz)
+The [first 4/32-client capture](../../../benchmarking/archive/README.md#2026-10-02)
 measured 16–21% CPU regressions for four clients with unpaced small/medium
 payloads, whereas the subsequent full comparison improved those cases. Both
 captures are retained. CPU percentages, particularly small workloads and paced
@@ -161,7 +166,7 @@ runs, vary with host scheduling and frequency; allocation and syscall savings
 are more deterministic. Do not infer a guaranteed CPU percentage at every
 player count from the final average.
 
-A separate [runtime experiment](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/runtime-parallelism.json.gz)
+A separate [runtime experiment](../../../benchmarking/archive/README.md#2026-10-02)
 used the same optimized executable on both sides and changed only
 `GOMAXPROCS=2` to `1`. Three repetitions at 4/32 clients and 2,048 bytes measured
 27–29% less CPU unpaced and 20% less at 30 Hz. The previous local game harness
@@ -215,7 +220,7 @@ The production Go binary, built with `CGO_ENABLED=0`, `GOEXPERIMENT=simd`,
 `-trimpath` and `-ldflags='-s -w'`, grew **8,192 bytes**: 7,962,784→7,970,976.
 Level-1 gzip grew 3,611,381→3,615,723 bytes. Client bundles and the Node server
 bundle retain identical SHA-256 hashes and byte counts. Exact
-[resource measurements](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/resources.json)
-and [build settings](../../../benchmarking/experiments/2026-10-02/websocket-transport/results/build-info.txt)
+[resource measurements](../../../benchmarking/archive/README.md#2026-10-02)
+and [build settings](../../../benchmarking/archive/README.md#2026-10-02)
 are retained. Deployment configuration, simulation, snapshot cadence and wire
 protocol tags have not changed.

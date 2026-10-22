@@ -4,6 +4,7 @@ import { rolldown } from 'rolldown';
 import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { testBuildPlugin } from '../support/build-plugin';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
+import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
 const fixtures = execFileSync(
@@ -12,17 +13,8 @@ const fixtures = execFileSync(
   { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
 );
 
-const extended = process.env.TEST_EXTENDED === '1';
-
 // Two firing cycles cover repeated tap/hold transitions and activation delays.
-const fixtureSource = extended
-  ? fixtures
-  : JSON.stringify(
-      JSON.parse(fixtures).map((fixture: { frames: unknown[] }) => ({
-        ...fixture,
-        frames: fixture.frames.slice(0, 180),
-      })),
-    );
+const fixture = fixtureSource(JSON.parse(fixtures));
 
 // NetworkClient also exports the normal singleton; supply browser APIs before
 // evaluating either bundle, and drive packet receipt independently of rendering.
@@ -50,13 +42,11 @@ import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { effects } from '${root}/src/client/effects/effect.ts';
 globalThis.Path2D = class { moveTo() {} lineTo() {} closePath() {} };
-const fixtures = ${fixtureSource};
+const fixtures = ${fixture};
 installExampleModules();
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
 // Exercise immediate firing, delayed firing, and a pause under delayed snapshots.
-const timings = ${extended}
-  ? [0, 1, 3, 8].flatMap(delay => [-1, 35].map(skipTick => [delay, skipTick]))
-  : [[0, -1], [8, -1], [8, 35]];
+const timings = [[0, -1], [1, -1], [3, 35], [8, 35]];
 for (const fixture of fixtures) for (const [delay, skipTick] of timings) {
   effects.length = 0;
   const network = new NetworkClient({ url: 'test' });

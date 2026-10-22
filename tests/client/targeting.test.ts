@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
+import { buildPrePlugin } from '../../plugins/build-plugins';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const root = process.cwd();
 
@@ -207,7 +208,7 @@ for (const production of [false, true]) {
             : undefined,
       },
       buildPrePlugin({ DEBUG: !production }),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

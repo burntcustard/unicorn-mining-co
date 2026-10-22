@@ -8,10 +8,10 @@ import { createContext, runInContext } from 'node:vm';
 import { rolldown } from 'rolldown';
 import {
   buildHtmlPlugin,
-  buildPlugin,
   viteBackground,
 } from '../../plugins/build-plugins.ts';
 import { replacePreTerser } from '../../plugins/replace-pre-terser.ts';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const pathSource = `import '../shape-distance'; export * from "../../distance-shape"; export function distance() {} const value = Vec.distance(a, b); const state = { distance: 1 }; state.distance = -distance;`;
 
@@ -156,7 +156,7 @@ export async function run() {
           }
         },
       },
-      { ...buildPlugin(), generateBundle: undefined },
+      testBuildPlugin(),
     ],
   });
 
@@ -212,7 +212,7 @@ export function inspectMovement() {
 }`
           : undefined,
     },
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 
@@ -291,7 +291,7 @@ export const ui = { back() {} };`;
         }
       },
     },
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 
@@ -378,7 +378,7 @@ export function writeModuleInputs() {
         }
       },
     },
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 
@@ -434,7 +434,7 @@ const regionBundle = await rolldown({
       `
           : undefined,
     },
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 
@@ -578,7 +578,7 @@ const backgroundBundle = await rolldown({
           ? "globalThis.background.renderBackground(canvas, canvas.getContext('2d'), 1, 123, 456);"
           : undefined,
     },
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 

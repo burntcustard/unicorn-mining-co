@@ -9,6 +9,7 @@ and disposable local output separate:
 | [live/](live/README.md)                             | Live deployment instructions, results.md, and historical harnesses               |
 | [experiments/](experiments/README.md)               | Retained captures, patches, and profiles, grouped by date and topic              |
 | [archive/](archive/README.md)                       | Compressed older reports and results, with checksums and extraction instructions |
+| [profiles/](profiles/README.md)                     | Immutable PGO inputs deduplicated by content hash                                |
 | `local/`                                            | Ignored scratch output from new runs                                             |
 | [Experiment reports](../docs/experiments/README.md) | Findings, decisions, limitations, and reproduction commands                      |
 

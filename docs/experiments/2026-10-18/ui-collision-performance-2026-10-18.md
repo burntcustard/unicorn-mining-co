@@ -1,5 +1,10 @@
 # UI and collision performance — October 18, 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-18 archive](../../../benchmarking/archive/README.md#2026-10-18).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-18`.
+
 The [follow-up](performance-fixes-2026-10-18.md) records local recovery and HUD
 optimizations made after this initial investigation. The measurements below
 describe the original three-commit comparison and unmodified live deployment.
@@ -118,7 +123,7 @@ elapsed p95**, using the current revision's other features. This is strong
 support for recovery being the principal regression. Removing recovery changes
 collision trajectories, entity counts, and outcomes, so it is not a valid fix
 or an exact measurement of the routine's isolated cost. The saved
-[diagnostic patch](../../../benchmarking/experiments/2026-10-18/ui-collision-performance/patches/no-recovery.patch)
+[diagnostic patch](../../../benchmarking/archive/README.md#2026-10-18)
 is for attribution only.
 
 The next implementation should preserve compound-hull escape behavior while
@@ -234,7 +239,7 @@ state so HUD work is included after its real socket callbacks are detached.
 
 ## Evidence and reproduction
 
-The [retained evidence](../../../benchmarking/experiments/2026-10-18/ui-collision-performance/README.md)
+The [retained evidence](../../../benchmarking/archive/README.md#2026-10-18)
 contains immutable compressed captures, CPU/allocation profiles, compiler and
 executable hashes, the attribution patch, and checksums. The live raw capture
 remains ignored scratch output, as required by the live benchmark convention.

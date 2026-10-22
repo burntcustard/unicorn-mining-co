@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
-import { buildPlugin } from '../../plugins/build-plugins';
 import { moduleSpecForSimulation } from '../../src/client/utilities/module-spec';
 import type { ModuleSpec } from '../../src/specs/modules/types';
 import type { ModuleId } from '../../src/specs/modules';
@@ -12,6 +11,7 @@ import {
 } from '../../src/specs/modules/categories';
 import { renderingLayers } from '../../src/specs/rendering-layers';
 import { exampleWeapon } from '../../src/specs/modules/offense/example-weapon';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const spec: ModuleSpec = {
   behavior: 'weapon',
@@ -142,7 +142,7 @@ export function inspectCategories() {
 }`
           : undefined,
     },
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 

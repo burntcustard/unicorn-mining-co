@@ -1,5 +1,10 @@
 # Remote motion and collision consistency — 2026-10-02
 
+> Evidence for this completed investigation is in the
+> [2026-10-02 archive](../../../benchmarking/archive/README.md#2026-10-02).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-02`.
+
 This pass starts from the completed remote-movement follow-up, including its
 outage guard. The goal is smoother motion with small source changes and a hard
 20% server CPU limit. The baseline is the starting working tree, rather than
@@ -82,14 +87,14 @@ Hz displays. The existing width of three and release rate of one produce the
 lowest summed whole-scene roughness for that initial easing candidate. A wider band reduces isolated pass-by
 speed surges but loses in the combined collision scene, so the original band
 and copied contact neighbourhood are retained.
-[Raw screen](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-screen.json.gz).
+[Raw screen](../../../benchmarking/archive/README.md#2026-10-02).
 
 A further three-rate screen keeps that contact width and tests the final
 velocity-preserving release. Rate one again has the lowest summed roughness;
 rates 1.5 and 2 settle faster but add more visible acceleration during collisions.
-[Final release screen](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-critical-screen.json.gz)
+[Final release screen](../../../benchmarking/archive/README.md#2026-10-02)
 preserves its sources and hashes. The
-[initial easing candidate](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-easing-candidate.json.gz)
+[initial easing candidate](../../../benchmarking/archive/README.md#2026-10-02)
 preserves the preceding full comparison, including its rejected slower heading
 release.
 
@@ -143,17 +148,17 @@ ratio of 1.4943 and frame speed change of 0.09074, rather than worsening the
 handoff to collision prediction. Analytic acceleration errors fall from
 0.018629 world units to below 0.000000000005, and from 0.00005554 radians to
 below 0.00000000000002.
-[Final source and replay archive](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency.json.gz).
+[Final source and replay archive](../../../benchmarking/archive/README.md#2026-10-02).
 
 The isolated 32-player/144 Hz steady-delivery peak falls from 4.7231 in the
 baseline to 4.0695 world units of frame-displacement change. The earlier
 correction-only candidate reached 5.3171; tracing that event led to the fixed
 endpoint change. Peak reductions are not uniform: the eight-player/60 Hz burst
 case changes from 5.8154 to 5.8232 (+0.14%), while its RMS improves 5.2%.
-[Correction-only candidate](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-critical-candidate.json.gz),
-[peak trace](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-peak.json.gz),
-[straight endpoint prototype](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-endpoints.json.gz)
-and [Hermite endpoint prototype](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-hermite-endpoints.json.gz)
+[Correction-only candidate](../../../benchmarking/archive/README.md#2026-10-02),
+[peak trace](../../../benchmarking/archive/README.md#2026-10-02),
+[straight endpoint prototype](../../../benchmarking/archive/README.md#2026-10-02)
+and [Hermite endpoint prototype](../../../benchmarking/archive/README.md#2026-10-02)
 preserve the intermediate evidence.
 
 The four-browser capture uses Chrome 154, the actual development canvas renderer,
@@ -162,7 +167,7 @@ browser sees the other three ships; all free-flight packet and snapshot position
 zero. With replay processes finished, the clients average 59.84–60.00 FPS and
 95th-percentile display intervals of 16.7–16.8 ms. Individual intervals still
 reach 50 ms; this is not a guarantee against browser or machine stalls.
-[Browser capture](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-browser.json.gz).
+[Browser capture](../../../benchmarking/archive/README.md#2026-10-02).
 Owned servers, browser processes and debug ports are cleaned up afterward.
 The capture distinguishes deliberate docking resets using successive received
 states, rather than an already-updated client world. A prior capture reported
@@ -194,7 +199,7 @@ Aggregate Go CPU increases **0.58%**, calculated from the sums of scenario
 medians. Every measured scenario is below the 20% limit. The largest stationary
 case changes from 0.132471 to 0.141878 ms CPU/tick. Packet counts and physics are
 unchanged; byte totals reflect the extra heartbeat records.
-[Raw Go CPU results](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-go-cpu.json.gz)
+[Raw Go CPU results](../../../benchmarking/archive/README.md#2026-10-02)
 retain every measurement, executable hashes and the PGO hash.
 
 The production Node comparison uses the existing warmed flight harness at the
@@ -205,8 +210,8 @@ are measured separately with thrust and turn disabled. Across active and
 stationary scenario medians, Node CPU changes by -0.03%, within measurement
 noise. The largest scenario increase is **12.44%** at 32 stationary ships,
 from 0.936679 to 1.053199 ms CPU/tick. Every scenario remains below 20%.
-[Active Node measurements](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-node-cpu.json.gz)
-and [stationary Node measurements](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-consistency-node-idle.json.gz)
+[Active Node measurements](../../../benchmarking/archive/README.md#2026-10-02)
+and [stationary Node measurements](../../../benchmarking/archive/README.md#2026-10-02)
 preserve all 120 processes and executable hashes.
 
 The arithmetic means also satisfy the budget: aggregate Go CPU changes by

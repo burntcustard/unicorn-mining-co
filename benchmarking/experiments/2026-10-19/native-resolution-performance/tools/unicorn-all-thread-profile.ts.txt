@@ -1,4 +1,0 @@
-import {readFileSync,writeFileSync} from 'node:fs';
-const [input,output]=process.argv.slice(2);const profile=JSON.parse(readFileSync(input,'utf8'));const threads=[];
-function visit(process){for(const thread of process.threads||[]){const schema=thread.samples.schema;const total=thread.samples.data.reduce((sum,sample)=>sum+(sample[schema.threadCPUDelta]||0)/1e6,0);threads.push({pid:thread.pid,tid:thread.tid,name:thread.name,process:thread.processName,type:thread.processType,site:thread['eTLD+1'],cpuMs:total});}for(const child of process.processes||[])visit(child);}
-visit(profile);threads.sort((a,b)=>b.cpuMs-a.cpuMs);writeFileSync(output,JSON.stringify(threads,null,2));console.log(JSON.stringify(threads.slice(0,25),null,2));

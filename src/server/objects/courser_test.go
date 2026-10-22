@@ -14,6 +14,7 @@ import (
 
 func TestCourserShieldOutfitting(t *testing.T) {
 	catalog, err := specs.Load()
+
 	if err != nil {
 		t.Fatal(err)
 	}

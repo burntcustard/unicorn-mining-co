@@ -177,6 +177,7 @@ func TestPirateIgnoresItsOwnAndUnclaimedPickups(t *testing.T) {
 	item := p.ship.CargoContents[0]
 	npc.loot = []simulation.Entity{item}
 	npc.state, npc.cargoAccepted = pirateCollecting, true
+
 	s.pirateLootCollected([]protocol.SimulationEvent{
 		protocol.ItemCollected{By: *npc.ship.PlayerID, ItemID: item.Base().ID},
 		protocol.ItemCollected{By: p.playerID, ItemID: -999},

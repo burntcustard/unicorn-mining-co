@@ -219,18 +219,30 @@ Go and parity checks.
 Selected integration and parity tests prepare their server/catalog and fixtures
 automatically; client-only selections skip the full build.
 Use `npm test -- --skip-build` after `npm run build` to test existing artifacts
-without rebuilding them. CI reports test starts and completions immediately,
-alongside the normal ordered results.
+without rebuilding them. Go tests run first so client fixtures reuse compiled
+packages rather than competing to compile them in several workers. The longest
+Go packages start first. Node files start with the heavier simulation and
+integration checks listed in `scripts/test.ts`. The programmatic Node runner
+preserves that order and keeps each file in its own process.
+
+Production fixtures share a fresh property-name cache prepared once per run
+from the current sources. Each bundle still uses the real production transforms
+and minifier. Packet histories enter as runtime JSON with transformed property
+names, avoiding repeated minification of megabytes of fixture data. Temporary
+cache files are removed when testing finishes.
+
 Projectile prediction runs as four independent suites covering autogun and
 plasma snapshots, repeated mining, and triangle fractures. Normal runs use
 representative immediate/delayed snapshots, batched frames, reloads, and frame
 cadences against both source and production bundles generated from real Go
-snapshots. Muzzle-flash tests replay two firing cycles and cover immediate,
-delayed, and paused firing. These tests favor faster deployment over checking
-every timing combination. `npm run test:extended` restores the full timing
-matrices and four muzzle-flash cycles; it accepts the same selectors and
-`--skip-build` option as `npm test`. Intermediate delays and all cadence/pause
-pairings are reserved for extended runs. `npm run test projectile-prediction` still selects all four suites;
+snapshots. Each Go generator produces only the cases its client suite consumes.
+Timing cases cover zero, one, three, and eight ticks of delay across different
+geometries rather than repeating the full cross-product. Repeated mining checks
+five fractures and a reload; triangle histories include the fracture, delayed
+packets, and a display pause. Muzzle-flash tests replay two complete firing cycles
+with immediate, delayed, and paused firing. The same full suite runs locally and
+on deployment; there is no separate extended or deployment mode.
+`npm run test projectile-prediction` still selects all four suites;
 select a suffixed filename to run one group. Go network tests run isolated
 sessions, temporary databases, and ephemeral listeners in parallel, retaining
 their complete assertions and real timeout checks.

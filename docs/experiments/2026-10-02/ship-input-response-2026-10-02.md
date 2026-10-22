@@ -1,5 +1,10 @@
 # Ship input response — 2026-10-02
 
+> Evidence for this completed investigation is in the
+> [2026-10-02 archive](../../../benchmarking/archive/README.md#2026-10-02).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-02`.
+
 The same ship was measured on its pilot's canvas and an observer's canvas in
 separate Chrome browser contexts. The original working-tree client added about
 97 ms of rotation lag on a nearby flight route. The simplified client measured
@@ -102,7 +107,7 @@ direction. It saves its traces before asserting latency limits, so the original
 buffered implementation can still be measured as a failing baseline. It also
 asserts that both clients retain the ship throughout the steering sequence.
 
-[Saved captures and before/after client sources](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-input-response.json.gz)
+[Saved captures and before/after client sources](../../../benchmarking/archive/README.md#2026-10-02)
 contain the matched baseline, Node and Go results, and four-client capture.
 The older analytic trajectory and passing-ship microbenchmarks now check pose
 interpolation and the absence of distance-based blending. The old

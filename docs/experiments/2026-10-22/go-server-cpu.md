@@ -29,22 +29,22 @@ and profile collection are excluded from these timing results.
 
 | Players | Workload | Before CPU ms/tick | After CPU ms/tick | CPU saved |
 | ------- | -------- | -----------------: | ----------------: | --------: |
-| 4 | convoy | 0.093619 | 0.086749 | 7.34% |
-| 4 | spread | 0.127900 | 0.119610 | 6.48% |
-| 4 | contact | 0.066430 | 0.060943 | 8.26% |
-| 4 | module | 0.226112 | 0.192788 | 14.74% |
-| 8 | convoy | 0.168232 | 0.157842 | 6.18% |
-| 8 | spread | 0.250927 | 0.234089 | 6.71% |
-| 8 | contact | 0.113366 | 0.103467 | 8.73% |
-| 8 | module | 0.430906 | 0.347483 | 19.36% |
-| 16 | convoy | 0.337895 | 0.316203 | 6.42% |
-| 16 | spread | 0.417564 | 0.396523 | 5.04% |
-| 16 | contact | 0.208077 | 0.188611 | 9.35% |
-| 16 | module | 1.164852 | 0.816999 | 29.86% |
-| 32 | convoy | 0.702299 | 0.645253 | 8.12% |
-| 32 | spread | 0.609165 | 0.573417 | 5.87% |
-| 32 | contact | 0.406651 | 0.366317 | 9.92% |
-| 32 | module | 4.088690 | 2.156864 | 47.25% |
+| 4       | convoy   |           0.093619 |          0.086749 |     7.34% |
+| 4       | spread   |           0.127900 |          0.119610 |     6.48% |
+| 4       | contact  |           0.066430 |          0.060943 |     8.26% |
+| 4       | module   |           0.226112 |          0.192788 |    14.74% |
+| 8       | convoy   |           0.168232 |          0.157842 |     6.18% |
+| 8       | spread   |           0.250927 |          0.234089 |     6.71% |
+| 8       | contact  |           0.113366 |          0.103467 |     8.73% |
+| 8       | module   |           0.430906 |          0.347483 |    19.36% |
+| 16      | convoy   |           0.337895 |          0.316203 |     6.42% |
+| 16      | spread   |           0.417564 |          0.396523 |     5.04% |
+| 16      | contact  |           0.208077 |          0.188611 |     9.35% |
+| 16      | module   |           1.164852 |          0.816999 |    29.86% |
+| 32      | convoy   |           0.702299 |          0.645253 |     8.12% |
+| 32      | spread   |           0.609165 |          0.573417 |     5.87% |
+| 32      | contact  |           0.406651 |          0.366317 |     9.92% |
+| 32      | module   |           4.088690 |          2.156864 |    47.25% |
 
 The aggregate is `1 - sum(after case medians) / sum(before case medians)`.
 Equal measured tick counts give more CPU weight to expensive cases. The
@@ -138,11 +138,11 @@ field coverage, maximum separation, and outgoing-byte metrics match.
 
 | Combat case | Before µs CPU/tick | After µs CPU/tick | CPU saved |
 | ----------- | -----------------: | ----------------: | --------: |
-| open | 26.119 | 24.348 | 6.78% |
-| normal | 54.452 | 51.625 | 5.19% |
-| dense | 73.067 | 69.746 | 4.55% |
-| normal-fast | 58.141 | 55.528 | 4.49% |
-| dense-fast | 100.315 | 96.290 | 4.01% |
+| open        |             26.119 |            24.348 |     6.78% |
+| normal      |             54.452 |            51.625 |     5.19% |
+| dense       |             73.067 |            69.746 |     4.55% |
+| normal-fast |             58.141 |            55.528 |     4.49% |
+| dense-fast  |            100.315 |            96.290 |     4.01% |
 
 [Combat samples](../../../benchmarking/experiments/2026-10-22/go-cpu/results/pirate.json.gz).
 
@@ -153,14 +153,14 @@ clients run on cores 2–15. Aggregate median CPU decreases **3.63%**.
 
 | Clients | Activity | Before CPU ms/tick | After CPU ms/tick | CPU saved |
 | ------- | -------- | -----------------: | ----------------: | --------: |
-| 4 | idle | 0.413383 | 0.397322 | 3.89% |
-| 4 | flight | 0.424494 | 0.417639 | 1.61% |
-| 8 | idle | 0.557256 | 0.555761 | 0.27% |
-| 8 | flight | 0.608928 | 0.562511 | 7.62% |
-| 16 | idle | 0.904000 | 0.874411 | 3.27% |
-| 16 | flight | 0.956583 | 0.923589 | 3.45% |
-| 32 | idle | 1.496656 | 1.502111 | -0.36% |
-| 32 | flight | 1.817644 | 1.685311 | 7.28% |
+| 4       | idle     |           0.413383 |          0.397322 |     3.89% |
+| 4       | flight   |           0.424494 |          0.417639 |     1.61% |
+| 8       | idle     |           0.557256 |          0.555761 |     0.27% |
+| 8       | flight   |           0.608928 |          0.562511 |     7.62% |
+| 16      | idle     |           0.904000 |          0.874411 |     3.27% |
+| 16      | flight   |           0.956583 |          0.923589 |     3.45% |
+| 32      | idle     |           1.496656 |          1.502111 |    -0.36% |
+| 32      | flight   |           1.817644 |          1.685311 |     7.28% |
 
 All 48 processes complete the runner's snapshot ordering, input acknowledgment,
 and rate checks. Minimum per-client snapshot/input rate across either variant is
@@ -203,15 +203,15 @@ executables and captures above.
 
 ## Earlier experiments reviewed
 
-| Investigation | Relevant result and decision for this pass |
-| ------------- | ----------------------------------------- |
-| [September archive](../../../benchmarking/archive/README.md) | Reviewed its CPU/physics report catalog and retained/rejected findings: lazy geometry, persistent movement/replication buffers, iteration, numeric representations, collision caches, and binary networking. V8-specific representation findings do not directly transfer to Go. |
-| [October 1 Go CPU work](../2026-10-01/go-server-cpu-comparison-2026-10-01-followup.md) | Already includes GC tuning, scalar fast paths, collision caches, replication SIMD, and PGO. These are the starting implementation, not new savings. |
-| [Precision](../2026-10-01/go-server-precision-simd-2026-10-01.md), [packed physics](../2026-10-01/go-server-packed-physics-2026-10-01.md), [solver](../2026-10-01/go-server-solver-redesign-2026-10-01.md) | Whole-session packing/float32/SIMD gains were often small or absent; broader solver grouping is still a distinct opportunity. Current profiles favor avoiding recovery work first. Float64 arithmetic, solver settings, and runtime-gated SIMD remain. |
-| [October 2 networking](../2026-10-02/go-network-multicore-2026-10-02.md) | Ordered inbox draining, contiguous frames, and buffer ownership already exist. The rejected single-CPU production restriction is not reinstated. |
-| [October 18 recovery](../2026-10-18/performance-fixes-2026-10-18.md) | The first-ray/disk pruning fixed a larger regression but left substantial projection cost. This pass extends that algorithm with conservative bounds. |
-| [October 20 combat](../2026-10-20/pirate-cpu.md), [maneuvers](../2026-10-20/npc-maneuvers.md), [clearance](../2026-10-20/npc-clearance.md) | Forecast sharing, pruning, circle navigation, and snapshot caches already help. Slower decisions and removing clearance changed pursuit quality or increased CPU. Neither is used here. |
-| [October 21 collection](../2026-10-21/pirate-collection-cpu.md) and [simplification](../2026-10-21/pirate-collection-simplification.md) | Shared forecasts, ship-frame contacts, conservative circles, and lower-bound pruning already exist. Collection behavior and its decision cadence are unchanged. |
+| Investigation                                                                                                                                                                                              | Relevant result and decision for this pass                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [September archive](../../../benchmarking/archive/README.md)                                                                                                                                               | Reviewed its CPU/physics report catalog and retained/rejected findings: lazy geometry, persistent movement/replication buffers, iteration, numeric representations, collision caches, and binary networking. V8-specific representation findings do not directly transfer to Go. |
+| [October 1 Go CPU work](../2026-10-01/go-server-cpu-comparison-2026-10-01-followup.md)                                                                                                                     | Already includes GC tuning, scalar fast paths, collision caches, replication SIMD, and PGO. These are the starting implementation, not new savings.                                                                                                                              |
+| [Precision](../2026-10-01/go-server-precision-simd-2026-10-01.md), [packed physics](../2026-10-01/go-server-packed-physics-2026-10-01.md), [solver](../2026-10-01/go-server-solver-redesign-2026-10-01.md) | Whole-session packing/float32/SIMD gains were often small or absent; broader solver grouping is still a distinct opportunity. Current profiles favor avoiding recovery work first. Float64 arithmetic, solver settings, and runtime-gated SIMD remain.                           |
+| [October 2 networking](../2026-10-02/go-network-multicore-2026-10-02.md)                                                                                                                                   | Ordered inbox draining, contiguous frames, and buffer ownership already exist. The rejected single-CPU production restriction is not reinstated.                                                                                                                                 |
+| [October 18 recovery](../2026-10-18/performance-fixes-2026-10-18.md)                                                                                                                                       | The first-ray/disk pruning fixed a larger regression but left substantial projection cost. This pass extends that algorithm with conservative bounds.                                                                                                                            |
+| [October 20 combat](../2026-10-20/pirate-cpu.md), [maneuvers](../2026-10-20/npc-maneuvers.md), [clearance](../2026-10-20/npc-clearance.md)                                                                 | Forecast sharing, pruning, circle navigation, and snapshot caches already help. Slower decisions and removing clearance changed pursuit quality or increased CPU. Neither is used here.                                                                                          |
+| [October 21 collection](../2026-10-21/pirate-collection-cpu.md) and [simplification](../2026-10-21/pirate-collection-simplification.md)                                                                    | Shared forecasts, ship-frame contacts, conservative circles, and lower-bound pruning already exist. Collection behavior and its decision cadence are unchanged.                                                                                                                  |
 
 ## Primary-source research
 
@@ -221,18 +221,18 @@ measurement, tooling, proposal, and supplementary-library material. A library
 or compiler change was treated as a hypothesis for this workload, not a promised
 whole-server saving.
 
-| Source | Application here |
-| ------ | ---------------- |
-| [Go diagnostics](https://go.dev/doc/diagnostics), [profiling](https://go.dev/blog/pprof), [wiki](https://github.com/golang/wiki/blob/master/Performance.md) | Identify expensive repeated work and keep profiling separate from acceptance timing. |
-| [golang/perf and benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat), [Sweet](https://github.com/golang/benchmarks/blob/master/sweet/README.md) | Repeated paired measurements and complete workloads matter more than an isolated kernel result. Existing session/transport runners remain the acceptance tools. |
-| [PGO guidance](https://go.dev/doc/pgo), [compiler pipeline](https://github.com/golang/go/blob/master/src/cmd/compile/README.md) | Representative profiles and source stability informed the profile refresh. Changes are verified on separate timing runs. |
-| [GC guide](https://go.dev/doc/gc-guide), [runtime](https://github.com/golang/go/blob/master/src/runtime/HACKING.md), [container-aware GOMAXPROCS](https://go.dev/blog/container-aware-gomaxprocs) | GC exchanges CPU for memory; parallelism and CPU-time quota are different constraints. Both variants receive identical settings. |
-| [Go 1.27 notes](https://go.dev/doc/go1.27), [returned-struct issue](https://github.com/golang/go/issues/80980) | Read-only large-spec copies are worth checking. No custom compiler patch or unverified toolchain upgrade is used. |
-| [golang/tools](https://github.com/golang/tools), [field alignment](https://github.com/golang/tools/blob/master/go/analysis/passes/fieldalignment/fieldalignment.go) | Layout changes require measurement; pointer scan extent and false sharing matter. No broad automatic struct reorder is applied. |
-| [SIMD proposal](https://github.com/golang/go/issues/73787), [proposals](https://github.com/golang/proposal), [experimental packages](https://github.com/golang/exp), [sys](https://github.com/golang/sys), [net](https://github.com/golang/net) | Existing runtime-gated SIMD remains. Replacing APIs or widening arithmetic alone does not remove the profiled search/bookkeeping work. |
-| [Centrifuge Go server](https://github.com/centrifugal/centrifuge), [TypeScript client](https://github.com/centrifugal/centrifuge-js/blob/master/src/centrifuge.ts), [performance study](https://centrifugal.dev/blog/2024/08/19/optimizing-websocket-compression) | Shared prepared payloads avoid repeated work. This game already shares encoded entity fragments; per-player acknowledgments and baselines limit whole-packet sharing. That transfer assessment is an inference, not a benchmark of Centrifugo here. |
-| [Nakama Go server](https://github.com/heroiclabs/nakama), [TypeScript client](https://github.com/heroiclabs/nakama-js/blob/master/packages/nakama-js/client.ts), [authoritative loop](https://heroiclabs.com/docs/nakama/concepts/multiplayer/authoritative/), [benchmarks](https://heroiclabs.com/docs/nakama/getting-started/benchmarks/) | Fixed-tick authoritative ownership and workload-specific measurements are relevant. Its published message/backend workloads are not measurements of this game's compound physics. |
-| [Grafana TypeScript frontend](https://github.com/grafana/grafana/blob/main/packages/grafana-runtime/src/services/live.ts), [Go Live service](https://github.com/grafana/grafana/blob/main/pkg/services/live/live.go), [Live design](https://grafana.com/docs/grafana/latest/setup-grafana/set-up-grafana-live/) | A complete TypeScript/Go application uses multiplexed WebSocket subscriptions. Our single connection already carries control and snapshots; adding connections or adopting its softer delivery timing would not address the profiled simulation CPU. This is an architectural comparison, not a Grafana performance test. |
+| Source                                                                                                                                                                                                                                                                                                                                      | Application here                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Go diagnostics](https://go.dev/doc/diagnostics), [profiling](https://go.dev/blog/pprof), [wiki](https://github.com/golang/wiki/blob/master/Performance.md)                                                                                                                                                                                 | Identify expensive repeated work and keep profiling separate from acceptance timing.                                                                                                                                                                                                                                      |
+| [golang/perf and benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat), [Sweet](https://github.com/golang/benchmarks/blob/master/sweet/README.md)                                                                                                                                                                                  | Repeated paired measurements and complete workloads matter more than an isolated kernel result. Existing session/transport runners remain the acceptance tools.                                                                                                                                                           |
+| [PGO guidance](https://go.dev/doc/pgo), [compiler pipeline](https://github.com/golang/go/blob/master/src/cmd/compile/README.md)                                                                                                                                                                                                             | Representative profiles and source stability informed the profile refresh. Changes are verified on separate timing runs.                                                                                                                                                                                                  |
+| [GC guide](https://go.dev/doc/gc-guide), [runtime](https://github.com/golang/go/blob/master/src/runtime/HACKING.md), [container-aware GOMAXPROCS](https://go.dev/blog/container-aware-gomaxprocs)                                                                                                                                           | GC exchanges CPU for memory; parallelism and CPU-time quota are different constraints. Both variants receive identical settings.                                                                                                                                                                                          |
+| [Go 1.27 notes](https://go.dev/doc/go1.27), [returned-struct issue](https://github.com/golang/go/issues/80980)                                                                                                                                                                                                                              | Read-only large-spec copies are worth checking. No custom compiler patch or unverified toolchain upgrade is used.                                                                                                                                                                                                         |
+| [golang/tools](https://github.com/golang/tools), [field alignment](https://github.com/golang/tools/blob/master/go/analysis/passes/fieldalignment/fieldalignment.go)                                                                                                                                                                         | Layout changes require measurement; pointer scan extent and false sharing matter. No broad automatic struct reorder is applied.                                                                                                                                                                                           |
+| [SIMD proposal](https://github.com/golang/go/issues/73787), [proposals](https://github.com/golang/proposal), [experimental packages](https://github.com/golang/exp), [sys](https://github.com/golang/sys), [net](https://github.com/golang/net)                                                                                             | Existing runtime-gated SIMD remains. Replacing APIs or widening arithmetic alone does not remove the profiled search/bookkeeping work.                                                                                                                                                                                    |
+| [Centrifuge Go server](https://github.com/centrifugal/centrifuge), [TypeScript client](https://github.com/centrifugal/centrifuge-js/blob/master/src/centrifuge.ts), [performance study](https://centrifugal.dev/blog/2024/08/19/optimizing-websocket-compression)                                                                           | Shared prepared payloads avoid repeated work. This game already shares encoded entity fragments; per-player acknowledgments and baselines limit whole-packet sharing. That transfer assessment is an inference, not a benchmark of Centrifugo here.                                                                       |
+| [Nakama Go server](https://github.com/heroiclabs/nakama), [TypeScript client](https://github.com/heroiclabs/nakama-js/blob/master/packages/nakama-js/client.ts), [authoritative loop](https://heroiclabs.com/docs/nakama/concepts/multiplayer/authoritative/), [benchmarks](https://heroiclabs.com/docs/nakama/getting-started/benchmarks/) | Fixed-tick authoritative ownership and workload-specific measurements are relevant. Its published message/backend workloads are not measurements of this game's compound physics.                                                                                                                                         |
+| [Grafana TypeScript frontend](https://github.com/grafana/grafana/blob/main/packages/grafana-runtime/src/services/live.ts), [Go Live service](https://github.com/grafana/grafana/blob/main/pkg/services/live/live.go), [Live design](https://grafana.com/docs/grafana/latest/setup-grafana/set-up-grafana-live/)                             | A complete TypeScript/Go application uses multiplexed WebSocket subscriptions. Our single connection already carries control and snapshots; adding connections or adopting its softer delivery timing would not address the profiled simulation CPU. This is an architectural comparison, not a Grafana performance test. |
 
 ## Validation, size, and limits
 

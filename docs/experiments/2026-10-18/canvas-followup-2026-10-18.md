@@ -1,5 +1,10 @@
 # Canvas and radar performance follow-up — October 18, 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-18 archive](../../../benchmarking/archive/README.md#2026-10-18).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-18`.
+
 The retained rendering change requests software backing for the small, frequently
 redrawn radar canvas. It is one context option in `src/client/ui/dom/hud.ts`,
 shared by both browsers. Resolution, drawing frequency, contacts, world rendering,

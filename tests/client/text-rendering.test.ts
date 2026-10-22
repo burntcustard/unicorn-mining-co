@@ -1,8 +1,9 @@
 /* global Buffer, process */
 import { rolldown } from 'rolldown';
 import assert from 'node:assert/strict';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { glyphPaths } from '../../font/glyph-paths.ts';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const root = process.cwd();
 const scenario = `
@@ -242,9 +243,7 @@ try {
           },
         },
         buildPrePlugin({ DEBUG: !production }),
-        ...(production
-          ? [{ ...buildPlugin(), generateBundle: undefined }]
-          : []),
+        ...(production ? [testBuildPlugin()] : []),
       ],
     });
 

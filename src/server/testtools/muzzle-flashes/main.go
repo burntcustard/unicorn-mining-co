@@ -53,7 +53,8 @@ func main() {
 		frames := []any{}
 		previous := protocol.Input{PlasmaActive: true, AutogunActive: true}
 
-		for tick := 0; tick < 360; tick++ {
+		// Two complete cycles exercise taps, holds, release, and repeated firing.
+		for tick := 0; tick < 180; tick++ {
 			phase := tick % 90
 			input := previous
 			changes := []protocol.InputChange{}

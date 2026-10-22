@@ -27,6 +27,7 @@ func (s *GameSession) pirateLootCollected(events []protocol.SimulationEvent) {
 		}
 
 		var collector *playerRecord
+
 		s.sectorPlayers(func(p *playerRecord, _ string) {
 			if p.playerID == pickup.By {
 				collector = p

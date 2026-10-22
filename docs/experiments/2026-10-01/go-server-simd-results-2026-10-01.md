@@ -1,5 +1,10 @@
 # Go server SIMD benchmark results — 2026-10-01
 
+> Evidence for this completed investigation is in the
+> [2026-10-01 archive](../../../benchmarking/archive/README.md#2026-10-01).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-01`.
+
 This records the first SIMD checkpoint. See the [follow-up comparison](go-server-cpu-comparison-2026-10-01-followup.md)
 for the subsequent AVX fixes, exact float64 replication pipeline, motion-rounding
 experiments, nearest-eight collision iterations, and final production configuration.
@@ -57,7 +62,7 @@ computed, and sub-1% differences should be treated as inconclusive.
 
 Raw samples, executable SHA-256 hashes, GC settings, feature selections and
 state differences are recorded in
-[the latest result file](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-batch-loop.json.gz).
+[the latest result file](../../../benchmarking/archive/README.md#2026-10-01).
 
 ## Independent experiments
 
@@ -74,27 +79,27 @@ against commit `a750604`. “Earlier optimized checkpoint” uses the earlier
 contact-simplified executable. Each linked file identifies both executable
 hashes and runtime settings.
 
-| Experiment                                                                                                                                                                | Baseline                     | Runs per variant/scenario | Mean CPU change | Aggregate CPU change |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------: | --------------: | -------------------: |
-| [Motion rounding with AVX cleanup](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-motion-clean.json.gz)                          | Feature toggle               |                         5 |          -0.60% |               -0.31% |
-| [Four-axis polygon separation](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-separation-v1.json.gz)                             | Feature toggle               |                         5 |          -0.29% |               -1.07% |
-| [Swept bounds and broad-phase masks](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-bounds-v1.json.gz)                           | Feature toggle               |                         5 |          -0.32% |               +0.27% |
-| [Paired body transforms and sine/cosine](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-transforms-v1.json.gz)                   | Feature toggle               |                         5 |          +0.32% |               +0.17% |
-| [Seven replication threshold masks](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-replication-v1.json.gz)                       | Feature toggle               |                         5 |          +0.52% |               +0.93% |
-| [Triangle separation with cached columns](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-triangles-v1.json.gz)                   | Feature toggle               |                         5 |          -0.67% |               -0.69% |
-| [Shared observer proximity batches](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-observers-v1.json.gz)                         | Feature toggle               |                         5 |          -0.18% |               -0.11% |
-| [Triangle separation using existing vertex layout](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-triangles-aos.json.gz)         | Feature toggle               |                         5 |          -1.14% |               -1.51% |
-| [Paired collision support/transform pipeline](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-support-pipeline.json.gz)           | Feature toggle               |                         5 |          -0.06% |               +0.21% |
-| [Triangle-only source after removing other experiments](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-clean-geometry.json.gz)   | Earlier optimized checkpoint |                         7 |          -0.79% |               -1.03% |
-| [Unrolled triangle separation with exact comparison handling](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-unroll.json.gz)     | Pre-SIMD HEAD                |                         7 |          -0.35% |               -0.69% |
-| [Direct motion rounding SIMD method](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-direct-motion.json.gz)                       | Pre-SIMD HEAD                |                         7 |          -0.61% |               -0.26% |
-| [Observer batches with fixed-array loads](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-observers-array.json.gz)                | Pre-SIMD HEAD                |                         7 |          -0.30% |               -0.47% |
-| [Observer batches with scalar tail before AVX](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-observers-tail.json.gz)            | Pre-SIMD HEAD                |                         7 |          -0.42% |               -0.05% |
-| [Four-lane replication with bulk rejection](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-replication-block.json.gz)            | Pre-SIMD HEAD                |                         7 |          +0.48% |               -1.18% |
-| [Four-lane replication for sparse observers](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-adaptive-replication.json.gz)        | Pre-SIMD HEAD                |                         7 |          -0.54% |               -1.30% |
-| [Sparse replication with lazy policy packing](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-lazy-policy.json.gz)                | Pre-SIMD HEAD                |                         7 |          +0.08% |               -0.59% |
-| [Eight-lane conservative float32 replication filter](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-replication-float32.json.gz) | Pre-SIMD HEAD                |                         7 |          -0.02% |               -1.10% |
-| [Eight-lane filter with separate sparse/dense loops (latest)](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-batch-loop.json.gz) | Pre-SIMD HEAD                |                         7 |          +0.80% |               -0.44% |
+| Experiment                                                                                                        | Baseline                     | Runs per variant/scenario | Mean CPU change | Aggregate CPU change |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------: | --------------: | -------------------: |
+| [Motion rounding with AVX cleanup](../../../benchmarking/archive/README.md#2026-10-01)                            | Feature toggle               |                         5 |          -0.60% |               -0.31% |
+| [Four-axis polygon separation](../../../benchmarking/archive/README.md#2026-10-01)                                | Feature toggle               |                         5 |          -0.29% |               -1.07% |
+| [Swept bounds and broad-phase masks](../../../benchmarking/archive/README.md#2026-10-01)                          | Feature toggle               |                         5 |          -0.32% |               +0.27% |
+| [Paired body transforms and sine/cosine](../../../benchmarking/archive/README.md#2026-10-01)                      | Feature toggle               |                         5 |          +0.32% |               +0.17% |
+| [Seven replication threshold masks](../../../benchmarking/archive/README.md#2026-10-01)                           | Feature toggle               |                         5 |          +0.52% |               +0.93% |
+| [Triangle separation with cached columns](../../../benchmarking/archive/README.md#2026-10-01)                     | Feature toggle               |                         5 |          -0.67% |               -0.69% |
+| [Shared observer proximity batches](../../../benchmarking/archive/README.md#2026-10-01)                           | Feature toggle               |                         5 |          -0.18% |               -0.11% |
+| [Triangle separation using existing vertex layout](../../../benchmarking/archive/README.md#2026-10-01)            | Feature toggle               |                         5 |          -1.14% |               -1.51% |
+| [Paired collision support/transform pipeline](../../../benchmarking/archive/README.md#2026-10-01)                 | Feature toggle               |                         5 |          -0.06% |               +0.21% |
+| [Triangle-only source after removing other experiments](../../../benchmarking/archive/README.md#2026-10-01)       | Earlier optimized checkpoint |                         7 |          -0.79% |               -1.03% |
+| [Unrolled triangle separation with exact comparison handling](../../../benchmarking/archive/README.md#2026-10-01) | Pre-SIMD HEAD                |                         7 |          -0.35% |               -0.69% |
+| [Direct motion rounding SIMD method](../../../benchmarking/archive/README.md#2026-10-01)                          | Pre-SIMD HEAD                |                         7 |          -0.61% |               -0.26% |
+| [Observer batches with fixed-array loads](../../../benchmarking/archive/README.md#2026-10-01)                     | Pre-SIMD HEAD                |                         7 |          -0.30% |               -0.47% |
+| [Observer batches with scalar tail before AVX](../../../benchmarking/archive/README.md#2026-10-01)                | Pre-SIMD HEAD                |                         7 |          -0.42% |               -0.05% |
+| [Four-lane replication with bulk rejection](../../../benchmarking/archive/README.md#2026-10-01)                   | Pre-SIMD HEAD                |                         7 |          +0.48% |               -1.18% |
+| [Four-lane replication for sparse observers](../../../benchmarking/archive/README.md#2026-10-01)                  | Pre-SIMD HEAD                |                         7 |          -0.54% |               -1.30% |
+| [Sparse replication with lazy policy packing](../../../benchmarking/archive/README.md#2026-10-01)                 | Pre-SIMD HEAD                |                         7 |          +0.08% |               -0.59% |
+| [Eight-lane conservative float32 replication filter](../../../benchmarking/archive/README.md#2026-10-01)          | Pre-SIMD HEAD                |                         7 |          -0.02% |               -1.10% |
+| [Eight-lane filter with separate sparse/dense loops (latest)](../../../benchmarking/archive/README.md#2026-10-01) | Pre-SIMD HEAD                |                         7 |          +0.80% |               -0.44% |
 
 The initial existing-layout triangle run exceeded 1% mean improvement, but
 subsequent isolated and revised triangle implementations measured 0.79% and
@@ -116,8 +121,8 @@ This supports the concern that the earlier SIMD implementation had a usage
 problem. **It is a correction to faulty SIMD, not a 17.82% improvement over the
 scalar server.** The cleaned motion SIMD feature measured only −0.60% against
 its scalar mode. See
-[the boundary comparison](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-avx-boundary.json.gz)
-and [the scalar comparison](../../../benchmarking/experiments/2026-10-01/precision-simd/results/2026-10-01-cpu-simd-motion-clean.json.gz).
+[the boundary comparison](../../../benchmarking/archive/README.md#2026-10-01)
+and [the scalar comparison](../../../benchmarking/archive/README.md#2026-10-01).
 
 The investigation also found substantial slice-load bounds/address overhead,
 and scalar floating-point spills emitted before AVX cleanup when scalar values

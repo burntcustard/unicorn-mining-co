@@ -4,6 +4,18 @@ Run from the repository root. Node-server comparisons and runners depending on
 its removed implementation have been retired. Historical reports and captures
 remain under `benchmarking/experiments` and `benchmarking/archive`.
 
+## Restore completed experiments
+
+```sh
+node benchmarking/tools/extract-experiments.ts all
+node benchmarking/tools/extract-experiments.ts 2026-10-20 /tmp/unicorn-evidence
+```
+
+This unpacks one date or all ZIPs into ignored `benchmarking/local/restored/`
+by default. Each ZIP contains its experiment tree, reports, and required inputs.
+See the [archive catalog](../archive/README.md) for dates and inventories.
+Use the recorded source revision and toolchain when running restored scripts.
+
 ## Go session CPU
 
 Build a session test executable, including the generated catalog:
@@ -114,7 +126,7 @@ For a separate dense-case diagnostic profile:
 ```sh
 GOGC=200 GOMAXPROCS=2 taskset -c 0,1 /tmp/pirate-after.test -test.run '^$' \
   -test.bench '^BenchmarkPirateCombat/dense$' -test.benchtime=30000x \
-  -test.cpuprofile=/tmp/pirate.pprof -test.memprofile=/tmp/pirate.mem
+  -test.cpuprofile=/tmp/pirate.pprof -test.memprofile=/tmp/pirate.heap.pprof
 go tool pprof -top -cum -focus=tickSector -ignore=newPirateCombatBenchmark \
   /tmp/pirate-after.test /tmp/pirate.pprof
 ```

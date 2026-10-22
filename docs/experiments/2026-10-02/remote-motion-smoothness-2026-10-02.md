@@ -1,5 +1,10 @@
 # Remote movement smoothness follow-up — 2026-10-02
 
+> Evidence for this completed investigation is in the
+> [2026-10-02 archive](../../../benchmarking/archive/README.md#2026-10-02).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-02`.
+
 The first presentation fix removed instantaneous reconciliation jumps. This
 follow-up tests motion between display frames, every player's perspective,
 bidirectional latency, omitted stationary deltas and packet stalls.
@@ -69,7 +74,7 @@ are deterministic. Browser capture runs after those processes finish.
 
 The baseline is the working source after the first collision-presentation fix.
 The archive retains both versions' complete source, hashes and individual runs:
-[raw smoothness comparison](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-smoothness.json.gz).
+[raw smoothness comparison](../../../benchmarking/archive/README.md#2026-10-02).
 Its embedded baseline can be reused without a separate Git commit:
 
 ```sh
@@ -122,7 +127,7 @@ to 161.9 ms; steady delivery remains 106.7 ms, including the fixture's 40 ms
 one-way delay. Slow sampling remains smooth with a 173.3 ms mean delay.
 
 The broad comparison precedes the final history-overrun guard. A separate
-[three-run outage comparison](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-outage-recovery.json.gz)
+[three-run outage comparison](../../../benchmarking/archive/README.md#2026-10-02)
 verifies that guard at 4/8/16/32 entities: in the one-second-outage profile,
 stalled frames fall from 201 to 57, mean delay falls from 267.3 to 125.4 ms and
 mean speed change falls from 51.61 to 9.38 units/s. Every other clock-profile
@@ -135,7 +140,7 @@ three active players. Receipt and reconciliation jumps are zero in every
 window. Each records 727–729 displayed frames at 59.8–59.9 fps, with a
 16.7–16.8 ms 95th-percentile frame gap. Rare maximum gaps are 33.3–50 ms,
 including screenshot capture. The trace retains per-frame poses:
-[raw browser recording](../../../benchmarking/experiments/2026-10-02/remote-motion/results/2026-10-02-remote-browser.json.gz).
+[raw browser recording](../../../benchmarking/archive/README.md#2026-10-02).
 Chrome and the two test servers are stopped afterward.
 
 The browser harness resolves the app's loaded module URLs, including Vite's

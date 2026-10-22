@@ -2028,8 +2028,10 @@ for (const delay of [1, 3, 8]) {
   prediction.setLocalPlayer({ playerId: 1 });
   const packets = [];
   const emitted = [];
-  for (let tick = 0; tick < 160; tick++) {
-    const input = { ...playerInput, plasmaActive: true, autogunActive: true, fire: tick < 130 };
+  // The first fracture occurs at tick 99. Keep delayed reconciliation and a
+  // release afterward without simulating another second of identical flight.
+  for (let tick = 0; tick < 128; tick++) {
+    const input = { ...playerInput, plasmaActive: true, autogunActive: true, fire: tick < 112 };
     emitted.push(...prediction.step({ input, send() {} }));
     updateWorld({ world: server, inputs: new Map([[1, input]]) });
     packets.push({
@@ -2039,7 +2041,7 @@ for (const delay of [1, 3, 8]) {
         cloneEntity({ entity }),
       ),
     });
-    const packet = packets[tick - delay];
+    const packet = packets.length > delay ? packets.shift() : undefined;
     if (packet) prediction.reconcile(packet);
     client.entities.get(1).updateVisual(1 / 60);
     if (tick % 21 === 0) {

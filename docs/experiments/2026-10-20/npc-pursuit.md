@@ -1,5 +1,10 @@
 # NPC pursuit through usable asteroid gaps — 20 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-20 archive](../../../benchmarking/archive/README.md#2026-10-20).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-20`.
+
 Selective asteroid geometry and a short, obstacle-clipped pursuit forecast reduce
 accumulated excess lag by **28.2% for moving points** and **34.2% for physical
 player ships** across 15 five-minute courses of each kind. These expanded results

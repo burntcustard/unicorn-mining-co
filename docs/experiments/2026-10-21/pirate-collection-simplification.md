@@ -1,5 +1,10 @@
 # Courser collection simplification — 21 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-21 archive](../../../benchmarking/archive/README.md#2026-10-21).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-21`.
+
 The collection and movement implementation is **75 lines shorter**, from 588 to
 513 lines across four production files. The controller and collision helper
 shrink from 272 to 177 lines, approximately **35% less code**. The four primary
@@ -106,7 +111,7 @@ totaling 305,788 raw bytes. The server shrinks from 13,369,504 to 13,365,408 byt
 (-4,096). Deterministic gzip level 9 shrinks from 5,633,810 to 5,632,134 bytes
 (-1,676), using the same compressor for both measurements.
 
-The [evidence archive](../../../benchmarking/experiments/2026-10-21/pirate-collection-simplification/README.md)
+The [evidence archive](../../../benchmarking/archive/README.md#2026-10-21)
 contains preserved sources, raw experiments, seeded fixtures, and reproduction
 commands. The earlier [behavior](pirate-collection.md) and
 [CPU](pirate-collection-cpu.md) reports describe the preceding implementations.

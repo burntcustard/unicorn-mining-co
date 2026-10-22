@@ -1,7 +1,0 @@
-{
-  "baseline/collection.go.txt": "2f48219001b53735e4d9ec212e53376fe5ff94f97a5e5cf626fc06b823f32f4d",
-  "baseline/movement.go.txt": "ba9ab1d8c20c721987799993040ef540f7c41a8c85c2d4761aa800a2163a53bb",
-  "baseline/pirate-collection-benchmark_test.go.txt": "a24182e9831dcc1410637191dbe2ad464c619c4ed1bbe77da74a72e0eb2caae5",
-  "baseline/pirate-movement.go.txt": "b5d7bac90b7bc074037b6481bbe74f497217e2058cbbe894cdd9684b33d0f575",
-  "baseline/pirates.go.txt": "813b0861c71e9e254e07d22f8666a9ce1ea8f70c611bc8da849cfd05c2fe3451"
-}

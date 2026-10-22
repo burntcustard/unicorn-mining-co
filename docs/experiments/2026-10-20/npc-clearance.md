@@ -1,5 +1,10 @@
 # Removing NPC clearance distance — 20 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-20 archive](../../../benchmarking/archive/README.md#2026-10-20).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-20`.
+
 The experiment did not support removing `clearanceDistance`. Production remains
 at 1. Complete removal passes the movement tests, but changes pursuit behavior:
 accumulated excess lag rises 5.5%, time beyond 700 units rises 21.5%, and the

@@ -77,6 +77,7 @@ The debug state follows the same phase as the held movement and weapon inputs.
 */
 func (s *GameSession) beginPirateAttack(npc *pirate, now float64, lines []string) {
 	npc.reDemandAfter = 0
+
 	if npc.state != pirateStranded {
 		npc.state = pirateWaiting
 	}

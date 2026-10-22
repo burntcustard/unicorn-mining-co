@@ -1,5 +1,10 @@
 # NPC circle navigation and maneuvers — 20 October 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-20 archive](../../../benchmarking/archive/README.md#2026-10-20).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-20`.
+
 NPC navigation now uses obstacle radii. Acceleration-based corner steering,
 coasting through turns, opposing-engine braking, and shorter momentum-aware
 flybys improve pursuit without changing ship physics or maximum speed.

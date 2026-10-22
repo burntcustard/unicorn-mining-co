@@ -2,8 +2,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const fixtures = JSON.parse(
   execFileSync('go', ['run', 'src/server/testtools/ship-destruction/main.go'], {
@@ -191,7 +192,7 @@ for (const production of [false, true]) {
             : undefined,
       },
       buildPrePlugin(),
-      ...(production ? [{ ...buildPlugin(), generateBundle: undefined }] : []),
+      ...(production ? [testBuildPlugin()] : []),
     ],
   });
 

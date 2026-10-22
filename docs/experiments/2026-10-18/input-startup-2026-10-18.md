@@ -1,5 +1,10 @@
 # Browser input and startup follow-up — October 18, 2026
 
+> Evidence for this completed investigation is in the
+> [2026-10-18 archive](../../../benchmarking/archive/README.md#2026-10-18).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-18`.
+
 The performance changes use the same production code in Chrome and Firefox.
 The HUD map-size cache uses `ResizeObserver`; there is no Firefox detection or
 forced graphics preference. Browser-specific automation in the input runner
@@ -117,7 +122,7 @@ browser processes were stopped.
 
 ## Evidence and reproduction
 
-The [retained evidence](../../../benchmarking/experiments/2026-10-18/input-startup/README.md)
+The [retained evidence](../../../benchmarking/archive/README.md#2026-10-18)
 contains all 42 captures from this investigation, including failures, temporary
 server timing logs, final source snapshots, a product patch, source hashes,
 resource sizes, and verification logs. Only the seven `verified-*` captures

@@ -1,5 +1,10 @@
 # Persistent packed physics investigation — 2026-10-01
 
+> Evidence for this completed investigation is in the
+> [2026-10-01 archive](../../../benchmarking/archive/README.md#2026-10-01).
+> Restore the original paths and reproduction instructions with
+> `node benchmarking/tools/extract-experiments.ts 2026-10-01`.
+
 The continued investigation and retained implementation are documented in [Solver, persistent caches and SIMD follow-up](go-server-solver-redesign-2026-10-01.md).
 
 Persistent packing reduced the calculated storage of small float32 shapes and accelerated one hot kernel, but **did not establish a whole-server CPU saving across 1,024 measured sessions**. The longer two-core confirmation was effectively unchanged. The evidence shifts the next performance hypothesis toward batching independent constraints across islands, rather than repacking each small shape.
@@ -94,18 +99,18 @@ FP16 or small fixed-point coordinates are possible storage experiments, but are 
 
 ## Measurements
 
-| Experiment                                                                                                                                                                 | Repetitions / ticks | Mean CPU change | Aggregate CPU change |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------: | --------------: | -------------------: |
-| [Four-array float64, scalar](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f64-scalar.json.gz)                                 |             3 / 900 |          -0.06% |               +0.86% |
-| [Four-array float64, SIMD separation](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f64-simd.json.gz)                          |             3 / 900 |          +0.87% |               +0.20% |
-| [Four-array float32, scalar consumers](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f32-scalar.json.gz)                       |             3 / 900 |          -0.95% |               +1.04% |
-| [Four-array float32, SIMD separation](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-f32-simd.json.gz)                          |             3 / 900 |          -0.25% |               +0.30% |
-| [Flat float64, SIMD separation](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f64-simd.json.gz)                           |             3 / 900 |          +0.87% |               +0.33% |
-| [Flat float32, SIMD separation](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f32-simd.json.gz)                           |             3 / 900 |          -0.66% |               -0.07% |
-| [Flat float64, separation + support](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f64-pipeline.json.gz)                  |             3 / 900 |          -0.22% |               -0.65% |
-| [Flat float32, separation + support](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-flat-f32-pipeline.json.gz)                  |             3 / 900 |          -2.10% |               -0.18% |
-| [Paged body solver state](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-bodies.json.gz)                                        |             3 / 900 |          -0.34% |               -0.08% |
-| [Flat float64 pipeline: longer two-core confirmation](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-cpu-packed-confirm-two-cores.json.gz) |            5 / 3000 |          +0.39% |               -0.03% |
+| Experiment                                                                                                | Repetitions / ticks | Mean CPU change | Aggregate CPU change |
+| --------------------------------------------------------------------------------------------------------- | ------------------: | --------------: | -------------------: |
+| [Four-array float64, scalar](../../../benchmarking/archive/README.md#2026-10-01)                          |             3 / 900 |          -0.06% |               +0.86% |
+| [Four-array float64, SIMD separation](../../../benchmarking/archive/README.md#2026-10-01)                 |             3 / 900 |          +0.87% |               +0.20% |
+| [Four-array float32, scalar consumers](../../../benchmarking/archive/README.md#2026-10-01)                |             3 / 900 |          -0.95% |               +1.04% |
+| [Four-array float32, SIMD separation](../../../benchmarking/archive/README.md#2026-10-01)                 |             3 / 900 |          -0.25% |               +0.30% |
+| [Flat float64, SIMD separation](../../../benchmarking/archive/README.md#2026-10-01)                       |             3 / 900 |          +0.87% |               +0.33% |
+| [Flat float32, SIMD separation](../../../benchmarking/archive/README.md#2026-10-01)                       |             3 / 900 |          -0.66% |               -0.07% |
+| [Flat float64, separation + support](../../../benchmarking/archive/README.md#2026-10-01)                  |             3 / 900 |          -0.22% |               -0.65% |
+| [Flat float32, separation + support](../../../benchmarking/archive/README.md#2026-10-01)                  |             3 / 900 |          -2.10% |               -0.18% |
+| [Paged body solver state](../../../benchmarking/archive/README.md#2026-10-01)                             |             3 / 900 |          -0.34% |               -0.08% |
+| [Flat float64 pipeline: longer two-core confirmation](../../../benchmarking/archive/README.md#2026-10-01) |            5 / 3000 |          +0.39% |               -0.03% |
 
 The nine screening comparisons total 864 measured processes. The follow-up adds 160 processes, for **1,024 measured sessions**. The longer test uses five repetitions, 3,000 ticks, GOMAXPROCS=2 and affinity to CPUs 0 and 1 for both sides, comparing the exact same baseline and flat-float64-pipeline binaries. It measures **−0.027% aggregate CPU** and **+0.395% equal-scenario mean CPU**, with strict outcomes matching. This is no established gain. An exploratory paired bootstrap (10,000 resamples within each scenario, recomputing the median aggregate) gives a 95% interval of **-0.43% to +0.42%**. It describes repeat variability on this machine, not uncertainty across CPUs or production workloads.
 
@@ -144,10 +149,10 @@ Validation performed:
 - Four-array float32 separation passed 50,000 randomized scalar/SIMD comparisons. The flat float32 pipeline passed 50,000 separation and 50,000 support-index comparisons. Separation cases include world offsets of 0, 10 million and 20 million, with the same local-size shapes.
 - The flat float64 pipeline passed the collision and physics suites, including the corresponding randomized tests and existing shared fixtures.
 - The body-state prototype passed the physics suite and a repeated allocate/release test checking that reused slots are cleared, live state is not aliased, and a small fixed live population does not grow the pool.
-- The [JavaScript kernel reference](../../../benchmarking/experiments/2026-10-01/packed-physics/packed-physics-parity.ts) reproduced all 1,000 supplied-transform Go cases with zero numeric or selected-axis differences. Input float32 arrays must also be rounded after decoding their JSON decimal representations. This is kernel parity, **not full changed-simulation parity**; it does not cover TypeScript's own transform generation, every boundary case, or browser engines.
+- The [JavaScript kernel reference](../../../benchmarking/archive/README.md#2026-10-01) reproduced all 1,000 supplied-transform Go cases with zero numeric or selected-axis differences. Input float32 arrays must also be rounded after decoding their JSON decimal representations. This is kernel parity, **not full changed-simulation parity**; it does not cover TypeScript's own transform generation, every boundary case, or browser engines.
 - Production builds before/after passed. Lint passed with the same two existing `unicorn(no-new-array)` warnings. Production source, PGO and bundles are unchanged: entry 115,157 B / 50,909 B gzip, docked 4,708 / 2,431, sound 1,681 / 942, Node server 100,475 / 43,458.
 
-See the [kernel timings](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-geometry-kernel.txt), [geometry/island audit](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-audit.json), [whole-world batch audit](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-world-audit.json), and [kernel parity summary](../../../benchmarking/experiments/2026-10-01/packed-physics/results/2026-10-01-packed-physics-parity.json). The source patches are linked below; no approximate prototype has been promoted to production.
+See the [kernel timings](../../../benchmarking/archive/README.md#2026-10-01), [geometry/island audit](../../../benchmarking/archive/README.md#2026-10-01), [whole-world batch audit](../../../benchmarking/archive/README.md#2026-10-01), and [kernel parity summary](../../../benchmarking/archive/README.md#2026-10-01). The source patches are linked below; no approximate prototype has been promoted to production.
 
 ## Artifacts and reproduction
 

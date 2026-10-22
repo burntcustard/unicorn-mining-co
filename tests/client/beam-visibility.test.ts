@@ -4,6 +4,7 @@ import { rolldown } from 'rolldown';
 import { buildPrePlugin } from '../../plugins/build-plugins';
 import { stripIfdef } from '../../plugins/replace-pre-terser';
 import { testBuildPlugin } from '../support/build-plugin';
+import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
 const fixture = execFileSync(
@@ -11,6 +12,7 @@ const fixture = execFileSync(
   ['run', 'src/server/testtools/beam-visibility/main.go'],
   { encoding: 'utf8' },
 );
+const fixtureInput = fixtureSource(JSON.parse(fixture));
 
 Object.assign(globalThis, {
   location: { protocol: 'http:', host: 'localhost' },
@@ -41,7 +43,7 @@ game.ctx = {
   createRadialGradient() { return { addColorStop() {} }; },
 };
 game.scale = 1;
-const fixture = ${fixture};
+const fixture = ${fixtureInput};
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
 const connect = () => {
   const client = new NetworkClient({ url: 'test' });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin.ts';
 
 // These DOM methods remain outside the production transform, like the browser.
 class Canvas {
@@ -133,9 +134,7 @@ Reflect.set(globalThis, 'surface-test', action => {
           load: (id) => (id === entry ? source : undefined),
         },
         buildPrePlugin(),
-        ...(production
-          ? [{ ...buildPlugin(), generateBundle: undefined }]
-          : []),
+        ...(production ? [testBuildPlugin()] : []),
       ],
     });
 
