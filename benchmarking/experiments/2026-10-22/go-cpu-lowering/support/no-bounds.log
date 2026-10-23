@@ -1,5 +1,0 @@
-16/spread: 0.340552 -> 0.334840 ms CPU/tick (1.02x)
-16/module: 0.619554 -> 0.610927 ms CPU/tick (1.01x)
-32/spread: 0.494345 -> 0.486113 ms CPU/tick (1.02x)
-32/module: 1.408193 -> 1.382073 ms CPU/tick (1.02x)
-benchmarking/local/cpu-lowering-2026-10-22-no-bounds.json

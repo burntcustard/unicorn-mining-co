@@ -7,7 +7,7 @@
 
 Leave the station by pressing any key, fly around, shine the <ins>L</ins>IGHT into asteroids to search for valuable resources, turn on the <ins>D</INS>RILL to mine those resources out, open the cargo <ins>H</ins>ATCH to scoop them up, and then dock at one of the many stations to sell items, repair your ship, and buy upgrades like thrusters or a <ins>S</ins>HIELD.
 
-Press **P** to deploy or retract Plasma Accelerators and **A** for Autoguns. Deployment takes 0.7 seconds, followed by a 2-second plasma charge or 0.7-second autogun spin-up. Hold **Space** to fire ready weapons. Active weapons take no damage. The Plasma Accelerator fires once every 2 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autogun fires four times per second and consumes one round per shot. Each Autogun ammunition pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autogun hits split a fresh asteroid chunk.
+Press **P** to deploy or retract Plasma Accelerators and **A** for Autoguns. Deployment takes 0.7 seconds, followed by a 2-second plasma charge or 0.7-second autogun spin-up. Hold **Space** to fire ready weapons. Active weapons take no damage. The Plasma Accelerator fires once every 2 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autogun fires five times per second and consumes one round per shot. Each Autogun ammunition pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autogun hits split a fresh asteroid chunk.
 
 There are six rainbow-inspired colors, plus white, that you can color your ship parts with for free. You start with white and violet, but the others you unlock through exploration in the game. There is no death screen (you just have to refresh) or saving (no space, no pun intended, sorry), but if you manage to unlock all 5 of the non-starting colors, then you can consider yourself having complicated the game!
 
@@ -305,8 +305,6 @@ specs to Go. Test scenarios live in `tests/parity/scenarios`; one runner,
 `tests/fixtures` for client/server simulation and protocol comparisons. Scenario
 masses, health values, coordinates, seeds, and tick counts are test inputs,
 not runtime defaults. Item construction and HTTP handling use direct tests.
-Historical reports under `docs/experiments` record the values used by the
-measured checkout.
 
 ## Documentation
 
@@ -317,16 +315,11 @@ measured checkout.
 - [Todo](docs/todo.md)
 - [Ideas](docs/ideas.md)
 
-### Measurements and history
+### Benchmarks
 
-- [Experiment reports](docs/experiments/README.md): dated investigations and decisions.
-- [Benchmark tools and artifacts](benchmarking/README.md): runners, captured results, and reproduction instructions.
-- [Older reports and results](benchmarking/archive/README.md): compressed history and extraction instructions.
-
-Current references stay directly under `docs/`. Put new investigation reports in
-`docs/experiments/YYYY-MM-DD/` and their evidence in the matching date/topic under
-`benchmarking/experiments/`. Historical reports describe the measured checkout;
-they are not current configuration instructions.
+[Benchmark instructions](benchmarking/README.md) describe the single-browser
+rendering suite, lightweight server CPU matrix, and four-client input latency
+suite. New captures go under ignored `benchmarking/_local/`.
 
 ## Deploy on Fly.io
 

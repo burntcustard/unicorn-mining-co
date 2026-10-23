@@ -1,8 +1,0 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-const root='benchmarking/local/cpu-game-2026-10-22';
-writeFileSync(`${root}/ack-only-final-overlay.json`,JSON.stringify({Replace:{
- [resolve('src/server/network/websocket.go')]:resolve(`${root}/before/src/server/network/websocket.go.txt`),
- [resolve('src/server/network/websocket-direct_linux.go')]:'',
- [resolve('src/server/network/websocket-direct_other.go')]:'',
-}},null,2));

@@ -1,56 +1,107 @@
-# Benchmarking
+# Benchmarks
 
-Run commands from the repository root. Keep reusable runners, saved evidence,
-and disposable local output separate:
+Build with `npm run build` and run one suite at a time. Local benchmarks use the
+normal frontend and Go server on ports 3000/3001. Captures are saved in
+`benchmarking/_local/`, including partial results when a run fails.
 
-| Location                                            | Contents                                                                         |
-| --------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [tools/](tools/README.md)                           | Benchmark runners, workloads, and detailed usage                                 |
-| [live/](live/README.md)                             | Live deployment instructions, results.md, and historical harnesses               |
-| [experiments/](experiments/README.md)               | Retained captures, patches, and profiles, grouped by date and topic              |
-| [archive/](archive/README.md)                       | Compressed older reports and results, with checksums and extraction instructions |
-| [profiles/](profiles/README.md)                     | Immutable PGO inputs deduplicated by content hash                                |
-| `local/`                                            | Ignored scratch output from new runs                                             |
-| [Experiment reports](../docs/experiments/README.md) | Findings, decisions, limitations, and reproduction commands                      |
+| Suite                | Command                                                         |
+| -------------------- | --------------------------------------------------------------- |
+| Rendering            | `npm run benchmark -- --browser chrome`                         |
+| Server CPU, local    | `npm run benchmark:server:local -- --cores 2`                   |
+| Server CPU, live     | `npm run benchmark:server:live`                                 |
+| Input latency, local | `npm run benchmark:latency`                                     |
+| Input latency, live  | `npm run benchmark:latency -- --url https://unicorn-mining.co/` |
 
-## Common checks
+All suites accept `--output PATH`. Finish builds, tests and profiles before
+measuring performance.
 
-| Check                               | Command                                                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Browser rendering                   | `npm run benchmark` or `npm run benchmark:headless` (standard Go/Vite pair; Vite in `--mode benchmark`) |
-| Live deployment (4/8/16/32 players) | `node benchmarking/tools/live.ts`                                                                       |
-| Two-client input response           | `node benchmarking/tools/input-response-browser.ts /tmp/response.json.gz 5 chrome`                      |
-| Four-client presentation            | `node benchmarking/tools/remote-browser.ts /tmp/remote.json.gz`                                         |
-| Brief network outage                | `node benchmarking/tools/stall-browser.ts /tmp/stall.json.gz 5 network`                                 |
+## Rendering
 
-The client response, presentation, and outage checks require a fresh game server
-on 3001 and Vite on 3000, using the normal proxy. Follow the repository's
-[local testing workflow](../.agents/skills/codebase-workflow/SKILL.md), and stop
-the processes when finished. The response/outage delay argument is milliseconds
-**each way**, so `5` models a 10 ms round trip. CPU comparisons should run
-sequentially without builds or browser captures competing for resources.
+One visible browser runs at the monitor's native resolution and pixel density.
+Choose `--browser chrome` (default) or `--browser firefox`. A short idle calibration
+measures refresh cadence automatically; frame statistics use that measured period.
 
-The input runner also supports `firefox` and visible windows with
-`INPUT_RESPONSE_HEADFUL=1`. It applies artificial transit in the development
-proxy while retaining native browser sockets. See the
-[input/startup results](../docs/experiments/2026-10-18/input-startup-2026-10-18.md)
-for corrected timing methods and retained failures.
-Its timing regression checks live in
-[`tests/client/input-response.test.ts`](../tests/client/input-response.test.ts).
+| Scenario | Workload                                                         |
+| -------- | ---------------------------------------------------------------- |
+| `live`   | Networked flight with the search light active                    |
+| `large`  | Large asteroids, weapons and fractures                           |
+| `combat` | Turning and firing among asteroids                               |
+| `flight` | Flight and firing through an asteroid corridor                   |
+| `pirate` | Three different ships fighting around asteroids using real Go AI |
 
-The rendering diagnostics also reuse that standard proxy. Start Vite with
-`npm run dev -- --strictPort --mode benchmark` for these diagnostics; their
-switches are excluded from ordinary development and production builds.
+The default runs all five. Select one with `--scenario pirate`, or pass a
+comma-separated list. Each case starts a fresh page with normal graphics, HUD
+and audio. Measurement defaults to 30 seconds; `--seconds N` changes it.
+Armed fixtures use one ordinary 200-round ammo item per ship that needs it.
 
-Go CPU runners compare separately compiled Go test executables and write
-measurements under `local/`. Their usage is in the tool reference. Other runners use
-their documented output argument or stdout. See the [tool reference](tools/README.md)
-for options and the [artifact conventions](experiments/README.md) before saving
-results in the repository. Old result metadata and embedded source snapshots
-retain their original paths; current report links point to their new locations.
+The pirate case uses a local compiler fixture. Prepare it, then start the Go
+watcher with the printed overlay setting on its normal port:
 
-The [live deployment benchmark](live/README.md) visits the
-production site with real headless browser players at 320 × 200. Every run covers
-4/8/16/32 players and four activities per count, with a two-minute cooldown only
-between player counts. It records client frame times, snapshot cadence and input
-acknowledgments, uses an installed Chrome/Chromium, and starts no local server.
+```sh
+npm run benchmark:pirate:prepare -- /tmp/unicorn-pirate-rendering
+GOFLAGS=-overlay=/tmp/unicorn-pirate-rendering/overlay.json npm run dev:server
+```
+
+Replace the existing Go watcher for this configuration, keep Vite running, and
+restore ordinary `npm run dev:server` afterward.
+
+## Server CPU
+
+The full matrix runs `convoy`, `spread`, `contact`, `module` and `weapon` for
+4, then 8, then 16, then 32 lightweight binary-protocol clients.
+Convoy follows a common heading, spread cruises through reserved clear corridors,
+and contact keeps pairs colliding. Spread reserves corridors outside station
+movement areas and checks sustained movement from every ship.
+
+```sh
+npm run benchmark:server:local -- --cores 2 --players 16 --workload spread
+npm run benchmark:server:live -- --players 8 --workload weapon
+```
+
+Start extensive local testing with `npm run reset-world:local` while the Go
+watcher is stopped, then restart it before the matrix. Live benchmarks use the
+existing world.
+
+`--cores N` limits the local Go process to any supported positive number of
+logical CPUs and restores its original affinity afterward. Load clients retain
+access to the host's CPUs. `--players` and `--workload` select individual cases.
+Defaults are 15 seconds of warmup and 30 seconds of measurement, controlled by
+`--warmup` and `--seconds`. Docking and departure operations allow ten minutes;
+mining discovery and approach share a ten-minute budget. Ships wait with neutral
+controls when ready, then start the measured workload together.
+
+Spread cruises through 1800-unit corridors checked from real snapshots. Captures
+allow up to 35 seconds; use `--repetitions N` for longer sampling.
+
+Module ships drill real asteroids in separate working areas with hatches and
+search lights active. Weapon loadouts repeat evenly: unarmed, plasma accelerator,
+autogun and beam laser.
+Ships buy and equip normally, fly outward for at least ten seconds, settle in
+clear space, then fire. Each autogun buys one 200-round item. Weapon warmup is
+nonfiring; measurements can run up to 35 seconds on that supply.
+
+Results retain CPU counters and their scope, generator CPU/memory/event-loop
+headroom, socket and receipt completion, input acknowledgments and actual work.
+Snapshot rate, gaps and skipped ticks describe server cadence separately from
+client health. Local results include isolated Go-process CPU and busy CPU on the
+selected logical CPUs; Fly machine CPU includes its OS. Compare matching scopes,
+core counts and GC settings, alongside delivered snapshot rates. The live server
+currently uses `GOGC=200`; use the same setting on the local Go watcher to compare.
+
+## Input latency
+
+Four real browser clients share the server: one actor and three observers.
+`--scenario steer|fire|both` selects actions; `--trials N` defaults to 100 per
+action. Chrome is the default; `--browser firefox` selects Firefox. Temporary
+browser contexts receive local-network permission automatically.
+
+The actor uses trusted keyboard input. Reports measure input send, decoded
+server acknowledgment and completed local/remote game draws, with per-observer
+statistics and paired averages across all three observers. Clock uncertainty,
+missed observations and browser health remain in the results. These are game
+draw timings. Local and live runs use this checkout's built production client.
+
+## Code
+
+`rendering/`, `server/` and `latency/` own their suites; `utilities/` contains
+shared helpers. Benchmark regressions live in `tests/benchmarking/`.

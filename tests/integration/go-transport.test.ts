@@ -1,5 +1,5 @@
 export {};
 
 if (process.platform === 'linux') {
-  await import('../../benchmarking/tools/go-transport-check.ts');
+  await import('../support/go-transport-check.ts');
 }

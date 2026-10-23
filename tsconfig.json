@@ -16,7 +16,9 @@
     "plugins/**/*.ts",
     "scripts/**/*.ts",
     "vite.config.ts",
-    "benchmarking/tools/**/*.ts",
-    "benchmarking/experiments/**/*.ts"
+    "benchmarking/rendering/**/*.ts",
+    "benchmarking/server/**/*.ts",
+    "benchmarking/latency/**/*.ts",
+    "benchmarking/utilities/**/*.ts"
   ]
 }

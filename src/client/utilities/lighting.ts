@@ -9,10 +9,6 @@ import {
   glowBlur,
 } from '../../specs/lighting';
 
-// @ifdef BENCHMARK
-import { benchmarkFlag } from '../debug/benchmark';
-
-// @endif
 import { colors } from '../../specs/colors';
 import { Craft } from '../objects/craft';
 import { type GameObject } from '../objects/game-object';
@@ -159,7 +155,9 @@ const gradientPattern = (
       image = document.createElement('canvas');
       image.width = 256;
       image.height = 1;
-      const paint = image.getContext('2d');
+      // Software Canvas consumers must not read GPU pixels per hull fill.
+      // This small immutable source also uploads once for GPU consumers.
+      const paint = image.getContext('2d', { willReadFrequently: true });
       const ramp = paint.createLinearGradient(256 / 6, 0, (256 * 5) / 6, 0);
 
       ramp.addColorStop(0, first);
@@ -189,12 +187,6 @@ const litFill = (
   light: number,
   shade: (along: number) => string,
 ) => {
-  // @ifdef BENCHMARK
-  if (benchmarkFlag('noLighting') || benchmarkFlag('noGradients')) {
-    return shade(0.5);
-  }
-  // @endif
-
   const [middleX, middleY] = shape.middle!;
   const towardX = Math.cos(light) * shape.reach;
   const towardY = Math.sin(light) * shape.reach;
@@ -355,11 +347,6 @@ export const drawBeam = ({
   // @ifdef DEBUG
   if (!lights) return;
   // @endif
-  // @ifdef BENCHMARK
-
-  if (benchmarkFlag('noLighting') || benchmarkFlag('noBeam')) return;
-  // @endif
-
   let cached = beamImages.get(path);
   const scale = game.scale;
   const padding = glowBlur * 2;
@@ -391,15 +378,8 @@ export const drawBeam = ({
 
     // Bake the same screen-pixel blur once. The traced rock edge still clips
     // both the cone and its glow when the cached image is drawn each frame.
-    // @ifdef BENCHMARK
-    if (!benchmarkFlag('noBlur')) {
-      // @endif
-      paint.shadowBlur = glowBlur;
-      paint.shadowColor = color;
-      // @ifdef BENCHMARK
-    }
-
-    // @endif
+    paint.shadowBlur = glowBlur;
+    paint.shadowColor = color;
     paint.fillStyle = gradient;
     paint.fill(path);
     cached.images.set(color, canvas);

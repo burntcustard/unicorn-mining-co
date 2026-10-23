@@ -1,5 +1,0 @@
-2026-10-22T12:41:12.740Z: joining 32 players / module
-2026-10-22T12:41:34.568Z: MEASUREMENT START / 32 players / module / 45s / 320x200
-2026-10-22T12:42:19.910Z: MEASUREMENT END / 32 players / module
-{"players":32,"workload":"module","tickHz":30.144861591775125,"fps":2.1762592324466925,"ackP95":553.6000000014901,"hostCpu":99.85006671343484}
-Scratch capture: benchmarking/local/ack-browser-before-3.json.gz

@@ -1,8 +1,0 @@
-{
-  archive: 'benchmarking/experiments/2026-10-22/go-cpu-lowering',
-  selected: 15,
-  sourceHash: {
-    before: '507091254a0724fdcc3f36a14b1cd28b41896af59ed4df1d2275f5719d51917f',
-    after: '52303a73a689203ada16c7223097f22baacb91f05f5e6e463647a1b0ae70d7ad'
-  }
-}

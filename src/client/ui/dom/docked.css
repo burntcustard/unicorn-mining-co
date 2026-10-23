@@ -47,64 +47,43 @@
   }
 
   .dock-group {
-    background: var(--ui-panel);
+    display: grid;
+    box-shadow: inset 0 0 0 var(--ui-border-width) var(--ui-line);
+
+    --divider: rgb(from var(--ui-line) r g b / 0.4);
+    background: linear-gradient(
+      var(--divider) 1px,
+      transparent 1px calc(var(--ui-row-height) - 1px),
+      var(--divider) 0
+    ) 0 calc(var(--ui-border-width) / 2) / 100% var(--ui-row-height), var(--ui-panel);
+
+    .ui-button {
+      height: var(--ui-row-height);
+
+      &:is(:first-child, :last-child) {
+        height: calc(var(--ui-row-height) + var(--ui-border-width) / 2);
+      }
+
+      &:only-child {
+        height: calc(var(--ui-row-height) + var(--ui-border-width));
+      }
+
+      &::before {
+        height: calc(var(--ui-row-height) + var(--ui-border-width));
+      }
+
+      /* dock-group buttons dont have visible borders when not interacted with */
+      &:not(:is([aria-pressed="true"], :hover:not(:disabled), :focus-visible))::before {
+        border-color: transparent;
+      }
+
+      &:not(:first-child)::before {
+        top: calc(-0.5 * var(--ui-border-width));
+      }
+    }
   }
 
   .dock-row {
-    position: relative;
-    width: 100%;
-    height: var(--ui-row-height);
-    padding-block: 0;
-    white-space: nowrap;
-
-    &::before,
-    &::after {
-      content: '';
-      position: absolute;
-      inset-inline: -2px;
-      height: 4px;
-    }
-
-    &::before {
-      top: -6px;
-    }
-
-    &::after {
-      bottom: -6px;
-    }
-
-    &:not(:first-child) {
-      border-top-width: 0;
-      box-shadow: inset 0 var(--ui-border-width) rgb(from #eef r g b / 0.1);
-    }
-
-    &:not(:last-child) {
-      border-bottom-width: 0;
-    }
-
-    &:not(:first-child)::before,
-    &:not(:last-child)::after {
-      display: none;
-    }
-
-    &:is(
-      :hover:not(:where(.dock-keyboard *)),
-      :focus-visible:not(:where(.dock-pointer *)),
-      [aria-pressed='true']
-    ) {
-      outline: none;
-      z-index: 1;
-    }
-
-    &:is(
-        :hover:not(:where(.dock-keyboard *)),
-        :focus-visible:not(:where(.dock-pointer *))
-      ):not([aria-pressed='true']) {
-      border-color: var(--ui-color);
-      outline: var(--ui-border-width) solid var(--ui-color);
-      outline-offset: calc(-1 * var(--ui-border-width));
-    }
-
     &:where(:not(.dock-trade-row)) > :first-child {
       flex: none;
       width: 24px;
@@ -113,19 +92,26 @@
       place-items: center;
       color: var(--ui-color);
     }
+  }
 
-    &[aria-pressed='true'] > * {
-      color: inherit;
-    }
+  .dock-row + .dock-row {
+    /* margin-top: -2px; */
 
-    &.dock-empty:not([aria-pressed='true']) {
-      color: #bbc;
-    }
+    /* &:before {
+      z-index: -1;
+      position: absolute;
+      top: 0;
+      left: var(--ui-border-width);
+      right: var(--ui-border-width);
+      content: '';
+      background: var(--ui-line);
+      height: var(--ui-border-width);
+    } */
   }
 
   .dock-row-text,
   .dock-trade-name::after {
-    transform: translateY(0.1em);
+    transform: translateY(0.05em);
   }
 
   .dock-row > small,

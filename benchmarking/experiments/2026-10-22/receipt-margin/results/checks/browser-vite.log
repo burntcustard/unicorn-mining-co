@@ -1,7 +1,0 @@
-npm notice run unicorn-mining-co@0.1.0 dev
-npm notice run vite --strictPort
-
-  VITE v8.3.0  ready in 176 ms
-
-  ➜  Local:   http://localhost:3000/
-  ➜  Network: use --host to expose

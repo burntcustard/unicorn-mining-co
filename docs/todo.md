@@ -1,6 +1,19 @@
 # TODO
 
+## Next prompt(?)
+
+Ensure that when the full suite of rendering benchmarks is run (rather than just one of them by itself), as little time as possible is wasted between them doing things like closing/opening the web browser or setting up, resetting, etc. the world. We want one rendering benchmark category to run straight away after another. We also want to show the FPS on the screen in those benchmarks - we have an FPS toggle in the game so it can probably be toggled on in each of the rendering benchmarks with a single keypress or something similarly simple and hopefully only a line or two extra of benchmark code.
+
+Also ensure that words like "benchmarking" and other frequently used words in our recent uncommitted changes have been added to our terminology.md, with brief (a sentance or two if really needed) explanations, and that we haven't accidentally used incorrect words in our new benchmarking code, and/or check if there's any existing terminology entries that may need updating slightly.
+
 ## Ongoing
+
+[-] Server CPU performance improvements
+[-] Client render performance improvements
+[-] More ships
+[-] More modules
+[-] New full test suite
+[-] Better benchmarking FPS test suite
 
 ## High Priority
 
@@ -52,9 +65,8 @@
 [ ] PWA-ish stuff like webmanifest
 [x] Remove unecessary docs like build-size-breakdown.md
 [x] Remove active roadroller/zip build tooling
-[ ] New full test suite
+
 [ ] Rethink update area ratios and timings
-[ ] Better benchmarking FPS test suite
 [ ] Rethink sound, perhaps more ZzFX-ey
 [x] Remove auto-approve things in .vscode/settings.json
 [ ] Figure out if there's anything else we can remove
@@ -71,7 +83,6 @@
 [ ] Neaten up files, especially player.ts & vector.ts
 [ ] Better non-debug-only FPS counter with memory usage etc.
 [ ] Refine module (mount?) categories like thrusters
-[ ] More modules.
 [?] Fix floodlight not revealing along its edge pixels
 [?] Smoothly move camera to center of station again
 [ ] Ensure tests aren't overlapping with each other

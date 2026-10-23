@@ -46,10 +46,6 @@ import { GameLoop } from './game-loop';
 import { Ship } from './objects/ship';
 import { moduleControls } from './objects/control-ship';
 
-// @ifdef BENCHMARK
-import { benchmarkFlag } from './debug/benchmark';
-
-// @endif
 import { paintColors } from '../specs/colors';
 import { glowBlur } from '../specs/lighting';
 import { type Identity } from './ui/dom/identity';
@@ -285,18 +281,6 @@ const syncSimulationObjects = (dt: number) => {
   });
 };
 
-// @ifdef BENCHMARK
-if (benchmarkFlag('field')) {
-  player.started = true;
-
-  Object.assign(player.ship, {
-    dockedTo: 0,
-    launching: 0,
-    position: Vec.create(),
-  });
-}
-// @endif
-
 // @ifdef DEBUG
 // Lets the console (and automated checks) watch the clock the client is
 // predicting on against the last tick the server reported.
@@ -392,15 +376,9 @@ const gameLoop = GameLoop({
           : undefined,
       );
     }
-    // The sky slides past at its own pace, so it moves itself
-    // @ifdef BENCHMARK
 
-    if (!benchmarkFlag('noBackground')) {
-      // @endif
-      renderSky();
-      // @ifdef BENCHMARK
-    }
-    // @endif
+    // The sky slides past at its own pace, so it moves itself.
+    renderSky();
 
     const { ctx, scale } = game;
     const zoom = network.shipDestroyed ? 1 : holeZoom(renderedShip.transitTime);

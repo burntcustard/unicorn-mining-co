@@ -459,48 +459,6 @@ func TestPirateObserverRange(t *testing.T) {
 	}
 }
 
-func BenchmarkPirateSession(b *testing.B) {
-	for _, count := range []int{0, 1, 8} {
-		b.Run(strconv.Itoa(count), func(b *testing.B) {
-			catalog, _ := specs.Load()
-			s := NewGameSession(25, catalog)
-			socket := &benchmarkSocket{}
-			s.Receive(protocol.Control{Type: "hello"}, socket)
-			p := s.playersBySocket[socket]
-			home := s.nearestStation(p.ship.Position)
-			p.ship.Position = Vec.Add(home.Position, Vec.Create(home.Radius+700, 0))
-
-			for range 7 {
-				id := simulation.EntityID(s.World)
-				item := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: &id}, catalog)
-				item.Mined = true
-				p.ship.CargoContents = append(p.ship.CargoContents, item)
-			}
-
-			for i := 0; i < count; i++ {
-				npc := s.spawnPirate(p, home)
-				npc.ship.Launching = 0
-				npc.ship.Position = Vec.Add(p.ship.Position, Vec.Create(float64(i%4)*160-240, float64(i/4)*200+350))
-			}
-
-			p.pirateAfter = math.MaxUint64
-			b.ReportAllocs()
-			b.ResetTimer()
-
-			for b.Loop() {
-				for _, npc := range s.sectors[s.currentSector].pirates {
-					npc.state = pirateWaiting
-					npc.warnedAt = float64(s.World.Tick) * catalog.Simulation.SimulationStep
-					npc.spawnedAt = npc.warnedAt
-				}
-
-				s.Receive(protocol.Control{Type: "snapshotAck", Sequence: socket.sequence}, socket)
-				s.Tick(1)
-			}
-		})
-	}
-}
-
 func TestCargoReleaseRepeatsEveryHalfSecondWhileHeld(t *testing.T) {
 	s, p, socket := pirateEncounter(t)
 	p.pirateAfter = math.MaxUint64

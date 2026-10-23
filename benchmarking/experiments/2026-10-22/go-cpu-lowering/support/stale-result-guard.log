@@ -1,1 +1,0 @@
-PASS: runner rejects an executable that writes no result, even with a stale file present

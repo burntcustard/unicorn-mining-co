@@ -1,9 +1,0 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-const here = resolve('benchmarking/experiments/2026-10-22/go-cpu-lowering');
-const manifest = JSON.parse(readFileSync(`${here}/sources.json`, 'utf8'));
-const replacement = Object.fromEntries(Object.entries(manifest.variants.after.files).map(([name, file]) => [resolve(name), file === null ? '' : resolve(here, file as string)]));
-replacement[resolve('src/server/physics/recovery-oracle_test.go')] = `${here}/support/recovery-oracle_test.go.txt`;
-const destination = process.argv[2] || '/tmp/unicorn-lowering-oracle.json';
-writeFileSync(destination, JSON.stringify({Replace:replacement}));
-console.log(destination);

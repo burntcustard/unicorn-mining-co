@@ -224,18 +224,14 @@
     }
   }
 
-  :focus-visible:not(:where(.dock-pointer *, .ui-choice)) {
+  /* :focus-visible:not(:where(.dock-pointer *, .ui-choice)) {
     outline: 2px solid #fff;
     outline-offset: 2px;
-  }
+  } */
 
-  :where(.dock-pointer) :focus-visible {
+  /* :where(.dock-pointer) :focus-visible {
     outline: none;
-  }
-
-  button:disabled {
-    opacity: 0.3;
-  }
+  } */
 
   kbd {
     height: calc(1lh + 12px);
@@ -262,26 +258,50 @@
   }
 
   .ui-button {
+    position: relative;
     min-width: calc(1lh + 24px);
-    border: var(--ui-border-width) solid var(--ui-line);
     padding-block: 10px;
     padding-inline: 12px;
+    transition: color .1s;
 
-    &:where([aria-pressed='true']) {
-      background: var(--ui-color) padding-box;
-      color: #223;
+    &:focus-visible {
+      outline: none;
     }
-  }
 
-  .ui-surface
-    :where(
-      button:enabled:not(.ui-choice):is(
-          :hover:not(:where(.dock-keyboard *)),
-          :focus-visible:not(:where(.dock-pointer *))
-        )
-    ) {
-    outline: 2px solid var(--ui-color);
-    outline-offset: -2px;
+    &::before {
+      content: '';
+      position: absolute;
+      border: var(--ui-border-width) solid var(--ui-line);
+      inset: 0;
+      transition: border-color .1s, background-color .1s, box-shadow .1s;
+      pointer-events: none;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+
+    &[aria-pressed="true"] {
+      color: #fff;
+
+      &:before {
+        background-color: rgb(from var(--ui-color) r g b / 0.1);
+        border-color: rgb(from var(--ui-color) r g b / 0.7);
+      }
+    }
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      z-index: 1;
+      color: #fff;
+      transition: color .05s;
+
+      &::before {
+        border-color: var(--ui-color);
+        box-shadow: 0 0 8px rgb(from var(--ui-color) r g b / 0.2), inset 0 0 8px rgb(from var(--ui-color) r g b / 0.2);
+        transition: border-color .05s, background-color .05s, box-shadow .05s;
+      }
+    }
   }
 
   .ui-controls {
@@ -297,11 +317,11 @@
 
     & > button:enabled:is(:hover, :focus-visible) {
       color: #fff;
-      outline: none;
+      /* outline: none; */
     }
 
     & > button:enabled:is(:hover, :focus-visible) kbd {
-      border-color: #ddd;
+      /* border-color: #ddd; */
     }
 
     &

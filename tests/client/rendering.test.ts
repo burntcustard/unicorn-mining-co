@@ -61,6 +61,7 @@ import * as Vec from '${root}/src/client/utilities/vector.ts';
 import {
   revealBuriedItems,
   tint,
+  hullSegmentFill,
 } from '${root}/src/client/utilities/lighting.ts';
 import { colors } from '${root}/src/specs/colors.ts';
 import { withAlpha } from '${root}/src/client/utilities/color.ts';
@@ -90,8 +91,8 @@ init();
 
 assert.deepEqual(
   Reflect.get(globalThis, 'context-options'),
-  {willReadFrequently: true},
-  'the native foreground context option survives production property mangling',
+  undefined,
+  'the foreground drawing context keeps the browser default backing',
 );
 
 // Movement-only wire updates retain isolated, immutable rock geometry.
@@ -380,6 +381,27 @@ game.ctx = {
   },
 };
 Object.assign(game, { scale: 1, uiScale: 1, uiWidth: 640, uiHeight: 480 });
+{
+  const sources = [], matrices = [];
+  const pattern = {setTransform(matrix){matrices.push(matrix)}};
+  const paint = {createPattern(image){sources.push(image);return pattern}};
+  const segment = {middle:[0,0],reach:20,facing:0,shades:colors.cyan};
+  const first = hullSegmentFill({ctx:paint,segment,worn:1,rotation:0});
+  const second = hullSegmentFill({ctx:paint,segment,worn:1,rotation:0});
+
+  assert.equal(first, second, 'repeated hull fills reuse the cached pattern');
+  assert.equal(sources.length, 1, 'cached fills do not allocate another ramp');
+  assert.deepEqual(
+    Reflect.get(sources[0], 'ramp-context-options'),
+    {willReadFrequently:true},
+    'cached hull ramps share their software consumers backend and avoid GPU readback',
+  );
+  assert(matrices.every(matrix=>Object.values(matrix).every(Number.isFinite)));
+  const otherSources = [];
+
+  hullSegmentFill({ctx:{createPattern(image){otherSources.push(image);return pattern}},segment,worn:1,rotation:0});
+  assert.equal(otherSources[0], sources[0], 'different contexts share the immutable ramp source');
+}
 const transparentItem = new Item(amethystSpec, { fillAlpha: 0 });
 transparentItem.render();
 assert.equal(
@@ -1511,7 +1533,9 @@ console.log(
 class TestCanvas {
   #width = 0;
 
-  getContext() {
+  getContext(_kind?: string, options?: CanvasRenderingContext2DSettings) {
+    Reflect.set(this, 'ramp-context-options', options);
+
     return {
       save() {},
       restore() {},
@@ -1534,6 +1558,7 @@ class TestCanvas {
       createLinearGradient() {
         return { addColorStop() {} };
       },
+      fillRect() {},
     };
   }
 

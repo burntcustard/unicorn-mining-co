@@ -1,5 +1,0 @@
-16/spread: 0.338675 -> 0.347127 ms CPU/tick (0.98x)
-16/module: 0.618082 -> 0.639532 ms CPU/tick (0.97x)
-32/spread: 0.495806 -> 0.507343 ms CPU/tick (0.98x)
-32/module: 1.405293 -> 1.456025 ms CPU/tick (0.97x)
-benchmarking/local/cpu-lowering-2026-10-22-no-pgo.json

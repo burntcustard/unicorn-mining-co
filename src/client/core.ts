@@ -73,7 +73,7 @@ export const init = () => {
   if (renderer) {
     context = renderer as unknown as CanvasRenderingContext2D;
   } else {
-    context = canvas.getContext('2d', { willReadFrequently: true });
+    context = canvas.getContext('2d');
   }
 
   return { canvas, context };

@@ -11,7 +11,7 @@ export default defineConfig(({ command }) => {
     root: fileURLToPath(new URL('.', import.meta.url)),
     server: { port: 3000, strictPort: true },
     plugins: [
-      buildPrePlugin({ DEBUG: true, BENCHMARK: false }),
+      buildPrePlugin({ DEBUG: true }),
       {
         name: 'viewer-sources',
         enforce: 'post',

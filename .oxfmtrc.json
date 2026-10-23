@@ -4,8 +4,7 @@
   "htmlWhitespaceSensitivity": "ignore",
   "ignorePatterns": [
     "tests/fixtures/*.json",
-    "tests/support/example-modules.json",
-    "benchmarking/experiments/**/*.json"
+    "tests/support/example-modules.json"
   ],
   "overrides": [
     {
