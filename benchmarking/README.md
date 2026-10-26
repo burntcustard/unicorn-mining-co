@@ -113,3 +113,8 @@ draw timings. Local and live runs use this checkout's built production client.
 
 `rendering/`, `server/` and `latency/` own their suites; `utilities/` contains
 shared helpers. Benchmark regressions live in `tests/benchmarking/`.
+
+## Local archives
+
+Keep raw captures, profiles, logs, screenshots, and archive files in the ignored
+`benchmarking/_local/` directory. Keep reusable tools and Markdown reports in Git.
