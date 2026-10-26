@@ -190,7 +190,7 @@ export const setupGameplay = `(async () => {
       id: player.ship.id,
       position: player.ship.position,
       modules: player.ship.moduleStates,
-      cargo: player.ship.cargoContents.map((o) => ({
+      cargoContents: player.ship.cargoContents.map((o) => ({
         id: o.id,
         definitionId: o.definitionId,
       })),
@@ -218,6 +218,8 @@ export const createGameplayWorkload = ({
   const { addEntity, addPlayer } = await module('simulation/world.ts');
   const { adoptPlayerShip } = await module('player.ts');
   const { centerCamera } = await module('camera.ts');
+  const { effects } = await module('effects/effect.ts');
+  const { sparks } = await module('effects/shrapnel.ts');
   const { autogunAmmo } = await import('/src/specs/items/index.ts');
   const { simulationStep } = await import('/src/specs/simulation.ts');
   const { ui } = await module('ui/dom/ui.ts');
@@ -227,6 +229,11 @@ export const createGameplayWorkload = ({
   // Keep normal gameplay presentation, including the HUD, active offline.
   network.connected = true;
   network.asteroidPositions = [];
+  network.entityRecords.clear();
+  network.takeEvents();
+  network.takeSounds();
+  effects.splice(0);
+  sparks.splice(0);
   game.sprites.splice(0);
   game.crafts.splice(0);
   const world = network.world;
@@ -273,6 +280,7 @@ export const createGameplayWorkload = ({
   centerCamera(game, ship);
   const manager = new PredictionManager({ world });
   manager.setLocalPlayer({ playerId: 1 });
+  network.prediction = manager;
   network.shipId = network.playerId = 1;
   adoptPlayerShip({ ship });
   network.remoteMotion.reset();
@@ -482,7 +490,7 @@ const measurement = `new Promise((resolve) => {
         ...timing,
         fpsWindows: [Math.min(...fpsWindows), ...fpsWindows],
         stalls,
-        cpu: stats(work),
+        frameWorkMs: stats(work),
         update: stats(updates),
         prediction: stats(predictions),
         messages: stats(messages),

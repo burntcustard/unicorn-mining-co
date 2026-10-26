@@ -21,6 +21,8 @@ BACKUP_DIRECTORY = '/data/backups'
 # Collect sooner on the 512 MiB Machine; long 32-player captures at GOGC=800
 # exceed its RAM even before SQLite and the OS are included.
 GOGC = '200'
+# Budget Go-managed memory below VM RAM, leaving room for the OS and file mappings.
+GOMEMLIMIT = '300MiB'
 
 [[mounts]]
 source = 'game_data'

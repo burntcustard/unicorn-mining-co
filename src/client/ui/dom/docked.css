@@ -51,11 +51,14 @@
     box-shadow: inset 0 0 0 var(--ui-border-width) var(--ui-line);
 
     --divider: rgb(from var(--ui-line) r g b / 0.4);
-    background: linear-gradient(
-      var(--divider) 1px,
-      transparent 1px calc(var(--ui-row-height) - 1px),
-      var(--divider) 0
-    ) 0 calc(var(--ui-border-width) / 2) / 100% var(--ui-row-height), var(--ui-panel);
+    background:
+      linear-gradient(
+          var(--divider) 1px,
+          transparent 1px calc(var(--ui-row-height) - 1px),
+          var(--divider) 0
+        )
+        0 calc(var(--ui-border-width) / 2) / 100% var(--ui-row-height),
+      var(--ui-panel);
 
     .ui-button {
       height: var(--ui-row-height);
@@ -73,7 +76,9 @@
       }
 
       /* dock-group buttons dont have visible borders when not interacted with */
-      &:not(:is([aria-pressed="true"], :hover:not(:disabled), :focus-visible))::before {
+      &:not(
+          :is([aria-pressed='true'], :hover:not(:disabled), :focus-visible)
+        )::before {
         border-color: transparent;
       }
 

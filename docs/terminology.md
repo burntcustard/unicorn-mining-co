@@ -4,9 +4,17 @@
 
 **asteroid segment** - One destructible piece of an asteroid, with its own shape, health, and contents.
 
+**benchmark case** - One measured configuration in a benchmark suite, such as a rendering scenario in one browser or a server workload with one player count.
+
+**benchmark suite** - A group of benchmark cases run together with common measurement settings.
+
+**benchmarking** - Measuring game performance by running defined workloads and recording their results. A benchmark measures performance; a correctness test checks behavior.
+
 **bounciness** - A physical material’s bounce contribution. A contact mixes the two surfaces by averaging their values and clamping the result at zero. A negative contribution can damp a bounce; a value above 1 can exaggerate it. Slow contacts use no bounce.
 
 **buy** - A docked action that pays credits for a new module or item. Trade puts purchases in cargo contents; Outfitting buys and equips a module on a compatible empty mount in one action. It is the opposite of selling.
+
+**cadence** - The timing of recurring snapshots or frames, including their rate and the gaps between them.
 
 **cargo** - Things carried inside a craft. Always clarify with an additional term, for example to refer to a craft's contents, capacity, or entry point.
 
@@ -16,6 +24,8 @@
 
 **cargo space** - The maximum number of game objects a craft can carry in its cargo.
 
+**client** - A program that connects to the server using the game protocol. The browser client also predicts and renders the game world.
+
 **collider** - A shape used to detect when game objects touch. One object can have several colliders.
 
 **collision detection** - Finding where colliders touch or cross during a step and reporting their contacts. Detection alone does not push objects apart or change their velocity.
@@ -23,6 +33,8 @@
 **continuous collision detection** - Using collider sweeps and time of impact to find contacts between sampled positions, including fast crossings of thin shapes and nonphysical triggers.
 
 **contact** - A recorded touch or overlap between two colliders. It can trigger a collision, docking, drilling, or collecting an item.
+
+**CPU usage** - CPU time consumed per elapsed time. State whether a percentage uses one core or the whole machine as its denominator and whether it covers the game process or the operating system too.
 
 **craft** - An object built from hull and module segments, such as a ship or station. Broken-off craft fragments use the same structure.
 
@@ -38,6 +50,12 @@
 
 **equip** - A docked action that puts a module the ship owns on a compatible mount, moving it out of cargo contents. It is the opposite of remove.
 
+**fixture** - A controlled setup of game state, data, or environment used to reproduce a test or benchmark scenario.
+
+**frame** - One client drawing cycle that renders the game world and UI. A rendered frame is separate from a simulation tick or input frame.
+
+**frame rate** - The number of game frames completed per second, abbreviated FPS. The display's refresh rate is measured separately.
+
 **friction** - A physical material’s resistance to sliding along a contact. The solver mixes two surfaces using the geometric mean, so either surface with zero friction makes the contact frictionless. A nonphysical trigger has no friction impulse.
 
 **fuel** - The propellant remaining in a ship, measured in liters (L). It belongs to the ship and persists through reconnects and server restarts. New and respawned ships start full.
@@ -50,7 +68,11 @@
 
 **game object** - Anything in the game with its own identity and state, such as a craft, asteroid, portal, item, or module.
 
-**health** - The remaining strength or 'hitpoints' of a game object or one of its pieces. Damage reduces a game objects health.
+**garbage collection** - Reclaiming allocations that are no longer reachable. Go's `GOGC` and `GOMEMLIMIT` guide collection frequency.
+
+**health** - The remaining strength or 'hitpoints' of a game object or one of its pieces. Damage reduces a game object's health.
+
+**headroom** - Available host capacity beyond that used by a benchmark. Server benchmarks record load-generator headroom to establish that clients can consume the server's traffic promptly.
 
 **hitbox** - One or more colliders used to detect collisions for a game object.
 
@@ -60,7 +82,9 @@
 
 **hull segment** - One structural piece of a craft's or jump gate's hull. It has its own shape and health and may carry a mount.
 
-**input frame** - The controls held at the start of a simulation tick, together with any changes during that tick.
+**input acknowledgment** - Server confirmation that it consumed a particular player input sequence, carried in a snapshot. Its arrival does not identify the exact wall-clock time when the server applied the input.
+
+**input frame** - The controls held at the start of a simulation tick, together with any changes during that tick. It is separate from a rendered frame.
 
 **interior light** - Light visible inside an asteroid where a search light beam passes through it. It illuminates that slice of rock and reveals buried items there.
 
@@ -68,9 +92,17 @@
 
 **label** - A UI caption for a control, field, or view. A label is not a game object’s name.
 
+**latency** - Elapsed time between two specified events. Input latency may end at a server acknowledgment or a completed local or remote game draw, so name both endpoints.
+
 **light beam** - The visible cone projected by an active search light, from its lens to the first asteroid it meets or the end of its reach.
 
+**lightweight protocol client** - A benchmark client that uses the normal binary game protocol without running a browser or renderer.
+
 **local position** - A location measured from a craft's center, used for its mounts and segments.
+
+**measurement window** - The interval whose observations contribute to a benchmark result, excluding preparation, warmup, and cleanup.
+
+**memory budget** - Go's soft target for runtime-managed memory, configured with `GOMEMLIMIT`. Leave additional machine RAM for the executable, OS, and file mappings.
 
 **model** - The plan for a module's shape, made from one or more segments. A segment in the model may use points to describe its shape.
 
@@ -84,7 +116,11 @@
 
 **name** - Human-readable display text for a game object or spec. A player’s ship uses the player profile name; other objects start with their spec name or object-kind name. `definitionId`/`DefinitionID` is the internal spec key, never display text.
 
+**navigation destination** - A position a controller intends to reach. Prefer destination or waypoint for new navigation APIs, reserving target for gameplay object targeting.
+
 **paint** - A choice of color scheme for a craft or module.
+
+**percentile** - A value at or below which a given proportion of observations falls; p95 is the 95th percentile. Keep the measured quantity and unit with the value.
 
 **physical response** - The solver’s position correction and impulses at a contact between physical colliders. Nonphysical contacts still produce gameplay events without this response.
 
@@ -111,6 +147,10 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **prediction** - The client's estimate of what happens after player input, before the matching server update arrives.
 
+**presentation** - Drawing game state into a completed client frame. The latency benchmark observes completed game draws, which do not establish when pixels reach the physical display.
+
+**refresh rate** - The display's refresh opportunities per second, measured in hertz (Hz), separately from the game's frame rate.
+
 **region** - A square part of the world used to generate and load nearby asteroids, stations, and wrecks.
 
 **sector** - A named area with its own procedural seed and unbounded gameplay coordinates, centered on the remains of a Trojan asteroid. Its world-map position is separate from its gameplay coordinates. A sector simulation uses the existing world and region machinery.
@@ -125,15 +165,21 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **remove** - A docked action that takes an equipped module off its mount and puts it in cargo contents. It is the opposite of equip.
 
+**rendering** - Drawing the game world and UI from their current state.
+
 **replication** - Sending relevant game object state from the server to a client.
 
 **resource** - A numbered kind of item or asteroid material. Resources inside an asteroid determine which items it can release.
+
+**scenario** - The scene, setup, and actions chosen for a benchmark. A benchmark case also specifies its browser, player count, or other run configuration.
 
 **search light** - A module that projects a light beam ahead of a craft.
 
 **segment** - One piece of a larger object. Kinds of segments include: asteroid segment, hull segment, module segment.
 
 **sell** - A docked action that exchanges cargo contents or an equipped module for credits. Selling a module or item is the opposite of buying it. Selling an equipped module frees its mount without requiring cargo space.
+
+**server** - The authoritative Go program that advances the game simulation and replicates relevant state to clients.
 
 **shades** - The colors used to draw a craft or module, including its fill, edge stroke, shadow, and highlight.
 
@@ -149,6 +195,8 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **snapshot** - A server update describing which objects are in a player's view and the current state of some of them.
 
+**snapshot receipt** - A client application message confirming reception of a snapshot for which the server requested confirmation, encoded as `snapshotAck`. It supports snapshot flow control and is separate from an input acknowledgment.
+
 **spectrum** - The rainbow of colored light projected from the far side of an asteroid when a search light beam passes through it.
 
 **spec** - Authored game data or tuning in `src/specs`, such as a ship, module, item or visual effect. A spec describes an instance; it is not the instance’s mutable state. Shared data schemas may live beside their specs. Runtime types and interfaces belong beside the implementation that owns them. The generated Go catalog and its schemas live in `src/server/specs`. Existing serialized `definitionId`/`DefinitionID` names continue to identify specs.
@@ -159,7 +207,7 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 
 **sweep** - A collider’s movement and rotation from its starting pose to its intended ending pose during a physics step. The solver tests this path for contacts.
 
-**target** - A game object deliberately targeted by a player or another controller of a craft. Each controller can have at most one target at a time and can change or clear that target at any time. Crafts (including ships and stations), jump gates, wormholes, asteroids, and items can be targets. Projectiles, loose modules, and other game objects cannot.
+**target** - A game object deliberately targeted by a player or another controller of a craft. Each controller can have at most one target at a time and can change or clear that target at any time. Craft (including ships and stations), jump gates, wormholes, asteroids, and items can be targets. Projectiles, loose modules, and other game objects cannot.
 
 **targeted** - The state of a game object that is a controller's current target. Hovering previews an object without making it targeted or changing the current target.
 
@@ -180,6 +228,12 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 **tunnelling** - When a moving object appears to phase through another because a collision between its sampled positions was missed. Continuous collision detection checks the intervening sweep. Also known as 'phasing' although we should avoid using that word.
 
 **vector** - A plain two-dimensional `{ x, y }` value used for positions, velocities, directions, and solver geometry. `Vec.create()` creates one; `Vec` operations return new vectors or write into an explicitly supplied output. Use `Vec.Value` where a type annotation is needed.
+
+**warmup** - The interval before measurement during which the prepared game and benchmark settle.
+
+**waypoint** - An intermediate navigation position chosen along a route to a destination.
+
+**workload** - The scripted game actions used to exercise a client or server, such as flight, mining, or firing weapons.
 
 **world** - The running simulation and its current game objects, players, and tick.
 

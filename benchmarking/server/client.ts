@@ -209,10 +209,12 @@ export class ProtocolClient {
     );
     this.socket.on('error', (error) => this.errors.push(String(error)));
 
-    this.socket.on('close', (code) => {
+    this.socket.on('close', (code, reason) => {
       if (!this.closing) {
         this.closedUnexpectedly = true;
-        this.errors.push(`Unexpected WebSocket close ${code}`);
+        this.errors.push(
+          `Unexpected WebSocket close ${code} at ${new Date().toISOString()}${reason.length ? `: ${reason.toString()}` : ''}`,
+        );
       }
     });
 
@@ -220,7 +222,7 @@ export class ProtocolClient {
       const began = performance.now();
 
       try {
-        assert(binary, 'Expected a binary game frame');
+        assert(binary, 'Expected a binary game message');
         const bytes = raw as Buffer;
         const message =
           bytes[1] === 0x43
@@ -761,6 +763,20 @@ export class ProtocolClient {
     }
   }
 
+  assertHealthy({ allowConnecting = false } = {}) {
+    const label = `Protocol client ${this.options.index}`;
+
+    assert(
+      !this.errors.length && !this.closedUnexpectedly,
+      `${label}: ${this.errors.join('; ') || 'Unexpected WebSocket close'}`,
+    );
+    assert(
+      this.socket.readyState === WebSocket.OPEN ||
+        (allowConnecting && this.socket.readyState === WebSocket.CONNECTING),
+      `${label}: WebSocket is not open (state ${this.socket.readyState})`,
+    );
+  }
+
   async until(
     condition: () => boolean,
     description: string,
@@ -768,8 +784,11 @@ export class ProtocolClient {
   ) {
     const end = performance.now() + timeoutMs;
 
-    while (!condition()) {
-      assert(!this.errors.length, this.errors.join('; '));
+    for (;;) {
+      this.assertHealthy({ allowConnecting: !this.welcomed });
+
+      if (condition()) return;
+
       assert(
         performance.now() < end,
         `${description}: ${JSON.stringify(this.diagnostics())}`,
@@ -842,6 +861,8 @@ export class ProtocolClient {
       acknowledgedDock: this.acknowledgedDock,
       dockSequence: this.dockSequence,
       errors: this.errors,
+      socketState: this.socket.readyState,
+      lastSnapshotAgeMs: performance.now() - this.tickAt,
       loadoutIntact: this.loadoutIntact,
       firstRequiredModuleLoss: this.firstRequiredModuleLoss,
       spreadCorridor: this.spreadCorridor,
@@ -920,11 +941,13 @@ export class ProtocolClient {
   }
 
   async dock() {
+    this.assertHealthy();
     let entering = false;
     const deadline =
       performance.now() + (this.options.preparationTimeoutMs ?? 600000);
 
     while (!this.ship?.dockedTo) {
+      this.assertHealthy();
       assert(
         this.ship,
         `Ship disappeared while docking: ${JSON.stringify(this.diagnostics())}`,
@@ -933,7 +956,6 @@ export class ProtocolClient {
         performance.now() < deadline,
         `Physical docking timed out: ${JSON.stringify(this.diagnostics())}`,
       );
-      assert(!this.errors.length, this.errors.join('; '));
       const stations = [...this.entities.values()].filter(
         (entity) => entity.kind === 'station',
       );
@@ -971,6 +993,7 @@ export class ProtocolClient {
   }
 
   async craftAction(action: CraftAction, materialized: () => boolean) {
+    this.assertHealthy();
     const sequence = ++this.dockSequence;
 
     assert(this.send({ type: 'dock', sequence, ...action }));
@@ -1054,6 +1077,8 @@ export class ProtocolClient {
   }
 
   async launch() {
+    this.assertHealthy();
+
     if (!this.ship?.dockedTo) return;
     const station = this.entities.get(this.ship.dockedTo);
 
@@ -1082,6 +1107,7 @@ export class ProtocolClient {
         Vec.distance(this.ship.position, station.position) <
         station.radius + 350
       ) {
+        this.assertHealthy();
         assert(
           !this.ship.dockedTo,
           `The departing ship re-entered its docking trigger: ${JSON.stringify(this.diagnostics())}`,
@@ -1101,6 +1127,7 @@ export class ProtocolClient {
         performance.now() - flightAt < 10000 ||
         Vec.distance(this.flyoutStartedPosition, this.ship.position) < 20
       ) {
+        this.assertHealthy();
         assert(
           this.loadoutIntact,
           `A fitted part was lost during the preparation flyout: ${JSON.stringify(this.diagnostics())}`,
@@ -1133,6 +1160,8 @@ export class ProtocolClient {
       let sampledAt = 0;
 
       while (true) {
+        this.assertHealthy();
+
         const controls = weaponStagingControls({
           ship: this.ship,
           index: this.options.index,
@@ -1485,6 +1514,7 @@ export class ProtocolClient {
   }
 
   start() {
+    this.assertHealthy();
     const previous = this.traffic.findLast(
       (message) => message.type === 'snapshot' || message.type === 'load',
     );
@@ -2109,6 +2139,7 @@ async function workerMain() {
           }),
         );
       } else if (message.command === 'checkReady') {
+        clients.forEach((client) => client.assertHealthy());
         assert(
           clients.every((client) =>
             client.measurementReady(workload, clients, miningEnabled),

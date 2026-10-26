@@ -44,6 +44,7 @@ export default defineConfig(({ command }) => {
     server: {
       port: 3000,
       proxy,
+      watch: { ignored: ['**/benchmarking/_local/**'] },
     },
     plugins: [
       buildHtmlPlugin(),

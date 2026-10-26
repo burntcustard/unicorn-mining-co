@@ -262,7 +262,7 @@
     min-width: calc(1lh + 24px);
     padding-block: 10px;
     padding-inline: 12px;
-    transition: color .1s;
+    transition: color 0.1s;
 
     &:focus-visible {
       outline: none;
@@ -273,7 +273,10 @@
       position: absolute;
       border: var(--ui-border-width) solid var(--ui-line);
       inset: 0;
-      transition: border-color .1s, background-color .1s, box-shadow .1s;
+      transition:
+        border-color 0.1s,
+        background-color 0.1s,
+        box-shadow 0.1s;
       pointer-events: none;
     }
 
@@ -281,7 +284,7 @@
       opacity: 0.5;
     }
 
-    &[aria-pressed="true"] {
+    &[aria-pressed='true'] {
       color: #fff;
 
       &:before {
@@ -294,12 +297,17 @@
     &:focus-visible {
       z-index: 1;
       color: #fff;
-      transition: color .05s;
+      transition: color 0.05s;
 
       &::before {
         border-color: var(--ui-color);
-        box-shadow: 0 0 8px rgb(from var(--ui-color) r g b / 0.2), inset 0 0 8px rgb(from var(--ui-color) r g b / 0.2);
-        transition: border-color .05s, background-color .05s, box-shadow .05s;
+        box-shadow:
+          0 0 8px rgb(from var(--ui-color) r g b / 0.2),
+          inset 0 0 8px rgb(from var(--ui-color) r g b / 0.2);
+        transition:
+          border-color 0.05s,
+          background-color 0.05s,
+          box-shadow 0.05s;
       }
     }
   }
@@ -317,6 +325,7 @@
 
     & > button:enabled:is(:hover, :focus-visible) {
       color: #fff;
+
       /* outline: none; */
     }
 

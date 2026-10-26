@@ -30,8 +30,10 @@ measures refresh cadence automatically; frame statistics use that measured perio
 | `pirate` | Three different ships fighting around asteroids using real Go AI |
 
 The default runs all five. Select one with `--scenario pirate`, or pass a
-comma-separated list. Each case starts a fresh page with normal graphics, HUD
-and audio. Measurement defaults to 30 seconds; `--seconds N` changes it.
+comma-separated list. The suite shares one browser and reuses its page for
+isolated worlds; networked cases start a fresh page. Normal graphics, HUD,
+audio and the FPS display stay active. Measurement defaults to 30 seconds;
+`--seconds N` changes it.
 Armed fixtures use one ordinary 200-round ammo item per ship that needs it.
 
 The pirate case uses a local compiler fixture. Prepare it, then start the Go
@@ -73,9 +75,9 @@ controls when ready, then start the measured workload together.
 Spread cruises through 1800-unit corridors checked from real snapshots. Captures
 allow up to 35 seconds; use `--repetitions N` for longer sampling.
 
-Module ships drill real asteroids in separate working areas with hatches and
-search lights active. Weapon loadouts repeat evenly: unarmed, plasma accelerator,
-autogun and beam laser.
+Module ships prefer larger intact asteroids in separate working areas, with
+hatches and search lights active. Drilling starts after warmup. Weapon loadouts repeat evenly:
+unarmed, plasma accelerator, autogun and beam laser.
 Ships buy and equip normally, fly outward for at least ten seconds, settle in
 clear space, then fire. Each autogun buys one 200-round item. Weapon warmup is
 nonfiring; measurements can run up to 35 seconds on that supply.
@@ -85,8 +87,9 @@ headroom, socket and receipt completion, input acknowledgments and actual work.
 Snapshot rate, gaps and skipped ticks describe server cadence separately from
 client health. Local results include isolated Go-process CPU and busy CPU on the
 selected logical CPUs; Fly machine CPU includes its OS. Compare matching scopes,
-core counts and GC settings, alongside delivered snapshot rates. The live server
-currently uses `GOGC=200`; use the same setting on the local Go watcher to compare.
+core counts and runtime settings, alongside delivered snapshot rates. Match the
+deployed `GOGC` and `GOMEMLIMIT` values locally. The Fly configuration specifies
+`GOGC=200` and a `300MiB` Go memory budget for its 512 MiB machine.
 
 ## Input latency
 

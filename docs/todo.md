@@ -45,7 +45,7 @@ Also ensure that words like "benchmarking" and other frequently used words in ou
 [ ] New sounds
 [x] Fix unnecessary scroll on right card thing
 [?] Can't buy search light
-[ ] Map UI (tab?)
+[ ] Map UI (tab or M?)
 [x] Move currency to somewhere on the right
 [x] Make FPS not on by default
 [x] Make laser use significantly more power while firing
@@ -65,7 +65,6 @@ Also ensure that words like "benchmarking" and other frequently used words in ou
 [ ] PWA-ish stuff like webmanifest
 [x] Remove unecessary docs like build-size-breakdown.md
 [x] Remove active roadroller/zip build tooling
-
 [ ] Rethink update area ratios and timings
 [ ] Rethink sound, perhaps more ZzFX-ey
 [x] Remove auto-approve things in .vscode/settings.json
@@ -82,7 +81,7 @@ Also ensure that words like "benchmarking" and other frequently used words in ou
 [x] Add characters for lowercase and special chars
 [ ] Neaten up files, especially player.ts & vector.ts
 [ ] Better non-debug-only FPS counter with memory usage etc.
-[ ] Refine module (mount?) categories like thrusters
+[-] Refine module (mount?) categories like thrusters
 [?] Fix floodlight not revealing along its edge pixels
 [?] Smoothly move camera to center of station again
 [ ] Ensure tests aren't overlapping with each other

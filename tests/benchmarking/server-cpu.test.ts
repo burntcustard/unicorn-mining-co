@@ -314,6 +314,155 @@ for (let index = 0; index < 4; index++) {
 
 assert.equal(neutralInput().thrust, 0);
 
+const surveyPair = [
+  {
+    ...ship,
+    id: 13,
+    position: Vec.create(-3973.1387445926666, 5941.445170998573),
+    rotation: 2.596952974796295,
+    velocity: Vec.create(0.6970692276954651, 2.671092987060547),
+    thrust: 1,
+  },
+  {
+    ...ship,
+    id: 29,
+    position: Vec.create(-4037.5326995253563, 5968.461567759514),
+    rotation: -0.5516238808631897,
+    velocity: Vec.create(0.2913740873336792, -2.940054774284363),
+    thrust: 1,
+  },
+];
+
+for (const miner of surveyPair) {
+  const input = workloadControls({
+    workload: 'module',
+    index: miner.id,
+    players: 32,
+    elapsed: 600,
+    ship: miner,
+    entities: surveyPair,
+    fanout: true,
+  });
+
+  assert.notEqual(
+    input.turn,
+    0,
+    'Both survey miners steer away from the recorded peer hull overlap',
+  );
+  assert.equal(input.thrust, 0, 'Turn before resuming outward survey thrust');
+}
+
+const surveyThroughAsteroids = workloadControls({
+  workload: 'module',
+  index: 0,
+  players: 32,
+  elapsed: 0,
+  ship,
+  entities: [
+    {
+      ...ship,
+      id: 99,
+      kind: 'asteroid',
+      position: Vec.add(ship.position, Vec.create(100, 0)),
+      radius: 100,
+    },
+  ],
+  fanout: true,
+});
+
+assert.equal(surveyThroughAsteroids.turn, 0);
+assert.equal(
+  surveyThroughAsteroids.thrust,
+  1,
+  'Peer avoidance preserves ordinary outward flight through asteroid fields',
+);
+
+const overspeedSurvey = workloadControls({
+  workload: 'module',
+  index: 0,
+  players: 32,
+  elapsed: 0,
+  ship: { ...ship, velocity: Vec.create(110, 0) },
+  entities: [],
+  fanout: true,
+});
+
+assert.equal(
+  overspeedSurvey.turn,
+  0,
+  'An aligned survey ship keeps its outward heading after overshooting speed',
+);
+assert.equal(overspeedSurvey.thrust, 0, 'Survey speed overshoot coasts');
+
+const stationSurveyShip = {
+  ...ship,
+  id: 7,
+  position: Vec.create(-2925.542061686516, 5788.979432582855),
+  velocity: Vec.create(-5.202778458595276, -40.513952136039734),
+  rotation: -2.2056318521499634,
+  spin: -2.4856902360916138,
+};
+
+const stoppedSurveyPeer = {
+  ...ship,
+  id: 11,
+  position: Vec.create(-2775.4932966828346, 6351.269274890423),
+  thrust: 0,
+};
+
+const surveyStation = {
+  ...station,
+  id: 3970113972,
+  position: Vec.create(-3382, 6243),
+  radius: 400,
+};
+
+const stationSurveyDirection = Vec.create(
+  Math.cos((7 * Math.PI) / 16),
+  Math.sin((7 * Math.PI) / 16),
+);
+const stationSurveyDestination = Vec.addScaled(
+  stationSurveyShip.position,
+  stationSurveyDirection,
+  4000,
+);
+
+const stoppedSurveyRoute = obstacleSafeRoute({
+  ship: stationSurveyShip,
+  target: stationSurveyDestination,
+  entities: [surveyStation, stoppedSurveyPeer],
+  avoidShips: true,
+  checkDetours: true,
+  lookahead: 500,
+});
+
+assert(!stoppedSurveyRoute.blocked);
+assert.equal(
+  stoppedSurveyRoute.routeChoice,
+  'mirrored',
+  'A stopped peer permits the clear side when the station blocks passing right',
+);
+assert(
+  Vec.dot(
+    Vec.subtract(stoppedSurveyRoute.target, stationSurveyShip.position),
+    stationSurveyDirection,
+  ) > 0,
+  'The recorded station-side route makes outward progress instead of backing away',
+);
+
+assert.notEqual(
+  obstacleSafeRoute({
+    ship: stationSurveyShip,
+    target: stationSurveyDestination,
+    entities: [surveyStation, { ...stoppedSurveyPeer, thrust: 1 }],
+    avoidShips: true,
+    checkDetours: true,
+    lookahead: 500,
+  }).routeChoice,
+  'mirrored',
+  'A thrusting peer retains the shared right-side passing rule',
+);
+
 const warmingWeapon = workloadControls({
   workload: 'weapon',
   index: 2,
@@ -1044,12 +1193,14 @@ const openWholeRock = {
   ...assignedAsteroid,
   id: 50,
   position: Vec.create(500, 500),
+  radius: 150,
 };
 
 const hiddenBehindRock = {
   ...assignedAsteroid,
   id: 51,
   position: Vec.create(1000, 0),
+  radius: 150,
 };
 
 const proposal = proposeMiningTargets({
@@ -1094,6 +1245,37 @@ assert.deepEqual(
   'Propose only a visible whole live rock with a clear full approach, excluding fragmented, decaying and occluded targets',
 );
 assert.equal(proposal.wholeRocks, 2);
+
+const sustainedMining = proposeMiningTargets({
+  index: 0,
+  ship: miningShip,
+  entities: [
+    {
+      ...openWholeRock,
+      id: 70,
+      position: Vec.create(400, 0),
+      radius: 66.85356454,
+    },
+    {
+      ...openWholeRock,
+      id: 71,
+      position: Vec.create(-700, 700),
+      radius: 149.21813034,
+    },
+    {
+      ...openWholeRock,
+      id: 72,
+      position: Vec.create(900, 900),
+      radius: 158.70816465,
+    },
+  ],
+});
+
+assert.deepEqual(
+  sustainedMining.candidates.map((candidate) => candidate.asteroidId),
+  [72, 71],
+  'Reserve a larger intact deposit ahead of nearer rocks that can deplete during the drilling window',
+);
 assert.equal(
   Math.round(
     Vec.distance(proposal.candidates[0].contact, openWholeRock.position),

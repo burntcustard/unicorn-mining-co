@@ -112,7 +112,7 @@ const report: Reply = {
     trace: Boolean(process.env.GAMEPLAY_TRACE),
   },
   snapshotNote:
-    'Live and pirate use normal Go networking; large, combat, and flight use isolated deterministic client worlds. Each scenario starts in a fresh page.',
+    'Live and pirate start fresh pages with normal Go networking. Large, combat, and flight reset isolated deterministic worlds in the running page.',
   setupInfo,
   results,
   validity: { pass: false },
@@ -237,6 +237,8 @@ try {
     'input/input.ts',
     'camera.ts',
     'protocol/input.ts',
+    'effects/effect.ts',
+    'effects/shrapnel.ts',
   ];
   // Compile the controller inside the src fixture so its properties and vector
   // exports receive the same production rewrites as the game it drives.
@@ -321,7 +323,7 @@ Reflect.set(window, 'perf-capture', async action => {
       ['late-frames',result.lateFrames],['refresh-rate',result.refreshRate],['frame-period-ms',result.framePeriod],
       ['fps-windows',result.fpsWindows],
       ['stalls',result.stalls],
-      ['cpu',[result.cpu.mean,result.cpu.p95,result.cpu.p99,result.cpu.max]],
+      ['frame-work-ms',[result.frameWorkMs.mean,result.frameWorkMs.p95,result.frameWorkMs.p99,result.frameWorkMs.max]],
       ['update',[result.update.mean,result.update.p95,result.update.p99,result.update.max]],
       ['prediction',[result.prediction.mean,result.prediction.p95,result.prediction.p99,result.prediction.max]],
       ['messages',[result.messages.mean,result.messages.p95,result.messages.p99,result.messages.max]],['message-count',result.messageCount],
@@ -643,7 +645,6 @@ Reflect.set(window, 'perf-capture', async action => {
   }
 
   report.version = version;
-  await pause(5000);
 
   const bounded = <Value>(request: Promise<Value>) => {
     let timer: ReturnType<typeof setTimeout>;
@@ -714,6 +715,11 @@ Reflect.set(window, 'perf-capture', async action => {
   report.gpuInfo = gpuInfo;
 
   const prepareScenario = async (scenario: string) => {
+    if (setupInfo.length && !['live', 'pirate'].includes(scenario)) {
+      setupInfo.push({ scenario });
+      return;
+    }
+
     const scenarioURL = `${url}?scenario=${encodeURIComponent(scenario)}&run=${Date.now()}`;
 
     await send(
@@ -769,14 +775,14 @@ Reflect.set(window, 'perf-capture', async action => {
 
     await action('prepare');
 
-    // A trusted unbound key uses the real audio unlock path without changing controls.
+    // The existing FPS key also uses the real trusted-key audio unlock path.
     if (browserName === 'chrome') {
       for (const type of ['keyDown', 'keyUp']) {
         await send('Input.dispatchKeyEvent', {
           type,
-          key: 'u',
-          code: 'KeyU',
-          windowsVirtualKeyCode: 85,
+          key: 'f',
+          code: 'KeyF',
+          windowsVirtualKeyCode: 70,
         });
       }
     } else {
@@ -787,8 +793,8 @@ Reflect.set(window, 'perf-capture', async action => {
             type: 'key',
             id: 'performance-key',
             actions: [
-              { type: 'keyDown', value: 'u' },
-              { type: 'keyUp', value: 'u' },
+              { type: 'keyDown', value: 'f' },
+              { type: 'keyUp', value: 'f' },
             ],
           },
         ],
@@ -849,7 +855,7 @@ Reflect.set(window, 'perf-capture', async action => {
     setupInfo.at(-1).readiness = await action(
       scenario === 'combat' ? 'fixture' : scenario,
     );
-    await pause(5000);
+    await pause(1000);
 
     if (process.env.GAMEPLAY_PROFILE && browserName === 'firefox') {
       await send('moz:profiler.start', {

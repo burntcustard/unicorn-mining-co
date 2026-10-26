@@ -167,11 +167,11 @@ export const circleWaypoint = ({
   const angle = Math.atan2(relative.y, relative.x);
   const destination = Vec.subtract(target, obstacle.position);
   const delta = wrappedAngle(Math.atan2(destination.y, destination.x) - angle);
-  // Opposing moving hulls both pass to their own right. Choosing the shortest
-  // side independently can send both pilots toward the same world position.
+  // Opposing moving ships both pass to their own right. Checked routes can
+  // explicitly try the other side of a stopped ship.
   const step =
     obstacle.kind === 'ship'
-      ? -0.35
+      ? -0.35 * side
       : side *
         Math.sign(delta || 1) *
         Math.min(0.35, Math.max(minimumStep, Math.abs(delta)));

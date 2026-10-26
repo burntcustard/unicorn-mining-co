@@ -664,7 +664,7 @@ async function main() {
   };
 
   const report = {
-    schema: 1,
+    schema: 2,
     benchmark: 'server-cpu',
     createdAt: new Date().toISOString(),
     url,
@@ -872,12 +872,12 @@ async function main() {
             let corridors: SpreadCorridor[];
 
             for (;;) {
+              await Promise.all(
+                workers.map((worker) => worker.command('checkReady')),
+              );
               assert(
                 Date.now() < deadline,
                 'The shared spread preparation budget expired while reserving observed straight corridors',
-              );
-              await Promise.all(
-                workers.map((worker) => worker.command('checkReady')),
               );
               const proposals = (
                 await Promise.all(
@@ -998,7 +998,7 @@ async function main() {
               proposals: proposalsRetained,
               targets,
               scheduling:
-                "Discover real clear whole rocks from every client's own snapshots and reserve unique targets and noncrossing approaches globally. All clients approach together under one discovery/approach/startup deadline; individually confirmed clients wait with neutral thrust/turn and drills off. All clients resume ordinary workload controls before global mining activation/warmup/measurement.",
+                "Discover real clear whole rocks from every client's own snapshots and reserve unique targets and noncrossing approaches globally. Confirmed clients wait with neutral thrust/turn and drills off through warmup and CPU observer setup, then resume ordinary controls and confirm powered mining immediately before measurement. Discovery, approach, and startup share one preparation budget; warmup and observer setup do not consume its remaining startup time.",
               contactReservation: `Unique decoded asteroid IDs and nonoverlapping ${miningWorkingRadius}-unit working disks. Anchor centers are separated by twice that radius plus both ship radii and120 units; initial contact poses and approaches retain their own hull clearance. Nominal contacts do not establish physical drill contact; strict readiness and measured causal work remain required.`,
               ownership: `After initial preparation, actual miner bodies must stay within their ${miningWorkingRadius}-unit disk. Whole target geometry and checked navigation endpoints reserve ${miningNavigationReserve} units inside that boundary; ordinary inward recovery retains safe powered drilling. This is a tested navigation reserve, not a formal bound on collision impulses.`,
               workingRadius: miningWorkingRadius,
@@ -1073,12 +1073,12 @@ async function main() {
             console.error(`Discovering clear real rocks for all ${label}`);
 
             for (;;) {
+              await Promise.all(
+                workers.map((worker) => worker.command('checkReady')),
+              );
               assert(
                 Date.now() < deadline,
                 'The shared mining preparation budget expired while finding clear real rocks',
-              );
-              await Promise.all(
-                workers.map((worker) => worker.command('checkReady')),
               );
               const proposals = (
                 await Promise.all(
@@ -1102,7 +1102,9 @@ async function main() {
                     radius,
                     wholeRocks,
                     clearApproaches: candidates.length,
-                    nearest: candidates.slice(0, 4),
+                    nearest: candidates
+                      .toSorted((a, b) => a.distance - b.distance)
+                      .slice(0, 4),
                   }),
                 ),
                 reserved: targets,
@@ -1172,15 +1174,6 @@ async function main() {
             await Promise.all(
               workers.map((worker) => worker.command('checkReady')),
             );
-
-            stage = 'module-startup';
-            const resumeAt = Date.now() + 100;
-
-            await Promise.all(
-              workers.map((worker) =>
-                worker.command('workload', { at: resumeAt }),
-              ),
-            );
           } else {
             const phaseAt = Date.now() + 100;
 
@@ -1195,19 +1188,6 @@ async function main() {
               workers.map((worker) =>
                 worker.command('readyWorkload', {
                   timeoutMs: prepareTimeout * 1000,
-                }),
-              ),
-            );
-          }
-
-          if (configuration.workload === 'module') {
-            miningPreparation.activation = await Promise.all(
-              workers.map((worker) =>
-                worker.command('enableMining', {
-                  timeoutMs: Math.max(
-                    1,
-                    Number(miningPreparation.deadline) - Date.now(),
-                  ),
                 }),
               ),
             );
@@ -1256,6 +1236,27 @@ async function main() {
                 worker.command('enableCruise', {
                   at: cruiseAt,
                   seconds,
+                }),
+              ),
+            );
+          }
+
+          if (configuration.workload === 'module') {
+            const resumeAt = Date.now() + 100;
+
+            await Promise.all(
+              workers.map((worker) =>
+                worker.command('workload', { at: resumeAt }),
+              ),
+            );
+
+            miningPreparation.activation = await Promise.all(
+              workers.map((worker) =>
+                worker.command('enableMining', {
+                  timeoutMs: Math.max(
+                    1,
+                    Number(miningPreparation.deadline) - physicalReadyAt,
+                  ),
                 }),
               ),
             );
@@ -1335,7 +1336,7 @@ async function main() {
           await Promise.all(workers.map((worker) => worker.close()));
           serverCpu ??= await historicalCpu;
 
-          const delivery = validateProtocolCase({
+          const clientValidation = validateProtocolCase({
             clients,
             seconds,
             workload: configuration.workload,
@@ -1383,7 +1384,9 @@ async function main() {
           }
 
           const valid =
-            delivery.valid && !generatorFailures.length && serverCpu.available;
+            clientValidation.valid &&
+            !generatorFailures.length &&
+            serverCpu.available;
 
           const result = {
             ...configuration,
@@ -1405,9 +1408,9 @@ async function main() {
                   }
                 : null,
             valid,
-            delivery,
+            clientValidation,
             serverCadence: {
-              ...delivery.serverCadence,
+              ...clientValidation.serverCadence,
               tickSkips: summarizeTickSkips(clients),
               measurement:
                 'Shared prior/current tick IDs establish that multiple clients observe the same missing intermediate world state. The server publishes once after a catch-up batch; this can explain shared skips but is not isolated proof of their cause. Cadence concerns remain separate from consumption/headroom qualification.',
@@ -1446,8 +1449,8 @@ async function main() {
             JSON.stringify({
               case: label,
               valid,
-              delivery: delivery.valid,
-              serverCadence: delivery.serverCadence.valid,
+              clientValidation: clientValidation.valid,
+              serverCadence: clientValidation.serverCadence.valid,
               headroom: !generatorFailures.length,
               serverCpu: {
                 available: serverCpu.available,

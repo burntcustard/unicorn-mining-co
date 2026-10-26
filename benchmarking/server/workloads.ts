@@ -601,14 +601,18 @@ export const obstacleSafeRoute = ({
     ? Vec.normalize(relative)
     : Vec.create(1, 0);
 
+  const canMirror =
+    first.entity.kind !== 'ship' ||
+    (Vec.length(first.entity.velocity || Vec.create()) < 5 &&
+      !first.entity.thrust &&
+      Math.abs(first.entity.spin ?? 0) < 0.2);
+
   const candidates = [
     {
       kind: 'preferred',
       position: waypoint(),
     },
-    ...(first.entity.kind === 'ship'
-      ? []
-      : [{ kind: 'mirrored', position: waypoint(-1) }]),
+    ...(canMirror ? [{ kind: 'mirrored', position: waypoint(-1) }] : []),
     {
       kind: 'radial-escape',
       position: Vec.addScaled(
@@ -694,7 +698,8 @@ export const miningWorkingRadius = 900;
 export const miningNavigationReserve = 250;
 
 /*
- * Propose nearby real whole rocks that have a clear straight approach. The
+ * Prefer larger real whole rocks with a clear straight approach, retaining
+ * material through the measured drilling window. The
  * radius contact is only a reservation estimate; normal physical readiness
  * and measured damage must still establish actual drill contact.
  */
@@ -710,7 +715,7 @@ export const proposeMiningTargets = ({
   const whole = entities.filter(
     (entity) =>
       entity.kind === 'asteroid' &&
-      entity.radius >= 60 &&
+      entity.radius >= 120 &&
       (entity.health === undefined || entity.health > 0) &&
       !entity.decay &&
       !entity.shapeOutline &&
@@ -764,7 +769,10 @@ export const proposeMiningTargets = ({
         ];
       })
       .toSorted(
-        (a, b) => a.distance - b.distance || a.asteroidId - b.asteroidId,
+        (a, b) =>
+          b.asteroidRadius - a.asteroidRadius ||
+          a.distance - b.distance ||
+          a.asteroidId - b.asteroidId,
       ),
   };
 };
@@ -1123,29 +1131,56 @@ export const workloadControls = ({
       4000,
     );
 
-    const target =
-      fanout && workload === 'weapon'
-        ? obstacleSafeTarget({ ship, target: destination, entities })
-        : stationSafeTarget({ ship, target: destination, entities });
+    const outwardRoute =
+      fanout && workload === 'module'
+        ? obstacleSafeRoute({
+            ship,
+            target: stationSafeTarget({
+              ship,
+              target: destination,
+              entities,
+            }),
+            entities: entities.filter(
+              (entity) => entity.kind === 'station' || entity.kind === 'ship',
+            ),
+            avoidShips: true,
+            checkDetours: true,
+            lookahead: 500,
+          })
+        : undefined;
 
-    const input =
-      !fanout && workload === 'weapon'
-        ? firing
-          ? headingControls({ ship, angle: heading, thrust: false })
-          : weaponStagingControls({ ship, index, players, entities }).input
-        : target !== destination ||
-            (fanout && (workload === 'module' || workload === 'spread'))
-          ? approachControls({
-              ship,
-              target,
-              maxSpeed:
-                workload === 'module' || workload === 'spread' ? 100 : 220,
-            })
-          : headingControls({
-              ship,
-              angle: heading,
-              thrust: fanout || workload !== 'weapon',
-            });
+    const target =
+      outwardRoute?.target ??
+      (fanout && workload === 'weapon'
+        ? obstacleSafeTarget({ ship, target: destination, entities })
+        : stationSafeTarget({ ship, target: destination, entities }));
+
+    const input = outwardRoute?.blocked
+      ? neutralInput()
+      : fanout && workload === 'module'
+        ? headingControls({
+            ship,
+            angle: Math.atan2(
+              target.y - ship.position.y,
+              target.x - ship.position.x,
+            ),
+            thrust: Vec.length(ship.velocity || Vec.create()) < 100,
+          })
+        : !fanout && workload === 'weapon'
+          ? firing
+            ? headingControls({ ship, angle: heading, thrust: false })
+            : weaponStagingControls({ ship, index, players, entities }).input
+          : target !== destination || (fanout && workload === 'spread')
+            ? approachControls({
+                ship,
+                target,
+                maxSpeed: workload === 'spread' ? 100 : 220,
+              })
+            : headingControls({
+                ship,
+                angle: heading,
+                thrust: fanout || workload !== 'weapon',
+              });
 
     if (!fanout && workload === 'weapon') {
       const weapon = weaponForClient(index);
