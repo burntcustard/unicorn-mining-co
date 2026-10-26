@@ -70,7 +70,11 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
       const ship=client.world.entities.get(1);
       assert(!client.shipStranded,'a fitted thruster prevents manual respawn');
       ship.fit(null,ship.engine.mount);
-      assert(client.shipStranded&&!client.shipDestroyed,'losing the thruster leaves a living stranded ship');
+      while(ship.engine.mount){
+        assert(!client.shipStranded,'a remaining thruster prevents manual respawn');
+        ship.fit(null,ship.engine.mount);
+      }
+      assert(client.shipStranded&&!client.shipDestroyed,'losing every thruster leaves a living stranded ship');
       let manualRespawns=0;
       client.send=message=>{if(message.type==='respawn')manualRespawns++;};
       client.requestRespawn();

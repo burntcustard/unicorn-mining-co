@@ -223,20 +223,14 @@ const createDocked = () => {
   const swatches = paintColors.map((shades, index) => {
     const element = document.createElement('button');
 
+    element.innerHTML = '<span></span>';
+    element.className = 'ui-button';
     element.style.setProperty('--paint', shades[2]);
     element.setAttribute(
       'aria-label',
-      [
-        'Red',
-        'Orange',
-        'Yellow',
-        'Green',
-        'Cyan',
-        'Violet',
-        'White',
-        'Gray',
-        'Black',
-      ][index] + ' paint',
+      ['Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Violet', 'White', 'Gray'][
+        index
+      ] + ' paint',
     );
     element.setAttribute('data-paint', String(index));
     query(root, '[data-paints]').append(element);
@@ -674,7 +668,7 @@ const createDocked = () => {
     query(root, '[data-paint-unsupported]').hidden = !paintUnsupported;
     query(root, '[data-paints]').hidden = paintUnsupported;
     query(root, '[data-paints]').className =
-      `flex flex-wrap gap-4 dock-paints${paintHull ? '' : ' mt-4'}`;
+      `dock-paints${paintHull ? '' : ' mt-4'}`;
 
     swatches.forEach((element, at) => {
       element.disabled = !paintUnlocked(paintColors[at]);

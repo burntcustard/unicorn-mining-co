@@ -4,13 +4,13 @@ Build with `npm run build` and run one suite at a time. Local benchmarks use the
 normal frontend and Go server on ports 3000/3001. Captures are saved in
 `benchmarking/_local/`, including partial results when a run fails.
 
-| Suite                | Command                                                         |
-| -------------------- | --------------------------------------------------------------- |
-| Rendering            | `npm run benchmark -- --browser chrome`                         |
-| Server CPU, local    | `npm run benchmark:server:local -- --cores 2`                   |
-| Server CPU, live     | `npm run benchmark:server:live`                                 |
-| Input latency, local | `npm run benchmark:latency`                                     |
-| Input latency, live  | `npm run benchmark:latency -- --url https://unicorn-mining.co/` |
+| Suite                | Command                                       |
+| -------------------- | --------------------------------------------- |
+| Rendering            | `npm run benchmark -- --browser chrome`       |
+| Server CPU, local    | `npm run benchmark:server:local -- --cores 2` |
+| Server CPU, live     | `npm run benchmark:server:live`               |
+| Input latency, local | `npm run benchmark:latency:local`             |
+| Input latency, live  | `npm run benchmark:latency:live`              |
 
 All suites accept `--output PATH`. Finish builds, tests and profiles before
 measuring performance.
@@ -68,8 +68,8 @@ existing world.
 logical CPUs and restores its original affinity afterward. Load clients retain
 access to the host's CPUs. `--players` and `--workload` select individual cases.
 Defaults are 15 seconds of warmup and 30 seconds of measurement, controlled by
-`--warmup` and `--seconds`. Docking and departure operations allow ten minutes;
-mining discovery and approach share a ten-minute budget. Ships wait with neutral
+`--warmup` and `--seconds`. Setup defaults to ten minutes; use
+`--prepare-timeout N` to allow longer searches. Ships wait with neutral
 controls when ready, then start the measured workload together.
 
 Spread cruises through 1800-unit corridors checked from real snapshots. Captures
@@ -88,15 +88,20 @@ Snapshot rate, gaps and skipped ticks describe server cadence separately from
 client health. Local results include isolated Go-process CPU and busy CPU on the
 selected logical CPUs; Fly machine CPU includes its OS. Compare matching scopes,
 core counts and runtime settings, alongside delivered snapshot rates. Match the
-deployed `GOGC` and `GOMEMLIMIT` values locally. The Fly configuration specifies
-`GOGC=200` and a `300MiB` Go memory budget for its 512 MiB machine.
+deployed `GOGC` and `GOMEMLIMIT` values locally. An unset `GOGC` uses Go's default
+100; Fly specifies a `300MiB` Go memory budget for its 512 MiB machine. Check
+Fly's CPU balance and quota throttling when interpreting live results: settings
+restarts can discard accrued burst credit. Local core affinity does not emulate
+Fly's shared CPU quota.
 
 ## Input latency
 
-Four real browser clients share the server: one actor and three observers.
-`--scenario steer|fire|both` selects actions; `--trials N` defaults to 100 per
-action. Chrome is the default; `--browser firefox` selects Firefox. Temporary
-browser contexts receive local-network permission automatically.
+Four real Chrome windows share the server: one actor and three observers.
+`--scenario steer|fire|both` selects actions; `--trials N` defaults to five per
+action, with alternating left/right steering. Reports give the mean, range,
+and observed/missed counts. This is a quick average; use more trials to compare
+small differences. Temporary browser contexts receive local-network permission
+automatically.
 
 The actor uses trusted keyboard input. Reports measure input send, decoded
 server acknowledgment and completed local/remote game draws, with per-observer

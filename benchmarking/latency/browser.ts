@@ -10,7 +10,7 @@ import type { loadLatencyAssets } from './assets.ts';
 import { latencyNetworkPermission } from './permissions.ts';
 import { stopOwnedChild } from '../utilities/owned-child.ts';
 
-export type BrowserReply = Record<string, any>;
+type BrowserReply = Record<string, any>;
 
 type CommandOptions = { timeoutMs?: number; duringShutdown?: boolean };
 
@@ -114,34 +114,21 @@ export async function openLatencyBrowser({
       });
     });
 
-    const args =
-      options.browser === 'chrome'
-        ? [
-            '--no-first-run',
-            '--no-default-browser-check',
-            `--remote-debugging-port=${port}`,
-            `--user-data-dir=${profile}`,
-            `--window-size=${options.width + 24},${options.height + 120}`,
-            'about:blank',
-          ]
-        : [
-            '--new-instance',
-            '--profile',
-            profile,
-            `--remote-debugging-port=${port}`,
-            `--width=${options.width + 24}`,
-            `--height=${options.height + 120}`,
-            'about:blank',
-          ];
+    const args = [
+      '--no-first-run',
+      '--no-default-browser-check',
+      `--remote-debugging-port=${port}`,
+      `--user-data-dir=${profile}`,
+      `--window-size=${options.width + 24},${options.height + 120}`,
+      'about:blank',
+    ];
 
     signal.throwIfAborted();
-    child = spawn(
-      options.browser === 'chrome'
-        ? process.env.CHROME_BIN || 'google-chrome'
-        : process.env.FIREFOX_BIN || 'firefox',
-      args,
-      { stdio: ['ignore', 'ignore', 'pipe'] },
-    );
+
+    child = spawn(process.env.CHROME_BIN || 'google-chrome', args, {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
     let logs = '';
 
     child.stderr?.on('data', (data) => {
@@ -198,7 +185,7 @@ export async function openLatencyBrowser({
         pending.delete(message.id);
         clearTimeout(request.timer);
 
-        if (message.error || message.type === 'error') {
+        if (message.error) {
           request.reject(Error(JSON.stringify(message)));
         } else {
           request.resolve(message.result);
@@ -261,25 +248,16 @@ export async function openLatencyBrowser({
     while (performance.now() < startupEndsAt) {
       signal.throwIfAborted();
 
-      if (
-        options.browser === 'firefox' &&
-        logs.includes('WebDriver BiDi listening')
-      ) {
-        endpoint = `ws://127.0.0.1:${port}/session`;
-      }
-
-      if (options.browser === 'chrome') {
-        try {
-          endpoint = (
-            await (
-              await fetch(`http://127.0.0.1:${port}/json/version`, {
-                signal: AbortSignal.any([signal, AbortSignal.timeout(1000)]),
-              })
-            ).json()
-          ).webSocketDebuggerUrl;
-        } catch {
-          /* Browser startup. */
-        }
+      try {
+        endpoint = (
+          await (
+            await fetch(`http://127.0.0.1:${port}/json/version`, {
+              signal: AbortSignal.any([signal, AbortSignal.timeout(1000)]),
+            })
+          ).json()
+        ).webSocketDebuggerUrl;
+      } catch {
+        /* Browser startup. */
       }
 
       if (endpoint) break;
@@ -293,186 +271,9 @@ export async function openLatencyBrowser({
 
     assert(endpoint, `Browser startup exceeded 15 seconds: ${logs}`);
     const browser = await connect(endpoint);
-    let version: BrowserReply;
-
-    if (options.browser === 'firefox') {
-      version = await browser.send('session.new', {
-        capabilities: { alwaysMatch: {} },
-      });
-
-      await browser.send('session.subscribe', {
-        events: ['network.beforeRequestSent'],
-      });
-
-      // W3C WebDriver BiDi network interception: a full response preserves URL/origin.
-      browser.listeners.set('network.beforeRequestSent', async (event) => {
-        if (!event.isBlocked) return;
-        const value = asset(
-          event.request.url,
-          event.request.destination === 'document',
-        );
-
-        if (!value) {
-          await browser.send('network.continueRequest', {
-            request: event.request.request,
-          });
-
-          return;
-        }
-
-        await browser.send('network.provideResponse', {
-          request: event.request.request,
-          statusCode: 200,
-          headers: [
-            {
-              name: 'Content-Type',
-              value: { type: 'string', value: value.contentType },
-            },
-            {
-              name: 'Cache-Control',
-              value: { type: 'string', value: 'no-store' },
-            },
-          ],
-          body: { type: 'base64', value: value.body.toString('base64') },
-        });
-      });
-
-      await browser.send('network.addIntercept', {
-        phases: ['beforeRequestSent'],
-        urlPatterns: [
-          {
-            type: 'pattern',
-            protocol: gameUrl.protocol.slice(0, -1),
-            hostname: gameUrl.hostname,
-            ...(gameUrl.port ? { port: gameUrl.port } : {}),
-          },
-        ],
-      });
-    } else {
-      version = await browser.send('Browser.getVersion');
-    }
+    const version = await browser.send('Browser.getVersion');
 
     for (let index = 0; index < 4; index++) {
-      if (options.browser === 'firefox') {
-        const { userContext } = await browser.send('browser.createUserContext');
-
-        if (networkPermission) {
-          try {
-            await browser.send('permissions.setPermission', {
-              descriptor: { name: networkPermission },
-              state: 'granted',
-              origin: gameUrl.origin,
-              userContext,
-            });
-
-            permissionOverrides.push({
-              client: index,
-              name: networkPermission,
-              origin: gameUrl.origin,
-              scope: 'temporary-user-context',
-              state: 'granted',
-            });
-          } catch (error) {
-            permissionOverrides.push({
-              client: index,
-              name: networkPermission,
-              supported: false,
-              diagnostic:
-                error instanceof Error ? error.message : JSON.stringify(error),
-            });
-          }
-        }
-
-        await browser.send('script.addPreloadScript', {
-          functionDeclaration: `() => { ${preload} }`,
-          userContexts: [userContext],
-        });
-
-        const { context } = await browser.send('browsingContext.create', {
-          type: 'window',
-          userContext,
-        });
-
-        await browser.send('browsingContext.setViewport', {
-          context,
-          viewport: { width: options.width, height: options.height },
-          devicePixelRatio: 1,
-        });
-
-        const { clientWindows } = await browser.send(
-          'browser.getClientWindows',
-        );
-        const window =
-          clientWindows.find((value: BrowserReply) => value.active) ||
-          clientWindows.at(-1);
-
-        if (window) {
-          await browser.send('browser.setClientWindowState', {
-            clientWindow: window.clientWindow,
-            state: 'normal',
-            x: (index % 2) * (options.width + 24),
-            y: Math.floor(index / 2) * (options.height + 120),
-            width: options.width + 24,
-            height: options.height + 120,
-          });
-        }
-
-        pages.push({
-          evaluate: async (expression, command) => {
-            const reply = await browser.send(
-              'script.evaluate',
-              {
-                expression: `(async () => JSON.stringify(await (${expression})))()`,
-                target: { context },
-                awaitPromise: true,
-              },
-              command,
-            );
-
-            if (reply.type === 'exception') {
-              throw Error(JSON.stringify(reply.exceptionDetails));
-            }
-
-            return reply.result.value === undefined
-              ? undefined
-              : JSON.parse(reply.result.value);
-          },
-          key: async (type, key) => {
-            const value =
-              (
-                {
-                  Shift: '\uE008',
-                  ArrowLeft: '\uE012',
-                  ArrowRight: '\uE014',
-                  ArrowUp: '\uE013',
-                } as Record<string, string>
-              )[key] || key;
-
-            await browser.send('input.performActions', {
-              context,
-              actions: [
-                {
-                  type: 'key',
-                  id: 'actor-keyboard',
-                  actions: [{ type, value }],
-                },
-              ],
-            });
-          },
-          activate: async () => {
-            await browser.send('browsingContext.activate', { context });
-          },
-        });
-
-        await browser.send('browsingContext.navigate', {
-          context,
-          url: options.url,
-          wait: 'complete',
-        });
-
-        continue;
-      }
-
       const { browserContextId } = await browser.send(
         'Target.createBrowserContext',
       );
@@ -626,15 +427,13 @@ export async function openLatencyBrowser({
       close,
       errors,
       metadata: {
-        browser: options.browser,
+        browser: 'chrome',
         version,
         permissionOverrides,
         launchArguments: args.map((arg) =>
           arg.startsWith('--user-data-dir=')
             ? '--user-data-dir=<temporary>'
-            : arg === profile
-              ? '<temporary>'
-              : arg,
+            : arg,
         ),
         viewport: {
           width: options.width,

@@ -238,6 +238,23 @@ const bouncingPair = [0, 1].map(
     }) as ProtocolClient,
 );
 
+const closingContact = workloadControls({
+  workload: 'contact',
+  index: 0,
+  players: 4,
+  elapsed: 0,
+  ship: { ...ship, position: Vec.create(), velocity: Vec.create(100, 0) },
+  partner: { ...ship, id: 3, position: Vec.create(200, 0) },
+  entities: [],
+});
+
+assert.equal(
+  closingContact.thrust,
+  0,
+  'A fast closing contact ship turns to brake rather than accelerating past its partner',
+);
+assert.notEqual(closingContact.turn, 0);
+
 assert(
   !bouncingPair[0].workloadReady('contact', bouncingPair),
   'Initial contact confirmation remains within the strict30-unit surface gap',

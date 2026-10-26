@@ -167,9 +167,9 @@ export async function limitServerCores({
       originalMainThreadCpuIds: original,
       originalThreadAffinities: Object.fromEntries(masks),
       runtimeEnvironment,
-      effectiveGOGC: runtimeEnvironment.GOGC ?? '800',
+      effectiveGOGC: runtimeEnvironment.GOGC ?? '100',
       gcDefault:
-        'When GOGC is unset, src/server/main.go sets the GC percentage to800; an environment value overrides that source default.',
+        'When GOGC is unset, Go uses its default GC percentage of 100; an environment value overrides that default.',
       goBuild,
       generatorAffinityChanged: false,
       scheduler:

@@ -18,9 +18,6 @@ PORT = '8080'
 WORLD_SEED = '25'
 DATABASE_PATH = '/data/world.sqlite'
 BACKUP_DIRECTORY = '/data/backups'
-# Collect sooner on the 512 MiB Machine; long 32-player captures at GOGC=800
-# exceed its RAM even before SQLite and the OS are included.
-GOGC = '200'
 # Budget Go-managed memory below VM RAM, leaving room for the OS and file mappings.
 GOMEMLIMIT = '300MiB'
 
@@ -44,8 +41,8 @@ method = 'GET'
 path = '/healthz'
 
 [[vm]]
-# Shared CPU quota is pooled: two vCPUs provide a 12.5% sustained allowance.
-# four vCPUs provide 25% if this tier proves insufficient after deployment.
+# Shared quota is pooled: two vCPUs provide 0.125 CPU in total,
+# or 6.25% average utilization across the machine's two vCPUs.
 memory = '512mb'
 cpu_kind = 'shared'
 cpus = 2

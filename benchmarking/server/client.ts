@@ -1972,11 +1972,22 @@ async function workerMain() {
       } else if (message.command === 'diagnostics') {
         result = clients.map((client) => client.diagnostics());
       } else if (message.command === 'miningCandidates') {
-        result = clients.map((client) =>
-          proposeMiningTargets({
-            index: client.options.index,
-            ship: client.ship,
-            entities: [...client.entities.values()],
+        // Reserve a checked route from rest, rather than drifting off it while turning.
+        result = await Promise.all(
+          clients.map(async (client) => {
+            await client.until(
+              () =>
+                Vec.length(client.ship.velocity || Vec.create()) < 5 &&
+                Math.abs(client.ship.spin) < 0.04,
+              'The survey ship did not settle before reserving its approach',
+              message.timeoutMs,
+            );
+
+            return proposeMiningTargets({
+              index: client.options.index,
+              ship: client.ship,
+              entities: [...client.entities.values()],
+            });
           }),
         );
       } else if (message.command === 'spreadCandidates') {

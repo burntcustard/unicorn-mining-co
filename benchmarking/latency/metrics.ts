@@ -1,4 +1,3 @@
-import { distribution } from '../utilities/snapshot-traffic-metrics.ts';
 import {
   muzzleOnset,
   projectileOnset,
@@ -76,13 +75,16 @@ export function latencyDistribution(values: (number | null)[]) {
   const observed = values.filter(
     (value): value is number => value !== null && Number.isFinite(value),
   );
-  const { count, ...percentiles } = distribution(observed);
 
   return {
     trials: values.length,
-    observed: count,
-    missed: values.length - count,
-    ...percentiles,
+    observed: observed.length,
+    missed: values.length - observed.length,
+    mean: observed.length
+      ? observed.reduce((sum, value) => sum + value, 0) / observed.length
+      : null,
+    min: observed.length ? Math.min(...observed) : null,
+    max: observed.length ? Math.max(...observed) : null,
   };
 }
 

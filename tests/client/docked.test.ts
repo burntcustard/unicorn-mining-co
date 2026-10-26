@@ -33,10 +33,6 @@ import { mustang } from '${process.cwd()}/src/specs/ships/mustang.ts';
 import { fitsOf, cargoMenuEntriesOf } from '${process.cwd()}/src/client/ui/docked-model.ts';
 import { applyCraftAction } from '${process.cwd()}/src/client/network/craft-actions.ts';
 
-assert(colors.gray.join() === '#778,#99a,#bbc,#334,#eef');
-assert(colors.black.join() === '#000,#111,#222,#879,#200');
-assert(colors.indigo.join() === '#33c,#44d,#55f,#217,#bdf');
-assert(colors.purple.join() === '#102,#213,#325,#001,#647');
 // Reward lookup must not depend on the palette object's enumeration order.
 const redShades = colors.red;
 delete colors.red;

@@ -44,7 +44,7 @@ export default defineConfig(async ({ command }) => {
 
   return {
     root: fileURLToPath(new URL('.', import.meta.url)),
-    server: { port: 3000, strictPort: true },
+    server: { port: 3000 },
     plugins: [
       {
         name: 'gemetric-font-preview',

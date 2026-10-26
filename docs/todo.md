@@ -106,6 +106,7 @@ Also ensure that words like "benchmarking" and other frequently used words in ou
 [x] Fix stations having gone back to wireframe icon in info panels
 [x] Fix not being able to sell Autocannon with inventory full
 [x] Fix "Heard reports of mining" on losing track of player
+[ ] Make map icons for other ships just simple triangles with no rotation
 
 ## Big future things
 

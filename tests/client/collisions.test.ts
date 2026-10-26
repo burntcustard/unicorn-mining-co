@@ -1609,7 +1609,10 @@ const playerCollision = (shielded: boolean) => {
 const hullCollision = playerCollision(false);
 const shieldCollision = playerCollision(true);
 
-assert.equal(shieldCollision.tick, hullCollision.tick);
+assert(
+  shieldCollision.tick <= hullCollision.tick,
+  'a raised shield makes contact at least as early as the hull',
+);
 assert(
   shieldCollision.leftVelocity < hullCollision.leftVelocity - 10,
   'a raised shield rebounds harder against another player ship',

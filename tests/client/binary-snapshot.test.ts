@@ -5,7 +5,7 @@ import {
   encodeServerControl,
   decodeServerControl,
 } from '../../src/client/protocol/binary-control';
-import { colors } from '../../src/specs/colors';
+import { colors, paintColors } from '../../src/specs/colors';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
 import { maxPredictionTicks } from '../../src/specs/prediction';
 import { simulationStep } from '../../src/specs/simulation';
@@ -501,14 +501,10 @@ assert.throws(
 assert.equal(client.player.credits, 500);
 assert.deepEqual(
   [...client.player.unlockedPaints],
-  [
-    colors.orange,
-    colors.yellow,
-    colors.violet,
-    colors.white,
-    colors.gray,
-    colors.black,
-  ],
+  [1, 2, 5, 6, 7, 8].flatMap((index) =>
+    paintColors[index] ? [paintColors[index]] : [],
+  ),
+  'unlock bits select listed paints and preserve absent-paint compatibility',
 );
 
 socket.onmessage?.({

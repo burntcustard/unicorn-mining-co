@@ -7,7 +7,6 @@ import {
   neutralInput,
 } from '../utilities/ship-controls.ts';
 import { installLatencyClient } from './probe.ts';
-import { latencyAmmoPlan } from './options.ts';
 import type { LatencyPage } from './browser.ts';
 import type { ProtocolCatalog } from '../utilities/protocol-runtime.ts';
 
@@ -45,7 +44,6 @@ export async function prepareLatencyClients({
   tags,
   catalog,
   fire,
-  trials,
   timeoutMs,
   progress,
 }: {
@@ -54,7 +52,6 @@ export async function prepareLatencyClients({
   tags: Record<string, string>;
   catalog: ProtocolCatalog;
   fire: boolean;
-  trials: number;
   timeoutMs: number;
   progress: (message: string) => void;
 }) {
@@ -253,11 +250,6 @@ export async function prepareLatencyClients({
     );
 
     preparation.ammunition = {
-      ...latencyAmmoPlan({
-        trials,
-        fireInterval: catalog.modules.autogun.fireInterval,
-        roundsPerItem: catalog.ammoRounds,
-      }),
       confirmedItems: ammunition.length,
       confirmedRounds: ammunition[0].rounds,
       itemId: ammunition[0].id,

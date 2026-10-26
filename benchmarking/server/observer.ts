@@ -630,9 +630,9 @@ export async function observeServerCpu({
             : [],
         ),
       ),
-      effectiveGOGC: machine.config?.env?.GOGC ?? '800',
+      effectiveGOGC: machine.config?.env?.GOGC ?? '100',
       gcDefault:
-        'When GOGC is unset, the game main package uses800. Machine metadata records the configured environment, not a runtime introspection endpoint.',
+        'When GOGC is unset, Go uses its default GC percentage of 100. Machine metadata records the configured environment, not a runtime introspection endpoint.',
     };
 
     return {

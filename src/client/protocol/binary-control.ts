@@ -3,7 +3,6 @@ import { simulationStep } from '../../specs/simulation';
 import { packPlayerInput, unpackPlayerInput } from './input';
 import type { ClientMessage, ServerMessage } from './network';
 import { controlMessageIds, dockActionIds } from '../../specs/protocol';
-import { paintColors } from '../../specs/colors';
 
 type ServerControl = Extract<
   ServerMessage,
@@ -830,7 +829,8 @@ export function decodeServerControl(
     case progress: {
       const unlockedPaints = reader.unsigned();
 
-      if (unlockedPaints >= 1 << paintColors.length) {
+      // Saved profiles may retain bits for paints absent from this palette.
+      if (unlockedPaints > 0xffff) {
         throw new Error('Invalid binary control');
       }
 
@@ -865,7 +865,7 @@ export function decodeServerControl(
       if (reader.remaining) {
         const unlockedPaints = reader.unsigned();
 
-        if (unlockedPaints >= 1 << paintColors.length) {
+        if (unlockedPaints > 0xffff) {
           throw new Error('Invalid binary control');
         }
 

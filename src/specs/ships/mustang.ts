@@ -78,7 +78,7 @@ export const mustang = {
         ],
         [
           {
-            x: 0,
+            x: 1,
             y: 0,
             fits: ['shieldGeneratorSm'],
           },

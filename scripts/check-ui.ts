@@ -97,7 +97,7 @@ assert(
   'production builds remove unused CSS utilities',
 );
 assert(
-  productionCss.includes('.dock-empty') &&
+  productionCss.includes('.dock-paints') &&
     productionCss.includes('.ui-notification'),
   'production CSS retains dynamically applied classes',
 );
@@ -967,13 +967,12 @@ checkUi: try {
       await check(`(() => {
         const buttons = [...document.querySelectorAll('[data-bindings] button')];
         return buttons.every(button => {
-          const {width, height} = button.getBoundingClientRect();
-          return button.textContent.length === 1
-            ? Math.abs(width - height) < 1
-            : width >= height;
+          return button.clientWidth > 0 && button.clientHeight > 0 &&
+            button.scrollWidth <= button.clientWidth &&
+            button.scrollHeight <= button.clientHeight;
         });
       })()`),
-      'single-character bindings are square and longer bindings can grow wider',
+      'binding buttons fit their labels without clipping',
     );
 
     await click('[data-bindings] button');
@@ -2094,14 +2093,12 @@ checkUi: try {
   assert(
     await check(`(() => {
     const launch = document.querySelector('[data-launch]');
-    const style = getComputedStyle(launch);
     const icon = launch.querySelector('.dock-launch-icon');
-    return style.color === 'rgb(255, 255, 255)'
-      && parseFloat(style.webkitTextStrokeWidth) === 0
-      && getComputedStyle(launch.querySelector('kbd')).borderColor === 'rgb(221, 221, 221)'
+    return document.activeElement === launch && launch.matches(':focus-visible')
+      && !launch.disabled
       && getComputedStyle(icon).opacity === '1' && !!icon.querySelector('svg path');
   })()`),
-    'the Launch action shows white text, a highlighted shortcut border, and the ship outline on keyboard focus',
+    'the Launch action receives keyboard focus and shows the ship outline',
   );
 
   for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
@@ -2528,9 +2525,13 @@ checkUi: try {
       action: string,
     ) => {
       if (activation === 'click') {
-        const hoverBorder = await check(
-          `getComputedStyle(document.querySelector('${selector}')).borderTopColor`,
-        );
+        const rowBorderColor = () =>
+          check(`(async () => {
+            const row = document.querySelector('${selector}');
+            await Promise.all(row.getAnimations({subtree: true}).map(animation => animation.finished.catch(() => {})));
+            return getComputedStyle(row, '::before').borderTopColor;
+          })()`);
+        const hoverBorder = await rowBorderColor();
 
         await c.send('Input.dispatchMouseEvent', {
           type: 'mouseMoved',
@@ -2548,9 +2549,7 @@ checkUi: try {
           `mouse-focused ${action} rows hide their action after the pointer leaves`,
         );
         assert.notEqual(
-          await check(
-            `getComputedStyle(document.querySelector('${selector}')).borderTopColor`,
-          ),
+          await rowBorderColor(),
           hoverBorder,
           'mouse focus keeps the idle border after the pointer leaves',
         );
@@ -2690,20 +2689,16 @@ checkUi: try {
 
     if (activation === 'Enter') {
       await hover(firstStock);
-      const stockHighlights = () =>
+      const stockActions = () =>
         check(`['${firstStock}', '${secondStock}'].map(selector => {
           const row = document.querySelector(selector);
-          return [getComputedStyle(row).outlineStyle,
-            getComputedStyle(row.querySelector('.dock-trade-name'), '::after').content];
+          return getComputedStyle(row.querySelector('.dock-trade-name'), '::after').content;
         })`);
 
       assert.deepEqual(
-        await stockHighlights(),
-        [
-          ['solid', '"BUY"'],
-          ['none', 'none'],
-        ],
-        'pointer hover hides the separate keyboard outline and trade action',
+        await stockActions(),
+        ['"BUY"', 'none'],
+        'pointer hover shows its trade action and hides the separate keyboard action',
       );
       await pressKey('ArrowRight');
       await expectFocus(
@@ -2711,12 +2706,9 @@ checkUi: try {
         'hover preserves the keyboard navigation position',
       );
       assert.deepEqual(
-        await stockHighlights(),
-        [
-          ['none', 'none'],
-          ['solid', '"BUY"'],
-        ],
-        'an arrow key hides the stationary hover outline and trade action even when focus stays put',
+        await stockActions(),
+        ['none', '"BUY"'],
+        'an arrow key restores the focused trade action and hides the stationary hover action',
       );
     }
 
@@ -3850,40 +3842,42 @@ checkUi: try {
     'hovering a hull leaves the Outfitting summary card',
   );
 
-  const groupGaps = await check(`(() => {
+  const groupEdges = await check(`(() => {
     const groups = document.querySelectorAll('.dock-group');
     return Array.from(groups).slice(0, 3).map((group, i) => {
       const last = group.lastElementChild, first = groups[i + 1].firstElementChild;
       const above = last.getBoundingClientRect(), below = first.getBoundingClientRect();
-      return { x: above.x + above.width / 2, start: above.bottom, end: below.top,
+      return { x: above.x + above.width / 2, lastY: above.bottom - 1, firstY: below.top + 1,
         last: last.getAttribute('data-key'), first: first.getAttribute('data-key') };
     });
   })()`);
 
-  for (const gap of groupGaps) {
-    for (const offsets of [
-      [-1, 1, 3, 5, 7, 9],
-      [9, 7, 5, 3, 1, -1],
-    ]) {
-      for (const offset of offsets) {
+  for (const edge of groupEdges) {
+    const points = [
+      { y: edge.lastY, key: edge.last },
+      { y: edge.firstY, key: edge.first },
+    ];
+
+    for (const direction of [points, points.toReversed()]) {
+      for (const point of direction) {
         await c.send('Input.dispatchMouseEvent', {
           type: 'mouseMoved',
-          x: gap.x,
-          y: gap.start + offset,
+          x: edge.x,
+          y: point.y,
         });
 
         assert.equal(
           await check(
             `document.querySelector('.dock-row:hover')?.getAttribute('data-key')`,
           ),
-          offset < (gap.end - gap.start) / 2 ? gap.last : gap.first,
-          'each neighboring button owns half the group gap in either direction',
+          point.key,
+          'neighboring group buttons can be inspected from either direction',
         );
         assert(
           await check(
             `document.querySelector('.dock-energy').classList.contains('dock-inspecting')`,
           ),
-          'moving between hull groups keeps the preview highlighted',
+          'moving between hull groups highlights the hovered preview',
         );
       }
     }

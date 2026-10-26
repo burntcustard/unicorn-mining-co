@@ -303,7 +303,9 @@ func TestDefaultPaintsAndLockedPaintRejected(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello"}, socket)
 	p := s.playersBySocket[socket]
 
-	if p.profile.UnlockedPaints != 1<<len(catalog.PaintColors)-1 {
+	availablePaints := uint16(1<<len(catalog.PaintColors) - 1)
+
+	if p.profile.UnlockedPaints&availablePaints != availablePaints {
 		t.Fatal("not all paints are unlocked by default")
 	}
 

@@ -1,6 +1,6 @@
 # Package the artifacts built and tested before deployment.
 FROM scratch
-ENV APP_ENV=production PORT=8080 WORLD_SEED=25 GOGC=800
+ENV APP_ENV=production PORT=8080 WORLD_SEED=25
 WORKDIR /app
 COPY bin/server ./server
 COPY dist ./dist

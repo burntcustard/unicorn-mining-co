@@ -1230,7 +1230,7 @@ export const workloadControls = ({
             target: partner.position,
             entities,
           }),
-          maxSpeed: 220,
+          maxSpeed: 60,
         })
       : headingControls({ ship, angle: heading + Math.PI });
   }

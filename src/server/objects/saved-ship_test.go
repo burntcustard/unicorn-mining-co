@@ -62,7 +62,7 @@ func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(w, objects.Properties{ObjectProperties: simulation.ObjectProperties{Position: Vec.Create(12.7, -34.2), Velocity: Vec.Create(1.2, 3.4), Rotation: 0.123, Spin: 0.456}})
-	ship.Shades = catalog.PaintColors[8]
+	ship.Shades = catalog.PaintColors[len(catalog.PaintColors)-1]
 	ship.Mounts()[0].Health -= 0.125
 	hull := ship.HullHealth()
 	hull[0] -= 0.25
@@ -72,7 +72,7 @@ func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 	shield.ModuleBase().Mount.HealthActivated = new(23.5)
 	ship.SetModuleActive("searchLight", true)
 	ship.UpdateModules(0.1)
-	ship.Modules()[0].Base().Shades = catalog.PaintColors[7]
+	ship.Modules()[0].Base().Shades = catalog.PaintColors[len(catalog.PaintColors)-2]
 	dock := int64(123)
 	ship.DockedTo = &dock
 	message := "Find the next field"

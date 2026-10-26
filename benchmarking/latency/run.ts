@@ -25,7 +25,7 @@ const options = parseLatencyOptions(process.argv.slice(2));
 
 if (options.help) {
   console.log(
-    'Usage: node benchmarking/latency/run.ts [--url http://localhost:3000/] [--browser chrome|firefox] [--scenario steer|fire|both] [--trials 100] [--output PATH.json.gz] [--resolution 960x540]',
+    'Usage: node benchmarking/latency/run.ts [--target local|live] [--scenario steer|fire|both] [--trials 5] [--output PATH.json.gz] [--resolution 960x540]',
   );
   process.exit(0);
 }
@@ -35,7 +35,7 @@ const progress = (message: string) => console.log(`[latency] ${message}`);
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-latency-catalog-'));
 
 const report: Value = {
-  schema: 1,
+  schema: 2,
   suite: 'four-browser-input-and-remote-presentation',
   startedAt: new Date().toISOString(),
   options,
@@ -55,7 +55,7 @@ const report: Value = {
     completion:
       'End of actual game requestAnimationFrame callback, after presentFrame; this is submitted game draw completion, not physical display scanout.',
     statistics:
-      'Nearest-rank p50/p95/p99 per observer and across per-trial means of exactly three observers. Three observations of one actor event are paired, not independent trials. Any missing observer makes that trial mean missing.',
+      'Mean, minimum, maximum and observed/missed counts per observer and across per-trial means of exactly three observers. Three observations of one actor event are paired, not independent trials. Any missing observer makes that trial mean missing.',
     preparation:
       'Genuine public profile/play, flight controls, physical station docking, normal server-confirmed purchase/equip with exactly one 200-round ammunition item, and normal launch. Preparation controls may use recordInput; measured events use trusted browser key automation. Ammunition is never refilled; exhaustion before all requested fire trials finishes the partial capture as invalid.',
   },
@@ -164,7 +164,6 @@ try {
     tags: production.tags,
     catalog: runtime.catalog,
     fire: options.scenario !== 'steer',
-    trials: options.trials,
     timeoutMs: options.preparationTimeoutMs,
     progress,
   });
@@ -186,21 +185,6 @@ try {
     await page.key('keyUp', 'q');
   }
 
-  await pause(2500);
-  report.audio = await Promise.all(
-    pages.map((page) =>
-      page.evaluate(
-        '__latencyAudio.map(context => ({state:context.state,sampleRate:context.sampleRate,currentTime:context.currentTime}))',
-      ),
-    ),
-  );
-  report.renderingBeforeProbe = await Promise.all(
-    pages.map((page) =>
-      page.evaluate(
-        'new Promise(resolve => {const times=[];let finished=false;const frame=now=>{times.push(now);if(!finished)requestAnimationFrame(frame)};requestAnimationFrame(frame);setTimeout(()=>{finished=true;resolve({frames:times.length,durationMs:times.at(-1)-times[0],fps:(times.length-1)*1000/(times.at(-1)-times[0]),hidden:document.hidden})},2000)})',
-      ),
-    ),
-  );
   await Promise.all(
     pages.map((page) =>
       page.evaluate(`latencyClient.install(${JSON.stringify(prepared.pilot)})`),
@@ -212,8 +196,6 @@ try {
     await pages[0].key('keyDown', 'a');
     await pages[0].key('keyUp', 'a');
   }
-
-  await pause(2500);
 
   const calibrate = async () => {
     const calibrations: ClockCalibration[] = [];
@@ -256,13 +238,13 @@ try {
         page.evaluate('latencyProbe.state()', { timeoutMs: 5000 }),
       ),
     );
-  const initial = await states();
 
-  assert(
-    initial.every(
-      (state) => state.connected && !state.hidden && state.pilotInView,
+  report.audio = await Promise.all(
+    pages.map((page) =>
+      page.evaluate(
+        '__latencyAudio.map(context => ({state:context.state,sampleRate:context.sampleRate,currentTime:context.currentTime}))',
+      ),
     ),
-    `All four clients must visibly draw the actor before measurement: ${JSON.stringify(initial)}`,
   );
   report.captureStart = performance.now();
 
@@ -339,6 +321,7 @@ try {
       await pages[0].key('keyDown', button);
       await pause(kind === 'fire' ? latencyFireHoldMs : 150);
       await pages[0].key('keyUp', button);
+      // Sample different server-tick phases rather than a fixed recurring offset.
       await pause(300 + (index % 5) * 13);
       trials.push(trial);
 
@@ -350,7 +333,6 @@ try {
     }
   }
 
-  await pause(1500);
   report.captureEnd = performance.now();
   const clocksAfter = await calibrate();
   const captures: Value[] = await Promise.all(

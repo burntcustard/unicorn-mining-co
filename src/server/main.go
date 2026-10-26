@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime/debug"
 	"strconv"
 	"syscall"
 	"time"
@@ -44,10 +43,6 @@ func main() {
 
 	if flag.NArg() != 0 || maintenance > 1 {
 		log.Fatal("choose one maintenance command without extra arguments")
-	}
-
-	if _, configured := os.LookupEnv("GOGC"); !configured {
-		debug.SetGCPercent(800)
 	}
 
 	port := 3001

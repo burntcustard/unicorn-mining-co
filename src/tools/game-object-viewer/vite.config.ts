@@ -9,7 +9,7 @@ export default defineConfig(({ command }) => {
 
   return {
     root: fileURLToPath(new URL('.', import.meta.url)),
-    server: { port: 3000, strictPort: true },
+    server: { port: 3000 },
     plugins: [
       buildPrePlugin({ DEBUG: true }),
       {

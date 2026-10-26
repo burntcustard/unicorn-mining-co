@@ -12,11 +12,7 @@ import {
   observerAverage,
   responseForTrial,
 } from '../../benchmarking/latency/metrics.ts';
-import {
-  latencyAmmoPlan,
-  latencyFireHoldMs,
-  parseLatencyOptions,
-} from '../../benchmarking/latency/options.ts';
+import { parseLatencyOptions } from '../../benchmarking/latency/options.ts';
 import {
   exposeLatencyBindings,
   latencyLiterals,
@@ -60,10 +56,18 @@ test('three remote observations remain one paired trial and misses stay missing'
     trials: 4,
     observed: 3,
     missed: 1,
-    p50: 20,
-    p95: 40,
-    p99: 40,
+    mean: 70 / 3,
+    min: 10,
     max: 40,
+  });
+
+  assert.deepEqual(latencyDistribution([null, NaN]), {
+    trials: 2,
+    observed: 0,
+    missed: 2,
+    mean: null,
+    min: null,
+    max: null,
   });
 });
 
@@ -85,31 +89,31 @@ test('latency CLI defaults to four-client healthy-link production measurement', 
   const options = parseLatencyOptions([]);
 
   assert.equal(options.url, 'http://localhost:3000/');
-  assert.equal(options.browser, 'chrome');
   assert.equal(options.scenario, 'both');
-  assert.equal(options.trials, 100);
+  assert.equal(options.target, 'local');
+  assert.equal(options.trials, 5);
   assert.equal(options.minFps, 50);
   assert.equal(options.maxClockUncertainty, 2);
   assert.equal(options.preparationTimeoutMs, 600000);
   assert.equal(options.trialReadinessMs, 8000);
   const live = parseLatencyOptions([
-    '--url',
-    'https://example.com/',
-    '--browser',
-    'firefox',
+    '--target',
+    'live',
     '--scenario',
     'fire',
     '--trials',
     '7',
   ]);
 
-  assert.equal(live.url, 'https://example.com/');
+  assert.equal(live.url, 'https://unicorn-mining.co/');
   assert.equal(live.trials, 7);
   assert.throws(() => parseLatencyOptions(['--scenario', 'overload']));
   assert.throws(() => parseLatencyOptions(['--headless']));
+  assert.throws(() => parseLatencyOptions(['--browser', 'firefox']));
   assert.throws(() => parseLatencyOptions(['--min-fps', '1']));
   assert.throws(() => parseLatencyOptions(['--max-clock-uncertainty', '100']));
   assert.throws(() => parseLatencyOptions(['--url', 'file:///tmp/app']));
+  assert.throws(() => parseLatencyOptions(['--target', 'staging']));
 });
 
 test('steering endpoints require completed stationary frames and actual onset', () => {
@@ -168,33 +172,6 @@ test('browser timer granularity is included in cross-client clock bounds', () =>
   assert.equal(calibration.timerResolution, 1);
   assert.equal(calibration.uncertainty, 2);
   assert.equal(clockMapping(calibration, calibration).uncertainty, 2);
-});
-
-test('default fire trials fit one 200-round item without scaling the purchase', () => {
-  const defaults = parseLatencyOptions([]);
-
-  const plan = latencyAmmoPlan({
-    trials: defaults.trials,
-    fireInterval: autogun.fireInterval,
-    roundsPerItem: autogunAmmo.rounds,
-  });
-
-  assert(latencyFireHoldMs < autogun.fireInterval);
-  assert.equal(plan.items, 1);
-  assert.equal(plan.rounds, 200);
-  assert.equal(plan.nominalShotsPerTrial, 1);
-  assert.equal(plan.nominalRounds, 100);
-  assert.equal(plan.nominalSpareRounds, 100);
-
-  const longer = latencyAmmoPlan({
-    trials: 300,
-    fireInterval: autogun.fireInterval,
-    roundsPerItem: autogunAmmo.rounds,
-  });
-
-  assert.equal(longer.items, 1);
-  assert.equal(longer.rounds, 200);
-  assert.equal(longer.nominalSpareRounds, -100);
 });
 
 test('both termination signals wait for one cleanup and preserve signal exit status', async () => {

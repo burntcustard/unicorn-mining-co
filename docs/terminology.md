@@ -12,6 +12,8 @@
 
 **bounciness** - A physical material’s bounce contribution. A contact mixes the two surfaces by averaging their values and clamping the result at zero. A negative contribution can damp a bounce; a value above 1 can exaggerate it. Slow contacts use no bounce.
 
+**burst balance** - Accumulated CPU time available for temporary usage above a shared server's sustained quota. Benchmark settings restarts can discard this balance.
+
 **buy** - A docked action that pays credits for a new module or item. Trade puts purchases in cargo contents; Outfitting buys and equips a module on a compatible empty mount in one action. It is the opposite of selling.
 
 **cadence** - The timing of recurring snapshots or frames, including their rate and the gaps between them.
@@ -33,6 +35,8 @@
 **continuous collision detection** - Using collider sweeps and time of impact to find contacts between sampled positions, including fast crossings of thin shapes and nonphysical triggers.
 
 **contact** - A recorded touch or overlap between two colliders. It can trigger a collision, docking, drilling, or collecting an item.
+
+**CPU quota** - The server's sustained CPU allowance, expressed as a fraction or number of cores. A shared vCPU does not provide a whole core continuously.
 
 **CPU usage** - CPU time consumed per elapsed time. State whether a percentage uses one core or the whole machine as its denominator and whether it covers the game process or the operating system too.
 
@@ -68,7 +72,7 @@
 
 **game object** - Anything in the game with its own identity and state, such as a craft, asteroid, portal, item, or module.
 
-**garbage collection** - Reclaiming allocations that are no longer reachable. Go's `GOGC` and `GOMEMLIMIT` guide collection frequency.
+**garbage collection** - Reclaiming allocations that are no longer reachable. Go's `GOGC` controls heap growth between collections; `GOMEMLIMIT` sets a soft budget for runtime-managed memory.
 
 **health** - The remaining strength or 'hitpoints' of a game object or one of its pieces. Damage reduces a game object's health.
 
@@ -93,6 +97,8 @@
 **label** - A UI caption for a control, field, or view. A label is not a game object’s name.
 
 **latency** - Elapsed time between two specified events. Input latency may end at a server acknowledgment or a completed local or remote game draw, so name both endpoints.
+
+**latency trial** - One actor input event and its measured responses. The three observers remain paired within that trial rather than counting as three independent input events.
 
 **light beam** - The visible cone projected by an active search light, from its lens to the first asteroid it meets or the end of its reach.
 
@@ -216,6 +222,8 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 **text outline** - A stroke around text paths for legibility.
 
 **time of impact** - The earliest fraction of a sweep at which two colliders touch. The continuous collision solver advances to it before resolving that contact and searching for later impacts.
+
+**throttling** - The host scheduler withholding CPU time after a shared server exhausts its quota and burst balance. Memory pressure can cause separate stalls even without CPU throttling.
 
 **thruster** - A module used to propel a craft.
 

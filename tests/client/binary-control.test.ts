@@ -174,6 +174,7 @@ for (const message of [
   { type: 'respawn' as const, shipId: 8 },
   { type: 'progress' as const, unlockedPaints: 127 },
   { type: 'progress' as const, unlockedPaints: 511 },
+  { type: 'progress' as const, unlockedPaints: 0xffff },
   { type: 'progress' as const, unlockedPaints: 486, credits: 2000 },
   { type: 'progress' as const, unlockedPaints: 100, credits: 0 },
   {
@@ -269,7 +270,7 @@ assert.throws(() => decodeServerControl(hello), /Invalid binary control/);
 assert.throws(
   () =>
     decodeServerControl(
-      encodeServerControl({ type: 'progress', unlockedPaints: 512 }),
+      encodeServerControl({ type: 'progress', unlockedPaints: 0x10000 }),
     ),
   /Invalid binary control/,
 );

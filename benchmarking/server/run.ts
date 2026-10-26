@@ -567,10 +567,8 @@ async function main() {
   const cores = parsed.cores === undefined ? undefined : Number(parsed.cores);
 
   assert(
-    Number.isFinite(prepareTimeout) &&
-      prepareTimeout > 0 &&
-      prepareTimeout <= 600,
-    '--prepare-timeout must be greater than0 and at most600 seconds',
+    Number.isFinite(prepareTimeout) && prepareTimeout > 0,
+    '--prepare-timeout must be a positive number of seconds',
   );
   assert(
     local || cores === undefined,
@@ -1080,10 +1078,13 @@ async function main() {
                 Date.now() < deadline,
                 'The shared mining preparation budget expired while finding clear real rocks',
               );
+
               const proposals = (
                 await Promise.all(
                   workers.map((worker) =>
-                    worker.command<MiningProposal[]>('miningCandidates'),
+                    worker.command<MiningProposal[]>('miningCandidates', {
+                      timeoutMs: Math.max(1, deadline - Date.now()),
+                    }),
                   ),
                 )
               ).flat();
