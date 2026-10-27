@@ -13,7 +13,7 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 	var sounds []protocol.WorldSound
 
 	playerSound := func(effect byte, by int64) {
-		s.players.ForEach(func(p *playerRecord, _ string) {
+		s.sectorPlayers(func(p *playerRecord, _ string) {
 			if p.playerID == by {
 				sounds = append(sounds, protocol.WorldSound{Effect: effect, ID: p.shipID, By: by, Position: p.ship.Position})
 			}
@@ -27,7 +27,7 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 			by = *entity.Base().PlayerID
 		}
 
-		s.players.ForEach(func(p *playerRecord, _ string) {
+		s.sectorPlayers(func(p *playerRecord, _ string) {
 			if p.shipID == id {
 				by = p.playerID
 			}
@@ -150,7 +150,7 @@ func (s *GameSession) sendWorldSounds(events []protocol.SimulationEvent) {
 
 	reach := s.World.Specification.Simulation.Replication.EntityUnload
 
-	s.players.ForEach(func(p *playerRecord, _ string) {
+	s.sectorPlayers(func(p *playerRecord, _ string) {
 		if p.socket == nil || !p.socket.IsOpen() || p.needsLoad || p.welcomePending || !s.World.Players.Has(p.playerID) || p.socket.BufferedBytes() > MaxSnapshotBuffer {
 			return
 		}

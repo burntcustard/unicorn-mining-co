@@ -5,9 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/network"
-	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"log"
 	"net"
 	"os"
@@ -16,16 +13,25 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/network"
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
 func main() {
 	resetWorld := flag.Bool("reset-world", false, "archive the saved world and player progress, then exit; requires a stopped server")
 	resetWorldLive := flag.Bool("reset-world-live", false, "reset the running game through its private maintenance socket; keep the Machine running")
 	resumeWorldLive := flag.Bool("resume-world-live", false, "resume the game after failed live maintenance without resetting again")
+	cpuProfileLive := flag.Int("cpu-profile-live", 0, "profile the running game for 1-60 seconds through its private maintenance socket; emit base64 pprof")
 	backups := flag.Bool("backups", false, "list completed backups, reset archives and volume space, then exit")
 	deleteBackup := flag.String("delete-backup", "", "delete one listed backup path, report volume space, then exit")
 	deleteAllBackups := flag.Bool("delete-all-backups", false, "delete all completed backups and reset archives, report volume space, then exit")
 	flag.Parse()
+
+	if *cpuProfileLive < 0 || *cpuProfileLive > 60 {
+		log.Fatal("cpu-profile-live requires 1-60 seconds")
+	}
 
 	flag.Visit(func(option *flag.Flag) {
 		if option.Name == "delete-backup" && *deleteBackup == "" {
@@ -35,7 +41,7 @@ func main() {
 
 	maintenance := 0
 
-	for _, enabled := range []bool{*resetWorld, *resetWorldLive, *resumeWorldLive, *backups, *deleteBackup != "", *deleteAllBackups} {
+	for _, enabled := range []bool{*resetWorld, *resetWorldLive, *resumeWorldLive, *cpuProfileLive > 0, *backups, *deleteBackup != "", *deleteAllBackups} {
 		if enabled {
 			maintenance++
 		}
@@ -96,6 +102,14 @@ func main() {
 		}
 
 		log.Printf("World reset; previous database archived in %s", archive)
+		return
+	}
+
+	if *cpuProfileLive > 0 {
+		if err := requestMaintenance(databasePath, "cpu-profile?seconds="+strconv.Itoa(*cpuProfileLive)); err != nil {
+			log.Fatal(err)
+		}
+
 		return
 	}
 

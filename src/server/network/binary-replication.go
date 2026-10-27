@@ -3,15 +3,16 @@ package network
 
 import (
 	"bytes"
+	"math"
+	"math/bits"
+	"slices"
+	"sync/atomic"
+
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
-	"math"
-	"math/bits"
-	"slices"
-	"sync/atomic"
 )
 
 type nullValue struct{}
@@ -292,7 +293,7 @@ func asteroidSegments(record *binaryRecord, id int, value []*simulation.Asteroid
 		return
 	}
 
-	copy := copySegments(value)
+	copy := copySegments(value, previous)
 	changed(record, id, copy, copy)
 }
 
@@ -745,6 +746,7 @@ type BinaryReplicationManager struct {
 	wireFragments       [][]byte
 	members             map[int64]*member
 	memberCache         []*member
+	candidateMasks      []uint64
 	catalog             specs.Catalog
 }
 
@@ -864,7 +866,13 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 	viewRanges := view.world.Specification.Simulation.Replication
 	useVectors = useVectors && ranges.EntityUnload == viewRanges.EntityUnload && ranges.MarkerUnload == viewRanges.MarkerUnload
 
-	if useVectors {
+	useSpatial := len(list) >= 512 && previousSize*4 < len(list) && view.world == world && world.Players != nil && world.Players.Len() >= 8
+
+	if useSpatial {
+		m.candidateMasks, useSpatial = view.spatialCandidates(position, ranges.EntityUnload, options.ShipID, m.candidateMasks)
+	}
+
+	if useVectors && !useSpatial {
 		view.packReplicationIDs()
 	}
 
@@ -988,7 +996,25 @@ func (m *BinaryReplicationManager) encode(options SnapshotOptions, load bool) []
 
 	end := 0
 
-	if useVectors {
+	if useSpatial {
+		end = len(list)
+
+		for block, mask := range m.candidateMasks {
+			for mask != 0 {
+				index := block*64 + bits.TrailingZeros64(mask)
+				mask &= mask - 1
+				dx, dy := view.X[index]-position.X, view.Y[index]-position.Y
+				distance := dx*dx + dy*dy
+				object, station := view.objects[index], view.Kinds[index]&1 != 0
+
+				if distance > ranges.EntityUnload*ranges.EntityUnload && object.ID != options.ShipID && (distance > ranges.MarkerUnload*ranges.MarkerUnload || !station) {
+					continue
+				}
+
+				accept(index, distance)
+			}
+		}
+	} else if useVectors {
 		end = len(list) &^ 15
 
 		for base := 0; base < end; base += 16 {

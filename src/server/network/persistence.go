@@ -3,12 +3,13 @@ package network
 import (
 	"context"
 	"fmt"
+	"slices"
+	"time"
+
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"slices"
-	"time"
 )
 
 type changedEntity struct {
@@ -236,7 +237,7 @@ func (s *GameSession) checkpoint() {
 			persist.checkpoint = append(persist.checkpoint, runtime.world.Entities.Values()...)
 		}
 
-		s.players.ForEach(func(p *playerRecord, _ string) {
+		s.sectorPlayers(func(p *playerRecord, _ string) {
 			if p.socket != nil {
 				persist.checkpointPlayers = append(persist.checkpointPlayers, p)
 			}
@@ -358,7 +359,7 @@ func (s *GameSession) progress(events []protocol.SimulationEvent) {
 		}
 	}
 
-	s.players.ForEach(func(p *playerRecord, _ string) {
+	s.sectorPlayers(func(p *playerRecord, _ string) {
 		if p.ship.Dead {
 			s.unlockPaint(p, 0)
 		}
@@ -372,7 +373,7 @@ func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
 		}
 
 		if e.Base().PlayerID != nil {
-			s.players.ForEach(func(p *playerRecord, _ string) {
+			s.sectorPlayers(func(p *playerRecord, _ string) {
 				if p.shipID == e.Base().ID {
 					s.persistence.players[p] = true
 				}

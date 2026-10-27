@@ -2,10 +2,13 @@
 package network
 
 import (
+	"math"
+	"slices"
+
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"slices"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 )
 
 type moduleRecord struct {
@@ -220,14 +223,58 @@ func sameSegments(a []*simulation.AsteroidSegment, b []protocol.AsteroidSegment)
 	return true
 }
 
-func copySegments(segments []*simulation.AsteroidSegment) []protocol.AsteroidSegment {
+func copySegments(segments []*simulation.AsteroidSegment, previous []protocol.AsteroidSegment) []protocol.AsteroidSegment {
 	out := make([]protocol.AsteroidSegment, len(segments))
 
 	for i, s := range segments {
-		out[i] = protocol.AsteroidSegment{Health: s.Health, MaxHealth: s.MaxHealth, Mass: s.Mass, Contents: make([]float64, len(s.Contents)), ShapeOutline: wireOutline(s.ShapeOutline)}
+		state := &out[i]
+		*state = protocol.AsteroidSegment{Health: s.Health, MaxHealth: s.MaxHealth, Mass: s.Mass}
 
-		for j, v := range s.Contents {
-			out[i].Contents[j] = float64(v)
+		if i < len(previous) {
+			before := &previous[i]
+			sameContents := len(s.Contents) == len(before.Contents)
+
+			if sameContents {
+				for index, value := range s.Contents {
+					if float64(value) != before.Contents[index] {
+						sameContents = false
+						break
+					}
+				}
+			}
+
+			if sameContents {
+				state.Contents = before.Contents
+			}
+
+			sameOutline := len(s.ShapeOutline.Points) == len(before.ShapeOutline)
+
+			if sameOutline {
+				for index, point := range s.ShapeOutline.Points {
+					wire := before.ShapeOutline[index]
+
+					if len(wire) != 2 || point[0] != wire[0] || point[1] != wire[1] {
+						sameOutline = false
+						break
+					}
+				}
+			}
+
+			if sameOutline {
+				state.ShapeOutline = before.ShapeOutline
+			}
+		}
+
+		if state.Contents == nil {
+			state.Contents = make([]float64, len(s.Contents))
+
+			for index, value := range s.Contents {
+				state.Contents[index] = float64(value)
+			}
+		}
+
+		if state.ShapeOutline == nil {
+			state.ShapeOutline = wireOutline(s.ShapeOutline)
 		}
 	}
 
@@ -235,16 +282,24 @@ func copySegments(segments []*simulation.AsteroidSegment) []protocol.AsteroidSeg
 }
 
 type ReplicationView struct {
-	prepared      bool
-	idsPrepared   bool
-	world         *simulation.World
-	snapshotList  []simulation.Entity
-	objects       []*simulation.GameObject
-	records       []*binaryRecord
-	Kinds, Phases []int
-	X, Y          []float64
-	IDs           []int64
-	distanceBlock [16]float64
+	spatialPrepared bool
+	spatialUsable   bool
+	spatialCells    map[[2]int][]int
+	spatialPool     [][]int
+	spatialMarkers  []int
+	spatialEntities []simulation.Entity
+	spatialKeys     [][3]int
+	spatialIDs      map[int64]int
+	prepared        bool
+	idsPrepared     bool
+	world           *simulation.World
+	snapshotList    []simulation.Entity
+	objects         []*simulation.GameObject
+	records         []*binaryRecord
+	Kinds, Phases   []int
+	X, Y            []float64
+	IDs             []int64
+	distanceBlock   [16]float64
 }
 
 func NewReplicationView(world *simulation.World) *ReplicationView {
@@ -298,9 +353,136 @@ func (v *ReplicationView) Entities() []simulation.Entity {
 	return v.snapshotList
 }
 
+func (v *ReplicationView) spatialCandidates(position Vec.Vector, reach float64, owned int64, selected []uint64) ([]uint64, bool) {
+	const cellSize = 3000.0
+
+	if !(reach >= 0 && reach <= cellSize*4) || !(math.Abs(position.X) <= 1e12 && math.Abs(position.Y) <= 1e12) {
+		return selected, false
+	}
+
+	if !v.spatialPrepared {
+		v.spatialPrepared = true
+		sameEntities := len(v.spatialEntities) == len(v.snapshotList) && (len(v.snapshotList) == 0 || &v.spatialEntities[0] == &v.snapshotList[0])
+		v.spatialEntities = v.snapshotList
+
+		if !sameEntities {
+			v.spatialUsable = false
+			return selected, false
+		}
+
+		unchanged := v.spatialUsable && len(v.spatialKeys) == len(v.objects)
+
+		if cap(v.spatialKeys) < len(v.objects) {
+			v.spatialKeys = make([][3]int, len(v.objects))
+		} else {
+			v.spatialKeys = v.spatialKeys[:len(v.objects)]
+		}
+
+		v.spatialUsable = true
+
+		for index := range v.objects {
+			x, y := v.X[index], v.Y[index]
+
+			if !(math.Abs(x) <= 1e12 && math.Abs(y) <= 1e12) {
+				v.spatialUsable = false
+				break
+			}
+
+			key := [3]int{int(math.Floor(x / cellSize)), int(math.Floor(y / cellSize)), v.Kinds[index] & 1}
+
+			if key[2] != 0 {
+				key[0], key[1] = 0, 0
+			}
+
+			unchanged = unchanged && v.spatialKeys[index] == key
+			v.spatialKeys[index] = key
+		}
+
+		if !v.spatialUsable {
+			return selected, false
+		}
+
+		if !unchanged {
+			v.spatialMarkers = v.spatialMarkers[:0]
+			clear(v.spatialIDs)
+
+			if v.spatialIDs == nil {
+				v.spatialIDs = make(map[int64]int, len(v.objects))
+			}
+
+			for key, indices := range v.spatialCells {
+				v.spatialPool = append(v.spatialPool, indices[:0])
+				delete(v.spatialCells, key)
+			}
+
+			if v.spatialCells == nil {
+				v.spatialCells = make(map[[2]int][]int)
+			}
+
+			for index, cell := range v.spatialKeys {
+				v.spatialIDs[v.objects[index].ID] = index
+
+				if cell[2] != 0 {
+					v.spatialMarkers = append(v.spatialMarkers, index)
+					continue
+				}
+
+				key := [2]int{cell[0], cell[1]}
+				indices, exists := v.spatialCells[key]
+
+				if !exists && len(v.spatialPool) > 0 {
+					last := len(v.spatialPool) - 1
+					indices = v.spatialPool[last]
+					v.spatialPool[last] = nil
+					v.spatialPool = v.spatialPool[:last]
+				}
+
+				v.spatialCells[key] = append(indices, index)
+			}
+		}
+	}
+
+	if !v.spatialUsable {
+		return selected, false
+	}
+
+	count := (len(v.objects) + 63) / 64
+
+	if cap(selected) < count {
+		selected = make([]uint64, count)
+	} else {
+		selected = selected[:count]
+		clear(selected)
+	}
+
+	minX := int(math.Floor(math.Nextafter(position.X-reach, math.Inf(-1)) / cellSize))
+	maxX := int(math.Floor(math.Nextafter(position.X+reach, math.Inf(1)) / cellSize))
+	minY := int(math.Floor(math.Nextafter(position.Y-reach, math.Inf(-1)) / cellSize))
+	maxY := int(math.Floor(math.Nextafter(position.Y+reach, math.Inf(1)) / cellSize))
+
+	for x := minX; x <= maxX; x++ {
+		for y := minY; y <= maxY; y++ {
+			for _, index := range v.spatialCells[[2]int{x, y}] {
+				selected[index/64] |= uint64(1) << (index % 64)
+			}
+		}
+	}
+
+	for _, index := range v.spatialMarkers {
+		selected[index/64] |= uint64(1) << (index % 64)
+	}
+
+	if index, exists := v.spatialIDs[owned]; exists {
+		selected[index/64] |= uint64(1) << (index % 64)
+	}
+
+	return selected, true
+}
+
 func (v *ReplicationView) Reset() *ReplicationView {
 	v.snapshotList = nil
 	v.prepared = false
 	v.idsPrepared = false
+	v.spatialPrepared = false
 	return v
 }

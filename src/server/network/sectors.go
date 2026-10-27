@@ -2,15 +2,16 @@ package network
 
 import (
 	"fmt"
+	"math"
+	"slices"
+	"time"
+
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
-	"math"
-	"slices"
-	"time"
 )
 
 type sectorRuntime struct {
@@ -25,7 +26,40 @@ type sectorRuntime struct {
 	closing          map[*objects.Portal]bool
 }
 
+type tickPlayer struct {
+	player *playerRecord
+	token  string
+}
+
+func (s *GameSession) beginTickPlayers() {
+	s.tickPlayers = s.tickPlayers[:0]
+
+	s.players.ForEach(func(player *playerRecord, token string) {
+		if player.socket != nil || !player.hiddenShip {
+			s.tickPlayers = append(s.tickPlayers, tickPlayer{player: player, token: token})
+		}
+	})
+
+	s.tickPlayersReady = true
+}
+
+func (s *GameSession) endTickPlayers() {
+	s.tickPlayersReady = false
+	clear(s.tickPlayers)
+	s.tickPlayers = s.tickPlayers[:0]
+}
+
 func (s *GameSession) sectorPlayers(visit func(*playerRecord, string)) {
+	if s.tickPlayersReady {
+		for _, entry := range s.tickPlayers {
+			if entry.player.sectorID == s.currentSector {
+				visit(entry.player, entry.token)
+			}
+		}
+
+		return
+	}
+
 	s.players.ForEach(func(p *playerRecord, token string) {
 		if p.sectorID == s.currentSector {
 			visit(p, token)
@@ -151,6 +185,8 @@ func (s *GameSession) Tick(ticks uint64) {
 	}
 
 	previous := s.currentSector
+	s.beginTickPlayers()
+	defer s.endTickPlayers()
 	s.updateGates(float64(ticks) * s.World.Specification.Simulation.SimulationStep)
 	// Take a stable list: travel can lazily instantiate another sector this tick.
 	ids := make([]string, 0, len(s.sectors))
@@ -248,6 +284,11 @@ func (s *GameSession) requestDestinationOpening(portal *objects.Portal) {
 }
 
 func (s *GameSession) updateGates(dt float64) {
+	if !s.tickPlayersReady {
+		s.beginTickPlayers()
+		defer s.endTickPlayers()
+	}
+
 	now := float64(s.World.Tick) * s.World.Specification.Simulation.SimulationStep
 
 	for _, runtime := range s.sectors {
@@ -258,11 +299,14 @@ func (s *GameSession) updateGates(dt float64) {
 
 			occupied := false
 
-			s.players.ForEach(func(p *playerRecord, _ string) {
+			for _, entry := range s.tickPlayers {
+				p := entry.player
+
 				if p.ship.World == gate.World && gate.World.Players.Has(p.playerID) && Vec.DistanceSquared(p.ship.Position, gate.Position) < gate.Radius*gate.Radius {
 					occupied = true
+					break
 				}
-			})
+			}
 
 			if occupied && gate.OpeningTarget == 1 {
 				gate.RequestOpening(1)

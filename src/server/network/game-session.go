@@ -2,6 +2,10 @@
 package network
 
 import (
+	"math"
+	"slices"
+	"time"
+
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
@@ -10,9 +14,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"github.com/google/uuid"
-	"math"
-	"slices"
-	"time"
 )
 
 type SessionSocket interface {
@@ -115,26 +116,28 @@ func (p *playerRecord) clearInputs() {
 }
 
 type GameSession struct {
-	nextEntityID    int64
-	sectorMap       simulation.SectorMap
-	sectors         map[string]*sectorRuntime
-	currentSector   string
-	persistence     *sessionPersistence
-	World           *simulation.World
-	nextPlayerID    int64
-	players         *utilities.OrderedMap[string, *playerRecord]
-	playersBySocket map[SessionSocket]*playerRecord
-	inputs          map[int64]protocol.InputFrame
-	binaryBatch     *BinarySnapshotBatch
-	replicationView *ReplicationView
-	regions         *RegionManager
-	regionsSyncedAt float64
-	worldSeed       float64
-	now             func() time.Time
-	statsLogf       func(string, ...any)
-	statsTotals     sessionTotals
-	tickStats       tickStats
-	loadSince       loadBaseline
+	tickPlayers      []tickPlayer
+	tickPlayersReady bool
+	nextEntityID     int64
+	sectorMap        simulation.SectorMap
+	sectors          map[string]*sectorRuntime
+	currentSector    string
+	persistence      *sessionPersistence
+	World            *simulation.World
+	nextPlayerID     int64
+	players          *utilities.OrderedMap[string, *playerRecord]
+	playersBySocket  map[SessionSocket]*playerRecord
+	inputs           map[int64]protocol.InputFrame
+	binaryBatch      *BinarySnapshotBatch
+	replicationView  *ReplicationView
+	regions          *RegionManager
+	regionsSyncedAt  float64
+	worldSeed        float64
+	now              func() time.Time
+	statsLogf        func(string, ...any)
+	statsTotals      sessionTotals
+	tickStats        tickStats
+	loadSince        loadBaseline
 }
 
 func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
@@ -432,7 +435,11 @@ func (s *GameSession) tickSector(ticks uint64) {
 	if s.persistence == nil && (world.Tick%900 == 0 || world.Tick%900+ticks > 900) {
 		expired := s.now().Add(-30 * time.Minute)
 
-		s.sectorPlayers(func(p *playerRecord, token string) {
+		s.players.ForEach(func(p *playerRecord, token string) {
+			if p.sectorID != s.currentSector {
+				return
+			}
+
 			if p.disconnectedAt == nil || p.disconnectedAt.After(expired) || p.profile.Banned || p.profile.Role != persistence.RoleUser {
 				return
 			}

@@ -2,19 +2,23 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"runtime"
+	"runtime/pprof"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 )
 
 type maintenanceServer struct {
@@ -77,7 +81,7 @@ func (s *maintenanceServer) serve() error {
 }
 
 func (s *maintenanceServer) handle(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/reset-world" && r.URL.Path != "/resume-world" {
+	if r.URL.Path != "/reset-world" && r.URL.Path != "/resume-world" && r.URL.Path != "/cpu-profile" {
 		http.NotFound(w, r)
 		return
 	}
@@ -97,6 +101,36 @@ func (s *maintenanceServer) handle(w http.ResponseWriter, r *http.Request) {
 
 	if s.closing.Load() {
 		http.Error(w, "Server is shutting down", http.StatusServiceUnavailable)
+		return
+	}
+
+	if r.URL.Path == "/cpu-profile" {
+		seconds, err := strconv.Atoi(r.URL.Query().Get("seconds"))
+
+		if err != nil || seconds < 1 || seconds > 60 {
+			http.Error(w, "Choose 1-60 seconds", http.StatusBadRequest)
+			return
+		}
+
+		if !s.running {
+			http.Error(w, "Game is not running", http.StatusConflict)
+			return
+		}
+
+		if err := pprof.StartCPUProfile(w); err != nil {
+			http.Error(w, "CPU profiler is already active", http.StatusConflict)
+			return
+		}
+
+		defer pprof.StopCPUProfile()
+		timer := time.NewTimer(time.Duration(seconds) * time.Second)
+		defer timer.Stop()
+
+		select {
+		case <-timer.C:
+		case <-r.Context().Done():
+		}
+
 		return
 	}
 
@@ -195,7 +229,16 @@ func requestMaintenance(databasePath, action string) error {
 	}}
 
 	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: 20 * time.Second}
+	profiling := strings.HasPrefix(action, "cpu-profile?")
+	timeout := 20 * time.Second
+	limit := int64(65536)
+
+	if profiling {
+		timeout = 90 * time.Second
+		limit = 8 << 20
+	}
+
+	client := &http.Client{Transport: transport, Timeout: timeout}
 	response, err := client.Post("http://maintenance/"+action, "text/plain", nil)
 
 	if err != nil {
@@ -203,7 +246,7 @@ func requestMaintenance(databasePath, action string) error {
 	}
 
 	defer response.Body.Close()
-	message, err := io.ReadAll(io.LimitReader(response.Body, 65536))
+	message, err := io.ReadAll(io.LimitReader(response.Body, limit))
 
 	if err != nil {
 		return err
@@ -211,6 +254,12 @@ func requestMaintenance(databasePath, action string) error {
 
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s", strings.TrimSpace(string(message)))
+	}
+
+	if profiling {
+		encoder := base64.NewEncoder(base64.StdEncoding, os.Stdout)
+		_, err := encoder.Write(message)
+		return errors.Join(err, encoder.Close())
 	}
 
 	_, err = os.Stdout.Write(message)

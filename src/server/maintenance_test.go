@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,6 +37,65 @@ func maintenanceRequest(s *maintenanceServer, action string) *httptest.ResponseR
 	response := httptest.NewRecorder()
 	s.handle(response, httptest.NewRequest(http.MethodPost, "/"+action, nil))
 	return response
+}
+
+func TestPrivateCPUProfilePreservesRunningWorld(t *testing.T) {
+	s := maintenanceFixture(t)
+
+	s.stopGame = func(context.Context) error {
+		t.Fatal("profiling stopped the game")
+		return nil
+	}
+
+	s.startGame = func() error {
+		t.Fatal("profiling restarted the game")
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	request := httptest.NewRequest(http.MethodPost, "/cpu-profile?seconds=1", nil).WithContext(ctx)
+	response := httptest.NewRecorder()
+	s.handle(response, request)
+
+	if response.Code != http.StatusOK || !s.running {
+		t.Fatal(response.Code, response.Body.String())
+	}
+
+	reader, err := gzip.NewReader(bytes.NewReader(response.Body.Bytes()))
+
+	if err != nil {
+		t.Fatal("profile is not valid gzip", err)
+	}
+
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+
+	if err != nil || len(data) == 0 {
+		t.Fatal("profile payload is missing", err)
+	}
+
+	if data, err := os.ReadFile(s.databasePath); err != nil || string(data) != "old progress" {
+		t.Fatal("profiling changed the saved world", err)
+	}
+}
+
+func TestPrivateCPUProfileRejectsInvalidDurationsAndStoppedGame(t *testing.T) {
+	s := maintenanceFixture(t)
+
+	for _, duration := range []string{"", "0", "-1", "61", "invalid"} {
+		response := maintenanceRequest(s, "cpu-profile?seconds="+duration)
+
+		if response.Code != http.StatusBadRequest {
+			t.Fatal(duration, response.Code)
+		}
+	}
+
+	s.running = false
+
+	if response := maintenanceRequest(s, "cpu-profile?seconds=1"); response.Code != http.StatusConflict {
+		t.Fatal("profiling must reject a stopped game", response.Code)
+	}
 }
 
 func TestLiveResetArchivesOnlyAfterFlushAndResumesWithoutAnotherReset(t *testing.T) {
