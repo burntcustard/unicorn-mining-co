@@ -5,6 +5,7 @@ import { gzipSync } from 'node:zlib';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { availableParallelism, cpus, freemem, tmpdir, totalmem } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { setTimeout as pause } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { inspect, promisify } from 'node:util';
 import * as Vec from '../../src/client/utilities/vector.ts';
@@ -489,10 +490,7 @@ class ClientWorker {
     this.closing = (async () => {
       if (this.exited) return;
 
-      await Promise.race([
-        this.command('close').catch(() => {}),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ]);
+      await Promise.race([this.command('close').catch(() => {}), pause(3000)]);
 
       await stopOwnedChild({ child: this.process });
     })();
@@ -501,8 +499,6 @@ class ClientWorker {
   }
 }
 
-const pause = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
 const hostCpu = async () =>
   (await readFile('/proc/stat', 'utf8'))
     .split('\n')[0]

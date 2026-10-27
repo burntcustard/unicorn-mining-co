@@ -23,7 +23,7 @@ import {
 import { calibrateRefreshRate } from './frame-metrics.ts';
 import { parseRenderingOptions } from './options.ts';
 import { browserAction } from './browser-action.ts';
-import { readBrowserJson } from './browser-http.ts';
+import { readBrowserJson } from '../utilities/browser-http.ts';
 import { stopOwnedChild } from '../utilities/owned-child.ts';
 
 // Keep the standard development server pair running; this owns only its browser.
@@ -150,14 +150,6 @@ try {
   report.stylesheets = stylesheets;
   assert(stylesheets.length, 'Build production CSS before measuring gameplay');
 
-  assert(
-    ['chrome', 'firefox'].includes(browserName),
-    'Choose chrome or firefox',
-  );
-  assert(
-    seconds > 0 && seconds <= 600,
-    'Capture between 1 and 600 seconds per workload',
-  );
   const pause = (milliseconds: number) =>
     delay(milliseconds, undefined, { signal: cancellation.signal });
 
@@ -823,7 +815,6 @@ Reflect.set(window, 'perf-capture', async action => {
 
     currentScenario = scenario;
     currentResult = undefined;
-    assert(['live', 'combat', 'flight', 'large', 'pirate'].includes(scenario));
 
     await send(
       browserName === 'chrome'

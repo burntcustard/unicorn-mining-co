@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { readFile } from 'node:fs/promises';
+import { setTimeout as wait } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import WebSocket from 'ws';
 import type { ProtocolRuntime } from '../utilities/protocol-runtime.ts';
@@ -79,9 +80,6 @@ export const ownMiningFracture = ({
       position: sound.position,
       anchor,
     }));
-
-const wait = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export class ProtocolClient {
   readonly options: {

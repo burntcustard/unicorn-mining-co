@@ -4,11 +4,12 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, basename } from 'node:path';
+import { setTimeout as pause } from 'node:timers/promises';
 import WebSocket from 'ws';
 import type { parseLatencyOptions } from './options.ts';
 import type { loadLatencyAssets } from './assets.ts';
-import { latencyNetworkPermission } from './permissions.ts';
 import { stopOwnedChild } from '../utilities/owned-child.ts';
+import { readBrowserJson } from '../utilities/browser-http.ts';
 
 type BrowserReply = Record<string, any>;
 
@@ -19,8 +20,6 @@ export type LatencyPage = {
   key: (type: 'keyDown' | 'keyUp', key: string) => Promise<void>;
   activate: () => Promise<void>;
 };
-
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /*
  * Finish a probe frame after the real game's rAF callback returns, including
@@ -143,7 +142,7 @@ export async function openLatencyBrowser({
     const pages: LatencyPage[] = [];
     const intercepted = new Set<string>();
     const permissionOverrides: BrowserReply[] = [];
-    const networkPermission = latencyNetworkPermission(options.url);
+    const { networkPermission } = options;
 
     const connect = async (url: string) => {
       const socket = new WebSocket(url, { handshakeTimeout: 10000 });
@@ -250,11 +249,10 @@ export async function openLatencyBrowser({
 
       try {
         endpoint = (
-          await (
-            await fetch(`http://127.0.0.1:${port}/json/version`, {
-              signal: AbortSignal.any([signal, AbortSignal.timeout(1000)]),
-            })
-          ).json()
+          await readBrowserJson({
+            url: `http://127.0.0.1:${port}/json/version`,
+            signal,
+          })
         ).webSocketDebuggerUrl;
       } catch {
         /* Browser startup. */
@@ -301,11 +299,11 @@ export async function openLatencyBrowser({
         newWindow: true,
       });
 
-      const targets = await (
-        await fetch(`http://127.0.0.1:${port}/json`, {
-          signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
-        })
-      ).json();
+      const targets = await readBrowserJson({
+        url: `http://127.0.0.1:${port}/json`,
+        signal,
+        timeoutMs: 5000,
+      });
 
       const client = await connect(
         targets.find((target: BrowserReply) => target.id === targetId)

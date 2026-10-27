@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
-import { readBrowserJson } from '../../benchmarking/rendering/browser-http.ts';
+import { readBrowserJson } from '../../benchmarking/utilities/browser-http.ts';
 
 let requests = 0;
 

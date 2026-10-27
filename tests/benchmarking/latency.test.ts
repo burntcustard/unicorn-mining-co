@@ -18,7 +18,6 @@ import {
   latencyLiterals,
 } from '../../benchmarking/latency/assets.ts';
 import { parseAst } from 'rolldown/parseAst';
-import { latencyNetworkPermission } from '../../benchmarking/latency/permissions.ts';
 import { autogun } from '../../src/specs/modules/offense/autogun.ts';
 import { autogunAmmo } from '../../src/specs/items/autogun-ammo.ts';
 import { stationSpecs } from '../../src/specs/stations/index.ts';
@@ -89,6 +88,7 @@ test('latency CLI defaults to four-client healthy-link production measurement', 
   const options = parseLatencyOptions([]);
 
   assert.equal(options.url, 'http://localhost:3000/');
+  assert.equal(options.networkPermission, 'loopback-network');
   assert.equal(options.scenario, 'both');
   assert.equal(options.target, 'local');
   assert.equal(options.trials, 5);
@@ -106,6 +106,7 @@ test('latency CLI defaults to four-client healthy-link production measurement', 
   ]);
 
   assert.equal(live.url, 'https://unicorn-mining.co/');
+  assert.equal(live.networkPermission, null);
   assert.equal(live.trials, 7);
   assert.throws(() => parseLatencyOptions(['--scenario', 'overload']));
   assert.throws(() => parseLatencyOptions(['--headless']));
@@ -133,28 +134,6 @@ test('steering endpoints require completed stationary frames and actual onset', 
   });
 
   assert.equal(response.steering?.ms, 20);
-});
-
-test('network permission applies only to the selected local game endpoint', () => {
-  assert.equal(
-    latencyNetworkPermission('http://localhost:3000/'),
-    'loopback-network',
-  );
-  assert.equal(
-    latencyNetworkPermission('http://127.0.0.1:3000/'),
-    'loopback-network',
-  );
-  assert.equal(
-    latencyNetworkPermission('http://[::1]:3000/'),
-    'loopback-network',
-  );
-  assert.equal(
-    latencyNetworkPermission('http://192.168.1.2:3000/'),
-    'local-network',
-  );
-  assert.equal(latencyNetworkPermission('https://game.example.com/'), null);
-  assert.equal(latencyNetworkPermission('https://127.example.com/'), null);
-  assert.equal(latencyNetworkPermission('https://192.168.example.com/'), null);
 });
 
 test('production preparation literals include property rewrites as well as protocol tags', () => {

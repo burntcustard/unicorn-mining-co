@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   dockingControls,
   approachControls,
@@ -11,7 +12,6 @@ import type { LatencyPage } from './browser.ts';
 import type { ProtocolCatalog } from '../utilities/protocol-runtime.ts';
 
 type Value = Record<string, any>;
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Enter a deployed game through its normal menu without importing local code.

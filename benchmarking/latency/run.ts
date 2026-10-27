@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { setTimeout as pause } from 'node:timers/promises';
 import { gzipSync } from 'node:zlib';
 import { loadLatencyAssets } from './assets.ts';
 import { openLatencyBrowser } from './browser.ts';
@@ -30,7 +31,6 @@ if (options.help) {
   process.exit(0);
 }
 
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const progress = (message: string) => console.log(`[latency] ${message}`);
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-latency-catalog-'));
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { readFile, readdir } from 'node:fs/promises';
+import { setTimeout as pause } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { parseProcessStat } from './observer.ts';
 
@@ -152,7 +153,7 @@ export async function limitServerCores({
       }
 
       // Default Go GOMAXPROCS observes affinity changes at most once/second.
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await pause(1500);
     }
   } catch (error) {
     await restore();
