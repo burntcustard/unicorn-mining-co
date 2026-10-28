@@ -80,7 +80,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	p.profile.Credits = 9876
 	p.ship.Fuel = 3.25
 	p.ship.Mounts()[0].Health -= 7
-	p.ship.CargoContents = append(p.ship.CargoContents, objects.NewItem("diamond", simulation.ObjectProperties{World: s.World}, s.World.Specification))
+	p.ship.CargoContents = append(p.ship.CargoContents, objects.NewItem("diamond", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World))}, s.World.Specification))
 	visits := []int64{10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
 
 	for _, stationID := range visits {
@@ -305,6 +305,7 @@ func TestCheckpointSnapshotsContinueBeforeBackgroundCommit(t *testing.T) {
 	p := s.playersBySocket[socket]
 	committedSession(t, s)
 	s.sendSnapshot(p, nil, nil)
+	socket.acknowledge(s)
 	db, err := sql.Open("sqlite", path)
 
 	if err != nil {
@@ -365,6 +366,7 @@ func TestCheckpointPreservesAccountCommitBarrier(t *testing.T) {
 			p := s.playersBySocket[socket]
 			committedSession(t, s)
 			s.sendSnapshot(p, nil, nil)
+			socket.acknowledge(s)
 			db, err := sql.Open("sqlite", path)
 
 			if err != nil {
