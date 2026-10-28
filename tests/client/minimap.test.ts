@@ -13,6 +13,7 @@ let points: number[][] = [];
 const strokes: { points: number[][]; width: number; color: string }[] = [];
 
 const fills: number[][][] = [];
+const fillColors: string[] = [];
 const draws: string[] = [];
 
 const arcs: {
@@ -52,9 +53,10 @@ const ctx = {
       fill: this.fillStyle as string,
     });
   },
-  fill() {
+  fill(this: CanvasRenderingContext2D) {
     draws.push('fill');
     fills.push([...points]);
+    fillColors.push(this.fillStyle as string);
   },
   stroke(this: CanvasRenderingContext2D) {
     draws.push('stroke');
@@ -82,8 +84,9 @@ const object = (id: number, kind: string, x: number, extra = {}) =>
     radius: 20,
     position: { x, y: 0 },
     rotation: 0,
+    shades: colors.white,
     ...extra,
-  }) as GameObject;
+  }) as unknown as GameObject;
 
 const hullPoints = [
   [-3, -5],
@@ -99,6 +102,7 @@ const secondHullPoints = [
 ];
 
 const ship = object(1, 'ship', 100, {
+  shades: colors.cyan,
   segments: [
     {
       hull: true,
@@ -182,7 +186,7 @@ assert.deepEqual(
   [(100 * 148) / minimapRange, 0],
   'remote contacts use smoothed positions',
 );
-assert(rotations.includes(0.75), 'remote ships use their rendered heading');
+assert(!rotations.includes(0.75), 'remote ship triangles keep a fixed heading');
 assert.equal(
   rotations.at(-1),
   1.5,
@@ -300,7 +304,7 @@ for (const kind of [
   const targeted = drawContact(contact);
 
   if (kind === 'asteroid' || kind === 'item') {
-    assert.equal(normal.strokes.length, 2, `${kind}: dots have no outline`);
+    assert.equal(normal.strokes.length, 3, `${kind}: dots have an outline`);
     assert.equal(
       normal.fills[0].length,
       0,
@@ -330,9 +334,16 @@ for (const kind of [
       : Math.abs(radius - iconRadius) < 1e-8,
     `${kind}: asteroid and item dots are smaller than other contact icons`,
   );
+  const filled = ['asteroid', 'item', 'ship', 'craft'].includes(kind);
+
   assert(
-    normal.strokes.slice(1, -1).every(({ width }) => width === 2),
-    `${kind}: contact outlines share a thickness`,
+    normal.strokes
+      .slice(1, -1)
+      .every(
+        ({ width, color }) =>
+          width === (color.startsWith('#000') ? (filled ? 4 : 6) : 2),
+      ),
+    `${kind}: contacts include a 2px dark border`,
   );
   const highlight = targeted.strokes.filter(
     ({ points, color }) => points.length === 6 && color === '#e6f',
@@ -340,7 +351,10 @@ for (const kind of [
 
   assert.equal(highlight.length, 1, `${kind}: target highlight is a hexagon`);
   assert.deepEqual(
-    targeted.strokes.filter((stroke) => stroke !== highlight[0]),
+    targeted.strokes.filter(
+      ({ points }) =>
+        points.length !== 6 || Math.hypot(points[0][0], points[0][1]) !== 13,
+    ),
     normal.strokes,
     `${kind}: targeting preserves the icon outline and color`,
   );
@@ -363,7 +377,7 @@ renderMinimap({
   asteroidPositions: [
     { x: ship.position.x + minimapRange - 1, y: 0 },
     { x: ship.position.x + minimapRange + 1, y: 0 },
-    { x: ship.position.x + minimapRange * (153 / 148), y: 0 },
+    { x: ship.position.x + minimapRange * (155 / 148), y: 0 },
   ],
 });
 
@@ -399,7 +413,7 @@ for (const clientWidth of [300, 150]) {
   for (const kind of ['asteroid', 'item', 'ship', 'station']) {
     for (const targeted of [false, true]) {
       const markerRadius =
-        (targeted ? 14 : kind === 'asteroid' || kind === 'item' ? 4 : 8) *
+        (targeted ? 16 : kind === 'asteroid' || kind === 'item' ? 6 : 10) *
         displayScale;
 
       for (const overlap of [-0.5, 0.5]) {
@@ -430,7 +444,7 @@ for (const clientWidth of [300, 150]) {
   }
 
   arcs.length = 0;
-  const padding = (4 * displayScale * minimapRange) / 148;
+  const padding = (6 * displayScale * minimapRange) / 148;
 
   renderMinimap({
     ctx,
@@ -450,16 +464,17 @@ for (const clientWidth of [300, 150]) {
   );
 }
 
+fillColors.length = 0;
+
 renderMinimap({
   ctx,
   ship,
-  objects: [object(99, 'ship', 200, { hostile: true })],
+  objects: [object(99, 'ship', 200, { hostile: true, shades: colors.green })],
   poses: new Map(),
 });
 
-assert(
-  strokes.some(
-    ({ points, color }) => points.length === 3 && color === colors.red[2],
-  ),
-  'hostile ships use red triangles',
+assert.deepEqual(
+  fillColors,
+  [colors.green[2], colors.cyan[2]],
+  'remote and player ship markers match their hull paint, including hostile ships',
 );

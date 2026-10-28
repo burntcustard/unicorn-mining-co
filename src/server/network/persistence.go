@@ -15,6 +15,7 @@ import (
 type changedEntity struct {
 	entity             simulation.Entity
 	generated, deleted bool
+	state              *objects.SavedEntity
 }
 
 type sessionPersistence struct {
@@ -22,10 +23,14 @@ type sessionPersistence struct {
 	store             *persistence.Store
 	sequence          uint64
 	entities          map[int64]changedEntity
-	players           map[*playerRecord]bool
+	storedEntities    map[int64]bool
+	players           map[*playerRecord]bool // True only for an immediate account or moderation commit.
 	checkpoint        []simulation.Entity
 	checkpointPlayers []*playerRecord
 	nextCheckpoint    time.Time
+	nextFlush         time.Time
+	flushDeadline     time.Time
+	tickStarted       time.Time
 }
 
 // EnablePersistence restores before accepting connections. Corrupt or
@@ -36,6 +41,9 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 	if err != nil {
 		return err
 	}
+
+	stored := map[int64]bool{}
+	var discarded []persistence.Entity
 
 	if saved.World != nil {
 		w := saved.World
@@ -59,6 +67,16 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 		for _, e := range saved.Entities {
 			s.activateSector(e.SectorID)
 
+			if !e.Deleted && transientWorldObject(e.State.Object.Kind, e.State.Object.Decay) {
+				discarded = append(discarded, persistence.Entity{SectorID: e.SectorID, ID: e.ID, Generated: e.Generated, Deleted: true})
+
+				if e.Generated {
+					s.regions.regions.Remove(uint32(e.ID))
+				}
+
+				continue
+			}
+
 			if e.Deleted {
 				if e.Generated {
 					s.regions.regions.Remove(uint32(e.ID))
@@ -74,6 +92,10 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 			}
 
 			s.regions.sleeping.Set(e.ID, entity)
+
+			if !e.Generated {
+				stored[e.ID] = true
+			}
 
 			if e.Generated {
 				s.regions.managed.Set(e.ID, true)
@@ -102,7 +124,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 			}
 
 			p.profile.Ship = objects.SavedShip{}
-			s.players.Set(profile.ID, p)
+			s.registerPlayer(p)
 		}
 
 		for _, e := range saved.Entities {
@@ -124,7 +146,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 		s.World.NextEntityID = s.nextEntityID
 	}
 
-	s.persistence = &sessionPersistence{generationDigest: persistence.GenerationDigest(s.World.Specification), store: store, entities: map[int64]changedEntity{}, players: map[*playerRecord]bool{}, nextCheckpoint: s.now().Add(30 * time.Second)}
+	s.persistence = &sessionPersistence{generationDigest: persistence.GenerationDigest(s.World.Specification), store: store, entities: map[int64]changedEntity{}, storedEntities: stored, players: map[*playerRecord]bool{}, nextCheckpoint: s.now().Add(3 * time.Minute), nextFlush: s.now().Add(30 * time.Second), flushDeadline: s.now().Add(time.Minute)}
 
 	s.activateSector(s.World.Specification.StartingSectorID)
 
@@ -134,6 +156,17 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 	s.assignInitialOwner()
 	store.Start()
+
+	if len(discarded) > 0 {
+		batch := persistence.Batch{Sequence: s.persistence.sequence + 1, World: s.worldRecord(), Entities: discarded}
+
+		if !store.Submit(batch) {
+			return fmt.Errorf("could not queue removal of obsolete temporary world records")
+		}
+
+		s.persistence.sequence = batch.Sequence
+	}
+
 	return nil
 }
 
@@ -165,6 +198,14 @@ func (s *GameSession) accountTime(p *playerRecord) {
 
 func (s *GameSession) savePlayer(p *playerRecord) {
 	if s.persistence != nil {
+		if _, pending := s.persistence.players[p]; !pending {
+			s.persistence.players[p] = false
+		}
+	}
+}
+
+func (s *GameSession) requirePlayerCommit(p *playerRecord) {
+	if s.persistence != nil {
 		s.persistence.players[p] = true
 	}
 }
@@ -190,6 +231,7 @@ func (s *GameSession) flushChanges() bool {
 		return false
 	}
 
+	started := time.Now()
 	batch := persistence.Batch{Sequence: persist.sequence + 1, World: s.worldRecord()}
 
 	for p := range persist.players {
@@ -200,7 +242,11 @@ func (s *GameSession) flushChanges() bool {
 		e := persistence.Entity{SectorID: s.sectorForWorld(change.entity.Base().World), ID: id, Generated: change.generated, Deleted: change.deleted}
 
 		if !e.Deleted {
-			e.State = objects.CaptureEntity(change.entity)
+			if change.state != nil {
+				e.State = *change.state
+			} else {
+				e.State = objects.CaptureEntity(change.entity)
+			}
 		}
 
 		batch.Entities = append(batch.Entities, e)
@@ -210,19 +256,74 @@ func (s *GameSession) flushChanges() bool {
 		return false
 	}
 
-	persist.sequence = batch.Sequence
+	for _, entity := range batch.Entities {
+		if entity.Deleted {
+			delete(persist.storedEntities, entity.ID)
+		} else if !entity.Generated {
+			persist.storedEntities[entity.ID] = true
+		}
+	}
 
-	for p := range persist.players {
-		p.saveSequence = batch.Sequence
+	persist.sequence = batch.Sequence
+	persist.nextFlush = s.now().Add(30 * time.Second)
+	persist.flushDeadline = s.now().Add(time.Minute)
+
+	for p, critical := range persist.players {
+		if critical {
+			p.saveSequence = batch.Sequence
+		}
 	}
 
 	clear(persist.players)
 	clear(persist.entities)
+	s.recordSave(time.Since(started), len(batch.Players), len(batch.Entities))
 	return true
 }
 
 func (s *GameSession) persistenceReady() bool {
-	return s.persistence == nil || s.persistence.store.Err() == nil && s.flushChanges()
+	persist := s.persistence
+
+	if persist == nil {
+		return true
+	}
+
+	if persist.store.Err() != nil {
+		return false
+	}
+
+	for _, immediate := range persist.players {
+		if immediate {
+			return s.flushChanges()
+		}
+	}
+
+	return len(persist.players)+len(persist.entities) == 0 || persist.store.HasCapacity()
+}
+
+// Ordinary gameplay may roll back after a crash. Copy one coherent batch after
+// a quiet tick, with a deadline so continuous load cannot starve saving.
+func (s *GameSession) flushBackgroundChanges() bool {
+	persist := s.persistence
+
+	if persist == nil {
+		return true
+	}
+
+	for _, immediate := range persist.players {
+		if immediate {
+			return s.flushChanges()
+		}
+	}
+
+	deadline := !s.now().Before(persist.flushDeadline)
+	due := !s.now().Before(persist.nextFlush) || len(persist.entities) >= 256
+	spare := persist.tickStarted.IsZero() || time.Since(persist.tickStarted) < time.Duration(s.World.Specification.Simulation.SimulationStep*float64(time.Second)/2)
+
+	if !deadline && (!due || !spare) {
+		return len(persist.players)+len(persist.entities) == 0 || persist.store.HasCapacity()
+	}
+
+	return s.flushChanges()
 }
 
 func (s *GameSession) checkpoint() {
@@ -234,16 +335,16 @@ func (s *GameSession) checkpoint() {
 
 	if !s.now().Before(persist.nextCheckpoint) && len(persist.checkpoint)+len(persist.checkpointPlayers) == 0 {
 		for _, runtime := range s.sectors {
-			persist.checkpoint = append(persist.checkpoint, runtime.world.Entities.Values()...)
+			persist.checkpoint = runtime.world.Entities.AppendValues(persist.checkpoint)
 		}
 
-		s.sectorPlayers(func(p *playerRecord, _ string) {
+		s.players.ForEach(func(p *playerRecord, _ string) {
 			if p.socket != nil {
 				persist.checkpointPlayers = append(persist.checkpointPlayers, p)
 			}
 		})
 
-		persist.nextCheckpoint = s.now().Add(30 * time.Second)
+		persist.nextCheckpoint = s.now().Add(3 * time.Minute)
 	}
 
 	// Spread copying across ticks rather than serializing the world at once.
@@ -256,17 +357,31 @@ func (s *GameSession) checkpoint() {
 			continue
 		}
 
-		persist.entities[e.Base().ID] = changedEntity{e, s.sectors[s.sectorForWorld(e.Base().World)].regions.managed.Has(e.Base().ID), false}
+		if transientWorldObject(e.Base().Kind, e.Base().Decay) {
+			s.recordWorldChange(e, s.sectors[s.sectorForWorld(e.Base().World)].regions.managed.Has(e.Base().ID), false)
+			continue
+		}
+
+		if _, pending := persist.entities[e.Base().ID]; !pending {
+			// Capture checkpoint records within the per-tick budget, so a later
+			// batched write does not copy a whole second of checkpoints at once.
+			state := objects.CaptureEntity(e)
+			persist.entities[e.Base().ID] = changedEntity{entity: e, generated: s.sectors[s.sectorForWorld(e.Base().World)].regions.managed.Has(e.Base().ID), state: &state}
+		}
 	}
 
 	if len(persist.checkpointPlayers) > 0 {
 		p := persist.checkpointPlayers[0]
 		persist.checkpointPlayers[0] = nil
 		persist.checkpointPlayers = persist.checkpointPlayers[1:]
-		persist.players[p] = true
+
+		// Periodic pose/fuel saves must not pause delivery while SQLite commits.
+		// A pending gameplay change still retains its durability barrier.
+		if _, pending := persist.players[p]; !pending {
+			persist.players[p] = false
+		}
 	}
 
-	s.flushChanges()
 }
 
 func (s *GameSession) shutdownPersistence(ctx context.Context) error {
@@ -279,7 +394,7 @@ func (s *GameSession) shutdownPersistence(ctx context.Context) error {
 	for _, runtime := range s.sectors {
 		runtime.world.Entities.ForEach(func(e simulation.Entity, id int64) {
 			if e.Base().PlayerID == nil && e.Base().Kind != "jumpGate" && e.Base().Kind != "wormhole" {
-				s.persistence.entities[id] = changedEntity{e, runtime.regions.managed.Has(id), false}
+				s.recordWorldChange(e, runtime.regions.managed.Has(id), false)
 			}
 		})
 
@@ -311,22 +426,10 @@ func (s *GameSession) unlockPaint(p *playerRecord, index uint8) {
 }
 
 func (s *GameSession) progress(events []protocol.SimulationEvent) {
-	byID := func(id int64) *playerRecord {
-		var found *playerRecord
-
-		s.players.ForEach(func(p *playerRecord, _ string) {
-			if p.playerID == id {
-				found = p
-			}
-		})
-
-		return found
-	}
-
 	for _, event := range events {
 		switch e := event.(type) {
 		case protocol.ItemCollected:
-			if p := byID(e.By); p != nil {
+			if p := s.playersByID[e.By]; p != nil {
 				s.savePlayer(p)
 
 				if e.Unlock != nil {
@@ -338,7 +441,7 @@ func (s *GameSession) progress(events []protocol.SimulationEvent) {
 				}
 			}
 		case protocol.Docked:
-			if p := byID(e.PlayerID); p != nil {
+			if p := s.playersByID[e.PlayerID]; p != nil {
 				s.savePlayer(p)
 
 				p.profile.Visited = append(p.profile.Visited, e.DockedTo)
@@ -372,10 +475,15 @@ func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
 			return
 		}
 
+		if transientWorldObject(e.Base().Kind, e.Base().Decay) {
+			s.recordWorldChange(e, runtime.regions.managed.Has(e.Base().ID), deleted)
+			return
+		}
+
 		if e.Base().PlayerID != nil {
 			s.sectorPlayers(func(p *playerRecord, _ string) {
 				if p.shipID == e.Base().ID {
-					s.persistence.players[p] = true
+					s.savePlayer(p)
 				}
 			})
 
@@ -384,15 +492,38 @@ func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
 
 		generated := runtime.regions.managed.Has(e.Base().ID)
 
-		if deleted && generated {
-			runtime.regions.regions.Remove(uint32(e.Base().ID))
-		}
-
-		s.persistence.entities[e.Base().ID] = changedEntity{e, generated, deleted}
+		s.recordWorldChange(e, generated, deleted)
 	}
 
 	runtime.regions.onSleep = func(e simulation.Entity) {
-		s.persistence.entities[e.Base().ID] = changedEntity{e, runtime.regions.managed.Has(e.Base().ID), false}
+		s.recordWorldChange(e, runtime.regions.managed.Has(e.Base().ID), false)
 	}
 
+}
+
+// Lifetime-limited world objects disappear at restart. Cargo and player state
+// remain durable; this filter applies only to independent world records.
+func transientWorldObject(kind string, decay float64) bool {
+	return kind == "projectile" || decay > 0
+}
+
+func (s *GameSession) recordWorldChange(entity simulation.Entity, generated, deleted bool) {
+	o := entity.Base()
+
+	if deleted && generated {
+		s.sectors[s.sectorForWorld(o.World)].regions.regions.Remove(uint32(o.ID))
+	}
+
+	// A restart tombstone must not remove a still-living generated object from
+	// the active region. Its normal removal callback updates that live registry.
+	deleted = deleted || transientWorldObject(o.Kind, o.Decay)
+
+	if deleted && !generated && !s.persistence.storedEntities[o.ID] {
+		// A never-saved runtime object needs no SQL deletion. Drop any pending
+		// creation too, rather than accumulating work for short-lived objects.
+		delete(s.persistence.entities, o.ID)
+		return
+	}
+
+	s.persistence.entities[o.ID] = changedEntity{entity: entity, generated: generated, deleted: deleted}
 }

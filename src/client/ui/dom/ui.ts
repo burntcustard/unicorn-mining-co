@@ -1,4 +1,5 @@
 import './ui.css';
+import { backdropBlur } from './graphics';
 
 export type Screen = {
   element: HTMLElement;
@@ -32,6 +33,15 @@ const root =
   document.querySelector<HTMLElement>('.hud') || document.createElement('div');
 
 root.className = 'hud ui-surface';
+
+const updateBackdropBlur = () =>
+  root.style.setProperty(
+    '--ui-backdrop-filter',
+    backdropBlur ? 'blur(4px)' : 'none',
+  );
+
+updateBackdropBlur();
+window.addEventListener('ui-graphics', updateBackdropBlur);
 
 if (!root.isConnected) document.body.append(root);
 

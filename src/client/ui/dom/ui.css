@@ -87,7 +87,7 @@
 
     &:has(> .ui-backdrop:not([hidden]))::before {
       background-color: var(--ui-dimmer);
-      backdrop-filter: blur(4px);
+      backdrop-filter: var(--ui-backdrop-filter, blur(4px));
     }
 
     &:has(> .ui-settings:not([hidden]))::before {
@@ -123,7 +123,7 @@
     padding: 16px;
     border: var(--ui-border-width) solid var(--ui-line);
     background: var(--ui-panel);
-    backdrop-filter: blur(4px);
+    backdrop-filter: var(--ui-backdrop-filter, blur(4px));
   }
 
   /* Fullscreen surfaces already blur the world behind their cards. */

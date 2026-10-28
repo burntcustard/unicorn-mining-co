@@ -569,12 +569,6 @@ export async function observeServerCpu({
       note: 'Image/build fields exposed by the existing read-only machine-list response; no environment variables or secrets are retained.',
     };
 
-    const token = (
-      await execute('fly', ['auth', 'token'], { timeout: 10000 })
-    ).stdout.trim();
-    const authorization = /^(FlyV1|Bearer) /.test(token)
-      ? token
-      : `${token.startsWith('fm2_') ? 'FlyV1' : 'Bearer'} ${token}`;
     const endpoint = new URL(
       `https://api.fly.io/prometheus/${flyOrg}/api/v1/query`,
     );
@@ -585,6 +579,15 @@ export async function observeServerCpu({
     );
 
     const sample = async (timeoutMs = 20000) => {
+      // Preparation can outlast a CLI-issued credential. Obtain a current
+      // credential for each read without changing the recorded CPU window.
+      const token = (
+        await execute('fly', ['auth', 'token'], { timeout: 10000 })
+      ).stdout.trim();
+      const authorization = /^(FlyV1|Bearer) /.test(token)
+        ? token
+        : `${token.startsWith('fm2_') ? 'FlyV1' : 'Bearer'} ${token}`;
+
       const response = await fetch(endpoint, {
         headers: { Authorization: authorization },
         signal: AbortSignal.timeout(timeoutMs),

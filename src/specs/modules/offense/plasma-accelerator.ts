@@ -4,8 +4,6 @@ import { plasmaExplosion } from '../../effects/plasma-explosion';
 import { plasmaMuzzleFlash } from '../../effects/plasma-muzzle-flash';
 import type { ModuleSpec } from '../types';
 
-const fireInterval = 2000;
-
 export const plasmaAccelerator = {
   icon: './plasma-accelerator.svg',
   description: 'Launch a charged plasma projectile.',
@@ -20,10 +18,10 @@ export const plasmaAccelerator = {
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   activationDuration: 700,
-  chargeDuration: fireInterval,
+  chargeDuration: 2000,
   retractionDistance: 17,
   damage: 10,
-  fireInterval,
+  fireInterval: 2000,
   muzzleFlash: plasmaMuzzleFlash,
   recoil: 30,
   projectile: {
@@ -49,7 +47,7 @@ export const plasmaAccelerator = {
     {
       outline: false,
       color: colors.violet[0],
-      rechargeDelay: fireInterval,
+      rechargeDelay: 2000,
       rechargeColor: colors.violet[0],
       glow: {
         offset: [9, 0],

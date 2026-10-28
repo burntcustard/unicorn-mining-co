@@ -120,3 +120,19 @@ for (const browser of ['Chrome', 'Firefox']) {
     );
   }
 }
+
+assert.equal(preferences.backdropBlur, true, 'backdrop blur defaults to on');
+preferences.saveBackdropBlur(false);
+assert.equal(preferences.backdropBlur, false);
+assert.equal(storage.get('unicorn-backdrop-blur'), 'false');
+const restoredBlur = await import(
+  '../../src/client/ui/dom/graphics.ts' + '?blur=restore'
+);
+
+assert.equal(
+  restoredBlur.backdropBlur,
+  false,
+  'disabled blur persists across reloads',
+);
+preferences.saveBackdropBlur(true);
+assert.equal(storage.get('unicorn-backdrop-blur'), 'true');

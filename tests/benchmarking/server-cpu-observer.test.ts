@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   limitServerCores,
   parseCpuList,
 } from '../../benchmarking/server/cores.ts';
 import {
+  observeServerCpu,
   parseProcessStat,
   processCpuDelta,
   parseFlyCpuSample,
@@ -351,4 +354,65 @@ test('historical CPU selection uses common scrapes wholly inside active bounds',
     () => selectFlyCpuWindow(input, { start: 130000, end: 100500 }),
     /Invalid/,
   );
+});
+
+test('live CPU reads renew credentials after workload preparation', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'unicorn-fly-observer-'));
+  const oldPath = process.env.PATH;
+  const originalFetch = globalThis.fetch;
+  const headers: string[] = [];
+  const now = Math.floor(Date.now() / 1000);
+
+  const series = flySeries(now - 15, 1000).map((entry) => ({
+    ...entry,
+    values: [...entry.values, [now, '1100'] as [number, string]],
+  }));
+
+  try {
+    await writeFile(
+      join(directory, 'fly'),
+      `#!/usr/bin/env node
+const fs = require('node:fs');
+const file = ${JSON.stringify(join(directory, 'counter'))};
+if (process.argv[2] === 'machine') {
+  console.log(JSON.stringify([{id:'fixture',state:'started',config:{guest:{cpus:2}}}]));
+} else {
+  let count=0;try{count=Number(fs.readFileSync(file,'utf8'))}catch{}
+  fs.writeFileSync(file,String(++count));
+  console.log('Bearer fixture-token-'+count);
+}
+`,
+      { mode: 0o700 },
+    );
+    process.env.PATH = `${directory}:${oldPath}`;
+
+    globalThis.fetch = async (_input, init) => {
+      headers.push(new Headers(init?.headers).get('Authorization'));
+      return Response.json({ status: 'success', data: { result: series } });
+    };
+
+    const observer = await observeServerCpu({
+      url: 'https://fixture.invalid',
+      flyApp: 'fixture',
+      flyOrg: 'fixture',
+      flyMachine: 'fixture',
+    });
+
+    assert(observer.available);
+
+    const result = await observer.finish({
+      start: (now - 20) * 1000,
+      end: now * 1000,
+    });
+
+    assert(result.available);
+    assert.deepEqual(headers, [
+      'Bearer fixture-token-1',
+      'Bearer fixture-token-2',
+    ]);
+  } finally {
+    process.env.PATH = oldPath;
+    globalThis.fetch = originalFetch;
+    await rm(directory, { recursive: true, force: true });
+  }
 });

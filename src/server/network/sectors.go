@@ -32,14 +32,7 @@ type tickPlayer struct {
 }
 
 func (s *GameSession) beginTickPlayers() {
-	s.tickPlayers = s.tickPlayers[:0]
-
-	s.players.ForEach(func(player *playerRecord, token string) {
-		if player.socket != nil || !player.hiddenShip {
-			s.tickPlayers = append(s.tickPlayers, tickPlayer{player: player, token: token})
-		}
-	})
-
+	s.tickPlayers = append(s.tickPlayers[:0], s.activePlayers...)
 	s.tickPlayersReady = true
 }
 
@@ -174,6 +167,12 @@ func (s *GameSession) Tick(ticks uint64) {
 		return
 	}
 
+	if s.persistence != nil {
+		s.persistence.tickStarted = time.Now()
+
+		defer func() { s.persistence.tickStarted = time.Time{} }()
+	}
+
 	if ticks == 0 {
 		ticks = 1
 	}
@@ -208,6 +207,10 @@ func (s *GameSession) Tick(ticks uint64) {
 	for _, runtime := range s.sectors {
 		runtime.world.Tick = tick + ticks
 	}
+
+	// Persistence has one copy budget across all sectors in this global tick.
+	s.checkpoint()
+	s.flushBackgroundChanges()
 
 	every := uint64(statsInterval.Seconds() / s.World.Specification.Simulation.SimulationStep)
 
@@ -501,7 +504,6 @@ func (s *GameSession) relocatePlayer(p *playerRecord, destination string, arriva
 	p.lastInput = protocol.Input{}
 	s.regions.Sync(s.World, s.positions())
 	s.savePlayer(p)
-	s.flushChanges()
 	s.sendSnapshot(p, nil, nil)
 }
 

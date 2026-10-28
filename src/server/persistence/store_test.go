@@ -1,8 +1,10 @@
 package persistence
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/gob"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -337,7 +339,17 @@ func TestFailedTransactionRetriedAtomically(t *testing.T) {
 
 	s.Start()
 	batch := fixtureBatch(t)
-	batch.Entities = []Entity{{ID: 123, Generated: true, Deleted: true}}
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	id := int64(124)
+	asteroid := simulation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{ID: &id}, Contents: []int{1, 2}}).LockGeometry()
+	asteroid.Segments()[0].Health -= 0.25
+	batch.Entities = []Entity{{ID: 123, Generated: true, Deleted: true}, {ID: id, State: objects.CaptureEntity(asteroid)}}
 	s.Submit(batch)
 	deadline := time.Now().Add(3 * time.Second)
 
@@ -366,9 +378,47 @@ func TestFailedTransactionRetriedAtomically(t *testing.T) {
 	waitCommit(t, s, 1)
 	saved, err := s.Load(25)
 
-	if err != nil || len(saved.Players) != 1 || len(saved.Entities) != 1 || !saved.Entities[0].Deleted {
+	if err != nil || len(saved.Players) != 1 || len(saved.Entities) != 2 || !saved.Entities[0].Deleted || saved.Entities[1].Deleted {
 		t.Fatal("retry lost part of atomic batch", err)
 	}
+
+	assertEntityRecord := func(want objects.SavedEntity) {
+		t.Helper()
+		var data []byte
+
+		if err := s.db.QueryRow("SELECT state FROM entities WHERE id=?", id).Scan(&data); err != nil {
+			t.Fatal(err)
+		}
+
+		expected, err := Encode(want)
+
+		if err != nil || !bytes.Equal(data, expected) {
+			t.Fatal("retry or subsequent batch changed the independent Gob record", err)
+		}
+
+		var decoded objects.SavedEntity
+
+		if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&decoded); err != nil {
+			t.Fatal("saved row cannot be decoded independently", err)
+		}
+
+		if decoded.Object.ID != id || decoded.Object.Position != want.Object.Position || len(decoded.AsteroidSegments) != len(want.AsteroidSegments) || decoded.AsteroidSegments[0].Health != want.AsteroidSegments[0].Health {
+			t.Fatal("retry or subsequent batch lost saved entity mechanics")
+		}
+	}
+
+	assertEntityRecord(batch.Entities[1].State)
+	batch.Sequence++
+	batch.World.Tick++
+	batch.Entities[1].State.Object.Position.X += 100
+	batch.Entities[1].State.AsteroidSegments[0].Health -= 0.5
+
+	if !s.Submit(batch) {
+		t.Fatal("queue rejected the subsequent batch")
+	}
+
+	waitCommit(t, s, batch.Sequence)
+	assertEntityRecord(batch.Entities[1].State)
 }
 
 func TestRejectCorruptionAndFutureSchema(t *testing.T) {

@@ -33,7 +33,7 @@ func (s *GameSession) assignInitialOwner() {
 
 	if owners == 0 && matches == 1 {
 		candidate.profile.Role = persistence.RoleOwner
-		s.savePlayer(candidate)
+		s.requirePlayerCommit(candidate)
 	}
 }
 
@@ -92,6 +92,6 @@ func (s *GameSession) moderationCommand(p *playerRecord, command, name string, c
 		reply(fmt.Sprintf("%s has been pardoned.", target.profile.DisplayName))
 	}
 
-	s.savePlayer(target)
+	s.requirePlayerCommit(target)
 	s.flushChanges()
 }

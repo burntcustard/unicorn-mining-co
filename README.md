@@ -293,6 +293,11 @@ live beside their owning implementations, including visual effect types in
 `src/client/effects`. Specs use type-only imports for those types, keeping their
 runtime dependencies independent of the client and server.
 
+Specs for specific in-game objects should inline their values, even when a value
+appears multiple times. Introduce local variables only when required to construct
+the spec. Shared spec builders, such as Corral's geometry generator, can keep
+variables for their calculations.
+
 Gameplay values belong in `src/specs`: item fallbacks in
 `items/defaults.ts`, base-object defaults in `game-object.ts`, shared craft
 fallbacks in `craft.ts`, and type-specific values in each content spec.

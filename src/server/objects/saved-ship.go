@@ -84,27 +84,45 @@ func CaptureShip(ship *Ship) SavedShip {
 		s.Paint = savedPaint(ship.Shades, ship.Catalog)
 	}
 
-	for _, state := range ship.ModuleStates() {
-		if state.Mount < 0 {
+	var mountBuffer [16]*simulation.Mount
+	mounts := ship.AppendMounts(mountBuffer[:0])
+
+	for _, mount := range mounts {
+		module := mount.Module
+
+		if module == nil {
 			continue
 		}
 
-		m := SavedShipModule{ID: *state.ID, Type: ship.Catalog.ModuleIDs[state.Type], Mount: state.Mount, Health: finiteHealth(*state.Health), HealthActivated: savedPointer(state.HealthActivated), Paint: savedPaint(state.Shades, ship.Catalog)}
+		data := module.ModuleBase()
+		index := slices.Index(mounts, data.Mount)
 
-		if state.FireCooldown != nil {
-			m.FireCooldown = *state.FireCooldown
+		if index < 0 {
+			continue
 		}
 
-		last := -1
+		m := SavedShipModule{ID: module.Base().ID, Type: data.Type, Mount: index, Health: finiteHealth(data.Mount.Health), HealthActivated: savedPointer(data.Mount.HealthActivated), Paint: savedPaint(module.Base().Shades, ship.Catalog)}
 
-		for i, segment := range state.Segments {
-			if segment.Active != 0 || segment.ActivationProgress != 0 {
-				last = i
+		if data.FireCooldown > 0 {
+			m.FireCooldown = data.FireCooldown
+		}
+
+		part := 0
+
+		for _, segment := range ship.Segments {
+			if segment.Mount != data.Mount || segment.Module != module {
+				continue
 			}
-		}
 
-		for _, segment := range state.Segments[:last+1] {
-			m.Active = append(m.Active, [2]float64{segment.Active, segment.ActivationProgress})
+			if segment.Active != 0 || segment.ActivationProgress != 0 {
+				for len(m.Active) <= part {
+					m.Active = append(m.Active, [2]float64{})
+				}
+
+				m.Active[part] = [2]float64{segment.Active, segment.ActivationProgress}
+			}
+
+			part++
 		}
 
 		s.Modules = append(s.Modules, m)

@@ -12,6 +12,20 @@ type tickStats struct {
 	sum, max                                   time.Duration
 }
 
+type saveStats struct {
+	batches, players, entities uint64
+	capture, maxCapture        time.Duration
+}
+
+func (s *GameSession) recordSave(elapsed time.Duration, players, entities int) {
+	stats := &s.saveStats
+	stats.batches++
+	stats.players += uint64(players)
+	stats.entities += uint64(entities)
+	stats.capture += elapsed
+	stats.maxCapture = max(stats.maxCapture, elapsed)
+}
+
 // loadBaseline is the process state at the previous server-load line.
 type loadBaseline struct {
 	at       time.Time
@@ -43,6 +57,7 @@ func (s *GameSession) startLoadStats() {
 	runtime.ReadMemStats(&memory)
 	s.loadSince = loadBaseline{at: time.Now(), cpu: processCPUSeconds(), gcCycles: memory.NumGC, gcPause: memory.PauseTotalNs}
 	s.tickStats = tickStats{}
+	s.saveStats = saveStats{}
 }
 
 // logLoad reports process CPU, tick duration and garbage collection since the
@@ -71,11 +86,12 @@ func (s *GameSession) logLoad() {
 	}
 
 	s.logf("server-load interval_s=%.0f cpu_s=%.2f cpu_percent=%.2f cpu_ms_per_tick=%.4f ticks=%d tick_mean_ms=%.3f tick_max_ms=%.2f "+
-		"ticks_over_step=%d catchups=%d catchup_ticks=%d gc_cycles=%d gc_pause_ms=%.2f heap_mib=%.1f players=%d",
+		"ticks_over_step=%d catchups=%d catchup_ticks=%d gc_cycles=%d gc_pause_ms=%.2f heap_mib=%.1f players=%d save_batches=%d save_players=%d save_entities=%d save_capture_ms=%.2f save_capture_max_ms=%.2f",
 		wall, cpuSeconds, 100*cpuSeconds/max(wall, 1e-9), cpuPerTick, ticks.ticks, mean, ticks.max.Seconds()*1000,
 		ticks.over, ticks.catchups, ticks.catchupTicks, memory.NumGC-s.loadSince.gcCycles, float64(memory.PauseTotalNs-s.loadSince.gcPause)/1e6,
-		float64(memory.HeapAlloc)/(1<<20), len(s.playersBySocket))
+		float64(memory.HeapAlloc)/(1<<20), len(s.playersBySocket), s.saveStats.batches, s.saveStats.players, s.saveStats.entities, s.saveStats.capture.Seconds()*1000, s.saveStats.maxCapture.Seconds()*1000)
 
 	s.loadSince = loadBaseline{at: now, cpu: cpu, gcCycles: memory.NumGC, gcPause: memory.PauseTotalNs}
 	s.tickStats = tickStats{}
+	s.saveStats = saveStats{}
 }

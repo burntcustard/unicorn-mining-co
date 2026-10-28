@@ -148,8 +148,9 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 		for i := range s.Modules {
 			m := &s.Modules[i]
 			s.ModuleTypes = append(s.ModuleTypes, c.Catalog.ModuleIDs[m.Type])
-			m.ID, m.Health = savedPointer(m.ID), savedPointer(m.Health)
-			m.Shades, m.Segments = slices.Clone(m.Shades), slices.Clone(m.Segments)
+			// ModuleStates owns its pointers and segments; shades still reference
+			// the live module and need an isolated copy for the writer.
+			m.Shades = slices.Clone(m.Shades)
 		}
 
 		for _, item := range c.CargoContents {

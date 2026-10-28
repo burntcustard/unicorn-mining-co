@@ -45,6 +45,7 @@ export const renderMinimap = ({
   const asteroidRadius = 4 * displayScale;
   const iconRadius = 7 * displayScale;
   const iconStrokeWidth = 2 * displayScale;
+  const outline = withAlpha({ color: colors.black[0], alpha: 0.8 });
 
   ctx.lineWidth = iconStrokeWidth;
   ctx.beginPath();
@@ -59,12 +60,20 @@ export const renderMinimap = ({
   ctx.moveTo(0, -148);
   ctx.lineTo(0, 148);
   ctx.stroke();
+  ctx.lineJoin = 'round';
+
+  const fillMarker = () => {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = iconStrokeWidth * 2;
+    ctx.stroke();
+    ctx.fill();
+  };
 
   const drawAsteroid = (offset: Vec.Value) => {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
     ctx.arc(offset.x, offset.y, asteroidRadius, 0, Math.PI * 2);
-    ctx.fill();
+    fillMarker();
   };
 
   asteroidPositions?.forEach((position) => {
@@ -73,7 +82,10 @@ export const renderMinimap = ({
       148 / minimapRange,
     );
 
-    if (Vec.lengthSquared(offset) <= (148 + asteroidRadius) ** 2) {
+    if (
+      Vec.lengthSquared(offset) <=
+      (148 + asteroidRadius + iconStrokeWidth) ** 2
+    ) {
       drawAsteroid(offset);
     }
   });
@@ -96,10 +108,10 @@ export const renderMinimap = ({
 
     const markerRadius =
       object.id === target?.id
-        ? 14 * displayScale
+        ? 14 * displayScale + iconStrokeWidth
         : object.kind === 'asteroid' || object.kind === 'item'
-          ? asteroidRadius
-          : iconRadius + iconStrokeWidth / 2;
+          ? asteroidRadius + iconStrokeWidth
+          : iconRadius + iconStrokeWidth * 1.5;
 
     if (Vec.lengthSquared(offset) > (148 + markerRadius) ** 2) return;
 
@@ -117,7 +129,6 @@ export const renderMinimap = ({
     ctx.lineJoin = 'round';
 
     if (object.id === target?.id) {
-      ctx.strokeStyle = '#e6f';
       ctx.beginPath();
 
       for (let i = 0; i < 6; i++) {
@@ -130,36 +141,53 @@ export const renderMinimap = ({
       }
 
       ctx.closePath();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = iconStrokeWidth * 3;
+      ctx.stroke();
+      ctx.strokeStyle = '#e6f';
+      ctx.lineWidth = iconStrokeWidth;
       ctx.stroke();
     }
 
-    ctx.strokeStyle = ctx.fillStyle = '#eef';
-
-    if (object.hostile) ctx.strokeStyle = ctx.fillStyle = colors.red[2];
-    ctx.beginPath();
+    ctx.strokeStyle = outline;
 
     if (object.kind === 'item') {
       ctx.fillStyle = colors.cyan[2];
+      ctx.beginPath();
       ctx.arc(0, 0, asteroidRadius, 0, Math.PI * 2);
-      ctx.fill();
+      fillMarker();
     } else if (object.kind === 'asteroid') {
       if (!asteroidPositions) drawAsteroid(Vec.create());
-    } else if (!renderLandmarkIcon({ ctx, object, radius: iconRadius })) {
-      ctx.rotate(pose.rotation);
-      ctx.moveTo(-0.8 * iconRadius, -0.6 * iconRadius);
-      ctx.lineTo(iconRadius, 0);
-      ctx.lineTo(-0.8 * iconRadius, 0.6 * iconRadius);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+    } else {
+      ctx.lineWidth = iconStrokeWidth * 3;
+
+      if (renderLandmarkIcon({ ctx, object, radius: iconRadius, outline })) {
+        ctx.lineWidth = iconStrokeWidth;
+        renderLandmarkIcon({ ctx, object, radius: iconRadius });
+      } else {
+        ctx.fillStyle = (object as Ship).shades[2];
+        ctx.beginPath();
+
+        for (let i = 0; i < 3; i++) {
+          const angle = (i * Math.PI * 2) / 3 - Math.PI / 2;
+
+          ctx.lineTo(
+            Math.cos(angle) * iconRadius,
+            Math.sin(angle) * iconRadius,
+          );
+        }
+
+        ctx.closePath();
+        fillMarker();
+      }
     }
 
     ctx.restore();
   });
 
   ctx.rotate(center.rotation);
-  ctx.fillStyle = colors.white[2];
-  ctx.strokeStyle = withAlpha({ color: colors.black[0], alpha: 0.8 });
+  ctx.fillStyle = ship.shades[2];
+  ctx.strokeStyle = outline;
   ctx.lineJoin = 'round';
   const outlines = shipOutlines({ ship, hullOnly: true });
   const radius = Math.max(
@@ -170,7 +198,7 @@ export const renderMinimap = ({
   const scale = (iconRadius * 2) / radius;
 
   ctx.scale(scale, scale);
-  // The white fill covers the inner half; keep the visible outer edge 2px.
+  // The fill covers the inner half; keep the visible outer edge 2px.
   ctx.lineWidth = (iconStrokeWidth * 2) / scale;
 
   ctx.beginPath();

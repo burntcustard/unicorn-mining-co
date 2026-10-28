@@ -19,6 +19,9 @@ that anonymous identity. Display names are stored as player metadata.
 | ----------------- | -------------------------------------------------------------------------------- |
 | `id`              | Browser UUID, the primary key.                                                   |
 | `display_name`    | Optional name, empty until set.                                                  |
+| `role`            | Saved `user`, `admin`, or `owner` permissions.                                   |
+| `banned`          | Whether the account is barred from connecting.                                   |
+| `sector`          | The sector containing the player's ship.                                         |
 | `first_joined_at` | UTC Unix seconds for the original join.                                          |
 | `last_seen_at`    | UTC Unix seconds for the latest connected save/disconnect.                       |
 | `played_for`      | Rounded whole connected seconds. Fractional time accumulates in memory.          |
@@ -57,14 +60,29 @@ negative counter. Restoring an explicit ID consumes no new ID. Standalone object
 without a world must supply an explicit ID. The generation digest detects changed
 procedural rules; the SQLite schema version covers the saved-data format.
 
-The current database format is schema version 5. Startup validates the schema
+The current database format is schema version 7. Startup validates the schema
 version. An incompatible database requires a fresh `DATABASE_PATH`.
 
 Gameplay creation/removal, cargo transfers, docking, purchases, equipment,
-credits and unlock changes enqueue prompt transactions. Cargo and its source
-entity removal commit together. Player welcomes and snapshots that confirm those
-changes wait for the background commit, without waiting for disk in the simulation
-loop. Failed transactions retry; persistent storage failure pauses world updates,
+credits, unlocks, and disconnects mark their affected records dirty. Their
+in-memory results and snapshots do not wait for a periodic database commit.
+Related player and world records are captured together, so cargo and its source
+entity removal still commit atomically. Account creation, initial naming, and
+moderation changes request immediate commits; their existing snapshot barriers
+remain, including automatic owner-role assignment. The current rollout/validation status is recorded in the
+[SQLite CPU investigation](server-sqlite-cpu-investigation-2026-10-28.md).
+
+Ordinary saves become eligible after 30 seconds. The scheduler runs after the
+complete global simulation update and prefers a tick that used less than half
+its normal step budget. It submits by 60 seconds even if ticks remain busy.
+At least 256 pending world records make a save eligible earlier to limit
+accumulation; this is an early-save trigger, not a strict batch-size limit.
+This uses measured tick time, not an operating-system CPU-idle poll. Immutable
+copies stay on the simulation owner; encoding and SQLite commits already run
+asynchronously in the writer. Moving reads of mutable live objects to that
+worker would be unsafe.
+
+Failed transactions retry; persistent storage failure pauses world updates,
 rejects new gameplay commands and makes `/healthz` return 503. Queued writes are
 bounded and are retained when the writer falls behind. The owner skips copying
 when the queue is full. The writer combines an existing backlog into one atomic
@@ -73,20 +91,37 @@ waiting to collect more work. Only the craft that fractures is saved alongside
 its fragments; unrelated players and stations are not copied for every floating
 item creation or removal.
 
-Every 30 seconds the server starts a movement/damage checkpoint. It copies at
+Every three minutes the server starts a movement/damage checkpoint. It copies at
 most eight world entities and one player per tick, spreading CPU work across
 ticks. Only active objects need periodic checkpoints; an object is also saved
 when its region unloads. Identical entity records skip SQLite updates. Changes
 to sleeping objects are retained in memory and loaded from SQLite on restart.
 Untouched areas continue to generate from the saved seed. Generated entity
 deletions have durable tombstones; deleted runtime objects can be removed from
-the database because their IDs are never reused.
+the database because their IDs are never reused. A runtime object created and
+removed before any save was submitted needs no SQL deletion. Submitted records
+remain tracked before commit, so a later deletion cannot be lost behind an
+in-flight creation.
 
-Unexpected process failure can rewind movement and partial damage to the latest
-checkpoint (roughly 30 seconds plus the bounded copying/commit time under normal
-load). Prompt transactions are durable once committed; an action whose commit
-was still pending can roll back. Normal disconnects park and save the player's
-ship. Graceful shutdown flushes active mechanics within the server's eight-second
+World projectiles and objects with positive `Decay` are temporary and are not
+saved. This includes fading asteroid pieces and craft wreckage. They continue
+to simulate normally while the server runs; their damage to permanent objects
+still follows the ordinary save rules. Permanent items, ships, stations,
+asteroids, player state, and cargo contents remain saved. Old temporary world
+rows are discarded on restore and queued for removal from SQLite. If an object
+was saved before becoming temporary, its old record is deleted; generated
+objects retain deletion tombstones so procedural generation cannot recreate them.
+
+Unexpected process failure can rewind ordinary gameplay, including credits,
+cargo, purchases, equipment, movement, and damage, to its last committed state.
+The three-minute checkpoint, up-to-minute save deadline, incremental copying,
+and writer completion can make that roughly four minutes or longer. The timer is not an
+absolute rollback bound when storage is unavailable or a large checkpoint is
+still draining. This relaxed durability was explicitly authorized for the
+current performance work. A committed batch remains durable under SQLite's
+unchanged `synchronous=FULL` policy. Normal disconnects park the player's ship
+and mark it for the deferred save. Graceful shutdown force-flushes permanent
+active mechanics within the server's eight-second
 shutdown deadline; Fly allows ten seconds. Resume parks disconnected player
 ships rather than applying offline movement. World simulation also pauses while
 the server is down. Offline time does not count as playtime.

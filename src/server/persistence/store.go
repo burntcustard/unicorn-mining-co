@@ -130,6 +130,7 @@ type Store struct {
 	committed       atomic.Uint64
 	failure         atomic.Pointer[storeError]
 	backupDirectory string
+	entityEncoder   *entityEncoder
 }
 
 func Encode(value any) ([]byte, error) {
@@ -513,7 +514,13 @@ func (s *Store) save(ctx context.Context, batch Batch) error {
 
 	for i, e := range batch.Entities {
 		if !e.Deleted {
-			if entities[i], err = Encode(e.State); err != nil {
+			if s.entityEncoder == nil {
+				if s.entityEncoder, err = newEntityEncoder(); err != nil {
+					return err
+				}
+			}
+
+			if entities[i], err = s.entityEncoder.Encode(e.State); err != nil {
 				return err
 			}
 		}
@@ -556,6 +563,8 @@ func (s *Store) save(ctx context.Context, batch Batch) error {
 		}
 	}
 
+	var entityStatement *sql.Stmt
+
 	for i, e := range batch.Entities {
 		if e.Deleted && !e.Generated {
 			if _, err = tx.ExecContext(ctx, "DELETE FROM entities WHERE id=?", e.ID); err != nil {
@@ -565,7 +574,17 @@ func (s *Store) save(ctx context.Context, batch Batch) error {
 			continue
 		}
 
-		if _, err = tx.ExecContext(ctx, `INSERT INTO entities(id,generated,deleted,state,sector) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET generated=excluded.generated,deleted=excluded.deleted,state=excluded.state,sector=excluded.sector WHERE entities.state IS NOT excluded.state OR entities.generated!=excluded.generated OR entities.deleted!=excluded.deleted OR entities.sector!=excluded.sector`, e.ID, e.Generated, e.Deleted, entities[i], e.SectorID); err != nil {
+		if entityStatement == nil {
+			entityStatement, err = tx.PrepareContext(ctx, `INSERT INTO entities(id,generated,deleted,state,sector) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET generated=excluded.generated,deleted=excluded.deleted,state=excluded.state,sector=excluded.sector WHERE entities.state IS NOT excluded.state OR entities.generated!=excluded.generated OR entities.deleted!=excluded.deleted OR entities.sector!=excluded.sector`)
+
+			if err != nil {
+				return err
+			}
+
+			defer entityStatement.Close()
+		}
+
+		if _, err = entityStatement.ExecContext(ctx, e.ID, e.Generated, e.Deleted, entities[i], e.SectorID); err != nil {
 			return err
 		}
 	}

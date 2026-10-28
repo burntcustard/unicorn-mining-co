@@ -39,6 +39,26 @@ export const saveGraphics = () => {
   window.dispatchEvent(new Event('ui-graphics'));
 };
 
+export let backdropBlur = true;
+
+try {
+  backdropBlur = localStorage.getItem('unicorn-backdrop-blur') !== 'false';
+} catch {
+  /* Use backdrop blur when storage is unavailable. */
+}
+
+export const saveBackdropBlur = (value: boolean) => {
+  backdropBlur = value;
+
+  try {
+    localStorage.setItem('unicorn-backdrop-blur', String(value));
+  } catch {
+    /* Apply for this visit. */
+  }
+
+  window.dispatchEvent(new Event('ui-graphics'));
+};
+
 export let nativeHud = true;
 
 try {

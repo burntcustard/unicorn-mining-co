@@ -5,8 +5,6 @@ import { exampleWeaponFlash } from '../../effects/example-weapon';
 import { exampleAmmo } from '../../items/example-ammo';
 import type { ModuleSpec } from '../types';
 
-const fireInterval = 2000;
-
 export const exampleWeapon = {
   icon: './plasma-accelerator.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
@@ -21,11 +19,11 @@ export const exampleWeapon = {
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   activationDuration: 700,
-  chargeDuration: fireInterval,
+  chargeDuration: 2000,
   dischargeDuration: 1000,
   retractionDistance: 17,
   damage: 10,
-  fireInterval,
+  fireInterval: 2000,
   muzzleFlash: exampleWeaponFlash,
   recoil: 30,
   ammo: exampleAmmo,
@@ -54,7 +52,7 @@ export const exampleWeapon = {
     {
       outline: false,
       color: colors.violet[0],
-      rechargeDelay: fireInterval,
+      rechargeDelay: 2000,
       rechargeColor: colors.violet[0],
       glow: {
         offset: [9, 0],

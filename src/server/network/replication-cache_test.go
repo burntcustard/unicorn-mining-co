@@ -216,10 +216,12 @@ func TestSpatialReplicationMatchesOriginalScan(t *testing.T) {
 	objects[3].Position.X = 0
 	compare()
 	compare()
+
 	preparedChange = func() {
 		ship, _ := world.Entities.Get(shipIDs[0])
 		ship.Base().Position.X = 1e8
 	}
+
 	compare()
 }
 
@@ -291,12 +293,14 @@ func TestTickPlayerRosterPreservesVisibilityAndTravel(t *testing.T) {
 	}
 
 	session := NewGameSession(25, catalog)
-	connected := &playerRecord{sectorID: session.currentSector, hiddenShip: true, socket: &benchmarkSocket{}}
-	departing := &playerRecord{sectorID: session.currentSector}
-	dormant := &playerRecord{sectorID: session.currentSector, hiddenShip: true}
-	session.players.Set("connected", connected)
-	session.players.Set("departing", departing)
-	session.players.Set("dormant", dormant)
+	connectedSocket, departingSocket, dormantSocket := &benchmarkSocket{}, &benchmarkSocket{}, &benchmarkSocket{}
+	session.Receive(protocol.Control{Type: "prepare"}, connectedSocket)
+	session.Receive(protocol.Control{Type: "hello"}, departingSocket)
+	session.Receive(protocol.Control{Type: "prepare"}, dormantSocket)
+	connected := session.playersBySocket[connectedSocket]
+	departing := session.playersBySocket[departingSocket]
+	session.Disconnect(departingSocket)
+	session.Disconnect(dormantSocket)
 
 	count := func() int {
 		visited := 0

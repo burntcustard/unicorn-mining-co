@@ -269,19 +269,20 @@ func TestCheckpointBudgetAndPlayedTime(t *testing.T) {
 	s.checkpoint()
 
 	if s.persistence.sequence != before {
-		t.Fatal("checkpoint wrote before 30 seconds")
+		t.Fatal("checkpoint wrote before one minute")
 	}
 
-	s.persistence.nextCheckpoint = clock.Add(30 * time.Second)
-	clock = clock.Add(30 * time.Second)
+	s.persistence.nextCheckpoint = clock.Add(time.Minute)
+	clock = clock.Add(time.Minute)
 	count := s.World.Entities.Len()
 	s.checkpoint()
+	s.flushBackgroundChanges()
 
 	if len(s.persistence.checkpoint) != max(0, count-8) {
 		t.Fatal("checkpoint copied whole world in one tick")
 	}
 
-	if p.profile.PlayedFor != 30 {
+	if p.profile.PlayedFor != 60 {
 		t.Fatalf("playtime = %g", p.profile.PlayedFor)
 	}
 
@@ -289,8 +290,129 @@ func TestCheckpointBudgetAndPlayedTime(t *testing.T) {
 	clock = clock.Add(time.Hour)
 	s.capturePlayer(p)
 
-	if p.profile.PlayedFor != 30 {
+	if p.profile.PlayedFor != 60 {
 		t.Fatal("counted offline time")
+	}
+}
+
+func TestCheckpointSnapshotsContinueBeforeBackgroundCommit(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "world.sqlite")
+	s, store := persistedSession(t, path)
+	defer store.Close(context.Background())
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+	committedSession(t, s)
+	s.sendSnapshot(p, nil, nil)
+	db, err := sql.Open("sqlite", path)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer db.Close()
+	tx, err := db.Begin()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("UPDATE world SET tick=tick WHERE id=1"); err != nil {
+		t.Fatal(err)
+	}
+
+	p.ship.Position.X += 10
+	s.persistence.nextFlush = s.now()
+	s.persistence.nextCheckpoint = s.now()
+	s.checkpoint()
+	s.flushBackgroundChanges()
+
+	if store.Committed() >= s.persistence.sequence {
+		t.Fatal("fixture must hold the checkpoint commit")
+	}
+
+	before := socket.packets
+	s.World.Tick++
+	s.sendSnapshot(p, nil, nil)
+
+	if socket.packets == before {
+		t.Fatal("a background checkpoint interrupted snapshot delivery")
+	}
+
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+
+	committedSession(t, s)
+	saved, err := store.Load(25)
+
+	if err != nil || len(saved.Players) != 1 || saved.Players[0].Ship.Position != objects.CaptureShip(p.ship).Position {
+		t.Fatal("background checkpoint did not persist the ship", err)
+	}
+}
+
+func TestCheckpointPreservesAccountCommitBarrier(t *testing.T) {
+	for _, order := range []string{"before", "after"} {
+		t.Run(order, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "world.sqlite")
+			s, store := persistedSession(t, path)
+			defer store.Close(context.Background())
+			socket := &benchmarkSocket{}
+			s.Receive(protocol.Control{Type: "hello"}, socket)
+			p := s.playersBySocket[socket]
+			committedSession(t, s)
+			s.sendSnapshot(p, nil, nil)
+			db, err := sql.Open("sqlite", path)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer db.Close()
+			tx, err := db.Begin()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer tx.Rollback()
+
+			if _, err := tx.Exec("UPDATE world SET tick=tick WHERE id=1"); err != nil {
+				t.Fatal(err)
+			}
+
+			s.persistence.nextCheckpoint = s.now()
+
+			if order == "after" {
+				s.checkpoint()
+				s.persistence.checkpointPlayers = []*playerRecord{p}
+			}
+
+			p.profile.Credits++
+			s.requirePlayerCommit(p)
+			s.checkpoint()
+			s.flushBackgroundChanges()
+			before := socket.packets
+			s.sendSnapshot(p, nil, nil)
+
+			if socket.packets != before {
+				t.Fatal("checkpoint released uncommitted account state")
+			}
+
+			if err := tx.Rollback(); err != nil {
+				t.Fatal(err)
+			}
+
+			committedSession(t, s)
+			s.sendSnapshot(p, nil, nil)
+
+			if socket.packets == before {
+				t.Fatal("committed account state was not released")
+			}
+		})
 	}
 }
 
@@ -475,7 +597,10 @@ func TestWorldChangesSaveOnlyAffectedPlayers(t *testing.T) {
 	a.ship.Update(s.World.Specification.Simulation.SimulationStep)
 	s.progress(nil)
 
-	if !s.persistence.players[a] || s.persistence.players[b] {
+	_, aDirty := s.persistence.players[a]
+	_, bDirty := s.persistence.players[b]
+
+	if !aDirty || bDirty {
 		t.Fatal("fracture did not mark only its owner")
 	}
 

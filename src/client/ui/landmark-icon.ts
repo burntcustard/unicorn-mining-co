@@ -8,10 +8,12 @@ export const renderLandmarkIcon = ({
   ctx,
   object,
   radius,
+  outline,
 }: {
   ctx: CanvasRenderingContext2D;
   object: GameObject;
   radius: number;
+  outline?: string;
 }) => {
   if (!['station', 'jumpGate', 'wormhole'].includes(object.kind!)) return false;
   const sides =
@@ -24,11 +26,12 @@ export const renderLandmarkIcon = ({
         : 4;
 
   ctx.strokeStyle =
-    object.kind === 'station'
+    outline ||
+    (object.kind === 'station'
       ? colors.green[2]
       : object.kind === 'jumpGate'
         ? '#fff'
-        : '#eef';
+        : '#eef');
   ctx.beginPath();
 
   for (let i = 0; i < sides; i++) {
@@ -50,7 +53,7 @@ export const renderLandmarkIcon = ({
       colors.violet,
     ].forEach((shades, index) => {
       ctx.beginPath();
-      ctx.strokeStyle = shades[2];
+      ctx.strokeStyle = outline || shades[2];
       ctx.arc(
         0,
         0,

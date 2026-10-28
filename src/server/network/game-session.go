@@ -2,6 +2,7 @@
 package network
 
 import (
+	"cmp"
 	"math"
 	"slices"
 	"time"
@@ -116,6 +117,7 @@ func (p *playerRecord) clearInputs() {
 }
 
 type GameSession struct {
+	activePlayers    []tickPlayer
 	tickPlayers      []tickPlayer
 	tickPlayersReady bool
 	nextEntityID     int64
@@ -126,6 +128,7 @@ type GameSession struct {
 	World            *simulation.World
 	nextPlayerID     int64
 	players          *utilities.OrderedMap[string, *playerRecord]
+	playersByID      map[int64]*playerRecord
 	playersBySocket  map[SessionSocket]*playerRecord
 	inputs           map[int64]protocol.InputFrame
 	binaryBatch      *BinarySnapshotBatch
@@ -137,16 +140,39 @@ type GameSession struct {
 	statsLogf        func(string, ...any)
 	statsTotals      sessionTotals
 	tickStats        tickStats
+	saveStats        saveStats
 	loadSince        loadBaseline
 }
 
 func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
 	world := simulation.CreateWorld(seed, catalog)
-	session := &GameSession{nextEntityID: 1 << 48, World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, worldSeed: seed, now: time.Now}
+	session := &GameSession{nextEntityID: 1 << 48, World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersByID: map[int64]*playerRecord{}, playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, worldSeed: seed, now: time.Now}
 	session.sectorMap = simulation.GenerateSectorMap(uint32(seed), catalog)
 	session.sectors = map[string]*sectorRuntime{}
 	session.activateSector(catalog.StartingSectorID)
 	return session
+}
+
+func (s *GameSession) registerPlayer(p *playerRecord) {
+	s.players.Set(p.profile.ID, p)
+	s.playersByID[p.playerID] = p
+	s.updatePlayerActivity(p)
+}
+
+func (s *GameSession) updatePlayerActivity(p *playerRecord) {
+	index, found := slices.BinarySearchFunc(s.activePlayers, p.playerID, func(entry tickPlayer, id int64) int {
+		return cmp.Compare(entry.player.playerID, id)
+	})
+
+	if p.socket == nil && p.hiddenShip {
+		if found {
+			s.activePlayers = slices.Delete(s.activePlayers, index, index+1)
+		}
+	} else if !found {
+		// Player IDs follow the saved-profile insertion order. Reinserting a
+		// returning player must retain that order for simulation and replication.
+		s.activePlayers = slices.Insert(s.activePlayers, index, tickPlayer{player: p, token: p.profile.ID})
+	}
 }
 
 func send(socket SessionSocket, packet []byte) {
@@ -288,7 +314,7 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 			player.profile.DisplayName = message.DisplayName
 			player.ship.Name = player.profile.DisplayName
 			s.assignInitialOwner()
-			s.savePlayer(player)
+			s.requirePlayerCommit(player)
 			s.flushChanges()
 		}
 
@@ -336,6 +362,7 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 	delete(s.playersBySocket, socket)
 	s.accountTime(player)
 	player.socket = nil
+	s.updatePlayerActivity(player)
 	player.binaryReplication = NewBinaryReplicationManager(s.World.Specification)
 	now := s.now()
 	player.disconnectedAt = &now
@@ -343,7 +370,6 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 
 	if player.playedAt.IsZero() {
 		s.savePlayer(player)
-		s.flushChanges()
 		return
 	}
 
@@ -360,7 +386,6 @@ func (s *GameSession) Disconnect(socket SessionSocket) {
 	player.clearInputs()
 	roundSpawn(ship)
 	s.savePlayer(player)
-	s.flushChanges()
 }
 
 func roundSpawn(ship *objects.Ship) {
@@ -399,6 +424,7 @@ func (s *GameSession) tickSector(ticks uint64) {
 		}
 
 		p.hiddenShip = world.Entities.Has(p.shipID)
+		s.updatePlayerActivity(p)
 		world.Entities.Delete(p.shipID)
 		p.ship.LocalMovementParent = nil
 		p.ship.LocalMovementRate = 0
@@ -445,6 +471,10 @@ func (s *GameSession) tickSector(ticks uint64) {
 			}
 
 			s.players.Delete(token)
+			delete(s.playersByID, p.playerID)
+
+			s.activePlayers = slices.DeleteFunc(s.activePlayers, func(entry tickPlayer) bool { return entry.player == p })
+
 			world.Players.Delete(p.playerID)
 			world.Entities.Delete(p.shipID)
 		})
@@ -577,8 +607,6 @@ func (s *GameSession) tickSector(ticks uint64) {
 	s.interruptGateClosing(before)
 	s.crossPortals(before)
 	s.progress(events)
-	s.flushChanges()
-	s.checkpoint()
 	// Send the completed simulation state once, including after a catch-up batch.
 	view := s.replicationView.Reset()
 	batch := s.binaryBatch.Begin(view)
@@ -741,7 +769,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 		p = &playerRecord{sectorID: s.currentSector, needsLoad: true, inputs: make([]queuedInputs, s.World.Specification.Simulation.MaxPredictionTicks+1), lastInputAt: s.now(), playerID: id, binaryReplication: NewBinaryReplicationManager(s.World.Specification), ship: ship, shipID: ship.ID}
 		now := s.now()
 		p.profile = persistence.Player{ID: token, Role: persistence.RoleUser, FirstJoinedAt: now, LastSeenAt: now, UnlockedPaints: persistence.DefaultPaints, Credits: s.World.Specification.StartingCredits}
-		s.players.Set(token, p)
+		s.registerPlayer(p)
 	}
 
 	if p.socket != nil {
@@ -755,6 +783,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	s.World.Entities.Delete(p.shipID)
 	p.hiddenShip = !p.ship.Dead
 	p.socket = socket
+	s.updatePlayerActivity(p)
 	p.profilePending = false
 
 	if p.profile.DisplayName != "" {
@@ -789,7 +818,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	p.hasInputLead = false
 	s.startStats(p)
 	roundSpawn(p.ship)
-	s.savePlayer(p)
+	s.requirePlayerCommit(p)
 	s.flushChanges()
 	p.welcomePending = true
 
@@ -872,7 +901,6 @@ func (s *GameSession) respawn(p *playerRecord) {
 	p.lastInput = protocol.Input{}
 	p.hasInputLead = false
 	s.savePlayer(p)
-	s.flushChanges()
 
 	if p.socket == nil {
 		return
@@ -1021,6 +1049,5 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 		}
 
 		s.savePlayer(p)
-		s.flushChanges()
 	}
 }

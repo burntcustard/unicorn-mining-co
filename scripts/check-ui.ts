@@ -819,8 +819,31 @@ checkUi: try {
         `document.querySelectorAll('[data-graphics-panel] [data-graphic]').length`,
       ),
       3,
-      'graphics offers only starfield, clouds and sparkles toggles',
+      'the indexed graphics preferences remain starfield, clouds, and sparkles',
     );
+    assert.equal(
+      await check(`document.querySelector('[data-backdrop-blur]').checked`),
+      true,
+      'backdrop blur defaults to on',
+    );
+
+    for (const enabled of [false, true]) {
+      await check(
+        `document.querySelector('[data-backdrop-blur]').checked = ${enabled}; document.querySelector('[data-backdrop-blur]').dispatchEvent(new Event('change'));`,
+      );
+      assert.equal(
+        await check(`localStorage.getItem('unicorn-backdrop-blur')`),
+        String(enabled),
+      );
+      assert.equal(
+        await check(
+          `document.querySelector('.hud').style.getPropertyValue('--ui-backdrop-filter')`,
+        ),
+        enabled ? 'blur(4px)' : 'none',
+        'blur changes apply immediately',
+      );
+    }
+
     assert.deepEqual(
       await check(
         `[...document.querySelector('[data-renderer]').options].map(option => option.value)`,

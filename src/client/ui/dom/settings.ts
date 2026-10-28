@@ -17,6 +17,8 @@ import {
   saveRenderer,
   nativeHud,
   saveNativeHud,
+  backdropBlur,
+  saveBackdropBlur,
 } from './graphics';
 
 export const createSettings = () => {
@@ -238,6 +240,14 @@ export const createSettings = () => {
         { signal: screen.signal },
       );
     });
+
+  const blur = query<HTMLInputElement>(screen.element, '[data-backdrop-blur]');
+
+  blur.checked = backdropBlur;
+
+  blur.addEventListener('change', () => saveBackdropBlur(blur.checked), {
+    signal: screen.signal,
+  });
 
   const resolution = query<HTMLSelectElement>(
     screen.element,

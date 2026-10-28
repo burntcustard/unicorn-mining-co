@@ -18,7 +18,7 @@ export const laser = {
   shades: colors.violet,
   activationDuration: 500,
   retractionDistance: 16,
-  damage: 0.1,
+  damage: 0.2,
   barrelLength: 23,
   reach: 700,
   beamEffect: laserBeam,

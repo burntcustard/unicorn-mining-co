@@ -49,6 +49,15 @@ restore ordinary `npm run dev:server` afterward.
 
 ## Server CPU
 
+The existing `server-load` log also reports `save_batches`, `save_players`,
+`save_entities`, `save_capture_ms`, and `save_capture_max_ms` for its interval.
+Capture time covers copying/submitting accepted batches on the simulation
+owner; it excludes the writer's asynchronous encoding/SQL work and the
+incremental checkpoint copies already included in tick timings. Check both
+save-capture and tick maxima when evaluating longer save intervals. A
+ten-minute log interval can span preparation and several measured workloads;
+it cannot locate a spike in a particular client gap by itself.
+
 The full matrix runs `convoy`, `spread`, `contact`, `module` and `weapon` for
 4, then 8, then 16, then 32 lightweight binary-protocol clients.
 Convoy follows a common heading, spread cruises through reserved clear corridors,
@@ -63,6 +72,12 @@ npm run benchmark:server:live -- --players 8 --workload weapon
 Start extensive local testing with `npm run reset-world:local` while the Go
 watcher is stopped, then restart it before the matrix. Live benchmarks use the
 existing world.
+
+For comparisons with the current live Go memory budget, start the normal local
+watcher as `GOMEMLIMIT=300MiB npm run dev:server`. Keep the default `GOGC=100`.
+The benchmark's `--cores 2` controls CPU affinity only; it does not set memory.
+Verify `serverCores.runtimeEnvironment` in the capture before qualifying a
+budget-matched result.
 
 `--cores N` limits the local Go process to any supported positive number of
 logical CPUs and restores its original affinity afterward. Load clients retain
