@@ -30,6 +30,7 @@ func TestGameplaySaveUsesSpareTickTimeWithDeadline(t *testing.T) {
 			simulation.AddEntity(s.World, item)
 			committedSession(t, s)
 			s.sendSnapshot(p, nil, nil)
+			socket.acknowledge(s)
 			before := s.persistence.sequence
 			p.ship.CargoContents = append(p.ship.CargoContents, item)
 			item.Remove()
